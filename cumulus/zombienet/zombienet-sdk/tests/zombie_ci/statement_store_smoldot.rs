@@ -62,13 +62,6 @@
 //! - `SMOLDOT_JS_PATH` env var pointing to a pre-built smoldot `wasm-node/javascript` directory
 //!   (run `npm run build` there first)
 //! - `ZOMBIE_PROVIDER=native` (set by `run_smoldot_tests.sh` or manually)
-//!
-//! ## Stale data
-//!
-//! Each test creates a fresh zombienet base directory (`/tmp/zombienet-smoldot-{pid}-{port}`)
-//! and cleans any stale data before starting. This prevents smoldot warp-sync failures caused
-//! by connecting to a chain that already has a high block number from a previous run (smoldot
-//! would receive justifications for unknown blocks and ban the peers).
 
 use anyhow::anyhow;
 use log::info;
@@ -77,11 +70,11 @@ use sp_statement_store::{StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{path::PathBuf, time::Duration};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use zombienet_sdk::{
-	LocalFileSystem, Network,
 	subxt::{
 		backend::rpc::RpcClient,
 		ext::subxt_rpcs::{client::RpcSubscription, rpc_params},
 	},
+	LocalFileSystem, Network,
 };
 
 use crate::zombie_ci::statement_store_bench::{get_keypair, spawn_network};
