@@ -28,6 +28,7 @@ use assets_common::{
 	},
 	TrustBackedAssetsAsLocation,
 };
+use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -39,7 +40,6 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
-use cumulus_primitives_core::{IsSystem, ParaId};
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
 };

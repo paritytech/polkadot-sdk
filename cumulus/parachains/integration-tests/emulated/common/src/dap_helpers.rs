@@ -16,8 +16,8 @@
 use frame_support::{
 	assert_ok,
 	traits::{
-		Get, Hooks,
 		fungible::{Inspect as FungibleInspect, Mutate as FungibleMutate},
+		Get, Hooks,
 	},
 	weights::Weight,
 };
