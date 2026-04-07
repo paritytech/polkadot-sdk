@@ -4036,6 +4036,14 @@ impl<T: Config> Pallet<T> {
 				if depositor_undermin.len() < MAX_EXAMPLES {
 					depositor_undermin.push((id, bonded_pool.roles.depositor.clone()));
 				}
+				log!(
+					trace,
+					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
+					id,
+					bonded_pool.roles.depositor,
+					depositor.active_points(),
+					MinCreateBond::<T>::get()
+				);
 			}
 
 			ensure!(
@@ -4138,6 +4146,13 @@ impl<T: Config> Pallet<T> {
 				if ed_examples.len() < MAX_EXAMPLES {
 					ed_examples.push(id);
 				}
+				log!(
+					trace,
+					"pool {:?} has incorrect ED frozen. Expected = {:?}, Actual = {:?}. Use `adjust_pool_deposit` to fix.",
+					id,
+					expected_frozen_balance,
+					frozen_balance,
+				);
 			}
 		});
 

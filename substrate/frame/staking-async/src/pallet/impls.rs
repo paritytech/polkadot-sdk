@@ -2015,7 +2015,7 @@ impl<T: Config> Pallet<T> {
 		if chilled_total > 0 {
 			log!(
 				warn,
-				"{}/{} chilled stashes have less stake than minimum role bond ({:?}). Examples: {:?}",
+				"{} chilled stashes (out of {} total ledgers) have less stake than minimum bond ({:?}). Examples: {:?}",
 				chilled_total,
 				total_ledgers,
 				Self::min_chilled_bond(),
@@ -2025,7 +2025,7 @@ impl<T: Config> Pallet<T> {
 		if nominator_total > 0 {
 			log!(
 				warn,
-				"{}/{} nominators have less stake than minimum role bond ({:?}). Examples: {:?}",
+				"{} nominators (out of {} total ledgers) have less stake than minimum bond ({:?}). Examples: {:?}",
 				nominator_total,
 				total_ledgers,
 				Self::min_nominator_bond(),
@@ -2035,7 +2035,7 @@ impl<T: Config> Pallet<T> {
 		if validator_total > 0 {
 			log!(
 				warn,
-				"{}/{} validators have less stake than minimum role bond ({:?}). Examples: {:?}",
+				"{} validators (out of {} total ledgers) have less stake than minimum bond ({:?}). Examples: {:?}",
 				validator_total,
 				total_ledgers,
 				Self::min_validator_bond(),
@@ -2206,24 +2206,45 @@ impl<T: Config> Pallet<T> {
 				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
 					*chilled_total += 1;
 					if chilled_undermin.len() < MAX_EXAMPLES {
-						chilled_undermin.push(stash);
+						chilled_undermin.push(stash.clone());
 					}
+					log!(
+						trace,
+						"Chilled stash {:?} has less stake ({:?}) than minimum bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_chilled_bond()
+					);
 				}
 			},
 			(true, false) => {
 				if ledger.active < Self::min_nominator_bond() {
 					*nominator_total += 1;
 					if nominator_undermin.len() < MAX_EXAMPLES {
-						nominator_undermin.push(stash);
+						nominator_undermin.push(stash.clone());
 					}
+					log!(
+						trace,
+						"Nominator {:?} has less stake ({:?}) than minimum bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_nominator_bond()
+					);
 				}
 			},
 			(false, true) => {
 				if ledger.active < Self::min_validator_bond() {
 					*validator_total += 1;
 					if validator_undermin.len() < MAX_EXAMPLES {
-						validator_undermin.push(stash);
+						validator_undermin.push(stash.clone());
 					}
+					log!(
+						trace,
+						"Validator {:?} has less stake ({:?}) than minimum bond ({:?})",
+						stash,
+						ledger.active,
+						Self::min_validator_bond()
+					);
 				}
 			},
 			(true, true) => {
