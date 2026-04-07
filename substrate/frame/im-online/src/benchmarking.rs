@@ -22,10 +22,7 @@
 use frame_benchmarking::v2::*;
 use frame_support::{traits::UnfilteredDispatchable, WeakBoundedVec};
 use frame_system::RawOrigin;
-use sp_runtime::{
-	traits::{ValidateUnsigned, Zero},
-	transaction_validity::TransactionSource,
-};
+use sp_runtime::{traits::Zero, transaction_validity::TransactionSource};
 
 use crate::*;
 
@@ -83,6 +80,7 @@ mod benchmarks {
 
 		#[block]
 		{
+			#[allow(deprecated)]
 			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map_err(<&str>::from)?;
 		}
@@ -100,6 +98,7 @@ mod benchmarks {
 
 		#[block]
 		{
+			#[allow(deprecated)]
 			Pallet::<T>::validate_unsigned(TransactionSource::InBlock, &call)
 				.map_err(<&str>::from)?;
 			<Call<T> as Decode>::decode(&mut &*call_enc)
