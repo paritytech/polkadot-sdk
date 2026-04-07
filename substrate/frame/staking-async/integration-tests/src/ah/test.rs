@@ -25,8 +25,8 @@ use pallet_election_provider_multi_block::{
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	DisableMintingGuard, EraPotAccountProvider, EraPotType, ErasValidatorReward, Event as StakingEvent,
-	GeneralPotAccountProvider, GeneralPotType, SequentialTest,
+	DisableMintingGuard, EraPotAccountProvider, EraPotType, ErasValidatorReward,
+	Event as StakingEvent, GeneralPotAccountProvider, GeneralPotType, SequentialTest,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
@@ -2181,13 +2181,13 @@ fn dap_era_payout_e2e() {
 			<Balances as frame_support::traits::fungible::Inspect<_>>::total_issuance();
 		assert_eq!(post_issuance, pre_issuance);
 
-		// Validator received reward (payout started, even if zero points — the pot transfer worked).
+		// Validator received reward (payout started, even if zero points — the pot transfer
+		// worked).
 		let events = staking_events_since_last_call();
 		assert!(
-			events.iter().any(|e| matches!(
-				e,
-				StakingEvent::PayoutStarted { validator_stash: 3, .. }
-			)),
+			events
+				.iter()
+				.any(|e| matches!(e, StakingEvent::PayoutStarted { validator_stash: 3, .. })),
 			"Expected PayoutStarted for validator 3, got: {:?}",
 			events
 		);

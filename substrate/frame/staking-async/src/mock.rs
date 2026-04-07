@@ -509,11 +509,8 @@ pub(crate) fn setup_dap() {
 	pallet_dap::BudgetAllocation::<Test>::put(default_budget());
 	pallet_dap::LastIssuanceTimestamp::<Test>::put(session_mock::Timestamp::get());
 	let ed = ExistentialDeposit::get();
-	<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
-		&general_staker_pot(),
-		ed,
-	)
-	.expect("mint general staker pot");
+	<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&general_staker_pot(), ed)
+		.expect("mint general staker pot");
 	let dap_buffer =
 		<pallet_dap::Pallet<Test> as sp_staking::budget::BudgetRecipient<AccountId>>::pot_account();
 	<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&dap_buffer, ed)
