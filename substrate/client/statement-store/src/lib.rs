@@ -256,10 +256,15 @@ where
 		&self,
 		account_id: &AccountId,
 		block_hash: Option<Block::Hash>,
+		use_best: bool,
 	) -> Result<Option<StatementAllowance>> {
 		use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
-		let block_hash = block_hash.unwrap_or(self.client.info().finalized_hash);
+		let block_hash = block_hash.unwrap_or(if use_best {
+			self.client.info().best_hash
+		} else {
+			self.client.info().finalized_hash
+		});
 		let key = statement_allowance_key(account_id);
 		let storage_key = StorageKey(key);
 		self.client
@@ -278,7 +283,9 @@ pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
 	read_allowance_fn: Box<
-		dyn Fn(&AccountId, Option<BlockHash>) -> Result<Option<StatementAllowance>> + Send + Sync,
+		dyn Fn(&AccountId, Option<BlockHash>, bool) -> Result<Option<StatementAllowance>>
+			+ Send
+			+ Sync,
 	>,
 	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
@@ -725,10 +732,11 @@ impl Store {
 
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
-		let read_allowance_fn =
-			Box::new(move |account_id: &AccountId, block_hash: Option<BlockHash>| {
-				storage_reader.read_allowance(account_id, block_hash.map(Into::into))
-			});
+		let read_allowance_fn = Box::new(
+			move |account_id: &AccountId, block_hash: Option<BlockHash>, use_best: bool| {
+				storage_reader.read_allowance(account_id, block_hash.map(Into::into), use_best)
+			},
+		);
 
 		let store = Store {
 			db,
@@ -864,8 +872,9 @@ impl Store {
 			expired_size += len;
 		}
 
-		// Enforce allowances for remaining (non-expired) statements
-		let allowance = match (self.read_allowance_fn)(account, None) {
+		// Enforce allowances for remaining (non-expired) statements, we use the finalized block to
+		// make sure we enforce allowances based on the correct chain state.
+		let allowance = match (self.read_allowance_fn)(account, None, false) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
 				log::debug!(
@@ -1382,12 +1391,19 @@ impl StatementStore for Store {
 			},
 		};
 
+		// Check statement allowance for the account and evict statements if necessary to make room
+		// for the new statement. We use the best block for allowance checks to allow for more
+		// up-to-date allowances. This means that in some cases, a statement may be accepted but
+		// then later evicted when we enforce limits based on the finalized block, if the best_hash
+		// does not make it into the finalized chain, but this is an acceptable tradeoff for
+		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(
 			&account_id,
 			statement.proof().and_then(|p| match p {
 				Proof::OnChain { block_hash, .. } => Some(*block_hash),
 				_ => None,
 			}),
+			true,
 		) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
