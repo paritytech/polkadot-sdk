@@ -20,6 +20,8 @@
 //! Allows smart contracts to swap tokens through Asset Hub's on-chain DEX and query
 //! swap prices. The primary use case is contracts that accept payment in one asset
 //! (e.g. USDC) and convert it to DOT or PUSD before using it.
+//!
+//! Assets are identified by their SCALE-encoded `AssetKind` passed as `bytes`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -45,16 +47,20 @@ mod tests;
 
 alloy::sol! {
 	/// Precompile interface for asset-conversion (DEX) operations.
+	///
+	/// Assets are identified by their SCALE-encoded AssetKind (e.g. xcm::v5::Location)
+	/// passed as `bytes`. Contracts can hardcode these as constants or obtain them
+	/// off-chain.
 	interface IAssetConversion {
 		/// Swap an exact amount of input tokens for as many output tokens as possible.
-		/// @param path Ordered list of asset addresses defining the swap route.
+		/// @param path Ordered list of SCALE-encoded asset identifiers defining the swap route.
 		/// @param amountIn Exact amount of the first asset to swap.
 		/// @param amountOutMin Minimum acceptable amount of the last asset to receive.
 		/// @param sendTo Address to receive the output tokens.
 		/// @param keepAlive If true, ensures the sender account stays above existential deposit.
 		/// @return amountOut The amount of output tokens received.
 		function swapExactTokensForTokens(
-			address[] calldata path,
+			bytes[] calldata path,
 			uint256 amountIn,
 			uint256 amountOutMin,
 			address sendTo,
@@ -62,14 +68,14 @@ alloy::sol! {
 		) external returns (uint256 amountOut);
 
 		/// Swap tokens to receive an exact amount of output tokens.
-		/// @param path Ordered list of asset addresses defining the swap route.
+		/// @param path Ordered list of SCALE-encoded asset identifiers defining the swap route.
 		/// @param amountOut Exact amount of the last asset to receive.
 		/// @param amountInMax Maximum acceptable amount of the first asset to spend.
 		/// @param sendTo Address to receive the output tokens.
 		/// @param keepAlive If true, ensures the sender account stays above existential deposit.
 		/// @return amountIn The amount of input tokens spent.
 		function swapTokensForExactTokens(
-			address[] calldata path,
+			bytes[] calldata path,
 			uint256 amountOut,
 			uint256 amountInMax,
 			address sendTo,
@@ -77,65 +83,25 @@ alloy::sol! {
 		) external returns (uint256 amountIn);
 
 		/// Quote the expected output for a given exact input swap.
-		/// @param asset1 Address of the input asset.
-		/// @param asset2 Address of the output asset.
+		/// @param asset1 SCALE-encoded identifier of the input asset.
+		/// @param asset2 SCALE-encoded identifier of the output asset.
 		/// @param amount The input amount to quote for.
 		/// @param includeFee Whether to include the pool's LP fee in the quote.
 		/// @return The expected output amount.
 		function quoteExactTokensForTokens(
-			address asset1,
-			address asset2,
-			uint256 amount,
-			bool includeFee
-		) external view returns (uint256);
-
-		/// Quote the required input for a given exact output swap.
-		/// @param asset1 Address of the input asset.
-		/// @param asset2 Address of the output asset.
-		/// @param amount The desired output amount to quote for.
-		/// @param includeFee Whether to include the pool's LP fee in the quote.
-		/// @return The required input amount.
-		function quoteTokensForExactTokens(
-			address asset1,
-			address asset2,
-			uint256 amount,
-			bool includeFee
-		) external view returns (uint256);
-
-		// --- Location-based variants (SCALE-encoded AssetKind) ---
-		// These accept assets as SCALE-encoded byte blobs instead of ERC20 precompile
-		// addresses. Useful for Rust/PolkaVM contracts that work with Locations natively,
-		// or when the caller already knows the encoded asset and wants to skip the
-		// address-to-asset-kind lookup.
-
-		/// Like swapExactTokensForTokens, but assets are SCALE-encoded AssetKind.
-		function swapExactTokensForTokensByLocation(
-			bytes[] calldata path,
-			uint256 amountIn,
-			uint256 amountOutMin,
-			address sendTo,
-			bool keepAlive
-		) external returns (uint256 amountOut);
-
-		/// Like swapTokensForExactTokens, but assets are SCALE-encoded AssetKind.
-		function swapTokensForExactTokensByLocation(
-			bytes[] calldata path,
-			uint256 amountOut,
-			uint256 amountInMax,
-			address sendTo,
-			bool keepAlive
-		) external returns (uint256 amountIn);
-
-		/// Like quoteExactTokensForTokens, but assets are SCALE-encoded AssetKind.
-		function quoteExactTokensForTokensByLocation(
 			bytes calldata asset1,
 			bytes calldata asset2,
 			uint256 amount,
 			bool includeFee
 		) external view returns (uint256);
 
-		/// Like quoteTokensForExactTokens, but assets are SCALE-encoded AssetKind.
-		function quoteTokensForExactTokensByLocation(
+		/// Quote the required input for a given exact output swap.
+		/// @param asset1 SCALE-encoded identifier of the input asset.
+		/// @param asset2 SCALE-encoded identifier of the output asset.
+		/// @param amount The desired output amount to quote for.
+		/// @param includeFee Whether to include the pool's LP fee in the quote.
+		/// @return The required input amount.
+		function quoteTokensForExactTokens(
 			bytes calldata asset1,
 			bytes calldata asset2,
 			uint256 amount,
@@ -144,30 +110,16 @@ alloy::sol! {
 	}
 }
 
-/// Trait for converting an EVM address (H160) to the runtime's asset kind.
-///
-/// Runtimes must implement this to define how precompile addresses map to asset
-/// identifiers used by `pallet-asset-conversion`. On Asset Hub, this would resolve
-/// ERC20 precompile addresses (with prefixes like 0x0120, 0x0220) to `xcm::v5::Location`.
-pub trait AddressToAssetKind {
-	type AssetKind;
-	fn address_to_asset_kind(address: &H160) -> Result<Self::AssetKind, Error>;
-}
-
 /// Asset conversion precompile exposing DEX swap and quote operations.
 ///
 /// `ADDRESS` is the `u16` identifier embedded at bytes [16..18] of the precompile's H160 address.
-/// `Converter` maps EVM addresses to the runtime's `AssetKind`.
-pub struct AssetConversion<const ADDRESS: u16, Runtime, Converter> {
-	_phantom: PhantomData<(Runtime, Converter)>,
+pub struct AssetConversion<const ADDRESS: u16, Runtime> {
+	_phantom: PhantomData<Runtime>,
 }
 
-impl<const ADDRESS: u16, Runtime, Converter> Precompile
-	for AssetConversion<ADDRESS, Runtime, Converter>
+impl<const ADDRESS: u16, Runtime> Precompile for AssetConversion<ADDRESS, Runtime>
 where
 	Runtime: pallet_asset_conversion::Config + pallet_revive::Config,
-	Converter:
-		AddressToAssetKind<AssetKind = <Runtime as pallet_asset_conversion::Config>::AssetKind>,
 	alloy::primitives::U256: TryInto<<Runtime as pallet_asset_conversion::Config>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as pallet_asset_conversion::Config>::Balance>,
 {
@@ -187,39 +139,19 @@ where
 		match input {
 			_ if env.is_delegate_call() => Err(Error::Revert(ERR_DELEGATE_CALL.into())),
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
-			IAssetConversionCalls::swapTokensForExactTokens(_) |
-			IAssetConversionCalls::swapExactTokensForTokensByLocation(_) |
-			IAssetConversionCalls::swapTokensForExactTokensByLocation(_)
+			IAssetConversionCalls::swapTokensForExactTokens(_)
 				if env.is_read_only() =>
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
-			// Address-based variants
-			IAssetConversionCalls::swapExactTokensForTokens(call) => {
-				Self::swap_exact_tokens_for_tokens(call, env)
-			},
-			IAssetConversionCalls::swapTokensForExactTokens(call) => {
-				Self::swap_tokens_for_exact_tokens(call, env)
-			},
-			IAssetConversionCalls::quoteExactTokensForTokens(call) => {
-				Self::quote_exact_tokens_for_tokens(call, env)
-			},
-			IAssetConversionCalls::quoteTokensForExactTokens(call) => {
-				Self::quote_tokens_for_exact_tokens(call, env)
-			},
-			// Location-based variants
-			IAssetConversionCalls::swapExactTokensForTokensByLocation(call) => {
-				Self::swap_exact_tokens_for_tokens_by_location(call, env)
-			},
-			IAssetConversionCalls::swapTokensForExactTokensByLocation(call) => {
-				Self::swap_tokens_for_exact_tokens_by_location(call, env)
-			},
-			IAssetConversionCalls::quoteExactTokensForTokensByLocation(call) => {
-				Self::quote_exact_tokens_for_tokens_by_location(call, env)
-			},
-			IAssetConversionCalls::quoteTokensForExactTokensByLocation(call) => {
-				Self::quote_tokens_for_exact_tokens_by_location(call, env)
-			},
+			IAssetConversionCalls::swapExactTokensForTokens(call) =>
+				Self::swap_exact_tokens_for_tokens(call, env),
+			IAssetConversionCalls::swapTokensForExactTokens(call) =>
+				Self::swap_tokens_for_exact_tokens(call, env),
+			IAssetConversionCalls::quoteExactTokensForTokens(call) =>
+				Self::quote_exact_tokens_for_tokens(call, env),
+			IAssetConversionCalls::quoteTokensForExactTokens(call) =>
+				Self::quote_tokens_for_exact_tokens(call, env),
 		}
 	}
 }
@@ -231,22 +163,12 @@ const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_DELEGATE_CALL: &str = "Cannot be called via delegate call";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
 
-impl<const ADDRESS: u16, Runtime, Converter> AssetConversion<ADDRESS, Runtime, Converter>
+impl<const ADDRESS: u16, Runtime> AssetConversion<ADDRESS, Runtime>
 where
 	Runtime: pallet_asset_conversion::Config + pallet_revive::Config,
-	Converter:
-		AddressToAssetKind<AssetKind = <Runtime as pallet_asset_conversion::Config>::AssetKind>,
 	alloy::primitives::U256: TryInto<<Runtime as pallet_asset_conversion::Config>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as pallet_asset_conversion::Config>::Balance>,
 {
-	/// Convert ERC20 precompile addresses to asset kinds.
-	fn resolve_address_path(
-		path: &[alloy::primitives::Address],
-	) -> Result<Vec<<Runtime as pallet_asset_conversion::Config>::AssetKind>, Error> {
-		path.iter().map(|&a| Converter::address_to_asset_kind(&H160(a.0 .0))).collect()
-	}
-
-	/// SCALE-decode asset kinds from raw bytes.
 	/// SCALE-decode a single asset kind from raw bytes.
 	fn decode_asset_kind(
 		data: &[u8],
@@ -280,16 +202,12 @@ where
 			.map_err(|_| Error::Revert(Revert { reason: ERR_BALANCE_CONVERSION_FAILED.into() }))
 	}
 
-	// --- Core swap/quote logic ---
-
-	fn do_swap_exact_tokens_for_tokens(
-		path: Vec<<Runtime as pallet_asset_conversion::Config>::AssetKind>,
-		amount_in: alloy::primitives::U256,
-		amount_out_min: alloy::primitives::U256,
-		send_to: alloy::primitives::Address,
-		keep_alive: bool,
+	fn swap_exact_tokens_for_tokens(
+		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
-	) -> Result<alloy::primitives::U256, Error> {
+	) -> Result<Vec<u8>, Error> {
+		let path: Vec<_> =
+			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 		let path_len = Self::validated_path_len(&path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
@@ -302,8 +220,7 @@ where
 			.account_id()
 			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
 			.clone();
-
-		let send_to = env.to_account_id(&H160(send_to.0 .0));
+		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
 		use pallet_asset_conversion::Swap;
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
@@ -311,23 +228,23 @@ where
 		>>::swap_exact_tokens_for_tokens(
 			sender,
 			path,
-			Self::to_balance(amount_in)?,
-			Some(Self::to_balance(amount_out_min)?),
+			Self::to_balance(call.amountIn)?,
+			Some(Self::to_balance(call.amountOutMin)?),
 			send_to,
-			keep_alive,
+			call.keepAlive,
 		)?;
 
-		Self::to_u256(amount_out)
+		Ok(IAssetConversion::swapExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
+			amount_out,
+		)?))
 	}
 
-	fn do_swap_tokens_for_exact_tokens(
-		path: Vec<<Runtime as pallet_asset_conversion::Config>::AssetKind>,
-		amount_out: alloy::primitives::U256,
-		amount_in_max: alloy::primitives::U256,
-		send_to: alloy::primitives::Address,
-		keep_alive: bool,
+	fn swap_tokens_for_exact_tokens(
+		call: &IAssetConversion::swapTokensForExactTokensCall,
 		env: &mut impl Ext<T = Runtime>,
-	) -> Result<alloy::primitives::U256, Error> {
+	) -> Result<Vec<u8>, Error> {
+		let path: Vec<_> =
+			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 		let path_len = Self::validated_path_len(&path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
@@ -340,8 +257,7 @@ where
 			.account_id()
 			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
 			.clone();
-
-		let send_to = env.to_account_id(&H160(send_to.0 .0));
+		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
 		use pallet_asset_conversion::Swap;
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
@@ -349,22 +265,21 @@ where
 		>>::swap_tokens_for_exact_tokens(
 			sender,
 			path,
-			Self::to_balance(amount_out)?,
-			Some(Self::to_balance(amount_in_max)?),
+			Self::to_balance(call.amountOut)?,
+			Some(Self::to_balance(call.amountInMax)?),
 			send_to,
-			keep_alive,
+			call.keepAlive,
 		)?;
 
-		Self::to_u256(amount_in)
+		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
+			amount_in,
+		)?))
 	}
 
-	fn do_quote_exact_tokens_for_tokens(
-		asset1: <Runtime as pallet_asset_conversion::Config>::AssetKind,
-		asset2: <Runtime as pallet_asset_conversion::Config>::AssetKind,
-		amount: alloy::primitives::U256,
-		include_fee: bool,
+	fn quote_exact_tokens_for_tokens(
+		call: &IAssetConversion::quoteExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
-	) -> Result<alloy::primitives::U256, Error> {
+	) -> Result<Vec<u8>, Error> {
 		// Quote is always a single-pair operation (the Solidity interface takes two assets,
 		// not a path). The actual cost is just reserve reads + arithmetic, but no dedicated
 		// benchmark exists yet. Charging the swap weight for path length 2 is a safe
@@ -375,147 +290,50 @@ where
 			),
 		)?;
 
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
 		use pallet_asset_conversion::QuotePrice;
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_exact_tokens_for_tokens(
 				asset1,
 				asset2,
-				Self::to_balance(amount)?,
-				include_fee,
+				Self::to_balance(call.amount)?,
+				call.includeFee,
 			)
 			.ok_or(Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }))?;
 
-		Self::to_u256(quoted)
-	}
-
-	fn do_quote_tokens_for_exact_tokens(
-		asset1: <Runtime as pallet_asset_conversion::Config>::AssetKind,
-		asset2: <Runtime as pallet_asset_conversion::Config>::AssetKind,
-		amount: alloy::primitives::U256,
-		include_fee: bool,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<alloy::primitives::U256, Error> {
-		// See comment in do_quote_exact_tokens_for_tokens for weight rationale.
-		env.charge(
-			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
-				2,
-			),
-		)?;
-
-		use pallet_asset_conversion::QuotePrice;
-		let quoted =
-			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_tokens_for_exact_tokens(
-				asset1,
-				asset2,
-				Self::to_balance(amount)?,
-				include_fee,
-			)
-			.ok_or(Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }))?;
-
-		Self::to_u256(quoted)
-	}
-
-	// --- Address-based entry points ---
-
-	fn swap_exact_tokens_for_tokens(
-		call: &IAssetConversion::swapExactTokensForTokensCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let r = Self::do_swap_exact_tokens_for_tokens(
-			Self::resolve_address_path(&call.path)?,
-			call.amountIn,
-			call.amountOutMin,
-			call.sendTo,
-			call.keepAlive,
-			env,
-		)?;
-		Ok(IAssetConversion::swapExactTokensForTokensCall::abi_encode_returns(&r))
-	}
-
-	fn swap_tokens_for_exact_tokens(
-		call: &IAssetConversion::swapTokensForExactTokensCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let r = Self::do_swap_tokens_for_exact_tokens(
-			Self::resolve_address_path(&call.path)?,
-			call.amountOut,
-			call.amountInMax,
-			call.sendTo,
-			call.keepAlive,
-			env,
-		)?;
-		Ok(IAssetConversion::swapTokensForExactTokensCall::abi_encode_returns(&r))
-	}
-
-	fn quote_exact_tokens_for_tokens(
-		call: &IAssetConversion::quoteExactTokensForTokensCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let a1 = Converter::address_to_asset_kind(&H160(call.asset1.0 .0))?;
-		let a2 = Converter::address_to_asset_kind(&H160(call.asset2.0 .0))?;
-		let r = Self::do_quote_exact_tokens_for_tokens(a1, a2, call.amount, call.includeFee, env)?;
-		Ok(IAssetConversion::quoteExactTokensForTokensCall::abi_encode_returns(&r))
+		Ok(IAssetConversion::quoteExactTokensForTokensCall::abi_encode_returns(&Self::to_u256(
+			quoted,
+		)?))
 	}
 
 	fn quote_tokens_for_exact_tokens(
 		call: &IAssetConversion::quoteTokensForExactTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let a1 = Converter::address_to_asset_kind(&H160(call.asset1.0 .0))?;
-		let a2 = Converter::address_to_asset_kind(&H160(call.asset2.0 .0))?;
-		let r = Self::do_quote_tokens_for_exact_tokens(a1, a2, call.amount, call.includeFee, env)?;
-		Ok(IAssetConversion::quoteTokensForExactTokensCall::abi_encode_returns(&r))
-	}
-
-	// --- Location-based entry points ---
-
-	fn swap_exact_tokens_for_tokens_by_location(
-		call: &IAssetConversion::swapExactTokensForTokensByLocationCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let r = Self::do_swap_exact_tokens_for_tokens(
-			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?,
-			call.amountIn,
-			call.amountOutMin,
-			call.sendTo,
-			call.keepAlive,
-			env,
+		// See comment in quote_exact_tokens_for_tokens for weight rationale.
+		env.charge(
+			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
+				2,
+			),
 		)?;
-		Ok(IAssetConversion::swapExactTokensForTokensByLocationCall::abi_encode_returns(&r))
-	}
 
-	fn swap_tokens_for_exact_tokens_by_location(
-		call: &IAssetConversion::swapTokensForExactTokensByLocationCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let r = Self::do_swap_tokens_for_exact_tokens(
-			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?,
-			call.amountOut,
-			call.amountInMax,
-			call.sendTo,
-			call.keepAlive,
-			env,
-		)?;
-		Ok(IAssetConversion::swapTokensForExactTokensByLocationCall::abi_encode_returns(&r))
-	}
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-	fn quote_exact_tokens_for_tokens_by_location(
-		call: &IAssetConversion::quoteExactTokensForTokensByLocationCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let a1 = Self::decode_asset_kind(&call.asset1)?;
-		let a2 = Self::decode_asset_kind(&call.asset2)?;
-		let r = Self::do_quote_exact_tokens_for_tokens(a1, a2, call.amount, call.includeFee, env)?;
-		Ok(IAssetConversion::quoteExactTokensForTokensByLocationCall::abi_encode_returns(&r))
-	}
+		use pallet_asset_conversion::QuotePrice;
+		let quoted =
+			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_tokens_for_exact_tokens(
+				asset1,
+				asset2,
+				Self::to_balance(call.amount)?,
+				call.includeFee,
+			)
+			.ok_or(Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }))?;
 
-	fn quote_tokens_for_exact_tokens_by_location(
-		call: &IAssetConversion::quoteTokensForExactTokensByLocationCall,
-		env: &mut impl Ext<T = Runtime>,
-	) -> Result<Vec<u8>, Error> {
-		let a1 = Self::decode_asset_kind(&call.asset1)?;
-		let a2 = Self::decode_asset_kind(&call.asset2)?;
-		let r = Self::do_quote_tokens_for_exact_tokens(a1, a2, call.amount, call.includeFee, env)?;
-		Ok(IAssetConversion::quoteTokensForExactTokensByLocationCall::abi_encode_returns(&r))
+		Ok(IAssetConversion::quoteTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
+			quoted,
+		)?))
 	}
 }

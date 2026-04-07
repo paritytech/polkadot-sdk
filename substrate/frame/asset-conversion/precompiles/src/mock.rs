@@ -30,7 +30,7 @@ use frame_support::{
 };
 use frame_system::EnsureSignedBy;
 use pallet_asset_conversion::{AccountIdConverter, Ascending, Chain, WithFirstAsset};
-use pallet_revive::precompiles::{Error, H160};
+use pallet_revive::precompiles::H160;
 use sp_runtime::{traits::AccountIdConversion, BuildStorage, Permill};
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -108,10 +108,8 @@ impl pallet_asset_conversion::Config for Test {
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU64<100>;
 	type PoolSetupFeeAsset = Native;
-	type PoolSetupFeeTarget = frame_support::traits::tokens::imbalance::ResolveAssetTo<
-		AssetConversionOrigin,
-		Self::Assets,
-	>;
+	type PoolSetupFeeTarget =
+		frame_support::traits::tokens::imbalance::ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
 	type LPFee = ConstU32<3>; // 0.3%
@@ -130,31 +128,7 @@ impl pallet_revive::Config for Test {
 	type AddressMapper = pallet_revive::TestAccountMapper<Self>;
 	type Balance = u64;
 	type Currency = Balances;
-	type Precompiles = (super::AssetConversion<PRECOMPILE_ADDRESS, Self, TestAddressToAssetKind>,);
-}
-
-/// Test implementation: maps H160 addresses to `NativeOrWithId<u32>`.
-pub struct TestAddressToAssetKind;
-
-impl AddressToAssetKind for TestAddressToAssetKind {
-	type AssetKind = NativeOrWithId<u32>;
-
-	fn address_to_asset_kind(address: &H160) -> Result<NativeOrWithId<u32>, Error> {
-		let bytes: [u8; 4] = address.0[0..4].try_into().expect("slice is 4 bytes; qed");
-		let id = u32::from_be_bytes(bytes);
-		if id == 0 {
-			Ok(NativeOrWithId::Native)
-		} else {
-			Ok(NativeOrWithId::WithId(id))
-		}
-	}
-}
-
-/// Helper: create an H160 address representing an asset.
-pub fn asset_to_address(id: u32) -> H160 {
-	let mut addr = [0u8; 20];
-	addr[0..4].copy_from_slice(&id.to_be_bytes());
-	H160(addr)
+	type Precompiles = (super::AssetConversion<PRECOMPILE_ADDRESS, Self>,);
 }
 
 /// Helper: create the precompile's fixed address.
