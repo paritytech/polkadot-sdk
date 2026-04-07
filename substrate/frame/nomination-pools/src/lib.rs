@@ -4148,7 +4148,7 @@ impl<T: Config> Pallet<T> {
 				}
 				log!(
 					trace,
-					"pool {:?} has incorrect ED frozen. Expected = {:?}, Actual = {:?}. Use `adjust_pool_deposit` to fix.",
+					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}. Use `adjust_pool_deposit` to fix it",
 					id,
 					expected_frozen_balance,
 					frozen_balance,

@@ -2015,7 +2015,7 @@ impl<T: Config> Pallet<T> {
 		if chilled_total > 0 {
 			log!(
 				warn,
-				"{} chilled stashes (out of {} total ledgers) have less stake than minimum bond ({:?}). Examples: {:?}",
+				"{} chilled stashes (out of {} total ledgers) have less stake than minimum role bond ({:?}). Examples: {:?}",
 				chilled_total,
 				total_ledgers,
 				Self::min_chilled_bond(),
@@ -2025,7 +2025,7 @@ impl<T: Config> Pallet<T> {
 		if nominator_total > 0 {
 			log!(
 				warn,
-				"{} nominators (out of {} total ledgers) have less stake than minimum bond ({:?}). Examples: {:?}",
+				"{} nominators (out of {} total ledgers) have less stake than minimum role bond ({:?}). Examples: {:?}",
 				nominator_total,
 				total_ledgers,
 				Self::min_nominator_bond(),
@@ -2035,7 +2035,7 @@ impl<T: Config> Pallet<T> {
 		if validator_total > 0 {
 			log!(
 				warn,
-				"{} validators (out of {} total ledgers) have less stake than minimum bond ({:?}). Examples: {:?}",
+				"{} validators (out of {} total ledgers) have less stake than minimum role bond ({:?}). Examples: {:?}",
 				validator_total,
 				total_ledgers,
 				Self::min_validator_bond(),
@@ -2204,22 +2204,24 @@ impl<T: Config> Pallet<T> {
 
 		match (is_nominator, is_validator) {
 			(false, false) => {
-				// chilled accounts allow to go to zero and fully unbond
 				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
+					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
 					*chilled_total += 1;
 					if chilled_undermin.len() < MAX_EXAMPLES {
 						chilled_undermin.push(stash.clone());
 					}
 					log!(
 						trace,
-						"Chilled stash {:?} has less stake ({:?}) than minimum bond ({:?})",
+						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
 						stash,
 						ledger.active,
 						Self::min_chilled_bond()
 					);
 				}
+				// is chilled
 			},
 			(true, false) => {
+				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
 					*nominator_total += 1;
 					if nominator_undermin.len() < MAX_EXAMPLES {
@@ -2227,7 +2229,7 @@ impl<T: Config> Pallet<T> {
 					}
 					log!(
 						trace,
-						"Nominator {:?} has less stake ({:?}) than minimum bond ({:?})",
+						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
 						stash,
 						ledger.active,
 						Self::min_nominator_bond()
@@ -2235,6 +2237,7 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 			(false, true) => {
+				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
 					*validator_total += 1;
 					if validator_undermin.len() < MAX_EXAMPLES {
@@ -2242,7 +2245,7 @@ impl<T: Config> Pallet<T> {
 					}
 					log!(
 						trace,
-						"Validator {:?} has less stake ({:?}) than minimum bond ({:?})",
+						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
 						stash,
 						ledger.active,
 						Self::min_validator_bond()
