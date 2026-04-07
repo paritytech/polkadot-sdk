@@ -69,15 +69,20 @@ parameter_types! {
 	pub static NextPollWeight: Option<Weight> = None;
 }
 
+/// Block time in milliseconds
+pub const BLOCK_TIME: u64 = 12_000;
+
 pub fn roll_next() {
 	let now = System::block_number();
 	let next = now + 1;
 
+	MockTime::set(MockTime::get() + BLOCK_TIME);
 	System::set_block_number(next);
 	// Re-init frame-system, as execute would do. This resets the block weight usage counter, as we
 	// are using a realistic weight meter here.
 	frame_system::BlockWeight::<T>::kill();
 
+	System::register_extra_weight_unchecked(Dap::on_initialize(next), DispatchClass::Mandatory);
 	System::register_extra_weight_unchecked(Staking::on_initialize(next), DispatchClass::Mandatory);
 	System::register_extra_weight_unchecked(
 		RcClient::on_initialize(next),
@@ -255,7 +260,7 @@ pub(crate) fn roll_until_next_active(mut end_index: SessionIndex) -> Vec<Account
 	// in the next session era is activated.
 	let report = SessionReport {
 		end_index,
-		activation_timestamp: Some((1000, active_era + 1)),
+		activation_timestamp: Some((MockTime::get(), active_era + 1)),
 		leftover: false,
 		validator_points: Default::default(),
 	};
@@ -458,13 +463,13 @@ impl pallet_staking_async::Config for Runtime {
 	type ElectionProvider = MultiBlock;
 
 	type RewardRemainder = ();
-	type EraPayout = ();
+	type EraPayout = TestEraPayout;
 	type MaxEraDuration = ();
-	type DisableMinting = ConstBool<true>;
+	type DisableMinting = DisableMintingMode;
 	type UnclaimedRewardHandler = ();
 	type GeneralPots = pallet_staking_async::SequentialTest;
 	type EraPots = pallet_staking_async::SequentialTest;
-	type StakerRewardCalculator = ();
+	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type EventListeners = ();
 	type Reward = ();
 	type Slash = Dap;
@@ -514,9 +519,10 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
-	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapIssuanceCadence: u64 = 0; // drip every block
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 	pub static MockTime: u64 = 0;
+	pub static UseLegacyEraPayout: bool = false;
 }
 
 impl frame_support::traits::Time for MockTime {
@@ -526,11 +532,50 @@ impl frame_support::traits::Time for MockTime {
 	}
 }
 
+/// Switchable EraPayout: returns (0,0) in DAP mode, real values in legacy mode.
+pub struct TestEraPayout;
+impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		if !UseLegacyEraPayout::get() {
+			(0, 0)
+		} else {
+			// 1 token per millisecond, 50/50 split.
+			let total = era_duration_millis as Balance;
+			let remainder = total / 2;
+			let stakers = total - remainder;
+			(stakers, remainder)
+		}
+	}
+}
+
+/// Switchable DisableMinting: follows UseLegacyEraPayout.
+pub struct DisableMintingMode;
+impl frame_support::traits::Get<bool> for DisableMintingMode {
+	fn get() -> bool {
+		!UseLegacyEraPayout::get()
+	}
+}
+
+/// Simple issuance: 1 token per millisecond elapsed.
+pub struct OneTokenPerMillisecond;
+impl sp_staking::budget::IssuanceCurve<Balance> for OneTokenPerMillisecond {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		elapsed_millis as Balance
+	}
+}
+
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type IssuanceCurve = ();
-	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type IssuanceCurve = OneTokenPerMillisecond;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest>,
+	);
 	type Time = MockTime;
 	type IssuanceCadence = DapIssuanceCadence;
 	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
