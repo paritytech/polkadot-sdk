@@ -144,14 +144,18 @@ where
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
-			IAssetConversionCalls::swapExactTokensForTokens(call) =>
-				Self::swap_exact_tokens_for_tokens(call, env),
-			IAssetConversionCalls::swapTokensForExactTokens(call) =>
-				Self::swap_tokens_for_exact_tokens(call, env),
-			IAssetConversionCalls::quoteExactTokensForTokens(call) =>
-				Self::quote_exact_tokens_for_tokens(call, env),
-			IAssetConversionCalls::quoteTokensForExactTokens(call) =>
-				Self::quote_tokens_for_exact_tokens(call, env),
+			IAssetConversionCalls::swapExactTokensForTokens(call) => {
+				Self::swap_exact_tokens_for_tokens(call, env)
+			},
+			IAssetConversionCalls::swapTokensForExactTokens(call) => {
+				Self::swap_tokens_for_exact_tokens(call, env)
+			},
+			IAssetConversionCalls::quoteExactTokensForTokens(call) => {
+				Self::quote_exact_tokens_for_tokens(call, env)
+			},
+			IAssetConversionCalls::quoteTokensForExactTokens(call) => {
+				Self::quote_tokens_for_exact_tokens(call, env)
+			},
 		}
 	}
 }

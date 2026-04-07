@@ -108,8 +108,10 @@ impl pallet_asset_conversion::Config for Test {
 	type PoolAssets = PoolAssets;
 	type PoolSetupFee = ConstU64<100>;
 	type PoolSetupFeeAsset = Native;
-	type PoolSetupFeeTarget =
-		frame_support::traits::tokens::imbalance::ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
+	type PoolSetupFeeTarget = frame_support::traits::tokens::imbalance::ResolveAssetTo<
+		AssetConversionOrigin,
+		Self::Assets,
+	>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
 	type LPFee = ConstU32<3>; // 0.3%
