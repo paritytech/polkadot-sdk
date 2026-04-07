@@ -195,11 +195,6 @@ pub struct SalesStarted<Balance, RelayBlockNumber> {
 	pub new_sale: MarketSaleInfo<RelayBlockNumber>,
 	/// Prices applicable to `new_sale`.
 	pub new_prices: AdaptedPrices<Balance>,
-	/// Initial auction price.
-	///
-	/// Used only for emitting event in `pallet-broker` and relevant only for pre-RFC-17
-	/// implementations.
-	pub start_price: Balance,
 }
 
 /// Possible outcomes of [`Market::place_order`].
@@ -235,10 +230,6 @@ pub enum RenewalOrderResult<Balance, BidId> {
 	Renewed {
 		/// Price paid for the renewal.
 		price: Balance,
-		/// Price for the next renewal.
-		///
-		/// Valid only for the pre-RFC-17 market implementation.
-		next_renewal_price: Balance,
 		/// Identifier of the renewed region.
 		region_id: RegionId,
 		/// End of the renewed region.
@@ -311,8 +302,5 @@ pub enum TickAction<AccountId, Balance, RelayBlockNumber> {
 		new_sale: MarketSaleInfo<RelayBlockNumber>,
 		/// Prices for the new sale.
 		new_prices: AdaptedPrices<Balance>,
-		/// Used only for emitting event in `pallet-broker` and relevant only for pre-RFC-17
-		/// implementations.
-		start_price: Balance,
 	},
 }
