@@ -16,7 +16,7 @@
 #[cfg(test)]
 mod imports {
 	// Substrate
-	pub(crate) use frame_support::assert_ok;
+	pub(crate) use frame_support::{assert_ok, pallet_prelude::Weight};
 
 	// Polkadot
 	pub(crate) use xcm::{latest::WESTEND_GENESIS_HASH, prelude::*};
@@ -27,12 +27,15 @@ mod imports {
 	};
 	pub(crate) use westend_system_emulated_network::{
 		self,
-		asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
+		asset_hub_westend_emulated_chain::{
+			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
+		},
 		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
 		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::{
+			genesis::ED as PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
 				self, xcm_config::XcmConfig as PeopleWestendXcmConfig,
 				ExistentialDeposit as PeopleWestendExistentialDeposit,

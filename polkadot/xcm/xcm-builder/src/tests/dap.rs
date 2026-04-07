@@ -18,12 +18,12 @@ use crate::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
 	FungibleAdapter, IsConcrete, MintLocation, SendToDapViaTeleport,
 };
-use pallet_dap_satellite::SendToDap;
 use core::cell::Cell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{fungible::Inspect, ConstU32, Everything, Get, Nothing},
 };
+use sp_dap::SendToDap;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 use xcm::latest::prelude::*;
 
@@ -92,10 +92,7 @@ struct ControllableRouter;
 impl SendXcm for ControllableRouter {
 	type Ticket = ();
 
-	fn validate(
-		_dest: &mut Option<Location>,
-		_msg: &mut Option<Xcm<()>>,
-	) -> SendResult<()> {
+	fn validate(_dest: &mut Option<Location>, _msg: &mut Option<Xcm<()>>) -> SendResult<()> {
 		if ROUTER_SHOULD_FAIL.with(|f| f.get()) {
 			Err(SendError::NotApplicable)
 		} else {

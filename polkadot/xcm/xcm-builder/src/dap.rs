@@ -35,22 +35,22 @@ use xcm_executor::{
 
 const LOG_TARGET: &str = "xcm::dap";
 
-/// XCM adapter that implements [`pallet_dap_satellite::SendToDap`] by teleporting native tokens
-/// to the central DAP buffer account on a destination chain. The execution is transactional:
+/// XCM adapter that implements [`sp_dap::SendToDap`] by teleporting native tokens to
+/// the central DAP buffer account on a destination chain. The execution is transactional:
 /// if anything fails, all local state changes are rolled back.
 pub struct SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, BufferLocation>(
 	PhantomData<(XcmConfig, Dest, NativeAsset, BufferLocation)>,
 );
 
 impl<XcmConfig, Dest, NativeAsset, BufferLocation, AccountId, Balance>
-	pallet_dap_satellite::SendToDap<AccountId, Balance>
+	sp_dap::SendToDap<AccountId, Balance>
 	for SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, BufferLocation>
 where
 	XcmConfig: xcm_executor::Config,
 	Dest: Get<Location>,
 	NativeAsset: Get<Location>,
 	BufferLocation: Get<InteriorLocation>,
-	AccountId: Into<[u8; 32]>,
+	AccountId: Into<[u8; 32]> + Clone,
 	Balance: Into<u128> + Copy,
 {
 	fn send_native(source: AccountId, amount: Balance) -> Result<(), ()> {
@@ -60,8 +60,9 @@ where
 
 		let remote_xcm = Xcm(vec![DepositAsset { assets: Wild(AllCounted(1)), beneficiary }]);
 
-		// The XCM flow is: `ReceiveTeleportedAsset → UnpaidExecution → DepositAsset`.
-		// The receiving chain must allow the source account in `AllowExplicitUnpaidExecutionFrom`.
+		// The XCM flow: `ReceiveTeleportedAsset → AliasOrigin(satellite) → UnpaidExecution →
+		// DepositAsset`. `preserve_origin: true` causes `InitiateTransfer` to prepend
+		// `AliasOrigin(satellite_location)` to the remote XCM.
 		let xcm: Xcm<XcmConfig::RuntimeCall> = Xcm(vec![
 			UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
 			DescendOrigin(Junction::AccountId32 { network: None, id: source.into() }.into()),
@@ -70,9 +71,9 @@ where
 				destination: dest,
 				remote_fees: None,
 				preserve_origin: true,
-				assets: BoundedVec::truncate_from(alloc::vec![
-					AssetTransferFilter::Teleport(Wild(AllCounted(1))),
-				]),
+				assets: BoundedVec::truncate_from(alloc::vec![AssetTransferFilter::Teleport(
+					Wild(AllCounted(1))
+				),]),
 				remote_xcm,
 			},
 		]);
@@ -95,9 +96,7 @@ where
 						"DAP satellite: XCM execution failed"
 					);
 
-					TransactionOutcome::Rollback(Err(DispatchError::Other(
-						"XCM execution failed",
-					)))
+					TransactionOutcome::Rollback(Err(DispatchError::Other("XCM execution failed")))
 				},
 			}
 		})
@@ -126,7 +125,8 @@ impl<Inner, Currency, Matcher, AccountIdConverter, AccountId, WatchedAccount> Tr
 		AccountIdConverter,
 		AccountId,
 		WatchedAccount,
-	> where
+	>
+where
 	Inner: TransactAsset,
 	Currency: Unbalanced<AccountId>,
 	Matcher: MatchesFungible<Currency::Balance>,

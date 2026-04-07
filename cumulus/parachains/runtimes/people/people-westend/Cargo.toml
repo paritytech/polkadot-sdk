@@ -52,6 +52,7 @@ sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-keyring = { workspace = true }
 sp-offchain = { workspace = true }
+sp-dap = { workspace = true }
 sp-runtime = { workspace = true }
 sp-session = { workspace = true }
 sp-statement-store = { workspace = true }
@@ -147,6 +148,7 @@ std = [
 	"sp-inherents/std",
 	"sp-keyring/std",
 	"sp-offchain/std",
+	"sp-dap/std",
 	"sp-runtime/std",
 	"sp-session/std",
 	"sp-statement-store/std",

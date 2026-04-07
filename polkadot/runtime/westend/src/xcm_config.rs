@@ -33,6 +33,8 @@ use polkadot_runtime_common::{
 	ToAuthor,
 };
 use sp_core::ConstU32;
+use sp_dap::DAP_SATELLITE_PALLET_ID;
+use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{
 	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
@@ -65,6 +67,11 @@ parameter_types! {
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		let account: AccountId = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		AccountId32 { network: None, id: account.into() }.into()
+	};
 }
 
 pub type LocationConverter = (
@@ -190,8 +197,13 @@ pub type Barrier = TrailingSetTopicAsId<(
 
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<TreasuryLocation>);
+pub type WaivedLocations = (
+	SystemParachains,
+	Equals<RootLocation>,
+	LocalPlurality,
+	Equals<TreasuryLocation>,
+	Equals<DapSatelliteLocation>,
+);
 
 /// We let locations alias into child locations of their own.
 /// This is a very simple aliasing rule, mimicking the behaviour of

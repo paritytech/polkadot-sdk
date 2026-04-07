@@ -18,6 +18,7 @@ frame-support = { workspace = true }
 pallet-assets = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-message-queue = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
 pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-whitelist = { workspace = true }

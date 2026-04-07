@@ -37,6 +37,7 @@ use parachains_common::{
 	TREASURY_PALLET_ID,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
+use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
@@ -75,6 +76,11 @@ parameter_types! {
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location =
 		(Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		let account: AccountId = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		AccountId32 { network: None, id: account.into() }.into()
+	};
 }
 
 pub type PriceForParentDelivery = polkadot_runtime_common::xcm_sender::ExponentialPrice<
@@ -211,6 +217,7 @@ pub type WaivedLocations = (
 	Equals<RelayTreasuryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
+	Equals<DapSatelliteLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:

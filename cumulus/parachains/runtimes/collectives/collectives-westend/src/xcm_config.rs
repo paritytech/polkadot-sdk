@@ -35,6 +35,8 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use sp_dap::DAP_SATELLITE_PALLET_ID;
+use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -83,6 +85,11 @@ parameter_types! {
 	pub WndAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
 		asset_id: WndLocation::get().into(),
+	};
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		let account: AccountId = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		AccountId32 { network: None, id: account.into() }.into()
 	};
 }
 
@@ -204,6 +211,7 @@ pub type WaivedLocations = (
 	Equals<AmbassadorSalaryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
+	Equals<DapSatelliteLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:

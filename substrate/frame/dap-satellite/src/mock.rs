@@ -19,10 +19,8 @@
 
 use crate::{self as pallet_dap_satellite, Config};
 use frame_support::{
-	derive_impl, parameter_types,
-	sp_runtime::traits::AccountIdConversion,
-	weights::constants::RocksDbWeight,
-	PalletId,
+	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion,
+	weights::constants::RocksDbWeight, PalletId,
 };
 use sp_runtime::BuildStorage;
 use std::cell::RefCell;
@@ -64,7 +62,7 @@ thread_local! {
 /// Mock implementation of [`pallet_dap_satellite::SendToDap`].
 pub struct MockSendToDap;
 
-impl pallet_dap_satellite::SendToDap<u64, u64> for MockSendToDap {
+impl sp_dap::SendToDap<u64, u64> for MockSendToDap {
 	fn send_native(_source: u64, amount: u64) -> Result<(), ()> {
 		if SEND_FAIL.with(|f| *f.borrow()) {
 			return Err(());

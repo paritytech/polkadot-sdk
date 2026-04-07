@@ -66,17 +66,7 @@ pub use pallet::*;
 
 pub use sp_dap::DAP_BUFFER_PALLET_ID;
 
-/// Trait for dispatching the transfer to the central DAP.
-///
-/// Implementations are expected to perform the (withdrawal, send) steps atomically:
-/// on failure, any withdrawn funds must be restored.
-pub trait SendToDap<AccountId, Balance> {
-	/// Transfer `amount` from `source` to the central DAP.
-	///
-	/// Returns `Ok(())` on success, `Err(())` otherwise.
-	/// Implementations are responsible for logging the failure reason internally.
-	fn send_native(source: AccountId, amount: Balance) -> Result<(), ()>;
-}
+pub use sp_dap::SendToDap;
 
 const LOG_TARGET: &str = "runtime::dap-satellite";
 
@@ -101,7 +91,9 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// The currency type.
-		type Currency: Inspect<Self::AccountId> + Unbalanced<Self::AccountId> + Balanced<Self::AccountId>;
+		type Currency: Inspect<Self::AccountId>
+			+ Unbalanced<Self::AccountId>
+			+ Balanced<Self::AccountId>;
 
 		/// The pallet ID used to derive the satellite account.
 		type PalletId: Get<PalletId>;

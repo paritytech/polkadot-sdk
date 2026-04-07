@@ -18,7 +18,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 impl-trait-for-tuples = { workspace = true }
 pallet-asset-conversion = { workspace = true }
-pallet-dap-satellite = { workspace = true }
+sp-dap = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 sp-arithmetic = { workspace = true }
@@ -51,7 +51,6 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-asset-conversion/runtime-benchmarks",
-	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-salary/runtime-benchmarks",
@@ -71,7 +70,7 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"pallet-asset-conversion/std",
-	"pallet-dap-satellite/std",
+	"sp-dap/std",
 	"pallet-transaction-payment/std",
 	"polkadot-parachain-primitives/std",
 	"primitive-types/std",

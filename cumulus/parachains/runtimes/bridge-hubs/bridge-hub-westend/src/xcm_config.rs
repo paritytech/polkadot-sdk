@@ -40,6 +40,7 @@ use parachains_common::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::{
 	locations::AssetHubLocation, snowbridge::EthereumNetwork,
@@ -73,6 +74,11 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		let account: AccountId = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		AccountId32 { network: None, id: account.into() }.into()
+	};
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -188,6 +194,7 @@ pub type WaivedLocations = (
 	Equals<RootLocation>,
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RelayTreasuryLocation>,
+	Equals<DapSatelliteLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:

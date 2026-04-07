@@ -38,7 +38,6 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::EnsureRoot;
-use sp_dap::{DAP_BUFFER_PALLET_ID, DAP_SATELLITE_PALLET_ID};
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
@@ -46,6 +45,7 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
+use sp_dap::{DAP_BUFFER_PALLET_ID, DAP_SATELLITE_PALLET_ID};
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
@@ -56,10 +56,9 @@ use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
-	DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
-	DapBufferAssetTransactor, FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter,
-	HashedDescription, IsConcrete,
+	DapBufferAssetTransactor, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
+	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
 	NetworkExportTableItem, NoChecking, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
@@ -325,19 +324,28 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
-/// DAP satellite accounts on sibling system parachains. These accounts accumulate native
-/// tokens locally before forwarding them to the central DAP buffer account.
 pub struct SiblingDapSatelliteAccounts;
 impl Contains<Location> for SiblingDapSatelliteAccounts {
 	fn contains(location: &Location) -> bool {
-		let satellite_account: [u8; 32] =
-			DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
 		match location.unpack() {
-			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) =>
+			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
 				AllSiblingSystemParachains::contains(&Location::new(1, [Parachain(*id)])) &&
-					*account_id == satellite_account,
+					*account_id == satellite_account
+			},
 			_ => false,
 		}
+	}
+}
+
+pub struct ParentDapSatelliteAccount;
+impl Contains<Location> for ParentDapSatelliteAccount {
+	fn contains(location: &Location) -> bool {
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		matches!(
+			location.unpack(),
+			(1, [AccountId32 { id, .. }]) if *id == satellite_account
+		)
 	}
 }
 
@@ -363,8 +371,13 @@ pub type Barrier = TrailingSetTopicAsId<
 						FellowshipEntities,
 						AmbassadorEntities,
 						SecretaryEntities,
-						SiblingDapSatelliteAccounts,
 					)>,
+					// DAP satellite accounts get free execution, while aliasing allows the chain
+					// (as the XCM sending origin) to claim the identity of its satellite account.
+					AllowExplicitUnpaidExecutionFrom<
+						(ParentDapSatelliteAccount, SiblingDapSatelliteAccounts),
+						AliasChildLocation,
+					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
 					// HRMP notifications from the relay chain are OK.
@@ -853,10 +866,8 @@ mod tests {
 	fn sibling_dap_satellite_accounts_rejects_wrong_account() {
 		let wrong_account = [0u8; 32];
 		// Correct sibling system parachain, but wrong account.
-		let location = Location::new(
-			1,
-			[Parachain(1000), AccountId32 { network: None, id: wrong_account }],
-		);
+		let location =
+			Location::new(1, [Parachain(1000), AccountId32 { network: None, id: wrong_account }]);
 		assert!(!SiblingDapSatelliteAccounts::contains(&location));
 	}
 
@@ -875,8 +886,7 @@ mod tests {
 	fn sibling_dap_satellite_accounts_rejects_relay_chain_origin() {
 		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
 		// Relay chain origin (parents=1, no Parachain junction).
-		let location =
-			Location::new(1, [AccountId32 { network: None, id: satellite_account }]);
+		let location = Location::new(1, [AccountId32 { network: None, id: satellite_account }]);
 		assert!(!SiblingDapSatelliteAccounts::contains(&location));
 	}
 
@@ -884,8 +894,7 @@ mod tests {
 	fn sibling_dap_satellite_accounts_rejects_local_account() {
 		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
 		// Local account (parents=0) — not a sibling at all.
-		let location =
-			Location::new(0, [AccountId32 { network: None, id: satellite_account }]);
+		let location = Location::new(0, [AccountId32 { network: None, id: satellite_account }]);
 		assert!(!SiblingDapSatelliteAccounts::contains(&location));
 	}
 
