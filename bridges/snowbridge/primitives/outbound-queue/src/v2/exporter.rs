@@ -12,8 +12,8 @@ use sp_std::{prelude::*, vec::Vec};
 use xcm::{
 	latest::{ExecuteXcm, InstructionError, Outcome, PreparedMessage},
 	prelude::{
-		Asset, Assets, Here, Instruction, InteriorLocation, Junctions, Location,
-		NetworkId, Parachain, SendError, SendResult, SendXcm, Xcm, XcmHash,
+		Asset, Assets, Here, Instruction, InteriorLocation, Junctions, Location, NetworkId,
+		Parachain, SendError, SendResult, SendXcm, Xcm, XcmHash,
 	},
 	VersionedLocation, VersionedXcm,
 };
@@ -288,10 +288,8 @@ pub fn neutralize_eth_export_transacts_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>)
 fn force_trap_holding_in_simulation_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bool {
 	for instruction in xcm.0.iter_mut() {
 		match instruction {
-			Instruction::DepositAsset { beneficiary, .. } => {
-				// Prefer `Trap` over poisoning the beneficiary: it’s a direct, semantically explicit
-				// way to force trapping of the holding register in simulation without lying about the
-				// beneficiary shape.
+			Instruction::DepositAsset { .. } => {
+				// Force trapping of the holding register in simulation
 				*instruction = Instruction::Trap(0);
 				return true;
 			},
@@ -362,10 +360,8 @@ impl<
 		let mut msg: Xcm<Call> = msg.into();
 		if matches!(
 			ensure_top_level_optional_contract_call_params_valid(msg_ref.inner()),
-			Err(
-				XcmConverterError::InvalidContractCallParams |
-					XcmConverterError::TransactDecodeFailed
-			)
+			Err(XcmConverterError::InvalidContractCallParams |
+				XcmConverterError::TransactDecodeFailed)
 		) && !force_trap_holding_in_simulation_xcm_runtime(&mut msg)
 		{
 			tracing::warn!(
