@@ -138,7 +138,6 @@ impl<T: Config> Pallet<T> {
 			&sales_started.imaginary_old_sale,
 			&sales_started.new_sale,
 			sales_started.new_prices,
-			sales_started.start_price,
 			&status,
 		);
 
@@ -195,7 +194,7 @@ impl<T: Config> Pallet<T> {
 
 				Ok(DoRenewResult::BidPlaced { id })
 			},
-			RenewalOrderResult::Sold { price, next_renewal_price, region_id, effective_to } => {
+			RenewalOrderResult::Sold { price, region_id, effective_to } => {
 				Self::charge(&who, price)?;
 
 				Workplan::<T>::insert((region_id.begin, region_id.core), &workload);
@@ -211,7 +210,7 @@ impl<T: Config> Pallet<T> {
 				});
 
 				let new_record = PotentialRenewalRecord {
-					price: next_renewal_price,
+					price: Default::default(), // TODO: Store price in the market impl storage.
 					completion: Complete(workload),
 				};
 				PotentialRenewals::<T>::remove(renewal_id);

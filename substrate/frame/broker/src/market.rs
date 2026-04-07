@@ -103,16 +103,11 @@ pub trait TimesliceProvider {
 pub struct MarketSaleInfo<RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,
-	/// The length in blocks of the Leadin Period (where the price is decreasing).
-	pub leadin_length: RelayBlockNumber,
 	/// The first timeslice of the Regions which are being sold in this sale.
 	pub region_begin: Timeslice,
 	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
 	/// after the last timeslice which the Regions control.)
 	pub region_end: Timeslice,
-	/// The number of cores we want to sell, ideally. Selling this amount would result in no
-	/// change to the price for the next sale.
-	pub ideal_cores_sold: CoreIndex,
 	/// Number of cores which are/have been offered for sale.
 	pub cores_offered: CoreIndex,
 	/// The index of the first core which is for sale. Core of Regions which are sold have
@@ -128,10 +123,8 @@ impl<RelayBlockNumber, Balance> From<SaleInfoRecord<Balance, RelayBlockNumber>>
 	fn from(value: SaleInfoRecord<Balance, RelayBlockNumber>) -> Self {
 		Self {
 			sale_start: value.sale_start,
-			leadin_length: value.leadin_length,
 			region_begin: value.region_begin,
 			region_end: value.region_end,
-			ideal_cores_sold: value.ideal_cores_sold,
 			cores_offered: value.cores_offered,
 			first_core: value.first_core,
 			cores_sold: value.cores_sold,
@@ -145,16 +138,8 @@ pub enum OrderResult<T: Config, BidId> {
 }
 
 pub enum RenewalOrderResult<T: Config, BidId> {
-	BidPlaced {
-		id: BidId,
-		bid_price: BalanceOf<T>,
-	},
-	Sold {
-		price: BalanceOf<T>,
-		next_renewal_price: BalanceOf<T>,
-		region_id: RegionId,
-		effective_to: Timeslice,
-	},
+	BidPlaced { id: BidId, bid_price: BalanceOf<T> },
+	Sold { price: BalanceOf<T>, region_id: RegionId, effective_to: Timeslice },
 }
 
 pub struct CloseBidResult<T: Config> {
@@ -194,9 +179,6 @@ pub enum TickAction<T: Config> {
 		old_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
 		new_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
 		new_prices: AdaptedPrices<BalanceOf<T>>,
-		// TODO: Deprecate it as it doesn't fit into the general market impl but used when emitting
-		// an event.
-		start_price: BalanceOf<T>,
 	},
 }
 
@@ -204,9 +186,6 @@ pub struct SalesStarted<T: Config> {
 	pub imaginary_old_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
 	pub new_sale: MarketSaleInfo<RelayBlockNumberOf<T>>,
 	pub new_prices: AdaptedPrices<BalanceOf<T>>,
-	// TODO: Deprecate it as it doesn't fit into the general market impl but used when emitting
-	// an event.
-	pub start_price: BalanceOf<T>,
 }
 
 pub enum MarketError {
@@ -324,7 +303,6 @@ impl<T: Config> Market<T> for Pallet<T> {
 			imaginary_old_sale: old_sale.into(),
 			new_sale: new_sale.into(),
 			new_prices,
-			start_price,
 		})
 	}
 
@@ -380,7 +358,6 @@ impl<T: Config> Market<T> for Pallet<T> {
 
 		return Ok(RenewalOrderResult::Sold {
 			price: recorded_price,
-			next_renewal_price,
 			region_id,
 			effective_to: sale.region_end,
 		});
@@ -411,7 +388,24 @@ impl<T: Config> Market<T> for Pallet<T> {
 			if let Some(sale) = SaleInfo::<T>::get() {
 				if timeslice >= sale.region_begin {
 					weight_meter.consume(T::WeightInfo::market_sale_rotated());
-					sale_rotated::<T, Self>(sale, &config, core_count, block_number, &mut actions);
+					let (new_sale, start_price) = sale_rotated::<T, Self>(
+						sale.clone(),
+						&config,
+						core_count,
+						block_number,
+						&mut actions,
+					);
+
+					Self::deposit_event(crate::Event::SaleInitialized {
+						sale_start: new_sale.sale_start,
+						leadin_length: new_sale.leadin_length,
+						start_price,
+						end_price: new_sale.end_price,
+						region_begin: new_sale.region_begin,
+						region_end: new_sale.region_end,
+						ideal_cores_sold: new_sale.ideal_cores_sold,
+						cores_offered: new_sale.cores_offered,
+					});
 				}
 			}
 		};
@@ -426,7 +420,7 @@ pub(crate) fn sale_rotated<T: Config, M: Market<T>>(
 	core_count: CoreIndex,
 	block_number: RelayBlockNumberOf<T>,
 	actions: &mut Vec<TickAction<T>>,
-) {
+) -> (SaleInfoRecordOf<T>, BalanceOf<T>) {
 	let reserved_cores = M::CoreCount::reserved_core_count();
 	let (new_prices, new_sale) =
 		rotate_sale::<T>(&sale, config, core_count, reserved_cores, block_number);
@@ -437,13 +431,14 @@ pub(crate) fn sale_rotated<T: Config, M: Market<T>>(
 		old_sale: sale.into(),
 		new_sale: new_sale.clone().into(),
 		new_prices,
-		start_price,
 	});
 
 	actions.push(TickAction::ProcessAutoRenewals {
 		after_timeslice: new_sale.region_begin,
 		next_renewal_at: new_sale.region_end,
 	});
+
+	(new_sale, start_price)
 }
 
 fn purchase_core<T: Config>(price: BalanceOf<T>, sale: &mut SaleInfoRecordOf<T>) -> CoreIndex {

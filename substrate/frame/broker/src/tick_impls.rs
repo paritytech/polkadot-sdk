@@ -199,13 +199,13 @@ impl<T: Config> Pallet<T> {
 			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
 				Self::renew_cores(after_timeslice, next_renewal_at);
 			},
-			TickAction::SaleRotated { old_sale, new_sale, new_prices, start_price } => {
+			TickAction::SaleRotated { old_sale, new_sale, new_prices } => {
 				if let Some(status) = Status::<T>::get() {
 					meter.consume(T::WeightInfo::process_tick_action_sale_rotated(
 						status.core_count.into(),
 					));
 
-					Self::rotate_sale(&old_sale, &new_sale, new_prices, start_price, &status);
+					Self::rotate_sale(&old_sale, &new_sale, new_prices, &status);
 				} else {
 					// Consume for the storage read.
 					meter.consume(T::WeightInfo::process_tick_action_sale_rotated(0));
@@ -219,7 +219,6 @@ impl<T: Config> Pallet<T> {
 		old_sale: &MarketSaleInfoOf<T>,
 		new_sale: &MarketSaleInfoOf<T>,
 		new_prices: AdaptedPrices<BalanceOf<T>>,
-		start_price: BalanceOf<T>,
 		status: &StatusRecord,
 	) {
 		let pool_item =
@@ -298,17 +297,6 @@ impl<T: Config> Pallet<T> {
 			!expire
 		});
 		Leases::<T>::put(&leases);
-
-		Self::deposit_event(Event::SaleInitialized {
-			sale_start: new_sale.sale_start,
-			leadin_length: new_sale.leadin_length,
-			start_price,
-			end_price: new_prices.end_price,
-			region_begin: new_sale.region_begin,
-			region_end: new_sale.region_end,
-			ideal_cores_sold: new_sale.ideal_cores_sold,
-			cores_offered: new_sale.cores_offered,
-		});
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.
