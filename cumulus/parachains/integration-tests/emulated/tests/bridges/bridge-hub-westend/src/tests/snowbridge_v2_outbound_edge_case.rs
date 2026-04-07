@@ -598,3 +598,104 @@ fn send_eth_from_asset_hub_to_invalid_ethereum_beneficiary_should_fail_and_trap_
 		);
 	});
 }
+
+/// [`ContractCall::V1`] gas is below the Snowbridge exporter minimum (`21_000`). Bridge Hub now
+/// pre-validates the original call before dry-run and poisons only the simulation clone so
+/// `DepositAsset` fails, leaving assets in holding for the normal trap path.
+#[test]
+fn send_eth_from_asset_hub_with_invalid_contract_call_params_should_fail_and_trap_assets() {
+	fund_on_bh();
+	fund_on_ah();
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let reserve_asset = Asset { id: AssetId(ethereum()), fun: Fungible(TOKEN_AMOUNT) };
+
+		let assets = vec![reserve_asset.clone(), remote_fee_asset.clone(), local_fee_asset.clone()];
+
+		let beneficiary =
+			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
+
+		let transact_info = ContractCall::V1 {
+			target: Default::default(),
+			calldata: vec![0x00, 0x00, 0x00, 0x00],
+			gas: 20_000,
+			value: 0,
+		};
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination: ethereum(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
+				remote_xcm: Xcm(vec![
+					DepositAsset {
+						assets: Wild(AllCounted(2)),
+						beneficiary: beneficiary.clone(),
+					},
+					Transact {
+						origin_kind: OriginKind::SovereignAccount,
+						fallback_max_weight: None,
+						call: transact_info.encode().into(),
+					},
+				]),
+			},
+		]));
+
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			bx!(xcm),
+			Weight::from(EXECUTION_WEIGHT),
+		)
+		.unwrap();
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				// Invalid contract params are surfaced during pre-simulation validation by forcing the
+				// simulation clone's beneficiary to fail `DepositAsset`, so BH traps the holding.
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::ProcessXcmError {
+					error: xcm::latest::Error::Unroutable,
+					..
+				}) => {},
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. }) => {},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success: false, .. }) => {},
+			]
+		);
+
+		let events = BridgeHubWestend::events();
+		assert!(
+			events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. })
+			)),
+			"Invalid contract params should trap BH holding like an invalid beneficiary.",
+		);
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumOutboundQueueV2(
+					snowbridge_pallet_outbound_queue_v2::Event::MessageQueued { .. }
+				)
+			)),
+			"Invalid contract params must not enqueue an Ethereum outbound v2 message.",
+		);
+	});
+}

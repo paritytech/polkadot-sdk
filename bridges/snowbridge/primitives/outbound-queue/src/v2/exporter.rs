@@ -20,7 +20,13 @@ use xcm::{
 use xcm_builder::{ExporterFor, InspectMessageQueues};
 use xcm_executor::traits::ExportXcm;
 
-use crate::v2::{converter::XcmConverter, message::SendMessage};
+use crate::v2::{
+	converter::{
+		convert::{ensure_top_level_optional_contract_call_params_valid, XcmConverterError},
+		XcmConverter,
+	},
+	message::SendMessage,
+};
 
 const TARGET: &str = "xcm::ethereum_blob_exporter::v2";
 
@@ -290,6 +296,87 @@ pub fn neutralize_eth_export_transacts_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>)
 	}
 }
 
+/// Makes simulated [`DepositAsset`] fail in the same way as an invalid Ethereum beneficiary.
+///
+/// Used only on the Bridge Hub dry-run clone when the original message contains an invalid
+/// [`ContractCall::V1`] parameter set. This keeps the real export payload unchanged while forcing
+/// the dry-run to leave assets in holding so the normal BH trap path is exercised.
+fn poison_eth_export_beneficiary_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bool {
+	for instruction in xcm.0.iter_mut() {
+		match instruction {
+			Instruction::DepositAsset { beneficiary, .. } => {
+				*beneficiary = Here.into();
+				return true;
+			},
+			Instruction::SetErrorHandler(inner) | Instruction::SetAppendix(inner) => {
+				if poison_eth_export_beneficiary_in_xcm_runtime(inner) {
+					return true;
+				}
+			},
+			Instruction::ExecuteWithOrigin { xcm: inner, .. } => {
+				if poison_eth_export_beneficiary_in_xcm_runtime(inner) {
+					return true;
+				}
+			},
+			Instruction::TransferReserveAsset { xcm: inner, .. } |
+			Instruction::DepositReserveAsset { xcm: inner, .. } |
+			Instruction::InitiateReserveWithdraw { xcm: inner, .. } |
+			Instruction::InitiateTeleport { xcm: inner, .. } |
+			Instruction::ExportMessage { xcm: inner, .. } => {
+				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
+					return true;
+				}
+			},
+			Instruction::InitiateTransfer { remote_xcm: inner, .. } => {
+				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
+					return true;
+				}
+			},
+			_ => {},
+		}
+	}
+
+	false
+}
+
+fn poison_eth_export_beneficiary_in_xcm_unit(xcm: &mut Xcm<()>) -> bool {
+	for instruction in xcm.0.iter_mut() {
+		match instruction {
+			Instruction::DepositAsset { beneficiary, .. } => {
+				*beneficiary = Here.into();
+				return true;
+			},
+			Instruction::SetErrorHandler(inner) | Instruction::SetAppendix(inner) => {
+				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
+					return true;
+				}
+			},
+			Instruction::ExecuteWithOrigin { xcm: inner, .. } => {
+				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
+					return true;
+				}
+			},
+			Instruction::TransferReserveAsset { xcm: inner, .. } |
+			Instruction::DepositReserveAsset { xcm: inner, .. } |
+			Instruction::InitiateReserveWithdraw { xcm: inner, .. } |
+			Instruction::InitiateTeleport { xcm: inner, .. } |
+			Instruction::ExportMessage { xcm: inner, .. } => {
+				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
+					return true;
+				}
+			},
+			Instruction::InitiateTransfer { remote_xcm: inner, .. } => {
+				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
+					return true;
+				}
+			},
+			_ => {},
+		}
+	}
+
+	false
+}
+
 fn neutralize_eth_export_transacts_in_xcm_unit(xcm: &mut Xcm<()>) {
 	for instruction in xcm.0.iter_mut() {
 		match instruction {
@@ -373,6 +460,16 @@ impl<
 
 		let msg = msg_ref.clone();
 		let mut msg: Xcm<Call> = msg.into();
+		if matches!(
+			ensure_top_level_optional_contract_call_params_valid(msg_ref.inner()),
+			Err(XcmConverterError::InvalidContractCallParams)
+		) && !poison_eth_export_beneficiary_in_xcm_runtime(&mut msg)
+		{
+			tracing::warn!(
+				target: EXECUTION_TARGET,
+				"invalid ContractCall params detected but no DepositAsset found to force trap",
+			);
+		}
 		neutralize_eth_export_transacts_in_xcm_runtime(&mut msg);
 		let origin = Location::new(1, local_sub);
 		let prepared =

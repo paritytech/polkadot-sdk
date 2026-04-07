@@ -46,9 +46,62 @@ pub enum XcmConverterError {
 	InvalidOrigin,
 	TransactDecodeFailed,
 	TransactParamsDecodeFailed,
+	InvalidContractCallParams,
 	FeeAssetResolutionFailed,
 	CallContractValueInsufficient,
 	NoCommands,
+}
+
+/// Minimum forwarded gas for [`ContractCall::V1`]: Ethereum’s intrinsic cost of a simple transfer
+/// (21_000); contract calls typically need more, but this rejects obviously non-viable limits.
+const MIN_CONTRACT_CALL_GAS: u64 = 21_000;
+/// When [`ContractCall::V1`] calldata is non-empty, it must include at least a Solidity function
+/// selector (empty calldata remains allowed for agent/value-only patterns used in tests and some
+/// flows).
+const MIN_NON_EMPTY_CONTRACT_CALL_CALLDATA: usize = 4;
+
+fn decode_contract_call(mut encoded_call: &[u8]) -> Result<ContractCall, XcmConverterError> {
+	ContractCall::decode_all(&mut encoded_call).map_err(|_| TransactDecodeFailed)
+}
+
+fn ensure_contract_call_v1_params_valid(
+	calldata: &[u8],
+	gas: u64,
+) -> Result<(), XcmConverterError> {
+	ensure!(gas >= MIN_CONTRACT_CALL_GAS, InvalidContractCallParams);
+	if !calldata.is_empty() {
+		ensure!(
+			calldata.len() >= MIN_NON_EMPTY_CONTRACT_CALL_CALLDATA,
+			InvalidContractCallParams
+		);
+	}
+	Ok(())
+}
+
+/// Validates the top-level optional [`Transact`] that follows a v2 outbound [`DepositAsset`].
+///
+/// This is shared by the exporter pre-simulation path and the converter so both enforce the same
+/// minimum gas / calldata rules for [`ContractCall::V1`].
+pub(crate) fn ensure_top_level_optional_contract_call_params_valid<Call>(
+	instructions: &[Instruction<Call>],
+) -> Result<(), XcmConverterError> {
+	let mut seen_deposit_asset = false;
+	for instruction in instructions {
+		match instruction {
+			Instruction::DepositAsset { .. } => seen_deposit_asset = true,
+			Instruction::Transact { call, .. } if seen_deposit_asset => {
+				match decode_contract_call(&call.clone().into_encoded())? {
+					ContractCall::V1 { calldata, gas, .. } =>
+						ensure_contract_call_v1_params_valid(&calldata, gas)?,
+				}
+				return Ok(());
+			},
+			Instruction::SetTopic(_) if seen_deposit_asset => return Ok(()),
+			_ => {},
+		}
+	}
+
+	Ok(())
 }
 
 macro_rules! match_expression {
@@ -256,12 +309,17 @@ where
 		let transact_call = match_expression!(self.peek()?, Transact { call, .. }, call);
 		if let Some(transact_call) = transact_call {
 			let _ = self.next();
-			let transact =
-				ContractCall::decode_all(&mut transact_call.clone().into_encoded().as_slice())
-					.map_err(|_| TransactDecodeFailed)?;
+			let transact = decode_contract_call(&transact_call.clone().into_encoded())?;
 			match transact {
-				ContractCall::V1 { target, calldata, gas, value } => commands
-					.push(Command::CallContract { target: target.into(), calldata, gas, value }),
+				ContractCall::V1 { target, calldata, gas, value } => {
+					ensure_contract_call_v1_params_valid(&calldata, gas)?;
+					commands.push(Command::CallContract {
+						target: target.into(),
+						calldata,
+						gas,
+						value,
+					});
+				},
 			}
 		}
 
