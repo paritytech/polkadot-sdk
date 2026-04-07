@@ -469,7 +469,8 @@ impl pallet_staking_async::Config for Runtime {
 	type UnclaimedRewardHandler = ();
 	type GeneralPots = pallet_staking_async::SequentialTest;
 	type EraPots = pallet_staking_async::SequentialTest;
-	type StakerRewardCalculator = pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type EventListeners = ();
 	type Reward = ();
 	type Slash = Dap;

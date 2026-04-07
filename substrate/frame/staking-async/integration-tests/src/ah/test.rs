@@ -18,7 +18,10 @@
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::{assert_ok, hypothetically, traits::fungible::hold::Inspect as HoldInspect};
+use frame_support::{
+	assert_ok, hypothetically,
+	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
+};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
@@ -31,7 +34,6 @@ use pallet_staking_async::{
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
 };
-use frame_support::traits::fungible::{Inspect, Mutate};
 
 // Tests that are specific to Asset Hub.
 #[test]
@@ -2143,7 +2145,9 @@ fn legacy_to_dap_era_payout_e2e() {
 		// Reward points for era 1 (era 0 has no exposure — pre-election).
 		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
 			points.total = 4;
-			for v in [3, 5, 6, 8] { points.individual.try_insert(v, 1).unwrap(); }
+			for v in [3, 5, 6, 8] {
+				points.individual.try_insert(v, 1).unwrap();
+			}
 		});
 
 		// WHEN: roll to era 2 (still legacy mode).
@@ -2168,9 +2172,7 @@ fn legacy_to_dap_era_payout_e2e() {
 		let mut budget = pallet_dap::BudgetAllocationMap::new();
 		budget.try_insert(staker_key, Perbill::from_percent(85)).unwrap();
 		budget.try_insert(buffer_key, Perbill::from_percent(15)).unwrap();
-		assert_ok!(pallet_dap::Pallet::<T>::set_budget_allocation(
-			RuntimeOrigin::root(), budget,
-		));
+		assert_ok!(pallet_dap::Pallet::<T>::set_budget_allocation(RuntimeOrigin::root(), budget,));
 
 		// Initialize DAP and fund general staker pot with ED.
 		pallet_dap::LastIssuanceTimestamp::<T>::put(MockTime::get());
@@ -2181,7 +2183,9 @@ fn legacy_to_dap_era_payout_e2e() {
 		// Era 1 has no pot (created in legacy mode) — falls back to legacy mint.
 		let pre_issuance = Balances::total_issuance();
 		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
-			RuntimeOrigin::signed(999), val_a, 1,
+			RuntimeOrigin::signed(999),
+			val_a,
+			1,
 		));
 		// THEN: legacy payout mints even though DAP mode is active.
 		assert!(Balances::total_issuance() > pre_issuance);
@@ -2189,7 +2193,9 @@ fn legacy_to_dap_era_payout_e2e() {
 		// Reward points for era 2.
 		staking_async::ErasRewardPoints::<T>::mutate(2, |points| {
 			points.total = 4;
-			for v in [3, 5, 6, 8] { points.individual.try_insert(v, 1).unwrap(); }
+			for v in [3, 5, 6, 8] {
+				points.individual.try_insert(v, 1).unwrap();
+			}
 		});
 
 		// WHEN: roll to era 3. Each block drips 12_000ms of inflation via DAP.
@@ -2216,7 +2222,9 @@ fn legacy_to_dap_era_payout_e2e() {
 		let _ = staking_events_since_last_call();
 
 		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
-			RuntimeOrigin::signed(999), val_a, 2,
+			RuntimeOrigin::signed(999),
+			val_a,
+			2,
 		));
 
 		// THEN: issuance unchanged (transfer, not mint).
