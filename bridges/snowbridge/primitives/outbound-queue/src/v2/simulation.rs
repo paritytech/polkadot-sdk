@@ -86,7 +86,7 @@ pub fn ethereum_simulation_deposit_beneficiary_valid(who: &Location) -> bool {
 ///
 /// Withdraw / mint / internal transfer are bookkeeping-only (no real balances). [`DepositAsset`]
 /// only succeeds when the beneficiary ends with
-/// [`AccountKey20`](Junction::AccountKey20), matching Snowbridge’s Ethereum-facing shape; otherwise
+/// [`AccountKey20`], matching Snowbridge’s Ethereum-facing shape; otherwise
 /// assets stay in holding for trapping.
 pub struct EthereumSimulationAssetTransactor;
 impl TransactAsset for EthereumSimulationAssetTransactor {
@@ -132,7 +132,8 @@ impl TransactAsset for EthereumSimulationAssetTransactor {
 /// [`ShouldExecute`] barrier for the Ethereum XCM simulation executor when
 /// [`crate::v2::ExecuteBeforeSnowbridgeV2BlobExport`] runs the **inner** Ethereum `ExportMessage`
 /// blob. That blob does not use `UnpaidExecution`; fee-free simulation is provided separately by
-/// [`EthereumExecutionFreeTrader`] and [`WaiveDeliveryFees`].
+/// [`EthereumExecutionFreeTrader`] and the runtime’s configured fee manager (e.g.
+/// [`xcm_executor::traits::WaiveDeliveryFees`]).
 ///
 /// Snowbridge v2 outbound blobs are recognized by an [`AliasOrigin`] instruction (same as
 /// [`crate::v2::EthereumBlobExporter`]). Those programs must match
@@ -160,7 +161,8 @@ impl<EthereumNetwork: Get<NetworkId>> ShouldExecute
 	}
 }
 
-/// Buys execution weight without touching real fee balances (paired with [`WaiveDeliveryFees`]).
+/// Buys execution weight without touching real fee balances (typically paired with
+/// [`xcm_executor::traits::WaiveDeliveryFees`] in the runtime config).
 #[derive(Clone)]
 pub struct EthereumExecutionFreeTrader;
 impl WeightTrader for EthereumExecutionFreeTrader {

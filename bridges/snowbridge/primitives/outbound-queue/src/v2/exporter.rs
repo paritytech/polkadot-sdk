@@ -98,7 +98,8 @@ where
 	Ok(local_sub)
 }
 
-/// Returns `true` if the top-level instruction list contains an [`AliasOrigin`] instruction.
+/// Returns `true` if the top-level instruction list contains an [`Instruction::AliasOrigin`]
+/// instruction.
 ///
 /// Snowbridge v2 outbound export blobs include `AliasOrigin`; legacy v1 blobs do not. Used for the
 /// v1/v2 routing predicate (same as [`EthereumBlobExporter`] and Bridge Hub export simulation).
@@ -303,7 +304,7 @@ fn force_trap_holding_in_simulation_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bo
 /// Runs the outbound XCM under `Executor` before delegating to the inner Snowbridge v2 blob
 /// exporter, so Ethereum-semantic instructions are exercised in simulation.
 ///
-/// If the inner export blob has no [`AliasOrigin`], returns [`SendError::NotApplicable`] so a
+/// If the inner export blob has no [`Instruction::AliasOrigin`], returns [`SendError::NotApplicable`] so a
 /// composed [`ExportXcm`] tuple can try the legacy v1 exporter (see
 /// [`snowbridge_v2_export_blob_contains_alias_origin`]).
 pub struct ExecuteBeforeSnowbridgeV2BlobExport<
