@@ -491,6 +491,7 @@ pub(crate) fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
 	<ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
 }
 
+#[allow(unused)]
 pub fn general_incentive_pot() -> AccountId {
 	SequentialTest::general_pot_account(GeneralPotType::ValidatorIncentive)
 }

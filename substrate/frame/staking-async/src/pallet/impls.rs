@@ -723,7 +723,7 @@ impl<T: Config> Pallet<T> {
 			},
 			_ => {
 				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorMissingPayee { era },
+					UnexpectedKind::MissingPayee { era, stash: stash.clone() },
 				));
 				defensive!("Validator missing payee");
 				return Zero::zero();
