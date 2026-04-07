@@ -504,6 +504,22 @@ pub(crate) fn default_budget() -> pallet_dap::BudgetAllocationMap {
 	build_budget(&[(staker_reward_key(), 50), (buffer_key(), 50)])
 }
 
+/// Set up DAP infrastructure: budget allocation, timestamp, fund pots with ED.
+pub(crate) fn setup_dap() {
+	pallet_dap::BudgetAllocation::<Test>::put(default_budget());
+	pallet_dap::LastIssuanceTimestamp::<Test>::put(session_mock::Timestamp::get());
+	let ed = ExistentialDeposit::get();
+	<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+		&general_staker_pot(),
+		ed,
+	)
+	.expect("mint general staker pot");
+	let dap_buffer =
+		<pallet_dap::Pallet<Test> as sp_staking::budget::BudgetRecipient<AccountId>>::pot_account();
+	<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(&dap_buffer, ed)
+		.expect("mint dap buffer");
+}
+
 impl Config for Test {
 	type OldCurrency = Balances;
 	type Currency = Balances;
@@ -798,23 +814,8 @@ impl ExtBuilder {
 			crate::AreNominatorsSlashable::<Test>::put(nominators_slashable);
 
 			if !UseLegacyEraPayout::get() {
-				// DAP mode: set up budget, fund pots, enable minting guard.
 				crate::DisableMintingGuard::<Test>::put(0);
-				pallet_dap::BudgetAllocation::<Test>::put(default_budget());
-				pallet_dap::LastIssuanceTimestamp::<Test>::put(INIT_TIMESTAMP);
-				let ed = ExistentialDeposit::get();
-				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
-					&general_staker_pot(),
-					ed,
-				)
-				.expect("mint general staker pot");
-				let dap_buffer =
-					<pallet_dap::Pallet<Test> as BudgetRecipient<AccountId>>::pot_account();
-				<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
-					&dap_buffer,
-					ed,
-				)
-				.expect("mint dap buffer");
+				setup_dap();
 			}
 			// Legacy mode: no DAP setup needed. EraPayout computes inflation, staking mints.
 			session_mock::Session::roll_until_active_era(1);

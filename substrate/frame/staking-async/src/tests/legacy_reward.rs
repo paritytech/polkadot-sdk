@@ -137,20 +137,7 @@ fn legacy_to_dap_migration_flow() {
 
 		// WHEN: switch to DAP mode.
 		UseLegacyEraPayout::set(false);
-		// Set up DAP infrastructure.
-		pallet_dap::BudgetAllocation::<Test>::put(default_budget());
-		pallet_dap::LastIssuanceTimestamp::<Test>::put(session_mock::Timestamp::get());
-		let ed = ExistentialDeposit::get();
-		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
-			&general_staker_pot(),
-			ed,
-		);
-		let dap_buffer =
-			<pallet_dap::Pallet<Test> as sp_staking::budget::BudgetRecipient<AccountId>>::pot_account();
-		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
-			&dap_buffer,
-			ed,
-		);
+		setup_dap();
 
 		// Run more eras in DAP mode.
 		Staking::reward_by_ids(vec![(11, 1)]);
@@ -164,7 +151,11 @@ fn legacy_to_dap_migration_flow() {
 		assert!(crate::reward::EraRewardManager::<Test>::has_staker_rewards_pot(dap_era));
 
 		// THEN: old era payout (legacy) still works — no pot, uses mint.
+		let pre_legacy_issuance = pallet_balances::TotalIssuance::<Test>::get();
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, legacy_era));
+		// Legacy payout mints — issuance increases.
+		assert!(pallet_balances::TotalIssuance::<Test>::get() > pre_legacy_issuance);
+
 		let pre_issuance = pallet_balances::TotalIssuance::<Test>::get();
 
 		// THEN: new era payout (DAP) works — uses pot transfer.
