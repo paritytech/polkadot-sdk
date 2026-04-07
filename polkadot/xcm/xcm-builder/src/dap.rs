@@ -90,7 +90,7 @@ where
 			match outcome {
 				Outcome::Complete { .. } => TransactionOutcome::Commit(Ok(())),
 				exec_error => {
-					tracing::warn!(
+					tracing::debug!(
 						target: LOG_TARGET,
 						?exec_error,
 						"DAP satellite: XCM execution failed"

@@ -39,6 +39,7 @@ use frame_support::{
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
+use cumulus_primitives_core::{IsSystem, ParaId};
 use parachains_common::xcm_config::{
 	AllSiblingSystemParachains, ConcreteAssetFromSystem, RelayOrOtherSystemParachains,
 };
@@ -330,8 +331,7 @@ impl Contains<Location> for SiblingDapSatelliteAccounts {
 		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
 		match location.unpack() {
 			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
-				AllSiblingSystemParachains::contains(&Location::new(1, [Parachain(*id)])) &&
-					*account_id == satellite_account
+				ParaId::from(*id).is_system() && *account_id == satellite_account
 			},
 			_ => false,
 		}

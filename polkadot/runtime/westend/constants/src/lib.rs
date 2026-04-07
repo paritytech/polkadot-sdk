@@ -142,7 +142,7 @@ pub mod system_parachain {
 			}
 			.into();
 			/// How often the satellite flushes its buffer to the central DAP.
-			pub const DapSatelliteTransferPeriod: BlockNumber = super::super::time::MINUTES;
+			pub const DapSatelliteTransferPeriod: BlockNumber = super::super::time::HOURS;
 			/// Minimum balance required to trigger a satellite-to-DAP transfer.
 			pub const DapSatelliteMinTransferAmount: Balance = 10 * super::super::currency::UNITS;
 		}

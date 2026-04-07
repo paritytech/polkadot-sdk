@@ -152,7 +152,8 @@ pub mod pallet {
 			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
 				return meter.consumed();
 			}
-			let balance = T::Currency::balance(&Self::satellite_account());
+			let satellite_account = Self::satellite_account();
+			let balance = T::Currency::balance(&satellite_account);
 			let ed = T::Currency::minimum_balance();
 			let available_funds = balance.saturating_sub(ed);
 
@@ -169,14 +170,13 @@ pub mod pallet {
 			LastTransferBlock::<T>::put(block);
 
 			// Attempt the transfer to the central DAP.
-			let source = Self::satellite_account();
-			match T::SendToDap::send_native(source, available_funds) {
+			match T::SendToDap::send_native(satellite_account, available_funds) {
 				Ok(()) => {
 					Self::deposit_event(Event::SendSucceeded { amount: available_funds });
 				},
 				Err(()) => {
 					// A warning is sufficient since the transfer will be retried later.
-					log::warn!(
+					log::debug!(
 						target: LOG_TARGET,
 						"DAP satellite transfer of {:?} failed at block {:?}",
 						available_funds,

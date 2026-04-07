@@ -37,6 +37,7 @@ where
 	Sender::RuntimeEvent: TryInto<pallet_dap_satellite::Event<Sender::Runtime>>,
 	pallet_dap_satellite::Pallet<Sender::Runtime>: Hooks<u32>,
 	<Sender::Runtime as pallet_dap_satellite::Config>::MinTransferAmount: Get<Balance>,
+	<Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod: Get<u32>,
 	AH: Chain + TestExt,
 	AH::Runtime: pallet_xcm::Config
 		+ pallet_balances::Config<Balance = Balance>
@@ -80,8 +81,7 @@ where
 			)
 		});
 
-	// The transfer period is 10 blocks (1 Westend minute at 6s block time).
-	let transfer_period: u32 = 10;
+	let transfer_period = <Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod::get();
 
 	// Trigger `on_idle` to initiate a transfer to DAP.
 	Sender::execute_with(|| {
