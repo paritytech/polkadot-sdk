@@ -4,11 +4,15 @@ pub mod converter;
 pub mod delivery_receipt;
 pub mod exporter;
 pub mod message;
+pub mod simulation;
 
 pub use converter::*;
 pub use delivery_receipt::*;
 pub use exporter::*;
 pub use message::*;
+pub use simulation::{
+	EthereumExecutionFreeTrader, EthereumExportSimulationBarrier, EthereumSimulationAssetTransactor,
+};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;
