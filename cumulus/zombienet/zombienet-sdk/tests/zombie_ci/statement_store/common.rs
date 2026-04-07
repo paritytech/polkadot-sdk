@@ -26,7 +26,8 @@ use zombienet_sdk::{
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
 
-use sc_statement_store::test_utils::get_keypair;
+use sc_statement_store::{subxt_client::CustomConfig, test_utils::get_keypair};
+use subxt::OnlineClient;
 
 pub(super) const RPC_POOL_SIZE: usize = 10000;
 
@@ -80,6 +81,35 @@ pub(super) async fn subscribe_topic(
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
 			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
+			"statement_unsubscribeStatement",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+/// Subscribes to statements matching any of the given topics
+pub(super) async fn subscribe_topic_match_any(
+	rpc: &RpcClient,
+	topics: Vec<Topic>,
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
+	let subscription = rpc
+		.subscribe::<StatementEvent>(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::MatchAny(topics.try_into().expect("MatchAny topics"))],
+			"statement_unsubscribeStatement",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+/// Subscribes to all statements regardless of topic
+pub(super) async fn subscribe_all(
+	rpc: &RpcClient,
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
+	let subscription = rpc
+		.subscribe::<StatementEvent>(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::Any],
 			"statement_unsubscribeStatement",
 		)
 		.await?;
@@ -236,10 +266,10 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	Ok(network)
 }
 
-/// Spawns a network with a sudo-enabled chain spec and sets allowances at runtime
-pub(super) async fn spawn_network_sudo(
+/// Spawns a network using `people-westend-local-spec.json`, waits for block production
+async fn spawn_network_inner(
 	collators: &[&str],
-	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
+	participant_count: usize,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 
@@ -249,8 +279,6 @@ pub(super) async fn spawn_network_sudo(
 		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombienet-{}", std::process::id())));
 	std::fs::create_dir_all(&base_dir)
 		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
-
-	let participant_count = allowance_items.len();
 
 	let chain_spec_template = include_str!("people-westend-local-spec.json");
 	let chain_spec_path = base_dir.join("people-westend-local-spec.json");
@@ -272,21 +300,32 @@ pub(super) async fn spawn_network_sudo(
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"--force-authoring".into(),
-					"--authoring".into(),
-					"slot-based".into(),
-					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
-					"--enable-statement-store".into(),
-					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
-					format!(
-						"--rpc-max-subscriptions-per-connection={}",
-						(participant_count * 16).max(32)
-					)
-					.as_str()
-					.into(),
-				])
+				.with_default_args({
+					let mut args = vec![
+						"--force-authoring".into(),
+						"--authoring".into(),
+						"slot-based".into(),
+						"--max-runtime-instances=32".into(),
+						"-linfo,statement-store=info,statement-gossip=info".into(),
+						"--enable-statement-store".into(),
+					];
+					if participant_count > 0 {
+						args.push(
+							format!("--rpc-max-connections={}", participant_count + 1000)
+								.as_str()
+								.into(),
+						);
+						args.push(
+							format!(
+								"--rpc-max-subscriptions-per-connection={}",
+								(participant_count * 16).max(32)
+							)
+							.as_str()
+							.into(),
+						);
+					}
+					args
+				})
 				.with_collator(|n| n.with_name(collators[0]));
 
 			collators[1..]
@@ -312,8 +351,37 @@ pub(super) async fn spawn_network_sudo(
 		.await?;
 	info!("Parachain is producing blocks");
 
+	Ok(network)
+}
+
+/// Spawns a network and sets statement allowances at runtime via sudo
+pub(super) async fn spawn_network_sudo(
+	collators: &[&str],
+	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let network = spawn_network_inner(collators, allowance_items.len()).await?;
+	let node = network.get_node(collators[0])?;
 	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
 		.await?;
-
 	Ok(network)
+}
+
+/// Spawns a network without pre-injected allowances
+pub(super) async fn spawn_network(
+	collators: &[&str],
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	spawn_network_inner(collators, 0).await
+}
+
+/// Creates an `OnlineClient<CustomConfig>` from a zombienet node
+pub(super) async fn online_client_from_node(
+	node: &zombienet_sdk::NetworkNode,
+) -> Result<OnlineClient<CustomConfig>, anyhow::Error> {
+	let ws_uri = node.ws_uri();
+	let client = OnlineClient::<CustomConfig>::from_insecure_url_with_config(
+		CustomConfig::default(),
+		ws_uri,
+	)
+	.await?;
+	Ok(client)
 }

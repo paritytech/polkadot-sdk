@@ -26,6 +26,7 @@ sc-statement-store = { workspace = true, default-features = true, features = ["t
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+verifiable = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }

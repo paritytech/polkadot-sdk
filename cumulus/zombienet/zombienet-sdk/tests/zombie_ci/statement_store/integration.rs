@@ -3,14 +3,26 @@
 
 use codec::Encode;
 use log::info;
-use sp_core::Bytes;
+use sp_core::{sr25519, Bytes, Pair};
 use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
+use subxt::{dynamic::Value, transactions::Signer};
+use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 
-use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
+use sc_statement_store::{
+	subxt_client::{submit_extrinsic, CustomConfig},
+	test_utils::{create_allowance_items, create_test_statement, get_keypair},
+};
 
-use super::common::{
-	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+use super::{
+	common::{
+		assert_no_more_statements, expect_one_statement, expect_statements_unordered,
+		online_client_from_node, spawn_network, spawn_network_sudo,
+		spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	},
+	lite_person_setup::{
+		create_attest_call, create_consumer_registration_params, create_increase_allowance_call,
+		MSG_PREFIX,
+	},
 };
 
 /// Verifies basic statement propagation and data integrity across two nodes
@@ -196,6 +208,116 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		let received = expect_statements_unordered(sub, 1, 30).await?;
 		info!("{}: eviction statements propagated ({} received)", name, received.len());
 	}
+
+	Ok(())
+}
+
+/// Tests statement store submit+propagate using a lite person registered via extrinsics
+///
+/// Unlike the basic tests that use genesis-baked allowances, this test registers a lite person
+/// via real extrinsics (increase_attestation_allowance + attest), and then verifies the registered
+/// candidate can submit and propagate statements
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network(&["alice", "bob"]).await?;
+
+	let alice_node = network.get_node("alice")?;
+	let bob_node = network.get_node("bob")?;
+	let para_client = online_client_from_node(alice_node).await?;
+
+	let alice = subxt_signer::sr25519::dev::alice();
+	let alice_account_id =
+		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
+
+	// Grant one attestation allowance via sudo
+	info!("Granting attestation allowance to Alice...");
+	let increase_call = create_increase_allowance_call(alice_account_id.0.to_vec(), 1);
+	let mut nonce = para_client.tx().await?.account_nonce(&alice_account_id).await?;
+	info!("Alice nonce before increase_allowance: {nonce}");
+	let _block_hash = submit_extrinsic(&para_client, &increase_call, &alice, nonce).await?;
+	nonce += 1;
+	info!("Attestation allowance granted");
+
+	let candidate_pair = sr25519::Pair::from_seed(&[77u8; 32]);
+	let candidate_account: [u8; 32] = candidate_pair.public().0;
+
+	// Generate ring-VRF keypair
+	let ring_secret = Crypto::new_secret([42u8; 32]);
+	let ring_member = Crypto::member_from_secret(&ring_secret);
+	let msg = {
+		let candidate_encoded = candidate_account.encode();
+		let ring_member_encoded = ring_member.encode();
+		[MSG_PREFIX.as_slice(), &candidate_encoded, &ring_member_encoded].concat()
+	};
+	let candidate_sig = candidate_pair.sign(&msg);
+
+	let proof_of_ownership =
+		Crypto::sign(&ring_secret, &msg).expect("ring VRF signing should succeed");
+
+	let consumer_registration = create_consumer_registration_params(
+		&candidate_pair,
+		&candidate_account,
+		&alice_account_id.0,
+	);
+
+	info!("Submitting PeopleLite::attest call with nonce {nonce}...");
+	let attest_call = create_attest_call(
+		candidate_account.to_vec(),
+		candidate_sig.0.to_vec(),
+		ring_member.0.to_vec(),
+		proof_of_ownership.to_vec(),
+		Some(consumer_registration),
+	);
+	let block_hash = submit_extrinsic(&para_client, &attest_call, &alice, nonce).await?;
+	info!(
+		"Attest call succeeded — lite person registered with consumer allowance (block {block_hash:?})"
+	);
+
+	// Verify the candidate appears in LitePeople storage
+	let lite_people_query =
+		subxt::dynamic::storage::<([u8; 32],), Value>("PeopleLite", "LitePeople");
+	let at_block = para_client.at_block(block_hash).await?;
+	let entry = at_block.storage().try_fetch(lite_people_query, (candidate_account,)).await?;
+	assert!(entry.is_some(), "Candidate should be registered in LitePeople storage");
+	info!("Verified: candidate is present in LitePeople storage");
+
+	// Wait for the attest block to finalize before submitting statements
+	let at_block = para_client.at_block(block_hash).await?;
+	let attest_block_number = at_block.block_number() as f64;
+	info!("Waiting for attest block ({attest_block_number}) to finalize...");
+	alice_node
+		.wait_metric_with_timeout(
+			"block_height{status=\"finalized\"}",
+			|height| height >= attest_block_number,
+			120u64,
+		)
+		.await?;
+	info!("Attest block finalized");
+
+	let bob_rpc = bob_node.rpc().await?;
+	let topic: Topic = [0u8; 32].into();
+	let mut bob_sub = subscribe_topic(&bob_rpc, topic).await?;
+
+	let statement =
+		create_test_statement(&candidate_pair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
+	let expected: Bytes = statement.encode().into();
+
+	let alice_rpc = alice_node.rpc().await?;
+	let result = submit_statement(&alice_rpc, &statement).await?;
+	assert_eq!(result, SubmitResult::New);
+	info!("Statement submitted to alice");
+
+	// Statement should propagate to bob
+	let received = expect_one_statement(&mut bob_sub, 20).await?;
+	assert_eq!(received, expected);
+	info!("Statement received on bob with correct data");
+
+	assert_no_more_statements(&mut bob_sub, 20).await?;
+	info!("Statement store lite person submit and propagate test passed");
 
 	Ok(())
 }
