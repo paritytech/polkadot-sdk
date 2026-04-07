@@ -31,7 +31,7 @@ use snowbridge_core::AssetMetadata;
 use snowbridge_outbound_queue_primitives::v2::ContractCall;
 use sp_runtime::DispatchError::BadOrigin;
 use testnet_parachains_constants::westend::snowbridge::EthereumNetwork;
-use xcm::v5::AssetTransferFilter;
+use xcm::{v5::AssetTransferFilter, VersionedAssets};
 
 fn unprivileged_attacker() -> AccountId {
 	AssetHubWestend::account_id_of(DUMMY_EMPTY)
@@ -592,7 +592,19 @@ fn send_eth_from_asset_hub_to_invalid_ethereum_beneficiary_should_fail_and_trap_
 					error: xcm::latest::Error::Unroutable,
 					..
 				}) => {},
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. }) => {},
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) => {
+					// `InitiateTransfer` reserve is `ethereum()` on AH; in the BH export blob the same
+					// reserve is held as `Here` before a failing `DepositAsset`.
+					assets: match assets {
+						VersionedAssets::V5(trapped) => trapped.inner().iter().any(|a| {
+							*a == Asset {
+								id: AssetId(Location::here()),
+								fun: Fungible(TOKEN_AMOUNT),
+							}
+						}),
+						_ => false,
+					},
+				},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success: false, .. }) => {},
 			]
 		);
@@ -675,7 +687,17 @@ fn send_eth_from_asset_hub_with_invalid_contract_call_params_should_fail_and_tra
 					error: xcm::latest::Error::Unroutable,
 					..
 				}) => {},
-				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { .. }) => {},
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) => {
+					assets: match assets {
+						VersionedAssets::V5(trapped) => trapped.inner().iter().any(|a| {
+							*a == Asset {
+								id: AssetId(Location::here()),
+								fun: Fungible(TOKEN_AMOUNT),
+							}
+						}),
+						_ => false,
+					},
+				},
 				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success: false, .. }) => {},
 			]
 		);
