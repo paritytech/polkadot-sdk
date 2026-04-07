@@ -1534,8 +1534,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, Statement, StatementSource,
-		StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason, Statement,
+		StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -2898,5 +2898,82 @@ mod tests {
 		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
 		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
 		assert_eq!(index.total_size, 600);
+	}
+
+	#[test]
+	fn channel_replacement_only_higher_priority_succeeds() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 1: max_count=1, max_size=1000
+		// Submit channel 1 with priority 5
+		let s1 = statement(1, 5, Some(1), 100);
+		let h1 = s1.hash();
+		assert_eq!(store.submit(s1, source), SubmitResult::New);
+
+		// Lower priority on same channel → ChannelPriorityTooLow
+		let result = store.submit(statement(1, 3, Some(1), 100), source);
+		assert!(
+			matches!(result, SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })),
+			"Lower priority should be rejected with ChannelPriorityTooLow, got: {result:?}"
+		);
+
+		// Equal priority on same channel → ChannelPriorityTooLow (check is <=)
+		// Use different data_len to get a distinct hash with same priority
+		let result = store.submit(statement(1, 5, Some(1), 101), source);
+		assert!(
+			matches!(result, SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })),
+			"Equal priority should be rejected with ChannelPriorityTooLow, got: {result:?}"
+		);
+
+		// Higher priority on same channel → replaces
+		let s2 = statement(1, 10, Some(1), 200);
+		let h2 = s2.hash();
+		assert_eq!(store.submit(s2, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 1);
+			assert!(!index.entries.contains_key(&h1), "Old channel message should be gone");
+			assert!(index.entries.contains_key(&h2), "New channel message should exist");
+			assert!(index.expired.contains_key(&h1), "Old should be in expired");
+			assert_eq!(index.total_size, 200);
+		}
+	}
+
+	#[test]
+	fn channel_replacement_with_size_increase_evicts_others() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 3: max_count=3, max_size=1000
+		// channel msg (200b) + two non-channel msgs (300b each) = 800b
+		let s_ch = statement(3, 5, Some(1), 200);
+		let s_low = statement(3, 2, None, 300);
+		let s_mid = statement(3, 3, None, 300);
+		let h_ch = s_ch.hash();
+		let h_low = s_low.hash();
+		let h_mid = s_mid.hash();
+
+		assert_eq!(store.submit(s_ch, source), SubmitResult::New);
+		assert_eq!(store.submit(s_low, source), SubmitResult::New);
+		assert_eq!(store.submit(s_mid, source), SubmitResult::New);
+		assert_eq!(store.index.read().total_size, 800);
+
+		// Replace channel with 600b message (priority 10 > 5)
+		// Must evict lowest priority non-channel statement (priority 2) to fit
+		let s_ch_big = statement(3, 10, Some(1), 600);
+		let h_ch_big = s_ch_big.hash();
+		assert_eq!(store.submit(s_ch_big, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 2);
+			assert!(!index.entries.contains_key(&h_ch), "Old channel message replaced");
+			assert!(!index.entries.contains_key(&h_low), "Priority 2 evicted to fit size");
+			assert!(index.entries.contains_key(&h_mid), "Priority 3 should remain");
+			assert!(index.entries.contains_key(&h_ch_big), "New channel message added");
+			assert_eq!(index.total_size, 900); // 300 (mid) + 600 (new channel)
+		}
 	}
 }
