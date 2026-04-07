@@ -1545,6 +1545,7 @@ mod tests {
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			had_major_syncing: false,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver)
 	}
@@ -1752,6 +1753,7 @@ mod tests {
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			had_major_syncing: false,
 		};
 		(handler, statement_store, network, notification_service)
 	}

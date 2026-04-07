@@ -1,15 +1,19 @@
-title: 'statement-store: defer statement protocol connections during major sync'
+title: 'statement-store: reconnect peers after major sync for statement recovery'
 doc:
 - audience: Node Dev
   description: |-
     # Description
 
     Nodes drop all statements received from peers during major sync because of the `is_major_syncing()` guard.
+    After major sync completes, those statements are permanently lost because peers will not re-send them.
 
-    - Fixes permanent statement loss during major sync by deferring statement protocol connections until sync completes
-    - When major sync starts, disconnects all statement protocol peers
-    - When major sync ends, reconnects all peers
-    - Added new zombienet + unit tests
+    This fix detects when major sync ends and reconnects all statement protocol peers by closing and
+    reopening their notification substreams. This triggers bidirectional initial sync on both sides,
+    recovering any statements that were missed during the sync period.
+
+    The approach is minimal: only reacts to the sync-end transition with a single `had_major_syncing`
+    flag. No peer tracking or debounce needed since the reconnect only closes notification substreams
+    (not TCP connections) and is inexpensive.
 crates:
 - name: sc-network-statement
   bump: patch
