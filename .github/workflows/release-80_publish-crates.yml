@@ -52,8 +52,13 @@ jobs:
 
   set-image:
     needs: [ check-synchronization ]
+<<<<<<< HEAD
     if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
+=======
+    if: ${{ needs.check-synchronization.outputs.checks_passed == 'true' }}
+    runs-on: ubuntu-latest-m
+>>>>>>> b0afea27 ([Release|CI/CD] Fix warnings in GH workflows or release pipeline (#11632))
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
