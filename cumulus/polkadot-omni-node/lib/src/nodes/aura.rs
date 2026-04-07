@@ -673,9 +673,7 @@ where
 			// piece of code.
 			Self::launch_slot_based_collator(params);
 		};
-		task_manager
-			.spawn_essential_handle()
-			.spawn("slot-based-collator-init", None, fut);
+		task_manager.spawn_handle().spawn("slot-based-collator-init", None, fut);
 
 		Ok(())
 	}
