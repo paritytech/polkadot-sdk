@@ -1,7 +1,9 @@
 The following crates were updated to the corresponding versions:
 
-- sp-metadata-ir@0.11.1
-- frame-support@41.0.1
-- substrate-wasm-builder@27.0.1
-- pallet-example-view-functions@0.3.1
-- sc-tracing@40.0.2
+<details>
+  <summary>Click to see crates list</summary>
+- sp-trie@40.0.1
+- sc-authority-discovery@0.51.1
+- polkadot-collator-protocol@24.0.1
+- sc-network@0.51.2
+</details>
