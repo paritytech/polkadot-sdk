@@ -100,9 +100,7 @@ impl<T: frame_system::Config> WeightInfo<T> {
 		//  Measured:  `0`
 		//  Estimated: `0`
 		// Minimum execution time: 1_550_000 picoseconds.
-		// Fungible benchmark overrides to `Weight::MAX` when `TrustedReserve` is unset; that
-		// saturated `WeightInfoBounds` totals. Aligned with `asset-hub-westend` until re-bench.
-		Weight::from_parts(1_655_000, 0)
+		Weight::MAX
 	}
 	// Storage: `ParachainInfo::ParachainId` (r:1 w:0)
 	// Proof: `ParachainInfo::ParachainId` (`max_values`: Some(1), `max_size`: Some(4), added: 499, mode: `MaxEncodedLen`)

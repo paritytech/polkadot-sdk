@@ -65,8 +65,11 @@ use testnet_parachains_constants::westend::{
 };
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
-use xcm_builder::{AliasOriginRootUsingFilter, FrameTransactionalProcessor, WeightInfoBounds};
+use xcm_builder::{
+	AliasOriginRootUsingFilter, FixedWeightBounds, FrameTransactionalProcessor,
+};
 use xcm_executor::{traits::WaiveDeliveryFees, XcmExecutor};
+use frame_support::weights::Weight;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 
@@ -112,11 +115,7 @@ impl xcm_executor::Config for EthereumXcmConfig {
 		AliasOriginRootUsingFilter<AssetHubLocation, EverythingBut<Equals<AssetHubLocation>>>;
 	type UniversalLocation = UniversalLocation;
 	type Barrier = EthereumExportSimulationBarrier<EthereumNetwork>;
-	type Weigher = WeightInfoBounds<
-		crate::weights::xcm::BridgeHubWestendXcmWeight<RuntimeCall>,
-		RuntimeCall,
-		MaxInstructions,
-	>;
+	type Weigher = FixedWeightBounds<EthereumSimulationBaseXcmWeight, RuntimeCall, MaxInstructions>;
 	type Trader = EthereumExecutionFreeTrader;
 	type ResponseHandler = ();
 	type AssetTrap = PolkadotXcm;
@@ -152,6 +151,14 @@ pub type SnowbridgeExporterV2WithXcmExecution = ExecuteBeforeSnowbridgeV2BlobExp
 // Ethereum Bridge
 parameter_types! {
 	pub storage EthereumGatewayAddress: H160 = H160(hex!("b1185ede04202fe62d38f5db72f71e38ff3e8305"));
+}
+
+parameter_types! {
+	/// Base weight charged per instruction during Bridge Hub Ethereum export simulation.
+	///
+	/// This is simulation-only (no fees are charged) and is used to bound executor work without
+	/// depending on benchmarked per-instruction weights.
+	pub EthereumSimulationBaseXcmWeight: Weight = Weight::from_parts(1_000_000, 0);
 }
 
 parameter_types! {
