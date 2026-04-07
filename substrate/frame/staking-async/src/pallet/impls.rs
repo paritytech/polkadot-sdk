@@ -721,10 +721,10 @@ impl<T: Config> Pallet<T> {
 				}
 			},
 			_ => {
-				defensive!("Validator missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::ValidatorMissingPayee { era },
 				));
+				defensive!("Validator missing payee");
 				return Zero::zero();
 			},
 		};
@@ -748,10 +748,10 @@ impl<T: Config> Pallet<T> {
 			},
 			Err(e) => {
 				log!(warn, "Failed to transfer liquid incentive: {:?}", e);
-				defensive!("Validator incentive liquid transfer failed");
 				Self::deposit_event(Event::<T>::Unexpected(
 					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
 				));
+				defensive!("Validator incentive liquid transfer failed");
 				Zero::zero()
 			},
 		}

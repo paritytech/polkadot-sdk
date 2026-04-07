@@ -553,3 +553,55 @@ fn all_validators_zero_points_no_incentive_paid() {
 		);
 	});
 }
+
+// ===== Defensive path tests =====
+
+#[test]
+#[should_panic(expected = "Validator missing payee")]
+fn defensive_panic_on_missing_payee() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		// GIVEN: incentive enabled, validator has weight.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+
+		// WHEN: missing payee for alice.
+		Payee::<Test>::remove(&alice);
+
+		// THEN: payout panics on defensive.
+		make_all_reward_payment(2);
+	});
+}
+
+#[test]
+#[should_panic(expected = "Validator incentive liquid transfer failed")]
+fn defensive_panic_on_transfer_failure() {
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+
+		// GIVEN: incentive enabled, validator has weight.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (21, 1)]);
+		Session::roll_until_active_era(3);
+
+		// WHEN: drain the incentive pot so transfer fails.
+		let pot = <Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
+		let pot_balance = Balances::free_balance(&pot);
+		if pot_balance > 0 {
+			// Transfer everything out to account 999 to empty the pot.
+			let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::transfer(
+				&pot,
+				&999,
+				pot_balance,
+				frame_support::traits::tokens::Preservation::Expendable,
+			);
+		}
+
+		// THEN: payout panics on defensive.
+		make_all_reward_payment(2);
+	});
+}
