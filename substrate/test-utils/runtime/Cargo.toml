@@ -86,6 +86,7 @@ no-metadata-hash-check = []
 std = [
 	"array-bytes",
 	"codec/std",
+	"frame-benchmarking?/std",
 	"frame-executive/std",
 	"frame-metadata-hash-extension/std",
 	"frame-metadata/std",
@@ -130,7 +131,6 @@ std = [
 	"substrate-wasm-builder",
 	"tracing/std",
 	"trie-db/std",
-	"frame-benchmarking?/std"
 ]
 
 runtime-benchmarks = [
@@ -142,8 +142,8 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"sc-service?/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"sc-service?/runtime-benchmarks"
 ]
 
 # Special feature to disable logging
