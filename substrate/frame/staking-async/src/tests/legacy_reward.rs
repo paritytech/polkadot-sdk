@@ -120,3 +120,56 @@ fn legacy_guard_stays_unset_across_eras() {
 		assert_eq!(DisableMintingGuard::<Test>::get(), None);
 	});
 }
+
+#[test]
+fn legacy_to_dap_migration_flow() {
+	// Start in legacy mode, run a few eras, then switch to DAP mode and verify
+	// old-era payouts still work (legacy mint) while new-era payouts use pots.
+	ExtBuilder::default().legacy_reward_mode().build_and_execute(|| {
+		// GIVEN: legacy mode, era 1 with reward points.
+		Staking::reward_by_ids(vec![(11, 1)]);
+		Session::roll_until_active_era(2);
+
+		let legacy_era = 1;
+		assert_eq!(DisableMintingGuard::<Test>::get(), None);
+		assert!(!crate::reward::EraRewardManager::<Test>::has_staker_rewards_pot(legacy_era));
+		assert!(ErasValidatorReward::<Test>::get(legacy_era).unwrap() > 0);
+
+		// WHEN: switch to DAP mode.
+		UseLegacyEraPayout::set(false);
+		// Set up DAP infrastructure.
+		pallet_dap::BudgetAllocation::<Test>::put(default_budget());
+		pallet_dap::LastIssuanceTimestamp::<Test>::put(session_mock::Timestamp::get());
+		let ed = ExistentialDeposit::get();
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+			&general_staker_pot(),
+			ed,
+		);
+		let dap_buffer =
+			<pallet_dap::Pallet<Test> as sp_staking::budget::BudgetRecipient<AccountId>>::pot_account();
+		let _ = <Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+			&dap_buffer,
+			ed,
+		);
+
+		// Run more eras in DAP mode.
+		Staking::reward_by_ids(vec![(11, 1)]);
+		Session::roll_until_active_era(3);
+
+		let dap_era = 2;
+
+		// THEN: guard is now set (DAP snapshotted successfully).
+		assert!(DisableMintingGuard::<Test>::get().is_some());
+		// New era has a pot.
+		assert!(crate::reward::EraRewardManager::<Test>::has_staker_rewards_pot(dap_era));
+
+		// THEN: old era payout (legacy) still works — no pot, uses mint.
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, legacy_era));
+		let pre_issuance = pallet_balances::TotalIssuance::<Test>::get();
+
+		// THEN: new era payout (DAP) works — uses pot transfer.
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), 11, dap_era));
+		// DAP payout doesn't change issuance (transfer, not mint).
+		assert_eq!(pallet_balances::TotalIssuance::<Test>::get(), pre_issuance);
+	});
+}

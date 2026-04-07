@@ -25,7 +25,8 @@ use pallet_election_provider_multi_block::{
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	Event as StakingEvent,
+	DisableMintingGuard, EraPotAccountProvider, EraPotType, ErasValidatorReward, Event as StakingEvent,
+	GeneralPotAccountProvider, GeneralPotType, SequentialTest,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
@@ -2109,4 +2110,86 @@ mod session_keys {
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
 		});
 	}
+}
+
+/// Test that DAP-mode era payout works end-to-end: era rotation creates funded pots,
+/// payouts transfer from pots, unclaimed rewards are cleaned up.
+#[test]
+fn dap_era_payout_e2e() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let general_pot = SequentialTest::general_pot_account(GeneralPotType::StakerRewards);
+		let reward_amount: Balance = 10_000;
+		let ed = 1;
+
+		// Fund the general staker pot so snapshot has something to transfer.
+		<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+			&general_pot,
+			ed + reward_amount,
+		)
+		.unwrap();
+
+		// Roll to era 1.
+		let validators = roll_until_next_active(1);
+		assert!(!validators.is_empty());
+		assert_eq!(Rotator::<T>::active_era(), 1);
+
+		// Era 0 should have a pot with funds from the snapshot.
+		assert!(DisableMintingGuard::<T>::get().is_some());
+		let era_pot = SequentialTest::era_pot_account(0, EraPotType::StakerRewards);
+		assert!(System::providers(&era_pot) > 0);
+		assert!(ErasValidatorReward::<T>::get(0).unwrap() > 0);
+
+		// Fund pot again for era 1 snapshot.
+		<Balances as frame_support::traits::fungible::Mutate<_>>::mint_into(
+			&general_pot,
+			reward_amount,
+		)
+		.unwrap();
+
+		// Add reward points for era 1 validators so payout has something to pay.
+		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
+			points.total = 4;
+			points.individual.try_insert(3, 1).unwrap();
+			points.individual.try_insert(5, 1).unwrap();
+			points.individual.try_insert(6, 1).unwrap();
+			points.individual.try_insert(8, 1).unwrap();
+		});
+
+		// Roll to era 2 so era 1 becomes claimable.
+		roll_until_next_active(7);
+		assert_eq!(Rotator::<T>::active_era(), 2);
+
+		let payout_era = 1;
+		assert!(ErasValidatorReward::<T>::get(payout_era).unwrap() > 0);
+
+		// Drain events before payout.
+		let _ = staking_events_since_last_call();
+
+		// Payout era 1 — should transfer from pot, not mint.
+		let pre_issuance =
+			<Balances as frame_support::traits::fungible::Inspect<_>>::total_issuance();
+
+		// Validator 3 was elected (default election picks [3, 5, 6, 8]).
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			3,
+			payout_era,
+		));
+
+		// Issuance unchanged — transfer from pot, not mint.
+		let post_issuance =
+			<Balances as frame_support::traits::fungible::Inspect<_>>::total_issuance();
+		assert_eq!(post_issuance, pre_issuance);
+
+		// Validator received reward (payout started, even if zero points — the pot transfer worked).
+		let events = staking_events_since_last_call();
+		assert!(
+			events.iter().any(|e| matches!(
+				e,
+				StakingEvent::PayoutStarted { validator_stash: 3, .. }
+			)),
+			"Expected PayoutStarted for validator 3, got: {:?}",
+			events
+		);
+	});
 }

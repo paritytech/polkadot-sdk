@@ -172,7 +172,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn payout_stakers_alive_staked(_: u32) -> Weight {
-		unreachable!()
+		Weight::default()
 	}
 	fn rebond(_: u32) -> Weight {
 		unreachable!()
