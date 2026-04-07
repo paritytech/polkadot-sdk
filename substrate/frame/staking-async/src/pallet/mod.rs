@@ -1381,7 +1381,7 @@ pub mod pallet {
 		},
 		/// Something occurred that should never happen under normal operation.
 		/// Logged as an event for fail-safe observability.
-		Unexpected(UnexpectedKind),
+		Unexpected(UnexpectedKind<T>),
 		/// An offence was reported that was too old to be processed, and thus was dropped.
 		OffenceTooOld {
 			offence_era: EraIndex,
@@ -1406,20 +1406,22 @@ pub mod pallet {
 	/// These variants are emitted as [`Event::Unexpected`] and indicate a defensive check has
 	/// failed. While these should never occur under normal operation, they are useful for
 	/// diagnosing issues in production or test environments.
-	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, Debug)]
-	pub enum UnexpectedKind {
+	#[derive(Clone, Encode, Decode, DecodeWithMemTracking, PartialEq, TypeInfo, DebugNoBound)]
+	#[codec(mel_bound())]
+	#[scale_info(skip_type_params(T))]
+	pub enum UnexpectedKind<T: Config> {
 		/// Emitted when calculated era duration exceeds the configured maximum.
 		EraDurationBoundExceeded,
 		/// Received a validator activation event that is not recognized.
 		UnknownValidatorActivation,
 		/// Failed to proceed paged election due to weight limits
 		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
-		/// Validator payee is missing when paying rewards.
-		ValidatorMissingPayee { era: EraIndex },
 		/// Total validator weight is zero but incentive allocation exists.
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
+		/// Payee not set for a staker when paying rewards.
+		MissingPayee { era: EraIndex, stash: T::AccountId },
 	}
 
 	#[pallet::error]

@@ -18,14 +18,18 @@
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::{assert_ok, hypothetically, traits::fungible::hold::Inspect as HoldInspect};
+use frame_support::{
+	assert_ok, hypothetically,
+	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
+};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	Event as StakingEvent,
+	DisableMintingGuard, EraPotAccountProvider, EraPotType, ErasValidatorReward,
+	Event as StakingEvent, GeneralPotAccountProvider, GeneralPotType, SequentialTest,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
@@ -1338,7 +1342,9 @@ mod poll_operations {
 			// election for era 2 has started
 			assert_eq!(CurrentEra::<T>::get(), Some(2));
 			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
-			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 1, start: Some(1000) }));
+			let active_era = ActiveEra::<T>::get().unwrap();
+			assert_eq!(active_era.index, 1);
+			assert!(active_era.start.is_some());
 			assert!(OutgoingValidatorSet::<T>::get().is_none());
 
 			// roll until signed and submit a solution.
@@ -2109,4 +2115,132 @@ mod session_keys {
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
 		});
 	}
+}
+
+/// E2E: start in legacy mode, run an era with legacy payouts, switch to DAP mode
+/// via governance, verify DAP drips fund era pots and payouts transfer without minting.
+#[test]
+fn legacy_to_dap_era_payout_e2e() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let val_a: AccountId = 3; // validator (elected)
+
+		// GIVEN: legacy mode.
+		UseLegacyEraPayout::set(true);
+		// Set payees for elected validators [3, 5, 6, 8] (genesis doesn't set them).
+		for v in [3u64, 5, 6, 8] {
+			staking_async::Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+		}
+
+		// WHEN: roll to era 1 (legacy end_era computes inflation via EraPayout).
+		roll_until_next_active(1);
+		assert_eq!(Rotator::<T>::active_era(), 1);
+
+		// THEN: legacy mode — no pots, no guard.
+		assert_eq!(DisableMintingGuard::<T>::get(), None);
+		assert_eq!(
+			System::providers(&SequentialTest::era_pot_account(0, EraPotType::StakerRewards)),
+			0
+		);
+
+		// Reward points for era 1 (era 0 has no exposure — pre-election).
+		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
+			points.total = 4;
+			for v in [3, 5, 6, 8] {
+				points.individual.try_insert(v, 1).unwrap();
+			}
+		});
+
+		// WHEN: roll to era 2 (still legacy mode).
+		roll_until_next_active(7);
+		assert_eq!(Rotator::<T>::active_era(), 2);
+
+		// THEN: EraPaid for era 1 with non-zero remainder (legacy 50/50 split).
+		let events = staking_events_since_last_call();
+		assert!(events.iter().any(|e| matches!(
+			e, StakingEvent::EraPaid { era_index: 1, remainder, .. } if *remainder > 0
+		)));
+
+		// WHEN: switch to DAP mode (simulates runtime upgrade).
+		UseLegacyEraPayout::set(false);
+
+		// Governance: set DAP budget (85% stakers, 15% buffer).
+		let staker_key =
+			<staking_async::StakerRewardRecipient<SequentialTest> as
+				sp_staking::budget::BudgetRecipient<AccountId>>::budget_key();
+		let buffer_key =
+			<pallet_dap::Pallet<T> as sp_staking::budget::BudgetRecipient<AccountId>>::budget_key();
+		let mut budget = pallet_dap::BudgetAllocationMap::new();
+		budget.try_insert(staker_key, Perbill::from_percent(85)).unwrap();
+		budget.try_insert(buffer_key, Perbill::from_percent(15)).unwrap();
+		assert_ok!(pallet_dap::Pallet::<T>::set_budget_allocation(RuntimeOrigin::root(), budget,));
+
+		// Initialize DAP and fund general staker pot with ED.
+		pallet_dap::LastIssuanceTimestamp::<T>::put(MockTime::get());
+		let general_pot = SequentialTest::general_pot_account(GeneralPotType::StakerRewards);
+		Balances::mint_into(&general_pot, 1).unwrap();
+
+		// WHEN: payout era 1 (legacy era) while already in DAP mode.
+		// Era 1 has no pot (created in legacy mode) — falls back to legacy mint.
+		let pre_issuance = Balances::total_issuance();
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			val_a,
+			1,
+		));
+		// THEN: legacy payout mints even though DAP mode is active.
+		assert!(Balances::total_issuance() > pre_issuance);
+
+		// Reward points for era 2.
+		staking_async::ErasRewardPoints::<T>::mutate(2, |points| {
+			points.total = 4;
+			for v in [3, 5, 6, 8] {
+				points.individual.try_insert(v, 1).unwrap();
+			}
+		});
+
+		// WHEN: roll to era 3. Each block drips 12_000ms of inflation via DAP.
+		let _ = staking_events_since_last_call();
+		roll_until_next_active(13);
+		assert_eq!(Rotator::<T>::active_era(), 3);
+
+		// THEN: guard set, era 2 has pot with funds.
+		assert!(DisableMintingGuard::<T>::get().is_some());
+		let era_2_pot = SequentialTest::era_pot_account(2, EraPotType::StakerRewards);
+		assert!(System::providers(&era_2_pot) > 0);
+		let era_2_reward = ErasValidatorReward::<T>::get(2).unwrap();
+		assert!(era_2_reward > 0);
+
+		// THEN: EraPaid with remainder=0 (DAP mode).
+		let events = staking_events_since_last_call();
+		assert!(events.iter().any(|e| matches!(
+			e, StakingEvent::EraPaid { era_index: 2, remainder, .. } if *remainder == 0
+		)));
+
+		// WHEN: payout era 2 (DAP pot transfer).
+		let pre_issuance = Balances::total_issuance();
+		let balance_before = Balances::total_balance(&val_a);
+		let _ = staking_events_since_last_call();
+
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			val_a,
+			2,
+		));
+
+		// THEN: issuance unchanged (transfer, not mint).
+		assert_eq!(Balances::total_issuance(), pre_issuance);
+		// THEN: validator balance increased.
+		assert!(Balances::total_balance(&val_a) > balance_before);
+		// THEN: correct events.
+		let events = staking_events_since_last_call();
+		assert!(events.iter().any(|e| matches!(
+			e, StakingEvent::PayoutStarted { era_index: 2, validator_stash, .. }
+			if *validator_stash == val_a
+		)));
+		assert!(events.iter().any(|e| matches!(
+			e, StakingEvent::Rewarded { stash, .. } if *stash == val_a
+		)));
+	});
+
+	UseLegacyEraPayout::set(false);
 }

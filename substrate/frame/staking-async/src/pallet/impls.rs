@@ -584,9 +584,10 @@ impl<T: Config> Pallet<T> {
 			Some(d) => d,
 			None => {
 				defensive!("Staker missing payee");
-				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorMissingPayee { era },
-				));
+				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
+					era,
+					stash: stash.clone(),
+				}));
 				return None;
 			},
 		};
@@ -2075,9 +2076,18 @@ impl<T: Config> Pallet<T> {
 
 	/// Checks consistency of the reward mode configuration and storage.
 	///
-	/// In non-minting mode (`DisableMinting = true`):
-	/// - All eras >= `DisableMintingGuard` within `HistoryDepth` should have reward pots.
+	/// - If `DisableMintingGuard` is set, `DisableMinting` must be `true` (irreversible).
+	/// - In non-minting mode, all eras >= guard within `HistoryDepth` should have pots.
 	fn check_reward_mode_consistency() -> Result<(), TryRuntimeError> {
+		// If the guard is set, DisableMinting must be true. Catching "switched back" misconfig.
+		if DisableMintingGuard::<T>::get().is_some() {
+			ensure!(
+				T::DisableMinting::get(),
+				"DisableMintingGuard is set but DisableMinting is false. \
+				 Switching from non-minting back to legacy mode is not supported."
+			);
+		}
+
 		if T::DisableMinting::get() {
 			if let Some(guard_era) = DisableMintingGuard::<T>::get() {
 				let active_era = crate::session_rotation::Rotator::<T>::active_era();
@@ -2220,8 +2230,17 @@ impl<T: Config> Pallet<T> {
 	/// * For virtual stakers, locked funds should be zero and payee should be non-stash account.
 	/// * Staking ledger and bond are not corrupted.
 	fn check_ledgers() -> Result<(), TryRuntimeError> {
+		let mut chilled_undermin: Vec<T::AccountId> = Vec::new();
+		let mut chilled_total: u32 = 0;
+		let mut nominator_undermin: Vec<T::AccountId> = Vec::new();
+		let mut nominator_total: u32 = 0;
+		let mut validator_undermin: Vec<T::AccountId> = Vec::new();
+		let mut validator_total: u32 = 0;
+		let mut total_ledgers: u32 = 0;
+
 		Bonded::<T>::iter()
 			.map(|(stash, ctrl)| {
+				total_ledgers += 1;
 				// ensure locks consistency.
 				if VirtualStakers::<T>::contains_key(stash.clone()) {
 					ensure!(
@@ -2265,10 +2284,50 @@ impl<T: Config> Pallet<T> {
 				}
 
 				Self::ensure_ledger_consistent(&ctrl)?;
-				Self::ensure_ledger_role_and_min_bond(&ctrl)?;
+				Self::collect_min_bond_violations(
+					&ctrl,
+					&mut chilled_undermin,
+					&mut chilled_total,
+					&mut nominator_undermin,
+					&mut nominator_total,
+					&mut validator_undermin,
+					&mut validator_total,
+				)?;
 				Ok(())
 			})
 			.collect::<Result<Vec<_>, _>>()?;
+
+		if chilled_total > 0 {
+			log!(
+				warn,
+				"{} chilled stashes (out of {} total ledgers) have less stake than minimum role bond ({:?}). Examples: {:?}",
+				chilled_total,
+				total_ledgers,
+				Self::min_chilled_bond(),
+				chilled_undermin,
+			);
+		}
+		if nominator_total > 0 {
+			log!(
+				warn,
+				"{} nominators (out of {} total ledgers) have less stake than minimum role bond ({:?}). Examples: {:?}",
+				nominator_total,
+				total_ledgers,
+				Self::min_nominator_bond(),
+				nominator_undermin,
+			);
+		}
+		if validator_total > 0 {
+			log!(
+				warn,
+				"{} validators (out of {} total ledgers) have less stake than minimum role bond ({:?}). Examples: {:?}",
+				validator_total,
+				total_ledgers,
+				Self::min_validator_bond(),
+				validator_undermin,
+			);
+		}
+
 		Ok(())
 	}
 
@@ -2410,7 +2469,18 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	fn ensure_ledger_role_and_min_bond(ctrl: &T::AccountId) -> Result<(), TryRuntimeError> {
+	/// Checks if a ledger's stash has less stake than the minimum for its role and collects
+	/// violations into the provided accumulators (up to `MAX_EXAMPLES` examples per role).
+	fn collect_min_bond_violations(
+		ctrl: &T::AccountId,
+		chilled_undermin: &mut Vec<T::AccountId>,
+		chilled_total: &mut u32,
+		nominator_undermin: &mut Vec<T::AccountId>,
+		nominator_total: &mut u32,
+		validator_undermin: &mut Vec<T::AccountId>,
+		validator_total: &mut u32,
+	) -> Result<(), TryRuntimeError> {
+		const MAX_EXAMPLES: usize = 10;
 		let ledger = Self::ledger(StakingAccount::Controller(ctrl.clone()))?;
 		let stash = ledger.stash;
 
@@ -2421,8 +2491,12 @@ impl<T: Config> Pallet<T> {
 			(false, false) => {
 				if ledger.active < Self::min_chilled_bond() && !ledger.active.is_zero() {
 					// chilled accounts allow to go to zero and fully unbond ^^^^^^^^^
+					*chilled_total += 1;
+					if chilled_undermin.len() < MAX_EXAMPLES {
+						chilled_undermin.push(stash.clone());
+					}
 					log!(
-						warn,
+						trace,
 						"Chilled stash {:?} has less stake ({:?}) than minimum role bond ({:?})",
 						stash,
 						ledger.active,
@@ -2434,8 +2508,12 @@ impl<T: Config> Pallet<T> {
 			(true, false) => {
 				// Nominators must have a minimum bond.
 				if ledger.active < Self::min_nominator_bond() {
+					*nominator_total += 1;
+					if nominator_undermin.len() < MAX_EXAMPLES {
+						nominator_undermin.push(stash.clone());
+					}
 					log!(
-						warn,
+						trace,
 						"Nominator {:?} has less stake ({:?}) than minimum role bond ({:?})",
 						stash,
 						ledger.active,
@@ -2446,8 +2524,12 @@ impl<T: Config> Pallet<T> {
 			(false, true) => {
 				// Validators must have a minimum bond.
 				if ledger.active < Self::min_validator_bond() {
+					*validator_total += 1;
+					if validator_undermin.len() < MAX_EXAMPLES {
+						validator_undermin.push(stash.clone());
+					}
 					log!(
-						warn,
+						trace,
 						"Validator {:?} has less stake ({:?}) than minimum role bond ({:?})",
 						stash,
 						ledger.active,
