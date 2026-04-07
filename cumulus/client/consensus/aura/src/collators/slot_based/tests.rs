@@ -16,10 +16,9 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	block_builder_task::{
-		determine_core, offset_relay_parent_find_descendants, wait_for_current_relay_block,
-	},
+	block_builder_task::{determine_core, offset_relay_parent_find_descendants},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+	slot_timer::wait_for_current_relay_block,
 };
 use async_trait::async_trait;
 use codec::Encode;
