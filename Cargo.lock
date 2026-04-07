@@ -25287,7 +25287,7 @@ dependencies = [
  "log",
  "num_enum",
  "parity-scale-codec",
- "polkavm 0.31.0",
+ "polkavm 0.33.1",
  "sp-runtime-interface 24.0.0",
  "sp-std 14.0.0",
  "sp-tracing 16.0.0",
@@ -25300,7 +25300,7 @@ dependencies = [
 name = "sp-virtualization-test-fixture"
 version = "1.0.0"
 dependencies = [
- "polkavm-derive 0.31.0",
+ "polkavm-derive 0.33.0",
  "substrate-wasm-builder",
 ]
 
