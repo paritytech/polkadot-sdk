@@ -1638,9 +1638,7 @@ pub mod pallet {
 						// Final step — remove pruning state.
 						EraPruningState::<T>::remove(era);
 					}
-					T::WeightInfo::prune_era_validator_incentive_weight(
-						result.backend as u32,
-					)
+					T::WeightInfo::prune_era_validator_incentive_weight(result.backend as u32)
 				},
 			};
 
