@@ -1262,7 +1262,7 @@ mod block_production_schedule_tests {
 			let schedule = BlockProductionSchedule::new(0, 2, 2, true);
 			assert_eq!(
 				schedule.authoring_duration(time_left, block_time),
-				Duration::from_millis(2000) // full time_left (< block_time)
+				Duration::from_millis(1000) // halved
 			);
 
 			// Fast mode -> no time adjustment (uses skip instead)
