@@ -19,9 +19,9 @@
 use codec::Encode;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_storage_access_test_runtime::StorageAccessParams;
-use log::info;
 #[cfg(feature = "runtime-benchmarks")]
 use log::debug;
+use log::info;
 use rand::prelude::*;
 use sc_cli::{Error, Result};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -33,13 +33,13 @@ use sp_storage::ChildInfo;
 use sp_trie::StorageProof;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
+#[cfg(feature = "runtime-benchmarks")]
+use super::get_wasm_module;
 use super::{
 	cmd::StorageCmd,
 	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
 	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use super::get_wasm_module;
 use crate::shared::BenchRecord;
 
 impl StorageCmd {
@@ -96,7 +96,7 @@ impl StorageCmd {
 		// single recorder per block, simulate the same behavior by creating a new
 		// recorder every batch size, so that the amortized cost of reading a key is
 		// measured in conditions closer to the real world.
-		let (mut backend, mut recorder) = self.create_backend::<B, C>(&state);
+		let (mut backend, mut _recorder) = self.create_backend::<B, C>(&state);
 
 		let mut read_in_batch = 0;
 		let mut on_validation_batch = vec![];
@@ -154,7 +154,7 @@ impl StorageCmd {
 				#[cfg(feature = "runtime-benchmarks")]
 				{
 					let root = backend.root();
-					let storage_proof = recorder
+					let storage_proof = _recorder
 						.clone()
 						.map(|r| r.drain_storage_proof())
 						.expect("Storage proof must exist for block validation");
@@ -175,7 +175,7 @@ impl StorageCmd {
 
 			// Reload recorder
 			if is_batch_full {
-				(backend, recorder) = self.create_backend::<B, C>(&state);
+				(backend, _recorder) = self.create_backend::<B, C>(&state);
 				read_in_batch = 0;
 			}
 		}
@@ -209,7 +209,7 @@ impl StorageCmd {
 					#[cfg(feature = "runtime-benchmarks")]
 					{
 						let root = backend.root();
-						let storage_proof = recorder
+						let storage_proof = _recorder
 							.clone()
 							.map(|r| r.drain_storage_proof())
 							.expect("Storage proof must exist for block validation");
@@ -230,7 +230,7 @@ impl StorageCmd {
 
 				// Reload recorder
 				if is_batch_full {
-					(backend, recorder) = self.create_backend::<B, C>(&state);
+					(backend, _recorder) = self.create_backend::<B, C>(&state);
 					read_in_batch = 0;
 				}
 			}

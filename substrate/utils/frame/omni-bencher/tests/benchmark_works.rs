@@ -59,7 +59,7 @@ fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 		wasm
 	} else {
 		eprintln!("SKIPPING: WASM binary not available");
-		return Ok(())
+		return Ok(());
 	};
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ =
@@ -92,7 +92,7 @@ fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 		Some(paths) => paths,
 		None => {
 			eprintln!("SKIPPING: WASM binary not available");
-			return Ok(())
+			return Ok(());
 		},
 	};
 
@@ -112,7 +112,7 @@ fn benchmark_overhead_chain_spec_works_plain_spec() -> std::result::Result<(), S
 		Some(paths) => paths,
 		None => {
 			eprintln!("SKIPPING: WASM binary not available");
-			return Ok(())
+			return Ok(());
 		},
 	};
 
@@ -132,7 +132,7 @@ fn benchmark_overhead_chain_spec_works_raw() -> std::result::Result<(), String> 
 		Some(paths) => paths,
 		None => {
 			eprintln!("SKIPPING: WASM binary not available");
-			return Ok(())
+			return Ok(());
 		},
 	};
 
@@ -152,7 +152,7 @@ fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<()
 		Some(paths) => paths,
 		None => {
 			eprintln!("SKIPPING: WASM binary not available");
-			return Ok(())
+			return Ok(());
 		},
 	};
 
@@ -237,7 +237,7 @@ fn benchmark_overhead_with_genesis_patch_works() -> std::result::Result<(), Stri
 		wasm
 	} else {
 		eprintln!("SKIPPING: WASM binary not available");
-		return Ok(())
+		return Ok(());
 	};
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ = fs::write(&runtime_path, wasm)
@@ -279,7 +279,7 @@ fn benchmark_overhead_chain_spec_with_genesis_patch_works() -> std::result::Resu
 		Some(paths) => paths,
 		None => {
 			eprintln!("SKIPPING: WASM binary not available");
-			return Ok(())
+			return Ok(());
 		},
 	};
 

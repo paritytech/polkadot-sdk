@@ -19,9 +19,9 @@
 use codec::Encode;
 #[cfg(feature = "runtime-benchmarks")]
 use frame_storage_access_test_runtime::StorageAccessParams;
-use log::{info, trace, warn};
 #[cfg(feature = "runtime-benchmarks")]
 use log::debug;
+use log::{info, trace, warn};
 use rand::prelude::*;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -38,13 +38,13 @@ use std::{
 	time::{Duration, Instant},
 };
 
+#[cfg(feature = "runtime-benchmarks")]
+use super::get_wasm_module;
 use super::{
 	cmd::StorageCmd,
 	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
 	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 };
-#[cfg(feature = "runtime-benchmarks")]
-use super::get_wasm_module;
 use crate::shared::BenchRecord;
 
 impl StorageCmd {
@@ -284,13 +284,13 @@ impl StorageCmd {
 		Block: BlockT<Header = H, Hash = DbHash> + Debug,
 		H: HeaderT<Hash = DbHash>,
 	{
-		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+		let _recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
 		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
 			.with_optional_cache(shared_trie_cache.map(|c| c.local_cache_trusted()))
-			.with_optional_recorder(recorder.clone())
+			.with_optional_recorder(_recorder.clone())
 			.build();
 
-		(trie, recorder)
+		(trie, _recorder)
 	}
 
 	/// Measures write benchmark
@@ -314,7 +314,7 @@ impl StorageCmd {
 		let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / batch_size;
 		// For every batched write use a different trie instance and recorder, so we
 		// don't benefit from past runs.
-		let (trie, _recorder) =
+		let (trie, __recorder) =
 			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
 
 		let start = Instant::now();

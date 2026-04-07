@@ -31,8 +31,8 @@ assert_cmd = { workspace = true }
 cmd_lib = { workspace = true }
 sc-chain-spec = { workspace = true }
 sp-genesis-builder = { workspace = true, default-features = true }
+substrate-test-runtime = { features = ["no-metadata-hash-check", "runtime-benchmarks"], workspace = true, default-features = true }
 tempfile = { workspace = true }
-substrate-test-runtime = { features = ["runtime-benchmarks", "no-metadata-hash-check"], workspace = true, default-features = true }
 
 [features]
 default = []

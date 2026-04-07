@@ -6,34 +6,6 @@ doc:
 
     This PR standardizes the `frame-omni-bencher` documentation and build pipeline, aligning it with Polkadot-SDK standards (similar to `staging-chain-spec-builder`). It automates `README.md` generation using `docify`, ensuring that all usage examples are backed by verified integration tests.
 
-    Additionally, it resolves existing integration test failures and environment-specific build blockers on macOS.
-
-    ## Integration
-
-    Downstream projects using `frame-omni-bencher` can now utilize the `generate-readme` feature to keep their documentation in sync with code changes via `cargo build -p frame-omni-bencher --features generate-readme`.
-
-    The `substrate-test-runtime` now includes a `no-metadata-hash-check` feature, which can be opted into by tools that do not yet support the latest `CheckMetadataHash` and `WeightReclaim` signed extensions.
-
-    Closes #6392
-
-
-    ## Review Notes
-
-    Key implementation details:
-    - **`frame-omni-bencher`**:
-        - Integrated `docify::compile_markdown!` macro gated by a new `generate-readme` feature.
-        - Refactored `tests/benchmark_works.rs` to be resilient to missing WASM binaries; functional execution is now conditionally skipped if a real WASM binary isn't available, while still allowing `docify` to capture usage examples.
-    - **`substrate-test-runtime`**:
-        - Introduced the `no-metadata-hash-check` feature to feature-gate the recently added `CheckMetadataHash` and `WeightReclaim` extensions in the `TxExtension` tuple. This was necessary to resolve `Codec error` mismatches with the benchmarking CLI during `apply_extrinsic`.
-    - **`frame-benchmarking-cli`**:
-        - Applied surgical portability fixes to resolve macOS build errors related to optional dependency gating.
-
-    Example of the new documentation standard in `lib.rs`:
-    ```diff
-    +#![doc = include_str!("../README.md")]
-    +#[cfg(feature = "generate-readme")]
-    +docify::compile_markdown!("README.docify.md", "README.md");
-    ```
 crates:
 - name: frame-benchmarking-cli
   bump: patch

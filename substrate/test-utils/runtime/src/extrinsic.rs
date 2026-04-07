@@ -218,7 +218,10 @@ impl ExtrinsicBuilder {
 				frame_system::WeightReclaim::new(),
 			);
 			#[cfg(feature = "no-metadata-hash-check")]
-			let tx_ext = ((CheckNonce::from(self.nonce.unwrap_or(0)), CheckWeight::new()), CheckSubstrateCall {});
+			let tx_ext = (
+				(CheckNonce::from(self.nonce.unwrap_or(0)), CheckWeight::new()),
+				CheckSubstrateCall {},
+			);
 			let raw_payload = SignedPayload::from_raw(
 				self.function.clone(),
 				tx_ext.clone(),
