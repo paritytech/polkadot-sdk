@@ -678,10 +678,13 @@ where
 		let time_left_for_block = slot_time_for_core.saturating_sub(core_start.elapsed()) /
 			(blocks_per_core - block_index) as u32;
 
-		// The first block on a core gets the full remaining core time so that the runtime's
-		// `FullCore` weight mode can actually be utilized. Subsequent blocks are capped at
-		// `block_time` because they only carry fractional weight.
-		let authoring_duration = if block_index == 0 {
+		// The first block on a multi-block core gets the full remaining core time so that the
+		// runtime's `FullCore` weight mode can actually be utilized. Subsequent blocks are
+		// capped at `block_time` because they only carry fractional weight.
+		//
+		// Single-block cores (blocks_per_core == 1) go through schedule.authoring_duration()
+		// so that slot handover adjustments (e.g., Shorten) are applied on the last core.
+		let authoring_duration = if block_index == 0 && blocks_per_core > 1 {
 			slot_time_for_core.saturating_sub(core_start.elapsed())
 		} else {
 			schedule.authoring_duration(time_left_for_block, block_time)
