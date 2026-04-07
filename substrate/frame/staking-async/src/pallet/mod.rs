@@ -1416,12 +1416,12 @@ pub mod pallet {
 		UnknownValidatorActivation,
 		/// Failed to proceed paged election due to weight limits
 		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
+		/// Payee not set for a staker when paying rewards.
+		MissingPayee { era: EraIndex, stash: T::AccountId },
 		/// Total validator weight is zero but incentive allocation exists.
 		ValidatorIncentiveWeightMismatch { era: EraIndex },
 		/// Validator incentive transfer from era pot failed.
 		ValidatorIncentiveTransferFailed { era: EraIndex },
-		/// Payee not set for a staker when paying rewards.
-		MissingPayee { era: EraIndex, stash: T::AccountId },
 	}
 
 	#[pallet::error]
