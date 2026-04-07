@@ -442,8 +442,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					pool.clone(),
 					promoter,
 					best_block,
-					node_extra_args.hop.hop_buffer_blocks,
-					node_extra_args.hop.hop_check_interval,
+					node_extra_args.hop.buffer_blocks,
+					node_extra_args.hop.check_interval,
 				);
 				task_manager.spawn_handle().spawn("hop-maintenance", None, maintenance.run());
 			}
