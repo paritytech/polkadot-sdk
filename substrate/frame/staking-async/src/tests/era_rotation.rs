@@ -333,9 +333,9 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 			ClaimedRewards,
 			ErasValidatorReward,
 			ErasRewardPoints,
-			ErasValidatorIncentiveWeight,
 			SingleEntryCleanups,
 			ValidatorSlashInEra,
+			ErasValidatorIncentiveWeight,
 		];
 
 		let _ = staking_events_since_last_call();
@@ -418,11 +418,6 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 						"{expected_step:?} should be empty after completing step"
 					);
 				},
-				ErasValidatorIncentiveWeight => assert_eq!(
-					crate::ErasValidatorIncentiveWeight::<T>::iter_prefix_values(1).count(),
-					0,
-					"{expected_step:?} should be empty after completing step"
-				),
 				SingleEntryCleanups => {
 					assert!(
 						!crate::ErasTotalStake::<T>::contains_key(1),
@@ -443,6 +438,11 @@ fn era_cleanup_history_depth_works_with_prune_era_step_extrinsic() {
 				},
 				ValidatorSlashInEra => assert_eq!(
 					crate::ValidatorSlashInEra::<T>::iter_prefix_values(1).count(),
+					0,
+					"{expected_step:?} should be empty after completing step"
+				),
+				ErasValidatorIncentiveWeight => assert_eq!(
+					crate::ErasValidatorIncentiveWeight::<T>::iter_prefix_values(1).count(),
 					0,
 					"{expected_step:?} should be empty after completing step"
 				),

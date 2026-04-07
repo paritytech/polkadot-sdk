@@ -1607,16 +1607,8 @@ pub mod pallet {
 				},
 				PruningStep::ErasRewardPoints => {
 					ErasRewardPoints::<T>::remove(era);
-					EraPruningState::<T>::insert(era, PruningStep::ErasValidatorIncentiveWeight);
+					EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 					T::WeightInfo::prune_era_reward_points()
-				},
-				PruningStep::ErasValidatorIncentiveWeight => {
-					let result =
-						ErasValidatorIncentiveWeight::<T>::clear_prefix(era, items_limit, None);
-					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
-					}
-					T::WeightInfo::prune_era_stakers_paged(result.backend as u32)
 				},
 				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
@@ -1627,16 +1619,26 @@ pub mod pallet {
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},
 				PruningStep::ValidatorSlashInEra => {
-					// Clear ValidatorSlashInEra entries for this era
 					let result = ValidatorSlashInEra::<T>::clear_prefix(era, items_limit, None);
 					let items_deleted = result.backend as u32;
 
-					// This is the final step - remove the pruning state when done
 					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::remove(era);
+						EraPruningState::<T>::insert(
+							era,
+							PruningStep::ErasValidatorIncentiveWeight,
+						);
 					}
 
 					T::WeightInfo::prune_era_validator_slash_in_era(items_deleted)
+				},
+				PruningStep::ErasValidatorIncentiveWeight => {
+					let result =
+						ErasValidatorIncentiveWeight::<T>::clear_prefix(era, items_limit, None);
+					if result.maybe_cursor.is_none() {
+						// Final step — remove pruning state.
+						EraPruningState::<T>::remove(era);
+					}
+					T::WeightInfo::prune_era_stakers_paged(result.backend as u32)
 				},
 			};
 
