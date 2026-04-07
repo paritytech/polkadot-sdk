@@ -160,9 +160,6 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		// Reject delegatecall: the precompile derives the asset id from its own address
-		// and the caller identity from the execution context. Allowing delegatecall would
-		// let a malicious contract act on the caller's assets from a different context.
 		if env.is_delegate_call() {
 			return Err(Error::Revert(Revert {
 				reason: "Cannot be called via delegatecall".into(),
