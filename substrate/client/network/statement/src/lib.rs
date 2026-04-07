@@ -1504,10 +1504,7 @@ mod tests {
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
 
-	fn get_peer_hashes(
-		sent: &[(PeerId, Vec<u8>)],
-		peer: PeerId,
-	) -> HashSet<sp_statement_store::Hash> {
+	fn get_peer_hashes(sent: &[(PeerId, Vec<u8>)], peer: PeerId) -> Vec<sp_statement_store::Hash> {
 		sent.iter()
 			.filter(|(p, _)| *p == peer)
 			.flat_map(|(_, notification)| {
@@ -1846,9 +1843,9 @@ mod tests {
 
 		// Verify all peers received all statements
 		let sent = notification_service.get_sent_notifications();
-		let mut peer1_hashes: Vec<_> = get_peer_hashes(&sent, peer1).into_iter().collect();
-		let mut peer2_hashes: Vec<_> = get_peer_hashes(&sent, peer2).into_iter().collect();
-		let mut peer3_hashes: Vec<_> = get_peer_hashes(&sent, peer3).into_iter().collect();
+		let mut peer1_hashes = get_peer_hashes(&sent, peer1);
+		let mut peer2_hashes = get_peer_hashes(&sent, peer2);
+		let mut peer3_hashes = get_peer_hashes(&sent, peer3);
 
 		peer1_hashes.sort();
 		peer2_hashes.sort();
@@ -2315,8 +2312,7 @@ mod tests {
 
 		// Verify each peer received all 3 statements
 		for peer_id in &peer_ids {
-			let mut received_hashes: Vec<_> =
-				get_peer_hashes(&sent, *peer_id).into_iter().collect();
+			let mut received_hashes = get_peer_hashes(&sent, *peer_id);
 			received_hashes.sort();
 
 			assert_eq!(
