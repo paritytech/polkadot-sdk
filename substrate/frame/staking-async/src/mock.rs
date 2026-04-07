@@ -1186,10 +1186,10 @@ pub(crate) fn incentive_paid_details(
 ) -> Option<(Balance, RewardDestination<AccountId>)> {
 	events.iter().find_map(|e| match e {
 		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
-		if *validator_stash == stash =>
-			{
-				Some((*amount, *dest))
-			},
+			if *validator_stash == stash =>
+		{
+			Some((*amount, *dest))
+		},
 		_ => None,
 	})
 }

@@ -532,11 +532,8 @@ impl<T: Config> Eras<T> {
 		use sp_runtime::traits::Zero;
 
 		let stored_total = ErasSumValidatorIncentiveWeight::<T>::get(era);
-		let computed_total: BalanceOf<T> =
-			ErasValidatorIncentiveWeight::<T>::iter_prefix(era).fold(
-				BalanceOf::<T>::zero(),
-				|acc, (_, w)| acc.saturating_add(w),
-			);
+		let computed_total: BalanceOf<T> = ErasValidatorIncentiveWeight::<T>::iter_prefix(era)
+			.fold(BalanceOf::<T>::zero(), |acc, (_, w)| acc.saturating_add(w));
 
 		ensure!(
 			stored_total == computed_total,

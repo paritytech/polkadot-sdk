@@ -36,10 +36,18 @@ fn config_set_noop_remove_works() {
 			ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
 		));
 
-		// THEN: values stored.
+		// THEN: values stored and event emitted.
 		assert_eq!(OptimumSelfStake::<Test>::get(), 30_000);
 		assert_eq!(HardCapSelfStake::<Test>::get(), 100_000);
 		assert_eq!(SelfStakeSlopeFactor::<Test>::get(), Perbill::from_rational(1u32, 2u32));
+		assert!(staking_events_since_last_call().iter().any(|e| matches!(
+			e,
+			Event::ValidatorIncentiveConfigSet {
+				optimum_self_stake: 30_000,
+				hard_cap_self_stake: 100_000,
+				slope_factor,
+			} if *slope_factor == Perbill::from_rational(1u32, 2u32)
+		)));
 
 		// WHEN: noop.
 		assert_storage_noop!(assert_ok!(Staking::set_validator_self_stake_incentive_config(
@@ -142,6 +150,15 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		// THEN: nominator gets staker reward only.
 		assert!(staker_reward_for(bob, &events).is_some());
 		assert!(incentive_paid_for(bob, &events).is_none());
+
+		// THEN: era pot balance matches snapshotted budget.
+		let era_pot = <Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		// After payout, remaining balance = budget - claimed.
+		assert!(Balances::free_balance(&era_pot) < budget);
+
+		// General pot retains ED after snapshot drained it.
+		assert_eq!(Balances::free_balance(&general_incentive_pot()), ExistentialDeposit::get());
 	});
 }
 
