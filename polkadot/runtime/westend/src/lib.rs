@@ -2001,8 +2001,6 @@ mod runtime {
 	#[runtime::pallet_index(102)]
 	pub type RootTesting = pallet_root_testing;
 
-	// Indices 103 and 104 are reserved (previously MetaTx and VerifySignature).
-
 	// Root offences pallet
 	#[runtime::pallet_index(105)]
 	pub type RootOffences = pallet_root_offences;
