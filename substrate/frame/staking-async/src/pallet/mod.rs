@@ -1358,8 +1358,8 @@ pub mod pallet {
 		UnknownValidatorActivation,
 		/// Failed to proceed paged election due to weight limits
 		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
-		/// Validator payee is missing when paying rewards.
-		ValidatorMissingPayee { era: EraIndex },
+		/// Payee not set for a staker when paying rewards.
+		MissingPayee { era: EraIndex },
 	}
 
 	#[pallet::error]

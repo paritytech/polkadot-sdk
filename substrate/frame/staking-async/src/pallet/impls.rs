@@ -579,7 +579,7 @@ impl<T: Config> Pallet<T> {
 			None => {
 				defensive!("Staker missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(
-					UnexpectedKind::ValidatorMissingPayee { era },
+					UnexpectedKind::MissingPayee { era },
 				));
 				return None;
 			},
