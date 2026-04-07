@@ -958,6 +958,21 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_validator_self_stake_incentive_config() {
+		#[extrinsic_call]
+		_(
+			RawOrigin::Root,
+			ConfigOp::Set(30_000u32.into()),
+			ConfigOp::Set(100_000u32.into()),
+			ConfigOp::Set(Perbill::from_percent(50)),
+		);
+
+		assert_eq!(OptimumSelfStake::<T>::get(), 30_000u32.into());
+		assert_eq!(HardCapSelfStake::<T>::get(), 100_000u32.into());
+		assert_eq!(SelfStakeSlopeFactor::<T>::get(), Perbill::from_percent(50));
+	}
+
+	#[benchmark]
 	fn restore_ledger() -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
