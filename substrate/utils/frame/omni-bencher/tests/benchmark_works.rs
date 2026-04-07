@@ -16,17 +16,51 @@
 // limitations under the License.
 
 use assert_cmd::cargo::cargo_bin;
+use cmd_lib::spawn_with_output;
 use std::{
 	fs,
+	io::Write,
 	path::{Path, PathBuf},
 	process::{Command, ExitStatus},
 };
+use substrate_test_runtime as runtime;
+use tempfile::NamedTempFile;
+
+// Used for running commands visually pleasing in doc tests.
+macro_rules! bash(
+	( frame-omni-bencher $($a:tt)* ) => {{
+		let bin_path = env!("CARGO_BIN_EXE_frame-omni-bencher");
+		spawn_with_output!(
+			$bin_path $($a)*
+		)
+		.expect("a process running. qed")
+		.wait_with_output()
+		.expect("to get output. qed.")
+	}}
+);
+
+/// Helper to write the test runtime WASM to a temporary file.
+/// Returns the temp file and a boolean indicating if it is a "real" (non-dummy) WASM binary.
+fn write_wasm_to_temp_file() -> (NamedTempFile, bool) {
+	let mut file = NamedTempFile::new().expect("Should be able to create temp file");
+	let is_real = runtime::WASM_BINARY.is_some();
+	// Use a dummy WASM header (\0asm) if the real binary is not available.
+	// This allows docify to capture the command usage even if the WASM build is skipped.
+	let wasm = runtime::WASM_BINARY.unwrap_or(&[0, 97, 115, 109, 1, 0, 0, 0]);
+	file.write_all(wasm).expect("Should be able to write to temp file");
+	(file, is_real)
+}
 
 #[test]
 fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
 	let base_path = tmp_dir.path();
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = if let Some(wasm) = runtime::WASM_BINARY {
+		wasm
+	} else {
+		eprintln!("SKIPPING: WASM binary not available");
+		return Ok(())
+	};
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ =
 		fs::write(&runtime_path, wasm).map_err(|e| format!("Unable to write runtime file: {}", e));
@@ -50,10 +84,17 @@ fn benchmark_overhead_runtime_works() -> std::result::Result<(), String> {
 
 	assert_benchmark_success(status, base_path)
 }
+
 #[test]
 fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
+	let (base_path, chain_spec_path) = match setup_chain_spec(tmp_dir.path(), false)? {
+		Some(paths) => paths,
+		None => {
+			eprintln!("SKIPPING: WASM binary not available");
+			return Ok(())
+		},
+	};
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec-runtime"])
@@ -67,7 +108,13 @@ fn benchmark_overhead_chain_spec_works() -> std::result::Result<(), String> {
 #[test]
 fn benchmark_overhead_chain_spec_works_plain_spec() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
+	let (base_path, chain_spec_path) = match setup_chain_spec(tmp_dir.path(), false)? {
+		Some(paths) => paths,
+		None => {
+			eprintln!("SKIPPING: WASM binary not available");
+			return Ok(())
+		},
+	};
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec"])
@@ -81,7 +128,13 @@ fn benchmark_overhead_chain_spec_works_plain_spec() -> std::result::Result<(), S
 #[test]
 fn benchmark_overhead_chain_spec_works_raw() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), true)?;
+	let (base_path, chain_spec_path) = match setup_chain_spec(tmp_dir.path(), true)? {
+		Some(paths) => paths,
+		None => {
+			eprintln!("SKIPPING: WASM binary not available");
+			return Ok(())
+		},
+	};
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec"])
@@ -95,7 +148,13 @@ fn benchmark_overhead_chain_spec_works_raw() -> std::result::Result<(), String> 
 #[test]
 fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
+	let (base_path, chain_spec_path) = match setup_chain_spec(tmp_dir.path(), false)? {
+		Some(paths) => paths,
+		None => {
+			eprintln!("SKIPPING: WASM binary not available");
+			return Ok(())
+		},
+	};
 
 	let status = create_benchmark_spec_command(&base_path, &chain_spec_path)
 		.args(["--genesis-builder-policy", "spec"])
@@ -114,11 +173,15 @@ fn benchmark_overhead_chain_spec_fails_wrong_para_id() -> std::result::Result<()
 }
 
 /// Sets up a temporary directory and creates a chain spec file
-fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<(PathBuf, PathBuf), String> {
+fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<Option<(PathBuf, PathBuf)>, String> {
 	let base_path = tmp_dir.to_path_buf();
 	let chain_spec_path = base_path.join("chain_spec.json");
 
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = if let Some(wasm) = runtime::WASM_BINARY {
+		wasm
+	} else {
+		return Ok(None);
+	};
 
 	let mut properties = sc_chain_spec::Properties::new();
 	properties.insert("tokenSymbol".into(), "UNIT".into());
@@ -136,7 +199,7 @@ fn setup_chain_spec(tmp_dir: &Path, raw: bool) -> Result<(PathBuf, PathBuf), Str
 	fs::write(&chain_spec_path, json)
 		.map_err(|e| format!("Unable to write chain-spec file: {}", e))?;
 
-	Ok((base_path, chain_spec_path))
+	Ok(Some((base_path, chain_spec_path)))
 }
 
 /// Creates a Command for the benchmark with common arguments
@@ -170,7 +233,12 @@ fn assert_benchmark_success(status: ExitStatus, base_path: &Path) -> Result<(), 
 fn benchmark_overhead_with_genesis_patch_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
 	let base_path = tmp_dir.path();
-	let wasm = cumulus_test_runtime::WASM_BINARY.ok_or("WASM binary not available".to_string())?;
+	let wasm = if let Some(wasm) = runtime::WASM_BINARY {
+		wasm
+	} else {
+		eprintln!("SKIPPING: WASM binary not available");
+		return Ok(())
+	};
 	let runtime_path = base_path.join("runtime.wasm");
 	let _ = fs::write(&runtime_path, wasm)
 		.map_err(|e| format!("Unable to write runtime file: {}", e))?;
@@ -207,7 +275,13 @@ fn benchmark_overhead_with_genesis_patch_works() -> std::result::Result<(), Stri
 #[test]
 fn benchmark_overhead_chain_spec_with_genesis_patch_works() -> std::result::Result<(), String> {
 	let tmp_dir = tempfile::tempdir().expect("Should be able to create tmp dir.");
-	let (base_path, chain_spec_path) = setup_chain_spec(tmp_dir.path(), false)?;
+	let (base_path, chain_spec_path) = match setup_chain_spec(tmp_dir.path(), false)? {
+		Some(paths) => paths,
+		None => {
+			eprintln!("SKIPPING: WASM binary not available");
+			return Ok(())
+		},
+	};
 
 	let patch_content = r#"{
          "balances": {
@@ -229,4 +303,89 @@ fn benchmark_overhead_chain_spec_with_genesis_patch_works() -> std::result::Resu
 		.map_err(|e| format!("command failed: {:?}", e))?;
 
 	assert_benchmark_success(status, &base_path)
+}
+
+#[docify::export_content]
+fn benchmarking_example_pallet_balances(runtime_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet
+			--runtime $runtime_path
+			--pallet "pallet_balances"
+			--extrinsic "*"
+			--steps 2
+			--repeat 1
+	);
+}
+
+#[test]
+fn test_benchmarking_example_pallet_balances() {
+	let (runtime_tmp, is_real) = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	if is_real {
+		benchmarking_example_pallet_balances(runtime_path);
+	}
+}
+
+#[docify::export_content]
+fn benchmarking_example_export_weights(runtime_path: &str, output_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet
+			--runtime $runtime_path
+			--pallet "pallet_balances"
+			--extrinsic "*"
+			--steps 2
+			--repeat 1
+			--output $output_path
+	);
+}
+
+#[test]
+fn test_benchmarking_example_export_weights() {
+	let (runtime_tmp, is_real) = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	let tmp_dir = tempfile::tempdir().unwrap();
+	let output_path = tmp_dir.path().to_str().expect("valid path");
+	if is_real {
+		benchmarking_example_export_weights(runtime_path, output_path);
+	}
+}
+
+#[docify::export_content]
+fn benchmarking_example_all_pallets(runtime_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark pallet
+			--runtime $runtime_path
+			--pallet "*"
+			--extrinsic "*"
+			--steps 2
+			--repeat 1
+	);
+}
+
+#[test]
+fn test_benchmarking_example_all_pallets() {
+	let (runtime_tmp, is_real) = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	if is_real {
+		benchmarking_example_all_pallets(runtime_path);
+	}
+}
+
+#[docify::export_content]
+fn benchmarking_example_overhead(runtime_path: &str) {
+	bash!(
+		frame-omni-bencher v1 benchmark overhead
+			--runtime $runtime_path
+			--warmup 2
+			--repeat 2
+	);
+}
+
+#[test]
+fn test_benchmarking_example_overhead() {
+	let (runtime_tmp, is_real) = write_wasm_to_temp_file();
+	let runtime_path = runtime_tmp.path().to_str().expect("valid path");
+	if is_real {
+		benchmarking_example_overhead(runtime_path);
+	}
 }

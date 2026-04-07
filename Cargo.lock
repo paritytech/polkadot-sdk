@@ -7291,8 +7291,9 @@ version = "0.1.0"
 dependencies = [
  "assert_cmd",
  "clap",
+ "cmd_lib",
  "cumulus-primitives-proof-size-hostfunction",
- "cumulus-test-runtime",
+ "docify",
  "frame-benchmarking-cli",
  "polkadot-jemalloc-shim",
  "sc-chain-spec 28.0.0",
@@ -7300,6 +7301,7 @@ dependencies = [
  "sp-genesis-builder 0.8.0",
  "sp-runtime 31.0.1",
  "sp-statement-store",
+ "substrate-test-runtime",
  "tempfile",
  "tracing-subscriber 0.3.19",
 ]
@@ -26157,12 +26159,16 @@ name = "substrate-test-runtime"
 version = "2.0.0"
 dependencies = [
  "array-bytes 6.2.2",
+ "frame-benchmarking",
  "frame-executive",
+ "frame-metadata 23.0.1",
  "frame-metadata-hash-extension",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "futures",
+ "hex-literal",
  "log",
  "pallet-babe",
  "pallet-balances",
@@ -26198,6 +26204,7 @@ dependencies = [
  "sp-session",
  "sp-state-machine 0.35.0",
  "sp-statement-store",
+ "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
  "sp-transaction-pool",
  "sp-trie 29.0.0",
