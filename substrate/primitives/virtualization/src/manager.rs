@@ -89,7 +89,7 @@ impl Virtualization for VirtManager {
 		offset: u32,
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(instance) = self.instances.get(&instance_id) else {
+		let Some(instance) = self.instances.get_mut(&instance_id) else {
 			return Ok(Err(MemoryError::InvalidInstance.into()));
 		};
 		if let Err(err) = instance.memory.read(offset, dest) {

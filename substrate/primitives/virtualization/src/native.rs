@@ -65,9 +65,9 @@ pub struct Virt {
 pub struct Memory(Weak<RefCell<RawInstance>>);
 
 impl MemoryT for Memory {
-	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
+	fn read(&mut self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
 		let instance = self.0.upgrade().ok_or(MemoryError::InvalidInstance)?;
-		let guard = instance.borrow();
+		let mut guard = instance.borrow_mut();
 		guard
 			.read_memory_into(offset, dest)
 			.map(|_| ())

@@ -199,7 +199,7 @@ pub trait VirtT: Sized {
 /// Allows to access the memory of a [`VirtT`].
 pub trait MemoryT {
 	/// Read the instances memory at `offset` into `dest`.
-	fn read(&self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError>;
+	fn read(&mut self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError>;
 
 	/// Write `src` into the instances memory at `offset`.
 	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError>;
