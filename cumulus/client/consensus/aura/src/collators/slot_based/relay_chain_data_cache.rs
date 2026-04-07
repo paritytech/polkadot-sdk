@@ -90,7 +90,7 @@ where
 		let Ok(Some(relay_parent_header)) =
 			self.relay_client.header(BlockId::Hash(relay_parent)).await
 		else {
-			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block header.");
+			tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch relay chain block header.");
 			return Err(());
 		};
 

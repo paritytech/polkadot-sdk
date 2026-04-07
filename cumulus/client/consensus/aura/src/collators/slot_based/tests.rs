@@ -49,7 +49,7 @@ async fn offset_test_zero_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 0);
@@ -65,7 +65,7 @@ async fn offset_test_two_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 2);
@@ -84,7 +84,7 @@ async fn offset_test_five_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 5);
@@ -103,10 +103,10 @@ async fn offset_test_too_long() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 200, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 200, 0).await;
 	assert!(result.is_err());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101, 0).await;
 	assert!(result.is_err());
 }
 
@@ -125,7 +125,7 @@ async fn offset_returns_none_when_rc_tip_has_epoch_change() {
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
 	// Skips regardless of v3_enabled
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, 0).await;
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_none());
 }
@@ -144,7 +144,7 @@ async fn offset_allows_epoch_change_in_ancestors_when_v3(#[case] flags: &[HasEpo
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, true).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, 1).await;
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_some());
 }
@@ -163,7 +163,7 @@ async fn offset_skips_epoch_change_in_ancestors_when_not_v3(#[case] flags: &[Has
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, false).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, 0).await;
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_none());
 }
@@ -677,6 +677,10 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn candidate_events(&self, _: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn max_relay_parent_session_age(&self, _at: RelayHash) -> RelayChainResult<u32> {
 		unimplemented!("Not needed for test")
 	}
 }

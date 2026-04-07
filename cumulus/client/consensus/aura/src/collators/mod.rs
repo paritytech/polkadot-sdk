@@ -150,22 +150,18 @@ async fn check_validation_code_or_log(
 	}
 }
 
-/// Fetch scheduling lookahead at given relay parent.
-async fn scheduling_lookahead(
-	relay_parent: RelayHash,
+async fn check_parachain_host_runtime_api_version(
 	relay_client: &impl RelayChainInterface,
-) -> Option<u32> {
-	let runtime_api_version = relay_client
-		.version(relay_parent)
-		.await
-		.map_err(|e| {
-			tracing::error!(
-				target: super::LOG_TARGET,
-				error = ?e,
-				"Failed to fetch relay chain runtime version.",
-			)
-		})
-		.ok()?;
+	at: RelayHash,
+	min_parachain_host_runtime_api_version: u32,
+) -> Result<(), ()> {
+	let runtime_api_version = relay_client.version(at).await.map_err(|e| {
+		tracing::error!(
+			target: super::LOG_TARGET,
+			error = ?e,
+			"Failed to fetch relay chain runtime version.",
+		)
+	})?;
 
 	let parachain_host_runtime_api_version = runtime_api_version
 		.api_version(
@@ -173,24 +169,27 @@ async fn scheduling_lookahead(
 		)
 		.unwrap_or_default();
 
-	if parachain_host_runtime_api_version <
-		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT
-	{
-		return None;
+	if parachain_host_runtime_api_version < min_parachain_host_runtime_api_version {
+		return Err(());
 	}
 
-	match relay_client.scheduling_lookahead(relay_parent).await {
-		Ok(scheduling_lookahead) => Some(scheduling_lookahead),
-		Err(err) => {
-			tracing::error!(
-				target: crate::LOG_TARGET,
-				?err,
-				?relay_parent,
-				"Failed to fetch scheduling lookahead from relay chain",
-			);
-			None
-		},
-	}
+	Ok(())
+}
+
+/// Fetch scheduling lookahead at given relay parent.
+async fn scheduling_lookahead(
+	relay_parent: RelayHash,
+	relay_client: &impl RelayChainInterface,
+) -> Option<u32> {
+	let _ = check_parachain_host_runtime_api_version(
+		relay_client,
+		relay_parent,
+		RuntimeApiRequest::SCHEDULING_LOOKAHEAD_RUNTIME_REQUIREMENT,
+	)
+	.await
+	.ok()?;
+
+	relay_client.scheduling_lookahead(relay_parent).await.ok()
 }
 
 // Returns the claim queue at the given relay parent.
@@ -269,14 +268,11 @@ async fn find_parent<Block>(
 where
 	Block: BlockT,
 {
-	let parent_search_params = ParentSearchParams {
-		relay_parent,
-		para_id,
-		ancestry_lookback: scheduling_lookahead(relay_parent, relay_client)
-			.await
-			.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
-			.saturating_sub(1) as usize,
-	};
+	let ancestry_lookback = scheduling_lookahead(relay_parent, relay_client)
+		.await
+		.unwrap_or(DEFAULT_SCHEDULING_LOOKAHEAD)
+		.saturating_sub(1) as usize;
+	let parent_search_params = ParentSearchParams { relay_parent, para_id, ancestry_lookback };
 
 	match cumulus_client_consensus_common::find_parent_for_building::<Block>(
 		parent_search_params,

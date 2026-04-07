@@ -235,11 +235,13 @@ where
 
 			let relay_parent_offset =
 				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
+			let max_relay_parent_session_age =
+				relay_client.max_relay_parent_session_age(descendants_start).await.unwrap_or(0);
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				descendants_start,
 				relay_parent_offset,
-				v3_enabled,
+				max_relay_parent_session_age,
 			)
 			.await
 			else {
@@ -579,64 +581,63 @@ fn adjust_para_to_relay_parent_slot(
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
 pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	relay_best_block: RelayHash,
+	scheduling_parent: RelayHash,
 	relay_parent_offset: u32,
-	v3_enabled: bool,
+	max_relay_parent_session_age: u32,
 ) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(mut relay_header) = relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_best_block)
-		.await
-		.map(|d| d.relay_parent_header.clone())
-	else {
-		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(());
-	};
+	let current_relay_block =
+		relay_chain_data_cache.get_mut_relay_chain_data(scheduling_parent).await?;
+	let mut current_relay_header = current_relay_block.relay_parent_header.clone();
 
 	if relay_parent_offset == 0 {
-		return Ok(Some(RelayParentData::new(relay_header)));
+		return Ok(Some(RelayParentData::new(current_relay_header)));
 	}
 
-	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
-		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "RC tip is a session change block, skipping.");
-		return Ok(None);
-	}
-
-	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
-	required_ancestors.push_front(relay_header.clone());
-	while required_ancestors.len() < relay_parent_offset as usize {
-		let next_header = relay_chain_data_cache
-			.get_mut_relay_chain_data(*relay_header.parent_hash())
-			.await?
-			.relay_parent_header
-			.clone();
-		// When V3 is not enabled, skip if any ancestor in the window has a session change.
-		// With V3 enabled, the scheduling proof header chain can span session boundaries.
-		if !v3_enabled && sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
-			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), ancestor_block_number = next_header.number(), "Ancestor of best block is in previous session.");
+	let mut relay_parent_descendants: VecDeque<RelayHeader> = Default::default();
+	let mut relay_parent_session_age = 0;
+	loop {
+		if current_relay_header.number == 0 {
 			return Ok(None);
 		}
-		required_ancestors.push_front(next_header.clone());
-		relay_header = next_header;
-	}
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&current_relay_header) {
+			relay_parent_session_age += 1;
+			if relay_parent_session_age > max_relay_parent_session_age {
+				tracing::debug!(target: LOG_TARGET,
+					?scheduling_parent,
+					ancestor = %current_relay_header.hash(),
+					ancestor_block_number = current_relay_header.number(),
+					"max_relay_parent_session_age exceeded."
+				);
+				return Ok(None);
+			}
+		}
+		if relay_parent_descendants.len() == relay_parent_offset as usize {
+			break;
+		}
 
-	let relay_parent = relay_chain_data_cache
-		.get_mut_relay_chain_data(*relay_header.parent_hash())
-		.await?
-		.relay_parent_header
-		.clone();
+		relay_parent_descendants.push_front(current_relay_header.clone());
+
+		let next_relay_block = relay_chain_data_cache
+			.get_mut_relay_chain_data(*current_relay_header.parent_hash())
+			.await?;
+		current_relay_header = next_relay_block.relay_parent_header.clone();
+	}
 
 	tracing::debug!(
 		target: LOG_TARGET,
-		relay_parent_hash = %relay_parent.hash(),
-		relay_parent_num = relay_parent.number(),
-		num_descendants = required_ancestors.len(),
+		relay_parent_hash = %current_relay_header.hash(),
+		relay_parent_num = current_relay_header.number(),
+		num_descendant = relay_parent_descendants.len(),
 		"Relay parent descendants."
 	);
 
-	Ok(Some(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into())))
+	Ok(Some(RelayParentData::new_with_descendants(
+		current_relay_header,
+		relay_parent_descendants.into(),
+	)))
 }
 
 /// Return value of [`determine_core`].
