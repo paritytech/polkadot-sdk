@@ -1973,9 +1973,18 @@ impl<T: Config> Pallet<T> {
 
 	/// Checks consistency of the reward mode configuration and storage.
 	///
-	/// In non-minting mode (`DisableMinting = true`):
-	/// - All eras >= `DisableMintingGuard` within `HistoryDepth` should have reward pots.
+	/// - If `DisableMintingGuard` is set, `DisableMinting` must be `true` (irreversible).
+	/// - In non-minting mode, all eras >= guard within `HistoryDepth` should have pots.
 	fn check_reward_mode_consistency() -> Result<(), TryRuntimeError> {
+		// If the guard is set, DisableMinting must be true. Catching "switched back" misconfig.
+		if DisableMintingGuard::<T>::get().is_some() {
+			ensure!(
+				T::DisableMinting::get(),
+				"DisableMintingGuard is set but DisableMinting is false. \
+				 Switching from non-minting back to legacy mode is not supported."
+			);
+		}
+
 		if T::DisableMinting::get() {
 			if let Some(guard_era) = DisableMintingGuard::<T>::get() {
 				let active_era = crate::session_rotation::Rotator::<T>::active_era();
