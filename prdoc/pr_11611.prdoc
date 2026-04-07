@@ -1,16 +1,7 @@
 title: 'statement-store: add concurrent and multi-peer propagation tests'
 doc:
 - audience: Node Dev
-  description: |-
-    # Description
-
-    Implement unit tests for "Propagation under normal load" #11534
-
-    ## Summary
-      - Add 3 multi-peer propagation tests for the network handler (all-peers delivery, known-statement filtering, same-statement  deduplication)
-      - Refactor 3 duplicate test builder functions into a single canonical `build_handler_multi_peers(n)` with thin wrappers
+  description: Implements unit tests for "Propagation under normal load" #11534
 crates:
 - name: sc-network-statement
-  bump: patch
-- name: sc-statement-store
-  bump: patch
+  bump: none
