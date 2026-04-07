@@ -462,12 +462,15 @@ impl<
 		let mut msg: Xcm<Call> = msg.into();
 		if matches!(
 			ensure_top_level_optional_contract_call_params_valid(msg_ref.inner()),
-			Err(XcmConverterError::InvalidContractCallParams)
+			Err(
+				XcmConverterError::InvalidContractCallParams |
+					XcmConverterError::TransactDecodeFailed
+			)
 		) && !poison_eth_export_beneficiary_in_xcm_runtime(&mut msg)
 		{
 			tracing::warn!(
 				target: EXECUTION_TARGET,
-				"invalid ContractCall params detected but no DepositAsset found to force trap",
+				"invalid or malformed ContractCall detected but no DepositAsset found to force trap",
 			);
 		}
 		neutralize_eth_export_transacts_in_xcm_runtime(&mut msg);

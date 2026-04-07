@@ -721,3 +721,101 @@ fn send_eth_from_asset_hub_with_invalid_contract_call_params_should_fail_and_tra
 		);
 	});
 }
+
+/// Malformed `Transact.call` bytes (not decodable as [`ContractCall::V1`]) should follow the same
+/// safety path as invalid call params: fail export as `Unroutable`, trap assets on BH, and avoid
+/// queueing an outbound v2 message.
+#[test]
+fn send_eth_from_asset_hub_with_malformed_contract_call_should_fail_and_trap_assets() {
+	fund_on_bh();
+	fund_on_ah();
+
+	AssetHubWestend::execute_with(|| {
+		type RuntimeOrigin = <AssetHubWestend as Chain>::RuntimeOrigin;
+
+		let local_fee_asset =
+			Asset { id: AssetId(Location::parent()), fun: Fungible(LOCAL_FEE_AMOUNT_IN_DOT) };
+
+		let remote_fee_asset =
+			Asset { id: AssetId(ethereum()), fun: Fungible(REMOTE_FEE_AMOUNT_IN_ETHER) };
+
+		let reserve_asset = Asset { id: AssetId(ethereum()), fun: Fungible(TOKEN_AMOUNT) };
+
+		let assets = vec![reserve_asset.clone(), remote_fee_asset.clone(), local_fee_asset.clone()];
+
+		let beneficiary =
+			Location::new(0, [AccountKey20 { network: None, key: AGENT_ADDRESS.into() }]);
+
+		// Deliberately malformed SCALE bytes for `ContractCall::V1`.
+		let malformed_transact_call: Vec<u8> = vec![0xff, 0xaa, 0x01];
+
+		let xcm = VersionedXcm::from(Xcm(vec![
+			WithdrawAsset(assets.clone().into()),
+			PayFees { asset: local_fee_asset.clone() },
+			InitiateTransfer {
+				destination: ethereum(),
+				remote_fees: Some(AssetTransferFilter::ReserveWithdraw(Definite(
+					remote_fee_asset.clone().into(),
+				))),
+				preserve_origin: true,
+				assets: BoundedVec::truncate_from(vec![AssetTransferFilter::ReserveWithdraw(
+					Definite(reserve_asset.clone().into()),
+				)]),
+				remote_xcm: Xcm(vec![
+					DepositAsset {
+						assets: Wild(AllCounted(2)),
+						beneficiary: beneficiary.clone(),
+					},
+					Transact {
+						origin_kind: OriginKind::SovereignAccount,
+						fallback_max_weight: None,
+						call: malformed_transact_call.into(),
+					},
+				]),
+			},
+		]));
+
+		<AssetHubWestend as AssetHubWestendPallet>::PolkadotXcm::execute(
+			RuntimeOrigin::signed(AssetHubWestendReceiver::get()),
+			bx!(xcm),
+			Weight::from(EXECUTION_WEIGHT),
+		)
+		.unwrap();
+	});
+
+	BridgeHubWestend::execute_with(|| {
+		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
+		assert_expected_events!(
+			BridgeHubWestend,
+			vec![
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::ProcessXcmError {
+					error: xcm::latest::Error::Unroutable,
+					..
+				}) => {},
+				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped { assets, .. }) => {
+					assets: match assets {
+						VersionedAssets::V5(trapped) => trapped.inner().iter().any(|a| {
+							*a == Asset {
+								id: AssetId(Location::here()),
+								fun: Fungible(TOKEN_AMOUNT),
+							}
+						}),
+						_ => false,
+					},
+				},
+				RuntimeEvent::MessageQueue(pallet_message_queue::Event::Processed{ success: false, .. }) => {},
+			]
+		);
+
+		let events = BridgeHubWestend::events();
+		assert!(
+			!events.iter().any(|event| matches!(
+				event,
+				RuntimeEvent::EthereumOutboundQueueV2(
+					snowbridge_pallet_outbound_queue_v2::Event::MessageQueued { .. }
+				)
+			)),
+			"Malformed contract call must not enqueue an Ethereum outbound v2 message.",
+		);
+	});
+}
