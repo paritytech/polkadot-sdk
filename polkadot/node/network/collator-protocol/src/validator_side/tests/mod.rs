@@ -1165,7 +1165,7 @@ fn view_change_clears_old_collators() {
 fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
 	let mut test_state = TestState::default();
 
-	test_harness(ReputationAggregator::new(|_| true), HashSet::new(), |test_harness| async move {
+	test_harness(ReputationAggregator::new(|_| true), |test_harness| async move {
 		let TestHarness { mut virtual_overseer, .. } = test_harness;
 
 		let relay_parent = test_state.relay_parent;
