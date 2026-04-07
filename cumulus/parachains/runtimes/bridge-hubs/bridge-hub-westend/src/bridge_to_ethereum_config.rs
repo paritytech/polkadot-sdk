@@ -30,7 +30,7 @@ use bridge_hub_common::AggregateMessageOrigin;
 use frame_support::{
 	parameter_types,
 	traits::{Contains, Equals, Everything, EverythingBut, Nothing},
-	weights::ConstantMultiplier,
+	weights::{ConstantMultiplier, Weight},
 };
 use frame_system::EnsureRootWithSuccess;
 use hex_literal::hex;
@@ -65,11 +65,8 @@ use testnet_parachains_constants::westend::{
 };
 use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::prelude::{GlobalConsensus, InteriorLocation, Location, PalletInstance, Parachain};
-use xcm_builder::{
-	AliasOriginRootUsingFilter, FixedWeightBounds, FrameTransactionalProcessor,
-};
+use xcm_builder::{AliasOriginRootUsingFilter, FixedWeightBounds, FrameTransactionalProcessor};
 use xcm_executor::{traits::WaiveDeliveryFees, XcmExecutor};
-use frame_support::weights::Weight;
 
 pub const SLOTS_PER_EPOCH: u32 = snowbridge_pallet_ethereum_client::config::SLOTS_PER_EPOCH as u32;
 

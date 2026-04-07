@@ -304,9 +304,9 @@ fn force_trap_holding_in_simulation_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bo
 /// Runs the outbound XCM under `Executor` before delegating to the inner Snowbridge v2 blob
 /// exporter, so Ethereum-semantic instructions are exercised in simulation.
 ///
-/// If the inner export blob has no [`Instruction::AliasOrigin`], returns [`SendError::NotApplicable`] so a
-/// composed [`ExportXcm`] tuple can try the legacy v1 exporter (see
-/// [`snowbridge_v2_export_blob_contains_alias_origin`]).
+/// If the inner export blob has no [`Instruction::AliasOrigin`], returns
+/// [`SendError::NotApplicable`] so a composed [`ExportXcm`] tuple can try the legacy v1 exporter
+/// (see [`snowbridge_v2_export_blob_contains_alias_origin`]).
 pub struct ExecuteBeforeSnowbridgeV2BlobExport<
 	Inner,
 	Executor,
