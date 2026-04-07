@@ -2011,14 +2011,16 @@ impl<T: Config> Pallet<T> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
-				// ensure `LastValidatorEra` is correctly set
-				if LastValidatorEra::<T>::get(&validator) != Some(era) {
+				let last_validator_era = LastValidatorEra::<T>::get(&validator).unwrap_or_default();
+				// If election for next era is finished, last_validator_era is set to next era.
+				if last_validator_era != era && last_validator_era != era + 1 {
 					log!(
-						warn,
-						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, got {:?})",
+						error,
+						"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
 						validator,
 						era,
-						LastValidatorEra::<T>::get(&validator)
+						era + 1,
+						last_validator_era
 					);
 				}
 
