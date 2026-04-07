@@ -1416,6 +1416,10 @@ sp_api::impl_runtime_apis! {
 			use pallet_price_oracle::pallet::AuthorityProvider;
 			BabeAuthorityProvider::authorities()
 		}
+
+		fn minimum_nudges_required() -> u32 {
+			OracleMinNudges::get()
+		}
 	}
 
 	impl sp_genesis_builder::GenesisBuilder<Block> for Runtime {

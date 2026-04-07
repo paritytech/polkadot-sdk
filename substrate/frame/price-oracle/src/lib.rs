@@ -165,7 +165,7 @@ pub mod pallet {
 			let total_valid = ups + downs;
 			let current_price = CurrentPrice::<T>::get();
 			if total_valid > 0 {
-				let net = if ups >= downs { ups - downs } else { downs - ups };
+				let net = ups.saturating_sub(downs);
 				let delta = epsilon.saturating_mul(FixedU128::saturating_from_integer(net));
 
 				let new_price = if ups >= downs {

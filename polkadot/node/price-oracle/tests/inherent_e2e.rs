@@ -137,7 +137,8 @@ fn multiple_blocks_accumulate_price() {
 }
 
 #[test]
-fn duplicate_authority_nudges_handled_gracefully() {
+#[should_panic(expected = "BadMandatory")]
+fn duplicate_authority_nudges_rejected() {
 	let client = TestClientBuilder::new().build();
 
 	let now_ms = std::time::SystemTime::now()
@@ -148,29 +149,18 @@ fn duplicate_authority_nudges_handled_gracefully() {
 
 	let alice = alice_babe_pair();
 
-	// Two nudges from alice (authority 0) — duplicate should be skipped
+	// Two nudges from alice (authority 0) — duplicate should cause an error
 	let nudges = vec![
 		make_signed_nudge(&alice, Nudge::Up, slot, 0),
 		make_signed_nudge(&alice, Nudge::Up, slot - 1, 0),
 	];
 
-	let block = client
-		.init_polkadot_block_builder_with_nudges(nudges)
-		.build()
-		.expect("block builds despite duplicate")
-		.block;
-	let block_hash = block.hash();
-
-	futures::executor::block_on(client.import(BlockOrigin::Own, block))
-		.expect("block imports despite duplicate");
-
-	let price = client.runtime_api().current_price(block_hash).expect("queries price");
-	// Only 1 valid nudge (duplicate skipped) × 0.01 = 0.01
-	assert_eq!(price, FixedU128::from_rational(1, 100));
+	let _block_builder = client.init_polkadot_block_builder_with_nudges(nudges);
 }
 
 #[test]
-fn bad_signature_nudge_handled_gracefully() {
+#[should_panic(expected = "BadMandatory")]
+fn bad_signature_nudge_rejected() {
 	let client = TestClientBuilder::new().build();
 
 	let now_ms = std::time::SystemTime::now()
@@ -187,17 +177,5 @@ fn bad_signature_nudge_handled_gracefully() {
 		make_signed_nudge(&bob, Nudge::Up, slot, 1),
 	];
 
-	let block = client
-		.init_polkadot_block_builder_with_nudges(nudges)
-		.build()
-		.expect("block builds despite bad sig")
-		.block;
-	let block_hash = block.hash();
-
-	futures::executor::block_on(client.import(BlockOrigin::Own, block))
-		.expect("block imports despite bad sig");
-
-	let price = client.runtime_api().current_price(block_hash).expect("queries price");
-	// Only bob's nudge (auth 1) is valid, alice's sig is wrong → 1 × 0.01 = 0.01
-	assert_eq!(price, FixedU128::from_rational(1, 100));
+	let _block_builder = client.init_polkadot_block_builder_with_nudges(nudges);
 }
