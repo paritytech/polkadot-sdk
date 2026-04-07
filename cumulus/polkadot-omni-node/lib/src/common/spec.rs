@@ -182,9 +182,9 @@ pub(crate) trait BaseNodeSpec {
 				.parachain_id(best_hash)
 				.inspect_err(|err| {
 					log::error!(
-								"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
-								err
-							);
+						"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+						err
+					);
 				})
 				.ok()?
 		} else {
@@ -340,7 +340,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
 				parachain_config.network.ipfs_server
 			{
-				debug!("Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.", parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT);
+				debug!(
+					"Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.",
+					parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT
+				);
 				parachain_config.network.idle_connection_timeout = IPFS_WORKAROUND_TIMEOUT;
 			}
 
