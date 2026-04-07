@@ -12,15 +12,27 @@ use super::syntax::{
 	ena_asset_matches_snowbridge_shape, parse_optional_ena_pna, parse_remote_fee_section,
 };
 
-/// Top-level instructions that mutate or assert on the Origin register, other than the allowed
-/// single [`Instruction::AliasOrigin`] in the v2 export slot.
-fn disallowed_snowbridge_v2_top_level_origin_instruction<Call>(inst: &Instruction<Call>) -> bool {
+/// Top-level instructions that are not allowed in Snowbridge v2 outbound export blobs.
+///
+/// The v2 shape is a single flat instruction list; it must not contain wrapper/container
+/// instructions that introduce nested XCM programs (e.g. error handlers, appendices, reserve
+/// transfers) or mutate/assert on the Origin register outside the single allowed
+/// [`Instruction::AliasOrigin`] slot.
+fn disallowed_snowbridge_v2_top_level_instruction<Call>(inst: &Instruction<Call>) -> bool {
 	matches!(
 		inst,
 		Instruction::ClearOrigin |
 			Instruction::DescendOrigin(_) |
 			Instruction::UniversalOrigin(_) |
 			Instruction::ExpectOrigin(_) |
+			Instruction::SetErrorHandler(_) |
+			Instruction::SetAppendix(_) |
+			Instruction::TransferReserveAsset { .. } |
+			Instruction::DepositReserveAsset { .. } |
+			Instruction::InitiateReserveWithdraw { .. } |
+			Instruction::InitiateTeleport { .. } |
+			Instruction::ExportMessage { .. } |
+			Instruction::InitiateTransfer { .. } |
 			Instruction::UnpaidExecution { .. } |
 			Instruction::ExecuteWithOrigin { .. }
 	)
@@ -40,7 +52,7 @@ pub fn snowbridge_v2_outbound_xcm_shape<Call>(
 	ethereum_network: NetworkId,
 ) -> Result<(), ProcessMessageError> {
 	for inst in instructions.iter() {
-		if disallowed_snowbridge_v2_top_level_origin_instruction(inst) {
+		if disallowed_snowbridge_v2_top_level_instruction(inst) {
 			return Err(ProcessMessageError::BadFormat);
 		}
 	}

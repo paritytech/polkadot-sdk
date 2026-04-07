@@ -275,22 +275,6 @@ pub fn neutralize_eth_export_transacts_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>)
 	for instruction in xcm.0.iter_mut() {
 		match instruction {
 			Instruction::Transact { .. } => *instruction = Instruction::ClearError,
-			Instruction::SetErrorHandler(inner) | Instruction::SetAppendix(inner) => {
-				neutralize_eth_export_transacts_in_xcm_runtime(inner);
-			},
-			Instruction::ExecuteWithOrigin { xcm: inner, .. } => {
-				neutralize_eth_export_transacts_in_xcm_runtime(inner);
-			},
-			Instruction::TransferReserveAsset { xcm: inner, .. } |
-			Instruction::DepositReserveAsset { xcm: inner, .. } |
-			Instruction::InitiateReserveWithdraw { xcm: inner, .. } |
-			Instruction::InitiateTeleport { xcm: inner, .. } |
-			Instruction::ExportMessage { xcm: inner, .. } => {
-				neutralize_eth_export_transacts_in_xcm_unit(inner);
-			},
-			Instruction::InitiateTransfer { remote_xcm: inner, .. } => {
-				neutralize_eth_export_transacts_in_xcm_unit(inner);
-			},
 			_ => {},
 		}
 	}
@@ -308,98 +292,11 @@ fn poison_eth_export_beneficiary_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bo
 				*beneficiary = Here.into();
 				return true;
 			},
-			Instruction::SetErrorHandler(inner) | Instruction::SetAppendix(inner) => {
-				if poison_eth_export_beneficiary_in_xcm_runtime(inner) {
-					return true;
-				}
-			},
-			Instruction::ExecuteWithOrigin { xcm: inner, .. } => {
-				if poison_eth_export_beneficiary_in_xcm_runtime(inner) {
-					return true;
-				}
-			},
-			Instruction::TransferReserveAsset { xcm: inner, .. } |
-			Instruction::DepositReserveAsset { xcm: inner, .. } |
-			Instruction::InitiateReserveWithdraw { xcm: inner, .. } |
-			Instruction::InitiateTeleport { xcm: inner, .. } |
-			Instruction::ExportMessage { xcm: inner, .. } => {
-				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
-					return true;
-				}
-			},
-			Instruction::InitiateTransfer { remote_xcm: inner, .. } => {
-				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
-					return true;
-				}
-			},
 			_ => {},
 		}
 	}
 
 	false
-}
-
-fn poison_eth_export_beneficiary_in_xcm_unit(xcm: &mut Xcm<()>) -> bool {
-	for instruction in xcm.0.iter_mut() {
-		match instruction {
-			Instruction::DepositAsset { beneficiary, .. } => {
-				*beneficiary = Here.into();
-				return true;
-			},
-			Instruction::SetErrorHandler(inner) | Instruction::SetAppendix(inner) => {
-				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
-					return true;
-				}
-			},
-			Instruction::ExecuteWithOrigin { xcm: inner, .. } => {
-				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
-					return true;
-				}
-			},
-			Instruction::TransferReserveAsset { xcm: inner, .. } |
-			Instruction::DepositReserveAsset { xcm: inner, .. } |
-			Instruction::InitiateReserveWithdraw { xcm: inner, .. } |
-			Instruction::InitiateTeleport { xcm: inner, .. } |
-			Instruction::ExportMessage { xcm: inner, .. } => {
-				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
-					return true;
-				}
-			},
-			Instruction::InitiateTransfer { remote_xcm: inner, .. } => {
-				if poison_eth_export_beneficiary_in_xcm_unit(inner) {
-					return true;
-				}
-			},
-			_ => {},
-		}
-	}
-
-	false
-}
-
-fn neutralize_eth_export_transacts_in_xcm_unit(xcm: &mut Xcm<()>) {
-	for instruction in xcm.0.iter_mut() {
-		match instruction {
-			Instruction::Transact { .. } => *instruction = Instruction::ClearError,
-			Instruction::SetErrorHandler(inner) | Instruction::SetAppendix(inner) => {
-				neutralize_eth_export_transacts_in_xcm_unit(inner);
-			},
-			Instruction::ExecuteWithOrigin { xcm: inner, .. } => {
-				neutralize_eth_export_transacts_in_xcm_unit(inner);
-			},
-			Instruction::TransferReserveAsset { xcm: inner, .. } |
-			Instruction::DepositReserveAsset { xcm: inner, .. } |
-			Instruction::InitiateReserveWithdraw { xcm: inner, .. } |
-			Instruction::InitiateTeleport { xcm: inner, .. } |
-			Instruction::ExportMessage { xcm: inner, .. } => {
-				neutralize_eth_export_transacts_in_xcm_unit(inner);
-			},
-			Instruction::InitiateTransfer { remote_xcm: inner, .. } => {
-				neutralize_eth_export_transacts_in_xcm_unit(inner);
-			},
-			_ => {},
-		}
-	}
 }
 
 /// Runs the outbound XCM under `Executor` before delegating to the inner Snowbridge v2 blob
