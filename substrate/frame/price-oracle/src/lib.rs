@@ -71,6 +71,24 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Too few nudges were provided (below the runtime minimum).
+		TooFewNudges,
+		/// A nudge in the inherent is too old (slot is beyond the validity window).
+		StaleNudge,
+		/// A nudge in the inherent is a duplicate.
+		DuplicateNudge,
+		/// A nudge in the inherent has an invalid authority.
+		InvalidAuthority,
+		/// A nudge in the inherent has an invalid signature.
+		InvalidSignature,
+		/// A nudge in the inherent is invalid.
+		InvalidNudge,
+		/// The number of valid nudges is invalid.
+		InvalidNudgeCount,
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -115,10 +133,8 @@ pub mod pallet {
 		))]
 		pub fn submit_nudges(origin: OriginFor<T>, nudges: Vec<SignedNudge>) -> DispatchResult {
 			ensure_none(origin)?;
-			assert!(
-				!NudgeCount::<T>::exists(),
-				"Price oracle inherent must be submitted only once per block"
-			);
+			ensure!(!NudgeCount::<T>::exists(), Error::<T>::InvalidNudgeCount);
+			ensure!(nudges.len() >= T::MinNudges::get() as usize, Error::<T>::TooFewNudges);
 
 			let authorities = T::AuthorityProvider::authorities();
 			let current_slot = T::AuthorityProvider::current_slot();
@@ -130,44 +146,15 @@ pub mod pallet {
 			let mut seen_authorities = alloc::collections::BTreeSet::<u32>::new();
 
 			for nudge in &nudges {
-				if *nudge.slot + validity <= *current_slot {
-					log::warn!(
-						target: LOG_TARGET,
-						"Stale nudge from slot {:?}, current slot {:?}, validity {}",
-						nudge.slot, current_slot, validity,
-					);
-					continue;
-				}
+				ensure!(*nudge.slot + validity > *current_slot, Error::<T>::StaleNudge);
 
-				if !seen_authorities.insert(nudge.authority_index) {
-					log::warn!(
-						target: LOG_TARGET,
-						"Duplicate nudge from authority index {}, skipping",
-						nudge.authority_index,
-					);
-					continue;
-				}
+				ensure!(seen_authorities.insert(nudge.authority_index), Error::<T>::DuplicateNudge);
 
-				let authority = match authorities.get(nudge.authority_index as usize) {
-					Some(a) => a,
-					None => {
-						log::warn!(
-							target: LOG_TARGET,
-							"Invalid authority index {}",
-							nudge.authority_index,
-						);
-						continue;
-					},
-				};
+				let authority = authorities
+					.get(nudge.authority_index as usize)
+					.ok_or(Error::<T>::InvalidAuthority)?;
 
-				if !nudge.verify(authority) {
-					log::warn!(
-						target: LOG_TARGET,
-						"Invalid signature for authority index {}",
-						nudge.authority_index,
-					);
-					continue;
-				}
+				ensure!(nudge.verify(authority), Error::<T>::InvalidSignature);
 
 				match nudge.nudge {
 					Nudge::Up => ups += 1,
