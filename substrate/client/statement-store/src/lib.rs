@@ -1987,49 +1987,6 @@ mod tests {
 			store.statements().unwrap().into_iter().map(|(hash, _)| hash).collect();
 		statements.sort();
 		assert_eq!(expected_statements, statements);
-
-		// Account 4: sequence number ordering within same timestamp
-		// max_count=4, max_size=1000
-		// Relax global limits to allow more submissions
-		store.index.write().config.max_total_statements = 100;
-		store.index.write().config.max_total_size = 100000;
-
-		// Use timestamps far in the future to avoid AlreadyExpired rejection
-		let ts_lo = u32::MAX - 2;
-		let ts_hi = u32::MAX - 1;
-
-		let mut s4_seq10 = statement(4, 10, None, 100);
-		s4_seq10.set_expiry_from_parts(ts_lo, 10);
-		let mut s4_seq20 = statement(4, 20, None, 100);
-		s4_seq20.set_expiry_from_parts(ts_lo, 20);
-		let mut s4_seq30 = statement(4, 30, None, 100);
-		s4_seq30.set_expiry_from_parts(ts_lo, 30);
-		let mut s4_seq40 = statement(4, 40, None, 100);
-		s4_seq40.set_expiry_from_parts(ts_lo, 40);
-
-		let h4_seq10 = s4_seq10.hash();
-		let h4_seq20 = s4_seq20.hash();
-
-		assert_eq!(store.submit(s4_seq10, source), ok);
-		assert_eq!(store.submit(s4_seq20, source), ok);
-		assert_eq!(store.submit(s4_seq30, source), ok);
-		assert_eq!(store.submit(s4_seq40, source), ok);
-
-		// Submit seq=50 at same timestamp, evicts seq=10 (lowest sequence = lowest priority)
-		let mut s4_seq50 = statement(4, 50, None, 100);
-		s4_seq50.set_expiry_from_parts(ts_lo, 50);
-		assert_eq!(store.submit(s4_seq50, source), ok);
-		assert!(!store.index.read().entries.contains_key(&h4_seq10), "seq=10 should be evicted");
-
-		// Submit higher timestamp with seq=1, evicts (ts_lo, seq=20)
-		// because ts_lo < ts_hi even though seq=1 < seq=20
-		let mut s4_ts_hi = statement(4, 1, None, 100);
-		s4_ts_hi.set_expiry_from_parts(ts_hi, 1);
-		assert_eq!(store.submit(s4_ts_hi, source), ok);
-		assert!(
-			!store.index.read().entries.contains_key(&h4_seq20),
-			"(ts_lo, seq=20) should be evicted because ts_lo < ts_hi"
-		);
 	}
 
 	#[test]
@@ -2959,4 +2916,140 @@ mod tests {
 		assert_eq!(index.total_size, 600);
 	}
 
+	#[test]
+	fn eviction_removes_lowest_priority_first_in_order() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 2: max_count=2, max_size=1000
+		let s_prio1 = statement(2, 1, None, 100);
+		let s_prio3 = statement(2, 3, None, 100);
+		let h_prio1 = s_prio1.hash();
+		let h_prio3 = s_prio3.hash();
+
+		assert_eq!(store.submit(s_prio1, source), SubmitResult::New);
+		assert_eq!(store.submit(s_prio3, source), SubmitResult::New);
+		assert_eq!(store.index.read().entries.len(), 2);
+
+		// Submit priority 5 → must evict one (count limit = 2)
+		let s_prio5 = statement(2, 5, None, 100);
+		let h_prio5 = s_prio5.hash();
+		assert_eq!(store.submit(s_prio5, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 2);
+			assert!(!index.entries.contains_key(&h_prio1), "Priority 1 should be evicted");
+			assert!(index.entries.contains_key(&h_prio3), "Priority 3 should remain");
+			assert!(index.entries.contains_key(&h_prio5), "Priority 5 should be added");
+			assert!(index.expired.contains_key(&h_prio1));
+		}
+
+		// Submit priority 10 → must evict priority 3 (next lowest)
+		let s_prio10 = statement(2, 10, None, 100);
+		let h_prio10 = s_prio10.hash();
+		assert_eq!(store.submit(s_prio10, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 2);
+			assert!(!index.entries.contains_key(&h_prio3), "Priority 3 should be evicted");
+			assert!(index.entries.contains_key(&h_prio5), "Priority 5 should remain");
+			assert!(index.entries.contains_key(&h_prio10), "Priority 10 should be added");
+		}
+	}
+
+	#[test]
+	fn eviction_rejects_equal_priority_statement() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 1: max_count=1, max_size=1000
+		// Submit a statement with priority 5
+		let s1 = statement(1, 5, None, 100);
+		let h1 = s1.hash();
+		assert_eq!(store.submit(s1, source), SubmitResult::New);
+
+		// Submit another statement with same priority 5 but different data → different hash
+		let mut s2 = Statement::new();
+		s2.set_plain_data(vec![42u8; 100]);
+		s2.set_expiry_from_parts(u32::MAX, 5);
+		s2.set_proof(Proof::OnChain {
+			block_hash: CORRECT_BLOCK_HASH,
+			who: account(1),
+			event_index: 0,
+		});
+		let result = store.submit(s2, source);
+		assert!(
+			matches!(result, SubmitResult::Rejected(RejectionReason::AccountFull { .. })),
+			"Equal priority should be rejected, got: {result:?}"
+		);
+
+		// Original statement should still be there
+		let index = store.index.read();
+		assert_eq!(index.entries.len(), 1);
+		assert!(index.entries.contains_key(&h1));
+	}
+
+	#[test]
+	fn eviction_sequence_number_ordering_within_same_timestamp() {
+		let (mut store, _temp) = test_store();
+		// Set time to 500 so timestamps 1000 and 1001 are in the future
+		store.set_time(500);
+		let source = StatementSource::Network;
+
+		// Account 3: max_count=3, max_size=1000
+		// Submit 3 statements with same timestamp but different sequence numbers
+		// Use unique data bytes per statement to ensure distinct hashes
+		let mut s_seq10 = statement(3, 10, None, 100);
+		s_seq10.set_expiry_from_parts(1000, 10);
+
+		let mut s_seq20 = statement(3, 20, None, 100);
+		s_seq20.set_expiry_from_parts(1000, 20);
+
+		let mut s_seq30 = statement(3, 30, None, 100);
+		s_seq30.set_expiry_from_parts(1000, 30);
+
+		let h_seq10 = s_seq10.hash();
+		let h_seq20 = s_seq20.hash();
+		let h_seq30 = s_seq30.hash();
+
+		assert_eq!(store.submit(s_seq10, source), SubmitResult::New);
+		assert_eq!(store.submit(s_seq20, source), SubmitResult::New);
+		assert_eq!(store.submit(s_seq30, source), SubmitResult::New);
+
+		// Submit seq=40 at same timestamp → evicts seq=10 (lowest sequence = lowest priority)
+		let mut s_seq40 = statement(3, 40, None, 100);
+		s_seq40.set_expiry_from_parts(1000, 40);
+		let h_seq40 = s_seq40.hash();
+		assert_eq!(store.submit(s_seq40, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 3);
+			assert!(!index.entries.contains_key(&h_seq10), "seq=10 should be evicted");
+			assert!(index.entries.contains_key(&h_seq20), "seq=20 should remain");
+			assert!(index.entries.contains_key(&h_seq30), "seq=30 should remain");
+			assert!(index.entries.contains_key(&h_seq40), "seq=40 should be added");
+		}
+
+		// Submit timestamp=1001 seq=1 → evicts (1000, seq=20) because timestamp 1000 < 1001
+		// even though seq=1 < seq=20, the timestamp dominates
+		let mut s_ts1001 = statement(3, 1, None, 100);
+		s_ts1001.set_expiry_from_parts(1001, 1);
+		let h_ts1001 = s_ts1001.hash();
+		assert_eq!(store.submit(s_ts1001, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 3);
+			assert!(
+				!index.entries.contains_key(&h_seq20),
+				"(ts=1000, seq=20) should be evicted because ts=1000 < ts=1001"
+			);
+			assert!(index.entries.contains_key(&h_seq30), "(ts=1000, seq=30) should remain");
+			assert!(index.entries.contains_key(&h_seq40), "(ts=1000, seq=40) should remain");
+			assert!(index.entries.contains_key(&h_ts1001), "(ts=1001, seq=1) should be added");
+		}
+	}
 }
