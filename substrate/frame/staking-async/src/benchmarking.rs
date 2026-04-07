@@ -132,6 +132,24 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		crate::reward::EraRewardManager::<T>::create(planned_era, EraPotType::StakerRewards);
 	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
 
+	// Set up validator incentive so payout benchmarks include the incentive transfer cost.
+	OptimumSelfStake::<T>::put(BalanceOf::<T>::from(30_000u64));
+	HardCapSelfStake::<T>::put(BalanceOf::<T>::from(100_000u64));
+	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
+
+	let incentive_payout = total_payout / 10u32.into(); // 10% of total as incentive budget
+	let incentive_pot = crate::reward::EraRewardManager::<T>::create(
+		planned_era,
+		EraPotType::ValidatorSelfStake,
+	);
+	let _ = asset::mint_creating::<T>(&incentive_pot, incentive_payout);
+	ErasValidatorIncentiveBudget::<T>::insert(planned_era, incentive_payout);
+
+	// All validators get equal weight for benchmark simplicity.
+	let weight = BalanceOf::<T>::from(100u64);
+	ErasValidatorIncentiveWeight::<T>::insert(planned_era, &v_stash, weight);
+	ErasSumValidatorIncentiveWeight::<T>::insert(planned_era, weight);
+
 	Ok((v_stash, nominators, planned_era))
 }
 
