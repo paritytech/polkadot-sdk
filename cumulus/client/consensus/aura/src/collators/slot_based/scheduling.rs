@@ -150,7 +150,14 @@ impl SchedulingInfo {
 	{
 		match relay_client.best_block_hash().await {
 			Ok(hash) => {
-				*self = Self::Initialized { relay_best_hash: hash, maybe_relay_best_header: None };
+				let maybe_relay_best_hash = match &self {
+					SchedulingInfo::Uninitialized => None,
+					SchedulingInfo::Initialized { relay_best_hash, .. } => Some(relay_best_hash),
+				};
+				if maybe_relay_best_hash != Some(&hash) {
+					*self =
+						Self::Initialized { relay_best_hash: hash, maybe_relay_best_header: None };
+				}
 				Some(hash)
 			},
 			Err(err) => {
