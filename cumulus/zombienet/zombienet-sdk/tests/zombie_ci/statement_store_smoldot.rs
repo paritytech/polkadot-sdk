@@ -130,14 +130,16 @@ fn prepare_chain_specs(
 		inject_bootnodes(&para_spec_json, &[charlie.multiaddr(), dave.multiaddr()])?;
 
 	// Fix parachain spec for smoldot:
-	// - Set para_id (smoldot requires it)
+	// - Ensure para_id is set (smoldot requires it; read from the spec itself)
 	// - Match relay_chain to the relay spec's actual id
 	{
 		let relay_parsed: serde_json::Value = serde_json::from_str(&relay_spec)?;
 		let relay_id = relay_parsed["id"].as_str().unwrap_or("westend_local_testnet");
 
 		let mut spec: serde_json::Value = serde_json::from_str(&para_spec)?;
-		spec["para_id"] = serde_json::json!(2400);
+		if spec.get("para_id").and_then(|v| v.as_u64()).is_none() {
+			return Err(anyhow!("Parachain spec is missing para_id"));
+		}
 		spec["relay_chain"] = serde_json::json!(relay_id);
 		para_spec = serde_json::to_string(&spec)?;
 	}
@@ -833,9 +835,14 @@ async fn statement_store_unsubscribe() -> Result<(), anyhow::Error> {
 	let _: SubmitResult =
 		charlie_rpc.request("statement_submit", rpc_params![stmt2.clone()]).await?;
 
-	// New subscription should receive it
-	let received = receive_statement(&mut subscription2, 60).await?;
-	assert_eq!(received, stmt2);
+	// New subscription should receive stmt2. It may also receive stmt1 via initial sync
+	// re-delivery (since the seen-statements cache was cleared on affinity change).
+	let received = collect_statements(&mut subscription2, 15).await;
+	assert!(
+		received.contains(&stmt2),
+		"New subscription should receive stmt2, got {} statements",
+		received.len()
+	);
 	info!("New subscription works after old was dropped - PASSED");
 
 	smoldot.kill().await?;
