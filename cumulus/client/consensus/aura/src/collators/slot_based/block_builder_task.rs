@@ -1022,7 +1022,7 @@ impl SlotHandoverAdjustment {
 	fn from_total_blocks(total_blocks: u32, blocks_per_core: u32) -> Self {
 		match total_blocks {
 			0..=1 => Self::None,
-			2..=3 if blocks_per_core == 1 => Self::Shorten { time_factor: 0.5 },
+			2..=3 if blocks_per_core == 1 || blocks_per_core == total_blocks => Self::Shorten { time_factor: 0.5 },
 			_ => Self::Skip,
 		}
 	}
