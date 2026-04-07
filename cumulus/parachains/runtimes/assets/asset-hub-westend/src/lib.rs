@@ -81,7 +81,6 @@ use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
 	message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber,
 	CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
-	NORMAL_DISPATCH_RATIO,
 };
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -133,6 +132,16 @@ use xcm::latest::prelude::{
 	Asset, Assets as XcmAssets, Fungible, Here, InteriorLocation, Junction, Junction::*, Location,
 	NetworkId, ParentThen, Response, WeightLimit, XCM_VERSION,
 };
+
+/// Local override of normal dispatch ratio to match Polkadot's async backing configuration (85%)
+/// instead of the shared parachains_common default (75%).
+const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(85);
+
+/// Override slot duration to 12s to match Polkadot's Asset Hub. With a 6s relay slot and 12s aura
+/// slot, elastic scaling can produce multiple parachain blocks within a single aura slot (up to
+/// BLOCK_PROCESSING_VELOCITY=3 blocks per relay slot). The default from testnet constants is 6000ms
+/// which restricts block production to 1 block per relay slot.
+const SLOT_DURATION: u64 = 12_000;
 
 /// Build with an offset of 1 behind the relay chain.
 const RELAY_PARENT_OFFSET: u32 = 1;
@@ -269,8 +278,9 @@ impl pallet_balances::Config for Runtime {
 }
 
 parameter_types! {
-	/// Relay Chain `TransactionByteFee` / 10
-	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Matches Polkadot's `MILLICENTS / 2` adjusted for
+	/// Westend's 100x larger currency denominations.
+	pub const TransactionByteFee: Balance = MILLICENTS / 200;
 }
 
 /// `pallet_revive` requires this specific `WeightToFee` implementation.
@@ -280,8 +290,9 @@ parameter_types! {
 pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 	// p
 	CENTS,
-	// q
-	{ 100 * ExtrinsicBaseWeight::get().ref_time() as u128 },
+	// q: 20_000x multiplier = Polkadot's 200x adjusted for
+	// Westend's 100x larger CENTS denomination.
+	{ 20_000 * ExtrinsicBaseWeight::get().ref_time() as u128 },
 	Runtime,
 	Balance,
 >;
@@ -978,7 +989,7 @@ type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 impl parachain_info::Config for Runtime {}
 
 parameter_types! {
-	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(35) * RuntimeBlockWeights::get().max_block;
+	pub MessageQueueServiceWeight: Weight = Perbill::from_percent(50) * RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_message_queue::Config for Runtime {
@@ -998,7 +1009,7 @@ impl pallet_message_queue::Config for Runtime {
 	// The XCMP queue pallet is only ever able to handle the `Sibling(ParaId)` origin:
 	type QueueChangeHandler = NarrowOriginToSibling<XcmpQueue>;
 	type QueuePausedQuery = NarrowOriginToSibling<XcmpQueue>;
-	type HeapSize = sp_core::ConstU32<{ 103 * 1024 }>;
+	type HeapSize = sp_core::ConstU32<{ 64 * 1024 }>;
 	type MaxStale = sp_core::ConstU32<8>;
 	type ServiceWeight = MessageQueueServiceWeight;
 	type IdleMaxServiceWeight = MessageQueueServiceWeight;
@@ -1240,7 +1251,7 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 
 parameter_types! {
 	pub const DepositPerItem: Balance = deposit(1, 0);
-	pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 100;
+	pub const DepositPerChildTrieItem: Balance = deposit(1, 0) / 10;
 	pub const DepositPerByte: Balance = deposit(0, 1);
 	pub CodeHashLockupDepositPercent: Perbill = Perbill::from_percent(30);
 	pub const MaxEthExtrinsicWeight: FixedU128 = FixedU128::from_rational(9, 10);
@@ -1273,12 +1284,12 @@ impl pallet_revive::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CodeHashLockupDepositPercent = CodeHashLockupDepositPercent;
 	type ChainId = ConstU64<420_420_421>;
-	type NativeToEthRatio = ConstU32<1_000_000>; // 10^(18 - 12) Eth is 10^18, Native is 10^12.
+	type NativeToEthRatio = ConstU32<100_000_000>;
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
-	type GasScale = ConstU32<1000>;
+	type GasScale = ConstU32<80_000>;
 	type OnBurn = Dap;
 }
 
