@@ -86,12 +86,12 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning ErasValidatorIncentiveWeight storage
-		ErasValidatorIncentiveWeight,
 		/// Pruning single-entry storages
 		SingleEntryCleanups,
 		/// Pruning ValidatorSlashInEra storage
 		ValidatorSlashInEra,
+		/// Pruning ErasValidatorIncentiveWeight storage
+		ErasValidatorIncentiveWeight,
 	}
 
 	/// The in-code storage version.
