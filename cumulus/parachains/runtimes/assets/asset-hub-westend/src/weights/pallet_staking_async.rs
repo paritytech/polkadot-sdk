@@ -742,7 +742,7 @@ impl<T: frame_system::Config> pallet_staking_async::WeightInfo for WeightInfo<T>
 		// TODO(ank4n) run bench
 		Weight::default()
 	}
-	fn prune_era_validator_incentive_weight(v: u32) -> Weight {
+	fn prune_era_validator_incentive_weight(_v: u32) -> Weight {
 		// TODO(ank4n) run bench
 		Weight::default()
 	}
