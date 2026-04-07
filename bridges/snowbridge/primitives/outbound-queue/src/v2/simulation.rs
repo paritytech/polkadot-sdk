@@ -6,12 +6,11 @@
 use core::marker::PhantomData;
 
 use frame_support::{
-	ensure,
 	traits::{
 		tokens::imbalance::{
 			ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
 		},
-		Contains, Everything, Get, ProcessMessageError,
+		Get, ProcessMessageError,
 	},
 	weights::Weight,
 };
@@ -150,12 +149,11 @@ impl<EthereumNetwork: Get<NetworkId>> ShouldExecute
 	for EthereumExportSimulationBarrier<EthereumNetwork>
 {
 	fn should_execute<RuntimeCall>(
-		origin: &Location,
+		_origin: &Location,
 		instructions: &mut [Instruction<RuntimeCall>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
 	) -> Result<(), ProcessMessageError> {
-		ensure!(Everything::contains(origin), ProcessMessageError::Unsupported);
 		if snowbridge_v2_instructions_contain_alias_origin(instructions) {
 			snowbridge_v2_outbound_xcm_shape(instructions, EthereumNetwork::get())
 		} else {
