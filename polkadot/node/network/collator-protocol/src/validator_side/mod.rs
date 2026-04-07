@@ -1724,7 +1724,7 @@ where
 			?peer_id,
 			?scheduling_parent,
 			?prospective_candidate,
-			"Collation held off, not processing advertisement further",
+			"Collation held off, not processing advertisement further for now",
 		);
 
 		return Ok(());
