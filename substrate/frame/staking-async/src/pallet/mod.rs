@@ -71,6 +71,11 @@ pub mod pallet {
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
 
+	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
+	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
+	/// function.
+	type IncentiveWeight<T> = BalanceOf<T>;
+
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum PruningStep {
@@ -534,8 +539,8 @@ pub mod pallet {
 
 	/// Optimum self-stake threshold for validators.
 	///
-	/// Validators with self-stake below this value receive full weightage in the validator
-	/// self-stake incentive reward curve. Above this threshold, diminishing returns apply.
+	/// Below this threshold, the incentive weight grows as `sqrt(self_stake)`.
+	/// Above it, growth is dampened by [`SelfStakeSlopeFactor`].
 	#[pallet::storage]
 	pub type OptimumSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
 
@@ -556,12 +561,13 @@ pub mod pallet {
 	pub type ErasValidatorIncentiveBudget<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
-	/// The total validator self-stake weight for the era.
+	/// Sum of all validators' incentive weights for the era.
 	#[pallet::storage]
 	pub type ErasSumValidatorIncentiveWeight<T: Config> =
-		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
 
-	/// Individual validator self-stake weight per era.
+	/// Individual validator incentive weight per era.
+	/// Each validator's share of the incentive pot = `their_weight / sum_weight`.
 	#[pallet::storage]
 	pub type ErasValidatorIncentiveWeight<T: Config> = StorageDoubleMap<
 		_,
@@ -569,7 +575,7 @@ pub mod pallet {
 		EraIndex,
 		Twox64Concat,
 		T::AccountId,
-		BalanceOf<T>,
+		IncentiveWeight<T>,
 		OptionQuery,
 	>;
 
