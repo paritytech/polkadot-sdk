@@ -1404,13 +1404,10 @@ impl StatementStore for Store {
 		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(
 			&account_id,
-			statement
-				.proof()
-				.and_then(|p| match p {
-					Proof::OnChain { block_hash, .. } => Some(AllowanceBlock::Block(*block_hash)),
-					_ => None,
-				})
-				.unwrap_or(AllowanceBlock::Best),
+			match statement.proof() {
+				Some(Proof::OnChain { block_hash, .. }) => AllowanceBlock::Block(*block_hash),
+				_ => AllowanceBlock::Best,
+			},
 		) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
