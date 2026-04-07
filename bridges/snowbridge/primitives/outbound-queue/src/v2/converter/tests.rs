@@ -1,18 +1,19 @@
 use super::*;
-use codec::Encode;
-use xcm::prelude::SendError as XcmSendError;
-use xcm::prelude::*;
 use crate::{
 	v2::{convert::XcmConverterError, Command, ContractCall, Message, SendMessage},
 	SendError, SendMessageFeeProvider,
 };
+use codec::Encode;
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
 use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
 use sp_core::H256;
 use sp_runtime::traits::MaybeConvert;
 use sp_std::default::Default;
-use xcm::latest::WESTEND_GENESIS_HASH;
+use xcm::{
+	latest::WESTEND_GENESIS_HASH,
+	prelude::{SendError as XcmSendError, *},
+};
 use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 parameter_types! {
@@ -693,12 +694,8 @@ fn xcm_converter_accepts_contract_call_min_intrinsic_gas() {
 
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
-	let transact_call = ContractCall::V1 {
-		target: [2u8; 20],
-		calldata: vec![],
-		value: 0,
-		gas: 21_000,
-	};
+	let transact_call =
+		ContractCall::V1 { target: [2u8; 20], calldata: vec![], value: 0, gas: 21_000 };
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(fee_asset.clone().into()),
@@ -717,9 +714,7 @@ fn xcm_converter_accepts_contract_call_min_intrinsic_gas() {
 		SetTopic([0; 32]),
 	]
 	.into();
-	assert!(
-		convert::ensure_top_level_optional_contract_call_params_valid(message.inner()).is_ok()
-	);
+	assert!(convert::ensure_top_level_optional_contract_call_params_valid(message.inner()).is_ok());
 	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
 	assert!(converter.convert().is_ok());
 }
@@ -740,12 +735,8 @@ fn xcm_converter_accepts_contract_call_empty_calldata_nonzero_gas() {
 
 	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
 
-	let transact_call = ContractCall::V1 {
-		target: [2u8; 20],
-		calldata: vec![],
-		value: 0,
-		gas: 40_000,
-	};
+	let transact_call =
+		ContractCall::V1 { target: [2u8; 20], calldata: vec![], value: 0, gas: 40_000 };
 
 	let message: Xcm<()> = vec![
 		WithdrawAsset(fee_asset.clone().into()),

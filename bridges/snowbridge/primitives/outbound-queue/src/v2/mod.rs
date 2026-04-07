@@ -28,12 +28,13 @@ pub enum ContractCall {
 		/// Target contract address
 		target: [u8; 20],
 		/// ABI-encoded calldata (if non-empty, must be at least 4 bytes — function selector; empty
-		/// is allowed for some agent/value flows). Validated in [`converter::XcmConverter::convert`].
+		/// is allowed for some agent/value flows). Validated in
+		/// [`converter::XcmConverter::convert`].
 		calldata: Vec<u8>,
 		/// Include ether held by the agent contract
 		value: u128,
-		/// Maximum gas to forward to target contract (must be at least `21_000` — Ethereum intrinsic
-		/// tx gas; validated in [`converter::XcmConverter::convert`]).
+		/// Maximum gas to forward to target contract (must be at least `21_000` — Ethereum
+		/// intrinsic tx gas; validated in [`converter::XcmConverter::convert`]).
 		gas: u64,
 	},
 }

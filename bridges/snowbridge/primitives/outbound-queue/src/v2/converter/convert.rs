@@ -70,10 +70,7 @@ fn ensure_contract_call_v1_params_valid(
 ) -> Result<(), XcmConverterError> {
 	ensure!(gas >= MIN_CONTRACT_CALL_GAS, InvalidContractCallParams);
 	if !calldata.is_empty() {
-		ensure!(
-			calldata.len() >= MIN_NON_EMPTY_CONTRACT_CALL_CALLDATA,
-			InvalidContractCallParams
-		);
+		ensure!(calldata.len() >= MIN_NON_EMPTY_CONTRACT_CALL_CALLDATA, InvalidContractCallParams);
 	}
 	Ok(())
 }
@@ -91,8 +88,9 @@ pub(crate) fn ensure_top_level_optional_contract_call_params_valid<Call>(
 			Instruction::DepositAsset { .. } => seen_deposit_asset = true,
 			Instruction::Transact { call, .. } if seen_deposit_asset => {
 				match decode_contract_call(&call.clone().into_encoded())? {
-					ContractCall::V1 { calldata, gas, .. } =>
-						ensure_contract_call_v1_params_valid(&calldata, gas)?,
+					ContractCall::V1 { calldata, gas, .. } => {
+						ensure_contract_call_v1_params_valid(&calldata, gas)?
+					},
 				}
 				return Ok(());
 			},
@@ -133,18 +131,13 @@ where
 	}
 
 	fn next(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
-		let inst = self
-			.instructions
-			.get(self.pos)
-			.ok_or(XcmConverterError::UnexpectedEndOfXcm)?;
+		let inst = self.instructions.get(self.pos).ok_or(XcmConverterError::UnexpectedEndOfXcm)?;
 		self.pos += 1;
 		Ok(inst)
 	}
 
 	fn peek(&mut self) -> Result<&'a Instruction<Call>, XcmConverterError> {
-		self.instructions
-			.get(self.pos)
-			.ok_or(XcmConverterError::UnexpectedEndOfXcm)
+		self.instructions.get(self.pos).ok_or(XcmConverterError::UnexpectedEndOfXcm)
 	}
 
 	/// Extract the fee asset item from PayFees(V5)

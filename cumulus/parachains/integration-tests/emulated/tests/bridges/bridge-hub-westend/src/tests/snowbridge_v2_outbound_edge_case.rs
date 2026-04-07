@@ -512,7 +512,8 @@ fn snowbridge_v2_alias_origin_spoof_should_fail_on_barrier_and_no_trap_assets() 
 	BridgeHubWestend::execute_with(|| {
 		type RuntimeEvent = <BridgeHubWestend as Chain>::RuntimeEvent;
 		// Snowbridge v2 shape barrier rejects the inner export blob before `DepositAsset` runs in
-		// simulation, so export fails as Unroutable and no `AssetsTrapped` (unlike invalid beneficiary).
+		// simulation, so export fails as Unroutable and no `AssetsTrapped` (unlike invalid
+		// beneficiary).
 		assert_expected_events!(
 			BridgeHubWestend,
 			vec![
@@ -655,10 +656,7 @@ fn send_eth_from_asset_hub_with_invalid_contract_call_params_should_fail_and_tra
 					Definite(reserve_asset.clone().into()),
 				)]),
 				remote_xcm: Xcm(vec![
-					DepositAsset {
-						assets: Wild(AllCounted(2)),
-						beneficiary: beneficiary.clone(),
-					},
+					DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary.clone() },
 					Transact {
 						origin_kind: OriginKind::SovereignAccount,
 						fallback_max_weight: None,
@@ -762,10 +760,7 @@ fn send_eth_from_asset_hub_with_malformed_contract_call_should_fail_and_trap_ass
 					Definite(reserve_asset.clone().into()),
 				)]),
 				remote_xcm: Xcm(vec![
-					DepositAsset {
-						assets: Wild(AllCounted(2)),
-						beneficiary: beneficiary.clone(),
-					},
+					DepositAsset { assets: Wild(AllCounted(2)), beneficiary: beneficiary.clone() },
 					Transact {
 						origin_kind: OriginKind::SovereignAccount,
 						fallback_max_weight: None,

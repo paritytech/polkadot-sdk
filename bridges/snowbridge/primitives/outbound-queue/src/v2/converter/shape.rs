@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2023 Snowfork <hello@snowfork.com>
 //! Structural validation shared with [`super::convert::XcmConverter::convert`] for early rejection
-//! (e.g. Bridge Hub Ethereum XCM simulation in [`crate::v2::simulation::EthereumExportSimulationBarrier`]).
+//! (e.g. Bridge Hub Ethereum XCM simulation in
+//! [`crate::v2::simulation::EthereumExportSimulationBarrier`]).
 
 use frame_support::{ensure, traits::ProcessMessageError};
 use snowbridge_core::AgentIdOf;
