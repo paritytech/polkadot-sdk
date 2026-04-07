@@ -1,0 +1,53 @@
+title: 'pallet-dap-satellite: Add token transfers via XCM to DAP from the satellites'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds XCM-based transfer support to `pallet-dap-satellite`, enabling system parachains
+    that accumulate native token burns (fees, dust, coretime revenue) to periodically
+    teleport those funds to the central DAP buffer account on AssetHub.
+
+    ## New components:
+
+    **`sp-dap`**: Contains the `SendToDap` trait, to be implemented when funds need to be
+      sent to the central DAP buffer, as well as the DAP and DAP satellite pallet IDs.
+
+    **`xcm-builder`**: Two new adapters are added:
+    - `SendToDapViaTeleport` — implements `SendToDap` and wraps it in a storage transaction
+      so that any failure rolls back all local state changes.
+    - `DapBufferAssetTransactor` — Receive-side adapter that wraps an inner `TransactAsset`
+      and also deactivates the received funds in order to keep `active_issuance()` accurate.
+
+    ## Integration (Westend system parachains):
+
+    All five Westend system parachains (AssetHub, BridgeHub, Collectives, Coretime, People)
+    and the Westend relay chain are configured with `SendToDapViaTeleport`. AssetHub is
+    additionally configured with `DapBufferAssetTransactor` to handle the receiving side.
+
+    ## Testing:
+
+    Integration tests covering the full round-trip (satellite accumulates → `on_idle` fires →
+    XCM teleport → DAP buffer receives) are provided for the Westend relay chain and all
+    system parachains (via `xcm-emulator`). Additional unit tests are also provided.
+
+crates:
+- name: sp-dap
+  bump: minor
+- name: pallet-dap-satellite
+  bump: minor
+- name: pallet-dap
+  bump: patch
+- name: staging-xcm-builder
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
