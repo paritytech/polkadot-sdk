@@ -44,6 +44,8 @@ pub struct HopEntryMeta {
 	pub claimed: Vec<bool>,
 	/// Alias of the sender who submitted this entry (from personhood proof).
 	pub sender_alias: Alias,
+	/// Whether this entry has been promoted to permanent on-chain storage.
+	pub promoted: bool,
 }
 
 impl HopEntryMeta {
@@ -57,7 +59,7 @@ impl HopEntryMeta {
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
 		let claimed = vec![false; recipients.len()];
-		Self { added_at, expires_at, size, recipients, claimed, sender_alias }
+		Self { added_at, expires_at, size, recipients, claimed, sender_alias, promoted: false }
 	}
 }
 
@@ -183,8 +185,9 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 	}
 }
 
-/// Maximum data size (64 MiB)
-pub const MAX_DATA_SIZE: u64 = 64 * 1024 * 1024;
+/// Maximum data size (8 MiB, matches pallet-transaction-storage MaxTransactionSize).
+/// Chunking of larger data is the frontend's responsibility.
+pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
 /// Default retention period in blocks (24 hours at 6 seconds per block = 14,400 blocks)
 pub const DEFAULT_RETENTION_BLOCKS: u32 = 14_400;

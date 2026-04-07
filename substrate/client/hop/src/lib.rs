@@ -54,10 +54,10 @@
 //! use std::sync::Arc;
 //!
 //! // Conditional initialization (SDK pattern)
-//! let hop_pool = hop_params.enable_hop.then(|| {
+//! let hop_pool = hop_params.enabled.then(|| {
 //!     HopDataPool::new(
-//!         hop_params.hop_max_pool_size * 1024 * 1024,  // Convert MiB to bytes
-//!         hop_params.hop_retention_blocks,
+//!         hop_params.max_pool_size * 1024 * 1024,  // Convert MiB to bytes
+//!         hop_params.retention_blocks,
 //!     )
 //!     .map(Arc::new)
 //!     .map_err(|e| format!("Failed to create HOP pool: {}", e))
@@ -76,8 +76,10 @@
 //!
 //! ## RPC Methods
 //!
-//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data with SCALE-encoded MultiSigner recipient keys and personhood proof, returns hash + pool status
-//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with SCALE-encoded MultiSignature
+//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data
+//!   with SCALE-encoded MultiSigner recipient keys and personhood proof, returns hash + pool status
+//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with SCALE-encoded
+//!   MultiSignature
 //! - `hop_poolStatus() -> PoolStatus` - Get pool statistics
 //!
 //! ## CLI Flags
@@ -90,6 +92,7 @@
 pub mod cli;
 pub mod pool;
 pub mod primitives;
+pub mod promotion;
 pub mod rpc;
 pub mod types;
 
@@ -97,5 +100,6 @@ pub mod types;
 pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
+pub use promotion::{try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter};
 pub use rpc::{HopApiServer, HopRpcServer, NoopVerifier, PersonhoodVerifier};
 pub use types::{Alias, HopEntryMeta, HopError, HopPoolEntry, PoolStatus, SubmitResult};
