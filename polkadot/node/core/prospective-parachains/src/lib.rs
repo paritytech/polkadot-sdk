@@ -45,14 +45,13 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_util::{
 	backing_implicit_view::BlockInfoProspectiveParachains as BlockInfo,
 	inclusion_emulator::{Constraints, RelayChainBlockInfo},
-	request_backing_constraints, request_candidates_pending_availability, request_node_features,
+	request_backing_constraints, request_candidates_pending_availability,
 	request_session_index_for_child,
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	node_features::FeatureIndex, transpose_claim_queue, CandidateHash,
-	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Header, Id as ParaId,
-	NodeFeatures, PersistedValidationData,
+	transpose_claim_queue, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	Hash, Header, Id as ParaId, PersistedValidationData,
 };
 
 use crate::{
@@ -78,8 +77,6 @@ struct RelayBlockViewData {
 	// The relay chain scope containing the relay parent and its allowed ancestors.
 	// This is shared across all paras for this relay parent.
 	relay_chain_scope: fragment_chain::RelayChainScope,
-	// The node features active at this relay parent.
-	node_features: NodeFeatures,
 }
 
 struct View {
@@ -239,10 +236,6 @@ async fn handle_active_leaves_update<Context>(
 			.await
 			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
-		let node_features = request_node_features(hash, session_index, ctx.sender())
-			.await
-			.await
-			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 		let ancestry_len = fetch_scheduling_lookahead(hash, session_index, ctx.sender())
 			.await?
 			.saturating_sub(1);
@@ -283,8 +276,6 @@ async fn handle_active_leaves_update<Context>(
 			},
 		};
 
-		let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
-
 		let mut fragment_chains = HashMap::new();
 		for (para, claims_by_depth) in transposed_claim_queue.iter() {
 			// Find constraints and pending availability candidates.
@@ -319,7 +310,6 @@ async fn handle_active_leaves_update<Context>(
 					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
-					v3_enabled,
 				);
 
 				match res {
@@ -343,13 +333,7 @@ async fn handle_active_leaves_update<Context>(
 			let max_backable_chain_len =
 				claims_by_depth.values().flatten().collect::<BTreeSet<_>>().len();
 
-			// The runtime's min_relay_parent_number should match: now - ancestry_len
 			let min_relay_parent_number = constraints.min_relay_parent_number;
-			debug_assert_eq!(
-				block_info.number.saturating_sub(ancestors.len() as u32),
-				min_relay_parent_number,
-				"Fetched ancestry length should match runtime's min_relay_parent calculation"
-			);
 
 			let scope =
 				FragmentChainScope::new(constraints, compact_pending, max_backable_chain_len);
@@ -410,7 +394,7 @@ async fn handle_active_leaves_update<Context>(
 		}
 
 		view.per_relay_parent
-			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope, node_features });
+			.insert(hash, RelayBlockViewData { fragment_chains, relay_chain_scope });
 
 		view.active_leaves.insert(hash);
 	}
@@ -563,30 +547,21 @@ async fn handle_introduce_seconded_candidate(
 	} = request;
 
 	let candidate_hash = candidate.hash();
-	let candidate_relay_parent = candidate.descriptor.relay_parent();
 
-	// Get v3_enabled from the node_features of the candidate's relay_parent
-	let v3_enabled = view
-		.per_relay_parent
-		.get(&candidate_relay_parent)
-		.map(|rp_data| FeatureIndex::CandidateReceiptV3.is_set(&rp_data.node_features))
-		.unwrap_or(false);
+	let candidate_entry = match CandidateEntry::new_seconded(candidate_hash, candidate, pvd) {
+		Ok(candidate) => candidate,
+		Err(err) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				para_id = ?para,
+				"Cannot add seconded candidate: {}",
+				err
+			);
 
-	let candidate_entry =
-		match CandidateEntry::new_seconded(candidate_hash, candidate, pvd, v3_enabled) {
-			Ok(candidate) => candidate,
-			Err(err) => {
-				gum::warn!(
-					target: LOG_TARGET,
-					para_id = ?para,
-					"Cannot add seconded candidate: {}",
-					err
-				);
-
-				let _ = tx.send(false);
-				return;
-			},
-		};
+			let _ = tx.send(false);
+			return;
+		},
+	};
 
 	let mut added = Vec::with_capacity(view.per_relay_parent.len());
 	let mut para_scheduled = false;
@@ -838,8 +813,34 @@ fn answer_hypothetical_membership_request(
 			let para_id = &candidate.candidate_para();
 			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
 
-			let res = fragment_chain
-				.can_add_candidate_as_potential(&leaf_view.relay_chain_scope, candidate);
+			let res = match candidate {
+				HypotheticalCandidate::Complete {
+					candidate_hash,
+					ref receipt,
+					ref persisted_validation_data,
+				} => {
+					// For complete candidates, build a CandidateEntry and run the full
+					// potential check including constraint validation.
+					let entry = fragment_chain::CandidateEntry::new_seconded(
+						*candidate_hash,
+						(**receipt).clone(),
+						persisted_validation_data.clone(),
+					);
+					match entry {
+						Ok(entry) => fragment_chain
+							.can_add_candidate_as_potential(&leaf_view.relay_chain_scope, &entry),
+						Err(_) => continue,
+					}
+				},
+				HypotheticalCandidate::Incomplete { .. } => fragment_chain
+					.can_add_candidate_as_potential_hypothetical(
+						&leaf_view.relay_chain_scope,
+						candidate.scheduling_parent(),
+						candidate.candidate_hash(),
+						candidate.parent_head_data_hash(),
+						candidate.output_head_data_hash(),
+					),
+			};
 			match res {
 				Err(FragmentChainError::CandidateAlreadyKnown) | Ok(()) => {
 					membership.push(*active_leaf);
