@@ -41,11 +41,13 @@ pub(crate) enum SlotStatus {
 /// per relay chain slot. This struct provides methods to fetch and inspect relay
 /// chain state for scheduling decisions.
 #[derive(Default)]
-pub(crate) struct SchedulingInfo {
-	/// The relay chain best block hash.
-	relay_best_hash: Option<RelayHash>,
-	/// The relay chain best block header, lazily fetched when slot status is queried.
-	relay_best_header: Option<RelayHeader>,
+pub(crate) enum SchedulingInfo {
+	#[default]
+	Uninitialized,
+	Initialized {
+		relay_best_hash: RelayHash,
+		maybe_relay_best_header: Option<RelayHeader>,
+	},
 }
 
 impl SchedulingInfo {
@@ -64,15 +66,21 @@ impl SchedulingInfo {
 	where
 		RelayClient: RelayChainInterface + Clone + 'static,
 	{
-		let relay_best_hash = self.relay_best_hash?;
+		let (relay_best_hash, maybe_relay_best_header) = match self {
+			SchedulingInfo::Uninitialized => return None,
+			SchedulingInfo::Initialized { relay_best_hash, maybe_relay_best_header } => {
+				(*relay_best_hash, maybe_relay_best_header)
+			},
+		};
 
 		// Fetch the header if not cached or if it belongs to a different block.
-		let needs_fetch =
-			self.relay_best_header.as_ref().map_or(true, |h| h.hash() != relay_best_hash);
-
-		if needs_fetch {
-			let header = match relay_client.header(BlockId::Hash(relay_best_hash)).await {
-				Ok(Some(header)) => header,
+		let relay_best_header = match maybe_relay_best_header {
+			Some(header) => header,
+			None => match relay_client.header(BlockId::Hash(relay_best_hash)).await {
+				Ok(Some(header)) => {
+					*maybe_relay_best_header = Some(header);
+					maybe_relay_best_header.as_ref()?
+				},
 				Ok(None) => {
 					tracing::warn!(
 						target: LOG_TARGET,
@@ -90,12 +98,10 @@ impl SchedulingInfo {
 					);
 					return None;
 				},
-			};
-			self.relay_best_header = Some(header);
-		}
+			},
+		};
 
-		let header = self.relay_best_header.as_ref()?;
-		Self::compute_slot_status(header, relay_best_hash, relay_chain_slot_duration)
+		Self::compute_slot_status(relay_best_header, relay_chain_slot_duration)
 	}
 
 	/// Returns the relay chain block hash to use as the starting point for finding
@@ -123,8 +129,13 @@ impl SchedulingInfo {
 		match self.relay_best_slot_status(relay_client, relay_chain_slot_duration).await? {
 			SlotStatus::Finished => Some(relay_best_hash),
 			SlotStatus::InProgress => {
-				let header = self.relay_best_header.as_ref()?;
-				Some(*header.parent_hash())
+				let maybe_relay_best_header = match self {
+					SchedulingInfo::Uninitialized => None,
+					SchedulingInfo::Initialized { relay_best_hash: _, maybe_relay_best_header } => {
+						maybe_relay_best_header.as_ref()
+					},
+				};
+				Some(*maybe_relay_best_header?.parent_hash())
 			},
 		}
 	}
@@ -139,7 +150,7 @@ impl SchedulingInfo {
 	{
 		match relay_client.best_block_hash().await {
 			Ok(hash) => {
-				self.relay_best_hash = Some(hash);
+				*self = Self::Initialized { relay_best_hash: hash, maybe_relay_best_header: None };
 				Some(hash)
 			},
 			Err(err) => {
@@ -157,15 +168,15 @@ impl SchedulingInfo {
 	/// current wall-clock slot to determine the slot status.
 	fn compute_slot_status(
 		header: &RelayHeader,
-		block_hash: RelayHash,
 		relay_chain_slot_duration: Duration,
 	) -> Option<SlotStatus> {
+		let hash = header.hash();
 		let babe_slot = match sc_consensus_babe::find_pre_digest::<RelayBlock>(header) {
 			Ok(pre_digest) => pre_digest.slot(),
 			Err(err) => {
 				tracing::error!(
 					target: LOG_TARGET,
-					?block_hash,
+					?hash,
 					?err,
 					"Relay chain block does not contain a BABE pre-digest.",
 				);
@@ -180,7 +191,7 @@ impl SchedulingInfo {
 		let status = if babe_slot < current_slot {
 			tracing::debug!(
 				target: LOG_TARGET,
-				?block_hash,
+				?hash,
 				?babe_slot,
 				?current_slot,
 				"Relay chain block belongs to a finished slot.",
@@ -189,7 +200,7 @@ impl SchedulingInfo {
 		} else {
 			tracing::debug!(
 				target: LOG_TARGET,
-				?block_hash,
+				?hash,
 				?babe_slot,
 				?current_slot,
 				"Relay chain block belongs to the current in-progress slot.",
