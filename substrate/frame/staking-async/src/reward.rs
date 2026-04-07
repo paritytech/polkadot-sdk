@@ -37,7 +37,13 @@ pub struct EraRewardManager<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> EraRewardManager<T> {
 	/// Creates an era pot account by adding a provider reference.
+	///
+	/// Should only be called in non-minting mode (`DisableMinting = true`).
 	pub(crate) fn create(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
+		debug_assert!(
+			T::DisableMinting::get(),
+			"Era pots should only be created when DisableMinting is true"
+		);
 		let pot_account = T::EraPots::era_pot_account(era, pot_type);
 		frame_system::Pallet::<T>::inc_providers(&pot_account);
 		pot_account
@@ -86,8 +92,16 @@ impl<T: Config> EraRewardManager<T> {
 	}
 
 	/// Destroys an era pot by withdrawing unclaimed rewards and removing the provider.
+	///
+	/// No-op if the pot was never created (e.g. in legacy minting mode).
 	pub(crate) fn destroy(era: EraIndex, pot_type: EraPotType) {
 		let pot_account = T::EraPots::era_pot_account(era, pot_type);
+
+		// Skip if pot was never created (legacy mode doesn't create pots).
+		if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
+			return;
+		}
+
 		let remaining = T::Currency::balance(&pot_account);
 
 		if !remaining.is_zero() {
