@@ -1542,11 +1542,16 @@ pub mod pallet {
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
 		/// take a deposit that can be released by calling [`Self::unmap_account`].
 		///
-		/// Disabled when [`Config::AutoMap`] is enabled, as accounts are automatically mapped
+		/// Noop when [`Config::AutoMap`] is enabled, as accounts are automatically mapped
 		/// on creation via [`AutoMapper`].
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			if T::AutoMap::get() {
+				return Ok(())
+			}
+
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
