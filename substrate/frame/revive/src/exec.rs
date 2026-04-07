@@ -954,6 +954,8 @@ where
 		transaction_meter: &'a mut TransactionMeter<T>,
 		value: BalanceOf<T>,
 		exec_config: &'a ExecConfig<T>,
+		read_only: bool,
+		delegate_call: bool,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -969,7 +971,18 @@ where
 		)
 		.unwrap()
 		.unwrap();
-		(call.0, call.1.into_executable().unwrap())
+		let mut stack = call.0;
+		if read_only {
+			stack.top_frame_mut().read_only = true;
+		}
+		if delegate_call {
+			let frame = stack.top_frame_mut();
+			frame.delegate = Some(DelegateInfo {
+				caller: Origin::from_account_id(frame.account_id.clone()),
+				callee: H160::zero(),
+			});
+		}
+		(stack, call.1.into_executable().unwrap())
 	}
 
 	/// Create a new call stack.

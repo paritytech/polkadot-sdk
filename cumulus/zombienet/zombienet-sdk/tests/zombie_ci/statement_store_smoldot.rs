@@ -70,14 +70,15 @@ use sp_statement_store::{StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{path::PathBuf, time::Duration};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use zombienet_sdk::{
+	LocalFileSystem, Network,
 	subxt::{
 		backend::rpc::RpcClient,
 		ext::subxt_rpcs::{client::RpcSubscription, rpc_params},
 	},
-	LocalFileSystem, Network,
 };
 
-use crate::zombie_ci::statement_store_bench::{get_keypair, spawn_network};
+use crate::zombie_ci::statement_store::common::spawn_network_with_injected_allowances;
+use sc_statement_store::test_utils::get_keypair;
 
 /// Path to the smoldot wasm-node/javascript directory.
 /// Must be set via SMOLDOT_JS_PATH env var. The directory must contain a pre-built
@@ -368,7 +369,7 @@ async fn setup_smoldot_test(
 	let _ = std::fs::remove_dir_all(&fresh_dir);
 	std::env::set_var("ZOMBIENET_SDK_BASE_DIR", &fresh_dir);
 
-	let network = spawn_network(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 	let base_dir = network.base_dir().ok_or(anyhow!("no base dir"))?;
 	let specs = prepare_chain_specs(&network, base_dir)?;
 	let smoldot = start_smoldot_proxy(&specs, port).await?;
@@ -396,7 +397,7 @@ async fn statement_store_fullnode_to_smoldot() -> Result<(), anyhow::Error> {
 
 	info!("=== Test: fullnode → smoldot ===");
 
-	let network = spawn_network(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 	let base_dir = network.base_dir().ok_or(anyhow!("no base dir"))?;
 	let specs = prepare_chain_specs(&network, base_dir)?;
 
@@ -452,7 +453,7 @@ async fn statement_store_smoldot_submit() -> Result<(), anyhow::Error> {
 
 	info!("=== Test: smoldot → fullnode ===");
 
-	let network = spawn_network(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 	let base_dir = network.base_dir().ok_or(anyhow!("no base dir"))?;
 	let specs = prepare_chain_specs(&network, base_dir)?;
 
@@ -500,7 +501,7 @@ async fn statement_store_smoldot_to_smoldot() -> Result<(), anyhow::Error> {
 
 	info!("=== Test: smoldot → smoldot (long running) ===");
 
-	let network = spawn_network(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 	let base_dir = network.base_dir().ok_or(anyhow!("no base dir"))?;
 	let specs = prepare_chain_specs(&network, base_dir)?;
 
@@ -979,7 +980,7 @@ async fn statement_store_initial_sync_all_filters() -> Result<(), anyhow::Error>
 	let _ = std::fs::remove_dir_all(&fresh_dir);
 	std::env::set_var("ZOMBIENET_SDK_BASE_DIR", &fresh_dir);
 
-	let network = spawn_network(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 	let base_dir = network.base_dir().ok_or(anyhow!("no base dir"))?;
 	let specs = prepare_chain_specs(&network, base_dir)?;
 	let mut smoldot = start_smoldot_proxy(&specs, 19956).await?;

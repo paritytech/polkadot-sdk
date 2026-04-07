@@ -85,6 +85,7 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
+	"pallet-dap-satellite?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -164,6 +165,7 @@ std = [
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
 	"pallet-verify-signature?/std",
+	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
 	"pallet-whitelist?/std",
 	"pallet-xcm-benchmarks?/std",
@@ -282,6 +284,7 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-dap-satellite?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -347,6 +350,7 @@ runtime-benchmarks = [
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
+	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
 	"pallet-whitelist?/runtime-benchmarks",
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
@@ -424,6 +428,7 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
+	"pallet-dap-satellite?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -492,6 +497,7 @@ try-runtime = [
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
+	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
@@ -639,6 +645,7 @@ runtime-full = [
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
 	"pallet-dap",
+	"pallet-dap-satellite",
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-derivatives",
@@ -721,6 +728,7 @@ runtime-full = [
 	"pallet-utility",
 	"pallet-verify-signature",
 	"pallet-vesting",
+	"pallet-vesting-precompiles",
 	"pallet-whitelist",
 	"pallet-xcm",
 	"pallet-xcm-benchmarks",
@@ -1422,6 +1430,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/dap"
 
+[dependencies.pallet-dap-satellite]
+default-features = false
+optional = true
+path = "../substrate/frame/dap-satellite"
+
 [dependencies.pallet-delegated-staking]
 default-features = false
 optional = true
@@ -1831,6 +1844,11 @@ path = "../substrate/frame/verify-signature"
 default-features = false
 optional = true
 path = "../substrate/frame/vesting"
+
+[dependencies.pallet-vesting-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/vesting/precompiles"
 
 [dependencies.pallet-whitelist]
 default-features = false

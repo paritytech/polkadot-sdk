@@ -16,6 +16,10 @@
 
 use std::{
 	pin::Pin,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	task::{Context, Poll},
 	time::Duration,
 };
@@ -44,7 +48,6 @@ use polkadot_node_subsystem::{
 	overseer,
 };
 use polkadot_node_subsystem_util::{runtime, runtime::RuntimeInfo};
-use polkadot_primitives::node_features::FeatureIndex;
 
 use crate::{
 	metrics::{FAILED, SUCCEEDED},
@@ -114,6 +117,11 @@ pub struct DisputesReceiver<Sender, AD> {
 
 	/// Log received requests.
 	metrics: Metrics,
+
+	/// Shared monotonic flag for V3 candidate descriptor detection.
+	/// Updated by the main subsystem task on active leaf updates.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
+	v3_ever_seen: Arc<AtomicBool>,
 }
 
 /// Messages as handled by this receiver internally.
@@ -155,6 +163,7 @@ where
 		receiver: IncomingRequestReceiver<DisputeRequest>,
 		authority_discovery: AD,
 		metrics: Metrics,
+		v3_ever_seen: Arc<AtomicBool>,
 	) -> Self {
 		let runtime = RuntimeInfo::new_with_config(runtime::Config {
 			keystore: None,
@@ -169,6 +178,7 @@ where
 			authority_discovery,
 			pending_imports: FuturesUnordered::new(),
 			metrics,
+			v3_ever_seen,
 		}
 	}
 
@@ -325,21 +335,31 @@ where
 	) -> Result<()> {
 		let IncomingRequest { peer, payload, pending_response } = incoming;
 
-		// For disputes, we need session info from the scheduling context
-		// First get a reference relay parent to fetch node features
-		let relay_parent = payload.0.candidate_receipt.descriptor.relay_parent();
+		// For disputes, we need session info from the scheduling context.
+		// Use the transition-safe method to match old backer semantics before V3 is confirmed.
+		let v3_ever_seen = self.v3_ever_seen.load(Ordering::Relaxed);
+		let scheduling_parent = payload
+			.0
+			.candidate_receipt
+			.descriptor
+			.scheduling_parent_for_candidate_validation(v3_ever_seen);
 
-		let session_info_for_features = self
-			.runtime
-			.get_session_info_by_index(&mut self.sender, relay_parent, payload.0.session_index)
-			.await?;
-		let v3_enabled =
-			FeatureIndex::CandidateReceiptV3.is_set(&session_info_for_features.node_features);
-
-		// Use scheduling_parent to fetch the session info for dispute validators
-		let scheduling_parent =
-			payload.0.candidate_receipt.descriptor.scheduling_parent(v3_enabled);
-
+		// The scheduling parent may not be a block we have ever seen (e.g. disputes
+		// about candidates on forks we never imported), so we cannot rely on its state
+		// being available for runtime API queries.
+		//
+		// This is fine because `get_session_info_by_index` has two cache layers:
+		//
+		// 1. A local LRU cache in this subsystem's `RuntimeInfo`, keyed by session index. Once
+		//    populated by a prior call from this receiver, the scheduling parent hash is
+		//    irrelevant. Thus on a dispute storm, the cache will be warm (the actual threat
+		//    scenario).
+		//
+		// 2. More importantly, the runtime API subsystem itself caches session info by session
+		//    index. The dispute coordinator and dispute distribution sender both query session info
+		//    on every active leaf, warming that global cache for all sessions within the dispute
+		//    window. When our local cache misses, the runtime API subsystem can still serve the
+		//    response from its cache even if the scheduling parent block's state is unavailable.
 		let info = self
 			.runtime
 			.get_session_info_by_index(&mut self.sender, scheduling_parent, payload.0.session_index)

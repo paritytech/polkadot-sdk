@@ -63,12 +63,11 @@ pub(crate) fn build_statement_store<
 	sync_service: Arc<sc_network_sync::service::syncing_service::SyncingService<Block>>,
 	local_keystore: Arc<sc_keystore::LocalKeystore>,
 	statement_handler_proto: sc_network_statement::StatementHandlerPrototype,
-	statement_network_workers: usize,
-	statement_rate_limit: u32,
+	config: sc_statement_store::Config,
 ) -> sc_service::error::Result<Arc<Store>> {
 	let statement_store = sc_statement_store::Store::new_shared(
 		&parachain_config.data_path,
-		Default::default(),
+		config,
 		client,
 		local_keystore,
 		parachain_config.prometheus_registry(),
@@ -87,8 +86,8 @@ pub(crate) fn build_statement_store<
 		statement_store.clone(),
 		parachain_config.prometheus_registry(),
 		statement_protocol_executor,
-		statement_network_workers,
-		statement_rate_limit,
+		config.network_workers,
+		config.rate_limit,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",

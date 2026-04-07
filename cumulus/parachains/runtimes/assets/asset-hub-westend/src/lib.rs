@@ -75,11 +75,12 @@ use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig,
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
-	impls::DealWithFees, message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance,
-	BlockNumber, CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
+	message_queue::*, AccountId, AssetIdForTrustBackedAssets, AuraId, Balance, BlockNumber,
+	CollectionId, Hash, Header, ItemId, Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO,
 	NORMAL_DISPATCH_RATIO,
 };
 use sp_api::impl_runtime_apis;
@@ -88,7 +89,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Saturating, Verify},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Debug, FixedU128, Perbill, Permill,
+	ApplyExtrinsicResult, Debug, FixedU128, MultiSignature, MultiSigner, Perbill, Permill,
 };
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -163,7 +164,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_021_004,
+	spec_version: 1_022_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -254,7 +255,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
+	type DustRemoval = Dap;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -287,8 +288,7 @@ pub type WeightToFee = pallet_revive::evm::fees::BlockRatioFee<
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, Dap>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -1262,6 +1262,7 @@ impl pallet_revive::Config for Runtime {
 		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
 		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
 		XcmPrecompile<Self>,
+		VestingPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
@@ -1278,6 +1279,11 @@ impl pallet_revive::Config for Runtime {
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
+	type OnBurn = Dap;
+}
+
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1297,6 +1303,7 @@ impl pallet_migrations::Config for Runtime {
 		pallet_assets_precompiles::MigrateForeignAssetPrecompileMappings<
 			Runtime,
 			ForeignAssetsInstance,
+			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
@@ -1379,6 +1386,35 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = weights::pallet_sudo::WeightInfo<Runtime>;
 }
 
+pub type MetaTxExtension = (
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_meta_tx::MetaTxMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1424,6 +1460,8 @@ construct_runtime!(
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
 		Indices: pallet_indices = 43,
+		MetaTx: pallet_meta_tx = 44,
+		VerifySignature: pallet_verify_signature = 45,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1442,6 +1480,7 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
+		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1479,6 +1518,7 @@ construct_runtime!(
 		AssetConversionMigration: pallet_asset_conversion_ops = 200,
 
 		AhOps: pallet_ah_ops = 254,
+
 	}
 );
 
@@ -1514,9 +1554,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extension = TxExtension;
+	type ExtensionV0 = TxExtension;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
 			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
@@ -1562,6 +1603,7 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
 	// unreleased
 	pallet_assets::migration::next_asset_id::SetNextAssetId<
 		ConstU32<50_000_000>,
@@ -1781,6 +1823,7 @@ mod benches {
 		[pallet_assets, Local]
 		[pallet_assets, Foreign]
 		[pallet_assets, Pool]
+		[pallet_assets_precompiles, AssetsPrecompiles]
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
@@ -1803,6 +1846,8 @@ mod benches {
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
 		[pallet_uniques, Uniques]
 		[pallet_utility, Utility]
+		[pallet_meta_tx, MetaTx]
+		[pallet_verify_signature, VerifySignature]
 		[pallet_timestamp, Timestamp]
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
@@ -1810,6 +1855,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]
