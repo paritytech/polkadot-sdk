@@ -2958,6 +2958,51 @@ mod tests {
 	}
 
 	#[test]
+	fn submit_rejects_malformed_statements() {
+		let (store, _temp) = test_store();
+
+		let mut base = Statement::new();
+		base.set_expiry(u64::MAX);
+		base.set_plain_data(vec![1]);
+
+		let ed_kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
+		let sr_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		let ecdsa_kp = sp_core::ecdsa::Pair::from_string("//Alice", None).unwrap();
+
+		assert_eq!(
+			store.submit(base.clone(), StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::NoProof)
+		);
+
+		let bad_proofs = [
+			Proof::Ed25519 { signature: [0xAB; 64], signer: ed_kp.public().0 },
+			Proof::Sr25519 { signature: [0xCD; 64], signer: sr_kp.public().0 },
+			Proof::Secp256k1Ecdsa { signature: [0xEF; 65], signer: ecdsa_kp.public().0 },
+		];
+		for proof in bad_proofs {
+			let mut s = base.clone();
+			s.set_proof(proof);
+			assert_eq!(
+				store.submit(s, StatementSource::Network),
+				SubmitResult::Invalid(InvalidReason::BadProof)
+			);
+		}
+
+		let mut wrong_signer = base.clone();
+		wrong_signer.sign_ed25519_private(&ed_kp);
+		let alice_sig = match wrong_signer.proof().unwrap() {
+			Proof::Ed25519 { signature, .. } => *signature,
+			_ => panic!("expected Ed25519 proof after sign_ed25519_private"),
+		};
+		let bob_kp = sp_core::ed25519::Pair::from_string("//Bob", None).unwrap();
+		wrong_signer.set_proof(Proof::Ed25519 { signature: alice_sig, signer: bob_kp.public().0 });
+		assert_eq!(
+			store.submit(wrong_signer, StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::BadProof)
+		);
+	}
+
+	#[test]
 	fn channel_replacement_with_size_increase_evicts_others() {
 		let (store, _temp) = test_store();
 		let source = StatementSource::Network;
