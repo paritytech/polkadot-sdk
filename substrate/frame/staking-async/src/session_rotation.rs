@@ -511,7 +511,8 @@ impl<T: Config> Eras<T> {
 		let oldest_present_era = active_era.saturating_sub(T::HistoryDepth::get()).max(1);
 
 		for e in oldest_present_era..=active_era {
-			Self::era_fully_present(e)?
+			Self::era_fully_present(e)?;
+			Self::check_validator_incentive_weight_consistency(e)?;
 		}
 
 		// Ensure all eras older than oldest_present_era are either fully pruned or marked for
@@ -519,6 +520,28 @@ impl<T: Config> Eras<T> {
 		ensure!(
 			(1..oldest_present_era).all(|e| Self::era_absent_or_pruning(e).is_ok()),
 			"All old eras must be either fully pruned or marked for pruning"
+		);
+
+		Ok(())
+	}
+
+	/// Verify that the sum of individual validator incentive weights matches the stored total.
+	fn check_validator_incentive_weight_consistency(
+		era: EraIndex,
+	) -> Result<(), sp_runtime::TryRuntimeError> {
+		use sp_runtime::traits::Zero;
+
+		let stored_total = ErasSumValidatorIncentiveWeight::<T>::get(era);
+		let computed_total: BalanceOf<T> =
+			ErasValidatorIncentiveWeight::<T>::iter_prefix(era).fold(
+				BalanceOf::<T>::zero(),
+				|acc, (_, w)| acc.saturating_add(w),
+			);
+
+		ensure!(
+			stored_total == computed_total,
+			"ErasSumValidatorIncentiveWeight mismatch: \
+			 stored vs computed individual weights do not match"
 		);
 
 		Ok(())

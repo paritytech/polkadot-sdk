@@ -1399,6 +1399,12 @@ pub mod pallet {
 			dest: RewardDestination<T::AccountId>,
 			amount: BalanceOf<T>,
 		},
+		/// Validator self-stake incentive configuration has been updated.
+		ValidatorIncentiveConfigSet {
+			optimum_self_stake: BalanceOf<T>,
+			hard_cap_self_stake: BalanceOf<T>,
+			slope_factor: Perbill,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -3000,7 +3006,7 @@ pub mod pallet {
 				.max(T::WeightInfo::prune_era_reward_points())
 				.max(T::WeightInfo::prune_era_single_entry_cleanups())
 				.max(T::WeightInfo::prune_era_validator_slash_in_era(v))
-			.max(T::WeightInfo::prune_era_validator_incentive_weight(v))
+				.max(T::WeightInfo::prune_era_validator_incentive_weight(v))
 		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
@@ -3062,6 +3068,11 @@ pub mod pallet {
 				ensure!(new_optimum <= new_cap, Error::<T>::OptimumGreaterThanCap);
 			}
 
+			let has_changes = !matches!(
+				(&optimum_self_stake, &hard_cap_self_stake, &self_stake_slope_factor),
+				(ConfigOp::Noop, ConfigOp::Noop, ConfigOp::Noop)
+			);
+
 			macro_rules! config_op_exp {
 				($storage:ty, $op:ident) => {
 					match $op {
@@ -3075,6 +3086,14 @@ pub mod pallet {
 			config_op_exp!(OptimumSelfStake<T>, optimum_self_stake);
 			config_op_exp!(HardCapSelfStake<T>, hard_cap_self_stake);
 			config_op_exp!(SelfStakeSlopeFactor<T>, self_stake_slope_factor);
+
+			if has_changes {
+				Self::deposit_event(Event::<T>::ValidatorIncentiveConfigSet {
+					optimum_self_stake: OptimumSelfStake::<T>::get(),
+					hard_cap_self_stake: HardCapSelfStake::<T>::get(),
+					slope_factor: SelfStakeSlopeFactor::<T>::get(),
+				});
+			}
 
 			Ok(())
 		}

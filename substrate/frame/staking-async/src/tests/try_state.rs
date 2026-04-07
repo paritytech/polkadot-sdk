@@ -127,3 +127,25 @@ fn try_state_bad_eras_total_stake() {
 		assert!(Staking::do_try_state(System::block_number()).is_err());
 	});
 }
+
+#[test]
+fn try_state_detects_incentive_weight_mismatch() {
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: valid incentive state after era rotation.
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+
+		let era = 2;
+		let stored_total = ErasSumValidatorIncentiveWeight::<Test>::get(era);
+		assert!(stored_total > 0);
+
+		// WHEN: corrupt the sum to be inconsistent with individual weights.
+		ErasSumValidatorIncentiveWeight::<Test>::insert(era, stored_total + 999);
+
+		// THEN: try-state detects the mismatch.
+		assert!(Staking::do_try_state(System::block_number()).is_err());
+
+		// Restore valid state so build_and_execute post-check passes.
+		ErasSumValidatorIncentiveWeight::<Test>::insert(era, stored_total);
+	});
+}

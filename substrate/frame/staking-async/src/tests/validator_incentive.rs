@@ -23,55 +23,6 @@ use crate::{
 	session_rotation::{EraElectionPlanner, Eras, Rotator},
 };
 
-// ===== Helpers =====
-
-fn setup_incentive_config() {
-	assert_ok!(Staking::set_validator_self_stake_incentive_config(
-		RuntimeOrigin::root(),
-		ConfigOp::Set(30_000),
-		ConfigOp::Set(100_000),
-		ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
-	));
-}
-
-fn setup_incentive_with_budget(staker_pct: u32, incentive_pct: u32) {
-	setup_incentive_config();
-	let buffer_pct = 100u32.saturating_sub(staker_pct).saturating_sub(incentive_pct);
-	let mut entries = vec![(staker_reward_key(), staker_pct)];
-	if incentive_pct > 0 {
-		entries.push((validator_incentive_key(), incentive_pct));
-	}
-	if buffer_pct > 0 {
-		entries.push((buffer_key(), buffer_pct));
-	}
-	pallet_dap::BudgetAllocation::<Test>::put(build_budget(&entries));
-}
-
-fn staker_reward_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
-	events.iter().find_map(|e| match e {
-		Event::Rewarded { stash: s, amount, .. } if *s == stash => Some(*amount),
-		_ => None,
-	})
-}
-
-fn incentive_paid_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
-	incentive_paid_details(stash, events).map(|(amount, _)| amount)
-}
-
-fn incentive_paid_details(
-	stash: AccountId,
-	events: &[Event<Test>],
-) -> Option<(Balance, RewardDestination<AccountId>)> {
-	events.iter().find_map(|e| match e {
-		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
-			if *validator_stash == stash =>
-		{
-			Some((*amount, *dest))
-		},
-		_ => None,
-	})
-}
-
 // ===== Config extrinsic tests =====
 
 #[test]
@@ -240,6 +191,7 @@ fn enabling_incentive_budget_mid_flight() {
 
 		// THEN: era 2 has incentive.
 		assert!(incentive_paid_for(alice, &era2).is_some());
+		// Exact budget depends on DAP drip timing, so we only assert non-zero here.
 		assert!(ErasValidatorIncentiveBudget::<Test>::get(2) > 0);
 	});
 }
@@ -314,7 +266,9 @@ fn incentive_paid_to_custom_account() {
 		// THEN: event records custom account, balance increased.
 		let (incentive, dest) = incentive_paid_details(alice, &events).expect("incentive");
 		assert_eq!(dest, RewardDestination::Account(reward_account));
-		assert!(asset::total_balance::<Test>(&reward_account) - before >= incentive);
+		// Staker reward also goes to the custom account, so balance increase includes both.
+		let staker = staker_reward_for(alice, &events).expect("staker reward");
+		assert_eq!(asset::total_balance::<Test>(&reward_account) - before, staker + incentive);
 	});
 }
 
