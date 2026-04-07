@@ -1194,7 +1194,10 @@ impl<T: Config> rc_client::AHStakingInterface for Pallet<T> {
 		let oldest_reportable_offence_era = if T::SlashDeferDuration::get() == 0 {
 			// this implies that slashes are applied immediately, so we can accept any offence up to
 			// bonding duration old.
-			active_era.index.saturating_sub(T::BondingDuration::get())
+			// Align with the SlashDeferDuration > 0 branch: accept offences from at most
+			// BondingDuration - 1 distinct eras, ensuring the count fits within the
+			// OffenceQueueEras bound.
+			active_era.index.saturating_sub(T::BondingDuration::get().saturating_sub(2))
 		} else {
 			// slashes are deffered, so we only accept offences that are not older than the
 			// defferal duration.
@@ -2008,14 +2011,16 @@ impl<T: Config> Pallet<T> {
 		let Some(era) = ActiveEra::<T>::get().map(|a| a.index) else { return Ok(()) };
 		let overview_and_pages = ErasStakersOverview::<T>::iter_prefix(era)
 			.map(|(validator, metadata)| {
-				// ensure `LastValidatorEra` is correctly set
-				if LastValidatorEra::<T>::get(&validator) != Some(era) {
+				let last_validator_era = LastValidatorEra::<T>::get(&validator).unwrap_or_default();
+				// If election for next era is finished, last_validator_era is set to next era.
+				if last_validator_era != era && last_validator_era != era + 1 {
 					log!(
-						warn,
-						"Validator {:?} has incorrect LastValidatorEra (expected {:?}, got {:?})",
+						error,
+						"Validator {:?} has incorrect LastValidatorEra (expected {:?} or {:?}, got {:?})",
 						validator,
 						era,
-						LastValidatorEra::<T>::get(&validator)
+						era + 1,
+						last_validator_era
 					);
 				}
 
