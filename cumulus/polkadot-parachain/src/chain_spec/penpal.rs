@@ -16,9 +16,10 @@
 
 use cumulus_primitives_core::ParaId;
 use hex_literal::hex;
-use parachains_common::AccountId;
+use parachains_common::{AccountId, AuraId};
 use polkadot_omni_node_lib::chain_spec::{Extensions, GenericChainSpec};
 use sc_service::ChainType;
+use sp_core::crypto::UncheckedInto;
 
 pub fn get_penpal_chain_spec(id: ParaId, relay_chain: &str) -> GenericChainSpec {
 	// Give your base currency a unit name and decimal places
@@ -54,6 +55,14 @@ pub fn staging_penpal_local_config() -> GenericChainSpec {
 	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_genesis_config_patch(testnet_genesis_patch(
 		hex!["d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"].into(),
+		vec![
+			// $secret//one
+			hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
+				.unchecked_into(),
+			// $secret//two
+			hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
+				.unchecked_into(),
+		],
 		vec![hex!["d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"].into()],
 		1000.into(),
 	))
@@ -62,6 +71,7 @@ pub fn staging_penpal_local_config() -> GenericChainSpec {
 
 pub(crate) fn testnet_genesis_patch(
 	root_key: AccountId,
+	initial_authorities: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
 	id: ParaId,
 ) -> serde_json::Value {
@@ -73,5 +83,6 @@ pub(crate) fn testnet_genesis_patch(
 			"parachainInfo": {
 					"parachainId": id,
 			},
+			"aura": { "authorities": initial_authorities },
 	})
 }
