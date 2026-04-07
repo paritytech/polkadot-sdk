@@ -280,16 +280,19 @@ pub fn neutralize_eth_export_transacts_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>)
 	}
 }
 
-/// Makes simulated [`DepositAsset`] fail in the same way as an invalid Ethereum beneficiary.
+/// Forces the Bridge Hub dry-run clone to trap holding.
 ///
-/// Used only on the Bridge Hub dry-run clone when the original message contains an invalid
-/// [`ContractCall::V1`] parameter set. This keeps the real export payload unchanged while forcing
-/// the dry-run to leave assets in holding so the normal BH trap path is exercised.
-fn poison_eth_export_beneficiary_in_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bool {
+/// Used only on the simulation clone when the original message contains an invalid or malformed
+/// [`ContractCall::V1`]. This keeps the real export payload unchanged while forcing simulated
+/// execution to halt with assets still in holding so the normal BH `AssetTrap` path is exercised.
+fn force_trap_holding_in_simulation_xcm_runtime<Call>(xcm: &mut Xcm<Call>) -> bool {
 	for instruction in xcm.0.iter_mut() {
 		match instruction {
 			Instruction::DepositAsset { beneficiary, .. } => {
-				*beneficiary = Here.into();
+				// Prefer `Trap` over poisoning the beneficiary: it’s a direct, semantically explicit
+				// way to force trapping of the holding register in simulation without lying about the
+				// beneficiary shape.
+				*instruction = Instruction::Trap(0);
 				return true;
 			},
 			_ => {},
@@ -363,7 +366,7 @@ impl<
 				XcmConverterError::InvalidContractCallParams |
 					XcmConverterError::TransactDecodeFailed
 			)
-		) && !poison_eth_export_beneficiary_in_xcm_runtime(&mut msg)
+		) && !force_trap_holding_in_simulation_xcm_runtime(&mut msg)
 		{
 			tracing::warn!(
 				target: EXECUTION_TARGET,

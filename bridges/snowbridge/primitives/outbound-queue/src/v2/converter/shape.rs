@@ -73,11 +73,16 @@ pub fn snowbridge_v2_outbound_xcm_shape<Call>(
 	ensure!(AgentIdOf::convert_location(origin_location).is_some(), ProcessMessageError::BadFormat);
 	i += 1;
 
-	let (_deposit_filter, _beneficiary) = match instructions.get(i) {
-		Some(Instruction::DepositAsset { assets, beneficiary }) => (assets, beneficiary),
+	// In normal v2 blobs this must be `DepositAsset`. During Bridge Hub export simulation, we may
+	// deliberately short-circuit with `Trap(_)` (e.g. when the original blob contains an invalid or
+	// malformed contract call) so the executor traps the holding register via `AssetTrap`.
+	match instructions.get(i) {
+		Some(Instruction::DepositAsset { .. }) => {
+			i += 1;
+		},
+		Some(Instruction::Trap(_)) => return Ok(()),
 		_ => return Err(ProcessMessageError::BadFormat),
 	};
-	i += 1;
 
 	let mut has_transfer_commands = false;
 	if let Some(assets) = enas {
