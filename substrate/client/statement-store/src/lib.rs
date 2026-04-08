@@ -1927,23 +1927,39 @@ mod tests {
 
 		// Account 2 (limit = 2 msg, 1000 bytes)
 
-		assert_eq!(store.submit(statement(2, 1, None, 500), source), ok);
-		assert_eq!(store.submit(statement(2, 2, None, 100), source), ok);
+		let s2_prio1 = statement(2, 1, None, 500);
+		let s2_prio2 = statement(2, 2, None, 100);
+		assert_eq!(store.submit(s2_prio1.clone(), source), ok);
+		assert_eq!(store.submit(s2_prio2.clone(), source), ok);
+		// Equal priority to lowest should be rejected
+		assert!(matches!(
+			store.submit(statement(2, 1, None, 50), source),
+			SubmitResult::Rejected(RejectionReason::AccountFull { .. })
+		));
 		// Should evict priority 1
-		assert_eq!(store.submit(statement(2, 3, None, 500), source), ok);
+		let s2_prio3 = statement(2, 3, None, 500);
+		assert_eq!(store.submit(s2_prio3.clone(), source), ok);
 		assert_eq!(store.index.read().expired.len(), 2);
+		assert!(store.index.read().expired.contains_key(&s2_prio1.hash()));
+		assert!(store.statement(&s2_prio1.hash()).unwrap().is_none());
 		// Should evict all
 		assert_eq!(store.submit(statement(2, 4, None, 1000), source), ok);
 		assert_eq!(store.index.read().expired.len(), 4);
+		assert!(store.index.read().expired.contains_key(&s2_prio2.hash()));
+		assert!(store.index.read().expired.contains_key(&s2_prio3.hash()));
 
 		// Account 3 (limit = 3 msg, 1000 bytes)
 
-		assert_eq!(store.submit(statement(3, 2, Some(1), 300), source), ok);
-		assert_eq!(store.submit(statement(3, 3, Some(2), 300), source), ok);
+		let s3_prio2 = statement(3, 2, Some(1), 300);
+		let s3_prio3 = statement(3, 3, Some(2), 300);
+		assert_eq!(store.submit(s3_prio2.clone(), source), ok);
+		assert_eq!(store.submit(s3_prio3.clone(), source), ok);
 		assert_eq!(store.submit(statement(3, 4, Some(3), 300), source), ok);
 		// Should evict 2 and 3
 		assert_eq!(store.submit(statement(3, 5, None, 500), source), ok);
 		assert_eq!(store.index.read().expired.len(), 6);
+		assert!(store.index.read().expired.contains_key(&s3_prio2.hash()));
+		assert!(store.index.read().expired.contains_key(&s3_prio3.hash()));
 
 		assert_eq!(store.index.read().total_size, 2400);
 		assert_eq!(store.index.read().entries.len(), 4);
@@ -2939,6 +2955,51 @@ mod tests {
 			assert!(index.expired.contains_key(&h1), "Old should be in expired");
 			assert_eq!(index.total_size, 200);
 		}
+	}
+
+	#[test]
+	fn submit_rejects_malformed_statements() {
+		let (store, _temp) = test_store();
+
+		let mut base = Statement::new();
+		base.set_expiry(u64::MAX);
+		base.set_plain_data(vec![1]);
+
+		let ed_kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
+		let sr_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		let ecdsa_kp = sp_core::ecdsa::Pair::from_string("//Alice", None).unwrap();
+
+		assert_eq!(
+			store.submit(base.clone(), StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::NoProof)
+		);
+
+		let bad_proofs = [
+			Proof::Ed25519 { signature: [0xAB; 64], signer: ed_kp.public().0 },
+			Proof::Sr25519 { signature: [0xCD; 64], signer: sr_kp.public().0 },
+			Proof::Secp256k1Ecdsa { signature: [0xEF; 65], signer: ecdsa_kp.public().0 },
+		];
+		for proof in bad_proofs {
+			let mut s = base.clone();
+			s.set_proof(proof);
+			assert_eq!(
+				store.submit(s, StatementSource::Network),
+				SubmitResult::Invalid(InvalidReason::BadProof)
+			);
+		}
+
+		let mut wrong_signer = base.clone();
+		wrong_signer.sign_ed25519_private(&ed_kp);
+		let alice_sig = match wrong_signer.proof().unwrap() {
+			Proof::Ed25519 { signature, .. } => *signature,
+			_ => panic!("expected Ed25519 proof after sign_ed25519_private"),
+		};
+		let bob_kp = sp_core::ed25519::Pair::from_string("//Bob", None).unwrap();
+		wrong_signer.set_proof(Proof::Ed25519 { signature: alice_sig, signer: bob_kp.public().0 });
+		assert_eq!(
+			store.submit(wrong_signer, StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::BadProof)
+		);
 	}
 
 	#[test]
