@@ -330,6 +330,10 @@ impl CliConfiguration for RunCmd {
 		Ok(self.rpc_params.rpc_rate_limit_trust_proxy_headers)
 	}
 
+	fn rpc_cache_size(&self) -> Result<usize> {
+		Ok(self.rpc_params.rpc_cache_size as usize * 1024 * 1024)
+	}
+
 	fn transaction_pool(&self, is_dev: bool) -> Result<TransactionPoolOptions> {
 		Ok(self.pool_config.transaction_pool(is_dev))
 	}

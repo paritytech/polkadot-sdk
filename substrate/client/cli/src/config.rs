@@ -376,6 +376,11 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 		Ok(false)
 	}
 
+	/// RPC response cache size in bytes. 0 to disable.
+	fn rpc_cache_size(&self) -> Result<usize> {
+		Ok(0)
+	}
+
 	/// Get the prometheus configuration (`None` if disabled)
 	///
 	/// By default this is `None`.
@@ -564,7 +569,7 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				rate_limit_whitelisted_ips: self.rpc_rate_limit_whitelisted_ips()?,
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
 				request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
-				rpc_cache_size: 0,
+				rpc_cache_size: self.rpc_cache_size()?,
 				rpc_cache_is_finalized: None,
 			},
 			prometheus_config: self

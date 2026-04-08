@@ -100,6 +100,13 @@ pub struct RpcParams {
 	#[arg(long)]
 	pub rpc_rate_limit_trust_proxy_headers: bool,
 
+	/// Set the RPC response cache size in megabytes.
+	///
+	/// Caches responses for deterministic RPC calls (e.g. state_call, state_getStorage)
+	/// targeting finalized blocks. Set to 0 to disable (default).
+	#[arg(long, default_value_t = 0, value_name = "MB")]
+	pub rpc_cache_size: u32,
+
 	/// Set the maximum RPC request payload size for both HTTP and WS in megabytes.
 	#[arg(long, default_value_t = RPC_DEFAULT_MAX_REQUEST_SIZE_MB)]
 	pub rpc_max_request_size: u32,
