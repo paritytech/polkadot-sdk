@@ -140,7 +140,7 @@ fn compute_time_until_next_slot_change(
 }
 
 /// Returns current duration since Unix epoch.
-fn duration_now() -> Duration {
+pub(super) fn duration_now() -> Duration {
 	use std::time::SystemTime;
 	let now = SystemTime::now();
 	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
