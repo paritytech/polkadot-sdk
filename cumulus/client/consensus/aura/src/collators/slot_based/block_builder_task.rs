@@ -211,8 +211,13 @@ where
 		loop {
 			// We wait here until the next slot arrives.
 			if slot_timer.wait_until_next_slot().await.is_err() {
-				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");
-				return;
+				// The error is often transient during sync, this is a bug that would
+				// otherwise cause the collator to stop building blocks entirely.
+				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot. Retrying...");
+				// Brief sleep to avoid busy looping in case of persistent errors for subsequent
+				// slots.
+				tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+				continue;
 			};
 
 			// Wait for the best relay block to be from the current relay
