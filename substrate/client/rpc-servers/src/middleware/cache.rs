@@ -49,34 +49,30 @@ use prometheus_endpoint::{
 };
 use schnellru::LruMap;
 
-/// Returns the param index of the block hash for a cacheable method, or `None` if not cacheable.
-fn cacheable_block_hash_index(method: &str) -> Option<usize> {
-	match method {
-		"state_call" | "state_callAt" => Some(2),
-		"state_getStorage" | "state_getStorageAt" => Some(1),
-		"state_getRuntimeVersion" => Some(0),
-		"chain_getBlock" => Some(0),
-		"chain_getHeader" => Some(0),
-		_ => None,
-	}
+/// Returns `true` if the method is cacheable.
+///
+/// All `state_*` and `childstate_*` methods are cacheable — they run against block state
+/// and always take `Option<Hash>` as the **last** parameter.
+fn is_cacheable(method: &str) -> bool {
+	method.starts_with("state_") || method.starts_with("childstate_")
 }
 
-/// Check whether a block hash is present at the given param index.
+/// Check whether the last param is a block hash.
 ///
-/// Returns `true` if the param is a non-empty string (hex-encoded hash).
-/// Returns `false` if the param is missing, null, or empty — meaning the request
-/// targets "latest" and should not be cached.
-fn has_explicit_block_hash(params: &str, index: usize) -> bool {
+/// A block hash is a 66-character hex string (`0x` + 64 hex chars = 32 bytes).
+/// Returns `false` if params are empty or the last param doesn't look like a block hash —
+/// meaning the request targets "latest" and should not be cached.
+fn has_explicit_block_hash(params: &str) -> bool {
 	let parsed: serde_json::Value = match serde_json::from_str(params) {
 		Ok(v) => v,
 		Err(_) => return false,
 	};
 	let arr = match parsed.as_array() {
-		Some(a) => a,
-		None => return false,
+		Some(a) if !a.is_empty() => a,
+		_ => return false,
 	};
-	match arr.get(index).and_then(|v| v.as_str()) {
-		Some(s) if !s.is_empty() => true,
+	match arr.last().and_then(|v| v.as_str()) {
+		Some(s) if s.len() == 66 && s.starts_with("0x") => true,
 		_ => false,
 	}
 }
@@ -337,19 +333,16 @@ where
 	fn call(&self, req: Request<'a>) -> Self::Future {
 		let method = req.method_name();
 
-		// Check if this method is cacheable and get block hash param index.
-		let hash_index = match cacheable_block_hash_index(method) {
-			Some(idx) => idx,
-			None => {
-				let service = self.service.clone();
-				return async move { service.call(req).await }.boxed();
-			},
-		};
+		// Check if this method is cacheable.
+		if !is_cacheable(method) {
+			let service = self.service.clone();
+			return async move { service.call(req).await }.boxed();
+		}
 
-		// Check that an explicit block hash is present in params.
+		// Check that the last param is an explicit block hash.
 		let params = req.params();
 		let params_str = params.as_str().unwrap_or("[]");
-		if !has_explicit_block_hash(params_str, hash_index) {
+		if !has_explicit_block_hash(params_str) {
 			let service = self.service.clone();
 			return async move { service.call(req).await }.boxed();
 		}
@@ -421,61 +414,64 @@ mod tests {
 	use super::*;
 	use tower::Layer;
 
-	// --- has_explicit_block_hash tests ---
-
-	#[test]
-	fn has_block_hash_present() {
-		let params = r#"["method_name", "0xdata", "0xabc123"]"#;
-		assert!(has_explicit_block_hash(params, 2));
-	}
-
-	#[test]
-	fn has_block_hash_missing_index() {
-		let params = r#"["method_name", "0xdata"]"#;
-		assert!(!has_explicit_block_hash(params, 2));
-	}
-
-	#[test]
-	fn has_block_hash_null() {
-		let params = r#"["method_name", "0xdata", null]"#;
-		assert!(!has_explicit_block_hash(params, 2));
-	}
-
-	#[test]
-	fn has_block_hash_empty_string() {
-		let params = r#"["method_name", "0xdata", ""]"#;
-		assert!(!has_explicit_block_hash(params, 2));
-	}
-
-	#[test]
-	fn has_block_hash_at_index_zero() {
-		let params = r#"["0xabc123"]"#;
-		assert!(has_explicit_block_hash(params, 0));
-	}
-
-	#[test]
-	fn has_block_hash_at_index_one() {
-		let params = r#"["0xkey", "0xblockhash"]"#;
-		assert!(has_explicit_block_hash(params, 1));
-	}
-
-	// --- Allowlist ---
+	// --- is_cacheable tests ---
 
 	#[test]
 	fn cacheable_methods() {
-		assert_eq!(cacheable_block_hash_index("state_call"), Some(2));
-		assert_eq!(cacheable_block_hash_index("state_callAt"), Some(2));
-		assert_eq!(cacheable_block_hash_index("state_getStorage"), Some(1));
-		assert_eq!(cacheable_block_hash_index("state_getStorageAt"), Some(1));
-		assert_eq!(cacheable_block_hash_index("state_getRuntimeVersion"), Some(0));
-		assert_eq!(cacheable_block_hash_index("chain_getBlock"), Some(0));
-		assert_eq!(cacheable_block_hash_index("chain_getHeader"), Some(0));
+		assert!(is_cacheable("state_call"));
+		assert!(is_cacheable("state_callAt"));
+		assert!(is_cacheable("state_getStorage"));
+		assert!(is_cacheable("state_getRuntimeVersion"));
+		assert!(is_cacheable("state_getMetadata"));
+		assert!(is_cacheable("state_getKeysPaged"));
+		assert!(is_cacheable("childstate_getStorage"));
+		assert!(is_cacheable("childstate_getKeysPaged"));
 	}
 
 	#[test]
 	fn non_cacheable_methods() {
-		assert!(cacheable_block_hash_index("system_health").is_none());
-		assert!(cacheable_block_hash_index("chain_getBlockHash").is_none());
+		assert!(!is_cacheable("system_health"));
+		assert!(!is_cacheable("chain_getBlock"));
+		assert!(!is_cacheable("chain_getHeader"));
+		assert!(!is_cacheable("chain_getBlockHash"));
+		assert!(!is_cacheable("author_submitExtrinsic"));
+	}
+
+	// --- has_explicit_block_hash tests ---
+
+	const HASH_66: &str = "0xf1212766e424bdc1f8f1d2c11ee236cff70ad77cad64d82b7823acc1e682a815";
+
+	#[test]
+	fn has_block_hash_when_last_param_is_hash() {
+		let params = format!(r#"["ReviveApi_eth_block", "0x", "{}"]"#, HASH_66);
+		assert!(has_explicit_block_hash(&params));
+
+		let params = format!(r#"["{}"]"#, HASH_66);
+		assert!(has_explicit_block_hash(&params));
+	}
+
+	#[test]
+	fn no_block_hash_when_omitted() {
+		// state_call with only 2 params — hash omitted
+		assert!(!has_explicit_block_hash(r#"["ReviveApi_eth_block", "0x"]"#));
+	}
+
+	#[test]
+	fn no_block_hash_when_null() {
+		assert!(!has_explicit_block_hash(r#"["method", "0x", null]"#));
+	}
+
+	#[test]
+	fn no_block_hash_when_empty_params() {
+		assert!(!has_explicit_block_hash(r#"[]"#));
+	}
+
+	#[test]
+	fn no_block_hash_when_wrong_length() {
+		// "0xdata" is too short (6 chars, not 66)
+		assert!(!has_explicit_block_hash(r#"["method", "0xdata"]"#));
+		// "0x" is too short (2 chars)
+		assert!(!has_explicit_block_hash(r#"["0x"]"#));
 	}
 
 	// --- Helper: extract_result_field ---
@@ -647,7 +643,7 @@ mod tests {
 		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(mock.clone());
 
-		let req_json = make_request("state_call", r#"["method","0xdata","0xblock_hash"]"#);
+		let req_json = make_request("state_call", &format!(r#"["method","0xdata","{}"]"#, HASH_66));
 
 		// First call — cache miss.
 		let req = serde_json::from_str::<Request>(&req_json).unwrap();
@@ -716,7 +712,7 @@ mod tests {
 		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(MockErrorService);
 
-		let req_json = make_request("state_call", r#"["method","0xdata","0xhash"]"#);
+		let req_json = make_request("state_call", &format!(r#"["method","0xdata","{}"]"#, HASH_66));
 
 		let req = serde_json::from_str::<Request>(&req_json).unwrap();
 		let rp = svc.call(req).await;
@@ -733,7 +729,7 @@ mod tests {
 		let layer = make_cache_layer(0);
 		let svc = layer.layer(mock.clone());
 
-		let req_json = make_request("state_call", r#"["method","0xdata","0xhash"]"#);
+		let req_json = make_request("state_call", &format!(r#"["method","0xdata","{}"]"#, HASH_66));
 
 		let req = serde_json::from_str::<Request>(&req_json).unwrap();
 		svc.call(req).await;
