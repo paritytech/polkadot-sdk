@@ -240,17 +240,15 @@ where
 
 		let metrics = NotificationMetrics::new(None);
 
-		let statement_handler_proto =
-			node_extra_args.statement_store_config.map(|ss_config| {
-				let proto =
-					crate::common::statement_store::new_statement_handler_proto(
-						&*client,
-						&config,
-						&metrics,
-						&mut net_config,
-					);
-				(proto, ss_config)
-			});
+		let statement_handler_proto = node_extra_args.statement_store_config.map(|ss_config| {
+			let proto = crate::common::statement_store::new_statement_handler_proto(
+				&*client,
+				&config,
+				&metrics,
+				&mut net_config,
+			);
+			(proto, ss_config)
+		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
@@ -287,8 +285,7 @@ where
 				let statement_store = statement_store.clone();
 				move |_| {
 					if let Some(statement_store) = &statement_store {
-						vec![Box::new(statement_store.clone().as_statement_store_ext())
-							as Box<_>]
+						vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
 					} else {
 						vec![]
 					}
