@@ -477,6 +477,7 @@ members = [
 	"substrate/frame/tx-pause",
 	"substrate/frame/uniques",
 	"substrate/frame/utility",
+	"substrate/frame/vaults",
 	"substrate/frame/verify-signature",
 	"substrate/frame/vesting",
 	"substrate/frame/vesting/precompiles",
@@ -1059,6 +1060,7 @@ pallet-transaction-payment-rpc-runtime-api = { path = "substrate/frame/transacti
 pallet-treasury = { path = "substrate/frame/treasury", default-features = false }
 pallet-uniques = { path = "substrate/frame/uniques", default-features = false }
 pallet-utility = { path = "substrate/frame/utility", default-features = false }
+pallet-vaults = { path = "substrate/frame/vaults", default-features = false }
 pallet-verify-signature = { path = "substrate/frame/verify-signature", default-features = false }
 pallet-vesting = { path = "substrate/frame/vesting", default-features = false }
 pallet-vesting-precompiles = { path = "substrate/frame/vesting/precompiles", default-features = false }

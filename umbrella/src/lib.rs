@@ -779,6 +779,10 @@ pub use pallet_uniques;
 #[cfg(feature = "pallet-utility")]
 pub use pallet_utility;
 
+/// FRAME vaults pallet.
+#[cfg(feature = "pallet-vaults")]
+pub use pallet_vaults;
+
 /// FRAME verify signature pallet.
 #[cfg(feature = "pallet-verify-signature")]
 pub use pallet_verify_signature;

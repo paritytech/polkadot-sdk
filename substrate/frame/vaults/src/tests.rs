@@ -1,0 +1,5243 @@
+// This file is part of Substrate.
+
+// Copyright (C) Amforc AG.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use crate::{
+	mock::*, BadDebt, CollateralManager, CurrentLiquidationAmount, DebtComponents, Error, Event,
+	HoldReason, InitialCollateralizationRatio, LiquidationPenalty, MaxLiquidationAmount,
+	MaxPositionAmount, MaximumIssuance, MinimumCollateralizationRatio, MinimumDeposit, MinimumMint,
+	OnIdleCursor, OracleStalenessThreshold, Pallet as VaultsPallet, PaymentBreakdown,
+	PreviousStabilityFee, StabilityFee, StaleVaultThreshold, Vault, VaultStatus,
+	Vaults as VaultsStorage,
+};
+use frame_support::{
+	assert_err, assert_noop, assert_ok,
+	traits::{
+		fungible::{InspectHold, Mutate as FungibleMutate},
+		fungibles::{Inspect as FungiblesInspect, Mutate as FungiblesMutate},
+		Hooks,
+	},
+};
+use sp_runtime::{
+	traits::{Bounded, CheckedDiv, One, Zero},
+	FixedPointNumber, FixedU128, Permill, Saturating, TokenError,
+};
+
+// DOT has 10 decimals: 1 DOT = 10^10 smallest units
+const DOT: u128 = 10_000_000_000; // 10^10
+
+// pUSD has 6 decimals: 1 pUSD = 10^6 smallest units
+const PUSD: u128 = 1_000_000; // 10^6
+
+// Tolerance for interest calculations in tests.
+// 6000 units = 0.006 pUSD - covers ~0.07% timestamp variance from jump_to_block.
+const INTEREST_TOLERANCE: u128 = 6000;
+
+// Helper to create FixedU128 ratios (e.g., 150% = 1.5)
+fn ratio(percent: u32) -> FixedU128 {
+	FixedU128::from_rational(percent as u128, 100)
+}
+
+// Helper to check if actual is within tolerance of expected
+fn assert_approx_eq(actual: u128, expected: u128, tolerance: u128, context: &str) {
+	assert!(
+		actual >= expected.saturating_sub(tolerance) &&
+			actual <= expected.saturating_add(tolerance),
+		"{}: expected ~{}, got {} (tolerance: {}) (raw: {} vs {})",
+		context,
+		expected / PUSD,
+		actual / PUSD,
+		tolerance,
+		actual,
+		expected
+	);
+}
+
+mod create_vault {
+	use super::*;
+
+	/// **Test: Opening a new Vault**
+	///
+	/// Verifies that a user can open a new vault by depositing collateral (DOT).
+	/// - The collateral is locked in the system
+	/// - Initial debt is zero (no stablecoin borrowed yet)
+	/// - No interest has accrued yet
+	#[test]
+	fn works_with_initial_deposit() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			// Vault::default() produces a healthy, zero-debt vault
+			let default_vault = Vault::<Test>::default();
+			assert_eq!(default_vault.status, VaultStatus::Healthy);
+			assert!(default_vault.principal.is_zero());
+			assert!(default_vault.accrued_interest.is_zero());
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Check vault exists
+			let vault = VaultsStorage::<Test>::get(ALICE).expect("vault should exist");
+			assert_eq!(vault.principal, 0);
+			assert_eq!(vault.accrued_interest, 0);
+
+			// Check collateral is held
+			assert_eq!(vault.get_held_collateral(&ALICE), deposit);
+
+			// Check events
+			System::assert_has_event(Event::<Test>::VaultCreated { owner: ALICE }.into());
+			System::assert_has_event(
+				Event::<Test>::CollateralDeposited { owner: ALICE, amount: deposit }.into(),
+			);
+		});
+	}
+
+	/// **Test: One vault per user policy**
+	///
+	/// Ensures each user can only have ONE active vault at a time.
+	/// This simplifies risk management and prevents users from fragmenting
+	/// their collateral across multiple positions.
+	#[test]
+	fn fails_if_vault_already_exists() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			assert_noop!(
+				Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit),
+				Error::<Test>::VaultAlreadyExists
+			);
+		});
+	}
+
+	/// **Test: Cannot deposit more collateral than owned**
+	///
+	/// Prevents users from opening vaults with funds they don't have.
+	/// This is a basic solvency check.
+	#[test]
+	fn fails_with_insufficient_balance() {
+		build_and_execute(|| {
+			// Try to deposit more than ALICE has
+			let excessive_deposit = INITIAL_BALANCE + 1;
+
+			// The hold mechanism returns TokenError::FundsUnavailable when balance is insufficient
+			assert_noop!(
+				Vaults::create_vault(RuntimeOrigin::signed(ALICE), excessive_deposit),
+				TokenError::FundsUnavailable
+			);
+		});
+	}
+}
+
+mod deposit_collateral {
+	use super::*;
+
+	/// **Test: Adding more collateral to an existing vault**
+	///
+	/// Users can deposit additional collateral to improve their collateralization ratio.
+	#[test]
+	fn works() {
+		build_and_execute(|| {
+			let initial = 100 * DOT;
+			let additional = 50 * DOT;
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), additional));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.get_held_collateral(&ALICE), initial + additional);
+
+			System::assert_has_event(
+				Event::<Test>::CollateralDeposited { owner: ALICE, amount: additional }.into(),
+			);
+		});
+	}
+
+	/// **Test: Cannot deposit to a non-existent vault**
+	///
+	/// Users must first create a vault before they can deposit collateral.
+	#[test]
+	fn fails_if_vault_not_found() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 100 * DOT),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+}
+
+mod withdraw_collateral {
+	use super::*;
+
+	/// **Test: Withdrawing collateral from a debt-free vault**
+	///
+	/// When a vault has no outstanding debt, the user can freely withdraw
+	/// any amount of their collateral (as long as remaining >= `MinimumDeposit`).
+	#[test]
+	fn works_without_debt() {
+		build_and_execute(|| {
+			let initial = 200 * DOT;
+			let withdraw = 50 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+			assert_ok!(Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), withdraw));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.get_held_collateral(&ALICE), initial - withdraw);
+
+			System::assert_has_event(
+				Event::<Test>::CollateralWithdrawn { owner: ALICE, amount: withdraw }.into(),
+			);
+		});
+	}
+
+	/// **Test: Cannot withdraw more collateral than deposited**
+	///
+	/// Basic validation that prevents withdrawing non-existent funds.
+	#[test]
+	fn fails_if_insufficient_collateral() {
+		build_and_execute(|| {
+			let initial = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), initial + 1),
+				Error::<Test>::InsufficientCollateral
+			);
+		});
+	}
+
+	/// **Test: Collateralization ratio protection on withdrawal**
+	///
+	/// When a vault has debt, withdrawals are restricted to maintain the
+	/// initial collateralization ratio (200%). This prevents users from
+	/// removing collateral and leaving an undercollateralized position.
+	///
+	/// Example scenario with 300 DOT:
+	/// - 300 DOT collateral at $4.21 = $1263 value
+	/// - 300 pUSD debt (ratio = 421%)
+	/// - To breach 200% ratio, need value < $600, i.e., < 142.5 DOT
+	/// - Withdrawing 160 DOT leaves 140 DOT = $589 value, ratio = 196% < 200%
+	#[test]
+	fn fails_if_would_breach_initial_ratio_with_debt() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// Deposit 300 DOT = 1263 USD collateral value
+			let initial = 300 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+
+			// Mint 300 pUSD debt (valid at 200% ICR since $1263 > $600)
+			// Current ratio = 1263/300 = 421%
+			let mint_amount = 300 * PUSD;
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// With 300 pUSD debt, need 300 * 2.0 = 600 USD = ~142.5 DOT minimum collateral
+			// Try to withdraw 160 DOT (leaves 140 DOT = $589 value, ratio = 196% < 200%)
+			// Note: 140 DOT > 100 DOT MinimumDeposit, so we hit ratio check first
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 160 * DOT),
+				Error::<Test>::UnsafeCollateralizationRatio
+			);
+
+			// Try to withdraw 158 DOT (leaves 142 DOT = $598 value, ratio = 199% < 200%)
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 158 * DOT),
+				Error::<Test>::UnsafeCollateralizationRatio
+			);
+
+			// Withdrawing 155 DOT should work (leaves 145 DOT = $610.5 value, ratio = 203% > 200%)
+			// And 145 DOT > 100 DOT MinimumDeposit
+			assert_ok!(Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 155 * DOT));
+		});
+	}
+
+	/// **Test: Cannot create dust vaults via withdrawal**
+	///
+	/// Prevents users from withdrawing collateral such that the remaining
+	/// amount is below `MinimumDeposit` (100 DOT). This prevents storage bloat
+	/// from tiny "dust" vaults.
+	///
+	/// Withdrawing ALL collateral is allowed (when debt == 0) and auto-closes the vault.
+	#[test]
+	fn fails_if_would_create_dust_vault() {
+		build_and_execute(|| {
+			let initial = 200 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+
+			// Try to withdraw 150 DOT, leaving only 50 DOT (below `MinimumDeposit` of 100 DOT)
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 150 * DOT),
+				Error::<Test>::BelowMinimumDeposit
+			);
+
+			// Withdrawing 100 DOT should work (leaves 100 DOT = `MinimumDeposit`)
+			assert_ok!(Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.get_held_collateral(&ALICE), 100 * DOT);
+		});
+	}
+
+	/// **Test: Cannot withdraw all collateral when vault has debt**
+	///
+	/// Even if the collateralization ratio would be "infinite" (0 collateral / debt),
+	/// we don't allow withdrawing all collateral when there's outstanding debt.
+	/// Users must repay debt first, then close the vault.
+	#[test]
+	fn fails_if_withdrawing_all_with_debt() {
+		build_and_execute(|| {
+			let initial = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Try to withdraw all collateral while having debt
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), initial),
+				Error::<Test>::VaultHasDebt // Cannot leave vault with 0 collateral and debt
+			);
+		});
+	}
+
+	/// **Test: Withdrawing all collateral closes the vault immediately**
+	///
+	/// When a user withdraws all their collateral (only possible with zero debt),
+	/// the vault is immediately removed from storage.
+	/// Both `CollateralWithdrawn` and `VaultClosed` events are emitted.
+	#[test]
+	fn auto_closes_vault_when_withdrawing_all() {
+		build_and_execute(|| {
+			let initial = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+			assert!(VaultsStorage::<Test>::get(ALICE).is_some());
+
+			// Withdraw all collateral (no debt, so this is allowed)
+			assert_ok!(Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), initial));
+
+			// Vault should be immediately removed.
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// Both events should be emitted
+			System::assert_has_event(
+				Event::<Test>::CollateralWithdrawn { owner: ALICE, amount: initial }.into(),
+			);
+			System::assert_has_event(Event::<Test>::VaultClosed { owner: ALICE }.into());
+
+			// User should be able to create a new vault immediately
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial));
+		});
+	}
+}
+
+mod mint {
+	use super::*;
+
+	/// **Test: Borrowing stablecoin (pUSD) against collateral**
+	///
+	/// This is the core vault operation - users lock collateral and mint stablecoin.
+	/// The amount they can borrow depends on:
+	/// - The value of their collateral (DOT price × amount)
+	/// - The initial collateralization ratio (200%)
+	///
+	/// Example: 100 DOT at $4.21 = $421 → max borrow = $421 / 2.0 = 210.5 pUSD
+	#[test]
+	fn works() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// Deposit 100 DOT = 421 USD collateral value
+			let deposit = 100 * DOT;
+			// At 200% initial ratio, max mint = 421 / 2.0 = 210.5 pUSD
+			let mint_amount = 200 * PUSD; // Safe amount below max
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, mint_amount);
+
+			// Check pUSD was minted to ALICE
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), mint_amount);
+
+			System::assert_has_event(
+				Event::<Test>::Minted { owner: ALICE, amount: mint_amount }.into(),
+			);
+		});
+	}
+
+	/// **Test: Initial collateralization ratio enforcement (200%)**
+	///
+	/// When minting NEW debt, the vault must maintain 200% collateralization
+	/// (not just the 180% minimum). This creates a safety buffer so users
+	/// don't get liquidated immediately after borrowing.
+	#[test]
+	fn fails_if_exceeds_initial_ratio() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// 100 DOT = 421 USD, max at 200% = 210.5 pUSD
+			let deposit = 100 * DOT;
+			let excessive_mint = 220 * PUSD; // Would result in ~191% ratio < 200%
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), excessive_mint),
+				Error::<Test>::UnsafeCollateralizationRatio
+			);
+		});
+	}
+
+	/// **Test: System-wide debt ceiling enforcement**
+	///
+	/// The protocol has a maximum total debt limit to manage systemic risk.
+	/// Even if a user has sufficient collateral, they cannot mint if it would
+	/// push total system debt above the ceiling.
+	#[test]
+	fn fails_if_exceeds_max_debt() {
+		build_and_execute(|| {
+			// Set a low max debt
+			MaximumIssuance::<Test>::put(100 * PUSD);
+
+			// Deposit enough collateral for large mint (but not all balance due to existential
+			// deposit)
+			let deposit = 500 * DOT;
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Try to mint more than max debt
+			// With 500 DOT at price 4.21 = 2105 USD value, we can mint up to ~1052 pUSD at 200% ICR
+			// But max debt is only 100 pUSD
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD),
+				Error::<Test>::ExceedsMaxDebt
+			);
+		});
+	}
+
+	/// **Test: Cannot mint without an existing vault**
+	///
+	/// Users must first create a vault with collateral before borrowing.
+	#[test]
+	fn fails_if_vault_not_found() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+
+	/// **Test: Oracle price required for minting**
+	///
+	/// The system needs a valid price feed to calculate collateralization ratios.
+	/// If the oracle is unavailable, minting is blocked to prevent under-collateralized loans.
+	#[test]
+	fn fails_if_price_not_available() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Remove oracle price
+			set_mock_price(None);
+
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD),
+				Error::<Test>::PriceNotAvailable
+			);
+		});
+	}
+}
+
+mod repay {
+	use super::*;
+
+	/// **Test: Partial debt repayment**
+	///
+	/// Users can repay any portion of their debt at any time.
+	/// The repaid pUSD is burned (removed from circulation), reducing
+	/// the vault's debt and improving its collateralization ratio.
+	/// When interest has accrued, repayment covers interest first, then principal.
+	#[test]
+	fn works_partial_repayment() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// 100 DOT = 421 USD, max mint at 200% = 210.5 pUSD
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+			let first_repay = 80 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), first_repay));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, mint_amount - first_repay);
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), mint_amount - first_repay);
+
+			System::assert_has_event(
+				Event::<Test>::Repaid { owner: ALICE, principal: first_repay, interest: 0 }.into(),
+			);
+
+			// Advance time to accrue interest
+			jump_to_block(5_256_000);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+			let principal_before = vault.principal;
+			assert!(interest > 0, "Interest should have accrued");
+
+			// Repay amount that covers all interest + some principal
+			let principal_to_repay = 50 * PUSD;
+			let second_repay = interest + principal_to_repay;
+
+			// Alice needs extra pUSD to cover interest
+			assert_ok!(Assets::mint(
+				RuntimeOrigin::signed(ALICE),
+				STABLECOIN_ASSET_ID,
+				ALICE,
+				interest
+			));
+
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), second_repay));
+
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault_after.accrued_interest, 0, "Interest should be fully paid");
+			assert_eq!(
+				vault_after.principal,
+				principal_before - principal_to_repay,
+				"Principal should be reduced by the remainder"
+			);
+
+			System::assert_has_event(
+				Event::<Test>::Repaid { owner: ALICE, principal: principal_to_repay, interest }
+					.into(),
+			);
+		});
+	}
+	/// **Test: Overpayment is capped to actual debt**
+	///
+	/// If a user tries to repay more than they owe (but has sufficient balance),
+	/// only the actual debt amount is burned. The excess pUSD is not consumed and a
+	/// `ReturnedExcess` event is emitted.
+	#[test]
+	fn caps_repayment_to_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			// ALICE creates vault and mints 200 pUSD
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// BOB creates vault with enough collateral to mint 300 pUSD
+			// At $4.21/DOT and 200% ICR: need 300 * 2 / 4.21 = ~143 DOT minimum
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 150 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 300 * PUSD));
+			assert_ok!(Assets::transfer(
+				RuntimeOrigin::signed(BOB),
+				STABLECOIN_ASSET_ID,
+				ALICE,
+				300 * PUSD
+			));
+
+			// ALICE now has 500 pUSD (200 minted + 300 from BOB) but only 200 pUSD debt
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), 500 * PUSD);
+
+			// Try to repay 500 pUSD - should only repay actual debt (200 pUSD)
+			// No interest has accrued (same block), so excess = 500 - 200 = 300 pUSD
+			let repay_amount = 500 * PUSD;
+			let expected_excess = repay_amount - mint_amount; // 300 pUSD
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), repay_amount));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 0);
+
+			// Only 200 pUSD should be burned (the debt), leaving 300 pUSD
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), 300 * PUSD);
+
+			// ReturnedExcess event should be emitted for the unused amount
+			System::assert_has_event(
+				Event::<Test>::ReturnedExcess { owner: ALICE, amount: expected_excess }.into(),
+			);
+		});
+	}
+}
+
+mod liquidate {
+	use super::*;
+
+	/// **Test: Liquidation of undercollateralized vault**
+	///
+	/// When the collateral value drops below 180% of debt (due to price decline),
+	/// anyone can trigger liquidation. This protects the protocol from bad debt.
+	///
+	/// Example scenario:
+	/// - Initial: 100 DOT at $4.21 = $421, debt = 200 pUSD → ratio = 210%
+	/// - After price drop to $3: 100 DOT = $300, debt = 200 pUSD → ratio = 150%
+	/// - Since 150% < 180% minimum, liquidation is allowed
+	#[test]
+	fn works_when_undercollateralized() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// 100 DOT = 421 USD, max mint at 200% = 210.5 pUSD
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint at safe ratio: 200 pUSD gives ratio = 421/200 = 210%
+			let mint_amount = 200 * PUSD;
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Drop price to make vault undercollateralized
+			// Current: 100 DOT * 4.21 USD = 421 USD, debt = 200 USD, ratio = 210%
+			// New price: 100 DOT * 3.0 USD = 300 USD, debt = 200 USD, ratio = 150% < 180%
+			set_mock_price(Some(FixedU128::from_u32(3)));
+
+			// BOB liquidates ALICE's vault
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Vault should still exist but with InLiquidation status
+			let vault =
+				VaultsStorage::<Test>::get(ALICE).expect("Vault should exist during liquidation");
+			assert_eq!(
+				vault.status,
+				VaultStatus::InLiquidation,
+				"Vault should be in InLiquidation status"
+			);
+
+			// Collateral should now be held with Seized reason (for auction)
+			// Check that ALICE has funds on hold with Seized reason
+			let seized_balance = Balances::balance_on_hold(&HoldReason::Seized.into(), &ALICE);
+			assert_eq!(seized_balance, deposit, "All collateral should be seized");
+
+			// Check InLiquidation event
+			let events = System::events();
+			let liquidated_event = events
+				.iter()
+				.find(|e| matches!(e.event, RuntimeEvent::Vaults(Event::InLiquidation { .. })));
+			assert!(liquidated_event.is_some(), "Should emit InLiquidation event");
+		});
+	}
+
+	#[test]
+	fn failed_auction_start_rolls_back_hold_changes() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			set_mock_auction_start_failure(true);
+
+			let result = Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE);
+			assert!(result.is_err(), "liquidation should fail when auction start fails");
+
+			let vault =
+				VaultsStorage::<Test>::get(ALICE).expect("vault should remain after failure");
+			assert_eq!(vault.status, VaultStatus::Healthy);
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+			assert_eq!(
+				Balances::balance_on_hold(&HoldReason::VaultDeposit.into(), &ALICE),
+				deposit
+			);
+			assert_eq!(Balances::balance_on_hold(&HoldReason::Seized.into(), &ALICE), 0);
+		});
+	}
+
+	/// **Test: Cannot liquidate a healthy vault**
+	///
+	/// Vaults with collateralization ratio ≥ 180% are considered "safe" and
+	/// cannot be liquidated. This protects vault owners from unfair liquidation.
+	#[test]
+	fn fails_if_vault_is_safe() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint conservatively: 200 pUSD gives ratio = 421/200 = 210% > 180%
+			let mint_amount = 200 * PUSD;
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+		});
+	}
+
+	/// **Test: Liquidating a debt-free vault must not panic**
+	///
+	/// A vault with zero debt is always safe and should return VaultIsSafe.
+	#[test]
+	fn zero_debt_vault_is_safe() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+		});
+	}
+
+	/// **Test: Cannot liquidate non-existent vault**
+	///
+	/// Basic validation that liquidation requires an actual vault to exist.
+	#[test]
+	fn fails_if_vault_not_found() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+}
+
+mod close_vault {
+	use super::*;
+
+	/// **Test: Close vault and withdraw all collateral from a debt-free vault**
+	///
+	/// When a vault has no outstanding debt, the owner can close it and withdraw all
+	/// collateral. The vault is immediately removed from storage.
+	/// This is the normal "exit" flow for users who no longer need their Vault.
+	#[test]
+	fn works_with_no_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			let alice_before = Balances::free_balance(ALICE);
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			assert_ok!(Vaults::close_vault(RuntimeOrigin::signed(ALICE)));
+
+			// Vault should be removed immediately
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// Collateral should be returned - ALICE's balance restored to original
+			// (alice_before - deposit during hold + deposit released = alice_before)
+			assert_eq!(Balances::free_balance(ALICE), alice_before);
+
+			System::assert_has_event(
+				Event::<Test>::CollateralWithdrawn { owner: ALICE, amount: deposit }.into(),
+			);
+			System::assert_has_event(Event::<Test>::VaultClosed { owner: ALICE }.into());
+		});
+	}
+
+	/// **Test: Cannot close vault with outstanding debt**
+	///
+	/// Vaults with unpaid debt cannot be closed. Users must first
+	/// repay all borrowed pUSD before they can close the vault.
+	/// This ensures the protocol's stablecoin remains fully backed.
+	#[test]
+	fn fails_with_outstanding_debt() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// 100 DOT = 421 USD, max mint at 200% = 210.5 pUSD
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			assert_noop!(
+				Vaults::close_vault(RuntimeOrigin::signed(ALICE)),
+				Error::<Test>::VaultHasDebt
+			);
+		});
+	}
+
+	/// **Test: `close_vault` requires all debt (principal + interest) to be repaid**
+	///
+	/// Per spec, Debt == 0 means both principal AND accrued_interest must be zero.
+	/// If only principal is zero but interest remains, closing should fail.
+	#[test]
+	fn close_vault_fails_with_accrued_interest() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Accrue interest over time.
+			jump_to_block(5_256_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+			assert!(interest > 0, "Interest should be accrued");
+
+			// Directly set principal=0 while keeping interest>0 to test defensive check.
+			// This state cannot occur through normal extrinsics (repay pays interest first).
+			VaultsStorage::<Test>::mutate(ALICE, |maybe_vault| {
+				let vault = maybe_vault.as_mut().expect("vault should exist");
+				vault.principal = 0;
+			});
+
+			// Cannot close - still has accrued interest
+			assert_noop!(
+				Vaults::close_vault(RuntimeOrigin::signed(ALICE)),
+				Error::<Test>::VaultHasDebt
+			);
+		});
+	}
+
+	/// **Test: `close_vault` succeeds after repaying all debt including interest**
+	///
+	/// User must repay both principal and accrued interest before closing.
+	/// With the mint-on-accrual model, interest is minted to InsuranceFund when
+	/// fees accrue, and burned from the user when repaid.
+	#[test]
+	fn close_vault_succeeds_after_full_debt_repayment() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Check IF balance before interest accrues
+			let insurance_before_accrual = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+
+			// Accrue interest over time.
+			jump_to_block(5_256_000);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let total_debt = vault.principal + vault.accrued_interest;
+			assert!(vault.accrued_interest > 0, "Interest should be accrued");
+
+			// Verify IF received interest during accrual (mint-on-accrual model)
+			let insurance_after_accrual = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+			assert_eq!(
+				insurance_after_accrual,
+				insurance_before_accrual + vault.accrued_interest,
+				"`InsuranceFund` should receive interest on accrual"
+			);
+
+			// Alice only has the minted pUSD, need extra to cover interest
+			// Mint extra pUSD directly to Alice for interest payment
+			assert_ok!(Assets::mint(
+				RuntimeOrigin::signed(ALICE),
+				STABLECOIN_ASSET_ID,
+				ALICE,
+				vault.accrued_interest
+			));
+
+			// Repay all debt (principal + interest)
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), total_debt));
+
+			// IF balance should not change on repay (interest was minted on accrual)
+			let insurance_after_repay = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+			assert_eq!(
+				insurance_after_repay, insurance_after_accrual,
+				"`InsuranceFund` balance unchanged on repay (already received on accrual)"
+			);
+
+			// Now can close the vault
+			assert_ok!(Vaults::close_vault(RuntimeOrigin::signed(ALICE)));
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+		});
+	}
+}
+
+mod parameter_setters {
+	use super::*;
+
+	/// **Test: `ManagerOrigin` can update minimum collateralization ratio**
+	///
+	/// The `ManagerOrigin` with `Full` privilege can adjust the minimum ratio (default 180%)
+	/// that determines when vaults become liquidatable. Lowering this makes the
+	/// protocol more capital-efficient but riskier; raising it makes it safer
+	/// but requires more collateral per borrowed pUSD.
+	#[test]
+	fn set_minimum_collateralization_ratio_works() {
+		build_and_execute(|| {
+			let old_ratio = ratio(180); // Genesis default
+			let new_ratio = ratio(190);
+
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				new_ratio
+			));
+
+			assert_eq!(MinimumCollateralizationRatio::<Test>::get(), Some(new_ratio));
+			System::assert_has_event(
+				Event::<Test>::MinimumCollateralizationRatioUpdated {
+					old_value: old_ratio,
+					new_value: new_ratio,
+				}
+				.into(),
+			);
+		});
+	}
+
+	/// **Test: Only `ManagerOrigin` can change minimum ratio**
+	///
+	/// Regular users cannot change protocol parameters. This ensures
+	/// critical risk parameters are controlled by `ManagerOrigin` only.
+	#[test]
+	fn set_minimum_collateralization_ratio_fails_for_non_manager() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::signed(ALICE),
+					ratio(140)
+				),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+
+	/// **Test: Governance can update initial collateralization ratio**
+	///
+	/// The initial ratio (default 200%) determines the maximum amount
+	/// users can borrow when minting. It's higher than the minimum ratio
+	/// to provide a safety buffer against immediate liquidation.
+	#[test]
+	fn set_initial_collateralization_ratio_works() {
+		build_and_execute(|| {
+			let old_ratio = ratio(200); // Genesis default
+			let new_ratio = ratio(210);
+
+			assert_ok!(Vaults::set_initial_collateralization_ratio(
+				RuntimeOrigin::root(),
+				new_ratio
+			));
+
+			assert_eq!(InitialCollateralizationRatio::<Test>::get(), Some(new_ratio));
+			System::assert_has_event(
+				Event::<Test>::InitialCollateralizationRatioUpdated {
+					old_value: old_ratio,
+					new_value: new_ratio,
+				}
+				.into(),
+			);
+		});
+	}
+
+	/// **Test: Governance can update stability fee**
+	///
+	/// The stability fee (default 4% annually) is the interest rate charged
+	/// on borrowed pUSD. It's denominated in pUSD but paid from collateral (DOT).
+	/// Revenue goes to the protocol treasury.
+	#[test]
+	fn set_stability_fee_works() {
+		build_and_execute(|| {
+			let old_fee = Permill::from_percent(4); // Genesis default
+			let new_fee = Permill::from_percent(10);
+
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), new_fee));
+
+			assert_eq!(StabilityFee::<Test>::get(), Some(new_fee));
+			System::assert_has_event(
+				Event::<Test>::StabilityFeeUpdated { old_value: old_fee, new_value: new_fee }
+					.into(),
+			);
+		});
+	}
+
+	/// **Test: Governance can update liquidation penalty**
+	///
+	/// The liquidation penalty (default 13%) is charged when a vault is
+	/// liquidated due to undercollateralization. This fee goes to the keeper
+	/// who initiates the liquidation, incentivizing timely vault liquidations.
+	#[test]
+	fn set_liquidation_penalty_works() {
+		build_and_execute(|| {
+			let old_penalty = Permill::from_percent(13); // Genesis default
+			let new_penalty = Permill::from_percent(15);
+
+			assert_ok!(Vaults::set_liquidation_penalty(RuntimeOrigin::root(), new_penalty));
+
+			assert_eq!(LiquidationPenalty::<Test>::get(), Some(new_penalty));
+			System::assert_has_event(
+				Event::<Test>::LiquidationPenaltyUpdated {
+					old_value: old_penalty,
+					new_value: new_penalty,
+				}
+				.into(),
+			);
+		});
+	}
+}
+
+mod authorization_levels {
+	use super::*;
+
+	/// **Test: `Emergency` privilege cannot set minimum collateralization ratio**
+	#[test]
+	fn emergency_privilege_cannot_set_minimum_collateralization_ratio() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					ratio(140)
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: `Emergency` privilege cannot set initial collateralization ratio**
+	#[test]
+	fn emergency_privilege_cannot_set_initial_collateralization_ratio() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_initial_collateralization_ratio(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					ratio(160)
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: `Emergency` privilege cannot set stability fee**
+	#[test]
+	fn emergency_privilege_cannot_set_stability_fee() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_stability_fee(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					Permill::from_percent(10)
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: `Emergency` privilege cannot set liquidation penalty**
+	#[test]
+	fn emergency_privilege_cannot_set_liquidation_penalty() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_liquidation_penalty(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					Permill::from_percent(15)
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: `Emergency` privilege cannot set max liquidation amount**
+	#[test]
+	fn emergency_privilege_cannot_set_max_liquidation_amount() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_max_liquidation_amount(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					500_000 * PUSD
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: `Full` privilege (`ManagerOrigin`) can raise maximum debt**
+	#[test]
+	fn full_privilege_can_raise_maximum_debt() {
+		build_and_execute(|| {
+			let current = MaximumIssuance::<Test>::get().expect("set in genesis; qed");
+			let new_debt = current + 1_000_000 * PUSD;
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::root(), new_debt));
+			assert_eq!(MaximumIssuance::<Test>::get(), Some(new_debt));
+		});
+	}
+
+	/// **Test: `Full` privilege (`ManagerOrigin`) can lower maximum debt**
+	#[test]
+	fn full_privilege_can_lower_maximum_debt() {
+		build_and_execute(|| {
+			let current = MaximumIssuance::<Test>::get().expect("set in genesis; qed");
+			let new_debt = current / 2;
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::root(), new_debt));
+			assert_eq!(MaximumIssuance::<Test>::get(), Some(new_debt));
+		});
+	}
+
+	/// **Test: `Emergency` privilege can lower maximum debt**
+	///
+	/// This is the key emergency action - allowing fast-track lowering of the
+	/// debt ceiling in response to oracle attacks or other emergencies.
+	#[test]
+	fn emergency_privilege_can_lower_maximum_debt() {
+		build_and_execute(|| {
+			let current = MaximumIssuance::<Test>::get().expect("set in genesis; qed");
+			let new_debt = current / 2;
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::signed(EMERGENCY_ADMIN), new_debt));
+			assert_eq!(MaximumIssuance::<Test>::get(), Some(new_debt));
+		});
+	}
+
+	/// **Test: `Emergency` privilege cannot raise maximum debt**
+	///
+	/// `Emergency` actions are defensive only - they cannot increase risk exposure.
+	#[test]
+	fn emergency_privilege_cannot_raise_maximum_debt() {
+		build_and_execute(|| {
+			let current = MaximumIssuance::<Test>::get().expect("set in genesis; qed");
+			let new_debt = current + 1_000_000 * PUSD;
+			assert_noop!(
+				Vaults::set_max_issuance(RuntimeOrigin::signed(EMERGENCY_ADMIN), new_debt),
+				Error::<Test>::CanOnlyLowerMaxDebt
+			);
+		});
+	}
+
+	/// **Test: `Emergency` privilege can set maximum debt to zero**
+	///
+	/// In an extreme emergency, the debt ceiling can be set to zero to
+	/// completely halt new minting.
+	#[test]
+	fn emergency_privilege_can_set_max_issuance_to_zero() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::signed(EMERGENCY_ADMIN), 0));
+			assert_eq!(MaximumIssuance::<Test>::get(), Some(0));
+		});
+	}
+
+	/// **Test: Regular signed origin has no privilege**
+	///
+	/// Neither `Full` nor `Emergency` - should fail with `BadOrigin`.
+	#[test]
+	fn regular_signed_origin_has_no_privilege() {
+		build_and_execute(|| {
+			// ALICE is a regular user, not a privileged origin
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::signed(ALICE),
+					ratio(140)
+				),
+				frame_support::error::BadOrigin
+			);
+
+			assert_noop!(
+				Vaults::set_max_issuance(RuntimeOrigin::signed(ALICE), 0),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+}
+
+mod fee_accrual {
+	use super::*;
+
+	/// **Test: Stability fee accrues over time**
+	///
+	/// Interest on debt is calculated continuously based on time elapsed.
+	/// Accrued interest (in pUSD) is tracked in the vault's `accrued_interest` field.
+	///
+	/// Example: 200 pUSD debt × 4% annual × 1 year = 8 pUSD interest
+	#[test]
+	fn interest_accrues_over_time() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Check initial state
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0);
+			let initial_held = vault.get_held_collateral(&ALICE);
+
+			// Advance 1 year worth of blocks (5,256,000 blocks at 6s each).
+			jump_to_block(5_256_000);
+
+			// With 4% annual fee on 200 pUSD = 8 pUSD interest
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let expected_interest = 8 * PUSD;
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				INTEREST_TOLERANCE,
+				"Interest after 1 year",
+			);
+
+			// Collateral should NOT be reduced (interest is not collected yet)
+			let final_held = vault.get_held_collateral(&ALICE);
+			assert_eq!(
+				final_held, initial_held,
+				"Collateral should not be reduced until close_vault"
+			);
+
+			// `InterestAccrued` event should be emitted
+			let events = System::events();
+			let has_interest = events
+				.iter()
+				.any(|e| matches!(e.event, RuntimeEvent::Vaults(Event::InterestAccrued { .. })));
+			assert!(has_interest, "Should emit `InterestAccrued` event");
+		});
+	}
+
+	/// **Test: Stability fee calculation example**
+	///
+	/// This test validates the complete interest calculation using a concrete example:
+	///
+	/// **Setup:**
+	/// - User deposits 10,000 DOT as collateral
+	/// - Borrows 10,000 pUSD (at $2/DOT, this is 200% collateralized)
+	/// - Stability fee: 4% annually
+	///
+	/// **After 1 year:**
+	/// - Interest accrued: 10,000 pUSD × 4% = 400 pUSD
+	/// - Collateral remains unchanged at 10,000 DOT
+	/// - New collateralization ratio: (10,000 × $2) / (10,000 + 400) = 192%
+	#[test]
+	fn example_stability_fee_calculation() {
+		build_and_execute(|| {
+			// Set price to $2/DOT (2 pUSD per DOT)
+			set_mock_price(Some(FixedU128::from_u32(2)));
+
+			// Setup: 10k DOT collateral, 10k pUSD debt
+			let collateral = 10_000 * DOT;
+			let debt = 10_000 * PUSD;
+
+			// ALICE starts with INITIAL_BALANCE (1000 DOT) defined at genesis.
+			// She needs 10,000 DOT for collateral + 1 extra unit to remain after the hold.
+			// Additional needed: collateral + buffer - INITIAL_BALANCE = 9000 DOT + 1 unit.
+			let additional_needed = collateral + 1 - INITIAL_BALANCE;
+			let _ = Balances::mint_into(&ALICE, additional_needed);
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), collateral));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), debt));
+
+			// Verify initial state
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault.get_held_collateral(&ALICE),
+				collateral,
+				"Initial collateral: 10k DOT"
+			);
+			assert_eq!(vault.principal, debt, "Initial principal: 10k pUSD");
+
+			// Verify initial collateralization ratio is 200%
+			// CR = (collateral × price) / (debt + interest) = (10,000 × 2) / 10,000 = 200%
+			let initial_ratio = Vaults::get_collateralization_ratio(&vault, &ALICE).unwrap();
+			assert_eq!(initial_ratio, ratio(200), "Initial ratio should be 200%");
+
+			// Advance exactly 1 year (5,256,000 blocks at 6s each).
+			jump_to_block(5_256_000);
+
+			// Calculate expected values:
+			// Interest in pUSD = 4% * 10,000 pUSD = 400 pUSD
+			let expected_interest = 400 * PUSD;
+
+			// Verify interest was accrued
+			// Use larger tolerance (0.5 pUSD) for this test due to ~0.07% timestamp variance
+			// over 1 year with jump_to_block (273k units variance on 400 pUSD expected)
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				PUSD / 2,
+				"Interest after 1 year",
+			);
+
+			// Verify collateral is unchanged
+			assert_eq!(
+				vault.get_held_collateral(&ALICE),
+				collateral,
+				"Collateral should remain 10k DOT"
+			);
+
+			// Verify new collateralization ratio is ~192.31%
+			// Collateral value: 10,000 DOT × $2 = $20,000
+			// Total debt: 10,000 pUSD principal + 400 pUSD interest = 10,400 pUSD
+			// CR = 20,000 / 10,400 = ≈ 1.9231 = 192.31%
+			let final_ratio = Vaults::get_collateralization_ratio(&vault, &ALICE).unwrap();
+			let expected_ratio = FixedU128::from_rational(20000, 10400);
+			// Allow 0.01% tolerance for interest rounding
+			let tolerance = expected_ratio / FixedU128::from_u32(10_000);
+			assert!(
+				final_ratio >= expected_ratio.saturating_sub(tolerance) &&
+					final_ratio <= expected_ratio.saturating_add(tolerance),
+				"Final ratio should be ~192.31%, got: {:?}, expected: {:?}",
+				final_ratio,
+				expected_ratio
+			);
+
+			// Verify debt unchanged
+			assert_eq!(vault.principal, debt, "Principal should remain 10k pUSD");
+		});
+	}
+
+	/// **Test: Interest accrues even when debt ceiling is reached**
+	///
+	/// This test verifies that interest (representing existing debt obligations)
+	/// can still be minted to the Insurance Fund even after the system debt ceiling
+	/// (`MaximumIssuance`) has been reached. This is intentional because:
+	/// - Interest represents obligations already incurred, not new borrowing
+	/// - Blocking interest would leave debt untracked on-chain
+	/// - The Insurance Fund must receive revenue for system solvency
+	///
+	/// Principal mints are still blocked when the ceiling is reached.
+	#[test]
+	fn interest_accrues_even_at_debt_ceiling() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Set debt ceiling to current issuance (no room for new mints)
+			let current_issuance = Assets::total_issuance(StablecoinAssetId::get());
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::root(), current_issuance));
+
+			// Verify principal minting is now blocked
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 50 * DOT));
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::ExceedsMaxDebt
+			);
+
+			// Advance time to accrue interest
+			jump_to_block(5_256_000); // ~1 year
+
+			// Check that interest was still minted despite ceiling
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let expected_interest = 8 * PUSD; // 4% of 200 pUSD
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				INTEREST_TOLERANCE,
+				"Interest should accrue despite debt ceiling",
+			);
+
+			// Insurance Fund should have received the interest
+			let fund_balance = Assets::balance(StablecoinAssetId::get(), &INSURANCE_FUND);
+			assert_approx_eq(
+				fund_balance,
+				expected_interest,
+				INTEREST_TOLERANCE,
+				"Insurance Fund should receive minted interest",
+			);
+
+			// Total issuance should now exceed the ceiling (interest was minted)
+			let new_issuance = Assets::total_issuance(StablecoinAssetId::get());
+			assert!(
+				new_issuance > current_issuance,
+				"Total issuance should exceed ceiling due to interest"
+			);
+		});
+	}
+
+	/// **Test: Fee change does not apply retroactively**
+	///
+	/// When governance changes the stability fee, the new rate should only apply
+	/// from the moment of the change, not retroactively to the period before it.
+	///
+	/// Timeline:
+	///   t=0: vault created, 200 pUSD debt at 4% fee
+	///   t=6 months: fee raised to 10%
+	///   t=12 months: vault poked
+	///
+	/// Expected interest:
+	///   [0, 6mo] at 4%: 200 × 4% × 0.5 = 4 pUSD
+	///   [6mo, 12mo] at 10%: 200 × 10% × 0.5 = 10 pUSD
+	///   Total: 14 pUSD
+	#[test]
+	fn fee_change_does_not_apply_retroactively() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance 6 months (half year = 2,628,000 blocks at 6s)
+			let half_year_blocks = 2_628_000u64;
+			jump_to_block(half_year_blocks);
+
+			// Governance raises stability fee from 4% to 10%
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(10)));
+
+			// Verify PreviousStabilityFee was stored
+			let prev = PreviousStabilityFee::<Test>::get();
+			assert!(prev.is_some(), "PreviousStabilityFee should be set");
+			let (old_fee, changed_at) = prev.unwrap();
+			assert_eq!(old_fee, Permill::from_percent(4));
+			assert_eq!(changed_at, MockTimestamp::get());
+
+			// Advance another 6 months
+			jump_to_block(half_year_blocks * 2);
+
+			// Expected: 4 pUSD (first half at 4%) + 10 pUSD (second half at 10%) = 14 pUSD
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let expected_interest = 14 * PUSD;
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				PUSD / 2, // 0.5 pUSD tolerance for timestamp variance
+				"Fee change should not apply retroactively",
+			);
+		});
+	}
+
+	/// **Test: Fee decrease does not retroactively reduce owed interest**
+	///
+	/// When governance lowers the stability fee, the old (higher) rate must still
+	/// apply to the period before the change.
+	///
+	/// Timeline:
+	///   t=0: vault created, 200 pUSD debt at 4% fee
+	///   t=6 months: fee lowered to 1%
+	///   t=12 months: vault poked
+	///
+	/// Expected interest:
+	///   [0, 6mo] at 4%: 200 × 4% × 0.5 = 4 pUSD
+	///   [6mo, 12mo] at 1%: 200 × 1% × 0.5 = 1 pUSD
+	///   Total: 5 pUSD
+	#[test]
+	fn fee_decrease_does_not_retroactively_reduce_interest() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance 6 months
+			let half_year_blocks = 2_628_000u64;
+			jump_to_block(half_year_blocks);
+
+			// Governance lowers stability fee from 4% to 1%
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(1)));
+
+			// Advance another 6 months
+			jump_to_block(half_year_blocks * 2);
+
+			// Expected: 4 pUSD (first half at 4%) + 1 pUSD (second half at 1%) = 5 pUSD
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let expected_interest = 5 * PUSD;
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected_interest,
+				PUSD / 2,
+				"Fee decrease should not retroactively reduce interest",
+			);
+		});
+	}
+
+	/// **Test: Vault updated after fee change uses only the new rate**
+	///
+	/// If a vault's `last_fee_update` is after the fee change timestamp,
+	/// `PreviousStabilityFee` should be ignored entirely.
+	#[test]
+	fn vault_updated_after_fee_change_uses_new_rate_only() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance 3 months — on_idle pokes the vault
+			let quarter_year_blocks = 1_314_000u64;
+			jump_to_block(quarter_year_blocks);
+
+			// Governance changes fee from 4% to 10%
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(10)));
+
+			// Record interest accrued so far (3 months at 4%)
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest_before = vault.accrued_interest;
+			let expected_before = 2 * PUSD; // 200 × 4% × 0.25 = 2 pUSD
+			assert_approx_eq(
+				interest_before,
+				expected_before,
+				PUSD / 2,
+				"Interest before fee change",
+			);
+
+			// Advance another 3 months — vault was updated AFTER the fee change,
+			// so only the new 10% rate applies for this period
+			jump_to_block(quarter_year_blocks * 2);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let new_interest = vault.accrued_interest - interest_before;
+			let expected_new = 5 * PUSD; // 200 × 10% × 0.25 = 5 pUSD
+			assert_approx_eq(
+				new_interest,
+				expected_new,
+				PUSD / 2,
+				"After fee change, only new rate should apply",
+			);
+		});
+	}
+}
+
+mod edge_cases {
+	use super::*;
+
+	/// **Test: Collateralization ratio is max without debt**
+	///
+	/// When a vault has no debt, its collateralization ratio returns
+	/// `FixedU128::max_value()` representing infinite CR (healthy).
+	#[test]
+	fn collateralization_ratio_max_without_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let ratio = VaultsPallet::<Test>::get_collateralization_ratio(&vault, &ALICE).unwrap();
+
+			// Without debt, ratio is max value (infinite CR = healthy)
+			assert_eq!(ratio, FixedU128::max_value());
+		});
+	}
+
+	/// **Test: `MinimumDeposit` requirement**
+	///
+	/// The protocol requires a minimum deposit (100 DOT) to create a vault.
+	/// This prevents spam/dust vaults and ensures each vault has meaningful
+	/// economic value to make liquidation worthwhile.
+	#[test]
+	fn fails_below_minimum_deposit() {
+		build_and_execute(|| {
+			// `MinimumDeposit` is 100 DOT, try with 99 DOT
+			let below_minimum = 99 * DOT;
+
+			assert_noop!(
+				Vaults::create_vault(RuntimeOrigin::signed(ALICE), below_minimum),
+				Error::<Test>::BelowMinimumDeposit
+			);
+
+			// Zero deposit should also fail
+			assert_noop!(
+				Vaults::create_vault(RuntimeOrigin::signed(ALICE), 0),
+				Error::<Test>::BelowMinimumDeposit
+			);
+
+			// Exactly minimum should work
+			let minimum = 100 * DOT;
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), minimum));
+		});
+	}
+}
+
+mod liquidation_edge_cases {
+	use super::*;
+
+	/// **Test: Liquidation accrues interest and applies penalty**
+	///
+	/// When liquidating a vault with accrued interest, the protocol
+	/// calculates both the stability fees and liquidation penalty.
+	/// Interest is accrued via `on_idle` (stale vault processing) or during liquidation,
+	/// and penalty is included in the auction tab.
+	#[test]
+	fn liquidation_with_accrued_interest() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Advance time to accrue interest.
+			jump_to_block(2_628_000); // ~6 months
+
+			// Drop price to trigger liquidation (below 180% minimum)
+			set_mock_price(Some(FixedU128::from_u32(3)));
+
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Vault should be in liquidation status
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+
+			// Should have both events:
+			// - InterestAccrued from on_idle during jump_to_block
+			// - LiquidationPenaltyAdded from liquidate_vault
+			let events = System::events();
+			let has_interest = events
+				.iter()
+				.any(|e| matches!(e.event, RuntimeEvent::Vaults(Event::InterestAccrued { .. })));
+			let has_penalty = events.iter().any(|e| {
+				matches!(e.event, RuntimeEvent::Vaults(Event::LiquidationPenaltyAdded { .. }))
+			});
+
+			assert!(has_interest, "Should emit `InterestAccrued` event");
+			assert!(has_penalty, "Should emit `LiquidationPenaltyAdded` event");
+		});
+	}
+
+	/// **Test: Liquidation boundary at exactly 180% ratio**
+	///
+	/// Vaults at EXACTLY the minimum ratio (180%) are NOT liquidatable.
+	/// Liquidation only triggers when the ratio drops BELOW 180%.
+	/// This test verifies the boundary condition precisely.
+	#[test]
+	fn liquidation_at_exact_boundary() {
+		build_and_execute(|| {
+			// Set up vault that will be exactly at 180% after price drop
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint 200 pUSD (safe at 200% ICR)
+			let mint_amount = 200 * PUSD;
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Set price so ratio is exactly 180%
+			// Need: 100 DOT * price = 200 * 1.8 = 360 USD
+			// price = 3.60 USD/DOT
+			set_mock_price(Some(FixedU128::from_rational(360, 100)));
+
+			// At exactly 180%, vault should NOT be liquidatable (ratio >= min_ratio)
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+
+			// Drop price slightly below boundary
+			set_mock_price(Some(FixedU128::from_rational(359, 100)));
+
+			// Now liquidation should work
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+		});
+	}
+
+	/// **Test: Liquidation in severely underwater scenario**
+	///
+	/// All collateral is always seized for auction during liquidation.
+	/// In underwater scenarios, the auction cannot cover the full principal.
+	///
+	/// Only unpaid PRINCIPAL becomes bad debt (unbacked stablecoin in circulation).
+	/// Interest and penalty are simply not collected if there's insufficient collateral.
+	///
+	/// Example: At $0.50/DOT, 100 DOT = $50 value, principal = 200 pUSD.
+	/// Auction raises 50 pUSD, which pays down principal first.
+	/// Remaining principal = 200 - 50 = 150 pUSD becomes bad debt.
+	#[test]
+	fn liquidation_in_underwater_scenario() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint 200 pUSD (at 200% ratio with initial price $4.21/DOT)
+			let mint_amount = 200 * PUSD;
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Crash price severely - collateral value drops dramatically
+			// At $0.50/DOT: 100 DOT = $50 value, principal = 200 pUSD
+			// Ratio = 50/200 = 25% (way under 180% minimum)
+			let crash_price = FixedU128::from_rational(50, 100); // $0.50/DOT
+			set_mock_price(Some(crash_price));
+
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Vault should be in liquidation with all collateral seized
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+
+			// Simulate auction completion:
+			// - Collateral value in pUSD = raw_price × deposit × (PUSD/DOT) for decimal conversion
+			// - Payment priority: principal first (per Tab::apply_payment)
+			// - Bad debt = remaining principal + interest (unbacked pUSD)
+			// - Unpaid penalty is NOT bad debt (lost protocol revenue)
+			let collateral_value_pusd = crash_price.saturating_mul_int(deposit) * PUSD / DOT;
+			let remaining_principal = mint_amount.saturating_sub(collateral_value_pusd);
+			// Penalty = 13% of principal = 26 pUSD, fully unpaid in crash scenario
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(mint_amount);
+			let remaining_debt =
+				DebtComponents { principal: remaining_principal, interest: 0, penalty };
+			let bad_debt_before = BadDebt::<Test>::get();
+
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
+
+			// Bad debt = remaining principal + interest only (penalty excluded)
+			let expected_bad_debt = remaining_principal; // interest is 0
+			assert_eq!(
+				BadDebt::<Test>::get(),
+				bad_debt_before + expected_bad_debt,
+				"Only unpaid principal+interest becomes bad debt, not penalty"
+			);
+
+			// Vault should be removed after auction
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// AuctionShortfall event uses full remaining_debt.total()
+			System::assert_has_event(
+				Event::<Test>::AuctionShortfall { shortfall: remaining_debt.total() }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: expected_bad_debt }.into(),
+			);
+		});
+	}
+}
+
+mod interest_edge_cases {
+	use super::*;
+
+	/// **Test: No interest without debt**
+	///
+	/// Stability fees only apply to borrowed amounts. A vault with only
+	/// collateral (no pUSD minted) accrues zero interest regardless of time.
+	#[test]
+	fn no_interest_accrues_without_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Don't mint anything - no debt
+
+			// Advance significant time
+			jump_to_block(5_256_000); // 1 year
+
+			// Trigger fee update
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 0));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0, "No interest without debt");
+			assert_eq!(vault.get_held_collateral(&ALICE), deposit, "Full collateral available");
+		});
+	}
+
+	/// **Test: No interest accrues within the same block**
+	///
+	/// Interest is calculated based on block time elapsed. Multiple operations
+	/// in the same block don't accrue additional interest because no time
+	/// has passed between them.
+	#[test]
+	fn no_interest_in_same_block() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			// Multiple operations in same block should not accrue interest
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), DOT));
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), DOT));
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), DOT));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0, "No interest in same block");
+		});
+	}
+
+	/// **Test: Frequent pokes cannot discard sub-unit interest**
+	///
+	/// If elapsed interest rounds down to zero, `last_fee_update` must not advance,
+	/// otherwise a user could keep poking and permanently avoid accrual.
+	#[test]
+	fn sub_unit_interest_does_not_advance_fee_timestamp() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD));
+
+			let initial_timestamp = VaultsStorage::<Test>::get(ALICE).unwrap().last_fee_update;
+
+			// One block of elapsed time is too small to accrue even one pUSD base unit.
+			run_to_block(2);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0, "Per-block poke should still round to zero");
+			assert_eq!(
+				vault.last_fee_update, initial_timestamp,
+				"Zero rounded accrual must not advance the fee timestamp"
+			);
+
+			// After enough time accumulates, a later poke must accrue interest.
+			run_to_block(30);
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert!(
+				vault.accrued_interest > 0,
+				"Accumulated elapsed time should eventually accrue"
+			);
+			assert!(
+				vault.last_fee_update > initial_timestamp,
+				"Fee timestamp should advance once non-zero interest is charged"
+			);
+		});
+	}
+}
+
+mod boundary_conditions {
+	use super::*;
+
+	/// **Test: Maximum borrowing at exactly 200% ratio boundary**
+	///
+	/// Users can borrow up to the exact point where their collateralization
+	/// ratio equals 200% (initial ratio). Attempting to borrow even 1 more
+	/// pUSD unit will fail.
+	#[test]
+	fn mint_at_exact_initial_ratio() {
+		build_and_execute(|| {
+			// Oracle: 1 DOT = 4.21 USD
+			// 100 DOT = 421 USD
+			// At exactly 200%: max_mint = 421 / 2.0 = 210.5 pUSD
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Calculate exact max mint
+			// collateral_value = 100 DOT * 4.21 USD = 421 USD
+			// 421 USD / 2.0 = 210.5 pUSD
+			// Try 210 pUSD - should work
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 210 * PUSD));
+
+			// Try to mint 5 more pUSD - should fail (would be below 200%)
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD),
+				Error::<Test>::UnsafeCollateralizationRatio
+			);
+		});
+	}
+
+	/// **Test: Dust amount minting is rejected**
+	///
+	/// The system rejects mints below the `MinimumMint` threshold (5 pUSD).
+	#[test]
+	fn dust_amounts_handled_correctly() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint a very small amount (1 smallest unit of pUSD) - should fail
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 1),
+				Error::<Test>::BelowMinimumMint
+			);
+
+			// Mint just below minimum (4.999999 pUSD) - should fail
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD - 1),
+				Error::<Test>::BelowMinimumMint
+			);
+
+			// Mint exactly minimum (5 pUSD) - should succeed
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 5 * PUSD);
+
+			// Repay works for any amount
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), 5 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 0);
+		});
+	}
+
+	/// **Test: Zero deposit still triggers fee update**
+	///
+	/// Depositing 0 collateral is a valid operation that triggers fee
+	/// calculation and interest collection. This allows users to
+	/// voluntarily settle their accrued interest without changing position.
+	#[test]
+	fn zero_deposit_collateral_triggers_fee_update() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			let vault_before = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let last_update_before = vault_before.last_fee_update;
+
+			// Advance time
+			run_to_block(1000);
+
+			// Deposit 0 - should still trigger fee update
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 0));
+
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert!(
+				vault_after.last_fee_update > last_update_before,
+				"Fee update timestamp should advance"
+			);
+		});
+	}
+}
+
+mod poke {
+	use super::*;
+
+	/// **Test: Poke fails for non-existent vault**
+	///
+	/// Cannot poke a vault that doesn't exist.
+	#[test]
+	fn poke_fails_for_nonexistent_vault() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::poke(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+
+	/// **Test: Poke updates vault fee timestamp and accrues interest**
+	///
+	/// When a vault has debt, poking it can trigger fee calculations.
+	/// After 1 year, the vault becomes stale and `on_idle` processes it.
+	/// This test verifies that poke works correctly in this scenario.
+	#[test]
+	fn poke_accrues_interest_and_emits_event() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let mint_amount = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+
+			let initial_collateral =
+				VaultsStorage::<Test>::get(ALICE).unwrap().get_held_collateral(&ALICE);
+
+			// Advance 1 year.
+			jump_to_block(5_256_000);
+
+			// Verify interest was accrued
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert!(vault.accrued_interest > 0, "Interest should be accrued");
+
+			// With 4% annual fee on 200 pUSD = 8 pUSD
+			let expected = 8 * PUSD;
+			assert_approx_eq(
+				vault.accrued_interest,
+				expected,
+				INTEREST_TOLERANCE,
+				"Interest after 1 year",
+			);
+
+			// Poke is still callable (even though vault was just updated)
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(CHARLIE), ALICE));
+
+			// Collateral should NOT be reduced (interest not collected yet)
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let final_collateral = vault.get_held_collateral(&ALICE);
+			assert_eq!(
+				final_collateral, initial_collateral,
+				"Collateral should not be reduced by poke"
+			);
+
+			// `InterestAccrued` event should be emitted
+			let events = System::events();
+			let has_interest_event = events
+				.iter()
+				.any(|e| matches!(e.event, RuntimeEvent::Vaults(Event::InterestAccrued { .. })));
+			assert!(has_interest_event, "Should emit `InterestAccrued` event");
+		});
+	}
+
+	/// **Test: Vault owner can poke their own vault**
+	///
+	/// The vault owner can also call poke on their own vault.
+	#[test]
+	fn owner_can_poke_own_vault() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Record timestamp before advancing time
+			let vault_before = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let timestamp_before = vault_before.last_fee_update;
+
+			run_to_block(1000);
+
+			// Owner pokes own vault - should succeed
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(ALICE), ALICE));
+
+			// Vault's last_fee_update should be updated to current timestamp
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let current_timestamp = MockTimestamp::get();
+			assert_eq!(
+				vault.last_fee_update, current_timestamp,
+				"last_fee_update should be updated to current timestamp"
+			);
+			assert!(
+				vault.last_fee_update > timestamp_before,
+				"last_fee_update should have advanced from initial value"
+			);
+		});
+	}
+}
+
+mod heal_permissionless {
+	use super::*;
+
+	/// **Test: Anyone can trigger bad debt repayment from `InsuranceFund`**
+	///
+	/// Bad debt repayment burns pUSD from the `InsuranceFund` account.
+	/// Any user can call `heal` to trigger this.
+	#[test]
+	fn anyone_can_heal() {
+		build_and_execute(|| {
+			// Setup: Create some bad debt
+			BadDebt::<Test>::put(100 * PUSD);
+
+			// Give `InsuranceFund` pUSD to burn
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &INSURANCE_FUND, 200 * PUSD));
+
+			let insurance_before = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+
+			// ALICE calls heal to repay bad debt from `InsuranceFund`
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(ALICE), 50 * PUSD));
+
+			// Bad debt should be reduced
+			assert_eq!(BadDebt::<Test>::get(), 50 * PUSD);
+
+			// `InsuranceFund`'s pUSD should be burned
+			assert_eq!(
+				Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND),
+				insurance_before - 50 * PUSD
+			);
+
+			// Event should show the amount repaid
+			System::assert_has_event(Event::<Test>::BadDebtRepaid { amount: 50 * PUSD }.into());
+		});
+	}
+
+	/// **Test: Multiple `heal` calls burn from `InsuranceFund`**
+	///
+	/// Different users can call `heal` multiple times, each burning from `InsuranceFund`.
+	#[test]
+	fn multiple_users_can_heal() {
+		build_and_execute(|| {
+			// Setup: Create bad debt
+			BadDebt::<Test>::put(300 * PUSD);
+
+			// Give `InsuranceFund` pUSD to burn
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &INSURANCE_FUND, 300 * PUSD));
+
+			// Each user calls heal
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+			assert_eq!(BadDebt::<Test>::get(), 200 * PUSD);
+
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(BOB), 100 * PUSD));
+			assert_eq!(BadDebt::<Test>::get(), 100 * PUSD);
+
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(CHARLIE), 100 * PUSD));
+			assert_eq!(BadDebt::<Test>::get(), 0);
+
+			// All `InsuranceFund` pUSD should be burned
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 0);
+		});
+	}
+
+	/// **Test: Repayment capped to actual bad debt**
+	///
+	/// If a user tries to repay more than the current bad debt,
+	/// only the actual bad debt amount is burned from `InsuranceFund`.
+	#[test]
+	fn repayment_capped_to_actual_bad_debt() {
+		build_and_execute(|| {
+			// Setup: Small bad debt
+			BadDebt::<Test>::put(50 * PUSD);
+
+			// Give `InsuranceFund` more pUSD than bad debt
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &INSURANCE_FUND, 200 * PUSD));
+
+			// Try to repay more than bad debt
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Only 50 pUSD should be burned from `InsuranceFund`
+			assert_eq!(BadDebt::<Test>::get(), 0);
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 150 * PUSD);
+
+			// Event should show actual amount
+			System::assert_has_event(Event::<Test>::BadDebtRepaid { amount: 50 * PUSD }.into());
+		});
+	}
+
+	/// **Test: No-op when no bad debt exists**
+	///
+	/// Attempting to repay when there's no bad debt does nothing.
+	#[test]
+	fn noop_when_no_bad_debt() {
+		build_and_execute(|| {
+			// No bad debt
+			assert_eq!(BadDebt::<Test>::get(), 0);
+
+			// Give `InsuranceFund` some pUSD
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &INSURANCE_FUND, 100 * PUSD));
+
+			// Try to repay - should succeed but do nothing
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// No pUSD should be burned from `InsuranceFund`
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 100 * PUSD);
+
+			// No event should be emitted (check no BadDebtRepaid event)
+			let events = System::events();
+			let has_repaid_event = events
+				.iter()
+				.any(|e| matches!(e.event, RuntimeEvent::Vaults(Event::BadDebtRepaid { .. })));
+			assert!(!has_repaid_event, "No event when no bad debt to repay");
+		});
+	}
+
+	/// **Test: No-op if `InsuranceFund` has insufficient pUSD**
+	///
+	/// `heal` uses best-effort burning, so if the Insurance Fund has no pUSD
+	/// available it should succeed without changing bad debt.
+	#[test]
+	fn noop_with_insufficient_pusd() {
+		build_and_execute(|| {
+			// Setup: Bad debt exists
+			BadDebt::<Test>::put(100 * PUSD);
+
+			// `InsuranceFund` has no pUSD
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 0);
+
+			// Should succeed but burn nothing.
+			assert_ok!(Vaults::heal(RuntimeOrigin::signed(ALICE), 50 * PUSD));
+
+			// Bad debt unchanged
+			assert_eq!(BadDebt::<Test>::get(), 100 * PUSD);
+
+			// No repayment event should be emitted.
+			let events = System::events();
+			let has_repaid_event = events
+				.iter()
+				.any(|e| matches!(e.event, RuntimeEvent::Vaults(Event::BadDebtRepaid { .. })));
+			assert!(!has_repaid_event, "No event when no pUSD could be burned");
+		});
+	}
+}
+
+mod vault_status {
+	use super::*;
+
+	/// **Test: New vaults start with `Healthy` status**
+	#[test]
+	fn new_vault_is_healthy() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::Healthy);
+		});
+	}
+
+	/// **Test: Cannot deposit to vault in liquidation**
+	#[test]
+	fn cannot_deposit_to_liquidating_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			assert_noop!(
+				Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 10 * DOT),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: Cannot withdraw from vault in liquidation**
+	#[test]
+	fn cannot_withdraw_from_liquidating_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 10 * DOT),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: Cannot mint from vault in liquidation**
+	#[test]
+	fn cannot_mint_from_liquidating_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: Cannot repay vault in liquidation**
+	#[test]
+	fn cannot_repay_liquidating_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			assert_noop!(
+				Vaults::repay(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: Cannot close vault in liquidation**
+	#[test]
+	fn cannot_close_liquidating_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			assert_noop!(
+				Vaults::close_vault(RuntimeOrigin::signed(ALICE)),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: Cannot poke vault in liquidation**
+	#[test]
+	fn cannot_poke_liquidating_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			assert_noop!(
+				Vaults::poke(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: `complete_auction` removes vault immediately**
+	#[test]
+	fn auction_completed_removes_vault() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Vault exists with InLiquidation status
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+
+			// Simulate auction completion
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
+
+			// Vault should be removed immediately (no deferred cleanup)
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// `VaultClosed` event should be emitted
+			System::assert_has_event(Event::<Test>::VaultClosed { owner: ALICE }.into());
+		});
+	}
+
+	/// **Test: `on_idle` respects weight limits for fee updates**
+	#[test]
+	fn on_idle_respects_weight_limit() {
+		build_and_execute(|| {
+			// Create vaults
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 200 * PUSD));
+
+			// Record initial timestamps
+			let initial_timestamp_a = VaultsStorage::<Test>::get(ALICE).unwrap().last_fee_update;
+			let initial_timestamp_b = VaultsStorage::<Test>::get(BOB).unwrap().last_fee_update;
+
+			// Make vaults stale by advancing timestamp beyond threshold
+			let stale_threshold = StaleVaultThreshold::<Test>::get().expect("set in genesis; qed");
+			advance_timestamp(stale_threshold + 1);
+
+			// Run on_idle with zero weight - should not do anything
+			let weight = Vaults::on_idle(1, Weight::zero());
+			assert_eq!(weight, Weight::zero());
+
+			// Both vaults should still have old last_fee_update.
+			let vault_a = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let vault_b = VaultsStorage::<Test>::get(BOB).unwrap();
+			assert_eq!(vault_a.last_fee_update, initial_timestamp_a);
+			assert_eq!(vault_b.last_fee_update, initial_timestamp_b);
+		});
+	}
+
+	/// **Test: Can create new vault immediately after auction completion**
+	#[test]
+	fn can_create_vault_after_auction_completion() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
+
+			// Vault is removed immediately - ALICE can create a new vault right away
+			set_mock_price(Some(FixedU128::from_rational(421, 100)));
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::Healthy);
+		});
+	}
+
+	/// **Test: Operations fail on non-existent vault after liquidation**
+	///
+	/// After complete_auction, the vault is removed, so operations
+	/// fail with VaultNotFound instead of VaultInLiquidation.
+	#[test]
+	fn operations_fail_after_vault_liquidated() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
+
+			// Vault no longer exists - operations fail with VaultNotFound
+			assert_noop!(
+				Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 10 * DOT),
+				Error::<Test>::VaultNotFound
+			);
+			assert_noop!(
+				Vaults::poke(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+}
+
+mod liquidation_limits {
+	use super::*;
+
+	/// **Test: Liquidation blocked when `MaxLiquidationAmount` exceeded**
+	///
+	/// The `MaxLiquidationAmount` parameter is a HARD limit.
+	/// Liquidations are blocked when `CurrentLiquidationAmount` + debt > max.
+	#[test]
+	fn liquidation_blocked_when_max_exceeded() {
+		build_and_execute(|| {
+			// Create a vault and mint while limits are high
+			let deposit = 100 * DOT;
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Now lower MaxLiquidationAmount to a very low value (100 pUSD)
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), 100 * PUSD));
+			assert_ok!(Vaults::set_max_liquidation_amount(RuntimeOrigin::root(), 100 * PUSD));
+
+			// Drop price to make vault undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(2))); // $2 per DOT
+
+			// Liquidation should FAIL because tab (226 pUSD) > MaxLiquidationAmount (100 pUSD)
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::ExceedsMaxLiquidationAmount
+			);
+
+			// CurrentLiquidationAmount should remain at 0
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+
+			// Vault should still be healthy (liquidation didn't proceed)
+			let vault = VaultsStorage::<Test>::get(ALICE).expect("Vault should still exist");
+			assert_eq!(vault.status, VaultStatus::Healthy);
+		});
+	}
+
+	/// **Test: Liquidation succeeds when within limit**
+	///
+	/// When `CurrentLiquidationAmount` + tab <= `MaxLiquidationAmount`, liquidations
+	/// proceed normally and `CurrentLiquidationAmount` is updated to track the new auction.
+	#[test]
+	fn liquidation_updates_current_amount() {
+		build_and_execute(|| {
+			// MaxLiquidationAmount is 20,000,000 pUSD by default (from genesis)
+			assert_eq!(MaxLiquidationAmount::<Test>::get(), Some(20_000_000 * PUSD));
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+
+			// Create a vault
+			let deposit = 100 * DOT;
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Drop price to make vault undercollateralized (below 180%)
+			set_mock_price(Some(FixedU128::from_u32(3))); // $3 per DOT
+
+			// Liquidation should succeed
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// CurrentLiquidationAmount tracks total debt (principal + interest + penalty)
+			let expected_principal = 200 * PUSD;
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(expected_principal);
+			let expected_total = expected_principal + penalty; // no interest accrued
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), expected_total);
+		});
+	}
+
+	/// **Test: `set_max_liquidation_amount` governance function**
+	///
+	/// Governance can update the `MaxLiquidationAmount` parameter to control
+	/// liquidation throughput.
+	#[test]
+	fn set_max_liquidation_amount_works() {
+		build_and_execute(|| {
+			let old_max = 20_000_000 * PUSD; // Genesis default
+			let new_max = 500_000 * PUSD;
+
+			// Also lower MaxPositionAmount to maintain invariant
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), new_max));
+			assert_ok!(Vaults::set_max_liquidation_amount(RuntimeOrigin::root(), new_max));
+			assert_eq!(MaxLiquidationAmount::<Test>::get(), Some(new_max));
+
+			System::assert_has_event(
+				Event::<Test>::MaxLiquidationAmountUpdated {
+					old_value: old_max,
+					new_value: new_max,
+				}
+				.into(),
+			);
+		});
+	}
+
+	/// **Test: `set_max_liquidation_amount` requires `ManagerOrigin`**
+	///
+	/// Only `ManagerOrigin` can modify the `MaxLiquidationAmount` parameter.
+	#[test]
+	fn set_max_liquidation_amount_requires_manager_origin() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_max_liquidation_amount(RuntimeOrigin::signed(ALICE), 500_000 * PUSD),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+
+	/// **Test: `on_auction_debt_collected` reduces `CurrentLiquidationAmount`**
+	///
+	/// When the Auctions pallet collects pUSD from a bidder, it calls back
+	/// to reduce `CurrentLiquidationAmount`, freeing up room for more liquidations.
+	#[test]
+	fn auction_callback_reduces_current_amount() {
+		build_and_execute(|| {
+			// Manually set CurrentLiquidationAmount to simulate an active auction
+			CurrentLiquidationAmount::<Test>::put(1000 * PUSD);
+
+			// Simulate auction collecting 400 pUSD
+			assert_ok!(Vaults::test_reduce_liquidation_amount(400 * PUSD));
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 600 * PUSD);
+
+			System::assert_has_event(
+				Event::<Test>::AuctionDebtCollected { amount: 400 * PUSD }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn auction_callback_fails_on_underflow() {
+		build_and_execute(|| {
+			CurrentLiquidationAmount::<Test>::put(100 * PUSD);
+
+			assert_noop!(
+				Vaults::test_reduce_liquidation_amount(400 * PUSD),
+				Error::<Test>::ArithmeticUnderflow
+			);
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 100 * PUSD);
+		});
+	}
+
+	/// **Test: Auction shortfall increases `BadDebt` and reduces `CurrentLiquidationAmount`**
+	///
+	/// When an auction completes with remaining debt, `CurrentLiquidationAmount` is reduced
+	/// by the total remainder, and `BadDebt` is accrued for principal + interest only.
+	#[test]
+	fn auction_shortfall_increases_bad_debt_and_reduces_current_amount() {
+		build_and_execute(|| {
+			// Setup: Simulate an auction started with 1000 pUSD total exposure
+			CurrentLiquidationAmount::<Test>::put(1000 * PUSD);
+
+			// Initially no bad debt
+			assert_eq!(BadDebt::<Test>::get(), 0);
+
+			// Simulate auction completing with remaining debt
+			let remaining =
+				DebtComponents { principal: 400 * PUSD, interest: 50 * PUSD, penalty: 50 * PUSD };
+			assert_ok!(Vaults::test_record_shortfall(ALICE, remaining));
+
+			// BadDebt = principal + interest only (not penalty)
+			assert_eq!(BadDebt::<Test>::get(), 450 * PUSD);
+
+			// CurrentLiquidationAmount decreases by total remainder (500)
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 500 * PUSD);
+
+			// Events should be emitted
+			System::assert_has_event(
+				Event::<Test>::AuctionShortfall { shortfall: 500 * PUSD }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 450 * PUSD }.into(),
+			);
+
+			// Multiple shortfalls accumulate
+			let remaining2 =
+				DebtComponents { principal: 150 * PUSD, interest: 0, penalty: 50 * PUSD };
+			assert_ok!(Vaults::test_record_shortfall(ALICE, remaining2));
+			// BadDebt += 150 (principal only, no interest)
+			assert_eq!(BadDebt::<Test>::get(), 600 * PUSD);
+			// CLA -= 200 (total of remaining2)
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 300 * PUSD);
+			System::assert_has_event(
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: 150 * PUSD }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn auction_shortfall_fails_on_underflow() {
+		build_and_execute(|| {
+			CurrentLiquidationAmount::<Test>::put(100 * PUSD);
+			assert_eq!(BadDebt::<Test>::get(), 0);
+
+			let remaining =
+				DebtComponents { principal: 300 * PUSD, interest: 50 * PUSD, penalty: 50 * PUSD };
+			assert_noop!(
+				Vaults::test_record_shortfall(ALICE, remaining),
+				Error::<Test>::ArithmeticUnderflow
+			);
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 100 * PUSD);
+			assert_eq!(BadDebt::<Test>::get(), 0);
+		});
+	}
+
+	/// **Test: Multiple liquidations track cumulative `CurrentLiquidationAmount`**
+	///
+	/// When multiple vaults are liquidated, `CurrentLiquidationAmount` accumulates correctly.
+	/// At $2/DOT: 100 DOT = $200 collateral value.
+	/// With 200 pUSD debt: ratio = 200/200 = 100% (< 130% minimum, liquidatable).
+	#[test]
+	fn multiple_liquidations_accumulate_current_amount() {
+		build_and_execute(|| {
+			// Create two vaults with same parameters
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 200 * PUSD));
+
+			// Drop price to make both vaults undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(2))); // $2 per DOT
+
+			// Liquidate both
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), ALICE));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
+
+			// CurrentLiquidationAmount = sum of total debts for both vaults
+			// Each vault has 200 pUSD principal + 13% penalty = 226 pUSD (no interest)
+			let principal_per_vault = 200 * PUSD;
+			let penalty_per_vault =
+				LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal_per_vault);
+			let total_per_vault = principal_per_vault + penalty_per_vault;
+			let expected_total = total_per_vault * 2;
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), expected_total);
+		});
+	}
+
+	/// **Test: `CurrentLiquidationAmount` returns to zero after complete auction**
+	///
+	/// This is an end-to-end test that verifies the counter properly tracks
+	/// total debt and returns to zero when all debt components are paid off.
+	#[test]
+	fn current_liquidation_amount_returns_to_zero_after_complete_auction() {
+		build_and_execute(|| {
+			// Start with zero
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+
+			// Create and liquidate vault
+			let principal = 200 * PUSD;
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Counter should equal total debt (principal + penalty)
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty;
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_debt);
+
+			// Simulate a full purchase that pays off all debt components
+			let payment = PaymentBreakdown::new(
+				principal, // principal_paid
+				0,         // interest_paid (no interest for simplicity)
+				penalty,   // penalty_paid (13% penalty)
+			);
+
+			// Give buyer enough pUSD
+			Assets::mint_into(STABLECOIN_ASSET_ID, &BOB, payment.total()).unwrap();
+
+			// Execute purchase - this decrements the counter by payment.total()
+			assert_ok!(Vaults::execute_purchase(&BOB, 100 * DOT, payment, &CHARLIE, &ALICE,));
+
+			// Counter should be zero after all debt is fully paid
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+
+			// Complete auction - no remaining debt
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
+
+			// Counter should still be zero
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+		});
+	}
+
+	/// **Test: Partial purchases correctly decrement counter by `payment.total()`**
+	///
+	/// When an auction has multiple partial purchases, each one should
+	/// decrement `CurrentLiquidationAmount` by the total payment amount.
+	#[test]
+	fn partial_purchases_decrement_counter_by_payment_total() {
+		build_and_execute(|| {
+			let principal = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Counter starts at total debt (principal + penalty, no interest)
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty; // 200 + 26 = 226 pUSD
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_debt);
+
+			// Simulate partial purchase paying half of principal and half of penalty
+			let half_principal = principal / 2;
+			let half_penalty = penalty / 2;
+			let payment = PaymentBreakdown::new(
+				half_principal, // principal_paid
+				0,              // interest_paid (no interest accrued)
+				half_penalty,   // penalty_paid
+			);
+
+			// Give BOB enough pUSD to pay
+			Assets::mint_into(STABLECOIN_ASSET_ID, &BOB, payment.total()).unwrap();
+
+			// Execute partial purchase
+			assert_ok!(Vaults::execute_purchase(&BOB, 25 * DOT, payment, &CHARLIE, &ALICE,));
+
+			// Counter should be decremented by payment.total()
+			let remaining_cla = total_debt - payment.total();
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), remaining_cla);
+
+			// Complete the auction with remaining debt breakdown
+			let remaining_debt = DebtComponents {
+				principal: principal - half_principal,
+				interest: 0,
+				penalty: penalty - half_penalty,
+			};
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
+
+			// Counter should now be zero (decremented by remaining_debt.total())
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+		});
+	}
+
+	/// **Test: Multi-auction regression — one auction's completion does not erode another's
+	/// exposure**
+	///
+	/// Liquidates two vaults with different debt totals, partially settles one,
+	/// completes it with a non-zero remainder, and verifies that the other
+	/// auction's exposure is preserved exactly.
+	#[test]
+	fn multi_auction_cla_isolation() {
+		build_and_execute(|| {
+			// Create two vaults with different principals
+			let principal_a = 200 * PUSD;
+			let principal_b = 300 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal_a));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 150 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), principal_b));
+
+			// Drop price to make both vaults undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(3))); // $3 per DOT
+
+			// Liquidate both vaults
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), ALICE));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
+
+			// Compute expected total debts
+			let penalty_a = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal_a);
+			let penalty_b = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal_b);
+			let total_a = principal_a + penalty_a; // 200 + 26 = 226
+			let total_b = principal_b + penalty_b; // 300 + 39 = 339
+
+			// CLA = sum of both total debts
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_a + total_b);
+
+			// Partially settle auction A: pay half of principal_a + some penalty
+			let half_principal_a = principal_a / 2;
+			let half_penalty_a = penalty_a / 2;
+			let payment_a = PaymentBreakdown::new(
+				half_principal_a, // principal_paid
+				0,                // interest_paid
+				half_penalty_a,   // penalty_paid
+			);
+			Assets::mint_into(STABLECOIN_ASSET_ID, &CHARLIE, payment_a.total()).unwrap();
+			assert_ok!(Vaults::execute_purchase(&CHARLIE, 25 * DOT, payment_a, &CHARLIE, &ALICE,));
+
+			// CLA decreased by payment_a.total()
+			let cla_after_partial = total_a + total_b - payment_a.total();
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), cla_after_partial);
+
+			// Complete auction A with remaining debt
+			let remaining_a = DebtComponents {
+				principal: principal_a - half_principal_a,
+				interest: 0,
+				penalty: penalty_a - half_penalty_a,
+			};
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_a, &CHARLIE, 0));
+
+			// After auction A completes, CLA should equal exactly auction B's total debt
+			assert_eq!(
+				CurrentLiquidationAmount::<Test>::get(),
+				total_b,
+				"Auction A's completion must not erode auction B's exposure"
+			);
+
+			// Bad debt from auction A = remaining principal (no interest)
+			assert_eq!(BadDebt::<Test>::get(), remaining_a.principal);
+
+			// Now complete auction B with no remainder (fully satisfied)
+			// First simulate full payment of auction B via execute_purchase
+			let payment_b = PaymentBreakdown::new(
+				principal_b, // principal_paid
+				0,           // interest_paid
+				penalty_b,   // penalty_paid
+			);
+			Assets::mint_into(STABLECOIN_ASSET_ID, &CHARLIE, payment_b.total()).unwrap();
+			assert_ok!(Vaults::execute_purchase(&CHARLIE, 150 * DOT, payment_b, &CHARLIE, &BOB,));
+
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+
+			// Complete auction B with no remaining debt
+			assert_ok!(Vaults::complete_auction(&BOB, 0, DebtComponents::default(), &CHARLIE, 0));
+
+			// Final state: CLA = 0, BadDebt = only from auction A
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+			assert_eq!(BadDebt::<Test>::get(), remaining_a.principal);
+		});
+	}
+
+	/// **Test: Unpaid penalty does NOT contribute to bad debt**
+	///
+	/// When an auction completes with only unpaid penalty and no unpaid principal/interest,
+	/// no bad debt should be accrued.
+	#[test]
+	fn unpaid_penalty_only_does_not_create_bad_debt() {
+		build_and_execute(|| {
+			let principal = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty;
+
+			// Simulate full principal + interest paid, but penalty unpaid
+			let payment = PaymentBreakdown::new(principal, 0, 0);
+			Assets::mint_into(STABLECOIN_ASSET_ID, &BOB, payment.total()).unwrap();
+			assert_ok!(Vaults::execute_purchase(&BOB, 80 * DOT, payment, &CHARLIE, &ALICE));
+
+			// CLA should be decreased by principal only
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), total_debt - principal);
+
+			// Complete with only penalty remaining
+			let remaining_debt = DebtComponents { principal: 0, interest: 0, penalty };
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
+
+			// No bad debt should be accrued (penalty is not bad debt)
+			assert_eq!(BadDebt::<Test>::get(), 0);
+			// CLA should be zero
+			assert_eq!(CurrentLiquidationAmount::<Test>::get(), 0);
+		});
+	}
+}
+
+mod missing_error_cases {
+	use super::*;
+
+	/// **Test: repay fails if vault not found**
+	///
+	/// Cannot repay debt on a non-existent vault.
+	#[test]
+	fn repay_fails_if_vault_not_found() {
+		build_and_execute(|| {
+			// ALICE has no vault
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// Give ALICE some pUSD to attempt repayment
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &ALICE, 100 * PUSD));
+
+			// Should fail with VaultNotFound
+			assert_noop!(
+				Vaults::repay(RuntimeOrigin::signed(ALICE), 50 * PUSD),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+
+	/// **Test: close_vault fails if vault not found**
+	///
+	/// Cannot close a non-existent vault.
+	#[test]
+	fn close_vault_fails_if_vault_not_found() {
+		build_and_execute(|| {
+			// ALICE has no vault
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// Should fail with VaultNotFound
+			assert_noop!(
+				Vaults::close_vault(RuntimeOrigin::signed(ALICE)),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+
+	/// **Test: liquidate fails if price not available**
+	///
+	/// Liquidation requires a valid oracle price to calculate
+	/// the collateralization ratio. Without price, liquidation
+	/// cannot proceed.
+	#[test]
+	fn liquidate_fails_if_price_not_available() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Remove oracle price
+			set_mock_price(None);
+
+			// Liquidation should fail - can't calculate collateralization ratio
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::PriceNotAvailable
+			);
+		});
+	}
+
+	/// **Test: Cannot liquidate a vault that's already in liquidation**
+	///
+	/// Once a vault enters liquidation, it cannot be liquidated again.
+	/// This prevents double-counting in the auction system and ensures
+	/// the vault lifecycle is properly managed.
+	#[test]
+	fn liquidate_fails_if_already_in_liquidation() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Drop price to make vault undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(3)));
+
+			// First liquidation succeeds
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Verify vault is in liquidation
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+
+			// Second liquidation attempt should fail with VaultInLiquidation
+			// The vault status check happens before any other processing
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), ALICE),
+				Error::<Test>::VaultInLiquidation
+			);
+		});
+	}
+
+	/// **Test: withdraw_collateral fails if price not available when vault has debt**
+	///
+	/// When a vault has outstanding debt, withdrawing collateral requires
+	/// calculating the collateralization ratio, which needs the oracle price.
+	#[test]
+	fn withdraw_collateral_fails_if_price_not_available_with_debt() {
+		build_and_execute(|| {
+			// Use 200 DOT so we can withdraw 10 DOT and still have 190 DOT (> 100 DOT min)
+			let deposit = 200 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			// Mint 200 pUSD (well under max of ~421 pUSD at 200% ICR)
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Remove oracle price
+			set_mock_price(None);
+
+			// Should fail because we need price to:
+			// 1. Calculate interest in DOT for collection
+			// 2. Calculate collateralization ratio after withdrawal
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 10 * DOT),
+				Error::<Test>::PriceNotAvailable
+			);
+		});
+	}
+}
+
+mod oracle_edge_cases {
+	use super::*;
+
+	/// **Test: withdraw_collateral succeeds without price when vault has no debt**
+	///
+	/// When a vault has no debt, we don't need the oracle price to withdraw
+	/// because there's no collateralization ratio to check and no interest
+	/// to collect.
+	#[test]
+	fn withdraw_succeeds_without_price_when_no_debt() {
+		build_and_execute(|| {
+			let deposit = 200 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// No debt minted - vault has no debt
+
+			// Remove oracle price
+			set_mock_price(None);
+
+			// Should succeed - no price needed when there's no debt
+			assert_ok!(Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 50 * DOT));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.get_held_collateral(&ALICE), 150 * DOT);
+		});
+	}
+
+	/// **Test: close_vault succeeds without price**
+	///
+	/// The simplified interest model calculates interest purely in pUSD,
+	/// so close_vault never needs the oracle price.
+	#[test]
+	fn close_vault_succeeds_without_price() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Remove oracle price
+			set_mock_price(None);
+
+			// Should succeed - close_vault doesn't need price
+			assert_ok!(Vaults::close_vault(RuntimeOrigin::signed(ALICE)));
+
+			// Vault should be removed
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+		});
+	}
+}
+
+mod mint_edge_cases {
+	use super::*;
+
+	/// **Test: Minting zero amount fails with BelowMinimumMint**
+	///
+	/// Minting 0 pUSD is not allowed per the spec. Users must mint at least
+	/// MinimumMint (5 pUSD). To trigger fee updates without minting, use `poke()`.
+	#[test]
+	fn mint_zero_amount_fails() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// First mint some debt
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 100 * PUSD);
+
+			// Mint 0 pUSD - should fail (below MinimumMint)
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 0),
+				Error::<Test>::BelowMinimumMint
+			);
+
+			// Principal unchanged
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 100 * PUSD, "Principal should remain unchanged");
+		});
+	}
+
+	/// **Test: Multiple mints accumulate debt correctly**
+	///
+	/// Users can mint pUSD multiple times, with each mint adding to
+	/// the total debt. The collateralization ratio must remain safe
+	/// after each mint.
+	#[test]
+	fn mint_multiple_times_accumulates_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// First mint: 100 pUSD
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 100 * PUSD);
+
+			// Second mint: 50 pUSD
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 50 * PUSD));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 150 * PUSD);
+
+			// Third mint: 30 pUSD
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 30 * PUSD));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 180 * PUSD);
+
+			// Total pUSD minted
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), 180 * PUSD);
+		});
+	}
+
+	/// **Test: Accrued interest reduces available minting capacity**
+	///
+	/// When a vault has accrued interest, the total obligation (debt + interest)
+	/// is used for collateralization ratio calculation, reducing how much
+	/// additional pUSD can be minted.
+	#[test]
+	fn mint_after_significant_interest_reduces_available_credit() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint 100 pUSD (ratio = 421/100 = 421%)
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Advance 1 year to accrue 4% interest = 4 pUSD.
+			jump_to_block(5_256_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert!(vault.accrued_interest > 0, "Should have accrued interest");
+
+			// Now total obligation = 100 + ~4 = ~104 pUSD
+			// At 200% initial ratio: max_total = 421 / 2.0 = 210.5 pUSD
+			// Available to mint = 210.5 - 104 = ~106.5 pUSD
+
+			// Try to mint 110 pUSD - should fail (would exceed with interest)
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 110 * PUSD),
+				Error::<Test>::UnsafeCollateralizationRatio
+			);
+
+			// Mint 100 pUSD - should succeed
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+		});
+	}
+
+	/// **Test: Minting beyond `MaxPositionAmount` fails**
+	///
+	/// When vault principal would exceed `MaxPositionAmount`, the mint
+	/// must be rejected with `ExceedsMaxPositionAmount`.
+	#[test]
+	fn mint_exceeds_max_position_amount() {
+		build_and_execute(|| {
+			// Lower MaxPositionAmount to something testable
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Mint up to the limit
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Mint more should fail
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD),
+				Error::<Test>::ExceedsMaxPositionAmount
+			);
+		});
+	}
+
+	/// **Test: Cannot mint after vault removed (post-auction)**
+	///
+	/// Once a vault is removed after auction completion,
+	/// minting fails with VaultNotFound. Users must create a new vault.
+	#[test]
+	fn mint_to_liquidated_vault_fails() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Trigger liquidation
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Complete auction - vault is immediately removed
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, DebtComponents::default(), &BOB, 0));
+
+			// Vault should be removed
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// Reset price
+			set_mock_price(Some(FixedU128::from_rational(421, 100)));
+
+			// Cannot mint - vault doesn't exist
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::VaultNotFound
+			);
+		});
+	}
+}
+
+mod repay_edge_cases {
+	use super::*;
+
+	/// **Test: Repaying zero amount succeeds as a no-op**
+	///
+	/// Repaying 0 pUSD is allowed but has no effect. This triggers
+	/// fee updates without actually changing the debt.
+	#[test]
+	fn repay_zero_amount_succeeds_noop() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			let vault_before = VaultsStorage::<Test>::get(ALICE).unwrap();
+
+			// Repay 0 pUSD
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), 0));
+
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault_after.principal, vault_before.principal,
+				"Principal should be unchanged"
+			);
+		});
+	}
+
+	/// **Test: Repay fails if user has insufficient pUSD balance**
+	///
+	/// Users cannot repay debt if they don't have enough pUSD.
+	/// This tests the case where user spent/transferred their minted pUSD.
+	#[test]
+	fn repay_insufficient_pusd_balance_fails() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Transfer all pUSD to BOB (simulating spending)
+			assert_ok!(Assets::transfer(
+				RuntimeOrigin::signed(ALICE),
+				STABLECOIN_ASSET_ID,
+				BOB,
+				200 * PUSD
+			));
+
+			// ALICE now has 0 pUSD but 200 pUSD debt
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, ALICE), 0);
+
+			// Repay should fail - no pUSD to burn
+			assert_noop!(
+				Vaults::repay(RuntimeOrigin::signed(ALICE), 100 * PUSD),
+				TokenError::FundsUnavailable
+			);
+		});
+	}
+
+	/// **Test: Repay with interest-first ordering (mint-on-accrual model)**
+	///
+	/// The repay function pays in order:
+	/// 1. Accrued interest first (burned from user)
+	/// 2. Remaining amount goes to principal debt (burned)
+	///
+	/// Note: With the mint-on-accrual model, interest is minted to the Insurance Fund
+	/// when fees accrue. On repay, both interest and principal are burned from the user.
+	/// The IF keeps the pUSD that was minted during accrual.
+	///
+	/// Scenario: User repays 50 pUSD when interest is ~8 pUSD and debt is 200 pUSD.
+	/// Result: Interest is fully paid, remaining 42 pUSD reduces principal.
+	#[test]
+	fn repay_reduces_debt_and_transfers_interest() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Check IF balance before any interest accrues
+			let insurance_before_accrual = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+
+			// Advance 1 year to accrue ~8 pUSD interest.
+			jump_to_block(5_256_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+			assert!(interest > 0, "Should have accrued interest");
+
+			// Verify IF received interest during accrual (mint-on-accrual model)
+			let insurance_after_accrual = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+			assert_eq!(
+				insurance_after_accrual,
+				insurance_before_accrual + interest,
+				"InsuranceFund should receive interest on accrual"
+			);
+
+			// Partial interest-only repay: repay 1 pUSD (less than ~8 pUSD interest).
+			// Only interest should decrease; principal stays the same.
+			let partial = 1 * PUSD;
+			assert!(partial < interest);
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), partial));
+
+			let vault_partial = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault_partial.accrued_interest,
+				interest - partial,
+				"Interest should be partially reduced"
+			);
+			assert_eq!(vault_partial.principal, 200 * PUSD, "Principal unchanged after partial");
+			let remaining_interest = vault_partial.accrued_interest;
+
+			// Repay 50 pUSD with interest-first ordering:
+			// - First remaining interest goes to interest (burned)
+			// - Remaining goes to principal (burned)
+			let repay_amount = 50 * PUSD;
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), repay_amount));
+
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+
+			// Interest should be cleared (paid first)
+			assert_eq!(vault_after.accrued_interest, 0, "Interest should be cleared");
+
+			// Debt should be reduced by (repay_amount - remaining_interest)
+			let debt_paid = repay_amount - remaining_interest;
+			assert_eq!(
+				vault_after.principal,
+				200 * PUSD - debt_paid,
+				"Principal should be reduced by remaining after interest"
+			);
+
+			// IF balance should not change on repay (interest was minted on accrual)
+			let insurance_after_repay = Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND);
+			assert_eq!(
+				insurance_after_repay, insurance_after_accrual,
+				"InsuranceFund balance unchanged on repay (already received on accrual)"
+			);
+		});
+	}
+
+	/// **Test: Multiple repays progressively reduce debt**
+	///
+	/// Sequential repayments with interest-first ordering:
+	/// - First repay: pays interest, then remaining to debt
+	/// - Subsequent repays: all goes to debt (no interest accrued in same block)
+	#[test]
+	fn repay_multiple_times_reduces_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Advance 1 year to accrue ~8 pUSD interest.
+			jump_to_block(5_256_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+			assert!(interest > 0, "Should have accrued interest");
+
+			// Give ALICE extra pUSD to cover multiple repayments
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &ALICE, 100 * PUSD));
+
+			// First repay: 50 pUSD pays interest first, then debt
+			// - ~8 pUSD to interest
+			// - ~42 pUSD to debt
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), 50 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0, "Interest should be cleared");
+			let debt_after_first = 200 * PUSD - (50 * PUSD - interest);
+			assert_eq!(
+				vault.principal, debt_after_first,
+				"Debt reduced by remaining after interest"
+			);
+
+			// Second repay: all 50 pUSD goes to debt (no new interest since same block)
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), 50 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault.principal,
+				debt_after_first - 50 * PUSD,
+				"Principal should be reduced by 50"
+			);
+
+			// Third repay: all 50 pUSD goes to debt
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), 50 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault.principal,
+				debt_after_first - 100 * PUSD,
+				"Principal should be reduced by another 50"
+			);
+		});
+	}
+}
+
+mod liquidation_additional {
+	use super::*;
+
+	/// **Test: Owner can liquidate their own vault (self-liquidation)**
+	///
+	/// There's no restriction preventing vault owners from triggering
+	/// liquidation on their own undercollateralized vault.
+	#[test]
+	fn self_liquidation_works() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Drop price to make vault undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(3)));
+
+			// ALICE liquidates her own vault
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(ALICE), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+		});
+	}
+
+	/// **Test: Accrued interest can push vault under liquidation threshold**
+	///
+	/// A vault that was safe can become liquidatable if enough interest
+	/// accrues without the owner taking action.
+	#[test]
+	fn interest_accrual_can_trigger_liquidation() {
+		build_and_execute(|| {
+			// Set price to $2/DOT for easier math
+			set_mock_price(Some(FixedU128::from_u32(2)));
+
+			let deposit = 100 * DOT; // $200 value
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint 100 pUSD (ratio = 200/100 = 200%, exactly at ICR)
+			// With interest, it will eventually drop below 180% MCR
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Verify initially safe
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+
+			// Advance 5 years to accrue significant interest.
+			// 4% * 5 years * 100 = 20 pUSD interest
+			// Total obligation = 100 + 20 = 120 pUSD
+			// Ratio = 200 / 120 = 166.7% < 180%
+			jump_to_block(5_256_000 * 5);
+
+			// Now liquidation should work.
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+		});
+	}
+
+	/// **Test: Liquidation fails at zero price**
+	///
+	/// A zero price indicates an oracle bug, not a valid market condition.
+	/// The system should treat zero price as invalid and reject the operation.
+	#[test]
+	fn liquidation_fails_at_zero_price() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Set price to zero.
+			set_mock_price(Some(FixedU128::zero()));
+
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::PriceNotAvailable
+			);
+		});
+	}
+
+	/// **Test: Vault is safe at very high price**
+	///
+	/// When price increases significantly, an undercollateralized vault
+	/// becomes safe and cannot be liquidated.
+	#[test]
+	fn vault_safe_at_very_high_price() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// At $4.21: 100 DOT = $421, ratio = 421/200 = 210.5%
+
+			// Set very high price: $100/DOT
+			set_mock_price(Some(FixedU128::from_u32(100)));
+
+			// At $100: 100 DOT = $10,000, ratio = 10000/200 = 5000%
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+		});
+	}
+}
+
+mod collateral_manager {
+	use super::*;
+
+	/// **Test: `execute_purchase` burns pUSD and transfers collateral**
+	///
+	/// When an auction purchase is executed, the Vaults pallet:
+	/// 1. Burns pUSD from the buyer
+	/// 2. Releases collateral from Seized hold
+	/// 3. Transfers collateral to the recipient
+	#[test]
+	fn execute_purchase_burns_pusd_and_transfers_collateral() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Trigger liquidation to seize collateral
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Verify collateral is seized
+			let seized = Balances::balance_on_hold(&HoldReason::Seized.into(), &ALICE);
+			assert!(seized > 0, "Collateral should be seized");
+
+			// Give BOB pUSD to purchase
+			assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &BOB, 100 * PUSD));
+
+			let bob_pusd_before = Assets::balance(STABLECOIN_ASSET_ID, BOB);
+			let charlie_dot_before = Balances::free_balance(CHARLIE);
+
+			// Execute purchase: BOB pays 50 pUSD for 20 DOT, sent to CHARLIE
+			// For testing, we treat the entire amount as principal (burned)
+			assert_ok!(Vaults::execute_purchase(
+				&BOB,
+				20 * DOT,
+				PaymentBreakdown::new(50 * PUSD, 0, 0),
+				&CHARLIE,
+				&ALICE,
+			));
+
+			// BOB's pUSD burned (50 pUSD)
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, BOB), bob_pusd_before - 50 * PUSD);
+
+			// CHARLIE received collateral (20 DOT)
+			assert_eq!(Balances::free_balance(CHARLIE), charlie_dot_before + 20 * DOT);
+		});
+	}
+
+	/// **Test: `execute_purchase` fails with insufficient pUSD**
+	///
+	/// If the buyer doesn't have enough pUSD, the purchase fails.
+	#[test]
+	fn execute_purchase_fails_insufficient_pusd() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// BOB has no pUSD
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, BOB), 0);
+
+			// Execute purchase should fail (BOB has no pUSD to burn)
+			assert_err!(
+				Vaults::execute_purchase(
+					&BOB,
+					20 * DOT,
+					PaymentBreakdown::new(50 * PUSD, 0, 0),
+					&CHARLIE,
+					&ALICE,
+				),
+				TokenError::FundsUnavailable
+			);
+		});
+	}
+
+	/// **Test: `complete_auction` returns excess collateral to owner**
+	///
+	/// When an auction completes with remaining collateral (debt fully satisfied),
+	/// the excess is returned to the vault owner.
+	#[test]
+	fn complete_auction_returns_excess_collateral() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			let alice_balance_before = Balances::free_balance(ALICE);
+
+			// Simulate auction completion with 30 DOT remaining
+			let remaining_collateral = 30 * DOT;
+			assert_ok!(Vaults::complete_auction(
+				&ALICE,
+				remaining_collateral,
+				DebtComponents::default(),
+				&BOB,
+				0
+			));
+
+			// Vault should be immediately removed
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// ALICE should receive the remaining collateral
+			assert_eq!(Balances::free_balance(ALICE), alice_balance_before + remaining_collateral);
+
+			// `VaultClosed` event should be emitted
+			System::assert_has_event(Event::<Test>::VaultClosed { owner: ALICE }.into());
+		});
+	}
+
+	/// **Test: `complete_auction` records shortfall as bad debt**
+	///
+	/// When an auction completes with remaining debt, the principal + interest
+	/// portion is recorded as bad debt. Unpaid penalty is NOT bad debt.
+	#[test]
+	fn complete_auction_records_shortfall_as_bad_debt() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let principal = 200 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			let bad_debt_before = BadDebt::<Test>::get();
+
+			// Simulate auction completion with remaining debt breakdown
+			let remaining_debt =
+				DebtComponents { principal: 80 * PUSD, interest: 20 * PUSD, penalty: 10 * PUSD };
+			assert_ok!(Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, 0));
+
+			// Bad debt = principal + interest only (not penalty)
+			let expected_bad_debt = 100 * PUSD; // 80 + 20
+			assert_eq!(BadDebt::<Test>::get(), bad_debt_before + expected_bad_debt);
+
+			// AuctionShortfall event uses total remaining debt
+			System::assert_has_event(
+				Event::<Test>::AuctionShortfall { shortfall: remaining_debt.total() }.into(),
+			);
+			System::assert_has_event(
+				Event::<Test>::BadDebtAccrued { owner: ALICE, amount: expected_bad_debt }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn complete_auction_finalizes_when_keeper_incentive_payment_fails() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+			let principal = 200 * PUSD;
+			let keeper_incentive = 10 * PUSD;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), principal));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, INSURANCE_FUND), 0);
+
+			let penalty = LiquidationPenalty::<Test>::get().unwrap().mul_floor(principal);
+			let total_debt = principal + penalty;
+
+			// remaining_debt with principal shortfall
+			let remaining_debt =
+				DebtComponents { principal: 100 * PUSD, interest: 0, penalty: 10 * PUSD };
+			assert_ok!(
+				Vaults::complete_auction(&ALICE, 0, remaining_debt, &BOB, keeper_incentive,)
+			);
+
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+			// Bad debt = principal + interest = 100 pUSD
+			assert_eq!(BadDebt::<Test>::get(), 100 * PUSD);
+			// CLA = total_debt - remaining_debt.total() = 226 - 110 = 116
+			assert_eq!(
+				CurrentLiquidationAmount::<Test>::get(),
+				total_debt - remaining_debt.total()
+			);
+			assert_eq!(Assets::balance(STABLECOIN_ASSET_ID, BOB), 0);
+			System::assert_has_event(
+				Event::<Test>::KeeperIncentivePaymentFailed {
+					keeper: BOB,
+					amount: keeper_incentive,
+				}
+				.into(),
+			);
+		});
+	}
+
+	/// **Test: `get_dot_price` returns oracle price for the collateral asset**
+	///
+	/// The `CollateralManager` trait exposes the oracle price to the Auctions pallet.
+	/// Note: The mock oracle normalizes prices (raw_price * 10^6 / 10^10).
+	#[test]
+	fn get_dot_price_returns_oracle_price() {
+		build_and_execute(|| {
+			// Default raw price is 4.21 USD/DOT
+			// Normalized: 4.21 * 10^6 / 10^10 = 0.000421
+			let price = Vaults::get_dot_price();
+			assert!(price.is_some(), "Price should be available");
+			let expected_normalized = FixedU128::from_rational(421, 100)
+				.saturating_mul(FixedU128::saturating_from_integer(1_000_000u128))
+				.checked_div(&FixedU128::saturating_from_integer(10_000_000_000u128))
+				.unwrap();
+			assert_eq!(price, Some(expected_normalized));
+
+			// Change price to $5/DOT
+			set_mock_price(Some(FixedU128::from_u32(5)));
+			let price = Vaults::get_dot_price();
+			let expected_normalized = FixedU128::from_u32(5)
+				.saturating_mul(FixedU128::saturating_from_integer(1_000_000u128))
+				.checked_div(&FixedU128::saturating_from_integer(10_000_000_000u128))
+				.unwrap();
+			assert_eq!(price, Some(expected_normalized));
+
+			// Remove price
+			set_mock_price(None);
+			let price = Vaults::get_dot_price();
+			assert_eq!(price, None);
+		});
+	}
+}
+
+mod lifecycle_integration {
+	use super::*;
+
+	/// **Test: Full vault lifecycle from creation to closure**
+	///
+	/// Tests the complete happy path: create → deposit → mint → repay → close.
+	#[test]
+	fn full_lifecycle_create_mint_repay_close() {
+		build_and_execute(|| {
+			let initial_deposit = 100 * DOT;
+			let additional_deposit = 50 * DOT;
+			let total_collateral = initial_deposit + additional_deposit;
+
+			// Record starting balance
+			let alice_balance_before = Balances::free_balance(ALICE);
+
+			// 1. Create vault
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), initial_deposit));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::Healthy);
+			assert_eq!(vault.principal, 0);
+
+			// 2. Mint pUSD
+			let mint_amount = 200 * PUSD;
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), mint_amount));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, mint_amount);
+
+			// 3. Add more collateral
+			assert_ok!(Vaults::deposit_collateral(
+				RuntimeOrigin::signed(ALICE),
+				additional_deposit
+			));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.get_held_collateral(&ALICE), total_collateral);
+
+			// 4. Advance time to accrue interest.
+			jump_to_block(2_628_000); // ~6 months, ~4 pUSD interest
+
+			// 5. Repay all debt + interest
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest = vault.accrued_interest;
+
+			// Give ALICE enough to cover interest
+			if interest > 0 {
+				assert_ok!(Assets::mint_into(STABLECOIN_ASSET_ID, &ALICE, interest));
+			}
+
+			// Repay everything
+			assert_ok!(Vaults::repay(RuntimeOrigin::signed(ALICE), mint_amount + interest));
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 0);
+			assert_eq!(vault.accrued_interest, 0);
+
+			// 6. Close vault
+			assert_ok!(Vaults::close_vault(RuntimeOrigin::signed(ALICE)));
+			assert!(VaultsStorage::<Test>::get(ALICE).is_none());
+
+			// Verify all collateral returned - ALICE's balance should be restored
+			let alice_balance_after = Balances::free_balance(ALICE);
+			assert_eq!(
+				alice_balance_after, alice_balance_before,
+				"All collateral should be returned after closing vault"
+			);
+
+			// Verify ALICE has no remaining pUSD (all burned during repay)
+			assert_eq!(
+				Assets::balance(STABLECOIN_ASSET_ID, ALICE),
+				0,
+				"All pUSD should be burned after full repayment"
+			);
+		});
+	}
+
+	/// **Test: Vault becomes safe after price increase, can mint more**
+	///
+	/// When price increases, the collateralization ratio improves,
+	/// allowing the user to mint additional pUSD.
+	#[test]
+	fn vault_becomes_safe_after_price_increase_can_mint_more() {
+		build_and_execute(|| {
+			// Start at $4.21/DOT
+			let deposit = 100 * DOT; // $421 value
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+
+			// Mint near max: 200 pUSD (ratio = 421/200 = 210.5%)
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Cannot mint more (would breach 200%)
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 15 * PUSD),
+				Error::<Test>::UnsafeCollateralizationRatio
+			);
+
+			// Price increases to $10/DOT
+			set_mock_price(Some(FixedU128::from_u32(10)));
+
+			// Now: 100 DOT = $1000, ratio = 1000/200 = 500%
+			// Max mint at 200%: 1000/2.0 = 500 pUSD
+			// Available: 500 - 200 = 300 pUSD
+
+			// Can now mint more
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 280 * PUSD));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, 480 * PUSD);
+		});
+	}
+
+	/// **Test: Interest accrues correctly over multiple time periods**
+	///
+	/// Interest calculation is consistent across multiple time periods.
+	#[test]
+	fn interest_accrues_over_multiple_operations() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Advance 3 months.
+			jump_to_block(1_314_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest_q1 = vault.accrued_interest;
+			assert!(interest_q1 > 0, "Should accrue interest in Q1");
+
+			// Advance another 3 months (to 6 months total)
+			jump_to_block(2_628_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest_q2 = vault.accrued_interest;
+			assert!(interest_q2 > interest_q1, "Should accrue more interest in Q2");
+
+			// Advance another 6 months (to 1 year total)
+			jump_to_block(5_256_000);
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			let interest_full_year = vault.accrued_interest;
+
+			// 4% of 200 pUSD for 1 year = 8 pUSD
+			let expected = 8 * PUSD;
+			assert_approx_eq(
+				interest_full_year,
+				expected,
+				INTEREST_TOLERANCE,
+				"Interest after full year",
+			);
+		});
+	}
+}
+
+mod overflow_protection {
+	use super::*;
+
+	/// **Test: Very large debt amounts don't overflow**
+	///
+	/// The system correctly handles very large debt values without
+	/// arithmetic overflow in ratio calculations.
+	#[test]
+	fn very_large_debt_does_not_overflow() {
+		build_and_execute(|| {
+			// Set very high max debt, position, and liquidation limits
+			MaximumIssuance::<Test>::put(u128::MAX / 2);
+			MaxPositionAmount::<Test>::put(u128::MAX / 2);
+			MaxLiquidationAmount::<Test>::put(u128::MAX / 2);
+
+			// Give ALICE a lot of DOT
+			let huge_deposit = 1_000_000_000 * DOT; // 1 billion DOT
+			let _ = Balances::mint_into(&ALICE, huge_deposit);
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), huge_deposit));
+
+			// Mint a large amount (but within ratio)
+			// At $4.21/DOT: 1B DOT = $4.21B, max mint = $2.8B pUSD
+			let large_mint = 2_000_000_000 * PUSD; // 2 billion pUSD
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), large_mint));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.principal, large_mint);
+		});
+	}
+
+	/// **Test: Very large collateral amounts don't overflow**
+	///
+	/// The system handles very large collateral values without overflow
+	/// in hold operations and ratio calculations.
+	#[test]
+	fn very_large_collateral_does_not_overflow() {
+		build_and_execute(|| {
+			// Give ALICE maximum DOT
+			let huge_deposit = u128::MAX / 4;
+			let _ = Balances::mint_into(&ALICE, huge_deposit);
+
+			// Create vault with huge deposit
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), huge_deposit));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.get_held_collateral(&ALICE), huge_deposit);
+		});
+	}
+}
+
+mod on_idle_edge_cases {
+	use super::*;
+
+	/// **Test: `on_idle` with no vaults uses minimal weight**
+	///
+	/// When there are no vaults to process, `on_idle` should return
+	/// quickly with minimal weight consumption.
+	#[test]
+	fn on_idle_with_no_vaults_uses_minimal_weight() {
+		build_and_execute(|| {
+			// No vaults created
+			assert!(VaultsStorage::<Test>::iter().next().is_none());
+
+			let weight = Vaults::on_idle(1, Weight::MAX);
+
+			// Should consume minimum weight for reading cursor and config
+			// (on_idle_base_weight = reads_writes(2, 1) for cursor and stale threshold)
+			assert_eq!(weight, Vaults::on_idle_base_weight(), "No vaults = only base weight");
+		});
+	}
+
+	/// **Test: `on_idle` updates stale vault fees**
+	///
+	/// Vaults that haven't been touched for `StaleVaultThreshold`
+	/// get their fees updated during `on_idle`.
+	#[test]
+	fn on_idle_updates_stale_vault_fees() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			let vault_before = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault_before.accrued_interest, 0);
+
+			// Advance past StaleVaultThreshold (14_400_000 ms = 4 hours) plus enough
+			// time to accrue meaningful interest
+			jump_to_block(5_256_000); // 1 year worth of blocks.
+
+			// Run on_idle (already called by jump_to_block, but call again to verify)
+			let weight = Vaults::on_idle(5_256_000, Weight::MAX);
+			assert!(weight.ref_time() > 0, "Should have done work");
+
+			// Vault should have updated fees
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert!(vault_after.accrued_interest > 0, "on_idle should update stale vault fees");
+			assert!(
+				vault_after.last_fee_update > vault_before.last_fee_update,
+				"Fee timestamp should be updated"
+			);
+		});
+	}
+
+	/// **Test: `on_idle` skips healthy non-stale vaults**
+	///
+	/// Vaults that have been recently touched (within `StaleVaultThreshold`)
+	/// are not updated by `on_idle`.
+	#[test]
+	fn on_idle_skips_healthy_non_stale_vaults() {
+		build_and_execute(|| {
+			let deposit = 100 * DOT;
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), deposit));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Touch the vault
+			run_to_block(100);
+			assert_ok!(Vaults::deposit_collateral(RuntimeOrigin::signed(ALICE), 0));
+
+			let vault_before = VaultsStorage::<Test>::get(ALICE).unwrap();
+
+			// Advance less than StaleVaultThreshold (14_400_000 ms = 4 hours)
+			// 1900 blocks = 11,400,000 ms < 14,400,000 ms threshold
+			run_to_block(2000);
+
+			// Run on_idle
+			let _weight = Vaults::on_idle(2000, Weight::MAX);
+
+			// Should not have updated the vault (not stale yet)
+			let vault_after = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(
+				vault_after.last_fee_update, vault_before.last_fee_update,
+				"Non-stale vault should not be updated"
+			);
+		});
+	}
+
+	/// **Test: `on_idle` processes multiple vault types correctly**
+	///
+	/// When there are `Healthy` and `InLiquidation` vaults,
+	/// `on_idle` handles each appropriately.
+	#[test]
+	fn on_idle_handles_mixed_vault_states() {
+		build_and_execute(|| {
+			// Create ALICE's vault - will be `Healthy`
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Create BOB's vault - will be `InLiquidation`
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(CHARLIE), BOB));
+
+			assert_ok!(Vaults::complete_auction(&BOB, 0, DebtComponents::default(), &ALICE, 0));
+
+			// BOB's vault should be immediately removed after auction completion
+			assert!(VaultsStorage::<Test>::get(BOB).is_none());
+
+			// Reset price
+			set_mock_price(Some(FixedU128::from_rational(421, 100)));
+
+			// Create CHARLIE's vault - will be `InLiquidation`
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(CHARLIE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(CHARLIE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(ALICE), CHARLIE));
+
+			// Verify states - only ALICE (`Healthy`) and CHARLIE (`InLiquidation`)
+			assert_eq!(VaultsStorage::<Test>::get(ALICE).unwrap().status, VaultStatus::Healthy);
+			assert_eq!(
+				VaultsStorage::<Test>::get(CHARLIE).unwrap().status,
+				VaultStatus::InLiquidation
+			);
+
+			// Run `on_idle` - no cleanup needed, only stale fee updates
+			Vaults::on_idle(1, Weight::MAX);
+
+			// ALICE's `Healthy` vault should remain
+			assert!(VaultsStorage::<Test>::get(ALICE).is_some());
+
+			// CHARLIE's `InLiquidation` vault should remain (auction in progress)
+			assert!(VaultsStorage::<Test>::get(CHARLIE).is_some());
+		});
+	}
+}
+
+mod parameter_edge_cases {
+	use super::*;
+
+	/// **Test: Setting initial ratio below minimum ratio fails**
+	///
+	/// Initial ratio must be >= minimum ratio to allow borrowing.
+	/// Setting initial_ratio < min_ratio would make all loans impossible.
+	#[test]
+	fn set_initial_ratio_below_minimum_fails() {
+		build_and_execute(|| {
+			// Set minimum to 160% first
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				ratio(160)
+			));
+
+			// Try to set initial to 140% (below 160% minimum) - should fail
+			assert_noop!(
+				Vaults::set_initial_collateralization_ratio(RuntimeOrigin::root(), ratio(140)),
+				Error::<Test>::InitialRatioMustExceedMinimum
+			);
+
+			// Initial ratio should remain at original value (200%)
+			assert_eq!(InitialCollateralizationRatio::<Test>::get(), Some(ratio(200)));
+		});
+	}
+
+	/// **Test: Setting minimum ratio above initial ratio fails**
+	///
+	/// Minimum ratio cannot exceed initial ratio, as this would allow
+	/// immediate liquidation after minting (mint at initial CR, liquidate at min CR).
+	#[test]
+	fn set_minimum_ratio_above_initial_fails() {
+		build_and_execute(|| {
+			// Initial ratio is 200% (genesis default)
+			assert_eq!(InitialCollateralizationRatio::<Test>::get(), Some(ratio(200)));
+
+			// Try to set minimum to 220% (above 200% initial) - should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(RuntimeOrigin::root(), ratio(220)),
+				Error::<Test>::InitialRatioMustExceedMinimum
+			);
+
+			// Minimum ratio should remain at original value (180%)
+			assert_eq!(MinimumCollateralizationRatio::<Test>::get(), Some(ratio(180)));
+		});
+	}
+
+	/// **Test: Setting liquidation penalty to zero works**
+	///
+	/// Governance can set liquidation penalty to 0%, removing the
+	/// financial penalty for being liquidated.
+	#[test]
+	fn set_liquidation_penalty_to_zero() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::set_liquidation_penalty(RuntimeOrigin::root(), Permill::zero()));
+
+			assert_eq!(LiquidationPenalty::<Test>::get(), Some(Permill::zero()));
+
+			// Create and liquidate a vault to verify it works
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			set_mock_price(Some(FixedU128::from_u32(3)));
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			// Liquidation should work with 0% penalty
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+		});
+	}
+
+	/// **Test: Setting stability fee to zero stops interest accrual**
+	///
+	/// With 0% stability fee, vaults should not accrue any interest
+	/// over time.
+	#[test]
+	fn set_stability_fee_to_zero() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::zero()));
+
+			assert_eq!(StabilityFee::<Test>::get(), Some(Permill::zero()));
+
+			// Create vault with debt
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Advance significant time
+			jump_to_block(5_256_000); // 1 year
+
+			// Trigger fee update
+			assert_ok!(Vaults::poke(RuntimeOrigin::signed(BOB), ALICE));
+
+			// No interest should have accrued
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.accrued_interest, 0, "Zero fee = zero interest");
+			assert_eq!(
+				vault.last_fee_update,
+				MockTimestamp::get(),
+				"Zero-fee vaults should still refresh their fee timestamp"
+			);
+		});
+	}
+
+	/// **Test: Setting max debt to zero blocks all minting**
+	///
+	/// With `MaximumIssuance` set to 0, no new pUSD can be minted by anyone.
+	#[test]
+	fn set_max_debt_to_zero_blocks_all_minting() {
+		build_and_execute(|| {
+			// First create a vault with some debt
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Set max debt to 0
+			MaximumIssuance::<Test>::put(0);
+
+			// BOB creates a new vault
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+
+			// BOB cannot mint any pUSD above the minimum mint amount
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(BOB), 5 * PUSD),
+				Error::<Test>::ExceedsMaxDebt
+			);
+
+			// ALICE also cannot mint more
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 5 * PUSD),
+				Error::<Test>::ExceedsMaxDebt
+			);
+		});
+	}
+
+	/// **Test: Setting minimum CR to 100% or below fails**
+	#[test]
+	fn set_minimum_ratio_at_or_below_100_percent_fails() {
+		build_and_execute(|| {
+			// Exactly 100% should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::root(),
+					FixedU128::one()
+				),
+				Error::<Test>::MinimumRatioTooLow
+			);
+
+			// Below 100% should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::root(),
+					FixedU128::from_rational(99, 100)
+				),
+				Error::<Test>::MinimumRatioTooLow
+			);
+
+			// Zero should fail
+			assert_noop!(
+				Vaults::set_minimum_collateralization_ratio(
+					RuntimeOrigin::root(),
+					FixedU128::zero()
+				),
+				Error::<Test>::MinimumRatioTooLow
+			);
+
+			// Just above 100% should succeed (if below initial ratio)
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				FixedU128::from_rational(101, 100)
+			));
+		});
+	}
+
+	/// **Test: MaxLiquidationAmount cannot be set below MaxPositionAmount**
+	#[test]
+	fn set_max_liquidation_below_max_position_fails() {
+		build_and_execute(|| {
+			// Genesis: MaxPositionAmount = 10M, MaxLiquidationAmount = 20M
+			let max_position = MaxPositionAmount::<Test>::get().unwrap();
+			assert!(max_position > 0);
+
+			// Try to set MaxLiquidationAmount below MaxPositionAmount
+			assert_noop!(
+				Vaults::set_max_liquidation_amount(RuntimeOrigin::root(), max_position - 1),
+				Error::<Test>::MaxLiquidationBelowMaxPosition
+			);
+
+			// Setting equal to MaxPositionAmount should succeed
+			assert_ok!(Vaults::set_max_liquidation_amount(RuntimeOrigin::root(), max_position));
+		});
+	}
+
+	/// **Test: MaxPositionAmount cannot be set above MaxLiquidationAmount**
+	#[test]
+	fn set_max_position_above_max_liquidation_fails() {
+		build_and_execute(|| {
+			// Genesis: MaxPositionAmount = 10M, MaxLiquidationAmount = 20M
+			let max_liq = MaxLiquidationAmount::<Test>::get().unwrap();
+
+			// Try to set MaxPositionAmount above MaxLiquidationAmount
+			assert_noop!(
+				Vaults::set_max_position_amount(RuntimeOrigin::root(), max_liq + 1),
+				Error::<Test>::MaxLiquidationBelowMaxPosition
+			);
+
+			// Setting equal to MaxLiquidationAmount should succeed
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), max_liq));
+		});
+	}
+
+	/// **Test: Raising MCR makes previously safe vaults liquidatable**
+	///
+	/// When governance raises MinimumCollateralizationRatio, vaults that were safe
+	/// under the old threshold may become undercollateralized and eligible for
+	/// liquidation under the new threshold.
+	#[test]
+	fn raising_mcr_makes_safe_vault_liquidatable() {
+		build_and_execute(|| {
+			// Create vault: 100 DOT at $4.21 = $421 collateral
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			// Mint 200 pUSD → CR = 421/200 = 210.5%
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Vault is safe under current MCR of 180%
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::VaultIsSafe
+			);
+
+			// Governance raises initial ratio first (must be >= new MCR)
+			assert_ok!(Vaults::set_initial_collateralization_ratio(
+				RuntimeOrigin::root(),
+				FixedU128::from_rational(250, 100) // 250%
+			));
+
+			// Now raise MCR from 180% to 220%
+			// ALICE's CR of 210.5% is now below the new 220% threshold
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				FixedU128::from_rational(220, 100)
+			));
+
+			// ALICE's vault is now undercollateralized and can be liquidated
+			assert_ok!(Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE));
+
+			let vault = VaultsStorage::<Test>::get(ALICE).unwrap();
+			assert_eq!(vault.status, VaultStatus::InLiquidation);
+		});
+	}
+}
+
+mod oracle_staleness {
+	use super::*;
+
+	/// **Test: Mint fails when oracle is stale**
+	///
+	/// When the oracle price timestamp is older than the staleness threshold,
+	/// minting should fail with `OracleStale` error.
+	#[test]
+	fn mint_fails_when_oracle_is_stale() {
+		build_and_execute(|| {
+			// Create vault with collateral
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Make oracle stale by setting timestamp to 2x threshold ago
+			let stale_timestamp = MockTimestamp::get().saturating_sub(
+				2 * OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed"),
+			);
+			set_mock_price_timestamp(stale_timestamp);
+
+			// Mint should fail with OracleStale
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::OracleStale
+			);
+		});
+	}
+
+	/// **Test: Withdraw with debt fails when oracle is stale**
+	///
+	/// When the vault has debt, withdrawing collateral requires a price check.
+	/// This should fail if the oracle is stale.
+	#[test]
+	fn withdraw_with_debt_fails_when_oracle_stale() {
+		build_and_execute(|| {
+			// Setup vault with debt (use 200 DOT to allow partial withdrawal)
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 200 * DOT));
+			set_mock_price_timestamp(MockTimestamp::get());
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD));
+
+			// Make oracle stale
+			let stale_timestamp = MockTimestamp::get().saturating_sub(
+				2 * OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed"),
+			);
+			set_mock_price_timestamp(stale_timestamp);
+
+			// Withdraw should fail due to stale oracle (remaining 190 DOT > min deposit)
+			assert_noop!(
+				Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 10 * DOT),
+				Error::<Test>::OracleStale
+			);
+		});
+	}
+
+	/// **Test: Withdraw without debt succeeds even when oracle is stale**
+	///
+	/// When the vault has no debt, withdrawing collateral doesn't need a price check,
+	/// so it should succeed even with a stale oracle.
+	#[test]
+	fn withdraw_without_debt_succeeds_even_when_oracle_stale() {
+		build_and_execute(|| {
+			// Vault with no debt
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 200 * DOT));
+
+			// Make oracle stale
+			let stale_timestamp = MockTimestamp::get().saturating_sub(
+				2 * OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed"),
+			);
+			set_mock_price_timestamp(stale_timestamp);
+
+			// Withdraw should succeed (no debt, no price check needed)
+			assert_ok!(Vaults::withdraw_collateral(RuntimeOrigin::signed(ALICE), 50 * DOT));
+		});
+	}
+
+	/// **Test: Liquidation fails when oracle is stale**
+	///
+	/// Liquidating a vault requires checking the collateralization ratio,
+	/// which requires a fresh price.
+	#[test]
+	fn liquidate_fails_when_oracle_stale() {
+		build_and_execute(|| {
+			// Set a specific price for predictable ratio calculation
+			set_mock_price(Some(FixedU128::from_u32(2))); // $2/DOT
+
+			// Setup vault that will be undercollateralized
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			set_mock_price_timestamp(MockTimestamp::get());
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD)); // 200% ratio
+
+			// Drop price to make vault undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(1))); // $1/DOT -> 100% ratio < 180% MCR
+
+			// Make oracle stale
+			let stale_timestamp = MockTimestamp::get().saturating_sub(
+				2 * OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed"),
+			);
+			set_mock_price_timestamp(stale_timestamp);
+
+			// Liquidation should fail
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::OracleStale
+			);
+		});
+	}
+
+	/// **Test: Operations auto-resume when oracle becomes fresh**
+	///
+	/// After the oracle was stale and operations failed, they should
+	/// succeed again once a fresh price is available.
+	#[test]
+	fn operations_auto_resume_when_oracle_becomes_fresh() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Oracle stale - mint fails
+			let stale_timestamp = MockTimestamp::get().saturating_sub(
+				2 * OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed"),
+			);
+			set_mock_price_timestamp(stale_timestamp);
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				Error::<Test>::OracleStale
+			);
+
+			// Oracle fresh again - mint succeeds
+			set_mock_price_timestamp(MockTimestamp::get());
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD));
+		});
+	}
+
+	/// **Test: Oracle at exact threshold boundary is considered fresh**
+	///
+	/// A price that is exactly at the staleness threshold should still
+	/// be considered valid.
+	#[test]
+	fn oracle_at_exact_threshold_is_fresh() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Set timestamp to exactly at threshold boundary
+			let at_threshold = MockTimestamp::get().saturating_sub(
+				OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed"),
+			);
+			set_mock_price_timestamp(at_threshold);
+
+			// Should still succeed (at boundary, not past it)
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 10 * PUSD));
+		});
+	}
+}
+
+mod parameter_invariants {
+	use super::*;
+
+	/// **Mathematical invariant test: Liquidation penalty vs keeper incentive**
+	///
+	/// This test verifies a mathematical property of the protocol parameters.
+	/// It uses assumed keeper incentive values (tip=1 pUSD, chip=0.1%) that should
+	/// match the auctions pallet configuration.
+	///
+	/// Keeper incentive formula (from auctions pallet):
+	///   keeper_incentive = tip + (chip × tab)
+	///
+	/// Where:
+	///   - tip = flat fee (default: 1 pUSD)
+	///   - chip = percentage of tab (default: 0.1%)
+	///   - tab = principal + interest + penalty
+	///
+	/// The auction pallet caps keeper_incentive to penalty, but this test
+	/// verifies that with reasonable parameters, the penalty naturally exceeds
+	/// the keeper incentive for typical vault sizes.
+	#[test]
+	fn liquidation_penalty_exceeds_keeper_incentive() {
+		build_and_execute(|| {
+			// Keeper incentive parameters.
+			let tip = 1 * PUSD; // 1 pUSD flat fee
+			let chip = Permill::from_parts(1000); // 0.1%
+
+			// Get liquidation penalty from storage
+			let liquidation_penalty =
+				LiquidationPenalty::<Test>::get().expect("set in genesis; qed");
+
+			// Test various vault sizes to ensure the invariant holds
+			let test_principals = [
+				100 * PUSD,       // Small vault
+				1_000 * PUSD,     // Medium vault
+				10_000 * PUSD,    // Large vault
+				100_000 * PUSD,   // Very large vault
+				1_000_000 * PUSD, // Massive vault
+			];
+
+			for principal in test_principals {
+				// Assume 10% interest for a stressed scenario
+				let interest = principal / 10;
+
+				// Calculate penalty
+				let penalty = liquidation_penalty.mul_floor(principal);
+
+				// Calculate tab (total debt for auction)
+				let tab = principal + interest + penalty;
+
+				// Calculate keeper incentive (before capping)
+				let keeper_incentive_raw = tip + chip.mul_floor(tab);
+
+				// The penalty should exceed the raw keeper incentive
+				// (the auction pallet will cap it anyway, but we want margin)
+				assert!(
+					penalty > keeper_incentive_raw,
+					"Penalty ({} pUSD) should exceed keeper incentive ({} pUSD) for principal {} pUSD. \
+					 This ensures keeper is paid only from penalty, not from principal/interest.",
+					penalty / PUSD,
+					keeper_incentive_raw / PUSD,
+					principal / PUSD
+				);
+
+				// Log the margin for visibility
+				let margin = penalty.saturating_sub(keeper_incentive_raw);
+				let margin_percent = if penalty > 0 { (margin * 100) / penalty } else { 0 };
+
+				// Ensure there's meaningful margin (at least 50% of penalty remains for IF)
+				assert!(
+					margin_percent >= 50,
+					"At least 50% of penalty should remain for Insurance Fund after keeper. \
+					 Got {}% for principal {} pUSD",
+					margin_percent,
+					principal / PUSD
+				);
+			}
+		});
+	}
+
+	/// **Mathematical invariant test: Penalty vs keeper incentive at minimum vault**
+	///
+	/// This test documents an expected edge case: at the minimum vault size (5 pUSD),
+	/// the penalty (0.65 pUSD) is LESS than the keeper incentive (~1.006 pUSD).
+	/// This is expected because the flat tip (1 pUSD) dominates for tiny vaults.
+	///
+	/// The auction pallet MUST cap `keeper_incentive` to `penalty` to handle this case.
+	#[test]
+	fn penalty_exceeds_keeper_at_minimum_vault() {
+		build_and_execute(|| {
+			let tip = 1 * PUSD;
+			let chip = Permill::from_parts(1000); // 0.1%
+			let liquidation_penalty =
+				LiquidationPenalty::<Test>::get().expect("set in genesis; qed"); // 13%
+
+			// Minimum principal (5 pUSD from MinimumMint)
+			let principal = 5 * PUSD;
+			let interest = 0; // Fresh vault, no interest
+
+			let penalty = liquidation_penalty.mul_floor(principal);
+			let tab = principal + interest + penalty;
+			let keeper_incentive = tip + chip.mul_floor(tab);
+
+			// For 5 pUSD principal with 13% penalty:
+			// penalty = 0.65 pUSD
+			// tab = 5 + 0 + 0.65 = 5.65 pUSD
+			// keeper = 1 + 0.001 * 5.65 = 1.00565 pUSD
+			//
+			// At minimum vault size, penalty < keeper because tip dominates.
+			// This documents that the auction pallet's capping mechanism is essential.
+			assert!(
+				penalty < keeper_incentive,
+				"At minimum vault (5 pUSD), penalty ({}) should be less than uncapped keeper \
+				 incentive ({}). This edge case requires auction pallet capping.",
+				penalty,
+				keeper_incentive
+			);
+
+			// Verify the penalty is indeed less than the tip
+			assert!(
+				penalty < tip,
+				"For tiny vaults, penalty ({}) should be less than tip ({})",
+				penalty,
+				tip
+			);
+		});
+	}
+
+	/// **Test: Minimum principal where penalty exceeds keeper incentive**
+	///
+	/// Math test to find the crossover point where liquidation penalty exceeds keeper
+	/// incentive. Documents the relationship between MinimumMint and this crossover.
+	///
+	/// Vaults below ~8 pUSD principal have penalty < keeper_incentive, meaning they
+	/// rely on the auction pallet's capping mechanism. Since MinimumMint (5 pUSD) is
+	/// below this crossover, this test verifies that relationship is understood.
+	#[test]
+	fn find_minimum_principal_for_penalty_dominance() {
+		build_and_execute(|| {
+			let tip = 1 * PUSD;
+			let chip = Permill::from_parts(1000); // 0.1%
+			let liquidation_penalty =
+				LiquidationPenalty::<Test>::get().expect("set in genesis; qed"); // 13%
+
+			// Solve for principal where penalty = keeper_incentive:
+			// penalty = principal * 0.13
+			// keeper = tip + chip * (principal + penalty)
+			// keeper = tip + chip * principal * (1 + 0.13)
+			// keeper = tip + chip * principal * 1.13
+			//
+			// Set penalty = keeper:
+			// principal * 0.13 = tip + chip * principal * 1.13
+			// principal * (0.13 - chip * 1.13) = tip
+			// principal = tip / (0.13 - 0.001 * 1.13)
+			// principal = tip / (0.13 - 0.00113)
+			// principal = tip / 0.12887
+			// principal ≈ 7.76 pUSD
+
+			let mut min_principal = 0u128;
+			for principal in (1..100).map(|x| x * PUSD) {
+				let penalty = liquidation_penalty.mul_floor(principal);
+				let tab = principal + penalty; // No interest for simplicity
+				let keeper = tip + chip.mul_floor(tab);
+
+				if penalty > keeper {
+					min_principal = principal;
+					break;
+				}
+			}
+
+			// The minimum principal should be around 8 pUSD
+			// (above our MinimumMint of 5 pUSD, so small vaults rely on capping)
+			assert!(
+				min_principal > 0 && min_principal <= 10 * PUSD,
+				"Expected minimum principal around 8 pUSD, got {} pUSD",
+				min_principal / PUSD
+			);
+
+			// Verify that MinimumMint is below the crossover point - documenting the
+			// dependency on auction pallet capping for small vaults
+			let min_mint = 5 * PUSD;
+			assert!(
+				min_mint < min_principal,
+				"MinimumMint ({} pUSD) should be below crossover ({} pUSD), \
+				 meaning small vaults rely on auction pallet capping",
+				min_mint / PUSD,
+				min_principal / PUSD
+			);
+		});
+	}
+}
+
+mod governance_new_params {
+	use super::*;
+
+	/// **Test: Governance can update minimum deposit amount**
+	#[test]
+	fn set_minimum_deposit_works() {
+		build_and_execute(|| {
+			let old_value = MinimumDeposit::<Test>::get().expect("set in genesis; qed");
+			let new_value = 200 * DOT;
+
+			assert_ok!(Vaults::set_minimum_deposit(RuntimeOrigin::root(), new_value));
+
+			assert_eq!(MinimumDeposit::<Test>::get(), Some(new_value));
+			System::assert_has_event(
+				Event::<Test>::MinimumDepositUpdated { old_value, new_value }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_minimum_deposit_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_deposit(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
+			);
+		});
+	}
+
+	/// **Test: Emergency privilege cannot set minimum deposit**
+	#[test]
+	fn set_minimum_deposit_requires_full_privilege() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_deposit(RuntimeOrigin::signed(EMERGENCY_ADMIN), 200 * DOT),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: Regular user cannot set minimum deposit**
+	#[test]
+	fn set_minimum_deposit_fails_for_non_manager() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_deposit(RuntimeOrigin::signed(ALICE), 200 * DOT),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+
+	/// **Test: Governance can update minimum mint amount**
+	#[test]
+	fn set_minimum_mint_works() {
+		build_and_execute(|| {
+			let old_value = MinimumMint::<Test>::get().expect("set in genesis; qed");
+			let new_value = 10 * PUSD;
+
+			assert_ok!(Vaults::set_minimum_mint(RuntimeOrigin::root(), new_value));
+
+			assert_eq!(MinimumMint::<Test>::get(), Some(new_value));
+			System::assert_has_event(
+				Event::<Test>::MinimumMintUpdated { old_value, new_value }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_minimum_mint_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_mint(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
+			);
+		});
+	}
+
+	/// **Test: Emergency privilege cannot set minimum mint**
+	#[test]
+	fn set_minimum_mint_requires_full_privilege() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_mint(RuntimeOrigin::signed(EMERGENCY_ADMIN), 10 * PUSD),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: Regular user cannot set minimum mint**
+	#[test]
+	fn set_minimum_mint_fails_for_non_manager() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_minimum_mint(RuntimeOrigin::signed(ALICE), 10 * PUSD),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+
+	/// **Test: Governance can update stale vault threshold**
+	#[test]
+	fn set_stale_vault_threshold_works() {
+		build_and_execute(|| {
+			let old_value = StaleVaultThreshold::<Test>::get().expect("set in genesis; qed");
+			let new_value = 28_800_000u64; // 8 hours
+
+			assert_ok!(Vaults::set_stale_vault_threshold(RuntimeOrigin::root(), new_value));
+
+			assert_eq!(StaleVaultThreshold::<Test>::get(), Some(new_value));
+			System::assert_has_event(
+				Event::<Test>::StaleVaultThresholdUpdated { old_value, new_value }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_stale_vault_threshold_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_stale_vault_threshold(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
+			);
+		});
+	}
+
+	/// **Test: Emergency privilege cannot set stale vault threshold**
+	#[test]
+	fn set_stale_vault_threshold_requires_full_privilege() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_stale_vault_threshold(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					28_800_000
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: Regular user cannot set stale vault threshold**
+	#[test]
+	fn set_stale_vault_threshold_fails_for_non_manager() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_stale_vault_threshold(RuntimeOrigin::signed(ALICE), 28_800_000),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+
+	/// **Test: Governance can update oracle staleness threshold**
+	#[test]
+	fn set_oracle_staleness_threshold_works() {
+		build_and_execute(|| {
+			let old_value = OracleStalenessThreshold::<Test>::get().expect("set in genesis; qed");
+			let new_value = 7_200_000u64; // 2 hours
+
+			assert_ok!(Vaults::set_oracle_staleness_threshold(RuntimeOrigin::root(), new_value));
+
+			assert_eq!(OracleStalenessThreshold::<Test>::get(), Some(new_value));
+			System::assert_has_event(
+				Event::<Test>::OracleStalenessThresholdUpdated { old_value, new_value }.into(),
+			);
+		});
+	}
+
+	#[test]
+	fn set_oracle_staleness_threshold_rejects_zero() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_oracle_staleness_threshold(RuntimeOrigin::root(), 0),
+				Error::<Test>::ZeroValueNotAllowed
+			);
+		});
+	}
+
+	/// **Test: Emergency privilege cannot set oracle staleness threshold**
+	#[test]
+	fn set_oracle_staleness_threshold_requires_full_privilege() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_oracle_staleness_threshold(
+					RuntimeOrigin::signed(EMERGENCY_ADMIN),
+					7_200_000
+				),
+				Error::<Test>::InsufficientPrivilege
+			);
+		});
+	}
+
+	/// **Test: Regular user cannot set oracle staleness threshold**
+	#[test]
+	fn set_oracle_staleness_threshold_fails_for_non_manager() {
+		build_and_execute(|| {
+			assert_noop!(
+				Vaults::set_oracle_staleness_threshold(RuntimeOrigin::signed(ALICE), 7_200_000),
+				frame_support::error::BadOrigin
+			);
+		});
+	}
+
+	/// **Test: New minimum deposit is enforced on vault creation**
+	#[test]
+	fn new_minimum_deposit_is_enforced() {
+		build_and_execute(|| {
+			// Raise minimum deposit to 200 DOT
+			let new_minimum = 200 * DOT;
+			assert_ok!(Vaults::set_minimum_deposit(RuntimeOrigin::root(), new_minimum));
+
+			// Try to create vault with less than new minimum (150 DOT)
+			assert_noop!(
+				Vaults::create_vault(RuntimeOrigin::signed(ALICE), 150 * DOT),
+				Error::<Test>::BelowMinimumDeposit
+			);
+
+			// Creating with exactly new minimum works
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), new_minimum));
+		});
+	}
+
+	/// **Test: New minimum mint is enforced on minting**
+	#[test]
+	fn new_minimum_mint_is_enforced() {
+		build_and_execute(|| {
+			// Create vault first
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Raise minimum mint to 10 pUSD
+			let new_minimum = 10 * PUSD;
+			assert_ok!(Vaults::set_minimum_mint(RuntimeOrigin::root(), new_minimum));
+
+			// Try to mint less than new minimum (8 pUSD)
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 8 * PUSD),
+				Error::<Test>::BelowMinimumMint
+			);
+
+			// Minting with exactly new minimum works
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), new_minimum));
+		});
+	}
+}
+
+mod not_configured {
+	use super::*;
+
+	/// **Test: create_vault fails when pallet parameters are not configured**
+	#[test]
+	fn create_vault_fails_when_not_configured() {
+		new_test_ext().execute_with(|| {
+			// Kill a critical parameter to simulate unconfigured state
+			MinimumDeposit::<Test>::kill();
+
+			assert_noop!(
+				Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT),
+				Error::<Test>::NotConfigured
+			);
+		});
+	}
+
+	/// **Test: mint fails when pallet parameters are not configured**
+	#[test]
+	fn mint_fails_when_not_configured() {
+		new_test_ext().execute_with(|| {
+			// Create vault while system is configured
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Kill a parameter
+			MinimumMint::<Test>::kill();
+
+			assert_noop!(
+				Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD),
+				Error::<Test>::NotConfigured
+			);
+		});
+	}
+
+	/// **Test: liquidate fails when pallet parameters are not configured**
+	#[test]
+	fn liquidate_fails_when_not_configured() {
+		new_test_ext().execute_with(|| {
+			// Create and set up vault while system is configured
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Kill a parameter
+			MinimumCollateralizationRatio::<Test>::kill();
+
+			// Drop price to make vault undercollateralized
+			set_mock_price(Some(FixedU128::from_u32(3)));
+
+			assert_noop!(
+				Vaults::liquidate_vault(RuntimeOrigin::signed(BOB), ALICE),
+				Error::<Test>::NotConfigured
+			);
+		});
+	}
+
+	/// **Test: on_idle gracefully skips when parameters are not configured**
+	#[test]
+	fn on_idle_skips_when_not_configured() {
+		new_test_ext().execute_with(|| {
+			// Create vault while system is configured
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 200 * PUSD));
+
+			// Kill stale vault threshold
+			StaleVaultThreshold::<Test>::kill();
+
+			// Advance time past what would normally be the stale threshold
+			advance_timestamp(20_000_000);
+
+			// on_idle should not panic, just return early
+			let weight = Vaults::on_idle(1, Weight::MAX);
+			// Should return base weight (zero in test config) since it returns early
+			assert_eq!(weight, Vaults::on_idle_base_weight());
+		});
+	}
+
+	/// **Test: governance setters work when pallet is not fully configured**
+	///
+	/// Governance setters must work before the system is ready because they
+	/// are the mechanism to configure the pallet.
+	#[test]
+	fn governance_setters_work_when_not_fully_configured() {
+		new_test_ext().execute_with(|| {
+			// Kill all parameters
+			MinimumCollateralizationRatio::<Test>::kill();
+			InitialCollateralizationRatio::<Test>::kill();
+			StabilityFee::<Test>::kill();
+			LiquidationPenalty::<Test>::kill();
+			MaximumIssuance::<Test>::kill();
+			MaxLiquidationAmount::<Test>::kill();
+			MaxPositionAmount::<Test>::kill();
+			MinimumDeposit::<Test>::kill();
+			MinimumMint::<Test>::kill();
+			StaleVaultThreshold::<Test>::kill();
+			OracleStalenessThreshold::<Test>::kill();
+
+			// All governance setters should still work
+			assert_ok!(Vaults::set_minimum_collateralization_ratio(
+				RuntimeOrigin::root(),
+				ratio(180)
+			));
+			assert_ok!(Vaults::set_initial_collateralization_ratio(
+				RuntimeOrigin::root(),
+				ratio(200)
+			));
+			assert_ok!(Vaults::set_stability_fee(RuntimeOrigin::root(), Permill::from_percent(4)));
+			assert_ok!(Vaults::set_liquidation_penalty(
+				RuntimeOrigin::root(),
+				Permill::from_percent(13)
+			));
+			assert_ok!(Vaults::set_max_issuance(RuntimeOrigin::root(), 20_000_000 * PUSD));
+			assert_ok!(Vaults::set_max_liquidation_amount(
+				RuntimeOrigin::root(),
+				20_000_000 * PUSD
+			));
+			assert_ok!(Vaults::set_max_position_amount(RuntimeOrigin::root(), 10_000_000 * PUSD));
+			assert_ok!(Vaults::set_minimum_deposit(RuntimeOrigin::root(), 100 * DOT));
+			assert_ok!(Vaults::set_minimum_mint(RuntimeOrigin::root(), 5 * PUSD));
+			assert_ok!(Vaults::set_stale_vault_threshold(RuntimeOrigin::root(), 14_400_000));
+			assert_ok!(Vaults::set_oracle_staleness_threshold(RuntimeOrigin::root(), 3_600_000));
+
+			// Now the system should be ready
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+		});
+	}
+}
+mod on_idle_coverage {
+	use super::*;
+
+	/// **Test: `on_idle` cursor persists across blocks with `MaxOnIdleItems` = 1**
+	///
+	/// When `MaxOnIdleItems` limits processing to 1 vault per call,
+	/// the cursor must persist so subsequent calls resume from where we left off.
+	#[test]
+	fn cursor_persists_across_blocks() {
+		build_and_execute(|| {
+			set_max_on_idle_items(1);
+
+			// Create 3 vaults with debt so they accrue fees
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(CHARLIE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(CHARLIE), 100 * PUSD));
+
+			// Advance past stale threshold (4 hours = 14_400_000 ms)
+			advance_timestamp(15_000_000);
+
+			// First on_idle: processes 1 vault, peeks next → stopped_early, cursor set
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_some(),
+				"Cursor should be set after partial pass"
+			);
+
+			// Second on_idle: resumes from cursor, processes 1, peeks next → stopped_early
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_some(),
+				"Cursor should still be set (1 more vault remaining)"
+			);
+
+			// Third on_idle: resumes, processes last vault, iter exhausted → cursor cleared
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_none(),
+				"Cursor should be cleared after full pass"
+			);
+
+			// Reset for try_state validation
+			set_max_on_idle_items(u32::MAX);
+		});
+	}
+
+	/// **Test: `on_idle` clears cursor after a full pass**
+	///
+	/// When all vaults are processed in a single call, the cursor
+	/// should be cleared (not set).
+	#[test]
+	fn clears_cursor_after_full_pass() {
+		build_and_execute(|| {
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			// Advance past stale threshold
+			advance_timestamp(15_000_000);
+
+			Vaults::on_idle(1, Weight::MAX);
+
+			assert!(
+				OnIdleCursor::<Test>::get().is_none(),
+				"Cursor should be cleared after processing all vaults"
+			);
+		});
+	}
+
+	/// **Test: `on_idle` advances cursor even when stale vault updates are skipped**
+	///
+	/// If `update_vault_fees` fails for the current vault, pagination must still
+	/// progress; otherwise a low `MaxOnIdleItems` setting can get stuck forever
+	/// on the same failing account.
+	#[test]
+	fn cursor_advances_across_skipped_vaults() {
+		build_and_execute(|| {
+			set_max_on_idle_items(1);
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(ALICE), 100 * PUSD));
+
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(BOB), 100 * DOT));
+			assert_ok!(Vaults::mint(RuntimeOrigin::signed(BOB), 100 * PUSD));
+
+			advance_timestamp(15_000_000);
+
+			// Force `update_vault_fees` to fail for every stale vault.
+			StabilityFee::<Test>::kill();
+
+			Vaults::on_idle(1, Weight::MAX);
+			assert_eq!(
+				OnIdleCursor::<Test>::get(),
+				Some(ALICE),
+				"Cursor should advance past the first skipped vault"
+			);
+
+			Vaults::on_idle(1, Weight::MAX);
+			assert!(
+				OnIdleCursor::<Test>::get().is_none(),
+				"Cursor should clear after later calls progress past skipped vaults"
+			);
+
+			// Restore for try_state validation.
+			StabilityFee::<Test>::put(Permill::from_percent(4));
+			set_max_on_idle_items(u32::MAX);
+		});
+	}
+}
+
+mod try_state_violations {
+	use super::*;
+
+	/// **Test: `do_try_state` fails when any parameter is not configured**
+	///
+	/// Killing each of the 11 parameters one at a time should cause
+	/// `do_try_state` to return an error.
+	#[test]
+	fn fails_when_param_not_configured() {
+		macro_rules! assert_param_required {
+			($storage:ty, $restore_value:expr) => {
+				<$storage>::kill();
+				assert!(
+					VaultsPallet::<Test>::do_try_state().is_err(),
+					"do_try_state should fail when {} is not configured",
+					stringify!($storage)
+				);
+				<$storage>::put($restore_value);
+				assert_ok!(VaultsPallet::<Test>::do_try_state());
+			};
+		}
+
+		new_test_ext().execute_with(|| {
+			assert_ok!(VaultsPallet::<Test>::do_try_state());
+
+			assert_param_required!(MinimumCollateralizationRatio::<Test>, ratio(180));
+			assert_param_required!(InitialCollateralizationRatio::<Test>, ratio(200));
+			assert_param_required!(StabilityFee::<Test>, Permill::from_percent(4));
+			assert_param_required!(LiquidationPenalty::<Test>, Permill::from_percent(13));
+			assert_param_required!(MaximumIssuance::<Test>, 20_000_000 * PUSD);
+			assert_param_required!(MaxLiquidationAmount::<Test>, 20_000_000 * PUSD);
+			assert_param_required!(MaxPositionAmount::<Test>, 10_000_000 * PUSD);
+			assert_param_required!(MinimumDeposit::<Test>, 100 * DOT);
+			assert_param_required!(MinimumMint::<Test>, 5 * PUSD);
+			assert_param_required!(StaleVaultThreshold::<Test>, 14_400_000u64);
+			assert_param_required!(OracleStalenessThreshold::<Test>, 3_600_000u64);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when InitialCR < MinimumCR**
+	#[test]
+	fn fails_when_initial_ratio_below_minimum() {
+		new_test_ext().execute_with(|| {
+			// MinimumCR = 180%, set InitialCR = 150% (below minimum)
+			InitialCollateralizationRatio::<Test>::put(ratio(150));
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when InitialCR < MinimumCR"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when MinimumCR <= 100%**
+	#[test]
+	fn fails_when_min_ratio_not_above_100() {
+		new_test_ext().execute_with(|| {
+			// Also lower InitialCR to avoid the InitialCR >= MinCR check failing first
+			MinimumCollateralizationRatio::<Test>::put(FixedU128::one());
+			InitialCollateralizationRatio::<Test>::put(FixedU128::one());
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when MinimumCR = 100%"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when MaxPositionAmount > MaxLiquidationAmount**
+	#[test]
+	fn fails_when_max_position_exceeds_max_liquidation() {
+		new_test_ext().execute_with(|| {
+			MaxPositionAmount::<Test>::put(30_000_000 * PUSD);
+			MaxLiquidationAmount::<Test>::put(20_000_000 * PUSD);
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when MaxPositionAmount > MaxLiquidationAmount"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when liquidated vault still has VaultDeposit hold**
+	#[test]
+	fn fails_when_liquidated_vault_has_deposit_hold() {
+		new_test_ext().execute_with(|| {
+			// Create a vault (holds collateral with VaultDeposit reason)
+			assert_ok!(Vaults::create_vault(RuntimeOrigin::signed(ALICE), 100 * DOT));
+
+			// Raw-write the vault status to InLiquidation without releasing the hold
+			VaultsStorage::<Test>::mutate(ALICE, |maybe_vault| {
+				let vault = maybe_vault.as_mut().expect("vault exists");
+				vault.status = VaultStatus::InLiquidation;
+			});
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when InLiquidation vault still has VaultDeposit hold"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when healthy vault with debt has no collateral**
+	#[test]
+	fn fails_when_healthy_vault_with_debt_has_no_collateral() {
+		new_test_ext().execute_with(|| {
+			// Raw-insert a vault with debt but no collateral hold
+			let mut vault = Vault::<Test>::new();
+			vault.principal = 100 * PUSD;
+			VaultsStorage::<Test>::insert(ALICE, vault);
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when healthy vault has debt but no collateral"
+			);
+		});
+	}
+
+	/// **Test: `do_try_state` fails when CurrentLiquidationAmount > MaxLiquidationAmount**
+	#[test]
+	fn fails_when_current_liquidation_exceeds_max() {
+		new_test_ext().execute_with(|| {
+			CurrentLiquidationAmount::<Test>::put(30_000_000 * PUSD);
+
+			assert!(
+				VaultsPallet::<Test>::do_try_state().is_err(),
+				"Should fail when CurrentLiquidationAmount > MaxLiquidationAmount"
+			);
+		});
+	}
+}

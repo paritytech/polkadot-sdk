@@ -14745,6 +14745,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-vaults"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+ "staging-xcm",
+]
+
+[[package]]
 name = "pallet-verify-signature"
 version = "1.0.0"
 dependencies = [
@@ -17155,6 +17172,7 @@ dependencies = [
  "pallet-tx-pause",
  "pallet-uniques",
  "pallet-utility",
+ "pallet-vaults",
  "pallet-verify-signature",
  "pallet-vesting",
  "pallet-vesting-precompiles",
