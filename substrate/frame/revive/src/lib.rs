@@ -3151,7 +3151,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						// nearly-empty block and passes the weight check. This is safe because
 						// trace re-execution is purely observational — the block was already
 						// validated and finalized.
-						frame_system::BlockWeight::<Runtime>::put(initial_weight);
+						frame_system::BlockWeight::<Runtime>::put(&initial_weight);
 
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
 						let t = tracer.as_tracing();
@@ -3197,7 +3197,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						// nearly-empty block and passes the weight check. This is safe because
 						// trace re-execution is purely observational — the block was already
 						// validated and finalized.
-						frame_system::BlockWeight::<Runtime>::put(initial_weight);
+						frame_system::BlockWeight::<Runtime>::put(&initial_weight);
 
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
