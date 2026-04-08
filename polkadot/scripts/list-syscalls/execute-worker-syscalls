@@ -59,7 +59,6 @@
 230 (clock_nanosleep)
 231 (exit_group)
 247 (waitid)
-257 (openat)
 262 (newfstatat)
 272 (unshare)
 273 (set_robust_list)
