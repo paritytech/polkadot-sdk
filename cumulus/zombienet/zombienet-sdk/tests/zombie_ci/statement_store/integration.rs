@@ -323,7 +323,7 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
 	// Count how many of bob's own statements survived the crash.
-	// ParityDB's commit() doesn't fsync, so SIGKILL can lose the last write
+	// ParityDB fsyncs asynchronously, so SIGKILL can lose the last write
 	// even though SubmitResult::New was returned. Statements that were never
 	// propagated to another node before the kill are unrecoverable.
 	let bob_logs = bob.logs().await?;
@@ -358,6 +358,7 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	if alice_loaded >= stmts_per_node {
 		log::warn!("Bob loaded all alice statements from disk so the crash was NOT mid-sync",);
 	}
+	assert(alice_loaded > 0, "Bob received at least one alice statement");
 	assert!(bob_lost <= 1, "Bob lost {} statements, expected at most 1", bob_lost);
 
 	info!("Verifying all {} recoverable statements converge on every node", expected_count);
