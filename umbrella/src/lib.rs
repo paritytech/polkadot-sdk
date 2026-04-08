@@ -308,6 +308,10 @@ pub use pallet_asset_conversion;
 #[cfg(feature = "pallet-asset-conversion-ops")]
 pub use pallet_asset_conversion_ops;
 
+/// Provides precompiles for `pallet-asset-conversion`.
+#[cfg(feature = "pallet-asset-conversion-precompiles")]
+pub use pallet_asset_conversion_precompiles;
+
 /// Pallet to manage transaction payments in assets by converting them to native assets.
 #[cfg(feature = "pallet-asset-conversion-tx-payment")]
 pub use pallet_asset_conversion_tx_payment;
