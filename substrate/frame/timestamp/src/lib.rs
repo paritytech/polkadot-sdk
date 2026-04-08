@@ -135,7 +135,7 @@ pub mod weights;
 use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
-use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
+use sp_timestamp::{INHERENT_IDENTIFIER, InherentError, InherentType};
 pub use weights::WeightInfo;
 
 pub use pallet::*;
@@ -208,7 +208,7 @@ pub mod pallet {
 	/// This value is updated to `true` upon successful submission of a timestamp by a node.
 	/// It is then checked at the end of each block execution in the `on_finalize` hook.
 	#[pallet::storage]
-	pub(super) type DidUpdate<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type DidUpdate<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {

@@ -1015,8 +1015,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn extrinsic_data)]
 	#[pallet::unbounded]
-	pub type ExtrinsicData<T: Config> =
-		StorageMap<_, Twox64Concat, u32, Vec<u8>, ValueQuery>;
+	pub type ExtrinsicData<T: Config> = StorageMap<_, Twox64Concat, u32, Vec<u8>, ValueQuery>;
 
 	/// The current block number being processed. Set by `execute_block`.
 	#[pallet::storage]
