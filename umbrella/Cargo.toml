@@ -53,6 +53,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-alliance?/std",
 	"pallet-asset-conversion-ops?/std",
+	"pallet-asset-conversion-precompiles?/std",
 	"pallet-asset-conversion-tx-payment?/std",
 	"pallet-asset-conversion?/std",
 	"pallet-asset-rate?/std",
@@ -165,6 +166,7 @@ std = [
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
 	"pallet-verify-signature?/std",
+	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
 	"pallet-whitelist?/std",
 	"pallet-xcm-benchmarks?/std",
@@ -256,6 +258,7 @@ runtime-benchmarks = [
 	"frame-system?/runtime-benchmarks",
 	"pallet-alliance?/runtime-benchmarks",
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
+	"pallet-asset-conversion-precompiles?/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment?/runtime-benchmarks",
 	"pallet-asset-conversion?/runtime-benchmarks",
 	"pallet-asset-rate?/runtime-benchmarks",
@@ -349,6 +352,7 @@ runtime-benchmarks = [
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
+	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
 	"pallet-whitelist?/runtime-benchmarks",
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
@@ -395,6 +399,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
+	"pallet-asset-conversion-precompiles?/try-runtime",
 	"pallet-asset-conversion-tx-payment?/try-runtime",
 	"pallet-asset-conversion?/try-runtime",
 	"pallet-asset-rate?/try-runtime",
@@ -495,6 +500,7 @@ try-runtime = [
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
+	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
@@ -609,6 +615,7 @@ runtime-full = [
 	"pallet-alliance",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-ops",
+	"pallet-asset-conversion-precompiles",
 	"pallet-asset-conversion-tx-payment",
 	"pallet-asset-rate",
 	"pallet-asset-rewards",
@@ -725,6 +732,7 @@ runtime-full = [
 	"pallet-utility",
 	"pallet-verify-signature",
 	"pallet-vesting",
+	"pallet-vesting-precompiles",
 	"pallet-whitelist",
 	"pallet-xcm",
 	"pallet-xcm-benchmarks",
@@ -1260,6 +1268,11 @@ path = "../substrate/frame/asset-conversion"
 default-features = false
 optional = true
 path = "../substrate/frame/asset-conversion/ops"
+
+[dependencies.pallet-asset-conversion-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/asset-conversion/precompiles"
 
 [dependencies.pallet-asset-conversion-tx-payment]
 default-features = false
@@ -1840,6 +1853,11 @@ path = "../substrate/frame/verify-signature"
 default-features = false
 optional = true
 path = "../substrate/frame/vesting"
+
+[dependencies.pallet-vesting-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/vesting/precompiles"
 
 [dependencies.pallet-whitelist]
 default-features = false
