@@ -415,6 +415,7 @@ members = [
 	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
+	"substrate/frame/psm",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
@@ -1025,6 +1026,7 @@ pallet-parameters = { path = "substrate/frame/parameters", default-features = fa
 pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
+pallet-psm = { path = "substrate/frame/psm", default-features = false }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
