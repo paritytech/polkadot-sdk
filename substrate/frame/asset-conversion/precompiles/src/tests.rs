@@ -92,6 +92,11 @@ fn bare_call(
 	)
 }
 
+/// Check if a bare_call result failed (either error or revert).
+fn did_fail(result: &pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64>) -> bool {
+	result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert())
+}
+
 #[test]
 fn swap_exact_tokens_for_tokens_works() {
 	new_test_ext().execute_with(|| {
@@ -306,9 +311,7 @@ fn swap_fails_with_insufficient_output() {
 		.abi_encode();
 
 		let result = bare_call(swapper, data);
-		let failed =
-			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "swap with excessive amountOutMin must fail");
+		assert!(did_fail(&result), "swap with excessive amountOutMin must fail");
 	});
 }
 
@@ -326,9 +329,7 @@ fn quote_fails_for_nonexistent_pool() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		let failed =
-			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "quote for nonexistent pool must fail");
+		assert!(did_fail(&result), "quote for nonexistent pool must fail");
 	});
 }
 
@@ -348,9 +349,7 @@ fn quote_fails_with_invalid_encoding() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		let failed =
-			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "quote with invalid SCALE encoding must fail");
+		assert!(did_fail(&result), "quote with invalid SCALE encoding must fail");
 	});
 }
 
@@ -380,9 +379,7 @@ fn create_pool_works() {
 		.abi_encode();
 
 		let result2 = bare_call(creator, data2);
-		let failed =
-			result2.result.is_err() || result2.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "creating duplicate pool must fail");
+		assert!(did_fail(&result2), "creating duplicate pool must fail");
 	});
 }
 

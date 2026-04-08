@@ -31,7 +31,9 @@ use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
-use pallet_asset_conversion::weights::WeightInfo as _;
+use pallet_asset_conversion::{
+	weights::WeightInfo as _, AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap,
+};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -224,6 +226,16 @@ where
 	alloy::primitives::U256: TryInto<<Runtime as pallet_asset_conversion::Config>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as pallet_asset_conversion::Config>::Balance>,
 {
+	/// Returns the caller's account ID.
+	fn caller_account_id(
+		env: &impl Ext<T = Runtime>,
+	) -> Result<<Runtime as frame_system::Config>::AccountId, Error> {
+		env.caller()
+			.account_id()
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))
+			.cloned()
+	}
+
 	/// SCALE-decode a single asset kind from raw bytes.
 	fn decode_asset_kind(
 		data: &[u8],
@@ -261,23 +273,18 @@ where
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let path: Vec<_> =
-			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
-		let path_len = Self::validated_path_len(&path)?;
+		let path_len = Self::validated_path_len(&call.path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
 				path_len,
 			),
 		)?;
+		let path: Vec<_> =
+			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
-		use pallet_asset_conversion::Swap;
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_exact_tokens_for_tokens(
@@ -298,23 +305,18 @@ where
 		call: &IAssetConversion::swapTokensForExactTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let path: Vec<_> =
-			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
-		let path_len = Self::validated_path_len(&path)?;
+		let path_len = Self::validated_path_len(&call.path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
 				path_len,
 			),
 		)?;
+		let path: Vec<_> =
+			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
-		use pallet_asset_conversion::Swap;
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_tokens_for_exact_tokens(
@@ -348,7 +350,6 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		use pallet_asset_conversion::QuotePrice;
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_exact_tokens_for_tokens(
 				asset1,
@@ -377,7 +378,6 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		use pallet_asset_conversion::QuotePrice;
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_tokens_for_exact_tokens(
 				asset1,
@@ -401,13 +401,8 @@ where
 
 		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::create_pool())?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 
-		use pallet_asset_conversion::MutateLiquidity;
 		<pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::create_pool(&sender, asset1, asset2)?;
@@ -424,14 +419,9 @@ where
 
 		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::add_liquidity())?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 		let mint_to = env.to_account_id(&H160(call.mintTo.0 .0));
 
-		use pallet_asset_conversion::{AddLiquidityAsset, MutateLiquidity};
 		let lp_tokens = <pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::add_liquidity(
@@ -461,11 +451,7 @@ where
 
 		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::remove_liquidity())?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 		let withdraw_to = env.to_account_id(&H160(call.withdrawTo.0 .0));
 
 		use pallet_asset_conversion::MutateLiquidity;
