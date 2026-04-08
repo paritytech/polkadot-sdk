@@ -865,6 +865,7 @@ runtime = [
 	"sp-trie",
 	"sp-version",
 	"sp-version-proc-macro",
+	"sp-virtualization",
 	"sp-wasm-interface",
 	"sp-weights",
 ]
@@ -999,6 +1000,7 @@ node = [
 	"sp-maybe-compressed-blob",
 	"sp-panic-handler",
 	"sp-rpc",
+	"sp-virtualization-test-fixture",
 	"staging-chain-spec-builder",
 	"staging-node-inspect",
 	"staging-tracking-allocator",
@@ -2162,6 +2164,11 @@ default-features = false
 optional = true
 path = "../substrate/primitives/version/proc-macro"
 
+[dependencies.sp-virtualization]
+default-features = false
+optional = true
+path = "../substrate/primitives/virtualization"
+
 [dependencies.sp-wasm-interface]
 default-features = false
 optional = true
@@ -2867,10 +2874,10 @@ default-features = false
 optional = true
 path = "../substrate/primitives/rpc"
 
-[dependencies.sp-virtualization]
+[dependencies.sp-virtualization-test-fixture]
 default-features = false
 optional = true
-path = "../substrate/primitives/virtualization"
+path = "../substrate/primitives/virtualization/test-fixture"
 
 [dependencies.staging-chain-spec-builder]
 default-features = false
