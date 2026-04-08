@@ -79,8 +79,7 @@ pub use weights::WeightInfo;
 pub type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
-pub type OnChargeTransactionOf<T> =
-	<T as pallet_transaction_payment::Config>::OnChargeTransaction;
+pub type OnChargeTransactionOf<T> = <T as pallet_transaction_payment::Config>::OnChargeTransaction;
 
 /// Liquidity info type alias for the chain's native asset.
 pub type NativeLiquidityInfoOf<T> =

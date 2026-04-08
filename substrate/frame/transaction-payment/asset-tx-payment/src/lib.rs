@@ -73,13 +73,11 @@ pub use payment::*;
 pub use weights::WeightInfo;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
-pub type OnChargeTransactionOf<T> =
-	<T as pallet_transaction_payment::Config>::OnChargeTransaction;
+pub type OnChargeTransactionOf<T> = <T as pallet_transaction_payment::Config>::OnChargeTransaction;
 /// Balance type alias.
 pub type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
 /// Liquidity info type alias.
-pub type LiquidityInfoOf<T> =
-	<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::LiquidityInfo;
+pub type LiquidityInfoOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::LiquidityInfo;
 
 /// Type alias used for interaction with fungibles (assets).
 /// Balance type alias.

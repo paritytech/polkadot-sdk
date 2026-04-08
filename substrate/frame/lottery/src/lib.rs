@@ -208,8 +208,7 @@ pub mod pallet {
 
 	/// The configuration for the current lottery.
 	#[pallet::storage]
-	pub type Lottery<T: Config> =
-		StorageValue<_, LotteryConfig<BlockNumberFor<T>, BalanceOf<T>>>;
+	pub type Lottery<T: Config> = StorageValue<_, LotteryConfig<BlockNumberFor<T>, BalanceOf<T>>>;
 
 	/// Users who have purchased a ticket. (Lottery Index, Tickets Purchased)
 	#[pallet::storage]

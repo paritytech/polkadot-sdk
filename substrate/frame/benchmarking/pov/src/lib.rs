@@ -51,8 +51,7 @@ pub mod pallet {
 	/// A value without a MEL bound.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type UnboundedValue<T: Config> =
-		StorageValue<Value = Vec<u8>, QueryKind = OptionQuery>;
+	pub type UnboundedValue<T: Config> = StorageValue<Value = Vec<u8>, QueryKind = OptionQuery>;
 
 	/// A value with a MEL bound of 32 byte.
 	#[pallet::storage]

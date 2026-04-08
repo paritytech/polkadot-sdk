@@ -1359,8 +1359,7 @@ pub mod pallet {
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
-	pub type ContractInfoOf<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, ContractInfo<T>>;
+	pub type ContractInfoOf<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ContractInfo<T>>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -1372,14 +1371,12 @@ pub mod pallet {
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
 	#[pallet::storage]
-	pub type DeletionQueueCounter<T: Config> =
-		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
+	pub type DeletionQueueCounter<T: Config> = StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
 
 	/// A migration can span across multiple blocks. This storage defines a cursor to track the
 	/// progress of the migration, enabling us to resume from the last completed position.
 	#[pallet::storage]
-	pub type MigrationInProgress<T: Config> =
-		StorageValue<_, migration::Cursor, OptionQuery>;
+	pub type MigrationInProgress<T: Config> = StorageValue<_, migration::Cursor, OptionQuery>;
 }
 
 /// The type of origins supported by the contracts pallet.

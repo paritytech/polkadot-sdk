@@ -246,8 +246,7 @@ pub mod pallet {
 	/// The current membership, stored as an ordered Vec.
 	#[pallet::storage]
 	#[pallet::getter(fn members)]
-	pub type Members<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, MembersT<T, I>, ValueQuery>;
+	pub type Members<T: Config<I>, I: 'static = ()> = StorageValue<_, MembersT<T, I>, ValueQuery>;
 
 	/// Size of the `Members` set.
 	#[pallet::storage]

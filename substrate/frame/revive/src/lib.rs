@@ -691,8 +691,7 @@ pub mod pallet {
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
 	#[pallet::storage]
-	pub type DeletionQueueCounter<T: Config> =
-		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
+	pub type DeletionQueueCounter<T: Config> = StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
 
 	/// Map a Ethereum address to its original `AccountId32`.
 	///
@@ -720,8 +719,7 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub type BlockHash<T: Config> =
-		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
+	pub type BlockHash<T: Config> = StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -736,8 +734,7 @@ pub mod pallet {
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub type EthBlockBuilderIR<T: Config> =
-		StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
+	pub type EthBlockBuilderIR<T: Config> = StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
 
 	/// The first transaction and receipt of the ethereum block.
 	///
