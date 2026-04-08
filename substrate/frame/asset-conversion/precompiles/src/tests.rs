@@ -353,3 +353,146 @@ fn quote_fails_with_invalid_encoding() {
 		assert!(failed, "quote with invalid SCALE encoding must fail");
 	});
 }
+
+#[test]
+fn create_pool_works() {
+	new_test_ext().execute_with(|| {
+		let creator = 1u64;
+
+		// Create asset 1 first.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1u32, creator, true, 1));
+
+		let data = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let result = bare_call(creator, data);
+		let return_data = result.result.expect("create_pool must succeed");
+		assert!(!return_data.did_revert(), "create_pool must not revert");
+
+		// Creating the same pool again should fail.
+		let data2 = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let result2 = bare_call(creator, data2);
+		let failed =
+			result2.result.is_err() || result2.result.as_ref().map_or(false, |v| v.did_revert());
+		assert!(failed, "creating duplicate pool must fail");
+	});
+}
+
+#[test]
+fn add_and_remove_liquidity_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		// Set up asset and pool (without using setup_pool helper since we want to test
+		// add_liquidity via the precompile).
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1u32, provider, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, provider, 100_000));
+
+		// Create pool via precompile.
+		let create_data = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+		let create_result = bare_call(provider, create_data);
+		assert!(!create_result.result.unwrap().did_revert());
+
+		// Record balances before adding liquidity.
+		let native_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+
+		// Add liquidity via precompile.
+		let add_data = IAssetConversion::addLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount1Desired: U256::from(10_000),
+			amount2Desired: U256::from(10_000),
+			amount1Min: U256::from(0),
+			amount2Min: U256::from(0),
+			mintTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let add_result = bare_call(provider, add_data);
+		let add_return = add_result.result.expect("add_liquidity must succeed");
+		assert!(!add_return.did_revert(), "add_liquidity must not revert");
+
+		let lp_tokens =
+			IAssetConversion::addLiquidityCall::abi_decode_returns(&add_return.data)
+				.expect("return data must decode");
+		assert!(lp_tokens > U256::ZERO, "must receive LP tokens");
+
+		// Verify provider was debited.
+		let native_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+		// First liquidity provision to an empty pool debits exactly the desired amounts.
+		assert_eq!(native_before - native_after, 10_000, "native must be debited exactly");
+		assert_eq!(asset1_before - asset1_after, 10_000, "asset1 must be debited exactly");
+
+		// Verify pool has reserves by quoting.
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		let quote_result = bare_call(provider, quote_data);
+		assert!(!quote_result.result.unwrap().did_revert(), "quote must work after adding liquidity");
+
+		// Record balances before removal.
+		let native_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+
+		// Remove liquidity via precompile.
+		let remove_data = IAssetConversion::removeLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			lpTokenBurn: lp_tokens,
+			amount1MinReceive: U256::from(1),
+			amount2MinReceive: U256::from(1),
+			withdrawTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let remove_result = bare_call(provider, remove_data);
+		let remove_return = remove_result.result.expect("remove_liquidity must succeed");
+		assert!(!remove_return.did_revert(), "remove_liquidity must not revert");
+
+		let ret =
+			IAssetConversion::removeLiquidityCall::abi_decode_returns(&remove_return.data)
+				.expect("return data must decode");
+		assert!(ret.amount1 > U256::ZERO, "must receive asset1 back");
+		assert!(ret.amount2 > U256::ZERO, "must receive asset2 back");
+
+		// Verify actual balance changes match return values.
+		let native_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+		assert_eq!(
+			U256::from(native_after - native_before),
+			ret.amount1,
+			"native balance delta must match return value"
+		);
+		assert_eq!(
+			U256::from(asset1_after - asset1_before),
+			ret.amount2,
+			"asset1 balance delta must match return value"
+		);
+	});
+}
