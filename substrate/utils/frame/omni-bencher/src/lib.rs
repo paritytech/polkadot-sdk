@@ -16,8 +16,6 @@
 // limitations under the License.
 
 #![doc = include_str!("../README.md")]
-#[cfg(feature = "generate-readme")]
-docify::compile_markdown!("README.docify.md", "README.md");
 
 pub mod command;
 
