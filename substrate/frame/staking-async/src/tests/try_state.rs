@@ -89,6 +89,36 @@ fn try_state_bad_exposure() {
 }
 
 #[test]
+fn last_validator_era_can_be_one_greater_than_active_era() {
+	// When the election for the next era has finished but the era is not yet active,
+	// `LastValidatorEra` is set to `active_era + 1`.
+	ExtBuilder::default().try_state(false).build_and_execute(|| {
+		Session::roll_until_active_era(1);
+		let era = active_era();
+
+		// Before election, `LastValidatorEra` equals the active era.
+		for (validator, _) in ErasStakersOverview::<T>::iter_prefix(era) {
+			assert_eq!(LastValidatorEra::<T>::get(&validator), Some(era));
+		}
+
+		// Roll session by session until the election for the next era has been stored, i.e.
+		// `ErasStakersOverview` for the next era is populated.
+		while ErasStakersOverview::<T>::iter_prefix(era + 1).next().is_none() {
+			Session::roll_to_next_session();
+		}
+
+		// Election for era 2 is stored but era 2 is not yet active.
+		assert_eq!(active_era(), 1);
+		assert_eq!(current_era(), 2);
+
+		// After election, `LastValidatorEra` is now 1 greater than active era.
+		for (validator, _) in ErasStakersOverview::<T>::iter_prefix(era) {
+			assert_eq!(LastValidatorEra::<T>::get(&validator), Some(era + 1));
+		}
+	});
+}
+
+#[test]
 fn try_state_bad_eras_total_stake() {
 	ExtBuilder::default().try_state(false).build_and_execute(|| {
 		Session::roll_until_active_era(2);
