@@ -154,11 +154,14 @@ impl TransactionsHandlerPrototype {
 			vec![format!("/{}/transactions/1", protocol_id.as_ref()).into()],
 			MAX_TRANSACTIONS_SIZE,
 			None,
+			// 中文注释（CitizenChain 补丁）：与 GRANDPA 同理，开放公链需要接受非
+			// reserved peer 进入 transactions 通知集，否则 wuminapp smoldot 打开 outbound
+			// transactions substream 会被 PSM Reject → SubstreamReset → 整个 gossip 失败。
 			SetConfig {
-				in_peers: 0,
-				out_peers: 0,
+				in_peers: 25,
+				out_peers: 25,
 				reserved_nodes: Vec::new(),
-				non_reserved_mode: NonReservedPeerMode::Deny,
+				non_reserved_mode: NonReservedPeerMode::Accept,
 			},
 			metrics,
 			peer_store_handle,

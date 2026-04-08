@@ -719,11 +719,16 @@ pub fn grandpa_peers_set_config<B: BlockT, N: NetworkBackend<B, <B as BlockT>::H
 		// Notifications reach ~256kiB in size at the time of writing on Kusama and Polkadot.
 		1024 * 1024,
 		None,
+		// 中文注释（CitizenChain 补丁）：上游 Polkadot/Kusama 默认 in_peers=0 + Deny 是因为
+		// relay chain 的 GRANDPA peer 全都是 reserved 全节点，开放公链不能这样配。
+		// CitizenChain 是开放链 + 轻客户端 (smoldot) 钱包：必须接受非 reserved peer 进入
+		// GRANDPA 通知集，否则 wuminapp smoldot 一打开 outbound GRANDPA substream 就会被
+		// PSM Reject → SubstreamReset → 整个 gossip 失败 → wuminapp 频繁连不上区块链。
 		sc_network::config::SetConfig {
-			in_peers: 0,
-			out_peers: 0,
+			in_peers: 25,
+			out_peers: 25,
 			reserved_nodes: Vec::new(),
-			non_reserved_mode: sc_network::config::NonReservedPeerMode::Deny,
+			non_reserved_mode: sc_network::config::NonReservedPeerMode::Accept,
 		},
 		metrics,
 		peer_store_handle,
