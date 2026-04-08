@@ -28,7 +28,7 @@ use frame_support::{weights::WeightMeter, Parameter};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
 
-use crate::{AdaptedPrices, CoreIndex, PotentialRenewalId, RegionId, Timeslice};
+use crate::{CoreIndex, PotentialRenewalId, RegionId, Timeslice};
 
 /// Trait representing generic coretime market logic.
 ///
@@ -77,7 +77,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	fn start_sales(
 		block_number: RelayBlockNumber,
 		init_data: Self::InitData,
-	) -> Result<SalesStarted<Balance, RelayBlockNumber>, Self::Error>;
+	) -> Result<SalesStarted<RelayBlockNumber>, Self::Error>;
 
 	/// Place an order to purchase one coretime region.
 	///
@@ -187,14 +187,12 @@ pub struct MarketSaleInfo<RelayBlockNumber> {
 }
 
 /// Outcome of [`Market::start_sales`].
-pub struct SalesStarted<Balance, RelayBlockNumber> {
+pub struct SalesStarted<RelayBlockNumber> {
 	/// An imaginary "previous" sale used only for bootstrapping the first real sale. Used by
 	/// `pallet-broker` to execute the logic that's normally executed on the sales boundary.
 	pub imaginary_old_sale: MarketSaleInfo<RelayBlockNumber>,
 	/// The first active sale.
 	pub new_sale: MarketSaleInfo<RelayBlockNumber>,
-	/// Prices applicable to `new_sale`.
-	pub new_prices: AdaptedPrices<Balance>,
 }
 
 /// Possible outcomes of [`Market::place_order`].
@@ -300,7 +298,5 @@ pub enum TickAction<AccountId, Balance, RelayBlockNumber> {
 		old_sale: MarketSaleInfo<RelayBlockNumber>,
 		/// Newly active sale.
 		new_sale: MarketSaleInfo<RelayBlockNumber>,
-		/// Prices for the new sale.
-		new_prices: AdaptedPrices<Balance>,
 	},
 }
