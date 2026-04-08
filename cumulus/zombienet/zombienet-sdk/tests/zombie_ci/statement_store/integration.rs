@@ -4,7 +4,7 @@
 use codec::Encode;
 use log::info;
 use sp_core::Bytes;
-use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
+use sp_statement_store::{RejectionReason, Statement, StatementAllowance, SubmitResult, Topic};
 
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 
@@ -197,5 +197,81 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		info!("{}: eviction statements propagated ({} received)", name, received.len());
 	}
 
+	Ok(())
+}
+
+/// Verifies that a node recovers its full statement store state after a crash/restart,
+/// that other nodes remain unaffected during the outage, and that all statements
+/// converge after recovery.
+///
+/// Scenario:
+/// 1. Submit 10 statements to alice, 10 to bob
+/// 2. Immediately restart bob (simulating crash mid-sync)
+/// 3. While bob is restarting, submit 10 statements to charlie
+/// 4. After bob recovers, verify all 30 statements are present on every node
+///
+/// Test uses the genesis-injection approach for setting allowances.
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_node_crash_recovery() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], 30).await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let charlie = network.get_node("charlie")?;
+
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+	let charlie_rpc = charlie.rpc().await?;
+
+	let topic: Topic = [5u8; 32].into();
+
+	let all_statements: Vec<Statement> = (0u32..30)
+		.map(|i| {
+			let keypair = get_keypair(i);
+			create_test_statement(&keypair, &[topic], None, vec![i as u8], u32::MAX, 0)
+		})
+		.collect();
+
+	info!("Submitting 10 statements to alice");
+	for stmt in &all_statements[0..10] {
+		assert_eq!(submit_statement(&alice_rpc, &stmt).await?, SubmitResult::New);
+	}
+
+	info!("Submitting 10 statements to bob");
+	for stmt in &all_statements[10..20] {
+		assert_eq!(submit_statement(&bob_rpc, &stmt).await?, SubmitResult::New);
+	}
+
+	info!("Restarting bob (crash mid-sync)");
+	bob.restart(None).await?;
+
+	info!("Submitting 10 statements to charlie while bob is restarting");
+	for stmt in &all_statements[20..30] {
+		assert_eq!(submit_statement(&charlie_rpc, &stmt).await?, SubmitResult::New);
+	}
+
+	info!("Waiting for bob to come back up");
+	bob.wait_until_is_up(120u64).await?;
+	let bob_rpc = bob.rpc().await?;
+	info!("Bob is back up");
+
+	let mut expected: Vec<Vec<u8>> = all_statements.iter().map(|s| s.encode()).collect();
+	expected.sort();
+
+	info!("Verifying all 30 statements converge on every node");
+	for (name, rpc) in [("alice", &alice_rpc), ("bob", &bob_rpc), ("charlie", &charlie_rpc)] {
+		let mut sub = subscribe_topic(rpc, topic).await?;
+		let received = expect_statements_unordered(&mut sub, 30, 120).await?;
+		let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+		received_bytes.sort();
+		assert_eq!(received_bytes, expected, "Statement mismatch on {}", name);
+		info!("{}: all 30 statements verified", name);
+	}
+
+	info!("Node crash recovery test passed");
 	Ok(())
 }
