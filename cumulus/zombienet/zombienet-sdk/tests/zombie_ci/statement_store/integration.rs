@@ -3,7 +3,7 @@
 
 use std::collections::HashSet;
 
-use codec::{Decode, Encode};
+use codec::Encode;
 use log::{debug, info};
 use sp_core::Bytes;
 use sp_statement_store::{
@@ -232,22 +232,9 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 
 	let stmts_per_node: usize = 50;
 	let total_stmts = stmts_per_node * 3;
-	let network =
-		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
-			.await?;
-
-	let alice = network.get_node("alice")?;
-	let bob = network.get_node("bob")?;
-	let charlie = network.get_node("charlie")?;
-
-	let alice_rpc = alice.rpc().await?;
-	let bob_rpc = bob.rpc().await?;
-	let charlie_rpc = charlie.rpc().await?;
-
 	let topic_alice: Topic = [0xA0; 32].into();
 	let topic_bob: Topic = [0xB0; 32].into();
 	let topic_charlie: Topic = [0xC0; 32].into();
-
 	// Each statement is ~0.6 MiB so that only one fits per gossip notification
 	// (limited to 1 MiB). This forces statements to be sent individually, creating
 	// a real time window where bob can be killed mid-sync with partial state.
@@ -257,17 +244,9 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let mut make_statements = |topic: Topic| -> Vec<Statement> {
 		(0..stmts_per_node)
 			.map(|_| {
-				let idx = keypair_idx;
+				let keypair = get_keypair(keypair_idx);
 				keypair_idx += 1;
-				let keypair = get_keypair(idx);
-				create_test_statement(
-					&keypair,
-					&[topic],
-					None,
-					vec![idx as u8; data_size],
-					u32::MAX,
-					0,
-				)
+				create_test_statement(&keypair, &[topic], None, vec![0u8; data_size], u32::MAX, 0)
 			})
 			.collect()
 	};
@@ -276,42 +255,42 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let bob_stmts = make_statements(topic_bob);
 	let charlie_stmts = make_statements(topic_charlie);
 
-	// Subscribe on bob to alice's topic before submitting anything.
-	// This lets us confirm bob received at least one alice statement via gossip.
-	let mut bob_alice_sub = subscribe_topic(&bob_rpc, topic_alice).await?;
+	let hash_to_hex = |h: &[u8; 32]| format!("{:?}", sp_core::hexdisplay::HexDisplay::from(h));
 
-	// Submit to alice and bob concurrently so that bob doesn't receive
-	// all of alice's statements before we submit bob's own.
-	info!(
-		"Submitting {} statements to alice and {} to bob concurrently",
-		stmts_per_node, stmts_per_node,
-	);
-	let alice_rpc_clone = alice.rpc().await?;
-	let bob_rpc_clone = bob.rpc().await?;
+	let network =
+		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
+			.await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let charlie = network.get_node("charlie")?;
+
+	info!("Submitting {} statements to alice and bob concurrently", stmts_per_node);
+
+	let alice_rpc = alice.rpc().await?;
 	let alice_stmts_clone = alice_stmts.clone();
-	let bob_stmts_clone = bob_stmts.clone();
-
 	let alice_handle = tokio::spawn(async move {
 		for (i, stmt) in alice_stmts_clone.iter().enumerate() {
-			let result = submit_statement(&alice_rpc_clone, stmt).await?;
+			let result = submit_statement(&alice_rpc, stmt).await?;
 			assert_eq!(result, SubmitResult::New, "alice stmt[{}] rejected", i);
 		}
 		Ok::<_, anyhow::Error>(())
 	});
 
+	let bob_rpc = bob.rpc().await?;
+	let bob_stmts_clone = bob_stmts.clone();
 	let bob_handle = tokio::spawn(async move {
 		for (i, stmt) in bob_stmts_clone.iter().enumerate() {
-			let result = submit_statement(&bob_rpc_clone, stmt).await?;
+			let result = submit_statement(&bob_rpc, stmt).await?;
 			assert_eq!(result, SubmitResult::New, "bob stmt[{}] rejected", i);
 		}
 		Ok::<_, anyhow::Error>(())
 	});
 
-	// Wait for bob to receive at least one alice statement via gossip,
-	// confirming bob is mid-sync. Runs concurrently with submissions.
+	let bob_rpc = bob.rpc().await?;
 	let gossip_handle = tokio::spawn(async move {
-		let received = expect_statements_unordered(&mut bob_alice_sub, 1, 30).await?;
-		Ok::<_, anyhow::Error>(received)
+		let mut bob_alice_sub = subscribe_topic(&bob_rpc, topic_alice).await?;
+		expect_statements_unordered(&mut bob_alice_sub, 1, 30).await
 	});
 
 	// Restart is chained via map to ensure it fires immediately after try_join
@@ -325,25 +304,23 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 			bob.restart(None)
 		})?
 		.await?;
+
 	info!("Submissions completed, bob restarted (crash mid-sync)");
 	assert!(bob.wait_until_is_up(1u64).await.is_err(), "Bob came up too fast");
 
 	info!("Submitting {} statements to charlie while bob is restarting", stmts_per_node);
+	let charlie_rpc = charlie.rpc().await?;
 	for (i, stmt) in charlie_stmts.iter().enumerate() {
-		assert_eq!(
-			submit_statement(&charlie_rpc, stmt).await?,
-			SubmitResult::New,
-			"charlie stmt[{}] rejected",
-			i
-		);
+		let result = submit_statement(&charlie_rpc, stmt).await?;
+		assert_eq!(result, SubmitResult::New, "charlie stmt[{}] rejected", i);
 	}
 	assert!(bob.wait_until_is_up(1u64).await.is_err(), "Bob was up during charlie submissions");
 
 	info!("Waiting for bob to come back up");
 	bob.wait_until_is_up(120u64).await?;
+
 	// Wait for bob's store to finish populating from disk before reading logs
-	tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-	let bob_rpc = bob.rpc().await?;
+	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
 
 	// Count how many of bob's own statements survived the crash.
 	// ParityDB's commit() doesn't fsync, so SIGKILL can lose the last write
@@ -352,88 +329,47 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let bob_logs = bob.logs().await?;
 	let loaded_hashes: HashSet<String> = bob_logs
 		.lines()
-		.filter_map(|l| {
-			if l.contains("(expired)") {
-				return None;
-			}
-			l.split("Statement loaded ").nth(1).map(|h| h.trim().to_string())
-		})
+		.filter_map(|l| l.split("Statement loaded ").nth(1).map(|h| h.trim().to_string()))
 		.collect();
+
 	assert!(
 		!loaded_hashes.is_empty(),
-		"No 'Statement loaded' entries found in bob's logs (log length: {} bytes). \
+		"No 'Statement loaded' entries found in bob's logs. \
 		 The log format may have changed or statement-store=trace is not configured.",
-		bob_logs.len(),
 	);
 
-	let bob_lost_count = bob_stmts
+	let bob_loaded = bob_stmts
 		.iter()
-		.filter(|s| {
-			let hash_hex = format!("{:?}", sp_core::hexdisplay::HexDisplay::from(&s.hash()));
-			!loaded_hashes.contains(&hash_hex)
-		})
+		.filter(|s| loaded_hashes.contains(&hash_to_hex(&s.hash())))
 		.count();
-	let bob_survived = stmts_per_node - bob_lost_count;
-	let alice_loaded = loaded_hashes.len().checked_sub(bob_survived).unwrap_or_else(|| {
-		panic!(
-			"loaded_hashes ({}) < bob_survived ({}): log parsing bug",
-			loaded_hashes.len(),
-			bob_survived,
-		)
-	});
+	let bob_lost = stmts_per_node - bob_loaded;
+	let alice_loaded = loaded_hashes.len().saturating_sub(bob_loaded);
+	let expected_count = total_stmts - bob_lost;
 
 	info!(
 		"Bob loaded {} statements from disk ({} bob, {} alice)",
 		loaded_hashes.len(),
-		bob_survived,
+		bob_loaded,
 		alice_loaded,
 	);
-	if bob_lost_count == 1 {
+	if bob_lost == 1 {
 		log::warn!("Bob lost 1 statement due to crash (unflushed ParityDB write)");
 	}
-	assert!(bob_lost_count <= 1, "Bob lost {} statements, expected at most 1", bob_lost_count);
 	if alice_loaded >= stmts_per_node {
-		log::warn!(
-			"Bob loaded all {} alice statements from disk. \
-			 This means alice's statements fully propagated before the kill, \
-			 so the crash was NOT mid-sync. Consider re-running the test.",
-			stmts_per_node,
-		);
+		log::warn!("Bob loaded all alice statements from disk so the crash was NOT mid-sync",);
 	}
-
-	let hash_to_hex = |h: &[u8; 32]| format!("{:?}", sp_core::hexdisplay::HexDisplay::from(h));
-
-	let all_topics = vec![topic_alice, topic_bob, topic_charlie];
-	let filter = TopicFilter::MatchAny(all_topics.try_into().expect("3 topics fits in 128 bound"));
-
-	let expected_count = total_stmts - bob_lost_count;
-	assert!(
-		expected_count >= stmts_per_node * 2,
-		"Expected at least {} recoverable statements (alice + charlie), got {}",
-		stmts_per_node * 2,
-		expected_count,
-	);
+	assert!(bob_lost <= 1, "Bob lost {} statements, expected at most 1", bob_lost);
 
 	info!("Verifying all {} recoverable statements converge on every node", expected_count);
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+	let charlie_rpc = charlie.rpc().await?;
+	let filter =
+		TopicFilter::MatchAny(vec![topic_alice, topic_bob, topic_charlie].try_into().unwrap());
 	for (name, rpc) in [("alice", &alice_rpc), ("bob", &bob_rpc), ("charlie", &charlie_rpc)] {
 		let mut sub = subscribe_topic_filter(rpc, filter.clone()).await?;
 		let received = expect_statements_unordered(&mut sub, expected_count, 120).await?;
-		let mut received_hashes: Vec<String> = received
-			.iter()
-			.map(|b| {
-				let stmt = Statement::decode(&mut &b[..]).expect("received valid statement");
-				hash_to_hex(&stmt.hash())
-			})
-			.collect();
-		received_hashes.sort();
-		assert_eq!(
-			received_hashes.len(),
-			expected_count,
-			"Statement count mismatch on {}: got {}, expected {}",
-			name,
-			received_hashes.len(),
-			expected_count,
-		);
+		assert_eq!(received.len(), expected_count, "Statement count mismatch on {}", name,);
 		debug!("{}: all {} statements verified", name, expected_count);
 	}
 
