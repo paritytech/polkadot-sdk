@@ -1,6 +1,6 @@
 title: 'Deprecate private pallet storage types '
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     # Description
 
@@ -8,50 +8,6 @@ doc:
 
     Storage items in FRAME are always publicly accessible through the underlying storage API and cannot be effectively restricted via Rust's visibility modifiers. Applying `pub(crate)` or `pub(super)` to storage types is misleading and can complicates pallet development and integration.
 
-    This change:
-    - Emits a warning when a storage item is not `pub`.
-    - Suppresses the warning when the pallet is in `dev_mode`.
-    - Migrates existing private storage in core pallets (e.g., `frame-system`) to the new standard.
-
-    Closes #8321
-
-    ## Integration
-
-    Downstream developers will see a compile-time deprecation warning for any non-public storage items:
-    *"It is deprecated to use private visibility for pallet storage. Please instead use `pub` visibility for all pallet storage items."*
-
-    To resolve the warning, simply update the visibility of the storage type to `pub`:
-
-    ```diff
-     #[pallet::storage]
-    -pub(crate) type MyStorage<T> = StorageValue<_, u32>;
-    +pub type MyStorage<T> = StorageValue<_, u32>;
-    ```
-    # Review Notes
-
-    The implementation leverages the internal `proc_macro_warning::Warning` system used by FRAME for soft-deprecations.
-
-    ### Key Changes:
-
-    #### `substrate/frame/support/procedural`
-    - Added `private_storage_warning` to the `warnings.rs` module to handle the diagnostic message.
-    - Updated `expand_storages` in `storage.rs` to iterate through all `StorageDef` items, check their visibility, and collect warnings if they are not `pub` (unless the pallet is in `dev_mode`).
-
-    #### `substrate/frame/system`
-    - Updated 13 storage items (including `ExecutionPhase`, `Events`, `Number`, and `Digest`) from `pub(super)` to `pub` visibility. This was necessary to resolve the new deprecation warnings within the core library and ensure it serves as a reference for the new standard.
-
-    #### `substrate/frame/support/test`
-    - Added UI tests:
-        - `private_storage.rs`: Verifies that `pub(crate)` and private visibility trigger the expected deprecation warning.
-        - `pass/private_storage_dev_mode.rs`: Verifies that the warning is correctly suppressed when `dev_mode` is enabled.
-    - Generated the corresponding `.stderr` for `private_storage.rs` to ensure CI pass.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the [labeling requirements](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/CONTRIBUTING.md#Process) of this project (at minimum one label for `T` required)
-    * [x] I have made corresponding changes to the documentation (if applicable)
-    * [x] I have added tests that prove my fix is effective or that my feature works (if applicable)
 crates:
 - name: frame-support-procedural
   bump: major
