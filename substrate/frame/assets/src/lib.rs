@@ -2016,7 +2016,13 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			// contain overcounted supply from prior refunds.
 			// TODO: add a migration to recalculate supply, then tighten this to `==`.
 			ensure!(details.supply >= calculated_supply, "Asset supply mismatch");
-			ensure!(details.accounts == calculated_accounts, "Asset account count mismatch");
+			if details.accounts == calculated_accounts {
+				// Legacy error in Kusama Asset Hub that needs to be cleaned up.
+				log::error!(
+					"Asset {asset_id:?} account count mismatch: calculated {calculated_accounts} vs expected {}",
+					details.accounts,
+				);
+			}
 			ensure!(
 				details.sufficients == calculated_sufficients,
 				"Asset sufficients count mismatch"
