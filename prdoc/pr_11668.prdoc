@@ -6,5 +6,5 @@ doc:
     With this removal, pallet Verify Signature is removed as well.
 crates:
 - name: westend-runtime
-  bump: major
+  bump: minor
   validate: false
