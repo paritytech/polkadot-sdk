@@ -569,14 +569,14 @@ fn mixed_era_offences_processed_based_on_era_specific_setting() {
 
 			let nominator_stake_before = Staking::ledger(101.into()).unwrap().active;
 
-			// Report offence from era 1 (slashable) - nominator should be slashed
-			add_slash_in_era(11, 1, Perbill::from_percent(5));
+			// Report offence from era 2 (slashable) - nominator should be slashed
+			add_slash_in_era(11, 2, Perbill::from_percent(5));
 			Session::roll_next();
 
-			let nominator_stake_after_era1_slash = Staking::ledger(101.into()).unwrap().active;
+			let nominator_stake_after_era2_slash = Staking::ledger(101.into()).unwrap().active;
 			assert!(
-				nominator_stake_after_era1_slash < nominator_stake_before,
-				"Nominator should be slashed for era 1 offence"
+				nominator_stake_after_era2_slash < nominator_stake_before,
+				"Nominator should be slashed for era 2 offence"
 			);
 
 			// Report offence from era 3 (NOT slashable) - nominator should NOT be slashed
@@ -585,7 +585,7 @@ fn mixed_era_offences_processed_based_on_era_specific_setting() {
 
 			let nominator_stake_after_era3_slash = Staking::ledger(101.into()).unwrap().active;
 			assert_eq!(
-				nominator_stake_after_era3_slash, nominator_stake_after_era1_slash,
+				nominator_stake_after_era3_slash, nominator_stake_after_era2_slash,
 				"Nominator should NOT be slashed for era 3 offence"
 			);
 		});
