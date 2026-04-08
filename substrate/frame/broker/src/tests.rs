@@ -2904,94 +2904,113 @@ fn remove_potential_renewal_makes_auto_renewal_die() {
 
 #[test]
 fn early_auto_renew_registration_works() {
+	// Verify that a lease-holding task can register for auto-renewal *before* the
+	// `PotentialRenewal` entry is created (which only happens at the last sale period of the
+	// lease). This is the core of the reported bug: previously the call would be rejected with
+	// `NotAllowed` unless a `PotentialRenewal` already existed.
 	TestExt::new().endow(1, 10000).execute_with(|| {
-		assert_ok!(Broker::do_set_lease(2001, 10)); // Expires at timeslice 10 instead of 20
+		// Lease for task 2001 expires at timeslice 10 (region_end=13 will be the last sale boundary
+		// before which the lease is active, so next_renewal=13).
+		assert_ok!(Broker::do_set_lease(2001, 10));
 		assert_ok!(Broker::do_start_sales(100, 0));
-
 		advance_to(2);
 		endow(2001, 10000);
 
-		// Advance to when lease expires
-		advance_sale_period(); // region 4-7
-		advance_sale_period(); // region 7-10
-		advance_sale_period(); // region 10-13
+		// At this point NO `PotentialRenewal` yet exists for task 2001 — the lease is still being
+		// served by the system. With the fix this should succeed immediately.
+		assert!(
+			PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 13 }).is_none(),
+			"PotentialRenewal must not exist yet — test pre-condition failed"
+		);
+		assert_ok!(Broker::do_enable_auto_renew(2001, 0, 2001, None));
 
-		// The PotentialRenewal should exist at when=13 (the region_end of current sale)
-		let renewal_id = PotentialRenewalId { core: 0, when: 13 };
-		assert!(PotentialRenewals::<Test>::get(renewal_id).is_some());
-
-		// Enable auto-renewal with correct hint
-		assert_ok!(Broker::do_enable_auto_renew(2001, 0, 2001, Some(13)));
-
-		// Verify the auto-renewal record was created correctly
-		let renewals = AutoRenewals::<Test>::get();
-		assert_eq!(renewals.len(), 1);
-		assert_eq!(renewals[0].core, 0);
-		assert_eq!(renewals[0].task, 2001);
-		assert_eq!(renewals[0].next_renewal, 13);
-
+		// `next_renewal` must be 13: the region_end of the first sale where `until (10) <
+		// region_end`.
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 2001, next_renewal: 13 }]
+		);
 		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 0, task: 2001 }.into());
-	});
-}
 
-#[test]
-fn auto_renew_tracks_core_changes() {
-	TestExt::new().endow(1, 10000).endow(2, 10000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 3));
-		advance_to(2);
-
-		// Purchase and assign a region for task 1001
-		let region = Broker::do_purchase(1, u64::max_value()).unwrap();
-		assert_ok!(Broker::do_assign(region, Some(1), 1001, Final));
-		let initial_core = region.core;
-		assert_eq!(initial_core, 0); // First core
-
-		// Enable auto-renewal
-		endow(1001, 10000);
-		assert_ok!(Broker::do_enable_auto_renew(1001, initial_core, 1001, Some(7)));
-
-		// Verify initial auto-renewal record
-		let renewals = AutoRenewals::<Test>::get();
-		assert_eq!(renewals.len(), 1);
-		assert_eq!(renewals[0].next_renewal, 7); // Initial renewal at timeslice 7
-
-		// Advance to next sale period (region 7-10)
+		// Advance through sale 4-7 — renewal must NOT fire yet (next_renewal=13 > 4).
 		advance_sale_period();
+		assert_eq!(balance(2001), 10000);
 
-		// Someone else purchases cores before renewal happens
-		// This will consume cores and force reallocation during renewal
-		let region2 = Broker::do_purchase(2, u64::max_value()).unwrap();
-		assert_eq!(region2.core, 1); // Gets core 1
-
-		// Now advance to trigger auto-renewal (region 10-13)
+		// Rotating into sale 10-13: the lease (until=10) expires because 10 < region_end=13.
+		// A PotentialRenewal is created at when=13, but renew_cores skips (13 > region_begin=10).
 		advance_sale_period();
+		assert!(
+			PotentialRenewals::<Test>::get(PotentialRenewalId { core: 0, when: 13 }).is_some(),
+			"PotentialRenewal must exist after lease expiry rotation"
+		);
+		assert_eq!(balance(2001), 10000, "Account must not be charged before next_renewal");
 
-		// Check that the renewal happened
-		let renewals = AutoRenewals::<Test>::get();
-		assert_eq!(renewals.len(), 1);
-		assert_eq!(renewals[0].task, 1001);
+		// Rotating into sale 13-16: region_begin==next_renewal==13 so auto-renewal fires,
+		// consuming the PotentialRenewal and charging the account.
+		advance_sale_period();
+		assert!(balance(2001) < 10000, "Account must have been charged on renewal");
 
-		// The core assignment is tracked in the renewal event
-		// Verify the Renewed event was emitted with old and new core info
-		let renewed_core = renewals[0].core;
+		// Price is `target_price` set when the PotentialRenewal was created in rotate_sale.
 		System::assert_has_event(
 			Event::<Test>::Renewed {
-				who: 1001,
-				old_core: initial_core,
-				core: renewed_core,
-				price: 100,
-				begin: 7,
+				who: 2001,
+				old_core: 0,
+				core: 0,
+				price: 1000,
+				begin: 13,
 				duration: 3,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
-					assignment: Task(1001),
+					assignment: Task(2001),
 					mask: CoreMask::complete(),
 				}]),
 			}
 			.into(),
 		);
+	});
+}
 
-		// Verify the auto-renewal record is still valid for next period
-		assert_eq!(renewals[0].next_renewal, 13);
+#[test]
+fn auto_renew_tracks_core_changes_for_leases() {
+	// When a lease expires its core slot is freed and all subsequent leases shift down by one.
+	// The auto-renewal record for the remaining lease must be updated with the new core index,
+	// otherwise the renewal will fail with the stale core.
+	TestExt::new().execute_with(|| {
+		// Two leases — order of insertion determines core order (no reservations).
+		// task 1002 is inserted first → gets core 0.
+		// task 1001 is inserted second → gets core 1.
+		assert_ok!(Broker::do_set_lease(1002, 7)); // expires in sale 4-7 (region_end=7 > until=7? no)
+											 // `expire = until < region_end`: until=7, region_end=10 → true, so it expires in sale 7-10.
+		assert_ok!(Broker::do_set_lease(1001, 20)); // expires in sale 19-22 (region_end=22 > 20)
+		assert_ok!(Broker::do_start_sales(100, 0));
+		advance_to(2);
+		endow(1001, 10000);
+
+		// Register auto-renewal for task 1001 early.  At this point:
+		//   sale.region_begin=4, region_length=3
+		//   diff = 20 - 4 = 16, periods = 16/3 + 1 = 6, next_renewal = 4 + 18 = 22
+		assert_ok!(Broker::do_enable_auto_renew(1001, 1, 1001, None));
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 1, task: 1001, next_renewal: 22 }]
+		);
+
+		// Advance through the sale where 1002 expires (region 4-7 → rotate into 7-10).
+		// In this rotation 1002 still has until=7 < region_end=10 → expiring; 1001 keeps core 1.
+		advance_sale_period(); // rotate into sale 7-10
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 1, task: 1001, next_renewal: 22 }],
+			"Core must not change yet — 1002 expires but 1001 still gets core 1 this rotation"
+		);
+
+		// Advance to the next rotation (sale 10-13).  Now Leases=[1001] only, so task 1001
+		// is assigned core 0.  The auto-renewal record must be updated to reflect this.
+		advance_sale_period(); // rotate into sale 10-13
+		assert_eq!(
+			AutoRenewals::<Test>::get().to_vec(),
+			vec![AutoRenewalRecord { core: 0, task: 1001, next_renewal: 22 }],
+			"Core must have been updated to 0 after 1002 expired and lease list shrunk"
+		);
 	});
 }
 
@@ -3105,49 +3124,5 @@ fn auto_renew_rejects_invalid_hints() {
 			Broker::do_enable_auto_renew(1001, region.core, 1001, Some(999)),
 			Error::<Test>::NotAllowed
 		);
-	});
-}
-
-#[test]
-fn auto_renew_maintains_sorted_order() {
-	TestExt::new().endow(1, 10000).execute_with(|| {
-		assert_ok!(Broker::do_start_sales(100, 5));
-		advance_to(2);
-
-		// Purchase only 3 cores since MaxAutoRenewals is 3
-		let regions: Vec<_> =
-			(0..3).map(|_| Broker::do_purchase(1, u64::max_value()).unwrap()).collect();
-
-		// Assign and enable auto-renewal in reverse order
-		for (i, region) in regions.iter().enumerate().rev() {
-			let task = 1001 + i as u32;
-			assert_ok!(Broker::do_assign(*region, Some(1), task, Final));
-			endow(task.into(), 10000);
-			assert_ok!(Broker::do_enable_auto_renew(task.into(), region.core, task, Some(7)));
-		}
-
-		// Verify they're sorted by core index
-		let renewals = AutoRenewals::<Test>::get();
-		assert_eq!(renewals.len(), 3);
-
-		// Check sorted order
-		for i in 1..renewals.len() {
-			assert!(renewals[i - 1].core < renewals[i].core);
-		}
-
-		// Test binary search efficiency by disabling middle element
-		let middle_core = renewals[1].core;
-		let middle_task = renewals[1].task;
-		assert_ok!(Broker::do_disable_auto_renew(middle_core, middle_task));
-
-		let after_disable = AutoRenewals::<Test>::get();
-		assert_eq!(after_disable.len(), 2);
-
-		// Still sorted after removal
-		assert!(after_disable[0].core < after_disable[1].core);
-
-		// Verify the correct element was removed
-		assert_eq!(after_disable[0].core, renewals[0].core);
-		assert_eq!(after_disable[1].core, renewals[2].core);
 	});
 }

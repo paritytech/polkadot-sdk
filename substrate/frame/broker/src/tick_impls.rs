@@ -216,6 +216,10 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
 
 		let mut leases = Leases::<T>::get();
+		// Track (task, new_core) for active (non-expiring) leases so we can fix up any stale
+		// core indices stored in AutoRenewals. Core indices can shift between sales whenever
+		// another lease expires or reservations change, so we must keep them in sync.
+		let mut lease_core_updates: alloc::vec::Vec<(TaskId, CoreIndex)> = alloc::vec::Vec::new();
 		// Can morph to a renewable as long as it's >=begin and <end.
 		leases.retain(|&LeaseRecordItem { until, task }| {
 			let mask = CoreMask::complete();
@@ -239,6 +243,9 @@ impl<T: Config> Pallet<T> {
 					workload: record.completion.drain_complete().unwrap_or_default(),
 				});
 				Self::deposit_event(Event::LeaseEnding { when: region_end, task });
+			} else {
+				// Record the definitive core index for this still-active lease.
+				lease_core_updates.push((task, first_core));
 			}
 
 			first_core.saturating_inc();
@@ -246,6 +253,28 @@ impl<T: Config> Pallet<T> {
 			!expire
 		});
 		Leases::<T>::put(&leases);
+
+		// Update auto-renewal records whose core index has become stale due to lease expiries or
+		// reservation changes shifting the core assignment of remaining leases.
+		if !lease_core_updates.is_empty() {
+			AutoRenewals::<T>::mutate(|renewals| {
+				let mut changed = false;
+				for renewal in renewals.iter_mut() {
+					if let Some(&(_, new_core)) =
+						lease_core_updates.iter().find(|(t, _)| *t == renewal.task)
+					{
+						if renewal.core != new_core {
+							renewal.core = new_core;
+							changed = true;
+						}
+					}
+				}
+				if changed {
+					// Re-sort to maintain the sorted-by-core invariant.
+					renewals.sort_by_key(|r| r.core);
+				}
+			});
+		}
 
 		let max_possible_sales = status.core_count.saturating_sub(first_core);
 		let limit_cores_offered = config.limit_cores_offered.unwrap_or(CoreIndex::max_value());

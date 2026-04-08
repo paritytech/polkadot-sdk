@@ -561,27 +561,47 @@ impl<T: Config> Pallet<T> {
 		task: TaskId,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
+		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		let mut actual_core = core;
 
-		// Determine when this core's workload ends
+		// Determine when this core's workload ends.
+		//
+		// Two valid cases:
+		//  1. A `PotentialRenewal` exists (bulk coretime that has been assigned and is renewable).
+		//  2. A `Lease` exists for the task. Leases should be able to register for auto-renewal
+		//     well in advance of the PotentialRenewal being created (which only happens at the last
+		//     sale period of the lease). If neither exists the call is rejected.
 		let workload_end = if let Some(hint) = workload_end_hint {
-			// Validate the hint by checking if a renewal exists at that timeslice
-			ensure!(
-				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: hint }).is_some(),
-				Error::<T>::NotAllowed
-			);
-			hint
+			if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: hint }).is_some() {
+				// PotentialRenewal already exists at the hinted timeslice — straightforward case.
+				hint
+			} else {
+				// No PotentialRenewal yet. Allow if there is an active lease for this task so
+				// that lease holders can register for auto-renewal in advance.
+				ensure!(Leases::<T>::get().iter().any(|l| l.task == task), Error::<T>::NotAllowed);
+				hint
+			}
 		} else {
-			// No hint provided - check if renewable in current sale period
+			// No hint provided — check if the core is renewable right now.
 			let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
-			if let Some(_) = PotentialRenewals::<T>::get(renewal_id) {
-				// Core is expiring in this sale period, renew it now
+			if PotentialRenewals::<T>::get(renewal_id).is_some() {
+				// PotentialRenewal exists in the current sale; renew immediately so there is no
+				// gap in execution.
 				actual_core = Self::do_renew(sovereign_account.clone(), core)?;
 				sale.region_end
 			} else {
-				// No renewal possible - this is an error
-				return Err(Error::<T>::NotAllowed.into())
+				// No immediate renewal available — check for an active lease and derive the
+				// timeslice at which the PotentialRenewal will eventually be created.
+				let leases = Leases::<T>::get();
+				let lease = leases.iter().find(|l| l.task == task).ok_or(Error::<T>::NotAllowed)?;
+				// The PotentialRenewal is created at the `region_end` of the last sale where
+				// the lease is still active (`until < region_end`). Compute that timeslice:
+				//   periods = floor((until - region_begin) / region_length) + 1
+				//   next_renewal = region_begin + periods * region_length
+				let diff = lease.until.saturating_sub(sale.region_begin);
+				let periods = diff / config.region_length + 1;
+				sale.region_begin.saturating_add(periods.saturating_mul(config.region_length))
 			}
 		};
 
