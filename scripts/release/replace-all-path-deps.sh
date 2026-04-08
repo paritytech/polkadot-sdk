@@ -12,16 +12,24 @@ find . -name "Cargo.toml" \
   echo "Processing $file..."
 
   # Find and replace path dependencies with "workspace = true"
+  # Also ensure "workspace = true" comes before "default-features"
   awk '
     BEGIN { in_section = 0 }
-    /^\[dependencies\]/     { in_section = 1; print; next }
-    /^\[dev-dependencies\]/ { in_section = 2; print; next }
+    /^\[.*dependencies\]/   { in_section = 1; print; next }
     /^\[.*\]/               { in_section = 0; print; next }
 
     {
       if (in_section == 1 || in_section == 2) {
         if ($0 ~ /path *= *".*"/) {
           gsub(/path *= *".*"/, "workspace = true")
+          # If default-features appears before workspace, reorder them
+          if (match($0, /default-features *= *[a-z]+, *workspace *= *true/)) {
+            # Extract the default-features part
+            match($0, /default-features *= *[a-z]+/)
+            df = substr($0, RSTART, RLENGTH)
+            # Replace "df, workspace = true" with "workspace = true, df"
+            gsub(/default-features *= *[a-z]+, *workspace *= *true/, "workspace = true, " df)
+          }
         }
       }
       print

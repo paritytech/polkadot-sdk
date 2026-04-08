@@ -190,12 +190,14 @@ fn run_call<'a, E: Ext>(
 	value: U256,
 	return_memory_range: Range<usize>,
 ) -> ControlFlow<Halt> {
-	// We use ALL_STIPEND to detect the typical gas limit solc defines as a call stipend. This is
-	// just a heuristic.
 	let (add_stipend, reentracy) =
 		match (value.is_zero(), gas_limit.try_into().is_ok_and(|limit: u64| limit == CALL_STIPEND))
 		{
 			(false, _) => (true, ReentrancyProtection::AllowReentry),
+			// Heuristic: detect when solc passes `gas_limit = 2300` (the call stipend).
+			// For zero-value transfer/send, solc injects `gas_limit = 2300` explicitly.
+			// We apply `AllowNext` reentrancy protection and set `add_stipend = true` since the
+			// raw 2300 gas value is only meaningful at Ethereum's gas scale.
 			(_, true) => (true, ReentrancyProtection::AllowNext),
 			(_, _) => (false, ReentrancyProtection::AllowReentry),
 		};

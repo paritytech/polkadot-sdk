@@ -218,6 +218,17 @@ where
 			ParaIds(session_index, para_ids) => {
 				self.requests_cache.cache_para_ids(session_index, para_ids);
 			},
+			MaxRelayParentSessionAge(session_index, max_relay_parent_session_age) => self
+				.requests_cache
+				.cache_max_relay_parent_session_age(session_index, max_relay_parent_session_age),
+			AncestorRelayParentInfo(relay_parent, session_index, queried_relay_parent, info) => {
+				self.requests_cache.cache_ancestor_relay_parent_info(
+					relay_parent,
+					session_index,
+					queried_relay_parent,
+					info,
+				)
+			},
 		}
 	}
 
@@ -291,10 +302,17 @@ where
 				query!(validation_code(para, assumption), sender)
 					.map(|sender| Request::ValidationCode(para, assumption, sender))
 			},
-			Request::ValidationCodeByHash(validation_code_hash, sender) => {
-				query!(validation_code_by_hash(validation_code_hash), sender)
-					.map(|sender| Request::ValidationCodeByHash(validation_code_hash, sender))
-			},
+			Request::ValidationCodeByHash(validation_code_hash, sender) => if let Some(code) = self
+				.requests_cache
+				.validation_code_by_hash((relay_parent, validation_code_hash))
+			{
+				self.metrics.on_cached_request();
+				let _ = sender.send(Ok(Some(code.clone())));
+				None
+			} else {
+				Some(sender)
+			}
+			.map(|sender| Request::ValidationCodeByHash(validation_code_hash, sender)),
 			Request::CandidatePendingAvailability(para, sender) => {
 				query!(candidate_pending_availability(para), sender)
 					.map(|sender| Request::CandidatePendingAvailability(para, sender))
@@ -426,6 +444,32 @@ where
 					None
 				} else {
 					Some(Request::ParaIds(index, sender))
+				}
+			},
+			Request::MaxRelayParentSessionAge(index, sender) => {
+				if let Some(value) = self.requests_cache.max_relay_parent_session_age(index) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value));
+					None
+				} else {
+					Some(Request::MaxRelayParentSessionAge(index, sender))
+				}
+			},
+			Request::AncestorRelayParentInfo(session_index, queried_relay_parent, sender) => {
+				if let Some(value) = self.requests_cache.ancestor_relay_parent_info(
+					relay_parent,
+					session_index,
+					queried_relay_parent,
+				) {
+					self.metrics.on_cached_request();
+					let _ = sender.send(Ok(value.clone()));
+					None
+				} else {
+					Some(Request::AncestorRelayParentInfo(
+						session_index,
+						queried_relay_parent,
+						sender,
+					))
 				}
 			},
 		}
@@ -768,6 +812,20 @@ where
 			ver = Request::PARAIDS_RUNTIME_REQUIREMENT,
 			sender,
 			result = (index)
+		),
+		Request::MaxRelayParentSessionAge(index, sender) => query!(
+			MaxRelayParentSessionAge,
+			max_relay_parent_session_age(),
+			ver = Request::MAX_RELAY_PARENT_SESSION_AGE_RUNTIME_REQUIREMENT,
+			sender,
+			result = (index)
+		),
+		Request::AncestorRelayParentInfo(session_index, queried_relay_parent, sender) => query!(
+			AncestorRelayParentInfo,
+			ancestor_relay_parent_info(session_index, queried_relay_parent),
+			ver = Request::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+			sender,
+			result = (relay_parent, session_index, queried_relay_parent)
 		),
 		Request::UnappliedSlashesV2(sender) => query!(
 			UnappliedSlashesV2,

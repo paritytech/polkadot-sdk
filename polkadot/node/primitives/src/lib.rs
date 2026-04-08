@@ -60,7 +60,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.21.1";
+pub const NODE_VERSION: &'static str = "1.22.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -354,8 +354,10 @@ pub enum InvalidCandidate {
 	CodeHashMismatch,
 	/// Validation has generated different candidate commitments.
 	CommitmentsHashMismatch,
-	/// The candidate receipt contains an invalid session index.
-	InvalidSessionIndex,
+	/// The descriptor's scheduling session does not match the runtime.
+	InvalidSchedulingSession,
+	/// The relay parent is not recognized in the descriptor's claimed session.
+	InvalidRelayParentSession,
 	/// The candidate receipt invalid UMP signals.
 	InvalidUMPSignals(CommittedCandidateReceiptError),
 }
@@ -449,8 +451,10 @@ pub struct Collation<BlockNumber = polkadot_primitives::BlockNumber> {
 #[derive(Debug)]
 #[cfg(not(target_os = "unknown"))]
 pub struct CollationSecondedSignal {
-	/// The hash of the relay chain block that was used as context to sign [`Self::statement`].
-	pub relay_parent: Hash,
+	/// The hash of the relay chain block used as context for scheduling/validator assignment
+	/// to sign [`Self::statement`]. For V3 this is the scheduling parent (may differ from
+	/// the candidate's relay_parent). For V1/V2 this equals the relay_parent.
+	pub scheduling_parent: Hash,
 	/// The statement about seconding the collation.
 	///
 	/// Anything else than [`Statement::Seconded`] is forbidden here.
@@ -525,8 +529,6 @@ pub struct SubmitCollationParams {
 	pub relay_parent: Hash,
 	/// The collation itself (PoV and commitments)
 	pub collation: Collation,
-	/// The parent block's head-data.
-	pub parent_head: HeadData,
 	/// The hash of the validation code the collation was created against.
 	pub validation_code_hash: ValidationCodeHash,
 	/// An optional result sender that should be informed about a successfully seconded collation.
@@ -537,6 +539,18 @@ pub struct SubmitCollationParams {
 	pub result_sender: Option<futures::channel::oneshot::Sender<CollationSecondedSignal>>,
 	/// The core index on which the resulting candidate should be backed
 	pub core_index: CoreIndex,
+	/// The scheduling parent for V3 candidate descriptors.
+	/// If set, the candidate descriptor will use this as the scheduling parent
+	/// (creating a V3 descriptor). If None, relay_parent is used (V2 descriptor).
+	///
+	/// WARNING: Should only be set if the `CandidateReceiptV3` node feature is set.
+	pub scheduling_parent: Option<Hash>,
+	/// The session index of the relay parent. Goes into the candidate descriptor.
+	/// Must be provided by the caller because the relay parent's state may be pruned.
+	pub session_index: SessionIndex,
+	/// The persisted validation data for this collation. The `parent_head` field must be set
+	/// to the correct parent head-data for the parablock being submitted.
+	pub validation_data: PersistedValidationData,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

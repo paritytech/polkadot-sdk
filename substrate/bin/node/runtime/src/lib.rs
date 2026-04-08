@@ -93,6 +93,7 @@ use pallet_session::historical as pallet_session_historical;
 use pallet_transaction_payment::{FeeDetails, RuntimeDispatchInfo};
 pub use pallet_transaction_payment::{FungibleAdapter, Multiplier, TargetedFeeAdjustment};
 use pallet_tx_pause::RuntimeCallNameOf;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_beefy::{
@@ -271,7 +272,7 @@ pub struct AssetRateArguments;
 #[cfg(feature = "runtime-benchmarks")]
 impl AssetKindFactory<NativeOrWithId<u32>> for AssetRateArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -284,7 +285,7 @@ pub struct PalletTreasuryArguments;
 #[cfg(feature = "runtime-benchmarks")]
 impl PalletTreasuryArgumentsFactory<NativeOrWithId<u32>, AccountId> for PalletTreasuryArguments {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -303,7 +304,7 @@ impl PalletMultiAssetBountiesArgumentsFactory<NativeOrWithId<u32>, AccountId, u1
 	for PalletMultiAssetBountiesArguments
 {
 	fn create_asset_kind(seed: u32) -> NativeOrWithId<u32> {
-		if seed % 2 > 0 {
+		if !seed.is_multiple_of(2) {
 			NativeOrWithId::Native
 		} else {
 			NativeOrWithId::WithId(seed / 2)
@@ -1436,11 +1437,13 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	>;
 	type BountySource = pallet_multi_asset_bounties::BountySourceFromPalletId<
 		TreasuryPalletId,
+		pallet_multi_asset_bounties::BountyAccountPrefix,
 		Runtime,
 		sp_runtime::traits::Identity,
 	>;
 	type ChildBountySource = pallet_multi_asset_bounties::ChildBountySourceFromPalletId<
 		TreasuryPalletId,
+		pallet_multi_asset_bounties::ChildBountyAccountPrefix,
 		Runtime,
 		sp_runtime::traits::Identity,
 	>;
@@ -1461,6 +1464,17 @@ impl pallet_multi_asset_bounties::Config for Runtime {
 	>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PalletMultiAssetBountiesArguments;
+}
+
+impl pallet_assets_precompiles::ForeignAssetsConfig for Runtime {
+	type ForeignAssetId = u32;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AssetsInstance = Instance1;
+}
+
+impl pallet_assets_precompiles::PermitConfig for Runtime {
+	type ChainId = ConstU64<420_420_420>;
+	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_tips::Config for Runtime {
@@ -1539,8 +1553,11 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerChildTrieItem = DepositPerChildTrieItem;
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
-	type Precompiles =
-		(ERC20<Self, InlineIdConfig<0x1>, Instance1>, ERC20<Self, InlineIdConfig<0x2>, Instance2>);
+	type Precompiles = (
+		ERC20<Self, InlineIdConfig<0x1>, Instance1>,
+		ERC20<Self, InlineIdConfig<0x2>, Instance2>,
+		VestingPrecompile<Self>,
+	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
 	type PVFMemory = ConstU32<{ 512 * 1024 * 1024 }>;
@@ -1555,7 +1572,13 @@ impl pallet_revive::Config for Runtime {
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 	type DebugEnabled = ConstBool<false>;
+	type AutoMap = ConstBool<false>;
 	type GasScale = ConstU32<1000>;
+	type OnBurn = ();
+}
+
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -1896,7 +1919,7 @@ impl pallet_assets::Config<Instance1> for Runtime {
 	type Holder = ();
 	type Freezer = ();
 	type Extra = ();
-	type CallbackHandle = ();
+	type CallbackHandle = (pallet_assets_precompiles::ForeignAssetId<Runtime, Instance1>,);
 	type WeightInfo = pallet_assets::weights::SubstrateWeight<Runtime>;
 	type RemoveItemsLimit = ConstU32<1000>;
 	#[cfg(feature = "runtime-benchmarks")]
@@ -2874,6 +2897,15 @@ mod runtime {
 
 	#[runtime::pallet_index(90)]
 	pub type MultiAssetBounties = pallet_multi_asset_bounties::Pallet<Runtime>;
+
+	#[runtime::pallet_index(91)]
+	pub type AssetsPrecompiles = pallet_assets_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(92)]
+	pub type AssetsPrecompilesPermit = pallet_assets_precompiles::permit::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(93)]
+	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -2914,9 +2946,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extension = TxExtension;
+	type ExtensionV0 = TxExtension;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
 			frame_system::AuthorizeCall::<Runtime>::new(),
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
@@ -3151,6 +3184,8 @@ mod benches {
 		[pallet_migrations, MultiBlockMigrations]
 		[pallet_mmr, Mmr]
 		[pallet_multi_asset_bounties, MultiAssetBounties]
+		[pallet_assets_precompiles, AssetsPrecompiles]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_multisig, Multisig]
 		[pallet_nomination_pools, NominationPoolsBench::<Runtime>]
 		[pallet_offences, OffencesBench::<Runtime>]

@@ -64,7 +64,7 @@ pub(crate) async fn build_network_config(
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_chain_spec_path(
-					"tests/zombie_ci/full_node_warp_sync/warp-sync-relaychain-spec.json",
+					"tests/zombie_ci/full_node_warp_sync/warp-sync-relaychain-spec-raw.json",
 				)
 				.with_default_args(vec![("-lparachain=debug").into()])
 				.with_validator(|node| {
@@ -125,7 +125,7 @@ pub(crate) async fn build_network_config(
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_chain_spec_path(
-					"tests/zombie_ci/full_node_warp_sync/warp-sync-parachain-spec.json",
+					"tests/zombie_ci/full_node_warp_sync/warp-sync-parachain-spec-raw.json",
 				)
 				.with_default_args(vec![("-lparachain=debug").into(), ("--").into()])
 				.with_collator(|n| {

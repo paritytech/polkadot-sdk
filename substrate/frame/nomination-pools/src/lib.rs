@@ -3283,6 +3283,70 @@ impl<T: Config> Pallet<T> {
 			.max(MinJoinBond::<T>::get())
 			.max(T::Currency::minimum_balance())
 	}
+
+	/// Claim trapped balance for a pool member.
+	///
+	/// In rare scenarios, pool members may have excess held balance that is not accounted
+	/// for in their pool points. This can occur when points are incorrectly dissolved
+	/// without releasing the corresponding held funds.
+	///
+	/// If the pool has any pending slash, it will be applied to the member first before
+	/// claiming the trapped balance.
+	///
+	/// Safe to call multiple times or for non-existent members — returns `Ok(())` as a
+	/// no-op when there is nothing to do.
+	pub fn do_claim_trapped_balance(member_account: &T::AccountId) -> DispatchResult {
+		ensure!(
+			T::StakeAdapter::strategy_type() == adapter::StakeStrategyType::Delegate,
+			Error::<T>::NotSupported
+		);
+
+		// Apply any pending slash first. Ignore NothingToSlash and PoolMemberNotFound
+		// (member existence is validated below).
+		match Self::do_apply_slash(member_account, None, false) {
+			Ok(_) => {},
+			Err(e)
+				if e == Error::<T>::NothingToSlash.into() ||
+					e == Error::<T>::PoolMemberNotFound.into() => {},
+			Err(_) => {
+				return Err(Error::<T>::Defensive(DefensiveError::SlashNotApplied).into());
+			},
+		};
+
+		let member = match PoolMembers::<T>::get(member_account) {
+			Some(m) => m,
+			None => return Ok(()),
+		};
+
+		let expected_balance = member.total_balance();
+		let actual_balance =
+			T::StakeAdapter::member_delegation_balance(Member::from(member_account.clone()))
+				.unwrap_or_default();
+
+		let trapped_amount = actual_balance.saturating_sub(expected_balance);
+
+		if trapped_amount.is_zero() {
+			return Ok(());
+		}
+
+		T::StakeAdapter::member_withdraw(
+			Member::from(member_account.clone()),
+			Pool::from(Self::generate_bonded_account(member.pool_id)),
+			trapped_amount,
+			0,
+		)?;
+
+		log!(
+			info,
+			"Claimed trapped balance for member {:?}, pool {:?}, amount {:?}",
+			member_account,
+			member.pool_id,
+			trapped_amount
+		);
+
+		Ok(())
+	}
+
 	/// Remove everything related to the given bonded pool.
 	///
 	/// Metadata and all of the sub-pools are also deleted. All accounts are dusted and the leftover
@@ -3944,7 +4008,13 @@ impl<T: Config> Pallet<T> {
 		})?;
 
 		let mut expected_tvl: BalanceOf<T> = Default::default();
+		let mut depositor_undermin: Vec<(PoolId, T::AccountId)> = Vec::new();
+		let mut depositor_undermin_total: u32 = 0;
+		let mut total_pools: u32 = 0;
+		const MAX_EXAMPLES: usize = 10;
+
 		BondedPools::<T>::iter().try_for_each(|(id, inner)| -> Result<(), TryRuntimeError> {
+			total_pools += 1;
 			let bonded_pool = BondedPool { id, inner };
 			ensure!(
 				pools_members.get(&id).copied().unwrap_or_default() ==
@@ -3962,8 +4032,12 @@ impl<T: Config> Pallet<T> {
 				.is_destroying_and_only_depositor(depositor.active_points()) ||
 				depositor.active_points() >= MinCreateBond::<T>::get();
 			if !depositor_has_enough_stake {
+				depositor_undermin_total += 1;
+				if depositor_undermin.len() < MAX_EXAMPLES {
+					depositor_undermin.push((id, bonded_pool.roles.depositor.clone()));
+				}
 				log!(
-					warn,
+					trace,
 					"pool {:?} has depositor {:?} with insufficient stake {:?}, minimum required is {:?}",
 					id,
 					bonded_pool.roles.depositor,
@@ -3981,6 +4055,17 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		})?;
+
+		if depositor_undermin_total > 0 {
+			log!(
+				warn,
+				"{}/{} pools have depositor with insufficient stake, minimum required is {:?}. Examples: {:?}",
+				depositor_undermin_total,
+				total_pools,
+				MinCreateBond::<T>::get(),
+				depositor_undermin,
+			);
+		}
 
 		ensure!(
 			MaxPoolMembers::<T>::get().map_or(true, |max| all_members <= max),
@@ -4044,8 +4129,13 @@ impl<T: Config> Pallet<T> {
 		debug_assertions
 	))]
 	pub fn check_ed_imbalance() -> Result<u32, DispatchError> {
-		let mut needs_adjust = 0;
+		let mut needs_adjust: u32 = 0;
+		let mut total_pools: u32 = 0;
+		let mut ed_examples: Vec<PoolId> = Vec::new();
+		const MAX_EXAMPLES: usize = 10;
+
 		BondedPools::<T>::iter_keys().for_each(|id| {
+			total_pools += 1;
 			let reward_acc = Self::generate_reward_account(id);
 			let frozen_balance =
 				T::Currency::balance_frozen(&FreezeReason::PoolMinBalance.into(), &reward_acc);
@@ -4053,8 +4143,11 @@ impl<T: Config> Pallet<T> {
 			let expected_frozen_balance = T::Currency::minimum_balance();
 			if frozen_balance != expected_frozen_balance {
 				needs_adjust += 1;
+				if ed_examples.len() < MAX_EXAMPLES {
+					ed_examples.push(id);
+				}
 				log!(
-					warn,
+					trace,
 					"pool {:?} has incorrect ED frozen that can result from change in ED. Expected  = {:?},  Actual = {:?}. Use `adjust_pool_deposit` to fix it",
 					id,
 					expected_frozen_balance,
@@ -4062,6 +4155,17 @@ impl<T: Config> Pallet<T> {
 				);
 			}
 		});
+
+		if needs_adjust > 0 {
+			log!(
+				warn,
+				"{}/{} pools have incorrect ED frozen (expected {:?}). Use `adjust_pool_deposit` to fix. Examples: {:?}",
+				needs_adjust,
+				total_pools,
+				T::Currency::minimum_balance(),
+				ed_examples,
+			);
+		}
 
 		Ok(needs_adjust)
 	}
