@@ -18,7 +18,7 @@
 
 use crate::{
 	primitives::{HopBlockNumber, HopHash},
-	types::{Alias, HopEntryMeta, HopError, PoolStatus, MAX_DATA_SIZE},
+	types::{HopEntryMeta, HopError, PoolStatus, SenderId, MAX_DATA_SIZE},
 };
 use codec::{Decode, Encode};
 use parking_lot::RwLock;
@@ -42,7 +42,7 @@ pub struct HopDataPool {
 	/// In-memory metadata index (no blobs).
 	index: Arc<RwLock<HashMap<HopHash, HopEntryMeta>>>,
 	/// Per-user byte usage tracked by alias.
-	user_usage: Arc<RwLock<HashMap<Alias, u64>>>,
+	user_usage: Arc<RwLock<HashMap<SenderId, u64>>>,
 	/// Maximum pool size in bytes.
 	max_size: u64,
 	/// Current pool size in bytes.
@@ -69,7 +69,7 @@ impl HopDataPool {
 		}
 
 		let mut index = HashMap::new();
-		let mut user_usage: HashMap<Alias, u64> = HashMap::new();
+		let mut user_usage: HashMap<SenderId, u64> = HashMap::new();
 		let mut current_size = 0u64;
 
 		// Rebuild index from .meta files on disk.
@@ -134,7 +134,7 @@ impl HopDataPool {
 				}
 
 				current_size += meta.size;
-				*user_usage.entry(meta.sender_alias).or_insert(0) += meta.size;
+				*user_usage.entry(meta.sender_id).or_insert(0) += meta.size;
 				index.insert(hash, meta);
 			}
 		}
@@ -214,7 +214,7 @@ impl HopDataPool {
 		data: Vec<u8>,
 		current_block: HopBlockNumber,
 		recipients: Vec<MultiSigner>,
-		sender_alias: Alias,
+		sender_id: SenderId,
 	) -> Result<HopHash, HopError> {
 		// Validate recipients
 		if recipients.is_empty() {
@@ -243,7 +243,7 @@ impl HopDataPool {
 		// this check, but they cannot exceed max_size).
 		{
 			let usage_map = self.user_usage.read();
-			let current_usage = usage_map.get(&sender_alias).copied().unwrap_or(0);
+			let current_usage = usage_map.get(&sender_id).copied().unwrap_or(0);
 			let is_new_user = current_usage == 0;
 			let active_users =
 				if is_new_user { usage_map.len() as u64 + 1 } else { usage_map.len() as u64 };
@@ -276,7 +276,7 @@ impl HopDataPool {
 			current_block,
 			self.retention_blocks,
 			recipients,
-			sender_alias,
+			sender_id,
 		);
 		let meta_bytes = meta.encode();
 
@@ -308,7 +308,7 @@ impl HopDataPool {
 		}
 
 		// Update user usage (pool capacity already reserved above).
-		*self.user_usage.write().entry(sender_alias).or_insert(0) += data_len;
+		*self.user_usage.write().entry(sender_id).or_insert(0) += data_len;
 
 		tracing::info!(
 			target: "hop",
@@ -387,7 +387,7 @@ impl HopDataPool {
 		// If all recipients have claimed, remove the entry entirely.
 		if meta.claimed.iter().all(|&c| c) {
 			let size = meta.size;
-			let alias = meta.sender_alias;
+			let alias = meta.sender_id;
 			index.remove(hash);
 			self.current_size.fetch_sub(size, Ordering::Relaxed);
 			let mut usage = self.user_usage.write();
@@ -449,10 +449,10 @@ impl HopDataPool {
 			self.current_size.fetch_sub(meta.size, Ordering::Relaxed);
 			// Release user quota
 			let mut usage = self.user_usage.write();
-			if let Some(u) = usage.get_mut(&meta.sender_alias) {
+			if let Some(u) = usage.get_mut(&meta.sender_id) {
 				*u = u.saturating_sub(meta.size);
 				if *u == 0 {
-					usage.remove(&meta.sender_alias);
+					usage.remove(&meta.sender_id);
 				}
 			}
 			drop(usage);
@@ -513,10 +513,10 @@ impl HopDataPool {
 		{
 			let mut usage = self.user_usage.write();
 			for (_, meta) in &expired {
-				if let Some(u) = usage.get_mut(&meta.sender_alias) {
+				if let Some(u) = usage.get_mut(&meta.sender_id) {
 					*u = u.saturating_sub(meta.size);
 					if *u == 0 {
-						usage.remove(&meta.sender_alias);
+						usage.remove(&meta.sender_id);
 					}
 				}
 			}
@@ -597,8 +597,8 @@ mod tests {
 	use sp_core::{crypto::Pair, ed25519, sr25519};
 	use tempfile::TempDir;
 
-	const ALIAS_A: Alias = [1u8; 32];
-	const ALIAS_B: Alias = [2u8; 32];
+	const SENDER_A: SenderId = [1u8; 32];
+	const SENDER_B: SenderId = [2u8; 32];
 
 	fn create_test_pool() -> (HopDataPool, TempDir) {
 		let dir = TempDir::new().unwrap();
@@ -617,7 +617,7 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer], SENDER_A).unwrap();
 
 		let retrieved = pool.get(&hash).unwrap();
 		assert_eq!(data, retrieved);
@@ -627,7 +627,7 @@ mod tests {
 	fn test_insert_no_recipients() {
 		let (pool, _dir) = create_test_pool();
 		let data = vec![1, 2, 3, 4, 5];
-		let result = pool.insert(data, 0, vec![], ALIAS_A);
+		let result = pool.insert(data, 0, vec![], SENDER_A);
 		assert!(matches!(result, Err(HopError::NoRecipients)));
 	}
 
@@ -637,8 +637,8 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
 
-		pool.insert(data.clone(), 0, vec![signer.clone()], ALIAS_A).unwrap();
-		let result = pool.insert(data, 0, vec![signer], ALIAS_A);
+		pool.insert(data.clone(), 0, vec![signer.clone()], SENDER_A).unwrap();
+		let result = pool.insert(data, 0, vec![signer], SENDER_A);
 
 		assert!(matches!(result, Err(HopError::DuplicateEntry)));
 	}
@@ -649,7 +649,7 @@ mod tests {
 		let (_, signer) = test_recipient();
 		let data = vec![0u8; (MAX_DATA_SIZE + 1) as usize];
 
-		let result = pool.insert(data, 0, vec![signer], ALIAS_A);
+		let result = pool.insert(data, 0, vec![signer], SENDER_A);
 		assert!(matches!(result, Err(HopError::DataTooLarge(_, _))));
 	}
 
@@ -662,8 +662,8 @@ mod tests {
 		let data1 = vec![0u8; 60];
 		let data2 = vec![1u8; 50];
 
-		pool.insert(data1, 0, vec![signer.clone()], ALIAS_A).unwrap();
-		let result = pool.insert(data2, 0, vec![signer], ALIAS_A);
+		pool.insert(data1, 0, vec![signer.clone()], SENDER_A).unwrap();
+		let result = pool.insert(data2, 0, vec![signer], SENDER_A);
 
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 	}
@@ -673,7 +673,7 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data, 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data, 0, vec![signer], SENDER_A).unwrap();
 
 		assert!(pool.has(&hash));
 		pool.remove(&hash).unwrap();
@@ -691,8 +691,8 @@ mod tests {
 		let data1 = vec![1, 2, 3, 4, 5];
 		let data2 = vec![6, 7, 8];
 
-		pool.insert(data1.clone(), 0, vec![signer.clone()], ALIAS_A).unwrap();
-		pool.insert(data2.clone(), 0, vec![signer], ALIAS_A).unwrap();
+		pool.insert(data1.clone(), 0, vec![signer.clone()], SENDER_A).unwrap();
+		pool.insert(data2.clone(), 0, vec![signer], SENDER_A).unwrap();
 
 		let status = pool.status();
 		assert_eq!(status.entry_count, 2);
@@ -704,7 +704,7 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (pair, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer], SENDER_A).unwrap();
 
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
@@ -720,7 +720,7 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data, 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data, 0, vec![signer], SENDER_A).unwrap();
 
 		// Use invalid SCALE bytes — cannot decode as MultiSignature
 		let result = pool.claim(&hash, &[0u8; 3]);
@@ -732,7 +732,7 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (_, signer) = test_recipient();
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data, 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data, 0, vec![signer], SENDER_A).unwrap();
 
 		// Sign with a different keypair
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
@@ -754,7 +754,7 @@ mod tests {
 		let signer2 = MultiSigner::Ed25519(pair2.public());
 
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], SENDER_A).unwrap();
 
 		// First recipient claims
 		let sig1 = pair1.sign(hash.as_bytes());
@@ -782,7 +782,7 @@ mod tests {
 		let signer2 = MultiSigner::Ed25519(pair2.public());
 
 		let data = vec![1, 2, 3, 4, 5];
-		let hash = pool.insert(data.clone(), 0, vec![signer, signer2], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer, signer2], SENDER_A).unwrap();
 
 		// First claim succeeds
 		let sig = pair.sign(hash.as_bytes());
@@ -811,17 +811,17 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		// User A inserts 90 bytes — within their 200/1 = 200 limit (only user so far)
-		pool.insert(vec![0u8; 90], 0, vec![signer.clone()], ALIAS_A).unwrap();
+		pool.insert(vec![0u8; 90], 0, vec![signer.clone()], SENDER_A).unwrap();
 
 		// User B inserts 90 bytes — now 2 users, limit is 200/2 = 100 each
-		pool.insert(vec![1u8; 90], 0, vec![signer.clone()], ALIAS_B).unwrap();
+		pool.insert(vec![1u8; 90], 0, vec![signer.clone()], SENDER_B).unwrap();
 
 		// User A tries to insert 20 more — would be 110 total, limit is 100
-		let result = pool.insert(vec![2u8; 20], 0, vec![signer.clone()], ALIAS_A);
+		let result = pool.insert(vec![2u8; 20], 0, vec![signer.clone()], SENDER_A);
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// User B tries to insert 20 more — would be 110 total, limit is 100
-		let result = pool.insert(vec![3u8; 20], 0, vec![signer], ALIAS_B);
+		let result = pool.insert(vec![3u8; 20], 0, vec![signer], SENDER_B);
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 	}
 
@@ -833,15 +833,15 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		// User A inserts 90 bytes (sole user, limit = 200)
-		pool.insert(vec![0u8; 90], 0, vec![signer.clone()], ALIAS_A).unwrap();
+		pool.insert(vec![0u8; 90], 0, vec![signer.clone()], SENDER_A).unwrap();
 
 		// New user B tries to insert 110 bytes — B is new, so active_users = 2,
 		// per_user_limit = 100, and 110 > 100
-		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], ALIAS_B);
+		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], SENDER_B);
 		assert!(matches!(result, Err(HopError::UserQuotaExceeded { .. })));
 
 		// But B can insert 100 bytes (exactly at limit)
-		pool.insert(vec![2u8; 100], 0, vec![signer], ALIAS_B).unwrap();
+		pool.insert(vec![2u8; 100], 0, vec![signer], SENDER_B).unwrap();
 	}
 
 	#[test]
@@ -851,10 +851,10 @@ mod tests {
 		let (pair, signer) = test_recipient();
 
 		// User A inserts 100 bytes
-		let hash = pool.insert(vec![0u8; 100], 0, vec![signer.clone()], ALIAS_A).unwrap();
+		let hash = pool.insert(vec![0u8; 100], 0, vec![signer.clone()], SENDER_A).unwrap();
 
 		// User A can't insert 110 more (would be 210, limit = 200 for sole user)
-		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], ALIAS_A);
+		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], SENDER_A);
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 
 		// Claim the first entry — frees 100 bytes of user quota
@@ -863,7 +863,7 @@ mod tests {
 		pool.claim(&hash, &multi_sig.encode()).unwrap();
 
 		// Now user A can insert again
-		pool.insert(vec![2u8; 100], 0, vec![signer], ALIAS_A).unwrap();
+		pool.insert(vec![2u8; 100], 0, vec![signer], SENDER_A).unwrap();
 	}
 
 	#[test]
@@ -873,10 +873,10 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		// User A inserts at block 0, expires at block 10
-		pool.insert(vec![0u8; 100], 0, vec![signer], ALIAS_A).unwrap();
+		pool.insert(vec![0u8; 100], 0, vec![signer], SENDER_A).unwrap();
 
 		// Verify usage is tracked
-		assert_eq!(pool.user_usage.read().get(&ALIAS_A).copied().unwrap_or(0), 100);
+		assert_eq!(pool.user_usage.read().get(&SENDER_A).copied().unwrap_or(0), 100);
 
 		// Cleanup at block 10 — entry has expired
 		let freed = pool.cleanup_expired(10);
@@ -884,7 +884,7 @@ mod tests {
 		assert_eq!(pool.status().total_bytes, 0);
 
 		// User quota should be released
-		assert_eq!(pool.user_usage.read().get(&ALIAS_A), None);
+		assert_eq!(pool.user_usage.read().get(&SENDER_A), None);
 	}
 
 	#[test]
@@ -892,8 +892,8 @@ mod tests {
 		let (pool, _dir) = create_test_pool();
 		let (pair, signer) = test_recipient();
 
-		let hash = pool.insert(vec![0u8; 50], 0, vec![signer], ALIAS_A).unwrap();
-		assert!(pool.user_usage.read().contains_key(&ALIAS_A));
+		let hash = pool.insert(vec![0u8; 50], 0, vec![signer], SENDER_A).unwrap();
+		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 
 		// Claim removes the entry
 		let sig = pair.sign(hash.as_bytes());
@@ -901,7 +901,7 @@ mod tests {
 		pool.claim(&hash, &multi_sig.encode()).unwrap();
 
 		// User A should no longer be in usage map
-		assert!(!pool.user_usage.read().contains_key(&ALIAS_A));
+		assert!(!pool.user_usage.read().contains_key(&SENDER_A));
 	}
 
 	#[test]
@@ -913,7 +913,7 @@ mod tests {
 		// Create pool, insert data, then drop pool.
 		{
 			let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
-			hash = pool.insert(vec![42u8; 100], 0, vec![signer], ALIAS_A).unwrap();
+			hash = pool.insert(vec![42u8; 100], 0, vec![signer], SENDER_A).unwrap();
 			assert!(pool.has(&hash));
 			assert_eq!(pool.status().entry_count, 1);
 			assert_eq!(pool.status().total_bytes, 100);
@@ -931,7 +931,7 @@ mod tests {
 			assert_eq!(data, vec![42u8; 100]);
 
 			// User usage should be recovered.
-			assert_eq!(pool.user_usage.read().get(&ALIAS_A).copied().unwrap_or(0), 100);
+			assert_eq!(pool.user_usage.read().get(&SENDER_A).copied().unwrap_or(0), 100);
 		}
 	}
 
@@ -983,7 +983,7 @@ mod tests {
 		let signer = MultiSigner::Sr25519(pair.public());
 
 		let data = vec![10, 20, 30];
-		let hash = pool.insert(data.clone(), 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![signer], SENDER_A).unwrap();
 
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Sr25519(sig);
@@ -1001,7 +1001,7 @@ mod tests {
 		let sr_signer = MultiSigner::Sr25519(sr_pair.public());
 
 		let data = vec![42, 43, 44];
-		let hash = pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], ALIAS_A).unwrap();
+		let hash = pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], SENDER_A).unwrap();
 
 		// sr25519 recipient claims first
 		let sr_sig = sr_pair.sign(hash.as_bytes());

@@ -17,12 +17,19 @@
 
 //! Runtime API definition for the transaction storage proof processing.
 
-use sp_runtime::traits::NumberFor;
+use crate::AuthorizationStatus;
+use sp_runtime::{traits::NumberFor, AccountId32};
 
 sp_api::decl_runtime_apis! {
 	/// Runtime API trait for transaction storage support.
 	pub trait TransactionStorageApi {
 		/// Get the actual value of a retention period in blocks.
 		fn retention_period() -> NumberFor<Block>;
+
+		/// Get the authorization status for an account.
+		///
+		/// Returns `Some(status)` if the account has an active (non-expired) authorization
+		/// with remaining capacity, or `None` if no valid authorization exists.
+		fn account_authorization(who: AccountId32) -> Option<AuthorizationStatus<NumberFor<Block>>>;
 	}
 }

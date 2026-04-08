@@ -76,8 +76,8 @@
 //!
 //! ## RPC Methods
 //!
-//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data
-//!   with SCALE-encoded MultiSigner recipient keys and personhood proof, returns hash + pool status
+//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, signature: Bytes, signer: Bytes) ->
+//!   SubmitResult` - Submit data with a signature from an authorized account
 //! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with SCALE-encoded
 //!   MultiSignature
 //! - `hop_poolStatus() -> PoolStatus` - Get pool statistics
@@ -101,5 +101,5 @@ pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
 pub use promotion::{try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter};
-pub use rpc::{HopApiServer, HopRpcServer, NoopVerifier, PersonhoodVerifier};
-pub use types::{Alias, HopEntryMeta, HopError, HopPoolEntry, PoolStatus, SubmitResult};
+pub use rpc::{HopApiServer, HopRpcServer};
+pub use types::{HopEntryMeta, HopError, HopPoolEntry, PoolStatus, SenderId, SubmitResult};

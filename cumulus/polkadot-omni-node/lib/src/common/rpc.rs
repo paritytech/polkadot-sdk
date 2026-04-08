@@ -59,7 +59,8 @@ where
 	RuntimeApi:
 		ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>> + Send + Sync + 'static,
 	RuntimeApi::RuntimeApi: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
+		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ sp_transaction_storage_proof::runtime_api::TransactionStorageApi<Block>,
 {
 	fn build_rpc_extensions(
 		client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -81,10 +82,8 @@ where
 				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			if let Some(hop_pool) = hop_pool {
-				use sc_hop::{HopApiServer, HopRpcServer, NoopVerifier};
-				module.merge(
-					HopRpcServer::new(hop_pool, client.clone(), Arc::new(NoopVerifier)).into_rpc(),
-				)?;
+				use sc_hop::{HopApiServer, HopRpcServer};
+				module.merge(HopRpcServer::new(hop_pool, client.clone()).into_rpc())?;
 			}
 			module.merge(Dev::new(client).into_rpc())?;
 

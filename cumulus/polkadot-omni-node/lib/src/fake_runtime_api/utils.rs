@@ -251,6 +251,10 @@ macro_rules! impl_node_runtime_apis {
 				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
 					unimplemented!()
 				}
+
+				fn account_authorization(_who: sp_runtime::AccountId32) -> Option<sp_transaction_storage_proof::AuthorizationStatus<sp_runtime::traits::NumberFor<$block>>> {
+					unimplemented!()
+				}
 			}
 
 			impl sp_hop::HopPromotionApi<$block> for $runtime {
