@@ -50,22 +50,21 @@ pub mod weights;
 
 use crate::{
 	evm::{
-		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		block_hash::EthereumBlockBuilderIR, block_storage, fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit, CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction,
+		PrestateTracer, Trace, Tracer, TracerType, TYPE_EIP1559,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
 	storage::{AccountType, DeletionQueueManager},
 	tracing::if_tracing,
-	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
+	vm::{pvm::extract_code_and_data, CodeInfo, RuntimeCosts},
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
 use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
-	BoundedVec,
 	dispatch::{
 		DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo, GetDispatchInfo,
 		Pays, PostDispatchInfo, RawOrigin,
@@ -74,31 +73,33 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	storage::with_transaction,
 	traits::{
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
 		fungible::{Balanced, Credit, Inspect, Mutate, MutateHold},
 		tokens::Balance,
+		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
 	},
 	weights::WeightMeter,
+	BoundedVec,
 };
 use frame_system::{
-	Pallet as System, ensure_signed,
+	ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
+	Pallet as System,
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 	traits::{
 		BadOrigin, Bounded, Convert, Dispatchable, Saturating, UniqueSaturatedFrom,
 		UniqueSaturatedInto, Zero,
 	},
+	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
 };
 
 pub use crate::{
-	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
+	address::{create1, create2, AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper},
 	debug::DebugSettings,
 	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,
-		block_hash::ReceiptGasInfo,
+		block_hash::ReceiptGasInfo, Address as EthAddress, Block as EthBlock, DryRunConfig,
+		ReceiptInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
@@ -115,7 +116,7 @@ pub use codec;
 pub use frame_support::{self, dispatch::DispatchInfo, traits::Time, weights::Weight};
 pub use frame_system::{self, limits::BlockWeights};
 pub use primitives::*;
-pub use sp_core::{H160, H256, U256, keccak_256};
+pub use sp_core::{keccak_256, H160, H256, U256};
 pub use sp_runtime;
 pub use weights::WeightInfo;
 
@@ -2245,7 +2246,11 @@ impl<T: Config> Pallet<T> {
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let number = BlockNumberFor::<T>::try_from(number).ok()?;
 		let hash = <BlockHash<T>>::get(number);
-		if hash == H256::zero() { None } else { Some(hash) }
+		if hash == H256::zero() {
+			None
+		} else {
+			Some(hash)
+		}
 	}
 
 	/// The details needed to reconstruct the receipt information offchain.
@@ -3131,7 +3136,23 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let mut traces = vec![];
 					let (header, extrinsics) = block.deconstruct();
 					<$Executive>::initialize_block(&header);
+					let initial_weight = frame_system::BlockWeight::<Runtime>::get();
 					for (index, ext) in extrinsics.into_iter().enumerate() {
+						// Reset block weight before each extrinsic to prevent cumulative proof_size
+						// and ref time from exceeding max_total.
+						//
+						// During trace re-execution, the proof recorder is not active so
+						// `StorageWeightReclaim` cannot replace benchmarked proof_size with the
+						// actual measured value. This causes the benchmarked values (which
+						// overestimate by design) to accumulate, eventually exceeding the per-class
+						// allowance and rejecting valid extrinsics with ExhaustsResources.
+						//
+						// Resetting to the initial weight ensures every extrinsic sees a
+						// nearly-empty block and passes the weight check. This is safe because
+						// trace re-execution is purely observational — the block was already
+						// validated and finalized.
+						frame_system::BlockWeight::<Runtime>::put(initial_weight);
+
 						let mut tracer = $crate::Pallet::<Self>::evm_tracer(tracer_type.clone());
 						let t = tracer.as_tracing();
 						let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
@@ -3161,7 +3182,23 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					let (header, extrinsics) = block.deconstruct();
 
 					<$Executive>::initialize_block(&header);
+					let initial_weight = frame_system::BlockWeight::<Runtime>::get();
 					for (index, ext) in extrinsics.into_iter().enumerate() {
+						// Reset block weight before each extrinsic to prevent cumulative proof_size
+						// and ref time from exceeding max_total.
+						//
+						// During trace re-execution, the proof recorder is not active so
+						// `StorageWeightReclaim` cannot replace benchmarked proof_size with the
+						// actual measured value. This causes the benchmarked values (which
+						// overestimate by design) to accumulate, eventually exceeding the per-class
+						// allowance and rejecting valid extrinsics with ExhaustsResources.
+						//
+						// Resetting to the initial weight ensures every extrinsic sees a
+						// nearly-empty block and passes the weight check. This is safe because
+						// trace re-execution is purely observational — the block was already
+						// validated and finalized.
+						frame_system::BlockWeight::<Runtime>::put(initial_weight);
+
 						if index as u32 == tx_index {
 							let t = tracer.as_tracing();
 							let _ = trace(t, || <$Executive>::apply_extrinsic(ext));
