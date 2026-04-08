@@ -51,6 +51,7 @@ mod imports {
 			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
+			asset_hub_westend_runtime::xcm_config::DapBufferAccount,
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},
