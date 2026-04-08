@@ -1449,15 +1449,6 @@ parameter_types! {
 type PsmStableAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
-/// Fixed maximum issuance ceiling until a real Vaults pallet is integrated.
-pub struct FixedMaxIssuance;
-impl frame_support::traits::VaultsInterface for FixedMaxIssuance {
-	type Balance = Balance;
-	fn get_maximum_issuance() -> Balance {
-		PsmMaximumIssuance::get()
-	}
-}
-
 /// EnsureOrigin for PSM management with privilege levels.
 /// Root and GeneralAdmin get Full privileges; no emergency-only origin yet.
 ///
@@ -1518,7 +1509,7 @@ impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for Psm
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
 	type AssetId = AssetIdForTrustBackedAssets;
-	type VaultsInterface = FixedMaxIssuance;
+	type MaximumIssuance = PsmMaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = ();
 	type StableAsset = PsmStableAsset;
@@ -1528,6 +1519,30 @@ impl pallet_psm::Config for Runtime {
 	type MaxExternalAssets = ConstU32<10>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
+}
+
+/// Initial PSM configuration applied via the V1 migration.
+/// Sets up USDT (1984) as the first external asset with 0.05% fees.
+pub struct PsmInitialConfig;
+impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {
+	fn max_psm_debt_of_total() -> Permill {
+		Permill::from_percent(100)
+	}
+
+	fn asset_configs()
+		-> alloc::collections::btree_map::BTreeMap<AssetIdForTrustBackedAssets, (Permill, Permill, Permill)>
+	{
+		[(
+			1984u32, // USDT
+			(
+				Permill::from_parts(500),   // 0.05% minting fee
+				Permill::from_parts(500),   // 0.05% redemption fee
+				Permill::from_percent(100), // ceiling weight
+			),
+		)]
+		.into_iter()
+		.collect()
+	}
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -1743,6 +1758,8 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
+	pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

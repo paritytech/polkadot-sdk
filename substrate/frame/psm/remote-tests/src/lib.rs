@@ -30,13 +30,13 @@ use frame_support::{
 			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
 			Mutate as FungiblesMutate,
 		},
-		Get,
+		Get, UncheckedOnRuntimeUpgrade,
 	},
 };
 use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
 use sp_runtime::{
 	traits::{AccountIdConversion, Block as BlockT, Zero},
-	DeserializeOwned, Permill,
+	DeserializeOwned, Saturating,
 };
 
 pub const LOG_TARGET: &str = "runtime::psm::remote-tests";
@@ -79,13 +79,14 @@ struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
 
 /// Create pUSD if needed, configure PSM, and fund test accounts.
 /// Must be called inside `execute_with`.
-fn setup<Runtime>(config: &PsmTestConfig) -> TestEnv<Runtime>
+fn setup<Runtime, MigrationConfig>(config: &PsmTestConfig) -> TestEnv<Runtime>
 where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Runtime::AssetId: From<u32>,
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
 {
 	let asset_id: Runtime::AssetId = config.external_asset_id.into();
 
@@ -115,7 +116,7 @@ where
 			hook();
 		}
 
-		let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+		let psm_account = Runtime::PalletId::get().into_account_truncating();
 		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
 
 		let fee_dest = Runtime::FeeDestination::get();
@@ -158,22 +159,9 @@ where
 		stable_decimals, external_decimals,
 	);
 
-	// Configure PSM via governance dispatchables.
-	assert_ok!(pallet_psm::Pallet::<Runtime>::set_max_psm_debt(
-		frame_system::RawOrigin::Root.into(),
-		Permill::from_percent(50),
-	));
-
-	assert_ok!(pallet_psm::Pallet::<Runtime>::add_external_asset(
-		frame_system::RawOrigin::Root.into(),
-		asset_id,
-	));
-
-	assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_ceiling_weight(
-		frame_system::RawOrigin::Root.into(),
-		asset_id,
-		Permill::from_percent(100),
-	));
+	// Run the V1 migration to initialize PSM parameters (external asset, fees,
+	// ceiling weight, max debt). This mirrors what happens during the runtime upgrade.
+	pallet_psm::migrations::v1::UncheckedMigrateToV1::<Runtime, MigrationConfig>::on_runtime_upgrade();
 
 	// Fund test accounts.
 	// Use a separate test caller (not the PSM account, since mint transfers
@@ -182,7 +170,7 @@ where
 		frame_support::PalletId(*b"py/test!").into_account_truncating();
 	let _ = frame_system::Pallet::<Runtime>::inc_providers(&caller);
 
-	let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+	let psm_account = Runtime::PalletId::get().into_account_truncating();
 	let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
 
 	let fee_dest = Runtime::FeeDestination::get();
@@ -249,7 +237,7 @@ where
 /// 2. Mints pUSD by depositing the external stablecoin
 /// 3. Redeems pUSD back for the external stablecoin
 /// 4. Verifies balances, debt tracking, and fee accounting
-pub fn mint_and_redeem<Runtime, Block>(
+pub fn mint_and_redeem<Runtime, Block, MigrationConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfig,
 )
@@ -260,10 +248,11 @@ where
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
 		let TestEnv { asset_id, caller, psm_account, swap_amount } =
-			setup::<Runtime>(config);
+			setup::<Runtime, MigrationConfig>(config);
 
 		let balance_before =
 			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
@@ -293,7 +282,8 @@ where
 			"Caller external balance should decrease by exactly swap_amount"
 		);
 
-		let total_debt = pallet_psm::Pallet::<Runtime>::total_psm_debt();
+		let total_debt = pallet_psm::PsmDebt::<Runtime>::iter_values()
+				.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
 
 		// The PSM account should hold the external stablecoin.
@@ -325,7 +315,8 @@ where
 		assert_eq!(pusd_after, Zero::zero(), "Caller should have no pUSD remaining");
 
 		// Debt should decrease after redeem but not reach zero (fees keep some debt alive).
-		let debt_after = pallet_psm::Pallet::<Runtime>::total_psm_debt();
+		let debt_after = pallet_psm::PsmDebt::<Runtime>::iter_values()
+				.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert!(debt_after > Zero::zero(), "Some debt should remain (fee portion)");
 		assert!(debt_after < total_debt, "Debt should decrease after redeem");
 
@@ -354,7 +345,7 @@ where
 /// 2. Activates circuit breaker to `MintingDisabled` — verifies mint fails, redeem works
 /// 3. Activates circuit breaker to `AllDisabled` — verifies both mint and redeem fail
 /// 4. Deactivates circuit breaker — verifies both operations resume
-pub fn circuit_breaker<Runtime, Block>(
+pub fn circuit_breaker<Runtime, Block, MigrationConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfig,
 )
@@ -365,9 +356,10 @@ where
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, swap_amount, .. } = setup::<Runtime>(config);
+		let TestEnv { asset_id, caller, swap_amount, .. } = setup::<Runtime, MigrationConfig>(config);
 
 		// Mint some pUSD first so we have something to redeem later.
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(

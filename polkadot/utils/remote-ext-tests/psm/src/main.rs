@@ -56,7 +56,9 @@ fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestCo
 			//
 			// This is only needed in tests. In production, the pUSD asset would
 			// be created via governance with treasury funds.
-			let psm_account = pallet_psm::Pallet::<Runtime>::account_id();
+			use sp_runtime::traits::AccountIdConversion;
+			let psm_account: <Runtime as frame_system::Config>::AccountId =
+				<Runtime as pallet_psm::Config>::PalletId::get().into_account_truncating();
 			let _ =
 				<asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
 					&psm_account,
@@ -92,7 +94,8 @@ async fn main() {
 			)
 			.await;
 
-			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block>(
+			use asset_hub_westend_runtime::PsmInitialConfig;
+			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block, PsmInitialConfig>(
 				&mut ext,
 				&config,
 			);
@@ -105,7 +108,7 @@ async fn main() {
 			)
 			.await;
 
-			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block>(
+			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block, PsmInitialConfig>(
 				&mut ext,
 				&config,
 			);
