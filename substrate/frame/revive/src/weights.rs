@@ -167,6 +167,7 @@ pub trait WeightInfo {
 	fn extcodecopy(n: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
 	fn v2_migration_step() -> Weight;
+	fn v3_migration_step() -> Weight;
 	fn on_finalize_per_transaction(n: u32, ) -> Weight;
 	fn on_finalize_per_transaction_data(d: u32, ) -> Weight;
 	fn on_finalize_per_event(e: u32, ) -> Weight;
@@ -1366,6 +1367,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(64_244_000, 6866)
 			.saturating_add(T::DbWeight::get().reads(5_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Revive::OriginalAccount` (r:1 w:1)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	fn v3_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `109`
+		//  Estimated: `3593`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
 	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -2661,6 +2675,19 @@ impl WeightInfo for () {
 		Weight::from_parts(64_244_000, 6866)
 			.saturating_add(RocksDbWeight::get().reads(5_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Revive::OriginalAccount` (r:1 w:1)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	fn v3_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `109`
+		//  Estimated: `3593`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
 	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
