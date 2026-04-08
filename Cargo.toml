@@ -635,11 +635,8 @@ alloy-consensus = { version = "1.0.41", default-features = false }
 alloy-core = { version = "1.2.1", default-features = false }
 alloy-primitives = { version = "1.2.1", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
-<<<<<<< HEAD
-=======
 alloy-rpc-types = { version = "1.8.3", default-features = false }
 alloy-signer-local = { version = "1.8.3", default-features = false }
->>>>>>> 5a8eaa7 (Remove Meta Tx from Westend RC (#11668))
 alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
