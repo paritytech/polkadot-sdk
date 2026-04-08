@@ -20,7 +20,6 @@
 use super::*;
 use crate::Pallet as Referenda;
 use alloc::{borrow::Cow, vec, vec::Vec};
-use std::assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
 };
@@ -30,6 +29,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::Bounded as ArithBounded;
+use std::assert_matches::assert_matches;
 
 const SEED: u32 = 0;
 
