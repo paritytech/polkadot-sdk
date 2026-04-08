@@ -9,17 +9,15 @@
 
 ---
 
-## Executive Summary
+## Pitch
 
-Storage isn't free—someone pays. That someone naturally cares. Their client
-software verifies automatically: spot-checking random chunks in the background
-during routine operations like backup updates. A few KB per week, invisible to
-users.
+Storage isn't free—someone pays, someone naturally cares, we take advantage of
+that.
 
-We build on this: providers lock stake, clients can challenge. If a provider
+Storage providers lock stake, clients can challenge. If a provider
 doesn't serve data, they lose their stake. The chain exists as a credible
 threat, not the hot path—normal operations happen directly between clients and
-providers. Setup, checkpoints, disputes: that's when you touch the chain.
+providers. The chain is only needed for setup, checkpoints and disputes.
 
 We don't stop at storage—we go through some lengths to guarantee retrieval too.
 Challenges extract actual data on-chain. Too slow and expensive for bulk
@@ -28,7 +26,7 @@ since providers pay part of challenge costs even when they respond, this
 pressures them into serving off-chain directly.
 
 Existing Web3 storage either proves too much (Filecoin's continuous proofs—heavy,
-slow, chain-bound) or guarantees too little (IPFS—no persistence at all). We use
+slow, chain-bound) or/and guarantees too little (IPFS—no persistence at all). We use
 game theory: Rational providers serve because being challenged costs more
 than any savings from deleting data. This scales with provider capacity, not
 chain throughput.
@@ -78,7 +76,7 @@ What IPFS explicitly does *not* provide:
 - **Incentives**: No reason for nodes to serve data to strangers
 - **Fast discovery**: DHT lookups take 2-10 seconds and often fail
 
-The fundamental issue: **a content hash is just a name**. Knowing the name doesn't tell you where the data lives, who stores it, or whether it exists at all. You must hope someone, somewhere, cares enough to keep it.
+The fundamental issue is that a content hash is just a name. Knowing the name doesn't tell you where the data lives, who stores it, or whether it exists at all. You must hope someone, somewhere, cares enough to keep it.
 
 ### Filecoin: Incentivizing IPFS Storage
 
@@ -89,7 +87,10 @@ Filecoin adds an incentive layer to IPFS. Providers lock collateral and commit t
 - Every sector proven on-chain every 24 hours (WindowPoSt)
 - Chain processes millions of proofs daily at network scale
 
-This works for cold archival. But for interactive applications: write latency is minutes to hours, hardware requirements exclude commodity servers, and 32GB sectors waste space for small files.
+This works for cold archival. But for interactive applications: write latency is
+minutes to hours, hardware requirements exclude commodity servers, and 32GB
+sectors waste space & cost for small files: This makes Filecoin largely unusable
+for end users.
 
 **The lighter approach (PDP, May 2025):**
 Filecoin's Proof of Data Possession improves hot storage significantly:
@@ -98,34 +99,31 @@ Filecoin's Proof of Data Possession improves hot storage significantly:
 - Constant proof size—160 bytes challenged regardless of data volume
 - ~10-20x lower gas costs than WindowPoSt
 
-But PDP still requires periodic proofs—every 30 minutes per ProofSet. At network scale with millions of ProofSets, the chain must still process millions of proof submissions daily. **Chain throughput still bounds storage capacity**, just at a higher ceiling.
+But PDP still requires periodic proofs—every 30 minutes per ProofSet. At network
+scale with millions of ProofSets, the chain must still process millions of proof
+submissions daily. **Chain throughput still bounds storage capacity**, just at a
+higher ceiling. Write latency is still bound by chain latency.
 
 ### The Deeper Problem: What Do Proofs Actually Guarantee?
 
-Here's what's often overlooked: **cryptographic proofs don't guarantee persistence—payments do.**
-
-Consider what Filecoin's proofs actually prove:
-- ✓ Provider has the data *right now*
-- ✓ Provider had the data *at each proof interval*
-- ✗ Provider will have the data *tomorrow*
-- ✗ Data will survive if the storage deal expires
-- ✗ Data will survive if the client stops paying
-
-When a Filecoin storage deal expires, the provider can (and economically should) delete the data. The proofs were all valid. The data is still gone.
-
-Continuous proofs create an appearance of trustless persistence. But the trust hasn't been eliminated—it's been hidden. You're trusting that someone pays and keeps paying for the storage and on top of that you have no guarantee of data delivery, even if the data is technically available.
+Filecoins proving ensures at a high cost that data is stored, but there is no
+guarantee at all that it will also be retrievable. A provider can provide all
+the required proofs and still not serve the data at all to anybody (or not at
+the necessary capacity).
 
 ### CID Addressing Hides Dependencies
 
 Content addressing (CIDs) has a subtle problem: **it obscures where data actually lives**.
 
 When you reference `bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3okurat...`, you're saying "I want data with this hash." You're not saying:
-- Who stores it
+- Who stores it (by design)
 - What guarantees they've made
 - How long they've committed to store it
 - What stake backs that commitment
 
-This is fine for ephemeral caching. It's problematic for anything you depend on. You can't answer "will this data exist next month?" without tracking down the storage deals separately.
+This is fine for ephemeral caching. It's problematic for anything you depend on.
+You can't easily answer "will this data exist next month?" without tracking down
+the storage deals separately or rely on third party indexers.
 
 ### Summary
 
@@ -176,13 +174,11 @@ The key difference from pure CIDs:
 | Content immutability | Hash = content | Hash in path = immutable; path-only = mutable |
 | Can I verify? | Fetch and hope | Fetch & challenge if needed|
 
-**The bucket_id is the stable anchor.** Providers can come and go, but the bucket_id never changes. Applications reference buckets, not providers. When you see a bucket reference, you can look up exactly who stores it, what stake backs it, and how long they've committed—no hoping, no DHT lookups, no uncertainty.
+**The bucket_id is the stable anchor.** Providers can come and go, but the bucket_id never changes. Applications reference buckets, not providers. When you see a bucket reference, you can look up exactly who stores it, what stake backs it, and how long they've committed.
 
 ### Storage Only Matters If Someone Cares
 
-Our design assumption: A rational client who paid for storage will periodically verify their data exists. By reading it. By spot-checking random chunks. If no one ever checks, the data has no practical value worth guaranteeing.
-
-This isn't a limitation. In reality, most data written is never read again—but that's fine. Someone still cares enough to pay for storage. Verification is automated and free: when you update your backup, the software spot-checks random existing chunks in the background. You might never restore that backup (hopefully you won't need to), but each incremental update verifies storage at no cost to you. The key is that this isn't fire-and-forget—there's ongoing interaction, even if minimal, and that interaction enables verification.
+Our design assumption: Someone pays for the storage, so someone naturally cares: Storage and retrievability are not proven cryptographically, but ensured via game theory.
 
 ### Self-Interested Clients as Verification Layer
 
@@ -195,13 +191,20 @@ The math is compelling. Suppose a client spot-checks 3 random chunks weekly. If 
 - After 3 months (13 weeks): 98% detection probability
 - After 6 months (26 weeks): 99.97% detection probability
 
-And that's just explicit spot-checking. Every normal read is also implicit verification. A backup app that restores files is verifying storage. A website visitor loading an image is verifying storage. The "verifier's dilemma" (verification is too expensive) disappears when verification is free bandwidth.
+And that's just explicit very low-rate spot-checking. Every normal read is also
+implicit verification. A backup app that restores files is verifying storage. A
+website visitor loading an image is verifying storage. The "verifier's dilemma"
+(verification is too expensive) disappears when verification is free bandwidth.
 
 ### Automation Removes the Human Factor
 
-"But users are lazy! They won't verify!"
-
-Correct. Humans are unreliable. Software isn't.
+The verifier dilemma does not hold, if checking is effortless: Which is the case
+for storage. The assumption is that the very client software you use for
+accessing the storage, making deals, extending deals, will silently in the back
+fetch random chunks from providers and will challenge them on chain if chunks
+are not provided. This is effortless, because bandwidth is cheap/free for
+clients nowadays most of the time (flat-rate) and because it is automated: There
+is no human effort involved.
 
 The client software—the backup app, the file browser, the media player—performs verification automatically. When you open your backup app, it spot-checks a few random chunks in the background. When you browse a folder, the client fetches the directory listing chunks—verifying they exist and match their hashes. When you play a video, every chunk delivered is verified against its hash.
 
@@ -215,7 +218,7 @@ All this subjective verification aggregates into objective reliability. There ar
 
 **Trusting a bucket (someone else's data)**: How do you trust that a bucket you don't control will remain available? Look at who else cares:
 - **Replica diversity**: How many independent providers are storing replicas? What are their stakes?
-- **Stakeholder diversity**: Who funded these replicas? Major institutions? Community members? 
+- **Stakeholder diversity**: Who funded these replicas? Major institutions? Community members?
 - **Data importance**: If this bucket has replicas from providers across multiple jurisdictions with significant stake, many parties have skin in the game.
 
 The more independent stakeholders with economic interest in a bucket's availability, the stronger the guarantee—even if you never verify yourself.
@@ -226,7 +229,7 @@ What if you don't trust aggregate metrics? What if you have strict requirements?
 
 **Add your own replica.** Anyone can create a replica agreement with any provider they choose. Pick a provider you trust, pay them directly, verify them yourself. Now you have at least one replica whose reliability you've personally established.
 
-Or simply **challenge directly.** Anyone can challenge any provider for any data they have a commitment for. Don't trust that a provider still has your data? Fetch one random chunk. If they respond, you've verified (and recovered that chunk). If they don't, you challenge, they get slashed, and the world learns they're unreliable.
+Or simply **challenge directly.** Anyone can challenge any provider for any data they have a commitment for. Don't trust that a provider still has the data? Fetch one random chunk. If they respond, you've verified (and recovered that chunk). If they don't, you challenge, they get slashed, and the world learns they're unreliable.
 
 The point: you're never dependent on trusting others' verification. You can always verify yourself, at any time, for any data you care about.
 
@@ -282,7 +285,7 @@ The point: you're never dependent on trusting others' verification. You can alwa
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
                                     ▲
-                                    │ foundation
+                                    │ read scalability
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      PROOF-OF-DOT                                   │
 │                                                                     │
@@ -658,7 +661,7 @@ Client software should verify automatically, invisibly:
 
 **On every normal use**:
 - Directory browsing verifies directory chunks
-- File opening verifies file chunks  
+- File opening verifies file chunks
 - Media streaming verifies sequential chunks
 
 **Background sampling**:
