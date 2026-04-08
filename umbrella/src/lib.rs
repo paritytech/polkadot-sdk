@@ -619,13 +619,13 @@ pub use pallet_people;
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
 
-/// FRAME pallet for the Peg Stability Module.
-#[cfg(feature = "pallet-psm")]
-pub use pallet_psm;
-
 /// FRAME proxying pallet.
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
+
+/// FRAME pallet for the Peg Stability Module.
+#[cfg(feature = "pallet-psm")]
+pub use pallet_psm;
 
 /// Ranked collective system: Members of a set of account IDs can make their collective
 /// feelings known through dispatched calls from one of two specialized origins.

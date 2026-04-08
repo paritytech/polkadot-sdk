@@ -47,8 +47,8 @@
 //!
 //! ### Fee Structure
 //!
-//! * **Minting Fee ([`MintingFee`])**: Deducted from pUSD output during minting
-//! * **Redemption Fee ([`RedemptionFee`])**: Deducted from external stablecoin output during
+//! * **Minting Fee (`MintingFee`)**: Deducted from pUSD output during minting
+//! * **Redemption Fee (`RedemptionFee`)**: Deducted from external stablecoin output during
 //!   redemption
 //!
 //! Fees are collected in pUSD and transferred to [`Config::FeeDestination`].
@@ -256,7 +256,7 @@ pub mod pallet {
 		/// Account that receives pUSD fees from minting and redemption.
 		///
 		/// Must exist before any swap; initialized at genesis and migration
-		/// via [`Pallet::ensure_account_exists`].
+		/// via `Pallet::ensure_account_exists`.
 		type FeeDestination: Get<Self::AccountId>;
 
 		/// PalletId for deriving the PSM account.
@@ -450,7 +450,7 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `asset_id`: The external stablecoin to deposit (must be in [`ExternalAssets`])
+		/// - `asset_id`: The external stablecoin to deposit (must be in `ExternalAssets`)
 		/// - `external_amount`: Amount of external stablecoin to deposit
 		///
 		/// ## Errors
@@ -548,7 +548,7 @@ pub mod pallet {
 		///
 		/// ## Parameters
 		///
-		/// - `asset_id`: The external stablecoin to receive (must be in [`ExternalAssets`])
+		/// - `asset_id`: The external stablecoin to receive (must be in `ExternalAssets`)
 		/// - `pusd_amount`: Amount of pUSD to redeem
 		///
 		/// ## Errors
@@ -844,9 +844,9 @@ pub mod pallet {
 		/// This prevents orphaned debt that cannot be redeemed.
 		///
 		/// Upon removal, the associated configuration is also cleaned up:
-		/// - [`MintingFee`] for this asset
-		/// - [`RedemptionFee`] for this asset
-		/// - [`AssetCeilingWeight`] for this asset
+		/// - `MintingFee` for this asset
+		/// - `RedemptionFee` for this asset
+		/// - `AssetCeilingWeight` for this asset
 		///
 		/// ## Parameters
 		///

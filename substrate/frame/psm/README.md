@@ -1,14 +1,18 @@
 # PSM Pallet
 
-A Peg Stability Module enabling 1:1 swaps between pUSD and pre-approved external stablecoins on Substrate-based blockchains.
+A Peg Stability Module enabling 1:1 swaps between pUSD and pre-approved
+external stablecoins on Substrate-based blockchains.
 
 ## Overview
 
-The PSM pallet allows users to swap external stablecoins (e.g., USDC, USDT) for pUSD and vice versa at a 1:1 rate (minus fees). This creates a decentralized peg stabilization mechanism where:
+The PSM pallet allows users to swap external stablecoins (e.g., USDC, USDT)
+for pUSD and vice versa at a 1:1 rate (minus fees). This creates a
+decentralized peg stabilization mechanism where:
 
 - **Reserves are held**: External stablecoins are held in a pallet-derived account (`PalletId`)
 - **pUSD is minted/burned**: Users receive pUSD when depositing external stablecoins, and burn pUSD when redeeming
-- **Fees are routed to `FeeDestination`**: Mint and redeem fees are collected in pUSD and transferred to a configurable account
+- **Fees are routed to `FeeDestination`**: Mint and redeem fees are
+  collected in pUSD and transferred to a configurable account
 - **Circuit breaker provides emergency control**: Per-asset circuit breaker can disable minting or all swaps
 
 ## Swap Lifecycle
@@ -47,7 +51,10 @@ Before minting, the PSM checks three ceilings in order:
 
 ### PSM Reserved Capacity
 
-The PSM's allocation is guaranteed via the `PsmInterface` trait. The Vaults pallet queries `reserved_capacity()` and enforces an effective vault ceiling of `MaximumIssuance - reserved_capacity()`, preventing vaults from consuming PSM's share.
+The PSM's allocation is guaranteed via the `PsmInterface` trait.
+The Vaults pallet queries `reserved_capacity()` and enforces an effective
+vault ceiling of `MaximumIssuance - reserved_capacity()`, preventing vaults
+from consuming PSM's share.
 
 ### Per-Asset Ceiling
 
@@ -63,8 +70,10 @@ Setting an asset's weight to 0% disables minting and redistributes its capacity 
 
 Fees are calculated using `Permill::mul_ceil` (rounds up) and transferred as pUSD to `FeeDestination`:
 
-- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)` -- deducted from pUSD output, minted to `FeeDestination`
-- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)` -- transferred from the user to `FeeDestination`
+- **Minting Fee**: `fee = MintingFee[asset_id].mul_ceil(external_amount)`
+  -- deducted from pUSD output, minted to `FeeDestination`
+- **Redemption Fee**: `fee = RedemptionFee[asset_id].mul_ceil(pusd_amount)`
+  -- transferred from the user to `FeeDestination`
 
 With 0.5% fees on both sides, arbitrage opportunities exist when pUSD trades outside $0.995-$1.005.
 
@@ -89,7 +98,7 @@ The `set_asset_status` extrinsic can be called by both `GeneralAdmin` and `Emerg
 | `set_max_psm_debt(ratio)`                    | Full              | Update global PSM ceiling as % of MaximumIssuance |
 | `set_asset_ceiling_weight(asset_id, weight)` | Full              | Update per-asset ceiling weight                   |
 | `set_asset_status(asset_id, status)`         | Full or Emergency | Set per-asset circuit breaker level               |
-| `add_external_asset(asset_id)`               | Full              | Add approved stablecoin with matching decimals; defaults to `AllEnabled` |
+| `add_external_asset(asset_id)`               | Full              | Add approved stablecoin (matching decimals)       |
 | `remove_external_asset(asset_id)`            | Full              | Remove approved stablecoin (requires zero debt)   |
 
 ### Privilege Levels
@@ -134,7 +143,10 @@ impl pallet_psm::Config for Runtime {
 }
 ```
 
-`Fungibles` must expose metadata for approved assets, and `StableAsset` must expose metadata for the pUSD asset because `add_external_asset` validates that decimals match before approval. `MaximumIssuance` provides the system-wide pUSD cap (typically from the Vaults pallet or a constant).
+`Fungibles` must expose metadata for approved assets, and `StableAsset`
+must expose metadata for the pUSD asset because `add_external_asset`
+validates that decimals match before approval. `MaximumIssuance` provides
+the system-wide pUSD cap (typically from the Vaults pallet or a constant).
 
 ### Parameters (Set via Governance)
 

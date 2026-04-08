@@ -1649,15 +1649,15 @@ default-features = false
 optional = true
 path = "../substrate/frame/preimage"
 
-[dependencies.pallet-psm]
-default-features = false
-optional = true
-path = "../substrate/frame/psm"
-
 [dependencies.pallet-proxy]
 default-features = false
 optional = true
 path = "../substrate/frame/proxy"
+
+[dependencies.pallet-psm]
+default-features = false
+optional = true
+path = "../substrate/frame/psm"
 
 [dependencies.pallet-ranked-collective]
 default-features = false
