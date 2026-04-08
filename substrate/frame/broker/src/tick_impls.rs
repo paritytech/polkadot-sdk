@@ -216,9 +216,6 @@ impl<T: Config> Pallet<T> {
 		InstaPoolIo::<T>::mutate(region_end, |r| r.system.saturating_reduce(total_pooled));
 
 		let mut leases = Leases::<T>::get();
-		// Track (task, new_core) for active (non-expiring) leases so we can fix up any stale
-		// core indices stored in AutoRenewals. Core indices can shift between sales whenever
-		// another lease expires or reservations change, so we must keep them in sync.
 		let mut lease_core_updates: alloc::vec::Vec<(TaskId, CoreIndex)> = alloc::vec::Vec::new();
 		// Can morph to a renewable as long as it's >=begin and <end.
 		leases.retain(|&LeaseRecordItem { until, task }| {
