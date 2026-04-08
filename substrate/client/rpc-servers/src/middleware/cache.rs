@@ -57,31 +57,28 @@ fn is_cacheable(method: &str) -> bool {
 	method.starts_with("state_") || method.starts_with("childstate_")
 }
 
-/// Check whether the last param is a block hash.
+/// Parse params and check whether the last element is a block hash.
+///
+/// Returns the canonically serialized params string (whitespace-normalized) on success,
+/// or `None` if the params don't contain an explicit block hash.
 ///
 /// A block hash is a 66-character hex string (`0x` + 64 hex chars = 32 bytes).
-/// Returns `false` if params are empty or the last param doesn't look like a block hash —
-/// meaning the request targets "latest" and should not be cached.
-fn has_explicit_block_hash(params: &str) -> bool {
-	let parsed: serde_json::Value = match serde_json::from_str(params) {
-		Ok(v) => v,
-		Err(_) => return false,
-	};
-	let arr = match parsed.as_array() {
-		Some(a) if !a.is_empty() => a,
-		_ => return false,
-	};
+fn parse_and_check_params(params: &str) -> Option<String> {
+	let parsed: serde_json::Value = serde_json::from_str(params).ok()?;
+	let arr = parsed.as_array().filter(|a| !a.is_empty())?;
 	match arr.last().and_then(|v| v.as_str()) {
-		Some(s) if s.len() == 66 && s.starts_with("0x") => true,
-		_ => false,
+		Some(s) if s.len() == 66 && s.starts_with("0x") => {},
+		_ => return None,
 	}
+	// Re-serialize to get a canonical (whitespace-normalized) form for hashing.
+	Some(serde_json::to_string(&parsed).expect("re-serialization of valid JSON cannot fail"))
 }
 
-/// Compute a cache key from the method name and params.
-fn cache_key(method: &str, params: &str) -> u64 {
+/// Compute a cache key from the method name and canonical params.
+fn cache_key(method: &str, canonical_params: &str) -> u64 {
 	let mut hasher = DefaultHasher::new();
 	method.hash(&mut hasher);
-	params.hash(&mut hasher);
+	canonical_params.hash(&mut hasher);
 	hasher.finish()
 }
 
@@ -339,16 +336,19 @@ where
 			return async move { service.call(req).await }.boxed();
 		}
 
-		// Check that the last param is an explicit block hash.
+		// Parse params, check for explicit block hash, and normalize for cache key.
 		let params = req.params();
 		let params_str = params.as_str().unwrap_or("[]");
-		if !has_explicit_block_hash(params_str) {
-			let service = self.service.clone();
-			return async move { service.call(req).await }.boxed();
-		}
+		let canonical_params = match parse_and_check_params(params_str) {
+			Some(p) => p,
+			None => {
+				let service = self.service.clone();
+				return async move { service.call(req).await }.boxed();
+			},
+		};
 
 		// Compute cache key and check for hit.
-		let key = cache_key(method, params_str);
+		let key = cache_key(method, &canonical_params);
 		{
 			let mut cache = self.cache.lock();
 			if let Some(cached) = cache.get(&key) {
@@ -437,41 +437,48 @@ mod tests {
 		assert!(!is_cacheable("author_submitExtrinsic"));
 	}
 
-	// --- has_explicit_block_hash tests ---
+	// --- parse_and_check_params tests ---
 
 	const HASH_66: &str = "0xf1212766e424bdc1f8f1d2c11ee236cff70ad77cad64d82b7823acc1e682a815";
 
 	#[test]
-	fn has_block_hash_when_last_param_is_hash() {
+	fn parses_when_last_param_is_hash() {
 		let params = format!(r#"["ReviveApi_eth_block", "0x", "{}"]"#, HASH_66);
-		assert!(has_explicit_block_hash(&params));
+		assert!(parse_and_check_params(&params).is_some());
 
 		let params = format!(r#"["{}"]"#, HASH_66);
-		assert!(has_explicit_block_hash(&params));
+		assert!(parse_and_check_params(&params).is_some());
 	}
 
 	#[test]
-	fn no_block_hash_when_omitted() {
-		// state_call with only 2 params — hash omitted
-		assert!(!has_explicit_block_hash(r#"["ReviveApi_eth_block", "0x"]"#));
+	fn rejects_when_hash_omitted() {
+		assert!(parse_and_check_params(r#"["ReviveApi_eth_block", "0x"]"#).is_none());
 	}
 
 	#[test]
-	fn no_block_hash_when_null() {
-		assert!(!has_explicit_block_hash(r#"["method", "0x", null]"#));
+	fn rejects_when_null() {
+		assert!(parse_and_check_params(r#"["method", "0x", null]"#).is_none());
 	}
 
 	#[test]
-	fn no_block_hash_when_empty_params() {
-		assert!(!has_explicit_block_hash(r#"[]"#));
+	fn rejects_when_empty_params() {
+		assert!(parse_and_check_params(r#"[]"#).is_none());
 	}
 
 	#[test]
-	fn no_block_hash_when_wrong_length() {
-		// "0xdata" is too short (6 chars, not 66)
-		assert!(!has_explicit_block_hash(r#"["method", "0xdata"]"#));
-		// "0x" is too short (2 chars)
-		assert!(!has_explicit_block_hash(r#"["0x"]"#));
+	fn rejects_when_wrong_length() {
+		assert!(parse_and_check_params(r#"["method", "0xdata"]"#).is_none());
+		assert!(parse_and_check_params(r#"["0x"]"#).is_none());
+	}
+
+	#[test]
+	fn normalizes_whitespace() {
+		let p1 = format!(r#"["a",  "0x",  "{}"]"#, HASH_66);
+		let p2 = format!(r#"["a","0x","{}"]"#, HASH_66);
+		let n1 = parse_and_check_params(&p1).unwrap();
+		let n2 = parse_and_check_params(&p2).unwrap();
+		assert_eq!(n1, n2);
+		assert_eq!(cache_key("state_call", &n1), cache_key("state_call", &n2));
 	}
 
 	// --- Helper: extract_result_field ---
