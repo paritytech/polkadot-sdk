@@ -284,8 +284,8 @@ The point: you're never dependent on trusting others' verification. You can alwa
 │          └──────────────────────────────────────────────────────────│
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
-                                    ▲
                                     │ read scalability
+                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                      PROOF-OF-DOT                                   │
 │                                                                     │
@@ -487,6 +487,8 @@ Imagine a provider who technically kept the data but was slow, unresponsive, or 
 
 In addition to the challenging mechanism, this burn instead of pay possibility is part of guaranteeing/incentivizing good enough retrievability, not just storing.
 
+Note: Nowadays we would rather not burn, but transfer the funds into the DAP (Dynamic Allocation Pool). Important property: It must be a lose-lose for both parties.
+
 **Avoiding abuse**
 
 Burning costs *more* than paying. When burning, the client loses the locked payment AND pays an additional premium (governance-configurable, e.g., 10%) from their account. This premium is deducted at burn time—if the client lacks sufficient funds, the burn fails and they must pay instead (or top up their account).
@@ -534,7 +536,7 @@ It's not binary (serve/don't serve). Providers can "barely serve"—responding o
 
 We don't prevent collusion cryptographically. We make it economically irrational through stake requirements, practically difficult through latency-based verification, and strategically unstable through client optionality and provider competition.
 
-In the end, the guarantees are provided by stake. Client and provider are getting aligned on risks. If content have a real risk of getting censored somewhere, a colluding provider also faces a real risk of losing its stake.
+In the end, the guarantees are provided by stake. Client and provider are getting aligned on risks. **If the content has a real risk of getting censored somewhere, a colluding provider also faces a real risk of losing its stake.**
 
 ---
 
