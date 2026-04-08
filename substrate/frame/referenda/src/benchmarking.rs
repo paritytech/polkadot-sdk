@@ -20,7 +20,7 @@
 use super::*;
 use crate::Pallet as Referenda;
 use alloc::{borrow::Cow, vec, vec::Vec};
-use assert_matches::assert_matches;
+use std::assert_matches::assert_matches;
 use frame_benchmarking::v1::{
 	account, benchmarks_instance_pallet, whitelist_account, BenchmarkError,
 };

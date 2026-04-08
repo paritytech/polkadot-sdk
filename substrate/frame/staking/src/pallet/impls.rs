@@ -2164,6 +2164,9 @@ impl<T: Config> sp_staking::StakingUnchecked for Pallet<T> {
 		VirtualStakers::<T>::insert(who, ());
 		Ok(())
 	}
+	
+	#[cfg(feature = "runtime-benchmarks")]
+	fn migrate_to_direct_staker(_who: &Self::AccountId) {}
 
 	/// Virtually bonds `keyless_who` to `payee` with `value`.
 	///
