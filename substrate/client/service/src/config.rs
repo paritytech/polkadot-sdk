@@ -309,7 +309,6 @@ impl From<PathBuf> for BasePath {
 }
 
 /// RPC configuration.
-#[derive(Debug)]
 pub struct RpcConfiguration {
 	/// JSON-RPC server endpoints.
 	pub addr: Option<Vec<RpcEndpoint>>,
@@ -343,6 +342,33 @@ pub struct RpcConfiguration {
 	pub rate_limit_trust_proxy_headers: bool,
 	/// RPC logger capacity (default: 1024).
 	pub request_logger_limit: u32,
+	/// RPC response cache size in bytes. 0 to disable.
+	pub rpc_cache_size: usize,
+	/// Closure to check if a block reference is finalized. Required for RPC cache.
+	/// If `None` and `rpc_cache_size > 0`, the cache will not be enabled.
+	pub rpc_cache_is_finalized:
+		Option<std::sync::Arc<dyn Fn(sc_rpc_server::BlockRef) -> bool + Send + Sync>>,
+}
+
+impl std::fmt::Debug for RpcConfiguration {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("RpcConfiguration")
+			.field("addr", &self.addr)
+			.field("max_connections", &self.max_connections)
+			.field("cors", &self.cors)
+			.field("methods", &self.methods)
+			.field("max_request_size", &self.max_request_size)
+			.field("max_response_size", &self.max_response_size)
+			.field("max_subs_per_conn", &self.max_subs_per_conn)
+			.field("port", &self.port)
+			.field("message_buffer_capacity", &self.message_buffer_capacity)
+			.field("rate_limit", &self.rate_limit)
+			.field("rate_limit_trust_proxy_headers", &self.rate_limit_trust_proxy_headers)
+			.field("request_logger_limit", &self.request_logger_limit)
+			.field("rpc_cache_size", &self.rpc_cache_size)
+			.field("rpc_cache_is_finalized", &self.rpc_cache_is_finalized.as_ref().map(|_| ".."))
+			.finish()
+	}
 }
 
 /// Runtime executor configuration.

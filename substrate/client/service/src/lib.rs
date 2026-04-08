@@ -437,6 +437,19 @@ pub fn start_rpc_servers(
 
 	let metrics = sc_rpc_server::RpcMetrics::new(registry)?;
 
+	let cache = if rpc_configuration.rpc_cache_size > 0 {
+		let cache_metrics = registry.and_then(|r| sc_rpc_server::CacheMetrics::new(r).ok());
+		rpc_configuration.rpc_cache_is_finalized.as_ref().map(|is_finalized| {
+			sc_rpc_server::CacheLayer::new(
+				rpc_configuration.rpc_cache_size,
+				is_finalized.clone(),
+				cache_metrics,
+			)
+		})
+	} else {
+		None
+	};
+
 	let server_config = sc_rpc_server::Config {
 		endpoints,
 		metrics,
@@ -444,6 +457,7 @@ pub fn start_rpc_servers(
 		id_provider: rpc_id_provider,
 		request_logger_limit: rpc_configuration.request_logger_limit,
 		rpc_runtime,
+		cache,
 	};
 
 	// TODO: https://github.com/paritytech/substrate/issues/13773
