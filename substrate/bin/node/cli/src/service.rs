@@ -52,19 +52,16 @@ use std::{path::Path, sync::Arc};
 
 /// Host functions required for kitchensink runtime and Substrate node.
 #[cfg(not(feature = "runtime-benchmarks"))]
-pub type HostFunctions = (
-	sp_io::SubstrateHostFunctions,
-	sp_statement_store::runtime_api::HostFunctions,
-	// Experimental: Don't activate in your production runtime.
-	sp_virtualization::host_fn::HostFunctions,
-);
+pub type HostFunctions =
+	(sp_io::SubstrateHostFunctions, sp_statement_store::runtime_api::HostFunctions);
 
 /// Host functions required for kitchensink runtime and Substrate node.
 #[cfg(feature = "runtime-benchmarks")]
 pub type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
-	// Experimental: Don't activate in your production runtime.
+	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
+	// These host functions are not available on Polkadot and subject to breaking changes.
 	sp_virtualization::host_fn::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
