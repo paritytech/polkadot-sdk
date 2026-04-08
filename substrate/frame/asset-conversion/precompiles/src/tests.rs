@@ -26,7 +26,7 @@ use frame_support::{
 	assert_ok,
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
-use pallet_revive::{precompiles::TransactionLimits, AddressMapper, ExecConfig};
+use pallet_revive::{precompiles::TransactionLimits, AddressMapper, Code, ExecConfig};
 use sp_runtime::Weight;
 
 /// SCALE-encode asset kinds for use in precompile calls.
@@ -495,5 +495,162 @@ fn add_and_remove_liquidity_works() {
 			ret.amount2,
 			"asset1 balance delta must match return value"
 		);
+	});
+}
+
+// --- Read-only guard tests via STATICCALL ---
+
+alloy::sol! {
+	interface ICaller {
+		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
+		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
+	}
+}
+
+/// Dedicated account for deploying test fixture contracts (avoids clobbering test account balances).
+const FIXTURE_DEPLOYER: u64 = 555;
+
+/// Deploy the Caller fixture contract and return its address.
+/// The FIXTURE_DEPLOYER account is funded in genesis (see mock.rs).
+fn deploy_caller() -> sp_core::H160 {
+
+	let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Caller",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)
+	.expect("Caller fixture must be compiled");
+
+	pallet_revive::Pallet::<Test>::bare_instantiate(
+		RuntimeOrigin::signed(FIXTURE_DEPLOYER),
+		0u64.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		Code::Upload(init_code),
+		vec![],
+		None,
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.expect("Caller deployment must succeed")
+	.addr
+}
+
+/// Encode a forwarding call through the Caller fixture via STATICCALL or DELEGATECALL.
+fn encode_static_call(precompile_calldata: Vec<u8>) -> Vec<u8> {
+	ICaller::staticCallCall {
+		callee: alloy::primitives::Address::from(precompile_address().0),
+		data: precompile_calldata.into(),
+		gas: u64::MAX,
+	}
+	.abi_encode()
+}
+
+fn encode_delegate_call(precompile_calldata: Vec<u8>) -> Vec<u8> {
+	ICaller::delegateCall {
+		callee: alloy::primitives::Address::from(precompile_address().0),
+		data: precompile_calldata.into(),
+		gas: u64::MAX,
+	}
+	.abi_encode()
+}
+
+/// Helper: call the Caller fixture and decode (success, output).
+fn call_fixture(caller_contract: sp_core::H160, calldata: Vec<u8>) -> (bool, Vec<u8>) {
+	let result = pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(FIXTURE_DEPLOYER),
+		caller_contract,
+		0u64.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		calldata,
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.expect("call to Caller must succeed")
+	.data;
+
+	// Both staticCall and delegate return (bool, bytes).
+	use alloy::sol_types::SolValue;
+	let (success, output): (bool, alloy::primitives::Bytes) =
+		SolValue::abi_decode_params(&result).expect("return must decode");
+	(success, output.into())
+}
+
+use test_case::test_case;
+
+#[test_case(encode_static_call ; "staticcall")]
+#[test_case(encode_delegate_call ; "delegatecall")]
+fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
+	new_test_ext().execute_with(|| {
+		let caller_contract = deploy_caller();
+
+		let swap_data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(1).into(), encode_native().into()],
+			amountIn: U256::from(100),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&1u64),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode(swap_data));
+		assert!(!success, "swap must fail in indirect call context");
+	});
+}
+
+#[test]
+fn quote_allowed_in_staticcall() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 10_000);
+
+		let caller_contract = deploy_caller();
+
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode_static_call(quote_data));
+		assert!(success, "quote must succeed in read-only (STATICCALL) context");
+	});
+}
+
+#[test]
+fn quote_rejected_in_delegatecall() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 10_000);
+
+		let caller_contract = deploy_caller();
+
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode_delegate_call(quote_data));
+		assert!(!success, "quote must fail via DELEGATECALL");
+	});
+}
+
+#[test_case(encode_static_call ; "staticcall")]
+#[test_case(encode_delegate_call ; "delegatecall")]
+fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
+	new_test_ext().execute_with(|| {
+		let caller_contract = deploy_caller();
+
+		let data = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode(data));
+		assert!(!success, "create_pool must fail in indirect call context");
 	});
 }
