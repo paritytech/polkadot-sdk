@@ -1,5 +1,6 @@
+// This file is part of Substrate.
+
 // Copyright (C) Parity Technologies (UK) Ltd.
-// This file is part of Cumulus.
 // SPDX-License-Identifier: Apache-2.0
 
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,9 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod aura;
+//! Runtime API definition for the transaction storage proof processing.
 
-/// The current node version for cumulus official binaries, which takes the basic
-/// SemVer form `<major>.<minor>.<patch>`. It should correspond to the latest
-/// `polkadot` version of a stable release.
-pub const NODE_VERSION: &'static str = "1.21.3";
+use sp_runtime::traits::NumberFor;
+
+sp_api::decl_runtime_apis! {
+	/// Runtime API trait for transaction storage support.
+	pub trait TransactionStorageApi {
+		/// Get the actual value of a retention period in blocks.
+		fn retention_period() -> NumberFor<Block>;
+	}
+}

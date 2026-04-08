@@ -1,0 +1,14 @@
+title: "[stable2512] Backport #10662 - Bulletin as parachain missing features (partial)"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Partial backport of #10662 to stable2512. This PR includes:
+    1. Add `transaction_index::HostFunctions` with NO-OP impl to the cumulus `ParachainSystem` `validate_block` for polkadot-prepare/execute-worker, gated behind the `transaction-index` feature.
+    2. Introduce the `TransactionStorageApi::retention_period` runtime API in `sp-transaction-storage-proof`.
+crates:
+- name: cumulus-pallet-parachain-system
+  bump: patch
+- name: pallet-transaction-storage
+  bump: patch
+- name: sp-transaction-storage-proof
+  bump: minor

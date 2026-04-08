@@ -20,6 +20,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod runtime_api;
+
 extern crate alloc;
 
 use core::result::Result;
