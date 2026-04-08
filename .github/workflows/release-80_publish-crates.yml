@@ -307,17 +307,10 @@ jobs:
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-<<<<<<< HEAD
-            parity-publish apply -p -d
-          else
-            echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p
-=======
             parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
             parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
->>>>>>> 3e8d20ea ([Release|CI] - Support releasing crates to staging.crates.io (#11461))
             echo "Crates published successfully to $REGISTRY!"
           fi
 
