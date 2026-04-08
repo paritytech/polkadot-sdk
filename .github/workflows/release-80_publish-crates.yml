@@ -85,7 +85,7 @@ jobs:
       - name: Install pgpkms
         run: |
           # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
+          pip install git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae
 
       - name: Derive stable branch from release name
         id: derive_branch
@@ -184,7 +184,7 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.12 --locked -q
+          cargo install parity-publish@0.10.14 --locked -q
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
@@ -331,6 +331,26 @@ jobs:
             parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
+
+      - name: Restore clean manifests after publish
+        if: inputs.resume_from != 'push'
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          echo "Restoring clean manifests with version bumps only..."
+          parity-publish restore
+
+          git add -A
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "Restore clean manifests after crates publish for $RELEASE_NAME"
+            echo "Clean manifests committed"
+          else
+            echo "No changes to restore"
+          fi
+
 
       - name: Generate token for paritytech/polkadot-sdk
         id: generate_write_token
