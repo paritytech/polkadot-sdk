@@ -43,7 +43,9 @@ pub use jsonrpsee::{
 	core::id_providers::{RandomIntegerIdProvider, RandomStringIdProvider},
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
-pub use middleware::{Metrics, MiddlewareLayer, NodeHealthProxyLayer, RpcMetrics};
+pub use middleware::{
+	BlockRef, CacheLayer, CacheMetrics, Metrics, MiddlewareLayer, NodeHealthProxyLayer, RpcMetrics,
+};
 pub use utils::{RpcEndpoint, RpcMethods};
 
 const MEGABYTE: u32 = 1024 * 1024;
@@ -188,6 +190,8 @@ pub struct Config<M: Send + Sync + 'static> {
 	pub request_logger_limit: u32,
 	/// Dedicated RPC runtime.
 	pub rpc_runtime: tokio::runtime::Runtime,
+	/// Optional RPC response cache layer for finalized block queries.
+	pub cache: Option<CacheLayer>,
 }
 
 #[derive(Debug, Clone)]
@@ -203,8 +207,15 @@ pub async fn start_server<M>(config: Config<M>) -> Result<Server, Box<dyn StdErr
 where
 	M: Send + Sync,
 {
-	let Config { endpoints, metrics, rpc_api, id_provider, request_logger_limit, rpc_runtime } =
-		config;
+	let Config {
+		endpoints,
+		metrics,
+		rpc_api,
+		id_provider,
+		request_logger_limit,
+		rpc_runtime,
+		cache,
+	} = config;
 
 	let rpc_handle = rpc_runtime.handle().clone();
 
@@ -281,6 +292,7 @@ where
 		let service_builder = builder.to_service_builder();
 		let deny_unsafe = deny_unsafe(&local_addr, &rpc_methods);
 
+		let cache_layer = cache.clone();
 		rpc_handle.spawn(async move {
 			loop {
 				let (sock, remote_addr) = tokio::select! {
@@ -300,6 +312,7 @@ where
 				let cfg2 = cfg.clone();
 				let service_builder2 = service_builder.clone();
 				let rate_limit_whitelisted_ips2 = rate_limit_whitelisted_ips.clone();
+				let cache_layer2 = cache_layer.clone();
 
 				let svc =
 					tower::service_fn(move |mut req: http::Request<hyper::body::Incoming>| {
@@ -345,7 +358,8 @@ where
 
 						let rpc_middleware = RpcServiceBuilder::new()
 							.rpc_logger(request_logger_limit)
-							.option_layer(middleware_layer.clone());
+							.option_layer(middleware_layer.clone())
+							.option_layer(cache_layer2.clone());
 						let mut svc = service_builder
 							.set_rpc_middleware(rpc_middleware)
 							.build(methods, stop_handle);
