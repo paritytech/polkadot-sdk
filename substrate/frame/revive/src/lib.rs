@@ -1549,7 +1549,7 @@ pub mod pallet {
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
 			#[cfg(not(feature = "runtime-benchmarks"))]
 			if T::AutoMap::get() {
-				return Ok(())
+				return Ok(());
 			}
 
 			Self::ensure_non_contract_if_signed(&origin)?;
