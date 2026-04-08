@@ -360,7 +360,7 @@ pub enum ExecOutcome {
 		gas_left: i64,
 	},
 	/// A syscall was encountered. The caller should handle the syscall and then
-	/// call [`Virtualization::resume`] to continue execution.
+	/// call [`Virtualization::run`] again to continue execution.
 	Syscall {
 		/// How much gas is remaining at the point of the syscall.
 		gas_left: i64,

@@ -70,9 +70,8 @@ pub use sp_wasm_interface::{ExecAction, ExecOutcome};
 /// Buffer shared between runtime and executor for passing syscall data across the
 /// host function boundary.
 ///
-/// The runtime allocates this on its stack and passes it via
-/// [`PassPointerAndWrite`]. The host fills it in when returning from
-/// [`VirtT::run`].
+/// The runtime allocates this on its stack and passes it via pointer.
+/// The host fills it in when returning from [`VirtT::run`].
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct ExecBuffer {
