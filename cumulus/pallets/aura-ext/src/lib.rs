@@ -84,7 +84,7 @@ pub mod pallet {
 	/// but we require the old authorities to verify the seal when validating a PoV. This will
 	/// always be updated to the latest AuRa authorities in `on_finalize`.
 	#[pallet::storage]
-	pub(crate) type Authorities<T: Config> = StorageValue<
+	pub type Authorities<T: Config> = StorageValue<
 		_,
 		BoundedVec<T::AuthorityId, <T as pallet_aura::Config>::MaxAuthorities>,
 		ValueQuery,
@@ -95,7 +95,7 @@ pub mod pallet {
 	/// This is updated in [`FixedVelocityConsensusHook::on_state_proof`] with the current relay
 	/// chain slot as provided by the relay chain state proof.
 	#[pallet::storage]
-	pub(crate) type RelaySlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
+	pub type RelaySlotInfo<T: Config> = StorageValue<_, (Slot, u32), OptionQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

@@ -189,13 +189,13 @@ pub mod pallet {
 	///
 	/// Excluded the first imported block, its value is updated on block finalization.
 	#[pallet::storage]
-	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
+	pub type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// Per slot randomness used to feed the randomness accumulator.
 	///
 	/// The value is ephemeral and is cleared on block finalization.
 	#[pallet::storage]
-	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
+	pub type SlotRandomness<T> = StorageValue<_, Randomness>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]

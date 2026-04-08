@@ -44,7 +44,7 @@ pub mod pallet {
 	/// In case of a scheduled migration, this storage field contains the custom head data to be
 	/// applied.
 	#[pallet::storage]
-	pub(super) type PendingCustomValidationHeadData<T: Config> =
+	pub type PendingCustomValidationHeadData<T: Config> =
 		StorageValue<_, Vec<u8>, OptionQuery>;
 
 	#[pallet::event]

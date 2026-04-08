@@ -410,11 +410,11 @@ pub mod pallet {
 	/// Internal storage item of [`OffenceSendQueue`]. Should not be used manually.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type OffenceSendQueueOffences<T: Config> =
+	pub type OffenceSendQueueOffences<T: Config> =
 		StorageMap<_, Twox64Concat, u32, QueuedOffencePageOf<T>, ValueQuery>;
 	/// Internal storage item of [`OffenceSendQueue`]. Should not be used manually.
 	#[pallet::storage]
-	pub(crate) type OffenceSendQueueCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type OffenceSendQueueCursor<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound, frame_support::DebugNoBound)]

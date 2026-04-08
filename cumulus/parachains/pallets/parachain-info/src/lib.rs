@@ -64,7 +64,7 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub(super) type ParachainId<T: Config> =
+	pub type ParachainId<T: Config> =
 		StorageValue<_, ParaId, ValueQuery, DefaultForParachainId>;
 
 	impl<T: Config> Get<ParaId> for Pallet<T> {

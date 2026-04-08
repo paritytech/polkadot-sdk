@@ -438,7 +438,7 @@ pub mod pallet {
 
 	/// Authorizations, keyed by scope.
 	#[pallet::storage]
-	pub(super) type Authorizations<T: Config> =
+	pub type Authorizations<T: Config> =
 		StorageMap<_, Blake2_128Concat, AuthorizationScopeFor<T>, AuthorizationFor<T>, OptionQuery>;
 
 	/// Collection of transaction metadata by block number.

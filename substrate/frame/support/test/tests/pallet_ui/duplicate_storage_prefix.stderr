@@ -45,3 +45,50 @@ error[E0425]: cannot find type `_GeneratedPrefixForStorageBar` in this scope
    |
 39 |     type Bar<T> = CountedStorageMap<_, Twox64Concat, u16, u16>;
    |          ^^^ not found in this scope
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/duplicate_storage_prefix.rs:29:7
+   |
+29 |     type Foo<T> = StorageValue<_, u8>;
+   |          ^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_1::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/duplicate_storage_prefix.rs:33:7
+   |
+33 |     type NotFoo<T> = StorageValue<_, u16>;
+   |          ^^^^^^
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_2::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/duplicate_storage_prefix.rs:36:7
+   |
+36 |     type CounterForBar<T> = StorageValue<_, u16>;
+   |          ^^^^^^^^^^^^^
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_3::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/duplicate_storage_prefix.rs:39:7
+   |
+39 |     type Bar<T> = CountedStorageMap<_, Twox64Concat, u16, u16>;
+   |          ^^^

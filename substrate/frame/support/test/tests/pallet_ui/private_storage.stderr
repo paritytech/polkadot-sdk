@@ -1,14 +1,3 @@
-error[E0428]: the name `PrivatePalletStorage` is defined multiple times
-  --> tests/pallet_ui/private_storage.rs:33:18
-   |
-30 |     type PrivateValue<T> = StorageValue<Value = u32>;
-   |          ------------ previous definition of the value `PrivatePalletStorage` here
-...
-33 |     pub(crate) type PubCrateValue<T> = StorageValue<Value = u32>;
-   |                     ^^^^^^^^^^^^^ `PrivatePalletStorage` redefined here
-   |
-   = note: `PrivatePalletStorage` must be defined only once in the value namespace of this module
-
 error: unused import: `frame_system::pallet_prelude::*`
   --> tests/pallet_ui/private_storage.rs:21:6
    |
@@ -18,9 +7,9 @@ error: unused import: `frame_system::pallet_prelude::*`
    = note: `-D unused-imports` implied by `-D warnings`
    = help: to override `-D warnings` add `#[allow(unused_imports)]`
 
-error: use of deprecated constant `pallet::PrivatePalletStorage::_w`:
+error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
                It is deprecated to use private visibility for pallet storage.
-               Please instead use `pub` visibility for all pallet storage items.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
 
                For more info see:
                    <https://github.com/paritytech/polkadot-sdk/issues/8321>
@@ -32,9 +21,9 @@ error: use of deprecated constant `pallet::PrivatePalletStorage::_w`:
    = note: `-D deprecated` implied by `-D warnings`
    = help: to override `-D warnings` add `#[allow(deprecated)]`
 
-error: use of deprecated constant `pallet::PrivatePalletStorage::_w`:
+error: use of deprecated constant `pallet::PrivatePalletStorage_1::_w`:
                It is deprecated to use private visibility for pallet storage.
-               Please instead use `pub` visibility for all pallet storage items.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
 
                For more info see:
                    <https://github.com/paritytech/polkadot-sdk/issues/8321>

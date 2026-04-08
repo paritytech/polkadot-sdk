@@ -388,15 +388,15 @@ pub mod pallet {
 	//   - `Foo::put(1); Foo::get()` returns `1`;
 	//   - `Foo::kill(); Foo::get()` returns `0` (u32::default()).
 	#[pallet::storage]
-	pub(super) type Dummy<T: Config> = StorageValue<_, T::Balance>;
+	pub type Dummy<T: Config> = StorageValue<_, T::Balance>;
 
 	// A map that has enumerable entries.
 	#[pallet::storage]
-	pub(super) type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
+	pub type Bar<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, T::Balance>;
 
 	// this one uses the query kind: `ValueQuery`, we'll demonstrate the usage of 'mutate' API.
 	#[pallet::storage]
-	pub(super) type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
+	pub type Foo<T: Config> = StorageValue<_, T::Balance, ValueQuery>;
 
 	#[pallet::storage]
 	pub type CountedMap<T> = CountedStorageMap<_, Blake2_128Concat, u8, u16>;

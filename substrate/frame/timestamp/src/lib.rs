@@ -135,7 +135,7 @@ pub mod weights;
 use core::{cmp, result};
 use frame_support::traits::{OnTimestampSet, Time, UnixTime};
 use sp_runtime::traits::{AtLeast32Bit, SaturatedConversion, Scale, Zero};
-use sp_timestamp::{INHERENT_IDENTIFIER, InherentError, InherentType};
+use sp_timestamp::{InherentError, InherentType, INHERENT_IDENTIFIER};
 pub use weights::WeightInfo;
 
 pub use pallet::*;

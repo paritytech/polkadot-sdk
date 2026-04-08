@@ -331,7 +331,7 @@ pub mod pallet {
 	/// case of the need to send a high-priority signal message this block.
 	/// The bool is true if there is a signal message waiting to be sent.
 	#[pallet::storage]
-	pub(super) type OutboundXcmpStatus<T: Config> = StorageValue<
+	pub type OutboundXcmpStatus<T: Config> = StorageValue<
 		_,
 		BoundedVec<OutboundChannelDetails, T::MaxActiveOutboundChannels>,
 		ValueQuery,
@@ -339,7 +339,7 @@ pub mod pallet {
 
 	/// The messages outbound in a given XCMP channel.
 	#[pallet::storage]
-	pub(super) type OutboundXcmpMessages<T: Config> = StorageDoubleMap<
+	pub type OutboundXcmpMessages<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		ParaId,
@@ -351,20 +351,20 @@ pub mod pallet {
 
 	/// Any signal messages waiting to be sent.
 	#[pallet::storage]
-	pub(super) type SignalMessages<T: Config> =
+	pub type SignalMessages<T: Config> =
 		StorageMap<_, Blake2_128Concat, ParaId, WeakBoundedVec<u8, T::MaxPageSize>, ValueQuery>;
 
 	/// The configuration which controls the dynamics of the outbound queue.
 	#[pallet::storage]
-	pub(super) type QueueConfig<T: Config> = StorageValue<_, QueueConfigData, ValueQuery>;
+	pub type QueueConfig<T: Config> = StorageValue<_, QueueConfigData, ValueQuery>;
 
 	/// Whether or not the XCMP queue is suspended from executing incoming XCMs or not.
 	#[pallet::storage]
-	pub(super) type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type QueueSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
-	pub(super) type DeliveryFeeFactor<T: Config> =
+	pub type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 

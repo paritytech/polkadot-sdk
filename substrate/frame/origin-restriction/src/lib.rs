@@ -112,9 +112,9 @@ pub mod pallet {
 		pub at_block: BlockNumber,
 	}
 
-	pub(crate) type OriginCallerFor<T> =
+	pub type OriginCallerFor<T> =
 		<<T as frame_system::Config>::RuntimeOrigin as OriginTrait>::PalletsOrigin;
-	pub(crate) type BalanceOf<T> =
+	pub type BalanceOf<T> =
 		<<T as pallet_transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
 			T,
 		>>::Balance;

@@ -116,7 +116,7 @@ pub mod pallet {
 
 	/// A map that stores holds applied on an account for a given AssetId.
 	#[pallet::storage]
-	pub(super) type Holds<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type Holds<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
@@ -131,7 +131,7 @@ pub mod pallet {
 
 	/// A map that stores the current total balance on hold for every account on a given AssetId.
 	#[pallet::storage]
-	pub(super) type BalancesOnHold<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
+	pub type BalancesOnHold<T: Config<I>, I: 'static = ()> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AssetId,
