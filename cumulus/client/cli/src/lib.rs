@@ -464,6 +464,10 @@ impl sc_cli::CliConfiguration for NormalizedRunCmd {
 		Ok(self.base.rpc_params.rpc_rate_limit_trust_proxy_headers)
 	}
 
+	fn rpc_cache_size(&self) -> sc_cli::Result<usize> {
+		self.base.rpc_cache_size()
+	}
+
 	fn rpc_max_request_size(&self) -> sc_cli::Result<u32> {
 		self.base.rpc_max_request_size()
 	}
