@@ -287,7 +287,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
@@ -335,7 +337,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = Origin::EthTransaction(caller.clone());
-		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -385,7 +389,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -579,6 +585,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
+		if T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::unmap(&caller).unwrap();
+		}
 		assert!(!T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -590,7 +599,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		assert!(T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -661,7 +672,9 @@ mod benchmarks {
 		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
 			T::Currency::set_balance(&account_id, caller_funding::<T>());
-			T::AddressMapper::map(&account_id).unwrap();
+			if !T::AddressMapper::is_mapped(&account_id) {
+				T::AddressMapper::map(&account_id).unwrap();
+			}
 			T::AddressMapper::to_address(&account_id)
 		};
 
@@ -2706,6 +2719,34 @@ mod benchmarks {
 
 		// uses twice the weight once for migration and then for checking if there is another key.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
+	}
+
+	#[benchmark]
+	fn v3_migration_step() {
+		use crate::migrations::v3;
+		// Remove all pre-existing accounts
+		let _ = frame_system::Account::<T>::clear(u32::MAX, None);
+
+		let account = account::<T::AccountId>("target", 0, 0);
+		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
+			.expect("should mint into account");
+
+		// clear the mapping so the migration has work to do
+		let addr = T::AddressMapper::to_address(&account);
+		crate::OriginalAccount::<T>::remove(addr);
+
+		assert!(!T::AddressMapper::is_mapped(&account));
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v3::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert!(T::AddressMapper::is_mapped(&account));
+
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark

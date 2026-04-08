@@ -1833,16 +1833,10 @@ fn withdraw_and_deposit_erc20s() {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let code = compile_module_with_type("MyToken", FixtureType::Resolc)
 			.expect("compile ERC20")
@@ -1907,16 +1901,10 @@ fn non_existent_erc20_will_error() {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;
@@ -1952,16 +1940,10 @@ fn smart_contract_not_erc20_will_error() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let (code, _) = compile_module("dummy").unwrap();
 
@@ -2008,16 +1990,10 @@ fn smart_contract_does_not_return_bool_fails() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
 		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc)
@@ -2069,16 +2045,10 @@ fn expensive_erc20_runs_out_of_gas() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
 		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc)

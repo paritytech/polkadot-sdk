@@ -168,6 +168,7 @@ pub trait WeightInfo {
 	fn extcodecopy(n: u32, ) -> Weight;
 	fn v1_migration_step() -> Weight;
 	fn v2_migration_step() -> Weight;
+	fn v3_migration_step() -> Weight;
 	fn v4_code_upload_step() -> Weight;
 	fn v4_contract_step() -> Weight;
 	fn v4_deletion_queue_step() -> Weight;
@@ -1411,6 +1412,19 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn v4_deletion_queue_step() -> Weight {
 		Weight::from_parts(20_000_000, 6000)
 			.saturating_add(T::DbWeight::get().reads(1_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Revive::OriginalAccount` (r:1 w:1)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	fn v3_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `109`
+		//  Estimated: `3593`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 3593)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
@@ -2741,6 +2755,19 @@ impl WeightInfo for () {
 	fn v4_deletion_queue_step() -> Weight {
 		Weight::from_parts(20_000_000, 6000)
 			.saturating_add(RocksDbWeight::get().reads(1_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	/// Storage: `System::Account` (r:1 w:0)
+	/// Proof: `System::Account` (`max_values`: None, `max_size`: Some(128), added: 2603, mode: `MaxEncodedLen`)
+	/// Storage: `Revive::OriginalAccount` (r:1 w:1)
+	/// Proof: `Revive::OriginalAccount` (`max_values`: None, `max_size`: Some(52), added: 2527, mode: `MaxEncodedLen`)
+	fn v3_migration_step() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `109`
+		//  Estimated: `3593`
+		// Minimum execution time: 7_000_000 picoseconds.
+		Weight::from_parts(8_000_000, 3593)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
