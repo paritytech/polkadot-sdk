@@ -27,6 +27,21 @@
 //! Please keep in mind that the interface is kept simple because it has to match the interface
 //! of the host function so that the abstraction works. It will never expose the whole PolkaVM
 //! interface.
+//!
+//! # ⚠️ Unstable API — Do Not Use in Production ⚠️
+//!
+//! **This crate's API is unstable and subject to breaking changes without notice.**
+//!
+//! The virtualization host functions exposed by this crate have **not been stabilized** and are
+//! **not available on Polkadot** (or any other production relay/parachain) until they are. Using
+//! them in a production runtime **will cause your runtime to break** when the API changes.
+//!
+//! This crate should **only** be used for:
+//! - Local testing and development
+//! - Experimentation on test networks
+//!
+//! **Do not** ship runtimes that depend on this crate to any chain you care about. There is no
+//! stability guarantee and no deprecation period — the interface may change at any time.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -164,6 +179,12 @@ impl ExecStatus {
 /// used by the pallet's test code.
 ///
 /// A trait is not strictly necessary but makes sure that both implementations do not diverge.
+///
+/// # ⚠️ Unstable — Do Not Use in Production
+///
+/// This trait and its implementations are **unstable**. The virtualization host functions are
+/// **not available on Polkadot** until the API is stabilized. Using them in a production
+/// runtime will cause breakage when the API changes. Only use for testing and experimentation.
 pub trait VirtT: Sized {
 	/// The memory implementation of this instance.
 	type Memory: MemoryT;

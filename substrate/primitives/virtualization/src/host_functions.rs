@@ -335,10 +335,16 @@ impl TryFrom<i64> for VoidResult {
 /// Use [`crate::Virt`] instead of these raw host functions. This will also make sure that
 /// everything works when running the code in native (test code) as this is a `wasm_only` interface.
 ///
-/// # Warning
+/// # ⚠️ Unstable — Do Not Use in Production ⚠️
 ///
-/// This is an unstable API. Its behaviour is subject to change until there is a spec. Don't use
-/// this API in your runtime except for test purposes.
+/// **This interface is unstable and subject to breaking changes without notice.**
+///
+/// These host functions are **not available on Polkadot** (or any other production
+/// relay/parachain) until the API has been stabilized. If you use them in a production
+/// runtime, your runtime **will break** when the API changes.
+///
+/// Only use for local testing, development, and experimentation on test networks.
+/// There is no stability guarantee and no deprecation period.
 #[runtime_interface(wasm_only)]
 pub trait Virtualization {
 	/// See `sp_virtualization::Virt::instantiate`.
@@ -350,6 +356,16 @@ pub trait Virtualization {
 		program: PassFatPointerAndRead<&[u8]>,
 	) -> ConvertAndReturnAs<Result<u32, InstantiateError>, RIIntResult<u32, RIInstantiateError>, i64>
 	{
+		use std::sync::Once;
+		static WARN_ONCE: Once = Once::new();
+		WARN_ONCE.call_once(|| {
+			log::warn!(
+				target: crate::LOG_TARGET,
+				"Virtualization host functions are UNSTABLE and subject to breaking changes. \
+				They are NOT available on Polkadot and using them in production will cause breakage. \
+				Only use for testing and experimentation.",
+			);
+		});
 		self.virtualization()
 			.instantiate(program)
 			.expect("instantiation failed")
