@@ -37,14 +37,19 @@ struct StoredArgs {
 	no_skip_type_params: bool,
 }
 
+mod keywords {
+	syn::custom_keyword!(no_skip_type_params);
+}
+
 impl Parse for StoredArgs {
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut args = StoredArgs::default();
 		while !input.is_empty() {
-			let arg: syn::Ident = input.parse()?;
-			if arg == "no_skip_type_params" {
+			if input.peek(keywords::no_skip_type_params) {
+				input.parse::<keywords::no_skip_type_params>()?;
 				args.no_skip_type_params = true;
 			} else {
+				let arg: syn::Ident = input.parse()?;
 				return Err(Error::new(
 					arg.span(),
 					format!(
