@@ -1022,8 +1022,10 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
-	type Exporter =
-		pallet_xcm_bridge_hub_router::UnpaidRemoteExporterAdapter<Runtime, ToWestendXcmRouterInstance>;
+	type Exporter = pallet_xcm_bridge_hub_router::UnpaidRemoteExporterAdapter<
+		Runtime,
+		ToWestendXcmRouterInstance,
+	>;
 
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
