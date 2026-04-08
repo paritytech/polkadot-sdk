@@ -53,6 +53,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-alliance?/std",
 	"pallet-asset-conversion-ops?/std",
+	"pallet-asset-conversion-precompiles?/std",
 	"pallet-asset-conversion-tx-payment?/std",
 	"pallet-asset-conversion?/std",
 	"pallet-asset-rate?/std",
@@ -257,6 +258,7 @@ runtime-benchmarks = [
 	"frame-system?/runtime-benchmarks",
 	"pallet-alliance?/runtime-benchmarks",
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
+	"pallet-asset-conversion-precompiles?/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment?/runtime-benchmarks",
 	"pallet-asset-conversion?/runtime-benchmarks",
 	"pallet-asset-rate?/runtime-benchmarks",
@@ -397,6 +399,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
+	"pallet-asset-conversion-precompiles?/try-runtime",
 	"pallet-asset-conversion-tx-payment?/try-runtime",
 	"pallet-asset-conversion?/try-runtime",
 	"pallet-asset-rate?/try-runtime",
@@ -612,6 +615,7 @@ runtime-full = [
 	"pallet-alliance",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-ops",
+	"pallet-asset-conversion-precompiles",
 	"pallet-asset-conversion-tx-payment",
 	"pallet-asset-rate",
 	"pallet-asset-rewards",
@@ -1264,6 +1268,11 @@ path = "../substrate/frame/asset-conversion"
 default-features = false
 optional = true
 path = "../substrate/frame/asset-conversion/ops"
+
+[dependencies.pallet-asset-conversion-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/asset-conversion/precompiles"
 
 [dependencies.pallet-asset-conversion-tx-payment]
 default-features = false
