@@ -1,13 +1,12 @@
 [package]
 name = "pallet-revive-fixtures"
-version = "0.1.0"
+version = "0.10.0"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Fixtures for testing and benchmarking"
 homepage.workspace = true
 repository.workspace = true
-rust-version = "1.84"
 
 [package.metadata.polkadot-sdk]
 exclude-from-umbrella = true
@@ -23,8 +22,8 @@ hex = { workspace = true, features = ["alloc"], optional = true }
 pallet-revive-uapi = { workspace = true }
 polkavm-linker = { version = "0.30.0", optional = true }
 serde_json = { workspace = true, optional = true }
-sp-core = { workspace = true, default-features = true, optional = true }
-sp-io = { workspace = true, default-features = true, optional = true }
+sp-core = { workspace = true, optional = true, default-features = true }
+sp-io = { workspace = true, optional = true, default-features = true }
 toml = { workspace = true, optional = true }
 
 [build-dependencies]

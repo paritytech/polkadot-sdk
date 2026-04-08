@@ -20,6 +20,6 @@ jsonrpsee = { workspace = true, features = ["client-ws-transport-tls", "ws-clien
 log = { workspace = true }
 rand = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-sp-core = { workspace = true, default-features = true }
-sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
+sp-core = { default-features = true, workspace = true }
+sp-statement-store = { workspace = true, features = ["serde"], default-features = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "time"] }
