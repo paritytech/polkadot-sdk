@@ -216,6 +216,7 @@ where
 	fn start_dev_node(
 		mut config: Configuration,
 		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		let PartialComponents {
 			client,
@@ -231,10 +232,25 @@ where
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
 		config.network.default_peers_set.out_peers = 0;
-		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
-			&config.network,
-			None,
-		);
+		let mut net_config =
+			FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
+				&config.network,
+				None,
+			);
+
+		let metrics = NotificationMetrics::new(None);
+
+		let statement_handler_proto =
+			node_extra_args.statement_store_config.map(|ss_config| {
+				let proto =
+					crate::common::statement_store::new_statement_handler_proto(
+						&*client,
+						&config,
+						&metrics,
+						&mut net_config,
+					);
+				(proto, ss_config)
+			});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
@@ -248,10 +264,37 @@ where
 				block_announce_validator_builder: None,
 				warp_sync_config: None,
 				block_relay: None,
-				metrics: NotificationMetrics::new(None),
+				metrics,
 			})?;
 
+		let statement_store = statement_handler_proto
+			.map(|(statement_handler_proto, ss_config)| {
+				crate::common::statement_store::build_statement_store(
+					&config,
+					&mut task_manager,
+					client.clone(),
+					network.clone(),
+					sync_service.clone(),
+					keystore_container.local_keystore(),
+					statement_handler_proto,
+					ss_config,
+				)
+			})
+			.transpose()?;
+
 		if config.offchain_worker.enabled {
+			let custom_extensions = {
+				let statement_store = statement_store.clone();
+				move |_| {
+					if let Some(statement_store) = &statement_store {
+						vec![Box::new(statement_store.clone().as_statement_store_ext())
+							as Box<_>]
+					} else {
+						vec![]
+					}
+				}
+			};
+
 			let offchain_workers =
 				sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 					runtime_api_provider: client.clone(),
@@ -263,7 +306,7 @@ where
 					network_provider: Arc::new(network.clone()),
 					is_validator: config.role.is_authority(),
 					enable_http_requests: true,
-					custom_extensions: move |_| vec![],
+					custom_extensions,
 				})?;
 			task_manager.spawn_handle().spawn(
 				"offchain-workers-runner",
@@ -357,13 +400,14 @@ where
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
+			let statement_store = statement_store.clone();
 
 			Box::new(move |_| {
 				let module = Self::BuildRpcExtensions::build_rpc_extensions(
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
-					None,
+					statement_store.clone(),
 					spawn_handle.clone(),
 				)?;
 				Ok(module)
