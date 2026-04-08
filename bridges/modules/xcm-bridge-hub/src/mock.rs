@@ -231,6 +231,11 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageR
 	type ToBridgeHubSender = ExecuteXcmOverSendXcm;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
+	type Exporter = pallet_xcm_bridge_hub_router::PaidRemoteExporter<
+		TestRuntime,
+		XcmOverBridgeWrappedWithExportMessageRouterInstance,
+	>;
+
 	type ByteFee = ConstU128<0>;
 	type FeeAsset = BridgeFeeAsset;
 }

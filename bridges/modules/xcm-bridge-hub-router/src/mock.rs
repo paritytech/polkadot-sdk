@@ -84,6 +84,8 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 	type ToBridgeHubSender = TestToBridgeHubSender;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
+	type Exporter = crate::PaidRemoteExporter<TestRuntime, ()>;
+
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
 }
