@@ -330,7 +330,6 @@ pub fn run(cmd: CliCommand) -> anyhow::Result<()> {
 		rate_limit_trust_proxy_headers: rpc_params.rpc_rate_limit_trust_proxy_headers,
 		request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
 		rpc_cache_size: 0,
-		rpc_cache_is_finalized: None,
 	};
 
 	let prometheus_config =

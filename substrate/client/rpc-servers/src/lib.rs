@@ -44,7 +44,7 @@ pub use jsonrpsee::{
 	server::{middleware::rpc::RpcServiceBuilder, BatchRequestConfig},
 };
 pub use middleware::{
-	BlockRef, CacheLayer, CacheMetrics, Metrics, MiddlewareLayer, NodeHealthProxyLayer, RpcMetrics,
+	CacheLayer, CacheMetrics, Metrics, MiddlewareLayer, NodeHealthProxyLayer, RpcMetrics,
 };
 pub use utils::{RpcEndpoint, RpcMethods};
 

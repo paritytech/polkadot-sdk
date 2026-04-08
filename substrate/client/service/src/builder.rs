@@ -657,34 +657,6 @@ where
 		})
 	};
 
-	// Set up the finalization check closure for the RPC cache.
-	if config.rpc.rpc_cache_size > 0 && config.rpc.rpc_cache_is_finalized.is_none() {
-		let cache_client = client.clone();
-		config.rpc.rpc_cache_is_finalized = Some(std::sync::Arc::new(move |block_ref| {
-			let info = cache_client.info();
-			match block_ref {
-				sc_rpc_server::BlockRef::Hash(hex) => {
-					// Block hashes implement serde::Deserialize for hex strings.
-					let hash: TBl::Hash =
-						match serde_json::from_value(serde_json::Value::String(hex)) {
-							Ok(h) => h,
-							Err(_) => return false,
-						};
-					match cache_client.number(hash) {
-						Ok(Some(number)) => number <= info.finalized_number,
-						_ => false,
-					}
-				},
-				sc_rpc_server::BlockRef::Number(n) => {
-					let Ok(block_num) = <NumberFor<TBl>>::try_from(n) else {
-						return false;
-					};
-					block_num <= info.finalized_number
-				},
-			}
-		}));
-	}
-
 	// Generate the RPC module for the server
 	let rpc_api = gen_rpc_module()?;
 

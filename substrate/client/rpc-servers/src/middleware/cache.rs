@@ -16,11 +16,20 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! RPC middleware for caching deterministic responses to finalized block queries.
+//! RPC middleware for caching deterministic responses to block queries.
 //!
 //! Caches the result payload of RPC responses for methods in the allowlist when the
-//! request targets a finalized block. Cache hits skip both execution and serialization
-//! of the inner handler.
+//! request includes an explicit block hash. Requests without a block hash (targeting
+//! "latest") are not cached since the result changes every block.
+//!
+//! Caching is safe for any block hash because the response is deterministic — a block hash
+//! uniquely identifies the block and its state. Non-finalized block entries are naturally
+//! evicted by LRU when the cache is full.
+
+// TODO: Consider resolving "latest" (missing block hash) to the current best block hash
+// so that repeated queries targeting the same "latest" block can hit the cache within the
+// same block production interval (~6s). This would require the middleware to have access
+// to the blockchain backend.
 
 use std::{
 	collections::hash_map::DefaultHasher,
@@ -40,58 +49,35 @@ use prometheus_endpoint::{
 };
 use schnellru::LruMap;
 
-/// A reference to a block, either by hash or by number.
-///
-/// Used by the finalization check closure to determine whether a block is finalized.
-#[derive(Debug, Clone)]
-pub enum BlockRef {
-	/// A hex-encoded block hash extracted from RPC params.
-	Hash(String),
-	/// A block number (used by `chain_getBlockHash`).
-	Number(u64),
-}
-
-/// Describes how to extract the block reference from a cacheable RPC method's params.
-#[derive(Debug, Clone, Copy)]
-enum BlockRefKind {
-	/// The param at the given index is a hex-encoded block hash.
-	HashAt(usize),
-	/// The param at the given index is a block number.
-	NumberAt(usize),
-}
-
-/// Returns the block ref extraction rule for a cacheable method, or `None` if not cacheable.
-fn cacheable_method(method: &str) -> Option<BlockRefKind> {
+/// Returns the param index of the block hash for a cacheable method, or `None` if not cacheable.
+fn cacheable_block_hash_index(method: &str) -> Option<usize> {
 	match method {
-		"state_call" | "state_callAt" => Some(BlockRefKind::HashAt(2)),
-		"state_getStorage" | "state_getStorageAt" => Some(BlockRefKind::HashAt(1)),
-		"state_getRuntimeVersion" => Some(BlockRefKind::HashAt(0)),
-		"chain_getBlock" => Some(BlockRefKind::HashAt(0)),
-		"chain_getHeader" => Some(BlockRefKind::HashAt(0)),
-		"chain_getBlockHash" => Some(BlockRefKind::NumberAt(0)),
+		"state_call" | "state_callAt" => Some(2),
+		"state_getStorage" | "state_getStorageAt" => Some(1),
+		"state_getRuntimeVersion" => Some(0),
+		"chain_getBlock" => Some(0),
+		"chain_getHeader" => Some(0),
 		_ => None,
 	}
 }
 
-/// Extract a [`BlockRef`] from the JSON-RPC request params based on the method's extraction rule.
-fn extract_block_ref(params: &str, kind: BlockRefKind) -> Option<BlockRef> {
-	let parsed: serde_json::Value = serde_json::from_str(params).ok()?;
-	let arr = parsed.as_array()?;
-
-	match kind {
-		BlockRefKind::HashAt(idx) => {
-			let val = arr.get(idx)?;
-			let hash = val.as_str()?;
-			if hash.is_empty() {
-				return None;
-			}
-			Some(BlockRef::Hash(hash.to_string()))
-		},
-		BlockRefKind::NumberAt(idx) => {
-			let val = arr.get(idx)?;
-			let n = val.as_u64()?;
-			Some(BlockRef::Number(n))
-		},
+/// Check whether a block hash is present at the given param index.
+///
+/// Returns `true` if the param is a non-empty string (hex-encoded hash).
+/// Returns `false` if the param is missing, null, or empty — meaning the request
+/// targets "latest" and should not be cached.
+fn has_explicit_block_hash(params: &str, index: usize) -> bool {
+	let parsed: serde_json::Value = match serde_json::from_str(params) {
+		Ok(v) => v,
+		Err(_) => return false,
+	};
+	let arr = match parsed.as_array() {
+		Some(a) => a,
+		None => return false,
+	};
+	match arr.get(index).and_then(|v| v.as_str()) {
+		Some(s) if !s.is_empty() => true,
+		_ => false,
 	}
 }
 
@@ -196,7 +182,7 @@ impl schnellru::Limiter<u64, CachedResponse> for ByteSizeLimiter {
 
 	fn on_removed(&mut self, _key: &mut u64, value: &mut CachedResponse) {
 		self.current_bytes = self.current_bytes.saturating_sub(value.byte_size);
-		log::debug!(
+		log::trace!(
 			target: "rpc_cache",
 			"Cache eviction: freed={}B, remaining={}B",
 			value.byte_size,
@@ -289,14 +275,12 @@ impl CacheMetrics {
 
 // --- Cache layer and middleware ---
 
-type IsFinalized = Arc<dyn Fn(BlockRef) -> bool + Send + Sync>;
 type Cache = Arc<Mutex<LruMap<u64, CachedResponse, ByteSizeLimiter>>>;
 
 /// Tower layer that wraps services with [`CacheMiddleware`].
 #[derive(Clone)]
 pub struct CacheLayer {
 	cache: Cache,
-	is_finalized: IsFinalized,
 	metrics: Option<CacheMetrics>,
 }
 
@@ -304,13 +288,8 @@ impl CacheLayer {
 	/// Create a new cache layer.
 	///
 	/// - `max_cache_size`: maximum cache size in bytes. Pass 0 to disable caching.
-	/// - `is_finalized`: closure that checks if a block ref is finalized.
 	/// - `metrics`: optional prometheus metrics.
-	pub fn new(
-		max_cache_size: usize,
-		is_finalized: IsFinalized,
-		metrics: Option<CacheMetrics>,
-	) -> Self {
+	pub fn new(max_cache_size: usize, metrics: Option<CacheMetrics>) -> Self {
 		log::info!(
 			target: "rpc_cache",
 			"RPC cache initialized: max_size={}MB, metrics={}",
@@ -319,7 +298,7 @@ impl CacheLayer {
 		);
 		let limiter = ByteSizeLimiter::new(max_cache_size, metrics.clone());
 		let cache = Arc::new(Mutex::new(LruMap::new(limiter)));
-		Self { cache, is_finalized, metrics }
+		Self { cache, metrics }
 	}
 }
 
@@ -327,20 +306,15 @@ impl<S> tower::Layer<S> for CacheLayer {
 	type Service = CacheMiddleware<S>;
 
 	fn layer(&self, service: S) -> Self::Service {
-		CacheMiddleware {
-			service,
-			cache: self.cache.clone(),
-			is_finalized: self.is_finalized.clone(),
-			metrics: self.metrics.clone(),
-		}
+		CacheMiddleware { service, cache: self.cache.clone(), metrics: self.metrics.clone() }
 	}
 }
 
-/// RPC middleware that caches deterministic responses for finalized block queries.
+/// RPC middleware that caches deterministic responses for block queries
+/// with an explicit block hash.
 pub struct CacheMiddleware<S> {
 	service: S,
 	cache: Cache,
-	is_finalized: IsFinalized,
 	metrics: Option<CacheMetrics>,
 }
 
@@ -349,7 +323,6 @@ impl<S: Clone> Clone for CacheMiddleware<S> {
 		Self {
 			service: self.service.clone(),
 			cache: self.cache.clone(),
-			is_finalized: self.is_finalized.clone(),
 			metrics: self.metrics.clone(),
 		}
 	}
@@ -364,33 +337,19 @@ where
 	fn call(&self, req: Request<'a>) -> Self::Future {
 		let method = req.method_name();
 
-		// Check if this method is cacheable and extract block ref rule.
-		let block_ref_kind = match cacheable_method(method) {
-			Some(kind) => kind,
+		// Check if this method is cacheable and get block hash param index.
+		let hash_index = match cacheable_block_hash_index(method) {
+			Some(idx) => idx,
 			None => {
 				let service = self.service.clone();
 				return async move { service.call(req).await }.boxed();
 			},
 		};
 
-		// Extract block ref from params.
+		// Check that an explicit block hash is present in params.
 		let params = req.params();
 		let params_str = params.as_str().unwrap_or("[]");
-		let block_ref = match extract_block_ref(params_str, block_ref_kind) {
-			Some(br) => br,
-			None => {
-				let service = self.service.clone();
-				return async move { service.call(req).await }.boxed();
-			},
-		};
-
-		// Check if the block is finalized.
-		if !(self.is_finalized)(block_ref) {
-			log::trace!(
-				target: "rpc_cache",
-				"Skipping cache for {} (block not finalized)",
-				method,
-			);
+		if !has_explicit_block_hash(params_str, hash_index) {
 			let service = self.service.clone();
 			return async move { service.call(req).await }.boxed();
 		}
@@ -404,7 +363,7 @@ where
 					if let Some(ref metrics) = self.metrics {
 						metrics.on_hit(method);
 					}
-					log::debug!(
+					log::trace!(
 						target: "rpc_cache",
 						"Cache hit for {} (key={:#x}, cached_size={}B)",
 						method,
@@ -435,7 +394,7 @@ where
 					let entries = cache_guard.len();
 					let total_bytes = cache_guard.limiter().current_bytes;
 					drop(cache_guard);
-					log::debug!(
+					log::trace!(
 						target: "rpc_cache",
 						"Cache miss for {} (key={:#x}, response_size={}B, total_entries={}, total_size={}B)",
 						method_name,
@@ -462,65 +421,61 @@ mod tests {
 	use super::*;
 	use tower::Layer;
 
-	// --- Block ref extraction tests ---
+	// --- has_explicit_block_hash tests ---
 
 	#[test]
-	fn extract_block_hash_state_call() {
+	fn has_block_hash_present() {
 		let params = r#"["method_name", "0xdata", "0xabc123"]"#;
-		let result = extract_block_ref(params, BlockRefKind::HashAt(2));
-		match result {
-			Some(BlockRef::Hash(h)) => assert_eq!(h, "0xabc123"),
-			_ => panic!("expected BlockRef::Hash"),
-		}
+		assert!(has_explicit_block_hash(params, 2));
 	}
 
 	#[test]
-	fn extract_block_hash_state_call_missing() {
+	fn has_block_hash_missing_index() {
 		let params = r#"["method_name", "0xdata"]"#;
-		let result = extract_block_ref(params, BlockRefKind::HashAt(2));
-		assert!(result.is_none());
+		assert!(!has_explicit_block_hash(params, 2));
 	}
 
 	#[test]
-	fn extract_block_hash_state_call_null() {
+	fn has_block_hash_null() {
 		let params = r#"["method_name", "0xdata", null]"#;
-		let result = extract_block_ref(params, BlockRefKind::HashAt(2));
-		assert!(result.is_none());
+		assert!(!has_explicit_block_hash(params, 2));
 	}
 
 	#[test]
-	fn extract_block_hash_state_get_storage() {
-		let params = r#"["0xkey", "0xblockhash"]"#;
-		let result = extract_block_ref(params, BlockRefKind::HashAt(1));
-		match result {
-			Some(BlockRef::Hash(h)) => assert_eq!(h, "0xblockhash"),
-			_ => panic!("expected BlockRef::Hash"),
-		}
+	fn has_block_hash_empty_string() {
+		let params = r#"["method_name", "0xdata", ""]"#;
+		assert!(!has_explicit_block_hash(params, 2));
 	}
 
 	#[test]
-	fn extract_block_hash_chain_get_block_hash() {
-		let params = r#"[42]"#;
-		let result = extract_block_ref(params, BlockRefKind::NumberAt(0));
-		match result {
-			Some(BlockRef::Number(n)) => assert_eq!(n, 42),
-			_ => panic!("expected BlockRef::Number"),
-		}
-	}
-
-	#[test]
-	fn extract_block_hash_get_runtime_version() {
+	fn has_block_hash_at_index_zero() {
 		let params = r#"["0xabc123"]"#;
-		let result = extract_block_ref(params, BlockRefKind::HashAt(0));
-		match result {
-			Some(BlockRef::Hash(h)) => assert_eq!(h, "0xabc123"),
-			_ => panic!("expected BlockRef::Hash"),
-		}
+		assert!(has_explicit_block_hash(params, 0));
 	}
 
 	#[test]
-	fn extract_block_hash_non_cacheable() {
-		assert!(cacheable_method("system_health").is_none());
+	fn has_block_hash_at_index_one() {
+		let params = r#"["0xkey", "0xblockhash"]"#;
+		assert!(has_explicit_block_hash(params, 1));
+	}
+
+	// --- Allowlist ---
+
+	#[test]
+	fn cacheable_methods() {
+		assert_eq!(cacheable_block_hash_index("state_call"), Some(2));
+		assert_eq!(cacheable_block_hash_index("state_callAt"), Some(2));
+		assert_eq!(cacheable_block_hash_index("state_getStorage"), Some(1));
+		assert_eq!(cacheable_block_hash_index("state_getStorageAt"), Some(1));
+		assert_eq!(cacheable_block_hash_index("state_getRuntimeVersion"), Some(0));
+		assert_eq!(cacheable_block_hash_index("chain_getBlock"), Some(0));
+		assert_eq!(cacheable_block_hash_index("chain_getHeader"), Some(0));
+	}
+
+	#[test]
+	fn non_cacheable_methods() {
+		assert!(cacheable_block_hash_index("system_health").is_none());
+		assert!(cacheable_block_hash_index("chain_getBlockHash").is_none());
 	}
 
 	// --- Helper: extract_result_field ---
@@ -682,25 +637,17 @@ mod tests {
 		format!(r#"{{"jsonrpc":"2.0","method":"{}","params":{},"id":1}}"#, method, params)
 	}
 
-	fn always_finalized(_: BlockRef) -> bool {
-		true
-	}
-
-	fn never_finalized(_: BlockRef) -> bool {
-		false
-	}
-
-	fn make_cache_layer(max_size: usize, is_finalized: fn(BlockRef) -> bool) -> CacheLayer {
-		CacheLayer::new(max_size, Arc::new(is_finalized), None)
+	fn make_cache_layer(max_size: usize) -> CacheLayer {
+		CacheLayer::new(max_size, None)
 	}
 
 	#[tokio::test]
 	async fn cache_hit_returns_cached_response() {
 		let mock = MockService::new();
-		let layer = make_cache_layer(1024 * 1024, always_finalized);
+		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(mock.clone());
 
-		let req_json = make_request("state_call", r#"["method","0xdata","0xfinalized_hash"]"#);
+		let req_json = make_request("state_call", r#"["method","0xdata","0xblock_hash"]"#);
 
 		// First call — cache miss.
 		let req = serde_json::from_str::<Request>(&req_json).unwrap();
@@ -718,7 +665,7 @@ mod tests {
 	#[tokio::test]
 	async fn non_allowlisted_method_bypasses_cache() {
 		let mock = MockService::new();
-		let layer = make_cache_layer(1024 * 1024, always_finalized);
+		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(mock.clone());
 
 		let req_json = make_request("system_health", r#"[]"#);
@@ -732,9 +679,9 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn missing_block_ref_bypasses_cache() {
+	async fn missing_block_hash_bypasses_cache() {
 		let mock = MockService::new();
-		let layer = make_cache_layer(1024 * 1024, always_finalized);
+		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(mock.clone());
 
 		// state_call with only 2 params (no block hash).
@@ -749,12 +696,12 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn non_finalized_block_bypasses_cache() {
+	async fn null_block_hash_bypasses_cache() {
 		let mock = MockService::new();
-		let layer = make_cache_layer(1024 * 1024, never_finalized);
+		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(mock.clone());
 
-		let req_json = make_request("state_call", r#"["method","0xdata","0xhash"]"#);
+		let req_json = make_request("state_call", r#"["method","0xdata",null]"#);
 
 		let req = serde_json::from_str::<Request>(&req_json).unwrap();
 		svc.call(req).await;
@@ -766,7 +713,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn error_response_not_cached() {
-		let layer = make_cache_layer(1024 * 1024, always_finalized);
+		let layer = make_cache_layer(1024 * 1024);
 		let svc = layer.layer(MockErrorService);
 
 		let req_json = make_request("state_call", r#"["method","0xdata","0xhash"]"#);
@@ -783,7 +730,7 @@ mod tests {
 	#[tokio::test]
 	async fn cache_disabled_when_zero_size() {
 		let mock = MockService::new();
-		let layer = make_cache_layer(0, always_finalized);
+		let layer = make_cache_layer(0);
 		let svc = layer.layer(mock.clone());
 
 		let req_json = make_request("state_call", r#"["method","0xdata","0xhash"]"#);

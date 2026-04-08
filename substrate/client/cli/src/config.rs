@@ -570,7 +570,6 @@ pub trait CliConfiguration<DCV: DefaultConfigurationValues = ()>: Sized {
 				rate_limit_trust_proxy_headers: self.rpc_rate_limit_trust_proxy_headers()?,
 				request_logger_limit: if is_dev { 1024 * 1024 } else { 1024 },
 				rpc_cache_size: self.rpc_cache_size()?,
-				rpc_cache_is_finalized: None,
 			},
 			prometheus_config: self
 				.prometheus_config(DCV::prometheus_listen_port(), &chain_spec)?,

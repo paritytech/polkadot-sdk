@@ -258,7 +258,6 @@ fn node_config<E: ChainSpecExtension + Clone + 'static + Send + Sync>(
 			rate_limit_trust_proxy_headers: Default::default(),
 			request_logger_limit: 1024,
 			rpc_cache_size: 0,
-			rpc_cache_is_finalized: None,
 		},
 		prometheus_config: None,
 		telemetry_endpoints: None,

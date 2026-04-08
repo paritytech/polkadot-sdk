@@ -439,17 +439,11 @@ pub fn start_rpc_servers(
 
 	let cache = if rpc_configuration.rpc_cache_size > 0 {
 		let cache_metrics = registry.and_then(|r| sc_rpc_server::CacheMetrics::new(r).ok());
-		rpc_configuration.rpc_cache_is_finalized.as_ref().map(|is_finalized| {
-			log::info!(
-				"RPC cache enabled: size={}MB",
-				rpc_configuration.rpc_cache_size / (1024 * 1024),
-			);
-			sc_rpc_server::CacheLayer::new(
-				rpc_configuration.rpc_cache_size,
-				is_finalized.clone(),
-				cache_metrics,
-			)
-		})
+		log::info!(
+			"RPC cache enabled: size={}MB",
+			rpc_configuration.rpc_cache_size / (1024 * 1024),
+		);
+		Some(sc_rpc_server::CacheLayer::new(rpc_configuration.rpc_cache_size, cache_metrics))
 	} else {
 		log::debug!("RPC cache disabled (rpc_cache_size=0)");
 		None
