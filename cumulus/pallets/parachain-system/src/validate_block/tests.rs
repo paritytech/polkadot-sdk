@@ -840,7 +840,7 @@ fn validate_block_rejects_incomplete_bundle() {
 		Default::default(),
 		2,
 		|_| Vec::new(),
-		|i| vec![BlockBundleInfo { index: i as u8, maybe_last: i == 1 }.to_digest_item()],
+		|i| vec![BlockBundleInfo { index: i as u8, is_last: i == 1 }.to_digest_item()],
 	);
 
 	// Validation with only first block should fail (incomplete bundle)
@@ -888,7 +888,7 @@ fn only_send_ump_signal_on_last_block_in_bundle() {
 		|_| Vec::new(),
 		|i| {
 			vec![
-				BlockBundleInfo { index: i as u8, maybe_last: i == 3 }.to_digest_item(),
+				BlockBundleInfo { index: i as u8, is_last: i == 3 }.to_digest_item(),
 				CumulusDigestItem::CoreInfo(CoreInfo {
 					selector: CoreSelector(0),
 					claim_queue_offset: ClaimQueueOffset(0),
@@ -935,14 +935,14 @@ fn validate_block_accepts_single_block_with_use_full_core() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build a single block with BlockBundleInfo (maybe_last=false) and UseFullCore set via
-	// extrinsic UseFullCore should make validation succeed even without maybe_last=true
+	// Build a single block with BlockBundleInfo (is_last=false) and UseFullCore set via
+	// extrinsic UseFullCore should make validation succeed even without is_last=true
 	let TestBlockData { block, validation_data } = build_block_with_witness(
 		&client,
 		vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
 		parent_head.clone(),
 		Default::default(),
-		vec![BlockBundleInfo { index: 0, maybe_last: false }.to_digest_item()],
+		vec![BlockBundleInfo { index: 0, is_last: false }.to_digest_item()],
 	);
 
 	// Validation should succeed because UseFullCore marks it as last block
@@ -962,7 +962,7 @@ fn only_send_ump_signal_on_single_block_with_use_full_core() {
 
 	let (client, parent_head) = create_elastic_scaling_test_client();
 
-	// Build a single block with BlockBundleInfo (maybe_last=false), CoreInfo, and UseFullCore set
+	// Build a single block with BlockBundleInfo (is_last=false), CoreInfo, and UseFullCore set
 	// via extrinsic. UseFullCore makes this block the last block in the core.
 	let TestBlockData { block, .. } = build_multiple_blocks_with_witness(
 		&client,
@@ -972,7 +972,7 @@ fn only_send_ump_signal_on_single_block_with_use_full_core() {
 		|_| vec![generate_extrinsic(&client, Alice, TestPalletCall::set_use_full_core {})],
 		|_| {
 			vec![
-				BlockBundleInfo { index: 0, maybe_last: false }.to_digest_item(),
+				BlockBundleInfo { index: 0, is_last: false }.to_digest_item(),
 				CumulusDigestItem::CoreInfo(CoreInfo {
 					selector: CoreSelector(0),
 					claim_queue_offset: ClaimQueueOffset(0),
@@ -1030,7 +1030,7 @@ fn validate_block_with_max_ump_messages_and_4_blocks_per_pov() {
 			)]
 		},
 		|i| {
-			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+			vec![BlockBundleInfo { index: i as u8, is_last: i as u32 + 1 == blocks_per_pov }
 				.to_digest_item()]
 		},
 	);
@@ -1092,7 +1092,7 @@ fn validate_block_with_max_hrmp_messages_and_4_blocks_per_pov() {
 			)]
 		},
 		|i| {
-			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+			vec![BlockBundleInfo { index: i as u8, is_last: i as u32 + 1 == blocks_per_pov }
 				.to_digest_item()]
 		},
 	);
@@ -1152,7 +1152,7 @@ fn validate_block_hrmp_messages_sorted_across_blocks_in_bundle() {
 			)]
 		},
 		|i| {
-			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+			vec![BlockBundleInfo { index: i as u8, is_last: i as u32 + 1 == blocks_per_pov }
 				.to_digest_item()]
 		},
 	);
@@ -1211,7 +1211,7 @@ fn validate_block_hrmp_duplicate_recipient_across_blocks_in_bundle() {
 				)]
 			},
 			|i| {
-				vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+				vec![BlockBundleInfo { index: i as u8, is_last: i as u32 + 1 == blocks_per_pov }
 					.to_digest_item()]
 			},
 		);
@@ -1294,7 +1294,7 @@ fn validate_block_with_ump_size_constraint_and_4_blocks_per_pov() {
 			)]
 		},
 		|i| {
-			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+			vec![BlockBundleInfo { index: i as u8, is_last: i as u32 + 1 == blocks_per_pov }
 				.to_digest_item()]
 		},
 	);
@@ -1348,7 +1348,7 @@ fn validate_block_with_ump_capacity_constraint_and_4_blocks_per_pov() {
 			)]
 		},
 		|i| {
-			vec![BlockBundleInfo { index: i as u8, maybe_last: i as u32 + 1 == blocks_per_pov }
+			vec![BlockBundleInfo { index: i as u8, is_last: i as u32 + 1 == blocks_per_pov }
 				.to_digest_item()]
 		},
 	);

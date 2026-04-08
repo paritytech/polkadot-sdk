@@ -340,7 +340,7 @@ pub type ExecutiveOnlyOperational = frame_executive::Executive<
 pub struct TestExtBuilder {
 	num_cores: Option<u16>,
 	bundle_index: Option<u8>,
-	bundle_maybe_last: bool,
+	bundle_is_last: bool,
 	previous_core_count: Option<u16>,
 }
 
@@ -351,7 +351,7 @@ impl Default for TestExtBuilder {
 		Self {
 			num_cores: None,
 			bundle_index: None,
-			bundle_maybe_last: false,
+			bundle_is_last: false,
 			previous_core_count: None,
 		}
 	}
@@ -406,7 +406,7 @@ impl TestExtBuilder {
 			// Add bundle info if specified
 			if let Some(bundle_index) = self.bundle_index {
 				let bundle_info =
-					BlockBundleInfo { index: bundle_index, maybe_last: self.bundle_maybe_last };
+					BlockBundleInfo { index: bundle_index, is_last: self.bundle_is_last };
 				let digest = CumulusDigestItem::BlockBundleInfo(bundle_info).to_digest_item();
 				frame_system::Pallet::<Runtime>::deposit_log(digest);
 			}

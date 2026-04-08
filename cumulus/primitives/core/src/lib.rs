@@ -264,7 +264,7 @@ pub struct BlockBundleInfo {
 	/// It is possible that the runtime outputs the
 	/// [`CumulusDigestItem::UseFullCore`] to inform the node to use an entire for one block
 	/// only.
-	pub maybe_last: bool,
+	pub is_last: bool,
 }
 
 impl BlockBundleInfo {
@@ -446,7 +446,7 @@ impl CumulusDigestItem {
 	///
 	/// Checks the following conditions:
 	///
-	/// - Is [`BlockBundleInfo::maybe_last`] set to true?
+	/// - Is [`BlockBundleInfo::is_last`] set to true?
 	/// - Or is [`Self::UseFullCore`] digest present?
 	/// - Or is [`DigestItem::RuntimeEnvironmentUpdated`] digest present?
 	///
@@ -458,7 +458,7 @@ impl CumulusDigestItem {
 		let bundle_info = Self::find_block_bundle_info(digest)?;
 
 		Some(
-			bundle_info.maybe_last ||
+			bundle_info.is_last ||
 				Self::contains_use_full_core(digest) ||
 				digest.logs.iter().any(|l| matches!(l, DigestItem::RuntimeEnvironmentUpdated)),
 		)

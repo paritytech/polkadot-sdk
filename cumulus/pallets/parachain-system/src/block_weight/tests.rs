@@ -189,7 +189,7 @@ fn test_is_first_block_in_core_functions() {
 		assert!(super::is_first_block_in_core_with_digest(&empty_digest).is_none());
 
 		// Test with bundle info index = 0 - should return true
-		let bundle_info_first = BlockBundleInfo { index: 0, maybe_last: false };
+		let bundle_info_first = BlockBundleInfo { index: 0, is_last: false };
 		let digest_item_first =
 			CumulusDigestItem::BlockBundleInfo(bundle_info_first).to_digest_item();
 		let mut digest_first = Digest::default();
@@ -197,7 +197,7 @@ fn test_is_first_block_in_core_functions() {
 		assert!(super::is_first_block_in_core_with_digest(&digest_first).unwrap());
 
 		// Test with bundle info index > 0 - should return false
-		let bundle_info_not_first = BlockBundleInfo { index: 5, maybe_last: true };
+		let bundle_info_not_first = BlockBundleInfo { index: 5, is_last: true };
 		let digest_item_not_first =
 			CumulusDigestItem::BlockBundleInfo(bundle_info_not_first).to_digest_item();
 		let mut digest_not_first = Digest::default();

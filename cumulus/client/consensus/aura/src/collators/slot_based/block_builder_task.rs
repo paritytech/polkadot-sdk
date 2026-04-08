@@ -704,7 +704,7 @@ where
 					CumulusDigestItem::CoreInfo(core_info.clone()).to_digest_item(),
 					CumulusDigestItem::BlockBundleInfo(BlockBundleInfo {
 						index: block_index as u8,
-						maybe_last: schedule.is_effective_last_block(),
+						is_last: schedule.block_ends_bundle(),
 					})
 					.to_digest_item(),
 				],
@@ -1022,7 +1022,9 @@ impl SlotHandoverAdjustment {
 	fn from_total_blocks(total_blocks: u32, blocks_per_core: u32) -> Self {
 		match total_blocks {
 			0..=1 => Self::None,
-			2..=3 if blocks_per_core == 1 || blocks_per_core == total_blocks => Self::Shorten { time_factor: 0.5 },
+			2..=3 if blocks_per_core == 1 || blocks_per_core == total_blocks => {
+				Self::Shorten { time_factor: 0.5 }
+			},
 			_ => Self::Skip,
 		}
 	}
@@ -1082,7 +1084,7 @@ impl BlockProductionSchedule {
 
 	/// Whether this is effectively the last block we'll produce for this core.
 	///
-	/// Used for `BundleInfo { maybe_last }` - validators need to know which
+	/// Used for `BundleInfo { is_last }` - validators need to know which
 	/// block might be final. Also used for sleep decisions - we don't sleep
 	/// after the last or second-to-last block to speed up the final stretch.
 	///
@@ -1091,6 +1093,19 @@ impl BlockProductionSchedule {
 	/// 2. Even when not skipping, avoiding sleep on the last two blocks speeds things up
 	fn is_effective_last_block(&self) -> bool {
 		self.is_last_block_in_core() || self.is_second_to_last()
+	}
+
+	/// Whether the node stops block production after this block for this bundle.
+	///
+	/// Returns `true` when:
+	/// - This is the last block in the core, OR
+	/// - This is the second-to-last and the actual last will be skipped (Skip mode on the last core
+	///   of the parachain slot).
+	fn block_ends_bundle(&self) -> bool {
+		self.is_last_block_in_core() ||
+			(self.is_second_to_last() &&
+				self.mode.skips_last_block() &&
+				self.is_last_core_in_parachain_slot)
 	}
 
 	/// Compute the authoring duration given available time.
@@ -1271,6 +1286,34 @@ mod block_production_schedule_tests {
 				schedule.authoring_duration(time_left, block_time),
 				Duration::from_millis(2000)
 			);
+		}
+
+		#[test]
+		fn block_ends_bundle_only_on_true_last_block() {
+			// 6 blocks per core, Skip mode, last core:
+			// only the actual last (index 5) and second-to-last (index 4, because last
+			// will be skipped) should return true.
+			assert!(!BlockProductionSchedule::new(0, 6, 12, true).block_ends_bundle());
+			assert!(!BlockProductionSchedule::new(3, 6, 12, true).block_ends_bundle());
+			assert!(BlockProductionSchedule::new(4, 6, 12, true).block_ends_bundle());
+			assert!(BlockProductionSchedule::new(5, 6, 12, true).block_ends_bundle());
+
+			// Same config but NOT last core: second-to-last must NOT end the bundle
+			// (skip only applies on last core).
+			assert!(!BlockProductionSchedule::new(4, 6, 12, false).block_ends_bundle());
+			assert!(BlockProductionSchedule::new(5, 6, 12, false).block_ends_bundle());
+
+			// Shorten mode (2 blocks, 1 per core, last core): no skipping, so only the
+			// actual last block ends the bundle.
+			assert!(BlockProductionSchedule::new(0, 1, 2, true).block_ends_bundle());
+
+			// None mode (1 block total): trivially the last.
+			assert!(BlockProductionSchedule::new(0, 1, 1, true).block_ends_bundle());
+			assert!(BlockProductionSchedule::new(0, 1, 1, false).block_ends_bundle());
+
+			// 2 blocks on 1 core (Shorten mode): only index 1 ends the bundle.
+			assert!(!BlockProductionSchedule::new(0, 2, 2, true).block_ends_bundle());
+			assert!(BlockProductionSchedule::new(1, 2, 2, true).block_ends_bundle());
 		}
 
 		/// This test verifies that the new schedule logic matches the original inline logic
