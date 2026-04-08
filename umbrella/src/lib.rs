@@ -308,6 +308,10 @@ pub use pallet_asset_conversion;
 #[cfg(feature = "pallet-asset-conversion-ops")]
 pub use pallet_asset_conversion_ops;
 
+/// Provides precompiles for `pallet-asset-conversion`.
+#[cfg(feature = "pallet-asset-conversion-precompiles")]
+pub use pallet_asset_conversion_precompiles;
+
 /// Pallet to manage transaction payments in assets by converting them to native assets.
 #[cfg(feature = "pallet-asset-conversion-tx-payment")]
 pub use pallet_asset_conversion_tx_payment;
@@ -623,6 +627,10 @@ pub use pallet_preimage;
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
 
+/// FRAME pallet for the Peg Stability Module.
+#[cfg(feature = "pallet-psm")]
+pub use pallet_psm;
+
 /// Ranked collective system: Members of a set of account IDs can make their collective
 /// feelings known through dispatched calls from one of two specialized origins.
 #[cfg(feature = "pallet-ranked-collective")]
@@ -786,6 +794,10 @@ pub use pallet_verify_signature;
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
+
+/// Vesting precompile exposing pallet-vesting to EVM contracts via pallet-revive.
+#[cfg(feature = "pallet-vesting-precompiles")]
+pub use pallet_vesting_precompiles;
 
 /// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]
