@@ -38,6 +38,7 @@ pallet-collator-selection = { workspace = true }
 pallet-dap-satellite = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -46,6 +47,7 @@ pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
 pallet-utility = { workspace = true }
+pallet-verify-signature = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 parachain-info = { workspace = true }
@@ -112,6 +114,7 @@ std = [
 	"pallet-dap-satellite/std",
 	"pallet-identity/std",
 	"pallet-message-queue/std",
+	"pallet-meta-tx/std",
 	"pallet-migrations/std",
 	"pallet-multisig/std",
 	"pallet-proxy/std",
@@ -120,6 +123,7 @@ std = [
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",
+	"pallet-verify-signature/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"parachain-info/std",
@@ -168,6 +172,7 @@ runtime-benchmarks = [
 	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-identity/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
+	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
@@ -175,6 +180,7 @@ runtime-benchmarks = [
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
+	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"parachains-common/runtime-benchmarks",
@@ -204,6 +210,7 @@ try-runtime = [
 	"pallet-dap-satellite/try-runtime",
 	"pallet-identity/try-runtime",
 	"pallet-message-queue/try-runtime",
+	"pallet-meta-tx/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-multisig/try-runtime",
 	"pallet-proxy/try-runtime",
@@ -211,6 +218,7 @@ try-runtime = [
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
+	"pallet-verify-signature/try-runtime",
 	"pallet-xcm/try-runtime",
 	"parachain-info/try-runtime",
 	"parachains-common/try-runtime",
