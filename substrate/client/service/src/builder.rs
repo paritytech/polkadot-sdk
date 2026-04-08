@@ -661,23 +661,15 @@ where
 	if config.rpc.rpc_cache_size > 0 && config.rpc.rpc_cache_is_finalized.is_none() {
 		let cache_client = client.clone();
 		config.rpc.rpc_cache_is_finalized = Some(std::sync::Arc::new(move |block_ref| {
-			use codec::Decode;
 			let info = cache_client.info();
 			match block_ref {
 				sc_rpc_server::BlockRef::Hash(hex) => {
-					let hex = hex.strip_prefix("0x").unwrap_or(&hex);
-					let bytes = match (0..hex.len())
-						.step_by(2)
-						.map(|i| u8::from_str_radix(&hex[i..i + 2], 16))
-						.collect::<Result<Vec<u8>, _>>()
-					{
-						Ok(b) => b,
-						Err(_) => return false,
-					};
-					let hash = match TBl::Hash::decode(&mut &bytes[..]) {
-						Ok(h) => h,
-						Err(_) => return false,
-					};
+					// Block hashes implement serde::Deserialize for hex strings.
+					let hash: TBl::Hash =
+						match serde_json::from_value(serde_json::Value::String(hex)) {
+							Ok(h) => h,
+							Err(_) => return false,
+						};
 					match cache_client.number(hash) {
 						Ok(Some(number)) => number <= info.finalized_number,
 						_ => false,
