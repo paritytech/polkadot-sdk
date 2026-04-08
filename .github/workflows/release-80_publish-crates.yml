@@ -162,7 +162,6 @@ jobs:
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
 
-<<<<<<< HEAD
       - name: Install Rust 1.93
         shell: bash
         run: |
@@ -180,13 +179,7 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.12 --locked -q
-=======
-      - name: Install parity-publish
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
           cargo install parity-publish@0.10.14 --locked -q
->>>>>>> 387a7e21 ([Release|CI/CD] Add `parity-publish restore` step to simplify post crates release activity (#11652))
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
