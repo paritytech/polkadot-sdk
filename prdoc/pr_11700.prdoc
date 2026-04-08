@@ -1,0 +1,20 @@
+title: Redirect XCM delivery fees to DAP / DAP satellite on Westend chains
+doc:
+- audience: Runtime Dev
+  description: |-
+    Route XCM delivery fees to DAP satellite (or DAP  on Asset Hub) instead of treasury on all Westend system chains: relay, asset-hub, bridge-hub, coretime, collectives, people.
+
+    Closes #11410.
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: collectives-westend-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch
+- name: westend-runtime
+  bump: patch
