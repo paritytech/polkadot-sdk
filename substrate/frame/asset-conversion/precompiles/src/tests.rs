@@ -427,9 +427,8 @@ fn add_and_remove_liquidity_works() {
 		let add_return = add_result.result.expect("add_liquidity must succeed");
 		assert!(!add_return.did_revert(), "add_liquidity must not revert");
 
-		let lp_tokens =
-			IAssetConversion::addLiquidityCall::abi_decode_returns(&add_return.data)
-				.expect("return data must decode");
+		let lp_tokens = IAssetConversion::addLiquidityCall::abi_decode_returns(&add_return.data)
+			.expect("return data must decode");
 		assert!(lp_tokens > U256::ZERO, "must receive LP tokens");
 
 		// Verify provider was debited.
@@ -450,7 +449,10 @@ fn add_and_remove_liquidity_works() {
 		}
 		.abi_encode();
 		let quote_result = bare_call(provider, quote_data);
-		assert!(!quote_result.result.unwrap().did_revert(), "quote must work after adding liquidity");
+		assert!(
+			!quote_result.result.unwrap().did_revert(),
+			"quote must work after adding liquidity"
+		);
 
 		// Record balances before removal.
 		let native_before =
@@ -473,9 +475,8 @@ fn add_and_remove_liquidity_works() {
 		let remove_return = remove_result.result.expect("remove_liquidity must succeed");
 		assert!(!remove_return.did_revert(), "remove_liquidity must not revert");
 
-		let ret =
-			IAssetConversion::removeLiquidityCall::abi_decode_returns(&remove_return.data)
-				.expect("return data must decode");
+		let ret = IAssetConversion::removeLiquidityCall::abi_decode_returns(&remove_return.data)
+			.expect("return data must decode");
 		assert!(ret.amount1 > U256::ZERO, "must receive asset1 back");
 		assert!(ret.amount2 > U256::ZERO, "must receive asset2 back");
 

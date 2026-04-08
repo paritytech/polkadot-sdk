@@ -192,20 +192,21 @@ where
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
-			IAssetConversionCalls::swapExactTokensForTokens(call) =>
-				Self::swap_exact_tokens_for_tokens(call, env),
-			IAssetConversionCalls::swapTokensForExactTokens(call) =>
-				Self::swap_tokens_for_exact_tokens(call, env),
-			IAssetConversionCalls::quoteExactTokensForTokens(call) =>
-				Self::quote_exact_tokens_for_tokens(call, env),
-			IAssetConversionCalls::quoteTokensForExactTokens(call) =>
-				Self::quote_tokens_for_exact_tokens(call, env),
-			IAssetConversionCalls::createPool(call) =>
-				Self::create_pool(call, env),
-			IAssetConversionCalls::addLiquidity(call) =>
-				Self::add_liquidity(call, env),
-			IAssetConversionCalls::removeLiquidity(call) =>
-				Self::remove_liquidity(call, env),
+			IAssetConversionCalls::swapExactTokensForTokens(call) => {
+				Self::swap_exact_tokens_for_tokens(call, env)
+			},
+			IAssetConversionCalls::swapTokensForExactTokens(call) => {
+				Self::swap_tokens_for_exact_tokens(call, env)
+			},
+			IAssetConversionCalls::quoteExactTokensForTokens(call) => {
+				Self::quote_exact_tokens_for_tokens(call, env)
+			},
+			IAssetConversionCalls::quoteTokensForExactTokens(call) => {
+				Self::quote_tokens_for_exact_tokens(call, env)
+			},
+			IAssetConversionCalls::createPool(call) => Self::create_pool(call, env),
+			IAssetConversionCalls::addLiquidity(call) => Self::add_liquidity(call, env),
+			IAssetConversionCalls::removeLiquidity(call) => Self::remove_liquidity(call, env),
 		}
 	}
 }
@@ -398,9 +399,7 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		env.charge(
-			<Runtime as pallet_asset_conversion::Config>::WeightInfo::create_pool(),
-		)?;
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::create_pool())?;
 
 		let sender = env
 			.caller()
@@ -423,9 +422,7 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		env.charge(
-			<Runtime as pallet_asset_conversion::Config>::WeightInfo::add_liquidity(),
-		)?;
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::add_liquidity())?;
 
 		let sender = env
 			.caller()
@@ -462,9 +459,7 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		env.charge(
-			<Runtime as pallet_asset_conversion::Config>::WeightInfo::remove_liquidity(),
-		)?;
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::remove_liquidity())?;
 
 		let sender = env
 			.caller()
