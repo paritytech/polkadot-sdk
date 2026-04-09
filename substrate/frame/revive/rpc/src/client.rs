@@ -720,7 +720,12 @@ impl Client {
 	) -> Option<ReceiptInfo> {
 		// Fallback: use hash as Substrate hash if Ethereum hash cannot be resolved
 		let substrate_hash =
-			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or(*ethereum_hash);
+			self.resolve_substrate_hash(ethereum_hash).await.unwrap_or_else(|| {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_ethereum_hash_and_index: no ETH-to-substrate mapping for \
+					 {ethereum_hash:?}, falling back to substrate hash lookup");
+				*ethereum_hash
+			});
 		self.receipt_by_hash_and_index(&substrate_hash, transaction_index).await
 	}
 
@@ -801,6 +806,9 @@ impl Client {
 		}
 
 		// Fallback: treat the provided hash as a Substrate hash (backward compatibility)
+		log::trace!(target: LOG_TARGET,
+			"block_by_ethereum_hash: no ETH-to-substrate mapping for {ethereum_hash:?}, \
+			 falling back to substrate hash lookup");
 		self.block_by_hash(ethereum_hash).await
 	}
 
