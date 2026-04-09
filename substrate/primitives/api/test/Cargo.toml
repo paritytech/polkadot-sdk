@@ -21,23 +21,23 @@ harness = false
 [dependencies]
 codec = { workspace = true, default-features = true }
 rustversion = { workspace = true }
-sc-block-builder.default-features = true
 sc-block-builder.workspace = true
+sc-block-builder.default-features = true
 scale-info = { features = ["derive"], workspace = true }
-sp-api.default-features = true
 sp-api.workspace = true
-sp-consensus.default-features = true
+sp-api.default-features = true
 sp-consensus.workspace = true
-sp-metadata-ir.default-features = true
+sp-consensus.default-features = true
 sp-metadata-ir.workspace = true
-sp-runtime.default-features = true
+sp-metadata-ir.default-features = true
 sp-runtime.workspace = true
-sp-state-machine.default-features = true
+sp-runtime.default-features = true
 sp-state-machine.workspace = true
-sp-tracing.default-features = true
+sp-state-machine.default-features = true
 sp-tracing.workspace = true
-sp-version.default-features = true
+sp-tracing.default-features = true
 sp-version.workspace = true
+sp-version.default-features = true
 substrate-test-runtime-client.workspace = true
 trybuild = { workspace = true }
 
@@ -45,7 +45,7 @@ trybuild = { workspace = true }
 criterion = { workspace = true, default-features = true }
 futures = { workspace = true }
 log = { workspace = true, default-features = true }
-sp-core = { default-features = true, workspace = true }
+sp-core = { default-features = true, path = "../../core" }
 static_assertions = { workspace = true, default-features = true }
 
 [features]

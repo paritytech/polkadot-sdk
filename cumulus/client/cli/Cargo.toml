@@ -14,18 +14,18 @@ workspace = true
 [dependencies]
 clap = { features = ["derive"], workspace = true }
 codec = { workspace = true, default-features = true }
-sc-chain-spec.default-features = true
 sc-chain-spec.workspace = true
-sc-cli.default-features = false
+sc-chain-spec.default-features = true
 sc-cli.workspace = true
-sc-client-api.default-features = true
+sc-cli.default-features = false
 sc-client-api.workspace = true
-sc-service.default-features = false
+sc-client-api.default-features = true
 sc-service.workspace = true
-sp-blockchain.default-features = true
+sc-service.default-features = false
 sp-blockchain.workspace = true
-sp-core.default-features = true
+sp-blockchain.default-features = true
 sp-core.workspace = true
-sp-runtime.default-features = true
+sp-core.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true
 url = { workspace = true }

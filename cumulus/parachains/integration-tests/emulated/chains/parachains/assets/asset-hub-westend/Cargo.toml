@@ -16,13 +16,13 @@ bp-bridge-hub-westend.workspace = true
 cumulus-primitives-core.workspace = true
 emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
-parachains-common.default-features = true
 parachains-common.workspace = true
+parachains-common.default-features = true
 sp-core.workspace = true
 sp-keyring.workspace = true
 testnet-parachains-constants = { features = ["westend"], workspace = true, default-features = true }
-westend-emulated-chain.default-features = true
 westend-emulated-chain.workspace = true
-xcm-builder.default-features = true
+westend-emulated-chain.default-features = true
 xcm-builder.workspace = true
+xcm-builder.default-features = true
 xcm.workspace = true

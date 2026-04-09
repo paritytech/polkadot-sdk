@@ -12,7 +12,7 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-polkadot-node-subsystem-types.default-features = true
 polkadot-node-subsystem-types.workspace = true
-polkadot-overseer.default-features = true
+polkadot-node-subsystem-types.default-features = true
 polkadot-overseer.workspace = true
+polkadot-overseer.default-features = true

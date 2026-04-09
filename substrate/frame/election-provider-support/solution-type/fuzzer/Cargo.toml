@@ -23,13 +23,13 @@ path = "src/compact.rs"
 honggfuzz = { workspace = true }
 
 codec = { features = ["derive"], workspace = true }
-frame-election-provider-solution-type.default-features = true
 frame-election-provider-solution-type.workspace = true
-frame-election-provider-support.default-features = true
+frame-election-provider-solution-type.default-features = true
 frame-election-provider-support.workspace = true
-frame-support.default-features = true
+frame-election-provider-support.default-features = true
 frame-support.workspace = true
-sp-arithmetic.default-features = true
+frame-support.default-features = true
 sp-arithmetic.workspace = true
-sp-runtime.default-features = true
+sp-arithmetic.default-features = true
 sp-runtime.workspace = true
+sp-runtime.default-features = true

@@ -14,22 +14,22 @@ workspace = true
 [dependencies]
 cfg-if = { workspace = true }
 cpu-time = { workspace = true }
-gum.default-features = true
 gum.workspace = true
+gum.default-features = true
 libc = { workspace = true }
 nix = { features = ["process", "resource", "sched"], workspace = true }
 
 codec = { features = ["derive"], workspace = true }
-polkadot-node-core-pvf-common.default-features = true
 polkadot-node-core-pvf-common.workspace = true
-polkadot-node-primitives.default-features = true
+polkadot-node-core-pvf-common.default-features = true
 polkadot-node-primitives.workspace = true
-polkadot-parachain-primitives.default-features = true
+polkadot-node-primitives.default-features = true
 polkadot-parachain-primitives.workspace = true
-polkadot-primitives.default-features = true
+polkadot-parachain-primitives.default-features = true
 polkadot-primitives.workspace = true
-sp-maybe-compressed-blob.default-features = true
+polkadot-primitives.default-features = true
 sp-maybe-compressed-blob.workspace = true
+sp-maybe-compressed-blob.default-features = true
 
 [features]
 builder = []
