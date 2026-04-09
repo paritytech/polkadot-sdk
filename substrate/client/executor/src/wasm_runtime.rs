@@ -104,10 +104,8 @@ impl VersionedRuntime {
 
 		match instance {
 			Some((index, mut locked)) => {
-				let (mut instance, new_inst) = locked
-					.take()
-					.map(|r| Ok((r, false)))
-					.unwrap_or_else(|| {
+				let (mut instance, new_inst) =
+					locked.take().map(|r| Ok((r, false))).unwrap_or_else(|| {
 						self.module.new_instance(heap_alloc_strategy).map(|i| (i, true))
 					})?;
 

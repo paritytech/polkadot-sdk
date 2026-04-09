@@ -683,7 +683,9 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	)
 	.unwrap();
 
-	let mut instance = runtime.new_instance(HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) }).unwrap();
+	let mut instance = runtime
+		.new_instance(HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) })
+		.unwrap();
 	let res = instance.call_export("returns_no_bss_mutable_static", &[0]).unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 
