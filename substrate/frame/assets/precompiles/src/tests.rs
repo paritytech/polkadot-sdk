@@ -532,6 +532,7 @@ fn approve_zero_on_nonexistent_is_noop(asset_index: u16) {
 alloy::sol! {
 	interface ICaller {
 		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
+		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
 	}
 }
 
@@ -624,5 +625,64 @@ fn domain_separator_is_staticcall_compatible(asset_index: u16) {
 			expected.as_bytes(),
 			"domain separator returned via STATICCALL must match direct computation"
 		);
+	});
+}
+
+#[test]
+fn delegatecall_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let deployer = 123456789u64;
+		Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
+
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, deployer, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(deployer), asset_id, deployer, 1000));
+
+		let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
+			"Caller",
+			pallet_revive_fixtures::FixtureType::Solc,
+		)
+		.expect("Caller fixture must be compiled");
+		let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
+			RuntimeOrigin::signed(deployer),
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			Code::Upload(init_code),
+			vec![],
+			None,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("Caller deployment must succeed")
+		.addr;
+
+		let calldata = ICaller::delegateCall {
+			callee: alloy::primitives::Address::from(asset_addr.0),
+			data: IERC20::totalSupplyCall {}.abi_encode().into(),
+			gas: u64::MAX,
+		}
+		.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(deployer),
+			caller_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			calldata,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("outer call must succeed");
+
+		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
+			.expect("return must decode as (bool, bytes)");
+		assert!(!ret.success, "DELEGATECALL to asset precompile must be rejected");
 	});
 }
