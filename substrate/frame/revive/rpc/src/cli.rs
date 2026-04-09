@@ -16,7 +16,7 @@
 // limitations under the License.
 //! The Ethereum JSON-RPC server.
 use crate::{
-	DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
+	DbContext, DebugRpcServer, DebugRpcServerImpl, EthRpcServer, EthRpcServerImpl, LOG_TARGET,
 	PolkadotRpcServer, PolkadotRpcServerImpl, ReceiptExtractor, ReceiptProvider,
 	SubxtBlockInfoProvider, SystemHealthRpcServer, SystemHealthRpcServerImpl,
 	client::{Client, ClientError, SubscriptionGapQueue, SubscriptionType, connect},
@@ -30,8 +30,36 @@ use sc_service::{
 	config::{BasePath, PrometheusConfig, RpcConfiguration},
 	create_rpc_runtime, start_rpc_servers,
 };
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::{
+	SqlitePool,
+	sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+};
 use std::path::PathBuf;
+
+/// Query the maximum number of bound parameters SQLite allows per query by acquiring a pooled
+/// connection, locking its raw handle, and calling `sqlite3_limit` via FFI, falling back to 999.
+async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
+	const DEFAULT: usize = 999;
+	let limit = async {
+		let mut conn = pool.acquire().await.ok()?;
+		let mut handle = conn.lock_handle().await.ok()?;
+		let raw = unsafe {
+			libsqlite3_sys::sqlite3_limit(
+				handle.as_raw_handle().as_ptr(),
+				libsqlite3_sys::SQLITE_LIMIT_VARIABLE_NUMBER,
+				-1,
+			)
+		};
+		raw.try_into().ok()
+	}
+	.await;
+
+	limit.inspect(|n| log::info!(target: LOG_TARGET, "💾 SQLite db_query_max_variable_number: {n}"))
+		.unwrap_or_else(|| {
+			log::warn!(target: LOG_TARGET, "💾 Failed to query SQLite variable limit, falling back to {DEFAULT}");
+			DEFAULT
+		})
+}
 
 /// Specifies the eth-rpc pruning mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -248,9 +276,11 @@ fn build_client(
 		};
 
 		let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
+		let max_variable_number = sqlite_db_query_max_variable_number(&pool).await;
+		let db_ctx = DbContext::new(pool, max_variable_number);
 
 		let receipt_provider = ReceiptProvider::new(
-			pool,
+			db_ctx,
 			block_provider.clone(),
 			receipt_extractor.clone(),
 			keep_latest_n_blocks,

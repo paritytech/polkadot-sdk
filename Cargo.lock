@@ -13899,6 +13899,7 @@ dependencies = [
  "git2",
  "hex",
  "jsonrpsee",
+ "libsqlite3-sys",
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",

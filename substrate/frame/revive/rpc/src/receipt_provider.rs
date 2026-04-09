@@ -31,11 +31,33 @@ use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
+/// SQLite connection pool with precomputed bulk-insert chunk sizes.
+#[derive(Clone)]
+pub struct DbContext {
+	pool: SqlitePool,
+	/// Chunk size for bulk INSERT into `transaction_hashes`.
+	tx_insert_chunk_size: usize,
+	/// Chunk size for bulk INSERT into `logs`.
+	log_insert_chunk_size: usize,
+}
+
+impl DbContext {
+	pub fn new(pool: SqlitePool, max_variable_number: usize) -> Self {
+		const TX_HASH_COLUMNS: usize = 3; // columns in the transaction_hashes table
+		const LOG_COLUMNS: usize = 11; // columns in the logs table
+		Self {
+			pool,
+			tx_insert_chunk_size: max_variable_number / TX_HASH_COLUMNS,
+			log_insert_chunk_size: max_variable_number / LOG_COLUMNS,
+		}
+	}
+}
+
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
 pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
 	/// The database pool.
-	pool: SqlitePool,
+	db_ctx: DbContext,
 	/// The block provider used to fetch blocks, and reconstruct receipts.
 	block_provider: B,
 	/// A means to extract receipts from extrinsics.
@@ -108,15 +130,18 @@ macro_rules! upsert_sync_label {
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
-		pool: SqlitePool,
+		db_ctx: DbContext,
 		block_provider: B,
 		receipt_extractor: ReceiptExtractor,
 		keep_latest_n_blocks: Option<usize>,
 	) -> Result<Self, ClientError> {
-		sqlx::migrate!().run(&pool).await.map_err(|e| sqlx::Error::Migrate(e.into()))?;
+		sqlx::migrate!()
+			.run(&db_ctx.pool)
+			.await
+			.map_err(|e| sqlx::Error::Migrate(e.into()))?;
 
 		let provider = Self {
-			pool,
+			db_ctx,
 			block_provider,
 			receipt_extractor,
 			keep_latest_n_blocks,
@@ -205,7 +230,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			"#,
 			transaction_hash_bytes
 		)
-		.fetch_optional(&self.pool)
+		.fetch_optional(&self.db_ctx.pool)
 		.await
 		.inspect_err(|err| {
 			log::trace!(target: LOG_TARGET,
@@ -236,7 +261,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			ethereum_hash_ref,
 			substrate_hash_ref,
 		)
-		.execute(&self.pool)
+		.execute(&self.db_ctx.pool)
 		.await?;
 
 		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {:?} -> substrate block: {:?}", block_map.ethereum_hash, block_map.substrate_hash);
@@ -254,7 +279,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			"#,
 			ethereum_hash
 		)
-		.fetch_optional(&self.pool)
+		.fetch_optional(&self.db_ctx.pool)
 		.await
 		.inspect_err(|e| {
 			log::error!(target: LOG_TARGET, "failed to get block mapping for ethereum block {ethereum_block_hash:?}, err: {e:?}");
@@ -281,7 +306,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			"#,
 			substrate_hash
 		)
-		.fetch_optional(&self.pool)
+		.fetch_optional(&self.db_ctx.pool)
 		.await
 		.inspect_err(|e| {
 			log::error!(target: LOG_TARGET, "failed to get block mapping for substrate block {substrate_block_hash:?}, err: {e:?}");
@@ -323,9 +348,9 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
 		}
 
-		let delete_transaction_hashes = delete_tx_query.execute(&self.pool);
-		let delete_logs = delete_logs_query.execute(&self.pool);
-		let delete_mappings = delete_mappings_query.execute(&self.pool);
+		let delete_transaction_hashes = delete_tx_query.execute(&self.db_ctx.pool);
+		let delete_logs = delete_logs_query.execute(&self.db_ctx.pool);
+		let delete_mappings = delete_mappings_query.execute(&self.db_ctx.pool);
 		tokio::try_join!(delete_transaction_hashes, delete_logs, delete_mappings)?;
 		Ok(())
 	}
@@ -344,7 +369,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			"#,
 			label_str
 		)
-		.fetch_optional(&self.pool)
+		.fetch_optional(&self.db_ctx.pool)
 		.await?;
 
 		match row {
@@ -385,7 +410,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			block_number,
 			block_hash,
 		)
-		.execute(&self.pool)
+		.execute(&self.db_ctx.pool)
 		.await?;
 		Ok(())
 	}
@@ -399,7 +424,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			"#,
 			label_str,
 		)
-		.execute(&self.pool)
+		.execute(&self.db_ctx.pool)
 		.await?;
 		Ok(())
 	}
@@ -412,7 +437,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		upsert_sync_label!(&self.pool, "<", label, checkpoint);
+		upsert_sync_label!(&self.db_ctx.pool, "<", label, checkpoint);
 		Ok(())
 	}
 
@@ -424,7 +449,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		label: SyncLabel,
 		checkpoint: SyncCheckpoint,
 	) -> Result<(), ClientError> {
-		upsert_sync_label!(&self.pool, ">", label, checkpoint);
+		upsert_sync_label!(&self.db_ctx.pool, ">", label, checkpoint);
 		Ok(())
 	}
 
@@ -552,7 +577,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let result = sqlx::query!(
 			r#"SELECT EXISTS(SELECT 1 FROM eth_to_substrate_blocks WHERE substrate_block_hash = $1) AS "exists!:bool""#, substrate_hash_ref
 		)
-		.fetch_one(&self.pool)
+		.fetch_one(&self.db_ctx.pool)
 		.await?;
 
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
@@ -565,60 +590,46 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			);
 		} else {
 			let ethereum_hash_ref = ethereum_hash.as_ref();
-			for (_, receipt) in receipts {
-				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
-				let transaction_index = receipt.transaction_index.as_u32() as i32;
 
-				query!(
-					r#"
-					INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index)
-					VALUES ($1, $2, $3)
-					"#,
-					transaction_hash,
-					substrate_hash_ref,
-					transaction_index
-				)
-				.execute(&self.pool)
-				.await?;
+			for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
+				let mut qb = QueryBuilder::<Sqlite>::new(
+					"INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index) ",
+				);
+				qb.push_values(chunk, |mut b, (_, receipt)| {
+					b.push_bind(receipt.transaction_hash.as_ref() as &[u8])
+						.push_bind(substrate_hash_ref)
+						.push_bind(receipt.transaction_index.as_u32() as i32);
+				});
+				qb.build().execute(&self.db_ctx.pool).await?;
+			}
 
-				for log in &receipt.logs {
-					let log_index = log.log_index.as_u32() as i32;
-					let address: &[u8] = log.address.as_ref();
+			let all_logs: Vec<(i32, &[u8], &Log)> = receipts
+				.iter()
+				.flat_map(|(_, receipt)| {
+					let tx_index = receipt.transaction_index.as_u32() as i32;
+					let tx_hash: &[u8] = receipt.transaction_hash.as_ref();
+					receipt.logs.iter().map(move |log| (tx_index, tx_hash, log))
+				})
+				.collect();
 
-					let topic_0 = log.topics.first().as_ref().map(|v| &v[..]);
-					let topic_1 = log.topics.get(1).as_ref().map(|v| &v[..]);
-					let topic_2 = log.topics.get(2).as_ref().map(|v| &v[..]);
-					let topic_3 = log.topics.get(3).as_ref().map(|v| &v[..]);
-					let data = log.data.as_ref().map(|v| &v.0[..]);
-
-					query!(
-						r#"
-						INSERT INTO logs(
-							block_hash,
-							transaction_index,
-							log_index,
-							address,
-							block_number,
-							transaction_hash,
-							topic_0, topic_1, topic_2, topic_3,
-							data)
-						VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-						"#,
-						ethereum_hash_ref,
-						transaction_index,
-						log_index,
-						address,
-						block_number,
-						transaction_hash,
-						topic_0,
-						topic_1,
-						topic_2,
-						topic_3,
-						data
-					)
-					.execute(&self.pool)
-					.await?;
-				}
+			for chunk in all_logs.chunks(self.db_ctx.log_insert_chunk_size) {
+				let mut qb = QueryBuilder::<Sqlite>::new(
+					"INSERT INTO logs(block_hash, transaction_index, log_index, address, block_number, transaction_hash, topic_0, topic_1, topic_2, topic_3, data) ",
+				);
+				qb.push_values(chunk, |mut b, (tx_index, tx_hash, log)| {
+					b.push_bind(ethereum_hash_ref)
+						.push_bind(*tx_index)
+						.push_bind(log.log_index.as_u32() as i32)
+						.push_bind(log.address.as_ref() as &[u8])
+						.push_bind(block_number)
+						.push_bind(*tx_hash)
+						.push_bind(log.topics.first().map(|v| &v[..]))
+						.push_bind(log.topics.get(1).map(|v| &v[..]))
+						.push_bind(log.topics.get(2).map(|v| &v[..]))
+						.push_bind(log.topics.get(3).map(|v| &v[..]))
+						.push_bind(log.data.as_ref().map(|v| &v.0[..]));
+				});
+				qb.build().execute(&self.db_ctx.pool).await?;
 			}
 			// Insert block mapping from Ethereum to Substrate hash
 			let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
@@ -749,7 +760,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					removed: false,
 				})
 			})
-			.fetch_all(&self.pool)
+			.fetch_all(&self.db_ctx.pool)
 			.await?;
 
 		Ok(logs)
@@ -766,7 +777,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
             "#,
 			block_hash
 		)
-		.fetch_one(&self.pool)
+		.fetch_one(&self.db_ctx.pool)
 		.await
 		.ok()?;
 
@@ -793,7 +804,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			let transaction_hash = H256::from_slice(&row.transaction_hash);
 			(transaction_index, transaction_hash)
 		})
-		.fetch_all(&self.pool)
+		.fetch_all(&self.db_ctx.pool)
 		.await
 		.ok()?;
 
@@ -892,7 +903,7 @@ mod tests {
 
 	fn mock_provider() -> ReceiptProvider<MockBlockInfoProvider> {
 		ReceiptProvider {
-			pool: SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
+			db_ctx: DbContext::new(SqlitePool::connect_lazy("sqlite::memory:").unwrap(), 999),
 			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new_mock(),
 			keep_latest_n_blocks: None,
@@ -914,7 +925,7 @@ mod tests {
 
 	impl ReceiptProvider<MockBlockInfoProvider> {
 		fn with_pool(mut self, pool: SqlitePool) -> Self {
-			self.pool = pool;
+			self.db_ctx.pool = pool;
 			self
 		}
 
@@ -952,8 +963,8 @@ mod tests {
 		assert_eq!(row, Some((block.hash, 0)));
 
 		provider.remove(&[block_map]).await?;
-		assert_eq!(count(&provider.pool, "transaction_hashes", Some(block.hash())).await, 0);
-		assert_eq!(count(&provider.pool, "logs", Some(block.hash())).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", Some(block.hash())).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(block.hash())).await, 0);
 		Ok(())
 	}
 
@@ -980,9 +991,9 @@ mod tests {
 			let ethereum_hash = H256::from([(i + 1) as u8; 32]);
 			provider.insert(&block, &receipts, &ethereum_hash).await?;
 		}
-		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, n);
-		assert_eq!(count(&provider.pool, "logs", None).await, n);
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, n);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, n);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, n);
 		assert_eq!(provider.block_number_to_hashes.lock().await.len(), n);
 
 		return Ok(());
@@ -1022,9 +1033,9 @@ mod tests {
 		let (block3, receipts, ethereum_hash_3) = build_block(3, 3);
 		provider.insert(&block3, &receipts, &ethereum_hash_3).await?;
 
-		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 4);
-		assert_eq!(count(&provider.pool, "logs", None).await, 4);
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 4);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 4);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 4);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 4);
 		assert_eq!(
 			provider.block_number_to_hashes.lock().await.clone(),
 			[
@@ -1040,9 +1051,9 @@ mod tests {
 		let (fork_block, receipts, ethereum_hash_fork) = build_block(4, 1);
 		provider.insert(&fork_block, &receipts, &ethereum_hash_fork).await?;
 
-		assert_eq!(count(&provider.pool, "transaction_hashes", None).await, 2);
-		assert_eq!(count(&provider.pool, "logs", None).await, 2);
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 2);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 2);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
 
 		assert_eq!(
 			provider.block_number_to_hashes.lock().await.clone(),
@@ -1443,7 +1454,7 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await;
 
 		// Initially no mappings
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 0);
 
 		let block_map1 = BlockHashMap::new(H256::from([1u8; 32]), H256::from([2u8; 32]));
 		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
@@ -1452,11 +1463,11 @@ mod tests {
 		provider.insert_block_mapping(&block_map1).await?;
 		provider.insert_block_mapping(&block_map2).await?;
 
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 2);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
 
 		// Remove one
 		provider.remove(&[block_map1]).await?;
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, 1);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
 
 		Ok(())
 	}
@@ -1613,8 +1624,75 @@ mod tests {
 		drop(map);
 
 		// All blocks are still in the DB.
-		assert_eq!(count(&provider.pool, "eth_to_substrate_blocks", None).await, n);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, n);
 
+		Ok(())
+	}
+
+	fn make_hash(i: usize, fill: u8) -> H256 {
+		let mut hash = [fill; 32];
+		hash[..8].copy_from_slice(&i.to_le_bytes());
+		H256::from(hash)
+	}
+
+	fn make_receipts(n_tx: usize, n_logs: usize) -> Vec<(TransactionSigned, ReceiptInfo)> {
+		(0..n_tx)
+			.map(|i| {
+				let transaction_hash = make_hash(i, 0x00);
+				let logs = (0..n_logs)
+					.map(|j| Log {
+						transaction_hash,
+						log_index: U256::from(j),
+						..Default::default()
+					})
+					.collect();
+				(
+					TransactionSigned::default(),
+					ReceiptInfo {
+						transaction_hash,
+						transaction_index: U256::from(i),
+						logs,
+						..Default::default()
+					},
+				)
+			})
+			.collect()
+	}
+
+	async fn assert_receipts_inserted(
+		provider: &ReceiptProvider<MockBlockInfoProvider>,
+		block: &MockBlockInfo,
+		ethereum_hash: &H256,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+	) {
+		let mut expected_logs = 0;
+		for (_, receipt) in receipts {
+			assert_eq!(
+				provider.find_transaction(&receipt.transaction_hash).await,
+				Some((block.hash(), receipt.transaction_index.as_u32() as usize))
+			);
+			expected_logs += receipt.logs.len();
+		}
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(*ethereum_hash)).await, expected_logs);
+	}
+
+	#[sqlx::test]
+	async fn test_bulk_insert(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+
+		let cases = [
+			(333, 1),  // exact tx chunk boundary (chunk = 333)
+			(334, 90), // crosses tx boundary; 90 logs = exact log chunk boundary (chunk = 90)
+			(1000, 3), // multiple tx chunks, multiple log chunks
+		];
+
+		for (i, (n_tx, n_logs)) in cases.into_iter().enumerate() {
+			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u32 + 1 };
+			let ethereum_hash = make_hash(i, 0xff);
+			let receipts = make_receipts(n_tx, n_logs);
+			provider.insert(&block, &receipts, &ethereum_hash).await?;
+			assert_receipts_inserted(&provider, &block, &ethereum_hash, &receipts).await;
+		}
 		Ok(())
 	}
 }

@@ -48,6 +48,7 @@ sp-runtime = { workspace = true, default-features = true }
 sp-timestamp = { workspace = true }
 sp-weights = { workspace = true, default-features = true }
 sqlx = { workspace = true, features = ["macros", "runtime-tokio", "sqlite"] }
+libsqlite3-sys = { version = "0.30", default-features = false }
 subxt = { workspace = true, default-features = true, features = [
 	"reconnecting-rpc-client",
 ] }
