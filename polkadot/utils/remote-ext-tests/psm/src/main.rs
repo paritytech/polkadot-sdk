@@ -27,11 +27,7 @@ enum Runtime {
 
 #[derive(Parser)]
 struct Cli {
-	#[arg(
-		long,
-		short,
-		default_value = "wss://westend-asset-hub-rpc.polkadot.io:443"
-	)]
+	#[arg(long, short, default_value = "wss://westend-asset-hub-rpc.polkadot.io:443")]
 	uri: String,
 	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::AssetHubWestend)]
 	runtime: Runtime,
@@ -48,9 +44,7 @@ fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestCo
 		stable_asset_id,
 		assets_pallet_name: "Assets".to_string(),
 		pre_create_hook: Some(Box::new(move || {
-			pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(
-				stable_asset_id,
-			);
+			pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(stable_asset_id);
 			// Fund the PSM account with native balance for the asset creation
 			// deposit.
 			//
@@ -59,11 +53,10 @@ fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestCo
 			use sp_runtime::traits::AccountIdConversion;
 			let psm_account: <Runtime as frame_system::Config>::AccountId =
 				<Runtime as pallet_psm::Config>::PalletId::get().into_account_truncating();
-			let _ =
-				<asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
-					&psm_account,
-					100_000_000_000_000u128,
-				);
+			let _ = <asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
+				&psm_account,
+				100_000_000_000_000u128,
+			);
 		})),
 	}
 }
@@ -96,8 +89,7 @@ async fn main() {
 
 			use asset_hub_westend_runtime::PsmInitialConfig;
 			pallet_psm_remote_tests::mint_and_redeem::<Runtime, Block, PsmInitialConfig>(
-				&mut ext,
-				&config,
+				&mut ext, &config,
 			);
 
 			// Build a fresh externalities for the circuit breaker test so it
@@ -109,8 +101,7 @@ async fn main() {
 			.await;
 
 			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block, PsmInitialConfig>(
-				&mut ext,
-				&config,
+				&mut ext, &config,
 			);
 
 			// Clean up the snapshot file so the next run fetches fresh state.

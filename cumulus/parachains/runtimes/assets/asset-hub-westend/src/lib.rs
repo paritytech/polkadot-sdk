@@ -1461,13 +1461,11 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		// Try Root first.
 		let o = match o.clone().into() {
-			Ok(frame_system::RawOrigin::Root) =>
-				return Ok(pallet_psm::PsmManagerLevel::Full),
+			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
 			_ => o,
 		};
 		// Try GeneralAdmin.
-		governance::GeneralAdmin::try_origin(o)
-			.map(|_| pallet_psm::PsmManagerLevel::Full)
+		governance::GeneralAdmin::try_origin(o).map(|_| pallet_psm::PsmManagerLevel::Full)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1480,15 +1478,10 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for PsmBenchmarkHelper {
-	fn create_asset(
-		asset_id: AssetIdForTrustBackedAssets,
-		owner: &AccountId,
-		decimals: u8,
-	) {
+	fn create_asset(asset_id: AssetIdForTrustBackedAssets, owner: &AccountId, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
-		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(
-			asset_id,
-		) {
+		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
+		{
 			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
 		}
 		let _ = Balances::force_set_balance(
@@ -1529,9 +1522,10 @@ impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig 
 		Permill::from_percent(100)
 	}
 
-	fn asset_configs()
-		-> alloc::collections::btree_map::BTreeMap<AssetIdForTrustBackedAssets, (Permill, Permill, Permill)>
-	{
+	fn asset_configs() -> alloc::collections::btree_map::BTreeMap<
+		AssetIdForTrustBackedAssets,
+		(Permill, Permill, Permill),
+	> {
 		[(
 			1984u32, // USDT
 			(

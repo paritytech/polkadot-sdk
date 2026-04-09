@@ -24,11 +24,10 @@
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
-		fungible::{Inspect as FungibleInspect, metadata::Inspect as FungibleMetadataInspect},
+		fungible::{metadata::Inspect as FungibleMetadataInspect, Inspect as FungibleInspect},
 		fungibles::{
-			Create as FungiblesCreate, Inspect as FungiblesInspect,
 			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
-			Mutate as FungiblesMutate,
+			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 		},
 		Get, UncheckedOnRuntimeUpgrade,
 	},
@@ -42,8 +41,8 @@ use sp_runtime::{
 pub const LOG_TARGET: &str = "runtime::psm::remote-tests";
 
 /// Balance type used by the PSM pallet's fungibles.
-type BalanceOf<Runtime> = <<Runtime as pallet_psm::Config>::Fungibles as
-	frame_support::traits::fungibles::Inspect<
+type BalanceOf<Runtime> =
+	<<Runtime as pallet_psm::Config>::Fungibles as frame_support::traits::fungibles::Inspect<
 		<Runtime as frame_system::Config>::AccountId,
 	>>::Balance;
 
@@ -106,9 +105,8 @@ where
 	);
 
 	// Create the pUSD stable asset if it doesn't exist yet.
-	if !<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(
-		stable_asset_id,
-	) {
+	if !<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(stable_asset_id)
+	{
 		// Run pre-create hook (e.g., set NextAssetId for AutoIncAssetId chains).
 		if let Some(hook) = &config.pre_create_hook {
 			hook();
@@ -124,15 +122,13 @@ where
 		));
 
 		// Set pUSD metadata with matching decimals.
-		assert_ok!(
-			<Runtime::Fungibles as FungiblesMetadataMutate<Runtime::AccountId>>::set(
-				stable_asset_id,
-				&psm_account,
-				b"pUSD".to_vec(),
-				b"pUSD".to_vec(),
-				decimals,
-			)
-		);
+		assert_ok!(<Runtime::Fungibles as FungiblesMetadataMutate<Runtime::AccountId>>::set(
+			stable_asset_id,
+			&psm_account,
+			b"pUSD".to_vec(),
+			b"pUSD".to_vec(),
+			decimals,
+		));
 
 		log::info!(
 			target: LOG_TARGET,
@@ -164,7 +160,9 @@ where
 	let fund_amount: BalanceOf<Runtime> =
 		FUND_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
 	assert_ok!(<Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
-		asset_id, &caller, fund_amount,
+		asset_id,
+		&caller,
+		fund_amount,
 	));
 
 	let swap_amount: BalanceOf<Runtime> =
@@ -214,8 +212,7 @@ where
 pub fn mint_and_redeem<Runtime, Block, MigrationConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfig,
-)
-where
+) where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Block: BlockT,
 	Runtime::AssetId: From<u32>,
@@ -228,10 +225,9 @@ where
 		let TestEnv { asset_id, caller, psm_account, swap_amount } =
 			setup::<Runtime, MigrationConfig>(config);
 
-		let balance_before =
-			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
-				asset_id, &caller,
-			);
+		let balance_before = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+			asset_id, &caller,
+		);
 
 		log::info!(
 			target: LOG_TARGET,
@@ -257,14 +253,14 @@ where
 		);
 
 		let total_debt = pallet_psm::PsmDebt::<Runtime>::iter_values()
-				.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
+			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
 
 		// The PSM account should hold the external stablecoin.
-		let psm_external =
-			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
-				asset_id, &psm_account,
-			);
+		let psm_external = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+			asset_id,
+			&psm_account,
+		);
 		assert_eq!(psm_external, swap_amount, "PSM should hold the external stablecoin");
 
 		log::info!(
@@ -290,7 +286,7 @@ where
 
 		// Debt should decrease after redeem but not reach zero (fees keep some debt alive).
 		let debt_after = pallet_psm::PsmDebt::<Runtime>::iter_values()
-				.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
+			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert!(debt_after > Zero::zero(), "Some debt should remain (fee portion)");
 		assert!(debt_after < total_debt, "Debt should decrease after redeem");
 
@@ -320,8 +316,7 @@ where
 pub fn circuit_breaker<Runtime, Block, MigrationConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfig,
-)
-where
+) where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Block: BlockT,
 	Runtime::AssetId: From<u32>,
@@ -331,7 +326,8 @@ where
 	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
-		let TestEnv { asset_id, caller, swap_amount, .. } = setup::<Runtime, MigrationConfig>(config);
+		let TestEnv { asset_id, caller, swap_amount, .. } =
+			setup::<Runtime, MigrationConfig>(config);
 
 		// Mint some pUSD first so we have something to redeem later.
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
@@ -340,8 +336,9 @@ where
 			swap_amount,
 		));
 
-		let small_redeem: BalanceOf<Runtime> =
-			100_000_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
+		let small_redeem: BalanceOf<Runtime> = 100_000_000u128
+			.try_into()
+			.unwrap_or_else(|_| panic!("balance conversion failed"));
 
 		// Test: MintingDisabled. Mint fails, redeem still works
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
