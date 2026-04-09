@@ -128,9 +128,6 @@ impl_for_tuples_attr! {
 		fn on_idle(n: BlockNumber, remaining_weight: Weight) -> Weight {
 			let on_idle_functions: &[fn(BlockNumber, Weight) -> Weight] =
 				&[for_tuples!( #( Tuple::on_idle ),* )];
-			if on_idle_functions.is_empty() {
-				return Weight::zero();
-			}
 
 			let mut weight = Weight::zero();
 			let len = on_idle_functions.len();
