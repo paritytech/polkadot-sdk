@@ -1450,10 +1450,7 @@ type PsmStableAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
-/// Root and GeneralAdmin get Full privileges; no emergency-only origin yet.
-///
-/// NOTE: On Polkadot, `FellowshipAdmin` could be wired as `PsmManagerLevel::Emergency`
-/// to allow the Fellowship to trigger the circuit breaker without a full referendum.
+/// Root gets Full privileges; GeneralAdmin gets Emergency.
 pub struct EnsurePsmManager;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 	type Success = pallet_psm::PsmManagerLevel;
@@ -1464,8 +1461,8 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
 			_ => o,
 		};
-		// Try GeneralAdmin.
-		governance::GeneralAdmin::try_origin(o).map(|_| pallet_psm::PsmManagerLevel::Full)
+		governance::GeneralAdmin::try_origin(o)
+			.map(|_| pallet_psm::PsmManagerLevel::Emergency)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1509,7 +1506,7 @@ impl pallet_psm::Config for Runtime {
 	type FeeDestination = PsmFeeDestination;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
-	type MaxExternalAssets = ConstU32<10>;
+	type MaxExternalAssets = ConstU32<3>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
