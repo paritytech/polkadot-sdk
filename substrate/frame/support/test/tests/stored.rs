@@ -29,16 +29,6 @@ pub trait Config {
 
 // This type itself doesn't implement the requirement to be stored.
 // but the associated types in Config does.
-#[derive(
-	scale_info::TypeInfo,
-	Clone,
-	PartialEq,
-	Eq,
-	Debug,
-	codec::Encode,
-	codec::Decode,
-	codec::MaxEncodedLen,
-)]
 struct NotStored;
 
 impl Config for NotStored {
@@ -87,4 +77,28 @@ fn test_stored_struct_implements_required_traits() {
 #[test]
 fn test_stored_enum_implements_required_traits() {
 	ensure_storable::<Status<u128, NotStored>>();
+}
+
+#[stored]
+pub struct DeriveWhereNotNeeded<T>(T);
+
+#[stored]
+pub struct NoGenerics(u8);
+
+// when not skipped the type parameter T is included in the type params type info.
+#[test]
+fn no_skip_type_params() {
+	use scale_info::TypeInfo;
+
+	#[stored(no_skip_type_params)]
+	pub struct NoSkip<T>(T);
+
+	assert_eq!(
+		format!("{:?}", NoSkip::<u8>::type_info()),
+		"Type { \
+		path: Path { segments: [\"stored\", \"NoSkip\"] }, \
+		type_params: [TypeParameter { name: \"T\", ty: Some(TypeId(0x0596b48cc04376e64d5c788c2aa46bdb)) }], \
+		type_def: Composite(TypeDefComposite { fields: [Field { name: None, ty: TypeId(0x0596b48cc04376e64d5c788c2aa46bdb), type_name: Some(\"T\"), docs: [] }] }), \
+		docs: [] }"
+	);
 }

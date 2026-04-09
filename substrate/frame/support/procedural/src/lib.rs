@@ -457,7 +457,8 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 /// (requiring them to implement `Clone`, `Eq`, `PartialEq`, `Debug`, `TypeInfo`, `Codec`, etc.)
 /// without requiring the user to manually specify them on the generic parameters.
 ///
-/// For pallet storage, you can of course still use generics:
+/// For pallet storage, you can of course still use generics, in this example bound `T::Balance`
+/// and not `T` as the bounds are applied to the fields.
 ///
 /// ```ignore
 /// # trait ABCD {

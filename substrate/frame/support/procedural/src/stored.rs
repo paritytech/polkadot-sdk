@@ -27,7 +27,7 @@ use quote::quote;
 use syn::{
 	parse::{Parse, ParseStream},
 	spanned::Spanned,
-	Error, Result,
+	Error, Generics, Result,
 };
 
 /// Parsed arguments for the `#[stored]` attribute.
@@ -161,27 +161,38 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	// Generate derive_where with field-based bounds
 	// This ensures consistent bounding strategy: bounds are applied to field types, not type
 	// parameters. Codec derives use their default strategy which also bounds fields automatically.
-	let derive_where_attr: syn::Attribute = if !field_types.is_empty() {
-		syn::parse_quote! {
-			#[#frame_support::derive_where::derive_where(
-				Clone,
-				Eq,
-				PartialEq,
-				Debug;
-				#(#field_types),*
-			)]
-		}
-	} else {
-		// For unit structs/enums, no field types to bound
-		syn::parse_quote! {
-			#[#frame_support::derive_where::derive_where(
-				Clone,
-				Eq,
-				PartialEq,
-				Debug
-			)]
-		}
-	};
+	let derive_where_attr: syn::Attribute =
+		if !is_derive_where_needed(&input.generics, &field_types) {
+			// `derive_where` refuses to compile if the derive macro can be used...
+			syn::parse_quote! {
+				#[derive(
+					Clone,
+					Eq,
+					PartialEq,
+					Debug,
+				)]
+			}
+		} else if !field_types.is_empty() {
+			syn::parse_quote! {
+				#[#frame_support::derive_where::derive_where(
+					Clone,
+					Eq,
+					PartialEq,
+					Debug;
+					#(#field_types),*
+				)]
+			}
+		} else {
+			// For unit structs/enums, no field types to bound
+			syn::parse_quote! {
+				#[#frame_support::derive_where::derive_where(
+					Clone,
+					Eq,
+					PartialEq,
+					Debug
+				)]
+			}
+		};
 	input.attrs.insert(0, derive_where_attr);
 
 	// Add codec derives
@@ -199,6 +210,25 @@ fn stored_impl(attr: TokenStream2, item: TokenStream2) -> Result<TokenStream2> {
 	Ok(quote! {
 		#input
 	})
+}
+
+/// `derive_where` macro refuses to compile if the derive macro can be used instead...
+/// So we do the opposite of the check in derive_where here.
+fn is_derive_where_needed(generics: &Generics, field_types: &[&syn::Type]) -> bool {
+	if generics.type_params().count() != field_types.len() {
+		return true;
+	}
+
+	for generics in generics.type_params() {
+		let ident = &generics.ident;
+		let path = syn::Path::from(ident.clone());
+		let type_ = syn::Type::Path(syn::TypePath { qself: None, path });
+		if field_types.iter().all(|t| *t != &type_) {
+			return true;
+		}
+	}
+
+	false
 }
 
 #[cfg(test)]
