@@ -28,25 +28,22 @@ fn take_weight_credit_barrier_should_work() {
 	let mut message =
 		Xcm::<()>(vec![TransferAsset { assets: (Parent, 100).into(), beneficiary: Here.into() }]);
 	let mut properties = props(Weight::from_parts(10, 10));
-	let r = TakeWeightCredit::<()>::should_execute(
+	let r = TakeWeightCredit::should_execute(
 		&Parent.into(),
 		message.inner_mut(),
 		Weight::from_parts(10, 10),
 		&mut properties,
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 	assert_eq!(properties.weight_credit, Weight::zero());
 
-	let r = TakeWeightCredit::<()>::should_execute(
+	let r = TakeWeightCredit::should_execute(
 		&Parent.into(),
 		message.inner_mut(),
 		Weight::from_parts(10, 10),
 		&mut properties,
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(10, 10))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(10, 10))));
 	assert_eq!(properties.weight_credit, Weight::zero());
 }
 
@@ -79,7 +76,7 @@ fn computed_origin_should_work() {
 		Weight::from_parts(100, 100),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
 	let r = WithComputedOrigin::<
 		AllowTopLevelPaidExecutionFrom<IsInVec<AllowPaidFrom>>,
@@ -91,7 +88,7 @@ fn computed_origin_should_work() {
 		Weight::from_parts(100, 100),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
 	let r = WithComputedOrigin::<
 		AllowTopLevelPaidExecutionFrom<IsInVec<AllowPaidFrom>>,
@@ -103,7 +100,7 @@ fn computed_origin_should_work() {
 		Weight::from_parts(100, 100),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 }
 
 #[test]
@@ -119,7 +116,7 @@ fn allow_unpaid_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
 	let r = AllowUnpaidExecutionFrom::<IsInVec<AllowUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -127,7 +124,7 @@ fn allow_unpaid_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 }
 
 #[test]
@@ -160,7 +157,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
 	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -168,10 +165,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(20, 20))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -179,10 +173,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(20, 20))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -190,7 +181,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 
 	let mut message_with_different_weight_parts = Xcm::<()>(vec![
 		UnpaidExecution {
@@ -206,10 +197,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(20, 20))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = ExplicitUnpaidBarrier::<IsInVec<AllowExplicitUnpaidFrom>>::should_execute(
 		&Parent.into(),
@@ -217,7 +205,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 
 	// Invalid since location to alias is not allowed.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -231,7 +219,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 
 	// Valid because all parachains are children of the relay chain.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -245,7 +233,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	// Valid.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -258,7 +246,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	// Invalid because `ClearOrigin` clears origin and `UnpaidExecution`
 	// can't know if there are enough permissions.
@@ -273,7 +261,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 
 	// Valid.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -288,7 +276,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(40, 40),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	// Invalid because of `ClearOrigin`.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -301,7 +289,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 
 	// Invalid because there is no `UnpaidExecution`.
 	let mut message = Xcm::<()>::builder_unsafe()
@@ -314,7 +302,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::BadFormat)));
+	assert_eq!(result, Err(ProcessMessageError::BadFormat));
 
 	// Invalid because even though alias is valid, it can't use `UnpaidExecution`.
 	let assets: Vec<Asset> = vec![
@@ -337,7 +325,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(60, 60),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 
 	// Invalid because `UnpaidExecution` specifies less weight than needed.
 	let assets: Vec<Asset> = vec![
@@ -360,10 +348,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(60, 60),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		result,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(60, 60))))
-	);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(60, 60))));
 
 	// Invalid because of too many instructions before `UnpaidExecution`.
 	let assets: Vec<Asset> = vec![
@@ -387,10 +372,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(70, 70),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		result,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(70, 70))))
-	);
+	assert_eq!(result, Err(ProcessMessageError::Overweight(Weight::from_parts(70, 70))));
 
 	// Valid.
 	let assets: Vec<Asset> = vec![
@@ -413,7 +395,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(60, 60),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	// Valid.
 	let assets: Vec<Asset> = vec![
@@ -436,7 +418,7 @@ fn allow_explicit_unpaid_should_work() {
 		Weight::from_parts(60, 60),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 }
 
 #[test]
@@ -464,7 +446,7 @@ fn allow_explicit_unpaid_fails_with_alias_origin_if_no_aliasers() {
 			Weight::from_parts(100, 100),
 			&mut props(Weight::zero()),
 		);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	let assets: Vec<Asset> = vec![
 		(Parent, 100u128).into(),
@@ -489,7 +471,7 @@ fn allow_explicit_unpaid_fails_with_alias_origin_if_no_aliasers() {
 			Weight::from_parts(100, 100),
 			&mut props(Weight::zero()),
 		);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 }
 
 #[test]
@@ -525,7 +507,7 @@ fn allow_explicit_unpaid_with_computed_origin() {
 		Weight::from_parts(100, 100),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	// Can manipulate origin before the inner barrier.
 	// For example, to act as another network.
@@ -554,7 +536,7 @@ fn allow_explicit_unpaid_with_computed_origin() {
 		Weight::from_parts(100, 100),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Ok(Weight::zero()));
+	assert_eq!(result, Ok(()));
 
 	// Any invalid conversions from the new origin fail.
 	let assets: Vec<Asset> = vec![
@@ -582,7 +564,7 @@ fn allow_explicit_unpaid_with_computed_origin() {
 		Weight::from_parts(100, 100),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(result, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(result, Err(ProcessMessageError::Unsupported));
 }
 
 #[test]
@@ -598,7 +580,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
 	let fees = (Parent, 1).into();
 	let mut underpaying_message = Xcm::<()>(vec![
@@ -613,10 +595,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(30, 30))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(30, 30))));
 
 	let fees = (Parent, 1).into();
 	let mut paying_message = Xcm::<()>(vec![
@@ -631,7 +610,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Unsupported)));
+	assert_eq!(r, Err(ProcessMessageError::Unsupported));
 
 	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
 		&Parent.into(),
@@ -639,7 +618,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 
 	let fees = (Parent, 1).into();
 	let mut paying_message_with_different_weight_parts = Xcm::<()>(vec![
@@ -654,10 +633,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(20, 20),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(20, 20))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(20, 20))));
 
 	let r = AllowTopLevelPaidExecutionFrom::<IsInVec<AllowPaidFrom>>::should_execute(
 		&Parent.into(),
@@ -665,7 +641,7 @@ fn allow_paid_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()))
+	assert_eq!(r, Ok(()))
 }
 
 #[test]
@@ -685,7 +661,7 @@ fn allow_paid_should_deprivilege_origin() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 
 	let mut paying_message_aliases_origin = paying_message_clears_origin.clone();
 	paying_message_aliases_origin.0[1] = AliasOrigin(Parachain(1).into());
@@ -695,7 +671,7 @@ fn allow_paid_should_deprivilege_origin() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 
 	let mut paying_message_descends_origin = paying_message_clears_origin.clone();
 	paying_message_descends_origin.0[1] = DescendOrigin(Parachain(1).into());
@@ -705,7 +681,7 @@ fn allow_paid_should_deprivilege_origin() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 
 	let mut paying_message_fake_descends_origin = paying_message_clears_origin.clone();
 	paying_message_fake_descends_origin.0[1] = DescendOrigin(Here.into());
@@ -715,10 +691,7 @@ fn allow_paid_should_deprivilege_origin() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(
-		r,
-		Err((Weight::zero(), ProcessMessageError::Overweight(Weight::from_parts(30, 30))))
-	);
+	assert_eq!(r, Err(ProcessMessageError::Overweight(Weight::from_parts(30, 30))));
 }
 
 #[test]
@@ -738,7 +711,7 @@ fn allow_paid_should_allow_hints() {
 		Weight::from_parts(30, 30),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 }
 
 #[test]
@@ -754,7 +727,7 @@ fn suspension_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Err((Weight::zero(), ProcessMessageError::Yield)));
+	assert_eq!(r, Err(ProcessMessageError::Yield));
 
 	TestSuspender::set_suspended(false);
 	let mut message =
@@ -765,7 +738,7 @@ fn suspension_should_work() {
 		Weight::from_parts(10, 10),
 		&mut props(Weight::zero()),
 	);
-	assert_eq!(r, Ok(Weight::zero()));
+	assert_eq!(r, Ok(()));
 }
 
 #[test]
@@ -776,7 +749,7 @@ fn allow_subscriptions_from_should_work() {
 	// closure for (xcm, origin) testing with `AllowSubscriptionsFrom`
 	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
-			AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>, ()>::should_execute(
+			AllowSubscriptionsFrom::<IsInVec<AllowSubsFrom>>::should_execute(
 				&origin,
 				&mut xcm,
 				Weight::from_parts(10, 10),
@@ -793,12 +766,12 @@ fn allow_subscriptions_from_should_work() {
 			max_response_weight: Default::default(),
 		}],
 		Parachain(1).into_location(),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
 	);
 	assert_should_execute(
 		vec![UnsubscribeVersion],
 		Parachain(1).into_location(),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
 	);
 
 	// invalid XCM (unexpected instruction before)
@@ -811,12 +784,12 @@ fn allow_subscriptions_from_should_work() {
 			},
 		],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![])), UnsubscribeVersion],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid XCM (unexpected instruction after)
 	assert_should_execute(
@@ -828,18 +801,18 @@ fn allow_subscriptions_from_should_work() {
 			SetTopic([0; 32]),
 		],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	assert_should_execute(
 		vec![UnsubscribeVersion, SetTopic([0; 32])],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid XCM (unexpected instruction)
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![]))],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 
 	// ok
@@ -849,9 +822,9 @@ fn allow_subscriptions_from_should_work() {
 			max_response_weight: Default::default(),
 		}],
 		Location::parent(),
-		Ok(Weight::zero()),
+		Ok(()),
 	);
-	assert_should_execute(vec![UnsubscribeVersion], Location::parent(), Ok(Weight::zero()));
+	assert_should_execute(vec![UnsubscribeVersion], Location::parent(), Ok(()));
 }
 
 #[test]
@@ -859,7 +832,7 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 	// closure for (xcm, origin) testing with `AllowHrmpNotificationsFromRelayChain`
 	let assert_should_execute = |mut xcm: Vec<Instruction<()>>, origin, expected_result| {
 		assert_eq!(
-			AllowHrmpNotificationsFromRelayChain::<()>::should_execute(
+			AllowHrmpNotificationsFromRelayChain::should_execute(
 				&origin,
 				&mut xcm,
 				Weight::from_parts(10, 10),
@@ -873,33 +846,33 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 	assert_should_execute(
 		vec![HrmpChannelAccepted { recipient: Default::default() }],
 		Location::new(1, [Parachain(1)]),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
 	);
 
 	// invalid XCM (unexpected instruction before)
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![])), HrmpChannelAccepted { recipient: Default::default() }],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid XCM (unexpected instruction after)
 	assert_should_execute(
 		vec![HrmpChannelAccepted { recipient: Default::default() }, SetTopic([0; 32])],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid XCM (unexpected instruction)
 	assert_should_execute(
 		vec![SetAppendix(Xcm(vec![]))],
 		Location::parent(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 
 	// ok
 	assert_should_execute(
 		vec![HrmpChannelAccepted { recipient: Default::default() }],
 		Location::parent(),
-		Ok(Weight::zero()),
+		Ok(()),
 	);
 	assert_should_execute(
 		vec![HrmpNewChannelOpenRequest {
@@ -908,7 +881,7 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 			max_message_size: Default::default(),
 		}],
 		Location::parent(),
-		Ok(Weight::zero()),
+		Ok(()),
 	);
 	assert_should_execute(
 		vec![HrmpChannelClosing {
@@ -917,7 +890,7 @@ fn allow_hrmp_notifications_from_relay_chain_should_work() {
 			initiator: Default::default(),
 		}],
 		Location::parent(),
-		Ok(Weight::zero()),
+		Ok(()),
 	);
 }
 
@@ -991,7 +964,7 @@ fn deny_then_try_works() {
 		}
 	}
 
-	/// A dummy `ShouldExecute` impl which returns `Ok(Weight::zero())` when XCM contains a single
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains a single
 	/// `ClearError`, else return `ProcessMessageError::Yield`
 	struct AllowSingleClearErrorOrYield;
 	impl ShouldExecute for AllowSingleClearErrorOrYield {
@@ -1000,21 +973,19 @@ fn deny_then_try_works() {
 			instructions: &mut [Instruction<Call>],
 			_max_weight: Weight,
 			_properties: &mut Properties,
-		) -> Result<Weight, (Weight, ProcessMessageError)> {
+		) -> Result<(), ProcessMessageError> {
 			instructions
 				.matcher()
-				.assert_remaining_insts(1)
-				.map_err(|e| (Weight::zero(), e))?
+				.assert_remaining_insts(1)?
 				.match_next_inst(|inst| match inst {
 					ClearError { .. } => Ok(()),
 					_ => Err(ProcessMessageError::Yield),
-				})
-				.map_err(|e| (Weight::zero(), e))?;
-			Ok(Weight::zero())
+				})?;
+			Ok(())
 		}
 	}
 
-	/// A dummy `ShouldExecute` impl which returns `Ok(Weight::zero())` when XCM contains
+	/// A dummy `ShouldExecute` impl which returns `Ok(())` when XCM contains
 	/// `ClearTopic` and origin from `Here`, else return `ProcessMessageError::Unsupported`
 	struct AllowClearTopicFromHere;
 	impl ShouldExecute for AllowClearTopicFromHere {
@@ -1023,27 +994,21 @@ fn deny_then_try_works() {
 			instructions: &mut [Instruction<Call>],
 			_max_weight: Weight,
 			_properties: &mut Properties,
-		) -> Result<Weight, (Weight, ProcessMessageError)> {
-			ensure!(
-				origin.clone() == Here.into_location(),
-				(Weight::zero(), ProcessMessageError::Unsupported)
-			);
+		) -> Result<(), ProcessMessageError> {
+			ensure!(origin.clone() == Here.into_location(), ProcessMessageError::Unsupported);
 			let mut found = false;
-			instructions
-				.matcher()
-				.match_next_inst_while(
-					|_| true,
-					|inst| match inst {
-						ClearTopic { .. } => {
-							found = true;
-							Ok(ControlFlow::Break(()))
-						},
-						_ => Ok(ControlFlow::Continue(())),
+			instructions.matcher().match_next_inst_while(
+				|_| true,
+				|inst| match inst {
+					ClearTopic { .. } => {
+						found = true;
+						Ok(ControlFlow::Break(()))
 					},
-				)
-				.map_err(|e| (Weight::zero(), e))?;
-			ensure!(found, (Weight::zero(), ProcessMessageError::Unsupported));
-			Ok(Weight::zero())
+					_ => Ok(ControlFlow::Continue(())),
+				},
+			)?;
+			ensure!(found, ProcessMessageError::Unsupported);
+			Ok(())
 		}
 	}
 	// closure for (xcm, origin) testing with `DenyThenTry`
@@ -1072,38 +1037,38 @@ fn deny_then_try_works() {
 	assert_should_execute(
 		vec![ClearTransactStatus],
 		Parachain(1).into_location(),
-		Err((Weight::zero(), ProcessMessageError::Yield)),
+		Err(ProcessMessageError::Yield),
 	);
 	// DenyClearTransactStatusAsYield wins against AllowSingleClearErrorOrYield
 	assert_should_execute(
 		vec![ClearError, ClearTransactStatus],
 		Parachain(1).into_location(),
-		Err((Weight::zero(), ProcessMessageError::Yield)),
+		Err(ProcessMessageError::Yield),
 	);
 	// trigger DenyClearOriginFromHereAsBadFormat
 	assert_should_execute(
 		vec![ClearOrigin],
 		Here.into_location(),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	// trigger DenyUnsubscribeVersionAsStackLimitReached
 	assert_should_execute(
 		vec![UnsubscribeVersion],
 		Here.into_location(),
-		Err((Weight::zero(), ProcessMessageError::StackLimitReached)),
+		Err(ProcessMessageError::StackLimitReached),
 	);
 
 	// deny because none of the allow items match
 	assert_should_execute(
 		vec![ClearError, ClearTopic],
 		Parachain(1).into_location(),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
 	);
 
 	// ok
-	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(Weight::zero()));
-	assert_should_execute(vec![ClearTopic], Here.into(), Ok(Weight::zero()));
-	assert_should_execute(vec![ClearError, ClearTopic], Here.into_location(), Ok(Weight::zero()));
+	assert_should_execute(vec![ClearError], Parachain(1).into_location(), Ok(()));
+	assert_should_execute(vec![ClearTopic], Here.into(), Ok(()));
+	assert_should_execute(vec![ClearError, ClearTopic], Here.into_location(), Ok(()));
 }
 
 #[test]
@@ -1171,8 +1136,8 @@ impl ShouldExecute for AllowAll {
 		_: &mut [Instruction<RuntimeCall>],
 		_: Weight,
 		_: &mut Properties,
-	) -> Result<Weight, (Weight, ProcessMessageError)> {
-		Ok(Weight::zero())
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
 	}
 }
 
@@ -1217,10 +1182,8 @@ impl<Barrier: DenyExecution> ShouldExecute for Executable<Barrier> {
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Result<Weight, (Weight, ProcessMessageError)> {
+	) -> Result<(), ProcessMessageError> {
 		Barrier::deny_execution(origin, instructions, max_weight, properties)
-			.map_err(|e| (Weight::zero(), e))
-			.map(|_| Weight::zero())
 	}
 }
 
@@ -1304,8 +1267,8 @@ fn compare_deny_filters() {
 	type Denies = (DenyNothing, DenyClearOrigin);
 
 	fn assert_barrier<Barrier: ShouldExecute>(
-		top_level_result: Result<Weight, (Weight, ProcessMessageError)>,
-		nested_result: Result<Weight, (Weight, ProcessMessageError)>,
+		top_level_result: Result<(), ProcessMessageError>,
+		nested_result: Result<(), ProcessMessageError>,
 	) {
 		let origin = Here.into_location();
 		let max_weight = Weight::zero();
@@ -1325,21 +1288,18 @@ fn compare_deny_filters() {
 	}
 
 	// `DenyThenTry`: Top-level=Deny, Nested=Allow, TryAllow=Yes
-	assert_barrier::<DenyThenTry<Denies, AllowAll>>(
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
-		Ok(Weight::zero()),
-	);
+	assert_barrier::<DenyThenTry<Denies, AllowAll>>(Err(ProcessMessageError::Unsupported), Ok(()));
 
 	// `DenyThenTry<DenyRecursively<Deny>>`: Top-level=Deny, Nested=Deny, TryAllow=Yes
 	assert_barrier::<DenyThenTry<DenyRecursively<Denies>, AllowAll>>(
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
 	);
 
 	// `DenyRecursively`: Top-level=Deny, Nested=Deny, TryAllow=No
 	assert_barrier::<Executable<DenyRecursively<Denies>>>(
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
+		Err(ProcessMessageError::Unsupported),
 	);
 }
 
@@ -1356,16 +1316,16 @@ fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
 	};
 
 	// ok
-	assert_eq!(test_barrier(vec![ClearTransactStatus], Location::parent()), Ok(Weight::zero()));
+	assert_eq!(test_barrier(vec![ClearTransactStatus], Location::parent()), Ok(()));
 	// invalid top-level contains `ClearOrigin`
 	assert_eq!(
 		test_barrier(vec![ClearOrigin], Location::parent()),
-		Err((Weight::zero(), ProcessMessageError::Unsupported))
+		Err(ProcessMessageError::Unsupported)
 	);
 	// ok - SetAppendix with XCM without ClearOrigin
 	assert_eq!(
 		test_barrier(vec![SetAppendix(Xcm(vec![ClearTransactStatus]))], Location::parent()),
-		Ok(Weight::zero())
+		Ok(())
 	);
 	// ok - DepositReserveAsset with XCM contains ClearOrigin
 	assert_eq!(
@@ -1377,23 +1337,20 @@ fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
 			}],
 			Location::parent()
 		),
-		Ok(Weight::zero()),
+		Ok(()),
 	);
 
 	// invalid - empty XCM
-	assert_eq!(
-		test_barrier(vec![], Location::parent()),
-		Err((Weight::zero(), ProcessMessageError::BadFormat))
-	);
+	assert_eq!(test_barrier(vec![], Location::parent()), Err(ProcessMessageError::BadFormat));
 	// invalid - SetAppendix with empty XCM
 	assert_eq!(
 		test_barrier(vec![SetAppendix(Xcm(vec![]))], Location::parent()),
-		Err((Weight::zero(), ProcessMessageError::BadFormat)),
+		Err(ProcessMessageError::BadFormat),
 	);
 	// invalid SetAppendix contains `ClearOrigin`
 	assert_eq!(
 		test_barrier(vec![SetAppendix(Xcm(vec![ClearOrigin]))], Location::parent()),
-		Err((Weight::zero(), ProcessMessageError::Unsupported)),
+		Err(ProcessMessageError::Unsupported),
 	);
 	// invalid nested SetAppendix contains `ClearOrigin`
 	assert_eq!(
@@ -1409,6 +1366,6 @@ fn assert_deny_instructions_recursively<Barrier: ShouldExecute>() {
 			]))]))]))],
 			Location::parent()
 		),
-		Err((Weight::zero(), ProcessMessageError::StackLimitReached)),
+		Err(ProcessMessageError::StackLimitReached),
 	);
 }

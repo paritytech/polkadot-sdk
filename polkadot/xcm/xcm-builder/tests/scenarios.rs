@@ -353,14 +353,6 @@ fn recursive_xcm_execution_fail() {
 	use xcm::opaque::latest::prelude::*;
 	use xcm_executor::traits::{DenyExecution, Properties, ShouldExecute};
 
-	// Dummy weight info for testing
-	struct TestWeightInfo;
-	impl BarrierWeight for TestWeightInfo {
-		fn weight() -> Weight {
-			Weight::from_parts(1_000, 1_000)
-		}
-	}
-
 	// Dummy filter to allow all
 	struct AllowAll;
 	impl ShouldExecute for AllowAll {
@@ -369,8 +361,8 @@ fn recursive_xcm_execution_fail() {
 			_: &mut [Instruction<RuntimeCall>],
 			_: Weight,
 			_: &mut Properties,
-		) -> Result<Weight, (Weight, ProcessMessageError)> {
-			Ok(Weight::zero())
+		) -> Result<(), ProcessMessageError> {
+			Ok(())
 		}
 	}
 
@@ -404,7 +396,7 @@ fn recursive_xcm_execution_fail() {
 		type IsReserve = ();
 		type IsTeleporter = TrustedTeleporters;
 		type UniversalLocation = UniversalLocation;
-		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll, TestWeightInfo>;
+		type Barrier = DenyThenTry<DenyRecursively<DenyClearOrigin>, AllowAll>;
 		type Weigher = FixedWeightBounds<BaseXcmWeight, RuntimeCall, MaxInstructions>;
 		type Trader = FixedRateOfFungible<KsmPerSecondPerByte, ()>;
 		type ResponseHandler = XcmPallet;
@@ -446,7 +438,7 @@ fn recursive_xcm_execution_fail() {
 		assert_eq!(
 			outcome,
 			Outcome::Incomplete {
-				used: Weight::from_parts(1_000, 1_000),
+				used: weight,
 				error: InstructionError { index: 0, error: XcmError::Barrier },
 			}
 		);

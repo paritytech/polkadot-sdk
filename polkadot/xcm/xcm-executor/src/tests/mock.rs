@@ -199,8 +199,8 @@ impl ShouldExecute for TestBarrier {
 		_instructions: &mut [Instruction<Call>],
 		_max_weight: Weight,
 		_properties: &mut Properties,
-	) -> Result<Weight, (Weight, ProcessMessageError)> {
-		Ok(Weight::zero())
+	) -> Result<(), ProcessMessageError> {
+		Ok(())
 	}
 }
 

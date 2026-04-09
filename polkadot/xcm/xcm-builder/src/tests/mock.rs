@@ -45,13 +45,26 @@ pub use xcm_executor::{
 	traits::{
 		AssetExchange, AssetLock, CheckSuspension, ConvertOrigin, DenyExecution, Enact, ExportXcm,
 		FeeManager, FeeReason, LockError, OnResponse, Properties, QueryHandler,
-		QueryResponseStatus, TransactAsset,
+		QueryResponseStatus, TransactAsset, WeightBounds,
 	},
 	AssetsInHolding, Config,
 };
 pub use xcm_simulator::helpers::derive_topic_id;
 
 pub use xcm_executor::test_helpers::{mock_asset_to_holding as asset_to_holding, MockCredit};
+
+pub struct TestWeigher;
+impl WeightBounds<TestCall> for TestWeigher {
+	fn weight(message: &mut Xcm<TestCall>, weight_limit: Weight) -> Result<Weight, InstructionError> {
+		FixedWeightBounds::<UnitWeightCost, TestCall, MaxInstructions>::weight(message, weight_limit)
+	}
+	fn instr_weight(instruction: &mut Instruction<TestCall>) -> Result<Weight, XcmError> {
+		FixedWeightBounds::<UnitWeightCost, TestCall, MaxInstructions>::instr_weight(instruction)
+	}
+	fn barrier_check_weight() -> Option<Weight> {
+		Some(Weight::zero())
+	}
+}
 
 /// Helper to convert multiple Assets into AssetsInHolding for tests
 pub fn assets_to_holding(assets: impl IntoIterator<Item = Asset>) -> AssetsInHolding {
@@ -1017,7 +1030,7 @@ impl Config for TestConfig {
 	type IsTeleporter = TestIsTeleporter;
 	type UniversalLocation = ExecutorUniversalLocation;
 	type Barrier = TrailingSetTopicAsId<RespectSuspension<TestBarrier, TestSuspender>>;
-	type Weigher = FixedWeightBounds<UnitWeightCost, TestCall, MaxInstructions>;
+	type Weigher = TestWeigher;
 	type Trader = FixedRateOfFungible<WeightPrice, ()>;
 	type ResponseHandler = TestResponseHandler;
 	type AssetTrap = TestAssetTrap;

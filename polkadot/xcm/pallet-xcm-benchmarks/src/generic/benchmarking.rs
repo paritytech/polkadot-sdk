@@ -1006,6 +1006,26 @@ mod benchmarks {
 		Ok(())
 	}
 
+	#[benchmark]
+	fn barrier_check(i: Linear<1, 100>) -> Result<(), BenchmarkError> {
+		let origin = Location::parent();
+		let mut message = Xcm::<XcmCallOf<T>>(vec![ClearOrigin; i as usize]);
+		let mut properties =
+			xcm_executor::traits::Properties { weight_credit: Weight::zero(), message_id: None };
+
+		#[block]
+		{
+			let _ = <T::XcmConfig as xcm_executor::Config>::Barrier::should_execute(
+				&origin,
+				message.inner_mut(),
+				Weight::MAX,
+				&mut properties,
+			);
+		}
+
+		Ok(())
+	}
+
 	impl_benchmark_test_suite!(
 		Pallet,
 		crate::generic::mock::new_test_ext(),

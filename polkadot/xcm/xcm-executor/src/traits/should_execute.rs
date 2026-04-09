@@ -47,7 +47,7 @@ pub trait ShouldExecute {
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Result<Weight, (Weight, ProcessMessageError)>;
+	) -> Result<(), ProcessMessageError>;
 }
 
 #[impl_trait_for_tuples::impl_for_tuples(30)]
@@ -57,14 +57,11 @@ impl ShouldExecute for Tuple {
 		instructions: &mut [Instruction<RuntimeCall>],
 		max_weight: Weight,
 		properties: &mut Properties,
-	) -> Result<Weight, (Weight, ProcessMessageError)> {
-		let mut total_weight = Weight::zero();
-
+	) -> Result<(), ProcessMessageError> {
 		for_tuples!( #(
 			let barrier = core::any::type_name::<Tuple>();
  			match Tuple::should_execute(origin, instructions, max_weight, properties) {
-				Ok(weight) => {
-					total_weight.saturating_accrue(weight);
+				Ok(()) => {
 					tracing::trace!(
 						target: "xcm::should_execute",
 						?origin,
@@ -74,10 +71,9 @@ impl ShouldExecute for Tuple {
 						%barrier,
 						"pass barrier",
 					);
-					return Ok(total_weight)
+					return Ok(())
 				},
-				Err((weight, error)) => {
-					total_weight.saturating_accrue(weight);
+				Err(error) => {
 					tracing::trace!(
 						target: "xcm::should_execute",
 						?origin,
@@ -92,7 +88,7 @@ impl ShouldExecute for Tuple {
 			}
 		)* );
 
-		Err((total_weight, ProcessMessageError::Unsupported))
+		Err(ProcessMessageError::Unsupported)
 	}
 }
 
