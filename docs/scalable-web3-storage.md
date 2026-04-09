@@ -383,7 +383,7 @@ Compare to Filecoin (including PDP):
 
 This is a key difference. We get immediate off-chain guarantees via signatures; checkpoints batch to the chain for synchronization and public verifiability, but aren't required for the guarantee to be actionable.
 
-**Why does the signature-based guarantee work?**
+**How signature-based guarantees work**
 
 The provider's signature is cryptographic proof they acknowledged receiving the data. If the provider later refuses to serve it:
 - Client initiates challenge, presenting the signed commitment
@@ -487,7 +487,7 @@ Imagine a provider who technically kept the data but was slow, unresponsive, or 
 
 In addition to the challenging mechanism, this burn instead of pay possibility is part of guaranteeing/incentivizing good enough retrievability, not just storing.
 
-Note: Nowadays we would rather not burn, but transfer the funds into the DAP (Dynamic Allocation Pool). Important property: It must be a lose-lose for both parties.
+Note: Burn can also mean to transfer the funds into the DAP (Dynamic Allocation Pool).
 
 **Avoiding abuse**
 
@@ -517,17 +517,6 @@ What about multiple providers colluding to reduce physical redundancy or coordin
 - Latency measurements detect proxying (see [Latency-Based Selection](#latency-based-selection-and-geographic-redundancy))
 - Each provider still needs full stake at risk
 - Savings minimal (~$20/month) vs. risk (thousands in stake)
-
-**Service degradation collusion (hostage scenario):** More subtle attack—providers store data but deliberately provide poor service to extort payments. They respond to challenges (avoiding slashing) but refuse normal reads unless paid extra.
-
-Why this fails:
-- **Client migration**: Poor service → clients pick different providers for future buckets
-- **Reputation damage**: On-chain record shows provider has many non-renewed agreements
-- **Limited leverage**: With 3+ providers, at least one likely defects to capture more business
-- **Latency optimization**: Clients automatically shift traffic to responsive providers (see [Latency-Based Selection](#latency-based-selection-and-geographic-redundancy))
-- **Challenge cost ceiling**: Can't charge more than challenge cost—client would just challenge instead
-
-It's not binary (serve/don't serve). Providers can "barely serve"—responding only to challenges while degrading normal service. But this is self-defeating long-term as clients migrate to better providers, and short-term gains are capped by challenge costs.
 
 **Organizational collusion (censorship):** Single entity runs providers globally, receives government pressure to censor. Protection through economics:
 - Censoring all replicas = all stakes slashed
@@ -564,11 +553,11 @@ Providers allocate scarce resources (bandwidth, IOPS, CPU) based on cumulative p
 | Client type | Service quality |
 |------------|-----------------|
 | New client | Good (attract customers) |
-| Occasional free user | Decent (avoid slashing) |
+| Occasional free user | Decent (avoid challenges) |
 | Heavy free user | Degraded (incentivize payment) |
 | Paying client | Best (retain revenue) |
 
-Non-paying clients still get served (provider must avoid slashing), but paying clients get priority. This motivates providers to upgrade infrastructure and provide good service.
+Non-paying clients still get served (provider must avoid slashing), but paying clients get priority. This motivates providers to upgrade infrastructure and provide good service. More replica nodes will join a bucket, if a profit can be made by serving highly popular content.
 
 ### Identity Through Proof-of-DOT
 
@@ -576,22 +565,22 @@ To enable sustainable free tiers and prevent unbounded resource consumption, we 
 
 **The problem with anonymous free tiers:**
 - Attacker creates unlimited identities, exhausts resources
-- IP-based rate limiting fails with IPv6 (each user has 2^64 addresses)
+- IP-based rate limiting is unreliable — IPv6 prefix rotation, VPNs, and cloud providers make it easy to acquire many apparent identities cheaply
 - Reputation tracking becomes unbounded (memory exhaustion)
 - Honest free users get crowded out by sybil attacks
 
 Proof-of-DOT (detailed in [issue #6173](https://github.com/paritytech/polkadot-sdk/issues/6173)) solves this:
-- **Registration cost**: Lock DOT to create identity. Cost grows exponentially: nth participant pays base_price × 2^(n/step)
+- **Registration cost**: Lock DOT to create identity.
 - **Parameters for storage**: Set for global scale (billions of expected participants), allowing normal growth while preventing attack-scale registration
 - **Graceful degradation**: Serve anonymous users when capacity available, drop them first under load
-- **Bounded reputation**: Can track reputation for all registered users without memory exhaustion
+- **Bounded  & meaningful reputation**: Can reliably track reputation for all registered peers
 
 **Service tiers emerge naturally:**
 1. **Anonymous** (no Proof-of-DOT): Served only when spare capacity exists, no reputation tracking
 2. **Registered** (Proof-of-DOT): Always get basic service, reputation tracked, can build payment history
 3. **Paying** (Proof-of-DOT + payments): Premium service based on payment history
 
-**Distinction from Proof of Personhood:** Proof-of-DOT allows multiple identities per person (if they pay for each). It's designed for abundant resources (bandwidth, connections) where we want sustainable economics, not scarcity. Proof of Personhood is for truly scarce resources (votes, airdrops) where one-per-human matters. They complement each other: proven persons could get DOT for Proof-of-DOT registration for free.
+**Distinction from Proof of Personhood:** Proof-of-DOT allows multiple identities per person (if they pay for each). It's designed for abundant resources (bandwidth, connections) where we want sustainable economics and fast verification (network level). Proof of Personhood is for truly scarce resources (votes, airdrops) where one-per-human matters (blockchain level). They complement each other: proven persons could get DOT for Proof-of-DOT registration for free.
 
 ### How Competition Drives Quality
 
@@ -601,7 +590,7 @@ The feedback loop is natural:
 3. Poor service → switch providers or stop paying
 4. Providers compete for paying clients
 
-Example: A viral video receives 10,000 requests. Paying users stream instantly, free users buffer. Client software suggests: "High demand content. Pay 1 cent for instant access?"
+Example: A viral video receives 10,000 requests. Paying users stream instantly, free users buffer. Client software suggests: "High demand content. Pay 1 cent for instant access?" - Or more realistically user sets a budget and the client software optimizes like this automatically.
 
 ### Challenge as Price Ceiling
 
@@ -667,7 +656,7 @@ Client software should verify automatically, invisibly:
 - Media streaming verifies sequential chunks
 
 **Background sampling**:
-- Weekly: 3 random chunks from random providers
+- Weekly: 3 random chunks from providers
 - Flag latency anomalies or fetch failures
 - Track per-provider reliability over time
 
@@ -675,12 +664,7 @@ Client software should verify automatically, invisibly:
 
 ### When to Challenge
 
-Challenges are expensive and adversarial. Use them when:
-- Provider refuses to serve data off-chain
-- Provider demands unreasonable prices
-- You need on-chain proof of data availability
-- You want to force recovery of specific chunks
-
+Challenges are expensive and adversarial only use them if the provider does not serve data at all/not sufficiently.
 Don't challenge for routine verification—that's what spot-checking is for. Challenge is the nuclear option when the provider has broken the social contract.
 
 ---
