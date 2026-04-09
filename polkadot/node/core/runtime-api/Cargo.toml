@@ -17,10 +17,10 @@ gum.default-features = true
 gum.workspace = true
 polkadot-node-metrics.default-features = true
 polkadot-node-metrics.workspace = true
-polkadot-node-subsystem.default-features = true
-polkadot-node-subsystem.workspace = true
 polkadot-node-subsystem-types.default-features = true
 polkadot-node-subsystem-types.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-node-subsystem.workspace = true
 polkadot-primitives.default-features = true
 polkadot-primitives.workspace = true
 schnellru = { workspace = true }

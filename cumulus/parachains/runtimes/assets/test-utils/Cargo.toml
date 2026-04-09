@@ -24,17 +24,17 @@ pallet-balances.workspace = true
 pallet-collator-selection.workspace = true
 pallet-session.workspace = true
 pallet-timestamp.workspace = true
-pallet-xcm.workspace = true
 pallet-xcm-bridge-hub-router.workspace = true
+pallet-xcm.workspace = true
 parachain-info.workspace = true
 parachains-common.workspace = true
 parachains-runtimes-test-utils.workspace = true
 sp-io.workspace = true
 sp-runtime.workspace = true
-xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
 xcm-runtime-apis.workspace = true
+xcm.workspace = true
 
 [features]
 default = ["std"]

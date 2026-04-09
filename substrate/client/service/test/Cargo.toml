@@ -31,10 +31,10 @@ sc-consensus.default-features = true
 sc-consensus.workspace = true
 sc-executor.default-features = true
 sc-executor.workspace = true
-sc-network.default-features = true
-sc-network.workspace = true
 sc-network-sync.default-features = true
 sc-network-sync.workspace = true
+sc-network.default-features = true
+sc-network.workspace = true
 sc-service.default-features = true
 sc-service.workspace = true
 sc-transaction-pool-api.default-features = true
@@ -57,7 +57,7 @@ sp-storage.default-features = true
 sp-storage.workspace = true
 sp-tracing.default-features = true
 sp-tracing.workspace = true
-substrate-test-runtime.workspace = true
 substrate-test-runtime-client.workspace = true
+substrate-test-runtime.workspace = true
 tempfile = { workspace = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
