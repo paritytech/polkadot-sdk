@@ -53,6 +53,7 @@ use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin,
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
@@ -1430,6 +1431,45 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+// Dynamic parameters configurable via governance.
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod psm {
+		/// Maximum pUSD issuance across the system (50 million pUSD).
+		#[codec(index = 0)]
+		pub static MaximumIssuance: Balance = 50_000_000 * 1_000_000;
+	}
+}
+
+/// Origin check for dynamic parameter changes — only Root can modify.
+pub struct DynamicParameterOrigin;
+impl frame_support::traits::EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey>
+	for DynamicParameterOrigin
+{
+	type Success = ();
+	fn try_origin(
+		origin: RuntimeOrigin,
+		_key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		frame_system::ensure_root(origin.clone()).map_err(|_| origin)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = DynamicParameterOrigin;
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
+}
+
 // PSM configuration.
 parameter_types! {
 	/// The pUSD stablecoin asset ID (trust-backed asset).
@@ -1441,8 +1481,6 @@ parameter_types! {
 	/// Fee revenue destination: pUSD insurance fund account.
 	pub const PsmFeeDestinationPalletId: PalletId = PalletId(*b"pusd/ins");
 	pub PsmFeeDestination: AccountId = PsmFeeDestinationPalletId::get().into_account_truncating();
-	/// Maximum pUSD issuance across the system (2 million pUSD).
-	pub const PsmMaximumIssuance: Balance = 2_000_000 * 1_000_000;
 }
 
 /// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
@@ -1461,8 +1499,7 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
 			_ => o,
 		};
-		governance::GeneralAdmin::try_origin(o)
-			.map(|_| pallet_psm::PsmManagerLevel::Emergency)
+		governance::GeneralAdmin::try_origin(o).map(|_| pallet_psm::PsmManagerLevel::Emergency)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1499,7 +1536,7 @@ impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for Psm
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
 	type AssetId = AssetIdForTrustBackedAssets;
-	type MaximumIssuance = PsmMaximumIssuance;
+	type MaximumIssuance = dynamic_params::psm::MaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type StableAsset = PsmStableAsset;
@@ -1512,11 +1549,12 @@ impl pallet_psm::Config for Runtime {
 }
 
 /// Initial PSM configuration applied via the V1 migration.
-/// Sets up USDT (1984) as the first external asset with 0.05% fees.
+/// Sets up USDT (1984) as the first external asset.
 pub struct PsmInitialConfig;
 impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {
 	fn max_psm_debt_of_total() -> Permill {
-		Permill::from_percent(100)
+		// USDT PSM cap is 5M out of 50M total issuance = 10%.
+		Permill::from_percent(10)
 	}
 
 	fn asset_configs() -> alloc::collections::btree_map::BTreeMap<
@@ -1526,8 +1564,8 @@ impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig 
 		[(
 			1984u32, // USDT
 			(
-				Permill::from_parts(500),   // 0.05% minting fee
-				Permill::from_parts(500),   // 0.05% redemption fee
+				Permill::zero(),            // 0% minting fee
+				Permill::from_parts(100),   // 0.01% redemption fee
 				Permill::from_percent(100), // ceiling weight
 			),
 		)]
@@ -1583,6 +1621,7 @@ construct_runtime!(
 		Indices: pallet_indices = 43,
 		MetaTx: pallet_meta_tx = 44,
 		VerifySignature: pallet_verify_signature = 45,
+		Parameters: pallet_parameters = 46,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1966,6 +2005,7 @@ mod benches {
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
 		[pallet_psm, Psm]
+		[pallet_parameters, Parameters]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
