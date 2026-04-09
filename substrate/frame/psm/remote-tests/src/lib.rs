@@ -66,8 +66,6 @@ pub struct PsmTestConfig {
 const SWAP_AMOUNT: u128 = 1_000_000_000;
 /// Amount of external stablecoin to fund the test caller with (2000 units with 6 decimals).
 const FUND_AMOUNT: u128 = 2_000_000_000;
-/// Seed amount for pre-funding pUSD asset accounts.
-const SEED_AMOUNT: u128 = 1;
 
 /// Common test state returned by [`setup`].
 struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
@@ -89,6 +87,8 @@ where
 	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
 {
 	let asset_id: Runtime::AssetId = config.external_asset_id.into();
+	let stable_asset_id: Runtime::AssetId = config.stable_asset_id.into();
+	let psm_account: Runtime::AccountId = Runtime::PalletId::get().into_account_truncating();
 
 	// Check that the external asset actually exists on-chain.
 	assert!(
@@ -105,9 +105,7 @@ where
 		decimals,
 	);
 
-	// Create the pUSD stable asset if it doesn't exist yet (it won't on live chains
-	// where PSM hasn't been deployed).
-	let stable_asset_id: Runtime::AssetId = config.stable_asset_id.into();
+	// Create the pUSD stable asset if it doesn't exist yet.
 	if !<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(
 		stable_asset_id,
 	) {
@@ -116,11 +114,7 @@ where
 			hook();
 		}
 
-		let psm_account = Runtime::PalletId::get().into_account_truncating();
 		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
-
-		let fee_dest = Runtime::FeeDestination::get();
-		let _ = frame_system::Pallet::<Runtime>::inc_providers(&fee_dest);
 
 		assert_ok!(<Runtime::Fungibles as FungiblesCreate<Runtime::AccountId>>::create(
 			stable_asset_id,
@@ -159,33 +153,13 @@ where
 		stable_decimals, external_decimals,
 	);
 
-	// Run the V1 migration to initialize PSM parameters (external asset, fees,
-	// ceiling weight, max debt). This mirrors what happens during the runtime upgrade.
+	// Run the V1 migration to initialize PSM.
 	pallet_psm::migrations::v1::UncheckedMigrateToV1::<Runtime, MigrationConfig>::on_runtime_upgrade();
 
-	// Fund test accounts.
-	// Use a separate test caller (not the PSM account, since mint transfers
-	// from caller to PSM — using the same account would be a no-op on balance).
+	// Fund test account.
 	let caller: Runtime::AccountId =
 		frame_support::PalletId(*b"py/test!").into_account_truncating();
 	let _ = frame_system::Pallet::<Runtime>::inc_providers(&caller);
-
-	let psm_account = Runtime::PalletId::get().into_account_truncating();
-	let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
-
-	let fee_dest = Runtime::FeeDestination::get();
-	let _ = frame_system::Pallet::<Runtime>::inc_providers(&fee_dest);
-
-	// Pre-fund accounts with pUSD so they have asset accounts (needed for
-	// non-sufficient assets where holding requires an existing account).
-	let seed_amount: BalanceOf<Runtime> =
-		SEED_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
-	let _ = <Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
-		stable_asset_id, &caller, seed_amount,
-	);
-	let _ = <Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
-		stable_asset_id, &fee_dest, seed_amount,
-	);
 
 	let fund_amount: BalanceOf<Runtime> =
 		FUND_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
@@ -233,7 +207,7 @@ where
 /// asset data.
 ///
 /// This test:
-/// 1. Configures PSM via governance dispatchables (approves asset, sets ceilings)
+/// 1. Sets up PSM with an approved external asset
 /// 2. Mints pUSD by depositing the external stablecoin
 /// 3. Redeems pUSD back for the external stablecoin
 /// 4. Verifies balances, debt tracking, and fee accounting
@@ -300,7 +274,7 @@ where
 			psm_external,
 		);
 
-		// Redeem all pUSD the caller has (seed + minted amount).
+		// Redeem all pUSD the caller has.
 		let pusd_balance = Runtime::StableAsset::balance(&caller);
 		let redeem_amount = pusd_balance;
 
@@ -320,12 +294,10 @@ where
 		assert!(debt_after > Zero::zero(), "Some debt should remain (fee portion)");
 		assert!(debt_after < total_debt, "Debt should decrease after redeem");
 
-		// Fee destination should have received fees (more than just the seed).
+		// Fee destination should have received fees.
 		let fee_dest = Runtime::FeeDestination::get();
 		let fee_balance = Runtime::StableAsset::balance(&fee_dest);
-		let seed_amount: BalanceOf<Runtime> =
-			SEED_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
-		assert!(fee_balance > seed_amount, "Fee destination should have collected fees");
+		assert!(fee_balance > Zero::zero(), "Fee destination should have collected fees");
 
 		log::info!(
 			target: LOG_TARGET,
@@ -395,7 +367,7 @@ where
 
 		log::info!(target: LOG_TARGET, "MintingDisabled: mint blocked, redeem allowed");
 
-		// -Test: AllDisabled. Both mint and redeem fail
+		// Test: AllDisabled. Both mint and redeem fail
 		assert_ok!(pallet_psm::Pallet::<Runtime>::set_asset_status(
 			frame_system::RawOrigin::Root.into(),
 			asset_id,
