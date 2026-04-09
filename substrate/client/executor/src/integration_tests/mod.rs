@@ -461,10 +461,10 @@ fn mk_test_runtime(
 
 test_wasm_execution!(returns_mutable_static);
 fn returns_mutable_static(wasm_method: WasmExecutionMethod) {
-	let runtime =
-		mk_test_runtime(wasm_method, HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) });
+	let heap_alloc_strategy = HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) };
+	let runtime = mk_test_runtime(wasm_method, heap_alloc_strategy);
 
-	let mut instance = runtime.new_instance().unwrap();
+	let mut instance = runtime.new_instance(heap_alloc_strategy).unwrap();
 	let res = instance.call_export("returns_mutable_static", &[0]).unwrap();
 	assert_eq!(33, u64::decode(&mut &res[..]).unwrap());
 
@@ -477,10 +477,10 @@ fn returns_mutable_static(wasm_method: WasmExecutionMethod) {
 
 test_wasm_execution!(returns_mutable_static_bss);
 fn returns_mutable_static_bss(wasm_method: WasmExecutionMethod) {
-	let runtime =
-		mk_test_runtime(wasm_method, HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) });
+	let heap_alloc_strategy = HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) };
+	let runtime = mk_test_runtime(wasm_method, heap_alloc_strategy);
 
-	let mut instance = runtime.new_instance().unwrap();
+	let mut instance = runtime.new_instance(heap_alloc_strategy).unwrap();
 	let res = instance.call_export("returns_mutable_static_bss", &[0]).unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 
@@ -505,11 +505,9 @@ fn restoration_of_globals(wasm_method: WasmExecutionMethod) {
 	// to our allocator algorithm there are inefficiencies.
 	const REQUIRED_MEMORY_PAGES: u32 = 32;
 
-	let runtime = mk_test_runtime(
-		wasm_method,
-		HeapAllocStrategy::Static { extra_pages: REQUIRED_MEMORY_PAGES },
-	);
-	let mut instance = runtime.new_instance().unwrap();
+	let heap_alloc_strategy = HeapAllocStrategy::Static { extra_pages: REQUIRED_MEMORY_PAGES };
+	let runtime = mk_test_runtime(wasm_method, heap_alloc_strategy);
+	let mut instance = runtime.new_instance(heap_alloc_strategy).unwrap();
 
 	// On the first invocation we allocate approx. 768KB (75%) of stack and then trap.
 	let res = instance.call_export("allocates_huge_stack_array", &true.encode());
@@ -608,9 +606,10 @@ fn wasm_tracing_should_work(wasm_method: WasmExecutionMethod) {
 
 test_wasm_execution!(allocate_two_gigabyte);
 fn allocate_two_gigabyte(wasm_method: WasmExecutionMethod) {
-	let runtime = mk_test_runtime(wasm_method, HeapAllocStrategy::Dynamic { maximum_pages: None });
+	let heap_alloc_strategy = HeapAllocStrategy::Dynamic { maximum_pages: None };
+	let runtime = mk_test_runtime(wasm_method, heap_alloc_strategy);
 
-	let mut instance = runtime.new_instance().unwrap();
+	let mut instance = runtime.new_instance(heap_alloc_strategy).unwrap();
 	let res = instance.call_export("allocate_two_gigabyte", &[0]).unwrap();
 	assert_eq!(10 * 1024 * 1024 * 205, u32::decode(&mut &res[..]).unwrap());
 }
@@ -684,7 +683,7 @@ fn memory_is_cleared_between_invocations(wasm_method: WasmExecutionMethod) {
 	)
 	.unwrap();
 
-	let mut instance = runtime.new_instance().unwrap();
+	let mut instance = runtime.new_instance(HeapAllocStrategy::Dynamic { maximum_pages: Some(1024) }).unwrap();
 	let res = instance.call_export("returns_no_bss_mutable_static", &[0]).unwrap();
 	assert_eq!(1, u64::decode(&mut &res[..]).unwrap());
 

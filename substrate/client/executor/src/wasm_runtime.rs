@@ -81,7 +81,12 @@ struct VersionedRuntime {
 
 impl VersionedRuntime {
 	/// Run the given closure `f` with an instance of this runtime.
-	fn with_instance<R, F>(&self, ext: &mut dyn Externalities, f: F) -> Result<R, Error>
+	fn with_instance<R, F>(
+		&self,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R, Error>
 	where
 		F: FnOnce(
 			&dyn WasmModule,
@@ -102,7 +107,16 @@ impl VersionedRuntime {
 				let (mut instance, new_inst) = locked
 					.take()
 					.map(|r| Ok((r, false)))
-					.unwrap_or_else(|| self.module.new_instance().map(|i| (i, true)))?;
+					.unwrap_or_else(|| {
+						self.module.new_instance(heap_alloc_strategy).map(|i| (i, true))
+					})?;
+
+				// Update the heap allocation strategy for pooled instances, since the
+				// caller may need different memory limits than what the instance was
+				// originally created with.
+				if !new_inst {
+					instance.set_heap_alloc_strategy(heap_alloc_strategy);
+				}
 
 				let result = f(&*self.module, &mut *instance, self.version.as_ref(), ext);
 				if let Err(e) = &result {
@@ -138,7 +152,7 @@ impl VersionedRuntime {
 				tracing::warn!(target: "wasm-runtime", "Ran out of free WASM instances");
 
 				// Allocate a new instance
-				let mut instance = self.module.new_instance()?;
+				let mut instance = self.module.new_instance(heap_alloc_strategy)?;
 
 				f(&*self.module, &mut *instance, self.version.as_ref(), ext)
 			},
@@ -279,7 +293,7 @@ impl RuntimeCache {
 		// Lock must be released prior to calling f
 		drop(runtimes);
 
-		Ok(versioned_runtime.with_instance(ext, f))
+		Ok(versioned_runtime.with_instance(ext, heap_alloc_strategy, f))
 	}
 }
 
@@ -421,7 +435,7 @@ where
 			// runtime will be dropped.
 			let runtime = AssertUnwindSafe(runtime.as_ref());
 			crate::executor::with_externalities_safe(&mut **ext, move || {
-				runtime.new_instance()?.call("Core_version".into(), &[])
+				runtime.new_instance(heap_alloc_strategy)?.call("Core_version".into(), &[])
 			})
 			.map_err(|_| WasmError::Instantiation("panic in call to get runtime version".into()))?
 		};

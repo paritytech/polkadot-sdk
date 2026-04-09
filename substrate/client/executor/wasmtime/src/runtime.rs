@@ -147,17 +147,19 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
-	heap_alloc_strategy: HeapAllocStrategy,
 }
 
 impl WasmModule for WasmtimeRuntime {
-	fn new_instance(&self) -> Result<Box<dyn WasmInstance>> {
+	fn new_instance(
+		&self,
+		heap_alloc_strategy: HeapAllocStrategy,
+	) -> Result<Box<dyn WasmInstance>> {
 		let strategy = match self.instantiation_strategy {
 			InternalInstantiationStrategy::Builtin => Strategy::RecreateInstance(InstanceCreator {
 				engine: self.engine.clone(),
 				instance_pre: self.instance_pre.clone(),
 				instance_counter: self.instance_counter.clone(),
-				heap_alloc_strategy: self.heap_alloc_strategy,
+				heap_alloc_strategy,
 			}),
 		};
 
@@ -200,6 +202,14 @@ impl WasmInstance for WasmtimeInstance {
 		let mut allocation_stats = None;
 		let result = self.call_impl(method, data, &mut allocation_stats);
 		(result, allocation_stats)
+	}
+
+	fn set_heap_alloc_strategy(&mut self, heap_alloc_strategy: HeapAllocStrategy) {
+		match &mut self.strategy {
+			Strategy::RecreateInstance(ref mut creator) => {
+				creator.heap_alloc_strategy = heap_alloc_strategy;
+			},
+		}
 	}
 }
 
@@ -635,7 +645,6 @@ where
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
-		heap_alloc_strategy: config.semantics.heap_alloc_strategy,
 	})
 }
 

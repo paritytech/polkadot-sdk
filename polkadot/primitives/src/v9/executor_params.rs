@@ -263,7 +263,7 @@ impl ExecutorParams {
 		self.0
 			.iter()
 			.flat_map(|param| match param {
-				MaxMemoryPages(..) => Some(param),
+				MaxMemoryPages(..) => None,
 				StackLogicalMax(..) => Some(param),
 				StackNativeMax(..) => None,
 				PrecheckingMaxMemory(..) => None,

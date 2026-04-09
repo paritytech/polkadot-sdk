@@ -433,8 +433,9 @@ where
 		)
 		.map_err(|e| format!("Failed to create module: {}", e))?;
 
-		let instance =
-			module.new_instance().map_err(|e| format!("Failed to create instance: {}", e))?;
+		let instance = module
+			.new_instance(self.default_onchain_heap_alloc_strategy)
+			.map_err(|e| format!("Failed to create instance: {}", e))?;
 
 		let mut instance = AssertUnwindSafe(instance);
 		let mut ext = AssertUnwindSafe(ext);
