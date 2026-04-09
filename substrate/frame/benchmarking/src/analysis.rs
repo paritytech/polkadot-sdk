@@ -232,6 +232,8 @@ impl Analysis {
 		r: &Vec<BenchmarkResult>,
 		selector: BenchmarkSelector,
 	) -> Result<Self, anyhow::Error> {
+		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
+
 		if r[0].components.is_empty() {
 			return Self::median_value(r, selector);
 		}
@@ -348,6 +350,8 @@ impl Analysis {
 		r: &Vec<BenchmarkResult>,
 		selector: BenchmarkSelector,
 	) -> Result<Self, anyhow::Error> {
+		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
+
 		if r[0].components.is_empty() || r.len() <= 2 {
 			return Self::median_value(r, selector);
 		}
