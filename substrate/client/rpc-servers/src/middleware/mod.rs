@@ -31,10 +31,12 @@ use jsonrpsee::{
 	MethodResponse,
 };
 
+mod cache;
 mod metrics;
 mod node_health;
 mod rate_limit;
 
+pub use cache::*;
 pub use metrics::*;
 pub use node_health::*;
 pub use rate_limit::*;
