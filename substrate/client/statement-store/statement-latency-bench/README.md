@@ -3,13 +3,44 @@
 CLI tool for benchmarking statement store latency at scale. Clients form a ring topology where each subscribes
 to statements from the next client, measuring propagation latency across the network.
 
+This crate produces two binaries:
+- **`setup-allowances`** — one-shot provisioning of on-chain statement allowances via Sudo
+- **`statement-latency-bench`** — the actual latency benchmark (can be re-run without re-provisioning)
+
 ## Building
 
 ```bash
 cargo build --release -p statement-latency-bench
 ```
 
-## Usage
+## Setup: Statement Allowances
+
+Before running the benchmark, each account needs an on-chain statement allowance. Run this once
+(or whenever you change `--num-clients`):
+
+```bash
+setup-allowances \
+  --rpc-endpoints ws://localhost:9944 \
+  --sudo-seed "//Alice" \
+  --num-clients 100
+```
+
+This submits `Sudo(batch_all(set_storage(...)))` transactions to write allowances for all
+deterministic benchmark accounts, then verifies each allowance exists at the finalized block.
+
+### setup-allowances Arguments
+
+| Argument                 | Description                                      | Default   |
+| ------------------------ | ------------------------------------------------ | --------- |
+| `--rpc-endpoints`        | Comma-separated WebSocket URLs (required)        | -         |
+| `--sudo-seed`            | Sudo seed/SURI, e.g. "//Alice" (required)        | -         |
+| `--num-clients`          | Number of accounts to provision                  | 100       |
+| `--allowance-batch-size` | Accounts per `set_storage` call                  | 100       |
+| `--allowance-max-count`  | Max statements allowed per account               | 100000    |
+| `--allowance-max-size`   | Max total statement bytes per account            | 1000000   |
+| `--max-batch-calls`      | Max calls per `batch_all` transaction            | 100       |
+
+## Running the Benchmark
 
 Basic example:
 
@@ -31,7 +62,7 @@ statement-latency-bench \
   --messages-pattern "5:512,1:5120"
 ```
 
-## CLI Arguments
+### statement-latency-bench Arguments
 
 | Argument                | Description                                         | Default |
 | ----------------------- | --------------------------------------------------- | ------- |

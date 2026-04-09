@@ -15,8 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes, ClientError,
-	FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider,
+	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata,
+	ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel, SyncStateKey,
+	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
 use pallet_revive::evm::{Filter, Log, ReceiptInfo, TransactionSigned};
@@ -59,7 +60,7 @@ impl BlockHashMap {
 }
 
 /// Provides information about a block,
-/// This is an abstratction on top of [`SubstrateBlock`] that can't be mocked in tests.
+/// This is an abstraction on top of [`SubstrateBlock`] that can't be mocked in tests.
 /// Can be removed once <https://github.com/paritytech/subxt/issues/1883> is fixed.
 pub trait BlockInfo {
 	/// Returns the block hash.
@@ -78,7 +79,31 @@ impl BlockInfo for SubstrateBlock {
 }
 
 /// Maximum number of entries kept in the block to hash map.
-const MAX_CACHED_BLOCKS: usize = 256;
+pub const MAX_CACHED_BLOCKS: usize = 256;
+
+/// Upsert a sync label row, updating only when the existing `block_number`
+/// compares with `$op` against the new value. `$op` must be `"<"` or `">"`.
+macro_rules! upsert_sync_label {
+	($pool:expr, $op:literal, $label:expr, $checkpoint:expr) => {{
+		let label_str = $label.to_string();
+		let block_number = $checkpoint.block_number as i64;
+		let block_hash = $checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
+		query!(
+			"INSERT INTO sync_state (label, block_number, block_hash)
+			VALUES ($1, $2, $3)
+			ON CONFLICT(label) DO UPDATE
+				SET block_number = excluded.block_number, block_hash = excluded.block_hash
+			WHERE sync_state.block_number " +
+				$op + " excluded.block_number
+			",
+			label_str,
+			block_number,
+			block_hash
+		)
+		.execute($pool)
+		.await?;
+	}};
+}
 
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
@@ -87,31 +112,111 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block_provider: B,
 		receipt_extractor: ReceiptExtractor,
 		keep_latest_n_blocks: Option<usize>,
-	) -> Result<Self, sqlx::Error> {
-		sqlx::migrate!().run(&pool).await?;
-		Ok(Self {
+	) -> Result<Self, ClientError> {
+		sqlx::migrate!().run(&pool).await.map_err(|e| sqlx::Error::Migrate(e.into()))?;
+
+		let provider = Self {
 			pool,
 			block_provider,
 			receipt_extractor,
 			keep_latest_n_blocks,
 			block_number_to_hashes: Default::default(),
-		})
+		};
+		provider.restore_first_evm_block().await?;
+
+		Ok(provider)
 	}
 
-	// Get block hash and  transaction index by transaction hash
+	/// Returns `true` if the block is before the auto-discovered `first_evm_block`.
+	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
+		match at {
+			BlockNumberOrTag::U256(block_number) => {
+				if *block_number > U256::from(u32::MAX) {
+					return false;
+				}
+				self.receipt_extractor.is_before_first_evm_block(block_number.as_u32())
+			},
+			BlockNumberOrTag::BlockTag(_) => false,
+		}
+	}
+
+	/// The auto-discovered first EVM block, or `None` if not yet discovered.
+	pub fn first_evm_block(&self) -> Option<SubstrateBlockNumber> {
+		self.receipt_extractor.first_evm_block()
+	}
+
+	/// Set the auto-discovered first EVM block (in-memory + persisted to DB).
+	pub async fn set_first_evm_block(
+		&self,
+		block_number: SubstrateBlockNumber,
+	) -> Result<(), ClientError> {
+		self.receipt_extractor.set_first_evm_block(block_number);
+		self.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(block_number))
+			.await
+	}
+
+	/// Restore `first_evm_block` from DB, clearing it if the boundary has shifted.
+	async fn restore_first_evm_block(&self) -> Result<(), ClientError> {
+		let Some(evm_first) =
+			self.get_sync_label(ChainMetadata::FirstEvmBlock).await?.map(|c| c.block_number)
+		else {
+			return Ok(());
+		};
+
+		let has_evm_hash = |block_number: SubstrateBlockNumber| async move {
+			match self.block_provider.block_by_number(block_number).await.ok().flatten() {
+				Some(block) => self
+					.receipt_extractor
+					.get_ethereum_block_hash(&block.hash(), block_number as u64)
+					.await
+					.is_some(),
+				None => false,
+			}
+		};
+
+		// Stale if evm_first no longer has an EVM hash, or its predecessor now does.
+		let current_has_evm = has_evm_hash(evm_first).await;
+		let predecessor_has_evm =
+			if evm_first > 0 { has_evm_hash(evm_first - 1).await } else { false };
+
+		if !current_has_evm || predecessor_has_evm {
+			log::warn!(target: LOG_TARGET,
+				"🗄️ Stored first-evm-block=#{evm_first} is stale \
+				 (has_evm={current_has_evm}, predecessor_has_evm={predecessor_has_evm}), \
+				 clearing.");
+			if let Err(e) = self.delete_sync_label(ChainMetadata::FirstEvmBlock).await {
+				log::error!(target: LOG_TARGET,
+					"🗄️ Failed to clear stale first-evm-block from DB: {e:?}");
+			}
+		} else {
+			self.receipt_extractor.set_first_evm_block(evm_first);
+		}
+		Ok(())
+	}
+
+	// Get block hash and transaction index by transaction hash
 	pub async fn find_transaction(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
-		let transaction_hash = transaction_hash.as_ref();
+		let transaction_hash_bytes = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
 			FROM transaction_hashes
 			WHERE transaction_hash = $1
 			"#,
-			transaction_hash
+			transaction_hash_bytes
 		)
 		.fetch_optional(&self.pool)
 		.await
-		.ok()??;
+		.inspect_err(|err| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: DB query failed for tx {transaction_hash:?}: {err:?}");
+		})
+		.ok()?
+		.or_else(|| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: tx {transaction_hash:?} not found in DB");
+			None
+		})?;
 
 		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
@@ -214,7 +319,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		for block_map in block_mappings {
 			delete_tx_query = delete_tx_query.bind(block_map.substrate_hash.as_ref());
 			delete_mappings_query = delete_mappings_query.bind(block_map.substrate_hash.as_ref());
-			// logs table uses  ethereum block hash
+			// logs table uses ethereum block hash
 			delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
 		}
 
@@ -225,14 +330,102 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Check if the block is before the earliest block.
-	pub fn is_before_earliest_block(&self, at: &BlockNumberOrTag) -> bool {
-		match at {
-			BlockNumberOrTag::U256(block_number) => {
-				self.receipt_extractor.is_before_earliest_block(block_number.as_u32())
+	/// Read a sync label entry.
+	pub async fn get_sync_label(
+		&self,
+		label: impl SyncStateKey,
+	) -> Result<Option<SyncCheckpoint>, ClientError> {
+		let label_str = label.to_string();
+		let row = query!(
+			r#"
+			SELECT block_number, block_hash
+			FROM sync_state
+			WHERE label = $1
+			"#,
+			label_str
+		)
+		.fetch_optional(&self.pool)
+		.await?;
+
+		match row {
+			Some(row) => {
+				let block_number: SubstrateBlockNumber =
+					row.block_number.try_into().map_err(|_| {
+						sqlx::Error::Decode(
+							format!("block_number {} overflows u32", row.block_number).into(),
+						)
+					})?;
+				Ok(Some(SyncCheckpoint {
+					block_number,
+					block_hash: row
+						.block_hash
+						.filter(|b| b.len() == 32)
+						.map(|b| H256::from_slice(&b)),
+				}))
 			},
-			BlockNumberOrTag::BlockTag(_) => false,
+			None => Ok(None),
 		}
+	}
+
+	/// Upsert a sync label entry.
+	pub async fn set_sync_label(
+		&self,
+		label: impl SyncStateKey,
+		checkpoint: SyncCheckpoint,
+	) -> Result<(), ClientError> {
+		let label_str = label.to_string();
+		let block_number = checkpoint.block_number as i64;
+		let block_hash = checkpoint.block_hash.map(|h| h.as_bytes().to_vec());
+		query!(
+			r#"
+			INSERT OR REPLACE INTO sync_state (label, block_number, block_hash)
+			VALUES ($1, $2, $3)
+			"#,
+			label_str,
+			block_number,
+			block_hash,
+		)
+		.execute(&self.pool)
+		.await?;
+		Ok(())
+	}
+
+	/// Delete a sync label entry.
+	pub async fn delete_sync_label(&self, label: impl SyncStateKey) -> Result<(), ClientError> {
+		let label_str = label.to_string();
+		query!(
+			r#"
+			DELETE FROM sync_state WHERE label = $1
+			"#,
+			label_str,
+		)
+		.execute(&self.pool)
+		.await?;
+		Ok(())
+	}
+
+	/// Atomically update a sync label entry only if the new block number is strictly higher.
+	///
+	/// Inserts the row if it doesn't exist yet.
+	pub async fn advance_sync_label(
+		&self,
+		label: SyncLabel,
+		checkpoint: SyncCheckpoint,
+	) -> Result<(), ClientError> {
+		upsert_sync_label!(&self.pool, "<", label, checkpoint);
+		Ok(())
+	}
+
+	/// Atomically update a sync label entry only if the new block number is lower.
+	///
+	/// Inserts the row if it doesn't exist yet.
+	pub async fn recede_sync_label(
+		&self,
+		label: SyncLabel,
+		checkpoint: SyncCheckpoint,
+	) -> Result<(), ClientError> {
+		upsert_sync_label!(&self.pool, ">", label, checkpoint);
+		Ok(())
 	}
 
 	/// Fetch receipts from the given block.
@@ -243,7 +436,19 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		self.receipt_extractor.extract_from_block(block).await
 	}
 
-	/// Extract and insert receipts from the given block.
+	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
+	/// Used for historic sync where fork detection is unnecessary.
+	pub async fn insert_block_receipts_past(
+		&self,
+		block: &SubstrateBlock,
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		let receipts = self.receipts_from_block(block).await?;
+		self.insert_into_db(block, &receipts, ethereum_hash).await?;
+		Ok(())
+	}
+
+	/// Extract receipts from the given block, insert them, and update the block cache.
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -254,7 +459,23 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(receipts)
 	}
 
-	/// Prune blocks older blocks.
+	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
+	///
+	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
+	/// us create Mock `SubstrateBlock`
+	async fn insert(
+		&self,
+		block: &impl BlockInfo,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
+		ethereum_hash: &H256,
+	) -> Result<(), ClientError> {
+		let block_map = BlockHashMap::new(block.hash(), *ethereum_hash);
+		self.prune_blocks(block.number(), &block_map).await?;
+		self.insert_into_db(block, receipts, ethereum_hash).await?;
+		Ok(())
+	}
+
+	/// Handle fork detection (always) and DB pruning (temporary mode only).
 	async fn prune_blocks(
 		&self,
 		block_number: SubstrateBlockNumber,
@@ -307,11 +528,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Insert receipts into the provider.
-	///
-	/// Note: Can be merged into `insert_block_receipts` once <https://github.com/paritytech/subxt/issues/1883> is fixed and subxt let
-	/// us create Mock `SubstrateBlock`
-	async fn insert(
+	/// Insert receipts into the database without updating the in-memory block cache.
+	async fn insert_into_db(
 		&self,
 		block: &impl BlockInfo,
 		receipts: &[(TransactionSigned, ReceiptInfo)],
@@ -320,12 +538,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let substrate_block_hash = block.hash();
 		let substrate_hash_ref = substrate_block_hash.as_ref();
 		let block_number = block.number() as i64;
-		let ethereum_hash_ref = ethereum_hash.as_ref();
-		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
 
 		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
-
-		self.prune_blocks(block.number(), &block_map).await?;
 
 		// Check if mapping already exists (eg. added when processing best block and we are now
 		// processing finalized block)
@@ -337,7 +551,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
 		// logs exist
-		if !result.exists {
+		if result.exists {
+			log::trace!(target: LOG_TARGET,
+				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
+				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
+				count = receipts.len(),
+			);
+		} else {
+			let ethereum_hash_ref = ethereum_hash.as_ref();
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
 				let transaction_index = receipt.transaction_index.as_u32() as i32;
@@ -394,6 +615,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				}
 			}
 			// Insert block mapping from Ethereum to Substrate hash
+			let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
 			self.insert_block_mapping(&block_map).await?;
 		}
 
@@ -401,21 +623,19 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Get logs that match the given filter.
-	pub async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
+	///
+	/// `resolve_block_number` converts a [`BlockNumberOrTag`] to a concrete block number.
+	pub async fn logs(
+		&self,
+		filter: Option<Filter>,
+		resolve_block_number: impl Fn(BlockNumberOrTag) -> anyhow::Result<U256>,
+	) -> anyhow::Result<Vec<Log>> {
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 		let filter = filter.unwrap_or_default();
 
+		let from_block = filter.from_block.map(&resolve_block_number).transpose()?;
+		let to_block = filter.to_block.map(&resolve_block_number).transpose()?;
 		let latest_block = U256::from(self.block_provider.latest_block_number().await);
-
-		let as_block_number = |block_param| match block_param {
-			None => Ok(None),
-			Some(BlockNumberOrTag::U256(v)) => Ok(Some(v)),
-			Some(BlockNumberOrTag::BlockTag(BlockTag::Latest)) => Ok(Some(latest_block)),
-			Some(BlockNumberOrTag::BlockTag(tag)) => anyhow::bail!("Unsupported tag: {tag:?}"),
-		};
-
-		let from_block = as_block_number(filter.from_block)?;
-		let to_block = as_block_number(filter.to_block)?;
 
 		match (from_block, to_block, filter.block_hash) {
 			(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
@@ -593,13 +813,28 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
-		Some(receipt)
+		let block = match self.block_provider.block_by_hash(&block_hash).await {
+			Ok(Some(b)) => b,
+			Ok(None) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: block {block_hash:?} not available from node (pruned?) for tx {transaction_hash:?}");
+				return None;
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: failed to fetch block {block_hash:?} for tx {transaction_hash:?}: {err:?}");
+				return None;
+			},
+		};
+
+		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
+			Ok((_, receipt)) => Some(receipt),
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: extraction failed for tx {transaction_hash:?} in block {block_hash:?}: {err:?}");
+				None
+			},
+		}
 	}
 
 	/// Get the signed transaction for the given transaction hash.
@@ -611,6 +846,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.receipt_extractor
 			.extract_from_transaction(&block, transaction_index)
 			.await
+			.inspect_err(|err| {
+				log::trace!(target: LOG_TARGET,
+					"signed_tx_by_hash: extraction failed for tx {transaction_hash:?} \
+					 in block {block_hash:?}: {err:?}");
+			})
 			.ok()?;
 		Some(signed_tx)
 	}
@@ -620,7 +860,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 mod tests {
 	use super::*;
 	use crate::test::{MockBlockInfo, MockBlockInfoProvider};
-	use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
+	use pallet_revive::evm::{BlockTag, ReceiptInfo, TransactionSigned};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;
@@ -644,14 +884,47 @@ mod tests {
 		count as _
 	}
 
-	async fn setup_sqlite_provider(pool: SqlitePool) -> ReceiptProvider<MockBlockInfoProvider> {
+	fn mock_provider() -> ReceiptProvider<MockBlockInfoProvider> {
 		ReceiptProvider {
-			pool,
+			pool: SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
 			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new_mock(),
-			keep_latest_n_blocks: Some(10),
+			keep_latest_n_blocks: None,
 			block_number_to_hashes: Default::default(),
 		}
+	}
+
+	/// Test resolver that handles Latest → `latest` and Earliest → 0.
+	fn mock_resolve_block_number_with_latest(
+		latest: u64,
+	) -> impl Fn(BlockNumberOrTag) -> anyhow::Result<U256> {
+		move |block: BlockNumberOrTag| match block {
+			BlockNumberOrTag::U256(v) => Ok(v),
+			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(U256::zero()),
+			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(U256::from(latest)),
+			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
+		}
+	}
+
+	impl ReceiptProvider<MockBlockInfoProvider> {
+		fn with_pool(mut self, pool: SqlitePool) -> Self {
+			self.pool = pool;
+			self
+		}
+
+		fn with_extractor(mut self, extractor: ReceiptExtractor) -> Self {
+			self.receipt_extractor = extractor;
+			self
+		}
+
+		fn with_keep_latest(mut self, n: Option<usize>) -> Self {
+			self.keep_latest_n_blocks = n;
+			self
+		}
+	}
+
+	async fn setup_sqlite_provider(pool: SqlitePool) -> ReceiptProvider<MockBlockInfoProvider> {
+		mock_provider().with_pool(pool).with_keep_latest(Some(10))
 	}
 
 	#[sqlx::test]
@@ -909,96 +1182,128 @@ mod tests {
 			)
 			.await?;
 
+		let resolve_block_number = mock_resolve_block_number_with_latest(block2.number.into());
+
 		// Empty filter
-		let logs = provider.logs(None).await?;
+		let logs = provider.logs(None, &resolve_block_number).await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// from_block filter
 		let logs = provider
-			.logs(Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }))
+			.logs(
+				Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// from_block filter (using latest block)
 		let logs = provider
-			.logs(Some(Filter { from_block: Some(BlockTag::Latest.into()), ..Default::default() }))
+			.logs(
+				Some(Filter { from_block: Some(BlockTag::Latest.into()), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// to_block filter
 		let logs = provider
-			.logs(Some(Filter { to_block: Some(log1.block_number.into()), ..Default::default() }))
+			.logs(
+				Some(Filter { to_block: Some(log1.block_number.into()), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// block_hash filter
 		let logs = provider
-			.logs(Some(Filter { block_hash: Some(log1.block_hash), ..Default::default() }))
+			.logs(
+				Some(Filter { block_hash: Some(log1.block_hash), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// single address
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				address: Some(log1.address.into()),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					address: Some(log1.address.into()),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple addresses
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				address: Some(vec![log1.address, log2.address].into()),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					address: Some(vec![log1.address, log2.address].into()),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// single topic
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				topics: Some(vec![
-					FilterTopic::Single(log1.topics[0]),
-					FilterTopic::Single(log1.topics[1]),
-				]),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![
+						FilterTopic::Single(log1.topics[0]),
+						FilterTopic::Single(log1.topics[1]),
+					]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic for topic_0
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// Altogether
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(log1.block_number.into()),
-				to_block: Some(log2.block_number.into()),
-				block_hash: None,
-				address: Some(vec![log1.address, log2.address].into()),
-				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					to_block: Some(BlockTag::Latest.into()),
+					block_hash: None,
+					address: Some(vec![log1.address, log2.address].into()),
+					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 		Ok(())
@@ -1117,7 +1422,10 @@ mod tests {
 
 		// Query logs using Ethereum block hash (should resolve to substrate hash)
 		let logs = provider
-			.logs(Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }))
+			.logs(
+				Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }),
+				mock_resolve_block_number_with_latest(block.number.into()),
+			)
 			.await?;
 		assert_eq!(logs, vec![log]);
 
@@ -1148,15 +1456,123 @@ mod tests {
 	}
 
 	#[sqlx::test]
+	async fn restore_first_evm_block_clears_stale(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+
+		// Persist first_evm_block = 42.
+		provider
+			.set_sync_label(ChainMetadata::FirstEvmBlock, SyncCheckpoint::from_number(42))
+			.await?;
+
+		// MockBlockInfoProvider returns no blocks, so has_evm_hash is always false.
+		// This means evm_first=42 is stale (no longer has an EVM hash).
+		provider.restore_first_evm_block().await?;
+
+		// The value should have been cleared (not restored to the extractor).
+		assert_eq!(provider.first_evm_block(), None);
+
+		// DB row should have been deleted.
+		let checkpoint = provider.get_sync_label(ChainMetadata::FirstEvmBlock).await?;
+		assert!(checkpoint.is_none());
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn advance_sync_label_only_increases(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let hash_a = H256::repeat_byte(0xAA);
+		let hash_b = H256::repeat_byte(0xBB);
+
+		// First insert creates the row.
+		provider
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(100, hash_a))
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::Head).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
+
+		// Higher value advances.
+		provider
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(200, hash_b))
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::Head).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
+
+		// Lower and equal values are ignored (strict >).
+		provider
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(50, hash_a))
+			.await?;
+		provider
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(200, hash_a))
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::Head).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (200, Some(hash_b)));
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn recede_sync_label_only_decreases(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let hash_a = H256::repeat_byte(0xAA);
+		let hash_b = H256::repeat_byte(0xBB);
+
+		// First insert creates the row.
+		provider
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(100, hash_a))
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::Tail).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (100, Some(hash_a)));
+
+		// Lower value recedes.
+		provider
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(50, hash_b))
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::Tail).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
+
+		// Higher and equal values are ignored (strict <).
+		provider
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(200, hash_a))
+			.await?;
+		provider
+			.recede_sync_label(SyncLabel::Tail, SyncCheckpoint::new(50, hash_a))
+			.await?;
+		let checkpoint = provider.get_sync_label(SyncLabel::Tail).await?.unwrap();
+		assert_eq!((checkpoint.block_number, checkpoint.block_hash), (50, Some(hash_b)));
+
+		Ok(())
+	}
+
+	#[tokio::test]
+	async fn is_before_earliest_block_edge_cases() {
+		// U256 > u32::MAX should never be considered "before floor"
+		let extractor = ReceiptExtractor::new_mock();
+		extractor.set_first_evm_block(10);
+		let provider = mock_provider().with_extractor(extractor);
+
+		let huge = BlockNumberOrTag::U256(U256::from(u64::MAX));
+		assert!(!provider.is_before_earliest_block(&huge));
+
+		let just_over = BlockNumberOrTag::U256(U256::from(u32::MAX as u64 + 1));
+		assert!(!provider.is_before_earliest_block(&just_over));
+
+		// Sentinel first_evm_block (u32::MAX) is permissive — no queries rejected.
+		let provider = mock_provider();
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(0u32))));
+		assert!(
+			!provider.is_before_earliest_block(&BlockNumberOrTag::U256(U256::from(1_000_000u32)))
+		);
+
+		// Tag-based queries are never rejected.
+		assert!(!provider.is_before_earliest_block(&BlockNumberOrTag::BlockTag(
+			pallet_revive::evm::BlockTag::Latest
+		)));
+	}
+
+	#[sqlx::test]
 	async fn persistent_mode_caps_in_memory_map(pool: SqlitePool) -> anyhow::Result<()> {
 		// Persistent DB mode: keep_latest_n_blocks = None
-		let provider = ReceiptProvider {
-			pool,
-			block_provider: MockBlockInfoProvider {},
-			receipt_extractor: ReceiptExtractor::new_mock(),
-			keep_latest_n_blocks: None,
-			block_number_to_hashes: Default::default(),
-		};
+		let provider = mock_provider().with_pool(pool);
 
 		// Insert more than MAX_CACHED_BLOCKS blocks.
 		let start_block: u64 = 1;
