@@ -26,11 +26,11 @@ schemars = { default-features = true, optional = true, workspace = true }
 serde = { features = ["alloc", "derive", "rc"], workspace = true }
 sp-runtime.workspace = true
 sp-weights = { features = ["serde"], workspace = true }
-xcm-procedural.workspace = true
 xcm-procedural.default-features = true
+xcm-procedural.workspace = true
 
 [dev-dependencies]
-sp-io = { default-features = true, path = "../../substrate/primitives/io" }
+sp-io = { default-features = true, workspace = true }
 
 [features]
 default = ["std"]

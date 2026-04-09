@@ -14,7 +14,7 @@ polkadot-primitives = { features = ["test"], workspace = true, default-features 
 rand = { workspace = true, default-features = true }
 sp-application-crypto.workspace = true
 sp-core = { features = ["std"], workspace = true, default-features = true }
-sp-keyring.workspace = true
 sp-keyring.default-features = true
-sp-runtime.workspace = true
+sp-keyring.workspace = true
 sp-runtime.default-features = true
+sp-runtime.workspace = true

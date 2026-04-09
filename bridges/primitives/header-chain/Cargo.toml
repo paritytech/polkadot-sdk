@@ -23,7 +23,7 @@ sp-runtime = { features = ["serde"], workspace = true }
 sp-std.workspace = true
 
 [dev-dependencies]
-bp-test-utils = { default-features = true, path = "../test-utils" }
+bp-test-utils = { default-features = true, workspace = true }
 hex = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
 
