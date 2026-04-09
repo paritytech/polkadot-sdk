@@ -230,8 +230,10 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let stmts_per_node: usize = 50;
-	let total_stmts = stmts_per_node * 3;
+	let alice_count: usize = 50;
+	let bob_count: usize = 10;
+	let charlie_count: usize = 50;
+	let total_stmts = alice_count + bob_count + charlie_count;
 	let topic_alice: Topic = [0xA0; 32].into();
 	let topic_bob: Topic = [0xB0; 32].into();
 	let topic_charlie: Topic = [0xC0; 32].into();
@@ -241,8 +243,8 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let data_size = 600 * 1024;
 
 	let mut keypair_idx = 0u32;
-	let mut make_statements = |topic: Topic| -> Vec<Statement> {
-		(0..stmts_per_node)
+	let mut make_statements = |topic: Topic, count: usize| -> Vec<Statement> {
+		(0..count)
 			.map(|_| {
 				let keypair = get_keypair(keypair_idx);
 				keypair_idx += 1;
@@ -251,11 +253,13 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 			.collect()
 	};
 
-	let alice_stmts = make_statements(topic_alice);
-	let bob_stmts = make_statements(topic_bob);
-	let charlie_stmts = make_statements(topic_charlie);
-
 	let hash_to_hex = |h: &[u8; 32]| format!("{:?}", sp_core::hexdisplay::HexDisplay::from(h));
+
+	let alice_stmts = make_statements(topic_alice, alice_count);
+	let bob_stmts = make_statements(topic_bob, bob_count);
+	let charlie_stmts = make_statements(topic_charlie, charlie_count);
+	let bob_stmt_hashes: HashSet<String> =
+		bob_stmts.iter().map(|s| hash_to_hex(&s.hash())).collect();
 
 	let network =
 		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
@@ -265,12 +269,11 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let bob = network.get_node("bob")?;
 	let charlie = network.get_node("charlie")?;
 
-	info!("Submitting {} statements to alice and bob concurrently", stmts_per_node);
+	info!("Submitting statements: {} to alice, {} to bob", alice_count, bob_count);
 
 	let alice_rpc = alice.rpc().await?;
-	let alice_stmts_clone = alice_stmts.clone();
 	let alice_handle = tokio::spawn(async move {
-		for (i, stmt) in alice_stmts_clone.iter().enumerate() {
+		for (i, stmt) in alice_stmts.iter().enumerate() {
 			let result = submit_statement(&alice_rpc, stmt).await?;
 			assert_eq!(result, SubmitResult::New, "alice stmt[{}] rejected", i);
 		}
@@ -278,9 +281,8 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	});
 
 	let bob_rpc = bob.rpc().await?;
-	let bob_stmts_clone = bob_stmts.clone();
 	let bob_handle = tokio::spawn(async move {
-		for (i, stmt) in bob_stmts_clone.iter().enumerate() {
+		for (i, stmt) in bob_stmts.iter().enumerate() {
 			let result = submit_statement(&bob_rpc, stmt).await?;
 			assert_eq!(result, SubmitResult::New, "bob stmt[{}] rejected", i);
 		}
@@ -296,19 +298,21 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	// Restart is chained via map to ensure it fires immediately after try_join
 	// completes, with no log output or other work in between that could give
 	// bob extra time to sync. Do not decouple these operations.
-	tokio::try_join!(alice_handle, bob_handle, gossip_handle)
-		.map(|(alice_res, bob_res, gossip_res)| {
-			alice_res.expect("alice submissions failed");
+	tokio::try_join!(bob_handle, gossip_handle)
+		.map(|(bob_res, gossip_res)| {
 			bob_res.expect("bob submissions failed");
 			gossip_res.expect("gossip check failed");
 			bob.restart(None)
 		})?
 		.await?;
 
+	// gossip_handle already confirmed bob received at least one alice statement,
+	// so it's fine if alice finishes submitting after bob's restart.
+	alice_handle.await?.expect("alice submissions failed");
 	info!("Submissions completed, bob restarted (crash mid-sync)");
 	assert!(bob.wait_until_is_up(1u64).await.is_err(), "Bob came up too fast");
 
-	info!("Submitting {} statements to charlie while bob is restarting", stmts_per_node);
+	info!("Submitting {} statements to charlie while bob is restarting", charlie_count);
 	let charlie_rpc = charlie.rpc().await?;
 	for (i, stmt) in charlie_stmts.iter().enumerate() {
 		let result = submit_statement(&charlie_rpc, stmt).await?;
@@ -338,11 +342,8 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 		 The log format may have changed or statement-store=trace is not configured.",
 	);
 
-	let bob_loaded = bob_stmts
-		.iter()
-		.filter(|s| loaded_hashes.contains(&hash_to_hex(&s.hash())))
-		.count();
-	let bob_lost = stmts_per_node - bob_loaded;
+	let bob_loaded = bob_stmt_hashes.intersection(&loaded_hashes).count();
+	let bob_lost = bob_count - bob_loaded;
 	let alice_loaded = loaded_hashes.len().saturating_sub(bob_loaded);
 	let expected_count = total_stmts - bob_lost;
 
@@ -355,11 +356,13 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	if bob_lost == 1 {
 		log::warn!("Bob lost 1 statement due to crash (unflushed ParityDB write)");
 	}
-	if alice_loaded >= stmts_per_node {
-		log::warn!("Bob loaded all alice statements from disk so the crash was NOT mid-sync",);
-	}
-	assert!(alice_loaded > 0, "Bob received at least one alice statement");
 	assert!(bob_lost <= 1, "Bob lost {} statements, expected at most 1", bob_lost);
+	assert!(
+		alice_loaded > 0 && alice_loaded < alice_count,
+		"Expected partial alice sync (mid-sync crash), got {}/{} alice statements",
+		alice_loaded,
+		alice_count,
+	);
 
 	info!("Verifying all {} recoverable statements converge on every node", expected_count);
 	let alice_rpc = alice.rpc().await?;
