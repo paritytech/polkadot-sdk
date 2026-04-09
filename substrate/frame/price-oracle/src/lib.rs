@@ -3,8 +3,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::pallet_prelude::*;
-use frame_support::traits::Time;
+use frame_support::{pallet_prelude::*, traits::Time};
 use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;
@@ -72,6 +71,10 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
+	/// When enabled, `on_finalize` panics if no inherent was included in the block.
+	#[pallet::storage]
+	pub type PanicSwitch<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -79,7 +82,16 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
+			let inherent_included = NudgeCount::<T>::exists();
 			let count = NudgeCount::<T>::take();
+
+			if PanicSwitch::<T>::get() {
+				assert!(
+					inherent_included,
+					"Price oracle: panic switch is on but no inherent was included in this block",
+				);
+			}
+
 			let min = T::MinNudges::get();
 			if min > 0 {
 				assert!(
@@ -203,6 +215,17 @@ pub mod pallet {
 			NudgeCount::<T>::put(total_valid);
 			Ok(())
 		}
+
+		/// Enable or disable the panic switch.
+		///
+		/// When enabled, `on_finalize` will panic if no inherent was included in the block.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_panic_switch(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+			ensure_root(origin)?; // need a discussion on who is the authority to set the panic switch
+			PanicSwitch::<T>::put(enabled);
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -214,8 +237,7 @@ pub mod pallet {
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 			let nudges = data
 				.get_data::<PriceOracleInherentData>(&INHERENT_IDENTIFIER)
-				.expect("Price oracle inherent data encoded correctly")
-				.unwrap_or_default();
+				.expect("Price oracle inherent data encoded correctly")?;
 
 			Some(Call::submit_nudges { nudges })
 		}
