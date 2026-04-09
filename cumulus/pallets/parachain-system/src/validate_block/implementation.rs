@@ -420,7 +420,7 @@ fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &
 				(Some(true), None) => {
 					panic!("All blocks in a bundled PoV must include `BlockBundleInfo`");
 				},
-				(Some(false), Some(_)) => {
+				(Some(false), _) => {
 					panic!("A PoV without `BlockBundleInfo` may only contain a single block");
 				},
 				_ => {},
