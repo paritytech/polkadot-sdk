@@ -306,9 +306,6 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 		})?
 		.await?;
 
-	// gossip_handle already confirmed bob received at least one alice statement,
-	// so it's fine if alice finishes submitting after bob's restart.
-	alice_handle.await?.expect("alice submissions failed");
 	info!("Submissions completed, bob restarted (crash mid-sync)");
 	assert!(bob.wait_until_is_up(1u64).await.is_err(), "Bob came up too fast");
 
@@ -322,6 +319,10 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 
 	info!("Waiting for bob to come back up");
 	bob.wait_until_is_up(120u64).await?;
+
+	// gossip_handle already confirmed bob received at least one alice statement,
+	// so it's fine if alice finishes submitting after bob's restart.
+	alice_handle.await?.expect("alice submissions failed");
 
 	// Wait for bob's store to finish populating from disk before reading logs
 	tokio::time::sleep(std::time::Duration::from_secs(5)).await;
