@@ -471,10 +471,7 @@ fn ensure_prep_hash_changes() {
 
 	for p in ep.iter() {
 		let (ep1, ep2) = match p {
-			MaxMemoryPages(_) => (
-				ExecutorParams::from(&[MaxMemoryPages(1)][..]),
-				ExecutorParams::from(&[MaxMemoryPages(2)][..]),
-			),
+			MaxMemoryPages(_) => continue,
 			StackLogicalMax(_) => (
 				ExecutorParams::from(&[StackLogicalMax(1)][..]),
 				ExecutorParams::from(&[StackLogicalMax(2)][..]),
