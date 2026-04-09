@@ -170,6 +170,8 @@ pub struct ProviderStats<T: Config> {
     pub agreements_not_extended: u32,
     /// Agreements where client burned payment (strong negative signal)
     pub agreements_burned: u32,
+    /// Total amount clients burned in total
+    pub amount_burned: BalanceOf<T>,
     /// Total bytes ever committed across all agreements (historical volume)
     pub total_bytes_committed: u64,
     /// Number of challenges received
