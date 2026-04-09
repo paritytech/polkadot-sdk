@@ -32,7 +32,7 @@ use crate::{
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_proof_size_recording::prepare_proof_size_recording_transaction;
+use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
@@ -755,7 +755,7 @@ where
 			.collect::<Vec<u32>>();
 
 		if !recorded_sizes.is_empty() {
-			prepare_proof_size_recording_transaction(parent_hash, recorded_sizes).for_each(
+			prepare_proof_size_recording_aux_data(parent_hash, recorded_sizes).for_each(
 				|(k, v)| {
 					import_block.auxiliary.push((k, Some(v)));
 				},

@@ -49,10 +49,10 @@ where
 	}
 }
 
-/// Prepare a transaction to write the proof size recordings to the aux storage.
+/// Prepare aux storage key-value pairs for persisting proof size recordings.
 ///
 /// Returns the key-value pairs that need to be written to the aux storage.
-pub fn prepare_proof_size_recording_transaction<H: Encode>(
+pub fn prepare_proof_size_recording_aux_data<H: Encode>(
 	block_hash: H,
 	recordings: Vec<u32>,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {

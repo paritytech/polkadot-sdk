@@ -164,6 +164,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 		tracing::info!(
 			target: LOG_TARGET,
+			block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
 			"Compressed PoV size: {}kb",
 			pov.block_data.0.len() as f64 / 1024f64,
 		);
