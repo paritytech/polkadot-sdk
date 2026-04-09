@@ -801,3 +801,84 @@ fn return_overflow(wasm_method: WasmExecutionMethod) {
 		error => panic!("unexpected error: {:?}", error),
 	}
 }
+
+test_wasm_execution!(different_heap_strategy_per_instance);
+fn different_heap_strategy_per_instance(wasm_method: WasmExecutionMethod) {
+	// Strategy with enough memory for a 1 MiB allocation.
+	let large_strategy = HeapAllocStrategy::Static { extra_pages: 1024 };
+	// Strategy with only 512 KiB — too small for a 1 MiB allocation.
+	let small_strategy = HeapAllocStrategy::Static { extra_pages: 8 };
+	let alloc_size = 1048576u32;
+
+	let runtime = mk_test_runtime(wasm_method, large_strategy);
+
+	// First call with large strategy — should succeed.
+	let mut instance = runtime.new_instance(large_strategy).unwrap();
+	let res = instance.call_export("test_allocate_vec", &alloc_size.encode());
+	assert!(res.is_ok(), "Large strategy should allow 1 MiB allocation");
+
+	// Second call with small strategy on the same module — should fail because
+	// the memory limit is now too small, even though the module is the same.
+	let mut instance = runtime.new_instance(small_strategy).unwrap();
+	let res = instance.call_export("test_allocate_vec", &alloc_size.encode());
+	assert!(res.is_err(), "Small strategy should reject 1 MiB allocation");
+}
+
+test_wasm_execution!(import_doubles_heap_strategy);
+fn import_doubles_heap_strategy(wasm_method: WasmExecutionMethod) {
+	use sp_core::traits::{CallContext, CodeExecutor, FetchRuntimeCode, RuntimeCode};
+
+	// Use 32 extra pages (~2 MiB). Doubled for import = 64 pages (~4 MiB).
+	let heap_pages = 32u64;
+
+	let executor = crate::WasmExecutor::<HostFunctions>::builder()
+		.with_execution_method(wasm_method)
+		.with_onchain_heap_alloc_strategy(HeapAllocStrategy::Static {
+			extra_pages: heap_pages as u32,
+		})
+		.with_allow_missing_host_functions(true)
+		.build();
+
+	let wasm = wasm_binary_unwrap();
+
+	struct CodeFetcher<'a>(&'a [u8]);
+	impl<'a> FetchRuntimeCode for CodeFetcher<'a> {
+		fn fetch_runtime_code(&self) -> Option<std::borrow::Cow<'_, [u8]>> {
+			Some(self.0.into())
+		}
+	}
+
+	let code_fetcher = CodeFetcher(wasm);
+	let runtime_code = RuntimeCode {
+		code_fetcher: &code_fetcher,
+		heap_pages: Some(heap_pages),
+		hash: blake2_256(wasm).to_vec(),
+	};
+
+	// Allocation of ~3 MiB: too large for 32 extra pages (~2 MiB heap),
+	// but fits in 64 extra pages (~4 MiB heap, doubled for import).
+	let alloc_size = 3 * 1024 * 1024u32;
+
+	let mut ext = TestExternalities::default();
+
+	// Call with import: false — uses base strategy (16 pages). Should fail.
+	let (result, _) = executor.call(
+		&mut ext.ext(),
+		&runtime_code,
+		"test_allocate_vec",
+		&alloc_size.encode(),
+		CallContext::Onchain { import: false },
+	);
+	assert!(result.is_err(), "Base strategy (32 pages) should reject 3 MiB allocation");
+
+	// Call with import: true — uses doubled strategy (64 pages). Should succeed.
+	// This hits the same cache entry but must apply a different strategy.
+	let (result, _) = executor.call(
+		&mut ext.ext(),
+		&runtime_code,
+		"test_allocate_vec",
+		&alloc_size.encode(),
+		CallContext::Onchain { import: true },
+	);
+	assert!(result.is_ok(), "Doubled strategy (64 pages) should allow 3 MiB allocation");
+}

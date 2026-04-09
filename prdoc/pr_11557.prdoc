@@ -11,10 +11,25 @@ doc:
       This is a breaking change for any code that constructs or matches on
       `CallContext::Onchain`.
 
+      The `WasmModule::new_instance` trait method now requires a
+      `HeapAllocStrategy` parameter. The `WasmInstance` trait gains a new
+      `set_heap_alloc_strategy` method with a default no-op implementation.
+      WASM memory limits are no longer baked into the compiled artifact;
+      they are enforced per-instance at instantiation time via wasmtime
+      `StoreLimits`.
+
 crates:
   - name: sp-core
     bump: major
   - name: sc-executor
     bump: minor
   - name: sc-executor-common
+    bump: major
+  - name: sc-executor-wasmtime
     bump: minor
+  - name: sc-executor-polkavm
+    bump: minor
+  - name: polkadot-node-core-pvf-common
+    bump: minor
+  - name: polkadot-primitives
+    bump: major
