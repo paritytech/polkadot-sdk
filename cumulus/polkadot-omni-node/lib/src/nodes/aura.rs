@@ -218,6 +218,29 @@ where
 		mode: DevSealMode,
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
+		// Destructure all fields so the compiler enforces handling new args.
+		let NodeExtraArgs {
+			authoring_policy,
+			export_pov,
+			max_pov_percentage,
+			statement_store_config,
+			storage_monitor,
+		} = node_extra_args;
+
+		// Warn about args that have no effect in dev mode (collation-specific).
+		if authoring_policy != AuthoringPolicy::Lookahead {
+			log::warn!(
+				"Authoring policy `{}` has no effect in dev mode (manual/instant seal is used).",
+				authoring_policy,
+			);
+		}
+		if export_pov.is_some() {
+			log::warn!("`--export-pov` has no effect in dev mode (no PoVs are produced).");
+		}
+		if max_pov_percentage.is_some() {
+			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
+		}
+
 		let PartialComponents {
 			client,
 			backend,
@@ -240,7 +263,7 @@ where
 
 		let metrics = NotificationMetrics::new(None);
 
-		let statement_handler_proto = node_extra_args.statement_store_config.map(|ss_config| {
+		let statement_handler_proto = statement_store_config.map(|ss_config| {
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
@@ -411,6 +434,8 @@ where
 			})
 		};
 
+		let database_path = config.database.path().map(|p| p.to_path_buf());
+
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
 			client,
@@ -426,6 +451,16 @@ where
 			telemetry: telemetry.as_mut(),
 			tracing_execute_block: None,
 		})?;
+
+		// Spawn the storage monitor.
+		if let Some(database_path) = database_path {
+			sc_storage_monitor::StorageMonitorService::try_spawn(
+				storage_monitor,
+				database_path,
+				&task_manager.spawn_essential_handle(),
+			)
+			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+		}
 
 		Ok(task_manager)
 	}
