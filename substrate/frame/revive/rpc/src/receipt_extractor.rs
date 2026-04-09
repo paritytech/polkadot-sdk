@@ -162,6 +162,24 @@ impl ReceiptExtractor {
 		(val != u32::MAX).then_some(val)
 	}
 
+	/// Resolve the Ethereum block hash for a substrate block, falling back to the substrate hash.
+	async fn resolve_eth_block_hash(
+		&self,
+		substrate_block_hash: H256,
+		substrate_block_number: u64,
+	) -> H256 {
+		match (self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number).await {
+			Some(hash) => hash,
+			None => {
+				log::trace!(target: LOG_TARGET,
+					"eth_block_hash returned None for substrate block \
+					 #{substrate_block_number} ({substrate_block_hash:?}), \
+					 falling back to substrate hash as ETH hash");
+				substrate_block_hash
+			},
+		}
+	}
+
 	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
 	async fn extract_from_extrinsic(
 		&self,
@@ -262,9 +280,7 @@ impl ReceiptExtractor {
 		let substrate_block_number = block.number() as u64;
 		let substrate_block_hash = block.hash();
 		let eth_block_hash =
-			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
-				.await
-				.unwrap_or(substrate_block_hash);
+			self.resolve_eth_block_hash(substrate_block_hash, substrate_block_number).await;
 
 		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
@@ -303,9 +319,12 @@ impl ReceiptExtractor {
 			log::debug!(target: LOG_TARGET, "Error fetching for #{:?} extrinsics: {err:?}", block.number());
 		})?;
 
-		let receipt_data = (self.fetch_receipt_data)(block.hash())
-			.await
-			.ok_or(ClientError::ReceiptDataNotFound)?;
+		let receipt_data = (self.fetch_receipt_data)(block.hash()).await.ok_or_else(|| {
+			log::trace!(target: LOG_TARGET,
+				"Receipt data not found for block #{} ({:?})",
+				block.number(), block.hash());
+			ClientError::ReceiptDataNotFound
+		})?;
 		let extrinsics: Vec<_> = extrinsics
 			.iter()
 			.enumerate()
@@ -344,14 +363,17 @@ impl ReceiptExtractor {
 		let (ext, eth_call, receipt_gas_info, _) = ext_iter
 			.into_iter()
 			.find(|(_, _, _, ext_idx)| *ext_idx == transaction_index)
-			.ok_or(ClientError::EthExtrinsicNotFound)?;
+			.ok_or_else(|| {
+				log::trace!(target: LOG_TARGET,
+					"extract_from_transaction: no EVM extrinsic at tx_index {transaction_index} \
+					 in block #{} ({:?})", block.number(), block.hash());
+				ClientError::EthExtrinsicNotFound
+			})?;
 
 		let substrate_block_number = block.number() as u64;
 		let substrate_block_hash = block.hash();
 		let eth_block_hash =
-			(self.fetch_eth_block_hash)(substrate_block_hash, substrate_block_number)
-				.await
-				.unwrap_or(substrate_block_hash);
+			self.resolve_eth_block_hash(substrate_block_hash, substrate_block_number).await;
 
 		self.extract_from_extrinsic(
 			block,
