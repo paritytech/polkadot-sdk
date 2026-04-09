@@ -1,0 +1,7 @@
+title: asset-conversion-precompiles expose pool management
+doc:
+- audience: Runtime Dev
+  description: null
+crates:
+- name: pallet-asset-conversion-precompiles
+  bump: minor
