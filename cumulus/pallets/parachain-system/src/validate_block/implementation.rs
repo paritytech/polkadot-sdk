@@ -435,8 +435,9 @@ fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &
 
 				if block_index + 1 < num_blocks {
 					assert!(
-						!info.is_last,
-						"Intermediate block at index {} has `is_last` set, \
+						!CumulusDigestItem::is_last_block_in_core(block.header().digest())
+							.unwrap_or(false),
+						"Intermediate block at index {} is marked as last block in core, \
 						but more blocks follow in the PoV",
 						block_index
 					);

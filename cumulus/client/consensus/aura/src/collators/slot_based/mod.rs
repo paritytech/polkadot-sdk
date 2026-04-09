@@ -43,7 +43,9 @@
 //!
 //! - Parachain slot duration
 //! - Number of assigned parachain cores
-//! - Parachain runtime configuration
+//! - The `target_block_rate` runtime API, which determines how many blocks to produce per relay
+//!   chain slot. When this API is unavailable, the block builder falls back to one block per
+//!   core. When the target exceeds the number of cores, multiple blocks are bundled per core.
 //!
 //! ## Timing Examples
 //!

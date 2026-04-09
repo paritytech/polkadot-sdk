@@ -285,7 +285,7 @@ where
 
 			upward_messages.extend(messages);
 			signals.into_iter().for_each(|s| {
-				if upward_message_signals.iter().all(|existing| *existing != s) {
+				if !upward_message_signals.contains(&s) {
 					upward_message_signals.push(s);
 				}
 			});
