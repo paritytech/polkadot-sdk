@@ -470,6 +470,13 @@ pub fn storage_alias(attributes: TokenStream, input: TokenStream) -> TokenStream
 ///     pub reserved: T::Balance,
 /// }
 /// ```
+///
+/// By default the type params are skipped, because they are rarely used. But to not skip them
+/// an attribute can used as follows:
+/// ```ignore
+/// #[frame_support::stored(no_skip_type_params)]
+/// pub struct Bar<T>(T);
+/// ```
 #[proc_macro_attribute]
 pub fn stored(attr: TokenStream, item: TokenStream) -> TokenStream {
 	stored::stored(attr, item)
