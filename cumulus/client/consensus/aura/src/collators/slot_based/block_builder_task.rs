@@ -418,18 +418,11 @@ where
 			// In total we want to have at max `number_of_blocks` cores to use.
 			cores.truncate_cores(number_of_blocks);
 			let raw_blocks_per_core = (number_of_blocks / cores.total_cores()).max(1);
-			let mut left_over_blocks = number_of_blocks % cores.total_cores();
+			let left_over_blocks = number_of_blocks % cores.total_cores();
 			let blocks_per_cores = (0..cores.total_cores())
-				.into_iter()
-				.map(|_| {
+				.map(|i| {
 					// We distribute the left over blocks across the cores.
-					raw_blocks_per_core +
-						if left_over_blocks > 0 {
-							left_over_blocks -= 1;
-							1
-						} else {
-							0
-						}
+					raw_blocks_per_core + u32::from(i < left_over_blocks)
 				})
 				.collect::<Vec<_>>();
 
