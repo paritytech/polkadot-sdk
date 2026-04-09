@@ -25,7 +25,7 @@ use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
 use polkadot_primitives::{
-	Block as RelayBlock, BlockId, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
+	Block as RelayBlock, BlockId, Header as RelayHeader, Id as ParaId,
 };
 
 use super::CollatorMessage;
@@ -44,10 +44,6 @@ use crate::{
 };
 use cumulus_primitives_core::RelayParentOffsetApi;
 use futures::prelude::*;
-<<<<<<< HEAD
-=======
-use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
->>>>>>> 89ad96ed (Enforce current relay parent to be available (#11621))
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -212,7 +208,6 @@ where
 			// See: https://github.com/paritytech/polkadot-sdk/pull/11453
 			let Some(relay_best_header) = wait_for_current_relay_block(
 				&relay_client,
-				&mut relay_chain_data_cache,
 				&mut best_notifications,
 				slot_offset,
 				relay_chain_slot_duration,
@@ -232,15 +227,9 @@ where
 				continue;
 			};
 
-<<<<<<< HEAD
 			let Ok(rp_data) = offset_relay_parent_find_descendants(
 				&relay_client,
-				relay_best_hash,
-=======
-			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
-				&mut relay_chain_data_cache,
 				relay_best_header,
->>>>>>> 89ad96ed (Enforce current relay parent to be available (#11621))
 				relay_parent_offset,
 			)
 			.await
@@ -527,9 +516,8 @@ fn is_best_relay_block_current_at(
 /// propagation exceeds `slot_offset` at a slot boundary.
 ///
 /// Returns the best relay block hash, or `None` on error.
-pub(crate) async fn wait_for_current_relay_block<RelayClient>(
+async fn wait_for_current_relay_block<RelayClient>(
 	relay_client: &RelayClient,
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	best_notifications: &mut (impl Stream<Item = RelayHeader> + Unpin),
 	slot_offset: Duration,
 	relay_chain_slot_duration: Duration,
@@ -539,11 +527,7 @@ where
 {
 	let relay_best_hash = relay_client.best_block_hash().await.ok()?;
 	let mut first_best_header = Some(
-		relay_chain_data_cache
-			.get_mut_relay_chain_data(relay_best_hash)
-			.await
-			.ok()
-			.map(|d| d.relay_parent_header.clone())?,
+		relay_client.header(BlockId::Hash(relay_best_hash)).await.ok()??,
 	);
 
 	loop {
@@ -584,30 +568,14 @@ where
 ///
 /// The function traverses backwards from the best block until it finds the block at the specified
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
-<<<<<<< HEAD
 async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_client: &RelayClient,
-	relay_best_block: RelayHash,
-=======
-pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
 	mut relay_header: RelayHeader,
->>>>>>> 89ad96ed (Enforce current relay parent to be available (#11621))
 	relay_parent_offset: u32,
 ) -> Result<RelayParentData, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-<<<<<<< HEAD
-	let Ok(Some(mut relay_header)) = relay_client.header(BlockId::Hash(relay_best_block)).await
-	else {
-		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(())
-	};
-
-=======
-	let relay_best_block = relay_header.hash();
->>>>>>> 89ad96ed (Enforce current relay parent to be available (#11621))
 	if relay_parent_offset == 0 {
 		return Ok(RelayParentData::new(relay_header));
 	}
@@ -655,11 +623,12 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_zero_offset() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
+		let best_hash = best_header.hash();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 0).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 0).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 0);
@@ -670,11 +639,11 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_two_offset() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 2).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 2).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 2);
@@ -688,11 +657,11 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_five_offset() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 5).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 5).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 5);
@@ -706,14 +675,14 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_too_long() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 200).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header.clone(), 200).await;
 		assert!(result.is_err());
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 101).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 101).await;
 		assert!(result.is_err());
 	}
 
@@ -887,10 +856,16 @@ mod tests {
 		}
 	}
 
-	fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+	fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHeader) {
 		let mut headers = HashMap::new();
 		let mut current_parent = None;
-		let mut header_hash = RelayHash::repeat_byte(0x1);
+		let mut best_header = RelayHeader {
+			parent_hash: Default::default(),
+			number: 0,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
 
 		// Create chain from highest to lowest number
 		for number in 1..=100 {
@@ -905,19 +880,15 @@ mod tests {
 				header.parent_hash = hash;
 			}
 
-			header_hash = header.hash();
+			let header_hash = header.hash();
 			// Store header and update parent for next iteration
 			headers.insert(header_hash, header.clone());
 			current_parent = Some(header_hash);
+			best_header = header;
 		}
 
-		(headers, header_hash)
+		(headers, best_header)
 	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
 
 	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);
 
