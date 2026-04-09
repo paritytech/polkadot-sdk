@@ -42,7 +42,7 @@ use xcm::{latest::ROCOCO_GENESIS_HASH, prelude::*};
 use xcm_builder::{
 	AllowUnpaidExecutionFrom, DispatchBlob, DispatchBlobError, FixedWeightBounds,
 	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, ParentIsPreset,
-	SiblingParachainConvertsVia,
+	SiblingParachainConvertsVia, SovereignPaidRemoteExporter,
 };
 use xcm_executor::{traits::ConvertOrigin, XcmExecutor};
 
@@ -225,15 +225,18 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageR
 
 	// We convert to root `here` location with `BridgeHubLocationXcmOriginAsRoot`
 	type BridgeHubOrigin = frame_system::EnsureRoot<AccountId>;
+	type LocalXcmChannelManager = TestLocalXcmChannelManager;
+
 	// **Note**: The crucial part is that `ExportMessage` is processed by `XcmExecutor`, which
 	// calls the `ExportXcm` implementation of `pallet_xcm_bridge_hub` as the
 	// `MessageExporter`.
-	type ToBridgeHubSender = ExecuteXcmOverSendXcm;
-	type LocalXcmChannelManager = TestLocalXcmChannelManager;
-
-	type Exporter = pallet_xcm_bridge_hub_router::PaidRemoteExporter<
-		TestRuntime,
-		XcmOverBridgeWrappedWithExportMessageRouterInstance,
+	type Exporter = SovereignPaidRemoteExporter<
+		pallet_xcm_bridge_hub_router::Pallet<
+			TestRuntime,
+			XcmOverBridgeWrappedWithExportMessageRouterInstance,
+		>,
+		ExecuteXcmOverSendXcm,
+		ExportMessageOriginUniversalLocation,
 	>;
 
 	type ByteFee = ConstU128<0>;

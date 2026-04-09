@@ -19,9 +19,10 @@
 //! message fee, that is computed based on the bridge queues state. It starts exponentially
 //! increasing if the queue between this chain and the sibling/child bridge hub is congested.
 //!
-//! The pallet is configurable to use either paid or unpaid execution on the bridge hub.
-//! Use [`PaidRemoteExporter`] for sovereign-paid bridging or [`UnpaidRemoteExporterAdapter`]
-//! for unpaid bridging (e.g. between system parachains where the bridge hub waives fees).
+//! The pallet is configurable to use either paid or unpaid execution on the bridge hub
+//! via the [`Config::Exporter`] associated type. Use `SovereignPaidRemoteExporter` for
+//! sovereign-paid bridging or `UnpaidRemoteExporter` for unpaid bridging (e.g. between
+//! system parachains where the bridge hub waives fees).
 //!
 //! All other bridge hub queues offer some backpressure mechanisms. So if at least one
 //! of all queues is congested, it will eventually lead to the growth of the queue at
@@ -43,9 +44,7 @@ use sp_core::H256;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
-use xcm_builder::{
-	ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
-};
+use xcm_builder::{ExporterFor, InspectMessageQueues};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -101,15 +100,14 @@ pub mod pallet {
 
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
-		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
-		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
 		/// The inner exporter for sending messages to the sibling bridge hub.
-		/// Use [`PaidRemoteExporter`] for sovereign-paid bridging or
-		/// [`UnpaidRemoteExporterAdapter`] for unpaid bridging (e.g. between system
-		/// parachains).
+		/// Use `SovereignPaidRemoteExporter<Pallet<..>, Sender, UniversalLocation>` for
+		/// sovereign-paid bridging or
+		/// `UnpaidRemoteExporter<Pallet<..>, Sender, UniversalLocation>` for unpaid
+		/// bridging (e.g. between system parachains).
 		type Exporter: SendXcm;
 
 		/// Additional fee that is paid for every byte of the outbound message.
@@ -255,22 +253,6 @@ pub mod pallet {
 	}
 }
 
-/// Convenience alias for runtimes that want sovereign-paid bridging.
-/// Wraps messages with `WithdrawAsset + BuyExecution` instructions.
-pub type PaidRemoteExporter<T, I = ()> = SovereignPaidRemoteExporter<
-	Pallet<T, I>,
-	<T as Config<I>>::ToBridgeHubSender,
-	<T as Config<I>>::UniversalLocation,
->;
-
-/// Convenience alias for runtimes that want unpaid bridging (e.g. between system parachains
-/// where the bridge hub waives fees). Wraps messages with `UnpaidExecution` instruction.
-pub type UnpaidRemoteExporterAdapter<T, I = ()> = UnpaidRemoteExporter<
-	Pallet<T, I>,
-	<T as Config<I>>::ToBridgeHubSender,
-	<T as Config<I>>::UniversalLocation,
->;
-
 // This pallet acts as the `ExporterFor` for the inner exporter to compute
 // message fee using fee factor.
 impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
@@ -380,9 +362,8 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// First, use the inner exporter to validate the destination to determine if it is even
 		// routable. If it is not, return an error. If it is, then the XCM is extended with
 		// instructions to pay the message fee at the sibling/child bridge hub. The cost will
-		// include both the cost of (1) delivery to the sibling bridge hub (returned by
-		// `Config::ToBridgeHubSender`) and (2) delivery to the bridged bridge hub (returned by
-		// `Self::exporter_for`).
+		// include both the cost of (1) delivery to the sibling bridge hub and (2) delivery
+		// to the bridged bridge hub (returned by `Self::exporter_for`).
 		match T::Exporter::validate(dest, xcm) {
 			Ok((ticket, cost)) => {
 				// If the ticket is ok, it means we are routing with this router, so we need to
@@ -585,7 +566,7 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into();
 
 			// dest is routable with the inner router
-			assert_ok!(PaidRemoteExporter::<TestRuntime, ()>::validate(
+			assert_ok!(<<TestRuntime as Config<()>>::Exporter>::validate(
 				&mut Some(dest.clone()),
 				&mut Some(xcm.clone())
 			));
@@ -615,7 +596,7 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 
 			// dest is routable with the inner router
-			assert_ok!(PaidRemoteExporter::<TestRuntime, ()>::validate(
+			assert_ok!(<<TestRuntime as Config<()>>::Exporter>::validate(
 				&mut Some(dest.clone()),
 				&mut Some(xcm.clone())
 			));
