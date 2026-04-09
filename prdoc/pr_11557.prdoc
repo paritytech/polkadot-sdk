@@ -33,3 +33,21 @@ crates:
     bump: minor
   - name: polkadot-primitives
     bump: major
+  - name: cumulus-client-consensus-aura
+    bump: patch
+  - name: sc-client-api
+    bump: patch
+  - name: sc-block-builder
+    bump: patch
+  - name: sc-consensus-aura
+    bump: patch
+  - name: sc-service
+    bump: patch
+  - name: sp-state-machine
+    bump: patch
+  - name: frame-benchmarking-cli
+    bump: patch
+  - name: pallet-revive-eth-rpc
+    bump: patch
+  - name: pallet-assets-precompiles
+    bump: patch
