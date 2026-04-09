@@ -750,6 +750,28 @@ mod test {
 	}
 
 	#[test]
+	fn eth_pre_dispatch_weight_matches_check_weight_booking() {
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+		let (encoded_len, call, _, _, _, signed_transaction) = builder.check().unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let reported =
+				Pallet::<Test>::eth_pre_dispatch_weight(signed_transaction.signed_payload())
+					.unwrap();
+			let info = <Test as Config>::FeeInfo::dispatch_info(&call);
+			let base_extrinsic = <Test as frame_system::Config>::BlockWeights::get()
+				.get(info.class)
+				.base_extrinsic;
+			let expected = info
+				.total_weight()
+				.saturating_add(base_extrinsic)
+				.saturating_add(Weight::from_parts(0, u64::from(encoded_len)));
+
+			assert_eq!(reported, expected);
+		});
+	}
+
+	#[test]
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
 		// create some dummy data to increase the gas fee
