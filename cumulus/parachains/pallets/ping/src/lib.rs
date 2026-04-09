@@ -31,8 +31,8 @@ use xcm::latest::prelude::*;
 pub use pallet::*;
 
 parameter_types! {
-	const MaxParachains: u32 = 100;
-	const MaxPayloadSize: u32 = 1024;
+	pub const MaxParachains: u32 = 100;
+	pub const MaxPayloadSize: u32 = 1024;
 }
 
 #[frame_support::pallet]

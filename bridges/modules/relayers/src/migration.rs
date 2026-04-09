@@ -63,7 +63,7 @@ pub mod v0 {
 		const TYPE_ID: [u8; 4] = *b"brap";
 	}
 
-	pub(crate) struct RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>(
+	pub struct RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>(
 		PhantomData<(AccountId, RewardBalance, LaneId)>,
 	);
 
@@ -130,7 +130,7 @@ pub mod v1 {
 	};
 	use sp_arithmetic::traits::Zero;
 
-	pub(crate) struct RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>(
+	pub struct RelayerRewardsKeyProvider<AccountId, RewardBalance, LaneId>(
 		PhantomData<(AccountId, RewardBalance, LaneId)>,
 	);
 

@@ -68,7 +68,7 @@ impl Default for Status {
 
 /// Enum to point to the valid variant of the [`QueuedSolution`].
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen)]
-enum ValidSolution {
+pub enum ValidSolution {
 	X,
 	Y,
 }

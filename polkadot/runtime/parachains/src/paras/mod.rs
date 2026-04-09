@@ -383,7 +383,7 @@ impl TypeInfo for ParaKind {
 /// This enum describes a reason why a particular PVF pre-checking vote was initiated. When the
 /// PVF vote in question is concluded, this enum indicates what changes should be performed.
 #[derive(Debug, Encode, Decode, TypeInfo)]
-pub(crate) enum PvfCheckCause<BlockNumber> {
+pub enum PvfCheckCause<BlockNumber> {
 	/// PVF vote was initiated by the initial onboarding process of the given para.
 	Onboarding(ParaId),
 	/// PVF vote was initiated by signalling of an upgrade by the given para.
@@ -440,29 +440,29 @@ impl<BlockNumber> PvfCheckCause<BlockNumber> {
 
 /// Specifies what was the outcome of a PVF pre-checking vote.
 #[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
-enum PvfCheckOutcome {
+pub enum PvfCheckOutcome {
 	Accepted,
 	Rejected,
 }
 
 /// This struct describes the current state of an in-progress PVF pre-checking vote.
 #[derive(Encode, Decode, TypeInfo)]
-pub(crate) struct PvfCheckActiveVoteState<BlockNumber> {
+pub struct PvfCheckActiveVoteState<BlockNumber> {
 	// The two following vectors have their length equal to the number of validators in the active
 	// set. They start with all zeroes. A 1 is set at an index when the validator at the that index
 	// makes a vote. Once a 1 is set for either of the vectors, that validator cannot vote anymore.
 	// Since the active validator set changes each session, the bit vectors are reinitialized as
 	// well: zeroed and resized so that each validator gets its own bit.
-	votes_accept: BitVec<u8, BitOrderLsb0>,
-	votes_reject: BitVec<u8, BitOrderLsb0>,
+	pub votes_accept: BitVec<u8, BitOrderLsb0>,
+	pub votes_reject: BitVec<u8, BitOrderLsb0>,
 
 	/// The number of session changes this PVF vote has observed. Therefore, this number is
 	/// increased at each session boundary. When created, it is initialized with 0.
-	age: SessionIndex,
+	pub age: SessionIndex,
 	/// The block number at which this PVF vote was created.
-	created_at: BlockNumber,
+	pub created_at: BlockNumber,
 	/// A list of causes for this PVF pre-checking. Has at least one.
-	causes: Vec<PvfCheckCause<BlockNumber>>,
+	pub causes: Vec<PvfCheckCause<BlockNumber>>,
 }
 
 impl<BlockNumber> PvfCheckActiveVoteState<BlockNumber> {
@@ -555,8 +555,8 @@ impl AssignCoretime for () {
 #[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct AuthorizedCodeHashAndExpiry<T> {
-	code_hash: ValidationCodeHash,
-	expire_at: T,
+	pub code_hash: ValidationCodeHash,
+	pub expire_at: T,
 }
 impl<T> From<(ValidationCodeHash, T)> for AuthorizedCodeHashAndExpiry<T> {
 	fn from(value: (ValidationCodeHash, T)) -> Self {

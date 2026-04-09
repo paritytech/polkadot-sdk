@@ -146,7 +146,7 @@ pub mod pallet {
 	>;
 
 	/// Availability timeout status of a core.
-	pub(crate) struct AvailabilityTimeoutStatus<BlockNumber> {
+	pub struct AvailabilityTimeoutStatus<BlockNumber> {
 		/// Is the core already timed out?
 		///
 		/// If this is true the core will be freed at this block.

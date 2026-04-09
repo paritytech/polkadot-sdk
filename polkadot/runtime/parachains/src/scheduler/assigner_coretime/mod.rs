@@ -109,20 +109,20 @@ impl PartsOf57600 {
 /// for a particular core.
 #[derive(Encode, Decode, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq, Debug))]
-pub(super) struct Schedule<N> {
+pub struct Schedule<N> {
 	/// Original assignments.
-	assignments: Vec<(CoreAssignment, PartsOf57600)>,
+	pub assignments: Vec<(CoreAssignment, PartsOf57600)>,
 	/// When do our assignments become invalid, if at all?
 	///
 	/// If this is `Some`, then this `CoreState` will be dropped at that block number. If this is
 	/// `None`, then we will keep serving our core assignments in a circle until a new set of
 	/// assignments is scheduled.
-	end_hint: Option<N>,
+	pub end_hint: Option<N>,
 
 	/// The next queued schedule for this core.
 	///
 	/// Schedules are forming a queue.
-	next_schedule: Option<N>,
+	pub next_schedule: Option<N>,
 }
 
 impl<N> Schedule<N> {
@@ -166,11 +166,11 @@ impl<N> Schedule<N> {
 /// of the currently active work as well.
 #[derive(Encode, Decode, TypeInfo, Default)]
 #[cfg_attr(test, derive(PartialEq, Debug, Clone))]
-pub(super) struct CoreDescriptor<N> {
+pub struct CoreDescriptor<N> {
 	/// Meta data about the queued schedules for this core.
-	queue: Option<QueueDescriptor<N>>,
+	pub queue: Option<QueueDescriptor<N>>,
 	/// Currently performed work.
-	current_work: Option<WorkState<N>>,
+	pub current_work: Option<WorkState<N>>,
 }
 
 impl<N: PartialOrd> CoreDescriptor<N> {

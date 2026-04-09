@@ -47,7 +47,7 @@ pub use signature_bytes::*;
 /// ([ref](https://doc.rust-lang.org/nomicon/phantom-data.html#table-of-phantomdata-patterns)).
 #[derive(Encode, Decode, DecodeWithMemTracking, MaxEncodedLen)]
 #[repr(transparent)]
-pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn() -> T>);
+pub struct CryptoBytes<const N: usize, T = ()>(pub [u8; N], PhantomData<fn(T) -> T>);
 
 impl<const N: usize, T> Copy for CryptoBytes<N, T> {}
 

@@ -87,7 +87,7 @@ impl<BlockNumber: Default + From<u32>> Default for SessionChangeNotification<Blo
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-pub(crate) struct BufferedSessionChange {
+pub struct BufferedSessionChange {
 	pub validators: Vec<ValidatorId>,
 	pub queued: Vec<ValidatorId>,
 	pub session_index: SessionIndex,
