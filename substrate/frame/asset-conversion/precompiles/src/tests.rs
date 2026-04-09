@@ -504,13 +504,13 @@ alloy::sol! {
 	}
 }
 
-/// Dedicated account for deploying test fixture contracts (avoids clobbering test account balances).
+/// Dedicated account for deploying test fixture contracts (avoids clobbering test account
+/// balances).
 const FIXTURE_DEPLOYER: u64 = 555;
 
 /// Deploy the Caller fixture contract and return its address.
 /// The FIXTURE_DEPLOYER account is funded in genesis (see mock.rs).
 fn deploy_caller() -> sp_core::H160 {
-
 	let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
 		"Caller",
 		pallet_revive_fixtures::FixtureType::Solc,
