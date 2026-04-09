@@ -1511,7 +1511,7 @@ impl pallet_psm::Config for Runtime {
 	type AssetId = AssetIdForTrustBackedAssets;
 	type MaximumIssuance = PsmMaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type StableAsset = PsmStableAsset;
 	type FeeDestination = PsmFeeDestination;
 	type PalletId = PsmPalletId;
