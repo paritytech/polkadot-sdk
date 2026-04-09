@@ -454,7 +454,6 @@ where
 		let sender = Self::caller_account_id(env)?;
 		let withdraw_to = env.to_account_id(&H160(call.withdrawTo.0 .0));
 
-		use pallet_asset_conversion::MutateLiquidity;
 		let (amount1, amount2) = <pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::remove_liquidity(
