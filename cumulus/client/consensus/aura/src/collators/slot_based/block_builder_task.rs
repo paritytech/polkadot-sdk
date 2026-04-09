@@ -24,9 +24,7 @@ use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{
-	Block as RelayBlock, BlockId, Header as RelayHeader, Id as ParaId,
-};
+use polkadot_primitives::{Block as RelayBlock, BlockId, Header as RelayHeader, Id as ParaId};
 
 use super::CollatorMessage;
 use crate::{
@@ -526,9 +524,8 @@ where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
 	let relay_best_hash = relay_client.best_block_hash().await.ok()?;
-	let mut first_best_header = Some(
-		relay_client.header(BlockId::Hash(relay_best_hash)).await.ok()??,
-	);
+	let mut first_best_header =
+		Some(relay_client.header(BlockId::Hash(relay_best_hash)).await.ok()??);
 
 	loop {
 		// Drain buffered notifications.
@@ -701,10 +698,7 @@ mod tests {
 		}
 
 		fn new_with_best(headers: HashMap<RelayHash, RelayHeader>, best_hash: RelayHash) -> Self {
-			Self {
-				headers,
-				best_hash: std::sync::Arc::new(std::sync::Mutex::new(Some(best_hash))),
-			}
+			Self { headers, best_hash: std::sync::Arc::new(std::sync::Mutex::new(Some(best_hash))) }
 		}
 
 		fn set_best_hash(&self, hash: RelayHash) {
@@ -1023,8 +1017,9 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let now_ms =
-			crate::collators::slot_based::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+		let now_ms = crate::collators::slot_based::slot_timer::duration_now()
+			.saturating_sub(slot_offset)
+			.as_millis() as u64;
 		let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
 
 		// Slot 0 is always stale. A slot far in the future is always fresh.
@@ -1046,13 +1041,8 @@ mod tests {
 
 		let client_clone = client.clone();
 		let mut handle = tokio::spawn(async move {
-			wait_for_current_relay_block(
-				&client_clone,
-				&mut rx,
-				slot_offset,
-				relay_slot_duration,
-			)
-			.await
+			wait_for_current_relay_block(&client_clone, &mut rx, slot_offset, relay_slot_duration)
+				.await
 		});
 
 		// The function should not return before receiving a notification — the best
@@ -1082,8 +1072,9 @@ mod tests {
 		let relay_slot_duration = Duration::from_secs(6);
 		let slot_offset = Duration::from_secs(1);
 
-		let now_ms =
-			crate::collators::slot_based::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+		let now_ms = crate::collators::slot_based::slot_timer::duration_now()
+			.saturating_sub(slot_offset)
+			.as_millis() as u64;
 		let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
 
 		let header = relay_header_with_slot(100, Default::default(), current_slot);

@@ -39,6 +39,6 @@ snowbridge-pallet-system.workspace = true
 sp-core.workspace = true
 sp-runtime.workspace = true
 testnet-parachains-constants = { features = ["rococo", "westend"], workspace = true, default-features = true }
+xcm.workspace = true
 xcm-builder.workspace = true
 xcm-executor.workspace = true
-xcm.workspace = true

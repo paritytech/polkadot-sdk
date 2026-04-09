@@ -22,8 +22,8 @@ smallvec = { workspace = true, default-features = true }
 sp-core.workspace = true
 sp-runtime.workspace = true
 sp-weights.workspace = true
-xcm-builder.workspace = true
 xcm.workspace = true
+xcm-builder.workspace = true
 
 [features]
 default = ["std"]
