@@ -22,7 +22,7 @@
 extern crate alloc;
 
 use alloc::{borrow::Cow, string::String, vec, vec::Vec};
-use core::{iter::Iterator, marker::PhantomData, mem};
+use core::{iter::Iterator, marker::PhantomData, mem, result};
 
 #[cfg(not(all(feature = "std", feature = "wasmtime")))]
 #[macro_export]
@@ -332,6 +332,88 @@ pub trait FunctionContext {
 	/// It should only be called once, however calling it more than once
 	/// is harmless and will overwrite the previously set error message.
 	fn register_panic_error_message(&mut self, message: &str);
+	/// Return a type that allows the caller to spawn and run virtualization instances.
+	fn virtualization(&mut self) -> &mut dyn Virtualization;
+}
+
+/// Specifies what action to take when running a virtualization instance.
+///
+/// Used by [`Virtualization::run`] to distinguish between starting a new execution
+/// and resuming after a syscall.
+pub enum ExecAction<'a> {
+	/// Start executing the named exported function.
+	Execute(&'a str),
+	/// Resume execution after a syscall, passing back the return value.
+	///
+	/// The value is written into register `a0`.
+	Resume(u64),
+}
+
+/// The outcome of a single virtualization execution step.
+///
+/// Returned by [`Virtualization::run`].
+#[derive(Debug, PartialEq, Eq)]
+pub enum ExecOutcome {
+	/// Execution finished normally.
+	Finished {
+		/// How much gas is remaining after the execution.
+		gas_left: i64,
+	},
+	/// A syscall was encountered. The caller should handle the syscall and then
+	/// call [`Virtualization::run`] again to continue execution.
+	Syscall {
+		/// How much gas is remaining at the point of the syscall.
+		gas_left: i64,
+		/// The 4 byte identifier of the syscall.
+		syscall_no: u32,
+		/// Register arguments a0-a5.
+		a0: u64,
+		a1: u64,
+		a2: u64,
+		a3: u64,
+		a4: u64,
+		a5: u64,
+	},
+}
+
+/// Opaque handle to a virtualization instance.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[repr(transparent)]
+pub struct InstanceId(pub u32);
+
+/// See `sp_virtualization::Virtualization`.
+pub trait Virtualization {
+	fn instantiate(&mut self, program: &[u8]) -> Result<result::Result<InstanceId, u8>>;
+
+	/// Execute or resume a virtualization instance.
+	///
+	/// When `action` is [`ExecAction::Execute`], starts executing the named function.
+	/// When `action` is [`ExecAction::Resume`], resumes after a syscall with the given
+	/// return value.
+	///
+	/// Returns the execution outcome: either finished or a syscall was encountered.
+	fn run(
+		&mut self,
+		instance_id: InstanceId,
+		gas_left: i64,
+		action: ExecAction<'_>,
+	) -> Result<result::Result<ExecOutcome, u8>>;
+
+	fn destroy(&mut self, instance_id: InstanceId) -> Result<result::Result<(), u8>>;
+
+	fn read_memory(
+		&mut self,
+		instance_id: InstanceId,
+		offset: u32,
+		dest: &mut [u8],
+	) -> Result<result::Result<(), u8>>;
+
+	fn write_memory(
+		&mut self,
+		instance_id: InstanceId,
+		offset: u32,
+		src: &[u8],
+	) -> Result<result::Result<(), u8>>;
 }
 
 if_wasmtime_is_enabled! {
