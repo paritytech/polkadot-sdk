@@ -24,8 +24,7 @@ use crate::{
 			relay_chain_data_cache::RelayChainDataCache,
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		RelayHash,
-		BackingGroupConnectionHelper, RelayParentData,
+		BackingGroupConnectionHelper, RelayHash, RelayParentData,
 	},
 	LOG_TARGET,
 };

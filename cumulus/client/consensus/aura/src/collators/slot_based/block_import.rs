@@ -296,11 +296,9 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 			.collect::<Vec<u32>>();
 
 		if !recorded_sizes.is_empty() {
-			prepare_proof_size_recording_aux_data(block_hash, recorded_sizes).for_each(
-				|(k, v)| {
-					params.auxiliary.push((k, Some(v)));
-				},
-			);
+			prepare_proof_size_recording_aux_data(block_hash, recorded_sizes).for_each(|(k, v)| {
+				params.auxiliary.push((k, Some(v)));
+			});
 		}
 
 		params.state_action =
