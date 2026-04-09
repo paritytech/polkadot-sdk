@@ -127,6 +127,23 @@ macro_rules! upsert_sync_label {
 	}};
 }
 
+macro_rules! insert_block_mapping {
+	($executor:expr, $block_map:expr) => {{
+		let ethereum_hash_ref = $block_map.ethereum_hash.as_ref();
+		let substrate_hash_ref = $block_map.substrate_hash.as_ref();
+		query!(
+			r#"
+			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
+			VALUES ($1, $2)
+			"#,
+			ethereum_hash_ref,
+			substrate_hash_ref,
+		)
+		.execute($executor)
+		.await
+	}};
+}
+
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	/// Create a new `ReceiptProvider` with the given database URL and block provider.
 	pub async fn new(
@@ -248,26 +265,6 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Some((block_hash, transaction_index))
 	}
 
-	/// Insert a block mapping from Ethereum block hash to Substrate block hash.
-	async fn insert_block_mapping(&self, block_map: &BlockHashMap) -> Result<(), ClientError> {
-		let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
-		let substrate_hash_ref = block_map.substrate_hash.as_ref();
-
-		query!(
-			r#"
-			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
-			VALUES ($1, $2)
-			"#,
-			ethereum_hash_ref,
-			substrate_hash_ref,
-		)
-		.execute(&self.db_ctx.pool)
-		.await?;
-
-		log::trace!(target: LOG_TARGET, "Insert block mapping ethereum block: {:?} -> substrate block: {:?}", block_map.ethereum_hash, block_map.substrate_hash);
-		Ok(())
-	}
-
 	/// Get the Substrate block hash for the given Ethereum block hash.
 	pub async fn get_substrate_hash(&self, ethereum_block_hash: &H256) -> Option<H256> {
 		let ethereum_hash = ethereum_block_hash.as_ref();
@@ -348,10 +345,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
 		}
 
-		let delete_transaction_hashes = delete_tx_query.execute(&self.db_ctx.pool);
-		let delete_logs = delete_logs_query.execute(&self.db_ctx.pool);
-		let delete_mappings = delete_mappings_query.execute(&self.db_ctx.pool);
-		tokio::try_join!(delete_transaction_hashes, delete_logs, delete_mappings)?;
+		let mut tx = self.db_ctx.pool.begin().await?;
+		delete_tx_query.execute(&mut *tx).await?;
+		delete_logs_query.execute(&mut *tx).await?;
+		delete_mappings_query.execute(&mut *tx).await?;
+		tx.commit().await?;
 		Ok(())
 	}
 
@@ -570,7 +568,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		let substrate_hash_ref = substrate_block_hash.as_ref();
 		let block_number = block.number() as i64;
 
-		log::trace!(target: LOG_TARGET, "Insert receipts for substrate block #{block_number} {:?}", substrate_block_hash);
+		log::trace!(target: LOG_TARGET, "Inserting receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}");
 
 		// Check if mapping already exists (eg. added when processing best block and we are now
 		// processing finalized block)
@@ -590,6 +588,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			);
 		} else {
 			let ethereum_hash_ref = ethereum_hash.as_ref();
+			let mut tx = self.db_ctx.pool.begin().await?;
 
 			for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
 				let mut qb = QueryBuilder::<Sqlite>::new(
@@ -600,7 +599,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 						.push_bind(substrate_hash_ref)
 						.push_bind(receipt.transaction_index.as_u32() as i32);
 				});
-				qb.build().execute(&self.db_ctx.pool).await?;
+				qb.build().execute(&mut *tx).await?;
 			}
 
 			let all_logs: Vec<(i32, &[u8], &Log)> = receipts
@@ -629,11 +628,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 						.push_bind(log.topics.get(3).map(|v| &v[..]))
 						.push_bind(log.data.as_ref().map(|v| &v.0[..]));
 				});
-				qb.build().execute(&self.db_ctx.pool).await?;
+				qb.build().execute(&mut *tx).await?;
 			}
-			// Insert block mapping from Ethereum to Substrate hash
+
 			let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-			self.insert_block_mapping(&block_map).await?;
+			insert_block_mapping!(&mut *tx, &block_map)?;
+
+			tx.commit().await?;
+			log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
 		}
 
 		Ok(())
@@ -1334,7 +1336,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		provider.insert_block_mapping(&block_map).await?;
+		insert_block_mapping!(&provider.db_ctx.pool, &block_map)?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
@@ -1358,8 +1360,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash2);
 
 		// Insert mappings
-		provider.insert_block_mapping(&block_map1).await?;
-		provider.insert_block_mapping(&block_map2).await?;
+		insert_block_mapping!(&provider.db_ctx.pool, &block_map1)?;
+		insert_block_mapping!(&provider.db_ctx.pool, &block_map2)?;
 
 		// Verify they exist
 		assert_eq!(
@@ -1389,7 +1391,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		provider.insert_block_mapping(&block_map).await?;
+		insert_block_mapping!(&provider.db_ctx.pool, &block_map)?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map.ethereum_hash).await,
 			Some(block_map.substrate_hash)
@@ -1460,8 +1462,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
 
 		// Insert some mappings
-		provider.insert_block_mapping(&block_map1).await?;
-		provider.insert_block_mapping(&block_map2).await?;
+		insert_block_mapping!(&provider.db_ctx.pool, &block_map1)?;
+		insert_block_mapping!(&provider.db_ctx.pool, &block_map2)?;
 
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
 
