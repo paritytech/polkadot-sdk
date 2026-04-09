@@ -358,7 +358,7 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	if alice_loaded >= stmts_per_node {
 		log::warn!("Bob loaded all alice statements from disk so the crash was NOT mid-sync",);
 	}
-	assert(alice_loaded > 0, "Bob received at least one alice statement");
+	assert!(alice_loaded > 0, "Bob received at least one alice statement");
 	assert!(bob_lost <= 1, "Bob lost {} statements, expected at most 1", bob_lost);
 
 	info!("Verifying all {} recoverable statements converge on every node", expected_count);
