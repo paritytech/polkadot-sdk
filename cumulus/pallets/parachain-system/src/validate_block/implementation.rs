@@ -186,8 +186,6 @@ where
 			.with_recorder(execute_recorder.clone())
 			.build();
 
-		// We let all blocks contribute to the same overlay. Data written by a previous block will
-		// be directly accessible without going to the db.
 		let mut overlay = OverlayedChanges::default();
 
 		parent_header = block.header().clone();
