@@ -861,20 +861,82 @@ mod test {
 		let topic2: Topic = [0x02; 32].into();
 		let priority = 999;
 
-		let fields = vec![
+		let dup_topic1 = vec![
 			Field::Expiry(priority),
 			Field::Topic1(topic1),
 			Field::Topic1(topic1),
 			Field::Topic2(topic2),
 		]
 		.encode();
+		assert!(Statement::decode(&mut dup_topic1.as_slice()).is_err());
 
-		assert!(Statement::decode(&mut fields.as_slice()).is_err());
-
-		let fields =
+		let topic1_before_expiry =
 			vec![Field::Topic1(topic1), Field::Expiry(priority), Field::Topic2(topic2)].encode();
+		assert!(Statement::decode(&mut topic1_before_expiry.as_slice()).is_err());
 
-		assert!(Statement::decode(&mut fields.as_slice()).is_err());
+		let dup_expiry = vec![Field::Expiry(1), Field::Expiry(2)].encode();
+		assert!(Statement::decode(&mut dup_expiry.as_slice()).is_err());
+
+		let dup_data = vec![Field::Data(vec![1]), Field::Data(vec![2])].encode();
+		assert!(Statement::decode(&mut dup_data.as_slice()).is_err());
+
+		let data_before_expiry = vec![Field::Data(vec![1]), Field::Expiry(42)].encode();
+		assert!(Statement::decode(&mut data_before_expiry.as_slice()).is_err());
+
+		let channel_before_expiry = vec![Field::Channel([0; 32]), Field::Expiry(1)].encode();
+		assert!(Statement::decode(&mut channel_before_expiry.as_slice()).is_err());
+
+		let topic2_before_topic1 =
+			vec![Field::Expiry(1), Field::Topic2(topic1), Field::Topic1(topic2)].encode();
+		assert!(Statement::decode(&mut topic2_before_topic1.as_slice()).is_err());
+	}
+
+	#[test]
+	fn decode_rejects_malformed_bytes() {
+		assert!(Statement::decode(&mut &[][..]).is_err());
+
+		// Take a valid encoded statement and corrupt it in different ways
+		let valid = vec![Field::Expiry(42)].encode();
+		let decoded = Statement::decode(&mut valid.as_slice()).unwrap();
+		assert_eq!(decoded.expiry(), 42);
+
+		// Truncate to just the length prefix
+		assert!(Statement::decode(&mut &valid[..1][..]).is_err());
+
+		// Replace field discriminant with invalid value (Field only has 0..=8)
+		let mut invalid_discriminant = valid.clone();
+		invalid_discriminant[1] = 9;
+		assert!(Statement::decode(&mut invalid_discriminant.as_slice()).is_err());
+
+		invalid_discriminant[1] = 255;
+		assert!(Statement::decode(&mut invalid_discriminant.as_slice()).is_err());
+
+		// Truncate the Expiry payload (need 8 bytes for u64, provide fewer)
+		assert!(Statement::decode(&mut &valid[..5][..]).is_err());
+
+		// Encode a statement with Proof, then corrupt the Proof variant
+		let with_proof = vec![
+			Field::AuthenticityProof(Proof::OnChain {
+				who: [0u8; 32],
+				block_hash: [0u8; 32],
+				event_index: 0,
+			}),
+			Field::Expiry(42),
+		]
+		.encode();
+		assert!(Statement::decode(&mut with_proof.as_slice()).is_ok());
+
+		let mut invalid_proof_variant = with_proof.clone();
+		invalid_proof_variant[2] = 99;
+		assert!(Statement::decode(&mut invalid_proof_variant.as_slice()).is_err());
+
+		// Truncate the Proof payload
+		assert!(Statement::decode(&mut &with_proof[..6][..]).is_err());
+
+		// Claim more fields than actually present
+		let mut inflated_count = valid.clone();
+		inflated_count[0] = 5 << 2; // change field count from 1 to 5
+		assert!(Statement::decode(&mut inflated_count.as_slice()).is_err());
 	}
 
 	#[test]
@@ -906,8 +968,16 @@ mod test {
 			))
 		);
 
-		// set an invalid signature
+		// set an invalid Sr25519 signature
 		statement.set_proof(Proof::Sr25519 { signature: [0u8; 64], signer: [0u8; 32] });
+		assert_eq!(statement.verify_signature(), SignatureVerificationResult::Invalid);
+
+		// set an invalid Ed25519 signature
+		statement.set_proof(Proof::Ed25519 { signature: [0xAB; 64], signer: [0xCD; 32] });
+		assert_eq!(statement.verify_signature(), SignatureVerificationResult::Invalid);
+
+		// set an invalid Secp256k1Ecdsa signature
+		statement.set_proof(Proof::Secp256k1Ecdsa { signature: [0u8; 65], signer: [0u8; 33] });
 		assert_eq!(statement.verify_signature(), SignatureVerificationResult::Invalid);
 
 		statement.remove_proof();
