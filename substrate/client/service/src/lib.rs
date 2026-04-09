@@ -40,7 +40,7 @@ use std::{
 use codec::{Decode, Encode};
 use futures::{pin_mut, FutureExt, StreamExt};
 use jsonrpsee::RpcModule;
-use log::{debug, error, trace, warn};
+use log::{debug, error, info, trace, warn};
 use sc_client_api::{blockchain::HeaderBackend, BlockBackend, BlockchainEvents, ProofProvider};
 use sc_network::{
 	config::MultiaddrWithPeerId, service::traits::NetworkService, NetworkBackend, NetworkBlock,
@@ -439,13 +439,10 @@ pub fn start_rpc_servers(
 
 	let cache = if rpc_configuration.rpc_cache_size > 0 {
 		let cache_metrics = registry.and_then(|r| sc_rpc_server::CacheMetrics::new(r).ok());
-		log::info!(
-			"RPC cache enabled: size={}MB",
-			rpc_configuration.rpc_cache_size / (1024 * 1024),
-		);
+		info!("RPC cache enabled: size={}MB", rpc_configuration.rpc_cache_size / (1024 * 1024),);
 		Some(sc_rpc_server::CacheLayer::new(rpc_configuration.rpc_cache_size, cache_metrics))
 	} else {
-		log::debug!("RPC cache disabled (rpc_cache_size=0)");
+		info!("RPC cache disabled (rpc_cache_size=0)");
 		None
 	};
 
