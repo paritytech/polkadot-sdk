@@ -4263,7 +4263,7 @@ dependencies = [
 
 [[package]]
 name = "cumulus-client-consensus-aura"
-version = "0.24.0"
+version = "0.24.1"
 dependencies = [
  "async-trait",
  "cumulus-client-collator",
@@ -6875,7 +6875,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "41.0.1"
+version = "41.0.2"
 dependencies = [
  "Inflector",
  "aquamarine",
@@ -11977,7 +11977,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-conviction-voting"
-version = "41.0.0"
+version = "41.0.1"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -14958,7 +14958,7 @@ dependencies = [
 
 [[package]]
 name = "polkadot-collator-protocol"
-version = "24.0.1"
+version = "24.0.2"
 dependencies = [
  "assert_matches",
  "async-trait",
