@@ -58,7 +58,7 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
-	pub TreasuryAccount: AccountId = Treasury::account_id();
+	// TODO(#11705): remove TreasuryLocation and migrate treasury funds to DapSatellite.
 	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
 	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 	/// The asset ID for the asset that we use to pay for message delivery fees.

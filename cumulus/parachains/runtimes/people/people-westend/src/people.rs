@@ -51,6 +51,8 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
+	// TODO(#11704): redirect to DapSatellite once pallet-dap-satellite supports NegativeImbalance
+	// or pallet-identity adopts fungible traits.
 	type Slashed = ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
