@@ -2528,6 +2528,94 @@ fn fund_and_award_child_bounty_without_curator_works() {
 }
 
 #[test]
+fn unprivileged_caller_cannot_unassign_active_child_curator_when_parent_not_active() {
+	ExtBuilder::default().build_and_execute(|| {
+		let s = create_active_child_bounty();
+		let attacker: u128 = 99;
+
+		// Verify preconditions: child bounty is Active with curator deposit held.
+		assert_eq!(Balances::reserved_balance(&s.child_curator), s.child_curator_deposit);
+		assert!(pallet_bounties::CuratorDeposit::<Test>::get(
+			s.parent_bounty_id,
+			Some(s.child_bounty_id)
+		)
+		.is_some());
+
+		// Step 1: Parent curator voluntarily unassigns from parent bounty.
+		assert_ok!(Bounties::unassign_curator(
+			RuntimeOrigin::signed(s.curator),
+			s.parent_bounty_id,
+			None,
+		));
+
+		// Parent is now CuratorUnassigned; child is still Active.
+		let (_, _, _, parent_status, _) =
+			Bounties::get_bounty_details(s.parent_bounty_id, None).expect("parent bounty exists");
+		assert_eq!(parent_status, BountyStatus::CuratorUnassigned);
+
+		let (_, _, _, child_status, parent_curator) =
+			Bounties::get_bounty_details(s.parent_bounty_id, Some(s.child_bounty_id))
+				.expect("child bounty exists");
+		assert!(matches!(child_status, BountyStatus::Active { .. }));
+		assert!(
+			parent_curator.is_none(),
+			"parent_curator should be None since parent is not Active"
+		);
+
+		// Step 2: An unprivileged attacker tries to unassign the active child bounty curator.
+		// This must be rejected with BadOrigin.
+		assert_noop!(
+			Bounties::unassign_curator(
+				RuntimeOrigin::signed(attacker),
+				s.parent_bounty_id,
+				Some(s.child_bounty_id),
+			),
+			BadOrigin
+		);
+
+		// Child bounty remains Active the unprivileged caller had no effect.
+		let (_, _, _, child_status, _) =
+			Bounties::get_bounty_details(s.parent_bounty_id, Some(s.child_bounty_id))
+				.expect("child bounty exists");
+		assert!(matches!(child_status, BountyStatus::Active { .. }));
+
+		// Curator deposit is still in storage and the hold is intact.
+		assert!(
+			pallet_bounties::CuratorDeposit::<Test>::get(
+				s.parent_bounty_id,
+				Some(s.child_bounty_id)
+			)
+			.is_some(),
+			"curator deposit must remain in storage"
+		);
+		assert_eq!(
+			Balances::reserved_balance(&s.child_curator),
+			s.child_curator_deposit,
+			"curator deposit hold must remain intact"
+		);
+
+		// Step 3: Verify that the child curator can still voluntarily unassign themselves.
+		assert_ok!(Bounties::unassign_curator(
+			RuntimeOrigin::signed(s.child_curator),
+			s.parent_bounty_id,
+			Some(s.child_bounty_id),
+		));
+
+		let (_, _, _, child_status, _) =
+			Bounties::get_bounty_details(s.parent_bounty_id, Some(s.child_bounty_id))
+				.expect("child bounty exists");
+		assert_eq!(child_status, BountyStatus::CuratorUnassigned);
+
+		// Curator's deposit was properly released.
+		assert_eq!(
+			Balances::reserved_balance(&s.child_curator),
+			0,
+			"curator deposit hold must be released after voluntary unassign"
+		);
+	});
+}
+
+#[test]
 fn multi_asset_bounty_accounts_differ_from_legacy_bounty_accounts() {
 	ExtBuilder::default().build_and_execute(|| {
 		use sp_runtime::traits::AccountIdConversion;
