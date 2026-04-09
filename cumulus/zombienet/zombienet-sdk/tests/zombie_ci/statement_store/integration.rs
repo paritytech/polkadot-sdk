@@ -1,17 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use codec::Encode;
-use log::info;
-use sp_core::Bytes;
-use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
-
-use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
-
 use super::common::{
-	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
+	assert_no_more_statements, base_dir, collator_default_args,
+	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
 	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 };
+use codec::Encode;
+use log::info;
+use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
+use sp_core::Bytes;
+use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
+use std::{cell::Cell, sync::Arc, time::Duration};
+use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 /// Verifies basic statement propagation and data integrity across two nodes
 ///
@@ -196,6 +197,208 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		let received = expect_statements_unordered(sub, 1, 30).await?;
 		info!("{}: eviction statements propagated ({} received)", name, received.len());
 	}
+
+	Ok(())
+}
+
+async fn spawn_flooding_network(
+	rate_limit: u32,
+	participant_count: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let images = zombienet_sdk::environment::get_images_from_env();
+	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+
+	let default_args = collator_default_args(participant_count);
+	let mut bob_args = default_args.clone();
+	bob_args.push(format!("--statement-rate-limit={rate_limit}").as_str().into());
+
+	let config = NetworkConfigBuilder::new()
+		.with_relaychain(|r| {
+			r.with_chain("westend-local")
+				.with_default_command("polkadot")
+				.with_default_image(images.polkadot.as_str())
+				.with_default_args(vec!["-lparachain=debug".into()])
+				.with_validator(|node| node.with_name("validator-0"))
+				.with_validator(|node| node.with_name("validator-1"))
+		})
+		.with_parachain(|p| {
+			p.with_id(1004)
+				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
+				.with_default_command("polkadot-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_default_args(default_args)
+				.with_collator(|n| n.with_name("alice"))
+				.with_collator(|n| n.with_name("bob").with_args(bob_args))
+		})
+		.with_global_settings(|global_settings| {
+			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+		})
+		.build()
+		.map_err(super::common::format_build_errors)?;
+
+	let network = crate::utils::initialize_network(config).await?;
+	assert!(network.wait_until_is_up(60).await.is_ok());
+	Ok(network)
+}
+
+/// Verifies sustained-rate flooding detection end-to-end.
+///
+/// RPC submission achieves ~600 statements/sec. Gossip batches them every 1s.
+/// With bob's rate=200 (burst=1,000), each gossip batch (~600) is within burst
+/// but exceeds the per-second rate. Tokens drain at ~400/sec, exhausting in ~2.5s.
+/// Differentiator: bob.submitted_statements > 0 (early batches were accepted).
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let batch_size = 1_000u32;
+	let network = spawn_flooding_network(200, batch_size * 10).await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+
+	let alice_rpc = Arc::new(alice.rpc().await?);
+
+	let submit_handle = tokio::spawn({
+		let alice_rpc = Arc::clone(&alice_rpc);
+		async move {
+			let topic: Topic = [42u8; 32].into();
+			for batch in 0u32..30 {
+				let start = batch * batch_size;
+				for idx in start..start + batch_size {
+					let keypair = get_keypair(idx);
+					let statement = create_test_statement(
+						&keypair,
+						&[topic],
+						None,
+						vec![idx as u8],
+						u32::MAX,
+						0,
+					);
+					let _ = submit_statement(&alice_rpc, &statement).await;
+				}
+				info!("Batch {}: submitted {} statements", batch, batch_size);
+				tokio::time::sleep(Duration::from_secs(1)).await;
+			}
+		}
+	});
+
+	bob.wait_metric_with_timeout(
+		"substrate_sync_statement_flooding_detected",
+		|count| count >= 1.0,
+		120u64,
+	)
+	.await?;
+	info!("Bob detected sustained-rate flooding");
+
+	submit_handle.abort();
+
+	let bob_submitted = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_statement_store_submitted_statements",
+		|v| {
+			bob_submitted.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+	assert!(
+		bob_submitted.get() > 0.0,
+		"Bob should have accepted early batches before flooding (got {})",
+		bob_submitted.get()
+	);
+	info!(
+		"Bob accepted {} statements before flooding (sustained, not burst)",
+		bob_submitted.get()
+	);
+
+	let alice_flooding = Cell::new(0.0f64);
+	alice
+		.wait_metric_with_timeout(
+			"substrate_sync_statement_flooding_detected",
+			|v| {
+				alice_flooding.set(v);
+				true
+			},
+			10u64,
+		)
+		.await?;
+	assert_eq!(alice_flooding.get() as u64, 0, "Alice should not detect flooding");
+	info!("No false positives on alice");
+
+	Ok(())
+}
+
+/// Verifies burst flooding detection end-to-end.
+///
+/// RPC submission achieves ~600 statements/sec, all buffered before the first gossip tick.
+/// With bob's rate=50 (burst=250), the first gossip batch (~600) exceeds burst immediately.
+/// Differentiator: bob.submitted_statements == 0 (no statements accepted before detection).
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let burst_size = 1_000u32;
+	let network = spawn_flooding_network(50, burst_size).await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+
+	let alice_rpc = alice.rpc().await?;
+	let topic: Topic = [43u8; 32].into();
+
+	for idx in 0..burst_size {
+		let keypair = get_keypair(idx);
+		let statement =
+			create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, 0);
+		let _ = submit_statement(&alice_rpc, &statement).await;
+	}
+	info!("Submitted {} statements to alice", burst_size);
+
+	bob.wait_metric_with_timeout(
+		"substrate_sync_statement_flooding_detected",
+		|count| count >= 1.0,
+		60u64,
+	)
+	.await?;
+	info!("Bob detected burst flooding");
+
+	let bob_submitted = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_statement_store_submitted_statements",
+		|v| {
+			bob_submitted.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+	assert_eq!(
+		bob_submitted.get() as u64,
+		0,
+		"Bob should not have accepted any statements (burst, not sustained)"
+	);
+	info!("Bob accepted 0 statements (burst flooding confirmed)");
+
+	let alice_flooding = Cell::new(0.0f64);
+	alice
+		.wait_metric_with_timeout(
+			"substrate_sync_statement_flooding_detected",
+			|v| {
+				alice_flooding.set(v);
+				true
+			},
+			10u64,
+		)
+		.await?;
+	assert_eq!(alice_flooding.get() as u64, 0, "Alice should not detect flooding");
+	info!("No false positives on alice");
 
 	Ok(())
 }
