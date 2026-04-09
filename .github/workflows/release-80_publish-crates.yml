@@ -349,15 +349,6 @@ jobs:
             PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
           fi
 
-<<<<<<< HEAD
-          if [ "$DRY_RUN" = true ]; then
-            echo "DRY RUN - Not actually publishing crates"
-            echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $PARALLEL_ARGS
-          else
-            echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $PARALLEL_ARGS
-=======
           CLEAN_ARGS=""
           if [ "$CLEAN_EVERY" -gt 0 ] 2>/dev/null; then
             echo "Disk cleanup enabled: cargo clean every $CLEAN_EVERY crates"
@@ -376,7 +367,6 @@ jobs:
           else
             echo "Publishing crates to $REGISTRY..."
             parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
->>>>>>> bf0fb011 (Add disk cleanup option to publish crates workflow (#11693))
             echo "Crates published successfully to $REGISTRY!"
           fi
 
