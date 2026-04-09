@@ -344,7 +344,7 @@ pub mod pallet {
 
 	/// Triple map from (round, account, page) to a solution page.
 	#[pallet::storage]
-	type SubmissionStorage<T: Config> = StorageNMap<
+	pub type SubmissionStorage<T: Config> = StorageNMap<
 		_,
 		(
 			NMapKey<Twox64Concat, u32>,
@@ -360,7 +360,7 @@ pub mod pallet {
 	/// invariant: for any Key1 of type `AccountId` in [`Submissions`], this storage map also has a
 	/// value.
 	#[pallet::storage]
-	type SubmissionMetadataStorage<T: Config> =
+	pub type SubmissionMetadataStorage<T: Config> =
 		StorageDoubleMap<_, Twox64Concat, u32, Twox64Concat, T::AccountId, SubmissionMetadata<T>>;
 
 	impl<T: Config> Submissions<T> {

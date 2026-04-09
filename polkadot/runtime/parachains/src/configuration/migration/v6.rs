@@ -123,11 +123,11 @@ mod v6 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<Pallet<T>, V6HostConfiguration<BlockNumberFor<T>>, OptionQuery>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type PendingConfigs<T: Config> = StorageValue<
+	pub type PendingConfigs<T: Config> = StorageValue<
 		Pallet<T>,
 		Vec<(SessionIndex, V6HostConfiguration<BlockNumberFor<T>>)>,
 		OptionQuery,

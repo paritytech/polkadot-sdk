@@ -38,7 +38,7 @@ mod v1 {
 	use codec::{Decode, Encode};
 
 	#[frame_support::storage_alias]
-	pub(crate) type QueueConfig<T: Config> = StorageValue<Pallet<T>, QueueConfigData, ValueQuery>;
+	pub type QueueConfig<T: Config> = StorageValue<Pallet<T>, QueueConfigData, ValueQuery>;
 
 	#[derive(Encode, Decode, Debug)]
 	pub struct QueueConfigData {
@@ -68,7 +68,7 @@ pub mod v2 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type QueueConfig<T: Config> = StorageValue<Pallet<T>, QueueConfigData, ValueQuery>;
+	pub type QueueConfig<T: Config> = StorageValue<Pallet<T>, QueueConfigData, ValueQuery>;
 
 	#[derive(Copy, Clone, Eq, PartialEq, Encode, Decode, Debug, TypeInfo)]
 	pub struct QueueConfigData {
@@ -148,12 +148,12 @@ pub mod v3 {
 
 	/// Status of the inbound XCMP channels.
 	#[frame_support::storage_alias]
-	pub(crate) type InboundXcmpStatus<T: Config> =
+	pub type InboundXcmpStatus<T: Config> =
 		StorageValue<Pallet<T>, Vec<InboundChannelDetails>, OptionQuery>;
 
 	/// Inbound aggregate XCMP messages. It can only be one per ParaId/block.
 	#[frame_support::storage_alias]
-	pub(crate) type InboundXcmpMessages<T: Config> = StorageDoubleMap<
+	pub type InboundXcmpMessages<T: Config> = StorageDoubleMap<
 		Pallet<T>,
 		Blake2_128Concat,
 		ParaId,
@@ -164,8 +164,7 @@ pub mod v3 {
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type QueueConfig<T: Config> =
-		StorageValue<Pallet<T>, v2::QueueConfigData, ValueQuery>;
+	pub type QueueConfig<T: Config> = StorageValue<Pallet<T>, v2::QueueConfigData, ValueQuery>;
 
 	#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, TypeInfo)]
 	pub struct InboundChannelDetails {

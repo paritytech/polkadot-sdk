@@ -83,8 +83,7 @@ pub mod pallet {
 	/// Note that this API is private due to it being prone to 'off-by-one' at session boundaries.
 	/// When in doubt, use `Sessions` API instead.
 	#[pallet::storage]
-	pub(super) type AssignmentKeysUnsafe<T: Config> =
-		StorageValue<_, Vec<AssignmentId>, ValueQuery>;
+	pub type AssignmentKeysUnsafe<T: Config> = StorageValue<_, Vec<AssignmentId>, ValueQuery>;
 
 	/// The earliest session for which previous session info is stored.
 	#[pallet::storage]

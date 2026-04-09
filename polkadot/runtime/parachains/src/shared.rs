@@ -154,12 +154,12 @@ pub mod pallet {
 
 	/// All allowed scheduling parents.
 	#[pallet::storage]
-	pub(crate) type AllowedSchedulingParents<T: Config> =
+	pub type AllowedSchedulingParents<T: Config> =
 		StorageValue<_, AllowedSchedulingParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
 
 	/// All allowed relay parents, keyed by (session_index, relay_parent_hash).
 	#[pallet::storage]
-	pub(crate) type AllowedRelayParents<T: Config> = StorageDoubleMap<
+	pub type AllowedRelayParents<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -172,13 +172,13 @@ pub mod pallet {
 	/// `AllowedRelayParents`. Used to efficiently prune all expired sessions
 	/// when `max_relay_parent_session_age` decreases.
 	#[pallet::storage]
-	pub(crate) type OldestRelayParentSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
+	pub type OldestRelayParentSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// The minimum relay parent block number for each session that has entries in
 	/// `AllowedRelayParents`. This is the block number of the first relay parent
 	/// added to each session.
 	#[pallet::storage]
-	pub(crate) type MinimumRelayParentNumber<T: Config> =
+	pub type MinimumRelayParentNumber<T: Config> =
 		StorageMap<_, Twox64Concat, SessionIndex, BlockNumberFor<T>>;
 
 	#[pallet::call]

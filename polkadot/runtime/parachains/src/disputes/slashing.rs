@@ -433,7 +433,7 @@ pub mod pallet {
 
 	/// Validators pending dispute slashes.
 	#[pallet::storage]
-	pub(crate) type UnappliedSlashes<T> = StorageDoubleMap<
+	pub type UnappliedSlashes<T> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		SessionIndex,
@@ -444,8 +444,7 @@ pub mod pallet {
 
 	/// `ValidatorSetCount` per session.
 	#[pallet::storage]
-	pub(super) type ValidatorSetCounts<T> =
-		StorageMap<_, Twox64Concat, SessionIndex, ValidatorSetCount>;
+	pub type ValidatorSetCounts<T> = StorageMap<_, Twox64Concat, SessionIndex, ValidatorSetCount>;
 
 	#[pallet::error]
 	pub enum Error<T> {

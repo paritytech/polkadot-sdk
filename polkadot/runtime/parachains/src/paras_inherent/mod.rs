@@ -141,7 +141,7 @@ pub mod pallet {
 	///
 	/// If this is `None` at the end of the block, we panic and render the block invalid.
 	#[pallet::storage]
-	pub(crate) type Included<T> = StorageValue<_, ()>;
+	pub type Included<T> = StorageValue<_, ()>;
 
 	/// Scraped on chain data for extracting resolved disputes as well as backing votes.
 	#[pallet::storage]

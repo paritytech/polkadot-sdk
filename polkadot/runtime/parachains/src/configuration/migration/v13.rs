@@ -130,11 +130,11 @@ mod v12 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<Pallet<T>, V12HostConfiguration<BlockNumberFor<T>>, OptionQuery>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type PendingConfigs<T: Config> = StorageValue<
+	pub type PendingConfigs<T: Config> = StorageValue<
 		Pallet<T>,
 		Vec<(SessionIndex, V12HostConfiguration<BlockNumberFor<T>>)>,
 		OptionQuery,
@@ -145,11 +145,11 @@ mod v13 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type ActiveConfig<T: Config> =
+	pub type ActiveConfig<T: Config> =
 		StorageValue<Pallet<T>, V13HostConfiguration<BlockNumberFor<T>>, OptionQuery>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type PendingConfigs<T: Config> = StorageValue<
+	pub type PendingConfigs<T: Config> = StorageValue<
 		Pallet<T>,
 		Vec<(SessionIndex, V13HostConfiguration<BlockNumberFor<T>>)>,
 		OptionQuery,

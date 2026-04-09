@@ -225,12 +225,12 @@ pub mod pallet {
 
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
-	pub(super) type OrderStatus<T: Config> =
+	pub type OrderStatus<T: Config> =
 		StorageValue<_, super::OrderStatus<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
-	pub(super) type Revenue<T: Config> =
+	pub type Revenue<T: Config> =
 		StorageValue<_, BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>, ValueQuery>;
 
 	/// Keeps track of credits owned by each account.

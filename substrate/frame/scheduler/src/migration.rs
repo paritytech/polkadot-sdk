@@ -31,7 +31,7 @@ pub mod v1 {
 	use frame_support::pallet_prelude::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Agenda<T: Config> = StorageMap<
+	pub type Agenda<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
 		BlockNumberFor<T>,
@@ -40,7 +40,7 @@ pub mod v1 {
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Lookup<T: Config> =
+	pub type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 }
 
@@ -49,7 +49,7 @@ pub mod v2 {
 	use frame_support::pallet_prelude::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Agenda<T: Config> = StorageMap<
+	pub type Agenda<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
 		BlockNumberFor<T>,
@@ -58,7 +58,7 @@ pub mod v2 {
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Lookup<T: Config> =
+	pub type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 }
 
@@ -67,7 +67,7 @@ pub mod v3 {
 	use frame_support::pallet_prelude::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Agenda<T: Config> = StorageMap<
+	pub type Agenda<T: Config> = StorageMap<
 		Pallet<T>,
 		Twox64Concat,
 		BlockNumberFor<T>,
@@ -76,7 +76,7 @@ pub mod v3 {
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type Lookup<T: Config> =
+	pub type Lookup<T: Config> =
 		StorageMap<Pallet<T>, Twox64Concat, Vec<u8>, TaskAddress<BlockNumberFor<T>>>;
 
 	/// Migrate the scheduler pallet from V3 to V4.

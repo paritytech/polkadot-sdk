@@ -13,9 +13,9 @@ help: the trait `PalletError` is not implemented for `MyError`
              ()
              (TupleElement0, TupleElement1)
              (TupleElement0, TupleElement1, TupleElement2)
-             (TupleElement0, ..., ..., ...)
+             (TupleElement0, TupleElement1, ..., ...)
              (TupleElement0, ..., ..., ..., ...)
-             (..., ..., ..., ..., ..., ...)
+             (TupleElement0, ..., ..., ..., ..., ...)
              (..., ..., ..., ..., ..., ..., ...)
              (..., ..., ..., ..., ..., ..., ..., ...)
            and $N others

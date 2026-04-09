@@ -790,7 +790,7 @@ pub mod pallet {
 	/// Invariant:
 	/// - There are no PVF pre-checking votes that exists in list but not in the set and vice versa.
 	#[pallet::storage]
-	pub(super) type PvfActiveVoteMap<T: Config> = StorageMap<
+	pub type PvfActiveVoteMap<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ValidationCodeHash,
@@ -800,8 +800,7 @@ pub mod pallet {
 
 	/// The list of all currently active PVF votes. Auxiliary to `PvfActiveVoteMap`.
 	#[pallet::storage]
-	pub(super) type PvfActiveVoteList<T: Config> =
-		StorageValue<_, Vec<ValidationCodeHash>, ValueQuery>;
+	pub type PvfActiveVoteList<T: Config> = StorageValue<_, Vec<ValidationCodeHash>, ValueQuery>;
 
 	/// All lease holding parachains. Ordered ascending by `ParaId`. On demand parachains are not
 	/// included.
@@ -812,7 +811,7 @@ pub mod pallet {
 
 	/// The current lifecycle of a all known Para IDs.
 	#[pallet::storage]
-	pub(super) type ParaLifecycles<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaLifecycle>;
+	pub type ParaLifecycles<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaLifecycle>;
 
 	/// The head-data of every registered para.
 	#[pallet::storage]
@@ -833,7 +832,7 @@ pub mod pallet {
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	pub(super) type PastCodeHash<T: Config> =
+	pub type PastCodeHash<T: Config> =
 		StorageMap<_, Twox64Concat, (ParaId, BlockNumberFor<T>), ValidationCodeHash>;
 
 	/// Past code of parachains. The parachains themselves may not be registered anymore,
@@ -850,7 +849,7 @@ pub mod pallet {
 	/// starting from the time at which the parachain perceives a code upgrade as having occurred.
 	/// Multiple entries for a single para are permitted. Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type PastCodePruning<T: Config> =
+	pub type PastCodePruning<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The block number at which the planned code change is expected for a parachain.
@@ -869,7 +868,7 @@ pub mod pallet {
 	///
 	/// Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type FutureCodeUpgradesAt<T: Config> =
+	pub type FutureCodeUpgradesAt<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The actual future code hash of a para.
@@ -894,8 +893,7 @@ pub mod pallet {
 	/// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
 	/// the format will require migration of parachains.
 	#[pallet::storage]
-	pub(super) type UpgradeGoAheadSignal<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, UpgradeGoAhead>;
+	pub type UpgradeGoAheadSignal<T: Config> = StorageMap<_, Twox64Concat, ParaId, UpgradeGoAhead>;
 
 	/// This is used by the relay-chain to communicate that there are restrictions for performing
 	/// an upgrade for this parachain.
@@ -914,7 +912,7 @@ pub mod pallet {
 	///
 	/// Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type UpgradeCooldowns<T: Config> =
+	pub type UpgradeCooldowns<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The list of upcoming code upgrades.
@@ -924,7 +922,7 @@ pub mod pallet {
 	///
 	/// Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type UpcomingUpgrades<T: Config> =
+	pub type UpcomingUpgrades<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The actions to perform during the start of a specific session index.
@@ -937,12 +935,11 @@ pub mod pallet {
 	/// NOTE that after PVF pre-checking is enabled the para genesis arg will have it's code set
 	/// to empty. Instead, the code will be saved into the storage right away via `CodeByHash`.
 	#[pallet::storage]
-	pub(super) type UpcomingParasGenesis<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ParaGenesisArgs>;
+	pub type UpcomingParasGenesis<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaGenesisArgs>;
 
 	/// The number of reference on the validation code in [`CodeByHash`] storage.
 	#[pallet::storage]
-	pub(super) type CodeByHashRefs<T: Config> =
+	pub type CodeByHashRefs<T: Config> =
 		StorageMap<_, Identity, ValidationCodeHash, u32, ValueQuery>;
 
 	/// Validation code stored by its hash.

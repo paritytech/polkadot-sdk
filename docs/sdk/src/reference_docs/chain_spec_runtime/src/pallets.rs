@@ -32,7 +32,7 @@ pub mod pallet_bar {
 	pub struct Pallet<T>(_);
 
 	#[pallet::storage]
-	pub(super) type InitialAccount<T: Config> = StorageValue<Value = T::AccountId>;
+	pub type InitialAccount<T: Config> = StorageValue<Value = T::AccountId>;
 
 	/// Simple `GenesisConfig`.
 	#[pallet::genesis_config]

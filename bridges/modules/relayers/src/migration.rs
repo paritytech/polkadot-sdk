@@ -83,14 +83,14 @@ pub mod v0 {
 		type Value = RewardBalance;
 	}
 
-	pub(crate) type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
+	pub type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
 		<T as Config<I>>::RewardBalance,
 		LaneId,
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type RelayerRewards<T: Config<I>, I: 'static, LaneId> = StorageDoubleMap<
+	pub type RelayerRewards<T: Config<I>, I: 'static, LaneId> = StorageDoubleMap<
 		Pallet<T, I>,
 		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Hasher1,
 		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Key1,
@@ -150,14 +150,14 @@ pub mod v1 {
 		type Value = RewardBalance;
 	}
 
-	pub(crate) type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
+	pub type RelayerRewardsKeyProviderOf<T, I, LaneId> = RelayerRewardsKeyProvider<
 		<T as frame_system::Config>::AccountId,
 		<T as Config<I>>::RewardBalance,
 		LaneId,
 	>;
 
 	#[frame_support::storage_alias]
-	pub(crate) type RelayerRewards<T: Config<I>, I: 'static, LaneId> = StorageDoubleMap<
+	pub type RelayerRewards<T: Config<I>, I: 'static, LaneId> = StorageDoubleMap<
 		Pallet<T, I>,
 		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Hasher1,
 		<RelayerRewardsKeyProviderOf<T, I, LaneId> as StorageDoubleMapKeyProvider>::Key1,

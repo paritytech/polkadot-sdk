@@ -295,7 +295,7 @@ pub mod pallet {
 	/// A ring buffer containing the block numbers of the commitments that we have imported,
 	/// ordered by the insertion time.
 	#[pallet::storage]
-	pub(super) type ImportedBlockNumbers<T: Config<I>, I: 'static = ()> =
+	pub type ImportedBlockNumbers<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Identity, u32, BridgedBlockNumber<T, I>>;
 
 	/// All the commitments that we have imported and haven't been pruned yet.

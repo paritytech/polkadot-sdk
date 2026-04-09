@@ -50,9 +50,9 @@ error[E0277]: the trait bound `Vec<u8>: MaxEncodedLen` is not satisfied
              ()
              (TupleElement0, TupleElement1)
              (TupleElement0, TupleElement1, TupleElement2)
-             (TupleElement0, ..., ..., ...)
+             (TupleElement0, TupleElement1, ..., ...)
              (TupleElement0, ..., ..., ..., ...)
-             (..., ..., ..., ..., ..., ...)
+             (TupleElement0, ..., ..., ..., ..., ...)
              (..., ..., ..., ..., ..., ..., ...)
              (..., ..., ..., ..., ..., ..., ..., ...)
            and $N others

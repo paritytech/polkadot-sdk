@@ -125,7 +125,7 @@ pub mod pallet {
 	///
 	/// Managed by the `assigner_coretime` submodule.
 	#[pallet::storage]
-	pub(super) type CoreSchedules<T: Config> = StorageMap<
+	pub type CoreSchedules<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		(BlockNumberFor<T>, CoreIndex),
@@ -139,7 +139,7 @@ pub mod pallet {
 	///
 	/// Managed by the `assigner_coretime` submodule.
 	#[pallet::storage]
-	pub(super) type CoreDescriptors<T: Config> = StorageValue<
+	pub type CoreDescriptors<T: Config> = StorageValue<
 		_,
 		BTreeMap<CoreIndex, assigner_coretime::CoreDescriptor<BlockNumberFor<T>>>,
 		ValueQuery,
