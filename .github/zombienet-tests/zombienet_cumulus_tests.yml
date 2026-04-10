@@ -120,6 +120,12 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
+- job-name: "zombienet-cumulus-0023-block_bundling_warp_sync"
+  test-filter: "zombie_ci::block_bundling::warp_sync::warp_sync_with_bundled_blocks"
+  runner-type: "large"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
 - job-name: "zombienet-cumulus-0016-statement_store_basic_propagation"
   test-filter: "zombie_ci::statement_store::integration::statement_store_basic_propagation"
   runner-type: "default"
