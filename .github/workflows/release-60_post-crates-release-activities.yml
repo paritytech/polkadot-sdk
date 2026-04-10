@@ -178,33 +178,12 @@ jobs:
 
           reorder_prdocs "$VERSION"
 
-      - name: Check git status before commit
-        run: |
-          echo "=== Git status ==="
-          git status
-          echo ""
-          echo "=== Git status --porcelain ==="
-          git status --porcelain
-          echo ""
-          echo "=== Changed files count ==="
-          git status --porcelain | wc -l
-
-      - name: Commit and push changes
+      - name: Push changes
         shell: bash
         run: |
-          . ./.github/scripts/release/release_lib.sh
-
-          # Check if there are changes to commit
-          if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: post crates release actions - version bumps, path deps, zepter, taplo"
-            echo "Changes committed successfully"
-            # Push changes to the branch
-            echo "Pushing changes to branch..."
-            git push
-            echo "Changes pushed successfully"
-          else
-            echo "No changes to commit"
-          fi
+          echo "Pushing changes to branch..."
+          git push
+          echo "Changes pushed successfully"
 
       - name: Create Pull Request to base release branch
         env:
