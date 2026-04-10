@@ -97,7 +97,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slash = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;

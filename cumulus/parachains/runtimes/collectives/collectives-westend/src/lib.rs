@@ -613,7 +613,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
