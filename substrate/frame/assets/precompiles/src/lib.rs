@@ -201,7 +201,6 @@ where
 	}
 }
 
-const ERR_DELEGATECALL_DENIED: &str = "Cannot be called via delegatecall";
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 
