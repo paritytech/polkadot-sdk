@@ -723,7 +723,9 @@ where
 			return;
 		}
 
-		// Re-add to trigger substream reopening and bidirectional initial sync
+		// Re-add all peers to trigger substream reopening and bidirectional initial sync.
+		// The multiaddrs are constructed from PeerIds in self.peers, which guarantees valid
+		// /p2p/ addresses and excludes the local peer ID, so the batch add cannot partially fail
 		let addrs: HashSet<multiaddr::Multiaddr> = peer_ids
 			.into_iter()
 			.map(|p| {

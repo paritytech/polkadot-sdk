@@ -392,12 +392,12 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 /// 3. Add dave as a late joiner (will enter major sync)
 /// 4. Poll system_peers on dave every 2s to track when dave connects to charlie
 /// 5. Simultaneously wait for the statement to arrive on dave
-/// 6. Compare timing: if statement protocol peers are deferred during major sync, the statement
-///    will arrive AFTER dave connects (gap = major sync duration)
+/// 6. Compare timing: the statement should arrive AFTER dave finishes major sync
 ///
-/// This proves that remove_peers_from_reserved_set / deferred peer logic works:
-/// dave sees charlie in system_peers (base protocol) but the statement only arrives
-/// after major sync completes and deferred peers are added to the reserved set
+/// During major sync, peers are added to the reserved set immediately on PeerConnected,
+/// but statement substreams are only effective once sync completes. When major sync ends,
+/// reconnect_statement_peers removes and re-adds all peers to trigger bidirectional
+/// initial sync, recovering any statements missed during the sync period
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -424,16 +424,17 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	statement.sign_sr25519_private(&keypair);
 	let statement_bytes: Bytes = statement.encode().into();
 
-	let _: SubmitResult = charlie_rpc
+	let result: SubmitResult = charlie_rpc
 		.request("statement_submit", rpc_params![statement_bytes.clone()])
 		.await?;
+	assert_eq!(result, SubmitResult::New, "Statement should be accepted by charlie");
 	log::info!("Statement submitted to charlie");
 
 	// Add dave as a late-joining collator
 	// Dave will enter major sync because the chain advanced ~10 blocks while dave was offline.
-	// From dave's perspective, when charlie appears via SyncEvent::PeerConnected, dave's
-	// is_major_syncing() returns true, so charlie is placed in deferred_peers instead of
-	// being added to the statement protocol reserved set immediately
+	// From dave's perspective, statement substreams with charlie are established on
+	// PeerConnected but are not productive until major sync ends. When sync completes,
+	// reconnect_statement_peers triggers bidirectional initial sync to recover statements
 	log::info!("Adding dave as late-joining collator");
 	let dave_join_time = std::time::Instant::now();
 	network.add_collator("dave", Default::default(), 1004).await?;
@@ -495,6 +496,12 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 					">>> Statement received at {:.1}s after dave joined",
 					elapsed.as_secs_f64()
 				);
+			},
+			Ok(Some(Err(e))) => {
+				log::warn!("Subscription error on dave: {e}");
+			},
+			Ok(None) => {
+				panic!("Subscription stream closed unexpectedly on dave");
 			},
 			_ => {},
 		}
