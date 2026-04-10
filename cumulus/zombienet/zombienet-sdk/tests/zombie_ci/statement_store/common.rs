@@ -95,7 +95,6 @@ pub(super) async fn subscribe_topic_filter(
 	Ok(subscription)
 }
 
-
 /// Collects `count` statements from a subscription without assuming arrival order
 ///
 /// Handles multi-item `NewStatements` batches by collecting all items from each batch
