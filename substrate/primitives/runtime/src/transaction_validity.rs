@@ -485,7 +485,7 @@ mod tests {
 		);
 
 		// decode back
-		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v));
+		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v.clone()));
 	}
 
 	#[test]
@@ -523,7 +523,7 @@ mod tests {
 		.into());
 
 		let encoded = v.encode();
-		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v));
+		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v.clone()));
 
 		let error_str: &'static str = match v {
 			Err(TransactionValidityError::Invalid(e)) => e.into(),
