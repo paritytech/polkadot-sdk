@@ -161,7 +161,7 @@ where
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
 		if env.is_delegate_call() {
-			return Err(Error::Revert(Revert { reason: ERR_DELEGATECALL_DENIED.into() }));
+			return Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into());
 		}
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
