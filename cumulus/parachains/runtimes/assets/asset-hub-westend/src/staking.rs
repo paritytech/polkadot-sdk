@@ -243,7 +243,7 @@ impl sp_staking::budget::IssuanceCurve<Balance> for IssuanceCurve {
 		let relative_period =
 			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
 
-		// Fixed total TI baseline for issuance (hard-pressure curve).
+		// Fixed total TI that we use as baseline for the issuance.
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
