@@ -146,7 +146,7 @@ impl PeerSet {
 	pub fn get_main_version(self) -> ProtocolVersion {
 		match self {
 			PeerSet::Validation => ValidationVersion::V3.into(),
-			PeerSet::Collation => CollationVersion::V2.into(),
+			PeerSet::Collation => CollationVersion::V3.into(),
 		}
 	}
 
@@ -180,6 +180,8 @@ impl PeerSet {
 					Some("collation/1")
 				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
+				} else if version == CollationVersion::V3.into() {
+					Some("collation/3")
 				} else {
 					None
 				}
@@ -260,6 +262,8 @@ pub enum CollationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
+	/// The third version, adds explicit scheduling_parent field and candidate descriptor version.
+	V3 = 3,
 }
 
 /// Marker indicating the version is unknown.
@@ -443,12 +447,11 @@ impl PeerSetProtocolNames {
 		format!("{}/{}/{}", prefix, short_name, version).into()
 	}
 
-	/// Get the protocol fallback names. Currently, it only holds
-	/// the legacy name for the collation protocol version 1.
-	fn get_fallback_names(
+	/// Get the protocol fallback names for negotiation with older peers.
+	pub fn get_fallback_names(
 		protocol: PeerSet,
-		_genesis_hash: &Hash,
-		_fork_id: Option<&str>,
+		genesis_hash: &Hash,
+		fork_id: Option<&str>,
 	) -> Vec<ProtocolName> {
 		let mut fallbacks = vec![];
 		match protocol {
@@ -457,6 +460,14 @@ impl PeerSetProtocolNames {
 				// and only version 3 is used. Therefore, fallback protocols remain empty.
 			},
 			PeerSet::Collation => {
+				// Collation V2 fallback so that V3 nodes can negotiate V2 with older peers
+				// instead of falling all the way back to the legacy V1 protocol.
+				fallbacks.push(Self::generate_name(
+					genesis_hash,
+					fork_id,
+					PeerSet::Collation,
+					CollationVersion::V2.into(),
+				));
 				fallbacks.push(LEGACY_COLLATION_PROTOCOL_V1.into());
 			},
 		};
@@ -597,6 +608,63 @@ mod tests {
 				},
 			}
 		}
+	}
+
+	/// Asserts that every version of a peer set is reachable via the main protocol name
+	/// or a fallback. Without this, bumping the main version without adding the old one
+	/// as a fallback causes peers to silently downgrade further than intended.
+	fn assert_all_versions_negotiable(
+		peer_set: PeerSet,
+		versions: impl Iterator<Item = ProtocolVersion>,
+	) {
+		let genesis_hash = Hash::from([
+			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
+			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
+		]);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+		let main_version = peer_set.get_main_version();
+		let fallback_names =
+			PeerSetProtocolNames::get_fallback_names(peer_set, &genesis_hash, None);
+
+		// Collect versions reachable via main + fallbacks.
+		let mut negotiable_versions: std::collections::HashSet<ProtocolVersion> =
+			std::collections::HashSet::new();
+		negotiable_versions.insert(main_version);
+		for fallback in &fallback_names {
+			if let Some((ps, version)) = protocol_names.try_get_protocol(fallback) {
+				assert_eq!(ps, peer_set);
+				negotiable_versions.insert(version);
+			}
+		}
+
+		for version in versions {
+			assert!(
+				negotiable_versions.contains(&version),
+				"{:?} version {} is not negotiable: \
+				 not the main version ({}) and not reachable via any fallback name ({:?}). \
+				 Add it to get_fallback_names().",
+				peer_set,
+				version,
+				main_version,
+				fallback_names,
+			);
+		}
+	}
+
+	#[test]
+	fn all_collation_versions_are_negotiable() {
+		assert_all_versions_negotiable(
+			PeerSet::Collation,
+			CollationVersion::iter().map(Into::into),
+		);
+	}
+
+	#[test]
+	fn all_validation_versions_are_negotiable() {
+		assert_all_versions_negotiable(
+			PeerSet::Validation,
+			ValidationVersion::iter().map(Into::into),
+		);
 	}
 
 	#[test]

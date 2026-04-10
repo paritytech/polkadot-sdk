@@ -1089,6 +1089,8 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
+	type UnpaidExport = frame_support::traits::ConstBool<true>;
+
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
@@ -1138,6 +1140,7 @@ construct_runtime!(
 		TransactionPayment: pallet_transaction_payment = 11,
 		// AssetTxPayment: pallet_asset_tx_payment = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
+		Dap: pallet_dap = 14,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -1199,9 +1202,6 @@ construct_runtime!(
 		Whitelist: pallet_whitelist = 95,
 		Treasury: pallet_treasury = 96,
 		AssetRate: pallet_asset_rate = 97,
-
-		// Dynamic Allocation Pool / Issuance buffer
-		Dap: pallet_dap = 98,
 
 		// Balances.
 		Vesting: pallet_vesting = 100,

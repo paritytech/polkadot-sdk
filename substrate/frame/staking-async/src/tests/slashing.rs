@@ -2147,3 +2147,72 @@ mod paged_slashing {
 		});
 	}
 }
+
+#[test]
+fn old_offences_rejected_with_zero_slash_defer_duration() {
+	// Regression test: with SlashDeferDuration=0, the oldest reportable offence era is
+	// `active_era - (BondingDuration - 2)`. Offences older than that are rejected.
+	ExtBuilder::default().nominate(false).build_and_execute(|| {
+		assert_eq!(SlashDeferDuration::get(), 0);
+		assert_eq!(BondingDuration::get(), 3);
+
+		// advance to era 5.
+		Session::roll_until_active_era(5);
+		assert_eq!(active_era(), 5);
+
+		// clear events from era transitions.
+		staking_events_since_last_call();
+
+		let offence_era = 3u32;
+
+		// WHEN: reporting offence for era 3 (outside the valid window).
+		// oldest_reportable = 5 - (3 - 2) = 4, so era 3 < 4 is too old.
+		add_slash_in_era(11, offence_era, Perbill::from_percent(10));
+
+		// THEN: correctly rejected as too old.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceTooOld {
+				offence_era,
+				validator: 11,
+				fraction: Perbill::from_percent(10),
+			}]
+		);
+
+		// OffenceQueue and OffenceQueueEras remain consistent: no orphaned records.
+		assert!(OffenceQueue::<Test>::iter_prefix(offence_era).next().is_none());
+		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&offence_era));
+
+		// WHEN: reporting offence for era 4 (within the valid window, 4 >= 4).
+		add_slash_in_era(21, 4, Perbill::from_percent(10));
+
+		// THEN: offence is accepted and stored consistently.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![Event::OffenceReported {
+				offence_era: 4,
+				validator: 21,
+				fraction: Perbill::from_percent(10),
+			}]
+		);
+
+		// OffenceQueue has the record for era 4.
+		assert!(OffenceQueue::<Test>::iter_prefix(4).next().is_some());
+		// OffenceQueueEras tracks era 4.
+		assert!(OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
+
+		// AND: computed in the next block.
+		Session::roll_next();
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				Event::SlashComputed { offence_era: 4, slash_era: 4, offender: 21, page: 0 },
+				Event::Slashed { staker: 21, amount: 100 },
+			]
+		);
+
+		// After processing, both storages are cleaned up consistently.
+		assert!(OffenceQueue::<Test>::iter_prefix(4).next().is_none());
+		assert!(!OffenceQueueEras::<Test>::get().unwrap_or_default().contains(&4));
+	});
+}

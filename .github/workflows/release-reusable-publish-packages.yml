@@ -25,13 +25,14 @@ on:
 
 jobs:
   check-synchronization:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [check-synchronization]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
+    if: ${{ !cancelled() && (needs.check-synchronization.result == 'skipped' || needs.check-synchronization.outputs.checks_passed == 'true') }}
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
@@ -108,7 +109,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3-pip reprepro rpm createrepo-c
 
-          python3 -m pip install --user awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151"
+          python3 -m pip install --user awscli "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae"
 
           # Ensure ~/.local/bin is in PATH right now and for later steps
           export PATH=$HOME/.local/bin:$PATH

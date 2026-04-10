@@ -118,6 +118,13 @@ async fn comprehensive_reputation_persistence_test() -> Result<(), anyhow::Error
 				])
 				.with_collator(|n| n.with_name("collator-2"))
 		})
+		.with_global_settings(|global_settings| {
+			let global_settings = match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+				Ok(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			};
+			global_settings.with_tear_down_on_failure(false)
+		})
 		.build()
 		.map_err(|e| {
 			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");

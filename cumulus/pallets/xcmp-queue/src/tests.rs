@@ -1087,6 +1087,66 @@ fn xcmp_queue_send_too_big_xcm_fails() {
 }
 
 #[test]
+fn concatenated_opaque_version_xcm_negotiation_works() {
+	new_test_ext().execute_with(|| {
+		let sibling_para_id = ParaId::from(1000);
+		// open HRMP channel to the sibling_para_id
+		ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(sibling_para_id);
+
+		let dest: Location = (Parent, Parachain(sibling_para_id.into())).into();
+		let msg = Xcm::<()>(vec![ClearOrigin]);
+
+		// If there is a message in the queue, the notification is not sent
+		assert_ok!(send_xcm::<XcmpQueue>(dest.clone(), msg.clone()));
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(usize::MAX),
+			vec![(
+				sibling_para_id,
+				[ConcatenatedVersionedXcm.encode(), VersionedXcm::V5(msg.clone()).encode()]
+					.concat()
+			)]
+		);
+
+		// The queue is empty. The notification should be sent.
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(usize::MAX),
+			vec![(sibling_para_id, ConcatenatedOpaqueVersionedXcm.encode())]
+		);
+
+		// The notification should not be sent again
+		assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+
+		// The recipient parachain still uses the `ConcatenatedVersionedXcm`.
+		let page = generate_mock_xcm_page(0, 1, XcmEncoding::Simple);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		// The next message is still sent using the `ConcatenatedVersionedXcm` format.
+		assert_ok!(send_xcm::<XcmpQueue>(dest.clone(), msg.clone()));
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(usize::MAX),
+			vec![(
+				sibling_para_id,
+				[ConcatenatedVersionedXcm.encode(), VersionedXcm::V5(msg.clone()).encode()]
+					.concat()
+			)]
+		);
+
+		// The recipient switched to using `ConcatenatedOpaqueVersionedXcm`
+		let page = generate_mock_xcm_page(0, 0, XcmEncoding::Double);
+		XcmpQueue::handle_xcmp_messages(once((1000.into(), 1, page.as_slice())), Weight::MAX);
+		// The next message is sent using the `ConcatenatedOpaqueVersionedXcm` format.
+		assert_ok!(send_xcm::<XcmpQueue>(dest, msg.clone()));
+		assert_eq!(
+			XcmpQueue::take_outbound_messages(usize::MAX),
+			vec![(
+				sibling_para_id,
+				[ConcatenatedOpaqueVersionedXcm.encode(), VersionedXcm::V5(msg).encode().encode()]
+					.concat()
+			)]
+		);
+	})
+}
+
+#[test]
 fn verify_fee_factor_increase_and_decrease() {
 	use cumulus_primitives_core::AbridgedHrmpChannel;
 	use sp_runtime::FixedU128;

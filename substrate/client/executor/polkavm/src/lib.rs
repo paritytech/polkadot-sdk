@@ -21,6 +21,7 @@ use sc_executor_common::{
 	error::{Error, WasmError},
 	wasm_runtime::{AllocationStats, WasmInstance, WasmModule},
 };
+use sp_runtime_interface::unpack_ptr_and_len;
 use sp_wasm_interface::{
 	Function, FunctionContext, HostFunctions, Pointer, Value, ValueType, WordSize,
 };
@@ -116,9 +117,9 @@ impl WasmInstance for Instance {
 			Err(CallError::Step) => unreachable!("stepping is never enabled"),
 		};
 
-		let result_pointer = self.0.reg(Reg::A0);
-		let result_length = self.0.reg(Reg::A1);
-		let output = match self.0.read_memory(result_pointer as u32, result_length as u32) {
+		let result = self.0.reg(Reg::A0);
+		let (result_pointer, result_length) = unpack_ptr_and_len(result);
+		let output = match self.0.read_memory(result_pointer, result_length) {
 			Ok(output) => output,
 			Err(error) => {
 				return (Err(format!("call into the runtime method '{name}' failed: failed to read the return payload: {error}").into()), None)
@@ -133,7 +134,7 @@ struct Context<'r, 'a>(&'r mut polkavm::Caller<'a, ()>);
 
 impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn read_memory_into(
-		&self,
+		&mut self,
 		address: Pointer<u8>,
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<()> {
@@ -174,6 +175,10 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 
 	fn register_panic_error_message(&mut self, _message: &str) {
 		unimplemented!("'register_panic_error_message' is never used when running under PolkaVM");
+	}
+
+	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
+		todo!("Implement virtualization for PolkaVM")
 	}
 }
 

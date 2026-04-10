@@ -57,13 +57,14 @@ on:
 
 jobs:
   check-synchronization:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [ check-synchronization ]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
+    if: ${{ !cancelled() && (needs.check-synchronization.result == 'skipped' || needs.check-synchronization.outputs.checks_passed == 'true') }}
     runs-on: ubuntu-latest
     outputs:
         release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
@@ -153,10 +154,8 @@ jobs:
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
           echo "Version: $VERSION"
 
-          if [[ ${NO_RUNTIMES} == "true"  || ${CRATES_ONLY} == "true" ]]; then
-            export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
-            export NODE_VERSION=v$(get_polkadot_node_version_from_code)
-          fi
+          export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
+          export NODE_VERSION=v$(get_polkadot_node_version_from_code)
 
           ./scripts/release/build-changelogs.sh
 

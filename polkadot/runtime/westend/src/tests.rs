@@ -20,10 +20,17 @@ use std::collections::HashSet;
 
 use crate::{xcm_config::LocationConverter, *};
 use approx::assert_relative_eq;
-use frame_support::traits::WhitelistedStorageKeys;
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::{Inspect, Mutate},
+		WhitelistedStorageKeys,
+	},
+};
 use pallet_staking::EraPayout;
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
-use sp_keyring::Sr25519Keyring::Alice;
+use sp_keyring::Sr25519Keyring::{self, Alice};
+use sp_runtime::generic::Era;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
@@ -506,4 +513,91 @@ fn staking_inflation_correct_print_percent() {
 
 		assert!(inflation <= 8.0 && inflation > 2.0, "sanity check");
 	}
+}
+
+fn new_test_ext() -> sp_io::TestExternalities {
+	frame_system::GenesisConfig::<Runtime>::default()
+		.build_storage()
+		.unwrap()
+		.into()
+}
+
+fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedExtrinsic {
+	let account_id = AccountId::from(sender);
+	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckMortality::from(Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_transaction_payment::ChargeTransactionPayment::<Runtime>::from(0),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+		frame_system::WeightReclaim::<Runtime>::new(),
+	);
+	let payload = sp_runtime::generic::SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
+	let signature = payload.using_encoded(|e| sender.sign(e));
+	UncheckedExtrinsic::new_signed(call, account_id.into(), Signature::Sr25519(signature), tx_ext)
+}
+
+#[test]
+fn tx_fees_go_to_dap_satellite() {
+	new_test_ext().execute_with(|| {
+		let alice = AccountId::from(Sr25519Keyring::Alice);
+		let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+		let ed = ExistentialDeposit::get();
+
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&satellite, ed));
+
+		let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
+		let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+		let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+		let xt = construct_extrinsic(Sr25519Keyring::Alice, call);
+		assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+		let alice_after = <Balances as Inspect<AccountId>>::balance(&alice);
+		let fee_paid = alice_before - alice_after;
+		assert!(fee_paid > 0, "a fee should have been paid");
+
+		let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+		let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+
+		assert_eq!(satellite_after, satellite_before + fee_paid);
+		assert_eq!(issuance_before, issuance_after);
+	});
+}
+
+#[test]
+fn dust_removal_goes_to_dap_satellite() {
+	new_test_ext().execute_with(|| {
+		let alice: AccountId = Sr25519Keyring::Alice.into();
+		let bob: AccountId = Sr25519Keyring::Bob.into();
+		let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+		let ed = ExistentialDeposit::get();
+		let dust = ed / 2;
+
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&satellite, ed));
+
+		let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+
+		// Transfer ED away from bob, leaving dust < ED → account reaped.
+		assert_ok!(Balances::transfer_allow_death(
+			RuntimeOrigin::signed(bob.clone()),
+			alice.into(),
+			ed,
+		));
+
+		let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+		assert_eq!(satellite_after, satellite_before + dust);
+		assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+	});
 }

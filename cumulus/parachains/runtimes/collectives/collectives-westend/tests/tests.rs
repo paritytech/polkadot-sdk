@@ -18,18 +18,29 @@
 
 use collectives_westend_runtime::{
 	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Block, Runtime, RuntimeCall, RuntimeOrigin,
+	Balances, Block, ExistentialDeposit, Runtime, RuntimeCall, RuntimeOrigin,
 };
-use frame_support::{assert_err, assert_ok};
-use parachains_common::AccountId;
-use parachains_runtimes_test_utils::GovernanceOrigin;
+use frame_support::{assert_err, assert_ok, traits::fungible::Inspect};
+use parachains_common::{AccountId, AuraId};
+use parachains_runtimes_test_utils::{ExtBuilder, GovernanceOrigin};
 use sp_core::crypto::Ss58Codec;
+use sp_keyring::Sr25519Keyring;
 use sp_runtime::Either;
 use testnet_parachains_constants::westend::fee::WeightToFee;
 use xcm::latest::prelude::*;
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const ALICE: [u8; 32] = [1u8; 32];
+
+fn collator_session_keys() -> parachains_runtimes_test_utils::CollatorSessionKeys<Runtime> {
+	parachains_runtimes_test_utils::CollatorSessionKeys::new(
+		AccountId::from(Sr25519Keyring::Alice),
+		AccountId::from(Sr25519Keyring::Alice),
+		collectives_westend_runtime::SessionKeys {
+			aura: AuraId::from(Sr25519Keyring::Alice.public()),
+		},
+	)
+}
 
 #[test]
 fn location_conversion_works() {
@@ -199,4 +210,64 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(GovernanceLocation::get())));
+}
+
+#[test]
+fn fees_go_to_dap_satellite() {
+	use frame_support::traits::{fungible::Balanced, tokens::imbalance::OnUnbalanced};
+
+	// Collectives has no ChargeTransactionPayment in its TxExtension, so extrinsics don't pay fees.
+	// Test the DealWithFeesSatellite wiring via OnUnbalanced.
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+	let fee_amount = 1_000_000_000u128;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![(satellite.clone(), ed)])
+		.with_para_id(1001.into())
+		.build()
+		.execute_with(|| {
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+
+			let credit = <Balances as Balanced<AccountId>>::issue(fee_amount);
+			<collectives_westend_runtime::DapSatellite as OnUnbalanced<_>>::on_unbalanced(credit);
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			assert_eq!(satellite_after, satellite_before + fee_amount);
+		});
+}
+
+#[test]
+fn dust_removal_goes_to_dap_satellite() {
+	let alice = AccountId::from(Sr25519Keyring::Alice);
+	let bob = AccountId::from(Sr25519Keyring::Bob);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+	let dust = ed / 2;
+
+	ExtBuilder::<Runtime>::default()
+		.with_collators(collator_session_keys().collators())
+		.with_session_keys(collator_session_keys().session_keys())
+		.with_balances(vec![
+			(alice.clone(), 100 * ed),
+			(bob.clone(), ed + dust),
+			(satellite.clone(), ed),
+		])
+		.with_para_id(1001.into())
+		.build()
+		.execute_with(|| {
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(bob.clone()),
+				alice.clone().into(),
+				ed,
+			));
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			assert_eq!(satellite_after, satellite_before + dust);
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+		});
 }

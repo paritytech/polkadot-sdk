@@ -492,7 +492,7 @@ frame::deps::sp_runtime::impl_opaque_keys! {
 }
 
 parameter_types! {
-	pub static MinSetKeysBond: Balance = 0;
+	pub static KeyDeposit: Balance = 10;
 }
 
 impl pallet_staking_async_rc_client::Config for Runtime {
@@ -502,18 +502,35 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 	type MaxValidatorSetRetries = ConstU32<3>;
 	type ValidatorSetExportSession = ValidatorSetExportSession;
 	type RelayChainSessionKeys = RCSessionKeys;
-	type Balance = Balance;
-	type MinSetKeysBond = MinSetKeysBond;
+	type Currency = Balances;
+	type KeyDeposit = KeyDeposit;
 	type WeightInfo = ();
 }
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+	pub static MockTime: u64 = 0;
+}
+
+impl frame_support::traits::Time for MockTime {
+	type Moment = u64;
+	fn now() -> u64 {
+		Self::get()
+	}
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = MockTime;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
