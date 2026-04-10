@@ -398,7 +398,7 @@ pub enum PvfCheckCause<BlockNumber> {
 		/// instead of its relay parent -- in order to keep PVF available in case of chain
 		/// reversions.
 		///
-		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
+		/// See <https://github.com/paritytech/polkadot/issues/4601> for detailed explanation.
 		included_at: BlockNumber,
 		/// Whether or not the upgrade should be enacted directly.
 		///
