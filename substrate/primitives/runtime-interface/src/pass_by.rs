@@ -29,8 +29,6 @@ use crate::host::*;
 #[cfg(substrate_runtime)]
 use crate::wasm::*;
 
-#[cfg(substrate_runtime)]
-use byte_slice_cast::AsMutByteSlice;
 #[cfg(not(substrate_runtime))]
 use byte_slice_cast::FromByteSlice;
 #[cfg(not(substrate_runtime))]
@@ -324,20 +322,11 @@ impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a m
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]>
-where
-	[T]: AsMutByteSlice<T>,
-{
+impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]> {
 	type Destructor = ();
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		(
-			pack_ptr_and_len(
-				value.as_mut_byte_slice().as_ptr() as u32,
-				value.len() as u32 * core::mem::size_of::<T>() as u32,
-			),
-			(),
-		)
+		(pack_ptr_and_len(value.as_ptr() as u32, core::mem::size_of_val(*value) as u32), ())
 	}
 }
 
@@ -385,20 +374,11 @@ impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]>
-where
-	[T]: AsMutByteSlice<T>,
-{
+impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]> {
 	type Destructor = ();
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		(
-			pack_ptr_and_len(
-				value.as_mut_byte_slice().as_ptr() as u32,
-				value.len() as u32 * core::mem::size_of::<T>() as u32,
-			),
-			(),
-		)
+		(pack_ptr_and_len(value.as_ptr() as u32, core::mem::size_of_val(*value) as u32), ())
 	}
 }
 
