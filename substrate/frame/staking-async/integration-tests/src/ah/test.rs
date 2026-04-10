@@ -2154,10 +2154,11 @@ fn legacy_to_dap_era_payout_e2e() {
 		roll_until_next_active(7);
 		assert_eq!(Rotator::<T>::active_era(), 2);
 
-		// THEN: EraPaid for era 1 with non-zero remainder (legacy 50/50 split).
+		// THEN: EraPaid for era 1 with 50/50 split (remainder == validator_payout).
 		let events = staking_events_since_last_call();
 		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::EraPaid { era_index: 1, remainder, .. } if *remainder > 0
+			e, StakingEvent::EraPaid { era_index: 1, remainder, validator_payout, .. }
+				if *remainder == *validator_payout
 		)));
 
 		// WHEN: switch to DAP mode (simulates runtime upgrade).
