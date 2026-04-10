@@ -71,4 +71,6 @@ exclude = [
 	"%7B:\\?}",
 	# Example ws:// URLs in Rust doc comments incorrectly parsed as file paths by lychee
 	"file://.*/ws:/node.*",
+	# Private repository:
+	"https://github.com/paritytech/individuality/blob/main/runtimes/people-westend/chain-spec/create_people_westend_spec.sh",
 ]

@@ -2142,6 +2142,23 @@ fn legacy_to_dap_era_payout_e2e() {
 			0
 		);
 
+		// THEN: EraPaid for era 0 with 50/50 split.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::SessionRotated { starting_session: 2, active_era: 0, planned_era: 1 },
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated { starting_session: 3, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 6, active_era: 0, planned_era: 1 },
+				StakingEvent::EraPaid { era_index: 0, validator_payout: 162000, remainder: 162000 },
+				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
+			]
+		);
+
 		// Reward points for era 1 (era 0 has no exposure — pre-election).
 		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
 			points.total = 4;
@@ -2154,11 +2171,38 @@ fn legacy_to_dap_era_payout_e2e() {
 		roll_until_next_active(7);
 		assert_eq!(Rotator::<T>::active_era(), 2);
 
-		// THEN: EraPaid for era 1 with non-zero remainder (legacy 50/50 split).
-		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::EraPaid { era_index: 1, remainder, .. } if *remainder > 0
-		)));
+		// THEN: EraPaid for era 1 with 50/50 split.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
+				StakingEvent::SessionRotated { starting_session: 9, active_era: 1, planned_era: 2 },
+				StakingEvent::SessionRotated {
+					starting_session: 10,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 11,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 12,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::EraPaid { era_index: 1, validator_payout: 162000, remainder: 162000 },
+				StakingEvent::SessionRotated {
+					starting_session: 13,
+					active_era: 2,
+					planned_era: 3,
+				},
+			]
+		);
 
 		// WHEN: switch to DAP mode (simulates runtime upgrade).
 		UseLegacyEraPayout::set(false);
@@ -2211,10 +2255,49 @@ fn legacy_to_dap_era_payout_e2e() {
 		assert!(era_2_reward > 0);
 
 		// THEN: EraPaid with remainder=0 (DAP mode).
-		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::EraPaid { era_index: 2, remainder, .. } if *remainder == 0
-		)));
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated {
+					starting_session: 14,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 15,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 16,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 17,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 18,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::EraPaid {
+					era_index: 2,
+					validator_payout: era_2_reward,
+					remainder: 0,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 19,
+					active_era: 3,
+					planned_era: 4,
+				},
+			]
+		);
 
 		// WHEN: payout era 2 (DAP pot transfer).
 		let pre_issuance = Balances::total_issuance();
@@ -2229,17 +2312,27 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		// THEN: issuance unchanged (transfer, not mint).
 		assert_eq!(Balances::total_issuance(), pre_issuance);
-		// THEN: validator balance increased.
-		assert!(Balances::total_balance(&val_a) > balance_before);
-		// THEN: correct events.
+		// THEN: validator gets 1/4 of era reward (4 validators, equal points, 0% commission).
+		let expected_reward = era_2_reward / 4;
+		assert_eq!(Balances::total_balance(&val_a) - balance_before, expected_reward);
+		// THEN: exactly two events — payout started + validator rewarded.
 		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::PayoutStarted { era_index: 2, validator_stash, .. }
-			if *validator_stash == val_a
-		)));
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::Rewarded { stash, .. } if *stash == val_a
-		)));
+		assert_eq!(
+			events,
+			vec![
+				StakingEvent::PayoutStarted {
+					era_index: 2,
+					validator_stash: val_a,
+					page: 0,
+					next: None,
+				},
+				StakingEvent::Rewarded {
+					stash: val_a,
+					dest: staking_async::RewardDestination::Stash,
+					amount: expected_reward,
+				},
+			]
+		);
 	});
 
 	UseLegacyEraPayout::set(false);

@@ -16,7 +16,7 @@ doc:
     `StakerRewardCalculator`. New storage: `MaxCommission`, `DisableMintingGuard`.
     New extrinsic: `set_max_commission`.
 
-    Runtimes using non-minting mode provide a `PolkadotIssuanceCurve` to DAP and
+    Runtimes using non-minting mode provide an `IssuanceCurve` impl to DAP and
     register `StakerRewardRecipient` as a budget recipient. DAP storage version
     bumped to V2 with migration.
 crates:

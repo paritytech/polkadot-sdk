@@ -19,12 +19,11 @@
 //! This module defines `HostState` and `HostContext` structs which provide logic and state
 //! required for execution of host.
 
-use wasmtime::Caller;
-
-use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
-use sp_wasm_interface::{Pointer, WordSize};
-
 use crate::{instance_wrapper::MemoryWrapper, runtime::StoreData, util};
+use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
+use sp_virtualization::VirtManager;
+use sp_wasm_interface::{Pointer, WordSize};
+use wasmtime::Caller;
 
 /// The state required to construct a HostContext context. The context only lasts for one host
 /// call, whereas the state is maintained for the duration of a Wasm runtime call, which may make
@@ -37,12 +36,18 @@ pub struct HostState {
 	/// once.
 	allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
+	/// Manages virtualization instances spawned by the runtime.
+	virt_manager: VirtManager,
 }
 
 impl HostState {
 	/// Constructs a new `HostState`.
 	pub fn new(allocator: FreeingBumpHeapAllocator) -> Self {
-		HostState { allocator: Some(allocator), panic_message: None }
+		HostState {
+			allocator: Some(allocator),
+			panic_message: None,
+			virt_manager: VirtManager::default(),
+		}
 	}
 
 	/// Takes the error message out of the host state, leaving a `None` in its place.
@@ -124,5 +129,9 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn register_panic_error_message(&mut self, message: &str) {
 		self.host_state_mut().panic_message = Some(message.to_owned());
+	}
+
+	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
+		&mut self.host_state_mut().virt_manager
 	}
 }

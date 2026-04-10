@@ -232,18 +232,18 @@ parameter_types! {
 	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
 }
 
-/// Polkadot inflation curve for DAP.
+/// Westend inflation curve for DAP.
 ///
 /// Same computation as the previous `EraPayout` but returns total emission.
 /// The budget split (ex. 85/15 staker/treasury) is now handled by pallet-dap.
-pub struct PolkadotIssuanceCurve;
-impl sp_staking::budget::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
+pub struct IssuanceCurve;
+impl sp_staking::budget::IssuanceCurve<Balance> for IssuanceCurve {
 	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
 		let relative_period =
 			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
 
-		// Fixed total TI baseline for issuance (hard-pressure curve).
+		// Fixed total TI that we use as baseline for the issuance.
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
@@ -358,7 +358,7 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type IssuanceCurve = PolkadotIssuanceCurve;
+	type IssuanceCurve = IssuanceCurve;
 	type BudgetRecipients = (
 		pallet_dap::Pallet<Runtime>,
 		pallet_staking_async::StakerRewardRecipient<

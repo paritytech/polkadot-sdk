@@ -83,8 +83,8 @@ fn rewards_with_nominator_should_work() {
 			]
 		);
 
-		// With DAP, rewards are minted at era finalization (not during payout)
-		// So total issuance should not change during payout (just transfers from pot)
+		// In non-minting mode, rewards are minted externally (e.g. pallet-dap) and
+		// snapshotted into era pots. Payouts transfer from pot, so issuance is unchanged.
 		let post_issuance = asset::total_issuance::<T>();
 		assert_eq!(post_issuance, pre_issuance);
 
@@ -125,7 +125,7 @@ fn rewards_with_nominator_should_work() {
 			]
 		);
 
-		// Capture issuance before payout (rewards already minted during era finalization above)
+		// Capture issuance before payout (rewards should already be minted)
 		let pre_payout_2 = asset::total_issuance::<T>();
 
 		mock::make_all_reward_payment(2);
@@ -957,7 +957,7 @@ fn test_multi_page_payout_stakers_by_page() {
 			controller_balance_after_p1_payout - controller_balance_before_p0_payout;
 		assert_eq_error_rate!(total_validator_paid, validator_total_reward, 1);
 
-		// With DAP, rewards minted at era finalization, so no change during payout
+		// In non-minting mode, payouts transfer from pot, so issuance is unchanged
 		assert_eq!(pallet_balances::TotalIssuance::<T>::get(), pre_payout_total_issuance);
 
 		// Verify total nominator rewards: sum of all nominator balance increases should

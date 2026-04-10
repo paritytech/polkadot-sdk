@@ -114,25 +114,20 @@
   runner-type: "default"
 
 
-# SDK tests using zombienet-sdk
 # TODO: Disabled
 - job-name: "zombienet-polkadot-coretime-revenue"
   test-filter: "smoke::coretime_revenue::coretime_revenue_test"
   runner-type: "default"
-
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-3cores"
   test-filter: "elastic_scaling::slot_based_3cores::slot_based_3cores_test"
   runner-type: "large"
-
   cumulus-image: "test-parachain"
 
-# TODO: Disabled, fails very often with zombienet native provider
 - job-name: "zombienet-polkadot-elastic-scaling-slot-based-12cores"
   test-filter: "elastic_scaling::slot_based_12cores::slot_based_12cores_test"
-  runner-type: "default"
-
+  runner-type: "large"
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-elastic-scaling-doesnt-break-parachains"
@@ -143,18 +138,16 @@
 - job-name: "zombienet-polkadot-elastic-scaling-basic-3cores"
   test-filter: "elastic_scaling::basic_3cores::basic_3cores_test"
   runner-type: "default"
-
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-functional-sync-backing"
   test-filter: "functional::sync_backing::sync_backing_test"
   runner-type: "default"
-
   cumulus-image: "test-parachain"
 
 - job-name: "zombienet-polkadot-functional-async-backing-6-seconds-rate"
   test-filter: "functional::async_backing_6_seconds_rate::async_backing_6_seconds_rate_test"
-  runner-type: "default"
+  runner-type: "large"
 
 
 # TODO: Disabled, occasionally (1 on ~50-100 runs) fails
@@ -179,13 +172,11 @@
 - job-name: "zombienet-polkadot-approval-voting-coalescing"
   test-filter: "functional::approval_voting_coalescing::approval_voting_coalescing_test"
   runner-type: "default"
-
   cumulus-image: "colander"
 
 - job-name: "zombienet-polkadot-approved-peer-mixed-validators"
   test-filter: "functional::approved_peer_mixed_validators::approved_peer_mixed_validators_test"
   runner-type: "default"
-
   cumulus-image: "colander"
   additional-setup: |
     BIN_DIR="$(pwd)/bin_old"
