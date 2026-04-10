@@ -13016,7 +13016,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive"
-version = "0.7.1"
+version = "0.7.2"
 dependencies = [
  "alloy-core",
  "array-bytes 6.2.2",
@@ -13110,7 +13110,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-revive-fixtures"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "anyhow",
  "cargo_metadata",
