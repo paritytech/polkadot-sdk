@@ -1025,7 +1025,7 @@ mod tests {
 		let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
 		let (_, signer) = test_recipient();
 
-		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], SENDER_A).unwrap();
 
 		// At block 50 with buffer=30 → 50+30=80 < 100 → not promotable
 		let promotable = pool.get_promotable(50, 30, usize::MAX);
@@ -1044,7 +1044,7 @@ mod tests {
 		let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
 		let (_, signer) = test_recipient();
 
-		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], SENDER_A).unwrap();
 
 		// Entry is promotable
 		let promotable = pool.get_promotable(80, 30, usize::MAX);
@@ -1066,7 +1066,7 @@ mod tests {
 		let hash;
 		{
 			let pool = HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap();
-			hash = pool.insert(vec![42u8; 10], 0, vec![signer], ALIAS_A).unwrap();
+			hash = pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
 			pool.mark_promoted(&hash);
 		}
 
@@ -1085,7 +1085,7 @@ mod tests {
 		let pool = HopDataPool::new(1024 * 1024, 10, dir.path().to_path_buf()).unwrap();
 		let (_, signer) = test_recipient();
 
-		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], ALIAS_A).unwrap();
+		let hash = pool.insert(vec![1, 2, 3], 0, vec![signer], SENDER_A).unwrap();
 		pool.mark_promoted(&hash);
 
 		// Entry is promoted but still in pool

@@ -35,8 +35,6 @@ sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-hop = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-sp-transaction-storage-proof = { workspace = true, default-features = true }
-polkadot-primitives = { workspace = true, default-features = true }
 
 # Substrate client
 sc-transaction-pool-api = { workspace = true, default-features = true }

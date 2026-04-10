@@ -28,22 +28,10 @@ use core::result::Result;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use scale_info::TypeInfo;
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 pub use sp_inherents::Error;
-
-/// Status of an account's authorization, returned by the runtime API.
-#[derive(Clone, PartialEq, Eq, Debug, Encode, Decode, TypeInfo)]
-pub struct AuthorizationStatus<BlockNumber> {
-	/// Remaining number of transactions the account is authorized to submit.
-	pub transactions: u32,
-	/// Remaining number of bytes the account is authorized to store.
-	pub bytes: u64,
-	/// Block number at which this authorization expires.
-	pub expiration: BlockNumber,
-}
 
 /// The identifier for the proof inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"tx_proof";

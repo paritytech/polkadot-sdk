@@ -30,11 +30,11 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
+use sp_hop::HopApi;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
 };
-use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, sync::Arc};
 
 /// HOP RPC methods.
@@ -114,7 +114,7 @@ impl<C, Block> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: TransactionStorageApi<Block>,
+	C::Api: sp_hop::HopApi<Block, AccountId32>,
 {
 	fn submit(
 		&self,
@@ -149,14 +149,16 @@ where
 
 		// Check authorization via runtime API
 		let best_hash = self.client.info().best_hash;
-		let _authorization = self
+		let authorized = self
 			.client
 			.runtime_api()
-			.account_authorization(best_hash, account_id.clone())
+			.is_account_authorized(best_hash, account_id.clone())
 			.map_err(|e| {
 				ErrorObjectOwned::owned(1017, format!("Runtime API error: {}", e), None::<()>)
-			})?
-			.ok_or_else(|| ErrorObjectOwned::from(HopError::NotAuthorized))?;
+			})?;
+		if !authorized {
+			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
+		}
 
 		// Use account ID as sender identity for rate limiting
 		let sender_id: [u8; 32] = account_id.into();

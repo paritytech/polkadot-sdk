@@ -44,8 +44,8 @@ use frame_support::{
 use frame_system::pallet_prelude::BlockNumberFor;
 use sp_runtime::traits::{BlakeTwo256, Dispatchable, Hash, One, Saturating, Zero};
 use sp_transaction_storage_proof::{
-	encode_index, num_chunks, random_chunk, AuthorizationStatus, ChunkIndex, InherentError,
-	TransactionStorageProof, CHUNK_SIZE, INHERENT_IDENTIFIER,
+	encode_index, num_chunks, random_chunk, ChunkIndex, InherentError, TransactionStorageProof,
+	CHUNK_SIZE, INHERENT_IDENTIFIER,
 };
 
 /// A type alias for the balance type from this pallet's point of view.
@@ -544,24 +544,14 @@ pub mod pallet {
 			RetentionPeriod::<T>::get()
 		}
 
-		/// Returns the authorization status for the given account.
-		///
-		/// Returns `Some(status)` if the account has an active (non-expired) authorization
-		/// with remaining capacity, or `None` if no valid authorization exists.
-		pub fn account_authorization(
-			who: T::AccountId,
-		) -> Option<AuthorizationStatus<BlockNumberFor<T>>> {
-			let authorization =
-				Authorizations::<T>::get(AuthorizationScope::<T::AccountId>::Account(who))?;
-			let now = frame_system::Pallet::<T>::block_number();
-			if now >= authorization.expiration {
-				return None;
-			}
-			Some(AuthorizationStatus {
-				transactions: authorization.extent.transactions,
-				bytes: authorization.extent.bytes,
-				expiration: authorization.expiration,
-			})
+		/// Returns whether the given account has an active (non-expired) authorization.
+		pub fn is_account_authorized(who: T::AccountId) -> bool {
+			let Some(authorization) =
+				Authorizations::<T>::get(AuthorizationScope::<T::AccountId>::Account(who))
+			else {
+				return false;
+			};
+			frame_system::Pallet::<T>::block_number() < authorization.expiration
 		}
 
 		fn apply_fee(sender: T::AccountId, size: u32) -> DispatchResult {

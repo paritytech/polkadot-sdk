@@ -17,20 +17,21 @@
 
 //! HOP (Hand-Off Protocol) primitives.
 //!
-//! Contains the runtime API trait for HOP promotion — promoting ephemeral pool
-//! data to permanent on-chain storage via `pallet-transaction-storage`.
+//! Contains the runtime API trait for HOP — authorization checks and promotion
+//! of ephemeral pool data to on-chain storage.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
 sp_api::decl_runtime_apis! {
-	/// Runtime API for HOP promotion.
+	/// Runtime API for HOP.
 	///
-	/// Runtimes that include `pallet-hop-promotion` implement this API so the
-	/// node's background maintenance task can automatically promote near-expiry
-	/// HOP pool entries to permanent chain storage.
-	pub trait HopPromotionApi {
+	/// Runtimes that support HOP implement this API so the node can check
+	/// authorization and promote near-expiry pool entries to on-chain storage.
+	pub trait HopApi<AccountId> where AccountId: codec::Codec {
+		/// Check whether the given account has an active authorization.
+		fn is_account_authorized(who: AccountId) -> bool;
 		/// Construct a general transaction extrinsic for promoting HOP data.
 		fn create_promotion_extrinsic(data: alloc::vec::Vec<u8>) -> Block::Extrinsic;
 		/// Maximum data size per promotion extrinsic.
