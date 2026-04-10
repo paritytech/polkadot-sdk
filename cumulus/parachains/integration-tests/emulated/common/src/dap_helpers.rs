@@ -51,7 +51,8 @@ where
 	let sender_ed = <Sender::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
 	let ah_ed = <AH::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
 	let satellite_account = pallet_dap_satellite::Pallet::<Sender::Runtime>::satellite_account();
-	let dap_accum_account: AccountId = DAP_SATELLITE_ACCUMULATION_PALLET_ID.into_account_truncating();
+	let dap_accum_account: AccountId =
+		DAP_SATELLITE_ACCUMULATION_PALLET_ID.into_account_truncating();
 	let dap_buffer_account: AccountId = DAP_BUFFER_PALLET_ID.into_account_truncating();
 
 	// The fund amount should slightly exceed MinTransferAmount to trigger a transfer.
