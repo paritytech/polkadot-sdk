@@ -14925,6 +14925,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "pallet-timestamp",
  "pallet-xcm",
  "parity-scale-codec",

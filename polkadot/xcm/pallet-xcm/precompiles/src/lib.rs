@@ -44,7 +44,6 @@ mod mock;
 mod tests;
 
 const LOG_TARGET: &str = "xcm::precompiles";
-const ERR_DELEGATE_CALL: &str = "Cannot be called via delegate call";
 
 fn revert(error: &impl fmt::Debug, message: &str) -> Error {
 	error!(target: LOG_TARGET, ?error, "{}", message);
@@ -83,9 +82,8 @@ where
 		};
 
 		match input {
-			_ if env.is_delegate_call() => {
-				Err(Error::Revert(ERR_DELEGATE_CALL.into()))
-			},
+			_ if env.is_delegate_call() =>
+				Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into()),
 			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() => {
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},
