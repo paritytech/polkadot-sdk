@@ -1069,9 +1069,9 @@ help: the trait `Config` is not implemented for `Runtime`
              (TupleElement0, TupleElement1, TupleElement2)
              (TupleElement0, TupleElement1, TupleElement2, TupleElement3)
              (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4)
-             (TupleElement0, TupleElement1, TupleElement2, ..., ..., ...)
+             (TupleElement0, TupleElement1, TupleElement2, TupleElement3, TupleElement4, TupleElement5)
              (TupleElement0, TupleElement1, TupleElement2, ..., ..., ..., ...)
-             (TupleElement0, TupleElement1, ..., ..., ..., ..., ..., ...)
+             (TupleElement0, TupleElement1, TupleElement2, ..., ..., ..., ..., ...)
            and $N others
    = note: required for `Pallet<Runtime>` to implement `OnGenesis`
    = note: 1 redundant requirement hidden
