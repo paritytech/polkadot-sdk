@@ -52,6 +52,8 @@ sp-maybe-compressed-blob = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+sp-virtualization = { workspace = true, default-features = true }
+sp-virtualization-test-fixture = { workspace = true }
 substrate-test-runtime = { workspace = true }
 tempfile = { workspace = true }
 tracing-subscriber = { workspace = true }
