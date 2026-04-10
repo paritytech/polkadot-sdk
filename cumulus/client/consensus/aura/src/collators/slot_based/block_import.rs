@@ -352,18 +352,9 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		tracing::debug!(
-			target: LOG_TARGET,
-			origin = ?params.origin,
-			state_action = ?params.state_action,
-			number = ?params.header.number(),
-			hash = ?params.header.hash(),
-			"import_block entry",
-		);
-
-		if !(params.origin == BlockOrigin::Own
-			|| params.with_state()
-			|| matches!(params.state_action, StateAction::Skip))
+		if !(params.origin == BlockOrigin::Own ||
+			params.with_state() ||
+			params.state_action.skip_execution_checks())
 		{
 			self.execute_block_and_collect_storage_proof(&mut params)?;
 		}
