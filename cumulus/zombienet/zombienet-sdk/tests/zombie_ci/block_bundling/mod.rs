@@ -17,6 +17,7 @@
 
 mod basic;
 mod full_core_usage_scenarios;
+mod warp_sync;
 mod pov_recovery;
 mod relay_parent_offset;
 mod runtime_upgrade;
