@@ -7350,6 +7350,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "binary-merkle-tree 13.0.0",
  "bitflags 1.3.2",
+ "derive-where",
  "docify",
  "environmental",
  "frame-metadata 23.0.1",
@@ -7393,6 +7394,7 @@ dependencies = [
  "Inflector",
  "cfg-expr",
  "derive-syn-parse",
+ "derive-where",
  "docify",
  "expander",
  "frame-benchmarking",
@@ -7439,6 +7441,7 @@ dependencies = [
 name = "frame-support-test"
 version = "3.0.0"
 dependencies = [
+ "derive-where",
  "frame-benchmarking",
  "frame-executive",
  "frame-metadata 23.0.1",
