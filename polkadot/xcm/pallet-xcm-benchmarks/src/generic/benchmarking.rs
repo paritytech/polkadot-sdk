@@ -26,7 +26,7 @@ use xcm::{
 	DoubleEncoded,
 };
 use xcm_executor::{
-	traits::{ConvertLocation, FeeReason, TransactAsset},
+	traits::{ConvertLocation, FeeReason, ShouldExecute, TransactAsset},
 	AssetsInHolding, ExecutorError, FeesMode,
 };
 

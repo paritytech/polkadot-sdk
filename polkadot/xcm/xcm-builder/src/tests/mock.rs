@@ -55,8 +55,14 @@ pub use xcm_executor::test_helpers::{mock_asset_to_holding as asset_to_holding, 
 
 pub struct TestWeigher;
 impl WeightBounds<TestCall> for TestWeigher {
-	fn weight(message: &mut Xcm<TestCall>, weight_limit: Weight) -> Result<Weight, InstructionError> {
-		FixedWeightBounds::<UnitWeightCost, TestCall, MaxInstructions>::weight(message, weight_limit)
+	fn weight(
+		message: &mut Xcm<TestCall>,
+		weight_limit: Weight,
+	) -> Result<Weight, InstructionError> {
+		FixedWeightBounds::<UnitWeightCost, TestCall, MaxInstructions>::weight(
+			message,
+			weight_limit,
+		)
 	}
 	fn instr_weight(instruction: &mut Instruction<TestCall>) -> Result<Weight, XcmError> {
 		FixedWeightBounds::<UnitWeightCost, TestCall, MaxInstructions>::instr_weight(instruction)

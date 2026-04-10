@@ -974,13 +974,12 @@ fn deny_then_try_works() {
 			_max_weight: Weight,
 			_properties: &mut Properties,
 		) -> Result<(), ProcessMessageError> {
-			instructions
-				.matcher()
-				.assert_remaining_insts(1)?
-				.match_next_inst(|inst| match inst {
+			instructions.matcher().assert_remaining_insts(1)?.match_next_inst(
+				|inst| match inst {
 					ClearError { .. } => Ok(()),
 					_ => Err(ProcessMessageError::Yield),
-				})?;
+				},
+			)?;
 			Ok(())
 		}
 	}
