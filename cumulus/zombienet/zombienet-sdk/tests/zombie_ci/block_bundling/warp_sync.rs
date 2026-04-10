@@ -17,10 +17,12 @@
 
 use crate::utils::initialize_network;
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::assert_para_throughput;
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
-use tokio::time::{timeout, Duration};
+use std::time::Duration;
+use tokio::time::timeout;
+use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	AddCollatorOptions, NetworkConfig, NetworkConfigBuilder,
@@ -55,9 +57,12 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	// Wait for steady-state bundled block production (single core).
+	// Assign 2 extra cores (zombienet auto-assigns 1), for 3 total.
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
+
+	// Wait for steady-state bundled block production.
 	log::info!("Waiting for steady-state block production");
-	assert_para_throughput(&relay_client, 6, [(ParaId::from(PARA_ID), 4..7)], []).await?;
+	assert_para_throughput(&relay_client, 6, [(ParaId::from(PARA_ID), 12..19)], []).await?;
 
 	// Query collator's current best block to set a meaningful sync target.
 	let collator = network.get_node("collator-0")?;
@@ -67,7 +72,6 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	log::info!(
 		"Collator best block: #{collator_best}, full node sync target: #{target_block}"
 	);
-	drop(collator_client);
 
 	// Add a fresh full node that will warp-sync to the already-running chain.
 	log::info!("Adding fresh full node with warp sync");
@@ -119,6 +123,57 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 		},
 	}
 
+	// Verify the full node actually used warp sync (not full sync).
+	log::info!("Verifying warp sync was used");
+	let option_1_line = LogLineCountOptions::new(|n| n == 1, Duration::from_secs(5), false);
+	let result = full_node
+		.wait_log_line_count_with_timeout(
+			r"\[Parachain\] Warp sync is complete",
+			false,
+			option_1_line,
+		)
+		.await?;
+	if !result.success() {
+		return Err(anyhow!("Full node did not complete parachain warp sync"));
+	}
+
+	// Make sure the full node keeps progressing on live blocks after the initial sync.
+	// Query the collator's current best and wait for the full node to advance 24 blocks
+	// beyond that. This confirms the node is fully functional post-warp-sync, not just
+	// replaying the initial catch-up batch.
+	let collator_best: u32 = collator_client.blocks().at_latest().await?.number();
+	let live_target = collator_best + 24;
+	log::info!(
+		"Collator best block: #{collator_best}, waiting for full node to reach #{live_target}"
+	);
+
+	let result = timeout(Duration::from_secs(120), async {
+		let client: OnlineClient<PolkadotConfig> = full_node.wait_client().await?;
+		let mut best_sub = client.blocks().subscribe_best().await?;
+
+		while let Some(block) = best_sub.next().await.transpose()? {
+			let num: u32 = block.number();
+			if num >= live_target {
+				return Ok::<_, anyhow::Error>(num);
+			}
+		}
+
+		Err(anyhow!("Best block stream ended before reaching live target"))
+	})
+	.await;
+
+	match result {
+		Ok(Ok(reached)) => {
+			log::info!("Full node progressing on live blocks, reached #{reached}");
+		},
+		Ok(Err(e)) => return Err(e),
+		Err(_) => {
+			return Err(anyhow!(
+				"Full node did not reach block #{live_target} within 120s — chain not progressing after warp sync."
+			));
+		},
+	}
+
 	log::info!("Test finished successfully");
 	Ok(())
 }
@@ -141,14 +196,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 7,
+								"num_cores": 3,
 								"max_validators_per_core": 1
 							}
 						}
 					}
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
-			(1..9).fold(r, |acc, i| {
+			(1..5).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})
