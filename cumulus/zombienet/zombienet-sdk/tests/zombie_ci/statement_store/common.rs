@@ -183,6 +183,7 @@ pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk
 	[
 		"--force-authoring".to_string(),
 		"--max-runtime-instances=32".to_string(),
+		// TODO: we need trace only for statement_store_crash_mid_sync
 		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
 		"--enable-statement-store".to_string(),
 		format!("--rpc-max-connections={}", participant_count + 1000),
