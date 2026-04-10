@@ -15,6 +15,6 @@ crates:
 - name: people-westend-runtime
   bump: patch
 - name: pallet-dap-satellite
-  bump: patch
+  bump: minor
 - name: pallet-dap
-  bump: patch
+  bump: minor
