@@ -196,18 +196,27 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	// Get block hash and transaction index by transaction hash
 	pub async fn find_transaction(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
-		let transaction_hash = transaction_hash.as_ref();
+		let transaction_hash_bytes = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
 			FROM transaction_hashes
 			WHERE transaction_hash = $1
 			"#,
-			transaction_hash
+			transaction_hash_bytes
 		)
 		.fetch_optional(&self.pool)
 		.await
-		.ok()??;
+		.inspect_err(|err| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: DB query failed for tx {transaction_hash:?}: {err:?}");
+		})
+		.ok()?
+		.or_else(|| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: tx {transaction_hash:?} not found in DB");
+			None
+		})?;
 
 		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
@@ -542,7 +551,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
 		// logs exist
-		if !result.exists {
+		if result.exists {
+			log::trace!(target: LOG_TARGET,
+				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
+				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
+				count = receipts.len(),
+			);
+		} else {
 			let ethereum_hash_ref = ethereum_hash.as_ref();
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
@@ -798,13 +813,28 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
-		Some(receipt)
+		let block = match self.block_provider.block_by_hash(&block_hash).await {
+			Ok(Some(b)) => b,
+			Ok(None) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: block {block_hash:?} not available from node (pruned?) for tx {transaction_hash:?}");
+				return None;
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: failed to fetch block {block_hash:?} for tx {transaction_hash:?}: {err:?}");
+				return None;
+			},
+		};
+
+		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
+			Ok((_, receipt)) => Some(receipt),
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: extraction failed for tx {transaction_hash:?} in block {block_hash:?}: {err:?}");
+				None
+			},
+		}
 	}
 
 	/// Get the signed transaction for the given transaction hash.
@@ -816,6 +846,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.receipt_extractor
 			.extract_from_transaction(&block, transaction_index)
 			.await
+			.inspect_err(|err| {
+				log::trace!(target: LOG_TARGET,
+					"signed_tx_by_hash: extraction failed for tx {transaction_hash:?} \
+					 in block {block_hash:?}: {err:?}");
+			})
 			.ok()?;
 		Some(signed_tx)
 	}

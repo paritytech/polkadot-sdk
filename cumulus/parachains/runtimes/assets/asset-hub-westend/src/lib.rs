@@ -226,6 +226,8 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
+	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
+	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -601,6 +603,12 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
 	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
+
+/// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
+const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
+const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
+const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;
 
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set
@@ -1258,10 +1266,15 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles = (
-		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
-		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
-		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>, TrustBackedAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>, PoolAssetsInstance>,
+		ERC20<
+			Self,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Self, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
 		XcmPrecompile<Self>,
+		pallet_asset_conversion_precompiles::AssetConversion<{ ASSET_CONVERSION_PRECOMPILE }, Self>,
 		VestingPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
@@ -1277,7 +1290,8 @@ impl pallet_revive::Config for Runtime {
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
-	type DebugEnabled = ConstBool<false>;
+	type DebugEnabled = ConstBool<{ cfg!(revive_debug) }>;
+	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
 }
@@ -1305,6 +1319,7 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
+		pallet_revive::migrations::v3::Migration<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]

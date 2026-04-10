@@ -1718,6 +1718,7 @@ dependencies = [
  "pallet-ah-ops",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
+ "pallet-asset-conversion-precompiles",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
  "pallet-asset-rewards",
@@ -7357,6 +7358,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "binary-merkle-tree 13.0.0",
  "bitflags 1.3.2",
+ "derive-where",
  "docify",
  "environmental",
  "frame-metadata 23.0.1",
@@ -7400,6 +7402,7 @@ dependencies = [
  "Inflector",
  "cfg-expr",
  "derive-syn-parse",
+ "derive-where",
  "docify",
  "expander",
  "frame-benchmarking",
@@ -7446,6 +7449,7 @@ dependencies = [
 name = "frame-support-test"
 version = "3.0.0"
 dependencies = [
+ "derive-where",
  "frame-benchmarking",
  "frame-executive",
  "frame-metadata 23.0.1",
@@ -11612,9 +11616,9 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a973b4e44ce6cad84ce69d797acf9a044532e4184c4f267913d1b546a0727b7a"
+checksum = "b1207a7e20ad57b847bbddc6776b968420d38292bbfe2089accff5e19e82454c"
 dependencies = [
  "num_enum_derive",
  "rustversion",
@@ -11622,9 +11626,9 @@ dependencies = [
 
 [[package]]
 name = "num_enum_derive"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77e878c846a8abae00dd069496dbe8751b16ac1c3d6bd2a7283a938e8228f90d"
+checksum = "ff32365de1b6743cb203b710788263c44a03de03802daf96092f2da4fe6ba4d7"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.95",
@@ -11961,6 +11965,24 @@ dependencies = [
  "primitive-types 0.13.1",
  "scale-info",
  "sp-arithmetic 23.0.0",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-asset-conversion-precompiles"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-asset-conversion",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-revive",
+ "parity-scale-codec",
+ "scale-info",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
@@ -13727,6 +13749,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-psm"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-ranked-collective"
 version = "28.0.0"
 dependencies = [
@@ -13824,8 +13862,8 @@ dependencies = [
  "pallet-utility",
  "parity-scale-codec",
  "paste",
- "polkavm 0.31.0",
- "polkavm-common 0.31.0",
+ "polkavm 0.33.1",
+ "polkavm-common 0.33.0",
  "pretty_assertions",
  "proptest",
  "rand 0.8.5",
@@ -17050,6 +17088,7 @@ dependencies = [
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
+ "pallet-asset-conversion-precompiles",
  "pallet-asset-conversion-tx-payment",
  "pallet-asset-rate",
  "pallet-asset-rewards",
@@ -17128,6 +17167,7 @@ dependencies = [
  "pallet-people",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-psm",
  "pallet-ranked-collective",
  "pallet-recovery",
  "pallet-referenda",
@@ -17334,6 +17374,8 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-version-proc-macro 13.0.0",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
  "sp-wasm-interface 20.0.0",
  "sp-weights 27.0.0",
  "staging-chain-spec-builder",
@@ -17953,16 +17995,16 @@ dependencies = [
 
 [[package]]
 name = "polkavm"
-version = "0.31.0"
+version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ddb26cbe473e21bf5c329723e72fdf9208b5f9674e54721bf436e2efdbb26f"
+checksum = "d90ece49c68657299648e20469517e22c6ec38321307bb14a69c27a33927a491"
 dependencies = [
  "libc",
  "log",
  "picosimd",
- "polkavm-assembler 0.31.0",
- "polkavm-common 0.31.0",
- "polkavm-linux-raw 0.31.0",
+ "polkavm-assembler 0.33.0",
+ "polkavm-common 0.33.0",
+ "polkavm-linux-raw 0.33.0",
 ]
 
 [[package]]
@@ -17976,9 +18018,9 @@ dependencies = [
 
 [[package]]
 name = "polkavm-assembler"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f9006f0a135c6d035487fa88fa75b97b32a53d1d914c757f131c8e10a2af295"
+checksum = "00010f7924647dbf6f468d85d0fcfe4c3587cfb4557ef13f3682dbece8fd57f0"
 dependencies = [
  "log",
 ]
@@ -18004,14 +18046,14 @@ dependencies = [
 
 [[package]]
 name = "polkavm-common"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a0a3e43fa1a54b955a2f9422b1690c3cc29252ac8828c02a99d2370b9f2a188e"
+checksum = "9e44a9487003cf5b9fc4462bbcf105cc37d5d9b18b40edf5ed50dd20ed1fdb27"
 dependencies = [
  "blake3",
  "log",
  "picosimd",
- "polkavm-assembler 0.31.0",
+ "polkavm-assembler 0.33.0",
 ]
 
 [[package]]
@@ -18034,11 +18076,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d944b6b4e792c2a120232b52bd6f2c9dd3071d3f48462afb2b5d00cb9f7ac9"
+checksum = "3ef966bc8518a66ce12d4edb73f2c4094cae72bb23258bc9e9b2802cc9d6cd79"
 dependencies = [
- "polkavm-derive-impl-macro 0.31.0",
+ "polkavm-derive-impl-macro 0.33.0",
 ]
 
 [[package]]
@@ -18067,11 +18109,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57c14b030150f81dfde110997b6fafc19741998130908fdab85f1a66bb735025"
+checksum = "f0c2166ad71dd7f51dcdd0d91b70d408a8b3610fa6e94d8202dd4b7185607181"
 dependencies = [
- "polkavm-common 0.31.0",
+ "polkavm-common 0.33.0",
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
@@ -18099,11 +18141,11 @@ dependencies = [
 
 [[package]]
 name = "polkavm-derive-impl-macro"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3fcadb13edfcc3b4046fcd2d292597782f5b7a2af140e6363fbf71fe196b425"
+checksum = "c7ac2ac8ec5b938e249fa97b5ebb1e6fa47000c81a25eba6bf0f13edb8d430e4"
 dependencies = [
- "polkavm-derive-impl 0.31.0",
+ "polkavm-derive-impl 0.33.0",
  "syn 2.0.98",
 ]
 
@@ -18125,16 +18167,16 @@ dependencies = [
 
 [[package]]
 name = "polkavm-linker"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e1ae3f7aff1af110dcd0f105d783b10ff25cd2837abe411ea4d88ae5cd193b49"
+checksum = "046d371182d27b707e116d1637ccdc8514e0e123130139ecff62bd78d987c622"
 dependencies = [
  "dirs",
  "gimli 0.31.1",
  "hashbrown 0.14.5",
  "log",
  "object 0.36.7",
- "polkavm-common 0.31.0",
+ "polkavm-common 0.33.0",
  "regalloc2 0.9.3",
  "rustc-demangle",
 ]
@@ -18147,9 +18189,9 @@ checksum = "28919f542476f4158cc71e6c072b1051f38f4b514253594ac3ad80e3c0211fc8"
 
 [[package]]
 name = "polkavm-linux-raw"
-version = "0.31.0"
+version = "0.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbcd9ed5f77c60f3878289001d3e789da301746249b622bfb2876e2d0fe32c0b"
+checksum = "42063d4a1c52e569f7794df27dab3e19c9fa8946184023257bdbb43eb4a94be5"
 
 [[package]]
 name = "polling"
@@ -21029,6 +21071,8 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
  "tempfile",
@@ -21065,7 +21109,7 @@ dependencies = [
 name = "sc-executor-common"
 version = "0.29.0"
 dependencies = [
- "polkavm 0.31.0",
+ "polkavm 0.33.1",
  "sc-allocator 23.0.0",
  "sp-maybe-compressed-blob 11.0.0",
  "sp-wasm-interface 20.0.0",
@@ -21092,7 +21136,7 @@ name = "sc-executor-polkavm"
 version = "0.29.0"
 dependencies = [
  "log",
- "polkavm 0.31.0",
+ "polkavm 0.33.1",
  "sc-executor-common 0.29.0",
  "sp-runtime-interface 24.0.0",
  "sp-wasm-interface 20.0.0",
@@ -21126,6 +21170,7 @@ dependencies = [
  "sc-runtime-test",
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
+ "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "tempfile",
  "wasmtime",
@@ -21735,6 +21780,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
+ "sp-virtualization",
  "substrate-wasm-builder",
 ]
 
@@ -24610,7 +24656,7 @@ dependencies = [
  "libsecp256k1",
  "log",
  "parity-scale-codec",
- "polkavm-derive 0.31.0",
+ "polkavm-derive 0.33.0",
  "rustversion",
  "secp256k1 0.28.2",
  "sp-core 28.0.0",
@@ -24884,7 +24930,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "polkavm-derive 0.31.0",
+ "polkavm-derive 0.33.0",
  "rustversion",
  "sp-externalities 0.25.0",
  "sp-io 30.0.0",
@@ -25292,6 +25338,30 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "sp-virtualization"
+version = "1.0.0"
+dependencies = [
+ "log",
+ "num_enum",
+ "parity-scale-codec",
+ "polkavm 0.33.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "sp-virtualization-test-fixture",
+ "sp-wasm-interface 20.0.0",
+ "strum 0.26.3",
+]
+
+[[package]]
+name = "sp-virtualization-test-fixture"
+version = "1.0.0"
+dependencies = [
+ "polkavm-derive 0.33.0",
+ "substrate-wasm-builder",
 ]
 
 [[package]]
@@ -26314,7 +26384,7 @@ dependencies = [
  "merkleized-metadata",
  "parity-scale-codec",
  "parity-wasm",
- "polkavm-linker 0.31.0",
+ "polkavm-linker 0.33.0",
  "sc-executor 0.32.0",
  "shlex",
  "sp-core 28.0.0",
@@ -29263,7 +29333,6 @@ dependencies = [
  "pallet-identity",
  "pallet-indices",
  "pallet-message-queue",
- "pallet-meta-tx",
  "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
@@ -29292,7 +29361,6 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
  "pallet-utility",
- "pallet-verify-signature",
  "pallet-vesting",
  "pallet-whitelist",
  "pallet-xcm",

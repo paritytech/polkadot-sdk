@@ -94,9 +94,7 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{
-		AccountId32Mapper, AddressMapper, TestAccountMapper, create1, create2, is_eth_derived,
-	},
+	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	evm::{
 		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,
@@ -351,6 +349,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
 
+		/// When enabled, accounts are automatically mapped on creation and unmapped on
+		/// kill via [`AutoMapper`]. This removes the need for explicit `map_account` calls.
+		///
+		/// Requires `frame_system::Config::OnNewAccount` and `OnKilledAccount` to be set
+		/// to [`AutoMapper`]. When enabled, the `map_account` and `unmap_account`
+		/// dispatchables are disabled.
+		#[pallet::constant]
+		type AutoMap: Get<bool>;
+
 		/// This determines the relative scale of our gas price and gas estimates.
 		///
 		/// By default, the gas price (in wei) is `FeeInfo::next_fee_multiplier()` multiplied by
@@ -453,6 +460,7 @@ pub mod pallet {
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
+			type AutoMap = ConstBool<false>;
 			type GasScale = GasScale;
 			type OnBurn = ();
 		}
@@ -628,6 +636,8 @@ pub mod pallet {
 		PrecompileDelegateDenied = 0x40,
 		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 		EcdsaRecoveryFailed = 0x41,
+		/// Manual mapping is disabled when auto-mapping is enabled.
+		AutoMappingEnabled = 0x42,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1536,9 +1546,17 @@ pub mod pallet {
 		///
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
 		/// take a deposit that can be released by calling [`Self::unmap_account`].
+		///
+		/// Noop when [`Config::AutoMap`] is enabled, as accounts are automatically mapped
+		/// on creation via [`AutoMapper`].
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			if T::AutoMap::get() {
+				return Ok(());
+			}
+
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
@@ -1548,9 +1566,14 @@ pub mod pallet {
 		///
 		/// There is no reason to ever call this function other than freeing up the deposit.
 		/// This is only useful when the account should no longer be used.
+		///
+		/// Disabled when [`Config::AutoMap`] is enabled, as accounts are automatically unmapped
+		/// on kill via [`AutoMapper`].
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			ensure!(!T::AutoMap::get(), <Error<T>>::AutoMappingEnabled);
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::unmap(&origin)
 		}
