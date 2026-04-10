@@ -1,22 +1,12 @@
 title: fix(bridge-hub): expose try-runtime feature in bridge-hub-test-utils
-
 doc:
-  audience: Node Dev
+- audience: Node Dev
   description: |
-    Fixes #10962
-
-    **Summary**  
-    When running `cargo test --features try-runtime` (or `--all-features`) on BridgeHub runtimes, compilation failed with:
-
-    ```
-    error[E0046]: not all trait items implemented, missing: `try_successful_origin`
-     --> .../assets-common-.../foreign_creators.rs:29:1
-    ```
-
+    Fixes #10962. Fixed feature propagation issues in `bridge-hub-test-utils` by adding the `try-runtime` feature.
 crates:
-  - name: bridge-hub-rococo-runtime
-    bump: patch
-  - name: bridge-hub-westend-runtime
-    bump: patch
-  - name: bridge-hub-test-utils
-    bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-test-utils
+  bump: patch
