@@ -2237,17 +2237,27 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		// THEN: issuance unchanged (transfer, not mint).
 		assert_eq!(Balances::total_issuance(), pre_issuance);
-		// THEN: validator balance increased.
-		assert!(Balances::total_balance(&val_a) > balance_before);
-		// THEN: correct events.
+		// THEN: validator gets 1/4 of era reward (4 validators, equal points, 0% commission).
+		let expected_reward = era_2_reward / 4;
+		assert_eq!(Balances::total_balance(&val_a) - balance_before, expected_reward);
+		// THEN: exactly two events — payout started + validator rewarded.
 		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::PayoutStarted { era_index: 2, validator_stash, .. }
-			if *validator_stash == val_a
-		)));
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::Rewarded { stash, .. } if *stash == val_a
-		)));
+		assert_eq!(
+			events,
+			vec![
+				StakingEvent::PayoutStarted {
+					era_index: 2,
+					validator_stash: val_a,
+					page: 0,
+					next: None,
+				},
+				StakingEvent::Rewarded {
+					stash: val_a,
+					dest: staking_async::RewardDestination::Stash,
+					amount: expected_reward,
+				},
+			]
+		);
 	});
 
 	UseLegacyEraPayout::set(false);
