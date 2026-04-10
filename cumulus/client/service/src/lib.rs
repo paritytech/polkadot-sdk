@@ -69,6 +69,7 @@ use std::{
 pub type ParachainHostFunctions = (
 	cumulus_primitives_proof_size_hostfunction::storage_proof_size::HostFunctions,
 	sp_io::SubstrateHostFunctions,
+	sp_crypto_ec_utils::HostFunctionsRfc163,
 );
 
 // Given the sporadic nature of the explicit recovery operation and the

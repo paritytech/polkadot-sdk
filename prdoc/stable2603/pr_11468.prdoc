@@ -1,0 +1,10 @@
+title: Add a call to `.unvalidated()` for all eth-rpc interactions
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    This PR updates the `eth-rpc` so that all interactions with subxt are unvalidated. This change was made to allow us to use any `eth-rpc` version with any version of pallet revive given that there's no actual interface differences in the runtime functions that we called. Before this change, we would get a lot of metadata mismatch errors for slightly older versions of revive. Our assumption is that this happened due to us adding more runtime functions into pallet-revive's runtime API which lead to the hash of the metadata being different, thus to the metadata mismatch.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
