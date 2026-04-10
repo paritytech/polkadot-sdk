@@ -5568,6 +5568,7 @@ dependencies = [
  "parity-scale-codec",
  "polkadot-primitives",
  "rstest",
+ "sc-network-statement",
  "sc-statement-store",
  "scale-info",
  "serde",

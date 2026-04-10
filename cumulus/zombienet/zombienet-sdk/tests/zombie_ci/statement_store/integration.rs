@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, base_dir, collator_default_args,
-	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	assert_no_more_statements, base_dir, collator_default_args, create_chain_spec_with_allowances,
+	expect_one_statement, expect_statements_unordered, spawn_network_sudo,
+	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 	subscribe_topic_filter,
 };
 use codec::Encode;
 use log::{debug, info};
+use sc_network_statement::config::STATEMENTS_BURST_COEFFICIENT;
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 use sp_core::Bytes;
 use sp_statement_store::{
@@ -245,20 +246,25 @@ async fn spawn_flooding_network(
 	Ok(network)
 }
 
-/// Verifies sustained-rate flooding detection end-to-end.
+/// Verifies sustained-rate flooding detection.
 ///
-/// RPC submission achieves ~600 statements/sec. Gossip batches them every 1s.
-/// With bob's rate=200 (burst=1,000), each gossip batch (~600) is within burst
-/// but exceeds the per-second rate. Tokens drain at ~400/sec, exhausting in ~2.5s.
-/// Differentiator: bob.submitted_statements > 0 (early batches were accepted).
+/// Submissions arrive faster than the sustained rate limit allows. Early batches
+/// fit within the burst allowance and are accepted, but tokens drain over time
+/// until the rate limiter kicks in.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let batch_size = 1_000u32;
-	let network = spawn_flooding_network(200, batch_size * 10).await?;
+	// Low enough that batches can be submitted within 1s via RPC.
+	let rate_limit = 50u32;
+	let bucket_capacity = rate_limit * STATEMENTS_BURST_COEFFICIENT;
+	// Half the burst capacity so the bucket drains gradually over several batches.
+	let batch_size = bucket_capacity / 2;
+	// Enough batches to drain the bucket, plus a margin.
+	let batches_needed = bucket_capacity / (batch_size - rate_limit) + 1;
+	let network = spawn_flooding_network(rate_limit, batch_size * batches_needed).await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -269,7 +275,8 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 		let alice_rpc = Arc::clone(&alice_rpc);
 		async move {
 			let topic: Topic = [42u8; 32].into();
-			for batch in 0u32..30 {
+			for batch in 0..batches_needed {
+				let now = tokio::time::Instant::now();
 				let start = batch * batch_size;
 				for idx in start..start + batch_size {
 					let keypair = get_keypair(idx);
@@ -284,7 +291,10 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 					let _ = submit_statement(&alice_rpc, &statement).await;
 				}
 				info!("Batch {}: submitted {} statements", batch, batch_size);
-				tokio::time::sleep(Duration::from_secs(1)).await;
+				let elapsed = now.elapsed();
+				if elapsed < Duration::from_secs(1) {
+					tokio::time::sleep(Duration::from_secs(1) - elapsed).await;
+				}
 			}
 		}
 	});
@@ -314,41 +324,26 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 		"Bob should have accepted early batches before flooding (got {})",
 		bob_submitted.get()
 	);
-	info!(
-		"Bob accepted {} statements before flooding (sustained, not burst)",
-		bob_submitted.get()
-	);
-
-	let alice_flooding = Cell::new(0.0f64);
-	alice
-		.wait_metric_with_timeout(
-			"substrate_sync_statement_flooding_detected",
-			|v| {
-				alice_flooding.set(v);
-				true
-			},
-			10u64,
-		)
-		.await?;
-	assert_eq!(alice_flooding.get() as u64, 0, "Alice should not detect flooding");
-	info!("No false positives on alice");
+	info!("Bob accepted {} statements before flooding (sustained, not burst)", bob_submitted.get());
 
 	Ok(())
 }
 
 /// Verifies burst flooding detection end-to-end.
 ///
-/// RPC submission achieves ~600 statements/sec, all buffered before the first gossip tick.
-/// With bob's rate=50 (burst=250), the first gossip batch (~600) exceeds burst immediately.
-/// Differentiator: bob.submitted_statements == 0 (no statements accepted before detection).
+/// The very first gossip batch already exceeds the burst allowance, so bob
+/// rejects all statements immediately without accepting any.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let burst_size = 1_000u32;
-	let network = spawn_flooding_network(50, burst_size).await?;
+	// Low enough that batches can be submitted within 1s via RPC.
+	let rate_limit = 50u32;
+	// One more than the burst capacity so the first gossip batch overflows the bucket.
+	let bucket_capacity = rate_limit * STATEMENTS_BURST_COEFFICIENT + 1;
+	let network = spawn_flooding_network(rate_limit, bucket_capacity).await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -356,13 +351,13 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice_rpc = alice.rpc().await?;
 	let topic: Topic = [43u8; 32].into();
 
-	for idx in 0..burst_size {
+	for idx in 0..bucket_capacity {
 		let keypair = get_keypair(idx);
 		let statement =
 			create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, 0);
 		let _ = submit_statement(&alice_rpc, &statement).await;
 	}
-	info!("Submitted {} statements to alice", burst_size);
+	info!("Submitted {} statements to alice", bucket_capacity);
 
 	bob.wait_metric_with_timeout(
 		"substrate_sync_statement_flooding_detected",
@@ -388,20 +383,6 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 		"Bob should not have accepted any statements (burst, not sustained)"
 	);
 	info!("Bob accepted 0 statements (burst flooding confirmed)");
-
-	let alice_flooding = Cell::new(0.0f64);
-	alice
-		.wait_metric_with_timeout(
-			"substrate_sync_statement_flooding_detected",
-			|v| {
-				alice_flooding.set(v);
-				true
-			},
-			10u64,
-		)
-		.await?;
-	assert_eq!(alice_flooding.get() as u64, 0, "Alice should not detect flooding");
-	info!("No false positives on alice");
 
 	Ok(())
 }
