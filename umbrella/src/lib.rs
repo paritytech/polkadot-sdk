@@ -627,6 +627,10 @@ pub use pallet_preimage;
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
 
+/// FRAME pallet for the Peg Stability Module.
+#[cfg(feature = "pallet-psm")]
+pub use pallet_psm;
+
 /// Ranked collective system: Members of a set of account IDs can make their collective
 /// feelings known through dispatched calls from one of two specialized origins.
 #[cfg(feature = "pallet-ranked-collective")]
@@ -1471,6 +1475,14 @@ pub use sp_version;
 /// Macro for defining a runtime version.
 #[cfg(feature = "sp-version-proc-macro")]
 pub use sp_version_proc_macro;
+
+/// Spawn a new polkavm instance from within the runtime/pvf.
+#[cfg(feature = "sp-virtualization")]
+pub use sp_virtualization;
+
+/// A PolkaVM program that is used by the `sp-virtualization` tests.
+#[cfg(feature = "sp-virtualization-test-fixture")]
+pub use sp_virtualization_test_fixture;
 
 /// Types and traits for interfacing between the host and the wasm runtime.
 #[cfg(feature = "sp-wasm-interface")]
