@@ -398,6 +398,9 @@ where
 				},
 			};
 
+			// HACK: Fix cores to 3 for YAP testing.
+			cores.truncate_cores(3);
+
 			let number_of_blocks =
 				match para_client.runtime_api().target_block_rate(initial_parent_hash) {
 					Ok(interval) => interval,
