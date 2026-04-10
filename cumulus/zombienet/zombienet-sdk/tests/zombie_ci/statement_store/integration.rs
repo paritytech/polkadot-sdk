@@ -5,13 +5,10 @@ use std::collections::HashSet;
 
 use codec::Encode;
 use log::{debug, info};
-use sp_core::Bytes;
+use sp_core::{sr25519, Bytes, Pair};
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
-use log::info;
-use sp_core::{sr25519, Bytes, Pair};
-use sp_statement_store::{RejectionReason, StatementAllowance, SubmitResult, Topic};
 use subxt::{dynamic::Value, transactions::Signer};
 use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 
@@ -25,7 +22,8 @@ use sc_statement_store::{
 
 use super::common::{
 	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	online_client_from_node, spawn_network, spawn_network_sudo,
+	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 	subscribe_topic_filter,
 };
 
