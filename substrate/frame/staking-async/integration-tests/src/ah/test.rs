@@ -2142,6 +2142,13 @@ fn legacy_to_dap_era_payout_e2e() {
 			0
 		);
 
+		// THEN: EraPaid for era 0 with 50/50 split.
+		let events = staking_events_since_last_call();
+		assert!(events.iter().any(|e| matches!(
+			e, StakingEvent::EraPaid { era_index: 0, remainder, validator_payout, .. }
+				if *remainder == *validator_payout
+		)));
+
 		// Reward points for era 1 (era 0 has no exposure — pre-election).
 		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
 			points.total = 4;
