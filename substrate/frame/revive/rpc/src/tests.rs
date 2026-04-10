@@ -50,7 +50,10 @@ use pallet_revive::{
 		HashesOrTransactionInfos, Log, SubscriptionItem, SubscriptionKind, SubscriptionOptions,
 		Trace, TransactionInfo, TransactionUnsigned, U256,
 	},
-	precompiles::alloy::sol_types::{SolCall, SolConstructor},
+	precompiles::alloy::{
+		self,
+		sol_types::{SolCall, SolConstructor, SolEvent},
+	},
 };
 use pallet_revive_fixtures::{Callee, Counter, TwoSlots};
 use sp_runtime::BoundedVec;
@@ -343,6 +346,8 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_fibonacci_call_via_runtime_api,
 		test_transfer,
 		test_deploy_and_call,
+		test_receipt_deploy_and_revert,
+		test_receipt_multiple_logs,
 		test_runtime_api_dry_run_addr_works,
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
@@ -525,6 +530,99 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 		balance.checked_sub(initial_balance),
 		"Balance {balance} should have increased from {initial_balance} by {value}."
 	);
+	Ok(())
+}
+
+/// Verify receipt correctness for deploy (contractAddress, status=success)
+/// and reverted calls (status=0x0).
+async fn test_receipt_deploy_and_revert() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	// Deploy ok_trap_revert (reverts when called with input byte 1)
+	let (bytes, _) = pallet_revive_fixtures::compile_module("ok_trap_revert")?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(
+		Some(contract_address),
+		receipt.contract_address,
+		"Deploy should set contractAddress"
+	);
+	assert!(receipt.is_success(), "Deploy should succeed");
+
+	// Send a reverting call with explicit gas (eth_estimateGas would revert).
+	let receipt = TransactionBuilder::new(client.clone())
+		.to(contract_address)
+		.input(vec![1, 0, 0, 0])
+		.gas(U256::from(1_000_000))
+		.send()
+		.await?
+		.wait_for_receipt_any()
+		.await?;
+
+	assert!(!receipt.is_success(), "Reverted call should have status=0x0");
+	assert!(receipt.logs.is_empty(), "Reverted call should produce no logs");
+	assert_eq!(Some(contract_address), receipt.to);
+
+	Ok(())
+}
+
+/// Verify that multiple ContractEmitted events in a single transaction
+/// are all collected into the receipt logs.
+async fn test_receipt_multiple_logs() -> anyhow::Result<()> {
+	let client = Arc::new(SharedResources::client().await);
+	let account = Account::default();
+
+	// Deploy MultiEvent contract
+	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
+		"MultiEvent",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)?;
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+	let tx = TransactionBuilder::new(client.clone()).input(bytes).send().await?;
+	let receipt = tx.wait_for_receipt().await?;
+	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
+	assert_eq!(Some(contract_address), receipt.contract_address);
+
+	// Call emitMultiple(1, 2) — should emit two events (Ping and Pong)
+	alloy::sol! {
+		function emitMultiple(uint64 a, uint64 b);
+		event Ping(uint64 value);
+		event Pong(uint64 value);
+	}
+	let input = emitMultipleCall { a: 1, b: 2 }.abi_encode();
+
+	let tx = TransactionBuilder::new(client.clone())
+		.to(contract_address)
+		.input(input)
+		.send()
+		.await?;
+	let receipt = tx.wait_for_receipt().await?;
+
+	assert!(receipt.is_success(), "emitMultiple call should succeed");
+	assert_eq!(receipt.logs.len(), 2, "Receipt should contain exactly 2 logs");
+	assert_eq!(receipt.logs[0].address, contract_address);
+	assert_eq!(receipt.logs[1].address, contract_address);
+
+	let ping_sig = H256(Ping::SIGNATURE_HASH.0);
+	let pong_sig = H256(Pong::SIGNATURE_HASH.0);
+	assert_eq!(receipt.logs[0].topics[0], ping_sig, "First log should be Ping");
+	assert_eq!(receipt.logs[1].topics[0], pong_sig, "Second log should be Pong");
+
+	let ping_data = &receipt.logs[0].data.as_ref().unwrap().0;
+	let pong_data = &receipt.logs[1].data.as_ref().unwrap().0;
+	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
+	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
+	assert_eq!(ping.0, 1, "Ping value should be 1");
+	assert_eq!(pong.0, 2, "Pong value should be 2");
+
+	assert!(
+		receipt.logs[0].log_index < receipt.logs[1].log_index,
+		"log_index values should be monotonically increasing"
+	);
+
 	Ok(())
 }
 
