@@ -231,6 +231,11 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		let (Some(core_info), Some(bundle_info), Some(relay_block_identifier)) =
 			(core_info, bundle_info, relay_block_identifier)
 		else {
+			tracing::debug!(
+				target: LOG_TARGET,
+				number = ?params.header.number(),
+				"no bundle digests, skipping execute_block_and_collect_storage_proof",
+			);
 			return Ok(());
 		};
 
@@ -252,6 +257,15 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
 
 		let block = Block::new(params.header.clone(), params.body.clone().unwrap_or_default());
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			?parent_hash,
+			number = ?params.header.number(),
+			?core_info,
+			?bundle_info,
+			"execute_block_and_collect_storage_proof: calling runtime_api.execute_block",
+		);
 
 		runtime_api
 			.execute_block(parent_hash, block.into())
@@ -338,7 +352,10 @@ where
 		&self,
 		mut params: sc_consensus::BlockImportParams<Block>,
 	) -> Result<sc_consensus::ImportResult, Self::Error> {
-		if params.origin != BlockOrigin::Own {
+		if !(params.origin == BlockOrigin::Own ||
+			params.with_state() ||
+			params.state_action.skip_execution_checks())
+		{
 			self.execute_block_and_collect_storage_proof(&mut params)?;
 		}
 
