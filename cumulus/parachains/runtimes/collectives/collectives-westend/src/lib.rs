@@ -89,10 +89,8 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::{DealWithFees, ToParentTreasury},
-	message_queue::*,
-	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
+	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
+	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use testnet_parachains_constants::westend::{
 	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,

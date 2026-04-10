@@ -32,7 +32,7 @@ pub mod origins;
 mod tracks;
 
 use super::*;
-use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
+use crate::xcm_config::{FellowshipAdminBodyId, WndAssetHub};
 use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
 use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_ambassador_origins;

@@ -20,10 +20,9 @@ mod origins;
 mod tracks;
 use crate::{
 	weights,
-	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
+	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
-	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
-	WestendTreasuryAccount, DAYS,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -41,7 +40,6 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
 	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
