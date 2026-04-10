@@ -176,6 +176,10 @@ impl<'r, 'a> FunctionContext for Context<'r, 'a> {
 	fn register_panic_error_message(&mut self, _message: &str) {
 		unimplemented!("'register_panic_error_message' is never used when running under PolkaVM");
 	}
+
+	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
+		todo!("Implement virtualization for PolkaVM")
+	}
 }
 
 fn call_host_function(caller: &mut Caller<()>, function: &dyn Function) -> Result<(), String> {
