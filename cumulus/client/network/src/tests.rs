@@ -17,12 +17,12 @@
 
 use super::*;
 use async_trait::async_trait;
-use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex};
+use cumulus_primitives_core::relay_chain::{BlockId, CoreIndex, Hash};
 use cumulus_relay_chain_inprocess_interface::{check_block_in_chain, BlockCheckStatus};
 use cumulus_relay_chain_interface::{
 	ChildInfo, OverseerHandle, PHeader, ParaId, RelayChainError, RelayChainResult,
 };
-use cumulus_test_service::runtime::{Block, Hash, Header};
+use cumulus_test_service::runtime::{Block, Header};
 use futures::{executor::block_on, poll, task::Poll, FutureExt, Stream, StreamExt};
 use parking_lot::Mutex;
 use polkadot_node_primitives::{SignedFullStatement, Statement};
@@ -361,6 +361,10 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	}
 
 	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
 		unimplemented!("Not needed for test")
 	}
 }

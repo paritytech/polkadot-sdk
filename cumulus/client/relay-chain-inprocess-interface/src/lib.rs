@@ -348,6 +348,10 @@ impl RelayChainInterface for RelayChainInProcessInterface {
 	async fn candidate_events(&self, hash: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		Ok(self.full_client.runtime_api().candidate_events(hash)?)
 	}
+
+	async fn max_relay_parent_session_age(&self, at: PHash) -> RelayChainResult<u32> {
+		Ok(self.full_client.runtime_api().max_relay_parent_session_age(at)?)
+	}
 }
 
 pub enum BlockCheckStatus {

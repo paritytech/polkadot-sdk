@@ -22,7 +22,7 @@ use async_trait::async_trait;
 use codec::Encode;
 use cumulus_client_pov_recovery::RecoveryKind;
 use cumulus_primitives_core::{
-	relay_chain::{BlockId, BlockNumber, CoreState},
+	relay_chain::{BlockId, BlockNumber, CoreState, Hash},
 	CumulusDigestItem, InboundDownwardMessage, InboundHrmpMessage, PersistedValidationData,
 };
 use cumulus_relay_chain_interface::{
@@ -31,7 +31,7 @@ use cumulus_relay_chain_interface::{
 	ValidatorId,
 };
 use cumulus_test_client::{
-	runtime::{Block, Hash, Header},
+	runtime::{Block, Header},
 	Backend, Client, InitBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -302,6 +302,10 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn candidate_events(&self, _: PHash) -> RelayChainResult<Vec<CandidateEvent>> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
 		unimplemented!("Not needed for test")
 	}
 }
