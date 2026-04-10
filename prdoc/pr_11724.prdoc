@@ -1,0 +1,46 @@
+title: Kanas/module invalidity
+doc:
+- audience:
+  - Node Dev
+  - Runtime Dev
+  description: |-
+    # Description
+
+    This PR implements descriptive module invalidity support for transactions as proposed in #11337. It extends the `InvalidTransaction` enum with a new `Module(ModuleError)` variant, allowing pallets to return pallet-specific, descriptive error data during the transaction validation phase (e.g., in `TransactionExtension`).
+
+    Closes #11337
+
+    ## Integration
+
+    Downstream projects and UI tools (like `subxt` or `polkadot-js`) can now leverage descriptive invalidity reasons. When a transaction is rejected by the pool with a `Module` error, the RPC will return a formatted message including the pallet index and the error bytes.
+
+    Example RPC error output:
+    `"Invalid Transaction: Module error: index: 5, error: [1, 0, 0, 0]"`
+
+    Client-side libraries can use this index and byte array to look up the specific error definition in the chain's current metadata, mirroring how `DispatchError::Module` is handled today.
+
+    ## Review Notes
+
+    The implementation follows the established pattern for descriptive errors in Substrate while ensuring 100% backward compatibility for the transaction pool and node-side logic.
+
+    ### Key Changes:
+    - **`sp-runtime`**: Appended `Module(ModuleError)` to the `InvalidTransaction` enum (index 13). This position ensures that existing SCALE-encoded variants remain unchanged.
+    - **String Conversion**: Updated the `From<InvalidTransaction> for &'static str` implementation to prioritize the descriptive message from `ModuleError` if present.
+    - **RPC Layer**: Enriched both the Author RPC (v1) and the Transaction RPC (v2) to explicitly handle the `Module` variant and return formatted debug information.
+    - **Verification**: Added a new unit test `module_invalidity_should_encode_and_decode` in `sp-runtime` to verify the encoding/decoding and string conversion paths.
+
+    ### Integration Diff:
+    ```diff
+     pub enum InvalidTransaction {
+         ...
+         UnknownOrigin,
+    +    /// An error in a module.
+    +    Module(ModuleError),
+     }
+crates:
+- name: sc-rpc-api
+  bump: minor
+- name: sc-rpc-spec-v2
+  bump: minor
+- name: sp-runtime
+  bump: minor
