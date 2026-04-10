@@ -341,73 +341,8 @@ impl ReceiptExtractor {
 		Ok((signed_tx, receipt))
 	}
 
-	/// Extract a [`TransactionSigned`] and a [`ReceiptInfo`] from an extrinsic.
-	async fn extract_from_extrinsic(
-		&self,
-		substrate_block: &SubstrateBlock,
-		eth_block_hash: H256,
-		ext: ExtrinsicDetails,
-		call: EthTransact,
-		receipt_gas_info: ReceiptGasInfo,
-		transaction_index: usize,
-	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
-		let block_number: U256 = substrate_block.number().into();
-		let transaction_hash = H256(keccak_256(&call.payload));
-
-		let (success, logs) = Self::extract_revert_status_and_logs(
-			&ext.events().await?,
-			block_number,
-			transaction_hash,
-			transaction_index,
-			eth_block_hash,
-		);
-
-		let signed_tx =
-			TransactionSigned::decode(&call.payload).map_err(|_| ClientError::TxDecodingFailed)?;
-		let from = (self.recover_eth_address)(&signed_tx).map_err(|_| {
-			log::error!(target: LOG_TARGET, "Failed to recover eth address from signed tx");
-			ClientError::RecoverEthAddressFailed
-		})?;
-
-		let tx_info = GenericTransaction::from_signed(
-			signed_tx.clone(),
-			receipt_gas_info.effective_gas_price,
-			Some(from),
-		);
-
-		let contract_address = if tx_info.to.is_none() {
-			Some(create1(
-				&from,
-				tx_info
-					.nonce
-					.unwrap_or_default()
-					.try_into()
-					.map_err(|_| ClientError::ConversionFailed)?,
-			))
-		} else {
-			None
-		};
-
-		let receipt = ReceiptInfo::new(
-			eth_block_hash,
-			block_number,
-			contract_address,
-			from,
-			logs,
-			tx_info.to,
-			receipt_gas_info.effective_gas_price,
-			U256::from(receipt_gas_info.gas_used),
-			success,
-			transaction_hash,
-			transaction_index.into(),
-			tx_info.r#type.unwrap_or_default(),
-		);
-		Ok((signed_tx, receipt))
-	}
 
 	/// Extract receipts from block.
-	///
-	/// Fetches block events once in a single pass before building receipts
 	pub async fn extract_from_block(
 		&self,
 		block: &SubstrateBlock,
@@ -418,6 +353,8 @@ impl ReceiptExtractor {
 	}
 
 	/// Extract receipts from block, using a pre-fetched ethereum block hash.
+	///
+	/// Fetches block events once in a single pass before building receipts.
 	pub async fn extract_from_block_with_eth_hash(
 		&self,
 		block: &SubstrateBlock,
@@ -442,9 +379,6 @@ impl ReceiptExtractor {
 		}
 
 		let block_number: U256 = block.number().into();
-		let eth_block_hash =
-			self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
-
 		let (revert_set, mut logs_by_ext) =
 			extract_revive_events(block, block_number, eth_block_hash, |idx| {
 				tx_hash_by_ext.get(&idx).copied()
@@ -542,7 +476,7 @@ impl ReceiptExtractor {
 
 		let substrate_block_hash = block.hash();
 		let eth_block_hash =
-			self.resolve_eth_block_hash(substrate_block_hash, substrate_block_number).await;
+			self.resolve_eth_block_hash(substrate_block_hash, block.number() as u64).await;
 
 		let eth_block_number: U256 = block.number().into();
 
