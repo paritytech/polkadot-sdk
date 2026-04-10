@@ -46,7 +46,7 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
-use sp_dap::{DAP_BUFFER_PALLET_ID, DAP_SATELLITE_PALLET_ID};
+use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
@@ -57,7 +57,7 @@ use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
-	DapBufferAssetTransactor, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
+	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
 	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
 	LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
@@ -92,7 +92,6 @@ parameter_types! {
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	/// Asset Hub has mint authority since the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = Some((CheckingAccount::get(), MintLocation::Local));
-	pub DapBufferAccount: AccountId = DAP_BUFFER_PALLET_ID.into_account_truncating();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -125,16 +124,8 @@ type NativeFungibleAdapter = FungibleAdapter<
 	TeleportTracking,
 >;
 
-/// Means for transacting the native currency on this chain, wrapping [`NativeFungibleAdapter`]
-/// to additionally deactivate funds deposited into the DAP buffer account.
-pub type FungibleTransactor = DapBufferAssetTransactor<
-	NativeFungibleAdapter,
-	Balances,
-	IsConcrete<WestendLocation>,
-	LocationToAccountId,
-	AccountId,
-	DapBufferAccount,
->;
+/// Means for transacting the native currency on this chain.
+pub type FungibleTransactor = NativeFungibleAdapter;
 
 /// `AssetId`/`Balance` converter for `TrustBackedAssets`.
 pub type TrustBackedAssetsConvertedConcreteId =
