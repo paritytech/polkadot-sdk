@@ -1,5 +1,9 @@
 title: 'Westend Asset Hub: Integrate PSM pallet and add remote tests'
 doc:
+- audience: Runtime User
+  description: |-
+    Adds the PSM pallet to Asset Hub Westend, enabling 1:1 minting and redemption
+    of pUSD against USDT.
 - audience: Runtime Dev
   description: |-
     Integrates the PSM pallet into the Asset Hub Westend runtime and adds remote

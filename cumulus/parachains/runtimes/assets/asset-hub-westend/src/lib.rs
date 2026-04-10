@@ -1432,6 +1432,9 @@ impl pallet_verify_signature::Config for Runtime {
 }
 
 // Dynamic parameters configurable via governance.
+/// One pUSD (6 decimals).
+const PUSD: Balance = 1_000_000;
+
 #[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
 pub mod dynamic_params {
 	use super::*;
@@ -1441,7 +1444,7 @@ pub mod dynamic_params {
 	pub mod pusd {
 		/// Maximum pUSD issuance across the system (50 million pUSD).
 		#[codec(index = 0)]
-		pub static MaximumIssuance: Balance = 50_000_000 * 1_000_000;
+		pub static MaximumIssuance: Balance = 50_000_000 * PUSD;
 	}
 }
 
@@ -1486,7 +1489,7 @@ parameter_types! {
 	/// The pUSD stablecoin asset ID (trust-backed asset).
 	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 50000342;
 	/// Minimum swap amount for PSM operations (1 pUSD).
-	pub const PsmMinSwapAmount: Balance = 1_000_000;
+	pub const PsmMinSwapAmount: Balance = PUSD;
 	/// PalletId for deriving the PSM system account.
 	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
 	/// Fee revenue destination: pUSD insurance fund account.
@@ -1575,9 +1578,9 @@ impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig 
 		[(
 			1984u32, // USDT
 			(
-				Permill::zero(),            // 0% minting fee
-				Permill::from_parts(100),   // 0.01% redemption fee
-				Permill::from_percent(100), // ceiling weight
+				Permill::zero(),                         // 0% minting fee
+				Permill::from_rational(1u32, 10_000u32), // 0.01% redemption fee
+				Permill::from_percent(100),              // ceiling weight
 			),
 		)]
 		.into_iter()

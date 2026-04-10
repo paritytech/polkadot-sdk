@@ -61,6 +61,7 @@ async fn main() {
 	match options.runtime {
 		Runtime::AssetHubWestend => {
 			use asset_hub_westend_runtime::{Block, Runtime};
+			sp_core::defer!(pallet_psm_remote_tests::clear_ext());
 
 			let config = asset_hub_westend_config(options.asset_id);
 
@@ -88,8 +89,6 @@ async fn main() {
 			pallet_psm_remote_tests::circuit_breaker::<Runtime, Block, PsmInitialConfig>(
 				&mut ext, &config,
 			);
-
-			pallet_psm_remote_tests::clear_ext();
 		},
 	}
 }

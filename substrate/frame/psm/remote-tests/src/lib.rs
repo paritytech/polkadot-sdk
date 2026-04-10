@@ -183,11 +183,10 @@ const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
 
 /// Build remote externalities by fetching live chain state.
 ///
-/// On the first call, state is fetched from the RPC node and saved to a local
-/// snapshot file. Subsequent calls load from the snapshot, avoiding redundant
-/// RPC requests.
+/// State is fetched from the RPC node and cached to a local snapshot file so
+/// that multiple tests within the same run can reuse it without extra RPC calls.
 ///
-/// Call [`clear_ext`] when done to remove the snapshot file.
+/// Call [`clear_ext`] after all tests complete to remove the snapshot file.
 pub async fn build_ext<Block>(
 	ws_url: String,
 	assets_pallet_name: String,
