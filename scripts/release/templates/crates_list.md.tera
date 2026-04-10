@@ -7,5 +7,7 @@ The following crates were updated to the corresponding versions:
 - pallet-conviction-voting@41.0.1
 - polkadot-collator-protocol@24.0.2
 - cumulus-client-consensus-aura@0.24.1
+- pallet-revive-fixtures@0.4.1
+- pallet-revive@0.7.2
 
 </details>
