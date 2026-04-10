@@ -7,10 +7,10 @@ doc:
 
     Runtime changes:
     - Configures `pallet-psm` on Asset Hub Westend with pUSD (asset ID 50000342)
-    - Sets maximum issuance to 2 million pUSD
+    - Adds `pallet-parameters` for governance-configurable maximum issuance (default 50 million pUSD)
     - Fee destination is the pUSD insurance fund account (`PalletId(*b"pusd/ins")`)
     - Adds V1 migration to initialize USDT (1984) as the first external asset
-      with 0.05% minting and redemption fees
+      with 0% minting fee and 0.01% redemption fee
     - Adds weights for the PSM pallet
 
     Remote tests:

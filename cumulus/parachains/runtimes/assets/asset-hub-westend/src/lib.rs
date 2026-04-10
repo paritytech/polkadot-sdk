@@ -1450,7 +1450,7 @@ impl Default for RuntimeParameters {
 	fn default() -> Self {
 		RuntimeParameters::Pusd(dynamic_params::pusd::Parameters::MaximumIssuance(
 			dynamic_params::pusd::MaximumIssuance,
-			Some(50_000_000 * 1_000_000),
+			Some(dynamic_params::pusd::MaximumIssuance::get()),
 		))
 	}
 }

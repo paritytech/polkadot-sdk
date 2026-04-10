@@ -52,6 +52,8 @@ pub struct PsmTestConfig {
 	pub external_asset_id: u32,
 	/// The pUSD stable asset ID. Will be created if it doesn't exist.
 	pub stable_asset_id: u32,
+	/// The expected decimal precision for pUSD (e.g., 6).
+	pub stable_asset_decimals: u8,
 	/// The pallet name for the assets pallet on the target chain (e.g., "Assets").
 	/// Used to determine which storage prefixes to fetch from the live chain.
 	pub assets_pallet_name: String,
@@ -61,10 +63,12 @@ pub struct PsmTestConfig {
 	pub pre_create_hook: Option<Box<dyn Fn()>>,
 }
 
-/// Amount of external stablecoin to swap in tests (1000 units with 6 decimals).
-const SWAP_AMOUNT: u128 = 1_000_000_000;
-/// Amount of external stablecoin to fund the test caller with (2000 units with 6 decimals).
-const FUND_AMOUNT: u128 = 2_000_000_000;
+/// Amount of external stablecoin to swap in tests (1000 units).
+const SWAP_AMOUNT: u128 = 1_000;
+/// Amount of external stablecoin to fund the test caller with (2000 units).
+const FUND_AMOUNT: u128 = 2_000;
+/// Amount for a small redeem in circuit breaker tests (100 units).
+const SMALL_REDEEM: u128 = 100;
 
 /// Common test state returned by [`setup`].
 struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
@@ -118,23 +122,23 @@ where
 			stable_asset_id,
 			psm_account.clone(),
 			true,
-			1u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed")),
+			10_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed")),
 		));
 
-		// Set pUSD metadata with matching decimals.
+		// Set pUSD metadata using the configured decimals.
 		assert_ok!(<Runtime::Fungibles as FungiblesMetadataMutate<Runtime::AccountId>>::set(
 			stable_asset_id,
 			&psm_account,
 			b"pUSD".to_vec(),
 			b"pUSD".to_vec(),
-			decimals,
+			config.stable_asset_decimals,
 		));
 
 		log::info!(
 			target: LOG_TARGET,
 			"Created pUSD stable asset (id={}) with {} decimals",
 			config.stable_asset_id,
-			decimals,
+			config.stable_asset_decimals,
 		);
 	}
 
@@ -157,27 +161,33 @@ where
 		frame_support::PalletId(*b"py/test!").into_account_truncating();
 	let _ = frame_system::Pallet::<Runtime>::inc_providers(&caller);
 
-	let fund_amount: BalanceOf<Runtime> =
-		FUND_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
+	let unit = 10u128.pow(config.stable_asset_decimals as u32);
+
+	let fund_amount: BalanceOf<Runtime> = (FUND_AMOUNT * unit)
+		.try_into()
+		.unwrap_or_else(|_| panic!("balance conversion failed"));
 	assert_ok!(<Runtime::Fungibles as FungiblesMutate<Runtime::AccountId>>::mint_into(
 		asset_id,
 		&caller,
 		fund_amount,
 	));
 
-	let swap_amount: BalanceOf<Runtime> =
-		SWAP_AMOUNT.try_into().unwrap_or_else(|_| panic!("balance conversion failed"));
+	let swap_amount: BalanceOf<Runtime> = (SWAP_AMOUNT * unit)
+		.try_into()
+		.unwrap_or_else(|_| panic!("balance conversion failed"));
 
 	TestEnv { asset_id, caller, psm_account, swap_amount }
 }
 
-pub const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
+const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
 
 /// Build remote externalities by fetching live chain state.
 ///
 /// On the first call, state is fetched from the RPC node and saved to a local
 /// snapshot file. Subsequent calls load from the snapshot, avoiding redundant
 /// RPC requests.
+///
+/// Call [`clear_ext`] when done to remove the snapshot file.
 pub async fn build_ext<Block>(
 	ws_url: String,
 	assets_pallet_name: String,
@@ -199,6 +209,11 @@ where
 		.build()
 		.await
 		.unwrap()
+}
+
+/// Remove the snapshot file so the next run fetches fresh state.
+pub fn clear_ext() {
+	let _ = std::fs::remove_file(SNAPSHOT_PATH);
 }
 
 /// Test that minting and redeeming through the PSM works against real on-chain
@@ -336,7 +351,8 @@ pub fn circuit_breaker<Runtime, Block, MigrationConfig>(
 			swap_amount,
 		));
 
-		let small_redeem: BalanceOf<Runtime> = 100_000_000u128
+		let unit = 10u128.pow(config.stable_asset_decimals as u32);
+		let small_redeem: BalanceOf<Runtime> = (SMALL_REDEEM * unit)
 			.try_into()
 			.unwrap_or_else(|_| panic!("balance conversion failed"));
 

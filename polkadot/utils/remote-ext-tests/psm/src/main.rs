@@ -17,7 +17,6 @@
 //! Remote tests for pallet-psm against live Asset Hub state.
 
 use clap::{Parser, ValueEnum};
-use frame_support::traits::fungible::Mutate as FungibleMutate;
 
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
@@ -42,21 +41,10 @@ fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestCo
 	pallet_psm_remote_tests::PsmTestConfig {
 		external_asset_id: asset_id,
 		stable_asset_id,
+		stable_asset_decimals: 6,
 		assets_pallet_name: "Assets".to_string(),
 		pre_create_hook: Some(Box::new(move || {
 			pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(stable_asset_id);
-			// Fund the PSM account with native balance for the asset creation
-			// deposit.
-			//
-			// This is only needed in tests. In production, the pUSD asset would
-			// be created via governance with treasury funds.
-			use sp_runtime::traits::AccountIdConversion;
-			let psm_account: <Runtime as frame_system::Config>::AccountId =
-				<Runtime as pallet_psm::Config>::PalletId::get().into_account_truncating();
-			let _ = <asset_hub_westend_runtime::Balances as FungibleMutate<_>>::mint_into(
-				&psm_account,
-				100_000_000_000_000u128,
-			);
 		})),
 	}
 }
@@ -104,8 +92,7 @@ async fn main() {
 				&mut ext, &config,
 			);
 
-			// Clean up the snapshot file so the next run fetches fresh state.
-			let _ = std::fs::remove_file(pallet_psm_remote_tests::SNAPSHOT_PATH);
+			pallet_psm_remote_tests::clear_ext();
 		},
 	}
 }

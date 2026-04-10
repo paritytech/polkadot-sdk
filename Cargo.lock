@@ -19358,7 +19358,6 @@ dependencies = [
  "pallet-assets",
  "pallet-psm",
  "pallet-psm-remote-tests",
- "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
  "tokio",
 ]
