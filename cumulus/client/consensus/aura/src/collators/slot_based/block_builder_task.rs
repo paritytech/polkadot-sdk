@@ -24,9 +24,7 @@ use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{GetCoreSelectorApi, PersistedValidationData};
 use cumulus_relay_chain_interface::RelayChainInterface;
 
-use polkadot_primitives::{
-	Block as RelayBlock, BlockId, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-};
+use polkadot_primitives::{Block as RelayBlock, BlockId, Header as RelayHeader, Id as ParaId};
 
 use super::CollatorMessage;
 use crate::{
@@ -181,6 +179,18 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
+		let mut best_notifications = match relay_client.new_best_notification_stream().await {
+			Ok(s) => s,
+			Err(err) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?err,
+					"Failed to initialize consensus: no relay chain best block notification stream"
+				);
+				return;
+			},
+		};
+
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 
 		loop {
@@ -190,7 +200,18 @@ where
 				return;
 			};
 
-			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
+			// Wait for the best relay block to be from the current relay
+			// chain slot. If propagation exceeded `slot_offset`, this
+			// blocks until a new-best notification arrives.
+			// See: https://github.com/paritytech/polkadot-sdk/pull/11453
+			let Some(relay_best_header) = wait_for_current_relay_block(
+				&relay_client,
+				&mut best_notifications,
+				slot_offset,
+				relay_chain_slot_duration,
+			)
+			.await
+			else {
 				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
 				continue
 			};
@@ -206,7 +227,7 @@ where
 
 			let Ok(rp_data) = offset_relay_parent_find_descendants(
 				&relay_client,
-				relay_best_hash,
+				relay_best_header,
 				relay_parent_offset,
 			)
 			.await
@@ -463,6 +484,78 @@ fn adjust_para_to_relay_parent_slot(
 	Some(para_slot)
 }
 
+/// Returns `true` if the best relay chain block is from the current relay chain
+/// slot. Uses the wall clock adjusted by `slot_offset`.
+fn is_best_relay_block_current(
+	best_relay_slot: u64,
+	slot_offset: Duration,
+	relay_chain_slot_duration: Duration,
+) -> bool {
+	let now = super::slot_timer::duration_now().saturating_sub(slot_offset);
+	is_best_relay_block_current_at(best_relay_slot, now, relay_chain_slot_duration)
+}
+
+/// Pure logic for the relay block freshness check, taking the current time as
+/// a parameter for testability.
+fn is_best_relay_block_current_at(
+	best_relay_slot: u64,
+	now: Duration,
+	relay_chain_slot_duration: Duration,
+) -> bool {
+	let current_relay_slot = now.as_millis() as u64 / relay_chain_slot_duration.as_millis() as u64;
+	best_relay_slot >= current_relay_slot
+}
+
+/// Wait until the best relay chain block is from the current relay chain slot.
+///
+/// If the current best block is already current, returns its hash immediately.
+/// Otherwise waits for a new-best notification and re-checks. This ensures
+/// the collator doesn't build on a stale relay parent when relay block
+/// propagation exceeds `slot_offset` at a slot boundary.
+///
+/// Returns the best relay block hash, or `None` on error.
+async fn wait_for_current_relay_block<RelayClient>(
+	relay_client: &RelayClient,
+	best_notifications: &mut (impl Stream<Item = RelayHeader> + Unpin),
+	slot_offset: Duration,
+	relay_chain_slot_duration: Duration,
+) -> Option<RelayHeader>
+where
+	RelayClient: RelayChainInterface + Clone + 'static,
+{
+	let relay_best_hash = relay_client.best_block_hash().await.ok()?;
+	let mut first_best_header =
+		Some(relay_client.header(BlockId::Hash(relay_best_hash)).await.ok()??);
+
+	loop {
+		// Drain buffered notifications.
+		while let Some(maybe_header) = best_notifications.next().now_or_never() {
+			first_best_header = Some(maybe_header?);
+		}
+
+		let best_header = match first_best_header.take() {
+			Some(h) => h,
+			None => best_notifications.next().await?, // Block until one arrives.
+		};
+
+		let best_slot = sc_consensus_babe::find_pre_digest::<RelayBlock>(&best_header)
+			.map(|d| d.slot())
+			.ok()?;
+
+		if is_best_relay_block_current(*best_slot, slot_offset, relay_chain_slot_duration) {
+			return Some(best_header);
+		}
+
+		tracing::debug!(
+			target: LOG_TARGET,
+			?relay_best_hash,
+			relay_best_num = %best_header.number(),
+			?best_slot,
+			"Best relay block is stale, waiting for fresh one."
+		);
+	}
+}
+
 /// Finds a relay chain parent block at a specified offset from the best block, collecting its
 /// descendants.
 ///
@@ -474,18 +567,12 @@ fn adjust_para_to_relay_parent_slot(
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
 async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_client: &RelayClient,
-	relay_best_block: RelayHash,
+	mut relay_header: RelayHeader,
 	relay_parent_offset: u32,
 ) -> Result<RelayParentData, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(Some(mut relay_header)) = relay_client.header(BlockId::Hash(relay_best_block)).await
-	else {
-		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(())
-	};
-
 	if relay_parent_offset == 0 {
 		return Ok(RelayParentData::new(relay_header));
 	}
@@ -523,7 +610,10 @@ mod tests {
 	use async_trait::async_trait;
 	use cumulus_relay_chain_interface::*;
 	use futures::Stream;
-	use polkadot_primitives::vstaging::{CandidateEvent, CommittedCandidateReceiptV2};
+	use polkadot_primitives::{
+		vstaging::{CandidateEvent, CommittedCandidateReceiptV2},
+		Hash as RelayHash,
+	};
 	use sp_version::RuntimeVersion;
 	use std::{
 		collections::{BTreeMap, HashMap, VecDeque},
@@ -533,11 +623,12 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_zero_offset() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
+		let best_hash = best_header.hash();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 0).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 0).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 0);
@@ -548,11 +639,11 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_two_offset() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 2).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 2).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 2);
@@ -566,11 +657,11 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_five_offset() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 5).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 5).await;
 		assert!(result.is_ok());
 		let data = result.unwrap();
 		assert_eq!(data.descendants_len(), 5);
@@ -584,25 +675,34 @@ mod tests {
 	#[tokio::test]
 	async fn offset_test_too_long() {
 		sp_tracing::init_for_tests();
-		let (headers, best_hash) = create_header_chain();
+		let (headers, best_header) = create_header_chain();
 
 		let client = TestRelayClient::new(headers);
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 200).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header.clone(), 200).await;
 		assert!(result.is_err());
 
-		let result = offset_relay_parent_find_descendants(&client, best_hash, 101).await;
+		let result = offset_relay_parent_find_descendants(&client, best_header, 101).await;
 		assert!(result.is_err());
 	}
 
 	#[derive(Clone)]
 	struct TestRelayClient {
 		headers: HashMap<RelayHash, RelayHeader>,
+		best_hash: std::sync::Arc<std::sync::Mutex<Option<RelayHash>>>,
 	}
 
 	impl TestRelayClient {
 		fn new(headers: HashMap<RelayHash, RelayHeader>) -> Self {
-			Self { headers }
+			Self { headers, best_hash: Default::default() }
+		}
+
+		fn new_with_best(headers: HashMap<RelayHash, RelayHeader>, best_hash: RelayHash) -> Self {
+			Self { headers, best_hash: std::sync::Arc::new(std::sync::Mutex::new(Some(best_hash))) }
+		}
+
+		fn set_best_hash(&self, hash: RelayHash) {
+			*self.best_hash.lock().unwrap() = Some(hash);
 		}
 	}
 
@@ -613,7 +713,10 @@ mod tests {
 		}
 
 		async fn best_block_hash(&self) -> RelayChainResult<RelayHash> {
-			unimplemented!("Not needed for test")
+			self.best_hash
+				.lock()
+				.unwrap()
+				.ok_or_else(|| RelayChainError::GenericError("No best hash set".into()))
 		}
 		async fn finalized_block_hash(&self) -> RelayChainResult<RelayHash> {
 			unimplemented!("Not needed for test")
@@ -765,10 +868,16 @@ mod tests {
 		}
 	}
 
-	fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+	fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHeader) {
 		let mut headers = HashMap::new();
 		let mut current_parent = None;
-		let mut header_hash = RelayHash::repeat_byte(0x1);
+		let mut best_header = RelayHeader {
+			parent_hash: Default::default(),
+			number: 0,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest: Default::default(),
+		};
 
 		// Create chain from highest to lowest number
 		for number in 1..=100 {
@@ -783,12 +892,209 @@ mod tests {
 				header.parent_hash = hash;
 			}
 
-			header_hash = header.hash();
+			let header_hash = header.hash();
 			// Store header and update parent for next iteration
 			headers.insert(header_hash, header.clone());
 			current_parent = Some(header_hash);
+			best_header = header;
 		}
 
-		(headers, header_hash)
+		(headers, best_header)
+	}
+
+	const RELAY_SLOT_DURATION: Duration = Duration::from_secs(6);
+
+	/// Simulate the wall clock at a specific point within a relay slot.
+	///
+	/// `relay_slot` is the current relay chain slot number, `ms_into_slot` is
+	/// how far into that slot we are (0..6000).
+	fn now_at(relay_slot: u64, ms_into_slot: u64) -> Duration {
+		Duration::from_millis(relay_slot * 6000 + ms_into_slot)
+	}
+
+	// ---------------------------------------------------------------
+	// Tests for `is_best_relay_block_current_at`
+	// ---------------------------------------------------------------
+
+	#[test]
+	fn best_block_in_current_slot_is_current() {
+		// Wall clock in slot 804, best block from slot 804 → current.
+		assert!(is_best_relay_block_current_at(804, now_at(804, 500), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn best_block_in_previous_slot_is_stale() {
+		// Wall clock in slot 805, best block from slot 804 → stale.
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 500), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn the_bug_scenario_best_block_stale_at_slot_boundary() {
+		// THE BUG: wall clock just crossed into slot 805 (17ms in),
+		// but best relay block is still from slot 804. Stale.
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 17), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn best_block_current_after_new_relay_block_arrives() {
+		// New relay block (slot 805) arrives. Wall clock in slot 805.
+		assert!(is_best_relay_block_current_at(805, now_at(805, 500), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn best_block_from_future_slot_is_current() {
+		// Should not happen, but must not panic.
+		assert!(is_best_relay_block_current_at(810, now_at(805, 0), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn stale_at_exact_slot_boundary() {
+		// Exactly at the start of slot 805.
+		// Best from 804 → stale (804 < 805).
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 0), RELAY_SLOT_DURATION));
+		// Best from 805 → current.
+		assert!(is_best_relay_block_current_at(805, now_at(805, 0), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn current_at_end_of_slot() {
+		// 5999ms into slot 804 — still in slot 804.
+		// Best from 804 → current.
+		assert!(is_best_relay_block_current_at(804, now_at(804, 5999), RELAY_SLOT_DURATION));
+	}
+
+	#[test]
+	fn no_wait_needed_during_normal_building() {
+		// During elastic scaling in slot 804: best is from 804,
+		// wall clock is mid-slot 804. No wait needed.
+		for ms in (0..6000).step_by(500) {
+			assert!(
+				is_best_relay_block_current_at(804, now_at(804, ms), RELAY_SLOT_DURATION),
+				"Should be current at {}ms into slot 804",
+				ms
+			);
+		}
+	}
+
+	#[test]
+	fn wait_needed_when_slot_advances() {
+		// Wall clock moves to slot 805, best still from 804.
+		// This is the race condition — must detect as stale.
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 0), RELAY_SLOT_DURATION));
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 17), RELAY_SLOT_DURATION));
+		assert!(!is_best_relay_block_current_at(804, now_at(805, 500), RELAY_SLOT_DURATION));
+	}
+
+	/// Create a relay header with a BABE pre-digest containing the given slot.
+	fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) -> RelayHeader {
+		use sc_consensus_babe::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
+		use sp_runtime::DigestItem;
+
+		let pre_digest = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+			authority_index: 0,
+			slot: slot.into(),
+		});
+
+		let mut digest = sp_runtime::generic::Digest::default();
+		digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(pre_digest));
+
+		RelayHeader {
+			parent_hash,
+			number,
+			state_root: Default::default(),
+			extrinsics_root: Default::default(),
+			digest,
+		}
+	}
+
+	/// Test the original bug scenario: relay block propagation exceeds `slot_offset`,
+	/// causing the collator to see a stale relay parent at a slot boundary.
+	///
+	/// `wait_for_current_relay_block` must block until a fresh relay block arrives
+	/// (via the notification stream), then return that block's hash.
+	#[tokio::test]
+	async fn wait_for_current_relay_block_waits_when_stale() {
+		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
+
+		let now_ms = crate::collators::slot_based::slot_timer::duration_now()
+			.saturating_sub(slot_offset)
+			.as_millis() as u64;
+		let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
+
+		// Slot 0 is always stale. A slot far in the future is always fresh.
+		let stale_slot = 0;
+		let fresh_slot = current_slot + 100;
+
+		let r_stale = relay_header_with_slot(100, Default::default(), stale_slot);
+		let r_stale_hash = r_stale.hash();
+		let r_fresh = relay_header_with_slot(101, r_stale_hash, fresh_slot);
+		let r_fresh_hash = r_fresh.hash();
+
+		let mut headers = HashMap::new();
+		headers.insert(r_stale_hash, r_stale.clone());
+		headers.insert(r_fresh_hash, r_fresh.clone());
+
+		let client = TestRelayClient::new_with_best(headers, r_stale_hash);
+
+		let (tx, mut rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+
+		let client_clone = client.clone();
+		let mut handle = tokio::spawn(async move {
+			wait_for_current_relay_block(&client_clone, &mut rx, slot_offset, relay_slot_duration)
+				.await
+		});
+
+		// The function should not return before receiving a notification — the best
+		// block (slot 0) is always stale.
+		assert!(
+			tokio::time::timeout(Duration::from_millis(100), &mut handle).await.is_err(),
+			"Should be waiting for fresh relay block, not returning immediately"
+		);
+
+		// Simulate: new relay block arrives. Update best hash and send notification.
+		client.set_best_hash(r_fresh_hash);
+		tx.unbounded_send(relay_header_with_slot(101, r_stale_hash, fresh_slot))
+			.unwrap();
+
+		let result = tokio::time::timeout(Duration::from_secs(2), handle)
+			.await
+			.expect("Task should complete within timeout")
+			.expect("Task should not panic");
+
+		assert_eq!(result.map(|h| h.hash()), Some(r_fresh_hash));
+	}
+
+	/// When the best relay block is already current, `wait_for_current_relay_block`
+	/// should return immediately without waiting for any notification.
+	#[tokio::test]
+	async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
+		let relay_slot_duration = Duration::from_secs(6);
+		let slot_offset = Duration::from_secs(1);
+
+		let now_ms = crate::collators::slot_based::slot_timer::duration_now()
+			.saturating_sub(slot_offset)
+			.as_millis() as u64;
+		let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
+
+		let header = relay_header_with_slot(100, Default::default(), current_slot);
+		let header_hash = header.hash();
+
+		let mut headers = HashMap::new();
+		headers.insert(header_hash, header.clone());
+
+		let client = TestRelayClient::new_with_best(headers, header_hash);
+
+		// Create a notification stream that will never produce (no sender).
+		let (_tx, mut rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+
+		let result = tokio::time::timeout(
+			Duration::from_secs(1),
+			wait_for_current_relay_block(&client, &mut rx, slot_offset, relay_slot_duration),
+		)
+		.await
+		.expect("Should return immediately, not timeout");
+
+		assert_eq!(result.map(|h| h.hash()), Some(header_hash));
 	}
 }

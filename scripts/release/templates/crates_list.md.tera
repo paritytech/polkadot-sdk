@@ -2,8 +2,10 @@ The following crates were updated to the corresponding versions:
 
 <details>
   <summary>Click to see crates list</summary>
-- sp-trie@40.0.1
-- sc-authority-discovery@0.51.1
-- polkadot-collator-protocol@24.0.1
-- sc-network@0.51.2
+
+- frame-support@41.0.2
+- pallet-conviction-voting@41.0.1
+- polkadot-collator-protocol@24.0.2
+- cumulus-client-consensus-aura@0.24.1
+
 </details>
