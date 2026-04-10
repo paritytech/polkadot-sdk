@@ -715,10 +715,9 @@ where
 			peer_ids.len(),
 		);
 
-		let result = self.network.remove_peers_from_reserved_set(
-			self.protocol_name.clone(),
-			peer_ids.clone(),
-		);
+		let result = self
+			.network
+			.remove_peers_from_reserved_set(self.protocol_name.clone(), peer_ids.clone());
 		if let Err(err) = result {
 			log::error!(target: LOG_TARGET, "Failed to remove reserved peers: {err}");
 			return;
@@ -728,13 +727,10 @@ where
 		let addrs: HashSet<multiaddr::Multiaddr> = peer_ids
 			.into_iter()
 			.map(|p| {
-				iter::once(multiaddr::Protocol::P2p(p.into()))
-					.collect::<multiaddr::Multiaddr>()
+				iter::once(multiaddr::Protocol::P2p(p.into())).collect::<multiaddr::Multiaddr>()
 			})
 			.collect();
-		let result = self
-			.network
-			.add_peers_to_reserved_set(self.protocol_name.clone(), addrs);
+		let result = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs);
 		if let Err(err) = result {
 			log::error!(target: LOG_TARGET, "Failed to re-add reserved peers: {err}");
 		}

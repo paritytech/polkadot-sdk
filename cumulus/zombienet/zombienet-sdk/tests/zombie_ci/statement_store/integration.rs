@@ -1,14 +1,14 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
-use std::time::Duration;
+use std::{collections::HashSet, time::Duration};
 
 use codec::Encode;
 use log::{debug, info};
 use sp_core::Bytes;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+	RejectionReason, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
+	TopicFilter,
 };
 use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 
