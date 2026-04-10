@@ -808,5 +808,13 @@ fn delegatecall_is_rejected() {
 		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
 			.expect("return must decode as (bool, bytes)");
 		assert!(!ret.success, "DELEGATECALL to XCM precompile must be rejected");
+		// PrecompileDelegateDenied is an Error::Error (trap), not an Error::Revert, so the
+		// inner call produces no output data. A Solidity-level revert would include
+		// ABI-encoded reason bytes.
+		assert!(
+			ret.output.is_empty(),
+			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
+			ret.output.len(),
+		);
 	});
 }
