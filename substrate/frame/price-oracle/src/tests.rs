@@ -74,6 +74,7 @@ impl Config for Test {
 	type AuthorityProvider = MockAuthorityProvider;
 	type TimeProvider = MockTime;
 	type OnPriceUpdate = ();
+	type PriceOracleOrigin = frame_system::EnsureRoot<u64>;
 }
 
 fn new_test_ext() -> TestExternalities {

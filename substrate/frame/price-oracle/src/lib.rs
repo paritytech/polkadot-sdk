@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{pallet_prelude::*, traits::Time};
+use frame_support::{pallet_prelude::*, traits::Time, traits::EnsureOrigin};
 use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;
@@ -59,6 +59,9 @@ pub mod pallet {
 
 		/// Hook called when the price is updated. Set to `()` if unused.
 		type OnPriceUpdate: OnPriceUpdate<BlockNumberFor<Self>>;
+
+		/// Origin allowed to toggle the panic switch.
+		type PriceOracleOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::pallet]
@@ -222,7 +225,7 @@ pub mod pallet {
 		#[pallet::call_index(1)]
 		#[pallet::weight(T::DbWeight::get().writes(1))]
 		pub fn set_panic_switch(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
-			ensure_root(origin)?; // need a discussion on who is the authority to set the panic switch
+			T::PriceOracleOrigin::ensure_origin(origin)?;
 			PanicSwitch::<T>::put(enabled);
 			Ok(())
 		}
