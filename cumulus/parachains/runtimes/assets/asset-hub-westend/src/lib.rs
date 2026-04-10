@@ -1502,6 +1502,7 @@ type PsmStableAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
+///
 /// Root gets Full privileges; GeneralAdmin gets Emergency.
 pub struct EnsurePsmManager;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
