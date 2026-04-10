@@ -36,7 +36,6 @@ use sc_offchain::OffchainWorkerApi;
 use serde::de::DeserializeOwned;
 use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
-use sp_hop::HopPromotionApi;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumber, Header as HeaderT, NumberFor},
 	OpaqueExtrinsic,
@@ -77,7 +76,6 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetParachainInfo<Block>
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
-	+ HopPromotionApi<Block>
 	+ Sized
 {
 }
@@ -93,7 +91,6 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
-		+ HopPromotionApi<Block>
 {
 }
 
@@ -135,6 +132,18 @@ pub struct NodeExtraArgs {
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 
-	/// HOP (Hand-Off Protocol) parameters.
-	pub hop: sc_hop::HopParams,
+	/// If true then the HOP data pool will be enabled.
+	pub enable_hop: bool,
+
+	/// HOP maximum data pool size in MiB.
+	pub hop_max_pool_size_mb: u64,
+
+	/// HOP data retention period in blocks.
+	pub hop_retention_blocks: u32,
+
+	/// HOP expiry cleanup interval in seconds.
+	pub hop_check_interval: u64,
+
+	/// Directory for HOP persistent data storage.
+	pub hop_data_dir: Option<PathBuf>,
 }

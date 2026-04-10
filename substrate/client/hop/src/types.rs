@@ -29,7 +29,6 @@ pub type Alias = [u8; 32];
 pub const HOP_CONTEXT: [u8; 32] = *b"pop:polkadot.network/hop-pool\x00\x00\x00";
 
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
-/// Everything from `HopPoolEntry` except the data blob.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
 	/// Block number when this was added
@@ -44,8 +43,6 @@ pub struct HopEntryMeta {
 	pub claimed: Vec<bool>,
 	/// Alias of the sender who submitted this entry (from personhood proof).
 	pub sender_alias: Alias,
-	/// Whether this entry has been promoted to permanent on-chain storage.
-	pub promoted: bool,
 }
 
 impl HopEntryMeta {
@@ -59,44 +56,7 @@ impl HopEntryMeta {
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
 		let claimed = vec![false; recipients.len()];
-		Self { added_at, expires_at, size, recipients, claimed, sender_alias, promoted: false }
-	}
-}
-
-/// Entry in the HOP data pool
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct HopPoolEntry {
-	/// The actual data blob
-	pub data: Vec<u8>,
-	/// Block number when this was added
-	pub added_at: HopBlockNumber,
-	/// Block number when this expires (added_at + retention_period)
-	pub expires_at: HopBlockNumber,
-	/// Size in bytes
-	pub size: u64,
-	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
-	/// Each recipient claims by signing the content hash with their corresponding private key.
-	pub recipients: Vec<MultiSigner>,
-	/// Tracks which recipients have claimed (by index into `recipients`).
-	pub claimed: Vec<bool>,
-	/// Alias of the sender who submitted this entry (from personhood proof).
-	pub sender_alias: Alias,
-}
-
-impl HopPoolEntry {
-	/// Create a new pool entry
-	pub fn new(
-		data: Vec<u8>,
-		added_at: HopBlockNumber,
-		retention_blocks: u32,
-		recipients: Vec<MultiSigner>,
-		sender_alias: Alias,
-	) -> Self {
-		let size = data.len() as u64;
-		let expires_at = added_at.saturating_add(retention_blocks);
-		let claimed = vec![false; recipients.len()];
-
-		Self { data, added_at, expires_at, size, recipients, claimed, sender_alias }
+		Self { added_at, expires_at, size, recipients, claimed, sender_alias }
 	}
 }
 
@@ -161,6 +121,9 @@ pub enum HopError {
 
 	#[error("I/O error: {0}")]
 	IoError(String),
+
+	#[error("Recipient already acknowledged, data may have been deleted")]
+	AlreadyClaimed,
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -179,18 +142,21 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::UserQuotaExceeded { .. } => 1013,
 			HopError::InvalidPersonhoodProof => 1014,
 			HopError::IoError(_) => 1015,
+			HopError::AlreadyClaimed => 1016,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
 	}
 }
 
-/// Maximum data size (8 MiB, matches pallet-transaction-storage MaxTransactionSize).
-/// Chunking of larger data is the frontend's responsibility.
-pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
+/// Maximum data size (64 MiB)
+pub const MAX_DATA_SIZE: u64 = 64 * 1024 * 1024;
 
 /// Default retention period in blocks (24 hours at 6 seconds per block = 14,400 blocks)
 pub const DEFAULT_RETENTION_BLOCKS: u32 = 14_400;
 
 /// Default maximum pool size in bytes (10 GiB)
 pub const DEFAULT_MAX_POOL_SIZE: u64 = 10 * 1024 * 1024 * 1024;
+
+/// Default maximum pool size in MiB (10 GiB = 10240 MiB)
+pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024);

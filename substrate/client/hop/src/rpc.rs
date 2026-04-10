@@ -27,7 +27,6 @@ use jsonrpsee::{
 	proc_macros::rpc,
 	types::ErrorObjectOwned,
 };
-use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
 use sp_runtime::{traits::Block as BlockT, MultiSigner, SaturatedConversion};
@@ -43,8 +42,14 @@ pub trait PersonhoodVerifier: Send + Sync + 'static {
 	fn verify(&self, proof: &[u8], context: &[u8], msg: &[u8]) -> Result<Alias, HopError>;
 }
 
-/// No-op verifier that accepts any proof and returns a zero alias.
-/// Use this when personhood verification is not needed.
+/// No-op verifier that accepts any proof and returns a zero alias (`[0u8; 32]`).
+///
+/// **WARNING:** When using `NoopVerifier`, all submissions share the same alias,
+/// making per-user quota enforcement ineffective — every submitter appears to be
+/// the same "user" and they collectively share a single quota bucket.
+///
+/// Use this only for development/testing or when personhood verification is not
+/// available. Production deployments should implement a real [`PersonhoodVerifier`].
 pub struct NoopVerifier;
 
 impl PersonhoodVerifier for NoopVerifier {
@@ -68,7 +73,10 @@ pub trait HopApi<BlockHash> {
 	#[method(name = "hop_submit")]
 	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult>;
 
-	/// Claim data from the data pool by hash
+	/// Claim data from the data pool by hash (read-only download).
+	///
+	/// This does NOT mark the recipient as claimed. After receiving the data,
+	/// call `hop_ack` with the same arguments to confirm receipt.
 	///
 	/// Requires a SCALE-encoded `MultiSignature` over the hash using the ephemeral
 	/// private key corresponding to one of the recipient public keys.
@@ -78,9 +86,20 @@ pub trait HopApi<BlockHash> {
 	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
 	///
 	/// # Returns
-	/// The data if the signature matches an unclaimed recipient
+	/// The data if the signature matches a recipient that hasn't yet acked
 	#[method(name = "hop_claim")]
 	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
+
+	/// Acknowledge receipt of claimed data.
+	///
+	/// Marks the recipient as claimed and triggers cleanup when all recipients
+	/// have acknowledged. Idempotent: acking twice succeeds silently.
+	///
+	/// # Arguments
+	/// * `hash`: The hash of the data, in bytes (32 bytes)
+	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
+	#[method(name = "hop_ack")]
+	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()>;
 
 	/// Get data pool status
 	///
@@ -121,7 +140,7 @@ impl<C, Block, V: PersonhoodVerifier> HopRpcServer<C, Block, V> {
 impl<C, Block, V> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block, V>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	C: HeaderBackend<Block> + Send + Sync + 'static,
 	V: PersonhoodVerifier,
 {
 	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult> {
@@ -140,7 +159,8 @@ where
 
 		// We need the current block number to know when the timeout is reached.
 		let current_block = self.client.info().best_number.saturated_into::<u32>();
-		let _hash = self.pool.insert(data.0, current_block, recipient_keys, alias)?;
+		let _hash =
+			self.pool.insert_prehashed(data.0, current_block, recipient_keys, alias, hash)?;
 		let pool_status = self.pool.status();
 		Ok(SubmitResult { pool_status })
 	}
@@ -149,6 +169,12 @@ where
 		let hash = Self::bytes_to_hash(hash)?;
 		let data = self.pool.claim(&hash, &signature.0)?;
 		Ok(Bytes(data))
+	}
+
+	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()> {
+		let hash = Self::bytes_to_hash(hash)?;
+		self.pool.ack(&hash, &signature.0)?;
+		Ok(())
 	}
 
 	fn pool_status(&self) -> RpcResult<PoolStatus> {

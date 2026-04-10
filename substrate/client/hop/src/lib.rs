@@ -54,10 +54,10 @@
 //! use std::sync::Arc;
 //!
 //! // Conditional initialization (SDK pattern)
-//! let hop_pool = hop_params.enabled.then(|| {
+//! let hop_pool = hop_params.enable_hop.then(|| {
 //!     HopDataPool::new(
-//!         hop_params.max_pool_size * 1024 * 1024,  // Convert MiB to bytes
-//!         hop_params.retention_blocks,
+//!         hop_params.hop_max_pool_size * 1024 * 1024,  // Convert MiB to bytes
+//!         hop_params.hop_retention_blocks,
 //!     )
 //!     .map(Arc::new)
 //!     .map_err(|e| format!("Failed to create HOP pool: {}", e))
@@ -78,8 +78,10 @@
 //!
 //! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> SubmitResult` - Submit data
 //!   with SCALE-encoded MultiSigner recipient keys and personhood proof, returns hash + pool status
-//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with SCALE-encoded
-//!   MultiSignature
+//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Download data (read-only, no state
+//!   mutation). Must be followed by `hop_ack` to confirm receipt.
+//! - `hop_ack(hash: Bytes, signature: Bytes) -> ()` - Acknowledge receipt. Marks recipient as
+//!   claimed, triggers cleanup when all recipients have ack'd. Idempotent.
 //! - `hop_poolStatus() -> PoolStatus` - Get pool statistics
 //!
 //! ## CLI Flags
@@ -87,12 +89,11 @@
 //! - `--enable-hop` - Enable HOP service
 //! - `--hop-max-pool-size <MiB>` - Maximum pool size (default: 10240 MiB)
 //! - `--hop-retention-blocks <blocks>` - Retention period (default: 14400)
-//! - `--hop-check-interval <seconds>` - Promotion check interval (default: 60)
+//! - `--hop-check-interval <seconds>` - Expiry cleanup interval (default: 60)
 
 pub mod cli;
 pub mod pool;
 pub mod primitives;
-pub mod promotion;
 pub mod rpc;
 pub mod types;
 
@@ -100,6 +101,5 @@ pub mod types;
 pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
-pub use promotion::{try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter};
 pub use rpc::{HopApiServer, HopRpcServer, NoopVerifier, PersonhoodVerifier};
-pub use types::{Alias, HopEntryMeta, HopError, HopPoolEntry, PoolStatus, SubmitResult};
+pub use types::{Alias, HopEntryMeta, HopError, PoolStatus, SubmitResult};

@@ -434,18 +434,23 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.database.path().map(|p| p.to_path_buf()),
 			)?;
 			if let Some(ref pool) = hop_pool {
-				let promoter = sc_hop::try_build_promoter(&client, &transaction_pool);
+				let task_pool = pool.clone();
 				let task_client = client.clone();
-				let best_block: Arc<dyn Fn() -> u32 + Send + Sync> =
-					Arc::new(move || task_client.info().best_number.saturated_into::<u32>());
-				let maintenance = sc_hop::HopMaintenanceTask::new(
-					pool.clone(),
-					promoter,
-					best_block,
-					node_extra_args.hop.buffer_blocks,
-					node_extra_args.hop.check_interval,
-				);
-				task_manager.spawn_handle().spawn("hop-maintenance", None, maintenance.run());
+				let check_interval = node_extra_args.hop_check_interval;
+				task_manager.spawn_handle().spawn("hop-cleanup", None, async move {
+					loop {
+						futures_timer::Delay::new(Duration::from_secs(check_interval)).await;
+						let block = task_client.info().best_number.saturated_into::<u32>();
+						let freed = task_pool.cleanup_expired(block);
+						if freed > 0 {
+							log::info!(
+								target: "hop",
+								"Cleaned up expired HOP entries, freed {} bytes",
+								freed,
+							);
+						}
+					}
+				});
 			}
 
 			if parachain_config.offchain_worker.enabled {

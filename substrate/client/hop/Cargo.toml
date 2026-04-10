@@ -25,19 +25,11 @@ clap = { workspace = true, features = ["derive"] }
 # RPC
 jsonrpsee = { workspace = true, features = ["client", "macros", "server"] }
 
-# Async
-futures-timer = { workspace = true }
-
 # Substrate primitives (client-side, always with std)
 polkadot-primitives = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
-sp-hop = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-
-# Substrate client
-sc-transaction-pool-api = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
