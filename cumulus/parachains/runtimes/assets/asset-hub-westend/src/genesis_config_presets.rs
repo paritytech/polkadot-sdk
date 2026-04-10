@@ -27,7 +27,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use staking::DapPalletId;
+use staking::{DapPalletId, DapSatelliteAccumulationPalletId};
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -41,6 +41,10 @@ fn dap_buffer_account() -> AccountId {
 	DapPalletId::get().into_account_truncating()
 }
 
+fn satellite_accumulation_account() -> AccountId {
+	DapSatelliteAccumulationPalletId::get().into_account_truncating()
+}
+
 fn asset_hub_westend_genesis(
 	invulnerables: Vec<(AccountId, AuraId)>,
 	endowed_accounts: Vec<AccountId>,
@@ -50,9 +54,11 @@ fn asset_hub_westend_genesis(
 	foreign_assets: Vec<(Location, AccountId, Balance)>,
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
-	// Fund DAP buffer account with ED so it can receive slashes.
+	// Fund DAP buffer account with ED so it can receive slashes. Also fund the
+	// satellite accumulation account with ED so it can receive cross-chain teleports.
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	balances.push((dap_buffer_account(), ASSET_HUB_WESTEND_ED));
+	balances.push((satellite_accumulation_account(), ASSET_HUB_WESTEND_ED));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },

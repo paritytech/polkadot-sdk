@@ -53,8 +53,10 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		tokens::Preservation,
 		Imbalance, OnUnbalanced, Time,
 	},
+	weights::WeightMeter,
 	PalletId,
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
@@ -62,7 +64,7 @@ use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
 
-pub use sp_dap::DAP_BUFFER_PALLET_ID;
+pub use sp_dap::{DAP_BUFFER_PALLET_ID, DAP_SATELLITE_ACCUMULATION_PALLET_ID};
 
 const LOG_TARGET: &str = "runtime::dap";
 
@@ -135,6 +137,13 @@ pub mod pallet {
 		#[pallet::constant]
 		type MaxElapsedPerDrip: Get<u64>;
 
+		/// The pallet ID used to derive the satellite accumulation account.
+		///
+		/// Cross-chain teleports from DAP satellites land here and are periodically
+		/// drained and deactivated into the main DAP buffer account.
+		#[pallet::constant]
+		type SatelliteAccumulationPalletId: Get<PalletId>;
+
 		/// Origin that can update budget allocation percentages.
 		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
@@ -203,6 +212,45 @@ pub mod pallet {
 			Self::drip_issuance()
 		}
 
+		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(remaining_weight);
+
+			// Need at least one read (satellite accumulation balance).
+			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+				return meter.consumed();
+			}
+
+			let accum_account = Self::satellite_accumulation_account();
+			let accum_balance = T::Currency::balance(&accum_account);
+			let available = accum_balance.saturating_sub(T::Currency::minimum_balance());
+
+			if available.is_zero() {
+				return meter.consumed();
+			}
+
+			// Need 1 read and 2writes for the transfer.
+			if meter.try_consume(T::DbWeight::get().reads_writes(1, 2)).is_err() {
+				return meter.consumed();
+			}
+
+			let buffer = Self::buffer_account();
+			if T::Currency::transfer(&accum_account, &buffer, available, Preservation::Preserve)
+				.is_err()
+			{
+				defensive!("DAP: satellite accumulation transfer to buffer failed");
+				return meter.consumed();
+			}
+
+			Self::deactivate_buffer_funds(available);
+
+			log::debug!(
+				target: LOG_TARGET,
+				"DAP: drained {available:?} from satellite accumulation account to DAP buffer"
+			);
+
+			meter.consumed()
+		}
+
 		fn integrity_test() {
 			assert!(
 				T::MaxElapsedPerDrip::get() > T::IssuanceCadence::get(),
@@ -267,6 +315,14 @@ pub mod pallet {
 		/// and its explicit budget allocation share.
 		pub(crate) fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// The satellite accumulation account.
+		///
+		/// Cross-chain teleports from DAP satellites land here and are periodically drained
+		/// and deactivated into the DAP buffer account.
+		pub(crate) fn satellite_accumulation_account() -> T::AccountId {
+			T::SatelliteAccumulationPalletId::get().into_account_truncating()
 		}
 
 		/// Deactivate funds on buffer inflow.
