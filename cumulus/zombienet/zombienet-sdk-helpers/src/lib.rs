@@ -19,6 +19,7 @@ use zombienet_sdk::subxt::{
 	dynamic::Value,
 	events::Events,
 	ext::scale_value::value,
+	metadata::Metadata,
 	tx::{signer::Signer, DynamicPayload, TxStatus},
 	utils::H256,
 	OnlineClient, PolkadotConfig,
@@ -27,6 +28,25 @@ use zombienet_sdk::subxt::{
 // Maximum number of blocks to wait for a session change.
 // If it does not arrive for whatever reason, we should not wait forever.
 const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
+
+/// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
+///
+/// For module errors this resolves the pallet index and error index to their names
+/// (e.g. `ParachainSystem::TooBig`) instead of showing raw bytes.
+fn format_dispatch_error(err: &sp_runtime::DispatchError, metadata: &Metadata) -> String {
+	match err {
+		sp_runtime::DispatchError::Module(module_err) => {
+			let pallet = metadata.pallet_by_index(module_err.index);
+			let pallet_name = pallet.as_ref().map(|p| p.name()).unwrap_or("UnknownPallet");
+			let error_name = pallet
+				.and_then(|p| p.error_variant_by_index(module_err.error[0]))
+				.map(|v| v.name.as_str())
+				.unwrap_or("UnknownError");
+			format!("{pallet_name}::{error_name}")
+		},
+		other => format!("{other:?}"),
+	}
+}
 
 /// Find an event in subxt `Events` and attempt to decode the fields of the event.
 fn find_event_and_decode_fields<T: Decode>(
@@ -64,6 +84,38 @@ pub async fn assert_para_throughput(
 	stop_after: u32,
 	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
 ) -> Result<(), anyhow::Error> {
+	let ranges = expected_candidate_ranges.into();
+	let valid_para_ids: Vec<ParaId> = ranges.keys().cloned().collect();
+
+	assert_para_throughput_with(relay_client, stop_after, ranges, |receipt| {
+		let para_id = receipt.descriptor.para_id();
+		if !valid_para_ids.contains(&para_id) {
+			return Err(anyhow!("Invalid ParaId detected: {}", para_id));
+		}
+
+		Ok(true)
+	})
+	.await
+}
+
+/// Like [`assert_para_throughput`], but accepts a closure to validate each backed candidate
+/// receipt.
+///
+/// The closure receives each [`CandidateReceiptV2`] and should return:
+/// - `Ok(true)` to count the candidate,
+/// - `Ok(false)` to skip it,
+/// - `Err(e)` to fail immediately.
+///
+/// Only receipts for para IDs present in `expected_candidate_ranges` are passed to the closure.
+pub async fn assert_para_throughput_with<F>(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	stop_after: u32,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+	validate: F,
+) -> Result<(), anyhow::Error>
+where
+	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
+{
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
 	let mut current_block_count = 0;
@@ -104,8 +156,12 @@ pub async fn assert_para_throughput(
 			log::debug!("Block backed for para_id {para_id}");
 
 			if !valid_para_ids.contains(&para_id) {
-				return Err(anyhow!("Invalid ParaId detected: {}", para_id));
-			};
+				continue;
+			}
+
+			if !validate(&receipt)? {
+				continue;
+			}
 
 			*(candidate_count.entry(para_id).or_default()) += 1;
 		}
@@ -531,6 +587,45 @@ pub fn create_runtime_upgrade_call(wasm: &[u8]) -> DynamicPayload {
 			},
 		],
 	)
+}
+
+/// Submit a runtime upgrade via sudo and verify it was scheduled.
+///
+/// This submits a `Sudo::sudo_unchecked_weight(System::set_code(wasm))` extrinsic,
+/// waits for finalization, then checks the `Sudid` event to verify the inner dispatch
+/// succeeded. Returns the hash of the finalized block containing the upgrade extrinsic.
+pub async fn submit_sudo_runtime_upgrade<S: Signer<PolkadotConfig>>(
+	client: &OnlineClient<PolkadotConfig>,
+	wasm: &[u8],
+	signer: &S,
+) -> Result<H256, anyhow::Error> {
+	log::info!("Submitting sudo runtime upgrade, wasm size: {} bytes", wasm.len());
+	let call = create_runtime_upgrade_call(wasm);
+	let block_hash =
+		submit_extrinsic_and_wait_for_finalization_success(client, &call, signer).await?;
+
+	// Verify the inner sudo dispatch succeeded by checking the Sudid event.
+	// sudo_unchecked_weight always returns Ok at the extrinsic level, even if the
+	// inner call fails — the actual result is only in the Sudid event.
+	let block = client.blocks().at(block_hash).await?;
+	let events = block.events().await?;
+	let sudid_results: Vec<Result<(), sp_runtime::DispatchError>> =
+		find_event_and_decode_fields(&events, "Sudo", "Sudid")?;
+
+	match sudid_results.first() {
+		Some(Ok(())) => {
+			log::info!("Sudo runtime upgrade dispatched successfully in block {block_hash:?}")
+		},
+		Some(Err(e)) => {
+			return Err(anyhow!(
+				"Sudo runtime upgrade inner dispatch failed in block {block_hash:?}: {}",
+				format_dispatch_error(e, &client.metadata()),
+			))
+		},
+		None => return Err(anyhow!("Sudid event not found in block {block_hash:?}")),
+	}
+
+	Ok(block_hash)
 }
 
 /// Wait until a runtime upgrade has happened.

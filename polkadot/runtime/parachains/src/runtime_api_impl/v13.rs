@@ -33,7 +33,6 @@ use polkadot_primitives::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	node_features::FeatureIndex,
 	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateDescriptorVersion,
 	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
@@ -88,14 +87,11 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
 	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
 
-	let node_features = configuration::ActiveConfig::<T>::get().node_features;
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
-
 	(0..n_cores)
 		.map(|core_idx| {
 			let core_idx = CoreIndex(core_idx as u32);
 			if let Some(pending_availability) = occupied_cores.get(&core_idx) {
-				// Use the same block number for determining the responsible group as what
+				// Use the same block number for determining the responsible group as
 				// the backing subsystem would use when it calls validator_groups API.
 				// For V3 candidates, look up the scheduling parent block number from the
 				// relay parent tracker (because it may no longer be in the scheduling parent
@@ -108,10 +104,9 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				// parent.
 				let scheduling_parent_number = if pending_availability
 					.candidate_descriptor()
-					.version(v3_enabled) ==
-					CandidateDescriptorVersion::V3
+					.version() == CandidateDescriptorVersion::V3
 				{
-					let sp = pending_availability.candidate_descriptor().scheduling_parent(true);
+					let sp = pending_availability.candidate_descriptor().scheduling_parent();
 					// Workaround for issue #64.
 					let scheduling_parent_number = if shared::Pallet::<T>::on_chain_storage_version(
 					) == StorageVersion::new(1)

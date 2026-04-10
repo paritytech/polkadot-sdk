@@ -22,8 +22,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
-	PersistedValidationData,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Id as ParaId, PersistedValidationData,
 };
 use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
@@ -209,7 +209,7 @@ pub struct ProspectiveCandidate {
 }
 
 /// Identifier of a collation being requested.
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
@@ -220,6 +220,9 @@ pub struct Advertisement {
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
+	/// Advertised candidate descriptor version (for V3 protocol).
+	/// None for V1/V2 protocols.
+	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 impl Advertisement {
@@ -258,7 +261,7 @@ pub enum CanSecond {
 /// Information that identifies a collation that was rejected from seconding.
 #[derive(Debug)]
 pub struct SecondingRejectionInfo {
-	pub relay_parent: Hash,
+	pub scheduling_parent: Hash,
 	pub peer_id: PeerId,
 	pub para_id: ParaId,
 	pub maybe_output_head_hash: Option<Hash>,
@@ -268,7 +271,7 @@ pub struct SecondingRejectionInfo {
 impl From<&Advertisement> for SecondingRejectionInfo {
 	fn from(advertisement: &Advertisement) -> Self {
 		SecondingRejectionInfo {
-			relay_parent: advertisement.scheduling_parent,
+			scheduling_parent: advertisement.scheduling_parent,
 			peer_id: advertisement.peer_id,
 			para_id: advertisement.para_id,
 			maybe_output_head_hash: None,

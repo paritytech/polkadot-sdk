@@ -50,6 +50,11 @@
 mod metrics;
 mod subscription;
 
+#[cfg(feature = "test-helpers")]
+pub mod subxt_client;
+#[cfg(feature = "test-helpers")]
+pub mod test_utils;
+
 use crate::subscription::{SubscriptionStatementsStream, SubscriptionsHandle};
 use futures::FutureExt;
 use metrics::MetricsLink as PrometheusMetrics;
@@ -102,6 +107,16 @@ const MAX_EXPIRY_TIME_PER_ITERATION: Duration = Duration::from_millis(100);
 const NUM_FILTER_WORKERS: usize = 1;
 
 const MAINTENANCE_PERIOD: std::time::Duration = std::time::Duration::from_secs(29);
+
+/// Specifies which block hash to use when reading statement allowances.
+enum AllowanceBlock {
+	/// Use a specific block hash.
+	Block(BlockHash),
+	/// Use the best (latest) block hash.
+	Best,
+	/// Use the finalized block hash.
+	Finalized,
+}
 
 // Period between enforcing limits (checking for expired statements and making sure statements stay
 // within allowances). Different from maintenance period to avoid keeping the lock for too long for
@@ -167,24 +182,55 @@ impl StatementsForAccount {
 	}
 }
 
-/// Store configuration
-pub struct Options {
-	/// Maximum statement allowed in the store. Once this limit is reached lower-priority
+/// Default number of concurrent workers for statement validation.
+pub const DEFAULT_NETWORK_WORKERS: usize = 1;
+
+/// Default maximum statements per second per peer before rate limiting kicks in.
+pub use sc_network_statement::config::DEFAULT_STATEMENTS_PER_SECOND as DEFAULT_RATE_LIMIT;
+
+/// Statement store and network handler configuration.
+#[derive(Debug, Clone, Copy)]
+pub struct Config {
+	/// Maximum statements allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
-	max_total_statements: usize,
+	pub max_total_statements: usize,
 	/// Maximum total data size allowed in the store. Once this limit is reached lower-priority
 	/// statements may be evicted.
-	max_total_size: usize,
+	pub max_total_size: usize,
 	/// Number of seconds for which removed statements won't be allowed to be added back in.
-	purge_after_sec: u64,
+	pub purge_after_sec: u64,
+	/// Number of concurrent workers for statement validation from the network.
+	pub network_workers: usize,
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	pub rate_limit: u32,
 }
 
-impl Default for Options {
+impl Config {
+	/// Validate the configuration, returning an error if any values are invalid.
+	pub fn validate(&self) -> Result<()> {
+		if self.max_total_statements == 0 {
+			return Err(Error::InvalidConfig(
+				"max_total_statements must be greater than zero".into(),
+			));
+		}
+		if self.max_total_size == 0 {
+			return Err(Error::InvalidConfig("max_total_size must be greater than zero".into()));
+		}
+		if self.network_workers == 0 {
+			return Err(Error::InvalidConfig("network_workers must be greater than zero".into()));
+		}
+		Ok(())
+	}
+}
+
+impl Default for Config {
 	fn default() -> Self {
-		Options {
+		Config {
 			max_total_statements: DEFAULT_MAX_TOTAL_STATEMENTS,
 			max_total_size: DEFAULT_MAX_TOTAL_SIZE,
 			purge_after_sec: DEFAULT_PURGE_AFTER_SEC,
+			network_workers: DEFAULT_NETWORK_WORKERS,
+			rate_limit: DEFAULT_RATE_LIMIT,
 		}
 	}
 }
@@ -199,7 +245,7 @@ struct Index {
 	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
-	options: Options,
+	config: Config,
 	total_size: usize,
 }
 
@@ -219,11 +265,15 @@ where
 	fn read_allowance(
 		&self,
 		account_id: &AccountId,
-		block_hash: Option<Block::Hash>,
+		allowance_block: AllowanceBlock,
 	) -> Result<Option<StatementAllowance>> {
 		use sp_statement_store::{statement_allowance_key, StatementAllowance};
 
-		let block_hash = block_hash.unwrap_or(self.client.info().finalized_hash);
+		let block_hash = match allowance_block {
+			AllowanceBlock::Block(hash) => hash.into(),
+			AllowanceBlock::Best => self.client.info().best_hash,
+			AllowanceBlock::Finalized => self.client.info().finalized_hash,
+		};
 		let key = statement_allowance_key(account_id);
 		let storage_key = StorageKey(key);
 		self.client
@@ -241,9 +291,8 @@ where
 pub struct Store {
 	db: parity_db::Db,
 	index: RwLock<Index>,
-	read_allowance_fn: Box<
-		dyn Fn(&AccountId, Option<BlockHash>) -> Result<Option<StatementAllowance>> + Send + Sync,
-	>,
+	read_allowance_fn:
+		Box<dyn Fn(&AccountId, AllowanceBlock) -> Result<Option<StatementAllowance>> + Send + Sync>,
 	subscription_manager: SubscriptionsHandle,
 	keystore: Arc<LocalKeystore>,
 	// Used for testing
@@ -258,8 +307,8 @@ enum IndexQuery {
 }
 
 impl Index {
-	fn new(options: Options) -> Index {
-		Index { options, ..Default::default() }
+	fn new(config: Config) -> Index {
+		Index { config, ..Default::default() }
 	}
 
 	fn insert_new(
@@ -418,7 +467,7 @@ impl Index {
 		// Purge previously expired messages.
 		let mut purged = Vec::new();
 		self.expired.retain(|hash, timestamp| {
-			if *timestamp + self.options.purge_after_sec <= current_time {
+			if *timestamp + self.config.purge_after_sec <= current_time {
 				purged.push(*hash);
 				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
 				false
@@ -576,8 +625,8 @@ impl Index {
 			}
 		}
 		// Now check global constraints as well.
-		if !((self.total_size - would_free_size + statement_len <= self.options.max_total_size) &&
-			self.entries.len() + 1 - evicted.len() <= self.options.max_total_statements)
+		if !((self.total_size - would_free_size + statement_len <= self.config.max_total_size) &&
+			self.entries.len() + 1 - evicted.len() <= self.config.max_total_statements)
 		{
 			log::debug!(
 				target: LOG_TARGET,
@@ -602,7 +651,7 @@ impl Store {
 	/// `path` will be used to open a statement database or create a new one if it does not exist.
 	pub fn new_shared<Block, Client, BE>(
 		path: &std::path::Path,
-		options: Options,
+		config: Config,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -615,7 +664,7 @@ impl Store {
 		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
 		let store =
-			Arc::new(Self::new(path, options, client, keystore, prometheus, task_spawner.clone())?);
+			Arc::new(Self::new(path, config, client, keystore, prometheus, task_spawner.clone())?);
 
 		// Perform periodic statement store maintenance
 		let worker_store = store.clone();
@@ -642,7 +691,7 @@ impl Store {
 	#[doc(hidden)]
 	pub fn new<Block, Client, BE>(
 		path: &std::path::Path,
-		options: Options,
+		config: Config,
 		client: Arc<Client>,
 		keystore: Arc<LocalKeystore>,
 		prometheus: Option<&PrometheusRegistry>,
@@ -654,16 +703,18 @@ impl Store {
 		BE: Backend<Block> + 'static,
 		Client: HeaderBackend<Block> + StorageProvider<Block, BE> + Send + Sync + 'static,
 	{
+		config.validate()?;
+
 		let mut path: std::path::PathBuf = path.into();
 		path.push("statements");
 
-		let mut config = parity_db::Options::with_columns(&path, col::COUNT);
+		let mut db_config = parity_db::Options::with_columns(&path, col::COUNT);
 
-		let statement_col = &mut config.columns[col::STATEMENTS as usize];
+		let statement_col = &mut db_config.columns[col::STATEMENTS as usize];
 		statement_col.ref_counted = false;
 		statement_col.preimage = true;
 		statement_col.uniform = true;
-		let db = parity_db::Db::open_or_create(&config).map_err(|e| Error::Db(e.to_string()))?;
+		let db = parity_db::Db::open_or_create(&db_config).map_err(|e| Error::Db(e.to_string()))?;
 		match db.get(col::META, &KEY_VERSION).map_err(|e| Error::Db(e.to_string()))? {
 			Some(version) => {
 				let version = u32::from_le_bytes(
@@ -688,13 +739,13 @@ impl Store {
 		let storage_reader =
 			ClientWrapper { client, _block: Default::default(), _backend: Default::default() };
 		let read_allowance_fn =
-			Box::new(move |account_id: &AccountId, block_hash: Option<BlockHash>| {
-				storage_reader.read_allowance(account_id, block_hash.map(Into::into))
+			Box::new(move |account_id: &AccountId, allowance_block: AllowanceBlock| {
+				storage_reader.read_allowance(account_id, allowance_block)
 			});
 
 		let store = Store {
 			db,
-			index: RwLock::new(Index::new(options)),
+			index: RwLock::new(Index::new(config)),
 			read_allowance_fn,
 			keystore,
 			time_override: None,
@@ -826,8 +877,9 @@ impl Store {
 			expired_size += len;
 		}
 
-		// Enforce allowances for remaining (non-expired) statements
-		let allowance = match (self.read_allowance_fn)(account, None) {
+		// Enforce allowances for remaining (non-expired) statements, we use the finalized block to
+		// make sure we enforce allowances based on the correct chain state.
+		let allowance = match (self.read_allowance_fn)(account, AllowanceBlock::Finalized) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
 				log::debug!(
@@ -987,8 +1039,8 @@ impl Store {
 				index.expired.len(),
 				index.total_size,
 				index.accounts.len(),
-				index.options.max_total_statements,
-				index.options.max_total_size,
+				index.config.max_total_statements,
+				index.config.max_total_size,
 			)
 		};
 		let deleted: Vec<_> =
@@ -1344,12 +1396,18 @@ impl StatementStore for Store {
 			},
 		};
 
+		// Check statement allowance for the account and evict statements if necessary to make room
+		// for the new statement. We use the best block for allowance checks to allow for more
+		// up-to-date allowances. This means that in some cases, a statement may be accepted but
+		// then later evicted when we enforce limits based on the finalized block, if the best_hash
+		// does not make it into the finalized chain, but this is an acceptable tradeoff for
+		// better responsiveness to allowance changes.
 		let validation = match (self.read_allowance_fn)(
 			&account_id,
-			statement.proof().and_then(|p| match p {
-				Proof::OnChain { block_hash, .. } => Some(*block_hash),
-				_ => None,
-			}),
+			match statement.proof() {
+				Some(Proof::OnChain { block_hash, .. }) => AllowanceBlock::Block(*block_hash),
+				_ => AllowanceBlock::Best,
+			},
 		) {
 			Ok(Some(allowance)) => allowance,
 			Ok(None) => {
@@ -1496,8 +1554,8 @@ mod tests {
 	use sc_keystore::Keystore;
 	use sp_core::{Decode, Encode, Pair};
 	use sp_statement_store::{
-		AccountId, Channel, DecryptionKey, InvalidReason, Proof, Statement, StatementSource,
-		StatementStore, SubmitResult, Topic,
+		AccountId, Channel, DecryptionKey, InvalidReason, Proof, RejectionReason, Statement,
+		StatementSource, StatementStore, SubmitResult, Topic,
 	};
 
 	type Extrinsic = sp_runtime::OpaqueExtrinsic;
@@ -1861,7 +1919,7 @@ mod tests {
 	fn constraints() {
 		let (store, _temp) = test_store();
 
-		store.index.write().options.max_total_size = 3000;
+		store.index.write().config.max_total_size = 3000;
 		let source = StatementSource::Network;
 		let ok = SubmitResult::New;
 
@@ -1889,23 +1947,39 @@ mod tests {
 
 		// Account 2 (limit = 2 msg, 1000 bytes)
 
-		assert_eq!(store.submit(statement(2, 1, None, 500), source), ok);
-		assert_eq!(store.submit(statement(2, 2, None, 100), source), ok);
+		let s2_prio1 = statement(2, 1, None, 500);
+		let s2_prio2 = statement(2, 2, None, 100);
+		assert_eq!(store.submit(s2_prio1.clone(), source), ok);
+		assert_eq!(store.submit(s2_prio2.clone(), source), ok);
+		// Equal priority to lowest should be rejected
+		assert!(matches!(
+			store.submit(statement(2, 1, None, 50), source),
+			SubmitResult::Rejected(RejectionReason::AccountFull { .. })
+		));
 		// Should evict priority 1
-		assert_eq!(store.submit(statement(2, 3, None, 500), source), ok);
+		let s2_prio3 = statement(2, 3, None, 500);
+		assert_eq!(store.submit(s2_prio3.clone(), source), ok);
 		assert_eq!(store.index.read().expired.len(), 2);
+		assert!(store.index.read().expired.contains_key(&s2_prio1.hash()));
+		assert!(store.statement(&s2_prio1.hash()).unwrap().is_none());
 		// Should evict all
 		assert_eq!(store.submit(statement(2, 4, None, 1000), source), ok);
 		assert_eq!(store.index.read().expired.len(), 4);
+		assert!(store.index.read().expired.contains_key(&s2_prio2.hash()));
+		assert!(store.index.read().expired.contains_key(&s2_prio3.hash()));
 
 		// Account 3 (limit = 3 msg, 1000 bytes)
 
-		assert_eq!(store.submit(statement(3, 2, Some(1), 300), source), ok);
-		assert_eq!(store.submit(statement(3, 3, Some(2), 300), source), ok);
+		let s3_prio2 = statement(3, 2, Some(1), 300);
+		let s3_prio3 = statement(3, 3, Some(2), 300);
+		assert_eq!(store.submit(s3_prio2.clone(), source), ok);
+		assert_eq!(store.submit(s3_prio3.clone(), source), ok);
 		assert_eq!(store.submit(statement(3, 4, Some(3), 300), source), ok);
 		// Should evict 2 and 3
 		assert_eq!(store.submit(statement(3, 5, None, 500), source), ok);
 		assert_eq!(store.index.read().expired.len(), 6);
+		assert!(store.index.read().expired.contains_key(&s3_prio2.hash()));
+		assert!(store.index.read().expired.contains_key(&s3_prio3.hash()));
 
 		assert_eq!(store.index.read().total_size, 2400);
 		assert_eq!(store.index.read().entries.len(), 4);
@@ -1916,7 +1990,7 @@ mod tests {
 			SubmitResult::Rejected(_)
 		));
 		// Should be over the global count limit
-		store.index.write().options.max_total_statements = 4;
+		store.index.write().config.max_total_statements = 4;
 		assert!(matches!(
 			store.submit(statement(1, 1, None, 100), source),
 			SubmitResult::Rejected(_)
@@ -1938,7 +2012,7 @@ mod tests {
 	#[test]
 	fn max_statement_size_for_gossiping() {
 		let (store, _temp) = test_store();
-		store.index.write().options.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
+		store.index.write().config.max_total_size = 42 * crate::MAX_STATEMENT_SIZE;
 
 		assert_eq!(
 			store.submit(
@@ -2311,7 +2385,7 @@ mod tests {
 		store.remove_by(account(4)).expect("second remove_by should be a no-op");
 
 		// --- Purge: advance time beyond TTL and run maintenance; expired entries disappear.
-		let purge_after = store.index.read().options.purge_after_sec;
+		let purge_after = store.index.read().config.purge_after_sec;
 		store.set_time(purge_after + 1);
 		store.maintain();
 		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
@@ -2860,5 +2934,127 @@ mod tests {
 		assert!(index.entries.contains_key(&h2), "Higher priority should remain");
 		assert!(!index.entries.contains_key(&h1), "Lower priority should be evicted");
 		assert_eq!(index.total_size, 600);
+	}
+
+	#[test]
+	fn channel_replacement_only_higher_priority_succeeds() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 1: max_count=1, max_size=1000
+		// Submit channel 1 with priority 5
+		let s1 = statement(1, 5, Some(1), 100);
+		let h1 = s1.hash();
+		assert_eq!(store.submit(s1, source), SubmitResult::New);
+
+		// Lower priority on same channel → ChannelPriorityTooLow
+		let result = store.submit(statement(1, 3, Some(1), 100), source);
+		assert!(
+			matches!(result, SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })),
+			"Lower priority should be rejected with ChannelPriorityTooLow, got: {result:?}"
+		);
+
+		// Equal priority on same channel → ChannelPriorityTooLow (check is <=)
+		// Use different data_len to get a distinct hash with same priority
+		let result = store.submit(statement(1, 5, Some(1), 101), source);
+		assert!(
+			matches!(result, SubmitResult::Rejected(RejectionReason::ChannelPriorityTooLow { .. })),
+			"Equal priority should be rejected with ChannelPriorityTooLow, got: {result:?}"
+		);
+
+		// Higher priority on same channel → replaces
+		let s2 = statement(1, 10, Some(1), 200);
+		let h2 = s2.hash();
+		assert_eq!(store.submit(s2, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 1);
+			assert!(!index.entries.contains_key(&h1), "Old channel message should be gone");
+			assert!(index.entries.contains_key(&h2), "New channel message should exist");
+			assert!(index.expired.contains_key(&h1), "Old should be in expired");
+			assert_eq!(index.total_size, 200);
+		}
+	}
+
+	#[test]
+	fn submit_rejects_malformed_statements() {
+		let (store, _temp) = test_store();
+
+		let mut base = Statement::new();
+		base.set_expiry(u64::MAX);
+		base.set_plain_data(vec![1]);
+
+		let ed_kp = sp_core::ed25519::Pair::from_string("//Alice", None).unwrap();
+		let sr_kp = sp_core::sr25519::Pair::from_string("//Alice", None).unwrap();
+		let ecdsa_kp = sp_core::ecdsa::Pair::from_string("//Alice", None).unwrap();
+
+		assert_eq!(
+			store.submit(base.clone(), StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::NoProof)
+		);
+
+		let bad_proofs = [
+			Proof::Ed25519 { signature: [0xAB; 64], signer: ed_kp.public().0 },
+			Proof::Sr25519 { signature: [0xCD; 64], signer: sr_kp.public().0 },
+			Proof::Secp256k1Ecdsa { signature: [0xEF; 65], signer: ecdsa_kp.public().0 },
+		];
+		for proof in bad_proofs {
+			let mut s = base.clone();
+			s.set_proof(proof);
+			assert_eq!(
+				store.submit(s, StatementSource::Network),
+				SubmitResult::Invalid(InvalidReason::BadProof)
+			);
+		}
+
+		let mut wrong_signer = base.clone();
+		wrong_signer.sign_ed25519_private(&ed_kp);
+		let alice_sig = match wrong_signer.proof().unwrap() {
+			Proof::Ed25519 { signature, .. } => *signature,
+			_ => panic!("expected Ed25519 proof after sign_ed25519_private"),
+		};
+		let bob_kp = sp_core::ed25519::Pair::from_string("//Bob", None).unwrap();
+		wrong_signer.set_proof(Proof::Ed25519 { signature: alice_sig, signer: bob_kp.public().0 });
+		assert_eq!(
+			store.submit(wrong_signer, StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::BadProof)
+		);
+	}
+
+	#[test]
+	fn channel_replacement_with_size_increase_evicts_others() {
+		let (store, _temp) = test_store();
+		let source = StatementSource::Network;
+
+		// Account 3: max_count=3, max_size=1000
+		// channel msg (200b) + two non-channel msgs (300b each) = 800b
+		let s_ch = statement(3, 5, Some(1), 200);
+		let s_low = statement(3, 2, None, 300);
+		let s_mid = statement(3, 3, None, 300);
+		let h_ch = s_ch.hash();
+		let h_low = s_low.hash();
+		let h_mid = s_mid.hash();
+
+		assert_eq!(store.submit(s_ch, source), SubmitResult::New);
+		assert_eq!(store.submit(s_low, source), SubmitResult::New);
+		assert_eq!(store.submit(s_mid, source), SubmitResult::New);
+		assert_eq!(store.index.read().total_size, 800);
+
+		// Replace channel with 600b message (priority 10 > 5)
+		// Must evict lowest priority non-channel statement (priority 2) to fit
+		let s_ch_big = statement(3, 10, Some(1), 600);
+		let h_ch_big = s_ch_big.hash();
+		assert_eq!(store.submit(s_ch_big, source), SubmitResult::New);
+
+		{
+			let index = store.index.read();
+			assert_eq!(index.entries.len(), 2);
+			assert!(!index.entries.contains_key(&h_ch), "Old channel message replaced");
+			assert!(!index.entries.contains_key(&h_low), "Priority 2 evicted to fit size");
+			assert!(index.entries.contains_key(&h_mid), "Priority 3 should remain");
+			assert!(index.entries.contains_key(&h_ch_big), "New channel message added");
+			assert_eq!(index.total_size, 900); // 300 (mid) + 600 (new channel)
+		}
 	}
 }

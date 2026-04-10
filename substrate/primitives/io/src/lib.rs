@@ -120,7 +120,7 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassFatPointerAndWrite, PassMaybeFatPointerAndRead, PassPointerAndRead,
+		PassFatPointerAndWrite, PassOptionalFatPointerAndRead, PassPointerAndRead,
 		PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
@@ -292,7 +292,7 @@ impl AsRef<[u8]> for StorageIterations {
 		// endianness, so that is checked statically.
 		unsafe {
 			core::slice::from_raw_parts(
-				self as *const Self as *const u8,
+				(&raw const *self).cast::<u8>(),
 				core::mem::size_of::<Self>(),
 			)
 		}
@@ -317,75 +317,52 @@ impl AsMut<[u8]> for StorageIterations {
 	}
 }
 
-/// A workaround for 512-bit values (`[u8; 64]`) not implementing `Default`.
-#[repr(transparent)]
-pub struct Val512(pub [u8; 64]);
+/// Defines a `#[repr(transparent)]` newtype over a fixed-size byte array with `Default`,
+/// `AsRef<[u8]>`, and `AsMut<[u8]>` implementations.
+macro_rules! define_byte_array_type {
+	($(#[$meta:meta])* $vis:vis struct $name:ident($size:expr);) => {
+		$(#[$meta])*
+		#[repr(transparent)]
+		$vis struct $name(pub [u8; $size]);
 
-impl Default for Val512 {
-	fn default() -> Self {
-		Self([0; 64])
-	}
+		impl Default for $name {
+			fn default() -> Self {
+				Self([0; $size])
+			}
+		}
+
+		impl AsRef<[u8]> for $name {
+			fn as_ref(&self) -> &[u8] {
+				&self.0
+			}
+		}
+
+		impl AsMut<[u8]> for $name {
+			fn as_mut(&mut self) -> &mut [u8] {
+				&mut self.0
+			}
+		}
+	};
 }
 
-impl AsRef<[u8]> for Val512 {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
+define_byte_array_type! {
+	/// Wrapper type for 512-bit hashes.
+	pub struct Hash512(64);
 }
 
-impl AsMut<[u8]> for Val512 {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0
-	}
+define_byte_array_type! {
+	/// Wrapper type for 512-bit pubkeys.
+	pub struct Pubkey512(64);
 }
 
-/// Wrapper type for 512-bit hashes.
-pub type Hash512 = Val512;
-/// Wrapper type for 512-bit pubkeys.
-pub type Pubkey512 = Val512;
-
-/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
-#[repr(transparent)]
-pub struct Pubkey264(pub [u8; 33]);
-
-impl Default for Pubkey264 {
-	fn default() -> Self {
-		Self([0; 33])
-	}
+define_byte_array_type! {
+	/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
+	pub struct Pubkey264(33);
 }
 
-impl AsRef<[u8]> for Pubkey264 {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
-}
-
-impl AsMut<[u8]> for Pubkey264 {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0
-	}
-}
-
-/// Represents an opaque network peer ID
-#[repr(transparent)]
-pub struct NetworkPeerId(pub [u8; 38]);
-
-impl Default for NetworkPeerId {
-	fn default() -> Self {
-		Self([0; 38])
-	}
-}
-
-impl AsRef<[u8]> for NetworkPeerId {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
-}
-
-impl AsMut<[u8]> for NetworkPeerId {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0
-	}
+define_byte_array_type! {
+	/// Represents an opaque network peer ID.
+	pub struct NetworkPeerId(38);
 }
 
 trait IntoI64: Into<i64> {
@@ -806,7 +783,7 @@ pub trait Storage {
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
-		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
@@ -1203,7 +1180,7 @@ pub trait DefaultChildStorage {
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
-		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
@@ -1309,7 +1286,7 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
-		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
@@ -2709,7 +2686,7 @@ pub trait Crypto {
 		signature: &[u8; 65],
 		message: &[u8; 32],
 	) -> Result<[u8; 64], EcdsaVerifyError> {
-		let mut public = Val512([0u8; 64]);
+		let mut public = Pubkey512([0u8; 64]);
 		secp256k1_ecdsa_recover__wrapped(signature, message, &mut public)?;
 		Ok(public.0)
 	}
@@ -2929,7 +2906,7 @@ pub trait Hashing {
 	/// Conduct a 512-bit Keccak hash.
 	#[version(2)]
 	#[wrapped]
-	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Val512, 64>) {
+	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Hash512, 64>) {
 		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
 	}
 
@@ -2937,7 +2914,7 @@ pub trait Hashing {
 	/// `keccak_512` host function.
 	#[wrapper]
 	fn keccak_512(data: &[u8]) -> [u8; 64] {
-		let mut out = Val512::default();
+		let mut out = Hash512::default();
 		keccak_512__wrapped(data, &mut out);
 		out.0
 	}
