@@ -1445,6 +1445,16 @@ pub mod dynamic_params {
 	}
 }
 
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		RuntimeParameters::Pusd(dynamic_params::pusd::Parameters::MaximumIssuance(
+			dynamic_params::pusd::MaximumIssuance,
+			Some(50_000_000 * 1_000_000),
+		))
+	}
+}
+
 /// Origin check for dynamic parameter changes — only Root can modify.
 pub struct DynamicParameterOrigin;
 impl frame_support::traits::EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey>
