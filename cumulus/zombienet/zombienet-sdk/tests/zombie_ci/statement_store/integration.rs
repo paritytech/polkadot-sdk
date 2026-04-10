@@ -9,20 +9,17 @@ use subxt::{dynamic::Value, transactions::Signer};
 use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 
 use sc_statement_store::{
-	subxt_client::{submit_extrinsic, CustomConfig},
+	subxt_client::{
+		create_attest_call, create_consumer_registration_params, create_increase_allowance_call,
+		submit_extrinsic, CustomConfig, MSG_PREFIX,
+	},
 	test_utils::{create_allowance_items, create_test_statement, get_keypair},
 };
 
-use super::{
-	common::{
-		assert_no_more_statements, expect_one_statement, expect_statements_unordered,
-		online_client_from_node, spawn_network, spawn_network_sudo,
-		spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	},
-	lite_person_setup::{
-		create_attest_call, create_consumer_registration_params, create_increase_allowance_call,
-		MSG_PREFIX,
-	},
+use super::common::{
+	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
+	online_client_from_node, spawn_network, spawn_network_sudo,
+	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 };
 
 /// Verifies basic statement propagation and data integrity across two nodes
@@ -258,9 +255,13 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 	let proof_of_ownership =
 		Crypto::sign(&ring_secret, &msg).expect("ring VRF signing should succeed");
 
+	// Consumer registration: Alice registers herself as consumer.
+	// The consumer signs the payload; verifier is Alice (the attest origin).
+	let alice_sp_pair =
+		sr25519::Pair::from_string("//Alice", None).expect("Alice dev key should be valid");
 	let consumer_registration = create_consumer_registration_params(
-		&candidate_pair,
-		&candidate_account,
+		&alice_sp_pair,
+		&alice_account_id.0,
 		&alice_account_id.0,
 	);
 
@@ -302,8 +303,9 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 	let topic: Topic = [0u8; 32].into();
 	let mut bob_sub = subscribe_topic(&bob_rpc, topic).await?;
 
+	// Statement must be signed by Alice (the consumer) who has the statement store allowance
 	let statement =
-		create_test_statement(&candidate_pair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
+		create_test_statement(&alice_sp_pair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
 	let expected: Bytes = statement.encode().into();
 
 	let alice_rpc = alice_node.rpc().await?;

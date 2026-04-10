@@ -87,34 +87,6 @@ pub(super) async fn subscribe_topic(
 	Ok(subscription)
 }
 
-/// Subscribes to statements matching any of the given topics
-pub(super) async fn subscribe_topic_match_any(
-	rpc: &RpcClient,
-	topics: Vec<Topic>,
-) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
-	let subscription = rpc
-		.subscribe::<StatementEvent>(
-			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAny(topics.try_into().expect("MatchAny topics"))],
-			"statement_unsubscribeStatement",
-		)
-		.await?;
-	Ok(subscription)
-}
-
-/// Subscribes to all statements regardless of topic
-pub(super) async fn subscribe_all(
-	rpc: &RpcClient,
-) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
-	let subscription = rpc
-		.subscribe::<StatementEvent>(
-			"statement_subscribeStatement",
-			rpc_params![TopicFilter::Any],
-			"statement_unsubscribeStatement",
-		)
-		.await?;
-	Ok(subscription)
-}
 
 /// Collects `count` statements from a subscription without assuming arrival order
 ///
