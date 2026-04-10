@@ -430,9 +430,13 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 /// Type alias for legacy `NegativeImbalance` from the `Currency` trait.
 type LegacyNegativeImbalance<A, C> = <C as Currency<A>>::NegativeImbalance;
 
-/// Legacy adapter: redirects `NegativeImbalance` from the `Currency` trait to the DAP buffer.
+/// Adapter that redirects `NegativeImbalance` from the legacy `Currency` trait to the DAP buffer.
 ///
-/// Temporary — will be removed when all consumer pallets migrate to fungible traits.
+/// Cannot be implemented directly on `Pallet<T>` because the compiler cannot prove that
+/// `<C as Currency>::NegativeImbalance` and `fungible::Credit` are always distinct types,
+/// so two `OnUnbalanced` impls on the same struct are rejected.
+///
+/// Will be removed once all consumer pallets migrate to fungible traits.
 ///
 /// # Example
 /// ```ignore
