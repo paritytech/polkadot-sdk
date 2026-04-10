@@ -20,8 +20,8 @@
 //! increasing if the queue between this chain and the sibling/child bridge hub is congested.
 //!
 //! The pallet is configurable to use either paid or unpaid execution on the bridge hub
-//! via the [`Config::Exporter`] associated type. Use `SovereignPaidRemoteExporter` for
-//! sovereign-paid bridging or `UnpaidRemoteExporter` for unpaid bridging (e.g. between
+//! via the [`Config::UnpaidExport`] associated type. It will use `SovereignPaidRemoteExporter`
+//! for sovereign-paid bridging or `UnpaidRemoteExporter` for unpaid bridging (e.g. between
 //! system parachains where the bridge hub waives fees).
 //!
 //! All other bridge hub queues offer some backpressure mechanisms. So if at least one
