@@ -15,13 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::utils::initialize_network;
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use std::time::Duration;
-use tokio::time::timeout;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
@@ -65,9 +64,10 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	assert_para_throughput(&relay_client, 6, [(ParaId::from(PARA_ID), 12..19)], []).await?;
 
 	// Query collator's current best block to set a sync target.
-	let collator = network.get_node("collator-0")?;
-	let collator_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
-	let target_block: u32 = collator_client.blocks().at_latest().await?.number();
+	let target_block = network
+		.get_node("collator-0")?
+		.reports(BEST_BLOCK_METRIC)
+		.await? as u64;
 	log::info!("Full node sync target: #{target_block}");
 
 	// Add a fresh full node that will warp-sync to the already-running chain.
@@ -86,35 +86,12 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	let full_node = network.get_node("para-full-node")?;
 
 	// Wait for the full node to sync and catch up.
-	log::info!("Waiting for full node best block to reach #{target_block} (timeout 120s)");
-
-	let result = timeout(Duration::from_secs(120), async {
-		let client: OnlineClient<PolkadotConfig> = full_node.wait_client().await?;
-		let mut best_sub = client.blocks().subscribe_best().await?;
-
-		while let Some(block) = best_sub.next().await.transpose()? {
-			let num: u32 = block.number();
-			if num % 20 == 0 || num >= target_block {
-				log::info!("Full node best block: #{num}");
-			}
-			if num >= target_block {
-				return Ok::<_, anyhow::Error>(num);
-			}
-		}
-
-		Err(anyhow!("Best block stream ended before reaching target"))
-	})
-	.await;
-
-	match result {
-		Ok(Ok(reached)) => {
-			log::info!("Full node synced and reached block #{reached}");
-		},
-		Ok(Err(e)) => return Err(e),
-		Err(_) => {
-			return Err(anyhow!("Full node did not reach block #{target_block} within 120s."));
-		},
-	}
+	// If the bug is present, the node fails to import bundled blocks and never advances.
+	log::info!("Waiting for full node best block to reach #{target_block}");
+	full_node
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= target_block as f64, 120u64)
+		.await?;
+	log::info!("Full node synced past #{target_block}");
 
 	// Verify the full node actually used warp sync (not full sync).
 	log::info!("Verifying warp sync was used");
@@ -131,41 +108,17 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	}
 
 	// Make sure the full node keeps progressing on live blocks after the initial sync.
-	// Query the full node's current best and wait for it to advance 24 blocks beyond that.
-	// This confirms the node is fully functional post-warp-sync, not just replaying the
-	// initial catch-up batch.
-	let collator_best: u32 = collator_client.blocks().at_latest().await?.number();
-	let live_target = collator_best + 24;
-	log::info!(
-		"Collator best block: #{collator_best}, waiting for full node to reach #{live_target}"
-	);
+	// Wait for it to advance 24 blocks beyond the collator's current best.
+	let collator_best = network
+		.get_node("collator-0")?
+		.reports(BEST_BLOCK_METRIC)
+		.await? as u64;
+	let live_target = (collator_best + 24) as f64;
+	log::info!("Collator best: #{collator_best}, waiting for full node to reach #{live_target}");
 
-	let result = timeout(Duration::from_secs(120), async {
-		let client: OnlineClient<PolkadotConfig> = full_node.wait_client().await?;
-		let mut best_sub = client.blocks().subscribe_best().await?;
-
-		while let Some(block) = best_sub.next().await.transpose()? {
-			let num: u32 = block.number();
-			if num >= live_target {
-				return Ok::<_, anyhow::Error>(num);
-			}
-		}
-
-		Err(anyhow!("Best block stream ended before reaching live target"))
-	})
-	.await;
-
-	match result {
-		Ok(Ok(reached)) => {
-			log::info!("Full node progressing on live blocks, reached #{reached}");
-		},
-		Ok(Err(e)) => return Err(e),
-		Err(_) => {
-			return Err(anyhow!(
-				"Full node did not reach block #{live_target} within 120s — chain not progressing after warp sync."
-			));
-		},
-	}
+	full_node
+		.wait_metric_with_timeout(BEST_BLOCK_METRIC, |b| b >= live_target, 120u64)
+		.await?;
 
 	log::info!("Test finished successfully");
 	Ok(())
