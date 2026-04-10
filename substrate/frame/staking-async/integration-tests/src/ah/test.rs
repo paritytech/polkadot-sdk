@@ -2143,11 +2143,18 @@ fn legacy_to_dap_era_payout_e2e() {
 		);
 
 		// THEN: EraPaid for era 0 with 50/50 split.
-		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::EraPaid { era_index: 0, remainder, validator_payout, .. }
-				if *remainder == *validator_payout
-		)));
+		let era_paid: Vec<_> = staking_events_since_last_call()
+			.into_iter()
+			.filter(|e| matches!(e, StakingEvent::EraPaid { .. }))
+			.collect();
+		assert_eq!(
+			era_paid,
+			vec![StakingEvent::EraPaid {
+				era_index: 0,
+				validator_payout: 162000,
+				remainder: 162000,
+			}]
+		);
 
 		// Reward points for era 1 (era 0 has no exposure — pre-election).
 		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
@@ -2161,12 +2168,19 @@ fn legacy_to_dap_era_payout_e2e() {
 		roll_until_next_active(7);
 		assert_eq!(Rotator::<T>::active_era(), 2);
 
-		// THEN: EraPaid for era 1 with 50/50 split (remainder == validator_payout).
-		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::EraPaid { era_index: 1, remainder, validator_payout, .. }
-				if *remainder == *validator_payout
-		)));
+		// THEN: EraPaid for era 1 with 50/50 split.
+		let era_paid: Vec<_> = staking_events_since_last_call()
+			.into_iter()
+			.filter(|e| matches!(e, StakingEvent::EraPaid { .. }))
+			.collect();
+		assert_eq!(
+			era_paid,
+			vec![StakingEvent::EraPaid {
+				era_index: 1,
+				validator_payout: 162000,
+				remainder: 162000,
+			}]
+		);
 
 		// WHEN: switch to DAP mode (simulates runtime upgrade).
 		UseLegacyEraPayout::set(false);
@@ -2219,10 +2233,18 @@ fn legacy_to_dap_era_payout_e2e() {
 		assert!(era_2_reward > 0);
 
 		// THEN: EraPaid with remainder=0 (DAP mode).
-		let events = staking_events_since_last_call();
-		assert!(events.iter().any(|e| matches!(
-			e, StakingEvent::EraPaid { era_index: 2, remainder, .. } if *remainder == 0
-		)));
+		let era_paid: Vec<_> = staking_events_since_last_call()
+			.into_iter()
+			.filter(|e| matches!(e, StakingEvent::EraPaid { .. }))
+			.collect();
+		assert_eq!(
+			era_paid,
+			vec![StakingEvent::EraPaid {
+				era_index: 2,
+				validator_payout: era_2_reward,
+				remainder: 0,
+			}]
+		);
 
 		// WHEN: payout era 2 (DAP pot transfer).
 		let pre_issuance = Balances::total_issuance();
