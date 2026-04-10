@@ -1438,7 +1438,7 @@ pub mod dynamic_params {
 
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
-	pub mod psm {
+	pub mod pusd {
 		/// Maximum pUSD issuance across the system (50 million pUSD).
 		#[codec(index = 0)]
 		pub static MaximumIssuance: Balance = 50_000_000 * 1_000_000;
@@ -1536,7 +1536,7 @@ impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for Psm
 impl pallet_psm::Config for Runtime {
 	type Fungibles = Assets;
 	type AssetId = AssetIdForTrustBackedAssets;
-	type MaximumIssuance = dynamic_params::psm::MaximumIssuance;
+	type MaximumIssuance = dynamic_params::pusd::MaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
 	type StableAsset = PsmStableAsset;
