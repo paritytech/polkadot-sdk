@@ -74,7 +74,7 @@ parameter_types! {
 	pub static AssetHubLocation: Location = Location::new(1, [Parachain(1000)]);
 	// The remote beneficiary location does not matter for these tests since the XCM is never
 	// delivered — we only test that local storage is rolled back on failure.
-	pub const DapBufferInterior: InteriorLocation = Junctions::Here;
+	pub const AccumulationInterior: InteriorLocation = Junctions::Here;
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 	pub const BaseXcmWeight: Weight = Weight::from_parts(1_000, 1_000);
@@ -182,7 +182,7 @@ fn send_native_rolls_back_balance_and_issuance_on_xcm_failure() {
 			TestXcmConfig,
 			AssetHubLocation,
 			HereLocation,
-			DapBufferInterior,
+			AccumulationInterior,
 		>::send_native(source.clone(), 500u128);
 		ROUTER_SHOULD_FAIL.with(|f| f.set(false));
 

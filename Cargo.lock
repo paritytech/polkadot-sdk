@@ -6339,6 +6339,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-dap",
  "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-whitelist",
