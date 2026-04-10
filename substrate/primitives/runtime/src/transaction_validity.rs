@@ -19,7 +19,7 @@
 
 use crate::{
 	codec::{Decode, Encode},
-	Debug,
+	Debug, ModuleError,
 };
 use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
@@ -89,6 +89,8 @@ pub enum InvalidTransaction {
 	IndeterminateImplicit,
 	/// The transaction extension did not authorize any origin.
 	UnknownOrigin,
+	/// An error in a module.
+	Module(ModuleError),
 }
 
 impl InvalidTransaction {
@@ -128,6 +130,9 @@ impl From<InvalidTransaction> for &'static str {
 			},
 			InvalidTransaction::UnknownOrigin => {
 				"The transaction extension did not authorize any origin"
+			},
+			InvalidTransaction::Module(ModuleError { message, .. }) => {
+				message.unwrap_or("Unknown module error")
 			},
 		}
 	}
@@ -506,5 +511,24 @@ mod tests {
 				provides: vec![(PREFIX, 3).encode(), (PREFIX, 4).encode()],
 			}
 		);
+	}
+
+	#[test]
+	fn module_invalidity_should_encode_and_decode() {
+		let v: TransactionValidity = Err(InvalidTransaction::Module(ModuleError {
+			index: 1,
+			error: [2, 0, 0, 0],
+			message: Some("Test error"),
+		})
+		.into());
+
+		let encoded = v.encode();
+		assert_eq!(TransactionValidity::decode(&mut &*encoded), Ok(v));
+
+		let error_str: &'static str = match v {
+			Err(TransactionValidityError::Invalid(e)) => e.into(),
+			_ => panic!("Expected invalid error"),
+		};
+		assert_eq!(error_str, "Test error");
 	}
 }

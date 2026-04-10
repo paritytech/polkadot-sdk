@@ -111,6 +111,13 @@ impl From<Error> for ErrorObjectOwned {
 					Some(format!("Custom error: {}", e)),
 				)
 			},
+			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
+				ErrorObject::owned(
+					POOL_INVALID_TX,
+					"Invalid Transaction",
+					Some(format!("Module error: index: {}, error: {:?}", e.index, e.error)),
+				)
+			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
 				let msg: &str = e.into();
 				ErrorObject::owned(
