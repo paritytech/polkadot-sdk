@@ -7,12 +7,11 @@ use serde_json::json;
 use crate::utils::initialize_network;
 
 use cumulus_test_runtime::{
-	elastic_scaling::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING,
-	elastic_scaling_12s_slot::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING_12S_SLOT,
+	elastic_scaling::WASM_BINARY as WASM_ELASTIC_SCALING,
+	elastic_scaling_12s_slot::WASM_BINARY as WASM_ELASTIC_SCALING_12S_SLOT,
 };
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, create_runtime_upgrade_call,
-	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
+	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
@@ -71,9 +70,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	};
 
 	log::info!("Performing runtime upgrade");
-	let call = create_runtime_upgrade_call(wasm);
-	submit_extrinsic_and_wait_for_finalization_success(&collator0_client, &call, &dev::alice())
-		.await?;
+	submit_sudo_runtime_upgrade(&collator0_client, wasm, &dev::alice()).await?;
 
 	let collator1 = network.get_node("collator1")?;
 	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;

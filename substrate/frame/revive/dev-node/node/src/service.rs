@@ -27,7 +27,7 @@ use polkadot_sdk::{
 use revive_dev_runtime::{OpaqueBlock as Block, Runtime, RuntimeApi};
 use std::sync::Arc;
 
-type HostFunctions = sp_io::SubstrateHostFunctions;
+type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::host_fn::HostFunctions);
 
 #[docify::export]
 pub(crate) type FullClient =
