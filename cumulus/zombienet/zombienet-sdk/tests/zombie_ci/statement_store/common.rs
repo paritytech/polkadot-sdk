@@ -314,7 +314,8 @@ pub(super) async fn spawn_network_sudo(
 	assert!(network.wait_until_is_up(60).await.is_ok());
 
 	info!("Waiting for parachain to produce blocks...");
-	let node = network.get_node(collators[0])?;
+	let first_collator = collators[0];
+	let node = network.get_node(first_collator)?;
 	node.wait_metric_with_timeout("block_height{status=\"best\"}", |height| height >= 1.0, 300u64)
 		.await?;
 	info!("Parachain is producing blocks");
