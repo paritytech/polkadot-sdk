@@ -2154,11 +2154,7 @@ fn legacy_to_dap_era_payout_e2e() {
 				StakingEvent::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
 				StakingEvent::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
 				StakingEvent::SessionRotated { starting_session: 6, active_era: 0, planned_era: 1 },
-				StakingEvent::EraPaid {
-					era_index: 0,
-					validator_payout: 162000,
-					remainder: 162000,
-				},
+				StakingEvent::EraPaid { era_index: 0, validator_payout: 162000, remainder: 162000 },
 				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
 			]
 		);
@@ -2184,14 +2180,22 @@ fn legacy_to_dap_era_payout_e2e() {
 				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
 				StakingEvent::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
 				StakingEvent::SessionRotated { starting_session: 9, active_era: 1, planned_era: 2 },
-				StakingEvent::SessionRotated { starting_session: 10, active_era: 1, planned_era: 2 },
-				StakingEvent::SessionRotated { starting_session: 11, active_era: 1, planned_era: 2 },
-				StakingEvent::SessionRotated { starting_session: 12, active_era: 1, planned_era: 2 },
-				StakingEvent::EraPaid {
-					era_index: 1,
-					validator_payout: 162000,
-					remainder: 162000,
+				StakingEvent::SessionRotated {
+					starting_session: 10,
+					active_era: 1,
+					planned_era: 2
 				},
+				StakingEvent::SessionRotated {
+					starting_session: 11,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 12,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::EraPaid { era_index: 1, validator_payout: 162000, remainder: 162000 },
 				StakingEvent::SessionRotated {
 					starting_session: 13,
 					active_era: 2,
