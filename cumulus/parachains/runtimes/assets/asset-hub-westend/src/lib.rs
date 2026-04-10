@@ -1442,7 +1442,7 @@ pub mod dynamic_params {
 	#[dynamic_pallet_params]
 	#[codec(index = 0)]
 	pub mod pusd {
-		/// Maximum pUSD issuance across the system (50 million pUSD).
+		/// Maximum pUSD issuance across the system (50 million pUSD) with precision 1e6.
 		#[codec(index = 0)]
 		pub static MaximumIssuance: Balance = 50_000_000 * PUSD;
 	}
