@@ -35,6 +35,8 @@ const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 #[derive(Clone)]
 pub struct DbContext {
 	pool: SqlitePool,
+	/// Max bound parameters per query.
+	max_variable_number: usize,
 	/// Chunk size for bulk INSERT into `transaction_hashes`.
 	tx_insert_chunk_size: usize,
 	/// Chunk size for bulk INSERT into `logs`.
@@ -47,6 +49,7 @@ impl DbContext {
 		const LOG_COLUMNS: usize = 11; // columns in the logs table
 		Self {
 			pool,
+			max_variable_number,
 			tx_insert_chunk_size: max_variable_number / TX_HASH_COLUMNS,
 			log_insert_chunk_size: max_variable_number / LOG_COLUMNS,
 		}
@@ -127,6 +130,8 @@ macro_rules! upsert_sync_label {
 	}};
 }
 
+/// Macro because `sqlx::query!` doesn't accept a generic executor — this lets callers pass
+/// either a pool or a transaction.
 macro_rules! insert_block_mapping {
 	($executor:expr, $block_map:expr) => {{
 		let ethereum_hash_ref = $block_map.ethereum_hash.as_ref();
@@ -326,29 +331,33 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_mappings:?}");
 
-		let placeholders = vec!["?"; block_mappings.len()].join(", ");
-		let sql = format!("DELETE FROM transaction_hashes WHERE block_hash in ({placeholders})");
+		let mut tx = self.db_ctx.pool.begin().await?;
 
-		let mut delete_tx_query = sqlx::query(&sql);
-		let sql = format!(
-			"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
-		);
-		let mut delete_mappings_query = sqlx::query(&sql);
+		for chunk in block_mappings.chunks(self.db_ctx.max_variable_number) {
+			let placeholders = vec!["?"; chunk.len()].join(", ");
+			let sql_tx =
+				format!("DELETE FROM transaction_hashes WHERE block_hash in ({placeholders})");
+			let sql_logs = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
+			let sql_mappings = format!(
+				"DELETE FROM eth_to_substrate_blocks WHERE substrate_block_hash in ({placeholders})"
+			);
 
-		let sql = format!("DELETE FROM logs WHERE block_hash in ({placeholders})");
-		let mut delete_logs_query = sqlx::query(&sql);
+			let mut delete_tx_query = sqlx::query(&sql_tx);
+			let mut delete_logs_query = sqlx::query(&sql_logs);
+			let mut delete_mappings_query = sqlx::query(&sql_mappings);
 
-		for block_map in block_mappings {
-			delete_tx_query = delete_tx_query.bind(block_map.substrate_hash.as_ref());
-			delete_mappings_query = delete_mappings_query.bind(block_map.substrate_hash.as_ref());
-			// logs table uses ethereum block hash
-			delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
+			for block_map in chunk {
+				delete_tx_query = delete_tx_query.bind(block_map.substrate_hash.as_ref());
+				delete_logs_query = delete_logs_query.bind(block_map.ethereum_hash.as_ref());
+				delete_mappings_query =
+					delete_mappings_query.bind(block_map.substrate_hash.as_ref());
+			}
+
+			delete_tx_query.execute(&mut *tx).await?;
+			delete_logs_query.execute(&mut *tx).await?;
+			delete_mappings_query.execute(&mut *tx).await?;
 		}
 
-		let mut tx = self.db_ctx.pool.begin().await?;
-		delete_tx_query.execute(&mut *tx).await?;
-		delete_logs_query.execute(&mut *tx).await?;
-		delete_mappings_query.execute(&mut *tx).await?;
 		tx.commit().await?;
 		Ok(())
 	}
@@ -586,57 +595,58 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
 				count = receipts.len(),
 			);
-		} else {
-			let ethereum_hash_ref = ethereum_hash.as_ref();
-			let mut tx = self.db_ctx.pool.begin().await?;
-
-			for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
-				let mut qb = QueryBuilder::<Sqlite>::new(
-					"INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index) ",
-				);
-				qb.push_values(chunk, |mut b, (_, receipt)| {
-					b.push_bind(receipt.transaction_hash.as_ref() as &[u8])
-						.push_bind(substrate_hash_ref)
-						.push_bind(receipt.transaction_index.as_u32() as i32);
-				});
-				qb.build().execute(&mut *tx).await?;
-			}
-
-			let all_logs: Vec<(i32, &[u8], &Log)> = receipts
-				.iter()
-				.flat_map(|(_, receipt)| {
-					let tx_index = receipt.transaction_index.as_u32() as i32;
-					let tx_hash: &[u8] = receipt.transaction_hash.as_ref();
-					receipt.logs.iter().map(move |log| (tx_index, tx_hash, log))
-				})
-				.collect();
-
-			for chunk in all_logs.chunks(self.db_ctx.log_insert_chunk_size) {
-				let mut qb = QueryBuilder::<Sqlite>::new(
-					"INSERT INTO logs(block_hash, transaction_index, log_index, address, block_number, transaction_hash, topic_0, topic_1, topic_2, topic_3, data) ",
-				);
-				qb.push_values(chunk, |mut b, (tx_index, tx_hash, log)| {
-					b.push_bind(ethereum_hash_ref)
-						.push_bind(*tx_index)
-						.push_bind(log.log_index.as_u32() as i32)
-						.push_bind(log.address.as_ref() as &[u8])
-						.push_bind(block_number)
-						.push_bind(*tx_hash)
-						.push_bind(log.topics.first().map(|v| &v[..]))
-						.push_bind(log.topics.get(1).map(|v| &v[..]))
-						.push_bind(log.topics.get(2).map(|v| &v[..]))
-						.push_bind(log.topics.get(3).map(|v| &v[..]))
-						.push_bind(log.data.as_ref().map(|v| &v.0[..]));
-				});
-				qb.build().execute(&mut *tx).await?;
-			}
-
-			let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-			insert_block_mapping!(&mut *tx, &block_map)?;
-
-			tx.commit().await?;
-			log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
+			return Ok(());
 		}
+
+		let ethereum_hash_ref = ethereum_hash.as_ref();
+		let mut tx = self.db_ctx.pool.begin().await?;
+
+		for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
+			let mut qb = QueryBuilder::<Sqlite>::new(
+				"INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index) ",
+			);
+			qb.push_values(chunk, |mut b, (_, receipt)| {
+				b.push_bind(receipt.transaction_hash.as_ref() as &[u8])
+					.push_bind(substrate_hash_ref)
+					.push_bind(receipt.transaction_index.as_u32() as i32);
+			});
+			qb.build().execute(&mut *tx).await?;
+		}
+
+		let all_logs: Vec<(i32, &[u8], &Log)> = receipts
+			.iter()
+			.flat_map(|(_, receipt)| {
+				let tx_index = receipt.transaction_index.as_u32() as i32;
+				let tx_hash: &[u8] = receipt.transaction_hash.as_ref();
+				receipt.logs.iter().map(move |log| (tx_index, tx_hash, log))
+			})
+			.collect();
+
+		for chunk in all_logs.chunks(self.db_ctx.log_insert_chunk_size) {
+			let mut qb = QueryBuilder::<Sqlite>::new(
+				"INSERT INTO logs(block_hash, transaction_index, log_index, address, block_number, transaction_hash, topic_0, topic_1, topic_2, topic_3, data) ",
+			);
+			qb.push_values(chunk, |mut b, (tx_index, tx_hash, log)| {
+				b.push_bind(ethereum_hash_ref)
+					.push_bind(*tx_index)
+					.push_bind(log.log_index.as_u32() as i32)
+					.push_bind(log.address.as_ref() as &[u8])
+					.push_bind(block_number)
+					.push_bind(*tx_hash)
+					.push_bind(log.topics.first().map(|v| &v[..]))
+					.push_bind(log.topics.get(1).map(|v| &v[..]))
+					.push_bind(log.topics.get(2).map(|v| &v[..]))
+					.push_bind(log.topics.get(3).map(|v| &v[..]))
+					.push_bind(log.data.as_ref().map(|v| &v.0[..]));
+			});
+			qb.build().execute(&mut *tx).await?;
+		}
+
+		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
+		insert_block_mapping!(&mut *tx, &block_map)?;
+
+		tx.commit().await?;
+		log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
 
 		Ok(())
 	}
@@ -1695,6 +1705,26 @@ mod tests {
 			provider.insert(&block, &receipts, &ethereum_hash).await?;
 			assert_receipts_inserted(&provider, &block, &ethereum_hash, &receipts).await;
 		}
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_insert_empty_receipts(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: H256::from([1u8; 32]), number: 1 };
+		let ethereum_hash = H256::from([2u8; 32]);
+
+		provider.insert(&block, &[], &ethereum_hash).await?;
+
+		// Block mapping is stored as a deduplication marker.
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
+
+		// Second insert for the same block is a no-op.
+		provider.insert(&block, &[], &ethereum_hash).await?;
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
+
 		Ok(())
 	}
 }

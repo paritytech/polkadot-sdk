@@ -41,8 +41,18 @@ use std::path::PathBuf;
 async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
 	const DEFAULT: usize = 999;
 	let limit = async {
-		let mut conn = pool.acquire().await.ok()?;
-		let mut handle = conn.lock_handle().await.ok()?;
+		let mut conn = pool
+			.acquire()
+			.await
+			.inspect_err(|e| log::warn!(target: LOG_TARGET, "💾 Failed to acquire connection: {e}"))
+			.ok()?;
+		let mut handle = conn
+			.lock_handle()
+			.await
+			.inspect_err(|e| log::warn!(target: LOG_TARGET, "💾 Failed to lock handle: {e}"))
+			.ok()?;
+		// SAFETY: `lock_handle` guarantees the raw pointer is valid for
+		// the lifetime of the guard, and passing -1 only queries the limit.
 		let raw = unsafe {
 			libsqlite3_sys::sqlite3_limit(
 				handle.as_raw_handle().as_ptr(),
