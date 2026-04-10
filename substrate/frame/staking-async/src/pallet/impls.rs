@@ -425,6 +425,13 @@ impl<T: Config> Pallet<T> {
 		let validator_staker_payout_for_page =
 			page_stake_part.mul_floor(reward_split.validator_payout);
 
+		Self::deposit_event(Event::<T>::PayoutStarted {
+			era_index: era,
+			validator_stash: stash.clone(),
+			page,
+			next: Eras::<T>::get_next_claimable_page(era, &stash),
+		});
+
 		// Pay validator incentive bonus from the separate incentive pot.
 		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
 		if let Some(incentive) =
@@ -432,13 +439,6 @@ impl<T: Config> Pallet<T> {
 		{
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
-
-		Self::deposit_event(Event::<T>::PayoutStarted {
-			era_index: era,
-			validator_stash: stash.clone(),
-			page,
-			next: Eras::<T>::get_next_claimable_page(era, &stash),
-		});
 
 		// Check if this era has a staker rewards pot.
 		let nominator_payout_count: u32 =
