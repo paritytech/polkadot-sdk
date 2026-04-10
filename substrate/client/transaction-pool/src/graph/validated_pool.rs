@@ -294,11 +294,6 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 		ignore_banned: bool,
 	) -> Result<(), B::Error> {
 		if !ignore_banned && self.is_banned(tx_hash) {
-			trace!(
-				target: LOG_TARGET,
-				?tx_hash,
-				"Transaction rejected: temporarily banned"
-			);
 			Err(error::Error::TemporarilyBanned.into())
 		} else if self.pool.read().is_imported(tx_hash) {
 			Err(error::Error::AlreadyImported(Box::new(*tx_hash)).into())
@@ -393,7 +388,8 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					?error,
 					"ValidatedPool::submit_one invalid"
 				);
-				self.rotator.ban(&Instant::now(), std::iter::once(tx_hash), BanReason::Validation);
+				self.rotator
+					.ban(&Instant::now(), std::iter::once(tx_hash), BanReason::Validation);
 				Err(error)
 			},
 			ValidatedTransaction::Unknown(tx_hash, error) => {
@@ -435,7 +431,11 @@ impl<B: ChainApi, L: EventHandler<B>> ValidatedPool<B, L> {
 					.map(|x| x.hash)
 					.collect::<HashSet<_>>();
 				// ban all removed transactions
-				self.rotator.ban(&Instant::now(), removed.iter().copied(), BanReason::LimitsEnforced);
+				self.rotator.ban(
+					&Instant::now(),
+					removed.iter().copied(),
+					BanReason::LimitsEnforced,
+				);
 				removed
 			};
 			if !removed.is_empty() {
