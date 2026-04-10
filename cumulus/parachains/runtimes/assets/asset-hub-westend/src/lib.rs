@@ -1622,11 +1622,8 @@ impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapB
 
 		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
 		// [dap (buffer), StakerRewardRecipient, ValidatorIncentiveRecipient]
-		let percentages = [
-			Perbill::from_percent(15),
-			Perbill::from_percent(85),
-			Perbill::from_percent(0),
-		];
+		let percentages =
+			[Perbill::from_percent(15), Perbill::from_percent(85), Perbill::from_percent(0)];
 
 		let mut map = pallet_dap::BudgetAllocationMap::new();
 		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
