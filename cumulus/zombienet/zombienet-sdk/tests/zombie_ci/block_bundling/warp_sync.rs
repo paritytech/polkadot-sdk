@@ -64,14 +64,11 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for steady-state block production");
 	assert_para_throughput(&relay_client, 6, [(ParaId::from(PARA_ID), 12..19)], []).await?;
 
-	// Query collator's current best block to set a meaningful sync target.
+	// Query collator's current best block to set a sync target.
 	let collator = network.get_node("collator-0")?;
 	let collator_client: OnlineClient<PolkadotConfig> = collator.wait_client().await?;
-	let collator_best: u32 = collator_client.blocks().at_latest().await?.number();
-	let target_block = collator_best + 10;
-	log::info!(
-		"Collator best block: #{collator_best}, full node sync target: #{target_block}"
-	);
+	let target_block: u32 = collator_client.blocks().at_latest().await?.number();
+	log::info!("Full node sync target: #{target_block}");
 
 	// Add a fresh full node that will warp-sync to the already-running chain.
 	log::info!("Adding fresh full node with warp sync");
@@ -79,8 +76,7 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 		is_validator: false,
 		args: vec![
 			("--sync=warp").try_into()?,
-			("-lsync=debug,parachain=debug,sync::cumulus=debug,aura=trace")
-				.try_into()?,
+			("-lsync=debug,parachain=debug,sync::cumulus=debug,aura=trace").try_into()?,
 			("--relay-chain-rpc-urls", "{{ZOMBIE:validator-0:ws_uri}}").try_into()?,
 		],
 		..Default::default()
@@ -90,7 +86,6 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	let full_node = network.get_node("para-full-node")?;
 
 	// Wait for the full node to sync and catch up.
-	// If the bug is present, the node fails to import bundled blocks and never advances.
 	log::info!("Waiting for full node best block to reach #{target_block} (timeout 120s)");
 
 	let result = timeout(Duration::from_secs(120), async {
@@ -117,9 +112,7 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 		},
 		Ok(Err(e)) => return Err(e),
 		Err(_) => {
-			return Err(anyhow!(
-				"Full node did not reach block #{target_block} within 120s."
-			));
+			return Err(anyhow!("Full node did not reach block #{target_block} within 120s."));
 		},
 	}
 
@@ -138,9 +131,9 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	}
 
 	// Make sure the full node keeps progressing on live blocks after the initial sync.
-	// Query the collator's current best and wait for the full node to advance 24 blocks
-	// beyond that. This confirms the node is fully functional post-warp-sync, not just
-	// replaying the initial catch-up batch.
+	// Query the full node's current best and wait for it to advance 24 blocks beyond that.
+	// This confirms the node is fully functional post-warp-sync, not just replaying the
+	// initial catch-up batch.
 	let collator_best: u32 = collator_client.blocks().at_latest().await?.number();
 	let live_target = collator_best + 24;
 	log::info!(
