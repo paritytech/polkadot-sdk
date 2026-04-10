@@ -1018,14 +1018,11 @@ impl pallet_xcm_bridge_hub_router::Config<ToWestendXcmRouterInstance> for Runtim
 		EnsureRoot<AccountId>,
 		EnsureXcm<Equals<Self::SiblingBridgeHubLocation>>,
 	>;
+	type ToBridgeHubSender = XcmpQueue;
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
-	type Exporter = xcm_builder::UnpaidRemoteExporter<
-		ToWestendXcmRouter,
-		XcmpQueue,
-		xcm_config::UniversalLocation,
-	>;
+	type UnpaidExport = frame_support::traits::ConstBool<true>;
 
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;

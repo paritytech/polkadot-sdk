@@ -44,7 +44,9 @@ use sp_core::H256;
 use sp_runtime::{FixedPointNumber, FixedU128};
 use sp_std::vec::Vec;
 use xcm::prelude::*;
-use xcm_builder::{ExporterFor, InspectMessageQueues};
+use xcm_builder::{
+	ExporterFor, InspectMessageQueues, SovereignPaidRemoteExporter, UnpaidRemoteExporter,
+};
 
 pub use pallet::*;
 pub use weights::WeightInfo;
@@ -100,15 +102,15 @@ pub mod pallet {
 
 		/// Origin of the sibling bridge hub that is allowed to report bridge status.
 		type BridgeHubOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+		/// Actual message sender (`HRMP` or `DMP`) to the sibling bridge hub location.
+		type ToBridgeHubSender: SendXcm;
 		/// Local XCM channel manager.
 		type LocalXcmChannelManager: XcmChannelStatusProvider;
 
-		/// The inner exporter for sending messages to the sibling bridge hub.
-		/// Use `SovereignPaidRemoteExporter<Pallet<..>, Sender, UniversalLocation>` for
-		/// sovereign-paid bridging or
-		/// `UnpaidRemoteExporter<Pallet<..>, Sender, UniversalLocation>` for unpaid
-		/// bridging (e.g. between system parachains).
-		type Exporter: SendXcm;
+		/// Whether to use unpaid execution when sending export messages to the bridge hub.
+		/// Set to `ConstBool<true>` for system parachains where the bridge hub waives fees,
+		/// `ConstBool<false>` for sovereign-paid bridging.
+		type UnpaidExport: Get<bool>;
 
 		/// Additional fee that is paid for every byte of the outbound message.
 		type ByteFee: Get<u128>;
@@ -345,7 +347,7 @@ impl<T: Config<I>, I: 'static> ExporterFor for Pallet<T, I> {
 // XCMP/DMP transport. This allows injecting dynamic message fees into XCM programs that
 // are going to the bridged network.
 impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
-	type Ticket = (u32, <T::Exporter as SendXcm>::Ticket);
+	type Ticket = (u32, <T::ToBridgeHubSender as SendXcm>::Ticket);
 
 	fn validate(
 		dest: &mut Option<Location>,
@@ -364,7 +366,20 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// instructions to pay the message fee at the sibling/child bridge hub. The cost will
 		// include both the cost of (1) delivery to the sibling bridge hub and (2) delivery
 		// to the bridged bridge hub (returned by `Self::exporter_for`).
-		match T::Exporter::validate(dest, xcm) {
+		let exporter_result = if T::UnpaidExport::get() {
+			UnpaidRemoteExporter::<
+				Pallet<T, I>,
+				T::ToBridgeHubSender,
+				T::UniversalLocation,
+			>::validate(dest, xcm)
+		} else {
+			SovereignPaidRemoteExporter::<
+				Pallet<T, I>,
+				T::ToBridgeHubSender,
+				T::UniversalLocation,
+			>::validate(dest, xcm)
+		};
+		match exporter_result {
 			Ok((ticket, cost)) => {
 				// If the ticket is ok, it means we are routing with this router, so we need to
 				// apply more validations to the cloned `dest` and `xcm`, which are required here.
@@ -409,7 +424,7 @@ impl<T: Config<I>, I: 'static> SendXcm for Pallet<T, I> {
 		// use router to enqueue message to the sibling/child bridge hub. This also should handle
 		// payment for passing through this queue.
 		let (message_size, ticket) = ticket;
-		let xcm_hash = T::Exporter::deliver(ticket)?;
+		let xcm_hash = T::ToBridgeHubSender::deliver(ticket)?;
 
 		// increase delivery fee factor if required
 		Self::on_message_sent_to_bridge(message_size);
@@ -566,10 +581,11 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin; HARD_MESSAGE_SIZE_LIMIT as usize].into();
 
 			// dest is routable with the inner router
-			assert_ok!(<<TestRuntime as Config<()>>::Exporter>::validate(
-				&mut Some(dest.clone()),
-				&mut Some(xcm.clone())
-			));
+			assert_ok!(SovereignPaidRemoteExporter::<
+				Pallet<TestRuntime, ()>,
+				TestToBridgeHubSender,
+				UniversalLocation,
+			>::validate(&mut Some(dest.clone()), &mut Some(xcm.clone())));
 
 			// check for oversized message
 			let mut xcm_wrapper = Some(xcm.clone());
@@ -596,10 +612,11 @@ mod tests {
 			let xcm: Xcm<()> = vec![ClearOrigin].into();
 
 			// dest is routable with the inner router
-			assert_ok!(<<TestRuntime as Config<()>>::Exporter>::validate(
-				&mut Some(dest.clone()),
-				&mut Some(xcm.clone())
-			));
+			assert_ok!(SovereignPaidRemoteExporter::<
+				Pallet<TestRuntime, ()>,
+				TestToBridgeHubSender,
+				UniversalLocation,
+			>::validate(&mut Some(dest.clone()), &mut Some(xcm.clone())));
 
 			// check that it does not pass XCM version check
 			let mut xcm_wrapper = Some(xcm.clone());

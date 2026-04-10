@@ -22,7 +22,7 @@ use bp_xcm_bridge_hub_router::XcmChannelStatusProvider;
 use codec::Encode;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
-	traits::{Contains, Equals},
+	traits::{ConstBool, Contains, Equals},
 };
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
@@ -83,13 +83,10 @@ impl pallet_xcm_bridge_hub_router::Config<()> for TestRuntime {
 		LatestOrNoneForLocationVersionChecker<Equals<UnknownXcmVersionForRoutableLocation>>;
 
 	type BridgeHubOrigin = frame_system::EnsureRoot<u64>;
+	type ToBridgeHubSender = TestToBridgeHubSender;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
-	type Exporter = SovereignPaidRemoteExporter<
-		crate::Pallet<TestRuntime, ()>,
-		TestToBridgeHubSender,
-		UniversalLocation,
-	>;
+	type UnpaidExport = ConstBool<false>;
 
 	type ByteFee = ConstU128<BYTE_FEE>;
 	type FeeAsset = BridgeFeeAsset;
