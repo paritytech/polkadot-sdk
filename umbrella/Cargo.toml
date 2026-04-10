@@ -131,6 +131,7 @@ std = [
 	"pallet-people?/std",
 	"pallet-preimage?/std",
 	"pallet-proxy?/std",
+	"pallet-psm?/std",
 	"pallet-ranked-collective?/std",
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
@@ -228,6 +229,7 @@ std = [
 	"sp-transaction-storage-proof?/std",
 	"sp-trie?/std",
 	"sp-version?/std",
+	"sp-virtualization?/std",
 	"sp-wasm-interface?/std",
 	"sp-weights?/std",
 	"staging-parachain-info?/std",
@@ -324,6 +326,7 @@ runtime-benchmarks = [
 	"pallet-people?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
+	"pallet-psm?/runtime-benchmarks",
 	"pallet-ranked-collective?/runtime-benchmarks",
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
@@ -470,6 +473,7 @@ try-runtime = [
 	"pallet-people?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-proxy?/try-runtime",
+	"pallet-psm?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
@@ -693,6 +697,7 @@ runtime-full = [
 	"pallet-people",
 	"pallet-preimage",
 	"pallet-proxy",
+	"pallet-psm",
 	"pallet-ranked-collective",
 	"pallet-recovery",
 	"pallet-referenda",
@@ -795,6 +800,7 @@ runtime-full = [
 	"sp-trie",
 	"sp-version",
 	"sp-version-proc-macro",
+	"sp-virtualization",
 	"sp-wasm-interface",
 	"sp-weights",
 	"staging-parachain-info",
@@ -867,6 +873,7 @@ runtime = [
 	"sp-trie",
 	"sp-version",
 	"sp-version-proc-macro",
+	"sp-virtualization",
 	"sp-wasm-interface",
 	"sp-weights",
 ]
@@ -1001,6 +1008,7 @@ node = [
 	"sp-maybe-compressed-blob",
 	"sp-panic-handler",
 	"sp-rpc",
+	"sp-virtualization-test-fixture",
 	"staging-chain-spec-builder",
 	"staging-node-inspect",
 	"staging-tracking-allocator",
@@ -1659,6 +1667,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/proxy"
 
+[dependencies.pallet-psm]
+default-features = false
+optional = true
+path = "../substrate/frame/psm"
+
 [dependencies.pallet-ranked-collective]
 default-features = false
 optional = true
@@ -2168,6 +2181,11 @@ path = "../substrate/primitives/version"
 default-features = false
 optional = true
 path = "../substrate/primitives/version/proc-macro"
+
+[dependencies.sp-virtualization]
+default-features = false
+optional = true
+path = "../substrate/primitives/virtualization"
 
 [dependencies.sp-wasm-interface]
 default-features = false
@@ -2873,6 +2891,11 @@ path = "../substrate/primitives/panic-handler"
 default-features = false
 optional = true
 path = "../substrate/primitives/rpc"
+
+[dependencies.sp-virtualization-test-fixture]
+default-features = false
+optional = true
+path = "../substrate/primitives/virtualization/test-fixture"
 
 [dependencies.staging-chain-spec-builder]
 default-features = false

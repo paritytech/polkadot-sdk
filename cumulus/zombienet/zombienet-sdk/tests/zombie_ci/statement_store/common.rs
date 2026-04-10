@@ -74,10 +74,18 @@ pub(super) async fn subscribe_topic(
 	rpc: &RpcClient,
 	topic: Topic,
 ) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
+	let filter = TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"));
+	subscribe_topic_filter(rpc, filter).await
+}
+
+pub(super) async fn subscribe_topic_filter(
+	rpc: &RpcClient,
+	filter: TopicFilter,
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
 	let subscription = rpc
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
+			rpc_params![filter],
 			"statement_unsubscribeStatement",
 		)
 		.await?;
@@ -175,7 +183,7 @@ pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk
 	[
 		"--force-authoring".to_string(),
 		"--max-runtime-instances=32".to_string(),
-		"-linfo,statement-store=info,statement-gossip=info".to_string(),
+		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
 		"--enable-statement-store".to_string(),
 		format!("--rpc-max-connections={}", participant_count + 1000),
 		format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),

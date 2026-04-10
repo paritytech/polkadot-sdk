@@ -100,6 +100,12 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
+- job-name: "zombienet-cumulus-0018-statement_store_crash_mid_sync"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_crash_mid_sync"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+  use-zombienet-sdk: true
+
 - job-name: "zombienet-cumulus-0019-statement_store_sustained_rate_flooding"
   test-filter: "zombie_ci::statement_store::integration::statement_store_sustained_rate_flooding"
   runner-type: "default"
