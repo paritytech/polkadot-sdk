@@ -1448,6 +1448,7 @@ pub mod dynamic_params {
 #[cfg(feature = "runtime-benchmarks")]
 impl Default for RuntimeParameters {
 	fn default() -> Self {
+		use frame_support::traits::Get;
 		RuntimeParameters::Pusd(dynamic_params::pusd::Parameters::MaximumIssuance(
 			dynamic_params::pusd::MaximumIssuance,
 			Some(dynamic_params::pusd::MaximumIssuance::get()),

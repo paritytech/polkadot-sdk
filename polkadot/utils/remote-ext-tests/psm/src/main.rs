@@ -36,16 +36,13 @@ struct Cli {
 }
 
 fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestConfig {
-	use asset_hub_westend_runtime::{Runtime, TrustBackedAssetsInstance};
 	let stable_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
 	pallet_psm_remote_tests::PsmTestConfig {
 		external_asset_id: asset_id,
 		stable_asset_id,
 		stable_asset_decimals: 6,
 		assets_pallet_name: "Assets".to_string(),
-		pre_create_hook: Some(Box::new(move || {
-			pallet_assets::NextAssetId::<Runtime, TrustBackedAssetsInstance>::put(stable_asset_id);
-		})),
+		pre_create_hook: None,
 	}
 }
 
