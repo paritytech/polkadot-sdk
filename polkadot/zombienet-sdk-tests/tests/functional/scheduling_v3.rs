@@ -44,7 +44,7 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug,parachain::statement-distribution=debug").into()])
+				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -65,7 +65,6 @@ async fn scheduling_v2_and_v3_collator_with_v3_validators(
 			(3..6).fold(r, |acc, i| {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
-						("-lparachain=debug,runtime=debug,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug,parachain::statement-distribution=debug").into(),
 						("--experimental-collator-protocol").into(),
 					])
 				})
@@ -184,7 +183,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 				.with_chain("rococo-local")
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
-				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug,parachain::statement-distribution=debug").into()])
+				.with_default_args(vec![("-lparachain=debug,runtime=debug,parachain::candidate-backing=debug,parachain::provisioner=debug,parachain::prospective-parachains=debug,runtime::parachains::scheduler=debug,parachain::collator-protocol=debug,basic-authorship=debug,parachain::statement-distribution=debug").into()])
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
@@ -199,15 +198,14 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
 
-			let r = (1..6).fold(r, |acc, i| {
+			let r = (1..3).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			});
 
 			// Experimental collator protocol validators.
-			(6..10).fold(r, |acc, i| {
+			(3..6).fold(r, |acc, i| {
 				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
-						("-lparachain=debug,runtime=debug,parachain::candidate-backing=trace,parachain::provisioner=trace,parachain::prospective-parachains=trace,runtime::parachains::scheduler=trace,parachain::collator-protocol=trace,basic-authorship=debug,parachain::statement-distribution=debug").into(),
 						("--experimental-collator-protocol").into(),
 					])
 				})

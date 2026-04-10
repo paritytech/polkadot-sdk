@@ -27,7 +27,7 @@ use std::time::Duration;
 
 /// Whether a relay chain block's slot is still in progress or already finished.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum SlotStatus {
+enum RelayChainSlotStatus {
 	/// The block's BABE slot is behind the current wall-clock slot (finished).
 	Finished,
 	/// The block's BABE slot matches or is ahead of the current wall-clock slot (in progress).
@@ -62,7 +62,7 @@ impl SchedulingInfo {
 		&mut self,
 		relay_client: &RelayClient,
 		relay_chain_slot_duration: Duration,
-	) -> Option<SlotStatus>
+	) -> Option<RelayChainSlotStatus>
 	where
 		RelayClient: RelayChainInterface + Clone + 'static,
 	{
@@ -127,8 +127,8 @@ impl SchedulingInfo {
 		}
 
 		match self.relay_best_slot_status(relay_client, relay_chain_slot_duration).await? {
-			SlotStatus::Finished => Some(relay_best_hash),
-			SlotStatus::InProgress => {
+			RelayChainSlotStatus::Finished => Some(relay_best_hash),
+			RelayChainSlotStatus::InProgress => {
 				let maybe_relay_best_header = match self {
 					SchedulingInfo::Uninitialized => None,
 					SchedulingInfo::Initialized { relay_best_hash: _, maybe_relay_best_header } => {
@@ -141,7 +141,7 @@ impl SchedulingInfo {
 	}
 
 	/// Fetches the relay chain best block hash and caches it.
-	pub async fn fetch_relay_best_hash<RelayClient>(
+	async fn fetch_relay_best_hash<RelayClient>(
 		&mut self,
 		relay_client: &RelayClient,
 	) -> Option<RelayHash>
@@ -176,7 +176,7 @@ impl SchedulingInfo {
 	fn compute_slot_status(
 		header: &RelayHeader,
 		relay_chain_slot_duration: Duration,
-	) -> Option<SlotStatus> {
+	) -> Option<RelayChainSlotStatus> {
 		let hash = header.hash();
 		let babe_slot = match sc_consensus_babe::find_pre_digest::<RelayBlock>(header) {
 			Ok(pre_digest) => pre_digest.slot(),
@@ -203,7 +203,7 @@ impl SchedulingInfo {
 				?current_slot,
 				"Relay chain block belongs to a finished slot.",
 			);
-			SlotStatus::Finished
+			RelayChainSlotStatus::Finished
 		} else {
 			tracing::debug!(
 				target: LOG_TARGET,
@@ -212,7 +212,7 @@ impl SchedulingInfo {
 				?current_slot,
 				"Relay chain block belongs to the current in-progress slot.",
 			);
-			SlotStatus::InProgress
+			RelayChainSlotStatus::InProgress
 		};
 
 		Some(status)

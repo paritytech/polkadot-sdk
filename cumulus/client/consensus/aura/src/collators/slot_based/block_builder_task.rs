@@ -35,8 +35,8 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi, SchedulingProof,
-	SchedulingV3EnabledApi,
+	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi, RelayProofRequest,
+	SchedulingProof, SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -173,7 +173,6 @@ where
 			para_client.clone(),
 			slot_offset,
 			relay_chain_slot_duration,
-			false,
 		);
 
 		let mut collator = {
@@ -219,7 +218,11 @@ where
 			let best_hash = para_client.info().best_hash;
 			let v3_enabled =
 				para_client.runtime_api().scheduling_v3_enabled(best_hash).unwrap_or(false);
-			slot_timer.set_v3_enabled(v3_enabled);
+			if v3_enabled {
+				// Ignore the time offset when V3 scheduling is enabled,
+				// since `descendants_start` already handles relay-chain slot alignment.
+				slot_timer.set_time_offset(Duration::ZERO);
+			}
 
 			let Some(descendants_start) = scheduling_info
 				.descendants_start(&relay_client, relay_chain_slot_duration, v3_enabled)
@@ -415,8 +418,13 @@ where
 				max_pov_size: *max_pov_size,
 			};
 
-			let relay_proof_request =
-				super::super::get_relay_proof_request(&*para_client, parent_hash);
+			// relay_proof_request is going to be ignored by the runtime if v3 is enabled, so we
+			// can skip supplying it in that case
+			let mut relay_proof_request = RelayProofRequest::default();
+			if !v3_enabled {
+				relay_proof_request =
+					crate::collators::get_relay_proof_request(&*para_client, parent_hash);
+			};
 
 			let (parachain_inherent_data, other_inherent_data) = match collator
 				.create_inherent_data_with_rp_offset(
@@ -592,34 +600,32 @@ where
 		relay_chain_data_cache.get_mut_relay_chain_data(scheduling_parent).await?;
 	let mut current_relay_header = current_relay_block.relay_parent_header.clone();
 
-	if relay_parent_offset == 0 {
-		return Ok(Some(RelayParentData::new(current_relay_header)));
-	}
-
 	let mut relay_parent_descendants: VecDeque<RelayHeader> = Default::default();
 	let mut relay_parent_session_age = 0;
 	loop {
 		if current_relay_header.number == 0 {
 			return Ok(None);
 		}
-		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&current_relay_header) {
-			relay_parent_session_age += 1;
-			if relay_parent_session_age > max_relay_parent_session_age {
-				tracing::debug!(target: LOG_TARGET,
-					?scheduling_parent,
-					ancestor = %current_relay_header.hash(),
-					ancestor_block_number = current_relay_header.number(),
-					"max_relay_parent_session_age exceeded."
-				);
-				return Ok(None);
-			}
+		if relay_parent_session_age > max_relay_parent_session_age {
+			tracing::debug!(target: LOG_TARGET,
+				?scheduling_parent,
+				ancestor = %current_relay_header.hash(),
+				ancestor_block_number = current_relay_header.number(),
+				"max_relay_parent_session_age exceeded."
+			);
+			return Ok(None);
 		}
+
 		if relay_parent_descendants.len() == relay_parent_offset as usize {
 			break;
 		}
-
 		relay_parent_descendants.push_front(current_relay_header.clone());
 
+		// If the current header contains an epoch change log, it means that it's the last block of
+		// the current session. So the next block will be the first one of the following session.
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&current_relay_header) {
+			relay_parent_session_age += 1;
+		}
 		let next_relay_block = relay_chain_data_cache
 			.get_mut_relay_chain_data(*current_relay_header.parent_hash())
 			.await?;

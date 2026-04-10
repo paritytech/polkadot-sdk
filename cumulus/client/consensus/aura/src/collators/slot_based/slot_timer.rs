@@ -67,8 +67,6 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 	/// Parachain client that is used for runtime calls
 	client: Arc<Client>,
 	/// Offset the current time by this duration.
-	/// Ignored when V3 scheduling is enabled, since `descendants_start` already
-	/// handles relay-chain slot alignment.
 	time_offset: Duration,
 	/// Last reported core count.
 	last_reported_core_num: Option<u32>,
@@ -77,8 +75,6 @@ pub(crate) struct SlotTimer<Block, Client, P> {
 	relay_slot_duration: Duration,
 	/// Stores the latest slot that was reported by [`Self::wait_until_next_slot`].
 	last_reported_slot: Option<Slot>,
-	/// Whether V3 scheduling is enabled. When true, `time_offset` is ignored.
-	v3_enabled: bool,
 	_marker: std::marker::PhantomData<(Block, Box<dyn Fn(P) + Send + Sync + 'static>)>,
 }
 
@@ -258,7 +254,6 @@ where
 		client: Arc<Client>,
 		time_offset: Duration,
 		relay_slot_duration: Duration,
-		v3_enabled: bool,
 	) -> Self {
 		Self {
 			client,
@@ -266,7 +261,6 @@ where
 			last_reported_core_num: None,
 			relay_slot_duration,
 			last_reported_slot: Default::default(),
-			v3_enabled,
 			_marker: Default::default(),
 		}
 	}
@@ -276,20 +270,9 @@ where
 		self.last_reported_core_num = Some(num_cores_next_block);
 	}
 
-	/// Update whether V3 scheduling is enabled.
-	/// When V3 is enabled, the slot time offset is ignored since
-	/// `descendants_start` already handles relay-chain slot alignment.
-	pub fn set_v3_enabled(&mut self, enabled: bool) {
-		self.v3_enabled = enabled;
-	}
-
-	/// The effective time offset, which is zero when V3 scheduling is enabled.
-	fn effective_time_offset(&self) -> Duration {
-		if self.v3_enabled {
-			Duration::ZERO
-		} else {
-			self.time_offset
-		}
+	/// Set the time offset.
+	pub fn set_time_offset(&mut self, offset: Duration) {
+		self.time_offset = offset;
 	}
 
 	/// Returns the slot and how much time left until the next block production attempt.
@@ -299,7 +282,7 @@ where
 			self.relay_slot_duration,
 			self.last_reported_core_num,
 			duration_now(),
-			self.effective_time_offset(),
+			self.time_offset,
 		)
 	}
 
@@ -311,7 +294,7 @@ where
 		compute_time_until_next_slot_change(
 			slot_duration,
 			duration_now(),
-			self.effective_time_offset(),
+			self.time_offset,
 			self.last_reported_slot.unwrap_or_default(),
 		)
 	}
