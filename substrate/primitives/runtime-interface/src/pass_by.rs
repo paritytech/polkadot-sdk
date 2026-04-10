@@ -29,15 +29,15 @@ use crate::host::*;
 #[cfg(substrate_runtime)]
 use crate::wasm::*;
 
-#[cfg(not(substrate_runtime))]
-use byte_slice_cast::AsByteSlice;
 #[cfg(substrate_runtime)]
 use byte_slice_cast::AsMutByteSlice;
+#[cfg(not(substrate_runtime))]
+use byte_slice_cast::FromByteSlice;
 #[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
 #[cfg(not(substrate_runtime))]
-use alloc::{format, string::String};
+use alloc::{format, string::String, vec};
 
 use alloc::vec::Vec;
 use core::{any::type_name, marker::PhantomData};
@@ -296,30 +296,20 @@ impl<T> RIType for PassFatPointerAndReadWrite<T> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]>
-where
-	[T]: AsByteSlice<T>,
-{
-	type Owned = Vec<T>;
+impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]> {
+	type Owned = Vec<u8>;
 
 	fn from_ffi_value(
 		context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		let bytes =
-			context.read_memory(Pointer::new(ptr), len * core::mem::size_of::<T>() as u32)?;
-		let ptr = bytes.as_ptr() as *mut _;
-		let cap = bytes.capacity() / core::mem::size_of::<T>();
-		core::mem::forget(bytes);
-		// SAFETY: Only types that may be converted to a byte slice are transferred via the FFI
-		// boundary, which is enforced by the trait bounds. Slice types are statically checked
-		// on both sides.
-		unsafe { Ok(Vec::from_raw_parts(ptr, len as usize, cap)) }
+		context.read_memory(Pointer::new(ptr), len)
 	}
 
 	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		&mut *owned
+		FromByteSlice::from_mut_byte_slice(owned)
+			.expect("byte slice has wrong alignment or size for target type")
 	}
 
 	fn write_back_into_runtime(
@@ -328,8 +318,8 @@ where
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len() * core::mem::size_of::<T>());
-		context.write_memory(Pointer::new(ptr), value.as_byte_slice())
+		assert_eq!(len as usize, value.len());
+		context.write_memory(Pointer::new(ptr), &value)
 	}
 }
 
@@ -367,25 +357,20 @@ impl<T> RIType for PassFatPointerAndWrite<T> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]>
-where
-	T: Default,
-	[T]: AsByteSlice<T>,
-{
-	type Owned = Vec<T>;
+impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]> {
+	type Owned = Vec<u8>;
 
 	fn from_ffi_value(
 		_context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (_, len) = unpack_ptr_and_len(arg);
-		let mut vec = Vec::with_capacity(len as usize);
-		vec.resize_with(len as usize, T::default);
-		Ok(vec)
+		Ok(vec![0u8; len as usize])
 	}
 
 	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		&mut *owned
+		FromByteSlice::from_mut_byte_slice(owned)
+			.expect("byte slice has wrong alignment or size for target type")
 	}
 
 	fn write_back_into_runtime(
@@ -394,8 +379,8 @@ where
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len() * core::mem::size_of::<T>());
-		context.write_memory(Pointer::new(ptr), value.as_byte_slice())
+		assert_eq!(len as usize, value.len());
+		context.write_memory(Pointer::new(ptr), &value)
 	}
 }
 
