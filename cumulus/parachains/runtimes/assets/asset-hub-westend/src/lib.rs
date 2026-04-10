@@ -1563,6 +1563,7 @@ impl pallet_psm::Config for Runtime {
 }
 
 /// Initial PSM configuration applied via the V1 migration.
+///
 /// Sets up USDT (1984) as the first external asset.
 pub struct PsmInitialConfig;
 impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {
