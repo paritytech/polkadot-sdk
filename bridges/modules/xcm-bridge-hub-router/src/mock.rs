@@ -27,9 +27,7 @@ use frame_support::{
 use sp_runtime::{traits::ConstU128, BuildStorage};
 use sp_std::cell::RefCell;
 use xcm::prelude::*;
-use xcm_builder::{
-	InspectMessageQueues, NetworkExportTable, NetworkExportTableItem, SovereignPaidRemoteExporter,
-};
+use xcm_builder::{InspectMessageQueues, NetworkExportTable, NetworkExportTableItem};
 
 type Block = frame_system::mocking::MockBlock<TestRuntime>;
 
