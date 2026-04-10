@@ -23,7 +23,7 @@ use crate::{
 	traits::{
 		self, AsTransactionAuthorizedOrigin, DispatchInfoOf, DispatchTransaction, Dispatchable,
 		ExtensionVariant, InvalidVersion, MaybeDisplay, Member, Pipeline, PostDispatchInfoOf,
-		TransactionExtension, ValidateUnsigned,
+		TransactionExtension,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity},
 };
@@ -90,7 +90,8 @@ where
 {
 	type Call = Call;
 
-	fn validate<I: ValidateUnsigned<Call = Self::Call>>(
+	#[allow(deprecated)]
+	fn validate<I: crate::traits::ValidateUnsigned<Call = Self::Call>>(
 		&self,
 		source: TransactionSource,
 		info: &DispatchInfoOf<Self::Call>,
@@ -114,7 +115,8 @@ where
 		}
 	}
 
-	fn apply<I: ValidateUnsigned<Call = Self::Call>>(
+	#[allow(deprecated)]
+	fn apply<I: crate::traits::ValidateUnsigned<Call = Self::Call>>(
 		self,
 		info: &DispatchInfoOf<Self::Call>,
 		len: usize,
