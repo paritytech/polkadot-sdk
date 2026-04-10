@@ -82,8 +82,9 @@ where
 		};
 
 		match input {
-			_ if env.is_delegate_call() =>
-				Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into()),
+			_ if env.is_delegate_call() => {
+				Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into())
+			},
 			IXcmCalls::send(_) | IXcmCalls::execute(_) if env.is_read_only() => {
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
 			},

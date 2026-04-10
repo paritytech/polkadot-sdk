@@ -137,8 +137,9 @@ where
 		use IAssetConversion::IAssetConversionCalls;
 
 		match input {
-			_ if env.is_delegate_call() =>
-				Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into()),
+			_ if env.is_delegate_call() => {
+				Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into())
+			},
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
 			IAssetConversionCalls::swapTokensForExactTokens(_)
 				if env.is_read_only() =>
