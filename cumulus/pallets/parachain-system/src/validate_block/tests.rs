@@ -301,7 +301,7 @@ fn validate_block_works() {
 fn validate_multiple_blocks_work() {
 	sp_tracing::try_init_simple();
 
-	let blocks_per_pov = 4;
+	let blocks_per_pov = 4u32;
 	let (client, parent_head) = create_elastic_scaling_test_client();
 	let TestBlockData { block, validation_data } = build_multiple_blocks_with_witness(
 		&client,
@@ -316,7 +316,10 @@ fn validate_multiple_blocks_work() {
 				Some(i),
 			)]
 		},
-		|_| Vec::new(),
+		|i| {
+			vec![BlockBundleInfo { index: i as u8, is_last: i + 1 == blocks_per_pov }
+				.to_digest_item()]
+		},
 	);
 
 	assert!(block.proof().encoded_size() < 3 * 1024 * 1024);
@@ -569,7 +572,7 @@ fn validate_block_works_with_child_tries() {
 fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 	sp_tracing::try_init_simple();
 
-	let blocks_per_pov = 12;
+	let blocks_per_pov = 12u32;
 	let (client, genesis_head) = create_elastic_scaling_test_client();
 
 	// 1. Build the initial block that stores values in the map.
@@ -615,7 +618,10 @@ fn state_changes_in_multiple_blocks_are_applied_in_exact_order() {
 					Some(i),
 				)]
 			},
-			|_| Vec::new(),
+			|i| {
+				vec![BlockBundleInfo { index: i as u8, is_last: i + 1 == blocks_per_pov }
+					.to_digest_item()]
+			},
 		);
 
 	// 3. Validate the PoV.
@@ -672,13 +678,17 @@ fn ensure_we_only_like_blockchains() {
 
 	if env::var("RUN_TEST").is_ok() {
 		let (client, parent_head) = create_elastic_scaling_test_client();
+		let num_blocks = 4u32;
 		let TestBlockData { mut block, validation_data } = build_multiple_blocks_with_witness(
 			&client,
 			parent_head.clone(),
 			Default::default(),
-			4,
+			num_blocks,
 			|_| Default::default(),
-			|_| Vec::new(),
+			|i| {
+				vec![BlockBundleInfo { index: i as u8, is_last: i + 1 == num_blocks }
+					.to_digest_item()]
+			},
 		);
 
 		// Reference some non existing parent.
@@ -704,7 +714,9 @@ fn ensure_we_only_like_blockchains() {
 }
 
 #[test]
-fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
+fn rejects_blocks_in_bundle_after_block_marked_as_last() {
+	// Note: This test also covers the case where a runtime upgrade contains following blocks.
+	// A block with a runtime upgrade is considered last in bundle.
 	sp_tracing::try_init_simple();
 
 	if env::var("RUN_TEST").is_ok() {
@@ -755,14 +767,18 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 		proof_builder.host_config.max_code_size = code_len * 2;
 
 		// 2. Build a PoV that consists of multiple blocks.
+		let num_blocks = 4u32;
 		let TestBlockData { block: pov_block_data, validation_data: pov_validation_data } =
 			build_multiple_blocks_with_witness(
 				&client,
 				initial_block_header.clone(), // Start building PoV from the initial block's header
 				proof_builder,
-				4,
+				num_blocks,
 				|_| Vec::new(),
-				|_| Vec::new(),
+				|i| {
+					vec![BlockBundleInfo { index: i as u8, is_last: i + 1 == num_blocks }
+						.to_digest_item()]
+				},
 			);
 
 		// 3. Validate the PoV.
@@ -775,7 +791,7 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
 			.args([
-				"rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade",
+				"rejects_blocks_in_bundle_after_block_marked_as_last",
 				"--",
 				"--nocapture",
 			])
@@ -786,7 +802,7 @@ fn rejects_multiple_blocks_per_pov_when_applying_runtime_upgrade() {
 		assert!(output.status.success());
 
 		assert!(dbg!(String::from_utf8(output.stderr).unwrap())
-			.contains("only one block per PoV is allowed"));
+			.contains("is marked as last block in core, but more blocks follow in the PoV"));
 	}
 }
 

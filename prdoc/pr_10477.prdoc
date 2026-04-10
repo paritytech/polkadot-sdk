@@ -18,7 +18,7 @@ crates:
 - name: sp-block-builder
   bump: major
 - name: sc-consensus
-  bump: patch
+  bump: minor
 - name: sp-consensus-slots
   bump: minor
 - name: cumulus-primitives-core
@@ -40,7 +40,7 @@ crates:
 - name: cumulus-client-proof-size-recording
   bump: patch
 - name: cumulus-client-service
-  bump: patch
+  bump: minor
 - name: polkadot-omni-node-lib
   bump: patch
 - name: testnet-parachains-constants
@@ -50,6 +50,14 @@ crates:
 - name: coretime-westend-runtime
   bump: patch
 - name: penpal-runtime
+  bump: patch
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: parachains-runtimes-test-utils
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
   bump: patch
 - name: polkadot-sdk
   bump: minor
