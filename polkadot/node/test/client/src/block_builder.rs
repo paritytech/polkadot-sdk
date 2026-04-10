@@ -25,8 +25,23 @@ use sp_consensus_babe::{
 	digests::{PreDigest, SecondaryPlainPreDigest},
 	BABE_ENGINE_ID,
 };
+use sp_core::H256;
 use sp_runtime::{traits::Block as BlockT, Digest, DigestItem};
 use sp_state_machine::BasicExternalities;
+
+/// Options for building a test block.
+pub struct BlockBuilderOptions {
+	/// The BABE authority index for the block author. Default: 42 (out of range = no author).
+	pub authority_index: u32,
+	/// Optional node version hash to include as inherent data.
+	pub node_version_hash: Option<H256>,
+}
+
+impl Default for BlockBuilderOptions {
+	fn default() -> Self {
+		Self { authority_index: 42, node_version_hash: None }
+	}
+}
 
 /// An extension for the test client to initialize a Polkadot specific block builder.
 pub trait InitPolkadotBlockBuilder {
@@ -44,6 +59,15 @@ pub trait InitPolkadotBlockBuilder {
 		&self,
 		hash: <Block as BlockT>::Hash,
 	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
+
+	/// Init a Polkadot specific block builder with custom options.
+	///
+	/// Allows configuring the authority index and including node version inherent data.
+	fn init_polkadot_block_builder_with_options(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		options: BlockBuilderOptions,
+	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
 }
 
 impl InitPolkadotBlockBuilder for Client {
@@ -55,6 +79,14 @@ impl InitPolkadotBlockBuilder for Client {
 	fn init_polkadot_block_builder_at(
 		&self,
 		hash: <Block as BlockT>::Hash,
+	) -> BlockBuilder<'_, Block, Client> {
+		self.init_polkadot_block_builder_with_options(hash, BlockBuilderOptions::default())
+	}
+
+	fn init_polkadot_block_builder_with_options(
+		&self,
+		hash: <Block as BlockT>::Hash,
+		options: BlockBuilderOptions,
 	) -> BlockBuilder<'_, Block, Client> {
 		let last_timestamp =
 			self.runtime_api().get_last_timestamp(hash).expect("Get last timestamp");
@@ -83,8 +115,11 @@ impl InitPolkadotBlockBuilder for Client {
 		let digest = Digest {
 			logs: vec![DigestItem::PreRuntime(
 				BABE_ENGINE_ID,
-				PreDigest::SecondaryPlain(SecondaryPlainPreDigest { slot, authority_index: 42 })
-					.encode(),
+				PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+					slot,
+					authority_index: options.authority_index,
+				})
+				.encode(),
 			)],
 		};
 
@@ -120,6 +155,12 @@ impl InitPolkadotBlockBuilder for Client {
 				&parachains_inherent_data,
 			)
 			.expect("Put parachains inherent data");
+
+		if let Some(version_hash) = options.node_version_hash {
+			inherent_data
+				.put_data(sp_node_version::INHERENT_IDENTIFIER, &version_hash)
+				.expect("Put node version inherent data");
+		}
 
 		let inherents = block_builder.create_inherents(inherent_data).expect("Creates inherents");
 

@@ -307,7 +307,21 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = Staking;
+	type EventHandler = (Staking, NodeVersion);
+}
+
+/// Wrapper to check if an account is in the current session validator set.
+pub struct ActiveValidators;
+impl frame_support::traits::Contains<AccountId> for ActiveValidators {
+	fn contains(who: &AccountId) -> bool {
+		pallet_session::Validators::<Runtime>::get().contains(who)
+	}
+}
+
+impl pallet_node_version::Config for Runtime {
+	type Authorities = ActiveValidators;
+	type SetLatestVersionOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -836,6 +850,8 @@ construct_runtime! {
 		Coretime: coretime,
 
 		Sudo: pallet_sudo,
+
+		NodeVersion: pallet_node_version,
 
 		TestNotifier: pallet_test_notifier,
 	}

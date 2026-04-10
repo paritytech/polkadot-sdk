@@ -13465,6 +13465,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-node-version"
+version = "1.0.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "sp-io 30.0.0",
+ "sp-node-version",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-nomination-pools"
 version = "25.0.0"
 dependencies = [
@@ -17642,6 +17659,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-keyring",
  "sp-mmr-primitives",
+ "sp-node-version",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -17786,9 +17804,11 @@ dependencies = [
  "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-consensus-babe",
+ "sp-core 28.0.0",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
+ "sp-node-version",
  "sp-runtime 31.0.1",
  "sp-state-machine 0.35.0",
  "sp-timestamp",
@@ -17838,6 +17858,7 @@ dependencies = [
  "pallet-balances",
  "pallet-grandpa",
  "pallet-indices",
+ "pallet-node-version",
  "pallet-offences",
  "pallet-session",
  "pallet-staking",
@@ -17864,6 +17885,7 @@ dependencies = [
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-mmr-primitives",
+ "sp-node-version",
  "sp-offchain",
  "sp-runtime 31.0.1",
  "sp-session",
@@ -24768,6 +24790,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-node-version"
+version = "1.0.0"
+dependencies = [
+ "async-trait",
+ "parity-scale-codec",
+ "sp-core 28.0.0",
+ "sp-inherents 26.0.0",
+ "thiserror 1.0.65",
+]
+
+[[package]]
 name = "sp-npos-elections"
 version = "26.0.0"
 dependencies = [
@@ -29283,6 +29316,7 @@ dependencies = [
  "pallet-migrations",
  "pallet-mmr",
  "pallet-multisig",
+ "pallet-node-version",
  "pallet-nomination-pools",
  "pallet-nomination-pools-benchmarking",
  "pallet-nomination-pools-runtime-api",
@@ -29335,6 +29369,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-keyring",
  "sp-mmr-primitives",
+ "sp-node-version",
  "sp-npos-elections",
  "sp-offchain",
  "sp-runtime 31.0.1",

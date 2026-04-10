@@ -510,7 +510,21 @@ impl pallet_timestamp::Config for Runtime {
 
 impl pallet_authorship::Config for Runtime {
 	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Babe>;
-	type EventHandler = StakingAhClient;
+	type EventHandler = (StakingAhClient, NodeVersion);
+}
+
+/// Wrapper to check if an account is in the current session validator set.
+pub struct ActiveValidators;
+impl Contains<AccountId> for ActiveValidators {
+	fn contains(who: &AccountId) -> bool {
+		pallet_session::Validators::<Runtime>::get().contains(who)
+	}
+}
+
+impl pallet_node_version::Config for Runtime {
+	type Authorities = ActiveValidators;
+	type SetLatestVersionOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
@@ -1839,6 +1853,10 @@ mod runtime {
 	// DAP Satellite - collects funds for transfer to DAP on AssetHub
 	#[runtime::pallet_index(106)]
 	pub type DapSatellite = pallet_dap_satellite;
+
+	// Node version tracking for validators.
+	#[runtime::pallet_index(107)]
+	pub type NodeVersion = pallet_node_version;
 
 	// Consensus support.
 	// Authorship must be before session in order to note author in the correct session and era.

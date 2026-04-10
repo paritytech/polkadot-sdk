@@ -697,6 +697,10 @@ where
 			let overseer_handle =
 				overseer_handle.as_ref().ok_or(Error::AuthoritiesRequireRealOverseer)?.clone();
 			let slot_duration = babe_link.config().slot_duration();
+			let node_version_provider =
+				sp_node_version::InherentDataProvider::new(
+					&node_version.clone().unwrap_or_default(),
+				);
 			let babe_config = sc_consensus_babe::BabeParams {
 				keystore: keystore_container.keystore(),
 				client: client.clone(),
@@ -708,6 +712,7 @@ where
 				create_inherent_data_providers: move |parent, ()| {
 					let client_clone = client_clone.clone();
 					let overseer_handle = overseer_handle.clone();
+					let node_version_provider = node_version_provider.clone();
 
 					async move {
 						let parachain =
@@ -725,7 +730,7 @@ where
 							slot_duration,
 						);
 
-						Ok((slot, timestamp, parachain))
+						Ok((slot, timestamp, parachain, node_version_provider))
 					}
 				},
 				force_authoring,

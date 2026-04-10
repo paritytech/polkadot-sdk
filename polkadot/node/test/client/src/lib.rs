@@ -129,4 +129,130 @@ mod tests {
 		futures::executor::block_on(client.import(BlockOrigin::Own, block))
 			.expect("Imports the block");
 	}
+
+	#[test]
+	fn node_version_inherent_included_with_valid_author() {
+		let client = TestClientBuilder::new().build();
+		let chain_info = client.chain_info();
+
+		let version_hash = sp_core::blake2_256(b"1.0.0-abc123").into();
+
+		// Build a block with authority_index 0 (Alice) and node version data.
+		// The block should include the node version inherent because there's a valid
+		// author and no prior version recorded.
+		let block_builder = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: Some(version_hash) },
+		);
+		let block = block_builder.build().expect("Finalizes the block").block;
+
+		// Build a baseline block without node version data to count baseline extrinsics.
+		let baseline_builder = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: None },
+		);
+		let baseline_block = baseline_builder.build().expect("Finalizes the block").block;
+
+		// The block with node version should have one more extrinsic (report_version).
+		assert_eq!(
+			block.extrinsics().len(),
+			baseline_block.extrinsics().len() + 1,
+			"Block with node version should have one additional inherent extrinsic"
+		);
+
+		futures::executor::block_on(client.import(BlockOrigin::Own, block))
+			.expect("Imports the block with node version inherent");
+	}
+
+	#[test]
+	fn node_version_inherent_skipped_when_unchanged() {
+		let client = TestClientBuilder::new().build();
+		let chain_info = client.chain_info();
+
+		let version_hash = sp_core::blake2_256(b"1.0.0-abc123").into();
+
+		// Build and import the first block with the version.
+		let block_builder = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: Some(version_hash) },
+		);
+		let block1 = block_builder.build().expect("Finalizes block 1").block;
+		let block1_ext_count = block1.extrinsics().len();
+
+		futures::executor::block_on(client.import(BlockOrigin::Own, block1))
+			.expect("Imports block 1");
+
+		// Build a second block with the SAME version hash.
+		// The pallet should detect the version hasn't changed and skip the inherent.
+		let chain_info = client.chain_info();
+		let block_builder = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: Some(version_hash) },
+		);
+		let block2 = block_builder.build().expect("Finalizes block 2").block;
+
+		assert_eq!(
+			block2.extrinsics().len(),
+			block1_ext_count - 1,
+			"Second block should skip the node version inherent since version is unchanged"
+		);
+
+		futures::executor::block_on(client.import(BlockOrigin::Own, block2))
+			.expect("Imports block 2");
+	}
+
+	#[test]
+	fn node_version_inherent_resubmitted_on_version_change() {
+		let client = TestClientBuilder::new().build();
+		let chain_info = client.chain_info();
+
+		let version_v1 = sp_core::blake2_256(b"1.0.0").into();
+		let version_v2 = sp_core::blake2_256(b"2.0.0").into();
+
+		// Build and import block with version v1.
+		let bb = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: Some(version_v1) },
+		);
+		let block1 = bb.build().expect("Finalizes block 1").block;
+		let block1_ext_count = block1.extrinsics().len();
+		futures::executor::block_on(client.import(BlockOrigin::Own, block1))
+			.expect("Imports block 1");
+
+		// Build block with version v2 (different) — inherent should be included again.
+		let chain_info = client.chain_info();
+		let bb = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: Some(version_v2) },
+		);
+		let block2 = bb.build().expect("Finalizes block 2").block;
+
+		assert_eq!(
+			block2.extrinsics().len(),
+			block1_ext_count,
+			"Block with updated version should include the node version inherent again"
+		);
+
+		futures::executor::block_on(client.import(BlockOrigin::Own, block2))
+			.expect("Imports block 2");
+	}
+
+	#[test]
+	fn block_builds_without_node_version_data() {
+		// This tests backwards compatibility: a block can be built and imported
+		// successfully even when no node version inherent data is provided.
+		// This is the scenario where a runtime includes pallet-node-version but
+		// the node hasn't been upgraded to provide the inherent data yet.
+		let client = TestClientBuilder::new().build();
+		let chain_info = client.chain_info();
+
+		let block_builder = client.init_polkadot_block_builder_with_options(
+			chain_info.best_hash,
+			BlockBuilderOptions { authority_index: 0, node_version_hash: None },
+		);
+		let block = block_builder.build().expect("Finalizes the block").block;
+
+		futures::executor::block_on(client.import(BlockOrigin::Own, block))
+			.expect("Imports the block without node version data");
+	}
 }
