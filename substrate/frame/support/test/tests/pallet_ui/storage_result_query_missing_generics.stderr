@@ -6,7 +6,7 @@ error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
                    <https://github.com/paritytech/polkadot-sdk/issues/8321>
   --> tests/pallet_ui/storage_result_query_missing_generics.rs:35:7
    |
-35 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error::NonExistent...
+35 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error::NonExistentValue>>;
    |          ^^^
    |
    = note: `-D deprecated` implied by `-D warnings`
@@ -15,8 +15,8 @@ error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
 error[E0107]: missing generics for enum `pallet::Error`
   --> tests/pallet_ui/storage_result_query_missing_generics.rs:35:56
    |
-35 | ..., u8, ResultQuery<Error::NonExistentValue>>;
-   |                      ^^^^^ expected 1 generic argument
+35 |     type Foo<T: Config> = StorageValue<_, u8, ResultQuery<Error::NonExistentValue>>;
+   |                                                           ^^^^^ expected 1 generic argument
    |
 note: enum defined here, with 1 generic parameter: `T`
   --> tests/pallet_ui/storage_result_query_missing_generics.rs:30:11

@@ -15,8 +15,8 @@ error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
 error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
   --> tests/pallet_ui/call_argument_invalid_bound.rs:38:36
    |
-38 | ... foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
-   |                               ^^^^ the trait `std::fmt::Debug` is not implemented for `<T as pallet::Config>::Bar`
+38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
+   |                                          ^^^^ the trait `std::fmt::Debug` is not implemented for `<T as pallet::Config>::Bar`
    |
    = note: required for `&<T as pallet::Config>::Bar` to implement `std::fmt::Debug`
    = note: required for the cast from `&&<T as pallet::Config>::Bar` to `&dyn std::fmt::Debug`
@@ -24,19 +24,19 @@ error[E0277]: `<T as pallet::Config>::Bar` doesn't implement `std::fmt::Debug`
 error[E0277]: the trait bound `<T as pallet::Config>::Bar: Clone` is not satisfied
   --> tests/pallet_ui/call_argument_invalid_bound.rs:38:36
    |
-38 | ... foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
-   |                               ^^^^ the trait `Clone` is not implemented for `<T as pallet::Config>::Bar`
+38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
+   |                                          ^^^^ the trait `Clone` is not implemented for `<T as pallet::Config>::Bar`
 
 error[E0369]: binary operation `==` cannot be applied to type `&<T as pallet::Config>::Bar`
   --> tests/pallet_ui/call_argument_invalid_bound.rs:38:36
    |
-38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPos...
+38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
    |                                          ^^^^
 
 error: unused variable: `origin`
   --> tests/pallet_ui/call_argument_invalid_bound.rs:38:14
    |
-38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPos...
+38 |         pub fn foo(origin: OriginFor<T>, _bar: T::Bar) -> DispatchResultWithPostInfo {
    |                    ^^^^^^ help: if this is intentional, prefix it with an underscore: `_origin`
    |
    = note: `-D unused-variables` implied by `-D warnings`

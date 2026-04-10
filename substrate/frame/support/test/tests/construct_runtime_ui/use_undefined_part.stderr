@@ -26,3 +26,17 @@ help: there is an enum variant `sp_api::__private::TransactionType::Runtime`; tr
 42 - impl pallet::Config for Runtime {}
 42 + impl pallet::Config for sp_api::__private::TransactionType {}
    |
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/construct_runtime_ui/use_undefined_part.rs:33:7
+   |
+33 |     type Foo<T> = StorageValue<Value=u8>;
+   |          ^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`

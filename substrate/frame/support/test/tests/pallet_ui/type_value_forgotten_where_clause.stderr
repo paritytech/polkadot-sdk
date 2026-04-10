@@ -2,9 +2,8 @@ error[E0277]: the trait bound `<T as frame_system::Config>::AccountId: From<u32>
   --> tests/pallet_ui/type_value_forgotten_where_clause.rs:41:34
    |
 41 |     #[pallet::type_value] fn Foo<T: Config>() -> u32 { 3u32 }
-   |                                     ^^^^^^ unsatisfied trait bound
+   |                                     ^^^^^^ the trait `From<u32>` is not implemented for `<T as frame_system::Config>::AccountId`
    |
-   = help: the trait `From<u32>` is not implemented for `<T as frame_system::Config>::AccountId`
 note: required by a bound in `pallet::Config`
   --> tests/pallet_ui/type_value_forgotten_where_clause.rs:25:51
    |
@@ -21,9 +20,8 @@ error[E0277]: the trait bound `<T as frame_system::Config>::AccountId: From<u32>
   --> tests/pallet_ui/type_value_forgotten_where_clause.rs:41:12
    |
 41 |     #[pallet::type_value] fn Foo<T: Config>() -> u32 { 3u32 }
-   |               ^^^^^^^^^^ unsatisfied trait bound
+   |               ^^^^^^^^^^ the trait `From<u32>` is not implemented for `<T as frame_system::Config>::AccountId`
    |
-   = help: the trait `From<u32>` is not implemented for `<T as frame_system::Config>::AccountId`
 note: required by a bound in `pallet::Config`
   --> tests/pallet_ui/type_value_forgotten_where_clause.rs:25:51
    |
@@ -40,9 +38,8 @@ error[E0277]: the trait bound `<T as frame_system::Config>::AccountId: From<u32>
   --> tests/pallet_ui/type_value_forgotten_where_clause.rs:41:12
    |
 41 |     #[pallet::type_value] fn Foo<T: Config>() -> u32 { 3u32 }
-   |               ^^^^^^^^^^ unsatisfied trait bound
+   |               ^^^^^^^^^^ the trait `From<u32>` is not implemented for `<T as frame_system::Config>::AccountId`
    |
-   = help: the trait `From<u32>` is not implemented for `<T as frame_system::Config>::AccountId`
 note: required by a bound in `pallet::Config`
   --> tests/pallet_ui/type_value_forgotten_where_clause.rs:25:51
    |

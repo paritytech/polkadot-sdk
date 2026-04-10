@@ -6,7 +6,7 @@ error[E0631]: type mismatch in closure arguments
    |                             |
    |                             expected due to this
    |                             found signature defined here
-   |                             return type was inferred to be `{closure@...}` here
+   |                             return type was inferred to be `{closure@authorize_wrong_closure_2.rs:36:23}` here
    |
    = note: expected closure signature `for<'a> fn(TransactionSource, &'a u32) -> _`
               found closure signature `fn(TransactionSource, u8) -> _`
