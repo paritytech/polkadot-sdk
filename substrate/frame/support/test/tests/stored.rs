@@ -82,8 +82,18 @@ fn test_stored_enum_implements_required_traits() {
 #[stored]
 pub struct DeriveWhereNotNeeded<T>(T);
 
+#[test]
+fn test_derive_where_not_needed_storable() {
+	ensure_storable::<DeriveWhereNotNeeded<u8>>();
+}
+
 #[stored]
 pub struct NoGenerics(u8);
+
+#[test]
+fn test_no_generics_storable() {
+	ensure_storable::<NoGenerics>();
+}
 
 // when not skipped the type parameter T is included in the type params type info.
 #[test]
