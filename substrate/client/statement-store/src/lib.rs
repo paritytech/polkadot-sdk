@@ -192,6 +192,7 @@ impl Default for Options {
 /// Index for query operations (topic/key-based filtering).
 #[derive(Default)]
 struct QueryIndex {
+	all_hashes: HashSet<Hash>,
 	by_topic: HashMap<Topic, HashSet<Hash>>,
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
@@ -266,6 +267,7 @@ enum IndexQuery {
 
 impl QueryIndex {
 	fn insert(&mut self, hash: Hash, statement: &Statement) {
+		self.all_hashes.insert(hash);
 		let mut all_topics = [None; MAX_TOPICS];
 		let mut nt = 0;
 		while let Some(t) = statement.topic(nt) {
@@ -285,6 +287,7 @@ impl QueryIndex {
 	}
 
 	fn remove(&mut self, hash: &Hash) {
+		self.all_hashes.remove(hash);
 		let _ = self.recent.remove(hash);
 		if let Some((topics, key)) = self.topics_and_keys.remove(hash) {
 			for t in topics.into_iter().flatten() {
@@ -1108,9 +1111,9 @@ impl Store {
 impl StatementStore for Store {
 	/// Return all statements.
 	fn statements(&self) -> Result<Vec<(Hash, Statement)>> {
-		let submit_index = self.submit_index.read();
-		let mut result = Vec::with_capacity(submit_index.entries.len());
-		for hash in submit_index.entries.keys().cloned() {
+		let query_index = self.query_index.read();
+		let mut result = Vec::with_capacity(query_index.all_hashes.len());
+		for hash in query_index.all_hashes.iter().cloned() {
 			let Some(encoded) =
 				self.db.get(col::STATEMENTS, &hash).map_err(|e| Error::Db(e.to_string()))?
 			else {
@@ -1172,11 +1175,11 @@ impl StatementStore for Store {
 	}
 
 	fn has_statement(&self, hash: &Hash) -> bool {
-		self.submit_index.read().entries.contains_key(hash)
+		self.query_index.read().all_hashes.contains(hash)
 	}
 
 	fn statement_hashes(&self) -> Vec<Hash> {
-		self.submit_index.read().entries.keys().cloned().collect()
+		self.query_index.read().all_hashes.iter().cloned().collect()
 	}
 
 	fn statements_by_hashes(
@@ -1423,8 +1426,8 @@ impl StatementStore for Store {
 			}
 			query_index.insert(hash, &statement);
 			query_index.recent.insert(hash);
+			self.subscription_manager.notify(statement);
 		} // Release query index lock
-		self.subscription_manager.notify(statement);
 		self.metrics.report(|metrics| metrics.submitted_statements.inc());
 		log::trace!(target: LOG_TARGET, "Statement submitted: {:?}", HexDisplay::from(&hash));
 		SubmitResult::New
