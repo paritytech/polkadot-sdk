@@ -27,15 +27,12 @@ mod imports {
 	};
 	pub(crate) use westend_system_emulated_network::{
 		self,
-		asset_hub_westend_emulated_chain::{
-			genesis::ED as ASSET_HUB_WESTEND_ED, AssetHubWestendParaPallet as AssetHubWestendPallet,
-		},
+		asset_hub_westend_emulated_chain::AssetHubWestendParaPallet as AssetHubWestendPallet,
 		bridge_hub_westend_emulated_chain::BridgeHubWestendParaPallet as BridgeHubWestendPallet,
 		collectives_westend_emulated_chain::CollectivesWestendParaPallet as CollectivesWestendPallet,
 		coretime_westend_emulated_chain::CoretimeWestendParaPallet as CoretimeWestendPallet,
 		penpal_emulated_chain::{PenpalAssetOwner, PenpalBParaPallet as PenpalBPallet},
 		people_westend_emulated_chain::{
-			genesis::ED as PEOPLE_WESTEND_ED,
 			people_westend_runtime::{
 				self, xcm_config::XcmConfig as PeopleWestendXcmConfig,
 				ExistentialDeposit as PeopleWestendExistentialDeposit,

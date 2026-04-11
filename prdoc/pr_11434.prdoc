@@ -32,22 +32,30 @@ doc:
 
 crates:
 - name: sp-dap
-  bump: minor
-- name: pallet-dap-satellite
-  bump: minor
-- name: pallet-dap
   bump: patch
+- name: pallet-dap-satellite
+  bump: major
+- name: pallet-dap
+  bump: minor
 - name: staging-xcm-builder
   bump: minor
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: bridge-hub-westend-runtime
-  bump: patch
+  bump: major
 - name: collectives-westend-runtime
-  bump: patch
+  bump: major
 - name: coretime-westend-runtime
-  bump: patch
+  bump: major
 - name: people-westend-runtime
-  bump: patch
+  bump: major
 - name: westend-runtime
-  bump: patch
+  bump: major
+- name: polkadot-sdk
+  bump: major
+- name: westend-runtime-constants
+  bump: minor
+- name: emulated-integration-tests-common
+  bump: minor
+- name: testnet-parachains-constants
+  bump: minor
