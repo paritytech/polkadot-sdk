@@ -1,0 +1,32 @@
+title: 'fatxpool: unban viewless transactions after mempool revalidation'
+doc:
+- audience: Node Dev
+  description: "### Problem\n\nIn rare cases, a transaction can get stuck in the fork-aware\
+    \ pool. When a tx gets `InvalidTransaction` (e.g., `Payment`) on one fork but\
+    \ is valid on others, the view's rotator bans it. The ban propagates to all new\
+    \ views via `deep_clone_with_event_handler` (rotator is cloned), and `check_is_known`\
+    \ silently rejects the tx on every subsequent view for the entire ban duration\
+    \ (default 30 min). The tx stays in the mempool (valid at the finalized block)\
+    \ but can't enter any view.\n\n### Fix\n\nThree mechanisms working together:\n\
+    \n1. **Ban reason tracking** \u2014 the rotator now distinguishes `Validation`\
+    \ bans (tx failed  validation) from `LimitsEnforced` bans (tx evicted for pool\
+    \ capacity). Only `Validation`  bans are eligible for unbanning.\n\n2. **Viewless\
+    \ event** \u2014 when a ready tx loses all referencing views, the dropped watcher\
+    \ emits a `Viewless` event. The `dropped_monitor_task` sets a `needs_unban` flag\
+    \ on the tx's  mempool entry.\n\n3. **Mempool revalidation unban** \u2014 `revalidate_inner`\
+    \ prioritizes flagged txs. If the tx passes validation at the finalized block,\
+    \ it unbans across all active views. If it fails \u2014 the tx is removed from\
+    \ mempool (second chance failed).\n\nAdditionally:\n- `View::imported_status()`\
+    \ returns an `ImportedStatus` enum (`NotImported`/`Banned`/`Imported`)  instead\
+    \ of a bool, enabling diagnostic logging when a mempool tx is skipped due to a\
+    \ ban.\n- Trace log in `update_view_with_mempool` when a tx is skipped as temporarily\
+    \ banned.\n\n### Alternatives considered\n\n- **Drop tx when no views reference\
+    \ it** \u2014 simplest, but loses potentially valid transactions,\n- **Unban in\
+    \ `update_view_with_mempool`** \u2014 unconditionally unbans everything, defeating\
+    \ spam  protection (`submit_and_watch` relies on the ban).\n- **Unban all txs\
+    \ passing mempool revalidation** \u2014 creates a hot loop for txs evicted by\
+    \ pool capacity limits (`enforce_limits` \u2192 revalidation valid \u2192 unbanned\
+    \ \u2192 evicted again)."
+crates:
+- name: sc-transaction-pool
+  bump: minor
