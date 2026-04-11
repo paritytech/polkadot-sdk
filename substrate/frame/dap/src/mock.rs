@@ -50,8 +50,6 @@ impl pallet_balances::Config for Test {
 
 parameter_types! {
 	pub const DapPalletId: PalletId = crate::DAP_BUFFER_PALLET_ID;
-	pub const DapSatelliteAccumulationPalletId: PalletId =
-		crate::DAP_SATELLITE_ACCUMULATION_PALLET_ID;
 	pub const ExistentialDeposit: u64 = 10;
 	pub const IssuanceCadence: u64 = 60_000; // 60 seconds
 	pub const MaxElapsedPerDrip: u64 = 600_000; // 10 minutes
@@ -102,7 +100,6 @@ impl sp_staking::budget::BudgetRecipient<AccountId> for TestValidatorIncentiveRe
 impl Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type SatelliteAccumulationPalletId = DapSatelliteAccumulationPalletId;
 	type IssuanceCurve = TestIssuanceCurve;
 	type BudgetRecipients = (Dap, TestStakerRecipient, TestValidatorIncentiveRecipient);
 	type Time = MockTime;

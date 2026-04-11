@@ -64,7 +64,7 @@ use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
 
-pub use sp_dap::{DAP_BUFFER_PALLET_ID, DAP_SATELLITE_ACCUMULATION_PALLET_ID};
+pub use sp_dap::DAP_BUFFER_PALLET_ID;
 
 const LOG_TARGET: &str = "runtime::dap";
 
@@ -136,13 +136,6 @@ pub mod pallet {
 		/// periods without blocks.
 		#[pallet::constant]
 		type MaxElapsedPerDrip: Get<u64>;
-
-		/// The pallet ID used to derive the satellite accumulation account.
-		///
-		/// Cross-chain teleports from DAP satellites land here and are periodically
-		/// drained and deactivated into the main DAP buffer account.
-		#[pallet::constant]
-		type SatelliteAccumulationPalletId: Get<PalletId>;
 
 		/// Origin that can update budget allocation percentages.
 		type BudgetOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -322,7 +315,8 @@ pub mod pallet {
 		/// Cross-chain teleports from DAP satellites land here and are periodically drained
 		/// and deactivated into the DAP buffer account.
 		pub(crate) fn satellite_accumulation_account() -> T::AccountId {
-			T::SatelliteAccumulationPalletId::get().into_account_truncating()
+			sp_dap::DAP_BUFFER_PALLET_ID
+				.into_sub_account_truncating(sp_dap::DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID)
 		}
 
 		/// Deactivate funds on buffer inflow.

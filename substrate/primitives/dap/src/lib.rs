@@ -28,11 +28,11 @@ use frame_support::PalletId;
 /// The [`PalletId`] used to derive the central DAP buffer account.
 pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
 
-/// The [`PalletId`] used to derive the DAP satellite accumulation account.
-pub const DAP_SATELLITE_ACCUMULATION_PALLET_ID: PalletId = PalletId(*b"dap/sacm");
-
 /// The [`PalletId`] used to derive the DAP satellite account on satellite chains.
 pub const DAP_SATELLITE_PALLET_ID: PalletId = PalletId(*b"dap/satl");
+
+/// Sub-account identifier used to derive the satellite accumulation account.
+pub const DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID: &[u8] = b"accumulation";
 
 /// Trait for dispatching the transfer to the central DAP.
 ///

@@ -344,8 +344,6 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_BUFFER_PALLET_ID;
-	pub const DapSatelliteAccumulationPalletId: frame_support::PalletId =
-		pallet_dap::DAP_SATELLITE_ACCUMULATION_PALLET_ID;
 	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
 	pub const IssuanceCadence: u64 = 60_000;
 	/// Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.
@@ -355,7 +353,6 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type SatelliteAccumulationPalletId = DapSatelliteAccumulationPalletId;
 	/// Noop — DAP does not mint until budget drip is enabled.
 	type IssuanceCurve = ();
 	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);

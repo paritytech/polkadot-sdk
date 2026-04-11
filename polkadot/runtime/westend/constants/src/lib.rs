@@ -138,7 +138,8 @@ pub mod system_parachain {
 			/// The interior location of the satellite accumulation account on AssetHub.
 			pub DapSatelliteAccumulationLocation: InteriorLocation = Junction::AccountId32 {
 				network: None,
-				id: sp_dap::DAP_SATELLITE_ACCUMULATION_PALLET_ID.into_account_truncating(),
+				id: sp_dap::DAP_BUFFER_PALLET_ID
+				.into_sub_account_truncating(sp_dap::DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID),
 			}
 			.into();
 			/// How often the satellite flushes its buffer to the central DAP.

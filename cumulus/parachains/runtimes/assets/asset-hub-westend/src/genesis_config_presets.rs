@@ -27,7 +27,7 @@ use parachains_common::{AccountId, AuraId};
 use sp_core::crypto::UncheckedInto;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
-use staking::{DapPalletId, DapSatelliteAccumulationPalletId};
+use staking::DapPalletId;
 use testnet_parachains_constants::westend::{
 	currency::UNITS as WND, xcm_version::SAFE_XCM_VERSION,
 };
@@ -42,7 +42,8 @@ fn dap_buffer_account() -> AccountId {
 }
 
 fn satellite_accumulation_account() -> AccountId {
-	DapSatelliteAccumulationPalletId::get().into_account_truncating()
+	sp_dap::DAP_BUFFER_PALLET_ID
+		.into_sub_account_truncating(sp_dap::DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID)
 }
 
 fn asset_hub_westend_genesis(
