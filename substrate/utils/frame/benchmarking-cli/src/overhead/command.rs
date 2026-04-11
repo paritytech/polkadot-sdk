@@ -32,8 +32,7 @@ use crate::{
 	shared::{
 		genesis_state,
 		genesis_state::{GenesisStateHandler, SpecGenesisSource},
-		HostInfoParams, WeightParams,
-		Stats,
+		HostInfoParams, Stats, WeightParams,
 	},
 };
 use clap::{error::ErrorKind, Args, CommandFactory, Parser};

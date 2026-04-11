@@ -12,10 +12,11 @@ sequentially when invoking the command.
 
 ## BlockExecutionWeight
 
-The block execution weight is defined as the weight that it takes to execute an *empty block*. It is measured by
+The block execution weight is defined as the weight that it takes to execute an _empty block_. It is measured by
 constructing an empty block and measuring its executing time. The result are written to a `block_weights.rs` file which
 is created from a template. The file will contain the concrete weight value and various statistics about the
 measurements. For example:
+
 ```rust
 /// Time to execute an empty block.
 /// Calculated by multiplying the *Average* with `1` and adding `0`.
@@ -35,18 +36,19 @@ pub const BlockExecutionWeight: Weight =
 ```
 
 In this example it takes 3.5 ms to execute an empty block. That means that it always takes at least 3.5 ms to execute
-*any* block. This constant weight is therefore added to each block to ensure that Substrate budgets enough time to
+_any_ block. This constant weight is therefore added to each block to ensure that Substrate budgets enough time to
 execute it.
 
 ## ExtrinsicBaseWeight
 
-The extrinsic base weight is defined as the weight that it takes to execute an *empty* extrinsic. An *empty* extrinsic
-is also called a *NO-OP*. It does nothing and is the equivalent to the empty block form above. The benchmark now
+The extrinsic base weight is defined as the weight that it takes to execute an _empty_ extrinsic. An _empty_ extrinsic
+is also called a _NO-OP_. It does nothing and is the equivalent to the empty block form above. The benchmark now
 constructs a block which is filled with only NO-OP extrinsics. This block is then executed many times and the weights
 are measured. The result is divided by the number of extrinsics in that block and the results are written to
 `extrinsic_weights.rs`.
 
 The relevant section in the output file looks like this:
+
 ```rust
  /// Time to execute a NO-OP extrinsic, for example `System::remark`.
 /// Calculated by multiplying the *Average* with `1` and adding `0`.
@@ -66,17 +68,19 @@ pub const ExtrinsicBaseWeight: Weight =
 ```
 
 In this example it takes 67.7 µs to execute a NO-OP extrinsic. That means that it always takes at least 67.7 µs to
-execute *any* extrinsic. This constant weight is therefore added to each extrinsic to ensure that Substrate budgets
+execute _any_ extrinsic. This constant weight is therefore added to each extrinsic to ensure that Substrate budgets
 enough time to execute it.
 
 ## Invocation
 
 The base command looks like this (for debugging you can use `--release`):
+
 ```sh
 cargo run --profile=production -- benchmark overhead --dev
 ```
 
 Output:
+
 ```pre
 # BlockExecutionWeight
 Running 10 warmups...
@@ -104,6 +108,7 @@ Writing weights to "extrinsic_weights.rs"
 ```
 
 The complete command for Polkadot looks like this:
+
 ```sh
 cargo run --profile=production -- benchmark overhead --chain=polkadot-dev --wasm-execution=compiled --weight-path=runtime/polkadot/constants/src/weights/
 ```
@@ -112,7 +117,7 @@ This will overwrite the
 [block_weights.rs](https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/block_weights.rs)
 and
 [extrinsic_weights.rs](https://github.com/paritytech/polkadot/blob/c254e5975711a6497af256f6831e9a6c752d28f5/runtime/polkadot/constants/src/weights/extrinsic_weights.rs)
-files in the Polkadot runtime directory. You can try the same for *Rococo* and to see that the results slightly differ.
+files in the Polkadot runtime directory. You can try the same for _Rococo_ and to see that the results slightly differ.
 👉 It is paramount to use `--profile=production` and `--wasm-execution=compiled` as the results are otherwise useless.
 
 ## Output Interpretation
@@ -133,21 +138,27 @@ a large transaction throughput.
 - [`--metric`](../shared/README.md#arguments)
 - [`--weight-path`](../shared/README.md#arguments)
 - [`--header`](../shared/README.md#arguments)
-- `--subtract-extensions`: Enable subtraction of signature and extension weights from the measured extrinsic overhead (default: true).
-- `--signature-weight`: Manual weight of the signature verification to subtract (format: `ref_time,proof_size`).
-- `--extension-weight`: Manual weight of the transaction extensions to subtract (format: `ref_time,proof_size`).
+- `--subtract-extensions`: Enable subtraction of signature and extension weights from the measured
+  extrinsic overhead (default: true).
+- `--signature-weight`: Manual weight of the signature verification to subtract
+  (format: `ref_time,proof_size`).
+- `--extension-weight`: Manual weight of the transaction extensions to subtract
+  (format: `ref_time,proof_size`).
 
 ## Precision Note
 
-By default, the benchmark uses a signed `System::remark` extrinsic. To accurately calculate the `ExtrinsicBaseWeight` without double-counting the overhead already charged by `TransactionExtensions`, use `--subtract-extensions` and provide the relevant weights if they are significantly non-zero in your runtime.
+By default, the benchmark uses a signed `System::remark` extrinsic. To accurately calculate the
+`ExtrinsicBaseWeight` without double-counting the overhead already charged by
+`TransactionExtensions`, use `--subtract-extensions` and provide the relevant weights if they are
+significantly non-zero in your runtime.
 
 License: Apache-2.0
 
 <!-- LINKS -->
+
 [`ExtrinsicBaseWeight`]:
     https://github.com/paritytech/substrate/blob/580ebae17fa30082604f1c9720f6f4a1cfe95b50/frame/support/src/weights/extrinsic_weights.rs#L26
 [`BlockExecutionWeight`]:
     https://github.com/paritytech/substrate/blob/580ebae17fa30082604f1c9720f6f4a1cfe95b50/frame/support/src/weights/block_weights.rs#L26
-
 [System::Remark]:
     https://github.com/paritytech/substrate/blob/580ebae17fa30082604f1c9720f6f4a1cfe95b50/frame/system/src/lib.rs#L382
