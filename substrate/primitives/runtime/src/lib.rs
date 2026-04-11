@@ -571,6 +571,32 @@ impl PartialEq for ModuleError {
 	}
 }
 
+/// Reason why a transaction was invalid due to a module-specific reason.
+///
+/// This is semantically different from `ModuleError` which represents
+/// a dispatch error. While structurally identical, separating the types
+/// avoids ambiguity in conversion logic (e.g. `Into`).
+#[derive(
+	Eq, Clone, Copy, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct ModuleInvalidity {
+	/// Module index, matching the metadata module index.
+	pub index: u8,
+	/// Module specific error value.
+	pub error: [u8; MAX_MODULE_ERROR_ENCODED_SIZE],
+	/// Optional error message.
+	#[codec(skip)]
+	#[cfg_attr(feature = "serde", serde(skip_deserializing))]
+	pub message: Option<&'static str>,
+}
+
+impl PartialEq for ModuleInvalidity {
+	fn eq(&self, other: &Self) -> bool {
+		(self.index == other.index) && (self.error == other.error)
+	}
+}
+
 /// Errors related to transactional storage layers.
 #[derive(
 	Eq,

@@ -50,7 +50,7 @@ impl<Hash> From<Error> for TransactionEvent<Hash> {
 			Error::Pool(PoolError::InvalidTransaction(InvalidTransaction::Module(e))) => {
 				TransactionEvent::Invalid(TransactionError {
 					error: format!(
-						"Invalid transaction: Module error: index: {}, error: {:?}",
+						"Invalid transaction: Module invalidity: index: {}, error: {:?}",
 						e.index, e.error
 					),
 				})

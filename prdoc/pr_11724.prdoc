@@ -6,7 +6,7 @@ doc:
   description: |-
     # Description
 
-    This PR implements descriptive module invalidity support for transactions as proposed in #11337. It extends the `InvalidTransaction` enum with a new `Module(ModuleError)` variant, allowing pallets to return pallet-specific, descriptive error data during the transaction validation phase (e.g., in `TransactionExtension`).
+    This PR implements refined, descriptive module-specific invalidity support for transactions. It introduces a dedicated `ModuleInvalidity` struct to separate transaction validation reasons from execution-time dispatch errors. The `InvalidTransaction` enum is extended with a new `Module(ModuleInvalidity)` variant, enabling pallets to return rich, pallet-specific metadata when a transaction is rejected during the validation phase.
 
 crates:
 - name: sc-rpc-api
@@ -14,4 +14,4 @@ crates:
 - name: sc-rpc-spec-v2
   bump: minor
 - name: sp-runtime
-  bump: minor
+  bump: major

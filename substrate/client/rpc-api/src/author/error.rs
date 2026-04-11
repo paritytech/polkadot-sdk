@@ -115,7 +115,7 @@ impl From<Error> for ErrorObjectOwned {
 				ErrorObject::owned(
 					POOL_INVALID_TX,
 					"Invalid Transaction",
-					Some(format!("Module error: index: {}, error: {:?}", e.index, e.error)),
+					Some(format!("Module invalidity: index: {}, error: {:?}", e.index, e.error)),
 				)
 			},
 			Error::Pool(PoolError::InvalidTransaction(e)) => {
