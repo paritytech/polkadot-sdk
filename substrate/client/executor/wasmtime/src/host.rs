@@ -134,11 +134,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 	}
 
 	fn take_input_data(&mut self) -> sp_wasm_interface::Result<Vec<u8>> {
-		Ok(self
-			.host_state_mut()
+		self.host_state_mut()
 			.input_data
 			.take()
-			.expect("input data is not empty when calling a function in wasm; qed"))
+			.ok_or_else(|| "Input data already taken".into())
 	}
 
 	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {

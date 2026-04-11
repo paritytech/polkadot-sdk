@@ -546,17 +546,19 @@ impl TryFrom<i64> for VoidError {
 	}
 }
 
-impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> From<RIIntResult<R, E>> for i64 {
-	fn from(result: RIIntResult<R, E>) -> Self {
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<R, E>> for i64 {
+	type Error = ();
+
+	fn try_from(result: RIIntResult<R, E>) -> Result<Self, ()> {
 		match result {
-			RIIntResult::Ok(value) => value.into(),
+			RIIntResult::Ok(value) => Ok(value.into()),
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
-				assert!(
-					error_code < 0 && error_code >= -(E::COUNT as i64),
-					"Error variant index out of bounds"
-				);
-				error_code
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code)
+				} else {
+					Err(())
+				}
 			},
 		}
 	}
@@ -588,17 +590,19 @@ impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i32>
 	}
 }
 
-impl<E: Into<i64> + strum::EnumCount> From<RIIntResult<VoidResult, E>> for i32 {
-	fn from(value: RIIntResult<VoidResult, E>) -> Self {
+impl<E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<VoidResult, E>> for i32 {
+	type Error = ();
+
+	fn try_from(value: RIIntResult<VoidResult, E>) -> Result<Self, ()> {
 		match value {
-			RIIntResult::Ok(_) => 0,
+			RIIntResult::Ok(_) => Ok(0),
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
-				assert!(
-					error_code < 0 && error_code >= -(E::COUNT as i64),
-					"Error variant index out of bounds"
-				);
-				error_code as i32
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code as i32)
+				} else {
+					Err(())
+				}
 			},
 		}
 	}
