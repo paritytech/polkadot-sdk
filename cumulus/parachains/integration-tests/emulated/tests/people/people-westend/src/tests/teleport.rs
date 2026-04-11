@@ -85,8 +85,6 @@ fn teleport_via_transfer_assets_to_other_system_parachains_works() {
 	);
 }
 
-/// The DAP satellite on People Westend teleports its accumulated native tokens to the
-/// DAP buffer account on AssetHub, verifying balances, issuance, and inactive issuance.
 #[test]
 fn dap_satellite_people_transfers_native_to_asset_hub_dap() {
 	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<

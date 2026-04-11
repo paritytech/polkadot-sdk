@@ -799,8 +799,6 @@ fn teleport_to_untrusted_chain_fails() {
 	});
 }
 
-/// The DAP satellite on the Westend relay chain teleports its accumulated native tokens to the
-/// DAP buffer account on AssetHub, verifying balances, issuance, and inactive issuance.
 #[test]
 fn dap_satellite_relay_transfers_native_to_asset_hub_dap() {
 	// Required so the relay's XCM router knows the version for the AssetHub parachain.
