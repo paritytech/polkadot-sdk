@@ -33,6 +33,7 @@ use crate::{
 		genesis_state,
 		genesis_state::{GenesisStateHandler, SpecGenesisSource},
 		HostInfoParams, WeightParams,
+		Stats,
 	},
 };
 use clap::{error::ErrorKind, Args, CommandFactory, Parser};
@@ -65,6 +66,7 @@ use sp_runtime::{
 };
 use sp_storage::Storage;
 use sp_wasm_interface::HostFunctions;
+use sp_weights::Weight;
 use std::{
 	fmt::{Display, Formatter},
 	fs,
@@ -154,6 +156,58 @@ pub struct OverheadParams {
 	/// Useful for creating specific testing scenarios like many accounts for benchmarking.
 	#[arg(long)]
 	pub genesis_patch: Option<PathBuf>,
+
+	/// Subtract the weights of the extensions from the measured extrinsic overhead.
+	///
+	/// If enabled, the benchmark will attempt to subtract the reported weights of the
+	/// transaction extensions included in the remark extrinsic.
+	#[arg(long, default_value_t = true)]
+	pub subtract_extensions: bool,
+
+	/// The weight of the signature verification of the remark extrinsic.
+	///
+	/// If `--subtract-extensions` is enabled, this value is subtracted from the measured extrinsic
+	/// overhead to account for the signature check.
+	/// Format: `ref_time,proof_size`.
+	#[arg(long, value_parser = parse_weight)]
+	pub signature_weight: Option<Weight>,
+
+	/// The weight of all transaction extensions included in the remark extrinsic.
+	///
+	/// If `--subtract-extensions` is enabled, this value is subtracted from the measured extrinsic
+	/// overhead to exclude extension costs from the base weight.
+	/// Format: `ref_time,proof_size`.
+	#[arg(long, value_parser = parse_weight)]
+	pub extension_weight: Option<Weight>,
+}
+
+/// Parses a weight in the format `ref_time,proof_size`.
+fn parse_weight(s: &str) -> std::result::Result<Weight, String> {
+	let parts: Vec<&str> = s.split(',').collect();
+	if parts.len() != 2 {
+		return Err("Weight must be in the format `ref_time,proof_size`".to_string());
+	}
+	let ref_time = parts[0]
+		.parse::<u64>()
+		.map_err(|_| format!("Could not parse ref_time: {}", parts[0]))?;
+	let proof_size = parts[1]
+		.parse::<u64>()
+		.map_err(|_| format!("Could not parse proof_size: {}", parts[1]))?;
+	Ok(Weight::from_parts(ref_time, proof_size))
+}
+
+impl Stats {
+	/// Subtract another weight from all fields of this stats object.
+	pub fn saturating_sub(&mut self, weight: u64) {
+		self.sum = self.sum.saturating_sub(weight.saturating_mul(self.sum / self.avg.max(1))); // Approximation for sum
+		self.min = self.min.saturating_sub(weight);
+		self.max = self.max.saturating_sub(weight);
+		self.avg = self.avg.saturating_sub(weight);
+		self.median = self.median.saturating_sub(weight);
+		self.p99 = self.p99.saturating_sub(weight);
+		self.p95 = self.p95.saturating_sub(weight);
+		self.p75 = self.p75.saturating_sub(weight);
+	}
 }
 
 /// How the genesis state for benchmarking should be built.
@@ -626,7 +680,18 @@ impl OverheadCmd {
 		}
 		// per-extrinsic execution overhead
 		{
-			let (stats, proof_size) = bench.bench_extrinsic(ext_builder)?;
+			let (mut stats, mut proof_size) = bench.bench_extrinsic(ext_builder)?;
+
+			if self.params.subtract_extensions {
+				let ext_weight = self.params.extension_weight.unwrap_or_default();
+				let sig_weight = self.params.signature_weight.unwrap_or_default();
+
+				stats.saturating_sub(ext_weight.ref_time().saturating_add(sig_weight.ref_time()));
+				proof_size = proof_size.saturating_sub(
+					ext_weight.proof_size().saturating_add(sig_weight.proof_size()),
+				);
+			}
+
 			info!(target: LOG_TARGET, "Per-extrinsic execution overhead [ns]:\n{:?}", stats);
 			let template = TemplateData::new(
 				BenchmarkType::Extrinsic,

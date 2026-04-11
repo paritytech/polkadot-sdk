@@ -7101,6 +7101,7 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-wasm-interface 20.0.0",
+ "sp-weights 27.0.0",
  "substrate-test-runtime",
  "subxt 0.44.2",
  "subxt-signer 0.44.2",
