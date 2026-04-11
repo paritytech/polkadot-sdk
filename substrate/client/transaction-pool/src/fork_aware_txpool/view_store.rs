@@ -888,7 +888,7 @@ where
 			active_views
 				.iter()
 				.chain(inactive_views.iter())
-				.filter(|(_, view)| view.is_imported(&replaced))
+				.filter(|(_, view)| view.imported_status(&replaced).is_imported())
 				.map(|(_, view)| {
 					self.replace_transaction_in_view(
 						view.clone(),
@@ -946,7 +946,7 @@ where
 			.read()
 			.iter()
 			.chain(self.inactive_views.read().iter())
-			.filter(|(_, view)| view.is_imported(&xt_hash))
+			.filter(|(_, view)| view.imported_status(&xt_hash).is_imported())
 			.flat_map(|(_, view)| view.remove_subtree(&[xt_hash], true, &listener_action))
 			.filter_map(|xt| seen.insert(xt.hash).then(|| xt.clone()))
 			.collect();

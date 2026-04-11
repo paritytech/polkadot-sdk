@@ -24,7 +24,7 @@ use fatp_common::{
 	finalized_block_event, invalid_hash, new_best_block_event, pool, TestPoolBuilder, LOG_TARGET,
 	SOURCE,
 };
-use futures::{executor::block_on, FutureExt, StreamExt};
+use futures::{executor::block_on, FutureExt};
 use std::pin::Pin;
 use sc_transaction_pool::ChainApi;
 use sc_transaction_pool_api::{
@@ -764,15 +764,22 @@ fn fatp_viewless_tx_unbanned_after_mempool_revalidation() {
 	// Make tx valid again — the error was fork-specific.
 	api.remove_invalid(&xt);
 
-	// Advance finalization to trigger mempool revalidation.
-	// needs_unban is set, tx is valid at finalized → revalidate_inner unbans it.
-	// Note: unban happens in revalidate_inner which runs AFTER update_view_with_mempool,
-	// so the tx won't enter the view created in this cycle.
+	// Advance blocks with maintain events. Each new view will attempt to submit the tx
+	// from mempool, but it will be rejected as TemporarilyBanned (visible in trace logs
+	// as `check_is_known ... result=Err(Error(TemporarilyBanned))`).
 	let mut prev = last_finalized;
 	for n in 4..=14 {
 		let header = api.push_block(n, vec![], true);
+		block_on(
+			pool.maintain(new_best_block_event(&pool, Some(prev), header.hash())),
+		);
 		prev = header.hash();
 	}
+
+	// Finalize to trigger mempool revalidation.
+	// needs_unban is set, tx is valid at finalized → revalidate_inner unbans it.
+	// Note: unban happens in revalidate_inner which runs AFTER update_view_with_mempool,
+	// so the tx won't enter the view created in this cycle.
 	block_on(pool.maintain(finalized_block_event(&pool, last_finalized, prev)));
 
 	// Tx should still be in mempool.
