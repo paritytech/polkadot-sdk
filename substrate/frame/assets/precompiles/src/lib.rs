@@ -160,9 +160,10 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if env.is_delegate_call() {
-			return Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into());
-		}
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);

@@ -136,10 +136,12 @@ where
 	) -> Result<Vec<u8>, Error> {
 		use IAssetConversion::IAssetConversionCalls;
 
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
+
 		match input {
-			_ if env.is_delegate_call() => {
-				Err(pallet_revive::Error::<Self::T>::PrecompileDelegateDenied.into())
-			},
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
 			IAssetConversionCalls::swapTokensForExactTokens(_)
 				if env.is_read_only() =>
