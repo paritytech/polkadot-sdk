@@ -730,6 +730,11 @@ fn setup_viewless_banned_tx() -> (
 		pool.maintain(new_best_block_event(&pool, Some(header02b.hash()), header03.hash())),
 	);
 
+	// Make tx valid again before finalization. The ban is already in the rotator from
+	// view revalidation above. We need the tx to be valid at the finalized block so
+	// mempool revalidation doesn't remove it.
+	api.remove_invalid(&xt);
+
 	// Finalize block 3. Views at 2a (number=2) and 2b (number=2) have number < 3 → dropped.
 	// RemoveView for both → ready_transaction_views goes empty → Viewless event fires →
 	// dropped_monitor_task sets needs_unban.
@@ -761,8 +766,8 @@ fn fatp_viewless_tx_unbanned_after_mempool_revalidation() {
 
 	let (pool, api, last_finalized, xt, _watcher, _executor) = setup_viewless_banned_tx();
 
-	// Make tx valid again — the error was fork-specific.
-	api.remove_invalid(&xt);
+	// Tx is already valid (setup called remove_invalid after banning).
+	// The ban is in the rotator but the tx is valid at finalized block.
 
 	// Advance blocks with maintain events. Each new view will attempt to submit the tx
 	// from mempool, but it will be rejected as TemporarilyBanned (visible in trace logs
@@ -800,9 +805,10 @@ fn fatp_viewless_tx_unbanned_after_mempool_revalidation() {
 fn fatp_viewless_tx_dropped_if_invalid_at_finalized() {
 	sp_tracing::try_init_simple();
 
-	let (pool, api, last_finalized, _xt, watcher, _executor) = setup_viewless_banned_tx();
+	let (pool, api, last_finalized, xt, watcher, _executor) = setup_viewless_banned_tx();
 
-	// tx stays invalid (add_invalid from setup is still active).
+	// Mark tx invalid again — this time it's genuinely broken, not fork-specific.
+	api.add_invalid(&xt);
 
 	// Advance finalization to trigger mempool revalidation.
 	// tx has needs_unban but is invalid at finalized → removed from mempool.
