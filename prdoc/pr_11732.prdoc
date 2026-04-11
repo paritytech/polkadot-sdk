@@ -12,37 +12,6 @@ doc:
 
     To resolve this, we now continue to use a standard signed `System::remark` (ensuring we benchmark the real production code path including `Executive::apply_extrinsic`), but we subtract the known weights of the signature verification and included extensions from the final result.
 
-    Closes #9981
-
-    ## Integration
-
-    Downstream projects using the `benchmark overhead` command will now see three new CLI parameters:
-    - `--subtract-extensions`: (Boolean, default: `true`) Enables the subtraction logic.
-    - `--signature-weight`: The weight of signature verification to subtract.
-    - `--extension-weight`: The total weight of all transaction extensions to subtract.
-
-    To get the most accurate `ExtrinsicBaseWeight` for your chain, you should provide the weights that are normally charged by your extensions and signature checks. For example:
-    ```sh
-    cargo run --profile=production -- benchmark overhead \
-      --chain=dev \
-      --subtract-extensions \
-      --signature-weight "150000,0" \
-      --extension-weight "50000,0"
-      ```
-    ## Review Notes
-
-    The implementation follows the consensus reached in the issue discussion (pivoting from "bare" extrinsics to "signed subtraction"):
-
-    * **Accurate Statistics**: Implemented `Stats::saturating_sub` which applies the subtraction across the entire statistical profile (Min, Max, Average, Median, P99). This ensures that the base weight remains consistent regardless of which statistical metric is selected for weight generation.
-    * **Simplified CLI**: Added a custom `clap` value parser for the `Weight` type to support the `ref_time,proof_size` string format directly in the command line.
-    * **Production Parity**: By benchmarking a standard signed extrinsic instead of a synthetic "bare" one, we guarantee that the benchmark reflects the actual overhead of the runtime's transaction pipeline logic.
-
-    # Checklist
-
-    * [x] My PR includes a detailed description as outlined in the "Description" and its two subsections above.
-    * [x] My PR follows the labeling requirements of this project.
-    * [x] I have made corresponding changes to the documentation (updated `overhead/README.md`).
-    * [x] I have added tests that prove my fix is effective or that my feature works (verified via local `cargo check` and manual review of the subtraction logic).
 crates:
 - name: frame-benchmarking-cli
   bump: minor
