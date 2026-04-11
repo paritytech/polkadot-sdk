@@ -2010,6 +2010,13 @@ where
 		self.backend.blockchain().block_indexed_body(hash)
 	}
 
+	fn block_indexed_body_indices(
+		&self,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>> {
+		self.backend.blockchain().block_indexed_body_indices(hash)
+	}
+
 	fn requires_full_sync(&self) -> bool {
 		self.backend.requires_full_sync()
 	}

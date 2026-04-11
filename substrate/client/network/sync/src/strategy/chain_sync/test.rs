@@ -93,7 +93,7 @@ fn processes_empty_response_on_justification_request_for_unknown_block() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -159,7 +159,7 @@ fn restart_doesnt_affect_peers_downloading_finality_data() {
 		8,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -369,7 +369,7 @@ fn do_ancestor_search_when_common_block_to_best_queued_gap_is_to_big() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -544,7 +544,7 @@ fn can_sync_huge_fork() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -700,7 +700,7 @@ fn syncs_fork_without_duplicate_requests() {
 		64,
 		protocol_name,
 		proxy_block_downloader.clone(),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -856,7 +856,7 @@ fn removes_target_fork_on_disconnect() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -892,7 +892,7 @@ fn can_import_response_with_missing_blocks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -934,7 +934,7 @@ fn sync_restart_removes_block_but_not_justification_requests() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1087,7 +1087,7 @@ fn request_across_forks() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1196,7 +1196,7 @@ fn sync_verification_failed_with_gap_filled() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1335,7 +1335,7 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)
@@ -1393,10 +1393,10 @@ fn sync_gap_filled_regardless_of_blocks_origin() {
 fn gap_sync_body_request_depends_on_pruning_mode() {
 	sp_tracing::try_init_simple();
 
-	for archive_blocks in [true, false] {
+	for blocks_pruning in [None, Some(256u32)] {
 		// Bodies only needed for archive mode
-		let should_request_bodies = archive_blocks;
-		log::info!("Testing gap sync with archive_blocks: {}", archive_blocks);
+		let should_request_bodies = blocks_pruning.is_none();
+		log::info!("Testing gap sync with blocks_pruning: {:?}", blocks_pruning);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..10).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1408,7 +1408,7 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			archive_blocks,
+			blocks_pruning,
 			None,
 			std::iter::empty(),
 		)
@@ -1429,7 +1429,7 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 		let requests = sync.block_requests();
 		assert!(
 			!requests.is_empty(),
-			"[archive_blocks={archive_blocks}] Should generate gap sync request"
+			"[blocks_pruning={blocks_pruning:?}] Should generate gap sync request"
 		);
 
 		let (_peer, request) = &requests[0];
@@ -1443,7 +1443,7 @@ fn gap_sync_body_request_depends_on_pruning_mode() {
 
 		assert_eq!(
 			request.fields, expected_fields,
-			"[archive_blocks={archive_blocks}] Gap sync fields mismatch: expected {expected_fields:?}, got {:?}",
+			"[blocks_pruning={blocks_pruning:?}] Gap sync fields mismatch: expected {expected_fields:?}, got {:?}",
 			request.fields
 		);
 	}
@@ -1455,8 +1455,8 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 	// Verify that regular (non-gap) sync always requests bodies,
 	// regardless of pruning mode - our optimization only applies to gap sync
-	for archive_blocks in [true, false] {
-		log::info!("Testing regular sync with archive_blocks: {}", archive_blocks);
+	for blocks_pruning in [None, Some(256u32)] {
+		log::info!("Testing regular sync with blocks_pruning: {:?}", blocks_pruning);
 
 		let client = Arc::new(TestClientBuilder::new().build());
 		let blocks = (0..5).map(|_| build_block(&client, None, false)).collect::<Vec<_>>();
@@ -1468,7 +1468,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 			64,
 			ProtocolName::Static(""),
 			Arc::new(MockBlockDownloader::new()),
-			archive_blocks,
+			blocks_pruning,
 			None,
 			std::iter::empty(),
 		)
@@ -1479,7 +1479,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 		// Ensure we're NOT in gap sync mode
 		assert!(
 			sync.gap_sync.is_none(),
-			"[archive_blocks={archive_blocks}] Should not have gap sync active"
+			"[blocks_pruning={blocks_pruning:?}] Should not have gap sync active"
 		);
 
 		// Add peer ahead of us to trigger regular sync
@@ -1498,7 +1498,7 @@ fn regular_sync_always_requests_bodies_regardless_of_pruning() {
 
 			assert_eq!(
 				request.fields, expected_fields,
-				"[archive_blocks={archive_blocks}] Regular sync fields mismatch: expected {expected_fields:?}, got {:?}",
+				"[blocks_pruning={blocks_pruning:?}] Regular sync fields mismatch: expected {expected_fields:?}, got {:?}",
 				request.fields
 			);
 		}
@@ -1544,7 +1544,7 @@ fn no_ancestry_search_during_major_sync() {
 		64,
 		ProtocolName::Static(""),
 		Arc::new(MockBlockDownloader::new()),
-		false,
+		Some(256),
 		None,
 		std::iter::empty(),
 	)

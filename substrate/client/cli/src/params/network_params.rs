@@ -157,6 +157,15 @@ pub struct NetworkParams {
 	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
 	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
+	/// Enable storage chain mode for fast sync.
+	///
+	/// When combined with `--sync fast` or `--sync fast-unsafe`, this requests indexed
+	/// transaction data alongside block bodies, allowing the syncing node to reconstruct
+	/// the storage-chain indexed database. Without this flag, fast-synced storage chain
+	/// nodes would be unable to serve indexed transactions to other peers.
+	#[arg(long)]
+	pub storage_chain: bool,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -289,7 +298,19 @@ impl NetworkParams {
 			kademlia_replication_factor: self.kademlia_replication_factor,
 			ipfs_server: self.ipfs_server,
 			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
-			sync_mode: self.sync.into(),
+			sync_mode: {
+				let mut mode: sc_network::config::SyncMode = self.sync.into();
+				if self.storage_chain {
+					if let sc_network::config::SyncMode::LightState {
+						ref mut storage_chain_mode,
+						..
+					} = mode
+					{
+						*storage_chain_mode = true;
+					}
+				}
+				mode
+			},
 			network_backend: self.network_backend.into(),
 		}
 	}

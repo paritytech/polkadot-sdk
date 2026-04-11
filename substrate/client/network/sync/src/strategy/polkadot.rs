@@ -74,9 +74,9 @@ where
 	pub state_request_protocol_name: ProtocolName,
 	/// Block downloader
 	pub block_downloader: Arc<dyn BlockDownloader<Block>>,
-	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-	/// block history.
-	pub archive_blocks: bool,
+	/// Blocks pruning setting. `None` means archive (keep all), `Some(n)` means keep `n` recent
+	/// finalized blocks. Used to determine body request boundaries in storage chain fast sync.
+	pub blocks_pruning: Option<u32>,
 }
 
 /// Proxy to specific syncing strategies used in Polkadot.
@@ -387,7 +387,7 @@ where
 				config.max_blocks_per_request,
 				config.state_request_protocol_name.clone(),
 				config.block_downloader.clone(),
-				config.archive_blocks,
+				config.blocks_pruning,
 				config.metrics_registry.as_ref(),
 				std::iter::empty(),
 			)?;
@@ -433,29 +433,29 @@ where
 						target: LOG_TARGET,
 						"Warp sync failed. Continuing with full sync."
 					);
-					let chain_sync = match ChainSync::new(
-						chain_sync_mode(self.config.mode),
-						self.client.clone(),
-						self.config.max_parallel_downloads,
-						self.config.max_blocks_per_request,
-						self.config.state_request_protocol_name.clone(),
-						self.config.block_downloader.clone(),
-						self.config.archive_blocks,
-						self.config.metrics_registry.as_ref(),
-						self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
-							(*peer_id, *best_hash, *best_number)
-						}),
-					) {
-						Ok(chain_sync) => chain_sync,
-						Err(e) => {
-							error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-							return Err(e);
-						},
-					};
+				let chain_sync = match ChainSync::new(
+					chain_sync_mode(self.config.mode),
+					self.client.clone(),
+					self.config.max_parallel_downloads,
+					self.config.max_blocks_per_request,
+					self.config.state_request_protocol_name.clone(),
+					self.config.block_downloader.clone(),
+					self.config.blocks_pruning,
+					self.config.metrics_registry.as_ref(),
+					self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
+						(*peer_id, *best_hash, *best_number)
+					}),
+				) {
+					Ok(chain_sync) => chain_sync,
+					Err(e) => {
+						error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
+						return Err(e);
+					},
+				};
 
-					self.warp = None;
-					self.chain_sync = Some(chain_sync);
-					Ok(())
+				self.warp = None;
+				self.chain_sync = Some(chain_sync);
+				Ok(())
 				},
 			}
 		} else if let Some(state) = &self.state {
@@ -464,29 +464,29 @@ where
 			} else {
 				error!(target: LOG_TARGET, "State sync failed. Falling back to full sync.");
 			}
-			let chain_sync = match ChainSync::new(
-				chain_sync_mode(self.config.mode),
-				self.client.clone(),
-				self.config.max_parallel_downloads,
-				self.config.max_blocks_per_request,
-				self.config.state_request_protocol_name.clone(),
-				self.config.block_downloader.clone(),
-				self.config.archive_blocks,
-				self.config.metrics_registry.as_ref(),
-				self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
-					(*peer_id, *best_hash, *best_number)
-				}),
-			) {
-				Ok(chain_sync) => chain_sync,
-				Err(e) => {
-					error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
-					return Err(e);
-				},
-			};
+		let chain_sync = match ChainSync::new(
+			chain_sync_mode(self.config.mode),
+			self.client.clone(),
+			self.config.max_parallel_downloads,
+			self.config.max_blocks_per_request,
+			self.config.state_request_protocol_name.clone(),
+			self.config.block_downloader.clone(),
+			self.config.blocks_pruning,
+			self.config.metrics_registry.as_ref(),
+			self.peer_best_blocks.iter().map(|(peer_id, (best_hash, best_number))| {
+				(*peer_id, *best_hash, *best_number)
+			}),
+		) {
+			Ok(chain_sync) => chain_sync,
+			Err(e) => {
+				error!(target: LOG_TARGET, "Failed to start `ChainSync`.");
+				return Err(e);
+			},
+		};
 
-			self.state = None;
-			self.chain_sync = Some(chain_sync);
-			Ok(())
+		self.state = None;
+		self.chain_sync = Some(chain_sync);
+		Ok(())
 		} else {
 			unreachable!("Only warp & state strategies can finish; qed")
 		}

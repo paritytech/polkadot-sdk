@@ -261,6 +261,12 @@ pub trait Backend<Block: BlockT>:
 	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
 
+	/// Get the indexed body indices for a block.
+	///
+	/// Returns SCALE-encoded index entries that describe which extrinsics in the block body
+	/// are indexed and the length of their non-indexed prefix.
+	fn block_indexed_body_indices(&self, hash: Block::Hash) -> Result<Option<Vec<Vec<u8>>>>;
+
 	/// Returns all leaves that will be displaced after the block finalization.
 	fn displaced_leaves_after_finalizing(
 		&self,

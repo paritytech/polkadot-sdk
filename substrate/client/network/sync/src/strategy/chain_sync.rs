@@ -284,11 +284,12 @@ impl ChainSyncMode {
 			ChainSyncMode::LightState { storage_chain_mode: false, .. } => {
 				BlockAttributes::HEADER | BlockAttributes::JUSTIFICATION | BlockAttributes::BODY
 			},
-			ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
-				BlockAttributes::HEADER |
-					BlockAttributes::JUSTIFICATION |
-					BlockAttributes::INDEXED_BODY
-			},
+		ChainSyncMode::LightState { storage_chain_mode: true, .. } => {
+			BlockAttributes::HEADER |
+				BlockAttributes::JUSTIFICATION |
+				BlockAttributes::BODY |
+				BlockAttributes::INDEXED_BODY
+		},
 		};
 		// Skip body requests for gap sync only if not in archive mode.
 		// Archive nodes need bodies to maintain complete block history.
@@ -424,9 +425,9 @@ pub struct ChainSync<B: BlockT, Client> {
 	import_existing: bool,
 	/// Block downloader
 	block_downloader: Arc<dyn BlockDownloader<B>>,
-	/// Whether to archive blocks. When `true`, gap sync requests bodies to maintain complete
-	/// block history.
-	archive_blocks: bool,
+	/// Blocks pruning setting. `None` means archive (keep all), `Some(n)` means keep `n` recent
+	/// finalized blocks.
+	blocks_pruning: Option<u32>,
 	/// Gap download process.
 	gap_sync: Option<GapSync<B>>,
 	/// Pending actions.
@@ -1062,7 +1063,7 @@ where
 		max_blocks_per_request: u32,
 		state_request_protocol_name: ProtocolName,
 		block_downloader: Arc<dyn BlockDownloader<B>>,
-		archive_blocks: bool,
+		blocks_pruning: Option<u32>,
 		metrics_registry: Option<&Registry>,
 		initial_peers: impl Iterator<Item = (PeerId, B::Hash, NumberFor<B>)>,
 	) -> Result<Self, ClientError> {
@@ -1086,7 +1087,7 @@ where
 			state_sync: None,
 			import_existing: false,
 			block_downloader,
-			archive_blocks,
+			blocks_pruning,
 			gap_sync: None,
 			actions: Vec::new(),
 			metrics: metrics_registry.and_then(|r| match Metrics::register(r) {
@@ -1969,7 +1970,7 @@ where
 		}
 		let is_major_syncing = self.status().state.is_major_syncing();
 		let mode = self.mode;
-		let is_archive = self.archive_blocks;
+		let is_archive = self.blocks_pruning.is_none();
 		let blocks = &mut self.blocks;
 		let fork_targets = &mut self.fork_targets;
 		let last_finalized =
@@ -1983,6 +1984,20 @@ where
 		let gap_sync = &mut self.gap_sync;
 		let disconnected_peers = &mut self.disconnected_peers;
 		let metrics = self.metrics.as_ref();
+		let body_start_number = match (mode, self.blocks_pruning) {
+			(ChainSyncMode::LightState { storage_chain_mode: true, .. }, Some(n)) => {
+				let start = last_finalized.saturating_sub(n.into()) + One::one();
+				debug!(
+					target: LOG_TARGET,
+					"Storage chain body boundary: blocks >= {} get bodies (finalized={}, pruning={})",
+					start,
+					last_finalized,
+					n,
+				);
+				Some(start)
+			},
+			_ => None,
+		};
 		let requests = self
 			.peers
 			.iter_mut()
@@ -2028,6 +2043,7 @@ where
 					max_blocks_per_request,
 					last_finalized,
 					best_queued,
+					body_start_number,
 				) {
 					peer.state = PeerSyncState::DownloadingNew(range.start);
 					trace!(
@@ -2324,6 +2340,7 @@ fn peer_block_request<B: BlockT>(
 	max_blocks_per_request: u32,
 	finalized: NumberFor<B>,
 	best_num: NumberFor<B>,
+	body_start: Option<NumberFor<B>>,
 ) -> Option<(Range<NumberFor<B>>, BlockRequest<B>)> {
 	if best_num >= peer.best_number {
 		// Will be downloaded as alternative fork instead.
@@ -2344,6 +2361,21 @@ fn peer_block_request<B: BlockT>(
 		MAX_DOWNLOAD_AHEAD,
 	)?;
 
+	let effective_attrs = match body_start {
+		Some(start) if range.start < start => {
+			let stripped = attrs & !(BlockAttributes::BODY | BlockAttributes::INDEXED_BODY);
+			debug!(
+				target: LOG_TARGET,
+				"Requesting headers only for blocks {}-{} (below body boundary {})",
+				range.start,
+				range.end.saturating_sub(One::one()),
+				start,
+			);
+			stripped
+		},
+		_ => attrs,
+	};
+
 	// The end is not part of the range.
 	let last = range.end.saturating_sub(One::one());
 
@@ -2355,7 +2387,7 @@ fn peer_block_request<B: BlockT>(
 
 	let request = BlockRequest::<B> {
 		id: 0,
-		fields: attrs,
+		fields: effective_attrs,
 		from,
 		direction: Direction::Descending,
 		max: Some((range.end - range.start).saturated_into::<u32>()),

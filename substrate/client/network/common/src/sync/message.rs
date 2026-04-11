@@ -85,6 +85,19 @@ impl Decode for BlockAttributes {
 	}
 }
 
+/// Index entry describing an indexed extrinsic within a block body.
+///
+/// Used during fast sync in storage chain mode: the serving node sends these
+/// indices (instead of raw indexed blobs) so the syncing node can reconstruct
+/// the indexed transaction database from the full block body.
+#[derive(Encode, Decode, Clone, Debug)]
+pub struct IndexedBodyIndex {
+	/// Position of this extrinsic in the block body.
+	pub extrinsic_index: u32,
+	/// Length of the extrinsic header (non-indexed prefix bytes).
+	pub header_length: u32,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode)]
 /// Block enumeration direction.
 pub enum Direction {

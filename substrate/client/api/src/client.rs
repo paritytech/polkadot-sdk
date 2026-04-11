@@ -138,6 +138,15 @@ pub trait BlockBackend<Block: BlockT> {
 	/// `storage_index_transaction`.
 	fn block_indexed_body(&self, hash: Block::Hash) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>>;
 
+	/// Get the indexed body indices for a block.
+	///
+	/// Returns SCALE-encoded index entries that describe which extrinsics in the block body
+	/// are indexed and the length of their non-indexed prefix.
+	fn block_indexed_body_indices(
+		&self,
+		hash: Block::Hash,
+	) -> sp_blockchain::Result<Option<Vec<Vec<u8>>>>;
+
 	/// Get the BLAKE2b-256 hashes of all indexed transactions in a block, including renewed
 	/// transactions.
 	///

@@ -411,23 +411,20 @@ where
 				Vec::new()
 			};
 
-			let indexed_body = if get_indexed_body {
-				match self.client.block_indexed_body(hash)? {
-					Some(transactions) => transactions,
-					None => {
-						log::trace!(
-							target: LOG_TARGET,
-							"Missing indexed block data for block request."
-						);
-						// If the indexed body is missing we still continue returning headers.
-						// Ideally `None` should distinguish a missing body from the empty body,
-						// but the current protobuf based protocol does not allow it.
-						Vec::new()
-					},
-				}
-			} else {
-				Vec::new()
-			};
+		let indexed_body = if get_indexed_body {
+			match self.client.block_indexed_body_indices(hash)? {
+				Some(indices) => indices,
+				None => {
+					log::trace!(
+						target: LOG_TARGET,
+						"Missing indexed block data for block request."
+					);
+					Vec::new()
+				},
+			}
+		} else {
+			Vec::new()
+		};
 
 			let block_data = crate::schema::v1::BlockData {
 				hash: hash.encode(),
