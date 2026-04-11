@@ -195,6 +195,52 @@ pub mod pallet {
 		BudgetNotExact,
 	}
 
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Initial budget allocation as a list of `(key, perbill)` pairs.
+		/// If non-empty, keys must match registered `BudgetRecipients` and
+		/// percentages must sum to exactly 100%.
+		///
+		/// Stored as a `Vec` rather than `BoundedBTreeMap` because `BudgetKey`
+		/// (`BoundedVec<u8>`) cannot be used as a JSON object key during genesis
+		/// serialization.
+		pub budget_allocation: Vec<(BudgetKey, Perbill)>,
+		#[serde(skip)]
+		pub _phantom: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			if !self.budget_allocation.is_empty() {
+				let registered: Vec<_> =
+					T::BudgetRecipients::recipients().into_iter().map(|(k, _)| k).collect();
+
+				let mut map = BudgetAllocationMap::new();
+				for (key, pct) in &self.budget_allocation {
+					assert!(
+						registered.contains(key),
+						"Genesis BudgetAllocation key {:?} not in BudgetRecipients",
+						key
+					);
+					map.try_insert(key.clone(), *pct)
+						.expect("budget allocation exceeds MAX_BUDGET_RECIPIENTS");
+				}
+
+				// Validate sum == 100%.
+				let total_parts: u64 =
+					map.values().map(|p| p.deconstruct() as u64).sum();
+				assert!(
+					total_parts == Perbill::one().deconstruct() as u64,
+					"Genesis BudgetAllocation does not sum to 100%"
+				);
+
+				BudgetAllocation::<T>::put(map);
+			}
+		}
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -351,6 +397,29 @@ pub mod pallet {
 			);
 
 			T::WeightInfo::drip_issuance()
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the DAP buffer account and its current free balance.
+		pub fn buffer_balance() -> (T::AccountId, BalanceOf<T>) {
+			let acct = Self::buffer_account();
+			let bal = T::Currency::balance(&acct);
+			(acct, bal)
+		}
+
+		/// Returns all budget recipients: (key, pot_account, allocation_perbill, free_balance).
+		pub fn budgets() -> Vec<(BudgetKey, T::AccountId, Perbill, BalanceOf<T>)> {
+			let alloc = BudgetAllocation::<T>::get();
+			T::BudgetRecipients::recipients()
+				.into_iter()
+				.map(|(key, acct)| {
+					let pct = alloc.get(&key).copied().unwrap_or(Perbill::zero());
+					let bal = T::Currency::balance(&acct);
+					(key, acct, pct, bal)
+				})
+				.collect()
 		}
 	}
 

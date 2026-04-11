@@ -23,6 +23,8 @@ use alloc::{
 	vec,
 	vec::Vec,
 };
+use sp_runtime::Perbill;
+use sp_staking::budget::BudgetKey;
 use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use parachains_common::{AccountId, AuraId};
@@ -64,6 +66,16 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	balances.push((dap_buffer, STAKING_ASYNC_PARA_ED));
 
+	// Budget allocation: 85% staker_rewards, 15% buffer.
+	// Perbill values must sum to 1_000_000_000.
+	let budget_allocation = vec![
+		(BudgetKey::truncate_from(b"buffer".to_vec()), Perbill::from_parts(150_000_000)),
+		(
+			BudgetKey::truncate_from(b"staker_rewards".to_vec()),
+			Perbill::from_parts(850_000_000),
+		),
+	];
+
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
@@ -87,6 +99,7 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 		polkadot_xcm: PolkadotXcmConfig { safe_xcm_version: Some(SAFE_XCM_VERSION) },
 		sudo: SudoConfig { key: Some(root) },
 		preset_store: crate::PresetStoreConfig { preset, ..Default::default() },
+		dap: DapConfig { budget_allocation, ..Default::default() },
 		staking: StakingConfig {
 			validator_count,
 			dev_stakers,

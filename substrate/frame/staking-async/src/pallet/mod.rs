@@ -66,7 +66,10 @@ pub mod pallet {
 	use core::ops::Deref;
 
 	use super::*;
-	use crate::{session_rotation, PagedExposureMetadata, SnapshotStatus};
+	use crate::{
+		session_rotation, EraPotAccountProvider, GeneralPotAccountProvider,
+		PagedExposureMetadata, SnapshotStatus,
+	};
 	use codec::HasCompact;
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
@@ -2955,6 +2958,39 @@ pub mod pallet {
 			ensure!(new >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
 			MaxCommission::<T>::put(new);
 			Ok(())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Returns the general staker reward pot account and balance.
+		pub fn general_pot_balance() -> (T::AccountId, BalanceOf<T>) {
+			let acct = T::GeneralPots::general_pot_account(crate::GeneralPotType::StakerRewards);
+			let bal = asset::total_balance::<T>(&acct);
+			(acct, bal)
+		}
+
+		/// Returns the era pot account and balance for a given era.
+		pub fn era_pot_balance(era: EraIndex) -> (T::AccountId, BalanceOf<T>) {
+			let acct = T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
+			let bal = asset::total_balance::<T>(&acct);
+			(acct, bal)
+		}
+
+		/// Returns pot info for all eras within history depth:
+		/// Vec<(era_index, pot_account, balance)>.
+		pub fn all_era_pot_balances() -> Vec<(EraIndex, T::AccountId, BalanceOf<T>)> {
+			let current = CurrentEra::<T>::get().unwrap_or_default();
+			let depth = T::HistoryDepth::get();
+			let start = current.saturating_sub(depth);
+			(start..=current)
+				.map(|era| {
+					let acct =
+						T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
+					let bal = asset::total_balance::<T>(&acct);
+					(era, acct, bal)
+				})
+				.collect()
 		}
 	}
 }

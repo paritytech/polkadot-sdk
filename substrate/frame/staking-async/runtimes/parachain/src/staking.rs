@@ -384,6 +384,7 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 
 parameter_types! {
 	pub const StakingPotsPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stkng");
+	pub const StakingPotsPalletId2: frame_support::PalletId = frame_support::PalletId(*b"py/stkg2");
 }
 
 /// Polkadot inflation curve for DAP.
@@ -449,7 +450,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
-	type HistoryDepth = ConstU32<1>;
+	type HistoryDepth = ConstU32<4>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
@@ -457,7 +458,7 @@ impl pallet_staking_async::Config for Runtime {
 	type DisableMinting = ConstBool<true>;
 	type UnclaimedRewardHandler = Dap;
 	type GeneralPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type EraPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type EraPots = pallet_staking_async::Seed<StakingPotsPalletId2>;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
