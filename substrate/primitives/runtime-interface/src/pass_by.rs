@@ -730,7 +730,7 @@ where
 impl<T, U, V> IntoFFIValue for ConvertAndReturnAs<T, U, V>
 where
 	V: RIType + IntoFFIValue + Primitive,
-	<V as RIType>::Inner: From<U>,
+	<V as RIType>::Inner: TryFrom<U>,
 	U: From<Self::Inner>,
 {
 	fn into_ffi_value(
@@ -738,7 +738,13 @@ where
 		context: &mut dyn FunctionContext,
 	) -> Result<Self::FFIType> {
 		let value: U = value.into();
-		let value: <V as RIType>::Inner = value.into();
+		let value: <V as RIType>::Inner = value.try_into().map_err(|_| {
+			format!(
+				"failed to convert intermediate type '{}' into '{}' when marshalling a hostcall's return value through the FFI boundary",
+				type_name::<U>(),
+				type_name::<<V as RIType>::Inner>()
+			)
+		})?;
 		<V as IntoFFIValue>::into_ffi_value(value, context)
 	}
 }
