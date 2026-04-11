@@ -1,0 +1,33 @@
+title: 'fatxpool: invalid inblock event fixed'
+doc:
+- audience: Node Dev
+  description: "#### Problem\n\nWhen a user sends rapid replacement transactions (same\
+    \ sender+nonce, increasing priority), an earlier version may get included in a\
+    \ block by another node before the latest replacement propagates. The local node\
+    \ then incorrectly reports the latest replacement as `InBlock` - even though it\
+    \ was never included in any block.\n\n#### How it happens\n\n1. Tx A (nonce N)\
+    \ is in the pool. Tx B (nonce N, higher priority) arrives and usurps A.\n2. A\
+    \ remote block producer includes A (broadcast before B reached it).\n3. Local\
+    \ node imports the block. During pruning, the pool collects tags from the block's\
+    \ extrinsics. B provides the same tag as A (same sender+nonce), so tag-based pruning\
+    \ removes B from the pool.\n4. B is re-verified at the new block and fails (e.g.\
+    \ `Stale` \u2014 nonce consumed, or other error).\n5. `resubmit_pruned` treats\
+    \ \"pruned by tag + `InvalidTransaction` on resubmit\" as proof    of block inclusion\
+    \ and fires `InBlock` for B.\n\nB was never in the block. The `InBlock` is false,\
+    \ and cascades into a false `Finalized` on the finalized block event.\n\n####\
+    \ Why it was wrong\n\n`resubmit_pruned` in `validated_pool.rs` chained two sources\
+    \ into `fire_pruned`:\n\n- `known_imported_hashes` \u2014 hashes of actual block\
+    \ extrinsics (from block body). Always correct.\n- Pruned transactions that failed\
+    \ resubmission with `InvalidTransaction` \u2014 assumed to be\n  \"successfully\
+    \ included.\" Wrong after replacement: a replacement tx shares tags with the\n\
+    \  block extrinsic but has a different hash.\n\n`known_imported_hashes` already\
+    \ contains the complete, unfiltered list of block extrinsic\nhashes. The second\
+    \ source only adds false positives.\n\n#### Fix\n\nRemove the \"pruned + invalid\
+    \ = in block\" inference from `resubmit_pruned`. Fire `InBlock`\nonly for `known_imported_hashes`\
+    \ \u2014 the block body is the ground truth for inclusion.\n\nThe `submit(pruned_xts)`\
+    \ call is kept \u2014 it still serves its purpose of resubmitting\nstill-valid\
+    \ collateral transactions (pruned as part of the dependency subtree) back to\n\
+    the pool."
+crates:
+- name: sc-transaction-pool
+  bump: minor
