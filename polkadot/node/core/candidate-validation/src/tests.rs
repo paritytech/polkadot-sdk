@@ -921,6 +921,7 @@ fn v3_ump_signal_enforcement() {
 		relay_parent,
 		CoreIndex(0),
 		1,
+		1,
 		validation_data.hash(),
 		pov.hash(),
 		validation_code.hash(),
@@ -2681,6 +2682,7 @@ fn pre_validation_v3_scheduling_offset_mismatch() {
 		dummy_hash(), // relay_parent
 		CoreIndex(0),
 		1, // session_index
+		1, // scheduling_session_index
 		dummy_hash(),
 		pov.hash(),
 		validation_code.hash(),
@@ -3056,6 +3058,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 		ParaId::from(1_u32),
 		relay_parent,
 		CoreIndex(1),
+		1,
 		1,
 		dummy_hash(),
 		pov.hash(),

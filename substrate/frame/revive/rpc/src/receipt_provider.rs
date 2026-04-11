@@ -15,9 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
-	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, BlockTag, Bytes,
-	ChainMetadata, ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel,
-	SyncStateKey,
+	Address, AddressOrAddresses, BlockInfoProvider, BlockNumberOrTag, Bytes, ChainMetadata,
+	ClientError, FilterTopic, ReceiptExtractor, SubxtBlockInfoProvider, SyncLabel, SyncStateKey,
 	block_sync::SyncCheckpoint,
 	client::{SubstrateBlock, SubstrateBlockNumber},
 };
@@ -197,18 +196,27 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 	// Get block hash and transaction index by transaction hash
 	pub async fn find_transaction(&self, transaction_hash: &H256) -> Option<(H256, usize)> {
-		let transaction_hash = transaction_hash.as_ref();
+		let transaction_hash_bytes = transaction_hash.as_ref();
 		let result = query!(
 			r#"
 			SELECT block_hash, transaction_index
 			FROM transaction_hashes
 			WHERE transaction_hash = $1
 			"#,
-			transaction_hash
+			transaction_hash_bytes
 		)
 		.fetch_optional(&self.pool)
 		.await
-		.ok()??;
+		.inspect_err(|err| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: DB query failed for tx {transaction_hash:?}: {err:?}");
+		})
+		.ok()?
+		.or_else(|| {
+			log::trace!(target: LOG_TARGET,
+				"find_transaction: tx {transaction_hash:?} not found in DB");
+			None
+		})?;
 
 		let block_hash = H256::from_slice(&result.block_hash[..]);
 		let transaction_index = result.transaction_index.try_into().ok()?;
@@ -435,7 +443,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
-		let receipts = self.receipts_from_block(block).await?;
+		let receipts = self
+			.receipt_extractor
+			.extract_from_block_with_eth_hash(block, *ethereum_hash)
+			.await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
 		Ok(())
 	}
@@ -446,7 +457,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		let receipts = self.receipts_from_block(block).await?;
+		let receipts = self
+			.receipt_extractor
+			.extract_from_block_with_eth_hash(block, *ethereum_hash)
+			.await?;
 		self.insert(block, &receipts, ethereum_hash).await?;
 		Ok(receipts)
 	}
@@ -543,7 +557,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		// Assuming that if no mapping exists then no relevant entries in transaction_hashes and
 		// logs exist
-		if !result.exists {
+		if result.exists {
+			log::trace!(target: LOG_TARGET,
+				"Skipping receipt insert for block #{block_number} ({substrate_block_hash:?}): \
+				 mapping already exists. ETH hash: {ethereum_hash:?}, receipts count: {count}",
+				count = receipts.len(),
+			);
+		} else {
 			let ethereum_hash_ref = ethereum_hash.as_ref();
 			for (_, receipt) in receipts {
 				let transaction_hash: &[u8] = receipt.transaction_hash.as_ref();
@@ -609,21 +629,19 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Get logs that match the given filter.
-	pub async fn logs(&self, filter: Option<Filter>) -> anyhow::Result<Vec<Log>> {
+	///
+	/// `resolve_block_number` converts a [`BlockNumberOrTag`] to a concrete block number.
+	pub async fn logs(
+		&self,
+		filter: Option<Filter>,
+		resolve_block_number: impl Fn(BlockNumberOrTag) -> anyhow::Result<U256>,
+	) -> anyhow::Result<Vec<Log>> {
 		let mut qb = QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE 1=1");
 		let filter = filter.unwrap_or_default();
 
+		let from_block = filter.from_block.map(&resolve_block_number).transpose()?;
+		let to_block = filter.to_block.map(&resolve_block_number).transpose()?;
 		let latest_block = U256::from(self.block_provider.latest_block_number().await);
-
-		let as_block_number = |block_param| match block_param {
-			None => Ok(None),
-			Some(BlockNumberOrTag::U256(v)) => Ok(Some(v)),
-			Some(BlockNumberOrTag::BlockTag(BlockTag::Latest)) => Ok(Some(latest_block)),
-			Some(BlockNumberOrTag::BlockTag(tag)) => anyhow::bail!("Unsupported tag: {tag:?}"),
-		};
-
-		let from_block = as_block_number(filter.from_block)?;
-		let to_block = as_block_number(filter.to_block)?;
 
 		match (from_block, to_block, filter.block_hash) {
 			(Some(_), _, Some(_)) | (_, Some(_), Some(_)) => {
@@ -801,13 +819,28 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub async fn receipt_by_hash(&self, transaction_hash: &H256) -> Option<ReceiptInfo> {
 		let (block_hash, transaction_index) = self.find_transaction(transaction_hash).await?;
 
-		let block = self.block_provider.block_by_hash(&block_hash).await.ok()??;
-		let (_, receipt) = self
-			.receipt_extractor
-			.extract_from_transaction(&block, transaction_index)
-			.await
-			.ok()?;
-		Some(receipt)
+		let block = match self.block_provider.block_by_hash(&block_hash).await {
+			Ok(Some(b)) => b,
+			Ok(None) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: block {block_hash:?} not available from node (pruned?) for tx {transaction_hash:?}");
+				return None;
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: failed to fetch block {block_hash:?} for tx {transaction_hash:?}: {err:?}");
+				return None;
+			},
+		};
+
+		match self.receipt_extractor.extract_from_transaction(&block, transaction_index).await {
+			Ok((_, receipt)) => Some(receipt),
+			Err(err) => {
+				log::trace!(target: LOG_TARGET,
+					"receipt_by_hash: extraction failed for tx {transaction_hash:?} in block {block_hash:?}: {err:?}");
+				None
+			},
+		}
 	}
 
 	/// Get the signed transaction for the given transaction hash.
@@ -819,6 +852,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.receipt_extractor
 			.extract_from_transaction(&block, transaction_index)
 			.await
+			.inspect_err(|err| {
+				log::trace!(target: LOG_TARGET,
+					"signed_tx_by_hash: extraction failed for tx {transaction_hash:?} \
+					 in block {block_hash:?}: {err:?}");
+			})
 			.ok()?;
 		Some(signed_tx)
 	}
@@ -828,7 +866,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 mod tests {
 	use super::*;
 	use crate::test::{MockBlockInfo, MockBlockInfoProvider};
-	use pallet_revive::evm::{ReceiptInfo, TransactionSigned};
+	use pallet_revive::evm::{BlockTag, ReceiptInfo, TransactionSigned};
 	use pretty_assertions::assert_eq;
 	use sp_core::{H160, H256};
 	use sqlx::SqlitePool;
@@ -859,6 +897,18 @@ mod tests {
 			receipt_extractor: ReceiptExtractor::new_mock(),
 			keep_latest_n_blocks: None,
 			block_number_to_hashes: Default::default(),
+		}
+	}
+
+	/// Test resolver that handles Latest → `latest` and Earliest → 0.
+	fn mock_resolve_block_number_with_latest(
+		latest: u64,
+	) -> impl Fn(BlockNumberOrTag) -> anyhow::Result<U256> {
+		move |block: BlockNumberOrTag| match block {
+			BlockNumberOrTag::U256(v) => Ok(v),
+			BlockNumberOrTag::BlockTag(BlockTag::Earliest) => Ok(U256::zero()),
+			BlockNumberOrTag::BlockTag(BlockTag::Latest) => Ok(U256::from(latest)),
+			BlockNumberOrTag::BlockTag(tag) => anyhow::bail!("Unsupported tag: {tag:?}"),
 		}
 	}
 
@@ -1138,96 +1188,128 @@ mod tests {
 			)
 			.await?;
 
+		let resolve_block_number = mock_resolve_block_number_with_latest(block2.number.into());
+
 		// Empty filter
-		let logs = provider.logs(None).await?;
+		let logs = provider.logs(None, &resolve_block_number).await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// from_block filter
 		let logs = provider
-			.logs(Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }))
+			.logs(
+				Some(Filter { from_block: Some(log2.block_number.into()), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// from_block filter (using latest block)
 		let logs = provider
-			.logs(Some(Filter { from_block: Some(BlockTag::Latest.into()), ..Default::default() }))
+			.logs(
+				Some(Filter { from_block: Some(BlockTag::Latest.into()), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log2.clone()]);
 
 		// to_block filter
 		let logs = provider
-			.logs(Some(Filter { to_block: Some(log1.block_number.into()), ..Default::default() }))
+			.logs(
+				Some(Filter { to_block: Some(log1.block_number.into()), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// block_hash filter
 		let logs = provider
-			.logs(Some(Filter { block_hash: Some(log1.block_hash), ..Default::default() }))
+			.logs(
+				Some(Filter { block_hash: Some(log1.block_hash), ..Default::default() }),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// single address
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				address: Some(log1.address.into()),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					address: Some(log1.address.into()),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple addresses
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				address: Some(vec![log1.address, log2.address].into()),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					address: Some(vec![log1.address, log2.address].into()),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// single topic
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![FilterTopic::Single(log1.topics[0])]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				topics: Some(vec![
-					FilterTopic::Single(log1.topics[0]),
-					FilterTopic::Single(log1.topics[1]),
-				]),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![
+						FilterTopic::Single(log1.topics[0]),
+						FilterTopic::Single(log1.topics[1]),
+					]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone()]);
 
 		// multiple topic for topic_0
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(U256::from(0).into()),
-				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-				..Default::default()
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+					..Default::default()
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 
 		// Altogether
 		let logs = provider
-			.logs(Some(Filter {
-				from_block: Some(log1.block_number.into()),
-				to_block: Some(log2.block_number.into()),
-				block_hash: None,
-				address: Some(vec![log1.address, log2.address].into()),
-				topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
-			}))
+			.logs(
+				Some(Filter {
+					from_block: Some(BlockTag::Earliest.into()),
+					to_block: Some(BlockTag::Latest.into()),
+					block_hash: None,
+					address: Some(vec![log1.address, log2.address].into()),
+					topics: Some(vec![FilterTopic::Multiple(vec![log1.topics[0], log2.topics[0]])]),
+				}),
+				&resolve_block_number,
+			)
 			.await?;
 		assert_eq!(logs, vec![log1.clone(), log2.clone()]);
 		Ok(())
@@ -1346,7 +1428,10 @@ mod tests {
 
 		// Query logs using Ethereum block hash (should resolve to substrate hash)
 		let logs = provider
-			.logs(Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }))
+			.logs(
+				Some(Filter { block_hash: Some(ethereum_hash), ..Default::default() }),
+				mock_resolve_block_number_with_latest(block.number.into()),
+			)
 			.await?;
 		assert_eq!(logs, vec![log]);
 

@@ -583,6 +583,21 @@ pub mod pallet {
 		}
 	}
 
+	const OFFENCE_QUEUE_ERAS_BOUND: u32 = 10;
+	/// Custom bound for [`OffenceQueueEras`] which is equal to `Config::BondingDuration +
+	/// OFFENCE_QUEUE_ERAS_BOUND`.
+	pub struct OffenceQueueErasBound<T>(core::marker::PhantomData<T>);
+	impl<T: Config> Get<u32> for OffenceQueueErasBound<T> {
+		fn get() -> u32 {
+			let bonding_duration = T::BondingDuration::get();
+			bonding_duration.saturating_add(OFFENCE_QUEUE_ERAS_BOUND) // adding OFFENCE_QUEUE_ERAS_BOUND eras
+			                                                 // to add headroom to
+			                                                 // the bound for runtime upgrades that
+			                                                 // lower BondingDuration so we avoid
+			                                                 // the try_into trap.
+		}
+	}
+
 	/// A mapping from still-bonded eras to the first session index of that era.
 	///
 	/// Must contains information for eras for the range:
@@ -801,12 +816,14 @@ pub mod pallet {
 	/// - When a new offence is added to `OffenceQueue`, its era is **inserted in sorted order**
 	/// if not already present.
 	/// - When all offences for an era are processed, it is **removed** from this list.
-	/// - The maximum length of this vector is bounded by `BondingDuration`.
+	/// - The maximum length of this vector is bounded by `BondingDuration +
+	///   OFFENCE_QUEUE_ERAS_BOUND`.
 	///
 	/// This eliminates the need for expensive iteration and sorting when fetching the next offence
 	/// to process.
 	#[pallet::storage]
-	pub type OffenceQueueEras<T: Config> = StorageValue<_, WeakBoundedVec<u32, T::BondingDuration>>;
+	pub type OffenceQueueEras<T: Config> =
+		StorageValue<_, WeakBoundedVec<u32, OffenceQueueErasBound<T>>>;
 
 	/// Tracks the currently processed offence record from the `OffenceQueue`.
 	///

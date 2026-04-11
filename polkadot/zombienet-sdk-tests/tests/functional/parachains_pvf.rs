@@ -7,8 +7,8 @@
 //! It sets up a network with 8 validators and 8 parachains,
 
 use crate::utils::{
-	env_or_default, initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV,
-	INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
+	assert_nodes_are_validators, env_or_default, initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC,
+	COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
@@ -29,16 +29,11 @@ async fn parachains_pvf_preparation_and_execution_test() -> Result<(), anyhow::E
 
 	let config = build_network_config()?;
 	let network = initialize_network(config).await?;
+	let validator_nodes = network.relaychain().nodes();
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for name in VALIDATORS {
-		let validator = network.get_node(name)?;
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {} role check failed: {}", name, e))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	// Get a relay client for parachain throughput checks

@@ -493,11 +493,20 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 
 parameter_types! {
 	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 60_000;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }
 
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = pallet_timestamp::Pallet<Runtime>;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
 }
 
 parameter_types! {
