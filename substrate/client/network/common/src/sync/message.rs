@@ -87,15 +87,22 @@ impl Decode for BlockAttributes {
 
 /// Index entry describing an indexed extrinsic within a block body.
 ///
-/// Used during fast sync in storage chain mode: the serving node sends these
-/// indices (instead of raw indexed blobs) so the syncing node can reconstruct
-/// the indexed transaction database from the full block body.
+/// Sent as part of `INDEXED_BODY` responses in storage chain mode. The serving
+/// node includes the raw data blob so the syncing node can populate the
+/// `TRANSACTION` column and `BODY_INDEX` without runtime execution.
+///
+/// The `data` field always carries the blob. For store extrinsics, this is
+/// redundant with the body (the blob is `encoded_extrinsic[header_length..]`).
+/// For renew extrinsics, the blob is not in the extrinsic body at all — it
+/// lives only in the serving peer's `TRANSACTION` column.
 #[derive(Encode, Decode, Clone, Debug)]
 pub struct IndexedBodyIndex {
 	/// Position of this extrinsic in the block body.
 	pub extrinsic_index: u32,
 	/// Length of the extrinsic header (non-indexed prefix bytes).
 	pub header_length: u32,
+	/// The raw indexed data blob.
+	pub data: Vec<u8>,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy, Encode, Decode)]

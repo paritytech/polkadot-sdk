@@ -851,8 +851,13 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 					.into_iter()
 					.enumerate()
 					.filter_map(|(i, ex)| match ex {
-						DbExtrinsic::Indexed { header, .. } =>
-							Some((i as u32, header.len() as u32).encode()),
+						DbExtrinsic::Indexed { hash, header } => {
+							let data = self
+								.db
+								.get(columns::TRANSACTION, hash.as_ref())
+								.unwrap_or_default();
+							Some((i as u32, header.len() as u32, data).encode())
+						},
 						_ => None,
 					})
 					.collect();
@@ -863,9 +868,9 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 				);
 				Ok(Some(indices))
 			},
-			Err(err) => Err(sp_blockchain::Error::Backend(format!(
-				"Error decoding body list: {err}",
-			))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}",)))
+			},
 		}
 	}
 }
@@ -1680,12 +1685,16 @@ impl<Block: BlockT> Backend<Block> {
 			transaction.set_from_vec(columns::HEADER, &lookup_key, pending_block.header.encode());
 			match (pending_block.body, pending_block.indexed_body) {
 				(Some(body), Some(indexed_body)) => {
-					let encoded =
-						apply_indexed_body_from_indices::<Block>(
-							&mut transaction,
-							body,
-							indexed_body,
-						);
+					debug!(
+						target: "db",
+						"Block #{number} ({hash:?}): importing with {} indexed body entries",
+						indexed_body.len(),
+					);
+					let encoded = apply_indexed_body_from_indices::<Block>(
+						&mut transaction,
+						body,
+						indexed_body,
+					);
 					transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, encoded);
 				},
 				(Some(body), None) => {
@@ -1693,11 +1702,7 @@ impl<Block: BlockT> Backend<Block> {
 						transaction.set_from_vec(columns::BODY, &lookup_key, body.encode());
 					} else {
 						let body =
-							apply_index_ops::<Block>(
-								&mut transaction,
-								body,
-								operation.index_ops,
-							);
+							apply_index_ops::<Block>(&mut transaction, body, operation.index_ops);
 						transaction.set_from_vec(columns::BODY_INDEX, &lookup_key, body);
 					}
 				},
@@ -2322,11 +2327,16 @@ fn apply_indexed_body_from_indices<Block: BlockT>(
 	body: Vec<Block::Extrinsic>,
 	indexed_body: Vec<Vec<u8>>,
 ) -> Vec<u8> {
-	let mut index_map = HashMap::new();
+	let mut index_map: HashMap<u32, (u32, Vec<u8>)> = HashMap::new();
 	for entry in &indexed_body {
-		match <(u32, u32)>::decode(&mut &entry[..]) {
-			Ok((extrinsic_index, header_length)) => {
-				index_map.insert(extrinsic_index, header_length);
+		match <(u32, u32, Vec<u8>)>::decode(&mut &entry[..]) {
+			Ok((extrinsic_index, header_length, data)) => {
+				debug!(
+					target: "db",
+					"IndexedBodyIndex: extrinsic_index={}, header_length={}, data_size={}",
+					extrinsic_index, header_length, data.len(),
+				);
+				index_map.insert(extrinsic_index, (header_length, data));
 			},
 			Err(err) => {
 				debug!(
@@ -2337,30 +2347,28 @@ fn apply_indexed_body_from_indices<Block: BlockT>(
 		}
 	}
 
+	let indexed_count = index_map.len();
 	let mut extrinsic_index: Vec<DbExtrinsic<Block>> = Vec::with_capacity(body.len());
 	for (i, extrinsic) in body.into_iter().enumerate() {
-		let db_extrinsic = if let Some(&header_len) = index_map.get(&(i as u32)) {
+		let db_extrinsic = if let Some((header_len, data)) = index_map.remove(&(i as u32)) {
 			let encoded = extrinsic.encode();
 			let header_len = header_len as usize;
-			if header_len <= encoded.len() {
-				let hash = sp_runtime::traits::BlakeTwo256::hash(&encoded[header_len..]);
-				let db_hash = DbHash::from_slice(hash.as_ref());
-				debug!(
-					target: "db",
-					"Storing indexed transaction {} with hash {:?}, data size {}",
-					i,
-					db_hash,
-					encoded.len() - header_len,
-				);
-				transaction.store(
-					columns::TRANSACTION,
-					db_hash,
-					encoded[header_len..].to_vec(),
-				);
-				DbExtrinsic::Indexed { hash: db_hash, header: encoded[..header_len].to_vec() }
-			} else {
-				DbExtrinsic::Full(extrinsic)
-			}
+			let is_renew = header_len >= encoded.len();
+			let hash = sp_runtime::traits::BlakeTwo256::hash(&data);
+			let db_hash = DbHash::from_slice(hash.as_ref());
+			debug!(
+				target: "db",
+				"Extrinsic {}: {} content_hash={:?}, data_size={}, header_len={}",
+				i,
+				if is_renew { "RENEW" } else { "STORE" },
+				db_hash,
+				data.len(),
+				header_len,
+			);
+			transaction.store(columns::TRANSACTION, db_hash, data);
+			let header =
+				if header_len <= encoded.len() { encoded[..header_len].to_vec() } else { encoded };
+			DbExtrinsic::Indexed { hash: db_hash, header }
 		} else {
 			DbExtrinsic::Full(extrinsic)
 		};
@@ -2369,8 +2377,8 @@ fn apply_indexed_body_from_indices<Block: BlockT>(
 	debug!(
 		target: "db",
 		"DB indexed body from indices: {} indexed, {} full",
-		index_map.len(),
-		extrinsic_index.len() - index_map.len(),
+		indexed_count,
+		extrinsic_index.len() - indexed_count,
 	);
 	extrinsic_index.encode()
 }
