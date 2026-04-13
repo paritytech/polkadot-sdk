@@ -9,14 +9,14 @@ doc:
     - Collectives
 crates:
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
   validate: false
 - name: collectives-westend-runtime
-  bump: major
+  bump: minor
   validate: false
 - name: coretime-westend-runtime
-  bump: major
+  bump: minor
   validate: false
 - name: people-westend-runtime
-  bump: major
+  bump: minor
   validate: false
