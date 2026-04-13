@@ -176,9 +176,8 @@ where
 		let validator_payout = validator_staking_payout.saturating_add(validator_commission_payout);
 		let nominator_payout = leftover.saturating_sub(validator_staking_payout);
 
-		// Commission rounding means these may not sum exactly to validator_total_reward,
-		// but they should never exceed it.
-		debug_assert!(validator_payout + nominator_payout <= validator_total_reward);
+		// Validator and nominator payout is exactly same as total reward.
+		debug_assert_eq!(validator_payout + nominator_payout, validator_total_reward);
 
 		sp_staking::StakerRewardResult { validator_payout, nominator_payout }
 	}
