@@ -17,7 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes};
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use sc_client_api::{TrieCacheContext, backend};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
@@ -38,7 +38,7 @@ pub struct CodeProvider<Block: BlockT, Backend, Executor> {
 	/// Avoids re-reading the full `:code` blob from the trie just to determine the runtime
 	/// version. Unbounded, but safe: grows by one entry per runtime upgrade, and real chains
 	/// see O(10–50) upgrades over their entire lifetime.
-	runtime_version_cache: Arc<Mutex<HashMap<Vec<u8>, RuntimeVersion>>>,
+	runtime_version_cache: Arc<RwLock<HashMap<Vec<u8>, RuntimeVersion>>>,
 }
 
 impl<Block: BlockT, Backend, Executor: Clone> Clone for CodeProvider<Block, Backend, Executor> {
@@ -84,7 +84,7 @@ where
 			executor,
 			wasm_override: Arc::new(wasm_override),
 			wasm_substitutes,
-			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
+			runtime_version_cache: Arc::new(RwLock::new(HashMap::new())),
 		})
 	}
 
@@ -170,7 +170,7 @@ where
 		code: &RuntimeCode,
 		state: &Backend::State,
 	) -> sp_blockchain::Result<RuntimeVersion> {
-		if let Some(version) = self.runtime_version_cache.lock().get(&code.hash) {
+		if let Some(version) = self.runtime_version_cache.read().get(&code.hash) {
 			return Ok(version.clone());
 		}
 
@@ -182,7 +182,7 @@ where
 			.runtime_version(&mut ext, code)
 			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))?;
 
-		self.runtime_version_cache.lock().insert(code.hash.clone(), version.clone());
+		self.runtime_version_cache.write().insert(code.hash.clone(), version.clone());
 
 		Ok(version)
 	}
@@ -247,7 +247,7 @@ mod tests {
 			wasm_override: Arc::new(None),
 			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
 				.unwrap(),
-			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
+			runtime_version_cache: Arc::new(RwLock::new(HashMap::new())),
 		};
 
 		let check = code_provider
@@ -311,7 +311,7 @@ mod tests {
 			wasm_override: Arc::new(Some(overrides)),
 			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
 				.unwrap(),
-			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
+			runtime_version_cache: Arc::new(RwLock::new(HashMap::new())),
 		};
 
 		let check = code_provider
@@ -364,7 +364,7 @@ mod tests {
 			wasm_override: Arc::new(None),
 			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
 				.unwrap(),
-			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
+			runtime_version_cache: Arc::new(RwLock::new(HashMap::new())),
 		};
 
 		let code_fetcher = WrappedRuntimeCode(substrate_test_runtime::wasm_binary_unwrap().into());
@@ -378,14 +378,14 @@ mod tests {
 		let state = backend.state_at(genesis_hash, TrieCacheContext::Untrusted).unwrap();
 
 		// Cache should be empty initially.
-		assert!(code_provider.runtime_version_cache.lock().is_empty());
+		assert!(code_provider.runtime_version_cache.read().is_empty());
 
 		// First call populates the cache.
 		let (_, version1) = code_provider
 			.maybe_override_code(onchain_code, &state, genesis_hash)
 			.expect("first call succeeds");
 
-		assert_eq!(code_provider.runtime_version_cache.lock().len(), 1);
+		assert_eq!(code_provider.runtime_version_cache.read().len(), 1);
 
 		// Second call with the same code hash should return the same version from cache.
 		let code_fetcher2 = WrappedRuntimeCode(substrate_test_runtime::wasm_binary_unwrap().into());
@@ -401,7 +401,7 @@ mod tests {
 
 		assert_eq!(version1, version2);
 		// Cache should still have exactly one entry (same code hash).
-		assert_eq!(code_provider.runtime_version_cache.lock().len(), 1);
+		assert_eq!(code_provider.runtime_version_cache.read().len(), 1);
 	}
 
 	#[test]
@@ -440,7 +440,7 @@ mod tests {
 			wasm_override: Arc::new(None),
 			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
 				.unwrap(),
-			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
+			runtime_version_cache: Arc::new(RwLock::new(HashMap::new())),
 		};
 
 		let genesis_hash = backend.blockchain().info().genesis_hash;
@@ -459,7 +459,7 @@ mod tests {
 			.maybe_override_code(onchain_code_a, &state, genesis_hash)
 			.expect("call A succeeds");
 
-		assert_eq!(code_provider.runtime_version_cache.lock().len(), 1);
+		assert_eq!(code_provider.runtime_version_cache.read().len(), 1);
 
 		// Call with a different code hash "B" (same binary, different hash).
 		let code_fetcher_b =
@@ -475,7 +475,7 @@ mod tests {
 			.expect("call B succeeds");
 
 		// Should now have two entries — one per code hash.
-		assert_eq!(code_provider.runtime_version_cache.lock().len(), 2);
+		assert_eq!(code_provider.runtime_version_cache.read().len(), 2);
 	}
 
 	#[test]
