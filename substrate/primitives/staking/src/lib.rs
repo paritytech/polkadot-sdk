@@ -784,7 +784,7 @@ pub trait StakerRewardCalculator<Balance> {
 		validator_total_reward: Balance,
 		validator_commission: Perbill,
 		validator_own_stake: Balance,
-		total_stake: Balance,
+		total_exposure: Balance,
 	) -> StakerRewardResult<Balance>;
 }
 
@@ -797,7 +797,7 @@ impl<Balance: Default> StakerRewardCalculator<Balance> for () {
 		_validator_total_reward: Balance,
 		_validator_commission: Perbill,
 		_validator_own_stake: Balance,
-		_total_stake: Balance,
+		_total_exposure: Balance,
 	) -> StakerRewardResult<Balance> {
 		StakerRewardResult {
 			validator_payout: Default::default(),

@@ -53,7 +53,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
-		Imbalance, OnUnbalanced, Time,
+		Currency, Imbalance, OnUnbalanced, Time,
 	},
 	PalletId,
 };
@@ -395,11 +395,11 @@ pub mod pallet {
 /// Type alias for credit (negative imbalance - funds that were slashed/removed).
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
-/// Implementation of OnUnbalanced for the fungible::Balanced trait.
+/// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 /// Example: use as `type Slash = Dap` in staking-async config.
 ///
-/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
-/// for the old `Currency` trait is not provided because there are no consumers.
+/// For pallets still using the legacy `Currency` trait (e.g. `pallet_referenda`),
+/// use [`DapLegacyAdapter`] instead.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let buffer = Self::buffer_account();
@@ -424,6 +424,40 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
 				);
 			});
+	}
+}
+
+/// Type alias for legacy `NegativeImbalance` from the `Currency` trait.
+type LegacyNegativeImbalance<A, C> = <C as Currency<A>>::NegativeImbalance;
+
+/// Adapter that redirects `NegativeImbalance` from the legacy `Currency` trait to the DAP buffer.
+///
+/// Cannot be implemented directly on `Pallet<T>` because the compiler cannot prove that
+/// `<C as Currency>::NegativeImbalance` and `fungible::Credit` are always distinct types,
+/// so two `OnUnbalanced` impls on the same struct are rejected.
+///
+/// Will be removed once all consumer pallets migrate to fungible traits.
+///
+/// # Example
+/// ```ignore
+/// type Slash = pallet_dap::DapLegacyAdapter<Runtime, Balances>;
+/// ```
+pub struct DapLegacyAdapter<T, C>(core::marker::PhantomData<(T, C)>);
+
+impl<T: Config, C> OnUnbalanced<LegacyNegativeImbalance<T::AccountId, C>> for DapLegacyAdapter<T, C>
+where
+	C: Currency<T::AccountId, Balance = BalanceOf<T>>,
+{
+	fn on_nonzero_unbalanced(amount: LegacyNegativeImbalance<T::AccountId, C>) {
+		let buffer = Pallet::<T>::buffer_account();
+		let numeric_amount = amount.peek();
+		// NOTE: resolve_creating is infallible.
+		C::resolve_creating(&buffer, amount);
+		Pallet::<T>::deactivate_buffer_funds(numeric_amount);
+		log::debug!(
+			target: LOG_TARGET,
+			"💸 Deposited (legacy) slash of {numeric_amount:?} to DAP buffer"
+		);
 	}
 }
 

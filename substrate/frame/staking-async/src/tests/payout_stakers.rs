@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::session_rotation::Eras;
+use crate::{session_rotation::Eras, RewardKind, RewardPot};
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
 use sp_runtime::{bounded_btree_map, traits::Dispatchable};
 
@@ -1728,5 +1728,31 @@ fn test_runtime_api_pending_rewards() {
 		assert!(Eras::<T>::pending_rewards(0, &validator_two));
 		// and payout works again for validator two.
 		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator_two, 0));
+	});
+}
+
+#[test]
+#[should_panic(expected = "Era has no reward pot but legacy minting is disabled!")]
+fn payout_fails_when_pot_missing_and_minting_disabled() {
+	// Payout should fail with LegacyMintingDisabled when the era has no reward pot
+	// but DisableMintingGuard prevents legacy minting.
+	ExtBuilder::default().build_and_execute(|| {
+		let validator = 11; // validator
+
+		Staking::reward_by_ids(vec![(validator, 1)]);
+		Session::roll_until_active_era(2);
+
+		let era = 1;
+		assert!(ErasValidatorReward::<Test>::get(era).unwrap() > 0);
+		assert!(DisableMintingGuard::<T>::get().is_some());
+
+		// GIVEN: era pot exists in DAP mode — destroy it to simulate corruption.
+		let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+		assert!(crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
+		frame_system::Account::<T>::remove::<&AccountId>(&pot);
+		assert!(!crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
+
+		// WHEN: payout is attempted — defensive! panics (returns LegacyMintingDisabled in prod).
+		let _ = Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era);
 	});
 }

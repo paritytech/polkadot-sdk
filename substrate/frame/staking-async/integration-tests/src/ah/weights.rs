@@ -214,7 +214,10 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		Default::default()
 	}
 	fn process_offence_queue() -> Weight {
-		<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block
+		let max_block =
+			<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block;
+		// Reserve headroom for DAP drip weight which also runs in on_initialize.
+		max_block.saturating_sub(<() as pallet_dap::weights::WeightInfo>::drip_issuance())
 	}
 	fn rc_on_offence(_: u32) -> Weight {
 		Default::default()

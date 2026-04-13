@@ -882,6 +882,9 @@ impl<T: Config> Rotator<T> {
 	}
 
 	/// DAP end-era: snapshot from general reward pots into era-specific pots.
+	///
+	/// The snapshotted amounts are stored in `ErasValidatorReward` (staker rewards) and
+	/// `ErasValidatorIncentiveBudget` (incentive). Individual payouts draw from the era pots.
 	fn end_era_dap(ending_era: &ActiveEraInfo) {
 		let allocation = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 

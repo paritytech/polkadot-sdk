@@ -460,7 +460,7 @@ impl Get<bool> for DisableMintingMode {
 }
 
 pub fn general_staker_pot() -> AccountId {
-	SequentialTest::general_pot_account(GeneralPotType::StakerRewards)
+	SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards))
 }
 
 impl pallet_dap::Config for Test {
@@ -492,7 +492,7 @@ pub(crate) fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
 }
 
 pub(crate) fn general_incentive_pot() -> AccountId {
-	SequentialTest::general_pot_account(GeneralPotType::ValidatorIncentive)
+	SequentialTest::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
 }
 
 pub(crate) fn buffer_key() -> sp_staking::budget::BudgetKey {
@@ -550,8 +550,7 @@ impl Config for Test {
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = DisableMintingMode;
 	type UnclaimedRewardHandler = Dap;
-	type GeneralPots = SequentialTest;
-	type EraPots = SequentialTest;
+	type RewardPots = SequentialTest;
 	type StakerRewardCalculator = reward::DefaultStakerRewardCalculator<Test>;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset = PlanningEraOffset;

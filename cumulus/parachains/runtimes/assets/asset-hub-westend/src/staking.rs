@@ -302,8 +302,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxEraDuration = MaxEraDuration;
 	type DisableMinting = ConstBool<true>;
 	type UnclaimedRewardHandler = Dap;
-	type GeneralPots = pallet_staking_async::Seed<StakingPotsPalletId>;
-	type EraPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;

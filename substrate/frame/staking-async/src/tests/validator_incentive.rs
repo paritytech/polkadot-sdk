@@ -152,7 +152,7 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		assert!(incentive_paid_for(bob, &events).is_none());
 
 		// THEN: era pot balance matches snapshotted budget.
-		let era_pot = <Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
+		let era_pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(2, RewardKind::ValidatorSelfStake));
 		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
 		// After payout, remaining balance = budget - claimed.
 		assert!(Balances::free_balance(&era_pot) < budget);
@@ -392,7 +392,7 @@ fn multiple_validators_share_incentive_pot_correctly() {
 
 		// THEN: pot is depleted (within rounding dust).
 		let pot_account =
-			<Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
+			<Test as Config>::RewardPots::pot_account(RewardPot::Era(2, RewardKind::ValidatorSelfStake));
 		let remaining = Balances::free_balance(&pot_account);
 		let total_claimed = pot_snapshot - remaining;
 		let expected_total = alice_expected + bob_expected;
@@ -560,7 +560,7 @@ fn defensive_panic_on_transfer_failure() {
 		Session::roll_until_active_era(3);
 
 		// WHEN: drain the incentive pot so transfer fails.
-		let pot = <Test as Config>::EraPots::era_pot_account(2, EraPotType::ValidatorSelfStake);
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(2, RewardKind::ValidatorSelfStake));
 		let pot_balance = Balances::free_balance(&pot);
 		if pot_balance > 0 {
 			// Transfer everything out to account 999 to empty the pot.

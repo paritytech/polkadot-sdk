@@ -129,7 +129,7 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	// Create and fund the era reward pot so payout_stakers can transfer from it.
 	let era_pot =
-		crate::reward::EraRewardManager::<T>::create(planned_era, EraPotType::StakerRewards);
+		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::StakerRewards);
 	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
 
 	// Set up validator incentive so payout benchmarks include the incentive transfer cost.
@@ -138,8 +138,10 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
 
 	let incentive_payout = total_payout / 10u32.into(); // 10% of total as incentive budget
-	let incentive_pot =
-		crate::reward::EraRewardManager::<T>::create(planned_era, EraPotType::ValidatorSelfStake);
+	let incentive_pot = crate::reward::EraRewardManager::<T>::create(
+		planned_era,
+		RewardKind::ValidatorSelfStake,
+	);
 	let _ = asset::mint_creating::<T>(&incentive_pot, incentive_payout);
 	ErasValidatorIncentiveBudget::<T>::insert(planned_era, incentive_payout);
 

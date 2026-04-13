@@ -293,16 +293,12 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
-		/// Provider for general (non-era) reward pot accounts (non-minting mode only).
+		/// Provider for generating reward pot account IDs (non-minting mode only).
 		///
-		/// An external source funds these pots. At era boundaries, staking snapshots
-		/// the accumulated balance into era-specific pots.
+		/// Provides both general pots (funded by an external source like pallet-dap)
+		/// and era-specific pots (snapshotted at era boundaries).
 		#[pallet::no_default]
-		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
-
-		/// Provider for generating era pot account IDs (non-minting mode only).
-		#[pallet::no_default]
-		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
+		type RewardPots: crate::PotAccountProvider<Self::AccountId>;
 
 		/// Calculator for staker rewards.
 		///
@@ -871,9 +867,11 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The total validator era payout for the last [`Config::HistoryDepth`] eras.
+	/// The total staker reward budget for each era within [`Config::HistoryDepth`].
 	///
-	/// Eras that haven't finished yet or has been removed doesn't have reward.
+	/// Set at era finalization:
+	/// - in non-minting mode this is the snapshot of the era pot balance before any payouts.
+	/// - in legacy mode it comes from `EraPayout`, with rewards minted on the fly.
 	#[pallet::storage]
 	pub type ErasValidatorReward<T: Config> = StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>>;
 
@@ -2660,9 +2658,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force a validator to have at least the minimum commission. This will not affect a
-		/// validator who already has a commission greater than or equal to the minimum. Any account
-		/// can call this.
+		/// Clamps a validator's commission to the `[MinCommission, MaxCommission]` range.
+		///
+		/// Named `force_apply_min_commission` for legacy reasons — it also enforces the
+		/// maximum. Any account can call this.
 		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::force_apply_min_commission())]
 		pub fn force_apply_min_commission(

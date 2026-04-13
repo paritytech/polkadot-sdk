@@ -48,12 +48,12 @@ impl<T: Config> EraRewardManager<T> {
 	/// Creates an era pot account by adding a provider reference.
 	///
 	/// Should only be called in non-minting mode (`DisableMinting = true`).
-	pub(crate) fn create(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
+	pub(crate) fn create(era: EraIndex, kind: RewardKind) -> T::AccountId {
 		debug_assert!(
 			T::DisableMinting::get(),
 			"Era pots should only be created when DisableMinting is true"
 		);
-		let pot_account = T::EraPots::era_pot_account(era, pot_type);
+		let pot_account = T::RewardPots::pot_account(RewardPot::Era(era, kind));
 		frame_system::Pallet::<T>::inc_providers(&pot_account);
 		pot_account
 	}
@@ -63,12 +63,13 @@ impl<T: Config> EraRewardManager<T> {
 	/// DAP drips inflation continuously into the general pots. At era boundary,
 	/// this transfers the accumulated balances (minus ED) into era pots.
 	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> EraRewardAllocation<BalanceOf<T>> {
-		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
-		let incentive_era_pot = Self::create(era, EraPotType::ValidatorSelfStake);
+		let staker_era_pot = Self::create(era, RewardKind::StakerRewards);
+		let incentive_era_pot = Self::create(era, RewardKind::ValidatorSelfStake);
 
-		let general_staker_pot = T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_staker_pot =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::StakerRewards));
 		let general_incentive_pot =
-			T::GeneralPots::general_pot_account(GeneralPotType::ValidatorIncentive);
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake));
 
 		// Leave ED in the general pots to keep them alive.
 		let staker_balance = T::Currency::reducible_balance(
@@ -118,10 +119,10 @@ impl<T: Config> EraRewardManager<T> {
 			Zero::zero()
 		};
 
-		log::info!(
-			target: LOG_TARGET,
-			"Era {era}: snapshotted staker_rewards={actual_staker:?}, \
-			 validator_incentive={actual_incentive:?}"
+		log!(
+			info,
+			"Era {:?}: snapshotted staker_rewards={:?}, validator_incentive={:?}",
+			era, actual_staker, actual_incentive
 		);
 
 		EraRewardAllocation { staker_rewards: actual_staker, validator_incentive: actual_incentive }
@@ -130,8 +131,8 @@ impl<T: Config> EraRewardManager<T> {
 	/// Destroys an era pot by withdrawing unclaimed rewards and removing the provider.
 	///
 	/// No-op if the pot was never created (e.g. in legacy minting mode).
-	pub(crate) fn destroy(era: EraIndex, pot_type: EraPotType) {
-		let pot_account = T::EraPots::era_pot_account(era, pot_type);
+	pub(crate) fn destroy(era: EraIndex, kind: RewardKind) {
+		let pot_account = T::RewardPots::pot_account(RewardPot::Era(era, kind));
 
 		// Skip if pot was never created (legacy mode doesn't create pots).
 		if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
@@ -150,18 +151,22 @@ impl<T: Config> EraRewardManager<T> {
 			) {
 				Ok(credit) => {
 					T::UnclaimedRewardHandler::on_unbalanced(credit);
-					log::debug!(
-						target: crate::LOG_TARGET,
+					log!(
+						debug,
 						"Withdrew {:?} unclaimed rewards from era {:?} {:?} pot",
-						remaining, era, pot_type
+						remaining,
+						era,
+						kind
 					);
 				},
 				Err(e) => {
 					defensive!("Failed to withdraw unclaimed rewards from era pot");
-					log::error!(
-						target: crate::LOG_TARGET,
+					log!(
+						error,
 						"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
-						era, pot_type, e
+						era,
+						kind,
+						e
 					);
 				},
 			}
@@ -173,14 +178,14 @@ impl<T: Config> EraRewardManager<T> {
 
 	/// Checks if an era has a staker rewards pot.
 	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
-		let pot = T::EraPots::era_pot_account(era, EraPotType::StakerRewards);
+		let pot = T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 		frame_system::Pallet::<T>::providers(&pot) > 0
 	}
 
 	/// Cleans up all pot accounts for a given era.
 	pub(crate) fn cleanup_era(era: EraIndex) {
-		Self::destroy(era, EraPotType::StakerRewards);
-		Self::destroy(era, EraPotType::ValidatorSelfStake);
+		Self::destroy(era, RewardKind::StakerRewards);
+		Self::destroy(era, RewardKind::ValidatorSelfStake);
 	}
 }
 
@@ -207,14 +212,17 @@ where
 		validator_total_reward: BalanceOf<T>,
 		validator_commission: Perbill,
 		validator_own_stake: BalanceOf<T>,
-		total_stake: BalanceOf<T>,
+		total_exposure: BalanceOf<T>,
 	) -> sp_staking::StakerRewardResult<BalanceOf<T>> {
 		let validator_commission_payout = validator_commission.mul_floor(validator_total_reward);
 		let leftover = validator_total_reward.saturating_sub(validator_commission_payout);
-		let validator_exposure_part = Perbill::from_rational(validator_own_stake, total_stake);
+		let validator_exposure_part = Perbill::from_rational(validator_own_stake, total_exposure);
 		let validator_staking_payout = validator_exposure_part.mul_floor(leftover);
 		let validator_payout = validator_staking_payout.saturating_add(validator_commission_payout);
 		let nominator_payout = leftover.saturating_sub(validator_staking_payout);
+
+		// Validator and nominator payout is exactly same as total reward.
+		debug_assert_eq!(validator_payout + nominator_payout, validator_total_reward);
 
 		sp_staking::StakerRewardResult { validator_payout, nominator_payout }
 	}
@@ -358,7 +366,7 @@ mod tests {
 
 	#[test]
 	fn weight_slope_factor_zero_plateaus_at_optimum() {
-		// k=0 → immediate plateau at optimum (no growth beyond T).
+		// k=0 -> immediate plateau at optimum (no growth beyond T).
 		let at_optimum = calculate_weight(100_000, 100_000, 500_000, Perbill::zero());
 		let above_optimum = calculate_weight(300_000, 100_000, 500_000, Perbill::zero());
 		assert_eq!(at_optimum, above_optimum);
@@ -366,21 +374,21 @@ mod tests {
 
 	#[test]
 	fn weight_slope_factor_one_no_discouragement() {
-		// k=1 → no discouragement above T (same curve as below T).
+		// k=1 -> no discouragement above T (same curve as below T).
 		let at_optimum = calculate_weight(100_000, 100_000, 500_000, Perbill::one());
 		let at_cap = calculate_weight(500_000, 100_000, 500_000, Perbill::one());
-		// √100_000 ≈ 316, √500_000 ≈ 707
+		// sqrt(100_000) = 316, sqrt(500_000) = 707
 		assert_eq!(at_optimum, 316);
 		assert_eq!(at_cap, 707);
 	}
 
 	#[test]
 	fn weight_optimum_equals_cap() {
-		// When T == C, the middle segment vanishes — plateau immediately at T.
+		// When T == C, the middle segment vanishes -- plateau immediately at T.
 		let slope = Perbill::from_rational(1u32, 2u32);
 		let at_boundary = calculate_weight(100_000, 100_000, 100_000, slope);
 		let above = calculate_weight(200_000, 100_000, 100_000, slope);
 		assert_eq!(at_boundary, above);
-		assert_eq!(at_boundary, 316); // √100_000
+		assert_eq!(at_boundary, 316); // sqrt(100_000)
 	}
 }
