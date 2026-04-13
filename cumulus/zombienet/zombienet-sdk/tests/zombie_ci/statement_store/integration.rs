@@ -415,9 +415,10 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;
 
-	// Wait for at least 5 parachain blocks before dave joins.
-	// spawn_network_sudo already confirmed height >= 1; we wait for more so dave's sync
-	// window is wide enough for charlie's 100ms initial-sync burst to fire and be dropped
+	// Wait for at least 10 parachain blocks before dave joins.
+	// More blocks means the relay chain has also advanced further, giving dave a wider sync
+	// window and making it reliably enter major-sync mode for long enough that the statement
+	// handler's 100ms poll observes the true → false transition
 	let charlie_height = {
 		let h = Cell::new(0.0f64);
 		charlie
@@ -425,12 +426,12 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 				"block_height{status=\"best\"}",
 				|v| {
 					h.set(v);
-					v >= 5.0
+					v >= 10.0
 				},
-				120u64,
+				180u64,
 			)
 			.await
-			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 5 within 120s"))?;
+			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 180s"))?;
 		h.get()
 	};
 	info!("Charlie is at block height {:.0} before dave joins", charlie_height);
@@ -478,14 +479,6 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	let sync_end = dave_join_time.elapsed();
 	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
 
-	// Verify the reconnect mechanism fired — this confirms dave was in major sync and the fix
-	// triggered recovery
-	let dave_logs = dave.logs().await?;
-	assert!(
-		dave_logs.lines().any(|l| l.contains("Major sync complete, reconnecting")),
-		"reconnect_statement_peers did not fire — dave may not have entered major sync"
-	);
-
 	// Subscribe after sync — any statements arriving are exclusively due to reconnect_statement_peers
 	// triggering a fresh initial sync from charlie. The subscription also returns statements already
 	// in dave's store as an initial batch, so we capture all recovered statements regardless of
@@ -500,5 +493,16 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 		STATEMENT_COUNT,
 		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64()
 	);
+
+	// By the time all statements have arrived, reconnect_statement_peers must have already fired
+	// and been logged (it is what triggered the initial sync from charlie that delivered them).
+	// Checking logs here — after statement delivery — avoids the race where the handler hasn't
+	// polled yet at the moment we read logs
+	let dave_logs = dave.logs().await?;
+	assert!(
+		dave_logs.lines().any(|l| l.contains("Major sync complete, reconnecting")),
+		"reconnect_statement_peers did not fire — dave may not have entered major sync"
+	);
+
 	Ok(())
 }
