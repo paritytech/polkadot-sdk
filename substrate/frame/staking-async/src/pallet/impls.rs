@@ -453,6 +453,7 @@ impl<T: Config> Pallet<T> {
 				}
 
 				Self::payout_legacy_mint(
+					era,
 					&stash,
 					validator_staker_payout_for_page,
 					&exposure,
@@ -506,6 +507,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Legacy mint-based payout for pre-upgrade eras.
 	fn payout_legacy_mint(
+		era: EraIndex,
 		stash: &T::AccountId,
 		validator_payout: BalanceOf<T>,
 		exposure: &crate::PagedExposure<T::AccountId, BalanceOf<T>>,
@@ -515,7 +517,7 @@ impl<T: Config> Pallet<T> {
 		let mut nominator_payout_count: u32 = 0;
 		let mut total_imbalance = PositiveImbalanceOf::<T>::zero();
 
-		if let Some((imbalance, dest)) = Self::make_payout_legacy(stash, validator_payout) {
+		if let Some((imbalance, dest)) = Self::make_payout_legacy(era, stash, validator_payout) {
 			Self::deposit_event(Event::<T>::Rewarded {
 				stash: stash.clone(),
 				dest,
@@ -532,7 +534,7 @@ impl<T: Config> Pallet<T> {
 				nominator_exposure_part.mul_floor(total_nominator_payout);
 
 			if let Some((imbalance, dest)) =
-				Self::make_payout_legacy(&nominator.who, nominator_reward)
+				Self::make_payout_legacy(era, &nominator.who, nominator_reward)
 			{
 				nominator_payout_count.saturating_inc();
 				Self::deposit_event(Event::<T>::Rewarded {
@@ -622,13 +624,24 @@ impl<T: Config> Pallet<T> {
 
 	/// Legacy: make a payment to a staker by minting new tokens.
 	fn make_payout_legacy(
+		era: EraIndex,
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(PositiveImbalanceOf<T>, RewardDestination<T::AccountId>)> {
 		if amount.is_zero() {
 			return None;
 		}
-		let dest = Self::payee(StakingAccount::Stash(stash.clone()))?;
+		let dest = match Self::payee(StakingAccount::Stash(stash.clone())) {
+			Some(d) => d,
+			None => {
+				defensive!("Staker missing payee");
+				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
+					era,
+					stash: stash.clone(),
+				}));
+				return None;
+			},
+		};
 
 		let maybe_imbalance = match dest {
 			RewardDestination::Stash => asset::mint_into_existing::<T>(stash, amount),
