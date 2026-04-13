@@ -84,16 +84,25 @@ fn cache_key(method: &str, canonical_params: &str) -> u64 {
 
 /// A cached RPC response. Stores the JSON `"result"` field value (not the full envelope).
 struct CachedResponse {
+	/// Method name used to verify cache key integrity on hit.
+	method: String,
+	/// Canonical params used to verify cache key integrity on hit.
+	canonical_params: String,
 	/// The raw JSON of the `"result"` field from the JSON-RPC response.
 	result_json: String,
-	/// Byte size of `result_json` for tracking purposes.
+	/// Byte size estimate for the limiter (result_json + method + params).
 	byte_size: usize,
 }
 
 impl CachedResponse {
-	fn new(result_json: String) -> Self {
-		let byte_size = result_json.len();
-		Self { result_json, byte_size }
+	fn new(method: String, canonical_params: String, result_json: String) -> Self {
+		let byte_size = result_json.len() + method.len() + canonical_params.len();
+		Self { method, canonical_params, result_json, byte_size }
+	}
+
+	/// Returns `true` if this entry matches the given method and params.
+	fn matches(&self, method: &str, canonical_params: &str) -> bool {
+		self.method == method && self.canonical_params == canonical_params
 	}
 }
 
@@ -346,18 +355,20 @@ where
 		{
 			let mut cache = self.cache.lock();
 			if let Some(cached) = cache.get(&key) {
-				if let Some(rp) = response_from_cache(req.id(), &cached.result_json) {
-					if let Some(ref metrics) = self.metrics {
-						metrics.on_hit(method);
+				if cached.matches(method, &canonical_params) {
+					if let Some(rp) = response_from_cache(req.id(), &cached.result_json) {
+						if let Some(ref metrics) = self.metrics {
+							metrics.on_hit(method);
+						}
+						log::trace!(
+							target: "rpc_cache",
+							"Cache hit for {} (key={:#x}, cached_size={}B)",
+							method,
+							key,
+							cached.byte_size,
+						);
+						return async move { rp }.boxed();
 					}
-					log::trace!(
-						target: "rpc_cache",
-						"Cache hit for {} (key={:#x}, cached_size={}B)",
-						method,
-						key,
-						cached.byte_size,
-					);
-					return async move { rp }.boxed();
 				}
 			}
 		}
@@ -374,7 +385,8 @@ where
 			// Only cache successful responses.
 			if rp.is_success() {
 				if let Some(result_json) = extract_result_field(rp.as_result()) {
-					let cached = CachedResponse::new(result_json);
+					let cached =
+						CachedResponse::new(method_name.clone(), canonical_params, result_json);
 					let byte_size = cached.byte_size;
 					let mut cache_guard = cache.lock();
 					cache_guard.insert(key, cached);
@@ -407,6 +419,11 @@ where
 mod tests {
 	use super::*;
 	use tower::Layer;
+
+	/// Helper to build a `CachedResponse` with empty method/params for limiter tests.
+	fn cached_response(result_json: String) -> CachedResponse {
+		CachedResponse::new(String::new(), String::new(), result_json)
+	}
 
 	// --- is_cacheable tests ---
 
@@ -525,8 +542,8 @@ mod tests {
 		let mut cache = LruMap::new(limiter);
 
 		// Insert entries that exceed the limit.
-		cache.insert(1, CachedResponse::new("a".repeat(60)));
-		cache.insert(2, CachedResponse::new("b".repeat(60)));
+		cache.insert(1, cached_response("a".repeat(60)));
+		cache.insert(2, cached_response("b".repeat(60)));
 
 		// First entry should have been evicted.
 		assert!(cache.get(&1).is_none());
@@ -538,8 +555,8 @@ mod tests {
 		let limiter = ByteSizeLimiter::new(1000, None);
 		let mut cache = LruMap::new(limiter);
 
-		cache.insert(1, CachedResponse::new("a".repeat(100)));
-		cache.insert(2, CachedResponse::new("b".repeat(200)));
+		cache.insert(1, cached_response("a".repeat(100)));
+		cache.insert(2, cached_response("b".repeat(200)));
 
 		assert_eq!(cache.limiter().current_bytes, 300);
 	}
@@ -549,7 +566,7 @@ mod tests {
 		let limiter = ByteSizeLimiter::new(0, None);
 		let mut cache = LruMap::new(limiter);
 
-		cache.insert(1, CachedResponse::new("data".to_string()));
+		cache.insert(1, cached_response("data".to_string()));
 		assert!(cache.get(&1).is_none());
 	}
 
