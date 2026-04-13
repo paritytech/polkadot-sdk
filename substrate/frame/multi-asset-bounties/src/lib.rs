@@ -98,7 +98,7 @@ use frame_system::pallet_prelude::{
 };
 use scale_info::TypeInfo;
 use sp_runtime::{
-	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert, Zero},
+	traits::{AccountIdConversion, BadOrigin, Convert, Saturating, StaticLookup, TryConvert},
 	Permill, RuntimeDebug,
 };
 
@@ -913,36 +913,40 @@ pub mod pallet {
 					);
 				},
 				BountyStatus::Active { ref curator, .. } => {
-					let maybe_curator_deposit =
-						CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id);
 					// The child-/bounty is active.
 					match maybe_sender {
 						// If the `RejectOrigin` is calling this function, burn the curator deposit.
 						None => {
-							if let Some(curator_deposit) = maybe_curator_deposit {
+							if let Some(curator_deposit) =
+								CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
+							{
 								T::Consideration::burn(curator_deposit, curator);
 							}
 							// Continue to change bounty status below...
 						},
 						Some(sender) if sender == *curator => {
-							if let Some(curator_deposit) = maybe_curator_deposit {
+							if let Some(curator_deposit) =
+								CuratorDeposit::<T, I>::get(parent_bounty_id, child_bounty_id)
+							{
 								// This is the curator, willingly giving up their role. Free their
 								// deposit.
 								T::Consideration::drop(curator_deposit, curator)?;
+								CuratorDeposit::<T, I>::remove(parent_bounty_id, child_bounty_id);
 							}
 							// Continue to change bounty status below...
 						},
 						Some(sender) => {
-							if let Some(parent_curator) = parent_curator {
-								// If the parent curator is unassigning a child curator, that is not
-								// itself, burn the child curator deposit.
-								if sender == parent_curator && *curator != parent_curator {
-									if let Some(curator_deposit) = maybe_curator_deposit {
-										T::Consideration::burn(curator_deposit, curator);
-									}
-								} else {
-									return Err(BadOrigin.into());
-								}
+							let parent_curator = parent_curator.ok_or(BadOrigin)?;
+							ensure!(
+								sender == parent_curator && *curator != parent_curator,
+								BadOrigin
+							);
+							// Parent curator is unassigning the child curator. Burn the curator
+							// deposit.
+							if let Some(curator_deposit) =
+								CuratorDeposit::<T, I>::take(parent_bounty_id, child_bounty_id)
+							{
+								T::Consideration::burn(curator_deposit, curator);
 							}
 						},
 					}
@@ -1551,7 +1555,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 			None => {
 				// Get total child bounties value, and subtract it from the parent
 				// value.
-				let children_value = ChildBountiesValuePerParent::<T, I>::take(parent_bounty_id);
+				let children_value = ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id);
 				debug_assert!(children_value <= value);
 				let payout = value.saturating_sub(children_value);
 				payout
@@ -1571,7 +1575,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				Bounties::<T, I>::remove(parent_bounty_id);
 				ChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
 				TotalChildBountiesPerParent::<T, I>::remove(parent_bounty_id);
-				debug_assert!(ChildBountiesValuePerParent::<T, I>::get(parent_bounty_id).is_zero());
+				ChildBountiesValuePerParent::<T, I>::remove(parent_bounty_id);
 			},
 			Some(child_bounty_id) => {
 				ChildBounties::<T, I>::remove(parent_bounty_id, child_bounty_id);
