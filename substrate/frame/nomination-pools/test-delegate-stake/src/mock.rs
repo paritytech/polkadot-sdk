@@ -128,8 +128,7 @@ impl pallet_staking_async::Config for Runtime {
 	type EraPayout = TestEraPayout;
 	type DisableMinting = ConstBool<false>;
 	type BondingDuration = BondingDuration;
-	type GeneralPots = pallet_staking_async::SequentialTest;
-	type EraPots = pallet_staking_async::SequentialTest;
+	type RewardPots = pallet_staking_async::SequentialTest;
 	type ElectionProvider =
 		frame_election_provider_support::NoElection<(AccountId, BlockNumber, Staking, (), ())>;
 	type VoterList = VoterList;
