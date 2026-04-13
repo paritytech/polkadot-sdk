@@ -16,3 +16,7 @@ doc:
 crates:
   - name: snowbridge-verification-primitives
     bump: patch
+  - name: snowbridge-pallet-inbound-queue-v2
+    bump: none
+  - name: bridge-hub-westend-integration-tests
+    bump: none
