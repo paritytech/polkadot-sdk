@@ -370,18 +370,12 @@ fn create_pool_works() {
 		}
 		.abi_encode();
 
-		let result = bare_call(creator, data);
+		let result = bare_call(creator, data.clone());
 		let return_data = result.result.expect("create_pool must succeed");
 		assert!(!return_data.did_revert(), "create_pool must not revert");
 
 		// Creating the same pool again should fail.
-		let data2 = IAssetConversion::createPoolCall {
-			asset1: encode_native().into(),
-			asset2: encode_asset(1).into(),
-		}
-		.abi_encode();
-
-		let result2 = bare_call(creator, data2);
+		let result2 = bare_call(creator, data);
 		assert!(did_fail(&result2), "creating duplicate pool must fail");
 	});
 }
@@ -596,8 +590,9 @@ fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
 	});
 }
 
-#[test]
-fn quote_allowed_in_staticcall() {
+#[test_case(encode_static_call, true ; "staticcall_allowed")]
+#[test_case(encode_delegate_call, false ; "delegatecall_rejected")]
+fn quote_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
 	new_test_ext().execute_with(|| {
 		let provider = 1u64;
 		setup_pool(provider, 10_000, 10_000);
@@ -612,29 +607,8 @@ fn quote_allowed_in_staticcall() {
 		}
 		.abi_encode();
 
-		let (success, _) = call_fixture(caller_contract, encode_static_call(quote_data));
-		assert!(success, "quote must succeed in read-only (STATICCALL) context");
-	});
-}
-
-#[test]
-fn quote_rejected_in_delegatecall() {
-	new_test_ext().execute_with(|| {
-		let provider = 1u64;
-		setup_pool(provider, 10_000, 10_000);
-
-		let caller_contract = deploy_caller();
-
-		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
-			asset1: encode_asset(1).into(),
-			asset2: encode_native().into(),
-			amount: U256::from(100),
-			includeFee: true,
-		}
-		.abi_encode();
-
-		let (success, _) = call_fixture(caller_contract, encode_delegate_call(quote_data));
-		assert!(!success, "quote must fail via DELEGATECALL");
+		let (success, _) = call_fixture(caller_contract, encode(quote_data));
+		assert_eq!(success, expect_success);
 	});
 }
 
@@ -655,78 +629,27 @@ fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
 	});
 }
 
-/// The delegatecall guard rejects all calls via delegatecall.
+/// The delegatecall guard rejects all calls via delegatecall and returns empty output.
 #[test]
 fn delegatecall_is_rejected() {
 	new_test_ext().execute_with(|| {
-		let deployer = 123456789u64;
-		use frame_support::traits::{fungible::Mutate, Currency};
-		pallet_balances::Pallet::<Test>::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
+		let caller_contract = deploy_caller();
 
-		// Initialize pallet-revive's internal account (needed for storage deposits).
-		let revive_account = pallet_revive::Pallet::<Test>::account_id();
-		pallet_balances::Pallet::<Test>::mint_into(
-			&revive_account,
-			<Test as pallet_balances::Config>::ExistentialDeposit::get(),
-		)
-		.unwrap();
-
-		let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
-			"Caller",
-			pallet_revive_fixtures::FixtureType::Solc,
-		)
-		.expect("Caller fixture must be compiled");
-		let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
-			RuntimeOrigin::signed(deployer),
-			0u64.into(),
-			TransactionLimits::WeightAndDeposit {
-				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
-			},
-			Code::Upload(init_code),
-			vec![],
-			None,
-			&ExecConfig::new_substrate_tx(),
-		)
-		.result
-		.expect("Caller deployment must succeed")
-		.addr;
-
-		let calldata = ICaller::delegateCall {
-			callee: alloy::primitives::Address::from(precompile_address().0),
-			data: IAssetConversion::quoteExactTokensForTokensCall {
-				asset1: encode_native().into(),
-				asset2: encode_asset(1).into(),
-				amount: U256::from(100),
-				includeFee: true,
-			}
-			.abi_encode()
-			.into(),
-			gas: u64::MAX,
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount: U256::from(100),
+			includeFee: true,
 		}
 		.abi_encode();
 
-		let result = pallet_revive::Pallet::<Test>::bare_call(
-			RuntimeOrigin::signed(deployer),
-			caller_addr,
-			0u64.into(),
-			TransactionLimits::WeightAndDeposit {
-				weight_limit: Weight::MAX,
-				deposit_limit: u64::MAX,
-			},
-			calldata,
-			&ExecConfig::new_substrate_tx(),
-		)
-		.result
-		.expect("outer call must succeed");
-
-		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
-			.expect("return must decode as (bool, bytes)");
-		assert!(!ret.success, "DELEGATECALL to asset-conversion precompile must be rejected");
+		let (success, output) =
+			call_fixture(caller_contract, encode_delegate_call(quote_data));
+		assert!(!success, "DELEGATECALL to asset-conversion precompile must be rejected");
 		assert!(
-			ret.output.is_empty(),
+			output.is_empty(),
 			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
-			ret.output.len(),
+			output.len(),
 		);
 	});
 }
