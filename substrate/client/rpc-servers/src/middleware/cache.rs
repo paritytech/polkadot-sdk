@@ -57,6 +57,11 @@ fn is_cacheable(method: &str) -> bool {
 	method.starts_with("state_") || method.starts_with("childstate_")
 }
 
+/// Returns `true` if `s` looks like a 32-byte hex-encoded block hash (`0x` + 64 hex chars).
+fn is_block_hash(s: &str) -> bool {
+	s.len() == 66 && s.starts_with("0x") && s[2..].bytes().all(|b| b.is_ascii_hexdigit())
+}
+
 /// Parse params and check whether the last element is a block hash.
 ///
 /// Returns the canonically serialized params string (whitespace-normalized) on success,
@@ -67,7 +72,7 @@ fn parse_and_check_params(params: &str) -> Option<String> {
 	let parsed: serde_json::Value = serde_json::from_str(params).ok()?;
 	let arr = parsed.as_array().filter(|a| !a.is_empty())?;
 	match arr.last().and_then(|v| v.as_str()) {
-		Some(s) if s.len() == 66 && s.starts_with("0x") => {},
+		Some(s) if is_block_hash(s) => {},
 		_ => return None,
 	}
 	// Re-serialize to get a canonical (whitespace-normalized) form for hashing.
