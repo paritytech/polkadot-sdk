@@ -120,11 +120,11 @@ fn extract_result_field(response_json: &str) -> Option<String> {
 
 /// Reconstruct a [`MethodResponse`] from a cached result payload and a request ID.
 ///
-/// Parses the cached JSON fragment into a `serde_json::Value` and re-serializes it into
-/// a proper JSON-RPC response with the given request ID.
+/// Uses `RawValue` to avoid a parse-then-reserialize round-trip — the cached JSON
+/// fragment is injected directly into the response envelope.
 fn response_from_cache(id: Id<'_>, result_json: &str) -> Option<MethodResponse> {
-	let value: serde_json::Value = serde_json::from_str(result_json).ok()?;
-	Some(MethodResponse::response(id, ResponsePayload::success(value), usize::MAX))
+	let raw: Box<serde_json::value::RawValue> = serde_json::from_str(result_json).ok()?;
+	Some(MethodResponse::response(id, ResponsePayload::success_borrowed(&raw), usize::MAX))
 }
 
 // --- Byte-size limiter for schnellru ---
