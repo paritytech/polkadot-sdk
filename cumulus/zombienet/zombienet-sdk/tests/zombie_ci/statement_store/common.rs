@@ -326,7 +326,7 @@ async fn spawn_network_inner(
 	info!("Waiting for parachain to produce blocks...");
 	let first_collator = collators[0];
 	let node = network.get_node(first_collator)?;
-	node.wait_metric_with_timeout("block_height{status=\"best\"}", |height| height >= 1.0, 300u64)
+	node.wait_metric_with_timeout(crate::utils::BEST_BLOCK_METRIC, |height| height >= 1.0, 300u64)
 		.await?;
 	info!("Parachain is producing blocks");
 
