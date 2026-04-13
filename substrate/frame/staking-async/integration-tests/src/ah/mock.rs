@@ -23,9 +23,12 @@ use frame_election_provider_support::{
 };
 use frame_support::{
 	sp_runtime::testing::TestXt,
+	traits::fungible::Mutate,
 	weights::{Weight, WeightMeter},
 };
 use pallet_election_provider_multi_block as multi_block;
+use pallet_staking_async::PotAccountProvider;
+use sp_staking::budget::BudgetRecipient;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
 use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
 use pallet_staking_async_rc_client::{
@@ -894,12 +897,37 @@ impl ExtBuilder {
 		let mut state: TestState = t.into();
 
 		state.execute_with(|| {
+			if !UseLegacyEraPayout::get() {
+				setup_dap();
+			}
+
 			// initialises events
 			roll_next();
 		});
 
 		state
 	}
+}
+
+/// Set up DAP infrastructure: budget allocation, timestamp, fund pots with ED.
+pub(crate) fn setup_dap() {
+	let staker_key =
+		<pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest> as
+			BudgetRecipient<AccountId>>::budget_key();
+	let buffer_key =
+		<pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
+	let mut budget = pallet_dap::BudgetAllocationMap::new();
+	budget.try_insert(staker_key, Perbill::from_percent(50)).unwrap();
+	budget.try_insert(buffer_key, Perbill::from_percent(50)).unwrap();
+	pallet_dap::BudgetAllocation::<Runtime>::put(budget);
+
+	pallet_dap::LastIssuanceTimestamp::<Runtime>::put(MockTime::get());
+
+	// Fund general staker pot with ED to keep it alive.
+	let general_pot = pallet_staking_async::SequentialTest::pot_account(
+		pallet_staking_async::RewardPot::General(pallet_staking_async::RewardKind::StakerRewards),
+	);
+	Balances::mint_into(&general_pot, 1).unwrap();
 }
 
 parameter_types! {

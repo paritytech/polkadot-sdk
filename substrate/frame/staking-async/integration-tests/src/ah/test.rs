@@ -666,21 +666,21 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 5,
-				page: 0
-			},]
+				page: 0,
+			}]
 		);
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 3,
-				page: 0
+				page: 0,
 			}]
 		);
 
@@ -721,12 +721,9 @@ fn on_offence_current_era_instant_apply() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			// Record initial state for DAP verification
 			let dap_buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
 				AccountId,
 			>>::pot_account();
-			let initial_dap_balance = Balances::free_balance(&dap_buffer);
-			let initial_total_issuance = Balances::total_issuance();
 
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
@@ -766,43 +763,48 @@ fn on_offence_current_era_instant_apply() {
 				]
 			);
 
+			// Capture state before slash application (after DAP drips have occurred).
+			let initial_dap_balance = Balances::free_balance(&dap_buffer);
+			let initial_total_issuance = Balances::total_issuance();
+
 			// 2 blocks to process these offences, and they are applied on the spot.
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 5,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 5, amount: 50 },
-					staking_async::Event::Slashed { staker: 110, amount: 50 }
+					StakingEvent::Slashed { staker: 5, amount: 50 },
+					StakingEvent::Slashed { staker: 110, amount: 50 },
 				]
 			);
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 3, amount: 50 }
+					StakingEvent::Slashed { staker: 3, amount: 50 },
 				]
 			);
 
-			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer
+			// DAP verification: each block drips 12_000ms of inflation. Budget is 50/50,
+			// so buffer gets 6_000 per block. Two slash-processing blocks = 12_000 drip.
+			// Plus 150 from slashes (50 + 50 + 50).
 			let final_dap_balance = Balances::free_balance(&dap_buffer);
-			let final_total_issuance = Balances::total_issuance();
+			assert_eq!(final_dap_balance - initial_dap_balance, 12_000 + 150);
 
-			// DAP buffer should have received all slashed funds
-			assert_eq!(final_dap_balance, initial_dap_balance + 150);
-			// Total issuance should be preserved (funds not burned)
-			assert_eq!(final_total_issuance, initial_total_issuance);
+			// Slashing redistributes (no burn), DAP mints 2 * 12_000 = 24_000.
+			let final_total_issuance = Balances::total_issuance();
+			assert_eq!(final_total_issuance, initial_total_issuance + 24_000);
 		});
 }
 
@@ -912,12 +914,12 @@ fn on_offence_previous_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 2,
 				slash_era: 4,
 				offender: 3,
-				page: 0
-			},]
+				page: 0,
+			}]
 		);
 
 		// roll to the next era.
@@ -987,13 +989,13 @@ fn on_offence_previous_era_instant_apply() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 3, amount: 50 }
+					StakingEvent::Slashed { staker: 3, amount: 50 },
 				]
 			);
 
