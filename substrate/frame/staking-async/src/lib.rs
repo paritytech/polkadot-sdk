@@ -36,7 +36,7 @@
 //! ### Non-minting mode (`DisableMinting = true`)
 //!
 //! Staking does **not** mint tokens. It expects an external source (e.g. `pallet-dap`) to
-//! fund the general staker reward pot ([`GeneralPotAccountProvider`]). At each era boundary,
+//! fund the general staker reward pot ([`PotAccountProvider`]). At each era boundary,
 //! staking snapshots the accumulated balance into an era-specific pot via
 //! [`EraRewardManager`](reward::EraRewardManager). Payouts transfer from the era pot.
 //!
