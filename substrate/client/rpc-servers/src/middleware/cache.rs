@@ -575,6 +575,23 @@ mod tests {
 		assert!(cache.get(&1).is_none());
 	}
 
+	#[test]
+	fn single_entry_larger_than_budget_evicts_immediately() {
+		let limiter = ByteSizeLimiter::new(50, None);
+		let mut cache = LruMap::new(limiter);
+
+		// Insert a small entry first.
+		cache.insert(1, cached_response("small".to_string()));
+		assert!(cache.get(&1).is_some());
+
+		// Insert an entry larger than the entire budget — should evict everything
+		// (including itself) to satisfy the byte limit.
+		cache.insert(2, cached_response("x".repeat(100)));
+		assert!(cache.get(&1).is_none());
+		assert!(cache.get(&2).is_none());
+		assert_eq!(cache.limiter().current_bytes, 0);
+	}
+
 	// --- Cache key ---
 
 	#[test]
