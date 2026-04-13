@@ -471,10 +471,10 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	let sync_end = dave_join_time.elapsed();
 	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
 
-	// Subscribe after sync — any statements arriving are exclusively due to reconnect_statement_peers
-	// triggering a fresh initial sync from charlie. The subscription also returns statements already
-	// in dave's store as an initial batch, so we capture all recovered statements regardless of
-	// whether they arrive before or after the subscribe call
+	// Subscribe after sync — any statements arriving are exclusively due to
+	// reconnect_statement_peers triggering a fresh initial sync from charlie. The subscription
+	// also returns statements already in dave's store as an initial batch, so we capture all
+	// recovered statements regardless of whether they arrive before or after the subscribe call
 	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
 	let received = expect_statements_unordered(&mut subscription, STATEMENT_COUNT, 30).await?;
 	let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
