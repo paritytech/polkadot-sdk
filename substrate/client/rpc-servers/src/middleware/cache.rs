@@ -163,10 +163,10 @@ impl schnellru::Limiter<u64, CachedResponse> for ByteSizeLimiter {
 		_old_key: &mut u64,
 		_new_key: u64,
 		old_value: &mut CachedResponse,
-		_new_value: &mut CachedResponse,
+		new_value: &mut CachedResponse,
 	) -> bool {
 		self.current_bytes = self.current_bytes.saturating_sub(old_value.byte_size);
-		self.current_bytes = self.current_bytes.saturating_add(_new_value.byte_size);
+		self.current_bytes = self.current_bytes.saturating_add(new_value.byte_size);
 		if let Some(ref metrics) = self.metrics {
 			metrics.size_bytes.set(self.current_bytes as u64);
 		}
