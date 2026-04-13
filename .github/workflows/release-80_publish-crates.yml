@@ -62,8 +62,8 @@ jobs:
 
   set-image:
     needs: [ check-synchronization ]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
-    runs-on: ubuntu-latest
+    if: ${{ needs.check-synchronization.outputs.checks_passed == 'true' }}
+    runs-on: ubuntu-latest-m
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
@@ -343,6 +343,26 @@ jobs:
             parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
+
+      - name: Restore clean manifests after publish
+        if: inputs.resume_from != 'push'
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          echo "Restoring clean manifests with version bumps only..."
+          parity-publish restore
+
+          git add -A
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "Restore clean manifests after crates publish for $RELEASE_NAME"
+            echo "Clean manifests committed"
+          else
+            echo "No changes to restore"
+          fi
+
 
       - name: Generate token for paritytech/polkadot-sdk
         id: generate_write_token
