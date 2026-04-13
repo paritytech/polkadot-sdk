@@ -176,9 +176,8 @@ where
 		)
 		.build();
 
-		// We use the same recorder when executing all blocks. So, each node only contributes once
-		// to the total size of the storage proof. This recorder should only be used for
-		// `execute_block`.
+		// Each node only contributes once to the total size of the storage proof. So, we keep track
+		// of them inside `seen_nodes` to always return the correct proof size.
 		let mut execute_recorder = SizeOnlyRecorderProvider::with_seen_nodes(seen_nodes.clone());
 		// `backend` with the `execute_recorder`. As the `execute_recorder`, this should only be
 		// used for `execute_block`.
@@ -429,27 +428,22 @@ fn verify_blocks_form_chain<B: BlockT>(blocks: &[B::LazyBlock], parent_header: &
 			if let Some(ref info) = bundle_info {
 				assert_eq!(
 					info.index as usize, block_index,
-					"BlockBundleInfo index mismatch: expected {}, got {}",
-					block_index, info.index
+					"BlockBundleInfo index mismatch: expected {block_index}, got {}",
+					info.index
 				);
 
 				if block_index + 1 < num_blocks {
 					assert!(
-						!CumulusDigestItem::is_last_block_in_core(block.header().digest())
-							.unwrap_or(false),
-						"Intermediate block at index {} is marked as last block in core, \
+						!CumulusDigestItem::is_last_block_in_core(block.header().digest()).unwrap_or(false),
+						"Intermediate block at index {block_index} is marked as last block in core, \
 						but more blocks follow in the PoV",
-						block_index
 					);
-				}
-
-				if block_index + 1 == num_blocks &&
-					!CumulusDigestItem::is_last_block_in_core(block.header().digest())
-						.unwrap_or(true)
+				} else if !CumulusDigestItem::is_last_block_in_core(block.header().digest())
+					.unwrap_or(true)
 				{
 					panic!(
-					"Last block in PoV must include the digest that marks it as the last block in the core"
-				);
+						"Last block in PoV must include the digest that marks it as the last block in the core"
+					);
 				}
 			}
 
