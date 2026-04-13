@@ -241,7 +241,7 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type MessageExporter = (
 		XcmOverBridgeHubRococo,
-		crate::bridge_to_ethereum_config::SnowbridgeExporterV2,
+		crate::bridge_to_ethereum_config::SnowbridgeExporterV2WithXcmExecution,
 		crate::bridge_to_ethereum_config::SnowbridgeExporter,
 	);
 	type UniversalAliases = Nothing;

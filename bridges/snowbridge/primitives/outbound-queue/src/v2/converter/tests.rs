@@ -1,15 +1,20 @@
 use super::*;
 use crate::{
-	v2::{convert::XcmConverterError, Command, Message},
+	v2::{convert::XcmConverterError, Command, ContractCall, Message, SendMessage},
 	SendError, SendMessageFeeProvider,
 };
+use codec::Encode;
 use frame_support::{parameter_types, BoundedVec};
 use hex_literal::hex;
-use snowbridge_core::{AgentIdOf, TokenIdOf};
+use snowbridge_core::{AgentIdOf, ParaId, TokenId, TokenIdOf};
 use sp_core::H256;
+use sp_runtime::traits::MaybeConvert;
 use sp_std::default::Default;
-use xcm::{latest::WESTEND_GENESIS_HASH, prelude::SendError as XcmSendError};
-use xcm_executor::traits::ConvertLocation;
+use xcm::{
+	latest::WESTEND_GENESIS_HASH,
+	prelude::{SendError as XcmSendError, *},
+};
+use xcm_executor::traits::{ConvertLocation, ExportXcm};
 
 parameter_types! {
 	const MaxMessageSize: u32 = u32::MAX;
@@ -310,7 +315,7 @@ fn exporter_validate_with_max_target_fee_yields_unroutable() {
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
-	assert_eq!(result, Err(XcmSendError::NotApplicable));
+	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
 
 #[test]
@@ -337,7 +342,7 @@ fn exporter_validate_with_unparsable_xcm_yields_unroutable() {
 			AssetHubParaId,
 		>::validate(network, channel, &mut universal_source, &mut destination, &mut message);
 
-	assert_eq!(result, Err(XcmSendError::NotApplicable));
+	assert_eq!(result, Err(XcmSendError::Unroutable));
 }
 
 #[test]
@@ -535,6 +540,223 @@ fn xcm_converter_convert_success() {
 	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
 	let result = converter.convert();
 	assert!(result.is_ok());
+}
+
+#[test]
+fn xcm_converter_rejects_contract_call_zero_gas() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
+
+	let transact_call = ContractCall::V1 {
+		target: [3u8; 20],
+		calldata: vec![0x12, 0x34, 0x56, 0x78],
+		value: 0,
+		gas: 0,
+	};
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(assets.clone()),
+		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: None,
+			call: transact_call.encode().into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	assert_eq!(
+		convert::ensure_top_level_optional_contract_call_params_valid(message.inner()),
+		Err(XcmConverterError::InvalidContractCallParams)
+	);
+	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
+	assert_eq!(converter.convert().err(), Some(XcmConverterError::InvalidContractCallParams));
+}
+
+#[test]
+fn xcm_converter_rejects_contract_call_calldata_too_short_when_non_empty() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
+
+	let transact_call = ContractCall::V1 {
+		target: [3u8; 20],
+		calldata: vec![0xab, 0xcd, 0xef],
+		value: 0,
+		gas: 50_000,
+	};
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(assets.clone()),
+		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: None,
+			call: transact_call.encode().into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
+	assert_eq!(converter.convert().err(), Some(XcmConverterError::InvalidContractCallParams));
+}
+
+#[test]
+fn xcm_converter_rejects_contract_call_gas_below_intrinsic_tx_cost() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
+
+	let transact_call = ContractCall::V1 {
+		target: [3u8; 20],
+		calldata: vec![0x12, 0x34, 0x56, 0x78],
+		value: 0,
+		gas: 20_999,
+	};
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(assets.clone()),
+		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: None,
+			call: transact_call.encode().into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
+	assert_eq!(converter.convert().err(), Some(XcmConverterError::InvalidContractCallParams));
+}
+
+#[test]
+fn xcm_converter_accepts_contract_call_min_intrinsic_gas() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
+
+	let transact_call =
+		ContractCall::V1 { target: [2u8; 20], calldata: vec![], value: 0, gas: 21_000 };
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(assets.clone()),
+		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: None,
+			call: transact_call.encode().into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	assert!(convert::ensure_top_level_optional_contract_call_params_valid(message.inner()).is_ok());
+	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
+	assert!(converter.convert().is_ok());
+}
+
+#[test]
+fn xcm_converter_accepts_contract_call_empty_calldata_nonzero_gas() {
+	let network = BridgedNetwork::get();
+
+	let token_address: [u8; 20] = hex!("1000000000000000000000000000000000000000");
+	let beneficiary_address: [u8; 20] = hex!("2000000000000000000000000000000000000000");
+
+	let assets: Assets = vec![Asset {
+		id: AssetId([AccountKey20 { network: None, key: token_address }].into()),
+		fun: Fungible(1000),
+	}]
+	.into();
+	let filter: AssetFilter = assets.clone().into();
+
+	let fee_asset: Asset = Asset { id: AssetId(Here.into()), fun: Fungible(1000) }.into();
+
+	let transact_call =
+		ContractCall::V1 { target: [2u8; 20], calldata: vec![], value: 0, gas: 40_000 };
+
+	let message: Xcm<()> = vec![
+		WithdrawAsset(fee_asset.clone().into()),
+		PayFees { asset: fee_asset },
+		WithdrawAsset(assets.clone()),
+		AliasOrigin(Location::new(1, [GlobalConsensus(Polkadot), Parachain(1000)])),
+		DepositAsset {
+			assets: filter,
+			beneficiary: AccountKey20 { network: None, key: beneficiary_address }.into(),
+		},
+		Transact {
+			origin_kind: OriginKind::Xcm,
+			fallback_max_weight: None,
+			call: transact_call.encode().into(),
+		},
+		SetTopic([0; 32]),
+	]
+	.into();
+	let mut converter = XcmConverter::<MockTokenIdConvert, ()>::new(&message, network);
+	assert!(converter.convert().is_ok());
 }
 
 #[test]

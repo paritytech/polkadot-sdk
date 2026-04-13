@@ -1,0 +1,26 @@
+title: "feat(snowbridge): simulate Ethereum export blobs on Bridge Hub using XCM executor"
+doc:
+- audience: Runtime Dev
+  description: |-
+    Bridge Hub now performs an execution-aligned dry-run for Snowbridge v2 Ethereum export blobs
+    before enqueueing an outbound message. The export wrapper runs the inner blob under a dedicated
+    XCM executor configuration with a simulation-only transactor and weight trader, exercising the
+    same barrier, aliasing policy, and structural checks as real XCM execution while keeping the
+    simulation side-effect free.
+
+    Invalid or malformed contract-call parameters are rejected consistently and result in a Bridge
+    Hub asset trap (via `AssetTrap = PolkadotXcm`) rather than silently failing after a successful
+    simulation. Structural validation for the v2 outbound shape is centralized and reused by both
+    the converter and the simulation barrier.
+- audience: Runtime User
+  description: |-
+    When an Ethereum-bound XCM export contains an invalid beneficiary shape or an invalid/malformed
+    contract call, Bridge Hub will now trap the involved assets instead of attempting to enqueue an
+    outbound message.
+crates:
+- name: snowbridge-outbound-queue-primitives
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: patch
+- name: bridge-hub-westend-integration-tests
+  bump: none
