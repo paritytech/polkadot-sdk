@@ -356,6 +356,10 @@ where
 							),
 						};
 
+						// Middleware ordering (outermost → innermost):
+						// cache → rate_limit/metrics → logger → service
+						// Cache hits return before rate limiting — intentional:
+						// they are cheap and don't hit the backend.
 						let rpc_middleware = RpcServiceBuilder::new()
 							.rpc_logger(request_logger_limit)
 							.option_layer(middleware_layer.clone())

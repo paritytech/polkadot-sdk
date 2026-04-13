@@ -55,8 +55,8 @@ use schnellru::LruMap;
 /// and always take `Option<Hash>` as the **last** parameter.
 /// Subscription-related methods (`subscribe`/`unsubscribe`) are excluded.
 fn is_cacheable(method: &str) -> bool {
-	(method.starts_with("state_") || method.starts_with("childstate_"))
-		&& !method.contains("subscribe")
+	(method.starts_with("state_") || method.starts_with("childstate_")) &&
+		!method.contains("subscribe")
 }
 
 /// Returns `true` if `s` looks like a 32-byte hex-encoded block hash (`0x` + 64 hex chars).
@@ -98,6 +98,8 @@ struct CachedResponse {
 	/// The raw JSON of the `"result"` field from the JSON-RPC response.
 	result_json: String,
 	/// Byte size estimate for the limiter (result_json + method + params).
+	/// Note: this only counts string content, not struct/heap overhead (~100 bytes per entry),
+	/// so actual memory usage is higher for many small entries.
 	byte_size: usize,
 }
 
