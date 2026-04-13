@@ -405,7 +405,11 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let items = create_allowance_items(&[(0, StatementAllowance { max_count: 10, max_size: 1_000_000 })]);
+	const STATEMENT_COUNT: usize = 5;
+	let items = create_allowance_items(&[(
+		0,
+		StatementAllowance { max_count: STATEMENT_COUNT as u32, max_size: 1_000_000 },
+	)]);
 	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
 
 	let charlie = network.get_node("charlie")?;
@@ -433,12 +437,17 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 
 	let topic: Topic = [0u8; 32].into();
 	let keypair = get_keypair(0);
-	let statement = create_test_statement(&keypair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
-	let expected: Bytes = statement.encode().into();
+	let statements: Vec<_> = (0..STATEMENT_COUNT as u32)
+		.map(|seq| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq))
+		.collect();
+	let mut expected: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
+	expected.sort();
 
-	let result = submit_statement(&charlie_rpc, &statement).await?;
-	assert_eq!(result, SubmitResult::New, "Statement should be accepted by charlie");
-	info!("Statement submitted to charlie");
+	for (i, stmt) in statements.iter().enumerate() {
+		let result = submit_statement(&charlie_rpc, stmt).await?;
+		assert_eq!(result, SubmitResult::New);
+	}
+	info!("{} statements submitted to charlie", STATEMENT_COUNT);
 
 	// Add dave as a late-joining collator.
 	// Dave will enter major sync because the chain already advanced. During that window
@@ -469,23 +478,27 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	let sync_end = dave_join_time.elapsed();
 	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
 
-	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
-
-	let received = expect_one_statement(&mut subscription, 30).await?;
-	assert_eq!(received, expected, "Statement content mismatch");
-	info!(
-		"Statement arrived {:.1}s after dave finished syncing",
-		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64()
+	// Verify the reconnect mechanism fired — this confirms dave was in major sync and the fix
+	// triggered recovery
+	let dave_logs = dave.logs().await?;
+	assert!(
+		dave_logs.lines().any(|l| l.contains("Major sync complete, reconnecting")),
+		"reconnect_statement_peers did not fire — dave may not have entered major sync"
 	);
 
-	// Verify the reconnect mechanism fired — this confirms dave was in major sync and the fix
-	// triggered recovery. The prometheus metric is too transient (sync completes in < polling
-	// interval), so we check dave's logs for the info-level reconnect message instead
-	let dave_logs = dave.logs().await?;
-	let reconnect_fired = dave_logs
-		.lines()
-		.any(|l| l.contains("Major sync complete, reconnecting"));
-	assert!(reconnect_fired);
-
+	// Subscribe after sync — any statements arriving are exclusively due to reconnect_statement_peers
+	// triggering a fresh initial sync from charlie. The subscription also returns statements already
+	// in dave's store as an initial batch, so we capture all recovered statements regardless of
+	// whether they arrive before or after the subscribe call
+	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
+	let received = expect_statements_unordered(&mut subscription, STATEMENT_COUNT, 30).await?;
+	let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+	received_bytes.sort();
+	assert_eq!(received_bytes, expected);
+	info!(
+		"All {} statements arrived {:.1}s after dave finished syncing",
+		STATEMENT_COUNT,
+		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64()
+	);
 	Ok(())
 }
