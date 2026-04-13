@@ -2577,9 +2577,10 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Force a validator to have at least the minimum commission. This will not affect a
-		/// validator who already has a commission greater than or equal to the minimum. Any account
-		/// can call this.
+		/// Clamps a validator's commission to the `[MinCommission, MaxCommission]` range.
+		///
+		/// Named `force_apply_min_commission` for legacy reasons — it also enforces the
+		/// maximum. Any account can call this.
 		#[pallet::call_index(24)]
 		#[pallet::weight(T::WeightInfo::force_apply_min_commission())]
 		pub fn force_apply_min_commission(
