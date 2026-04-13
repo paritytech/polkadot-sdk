@@ -163,8 +163,9 @@ where
 
 	/// Returns the on chain runtime version.
 	///
-	/// Results are cached by code hash to avoid re-reading the full `:code` blob from the trie
-	/// on every call.
+	/// Results are cached by code hash to avoid constructing `OverlayedChanges`/`Ext` and
+	/// going through the executor's runtime cache (mutex, LRU lookup, instance pool
+	/// reservation) on repeat calls.
 	fn on_chain_runtime_version(
 		&self,
 		code: &RuntimeCode,
