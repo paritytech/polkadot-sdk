@@ -3108,6 +3108,11 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-sol-types",
+ "alloy-trie",
  "asset-hub-westend-runtime",
  "bp-asset-hub-westend",
  "bridge-hub-common",
@@ -3131,6 +3136,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-inbound-queue-v2",
@@ -23609,7 +23615,10 @@ dependencies = [
 name = "snowbridge-pallet-inbound-queue-v2"
 version = "0.2.0"
 dependencies = [
+ "alloy-consensus",
  "alloy-core",
+ "alloy-primitives",
+ "alloy-rlp",
  "bp-relayers",
  "frame-benchmarking",
  "frame-support",
@@ -23622,6 +23631,8 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
+ "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
  "sp-core 28.0.0",
