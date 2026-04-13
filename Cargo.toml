@@ -228,6 +228,7 @@ members = [
 	"polkadot/statement-table",
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
+	"polkadot/utils/remote-ext-tests/psm",
 	"polkadot/xcm",
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
@@ -416,6 +417,7 @@ members = [
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
+	"substrate/frame/psm/remote-tests",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
@@ -1030,6 +1032,7 @@ pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }
+pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
