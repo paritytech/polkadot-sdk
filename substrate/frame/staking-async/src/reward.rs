@@ -39,12 +39,12 @@ impl<T: Config> EraRewardManager<T> {
 	/// Creates an era pot account by adding a provider reference.
 	///
 	/// Should only be called in non-minting mode (`DisableMinting = true`).
-	pub(crate) fn create(era: EraIndex, pot_type: EraPotType) -> T::AccountId {
+	pub(crate) fn create(era: EraIndex, kind: RewardKind) -> T::AccountId {
 		debug_assert!(
 			T::DisableMinting::get(),
 			"Era pots should only be created when DisableMinting is true"
 		);
-		let pot_account = T::EraPots::era_pot_account(era, pot_type);
+		let pot_account = T::RewardPots::pot_account(RewardPot::Era(era, kind));
 		frame_system::Pallet::<T>::inc_providers(&pot_account);
 		pot_account
 	}
@@ -54,9 +54,10 @@ impl<T: Config> EraRewardManager<T> {
 	/// DAP drips inflation continuously into the general pot. At era boundary,
 	/// this transfers the accumulated balance (minus ED) into an era pot.
 	pub(crate) fn snapshot_era_rewards(era: EraIndex) -> BalanceOf<T> {
-		let staker_era_pot = Self::create(era, EraPotType::StakerRewards);
+		let staker_era_pot = Self::create(era, RewardKind::StakerRewards);
 
-		let general_staker_pot = T::GeneralPots::general_pot_account(GeneralPotType::StakerRewards);
+		let general_staker_pot =
+			T::RewardPots::pot_account(RewardPot::General(RewardKind::StakerRewards));
 
 		// Leave ED in the general pot to keep it alive.
 		let staker_balance = T::Currency::reducible_balance(
@@ -91,8 +92,8 @@ impl<T: Config> EraRewardManager<T> {
 	/// Destroys an era pot by withdrawing unclaimed rewards and removing the provider.
 	///
 	/// No-op if the pot was never created (e.g. in legacy minting mode).
-	pub(crate) fn destroy(era: EraIndex, pot_type: EraPotType) {
-		let pot_account = T::EraPots::era_pot_account(era, pot_type);
+	pub(crate) fn destroy(era: EraIndex, kind: RewardKind) {
+		let pot_account = T::RewardPots::pot_account(RewardPot::Era(era, kind));
 
 		// Skip if pot was never created (legacy mode doesn't create pots).
 		if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
@@ -116,7 +117,7 @@ impl<T: Config> EraRewardManager<T> {
 						"Withdrew {:?} unclaimed rewards from era {:?} {:?} pot",
 						remaining,
 						era,
-						pot_type
+						kind
 					);
 				},
 				Err(e) => {
@@ -125,7 +126,7 @@ impl<T: Config> EraRewardManager<T> {
 						error,
 						"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
 						era,
-						pot_type,
+						kind,
 						e
 					);
 				},
@@ -138,13 +139,13 @@ impl<T: Config> EraRewardManager<T> {
 
 	/// Checks if an era has a staker rewards pot.
 	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
-		let pot = T::EraPots::era_pot_account(era, EraPotType::StakerRewards);
+		let pot = T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 		frame_system::Pallet::<T>::providers(&pot) > 0
 	}
 
 	/// Cleans up pot accounts for a given era.
 	pub(crate) fn cleanup_era(era: EraIndex) {
-		Self::destroy(era, EraPotType::StakerRewards);
+		Self::destroy(era, RewardKind::StakerRewards);
 	}
 }
 

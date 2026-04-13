@@ -24,8 +24,9 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, EraPotAccountProvider, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf,
-	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, SnapshotStatus,
+	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, PotAccountProvider,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, RewardKind, RewardPot,
+	SnapshotStatus,
 	StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
@@ -588,7 +589,8 @@ impl<T: Config> Pallet<T> {
 
 		let payout_account = Self::payout_account_for_dest(stash, &dest)?;
 
-		let staker_rewards_pot = T::EraPots::era_pot_account(era, crate::EraPotType::StakerRewards);
+		let staker_rewards_pot =
+			T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 		if let Err(e) = T::Currency::transfer(
 			&staker_rewards_pot,
 			&payout_account,

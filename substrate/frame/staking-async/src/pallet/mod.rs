@@ -286,16 +286,12 @@ pub mod pallet {
 		#[pallet::no_default_bounds]
 		type UnclaimedRewardHandler: OnUnbalanced<NegativeImbalanceOf<Self>>;
 
-		/// Provider for general (non-era) reward pot accounts (non-minting mode only).
+		/// Provider for generating reward pot account IDs (non-minting mode only).
 		///
-		/// An external source funds these pots. At era boundaries, staking snapshots
-		/// the accumulated balance into era-specific pots.
+		/// Provides both general pots (funded by an external source like pallet-dap)
+		/// and era-specific pots (snapshotted at era boundaries).
 		#[pallet::no_default]
-		type GeneralPots: crate::GeneralPotAccountProvider<Self::AccountId>;
-
-		/// Provider for generating era pot account IDs (non-minting mode only).
-		#[pallet::no_default]
-		type EraPots: crate::EraPotAccountProvider<Self::AccountId>;
+		type RewardPots: crate::PotAccountProvider<Self::AccountId>;
 
 		/// Calculator for staker rewards.
 		///

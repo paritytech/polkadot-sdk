@@ -567,29 +567,39 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	}
 }
 
-/// Identifies the era pot account for staker rewards.
+/// Kind of reward managed by staking pots.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
-pub enum EraPotType {
-	/// Pot for staker rewards (nominators + validators).
+pub enum RewardKind {
+	/// Staker rewards (nominators + validators).
 	StakerRewards,
 }
 
-/// Trait for generating era pot account IDs.
-pub trait EraPotAccountProvider<AccountId> {
-	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId;
+/// Identifies a reward pot account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum RewardPot {
+	/// General pot: funded by an external source (e.g. pallet-dap).
+	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+	General(RewardKind),
+	/// Era-specific pot: snapshotted from the general pot at era boundaries.
+	Era(EraIndex, RewardKind),
+}
+
+/// Trait for generating reward pot account IDs.
+pub trait PotAccountProvider<AccountId> {
+	fn pot_account(pot: RewardPot) -> AccountId;
 }
 
 /// Seed-based pot account provider for production use.
 pub struct Seed<S>(core::marker::PhantomData<S>);
 
-impl<AccountId, S> EraPotAccountProvider<AccountId> for Seed<S>
+impl<AccountId, S> PotAccountProvider<AccountId> for Seed<S>
 where
 	AccountId: codec::FullCodec,
 	S: Get<frame_support::PalletId>,
 {
-	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
+	fn pot_account(pot: RewardPot) -> AccountId {
 		use sp_runtime::traits::AccountIdConversion;
-		S::get().into_sub_account_truncating((era, pot_type))
+		S::get().into_sub_account_truncating(pot)
 	}
 }
 
@@ -598,52 +608,15 @@ where
 pub struct SequentialTest;
 
 #[cfg(feature = "std")]
-impl<AccountId> EraPotAccountProvider<AccountId> for SequentialTest
+impl<AccountId> PotAccountProvider<AccountId> for SequentialTest
 where
 	AccountId: From<u64>,
 {
-	fn era_pot_account(era: EraIndex, pot_type: EraPotType) -> AccountId {
-		let pot_type_offset = match pot_type {
-			EraPotType::StakerRewards => 0,
-		};
-		AccountId::from(100_000 + (era as u64 * 10) + pot_type_offset)
-	}
-}
-
-/// Identifies the general (non-era-specific) reward pot.
-///
-/// DAP drips inflation into this account continuously. At era boundaries,
-/// staking snapshots the balance and transfers it to an era-specific pot.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
-pub enum GeneralPotType {
-	/// General pot for staker rewards.
-	StakerRewards,
-}
-
-/// Trait that provides general (non-era-specific) pot accounts.
-pub trait GeneralPotAccountProvider<AccountId> {
-	fn general_pot_account(pot_type: GeneralPotType) -> AccountId;
-}
-
-impl<AccountId, S> GeneralPotAccountProvider<AccountId> for Seed<S>
-where
-	AccountId: codec::FullCodec,
-	S: Get<frame_support::PalletId>,
-{
-	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
-		use sp_runtime::traits::AccountIdConversion;
-		S::get().into_sub_account_truncating(pot_type)
-	}
-}
-
-#[cfg(feature = "std")]
-impl<AccountId> GeneralPotAccountProvider<AccountId> for SequentialTest
-where
-	AccountId: From<u64>,
-{
-	fn general_pot_account(pot_type: GeneralPotType) -> AccountId {
-		match pot_type {
-			GeneralPotType::StakerRewards => AccountId::from(200_000u64),
+	fn pot_account(pot: RewardPot) -> AccountId {
+		match pot {
+			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
+			RewardPot::Era(era, RewardKind::StakerRewards) =>
+				AccountId::from(100_000 + (era as u64 * 10)),
 		}
 	}
 }
@@ -651,18 +624,18 @@ where
 /// Budget recipient for staker rewards.
 ///
 /// Exposes the general staker reward pot so DAP can drip inflation into it.
-pub struct StakerRewardRecipient<G>(core::marker::PhantomData<G>);
+pub struct StakerRewardRecipient<P>(core::marker::PhantomData<P>);
 
-impl<AccountId, G> sp_staking::budget::BudgetRecipient<AccountId> for StakerRewardRecipient<G>
+impl<AccountId, P> sp_staking::budget::BudgetRecipient<AccountId> for StakerRewardRecipient<P>
 where
-	G: GeneralPotAccountProvider<AccountId>,
+	P: PotAccountProvider<AccountId>,
 {
 	fn budget_key() -> sp_staking::budget::BudgetKey {
 		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
 	}
 
 	fn pot_account() -> AccountId {
-		G::general_pot_account(GeneralPotType::StakerRewards)
+		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
 	}
 }
 
