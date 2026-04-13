@@ -65,8 +65,9 @@ const APP_BIG_SPENDER: Curve = Curve::make_linear(28, 28, percent(50), percent(1
 const SUP_BIG_SPENDER: Curve = Curve::make_reciprocal(20, 28, percent(1), percent(0), percent(50));
 const APP_MONETARY_GUARD: Curve =
 	Curve::make_reciprocal(4, 28, percent(80), percent(50), percent(100));
+// NOTE: Support floor reduced from 5% to 0% for testing purposes.
 const SUP_MONETARY_GUARD: Curve =
-	Curve::make_reciprocal(1, 28, percent(20), percent(5), percent(50));
+	Curve::make_reciprocal(1, 28, percent(20), percent(0), percent(50));
 const APP_WHITELISTED_CALLER: Curve =
 	Curve::make_reciprocal(16, 28 * 24, percent(96), percent(50), percent(100));
 const SUP_WHITELISTED_CALLER: Curve =
@@ -190,7 +191,8 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 16] = [
 		info: pallet_referenda::TrackInfo {
 			name: s("monetary_guard"),
 			max_deciding: 3,
-			decision_deposit: 200 * GRAND,
+			// NOTE: Reduced from 200 GRAND for testing purposes.
+			decision_deposit: 500 * UNITS,
 			prepare_period: 8 * MINUTES,
 			decision_period: 20 * MINUTES,
 			confirm_period: 4 * MINUTES,
