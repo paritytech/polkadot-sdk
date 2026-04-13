@@ -75,7 +75,6 @@ struct InstanceCreator {
 	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instance_counter: Arc<InstanceCounter>,
-	uses_host_allocator: bool,
 }
 
 impl InstanceCreator {
@@ -138,7 +137,6 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
-	uses_host_allocator: bool,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -148,7 +146,6 @@ impl WasmModule for WasmtimeRuntime {
 				engine: self.engine.clone(),
 				instance_pre: self.instance_pre.clone(),
 				instance_counter: self.instance_counter.clone(),
-				uses_host_allocator: self.uses_host_allocator,
 			}),
 		};
 
@@ -173,7 +170,7 @@ impl WasmtimeInstance {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = if instance_creator.uses_host_allocator {
+				let allocator = if matches!(entrypoint, EntryPoint::V1(_)) {
 					let heap_base = instance_wrapper.extract_heap_base()?;
 					Some(FreeingBumpHeapAllocator::new(heap_base))
 				} else {
@@ -619,11 +616,7 @@ where
 	};
 
 	let mut linker = wasmtime::Linker::new(&engine);
-	let uses_host_allocator = crate::imports::prepare_imports::<H>(
-		&mut linker,
-		&module,
-		config.allow_missing_func_imports,
-	)?;
+	crate::imports::prepare_imports::<H>(&mut linker, &module, config.allow_missing_func_imports)?;
 
 	let instance_pre = linker
 		.instantiate_pre(&module)
@@ -634,7 +627,6 @@ where
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
-		uses_host_allocator,
 	})
 }
 

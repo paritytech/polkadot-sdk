@@ -23,14 +23,13 @@ use std::collections::HashMap;
 use wasmtime::{ExternType, FuncType, ImportType, Linker, Module};
 
 /// Goes over all imports of a module and prepares the given linker for instantiation of the module.
-/// Returns `true` if the runtime uses the host-side allocator, `false` if it uses
-/// runtime-side allocation (picoalloc). Returns an error if there are imports that cannot be
-/// satisfied or if the runtime mixes both allocation sides.
+/// Returns an error if there are imports that cannot be satisfied or if the runtime mixes both
+/// allocation sides.
 pub(crate) fn prepare_imports<H>(
 	linker: &mut Linker<StoreData>,
 	module: &Module,
 	allow_missing_func_imports: bool,
-) -> Result<bool, WasmError>
+) -> Result<(), WasmError>
 where
 	H: HostFunctions,
 {
@@ -97,7 +96,7 @@ where
 		));
 	}
 
-	Ok(alloc_sanity_checker.uses_host_allocator())
+	Ok(())
 }
 
 struct Registry<'a, 'b> {
