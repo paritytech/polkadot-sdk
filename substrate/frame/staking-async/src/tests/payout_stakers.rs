@@ -16,10 +16,9 @@
 // limitations under the License.
 
 use super::*;
-use crate::session_rotation::Eras;
+use crate::{session_rotation::Eras, EraPotType};
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
 use sp_runtime::{bounded_btree_map, traits::Dispatchable};
-use crate::EraPotType;
 
 #[test]
 fn rewards_with_nominator_should_work() {

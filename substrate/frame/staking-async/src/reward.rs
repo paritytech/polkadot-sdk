@@ -111,11 +111,23 @@ impl<T: Config> EraRewardManager<T> {
 			) {
 				Ok(credit) => {
 					T::UnclaimedRewardHandler::on_unbalanced(credit);
-					log!(debug, "Withdrew {:?} unclaimed rewards from era {:?} {:?} pot", remaining, era, pot_type);
+					log!(
+						debug,
+						"Withdrew {:?} unclaimed rewards from era {:?} {:?} pot",
+						remaining,
+						era,
+						pot_type
+					);
 				},
 				Err(e) => {
 					defensive!("Failed to withdraw unclaimed rewards from era pot");
-					log!(error, "Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}", era, pot_type, e);
+					log!(
+						error,
+						"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
+						era,
+						pot_type,
+						e
+					);
 				},
 			}
 		}
