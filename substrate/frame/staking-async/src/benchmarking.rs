@@ -138,10 +138,8 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	SelfStakeSlopeFactor::<T>::put(Perbill::from_percent(50));
 
 	let incentive_payout = total_payout / 10u32.into(); // 10% of total as incentive budget
-	let incentive_pot = crate::reward::EraRewardManager::<T>::create(
-		planned_era,
-		RewardKind::ValidatorSelfStake,
-	);
+	let incentive_pot =
+		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::ValidatorSelfStake);
 	let _ = asset::mint_creating::<T>(&incentive_pot, incentive_payout);
 	ErasValidatorIncentiveBudget::<T>::insert(planned_era, incentive_payout);
 

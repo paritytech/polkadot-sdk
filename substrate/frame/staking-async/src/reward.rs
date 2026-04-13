@@ -122,7 +122,9 @@ impl<T: Config> EraRewardManager<T> {
 		log!(
 			info,
 			"Era {:?}: snapshotted staker_rewards={:?}, validator_incentive={:?}",
-			era, actual_staker, actual_incentive
+			era,
+			actual_staker,
+			actual_incentive
 		);
 
 		EraRewardAllocation { staker_rewards: actual_staker, validator_incentive: actual_incentive }
