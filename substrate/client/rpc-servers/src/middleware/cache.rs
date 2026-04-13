@@ -98,14 +98,14 @@ struct CachedResponse {
 	/// The raw JSON of the `"result"` field from the JSON-RPC response.
 	result_json: String,
 	/// Byte size estimate for the limiter (result_json + method + params).
-	/// Note: this only counts string content, not struct/heap overhead (~100 bytes per entry),
-	/// so actual memory usage is higher for many small entries.
+	/// Estimated memory footprint: struct overhead + string content.
 	byte_size: usize,
 }
 
 impl CachedResponse {
 	fn new(method: String, canonical_params: String, result_json: String) -> Self {
-		let byte_size = result_json.len() + method.len() + canonical_params.len();
+		let byte_size =
+			std::mem::size_of::<Self>() + method.len() + canonical_params.len() + result_json.len();
 		Self { method, canonical_params, result_json, byte_size }
 	}
 
@@ -429,6 +429,9 @@ mod tests {
 	use super::*;
 	use tower::Layer;
 
+	/// Per-entry struct overhead added by `CachedResponse::new`.
+	const OVERHEAD: usize = std::mem::size_of::<CachedResponse>();
+
 	/// Helper to build a `CachedResponse` with empty method/params for limiter tests.
 	fn cached_response(result_json: String) -> CachedResponse {
 		CachedResponse::new(String::new(), String::new(), result_json)
@@ -560,7 +563,8 @@ mod tests {
 
 	#[test]
 	fn eviction_on_byte_limit() {
-		let limiter = ByteSizeLimiter::new(100, None);
+		// Budget fits one entry (60 + OVERHEAD) but not two.
+		let limiter = ByteSizeLimiter::new(60 + OVERHEAD + 1, None);
 		let mut cache = LruMap::new(limiter);
 
 		// Insert entries that exceed the limit.
@@ -574,13 +578,13 @@ mod tests {
 
 	#[test]
 	fn size_tracking_accurate() {
-		let limiter = ByteSizeLimiter::new(1000, None);
+		let limiter = ByteSizeLimiter::new(10000, None);
 		let mut cache = LruMap::new(limiter);
 
 		cache.insert(1, cached_response("a".repeat(100)));
 		cache.insert(2, cached_response("b".repeat(200)));
 
-		assert_eq!(cache.limiter().current_bytes, 300);
+		assert_eq!(cache.limiter().current_bytes, 300 + 2 * OVERHEAD);
 	}
 
 	#[test]
@@ -594,7 +598,8 @@ mod tests {
 
 	#[test]
 	fn single_entry_larger_than_budget_evicts_immediately() {
-		let limiter = ByteSizeLimiter::new(50, None);
+		// Budget fits one small entry but not the large one.
+		let limiter = ByteSizeLimiter::new(5 + OVERHEAD + 1, None);
 		let mut cache = LruMap::new(limiter);
 
 		// Insert a small entry first.
