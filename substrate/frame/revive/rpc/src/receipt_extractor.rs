@@ -311,16 +311,22 @@ impl ReceiptExtractor {
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
+		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
+
+		self.extract_from_block_with_eth_hash(block, eth_block_hash).await
+	}
+
+	/// Extract receipts from block, using a pre-fetched ethereum block hash.
+	pub async fn extract_from_block_with_eth_hash(
+		&self,
+		block: &SubstrateBlock,
+		eth_block_hash: H256,
+	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
 		if self.is_before_first_evm_block(block.number()) {
 			return Ok(vec![]);
 		}
 
 		let ext_iter = self.get_block_extrinsics(block).await?;
-
-		let substrate_block_number = block.number() as u64;
-		let substrate_block_hash = block.hash();
-		let eth_block_hash =
-			self.resolve_eth_block_hash(substrate_block_hash, substrate_block_number).await;
 
 		// Process extrinsics in order while maintaining parallelism within buffer window
 		stream::iter(ext_iter)
