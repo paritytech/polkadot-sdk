@@ -1838,7 +1838,7 @@ pub type Migrations = (
 	// unreleased
 	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
 	pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
-  pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
