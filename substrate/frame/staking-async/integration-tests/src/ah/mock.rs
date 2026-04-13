@@ -27,14 +27,12 @@ use frame_support::{
 	weights::{Weight, WeightMeter},
 };
 use pallet_election_provider_multi_block as multi_block;
-use pallet_staking_async::PotAccountProvider;
-use sp_staking::budget::BudgetRecipient;
 use pallet_election_provider_multi_block::{Event as ElectionEvent, Phase};
-use pallet_staking_async::{ActiveEra, CurrentEra, Forcing};
+use pallet_staking_async::{ActiveEra, CurrentEra, Forcing, PotAccountProvider};
 use pallet_staking_async_rc_client::{
 	OutgoingValidatorSet, SendKeysError, SendOperationError, SessionReport, ValidatorSetReport,
 };
-use sp_staking::SessionIndex;
+use sp_staking::{budget::BudgetRecipient, SessionIndex};
 use xcm::latest::{prelude::*, Asset, AssetId, Assets, Fungibility, Junction, Location};
 use xcm_builder::{FungibleAdapter, IsConcrete};
 use xcm_executor::{
@@ -911,11 +909,10 @@ impl ExtBuilder {
 
 /// Set up DAP infrastructure: budget allocation, timestamp, fund pots with ED.
 pub(crate) fn setup_dap() {
-	let staker_key =
-		<pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest> as
-			BudgetRecipient<AccountId>>::budget_key();
-	let buffer_key =
-		<pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
+	let staker_key = <pallet_staking_async::StakerRewardRecipient<
+		pallet_staking_async::SequentialTest,
+	> as BudgetRecipient<AccountId>>::budget_key();
+	let buffer_key = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
 	let mut budget = pallet_dap::BudgetAllocationMap::new();
 	budget.try_insert(staker_key, Perbill::from_percent(50)).unwrap();
 	budget.try_insert(buffer_key, Perbill::from_percent(50)).unwrap();
