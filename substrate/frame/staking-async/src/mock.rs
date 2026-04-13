@@ -1155,6 +1155,8 @@ pub(crate) fn setup_incentive_config() {
 	));
 }
 
+/// Sets up incentive config and DAP budget. Remainder goes to buffer.
+/// E.g. `(45, 5)` → 45% staker, 5% incentive, 50% buffer.
 pub(crate) fn setup_incentive_with_budget(staker_pct: u32, incentive_pct: u32) {
 	setup_incentive_config();
 	let buffer_pct = 100u32.saturating_sub(staker_pct).saturating_sub(incentive_pct);

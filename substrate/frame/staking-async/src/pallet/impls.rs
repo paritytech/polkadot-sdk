@@ -695,7 +695,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if total_weight.is_zero() {
-			log!(warn, "Total validator weight is zero but pot allocation exists for era {}", era);
+			log!(warn, "Total validator incentive weight is zero but budget exists for era {}", era);
 			Self::deposit_event(Event::<T>::Unexpected(
 				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
 			));

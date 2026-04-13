@@ -147,8 +147,10 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		let incentive = incentive_paid_for(alice, &events).expect("incentive bonus");
 		assert_eq!(asset::total_balance::<Test>(&alice) - alice_before, staker + incentive);
 
-		// THEN: nominator gets staker reward only.
-		assert!(staker_reward_for(bob, &events).is_some());
+		// THEN: nominator gets staker reward only (no incentive).
+		// Bob (500 stake) gets less than alice (1000 stake) from staker rewards.
+		let bob_reward = staker_reward_for(bob, &events).expect("nominator should receive reward");
+		assert!(bob_reward < staker, "nominator ({bob_reward}) should get less than validator ({staker})");
 		assert!(incentive_paid_for(bob, &events).is_none());
 
 		// THEN: era pot balance matches snapshotted budget.
@@ -211,8 +213,11 @@ fn enabling_incentive_budget_mid_flight() {
 
 		// THEN: era 2 has incentive.
 		assert!(incentive_paid_for(alice, &era2).is_some());
-		// Exact budget depends on DAP drip timing, so we only assert non-zero here.
-		assert!(ErasValidatorIncentiveBudget::<Test>::get(2) > 0);
+		assert_eq!(ErasValidatorIncentiveBudget::<Test>::get(1), 0);
+		// 10% of total inflation goes to incentive pot
+		let actual_budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		let expected = Perbill::from_percent(10).mul_floor(total_payout_for(time_per_era()));
+		assert_eq_error_rate!(actual_budget, expected, 1);
 	});
 }
 
@@ -315,7 +320,7 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
 			let weight = ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
-			assert!(weight > 0);
+			assert_eq!(weight, 31); // √1000 ≈ 31
 
 			let page2 = bounded_vec![(
 				alice,
@@ -359,7 +364,7 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 
 			// THEN: weight set from overview when own-stake arrives.
 			let weight = ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
-			assert!(weight > 0);
+			assert_eq!(weight, 31); // √1000 ≈ 31
 		});
 	});
 }
@@ -379,8 +384,10 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
+		// 5% of total inflation for one era (±1 from drip rounding).
 		let pot_snapshot = ErasValidatorIncentiveBudget::<Test>::get(2);
-		assert!(pot_snapshot > 0);
+		let expected = Perbill::from_percent(5).mul_floor(total_payout_for(time_per_era()));
+		assert_eq_error_rate!(pot_snapshot, expected, 1);
 
 		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
