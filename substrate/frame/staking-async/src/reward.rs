@@ -83,10 +83,7 @@ impl<T: Config> EraRewardManager<T> {
 			Zero::zero()
 		};
 
-		log::info!(
-			target: LOG_TARGET,
-			"Era {era}: snapshotted staker_rewards={actual_staker:?}"
-		);
+		log!(info, "Era {:?}: snapshotted staker_rewards={:?}", era, actual_staker);
 
 		actual_staker
 	}
@@ -114,19 +111,11 @@ impl<T: Config> EraRewardManager<T> {
 			) {
 				Ok(credit) => {
 					T::UnclaimedRewardHandler::on_unbalanced(credit);
-					log::debug!(
-						target: crate::LOG_TARGET,
-						"Withdrew {:?} unclaimed rewards from era {:?} {:?} pot",
-						remaining, era, pot_type
-					);
+					log!(debug, "Withdrew {:?} unclaimed rewards from era {:?} {:?} pot", remaining, era, pot_type);
 				},
 				Err(e) => {
 					defensive!("Failed to withdraw unclaimed rewards from era pot");
-					log::error!(
-						target: crate::LOG_TARGET,
-						"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
-						era, pot_type, e
-					);
+					log!(error, "Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}", era, pot_type, e);
 				},
 			}
 		}
@@ -166,14 +155,18 @@ where
 		validator_total_reward: BalanceOf<T>,
 		validator_commission: Perbill,
 		validator_own_stake: BalanceOf<T>,
-		total_stake: BalanceOf<T>,
+		total_exposure: BalanceOf<T>,
 	) -> sp_staking::StakerRewardResult<BalanceOf<T>> {
 		let validator_commission_payout = validator_commission.mul_floor(validator_total_reward);
 		let leftover = validator_total_reward.saturating_sub(validator_commission_payout);
-		let validator_exposure_part = Perbill::from_rational(validator_own_stake, total_stake);
+		let validator_exposure_part = Perbill::from_rational(validator_own_stake, total_exposure);
 		let validator_staking_payout = validator_exposure_part.mul_floor(leftover);
 		let validator_payout = validator_staking_payout.saturating_add(validator_commission_payout);
 		let nominator_payout = leftover.saturating_sub(validator_staking_payout);
+
+		// Commission rounding means these may not sum exactly to validator_total_reward,
+		// but they should never exceed it.
+		debug_assert!(validator_payout + nominator_payout <= validator_total_reward);
 
 		sp_staking::StakerRewardResult { validator_payout, nominator_payout }
 	}

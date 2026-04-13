@@ -847,6 +847,9 @@ impl<T: Config> Rotator<T> {
 	}
 
 	/// DAP end-era: snapshot from general reward pot into era-specific pot.
+	///
+	/// The snapshotted amount is stored in `ErasValidatorReward` — this represents the total
+	/// reward budget for the era before any payouts. Individual payouts draw from the era pot.
 	fn end_era_dap(ending_era: &ActiveEraInfo) {
 		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
 
