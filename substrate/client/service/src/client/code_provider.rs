@@ -17,12 +17,13 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes};
-use sc_client_api::{backend, TrieCacheContext};
+use parking_lot::Mutex;
+use sc_client_api::{TrieCacheContext, backend};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
-use sp_state_machine::{backend::TryPendingCode, Ext, OverlayedChanges};
-use std::sync::Arc;
+use sp_state_machine::{Ext, OverlayedChanges, backend::TryPendingCode};
+use std::{collections::HashMap, sync::Arc};
 
 /// Provider for fetching `:code` of a block.
 ///
@@ -33,6 +34,11 @@ pub struct CodeProvider<Block: BlockT, Backend, Executor> {
 	executor: Arc<Executor>,
 	wasm_override: Arc<Option<WasmOverride>>,
 	wasm_substitutes: WasmSubstitutes<Block, Executor, Backend>,
+	/// Cache: code_hash → RuntimeVersion.
+	/// Avoids re-reading the full `:code` blob from the trie just to determine the runtime
+	/// version. Unbounded, but safe: grows by one entry per runtime upgrade, and real chains
+	/// see O(10–50) upgrades over their entire lifetime.
+	runtime_version_cache: Arc<Mutex<HashMap<Vec<u8>, RuntimeVersion>>>,
 }
 
 impl<Block: BlockT, Backend, Executor: Clone> Clone for CodeProvider<Block, Backend, Executor> {
@@ -42,6 +48,7 @@ impl<Block: BlockT, Backend, Executor: Clone> Clone for CodeProvider<Block, Back
 			executor: self.executor.clone(),
 			wasm_override: self.wasm_override.clone(),
 			wasm_substitutes: self.wasm_substitutes.clone(),
+			runtime_version_cache: self.runtime_version_cache.clone(),
 		}
 	}
 }
@@ -72,7 +79,13 @@ where
 			backend.clone(),
 		)?;
 
-		Ok(Self { backend, executor, wasm_override: Arc::new(wasm_override), wasm_substitutes })
+		Ok(Self {
+			backend,
+			executor,
+			wasm_override: Arc::new(wasm_override),
+			wasm_substitutes,
+			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
+		})
 	}
 
 	/// Returns the `:code` (or `:pending_code`) for the given `block`.
@@ -149,18 +162,29 @@ where
 	}
 
 	/// Returns the on chain runtime version.
+	///
+	/// Results are cached by code hash to avoid re-reading the full `:code` blob from the trie
+	/// on every call.
 	fn on_chain_runtime_version(
 		&self,
 		code: &RuntimeCode,
 		state: &Backend::State,
 	) -> sp_blockchain::Result<RuntimeVersion> {
-		let mut overlay = OverlayedChanges::default();
+		if let Some(version) = self.runtime_version_cache.lock().get(&code.hash) {
+			return Ok(version.clone());
+		}
 
+		let mut overlay = OverlayedChanges::default();
 		let mut ext = Ext::new(&mut overlay, state, None);
 
-		self.executor
+		let version = self
+			.executor
 			.runtime_version(&mut ext, code)
-			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))
+			.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))?;
+
+		self.runtime_version_cache.lock().insert(code.hash.clone(), version.clone());
+
+		Ok(version)
 	}
 }
 
@@ -168,14 +192,14 @@ where
 mod tests {
 	use super::*;
 	use backend::Backend;
-	use sc_client_api::{in_mem, HeaderBackend};
+	use sc_client_api::{HeaderBackend, in_mem};
 	use sc_executor::WasmExecutor;
 	use sp_core::{
 		testing::TaskExecutor,
 		traits::{FetchRuntimeCode, WrappedRuntimeCode},
 	};
 	use std::collections::HashMap;
-	use substrate_test_runtime_client::{runtime, GenesisInit};
+	use substrate_test_runtime_client::{GenesisInit, runtime};
 
 	#[test]
 	fn no_override_no_substitutes_work() {
@@ -223,6 +247,7 @@ mod tests {
 			wasm_override: Arc::new(None),
 			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
 				.unwrap(),
+			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
 		};
 
 		let check = code_provider
@@ -286,6 +311,7 @@ mod tests {
 			wasm_override: Arc::new(Some(overrides)),
 			wasm_substitutes: WasmSubstitutes::new(Default::default(), executor, backend.clone())
 				.unwrap(),
+			runtime_version_cache: Arc::new(Mutex::new(HashMap::new())),
 		};
 
 		let check = code_provider
