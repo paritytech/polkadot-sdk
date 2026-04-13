@@ -283,12 +283,6 @@ impl CacheLayer {
 	/// - `max_cache_size`: maximum cache size in bytes. Pass 0 to disable caching.
 	/// - `metrics`: optional prometheus metrics.
 	pub fn new(max_cache_size: usize, metrics: Option<CacheMetrics>) -> Self {
-		log::info!(
-			target: "rpc_cache",
-			"RPC cache initialized: max_size={}MB, metrics={}",
-			max_cache_size / (1024 * 1024),
-			if metrics.is_some() { "enabled" } else { "disabled" },
-		);
 		let limiter = ByteSizeLimiter::new(max_cache_size, metrics.clone());
 		let cache = Arc::new(Mutex::new(LruMap::new(limiter)));
 		Self { cache, metrics }
