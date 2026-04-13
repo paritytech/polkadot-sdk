@@ -1,16 +1,15 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{collections::HashSet, time::Duration};
+use std::{cell::Cell, collections::HashSet};
 
 use codec::Encode;
 use log::{debug, info};
 use sp_core::Bytes;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, StatementEvent, SubmitResult, Topic,
+	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic,
 	TopicFilter,
 };
-use zombienet_sdk::subxt::ext::subxt_rpcs::rpc_params;
 
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 
@@ -384,147 +383,109 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Test that verifies peer connectivity and statement propagation timing during major sync
+/// Test that verifies statement recovery after major sync completes
 ///
 /// Scenario:
-/// 1. Spawn charlie only, let relay chain advance ~10 blocks
+/// 1. Spawn charlie only and let the relay chain advance ~10 blocks
 /// 2. Submit a statement to charlie
-/// 3. Add dave as a late joiner (will enter major sync)
-/// 4. Poll system_peers on dave every 2s to track when dave connects to charlie
-/// 5. Simultaneously wait for the statement to arrive on dave
-/// 6. Compare timing: the statement should arrive AFTER dave finishes major sync
+/// 3. Add dave as a late joiner — dave will enter major sync because the chain has
+///    already progressed. While dave is major syncing, its statement handler ignores
+///    incoming notifications, so the initial sync batch from charlie is dropped
+/// 4. Wait for dave to exit major sync
+/// 5. Subscribe to statements on dave AFTER sync has ended — any arrival is therefore
+///    caused exclusively by the reconnect triggered at sync completion
+/// 6. Assert the statement arrives, proving that `reconnect_statement_peers` fired and
+///    triggered a fresh initial sync with charlie
 ///
-/// During major sync, peers are added to the reserved set immediately on PeerConnected,
-/// but statement substreams are only effective once sync completes. When major sync ends,
-/// reconnect_statement_peers removes and re-adds all peers to trigger bidirectional
-/// initial sync, recovering any statements missed during the sync period
+/// Without the fix (reconnect_statement_peers on sync-end), the subscription would time
+/// out because nothing re-triggers the initial sync after major sync completes
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let mut network = spawn_network_with_injected_allowances(&["charlie"], 8).await?;
+	let items = create_allowance_items(&[(0, StatementAllowance { max_count: 10, max_size: 1_000_000 })]);
+	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;
 
-	// Wait for relay chain to advance so dave will enter major sync
-	// ~60s gives ~10 relay blocks at 6s block time, enough for major sync trigger
-	log::info!("Waiting 60s for relay chain to advance");
-	tokio::time::sleep(Duration::from_secs(60)).await;
+	// Wait for at least 5 parachain blocks before dave joins.
+	// spawn_network_sudo already confirmed height >= 1; we wait for more so dave's sync
+	// window is wide enough for charlie's 100ms initial-sync burst to fire and be dropped
+	let charlie_height = {
+		let h = Cell::new(0.0f64);
+		charlie
+			.wait_metric_with_timeout(
+				"block_height{status=\"best\"}",
+				|v| {
+					h.set(v);
+					v >= 5.0
+				},
+				120u64,
+			)
+			.await
+			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 5 within 120s"))?;
+		h.get()
+	};
+	info!("Charlie is at block height {:.0} before dave joins", charlie_height);
 
-	log::info!("Submitting statement to charlie");
 	let topic: Topic = [0u8; 32].into();
-	let mut statement = sp_statement_store::Statement::new();
-	statement.set_plain_data(vec![1, 2, 3]);
-	statement.set_topic(0, topic);
-	statement.set_expiry_from_parts(u32::MAX, 0);
 	let keypair = get_keypair(0);
-	statement.sign_sr25519_private(&keypair);
-	let statement_bytes: Bytes = statement.encode().into();
+	let statement = create_test_statement(&keypair, &[topic], None, vec![1, 2, 3], u32::MAX, 0);
+	let expected: Bytes = statement.encode().into();
 
-	let result: SubmitResult = charlie_rpc
-		.request("statement_submit", rpc_params![statement_bytes.clone()])
-		.await?;
+	let result = submit_statement(&charlie_rpc, &statement).await?;
 	assert_eq!(result, SubmitResult::New, "Statement should be accepted by charlie");
-	log::info!("Statement submitted to charlie");
+	info!("Statement submitted to charlie");
 
-	// Add dave as a late-joining collator
-	// Dave will enter major sync because the chain advanced ~10 blocks while dave was offline.
-	// From dave's perspective, statement substreams with charlie are established on
-	// PeerConnected but are not productive until major sync ends. When sync completes,
-	// reconnect_statement_peers triggers bidirectional initial sync to recover statements
-	log::info!("Adding dave as late-joining collator");
+	// Add dave as a late-joining collator.
+	// Dave will enter major sync because the chain already advanced. During that window
+	// dave's statement handler ignores incoming notifications (is_major_syncing guard),
+	// so charlie's 100ms initial-sync burst fires and is silently dropped.
+	// When sync ends, reconnect_statement_peers removes and re-adds all peers, causing
+	// charlie to perform a fresh initial sync and recover the lost statements
+	info!("Adding dave as late-joining collator");
 	let dave_join_time = std::time::Instant::now();
 	network.add_collator("dave", Default::default(), 1004).await?;
 
 	let dave = network.get_node("dave")?;
 	let dave_rpc = dave.rpc().await?;
 
-	log::info!("Subscribing to statements on dave");
-	let mut subscription = dave_rpc
-		.subscribe::<StatementEvent>(
-			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
-			"statement_unsubscribeStatement",
+	// Wait for dave to reach charlie's block height
+	dave.wait_metric_with_timeout(
+		"block_height{status=\"best\"}",
+		|h| h >= charlie_height,
+		120u64,
+	)
+	.await
+	.map_err(|_| {
+		anyhow::anyhow!(
+			"Dave did not reach block height {:.0} within 120s",
+			charlie_height
 		)
-		.await?;
+	})?;
+	let sync_end = dave_join_time.elapsed();
+	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
 
-	// Wait for dave to sync and receive the statement
-	// Poll system_peers every second to build a peer count timeline, while also
-	// waiting for the statement subscription to fire
-	let mut peer_counts: Vec<(f64, usize)> = Vec::new();
-	let mut statement_received_at: Option<Duration> = None;
-	let max_wait = Duration::from_secs(120);
+	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
 
-	loop {
-		let elapsed = dave_join_time.elapsed();
-		if elapsed > max_wait {
-			panic!(
-				"Timed out after {:.0}s waiting for statement on dave. \
-				 statement_received={}",
-				elapsed.as_secs_f64(),
-				statement_received_at.is_some()
-			);
-		}
+	let received = expect_one_statement(&mut subscription, 30).await?;
+	assert_eq!(received, expected, "Statement content mismatch");
+	info!(
+		"Statement arrived {:.1}s after dave finished syncing",
+		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64()
+	);
 
-		// Poll system_peers on dave
-		let peers: Vec<serde_json::Value> =
-			dave_rpc.request("system_peers", rpc_params![]).await.unwrap_or_default();
-		let t = elapsed.as_secs_f64();
-		log::info!("[{:>5.1}s] dave system_peers: {} peer(s)", t, peers.len());
-		peer_counts.push((t, peers.len()));
-
-		if statement_received_at.is_some() {
-			if peer_counts.len() > 3 && peer_counts.iter().rev().take(3).all(|(_, c)| *c > 0) {
-				break;
-			}
-			tokio::time::sleep(Duration::from_secs(1)).await;
-			continue;
-		}
-
-		// Try to receive the statement with a 1s timeout
-		match tokio::time::timeout(Duration::from_secs(1), subscription.next()).await {
-			Ok(Some(Ok(StatementEvent::NewStatements { statements: batch, .. })))
-				if !batch.is_empty() =>
-			{
-				assert_eq!(batch.len(), 1, "Expected exactly one statement in batch");
-				assert_eq!(batch[0], statement_bytes, "Statement content mismatch");
-				statement_received_at = Some(elapsed);
-				log::info!(
-					">>> Statement received at {:.1}s after dave joined",
-					elapsed.as_secs_f64()
-				);
-			},
-			Ok(Some(Err(e))) => {
-				log::warn!("Subscription error on dave: {e}");
-			},
-			Ok(None) => {
-				panic!("Subscription stream closed unexpectedly on dave");
-			},
-			_ => {},
-		}
-	}
-
-	let stmt_t = statement_received_at.expect("Statement should have been received");
-	let peer_first_seen = peer_counts.iter().find(|(_, c)| *c > 0);
-
-	log::info!("Peer count timeline:");
-	for (t, count) in &peer_counts {
-		let marker = if stmt_t.as_secs_f64() >= *t && stmt_t.as_secs_f64() < *t + 1.5 {
-			" <-- statement received"
-		} else {
-			""
-		};
-		log::info!("  [{:>5.1}s] {} peer(s){}", t, count, marker);
-	}
-
-	if let Some((peer_t, _)) = peer_first_seen {
-		log::info!("First peer visible in system_peers: {:.1}s", peer_t);
-	} else {
-		log::info!("WARNING: system_peers never showed any peers (statement arrived via notification substream before system_peers poll caught it)");
-	}
+	// Verify the reconnect mechanism fired — this confirms dave was in major sync and the fix
+	// triggered recovery. The prometheus metric is too transient (sync completes in < polling
+	// interval), so we check dave's logs for the info-level reconnect message instead
+	let dave_logs = dave.logs().await?;
+	let reconnect_fired = dave_logs
+		.lines()
+		.any(|l| l.contains("Major sync complete, reconnecting"));
+	assert!(reconnect_fired);
 
 	Ok(())
 }

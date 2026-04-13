@@ -380,7 +380,7 @@ impl StatementHandlerPrototype {
 			initial_sync_timeout: Box::pin(tokio::time::sleep(INITIAL_SYNC_BURST_INTERVAL).fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			had_major_syncing: is_major_syncing,
+			was_major_syncing: is_major_syncing,
 		};
 
 		Ok(handler)
@@ -425,8 +425,8 @@ pub struct StatementHandler<
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
-	/// Whether the node was major syncing in the previous loop iteration
-	had_major_syncing: bool,
+	/// Whether the node was major syncing on the last `run()` loop poll
+	was_major_syncing: bool,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -589,7 +589,7 @@ where
 			initial_sync_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			had_major_syncing: false,
+			was_major_syncing: false,
 		}
 	}
 
@@ -648,10 +648,10 @@ where
 			// When major sync ends, reconnect all statement peers to trigger
 			// bidirectional initial sync and recover statements missed during sync
 			let currently_syncing = self.sync.is_major_syncing();
-			if self.had_major_syncing && !currently_syncing {
+			if self.was_major_syncing && !currently_syncing {
 				self.reconnect_statement_peers();
 			}
-			self.had_major_syncing = currently_syncing;
+			self.was_major_syncing = currently_syncing;
 		}
 	}
 
@@ -709,32 +709,30 @@ where
 			return;
 		}
 
-		log::debug!(
+		log::info!(
 			target: LOG_TARGET,
 			"Major sync complete, reconnecting {} statement peers for initial sync",
 			peer_ids.len(),
 		);
 
-		let result = self
+		if let Err(err) = self
 			.network
-			.remove_peers_from_reserved_set(self.protocol_name.clone(), peer_ids.clone());
-		if let Err(err) = result {
-			log::error!(target: LOG_TARGET, "Failed to remove reserved peers: {err}");
-			return;
+			.remove_peers_from_reserved_set(self.protocol_name.clone(), peer_ids.clone())
+		{
+			log::warn!(target: LOG_TARGET, "Failed to remove reserved peers: {err}");
 		}
 
 		// Re-add all peers to trigger substream reopening and bidirectional initial sync.
 		// The multiaddrs are constructed from PeerIds in self.peers, which guarantees valid
-		// /p2p/ addresses and excludes the local peer ID, so the batch add cannot partially fail
+		// /p2p/ addresses and excludes the local peer ID
 		let addrs: HashSet<multiaddr::Multiaddr> = peer_ids
 			.into_iter()
 			.map(|p| {
 				iter::once(multiaddr::Protocol::P2p(p.into())).collect::<multiaddr::Multiaddr>()
 			})
 			.collect();
-		let result = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs);
-		if let Err(err) = result {
-			log::error!(target: LOG_TARGET, "Failed to re-add reserved peers: {err}");
+		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs) {
+			log::warn!(target: LOG_TARGET, "Failed to re-add reserved peers: {err}");
 		}
 	}
 
@@ -1551,7 +1549,7 @@ mod tests {
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			had_major_syncing: false,
+			was_major_syncing: false,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
