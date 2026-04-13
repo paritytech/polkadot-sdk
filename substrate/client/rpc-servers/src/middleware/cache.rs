@@ -488,6 +488,15 @@ mod tests {
 	}
 
 	#[test]
+	fn rejects_non_hex_characters_in_hash() {
+		// 0x + 64 chars, but 'zz' are not hex.
+		let bad_hash = format!("0xzz{}", "a".repeat(62));
+		assert_eq!(bad_hash.len(), 66);
+		let params = format!(r#"["{}"]"#, bad_hash);
+		assert!(parse_and_check_params(&params).is_none());
+	}
+
+	#[test]
 	fn normalizes_whitespace() {
 		let p1 = format!(r#"["a",  "0x",  "{}"]"#, HASH_66);
 		let p2 = format!(r#"["a","0x","{}"]"#, HASH_66);
