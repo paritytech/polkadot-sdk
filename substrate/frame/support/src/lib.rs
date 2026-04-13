@@ -191,6 +191,8 @@ impl TypeId for PalletId {
 #[doc = docify::embed!("src/tests/storage_alias.rs", storage_alias_guess)]
 pub use frame_support_procedural::storage_alias;
 
+pub use frame_support_procedural::stored;
+
 pub use frame_support_procedural::derive_impl;
 
 /// Experimental macros for defining dynamic params that can be used in pallet configs.
@@ -399,6 +401,8 @@ pub use serde::{Deserialize, Serialize};
 
 #[doc(hidden)]
 pub use macro_magic;
+
+pub use derive_where;
 
 /// Prelude to be used for pallet testing, for ease of use.
 #[cfg(feature = "std")]
