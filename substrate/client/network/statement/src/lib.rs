@@ -731,7 +731,8 @@ where
 				iter::once(multiaddr::Protocol::P2p(p.into())).collect::<multiaddr::Multiaddr>()
 			})
 			.collect();
-		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs) {
+		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs)
+		{
 			log::warn!(target: LOG_TARGET, "Failed to re-add reserved peers: {err}");
 		}
 	}

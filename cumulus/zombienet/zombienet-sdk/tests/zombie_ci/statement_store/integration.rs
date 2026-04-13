@@ -7,8 +7,7 @@ use codec::Encode;
 use log::{debug, info};
 use sp_core::Bytes;
 use sp_statement_store::{
-	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic,
-	TopicFilter,
+	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
 
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
@@ -387,15 +386,15 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 ///
 /// Scenario:
 /// 1. Spawn charlie only and let the relay chain advance ~10 blocks
-/// 2. Submit a statement to charlie
-/// 3. Add dave as a late joiner — dave will enter major sync because the chain has
-///    already progressed. While dave is major syncing, its statement handler ignores
-///    incoming notifications, so the initial sync batch from charlie is dropped
+/// 2. Submit multiple statements to charlie
+/// 3. Add dave as a late joiner — dave will enter major sync because the chain has already
+///    progressed. While dave is major syncing, its statement handler ignores incoming
+///    notifications, so the initial sync batch from charlie is dropped
 /// 4. Wait for dave to exit major sync
-/// 5. Subscribe to statements on dave AFTER sync has ended — any arrival is therefore
-///    caused exclusively by the reconnect triggered at sync completion
-/// 6. Assert the statement arrives, proving that `reconnect_statement_peers` fired and
-///    triggered a fresh initial sync with charlie
+/// 5. Subscribe to statements on dave AFTER sync has ended — any arrival is therefore caused
+///    exclusively by the reconnect triggered at sync completion
+/// 6. Assert the statement arrives, proving that `reconnect_statement_peers` fired and triggered a
+///    fresh initial sync with charlie
 ///
 /// Without the fix (reconnect_statement_peers on sync-end), the subscription would time
 /// out because nothing re-triggers the initial sync after major sync completes
@@ -444,7 +443,7 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	let mut expected: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
 	expected.sort();
 
-	for (i, stmt) in statements.iter().enumerate() {
+	for stmt in &statements {
 		let result = submit_statement(&charlie_rpc, stmt).await?;
 		assert_eq!(result, SubmitResult::New);
 	}
@@ -464,18 +463,11 @@ async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyho
 	let dave_rpc = dave.rpc().await?;
 
 	// Wait for dave to reach charlie's block height
-	dave.wait_metric_with_timeout(
-		"block_height{status=\"best\"}",
-		|h| h >= charlie_height,
-		120u64,
-	)
-	.await
-	.map_err(|_| {
-		anyhow::anyhow!(
-			"Dave did not reach block height {:.0} within 120s",
-			charlie_height
-		)
-	})?;
+	dave.wait_metric_with_timeout("block_height{status=\"best\"}", |h| h >= charlie_height, 120u64)
+		.await
+		.map_err(|_| {
+			anyhow::anyhow!("Dave did not reach block height {:.0} within 120s", charlie_height)
+		})?;
 	let sync_end = dave_join_time.elapsed();
 	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
 
