@@ -615,8 +615,9 @@ where
 	fn pot_account(pot: RewardPot) -> AccountId {
 		match pot {
 			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
-			RewardPot::Era(era, RewardKind::StakerRewards) =>
-				AccountId::from(100_000 + (era as u64 * 10)),
+			RewardPot::Era(era, RewardKind::StakerRewards) => {
+				AccountId::from(100_000 + (era as u64 * 10))
+			},
 		}
 	}
 }

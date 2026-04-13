@@ -2138,7 +2138,10 @@ fn legacy_to_dap_era_payout_e2e() {
 		// THEN: legacy mode — no pots, no guard.
 		assert_eq!(DisableMintingGuard::<T>::get(), None);
 		assert_eq!(
-			System::providers(&SequentialTest::pot_account(RewardPot::Era(0, RewardKind::StakerRewards))),
+			System::providers(&SequentialTest::pot_account(RewardPot::Era(
+				0,
+				RewardKind::StakerRewards
+			))),
 			0
 		);
 
@@ -2220,7 +2223,8 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		// Initialize DAP and fund general staker pot with ED.
 		pallet_dap::LastIssuanceTimestamp::<T>::put(MockTime::get());
-		let general_pot = SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+		let general_pot =
+			SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
 		Balances::mint_into(&general_pot, 1).unwrap();
 
 		// WHEN: payout era 1 (legacy era) while already in DAP mode.
