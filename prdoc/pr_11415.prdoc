@@ -4,5 +4,5 @@ doc:
   description: |-
     ## Summary
 
-    - Add a lite person registration test that exercises the full PeopleLite::attest flow on a live parachain (versi-people-2101), including ring-VRF key generation, attestation, and subsequent statement submission.
+    - Add a lite person registration test that exercises the full PeopleLite::attest flow on a live parachain, including ring-VRF key generation, attestation, and subsequent statement submission.
 crates: []
