@@ -143,4 +143,11 @@ impl RuntimeAllocSanityChecker {
 	pub fn check_result(&self) -> bool {
 		self.0 < 3
 	}
+
+	/// Returns `true` if the runtime uses host-side allocation (old-style runtimes).
+	/// Returns `false` if the runtime uses runtime-side allocation (picoalloc) or
+	/// imports no tracked allocating functions at all.
+	pub fn uses_host_allocator(&self) -> bool {
+		self.0 & 1 != 0
+	}
 }

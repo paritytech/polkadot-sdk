@@ -75,6 +75,7 @@ struct InstanceCreator {
 	engine: Engine,
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instance_counter: Arc<InstanceCounter>,
+	uses_host_allocator: bool,
 }
 
 impl InstanceCreator {
@@ -137,6 +138,7 @@ pub struct WasmtimeRuntime {
 	instance_pre: Arc<wasmtime::InstancePre<StoreData>>,
 	instantiation_strategy: InternalInstantiationStrategy,
 	instance_counter: Arc<InstanceCounter>,
+	uses_host_allocator: bool,
 }
 
 impl WasmModule for WasmtimeRuntime {
@@ -146,6 +148,7 @@ impl WasmModule for WasmtimeRuntime {
 				engine: self.engine.clone(),
 				instance_pre: self.instance_pre.clone(),
 				instance_counter: self.instance_counter.clone(),
+				uses_host_allocator: self.uses_host_allocator,
 			}),
 		};
 
@@ -169,9 +172,13 @@ impl WasmtimeInstance {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
-				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+				let allocator = if instance_creator.uses_host_allocator {
+					let heap_base = instance_wrapper.extract_heap_base()?;
+					Some(FreeingBumpHeapAllocator::new(heap_base))
+				} else {
+					None
+				};
 
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
 			},
@@ -612,7 +619,11 @@ where
 	};
 
 	let mut linker = wasmtime::Linker::new(&engine);
-	crate::imports::prepare_imports::<H>(&mut linker, &module, config.allow_missing_func_imports)?;
+	let uses_host_allocator = crate::imports::prepare_imports::<H>(
+		&mut linker,
+		&module,
+		config.allow_missing_func_imports,
+	)?;
 
 	let instance_pre = linker
 		.instantiate_pre(&module)
@@ -623,6 +634,7 @@ where
 		instance_pre: Arc::new(instance_pre),
 		instantiation_strategy,
 		instance_counter: Default::default(),
+		uses_host_allocator,
 	})
 }
 
@@ -667,7 +679,7 @@ fn perform_call(
 	data: &[u8],
 	instance_wrapper: &mut InstanceWrapper,
 	entrypoint: EntryPoint,
-	allocator: FreeingBumpHeapAllocator,
+	allocator: Option<FreeingBumpHeapAllocator>,
 	allocation_stats: &mut Option<AllocationStats>,
 ) -> Result<Vec<u8>> {
 	let host_state = HostState::new(allocator, data);

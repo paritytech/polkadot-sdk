@@ -43,9 +43,16 @@ pub struct HostState {
 
 impl HostState {
 	/// Constructs a new `HostState`.
-	pub fn new(allocator: FreeingBumpHeapAllocator, input_data: impl Into<Vec<u8>>) -> Self {
+	///
+	/// `allocator` is `Some` for old-style runtimes that use host-side allocation
+	/// (`FreeingBumpHeapAllocator`), and `None` for new runtimes that manage their own
+	/// heap with a runtime-side allocator (picoalloc).
+	pub fn new(
+		allocator: Option<FreeingBumpHeapAllocator>,
+		input_data: impl Into<Vec<u8>>,
+	) -> Self {
 		HostState {
-			allocator: Some(allocator),
+			allocator,
 			panic_message: None,
 			virt_manager: VirtManager::default(),
 			input_data: Some(input_data.into()),
@@ -58,9 +65,7 @@ impl HostState {
 	}
 
 	pub(crate) fn allocation_stats(&self) -> AllocationStats {
-		self.allocator.as_ref()
-			.expect("Allocator is always set and only unavailable when doing an allocation/deallocation; qed")
-			.stats()
+		self.allocator.as_ref().map(|a| a.stats()).unwrap_or_default()
 	}
 }
 
@@ -95,11 +100,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn allocate_memory(&mut self, size: WordSize) -> sp_wasm_interface::Result<Pointer<u8>> {
 		let memory = self.caller.data().memory();
-		let mut allocator = self
-			.host_state_mut()
-			.allocator
-			.take()
-			.expect("allocator is not empty when calling a function in wasm; qed");
+		let mut allocator = self.host_state_mut().allocator.take().expect(
+			"host-side allocator is not available; this runtime uses runtime-side allocation \
+				 and must not call host functions that allocate guest memory; qed",
+		);
 
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
@@ -113,11 +117,10 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 
 	fn deallocate_memory(&mut self, ptr: Pointer<u8>) -> sp_wasm_interface::Result<()> {
 		let memory = self.caller.data().memory();
-		let mut allocator = self
-			.host_state_mut()
-			.allocator
-			.take()
-			.expect("allocator is not empty when calling a function in wasm; qed");
+		let mut allocator = self.host_state_mut().allocator.take().expect(
+			"host-side allocator is not available; this runtime uses runtime-side allocation \
+				 and must not call host functions that deallocate guest memory; qed",
+		);
 
 		// We can not return on error early, as we need to store back allocator.
 		let res = allocator
