@@ -355,21 +355,42 @@ impl<'a> ToClientSideDecl<'a> {
 		mut method: TraitItemFn,
 		trait_generics_num: usize,
 	) -> TraitItemFn {
-		let params = match extract_parameter_names_types_and_borrows(
+		let (params, param_types): (Vec<_>, Vec<_>) = match extract_parameter_names_types_and_borrows(
 			&method.sig,
 			AllowSelfRefInParameters::No,
 		) {
-			Ok(res) => res.into_iter().map(|v| v.0).collect::<Vec<_>>(),
+			Ok(res) => res.into_iter().map(|v| (v.0, v.1)).unzip(),
 			Err(e) => {
 				self.errors.push(e.to_compile_error());
-				Vec::new()
+				(Vec::new(), Vec::new())
 			},
 		};
 		let ret_type = return_type_extract_type(&method.sig.output);
 
+		let crate_ = self.crate_;
+
+		let generic_names: Vec<Ident> = (0..param_types.len())
+			.map(|i| Ident::new(&format!("__SrApiParam{}__", i), Span::call_site()))
+			.collect();
+
+		for (generic_name, param_type) in generic_names.iter().zip(param_types.iter()) {
+			method.sig.generics.params.push(parse_quote!(
+				#generic_name: #crate_::EncodeAs<#param_type>
+			));
+		}
+
+		if !generic_names.is_empty() {
+			let where_clause = method.sig.generics.make_where_clause();
+			where_clause.predicates.push(parse_quote!(Self: Sized));
+		}
+
 		fold_fn_decl_for_client_side(&mut method.sig, self.block_hash, self.crate_);
 
-		let crate_ = self.crate_;
+		for (arg, generic_name) in method.sig.inputs.iter_mut().skip(2).zip(generic_names.iter()) {
+			if let FnArg::Typed(typed) = arg {
+				typed.ty = Box::new(parse_quote!(#generic_name));
+			}
+		}
 
 		let found_attributes = remove_supported_attributes(&mut method.attrs);
 
@@ -434,8 +455,15 @@ impl<'a> ToClientSideDecl<'a> {
 		// Generate the default implementation that calls the `method_runtime_api_impl` method.
 		method.default = Some(parse_quote! {
 			{
-				let __runtime_api_impl_params_encoded__ =
-					#crate_::Encode::encode(&( #( &#params ),* ));
+				let __runtime_api_impl_params_encoded__ = {
+					let mut __params__ = std::vec::Vec::new();
+					#(
+						__params__.extend(
+							<#generic_names as #crate_::EncodeAs<#param_types>>::encode_as(&#params)
+						);
+					)*
+					__params__
+				};
 
 				<Self as #trait_name<#( #underscores ),*>>::__runtime_api_internal_call_api_at(
 					self,

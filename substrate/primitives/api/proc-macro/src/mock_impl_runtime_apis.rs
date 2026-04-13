@@ -23,14 +23,14 @@ use crate::utils::{
 
 use proc_macro2::{Span, TokenStream};
 
-use quote::{quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned};
 
 use syn::{
 	fold::{self, Fold},
 	parse::{Error, Parse, ParseStream, Result},
 	parse_macro_input, parse_quote,
 	spanned::Spanned,
-	Attribute, ItemImpl, Pat, Type, TypePath,
+	Attribute, Ident, ItemImpl, Pat, Type, TypePath,
 };
 
 /// The `advanced` attribute.
@@ -150,19 +150,25 @@ fn implement_common_api_traits(block_type: TypePath, self_ty: Type) -> Result<To
 				unimplemented!("`Core::version` not implemented for runtime api mocks")
 			}
 
-			fn execute_block(
+			fn execute_block<__SrApiParam0__: #crate_::EncodeAs<
+				<#block_type as #crate_::BlockT>::LazyBlock,
+			>>(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
-				_: <#block_type as #crate_::BlockT>::LazyBlock,
-			) -> std::result::Result<(), #crate_::ApiError> {
+				_: __SrApiParam0__,
+			) -> std::result::Result<(), #crate_::ApiError>
+			where Self: Sized {
 				unimplemented!("`Core::execute_block` not implemented for runtime api mocks")
 			}
 
-			fn initialize_block(
+			fn initialize_block<__SrApiParam0__: #crate_::EncodeAs<
+				<#block_type as #crate_::BlockT>::Header,
+			>>(
 				&self,
 				_: <#block_type as #crate_::BlockT>::Hash,
-				_: &<#block_type as #crate_::BlockT>::Header,
-			) -> std::result::Result<#crate_::__private::ExtrinsicInclusionMode, #crate_::ApiError> {
+				_: __SrApiParam0__,
+			) -> std::result::Result<#crate_::__private::ExtrinsicInclusionMode, #crate_::ApiError>
+			where Self: Sized {
 				unimplemented!("`Core::initialize_block` not implemented for runtime api mocks")
 			}
 		}
@@ -268,27 +274,32 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			let is_advanced = has_advanced_attribute(&mut input.attrs);
 			let mut errors = Vec::new();
 
-			let (mut param_names, mut param_types_and_borrows) =
-				match extract_parameter_names_types_and_borrows(
-					&input.sig,
-					AllowSelfRefInParameters::YesButIgnore,
-				) {
-					Ok(res) => (
-						res.iter().map(|v| v.0.clone()).collect::<Vec<_>>(),
-						res.iter()
-							.map(|v| {
-								let ty = &v.1;
-								let borrow = &v.2;
-								(quote_spanned!(ty.span() => #borrow #ty ), v.2.is_some())
-							})
-							.collect::<Vec<_>>(),
-					),
-					Err(e) => {
-						errors.push(e.to_compile_error());
+			let extracted_params = match extract_parameter_names_types_and_borrows(
+				&input.sig,
+				AllowSelfRefInParameters::YesButIgnore,
+			) {
+				Ok(res) => res,
+				Err(e) => {
+					errors.push(e.to_compile_error());
+					Default::default()
+				},
+			};
 
-						(Default::default(), Default::default())
-					},
-				};
+			let mut param_names: Vec<Pat> =
+				extracted_params.iter().map(|v| v.0.clone()).collect();
+			let mut param_types_and_borrows: Vec<(TokenStream, bool)> = extracted_params
+				.iter()
+				.map(|v| {
+					let ty = &v.1;
+					let borrow = &v.2;
+					(quote_spanned!(ty.span() => #borrow #ty), v.2.is_some())
+				})
+				.collect();
+			// Inner types (without borrow) and borrow flags, used for EncodeAs bounds/decoding.
+			let mut param_inner_types: Vec<Type> =
+				extracted_params.iter().map(|v| v.1.clone()).collect();
+			let mut param_is_borrow: Vec<bool> =
+				extracted_params.iter().map(|v| v.2.is_some()).collect();
 
 			let block_type = &self.block_type;
 			let hash_type = quote!( <#block_type as #crate_::BlockT>::Hash );
@@ -307,13 +318,67 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 				},
 			};
 
-			let param_types = param_types_and_borrows.iter().map(|v| &v.0);
-			// Rewrite the input parameters.
+			// Mirror the removal done by get_at_param_name when in advanced mode.
+			if is_advanced && !param_inner_types.is_empty() {
+				param_inner_types.remove(0);
+				param_is_borrow.remove(0);
+			}
+
+			let param_count = param_names.len();
+			let generic_names: Vec<Ident> =
+				(0..param_count).map(|i| format_ident!("__SrApiParam{}__", i)).collect();
+			// Raw names used in the function signature to avoid shadowing the user's param names.
+			let raw_param_names: Vec<Ident> =
+				(0..param_count).map(|i| format_ident!("__mock_api_param_{}__", i)).collect();
+			// Temporary names for decoded values when the original type was a reference.
+			let tmp_param_names: Vec<Ident> =
+				(0..param_count).map(|i| format_ident!("__mock_api_decoded_{}__", i)).collect();
+
+			// Add `EncodeAs` bounds to the method generics for each parameter.
+			for (generic_name, inner_type) in generic_names.iter().zip(param_inner_types.iter()) {
+				input.sig.generics.params.push(parse_quote!(
+					#generic_name: #crate_::EncodeAs<#inner_type>
+				));
+			}
+
+			// Rewrite the input parameters using generic types and raw names.
 			input.sig.inputs = parse_quote! {
 				&self,
 				#at_param_name: #hash_type,
-				#( #param_names: #param_types ),*
+				#( #raw_param_names: #generic_names ),*
 			};
+
+			let decode_stmts: Vec<TokenStream> = raw_param_names
+				.iter()
+				.zip(param_names.iter())
+				.zip(param_inner_types.iter())
+				.zip(param_is_borrow.iter())
+				.zip(tmp_param_names.iter())
+				.zip(generic_names.iter())
+				.map(
+					|(((((raw_name, param_name), inner_type), is_borrow), tmp_name), generic_name)| {
+						if *is_borrow {
+							// Original was a reference: decode to the inner type, then reborrow.
+							quote! {
+								let #tmp_name: #inner_type = #crate_::Decode::decode(
+									&mut &<#generic_name as #crate_::EncodeAs<#inner_type>>::encode_as(
+										&#raw_name
+									)[..]
+								).expect("Parameters are encoded with the matching type; qed");
+								let #param_name = &#tmp_name;
+							}
+						} else {
+							quote! {
+								let #param_name: #inner_type = #crate_::Decode::decode(
+									&mut &<#generic_name as #crate_::EncodeAs<#inner_type>>::encode_as(
+										&#raw_name
+									)[..]
+								).expect("Parameters are encoded with the matching type; qed");
+							}
+						}
+					},
+				)
+				.collect();
 
 			// When using advanced, the user needs to declare the correct return type on its own,
 			// otherwise do it for the user.
@@ -329,9 +394,13 @@ impl<'a> Fold for FoldRuntimeApiImpl<'a> {
 			let orig_block = input.block.clone();
 
 			let construct_return_value = if is_advanced {
-				quote!( (move || #orig_block)() )
+				quote!(
+					#( #decode_stmts )*
+					(move || #orig_block)()
+				)
 			} else {
 				quote! {
+					#( #decode_stmts )*
 					let __fn_implementation__ = move || #orig_block;
 
 					Ok(__fn_implementation__())
