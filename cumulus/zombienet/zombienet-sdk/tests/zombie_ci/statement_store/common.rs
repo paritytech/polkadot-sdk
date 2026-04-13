@@ -230,7 +230,9 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+			global_settings
+				.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+				.with_tear_down_on_failure(false) // To allow restart nodes without failing in CI
 		})
 		.build()
 		.map_err(|e| {
