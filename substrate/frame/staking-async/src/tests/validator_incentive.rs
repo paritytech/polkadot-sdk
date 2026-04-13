@@ -150,7 +150,10 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		// THEN: nominator gets staker reward only (no incentive).
 		// Bob (500 stake) gets less than alice (1000 stake) from staker rewards.
 		let bob_reward = staker_reward_for(bob, &events).expect("nominator should receive reward");
-		assert!(bob_reward < staker, "nominator ({bob_reward}) should get less than validator ({staker})");
+		assert!(
+			bob_reward < staker,
+			"nominator ({bob_reward}) should get less than validator ({staker})"
+		);
 		assert!(incentive_paid_for(bob, &events).is_none());
 
 		// THEN: era pot balance matches snapshotted budget.
