@@ -316,6 +316,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
+		_node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
@@ -611,6 +612,7 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager>;
 
 	/// Start the node.
@@ -632,8 +634,9 @@ where
 		self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_dev_node(config, mode)
+		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
 	}
 
 	fn start_node(

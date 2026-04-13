@@ -25,9 +25,6 @@ use frame_support::traits::fungible;
 use xcm::latest::AssetTransferFilter;
 
 fn send_assets_over_bridge<F: FnOnce()>(send_fn: F) {
-	// fund the AHW's SA on BHW for paying bridge delivery fees
-	BridgeHubWestend::fund_para_sovereign(AssetHubWestend::para_id(), 10_000_000_000_000u128);
-
 	// set XCM versions
 	let local_asset_hub = PenpalB::sibling_location_of(AssetHubWestend::para_id());
 	PenpalB::force_xcm_version(local_asset_hub.clone(), XCM_VERSION);

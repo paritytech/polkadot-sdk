@@ -1746,8 +1746,10 @@ dependencies = [
  "pallet-nfts-runtime-api",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-psm",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -13755,6 +13757,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-psm-remote-tests"
+version = "0.1.0"
+dependencies = [
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-psm",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-ranked-collective"
 version = "28.0.0"
 dependencies = [
@@ -19335,6 +19349,23 @@ dependencies = [
  "tokio",
  "westend-runtime",
  "westend-runtime-constants",
+]
+
+[[package]]
+name = "remote-ext-tests-psm"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "clap",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-psm",
+ "pallet-psm-remote-tests",
+ "sp-core 28.0.0",
+ "sp-tracing 16.0.0",
+ "tokio",
 ]
 
 [[package]]
