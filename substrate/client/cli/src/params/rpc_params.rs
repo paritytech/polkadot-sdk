@@ -103,7 +103,7 @@ pub struct RpcParams {
 	/// Set the RPC response cache size in megabytes.
 	///
 	/// Caches responses for deterministic RPC calls (e.g. state_call, state_getStorage)
-	/// targeting finalized blocks. Set to 0 to disable (default).
+	/// that include an explicit block hash. Set to 0 to disable (default).
 	#[arg(long, default_value_t = 0, value_name = "MB")]
 	pub rpc_cache_size: u32,
 
