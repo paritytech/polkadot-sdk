@@ -134,6 +134,13 @@ mod col {
 #[derive(Eq, PartialEq, Debug, Ord, PartialOrd, Clone, Copy)]
 struct Expiry(u64);
 
+impl Expiry {
+	/// Returns the expiration timestamp in seconds
+	fn get_expiration_timestamp_secs(self) -> u64 {
+		self.0 >> 32
+	}
+}
+
 #[derive(PartialEq, Eq)]
 struct PriorityKey {
 	hash: Hash,
@@ -235,6 +242,41 @@ impl Default for Config {
 	}
 }
 
+/// Tracks evicted statement hashes to suppress re-gossip until their purge deadline elapses
+#[derive(Default)]
+struct ExpiredIndex {
+	hashes: HashSet<Hash>,
+	queue: BTreeMap<(u64, Hash), ()>,
+}
+
+impl ExpiredIndex {
+	fn insert(&mut self, hash: Hash, purge_at: u64) {
+		self.hashes.insert(hash);
+		self.queue.insert((purge_at, hash), ());
+	}
+
+	fn contains(&self, hash: &Hash) -> bool {
+		self.hashes.contains(hash)
+	}
+
+	fn len(&self) -> usize {
+		self.hashes.len()
+	}
+
+	/// Removes and returns all hashes whose purge deadline is at or before `current_time`
+	fn drain_due(&mut self, current_time: u64) -> Vec<Hash> {
+		let cutoff = (current_time.saturating_add(1), Hash::default());
+		let to_keep = self.queue.split_off(&cutoff);
+		let due = std::mem::replace(&mut self.queue, to_keep);
+		due.into_keys()
+			.map(|(_, hash)| {
+				self.hashes.remove(&hash);
+				hash
+			})
+			.collect()
+	}
+}
+
 #[derive(Default)]
 struct Index {
 	recent: HashSet<Hash>,
@@ -242,7 +284,7 @@ struct Index {
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
 	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
-	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
+	expired: ExpiredIndex,
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
 	config: Config,
@@ -350,14 +392,15 @@ impl Index {
 		if self.entries.contains_key(hash) {
 			return IndexQuery::Exists;
 		}
-		if self.expired.contains_key(hash) {
+		if self.expired.contains(hash) {
 			return IndexQuery::Expired;
 		}
 		IndexQuery::Unknown
 	}
 
 	fn insert_expired(&mut self, hash: Hash, timestamp: u64) {
-		self.expired.insert(hash, timestamp);
+		let purge_at = timestamp.saturating_add(self.config.purge_after_sec);
+		self.expired.insert(hash, purge_at);
 	}
 
 	fn iterate_with(
@@ -464,18 +507,7 @@ impl Index {
 	}
 
 	fn maintain(&mut self, current_time: u64) -> Vec<Hash> {
-		// Purge previously expired messages.
-		let mut purged = Vec::new();
-		self.expired.retain(|hash, timestamp| {
-			if *timestamp + self.config.purge_after_sec <= current_time {
-				purged.push(*hash);
-				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
-				false
-			} else {
-				true
-			}
-		});
-		purged
+		self.expired.drain_due(current_time)
 	}
 
 	fn take_recent(&mut self) -> HashSet<Hash> {
@@ -506,7 +538,9 @@ impl Index {
 				}
 			}
 			let _ = self.recent.remove(hash);
-			self.expired.insert(*hash, current_time);
+			if current_time < expiry.get_expiration_timestamp_secs() {
+				self.insert_expired(*hash, current_time);
+			}
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
 			{
@@ -1447,7 +1481,9 @@ impl StatementStore for Store {
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
-				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				if index.expired.contains(&hash) {
+					commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				}
 			}
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -1471,10 +1507,10 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 			if index.make_expired(hash, current_time) {
-				let commit = [
-					(col::STATEMENTS, hash.to_vec(), None),
-					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
-				];
+				let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
+				if index.expired.contains(hash) {
+					commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				}
 				if let Err(e) = self.db.commit(commit) {
 					log::debug!(
 						target: LOG_TARGET,
@@ -1502,7 +1538,9 @@ impl StatementStore for Store {
 		for hash in evicted {
 			index.make_expired(&hash, current_time);
 			commit.push((col::STATEMENTS, hash.to_vec(), None));
-			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+			if index.expired.contains(&hash) {
+				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+			}
 		}
 		self.db.commit(commit).map_err(|e| {
 			log::debug!(
@@ -1960,13 +1998,13 @@ mod tests {
 		let s2_prio3 = statement(2, 3, None, 500);
 		assert_eq!(store.submit(s2_prio3.clone(), source), ok);
 		assert_eq!(store.index.read().expired.len(), 2);
-		assert!(store.index.read().expired.contains_key(&s2_prio1.hash()));
+		assert!(store.index.read().expired.contains(&s2_prio1.hash()));
 		assert!(store.statement(&s2_prio1.hash()).unwrap().is_none());
 		// Should evict all
 		assert_eq!(store.submit(statement(2, 4, None, 1000), source), ok);
 		assert_eq!(store.index.read().expired.len(), 4);
-		assert!(store.index.read().expired.contains_key(&s2_prio2.hash()));
-		assert!(store.index.read().expired.contains_key(&s2_prio3.hash()));
+		assert!(store.index.read().expired.contains(&s2_prio2.hash()));
+		assert!(store.index.read().expired.contains(&s2_prio3.hash()));
 
 		// Account 3 (limit = 3 msg, 1000 bytes)
 
@@ -1978,8 +2016,8 @@ mod tests {
 		// Should evict 2 and 3
 		assert_eq!(store.submit(statement(3, 5, None, 500), source), ok);
 		assert_eq!(store.index.read().expired.len(), 6);
-		assert!(store.index.read().expired.contains_key(&s3_prio2.hash()));
-		assert!(store.index.read().expired.contains_key(&s3_prio3.hash()));
+		assert!(store.index.read().expired.contains(&s3_prio2.hash()));
+		assert!(store.index.read().expired.contains(&s3_prio3.hash()));
 
 		assert_eq!(store.index.read().total_size, 2400);
 		assert_eq!(store.index.read().entries.len(), 4);
@@ -2361,9 +2399,9 @@ mod tests {
 			assert!(idx.accounts.contains_key(&account(3)), "Account B must remain");
 
 			// Removed statements are marked expired.
-			assert!(idx.expired.contains_key(&h_a1));
-			assert!(idx.expired.contains_key(&h_a2));
-			assert!(idx.expired.contains_key(&h_a3));
+			assert!(idx.expired.contains(&h_a1));
+			assert!(idx.expired.contains(&h_a2));
+			assert!(idx.expired.contains(&h_a3));
 			assert_eq!(idx.expired.len(), 3);
 
 			// Entry count & total_size reflect only B's data.
@@ -2463,9 +2501,13 @@ mod tests {
 		// Second check_expiration should find and expire the statement
 		store.enforce_limits();
 
-		// Check the expired statement is now in the expired list
+		// Naturally-expired statements are not added to the expired map (AlreadyExpired check
+		// in submit rejects them without consulting the map)
 		let index = store.index.read();
-		assert!(index.expired.contains_key(&expired_hash), "Expired statement should be marked");
+		assert!(
+			!index.expired.contains(&expired_hash),
+			"Naturally expired statement must not be added to the expired map"
+		);
 		assert!(
 			!index.entries.contains_key(&expired_hash),
 			"Expired statement should be removed from entries"
@@ -2476,7 +2518,7 @@ mod tests {
 			index.entries.contains_key(&valid_hash),
 			"Valid statement should still be in entries"
 		);
-		assert!(!index.expired.contains_key(&valid_hash), "Valid statement should not be expired");
+		assert!(!index.expired.contains(&valid_hash), "Valid statement should not be expired");
 	}
 
 	#[test]
@@ -2517,8 +2559,9 @@ mod tests {
 			"All accounts should have been checked and removed after expiration"
 		);
 
-		// All statements should have been expired
-		assert_eq!(store.index.read().expired.len(), 3);
+		// All statements were naturally expired (past their own timestamp), so they are not
+		// added to the expired map AlreadyExpired check in submit handles re-gossip prevention
+		assert_eq!(store.index.read().expired.len(), 0);
 		assert_eq!(store.index.read().entries.len(), 0);
 	}
 
@@ -2587,9 +2630,10 @@ mod tests {
 
 		{
 			let index = store.index.read();
-			assert!(index.expired.contains_key(&hash1), "stmt1 should be expired");
-			assert!(!index.expired.contains_key(&hash2), "stmt2 should not be expired yet");
-			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
+			// Naturally expired statements are not added to the expired map.
+			assert!(!index.expired.contains(&hash1), "stmt1 naturally expired, not in map");
+			assert!(!index.expired.contains(&hash2), "stmt2 should not be expired yet");
+			assert!(!index.expired.contains(&hash3), "stmt3 should not be expired yet");
 			assert_eq!(index.entries.len(), 2);
 		}
 
@@ -2602,9 +2646,9 @@ mod tests {
 
 		{
 			let index = store.index.read();
-			assert!(index.expired.contains_key(&hash1));
-			assert!(index.expired.contains_key(&hash2), "stmt2 should be expired");
-			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
+			assert!(!index.expired.contains(&hash1));
+			assert!(!index.expired.contains(&hash2), "stmt2 naturally expired, not in map");
+			assert!(!index.expired.contains(&hash3), "stmt3 should not be expired yet");
 			assert_eq!(index.entries.len(), 1);
 		}
 
@@ -2615,9 +2659,9 @@ mod tests {
 
 		{
 			let index = store.index.read();
-			assert!(index.expired.contains_key(&hash1));
-			assert!(index.expired.contains_key(&hash2));
-			assert!(index.expired.contains_key(&hash3), "stmt3 should be expired");
+			assert!(!index.expired.contains(&hash1));
+			assert!(!index.expired.contains(&hash2));
+			assert!(!index.expired.contains(&hash3), "stmt3 naturally expired, not in map");
 			assert_eq!(index.entries.len(), 0);
 		}
 	}
@@ -2642,7 +2686,7 @@ mod tests {
 		// Statement should still be there
 		let index = store.index.read();
 		assert!(index.entries.contains_key(&hash));
-		assert!(!index.expired.contains_key(&hash));
+		assert!(!index.expired.contains(&hash));
 		assert_eq!(index.entries.len(), 1);
 		assert_eq!(index.expired.len(), 0);
 	}
@@ -2678,7 +2722,7 @@ mod tests {
 				"Account should be removed when all its statements expire"
 			);
 			assert_eq!(index.total_size, 0, "Total size should be zero");
-			assert!(index.expired.contains_key(&hash));
+			assert!(!index.expired.contains(&hash), "Naturally expired, not in map");
 		}
 	}
 
@@ -2720,7 +2764,7 @@ mod tests {
 				index.by_dec_key.get(&Some(dec_key(7))).map_or(true, |s| s.is_empty()),
 				"Decryption key index should be cleared"
 			);
-			assert!(index.expired.contains_key(&hash));
+			assert!(!index.expired.contains(&hash), "Naturally expired, not in map");
 		}
 	}
 
@@ -2771,7 +2815,8 @@ mod tests {
 			!index.entries.contains_key(&hash),
 			"Statement should be removed from entries after expiration"
 		);
-		assert!(index.expired.contains_key(&hash), "Statement should be in expired list");
+		// Naturally expired: timestamp 1001 < current_time 2000, not added to expired map.
+		assert!(!index.expired.contains(&hash), "Naturally expired, not in map");
 	}
 
 	#[test]
@@ -2804,9 +2849,10 @@ mod tests {
 				!index.entries.contains_key(&hash),
 				"Statement should be removed from in-memory entries"
 			);
+			// Naturally expired: not added to expired map, no need for suppression.
 			assert!(
-				index.expired.contains_key(&hash),
-				"Statement should be in in-memory expired map"
+				!index.expired.contains(&hash),
+				"Naturally expired statement must not be in the expired map"
 			);
 		}
 
@@ -2816,8 +2862,10 @@ mod tests {
 			"Statement should be removed from col::STATEMENTS after expiration"
 		);
 
+		// Naturally expired statements are not written to col::EXPIRED either, so that
+		// the optimization survives node restarts.
 		let expired_entry = store.db.get(col::EXPIRED, &hash).unwrap();
-		assert!(expired_entry.is_some(), "Expiration info should be written to col::EXPIRED");
+		assert!(expired_entry.is_none(), "Naturally expired: not written to col::EXPIRED");
 	}
 
 	#[test]
@@ -2865,7 +2913,7 @@ mod tests {
 		assert_eq!(index.total_size, 400);
 
 		// Evicted statement should be marked as expired
-		assert!(index.expired.contains_key(&h1));
+		assert!(index.expired.contains(&h1));
 	}
 
 	#[test]
@@ -2897,8 +2945,8 @@ mod tests {
 		let index = store.index.read();
 		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
 		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
-		assert!(index.expired.contains_key(&h1));
-		assert!(index.expired.contains_key(&h2));
+		assert!(index.expired.contains(&h1));
+		assert!(index.expired.contains(&h2));
 	}
 
 	#[test]
@@ -2972,7 +3020,7 @@ mod tests {
 			assert_eq!(index.entries.len(), 1);
 			assert!(!index.entries.contains_key(&h1), "Old channel message should be gone");
 			assert!(index.entries.contains_key(&h2), "New channel message should exist");
-			assert!(index.expired.contains_key(&h1), "Old should be in expired");
+			assert!(index.expired.contains(&h1), "Old should be in expired");
 			assert_eq!(index.total_size, 200);
 		}
 	}
@@ -3019,6 +3067,40 @@ mod tests {
 		assert_eq!(
 			store.submit(wrong_signer, StatementSource::Network),
 			SubmitResult::Invalid(InvalidReason::BadProof)
+		);
+	}
+
+	#[test]
+	fn naturally_expired_statements_not_added_to_expired_map() {
+		// Statements whose own expiry timestamp has passed are unconditionally rejected
+		// by the AlreadyExpired check in submit. They must not pollute the expired map.
+		let (mut store, _temp) = test_store();
+		store.set_time(100);
+
+		let mut stmt = statement(1, 1, None, 100);
+		stmt.set_expiry_from_parts(200, 1);
+		let hash = stmt.hash();
+		store.submit(stmt, StatementSource::Network);
+
+		// Advance time past the statement's own expiry timestamp.
+		store.set_time(1000);
+		store.enforce_limits();
+		store.enforce_limits();
+
+		{
+			let index = store.index.read();
+			assert!(!index.entries.contains_key(&hash), "Statement should be removed from entries");
+			// Core assertion: naturally expired statements must not enter the expired map.
+			assert!(
+				!index.expired.contains(&hash),
+				"Naturally expired statement must not be added to the expired map"
+			);
+		}
+		let mut resubmit = statement(1, 1, None, 100);
+		resubmit.set_expiry_from_parts(200, 1);
+		assert_eq!(
+			store.submit(resubmit, StatementSource::Network),
+			SubmitResult::Invalid(InvalidReason::AlreadyExpired),
 		);
 	}
 
