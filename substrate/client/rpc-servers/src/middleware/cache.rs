@@ -53,8 +53,10 @@ use schnellru::LruMap;
 ///
 /// All `state_*` and `childstate_*` methods are cacheable — they run against block state
 /// and always take `Option<Hash>` as the **last** parameter.
+/// Subscription-related methods (`subscribe`/`unsubscribe`) are excluded.
 fn is_cacheable(method: &str) -> bool {
-	method.starts_with("state_") || method.starts_with("childstate_")
+	(method.starts_with("state_") || method.starts_with("childstate_"))
+		&& !method.contains("subscribe")
 }
 
 /// Returns `true` if `s` looks like a 32-byte hex-encoded block hash (`0x` + 64 hex chars).
@@ -451,6 +453,10 @@ mod tests {
 		assert!(!is_cacheable("chain_getHeader"));
 		assert!(!is_cacheable("chain_getBlockHash"));
 		assert!(!is_cacheable("author_submitExtrinsic"));
+		assert!(!is_cacheable("state_subscribeRuntimeVersion"));
+		assert!(!is_cacheable("state_unsubscribeRuntimeVersion"));
+		assert!(!is_cacheable("state_subscribeStorage"));
+		assert!(!is_cacheable("state_unsubscribeStorage"));
 	}
 
 	// --- parse_and_check_params tests ---
