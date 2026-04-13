@@ -143,5 +143,4 @@ impl RuntimeAllocSanityChecker {
 	pub fn check_result(&self) -> bool {
 		self.0 < 3
 	}
-
 }

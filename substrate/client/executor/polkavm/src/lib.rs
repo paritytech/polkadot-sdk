@@ -306,6 +306,20 @@ where
 			call_host_function(&mut caller, function)
 		})?;
 	}
+
+	// Temporary shim: `sbrk` was removed from the `jam_v1` instruction set (GP 0.8.0)
+	// and replaced with a `grow_heap` host call. The guest-side allocator in
+	// `sp-io` imports this symbol.
+	linker.define_untyped("grow_heap", |caller: Caller<()>| {
+		let size = caller.instance.reg(Reg::A0) as u32;
+		match caller.instance.sbrk(size) {
+			Ok(Some(ptr)) => caller.instance.set_reg(Reg::A0, ptr as u64),
+			Ok(None) => caller.instance.set_reg(Reg::A0, 0),
+			Err(e) => return Err(e.to_string()),
+		}
+		Ok(())
+	})?;
+
 	let instance_pre = linker.instantiate_pre(&module)?;
 	Ok(Box::new(InstancePre(instance_pre)))
 }
