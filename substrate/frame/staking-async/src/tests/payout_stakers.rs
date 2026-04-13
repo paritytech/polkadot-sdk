@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use super::*;
-use crate::{session_rotation::Eras, EraPotType};
+use crate::{session_rotation::Eras, RewardKind, RewardPot};
 use frame_support::dispatch::{extract_actual_weight, GetDispatchInfo, WithPostDispatchInfo};
 use sp_runtime::{bounded_btree_map, traits::Dispatchable};
 
@@ -1747,7 +1747,7 @@ fn payout_fails_when_pot_missing_and_minting_disabled() {
 		assert!(DisableMintingGuard::<T>::get().is_some());
 
 		// GIVEN: era pot exists in DAP mode — destroy it to simulate corruption.
-		let pot = SequentialTest::era_pot_account(era, EraPotType::StakerRewards);
+		let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 		assert!(crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
 		frame_system::Account::<T>::remove::<&AccountId>(&pot);
 		assert!(!crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));

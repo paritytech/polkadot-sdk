@@ -28,8 +28,8 @@ use pallet_election_provider_multi_block::{
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	DisableMintingGuard, EraPotAccountProvider, EraPotType, ErasValidatorReward,
-	Event as StakingEvent, GeneralPotAccountProvider, GeneralPotType, SequentialTest,
+	DisableMintingGuard, ErasValidatorReward, Event as StakingEvent, PotAccountProvider,
+	RewardKind, RewardPot, SequentialTest,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
@@ -2138,7 +2138,7 @@ fn legacy_to_dap_era_payout_e2e() {
 		// THEN: legacy mode — no pots, no guard.
 		assert_eq!(DisableMintingGuard::<T>::get(), None);
 		assert_eq!(
-			System::providers(&SequentialTest::era_pot_account(0, EraPotType::StakerRewards)),
+			System::providers(&SequentialTest::pot_account(RewardPot::Era(0, RewardKind::StakerRewards))),
 			0
 		);
 
@@ -2220,7 +2220,7 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		// Initialize DAP and fund general staker pot with ED.
 		pallet_dap::LastIssuanceTimestamp::<T>::put(MockTime::get());
-		let general_pot = SequentialTest::general_pot_account(GeneralPotType::StakerRewards);
+		let general_pot = SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
 		Balances::mint_into(&general_pot, 1).unwrap();
 
 		// WHEN: payout era 1 (legacy era) while already in DAP mode.
@@ -2249,7 +2249,7 @@ fn legacy_to_dap_era_payout_e2e() {
 
 		// THEN: guard set, era 2 has pot with funds.
 		assert!(DisableMintingGuard::<T>::get().is_some());
-		let era_2_pot = SequentialTest::era_pot_account(2, EraPotType::StakerRewards);
+		let era_2_pot = SequentialTest::pot_account(RewardPot::Era(2, RewardKind::StakerRewards));
 		assert!(System::providers(&era_2_pot) > 0);
 		let era_2_reward = ErasValidatorReward::<T>::get(2).unwrap();
 		assert!(era_2_reward > 0);

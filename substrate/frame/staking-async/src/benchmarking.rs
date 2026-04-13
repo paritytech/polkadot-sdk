@@ -129,7 +129,7 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 
 	// Create and fund the era reward pot so payout_stakers can transfer from it.
 	let era_pot =
-		crate::reward::EraRewardManager::<T>::create(planned_era, EraPotType::StakerRewards);
+		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::StakerRewards);
 	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
 
 	Ok((v_stash, nominators, planned_era))

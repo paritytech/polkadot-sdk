@@ -467,8 +467,7 @@ impl pallet_staking_async::Config for Runtime {
 	type MaxEraDuration = ();
 	type DisableMinting = DisableMintingMode;
 	type UnclaimedRewardHandler = ();
-	type GeneralPots = pallet_staking_async::SequentialTest;
-	type EraPots = pallet_staking_async::SequentialTest;
+	type RewardPots = pallet_staking_async::SequentialTest;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type EventListeners = ();
