@@ -399,10 +399,10 @@ where
 		call: &IAssetConversion::createPoolCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::create_pool())?;
+
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
-
-		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::create_pool())?;
 
 		let sender = Self::caller_account_id(env)?;
 
@@ -417,10 +417,10 @@ where
 		call: &IAssetConversion::addLiquidityCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::add_liquidity())?;
+
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
-
-		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::add_liquidity())?;
 
 		let sender = Self::caller_account_id(env)?;
 		let mint_to = env.to_account_id(&H160(call.mintTo.0 .0));
@@ -449,10 +449,10 @@ where
 		call: &IAssetConversion::removeLiquidityCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::remove_liquidity())?;
+
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
-
-		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::remove_liquidity())?;
 
 		let sender = Self::caller_account_id(env)?;
 		let withdraw_to = env.to_account_id(&H160(call.withdrawTo.0 .0));
