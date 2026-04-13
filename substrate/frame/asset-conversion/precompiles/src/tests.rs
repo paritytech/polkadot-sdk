@@ -643,8 +643,7 @@ fn delegatecall_is_rejected() {
 		}
 		.abi_encode();
 
-		let (success, output) =
-			call_fixture(caller_contract, encode_delegate_call(quote_data));
+		let (success, output) = call_fixture(caller_contract, encode_delegate_call(quote_data));
 		assert!(!success, "DELEGATECALL to asset-conversion precompile must be rejected");
 		assert!(
 			output.is_empty(),
