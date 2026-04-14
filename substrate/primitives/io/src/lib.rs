@@ -1885,9 +1885,8 @@ pub trait Misc {
 			.read_runtime_version(wasm, &mut ext)
 		{
 			Ok(v) => {
-				if out.len() >= v.len() {
-					out.copy_from_slice(&v[..]);
-				}
+				let copy_len = v.len().min(out.len());
+				out[..copy_len].copy_from_slice(&v[..copy_len]);
 				Some(v.len() as u32)
 			},
 			Err(err) => {
@@ -1927,7 +1926,7 @@ pub trait Misc {
 		let cursor = self.take_last_cursor()?;
 
 		if out.len() >= cursor.len() {
-			out.copy_from_slice(&cursor[..]);
+			out[..cursor.len()].copy_from_slice(&cursor[..]);
 		} else {
 			self.store_last_cursor(&cursor[..]);
 		}
@@ -1992,7 +1991,7 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_public_keys(id);
 		if out.len() >= keys.len() {
-			out.copy_from_slice(&keys[..]);
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
 		(keys.len() * core::mem::size_of::<ed25519::Public>()) as u32
 	}
@@ -2275,7 +2274,7 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_public_keys(id);
 		if out.len() >= keys.len() {
-			out.copy_from_slice(&keys[..]);
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
 		(keys.len() * core::mem::size_of::<sr25519::Public>()) as u32
 	}
@@ -2433,7 +2432,7 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_public_keys(id);
 		if out.len() >= keys.len() {
-			out.copy_from_slice(&keys[..]);
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
 		(keys.len() * core::mem::size_of::<ecdsa::Public>()) as u32
 	}
