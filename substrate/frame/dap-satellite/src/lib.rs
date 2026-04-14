@@ -51,10 +51,17 @@ pub(crate) mod mock;
 #[cfg(test)]
 mod tests;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+pub mod weights;
+
 use frame_support::{
 	pallet_prelude::*,
+	sp_runtime::traits::Zero,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Unbalanced},
+		tokens::{Fortitude, Preservation},
 		Currency, Imbalance, OnUnbalanced,
 	},
 	weights::WeightMeter,
@@ -77,6 +84,7 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use crate::weights::WeightInfo as _;
 	use frame_support::sp_runtime::traits::AccountIdConversion;
 	use frame_system::pallet_prelude::BlockNumberFor;
 
@@ -113,6 +121,9 @@ pub mod pallet {
 		/// The satellite account always retains its existential deposit on top of this.
 		#[pallet::constant]
 		type MinTransferAmount: Get<BalanceOf<Self>>;
+
+		/// Weight information for the pallet's operations.
+		type WeightInfo: weights::WeightInfo;
 	}
 
 	#[pallet::event]
@@ -121,53 +132,42 @@ pub mod pallet {
 		/// Successfully sent funds to the central DAP.
 		SendSucceeded { amount: BalanceOf<T> },
 		/// Failed to send funds. They will remain in the satellite account
-		/// and sending will be retried after the next `TransferPeriod`.
+		/// and sending will be retried after another `TransferPeriod` blocks.
 		SendFailed { amount: BalanceOf<T> },
 	}
-
-	/// The block at which the last funds transfer to the central DAP was made. This is set to
-	/// `None` if no transfer has been dispatched yet. Use `OptionQuery` to distinguish between
-	/// "never transferred" (None) and "transferred at block 0" (Some(0)).
-	#[pallet::storage]
-	pub type LastTransferBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			// Only attempt transfers on blocks that are exact multiples of `TransferPeriod`.
+			if (block % T::TransferPeriod::get()) != Zero::zero() {
+				return Weight::zero();
+			}
+
 			let mut meter = WeightMeter::with_limit(remaining_weight);
 
-			// We need at least one read (of LastTransferBlock) to proceed.
+			// Need one read for the balance check.
 			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
 				return meter.consumed();
 			}
 
-			// Enforce the rate limit - don't send until `TransferPeriod` blocks have passed.
-			let last = LastTransferBlock::<T>::get().unwrap_or_default();
-			if block.saturating_sub(last) <= T::TransferPeriod::get() {
-				return meter.consumed();
-			}
-
-			// Check how much is available above the ED.
-			// Since the ED is constant, only the balance read counts towards the weight here.
-			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
-				return meter.consumed();
-			}
 			let satellite_account = Self::satellite_account();
-			let balance = T::Currency::balance(&satellite_account);
-			let ed = T::Currency::minimum_balance();
-			let available_funds = balance.saturating_sub(ed);
+			// We use `reducible_balance` with `Preservation::Preserve` to get the
+			// usable balance (excluding the ED).
+			let available_funds = T::Currency::reducible_balance(
+				&satellite_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
 
 			if available_funds < T::MinTransferAmount::get() {
 				return meter.consumed();
 			}
 
-			// We update the last transfer block irrespective of the transfer result. If we
-			// don't and a failure occurs repeatedly, then a transfer will be attempted on
-			// every block instead of the configured period, which would be undesirable.
-			if meter.try_consume(T::DbWeight::get().writes(1)).is_err() {
+			// Ensure there is enough weight budget for the full XCM send.
+			if meter.try_consume(T::WeightInfo::send_native()).is_err() {
 				return meter.consumed();
 			}
-			LastTransferBlock::<T>::put(block);
 
 			// Attempt the transfer to the central DAP.
 			match T::SendToDap::send_native(satellite_account, available_funds) {
@@ -175,7 +175,6 @@ pub mod pallet {
 					Self::deposit_event(Event::SendSucceeded { amount: available_funds });
 				},
 				Err(()) => {
-					// A warning is sufficient since the transfer will be retried later.
 					log::debug!(
 						target: LOG_TARGET,
 						"DAP satellite transfer of {:?} failed at block {:?}",
@@ -187,6 +186,13 @@ pub mod pallet {
 			}
 
 			meter.consumed()
+		}
+
+		fn integrity_test() {
+			assert!(
+				!T::TransferPeriod::get().is_zero(),
+				"TransferPeriod must not be zero (would cause division by zero in on_idle)"
+			);
 		}
 	}
 

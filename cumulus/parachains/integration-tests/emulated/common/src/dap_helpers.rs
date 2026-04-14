@@ -88,10 +88,11 @@ where
 
 	let transfer_period = <Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod::get();
 
-	// Trigger `on_idle` to initiate a transfer to DAP.
+	// Trigger `on_idle` to initiate a transfer to DAP. The block number must be an exact multiple
+	// of `TransferPeriod`.
 	Sender::execute_with(|| {
 		let _ = <pallet_dap_satellite::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
-			transfer_period + 1,
+			transfer_period.saturating_mul(3),
 			Weight::MAX,
 		);
 		let send_succeeded = Sender::events()

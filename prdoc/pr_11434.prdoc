@@ -15,14 +15,11 @@ doc:
     **`xcm-builder`**: Two new adapters are added:
     - `SendToDapViaTeleport` — implements `SendToDap` and wraps it in a storage transaction
       so that any failure rolls back all local state changes.
-    - `DapBufferAssetTransactor` — Receive-side adapter that wraps an inner `TransactAsset`
-      and also deactivates the received funds in order to keep `active_issuance()` accurate.
 
     ## Integration (Westend system parachains):
 
     All five Westend system parachains (AssetHub, BridgeHub, Collectives, Coretime, People)
-    and the Westend relay chain are configured with `SendToDapViaTeleport`. AssetHub is
-    additionally configured with `DapBufferAssetTransactor` to handle the receiving side.
+    and the Westend relay chain are configured with `SendToDapViaTeleport`.
 
     ## Testing:
 

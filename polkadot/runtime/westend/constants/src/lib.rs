@@ -134,7 +134,7 @@ pub mod system_parachain {
 
 		parameter_types! {
 			/// The pallet ID.
-			pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
+			pub const DapSatellitePalletId: PalletId = sp_dap::DAP_SATELLITE_PALLET_ID;
 			/// The interior location of the satellite accumulation account on AssetHub.
 			pub DapSatelliteAccumulationLocation: InteriorLocation = Junction::AccountId32 {
 				network: None,

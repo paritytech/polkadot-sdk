@@ -17,7 +17,7 @@
 
 //! Tests for the periodic satellite-to-DAP XCM transfer logic.
 
-use crate::{mock::*, pallet::LastTransferBlock, Event};
+use crate::{mock::*, Event};
 use frame_support::{
 	assert_ok,
 	pallet_prelude::Weight,
@@ -34,7 +34,7 @@ fn get_satellite_account() -> u64 {
 	DapSatellitePallet::satellite_account()
 }
 
-/// Add `extra` tokens above ED to the satellite account.
+/// Add `amount` tokens above ED to the satellite account.
 fn fund_satellite_account(amount: u64) {
 	assert_ok!(Balances::mint_into(&get_satellite_account(), amount));
 }
@@ -55,80 +55,94 @@ fn reset_last_sent_amount() {
 	LAST_SENT_AMOUNT.with(|a| *a.borrow_mut() = None);
 }
 
-// Ensure that no transfer occurs in `on_idle` if at most `TransferPeriod` blocks
-// have elapsed since the genesis block (i.e. no other transfers have occurred yet).
+// Verify that `on_idle` does not trigger a transfer on blocks that are not
+// exact multiples of `TransferPeriod`.
 #[test]
-fn rate_limit_on_first_transfer() {
+fn rate_limit_rejects_non_period_blocks() {
 	new_test_ext(true).execute_with(|| {
 		let period = TransferPeriod::get();
+		let ed = Balances::minimum_balance();
+		let funds = 10u64;
 
+		fund_satellite_account(funds);
+		reset_send_count();
+
+		// Non-multiples within and around the first period.
+		for block in (period.saturating_sub(4)..=period.saturating_add(4)).filter(|b| *b != period)
+		{
+			DapSatellitePallet::on_idle(block, Weight::from_all(u64::MAX));
+			assert_eq!(get_send_count(), 0, "unexpected send at block {block}");
+
+			assert_eq!(
+				Balances::free_balance(get_satellite_account()),
+				ed.saturating_add(funds),
+				"satellite should retain all funds at block {block}"
+			);
+		}
+	});
+}
+
+// Verify that `on_idle` triggers a transfer on every block that is an exact
+// multiple of `TransferPeriod`, independently of prior calls.
+// After each transfer the satellite account should retain exactly ED.
+#[test]
+fn transfer_triggers_on_period_multiple() {
+	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
+		let ed = Balances::minimum_balance();
+		let funds = 10u64;
+
+		for i in 1u64..=4 {
+			fund_satellite_account(funds);
+			reset_send_count();
+
+			let block = period.saturating_mul(i);
+			DapSatellitePallet::on_idle(block, Weight::from_all(u64::MAX));
+			assert_eq!(get_send_count(), 1, "expected send at block {block} (iteration {i})");
+			assert_eq!(
+				Balances::free_balance(get_satellite_account()),
+				ed,
+				"satellite should retain only ED after transfer at block {block}"
+			);
+		}
+	});
+}
+
+// Verify that each period-multiple block can independently trigger a transfer
+// without requiring any shared state between calls.
+#[test]
+fn each_period_multiple_triggers_independently() {
+	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
+		let funds = 30u64;
+
+		fund_satellite_account(funds);
 		reset_send_count();
 		reset_last_sent_amount();
-		fund_satellite_account(70);
 
-		// Stricly less than the block limit - no transfer.
-		DapSatellitePallet::on_idle(period - 1, Weight::from_all(u64::MAX));
-		assert_eq!(get_send_count(), 0);
-		assert_eq!(LastTransferBlock::<Test>::get(), None);
-
-		// Equal to the block limit - still no transfer.
+		// First transfer at block `period`.
 		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
-		assert_eq!(get_send_count(), 0);
-		assert_eq!(LastTransferBlock::<Test>::get(), None);
-
-		// Greater than the block limit - a transfer occurs, and LastTransferBlock is set.
-		DapSatellitePallet::on_idle(period + 1, Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 1);
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(TransferPeriod::get() + 1));
-		assert_eq!(get_last_sent_amount(), Some(70));
-	});
-}
+		assert_eq!(get_last_sent_amount(), Some(funds));
 
-// Ensure that following a successful transfer, the next transfer will not occur until
-// until an additional transfer period has occurred.
-#[test]
-fn rate_limit_after_first_transfer() {
-	new_test_ext(true).execute_with(|| {
-		let period = TransferPeriod::get();
-		let next_transfer_threshold = 7 + period;
-
-		reset_send_count();
+		// Replenish and trigger at block `2 * period` — no stored state required.
+		// The mock burns funds on success, so after the first transfer only ED remains;
+		// funding 20 here means available_funds = 20 for this transfer.
+		fund_satellite_account(funds);
 		reset_last_sent_amount();
-		fund_satellite_account(30);
 
-		// First transfer at block 7.
-		DapSatellitePallet::on_idle(7, Weight::from_all(u64::MAX));
-		assert_eq!(get_send_count(), 1);
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
-		assert_eq!(get_last_sent_amount(), Some(30));
-
-		// Replenish the source account in preparation for the next transfer.
-		fund_satellite_account(30);
-
-		// Before or at the period threshold - no second transfer.
-		DapSatellitePallet::on_idle(next_transfer_threshold - 1, Weight::from_all(u64::MAX));
-		assert_eq!(get_send_count(), 1);
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
-
-		DapSatellitePallet::on_idle(next_transfer_threshold, Weight::from_all(u64::MAX));
-		assert_eq!(get_send_count(), 1);
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
-
-		// Immediately after the period threshold - second transfer occurs.
-		// The mock send does not touch balances, so the 30 from the first transfer are still in
-		// the satellite account; together with the newly added 30, the available balance is 60.
-		DapSatellitePallet::on_idle(next_transfer_threshold + 1, Weight::from_all(u64::MAX));
+		DapSatellitePallet::on_idle(period.saturating_mul(2), Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 2);
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(next_transfer_threshold + 1));
-		assert_eq!(get_last_sent_amount(), Some(60));
+		assert_eq!(get_last_sent_amount(), Some(funds));
 	});
 }
 
-// Ensure that no transfer occurs if the available funds (balance minus ED) are
-// below the `MinTransferAmount` threshold.
+// Verify that no transfer occurs when available funds (balance minus ED) are
+// below the `MinTransferAmount` threshold, but does occur once they reach it.
 #[test]
 fn ensure_minimum_amount_limit_is_respected() {
 	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
 		let limit = MinTransferAmount::get();
 
 		// Fund the satellite with less than the minimum transferable amount above ED.
@@ -136,145 +150,127 @@ fn ensure_minimum_amount_limit_is_respected() {
 		reset_send_count();
 		reset_last_sent_amount();
 
-		// Block 7 is past the rate limit.
-		DapSatellitePallet::on_idle(7, Weight::from_all(u64::MAX));
+		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 0);
-		assert_eq!(LastTransferBlock::<Test>::get(), None);
 
-		// Ensure the satellite account now has the expected balance (ED + limit - 1).
+		// Top up so that available funds exactly meet the minimum.
 		fund_satellite_account(1);
 		assert_eq!(
 			Balances::free_balance(get_satellite_account()),
 			Balances::minimum_balance() + limit
 		);
 
-		// Retry the transfer and expect it to succeed this time.
-		DapSatellitePallet::on_idle(7, Weight::from_all(u64::MAX));
+		// Next period multiple — transfer should now succeed.
+		DapSatellitePallet::on_idle(2 * period, Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 1);
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
 		assert_eq!(get_last_sent_amount(), Some(limit));
 	});
 }
 
-// Check the full success path - when the satellite has enough funds and the period has elapsed.
-// Verify storage, event, and the amount forwarded to `SendToDap`.
+// Check the full success path: verify the send count, event, and forwarded amount.
 #[test]
 fn verify_success_path() {
 	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
+		let funds = 50u64;
+
 		reset_send_count();
 		reset_last_sent_amount();
-		System::set_block_number(1);
-
-		let funds = 50;
-
-		// Fund the satellite account with an amount above the threshold (ED not included).
 		fund_satellite_account(funds);
 
-		// Attempt a transfer at block 7, which is past the initial rate limit.
-		DapSatellitePallet::on_idle(7, Weight::from_all(u64::MAX));
+		System::set_block_number(1);
+		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
 
-		// Verify that one send was dispatched.
 		assert_eq!(get_send_count(), 1);
-
-		// Ensure the block of the last transfer has been recorded.
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
-
-		// Ensure the sending succeeded with the correct amount.
 		System::assert_has_event(Event::<Test>::SendSucceeded { amount: funds }.into());
-
-		// Verify the exact amount forwarded to the SendToDap implementation.
 		assert_eq!(get_last_sent_amount(), Some(funds));
 	});
 }
 
-// Check the failure path - when a send fails, burned funds are restored via
-// `mint_into` and a `SendFailed` event is emitted. `LastTransferBlock` is updated regardless.
+// Check the failure path: when a send fails, a `SendFailed` event is emitted
+// and the satellite balance is unchanged (mock does not withdraw).
 #[test]
 fn verify_failure_path() {
 	new_test_ext(true).execute_with(|| {
+		let period = TransferPeriod::get();
+		let sat = get_satellite_account();
+		let funds = 50u64;
+
 		reset_send_count();
 		reset_last_sent_amount();
-		System::set_block_number(1);
-
-		// Configure the transfer to fail.
-		SEND_FAIL.with(|f| *f.borrow_mut() = true);
-
-		let funds = 50;
-		let sat = get_satellite_account();
-
 		fund_satellite_account(funds);
 
-		let balance_before_transfer = Balances::free_balance(sat);
-		let total_before_transfer = Balances::total_issuance();
+		System::set_block_number(1);
+		SEND_FAIL.with(|f| *f.borrow_mut() = true);
 
-		DapSatellitePallet::on_idle(7, Weight::from_all(u64::MAX));
+		let balance_before = Balances::free_balance(sat);
+		let issuance_before = Balances::total_issuance();
 
-		// Verify that nothing was sent.
+		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
+
 		assert_eq!(get_send_count(), 0);
 		assert_eq!(get_last_sent_amount(), None);
-
-		// LastTransferBlock should have been updated despite the failure.
-		assert_eq!(LastTransferBlock::<Test>::get(), Some(7));
-
-		// Check that the satellite balance was fully restored.
-		assert_eq!(Balances::free_balance(sat), balance_before_transfer);
-		assert_eq!(Balances::total_issuance(), total_before_transfer);
-
-		// Check that the failure event was emitted.
+		assert_eq!(Balances::free_balance(sat), balance_before);
+		assert_eq!(Balances::total_issuance(), issuance_before);
 		System::assert_has_event(Event::<Test>::SendFailed { amount: funds }.into());
 
-		// Reset the failure flag for other tests.
 		SEND_FAIL.with(|f| *f.borrow_mut() = false);
 	});
 }
 
-// Verify that `on_idle` exits immediately and consumes no weight when the budget
-// is too small for even the first storage read (LastTransferBlock).
+// Verify that `on_idle` returns `Weight::zero()` immediately (no work done)
+// on blocks that are not multiples of `TransferPeriod`.
 #[test]
-fn on_idle_skips_when_no_weight_for_first_read() {
+fn on_idle_consumes_no_weight_on_non_period_block() {
 	new_test_ext(true).execute_with(|| {
-		reset_send_count();
-		fund_satellite_account(70);
+		let period = TransferPeriod::get();
+		let funds = 70u64;
 
-		let consumed = DapSatellitePallet::on_idle(7, Weight::zero());
+		// Ensure that the transfer period is not 1.
+		assert_ne!(period, 1);
+		fund_satellite_account(funds);
+		reset_send_count();
+
+		// Block 1 is not a multiple of TransferPeriod.
+		let consumed = DapSatellitePallet::on_idle(1, Weight::from_all(u64::MAX));
 
 		assert_eq!(consumed, Weight::zero());
 		assert_eq!(get_send_count(), 0);
-		assert_eq!(LastTransferBlock::<Test>::get(), None);
 	});
 }
 
-// Verify that `on_idle` exits after the rate-limit check when the budget covers one
-// read but not the second (the balance read).
+// Verify that `on_idle` exits without sending when there is not enough weight
+// to perform the single balance read on a period block.
 #[test]
-fn on_idle_skips_when_no_weight_for_second_read() {
+fn on_idle_skips_when_no_weight_for_balance_read() {
 	new_test_ext(true).execute_with(|| {
-		reset_send_count();
-		fund_satellite_account(70);
+		let funds = 70u64;
 
+		fund_satellite_account(funds);
+		reset_send_count();
+
+		let period = TransferPeriod::get();
+		let consumed = DapSatellitePallet::on_idle(period, Weight::zero());
+
+		assert_eq!(consumed, Weight::zero());
+		assert_eq!(get_send_count(), 0);
+	});
+}
+
+// Verify that `on_idle` consumes exactly one read's worth of weight when the
+// balance check passes but the amount is below `MinTransferAmount`.
+#[test]
+fn on_idle_consumes_one_read_when_below_min_transfer() {
+	new_test_ext(true).execute_with(|| {
+		// Fund below MinTransferAmount so the transfer is skipped after the balance read.
+		fund_satellite_account(MinTransferAmount::get() - 1);
+		reset_send_count();
+
+		let period = TransferPeriod::get();
 		let one_read = RocksDbWeight::get().reads(1);
-		let consumed = DapSatellitePallet::on_idle(7, one_read);
+		let consumed = DapSatellitePallet::on_idle(period, one_read);
 
 		assert_eq!(consumed, one_read);
 		assert_eq!(get_send_count(), 0);
-		assert_eq!(LastTransferBlock::<Test>::get(), None);
-	});
-}
-
-// Verify that `on_idle` exits before updating storage when the budget covers both
-// reads but not the write (the LastTransferBlock update).
-#[test]
-fn on_idle_skips_when_no_weight_for_write() {
-	new_test_ext(true).execute_with(|| {
-		reset_send_count();
-		fund_satellite_account(70);
-
-		let two_reads = RocksDbWeight::get().reads(2);
-		let consumed = DapSatellitePallet::on_idle(7, two_reads);
-
-		assert_eq!(consumed, two_reads);
-		assert_eq!(get_send_count(), 0);
-		// The write was never reached, so LastTransferBlock must remain unset.
-		assert_eq!(LastTransferBlock::<Test>::get(), None);
 	});
 }

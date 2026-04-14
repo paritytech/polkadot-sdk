@@ -19,8 +19,14 @@
 
 use crate::{self as pallet_dap_satellite, Config};
 use frame_support::{
-	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion,
-	weights::constants::RocksDbWeight, PalletId,
+	derive_impl, parameter_types,
+	sp_runtime::traits::AccountIdConversion,
+	traits::{
+		fungible::Mutate,
+		tokens::{Fortitude, Precision, Preservation},
+	},
+	weights::constants::RocksDbWeight,
+	PalletId,
 };
 use sp_runtime::BuildStorage;
 use std::cell::RefCell;
@@ -63,10 +69,19 @@ thread_local! {
 pub struct MockSendToDap;
 
 impl sp_dap::SendToDap<u64, u64> for MockSendToDap {
-	fn send_native(_source: u64, amount: u64) -> Result<(), ()> {
+	fn send_native(source: u64, amount: u64) -> Result<(), ()> {
 		if SEND_FAIL.with(|f| *f.borrow()) {
 			return Err(());
 		}
+		// Simulate the real implementation: burn funds from the source account.
+		Balances::burn_from(
+			&source,
+			amount,
+			Preservation::Preserve,
+			Precision::Exact,
+			Fortitude::Polite,
+		)
+		.map_err(|_| ())?;
 		SEND_COUNT.with(|c| *c.borrow_mut() += 1);
 		LAST_SENT_AMOUNT.with(|a| *a.borrow_mut() = Some(amount));
 		Ok(())
@@ -88,6 +103,7 @@ impl Config for Test {
 	type SendToDap = MockSendToDap;
 	type TransferPeriod = TransferPeriod;
 	type MinTransferAmount = MinTransferAmount;
+	type WeightInfo = ();
 }
 
 pub fn new_test_ext(fund_satellite: bool) -> sp_io::TestExternalities {
