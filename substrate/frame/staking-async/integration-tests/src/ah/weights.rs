@@ -172,7 +172,7 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		unreachable!()
 	}
 	fn payout_stakers_alive_staked(_: u32) -> Weight {
-		unreachable!()
+		Weight::default()
 	}
 	fn rebond(_: u32) -> Weight {
 		unreachable!()
@@ -195,6 +195,9 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn set_min_commission() -> Weight {
 		unreachable!()
 	}
+	fn set_max_commission() -> Weight {
+		unreachable!()
+	}
 	fn restore_ledger() -> Weight {
 		unreachable!()
 	}
@@ -205,7 +208,10 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 		Default::default()
 	}
 	fn process_offence_queue() -> Weight {
-		<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block
+		let max_block =
+			<ah::mock::BlockWeights as Get<frame_system::limits::BlockWeights>>::get().max_block;
+		// Reserve headroom for DAP drip weight which also runs in on_initialize.
+		max_block.saturating_sub(<() as pallet_dap::weights::WeightInfo>::drip_issuance())
 	}
 	fn rc_on_offence(_: u32) -> Weight {
 		Default::default()
