@@ -31,7 +31,7 @@ type DapPallet = crate::Pallet<Test>;
 type DapLegacy = crate::DapLegacyAdapter<Test, Balances>;
 
 #[test]
-#[should_panic(expected = "Failed to deposit to DAP staging account")]
+#[should_panic(expected = "Failed to deposit slash to DAP staging account")]
 fn on_unbalanced_panics_when_staging_not_funded_and_deposit_below_ed() {
 	build_and_execute(false, || {
 		set_default_budget_allocation();

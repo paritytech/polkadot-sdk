@@ -75,7 +75,6 @@ parameter_types! {
 	pub DapSatelliteLocation: Location = {
 		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
 	};
-	
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used

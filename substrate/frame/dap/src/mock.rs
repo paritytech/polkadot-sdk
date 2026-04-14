@@ -132,11 +132,8 @@ pub fn set_default_budget_allocation() {
 }
 
 fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {
-	let mut balances = vec![
-		(account_id(1), 100u64),
-		(account_id(2), 200u64),
-		(account_id(3), 300u64),
-	];
+	let mut balances =
+		vec![(account_id(1), 100u64), (account_id(2), 200u64), (account_id(3), 300u64)];
 
 	if fund_buffer {
 		let buffer: AccountId = DapPalletId::get().into_account_truncating();

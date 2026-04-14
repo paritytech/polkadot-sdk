@@ -175,8 +175,8 @@ fn first_block_initializes_timestamp_without_dripping() {
 		balances: vec![(account_id(1), 100)],
 		..Default::default()
 	}
-		.assimilate_storage(&mut t)
-		.unwrap();
+	.assimilate_storage(&mut t)
+	.unwrap();
 	let mut ext: sp_io::TestExternalities = t.into();
 
 	ext.execute_with(|| {
