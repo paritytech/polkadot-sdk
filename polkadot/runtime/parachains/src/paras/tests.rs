@@ -248,7 +248,7 @@ fn schedule_para_init_rejects_empty_code() {
 			Paras::schedule_para_initialize(
 				1000.into(),
 				ParaGenesisArgs {
-					para_kind: ParaKind::Parathread,
+					para_kind: ParaKind::Parachain,
 					genesis_head: dummy_head_data(),
 					validation_code: ValidationCode(vec![]),
 				}
@@ -259,7 +259,7 @@ fn schedule_para_init_rejects_empty_code() {
 		assert_ok!(Paras::schedule_para_initialize(
 			1000.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: dummy_head_data(),
 				validation_code: ValidationCode(vec![1]),
 			}
@@ -282,7 +282,7 @@ fn para_past_code_pruning_in_initialize() {
 		(
 			1u32.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: dummy_head_data(),
 				validation_code: dummy_validation_code(),
 			},
@@ -375,7 +375,7 @@ fn note_past_code_sets_up_pruning_correctly() {
 		(
 			1u32.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: dummy_head_data(),
 				validation_code: dummy_validation_code(),
 			},
@@ -1065,7 +1065,7 @@ fn para_incoming_at_session() {
 		assert_ok!(Paras::schedule_para_initialize(
 			a,
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: vec![2].into(),
 				validation_code: code_a.clone(),
 			},
@@ -1132,7 +1132,7 @@ fn para_incoming_at_session() {
 		assert_eq!(ActionsQueue::<Test>::get(Paras::scheduled_session()), Vec::new());
 
 		// Lifecycle is tracked correctly
-		assert_eq!(ParaLifecycles::<Test>::get(&a), Some(ParaLifecycle::Parathread));
+		assert_eq!(ParaLifecycles::<Test>::get(&a), Some(ParaLifecycle::Parachain));
 		assert_eq!(ParaLifecycles::<Test>::get(&b), Some(ParaLifecycle::Parachain));
 		assert_eq!(ParaLifecycles::<Test>::get(&c), Some(ParaLifecycle::Parachain));
 
@@ -1338,7 +1338,7 @@ fn pvf_check_onboarding_reject_on_expiry() {
 		assert_ok!(Paras::schedule_para_initialize(
 			a,
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: vec![2].into(),
 				validation_code: validation_code.clone(),
 			},
@@ -1377,7 +1377,7 @@ fn pvf_check_upgrade_reject() {
 	let paras = vec![(
 		a,
 		ParaGenesisArgs {
-			para_kind: ParaKind::Parathread,
+			para_kind: ParaKind::Parachain,
 			genesis_head: Default::default(),
 			validation_code: old_code,
 		},
@@ -1477,7 +1477,7 @@ fn pvf_check_submit_vote() {
 		assert_ok!(Paras::schedule_para_initialize(
 			1000.into(),
 			ParaGenesisArgs {
-				para_kind: ParaKind::Parathread,
+				para_kind: ParaKind::Parachain,
 				genesis_head: vec![2].into(),
 				validation_code: code_a.clone(),
 			},
@@ -1564,7 +1564,7 @@ fn include_pvf_check_statement_refunds_weight() {
 	let paras = vec![(
 		a,
 		ParaGenesisArgs {
-			para_kind: ParaKind::Parathread,
+			para_kind: ParaKind::Parachain,
 			genesis_head: Default::default(),
 			validation_code: old_code,
 		},
@@ -1923,12 +1923,10 @@ fn parakind_encodes_decodes_to_bool_scale() {
 	let chain_dec = ParaKind::decode(&mut chain_kind.as_slice());
 	assert_eq!(chain_dec, Ok(ParaKind::Parachain));
 
-	let thread_kind = ParaKind::Parathread.encode();
-	let thread_bool = false.encode();
-	assert_eq!(thread_kind, thread_bool);
-
-	let thread_dec = ParaKind::decode(&mut thread_kind.as_slice());
-	assert_eq!(thread_dec, Ok(ParaKind::Parathread));
+	// Legacy parathread was encoded as `false`; it now decodes to Parachain.
+	let legacy_thread_bool = false.encode();
+	let legacy_thread_dec = ParaKind::decode(&mut legacy_thread_bool.as_slice());
+	assert_eq!(legacy_thread_dec, Ok(ParaKind::Parachain));
 
 	assert_eq!(bool::type_info(), ParaKind::type_info());
 }
@@ -1943,13 +1941,9 @@ fn parakind_encodes_decodes_to_bool_serde() {
 	let ser_true = serde_json::to_string(&true).unwrap();
 	assert_eq!(ser_true, ser_chain);
 
-	let thread = ParaKind::Parathread;
-	let ser_thread = serde_json::to_string(&thread).unwrap();
-	let de_thread: ParaKind = serde_json::from_str(&ser_thread).unwrap();
-	assert_eq!(thread, de_thread);
-
-	let ser_false = serde_json::to_string(&false).unwrap();
-	assert_eq!(ser_false, ser_thread);
+	// Legacy parathread was serialized as `false`; it now deserializes to Parachain.
+	let de_legacy_thread: ParaKind = serde_json::from_str("false").unwrap();
+	assert_eq!(de_legacy_thread, ParaKind::Parachain);
 }
 
 #[test]

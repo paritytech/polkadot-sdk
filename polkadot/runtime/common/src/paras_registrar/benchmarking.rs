@@ -108,7 +108,7 @@ mod benchmarks {
 			validation_code,
 		));
 		next_scheduled_session::<T>();
-		assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Parathread));
+		assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Parachain));
 
 		Ok(())
 	}
@@ -131,7 +131,7 @@ mod benchmarks {
 			validation_code,
 		));
 		next_scheduled_session::<T>();
-		assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Parathread));
+		assert_eq!(paras::Pallet::<T>::lifecycle(para), Some(ParaLifecycle::Parachain));
 
 		Ok(())
 	}
@@ -152,32 +152,27 @@ mod benchmarks {
 
 	#[benchmark]
 	fn swap() -> Result<(), BenchmarkError> {
-		// On demand parachain
-		let parathread = register_para::<T>(LOWEST_PUBLIC_ID.into());
-		let parachain = register_para::<T>((LOWEST_PUBLIC_ID + 1).into());
+		let para_a = register_para::<T>(LOWEST_PUBLIC_ID.into());
+		let para_b = register_para::<T>((LOWEST_PUBLIC_ID + 1).into());
 
-		let parachain_origin = para_origin(parachain.into());
+		let para_a_origin = para_origin(para_a.into());
 
 		// Actually finish registration process
 		next_scheduled_session::<T>();
 
-		// Upgrade the parachain
-		Registrar::<T>::make_parachain(parachain)?;
-		next_scheduled_session::<T>();
-
-		assert_eq!(paras::Pallet::<T>::lifecycle(parachain), Some(ParaLifecycle::Parachain));
-		assert_eq!(paras::Pallet::<T>::lifecycle(parathread), Some(ParaLifecycle::Parathread));
+		assert_eq!(paras::Pallet::<T>::lifecycle(para_a), Some(ParaLifecycle::Parachain));
+		assert_eq!(paras::Pallet::<T>::lifecycle(para_b), Some(ParaLifecycle::Parachain));
 
 		let caller: T::AccountId = whitelisted_caller();
-		Registrar::<T>::swap(parachain_origin.into(), parachain, parathread)?;
+		Registrar::<T>::swap(para_a_origin.into(), para_a, para_b)?;
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), parathread, parachain);
+		_(RawOrigin::Signed(caller.clone()), para_b, para_a);
 
 		next_scheduled_session::<T>();
 		// Swapped!
-		assert_eq!(paras::Pallet::<T>::lifecycle(parachain), Some(ParaLifecycle::Parathread));
-		assert_eq!(paras::Pallet::<T>::lifecycle(parathread), Some(ParaLifecycle::Parachain));
+		assert_eq!(paras::Pallet::<T>::lifecycle(para_a), Some(ParaLifecycle::Parachain));
+		assert_eq!(paras::Pallet::<T>::lifecycle(para_b), Some(ParaLifecycle::Parachain));
 
 		Ok(())
 	}

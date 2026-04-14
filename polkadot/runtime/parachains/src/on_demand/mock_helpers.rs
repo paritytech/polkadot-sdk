@@ -77,7 +77,7 @@ impl GenesisConfigBuilder {
 				ParaGenesisArgs {
 					genesis_head: HeadData::from(vec![0u8]),
 					validation_code: ValidationCode::from(vec![0u8]),
-					para_kind: ParaKind::Parathread,
+					para_kind: ParaKind::Parachain,
 				},
 			))
 		}

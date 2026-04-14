@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Parathread and parachains leasing system. Allows para IDs to be claimed, the code and data to be
-//! initialized and parachain slots (i.e. continuous scheduling) to be leased. Also allows for
-//! parachains and parathreads to be swapped.
+//! Parachain leasing system. Allows para IDs to be claimed, the code and data to be initialized
+//! and parachain slots (i.e. continuous scheduling) to be leased. Also allows for
+//! parachains to be swapped.
 //!
 //! This doesn't handle the mechanics of determining which para ID actually ends up with a parachain
 //! lease. This must handled by a separately, through the trait interface that this pallet provides
@@ -977,7 +977,7 @@ mod benchmarking {
 		assert_eq!(event, &system_event);
 	}
 
-	// Registers a parathread (on-demand parachain)
+	// Registers a para (all paras onboard as parachains)
 	fn register_a_parathread<T: Config + paras::Config>(i: u32) -> (ParaId, T::AccountId) {
 		let para = ParaId::from(i);
 		let leaser: T::AccountId = account("leaser", i, 0);
@@ -1040,8 +1040,8 @@ mod benchmarking {
 			Ok(())
 		}
 
-		// Worst case scenario, T on-demand parachains onboard, and C lease holding parachains
-		// offboard. Assume reasonable maximum of 100 paras at any time
+		// Worst case scenario, T parachains gain new leases, and C lease holding parachains
+		// have their leases expire. Assume reasonable maximum of 100 paras at any time.
 		#[benchmark]
 		fn manage_lease_period_start(
 			c: Linear<0, 100>,
@@ -1053,12 +1053,12 @@ mod benchmarking {
 			// If there is an offset, we need to be on that block to be able to do lease things.
 			frame_system::Pallet::<T>::set_block_number(T::LeaseOffset::get() + One::one());
 
-			// Make T parathreads (on-demand parachains)
+			// Make T parachains that will gain leases this period
 			let paras_info = (0..t).map(|i| register_a_parathread::<T>(i)).collect::<Vec<_>>();
 
 			T::Registrar::execute_pending_transitions();
 
-			// T on-demand parachains are upgrading to lease holding parachains
+			// T parachains are gaining lease slots
 			for (para, leaser) in paras_info {
 				let amount = T::Currency::minimum_balance();
 				let origin = T::ForceOrigin::try_successful_origin()
@@ -1068,7 +1068,7 @@ mod benchmarking {
 
 			T::Registrar::execute_pending_transitions();
 
-			// C lease holding parachains are downgrading to on-demand parachains
+			// C parachains are currently holding leases that will expire
 			for i in 200..200 + c {
 				let (para, _) = register_a_parathread::<T>(i);
 				T::Registrar::make_parachain(para)?;
@@ -1077,7 +1077,7 @@ mod benchmarking {
 			T::Registrar::execute_pending_transitions();
 
 			for i in 0..t {
-				assert!(T::Registrar::is_parathread(ParaId::from(i)));
+				assert!(T::Registrar::is_parachain(ParaId::from(i)));
 			}
 
 			for i in 200..200 + c {
@@ -1088,13 +1088,13 @@ mod benchmarking {
 				let _ = Slots::<T>::manage_lease_period_start(period_begin);
 			}
 
-			// All paras should have switched.
+			// All paras remain parachains regardless of lease state.
 			T::Registrar::execute_pending_transitions();
 			for i in 0..t {
 				assert!(T::Registrar::is_parachain(ParaId::from(i)));
 			}
 			for i in 200..200 + c {
-				assert!(T::Registrar::is_parathread(ParaId::from(i)));
+				assert!(T::Registrar::is_parachain(ParaId::from(i)));
 			}
 
 			Ok(())
@@ -1153,7 +1153,7 @@ mod benchmarking {
 					BalanceOf::<T>::default(),
 				))],
 			);
-			assert!(T::Registrar::is_parathread(para));
+			assert!(T::Registrar::is_parachain(para));
 			let caller = whitelisted_caller();
 
 			#[extrinsic_call]

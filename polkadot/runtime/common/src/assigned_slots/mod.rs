@@ -216,14 +216,9 @@ pub mod pallet {
 	pub enum Error<T> {
 		/// The specified parachain is not registered.
 		ParaDoesntExist,
-		/// Not a parathread (on-demand parachain).
-		NotParathread,
 		/// Cannot upgrade on-demand parachain to lease holding
 		/// parachain.
 		CannotUpgrade,
-		/// Cannot downgrade lease holding parachain to
-		/// on-demand.
-		CannotDowngrade,
 		/// Permanent or Temporary slot already assigned.
 		SlotAlreadyAssigned,
 		/// Permanent or Temporary slot has not been assigned.
@@ -261,7 +256,7 @@ pub mod pallet {
 
 			let manager = T::Registrar::manager_of(id).ok_or(Error::<T>::ParaDoesntExist)?;
 
-			ensure!(T::Registrar::is_parathread(id), Error::<T>::NotParathread);
+			ensure!(T::Registrar::is_parachain(id), Error::<T>::ParaDoesntExist);
 
 			ensure!(
 				!Self::has_permanent_slot(id) && !Self::has_temporary_slot(id),
@@ -323,7 +318,7 @@ pub mod pallet {
 
 			let manager = T::Registrar::manager_of(id).ok_or(Error::<T>::ParaDoesntExist)?;
 
-			ensure!(T::Registrar::is_parathread(id), Error::<T>::NotParathread);
+			ensure!(T::Registrar::is_parachain(id), Error::<T>::ParaDoesntExist);
 
 			ensure!(
 				!Self::has_permanent_slot(id) && !Self::has_temporary_slot(id),
@@ -428,22 +423,7 @@ pub mod pallet {
 				}
 			}
 
-			// Force downgrade to on-demand parachain (if needed) before end of lease period
-			if is_parachain {
-				if let Err(err) = polkadot_runtime_parachains::schedule_parachain_downgrade::<T>(id)
-				{
-					// Treat failed downgrade as warning .. slot lease has been cleared,
-					// so the parachain will be downgraded anyway by the slots pallet
-					// at the end of the lease period .
-					log::warn!(
-						target: LOG_TARGET,
-						"Failed to downgrade parachain {:?} at period {:?}: {:?}",
-						id,
-						Self::current_lease_period_index(),
-						err
-					);
-				}
-			}
+			// Parathread downgrade no longer exists; all paras remain parachains.
 
 			Ok(())
 		}
@@ -835,28 +815,6 @@ mod tests {
 		});
 	}
 
-	#[test]
-	fn assign_perm_slot_fails_when_not_parathread() {
-		new_test_ext().execute_with(|| {
-			System::run_to_block::<AllPalletsWithSystem>(1);
-
-			assert_ok!(TestRegistrar::<Test>::register(
-				1,
-				ParaId::from(1_u32),
-				dummy_head_data(),
-				dummy_validation_code(),
-			));
-			assert_ok!(TestRegistrar::<Test>::make_parachain(ParaId::from(1_u32)));
-
-			assert_noop!(
-				AssignedSlots::assign_perm_parachain_slot(
-					RuntimeOrigin::root(),
-					ParaId::from(1_u32),
-				),
-				Error::<Test>::NotParathread
-			);
-		});
-	}
 
 	#[test]
 	fn assign_perm_slot_fails_when_existing_lease() {
@@ -983,8 +941,8 @@ mod tests {
 				System::run_to_block::<AllPalletsWithSystem>(block);
 			}
 
-			// Para lease ended, downgraded back to parathread (on-demand parachain)
-			assert_eq!(TestRegistrar::<Test>::is_parathread(ParaId::from(1_u32)), true);
+			// Para lease ended, still a parachain
+			assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 5), false);
 		});
 	}
@@ -1021,29 +979,6 @@ mod tests {
 		});
 	}
 
-	#[test]
-	fn assign_temp_slot_fails_when_not_parathread() {
-		new_test_ext().execute_with(|| {
-			System::run_to_block::<AllPalletsWithSystem>(1);
-
-			assert_ok!(TestRegistrar::<Test>::register(
-				1,
-				ParaId::from(1_u32),
-				dummy_head_data(),
-				dummy_validation_code(),
-			));
-			assert_ok!(TestRegistrar::<Test>::make_parachain(ParaId::from(1_u32)));
-
-			assert_noop!(
-				AssignedSlots::assign_temp_parachain_slot(
-					RuntimeOrigin::root(),
-					ParaId::from(1_u32),
-					SlotLeasePeriodStart::Current
-				),
-				Error::<Test>::NotParathread
-			);
-		});
-	}
 
 	#[test]
 	fn assign_temp_slot_fails_when_existing_lease() {
@@ -1183,8 +1118,8 @@ mod tests {
 			println!("lease period #{}", AssignedSlots::current_lease_period_index());
 			println!("lease {:?}", slots::Leases::<Test>::get(ParaId::from(1_u32)));
 
-			// Para lease ended, downgraded back to on-demand parachain
-			assert_eq!(TestRegistrar::<Test>::is_parathread(ParaId::from(1_u32)), true);
+			// Para lease ended, still a parachain
+			assert_eq!(TestRegistrar::<Test>::is_parachain(ParaId::from(1_u32)), true);
 			assert_eq!(Slots::already_leased(ParaId::from(1_u32), 0, 3), false);
 			assert_eq!(assigned_slots::ActiveTemporarySlotCount::<Test>::get(), 0);
 
