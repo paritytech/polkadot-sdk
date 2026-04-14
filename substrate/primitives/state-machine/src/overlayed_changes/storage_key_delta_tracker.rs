@@ -24,11 +24,7 @@ use core::{
 	mem,
 };
 use indexmap::IndexMap as HashMap;
-#[cfg(not(feature = "std"))]
-use indexmap::IndexSet as HashSet;
 use nohash_hasher::BuildNoHashHasher;
-#[cfg(feature = "std")]
-use std::collections::HashSet;
 
 #[cfg(feature = "std")]
 const LOG_TARGET: &str = "storage_key_delta_tracker";
@@ -47,7 +43,9 @@ pub enum DeltaKeyOp {
 }
 
 type KeyMap<K> = HashMap<u64, (K, DeltaKeyOp), BuildNoHashHasher<u64>>;
-type CapturedSet = HashSet<u64, BuildNoHashHasher<u64>>;
+/// Maps key hash to the last emitted `DeltaKeyOp` for that key.
+/// Used to suppress redundant re-emissions across `take_delta` calls.
+type CapturedMap = HashMap<u64, DeltaKeyOp, BuildNoHashHasher<u64>>;
 
 /// Incremental snapshot result: map of base hash -> (key, op) for all new keys since last snapshot.
 ///
@@ -92,11 +90,12 @@ pub struct StorageKeyDeltaTracker<K, HB = DefaultHashBuilder> {
 struct TransactionLayer<K> {
 	/// base hash -> key map of all new keys that were not yet included into any delta.
 	dirty_keys: KeyMap<K>,
-	/// Base hashes of keys that have been already reported in incremental delta.
-	snapshot: Option<CapturedSet>,
-	/// Base hashes of keys that have been deleted.
-	/// Used to prevent `Updated` operations on deleted keys from appearing in future snapshots.
-	deleted_keys: CapturedSet,
+	/// Maps key hash -> last emitted op for keys already reported in an incremental delta.
+	///
+	/// Stores the op so that suppression can be asymmetric:
+	/// - Previously `Deleted`: suppress all future ops (Updated and Deleted).
+	/// - Previously `Updated`: suppress future `Updated` only; allow a subsequent `Deleted`.
+	snapshot: Option<CapturedMap>,
 }
 
 impl<K> Default for TransactionLayer<K> {
@@ -104,7 +103,6 @@ impl<K> Default for TransactionLayer<K> {
 		Self {
 			dirty_keys: KeyMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default()),
 			snapshot: None,
-			deleted_keys: CapturedSet::default(),
 		}
 	}
 }
@@ -155,20 +153,19 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 		self.layers.push(old_current);
 	}
 
-	/// Commits the current transaction, merging dirty keys, updated and deleted key sets
-	/// into parent.
+	/// Commits the current transaction, merging dirty keys and snapshot into parent.
 	pub fn commit_transaction(&mut self) {
 		trace!(target:LOG_TARGET, "commit_transaction empty:{}", self.layers.len());
 		if let Some(mut parent) = self.layers.pop() {
 			if let Some(current_snapshot) = self.current.snapshot.take() {
 				match &mut parent.snapshot {
+					// Child ops overwrite parent ops for the same key (child is more recent).
 					Some(parent_snapshot) => parent_snapshot.extend(current_snapshot),
 					None => parent.snapshot = Some(current_snapshot),
 				}
 			}
 
 			parent.dirty_keys.extend(self.current.dirty_keys.drain(..));
-			parent.deleted_keys.extend(&self.current.deleted_keys);
 
 			self.current = parent;
 		}
@@ -195,29 +192,32 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	{
 		let mut delta: DeltaKeys<K> =
 			HashMap::with_capacity_and_hasher(16, BuildNoHashHasher::<u64>::default());
-		let mut new_deleted_keys = CapturedSet::default();
 
 		let mut process_key = |hash: u64, key: K, op: DeltaKeyOp| {
-			let is_deleted = self.current.deleted_keys.contains(&hash) ||
-				self.layers.iter().any(|layer| layer.deleted_keys.contains(&hash));
+			// Find the last emitted op for this key: check current snapshot first (most
+			// recent), then layers from innermost to outermost.
+			let prev_op = self
+				.current
+				.snapshot
+				.as_ref()
+				.and_then(|s| s.get(&hash).copied())
+				.or_else(|| {
+					self.layers
+						.iter()
+						.rev()
+						.find_map(|layer| layer.snapshot.as_ref()?.get(&hash).copied())
+				});
 
-			if is_deleted {
-				return;
-			}
+			let suppress = match (prev_op, op) {
+				// Previously deleted → suppress all future ops.
+				(Some(DeltaKeyOp::Deleted), _) => true,
+				// Previously updated → suppress another Updated, but allow Deleted through.
+				(Some(DeltaKeyOp::Updated), DeltaKeyOp::Updated) => true,
+				_ => false,
+			};
 
-			if op == DeltaKeyOp::Deleted {
-				new_deleted_keys.insert(hash);
+			if !suppress {
 				delta.insert(hash, (key, op));
-			} else {
-				let is_captured = self
-					.layers
-					.iter()
-					.any(|layer| layer.snapshot.as_ref().is_some_and(|s| s.contains(&hash))) ||
-					self.current.snapshot.as_ref().is_some_and(|s| s.contains(&hash));
-
-				if !is_captured {
-					delta.insert(hash, (key, op));
-				}
 			}
 		};
 
@@ -236,18 +236,17 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 			}
 		}
 
-		self.current.deleted_keys.extend(&new_deleted_keys);
-
 		trace!(target:LOG_TARGET, "get_delta: {:?}", delta.values().collect::<Vec<_>>());
 
-		// Merge delta into current layer's snapshot
+		// Merge delta into current layer's snapshot, recording the emitted op per key.
 		if !delta.is_empty() {
 			match &mut self.current.snapshot {
 				Some(snapshot) => {
-					snapshot.extend(delta.keys().copied());
+					snapshot.extend(delta.iter().map(|(&h, (_, op))| (h, *op)));
 				},
 				None => {
-					self.current.snapshot = Some(delta.keys().copied().collect());
+					self.current.snapshot =
+						Some(delta.iter().map(|(&h, (_, op))| (h, *op)).collect());
 				},
 			}
 		}
