@@ -6,6 +6,6 @@ doc:
     - **Make pallet assets try-state check more lenient**
 crates:
 - name: staging-xcm-executor
-  bump: patch
+  bump: minor
 - name: pallet-assets
   bump: patch
