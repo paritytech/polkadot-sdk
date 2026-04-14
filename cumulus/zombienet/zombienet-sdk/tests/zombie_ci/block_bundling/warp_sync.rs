@@ -64,10 +64,7 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	assert_para_throughput(&relay_client, 6, [(ParaId::from(PARA_ID), 12..19)], []).await?;
 
 	// Query collator's current best block to set a sync target.
-	let target_block = network
-		.get_node("collator-0")?
-		.reports(BEST_BLOCK_METRIC)
-		.await? as u64;
+	let target_block = network.get_node("collator-0")?.reports(BEST_BLOCK_METRIC).await? as u64;
 	log::info!("Full node sync target: #{target_block}");
 
 	// Add a fresh full node that will warp-sync to the already-running chain.
@@ -109,10 +106,7 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 
 	// Make sure the full node keeps progressing on live blocks after the initial sync.
 	// Wait for it to advance 24 blocks beyond the collator's current best.
-	let collator_best = network
-		.get_node("collator-0")?
-		.reports(BEST_BLOCK_METRIC)
-		.await? as u64;
+	let collator_best = network.get_node("collator-0")?.reports(BEST_BLOCK_METRIC).await? as u64;
 	let live_target = (collator_best + 24) as f64;
 	log::info!("Collator best: #{collator_best}, waiting for full node to reach #{live_target}");
 

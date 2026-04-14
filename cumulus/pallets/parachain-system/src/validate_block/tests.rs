@@ -790,11 +790,7 @@ fn rejects_blocks_in_bundle_after_block_marked_as_last() {
 		.unwrap_err();
 	} else {
 		let output = Command::new(env::current_exe().unwrap())
-			.args([
-				"rejects_blocks_in_bundle_after_block_marked_as_last",
-				"--",
-				"--nocapture",
-			])
+			.args(["rejects_blocks_in_bundle_after_block_marked_as_last", "--", "--nocapture"])
 			.env("RUN_TEST", "1")
 			.output()
 			.expect("Runs the test");
