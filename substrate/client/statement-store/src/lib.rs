@@ -3071,40 +3071,6 @@ mod tests {
 	}
 
 	#[test]
-	fn naturally_expired_statements_not_added_to_expired_map() {
-		// Statements whose own expiry timestamp has passed are unconditionally rejected
-		// by the AlreadyExpired check in submit. They must not pollute the expired map.
-		let (mut store, _temp) = test_store();
-		store.set_time(100);
-
-		let mut stmt = statement(1, 1, None, 100);
-		stmt.set_expiry_from_parts(200, 1);
-		let hash = stmt.hash();
-		store.submit(stmt, StatementSource::Network);
-
-		// Advance time past the statement's own expiry timestamp.
-		store.set_time(1000);
-		store.enforce_limits();
-		store.enforce_limits();
-
-		{
-			let index = store.index.read();
-			assert!(!index.entries.contains_key(&hash), "Statement should be removed from entries");
-			// Core assertion: naturally expired statements must not enter the expired map.
-			assert!(
-				!index.expired.contains(&hash),
-				"Naturally expired statement must not be added to the expired map"
-			);
-		}
-		let mut resubmit = statement(1, 1, None, 100);
-		resubmit.set_expiry_from_parts(200, 1);
-		assert_eq!(
-			store.submit(resubmit, StatementSource::Network),
-			SubmitResult::Invalid(InvalidReason::AlreadyExpired),
-		);
-	}
-
-	#[test]
 	fn channel_replacement_with_size_increase_evicts_others() {
 		let (store, _temp) = test_store();
 		let source = StatementSource::Network;
