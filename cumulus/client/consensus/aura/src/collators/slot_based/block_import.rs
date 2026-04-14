@@ -252,7 +252,7 @@ impl<Block: BlockT, BI, Client> SlotBasedBlockImport<Block, BI, Client> {
 
 		// `record_proof_with_recorder` captures trie accesses, while `ProofSizeExt` replays the
 		// proof-size estimations in the same order they were observed during block building.
-		runtime_api.set_call_context(CallContext::Onchain);
+		runtime_api.set_call_context(CallContext::Onchain { import: true });
 		runtime_api.record_proof_with_recorder(recorder.clone());
 		runtime_api.register_extension(ProofSizeExt::new(proof_size_recorder.clone()));
 

@@ -139,7 +139,7 @@ fn init_block_builder(
 	extra_pre_digests: Option<Vec<DigestItem>>,
 ) -> BlockBuilderAndSupportData<'_> {
 	let mut runtime_api = client.runtime_api();
-	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	let para_slot_duration = runtime_api.slot_duration(at).unwrap();
 
 	let timestamp = timestamp.unwrap_or_else(|| {
