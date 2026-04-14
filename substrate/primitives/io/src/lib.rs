@@ -3522,9 +3522,8 @@ pub trait Offchain {
 			.expect("http_response_header_name can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.0;
-		if out.len() >= res.len() {
-			out.copy_from_slice(&res[..]);
-		}
+		let copy_len = res.len().min(out.len());
+		out[..copy_len].copy_from_slice(&res[..copy_len]);
 		Some(res.len() as u32)
 	}
 
@@ -3545,9 +3544,8 @@ pub trait Offchain {
 			.expect("http_response_header_value can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.1;
-		if out.len() >= res.len() {
-			out.copy_from_slice(&res[..]);
-		}
+		let copy_len = res.len().min(out.len());
+		out[..copy_len].copy_from_slice(&res[..copy_len]);
 		Some(res.len() as u32)
 	}
 
@@ -3563,19 +3561,20 @@ pub trait Offchain {
 		while let Some(name_len) =
 			http_response_header_name(request_id, head_idx, &mut name_buf[..])
 		{
-			if name_len as usize > name_buf.len() {
-				name_buf.resize(name_len as usize, 0);
+			let name_len = name_len as usize;
+			if name_len > name_buf.len() {
+				name_buf.resize(name_len, 0);
 				http_response_header_name(request_id, head_idx, &mut name_buf[..])
 					.expect("It was checked that the header exists");
 			}
 			let value_len = http_response_header_value(request_id, head_idx, &mut value_buf[..])
-				.expect("It was checked that the header exists");
-			if value_len as usize > value_buf.len() {
-				value_buf.resize(value_len as usize, 0);
+				.expect("It was checked that the header exists") as usize;
+			if value_len > value_buf.len() {
+				value_buf.resize(value_len, 0);
 				http_response_header_value(request_id, head_idx, &mut value_buf[..])
 					.expect("It was checked that the header exists");
 			}
-			headers.push((name_buf.clone(), value_buf.clone()));
+			headers.push((name_buf[..name_len].to_vec(), value_buf[..value_len].to_vec()));
 			head_idx += 1;
 		}
 		headers
