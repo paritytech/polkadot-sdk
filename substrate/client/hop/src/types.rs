@@ -159,8 +159,8 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 	}
 }
 
-/// Maximum data size (64 MiB)
-pub const MAX_DATA_SIZE: u64 = 64 * 1024 * 1024;
+/// Maximum data size (8 MiB, matching `DefaultMaxTransactionSize` in Bulletin Chain)
+pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
 /// Default retention period in blocks (24 hours at 6 seconds per block = 14,400 blocks)
 pub const DEFAULT_RETENTION_BLOCKS: u32 = 14_400;
@@ -171,5 +171,5 @@ pub const DEFAULT_MAX_POOL_SIZE: u64 = 10 * 1024 * 1024 * 1024;
 /// Default maximum pool size in MiB (10 GiB = 10240 MiB)
 pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024);
 
-/// Default expiry cleanup interval in seconds
-pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 60;
+/// Default maintenance interval in seconds (1 hour)
+pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 3600;

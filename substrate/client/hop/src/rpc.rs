@@ -27,17 +27,17 @@ use crate::{
 };
 use codec::Decode;
 use jsonrpsee::{
-	core::{async_trait, RpcResult},
+	core::{RpcResult, async_trait},
 	proc_macros::rpc,
 	types::ErrorObjectOwned,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{hashing::blake2_256, Bytes, H256};
+use sp_core::{Bytes, H256, hashing::blake2_256};
 use sp_hop::HopApi;
 use sp_runtime::{
-	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
+	traits::{Block as BlockT, IdentifyAccount, Verify},
 };
 use std::{marker::PhantomData, sync::Arc};
 
@@ -168,10 +168,21 @@ where
 		let best_hash = chain_info.best_hash;
 		let current_block = chain_info.best_number.saturated_into::<u32>();
 
+		let runtime_api = self.client.runtime_api();
+
+		// Reject data that exceeds the runtime's promotion limit.
+		let max_size = runtime_api
+			.max_promotion_size(best_hash)
+			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
+		if data.0.len() > max_size as usize {
+			return Err(ErrorObjectOwned::from(HopError::DataTooLarge(
+				data.0.len(),
+				max_size as u64,
+			)));
+		}
+
 		// Check authorization via runtime API
-		let authorized = self
-			.client
-			.runtime_api()
+		let authorized = runtime_api
 			.is_account_authorized(best_hash, account_id.clone())
 			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
 		if !authorized {
@@ -208,7 +219,7 @@ mod tests {
 	use codec::Encode;
 	use sp_blockchain::{self, Info};
 	use sp_core::{crypto::Pair, ed25519};
-	use sp_runtime::{traits::NumberFor, MultiSigner};
+	use sp_runtime::{MultiSigner, traits::NumberFor};
 	use sp_test_primitives::Block;
 	use std::sync::atomic::{AtomicBool, Ordering};
 	use tempfile::TempDir;
@@ -282,7 +293,7 @@ mod tests {
 			}
 
 			fn max_promotion_size() -> u32 {
-				64 * 1024 * 1024
+				8 * 1024 * 1024
 			}
 		}
 	}

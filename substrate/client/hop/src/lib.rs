@@ -89,7 +89,7 @@
 //! - `--enable-hop` - Enable HOP service
 //! - `--hop-max-pool-size <MiB>` - Maximum pool size (default: 10240 MiB)
 //! - `--hop-retention-blocks <blocks>` - Retention period (default: 14400)
-//! - `--hop-check-interval <seconds>` - Expiry cleanup interval (default: 60)
+//! - `--hop-check-interval <seconds>` - Maintenance interval (default: 3600)
 
 pub mod cli;
 pub mod pool;
@@ -102,6 +102,6 @@ pub mod types;
 pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
-pub use promotion::{try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter};
+pub use promotion::{HopMaintenanceTask, HopPromoter, RuntimeApiPromoter, try_build_promoter};
 pub use rpc::{HopApiServer, HopRpcServer};
 pub use types::{HopEntryMeta, HopError, PoolStatus, SenderId, SubmitResult};

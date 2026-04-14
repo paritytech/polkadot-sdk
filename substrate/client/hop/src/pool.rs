@@ -18,22 +18,22 @@
 
 use crate::{
 	primitives::{HopBlockNumber, HopHash},
-	types::{HopEntryMeta, HopError, PoolStatus, SenderId, MAX_DATA_SIZE},
+	types::{HopEntryMeta, HopError, MAX_DATA_SIZE, PoolStatus, SenderId},
 };
 use codec::{Decode, Encode};
 use parking_lot::RwLock;
-use sp_core::{hashing::blake2_256, H256};
+use sp_core::{H256, hashing::blake2_256};
 use sp_runtime::{
-	traits::{IdentifyAccount, Verify},
 	MultiSignature, MultiSigner,
+	traits::{IdentifyAccount, Verify},
 };
 use std::{
 	collections::HashMap,
 	fs,
 	path::{Path, PathBuf},
 	sync::{
-		atomic::{AtomicU64, Ordering},
 		Arc,
+		atomic::{AtomicU64, Ordering},
 	},
 };
 
@@ -366,11 +366,7 @@ impl HopDataPool {
 			.enumerate()
 			.find_map(|(i, signer)| {
 				let account_id = signer.clone().into_account();
-				if multi_sig.verify(hash.as_bytes(), &account_id) {
-					Some(i)
-				} else {
-					None
-				}
+				if multi_sig.verify(hash.as_bytes(), &account_id) { Some(i) } else { None }
 			})
 			.ok_or(HopError::NotRecipient)
 	}
