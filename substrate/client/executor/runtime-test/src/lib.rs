@@ -388,14 +388,14 @@ mod output_validity {
 	// Returns a huge len. It should result in an error, and not an allocation.
 	#[no_mangle]
 	#[cfg(not(feature = "std"))]
-	pub extern "C" fn test_return_huge_len(_params: *const u8, _len: usize) -> u64 {
+	pub extern "C" fn test_return_huge_len(_len: usize) -> u64 {
 		pack_ptr_and_len(0, u32::MAX)
 	}
 
 	// Returns an offset right before the edge of the wasm memory boundary. It should succeed.
 	#[no_mangle]
 	#[cfg(not(feature = "std"))]
-	pub extern "C" fn test_return_max_memory_offset(_params: *const u8, _len: usize) -> u64 {
+	pub extern "C" fn test_return_max_memory_offset(_len: usize) -> u64 {
 		let output_ptr = (core::arch::wasm32::memory_size(0) * WASM_PAGE_SIZE) as u32 - 1;
 		let ptr = output_ptr as *mut u8;
 		unsafe {
@@ -407,17 +407,14 @@ mod output_validity {
 	// Returns an offset right after the edge of the wasm memory boundary. It should fail.
 	#[no_mangle]
 	#[cfg(not(feature = "std"))]
-	pub extern "C" fn test_return_max_memory_offset_plus_one(
-		_params: *const u8,
-		_len: usize,
-	) -> u64 {
+	pub extern "C" fn test_return_max_memory_offset_plus_one(_len: usize) -> u64 {
 		pack_ptr_and_len((core::arch::wasm32::memory_size(0) * WASM_PAGE_SIZE) as u32, 1)
 	}
 
 	// Returns an output that overflows the u32 range. It should result in an error.
 	#[no_mangle]
 	#[cfg(not(feature = "std"))]
-	pub extern "C" fn test_return_overflow(_params: *const u8, _len: usize) -> u64 {
+	pub extern "C" fn test_return_overflow(_len: usize) -> u64 {
 		pack_ptr_and_len(u32::MAX, 1)
 	}
 }

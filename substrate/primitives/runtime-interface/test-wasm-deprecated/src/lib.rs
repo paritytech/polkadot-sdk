@@ -19,6 +19,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(not(feature = "std"))]
+extern crate alloc;
+
 use sp_core::wasm_export_functions;
 use sp_runtime_interface::runtime_interface;
 

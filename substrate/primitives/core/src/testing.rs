@@ -86,14 +86,12 @@ macro_rules! wasm_export_functions {
 		#[no_mangle]
 		#[allow(unreachable_code)]
 		#[cfg(not(feature = "std"))]
-		pub fn $name(input_data: *mut u8, input_len: usize) -> u64 {
-			let input: &[u8] = if input_len == 0 {
-				&[0u8; 0]
-			} else {
-				unsafe {
-					::core::slice::from_raw_parts(input_data, input_len)
-				}
-			};
+		pub fn $name(input_len: usize) -> u64 {
+			let mut input_buf = ::alloc::vec![0u8; input_len];
+			if input_len > 0 {
+				sp_io::input::read(&mut input_buf[..]);
+			}
+			let input: &[u8] = &input_buf[..];
 
 			{
 				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(
@@ -114,14 +112,12 @@ macro_rules! wasm_export_functions {
 		#[no_mangle]
 		#[allow(unreachable_code)]
 		#[cfg(not(feature = "std"))]
-		pub fn $name(input_data: *mut u8, input_len: usize) -> u64 {
-			let input: &[u8] = if input_len == 0 {
-				&[0u8; 0]
-			} else {
-				unsafe {
-					::core::slice::from_raw_parts(input_data, input_len)
-				}
-			};
+		pub fn $name(input_len: usize) -> u64 {
+			let mut input_buf = ::alloc::vec![0u8; input_len];
+			if input_len > 0 {
+				sp_io::input::read(&mut input_buf[..]);
+			}
+			let input: &[u8] = &input_buf[..];
 
 			let output $( : $ret_ty )? = {
 				let ($( $arg_name ),*) : ($( $arg_ty ),*) = $crate::Decode::decode(

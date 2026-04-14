@@ -430,12 +430,11 @@ fn should_trap_when_heap_exhausted(wasm_method: WasmExecutionMethod) {
 		.unwrap_err();
 
 	match err {
-		Error::AbortedDueToTrap(error)
-			if matches!(wasm_method, WasmExecutionMethod::Compiled { .. }) =>
-		{
-			assert_eq!(
+		Error::AbortedDueToPanic(error) => {
+			assert!(
+				error.message.contains("memory allocation of"),
+				"unexpected panic message: {}",
 				error.message,
-				r#"host code panicked while being called by the runtime: Failed to allocate memory: "Allocator ran out of space""#
 			);
 		},
 		error => panic!("unexpected error: {:?}", error),
