@@ -71,7 +71,7 @@ use sp_runtime::{Percent, Saturating};
 
 pub use pallet::*;
 
-pub use sp_dap::DAP_BUFFER_PALLET_ID;
+pub use sp_dap::DAP_PALLET_ID;
 
 pub use sp_dap::SendToDap;
 
@@ -192,6 +192,10 @@ pub mod pallet {
 			assert!(
 				!T::TransferPeriod::get().is_zero(),
 				"TransferPeriod must not be zero (would cause division by zero in on_idle)"
+			);
+			assert!(
+				T::PalletId::get() == sp_dap::DAP_SATELLITE_PALLET_ID,
+				"PalletId must match sp_dap::DAP_SATELLITE_PALLET_ID"
 			);
 		}
 	}

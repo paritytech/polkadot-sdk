@@ -22,7 +22,7 @@ use frame_support::{
 	weights::Weight,
 };
 use parachains_common::{AccountId, Balance};
-use sp_dap::DAP_BUFFER_PALLET_ID;
+use sp_dap::DAP_PALLET_ID;
 use sp_runtime::traits::AccountIdConversion;
 use xcm_emulator::{Chain, TestExt};
 
@@ -52,8 +52,8 @@ where
 	let ah_ed = <AH::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
 	let satellite_account = pallet_dap_satellite::Pallet::<Sender::Runtime>::satellite_account();
 	let dap_staging_account: AccountId =
-		sp_dap::DAP_BUFFER_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID);
-	let dap_buffer_account: AccountId = DAP_BUFFER_PALLET_ID.into_account_truncating();
+		sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID);
+	let dap_buffer_account: AccountId = DAP_PALLET_ID.into_account_truncating();
 
 	// The fund amount should slightly exceed MinTransferAmount to trigger a transfer.
 	let fund_amount =

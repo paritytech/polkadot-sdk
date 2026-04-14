@@ -57,7 +57,7 @@ impl pallet_balances::Config for Test {
 }
 
 parameter_types! {
-	pub const DapPalletId: PalletId = crate::DAP_BUFFER_PALLET_ID;
+	pub const DapPalletId: PalletId = crate::DAP_PALLET_ID;
 	pub const ExistentialDeposit: u64 = 10;
 	pub const IssuanceCadence: u64 = 60_000; // 60 seconds
 	pub const MaxElapsedPerDrip: u64 = 600_000; // 10 minutes
@@ -139,8 +139,8 @@ fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {
 		let buffer: AccountId = DapPalletId::get().into_account_truncating();
 		balances.push((buffer, ExistentialDeposit::get()));
 		// Also pre-fund staging account so tests can deposit without hitting the ED requirement.
-		let staging: AccountId = sp_dap::DAP_BUFFER_PALLET_ID
-			.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID);
+		let staging: AccountId =
+			sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID);
 		balances.push((staging, ExistentialDeposit::get()));
 	}
 

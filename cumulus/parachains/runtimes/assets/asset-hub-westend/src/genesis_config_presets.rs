@@ -42,7 +42,7 @@ fn dap_buffer_account() -> AccountId {
 }
 
 fn dap_staging_account() -> AccountId {
-	sp_dap::DAP_BUFFER_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
+	sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
 }
 
 fn asset_hub_westend_genesis(

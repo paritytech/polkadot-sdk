@@ -64,7 +64,7 @@ use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
 
-pub use sp_dap::DAP_BUFFER_PALLET_ID;
+pub use sp_dap::DAP_PALLET_ID;
 
 const LOG_TARGET: &str = "runtime::dap";
 
@@ -318,7 +318,7 @@ pub mod pallet {
 		/// Incoming funds land here and are periodically drained and deactivated into the
 		/// DAP buffer account by `on_idle`.
 		pub(crate) fn staging_account() -> T::AccountId {
-			sp_dap::DAP_BUFFER_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
+			sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
 		}
 
 		/// Deactivate funds on buffer inflow.

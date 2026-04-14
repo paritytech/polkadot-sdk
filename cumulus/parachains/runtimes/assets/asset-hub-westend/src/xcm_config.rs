@@ -50,7 +50,8 @@ use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
 use westend_runtime_constants::{
-	system_parachain::COLLECTIVES_ID, xcm::body::FELLOWSHIP_ADMIN_INDEX,
+	system_parachain::{BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID},
+	xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -323,7 +324,9 @@ impl Contains<Location> for SiblingDapSatelliteAccounts {
 		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
 		match location.unpack() {
 			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
-				ParaId::from(*id).is_system() && *account_id == satellite_account
+				ParaId::from(*id).is_system() &&
+					matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID) &&
+					*account_id == satellite_account
 			},
 			_ => false,
 		}

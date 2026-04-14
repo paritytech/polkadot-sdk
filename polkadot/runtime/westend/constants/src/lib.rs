@@ -138,7 +138,7 @@ pub mod system_parachain {
 			/// The interior location of the DAP staging account on AssetHub.
 			pub DapStagingLocation: InteriorLocation = Junction::AccountId32 {
 				network: None,
-				id: sp_dap::DAP_BUFFER_PALLET_ID
+				id: sp_dap::DAP_PALLET_ID
 				.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID),
 			}
 			.into();
