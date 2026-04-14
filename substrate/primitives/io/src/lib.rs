@@ -784,7 +784,27 @@ pub trait Storage {
 	///
 	/// NOTE: Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
-	#[version(3)]
+	#[version(3, register_only)]
+	fn clear_prefix(
+		&mut self,
+		maybe_prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		Externalities::clear_prefix(
+			*self,
+			maybe_prefix,
+			maybe_limit,
+			maybe_cursor.as_ref().map(|x| &x[..]),
+		)
+		.into()
+	}
+
+	/// Same as version 3 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_storage_clear_prefix_version_3`, but since
+	// version 3 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 4 instead.
+	#[version(4)]
 	#[wrapped]
 	fn clear_prefix(
 		&mut self,
@@ -1181,7 +1201,23 @@ pub trait DefaultChildStorage {
 	/// Clear a child storage key.
 	///
 	/// See `Storage` module `clear_prefix` documentation.
-	#[version(4)]
+	#[version(4, register_only)]
+	fn storage_kill(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
+			.into()
+	}
+
+	/// Same as version 4 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_default_child_storage_storage_kill_version_4`,
+	// but since version 4 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 5 instead.
+	#[version(5)]
 	#[wrapped]
 	fn storage_kill(
 		&mut self,
@@ -1286,7 +1322,29 @@ pub trait DefaultChildStorage {
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
 	/// See `Storage` module `clear_prefix` documentation.
-	#[version(3)]
+	#[version(3, register_only)]
+	fn clear_prefix(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.clear_child_prefix(
+			&child_info,
+			prefix,
+			maybe_limit,
+			maybe_cursor.as_ref().map(|x| &x[..]),
+		)
+		.into()
+	}
+
+	/// Same as version 3 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_default_child_storage_clear_prefix_version_3`,
+	// but since version 3 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 4 instead.
+	#[version(4)]
 	#[wrapped]
 	fn clear_prefix(
 		&mut self,
