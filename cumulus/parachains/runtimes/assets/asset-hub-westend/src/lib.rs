@@ -1348,7 +1348,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 16 }>; // MaxVotes * TRACKS_DATA length
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
