@@ -44,7 +44,7 @@ pub const MAX_AUTHORITY_INCOMING_STREAMS: u32 = 100;
 
 /// Maximum allowed incoming connection streams for validator nodes on the collation protocol
 /// when the experimental collator protocol is enabled.
-pub const MAX_AUTHORITY_INCOMING_STREAMS_EXPERIMENTAL_COLLATOR_PROTO: u32 = 300;
+pub const MAX_AUTHORITY_INCOMING_STREAMS_EXPERIMENTAL_COLLATOR_PROTO: u32 = 310;
 
 /// The peer-sets and thus the protocols which are used for the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
