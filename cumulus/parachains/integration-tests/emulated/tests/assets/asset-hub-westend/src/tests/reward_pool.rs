@@ -18,27 +18,28 @@ use codec::Encode;
 use frame_support::{assert_ok, sp_runtime::traits::Dispatchable, traits::schedule::DispatchTime};
 use xcm_executor::traits::ConvertLocation;
 
+/// Relay governance origin can create a staking reward pool on Asset Hub via XCM Transact.
 #[test]
-fn treasury_creates_asset_reward_pool() {
+fn relay_governance_creates_asset_reward_pool() {
 	AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		type Balances = <AssetHubWestend as AssetHubWestendPallet>::Balances;
 
-		let treasurer =
-			Location::new(1, [Plurality { id: BodyId::Treasury, part: BodyPart::Voice }]);
-		let treasurer_account =
-			ahw_xcm_config::LocationToAccountId::convert_location(&treasurer).unwrap();
+		let general_admin =
+			Location::new(1, [Plurality { id: BodyId::Administration, part: BodyPart::Voice }]);
+		let general_admin_account =
+			ahw_xcm_config::LocationToAccountId::convert_location(&general_admin).unwrap();
 
 		assert_ok!(Balances::force_set_balance(
 			<AssetHubWestend as Chain>::RuntimeOrigin::root(),
-			treasurer_account.clone().into(),
+			general_admin_account.clone().into(),
 			ASSET_HUB_WESTEND_ED * 100_000,
 		));
 
 		let events = AssetHubWestend::events();
 		match events.iter().last() {
 			Some(RuntimeEvent::Balances(pallet_balances::Event::BalanceSet { who, .. })) => {
-				assert_eq!(*who, treasurer_account)
+				assert_eq!(*who, general_admin_account)
 			},
 			_ => panic!("Expected Balances::BalanceSet event"),
 		}
@@ -85,7 +86,9 @@ fn treasury_creates_asset_reward_pool() {
 				]))),
 			});
 
-		assert_ok!(create_pool_call.dispatch(WestendRuntimeOrigin::root()));
+		let general_admin_origin: WestendRuntimeOrigin =
+			WestendGovernanceOrigin::GeneralAdmin.into();
+		assert_ok!(create_pool_call.dispatch(general_admin_origin));
 
 		assert_expected_events!(
 			Westend,

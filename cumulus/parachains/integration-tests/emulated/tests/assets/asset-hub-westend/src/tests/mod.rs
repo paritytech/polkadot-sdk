@@ -20,6 +20,7 @@ mod fellowship_treasury;
 mod foreign_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
+mod reward_pool;
 mod send;
 mod set_asset_claimer;
 mod set_xcm_versions;
