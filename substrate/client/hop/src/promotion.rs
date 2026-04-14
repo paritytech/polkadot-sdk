@@ -163,15 +163,19 @@ impl HopMaintenanceTask {
 	pub fn tick(&self) {
 		let current_block = (self.best_block)();
 
-		// Promote near-expiry entries if a promoter is available.
+		// Promote near-expiry entries one at a time to bound peak memory.
 		if let Some(ref promoter) = self.promoter {
 			const PROMOTION_BATCH_SIZE: usize = 10;
-			let entries = self.hop_pool.get_promotable(
+			let hashes = self.hop_pool.get_promotable(
 				current_block,
 				self.buffer_blocks,
 				PROMOTION_BATCH_SIZE,
 			);
-			for (hash, data) in entries {
+			for hash in hashes {
+				let data = match self.hop_pool.get(&hash) {
+					Some(data) => data,
+					None => continue,
+				};
 				let size = data.len();
 				match promoter.promote(data) {
 					Ok(()) => {

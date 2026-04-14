@@ -163,8 +163,12 @@ where
 			return Err(ErrorObjectOwned::from(HopError::InvalidSignature));
 		}
 
+		// Snapshot chain state once for consistent authorization + block number.
+		let chain_info = self.client.info();
+		let best_hash = chain_info.best_hash;
+		let current_block = chain_info.best_number.saturated_into::<u32>();
+
 		// Check authorization via runtime API
-		let best_hash = self.client.info().best_hash;
 		let authorized = self
 			.client
 			.runtime_api()
@@ -174,9 +178,7 @@ where
 			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
 		}
 
-		// Use account ID as sender identity for rate limiting
 		let sender_id: [u8; 32] = account_id.into();
-		let current_block = self.client.info().best_number.saturated_into::<u32>();
 		let _hash = self.pool.insert(data.0, current_block, recipient_keys, sender_id)?;
 		let pool_status = self.pool.status();
 		Ok(SubmitResult { pool_status })

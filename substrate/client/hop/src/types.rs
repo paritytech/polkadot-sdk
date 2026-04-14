@@ -142,17 +142,17 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::NotFound => 1004,
 			HopError::EmptyData => 1005,
 			HopError::Encoding(_) => 1006,
-			HopError::InvalidSignature => 1009,
-			HopError::NotRecipient => 1010,
-			HopError::NoRecipients => 1011,
-			HopError::InvalidRecipientKey => 1012,
-			HopError::UserQuotaExceeded { .. } => 1013,
-			HopError::NotAuthorized => 1014,
-			HopError::IoError(_) => 1015,
-			HopError::InvalidSigner => 1016,
-			HopError::AlreadyClaimed => 1017,
-			HopError::InvalidHashLength(_) => 1018,
-			HopError::RuntimeApiError(_) => 1019,
+			HopError::InvalidSignature => 1007,
+			HopError::NotRecipient => 1008,
+			HopError::NoRecipients => 1009,
+			HopError::InvalidRecipientKey => 1010,
+			HopError::UserQuotaExceeded { .. } => 1011,
+			HopError::NotAuthorized => 1012,
+			HopError::IoError(_) => 1013,
+			HopError::InvalidSigner => 1014,
+			HopError::AlreadyClaimed => 1015,
+			HopError::InvalidHashLength(_) => 1016,
+			HopError::RuntimeApiError(_) => 1017,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
@@ -170,3 +170,6 @@ pub const DEFAULT_MAX_POOL_SIZE: u64 = 10 * 1024 * 1024 * 1024;
 
 /// Default maximum pool size in MiB (10 GiB = 10240 MiB)
 pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024);
+
+/// Default expiry cleanup interval in seconds
+pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 60;

@@ -37,6 +37,11 @@ use std::{
 	},
 };
 
+const BLOBS_DIR: &str = "blobs";
+const META_DIR: &str = "meta";
+const BLOB_EXT: &str = "blob";
+const META_EXT: &str = "meta";
+
 /// HOP data pool with disk-backed blob storage and in-memory metadata index.
 pub struct HopDataPool {
 	/// In-memory metadata index (no blobs).
@@ -62,9 +67,9 @@ impl HopDataPool {
 		// Create shard directories (256 each for blobs/ and meta/).
 		for i in 0u8..=255 {
 			let shard = format!("{:02x}", i);
-			fs::create_dir_all(data_dir.join("blobs").join(&shard))
+			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))
 				.map_err(|e| HopError::IoError(format!("create blobs/{}: {}", shard, e)))?;
-			fs::create_dir_all(data_dir.join("meta").join(&shard))
+			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))
 				.map_err(|e| HopError::IoError(format!("create meta/{}: {}", shard, e)))?;
 		}
 
@@ -72,95 +77,89 @@ impl HopDataPool {
 		let mut user_usage: HashMap<SenderId, u64> = HashMap::new();
 		let mut current_size = 0u64;
 
-		// Rebuild index from .meta files on disk.
+		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
 		for i in 0u8..=255 {
 			let shard = format!("{:02x}", i);
-			let meta_shard_dir = data_dir.join("meta").join(&shard);
-			let entries = match fs::read_dir(&meta_shard_dir) {
-				Ok(entries) => entries,
-				Err(_) => continue,
-			};
 
-			for entry in entries.flatten() {
-				let path = entry.path();
-				if path.extension().and_then(|e| e.to_str()) != Some("meta") {
-					continue;
+			// Scan .meta files → rebuild index (removes corrupt/orphan .meta files).
+			let meta_shard_dir = data_dir.join(META_DIR).join(&shard);
+			if let Ok(entries) = fs::read_dir(&meta_shard_dir) {
+				for entry in entries.flatten() {
+					let path = entry.path();
+					if path.extension().and_then(|e| e.to_str()) != Some(META_EXT) {
+						continue;
+					}
+
+					let stem = match path.file_stem().and_then(|s| s.to_str()) {
+						Some(s) => s.to_string(),
+						None => continue,
+					};
+
+					let hash_bytes = match hex::decode(&stem) {
+						Ok(b) if b.len() == 32 => {
+							let mut arr = [0u8; 32];
+							arr.copy_from_slice(&b);
+							arr
+						},
+						_ => {
+							tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
+							let _ = fs::remove_file(&path);
+							continue;
+						},
+					};
+					let hash = H256(hash_bytes);
+
+					let meta_bytes = match fs::read(&path) {
+						Ok(b) => b,
+						Err(e) => {
+							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing unreadable .meta");
+							let _ = fs::remove_file(&path);
+							continue;
+						},
+					};
+					let meta = match HopEntryMeta::decode(&mut &meta_bytes[..]) {
+						Ok(m) => m,
+						Err(e) => {
+							tracing::warn!(target: "hop", path = ?path, error = %e, "Removing corrupt .meta");
+							let _ = fs::remove_file(&path);
+							continue;
+						},
+					};
+
+					let blob_path = data_dir
+						.join(BLOBS_DIR)
+						.join(&shard)
+						.join(format!("{}.{}", stem, BLOB_EXT));
+					if !blob_path.exists() {
+						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .meta (no .blob)");
+						let _ = fs::remove_file(&path);
+						continue;
+					}
+
+					current_size += meta.size;
+					*user_usage.entry(meta.sender_id).or_insert(0) += meta.size;
+					index.insert(hash, meta);
 				}
-
-				let stem = match path.file_stem().and_then(|s| s.to_str()) {
-					Some(s) => s.to_string(),
-					None => continue,
-				};
-
-				// Parse hash from filename.
-				let hash_bytes = match hex::decode(&stem) {
-					Ok(b) if b.len() == 32 => {
-						let mut arr = [0u8; 32];
-						arr.copy_from_slice(&b);
-						arr
-					},
-					_ => {
-						tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
-						let _ = fs::remove_file(&path);
-						continue;
-					},
-				};
-				let hash = H256(hash_bytes);
-
-				// Decode metadata.
-				let meta_bytes = match fs::read(&path) {
-					Ok(b) => b,
-					Err(e) => {
-						tracing::warn!(target: "hop", path = ?path, error = %e, "Removing unreadable .meta");
-						let _ = fs::remove_file(&path);
-						continue;
-					},
-				};
-				let meta = match HopEntryMeta::decode(&mut &meta_bytes[..]) {
-					Ok(m) => m,
-					Err(e) => {
-						tracing::warn!(target: "hop", path = ?path, error = %e, "Removing corrupt .meta");
-						let _ = fs::remove_file(&path);
-						continue;
-					},
-				};
-
-				// Verify corresponding .blob exists.
-				let blob_path = data_dir.join("blobs").join(&shard).join(format!("{}.blob", stem));
-				if !blob_path.exists() {
-					tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .meta (no .blob)");
-					let _ = fs::remove_file(&path);
-					continue;
-				}
-
-				current_size += meta.size;
-				*user_usage.entry(meta.sender_id).or_insert(0) += meta.size;
-				index.insert(hash, meta);
 			}
-		}
 
-		// Clean orphan .blob files (blobs without corresponding .meta).
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
-			let blob_shard_dir = data_dir.join("blobs").join(&shard);
-			let entries = match fs::read_dir(&blob_shard_dir) {
-				Ok(entries) => entries,
-				Err(_) => continue,
-			};
-
-			for entry in entries.flatten() {
-				let path = entry.path();
-				if path.extension().and_then(|e| e.to_str()) != Some("blob") {
-					continue;
-				}
-				let stem = match path.file_stem().and_then(|s| s.to_str()) {
-					Some(s) => s.to_string(),
-					None => continue,
-				};
-				let meta_path = data_dir.join("meta").join(&shard).join(format!("{}.meta", stem));
-				if !meta_path.exists() {
-					tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
-					let _ = fs::remove_file(&path);
+			// Scan .blob files → remove orphans (blobs without corresponding .meta).
+			let blob_shard_dir = data_dir.join(BLOBS_DIR).join(&shard);
+			if let Ok(entries) = fs::read_dir(&blob_shard_dir) {
+				for entry in entries.flatten() {
+					let path = entry.path();
+					if path.extension().and_then(|e| e.to_str()) != Some(BLOB_EXT) {
+						continue;
+					}
+					let stem = match path.file_stem().and_then(|s| s.to_str()) {
+						Some(s) => s.to_string(),
+						None => continue,
+					};
+					let meta_path =
+						data_dir.join(META_DIR).join(&shard).join(format!("{}.{}", stem, META_EXT));
+					if !meta_path.exists() {
+						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
+						let _ = fs::remove_file(&path);
+					}
 				}
 			}
 		}
@@ -195,16 +194,20 @@ impl HopDataPool {
 		}
 	}
 
+	/// Path to a file within a shard subdirectory.
+	fn entry_path(&self, hash: &HopHash, subdir: &str, ext: &str) -> PathBuf {
+		let hex = hex::encode(hash);
+		self.data_dir.join(subdir).join(&hex[..2]).join(format!("{}.{}", hex, ext))
+	}
+
 	/// Path to the blob file for a given hash.
 	fn blob_path(&self, hash: &HopHash) -> PathBuf {
-		let hex = hex::encode(hash);
-		self.data_dir.join("blobs").join(&hex[..2]).join(format!("{}.blob", hex))
+		self.entry_path(hash, BLOBS_DIR, BLOB_EXT)
 	}
 
 	/// Path to the meta file for a given hash.
 	fn meta_path(&self, hash: &HopHash) -> PathBuf {
-		let hex = hex::encode(hash);
-		self.data_dir.join("meta").join(&hex[..2]).join(format!("{}.meta", hex))
+		self.entry_path(hash, META_DIR, META_EXT)
 	}
 
 	/// Atomically write data to a file (write to .tmp, then rename).
@@ -309,9 +312,9 @@ impl HopDataPool {
 		{
 			let mut index = self.index.write();
 			if index.contains_key(&hash) {
-				// Another thread inserted while we were writing to disk.
-				let _ = fs::remove_file(&blob_path);
+				// Race: another thread inserted the same data while we were writing.
 				let _ = fs::remove_file(&meta_path);
+				let _ = fs::remove_file(&blob_path);
 				self.current_size.fetch_sub(data_len, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
 			}
@@ -539,12 +542,20 @@ impl HopDataPool {
 			return 0;
 		}
 
-		// Phase 2: Update counters and user usage (separate lock).
+		// Phase 2: Update counters and batch user-quota release (single lock acquisition).
 		let freed: u64 = expired.iter().map(|(_, meta)| meta.size).sum();
 		self.current_size.fetch_sub(freed, Ordering::Relaxed);
 
-		for (_, meta) in &expired {
-			self.release_user_quota(&meta.sender_id, meta.size);
+		{
+			let mut usage = self.user_usage.write();
+			for (_, meta) in &expired {
+				if let Some(u) = usage.get_mut(&meta.sender_id) {
+					*u = u.saturating_sub(meta.size);
+					if *u == 0 {
+						usage.remove(&meta.sender_id);
+					}
+				}
+			}
 		}
 
 		// Phase 3: Delete files from disk (best-effort, no locks held).
@@ -556,42 +567,24 @@ impl HopDataPool {
 		freed
 	}
 
-	/// Return entries that are within `buffer_blocks` of expiry and not yet promoted.
-	/// Returns up to `limit` `(hash, blob_data)` pairs. Reads blobs from disk outside the lock.
+	/// Return hashes of entries within `buffer_blocks` of expiry that have not yet been promoted.
+	/// Returns up to `limit` hashes. Use [`get`] to read blob data when needed.
 	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
 	pub fn get_promotable(
 		&self,
 		current_block: HopBlockNumber,
 		buffer_blocks: u32,
 		limit: usize,
-	) -> Vec<(HopHash, Vec<u8>)> {
-		let hashes: Vec<HopHash> = {
-			let index = self.index.read();
-			index
-				.iter()
-				.filter(|(_, meta)| {
-					!meta.promoted && current_block.saturating_add(buffer_blocks) >= meta.expires_at
-				})
-				.map(|(h, _)| *h)
-				.take(limit)
-				.collect()
-		};
-
-		let mut result = Vec::new();
-		for hash in hashes {
-			match fs::read(self.blob_path(&hash)) {
-				Ok(data) => result.push((hash, data)),
-				Err(e) => {
-					tracing::warn!(
-						target: "hop",
-						hash = ?hex::encode(hash),
-						error = %e,
-						"Failed to read blob for promotion, skipping"
-					);
-				},
-			}
-		}
-		result
+	) -> Vec<HopHash> {
+		let index = self.index.read();
+		index
+			.iter()
+			.filter(|(_, meta)| {
+				!meta.promoted && current_block.saturating_add(buffer_blocks) >= meta.expires_at
+			})
+			.map(|(h, _)| *h)
+			.take(limit)
+			.collect()
 	}
 
 	/// Mark an entry as promoted to permanent on-chain storage.
@@ -1271,8 +1264,7 @@ mod tests {
 		// At block 80 with buffer=30 → 80+30=110 >= 100 → promotable
 		let promotable = pool.get_promotable(80, 30, usize::MAX);
 		assert_eq!(promotable.len(), 1);
-		assert_eq!(promotable[0].0, hash);
-		assert_eq!(promotable[0].1, vec![1, 2, 3]);
+		assert_eq!(promotable[0], hash);
 	}
 
 	#[test]

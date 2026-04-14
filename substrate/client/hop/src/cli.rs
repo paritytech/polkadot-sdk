@@ -32,7 +32,9 @@
 //! }
 //! ```
 
-use crate::types::{DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_RETENTION_BLOCKS};
+use crate::types::{
+	DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_RETENTION_BLOCKS,
+};
 use clap::Parser;
 
 /// HOP (Hand-Off Protocol) configuration parameters
@@ -51,7 +53,7 @@ pub struct HopParams {
 	pub retention_blocks: u32,
 
 	/// HOP expiry cleanup interval in seconds
-	#[arg(long = "hop-check-interval", default_value = "60")]
+	#[arg(long = "hop-check-interval", default_value_t = DEFAULT_CHECK_INTERVAL_SECS)]
 	pub check_interval: u64,
 
 	/// Directory for HOP persistent data storage.
@@ -67,7 +69,7 @@ impl Default for HopParams {
 			enabled: false,
 			max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
 			retention_blocks: DEFAULT_RETENTION_BLOCKS,
-			check_interval: 60,
+			check_interval: DEFAULT_CHECK_INTERVAL_SECS,
 			data_dir: None,
 		}
 	}
