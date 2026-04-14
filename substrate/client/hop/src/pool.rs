@@ -1208,9 +1208,7 @@ mod tests {
 		use std::{sync::Barrier, thread};
 
 		let dir = Arc::new(TempDir::new().unwrap());
-		let pool = Arc::new(
-			HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap(),
-		);
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
 
 		// Create 5 recipients.
 		let pairs: Vec<_> = (1..=5u8)

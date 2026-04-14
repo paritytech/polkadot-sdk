@@ -300,7 +300,6 @@ mod tests {
 		(rpc, pool, dir)
 	}
 
-
 	fn make_keypair() -> (ed25519::Pair, MultiSigner) {
 		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
 		let signer = MultiSigner::Ed25519(pair.public());
@@ -373,12 +372,8 @@ mod tests {
 		let data = vec![1, 2, 3];
 		let (sig, _) = sign_data(&pair, &data);
 
-		let result = rpc.submit(
-			Bytes(data),
-			vec![Bytes(signer.encode())],
-			sig,
-			Bytes(signer.encode()),
-		);
+		let result =
+			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("authorization"), "got: {}", err.message());
@@ -391,12 +386,8 @@ mod tests {
 		let data = vec![1, 2, 3, 4, 5];
 		let (sig, _) = sign_data(&pair, &data);
 
-		let result = rpc.submit(
-			Bytes(data),
-			vec![Bytes(signer.encode())],
-			sig,
-			Bytes(signer.encode()),
-		);
+		let result =
+			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
 		assert!(result.is_ok(), "submit failed: {:?}", result.err());
 		let submit_result = result.unwrap();
 		assert_eq!(submit_result.pool_status.entry_count, 1);
@@ -421,13 +412,8 @@ mod tests {
 		let (sig, _) = sign_data(&pair, &data);
 
 		// Submit
-		rpc.submit(
-			Bytes(data.clone()),
-			vec![Bytes(signer.encode())],
-			sig,
-			Bytes(signer.encode()),
-		)
-		.unwrap();
+		rpc.submit(Bytes(data.clone()), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()))
+			.unwrap();
 
 		// Claim
 		let hash = H256(blake2_256(&data));

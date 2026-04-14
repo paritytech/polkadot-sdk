@@ -166,8 +166,11 @@ impl HopMaintenanceTask {
 		// Promote near-expiry entries if a promoter is available.
 		if let Some(ref promoter) = self.promoter {
 			const PROMOTION_BATCH_SIZE: usize = 10;
-			let entries =
-				self.hop_pool.get_promotable(current_block, self.buffer_blocks, PROMOTION_BATCH_SIZE);
+			let entries = self.hop_pool.get_promotable(
+				current_block,
+				self.buffer_blocks,
+				PROMOTION_BATCH_SIZE,
+			);
 			for (hash, data) in entries {
 				let size = data.len();
 				match promoter.promote(data) {
@@ -313,13 +316,8 @@ mod tests {
 		pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(true)); // will fail
-		let task = HopMaintenanceTask::new(
-			pool.clone(),
-			Some(promoter.clone()),
-			Arc::new(|| 80),
-			30,
-			60,
-		);
+		let task =
+			HopMaintenanceTask::new(pool.clone(), Some(promoter.clone()), Arc::new(|| 80), 30, 60);
 
 		task.tick();
 
@@ -393,7 +391,7 @@ mod tests {
 		*block.lock().unwrap() = 100;
 		task.tick();
 		assert_eq!(pool.status().entry_count, 0); // cleaned up
-		// Promoter not called again (already promoted).
+											// Promoter not called again (already promoted).
 		assert_eq!(promoter.call_count(), 1);
 	}
 }

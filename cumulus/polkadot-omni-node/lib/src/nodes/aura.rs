@@ -427,10 +427,8 @@ where
 			let check_interval = hop.check_interval;
 			task_manager.spawn_handle().spawn("hop-cleanup", None, async move {
 				loop {
-					futures_timer::Delay::new(std::time::Duration::from_secs(check_interval))
-						.await;
-					let block: u32 =
-						task_client.info().best_number.saturated_into();
+					futures_timer::Delay::new(std::time::Duration::from_secs(check_interval)).await;
+					let block: u32 = task_client.info().best_number.saturated_into();
 					let freed = task_pool.cleanup_expired(block);
 					if freed > 0 {
 						log::info!(
