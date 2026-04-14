@@ -16,7 +16,9 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	block_builder_task::{determine_core, offset_relay_parent_find_descendants},
+	block_builder_task::{
+		determine_core, offset_relay_parent_find_descendants, wait_for_current_relay_block,
+	},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 };
 use async_trait::async_trait;
@@ -39,17 +41,23 @@ use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
 	pin::Pin,
+	time::Duration,
 };
 
 #[tokio::test]
 async fn offset_test_zero_offset() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
+	let best_hash = best_header.hash();
 
 	let client = TestRelayClient::new(headers);
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
+<<<<<<< HEAD
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0, 0).await;
+=======
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 0).await;
+>>>>>>> upstream/master
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 0);
@@ -59,13 +67,17 @@ async fn offset_test_zero_offset() {
 
 #[tokio::test]
 async fn offset_test_two_offset() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
+<<<<<<< HEAD
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2, 0).await;
+=======
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 2).await;
+>>>>>>> upstream/master
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 2);
@@ -78,13 +90,17 @@ async fn offset_test_two_offset() {
 
 #[tokio::test]
 async fn offset_test_five_offset() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
+<<<<<<< HEAD
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5, 0).await;
+=======
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 5).await;
+>>>>>>> upstream/master
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 5);
@@ -97,16 +113,23 @@ async fn offset_test_five_offset() {
 
 #[tokio::test]
 async fn offset_test_too_long() {
-	let (headers, _best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
 
 	let client = TestRelayClient::new(headers);
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
+<<<<<<< HEAD
 	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 200, 0).await;
 	assert!(result.is_err());
 
 	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101, 0).await;
+=======
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 200).await;
+	assert!(result.is_err());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 101).await;
+>>>>>>> upstream/master
 	assert!(result.is_err());
 }
 
@@ -117,6 +140,7 @@ enum HasEpochChange {
 }
 
 #[tokio::test]
+<<<<<<< HEAD
 async fn offset_returns_none_when_rc_tip_has_epoch_change() {
 	// Only skip when the RC tip itself is the session change block.
 	let flags = &[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes];
@@ -164,6 +188,14 @@ async fn offset_skips_epoch_change_in_ancestors_when_not_v3(#[case] flags: &[Has
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, 0).await;
+=======
+async fn offset_returns_none_when_epoch_change_encountered(#[case] flags: &[HasEpochChange]) {
+	let (headers, best_header) = build_headers_with_epoch_flags(flags);
+	let client = TestRelayClient::new(headers);
+	let mut cache = RelayChainDataCache::new(client, 1.into());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 3).await;
+>>>>>>> upstream/master
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_none());
 }
@@ -203,7 +235,8 @@ async fn determine_core_new_relay_parent() {
 
 #[tokio::test]
 async fn determine_core_with_core_info() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
+	let best_hash = best_header.hash();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
@@ -287,7 +320,8 @@ async fn determine_core_no_cores_available() {
 
 #[tokio::test]
 async fn determine_core_selector_overflow() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
+	let best_hash = best_header.hash();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
@@ -334,7 +368,8 @@ async fn determine_core_selector_overflow() {
 
 #[tokio::test]
 async fn determine_core_uses_last_claimed_core_selector() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
+	let best_hash = best_header.hash();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
@@ -388,7 +423,8 @@ async fn determine_core_uses_last_claimed_core_selector() {
 
 #[tokio::test]
 async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
+	let best_hash = best_header.hash();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
@@ -440,7 +476,8 @@ async fn determine_core_uses_last_claimed_core_selector_wraps_around() {
 
 #[tokio::test]
 async fn determine_core_no_last_claimed_core_selector() {
-	let (headers, best_hash) = create_header_chain();
+	let (headers, best_header) = create_header_chain();
+	let best_hash = best_header.hash();
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
@@ -495,11 +532,20 @@ async fn determine_core_no_last_claimed_core_selector() {
 #[derive(Clone)]
 struct TestRelayClient {
 	headers: HashMap<RelayHash, RelayHeader>,
+	best_hash: std::sync::Arc<std::sync::Mutex<Option<RelayHash>>>,
 }
 
 impl TestRelayClient {
 	fn new(headers: HashMap<RelayHash, RelayHeader>) -> Self {
-		Self { headers }
+		Self { headers, best_hash: Default::default() }
+	}
+
+	fn new_with_best(headers: HashMap<RelayHash, RelayHeader>, best_hash: RelayHash) -> Self {
+		Self { headers, best_hash: std::sync::Arc::new(std::sync::Mutex::new(Some(best_hash))) }
+	}
+
+	fn set_best_hash(&self, hash: RelayHash) {
+		*self.best_hash.lock().unwrap() = Some(hash);
 	}
 }
 
@@ -510,7 +556,10 @@ impl RelayChainInterface for TestRelayClient {
 	}
 
 	async fn best_block_hash(&self) -> RelayChainResult<RelayHash> {
-		unimplemented!("Not needed for test")
+		self.best_hash
+			.lock()
+			.unwrap()
+			.ok_or_else(|| RelayChainError::GenericError("No best hash set".into()))
 	}
 	async fn finalized_block_hash(&self) -> RelayChainResult<RelayHash> {
 		unimplemented!("Not needed for test")
@@ -689,10 +738,16 @@ impl RelayChainInterface for TestRelayClient {
 /// epoch-change marker, returning the underlying map and the hash of the last header.
 fn build_headers_with_epoch_flags(
 	flags: &[HasEpochChange],
-) -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+) -> (HashMap<RelayHash, RelayHeader>, RelayHeader) {
 	let mut headers = HashMap::new();
 	let mut parent_hash = RelayHash::default();
-	let mut last_hash = RelayHash::default();
+	let mut last_header = RelayHeader {
+		parent_hash: Default::default(),
+		number: 0,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest: Default::default(),
+	};
 
 	for (index, has_epoch_change) in flags.iter().enumerate() {
 		let digest = if *has_epoch_change == HasEpochChange::Yes {
@@ -710,12 +765,12 @@ fn build_headers_with_epoch_flags(
 		};
 
 		let hash = header.hash();
-		headers.insert(hash, header);
+		headers.insert(hash, header.clone());
 		parent_hash = hash;
-		last_hash = hash;
+		last_header = header;
 	}
 
-	(headers, last_hash)
+	(headers, last_header)
 }
 
 /// Create a digest containing a single BABE `NextEpochData` item for use in tests.
@@ -729,12 +784,17 @@ fn babe_epoch_change_digest() -> sp_runtime::generic::Digest {
 	digest
 }
 
-fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
+fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHeader) {
 	let mut headers = HashMap::new();
 	let mut current_parent = None;
-	let mut header_hash = RelayHash::repeat_byte(0x1);
+	let mut last_header = RelayHeader {
+		parent_hash: Default::default(),
+		number: 0,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest: Default::default(),
+	};
 
-	// Create chain from highest to lowest number
 	for number in 1..=100 {
 		let mut header = RelayHeader {
 			parent_hash: Default::default(),
@@ -747,13 +807,13 @@ fn create_header_chain() -> (HashMap<RelayHash, RelayHeader>, RelayHash) {
 			header.parent_hash = hash;
 		}
 
-		header_hash = header.hash();
-		// Store header and update parent for next iteration
+		let header_hash = header.hash();
 		headers.insert(header_hash, header.clone());
 		current_parent = Some(header_hash);
+		last_header = header;
 	}
 
-	(headers, header_hash)
+	(headers, last_header)
 }
 
 // Test extension for RelayChainDataCache
@@ -786,4 +846,135 @@ impl RelayChainDataCache<TestRelayClient> {
 
 		self.insert_test_data(relay_parent_hash, data);
 	}
+}
+
+/// Create a relay header with a BABE pre-digest containing the given slot.
+fn relay_header_with_slot(number: u32, parent_hash: RelayHash, slot: u64) -> RelayHeader {
+	use sc_consensus_babe::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
+	use sp_runtime::DigestItem;
+
+	let pre_digest = PreDigest::SecondaryPlain(SecondaryPlainPreDigest {
+		authority_index: 0,
+		slot: slot.into(),
+	});
+
+	let mut digest = sp_runtime::generic::Digest::default();
+	digest.push(<DigestItem as CompatibleDigestItem>::babe_pre_digest(pre_digest));
+
+	RelayHeader {
+		parent_hash,
+		number,
+		state_root: Default::default(),
+		extrinsics_root: Default::default(),
+		digest,
+	}
+}
+
+/// Test the original bug scenario: relay block propagation exceeds `slot_offset`,
+/// causing the collator to see a stale relay parent at a slot boundary.
+///
+/// `wait_for_current_relay_block` must block until a fresh relay block arrives
+/// (via the notification stream), then return that block's hash.
+#[tokio::test]
+async fn wait_for_current_relay_block_waits_when_stale() {
+	let relay_slot_duration = Duration::from_secs(6);
+	let slot_offset = Duration::from_secs(1);
+
+	let now_ms = super::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+	let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
+
+	// Slot 0 is always stale. A slot far in the future is always fresh.
+	let stale_slot = 0;
+	let fresh_slot = current_slot + 100;
+
+	let r_stale = relay_header_with_slot(100, Default::default(), stale_slot);
+	let r_stale_hash = r_stale.hash();
+	let r_fresh = relay_header_with_slot(101, r_stale_hash, fresh_slot);
+	let r_fresh_hash = r_fresh.hash();
+
+	let mut headers = HashMap::new();
+	headers.insert(r_stale_hash, r_stale.clone());
+	headers.insert(r_fresh_hash, r_fresh.clone());
+
+	let client = TestRelayClient::new_with_best(headers, r_stale_hash);
+	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+	cache.set_test_data(r_stale, vec![]);
+	cache.set_test_data(r_fresh, vec![]);
+
+	let (tx, mut rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+
+	let client_clone = client.clone();
+	let mut handle = tokio::spawn(async move {
+		wait_for_current_relay_block(
+			&client_clone,
+			&mut cache,
+			&mut rx,
+			slot_offset,
+			relay_slot_duration,
+		)
+		.await
+	});
+
+	// The function should not return before receiving a notification — the best
+	// block (slot 0) is always stale. The slot_offset timeout (1s) will fire,
+	// but the function loops and waits again since the best hash hasn't changed.
+	// We use a shorter timeout to verify it's still blocked.
+	assert!(
+		tokio::time::timeout(Duration::from_millis(100), &mut handle).await.is_err(),
+		"Should be waiting for fresh relay block, not returning immediately"
+	);
+
+	// Simulate: new relay block arrives. Update best hash and send notification.
+	client.set_best_hash(r_fresh_hash);
+	tx.unbounded_send(relay_header_with_slot(101, r_stale_hash, fresh_slot))
+		.unwrap();
+
+	let result = tokio::time::timeout(Duration::from_secs(2), handle)
+		.await
+		.expect("Task should complete within timeout")
+		.expect("Task should not panic");
+
+	assert_eq!(result.map(|h| h.hash()), Some(r_fresh_hash));
+}
+
+/// When the best relay block is already current, `wait_for_current_relay_block`
+/// should return immediately without waiting for any notification.
+#[tokio::test]
+async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
+	let relay_slot_duration = Duration::from_secs(6);
+	let slot_offset = Duration::from_secs(1);
+
+	// Build a relay header whose BABE slot matches "now" (so it's current).
+	// We use a very large slot number so that `duration_now() - offset` maps to
+	// a relay slot <= this value.
+	let now_ms = super::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+	let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
+
+	let header = relay_header_with_slot(100, Default::default(), current_slot);
+	let header_hash = header.hash();
+
+	let mut headers = HashMap::new();
+	headers.insert(header_hash, header.clone());
+
+	let client = TestRelayClient::new_with_best(headers, header_hash);
+	let mut cache = RelayChainDataCache::new(client.clone(), 1.into());
+	cache.set_test_data(header, vec![]);
+
+	// Create a notification stream that will never produce (no sender).
+	let (_tx, mut rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+
+	let result = tokio::time::timeout(
+		Duration::from_secs(1),
+		wait_for_current_relay_block(
+			&client,
+			&mut cache,
+			&mut rx,
+			slot_offset,
+			relay_slot_duration,
+		),
+	)
+	.await
+	.expect("Should return immediately, not timeout");
+
+	assert_eq!(result.map(|h| h.hash()), Some(header_hash));
 }

@@ -280,6 +280,8 @@ impl frame_system::Config for Test {
 	type AccountId = AccountId32;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type AccountData = pallet_balances::AccountData<u128>;
+	type OnNewAccount = crate::AutoMapper<Test>;
+	type OnKilledAccount = crate::AutoMapper<Test>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -375,6 +377,7 @@ parameter_types! {
 	pub CheckingAccount: AccountId32 = BOB.clone();
 	pub BurnDestination: AccountId32 = AccountId32::new([42u8; 32]);
 	pub static DebugFlag: bool = false;
+	pub static AutoMapFlag: bool = false;
 }
 
 impl FindAuthor<<Test as frame_system::Config>::AccountId> for Test {
@@ -404,6 +407,7 @@ impl Config for Test {
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
 	type DebugEnabled = DebugFlag;
+	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;
 }
 

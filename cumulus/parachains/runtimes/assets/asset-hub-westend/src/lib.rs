@@ -53,6 +53,7 @@ use cumulus_primitives_core::{relay_chain::AccountIndex, AggregateMessageOrigin,
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
+	dynamic_params::{dynamic_pallet_params, dynamic_params},
 	genesis_builder_helper::{build_state, get_preset},
 	ord_parameter_types, parameter_types,
 	traits::{
@@ -75,6 +76,7 @@ use pallet_assets_precompiles::{ForeignAssetId, ForeignIdConfig, InlineIdConfig,
 use pallet_nfts::{DestroyWitness, PalletFeatures};
 use pallet_nomination_pools::PoolId;
 use pallet_revive::evm::runtime::EthExtra;
+use pallet_vesting_precompiles::Vesting as VestingPrecompile;
 use pallet_xcm::EnsureXcm;
 use pallet_xcm_precompiles::XcmPrecompile;
 use parachains_common::{
@@ -228,6 +230,8 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 	type MultiBlockMigrator = MultiBlockMigrations;
 	type SingleBlockMigrations = Migrations;
+	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
+	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
 }
 
 impl cumulus_pallet_weight_reclaim::Config for Runtime {
@@ -603,6 +607,12 @@ impl pallet_assets_precompiles::PermitConfig for Runtime {
 	type ChainId = <Runtime as pallet_revive::Config>::ChainId;
 	type WeightInfo = pallet_assets_precompiles::weights::SubstrateWeight<Runtime>;
 }
+
+/// Precompile address identifiers (embedded at bytes [16..18] of the H160 address).
+const TRUST_BACKED_ASSETS_PRECOMPILE: u16 = 0x0120;
+const FOREIGN_ASSETS_PRECOMPILE: u16 = 0x0220;
+const POOL_ASSETS_PRECOMPILE: u16 = 0x0320;
+const ASSET_CONVERSION_PRECOMPILE: u16 = 0x0420;
 
 /// Assets managed by some foreign location. Note: we do not declare a `ForeignAssetsCall` type, as
 /// this type is used in proxy definitions. We assume that a foreign location would not want to set
@@ -1237,6 +1247,8 @@ impl pallet_xcm_bridge_hub_router::Config<ToRococoXcmRouterInstance> for Runtime
 	type LocalXcmChannelManager =
 		cumulus_pallet_xcmp_queue::bridging::InAndOutXcmpChannelStatusProvider<Runtime>;
 
+	type UnpaidExport = frame_support::traits::ConstBool<true>;
+
 	type ByteFee = xcm_config::bridging::XcmBridgeHubRouterByteFee;
 	type FeeAsset = xcm_config::bridging::XcmBridgeHubRouterFeeAssetId;
 }
@@ -1261,10 +1273,16 @@ impl pallet_revive::Config for Runtime {
 	type DepositPerByte = DepositPerByte;
 	type WeightInfo = pallet_revive::weights::SubstrateWeight<Self>;
 	type Precompiles = (
-		ERC20<Self, InlineIdConfig<0x120>, TrustBackedAssetsInstance>,
-		ERC20<Self, InlineIdConfig<0x320>, PoolAssetsInstance>,
-		ERC20<Self, ForeignIdConfig<0x220, Self, ForeignAssetsInstance>, ForeignAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ TRUST_BACKED_ASSETS_PRECOMPILE }>, TrustBackedAssetsInstance>,
+		ERC20<Self, InlineIdConfig<{ POOL_ASSETS_PRECOMPILE }>, PoolAssetsInstance>,
+		ERC20<
+			Self,
+			ForeignIdConfig<{ FOREIGN_ASSETS_PRECOMPILE }, Self, ForeignAssetsInstance>,
+			ForeignAssetsInstance,
+		>,
 		XcmPrecompile<Self>,
+		pallet_asset_conversion_precompiles::AssetConversion<{ ASSET_CONVERSION_PRECOMPILE }, Self>,
+		VestingPrecompile<Self>,
 	);
 	type AddressMapper = pallet_revive::AccountId32Mapper<Self>;
 	type RuntimeMemory = ConstU32<{ 128 * 1024 * 1024 }>;
@@ -1279,9 +1297,14 @@ impl pallet_revive::Config for Runtime {
 	type FindAuthor = <Runtime as pallet_authorship::Config>::FindAuthor;
 	type FeeInfo = pallet_revive::evm::fees::Info<Address, Signature, EthExtraImpl>;
 	type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
-	type DebugEnabled = ConstBool<false>;
+	type DebugEnabled = ConstBool<{ cfg!(revive_debug) }>;
+	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
+}
+
+impl pallet_vesting_precompiles::pallet::Config for Runtime {
+	type WeightInfo = pallet_vesting_precompiles::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -1303,6 +1326,7 @@ impl pallet_migrations::Config for Runtime {
 			ForeignAssetsInstance,
 			pallet_assets_precompiles::weights::SubstrateWeight<Runtime>,
 		>,
+		pallet_revive::migrations::v3::Migration<Runtime>,
 	);
 	// Benchmarks need mocked migrations to guarantee that they succeed.
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1328,7 +1352,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 16 }>; // MaxVotes * TRACKS_DATA length
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
@@ -1413,6 +1437,167 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = ();
 }
 
+// Dynamic parameters configurable via governance.
+/// One pUSD (6 decimals).
+const PUSD: Balance = 1_000_000;
+
+#[dynamic_params(RuntimeParameters, pallet_parameters::Parameters::<Runtime>)]
+pub mod dynamic_params {
+	use super::*;
+
+	#[dynamic_pallet_params]
+	#[codec(index = 0)]
+	pub mod pusd {
+		/// Maximum pUSD issuance across the system (50 million pUSD) with precision 1e6.
+		#[codec(index = 0)]
+		pub static MaximumIssuance: Balance = 50_000_000 * PUSD;
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+impl Default for RuntimeParameters {
+	fn default() -> Self {
+		use frame_support::traits::Get;
+		RuntimeParameters::Pusd(dynamic_params::pusd::Parameters::MaximumIssuance(
+			dynamic_params::pusd::MaximumIssuance,
+			Some(dynamic_params::pusd::MaximumIssuance::get()),
+		))
+	}
+}
+
+/// Origin check for dynamic parameter changes — only Root can modify.
+pub struct DynamicParameterOrigin;
+impl frame_support::traits::EnsureOriginWithArg<RuntimeOrigin, RuntimeParametersKey>
+	for DynamicParameterOrigin
+{
+	type Success = ();
+	fn try_origin(
+		origin: RuntimeOrigin,
+		_key: &RuntimeParametersKey,
+	) -> Result<Self::Success, RuntimeOrigin> {
+		frame_system::ensure_root(origin.clone()).map_err(|_| origin)
+	}
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin(_key: &RuntimeParametersKey) -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+impl pallet_parameters::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeParameters = RuntimeParameters;
+	type AdminOrigin = DynamicParameterOrigin;
+	type WeightInfo = weights::pallet_parameters::WeightInfo<Runtime>;
+}
+
+// PSM configuration.
+parameter_types! {
+	/// The pUSD stablecoin asset ID (trust-backed asset).
+	pub const PsmStablecoinAssetId: AssetIdForTrustBackedAssets = 50000342;
+	/// Minimum swap amount for PSM operations (1 pUSD).
+	pub const PsmMinSwapAmount: Balance = PUSD;
+	/// PalletId for deriving the PSM system account.
+	pub const PsmPalletId: PalletId = PalletId(*b"py/pegsm");
+	/// Fee revenue destination: pUSD insurance fund account.
+	pub const PsmFeeDestinationPalletId: PalletId = PalletId(*b"pusd/ins");
+	pub PsmFeeDestination: AccountId = PsmFeeDestinationPalletId::get().into_account_truncating();
+}
+
+/// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
+type PsmStableAsset =
+	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+
+/// EnsureOrigin for PSM management with privilege levels.
+/// - Root gets Full privileges (all parameter changes).
+/// - MonetaryGuard gets Emergency privileges (circuit breaker only).
+pub struct EnsurePsmManager;
+impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
+	type Success = pallet_psm::PsmManagerLevel;
+
+	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
+		// Try Root first.
+		let o = match o.clone().into() {
+			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
+			_ => o,
+		};
+		// Try MonetaryGuard — circuit breaker only.
+		pallet_custom_origins::MonetaryGuard::try_origin(o)
+			.map(|_| pallet_psm::PsmManagerLevel::Emergency)
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn try_successful_origin() -> Result<RuntimeOrigin, ()> {
+		Ok(RuntimeOrigin::root())
+	}
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PsmBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for PsmBenchmarkHelper {
+	fn create_asset(asset_id: AssetIdForTrustBackedAssets, owner: &AccountId, decimals: u8) {
+		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
+		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
+		{
+			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
+		}
+		let _ = Balances::force_set_balance(
+			RuntimeOrigin::root(),
+			owner.clone().into(),
+			10u128.pow(18),
+		);
+		let _ = <Assets as MetadataMutate<AccountId>>::set(
+			asset_id,
+			owner,
+			b"Benchmark".to_vec(),
+			b"BNC".to_vec(),
+			decimals,
+		);
+	}
+}
+
+impl pallet_psm::Config for Runtime {
+	type Fungibles = Assets;
+	type AssetId = AssetIdForTrustBackedAssets;
+	type MaximumIssuance = dynamic_params::pusd::MaximumIssuance;
+	type ManagerOrigin = EnsurePsmManager;
+	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
+	type StableAsset = PsmStableAsset;
+	type FeeDestination = PsmFeeDestination;
+	type PalletId = PsmPalletId;
+	type MinSwapAmount = PsmMinSwapAmount;
+	type MaxExternalAssets = ConstU32<3>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PsmBenchmarkHelper;
+}
+
+/// Initial PSM configuration applied via the V1 migration.
+///
+/// Sets up USDT (1984) as the first external asset.
+pub struct PsmInitialConfig;
+impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {
+	fn max_psm_debt_of_total() -> Permill {
+		// USDT PSM cap is 5M out of 50M total issuance = 10%.
+		Permill::from_percent(10)
+	}
+
+	fn asset_configs() -> alloc::collections::btree_map::BTreeMap<
+		AssetIdForTrustBackedAssets,
+		(Permill, Permill, Permill),
+	> {
+		[(
+			1984u32, // USDT
+			(
+				Permill::zero(),                         // 0% minting fee
+				Permill::from_rational(1u32, 10_000u32), // 0.01% redemption fee
+				Permill::from_percent(100),              // ceiling weight
+			),
+		)]
+		.into_iter()
+		.collect()
+	}
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -1460,6 +1645,7 @@ construct_runtime!(
 		Indices: pallet_indices = 43,
 		MetaTx: pallet_meta_tx = 44,
 		VerifySignature: pallet_verify_signature = 45,
+		Parameters: pallet_parameters = 46,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,
@@ -1478,6 +1664,8 @@ construct_runtime!(
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
 		AssetsPrecompilesPermit: pallet_assets_precompiles::permit::pallet = 63,
+		VestingPrecompiles: pallet_vesting_precompiles::pallet = 64,
+		Psm: pallet_psm = 65,
 
 		StateTrieMigration: pallet_state_trie_migration = 70,
 
@@ -1585,6 +1773,35 @@ parameter_types! {
 	);
 }
 
+/// Provides the initial `LastIssuanceTimestamp` for DAP migration.
+pub struct DapLastIssuanceTimestamp;
+impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
+	fn get() -> u64 {
+		pallet_staking_async::ActiveEra::<Runtime>::get()
+			.and_then(|era| era.start)
+			.unwrap_or(0)
+	}
+}
+
+/// Default budget: 85% staker rewards, 15% buffer.
+pub struct DefaultDapBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		use sp_runtime::Perbill;
+		use sp_staking::budget::BudgetRecipientList;
+
+		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
+		// [dap (buffer), StakerRewardRecipient]
+		let percentages = [Perbill::from_percent(15), Perbill::from_percent(85)];
+
+		let mut map = pallet_dap::BudgetAllocationMap::new();
+		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
+			let _ = map.try_insert(key, perbill);
+		}
+		map
+	}
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1624,6 +1841,10 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// unreleased
+	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
+	pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -1827,6 +2048,7 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_dap, Dap]
 		[pallet_election_provider_multi_block, MultiBlockElection]
 		[pallet_election_provider_multi_block::verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]
@@ -1838,6 +2060,8 @@ mod benches {
 		[pallet_nft_fractionalization, NftFractionalization]
 		[pallet_nfts, Nfts]
 		[pallet_proxy, Proxy]
+		[pallet_psm, Psm]
+		[pallet_parameters, Parameters]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking_async, Staking]
 		[pallet_staking_async_rc_client, StakingRcClientBench::<Runtime>]
@@ -1852,6 +2076,7 @@ mod benches {
 		[cumulus_pallet_xcmp_queue, XcmpQueue]
 		[pallet_treasury, Treasury]
 		[pallet_vesting, Vesting]
+		[pallet_vesting_precompiles, VestingPrecompiles]
 		[pallet_whitelist, Whitelist]
 		[pallet_xcm_bridge_hub_router, ToRococo]
 		[pallet_asset_conversion_ops, AssetConversionMigration]

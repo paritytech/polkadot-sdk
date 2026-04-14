@@ -22,14 +22,17 @@ zombienet-configuration = { workspace = true }
 cumulus-zombienet-sdk-helpers = { workspace = true }
 cumulus-test-runtime = { workspace = true }
 sp-statement-store = { workspace = true, default-features = true, features = ["serde"] }
-sc-statement-store = { workspace = true, default-features = true }
+sc-statement-store = { workspace = true, default-features = true, features = ["test-helpers"] }
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
+scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
+subxt = { version = "0.50" }
+subxt-signer = { version = "0.50", features = ["sr25519"] }
 
 [features]
 zombie-ci = []
