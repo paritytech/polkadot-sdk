@@ -103,13 +103,6 @@ pub struct PalletCmd {
 	#[arg(long, default_value_t = 10)]
 	pub min_duration: u64,
 
-	/// Limit the maximum number of repetitions that `min_duration` will do in its time.
-	///
-	/// This is a trade-off for very fast benchmarks to not OOM the CLI since the memory
-	/// consumption of the PoV median-slopes algorithm scales very poorly (quadratic) with reps.
-	#[arg(long, default_value_t = 10_000)]
-	pub max_reps: u64,
-
 	/// Print the raw results in JSON format.
 	#[arg(long = "json")]
 	pub json_output: bool,

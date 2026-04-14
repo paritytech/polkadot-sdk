@@ -591,9 +591,6 @@ impl PalletCmd {
 				if start.elapsed() >= Duration::from_secs(self.min_duration) {
 					break;
 				}
-				if batches.len() >= self.max_reps as usize {
-					break;
-				}
 			}
 		}
 
