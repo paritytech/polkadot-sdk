@@ -987,10 +987,12 @@ mod tests {
 		provider.insert(&block, &receipts, &ethereum_hash).await?;
 		let row = provider.find_transaction(&receipts[0].1.transaction_hash).await;
 		assert_eq!(row, Some((block.hash, 0)));
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", Some(block.hash())).await, 1);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 1);
 
 		provider.remove(&[block_map]).await?;
 		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", Some(block.hash())).await, 0);
-		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(block.hash())).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 0);
 		Ok(())
 	}
 
