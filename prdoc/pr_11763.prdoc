@@ -1,0 +1,20 @@
+title: '[westend] Remove pallet_treasury from RC and clean up satellite matchers'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Remove pallet_treasury entirely from Westend relay chain. Drain residual treasury funds to relay-local DAP satellite via migration. Relay only since other system parachains have zero funds on their local treasury accounts. Remove RelayTreasuryLocation matchers from all Westend system parachains.
+
+    Closes #11705.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
