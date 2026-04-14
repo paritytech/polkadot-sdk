@@ -61,7 +61,10 @@ pub trait HopApi<BlockHash> {
 		signer: Bytes,
 	) -> RpcResult<SubmitResult>;
 
-	/// Claim data from the data pool by hash
+	/// Claim data from the data pool by hash (read-only download).
+	///
+	/// This does NOT mark the recipient as claimed. After receiving the data,
+	/// call `hop_ack` with the same arguments to confirm receipt.
 	///
 	/// Requires a SCALE-encoded `MultiSignature` over the hash using the ephemeral
 	/// private key corresponding to one of the recipient public keys.
@@ -71,9 +74,20 @@ pub trait HopApi<BlockHash> {
 	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
 	///
 	/// # Returns
-	/// The data if the signature matches an unclaimed recipient
+	/// The data if the signature matches a recipient that hasn't yet acked
 	#[method(name = "hop_claim")]
 	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
+
+	/// Acknowledge receipt of claimed data.
+	///
+	/// Marks the recipient as claimed and triggers cleanup when all recipients
+	/// have acknowledged. Idempotent: acking twice succeeds silently.
+	///
+	/// # Arguments
+	/// * `hash`: The hash of the data, in bytes (32 bytes)
+	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
+	#[method(name = "hop_ack")]
+	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()>;
 
 	/// Get data pool status
 	///
@@ -172,6 +186,12 @@ where
 		let hash = Self::bytes_to_hash(hash)?;
 		let data = self.pool.claim(&hash, &signature.0)?;
 		Ok(Bytes(data))
+	}
+
+	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()> {
+		let hash = Self::bytes_to_hash(hash)?;
+		self.pool.ack(&hash, &signature.0)?;
+		Ok(())
 	}
 
 	fn pool_status(&self) -> RpcResult<PoolStatus> {

@@ -65,20 +65,20 @@ use hop_service::HopDataPool;
 use std::sync::Arc;
 
 // Initialize pool if enabled
-let hop_pool = if hop_params.enabled {
+let hop_pool = if hop_params.enable_hop {
     Some(Arc::new(HopDataPool::new(
-        hop_params.max_pool_size * 1024 * 1024,  // Convert MiB to bytes
-        hop_params.retention_blocks,
+        hop_params.hop_max_pool_size * 1024 * 1024,  // Convert MiB to bytes
+        hop_params.hop_retention_blocks,
     )?))
 } else {
     None
 };
 
 // Alternative: Use SDK-style .then() pattern for consistency with polkadot-omni-node
-let hop_pool = hop_params.enabled.then(|| {
+let hop_pool = hop_params.enable_hop.then(|| {
     HopDataPool::new(
-        hop_params.max_pool_size * 1024 * 1024,
-        hop_params.retention_blocks,
+        hop_params.hop_max_pool_size * 1024 * 1024,
+        hop_params.hop_retention_blocks,
     )
     .map(Arc::new)
     .map_err(|e| ServiceError::Other(format!("Failed to create HOP pool: {}", e)))
@@ -231,10 +231,10 @@ When running your node with HOP enabled:
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `enabled` | `false` | Enable HOP service |
-| `max_pool_size` | `10240` MiB (10 GiB) | Maximum pool size |
-| `retention_blocks` | `14400` blocks (24h @ 6s) | Retention period |
-| `check_interval` | `60` seconds | Promotion check interval |
+| `enable_hop` | `false` | Enable HOP service |
+| `hop_max_pool_size` | `10240` MiB (10 GiB) | Maximum pool size |
+| `hop_retention_blocks` | `14400` blocks (24h @ 6s) | Retention period |
+| `hop_check_interval` | `60` seconds | Promotion check interval |
 
 ### Limits
 
@@ -261,7 +261,7 @@ When running your node with HOP enabled:
 - **`HopDataPool`**: Core in-memory storage with thread-safe access
 - **`HopParams`**: CLI configuration parameters
 - **`HopRpcServer`**: RPC interface implementation
-- **`HopPoolEntry`**: Data structure for stored entries
+- **`HopEntryMeta`**: Metadata for stored entries
 - **`PoolStatus`**: Statistics and monitoring
 
 ### Thread Safety
@@ -293,10 +293,10 @@ pub struct NodeExtraArgs {
 }
 
 // In service builder
-let hop_pool = node_extra_args.hop_params.enabled.then(|| {
+let hop_pool = node_extra_args.hop_params.enable_hop.then(|| {
     Arc::new(hop_service::HopDataPool::new(
-        node_extra_args.hop_params.max_pool_size * 1024 * 1024,
-        node_extra_args.hop_params.retention_blocks,
+        node_extra_args.hop_params.hop_max_pool_size * 1024 * 1024,
+        node_extra_args.hop_params.hop_retention_blocks,
     ))
 }).transpose()?;
 ```

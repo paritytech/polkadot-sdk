@@ -443,7 +443,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
-		let receipts = self.receipts_from_block(block).await?;
+		let receipts = self
+			.receipt_extractor
+			.extract_from_block_with_eth_hash(block, *ethereum_hash)
+			.await?;
 		self.insert_into_db(block, &receipts, ethereum_hash).await?;
 		Ok(())
 	}
@@ -454,7 +457,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		block: &SubstrateBlock,
 		ethereum_hash: &H256,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		let receipts = self.receipts_from_block(block).await?;
+		let receipts = self
+			.receipt_extractor
+			.extract_from_block_with_eth_hash(block, *ethereum_hash)
+			.await?;
 		self.insert(block, &receipts, ethereum_hash).await?;
 		Ok(receipts)
 	}

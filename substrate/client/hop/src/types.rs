@@ -25,7 +25,6 @@ use sp_runtime::MultiSigner;
 pub type SenderId = [u8; 32];
 
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
-/// Everything from `HopPoolEntry` except the data blob.
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
 	/// Block number when this was added
@@ -160,6 +159,9 @@ pub enum HopError {
 
 	#[error("I/O error: {0}")]
 	IoError(String),
+
+	#[error("Recipient already acknowledged, data may have been deleted")]
+	AlreadyClaimed,
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -179,18 +181,21 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::NotAuthorized => 1014,
 			HopError::IoError(_) => 1015,
 			HopError::InvalidSigner => 1016,
+			HopError::AlreadyClaimed => 1017,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
 	}
 }
 
-/// Maximum data size (8 MiB, matches pallet-transaction-storage MaxTransactionSize).
-/// Chunking of larger data is the frontend's responsibility.
-pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
+/// Maximum data size (64 MiB)
+pub const MAX_DATA_SIZE: u64 = 64 * 1024 * 1024;
 
 /// Default retention period in blocks (24 hours at 6 seconds per block = 14,400 blocks)
 pub const DEFAULT_RETENTION_BLOCKS: u32 = 14_400;
 
 /// Default maximum pool size in bytes (10 GiB)
 pub const DEFAULT_MAX_POOL_SIZE: u64 = 10 * 1024 * 1024 * 1024;
+
+/// Default maximum pool size in MiB (10 GiB = 10240 MiB)
+pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024);

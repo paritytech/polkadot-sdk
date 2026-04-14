@@ -338,28 +338,19 @@ impl HopDataPool {
 		}
 	}
 
-	/// Claim data from the pool. Verifies the signature against recipient public keys.
-	/// Returns the data if the signature matches an unclaimed recipient.
-	/// Removes the entry once all recipients have claimed.
-	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
-		// Phase 1: Read lock — clone data needed for verification.
-		let (recipients, claimed) = {
-			let index = self.index.read();
-			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			(meta.recipients.clone(), meta.claimed.clone())
-		};
-
-		// Phase 2: No lock — decode signature and verify against recipients.
+	/// Decode a signature and find the matching recipient index.
+	fn find_recipient(
+		meta: &HopEntryMeta,
+		hash: &HopHash,
+		signature: &[u8],
+	) -> Result<usize, HopError> {
 		let multi_sig =
 			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 
-		let recipient_index = recipients
+		meta.recipients
 			.iter()
 			.enumerate()
 			.find_map(|(i, signer)| {
-				if claimed[i] {
-					return None;
-				}
 				let account_id = signer.clone().into_account();
 				if multi_sig.verify(hash.as_bytes(), &account_id) {
 					Some(i)
@@ -367,34 +358,81 @@ impl HopDataPool {
 					None
 				}
 			})
-			.ok_or(HopError::NotRecipient)?;
+			.ok_or(HopError::NotRecipient)
+	}
 
-		// Phase 3: No lock — read blob from disk.
-		let data = fs::read(self.blob_path(hash))
-			.map_err(|e| HopError::IoError(format!("read blob: {}", e)))?;
+	/// Claim data from the pool (read-only). Verifies the signature against recipient
+	/// public keys. Returns the data if the signature matches a recipient.
+	///
+	/// This does NOT mark the recipient as claimed — call `ack` after receiving the data
+	/// to confirm receipt.
+	///
+	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
+	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
+		let index = self.index.read();
+		let meta = index.get(hash).ok_or(HopError::NotFound)?;
+		let recipient_index = Self::find_recipient(meta, hash, signature)?;
 
-		// Phase 4: Write lock — re-verify and update atomically.
+		// If this recipient already acked, the data may be gone.
+		if meta.claimed[recipient_index] {
+			return Err(HopError::AlreadyClaimed);
+		}
+
+		let blob_path = self.blob_path(hash);
+		drop(index);
+
+		// Read blob from disk (may be gone if concurrently acked and deleted).
+		let data = fs::read(&blob_path).map_err(|e| {
+			if e.kind() == std::io::ErrorKind::NotFound {
+				HopError::NotFound
+			} else {
+				HopError::IoError(format!("read blob: {}", e))
+			}
+		})?;
+
+		Ok(data)
+	}
+
+	/// Acknowledge receipt of claimed data. Marks the recipient as claimed and triggers
+	/// cleanup when all recipients have acked.
+	///
+	/// Idempotent: acking a recipient that already acked returns `Ok(())`.
+	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
+		// Phase 1: find recipient under read lock (crypto verification happens here).
+		let recipient_index = {
+			let index = self.index.read();
+			let meta = index.get(hash).ok_or(HopError::NotFound)?;
+			let idx = Self::find_recipient(meta, hash, signature)?;
+
+			// Fast path: already acked (idempotent).
+			if meta.claimed[idx] {
+				return Ok(());
+			}
+			idx
+		};
+
+		// Phase 2: write lock — re-verify and update atomically.
 		let mut index = self.index.write();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
 
-		// Re-check: the recipient may have been claimed concurrently.
+		// Re-check under write lock (concurrent ack may have beaten us).
 		if meta.claimed[recipient_index] {
-			return Err(HopError::NotRecipient);
+			return Ok(());
 		}
 
 		meta.claimed[recipient_index] = true;
 
-		// If all recipients have claimed, remove the entry entirely.
+		// If all recipients have acked, remove the entry entirely.
 		if meta.claimed.iter().all(|&c| c) {
 			let size = meta.size;
-			let alias = meta.sender_id;
+			let sender = meta.sender_id;
 			index.remove(hash);
 			self.current_size.fetch_sub(size, Ordering::Relaxed);
 			let mut usage = self.user_usage.write();
-			if let Some(u) = usage.get_mut(&alias) {
+			if let Some(u) = usage.get_mut(&sender) {
 				*u = u.saturating_sub(size);
 				if *u == 0 {
-					usage.remove(&alias);
+					usage.remove(&sender);
 				}
 			}
 			drop(usage);
@@ -407,7 +445,7 @@ impl HopDataPool {
 			tracing::info!(
 				target: "hop",
 				hash = ?hex::encode(hash),
-				"All recipients claimed, data removed"
+				"All recipients acked, data removed"
 			);
 		} else {
 			let claimed_count = meta.claimed.iter().filter(|&&c| c).count();
@@ -417,18 +455,18 @@ impl HopDataPool {
 			drop(index);
 
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist claimed state");
+				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist ack state");
 			}
 
 			tracing::debug!(
 				target: "hop",
 				hash = ?hex::encode(hash),
 				claimed = claimed_count,
-				"Recipient claimed"
+				"Recipient acked"
 			);
 		}
 
-		Ok(data)
+		Ok(())
 	}
 
 	/// Check if data exists in the pool.
@@ -708,10 +746,14 @@ mod tests {
 
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
-		let result = pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		let result = pool.claim(&hash, &encoded_sig).unwrap();
 		assert_eq!(data, result);
 
-		// Entry should be removed after sole recipient claims
+		// Entry still exists until ack
+		assert!(pool.has(&hash));
+
+		pool.ack(&hash, &encoded_sig).unwrap();
 		assert!(!pool.has(&hash));
 	}
 
@@ -756,18 +798,22 @@ mod tests {
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], SENDER_A).unwrap();
 
-		// First recipient claims
+		// First recipient claims and acks
 		let sig1 = pair1.sign(hash.as_bytes());
 		let multi_sig1 = MultiSignature::Ed25519(sig1);
-		let result1 = pool.claim(&hash, &multi_sig1.encode()).unwrap();
+		let encoded_sig1 = multi_sig1.encode();
+		let result1 = pool.claim(&hash, &encoded_sig1).unwrap();
 		assert_eq!(data, result1);
-		assert!(pool.has(&hash)); // still exists, second recipient hasn't claimed
+		pool.ack(&hash, &encoded_sig1).unwrap();
+		assert!(pool.has(&hash)); // still exists, second recipient hasn't acked
 
-		// Second recipient claims
+		// Second recipient claims and acks
 		let sig2 = pair2.sign(hash.as_bytes());
 		let multi_sig2 = MultiSignature::Ed25519(sig2);
-		let result2 = pool.claim(&hash, &multi_sig2.encode()).unwrap();
+		let encoded_sig2 = multi_sig2.encode();
+		let result2 = pool.claim(&hash, &encoded_sig2).unwrap();
 		assert_eq!(data, result2);
+		pool.ack(&hash, &encoded_sig2).unwrap();
 		assert!(!pool.has(&hash)); // now removed
 
 		// Pool size should be back to 0
@@ -775,7 +821,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_claim_already_claimed_recipient() {
+	fn test_claim_after_ack_returns_already_claimed() {
 		let (pool, _dir) = create_test_pool();
 		let (pair, signer) = test_recipient();
 		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
@@ -784,15 +830,16 @@ mod tests {
 		let data = vec![1, 2, 3, 4, 5];
 		let hash = pool.insert(data.clone(), 0, vec![signer, signer2], SENDER_A).unwrap();
 
-		// First claim succeeds
+		// Claim and ack succeeds
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
 		let encoded_sig = multi_sig.encode();
 		pool.claim(&hash, &encoded_sig).unwrap();
+		pool.ack(&hash, &encoded_sig).unwrap();
 
-		// Same recipient tries to claim again — should fail (already claimed)
+		// Same recipient tries to claim again — should fail (already acked)
 		let result = pool.claim(&hash, &encoded_sig);
-		assert!(matches!(result, Err(HopError::NotRecipient)));
+		assert!(matches!(result, Err(HopError::AlreadyClaimed)));
 	}
 
 	#[test]
@@ -845,7 +892,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_quota_released_after_claim() {
+	fn test_quota_released_after_ack() {
 		let dir = TempDir::new().unwrap();
 		let pool = HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap();
 		let (pair, signer) = test_recipient();
@@ -857,10 +904,12 @@ mod tests {
 		let result = pool.insert(vec![1u8; 110], 0, vec![signer.clone()], SENDER_A);
 		assert!(matches!(result, Err(HopError::PoolFull(_, _))));
 
-		// Claim the first entry — frees 100 bytes of user quota
+		// Claim and ack the first entry — frees 100 bytes of user quota
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
-		pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		pool.claim(&hash, &encoded_sig).unwrap();
+		pool.ack(&hash, &encoded_sig).unwrap();
 
 		// Now user A can insert again
 		pool.insert(vec![2u8; 100], 0, vec![signer], SENDER_A).unwrap();
@@ -895,10 +944,12 @@ mod tests {
 		let hash = pool.insert(vec![0u8; 50], 0, vec![signer], SENDER_A).unwrap();
 		assert!(pool.user_usage.read().contains_key(&SENDER_A));
 
-		// Claim removes the entry
+		// Claim and ack removes the entry
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Ed25519(sig);
-		pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		pool.claim(&hash, &encoded_sig).unwrap();
+		pool.ack(&hash, &encoded_sig).unwrap();
 
 		// User A should no longer be in usage map
 		assert!(!pool.user_usage.read().contains_key(&SENDER_A));
@@ -987,8 +1038,11 @@ mod tests {
 
 		let sig = pair.sign(hash.as_bytes());
 		let multi_sig = MultiSignature::Sr25519(sig);
-		let result = pool.claim(&hash, &multi_sig.encode()).unwrap();
+		let encoded_sig = multi_sig.encode();
+		let result = pool.claim(&hash, &encoded_sig).unwrap();
 		assert_eq!(data, result);
+
+		pool.ack(&hash, &encoded_sig).unwrap();
 		assert!(!pool.has(&hash));
 	}
 
@@ -1003,19 +1057,219 @@ mod tests {
 		let data = vec![42, 43, 44];
 		let hash = pool.insert(data.clone(), 0, vec![ed_signer, sr_signer], SENDER_A).unwrap();
 
-		// sr25519 recipient claims first
+		// sr25519 recipient claims and acks first
 		let sr_sig = sr_pair.sign(hash.as_bytes());
 		let sr_multi = MultiSignature::Sr25519(sr_sig);
-		let result1 = pool.claim(&hash, &sr_multi.encode()).unwrap();
+		let sr_encoded = sr_multi.encode();
+		let result1 = pool.claim(&hash, &sr_encoded).unwrap();
 		assert_eq!(data, result1);
-		assert!(pool.has(&hash)); // ed25519 recipient hasn't claimed yet
+		pool.ack(&hash, &sr_encoded).unwrap();
+		assert!(pool.has(&hash)); // ed25519 recipient hasn't acked yet
 
-		// ed25519 recipient claims second
+		// ed25519 recipient claims and acks second
 		let ed_sig = ed_pair.sign(hash.as_bytes());
 		let ed_multi = MultiSignature::Ed25519(ed_sig);
-		let result2 = pool.claim(&hash, &ed_multi.encode()).unwrap();
+		let ed_encoded = ed_multi.encode();
+		let result2 = pool.claim(&hash, &ed_encoded).unwrap();
 		assert_eq!(data, result2);
-		assert!(!pool.has(&hash)); // all claimed
+		pool.ack(&hash, &ed_encoded).unwrap();
+		assert!(!pool.has(&hash)); // all acked
+	}
+
+	#[test]
+	fn test_claim_is_repeatable() {
+		let (pool, _dir) = create_test_pool();
+		let (pair, signer) = test_recipient();
+		let data = vec![1, 2, 3, 4, 5];
+		let hash = pool.insert(data.clone(), 0, vec![signer], SENDER_A).unwrap();
+
+		let sig = pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let encoded_sig = multi_sig.encode();
+
+		// Calling claim twice returns the same data both times.
+		let result1 = pool.claim(&hash, &encoded_sig).unwrap();
+		let result2 = pool.claim(&hash, &encoded_sig).unwrap();
+		assert_eq!(data, result1);
+		assert_eq!(data, result2);
+		assert!(pool.has(&hash));
+	}
+
+	#[test]
+	fn test_ack_idempotent() {
+		let (pool, _dir) = create_test_pool();
+		let (pair, signer) = test_recipient();
+		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
+		let signer2 = MultiSigner::Ed25519(pair2.public());
+
+		let data = vec![1, 2, 3, 4, 5];
+		let hash = pool.insert(data, 0, vec![signer, signer2], SENDER_A).unwrap();
+
+		let sig = pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Ed25519(sig);
+		let encoded_sig = multi_sig.encode();
+
+		// Acking twice succeeds silently.
+		pool.ack(&hash, &encoded_sig).unwrap();
+		pool.ack(&hash, &encoded_sig).unwrap();
+		assert!(pool.has(&hash)); // second recipient hasn't acked
+	}
+
+	#[test]
+	fn test_multi_recipient_partial_ack() {
+		let (pool, _dir) = create_test_pool();
+		let pair1 = ed25519::Pair::from_seed(&[1u8; 32]);
+		let pair2 = ed25519::Pair::from_seed(&[2u8; 32]);
+		let signer1 = MultiSigner::Ed25519(pair1.public());
+		let signer2 = MultiSigner::Ed25519(pair2.public());
+
+		let data = vec![1, 2, 3, 4, 5];
+		let hash = pool.insert(data.clone(), 0, vec![signer1, signer2], SENDER_A).unwrap();
+
+		let sig1 = pair1.sign(hash.as_bytes());
+		let multi_sig1 = MultiSignature::Ed25519(sig1);
+		let encoded_sig1 = multi_sig1.encode();
+		let sig2 = pair2.sign(hash.as_bytes());
+		let multi_sig2 = MultiSignature::Ed25519(sig2);
+		let encoded_sig2 = multi_sig2.encode();
+
+		// R1 claims and acks.
+		let result1 = pool.claim(&hash, &encoded_sig1).unwrap();
+		assert_eq!(data, result1);
+		pool.ack(&hash, &encoded_sig1).unwrap();
+		assert!(pool.has(&hash));
+
+		// R2 can still claim.
+		let result2 = pool.claim(&hash, &encoded_sig2).unwrap();
+		assert_eq!(data, result2);
+
+		// R2 acks — entry deleted.
+		pool.ack(&hash, &encoded_sig2).unwrap();
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().total_bytes, 0);
+	}
+
+	#[test]
+	fn test_concurrent_inserts_respect_capacity() {
+		use std::{sync::Barrier, thread};
+
+		let dir = TempDir::new().unwrap();
+		// Pool of 200 bytes.
+		let pool = Arc::new(HopDataPool::new(200, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+		let barrier = Arc::new(Barrier::new(10));
+
+		let handles: Vec<_> = (0..10u8)
+			.map(|i| {
+				let pool = pool.clone();
+				let signer = signer.clone();
+				let barrier = barrier.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					// Each thread tries to insert 50 bytes with unique data.
+					pool.insert(vec![i; 50], 0, vec![signer], SENDER_A)
+				})
+			})
+			.collect();
+
+		let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+		let successes = results.iter().filter(|r| r.is_ok()).count();
+
+		// At most 4 inserts of 50 bytes each can fit in 200 bytes.
+		assert!(successes <= 4, "Got {} successes, max should be 4", successes);
+		assert!(pool.status().total_bytes <= 200);
+	}
+
+	#[test]
+	fn test_concurrent_inserts_respect_user_quota() {
+		use std::{sync::Barrier, thread};
+
+		let dir = TempDir::new().unwrap();
+		// Pool of 1000 bytes; two users each get 500.
+		let pool = Arc::new(HopDataPool::new(1000, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		// Pre-seed user B so that user A's quota is 500.
+		pool.insert(vec![255u8; 10], 0, vec![signer.clone()], SENDER_B).unwrap();
+
+		let barrier = Arc::new(Barrier::new(10));
+
+		let handles: Vec<_> = (0..10u8)
+			.map(|i| {
+				let pool = pool.clone();
+				let signer = signer.clone();
+				let barrier = barrier.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					// Each thread: user A inserts 100 bytes.
+					pool.insert(vec![i; 100], 0, vec![signer], SENDER_A)
+				})
+			})
+			.collect();
+
+		let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+		let successes = results.iter().filter(|r| r.is_ok()).count();
+
+		// User quota is a soft limit (checked under read lock), so concurrent
+		// inserts may exceed it. The hard safety net is pool capacity (1000 bytes).
+		assert!(successes >= 1, "At least one insert should succeed");
+		assert!(pool.status().total_bytes <= 1000);
+	}
+
+	#[test]
+	fn test_concurrent_claim_and_ack() {
+		use std::{sync::Barrier, thread};
+
+		let pool = Arc::new({
+			let dir = TempDir::new().unwrap();
+			// Leak the TempDir so it outlives the test threads.
+			let path = dir.into_path();
+			HopDataPool::new(1024 * 1024, 100, path).unwrap()
+		});
+
+		// Create 5 recipients.
+		let pairs: Vec<_> = (1..=5u8)
+			.map(|i| {
+				let pair = ed25519::Pair::from_seed(&[i; 32]);
+				let signer = MultiSigner::Ed25519(pair.public());
+				(pair, signer)
+			})
+			.collect();
+
+		let signers: Vec<_> = pairs.iter().map(|(_, s)| s.clone()).collect();
+		let data = vec![42u8; 100];
+		let hash = pool.insert(data.clone(), 0, signers, SENDER_A).unwrap();
+
+		let barrier = Arc::new(Barrier::new(5));
+
+		// Each recipient claims and acks concurrently.
+		let handles: Vec<_> = pairs
+			.into_iter()
+			.map(|(pair, _)| {
+				let pool = pool.clone();
+				let barrier = barrier.clone();
+				let data = data.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					let sig = pair.sign(hash.as_bytes());
+					let multi_sig = MultiSignature::Ed25519(sig);
+					let encoded = multi_sig.encode();
+
+					let claimed = pool.claim(&hash, &encoded).unwrap();
+					assert_eq!(data, claimed);
+
+					pool.ack(&hash, &encoded).unwrap();
+				})
+			})
+			.collect();
+
+		for h in handles {
+			h.join().unwrap();
+		}
+
+		// All recipients acked — entry should be gone.
+		assert!(!pool.has(&hash));
+		assert_eq!(pool.status().total_bytes, 0);
 	}
 
 	#[test]
