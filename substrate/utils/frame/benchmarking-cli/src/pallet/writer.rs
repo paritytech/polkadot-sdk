@@ -560,7 +560,10 @@ pub(crate) fn process_storage_results(
 	let mut identified_prefix = HashSet::<Vec<u8>>::new();
 	let mut identified_key = HashSet::<Vec<u8>>::new();
 
-	// TODO Emit a warning for unused `pov_mode` attributes.
+	// Tracks which `pov_modes` keys were actually matched to a storage key accessed during
+	// the benchmark. After the loop we warn about any keys that were never matched, since
+	// those `#[pov_mode]` attributes have no effect.
+	let mut used_pov_mode_keys = HashSet::<(String, String)>::new();
 
 	// We have to iterate in reverse order to catch the largest values for read/write since the
 	// components start low and then increase and only the first value is used.
@@ -588,16 +591,30 @@ pub(crate) fn process_storage_results(
 			};
 			let max_size = key_info.and_then(|k| k.max_size);
 
+			// Resolve the pov_mode override for this key, preferring the most-specific match:
+			// 1. exact `(Pallet, Storage)` key
+			// 2. pallet-wide `(Pallet, ALL)` key
+			// 3. benchmark-wide `(ALL, ALL)` key
+			// We also record which pov_mode key was matched so we can warn about unused ones
+			// after the loop.
 			let override_pov_mode = match key_info {
 				Some(_) => {
-					// Is there an override for the storage key?
-					pov_modes.get(&(pallet_name.clone(), storage_name.clone())).or(
-						// .. or for the storage prefix?
-						pov_modes.get(&(pallet_name.clone(), "ALL".to_string())).or(
-							// .. or for the benchmark?
-							pov_modes.get(&("ALL".to_string(), "ALL".to_string())),
-						),
-					)
+					let exact_key = (pallet_name.clone(), storage_name.clone());
+					let pallet_all_key = (pallet_name.clone(), "ALL".to_string());
+					let benchmark_all_key = ("ALL".to_string(), "ALL".to_string());
+
+					if let Some(mode) = pov_modes.get(&exact_key) {
+						used_pov_mode_keys.insert(exact_key);
+						Some(mode)
+					} else if let Some(mode) = pov_modes.get(&pallet_all_key) {
+						used_pov_mode_keys.insert(pallet_all_key);
+						Some(mode)
+					} else if let Some(mode) = pov_modes.get(&benchmark_all_key) {
+						used_pov_mode_keys.insert(benchmark_all_key);
+						Some(mode)
+					} else {
+						None
+					}
 				},
 				None => None,
 			};
@@ -732,6 +749,19 @@ pub(crate) fn process_storage_results(
 					},
 				}
 			}
+		}
+	}
+
+	// Warn about `#[pov_mode]` attributes that named storage items which were never accessed
+	// during the benchmark. These attributes have no effect and are most likely stale or
+	// misspelled. We skip wildcard keys ("ALL") since they are intentionally broad.
+	for (pallet, storage) in pov_modes.keys() {
+		if storage != "ALL" && !used_pov_mode_keys.contains(&(pallet.clone(), storage.clone())) {
+			log::warn!(
+				"The `#[pov_mode]` attribute for `{pallet}::{storage}` was specified but \
+				 that storage item was not accessed during the benchmark. \
+				 The attribute has no effect and may be stale or misspelled.",
+			);
 		}
 	}
 

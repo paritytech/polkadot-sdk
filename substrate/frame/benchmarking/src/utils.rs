@@ -90,8 +90,12 @@ pub struct BenchmarkBatch {
 	pub results: Vec<BenchmarkResult>,
 }
 
-// TODO: could probably make API cleaner here.
-/// The results of a single of benchmark, where time and db results are separated.
+/// The results of a single benchmark, split into separate timing and storage-access collections.
+///
+/// Use [`BenchmarkBatch::split`] to produce this from a [`BenchmarkBatch`]. The split exists so
+/// the analysis layer can apply different statistical models to timing and storage measurements
+/// independently — timing is analysed with picosecond precision while storage reads/writes are
+/// counted as integers.
 #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct BenchmarkBatchSplitResults {
@@ -108,6 +112,24 @@ pub struct BenchmarkBatchSplitResults {
 	pub time_results: Vec<BenchmarkResult>,
 	/// The db tracking results from this benchmark.
 	pub db_results: Vec<BenchmarkResult>,
+}
+
+impl BenchmarkBatch {
+	/// Split this batch into a [`BenchmarkBatchSplitResults`] by duplicating the underlying
+	/// results into separate `time_results` and `db_results` collections.
+	///
+	/// Both collections contain the same raw [`BenchmarkResult`] entries; the split gives the
+	/// analysis pipeline distinct handles so it can model timing and storage-access measurements
+	/// with independent statistical methods.
+	pub fn split(self) -> BenchmarkBatchSplitResults {
+		BenchmarkBatchSplitResults {
+			pallet: self.pallet,
+			instance: self.instance,
+			benchmark: self.benchmark,
+			time_results: self.results.clone(),
+			db_results: self.results,
+		}
+	}
 }
 
 /// Result from running benchmarks on a FRAME pallet.
@@ -370,21 +392,26 @@ pub trait Benchmarking {
 	) -> Result<Vec<BenchmarkResult>, BenchmarkError>;
 }
 
-/// The recording trait used to mark the start and end of a benchmark.
+/// Marks the timed region of a single benchmark iteration.
+///
+/// Implementors gate the clock around the code under test. [`BenchmarkRecording`] is the
+/// production implementation; [`NoopRecording`] and [`TestRecording`] are used in tests.
 pub trait Recording {
-	/// Start the benchmark.
+	/// Start the timed region. Called immediately before the benchmarked code runs.
 	fn start(&mut self) {}
 
-	// Stop the benchmark.
+	/// Stop the timed region. Called immediately after the benchmarked code completes.
 	fn stop(&mut self) {}
 }
 
-/// A no-op recording, used for unit test.
+/// A no-op recording, used for unit tests that don't need timing.
 struct NoopRecording;
 impl Recording for NoopRecording {}
 
-/// A no-op recording, used for tests that should setup some state before running the benchmark.
+/// A recording that runs a setup closure before the timed region starts, used in tests
+/// that must initialise state immediately before the benchmarked code runs.
 struct TestRecording<'a> {
+	/// Consumed on the first call to [`Recording::start`]. `None` after start has been called.
 	on_before_start: Option<&'a dyn Fn()>,
 }
 
@@ -396,12 +423,26 @@ impl<'a> TestRecording<'a> {
 
 impl<'a> Recording for TestRecording<'a> {
 	fn start(&mut self) {
-		(self.on_before_start.take().expect("start called more than once"))();
+		let cb = self.on_before_start.take().expect(
+			"BenchmarkRecording::start called more than once; \
+			 each recording must only be started once",
+		);
+		cb();
 	}
 }
 
-/// Records the time and proof size of a single benchmark iteration.
+/// Records the wall-clock time and proof size of a single benchmark iteration.
+///
+/// # Lifecycle
+///
+/// 1. Construct with [`BenchmarkRecording::new`], passing a closure that runs immediately *before*
+///    the timed region (e.g. to reset counters).
+/// 2. Call [`Recording::start`] once — captures `start_pov` and `start_extrinsic`.
+/// 3. Run the benchmarked code.
+/// 4. Call [`Recording::stop`] once — captures `finish_extrinsic` and `end_pov`.
+/// 5. Query results via [`elapsed_extrinsic`] / [`diff_pov`].
 pub struct BenchmarkRecording<'a> {
+	/// Consumed on [`Recording::start`]; `None` afterwards.
 	on_before_start: Option<&'a dyn Fn()>,
 	start_extrinsic: Option<u128>,
 	finish_extrinsic: Option<u128>,
@@ -410,6 +451,8 @@ pub struct BenchmarkRecording<'a> {
 }
 
 impl<'a> BenchmarkRecording<'a> {
+	/// Create a new recording. `on_before_start` is called once, immediately before the
+	/// timed region begins (inside [`Recording::start`]).
 	pub fn new(on_before_start: &'a dyn Fn()) -> Self {
 		Self {
 			on_before_start: Some(on_before_start),
@@ -423,7 +466,11 @@ impl<'a> BenchmarkRecording<'a> {
 
 impl<'a> Recording for BenchmarkRecording<'a> {
 	fn start(&mut self) {
-		(self.on_before_start.take().expect("start called more than once"))();
+		let cb = self.on_before_start.take().expect(
+			"BenchmarkRecording::start called more than once; \
+			 each recording must only be started once",
+		);
+		cb();
 		self.start_pov = crate::benchmarking::proof_size();
 		self.start_extrinsic = Some(current_time());
 	}
@@ -435,18 +482,24 @@ impl<'a> Recording for BenchmarkRecording<'a> {
 }
 
 impl<'a> BenchmarkRecording<'a> {
+	/// Proof size at the start of the timed region, if [`Recording::start`] has been called.
 	pub fn start_pov(&self) -> Option<u32> {
 		self.start_pov
 	}
 
+	/// Proof size at the end of the timed region, if [`Recording::stop`] has been called.
 	pub fn end_pov(&self) -> Option<u32> {
 		self.end_pov
 	}
 
+	/// Difference in proof size across the timed region. Returns `None` if either
+	/// [`Recording::start`] or [`Recording::stop`] has not yet been called.
 	pub fn diff_pov(&self) -> Option<u32> {
 		self.start_pov.zip(self.end_pov).map(|(start, end)| end.saturating_sub(start))
 	}
 
+	/// Wall-clock nanoseconds elapsed across the timed region. Returns `None` if either
+	/// [`Recording::start`] or [`Recording::stop`] has not yet been called.
 	pub fn elapsed_extrinsic(&self) -> Option<u128> {
 		self.start_extrinsic
 			.zip(self.finish_extrinsic)

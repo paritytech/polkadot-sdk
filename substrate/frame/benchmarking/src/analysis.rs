@@ -20,6 +20,14 @@
 use crate::BenchmarkResult;
 use std::collections::BTreeMap;
 
+/// A small positive bias added to [`BenchmarkSelector::ExtrinsicTime`] values before truncating
+/// to integer weight units.
+///
+/// Counteracts floating-point imprecision in the linear regression output. The model can emit
+/// values like `2_999_999.999_999_998` that must always round up rather than be truncated down.
+/// The bias is small enough (5 picoseconds) to be inconsequential for any real benchmark result.
+const EXTRINSIC_TIME_PRECISION_BIAS: f64 = 0.000_000_005;
+
 pub struct Analysis {
 	pub base: u128,
 	pub slopes: Vec<u128>,
@@ -50,10 +58,7 @@ fn mul_1000_into_u128(value: f64) -> u128 {
 impl BenchmarkSelector {
 	fn scale_and_cast_weight(self, value: f64, round_up: bool) -> u128 {
 		if let BenchmarkSelector::ExtrinsicTime = self {
-			// We add a very slight bias here to counteract the numerical imprecision of the linear
-			// regression where due to rounding issues it can emit a number like `2999999.999999998`
-			// which we most certainly always want to round up instead of truncating.
-			mul_1000_into_u128(value + 0.000_000_005)
+			mul_1000_into_u128(value + EXTRINSIC_TIME_PRECISION_BIAS)
 		} else {
 			if round_up {
 				(value + 0.5) as u128
@@ -195,23 +200,14 @@ fn linear_regression(
 }
 
 impl Analysis {
-	// Useful for when there are no components, and we just need an median value of the benchmark
+	// Useful for when there are no components, and we just need a median value of the benchmark
 	// results. Note: We choose the median value because it is more robust to outliers.
-	fn median_value(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	fn median_value(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
 		if r.is_empty() {
 			return None;
 		}
 
-		let mut values: Vec<u128> = r
-			.iter()
-			.map(|result| match selector {
-				BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-				BenchmarkSelector::StorageRootTime => result.storage_root_time,
-				BenchmarkSelector::Reads => result.reads.into(),
-				BenchmarkSelector::Writes => result.writes.into(),
-				BenchmarkSelector::ProofSize => result.proof_size.into(),
-			})
-			.collect();
+		let mut values: Vec<u128> = r.iter().map(|result| selector.get_value(result)).collect();
 
 		values.sort();
 		let mid = values.len() / 2;
@@ -222,12 +218,12 @@ impl Analysis {
 			names: Vec::new(),
 			value_dists: None,
 			errors: None,
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
 
-	pub fn median_slopes(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	pub fn median_slopes(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
 		if r[0].components.is_empty() {
 			return Self::median_value(r, selector);
 		}
@@ -255,17 +251,7 @@ impl Analysis {
 							.enumerate()
 							.all(|(j, (v1, v2))| j == i || v1 == *v2)
 					})
-					.map(|result| {
-						// Extract the data we are interested in analyzing
-						let data = match selector {
-							BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-							BenchmarkSelector::StorageRootTime => result.storage_root_time,
-							BenchmarkSelector::Reads => result.reads.into(),
-							BenchmarkSelector::Writes => result.writes.into(),
-							BenchmarkSelector::ProofSize => result.proof_size.into(),
-						};
-						(result.components[i].1, data)
-					})
+					.map(|result| (result.components[i].1, selector.get_value(result)))
 					.collect::<Vec<_>>();
 				(format!("{:?}", param), i, others, values)
 			})
@@ -322,12 +308,12 @@ impl Analysis {
 			names: results.into_iter().map(|x| x.0).collect::<Vec<_>>(),
 			value_dists: None,
 			errors: None,
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
 
-	pub fn min_squares_iqr(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	pub fn min_squares_iqr(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
 		if r[0].components.is_empty() || r.len() <= 2 {
 			return Self::median_value(r, selector);
 		}
@@ -335,13 +321,7 @@ impl Analysis {
 		let mut results = BTreeMap::<Vec<u32>, Vec<u128>>::new();
 		for result in r.iter() {
 			let p = result.components.iter().map(|x| x.1).collect::<Vec<_>>();
-			results.entry(p).or_default().push(match selector {
-				BenchmarkSelector::ExtrinsicTime => result.extrinsic_time,
-				BenchmarkSelector::StorageRootTime => result.storage_root_time,
-				BenchmarkSelector::Reads => result.reads.into(),
-				BenchmarkSelector::Writes => result.writes.into(),
-				BenchmarkSelector::ProofSize => result.proof_size.into(),
-			})
+			results.entry(p).or_default().push(selector.get_value(result));
 		}
 
 		for (_, rs) in results.iter_mut() {
@@ -395,21 +375,14 @@ impl Analysis {
 					.map(|value| selector.scale_and_cast_weight(value, false))
 					.collect(),
 			),
-			minimum: selector.get_minimum(&r),
+			minimum: selector.get_minimum(r),
 			selector,
 		})
 	}
 
-	pub fn max(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
-		let median_slopes = Self::median_slopes(r, selector);
-		let min_squares = Self::min_squares_iqr(r, selector);
-
-		if median_slopes.is_none() || min_squares.is_none() {
-			return None;
-		}
-
-		let median_slopes = median_slopes.unwrap();
-		let min_squares = min_squares.unwrap();
+	pub fn max(r: &[BenchmarkResult], selector: BenchmarkSelector) -> Option<Self> {
+		let median_slopes = Self::median_slopes(r, selector)?;
+		let min_squares = Self::min_squares_iqr(r, selector)?;
 
 		let base = median_slopes.base.max(min_squares.base);
 		let slopes = median_slopes
@@ -427,7 +400,7 @@ impl Analysis {
 		let names = median_slopes.names;
 		let value_dists = min_squares.value_dists;
 		let errors = min_squares.errors;
-		let minimum = selector.get_minimum(&r);
+		let minimum = selector.get_minimum(r);
 
 		Some(Self { base, slopes, names, value_dists, errors, selector, minimum })
 	}
