@@ -45,6 +45,11 @@ on:
         required: false
         type: string
         default: '0'
+      clean_every:
+        description: 'Run cargo clean after every N published crates to free disk space (0 = disabled). Recommend 50 for major releases with 100+ crates, otherwise the job may fail due to disk space.'
+        required: false
+        type: string
+        default: '0'
 
 permissions:
   contents: write
@@ -170,7 +175,7 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.14 --locked -q
+          cargo install parity-publish@0.10.15 --locked -q
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
@@ -331,11 +336,18 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
           PUBLISH_JOBS: ${{ inputs.publish_jobs }}
+          CLEAN_EVERY: ${{ inputs.clean_every }}
         run: |
           PARALLEL_ARGS=""
           if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
             echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
             PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
+          fi
+
+          CLEAN_ARGS=""
+          if [ "$CLEAN_EVERY" -gt 0 ] 2>/dev/null; then
+            echo "Disk cleanup enabled: cargo clean every $CLEAN_EVERY crates"
+            CLEAN_ARGS="--clean-every $CLEAN_EVERY"
           fi
 
           STAGING_ARG=""
@@ -346,10 +358,10 @@ jobs:
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
 

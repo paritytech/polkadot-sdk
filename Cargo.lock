@@ -1746,8 +1746,10 @@ dependencies = [
  "pallet-nfts-runtime-api",
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
+ "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-psm",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -3106,6 +3108,11 @@ dependencies = [
 name = "bridge-hub-westend-integration-tests"
 version = "1.0.0"
 dependencies = [
+ "alloy-consensus",
+ "alloy-primitives",
+ "alloy-rlp",
+ "alloy-sol-types",
+ "alloy-trie",
  "asset-hub-westend-runtime",
  "bp-asset-hub-westend",
  "bridge-hub-common",
@@ -3129,6 +3136,7 @@ dependencies = [
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
  "snowbridge-outbound-queue-primitives",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue",
  "snowbridge-pallet-inbound-queue-fixtures",
  "snowbridge-pallet-inbound-queue-v2",
@@ -7362,6 +7370,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "binary-merkle-tree 13.0.0",
  "bitflags 1.3.2",
+ "derive-where",
  "docify",
  "environmental",
  "frame-metadata 23.0.1",
@@ -7405,6 +7414,7 @@ dependencies = [
  "Inflector",
  "cfg-expr",
  "derive-syn-parse",
+ "derive-where",
  "docify",
  "expander",
  "frame-benchmarking",
@@ -7451,6 +7461,7 @@ dependencies = [
 name = "frame-support-test"
 version = "3.0.0"
 dependencies = [
+ "derive-where",
  "frame-benchmarking",
  "frame-executive",
  "frame-metadata 23.0.1",
@@ -11617,9 +11628,9 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a973b4e44ce6cad84ce69d797acf9a044532e4184c4f267913d1b546a0727b7a"
+checksum = "b1207a7e20ad57b847bbddc6776b968420d38292bbfe2089accff5e19e82454c"
 dependencies = [
  "num_enum_derive",
  "rustversion",
@@ -11627,9 +11638,9 @@ dependencies = [
 
 [[package]]
 name = "num_enum_derive"
-version = "0.7.4"
+version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77e878c846a8abae00dd069496dbe8751b16ac1c3d6bd2a7283a938e8228f90d"
+checksum = "ff32365de1b6743cb203b710788263c44a03de03802daf96092f2da4fe6ba4d7"
 dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2 1.0.95",
@@ -11982,6 +11993,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -12710,6 +12722,7 @@ dependencies = [
  "frame-system",
  "log",
  "pallet-balances",
+ "pallet-timestamp",
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
@@ -13748,6 +13761,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-psm"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
+name = "pallet-psm-remote-tests"
+version = "0.1.0"
+dependencies = [
+ "frame-remote-externalities",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-psm",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-ranked-collective"
 version = "28.0.0"
 dependencies = [
@@ -14198,13 +14239,16 @@ dependencies = [
  "log",
  "pallet-bags-list",
  "pallet-balances",
+ "pallet-dap",
  "pallet-staking-async-rc-client",
+ "pallet-timestamp",
  "parity-scale-codec",
  "rand 0.8.5",
  "rand_chacha 0.3.1",
  "scale-info",
  "serde",
  "sp-application-crypto 30.0.0",
+ "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-npos-elections",
@@ -14936,6 +14980,7 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-revive",
+ "pallet-revive-fixtures",
  "pallet-timestamp",
  "pallet-xcm",
  "parity-scale-codec",
@@ -17149,6 +17194,7 @@ dependencies = [
  "pallet-people",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-psm",
  "pallet-ranked-collective",
  "pallet-recovery",
  "pallet-referenda",
@@ -17354,6 +17400,8 @@ dependencies = [
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
  "sp-version-proc-macro 13.0.0",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
  "sp-wasm-interface 20.0.0",
  "sp-weights 27.0.0",
  "staging-chain-spec-builder",
@@ -19328,6 +19376,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "remote-ext-tests-psm"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "clap",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-psm",
+ "pallet-psm-remote-tests",
+ "sp-core 28.0.0",
+ "sp-tracing 16.0.0",
+ "tokio",
+]
+
+[[package]]
 name = "reqwest"
 version = "0.12.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -21049,6 +21114,8 @@ dependencies = [
  "sp-tracing 16.0.0",
  "sp-trie 29.0.0",
  "sp-version 29.0.0",
+ "sp-virtualization",
+ "sp-virtualization-test-fixture",
  "sp-wasm-interface 20.0.0",
  "substrate-test-runtime",
  "tempfile",
@@ -21146,6 +21213,7 @@ dependencies = [
  "sc-runtime-test",
  "sp-io 30.0.0",
  "sp-runtime-interface 24.0.0",
+ "sp-virtualization",
  "sp-wasm-interface 20.0.0",
  "tempfile",
  "wasmtime",
@@ -21756,6 +21824,7 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-runtime-interface 24.0.0",
+ "sp-virtualization",
  "substrate-wasm-builder",
 ]
 
@@ -23563,7 +23632,10 @@ dependencies = [
 name = "snowbridge-pallet-inbound-queue-v2"
 version = "0.2.0"
 dependencies = [
+ "alloy-consensus",
  "alloy-core",
+ "alloy-primitives",
+ "alloy-rlp",
  "bp-relayers",
  "frame-benchmarking",
  "frame-support",
@@ -23576,6 +23648,8 @@ dependencies = [
  "snowbridge-beacon-primitives",
  "snowbridge-core",
  "snowbridge-inbound-queue-primitives",
+ "snowbridge-pallet-ethereum-client",
+ "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
  "sp-core 28.0.0",
@@ -25306,6 +25380,30 @@ dependencies = [
  "proc-macro2 1.0.95",
  "quote 1.0.40",
  "syn 2.0.98",
+]
+
+[[package]]
+name = "sp-virtualization"
+version = "1.0.0"
+dependencies = [
+ "log",
+ "num_enum",
+ "parity-scale-codec",
+ "polkavm 0.33.1",
+ "sp-runtime-interface 24.0.0",
+ "sp-std 14.0.0",
+ "sp-tracing 16.0.0",
+ "sp-virtualization-test-fixture",
+ "sp-wasm-interface 20.0.0",
+ "strum 0.26.3",
+]
+
+[[package]]
+name = "sp-virtualization-test-fixture"
+version = "1.0.0"
+dependencies = [
+ "polkavm-derive 0.33.0",
+ "substrate-wasm-builder",
 ]
 
 [[package]]

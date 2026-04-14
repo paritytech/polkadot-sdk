@@ -228,6 +228,7 @@ members = [
 	"polkadot/statement-table",
 	"polkadot/utils/generate-bags",
 	"polkadot/utils/remote-ext-tests/bags-list",
+	"polkadot/utils/remote-ext-tests/psm",
 	"polkadot/xcm",
 	"polkadot/xcm/docs",
 	"polkadot/xcm/pallet-xcm",
@@ -415,6 +416,8 @@ members = [
 	"substrate/frame/people",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
+	"substrate/frame/psm",
+	"substrate/frame/psm/remote-tests",
 	"substrate/frame/ranked-collective",
 	"substrate/frame/recovery",
 	"substrate/frame/referenda",
@@ -543,6 +546,8 @@ members = [
 	"substrate/primitives/trie",
 	"substrate/primitives/version",
 	"substrate/primitives/version/proc-macro",
+	"substrate/primitives/virtualization",
+	"substrate/primitives/virtualization/test-fixture",
 	"substrate/primitives/wasm-interface",
 	"substrate/primitives/weights",
 	"substrate/scripts/ci/node-template-release",
@@ -599,6 +604,7 @@ unexpected_cfgs = { level = "warn", check-cfg = [
 	'cfg(enable_alloc_error_handler)',
 	'cfg(fuzzing)',
 	'cfg(ignore_flaky_test)',
+	'cfg(revive_debug)',
 	'cfg(substrate_runtime)',
 ] }
 
@@ -641,6 +647,7 @@ alloy-provider = { version = "1.8.3", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-rpc-types = { version = "1.8.3", default-features = false }
 alloy-signer-local = { version = "1.8.3", default-features = false }
+alloy-sol-types = { version = "1.5.7", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
@@ -1026,6 +1033,8 @@ pallet-parameters = { path = "substrate/frame/parameters", default-features = fa
 pallet-people = { path = "substrate/frame/people", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
+pallet-psm = { path = "substrate/frame/psm", default-features = false }
+pallet-psm-remote-tests = { path = "substrate/frame/psm/remote-tests" }
 pallet-ranked-collective = { path = "substrate/frame/ranked-collective", default-features = false }
 pallet-recovery = { path = "substrate/frame/recovery", default-features = false }
 pallet-referenda = { path = "substrate/frame/referenda", default-features = false }
@@ -1362,6 +1371,8 @@ sp-transaction-storage-proof = { path = "substrate/primitives/transaction-storag
 sp-trie = { path = "substrate/primitives/trie", default-features = false }
 sp-version = { path = "substrate/primitives/version", default-features = false }
 sp-version-proc-macro = { path = "substrate/primitives/version/proc-macro", default-features = false }
+sp-virtualization = { path = "substrate/primitives/virtualization", default-features = false }
+sp-virtualization-test-fixture = { path = "substrate/primitives/virtualization/test-fixture", default-features = false }
 sp-wasm-interface = { path = "substrate/primitives/wasm-interface", default-features = false }
 sp-weights = { path = "substrate/primitives/weights", default-features = false }
 spinners = { version = "4.1.1" }
@@ -1393,6 +1404,7 @@ sysinfo = { version = "0.30" }
 tar = { version = "0.4" }
 tempfile = { version = "3.8.1" }
 # pinned test-case to 3.3.1 because they support only the latest stable version of rust
+num_enum = { version = "0.7.5", default-features = false }
 test-case = { version = "=3.3.1" }
 test-log = { version = "0.2.14" }
 test-pallet = { path = "substrate/frame/support/test/pallet", default-features = false, package = "frame-support-test-pallet" }
