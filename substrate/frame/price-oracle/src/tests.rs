@@ -57,6 +57,16 @@ impl pallet::AuthorityProvider for MockAuthorityProvider {
 	}
 }
 
+pub struct MockEndpointProvider;
+impl pallet::EndpointProvider for MockEndpointProvider {
+	fn endpoint_list() -> Vec<(u8, alloc::string::String)> {
+		alloc::vec![]
+	}
+	fn decode_result(_endpoint_id: u8, _raw_response: &[u8]) -> Option<FixedU128> {
+		None
+	}
+}
+
 fn set_authorities(pairs: &[sr25519::Pair]) {
 	let authorities: Vec<AuthorityId> =
 		pairs.iter().map(|p| AuthorityId::from(p.public())).collect();
@@ -72,6 +82,7 @@ impl Config for Test {
 	type MinNudges = MinNudges;
 	type NudgeValidity = NudgeValidity;
 	type AuthorityProvider = MockAuthorityProvider;
+	type EndpointProvider = MockEndpointProvider;
 	type TimeProvider = MockTime;
 	type OnPriceUpdate = ();
 }

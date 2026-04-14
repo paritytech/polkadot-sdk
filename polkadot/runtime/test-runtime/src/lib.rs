@@ -324,11 +324,34 @@ impl pallet_price_oracle::pallet::AuthorityProvider for BabeAuthorityProvider {
 	}
 }
 
+pub struct TestEndpointProvider;
+impl pallet_price_oracle::pallet::EndpointProvider for TestEndpointProvider {
+	fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::string::String)> {
+		use alloc::string::ToString;
+		alloc::vec![
+			(0, "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT".to_string()),
+			(1, "https://api.coinlore.net/api/ticker/?id=45219".to_string()),
+			(2, "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD".to_string()),
+		]
+	}
+
+	fn decode_result(endpoint_id: u8, raw_response: &[u8]) -> Option<sp_runtime::FixedU128> {
+		use pallet_price_oracle::decoders::*;
+		match endpoint_id {
+			0 => decode_binance(raw_response),
+			1 => decode_coinlore(raw_response),
+			2 => decode_cryptocompare(raw_response),
+			_ => None,
+		}
+	}
+}
+
 impl pallet_price_oracle::Config for Runtime {
 	type Epsilon = OracleEpsilon;
 	type MinNudges = OracleMinNudges;
 	type NudgeValidity = OracleNudgeValidity;
 	type AuthorityProvider = BabeAuthorityProvider;
+	type EndpointProvider = TestEndpointProvider;
 	type TimeProvider = Timestamp;
 	type OnPriceUpdate = ();
 }
@@ -1415,6 +1438,21 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
 			use pallet_price_oracle::pallet::AuthorityProvider;
 			BabeAuthorityProvider::authorities()
+		}
+
+		fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)> {
+			use pallet_price_oracle::pallet::EndpointProvider;
+			TestEndpointProvider::endpoint_list()
+				.into_iter()
+				.map(|(id, url)| (id, url.into_bytes()))
+				.collect()
+		}
+
+		fn decode_results(data: alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)>) -> alloc::vec::Vec<(u8, Option<sp_runtime::FixedU128>)> {
+			use pallet_price_oracle::pallet::EndpointProvider;
+			data.into_iter()
+				.map(|(id, bytes)| (id, TestEndpointProvider::decode_result(id, &bytes)))
+				.collect()
 		}
 	}
 

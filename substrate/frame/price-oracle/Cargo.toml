@@ -26,6 +26,7 @@ sp-consensus-babe = { workspace = true }
 sp-consensus-slots = { workspace = true }
 sp-core = { workspace = true }
 sp-inherents = { workspace = true }
+serde_json = { features = ["alloc"], workspace = true }
 sp-price-oracle = { workspace = true }
 sp-runtime = { workspace = true }
 
@@ -51,6 +52,7 @@ std = [
 	"sp-consensus-slots/std",
 	"sp-core/std",
 	"sp-inherents/std",
+	"serde_json/std",
 	"sp-price-oracle/std",
 	"sp-runtime/std",
 ]

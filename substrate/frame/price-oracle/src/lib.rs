@@ -13,6 +13,7 @@ use sp_price_oracle::{
 };
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 
+pub mod decoders;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -30,6 +31,21 @@ pub mod pallet {
 	pub trait AuthorityProvider {
 		fn authorities() -> Vec<AuthorityId>;
 		fn current_slot() -> Slot;
+	}
+
+	/// Provides the list of price feed endpoints and their response decoders.
+	///
+	/// The runtime implements this trait to define which APIs to query and how to
+	/// extract prices from their JSON responses. The node calls `endpoints()` to
+	/// get URLs, fetches them via HTTP, and passes raw response bytes back to
+	/// `decode()` for parsing.
+	pub trait EndpointProvider {
+		/// Returns `(endpoint_id, url)` pairs.
+		fn endpoint_list() -> Vec<(u8, alloc::string::String)>;
+
+		/// Decode a raw HTTP response body for the given endpoint_id into a price.
+		/// Returns `None` if the response cannot be parsed or the endpoint_id is unknown.
+		fn decode_result(endpoint_id: u8, raw_response: &[u8]) -> Option<FixedU128>;
 	}
 
 	/// Called whenever the on-chain price is updated.
@@ -55,6 +71,9 @@ pub mod pallet {
 		type NudgeValidity: Get<u64>;
 
 		type AuthorityProvider: AuthorityProvider;
+
+		/// Provides price feed endpoint URLs and response decoders.
+		type EndpointProvider: EndpointProvider;
 
 		type TimeProvider: Time;
 

@@ -527,11 +527,58 @@ impl pallet_price_oracle::pallet::AuthorityProvider for BabeAuthorityProvider {
 	}
 }
 
+pub struct DotUsdEndpointProvider;
+impl pallet_price_oracle::pallet::EndpointProvider for DotUsdEndpointProvider {
+	fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::string::String)> {
+		use alloc::string::ToString;
+		alloc::vec![
+			(0, "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT".to_string()),
+			(1, "https://api.coinlore.net/api/ticker/?id=45219".to_string()),
+			(2, "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD".to_string()),
+			(3, "https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd".to_string()),
+			(4, "https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?slug=polkadot".to_string()),
+			(5, "https://api.coinpaprika.com/v1/tickers/dot-polkadot".to_string()),
+			(6, "https://api.livecoinwatch.com/coins/single".to_string()),
+			(7, "https://api.diadata.org/v1/assetQuotation/Polkadot/0x0000000000000000000000000000000000000000".to_string()),
+			(8, "https://api.coinbase.com/v2/prices/DOT-USD/spot".to_string()),
+			(9, "https://api.kraken.com/0/public/Ticker?pair=DOTUSD".to_string()),
+			(10, "https://www.okx.com/api/v5/market/ticker?instId=DOT-USDT".to_string()),
+			(11, "https://api.bybit.com/v5/market/tickers?category=spot&symbol=DOTUSDT".to_string()),
+			(12, "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=DOT-USDT".to_string()),
+			(13, "https://api.crypto.com/v2/public/get-ticker?instrument_name=DOT_USDT".to_string()),
+			(14, "https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOT_USDT".to_string()),
+		]
+	}
+
+	fn decode_result(endpoint_id: u8, raw_response: &[u8]) -> Option<sp_runtime::FixedU128> {
+		use pallet_price_oracle::decoders::*;
+		match endpoint_id {
+			0 => decode_binance(raw_response),
+			1 => decode_coinlore(raw_response),
+			2 => decode_cryptocompare(raw_response),
+			3 => decode_coingecko(raw_response),
+			4 => decode_coinmarketcap(raw_response),
+			5 => decode_coinpaprika(raw_response),
+			6 => decode_livecoinwatch(raw_response),
+			7 => decode_dia(raw_response),
+			8 => decode_coinbase(raw_response),
+			9 => decode_kraken(raw_response),
+			10 => decode_okx(raw_response),
+			11 => decode_bybit(raw_response),
+			12 => decode_kucoin(raw_response),
+			13 => decode_cryptocom(raw_response),
+			14 => decode_gateio(raw_response),
+			_ => None,
+		}
+	}
+}
+
 impl pallet_price_oracle::Config for Runtime {
 	type Epsilon = OracleEpsilon;
 	type MinNudges = OracleMinNudges;
 	type NudgeValidity = OracleNudgeValidity;
 	type AuthorityProvider = BabeAuthorityProvider;
+	type EndpointProvider = DotUsdEndpointProvider;
 	type TimeProvider = Timestamp;
 	// Note: Later we wire this to pallet-xcm to send the price to AH and anywhere else interested.
 	type OnPriceUpdate = ();
@@ -3207,6 +3254,21 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
 			use pallet_price_oracle::pallet::AuthorityProvider;
 			BabeAuthorityProvider::authorities()
+		}
+
+		fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)> {
+			use pallet_price_oracle::pallet::EndpointProvider;
+			DotUsdEndpointProvider::endpoint_list()
+				.into_iter()
+				.map(|(id, url)| (id, url.into_bytes()))
+				.collect()
+		}
+
+		fn decode_results(data: alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)>) -> alloc::vec::Vec<(u8, Option<sp_runtime::FixedU128>)> {
+			use pallet_price_oracle::pallet::EndpointProvider;
+			data.into_iter()
+				.map(|(id, bytes)| (id, DotUsdEndpointProvider::decode_result(id, &bytes)))
+				.collect()
 		}
 	}
 }
