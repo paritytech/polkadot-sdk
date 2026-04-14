@@ -8,11 +8,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
              PassFatPointerAndRead<T>
-             PassFatPointerAndReadWrite<T>
            and $N others
    = note: this error originates in the attribute macro `runtime_interface` (in Nightly builds, run with -Z macro-backtrace for more info)
 
@@ -26,11 +26,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
              PassFatPointerAndRead<T>
-             PassFatPointerAndReadWrite<T>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
@@ -43,11 +43,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
              PassFatPointerAndRead<T>
-             PassFatPointerAndReadWrite<T>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
@@ -77,11 +77,11 @@ error[E0277]: the trait bound `Option<u8>: IntoFFIValue` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndReturnAs<T, U, V>
              ReturnAs<T, U>
              bool
              i16
              i32
-             i64
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: FromFFIValue<'_>` is not satisfied
@@ -129,11 +129,11 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
              PassFatPointerAndRead<T>
-             PassFatPointerAndReadWrite<T>
            and $N others
 
 error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
@@ -146,9 +146,9 @@ error[E0277]: the trait bound `Option<u8>: RIType` is not satisfied
              AllocateAndReturnByCodec<T>
              AllocateAndReturnFatPointer<T>
              AllocateAndReturnPointer<T, N>
+             ConvertAndReturnAs<T, U, V>
              PassAs<T, U>
              PassFatPointerAndDecode<T>
              PassFatPointerAndDecodeSlice<T>
              PassFatPointerAndRead<T>
-             PassFatPointerAndReadWrite<T>
            and $N others
