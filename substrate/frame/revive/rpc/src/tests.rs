@@ -1906,7 +1906,7 @@ async fn create_sync_test_client_with_subscription_gap_queue()
 
 	let receipt_extractor = ReceiptExtractor::new(api.clone()).await?;
 	let receipt_provider = ReceiptProvider::new(
-		DbContext::new(pool, 999),
+		DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER),
 		block_provider.clone(),
 		receipt_extractor,
 		None,

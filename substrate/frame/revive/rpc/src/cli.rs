@@ -39,7 +39,6 @@ use std::path::PathBuf;
 /// Query the maximum number of bound parameters SQLite allows per query by acquiring a pooled
 /// connection, locking its raw handle, and calling `sqlite3_limit` via FFI, falling back to 999.
 async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
-	const DEFAULT: usize = 999;
 	let limit = async {
 		let mut conn = pool
 			.acquire()
@@ -64,10 +63,11 @@ async fn sqlite_db_query_max_variable_number(pool: &SqlitePool) -> usize {
 	}
 	.await;
 
+	let default = DbContext::DEFAULT_MAX_VARIABLE_NUMBER;
 	limit.inspect(|n| log::info!(target: LOG_TARGET, "💾 SQLite db_query_max_variable_number: {n}"))
 		.unwrap_or_else(|| {
-			log::warn!(target: LOG_TARGET, "💾 Failed to query SQLite variable limit, falling back to {DEFAULT}");
-			DEFAULT
+			log::warn!(target: LOG_TARGET, "💾 Failed to query SQLite variable limit, falling back to {default}");
+			default
 		})
 }
 

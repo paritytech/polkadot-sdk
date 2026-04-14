@@ -44,14 +44,24 @@ pub struct DbContext {
 }
 
 impl DbContext {
+	/// SQLite default for `SQLITE_LIMIT_VARIABLE_NUMBER`.
+	pub const DEFAULT_MAX_VARIABLE_NUMBER: usize = 999;
+	/// Columns in the `transaction_hashes` table.
+	const TX_HASH_COLUMNS: usize = 3;
+	/// Columns in the `logs` table.
+	const LOG_COLUMNS: usize = 11;
+
 	pub fn new(pool: SqlitePool, max_variable_number: usize) -> Self {
-		const TX_HASH_COLUMNS: usize = 3; // columns in the transaction_hashes table
-		const LOG_COLUMNS: usize = 11; // columns in the logs table
+		assert!(
+			max_variable_number >= Self::LOG_COLUMNS,
+			"SQLite max_variable_number ({max_variable_number}) must be >= {}",
+			Self::LOG_COLUMNS
+		);
 		Self {
 			pool,
 			max_variable_number,
-			tx_insert_chunk_size: max_variable_number / TX_HASH_COLUMNS,
-			log_insert_chunk_size: max_variable_number / LOG_COLUMNS,
+			tx_insert_chunk_size: max_variable_number / Self::TX_HASH_COLUMNS,
+			log_insert_chunk_size: max_variable_number / Self::LOG_COLUMNS,
 		}
 	}
 }
@@ -915,7 +925,10 @@ mod tests {
 
 	fn mock_provider() -> ReceiptProvider<MockBlockInfoProvider> {
 		ReceiptProvider {
-			db_ctx: DbContext::new(SqlitePool::connect_lazy("sqlite::memory:").unwrap(), 999),
+			db_ctx: DbContext::new(
+				SqlitePool::connect_lazy("sqlite::memory:").unwrap(),
+				DbContext::DEFAULT_MAX_VARIABLE_NUMBER,
+			),
 			block_provider: MockBlockInfoProvider {},
 			receipt_extractor: ReceiptExtractor::new_mock(),
 			keep_latest_n_blocks: None,
@@ -936,8 +949,8 @@ mod tests {
 	}
 
 	impl ReceiptProvider<MockBlockInfoProvider> {
-		fn with_pool(mut self, pool: SqlitePool) -> Self {
-			self.db_ctx.pool = pool;
+		fn with_db_ctx(mut self, db_ctx: DbContext) -> Self {
+			self.db_ctx = db_ctx;
 			self
 		}
 
@@ -953,7 +966,9 @@ mod tests {
 	}
 
 	async fn setup_sqlite_provider(pool: SqlitePool) -> ReceiptProvider<MockBlockInfoProvider> {
-		mock_provider().with_pool(pool).with_keep_latest(Some(10))
+		mock_provider()
+			.with_db_ctx(DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER))
+			.with_keep_latest(Some(10))
 	}
 
 	#[sqlx::test]
@@ -1601,7 +1616,8 @@ mod tests {
 	#[sqlx::test]
 	async fn persistent_mode_caps_in_memory_map(pool: SqlitePool) -> anyhow::Result<()> {
 		// Persistent DB mode: keep_latest_n_blocks = None
-		let provider = mock_provider().with_pool(pool);
+		let provider = mock_provider()
+			.with_db_ctx(DbContext::new(pool, DbContext::DEFAULT_MAX_VARIABLE_NUMBER));
 
 		// Insert more than MAX_CACHED_BLOCKS blocks.
 		let start_block: u64 = 1;
@@ -1647,10 +1663,14 @@ mod tests {
 		H256::from(hash)
 	}
 
-	fn make_receipts(n_tx: usize, n_logs: usize) -> Vec<(TransactionSigned, ReceiptInfo)> {
+	fn make_receipts(
+		tx_offset: usize,
+		n_tx: usize,
+		n_logs: usize,
+	) -> Vec<(TransactionSigned, ReceiptInfo)> {
 		(0..n_tx)
 			.map(|i| {
-				let transaction_hash = make_hash(i, 0x00);
+				let transaction_hash = make_hash(tx_offset + i, 0x00);
 				let logs = (0..n_logs)
 					.map(|j| Log {
 						transaction_hash,
@@ -1691,17 +1711,19 @@ mod tests {
 	#[sqlx::test]
 	async fn test_bulk_insert(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let tx_chunk = provider.db_ctx.tx_insert_chunk_size;
+		let log_chunk = provider.db_ctx.log_insert_chunk_size;
 
 		let cases = [
-			(333, 1),  // exact tx chunk boundary (chunk = 333)
-			(334, 90), // crosses tx boundary; 90 logs = exact log chunk boundary (chunk = 90)
-			(1000, 3), // multiple tx chunks, multiple log chunks
+			(tx_chunk, 1),             // exact tx chunk boundary
+			(tx_chunk + 1, log_chunk), // crosses tx boundary; exact log chunk boundary
+			(1000, 3),                 // multiple tx and log chunks
 		];
 
 		for (i, (n_tx, n_logs)) in cases.into_iter().enumerate() {
 			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u32 + 1 };
 			let ethereum_hash = make_hash(i, 0xff);
-			let receipts = make_receipts(n_tx, n_logs);
+			let receipts = make_receipts(0, n_tx, n_logs);
 			provider.insert(&block, &receipts, &ethereum_hash).await?;
 			assert_receipts_inserted(&provider, &block, &ethereum_hash, &receipts).await;
 		}
@@ -1713,7 +1735,7 @@ mod tests {
 		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
 		let block = MockBlockInfo { hash: make_hash(0, 0xAA), number: 1 };
 		let ethereum_hash = make_hash(0, 0xBB);
-		let receipts = make_receipts(5, 3);
+		let receipts = make_receipts(0, 5, 3);
 
 		// First insert.
 		provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
@@ -1754,6 +1776,44 @@ mod tests {
 		// Second insert for the same block is a no-op.
 		provider.insert(&block, &[], &ethereum_hash).await?;
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_bulk_delete(pool: SqlitePool) -> anyhow::Result<()> {
+		// Use the smallest valid limit to force chunked INSERTs and DELETEs.
+		let db_ctx = DbContext::new(pool, DbContext::LOG_COLUMNS);
+		let provider = mock_provider().with_db_ctx(db_ctx).with_keep_latest(None);
+
+		let n_blocks = 25;
+		let n_tx_per_block = 5;
+		let n_logs_per_receipt = 3;
+		let mut block_mappings = Vec::new();
+
+		for i in 0..n_blocks {
+			let block = MockBlockInfo { hash: make_hash(i, 0xAA), number: i as u32 + 1 };
+			let ethereum_hash = make_hash(i, 0xBB);
+			let receipts = make_receipts(i * n_tx_per_block, n_tx_per_block, n_logs_per_receipt);
+			provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
+			block_mappings.push(BlockHashMap::new(block.hash, ethereum_hash));
+		}
+
+		assert_eq!(
+			count(&provider.db_ctx.pool, "transaction_hashes", None).await,
+			n_blocks * n_tx_per_block
+		);
+		assert_eq!(
+			count(&provider.db_ctx.pool, "logs", None).await,
+			n_blocks * n_tx_per_block * n_logs_per_receipt
+		);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, n_blocks);
+
+		provider.remove(&block_mappings).await?;
+
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 0);
 
 		Ok(())
 	}
