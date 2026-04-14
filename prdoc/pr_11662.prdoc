@@ -1,0 +1,50 @@
+title: "HOP: ephemeral data pool service for Substrate nodes"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds `sc-hop` and `sp-hop` crates implementing the Hand-Off Protocol (HOP)
+      node service. HOP enables peer-to-peer data sharing when recipients are
+      offline by holding data in a temporary node-side pool until it is either
+      claimed or promoted to on-chain storage.
+
+      **`sc-hop`** provides:
+      - Disk-backed data pool (`HopDataPool`) with 256-way sharded blob/meta storage
+        and crash-recovery from disk on restart.
+      - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
+      - Submission auth via Bulletin Chain account signatures, verified against
+        `HopApi::is_account_authorized`.
+      - Data size validated against `HopApi::max_promotion_size` (8 MiB default,
+        matching Bulletin Chain's `MaxTransactionSize`).
+      - Per-user fair-share quota enforcement with automatic cleanup on ack/expiry.
+      - Background maintenance task (`HopMaintenanceTask`) that promotes near-expiry
+        entries to on-chain storage and garbage-collects expired ones.
+
+      **`sp-hop`** defines the `HopApi` runtime API trait: `is_account_authorized`,
+      `create_promotion_extrinsic`, and `max_promotion_size`.
+
+      Integration requires flattening `HopParams` into your CLI, constructing a
+      `HopDataPool`, and merging `HopRpcServer` into the RPC module. See `sc-hop`
+      crate docs for a step-by-step guide.
+
+  - audience: Node Operator
+    description: |
+      New `--enable-hop` flag activates the HOP data pool for ephemeral
+      peer-to-peer data exchange. Related flags:
+      - `--hop-max-pool-size <MiB>` — pool capacity (default: 10240 MiB / 10 GiB)
+      - `--hop-retention-blocks <blocks>` — data lifetime (default: 14400, ~24h at 6s blocks)
+      - `--hop-check-interval <seconds>` — maintenance cycle (default: 3600, 1 hour)
+      - `--hop-data-dir <path>` — storage directory (default: `<chain-data>/hop`)
+
+      Pool state (blobs + metadata) persists across restarts. Orphan and corrupt
+      files are cleaned up automatically on startup.
+
+crates:
+  - name: sc-hop
+    bump: minor
+  - name: sp-hop
+    bump: minor
+  - name: polkadot-omni-node-lib
+    bump: minor
+  - name: pallet-transaction-storage
+    bump: none
