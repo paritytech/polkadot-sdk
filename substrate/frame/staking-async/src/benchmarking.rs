@@ -1513,7 +1513,7 @@ mod benchmarks {
 		Ok(())
 	}
 
-	#[benchmark]
+	#[benchmark(pov_mode = Measured)]
 	fn prune_era_validator_incentive_weight(
 		v: Linear<1, { T::MaxValidatorSet::get() }>,
 	) -> Result<(), BenchmarkError> {
