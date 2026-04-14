@@ -102,6 +102,6 @@ pub mod types;
 pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
-pub use promotion::{HopMaintenanceTask, HopPromoter, RuntimeApiPromoter, try_build_promoter};
+pub use promotion::{try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter};
 pub use rpc::{HopApiServer, HopRpcServer};
 pub use types::{HopEntryMeta, HopError, PoolStatus, SenderId, SubmitResult};

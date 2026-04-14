@@ -30,7 +30,7 @@ use crate::pool::HopDataPool;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_hop::HopApi;
-use sp_runtime::{AccountId32, traits::Block as BlockT};
+use sp_runtime::{traits::Block as BlockT, AccountId32};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 /// Trait for promoting HOP data to permanent on-chain storage.
@@ -250,7 +250,11 @@ mod tests {
 	impl HopPromoter for MockPromoter {
 		fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 			self.calls.lock().unwrap().push(data);
-			if self.should_fail { Err("mock failure".into()) } else { Ok(()) }
+			if self.should_fail {
+				Err("mock failure".into())
+			} else {
+				Ok(())
+			}
 		}
 	}
 
@@ -390,7 +394,8 @@ mod tests {
 		// Second tick at block 100: cleanup expired.
 		*block.lock().unwrap() = 100;
 		task.tick();
-		assert_eq!(pool.status().entry_count, 0); // cleaned up
+		// cleaned up
+		assert_eq!(pool.status().entry_count, 0);
 		// Promoter not called again (already promoted).
 		assert_eq!(promoter.call_count(), 1);
 	}

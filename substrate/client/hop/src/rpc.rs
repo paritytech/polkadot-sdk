@@ -27,17 +27,17 @@ use crate::{
 };
 use codec::Decode;
 use jsonrpsee::{
-	core::{RpcResult, async_trait},
+	core::{async_trait, RpcResult},
 	proc_macros::rpc,
 	types::ErrorObjectOwned,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_core::{Bytes, H256, hashing::blake2_256};
+use sp_core::{hashing::blake2_256, Bytes, H256};
 use sp_hop::HopApi;
 use sp_runtime::{
-	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
 	traits::{Block as BlockT, IdentifyAccount, Verify},
+	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
 };
 use std::{marker::PhantomData, sync::Arc};
 
@@ -219,7 +219,7 @@ mod tests {
 	use codec::Encode;
 	use sp_blockchain::{self, Info};
 	use sp_core::{crypto::Pair, ed25519};
-	use sp_runtime::{MultiSigner, traits::NumberFor};
+	use sp_runtime::{traits::NumberFor, MultiSigner};
 	use sp_test_primitives::Block;
 	use std::sync::atomic::{AtomicBool, Ordering};
 	use tempfile::TempDir;
