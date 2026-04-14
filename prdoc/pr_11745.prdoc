@@ -1,21 +1,35 @@
 title: 'statement-store: skip naturally-expired hashes from expired map'
 doc:
 - audience: Node Dev
-  description: "## Problem\n\nImplement #11665\n\nThe statement store maintains an\
-    \ `expired: HashMap<Hash, u64>` to suppress\nre-gossip of removed statements.\
-    \ It grew unboundedly because:\n\n1. **All** removed statements were inserted\
-    \ regardless of removal reason.\n   Statements removed because their own expiry\
-    \ timestamp had already passed\n   were included even though `submit` rejects\
-    \ them unconditionally via\n   `AlreadyExpired` \u2014 the map was never consulted\
-    \ for them.\n\n2. The purge (`maintain`) used `HashMap::retain`, which is O(n)\
-    \ over the\n   entire map. With `purge_after_sec = 48h` and high eviction rates\
-    \ the map\n   could reach ~100M entries / ~9GB RAM, with a full scan every 29\
-    \ seconds.\n\n\n## Changes\n\n`make_expired` now checks `current_time < expiry.get_expiration_timestamp_secs()`\n\
-    before inserting into the expired map. Statements whose own timestamp has\nalready\
-    \ passed are skipped in both the in-memory map and `col::EXPIRED` on\ndisk.\n\n\
-    The three DB-write sites (`submit`, `remove`, `remove_by`) gate the\n`col::EXPIRED`\
-    \ write on `index.expired.contains(&hash)`, matching the\nin-memory decision.\n\
-    \nO(log n + k) purge via ExpiredIndex\n\nAdded `Expiry::get_expiration_timestamp_secs()`**"
+  description: |-
+    ## Problem
+
+    Implement #11665
+
+    The statement store maintains an `expired: HashMap<Hash, u64>` to suppress
+    re-gossip of removed statements. It grew unboundedly because:
+
+    1. **All** removed statements were inserted regardless of removal reason.
+       Statements removed because their own expiry timestamp had already passed
+       were included even though `submit` rejects them unconditionally via
+       `AlreadyExpired` — the map was never consulted for them.
+
+    2. The purge (`maintain`) used `HashMap::retain`, which is O(n) over the
+       entire map. With `purge_after_sec = 48h` and high eviction rates the map
+       could reach ~100M entries / ~9GB RAM, with a full scan every 29 seconds.
+
+    ## Changes
+
+    `make_expired` now checks `current_time < expiry.get_expiration_timestamp_secs()`
+    before inserting into the expired map. Statements whose own timestamp has already
+    passed are skipped in both the in-memory map and `col::EXPIRED` on disk.
+
+    The three DB-write sites (`submit`, `remove`, `remove_by`) gate the `col::EXPIRED`
+    write on `index.expired.contains(&hash)`, matching the in-memory decision.
+
+    O(log n + k) purge via EvictedIndex
+
+    Added `Expiry::get_expiration_timestamp_secs()`
 crates:
 - name: sc-statement-store
   bump: patch
