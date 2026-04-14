@@ -502,7 +502,8 @@ impl<T: Config> Registrar for Pallet<T> {
 		Ok(())
 	}
 
-	// Downgrade a registered para into a parathread — no longer supported; all paras are parachains.
+	// Downgrade a registered para into a parathread — no longer supported; all paras are
+	// parachains.
 	fn make_parathread(_id: ParaId) -> DispatchResult {
 		Ok(())
 	}
@@ -662,7 +663,6 @@ impl<T: Config> Pallet<T> {
 
 		Ok((ParaGenesisArgs { genesis_head, validation_code, para_kind }, deposit))
 	}
-
 }
 
 impl<T: Config> OnNewHead for Pallet<T> {

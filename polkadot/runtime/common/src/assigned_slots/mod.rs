@@ -815,7 +815,6 @@ mod tests {
 		});
 	}
 
-
 	#[test]
 	fn assign_perm_slot_fails_when_existing_lease() {
 		new_test_ext().execute_with(|| {
@@ -978,7 +977,6 @@ mod tests {
 			);
 		});
 	}
-
 
 	#[test]
 	fn assign_temp_slot_fails_when_existing_lease() {

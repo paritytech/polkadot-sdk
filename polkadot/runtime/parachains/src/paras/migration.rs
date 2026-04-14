@@ -49,13 +49,14 @@ pub mod v0 {
 
 	/// Storage alias so we can read the old encoded layout during migration.
 	#[storage_alias]
-	pub type ParaLifecycles<T: Config> =
-		StorageMap<Pallet<T>, Twox64Concat, ParaId, ParaLifecycle>;
+	pub type ParaLifecycles<T: Config> = StorageMap<Pallet<T>, Twox64Concat, ParaId, ParaLifecycle>;
 }
 
 mod v1 {
 	use super::v0;
-	use crate::paras::{Config, Pallet, ParaLifecycle, ParaLifecycles as V1ParaLifecycles, ParachainsCache};
+	use crate::paras::{
+		Config, Pallet, ParaLifecycle, ParaLifecycles as V1ParaLifecycles, ParachainsCache,
+	};
 	use alloc::vec::Vec;
 	use frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	use polkadot_primitives::Id as ParaId;
@@ -98,8 +99,7 @@ mod v1 {
 				v0::ParaLifecycles::<T>::drain().collect();
 
 			// One read per entry in the drain.
-			weight =
-				weight.saturating_add(T::DbWeight::get().reads(all_entries.len() as u64));
+			weight = weight.saturating_add(T::DbWeight::get().reads(all_entries.len() as u64));
 
 			for (para, old_lifecycle) in all_entries {
 				let new_lifecycle = match old_lifecycle {
@@ -123,12 +123,14 @@ mod v1 {
 					v0::ParaLifecycle::DowngradingParachain => Some(ParaLifecycle::Parachain),
 
 					// OffboardingParathread → OffboardingParachain: keep offboarding.
-					v0::ParaLifecycle::OffboardingParathread =>
-						Some(ParaLifecycle::OffboardingParachain),
+					v0::ParaLifecycle::OffboardingParathread => {
+						Some(ParaLifecycle::OffboardingParachain)
+					},
 
 					// OffboardingParachain: unchanged.
-					v0::ParaLifecycle::OffboardingParachain =>
-						Some(ParaLifecycle::OffboardingParachain),
+					v0::ParaLifecycle::OffboardingParachain => {
+						Some(ParaLifecycle::OffboardingParachain)
+					},
 				};
 
 				if let Some(lc) = new_lifecycle {
@@ -151,7 +153,14 @@ mod v1 {
 
 			// After migration there must be no parathread lifecycle entries.
 			let remaining_parathread_entries = V1ParaLifecycles::<T>::iter()
-				.filter(|(_, lc)| !matches!(lc, ParaLifecycle::Onboarding | ParaLifecycle::Parachain | ParaLifecycle::OffboardingParachain))
+				.filter(|(_, lc)| {
+					!matches!(
+						lc,
+						ParaLifecycle::Onboarding |
+							ParaLifecycle::Parachain |
+							ParaLifecycle::OffboardingParachain
+					)
+				})
 				.count();
 
 			ensure!(

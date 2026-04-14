@@ -2119,7 +2119,6 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-
 	/// Schedule a future code upgrade of the given parachain.
 	///
 	/// If the new code is not known, then the PVF pre-checking will be started for that validation
