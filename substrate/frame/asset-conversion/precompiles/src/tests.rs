@@ -493,6 +493,50 @@ fn add_and_remove_liquidity_works() {
 	});
 }
 
+#[test]
+fn add_liquidity_fails_for_nonexistent_pool() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		let data = IAssetConversion::addLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount1Desired: U256::from(1_000),
+			amount2Desired: U256::from(1_000),
+			amount1Min: U256::from(0),
+			amount2Min: U256::from(0),
+			mintTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		assert!(did_fail(&result), "add_liquidity to nonexistent pool must fail");
+	});
+}
+
+#[test]
+fn remove_liquidity_fails_with_excessive_lp_burn() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		// Try to burn far more LP tokens than exist.
+		let data = IAssetConversion::removeLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			lpTokenBurn: U256::from(999_999),
+			amount1MinReceive: U256::from(1),
+			amount2MinReceive: U256::from(1),
+			withdrawTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		assert!(did_fail(&result), "remove_liquidity with excessive LP burn must fail");
+	});
+}
+
 // --- Read-only guard tests via STATICCALL ---
 
 alloy::sol! {
