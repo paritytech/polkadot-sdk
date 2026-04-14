@@ -39,14 +39,10 @@ tracing = { workspace = true }
 xcm = { workspace = true }
 
 [dev-dependencies]
-<<<<<<< HEAD
-frame-benchmarking = { default-features = true, workspace = true }
-=======
 alloy-consensus = { workspace = true, features = ["std"] }
 alloy-primitives = { workspace = true, features = ["std"] }
 alloy-rlp = { workspace = true, features = ["std"] }
-frame-benchmarking = { workspace = true, default-features = true }
->>>>>>> 728514a (Snowbride: Fix alloy receipt verification (#11739))
+frame-benchmarking = { default-features = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
 snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
 snowbridge-pallet-ethereum-client-fixtures = { workspace = true, default-features = true }
