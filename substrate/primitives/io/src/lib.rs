@@ -2518,6 +2518,7 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	#[version(2)]
+	#[wrapped]
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2534,6 +2535,19 @@ pub trait Crypto {
 				out.0.copy_from_slice(&sig);
 			})
 			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ecdsa_sign_prehashed` host function.
+	#[wrapper]
+	fn ecdsa_sign_prehashed(
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		msg: &[u8; 32],
+	) -> Option<ecdsa::Signature> {
+		let mut signature = ecdsa::Signature::default();
+		ecdsa_sign_prehashed__wrapped(id, pub_key, msg, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify `ecdsa` signature.
