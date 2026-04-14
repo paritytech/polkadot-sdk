@@ -42,9 +42,9 @@ use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_overseer::SpawnGlue;
 use polkadot_primitives::{
-	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement,
-	ExecutorParams, GroupIndex, Header, Id as ParaId, IndexedVec, MutateDescriptorV2, NodeFeatures,
-	ValidDisputeStatementKind, ValidationCode, ValidatorSignature,
+	ApprovalVote, CandidateCommitments, CandidateEvent, CoreIndex, DisputeStatement, GroupIndex,
+	Header, Id as ParaId, IndexedVec, MutateDescriptorV2, NodeFeatures, ValidDisputeStatementKind,
+	ValidationCode, ValidatorSignature,
 };
 use std::{cmp::max, time::Duration};
 
@@ -1063,20 +1063,6 @@ async fn import_block(
 					si_tx.send(Ok(Some(session_info.clone()))).unwrap();
 				}
 			);
-			assert_matches!(
-				overseer_recv(overseer).await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(
-						req_block_hash,
-						RuntimeApiRequest::SessionExecutorParams(_, si_tx),
-					)
-				) => {
-					// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
-					assert_ne!(req_block_hash, hashes[(number-1) as usize].0);
-					si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				}
-			);
-
 			assert_matches!(
 				overseer_recv(overseer).await,
 				AllMessages::RuntimeApi(
@@ -4792,17 +4778,6 @@ fn subsystem_relaunches_approval_work_on_restart() {
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(_, si_tx),
-				)
-			) => {
-				si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(
 				RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 			) => {
 				si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
@@ -5160,19 +5135,6 @@ fn subsystem_sends_pending_approvals_on_approval_restart() {
 				si_tx.send(Ok(Some(session_info.clone()))).unwrap();
 			}
 		);
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(_, si_tx),
-				)
-			) => {
-				// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
-				si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			}
-		);
-
 		assert_matches!(
 			overseer_recv(&mut virtual_overseer).await,
 			AllMessages::RuntimeApi(
@@ -5561,19 +5523,6 @@ fn subsystem_launches_missed_assignments_on_restart() {
 				)
 			) => {
 				si_tx.send(Ok(Some(session_info.clone()))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			overseer_recv(&mut virtual_overseer).await,
-			AllMessages::RuntimeApi(
-				RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(_, si_tx),
-				)
-			) => {
-				// Make sure all SessionExecutorParams calls are not made for the leaf (but for its relay parent)
-				si_tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
 			}
 		);
 

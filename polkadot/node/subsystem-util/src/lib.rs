@@ -156,7 +156,7 @@ impl TryFrom<crate::runtime::Error> for Error {
 		match e {
 			Error::RuntimeRequestCanceled(e) => Ok(Self::Oneshot(e)),
 			Error::RuntimeRequest(e) => Ok(Self::RuntimeApi(e)),
-			Error::NoSuchSession(_) | Error::NoExecutorParams(_) => Err(()),
+			Error::NoSuchSession(_) => Err(()),
 		}
 	}
 }

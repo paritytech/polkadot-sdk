@@ -34,8 +34,8 @@ use polkadot_node_primitives::{
 use polkadot_node_subsystem::overseer;
 use polkadot_node_subsystem_util::{runtime::RuntimeInfo, ControlledValidatorIndices};
 use polkadot_primitives::{
-	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, ExecutorParams, Hash,
-	IndexedVec, SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
+	CandidateHash, CandidateReceiptV2 as CandidateReceipt, DisputeStatement, Hash, IndexedVec,
+	SessionIndex, SessionInfo, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
 	ValidatorSignature,
 };
 
@@ -47,8 +47,6 @@ pub struct CandidateEnvironment<'a> {
 	session_index: SessionIndex,
 	/// Session for above index.
 	session: &'a SessionInfo,
-	/// Executor parameters for the session.
-	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
 	/// Indices of on-chain disabled validators at the `scheduling_parent` combined
@@ -83,13 +81,11 @@ impl<'a> CandidateEnvironment<'a> {
 		// Using the scheduling parent here is fine, because we warm the cache on active leaves
 		// update, thus this call will succeed even if the scheduling parent's state is not
 		// available.
-		let (session, executor_params) = match runtime_info
+		let session = match runtime_info
 			.get_session_info_by_index(ctx.sender(), scheduling_parent, session_index)
 			.await
 		{
-			Ok(extended_session_info) => {
-				(&extended_session_info.session_info, &extended_session_info.executor_params)
-			},
+			Ok(extended_session_info) => &extended_session_info.session_info,
 			Err(_) => return None,
 		};
 
@@ -115,7 +111,7 @@ impl<'a> CandidateEnvironment<'a> {
 			.get(session_index, &session.validators)
 			.map_or(HashSet::new(), |index| HashSet::from([index]));
 
-		Some(Self { session_index, session, executor_params, controlled_indices, disabled_indices })
+		Some(Self { session_index, session, controlled_indices, disabled_indices })
 	}
 
 	/// Validators in the candidate's session.
@@ -126,11 +122,6 @@ impl<'a> CandidateEnvironment<'a> {
 	/// `SessionInfo` for the candidate's session.
 	pub fn session_info(&self) -> &SessionInfo {
 		&self.session
-	}
-
-	/// Executor parameters for the candidate's session
-	pub fn executor_params(&self) -> &ExecutorParams {
-		&self.executor_params
 	}
 
 	/// Retrieve `SessionIndex` for this environment.
@@ -588,13 +579,32 @@ impl ImportResult {
 		for (index, (candidate_hashes, sig)) in approval_votes.into_iter() {
 			debug_assert!(
 				{
-					let pub_key = &env.session_info().validators.get(index).expect("indices are validated by approval-voting subsystem; qed");
+					let pub_key = &env
+						.session_info()
+						.validators
+						.get(index)
+						.expect("indices are validated by approval-voting subsystem; qed");
 					let session_index = env.session_index();
-					candidate_hashes.contains(&votes.candidate_receipt.hash()) && DisputeStatement::Valid(ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(candidate_hashes.clone()))
-						.check_signature(pub_key, *candidate_hashes.first().expect("Valid votes have at least one candidate; qed"), session_index, &sig)
+					candidate_hashes.contains(&votes.candidate_receipt.hash()) &&
+						DisputeStatement::Valid(
+							ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
+								candidate_hashes.clone(),
+							),
+						)
+						.check_signature(
+							pub_key,
+							*candidate_hashes
+								.first()
+								.expect("Valid votes have at least one candidate; qed"),
+							session_index,
+							&sig,
+						)
 						.is_ok()
 				},
-				"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}", env.session_index(), votes.candidate_receipt.hash(), index
+				"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}",
+				env.session_index(),
+				votes.candidate_receipt.hash(),
+				index
 			);
 			if votes.valid.insert_vote(
 				index,
