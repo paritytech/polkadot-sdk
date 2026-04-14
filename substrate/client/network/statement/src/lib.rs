@@ -3525,7 +3525,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_schedule_initial_sync_pre_filters_known_hashes() {
+	async fn test_schedule_initial_sync_resends_all_matching() {
 		let (mut handler, statement_store, _network, _notification_service) =
 			build_handler_no_peers();
 
