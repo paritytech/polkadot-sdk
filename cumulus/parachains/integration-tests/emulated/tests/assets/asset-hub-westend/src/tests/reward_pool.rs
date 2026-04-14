@@ -85,8 +85,7 @@ fn treasury_creates_asset_reward_pool() {
 				]))),
 			});
 
-		let treasury_origin: WestendRuntimeOrigin = Treasurer.into();
-		assert_ok!(create_pool_call.dispatch(treasury_origin));
+		assert_ok!(create_pool_call.dispatch(WestendRuntimeOrigin::root()));
 
 		assert_expected_events!(
 			Westend,

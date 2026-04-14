@@ -35,10 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EnsureOriginWithArg, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -67,10 +67,7 @@ use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
-	impls::{
-		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
-		VersionedLocationConverter,
-	},
+	impls::{ToAuthor, VersionedLocatableAsset},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
 	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
@@ -97,14 +94,14 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, H256};
+use sp_core::{ConstBool, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, Keccak256, OpaqueKeys,
+		SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent,
@@ -117,7 +114,6 @@ use xcm::{
 	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
 	VersionedLocation, VersionedXcm,
 };
-use xcm_builder::PayOverXcm;
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -149,7 +145,6 @@ use impls::ToParachainIdentityReaper;
 pub mod governance;
 use governance::{
 	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin,
-	Treasurer, TreasurySpender,
 };
 use xcm_config::XcmConfig;
 
@@ -928,64 +923,7 @@ impl pallet_fast_unstake::Config for Runtime {
 }
 
 parameter_types! {
-	pub const SpendPeriod: BlockNumber = 6 * DAYS;
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
-	// The asset's interior location for the paying account. This is the Treasury
-	// pallet instance (which sits at index 37).
-	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(37).into();
-
-	pub const TipCountdown: BlockNumber = 1 * DAYS;
-	pub const TipFindersFee: Percent = Percent::from_percent(20);
-	pub const TipReportDepositBase: Balance = 100 * CENTS;
-	pub const DataDepositPerByte: Balance = 1 * CENTS;
-	pub const MaxApprovals: u32 = 100;
 	pub const MaxAuthorities: u32 = 100_000;
-	pub const MaxKeys: u32 = 10_000;
-	pub const MaxPeerInHeartbeats: u32 = 10_000;
-	pub const MaxBalance: Balance = Balance::max_value();
-}
-
-impl pallet_treasury::Config for Runtime {
-	type PalletId = TreasuryPalletId;
-	type Currency = Balances;
-	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
-	type RuntimeEvent = RuntimeEvent;
-	type SpendPeriod = SpendPeriod;
-	// NOTE: Treasury burn is currently disabled. If ever enabled (`Burn > 0`), wire
-	// `BurnDestination` to a DAP satellite so burned funds are not destroyed.
-	type Burn = ();
-	type BurnDestination = ();
-	type MaxApprovals = MaxApprovals;
-	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
-	type SpendFunds = ();
-	type SpendOrigin = TreasurySpender;
-	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedLocation;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayOverXcm<
-		TreasuryInteriorLocation,
-		crate::xcm_config::XcmConfig,
-		crate::XcmPallet,
-		ConstU32<{ 6 * HOURS }>,
-		Self::Beneficiary,
-		Self::AssetKind,
-		LocatableAssetConverter,
-		VersionedLocationConverter,
-	>;
-	type BalanceConverter = UnityOrOuterConversion<
-		ContainsParts<
-			FromContains<
-				xcm_builder::IsChildSystemParachain<ParaId>,
-				xcm_builder::IsParentsOnly<ConstU8<1>>,
-			>,
-		>,
-		AssetRate,
-	>;
-	type PayoutPeriod = PayoutSpendPeriod;
-	type BlockNumberProvider = System;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
 
 impl pallet_offences::Config for Runtime {
@@ -1790,7 +1728,7 @@ impl pallet_asset_rate::Config for Runtime {
 	type RemoveOrigin = EnsureRoot<AccountId>;
 	type UpdateOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type AssetKind = <Runtime as pallet_treasury::Config>::AssetKind;
+	type AssetKind = VersionedLocatableAsset;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
@@ -1921,10 +1859,6 @@ mod runtime {
 	pub type Origins = pallet_custom_origins;
 	#[runtime::pallet_index(36)]
 	pub type Whitelist = pallet_whitelist;
-
-	// Treasury
-	#[runtime::pallet_index(37)]
-	pub type Treasury = pallet_treasury;
 
 	// Staking extension for delegation
 	#[runtime::pallet_index(38)]
@@ -2061,6 +1995,120 @@ pub type Migrations = migrations::Unreleased;
 pub mod migrations {
 	use super::*;
 
+	/// Fully drain the relay treasury account into the relay-local DAP satellite buffer.
+	/// The treasury pallet is being removed from Westend RC (#11705), the residual balance is swept
+	/// here so the funds become accountable in DAP.
+	///
+	/// Idempotent: early-returns with 1 read if the reducible balance is zero.
+	/// Runs on every runtime upgrade until removed from the `Unreleased` tuple.
+	pub struct DrainRelayTreasuryToDapSatellite;
+	impl frame_support::traits::OnRuntimeUpgrade for DrainRelayTreasuryToDapSatellite {
+		fn on_runtime_upgrade() -> Weight {
+			use frame_support::traits::{
+				fungible::{Balanced, Inspect},
+				tokens::{Fortitude, Precision, Preservation},
+				OnUnbalanced,
+			};
+
+			let treasury: AccountId = PalletId(*b"py/trsry").into_account_truncating();
+			let amount = <Balances as Inspect<AccountId>>::reducible_balance(
+				&treasury,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			);
+			if amount == 0 {
+				log::info!(
+					target: "runtime::migrations",
+					"DrainRelayTreasuryToDapSatellite: nothing to withdraw (reducible balance is zero)."
+				);
+				return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
+			}
+
+			match <Balances as Balanced<AccountId>>::withdraw(
+				&treasury,
+				amount,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			) {
+				Ok(credit) => {
+					DapSatellite::on_unbalanced(credit);
+					log::info!(
+						target: "runtime::migrations",
+						"DrainRelayTreasuryToDapSatellite: swept {amount:?} from treasury to DAP satellite."
+					);
+				},
+				Err(_) => {
+					frame_support::defensive!(
+						"DrainRelayTreasuryToDapSatellite: failed to withdraw from treasury account"
+					);
+				},
+			}
+
+			// Distinct storage keys touched:
+			// Reads: treasury Account (balances), treasury Account (system),
+			//        satellite Account (balances), satellite Account (system) = 4
+			// Writes: treasury Account (balances), treasury Account (system),
+			//         satellite Account (balances), satellite Account (system) = 4
+			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 4)
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
+			use frame_support::traits::fungible::Inspect;
+
+			let treasury: AccountId = PalletId(*b"py/trsry").into_account_truncating();
+			let balance = <Balances as Inspect<AccountId>>::reducible_balance(
+				&treasury,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Fortitude::Polite,
+			);
+			log::info!(
+				target: "runtime::migrations",
+				"DrainRelayTreasuryToDapSatellite: pre-upgrade treasury reducible balance = {balance:?}"
+			);
+			Ok(balance.encode())
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+			use codec::Decode;
+			use frame_support::traits::fungible::Inspect;
+
+			let pre_balance: Balance =
+				Decode::decode(&mut &state[..]).expect("pre_upgrade encoded a Balance");
+			let treasury: AccountId = PalletId(*b"py/trsry").into_account_truncating();
+			let post_balance = <Balances as Inspect<AccountId>>::reducible_balance(
+				&treasury,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Fortitude::Polite,
+			);
+
+			frame_support::ensure!(
+				post_balance == 0,
+				"Treasury reducible balance should be zero after migration"
+			);
+
+			let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+			let satellite_balance = <Balances as Inspect<AccountId>>::total_balance(&satellite);
+			frame_support::ensure!(
+				satellite_balance >= pre_balance,
+				"DAP satellite balance should have increased by at least the drained amount"
+			);
+
+			log::info!(
+				target: "runtime::migrations",
+				"DrainRelayTreasuryToDapSatellite: post-upgrade OK. \
+				 Treasury reducible: {post_balance:?}, satellite total: {satellite_balance:?}"
+			);
+			Ok(())
+		}
+	}
+
+	parameter_types! {
+		pub const TreasuryPalletStr: &'static str = "Treasury";
+	}
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		// This is only needed for Westend.
@@ -2080,6 +2128,12 @@ pub mod migrations {
 		parachains_shared::migration::MigrateToV2<Runtime>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
+		// Drain relay treasury to DAP satellite, then clear orphaned storage.
+		DrainRelayTreasuryToDapSatellite,
+		frame_support::migrations::RemovePallet<
+			TreasuryPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
 	);
 }
 
@@ -2152,7 +2206,6 @@ mod benches {
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_transaction_payment, TransactionPayment]
-		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]

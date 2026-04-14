@@ -193,18 +193,13 @@ pub type Barrier = TrailingSetTopicAsId<
 >;
 
 parameter_types! {
-	// TODO(#11705): remove RelayTreasuryLocation and migrate old treasury funds to DapSatellite.
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 }
 
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (
-	Equals<RootLocation>,
-	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-	Equals<RelayTreasuryLocation>,
-);
+pub type WaivedLocations =
+	(Equals<RootLocation>, RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - WND with the parent Relay Chain and sibling parachains.

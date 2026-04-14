@@ -69,9 +69,6 @@ parameter_types! {
 	pub FeeAssetId: AssetId = AssetId(RelayLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
-	// TODO(#11705): remove RelayTreasuryLocation and migrate old treasury funds to DapSatellite.
-	pub RelayTreasuryLocation: Location =
-		(Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 }
 
@@ -206,7 +203,6 @@ pub type Barrier = TrailingSetTopicAsId<
 /// only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-	Equals<RelayTreasuryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
 );
