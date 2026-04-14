@@ -57,7 +57,7 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Unbalanced},
-		Imbalance, OnUnbalanced,
+		Currency, Imbalance, OnUnbalanced,
 	},
 	PalletId,
 };
@@ -171,10 +171,8 @@ where
 /// Use this on system chains (not AssetHub) or Relay Chain to collect imbalances
 /// (e.g. coretime revenue, tx fees, dust removal) that would otherwise be burned.
 ///
-/// Only the new fungible `Credit` type is supported. An `OnUnbalanced<NegativeImbalance>` impl
-/// for the old `Currency` trait is not provided because there are no active consumers: all pallets
-/// that could produce `NegativeImbalance` on satellite chains (staking, identity,
-/// election-provider, ...) are either deprecated, or already use the new fungible traits.
+/// For pallets still using the legacy `Currency` trait (e.g. `pallet_identity`), use
+/// [`DapSatelliteLegacyAdapter`] instead.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
 		let satellite = Self::satellite_account();
@@ -193,6 +191,41 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 		log::debug!(
 			target: LOG_TARGET,
 			"💸 Deposited {numeric_amount:?} to DAP satellite"
+		);
+	}
+}
+
+/// Type alias for legacy `NegativeImbalance` from the `Currency` trait.
+type LegacyNegativeImbalance<A, C> = <C as Currency<A>>::NegativeImbalance;
+
+/// Adapter that redirects `NegativeImbalance` from the legacy `Currency` trait to the DAP
+/// satellite.
+///
+/// Cannot be implemented directly on `Pallet<T>` because the compiler cannot prove that
+/// `<C as Currency>::NegativeImbalance` and `fungible::Credit` are always distinct types,
+/// so two `OnUnbalanced` impls on the same struct are rejected.
+///
+/// Will be removed once all consumer pallets migrate to fungible traits.
+///
+/// # Example
+/// ```ignore
+/// type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
+/// ```
+pub struct DapSatelliteLegacyAdapter<T, C>(core::marker::PhantomData<(T, C)>);
+
+impl<T: Config, C> OnUnbalanced<LegacyNegativeImbalance<T::AccountId, C>>
+	for DapSatelliteLegacyAdapter<T, C>
+where
+	C: Currency<T::AccountId>,
+{
+	fn on_nonzero_unbalanced(amount: LegacyNegativeImbalance<T::AccountId, C>) {
+		let satellite = Pallet::<T>::satellite_account();
+		let numeric_amount = amount.peek();
+		// NOTE: resolve_creating is infallible.
+		C::resolve_creating(&satellite, amount);
+		log::debug!(
+			target: LOG_TARGET,
+			"💸 Deposited (legacy) {numeric_amount:?} to DAP satellite"
 		);
 	}
 }
