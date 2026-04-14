@@ -104,4 +104,4 @@ pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
 pub use promotion::{try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter};
 pub use rpc::{HopApiServer, HopRpcServer};
-pub use types::{HopEntryMeta, HopError, HopPoolEntry, PoolStatus, SenderId, SubmitResult};
+pub use types::{HopEntryMeta, HopError, PoolStatus, SenderId, SubmitResult};

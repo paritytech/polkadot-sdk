@@ -112,13 +112,11 @@ impl<C, Block> HopRpcServer<C, Block> {
 
 	/// Convert Bytes to Hash with validation
 	fn bytes_to_hash(bytes: Bytes) -> RpcResult<HopHash> {
-		let hash_bytes: [u8; 32] = bytes.0.as_slice().try_into().map_err(|_| {
-			ErrorObjectOwned::owned(
-				1008,
-				format!("Invalid hash length: expected 32 bytes, got {}", bytes.0.len()),
-				None::<()>,
-			)
-		})?;
+		let hash_bytes: [u8; 32] = bytes
+			.0
+			.as_slice()
+			.try_into()
+			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidHashLength(bytes.0.len())))?;
 		Ok(HopHash::from(hash_bytes))
 	}
 }
@@ -167,9 +165,7 @@ where
 			.client
 			.runtime_api()
 			.is_account_authorized(best_hash, account_id.clone())
-			.map_err(|e| {
-				ErrorObjectOwned::owned(1017, format!("Runtime API error: {}", e), None::<()>)
-			})?;
+			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
 		if !authorized {
 			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
 		}

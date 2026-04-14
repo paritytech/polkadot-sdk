@@ -184,6 +184,17 @@ impl HopDataPool {
 		})
 	}
 
+	/// Release user quota, removing the user entry when usage drops to zero.
+	fn release_user_quota(&self, sender_id: &SenderId, size: u64) {
+		let mut usage = self.user_usage.write();
+		if let Some(u) = usage.get_mut(sender_id) {
+			*u = u.saturating_sub(size);
+			if *u == 0 {
+				usage.remove(sender_id);
+			}
+		}
+	}
+
 	/// Path to the blob file for a given hash.
 	fn blob_path(&self, hash: &HopHash) -> PathBuf {
 		let hex = hex::encode(hash);
@@ -428,14 +439,7 @@ impl HopDataPool {
 			let sender = meta.sender_id;
 			index.remove(hash);
 			self.current_size.fetch_sub(size, Ordering::Relaxed);
-			let mut usage = self.user_usage.write();
-			if let Some(u) = usage.get_mut(&sender) {
-				*u = u.saturating_sub(size);
-				if *u == 0 {
-					usage.remove(&sender);
-				}
-			}
-			drop(usage);
+			self.release_user_quota(&sender, size);
 			drop(index);
 
 			// Delete files from disk (best-effort; orphans cleaned on restart).
@@ -483,17 +487,8 @@ impl HopDataPool {
 		};
 
 		if let Some(meta) = meta {
-			// Update size counter
 			self.current_size.fetch_sub(meta.size, Ordering::Relaxed);
-			// Release user quota
-			let mut usage = self.user_usage.write();
-			if let Some(u) = usage.get_mut(&meta.sender_id) {
-				*u = u.saturating_sub(meta.size);
-				if *u == 0 {
-					usage.remove(&meta.sender_id);
-				}
-			}
-			drop(usage);
+			self.release_user_quota(&meta.sender_id, meta.size);
 
 			// Delete files from disk (best-effort).
 			let _ = fs::remove_file(self.blob_path(hash));
@@ -548,16 +543,8 @@ impl HopDataPool {
 		let freed: u64 = expired.iter().map(|(_, meta)| meta.size).sum();
 		self.current_size.fetch_sub(freed, Ordering::Relaxed);
 
-		{
-			let mut usage = self.user_usage.write();
-			for (_, meta) in &expired {
-				if let Some(u) = usage.get_mut(&meta.sender_id) {
-					*u = u.saturating_sub(meta.size);
-					if *u == 0 {
-						usage.remove(&meta.sender_id);
-					}
-				}
-			}
+		for (_, meta) in &expired {
+			self.release_user_quota(&meta.sender_id, meta.size);
 		}
 
 		// Phase 3: Delete files from disk (best-effort, no locks held).

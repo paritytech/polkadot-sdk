@@ -58,43 +58,6 @@ impl HopEntryMeta {
 	}
 }
 
-/// Entry in the HOP data pool
-#[derive(Debug, Clone, Encode, Decode)]
-pub struct HopPoolEntry {
-	/// The actual data blob
-	pub data: Vec<u8>,
-	/// Block number when this was added
-	pub added_at: HopBlockNumber,
-	/// Block number when this expires (added_at + retention_period)
-	pub expires_at: HopBlockNumber,
-	/// Size in bytes
-	pub size: u64,
-	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
-	/// Each recipient claims by signing the content hash with their corresponding private key.
-	pub recipients: Vec<MultiSigner>,
-	/// Tracks which recipients have claimed (by index into `recipients`).
-	pub claimed: Vec<bool>,
-	/// Account ID of the sender who submitted this entry.
-	pub sender_id: SenderId,
-}
-
-impl HopPoolEntry {
-	/// Create a new pool entry
-	pub fn new(
-		data: Vec<u8>,
-		added_at: HopBlockNumber,
-		retention_blocks: u32,
-		recipients: Vec<MultiSigner>,
-		sender_id: SenderId,
-	) -> Self {
-		let size = data.len() as u64;
-		let expires_at = added_at.saturating_add(retention_blocks);
-		let claimed = vec![false; recipients.len()];
-
-		Self { data, added_at, expires_at, size, recipients, claimed, sender_id }
-	}
-}
-
 /// Pool statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -162,6 +125,12 @@ pub enum HopError {
 
 	#[error("Recipient already acknowledged, data may have been deleted")]
 	AlreadyClaimed,
+
+	#[error("Invalid hash length: expected 32 bytes, got {0}")]
+	InvalidHashLength(usize),
+
+	#[error("Runtime API error: {0}")]
+	RuntimeApiError(String),
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -182,6 +151,8 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::IoError(_) => 1015,
 			HopError::InvalidSigner => 1016,
 			HopError::AlreadyClaimed => 1017,
+			HopError::InvalidHashLength(_) => 1018,
+			HopError::RuntimeApiError(_) => 1019,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
