@@ -115,12 +115,6 @@ pub struct BenchmarkBatchSplitResults {
 }
 
 impl BenchmarkBatch {
-	/// Split this batch into a [`BenchmarkBatchSplitResults`] by duplicating the underlying
-	/// results into separate `time_results` and `db_results` collections.
-	///
-	/// Both collections contain the same raw [`BenchmarkResult`] entries; the split gives the
-	/// analysis pipeline distinct handles so it can model timing and storage-access measurements
-	/// with independent statistical methods.
 	pub fn split(self) -> BenchmarkBatchSplitResults {
 		BenchmarkBatchSplitResults {
 			pallet: self.pallet,
@@ -393,9 +387,6 @@ pub trait Benchmarking {
 }
 
 /// Marks the timed region of a single benchmark iteration.
-///
-/// Implementors gate the clock around the code under test. [`BenchmarkRecording`] is the
-/// production implementation; [`NoopRecording`] and [`TestRecording`] are used in tests.
 pub trait Recording {
 	/// Start the timed region. Called immediately before the benchmarked code runs.
 	fn start(&mut self) {}
@@ -432,17 +423,7 @@ impl<'a> Recording for TestRecording<'a> {
 }
 
 /// Records the wall-clock time and proof size of a single benchmark iteration.
-///
-/// # Lifecycle
-///
-/// 1. Construct with [`BenchmarkRecording::new`], passing a closure that runs immediately *before*
-///    the timed region (e.g. to reset counters).
-/// 2. Call [`Recording::start`] once — captures `start_pov` and `start_extrinsic`.
-/// 3. Run the benchmarked code.
-/// 4. Call [`Recording::stop`] once — captures `finish_extrinsic` and `end_pov`.
-/// 5. Query results via [`elapsed_extrinsic`] / [`diff_pov`].
 pub struct BenchmarkRecording<'a> {
-	/// Consumed on [`Recording::start`]; `None` afterwards.
 	on_before_start: Option<&'a dyn Fn()>,
 	start_extrinsic: Option<u128>,
 	finish_extrinsic: Option<u128>,
@@ -451,8 +432,6 @@ pub struct BenchmarkRecording<'a> {
 }
 
 impl<'a> BenchmarkRecording<'a> {
-	/// Create a new recording. `on_before_start` is called once, immediately before the
-	/// timed region begins (inside [`Recording::start`]).
 	pub fn new(on_before_start: &'a dyn Fn()) -> Self {
 		Self {
 			on_before_start: Some(on_before_start),

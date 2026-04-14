@@ -591,12 +591,6 @@ pub(crate) fn process_storage_results(
 			};
 			let max_size = key_info.and_then(|k| k.max_size);
 
-			// Resolve the pov_mode override for this key, preferring the most-specific match:
-			// 1. exact `(Pallet, Storage)` key
-			// 2. pallet-wide `(Pallet, ALL)` key
-			// 3. benchmark-wide `(ALL, ALL)` key
-			// We also record which pov_mode key was matched so we can warn about unused ones
-			// after the loop.
 			let override_pov_mode = match key_info {
 				Some(_) => {
 					let exact_key = (pallet_name.clone(), storage_name.clone());
@@ -752,9 +746,6 @@ pub(crate) fn process_storage_results(
 		}
 	}
 
-	// Warn about `#[pov_mode]` attributes that named storage items which were never accessed
-	// during the benchmark. These attributes have no effect and are most likely stale or
-	// misspelled. We skip wildcard keys ("ALL") since they are intentionally broad.
 	for (pallet, storage) in pov_modes.keys() {
 		if storage != "ALL" && !used_pov_mode_keys.contains(&(pallet.clone(), storage.clone())) {
 			log::warn!(

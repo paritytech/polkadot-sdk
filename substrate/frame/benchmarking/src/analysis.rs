@@ -22,10 +22,6 @@ use std::collections::BTreeMap;
 
 /// A small positive bias added to [`BenchmarkSelector::ExtrinsicTime`] values before truncating
 /// to integer weight units.
-///
-/// Counteracts floating-point imprecision in the linear regression output. The model can emit
-/// values like `2_999_999.999_999_998` that must always round up rather than be truncated down.
-/// The bias is small enough (5 picoseconds) to be inconsequential for any real benchmark result.
 const EXTRINSIC_TIME_PRECISION_BIAS: f64 = 0.000_000_005;
 
 pub struct Analysis {
