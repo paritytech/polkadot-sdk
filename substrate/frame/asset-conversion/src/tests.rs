@@ -1044,21 +1044,22 @@ fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
 		.is_some());
 
 		// quote_price_exact_tokens_for_tokens: given input, computed output must fit.
-		// Very large input produces output > 1000, must return None.
+		// With reserves (1_000_000, 2_000), fee=0.3%, and max_output=1000:
+		// input=1_005_018, output=1001 > 1000, must return None.
 		assert_eq!(
 			AssetConversion::quote_price_exact_tokens_for_tokens(
 				token_1.clone(),
 				token_2.clone(),
-				5_000_000,
+				1_005_018,
 				true,
 			),
 			None
 		);
-		// Moderate input should produce output within limit and return Some.
+		// input=1_005_017, output=1000 ≤ 1000, must return Some.
 		assert!(AssetConversion::quote_price_exact_tokens_for_tokens(
 			token_1.clone(),
 			token_2.clone(),
-			100_000,
+			1_005_017,
 			true,
 		)
 		.is_some());
@@ -1066,9 +1067,7 @@ fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
 }
 
 #[test]
-fn quote_price_returns_none_but_previously_would_return_some() {
-	// Regression test: before the fix, quote would return Some(value) even though the
-	// actual swap would fail because the pool cannot deliver while staying alive.
+fn quote_price_returns_none_swap_fails() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
 		let token_1 = NativeOrWithId::Native;
