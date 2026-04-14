@@ -18,14 +18,18 @@
 use crate::{ah::mock::*, rc, shared};
 use frame::prelude::Perbill;
 use frame_election_provider_support::Weight;
-use frame_support::{assert_ok, hypothetically, traits::fungible::hold::Inspect as HoldInspect};
+use frame_support::{
+	assert_ok, hypothetically,
+	traits::fungible::{hold::Inspect as HoldInspect, Inspect, Mutate},
+};
 use pallet_election_provider_multi_block::{
 	unsigned::miner::OffchainWorkerMiner, verifier::Event as VerifierEvent, CurrentPhase,
 	ElectionScore, Event as ElectionEvent, Phase,
 };
 use pallet_staking_async::{
 	self as staking_async, session_rotation::Rotator, ActiveEra, ActiveEraInfo, CurrentEra,
-	Event as StakingEvent,
+	DisableMintingGuard, ErasValidatorReward, Event as StakingEvent, PotAccountProvider,
+	RewardKind, RewardPot, SequentialTest,
 };
 use pallet_staking_async_rc_client::{
 	self as rc_client, OutgoingValidatorSet, UnexpectedKind, ValidatorSetReport,
@@ -662,21 +666,21 @@ fn on_offence_current_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 5,
-				page: 0
-			},]
+				page: 0,
+			}]
 		);
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 1,
 				slash_era: 3,
 				offender: 3,
-				page: 0
+				page: 0,
 			}]
 		);
 
@@ -717,12 +721,9 @@ fn on_offence_current_era_instant_apply() {
 			// flush the events.
 			let _ = staking_events_since_last_call();
 
-			// Record initial state for DAP verification
 			let dap_buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
 				AccountId,
 			>>::pot_account();
-			let initial_dap_balance = Balances::free_balance(&dap_buffer);
-			let initial_total_issuance = Balances::total_issuance();
 
 			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
 				RuntimeOrigin::root(),
@@ -762,43 +763,48 @@ fn on_offence_current_era_instant_apply() {
 				]
 			);
 
+			// Capture state before slash application (after DAP drips have occurred).
+			let initial_dap_balance = Balances::free_balance(&dap_buffer);
+			let initial_total_issuance = Balances::total_issuance();
+
 			// 2 blocks to process these offences, and they are applied on the spot.
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 5,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 5, amount: 50 },
-					staking_async::Event::Slashed { staker: 110, amount: 50 }
+					StakingEvent::Slashed { staker: 5, amount: 50 },
+					StakingEvent::Slashed { staker: 110, amount: 50 },
 				]
 			);
 			roll_next();
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 3, amount: 50 }
+					StakingEvent::Slashed { staker: 3, amount: 50 },
 				]
 			);
 
-			// DAP verification: slashed funds (50 + 50 + 50 = 150) should go to buffer
+			// DAP verification: each block drips 12_000ms of inflation. Budget is 50/50,
+			// so buffer gets 6_000 per block. Two slash-processing blocks = 12_000 drip.
+			// Plus 150 from slashes (50 + 50 + 50).
 			let final_dap_balance = Balances::free_balance(&dap_buffer);
-			let final_total_issuance = Balances::total_issuance();
+			assert_eq!(final_dap_balance - initial_dap_balance, 12_000 + 150);
 
-			// DAP buffer should have received all slashed funds
-			assert_eq!(final_dap_balance, initial_dap_balance + 150);
-			// Total issuance should be preserved (funds not burned)
-			assert_eq!(final_total_issuance, initial_total_issuance);
+			// Slashing redistributes (no burn), DAP mints 2 * 12_000 = 24_000.
+			let final_total_issuance = Balances::total_issuance();
+			assert_eq!(final_total_issuance, initial_total_issuance + 24_000);
 		});
 }
 
@@ -908,12 +914,12 @@ fn on_offence_previous_era() {
 		roll_next();
 		assert_eq!(
 			staking_events_since_last_call(),
-			vec![staking_async::Event::SlashComputed {
+			vec![StakingEvent::SlashComputed {
 				offence_era: 2,
 				slash_era: 4,
 				offender: 3,
-				page: 0
-			},]
+				page: 0,
+			}]
 		);
 
 		// roll to the next era.
@@ -983,13 +989,13 @@ fn on_offence_previous_era_instant_apply() {
 			assert_eq!(
 				staking_events_since_last_call(),
 				vec![
-					staking_async::Event::SlashComputed {
+					StakingEvent::SlashComputed {
 						offence_era: 1,
 						slash_era: 1,
 						offender: 3,
-						page: 0
+						page: 0,
 					},
-					staking_async::Event::Slashed { staker: 3, amount: 50 }
+					StakingEvent::Slashed { staker: 3, amount: 50 },
 				]
 			);
 
@@ -1338,7 +1344,9 @@ mod poll_operations {
 			// election for era 2 has started
 			assert_eq!(CurrentEra::<T>::get(), Some(2));
 			assert_eq!(Rotator::<Runtime>::active_era_start_session_index(), 7);
-			assert_eq!(ActiveEra::<T>::get(), Some(ActiveEraInfo { index: 1, start: Some(1000) }));
+			let active_era = ActiveEra::<T>::get().unwrap();
+			assert_eq!(active_era.index, 1);
+			assert!(active_era.start.is_some());
 			assert!(OutgoingValidatorSet::<T>::get().is_none());
 
 			// roll until signed and submit a solution.
@@ -2109,4 +2117,229 @@ mod session_keys {
 			assert!(next_keys.is_none(), "Keys should be purged on RC");
 		});
 	}
+}
+
+/// E2E: start in legacy mode, run an era with legacy payouts, switch to DAP mode
+/// via governance, verify DAP drips fund era pots and payouts transfer without minting.
+#[test]
+fn legacy_to_dap_era_payout_e2e() {
+	ExtBuilder::default().local_queue().build().execute_with(|| {
+		let val_a: AccountId = 3; // validator (elected)
+
+		// GIVEN: legacy mode.
+		UseLegacyEraPayout::set(true);
+		// Set payees for elected validators [3, 5, 6, 8] (genesis doesn't set them).
+		for v in [3u64, 5, 6, 8] {
+			staking_async::Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+		}
+
+		// WHEN: roll to era 1 (legacy end_era computes inflation via EraPayout).
+		roll_until_next_active(1);
+		assert_eq!(Rotator::<T>::active_era(), 1);
+
+		// THEN: legacy mode — no pots, no guard.
+		assert_eq!(DisableMintingGuard::<T>::get(), None);
+		assert_eq!(
+			System::providers(&SequentialTest::pot_account(RewardPot::Era(
+				0,
+				RewardKind::StakerRewards
+			))),
+			0
+		);
+
+		// THEN: EraPaid for era 0 with 50/50 split.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::SessionRotated { starting_session: 2, active_era: 0, planned_era: 1 },
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated { starting_session: 3, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 4, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
+				StakingEvent::SessionRotated { starting_session: 6, active_era: 0, planned_era: 1 },
+				StakingEvent::EraPaid { era_index: 0, validator_payout: 162000, remainder: 162000 },
+				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
+			]
+		);
+
+		// Reward points for era 1 (era 0 has no exposure — pre-election).
+		staking_async::ErasRewardPoints::<T>::mutate(1, |points| {
+			points.total = 4;
+			for v in [3, 5, 6, 8] {
+				points.individual.try_insert(v, 1).unwrap();
+			}
+		});
+
+		// WHEN: roll to era 2 (still legacy mode).
+		roll_until_next_active(7);
+		assert_eq!(Rotator::<T>::active_era(), 2);
+
+		// THEN: EraPaid for era 1 with 50/50 split.
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated { starting_session: 8, active_era: 1, planned_era: 2 },
+				StakingEvent::SessionRotated { starting_session: 9, active_era: 1, planned_era: 2 },
+				StakingEvent::SessionRotated {
+					starting_session: 10,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 11,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 12,
+					active_era: 1,
+					planned_era: 2
+				},
+				StakingEvent::EraPaid { era_index: 1, validator_payout: 162000, remainder: 162000 },
+				StakingEvent::SessionRotated {
+					starting_session: 13,
+					active_era: 2,
+					planned_era: 3,
+				},
+			]
+		);
+
+		// WHEN: switch to DAP mode (simulates runtime upgrade).
+		UseLegacyEraPayout::set(false);
+
+		// Governance: set DAP budget (85% stakers, 15% buffer).
+		let staker_key =
+			<staking_async::StakerRewardRecipient<SequentialTest> as
+				sp_staking::budget::BudgetRecipient<AccountId>>::budget_key();
+		let buffer_key =
+			<pallet_dap::Pallet<T> as sp_staking::budget::BudgetRecipient<AccountId>>::budget_key();
+		let mut budget = pallet_dap::BudgetAllocationMap::new();
+		budget.try_insert(staker_key, Perbill::from_percent(85)).unwrap();
+		budget.try_insert(buffer_key, Perbill::from_percent(15)).unwrap();
+		assert_ok!(pallet_dap::Pallet::<T>::set_budget_allocation(RuntimeOrigin::root(), budget,));
+
+		// Initialize DAP and fund general staker pot with ED.
+		pallet_dap::LastIssuanceTimestamp::<T>::put(MockTime::get());
+		let general_pot =
+			SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+		Balances::mint_into(&general_pot, 1).unwrap();
+
+		// WHEN: payout era 1 (legacy era) while already in DAP mode.
+		// Era 1 has no pot (created in legacy mode) — falls back to legacy mint.
+		let pre_issuance = Balances::total_issuance();
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			val_a,
+			1,
+		));
+		// THEN: legacy payout mints even though DAP mode is active.
+		assert!(Balances::total_issuance() > pre_issuance);
+
+		// Reward points for era 2.
+		staking_async::ErasRewardPoints::<T>::mutate(2, |points| {
+			points.total = 4;
+			for v in [3, 5, 6, 8] {
+				points.individual.try_insert(v, 1).unwrap();
+			}
+		});
+
+		// WHEN: roll to era 3. Each block drips 12_000ms of inflation via DAP.
+		let _ = staking_events_since_last_call();
+		roll_until_next_active(13);
+		assert_eq!(Rotator::<T>::active_era(), 3);
+
+		// THEN: guard set, era 2 has pot with funds.
+		assert!(DisableMintingGuard::<T>::get().is_some());
+		let era_2_pot = SequentialTest::pot_account(RewardPot::Era(2, RewardKind::StakerRewards));
+		assert!(System::providers(&era_2_pot) > 0);
+		let era_2_reward = ErasValidatorReward::<T>::get(2).unwrap();
+		assert!(era_2_reward > 0);
+
+		// THEN: EraPaid with remainder=0 (DAP mode).
+		assert_eq!(
+			staking_events_since_last_call(),
+			vec![
+				StakingEvent::PagedElectionProceeded { page: 2, result: Ok(4) },
+				StakingEvent::PagedElectionProceeded { page: 1, result: Ok(0) },
+				StakingEvent::PagedElectionProceeded { page: 0, result: Ok(0) },
+				StakingEvent::SessionRotated {
+					starting_session: 14,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 15,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 16,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 17,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 18,
+					active_era: 2,
+					planned_era: 3,
+				},
+				StakingEvent::EraPaid {
+					era_index: 2,
+					validator_payout: era_2_reward,
+					remainder: 0,
+				},
+				StakingEvent::SessionRotated {
+					starting_session: 19,
+					active_era: 3,
+					planned_era: 4,
+				},
+			]
+		);
+
+		// WHEN: payout era 2 (DAP pot transfer).
+		let pre_issuance = Balances::total_issuance();
+		let balance_before = Balances::total_balance(&val_a);
+		let _ = staking_events_since_last_call();
+
+		assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+			RuntimeOrigin::signed(999),
+			val_a,
+			2,
+		));
+
+		// THEN: issuance unchanged (transfer, not mint).
+		assert_eq!(Balances::total_issuance(), pre_issuance);
+		// THEN: validator gets 1/4 of era reward (4 validators, equal points, 0% commission).
+		let expected_reward = era_2_reward / 4;
+		assert_eq!(Balances::total_balance(&val_a) - balance_before, expected_reward);
+		// THEN: exactly two events — payout started + validator rewarded.
+		let events = staking_events_since_last_call();
+		assert_eq!(
+			events,
+			vec![
+				StakingEvent::PayoutStarted {
+					era_index: 2,
+					validator_stash: val_a,
+					page: 0,
+					next: None,
+				},
+				StakingEvent::Rewarded {
+					stash: val_a,
+					dest: staking_async::RewardDestination::Stash,
+					amount: expected_reward,
+				},
+			]
+		);
+	});
+
+	UseLegacyEraPayout::set(false);
 }
