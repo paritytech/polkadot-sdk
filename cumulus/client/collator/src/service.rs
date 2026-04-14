@@ -284,11 +284,7 @@ where
 			let (messages, signals) = Self::split_at_separator(collation_info.upward_messages);
 
 			upward_messages.extend(messages);
-			signals.into_iter().for_each(|s| {
-				if !upward_message_signals.contains(&s) {
-					upward_message_signals.push(s);
-				}
-			});
+			upward_message_signals.extend(signals);
 			horizontal_messages.extend(collation_info.horizontal_messages);
 			if let Some(new_code) = collation_info.new_validation_code {
 				if new_validation_code.replace(new_code).is_some() {
