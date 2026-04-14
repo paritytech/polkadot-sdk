@@ -100,7 +100,7 @@ sp_core::wasm_export_functions! {
 	}
 
 	fn test_clear_prefix(input: Vec<u8>) -> Vec<u8> {
-		storage::clear_prefix(&input, None);
+		storage::clear_prefix(&input, None, None);
 		b"all ok!".to_vec()
 	}
 
@@ -244,7 +244,7 @@ sp_core::wasm_export_functions! {
 			let id = sp_io::offchain::http_request_start(
 				"POST",
 				"http://localhost:12345",
-				&[],
+				vec![],
 			).ok()?;
 			sp_io::offchain::http_request_add_header(id, "X-Auth", "test").ok()?;
 			sp_io::offchain::http_request_write_body(id, &[1, 2, 3, 4], None).ok()?;

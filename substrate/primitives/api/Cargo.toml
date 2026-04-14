@@ -24,6 +24,7 @@ scale-info = { features = ["derive"], workspace = true }
 sp-api-proc-macro = { workspace = true }
 sp-core = { workspace = true }
 sp-externalities = { optional = true, workspace = true }
+sp-io = { workspace = true }
 sp-metadata-ir = { optional = true, workspace = true }
 sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
@@ -46,6 +47,7 @@ std = [
 	"sp-core/std",
 	"sp-externalities",
 	"sp-externalities?/std",
+	"sp-io/std",
 	"sp-metadata-ir?/std",
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
