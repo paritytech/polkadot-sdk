@@ -43,7 +43,11 @@ use sc_statement_store::test_utils::get_keypair;
 use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
-use std::{sync::Arc, time::Duration};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+	time::Duration,
+};
 use tokio::{sync::Barrier, time::timeout};
 
 #[derive(Parser, Debug)]
@@ -82,6 +86,10 @@ struct Args {
 	/// Statement expiry time in milliseconds (default: 10 minutes)
 	#[arg(long, default_value_t = 600_000)]
 	statement_expiry_ms: u64,
+
+	/// Stop immediately on first round failure instead of continuing
+	#[arg(long, default_value = "false")]
+	fail_fast: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -98,6 +106,19 @@ struct Stats {
 	min: f64,
 	avg: f64,
 	max: f64,
+}
+
+struct RoundFailure {
+	round: usize,
+	/// Groupable error description (same for all clients hitting the same issue)
+	error: String,
+	/// Per-client detail (e.g., how many statements were received)
+	detail: String,
+}
+
+struct ClientResult {
+	successes: Vec<RoundStats>,
+	failures: Vec<RoundFailure>,
 }
 
 fn parse_messages_pattern(pattern: &str) -> Result<Vec<(usize, usize)>, anyhow::Error> {
@@ -152,6 +173,150 @@ struct ClientConfig {
 	receive_timeout_ms: u64,
 	interval_ms: u64,
 	statement_expiry_ms: u64,
+	fail_fast: bool,
+}
+
+async fn execute_round(
+	client_id: u32,
+	round: usize,
+	num_rounds: usize,
+	test_run_id: u64,
+	neighbour_id: u32,
+	expected_count: u32,
+	messages_pattern: &[(usize, usize)],
+	rpc_client: &WsClient,
+	keyring: &sp_core::sr25519::Pair,
+	receive_timeout_ms: u64,
+	statement_expiry_ms: u64,
+) -> Result<RoundStats, RoundFailure> {
+	let round_start = std::time::Instant::now();
+	let mut sent_count: u32 = 0;
+
+	let expected_topics: Vec<Topic> = (0..expected_count)
+		.map(|idx| generate_topic(test_run_id, neighbour_id, round, idx).into())
+		.collect();
+
+	let bounded_topics: BoundedVec<Topic, ConstU32<128>> =
+		expected_topics.try_into().map_err(|_| RoundFailure {
+			round,
+			error: format!("Too many topics (max 128, got {expected_count})"),
+			detail: String::new(),
+		})?;
+
+	let mut subscription: Subscription<StatementEvent> = rpc_client
+		.subscribe(
+			"statement_subscribeStatement",
+			rpc_params![TopicFilter::MatchAny(bounded_topics)],
+			"statement_unsubscribeStatement",
+		)
+		.await
+		.map_err(|e| RoundFailure {
+			round,
+			error: "Failed to open RPC subscription".into(),
+			detail: format!("{e}"),
+		})?;
+
+	for &(count, size) in messages_pattern {
+		for _ in 0..count {
+			let topic = generate_topic(test_run_id, client_id, round, sent_count);
+			let channel = blake2_256(sent_count.to_le_bytes().as_ref());
+
+			let expiry_timestamp = (std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.unwrap_or_default() +
+				Duration::from_millis(statement_expiry_ms))
+			.as_secs() as u32;
+
+			let mut statement = Statement::new();
+			statement.set_channel(channel);
+			statement.set_expiry_from_parts(expiry_timestamp, (sent_count + 1) * (round as u32));
+			statement.set_topic(0, topic.into());
+			statement.set_plain_data(vec![0u8; size]);
+			statement.sign_sr25519_private(keyring);
+
+			let encoded: Bytes = statement.encode().into();
+			let result: SubmitResult = rpc_client
+				.request("statement_submit", rpc_params![encoded])
+				.await
+				.map_err(|e| RoundFailure {
+					round,
+					error: "Failed to submit statement via RPC".into(),
+					detail: format!("{e}"),
+				})?;
+
+			sent_count += 1;
+			if is_leader(client_id) {
+				debug!(
+					"Round {}/{}. Sent {} statement(s): {:?}",
+					round, num_rounds, sent_count, result
+				);
+			}
+		}
+	}
+
+	let send_duration = round_start.elapsed();
+	let mut received_count: u32 = 0;
+	while received_count < expected_count {
+		let result =
+			timeout(Duration::from_millis(receive_timeout_ms), subscription.next()).await;
+
+		match result {
+			Ok(Some(Ok(StatementEvent::NewStatements { statements, .. }))) => {
+				received_count += statements.len() as u32;
+				if is_leader(client_id) {
+					debug!(
+						"Round {}/{}. Received {} statement(s) (batch of {})",
+						round,
+						num_rounds,
+						received_count,
+						statements.len()
+					);
+				}
+			},
+			Err(_) => {
+				return Err(RoundFailure {
+					round,
+					error: format!(
+						"Statement propagation exceeded {receive_timeout_ms}ms timeout"
+					),
+					detail: format!("received {received_count}/{expected_count}"),
+				});
+			},
+			other => {
+				return Err(RoundFailure {
+					round,
+					error: "RPC connection lost while receiving statements".into(),
+					detail: format!(
+						"received {received_count}/{expected_count}, result: {other:?}"
+					),
+				});
+			},
+		}
+	}
+	drop(subscription);
+
+	let full_latency = round_start.elapsed();
+	let receive_duration = full_latency - send_duration;
+
+	if is_leader(client_id) {
+		debug!(
+			"Round {}/{} complete. Send: {:.3}s, Receive: {:.3}s, Total: {:.3}s",
+			round,
+			num_rounds,
+			send_duration.as_secs_f64(),
+			receive_duration.as_secs_f64(),
+			full_latency.as_secs_f64()
+		);
+	}
+
+	Ok(RoundStats {
+		round,
+		sent_count,
+		received_count,
+		send_duration_secs: send_duration.as_secs_f64(),
+		receive_duration_secs: receive_duration.as_secs_f64(),
+		full_latency_secs: full_latency.as_secs_f64(),
+	})
 }
 
 async fn run_client(
@@ -159,7 +324,7 @@ async fn run_client(
 	rpc_client: Arc<WsClient>,
 	barrier: Arc<Barrier>,
 	sync_start: std::time::Instant,
-) -> Result<Vec<RoundStats>, anyhow::Error> {
+) -> ClientResult {
 	let ClientConfig {
 		client_id,
 		neighbour_id,
@@ -170,6 +335,7 @@ async fn run_client(
 		receive_timeout_ms,
 		interval_ms,
 		statement_expiry_ms,
+		fail_fast,
 	} = config;
 
 	let keyring = get_keypair(client_id);
@@ -189,128 +355,52 @@ async fn run_client(
 	let submission_jitter = ((client_id * 7) % 1000) as u64;
 	tokio::time::sleep(Duration::from_millis(submission_jitter)).await;
 
-	let mut all_round_stats = Vec::with_capacity(num_rounds);
+	let mut successes = Vec::with_capacity(num_rounds);
+	let mut failures = Vec::new();
 
 	// Use human 1-based round numbering for logging
 	for round in 1..(num_rounds + 1) {
 		let round_start = std::time::Instant::now();
-		let mut sent_count: u32 = 0;
 
-		let expected_topics: Vec<Topic> = (0..expected_count)
-			.map(|idx| generate_topic(test_run_id, neighbour_id, round, idx).into())
-			.collect();
+		let round_result = execute_round(
+			client_id,
+			round,
+			num_rounds,
+			test_run_id,
+			neighbour_id,
+			expected_count,
+			&messages_pattern,
+			&rpc_client,
+			&keyring,
+			receive_timeout_ms,
+			statement_expiry_ms,
+		)
+		.await;
 
-		let bounded_topics: BoundedVec<Topic, ConstU32<128>> = expected_topics
-			.try_into()
-			.map_err(|_| anyhow!("Client {client_id}: Too many topics (max 128)"))?;
-
-		let mut subscription: Subscription<StatementEvent> = rpc_client
-			.subscribe(
-				"statement_subscribeStatement",
-				rpc_params![TopicFilter::MatchAny(bounded_topics)],
-				"statement_unsubscribeStatement",
-			)
-			.await
-			.with_context(|| format!("Client {client_id}: Failed to subscribe"))?;
-
-		for &(count, size) in &messages_pattern {
-			for _ in 0..count {
-				let topic = generate_topic(test_run_id, client_id, round, sent_count);
-				let channel = blake2_256(sent_count.to_le_bytes().as_ref());
-
-				let expiry_timestamp = (std::time::SystemTime::now()
-					.duration_since(std::time::UNIX_EPOCH)
-					.unwrap_or_default() +
-					Duration::from_millis(statement_expiry_ms))
-				.as_secs() as u32;
-
-				let mut statement = Statement::new();
-				statement.set_channel(channel);
-				statement
-					.set_expiry_from_parts(expiry_timestamp, (sent_count + 1) * (round as u32));
-				statement.set_topic(0, topic.into());
-				statement.set_plain_data(vec![0u8; size]);
-				statement.sign_sr25519_private(&keyring);
-
-				let encoded: Bytes = statement.encode().into();
-				let result: SubmitResult = rpc_client
-					.request("statement_submit", rpc_params![encoded])
-					.await
-					.with_context(|| format!("Client {client_id}: Failed to submit statement"))?;
-
-				sent_count += 1;
-				if is_leader(client_id) {
-					debug!(
-						"Round {}/{}. Sent {} statement(s): {:?}",
-						round, num_rounds, sent_count, result
+		match round_result {
+			Ok(stats) => successes.push(stats),
+			Err(failure) => {
+				if failure.detail.is_empty() {
+					warn!("Client {client_id}: Round {round}/{num_rounds}: {}", failure.error);
+				} else {
+					warn!(
+						"Client {client_id}: Round {round}/{num_rounds}: {} ({})",
+						failure.error, failure.detail
 					);
 				}
-			}
+				failures.push(failure);
+				if fail_fast {
+					break;
+				}
+			},
 		}
-
-		let send_duration = round_start.elapsed();
-		let mut received_count: u32 = 0;
-		while received_count < expected_count {
-			let result =
-				timeout(Duration::from_millis(receive_timeout_ms), subscription.next()).await;
-
-			match result {
-				Ok(Some(Ok(StatementEvent::NewStatements { statements, .. }))) => {
-					received_count += statements.len() as u32;
-					if is_leader(client_id) {
-						debug!(
-							"Round {}/{}. Received {} statement(s) (batch of {})",
-							round,
-							num_rounds,
-							received_count,
-							statements.len()
-						);
-					}
-				},
-				other => {
-					return Err(anyhow!(
-						"Client {client_id}: Round {}: Error receiving ({other:?}), got {received_count}/{expected_count}",
-						round
-					));
-				},
-			}
-		}
-		drop(subscription);
-
-		let full_latency = round_start.elapsed();
-		let receive_duration = full_latency - send_duration;
-
-		if is_leader(client_id) {
-			debug!(
-				"Round {}/{} complete. Send: {:.3}s, Receive: {:.3}s, Total: {:.3}s",
-				round,
-				num_rounds,
-				send_duration.as_secs_f64(),
-				receive_duration.as_secs_f64(),
-				full_latency.as_secs_f64()
-			);
-		}
-
-		let stats = RoundStats {
-			round,
-			sent_count,
-			received_count,
-			send_duration_secs: send_duration.as_secs_f64(),
-			receive_duration_secs: receive_duration.as_secs_f64(),
-			full_latency_secs: full_latency.as_secs_f64(),
-		};
-
-		assert_eq!(stats.sent_count, expected_count);
-		assert_eq!(stats.received_count, expected_count);
-
-		all_round_stats.push(stats);
 
 		if round < num_rounds {
 			let elapsed = round_start.elapsed();
 			let interval = Duration::from_millis(interval_ms);
 			if elapsed < interval {
 				tokio::time::sleep(interval - elapsed).await;
-			} else {
+			} else if is_leader(client_id) {
 				warn!(
 					"Client {client_id}: Round {} took longer ({}ms) than target ({}ms)",
 					round,
@@ -318,11 +408,20 @@ async fn run_client(
 					interval.as_millis()
 				);
 			}
-			barrier.wait().await;
+			if timeout(Duration::from_millis(interval_ms), barrier.wait()).await.is_err() {
+				// Barrier is permanently broken once a waiter drops — no point continuing.
+				warn!("Client {client_id}: Round {round}/{num_rounds}: Inter-round sync timed out (another client likely failed)");
+				failures.push(RoundFailure {
+					round,
+					error: "Inter-round sync timed out (another client likely failed)".into(),
+					detail: String::new(),
+				});
+				break;
+			}
 		}
 	}
 
-	Ok(all_round_stats)
+	ClientResult { successes, failures }
 }
 
 /// Wait until the next sync boundary for synchronized start across multiple machines.
@@ -407,6 +506,7 @@ async fn main() -> Result<(), anyhow::Error> {
 				receive_timeout_ms: args.receive_timeout_ms,
 				interval_ms: args.interval_ms,
 				statement_expiry_ms: args.statement_expiry_ms,
+				fail_fast: args.fail_fast,
 			};
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);
@@ -418,8 +518,12 @@ async fn main() -> Result<(), anyhow::Error> {
 
 	debug!("Waiting for all clients to complete...");
 
-	let all_round_stats = collect_results(handles).await?;
-	print_statistics(&all_round_stats);
+	let (all_successes, all_failures) = collect_results(handles).await;
+	report_results(&all_successes, &all_failures, args.num_clients, args.num_rounds);
+
+	if !all_failures.is_empty() && all_successes.is_empty() {
+		return Err(anyhow!("Benchmark failed: no rounds completed successfully"));
+	}
 
 	Ok(())
 }
@@ -451,19 +555,81 @@ async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>
 }
 
 async fn collect_results(
-	handles: Vec<tokio::task::JoinHandle<Result<Vec<RoundStats>, anyhow::Error>>>,
-) -> Result<Vec<RoundStats>, anyhow::Error> {
-	let mut all_stats = Vec::new();
+	handles: Vec<tokio::task::JoinHandle<ClientResult>>,
+) -> (Vec<RoundStats>, Vec<RoundFailure>) {
+	let mut all_successes = Vec::new();
+	let mut all_failures = Vec::new();
 
 	for (i, handle) in handles.into_iter().enumerate() {
 		match handle.await {
-			Ok(Ok(client_stats)) => all_stats.extend(client_stats),
-			Ok(Err(e)) => return Err(e.context(format!("Client {i} failed"))),
-			Err(e) => return Err(anyhow!("Client {i} task panicked: {e}")),
+			Ok(result) => {
+				all_successes.extend(result.successes);
+				all_failures.extend(result.failures);
+			},
+			Err(e) => {
+				warn!("Client {i}: Task panicked: {e}");
+				all_failures.push(RoundFailure {
+					round: 0,
+					error: "Task panicked".into(),
+					detail: format!("{e}"),
+				});
+			},
 		}
 	}
 
-	Ok(all_stats)
+	(all_successes, all_failures)
+}
+
+fn report_results(
+	successes: &[RoundStats],
+	failures: &[RoundFailure],
+	num_clients: u32,
+	num_rounds: usize,
+) {
+	// Emit "Round Failed:" for each round that had failures
+	let mut failures_by_round: HashMap<usize, Vec<&str>> = HashMap::new();
+	for f in failures {
+		failures_by_round.entry(f.round).or_default().push(&f.error);
+	}
+	let mut failed_rounds: Vec<_> = failures_by_round.keys().copied().collect();
+	failed_rounds.sort();
+
+	for round in &failed_rounds {
+		let errors = &failures_by_round[round];
+		let failed_clients = errors.len();
+
+		// Count occurrences of each distinct error message
+		let mut error_counts: HashMap<&str, u32> = HashMap::new();
+		for error in errors {
+			*error_counts.entry(error).or_default() += 1;
+		}
+		let mut counts: Vec<_> = error_counts.into_iter().collect();
+		counts.sort_by(|a, b| b.1.cmp(&a.1));
+
+		let errors_str: String = counts
+			.iter()
+			.map(|(msg, count)| format!("{msg} ({count})"))
+			.collect::<Vec<_>>()
+			.join("; ");
+
+		warn!(
+			"Round Failed: round={round} failed_clients={failed_clients} total_clients={num_clients} errors=[{errors_str}]"
+		);
+	}
+
+	// Emit "Benchmark Results:" from successful rounds (unchanged format)
+	if !successes.is_empty() {
+		print_statistics(successes);
+	}
+
+	// Always emit "Benchmark Finished:"
+	let successful_rounds: HashSet<usize> = successes.iter().map(|s| s.round).collect();
+	let successful_rounds = successful_rounds.len();
+	let failed_round_count = failed_rounds.iter().filter(|&&r| r > 0).count();
+
+	info!(
+		"Benchmark Finished: successful_rounds={successful_rounds} failed_rounds={failed_round_count} total_rounds={num_rounds} total_clients={num_clients}"
+	);
 }
 
 fn print_statistics(stats: &[RoundStats]) {
