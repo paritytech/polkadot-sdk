@@ -228,29 +228,28 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type WeightInfo = weights::pallet_bags_list::WeightInfo<Runtime>;
 }
 
-pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
+parameter_types! {
+	pub const StakingPotsPalletId: PalletId = PalletId(*b"py/stkng");
+}
+
+/// Westend inflation curve for DAP.
+///
+/// Same computation as the previous `EraPayout` but returns total emission.
+/// The budget split (ex. 85/15 staker/treasury) is now handled by pallet-dap.
+pub struct IssuanceCurve;
+impl sp_staking::budget::IssuanceCurve<Balance> for IssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
 		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		// A normal-sized era will have 1 / 365.25 here:
-		let relative_era_len =
-			FixedU128::from_rational(era_duration_millis.into(), MILLISECONDS_PER_YEAR.into());
+		let relative_period =
+			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
 
 		// Fixed total TI that we use as baseline for the issuance.
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
-		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		let emission = relative_period.saturating_mul_int(yearly_emission);
+		emission.saturated_into()
 	}
 }
 
@@ -287,7 +286,7 @@ impl pallet_staking_async::Config for Runtime {
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type SlashDeferDuration = SlashDeferDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -301,6 +300,11 @@ impl pallet_staking_async::Config for Runtime {
 	type PlanningEraOffset = ConstU32<6>;
 	type RcClientInterface = StakingRcClient;
 	type MaxEraDuration = MaxEraDuration;
+	type DisableMinting = ConstBool<true>;
+	type UnclaimedRewardHandler = Dap;
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type WeightInfo = weights::pallet_staking_async::WeightInfo<Runtime>;
 }
@@ -353,9 +357,13 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	/// Noop — DAP does not mint until budget drip is enabled.
-	type IssuanceCurve = ();
-	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type IssuanceCurve = IssuanceCurve;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+	);
 	type Time = pallet_timestamp::Pallet<Runtime>;
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
