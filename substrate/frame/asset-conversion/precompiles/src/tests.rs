@@ -423,7 +423,8 @@ fn add_and_remove_liquidity_works() {
 
 		let lp_tokens = IAssetConversion::addLiquidityCall::abi_decode_returns(&add_return.data)
 			.expect("return data must decode");
-		assert!(lp_tokens > U256::ZERO, "must receive LP tokens");
+		// sqrt(10_000 * 10_000) - MintMinLiquidity(100) = 9_900
+		assert_eq!(lp_tokens, U256::from(9_900), "LP tokens must match expected amount");
 
 		// Verify provider was debited.
 		let native_after =
