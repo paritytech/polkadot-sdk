@@ -21,12 +21,8 @@ use codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sp_runtime::MultiSigner;
 
-/// Stable pseudonymous alias derived from ring-VRF personhood proofs.
-/// Same person + same context = same alias, always.
-pub type Alias = [u8; 32];
-
-/// Context string for HOP pool personhood proofs (32 bytes, null-padded).
-pub const HOP_CONTEXT: [u8; 32] = *b"pop:polkadot.network/hop-pool\x00\x00\x00";
+/// Sender identity derived from the account that signed the submission.
+pub type SenderId = [u8; 32];
 
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
 #[derive(Debug, Clone, Encode, Decode)]
@@ -41,8 +37,10 @@ pub struct HopEntryMeta {
 	pub recipients: Vec<MultiSigner>,
 	/// Tracks which recipients have claimed (by index into `recipients`).
 	pub claimed: Vec<bool>,
-	/// Alias of the sender who submitted this entry (from personhood proof).
-	pub sender_alias: Alias,
+	/// Account ID of the sender who submitted this entry.
+	pub sender_id: SenderId,
+	/// Whether this entry has been promoted to permanent on-chain storage.
+	pub promoted: bool,
 }
 
 impl HopEntryMeta {
@@ -52,11 +50,48 @@ impl HopEntryMeta {
 		added_at: HopBlockNumber,
 		retention_blocks: u32,
 		recipients: Vec<MultiSigner>,
-		sender_alias: Alias,
+		sender_id: SenderId,
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
 		let claimed = vec![false; recipients.len()];
-		Self { added_at, expires_at, size, recipients, claimed, sender_alias }
+		Self { added_at, expires_at, size, recipients, claimed, sender_id, promoted: false }
+	}
+}
+
+/// Entry in the HOP data pool
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct HopPoolEntry {
+	/// The actual data blob
+	pub data: Vec<u8>,
+	/// Block number when this was added
+	pub added_at: HopBlockNumber,
+	/// Block number when this expires (added_at + retention_period)
+	pub expires_at: HopBlockNumber,
+	/// Size in bytes
+	pub size: u64,
+	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
+	/// Each recipient claims by signing the content hash with their corresponding private key.
+	pub recipients: Vec<MultiSigner>,
+	/// Tracks which recipients have claimed (by index into `recipients`).
+	pub claimed: Vec<bool>,
+	/// Account ID of the sender who submitted this entry.
+	pub sender_id: SenderId,
+}
+
+impl HopPoolEntry {
+	/// Create a new pool entry
+	pub fn new(
+		data: Vec<u8>,
+		added_at: HopBlockNumber,
+		retention_blocks: u32,
+		recipients: Vec<MultiSigner>,
+		sender_id: SenderId,
+	) -> Self {
+		let size = data.len() as u64;
+		let expires_at = added_at.saturating_add(retention_blocks);
+		let claimed = vec![false; recipients.len()];
+
+		Self { data, added_at, expires_at, size, recipients, claimed, sender_id }
 	}
 }
 
@@ -116,8 +151,11 @@ pub enum HopError {
 	#[error("User quota exceeded: using {used} of {limit} bytes")]
 	UserQuotaExceeded { used: u64, limit: u64 },
 
-	#[error("Invalid personhood proof")]
-	InvalidPersonhoodProof,
+	#[error("Account does not have a valid authorization")]
+	NotAuthorized,
+
+	#[error("Invalid signer: failed to SCALE-decode MultiSigner")]
+	InvalidSigner,
 
 	#[error("I/O error: {0}")]
 	IoError(String),
@@ -140,9 +178,10 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::NoRecipients => 1011,
 			HopError::InvalidRecipientKey => 1012,
 			HopError::UserQuotaExceeded { .. } => 1013,
-			HopError::InvalidPersonhoodProof => 1014,
+			HopError::NotAuthorized => 1014,
 			HopError::IoError(_) => 1015,
-			HopError::AlreadyClaimed => 1016,
+			HopError::InvalidSigner => 1016,
+			HopError::AlreadyClaimed => 1017,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)

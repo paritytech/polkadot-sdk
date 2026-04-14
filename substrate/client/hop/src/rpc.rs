@@ -19,7 +19,7 @@
 use crate::{
 	pool::HopDataPool,
 	primitives::HopHash,
-	types::{Alias, HopError, PoolStatus, SubmitResult, HOP_CONTEXT},
+	types::{HopError, PoolStatus, SubmitResult},
 };
 use codec::Decode;
 use jsonrpsee::{
@@ -27,51 +27,39 @@ use jsonrpsee::{
 	proc_macros::rpc,
 	types::ErrorObjectOwned,
 };
+use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
-use sp_runtime::{traits::Block as BlockT, MultiSigner, SaturatedConversion};
+use sp_hop::HopApi;
+use sp_runtime::{
+	traits::{Block as BlockT, IdentifyAccount, Verify},
+	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
+};
 use std::{marker::PhantomData, sync::Arc};
-
-/// Trait for verifying personhood ring proofs.
-/// Implemented by the node using the individuality system's ring-VRF verification.
-pub trait PersonhoodVerifier: Send + Sync + 'static {
-	/// Verify a proof and return the prover's alias.
-	/// - `proof`: raw proof bytes (SCALE-encoded ring-VRF proof)
-	/// - `context`: application context (HOP_CONTEXT)
-	/// - `msg`: message the proof is bound to (data hash)
-	fn verify(&self, proof: &[u8], context: &[u8], msg: &[u8]) -> Result<Alias, HopError>;
-}
-
-/// No-op verifier that accepts any proof and returns a zero alias (`[0u8; 32]`).
-///
-/// **WARNING:** When using `NoopVerifier`, all submissions share the same alias,
-/// making per-user quota enforcement ineffective — every submitter appears to be
-/// the same "user" and they collectively share a single quota bucket.
-///
-/// Use this only for development/testing or when personhood verification is not
-/// available. Production deployments should implement a real [`PersonhoodVerifier`].
-pub struct NoopVerifier;
-
-impl PersonhoodVerifier for NoopVerifier {
-	fn verify(&self, _proof: &[u8], _context: &[u8], _msg: &[u8]) -> Result<Alias, HopError> {
-		Ok([0u8; 32])
-	}
-}
 
 /// HOP RPC methods.
 #[rpc(client, server)]
 pub trait HopApi<BlockHash> {
-	/// Submit data to the data pool
+	/// Submit data to the data pool.
 	///
 	/// # Arguments
 	/// * `data`: The data to store, in bytes
 	/// * `recipients`: List of SCALE-encoded `MultiSigner` (ed25519, sr25519, or ecdsa)
-	/// * `proof`: Personhood ring proof bytes (can be empty when using NoopVerifier)
+	/// * `signature`: SCALE-encoded `MultiSignature` over the blake2_256 hash of `data`
+	/// * `signer`: SCALE-encoded `MultiSigner` of the account signing the submission
+	///
+	/// The signer must have an active Bulletin Chain authorization.
 	///
 	/// # Returns
-	/// The content hash and current pool status
+	/// The current pool status
 	#[method(name = "hop_submit")]
-	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult>;
+	fn submit(
+		&self,
+		data: Bytes,
+		recipients: Vec<Bytes>,
+		signature: Bytes,
+		signer: Bytes,
+	) -> RpcResult<SubmitResult>;
 
 	/// Claim data from the data pool by hash (read-only download).
 	///
@@ -110,17 +98,16 @@ pub trait HopApi<BlockHash> {
 }
 
 /// HOP RPC server implementation.
-pub struct HopRpcServer<C, Block, V: PersonhoodVerifier> {
+pub struct HopRpcServer<C, Block> {
 	pool: Arc<HopDataPool>,
 	client: Arc<C>,
-	verifier: Arc<V>,
 	_phantom: PhantomData<Block>,
 }
 
-impl<C, Block, V: PersonhoodVerifier> HopRpcServer<C, Block, V> {
+impl<C, Block> HopRpcServer<C, Block> {
 	/// Create a new HOP RPC server.
-	pub fn new(pool: Arc<HopDataPool>, client: Arc<C>, verifier: Arc<V>) -> Self {
-		Self { pool, client, verifier, _phantom: Default::default() }
+	pub fn new(pool: Arc<HopDataPool>, client: Arc<C>) -> Self {
+		Self { pool, client, _phantom: Default::default() }
 	}
 
 	/// Convert Bytes to Hash with validation
@@ -137,13 +124,27 @@ impl<C, Block, V: PersonhoodVerifier> HopRpcServer<C, Block, V> {
 }
 
 #[async_trait]
-impl<C, Block, V> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block, V>
+impl<C, Block> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + Send + Sync + 'static,
-	V: PersonhoodVerifier,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	C::Api: sp_hop::HopApi<Block, AccountId32>,
 {
-	fn submit(&self, data: Bytes, recipients: Vec<Bytes>, proof: Bytes) -> RpcResult<SubmitResult> {
+	fn submit(
+		&self,
+		data: Bytes,
+		recipients: Vec<Bytes>,
+		signature: Bytes,
+		signer: Bytes,
+	) -> RpcResult<SubmitResult> {
+		// SCALE-decode signer
+		let signer = MultiSigner::decode(&mut &signer.0[..])
+			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSigner))?;
+
+		// SCALE-decode signature
+		let multi_sig = MultiSignature::decode(&mut &signature.0[..])
+			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSignature))?;
+
 		// SCALE-decode each recipient as MultiSigner
 		let recipient_keys: Vec<MultiSigner> = recipients
 			.into_iter()
@@ -153,14 +154,30 @@ where
 			})
 			.collect::<RpcResult<Vec<_>>>()?;
 
-		// Compute data hash and verify personhood proof
+		// Compute data hash and verify signature
 		let hash = H256(blake2_256(&data.0));
-		let alias = self.verifier.verify(&proof.0, &HOP_CONTEXT, hash.as_bytes())?;
+		let account_id: AccountId32 = signer.into_account();
+		if !multi_sig.verify(hash.as_bytes(), &account_id) {
+			return Err(ErrorObjectOwned::from(HopError::InvalidSignature));
+		}
 
-		// We need the current block number to know when the timeout is reached.
+		// Check authorization via runtime API
+		let best_hash = self.client.info().best_hash;
+		let authorized = self
+			.client
+			.runtime_api()
+			.is_account_authorized(best_hash, account_id.clone())
+			.map_err(|e| {
+				ErrorObjectOwned::owned(1017, format!("Runtime API error: {}", e), None::<()>)
+			})?;
+		if !authorized {
+			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
+		}
+
+		// Use account ID as sender identity for rate limiting
+		let sender_id: [u8; 32] = account_id.into();
 		let current_block = self.client.info().best_number.saturated_into::<u32>();
-		let _hash =
-			self.pool.insert_prehashed(data.0, current_block, recipient_keys, alias, hash)?;
+		let _hash = self.pool.insert(data.0, current_block, recipient_keys, sender_id)?;
 		let pool_status = self.pool.status();
 		Ok(SubmitResult { pool_status })
 	}

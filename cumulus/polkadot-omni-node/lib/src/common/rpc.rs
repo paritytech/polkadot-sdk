@@ -81,10 +81,8 @@ where
 				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			if let Some(hop_pool) = hop_pool {
-				use sc_hop::{HopApiServer, HopRpcServer, NoopVerifier};
-				module.merge(
-					HopRpcServer::new(hop_pool, client.clone(), Arc::new(NoopVerifier)).into_rpc(),
-				)?;
+				use sc_hop::{HopApiServer, HopRpcServer};
+				module.merge(HopRpcServer::new(hop_pool, client.clone()).into_rpc())?;
 			}
 			module.merge(Dev::new(client).into_rpc())?;
 

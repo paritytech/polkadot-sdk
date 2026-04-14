@@ -19,6 +19,9 @@ serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 
+# Async
+futures-timer = { workspace = true }
+
 # CLI
 clap = { workspace = true, features = ["derive"] }
 
@@ -27,8 +30,11 @@ jsonrpsee = { workspace = true, features = ["client", "macros", "server"] }
 
 # Substrate primitives (client-side, always with std)
 polkadot-primitives = { workspace = true, default-features = true }
+sc-transaction-pool-api = { workspace = true, default-features = true }
+sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-hop = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]

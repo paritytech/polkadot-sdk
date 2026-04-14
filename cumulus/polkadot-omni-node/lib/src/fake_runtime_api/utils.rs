@@ -251,9 +251,14 @@ macro_rules! impl_node_runtime_apis {
 				fn retention_period() -> sp_runtime::traits::NumberFor<$block> {
 					unimplemented!()
 				}
+
 			}
 
-			impl sp_hop::HopPromotionApi<$block> for $runtime {
+			impl sp_hop::HopApi<$block, sp_runtime::AccountId32> for $runtime {
+				fn is_account_authorized(_who: sp_runtime::AccountId32) -> bool {
+					unimplemented!()
+				}
+
 				fn create_promotion_extrinsic(_: Vec<u8>) -> <$block as BlockT>::Extrinsic {
 					unimplemented!()
 				}

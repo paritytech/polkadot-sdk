@@ -38,7 +38,7 @@ use sp_api::{ApiExt, CallApiAt, ConstructRuntimeApi, Metadata};
 use sp_block_builder::BlockBuilder;
 use sp_runtime::{
 	traits::{Block as BlockT, BlockNumber, Header as HeaderT, NumberFor},
-	OpaqueExtrinsic,
+	AccountId32, OpaqueExtrinsic,
 };
 use sp_session::SessionKeys;
 use sp_transaction_pool::runtime_api::TaggedTransactionQueue;
@@ -76,6 +76,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetParachainInfo<Block>
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
+	+ sp_hop::HopApi<Block, AccountId32>
 	+ Sized
 {
 }
@@ -91,6 +92,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
+		+ sp_hop::HopApi<Block, AccountId32>
 {
 }
 

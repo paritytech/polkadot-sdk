@@ -544,6 +544,16 @@ pub mod pallet {
 			RetentionPeriod::<T>::get()
 		}
 
+		/// Returns whether the given account has an active (non-expired) authorization.
+		pub fn is_account_authorized(who: T::AccountId) -> bool {
+			let Some(authorization) =
+				Authorizations::<T>::get(AuthorizationScope::<T::AccountId>::Account(who))
+			else {
+				return false;
+			};
+			frame_system::Pallet::<T>::block_number() < authorization.expiration
+		}
+
 		fn apply_fee(sender: T::AccountId, size: u32) -> DispatchResult {
 			let byte_fee = ByteFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
 			let entry_fee = EntryFee::<T>::get().ok_or(Error::<T>::NotConfigured)?;
