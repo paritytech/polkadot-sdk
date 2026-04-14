@@ -195,17 +195,23 @@ async fn fetch_session_params<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	// Executor params: execution context session, fetched at a recent leaf.
-	let executor_params = match executor_params_cache.get(&session_index) {
+	// Executor params use the execution-context (relay parent) session.
+	// For V2+, this is in the descriptor, for V1/Unknown, the caller-provided
+	// fallback is used (which equals the relay parent session for V1).
+	let execution_session = candidate_descriptor
+		.session_index_for_candidate_validation(v3_ever_seen)
+		.unwrap_or(session_index);
+
+	let executor_params = match executor_params_cache.get(&execution_session) {
 		Some(cached) => cached.clone(),
 		None => {
-			let params = request_session_executor_params(recent_leaf, session_index, sender)
+			let params = request_session_executor_params(recent_leaf, execution_session, sender)
 				.await
 				.await
 				.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
 				.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
 				.ok_or_else(|| "Executor params not found for session".to_string())?;
-			let _ = executor_params_cache.insert(session_index, params.clone());
+			let _ = executor_params_cache.insert(execution_session, params.clone());
 			params
 		},
 	};
