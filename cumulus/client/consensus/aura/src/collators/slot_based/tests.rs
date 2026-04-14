@@ -16,10 +16,9 @@
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use super::{
-	block_builder_task::{
-		determine_core, offset_relay_parent_find_descendants, wait_for_current_relay_block,
-	},
+	block_builder_task::{determine_core, offset_relay_parent_find_descendants},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
+	scheduling::wait_for_current_relay_block,
 };
 use async_trait::async_trait;
 use codec::Encode;
@@ -53,11 +52,7 @@ async fn offset_test_zero_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-<<<<<<< HEAD
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 0, 0).await;
-=======
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 0).await;
->>>>>>> upstream/master
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 0, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 0);
@@ -73,11 +68,7 @@ async fn offset_test_two_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-<<<<<<< HEAD
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 2, 0).await;
-=======
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 2).await;
->>>>>>> upstream/master
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 2, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 2);
@@ -96,11 +87,7 @@ async fn offset_test_five_offset() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-<<<<<<< HEAD
-	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 5, 0).await;
-=======
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 5).await;
->>>>>>> upstream/master
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 5, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
 	assert_eq!(data.descendants_len(), 5);
@@ -119,17 +106,12 @@ async fn offset_test_too_long() {
 
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-<<<<<<< HEAD
-	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 200, 0).await;
+	let result =
+		offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 200, 0).await;
 	assert!(result.is_err());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, _best_hash, 101, 0).await;
-=======
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 200).await;
-	assert!(result.is_err());
-
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 101).await;
->>>>>>> upstream/master
+	let result =
+		offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 101, 0).await;
 	assert!(result.is_err());
 }
 
@@ -140,7 +122,6 @@ enum HasEpochChange {
 }
 
 #[tokio::test]
-<<<<<<< HEAD
 async fn offset_returns_none_when_rc_tip_has_epoch_change() {
 	// Only skip when the RC tip itself is the session change block.
 	let flags = &[HasEpochChange::No, HasEpochChange::No, HasEpochChange::Yes];
@@ -188,14 +169,6 @@ async fn offset_skips_epoch_change_in_ancestors_when_not_v3(#[case] flags: &[Has
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_hash, 3, 0).await;
-=======
-async fn offset_returns_none_when_epoch_change_encountered(#[case] flags: &[HasEpochChange]) {
-	let (headers, best_header) = build_headers_with_epoch_flags(flags);
-	let client = TestRelayClient::new(headers);
-	let mut cache = RelayChainDataCache::new(client, 1.into());
-
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 3).await;
->>>>>>> upstream/master
 	assert!(result.is_ok());
 	assert!(result.unwrap().is_none());
 }
