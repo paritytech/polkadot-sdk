@@ -24183,6 +24183,7 @@ dependencies = [
  "arbitrary",
  "array-bytes 6.2.2",
  "assert_matches",
+ "criterion",
  "foldhash",
  "hash-db",
  "indexmap 2.9.0",

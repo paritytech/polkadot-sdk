@@ -39,9 +39,14 @@ trie-db = { workspace = true }
 arbitrary = { features = ["derive"], workspace = true }
 array-bytes = { workspace = true, default-features = true }
 assert_matches = { workspace = true }
+criterion = { workspace = true, default-features = false }
 pretty_assertions = { workspace = true }
 rand = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
+
+[[bench]]
+name = "delta_tracker"
+harness = false
 
 [features]
 default = ["std"]

@@ -31,7 +31,7 @@ mod ext;
 pub mod fuzzing;
 #[cfg(not(substrate_runtime))]
 mod in_memory_backend;
-pub(crate) mod overlayed_changes;
+pub mod overlayed_changes;
 #[cfg(not(substrate_runtime))]
 mod read_only;
 mod stats;
