@@ -3123,11 +3123,8 @@ mod tests {
 		assert_eq!(store.submit(s3, source), SubmitResult::New);
 
 		// Subscribe with MatchAll([A]) → s1, s3
-		let filter_a = OptimizedTopicFilter::MatchAll(
-			std::collections::HashSet::from([topic_a]),
-		);
-		let (existing, sender, stream) =
-			store.subscribe_statement(filter_a.clone()).unwrap();
+		let filter_a = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_a]));
+		let (existing, sender, stream) = store.subscribe_statement(filter_a.clone()).unwrap();
 		assert_eq!(existing.len(), 2, "MatchAll([A]) should match s1 and s3");
 
 		// Drop and add s4 with topic A
@@ -3136,26 +3133,14 @@ mod tests {
 		let s4 = signed_statement_with_topics(4, &[topic_a], None);
 		assert_eq!(store.submit(s4, source), SubmitResult::New);
 		// Re-subscribe with same filter → s1, s3, s4
-		let (existing, sender, stream) =
-			store.subscribe_statement(filter_a).unwrap();
-		assert_eq!(
-			existing.len(),
-			3,
-			"Re-subscribe MatchAll([A]) should return s1, s3, s4"
-		);
+		let (existing, sender, stream) = store.subscribe_statement(filter_a).unwrap();
+		assert_eq!(existing.len(), 3, "Re-subscribe MatchAll([A]) should return s1, s3, s4");
 
 		// Drop and re-subscribe with different filter MatchAll([B]) → s2, s3
 		drop(sender);
 		drop(stream);
-		let filter_b = OptimizedTopicFilter::MatchAll(
-			std::collections::HashSet::from([topic_b]),
-		);
-		let (existing, _sender, _stream) =
-			store.subscribe_statement(filter_b).unwrap();
-		assert_eq!(
-			existing.len(),
-			2,
-			"Re-subscribe MatchAll([B]) should return s2 and s3"
-		);
+		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
+		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
+		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
 	}
 }
