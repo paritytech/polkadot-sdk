@@ -106,8 +106,8 @@
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true
 
-- job-name: "zombienet-cumulus-0019-statement_store_peer_disconnect_during_major_sync"
-  test-filter: "zombie_ci::statement_store::integration::statement_store_peer_disconnect_during_major_sync"
+- job-name: "zombienet-cumulus-0019-statement_store_recovery_after_major_sync"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_recovery_after_major_sync"
   runner-type: "default"
   cumulus-image: "test-parachain"
   use-zombienet-sdk: true

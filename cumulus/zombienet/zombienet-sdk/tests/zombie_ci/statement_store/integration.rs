@@ -399,7 +399,7 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 /// Without the fix (reconnect_statement_peers on sync-end), the subscription would time
 /// out because nothing re-triggers the initial sync after major sync completes
 #[tokio::test(flavor = "multi_thread")]
-async fn statement_store_peer_disconnect_during_major_sync() -> Result<(), anyhow::Error> {
+async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);

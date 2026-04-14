@@ -11,7 +11,7 @@ doc:
     reopening their notification substreams. This triggers bidirectional initial sync on both sides,
     recovering any statements that were missed during the sync period.
 
-    The approach is minimal: only reacts to the sync-end transition with a single `had_major_syncing`
+    The approach is minimal: only reacts to the sync-end transition with a single `was_major_syncing`
     flag. No peer tracking or debounce needed since the reconnect only closes notification substreams
     (not TCP connections) and is inexpensive.
 crates:
