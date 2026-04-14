@@ -160,9 +160,10 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
-		if env.is_delegate_call() {
-			return Err(Error::Revert(Revert { reason: ERR_DELEGATECALL_DENIED.into() }));
-		}
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
 
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
@@ -201,7 +202,6 @@ where
 	}
 }
 
-const ERR_DELEGATECALL_DENIED: &str = "Cannot be called via delegatecall";
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 

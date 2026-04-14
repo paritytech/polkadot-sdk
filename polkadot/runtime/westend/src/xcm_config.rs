@@ -33,7 +33,6 @@ use polkadot_runtime_common::{
 	ToAuthor,
 };
 use sp_core::ConstU32;
-use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{
 	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
@@ -59,8 +58,9 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
-	pub TreasuryAccount: AccountId = Treasury::account_id();
+	// TODO(#11705): remove TreasuryLocation and migrate treasury funds to DapSatellite.
 	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
+	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
@@ -69,8 +69,7 @@ parameter_types! {
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
 	/// The DAP satellite account on this chain.
 	pub DapSatelliteLocation: Location = {
-		let account: AccountId = DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		AccountId32 { network: None, id: account.into() }.into()
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
 	};
 }
 
@@ -238,10 +237,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = XcmPallet;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	// TODO: once DAP allocates budgets, split delivery fees to DAP via a HandleFee wrapper.
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapSatelliteAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

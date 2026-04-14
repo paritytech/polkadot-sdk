@@ -31,16 +31,12 @@ use frame_support::{
 use frame_system::EnsureRoot;
 use pallet_collator_selection::StakingPotAccountId;
 use pallet_xcm::{AuthorizedAliasers, XcmPassthrough};
-use parachains_common::{
-	xcm_config::{
-		AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
-		RelayOrOtherSystemParachains,
-	},
-	TREASURY_PALLET_ID,
+use parachains_common::xcm_config::{
+	AllSiblingSystemParachains, ConcreteAssetFromSystem, ParentRelayOrSiblingParachains,
+	RelayOrOtherSystemParachains,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::{
 	locations::AssetHubLocation, snowbridge::EthereumNetwork,
@@ -72,13 +68,14 @@ parameter_types! {
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
+	// TODO(#11705): remove RelayTreasuryLocation and migrate old treasury funds to DapSatellite.
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	/// The DAP satellite account on this chain.
+	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 	pub DapSatelliteLocation: Location = {
-		let account: AccountId = DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		AccountId32 { network: None, id: account.into() }.into()
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
 	};
+	
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -241,10 +238,9 @@ impl xcm_executor::Config for XcmConfig {
 	type SubscriptionService = PolkadotXcm;
 	type PalletInstancesInfo = AllPalletsWithSystem;
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
-	// TODO: once DAP allocates budgets, split delivery fees to DAP via a HandleFee wrapper.
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapSatelliteAccount>,
 	>;
 	type MessageExporter = (
 		XcmOverBridgeHubRococo,

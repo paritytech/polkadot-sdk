@@ -29,19 +29,40 @@
 //! While `pallet-staking` was somewhat general-purpose, this pallet is absolutely NOT right from
 //! the get-go: It is designed to be used ONLY in Polkadot/Kusama AssetHub system parachains.
 //!
-//! The workings of this pallet can be divided into a number of subsystems, as follows.
+//! ## Reward and Inflation
 //!
-//! ## User Interactions
+//! This pallet supports two reward modes, controlled by [`Config::DisableMinting`]:
 //!
-//! TODO
+//! ### Non-minting mode (`DisableMinting = true`)
 //!
-//! ## Session and Era Rotation
+//! Staking does **not** mint tokens. It expects an external source (e.g. `pallet-dap`) to
+//! fund the general staker reward pot ([`PotAccountProvider`]). At each era boundary,
+//! staking snapshots the accumulated balance into an era-specific pot via
+//! [`EraRewardManager`](reward::EraRewardManager). Payouts transfer from the era pot.
 //!
-//! TODO
+//! Unclaimed rewards from expired eras (past `HistoryDepth`) are withdrawn and passed to
+//! [`Config::UnclaimedRewardHandler`].
 //!
-//! ## Exposure Collection
+//! [`DisableMintingGuard`] is set on the first successful snapshot as a safety net — it
+//! prevents the payout side from falling back to legacy minting for eras that should have
+//! reward pots.
 //!
-//! TODO
+//! ### Legacy minting mode (`DisableMinting = false`)
+//!
+//! At era boundary, [`Config::EraPayout`] computes inflation based on `total_staked`,
+//! `total_issuance`, and era duration. Tokens are minted on-the-fly during `payout_stakers`.
+//! The treasury remainder is sent to [`Config::RewardRemainder`]. [`MaxStakedRewards`] can
+//! cap the staker portion. [`Config::MaxEraDuration`] caps the effective era duration.
+//!
+//! This mode is kept for Kusama/non-polkadot runtime's compatibility where inflation depends on the
+//! staking ratio.
+//!
+//! ### Switching modes
+//!
+//! Switching from legacy to non-minting is a one-way migration. Once `DisableMinting` is
+//! set to `true`, it must **never** be switched back — eras created in non-minting mode
+//! have funded reward pots, and switching to legacy would orphan those pots and cause
+//! double-minting.
 //!
 //! ## Slashing Pipeline and Withdrawal Restrictions
 //!
@@ -191,6 +212,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
+pub mod reward;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
@@ -542,6 +564,79 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	/// - `false` otherwise.
 	fn contains(account: &T::AccountId) -> bool {
 		Ledger::<T>::contains_key(account)
+	}
+}
+
+/// Kind of reward managed by staking pots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum RewardKind {
+	/// Staker rewards (nominators + validators).
+	StakerRewards,
+}
+
+/// Identifies a reward pot account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum RewardPot {
+	/// General pot: funded by an external source (e.g. pallet-dap).
+	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+	General(RewardKind),
+	/// Era-specific pot: snapshotted from the general pot at era boundaries.
+	Era(EraIndex, RewardKind),
+}
+
+/// Trait for generating reward pot account IDs.
+pub trait PotAccountProvider<AccountId> {
+	fn pot_account(pot: RewardPot) -> AccountId;
+}
+
+/// Seed-based pot account provider for production use.
+pub struct Seed<S>(core::marker::PhantomData<S>);
+
+impl<AccountId, S> PotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn pot_account(pot: RewardPot) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating(pot)
+	}
+}
+
+/// Sequential pot account provider for testing.
+#[cfg(feature = "std")]
+pub struct SequentialTest;
+
+#[cfg(feature = "std")]
+impl<AccountId> PotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn pot_account(pot: RewardPot) -> AccountId {
+		match pot {
+			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
+			RewardPot::Era(era, RewardKind::StakerRewards) => {
+				AccountId::from(100_000 + (era as u64 * 10))
+			},
+		}
+	}
+}
+
+/// Budget recipient for staker rewards.
+///
+/// Exposes the general staker reward pot so DAP can drip inflation into it.
+pub struct StakerRewardRecipient<P>(core::marker::PhantomData<P>);
+
+impl<AccountId, P> sp_staking::budget::BudgetRecipient<AccountId> for StakerRewardRecipient<P>
+where
+	P: PotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
 	}
 }
 

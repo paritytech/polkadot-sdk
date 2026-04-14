@@ -382,29 +382,27 @@ impl pallet_bags_list::Config<VoterBagsListInstance> for Runtime {
 	type MaxAutoRebagPerBlock = ();
 }
 
-pub struct EraPayout;
-impl pallet_staking_async::EraPayout<Balance> for EraPayout {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
-		// A normal-sized era will have 1 / 365.25 here:
-		let relative_era_len =
-			FixedU128::from_rational(era_duration_millis.into(), MILLISECONDS_PER_YEAR.into());
+parameter_types! {
+	pub const StakingPotsPalletId: frame_support::PalletId = frame_support::PalletId(*b"py/stkng");
+}
 
-		// Fixed total TI that we use as baseline for the issuance.
+/// Polkadot inflation curve for DAP.
+///
+/// Same computation as the previous `EraPayout` but returns total emission
+/// (the staker/treasury split is now handled by DAP budget allocation).
+pub struct PolkadotIssuanceCurve;
+impl sp_staking::budget::IssuanceCurve<Balance> for PolkadotIssuanceCurve {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		const MILLISECONDS_PER_YEAR: u64 = (1000 * 3600 * 24 * 36525) / 100;
+		let relative_period =
+			FixedU128::from_rational(elapsed_millis.into(), MILLISECONDS_PER_YEAR.into());
+
 		let fixed_total_issuance: i128 = 5_216_342_402_773_185_773;
 		let fixed_inflation_rate = FixedU128::from_rational(8, 100);
 		let yearly_emission = fixed_inflation_rate.saturating_mul_int(fixed_total_issuance);
 
-		let era_emission = relative_era_len.saturating_mul_int(yearly_emission);
-		// 15% to treasury, as per Polkadot ref 1139.
-		let to_treasury = FixedU128::from_rational(15, 100).saturating_mul_int(era_emission);
-		let to_stakers = era_emission.saturating_sub(to_treasury);
-
-		(to_stakers.saturated_into(), to_treasury.saturated_into())
+		let emission = relative_period.saturating_mul_int(yearly_emission);
+		emission.saturated_into()
 	}
 }
 
@@ -424,9 +422,6 @@ parameter_types! {
 	// of nominators.
 	pub const MaxControllersInDeprecationBatch: u32 = 751;
 	pub const MaxNominations: u32 = <NposCompactSolution16 as frame_election_provider_support::NposSolution>::LIMIT as u32;
-	// Note: In WAH, this should be set closer to the ideal era duration to trigger capping more
-	// frequently. On Kusama and Polkadot, a higher value like 7 × ideal_era_duration is more
-	// appropriate.
 	pub const MaxEraDuration: u64 = RelaySessionDuration::get() as u64 * RELAY_CHAIN_SLOT_DURATION_MILLIS as u64 * SessionsPerEra::get() as u64;
 	pub MaxPruningItems: u32 = 100;
 }
@@ -446,7 +441,7 @@ impl pallet_staking_async::Config for Runtime {
 	type SlashDeferDuration = SlashDeferDuration;
 	type NominatorFastUnbondDuration = NominatorFastUnbondDuration;
 	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
-	type EraPayout = EraPayout;
+	type EraPayout = ();
 	type MaxExposurePageSize = MaxExposurePageSize;
 	type ElectionProvider = MultiBlockElection;
 	type VoterList = VoterList;
@@ -459,6 +454,11 @@ impl pallet_staking_async::Config for Runtime {
 	type EventListeners = (NominationPools, DelegatedStaking);
 	type WeightInfo = pallet_staking_async::weights::SubstrateWeight<Runtime>;
 	type MaxEraDuration = MaxEraDuration;
+	type DisableMinting = ConstBool<true>;
+	type UnclaimedRewardHandler = Dap;
+	type RewardPots = pallet_staking_async::Seed<StakingPotsPalletId>;
+	type StakerRewardCalculator =
+		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
 	type MaxPruningItems = MaxPruningItems;
 	type PlanningEraOffset =
 		pallet_staking_async::PlanningEraOffsetOf<Self, RelaySessionDuration, ConstU32<10>>;
@@ -500,8 +500,13 @@ parameter_types! {
 impl pallet_dap::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
-	type IssuanceCurve = ();
-	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type IssuanceCurve = PolkadotIssuanceCurve;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
+	);
 	type Time = pallet_timestamp::Pallet<Runtime>;
 	type IssuanceCadence = DapIssuanceCadence;
 	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
