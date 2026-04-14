@@ -647,6 +647,7 @@ alloy-provider = { version = "1.8.3", default-features = false }
 alloy-rlp = { version = "0.3", default-features = false }
 alloy-rpc-types = { version = "1.8.3", default-features = false }
 alloy-signer-local = { version = "1.8.3", default-features = false }
+alloy-sol-types = { version = "1.5.7", default-features = false }
 alloy-trie = { version = "0.9.1", default-features = false }
 always-assert = { version = "0.1" }
 anyhow = { version = "1.0.81", default-features = false }
@@ -809,6 +810,7 @@ ethereum-standards = { path = "substrate/primitives/ethereum-standards" }
 ethereum-types = { version = "0.15.1", default-features = false }
 exit-future = { version = "0.2.0" }
 expander = { version = "2.0.0" }
+fastbloom = { version = "0.17", default-features = false }
 fatality = { version = "0.1.1" }
 fdlimit = { version = "0.3.0" }
 femme = { version = "2.2.1" }

@@ -14,11 +14,11 @@
 // limitations under the License.
 
 use super::{
-	governance::TreasuryAccount, AccountId, AllPalletsWithSystem, Assets, Balance, Balances,
-	BaseDeliveryFee, CollatorSelection, DepositPerByte, DepositPerItem, FeeAssetId,
-	FellowshipAdmin, ForeignAssets, GeneralAdmin, ParachainInfo, ParachainSystem, PolkadotXcm,
-	PoolAssets, Runtime, RuntimeCall, RuntimeEvent, RuntimeHoldReason, RuntimeOrigin, StakingAdmin,
-	ToRococoXcmRouter, TransactionByteFee, Treasurer, Uniques, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, Assets, Balance, Balances, BaseDeliveryFee, CollatorSelection,
+	DepositPerByte, DepositPerItem, FeeAssetId, FellowshipAdmin, ForeignAssets, GeneralAdmin,
+	ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets, Runtime, RuntimeCall, RuntimeEvent,
+	RuntimeHoldReason, RuntimeOrigin, StakingAdmin, ToRococoXcmRouter, TransactionByteFee,
+	Treasurer, Uniques, WeightToFee, XcmpQueue,
 };
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 use assets_common::{
@@ -213,6 +213,7 @@ parameter_types! {
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
 	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
 	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+	pub DapBufferAccount: AccountId = crate::staking::DapPalletId::get().into_account_truncating();
 }
 
 /// Transactor for ERC20 tokens.
@@ -457,10 +458,9 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = PoolAssetsExchanger;
-	// TODO: once DAP allocates budgets, split delivery fees to DAP via a HandleFee wrapper.
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapBufferAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases =
