@@ -60,6 +60,7 @@ mod v1 {
 	use alloc::vec::Vec;
 	use frame_support::{traits::UncheckedOnRuntimeUpgrade, weights::Weight};
 	use polkadot_primitives::Id as ParaId;
+	use sp_core::Get;
 
 	#[cfg(feature = "try-runtime")]
 	use codec::{Decode, Encode};
