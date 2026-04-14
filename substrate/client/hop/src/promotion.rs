@@ -155,49 +155,245 @@ impl HopMaintenanceTask {
 	pub async fn run(self) {
 		loop {
 			futures_timer::Delay::new(Duration::from_secs(self.check_interval_secs)).await;
-			let current_block = (self.best_block)();
+			self.tick();
+		}
+	}
 
-			// Promote near-expiry entries if a promoter is available.
-			if let Some(ref promoter) = self.promoter {
-				const PROMOTION_BATCH_SIZE: usize = 10;
-				let entries = self.hop_pool.get_promotable(
-					current_block,
-					self.buffer_blocks,
-					PROMOTION_BATCH_SIZE,
-				);
-				for (hash, data) in entries {
-					let size = data.len();
-					match promoter.promote(data) {
-						Ok(()) => {
-							self.hop_pool.mark_promoted(&hash);
-							tracing::info!(
-								target: "hop",
-								hash = ?hex::encode(hash),
-								size,
-								"Promoted HOP entry to on-chain storage"
-							);
-						},
-						Err(e) => {
-							tracing::warn!(
-								target: "hop",
-								hash = ?hex::encode(hash),
-								error = %e,
-								"Failed to promote HOP entry, will retry"
-							);
-						},
-					}
+	/// Execute a single maintenance cycle: promote near-expiry entries and clean up expired ones.
+	pub fn tick(&self) {
+		let current_block = (self.best_block)();
+
+		// Promote near-expiry entries if a promoter is available.
+		if let Some(ref promoter) = self.promoter {
+			const PROMOTION_BATCH_SIZE: usize = 10;
+			let entries =
+				self.hop_pool.get_promotable(current_block, self.buffer_blocks, PROMOTION_BATCH_SIZE);
+			for (hash, data) in entries {
+				let size = data.len();
+				match promoter.promote(data) {
+					Ok(()) => {
+						self.hop_pool.mark_promoted(&hash);
+						tracing::info!(
+							target: "hop",
+							hash = ?hex::encode(hash),
+							size,
+							"Promoted HOP entry to on-chain storage"
+						);
+					},
+					Err(e) => {
+						tracing::warn!(
+							target: "hop",
+							hash = ?hex::encode(hash),
+							error = %e,
+							"Failed to promote HOP entry, will retry"
+						);
+					},
 				}
 			}
+		}
 
-			// Always clean up expired entries.
-			let freed = self.hop_pool.cleanup_expired(current_block);
-			if freed > 0 {
-				tracing::info!(
-					target: "hop",
-					freed_bytes = freed,
-					"Cleaned up expired HOP entries"
-				);
+		// Always clean up expired entries.
+		let freed = self.hop_pool.cleanup_expired(current_block);
+		if freed > 0 {
+			tracing::info!(
+				target: "hop",
+				freed_bytes = freed,
+				"Cleaned up expired HOP entries"
+			);
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{pool::HopDataPool, types::SenderId};
+	use sp_core::{crypto::Pair, ed25519};
+	use sp_runtime::MultiSigner;
+	use std::sync::Mutex;
+	use tempfile::TempDir;
+
+	const SENDER_A: SenderId = [1u8; 32];
+
+	fn test_recipient() -> (ed25519::Pair, MultiSigner) {
+		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
+		let signer = MultiSigner::Ed25519(pair.public());
+		(pair, signer)
+	}
+
+	struct MockPromoter {
+		calls: Mutex<Vec<Vec<u8>>>,
+		should_fail: bool,
+	}
+
+	impl MockPromoter {
+		fn new(should_fail: bool) -> Self {
+			Self { calls: Mutex::new(Vec::new()), should_fail }
+		}
+
+		fn call_count(&self) -> usize {
+			self.calls.lock().unwrap().len()
+		}
+
+		fn calls(&self) -> Vec<Vec<u8>> {
+			self.calls.lock().unwrap().clone()
+		}
+	}
+
+	impl HopPromoter for MockPromoter {
+		fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+			self.calls.lock().unwrap().push(data);
+			if self.should_fail {
+				Err("mock failure".into())
+			} else {
+				Ok(())
 			}
 		}
+	}
+
+	#[test]
+	fn tick_promotes_near_expiry_entries() {
+		let dir = TempDir::new().unwrap();
+		// retention=100 blocks
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		// Insert at block 0, expires at block 100.
+		let hash = pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
+
+		let promoter = Arc::new(MockPromoter::new(false));
+		let task = HopMaintenanceTask::new(
+			pool.clone(),
+			Some(promoter.clone()),
+			Arc::new(|| 80), // current block = 80
+			30,              // buffer = 30 → 80+30=110 >= 100 → promotable
+			60,
+		);
+
+		task.tick();
+
+		assert_eq!(promoter.call_count(), 1);
+		assert_eq!(promoter.calls()[0], vec![42u8; 10]);
+
+		// Entry should be marked as promoted (not removed, just flagged).
+		assert!(pool.has(&hash));
+		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		assert!(promotable.is_empty(), "promoted entry should not be re-promoted");
+	}
+
+	#[test]
+	fn tick_skips_promotion_when_no_promoter() {
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
+
+		let task = HopMaintenanceTask::new(
+			pool.clone(),
+			None, // no promoter
+			Arc::new(|| 80),
+			30,
+			60,
+		);
+
+		task.tick();
+
+		// Entry should still be promotable (no promoter to process it).
+		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		assert_eq!(promotable.len(), 1);
+	}
+
+	#[test]
+	fn tick_does_not_mark_promoted_on_failure() {
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
+
+		let promoter = Arc::new(MockPromoter::new(true)); // will fail
+		let task = HopMaintenanceTask::new(
+			pool.clone(),
+			Some(promoter.clone()),
+			Arc::new(|| 80),
+			30,
+			60,
+		);
+
+		task.tick();
+
+		// Promoter was called but failed.
+		assert_eq!(promoter.call_count(), 1);
+
+		// Entry should still be promotable (not marked as promoted).
+		let promotable = pool.get_promotable(80, 30, usize::MAX);
+		assert_eq!(promotable.len(), 1);
+	}
+
+	#[test]
+	fn tick_cleans_up_expired_entries() {
+		let dir = TempDir::new().unwrap();
+		// retention=10 blocks
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 10, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		pool.insert(vec![42u8; 50], 0, vec![signer], SENDER_A).unwrap();
+		assert_eq!(pool.status().entry_count, 1);
+
+		let task = HopMaintenanceTask::new(
+			pool.clone(),
+			None,
+			Arc::new(|| 10), // block 10 → entry at block 0 with retention 10 is expired
+			5,
+			60,
+		);
+
+		task.tick();
+
+		assert_eq!(pool.status().entry_count, 0);
+		assert_eq!(pool.status().total_bytes, 0);
+	}
+
+	#[test]
+	fn tick_promotes_then_cleans_up_independently() {
+		let dir = TempDir::new().unwrap();
+		// retention=100
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let (_, signer) = test_recipient();
+
+		// Entry A: inserted at block 0, expires at 100 — near expiry at block 80 with buffer 30.
+		pool.insert(vec![1u8; 10], 0, vec![signer.clone()], SENDER_A).unwrap();
+		// Entry B: inserted at block 0 with retention 100 but we'll test at block 100 where it's
+		// expired. Actually both entries have the same retention. Let's use a different pool.
+
+		// Simpler: one entry near expiry (promotable), one entry expired.
+		// We need different retention for different entries, but pool has one retention value.
+		// Instead: insert entry at block 0 (expires at 100). At block 80, it's promotable.
+		// After promotion, advance to block 100 — it's now expired and should be cleaned.
+
+		let promoter = Arc::new(MockPromoter::new(false));
+
+		// First tick at block 80: promote.
+		let block = Arc::new(Mutex::new(80u32));
+		let block_clone = block.clone();
+		let task = HopMaintenanceTask::new(
+			pool.clone(),
+			Some(promoter.clone()),
+			Arc::new(move || *block_clone.lock().unwrap()),
+			30,
+			60,
+		);
+
+		task.tick();
+		assert_eq!(promoter.call_count(), 1);
+		assert_eq!(pool.status().entry_count, 1); // still in pool
+
+		// Second tick at block 100: cleanup expired.
+		*block.lock().unwrap() = 100;
+		task.tick();
+		assert_eq!(pool.status().entry_count, 0); // cleaned up
+		// Promoter not called again (already promoted).
+		assert_eq!(promoter.call_count(), 1);
 	}
 }

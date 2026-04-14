@@ -437,7 +437,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			if let Some(ref pool) = hop_pool {
 				let task_pool = pool.clone();
 				let task_client = client.clone();
-				let check_interval = node_extra_args.hop_check_interval;
+				let check_interval = node_extra_args.hop.check_interval;
 				task_manager.spawn_handle().spawn("hop-cleanup", None, async move {
 					loop {
 						futures_timer::Delay::new(Duration::from_secs(check_interval)).await;

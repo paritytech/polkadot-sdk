@@ -65,6 +65,10 @@ where
 }
 
 /// Convenience trait that defines the basic bounds for the `RuntimeApi` of a parachain node.
+///
+/// All bounds are compile-time requirements. Runtimes that do not support optional features
+/// (e.g. `TransactionStorageApi`, `HopApi`) should provide stub implementations. See
+/// [`fake_runtime_api::utils`] for the canonical example.
 pub trait NodeRuntimeApi<Block: BlockT>:
 	ApiExt<Block>
 	+ Metadata<Block>
@@ -134,18 +138,6 @@ pub struct NodeExtraArgs {
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 
-	/// If true then the HOP data pool will be enabled.
-	pub enable_hop: bool,
-
-	/// HOP maximum data pool size in MiB.
-	pub hop_max_pool_size_mb: u64,
-
-	/// HOP data retention period in blocks.
-	pub hop_retention_blocks: u32,
-
-	/// HOP expiry cleanup interval in seconds.
-	pub hop_check_interval: u64,
-
-	/// Directory for HOP persistent data storage.
-	pub hop_data_dir: Option<PathBuf>,
+	/// HOP (Hand-Off Protocol) configuration parameters.
+	pub hop: sc_hop::HopParams,
 }

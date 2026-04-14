@@ -56,7 +56,7 @@ use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
 use polkadot_primitives::{CollatorPair, UpgradeGoAhead};
 use prometheus_endpoint::Registry;
-use sc_client_api::{Backend, BlockchainEvents};
+use sc_client_api::{Backend, BlockchainEvents, HeaderBackend};
 use sc_client_db::DbHash;
 use sc_consensus::{
 	import_queue::{BasicQueue, Verifier as VerifierT},
@@ -76,6 +76,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
+	SaturatedConversion,
 };
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
@@ -221,10 +222,11 @@ where
 		// Destructure all fields so the compiler enforces handling new args.
 		let NodeExtraArgs {
 			authoring_policy,
-			export_pov,
+			ref export_pov,
 			max_pov_percentage,
-			statement_store_config,
-			storage_monitor,
+			ref statement_store_config,
+			ref storage_monitor,
+			ref hop,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -263,14 +265,14 @@ where
 
 		let metrics = NotificationMetrics::new(None);
 
-		let statement_handler_proto = statement_store_config.map(|ss_config| {
+		let statement_handler_proto = statement_store_config.as_ref().map(|ss_config| {
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
 				&metrics,
 				&mut net_config,
 			);
-			(proto, ss_config)
+			(proto, ss_config.clone())
 		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -415,12 +417,39 @@ where
 				);
 			},
 		}
+		let hop_pool = crate::common::hop::build_hop_pool(
+			&node_extra_args,
+			config.database.path().map(|p| p.to_path_buf()),
+		)?;
+		if let Some(ref pool) = hop_pool {
+			let task_pool = pool.clone();
+			let task_client = client.clone();
+			let check_interval = hop.check_interval;
+			task_manager.spawn_handle().spawn("hop-cleanup", None, async move {
+				loop {
+					futures_timer::Delay::new(std::time::Duration::from_secs(check_interval))
+						.await;
+					let block: u32 =
+						task_client.info().best_number.saturated_into();
+					let freed = task_pool.cleanup_expired(block);
+					if freed > 0 {
+						log::info!(
+							target: "hop",
+							"Cleaned up expired HOP entries, freed {} bytes",
+							freed,
+						);
+					}
+				}
+			});
+		}
+
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let rpc_extensions_builder = {
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
+			let hop_pool = hop_pool.clone();
 
 			Box::new(move |_| {
 				let module = Self::BuildRpcExtensions::build_rpc_extensions(
@@ -428,7 +457,7 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					statement_store.clone(),
-					None,
+					hop_pool.clone(),
 					spawn_handle.clone(),
 				)?;
 				Ok(module)
@@ -456,7 +485,7 @@ where
 		// Spawn the storage monitor.
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
-				storage_monitor,
+				storage_monitor.clone(),
 				database_path,
 				&task_manager.spawn_essential_handle(),
 			)

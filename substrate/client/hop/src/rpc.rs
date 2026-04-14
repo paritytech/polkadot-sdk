@@ -15,6 +15,10 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 //! HOP (Hand-Off protocol) RPC interface implementation.
+//!
+//! All HOP RPC methods are subject to the node's global rate limit configured via
+//! `--rpc-rate-limit` (calls per minute per connection). No HOP-specific rate limiting
+//! is needed.
 
 use crate::{
 	pool::HopDataPool,
@@ -192,5 +196,262 @@ where
 
 	fn pool_status(&self) -> RpcResult<PoolStatus> {
 		Ok(self.pool.status())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::pool::HopDataPool;
+	use codec::Encode;
+	use sp_blockchain::{self, Info};
+	use sp_core::{crypto::Pair, ed25519};
+	use sp_runtime::{traits::NumberFor, MultiSigner};
+	use sp_test_primitives::Block;
+	use std::sync::atomic::{AtomicBool, Ordering};
+	use tempfile::TempDir;
+
+	struct MockClient {
+		authorized: AtomicBool,
+	}
+
+	impl MockClient {
+		fn new(authorized: bool) -> Self {
+			Self { authorized: AtomicBool::new(authorized) }
+		}
+	}
+
+	impl HeaderBackend<Block> for MockClient {
+		fn header(
+			&self,
+			_hash: <Block as BlockT>::Hash,
+		) -> sp_blockchain::Result<Option<<Block as BlockT>::Header>> {
+			Ok(None)
+		}
+
+		fn info(&self) -> Info<Block> {
+			Info {
+				best_hash: Default::default(),
+				best_number: 0u64,
+				genesis_hash: Default::default(),
+				finalized_hash: Default::default(),
+				finalized_number: 0u64,
+				finalized_state: None,
+				number_leaves: 0,
+				block_gap: None,
+			}
+		}
+
+		fn status(
+			&self,
+			_hash: <Block as BlockT>::Hash,
+		) -> sp_blockchain::Result<sp_blockchain::BlockStatus> {
+			Ok(sp_blockchain::BlockStatus::Unknown)
+		}
+
+		fn number(
+			&self,
+			_hash: <Block as BlockT>::Hash,
+		) -> sp_blockchain::Result<Option<NumberFor<Block>>> {
+			Ok(None)
+		}
+
+		fn hash(
+			&self,
+			_number: NumberFor<Block>,
+		) -> sp_blockchain::Result<Option<<Block as BlockT>::Hash>> {
+			Ok(None)
+		}
+	}
+
+	/// Mock runtime API that delegates to MockClient.
+	struct MockRuntimeApi {
+		authorized: bool,
+	}
+
+	sp_api::mock_impl_runtime_apis! {
+		impl sp_hop::HopApi<Block, AccountId32> for MockRuntimeApi {
+			fn is_account_authorized(_who: AccountId32) -> bool {
+				self.authorized
+			}
+
+			fn create_promotion_extrinsic(_data: Vec<u8>) -> <Block as BlockT>::Extrinsic {
+				unimplemented!()
+			}
+
+			fn max_promotion_size() -> u32 {
+				64 * 1024 * 1024
+			}
+		}
+	}
+
+	impl sp_api::ProvideRuntimeApi<Block> for MockClient {
+		type Api = MockRuntimeApi;
+		fn runtime_api(&self) -> sp_api::ApiRef<MockRuntimeApi> {
+			MockRuntimeApi { authorized: self.authorized.load(Ordering::Relaxed) }.into()
+		}
+	}
+
+	fn setup(authorized: bool) -> (HopRpcServer<MockClient, Block>, Arc<HopDataPool>, TempDir) {
+		let dir = TempDir::new().unwrap();
+		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let client = Arc::new(MockClient::new(authorized));
+		let rpc = HopRpcServer::new(pool.clone(), client);
+		(rpc, pool, dir)
+	}
+
+
+	fn make_keypair() -> (ed25519::Pair, MultiSigner) {
+		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
+		let signer = MultiSigner::Ed25519(pair.public());
+		(pair, signer)
+	}
+
+	fn sign_data(pair: &ed25519::Pair, data: &[u8]) -> (Bytes, Bytes) {
+		let hash = H256(blake2_256(data));
+		let sig = pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Ed25519(sig);
+		(Bytes(multi_sig.encode()), Bytes(hash.0.to_vec()))
+	}
+
+	#[test]
+	fn submit_invalid_scale_signer_returns_error() {
+		let (rpc, _, _dir) = setup(true);
+		let result = rpc.submit(
+			Bytes(vec![1, 2, 3]),
+			vec![],
+			Bytes(vec![0u8; 3]), // invalid signature SCALE
+			Bytes(vec![0u8; 3]), // invalid signer SCALE
+		);
+		// Signer is decoded first, so InvalidSigner error
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.message().contains("SCALE-decode MultiSigner"), "got: {}", err.message());
+	}
+
+	#[test]
+	fn submit_invalid_scale_signature_returns_error() {
+		let (rpc, _, _dir) = setup(true);
+		let (_, signer) = make_keypair();
+		let result = rpc.submit(
+			Bytes(vec![1, 2, 3]),
+			vec![],
+			Bytes(vec![0u8; 3]), // invalid signature SCALE
+			Bytes(signer.encode()),
+		);
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.message().contains("Invalid signature"), "got: {}", err.message());
+	}
+
+	#[test]
+	fn submit_bad_signature_returns_error() {
+		let (rpc, _, _dir) = setup(true);
+		let (_, signer) = make_keypair();
+		// Sign with a different key
+		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
+		let data = vec![1, 2, 3];
+		let hash = H256(blake2_256(&data));
+		let sig = wrong_pair.sign(hash.as_bytes());
+		let multi_sig = MultiSignature::Ed25519(sig);
+
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			Bytes(multi_sig.encode()),
+			Bytes(signer.encode()),
+		);
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.message().contains("Invalid signature"), "got: {}", err.message());
+	}
+
+	#[test]
+	fn submit_unauthorized_account_returns_error() {
+		let (rpc, _, _dir) = setup(false); // not authorized
+		let (pair, signer) = make_keypair();
+		let data = vec![1, 2, 3];
+		let (sig, _) = sign_data(&pair, &data);
+
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+		);
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.message().contains("authorization"), "got: {}", err.message());
+	}
+
+	#[test]
+	fn submit_success() {
+		let (rpc, pool, _dir) = setup(true);
+		let (pair, signer) = make_keypair();
+		let data = vec![1, 2, 3, 4, 5];
+		let (sig, _) = sign_data(&pair, &data);
+
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+		);
+		assert!(result.is_ok(), "submit failed: {:?}", result.err());
+		let submit_result = result.unwrap();
+		assert_eq!(submit_result.pool_status.entry_count, 1);
+		assert_eq!(submit_result.pool_status.total_bytes, 5);
+		assert_eq!(pool.status().entry_count, 1);
+	}
+
+	#[test]
+	fn claim_invalid_hash_length() {
+		let (rpc, _, _dir) = setup(true);
+		let result = rpc.claim(Bytes(vec![0u8; 31]), Bytes(vec![0u8; 64]));
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.message().contains("expected 32 bytes"), "got: {}", err.message());
+	}
+
+	#[test]
+	fn claim_and_ack_through_rpc() {
+		let (rpc, _, _dir) = setup(true);
+		let (pair, signer) = make_keypair();
+		let data = vec![10, 20, 30];
+		let (sig, _) = sign_data(&pair, &data);
+
+		// Submit
+		rpc.submit(
+			Bytes(data.clone()),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+		)
+		.unwrap();
+
+		// Claim
+		let hash = H256(blake2_256(&data));
+		let claim_sig = pair.sign(hash.as_bytes());
+		let multi_claim_sig = MultiSignature::Ed25519(claim_sig);
+		let encoded_claim_sig = Bytes(multi_claim_sig.encode());
+
+		let claimed = rpc.claim(Bytes(hash.0.to_vec()), encoded_claim_sig.clone()).unwrap();
+		assert_eq!(claimed.0, data);
+
+		// Ack
+		rpc.ack(Bytes(hash.0.to_vec()), encoded_claim_sig).unwrap();
+
+		// Pool should be empty
+		let status = rpc.pool_status().unwrap();
+		assert_eq!(status.entry_count, 0);
+	}
+
+	#[test]
+	fn pool_status_returns_correct_values() {
+		let (rpc, _, _dir) = setup(true);
+		let status = rpc.pool_status().unwrap();
+		assert_eq!(status.entry_count, 0);
+		assert_eq!(status.total_bytes, 0);
+		assert_eq!(status.max_bytes, 1024 * 1024);
 	}
 }

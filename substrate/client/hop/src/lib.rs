@@ -54,10 +54,10 @@
 //! use std::sync::Arc;
 //!
 //! // Conditional initialization (SDK pattern)
-//! let hop_pool = hop_params.enable_hop.then(|| {
+//! let hop_pool = hop_params.enabled.then(|| {
 //!     HopDataPool::new(
-//!         hop_params.hop_max_pool_size * 1024 * 1024,  // Convert MiB to bytes
-//!         hop_params.hop_retention_blocks,
+//!         hop_params.max_pool_size * 1024 * 1024,  // Convert MiB to bytes
+//!         hop_params.retention_blocks,
 //!     )
 //!     .map(Arc::new)
 //!     .map_err(|e| format!("Failed to create HOP pool: {}", e))

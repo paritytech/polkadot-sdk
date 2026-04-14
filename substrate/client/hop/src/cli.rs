@@ -39,36 +39,36 @@ use clap::Parser;
 #[derive(Debug, Clone, Parser)]
 pub struct HopParams {
 	/// Enable HOP
-	#[arg(long)]
-	pub enable_hop: bool,
+	#[arg(long = "enable-hop")]
+	pub enabled: bool,
 
 	/// HOP maximum data pool size in MiB
-	#[arg(long, default_value_t = DEFAULT_MAX_POOL_SIZE_MIB)]
-	pub hop_max_pool_size: u64,
+	#[arg(long = "hop-max-pool-size", default_value_t = DEFAULT_MAX_POOL_SIZE_MIB)]
+	pub max_pool_size: u64,
 
 	/// HOP data retention period in blocks (24h = 14400 blocks at 6s per block)
-	#[arg(long, default_value_t = DEFAULT_RETENTION_BLOCKS)]
-	pub hop_retention_blocks: u32,
+	#[arg(long = "hop-retention-blocks", default_value_t = DEFAULT_RETENTION_BLOCKS)]
+	pub retention_blocks: u32,
 
 	/// HOP expiry cleanup interval in seconds
-	#[arg(long, default_value = "60")]
-	pub hop_check_interval: u64,
+	#[arg(long = "hop-check-interval", default_value = "60")]
+	pub check_interval: u64,
 
 	/// Directory for HOP persistent data storage.
 	///
 	/// If not specified, defaults to `<chain-data-dir>/hop`.
-	#[arg(long)]
-	pub hop_data_dir: Option<std::path::PathBuf>,
+	#[arg(long = "hop-data-dir")]
+	pub data_dir: Option<std::path::PathBuf>,
 }
 
 impl Default for HopParams {
 	fn default() -> Self {
 		Self {
-			enable_hop: false,
-			hop_max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
-			hop_retention_blocks: DEFAULT_RETENTION_BLOCKS,
-			hop_check_interval: 60,
-			hop_data_dir: None,
+			enabled: false,
+			max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
+			retention_blocks: DEFAULT_RETENTION_BLOCKS,
+			check_interval: 60,
+			data_dir: None,
 		}
 	}
 }

@@ -23,12 +23,12 @@ pub(crate) fn build_hop_pool(
 	node_extra_args: &NodeExtraArgs,
 	database_path: Option<PathBuf>,
 ) -> sc_service::error::Result<Option<Arc<HopDataPool>>> {
-	if !node_extra_args.enable_hop {
+	if !node_extra_args.hop.enabled {
 		log::info!(target: "hop", "HOP data pool is disabled (use --enable-hop to enable)");
 		return Ok(None);
 	}
 
-	let data_dir = match &node_extra_args.hop_data_dir {
+	let data_dir = match &node_extra_args.hop.data_dir {
 		Some(dir) => dir.clone(),
 		None => database_path
 			.ok_or_else(|| {
@@ -41,20 +41,20 @@ pub(crate) fn build_hop_pool(
 
 	log::info!(
 		target: "hop",
-		"🔄 Initializing HOP data pool: max_size={}MiB, retention={} blocks, data_dir={}",
-		node_extra_args.hop_max_pool_size_mb,
-		node_extra_args.hop_retention_blocks,
+		"Initializing HOP data pool: max_size={}MiB, retention={} blocks, data_dir={}",
+		node_extra_args.hop.max_pool_size,
+		node_extra_args.hop.retention_blocks,
 		data_dir.display(),
 	);
 
 	let pool = HopDataPool::new(
-		node_extra_args.hop_max_pool_size_mb * 1024 * 1024,
-		node_extra_args.hop_retention_blocks,
+		node_extra_args.hop.max_pool_size * 1024 * 1024,
+		node_extra_args.hop.retention_blocks,
 		data_dir,
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
-	log::info!(target: "hop", "✅ HOP data pool initialized, RPC methods will be registered");
+	log::info!(target: "hop", "HOP data pool initialized, RPC methods will be registered");
 
 	Ok(Some(Arc::new(pool)))
 }

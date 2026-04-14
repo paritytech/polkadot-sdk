@@ -21245,8 +21245,10 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-hop",
  "sp-runtime 31.0.1",
+ "sp-test-primitives",
  "tempfile",
  "thiserror 1.0.65",
+ "tokio",
  "tracing",
 ]
 
