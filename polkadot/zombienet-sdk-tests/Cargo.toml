@@ -31,8 +31,8 @@ sp-maybe-compressed-blob = { workspace = true }
 subxt = { workspace = true, default-features = false }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-util = { workspace = true, features = ["time"] }
-zombienet-orchestrator = { git = "https://github.com/paritytech/zombienet-sdk", branch = "tsv-restart-with" }
-zombienet-sdk = { git = "https://github.com/paritytech/zombienet-sdk", branch = "tsv-restart-with" }
+zombienet-orchestrator = { workspace = true }
+zombienet-sdk = { workspace = true }
 
 [features]
 zombie-metadata = []

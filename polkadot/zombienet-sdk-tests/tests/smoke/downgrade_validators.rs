@@ -16,13 +16,13 @@ use crate::utils::{env_or_default, initialize_network, COL_IMAGE_ENV};
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::assert_para_throughput;
 use polkadot_primitives::Id as ParaId;
-use zombienet_sdk::{subxt::PolkadotConfig, NetworkConfig, NetworkConfigBuilder};
+use zombienet_sdk::{subxt::PolkadotConfig, NetworkConfig, NetworkConfigBuilder, AssetLocation};
 
 const PARA_ID: u32 = 1000;
 const POLKADOT_IMAGE_RC: &str = "docker.io/parity/polkadot:stable2603-rc3";
 const POLKADOT_IMAGE_DOWNGRADE: &str = "docker.io/parity/polkadot:v1.21.2";
 const VALIDATOR_NAMES: &[&str] = &["validator-0", "validator-1", "validator-2"];
-const COLLATOR_IMAGES: &str = "docker.io/paritypr/test-parachain:master-aa06cd0e";
+const COLLATOR_IMAGE: &str = "docker.io/paritypr/test-parachain:master-99670e97";
 
 /// Downgrade test that verifies validator image downgrade does not break the network.
 ///
@@ -43,17 +43,23 @@ async fn downgrade_validators_test() -> Result<(), anyhow::Error> {
 
 	// Assert network is working before downgrade.
 	log::info!("Asserting para throughput before downgrade");
-	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 10..25)]).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 5..11)]).await?;
 	log::info!("Network is operating correctly with {}", POLKADOT_IMAGE_RC);
 
 	// Restart all validators with the downgraded image.
 	log::info!("Restarting all validators with image {}", POLKADOT_IMAGE_DOWNGRADE);
+	let needed_asstes: Vec<AssetLocation> = vec![
+		"https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-2/polkadot".into(),
+		"https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-2/polkadot-execute-worker".into(),
+		"https://github.com/paritytech/polkadot-sdk/releases/download/polkadot-stable2512-2/polkadot-prepare-worker".into(),
+	];
+
 	for name in VALIDATOR_NAMES {
 		let node = network.get_node(*name)?;
 		node.restart_with(
-			Some("/Users/ceco/parity/src/psdk-v1.21.2/target/testnet/polkadot".to_string()),
+			needed_asstes.clone(),
+			Some(String::from("polkadot")),
 			Some(vec![("-lparachain=debug").into()]),
-			None,
 			None,
 		)
 		.await?;
@@ -82,7 +88,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 			let r = r
 				.with_chain("rococo-local")
 				.with_default_command(
-					"/Users/ceco/parity/src/psdk-stable2603/target/testnet/polkadot",
+					"polkadot",
 				)
 				.with_default_image(POLKADOT_IMAGE_RC)
 							.with_default_args(vec![
@@ -99,7 +105,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
-				.with_default_image(COLLATOR_IMAGES)
+				.with_default_image(COLLATOR_IMAGE)
 				.with_collator(|n| n.with_name("collator-1000"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
