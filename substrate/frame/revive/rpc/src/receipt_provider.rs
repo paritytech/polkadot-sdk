@@ -624,7 +624,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		for chunk in all_logs.chunks(self.db_ctx.log_insert_chunk_size) {
 			let mut qb = QueryBuilder::<Sqlite>::new(
-				"INSERT INTO logs(block_hash, transaction_index, log_index, address, block_number, transaction_hash, topic_0, topic_1, topic_2, topic_3, data) ",
+				"INSERT OR REPLACE INTO logs(block_hash, transaction_index, log_index, address, block_number, transaction_hash, topic_0, topic_1, topic_2, topic_3, data) ",
 			);
 			qb.push_values(chunk, |mut b, (tx_index, tx_hash, log)| {
 				b.push_bind(ethereum_hash_ref)
@@ -1705,6 +1705,36 @@ mod tests {
 			provider.insert(&block, &receipts, &ethereum_hash).await?;
 			assert_receipts_inserted(&provider, &block, &ethereum_hash, &receipts).await;
 		}
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_duplicate_insert_succeeds(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await.with_keep_latest(None);
+		let block = MockBlockInfo { hash: make_hash(0, 0xAA), number: 1 };
+		let ethereum_hash = make_hash(0, 0xBB);
+		let receipts = make_receipts(5, 3);
+
+		// First insert.
+		provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 5);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 15);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
+
+		// Delete only the block mapping so the EXISTS guard won't short-circuit.
+		sqlx::query("DELETE FROM eth_to_substrate_blocks")
+			.execute(&provider.db_ctx.pool)
+			.await?;
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 0);
+
+		// Second insert hits the actual INSERT OR REPLACE statements.
+		provider.insert_into_db(&block, &receipts, &ethereum_hash).await?;
+
+		// Row counts unchanged — no duplicates.
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 5);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", Some(ethereum_hash)).await, 15);
+		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
+
 		Ok(())
 	}
 
