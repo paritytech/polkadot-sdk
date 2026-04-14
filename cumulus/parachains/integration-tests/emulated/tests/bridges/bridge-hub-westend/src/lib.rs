@@ -46,11 +46,11 @@ mod imports {
 	pub(crate) use parachains_common::AccountId;
 	pub(crate) use rococo_westend_system_emulated_network::{
 		asset_hub_rococo_emulated_chain::{
-			asset_hub_rococo_runtime::{xcm_config::TreasuryAccount, ForeignAssetReserveData},
-			genesis::ED as ASSET_HUB_ROCOCO_ED,
+			asset_hub_rococo_runtime::ForeignAssetReserveData, genesis::ED as ASSET_HUB_ROCOCO_ED,
 			AssetHubRococoParaPallet as AssetHubRococoPallet,
 		},
 		asset_hub_westend_emulated_chain::{
+			asset_hub_westend_runtime::xcm_config::DapBufferAccount,
 			genesis::{AssetHubWestendAssetOwner, ED as ASSET_HUB_WESTEND_ED},
 			AssetHubWestendParaPallet as AssetHubWestendPallet,
 		},

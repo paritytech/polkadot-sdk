@@ -1348,7 +1348,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 16 }>; // MaxVotes * TRACKS_DATA length
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
@@ -1504,8 +1504,8 @@ type PsmStableAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
-///
-/// Root gets Full privileges; GeneralAdmin gets Emergency.
+/// - Root gets Full privileges (all parameter changes).
+/// - MonetaryGuard gets Emergency privileges (circuit breaker only).
 pub struct EnsurePsmManager;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 	type Success = pallet_psm::PsmManagerLevel;
@@ -1516,7 +1516,9 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
 			_ => o,
 		};
-		governance::GeneralAdmin::try_origin(o).map(|_| pallet_psm::PsmManagerLevel::Emergency)
+		// Try MonetaryGuard — circuit breaker only.
+		pallet_custom_origins::MonetaryGuard::try_origin(o)
+			.map(|_| pallet_psm::PsmManagerLevel::Emergency)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1767,6 +1769,35 @@ parameter_types! {
 	);
 }
 
+/// Provides the initial `LastIssuanceTimestamp` for DAP migration.
+pub struct DapLastIssuanceTimestamp;
+impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
+	fn get() -> u64 {
+		pallet_staking_async::ActiveEra::<Runtime>::get()
+			.and_then(|era| era.start)
+			.unwrap_or(0)
+	}
+}
+
+/// Default budget: 85% staker rewards, 15% buffer.
+pub struct DefaultDapBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		use sp_runtime::Perbill;
+		use sp_staking::budget::BudgetRecipientList;
+
+		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
+		// [dap (buffer), StakerRewardRecipient]
+		let percentages = [Perbill::from_percent(15), Perbill::from_percent(85)];
+
+		let mut map = pallet_dap::BudgetAllocationMap::new();
+		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
+			let _ = map.try_insert(key, perbill);
+		}
+		map
+	}
+}
+
 /// Migrations to apply on runtime upgrade.
 pub type Migrations = (
 	// v9420
@@ -1806,8 +1837,10 @@ pub type Migrations = (
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
+	// unreleased
 	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
 	pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
+	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2011,6 +2044,7 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
+		[pallet_dap, Dap]
 		[pallet_election_provider_multi_block, MultiBlockElection]
 		[pallet_election_provider_multi_block::verifier, MultiBlockElectionVerifier]
 		[pallet_election_provider_multi_block::unsigned, MultiBlockElectionUnsigned]

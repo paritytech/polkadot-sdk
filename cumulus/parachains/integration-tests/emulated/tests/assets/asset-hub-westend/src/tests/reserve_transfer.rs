@@ -303,9 +303,9 @@ fn system_para_to_para_assets_sender_assertions(t: SystemParaToParaTest) {
 				),
 				amount: *amount == t.args.amount,
 			},
-			// Native asset to pay for fees is transferred to Parachain's Sovereign account
+			// Delivery fees are deposited to the DAP buffer account.
 			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
-				who: *who == TreasuryAccount::get(),
+				who: *who == DapBufferAccount::get(),
 			},
 			// Delivery fees are paid
 			RuntimeEvent::PolkadotXcm(
