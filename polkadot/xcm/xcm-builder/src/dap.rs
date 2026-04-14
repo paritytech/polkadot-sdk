@@ -32,27 +32,27 @@ use xcm_executor::XcmExecutor;
 const LOG_TARGET: &str = "xcm::dap";
 
 /// XCM adapter that implements [`sp_dap::SendToDap`] by teleporting native tokens to
-/// the satellite accumulation account on a destination chain. The execution is transactional:
+/// the DAP staging account on a destination chain. The execution is transactional:
 /// if anything fails, all local state changes are rolled back.
-pub struct SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, AccumulationLocation>(
-	PhantomData<(XcmConfig, Dest, NativeAsset, AccumulationLocation)>,
+pub struct SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, StagingLocation>(
+	PhantomData<(XcmConfig, Dest, NativeAsset, StagingLocation)>,
 );
 
-impl<XcmConfig, Dest, NativeAsset, AccumulationLocation, AccountId, Balance>
+impl<XcmConfig, Dest, NativeAsset, StagingLocation, AccountId, Balance>
 	sp_dap::SendToDap<AccountId, Balance>
-	for SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, AccumulationLocation>
+	for SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, StagingLocation>
 where
 	XcmConfig: xcm_executor::Config,
 	Dest: Get<Location>,
 	NativeAsset: Get<Location>,
-	AccumulationLocation: Get<InteriorLocation>,
+	StagingLocation: Get<InteriorLocation>,
 	AccountId: Into<[u8; 32]> + Clone,
 	Balance: Into<u128> + Copy,
 {
 	fn send_native(source: AccountId, amount: Balance) -> Result<(), ()> {
 		let dest = Dest::get();
 		let asset = Asset { id: AssetId(NativeAsset::get()), fun: Fungible(amount.into()) };
-		let beneficiary: Location = AccumulationLocation::get().into_location();
+		let beneficiary: Location = StagingLocation::get().into_location();
 
 		let remote_xcm = Xcm(vec![DepositAsset { assets: Wild(AllCounted(1)), beneficiary }]);
 

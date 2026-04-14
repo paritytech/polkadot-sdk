@@ -26,8 +26,8 @@ use sp_dap::DAP_BUFFER_PALLET_ID;
 use sp_runtime::traits::AccountIdConversion;
 use xcm_emulator::{Chain, TestExt};
 
-/// Tests that the DAP satellite accumulates native tokens, teleports them to the satellite
-/// accumulation account on AssetHub, and that `pallet-dap`'s `on_idle` subsequently drains and
+/// Tests that the DAP satellite accumulates native tokens, teleports them to the staging
+/// account on AssetHub, and that `pallet-dap`'s `on_idle` subsequently drains and
 /// deactivates those funds into the main DAP buffer account.
 pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(fund_sender: fn(AccountId, Balance))
 where
@@ -51,8 +51,8 @@ where
 	let sender_ed = <Sender::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
 	let ah_ed = <AH::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
 	let satellite_account = pallet_dap_satellite::Pallet::<Sender::Runtime>::satellite_account();
-	let dap_accum_account: AccountId = sp_dap::DAP_BUFFER_PALLET_ID
-		.into_sub_account_truncating(sp_dap::DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID);
+	let dap_staging_account: AccountId = sp_dap::DAP_BUFFER_PALLET_ID
+		.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID);
 	let dap_buffer_account: AccountId = DAP_BUFFER_PALLET_ID.into_account_truncating();
 
 	// The fund amount should slightly exceed MinTransferAmount to trigger a transfer.
@@ -110,17 +110,17 @@ where
 	assert_eq!(sender_total_issuance_after, sender_total_issuance_before - available_funds);
 
 	// The XCM message is delivered to AH on the first execute_with call. Funds land in the
-	// satellite accumulation account; the buffer and inactive issuance are unchanged at this point.
+	// DAP staging account; the buffer and inactive issuance are unchanged at this point.
 	let amount_received = AH::execute_with(|| {
 		let mq_processed = AH::events().into_iter().any(|e| {
 			matches!(e.try_into(), Ok(pallet_message_queue::Event::Processed { success: true, .. }))
 		});
 		assert!(mq_processed, "Expected MessageQueue::Processed(success: true) on AssetHub");
 
-		let accum_balance = pallet_balances::Pallet::<AH::Runtime>::balance(&dap_accum_account);
+		let staging_balance = pallet_balances::Pallet::<AH::Runtime>::balance(&dap_staging_account);
 		let ah_ed_balance = <AH::Runtime as pallet_balances::Config>::ExistentialDeposit::get();
-		let received = accum_balance.saturating_sub(ah_ed_balance);
-		assert!(received > 0, "Satellite accumulation account should have received funds");
+		let received = staging_balance.saturating_sub(ah_ed_balance);
+		assert!(received > 0, "DAP staging account should have received funds");
 
 		// Buffer and inactive issuance are still unchanged — drain hasn't happened yet.
 		assert_eq!(
@@ -141,7 +141,7 @@ where
 		received
 	});
 
-	// Trigger `pallet_dap::on_idle` to drain the accumulation account into the buffer and
+	// Trigger `pallet_dap::on_idle` to drain the staging account into the buffer and
 	// deactivate the funds.
 	AH::execute_with(|| {
 		let _ = <pallet_dap::Pallet<AH::Runtime> as Hooks<u32>>::on_idle(1, Weight::MAX);

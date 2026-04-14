@@ -41,9 +41,9 @@ fn dap_buffer_account() -> AccountId {
 	DapPalletId::get().into_account_truncating()
 }
 
-fn satellite_accumulation_account() -> AccountId {
+fn dap_staging_account() -> AccountId {
 	sp_dap::DAP_BUFFER_PALLET_ID
-		.into_sub_account_truncating(sp_dap::DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID)
+		.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
 }
 
 fn asset_hub_westend_genesis(
@@ -56,10 +56,10 @@ fn asset_hub_westend_genesis(
 	foreign_assets_endowed_accounts: Vec<(Location, AccountId, Balance)>,
 ) -> serde_json::Value {
 	// Fund DAP buffer account with ED so it can receive slashes. Also fund the
-	// satellite accumulation account with ED so it can receive cross-chain teleports.
+	// DAP staging account with ED so it can receive incoming funds.
 	let mut balances: Vec<_> = endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect();
 	balances.push((dap_buffer_account(), ASSET_HUB_WESTEND_ED));
-	balances.push((satellite_accumulation_account(), ASSET_HUB_WESTEND_ED));
+	balances.push((dap_staging_account(), ASSET_HUB_WESTEND_ED));
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig { balances },

@@ -135,11 +135,11 @@ pub mod system_parachain {
 		parameter_types! {
 			/// The pallet ID.
 			pub const DapSatellitePalletId: PalletId = sp_dap::DAP_SATELLITE_PALLET_ID;
-			/// The interior location of the satellite accumulation account on AssetHub.
-			pub DapSatelliteAccumulationLocation: InteriorLocation = Junction::AccountId32 {
+			/// The interior location of the DAP staging account on AssetHub.
+			pub DapStagingLocation: InteriorLocation = Junction::AccountId32 {
 				network: None,
 				id: sp_dap::DAP_BUFFER_PALLET_ID
-				.into_sub_account_truncating(sp_dap::DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID),
+				.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID),
 			}
 			.into();
 			/// How often the satellite flushes its buffer to the central DAP.

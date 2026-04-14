@@ -609,7 +609,7 @@ impl pallet_dap_satellite::Config for Runtime {
 		xcm_config::XcmConfig,
 		testnet_parachains_constants::westend::locations::AssetHubLocation,
 		xcm_config::RelayLocation,
-		DapSatelliteAccumulationLocation,
+		DapStagingLocation,
 	>;
 	type TransferPeriod = DapSatelliteTransferPeriod;
 	type MinTransferAmount = DapSatelliteMinTransferAmount;

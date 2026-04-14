@@ -1755,7 +1755,7 @@ impl pallet_dap_satellite::Config for Runtime {
 		xcm_config::XcmConfig,
 		xcm_config::AssetHub,
 		xcm_config::TokenLocation,
-		DapSatelliteAccumulationLocation,
+		DapStagingLocation,
 	>;
 	type TransferPeriod = DapSatelliteTransferPeriod;
 	type MinTransferAmount = DapSatelliteMinTransferAmount;

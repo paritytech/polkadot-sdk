@@ -31,8 +31,8 @@ pub const DAP_BUFFER_PALLET_ID: PalletId = PalletId(*b"dap/buff");
 /// The [`PalletId`] used to derive the DAP satellite account on satellite chains.
 pub const DAP_SATELLITE_PALLET_ID: PalletId = PalletId(*b"dap/satl");
 
-/// Sub-account identifier used to derive the satellite accumulation account.
-pub const DAP_SATELLITE_ACCUMULATION_ACCOUNT_ID: &[u8] = b"accumulation";
+/// Sub-account identifier used to derive the DAP staging account.
+pub const DAP_STAGING_ACCOUNT_ID: &[u8] = b"staging";
 
 /// Trait for dispatching the transfer to the central DAP.
 ///
