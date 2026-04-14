@@ -140,8 +140,7 @@ macro_rules! upsert_sync_label {
 	}};
 }
 
-/// Macro because `sqlx::query!` doesn't accept a generic executor — this lets callers pass
-/// either a pool or a transaction.
+/// Macro so callers can pass either a pool or a transaction.
 macro_rules! insert_block_mapping {
 	($executor:expr, $block_map:expr) => {{
 		let ethereum_hash_ref = $block_map.ethereum_hash.as_ref();
@@ -341,7 +340,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 		log::debug!(target: LOG_TARGET, "Removing block hashes: {block_mappings:?}");
 
-		let mut tx = self.db_ctx.pool.begin().await?;
+		let mut db_tx = self.db_ctx.pool.begin().await?;
 
 		for chunk in block_mappings.chunks(self.db_ctx.max_variable_number) {
 			let placeholders = vec!["?"; chunk.len()].join(", ");
@@ -363,12 +362,12 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					delete_mappings_query.bind(block_map.substrate_hash.as_ref());
 			}
 
-			delete_tx_query.execute(&mut *tx).await?;
-			delete_logs_query.execute(&mut *tx).await?;
-			delete_mappings_query.execute(&mut *tx).await?;
+			delete_tx_query.execute(&mut *db_tx).await?;
+			delete_logs_query.execute(&mut *db_tx).await?;
+			delete_mappings_query.execute(&mut *db_tx).await?;
 		}
 
-		tx.commit().await?;
+		db_tx.commit().await?;
 		Ok(())
 	}
 
@@ -583,9 +582,10 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		receipts: &[(TransactionSigned, ReceiptInfo)],
 		ethereum_hash: &H256,
 	) -> Result<(), ClientError> {
+		let block_number = block.number() as i64;
 		let substrate_block_hash = block.hash();
 		let substrate_hash_ref = substrate_block_hash.as_ref();
-		let block_number = block.number() as i64;
+		let ethereum_hash_ref = ethereum_hash.as_ref();
 
 		log::trace!(target: LOG_TARGET, "Inserting receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}");
 
@@ -608,19 +608,18 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			return Ok(());
 		}
 
-		let ethereum_hash_ref = ethereum_hash.as_ref();
-		let mut tx = self.db_ctx.pool.begin().await?;
+		let mut db_tx = self.db_ctx.pool.begin().await?;
 
 		for chunk in receipts.chunks(self.db_ctx.tx_insert_chunk_size) {
-			let mut qb = QueryBuilder::<Sqlite>::new(
+			let mut query_builder = QueryBuilder::<Sqlite>::new(
 				"INSERT OR REPLACE INTO transaction_hashes (transaction_hash, block_hash, transaction_index) ",
 			);
-			qb.push_values(chunk, |mut b, (_, receipt)| {
-				b.push_bind(receipt.transaction_hash.as_ref() as &[u8])
+			query_builder.push_values(chunk, |mut row, (_, receipt)| {
+				row.push_bind(receipt.transaction_hash.as_ref() as &[u8])
 					.push_bind(substrate_hash_ref)
 					.push_bind(receipt.transaction_index.as_u32() as i32);
 			});
-			qb.build().execute(&mut *tx).await?;
+			query_builder.build().execute(&mut *db_tx).await?;
 		}
 
 		let all_logs: Vec<(i32, &[u8], &Log)> = receipts
@@ -633,11 +632,11 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.collect();
 
 		for chunk in all_logs.chunks(self.db_ctx.log_insert_chunk_size) {
-			let mut qb = QueryBuilder::<Sqlite>::new(
+			let mut query_builder = QueryBuilder::<Sqlite>::new(
 				"INSERT OR REPLACE INTO logs(block_hash, transaction_index, log_index, address, block_number, transaction_hash, topic_0, topic_1, topic_2, topic_3, data) ",
 			);
-			qb.push_values(chunk, |mut b, (tx_index, tx_hash, log)| {
-				b.push_bind(ethereum_hash_ref)
+			query_builder.push_values(chunk, |mut row, (tx_index, tx_hash, log)| {
+				row.push_bind(ethereum_hash_ref)
 					.push_bind(*tx_index)
 					.push_bind(log.log_index.as_u32() as i32)
 					.push_bind(log.address.as_ref() as &[u8])
@@ -649,13 +648,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 					.push_bind(log.topics.get(3).map(|v| &v[..]))
 					.push_bind(log.data.as_ref().map(|v| &v.0[..]));
 			});
-			qb.build().execute(&mut *tx).await?;
+			query_builder.build().execute(&mut *db_tx).await?;
 		}
 
 		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-		insert_block_mapping!(&mut *tx, &block_map)?;
+		insert_block_mapping!(&mut *db_tx, &block_map)?;
 
-		tx.commit().await?;
+		db_tx.commit().await?;
 		log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
 
 		Ok(())
@@ -1668,27 +1667,28 @@ mod tests {
 		n_tx: usize,
 		n_logs: usize,
 	) -> Vec<(TransactionSigned, ReceiptInfo)> {
-		(0..n_tx)
-			.map(|i| {
-				let transaction_hash = make_hash(tx_offset + i, 0x00);
-				let logs = (0..n_logs)
-					.map(|j| Log {
-						transaction_hash,
-						log_index: U256::from(j),
-						..Default::default()
-					})
-					.collect();
-				(
-					TransactionSigned::default(),
-					ReceiptInfo {
-						transaction_hash,
-						transaction_index: U256::from(i),
-						logs,
-						..Default::default()
-					},
-				)
-			})
-			.collect()
+		let mut receipts = Vec::with_capacity(n_tx);
+
+		for i in 0..n_tx {
+			let transaction_hash = make_hash(tx_offset + i, 0x00);
+
+			let mut logs = Vec::with_capacity(n_logs);
+			for j in 0..n_logs {
+				logs.push(Log { transaction_hash, log_index: U256::from(j), ..Default::default() });
+			}
+
+			receipts.push((
+				TransactionSigned::default(),
+				ReceiptInfo {
+					transaction_hash,
+					transaction_index: U256::from(i),
+					logs,
+					..Default::default()
+				},
+			));
+		}
+
+		receipts
 	}
 
 	async fn assert_receipts_inserted(
@@ -1773,9 +1773,12 @@ mod tests {
 		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
 		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
 
-		// Second insert for the same block is a no-op.
-		provider.insert(&block, &[], &ethereum_hash).await?;
+		// Second insert for the same block is a no-op, even with receipts.
+		let receipts = make_receipts(0, 3, 2);
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 1);
+		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
+		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
 
 		Ok(())
 	}
