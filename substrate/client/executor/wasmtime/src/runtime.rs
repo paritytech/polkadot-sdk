@@ -295,22 +295,13 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 	const WASM_PAGE_SIZE: u64 = 65536;
 
 	config.memory_init_cow(use_cow);
-	config.memory_guaranteed_dense_image_size(match semantics.heap_alloc_strategy {
-		HeapAllocStrategy::Dynamic { maximum_pages } => {
-			maximum_pages.map(|p| p as u64 * WASM_PAGE_SIZE).unwrap_or(u64::MAX)
-		},
-		HeapAllocStrategy::Static { .. } => u64::MAX,
-	});
+	// Always use the maximum possible dense image size. Per-instance `StoreLimits`
+	// enforce the actual memory cap, so the engine-level setting just needs to be
+	// large enough to never be the bottleneck.
+	config.memory_guaranteed_dense_image_size(u64::MAX);
 
 	if use_pooling {
 		const MAX_WASM_PAGES: u64 = 0x10000;
-
-		let memory_pages = match semantics.heap_alloc_strategy {
-			HeapAllocStrategy::Dynamic { maximum_pages } => {
-				maximum_pages.map(|p| p as u64).unwrap_or(MAX_WASM_PAGES)
-			},
-			HeapAllocStrategy::Static { .. } => MAX_WASM_PAGES,
-		};
 
 		let mut pooling_config = wasmtime::PoolingAllocationConfig::default();
 		pooling_config
@@ -324,7 +315,12 @@ fn common_config(semantics: &Semantics) -> std::result::Result<wasmtime::Config,
 			//   memory_pages: 2070
 			.max_core_instance_size(512 * 1024)
 			.table_elements(8192)
-			.max_memory_size(memory_pages as usize * WASM_PAGE_SIZE as usize)
+			// Always reserve the maximum WASM memory (4GB virtual address space per
+			// slot). This is only virtual memory (mmap with PROT_NONE), not physical
+			// RAM. The actual per-instance memory limit is enforced by `StoreLimits`
+			// set at instantiation time, which may vary between calls (e.g. doubled
+			// for block import). The pool must accommodate the largest possible limit.
+			.max_memory_size(MAX_WASM_PAGES as usize * WASM_PAGE_SIZE as usize)
 			.total_tables(MAX_INSTANCE_COUNT)
 			.total_memories(MAX_INSTANCE_COUNT)
 			// This determines how many instances of the module can be
