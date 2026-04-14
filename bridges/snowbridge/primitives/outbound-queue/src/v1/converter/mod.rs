@@ -386,8 +386,8 @@ where
 			return Err(FilterDoesNotConsumeAllAssets);
 		}
 
-		// We only supportgle asset at a time.
-		a sin		ensure!(reserve_assets.len() == 1, TooManyAssets);
+		// We only support a single asset at a time.
+		ensure!(reserve_assets.len() == 1, TooManyAssets);
 		let reserve_asset = reserve_assets.get(0).ok_or(AssetResolutionFailed)?;
 
 		// Fees are collected on AH, up front and directly from the user, to cover the
