@@ -233,13 +233,23 @@ jobs:
           python3 .github/scripts/flaky-report.py 'junit-reports/*/junit*.xml' | tee test-report.md
           cat test-report.md >> $GITHUB_STEP_SUMMARY
       - name: Comment on PR
-        if: github.event_name == 'pull_request'
+        # Skip for PRs from forks — github.token is read-only there and gh API calls would 403
+        if: github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork
         env:
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
+          # Delete previous test report comment if it exists
+          PREV_COMMENT_ID=$(gh api "repos/${{ github.repository }}/issues/${PR_NUMBER}/comments" \
+            --paginate --jq '.[] | select(.body | contains("<!-- test-report -->")) | .id' | head -1)
+          if [ -n "$PREV_COMMENT_ID" ]; then
+            gh api "repos/${{ github.repository }}/issues/comments/${PREV_COMMENT_ID}" -X DELETE
+          fi
           # Only comment when there are flaky or failed tests
           if grep -qE '[1-9][0-9]* (failed|flaky)' test-report.md; then
-            gh pr comment ${{ github.event.pull_request.number }} --body-file test-report.md
+            # Prepend a hidden marker so we can find this comment on re-runs
+            { echo '<!-- test-report -->'; cat test-report.md; } > pr-comment.md
+            gh pr comment "${PR_NUMBER}" --body-file pr-comment.md
           fi
       - name: Check job results
         if: always()
