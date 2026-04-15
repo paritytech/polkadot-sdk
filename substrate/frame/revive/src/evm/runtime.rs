@@ -762,7 +762,7 @@ mod test {
 			let expected = frame_system::calculate_consumed_extrinsic_weight::<CallOf<Test>>(
 				&<Test as frame_system::Config>::BlockWeights::get(),
 				&info,
-				usize::from(encoded_len),
+				encoded_len as usize,
 			);
 
 			assert_eq!(reported, expected);

@@ -1983,7 +1983,7 @@ impl<T: Config> Pallet<T> {
 		Ok(frame_system::calculate_consumed_extrinsic_weight::<CallOf<T>>(
 			&T::BlockWeights::get(),
 			&info,
-			usize::from(call_info.encoded_len),
+			call_info.encoded_len as usize,
 		))
 	}
 
