@@ -301,57 +301,56 @@ impl CollationManager {
 		self.claim_queue_state.all_free_slots()
 	}
 
-	/// Returns the core index assigned to the validator group at `scheduling_parent`, or `None` if
-	/// the scheduling parent is not tracked.
-	pub fn core_index_for_scheduling_parent(&self, scheduling_parent: &Hash) -> Option<CoreIndex> {
-		self.per_scheduling_parent.get(scheduling_parent).map(|psp| psp.core_index)
-	}
-
 	pub async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		advertisement: Advertisement,
+		scheduling_parent: Hash,
+		para_id: ParaId,
+		peer_id: PeerId,
+		prospective_candidate: Option<ProspectiveCandidate>,
+		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Some(per_sp) = self.per_scheduling_parent.get_mut(&advertisement.scheduling_parent)
-		else {
+		let Some(per_sp) = self.per_scheduling_parent.get_mut(&scheduling_parent) else {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
 		// V1 advertisements are only allowed on active leaves.
-		if advertisement.prospective_candidate.is_none() &&
-			!self.implicit_view.contains_leaf(&advertisement.scheduling_parent)
+		if prospective_candidate.is_none() && !self.implicit_view.contains_leaf(&scheduling_parent)
 		{
 			return Err(AdvertisementError::V1AdvertisementForImplicitParent);
 		}
 
 		// V3 candidate descriptors require scheduling_parent to be the block from the last
 		// finished relay chain slot.
-		if advertisement.advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) {
-			if !is_scheduling_parent_valid(
-				&advertisement.scheduling_parent,
-				&self.leaf_scheduling_info,
-			) {
+		if advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) {
+			if !is_scheduling_parent_valid(&scheduling_parent, &self.leaf_scheduling_info) {
 				return Err(AdvertisementError::SchedulingParentNotValid);
 			}
 		}
 
 		let now = Instant::now();
 
-		let max_assignments = self
-			.claim_queue_state
-			.count_all_slots_for_para_at(&advertisement.scheduling_parent, &advertisement.para_id);
+		let max_assignments =
+			self.claim_queue_state.count_all_slots_for_para_at(&scheduling_parent, &para_id);
 
 		if max_assignments == 0 {
 			return Err(AdvertisementError::InvalidAssignment);
 		}
 
-		if let Some(ProspectiveCandidate { candidate_hash, .. }) =
-			advertisement.prospective_candidate
-		{
+		if let Some(ProspectiveCandidate { candidate_hash, .. }) = prospective_candidate {
 			if per_sp.fetched_collations.contains_key(&candidate_hash) {
 				return Err(AdvertisementError::Duplicate);
 			}
 		}
+
+		let advertisement = Advertisement {
+			peer_id,
+			para_id,
+			scheduling_parent,
+			prospective_candidate,
+			advertised_descriptor_version,
+			core_index: per_sp.core_index,
+		};
 
 		if self.fetching.contains(&advertisement) {
 			return Err(AdvertisementError::Duplicate);
@@ -544,7 +543,14 @@ impl CollationManager {
 					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
-				self.can_begin_seconding(sender, fetched_collation, true, reject_info, Some(advertisement.core_index)).await
+				self.can_begin_seconding(
+					sender,
+					fetched_collation,
+					true,
+					reject_info,
+					Some(advertisement.core_index),
+				)
+				.await
 			},
 			Err(rep_change) => CanSecond::No(rep_change, reject_info),
 		}
@@ -610,13 +616,16 @@ impl CollationManager {
 			self.get_fetched_collation_peer_id(scheduling_parent, candidate_hash).copied();
 
 		// This can be simplified once CollatorProtocol V1 is retired.
-		let core_index = core_index
-			.or_else(|| {
-				self.per_scheduling_parent.get(scheduling_parent).map(|psp| psp.core_index)
-			});
+		let core_index = core_index.or_else(|| {
+			self.per_scheduling_parent.get(scheduling_parent).map(|psp| psp.core_index)
+		});
 
-		self.claim_queue_state
-			.claim_seconded_slot(scheduling_parent, para_id, candidate_hash, core_index);
+		self.claim_queue_state.claim_seconded_slot(
+			scheduling_parent,
+			para_id,
+			candidate_hash,
+			core_index,
+		);
 
 		// See if we've unblocked other collations here too.
 		let maybe_unblocked = self.blocked_from_seconding.remove(&BlockedCollationId {
@@ -636,8 +645,9 @@ impl CollationManager {
 				),
 				maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
 			};
-			let can_second =
-				self.can_begin_seconding(sender, fetched_collation, false, reject_info, core_index).await;
+			let can_second = self
+				.can_begin_seconding(sender, fetched_collation, false, reject_info, core_index)
+				.await;
 			unblocked_can_second.push(can_second)
 		}
 
@@ -784,17 +794,18 @@ impl CollationManager {
 		fetched_collation: FetchedCollation,
 		queue_blocked_collations: bool,
 		reject_info: SecondingRejectionInfo,
-		core_index: Option<CoreIndex>
+		core_index: Option<CoreIndex>,
 	) -> CanSecond {
 		let scheduling_parent = fetched_collation.scheduling_parent();
 		let candidate_hash = fetched_collation.candidate_receipt.hash();
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
 
 		// This can be simplified once CollatorProtocol V1 is retired.
-		let core_index = core_index
-			.or_else(|| {
-				self.per_scheduling_parent.get(&fetched_collation.candidate_receipt.descriptor.scheduling_parent()).map(|psp| psp.core_index)
-			});
+		let core_index = core_index.or_else(|| {
+			self.per_scheduling_parent
+				.get(&fetched_collation.candidate_receipt.descriptor.scheduling_parent())
+				.map(|psp| psp.core_index)
+		});
 
 		let fetch_pvd_res = fetch_pvd(
 			sender,

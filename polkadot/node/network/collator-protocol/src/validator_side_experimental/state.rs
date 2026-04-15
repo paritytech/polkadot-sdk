@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
+			TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -258,18 +258,6 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
-		let Some(core_index) =
-			self.collation_manager.core_index_for_scheduling_parent(&scheduling_parent)
-		else {
-			gum::debug!(
-				target: LOG_TARGET,
-				?scheduling_parent,
-				?peer_id,
-				"Received advertisement for scheduling parent not in our view",
-			);
-			return;
-		};
-
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
@@ -278,14 +266,11 @@ impl<B: Backend> State<B> {
 			.collation_manager
 			.try_accept_advertisement(
 				sender,
-				Advertisement {
-					peer_id,
-					para_id: *para_id,
-					scheduling_parent,
-					prospective_candidate: maybe_prospective_candidate,
-					advertised_descriptor_version,
-					core_index,
-				},
+				scheduling_parent,
+				*para_id,
+				peer_id,
+				maybe_prospective_candidate,
+				advertised_descriptor_version,
 			)
 			.await
 		{
@@ -487,7 +472,7 @@ impl<B: Backend> State<B> {
 				&para_id,
 				&candidate_hash,
 				receipt.descriptor.para_head(),
-				core_id
+				core_id,
 			)
 			.await;
 
