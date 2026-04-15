@@ -2593,14 +2593,20 @@ mod dap {
 				));
 
 				// Dust lands in staging first (two-phase deactivation).
-				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before + dust);
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&staging),
+					staging_before + dust
+				);
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 
 				// After on_idle: staging drains into buffer and deactivates.
 				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
-				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before + dust);
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&buffer),
+					buffer_before + dust
+				);
 				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
 	}
