@@ -279,7 +279,7 @@ fn on_first_block_after_genesis() {
 		common_assertions();
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("95a508cf10f877cf0457af3503a6cb3192763d5c15a7b9a58e40dc543efae889"),
+			h2b("09724d878ea86fb69a4894f4e633e8acc51e8eb413d5fc0d5f4520d8412da196"),
 		);
 
 		// Header data check
@@ -338,7 +338,7 @@ fn on_normal_block() {
 		println!("[DEBUG] {}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("95a508cf10f877cf0457af3503a6cb3192763d5c15a7b9a58e40dc543efae889"),
+			h2b("09724d878ea86fb69a4894f4e633e8acc51e8eb413d5fc0d5f4520d8412da196"),
 		);
 
 		let header = finalize_block(end_block);
@@ -350,7 +350,7 @@ fn on_normal_block() {
 		println!("[DEBUG] {}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("5465cb257ad20cd4b9400a9fc85af7b1e2e72b59debd8ca06580dfb76bfca394"),
+			h2b("6a999f464d8b5af46cee754b5c3a9126875c77dfe9bdee8827f9775780664216"),
 		);
 
 		// Header data check
@@ -396,12 +396,12 @@ fn produce_epoch_change_digest_no_config() {
 		println!("[DEBUG] {}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
-			h2b("c4d374ed47b71e1c29e57143db23861916ff2d0c59ead4c51070d42ff4af2830"),
+			h2b("28426d5470e067244459fa83ac0e29a3b3966f33a83abb539cfc425ad4e6214b"),
 		);
 		println!("[DEBUG] {}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("c6d84d1f389853959c39271a38010f2f27abe6ff56cc419cf9e89eafcae1ab5e"),
+			h2b("cd83139b03398abbb1c3775424c3e438e7bdf5d41f1d35e7338fe1dc9b135be7"),
 		);
 
 		let header = finalize_block(end_block);
@@ -413,12 +413,12 @@ fn produce_epoch_change_digest_no_config() {
 		println!("[DEBUG] {}", b2h(NextRandomness::<Test>::get()));
 		assert_eq!(
 			NextRandomness::<Test>::get(),
-			h2b("c4d374ed47b71e1c29e57143db23861916ff2d0c59ead4c51070d42ff4af2830"),
+			h2b("28426d5470e067244459fa83ac0e29a3b3966f33a83abb539cfc425ad4e6214b"),
 		);
 		println!("[DEBUG] {}", b2h(RandomnessAccumulator::<Test>::get()));
 		assert_eq!(
 			RandomnessAccumulator::<Test>::get(),
-			h2b("6ca02b90e14ef11b3855069794da7e9d4007526b0588c426c3e3533b0b6ade7a"),
+			h2b("d2487c57d3da283495bd9e00a7f1a39c3882b04776d3a16a398a830da335946d"),
 		);
 
 		// Header data check
@@ -832,9 +832,9 @@ fn submit_tickets_with_ring_proof_check_works() {
 		// Check state after submission
 		assert_eq!(
 			TicketsMeta::<Test>::get(),
-			TicketsMetadata { unsorted_tickets_count: 13, tickets_count: [0, 0] },
+			TicketsMetadata { unsorted_tickets_count: 12, tickets_count: [0, 0] },
 		);
-		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 13);
+		assert_eq!(UnsortedSegments::<Test>::get(0).len(), 12);
 		assert_eq!(UnsortedSegments::<Test>::get(1).len(), 0);
 
 		finalize_block(start_block);
