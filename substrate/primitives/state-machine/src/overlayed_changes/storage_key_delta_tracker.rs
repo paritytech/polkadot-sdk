@@ -148,7 +148,6 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 	{
 		trace!(target:LOG_TARGET, "add_key: {:?}/{:?}", key, op);
 		let hash = self.hasher.hash_one(&key);
-		// Insert into current dirty keys (HashMap dedup happens automatically)
 		self.current.dirty_keys.insert(hash, (key, op));
 	}
 
