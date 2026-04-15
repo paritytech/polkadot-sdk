@@ -447,7 +447,7 @@ where
 	P::Signature: Codec,
 {
 	let mut runtime_api = client.runtime_api();
-	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	let authorities = runtime_api.authorities(parent_hash).map_err(Box::new)?;
 
 	// Determine the current slot and timestamp based on the relay-parent's.
