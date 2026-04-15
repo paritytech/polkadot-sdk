@@ -8,8 +8,8 @@
 //! slot the node signs nudges with and the slot the runtime checks against.
 
 use polkadot_test_client::{
-	ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder,
-	TestClientBuilderExt,
+	Client, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
+	TestClientBuilder, TestClientBuilderExt,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::BlockOrigin;
@@ -45,7 +45,10 @@ fn bob_babe_pair() -> sp_core::sr25519::Pair {
 #[test]
 fn block_with_oracle_inherent_builds_and_imports() {
 	let client = TestClientBuilder::new().build();
-
+	let price_before = client
+		.runtime_api()
+		.current_price(client.chain_info().best_hash)
+		.expect("price before");
 	let now_ms = std::time::SystemTime::now()
 		.duration_since(std::time::UNIX_EPOCH)
 		.unwrap()
@@ -61,6 +64,11 @@ fn block_with_oracle_inherent_builds_and_imports() {
 	let block = block_builder.build().expect("Finalizes the block").block;
 
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
+	let price_after = client
+		.runtime_api()
+		.current_price(client.chain_info().best_hash)
+		.expect("price after");
+	assert_eq!(price_after, price_before + FixedU128::from_rational(1, 100));
 }
 
 #[test]

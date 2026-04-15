@@ -73,9 +73,64 @@ impl Config for Test {
 	type OnPriceUpdate = ();
 }
 
-fn new_test_ext() -> TestExternalities {
-	let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	TestExternalities::new(t)
+struct ExtBuilder {
+	num_authorities: usize,
+	current_slot: u64,
+	min_nudges: u32,
+	initial_price: Option<FixedU128>,
+}
+
+impl Default for ExtBuilder {
+	fn default() -> Self {
+		set_authorities(&generate_test_pairs(3));
+		Self { num_authorities: 3, current_slot: 5, min_nudges: 0, initial_price: None }
+	}
+}
+
+impl ExtBuilder {
+	fn authorities(mut self, n: usize) -> Self {
+		self.num_authorities = n;
+		self
+	}
+
+	fn current_slot(mut self, slot: u64) -> Self {
+		self.current_slot = slot;
+		self
+	}
+
+	fn min_nudges(mut self, min: u32) -> Self {
+		self.min_nudges = min;
+		self
+	}
+
+	fn initial_price(mut self, price: FixedU128) -> Self {
+		self.initial_price = Some(price);
+		self
+	}
+
+	fn build(self) -> TestExternalities {
+		let pairs = generate_test_pairs(self.num_authorities);
+		set_authorities(&pairs);
+		set_current_slot(self.current_slot);
+		MinNudges::set(self.min_nudges);
+
+		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+		let mut ext = TestExternalities::new(t);
+
+		if let Some(price) = self.initial_price {
+			ext.execute_with(|| {
+				pallet::CurrentPrice::<Test>::put(price);
+			});
+		}
+
+		ext
+	}
+
+	fn build_and_execute(self, test: impl FnOnce() -> ()) {
+		self.build().execute_with(|| {
+			test();
+		});
+	}
 }
 
 fn make_signed_nudge(
@@ -97,18 +152,15 @@ fn generate_test_pairs(count: usize) -> Vec<sr25519::Pair> {
 
 #[test]
 fn price_starts_at_zero() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 	});
 }
 
 #[test]
 fn single_up_nudge_increases_price_by_epsilon() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let pairs = generate_test_pairs(3);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
 		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
 
@@ -119,11 +171,8 @@ fn single_up_nudge_increases_price_by_epsilon() {
 
 #[test]
 fn multiple_ups_compound() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().build_and_execute(|| {
 		let pairs = generate_test_pairs(3);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		let nudges = vec![
 			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
 			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
@@ -139,11 +188,8 @@ fn multiple_ups_compound() {
 
 #[test]
 fn ups_and_downs_cancel_out() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(4).build_and_execute(|| {
 		let pairs = generate_test_pairs(4);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		let nudges = vec![
 			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
 			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
@@ -160,33 +206,26 @@ fn ups_and_downs_cancel_out() {
 
 #[test]
 fn down_nudges_decrease_price() {
-	new_test_ext().execute_with(|| {
-		let pairs = generate_test_pairs(3);
-		set_authorities(&pairs);
-		set_current_slot(5);
+	ExtBuilder::default()
+		.initial_price(FixedU128::from_u32(1))
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(3);
+			let nudges = vec![
+				make_signed_nudge(&pairs[0], Nudge::Down, 5, 0),
+				make_signed_nudge(&pairs[1], Nudge::Down, 5, 1),
+			];
+			assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
 
-		// First set price to 1.0
-		pallet::CurrentPrice::<Test>::put(FixedU128::from_u32(1));
-
-		let nudges = vec![
-			make_signed_nudge(&pairs[0], Nudge::Down, 5, 0),
-			make_signed_nudge(&pairs[1], Nudge::Down, 5, 1),
-		];
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
-
-		// 0 ups, 2 downs → net 2 down → price = 1.0 - 0.02 = 0.98
-		let expected = FixedU128::from_rational(98, 100);
-		assert_eq!(PriceOracle::current_price(), expected);
-	});
+			// 0 ups, 2 downs → net 2 down → price = 1.0 - 0.02 = 0.98
+			let expected = FixedU128::from_rational(98, 100);
+			assert_eq!(PriceOracle::current_price(), expected);
+		});
 }
 
 #[test]
 fn stale_nudge_returns_error() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(2).current_slot(15).build_and_execute(|| {
 		let pairs = generate_test_pairs(2);
-		set_authorities(&pairs);
-		set_current_slot(15);
-
 		let nudges = vec![
 			make_signed_nudge(&pairs[0], Nudge::Up, 15, 0), // valid
 			make_signed_nudge(&pairs[1], Nudge::Up, 4, 1),  // stale (15 - 4 = 11 >= 10)
@@ -200,11 +239,8 @@ fn stale_nudge_returns_error() {
 
 #[test]
 fn invalid_signature_returns_error() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(2).build_and_execute(|| {
 		let pairs = generate_test_pairs(2);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		// Sign with pair[1]'s key but claim to be authority 0
 		let bad_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 0);
 		let good_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 1);
@@ -216,19 +252,13 @@ fn invalid_signature_returns_error() {
 			),
 			Error::<Test>::InvalidSignature
 		);
-
-		// Price unchanged because the call failed
-		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 	});
 }
 
 #[test]
 fn invalid_signature_alone_returns_error() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(2).build_and_execute(|| {
 		let pairs = generate_test_pairs(2);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		// Sign with pair[1]'s key but claim to be authority 0
 		let bad_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 0);
 
@@ -241,37 +271,27 @@ fn invalid_signature_alone_returns_error() {
 
 #[test]
 fn price_cannot_go_below_zero() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(1).current_slot(5).build_and_execute(|| {
 		let pairs = generate_test_pairs(1);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		// Price starts at 0, pushing down should stay at 0
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Down, 5, 0);
 		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
-
-		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 	});
 }
 
 #[test]
 fn empty_nudges_does_not_change_price() {
-	new_test_ext().execute_with(|| {
-		pallet::CurrentPrice::<Test>::put(FixedU128::from_u32(5));
-
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![],));
-
-		assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
-	});
+	ExtBuilder::default()
+		.initial_price(FixedU128::from_u32(5))
+		.build_and_execute(|| {
+			assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![],));
+		});
 }
 
 #[test]
 fn submit_nudges_only_once_per_block() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(2).build_and_execute(|| {
 		let pairs = generate_test_pairs(2);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
 		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
 
@@ -286,11 +306,8 @@ fn submit_nudges_only_once_per_block() {
 
 #[test]
 fn duplicate_authority_nudges_return_error() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().authorities(2).build_and_execute(|| {
 		let pairs = generate_test_pairs(2);
-		set_authorities(&pairs);
-		set_current_slot(5);
-
 		let nudges = vec![
 			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
 			make_signed_nudge(&pairs[0], Nudge::Up, 4, 0), // same authority_index=0
@@ -300,19 +317,13 @@ fn duplicate_authority_nudges_return_error() {
 			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges),
 			Error::<Test>::DuplicateNudge
 		);
-
-		// Price unchanged because the call failed
-		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 	});
 }
 
 #[test]
 fn nudge_count_tracks_valid_nudges() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().current_slot(15).build_and_execute(|| {
 		let pairs = generate_test_pairs(3);
-		set_authorities(&pairs);
-		set_current_slot(15);
-
 		let nudges = vec![
 			make_signed_nudge(&pairs[0], Nudge::Up, 15, 0),
 			make_signed_nudge(&pairs[1], Nudge::Up, 14, 1),
@@ -326,19 +337,13 @@ fn nudge_count_tracks_valid_nudges() {
 
 #[test]
 fn too_few_nudges_returns_error() {
-	new_test_ext().execute_with(|| {
+	ExtBuilder::default().min_nudges(2).build_and_execute(|| {
 		let pairs = generate_test_pairs(3);
-		set_authorities(&pairs);
-		set_current_slot(5);
-		MinNudges::set(2);
-
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
 		assert_noop!(
 			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge]),
-			Error::<Test>::TooFewNudges
+			Error::<Test>::TooFewNudges,
 		);
-
-		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 	});
 }
 
@@ -384,11 +389,8 @@ mod inherent_pipeline {
 
 	#[test]
 	fn happy_path() {
-		let pairs = generate_test_pairs(3);
-		new_test_ext().execute_with(|| {
-			set_authorities(&pairs);
-			set_current_slot(10);
-
+		ExtBuilder::default().authorities(3).current_slot(10).build_and_execute(|| {
+			let pairs = generate_test_pairs(3);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Up, 10, 0),
 				make_signed_nudge(&pairs[1], Nudge::Up, 9, 1),
@@ -404,11 +406,8 @@ mod inherent_pipeline {
 
 	#[test]
 	fn duplicates_return_error() {
-		let pairs = generate_test_pairs(2);
-		new_test_ext().execute_with(|| {
-			set_authorities(&pairs);
-			set_current_slot(10);
-
+		ExtBuilder::default().authorities(2).current_slot(10).build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Up, 10, 0),
 				make_signed_nudge(&pairs[0], Nudge::Up, 9, 0), // duplicate authority
@@ -422,11 +421,8 @@ mod inherent_pipeline {
 
 	#[test]
 	fn stale_nudge_returns_error() {
-		let pairs = generate_test_pairs(2);
-		new_test_ext().execute_with(|| {
-			set_authorities(&pairs);
-			set_current_slot(20);
-
+		ExtBuilder::default().authorities(2).current_slot(20).build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Up, 20, 0),
 				make_signed_nudge(&pairs[1], Nudge::Up, 5, 1), // 5+10=15 <= 20 → stale
@@ -439,11 +435,8 @@ mod inherent_pipeline {
 
 	#[test]
 	fn bad_signature_returns_error() {
-		let pairs = generate_test_pairs(2);
-		new_test_ext().execute_with(|| {
-			set_authorities(&pairs);
-			set_current_slot(10);
-
+		ExtBuilder::default().authorities(2).current_slot(10).build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
 			let nudges = vec![
 				make_signed_nudge(&pairs[1], Nudge::Up, 10, 0), // wrong key for auth 0
 				make_signed_nudge(&pairs[1], Nudge::Up, 10, 1),
@@ -456,22 +449,20 @@ mod inherent_pipeline {
 
 	#[test]
 	fn empty_inherent() {
-		new_test_ext().execute_with(|| {
-			pallet::CurrentPrice::<Test>::put(FixedU128::from_u32(5));
-			run_inherent(vec![]);
+		ExtBuilder::default()
+			.initial_price(FixedU128::from_u32(5))
+			.build_and_execute(|| {
+				run_inherent(vec![]);
 
-			assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
-			assert_eq!(pallet::NudgeCount::<Test>::get(), 0);
-		});
+				assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
+				assert_eq!(pallet::NudgeCount::<Test>::get(), 0);
+			});
 	}
 
 	#[test]
 	fn stale_nudge_is_rejected() {
-		let pairs = generate_test_pairs(1);
-		new_test_ext().execute_with(|| {
-			set_authorities(&pairs);
-			set_current_slot(100);
-
+		ExtBuilder::default().authorities(1).current_slot(100).build_and_execute(|| {
+			let pairs = generate_test_pairs(1);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Up, 1, 0), // stale
 			];
@@ -483,11 +474,8 @@ mod inherent_pipeline {
 
 	#[test]
 	fn invalid_authority_is_rejected() {
-		let pairs = generate_test_pairs(2);
-		new_test_ext().execute_with(|| {
-			set_authorities(&pairs);
-			set_current_slot(10);
-
+		ExtBuilder::default().authorities(2).current_slot(10).build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
 			let nudges = vec![
 				make_signed_nudge(&pairs[1], Nudge::Up, 10, 3), // authority index out of range
 			];

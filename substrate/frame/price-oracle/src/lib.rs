@@ -93,8 +93,7 @@ pub mod pallet {
 			T::DbWeight::get().reads(1)
 		}
 
-		fn on_finalize(_n: BlockNumberFor<T>) {
-		}
+		fn on_finalize(_n: BlockNumberFor<T>) {}
 	}
 
 	#[pallet::call]
