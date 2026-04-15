@@ -53,9 +53,12 @@ where
 {
 	fn on_runtime_upgrade() -> Weight {
 		let source: T::AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
+		// No further inflows to the legacy account are expected, but since this migration
+		// runs on every runtime upgrade we use `Preserve` as a safeguard.
+		// Worst case we just keep a "dead" account with only ED.
 		let amount = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
 			&source,
-			Preservation::Expendable,
+			Preservation::Preserve,
 			Fortitude::Polite,
 		);
 		if amount.is_zero() {
@@ -70,7 +73,7 @@ where
 			&source,
 			amount,
 			Precision::Exact,
-			Preservation::Expendable,
+			Preservation::Preserve,
 			Fortitude::Polite,
 		) {
 			Ok(credit) => {
@@ -97,7 +100,7 @@ where
 		let source: T::AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
 		let balance = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
 			&source,
-			Preservation::Expendable,
+			Preservation::Preserve,
 			Fortitude::Polite,
 		);
 		log::info!(
@@ -116,7 +119,7 @@ where
 		let source: T::AccountId = LEGACY_TREASURY_PALLET_ID.into_account_truncating();
 		let post_balance = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
 			&source,
-			Preservation::Expendable,
+			Preservation::Preserve,
 			Fortitude::Polite,
 		);
 		frame_support::ensure!(
