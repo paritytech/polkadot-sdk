@@ -185,7 +185,7 @@ impl<T: Config> EraRewardManager<T> {
 	}
 
 	/// Cleans up all pot accounts for a given era.
-	pub(crate) fn cleanup_era(era: EraIndex) {
+	pub fn cleanup_era(era: EraIndex) {
 		Self::destroy(era, RewardKind::StakerRewards);
 		Self::destroy(era, RewardKind::ValidatorSelfStake);
 	}

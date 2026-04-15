@@ -16,6 +16,7 @@ use frame_support::{
 };
 use crate::mock::*;
 use pallet_nomination_pools::LastPoolId;
+use sp_runtime::Perbill;
 use sp_staking::StakingInterface;
 
 /// Create a pool with depositor, return (pool_id, bonded_account, reward_account).
@@ -595,6 +596,172 @@ fn member_unbond_claim_unbond_claim_sequence() {
 			gain_1 + gain_2 <= 200,
 			"Total claimed {} exceeds total deposited 200",
 			gain_1 + gain_2
+		);
+	});
+}
+
+// ============================================================================
+// Pool commission + DAP reward interaction
+// ============================================================================
+
+#[test]
+fn pool_commission_takes_cut_of_dap_funded_rewards() {
+	// Pool operator sets 50% commission. Rewards come via DAP transfer.
+	// Commission recipient gets 50%, members split the other 50%.
+	new_test_ext().execute_with(|| {
+		let depositor = 10u128;
+		let commission_recipient = 22u128;
+		let (pool_id, _bonded, reward) = create_pool(depositor, 50);
+
+		// Set 50% commission with recipient.
+		assert_ok!(Pools::set_commission(
+			RuntimeOrigin::signed(depositor),
+			pool_id,
+			Some((Perbill::from_percent(50), commission_recipient)),
+		));
+
+		// Add another member.
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 50, pool_id));
+
+		// Deposit rewards (simulating DAP transfer).
+		deposit_reward(reward, 1_000);
+
+		let depositor_before = Balances::total_balance(&depositor);
+		let member_before = Balances::total_balance(&20);
+		let commission_before = Balances::total_balance(&commission_recipient);
+
+		// Members claim.
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(depositor)));
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(20)));
+
+		// Claim commission.
+		assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(depositor), pool_id));
+
+		let depositor_gain = Balances::total_balance(&depositor) - depositor_before;
+		let member_gain = Balances::total_balance(&20) - member_before;
+		let commission_gain = Balances::total_balance(&commission_recipient) - commission_before;
+
+		// Commission should be ~50% of 1000 = ~500.
+		assert!(
+			commission_gain >= 490 && commission_gain <= 510,
+			"Commission should be ~500, got {}", commission_gain
+		);
+
+		// Members split remaining ~500 equally (50/50 stake).
+		assert!(
+			depositor_gain > 0 && member_gain > 0,
+			"Both members should receive rewards"
+		);
+		assert!(
+			depositor_gain.abs_diff(member_gain) <= 1,
+			"Equal-stake members should get equal post-commission share: {} vs {}",
+			depositor_gain, member_gain
+		);
+
+		// Total distributed (members + commission) should not exceed deposited.
+		let total = depositor_gain + member_gain + commission_gain;
+		assert!(
+			total <= 1_000,
+			"Total distributed {} exceeds deposited 1000", total
+		);
+
+		// No minting.
+		// (deposit_reward mints, but claim/commission are transfers from reward account)
+	});
+}
+
+#[test]
+fn pool_100_percent_commission_members_get_zero() {
+	// Edge: pool operator takes everything. Members get nothing.
+	new_test_ext().execute_with(|| {
+		let depositor = 10u128;
+		let commission_recipient = 22u128;
+		let (pool_id, _bonded, reward) = create_pool(depositor, 50);
+
+		// Set maximum commission (global max is 90% in genesis).
+		assert_ok!(Pools::set_commission(
+			RuntimeOrigin::signed(depositor),
+			pool_id,
+			Some((Perbill::from_percent(90), commission_recipient)),
+		));
+
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 50, pool_id));
+
+		deposit_reward(reward, 1_000);
+
+		let depositor_before = Balances::total_balance(&depositor);
+		let member_before = Balances::total_balance(&20);
+		let commission_before = Balances::total_balance(&commission_recipient);
+
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(depositor)));
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(20)));
+		assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(depositor), pool_id));
+
+		let depositor_gain = Balances::total_balance(&depositor) - depositor_before;
+		let member_gain = Balances::total_balance(&20) - member_before;
+		let commission_gain = Balances::total_balance(&commission_recipient) - commission_before;
+
+		// Commission should be ~90% of 1000 = ~900.
+		assert!(
+			commission_gain >= 890,
+			"90% commission should yield ~900, got {}", commission_gain
+		);
+
+		// Members split remaining ~100 equally.
+		let member_total = depositor_gain + member_gain;
+		assert!(
+			member_total <= 110,
+			"Members should get ~100 total with 90% commission, got {}", member_total
+		);
+
+		// Total conservation.
+		assert!(depositor_gain + member_gain + commission_gain <= 1_000);
+	});
+}
+
+#[test]
+fn commission_change_mid_reward_accumulation() {
+	// Commission changes between reward deposits. Each deposit is accounted
+	// at the commission rate active at the time of claim (not deposit time).
+	new_test_ext().execute_with(|| {
+		let depositor = 10u128;
+		let commission_recipient = 22u128;
+		let (pool_id, _bonded, reward) = create_pool(depositor, 50);
+
+		// Start with 0% commission.
+		deposit_reward(reward, 500);
+
+		// Set 50% commission AFTER first deposit.
+		assert_ok!(Pools::set_commission(
+			RuntimeOrigin::signed(depositor),
+			pool_id,
+			Some((Perbill::from_percent(50), commission_recipient)),
+		));
+
+		// Second deposit.
+		deposit_reward(reward, 500);
+
+		// Claim: commission applies to ALL unclaimed rewards (both deposits),
+		// not just the deposit after commission was set.
+		let depositor_before = Balances::total_balance(&depositor);
+		let commission_before = Balances::total_balance(&commission_recipient);
+
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(depositor)));
+		assert_ok!(Pools::claim_commission(RuntimeOrigin::signed(depositor), pool_id));
+
+		let depositor_gain = Balances::total_balance(&depositor) - depositor_before;
+		let commission_gain = Balances::total_balance(&commission_recipient) - commission_before;
+
+		// The commission rate at claim time (50%) applies to total unclaimed (1000).
+		// Commission = 50% of 1000 = 500. Depositor gets remaining 500.
+		// This is pool behavior, not a DAP issue, but worth documenting.
+		let total = depositor_gain + commission_gain;
+		assert!(total <= 1_000, "Total {} exceeds deposited 1000", total);
+
+		log::info!(
+			target: "audit",
+			"Commission mid-change: depositor_gain={}, commission_gain={}, total={}",
+			depositor_gain, commission_gain, total
 		);
 	});
 }

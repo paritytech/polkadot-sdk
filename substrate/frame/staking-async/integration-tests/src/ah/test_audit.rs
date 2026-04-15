@@ -50,11 +50,12 @@ fn advance_to_era_with_points(target_era: u32) -> Vec<AccountId> {
 	assert!(target_era > current_active, "target_era must be in the future");
 
 	let mut elected = vec![];
-	let mut end_index = current_active as u32;
 
-	// We need to advance era by era
-	for era in current_active..target_era {
-		// Inject uniform reward points for the ending era (each validator gets 100).
+	// Advance era by era, tracking session indices from the current state.
+	for _step in 0..(target_era - current_active) {
+		let era = Rotator::<Runtime>::active_era();
+
+		// Inject uniform reward points for the ending era.
 		ErasRewardPoints::<T>::mutate(era, |points| {
 			points.total = validators.len() as u32 * 100;
 			for &v in &validators {
@@ -62,11 +63,9 @@ fn advance_to_era_with_points(target_era: u32) -> Vec<AccountId> {
 			}
 		});
 
-		// Find current end_index from session tracking.
+		// Use current session start index for this era's advancement.
 		let start = Rotator::<Runtime>::active_era_start_session_index();
-		end_index = start + (era - current_active) * SessionsPerEra::get();
-
-		elected = roll_until_next_active(end_index);
+		elected = roll_until_next_active(start);
 	}
 
 	elected
@@ -2207,6 +2206,281 @@ mod chaos {
 				total_claimed > 0,
 				"Should claim rewards from multiple eras"
 			);
+		});
+	}
+}
+
+// ============================================================================
+// Round 6: Production-config gap tests
+// ============================================================================
+mod production_gaps {
+	use super::*;
+	use frame_support::traits::fungible::{Balanced, Inspect as FungibleInspect};
+
+	#[test]
+	fn unclaimed_rewards_go_to_dap_buffer_on_era_expiry() {
+		// With UnclaimedRewardHandler = Dap, unclaimed rewards from expired eras
+		// should be routed to the DAP buffer and deactivated.
+		// We simulate this by: fund era pot → claim only 1 of 4 validators →
+		// withdraw remaining from pot → route to Dap::on_unbalanced (same path as destroy).
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+			let era_reward = ErasValidatorReward::<T>::get(era).unwrap();
+
+			// Claim only validator 3 (leave 3/4 unclaimed).
+			assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 3, era,
+			));
+
+			let staker_pot = SequentialTest::pot_account(
+				RewardPot::Era(era, RewardKind::StakerRewards),
+			);
+			let remaining = Balances::total_balance(&staker_pot);
+			assert!(remaining > 0, "Pot should have unclaimed remainder");
+
+			let buffer = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::pot_account();
+			let buffer_before = Balances::total_balance(&buffer);
+			let active_issuance_before = Balances::active_issuance();
+
+			// Simulate what cleanup_era/destroy does: withdraw from pot → on_unbalanced.
+			let credit = <Balances as Balanced<AccountId>>::withdraw(
+				&staker_pot,
+				remaining,
+				frame_support::traits::tokens::Precision::BestEffort,
+				frame_support::traits::tokens::Preservation::Expendable,
+				frame_support::traits::tokens::Fortitude::Force,
+			).unwrap();
+
+			// Route to DAP's OnUnbalanced handler (same as UnclaimedRewardHandler = Dap).
+			<pallet_dap::Pallet<Runtime> as frame_support::traits::OnUnbalanced<_>>::on_unbalanced(credit);
+
+			let buffer_after = Balances::total_balance(&buffer);
+			let active_issuance_after = Balances::active_issuance();
+
+			// Buffer received the unclaimed rewards.
+			assert_eq!(
+				buffer_after - buffer_before, remaining,
+				"Buffer should receive unclaimed remainder: expected {}, got {}",
+				remaining, buffer_after - buffer_before
+			);
+
+			// Funds were deactivated (excluded from governance voting).
+			assert!(
+				active_issuance_after < active_issuance_before,
+				"Active issuance should decrease after deactivation: before={}, after={}",
+				active_issuance_before, active_issuance_after
+			);
+
+			// Total issuance unchanged (withdraw + deposit is net zero).
+			// (active_issuance decreased because of deactivation)
+		});
+	}
+
+	#[test]
+	fn deactivation_accounting_across_multiple_sources() {
+		// Buffer receives funds from 3 sources: DAP drip allocation, slashes, and
+		// unclaimed rewards. All should be deactivated. Verify active_issuance tracking.
+		ExtBuilder::default().local_queue().slash_defer_duration(0).build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let buffer = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::pot_account();
+
+			// Source 1: DAP drip (buffer gets its allocation share).
+			let active_before_drip = Balances::active_issuance();
+			roll_many(10);
+			let active_after_drip = Balances::active_issuance();
+
+			// Buffer allocation is 50% in default setup, so buffer gets ~50% of drip.
+			// Those funds are deactivated. Active issuance grows by the NON-buffer portion.
+			let total_dripped = 10u128 * BLOCK_TIME as u128; // theoretical max
+			let buffer_share = total_dripped / 2; // 50% budget
+
+			// Active issuance should grow less than total dripped (buffer portion deactivated).
+			let active_growth = active_after_drip - active_before_drip;
+			assert!(
+				active_growth < total_dripped,
+				"Active issuance growth {} should be less than total dripped {} (buffer deactivated)",
+				active_growth, total_dripped
+			);
+
+			// Source 2: Slash → buffer.
+			let _elected = advance_to_era_with_points(2);
+			let active_before_slash = Balances::active_issuance();
+
+			use pallet_staking_async_rc_client as rc_client;
+			let session = Rotator::<Runtime>::active_era_start_session_index();
+			assert_ok!(rc_client::Pallet::<Runtime>::relay_new_offence_paged(
+				RuntimeOrigin::root(),
+				vec![(session, rc_client::Offence {
+					offender: 3,
+					reporters: vec![],
+					slash_fraction: Perbill::from_percent(50),
+				})],
+			));
+			roll_many(2);
+
+			let active_after_slash = Balances::active_issuance();
+			// Slash reduces active balance of validator (deducted from their account).
+			// Slashed amount goes to buffer and is deactivated.
+			// Net effect: active_issuance decreases by slash amount (deducted + deactivated).
+			// But DAP drip also adds during these 2 blocks.
+			// Just verify active_issuance didn't spike.
+			let drip_during = 2 * BLOCK_TIME as u128;
+			let active_change = active_after_slash as i128 - active_before_slash as i128;
+			assert!(
+				active_change <= drip_during as i128,
+				"Active issuance should not spike from slash: change={}, max_drip={}",
+				active_change, drip_during
+			);
+
+			// Source 3: Unclaimed reward → buffer (simulated).
+			let era_pot = SequentialTest::pot_account(
+				RewardPot::Era(1, RewardKind::StakerRewards),
+			);
+			let pot_remaining = Balances::total_balance(&era_pot);
+			if pot_remaining > 0 {
+				let active_before_unclaimed = Balances::active_issuance();
+
+				let credit = <Balances as Balanced<AccountId>>::withdraw(
+					&era_pot,
+					pot_remaining,
+					frame_support::traits::tokens::Precision::BestEffort,
+					frame_support::traits::tokens::Preservation::Expendable,
+					frame_support::traits::tokens::Fortitude::Force,
+				).unwrap();
+				<pallet_dap::Pallet<Runtime> as frame_support::traits::OnUnbalanced<_>>::on_unbalanced(credit);
+
+				let active_after_unclaimed = Balances::active_issuance();
+				assert!(
+					active_after_unclaimed <= active_before_unclaimed,
+					"Unclaimed → buffer should decrease active issuance"
+				);
+			}
+		});
+	}
+
+	#[test]
+	fn cleanup_era_routes_unclaimed_to_dap_buffer_e2e() {
+		// End-to-end: advance enough eras that an old era expires, call cleanup_era,
+		// verify unclaimed rewards flow to DAP buffer.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			// Advance to era 2. Era 1 has rewards.
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+			let era_reward = ErasValidatorReward::<T>::get(era).unwrap();
+			assert!(era_reward > 0);
+
+			// Claim only validator 3, leaving 3/4 unclaimed.
+			assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 3, era,
+			));
+
+			let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+			let unclaimed = Balances::total_balance(&pot);
+			assert!(unclaimed > 0, "Should have unclaimed remainder");
+
+			let buffer = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::pot_account();
+			let buffer_before = Balances::total_balance(&buffer);
+			let active_before = Balances::active_issuance();
+
+			// Call cleanup_era directly (now public).
+			staking_async::reward::EraRewardManager::<T>::cleanup_era(era);
+
+			let buffer_after = Balances::total_balance(&buffer);
+			let active_after = Balances::active_issuance();
+			let pot_after = Balances::total_balance(&pot);
+
+			// Pot should be empty.
+			assert_eq!(pot_after, 0, "Pot should be empty after cleanup");
+
+			// Buffer received the unclaimed amount.
+			let buffer_gain = buffer_after - buffer_before;
+			// Both staker + incentive pot unclaimed go to buffer.
+			assert!(
+				buffer_gain >= unclaimed,
+				"Buffer should receive at least the staker unclaimed: gain={}, unclaimed={}",
+				buffer_gain, unclaimed
+			);
+
+			// Active issuance decreased (funds deactivated in buffer).
+			assert!(
+				active_after < active_before,
+				"Active issuance should decrease: before={}, after={}",
+				active_before, active_after
+			);
+
+			// Provider reference removed.
+			assert_eq!(
+				System::providers(&pot), 0,
+				"Provider should be removed after cleanup"
+			);
+		});
+	}
+
+	#[test]
+	fn zero_drip_era_produces_zero_reward() {
+		// If IssuanceCadence > era length, 0 drips occur, era pot gets 0 rewards.
+		// Simulate by setting cadence very high.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// Override IssuanceCadence to be very high (would need a parameter_types! static).
+			// Since we can't change IssuanceCadence at runtime, simulate the effect:
+			// advance the timestamp to just barely past the last drip, then roll one era.
+			// In our mock, cadence=0, so every block drips. Instead, test the edge case
+			// where the general pot has zero additional funds when snapshot happens.
+
+			// Drain the general staker pot to ED only.
+			let general_pot =
+				SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+			let balance = Balances::total_balance(&general_pot);
+			if balance > 1 {
+				let _ = <Balances as frame_support::traits::fungible::Mutate<AccountId>>::transfer(
+					&general_pot,
+					&999,
+					balance - 1, // leave ED
+					frame_support::traits::tokens::Preservation::Preserve,
+				);
+			}
+
+			// Now change budget to 0% stakers so no new funds flow in.
+			change_budget_allocation(0, 0, 100);
+
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+
+			let era_reward = ErasValidatorReward::<T>::get(1).unwrap_or(0);
+
+			// Era reward should be 0 (nothing in the pot to snapshot).
+			assert!(
+				era_reward <= 1,
+				"Zero-drip simulation should produce ~0 era reward, got {}",
+				era_reward
+			);
+
+			// System should be stable — no panics.
+			for &v in &[3u64, 5, 6, 8] {
+				let balance_before = Balances::total_balance(&v);
+				let _ = staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(999), v, 1,
+				);
+				assert!(
+					Balances::total_balance(&v) <= balance_before + 1,
+					"Zero-reward era should pay ~0"
+				);
+			}
 		});
 	}
 }

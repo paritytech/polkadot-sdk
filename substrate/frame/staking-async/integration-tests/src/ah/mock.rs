@@ -463,11 +463,11 @@ impl pallet_staking_async::Config for Runtime {
 
 	type ElectionProvider = MultiBlock;
 
-	type RewardRemainder = ();
+	type RewardRemainder = Dap;
 	type EraPayout = TestEraPayout;
 	type MaxEraDuration = ();
 	type DisableMinting = DisableMintingMode;
-	type UnclaimedRewardHandler = ();
+	type UnclaimedRewardHandler = Dap;
 	type RewardPots = pallet_staking_async::SequentialTest;
 	type StakerRewardCalculator =
 		pallet_staking_async::reward::DefaultStakerRewardCalculator<Runtime>;
