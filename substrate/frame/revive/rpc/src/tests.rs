@@ -3246,8 +3246,8 @@ async fn test_state_override_trace_call() -> anyhow::Result<()> {
 	assert!(result.is_ok(), "debug_traceCall with state overrides should succeed: {result:?}");
 	let frame = result.unwrap();
 	assert!(frame.output.is_some(), "trace should have output from echo(42)");
-  
-  Ok(())
+
+	Ok(())
 }
 
 /// Verify that the subscription gap queue backfills blocks for a manually queued range.
