@@ -69,7 +69,11 @@ impl PerLeafClaimQueueState {
 					.iter()
 					.filter_map(|(ci, cqs)| cqs.fork(parent).map(|f| (*ci, f)))
 					.collect();
-				if forked.is_empty() { None } else { Some(forked) }
+				if forked.is_empty() {
+					None
+				} else {
+					Some(forked)
+				}
 			});
 
 			if let Some(mut state) = maybe_new_fork {
@@ -283,9 +287,7 @@ impl PerLeafClaimQueueState {
 	pub fn free_slots(&self, leaf: &Hash) -> Vec<ParaId> {
 		self.leaves
 			.get(leaf)
-			.map(|core_states| {
-				core_states.values().flat_map(|state| state.free_slots()).collect()
-			})
+			.map(|core_states| core_states.values().flat_map(|state| state.free_slots()).collect())
 			.unwrap_or_default()
 	}
 
@@ -317,9 +319,9 @@ mod test {
 			let Some(core_states) = self.leaves.get_mut(leaf) else {
 				return false;
 			};
-			core_states
-				.values_mut()
-				.any(|state| state.has_or_can_claim_at(relay_parent, para_id, Some(*candidate_hash)))
+			core_states.values_mut().any(|state| {
+				state.has_or_can_claim_at(relay_parent, para_id, Some(*candidate_hash))
+			})
 		}
 	}
 
@@ -525,9 +527,15 @@ mod test {
 	mod multi_core {
 		use super::*;
 
-		/// Helper: sets up the common rotation topology used by most tests:
-		///   0 -> A(core0, para1) -> B(core1, para2, rotation)
-		/// Returns the populated state together with the claim queues.
+		/// Helper: creates state used but the tests. It represents a moment in time when validator
+		/// group rotation happens.
+		/// There are two relay parents `RELAY_PARENT_A` and `RELAY_PARENT_B`. The group rotation
+		/// from `CORE_0` to `CORE_1` happens at `RELAY_PARENT_B`:
+		///
+		/// rp A(CORE_0: [PARA_1, ..., PARA_1] )
+		/// rp B(CORE_1: [PARA_2, ..., PARA_2] )
+		///
+		/// Returns an instance of `PerLeafClaimQueueState` and the claim queues for the two cores.
 		fn rotation_setup(
 			cq_len: usize,
 		) -> (PerLeafClaimQueueState, VecDeque<ParaId>, VecDeque<ParaId>) {
@@ -550,8 +558,18 @@ mod test {
 			assert!(free.contains(&PARA_1), "old core's para should have free slots");
 			assert!(free.contains(&PARA_2), "new core's para should have free slots");
 
-			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
-			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				Some(*CANDIDATE_A1),
+				CORE_0
+			));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_B,
+				&PARA_2,
+				Some(*CANDIDATE_B1),
+				CORE_1
+			));
 		}
 
 		/// Exhausting slots on one core does not affect the other core's slots.
@@ -562,19 +580,44 @@ mod test {
 			let (mut state, _, _) = rotation_setup(2);
 
 			// Exhaust core0
-			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
-			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A2), CORE_0));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				Some(*CANDIDATE_A1),
+				CORE_0
+			));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				Some(*CANDIDATE_A2),
+				CORE_0
+			));
 			assert!(
 				!state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A3), CORE_0),
 				"core0 is full"
 			);
 
 			// Core1 is unaffected
-			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B1), CORE_1));
-			assert!(state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_B2), CORE_1));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_B,
+				&PARA_2,
+				Some(*CANDIDATE_B1),
+				CORE_1
+			));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_B,
+				&PARA_2,
+				Some(*CANDIDATE_B2),
+				CORE_1
+			));
 
 			// Wrong core fails
-			assert!(!state.claim_pending_slot(&RELAY_PARENT_B, &PARA_2, Some(*CANDIDATE_C1), CORE_0));
+			assert!(!state.claim_pending_slot(
+				&RELAY_PARENT_B,
+				&PARA_2,
+				Some(*CANDIDATE_C1),
+				CORE_0
+			));
 
 			// Release core0's candidate — core1 still claimed
 			assert!(state.release_claims_for_candidate(&CANDIDATE_A1));
@@ -598,8 +641,18 @@ mod test {
 			assert!(state.free_slots(&RELAY_PARENT_C).contains(&PARA_1));
 
 			// Claim at A exhausts old core — reflected in both leaves
-			assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A1, Some(CORE_0)));
-			assert!(state.claim_seconded_slot(&RELAY_PARENT_A, &PARA_1, &CANDIDATE_A2, Some(CORE_0)));
+			assert!(state.claim_seconded_slot(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				&CANDIDATE_A1,
+				Some(CORE_0)
+			));
+			assert!(state.claim_seconded_slot(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				&CANDIDATE_A2,
+				Some(CORE_0)
+			));
 			assert_eq!(
 				state.free_slots(&RELAY_PARENT_B).iter().filter(|p| **p == PARA_1).count(),
 				0
@@ -660,9 +713,19 @@ mod test {
 			state.add_leaf(&RELAY_PARENT_C, CORE_1, &cq1, Some(&RELAY_PARENT_B));
 
 			// Old core's slots are only reachable via scheduling_parent = A
-			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, Some(*CANDIDATE_A1), CORE_0));
+			assert!(state.claim_pending_slot(
+				&RELAY_PARENT_A,
+				&PARA_1,
+				Some(*CANDIDATE_A1),
+				CORE_0
+			));
 			// B was never resolved in core0's future_blocks — claiming via B fails
-			assert!(!state.claim_pending_slot(&RELAY_PARENT_B, &PARA_1, Some(*CANDIDATE_A2), CORE_0));
+			assert!(!state.claim_pending_slot(
+				&RELAY_PARENT_B,
+				&PARA_1,
+				Some(*CANDIDATE_A2),
+				CORE_0
+			));
 
 			// Pruning A makes core0 unreachable and it gets dropped
 			state.remove_pruned_ancestors(&HashSet::from([*RELAY_PARENT_A]));

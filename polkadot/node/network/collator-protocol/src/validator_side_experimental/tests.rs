@@ -2074,7 +2074,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2106,7 +2106,7 @@ async fn test_collation_fetch_failure() {
 				None
 			},
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2137,7 +2137,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2175,7 +2175,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2211,7 +2211,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2241,7 +2241,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate: None,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
@@ -2282,7 +2282,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2327,7 +2327,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2367,7 +2367,7 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2674,7 +2674,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2715,7 +2715,7 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2930,7 +2930,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2971,7 +2971,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
+				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -3888,14 +3888,8 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 	test_state.assert_no_messages().await;
 
 	// Advertise a candidate for para_a at scheduling_parent=9 (core 2)
-	let (ccr_a, adv_a) = dummy_candidate(
-		get_hash(9),
-		para_a,
-		peer_a,
-		core_at_9,
-		1,
-		dummy_pvd().hash(),
-	);
+	let (ccr_a, adv_a) =
+		dummy_candidate(get_hash(9), para_a, peer_a, core_at_9, 1, dummy_pvd().hash());
 
 	test_state.handle_advertisement(&mut state, adv_a).await;
 	assert_eq!(state.advertisements(), [adv_a].into());
@@ -3910,14 +3904,8 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 	test_state.assert_no_messages().await;
 
 	// Advertise a candidate for para_b at scheduling_parent=10 (core 1)
-	let (ccr_b, adv_b) = dummy_candidate(
-		get_hash(10),
-		para_b,
-		peer_b,
-		core_at_10,
-		1,
-		dummy_pvd().hash(),
-	);
+	let (ccr_b, adv_b) =
+		dummy_candidate(get_hash(10), para_b, peer_b, core_at_10, 1, dummy_pvd().hash());
 
 	test_state.handle_advertisement(&mut state, adv_b).await;
 	assert_eq!(state.advertisements(), [adv_a, adv_b].into());
@@ -3958,10 +3946,7 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 	// After rotation (leaf 10 active), advertise another candidate for para_a at the old
 	// scheduling_parent=9 (core 2) from the same peer. This should still be accepted because
 	// the old core's claim queue slots were not overwritten by the rotation.
-	let pvd_a2 = PersistedValidationData {
-		parent_head: HeadData(vec![1, 2, 3]),
-		..dummy_pvd()
-	};
+	let pvd_a2 = PersistedValidationData { parent_head: HeadData(vec![1, 2, 3]), ..dummy_pvd() };
 	let ccr_a2 = {
 		let mut ccr = dummy_committed_candidate_receipt_v2(get_hash(9));
 		ccr.descriptor.set_para_id(para_a);

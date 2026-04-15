@@ -743,14 +743,8 @@ mod test {
 		// Fork at `RELAY_PARENT_D` (the tip)
 		let mut fork = state.fork(&RELAY_PARENT_D).unwrap();
 		assert_eq!(fork.block_state.make_contiguous(), &expected_block_state[..4]);
-		assert_eq!(
-			fork.future_blocks,
-			VecDeque::from(expected_future_blocks.to_vec())
-		);
-		assert_eq!(
-			fork.candidates_per_rp,
-			HashMap::from(expected_candidates_per_rp.clone())
-		);
+		assert_eq!(fork.future_blocks, VecDeque::from(expected_future_blocks.to_vec()));
+		assert_eq!(fork.candidates_per_rp, HashMap::from(expected_candidates_per_rp.clone()));
 
 		// Forking from an unknown relay parent also shouldn't work
 		assert!(state.fork(&RELAY_PARENT_E).is_none());
