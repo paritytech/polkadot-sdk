@@ -25,6 +25,7 @@ def job_label(path):
         for prefix, label in JOB_LABELS.items():
             if part == prefix or part.startswith(prefix + "-"):
                 return label
+    # Fallback: use the parent directory name as-is
     return path.replace("\\", "/").rsplit("/", 1)[0].rsplit("/", 1)[-1]
 
 
@@ -70,6 +71,11 @@ def render_table(rows, columns):
     return "\n".join(lines)
 
 
+def render_details(summary, body):
+    """Wrap body in a collapsible <details> block."""
+    return f"<details>\n<summary>{summary}</summary>\n\n{body}\n\n</details>"
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: flaky-report.py <glob-pattern>", file=sys.stderr)
@@ -102,39 +108,50 @@ def main():
 
     for label in sorted(by_job):
         job = by_job[label]
+        n_failed = len(job["failed"])
+        n_flaky = len(job["flaky"])
+
         lines.append("")
         lines.append(
             f"#### `{label}` — {job['total']} total,"
             f" {job['passed']} passed,"
-            f" {len(job['failed'])} failed,"
-            f" {len(job['flaky'])} flaky"
+            f" {n_failed} failed,"
+            f" {n_flaky} flaky"
         )
 
+        # Collapsible details per job, only when there's something to show
+        sections = []
+
         if job["failed"]:
-            lines.append("")
-            lines.append("**Failed tests:**")
-            lines.append("")
             rows = []
             for name in sorted(job["failed"]):
                 msg = job["failed"][name]
-                # Truncate long messages for the table
                 short = (msg[:80] + "...") if len(msg) > 80 else msg
                 rows.append((f"`{name}`", short))
-            lines.append(render_table(rows, [("Test", "left"), ("Message", "left")]))
+            table = render_table(rows, [("Test", "left"), ("Message", "left")])
+            sections.append(f"**Failed tests:**\n\n{table}")
 
         if job["flaky"]:
-            lines.append("")
-            lines.append("**Flaky tests:**")
-            lines.append("")
             rows = []
             for name, (attempts, time) in sorted(
                 job["flaky"].items(), key=lambda x: -x[1][0]
             ):
                 rows.append((f"`{name}`", str(attempts), f"{time:.1f}"))
-            lines.append(render_table(
+            table = render_table(
                 rows,
                 [("Test", "left"), ("Failed attempts", "right"), ("Time (s)", "right")],
-            ))
+            )
+            sections.append(f"**Flaky tests:**\n\n{table}")
+
+        if sections:
+            summary = ", ".join(
+                s for s in [
+                    f"{n_failed} failed" if n_failed else "",
+                    f"{n_flaky} flaky" if n_flaky else "",
+                ] if s
+            )
+            lines.append("")
+            lines.append(render_details(summary, "\n\n".join(sections)))
 
     lines.append("")
     print("\n".join(lines))
