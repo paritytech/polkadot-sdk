@@ -334,7 +334,6 @@ where
 				&peerset_protocol_names,
 				metrics.clone(),
 				Arc::clone(&peer_store_handle),
-				experimental_collator_protocol,
 			)
 			.into_iter()
 			.map(|(config, (peerset, service))| {

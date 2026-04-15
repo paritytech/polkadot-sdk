@@ -40,11 +40,7 @@ const LEGACY_COLLATION_PROTOCOL_VERSION_V1: u32 = 1;
 pub const MAX_NOTIFICATION_SIZE: u64 = 100 * 1024;
 
 /// Maximum allowed incoming connection streams for validator nodes on the collation protocol.
-pub const MAX_AUTHORITY_INCOMING_STREAMS: u32 = 100;
-
-/// Maximum allowed incoming connection streams for validator nodes on the collation protocol
-/// when the experimental collator protocol is enabled.
-pub const MAX_AUTHORITY_INCOMING_STREAMS_EXPERIMENTAL_COLLATOR_PROTO: u32 = 310;
+pub const MAX_AUTHORITY_INCOMING_STREAMS: u32 = 310;
 
 /// The peer-sets and thus the protocols which are used for the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
@@ -78,7 +74,6 @@ impl PeerSet {
 		peerset_protocol_names: &PeerSetProtocolNames,
 		metrics: NotificationMetrics,
 		peer_store_handle: Arc<dyn PeerStoreProvider>,
-		experimental_collator_protocol: bool,
 	) -> (N::NotificationProtocolConfig, (PeerSet, Box<dyn NotificationService>)) {
 		// Networking layer relies on `get_main_name()` being the main name of the protocol
 		// for peersets and connection management.
@@ -123,11 +118,7 @@ impl PeerSet {
 						// Non-authority nodes don't need to accept incoming connections on this
 						// peer set:
 						in_peers: if is_authority == IsAuthority::Yes {
-							if experimental_collator_protocol {
-								MAX_AUTHORITY_INCOMING_STREAMS_EXPERIMENTAL_COLLATOR_PROTO
-							} else {
-								MAX_AUTHORITY_INCOMING_STREAMS
-							}
+							MAX_AUTHORITY_INCOMING_STREAMS
 						} else {
 							0
 						},
@@ -234,7 +225,6 @@ pub fn peer_sets_info<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 	peerset_protocol_names: &PeerSetProtocolNames,
 	metrics: NotificationMetrics,
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
-	experimental_collator_protocol: bool,
 ) -> Vec<(N::NotificationProtocolConfig, (PeerSet, Box<dyn NotificationService>))> {
 	PeerSet::iter()
 		.map(|s| {
@@ -243,7 +233,6 @@ pub fn peer_sets_info<B: Block, N: NetworkBackend<B, <B as Block>::Hash>>(
 				&peerset_protocol_names,
 				metrics.clone(),
 				Arc::clone(&peer_store_handle),
-				experimental_collator_protocol,
 			)
 		})
 		.collect()

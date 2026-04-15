@@ -1,8 +1,8 @@
 title: Bump collation `in_peers` to 300 for the experimental collator protocol
 doc:
 - audience: Node Dev
-  description: Sync the values of `CONNECTED_PEERS_PARA_LIMIT` in experimental collator
-    protocol and `MAX_AUTHORITY_INCOMING_STREAMS` in peer_set.
+  description: Bump `MAX_AUTHORITY_INCOMING_STREAMS` in peer_set to be in line with
+  `CONNECTED_PEERS_PARA_LIMIT` in experimental collator protocol.
 crates:
 - name: cumulus-relay-chain-minimal-node
   bump: patch

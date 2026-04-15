@@ -202,7 +202,6 @@ async fn new_minimal_relay_chain<Block: BlockT, Network: NetworkBackend<RelayBlo
 		&peerset_protocol_names,
 		metrics.clone(),
 		Arc::clone(&peer_store_handle),
-		false,
 	)
 	.into_iter()
 	.map(|(config, (peerset, service))| {
