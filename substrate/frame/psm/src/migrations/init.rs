@@ -103,7 +103,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		let mut writes = 0u64;
 
 		reads += 1;
-		if MaxPsmDebtOfTotal::<T>::get().is_zero() {
+		if !MaxPsmDebtOfTotal::<T>::exists() {
 			MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
 			writes += 1;
 		}
