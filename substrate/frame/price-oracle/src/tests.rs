@@ -9,7 +9,7 @@ use sp_core::{crypto::Pair as PairT, sr25519};
 use sp_inherents::InherentData;
 use sp_io::TestExternalities;
 use sp_price_oracle::{Nudge, SignedNudge, INHERENT_IDENTIFIER};
-use sp_runtime::{BuildStorage, FixedU128};
+use sp_runtime::{BuildStorage, FixedU128, traits::BadOrigin};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -79,12 +79,13 @@ struct ExtBuilder {
 	current_slot: u64,
 	min_nudges: u32,
 	initial_price: Option<FixedU128>,
+	panic_switch: bool,
 }
 
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		set_authorities(&generate_test_pairs(3));
-		Self { num_authorities: 3, current_slot: 5, min_nudges: 0, initial_price: None }
+		Self { num_authorities: 3, current_slot: 5, min_nudges: 0, initial_price: None, panic_switch: false }
 	}
 }
 
@@ -109,6 +110,11 @@ impl ExtBuilder {
 		self
 	}
 
+	fn panic_switch(mut self, panic_switch: bool) -> Self {
+		self.panic_switch = panic_switch;
+		self
+	}
+
 	fn build(self) -> TestExternalities {
 		let pairs = generate_test_pairs(self.num_authorities);
 		set_authorities(&pairs);
@@ -118,11 +124,14 @@ impl ExtBuilder {
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let mut ext = TestExternalities::new(t);
 
-		if let Some(price) = self.initial_price {
-			ext.execute_with(|| {
+		ext.execute_with(|| {
+			if let Some(price) = self.initial_price {
 				pallet::CurrentPrice::<Test>::put(price);
-			});
-		}
+			}
+			if self.panic_switch {
+				pallet::PanicSwitch::<Test>::put(true);
+			}
+		});
 
 		ext
 	}
@@ -332,7 +341,7 @@ fn nudge_count_tracks_valid_nudges() {
 		];
 		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
 
-		assert_eq!(pallet::NudgeCount::<Test>::get(), 3);
+		assert_eq!(pallet::NudgeCount::<Test>::get(), Some(3));
 	});
 }
 
@@ -344,6 +353,25 @@ fn too_few_nudges_returns_error() {
 		assert_noop!(
 			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge]),
 			Error::<Test>::TooFewNudges,
+		);
+	});
+}
+
+#[test]
+#[should_panic]
+fn panic_switch_on_without_inherent_panics() {
+	ExtBuilder::default().panic_switch(true).current_slot(1).build_and_execute(|| {
+		NudgeCount::<Test>::set(None);
+		PriceOracle::on_finalize(1);
+	});
+}
+
+#[test]
+fn bad_origin_set_panic_switch_returns_error() {
+	ExtBuilder::default().panic_switch(true).build_and_execute(|| {
+		assert_noop!(
+			PriceOracle::set_panic_switch(frame_system::RawOrigin::Signed(1).into(), true),
+			BadOrigin
 		);
 	});
 }
@@ -401,7 +429,7 @@ mod inherent_pipeline {
 
 			// 2 ups, 1 down → net 1 up → price = 0.01
 			assert_eq!(PriceOracle::current_price(), FixedU128::from_rational(1, 100));
-			assert_eq!(pallet::NudgeCount::<Test>::get(), 3);
+			assert_eq!(pallet::NudgeCount::<Test>::get(), Some(3));
 		});
 	}
 
@@ -456,7 +484,7 @@ mod inherent_pipeline {
 				run_inherent(vec![]);
 
 				assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
-				assert_eq!(pallet::NudgeCount::<Test>::get(), 0);
+				assert_eq!(pallet::NudgeCount::<Test>::get(), Some(0));
 			});
 	}
 

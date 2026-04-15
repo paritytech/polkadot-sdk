@@ -72,9 +72,10 @@ pub mod pallet {
 
 	/// Number of valid nudges accepted in the current block's inherent.
 	#[pallet::storage]
-	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, OptionQuery>;
 
 	/// When enabled, `on_finalize` panics if no inherent was included in the block.
+	/// Default is false.
 	#[pallet::storage]
 	pub type PanicSwitch<T: Config> = StorageValue<_, bool, ValueQuery>;
 
@@ -101,23 +102,11 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			let inherent_included = NudgeCount::<T>::exists();
-			let count = NudgeCount::<T>::take();
-
 			if PanicSwitch::<T>::get() {
+				let inherent_included = NudgeCount::<T>::take().is_some();
 				assert!(
 					inherent_included,
 					"Price oracle: panic switch is on but no inherent was included in this block",
-				);
-			}
-
-			let min = T::MinNudges::get();
-			if min > 0 {
-				assert!(
-					count >= min,
-					"Price oracle: got {} valid nudges, need at least {}",
-					count,
-					min,
 				);
 			}
 		}
