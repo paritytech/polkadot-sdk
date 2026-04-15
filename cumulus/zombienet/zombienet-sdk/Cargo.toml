@@ -26,6 +26,8 @@ sc-statement-store = { workspace = true, default-features = true, features = ["t
 sp-keyring = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
+sp-maybe-compressed-blob = { workspace = true, default-features = true }
+parity-wasm = { workspace = true }
 sc-executor = { workspace = true, default-features = true }
 sc-executor-common = { workspace = true, default-features = true }
 frame-support = { workspace = true }

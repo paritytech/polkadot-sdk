@@ -17,7 +17,7 @@
 
 use anyhow::anyhow;
 use cumulus_primitives_core::relay_chain::MAX_POV_SIZE;
-use cumulus_test_runtime::block_bundling::WASM_BINARY_BLOATY as WASM_RUNTIME_BINARY;
+use cumulus_test_runtime::block_bundling::WASM_BINARY;
 use cumulus_zombienet_sdk_helpers::{
 	assign_cores, ensure_is_only_block_in_core, submit_extrinsic_and_wait_for_finalization_success,
 	submit_unsigned_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
@@ -55,26 +55,12 @@ async fn block_bundling_runtime_upgrade() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	// Validate runtime size requirement
-	let runtime_wasm =
-		WASM_RUNTIME_BINARY.ok_or_else(|| anyhow!("WASM runtime upgrade binary not available"))?;
+	let compressed_wasm =
+		WASM_BINARY.ok_or_else(|| anyhow!("WASM runtime binary not available"))?;
 
-	if runtime_wasm.len() <= MIN_RUNTIME_SIZE_BYTES {
-		return Err(anyhow!(
-			"Runtime size {} bytes is below minimum required {} bytes (2.5MiB)",
-			runtime_wasm.len(),
-			MIN_RUNTIME_SIZE_BYTES
-		));
-	}
-
-	// Let's create our own fake runtime upgrade where we just bump the `spec_version`.
-	// On chain nothing will change, as we only change the runtime version stored inside the wasm
-	// file.
-	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(runtime_wasm)?;
-	let mut version = sc_executor::read_embedded_version(&blob)?
-		.ok_or_else(|| anyhow!("No runtime version found?"))?;
-	version.spec_version += 1;
-	let runtime_wasm = sp_version::embed::embed_runtime_version(runtime_wasm, version)?;
+	// Decompress and inflate with a custom wasm section containing pseudo-random data until
+	// the compressed size exceeds `MIN_RUNTIME_SIZE_BYTES`.
+	let runtime_wasm = inflate_runtime_wasm(compressed_wasm, MIN_RUNTIME_SIZE_BYTES)?;
 
 	log::info!("Runtime size validation passed: {} bytes", runtime_wasm.len());
 
@@ -146,6 +132,48 @@ fn create_sudo_call(inner_call: DynamicPayload) -> DynamicPayload {
 	zombienet_sdk::subxt::tx::dynamic("Sudo", "sudo", vec![inner_call.into_value()])
 }
 
+/// Decompress the WASM binary and pad with a custom section containing pseudo-random data
+/// until the compressed size exceeds `min_compressed_size`.
+fn inflate_runtime_wasm(
+	compressed_wasm: &[u8],
+	min_compressed_size: usize,
+) -> Result<Vec<u8>, anyhow::Error> {
+	let mut wasm = sp_maybe_compressed_blob::decompress(compressed_wasm, 50 * 1024 * 1024)
+		.map_err(|e| anyhow!("Decompression failed: {:?}", e))?
+		.into_owned();
+
+	let mut rng_state: u64 = 0xdeadbeef;
+	let chunk_size = 256 * 1024;
+	loop {
+		let padding: Vec<u8> = (0..chunk_size)
+			.map(|_| {
+				// xorshift64
+				rng_state ^= rng_state << 13;
+				rng_state ^= rng_state >> 7;
+				rng_state ^= rng_state << 17;
+				rng_state as u8
+			})
+			.collect();
+
+		let mut module: parity_wasm::elements::Module =
+			parity_wasm::deserialize_buffer(&wasm).map_err(|e| anyhow!("wasm parse: {e:?}"))?;
+		module.set_custom_section("padding", padding);
+		wasm = parity_wasm::serialize(module).map_err(|e| anyhow!("wasm serialize: {e:?}"))?;
+
+		let compressed = sp_maybe_compressed_blob::compress(&wasm, 50 * 1024 * 1024)
+			.ok_or_else(|| anyhow!("Compression failed"))?;
+		log::info!(
+			"Inflated WASM: uncompressed={} bytes, compressed={} bytes (target={})",
+			wasm.len(),
+			compressed.len(),
+			min_compressed_size,
+		);
+		if compressed.len() >= min_compressed_size {
+			return Ok(wasm);
+		}
+	}
+}
+
 async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
 	log::info!("Using images: {images:?}");
@@ -162,7 +190,6 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_genesis_overrides(json!({
 					"configuration": {
 						"config": {
-							"max_code_size": 5242880,
 							"scheduler_params": {
 								"num_cores": 3,
 								"max_validators_per_core": 1
