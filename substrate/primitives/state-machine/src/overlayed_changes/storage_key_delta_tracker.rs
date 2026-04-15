@@ -202,12 +202,8 @@ impl<K: core::fmt::Debug, H> StorageKeyDeltaTracker<K, H> {
 		let mut process_key = |hash: u64, key: K, op: DeltaKeyOp| {
 			// Find the last emitted op for this key: check current snapshot first (most
 			// recent), then layers from innermost to outermost.
-			let prev_op = self
-				.current
-				.snapshot
-				.as_ref()
-				.and_then(|s| s.get(&hash).copied())
-				.or_else(|| {
+			let prev_op =
+				self.current.snapshot.as_ref().and_then(|s| s.get(&hash).copied()).or_else(|| {
 					self.layers
 						.iter()
 						.rev()
