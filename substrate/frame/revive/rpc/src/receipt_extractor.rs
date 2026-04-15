@@ -60,7 +60,7 @@ fn decode_revive_event(
 	block_number: U256,
 	transaction_hash: H256,
 	transaction_index: u32,
-	eth_block_hash: H256,
+	block_hash: H256,
 ) -> Option<ReviveEvent> {
 	if event.pallet_name() != ContractEmitted::PALLET {
 		return None;
@@ -78,7 +78,7 @@ fn decode_revive_event(
 					block_number,
 					transaction_hash,
 					transaction_index: transaction_index.into(),
-					block_hash: eth_block_hash,
+					block_hash,
 					log_index: event.index().into(),
 					..Default::default()
 				}));
@@ -96,15 +96,15 @@ fn decode_revive_event(
 /// Fetch block events and collect revert flags and logs for the given EthTransact
 /// extrinsics in a single pass. Events for other extrinsics are skipped.
 ///
-/// Returns `(revert_set, logs_by_ext)` keyed by extrinsic index.
+/// Returns `(reverted_extrinsics, logs_by_extrinsic)` keyed by extrinsic index.
 async fn extract_revive_events(
 	block: &SubstrateBlock,
 	block_number: U256,
 	eth_block_hash: H256,
-	tx_hash_for: impl Fn(u32) -> Option<H256>,
+	eth_tx_hash_for: impl Fn(u32) -> Option<H256>,
 ) -> Result<(HashSet<u32>, HashMap<u32, Vec<Log>>), ClientError> {
-	let mut revert_set: HashSet<u32> = HashSet::new();
-	let mut logs_by_ext: HashMap<u32, Vec<Log>> = HashMap::new();
+	let mut reverted_extrinsics: HashSet<u32> = HashSet::new();
+	let mut logs_by_extrinsic: HashMap<u32, Vec<Log>> = HashMap::new();
 
 	let block_events = block.events().await.inspect_err(|err| {
 		log::debug!(
@@ -114,38 +114,44 @@ async fn extract_revive_events(
 		);
 	})?;
 
-	for (idx, event_result) in block_events.iter().enumerate() {
+	for (event_index, event_result) in block_events.iter().enumerate() {
 		let event = match event_result {
 			Ok(e) => e,
 			Err(err) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Failed to decode event {idx} in block #{}: {err:?}",
+					"Failed to decode event {event_index} in block #{}: {err:?}",
 					block.number()
 				);
 				continue;
 			},
 		};
 
-		let ext_idx = match event.phase() {
-			Phase::ApplyExtrinsic(i) => i,
+		let extrinsic_index = match event.phase() {
+			Phase::ApplyExtrinsic(idx) => idx,
 			_ => continue,
 		};
 
-		let Some(tx_hash) = tx_hash_for(ext_idx) else { continue };
+		let Some(eth_tx_hash) = eth_tx_hash_for(extrinsic_index) else { continue };
 
-		match decode_revive_event(&event, block_number, tx_hash, ext_idx, eth_block_hash) {
+		match decode_revive_event(
+			&event,
+			block_number,
+			eth_tx_hash,
+			extrinsic_index,
+			eth_block_hash,
+		) {
 			Some(ReviveEvent::Revert) => {
-				revert_set.insert(ext_idx);
+				reverted_extrinsics.insert(extrinsic_index);
 			},
 			Some(ReviveEvent::Log(log)) => {
-				logs_by_ext.entry(ext_idx).or_default().push(log);
+				logs_by_extrinsic.entry(extrinsic_index).or_default().push(log);
 			},
 			None => {},
 		}
 	}
 
-	Ok((revert_set, logs_by_ext))
+	Ok((reverted_extrinsics, logs_by_extrinsic))
 }
 
 type FetchReceiptDataFn = Arc<
@@ -293,9 +299,9 @@ impl ReceiptExtractor {
 		block_number: U256,
 		call: EthTransact,
 		transaction_hash: H256,
+		transaction_index: u32,
 		receipt_gas_info: ReceiptGasInfo,
-		transaction_index: usize,
-		success: bool,
+		reverted: bool,
 		logs: Vec<Log>,
 	) -> Result<(TransactionSigned, ReceiptInfo), ClientError> {
 		let signed_tx =
@@ -333,14 +339,13 @@ impl ReceiptExtractor {
 			tx_info.to,
 			receipt_gas_info.effective_gas_price,
 			U256::from(receipt_gas_info.gas_used),
-			success,
+			!reverted,
 			transaction_hash,
 			transaction_index.into(),
 			tx_info.r#type.unwrap_or_default(),
 		);
 		Ok((signed_tx, receipt))
 	}
-
 
 	/// Extract receipts from block.
 	pub async fn extract_from_block(
@@ -364,40 +369,40 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let (ext_list, tx_hash_by_ext): (Vec<_>, HashMap<u32, H256>) = self
+		let (extrinsics, eth_tx_hash_by_extrinsic): (Vec<_>, HashMap<u32, H256>) = self
 			.get_block_extrinsics(block)
 			.await?
-			.map(|(call, rec, ext_idx)| {
+			.map(|(call, receipt_gas_info, extrinsic_index)| {
 				let hash = H256(keccak_256(&call.payload));
-				let ext_idx = ext_idx as u32;
-				((call, hash, rec, ext_idx), (ext_idx, hash))
+				let extrinsic_index = extrinsic_index as u32;
+				((call, hash, receipt_gas_info, extrinsic_index), (extrinsic_index, hash))
 			})
 			.unzip();
 
-		if ext_list.is_empty() {
+		if extrinsics.is_empty() {
 			return Ok(vec![]);
 		}
 
 		let block_number: U256 = block.number().into();
-		let (revert_set, mut logs_by_ext) =
+		let (reverted_extrinsics, mut logs_by_extrinsic) =
 			extract_revive_events(block, block_number, eth_block_hash, |idx| {
-				tx_hash_by_ext.get(&idx).copied()
+				eth_tx_hash_by_extrinsic.get(&idx).copied()
 			})
 			.await?;
 
-		ext_list
+		extrinsics
 			.into_iter()
-			.map(|(call, transaction_hash, receipt_gas_info, ext_idx)| {
-				let success = !revert_set.contains(&ext_idx);
-				let logs = logs_by_ext.remove(&ext_idx).unwrap_or_default();
+			.map(|(call, transaction_hash, receipt_gas_info, transaction_index)| {
+				let reverted = reverted_extrinsics.contains(&transaction_index);
+				let logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 				self.decode_transaction_and_build_receipt(
 					eth_block_hash,
 					block_number,
 					call,
 					transaction_hash,
+					transaction_index,
 					receipt_gas_info,
-					ext_idx as usize,
-					success,
+					reverted,
 					logs,
 				)
 				.inspect_err(|err| {
@@ -460,12 +465,12 @@ impl ReceiptExtractor {
 		let (eth_call, receipt_gas_info, transaction_hash) = self
 			.get_block_extrinsics(block)
 			.await?
-			.find_map(|(call, rec, ext_idx)| {
-				if ext_idx != transaction_index {
+			.find_map(|(call, receipt_gas_info, extrinsic_index)| {
+				if extrinsic_index != transaction_index {
 					return None;
 				}
 				let hash = H256(keccak_256(&call.payload));
-				Some((call, rec, hash))
+				Some((call, receipt_gas_info, hash))
 			})
 			.ok_or_else(|| {
 				log::trace!(target: LOG_TARGET,
@@ -474,29 +479,26 @@ impl ReceiptExtractor {
 				ClientError::EthExtrinsicNotFound
 			})?;
 
-		let substrate_block_hash = block.hash();
-		let eth_block_hash =
-			self.resolve_eth_block_hash(substrate_block_hash, block.number() as u64).await;
-
 		let eth_block_number: U256 = block.number().into();
+		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
 
-		let (revert_set, mut logs_by_ext) =
+		let transaction_index = transaction_index as u32;
+		let (reverted_extrinsics, mut logs_by_extrinsic) =
 			extract_revive_events(block, eth_block_number, eth_block_hash, |idx| {
-				(idx == transaction_index as u32).then_some(transaction_hash)
+				(idx == transaction_index).then_some(transaction_hash)
 			})
 			.await?;
 
-		let success = !revert_set.contains(&(transaction_index as u32));
-		let logs = logs_by_ext.remove(&(transaction_index as u32)).unwrap_or_default();
-
+		let reverted = reverted_extrinsics.contains(&transaction_index);
+		let logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 		self.decode_transaction_and_build_receipt(
 			eth_block_hash,
 			eth_block_number,
 			eth_call,
 			transaction_hash,
-			receipt_gas_info,
 			transaction_index,
-			success,
+			receipt_gas_info,
+			reverted,
 			logs,
 		)
 	}
