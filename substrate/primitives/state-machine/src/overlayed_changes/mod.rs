@@ -838,7 +838,9 @@ where
 /// or an owned extension.
 #[cfg(feature = "std")]
 pub enum OverlayedExtension<'a> {
+	/// A mutable reference to an extension owned elsewhere.
 	MutRef(&'a mut Box<dyn Extension>),
+	/// An extension owned by this overlay.
 	Owned(Box<dyn Extension>),
 }
 
