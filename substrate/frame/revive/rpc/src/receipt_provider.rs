@@ -140,22 +140,22 @@ macro_rules! upsert_sync_label {
 	}};
 }
 
-/// Macro so callers can pass either a pool or a transaction.
-macro_rules! insert_block_mapping {
-	($executor:expr, $block_map:expr) => {{
-		let ethereum_hash_ref = $block_map.ethereum_hash.as_ref();
-		let substrate_hash_ref = $block_map.substrate_hash.as_ref();
-		query!(
-			r#"
+async fn insert_block_mapping<'e, E: sqlx::Executor<'e, Database = Sqlite>>(
+	executor: E,
+	block_map: &BlockHashMap,
+) -> Result<sqlx::sqlite::SqliteQueryResult, sqlx::Error> {
+	let ethereum_hash_ref = block_map.ethereum_hash.as_ref();
+	let substrate_hash_ref = block_map.substrate_hash.as_ref();
+	query!(
+		r#"
 			INSERT OR REPLACE INTO eth_to_substrate_blocks (ethereum_block_hash, substrate_block_hash)
 			VALUES ($1, $2)
 			"#,
-			ethereum_hash_ref,
-			substrate_hash_ref,
-		)
-		.execute($executor)
-		.await
-	}};
+		ethereum_hash_ref,
+		substrate_hash_ref,
+	)
+	.execute(executor)
+	.await
 }
 
 impl<B: BlockInfoProvider> ReceiptProvider<B> {
@@ -652,7 +652,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		}
 
 		let block_map = BlockHashMap::new(substrate_block_hash, *ethereum_hash);
-		insert_block_mapping!(&mut *db_tx, &block_map)?;
+		insert_block_mapping(&mut *db_tx, &block_map).await?;
 
 		db_tx.commit().await?;
 		log::trace!(target: LOG_TARGET, "Inserted {} receipts for block #{block_number} ethereum: {ethereum_hash:?} substrate: {substrate_block_hash:?}", receipts.len());
@@ -1362,7 +1362,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		insert_block_mapping!(&provider.db_ctx.pool, &block_map)?;
+		insert_block_mapping(&provider.db_ctx.pool, &block_map).await?;
 
 		// Test forward lookup
 		let resolved = provider.get_substrate_hash(&ethereum_hash).await;
@@ -1386,8 +1386,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(substrate_hash2, ethereum_hash2);
 
 		// Insert mappings
-		insert_block_mapping!(&provider.db_ctx.pool, &block_map1)?;
-		insert_block_mapping!(&provider.db_ctx.pool, &block_map2)?;
+		insert_block_mapping(&provider.db_ctx.pool, &block_map1).await?;
+		insert_block_mapping(&provider.db_ctx.pool, &block_map2).await?;
 
 		// Verify they exist
 		assert_eq!(
@@ -1417,7 +1417,7 @@ mod tests {
 		let block_map = BlockHashMap::new(substrate_hash, ethereum_hash);
 
 		// Insert mapping
-		insert_block_mapping!(&provider.db_ctx.pool, &block_map)?;
+		insert_block_mapping(&provider.db_ctx.pool, &block_map).await?;
 		assert_eq!(
 			provider.get_substrate_hash(&block_map.ethereum_hash).await,
 			Some(block_map.substrate_hash)
@@ -1488,8 +1488,8 @@ mod tests {
 		let block_map2 = BlockHashMap::new(H256::from([3u8; 32]), H256::from([4u8; 32]));
 
 		// Insert some mappings
-		insert_block_mapping!(&provider.db_ctx.pool, &block_map1)?;
-		insert_block_mapping!(&provider.db_ctx.pool, &block_map2)?;
+		insert_block_mapping(&provider.db_ctx.pool, &block_map1).await?;
+		insert_block_mapping(&provider.db_ctx.pool, &block_map2).await?;
 
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 2);
 
