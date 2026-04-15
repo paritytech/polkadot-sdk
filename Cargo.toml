@@ -810,6 +810,7 @@ ethereum-standards = { path = "substrate/primitives/ethereum-standards" }
 ethereum-types = { version = "0.15.1", default-features = false }
 exit-future = { version = "0.2.0" }
 expander = { version = "2.0.0" }
+fastbloom = { version = "0.17", default-features = false }
 fatality = { version = "0.1.1" }
 fdlimit = { version = "0.3.0" }
 femme = { version = "2.2.1" }
