@@ -14,6 +14,6 @@ doc:
 
 crates:
 - name: pallet-psm
-  bump: patch
+  bump: major
 - name: asset-hub-westend-runtime
   bump: patch
