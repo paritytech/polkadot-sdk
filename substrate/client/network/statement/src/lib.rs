@@ -818,15 +818,13 @@ where
 				);
 
 				self.network.report_peer(who, rep::STATEMENT_FLOODING);
+
+				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 				self.network.disconnect_peer(who, self.protocol_name.clone());
+
 				if let Some(ref metrics) = self.metrics {
 					metrics.statement_flooding_detected.inc();
 				}
-
-				// Clean up peer state immediately
-				self.peers.remove(&who);
-				self.pending_initial_syncs.remove(&who);
-				self.initial_sync_peer_queue.retain(|p| *p != who);
 
 				return;
 			}
