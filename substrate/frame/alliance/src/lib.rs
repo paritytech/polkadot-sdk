@@ -678,8 +678,7 @@ pub mod pallet {
 			let mut announcements = <Announcements<T, I>>::get();
 			let pos = announcements
 				.binary_search(&announcement)
-				.ok()
-				.ok_or(Error::<T, I>::MissingAnnouncement)?;
+				.map_err(|_| Error::<T, I>::MissingAnnouncement)?;
 			announcements.remove(pos);
 			<Announcements<T, I>>::put(announcements);
 
@@ -1064,8 +1063,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				for who in out_accounts.iter() {
 					let pos = accounts
 						.binary_search(who)
-						.ok()
-						.ok_or(Error::<T, I>::NotListedAsUnscrupulous)?;
+						.map_err(|_| Error::<T, I>::NotListedAsUnscrupulous)?;
 					accounts.remove(pos);
 				}
 				Ok(())
@@ -1076,8 +1074,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 				for web in out_webs.iter() {
 					let pos = webs
 						.binary_search(web)
-						.ok()
-						.ok_or(Error::<T, I>::NotListedAsUnscrupulous)?;
+						.map_err(|_| Error::<T, I>::NotListedAsUnscrupulous)?;
 					webs.remove(pos);
 				}
 				Ok(())
