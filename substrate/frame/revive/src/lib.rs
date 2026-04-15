@@ -1979,12 +1979,12 @@ impl<T: Config> Pallet<T> {
 			.into_call::<T>(CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded))
 			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
 		let info = T::FeeInfo::dispatch_info(&call_info.call);
-		let base_extrinsic = T::BlockWeights::get().get(info.class).base_extrinsic;
 
-		Ok(info
-			.total_weight()
-			.saturating_add(base_extrinsic)
-			.saturating_add(Weight::from_parts(0, u64::from(call_info.encoded_len))))
+		Ok(frame_system::calculate_consumed_extrinsic_weight::<CallOf<T>>(
+			&T::BlockWeights::get(),
+			&info,
+			usize::from(call_info.encoded_len),
+		))
 	}
 
 	/// Dry-run Ethereum calls.
