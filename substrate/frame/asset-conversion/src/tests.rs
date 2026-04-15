@@ -1055,6 +1055,16 @@ fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
 			),
 			None
 		);
+		// Also without fees.
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1_005_018,
+				false,
+			),
+			None
+		);
 		// input=1_005_017, output=1000 ≤ 1000, must return Some.
 		assert!(AssetConversion::quote_price_exact_tokens_for_tokens(
 			token_1.clone(),
