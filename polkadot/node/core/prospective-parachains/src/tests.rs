@@ -19,20 +19,19 @@ use assert_matches::assert_matches;
 use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, HypotheticalMembershipRequest, ParentHeadData, ProspectiveParachainsMessage,
-		ProspectiveValidationDataRequest,
+		ProspectiveValidationDataRequest, RuntimeApiMessage, RuntimeApiRequest,
 	},
 	RuntimeApiError,
 };
 use polkadot_node_subsystem_test_helpers as test_helpers;
 use polkadot_primitives::{
-	async_backing::{
-		BackingState, CandidatePendingAvailability, Constraints, InboundHrmpLimitations,
-	},
+	async_backing::{CandidatePendingAvailability, Constraints, InboundHrmpLimitations},
+	vstaging::RelayParentInfo,
 	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
 	Header, MutateDescriptorV2, PersistedValidationData, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_primitives_test_helpers::make_candidate;
+use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v3};
 use rstest::rstest;
 use std::{
 	collections::{BTreeMap, VecDeque},
@@ -77,6 +76,9 @@ struct TestState {
 	claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	runtime_api_version: u32,
 	validation_code_hash: ValidationCodeHash,
+	/// If set, overrides the `min_relay_parent_number` returned in the backing constraints.
+	/// Otherwise, defaults to `leaf.number - (scheduling_lookahead - 1)`.
+	min_relay_parent_number_override: Option<BlockNumber>,
 }
 
 impl Default for TestState {
@@ -99,7 +101,8 @@ impl Default for TestState {
 		Self {
 			validation_code_hash,
 			claim_queue,
-			runtime_api_version: RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT,
+			runtime_api_version: RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
+			min_relay_parent_number_override: None,
 		}
 	}
 }
@@ -107,6 +110,10 @@ impl Default for TestState {
 impl TestState {
 	fn set_runtime_api_version(&mut self, version: u32) {
 		self.runtime_api_version = version;
+	}
+
+	fn set_min_relay_parent_number(&mut self, n: BlockNumber) {
+		self.min_relay_parent_number_override = Some(n);
 	}
 }
 
@@ -179,6 +186,63 @@ impl TestLeaf {
 			.iter()
 			.find_map(|(p_id, data)| if *p_id == para_id { Some(data) } else { None })
 			.unwrap()
+	}
+}
+
+/// Handle messages sent by `fetch_relay_parent_info`. Paths taken depend on the runtime API
+/// version:
+/// - Self-query (query_at == relay_parent): SessionIndexForChild + BlockHeader (regardless of
+///   version).
+/// - Ancestor query when `runtime_api_version` >= `ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT`:
+///   answer the `AncestorRelayParentInfo` runtime API directly with a successful response.
+/// - Ancestor query when `runtime_api_version` is older: answer `AncestorRelayParentInfo` with
+///   `NotSupported`, causing production to fall back to SessionIndexForChild + BlockHeader.
+async fn handle_fetch_relay_parent_info(
+	virtual_overseer: &mut VirtualOverseer,
+	runtime_api_version: u32,
+	relay_parent: Hash,
+	relay_parent_number: BlockNumber,
+) {
+	let ancestor_api_supported =
+		runtime_api_version >= RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT;
+
+	let msg = virtual_overseer.recv().await;
+	match msg {
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_parent,
+			RuntimeApiRequest::AncestorRelayParentInfo(_, rp, tx),
+		)) => {
+			assert_eq!(rp, relay_parent);
+			if ancestor_api_supported {
+				// Runtime API supported: answer directly.
+				tx.send(Ok(Some(RelayParentInfo {
+					number: relay_parent_number,
+					state_root: Hash::zero(),
+				})))
+				.unwrap();
+			} else {
+				// Runtime API not supported: trigger the fallback.
+				tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
+
+				assert_matches!(
+					virtual_overseer.recv().await,
+					AllMessages::RuntimeApi(
+						RuntimeApiMessage::Request(parent, RuntimeApiRequest::SessionIndexForChild(tx))
+					) if parent == relay_parent => {
+						tx.send(Ok(1)).unwrap();
+					}
+				);
+				send_block_header(virtual_overseer, relay_parent, relay_parent_number).await;
+			}
+		},
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			parent,
+			RuntimeApiRequest::SessionIndexForChild(tx),
+		)) if parent == relay_parent => {
+			tx.send(Ok(1)).unwrap();
+			send_block_header(virtual_overseer, relay_parent, relay_parent_number).await;
+		},
+		other => panic!("Unexpected message in handle_fetch_relay_parent_info: {:?}", other),
 	}
 }
 
@@ -255,8 +319,6 @@ async fn handle_leaf_activation(
 		}
 	);
 
-	send_block_header(virtual_overseer, *hash, *number).await;
-
 	assert_matches!(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(
@@ -298,9 +360,8 @@ async fn handle_leaf_activation(
 	}
 
 	let mut used_relay_parents = HashSet::new();
-	for (hash, number) in ancestry_iter {
+	for (hash, _number) in ancestry_iter {
 		if !used_relay_parents.contains(&hash) {
-			send_block_header(virtual_overseer, hash, number).await;
 			assert_matches!(
 				virtual_overseer.recv().await,
 				AllMessages::RuntimeApi(
@@ -321,42 +382,13 @@ async fn handle_leaf_activation(
 		let para_id = match message {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
-				RuntimeApiRequest::ParaBackingState(p_id, tx),
-			)) if parent == *hash => {
-				let PerParaData { head_data, pending_availability } = leaf.para_data(p_id);
-
-				// Calculate global min_relay_parent_number
-				let min_relay_parent_number =
-					number.saturating_sub((DEFAULT_SCHEDULING_LOOKAHEAD - 1) as u32);
-
-				let constraints = dummy_constraints(
-					min_relay_parent_number,
-					vec![*number],
-					head_data.clone(),
-					test_state.validation_code_hash,
-				);
-
-				tx.send(Ok(Some(BackingState {
-					constraints,
-					pending_availability: pending_availability.clone(),
-				})))
-				.unwrap();
-				Some(p_id)
-			},
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
 				RuntimeApiRequest::BackingConstraints(p_id, tx),
-			)) if parent == *hash &&
-				test_state.runtime_api_version >=
-					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
-			{
+			)) if parent == *hash => {
 				let PerParaData { head_data, pending_availability: _ } = leaf.para_data(p_id);
 
-				// min_relay_parent_number is global (same for all paras), calculated as:
-				// now - min(lookahead - 1, actual_ancestry_len)
-				// The ancestry_len was calculated during leaf activation and determines
-				// how many ancestors are available (limited by session boundaries).
-				let min_relay_parent_number = number.saturating_sub(ancestry_len as u32);
+				let min_relay_parent_number = test_state
+					.min_relay_parent_number_override
+					.unwrap_or_else(|| number.saturating_sub(ancestry_len as u32));
 
 				let constraints = dummy_constraints(
 					min_relay_parent_number,
@@ -368,17 +400,6 @@ async fn handle_leaf_activation(
 				tx.send(Ok(Some(constraints))).unwrap();
 				None
 			},
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				parent,
-				RuntimeApiRequest::BackingConstraints(_p_id, tx),
-			)) if parent == *hash &&
-				test_state.runtime_api_version <
-					RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT =>
-			{
-				tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
-				None
-			},
-
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				parent,
 				RuntimeApiRequest::CandidatesPendingAvailability(p_id, tx),
@@ -401,16 +422,13 @@ async fn handle_leaf_activation(
 
 		if let Some(para_id) = para_id {
 			for pending in leaf.para_data(para_id).pending_availability.clone() {
-				if !used_relay_parents.contains(&pending.descriptor.relay_parent()) {
-					send_block_header(
-						virtual_overseer,
-						pending.descriptor.relay_parent(),
-						pending.relay_parent_number,
-					)
-					.await;
-
-					used_relay_parents.insert(pending.descriptor.relay_parent());
-				}
+				handle_fetch_relay_parent_info(
+					virtual_overseer,
+					test_state.runtime_api_version,
+					pending.descriptor.relay_parent(),
+					pending.relay_parent_number,
+				)
+				.await;
 			}
 		}
 	}
@@ -535,6 +553,7 @@ async fn get_hypothetical_membership(
 
 async fn get_pvd(
 	virtual_overseer: &mut VirtualOverseer,
+	runtime_api_version: u32,
 	para_id: ParaId,
 	candidate_relay_parent: Hash,
 	parent_head_data: HeadData,
@@ -543,6 +562,7 @@ async fn get_pvd(
 	let request = ProspectiveValidationDataRequest {
 		para_id,
 		candidate_relay_parent,
+		session_index: 1,
 		parent_head_data: ParentHeadData::OnlyHash(parent_head_data.hash()),
 	};
 	let (tx, rx) = oneshot::channel();
@@ -551,6 +571,19 @@ async fn get_pvd(
 			msg: ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
 		})
 		.await;
+
+	// answer_prospective_validation_data_request calls fetch_relay_parent_info.
+	// The path depends on: (a) whether query_at == relay_parent (self-query takes
+	// SessionIndexForChild + BlockHeader), and (b) whether the `AncestorRelayParentInfo`
+	// runtime API is supported (controlled by `runtime_api_version`).
+	handle_fetch_relay_parent_info(
+		virtual_overseer,
+		runtime_api_version,
+		candidate_relay_parent,
+		expected_pvd.as_ref().map_or(0, |p| p.relay_parent_number),
+	)
+	.await;
+
 	let resp = rx.await.unwrap();
 	assert_eq!(resp, expected_pvd);
 }
@@ -580,12 +613,9 @@ macro_rules! make_and_back_candidate {
 // - One for leaf B on parachain 1
 // - One for leaf C on parachain 2
 // Also tests a claim queue size larger than 1.
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn introduce_candidates_basic(#[case] runtime_api_version: u32) {
+#[test]
+fn introduce_candidates_basic() {
 	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
 
 	let chain_a = ParaId::from(1);
 	let chain_b = ParaId::from(2);
@@ -766,12 +796,9 @@ fn introduce_candidates_basic(#[case] runtime_api_version: u32) {
 }
 
 // Check if candidates are not backed if they fail constraint checks
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn introduce_candidates_error(#[case] runtime_api_version: u32) {
+#[test]
+fn introduce_candidates_error() {
 	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
 	test_state.claim_queue.insert(
 		CoreIndex(2),
 		std::iter::repeat(1.into()).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
@@ -889,12 +916,9 @@ fn introduce_candidates_error(#[case] runtime_api_version: u32) {
 	assert_eq!(view.active_leaves.len(), 1);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn introduce_candidate_multiple_times(#[case] runtime_api_version: u32) {
-	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
+#[test]
+fn introduce_candidate_multiple_times() {
+	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -1303,12 +1327,9 @@ fn introduce_candidate_parent_leaving_view() {
 }
 
 // Introduce a candidate to multiple forks, see how the membership is returned.
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn introduce_candidate_on_multiple_forks(#[case] runtime_api_version: u32) {
-	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
+#[test]
+fn introduce_candidate_on_multiple_forks() {
+	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf B
 		let leaf_b = TestLeaf {
@@ -1378,10 +1399,8 @@ fn introduce_candidate_on_multiple_forks(#[case] runtime_api_version: u32) {
 	assert_eq!(view.active_leaves.len(), 2);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn unconnected_candidates_become_connected(#[case] runtime_api_version: u32) {
+#[test]
+fn unconnected_candidates_become_connected() {
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.
 	let mut test_state = TestState::default();
@@ -1392,7 +1411,6 @@ fn unconnected_candidates_become_connected(#[case] runtime_api_version: u32) {
 		);
 	}
 
-	test_state.set_runtime_api_version(runtime_api_version);
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -1658,15 +1676,12 @@ fn check_backable_query_single_candidate() {
 }
 
 // Backs some candidates and tests `GetBackableCandidates` when requesting a multiple candidates.
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
+#[test]
 
-fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
+fn check_backable_query_multiple_candidates() {
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.
 	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
 	// Add three more cores for para A, so that we can get a chain of max length 4
 	for i in 2..=4 {
 		test_state.claim_queue.insert(
@@ -2025,12 +2040,9 @@ fn check_backable_query_multiple_candidates(#[case] runtime_api_version: u32) {
 }
 
 // Test hypothetical membership query.
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
-	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
+#[test]
+fn check_hypothetical_membership_query() {
+	let test_state = TestState::default();
 
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf B
@@ -2194,14 +2206,11 @@ fn check_hypothetical_membership_query(#[case] runtime_api_version: u32) {
 	assert_eq!(view.active_leaves.len(), 2);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn check_pvd_query(#[case] runtime_api_version: u32) {
+#[test]
+fn check_pvd_query() {
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.
-	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
+	let test_state = TestState::default();
 	let view = test_harness(|mut virtual_overseer| async move {
 		// Leaf A
 		let leaf_a = TestLeaf {
@@ -2259,6 +2268,7 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 		// Get pvd of candidate A before adding it.
 		get_pvd(
 			&mut virtual_overseer,
+			test_state.runtime_api_version,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1, 2, 3]),
@@ -2274,6 +2284,7 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 		// Get pvd of candidate A after adding it.
 		get_pvd(
 			&mut virtual_overseer,
+			test_state.runtime_api_version,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1, 2, 3]),
@@ -2284,6 +2295,7 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 		// Get pvd of candidate B before adding it.
 		get_pvd(
 			&mut virtual_overseer,
+			test_state.runtime_api_version,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1]),
@@ -2297,6 +2309,7 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 		// Get pvd of candidate B after adding it.
 		get_pvd(
 			&mut virtual_overseer,
+			test_state.runtime_api_version,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1]),
@@ -2307,6 +2320,7 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 		// Get pvd of candidate C before adding it.
 		get_pvd(
 			&mut virtual_overseer,
+			test_state.runtime_api_version,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![2]),
@@ -2318,15 +2332,39 @@ fn check_pvd_query(#[case] runtime_api_version: u32) {
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_c, pvd_c.clone()).await;
 
 		// Get pvd of candidate C after adding it.
-		get_pvd(&mut virtual_overseer, 1.into(), leaf_a.hash, HeadData(vec![2]), Some(pvd_c)).await;
+		get_pvd(
+			&mut virtual_overseer,
+			test_state.runtime_api_version,
+			1.into(),
+			leaf_a.hash,
+			HeadData(vec![2]),
+			Some(pvd_c),
+		)
+		.await;
 
 		// Get pvd of candidate E before adding it. It won't be found, as we don't have its parent.
-		get_pvd(&mut virtual_overseer, 1.into(), leaf_a.hash, HeadData(vec![5]), None).await;
+		get_pvd(
+			&mut virtual_overseer,
+			test_state.runtime_api_version,
+			1.into(),
+			leaf_a.hash,
+			HeadData(vec![5]),
+			None,
+		)
+		.await;
 
 		// Add candidate E and check again. Should succeed this time.
 		introduce_seconded_candidate(&mut virtual_overseer, candidate_e, pvd_e.clone()).await;
 
-		get_pvd(&mut virtual_overseer, 1.into(), leaf_a.hash, HeadData(vec![5]), Some(pvd_e)).await;
+		get_pvd(
+			&mut virtual_overseer,
+			test_state.runtime_api_version,
+			1.into(),
+			leaf_a.hash,
+			HeadData(vec![5]),
+			Some(pvd_e),
+		)
+		.await;
 
 		virtual_overseer
 	});
@@ -2428,16 +2466,13 @@ fn correctly_updates_leaves() {
 	assert_eq!(view.active_leaves.len(), 0);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_version: u32) {
+#[test]
+fn handle_active_leaves_update_gets_candidates_from_parent() {
 	let para_id = ParaId::from(1);
 
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.
 	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
 
 	test_state.claim_queue = BTreeMap::new();
 	for i in 0..=4 {
@@ -2735,7 +2770,7 @@ fn handle_active_leaves_update_gets_candidates_from_parent(#[case] runtime_api_v
 	});
 
 	assert_eq!(view.active_leaves.len(), 2);
-	assert_eq!(view.per_relay_parent.len(), 3);
+	assert_eq!(view.per_scheduling_parent.len(), 3);
 }
 
 #[test]
@@ -2784,23 +2819,20 @@ fn handle_active_leaves_update_bounded_implicit_view() {
 	// Only latest leaf is active.
 	assert_eq!(view.active_leaves.len(), 1);
 	// We keep scheduling_lookahead - 1 implicit leaves. The latest leaf is also present here.
-	assert_eq!(view.per_relay_parent.len() as u32, scheduling_lookahead);
+	assert_eq!(view.per_scheduling_parent.len() as u32, scheduling_lookahead);
 
 	assert_eq!(view.active_leaves, [leaves[9].hash].into_iter().collect());
 	assert_eq!(
-		view.per_relay_parent.into_keys().collect::<HashSet<_>>(),
+		view.per_scheduling_parent.into_keys().collect::<HashSet<_>>(),
 		leaves[7..].into_iter().map(|l| l.hash).collect::<HashSet<_>>()
 	);
 }
 
-#[rstest]
-#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
-#[case(RuntimeApiRequest::CLAIM_QUEUE_RUNTIME_REQUIREMENT)]
-fn persists_pending_availability_candidate(#[case] runtime_api_version: u32) {
+#[test]
+fn persists_pending_availability_candidate() {
 	// This doesn't test all the complicated cases with many unconnected candidates, as it's more
 	// extensively tested in the `fragment_chain::tests` module.
 	let mut test_state = TestState::default();
-	test_state.set_runtime_api_version(runtime_api_version);
 	let para_id = ParaId::from(1);
 	test_state.claim_queue = test_state
 		.claim_queue
@@ -2931,8 +2963,6 @@ fn uses_ancestry_only_within_session() {
 			}
 		);
 
-		send_block_header(&mut virtual_overseer, hash, number).await;
-
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(
@@ -2960,9 +2990,7 @@ fn uses_ancestry_only_within_session() {
 			}
 		);
 
-		for (i, hash) in ancestry_hashes.into_iter().enumerate() {
-			let number = number - (i + 1) as BlockNumber;
-			send_block_header(&mut virtual_overseer, hash, number).await;
+		for (_i, hash) in ancestry_hashes.into_iter().enumerate() {
 			assert_matches!(
 				virtual_overseer.recv().await,
 				AllMessages::RuntimeApi(
@@ -2977,6 +3005,160 @@ fn uses_ancestry_only_within_session() {
 				}
 			);
 		}
+
+		virtual_overseer
+	});
+}
+
+// Test that a V3 candidate whose `relay_parent` is MUCH OLDER than its `scheduling_parent`
+// (older than the scheduling lookahead — out of the scheduling scope, but within
+// `min_relay_parent_number` allowed by the runtime) is accepted end-to-end (introduced, backed,
+// and returned as backable). This is the core new behavior enabled by this PR.
+#[test]
+fn introduce_v3_candidate_with_older_relay_parent() {
+	const LEAF_NUMBER: BlockNumber = 100;
+	// Pick a relay parent far older than the scheduling lookahead so this exercises the
+	// behavior that wasn't possible pre-PR.
+	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
+
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	// Configure the runtime to allow relay parents down to the much older block.
+	test_state.set_min_relay_parent_number(OLDER_RELAY_PARENT_NUMBER);
+
+	let view = test_harness(|mut virtual_overseer| async move {
+		let leaf_a = TestLeaf {
+			number: LEAF_NUMBER,
+			hash: Hash::from_low_u64_be(130),
+			para_data: vec![
+				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
+		// Relay parent well outside the scheduling scope (scope is
+		// `[LEAF_NUMBER - (lookahead-1), LEAF_NUMBER]`).
+		let older_relay_parent = Hash::from_low_u64_be(9999);
+
+		// V3 candidate: relay_parent = older block, scheduling_parent = leaf_a.
+		let (candidate_a, pvd_a) = make_candidate_v3(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+		let candidate_hash_a = candidate_a.hash();
+
+		// Sanity: confirm the descriptor is V3 and parents are decoupled.
+		assert_eq!(candidate_a.descriptor.relay_parent(), older_relay_parent);
+		assert_eq!(candidate_a.descriptor.scheduling_parent(), leaf_a.hash);
+
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
+			.await;
+		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
+
+		// Verify it's returned as backable anchored at the scheduling parent (leaf_a.hash).
+		get_backable_candidates(
+			&mut virtual_overseer,
+			&leaf_a,
+			para_id,
+			Ancestors::default(),
+			1,
+			vec![BackableCandidateRef {
+				candidate_hash: candidate_hash_a,
+				scheduling_parent: leaf_a.hash,
+			}],
+		)
+		.await;
+
+		// And that hypothetical membership treats the leaf as a valid anchor.
+		get_hypothetical_membership(
+			&mut virtual_overseer,
+			candidate_hash_a,
+			candidate_a,
+			pvd_a,
+			vec![leaf_a.hash],
+		)
+		.await;
+
+		virtual_overseer
+	});
+
+	assert_eq!(view.active_leaves.len(), 1);
+}
+
+// Test that `GetProspectiveValidationData` for a candidate with a MUCH OLDER `relay_parent`
+// (older than the scheduling lookahead) returns a PVD that uses the old relay parent's
+// number/storage_root, but the SCHEDULING session's `max_pov_size`. This locks in the
+// load-bearing assumption documented in `answer_prospective_validation_data_request`.
+//
+// Parameterized over `runtime_api_version`:
+// - `case_1` uses the default runtime version (< `ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT`),
+//   exercising the chain-header fallback path.
+// - `case_2` uses a runtime version that supports the `AncestorRelayParentInfo` API, exercising the
+//   runtime API path — the production scenario for relay parents beyond recent chain storage
+//   (potentially from a previous session).
+#[rstest]
+#[case(RuntimeApiRequest::CONSTRAINTS_RUNTIME_REQUIREMENT)]
+#[case(RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT)]
+fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u32) {
+	const LEAF_NUMBER: BlockNumber = 100;
+	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
+
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	test_state.set_runtime_api_version(runtime_api_version);
+	test_state.set_min_relay_parent_number(OLDER_RELAY_PARENT_NUMBER);
+
+	test_harness(|mut virtual_overseer| async move {
+		let leaf_a = TestLeaf {
+			number: LEAF_NUMBER,
+			hash: Hash::from_low_u64_be(130),
+			para_data: vec![
+				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
+		// V3 candidate with relay_parent far outside the scheduling scope.
+		let older_relay_parent = Hash::from_low_u64_be(9999);
+		let (candidate_a, pvd_a) = make_candidate_v3(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+		introduce_seconded_candidate(&mut virtual_overseer, candidate_a, pvd_a).await;
+
+		// Ask for PVD of a *child* candidate whose parent_head is candidate A's output and
+		// whose relay_parent is the OLDER block. The returned PVD should:
+		//   - use the old block's number (OLDER_RELAY_PARENT_NUMBER),
+		//   - use the old block's storage_root (Hash::zero() in test fixtures),
+		//   - use the max_pov_size from the scheduling session's constraints (MAX_POV_SIZE).
+		// The version-aware `handle_fetch_relay_parent_info` routes through the API path or
+		// the chain-header fallback based on `test_state.runtime_api_version`.
+		get_pvd(
+			&mut virtual_overseer,
+			test_state.runtime_api_version,
+			para_id,
+			older_relay_parent,
+			HeadData(vec![1]),
+			Some(PersistedValidationData {
+				parent_head: HeadData(vec![1]),
+				relay_parent_number: OLDER_RELAY_PARENT_NUMBER,
+				relay_parent_storage_root: Hash::zero(),
+				max_pov_size: MAX_POV_SIZE,
+			}),
+		)
+		.await;
 
 		virtual_overseer
 	});

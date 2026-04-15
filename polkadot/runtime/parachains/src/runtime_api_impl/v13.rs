@@ -463,16 +463,21 @@ pub fn backing_constraints<T: initializer::Config>(
 	let now = frame_system::Pallet::<T>::block_number();
 
 	// Workaround for issue #64.
-	let min_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
-		StorageVersion::new(1)
-	{
-		shared::migration::v1::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
-			now,
-			config.scheduler_params.lookahead.saturating_sub(1),
-		)
-	} else {
-		shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
+	let min_allowed_relay_parent_number = || {
+		if shared::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(1) {
+			shared::migration::v1::AllowedRelayParents::<T>::get()
+				.hypothetical_earliest_block_number(
+					now,
+					config.scheduler_params.lookahead.saturating_sub(1),
+				)
+		} else {
+			shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
+		}
 	};
+
+	let min_relay_parent_number = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
+		.map(|ctx| std::cmp::max(ctx, min_allowed_relay_parent_number()))
+		.unwrap_or_else(min_allowed_relay_parent_number);
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
 	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
