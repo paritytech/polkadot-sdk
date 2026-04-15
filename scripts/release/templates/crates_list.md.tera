@@ -1,1 +1,6 @@
-{# List of chnaged crates with updated versions genearted during the crates relaease . -#}
+The following crates were updated to the corresponding versions:
+
+- snowbridge-verification-primitives@0.8.1
+- pallet-assets@49.0.1
+- staging-xcm-executor@25.1.0
+- pallet-mmr@46.0.1
