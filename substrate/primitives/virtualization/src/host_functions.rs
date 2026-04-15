@@ -15,187 +15,126 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{DestroyError, ExecBuffer, ExecError, InstantiateError, MemoryError, EXEC_BUFFER_SIZE};
+use crate::{
+	DestroyError, ExecError, InstanceId, InstantiateError, MemoryError, ModuleError, ModuleId,
+	SyscallSymbol,
+};
+use core::mem;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 use sp_runtime_interface::{
 	pass_by::{
-		ConvertAndReturnAs, PassFatPointerAndRead, PassFatPointerAndWrite, PassPointerAndWrite,
+		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndWrite,
+		PassPointerAndWrite,
 	},
 	runtime_interface,
 };
-use strum::EnumCount;
 
-#[cfg(not(substrate_runtime))]
-use crate::ExecStatus;
-
-#[derive(EnumCount)]
-#[repr(i8)]
-pub enum RIInstantiateError {
-	InvalidImage = -1,
+/// Buffer shared between runtime and executor for passing syscall data across the
+/// host function boundary.
+///
+/// The runtime allocates this on its stack and passes it via pointer.
+/// The host fills it in when returning from [`crate::Execution::run`].
+#[derive(Debug, Default)]
+#[repr(C)]
+pub struct ExecBuffer {
+	/// Gas remaining after the execution step.
+	pub gas_left: i64,
+	/// The syscall symbol (only meaningful when the status is [`ExecStatus::Syscall`]).
+	pub syscall_symbol: SyscallSymbol,
+	/// Syscall register arguments a0-a5 (only meaningful for [`ExecStatus::Syscall`]).
+	pub a0: u64,
+	pub a1: u64,
+	pub a2: u64,
+	pub a3: u64,
+	pub a4: u64,
+	pub a5: u64,
 }
 
-impl From<RIInstantiateError> for i64 {
-	fn from(error: RIInstantiateError) -> Self {
-		error as i64
+impl AsRef<[u8]> for ExecBuffer {
+	fn as_ref(&self) -> &[u8] {
+		// SAFETY: `ExecBuffer` is `#[repr(C)]` with a well-defined layout of primitive fields
+		// and no implicit padding.
+		unsafe {
+			core::slice::from_raw_parts(self as *const Self as *const u8, mem::size_of::<Self>())
+		}
 	}
 }
 
-impl TryFrom<i64> for RIInstantiateError {
+impl AsMut<[u8]> for ExecBuffer {
+	fn as_mut(&mut self) -> &mut [u8] {
+		// SAFETY: `ExecBuffer` is `#[repr(C)]` with a well-defined layout of primitive fields
+		// and no implicit padding.
+		unsafe {
+			core::slice::from_raw_parts_mut(self as *mut Self as *mut u8, mem::size_of::<Self>())
+		}
+	}
+}
+
+/// Status returned by the `run` host function.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, TryFromPrimitive, IntoPrimitive)]
+#[repr(u32)]
+pub enum ExecStatus {
+	/// Execution finished normally.
+	Finished = 0,
+	/// A syscall was encountered — check the [`ExecBuffer`] for details.
+	Syscall = 1,
+}
+
+/// Implement the i64 wire encoding for error types used in [`RIIntResult`].
+///
+/// Errors are encoded as negated discriminants: variant with discriminant `n`
+/// becomes `-n` on the wire. This relies on [`IntoPrimitive`] (for `u32::from`)
+/// and [`TryFromPrimitive`] (for `Self::try_from(u32)`) being derived on the type.
+macro_rules! impl_ri_error_encoding {
+	($($t:ty),+ $(,)?) => {$(
+		impl From<$t> for i64 {
+			fn from(error: $t) -> Self {
+				-(u32::from(error) as i64)
+			}
+		}
+
+		impl TryFrom<i64> for $t {
+			type Error = ();
+			fn try_from(value: i64) -> Result<Self, Self::Error> {
+				Self::try_from((-value) as u32).map_err(|_| ())
+			}
+		}
+	)+};
+}
+
+impl_ri_error_encoding!(ModuleError, InstantiateError, ExecError, DestroyError, MemoryError);
+
+impl IntoI64 for ModuleId {
+	const MAX: i64 = u32::MAX as i64;
+}
+
+impl From<ModuleId> for i64 {
+	fn from(id: ModuleId) -> Self {
+		u32::from(id) as i64
+	}
+}
+
+impl TryFrom<i64> for ModuleId {
 	type Error = ();
-
 	fn try_from(value: i64) -> Result<Self, Self::Error> {
-		match value {
-			-1 => Ok(RIInstantiateError::InvalidImage),
-			_ => Err(()),
-		}
+		u32::try_from(value).map(ModuleId::from).map_err(|_| ())
 	}
 }
 
-impl From<InstantiateError> for RIInstantiateError {
-	fn from(error: InstantiateError) -> Self {
-		match error {
-			InstantiateError::InvalidImage => RIInstantiateError::InvalidImage,
-		}
+impl IntoI64 for InstanceId {
+	const MAX: i64 = u32::MAX as i64;
+}
+
+impl From<InstanceId> for i64 {
+	fn from(id: InstanceId) -> Self {
+		u32::from(id) as i64
 	}
 }
 
-impl From<RIInstantiateError> for InstantiateError {
-	fn from(error: RIInstantiateError) -> Self {
-		match error {
-			RIInstantiateError::InvalidImage => InstantiateError::InvalidImage,
-		}
-	}
-}
-
-#[derive(EnumCount)]
-#[repr(i8)]
-pub enum RIExecError {
-	InvalidInstance = -1,
-	InvalidImage = -2,
-	OutOfGas = -3,
-	Trap = -4,
-}
-
-impl From<RIExecError> for i64 {
-	fn from(error: RIExecError) -> Self {
-		error as i64
-	}
-}
-
-impl TryFrom<i64> for RIExecError {
+impl TryFrom<i64> for InstanceId {
 	type Error = ();
-
 	fn try_from(value: i64) -> Result<Self, Self::Error> {
-		match value {
-			-1 => Ok(RIExecError::InvalidInstance),
-			-2 => Ok(RIExecError::InvalidImage),
-			-3 => Ok(RIExecError::OutOfGas),
-			-4 => Ok(RIExecError::Trap),
-			_ => Err(()),
-		}
-	}
-}
-
-impl From<RIExecError> for ExecError {
-	fn from(error: RIExecError) -> Self {
-		match error {
-			RIExecError::InvalidInstance => ExecError::InvalidInstance,
-			RIExecError::InvalidImage => ExecError::InvalidImage,
-			RIExecError::OutOfGas => ExecError::OutOfGas,
-			RIExecError::Trap => ExecError::Trap,
-		}
-	}
-}
-
-impl From<ExecError> for RIExecError {
-	fn from(error: ExecError) -> Self {
-		match error {
-			ExecError::InvalidInstance => RIExecError::InvalidInstance,
-			ExecError::InvalidImage => RIExecError::InvalidImage,
-			ExecError::OutOfGas => RIExecError::OutOfGas,
-			ExecError::Trap => RIExecError::Trap,
-		}
-	}
-}
-
-#[derive(EnumCount)]
-#[repr(i8)]
-pub enum RIDestroyError {
-	InvalidInstance = -1,
-}
-
-impl From<RIDestroyError> for i64 {
-	fn from(error: RIDestroyError) -> Self {
-		error as i64
-	}
-}
-
-impl TryFrom<i64> for RIDestroyError {
-	type Error = ();
-
-	fn try_from(value: i64) -> Result<Self, Self::Error> {
-		match value {
-			-1 => Ok(RIDestroyError::InvalidInstance),
-			_ => Err(()),
-		}
-	}
-}
-
-impl From<RIDestroyError> for DestroyError {
-	fn from(error: RIDestroyError) -> Self {
-		match error {
-			RIDestroyError::InvalidInstance => DestroyError::InvalidInstance,
-		}
-	}
-}
-
-impl From<DestroyError> for RIDestroyError {
-	fn from(error: DestroyError) -> Self {
-		match error {
-			DestroyError::InvalidInstance => RIDestroyError::InvalidInstance,
-		}
-	}
-}
-
-#[derive(EnumCount)]
-#[repr(i8)]
-pub enum RIMemoryError {
-	InvalidInstance = -1,
-	OutOfBounds = -2,
-}
-
-impl From<RIMemoryError> for i64 {
-	fn from(error: RIMemoryError) -> Self {
-		error as i64
-	}
-}
-
-impl TryFrom<i64> for RIMemoryError {
-	type Error = ();
-
-	fn try_from(value: i64) -> Result<Self, Self::Error> {
-		match value {
-			-1 => Ok(RIMemoryError::InvalidInstance),
-			-2 => Ok(RIMemoryError::OutOfBounds),
-			_ => Err(()),
-		}
-	}
-}
-
-impl From<RIMemoryError> for MemoryError {
-	fn from(error: RIMemoryError) -> Self {
-		match error {
-			RIMemoryError::InvalidInstance => MemoryError::InvalidInstance,
-			RIMemoryError::OutOfBounds => MemoryError::OutOfBounds,
-		}
-	}
-}
-
-impl From<MemoryError> for RIMemoryError {
-	fn from(error: MemoryError) -> Self {
-		match error {
-			MemoryError::InvalidInstance => RIMemoryError::InvalidInstance,
-			MemoryError::OutOfBounds => RIMemoryError::OutOfBounds,
-		}
+		u32::try_from(value).map(InstanceId::from).map_err(|_| ())
 	}
 }
 
@@ -241,9 +180,6 @@ trait IntoI64: Into<i64> {
 	const MAX: i64;
 }
 
-impl IntoI64 for u8 {
-	const MAX: i64 = u8::MAX as i64;
-}
 impl IntoI64 for u32 {
 	const MAX: i64 = u32::MAX as i64;
 }
@@ -286,18 +222,6 @@ impl IntoI64 for VoidResult {
 	const MAX: i64 = 0;
 }
 
-impl From<VoidResult> for u32 {
-	fn from(_: VoidResult) -> Self {
-		0
-	}
-}
-
-impl From<u32> for VoidResult {
-	fn from(_: u32) -> Self {
-		VoidResult
-	}
-}
-
 impl From<()> for VoidResult {
 	fn from(_: ()) -> Self {
 		VoidResult
@@ -332,8 +256,10 @@ impl TryFrom<i64> for VoidResult {
 
 /// Host functions used to spawn and call into PolkaVM instances.
 ///
-/// Use [`crate::Virt`] instead of these raw host functions. This will also make sure that
-/// everything works when running the code in native (test code) as this is a `wasm_only` interface.
+/// Use [`crate::Instance`] instead of these raw host functions.
+///
+/// The [`crate::VirtManagerExt`] extension must be registered in the externalities
+/// before any of these host functions can be used.
 ///
 /// # ⚠️ Unstable — Do Not Use in Production ⚠️
 ///
@@ -345,17 +271,18 @@ impl TryFrom<i64> for VoidResult {
 ///
 /// Only use for local testing, development, and experimentation on test networks.
 /// There is no stability guarantee and no deprecation period.
-#[runtime_interface(wasm_only)]
+#[runtime_interface]
 pub trait Virtualization {
-	/// See `sp_virtualization::Virt::instantiate`.
+	/// Compile the given program bytes into a module.
 	///
-	/// Returns the `instance_id` which needs to be passed to reference this instance
-	/// when using the other functions of this trait.
-	fn instantiate(
+	/// Returns the `module_id` which can be passed to [`instantiate`]
+	/// to create instances from this compiled module.
+	fn compile_from_bytes(
 		&mut self,
 		program: PassFatPointerAndRead<&[u8]>,
-	) -> ConvertAndReturnAs<Result<u32, InstantiateError>, RIIntResult<u32, RIInstantiateError>, i64>
+	) -> ConvertAndReturnAs<Result<ModuleId, ModuleError>, RIIntResult<ModuleId, ModuleError>, i64>
 	{
+		use sp_externalities::ExternalitiesExt as _;
 		use std::sync::Once;
 		static WARN_ONCE: Once = Once::new();
 		WARN_ONCE.call_once(|| {
@@ -366,57 +293,119 @@ pub trait Virtualization {
 				Only use for testing and experimentation.",
 			);
 		});
-		self.virtualization()
-			.instantiate(program)
-			.expect("instantiation failed")
-			.map(|id| id.0)
-			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.compile_from_bytes(program)
 	}
 
-	/// Start execution of a function on the given instance.
+	/// Look up a previously compiled module by its code hash.
 	///
-	/// Returns [`ExecStatus::Finished`] or [`ExecStatus::Syscall`] as `u8`.
-	/// When a syscall occurs, the syscall arguments are written into the
-	/// `exec_buffer` via [`PassPointerAndWrite`].
-	fn execute(
+	/// Returns the `module_id` if the module is cached. On a cache miss, loads the code
+	/// from storage at key `prefix ++ hash`, verifies its integrity, compiles it, and
+	/// caches the result. Pass an empty `child_trie` to read from the main state trie.
+	fn compile_from_hash(
 		&mut self,
-		instance_id: u32,
-		function: PassFatPointerAndRead<&str>,
-		gas_left: i64,
-		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { EXEC_BUFFER_SIZE }>,
-	) -> ConvertAndReturnAs<Result<u8, ExecError>, RIIntResult<u8, RIExecError>, i64> {
-		let instance_id = sp_wasm_interface::InstanceId(instance_id);
-		self.virtualization()
-			.run(instance_id, gas_left, sp_wasm_interface::ExecAction::Execute(function))
-			.expect("execution failed")
-			.map(|outcome| {
-				*exec_buffer = ExecBuffer::from_outcome(&outcome);
-				ExecStatus::from_outcome(&outcome).into()
-			})
-			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
+		hash: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		child_trie: PassFatPointerAndRead<&[u8]>,
+	) -> ConvertAndReturnAs<Result<ModuleId, ModuleError>, RIIntResult<ModuleId, ModuleError>, i64>
+	{
+		use sp_externalities::ExternalitiesExt as _;
+
+		// Try the in-memory cache first.
+		let cache_result = self
+			.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.compile_from_hash(hash);
+
+		match cache_result {
+			Ok(module_id) => return Ok(module_id),
+			Err(ModuleError::NotCached) => {},
+			Err(err) => return Err(err),
+		}
+
+		// Cache miss — load from storage.
+		let mut storage_key = std::vec::Vec::with_capacity(prefix.len() + hash.len());
+		storage_key.extend_from_slice(prefix);
+		storage_key.extend_from_slice(hash);
+
+		let code = if child_trie.is_empty() {
+			self.storage(&storage_key)
+		} else {
+			let child_info = sp_storage::ChildInfo::new_default(child_trie);
+			self.child_storage(&child_info, &storage_key)
+		};
+
+		let code = match code {
+			Some(code) => code,
+			None => return Err(ModuleError::NotFound),
+		};
+
+		// Verify that the loaded code matches the expected hash.
+		let computed_hash = sp_crypto_hashing::keccak_256(&code);
+		if computed_hash[..] != *hash {
+			return Err(ModuleError::HashMismatch);
+		}
+
+		// Compile and cache.
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.compile_from_bytes(&code)
 	}
 
-	/// Resume execution after a syscall.
+	/// Create a new instance from a compiled module.
 	///
-	/// Returns [`ExecStatus::Finished`] or [`ExecStatus::Syscall`] as `u8`.
+	/// Returns the `instance_id` which needs to be passed to reference this instance
+	/// when using the other functions of this trait.
+	fn instantiate(
+		&mut self,
+		module_id: PassAs<ModuleId, u32>,
+	) -> ConvertAndReturnAs<
+		Result<InstanceId, InstantiateError>,
+		RIIntResult<InstanceId, InstantiateError>,
+		i64,
+	> {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.instantiate(module_id)
+	}
+
+	/// Prepare the given instance to run the named exported function.
+	///
+	/// This sets the program counter but does not start execution.
+	/// Call [`run`] afterwards to begin.
+	fn prepare(
+		&mut self,
+		instance_id: PassAs<InstanceId, u32>,
+		function: PassFatPointerAndRead<&[u8]>,
+	) -> ConvertAndReturnAs<Result<(), ExecError>, RIIntResult<VoidResult, ExecError>, i64> {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.prepare(instance_id, function)
+	}
+
+	/// Set register a0 and run until the next interrupt.
+	///
+	/// Returns `ExecStatus::Finished` or `ExecStatus::Syscall` as `u32`.
 	/// When a syscall occurs, the syscall arguments are written into the
 	/// `exec_buffer` via [`PassPointerAndWrite`].
-	fn resume(
+	fn run(
 		&mut self,
-		instance_id: u32,
+		instance_id: PassAs<InstanceId, u32>,
 		gas_left: i64,
-		return_value: u64,
-		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { EXEC_BUFFER_SIZE }>,
-	) -> ConvertAndReturnAs<Result<u8, ExecError>, RIIntResult<u8, RIExecError>, i64> {
-		let instance_id = sp_wasm_interface::InstanceId(instance_id);
-		self.virtualization()
-			.run(instance_id, gas_left, sp_wasm_interface::ExecAction::Resume(return_value))
-			.expect("resume failed")
-			.map(|outcome| {
-				*exec_buffer = ExecBuffer::from_outcome(&outcome);
-				ExecStatus::from_outcome(&outcome).into()
+		a0: u64,
+		exec_buffer: PassPointerAndWrite<&mut ExecBuffer, { mem::size_of::<ExecBuffer>() }>,
+	) -> ConvertAndReturnAs<Result<u32, ExecError>, RIIntResult<u32, ExecError>, i64> {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
+			.run(instance_id, gas_left, a0)
+			.map(|(status, buf)| {
+				*exec_buffer = buf;
+				u32::from(status)
 			})
-			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 
 	/// Destroy this instance.
@@ -424,41 +413,37 @@ pub trait Virtualization {
 	/// Any attempt accessing an instance after destruction will yield the `InvalidInstance` error.
 	fn destroy(
 		&mut self,
-		instance_id: u32,
-	) -> ConvertAndReturnAs<Result<(), DestroyError>, RIIntResult<VoidResult, RIDestroyError>, i64>
-	{
-		let instance_id = sp_wasm_interface::InstanceId(instance_id);
-		self.virtualization()
+		instance_id: PassAs<InstanceId, u32>,
+	) -> ConvertAndReturnAs<Result<(), DestroyError>, RIIntResult<VoidResult, DestroyError>, i64> {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
 			.destroy(instance_id)
-			.expect("memory access error")
-			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 
-	/// See `sp_virtualization::Memory::read`.
+	/// See [`crate::Execution::read_memory`].
 	fn read_memory(
 		&mut self,
-		instance_id: u32,
+		instance_id: PassAs<InstanceId, u32>,
 		offset: u32,
 		dest: PassFatPointerAndWrite<&mut [u8]>,
-	) -> ConvertAndReturnAs<Result<(), MemoryError>, RIIntResult<VoidResult, RIMemoryError>, i64> {
-		let instance_id = sp_wasm_interface::InstanceId(instance_id);
-		self.virtualization()
+	) -> ConvertAndReturnAs<Result<(), MemoryError>, RIIntResult<VoidResult, MemoryError>, i64> {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
 			.read_memory(instance_id, offset, dest)
-			.expect("memory access error")
-			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 
-	/// See `sp_virtualization::Memory::write`.
+	/// See [`crate::Execution::write_memory`].
 	fn write_memory(
 		&mut self,
-		instance_id: u32,
+		instance_id: PassAs<InstanceId, u32>,
 		offset: u32,
 		src: PassFatPointerAndRead<&[u8]>,
-	) -> ConvertAndReturnAs<Result<(), MemoryError>, RIIntResult<VoidResult, RIMemoryError>, i64> {
-		let instance_id = sp_wasm_interface::InstanceId(instance_id);
-		self.virtualization()
+	) -> ConvertAndReturnAs<Result<(), MemoryError>, RIIntResult<VoidResult, MemoryError>, i64> {
+		use sp_externalities::ExternalitiesExt as _;
+		self.extension::<crate::VirtManagerExt>()
+			.expect("VirtManagerExt not registered in externalities")
 			.write_memory(instance_id, offset, src)
-			.expect("memory access error")
-			.map_err(|err| TryFrom::try_from(err).expect("Invalid error"))
 	}
 }

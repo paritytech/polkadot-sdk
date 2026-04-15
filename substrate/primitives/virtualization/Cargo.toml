@@ -15,13 +15,14 @@ codec = { workspace = true, default-features = false, features = ["bytes"] }
 log = { workspace = true }
 num_enum = { workspace = true, default-features = false }
 polkavm = { workspace = true }
-
+sp-crypto-hashing = { workspace = true, optional = true }
+sp-externalities = { workspace = true, default-features = false }
 sp-runtime-interface = { workspace = true, default-features = false }
-sp-std = { workspace = true, default-features = false }
-sp-wasm-interface = { workspace = true, default-features = false }
+sp-storage = { workspace = true, optional = true }
 strum = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
+sp-io = { workspace = true, default-features = true }
 sp-tracing = { workspace = true }
 sp-virtualization-test-fixture = { workspace = true }
 
@@ -32,9 +33,10 @@ std = [
 	"log/std",
 	"num_enum/std",
 	"polkavm/std",
+	"sp-crypto-hashing/std",
+	"sp-externalities/std",
 	"sp-runtime-interface/std",
-	"sp-std/std",
+	"sp-storage/std",
 	"sp-tracing/std",
-	"sp-wasm-interface/std",
 	"strum/std",
 ]

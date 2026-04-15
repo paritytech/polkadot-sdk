@@ -17,99 +17,290 @@
 
 //! Manages virtualization instances. It is used by the host function **implementation**.
 
-use crate::{DestroyError, ExecError, Memory, MemoryError, MemoryT, Virt, VirtT};
-use sp_wasm_interface::{ExecAction, ExecOutcome, InstanceId, Virtualization};
-use std::collections::HashMap;
+use crate::{
+	host_functions::{ExecBuffer, ExecStatus},
+	DestroyError, ExecError, InstanceId, InstantiateError, MemoryError, ModuleError, ModuleId,
+	SyscallSymbol, LOG_TARGET, MAX_SYSCALL_SYMBOL_LEN,
+};
+use polkavm::{
+	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
+	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
+};
+use std::{collections::HashMap, sync::OnceLock};
 
-/// A virtualization instance held by [`VirtManager`].
-struct VirtInstance {
-	virt: Virt,
-	memory: Memory,
+/// This is the single PolkaVM engine we use for everything.
+///
+/// By using a common engine we allow PolkaVM to use caching. This caching is important
+/// to reduce startup costs. This is even the case when instances use different code.
+static ENGINE: OnceLock<Engine> = OnceLock::new();
+
+/// Engine wide configuration.
+fn engine() -> &'static Engine {
+	ENGINE.get_or_init(|| {
+		let mut config = Config::from_env().expect("Invalid config.");
+		config.set_worker_count(10);
+		config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L1Hit)));
+		Engine::new(&config).expect("Failed to initialize PolkaVM.")
+	})
+}
+
+fn map_memory_error(error: MemoryAccessError) -> MemoryError {
+	match error {
+		MemoryAccessError::OutOfRangeAccess { .. } | MemoryAccessError::MemoryLimitReached => {
+			MemoryError::OutOfBounds
+		},
+		_ => {
+			panic!("Error accessing polkavm memory. This is a bug.");
+		},
+	}
+}
+
+/// The state an instance can be in.
+enum InstanceState {
+	/// Idle — ready to be prepared for execution.
+	Idle(RawInstance),
+	/// Running — prepared and executing (possibly suspended at a syscall).
+	Running(RawInstance),
 }
 
 /// Manages virtualization instances and their lifecycle.
 ///
-/// Instance IDs are assigned deterministically from an incrementing counter,
+/// Instance and module IDs are assigned deterministically from incrementing counters,
 /// ensuring no non-determinism across different executions.
+///
+/// NOTE: This is our own in-memory module cache. Eventually this will be replaced by
+/// PolkaVM's built-in on-disk persistent cache.
 pub struct VirtManager {
-	instances: HashMap<InstanceId, VirtInstance>,
-	counter: u32,
+	instances: HashMap<InstanceId, InstanceState>,
+	modules: HashMap<ModuleId, Module>,
+	module_hash_index: HashMap<[u8; 32], ModuleId>,
+	instance_counter: u32,
+	module_counter: u32,
 }
 
 impl Default for VirtManager {
 	fn default() -> Self {
-		Self { instances: HashMap::new(), counter: 0 }
+		Self {
+			instances: HashMap::new(),
+			modules: HashMap::new(),
+			module_hash_index: HashMap::new(),
+			instance_counter: 0,
+			module_counter: 0,
+		}
 	}
 }
 
-impl Virtualization for VirtManager {
-	fn instantiate(&mut self, program: &[u8]) -> sp_wasm_interface::Result<Result<InstanceId, u8>> {
-		let virt = match Virt::instantiate(program) {
-			Ok(virt) => virt,
-			Err(err) => return Ok(Err(err.into())),
-		};
+impl VirtManager {
+	pub fn compile_from_bytes(&mut self, program: &[u8]) -> Result<ModuleId, ModuleError> {
+		let mut module_config = ModuleConfig::new();
+		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
+		let module =
+			Module::new(engine(), &module_config, program.into()).map_err(|err| match err {
+				CompileError::ValidationFailed(err) => {
+					log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
+					ModuleError::InvalidImage
+				},
+				CompileError::Error(err) => {
+					panic!("Polkavm failed during compilation: {err}. This is a bug.");
+				},
+			})?;
 
-		let instance_id = InstanceId({
-			let old = self.counter;
-			self.counter = old + 1;
+		let module_id = ModuleId({
+			let old = self.module_counter;
+			self.module_counter = old + 1;
 			old
 		});
 
-		self.instances.insert(instance_id, VirtInstance { memory: virt.memory(), virt });
+		// Cache by keccak256 hash for from_hash lookups.
+		// NOTE: We use keccak256 because it is also used by pallet-revive to identify code.
+		// Eventually the hash function needs to be agreed upon with the PVM caching system.
+		let hash = sp_crypto_hashing::keccak_256(program);
+		self.module_hash_index.insert(hash, module_id);
+		self.modules.insert(module_id, module);
 
-		Ok(Ok(instance_id))
+		Ok(module_id)
 	}
 
-	fn run(
-		&mut self,
-		instance_id: InstanceId,
-		gas_left: i64,
-		action: ExecAction<'_>,
-	) -> sp_wasm_interface::Result<Result<ExecOutcome, u8>> {
-		let instance = match self.instances.get_mut(&instance_id) {
-			Some(instance) => instance,
-			None => return Ok(Err(ExecError::InvalidInstance.into())),
+	pub fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError> {
+		let hash: [u8; 32] = hash.try_into().map_err(|_| ModuleError::NotCached)?;
+		self.module_hash_index.get(&hash).copied().ok_or(ModuleError::NotCached)
+	}
+
+	pub fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
+		let module = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?;
+
+		let instance = module.instantiate().map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
+			InstantiateError::InvalidImage
+		})?;
+
+		let instance_id = InstanceId({
+			let old = self.instance_counter;
+			self.instance_counter = old + 1;
+			old
+		});
+
+		self.instances.insert(instance_id, InstanceState::Idle(instance));
+
+		Ok(instance_id)
+	}
+
+	pub fn prepare(&mut self, instance_id: InstanceId, function: &[u8]) -> Result<(), ExecError> {
+		fn find_export(
+			instance: &RawInstance,
+			function: &[u8],
+		) -> Result<ProgramCounter, ExecError> {
+			instance
+				.module()
+				.exports()
+				.find(|export| export.symbol().as_bytes() == function)
+				.map(|export| export.program_counter())
+				.ok_or_else(|| {
+					log::debug!(
+						target: LOG_TARGET,
+						"Export not found: {}",
+						String::from_utf8_lossy(function),
+					);
+					ExecError::InvalidImage
+				})
+		}
+
+		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let mut instance = match state {
+			InstanceState::Idle(i) => i,
+			InstanceState::Running(i) => {
+				self.instances.insert(instance_id, InstanceState::Running(i));
+				return Err(ExecError::InvalidInstance);
+			},
 		};
-
-		let result = instance.virt.run(gas_left, action);
-		Ok(result.map_err(|err| err.into()))
-	}
-
-	fn destroy(&mut self, instance_id: InstanceId) -> sp_wasm_interface::Result<Result<(), u8>> {
-		if self.instances.remove(&instance_id).is_some() {
-			Ok(Ok(()))
-		} else {
-			Ok(Err(DestroyError::InvalidInstance.into()))
+		match find_export(&instance, function) {
+			Ok(pc) => {
+				instance.prepare_call_untyped(pc, &[]);
+				self.instances.insert(instance_id, InstanceState::Running(instance));
+				Ok(())
+			},
+			Err(err) => {
+				self.instances.insert(instance_id, InstanceState::Idle(instance));
+				Err(err)
+			},
 		}
 	}
 
-	fn read_memory(
+	pub fn run(
+		&mut self,
+		instance_id: InstanceId,
+		gas_left: i64,
+		a0: u64,
+	) -> Result<(ExecStatus, ExecBuffer), ExecError> {
+		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let mut instance = match state {
+			InstanceState::Running(i) => i,
+			InstanceState::Idle(i) => {
+				self.instances.insert(instance_id, InstanceState::Idle(i));
+				return Err(ExecError::InvalidInstance);
+			},
+		};
+
+		instance.set_reg(Reg::A0, a0);
+		instance.set_gas(gas_left);
+
+		let interrupt = match instance.run() {
+			Ok(interrupt) => interrupt,
+			Err(err) => {
+				log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
+				self.instances.insert(instance_id, InstanceState::Idle(instance));
+				return Err(ExecError::InvalidImage);
+			},
+		};
+
+		match interrupt {
+			InterruptKind::Finished => {
+				let gas_left = instance.gas();
+				self.instances.insert(instance_id, InstanceState::Idle(instance));
+				Ok((ExecStatus::Finished, ExecBuffer { gas_left, ..Default::default() }))
+			},
+			InterruptKind::Trap => {
+				self.instances.insert(instance_id, InstanceState::Idle(instance));
+				Err(ExecError::Trap)
+			},
+			InterruptKind::Step | InterruptKind::Segfault(_) => {
+				unreachable!("PolkaVM failed. This is a bug.");
+			},
+			InterruptKind::NotEnoughGas => {
+				self.instances.insert(instance_id, InstanceState::Idle(instance));
+				Err(ExecError::OutOfGas)
+			},
+			InterruptKind::Ecalli(hostcall_index) => {
+				let Some(import_symbol) = instance
+					.module()
+					.imports()
+					.get(hostcall_index)
+					.filter(|s| s.as_bytes().len() <= MAX_SYSCALL_SYMBOL_LEN)
+				else {
+					self.instances.insert(instance_id, InstanceState::Idle(instance));
+					return Err(ExecError::InvalidImage);
+				};
+				let import_symbol = import_symbol.as_bytes();
+				let mut bytes = [0u8; MAX_SYSCALL_SYMBOL_LEN];
+				bytes[..import_symbol.len()].copy_from_slice(import_symbol);
+				let syscall_symbol = SyscallSymbol { bytes, len: import_symbol.len() as u64 };
+				let gas_left = instance.gas();
+				let a0 = instance.reg(Reg::A0);
+				let a1 = instance.reg(Reg::A1);
+				let a2 = instance.reg(Reg::A2);
+				let a3 = instance.reg(Reg::A3);
+				let a4 = instance.reg(Reg::A4);
+				let a5 = instance.reg(Reg::A5);
+				self.instances.insert(instance_id, InstanceState::Running(instance));
+				Ok((
+					ExecStatus::Syscall,
+					ExecBuffer { gas_left, syscall_symbol, a0, a1, a2, a3, a4, a5 },
+				))
+			},
+		}
+	}
+
+	pub fn destroy(&mut self, instance_id: InstanceId) -> Result<(), DestroyError> {
+		if self.instances.remove(&instance_id).is_some() {
+			Ok(())
+		} else {
+			Err(DestroyError::InvalidInstance)
+		}
+	}
+
+	pub fn read_memory(
 		&mut self,
 		instance_id: InstanceId,
 		offset: u32,
 		dest: &mut [u8],
-	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(instance) = self.instances.get_mut(&instance_id) else {
-			return Ok(Err(MemoryError::InvalidInstance.into()));
+	) -> Result<(), MemoryError> {
+		let Some(InstanceState::Running(instance)) = self.instances.get_mut(&instance_id) else {
+			return Err(MemoryError::InvalidInstance);
 		};
-		if let Err(err) = instance.memory.read(offset, dest) {
-			return Ok(Err(err.into()));
-		}
-		Ok(Ok(()))
+		instance.read_memory_into(offset, dest).map(|_| ()).map_err(map_memory_error)
 	}
 
-	fn write_memory(
+	pub fn write_memory(
 		&mut self,
 		instance_id: InstanceId,
 		offset: u32,
 		src: &[u8],
-	) -> sp_wasm_interface::Result<Result<(), u8>> {
-		let Some(instance) = self.instances.get_mut(&instance_id) else {
-			return Ok(Err(MemoryError::InvalidInstance.into()));
+	) -> Result<(), MemoryError> {
+		let Some(InstanceState::Running(instance)) = self.instances.get_mut(&instance_id) else {
+			return Err(MemoryError::InvalidInstance);
 		};
-		if let Err(err) = instance.memory.write(offset, src) {
-			return Ok(Err(err.into()));
-		}
-		Ok(Ok(()))
+		instance.write_memory(offset, src).map_err(map_memory_error)
+	}
+}
+
+sp_externalities::decl_extension! {
+	/// Extension wrapping [`VirtManager`] so it can be accessed through
+	/// the externalities by the virtualization host functions.
+	pub struct VirtManagerExt(VirtManager);
+}
+
+impl Default for VirtManagerExt {
+	fn default() -> Self {
+		Self(VirtManager::default())
 	}
 }

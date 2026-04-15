@@ -16,65 +16,102 @@
 // limitations under the License.
 
 use crate::{
-	host_fn, ExecAction, ExecBuffer, ExecError, ExecOutcome, InstantiateError, MemoryError,
-	MemoryT, VirtT,
+	host_fn,
+	host_functions::{ExecBuffer, ExecStatus},
+	ExecError, ExecResult, InstanceId, InstantiateError, MemoryError, ModuleError, ModuleId,
 };
-use sp_wasm_interface::InstanceId;
 
-#[cfg(not(substrate_runtime))]
-use crate::ExecStatus;
+/// A compiled module handle.
+pub struct Module(ModuleId);
 
-/// The forwarder implementation of [`VirtT`].
-pub struct Virt {
-	/// The is passed to the host function to identify the instance to operate on.
-	instance_id: InstanceId,
-}
-
-/// The forwarder implementation of [`MemoryT`].
-pub struct Memory {
-	instance_id: InstanceId,
-}
-
-impl VirtT for Virt {
-	type Memory = Memory;
-
-	fn instantiate(program: &[u8]) -> Result<Self, InstantiateError> {
-		let instance_id = InstanceId(host_fn::instantiate(program)?);
-		let virt = Self { instance_id };
-		Ok(virt)
+impl Module {
+	pub fn from_bytes(bytes: &[u8]) -> Result<Self, ModuleError> {
+		Ok(Self(host_fn::compile_from_bytes(bytes)?))
 	}
 
-	fn run(&mut self, gas_left: i64, action: ExecAction<'_>) -> Result<ExecOutcome, ExecError> {
-		let mut buf = ExecBuffer::default();
-		let status_byte = match action {
-			ExecAction::Execute(function) => {
-				host_fn::execute(self.instance_id.0, function, gas_left, &mut buf)?
+	pub fn from_hash(hash: &[u8], prefix: &[u8], child_trie: &[u8]) -> Result<Self, ModuleError> {
+		Ok(Self(host_fn::compile_from_hash(hash, prefix, child_trie)?))
+	}
+
+	pub fn instantiate(&self) -> Result<Instance, InstantiateError> {
+		Ok(Instance(host_fn::instantiate(self.0)?))
+	}
+}
+
+/// An idle virtualization instance.
+pub struct Instance(InstanceId);
+
+impl Drop for Instance {
+	fn drop(&mut self) {
+		host_fn::destroy(self.0).ok();
+	}
+}
+
+impl core::fmt::Debug for Instance {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		f.debug_tuple("Instance").field(&self.0).finish()
+	}
+}
+
+impl Instance {
+	pub fn prepare(self, function: &[u8]) -> Result<Execution, (Self, ExecError)> {
+		match host_fn::prepare(self.0, function) {
+			Ok(()) => {
+				let instance_id = self.0;
+				core::mem::forget(self);
+				Ok(Execution(instance_id))
 			},
-			ExecAction::Resume(return_value) => {
-				host_fn::resume(self.instance_id.0, gas_left, return_value, &mut buf)?
+			Err(err) => Err((self, err)),
+		}
+	}
+}
+
+/// A prepared or suspended virtualization execution.
+pub struct Execution(InstanceId);
+
+impl Drop for Execution {
+	fn drop(&mut self) {
+		host_fn::destroy(self.0).ok();
+	}
+}
+
+impl Execution {
+	pub fn run(self, gas_left: i64, a0: u64) -> ExecResult<Instance, Self> {
+		let mut buf = ExecBuffer::default();
+		let status_byte = match host_fn::run(self.0, gas_left, a0, &mut buf) {
+			Ok(s) => s,
+			Err(err) => {
+				let instance_id = self.0;
+				core::mem::forget(self);
+				return ExecResult::Error { instance: Instance(instance_id), error: err };
 			},
 		};
-		let status = status_byte.try_into().expect("invalid status from host; qed");
-		Ok(buf.into_outcome(status))
+		let status: ExecStatus = status_byte.try_into().expect("invalid status from host; qed");
+		match status {
+			ExecStatus::Finished => {
+				let instance_id = self.0;
+				core::mem::forget(self);
+				ExecResult::Finished { instance: Instance(instance_id), gas_left: buf.gas_left }
+			},
+			ExecStatus::Syscall => ExecResult::Syscall {
+				execution: self,
+				gas_left: buf.gas_left,
+				syscall_symbol: buf.syscall_symbol,
+				a0: buf.a0,
+				a1: buf.a1,
+				a2: buf.a2,
+				a3: buf.a3,
+				a4: buf.a4,
+				a5: buf.a5,
+			},
+		}
 	}
 
-	fn memory(&self) -> Self::Memory {
-		Memory { instance_id: self.instance_id }
-	}
-}
-
-impl Drop for Virt {
-	fn drop(&mut self) {
-		host_fn::destroy(self.instance_id.0).ok();
-	}
-}
-
-impl MemoryT for Memory {
-	fn read(&mut self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
-		host_fn::read_memory(self.instance_id.0, offset, dest)
+	pub fn read_memory(&mut self, offset: u32, dest: &mut [u8]) -> Result<(), MemoryError> {
+		host_fn::read_memory(self.0, offset, dest)
 	}
 
-	fn write(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
-		host_fn::write_memory(self.instance_id.0, offset, src)
+	pub fn write_memory(&mut self, offset: u32, src: &[u8]) -> Result<(), MemoryError> {
+		host_fn::write_memory(self.0, offset, src)
 	}
 }
