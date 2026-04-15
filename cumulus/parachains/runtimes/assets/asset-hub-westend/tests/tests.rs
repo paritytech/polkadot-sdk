@@ -45,6 +45,7 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{self, Inspect, Mutate},
+		Hooks,
 		fungibles::{
 			self, Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
 		},
@@ -2499,6 +2500,7 @@ mod dap {
 		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
 			AccountId,
 		>>::pot_account();
+		let staging = pallet_dap::Pallet::<Runtime>::staging_account();
 		let ed = ExistentialDeposit::get();
 
 		ExtBuilder::<Runtime>::default()
@@ -2508,12 +2510,17 @@ mod dap {
 				alice.clone(),
 				SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
 			)])
-			.with_balances(vec![(alice.clone(), 100 * ed), (buffer.clone(), ed)])
+			.with_balances(vec![
+				(alice.clone(), 100 * ed),
+				(buffer.clone(), ed),
+				(staging.clone(), ed),
+			])
 			.with_para_id(ASSET_HUB_ID.into())
 			.build()
 			.execute_with(|| {
 				let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
 				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let staging_before = <Balances as Inspect<AccountId>>::balance(&staging);
 				let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
 
 				let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
@@ -2524,11 +2531,16 @@ mod dap {
 				let fee_paid = alice_before - alice_after;
 				assert!(fee_paid > 0, "a fee should have been paid");
 
-				let buffer_after = <Balances as Inspect<AccountId>>::balance(&buffer);
-				let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+				// Fees land in staging first, not directly in the buffer.
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before + fee_paid);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
 
-				assert_eq!(buffer_after, buffer_before + fee_paid);
-				assert_eq!(issuance_before, issuance_after);
+				// on_idle drains staging into buffer and deactivates.
+				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
+
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before + fee_paid);
+				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
 	}
 

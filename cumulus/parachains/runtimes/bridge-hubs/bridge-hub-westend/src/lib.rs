@@ -691,6 +691,7 @@ mod benches {
 		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
 
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[pallet_dap_satellite, DapSatellite]
 	);
 }
 

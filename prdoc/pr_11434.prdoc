@@ -49,10 +49,12 @@ crates:
 - name: westend-runtime
   bump: major
 - name: polkadot-sdk
-  bump: major
+  bump: minor
 - name: westend-runtime-constants
   bump: minor
 - name: emulated-integration-tests-common
   bump: minor
 - name: testnet-parachains-constants
-  bump: minor
+  bump: patch
+- name: pallet-staking-async
+  bump: patch
