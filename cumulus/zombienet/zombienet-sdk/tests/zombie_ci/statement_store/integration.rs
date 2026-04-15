@@ -269,6 +269,17 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
+	let bob_peers_before = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|v| {
+			bob_peers_before.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+
 	let alice_rpc = Arc::new(alice.rpc().await?);
 
 	let submit_handle = tokio::spawn({
@@ -306,6 +317,14 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 	)
 	.await?;
 	info!("Bob detected sustained-rate flooding");
+
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|count| count < bob_peers_before.get(),
+		30u64,
+	)
+	.await?;
+	info!("Bob disconnected the flooding peer");
 
 	submit_handle.abort();
 
@@ -348,6 +367,17 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
+	let bob_peers_before = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|v| {
+			bob_peers_before.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+
 	let alice_rpc = alice.rpc().await?;
 	let topic: Topic = [43u8; 32].into();
 
@@ -366,6 +396,14 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	)
 	.await?;
 	info!("Bob detected burst flooding");
+
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|count| count < bob_peers_before.get(),
+		30u64,
+	)
+	.await?;
+	info!("Bob disconnected the flooding peer");
 
 	let bob_submitted = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
