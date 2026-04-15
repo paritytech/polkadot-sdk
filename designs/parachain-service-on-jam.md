@@ -243,7 +243,7 @@ Support for multiple items per package may be added later.
 
 ### 3.3 Refine Result
 
-The Parachain Service's Refine function returns an opaque result blob per work item. This blob is forwarded to `accumulate`.
+The Parachain Service's Refine function returns a parachain work result per work item. This result is forwarded to `accumulate`.
 From the service's perspective, Refine either succeeds or fails:
 
 ```rust
@@ -255,8 +255,8 @@ enum ParachainWorkResult {
         /// New head data produced by the parachain block.
         head_data: Vec<u8>,
         /// Upward messages emitted through host functions during Refine.
-        /// Accumulate replays these in order after decoding the result blob.
-        events: Vec<UpwardMessage>,
+        /// Accumulate replays these in order.
+        upward_messages: Vec<UpwardMessage>,
     },
     /// PVF execution failed (e.g. invalid PoV, bad state proof, panic).
     ///
@@ -268,7 +268,10 @@ enum ParachainWorkResult {
 enum UpwardMessage {
     RequestCodeUpgrade(ValidationCodeHash),
     TransferOut { dest: ServiceId, amount: Amount, memo: Memo },
-    SetAuthorizerQueue { core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode },
+    /// Set the authorizer queue
+    ///
+    /// - `immediate`: When set to `true`, the queue is overwritten immediately. Otherwise it waits until the current queue was processed.
+    SetAuthorizerQueue { core: CoreIndex, queue: Vec<AuthorizerHash>, immediate: bool },
     SetValidatorKeys(Vec<ValidatorKey>),
 }
 ```
@@ -460,8 +463,8 @@ Phase 5: Activation or Rejection
   block author, or any third party. The JAM protocol validates the hash against the
   solicitation.
 - **Timeout protection**: The deadline prevents parachains from indefinitely occupying
-  preimage store space with unused code. `UPGRADE_TIMEOUT` should be long enough for
-  the requested preimage to be submitted to JAM after solicitation (e.g. 24-48 hours).
+  preimage store space with unused code. `UPGRADE_TIMEOUT` is set to **24 hours**, which
+  should be sufficient for the preimage to be submitted to JAM after solicitation.
 - **No active polling needed**: The service does not need a background polling mechanism for
   pending upgrades. Upgrade state is checked when a candidate for that parachain is accumulated,
   and the always-accumulate control path can additionally clear timed-out upgrades as part of
@@ -670,31 +673,11 @@ messaging model is finalized.
 
 The following questions are not yet resolved and require further design work or community input:
 
-1. **Coretime and authorization**: JAM natively handles core assignment and coretime tracking.
-   The Parachain Service provides an **authorizer** — service-specific code that JAM calls
-   to validate work packages before Refine. The authorizer verifies that the submitting
-   parachain holds valid coretime for the requested core. The exact interface between the
-   Coretime Chain and the Parachain Service's authorizer state is the deferred/immediate
-   queue update interface described in §6.
-
-2. **Accumulate gas budget**: Is ~10ms sufficient for all the Accumulate logic (head update,
-   message processing, code upgrades)? The current relay chain performs more work on inclusion
-   than this budget allows. Mitigation strategies (batching, deferral) need to be specified.
-
-3. **`UPGRADE_TIMEOUT` value**: The code upgrade lifecycle (§5.3) requires a timeout after
-   which an unused upgrade is rejected. The appropriate value depends on the expected
-   collator update cadence and preimage store cost model. Candidates: 24-48 hours.
-
-4. **Parachain registration & governance**: Registration should remain chain-managed rather than
+1. **Parachain registration & governance**: Registration should remain chain-managed rather than
    become internal Parachain Service governance. Concretely, Asset Hub / the Coretime-management
    chain should handle registration much as Polkadot does today: the registering account places
    the required deposit, governance or policy checks run there, and the managing chain then calls
    a `register_parachain` host function on the Parachain Service.
-
-5. **Finality guarantees during the judgment window**: Polkadot parachains currently offer
-   ~1-minute finality. JAM's 1-hour judgment window means finality of parachain blocks is
-   technically delayed. How do parachains and ecosystem tooling communicate this changed
-   finality model?
 
 ---
 
