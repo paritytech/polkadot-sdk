@@ -83,10 +83,8 @@ pub mod pallet {
 		InvalidAuthority,
 		/// A nudge in the inherent has an invalid signature.
 		InvalidSignature,
-		/// A nudge in the inherent is invalid.
-		InvalidNudge,
-		/// The number of valid nudges is invalid.
-		InvalidNudgeCount,
+		/// Duplicate inherent in the same block.
+		DuplicateInherent,
 	}
 
 	#[pallet::hooks]
@@ -96,16 +94,6 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			let count = NudgeCount::<T>::take();
-			let min = T::MinNudges::get();
-			if min > 0 {
-				assert!(
-					count >= min,
-					"Price oracle: got {} valid nudges, need at least {}",
-					count,
-					min,
-				);
-			}
 		}
 	}
 
@@ -113,16 +101,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit a set of signed nudges as an inherent.
 		///
-		/// Validation is intentionally graceful: invalid nudges (stale, duplicate authority,
-		/// bad signature, unknown authority) are skipped rather than causing a block rejection.
-		/// This is because:
-		/// - The slot visible to the block author's node may differ by 1 from the runtime's slot
-		///   (node reads parent header, runtime has the current block's slot), making borderline
-		///   nudges valid on one side but stale on the other.
-		/// - The validator set can change between when a nudge was signed and when it's included,
-		///   making a previously-valid authority index invalid.
-		///
-		/// We may change any of them to a panic if needed.
+		/// Validation is strict: any invalid nudge (stale, duplicate authority, bad signature,
+		/// unknown authority) causes this inherent to fail and the block to be rejected.
 		///
 		/// `check_inherent` (run by importers) only enforces `MinNudges` as a reasonableness
 		/// check. All per-nudge validation happens here.
@@ -133,7 +113,7 @@ pub mod pallet {
 		))]
 		pub fn submit_nudges(origin: OriginFor<T>, nudges: Vec<SignedNudge>) -> DispatchResult {
 			ensure_none(origin)?;
-			ensure!(!NudgeCount::<T>::exists(), Error::<T>::InvalidNudgeCount);
+			ensure!(!NudgeCount::<T>::exists(), Error::<T>::DuplicateInherent);
 			ensure!(nudges.len() >= T::MinNudges::get() as usize, Error::<T>::TooFewNudges);
 
 			let authorities = T::AuthorityProvider::authorities();

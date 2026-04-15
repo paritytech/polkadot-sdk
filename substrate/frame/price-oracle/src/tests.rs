@@ -36,12 +36,12 @@ impl frame_support::traits::Time for MockTime {
 parameter_types! {
 	pub const Epsilon: FixedU128 = FixedU128::from_rational(1, 100); // 0.01
 	pub const NudgeValidity: u64 = 10;
+	pub static MinNudges: u32 = 0;
 }
 
 thread_local! {
 	static AUTHORITIES: std::cell::RefCell<Vec<AuthorityId>> = std::cell::RefCell::new(Vec::new());
 	static CURRENT_SLOT: std::cell::RefCell<Slot> = std::cell::RefCell::new(Slot::from(1u64));
-	static MIN_NUDGES: std::cell::RefCell<u32> = std::cell::RefCell::new(0);
 }
 
 pub struct MockAuthorityProvider;
@@ -64,20 +64,9 @@ fn set_current_slot(slot: u64) {
 	CURRENT_SLOT.with(|s| *s.borrow_mut() = Slot::from(slot));
 }
 
-pub struct MockMinNudges;
-impl Get<u32> for MockMinNudges {
-	fn get() -> u32 {
-		MIN_NUDGES.with(|m| *m.borrow())
-	}
-}
-
-fn set_min_nudges(min: u32) {
-	MIN_NUDGES.with(|m| *m.borrow_mut() = min);
-}
-
 impl Config for Test {
 	type Epsilon = Epsilon;
-	type MinNudges = MockMinNudges;
+	type MinNudges = MinNudges;
 	type NudgeValidity = NudgeValidity;
 	type AuthorityProvider = MockAuthorityProvider;
 	type TimeProvider = MockTime;
@@ -206,9 +195,6 @@ fn stale_nudge_returns_error() {
 			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges),
 			Error::<Test>::StaleNudge
 		);
-
-		// Price unchanged because the call failed
-		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 	});
 }
 
@@ -293,7 +279,7 @@ fn submit_nudges_only_once_per_block() {
 		let nudge2 = make_signed_nudge(&pairs[1], Nudge::Up, 5, 1);
 		assert_noop!(
 			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge2]),
-			Error::<Test>::InvalidNudgeCount
+			Error::<Test>::DuplicateInherent
 		);
 	});
 }
@@ -344,7 +330,7 @@ fn too_few_nudges_returns_error() {
 		let pairs = generate_test_pairs(3);
 		set_authorities(&pairs);
 		set_current_slot(5);
-		set_min_nudges(2);
+		MinNudges::set(2);
 
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
 		assert_noop!(
@@ -353,9 +339,6 @@ fn too_few_nudges_returns_error() {
 		);
 
 		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
-
-		// Reset for other tests
-		set_min_nudges(0);
 	});
 }
 
