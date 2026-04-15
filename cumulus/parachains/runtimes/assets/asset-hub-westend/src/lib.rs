@@ -1839,7 +1839,8 @@ pub type Migrations = (
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
 	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
-	pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
+	// Idempotent — skips assets that are already configured.
+	pallet_psm::migrations::v1::InitializePsm<Runtime, PsmInitialConfig>,
 	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 

@@ -19,4 +19,4 @@
 
 pub mod v1;
 
-pub use v1::MigrateToV1;
+pub use v1::InitializePsm;

@@ -153,8 +153,9 @@ where
 		stable_decimals, external_decimals,
 	);
 
-	// Run the V1 migration to initialize PSM.
-	pallet_psm::migrations::v1::UncheckedMigrateToV1::<Runtime, MigrationConfig>::on_runtime_upgrade();
+	// Initialize PSM parameters (idempotent — skips already-configured assets).
+	<pallet_psm::migrations::v1::InitializePsm::<Runtime, MigrationConfig> as
+		frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
 
 	// Fund test account.
 	let caller: Runtime::AccountId =

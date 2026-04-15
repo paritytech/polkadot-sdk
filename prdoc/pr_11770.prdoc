@@ -1,12 +1,19 @@
-title: 'Fix PSM pallet storage version to allow V1 migration on fresh deployment'
+title: 'Fix PSM migration to run on first deployment'
 doc:
 - audience: Runtime Dev
   description: |-
-    Fixes the PSM pallet's in-code storage version from 1 to 0 so that the V1
-    migration runs on first deployment. Previously, `BeforeAllRuntimeMigrations`
-    initialized the on-chain version to 1 (matching the in-code version), causing
-    `MigrateToV1` to be silently skipped.
+    Replaces the versioned `MigrateToV1` with an idempotent `InitializePsm` migration.
+
+    The previous `MigrateToV1` used `VersionedMigration<0, 1>` which never ran on fresh
+    deployments because `BeforeAllRuntimeMigrations` initializes the on-chain storage
+    version to the in-code version (1) before migrations execute, causing the version
+    check to skip.
+
+    `InitializePsm` instead checks whether each external asset already exists and skips
+    it if so. This makes it safe to run multiple times with no storage version dependency.
 
 crates:
 - name: pallet-psm
+  bump: patch
+- name: asset-hub-westend-runtime
   bump: patch
