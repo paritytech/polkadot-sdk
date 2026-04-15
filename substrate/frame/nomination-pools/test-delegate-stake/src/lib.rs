@@ -20,6 +20,7 @@
 // We do not declare all features used by `construct_runtime`
 #[allow(unexpected_cfgs)]
 mod mock;
+mod test_dap_pool_audit;
 
 use frame_support::{
 	assert_noop, assert_ok, hypothetically,

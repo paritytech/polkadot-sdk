@@ -35,6 +35,8 @@ use sp_runtime::{
 	traits::{Convert, IdentityLookup},
 	BuildStorage, FixedU128, Perbill,
 };
+use pallet_staking_async::PotAccountProvider;
+use sp_staking::budget::BudgetRecipient;
 
 type AccountId = u128;
 type Nonce = u32;
@@ -320,6 +322,36 @@ impl pallet_delegated_staking::Config for Runtime {
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type CoreStaking = Staking;
 }
+parameter_types! {
+	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 0;
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+}
+
+/// Simple issuance curve for tests: 1 token per millisecond.
+pub struct OneTokenPerMillisecond;
+impl sp_staking::budget::IssuanceCurve<Balance> for OneTokenPerMillisecond {
+	fn issue(_total_issuance: Balance, elapsed_millis: u64) -> Balance {
+		elapsed_millis as Balance
+	}
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
+	type IssuanceCurve = OneTokenPerMillisecond;
+	type BudgetRecipients = (
+		pallet_dap::Pallet<Runtime>,
+		pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest>,
+		pallet_staking_async::ValidatorIncentiveRecipient<pallet_staking_async::SequentialTest>,
+	);
+	type Time = Timestamp;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
+	type WeightInfo = ();
+}
+
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
 frame_support::construct_runtime!(
@@ -331,6 +363,7 @@ frame_support::construct_runtime!(
 		VoterList: pallet_bags_list::<Instance1>,
 		Pools: pallet_nomination_pools,
 		DelegatedStaking: pallet_delegated_staking,
+		Dap: pallet_dap,
 	}
 );
 
@@ -351,8 +384,12 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	.assimilate_storage(&mut storage)
 	.unwrap();
 
+	// Fund the DAP buffer account with ED so it can receive slashes.
+	use frame_support::sp_runtime::traits::AccountIdConversion;
+	let dap_buffer: AccountId = DapPalletId::get().into_account_truncating();
+
 	let _ = pallet_balances::GenesisConfig::<Runtime> {
-		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100)]
+		balances: vec![(10, 100), (20, 100), (21, 100), (22, 100), (dap_buffer, 5)]
 			.into_iter()
 			.chain(TEST_VALIDATORS.iter().map(|&v| (v, 1000)))
 			.collect::<Vec<_>>(),
@@ -448,4 +485,57 @@ pub(crate) fn delegated_staking_events_since_last_call(
 	let already_seen = ObservedEventsDelegatedStaking::get();
 	ObservedEventsDelegatedStaking::set(events.len());
 	events.into_iter().skip(already_seen).collect()
+}
+
+/// Set up DAP in transfer-based (non-minting) mode with a given budget split.
+/// This enables DAP-based era rewards instead of legacy minting.
+pub(crate) fn setup_dap_with_budget(staker_pct: u32, incentive_pct: u32, buffer_pct: u32) {
+	use pallet_staking_async::{
+		RewardKind, RewardPot, SequentialTest, StakerRewardRecipient, ValidatorIncentiveRecipient,
+	};
+	use frame_support::traits::fungible::Mutate as FungibleMutate;
+
+	assert_eq!(staker_pct + incentive_pct + buffer_pct, 100);
+
+	let staker_key =
+		<StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key();
+	let incentive_key =
+		<ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key();
+	let buffer_key =
+		<pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
+
+	let mut budget = pallet_dap::BudgetAllocationMap::new();
+	budget.try_insert(staker_key, Perbill::from_percent(staker_pct)).unwrap();
+	budget.try_insert(incentive_key, Perbill::from_percent(incentive_pct)).unwrap();
+	budget.try_insert(buffer_key, Perbill::from_percent(buffer_pct)).unwrap();
+	pallet_dap::BudgetAllocation::<Runtime>::put(budget);
+
+	// Seed timestamp so DAP doesn't skip first drip.
+	pallet_dap::LastIssuanceTimestamp::<Runtime>::put(
+		<Timestamp as frame_support::traits::Time>::now()
+	);
+
+	// Fund general pots with ED.
+	let general_staker =
+		SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+	let general_incentive =
+		SequentialTest::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake));
+	Balances::mint_into(&general_staker, ExistentialDeposit::get()).unwrap();
+	Balances::mint_into(&general_incentive, ExistentialDeposit::get()).unwrap();
+}
+
+/// Fund an era's staker reward pot with a specific amount, simulating DAP snapshot.
+/// This is a manual shortcut for tests that need a funded era pot without running
+/// the full DAP drip + era rotation cycle.
+pub(crate) fn fund_era_staker_pot(era: u32, amount: Balance) {
+	use pallet_staking_async::{RewardKind, RewardPot, SequentialTest, PotAccountProvider};
+	use frame_support::traits::fungible::Mutate as FungibleMutate;
+
+	let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+	// Create the pot (add provider reference).
+	frame_system::Pallet::<Runtime>::inc_providers(&pot);
+	// Fund it.
+	Balances::mint_into(&pot, amount).unwrap();
+	// Record the era reward.
+	pallet_staking_async::ErasValidatorReward::<Runtime>::insert(era, amount);
 }
