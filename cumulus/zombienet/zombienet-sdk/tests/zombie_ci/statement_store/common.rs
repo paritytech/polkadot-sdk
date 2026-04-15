@@ -198,7 +198,7 @@ pub(super) fn base_dir() -> Result<PathBuf, anyhow::Error> {
 	let path = std::env::var("ZOMBIENET_SDK_BASE_DIR")
 		.ok()
 		.map(PathBuf::from)
-		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombienet-{}", std::process::id())));
+		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombie-{}", std::process::id())));
 	std::fs::create_dir_all(&path)
 		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
 	Ok(path)
