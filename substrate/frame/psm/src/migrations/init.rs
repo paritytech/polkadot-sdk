@@ -15,10 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Migration to V1: initialize PSM parameters for post-genesis deployment.
+//! Idempotent migration to initialize PSM parameters for post-genesis deployment.
 //!
 //! This migration sets initial values for all configurable PSM parameters when
-//! adding the pallet to an existing chain.
+//! adding the pallet to an existing chain. Already-configured assets are skipped,
+//! making it safe to run multiple times.
 //!
 //! # Usage
 //!
@@ -26,7 +27,7 @@
 //!
 //! ```ignore
 //! pub type Migrations = (
-//!     pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
+//!     pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
 //!     // ... other migrations
 //! );
 //! ```
@@ -40,7 +41,7 @@ use frame_support::{
 	pallet_prelude::{Get, Weight},
 	traits::{
 		fungible::metadata::Inspect as FungibleMetadataInspect,
-		fungibles::metadata::Inspect as FungiblesMetadataInspect, UncheckedOnRuntimeUpgrade,
+		fungibles::metadata::Inspect as FungiblesMetadataInspect,
 	},
 };
 use sp_runtime::Permill;
@@ -63,7 +64,7 @@ const LOG_TARGET: &str = "runtime::psm::migration";
 /// Configuration trait for initial PSM parameters.
 ///
 /// Implement this trait in your runtime to provide the initial values used by
-/// [`MigrateToV1`].
+/// [`InitializePsm`].
 pub trait InitialPsmConfig<T: Config> {
 	/// Max PSM debt as a fraction of MaximumIssuance.
 	fn max_psm_debt_of_total() -> Permill;
@@ -77,36 +78,49 @@ pub trait InitialPsmConfig<T: Config> {
 	fn asset_configs() -> BTreeMap<T::AssetId, (Permill, Permill, Permill)>;
 }
 
-/// Migration to initialize PSM pallet parameters (V0 -> V1).
+/// Idempotent migration to initialize PSM pallet parameters.
 ///
 /// This migration:
 /// 1. Sets `MaxPsmDebtOfTotal`
-/// 2. Sets approved external assets with `AllEnabled` status
-/// 3. Sets per-asset fee and ceiling-weight configuration
-/// 4. Ensures the PSM account exists
-pub type MigrateToV1<T, I> = frame_support::migrations::VersionedMigration<
-	0,
-	1,
-	UncheckedMigrateToV1<T, I>,
-	Pallet<T>,
-	<T as frame_system::Config>::DbWeight,
->;
+/// 2. For each configured external asset, checks if it already exists. If not, adds it with
+///    `AllEnabled` status and the configured fees and ceiling weight.
+/// 3. Ensures the PSM and fee destination accounts exist
+///
+/// Safe to run multiple times — existing assets are not overwritten.
+pub struct InitializePsm<T, I>(core::marker::PhantomData<(T, I)>);
 
-pub struct UncheckedMigrateToV1<T, I>(core::marker::PhantomData<(T, I)>);
-
-impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV1<T, I> {
+impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
+	for InitializePsm<T, I>
+{
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: LOG_TARGET,
-			"Running MigrateToV1: initializing PSM pallet parameters"
+			"Running InitializePsm: initializing PSM pallet parameters"
 		);
 
 		let asset_configs = I::asset_configs();
+		let mut reads = 0u64;
+		let mut writes = 0u64;
 
-		MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
+		reads += 1;
+		if !MaxPsmDebtOfTotal::<T>::exists() {
+			MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
+			writes += 1;
+		}
 
 		let stable_decimals = T::StableAsset::decimals();
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
+			reads += 1;
+			// Skip assets that are already configured.
+			if ExternalAssets::<T>::contains_key(asset_id) {
+				log::info!(
+					target: LOG_TARGET,
+					"Asset {:?} already configured, skipping",
+					asset_id,
+				);
+				continue;
+			}
+
 			assert!(
 				T::Fungibles::decimals(*asset_id) == stable_decimals,
 				"PSM migration: asset {:?} decimals do not match stable asset decimals",
@@ -116,19 +130,25 @@ impl<T: Config, I: InitialPsmConfig<T>> UncheckedOnRuntimeUpgrade for UncheckedM
 			MintingFee::<T>::insert(asset_id, minting_fee);
 			RedemptionFee::<T>::insert(asset_id, redemption_fee);
 			AssetCeilingWeight::<T>::insert(asset_id, ceiling_weight);
+			writes += 4;
+
+			log::info!(
+				target: LOG_TARGET,
+				"Configured external asset {:?}",
+				asset_id,
+			);
 		}
 
 		Pallet::<T>::ensure_account_exists(&Pallet::<T>::account_id());
 		Pallet::<T>::ensure_account_exists(&T::FeeDestination::get());
+		writes += 2;
 
 		log::info!(
 			target: LOG_TARGET,
-			"MigrateToV1 complete"
+			"InitializePsm complete"
 		);
 
-		// (MaxPsmDebtOfTotal + 2 accounts) + 4 writes per asset
-		let writes = 3u64.saturating_add((asset_configs.len() as u64).saturating_mul(4));
-		T::DbWeight::get().writes(writes)
+		T::DbWeight::get().reads_writes(reads, writes)
 	}
 
 	#[cfg(feature = "try-runtime")]
@@ -209,8 +229,11 @@ mod tests {
 	}
 
 	#[test]
-	fn migration_v0_to_v1_works() {
+	fn initialize_psm_configures_new_assets() {
+		use frame_support::traits::OnRuntimeUpgrade;
+
 		new_test_ext().execute_with(|| {
+			// Clear all PSM state.
 			MaxPsmDebtOfTotal::<Test>::kill();
 			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
 			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
@@ -221,7 +244,7 @@ mod tests {
 			AssetCeilingWeight::<Test>::remove(USDC_ASSET_ID);
 			AssetCeilingWeight::<Test>::remove(USDT_ASSET_ID);
 
-			let _weight = UncheckedMigrateToV1::<Test, TestPsmConfig>::on_runtime_upgrade();
+			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
 
@@ -235,6 +258,69 @@ mod tests {
 				assert_eq!(MintingFee::<Test>::get(asset_id), minting_fee);
 				assert_eq!(RedemptionFee::<Test>::get(asset_id), redemption_fee);
 				assert_eq!(AssetCeilingWeight::<Test>::get(asset_id), ceiling_weight);
+			}
+		});
+	}
+
+	#[test]
+	fn initialize_psm_skips_existing_assets() {
+		use frame_support::traits::OnRuntimeUpgrade;
+
+		new_test_ext().execute_with(|| {
+			// Pre-configure USDC with custom values.
+			ExternalAssets::<Test>::insert(USDC_ASSET_ID, CircuitBreakerLevel::MintingDisabled);
+			MintingFee::<Test>::insert(USDC_ASSET_ID, Permill::from_percent(10));
+
+			// Remove USDT so it gets configured.
+			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
+			MintingFee::<Test>::remove(USDT_ASSET_ID);
+			RedemptionFee::<Test>::remove(USDT_ASSET_ID);
+			AssetCeilingWeight::<Test>::remove(USDT_ASSET_ID);
+
+			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
+
+			// USDC was not overwritten — keeps its custom values.
+			assert_eq!(
+				ExternalAssets::<Test>::get(USDC_ASSET_ID),
+				Some(CircuitBreakerLevel::MintingDisabled)
+			);
+			assert_eq!(MintingFee::<Test>::get(USDC_ASSET_ID), Permill::from_percent(10));
+
+			// USDT was newly configured.
+			let (_, (minting_fee, redemption_fee, ceiling_weight)) = TestPsmConfig::asset_configs()
+				.into_iter()
+				.find(|(id, _)| *id == USDT_ASSET_ID)
+				.unwrap();
+			assert_eq!(
+				ExternalAssets::<Test>::get(USDT_ASSET_ID),
+				Some(CircuitBreakerLevel::AllEnabled)
+			);
+			assert_eq!(MintingFee::<Test>::get(USDT_ASSET_ID), minting_fee);
+			assert_eq!(RedemptionFee::<Test>::get(USDT_ASSET_ID), redemption_fee);
+			assert_eq!(AssetCeilingWeight::<Test>::get(USDT_ASSET_ID), ceiling_weight);
+		});
+	}
+
+	#[test]
+	fn initialize_psm_is_idempotent() {
+		use frame_support::traits::OnRuntimeUpgrade;
+
+		new_test_ext().execute_with(|| {
+			MaxPsmDebtOfTotal::<Test>::kill();
+			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
+			ExternalAssets::<Test>::remove(USDT_ASSET_ID);
+
+			// Run twice.
+			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
+			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
+
+			// Same result as running once.
+			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
+			for (asset_id, _) in TestPsmConfig::asset_configs() {
+				assert_eq!(
+					ExternalAssets::<Test>::get(asset_id),
+					Some(CircuitBreakerLevel::AllEnabled)
+				);
 			}
 		});
 	}
