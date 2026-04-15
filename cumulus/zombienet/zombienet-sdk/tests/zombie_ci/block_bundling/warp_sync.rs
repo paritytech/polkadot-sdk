@@ -72,9 +72,9 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	let col_opts = AddCollatorOptions {
 		is_validator: false,
 		args: vec![
-			("--sync=warp").try_into()?,
-			("-lsync=debug,parachain=debug,sync::cumulus=debug,aura=trace").try_into()?,
-			("--relay-chain-rpc-urls", "{{ZOMBIE:validator-0:ws_uri}}").try_into()?,
+			("--sync=warp").into(),
+			("-lsync=debug,parachain=debug,sync::cumulus=debug,aura=trace").into(),
+			("--relay-chain-rpc-urls", "{{ZOMBIE:validator-0:ws_uri}}").into(),
 		],
 		..Default::default()
 	};

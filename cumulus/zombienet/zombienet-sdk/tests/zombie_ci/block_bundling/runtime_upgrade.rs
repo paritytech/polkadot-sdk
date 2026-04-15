@@ -160,7 +160,7 @@ fn inflate_runtime_wasm(
 		module.set_custom_section("padding", padding);
 		wasm = parity_wasm::serialize(module).map_err(|e| anyhow!("wasm serialize: {e:?}"))?;
 
-		let compressed = sp_maybe_compressed_blob::compress(&wasm, 50 * 1024 * 1024)
+		let compressed = sp_maybe_compressed_blob::compress_weakly(&wasm, 50 * 1024 * 1024)
 			.ok_or_else(|| anyhow!("Compression failed"))?;
 		log::info!(
 			"Inflated WASM: uncompressed={} bytes, compressed={} bytes (target={})",
