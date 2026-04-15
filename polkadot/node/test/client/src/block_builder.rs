@@ -81,7 +81,9 @@ impl InitPolkadotBlockBuilder for Client {
 		build_block_with_nudges(self, chain_info.best_hash, nudges)
 	}
 
-	fn init_polkadot_build_block_without_price_oracle_inherent(&self) -> BlockBuilder<'_, Block, Client> {
+	fn init_polkadot_build_block_without_price_oracle_inherent(
+		&self,
+	) -> BlockBuilder<'_, Block, Client> {
 		let chain_info = self.chain_info();
 		build_block_without_price_oracle_inherent(self, chain_info.best_hash)
 	}

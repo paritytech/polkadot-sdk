@@ -3,7 +3,10 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{pallet_prelude::*, traits::Time, traits::EnsureOrigin};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{EnsureOrigin, Time},
+};
 use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;

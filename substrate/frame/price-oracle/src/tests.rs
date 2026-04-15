@@ -9,7 +9,7 @@ use sp_core::{crypto::Pair as PairT, sr25519};
 use sp_inherents::InherentData;
 use sp_io::TestExternalities;
 use sp_price_oracle::{Nudge, SignedNudge, INHERENT_IDENTIFIER};
-use sp_runtime::{BuildStorage, FixedU128, traits::BadOrigin};
+use sp_runtime::{traits::BadOrigin, BuildStorage, FixedU128};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -85,7 +85,13 @@ struct ExtBuilder {
 impl Default for ExtBuilder {
 	fn default() -> Self {
 		set_authorities(&generate_test_pairs(3));
-		Self { num_authorities: 3, current_slot: 5, min_nudges: 0, initial_price: None, panic_switch: false }
+		Self {
+			num_authorities: 3,
+			current_slot: 5,
+			min_nudges: 0,
+			initial_price: None,
+			panic_switch: false,
+		}
 	}
 }
 
