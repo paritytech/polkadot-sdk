@@ -29,7 +29,7 @@ use frame_support::{
 			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
 			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 		},
-		Get, UncheckedOnRuntimeUpgrade,
+		Get,
 	},
 };
 use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
