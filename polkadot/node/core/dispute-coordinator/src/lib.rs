@@ -78,9 +78,9 @@ use initialized::{InitialData, Initialized};
 /// If we have seen a candidate included somewhere, we should treat it as priority and will be able
 /// to provide an ordering for participation. Thus a dispute for a candidate where we can get some
 /// ordering is high-priority (we know it is a valid dispute) and those can be ordered by
-/// `participation` based on `relay_parent` block number and other metrics, so each validator will
-/// participate in disputes in a similar order, which ensures we will be resolving disputes, even
-/// under heavy load.
+/// `participation` based on `scheduling_parent` block number and other metrics, so each validator
+/// will participate in disputes in a similar order, which ensures we will be resolving disputes,
+/// even under heavy load.
 mod scraping;
 use scraping::ChainScraper;
 

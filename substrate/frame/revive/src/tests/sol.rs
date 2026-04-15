@@ -270,7 +270,7 @@ fn upload_and_remove_code_works_for_evm() {
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		// Upload the code.
-		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128));
 
 		// Ensure the contract was stored.
 		ensure_stored(code_hash);
@@ -291,7 +291,7 @@ fn upload_fails_if_evm_bytecode_disabled() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Upload should fail since support for EVM bytecode is disabled.
 		assert_err!(
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128),
 			<Error<Test>>::CodeRejected
 		);
 	});

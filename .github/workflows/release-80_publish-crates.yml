@@ -25,6 +25,31 @@ on:
         required: true
         type: boolean
         default: true
+      resume_from:
+        description: 'Resume from a specific phase after a failure. Use "full" for a fresh run.'
+        required: true
+        type: choice
+        options:
+          - full
+          - apply
+          - publish
+          - push
+        default: full
+      prdoc_path:
+        description: 'Path to the prdoc directory used by parity-publish plan to decide whci prdocs use for publishing'
+        required: false
+        type: string
+        default: prdoc
+      publish_jobs:
+        description: 'Number of parallel publish jobs (0 = sequential publishing, >0 = parallel with N jobs).'
+        required: false
+        type: string
+        default: '0'
+      clean_every:
+        description: 'Run cargo clean after every N published crates to free disk space (0 = disabled). Recommend 50 for major releases with 100+ crates, otherwise the job may fail due to disk space.'
+        required: false
+        type: string
+        default: '0'
 
 permissions:
   contents: write
@@ -37,8 +62,8 @@ jobs:
 
   set-image:
     needs: [ check-synchronization ]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
-    runs-on: ubuntu-latest
+    if: ${{ needs.check-synchronization.outputs.checks_passed == 'true' }}
+    runs-on: ubuntu-latest-m
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
     steps:
@@ -50,7 +75,7 @@ jobs:
 
   publish-crates:
     needs: set-image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-m
     environment: release
     env:
       PGP_KMS_KEY: ${{ secrets.PGP_KMS_SIGN_COMMITS_KEY }}
@@ -65,7 +90,7 @@ jobs:
       - name: Install pgpkms
         run: |
           # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151
+          pip install git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae
 
       - name: Derive stable branch from release name
         id: derive_branch
@@ -94,6 +119,7 @@ jobs:
         with:
           ref: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Import GPG keys
         shell: bash
@@ -113,13 +139,31 @@ jobs:
           git config --global user.email "release-team@parity.io"
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
+      - name: Validate resume preconditions
+        if: inputs.resume_from != 'full'
+        shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
+        run: |
+          if ! git branch -r --list "origin/$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
+            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
+            exit 1
+          fi
+          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
+
       - name: Create or switch to release branch
         shell: bash
         env:
           CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
         run: |
-
-          if git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
+          if [ "$RESUME_FROM" != "full" ]; then
+            # Resume: checkout the existing branch pushed during the previous failed run
+            echo "Resuming from '$RESUME_FROM' - checking out existing branch $CRATES_RELEASE_BRANCH"
+            git fetch origin "$CRATES_RELEASE_BRANCH"
+            git checkout "$CRATES_RELEASE_BRANCH"
+          elif git rev-parse --verify -q "$CRATES_RELEASE_BRANCH" &>/dev/null; then
             echo "Branch $CRATES_RELEASE_BRANCH already exists, switching to it"
             git checkout "$CRATES_RELEASE_BRANCH"
           else
@@ -128,32 +172,54 @@ jobs:
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
 
-      - name: Install Rust 1.93
-        shell: bash
-        run: |
-          rustup install 1.93
-          rustup default 1.93
-          echo "Rust version:"
-          rustc --version
-          cargo --version
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
-        with:
-          cache-on-failure: true
-
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.10 --locked -q
+          cargo install parity-publish@0.10.15 --locked -q
 
       - name: Run parity-publish plan
+        if: inputs.resume_from == 'full'
+        env:
+          PRDOC_PATH: ${{ inputs.prdoc_path }}
         run: |
           echo "Running parity-publish plan..."
-          parity-publish plan --prdoc prdoc
+          parity-publish plan --prdoc $PRDOC_PATH
+
+      - name: Set umbrella crate version for new stable release
+        if: inputs.resume_from == 'full' && !inputs.is_patch
+        shell: bash
+        env:
+          STABLE_BRANCH: ${{ steps.derive_branch.outputs.STABLE_BRANCH }}
+        run: |
+          # Extract numeric part from stable branch name (e.g., stable2603 -> 2603)
+          VERSION_PREFIX="${STABLE_BRANCH#stable}"
+          UMBRELLA_VERSION="${VERSION_PREFIX}.0.0"
+
+          echo "Setting polkadot-sdk umbrella crate version to ${UMBRELLA_VERSION}"
+
+          # Find the line number of the polkadot-sdk name entry
+          LINE=$(grep -n '^name = "polkadot-sdk"$' Plan.toml | cut -d: -f1)
+          if [ -z "$LINE" ]; then
+            echo "::error::polkadot-sdk entry not found in Plan.toml"
+            exit 1
+          fi
+
+          # The 'to' line is 2 lines after 'name' (name, from, to)
+          TO_LINE=$((LINE + 2))
+
+          # Replace the 'to' version
+          sed -i "${TO_LINE}s/^to = \".*\"/to = \"${UMBRELLA_VERSION}\"/" Plan.toml
+
+          # Insert bump and reason after the 'to' line if not already present
+          if ! sed -n "$((TO_LINE + 1))p" Plan.toml | grep -q '^bump'; then
+            sed -i "${TO_LINE}a bump = \"major\"\nreason = \"changed\"" Plan.toml
+          fi
+
+          echo "polkadot-sdk entry in Plan.toml:"
+          grep -B1 -A6 'name = "polkadot-sdk"' Plan.toml
 
       - name: Save Plan.toml diff
-        if: inputs.is_patch
+        if: inputs.resume_from == 'full' && inputs.is_patch
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
         run: |
@@ -166,7 +232,7 @@ jobs:
           cat "release-artifacts/changed_crates_${RELEASE_NAME}.txt"
 
       - name: Parse crate names for release notes
-        if: inputs.is_patch
+        if: inputs.resume_from == 'full' && inputs.is_patch
         shell: bash
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
@@ -181,6 +247,7 @@ jobs:
           cat scripts/release/templates/crates_list.md.tera
 
       - name: Commit Plan.toml and crates list
+        if: inputs.resume_from == 'full'
         shell: bash
         env:
           IS_PATCH: ${{ inputs.is_patch }}
@@ -201,17 +268,29 @@ jobs:
           fi
 
       - name: Run parity-publish apply
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         run: |
           echo "Running parity-publish apply..."
           parity-publish apply
 
       - name: Update Cargo.lock
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         run: |
           echo "Updating Cargo.lock..."
           cargo update --workspace --offline || cargo update --workspace
           echo "Cargo.lock updated"
 
+      - name: Verify workspace compiles
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+        env:
+          SKIP_WASM_BUILD: 1
+        run: |
+          echo "Checking that rewritten manifests compile (WASM build skipped)..."
+          cargo check --workspace --all-targets 2>&1
+          echo "Workspace compiles successfully"
+
       - name: Commit version bumps
+        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
         shell: bash
         env:
           RELEASE_NAME: ${{ inputs.release_name }}
@@ -227,15 +306,8 @@ jobs:
             echo "No changes to commit"
           fi
 
-      - name: Push release branch
-        env:
-          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
-        run: |
-          echo "Pushing branch $CRATES_RELEASE_BRANCH..."
-          git push origin "$CRATES_RELEASE_BRANCH"
-          echo "Successfully pushed $CRATES_RELEASE_BRANCH"
-
       - name: Configure cargo registry
+        if: inputs.resume_from != 'push'
         shell: bash
         env:
           REGISTRY: ${{ inputs.registry }}
@@ -245,7 +317,7 @@ jobs:
 
           if [ "$REGISTRY" = "staging.crates.io" ]; then
             cat >> ~/.cargo/config.toml << 'EOF'
-          [registries.crates-io]
+          [registries.staging]
           index = "sparse+https://index.staging.crates.io/"
           EOF
           else
@@ -256,19 +328,90 @@ jobs:
           cat ~/.cargo/config.toml || echo "(using defaults)"
 
       - name: Publish crates
+        if: inputs.resume_from != 'push'
         shell: bash
         env:
-          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ inputs.registry == 'staging.crates.io' && secrets.STAGING_CRATES_IO_API_TOKEN || secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_CRATESIO_TOKEN: ${{ secrets.CRATES_IO_API_TOKEN }}
+          PARITY_PUBLISH_STAGING_CRATESIO_TOKEN: ${{ secrets.STAGING_CRATES_IO_API_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
+          PUBLISH_JOBS: ${{ inputs.publish_jobs }}
+          CLEAN_EVERY: ${{ inputs.clean_every }}
         run: |
+          PARALLEL_ARGS=""
+          if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
+            echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
+            PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
+          fi
+
+          CLEAN_ARGS=""
+          if [ "$CLEAN_EVERY" -gt 0 ] 2>/dev/null; then
+            echo "Disk cleanup enabled: cargo clean every $CLEAN_EVERY crates"
+            CLEAN_ARGS="--clean-every $CLEAN_EVERY"
+          fi
+
+          STAGING_ARG=""
+          if [ "$REGISTRY" = "staging.crates.io" ]; then
+            STAGING_ARG="--staging"
+          fi
 
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
+
+      - name: Restore clean manifests after publish
+        if: inputs.resume_from != 'push'
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          echo "Restoring clean manifests with version bumps only..."
+          parity-publish restore
+
+          git add -A
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "Restore clean manifests after crates publish for $RELEASE_NAME"
+            echo "Clean manifests committed"
+          else
+            echo "No changes to restore"
+          fi
+
+
+      - name: Generate token for paritytech/polkadot-sdk
+        id: generate_write_token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+            app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
+            private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
+            owner: paritytech
+            repositories: polkadot-sdk
+
+      - name: Push release branch to paritytech
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          TOKEN: ${{ steps.generate_write_token.outputs.token }}
+        run: |
+          echo "Pushing branch $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk..."
+          git remote set-url origin "https://x-access-token:${TOKEN}@github.com/paritytech/polkadot-sdk.git"
+          git push origin "$CRATES_RELEASE_BRANCH"
+          echo "Successfully pushed $CRATES_RELEASE_BRANCH to paritytech/polkadot-sdk"
+
+      - name: Push release branch to fork on failure
+        if: failure()
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          echo "Job failed. Pushing branch '$CRATES_RELEASE_BRANCH' to origin (paritytech-release) to preserve state for resume..."
+          # Restore origin to the fork repo in case it was changed by the upstream push step
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git"
+          git push origin "$CRATES_RELEASE_BRANCH" --force-with-lease
+          echo "Branch pushed. To resume, re-run this workflow with resume_from set to the appropriate phase."

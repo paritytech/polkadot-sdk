@@ -152,7 +152,7 @@ impl<C: Chain, E: Environment<C>> relay_utils::TransactionTracker for Transactio
 	type HeaderId = HeaderIdOf<C>;
 
 	async fn wait(self) -> TrackedTransactionStatus<HeaderIdOf<C>> {
-		let wait_for_stall_timeout = async_std::task::sleep(self.stall_timeout).shared();
+		let wait_for_stall_timeout = tokio::time::sleep(self.stall_timeout).shared();
 		let wait_for_stall_timeout_rest = wait_for_stall_timeout.clone();
 		self.do_wait(wait_for_stall_timeout, wait_for_stall_timeout_rest).await.0
 	}
@@ -339,7 +339,7 @@ mod tests {
 		// we can't do `.now_or_never()` on `do_wait()` call, because `Subscription` has its own
 		// background thread, which may cause additional async task switches => let's leave some
 		// relatively small timeout here
-		let wait_for_stall_timeout = async_std::task::sleep(std::time::Duration::from_millis(100));
+		let wait_for_stall_timeout = tokio::time::sleep(std::time::Duration::from_millis(100));
 		let wait_for_stall_timeout_rest = futures::future::ready(());
 		sender.send(Ok(status)).await.unwrap();
 
@@ -348,7 +348,7 @@ mod tests {
 		is.map(|is| (ts, is))
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn returns_finalized_on_finalized() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Finalized(Default::default())).await,
@@ -359,7 +359,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn returns_lost_on_finalized_and_environment_error() {
 		assert_eq!(
 			watch_transaction_status::<_, TestChain, _>(
@@ -372,7 +372,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn returns_invalid_on_invalid() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Invalid).await,
@@ -380,17 +380,17 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_future() {
 		assert_eq!(on_transaction_status(TransactionStatus::Future).await, None,);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_ready() {
 		assert_eq!(on_transaction_status(TransactionStatus::Ready).await, None,);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_broadcast() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Broadcast(Default::default())).await,
@@ -398,7 +398,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_in_block() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::InBlock(Default::default())).await,
@@ -406,7 +406,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn waits_on_retracted() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Retracted(Default::default())).await,
@@ -414,7 +414,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_finality_timeout() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::FinalityTimeout(Default::default())).await,
@@ -422,7 +422,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_usurped() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Usurped(Default::default())).await,
@@ -430,7 +430,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_dropped() {
 		assert_eq!(
 			on_transaction_status(TransactionStatus::Dropped).await,
@@ -438,7 +438,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_subscription_error() {
 		assert_eq!(
 			watch_transaction_status::<_, TestChain, _>(
@@ -451,7 +451,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn lost_on_timeout_when_waiting_for_invalidation_status() {
 		let (_sender, receiver) = futures::channel::mpsc::channel(1);
 		let tx_tracker = TransactionTracker::<TestChain, TestEnvironment>::new(

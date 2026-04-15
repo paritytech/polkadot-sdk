@@ -22,16 +22,17 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, ExistentialDeposit, ForeignAssets,
+	AllPalletsWithoutSystem, Assets, Balances, Block, Executive, ExistentialDeposit, ForeignAssets,
 	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
 	PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, Uniques, WeightToFee, XcmpQueue,
+	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
+	WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -51,7 +52,7 @@ use frame_support::{
 			common_strategies::{Bytes, Owner},
 			Inspect as InspectUniqueAsset,
 		},
-		ContainsPair,
+		ContainsPair, SignedTransactionBuilder,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -65,7 +66,8 @@ use pallet_uniques::{asset_ops::Item, asset_strategies::Attribute};
 use parachains_common::{AccountId, AssetIdForTrustBackedAssets, AuraId, Balance};
 use sp_consensus_aura::SlotDuration;
 use sp_core::crypto::Ss58Codec;
-use sp_runtime::{traits::MaybeEquivalence, Either, MultiAddress};
+use sp_keyring::Sr25519Keyring;
+use sp_runtime::{generic::Era, traits::MaybeEquivalence, Either, MultiAddress, MultiSignature};
 use sp_tracing::capture_test_logs;
 use std::convert::Into;
 use testnet_parachains_constants::westend::{consensus::*, currency::UNITS};
@@ -125,6 +127,34 @@ fn slot_durations() -> SlotDurations {
 fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder<Runtime> {
 	let origin = RuntimeOrigin::signed(origin.clone());
 	BareInstantiateBuilder::<Runtime>::bare_instantiate(origin, Code::Upload(code))
+}
+
+fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedExtrinsic {
+	let account_id = AccountId::from(sender.public());
+	let tx_ext: TxExtension = (
+		frame_system::AuthorizeCall::<Runtime>::new(),
+		frame_system::CheckNonZeroSender::<Runtime>::new(),
+		frame_system::CheckSpecVersion::<Runtime>::new(),
+		frame_system::CheckTxVersion::<Runtime>::new(),
+		frame_system::CheckGenesis::<Runtime>::new(),
+		frame_system::CheckEra::<Runtime>::from(Era::immortal()),
+		frame_system::CheckNonce::<Runtime>::from(
+			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
+		),
+		frame_system::CheckWeight::<Runtime>::new(),
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+		frame_metadata_hash_extension::CheckMetadataHash::new(false),
+		Default::default(),
+	)
+		.into();
+	let payload = sp_runtime::generic::SignedPayload::new(call.clone(), tx_ext.clone()).unwrap();
+	let signature = payload.using_encoded(|e| sender.sign(e));
+	UncheckedExtrinsic::new_signed_transaction(
+		call,
+		account_id.into(),
+		MultiSignature::Sr25519(signature),
+		tx_ext,
+	)
 }
 
 #[test]
@@ -1174,8 +1204,8 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		}),
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
-		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(governance::TreasuryAccount::get()),
+		None,
+		Some(xcm_config::DapBufferAccount::get()),
 	)
 }
 
@@ -1803,16 +1833,10 @@ fn withdraw_and_deposit_erc20s() {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let code = compile_module_with_type("MyToken", FixtureType::Resolc)
 			.expect("compile ERC20")
@@ -1877,16 +1901,10 @@ fn non_existent_erc20_will_error() {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;
@@ -1922,16 +1940,10 @@ fn smart_contract_not_erc20_will_error() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let (code, _) = compile_module("dummy").unwrap();
 
@@ -1978,16 +1990,10 @@ fn smart_contract_does_not_return_bool_fails() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
 		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc)
@@ -2039,16 +2045,10 @@ fn expensive_erc20_runs_out_of_gas() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
 		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc)
@@ -2400,4 +2400,173 @@ fn pure_proxy_stash_can_delegate_to_staking_operator() {
 				.into(),
 			);
 		});
+}
+
+mod remote_test {
+	use super::*;
+
+	/// Test claim_trapped_balance for all pool members using a state snapshot.
+	///
+	/// The test iterates through all pool members, computes trapped amounts, and calls
+	/// `do_claim_trapped_balance` for those with trapped funds. Only successful claims are printed.
+	///
+	/// Run with:
+	/// ```bash
+	/// SNAP=<PATH_TO_SNAP> cargo test -r -p asset-hub-westend-runtime np_claim_trapped_balance \
+	/// -- --ignored --nocapture
+	/// ```
+	///
+	/// Note: If you want to test this with PAH snapshot, ensure (locally, DO NOT COMMIT)
+	/// 1) WAH staking pallet indices align with PAH
+	/// 2) WAH ED is same as PAH (decrease it by 10x in `../../../constants/src/westend.rs`)
+	/// 3) Staking Bonding Duration is 28 eras.
+	#[tokio::test]
+	#[ignore]
+	async fn np_claim_trapped_balance() {
+		use pallet_nomination_pools::{Pallet as NominationPools, PoolMembers};
+		use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
+
+		let snap_path =
+			std::env::var("SNAP").expect("SNAP env var not set. Please provide snapshot path.");
+
+		println!("Loading snapshot from: {}", snap_path);
+
+		let mut ext = Builder::<Block>::new()
+			.mode(Mode::Offline(OfflineConfig { state_snapshot: SnapshotConfig::new(snap_path) }))
+			.build()
+			.await
+			.expect("Failed to load snapshot");
+
+		ext.execute_with(|| {
+			use pallet_nomination_pools::adapter::{Member, StakeStrategy};
+
+			const DOT_DECIMALS: u128 = 10_000_000_000; // 10 decimals for DOT
+
+			println!("\nChecking trapped balance for all pool members...\n");
+
+			let mut total_members = 0u32;
+			let mut success_count = 0u32;
+			let mut total_claimed = 0u128;
+
+			println!("member,pool_id,trapped_dot");
+
+			for (member_account, member_data) in PoolMembers::<Runtime>::iter() {
+				total_members += 1;
+
+				// Compute trapped amount before calling the helper
+				let expected = member_data.total_balance();
+				let actual = <Runtime as pallet_nomination_pools::Config>::StakeAdapter
+					::member_delegation_balance(Member::from(
+						member_account.clone(),
+					))
+					.unwrap_or_default();
+				let trapped = actual.saturating_sub(expected);
+
+				// Ignore dust amounts (< 1 DOT) — only claim meaningful trapped balances.
+				if trapped >= DOT_DECIMALS {
+					assert_ok!(NominationPools::<Runtime>::do_claim_trapped_balance(
+						&member_account
+					));
+
+					success_count += 1;
+					total_claimed += trapped;
+					let whole = trapped / DOT_DECIMALS;
+					let fraction = (trapped % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+					println!(
+						"{:?},{},{}.{:02}",
+						member_account, member_data.pool_id, whole, fraction
+					);
+				}
+			}
+
+			let total_whole = total_claimed / DOT_DECIMALS;
+			let total_fraction = (total_claimed % DOT_DECIMALS) / (DOT_DECIMALS / 100);
+
+			println!("\n--- Summary ---");
+			println!("Total members: {}", total_members);
+			println!("Successful claims: {}", success_count);
+			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
+		});
+	}
+}
+
+mod dap {
+	use super::*;
+
+	#[test]
+	fn tx_fees_go_to_dap_buffer() {
+		let alice = AccountId::from(Sr25519Keyring::Alice);
+		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
+			AccountId,
+		>>::pot_account();
+		let ed = ExistentialDeposit::get();
+
+		ExtBuilder::<Runtime>::default()
+			.with_collators(vec![alice.clone()])
+			.with_session_keys(vec![(
+				alice.clone(),
+				alice.clone(),
+				SessionKeys { aura: AuraId::from(Sr25519Keyring::Alice.public()) },
+			)])
+			.with_balances(vec![(alice.clone(), 100 * ed), (buffer.clone(), ed)])
+			.with_para_id(ASSET_HUB_ID.into())
+			.build()
+			.execute_with(|| {
+				let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
+				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+				let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+				let xt = construct_extrinsic(Sr25519Keyring::Alice, call);
+				assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+				let alice_after = <Balances as Inspect<AccountId>>::balance(&alice);
+				let fee_paid = alice_before - alice_after;
+				assert!(fee_paid > 0, "a fee should have been paid");
+
+				let buffer_after = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+
+				assert_eq!(buffer_after, buffer_before + fee_paid);
+				assert_eq!(issuance_before, issuance_after);
+			});
+	}
+
+	#[test]
+	fn dust_removal_goes_to_dap_buffer() {
+		let alice = AccountId::from(ALICE);
+		let bob = AccountId::from(BOB);
+		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
+			AccountId,
+		>>::pot_account();
+		let ed = ExistentialDeposit::get();
+		let dust = ed / 2;
+
+		ExtBuilder::<Runtime>::default()
+			.with_collators(vec![AccountId::from(ALICE)])
+			.with_session_keys(vec![(
+				AccountId::from(ALICE),
+				AccountId::from(ALICE),
+				SessionKeys { aura: AuraId::from(sp_core::sr25519::Public::from_raw(ALICE)) },
+			)])
+			.build()
+			.execute_with(|| {
+				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
+				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
+				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&buffer, ed));
+
+				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+
+				// Transfer ED away from bob, leaving dust < ED → account reaped.
+				assert_ok!(Balances::transfer_allow_death(
+					RuntimeOrigin::signed(bob.clone()),
+					alice.clone().into(),
+					ed,
+				));
+
+				let buffer_after = <Balances as Inspect<AccountId>>::balance(&buffer);
+				assert_eq!(buffer_after, buffer_before + dust);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+			});
+	}
 }

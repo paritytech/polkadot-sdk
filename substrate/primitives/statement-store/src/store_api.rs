@@ -33,6 +33,9 @@ pub enum Error {
 	/// Error reading from storage.
 	#[error("Storage error: {0:?}")]
 	Storage(String),
+	/// Invalid configuration.
+	#[error("Invalid configuration: {0}")]
+	InvalidConfig(String),
 }
 
 /// Filter for subscribing to statements with different topics.

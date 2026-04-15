@@ -244,14 +244,14 @@ impl From<tokio::task::JoinError> for Error {
 	}
 }
 
-impl<T> From<async_std::channel::TrySendError<T>> for Error {
-	fn from(error: async_std::channel::TrySendError<T>) -> Self {
+impl<T> From<async_channel::TrySendError<T>> for Error {
+	fn from(error: async_channel::TrySendError<T>) -> Self {
 		Error::ChannelError(format!("`try_send` has failed: {error:?}"))
 	}
 }
 
-impl From<async_std::channel::RecvError> for Error {
-	fn from(error: async_std::channel::RecvError) -> Self {
+impl From<async_channel::RecvError> for Error {
+	fn from(error: async_channel::RecvError) -> Self {
 		Error::ChannelError(format!("`recv` has failed: {error:?}"))
 	}
 }
