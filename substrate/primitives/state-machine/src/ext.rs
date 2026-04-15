@@ -1080,7 +1080,6 @@ mod tests {
 	}
 
 	#[test]
-	// note: copied from: https://github.com/paritytech/polkadot-sdk/pull/6230/files#diff-aee4478254ac14c2c059e9e1a0eb5b2d3694872bfdce872416319959223de977R1115
 	fn calculating_storage_root_should_not_change_storage_proof() {
 		let keys =
 			(0..100000u32)

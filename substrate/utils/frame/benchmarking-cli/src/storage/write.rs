@@ -315,7 +315,7 @@ impl StorageCmd {
 		// Call compute_pov_size_for_storage_root if enabled
 		if self.params.estimation_batch_size > 0 {
 			let triggers_per_batch = self.params.estimation_batch_size;
-			let trigger_interval = batch_size / triggers_per_batch;
+			let trigger_interval = batch_size.div_ceil(triggers_per_batch);
 
 			for i in 0..triggers_per_batch {
 				let start_idx = i * trigger_interval;
