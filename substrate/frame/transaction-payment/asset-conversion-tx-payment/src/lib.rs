@@ -51,7 +51,7 @@ use frame_support::{
 	traits::IsType,
 	DefaultNoBound,
 };
-use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
+use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction, LOG_TARGET};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{

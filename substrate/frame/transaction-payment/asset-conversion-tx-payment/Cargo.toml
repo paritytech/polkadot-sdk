@@ -21,6 +21,7 @@ codec = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 pallet-asset-conversion = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
@@ -38,6 +39,7 @@ std = [
 	"frame-benchmarking?/std",
 	"frame-support/std",
 	"frame-system/std",
+	"log/std",
 	"pallet-asset-conversion/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
