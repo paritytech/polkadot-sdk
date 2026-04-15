@@ -22,14 +22,15 @@ on:
 jobs:
 
   check-synchronization:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    with:
+      concurrency_suffix: promote-rc-to-final
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
   validate-inputs:
     needs: [ check-synchronization ]
-    if: ${{ !cancelled() && (needs.check-synchronization.result == 'skipped' || needs.check-synchronization.outputs.checks_passed == 'true') }}
+    if: needs.check-synchronization.outputs.checks_passed == 'true'
     runs-on: ubuntu-latest
     outputs:
       release_tag: ${{ steps.validate_inputs.outputs.release_tag }}
