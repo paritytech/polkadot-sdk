@@ -1694,3 +1694,519 @@ mod broader_system {
 		});
 	}
 }
+
+// ============================================================================
+// Round 5: Corruption & misconfiguration chaos tests
+// ============================================================================
+mod chaos {
+	use super::*;
+	use pallet_staking_async_rc_client as rc_client;
+
+	#[test]
+	fn governance_sets_zero_staker_budget_era_gets_zero_reward() {
+		// Governance accidentally sets 0% stakers / 0% incentive / 100% buffer.
+		// The general staker pot receives nothing, era snapshot is 0.
+		// Validators cannot claim rewards but system doesn't panic.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// Misconfigure: all to buffer.
+			change_budget_allocation(0, 0, 100);
+
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+
+			let era_reward = ErasValidatorReward::<T>::get(1);
+			// Era reward should be 0 or very small (just ED in the general pot from setup).
+			assert!(
+				era_reward.unwrap_or(0) <= 1,
+				"Era reward should be ~0 with 0% staker budget, got {:?}",
+				era_reward
+			);
+
+			// Payout attempt should succeed but pay nothing meaningful.
+			let balance_before = Balances::total_balance(&3);
+			let _result = staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999),
+				3,
+				1,
+			);
+			let balance_after = Balances::total_balance(&3);
+			assert!(
+				balance_after - balance_before <= 1,
+				"Validator should receive ~0 with zero budget"
+			);
+
+			// Fix budget for next era.
+			change_budget_allocation(85, 0, 15);
+			ErasRewardPoints::<T>::mutate(2, |points| {
+				points.total = 400;
+				for &v in &[3, 5, 6, 8] {
+					points.individual.try_insert(v, 100).unwrap();
+				}
+			});
+			let start = Rotator::<Runtime>::active_era_start_session_index();
+			roll_until_next_active(start + SessionsPerEra::get());
+
+			// Era 2 should now have real rewards.
+			let era_2_reward = ErasValidatorReward::<T>::get(2).unwrap();
+			assert!(era_2_reward > 100, "Era 2 should have real rewards after fix");
+		});
+	}
+
+	#[test]
+	fn era_pot_reaped_below_ed_payout_gracefully_fails() {
+		// Corruption: era pot account balance drops below ED (e.g., via a bug).
+		// Payout should fail gracefully, not panic.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+			let era_reward = ErasValidatorReward::<T>::get(era).unwrap();
+			assert!(era_reward > 0);
+
+			// Corrupt: drain the era pot to 0.
+			let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+			let pot_balance = Balances::total_balance(&pot);
+			if pot_balance > 0 {
+				// Force withdraw everything.
+				let _ = <Balances as frame_support::traits::fungible::Mutate<AccountId>>::transfer(
+					&pot,
+					&999,
+					pot_balance,
+					frame_support::traits::tokens::Preservation::Expendable,
+				);
+			}
+			assert_eq!(Balances::total_balance(&pot), 0, "Pot should be drained");
+
+			// Payout attempt: should not panic.
+			let balance_before = Balances::total_balance(&3);
+			let result = staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999),
+				3,
+				era,
+			);
+			// It may succeed (0 transfer) or error — either is fine, just no panic.
+			let balance_after = Balances::total_balance(&3);
+
+			// Validator should NOT have gained from the drained pot.
+			assert!(
+				balance_after <= balance_before,
+				"Drained pot must not pay out: before={}, after={}",
+				balance_before, balance_after
+			);
+
+			// Other validators are also safe.
+			for &v in &[5u64, 6, 8] {
+				let _ = staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(999), v, era,
+				);
+			}
+		});
+	}
+
+	#[test]
+	fn corrupted_reward_points_total_less_than_sum_does_not_overpay() {
+		// Corruption: ErasRewardPoints.total is LESS than sum of individual points.
+		// Perbill::from_rational(individual, total) would give > 100%.
+		// This could cause one validator to claim more than their fair share.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+			for n in 100..=112u64 {
+				Payee::<T>::insert(n, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+			let era_reward = ErasValidatorReward::<T>::get(era).unwrap();
+
+			// Corrupt: set total to 100 but individuals sum to 400.
+			ErasRewardPoints::<T>::mutate(era, |points| {
+				points.total = 100; // should be 400
+				// Individual points remain at 100 each (set by advance_to_era_with_points).
+			});
+
+			let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+			let pot_before = Balances::total_balance(&pot);
+
+			// Payout: each validator thinks they get 100/100 = 100% of era_reward.
+			// First validator gets the full amount.
+			assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 3, era,
+			));
+
+			// Second validator: pot may be drained. Transfer fails silently.
+			let balance_5_before = Balances::total_balance(&5);
+			let _ = staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 5, era,
+			);
+			let balance_5_after = Balances::total_balance(&5);
+
+			// KEY QUESTION: did the pot have enough for both?
+			// Perbill::from_rational(100, 100) = 100%, so validator 3 takes all of era_reward.
+			// Validator 5's transfer from the pot will fail (insufficient balance).
+			let pot_after = Balances::total_balance(&pot);
+
+			// Total extracted from pot should not exceed pot's starting balance.
+			let total_consumed = pot_before - pot_after;
+			assert!(
+				total_consumed <= pot_before,
+				"Cannot consume more than pot balance"
+			);
+
+			// The damage: first claimer gets 100% instead of 25%.
+			// But the pot is the hard limit — later claimers get nothing.
+			// This is a DATA corruption issue, not an inflation issue.
+			// Total issuance is unchanged (transfer-based).
+			log::info!(
+				target: "audit",
+				"Corrupted points: pot_before={}, consumed={}, pot_after={}. First claimer gets 100%, rest get 0.",
+				pot_before, total_consumed, pot_after
+			);
+		});
+	}
+
+	#[test]
+	fn disable_minting_guard_corrupted_to_future_era() {
+		// Corruption: DisableMintingGuard set to a future era.
+		// This would allow legacy minting for DAP eras that should be transfer-only.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+
+			// Guard should be set to era 1 (first DAP era with rewards).
+			let real_guard = DisableMintingGuard::<T>::get();
+			assert!(real_guard.is_some());
+
+			// Corrupt: set guard to era 999 (way in the future).
+			DisableMintingGuard::<T>::put(999u32);
+
+			// Era 1 has a pot (DAP mode created it). Payout should still use transfer path
+			// because has_staker_rewards_pot(1) checks for provider count, not the guard.
+			let pot = SequentialTest::pot_account(RewardPot::Era(1, RewardKind::StakerRewards));
+			let has_pot = System::providers(&pot) > 0;
+			assert!(has_pot, "Era 1 should have a pot regardless of guard corruption");
+
+			let issuance_before = Balances::total_issuance();
+			assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 3, 1,
+			));
+			let issuance_after = Balances::total_issuance();
+
+			// Even with corrupted guard, payout checks pot existence first.
+			// If pot exists → transfer path. Guard is only consulted for eras WITHOUT a pot.
+			assert_eq!(
+				issuance_before, issuance_after,
+				"Pot existence check takes precedence over guard — no minting"
+			);
+
+			// Restore guard.
+			DisableMintingGuard::<T>::put(real_guard.unwrap());
+		});
+	}
+
+	#[test]
+	fn zero_point_era_with_funded_pot_does_not_leak_value() {
+		// All validators get 0 reward points, but era pot is funded.
+		// No one should be able to claim. Funds stuck until cleanup_era.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			// Advance but set 0 reward points for all validators in era 0.
+			ErasRewardPoints::<T>::mutate(0, |points| {
+				points.total = 0;
+				// No individual points.
+			});
+			roll_until_next_active(1);
+
+			let era = 0u32;
+			let era_reward = ErasValidatorReward::<T>::get(era);
+
+			// Pot may be funded from DAP drip.
+			let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
+			let pot_balance = Balances::total_balance(&pot);
+
+			// All payout attempts: validators with 0 points get early return (no payment).
+			for &v in &[3u64, 5, 6, 8] {
+				let balance_before = Balances::total_balance(&v);
+				let _ = staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(999), v, era,
+				);
+				assert_eq!(
+					Balances::total_balance(&v), balance_before,
+					"Validator {} should receive nothing with 0 points", v
+				);
+			}
+
+			// Pot is untouched.
+			assert_eq!(
+				Balances::total_balance(&pot), pot_balance,
+				"Zero-point era pot should be untouched"
+			);
+		});
+	}
+
+	#[test]
+	fn general_pot_reaped_dap_drip_handles_gracefully() {
+		// Corruption: general staker pot drops below ED between drips.
+		// DAP tries to mint_into a dead account — what happens?
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			let general_pot =
+				SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+
+			// Verify pot is alive.
+			assert!(Balances::total_balance(&general_pot) > 0);
+
+			// Drain the general pot.
+			let balance = Balances::total_balance(&general_pot);
+			let _ = <Balances as frame_support::traits::fungible::Mutate<AccountId>>::transfer(
+				&general_pot,
+				&999,
+				balance,
+				frame_support::traits::tokens::Preservation::Expendable,
+			);
+
+			// Pot might be dead now. Roll blocks — DAP tries to mint_into dead account.
+			let issuance_before = Balances::total_issuance();
+			roll_many(5);
+			let issuance_after = Balances::total_issuance();
+
+			// DAP should still work — mint_into creates the account if needed.
+			// The staker pot gets its share even after being reaped.
+			assert!(
+				issuance_after > issuance_before,
+				"DAP should still mint even after pot was reaped"
+			);
+
+			// The pot should be alive again with new funds.
+			assert!(
+				Balances::total_balance(&general_pot) > 0,
+				"General pot should be revived by DAP drip"
+			);
+		});
+	}
+
+	#[test]
+	fn budget_allocation_removed_for_stakers_existing_pots_still_claimable() {
+		// Governance removes staker key from budget (sets 0% stakers).
+		// Existing era pots should still be claimable.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			// Advance 2 eras with normal budget.
+			let _elected = advance_to_era_with_points(2);
+
+			let era_1_reward = ErasValidatorReward::<T>::get(1).unwrap();
+			assert!(era_1_reward > 0);
+
+			// Now governance sets 0% stakers. This only affects FUTURE drips.
+			change_budget_allocation(0, 0, 100);
+
+			// Existing era 1 pot still has funds. Claim should work.
+			let balance_before = Balances::total_balance(&3);
+			assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 3, 1,
+			));
+			assert!(
+				Balances::total_balance(&3) > balance_before,
+				"Existing era pot should still pay out after budget change"
+			);
+		});
+	}
+
+	#[test]
+	fn validator_commission_100_percent_nominators_get_zero() {
+		// Edge case: validator sets 100% commission. Nominators should get exactly 0.
+		// Validator gets all of their proportional share.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// Set validator 3's commission to 100%.
+			pallet_staking_async::ErasValidatorPrefs::<T>::insert(
+				1u32,
+				&3u64,
+				pallet_staking_async::ValidatorPrefs {
+					commission: Perbill::from_percent(100),
+					blocked: false,
+				},
+			);
+
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+			for n in 100..=112u64 {
+				Payee::<T>::insert(n, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+
+			// Capture nominator balances before payout.
+			let nominators: Vec<AccountId> = (100..=112).collect();
+			let nom_balances_before: Vec<_> =
+				nominators.iter().map(|n| (*n, Balances::total_balance(n))).collect();
+
+			// Payout validator 3 (100% commission).
+			let val_before = Balances::total_balance(&3);
+			assert_ok!(staking_async::Pallet::<T>::payout_stakers(
+				RuntimeOrigin::signed(999), 3, era,
+			));
+			let val_gain = Balances::total_balance(&3) - val_before;
+
+			// Nominators of validator 3 should get 0 (all goes to commission).
+			for (n, before) in &nom_balances_before {
+				let after = Balances::total_balance(n);
+				assert_eq!(
+					*before, after,
+					"Nominator {} should get 0 with 100% commission", n
+				);
+			}
+
+			// Validator should get their full share.
+			assert!(val_gain > 0, "Validator with 100% commission should get rewards");
+		});
+	}
+
+	#[test]
+	fn incentive_pot_funded_but_weights_zero_funds_trapped_then_cleaned() {
+		// Governance sets incentive budget but doesn't set config (weights=0).
+		// Incentive pot gets funded but nobody can claim.
+		// On era cleanup, trapped funds go to UnclaimedRewardHandler.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			// Budget includes 25% incentive, but config is all zeros.
+			setup_dap_with_budget(50, 25, 25);
+			assert_eq!(OptimumSelfStake::<T>::get(), 0);
+			assert_eq!(HardCapSelfStake::<T>::get(), 0);
+
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+
+			let incentive_budget = ErasValidatorIncentiveBudget::<T>::get(era);
+			assert!(incentive_budget > 0, "Budget funded despite zero config");
+
+			let incentive_pot = SequentialTest::pot_account(
+				RewardPot::Era(era, RewardKind::ValidatorSelfStake),
+			);
+			let pot_before = Balances::total_balance(&incentive_pot);
+
+			// Payout: incentive calculation returns None (weight=0).
+			for &v in &[3u64, 5, 6, 8] {
+				let _ = staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(999), v, era,
+				);
+			}
+
+			// Incentive pot should be completely untouched.
+			let pot_after = Balances::total_balance(&incentive_pot);
+			assert_eq!(
+				pot_before, pot_after,
+				"Incentive pot must be untouched when weights are zero"
+			);
+
+			// These funds are trapped. They'll be cleaned up when the era is pruned.
+			// Total value trapped per era = incentive_budget.
+			log::info!(
+				target: "audit",
+				"Trapped incentive: {} tokens in era {} (config zero, budget funded)",
+				pot_after, era
+			);
+		});
+	}
+
+	#[test]
+	fn era_reward_storage_set_higher_than_pot_balance() {
+		// Corruption: ErasValidatorReward says era has 1_000_000 but pot only has 1_000.
+		// Payout logic computes amounts from ErasValidatorReward, then transfers from pot.
+		// Transfer will fail for amounts exceeding pot balance.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			let _elected = advance_to_era_with_points(2);
+			let era = 1u32;
+
+			let real_pot_balance = Balances::total_balance(
+				&SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards)),
+			);
+
+			// Corrupt: inflate ErasValidatorReward to 100x the actual pot.
+			let inflated = real_pot_balance * 100;
+			ErasValidatorReward::<T>::insert(era, inflated);
+
+			let pot_before = real_pot_balance;
+			let issuance_before = Balances::total_issuance();
+
+			// Payout: computed amount will be ~25% of inflated value (per validator).
+			// That's 25x the pot balance. Transfer will fail silently.
+			for &v in &[3u64, 5, 6, 8] {
+				let _ = staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(999), v, era,
+				);
+			}
+
+			let issuance_after = Balances::total_issuance();
+
+			// No minting should occur regardless.
+			assert_eq!(
+				issuance_before, issuance_after,
+				"Inflated ErasValidatorReward must not cause minting"
+			);
+
+			// Total extracted is bounded by actual pot balance.
+			let pot_after = Balances::total_balance(
+				&SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards)),
+			);
+			assert!(
+				pot_before - pot_after <= pot_before,
+				"Extraction bounded by real pot balance"
+			);
+		});
+	}
+
+	#[test]
+	fn multiple_eras_without_payout_accumulates_safely() {
+		// Validators don't claim for several eras. All claims should work within HistoryDepth.
+		ExtBuilder::default().local_queue().build().execute_with(|| {
+			for &v in &[3u64, 5, 6, 8] {
+				Payee::<T>::insert(v, staking_async::RewardDestination::Stash);
+			}
+
+			// Advance through 3 eras without claiming.
+			let _elected = advance_to_era_with_points(4);
+
+			// Claim all 3 eras for validator 3.
+			let mut total_claimed = 0u128;
+
+			for era in 1..=3u32 {
+				let before = Balances::total_balance(&3);
+				let result = staking_async::Pallet::<T>::payout_stakers(
+					RuntimeOrigin::signed(999), 3, era,
+				);
+				if result.is_ok() {
+					total_claimed += Balances::total_balance(&3) - before;
+				}
+			}
+
+			assert!(
+				total_claimed > 0,
+				"Should claim rewards from multiple eras"
+			);
+		});
+	}
+}

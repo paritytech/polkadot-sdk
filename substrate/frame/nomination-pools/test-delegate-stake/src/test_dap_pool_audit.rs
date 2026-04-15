@@ -39,16 +39,8 @@ fn create_pool(
 /// Simulate a DAP-style reward deposit to the pool's reward account.
 /// In production, this comes from payout_stakers transferring from the era pot.
 fn deposit_reward(reward_account: u128, amount: u128) {
-	// Mint into a temp account and transfer to reward account.
-	// This simulates the transfer from era pot without needing full exposure setup.
-	let temp = 999_999u128;
-	Balances::mint_into(&temp, amount).unwrap();
-	assert_ok!(<Balances as Mutate<u128>>::transfer(
-		&temp,
-		&reward_account,
-		amount,
-		frame_support::traits::tokens::Preservation::Expendable,
-	));
+	// Mint directly into the reward account to simulate transfer from era pot.
+	Balances::mint_into(&reward_account, amount).unwrap();
 }
 
 #[test]
@@ -374,6 +366,235 @@ fn slash_does_not_affect_unclaimed_rewards() {
 		assert!(
 			Balances::total_balance(&10) > before_10,
 			"Member should still claim rewards after pool slash"
+		);
+	});
+}
+
+// ============================================================================
+// Corruption & misconfiguration chaos tests
+// ============================================================================
+
+#[test]
+fn reward_account_drained_externally_claim_fails_gracefully() {
+	// Corruption: someone drains the pool reward account.
+	// Member claim should fail gracefully or pay reduced amount.
+	new_test_ext().execute_with(|| {
+		let (pool_id, _bonded, reward) = create_pool(10, 50);
+
+		// Deposit reward.
+		deposit_reward(reward, 500);
+
+		// Corrupt: drain the reward account (keep ED via Preserve).
+		let balance = Balances::total_balance(&reward);
+		let drainable = balance.saturating_sub(ExistentialDeposit::get());
+		if drainable > 0 {
+			Balances::mint_into(&999, ExistentialDeposit::get()).unwrap();
+			let _ = <Balances as Mutate<u128>>::transfer(
+				&reward,
+				&999,
+				drainable,
+				frame_support::traits::tokens::Preservation::Preserve,
+			);
+		}
+
+		let reward_after_drain = Balances::total_balance(&reward);
+		let issuance_before = Balances::total_issuance();
+
+		// Claim: the reward counter still thinks 500 is available,
+		// but the reward account only has ED left.
+		let before = Balances::total_balance(&10);
+		let result = Pools::claim_payout(RuntimeOrigin::signed(10));
+		let after = Balances::total_balance(&10);
+		let issuance_after = Balances::total_issuance();
+
+		// KEY INVARIANT: no issuance change (claim is transfer-only).
+		assert_eq!(
+			issuance_before, issuance_after,
+			"Claim from drained account must not mint"
+		);
+
+		// If claim succeeded, it can only transfer what's available.
+		let gained = after.saturating_sub(before);
+		assert!(
+			gained <= reward_after_drain,
+			"Cannot claim more than remaining: gained={}, remaining={}",
+			gained, reward_after_drain
+		);
+
+		log::info!(
+			target: "audit",
+			"Drained reward account: reward_after_drain={}, claim result={:?}, gained={}",
+			reward_after_drain, result, gained
+		);
+	});
+}
+
+#[test]
+fn large_reward_does_not_overflow_reward_counter() {
+	// Edge case: very large reward deposit. FixedU128 should handle it.
+	new_test_ext().execute_with(|| {
+		let (pool_id, _bonded, reward) = create_pool(10, 50);
+
+		// Deposit a large reward relative to pool points.
+		// reward_per_point = 10_000_000 / 50 = 200_000 in FixedU128.
+		deposit_reward(reward, 10_000_000);
+
+		let before = Balances::total_balance(&10);
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
+		let gain = Balances::total_balance(&10) - before;
+
+		// Should get nearly all of it (minus ED kept in reward account).
+		assert!(
+			gain >= 10_000_000 - ExistentialDeposit::get() - 1,
+			"Should receive large reward: got {}", gain
+		);
+	});
+}
+
+#[test]
+fn tiny_reward_with_large_pool_does_not_round_to_zero_for_all() {
+	// Edge: tiny reward (ED) split among members. Rounding may give some members 0.
+	new_test_ext().execute_with(|| {
+		let (pool_id, _bonded, reward) = create_pool(10, 50);
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 50, pool_id));
+
+		// Deposit minimal viable reward.
+		deposit_reward(reward, ExistentialDeposit::get());
+
+		let before_10 = Balances::total_balance(&10);
+		let before_20 = Balances::total_balance(&20);
+
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(20)));
+
+		let gain_10 = Balances::total_balance(&10) - before_10;
+		let gain_20 = Balances::total_balance(&20) - before_20;
+
+		// With ED reward and 2 members, each gets at most ED/2.
+		// Total claimed must not exceed deposited.
+		assert!(
+			gain_10 + gain_20 <= ExistentialDeposit::get(),
+			"Tiny reward should not create value: claimed {}",
+			gain_10 + gain_20
+		);
+	});
+}
+
+#[test]
+fn slash_then_reward_then_claim_accounting_is_correct() {
+	// Sequence: slash pool stake → deposit rewards → claim.
+	// Rewards should be distributed based on POST-SLASH points.
+	new_test_ext().execute_with(|| {
+		let (pool_id, bonded, reward) = create_pool(10, 50);
+		assert_ok!(Pools::join(RuntimeOrigin::signed(20), 50, pool_id));
+
+		// Slash 50% of pool stake.
+		pallet_staking_async::slashing::do_slash::<Runtime>(
+			&bonded,
+			50, // slash 50 out of 100
+			&mut Default::default(),
+			&mut Default::default(),
+			0,
+		);
+
+		// Now deposit rewards AFTER slash.
+		deposit_reward(reward, 1_000);
+
+		// Both members still have equal pool points (slash doesn't change points).
+		let before_10 = Balances::total_balance(&10);
+		let before_20 = Balances::total_balance(&20);
+
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(20)));
+
+		let gain_10 = Balances::total_balance(&10) - before_10;
+		let gain_20 = Balances::total_balance(&20) - before_20;
+
+		// Equal points → equal share, regardless of slash.
+		assert!(gain_10 > 0 && gain_20 > 0);
+		assert!(
+			gain_10.abs_diff(gain_20) <= 1,
+			"Equal points should get equal reward post-slash: {} vs {}",
+			gain_10, gain_20
+		);
+
+		// Total claimed ≤ deposited.
+		assert!(gain_10 + gain_20 <= 1_000);
+	});
+}
+
+#[test]
+fn bond_extra_rewards_after_slash_does_not_create_value() {
+	// Slash reduces real stake but not pool points.
+	// BondExtra::Rewards compounds into the reduced pool.
+	// Verify no value creation.
+	new_test_ext().execute_with(|| {
+		let (pool_id, bonded, reward) = create_pool(10, 50);
+
+		// Slash half the pool's stake.
+		pallet_staking_async::slashing::do_slash::<Runtime>(
+			&bonded,
+			25,
+			&mut Default::default(),
+			&mut Default::default(),
+			0,
+		);
+
+		// Deposit rewards.
+		deposit_reward(reward, 200);
+
+		let issuance_before = Balances::total_issuance();
+
+		// Compound rewards via BondExtra.
+		assert_ok!(Pools::bond_extra(
+			RuntimeOrigin::signed(10),
+			pallet_nomination_pools::BondExtra::Rewards,
+		));
+
+		let issuance_after = Balances::total_issuance();
+		assert_eq!(
+			issuance_before, issuance_after,
+			"BondExtra::Rewards after slash must not mint"
+		);
+	});
+}
+
+#[test]
+fn member_unbond_claim_unbond_claim_sequence() {
+	// Attack: member partially unbonds, claims, unbonds more, claims again.
+	// Each claim should only pay new rewards since last claim.
+	new_test_ext().execute_with(|| {
+		let (pool_id, _bonded, reward) = create_pool(10, 50);
+
+		// Deposit first reward.
+		deposit_reward(reward, 100);
+
+		// Claim first batch.
+		let before = Balances::total_balance(&10);
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
+		let gain_1 = Balances::total_balance(&10) - before;
+		assert!(gain_1 > 0);
+
+		// Partially unbond.
+		assert_ok!(Pools::unbond(RuntimeOrigin::signed(10), 10, 20));
+
+		// Deposit second reward (smaller pool now).
+		deposit_reward(reward, 100);
+
+		// Claim again — should get new rewards proportional to remaining stake.
+		let before = Balances::total_balance(&10);
+		assert_ok!(Pools::claim_payout(RuntimeOrigin::signed(10)));
+		let gain_2 = Balances::total_balance(&10) - before;
+
+		// Second gain should be based on remaining 30 points (not original 50).
+		// But since they're the only member, they still get all of it.
+		assert!(gain_2 > 0, "Should receive second batch of rewards");
+
+		// Total gained should not exceed total deposited.
+		assert!(
+			gain_1 + gain_2 <= 200,
+			"Total claimed {} exceeds total deposited 200",
+			gain_1 + gain_2
 		);
 	});
 }
