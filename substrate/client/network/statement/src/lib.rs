@@ -1330,7 +1330,14 @@ where
 
 				// Light V2 peers must set topic affinity before receiving statements.
 				// All other peers get initial sync immediately.
-				if self.peers.read().ok().as_deref().and_then(|g| g.get(&peer)).map_or(false, |p| p.can_receive()) {
+				if self
+					.peers
+					.read()
+					.ok()
+					.as_deref()
+					.and_then(|g| g.get(&peer))
+					.map_or(false, |p| p.can_receive())
+				{
 					self.schedule_initial_sync_for_peer(peer);
 				}
 			},
@@ -1391,9 +1398,10 @@ where
 				match protocol_version {
 					PeerProtocolVersion::V1 => {
 						// V1: forward raw bytes directly to worker
-						if let Err(e) = self.statements_queue_sender.try_send(
-							OnStatementsRequest { who: peer, notification: notification.to_vec() },
-						) {
+						if let Err(e) = self.statements_queue_sender.try_send(OnStatementsRequest {
+							who: peer,
+							notification: notification.to_vec(),
+						}) {
 							log::debug!(
 								target: LOG_TARGET,
 								"Failed to send notification to worker: {:?}",
@@ -1407,9 +1415,11 @@ where
 						match StatementMessage::decode(&mut notification.as_ref()) {
 							Ok(StatementMessage::Statements(statements)) => {
 								let v1_encoded = statements.encode();
-								if let Err(e) = self.statements_queue_sender.try_send(
-									OnStatementsRequest { who: peer, notification: v1_encoded },
-								) {
+								if let Err(e) =
+									self.statements_queue_sender.try_send(OnStatementsRequest {
+										who: peer,
+										notification: v1_encoded,
+									}) {
 									log::debug!(
 										target: LOG_TARGET,
 										"Failed to send notification to worker: {:?}",
@@ -1789,7 +1799,10 @@ where
 				if peer_knows {
 					return FilterDecision::Skip;
 				}
-				if topic_affinity.as_ref().is_some_and(|a: &AffinityFilter| !a.matches_statement(stmt)) {
+				if topic_affinity
+					.as_ref()
+					.is_some_and(|a: &AffinityFilter| !a.matches_statement(stmt))
+				{
 					return FilterDecision::Skip;
 				}
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
@@ -2861,7 +2874,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_single_peer() {
-		let (mut handler, statement_store, _network, notification_service, _, _, _) = build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _, _) =
+			build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		// Using 100KB ensures ~10 statements per 1MB batch, requiring ~20 bursts
@@ -2943,7 +2957,8 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
-		let (mut handler, statement_store, _network, notification_service, _, _, _) = build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _, _) =
+			build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		let num_statements = 200;
@@ -3150,7 +3165,8 @@ mod tests {
 		//
 		// With the fix, both use max_statement_payload_size(), so the filter will reject
 		// statements that wouldn't fit in find_sendable_chunk.
-		let (mut handler, statement_store, _network, notification_service, _, _, _) = build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _, _) =
+			build_handler(0);
 
 		// This peer connects as V1 (see negotiated_fallback below).
 		let payload_limit = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
@@ -4498,8 +4514,7 @@ mod tests {
 			build_handler_no_peers();
 
 		let peer_id = PeerId::random();
-		let (queue_sender, queue_receiver) =
-			async_channel::bounded::<OnStatementsRequest>(10);
+		let (queue_sender, queue_receiver) = async_channel::bounded::<OnStatementsRequest>(10);
 		handler.statements_queue_sender = queue_sender;
 
 		// Connect peer as v1 (with fallback).
@@ -4543,8 +4558,7 @@ mod tests {
 			build_handler_no_peers();
 
 		let peer_id = PeerId::random();
-		let (queue_sender, queue_receiver) =
-			async_channel::bounded::<OnStatementsRequest>(10);
+		let (queue_sender, queue_receiver) = async_channel::bounded::<OnStatementsRequest>(10);
 		handler.statements_queue_sender = queue_sender;
 
 		// Connect peer as v2 (no fallback).
