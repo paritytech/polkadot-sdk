@@ -143,21 +143,20 @@ fn inflate_runtime_wasm(
 		.into_owned();
 
 	let mut rng_state: u64 = 0xdeadbeef;
+	let mut padding = Vec::new();
 	let chunk_size = 256 * 1024;
 	loop {
-		let padding: Vec<u8> = (0..chunk_size)
-			.map(|_| {
-				// xorshift64
-				rng_state ^= rng_state << 13;
-				rng_state ^= rng_state >> 7;
-				rng_state ^= rng_state << 17;
-				rng_state as u8
-			})
-			.collect();
+		padding.extend((0..chunk_size).map(|_| {
+			// xorshift64
+			rng_state ^= rng_state << 13;
+			rng_state ^= rng_state >> 7;
+			rng_state ^= rng_state << 17;
+			rng_state as u8
+		}));
 
 		let mut module: parity_wasm::elements::Module =
 			parity_wasm::deserialize_buffer(&wasm).map_err(|e| anyhow!("wasm parse: {e:?}"))?;
-		module.set_custom_section("padding", padding);
+		module.set_custom_section("padding", padding.clone());
 		wasm = parity_wasm::serialize(module).map_err(|e| anyhow!("wasm serialize: {e:?}"))?;
 
 		let compressed = sp_maybe_compressed_blob::compress_weakly(&wasm, 50 * 1024 * 1024)
