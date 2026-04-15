@@ -848,10 +848,10 @@ mod tests {
 	#[test]
 	fn sibling_dap_satellite_accounts_allows_correct_location() {
 		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		// A sibling system parachain (id=1000) with the DAP satellite account.
+		// A sibling system parachain with the DAP satellite account — use BridgeHub (1002).
 		let location = Location::new(
 			1,
-			[Parachain(1000), AccountId32 { network: None, id: satellite_account }],
+			[Parachain(BRIDGE_HUB_ID), AccountId32 { network: None, id: satellite_account }],
 		);
 		assert!(SiblingDapSatelliteAccounts::contains(&location));
 	}
