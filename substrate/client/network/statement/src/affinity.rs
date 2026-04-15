@@ -121,7 +121,7 @@ impl TryFrom<EncodedBloomFilter> for AffinityFilter {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct AffinityFilter {
 	/// Bloom filter bytes representing the topics this peer is interested in.
 	bloom: BloomFilter<PortableBuildHasher>,

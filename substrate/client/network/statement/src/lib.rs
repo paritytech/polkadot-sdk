@@ -1182,11 +1182,17 @@ where
 		peer: &PeerId,
 		statements: &[&Statement],
 	) -> SendChunkResult {
-		let Some(peer_data) = self.peers.get(peer) else {
-			log::error!(target: LOG_TARGET, "Peer {peer} not found in peers map during send_statement_chunk");
-			return SendChunkResult::Failed;
+		let peer_version = {
+			let Ok(guard) = self.peers.read() else {
+				log::error!(target: LOG_TARGET, "peers lock poisoned");
+				return SendChunkResult::Failed;
+			};
+			let Some(peer_data) = guard.get(peer) else {
+				log::error!(target: LOG_TARGET, "Peer {peer} not found in peers map during send_statement_chunk");
+				return SendChunkResult::Failed;
+			};
+			peer_data.protocol_version
 		};
-		let peer_version = peer_data.protocol_version;
 		let envelope_overhead = peer_version.envelope_overhead();
 		match find_sendable_chunk(statements, envelope_overhead) {
 			ChunkResult::Send(0) => SendChunkResult::Empty,
@@ -1366,16 +1372,81 @@ where
 					return;
 				}
 
-				// Send raw notification to worker for decoding and processing
-				if let Err(e) = self
-					.statements_queue_sender
-					.try_send(OnStatementsRequest { who: peer, notification })
-				{
-					log::debug!(
+				// Get peer's protocol version to dispatch correctly
+				let protocol_version = self
+					.peers
+					.read()
+					.ok()
+					.as_deref()
+					.and_then(|g| g.get(&peer).map(|p| p.protocol_version));
+
+				let Some(protocol_version) = protocol_version else {
+					log::error!(
 						target: LOG_TARGET,
-						"Failed to send notification to worker: {:?}",
-						e
+						"Received notification from unknown peer {peer}"
 					);
+					return;
+				};
+
+				match protocol_version {
+					PeerProtocolVersion::V1 => {
+						// V1: forward raw bytes directly to worker
+						if let Err(e) = self.statements_queue_sender.try_send(
+							OnStatementsRequest { who: peer, notification: notification.to_vec() },
+						) {
+							log::debug!(
+								target: LOG_TARGET,
+								"Failed to send notification to worker: {:?}",
+								e
+							);
+						}
+					},
+					PeerProtocolVersion::V2 => {
+						// V2: decode StatementMessage, handle ExplicitTopicAffinity inline,
+						// re-encode Statements as V1 for the worker
+						match StatementMessage::decode(&mut notification.as_ref()) {
+							Ok(StatementMessage::Statements(statements)) => {
+								let v1_encoded = statements.encode();
+								if let Err(e) = self.statements_queue_sender.try_send(
+									OnStatementsRequest { who: peer, notification: v1_encoded },
+								) {
+									log::debug!(
+										target: LOG_TARGET,
+										"Failed to send notification to worker: {:?}",
+										e
+									);
+								}
+							},
+							Ok(StatementMessage::ExplicitTopicAffinity(filter)) => {
+								let Ok(mut guard) = self.peers.write() else {
+									log::error!(target: LOG_TARGET, "peers lock poisoned");
+									return;
+								};
+								if let Some(peer_data) = guard.get_mut(&peer) {
+									if peer_data.rate_limiter.is_flooding(1) {
+										log::debug!(
+											target: LOG_TARGET,
+											"Rate-limiting ExplicitTopicAffinity from {peer}"
+										);
+										self.network.report_peer(peer, rep::BAD_MESSAGE);
+									} else {
+										log::debug!(
+											target: LOG_TARGET,
+											"Received topic affinity filter from {peer}"
+										);
+										peer_data.pending_topic_affinity = Some(filter);
+									}
+								}
+							},
+							Err(_) => {
+								log::debug!(
+									target: LOG_TARGET,
+									"Failed to decode v2 statement message from {peer}"
+								);
+								self.network.report_peer(peer, rep::BAD_MESSAGE);
+							},
+						}
+					},
 				}
 			},
 		}
@@ -1424,6 +1495,7 @@ where
 			return;
 		}
 
+		let protocol_version = peer.protocol_version;
 		let to_send: Vec<_> = statements
 			.iter()
 			.filter_map(|(hash, stmt)| {
@@ -1448,21 +1520,31 @@ where
 			return;
 		}
 
-		self.send_statements_in_chunks(who, &to_send);
+		self.send_statements_in_chunks(who, &to_send, protocol_version);
 	}
 
 	/// Send statements to a peer in chunks, respecting the maximum notification size.
 	/// Chunks are queued to `pending_sends` and will be polled by the main loop.
-	fn send_statements_in_chunks(&mut self, who: &PeerId, statements: &[&Statement]) {
+	fn send_statements_in_chunks(
+		&mut self,
+		who: &PeerId,
+		statements: &[&Statement],
+		protocol_version: PeerProtocolVersion,
+	) {
+		let envelope_overhead = protocol_version.envelope_overhead();
 		// Pre-compute all chunks with their sizes (encoded data, statement count)
 		let mut chunks: Vec<(Vec<u8>, usize)> = Vec::new();
 		let mut offset = 0;
 		while offset < statements.len() {
-			match find_sendable_chunk(&statements[offset..]) {
+			match find_sendable_chunk(&statements[offset..], envelope_overhead) {
 				ChunkResult::Send(0) => break,
 				ChunkResult::Send(chunk_end) => {
 					let chunk = &statements[offset..offset + chunk_end];
-					chunks.push((chunk.encode(), chunk_end));
+					let encoded = match protocol_version {
+						PeerProtocolVersion::V1 => chunk.encode(),
+						PeerProtocolVersion::V2 => StatementMessage::encode_statement_refs(chunk),
+					};
+					chunks.push((encoded, chunk_end));
 					offset += chunk_end;
 				},
 				ChunkResult::SkipOversized => {
@@ -1511,6 +1593,19 @@ where
 			Err(_) => {
 				log::debug!(target: LOG_TARGET, "Send to {peer} timed out");
 			},
+		}
+	}
+
+	/// Drive all queued `pending_sends` to completion.
+	///
+	/// Unit tests call this after `propagate_statements()` or similar so that
+	/// the futures pushed onto `pending_sends` are actually polled without
+	/// needing the main run loop.
+	#[cfg(any(test, feature = "test-helpers"))]
+	pub async fn flush_pending_sends(&mut self) {
+		use futures::StreamExt;
+		while let Some(result) = self.pending_sends.next().await {
+			self.handle_send_result(result);
 		}
 	}
 
@@ -1574,8 +1669,10 @@ where
 		// explicit affinity changes, this is necessary because light nodes change
 		// their affinity without disconnecting, and we want them to receive all matching
 		// statements, so they can deliver them to their active subscriptions.
-		if let Some(peer_data) = self.peers.get_mut(&peer) {
-			peer_data.known_statements.clear();
+		if let Ok(mut guard) = self.peers.write() {
+			if let Some(peer_data) = guard.get_mut(&peer) {
+				peer_data.known_statements.clear();
+			}
 		}
 		if !hashes.is_empty() {
 			self.pending_initial_syncs
@@ -1593,19 +1690,26 @@ where
 	/// `schedule_initial_sync_for_peer` call. This method applies the pending affinity
 	/// and schedules the sync once the peer's current sync (if any) has completed.
 	fn process_pending_affinities(&mut self) {
-		let ready_peers: Vec<PeerId> = self
-			.peers
-			.iter()
-			.filter(|(peer_id, peer_data)| {
-				peer_data.pending_topic_affinity.is_some() &&
-					!self.pending_initial_syncs.contains_key(peer_id)
-			})
-			.map(|(peer_id, _)| *peer_id)
-			.collect();
+		let ready_peers: Vec<PeerId> = {
+			let Ok(guard) = self.peers.read() else {
+				log::error!(target: LOG_TARGET, "peers lock poisoned");
+				return;
+			};
+			guard
+				.iter()
+				.filter(|(peer_id, peer_data)| {
+					peer_data.pending_topic_affinity.is_some() &&
+						!self.pending_initial_syncs.contains_key(*peer_id)
+				})
+				.map(|(peer_id, _)| *peer_id)
+				.collect()
+		};
 
 		for peer_id in ready_peers {
-			if let Some(peer_data) = self.peers.get_mut(&peer_id) {
-				peer_data.topic_affinity = peer_data.pending_topic_affinity.take();
+			if let Ok(mut guard) = self.peers.write() {
+				if let Some(peer_data) = guard.get_mut(&peer_id) {
+					peer_data.topic_affinity = peer_data.pending_topic_affinity.take();
+				}
 			}
 			self.schedule_initial_sync_for_peer(peer_id);
 		}
@@ -1650,12 +1754,23 @@ where
 		// already knows or that don't match its topic affinity directly in the callback.
 		// This avoids materializing non-matching statements and lets each batch carry more
 		// useful data.
-		let Some(peer_data) = self.peers.get(&peer_id) else {
-			log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
-			entry.remove();
-			return;
+		let (envelope_overhead, topic_affinity): (usize, Option<AffinityFilter>) = {
+			let peers_guard = match self.peers.read() {
+				Ok(g) => g,
+				Err(_) => {
+					log::error!(target: LOG_TARGET, "peers lock poisoned");
+					entry.remove();
+					return;
+				},
+			};
+			let Some(peer_data) = peers_guard.get(&peer_id) else {
+				log::error!(target: LOG_TARGET, "Peer {peer_id} has pending initial sync but is not in peers map");
+				entry.remove();
+				return;
+			};
+			(peer_data.protocol_version.envelope_overhead(), peer_data.topic_affinity.clone())
 		};
-		let envelope_overhead = peer_data.protocol_version.envelope_overhead();
+		let peers_clone: PeersState = self.peers.clone();
 		let max_size = max_statement_payload_size(envelope_overhead);
 		let mut accumulated_size = 0;
 		let (statements, processed) = match self.statement_store.statements_by_hashes(
@@ -1664,10 +1779,17 @@ where
 				// Skip statements the peer already knows or that don't match its topic
 				// affinity. This avoids materializing non-matching statements and lets
 				// each batch carry more useful data.
-				if peer_data.known_statements.contains(hash) {
+				let peer_knows = peers_clone
+					.read()
+					.ok()
+					.and_then(|g: std::sync::RwLockReadGuard<'_, HashMap<PeerId, Peer>>| {
+						g.get(&peer_id).map(|p| p.known_statements.contains(hash))
+					})
+					.unwrap_or(false);
+				if peer_knows {
 					return FilterDecision::Skip;
 				}
-				if peer_data.topic_affinity.as_ref().is_some_and(|a| !a.matches_statement(stmt)) {
+				if topic_affinity.as_ref().is_some_and(|a: &AffinityFilter| !a.matches_statement(stmt)) {
 					return FilterDecision::Skip;
 				}
 				if accumulated_size > 0 && accumulated_size + encoded.len() > max_size {
@@ -2230,6 +2352,7 @@ mod tests {
 		TestNotificationService,
 		async_channel::Receiver<OnStatementsRequest>,
 		async_channel::Sender<WorkerEvent>,
+		Vec<PeerId>,
 	) {
 		let statement_store = TestStatementStore::new();
 		let (statements_queue_sender, statements_queue_receiver) = async_channel::bounded(100);
@@ -2238,6 +2361,7 @@ mod tests {
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 		let peers: PeersState = Arc::new(RwLock::new(HashMap::new()));
+		let mut peer_ids = Vec::new();
 		for _ in 0..num_peers {
 			let peer_id = PeerId::random();
 			peers.write().unwrap().insert(
@@ -2258,6 +2382,7 @@ mod tests {
 					pending_topic_affinity: None,
 				},
 			);
+			peer_ids.push(peer_id);
 		}
 
 		let handler = StatementHandler {
@@ -2292,6 +2417,7 @@ mod tests {
 			notification_service,
 			statements_queue_receiver,
 			results_queue_sender,
+			peer_ids,
 		)
 	}
 
@@ -2314,6 +2440,7 @@ mod tests {
 			_notification_service,
 			statements_queue_receiver,
 			_results_queue_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let mut statement1 = Statement::new();
@@ -2352,6 +2479,7 @@ mod tests {
 			_notification_service,
 			_statements_queue_receiver,
 			results_queue_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
@@ -2391,7 +2519,8 @@ mod tests {
 			_notification_service,
 			_statements_queue_receiver,
 			_results_queue_sender,
-		) = build_handler();
+			_peer_ids,
+		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
 		let hash = [1u8; 32];
@@ -2427,6 +2556,7 @@ mod tests {
 			notification_service,
 			_statements_queue_receiver,
 			_results_queue_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let num_statements = 30;
@@ -2482,6 +2612,7 @@ mod tests {
 			notification_service,
 			_statements_queue_receiver,
 			_results_queue_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let mut statement1 = Statement::new();
@@ -2587,6 +2718,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2599,7 +2731,9 @@ mod tests {
 		TestNotificationService,
 	) {
 		let statement_store = TestStatementStore::new();
-		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let (statements_queue_sender, _statements_queue_receiver) = async_channel::bounded(100);
+		let (_results_queue_sender, results_queue_receiver) = async_channel::bounded(100);
+		let pending_state = Arc::new(RwLock::new(PendingState::new()));
 		let network = TestNetwork::new_light();
 		let notification_service = TestNotificationService::new();
 
@@ -2609,19 +2743,19 @@ mod tests {
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
+			pending_state,
+			results_queue_receiver,
+			statements_queue_sender,
 			network: network.clone(),
 			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
-			peers: HashMap::new(),
+			peers: Arc::new(RwLock::new(HashMap::new())),
 			statement_store: Arc::new(statement_store.clone()),
-			queue_sender,
+			metrics: None,
 			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
@@ -2670,6 +2804,10 @@ mod tests {
 						)
 						.expect("burst capacity is nonzero"),
 					),
+					protocol_version: PeerProtocolVersion::V1,
+					topic_affinity: None,
+					is_light: false,
+					pending_topic_affinity: None,
 				},
 			);
 			peer_ids.push(peer_id);
@@ -2692,7 +2830,7 @@ mod tests {
 			results_queue_receiver,
 			statements_queue_sender,
 			network: network.clone(),
-			sync: TestSync {},
+			sync: TestSync::new(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
@@ -2704,6 +2842,7 @@ mod tests {
 			initial_sync_timeout: Box::pin(
 				tokio::time::sleep(std::time::Duration::from_millis(100)).fuse(),
 			),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			pending_sends: FuturesUnordered::new(),
@@ -2722,7 +2861,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_single_peer() {
-		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _, _) = build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		// Using 100KB ensures ~10 statements per 1MB batch, requiring ~20 bursts
@@ -2804,7 +2943,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_initial_sync_burst_multiple_peers_round_robin() {
-		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _, _) = build_handler(0);
 
 		// Create 20MB of statements (200 statements x 100KB each)
 		let num_statements = 200;
@@ -2906,6 +3045,7 @@ mod tests {
 			notification_service,
 			_statements_queue_receiver,
 			_results_queue_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		// Calculate the data sizes so that 100 statements together exactly fill max_size.
@@ -3010,7 +3150,7 @@ mod tests {
 		//
 		// With the fix, both use max_statement_payload_size(), so the filter will reject
 		// statements that wouldn't fit in find_sendable_chunk.
-		let (mut handler, statement_store, _network, notification_service, _, _) = build_handler(0);
+		let (mut handler, statement_store, _network, notification_service, _, _, _) = build_handler(0);
 
 		// This peer connects as V1 (see negotiated_fallback below).
 		let payload_limit = max_statement_payload_size(V1_ENVELOPE_OVERHEAD);
@@ -3115,6 +3255,7 @@ mod tests {
 			_notification_service,
 			_queue_receiver,
 			_results_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
@@ -3169,6 +3310,7 @@ mod tests {
 			_notification_service,
 			_queue_receiver,
 			_results_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
@@ -3227,6 +3369,7 @@ mod tests {
 			_notification_service,
 			_queue_receiver,
 			_results_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
@@ -3278,6 +3421,7 @@ mod tests {
 			_notification_service,
 			_queue_receiver,
 			_results_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
@@ -3320,6 +3464,7 @@ mod tests {
 			_notification_service,
 			_queue_receiver,
 			_results_sender,
+			_peer_ids,
 		) = build_handler(1);
 
 		let peer_id = *handler.peers.read().unwrap().keys().next().unwrap();
@@ -3664,14 +3809,14 @@ mod tests {
 		// Yield to let run loop start
 		tokio::task::yield_now().await;
 
-		// Inject peer connection event
+		// Inject peer connection event (V1 peer so that the test can decode with V1 format)
 		let new_peer = PeerId::random();
 		event_sender
 			.send(NotificationEvent::NotificationStreamOpened {
 				peer: new_peer,
 				direction: sc_network::service::traits::Direction::Inbound,
 				handshake: vec![],
-				negotiated_fallback: None,
+				negotiated_fallback: Some(format!("/{STATEMENT_PROTOCOL_V1}").into()),
 			})
 			.unwrap();
 
@@ -3753,6 +3898,10 @@ mod tests {
 						)
 						.expect("burst capacity is nonzero"),
 					),
+					protocol_version: PeerProtocolVersion::V1,
+					topic_affinity: None,
+					is_light: false,
+					pending_topic_affinity: None,
 				},
 			);
 		}
@@ -4313,7 +4462,7 @@ mod tests {
 			.await;
 
 		assert_eq!(
-			handler.peers.get(&peer_id).unwrap().protocol_version,
+			handler.peers.read().unwrap().get(&peer_id).unwrap().protocol_version,
 			PeerProtocolVersion::V2,
 			"Peer should be detected as v2 when no fallback is negotiated"
 		);
@@ -4337,7 +4486,7 @@ mod tests {
 			.await;
 
 		assert_eq!(
-			handler.peers.get(&peer_id).unwrap().protocol_version,
+			handler.peers.read().unwrap().get(&peer_id).unwrap().protocol_version,
 			PeerProtocolVersion::V1,
 			"Peer should be detected as v1 when fallback is negotiated"
 		);
@@ -4349,8 +4498,9 @@ mod tests {
 			build_handler_no_peers();
 
 		let peer_id = PeerId::random();
-		let (queue_sender, queue_receiver) = async_channel::bounded(10);
-		handler.queue_sender = queue_sender;
+		let (queue_sender, queue_receiver) =
+			async_channel::bounded::<OnStatementsRequest>(10);
+		handler.statements_queue_sender = queue_sender;
 
 		// Connect peer as v1 (with fallback).
 		handler
@@ -4371,12 +4521,20 @@ mod tests {
 		handler
 			.handle_notification_event(NotificationEvent::NotificationReceived {
 				peer: peer_id,
-				notification: raw_encoded.into(),
+				notification: raw_encoded.clone().into(),
 			})
 			.await;
 
-		let (received, _) = queue_receiver.try_recv().unwrap();
-		assert_eq!(received.hash(), hash, "V1 peer's raw statement should be decoded correctly");
+		let req = queue_receiver.try_recv().unwrap();
+		assert_eq!(req.who, peer_id);
+		let received_stmts: Vec<Statement> =
+			Decode::decode(&mut req.notification.as_slice()).unwrap();
+		assert_eq!(received_stmts.len(), 1);
+		assert_eq!(
+			received_stmts[0].hash(),
+			hash,
+			"V1 peer's raw statement should be forwarded correctly"
+		);
 	}
 
 	#[tokio::test]
@@ -4385,8 +4543,9 @@ mod tests {
 			build_handler_no_peers();
 
 		let peer_id = PeerId::random();
-		let (queue_sender, queue_receiver) = async_channel::bounded(10);
-		handler.queue_sender = queue_sender;
+		let (queue_sender, queue_receiver) =
+			async_channel::bounded::<OnStatementsRequest>(10);
+		handler.statements_queue_sender = queue_sender;
 
 		// Connect peer as v2 (no fallback).
 		handler
@@ -4412,8 +4571,16 @@ mod tests {
 			})
 			.await;
 
-		let (received, _) = queue_receiver.try_recv().unwrap();
-		assert_eq!(received.hash(), hash, "V2 peer's StatementMessage should be decoded correctly");
+		let req = queue_receiver.try_recv().unwrap();
+		assert_eq!(req.who, peer_id);
+		let received_stmts: Vec<Statement> =
+			Decode::decode(&mut req.notification.as_slice()).unwrap();
+		assert_eq!(received_stmts.len(), 1);
+		assert_eq!(
+			received_stmts[0].hash(),
+			hash,
+			"V2 peer's StatementMessage should be forwarded correctly"
+		);
 	}
 
 	#[tokio::test]
@@ -4434,7 +4601,7 @@ mod tests {
 			.await;
 
 		assert!(
-			handler.peers.get(&peer_id).unwrap().topic_affinity.is_none(),
+			handler.peers.read().unwrap().get(&peer_id).unwrap().topic_affinity.is_none(),
 			"Topic affinity should be None initially"
 		);
 
@@ -4455,7 +4622,8 @@ mod tests {
 		// Affinity is deferred; process it.
 		handler.process_pending_affinities();
 
-		let peer_data = handler.peers.get(&peer_id).unwrap();
+		let peers_guard = handler.peers.read().unwrap();
+		let peer_data = peers_guard.get(&peer_id).unwrap();
 		assert!(
 			peer_data.topic_affinity.is_some(),
 			"Topic affinity should be set after receiving ExplicitTopicAffinity"
@@ -4532,7 +4700,8 @@ mod tests {
 			.unwrap()
 			.insert(hash_no_topic, stmt_no_topic);
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let mut sent_hashes: Vec<_> = sent
@@ -4602,7 +4771,8 @@ mod tests {
 			.unwrap()
 			.insert(hash_no_topic, stmt_no_topic);
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 		let sent_hashes: Vec<_> = sent
@@ -4838,15 +5008,18 @@ mod tests {
 
 		// Now propagate_statements — stmt_bb should be filtered by affinity and NOT marked as
 		// known.
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+		handler.flush_pending_sends().await;
 
 		// Verify stmt_bb was NOT marked as known (the bug fix).
-		let peer = handler.peers.get(&peer_id).unwrap();
+		let peers_guard = handler.peers.read().unwrap();
+		let peer = peers_guard.get(&peer_id).unwrap();
 		assert!(
 			!peer.known_statements.contains(&hash_bb),
 			"stmt_bb should NOT be in known_statements (filtered by affinity)"
 		);
 		assert!(peer.known_statements.contains(&hash_aa), "stmt_aa should be in known_statements");
+		drop(peers_guard);
 
 		// Now change affinity to include topic_bb.
 		let mut filter = AffinityFilter::new(BLOOM_SEED, 0.01, 100);
@@ -5067,7 +5240,8 @@ mod tests {
 	#[tokio::test]
 	async fn test_initial_sync_queued_during_major_sync_processed_after() {
 		let statement_store = TestStatementStore::new();
-		let (queue_sender, _queue_receiver) = async_channel::bounded(2);
+		let (statements_queue_sender, _statements_queue_receiver) = async_channel::bounded(100);
+		let (_results_queue_sender, results_queue_receiver) = async_channel::bounded(100);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 		let sync = TestSync::new();
@@ -5080,16 +5254,16 @@ mod tests {
 			propagate_timeout: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = ()> + Send>>)
 				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
+			pending_state: Arc::new(RwLock::new(PendingState::new())),
+			results_queue_receiver,
+			statements_queue_sender,
 			network: network.clone(),
 			sync: sync.clone(),
 			sync_event_stream: (Box::pin(futures::stream::pending())
 				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
 				.fuse(),
-			peers: HashMap::new(),
+			peers: Arc::new(RwLock::new(HashMap::new())),
 			statement_store: Arc::new(statement_store.clone()),
-			queue_sender,
 			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
@@ -5097,6 +5271,7 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			pending_sends: FuturesUnordered::new(),
 		};
 
 		// Add a statement so there's something to sync.
@@ -5107,7 +5282,7 @@ mod tests {
 
 		// Add a peer manually.
 		let peer_id = PeerId::random();
-		handler.peers.insert(
+		handler.peers.write().unwrap().insert(
 			peer_id,
 			Peer::new_for_testing(
 				LruHashSet::new(NonZeroUsize::new(100).unwrap()),
@@ -5165,7 +5340,7 @@ mod tests {
 		// Add peer manually with hash1 already known.
 		let mut known = LruHashSet::new(NonZeroUsize::new(100).unwrap());
 		known.insert(hash1);
-		handler.peers.insert(
+		handler.peers.write().unwrap().insert(
 			peer_id,
 			Peer {
 				known_statements: known,
@@ -5193,7 +5368,8 @@ mod tests {
 		);
 		assert!(pending.hashes.contains(&hash2), "Unknown hash should be included in initial sync");
 		// known_statements should have been cleared.
-		let peer_data = handler.peers.get(&peer_id).unwrap();
+		let peers_guard = handler.peers.read().unwrap();
+		let peer_data = peers_guard.get(&peer_id).unwrap();
 		assert!(
 			!peer_data.known_statements.contains(&hash1),
 			"known_statements should be cleared after schedule_initial_sync_for_peer"
@@ -5237,7 +5413,10 @@ mod tests {
 			.await;
 
 		// If we got here without panic, the test passes.
-		assert!(handler.peers.contains_key(&peer_id), "Peer should still be connected");
+		assert!(
+			handler.peers.read().unwrap().contains_key(&peer_id),
+			"Peer should still be connected"
+		);
 	}
 
 	#[test]
@@ -5308,8 +5487,11 @@ mod tests {
 			handler.pending_initial_syncs.contains_key(&peer_id),
 			"Full-node V2 peer should have initial sync scheduled immediately"
 		);
-		assert_eq!(handler.peers.get(&peer_id).unwrap().protocol_version, PeerProtocolVersion::V2);
-		assert!(!handler.peers.get(&peer_id).unwrap().is_light);
+		assert_eq!(
+			handler.peers.read().unwrap().get(&peer_id).unwrap().protocol_version,
+			PeerProtocolVersion::V2
+		);
+		assert!(!handler.peers.read().unwrap().get(&peer_id).unwrap().is_light);
 	}
 
 	#[tokio::test]
@@ -5320,6 +5502,7 @@ mod tests {
 			_network,
 			notification_service,
 			_queue_receiver,
+			_results_queue_sender,
 			peer_ids,
 		) = build_handler(5);
 
@@ -5334,7 +5517,8 @@ mod tests {
 		}
 		expected_hashes.sort();
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
@@ -5361,6 +5545,7 @@ mod tests {
 			_network,
 			notification_service,
 			_queue_receiver,
+			_results_queue_sender,
 			peer_ids,
 		) = build_handler(3);
 
@@ -5379,11 +5564,15 @@ mod tests {
 		}
 
 		// Pre-populate known_statements: peer_a knows s1,s2; peer_b knows s3; peer_c knows none
-		handler.peers.get_mut(&peer_a).unwrap().known_statements.insert(hashes[0]);
-		handler.peers.get_mut(&peer_a).unwrap().known_statements.insert(hashes[1]);
-		handler.peers.get_mut(&peer_b).unwrap().known_statements.insert(hashes[2]);
+		{
+			let mut peers_guard = handler.peers.write().unwrap();
+			peers_guard.get_mut(&peer_a).unwrap().known_statements.insert(hashes[0]);
+			peers_guard.get_mut(&peer_a).unwrap().known_statements.insert(hashes[1]);
+			peers_guard.get_mut(&peer_b).unwrap().known_statements.insert(hashes[2]);
+		}
 
-		handler.propagate_statements().await;
+		handler.propagate_statements();
+		handler.flush_pending_sends().await;
 
 		let sent = notification_service.get_sent_notifications();
 
