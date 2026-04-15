@@ -36,6 +36,7 @@ use sc_consensus_babe::{
 };
 use sp_core::sr25519;
 use sp_runtime::{generic::BlockId, testing::Header as TestHeader, traits::Header};
+use sp_timestamp::Timestamp;
 use sp_version::RuntimeVersion;
 use std::{
 	collections::{BTreeMap, HashMap, VecDeque},
@@ -853,7 +854,7 @@ async fn wait_for_current_relay_block_waits_when_stale() {
 	let relay_slot_duration = Duration::from_secs(6);
 	let slot_offset = Duration::from_secs(1);
 
-	let now_ms = super::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+	let now_ms = Timestamp::current().as_duration().saturating_sub(slot_offset).as_millis() as u64;
 	let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
 
 	// Slot 0 is always stale. A slot far in the future is always fresh.
@@ -882,8 +883,8 @@ async fn wait_for_current_relay_block_waits_when_stale() {
 			&client_clone,
 			&mut cache,
 			&mut rx,
-			slot_offset,
 			relay_slot_duration,
+			slot_offset,
 		)
 		.await
 	});
@@ -920,7 +921,7 @@ async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
 	// Build a relay header whose BABE slot matches "now" (so it's current).
 	// We use a very large slot number so that `duration_now() - offset` maps to
 	// a relay slot <= this value.
-	let now_ms = super::slot_timer::duration_now().saturating_sub(slot_offset).as_millis() as u64;
+	let now_ms = Timestamp::current().as_duration().saturating_sub(slot_offset).as_millis() as u64;
 	let current_slot = now_ms / relay_slot_duration.as_millis() as u64;
 
 	let header = relay_header_with_slot(100, Default::default(), current_slot);
@@ -942,8 +943,8 @@ async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
 			&client,
 			&mut cache,
 			&mut rx,
-			slot_offset,
 			relay_slot_duration,
+			slot_offset,
 		),
 	)
 	.await

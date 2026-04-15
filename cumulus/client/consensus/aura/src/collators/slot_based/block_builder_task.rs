@@ -199,8 +199,11 @@ where
 				return;
 			},
 		};
-		let mut scheduling_info =
-			super::scheduling::SchedulingInfo::new(best_notifications, slot_offset);
+		let mut scheduling_info = super::scheduling::SchedulingInfo::new(
+			best_notifications,
+			relay_chain_slot_duration,
+			slot_offset,
+		);
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
@@ -235,12 +238,7 @@ where
 			}
 
 			let Some(scheduling_parent_header) = scheduling_info
-				.descendants_start(
-					&relay_client,
-					&mut relay_chain_data_cache,
-					relay_chain_slot_duration,
-					v3_enabled,
-				)
+				.descendants_start(&relay_client, &mut relay_chain_data_cache, v3_enabled)
 				.await
 			else {
 				continue;

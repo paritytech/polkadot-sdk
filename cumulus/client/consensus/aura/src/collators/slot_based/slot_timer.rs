@@ -139,15 +139,6 @@ fn compute_time_until_next_slot_change(
 	Some((remaining_time, next_slot))
 }
 
-/// Returns current duration since Unix epoch.
-pub(super) fn duration_now() -> Duration {
-	use std::time::SystemTime;
-	let now = SystemTime::now();
-	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
-		panic!("Current time {:?} is before Unix epoch. Something is wrong: {:?}", now, e)
-	})
-}
-
 /// Adjust the authoring duration.
 fn adjust_authoring_duration(
 	mut authoring_duration: Duration,
@@ -281,7 +272,7 @@ where
 			slot_duration,
 			self.relay_slot_duration,
 			self.last_reported_core_num,
-			duration_now(),
+			Timestamp::current().as_duration(),
 			self.time_offset,
 		)
 	}
@@ -293,7 +284,7 @@ where
 	) -> Option<(Duration, Slot)> {
 		compute_time_until_next_slot_change(
 			slot_duration,
-			duration_now(),
+			Timestamp::current().as_duration(),
 			self.time_offset,
 			self.last_reported_slot.unwrap_or_default(),
 		)
