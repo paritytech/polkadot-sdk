@@ -82,8 +82,8 @@ pub trait InitialPsmConfig<T: Config> {
 ///
 /// This migration:
 /// 1. Sets `MaxPsmDebtOfTotal`
-/// 2. For each configured external asset, checks if it already exists. If not, adds it
-///    with `AllEnabled` status and the configured fees and ceiling weight.
+/// 2. For each configured external asset, checks if it already exists. If not, adds it with
+///    `AllEnabled` status and the configured fees and ceiling weight.
 /// 3. Ensures the PSM and fee destination accounts exist
 ///
 /// Safe to run multiple times — existing assets are not overwritten.
