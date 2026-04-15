@@ -130,13 +130,16 @@ jobs:
       # run runtime-api tests with `enable-staging-api` feature on the 1st node
       - name: runtime-api tests
         if: ${{ matrix.partition == '1/3' }}
-        run: forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
+        run: |
+          # Preserve main JUnit XML before the second nextest run overwrites it
+          cp target/nextest/default/junit.xml target/nextest/default/junit-main.xml
+          forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: junit-stable-${{ strategy.job-index }}
-          path: target/nextest/default/junit.xml
+          path: target/nextest/default/junit*.xml
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop all workflows if failed
@@ -227,7 +230,7 @@ jobs:
           path: junit-reports
       - name: Test report
         run: |
-          python3 .github/scripts/flaky-report.py 'junit-reports/*/junit.xml' | tee test-report.md
+          python3 .github/scripts/flaky-report.py 'junit-reports/*/junit*.xml' | tee test-report.md
           cat test-report.md >> $GITHUB_STEP_SUMMARY
       - name: Comment on PR
         if: github.event_name == 'pull_request'
@@ -236,15 +239,7 @@ jobs:
         run: |
           # Only comment when there are flaky or failed tests
           if grep -qE '[1-9][0-9]* (failed|flaky)' test-report.md; then
-            {
-              echo '<details>'
-              echo '<summary>Test Report</summary>'
-              echo ''
-              cat test-report.md
-              echo ''
-              echo '</details>'
-            } > pr-comment.md
-            gh pr comment ${{ github.event.pull_request.number }} --body-file pr-comment.md
+            gh pr comment ${{ github.event.pull_request.number }} --body-file test-report.md
           fi
       - name: Check job results
         if: always()
