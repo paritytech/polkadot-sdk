@@ -93,11 +93,21 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			.await?[..],
 	)?;
 
+	// Get looakahead config
+	let lookahead = u32::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_scheduling_lookahead", None)
+			.await?[..],
+	)?;
+
 	assert_eq!(
 		cq,
 		[
-			(CoreIndex(0), std::iter::repeat_n(para_id, 3).collect()),
-			(CoreIndex(1), std::iter::repeat_n(para_id, 3).collect()),
+			(CoreIndex(0), std::iter::repeat_n(para_id, lookahead as usize).collect()),
+			(CoreIndex(1), std::iter::repeat_n(para_id, lookahead as usize).collect()),
 		]
 		.into_iter()
 		.collect()

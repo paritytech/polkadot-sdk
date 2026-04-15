@@ -45,6 +45,11 @@ on:
         required: false
         type: string
         default: '0'
+      clean_every:
+        description: 'Run cargo clean after every N published crates to free disk space (0 = disabled). Recommend 50 for major releases with 100+ crates, otherwise the job may fail due to disk space.'
+        required: false
+        type: string
+        default: '0'
 
 permissions:
   contents: write
@@ -57,7 +62,7 @@ jobs:
 
   set-image:
     needs: [ check-synchronization ]
-    if: needs.check-synchronization.outputs.checks_passed == 'true'
+    if: ${{ needs.check-synchronization.outputs.checks_passed == 'true' }}
     runs-on: ubuntu-latest-m
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
@@ -109,19 +114,6 @@ jobs:
 
           echo "CRATES_RELEASE_BRANCH=post-crates-release-$RELEASE_NAME" >> $GITHUB_OUTPUT
 
-      - name: Validate resume preconditions
-        if: inputs.resume_from != 'full'
-        shell: bash
-        env:
-          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
-          RESUME_FROM: ${{ inputs.resume_from }}
-        run: |
-          if ! git ls-remote --heads origin "$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
-            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
-            exit 1
-          fi
-          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
-
       - name: Checkout stable branch
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -147,6 +139,19 @@ jobs:
           git config --global user.email "release-team@parity.io"
           git config --global user.signingKey "D8018FBB3F534D866A45998293C5FB5F6A367B51"
 
+      - name: Validate resume preconditions
+        if: inputs.resume_from != 'full'
+        shell: bash
+        env:
+          CRATES_RELEASE_BRANCH: ${{ steps.derive_branch.outputs.CRATES_RELEASE_BRANCH }}
+          RESUME_FROM: ${{ inputs.resume_from }}
+        run: |
+          if ! git branch -r --list "origin/$CRATES_RELEASE_BRANCH" | grep -q "$CRATES_RELEASE_BRANCH"; then
+            echo "❌ ::error::Cannot resume from '$RESUME_FROM': branch '$CRATES_RELEASE_BRANCH' does not exist on remote. Use 'full' for a fresh run."
+            exit 1
+          fi
+          echo "Release branch '$CRATES_RELEASE_BRANCH' exists on remote. Resuming from '$RESUME_FROM'."
+
       - name: Create or switch to release branch
         shell: bash
         env:
@@ -167,15 +172,10 @@ jobs:
           fi
           echo "On branch $CRATES_RELEASE_BRANCH"
 
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
-        with:
-          cache-on-failure: true
-
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.12 --locked -q
+          cargo install parity-publish@0.10.15 --locked -q
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
@@ -336,11 +336,18 @@ jobs:
           DRY_RUN: ${{ inputs.dry_run }}
           REGISTRY: ${{ inputs.registry }}
           PUBLISH_JOBS: ${{ inputs.publish_jobs }}
+          CLEAN_EVERY: ${{ inputs.clean_every }}
         run: |
           PARALLEL_ARGS=""
           if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
             echo "Parallel publishing enabled with $PUBLISH_JOBS jobs"
             PARALLEL_ARGS="-j $PUBLISH_JOBS --no-verify"
+          fi
+
+          CLEAN_ARGS=""
+          if [ "$CLEAN_EVERY" -gt 0 ] 2>/dev/null; then
+            echo "Disk cleanup enabled: cargo clean every $CLEAN_EVERY crates"
+            CLEAN_ARGS="--clean-every $CLEAN_EVERY"
           fi
 
           STAGING_ARG=""
@@ -351,12 +358,32 @@ jobs:
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
+
+      - name: Restore clean manifests after publish
+        if: inputs.resume_from != 'push'
+        shell: bash
+        env:
+          RELEASE_NAME: ${{ inputs.release_name }}
+        run: |
+          . ./.github/scripts/release/release_lib.sh
+
+          echo "Restoring clean manifests with version bumps only..."
+          parity-publish restore
+
+          git add -A
+          if [[ -n $(git status --porcelain) ]]; then
+            commit_with_message "Restore clean manifests after crates publish for $RELEASE_NAME"
+            echo "Clean manifests committed"
+          else
+            echo "No changes to restore"
+          fi
+
 
       - name: Generate token for paritytech/polkadot-sdk
         id: generate_write_token

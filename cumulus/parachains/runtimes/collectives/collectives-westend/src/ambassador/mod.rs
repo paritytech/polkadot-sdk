@@ -32,7 +32,7 @@ pub mod origins;
 mod tracks;
 
 use super::*;
-use crate::xcm_config::{FellowshipAdminBodyId, LocationToAccountId, WndAssetHub};
+use crate::xcm_config::{FellowshipAdminBodyId, WndAssetHub};
 use frame_support::traits::{EitherOf, MapSuccess, TryMapSuccess};
 use frame_system::EnsureRootWithSuccess;
 pub use origins::pallet_origins as pallet_ambassador_origins;
@@ -145,7 +145,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
 	type KillOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slash = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, AmbassadorCollectiveInstance>;
 	type SubmissionDeposit = SubmissionDeposit;

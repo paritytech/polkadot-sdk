@@ -140,7 +140,7 @@ fn compute_time_until_next_slot_change(
 }
 
 /// Returns current duration since Unix epoch.
-fn duration_now() -> Duration {
+pub(super) fn duration_now() -> Duration {
 	use std::time::SystemTime;
 	let now = SystemTime::now();
 	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
@@ -301,7 +301,7 @@ where
 		let best_hash = self.client.usage_info().chain.best_hash;
 
 		let mut runtime_api = self.client.runtime_api();
-		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 		let Ok(authorities) = runtime_api.authorities(best_hash) else {
 			// Presume they are different, this will adjust the slot authoring duration more
 			// conservatively.

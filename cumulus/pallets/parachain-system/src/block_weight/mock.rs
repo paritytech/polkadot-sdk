@@ -194,6 +194,7 @@ pub mod test_pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> sp_runtime::traits::ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
