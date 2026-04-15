@@ -49,11 +49,11 @@ async fn spam_statement_distribution_requests_test() -> Result<(), anyhow::Error
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("honest-0"))
-				.with_node(|node| node.with_name("honest-1"))
-				.with_node(|node| node.with_name("honest-2"))
-				.with_node(|node| node.with_name("honest-3"))
-				.with_node(|node| {
+				.with_validator(|node| node.with_name("honest-0"))
+				.with_validator(|node| node.with_name("honest-1"))
+				.with_validator(|node| node.with_name("honest-2"))
+				.with_validator(|node| node.with_name("honest-3"))
+				.with_validator(|node| {
 					node.with_name("malus")
 						.with_image(
 							std::env::var("MALUS_IMAGE")

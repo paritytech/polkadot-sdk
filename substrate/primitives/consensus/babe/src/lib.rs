@@ -294,7 +294,7 @@ where
 		let pre_hash = header.hash();
 
 		if !offender.verify(&pre_hash.as_ref(), &seal) {
-			return None
+			return None;
 		}
 
 		Some(())
@@ -303,7 +303,7 @@ where
 	let verify_proof = || {
 		// we must have different headers for the equivocation to be valid
 		if proof.first_header.hash() == proof.second_header.hash() {
-			return None
+			return None;
 		}
 
 		let first_pre_digest = find_pre_digest(&proof.first_header)?;
@@ -314,12 +314,12 @@ where
 		if proof.slot != first_pre_digest.slot() ||
 			first_pre_digest.slot() != second_pre_digest.slot()
 		{
-			return None
+			return None;
 		}
 
 		// both headers must have been authored by the same authority
 		if first_pre_digest.authority_index() != second_pre_digest.authority_index() {
-			return None
+			return None;
 		}
 
 		// we finally verify that the expected authority has signed both headers and

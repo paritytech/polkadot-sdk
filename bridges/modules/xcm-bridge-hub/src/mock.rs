@@ -27,7 +27,7 @@ use bp_xcm_bridge_hub::{BridgeId, LocalXcmChannelManager};
 use codec::{Decode, Encode};
 use frame_support::{
 	assert_ok, derive_impl, parameter_types,
-	traits::{EnsureOrigin, Equals, Everything, Get, OriginTrait},
+	traits::{ConstBool, EnsureOrigin, Equals, Everything, Get, OriginTrait},
 	weights::RuntimeDbWeight,
 };
 use polkadot_parachain_primitives::primitives::Sibling;
@@ -231,6 +231,8 @@ impl pallet_xcm_bridge_hub_router::Config<XcmOverBridgeWrappedWithExportMessageR
 	type ToBridgeHubSender = ExecuteXcmOverSendXcm;
 	type LocalXcmChannelManager = TestLocalXcmChannelManager;
 
+	type UnpaidExport = ConstBool<false>;
+
 	type ByteFee = ConstU128<0>;
 	type FeeAsset = BridgeFeeAsset;
 }
@@ -250,7 +252,6 @@ impl xcm_executor::Config for XcmConfig {
 	type Trader = ();
 	type ResponseHandler = ();
 	type AssetTrap = ();
-	type AssetClaims = ();
 	type SubscriptionService = ();
 	type PalletInstancesInfo = ();
 	type MaxAssetsIntoHolding = ();
@@ -412,29 +413,29 @@ impl EnsureOrigin<RuntimeOrigin> for OpenBridgeOrigin {
 	fn try_origin(o: RuntimeOrigin) -> Result<Self::Success, RuntimeOrigin> {
 		let signer = o.clone().into_signer();
 		if signer == Self::parent_relay_chain_origin().into_signer() {
-			return Ok(ParentRelayChainLocation::get())
+			return Ok(ParentRelayChainLocation::get());
 		} else if signer == Self::parent_relay_chain_universal_origin().into_signer() {
 			return Ok(Location {
 				parents: 2,
 				interior: GlobalConsensus(RelayNetwork::get()).into(),
-			})
+			});
 		} else if signer == Self::sibling_parachain_universal_origin().into_signer() {
 			return Ok(Location {
 				parents: 2,
 				interior: [GlobalConsensus(RelayNetwork::get()), Parachain(SIBLING_ASSET_HUB_ID)]
 					.into(),
-			})
+			});
 		} else if signer == Self::origin_without_sovereign_account().into_signer() {
 			return Ok(Location {
 				parents: 1,
 				interior: [Parachain(SIBLING_ASSET_HUB_ID), OnlyChild].into(),
-			})
+			});
 		}
 
 		let mut sibling_account = [0u8; 32];
 		sibling_account[..4].copy_from_slice(&SIBLING_ASSET_HUB_ID.encode()[..4]);
 		if signer == Some(sibling_account.into()) {
-			return Ok(Location { parents: 1, interior: Parachain(SIBLING_ASSET_HUB_ID).into() })
+			return Ok(Location { parents: 1, interior: Parachain(SIBLING_ASSET_HUB_ID).into() });
 		}
 
 		Err(o)

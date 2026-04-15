@@ -152,7 +152,7 @@ impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBui
 			return Some(ParaStoredHeaderData(
 				StoredHeaderData { number: *header.number(), state_root: *header.state_root() }
 					.encode(),
-			))
+			));
 		}
 		None
 	}

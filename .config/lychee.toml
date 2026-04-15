@@ -30,6 +30,7 @@ exclude = [
 	"http://visitme/",
 	"https://visitme/",
 	# TODO meta issue: <https://github.com/paritytech/polkadot-sdk/issues/134>
+	"http://try-runtime.polkadot.io:443",
 	"https://docs.substrate.io/main-docs/build/custom-rpc/#public-rpcs",
 	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
 	"https://github.com/ipfs/js-ipfs-bitswap/blob/",
@@ -68,4 +69,8 @@ exclude = [
 	# Exclude strings which contain templates like {} and {:?}
 	"%7B%7D",
 	"%7B:\\?}",
+	# Example ws:// URLs in Rust doc comments incorrectly parsed as file paths by lychee
+	"file://.*/ws:/node.*",
+	# Private repository:
+	"https://github.com/paritytech/individuality/blob/main/runtimes/people-westend/chain-spec/create_people_westend_spec.sh",
 ]

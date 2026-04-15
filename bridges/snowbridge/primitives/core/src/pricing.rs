@@ -38,19 +38,19 @@ where
 {
 	pub fn validate(&self) -> Result<(), InvalidPricingParameters> {
 		if self.exchange_rate == FixedU128::zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.fee_per_gas == U256::zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.rewards.local.is_zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.rewards.remote.is_zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		if self.multiplier == FixedU128::zero() {
-			return Err(InvalidPricingParameters)
+			return Err(InvalidPricingParameters);
 		}
 		Ok(())
 	}

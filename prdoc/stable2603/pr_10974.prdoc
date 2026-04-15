@@ -1,0 +1,8 @@
+title: 'slot_timer: Downgrade spammy log to debug'
+doc:
+- audience: Node Dev
+  description: "The log is quite spammy with 12core setup since the last ~2 blocks\
+    \ will be skipped in the last second of block production.\r\n"
+crates:
+- name: cumulus-client-consensus-aura
+  bump: patch

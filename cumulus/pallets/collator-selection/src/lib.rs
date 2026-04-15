@@ -411,7 +411,7 @@ pub mod pallet {
 							Self::deposit_event(Event::InvalidInvulnerableSkipped {
 								account_id: account_id.clone(),
 							});
-							continue
+							continue;
 						}
 						// else condition passes; key is registered
 					},
@@ -420,7 +420,7 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidInvulnerableSkipped {
 							account_id: account_id.clone(),
 						});
-						continue
+						continue;
 					},
 				}
 
@@ -699,7 +699,7 @@ pub mod pallet {
 						);
 						T::Currency::unreserve(&who, old_deposit - new_deposit);
 					} else {
-						return Err(Error::<T>::IdenticalDeposit.into())
+						return Err(Error::<T>::IdenticalDeposit.into());
 					}
 
 					// Update the deposit and insert the candidate in the correct spot in the list.
@@ -940,6 +940,8 @@ pub mod pallet {
 	impl<T: Config + pallet_authorship::Config>
 		pallet_authorship::EventHandler<T::AccountId, BlockNumberFor<T>> for Pallet<T>
 	{
+		// TODO: once DAP allocates collator budgets, draw rewards from DAP allocation
+		// instead of StakingPot. StakingPot becomes redundant at that point.
 		fn note_author(author: T::AccountId) {
 			let pot = Self::account_id();
 			// assumes an ED will be sent to pot.

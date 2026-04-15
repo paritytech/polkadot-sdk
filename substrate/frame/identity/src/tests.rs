@@ -1436,7 +1436,7 @@ fn invalid_usernames_should_be_rejected() {
 			b"test.username".to_vec(),
 			b"test@username".to_vec(),
 			b"test$username".to_vec(),
-			//0         1         2      v With `.test` this makes it too long.
+			// 0         1         2      v With `.test` this makes it too long.
 			b"testusernametestusernametest".to_vec(),
 		];
 		for username in invalid_usernames.into_iter().map(|mut username| {

@@ -84,7 +84,7 @@ impl<T: Config> ContractInfo<T> {
 		code_hash: CodeHash<T>,
 	) -> Result<Self, DispatchError> {
 		if <ContractInfoOf<T>>::contains_key(account) {
-			return Err(Error::<T>::DuplicateContract.into())
+			return Err(Error::<T>::DuplicateContract.into());
 		}
 
 		let trie_id = {
@@ -198,12 +198,13 @@ impl<T: Config> ContractInfo<T> {
 		if let Some(storage_meter) = storage_meter {
 			let mut diff = meter::Diff::default();
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) =>
+				(Some(old_len), Some(new_len)) => {
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					},
+					}
+				},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len;
 					diff.items_added = 1;
@@ -314,7 +315,7 @@ impl<T: Config> ContractInfo<T> {
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
-			return
+			return;
 		};
 
 		let mut queue = <DeletionQueueManager<T>>::load();
@@ -337,7 +338,7 @@ impl<T: Config> ContractInfo<T> {
 				// This happens when our budget wasn't large enough to remove all keys.
 				KillStorageResult::SomeRemaining(keys_removed) => {
 					remaining_key_budget.saturating_reduce(keys_removed);
-					break
+					break;
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
@@ -461,7 +462,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
 	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
-			return None
+			return None;
 		}
 
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);

@@ -151,10 +151,10 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 
 		if outbound_lane_data.latest_received_nonce > last_delivered_nonce {
 			// this is something that should never happen if proofs are correct
-			return None
+			return None;
 		}
 		if outbound_lane_data.latest_received_nonce <= data.last_confirmed_nonce {
-			return None
+			return None;
 		}
 
 		let new_confirmed_nonce = outbound_lane_data.latest_received_nonce;
@@ -191,18 +191,18 @@ impl<S: InboundLaneStorage> InboundLane<S> {
 	) -> ReceptionResult<Dispatch::DispatchLevelResult> {
 		let mut data = self.storage.data();
 		if Some(nonce) != data.last_delivered_nonce().checked_add(1) {
-			return ReceptionResult::InvalidNonce
+			return ReceptionResult::InvalidNonce;
 		}
 
 		// if there are more unrewarded relayer entries than we may accept, reject this message
 		if data.relayers.len() as MessageNonce >= self.storage.max_unrewarded_relayer_entries() {
-			return ReceptionResult::TooManyUnrewardedRelayers
+			return ReceptionResult::TooManyUnrewardedRelayers;
 		}
 
 		// if there are more unconfirmed messages than we may accept, reject this message
 		let unconfirmed_messages_count = nonce.saturating_sub(data.last_confirmed_nonce);
 		if unconfirmed_messages_count > self.storage.max_unconfirmed_messages() {
-			return ReceptionResult::TooManyUnconfirmedMessages
+			return ReceptionResult::TooManyUnconfirmedMessages;
 		}
 
 		// then, dispatch message

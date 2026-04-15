@@ -249,14 +249,14 @@ pub mod pallet {
 			// MMR push never fails, but better safe than sorry.
 			if mmr.push(data).is_none() {
 				log::error!(target: "runtime::mmr", "MMR push failed");
-				return T::WeightInfo::on_initialize(peaks_before as u32)
+				return T::WeightInfo::on_initialize(peaks_before as u32);
 			}
 			// Update the size, `mmr.finalize()` should also never fail.
 			let (leaves, root) = match mmr.finalize() {
 				Ok((leaves, root)) => (leaves, root),
 				Err(e) => {
 					log::error!(target: "runtime::mmr", "MMR finalize failed: {:?}", e);
-					return T::WeightInfo::on_initialize(peaks_before as u32)
+					return T::WeightInfo::on_initialize(peaks_before as u32);
 				},
 			};
 			<T::OnNewRoot as OnNewRoot<_>>::on_new_root(&root);
@@ -409,7 +409,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		{
 			return Err(
 				Error::Verify.log_debug("The proof has incorrect number of leaves or proof items.")
-			)
+			);
 		}
 
 		let mmr: ModuleMmr<mmr::storage::OffchainStorage, T, I> = mmr::Mmr::new(proof.leaf_count);

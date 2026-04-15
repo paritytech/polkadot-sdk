@@ -37,10 +37,11 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("validator-0"));
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..12)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..12).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2000)
@@ -60,6 +61,13 @@ async fn async_backing_6_seconds_rate_test() -> Result<(), anyhow::Error> {
 				.with_default_image(images.cumulus.as_str())
 				.with_default_args(vec![("-lparachain=debug,aura=debug").into()])
 				.with_collator(|n| n.with_name("collator-2001"))
+		})
+		.with_global_settings(|global_settings| {
+			let global_settings = match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
+				Ok(val) => global_settings.with_base_dir(val),
+				_ => global_settings,
+			};
+			global_settings.with_tear_down_on_failure(false)
 		})
 		.build()
 		.map_err(|e| {

@@ -118,7 +118,7 @@ where
 	use sp_api::{ApiError, ApiExt};
 
 	if seeds.is_empty() {
-		return Ok(())
+		return Ok(());
 	}
 
 	let mut runtime_api = client.runtime_api();

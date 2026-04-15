@@ -69,7 +69,7 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 	}
 
 	let Ok(mut current_authorities) = relay_state_proof.read_authorities() else {
-		return Err(RelayParentVerificationError::MissingAuthorities)
+		return Err(RelayParentVerificationError::MissingAuthorities);
 	};
 	let mut maybe_next_authorities = relay_state_proof.read_next_authorities().ok().flatten();
 
@@ -142,10 +142,10 @@ pub(crate) fn verify_relay_parent_descendants<H: Header>(
 		};
 
 		let Some(seal) = current_header.digest_mut().pop() else {
-			return Err(RelayParentVerificationError::MissingSeal { hash: sealed_header_hash })
+			return Err(RelayParentVerificationError::MissingSeal { hash: sealed_header_hash });
 		};
 		let Some(signature) = seal.as_babe_seal() else {
-			return Err(RelayParentVerificationError::InvalidSeal { hash: sealed_header_hash })
+			return Err(RelayParentVerificationError::InvalidSeal { hash: sealed_header_hash });
 		};
 
 		if !authority_id.0.verify(&current_header.hash(), &signature) {

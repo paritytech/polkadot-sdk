@@ -527,7 +527,7 @@ pub mod pallet {
 					match child_bounty.status {
 						ChildBountyStatus::Added => {
 							// No curator to unassign at this point.
-							return Err(BountiesError::<T>::UnexpectedStatus.into())
+							return Err(BountiesError::<T>::UnexpectedStatus.into());
 						},
 						ChildBountyStatus::CuratorProposed { ref curator } => {
 							// A child-bounty curator has been proposed, but not accepted yet.
@@ -575,7 +575,7 @@ pub mod pallet {
 									// Continue to change bounty status below.
 									} else {
 										// Curator has more time to give an update.
-										return Err(BountiesError::<T>::Premature.into())
+										return Err(BountiesError::<T>::Premature.into());
 									}
 								},
 							}
@@ -843,7 +843,7 @@ impl<T: Config> Pallet<T> {
 		bounty_fee: &BalanceOf<T>,
 	) -> BalanceOf<T> {
 		if parent_curator == child_curator {
-			return Zero::zero()
+			return Zero::zero();
 		}
 
 		// We just use the same logic from the parent bounties pallet.
@@ -918,7 +918,7 @@ impl<T: Config> Pallet<T> {
 						// child-bounty, it should mean the child-bounty curator
 						// was acting maliciously. So first unassign the
 						// child-bounty curator, slashing their deposit.
-						return Err(BountiesError::<T>::PendingPayout.into())
+						return Err(BountiesError::<T>::PendingPayout.into());
 					},
 				}
 

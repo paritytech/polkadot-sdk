@@ -289,7 +289,7 @@ pub trait Benchmarking {
 
 	/// Commit pending storage changes to the trie database and clear the database cache.
 	fn commit_db(&mut self) {
-		self.commit()
+		self.commit();
 	}
 
 	/// Get the read/write count.

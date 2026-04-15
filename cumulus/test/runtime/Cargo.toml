@@ -41,6 +41,9 @@ sp-session = { workspace = true }
 sp-transaction-pool = { workspace = true }
 sp-version = { workspace = true }
 
+# Polkadot
+polkadot-primitives = { workspace = true }
+
 # Cumulus
 cumulus-pallet-aura-ext = { workspace = true }
 cumulus-pallet-parachain-system = { workspace = true }
@@ -75,6 +78,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"parachain-info/std",
+	"polkadot-primitives/std",
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
@@ -107,3 +111,5 @@ sync-backing = []
 async-backing = []
 # An elastic scaling runtime with 12s slots.
 elastic-scaling-12s-slot = []
+# A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
+slot-duration-18s = ["increment-spec-version"]

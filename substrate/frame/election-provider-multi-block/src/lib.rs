@@ -61,7 +61,6 @@
 //! * [`crate::verifier::Verifier`]: Parent talking to verifier.
 //! * [`crate::verifier::SolutionDataProvider`]: Verifier talking to signed.
 
-//!
 //! ## Pagination
 //!
 //! Most of the external APIs of this pallet are paginated. All pagination follow a pattern where if
@@ -1044,7 +1043,7 @@ pub mod pallet {
 	#[allow(unused)]
 	#[cfg(any(test, feature = "runtime-benchmarks", feature = "try-runtime"))]
 	impl<T: Config> Snapshot<T> {
-		///Ensure target snapshot exists.
+		/// Ensure target snapshot exists.
 		pub(crate) fn ensure_target_snapshot(exists: bool) -> Result<(), &'static str> {
 			ensure!(exists ^ Self::desired_targets().is_none(), "desired target mismatch");
 			ensure!(exists ^ Self::targets().is_none(), "targets mismatch");
@@ -1148,11 +1147,13 @@ pub mod pallet {
 				Phase::Off => Self::ensure_snapshot(false, T::Pages::get()),
 
 				// we will star the snapshot in the next phase.
-				Phase::Snapshot(p) if p == T::Pages::get() =>
-					Self::ensure_snapshot(false, T::Pages::get()),
+				Phase::Snapshot(p) if p == T::Pages::get() => {
+					Self::ensure_snapshot(false, T::Pages::get())
+				},
 				// we are mid voter snapshot.
-				Phase::Snapshot(p) if p < T::Pages::get() && p > 0 =>
-					Self::ensure_snapshot(true, T::Pages::get() - p - 1),
+				Phase::Snapshot(p) if p < T::Pages::get() && p > 0 => {
+					Self::ensure_snapshot(true, T::Pages::get() - p - 1)
+				},
 				// we cannot check anything in this block -- we take the last page of the snapshot.
 				Phase::Snapshot(_) => Ok(()),
 
@@ -2007,12 +2008,13 @@ impl<T: Config> ElectionProvider for Pallet<T> {
 
 			// we're ready
 			Phase::Done => Ok(Some(T::WeightInfo::export_non_terminal())),
-			Phase::Export(p) =>
+			Phase::Export(p) => {
 				if p.is_zero() {
 					Ok(Some(T::WeightInfo::export_terminal()))
 				} else {
 					Ok(Some(T::WeightInfo::export_non_terminal()))
-				},
+				}
+			},
 		}
 	}
 
@@ -2751,9 +2753,7 @@ mod election_provider {
 		Phase,
 	};
 	use frame_election_provider_support::{BoundedSupport, BoundedSupports, ElectionProvider};
-	use frame_support::{
-		assert_storage_noop, testing_prelude::bounded_vec, unsigned::ValidateUnsigned,
-	};
+	use frame_support::{assert_storage_noop, testing_prelude::bounded_vec};
 
 	// This is probably the most important test of all, a basic, correct scenario. This test should
 	// be studied in detail, and all of the branches of how it can go wrong or diverge from the
@@ -3057,7 +3057,9 @@ mod election_provider {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn call_to_elect_should_prevent_any_submission() {
+		use frame_support::unsigned::ValidateUnsigned;
 		ExtBuilder::full().build_and_execute(|| {
 			roll_to_signed_open();
 			assert!(MultiBlock::current_phase().is_signed());

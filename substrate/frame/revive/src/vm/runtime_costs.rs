@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts, weights::WeightInfo,
-	Config,
+	Config, limits, metering::Token, weightinfo_extension::OnFinalizeBlockParts,
+	weights::WeightInfo,
 };
-use frame_support::weights::{constants::WEIGHT_REF_TIME_PER_SECOND, Weight};
+use frame_support::weights::{Weight, constants::WEIGHT_REF_TIME_PER_SECOND};
 
 /// Current approximation of the gas/s consumption considering
 /// EVM execution over compiled WASM (on 4.4Ghz CPU).
@@ -304,21 +304,24 @@ impl<T: Config> Token<T> for RuntimeCosts {
 			PrecompileBase => T::WeightInfo::seal_call_precompile(0, 0),
 			PrecompileWithInfoBase => T::WeightInfo::seal_call_precompile(1, 0),
 			PrecompileDecode(len) => cost_args!(seal_call_precompile, 0, len),
-			CallTransferSurcharge { dust_transfer } =>
-				cost_args!(seal_call, 1, dust_transfer.into(), 0),
+			CallTransferSurcharge { dust_transfer } => {
+				cost_args!(seal_call, 1, dust_transfer.into(), 0)
+			},
 			CallInputCloned(len) => cost_args!(seal_call, 0, 0, len),
-			Instantiate { input_data_len, balance_transfer, dust_transfer } =>
+			Instantiate { input_data_len, balance_transfer, dust_transfer } => {
 				T::WeightInfo::seal_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					input_data_len,
-				),
-			Create { init_code_len, balance_transfer, dust_transfer } =>
+				)
+			},
+			Create { init_code_len, balance_transfer, dust_transfer } => {
 				T::WeightInfo::evm_instantiate(
 					balance_transfer.into(),
 					dust_transfer.into(),
 					init_code_len,
-				),
+				)
+			},
 			HashSha256(len) => T::WeightInfo::sha2_256(len),
 			Ripemd160(len) => T::WeightInfo::ripemd_160(len),
 			HashKeccak256(len) => T::WeightInfo::seal_hash_keccak_256(len),

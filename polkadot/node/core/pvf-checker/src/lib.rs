@@ -208,7 +208,7 @@ async fn handle_pvf_check(
 				?validation_code_hash,
 				"received judgement for an unknown (or removed) PVF hash",
 			);
-			return
+			return;
 		},
 	}
 
@@ -276,7 +276,7 @@ async fn handle_leaves_update(
 			{
 				None => {
 					// None indicates that the pre-checking runtime API is not supported.
-					return
+					return;
 				},
 				Some(e) => e,
 			};
@@ -380,14 +380,15 @@ async fn examine_activation(
 	};
 
 	let new_session_index = match runtime_api::session_index_for_child(sender, leaf_hash).await {
-		Ok(session_index) =>
+		Ok(session_index) => {
 			if state.latest_session.map_or(true, |l| l < session_index) {
 				let signing_credentials =
 					check_signing_credentials(sender, keystore, leaf_hash).await;
 				Some((session_index, signing_credentials))
 			} else {
 				None
-			},
+			}
+		},
 		Err(e) => {
 			gum::warn!(
 				target: LOG_TARGET,
@@ -418,7 +419,7 @@ async fn check_signing_credentials(
 				"error occurred during requesting validators: {:?}",
 				e
 			);
-			return None
+			return None;
 		},
 	};
 
@@ -459,7 +460,7 @@ async fn sign_and_submit_pvf_check_statement(
 			"already voted for this validation code",
 		);
 		metrics.on_vote_duplicate();
-		return
+		return;
 	}
 
 	voted.insert(validation_code_hash);
@@ -484,7 +485,7 @@ async fn sign_and_submit_pvf_check_statement(
 				?validation_code_hash,
 				"private key for signing is not available",
 			);
-			return
+			return;
 		},
 		Err(e) => {
 			gum::warn!(
@@ -495,7 +496,7 @@ async fn sign_and_submit_pvf_check_statement(
 				"error signing the statement: {:?}",
 				e,
 			);
-			return
+			return;
 		},
 	};
 

@@ -116,7 +116,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 							stored_best_head.best_head_hash.at_relay_block_number,
 							update.at_relay_block.0
 						);
-						return Err(InvalidTransaction::Stale.into())
+						return Err(InvalidTransaction::Stale.into());
 					},
 				};
 
@@ -130,7 +130,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 						stored_best_head.best_head_hash.at_relay_block_number,
 						update.at_relay_block.0
 					);
-					return Err(InvalidTransaction::Stale.into())
+					return Err(InvalidTransaction::Stale.into());
 				}
 
 				improved_by
@@ -149,7 +149,7 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 				parachain proof is missing from the storage."
 			);
 
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		Ok(improved_by)
@@ -158,12 +158,13 @@ impl<T: Config<I>, I: 'static> SubmitParachainHeadsHelper<T, I> {
 	/// Check if the `SubmitParachainHeads` was successfully executed.
 	pub fn was_successful(update: &SubmitParachainHeadsInfo) -> bool {
 		match crate::ParasInfo::<T, I>::get(update.para_id) {
-			Some(stored_best_head) =>
+			Some(stored_best_head) => {
 				stored_best_head.best_head_hash ==
 					BestParaHeadHash {
 						at_relay_block_number: update.at_relay_block.0,
 						head_hash: update.para_head_hash,
-					},
+					}
+			},
 			None => false,
 		}
 	}
@@ -237,7 +238,7 @@ pub trait CallSubType<T: Config<I, RuntimeCall = Self>, I: 'static>:
 		};
 
 		if Pallet::<T, I>::ensure_not_halted().is_err() {
-			return Err(InvalidTransaction::Call.into())
+			return Err(InvalidTransaction::Call.into());
 		}
 
 		SubmitParachainHeadsHelper::<T, I>::check_obsolete_from_extension(&update)

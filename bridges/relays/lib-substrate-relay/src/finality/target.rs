@@ -56,12 +56,12 @@ impl<P: SubstrateFinalitySyncPipeline, TargetClnt: Client<P::TargetChain>>
 	pub async fn ensure_pallet_active(&self) -> Result<(), Error> {
 		let is_halted = P::FinalityEngine::is_halted(&self.client).await?;
 		if is_halted {
-			return Err(Error::BridgePalletIsHalted)
+			return Err(Error::BridgePalletIsHalted);
 		}
 
 		let is_initialized = P::FinalityEngine::is_initialized(&self.client).await?;
 		if !is_initialized {
-			return Err(Error::BridgePalletIsNotInitialized)
+			return Err(Error::BridgePalletIsNotInitialized);
 		}
 
 		Ok(())
@@ -152,7 +152,7 @@ where
 		if is_free_execution_expected {
 			let extras = P::FinalityEngine::check_max_expected_call_limits(&header, &proof);
 			if extras.is_weight_limit_exceeded || extras.extra_size != 0 {
-				return Err(Error::FinalityProofWeightLimitExceeded { extras })
+				return Err(Error::FinalityProofWeightLimitExceeded { extras });
 			}
 		}
 

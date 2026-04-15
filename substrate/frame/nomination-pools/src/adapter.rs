@@ -90,12 +90,18 @@ pub trait StakeStrategy {
 	/// The type of staking strategy of the current adapter.
 	fn strategy_type() -> StakeStrategyType;
 
-	/// See [`StakingInterface::bonding_duration`].
+	/// See [`StakingInterface::nominator_bonding_duration`].
+	///
+	/// Pool accounts are nominators, so they use the nominator bonding duration which can be
+	/// shorter than the validator bonding duration when nominators are not slashable.
 	fn bonding_duration() -> EraIndex {
-		Self::CoreStaking::bonding_duration()
+		Self::CoreStaking::nominator_bonding_duration()
 	}
 
 	/// See [`StakingInterface::current_era`].
+	///
+	/// Note: Named current_era for legacy interface compatibility. Returns active era which
+	/// should be used for all non-election staking logic.
 	fn current_era() -> EraIndex {
 		Self::CoreStaking::current_era()
 	}

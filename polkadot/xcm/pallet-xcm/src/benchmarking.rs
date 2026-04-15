@@ -92,7 +92,7 @@ mod benchmarks {
 		let send_origin =
 			T::SendXcmOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
 		if T::SendXcmOrigin::try_origin(send_origin.clone()).is_err() {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let msg = Xcm(vec![ClearOrigin]);
 		let versioned_dest: VersionedLocation = T::reachable_dest()
@@ -127,7 +127,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		if !T::XcmTeleportFilter::contains(&(origin_location.clone(), assets.clone().into_inner()))
 		{
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -141,24 +141,47 @@ mod benchmarks {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id },
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let asset_to_mint = Asset { fun: Fungible(*amount), id: asset.id.clone() };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset_to_mint,
+					&context,
 				)
 				.map_err(|error| {
-					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Fungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error.1);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(_instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&asset,
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset, &context,
 				)
 				.map_err(|error| {
-					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Nonfungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!(
+						"Nonfungible asset couldn't be deposited, error: {:?}",
+						error.1
+					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
@@ -197,7 +220,7 @@ mod benchmarks {
 			origin_location.clone(),
 			assets.clone().into_inner(),
 		)) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 
 		// Ensure that origin can send to destination
@@ -211,24 +234,47 @@ mod benchmarks {
 		match &asset.fun {
 			Fungible(amount) => {
 				// Add transferred_amount to origin
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&Asset { fun: Fungible(*amount), id: asset.id.clone() },
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let asset_to_mint = Asset { fun: Fungible(*amount), id: asset.id.clone() };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset_to_mint,
+					&context,
 				)
 				.map_err(|error| {
-					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Fungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!("Fungible asset couldn't be deposited, error: {:?}", error.1);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
 			NonFungible(_instance) => {
-				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
-					&asset,
-					&origin_location,
-					None,
+				let context =
+					XcmContext { origin: None, message_id: XcmHash::default(), topic: None };
+				let holdings = <T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(
+					&asset, &context,
 				)
 				.map_err(|error| {
-					tracing::error!("Nonfungible asset couldn't be deposited, error: {:?}", error);
+					tracing::error!("Nonfungible asset couldn't be minted, error: {:?}", error);
+					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
+				})?;
+				<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::deposit_asset(
+					holdings,
+					&origin_location,
+					Some(&context),
+				)
+				.map_err(|error| {
+					tracing::error!(
+						"Nonfungible asset couldn't be deposited, error: {:?}",
+						error.1
+					);
 					BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX))
 				})?;
 			},
@@ -312,7 +358,7 @@ mod benchmarks {
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let msg = Xcm(vec![ClearOrigin]);
 		if !T::XcmExecuteFilter::contains(&(origin_location, msg.clone())) {
-			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))
+			return Err(BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)));
 		}
 		let versioned_msg = VersionedXcm::from(msg);
 
@@ -579,12 +625,12 @@ mod benchmarks {
 		let claim_location = T::ExecuteXcmOrigin::try_origin(claim_origin.clone().into())
 			.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
 		let asset: Asset = T::get_asset();
+		let context = XcmContext { origin: None, message_id: [0u8; 32], topic: None };
 		// Trap assets for claiming later
-		crate::Pallet::<T>::drop_assets(
-			&claim_location,
-			asset.clone().into(),
-			&XcmContext { origin: None, message_id: [0u8; 32], topic: None },
-		);
+		let holdings =
+			<T::XcmExecutor as XcmAssetTransfers>::AssetTransactor::mint_asset(&asset, &context)
+				.map_err(|_| BenchmarkError::Override(BenchmarkResult::from_weight(Weight::MAX)))?;
+		crate::Pallet::<T>::drop_assets(&claim_location, holdings, &context);
 		let versioned_assets = VersionedAssets::from(Assets::from(asset));
 
 		#[extrinsic_call]
@@ -669,15 +715,16 @@ mod benchmarks {
 		// remove `network` from inner `AccountId32` for easier matching of automatic AccountId ->
 		// Location conversions.
 		let origin_location: VersionedLocation = match origin_location.unpack() {
-			(0, [AccountId32 { network: _, id }]) =>
-				Location::new(0, [AccountId32 { network: None, id: *id }]).into(),
+			(0, [AccountId32 { network: _, id }]) => {
+				Location::new(0, [AccountId32 { network: None, id: *id }]).into()
+			},
 			_ => {
 				tracing::error!(
 					target: "xcm::benchmarking::pallet_xcm::remove_authorized_alias",
 					?origin_location,
 					"unexpected origin failed",
 				);
-				return Err(error.clone())
+				return Err(error.clone());
 			},
 		};
 

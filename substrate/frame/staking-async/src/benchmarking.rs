@@ -59,6 +59,9 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	// TODO: this can be replaced with `testing_utils` version?
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
+
+	// Disable legacy minting so benchmarks always exercise the reward-pot path.
+	DisableMintingGuard::<T>::put(0);
 	let mut points_total = 0;
 	let mut points_individual = Vec::new();
 
@@ -123,6 +126,11 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
 	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
+
+	// Create and fund the era reward pot so payout_stakers can transfer from it.
+	let era_pot =
+		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::StakerRewards);
+	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
 
 	Ok((v_stash, nominators, planned_era))
 }
@@ -823,6 +831,7 @@ mod benchmarks {
 			ConfigOp::Set(Percent::max_value()),
 			ConfigOp::Set(Perbill::max_value()),
 			ConfigOp::Set(Percent::max_value()),
+			ConfigOp::Set(false),
 		);
 
 		assert_eq!(MinNominatorBond::<T>::get(), BalanceOf::<T>::max_value());
@@ -832,6 +841,7 @@ mod benchmarks {
 		assert_eq!(ChillThreshold::<T>::get(), Some(Percent::from_percent(100)));
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
 		assert_eq!(MaxStakedRewards::<T>::get(), Some(Percent::from_percent(100)));
+		assert_eq!(AreNominatorsSlashable::<T>::get(), false);
 	}
 
 	#[benchmark]
@@ -839,6 +849,7 @@ mod benchmarks {
 		#[extrinsic_call]
 		set_staking_configs(
 			RawOrigin::Root,
+			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
 			ConfigOp::Remove,
@@ -855,6 +866,7 @@ mod benchmarks {
 		assert!(!ChillThreshold::<T>::exists());
 		assert!(!MinCommission::<T>::exists());
 		assert!(!MaxStakedRewards::<T>::exists());
+		assert!(!AreNominatorsSlashable::<T>::exists());
 	}
 
 	#[benchmark]
@@ -878,6 +890,7 @@ mod benchmarks {
 			ConfigOp::Set(0),
 			ConfigOp::Set(Percent::from_percent(0)),
 			ConfigOp::Set(Zero::zero()),
+			ConfigOp::Noop,
 			ConfigOp::Noop,
 		)?;
 
@@ -935,6 +948,16 @@ mod benchmarks {
 	}
 
 	#[benchmark]
+	fn set_max_commission() {
+		let max_commission = Perbill::max_value();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, max_commission);
+
+		assert_eq!(MaxCommission::<T>::get(), Perbill::from_percent(100));
+	}
+
+	#[benchmark]
 	fn restore_ledger() -> Result<(), BenchmarkError> {
 		let (stash, controller) = create_stash_controller::<T>(0, 100, RewardDestination::Staked)?;
 		// corrupt ledger.
@@ -966,7 +989,9 @@ mod benchmarks {
 	}
 
 	#[benchmark]
-	fn apply_slash() -> Result<(), BenchmarkError> {
+	fn apply_slash(
+		n: Linear<0, { T::MaxExposurePageSize::get() as u32 }>,
+	) -> Result<(), BenchmarkError> {
 		let era = EraIndex::one();
 		ActiveEra::<T>::put(ActiveEraInfo { index: era, start: None });
 		let (validator, nominators, _current_era) = create_validator_with_nominators::<T>(
@@ -981,8 +1006,12 @@ mod benchmarks {
 		let slashed_balance = BalanceOf::<T>::from(10u32);
 
 		let slash_key = (validator.clone(), slash_fraction, page_index);
-		let slashed_nominators =
-			nominators.iter().map(|(n, _)| (n.clone(), slashed_balance)).collect::<Vec<_>>();
+		// Only include `n` nominators in the slash (to benchmark variable nominator counts)
+		let slashed_nominators = nominators
+			.iter()
+			.take(n as usize)
+			.map(|(nom, _)| (nom.clone(), slashed_balance))
+			.collect::<Vec<_>>();
 
 		let unapplied_slash = UnappliedSlash::<T> {
 			validator: validator.clone(),
@@ -1037,7 +1066,7 @@ mod benchmarks {
 		let offender_exposure =
 			Eras::<T>::get_full_exposure(Rotator::<T>::planned_era(), &offender);
 		ensure!(
-			offender_exposure.others.len() as u32 == 2 * T::MaxExposurePageSize::get(),
+			offender_exposure.others.len() as u32 >= T::MaxExposurePageSize::get(),
 			"exposure not created"
 		);
 
@@ -1249,6 +1278,22 @@ mod benchmarks {
 		// `ErasTotalStake`
 		ErasTotalStake::<T>::insert(era, BalanceOf::<T>::max_value());
 
+		// `ValidatorSlashInEra` - add slash entries for validators.
+		// We benchmark with 33% of validators slashed, representing the realistic worst-case
+		// under BFT assumptions (beyond 1/3 Byzantine validators, consensus security breaks).
+		let slashed_validators = validators / 3;
+		for i in 0..slashed_validators {
+			let validator = account::<T::AccountId>("validator", i, SEED);
+			crate::ValidatorSlashInEra::<T>::insert(
+				era,
+				validator,
+				(Perbill::from_percent(10), BalanceOf::<T>::max_value() / 10u32.into()),
+			);
+		}
+
+		// `ErasNominatorsSlashable`
+		ErasNominatorsSlashable::<T>::insert(era, true);
+
 		era
 	}
 
@@ -1405,11 +1450,11 @@ mod benchmarks {
 		Ok(())
 	}
 
-	// Benchmark pruning ErasTotalStake (final step)
+	// Benchmark pruning single-entry cleanups (seventh step)
 	#[benchmark(pov_mode = Measured)]
-	fn prune_era_total_stake() -> Result<(), BenchmarkError> {
+	fn prune_era_single_entry_cleanups() -> Result<(), BenchmarkError> {
 		let era = setup_era_for_pruning::<T>(1);
-		EraPruningState::<T>::insert(era, PruningStep::ErasTotalStake);
+		EraPruningState::<T>::insert(era, PruningStep::SingleEntryCleanups);
 
 		let caller: T::AccountId = whitelisted_caller();
 
@@ -1419,7 +1464,28 @@ mod benchmarks {
 			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
 		}
 
-		validate_pruning_weight::<T>(&result, "ErasTotalStake", 1);
+		validate_pruning_weight::<T>(&result, "SingleEntryCleanups", 1);
+
+		Ok(())
+	}
+
+	// Benchmark pruning ValidatorSlashInEra (eighth step)
+	#[benchmark(pov_mode = Measured)]
+	fn prune_era_validator_slash_in_era(
+		v: Linear<1, { T::MaxValidatorSet::get() }>,
+	) -> Result<(), BenchmarkError> {
+		let era = setup_era_for_pruning::<T>(v);
+		EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
+
+		let caller: T::AccountId = whitelisted_caller();
+
+		let result;
+		#[block]
+		{
+			result = Pallet::<T>::prune_era_step(RawOrigin::Signed(caller).into(), era);
+		}
+
+		validate_pruning_weight::<T>(&result, "ValidatorSlashInEra", v);
 
 		Ok(())
 	}

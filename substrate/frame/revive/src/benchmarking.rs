@@ -19,29 +19,29 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
-	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
+	Pallet as Contracts,
+	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
-		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
-		TransactionSigned, TransactionUnsigned,
+		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
+		block_hash::EthereumBlockBuilder, block_storage,
 	},
 	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
-		self,
+		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
-			sol_data::{Bool, Bytes, FixedBytes, Uint},
 			SolType,
+			sol_data::{Bool, Bytes, FixedBytes, Uint},
 		},
 		run::builtin as run_builtin_precompile,
-		BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
+		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
 		pvm,
 	},
-	Pallet as Contracts, *,
+	*,
 };
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
@@ -51,21 +51,20 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{fungible::InspectHold, Hooks},
+	traits::{Hooks, fungible::InspectHold},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
 use k256::ecdsa::SigningKey;
 use pallet_revive_uapi::{
-	pack_hi_lo,
+	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
-	CallFlags, ReturnErrorCode, StorageFlags,
 };
 use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
-	digests::{PreDigest, PrimaryPreDigest},
 	BABE_ENGINE_ID,
+	digests::{PreDigest, PrimaryPreDigest},
 };
 use sp_consensus_slots::Slot;
 use sp_runtime::{generic::DigestItem, traits::Zero};
@@ -177,10 +176,21 @@ mod benchmarks {
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_init_code_for_runtime_size(c),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
+
+		let code_len = PristineCode::<T>::get(instance.info()?.code_hash)
+			.expect("code should be stored")
+			.len();
+		assert_eq!(
+			code_len, c as usize,
+			"runtime bytecode should be exactly {c} bytes, got {code_len}"
+		);
 
 		#[extrinsic_call]
 		call(
@@ -245,7 +255,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
@@ -296,7 +308,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = Origin::EthTransaction(caller.clone());
-		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -346,7 +360,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -546,6 +562,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
+		if T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::unmap(&caller).unwrap();
+		}
 		assert!(!T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -557,7 +576,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		assert!(T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -628,7 +649,9 @@ mod benchmarks {
 		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
 			T::Currency::set_balance(&account_id, caller_funding::<T>());
-			T::AddressMapper::map(&account_id).unwrap();
+			if !T::AddressMapper::is_mapped(&account_id) {
+				T::AddressMapper::map(&account_id).unwrap();
+			}
 			T::AddressMapper::to_address(&account_id)
 		};
 
@@ -2112,7 +2135,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2400,7 +2423,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_pairing(n: Linear<0, { 20 }>) {
 		fn generate_random_ecpairs(n: usize) -> Vec<u8> {
-			use bn::{AffineG1, AffineG2, Fr, Group, G1, G2};
+			use bn::{AffineG1, AffineG2, Fr, G1, G2, Group};
 			use rand::SeedableRng;
 			use rand_pcg::Pcg64;
 			let mut rng = Pcg64::seed_from_u64(1);
@@ -2514,7 +2537,7 @@ mod benchmarks {
 	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
 	fn instr(r: Linear<0, 10_000>) {
-		use rand::{seq::SliceRandom, SeedableRng};
+		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
 		// Ideally, this needs to be bigger than the cache.
@@ -2669,6 +2692,34 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
+	#[benchmark]
+	fn v3_migration_step() {
+		use crate::migrations::v3;
+		// Remove all pre-existing accounts
+		let _ = frame_system::Account::<T>::clear(u32::MAX, None);
+
+		let account = account::<T::AccountId>("target", 0, 0);
+		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
+			.expect("should mint into account");
+
+		// clear the mapping so the migration has work to do
+		let addr = T::AddressMapper::to_address(&account);
+		crate::OriginalAccount::<T>::remove(addr);
+
+		assert!(!T::AddressMapper::is_mapped(&account));
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v3::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert!(T::AddressMapper::is_mapped(&account));
+
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
+	}
+
 	/// Helper function to create a test signer for finalize_block benchmark
 	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
 		use hex_literal::hex;
@@ -2715,8 +2766,8 @@ mod benchmarks {
 	}
 
 	/// Helper function to generate common finalize_block benchmark setup
-	fn setup_finalize_block_benchmark<T>(
-	) -> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
+	fn setup_finalize_block_benchmark<T>()
+	-> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,

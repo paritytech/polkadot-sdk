@@ -113,12 +113,13 @@ pub mod foreign_assets_reserves {
 					// At first, start migrating assets.
 					None => Self::asset_step(None),
 					// Migrate any remaining assets.
-					Some(MigrationState::Asset(maybe_last_asset)) =>
-						Self::asset_step(Some(maybe_last_asset)),
+					Some(MigrationState::Asset(maybe_last_asset)) => {
+						Self::asset_step(Some(maybe_last_asset))
+					},
 					// After the last asset, migration is finished.
 					Some(MigrationState::Finished) => {
 						tracing::info!(target: "runtime::ForeignAssetsReservesMigration", "migration finished");
-						return Ok(None)
+						return Ok(None);
 					},
 				};
 

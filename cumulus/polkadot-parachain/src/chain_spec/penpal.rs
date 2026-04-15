@@ -54,7 +54,7 @@ pub fn staging_penpal_local_config() -> GenericChainSpec {
 	.with_chain_type(ChainType::Live)
 	.with_genesis_config_preset_name(sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET)
 	.with_genesis_config_patch(testnet_genesis_patch(
-		hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+		hex!["d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"].into(),
 		vec![
 			// $secret//one
 			hex!["aad9fa2249f87a210a0f93400b7f90e47b810c6d65caa0ca3f5af982904c2a33"]
@@ -63,7 +63,7 @@ pub fn staging_penpal_local_config() -> GenericChainSpec {
 			hex!["d47753f0cca9dd8da00c70e82ec4fc5501a69c49a5952a643d18802837c88212"]
 				.unchecked_into(),
 		],
-		vec![hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into()],
+		vec![hex!["d43593c715fdd31c61141abd04a99fd6822c8558854ccde39a5684e7a56da27d"].into()],
 		1000.into(),
 	))
 	.build()

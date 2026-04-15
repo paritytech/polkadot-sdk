@@ -40,11 +40,13 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			// Use default, which has 6 second slot time. Also, don't use slot-based collator.
@@ -91,11 +93,21 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			.await?[..],
 	)?;
 
+	// Get looakahead config
+	let lookahead = u32::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_scheduling_lookahead", None)
+			.await?[..],
+	)?;
+
 	assert_eq!(
 		cq,
 		[
-			(CoreIndex(0), std::iter::repeat_n(para_id, 3).collect()),
-			(CoreIndex(1), std::iter::repeat_n(para_id, 3).collect()),
+			(CoreIndex(0), std::iter::repeat_n(para_id, lookahead as usize).collect()),
+			(CoreIndex(1), std::iter::repeat_n(para_id, lookahead as usize).collect()),
 		]
 		.into_iter()
 		.collect()

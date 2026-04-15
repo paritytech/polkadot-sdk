@@ -242,7 +242,7 @@ pub mod pallet {
 			if let Some((lease_period, first_block)) = Self::lease_period_index(n) {
 				// If we're beginning a new lease period then handle that.
 				if first_block {
-					return Self::manage_lease_period_start(lease_period)
+					return Self::manage_lease_period_start(lease_period);
 				}
 			}
 

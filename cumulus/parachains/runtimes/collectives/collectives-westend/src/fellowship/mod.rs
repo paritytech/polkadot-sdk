@@ -20,10 +20,9 @@ mod origins;
 mod tracks;
 use crate::{
 	weights,
-	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
+	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
-	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
-	WestendTreasuryAccount, DAYS,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -41,7 +40,6 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
 	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
@@ -97,7 +95,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slash = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;
@@ -227,7 +225,7 @@ const USDT_UNITS: u128 = 1_000_000;
 /// [`PayOverXcm`] setup to pay the Fellowship salary on the AssetHub in USDT.
 pub type FellowshipSalaryPaymaster = PayOverXcm<
 	Interior,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,
@@ -274,7 +272,7 @@ parameter_types! {
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	VersionedLocation,
@@ -296,6 +294,10 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
+	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
+	// `BurnDestination` to a DAP satellite `OnUnbalanced<NegativeImbalance>` impl so burned funds
+	// flow to the satellite instead of being destroyed. Currently, the satellite only implements
+	// `OnUnbalanced<Credit>`.
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;

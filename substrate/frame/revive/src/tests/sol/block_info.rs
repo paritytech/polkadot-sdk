@@ -18,15 +18,15 @@
 //! The pallet-revive shared VM integration test suite.
 
 use crate::{
-	test_utils::{builder::Contract, ALICE},
-	tests::{builder, Contracts, ExtBuilder, System, Test, Timestamp},
-	vm::evm::DIFFICULTY,
 	Code, Config, DryRunConfig, ExecConfig, Pallet,
+	test_utils::{ALICE, builder::Contract},
+	tests::{Contracts, ExtBuilder, System, Test, Timestamp, builder},
+	vm::evm::DIFFICULTY,
 };
 
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::traits::fungible::Mutate;
-use pallet_revive_fixtures::{compile_module_with_type, BlockInfo, FixtureType};
+use pallet_revive_fixtures::{BlockInfo, FixtureType, compile_module_with_type};
 use pretty_assertions::assert_eq;
 use sp_core::H160;
 use test_case::test_case;
@@ -70,7 +70,9 @@ fn block_number_dry_run_works(fixture_type: FixtureType) {
 				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
 			.exec_config(
-				ExecConfig::new_substrate_tx().with_dry_run(DryRunConfig::new(timestamp_override)),
+				ExecConfig::new_substrate_tx().with_dry_run(
+					DryRunConfig::default().with_timestamp_override(timestamp_override),
+				),
 			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
@@ -151,8 +153,9 @@ fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
 		let result: crate::ExecReturnValue = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
 			.exec_config(
-				ExecConfig::new_substrate_tx()
-					.with_dry_run(DryRunConfig::new(Some(timestamp_override))),
+				ExecConfig::new_substrate_tx().with_dry_run(
+					DryRunConfig::default().with_timestamp_override(timestamp_override),
+				),
 			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();

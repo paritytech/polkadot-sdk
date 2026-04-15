@@ -20,13 +20,13 @@
 use core::iter;
 
 use crate::{
+	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
+	ExecReturnValue, Weight,
 	address::AddressMapper,
 	evm::{decode_revert_reason, fees::InfoT},
 	metering::TransactionLimits,
-	test_utils::{builder::Contract, deposit_limit, ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT},
-	tests::{builder, ExtBuilder, MockHandlerImpl, Test},
-	BalanceOf, Code, Config, DelegateInfo, DispatchError, Error, ExecConfig, ExecOrigin,
-	ExecReturnValue, Weight,
+	test_utils::{ALICE, ALICE_ADDR, BOB_ADDR, WEIGHT_LIMIT, builder::Contract, deposit_limit},
+	tests::{ExtBuilder, MOCK_CODE, MockHandlerImpl, Test, builder},
 };
 use alloy_core::{
 	primitives::{Bytes, FixedBytes},
@@ -37,10 +37,10 @@ use frame_support::{
 	traits::fungible::{Balanced, Mutate},
 };
 use itertools::Itertools;
-use pallet_revive_fixtures::{compile_module_with_type, Callee, Caller, FixtureType};
+use pallet_revive_fixtures::{Callee, Caller, FixtureType, Host, compile_module_with_type};
 use pallet_revive_uapi::ReturnFlags;
 use pretty_assertions::assert_eq;
-use sp_core::H160;
+use sp_core::{H160, H256};
 use test_case::test_case;
 
 /// Tests that the `CALL` opcode works as expected by having one contract call another.
@@ -221,7 +221,6 @@ fn deploy_revert() {
 
 // This test has a `caller` contract calling into a `callee` contract which then executes the
 // INVALID opcode. INVALID consumes all gas which means that it will error with OutOfGas.
-#[ignore = "TODO: ignore until we decide what is the correct way to handle this"]
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]
@@ -233,6 +232,9 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
+		// Pass a large gas stipend to the callee
+		let gas_limit = 200_000_000_000u64;
+
 		// Instantiate the callee contract, which can echo a value.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
@@ -241,23 +243,29 @@ fn call_invalid_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 		let Contract { addr: caller_addr, .. } =
 			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
 
-		let result = builder::bare_call(caller_addr)
+		let contract_result = builder::bare_call(caller_addr)
 			.data(
 				Caller::normalCall {
 					_callee: callee_addr.0.into(),
 					_value: 0,
 					_data: Callee::invalidCall {}.abi_encode().into(),
-					_gas: u64::MAX,
+					_gas: gas_limit,
 				}
 				.abi_encode(),
 			)
-			.build_and_unwrap_result();
-		let result = Caller::normalCall::abi_decode_returns(&result.data).unwrap();
+			.build();
 
-		assert!(!result.success, "Invalid opcode should propagate as error");
-
-		let data = result.output.as_ref();
-		assert!(data.iter().all(|&x| x == 0), "Returned data should be empty")
+		let result = contract_result.result.expect("Outer call should succeed");
+		assert!(
+			contract_result.gas_consumed > gas_limit as u128,
+			"Inner call should consume all forwarded gas. Consumed: {}, Limit: {}",
+			contract_result.gas_consumed,
+			gas_limit
+		);
+		let decoded = Caller::normalCall::abi_decode_returns(&result.data)
+			.expect("Should decode return data");
+		assert!(!decoded.success, "INVALID opcode should cause inner call to fail");
+		assert!(decoded.output.is_empty(), "Output should be empty on INVALID opcode");
 	});
 }
 
@@ -268,7 +276,7 @@ fn invalid_opcode_evm() {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the callee contract, which can echo a value.
+		// Instantiate the callee contract.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
@@ -290,7 +298,7 @@ fn call_stop_opcode(caller_type: FixtureType, callee_type: FixtureType) {
 	ExtBuilder::default().build().execute_with(|| {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
 
-		// Instantiate the callee contract, which can echo a value.
+		// Instantiate the callee contract.
 		let Contract { addr: callee_addr, .. } =
 			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
 
@@ -403,15 +411,11 @@ fn mock_caller_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 				.abi_encode(),
 			)
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
 					mock_caller: Some(BOB_ADDR),
-					mock_call: Default::default(),
-					mock_delegate_caller: Default::default(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -456,12 +460,7 @@ fn mock_call_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 				.abi_encode(),
 			)
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_caller: None,
 					mock_call: iter::once((
 						callee_addr,
 						ExecReturnValue {
@@ -471,8 +470,9 @@ fn mock_call_hook_works(caller_type: FixtureType, callee_type: FixtureType) {
 						},
 					))
 					.collect(),
-					mock_delegate_caller: Default::default(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -516,13 +516,7 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 				.abi_encode(),
 			)
 			.exec_config(ExecConfig {
-				bump_nonce: false,
-				collect_deposit_from_hold: None,
-				effective_gas_price: None,
-				is_dry_run: None,
 				mock_handler: Some(Box::new(MockHandlerImpl {
-					mock_caller: None,
-					mock_call: Default::default(),
 					mock_delegate_caller: iter::once((
 						Callee::echoCall { _data: magic_number }.abi_encode().into(),
 						DelegateInfo {
@@ -535,7 +529,9 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 						},
 					))
 					.collect(),
+					..Default::default()
 				})),
+				..Default::default()
 			})
 			.build_and_unwrap_result();
 
@@ -543,6 +539,69 @@ fn mock_delegatecall_hook_works(caller_type: FixtureType, callee_type: FixtureTy
 		assert!(result.success, "the call must succeed");
 		let echo_output = Callee::echoCall::abi_decode_returns(&result.output).unwrap();
 		assert_eq!(magic_number, echo_output, "the call must reproduce the magic number");
+	});
+}
+
+#[test]
+fn mocked_code_works() {
+	let (host_code, _) = compile_module_with_type("Host", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: host_addr, .. } =
+			builder::bare_instantiate(Code::Upload(host_code)).build_and_unwrap_contract();
+
+		let mocked_addr = H160::from_slice(&[0x42; 20]);
+
+		let expected_size = MOCK_CODE.len() as u64;
+		let expected_hash = sp_io::hashing::keccak_256(&MOCK_CODE);
+
+		// Test EXTCODESIZE with mocked address
+		let result = builder::bare_call(host_addr)
+			.data(Host::extcodesizeOpCall { account: mocked_addr.0.into() }.abi_encode())
+			.exec_config(ExecConfig {
+				mock_handler: Some(Box::new(MockHandlerImpl {
+					mock_call: iter::once((mocked_addr, ExecReturnValue::default())).collect(),
+					..Default::default()
+				})),
+				..Default::default()
+			})
+			.build_and_unwrap_result();
+
+		let size = Host::extcodesizeOpCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(
+			size, expected_size,
+			"EXTCODESIZE should return {} for mocked address",
+			expected_size
+		);
+
+		// Test EXTCODEHASH with mocked address
+		let result = builder::bare_call(host_addr)
+			.data(Host::extcodehashOpCall { account: mocked_addr.0.into() }.abi_encode())
+			.exec_config(ExecConfig {
+				mock_handler: Some(Box::new(MockHandlerImpl {
+					mock_call: iter::once((mocked_addr, ExecReturnValue::default())).collect(),
+					..Default::default()
+				})),
+				..Default::default()
+			})
+			.build_and_unwrap_result();
+
+		let hash = Host::extcodehashOpCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(
+			H256::from_slice(hash.as_slice()),
+			H256::from_slice(&expected_hash),
+			"EXTCODEHASH should return keccak256(MOCK_CODE) for mocked address"
+		);
+
+		// Verify that without mock handler, the same address returns 0 for code size
+		let result = builder::bare_call(host_addr)
+			.data(Host::extcodesizeOpCall { account: mocked_addr.0.into() }.abi_encode())
+			.build_and_unwrap_result();
+
+		let size = Host::extcodesizeOpCall::abi_decode_returns(&result.data).unwrap();
+		assert_eq!(size, 0, "EXTCODESIZE should return 0 for unmocked address without code");
 	});
 }
 
@@ -569,7 +628,7 @@ fn create_works() {
 		let magic_number = 42u64;
 
 		// Check if the created contract is working
-		let echo_result = builder::bare_call(callee_addr.0 .0.into())
+		let echo_result = builder::bare_call(callee_addr.0.0.into())
 			.data(Callee::echoCall { _data: magic_number }.abi_encode())
 			.build_and_unwrap_result();
 
@@ -607,7 +666,7 @@ fn create2_works() {
 		// Compute expected CREATE2 address
 		let expected_addr = crate::address::create2(&caller_addr, &initcode, &[], &salt);
 
-		let callee_addr: H160 = callee_addr.0 .0.into();
+		let callee_addr: H160 = callee_addr.0.0.into();
 		assert_eq!(callee_addr, expected_addr, "CREATE2 address should be deterministic");
 		let magic_number = 42u64;
 
@@ -722,7 +781,7 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 	{
 		// the storage stuff won't work on static or delegate call
 		if case.is_store_call && !matches!(call_type, Caller::CallType::Call) {
-			continue
+			continue;
 		}
 
 		ExtBuilder::default().build().execute_with(|| {
@@ -764,4 +823,50 @@ fn subcall_effectively_limited_substrate_tx(caller_type: FixtureType, callee_typ
 			assert_eq!(case.result, result);
 		});
 	}
+}
+
+#[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
+#[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
+fn delegatecall_with_large_deposit_limit_succeeds(
+	caller_type: FixtureType,
+	callee_type: FixtureType,
+) {
+	let (caller_code, _) = compile_module_with_type("Caller", caller_type).unwrap();
+	let (callee_code, _) = compile_module_with_type("Callee", callee_type).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		// Use a very large deposit limit to trigger the bug scenario
+		let large_deposit_limit: u128 = u64::MAX as _;
+
+		let result = builder::bare_call(caller_addr)
+			.data(
+				Caller::delegateCall {
+					_callee: callee_addr.0.into(),
+					_data: Callee::echoCall { _data: 42 }.abi_encode().into(),
+					_gas: u64::MAX,
+				}
+				.abi_encode(),
+			)
+			.transaction_limits(TransactionLimits::WeightAndDeposit {
+				weight_limit: WEIGHT_LIMIT,
+				deposit_limit: large_deposit_limit,
+			})
+			.build();
+
+		// The call must succeed - before the fix, this would fail with OutOfGas
+		let exec_result = result.result.expect("call must not fail");
+		let decoded = Caller::delegateCall::abi_decode_returns(&exec_result.data).unwrap();
+		assert!(decoded.success, "delegatecall must succeed");
+
+		let echo_result = Callee::echoCall::abi_decode_returns(&decoded.output).unwrap();
+		assert_eq!(echo_result, 42, "echo must return the magic number");
+	});
 }

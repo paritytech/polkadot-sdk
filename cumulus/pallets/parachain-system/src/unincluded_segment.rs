@@ -162,7 +162,7 @@ impl HrmpChannelUpdate {
 				recipient,
 				messages_remaining: limits.messages_remaining,
 				messages_submitted: new.msg_count,
-			})
+			});
 		}
 		new.total_bytes = new.total_bytes.saturating_add(other.total_bytes);
 		if new.total_bytes > limits.bytes_remaining {
@@ -170,7 +170,7 @@ impl HrmpChannelUpdate {
 				recipient,
 				bytes_remaining: limits.bytes_remaining,
 				bytes_submitted: new.total_bytes,
-			})
+			});
 		}
 
 		Ok(new)
@@ -211,14 +211,14 @@ impl UsedBandwidth {
 			return Err(BandwidthUpdateError::UmpMessagesOverflow {
 				messages_remaining: limits.ump_messages_remaining,
 				messages_submitted: new.ump_msg_count,
-			})
+			});
 		}
 		new.ump_total_bytes = new.ump_total_bytes.saturating_add(other.ump_total_bytes);
 		if new.ump_total_bytes > limits.ump_bytes_remaining {
 			return Err(BandwidthUpdateError::UmpBytesOverflow {
 				bytes_remaining: limits.ump_bytes_remaining,
 				bytes_submitted: new.ump_total_bytes,
-			})
+			});
 		}
 
 		for (id, channel) in other.hrmp_outgoing.iter() {
@@ -339,7 +339,7 @@ impl<H> SegmentTracker<H> {
 		limits: &OutboundBandwidthLimits,
 	) -> Result<(), BandwidthUpdateError> {
 		if self.consumed_go_ahead_signal.is_some() && block.consumed_go_ahead_signal.is_some() {
-			return Err(BandwidthUpdateError::UpgradeGoAheadAlreadyProcessed)
+			return Err(BandwidthUpdateError::UpgradeGoAheadAlreadyProcessed);
 		}
 		if let Some(watermark) = self.hrmp_watermark.as_ref() {
 			if let HrmpWatermarkUpdate::Trunk(new) = new_watermark {
@@ -347,7 +347,7 @@ impl<H> SegmentTracker<H> {
 					return Err(BandwidthUpdateError::InvalidHrmpWatermark {
 						submitted: new,
 						latest: *watermark,
-					})
+					});
 				}
 			}
 		}

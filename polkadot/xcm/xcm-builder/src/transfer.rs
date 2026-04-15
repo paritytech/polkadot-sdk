@@ -22,7 +22,7 @@ use core::{fmt::Debug, marker::PhantomData};
 use frame_support::traits::Get;
 use sp_runtime::traits::TryConvert;
 use xcm::{latest::Error, opaque::lts::Weight, prelude::*};
-use xcm_executor::traits::{FeeManager, FeeReason, QueryHandler, QueryResponseStatus};
+use xcm_executor::traits::{QueryHandler, QueryResponseStatus};
 
 pub use frame_support::traits::tokens::transfer::{Transfer, TransferStatus};
 
@@ -107,21 +107,19 @@ where
 
 /// Helper type to make a transfer on another chain via XCM.
 pub struct TransferOverXcmHelper<
-	Router,
+	XcmConfig,
 	Querier,
-	XcmFeeHandler,
 	Timeout,
-	Transactor,
+	Beneficiary,
 	AssetKind,
 	AssetKindToLocatableAsset,
 	BeneficiaryRefToLocation,
 >(
 	PhantomData<(
-		Router,
+		XcmConfig,
 		Querier,
-		XcmFeeHandler,
 		Timeout,
-		Transactor,
+		Beneficiary,
 		AssetKind,
 		AssetKindToLocatableAsset,
 		BeneficiaryRefToLocation,
@@ -162,9 +160,8 @@ pub trait TransferOverXcmHelperT {
 }
 
 impl<
-		Router: SendXcm,
+		XcmConfig: xcm_executor::Config,
 		Querier: QueryHandler,
-		XcmFeeHandler: FeeManager,
 		Timeout: Get<Querier::BlockNumber>,
 		Beneficiary: Clone + Debug,
 		AssetKind: Clone + Debug,
@@ -172,9 +169,8 @@ impl<
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	> TransferOverXcmHelperT
 	for TransferOverXcmHelper<
-		Router,
+		XcmConfig,
 		Querier,
-		XcmFeeHandler,
 		Timeout,
 		Beneficiary,
 		AssetKind,
@@ -197,20 +193,21 @@ impl<
 	) -> Result<QueryId, Error> {
 		let locatable = Self::locatable_asset_id(asset_kind)?;
 		let LocatableAssetId { asset_id, location: asset_location } = locatable;
+		tracing::trace!(
+			target: LOG_TARGET,
+			?from_location, ?asset_id, ?asset_location, ?amount, ?remote_fee, "send_remote_transfer_xcm"
+		);
 
 		let origin_location_on_remote = Self::origin_location_on_remote(&asset_location)?;
-
 		let beneficiary = BeneficiaryRefToLocation::try_convert(to).map_err(|error| {
 			tracing::debug!(target: LOG_TARGET, ?error, "Failed to convert beneficiary to location");
 			Error::InvalidLocation
 		})?;
-
 		let query_id = Querier::new_query(
 			asset_location.clone(),
 			Timeout::get(),
 			from_location.interior.clone(),
 		);
-
 		let message = match remote_fee {
 			None => remote_transfer_xcm_free_execution(
 				from_location.clone(),
@@ -232,12 +229,9 @@ impl<
 		};
 
 		let (ticket, delivery_fees) =
-			Router::validate(&mut Some(asset_location), &mut Some(message))?;
-		Router::deliver(ticket)?;
-
-		if !XcmFeeHandler::is_waived(Some(&from_location), FeeReason::ChargeFees) {
-			XcmFeeHandler::handle_fee(delivery_fees, None, FeeReason::ChargeFees)
-		}
+			XcmConfig::XcmSender::validate(&mut Some(asset_location), &mut Some(message))?;
+		xcm_executor::XcmExecutor::<XcmConfig>::charge_fees(from_location, delivery_fees)?;
+		XcmConfig::XcmSender::deliver(ticket)?;
 
 		Ok(query_id)
 	}
@@ -258,7 +252,7 @@ impl<
 	#[cfg(feature = "runtime-benchmarks")]
 	fn ensure_successful(_: &Self::Beneficiary, asset_kind: Self::AssetKind, _: Self::Balance) {
 		let locatable = AssetKindToLocatableAsset::try_convert(asset_kind).unwrap();
-		Router::ensure_successful_delivery(Some(locatable.location));
+		XcmConfig::XcmSender::ensure_successful_delivery(Some(locatable.location));
 	}
 	/// Ensure that a call to `check_payment` with the given parameters will return either `Success`
 	/// or `Failure`.
@@ -269,9 +263,8 @@ impl<
 }
 
 impl<
-		Router,
+		XcmConfig,
 		Querier: QueryHandler,
-		XcmFeeHandler,
 		Timeout,
 		Beneficiary: Clone + Debug,
 		AssetKind: Clone + Debug,
@@ -279,9 +272,8 @@ impl<
 		BeneficiaryRefToLocation: for<'a> TryConvert<&'a Beneficiary, Location>,
 	>
 	TransferOverXcmHelper<
-		Router,
+		XcmConfig,
 		Querier,
-		XcmFeeHandler,
 		Timeout,
 		Beneficiary,
 		AssetKind,

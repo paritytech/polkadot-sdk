@@ -420,6 +420,7 @@ def main():
                     f"--no-storage-info --no-min-squares --no-median-slopes " \
                     f"{config['bench_flags']}"
                 print(f'-- Running: {cmd} \n')
+                os.environ['RUNTIME_LOG'] = 'off' # Turn off annoying logs during benchmarking
                 status = os.system(cmd)
 
                 if status != 0 and args.fail_fast:

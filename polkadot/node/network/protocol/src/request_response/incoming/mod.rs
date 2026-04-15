@@ -98,9 +98,9 @@ where
 				};
 
 				if let Err(_) = pending_response.send(response) {
-					return Err(JfyiError::DecodingErrorNoReputationChange(peer, err))
+					return Err(JfyiError::DecodingErrorNoReputationChange(peer, err));
 				}
-				return Err(JfyiError::DecodingError(peer, err))
+				return Err(JfyiError::DecodingError(peer, err));
 			},
 		};
 		Ok(Self::new(peer, payload, pending_response))

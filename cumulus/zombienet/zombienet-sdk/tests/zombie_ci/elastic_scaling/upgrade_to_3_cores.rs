@@ -7,12 +7,11 @@ use serde_json::json;
 use crate::utils::initialize_network;
 
 use cumulus_test_runtime::{
-	elastic_scaling::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING,
-	elastic_scaling_12s_slot::WASM_BINARY_BLOATY as WASM_ELASTIC_SCALING_12S_SLOT,
+	elastic_scaling::WASM_BINARY as WASM_ELASTIC_SCALING,
+	elastic_scaling_12s_slot::WASM_BINARY as WASM_ELASTIC_SCALING_12S_SLOT,
 };
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, create_runtime_upgrade_call,
-	submit_extrinsic_and_wait_for_finalization_success, wait_for_runtime_upgrade,
+	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
@@ -71,9 +70,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	};
 
 	log::info!("Performing runtime upgrade");
-	let call = create_runtime_upgrade_call(wasm);
-	submit_extrinsic_and_wait_for_finalization_success(&collator0_client, &call, &dev::alice())
-		.await?;
+	submit_sudo_runtime_upgrade(&collator0_client, wasm, &dev::alice()).await?;
 
 	let collator1 = network.get_node("collator1")?;
 	let collator1_client: OnlineClient<PolkadotConfig> = collator1.wait_client().await?;
@@ -127,34 +124,23 @@ async fn build_network_config(async_backing: bool) -> Result<NetworkConfig, anyh
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("validator0"))
-				.with_node(|node| node.with_name("validator1"))
-				.with_node(|node| node.with_name("validator2"))
+				.with_validator(|node| node.with_name("validator0"))
+				.with_validator(|node| node.with_name("validator1"))
+				.with_validator(|node| node.with_name("validator2"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
 				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_default_args(vec![
+					"--authoring=slot-based".into(),
+					"-lparachain=debug,aura=debug".into(),
+				])
 				.onboard_as_parachain(false)
 				.with_chain(chain)
-				.with_default_image(images.cumulus.as_str())
-				.with_collator(|n| {
-					n.with_name("collator0").validator(true).with_args(vec![
-						"--authoring=slot-based".into(),
-						("-lparachain=debug,aura=debug").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("collator1").validator(true).with_args(vec![
-						"--authoring=slot-based".into(),
-						("-lparachain=debug,aura=debug").into(),
-					])
-				})
-				.with_collator(|n| {
-					n.with_name("collator2").validator(true).with_args(vec![
-						"--authoring=slot-based".into(),
-						("-lparachain=debug,aura=debug").into(),
-					])
-				})
+				.with_collator(|n| n.with_name("collator0").validator(true))
+				.with_collator(|n| n.with_name("collator1").validator(true))
+				.with_collator(|n| n.with_name("collator2").validator(true))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),
