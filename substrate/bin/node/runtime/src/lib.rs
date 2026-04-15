@@ -772,6 +772,24 @@ impl pallet_staking::Config for Runtime {
 	type MaxValidatorSet = ConstU32<1000>;
 }
 
+parameter_types! {
+	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const DapIssuanceCadence: u64 = 0; // drip every block
+	pub const DapMaxElapsedPerDrip: u64 = 600_000;
+}
+
+impl pallet_dap::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapPalletId;
+	type IssuanceCurve = ();
+	type BudgetRecipients = (pallet_dap::Pallet<Runtime>,);
+	type Time = Timestamp;
+	type IssuanceCadence = DapIssuanceCadence;
+	type MaxElapsedPerDrip = DapMaxElapsedPerDrip;
+	type BudgetOrigin = EnsureRoot<AccountId>;
+	type WeightInfo = ();
+}
+
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type ControlOrigin = frame_system::EnsureRoot<AccountId>;
@@ -2909,6 +2927,9 @@ mod runtime {
 
 	#[runtime::pallet_index(93)]
 	pub type VestingPrecompiles = pallet_vesting_precompiles::pallet::Pallet<Runtime>;
+
+	#[runtime::pallet_index(94)]
+	pub type Dap = pallet_dap::Pallet<Runtime>;
 }
 
 /// The address format for describing accounts.
@@ -3286,6 +3307,7 @@ mod benches {
 		[pallet_glutton, Glutton]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_society, Society]
+		[pallet_dap, Dap]
 		[pallet_staking, Staking]
 		[pallet_state_trie_migration, StateTrieMigration]
 		[pallet_sudo, Sudo]
