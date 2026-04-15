@@ -9,6 +9,6 @@ crates:
 - name: polkadot-collator-protocol
   bump: patch
 - name: polkadot-node-network-protocol
-  bump: patch
+  bump: major
 - name: polkadot-service
   bump: patch
