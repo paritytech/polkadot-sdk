@@ -25,7 +25,7 @@ use polkadot_primitives::{
 };
 use polkadot_runtime_parachains::paras;
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::{traits::SaturatedConversion, DispatchError, Permill};
+use sp_runtime::{DispatchError, Permill};
 use std::{cell::RefCell, collections::HashMap};
 
 thread_local! {
