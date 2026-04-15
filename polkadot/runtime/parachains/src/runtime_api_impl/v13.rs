@@ -476,7 +476,7 @@ pub fn backing_constraints<T: initializer::Config>(
 	};
 
 	let min_relay_parent_number = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
-		.map(|ctx| std::cmp::max(ctx, min_allowed_relay_parent_number()))
+		.map(|ctx| core::cmp::max(ctx, min_allowed_relay_parent_number()))
 		.unwrap_or_else(min_allowed_relay_parent_number);
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
