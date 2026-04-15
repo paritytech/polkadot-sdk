@@ -97,7 +97,7 @@ pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 i
 /// claim queue => 60 is a good value for per para limit.
 pub const CONNECTED_PEERS_PARA_LIMIT: NonZeroU16 = const {
 	assert!(CONNECTED_PEERS_LIMIT.get() == 300);
-	NonZeroU16::new(60).expect("100 is greater than 0")
+	NonZeroU16::new(60).expect("60 is greater than 0")
 };
 
 /// Maximum number of relay parents to process for reputation bumps on startup and between finality
