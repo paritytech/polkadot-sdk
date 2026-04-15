@@ -257,13 +257,12 @@ where
 	}
 
 	let runtime_api = client.runtime_api();
-	let api_version = match runtime_api
+	let Some(api_version) = runtime_api
 		.api_version::<dyn AuraUnincludedSegmentApi<Block>>(parent_hash)
 		.ok()
 		.flatten()
-	{
-		Some(v) => v,
-		None => return false,
+	else {
+		return false;
 	};
 
 	let slot = if api_version > 1 { relay_slot } else { para_slot };
