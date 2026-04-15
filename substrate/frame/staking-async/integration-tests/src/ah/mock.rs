@@ -576,6 +576,7 @@ impl pallet_dap::Config for Runtime {
 	type BudgetRecipients = (
 		pallet_dap::Pallet<Runtime>,
 		pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest>,
+		pallet_staking_async::ValidatorIncentiveRecipient<pallet_staking_async::SequentialTest>,
 	);
 	type Time = MockTime;
 	type IssuanceCadence = DapIssuanceCadence;
@@ -909,22 +910,66 @@ impl ExtBuilder {
 
 /// Set up DAP infrastructure: budget allocation, timestamp, fund pots with ED.
 pub(crate) fn setup_dap() {
+	setup_dap_with_budget(50, 0, 50);
+}
+
+/// Set up DAP with a specific budget split (stakers%, incentive%, buffer%).
+/// Percentages must sum to 100.
+pub(crate) fn setup_dap_with_budget(
+	staker_pct: u32,
+	incentive_pct: u32,
+	buffer_pct: u32,
+) {
+	use pallet_staking_async::{RewardKind, RewardPot, SequentialTest, ValidatorIncentiveRecipient};
+
+	assert_eq!(staker_pct + incentive_pct + buffer_pct, 100, "Budget must sum to 100%");
+
 	let staker_key = <pallet_staking_async::StakerRewardRecipient<
-		pallet_staking_async::SequentialTest,
+		SequentialTest,
+	> as BudgetRecipient<AccountId>>::budget_key();
+	let incentive_key = <ValidatorIncentiveRecipient<
+		SequentialTest,
 	> as BudgetRecipient<AccountId>>::budget_key();
 	let buffer_key = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
+
 	let mut budget = pallet_dap::BudgetAllocationMap::new();
-	budget.try_insert(staker_key, Perbill::from_percent(50)).unwrap();
-	budget.try_insert(buffer_key, Perbill::from_percent(50)).unwrap();
+	budget.try_insert(staker_key, Perbill::from_percent(staker_pct)).unwrap();
+	budget.try_insert(incentive_key, Perbill::from_percent(incentive_pct)).unwrap();
+	budget.try_insert(buffer_key, Perbill::from_percent(buffer_pct)).unwrap();
 	pallet_dap::BudgetAllocation::<Runtime>::put(budget);
 
 	pallet_dap::LastIssuanceTimestamp::<Runtime>::put(MockTime::get());
 
-	// Fund general staker pot with ED to keep it alive.
-	let general_pot = pallet_staking_async::SequentialTest::pot_account(
-		pallet_staking_async::RewardPot::General(pallet_staking_async::RewardKind::StakerRewards),
-	);
-	Balances::mint_into(&general_pot, 1).unwrap();
+	// Fund general pots with ED to keep them alive.
+	let general_staker_pot =
+		SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+	Balances::mint_into(&general_staker_pot, 1).unwrap();
+
+	let general_incentive_pot =
+		SequentialTest::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake));
+	Balances::mint_into(&general_incentive_pot, 1).unwrap();
+}
+
+/// Change only the budget allocation percentages (no timestamp or ED changes).
+/// Use for mid-era governance changes in tests.
+pub(crate) fn change_budget_allocation(staker_pct: u32, incentive_pct: u32, buffer_pct: u32) {
+	use pallet_staking_async::{SequentialTest, ValidatorIncentiveRecipient};
+
+	assert_eq!(staker_pct + incentive_pct + buffer_pct, 100, "Budget must sum to 100%");
+
+	let staker_key = <pallet_staking_async::StakerRewardRecipient<
+		SequentialTest,
+	> as BudgetRecipient<AccountId>>::budget_key();
+	let incentive_key = <ValidatorIncentiveRecipient<
+		SequentialTest,
+	> as BudgetRecipient<AccountId>>::budget_key();
+	let buffer_key = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
+
+	let mut budget = pallet_dap::BudgetAllocationMap::new();
+	budget.try_insert(staker_key, Perbill::from_percent(staker_pct)).unwrap();
+	budget.try_insert(incentive_key, Perbill::from_percent(incentive_pct)).unwrap();
+	budget.try_insert(buffer_key, Perbill::from_percent(buffer_pct)).unwrap();
+	pallet_dap::BudgetAllocation::<Runtime>::put(budget);
 }
 
 parameter_types! {
