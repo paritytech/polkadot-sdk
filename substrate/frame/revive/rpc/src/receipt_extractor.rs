@@ -517,6 +517,156 @@ impl ReceiptExtractor {
 mod tests {
 	use super::*;
 
+	use pallet_revive::evm::{Account, TransactionLegacyUnsigned, TransactionUnsigned};
+
+	fn signed_call(account: &Account, tx: TransactionUnsigned) -> (EthTransact, H256) {
+		let payload = account.sign_transaction(tx).signed_payload();
+		let hash = H256(keccak_256(&payload));
+		(EthTransact { payload }, hash)
+	}
+
+	fn legacy_call_tx(to: H160) -> TransactionUnsigned {
+		TransactionUnsigned::from(TransactionLegacyUnsigned {
+			chain_id: Some(U256::from(1)),
+			to: Some(to),
+			gas: U256::from(21_000),
+			..Default::default()
+		})
+	}
+
+	fn gas_info() -> ReceiptGasInfo {
+		ReceiptGasInfo {
+			gas_used: U256::from(21_000),
+			effective_gas_price: U256::from(1_000_000_000),
+		}
+	}
+
+	#[test]
+	fn build_receipt_for_call() {
+		let extractor = ReceiptExtractor::new_mock();
+		let account = Account::default();
+		let eth_block_hash = H256::from([0xAB; 32]);
+		let block_number = U256::from(42);
+		let (call, tx_hash) = signed_call(&account, legacy_call_tx(account.address()));
+
+		// Successful call
+		let (signed_tx, receipt) = extractor
+			.decode_transaction_and_build_receipt(
+				eth_block_hash,
+				block_number,
+				call,
+				tx_hash,
+				3,
+				gas_info(),
+				false,
+				vec![],
+			)
+			.unwrap();
+
+		assert!(receipt.is_success());
+		assert_eq!(receipt.from, account.address());
+		assert_eq!(receipt.to, Some(account.address()));
+		assert_eq!(receipt.contract_address, None);
+		assert_eq!(receipt.block_hash, eth_block_hash);
+		assert_eq!(receipt.block_number, block_number);
+		assert_eq!(receipt.transaction_hash, tx_hash);
+		assert_eq!(receipt.transaction_index, U256::from(3));
+		assert_eq!(receipt.gas_used, U256::from(21_000));
+		assert_eq!(signed_tx.recover_eth_address().unwrap(), account.address());
+
+		// Same call, but reverted
+		let (call, tx_hash) = signed_call(&account, legacy_call_tx(account.address()));
+		let (_, receipt) = extractor
+			.decode_transaction_and_build_receipt(
+				eth_block_hash,
+				block_number,
+				call,
+				tx_hash,
+				3,
+				gas_info(),
+				true,
+				vec![],
+			)
+			.unwrap();
+
+		assert!(!receipt.is_success());
+		assert_eq!(receipt.from, account.address());
+	}
+
+	#[test]
+	fn build_receipt_for_deploy() {
+		let extractor = ReceiptExtractor::new_mock();
+		let account = Account::default();
+		let deploy_tx = TransactionUnsigned::from(TransactionLegacyUnsigned {
+			chain_id: Some(U256::from(1)),
+			gas: U256::from(100_000),
+			nonce: U256::from(0),
+			..Default::default()
+		});
+		let (call, tx_hash) = signed_call(&account, deploy_tx);
+
+		let (_, receipt) = extractor
+			.decode_transaction_and_build_receipt(
+				H256::zero(),
+				U256::from(1),
+				call,
+				tx_hash,
+				0,
+				gas_info(),
+				false,
+				vec![],
+			)
+			.unwrap();
+
+		assert!(receipt.is_success());
+		assert_eq!(receipt.to, None);
+		assert_eq!(receipt.contract_address, Some(create1(&account.address(), 0)));
+		assert_eq!(receipt.from, account.address());
+	}
+
+	#[test]
+	fn build_receipt_rejects_invalid_payload() {
+		let extractor = ReceiptExtractor::new_mock();
+
+		// Corrupt payload
+		let call = EthTransact { payload: vec![0xde, 0xad] };
+		let hash = H256(keccak_256(&call.payload));
+		let err = extractor
+			.decode_transaction_and_build_receipt(
+				H256::zero(),
+				U256::from(1),
+				call,
+				hash,
+				0,
+				gas_info(),
+				false,
+				vec![],
+			)
+			.unwrap_err();
+		assert!(matches!(err, ClientError::TxDecodingFailed));
+
+		// Valid payload but address recovery fails
+		let extractor = ReceiptExtractor {
+			recover_eth_address: Arc::new(|_| Err(())),
+			..ReceiptExtractor::new_mock()
+		};
+		let account = Account::default();
+		let (call, hash) = signed_call(&account, legacy_call_tx(account.address()));
+		let err = extractor
+			.decode_transaction_and_build_receipt(
+				H256::zero(),
+				U256::from(1),
+				call,
+				hash,
+				0,
+				gas_info(),
+				false,
+				vec![],
+			)
+			.unwrap_err();
+		assert!(matches!(err, ClientError::RecoverEthAddressFailed));
+	}
+
 	#[test]
 	fn defaults_and_first_evm_block_only_decreases() {
 		let extractor = ReceiptExtractor::new_mock();
