@@ -8,9 +8,7 @@ doc:
 
     Additionally, glutton-westend is updated to use named elastic scaling
     constants (RELAY_PARENT_OFFSET, BLOCK_PROCESSING_VELOCITY,
-    UNINCLUDED_SEGMENT_CAPACITY) instead of hardcoded values, and its
-    relay parent offset is set to 1, matching the pattern used by
-    other Westend parachains.
+    UNINCLUDED_SEGMENT_CAPACITY) instead of hardcoded values
 crates:
 - name: testnet-parachains-constants
   bump: patch
