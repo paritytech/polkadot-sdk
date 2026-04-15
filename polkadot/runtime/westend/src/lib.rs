@@ -2016,14 +2016,16 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
-		// permanent
-		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
-		// Drain relay treasury to DAP satellite, then clear orphaned storage.
+		// #11705: drain residual relay-treasury balance into DAP satellite, then clear orphaned
+		// storage. Idempotent. No further activity on the legacy `py/trsry` account is expected.
+		// Safe to remove once confirmed.
 		pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 
