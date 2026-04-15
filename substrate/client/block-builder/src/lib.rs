@@ -254,7 +254,7 @@ where
 			api.register_extension(e);
 		});
 
-		api.set_call_context(CallContext::Onchain);
+		api.set_call_context(CallContext::Onchain { import: false });
 
 		let core_version = api
 			.api_version::<dyn Core<Block>>(parent_hash)?

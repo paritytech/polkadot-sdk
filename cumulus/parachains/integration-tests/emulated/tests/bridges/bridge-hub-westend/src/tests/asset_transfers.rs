@@ -104,9 +104,9 @@ fn send_assets_from_penpal_westend_through_westend_ah_to_rococo_ah(
 					) => {
 						who: *who == sov_penpal_on_ahw.clone().into(),
 					},
-					// Amount deposited in AHR's sovereign account
+					// Delivery fees are deposited to the DAP buffer account.
 					RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
-						who: *who == TreasuryAccount::get(),
+						who: *who == DapBufferAccount::get(),
 					},
 					RuntimeEvent::XcmpQueue(
 						cumulus_pallet_xcmp_queue::Event::XcmpMessageSent { .. }

@@ -165,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1348,7 +1348,7 @@ impl pallet_scheduler::Config for Runtime {
 	type MaximumWeight = MaximumSchedulerWeight;
 	type ScheduleOrigin = EnsureRoot<AccountId>;
 	#[cfg(feature = "runtime-benchmarks")]
-	type MaxScheduledPerBlock = ConstU32<{ 512 * 15 }>; // MaxVotes * TRACKS_DATA length
+	type MaxScheduledPerBlock = ConstU32<{ 512 * 16 }>; // MaxVotes * TRACKS_DATA length
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type MaxScheduledPerBlock = ConstU32<50>;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
@@ -1504,8 +1504,8 @@ type PsmStableAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
-///
-/// Root gets Full privileges; GeneralAdmin gets Emergency.
+/// - Root gets Full privileges (all parameter changes).
+/// - MonetaryGuard gets Emergency privileges (circuit breaker only).
 pub struct EnsurePsmManager;
 impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 	type Success = pallet_psm::PsmManagerLevel;
@@ -1516,7 +1516,9 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 			Ok(frame_system::RawOrigin::Root) => return Ok(pallet_psm::PsmManagerLevel::Full),
 			_ => o,
 		};
-		governance::GeneralAdmin::try_origin(o).map(|_| pallet_psm::PsmManagerLevel::Emergency)
+		// Try MonetaryGuard — circuit breaker only.
+		pallet_custom_origins::MonetaryGuard::try_origin(o)
+			.map(|_| pallet_psm::PsmManagerLevel::Emergency)
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]

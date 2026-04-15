@@ -128,7 +128,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -598,6 +598,7 @@ pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 WND bond to join as an Ally
+	// TODO(#11705): migrate old treasury funds to DapSatellite and remove WestendTreasuryAccount.
 	pub WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
