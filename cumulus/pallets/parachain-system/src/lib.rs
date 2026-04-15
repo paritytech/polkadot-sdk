@@ -771,8 +771,9 @@ pub mod pallet {
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
-			if let Some(collator_peer_id) = collator_peer_id {
-				PendingApprovedPeer::<T>::put(collator_peer_id);
+			match collator_peer_id {
+				Some(peer_id) => PendingApprovedPeer::<T>::put(peer_id),
+				None => PendingApprovedPeer::<T>::kill(),
 			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
