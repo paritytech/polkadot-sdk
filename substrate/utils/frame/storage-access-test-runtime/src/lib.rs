@@ -165,11 +165,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 
 				for i in 0..triggers_per_batch {
 					let start_idx = i * trigger_interval;
-					let end_idx = if i == triggers_per_batch - 1 {
-						batch_size
-					} else {
-						(i + 1) * trigger_interval
-					};
+					let end_idx = min(batch_size, (i + 1) * trigger_interval);
 
 					let trigger_changes = &changes[start_idx..end_idx];
 					let trigger_delta = trigger_changes
