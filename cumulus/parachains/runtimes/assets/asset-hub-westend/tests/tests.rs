@@ -2562,6 +2562,7 @@ mod dap {
 		let buffer = <pallet_dap::Pallet<Runtime> as sp_staking::budget::BudgetRecipient<
 			AccountId,
 		>>::pot_account();
+		let staging = pallet_dap::Pallet::<Runtime>::staging_account();
 		let ed = ExistentialDeposit::get();
 		let dust = ed / 2;
 
@@ -2577,8 +2578,12 @@ mod dap {
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
 				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&buffer, ed));
+				// Pre-fund staging so dust (< ED) can be deposited without creating a new account.
+				assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&staging, ed));
 
 				let buffer_before = <Balances as Inspect<AccountId>>::balance(&buffer);
+				let staging_before = <Balances as Inspect<AccountId>>::balance(&staging);
+				let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
 
 				// Transfer ED away from bob, leaving dust < ED → account reaped.
 				assert_ok!(Balances::transfer_allow_death(
@@ -2587,9 +2592,16 @@ mod dap {
 					ed,
 				));
 
-				let buffer_after = <Balances as Inspect<AccountId>>::balance(&buffer);
-				assert_eq!(buffer_after, buffer_before + dust);
+				// Dust lands in staging first (two-phase deactivation).
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before + dust);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+
+				// After on_idle: staging drains into buffer and deactivates.
+				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
+				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before + dust);
+				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
 	}
 }
