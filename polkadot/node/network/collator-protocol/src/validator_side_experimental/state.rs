@@ -622,7 +622,7 @@ impl<B: Backend> State<B> {
 	}
 
 	#[cfg(test)]
-	pub fn advertisements(&self) -> std::collections::BTreeSet<Advertisement> {
+	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
 		self.collation_manager.advertisements()
 	}
 }

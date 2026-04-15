@@ -190,15 +190,11 @@ impl PerLeafClaimQueueState {
 		relay_parent: &Hash,
 		para_id: &ParaId,
 		candidate_hash: &CandidateHash,
-		core_index: Option<CoreIndex>,
+		core_index: CoreIndex,
 	) -> bool {
 		let mut result = false;
 		for (leaf, core_states) in &mut self.leaves {
-			let states: Vec<&mut ClaimQueueState> = match core_index {
-				Some(idx) => core_states.get_mut(&idx).into_iter().collect(),
-				None => core_states.values_mut().collect(),
-			};
-			for state in states {
+			if let Some(state) = core_states.get_mut(&core_index) {
 				if state.mark_pending_slot_with_candidate(relay_parent, para_id, *candidate_hash) {
 					result = true;
 				}
@@ -730,45 +726,6 @@ mod test {
 			// Pruning A makes core0 unreachable and it gets dropped
 			state.remove_pruned_ancestors(&HashSet::from([*RELAY_PARENT_A]));
 			assert!(!state.leaves[&RELAY_PARENT_C].contains_key(&CORE_0));
-		}
-
-		/// `mark_pending_slot_with_candidate` with `None` core_index finds and marks
-		/// the correct core's pending slot.
-		#[test]
-		fn v1_mark_pending_without_core() {
-			let (mut state, _, _) = rotation_setup(1);
-
-			// V1 claim: no candidate hash yet
-			assert!(state.claim_pending_slot(&RELAY_PARENT_A, &PARA_1, None, CORE_0));
-
-			// None searches all cores — finds core0's Pending(None)
-			assert!(state.mark_pending_slot_with_candidate(
-				&RELAY_PARENT_A,
-				&PARA_1,
-				&CANDIDATE_A1,
-				None,
-			));
-			// Slot is now marked — second attempt fails (no more Pending(None))
-			assert!(!state.mark_pending_slot_with_candidate(
-				&RELAY_PARENT_A,
-				&PARA_1,
-				&CANDIDATE_A2,
-				None,
-			));
-		}
-
-		/// `claim_seconded_slot` with `None` core_index finds the correct core's slot.
-		#[test]
-		fn v1_second_without_core() {
-			let (mut state, _, _) = rotation_setup(1);
-
-			// Second on core1 without specifying the core
-			assert!(state.claim_seconded_slot(&RELAY_PARENT_B, &PARA_2, &CANDIDATE_B1, None));
-			assert!(!state.free_slots(&RELAY_PARENT_B).contains(&PARA_2));
-
-			// Release and verify it's free again
-			assert!(state.release_claims_for_candidate(&CANDIDATE_B1));
-			assert!(state.free_slots(&RELAY_PARENT_B).contains(&PARA_2));
 		}
 	}
 }

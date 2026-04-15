@@ -801,11 +801,14 @@ impl CollationManager {
 		let para_id = fetched_collation.candidate_receipt.descriptor.para_id();
 
 		// This can be simplified once CollatorProtocol V1 is retired.
-		let core_index = core_index.or_else(|| {
+		let Some(core_index) = core_index.or_else(|| {
 			self.per_scheduling_parent
 				.get(&fetched_collation.candidate_receipt.descriptor.scheduling_parent())
 				.map(|psp| psp.core_index)
-		});
+		}) else {
+			// The scheduling parent is no longer in view - reject.
+			return CanSecond::No(None, reject_info);
+		};
 
 		let fetch_pvd_res = fetch_pvd(
 			sender,
