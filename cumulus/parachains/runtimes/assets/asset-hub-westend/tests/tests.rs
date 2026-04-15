@@ -45,7 +45,6 @@ use frame_support::{
 	assert_err, assert_noop, assert_ok, parameter_types,
 	traits::{
 		fungible::{self, Inspect, Mutate},
-		Hooks,
 		fungibles::{
 			self, Create, Inspect as FungiblesInspect, InspectEnumerable, Mutate as FungiblesMutate,
 		},
@@ -53,7 +52,7 @@ use frame_support::{
 			common_strategies::{Bytes, Owner},
 			Inspect as InspectUniqueAsset,
 		},
-		ContainsPair, SignedTransactionBuilder,
+		ContainsPair, Hooks, SignedTransactionBuilder,
 	},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
@@ -923,27 +922,33 @@ fn test_assets_balances_api_works() {
 			assert_eq!(result.len(), 3);
 
 			// check currency
-			assert!(result.inner().iter().any(|asset| asset.eq(
+			assert!(result.inner().iter().any(|asset| {
+				asset.eq(
 				&assets_common::fungible_conversion::convert_balance::<WestendLocation, Balance>(
 					some_currency
 				)
 				.unwrap()
-			)));
+			)
+			}));
 			// check trusted asset
-			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap(),
-				minimum_asset_balance
-			)
-				.into())));
-			// check foreign asset
-			assert!(result.inner().iter().any(|asset| asset.eq(&(
-				WithLatestLocationConverter::<xcm::v5::Location>::convert_back(
-					&foreign_asset_id_location
+			assert!(result.inner().iter().any(|asset| {
+				asset.eq(&(
+					AssetIdForTrustBackedAssetsConvert::convert_back(&local_asset_id).unwrap(),
+					minimum_asset_balance,
 				)
-				.unwrap(),
-				6 * foreign_asset_minimum_asset_balance
-			)
-				.into())));
+					.into())
+			}));
+			// check foreign asset
+			assert!(result.inner().iter().any(|asset| {
+				asset.eq(&(
+					WithLatestLocationConverter::<xcm::v5::Location>::convert_back(
+						&foreign_asset_id_location,
+					)
+					.unwrap(),
+					6 * foreign_asset_minimum_asset_balance,
+				)
+					.into())
+			}));
 		});
 }
 
@@ -2532,14 +2537,20 @@ mod dap {
 				assert!(fee_paid > 0, "a fee should have been paid");
 
 				// Fees land in staging first, not directly in the buffer.
-				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before + fee_paid);
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&staging),
+					staging_before + fee_paid
+				);
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before);
 
 				// on_idle drains staging into buffer and deactivates.
 				pallet_dap::Pallet::<Runtime>::on_idle(1, Weight::MAX);
 
 				assert_eq!(<Balances as Inspect<AccountId>>::balance(&staging), staging_before);
-				assert_eq!(<Balances as Inspect<AccountId>>::balance(&buffer), buffer_before + fee_paid);
+				assert_eq!(
+					<Balances as Inspect<AccountId>>::balance(&buffer),
+					buffer_before + fee_paid
+				);
 				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
 	}

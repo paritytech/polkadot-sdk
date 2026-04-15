@@ -317,7 +317,7 @@ pub mod pallet {
 		///
 		/// Incoming funds land here and are periodically drained and deactivated into the
 		/// DAP buffer account by `on_idle`.
-		pub(crate) fn staging_account() -> T::AccountId {
+		pub fn staging_account() -> T::AccountId {
 			sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
 		}
 
