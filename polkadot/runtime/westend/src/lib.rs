@@ -1995,116 +1995,6 @@ pub type Migrations = migrations::Unreleased;
 pub mod migrations {
 	use super::*;
 
-	/// Fully drain the relay treasury account into the relay-local DAP satellite buffer.
-	/// The treasury pallet is being removed from Westend RC (#11705), the residual balance is swept
-	/// here so the funds become accountable in DAP.
-	///
-	/// Idempotent: early-returns with 1 read if the reducible balance is zero.
-	/// Runs on every runtime upgrade until removed from the `Unreleased` tuple.
-	pub struct DrainRelayTreasuryToDapSatellite;
-	impl frame_support::traits::OnRuntimeUpgrade for DrainRelayTreasuryToDapSatellite {
-		fn on_runtime_upgrade() -> Weight {
-			use frame_support::traits::{
-				fungible::{Balanced, Inspect},
-				tokens::{Fortitude, Precision, Preservation},
-				OnUnbalanced,
-			};
-
-			let treasury: AccountId = PalletId(*b"py/trsry").into_account_truncating();
-			let amount = <Balances as Inspect<AccountId>>::reducible_balance(
-				&treasury,
-				Preservation::Expendable,
-				Fortitude::Polite,
-			);
-			if amount == 0 {
-				log::info!(
-					target: "runtime::migrations",
-					"DrainRelayTreasuryToDapSatellite: nothing to withdraw (reducible balance is zero)."
-				);
-				return <Runtime as frame_system::Config>::DbWeight::get().reads(1);
-			}
-
-			match <Balances as Balanced<AccountId>>::withdraw(
-				&treasury,
-				amount,
-				Precision::Exact,
-				Preservation::Expendable,
-				Fortitude::Polite,
-			) {
-				Ok(credit) => {
-					DapSatellite::on_unbalanced(credit);
-					log::info!(
-						target: "runtime::migrations",
-						"DrainRelayTreasuryToDapSatellite: swept {amount:?} from treasury to DAP satellite."
-					);
-				},
-				Err(_) => {
-					frame_support::defensive!(
-						"DrainRelayTreasuryToDapSatellite: failed to withdraw from treasury account"
-					);
-				},
-			}
-
-			// Distinct storage keys touched:
-			// Reads: treasury Account (balances), treasury Account (system),
-			//        satellite Account (balances), satellite Account (system) = 4
-			// Writes: treasury Account (balances), treasury Account (system),
-			//         satellite Account (balances), satellite Account (system) = 4
-			<Runtime as frame_system::Config>::DbWeight::get().reads_writes(4, 4)
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-			use frame_support::traits::fungible::Inspect;
-
-			let treasury: AccountId = PalletId(*b"py/trsry").into_account_truncating();
-			let balance = <Balances as Inspect<AccountId>>::reducible_balance(
-				&treasury,
-				frame_support::traits::tokens::Preservation::Expendable,
-				frame_support::traits::tokens::Fortitude::Polite,
-			);
-			log::info!(
-				target: "runtime::migrations",
-				"DrainRelayTreasuryToDapSatellite: pre-upgrade treasury reducible balance = {balance:?}"
-			);
-			Ok(balance.encode())
-		}
-
-		#[cfg(feature = "try-runtime")]
-		fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-			use codec::Decode;
-			use frame_support::traits::fungible::Inspect;
-
-			let pre_balance: Balance =
-				Decode::decode(&mut &state[..]).expect("pre_upgrade encoded a Balance");
-			let treasury: AccountId = PalletId(*b"py/trsry").into_account_truncating();
-			let post_balance = <Balances as Inspect<AccountId>>::reducible_balance(
-				&treasury,
-				frame_support::traits::tokens::Preservation::Expendable,
-				frame_support::traits::tokens::Fortitude::Polite,
-			);
-
-			frame_support::ensure!(
-				post_balance == 0,
-				"Treasury reducible balance should be zero after migration"
-			);
-
-			let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
-			let satellite_balance = <Balances as Inspect<AccountId>>::total_balance(&satellite);
-			frame_support::ensure!(
-				satellite_balance >= pre_balance,
-				"DAP satellite balance should have increased by at least the drained amount"
-			);
-
-			log::info!(
-				target: "runtime::migrations",
-				"DrainRelayTreasuryToDapSatellite: post-upgrade OK. \
-				 Treasury reducible: {post_balance:?}, satellite total: {satellite_balance:?}"
-			);
-			Ok(())
-		}
-	}
-
 	parameter_types! {
 		pub const TreasuryPalletStr: &'static str = "Treasury";
 	}
@@ -2129,7 +2019,7 @@ pub mod migrations {
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 		// Drain relay treasury to DAP satellite, then clear orphaned storage.
-		DrainRelayTreasuryToDapSatellite,
+		pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
