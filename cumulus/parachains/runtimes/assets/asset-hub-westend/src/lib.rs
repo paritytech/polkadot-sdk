@@ -1571,7 +1571,7 @@ impl pallet_psm::Config for Runtime {
 ///
 /// Sets up USDT (1984) as the first external asset.
 pub struct PsmInitialConfig;
-impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {
+impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
 	fn max_psm_debt_of_total() -> Permill {
 		// USDT PSM cap is 5M out of 50M total issuance = 10%.
 		Permill::from_percent(10)
@@ -1840,7 +1840,7 @@ pub type Migrations = (
 	// unreleased
 	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
 	// Idempotent — skips assets that are already configured.
-	pallet_psm::migrations::v1::InitializePsm<Runtime, PsmInitialConfig>,
+	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
 	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
 );
 

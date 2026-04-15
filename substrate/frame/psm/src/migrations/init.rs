@@ -27,7 +27,7 @@
 //!
 //! ```ignore
 //! pub type Migrations = (
-//!     pallet_psm::migrations::v1::InitializePsm<Runtime, PsmInitialConfig>,
+//!     pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
 //!     // ... other migrations
 //! );
 //! ```
@@ -102,8 +102,11 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		let mut reads = 0u64;
 		let mut writes = 0u64;
 
-		MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
-		writes += 1;
+		reads += 1;
+		if MaxPsmDebtOfTotal::<T>::get().is_zero() {
+			MaxPsmDebtOfTotal::<T>::put(I::max_psm_debt_of_total());
+			writes += 1;
+		}
 
 		let stable_decimals = T::StableAsset::decimals();
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
