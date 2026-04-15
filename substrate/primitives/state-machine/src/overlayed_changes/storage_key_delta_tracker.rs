@@ -42,20 +42,27 @@ pub enum DeltaKeyOp {
 	Deleted,
 }
 
-type KeyMap<K> = HashMap<u64, (K, DeltaKeyOp), BuildNoHashHasher<u64>>;
-/// Maps key hash to the last emitted `DeltaKeyOp` for that key.
+/// Pre-computed hash of a storage key, used as an internal map key for fast dedup.
+type KeyHash = u64;
+
+/// Maps key hash -> (key, last op) for keys staged in the current transaction layer.
+type KeyMap<K> = HashMap<KeyHash, (K, DeltaKeyOp), BuildNoHashHasher<KeyHash>>;
+
+/// Maps key hash -> last emitted `DeltaKeyOp` for keys already reported in an incremental delta.
 /// Used to suppress redundant re-emissions across `take_delta` calls.
-type CapturedMap = HashMap<u64, DeltaKeyOp, BuildNoHashHasher<u64>>;
+type CapturedMap = HashMap<KeyHash, DeltaKeyOp, BuildNoHashHasher<KeyHash>>;
 
-/// Incremental snapshot result: map of base hash -> (key, op) for all new keys since last snapshot.
+/// Incremental snapshot result: map of key hash -> (key, op) for all new keys since last snapshot.
 ///
-/// Base hash value shall be ignored. The `DeltaKeyOp` indicates whether the key was updated or
-/// deleted, allowing the trie layer to decide whether to read or remove the key.
-pub type DeltaKeys<K> = HashMap<u64, (K, DeltaKeyOp), BuildNoHashHasher<u64>>;
+/// KeyHash is for internal use and shall be ignored. The `DeltaKeyOp` indicates whether the key was
+/// updated or deleted, allowing the trie layer to decide whether to read or remove the key.
+pub type DeltaKeys<K> = HashMap<KeyHash, (K, DeltaKeyOp), BuildNoHashHasher<KeyHash>>;
 
+/// Default hash builder used by [`StorageKeyDeltaTracker`] to hash storage keys.
 #[cfg(feature = "std")]
 pub type DefaultHashBuilder = foldhash::fast::RandomState;
 
+/// Default hash builder used by [`StorageKeyDeltaTracker`] to hash storage keys.
 #[cfg(not(feature = "std"))]
 pub type DefaultHashBuilder = sp_trie::RandomState;
 
