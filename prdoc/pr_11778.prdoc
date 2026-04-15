@@ -1,0 +1,20 @@
+title: 'Set Aura slot duration to 24s for all Westend parachains'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Increases the Aura slot duration from 6s to 24s for all Westend system
+    parachains (asset-hub, bridge-hub, coretime, people, collectives) via the
+    shared testnet constants, and for glutton-westend and YAP individually.
+
+    Additionally, glutton-westend is updated to use named elastic scaling
+    constants (RELAY_PARENT_OFFSET, BLOCK_PROCESSING_VELOCITY,
+    UNINCLUDED_SEGMENT_CAPACITY) instead of hardcoded values, and its
+    relay parent offset is set to 1, matching the pattern used by
+    other Westend parachains.
+crates:
+- name: testnet-parachains-constants
+  bump: patch
+- name: glutton-westend-runtime
+  bump: patch
+- name: yet-another-parachain-runtime
+  bump: patch
