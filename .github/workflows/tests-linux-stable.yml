@@ -65,12 +65,19 @@ jobs:
       - name: script
         id: required
         run: forklift cargo nextest run --workspace --features runtime-benchmarks benchmark --locked --cargo-profile testnet --cargo-quiet
+      - name: Record runner name
+        if: always()
+        run: |
+          mkdir -p target/nextest/default
+          printf '%s\n' "$RUNNER_NAME" > target/nextest/default/runner-name.txt
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: junit-benchmarks
-          path: target/nextest/default/junit.xml
+          path: |
+            target/nextest/default/junit.xml
+            target/nextest/default/runner-name.txt
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop all workflows if failed
@@ -134,12 +141,19 @@ jobs:
           # Preserve main JUnit XML before the second nextest run overwrites it
           cp target/nextest/default/junit.xml target/nextest/default/junit-main.xml
           forklift cargo nextest run -p sp-api-test --features enable-staging-api --cargo-quiet
+      - name: Record runner name
+        if: always()
+        run: |
+          mkdir -p target/nextest/default
+          printf '%s\n' "$RUNNER_NAME" > target/nextest/default/runner-name.txt
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: junit-stable-${{ strategy.job-index }}
-          path: target/nextest/default/junit*.xml
+          path: |
+            target/nextest/default/junit*.xml
+            target/nextest/default/runner-name.txt
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop all workflows if failed
@@ -189,12 +203,19 @@ jobs:
                    --cargo-quiet \
                    --features experimental,ci-only-tests \
                    --partition count:${{ matrix.partition }}
+      - name: Record runner name
+        if: always()
+        run: |
+          mkdir -p target/nextest/default
+          printf '%s\n' "$RUNNER_NAME" > target/nextest/default/runner-name.txt
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: junit-no-try-runtime-${{ strategy.job-index }}
-          path: target/nextest/default/junit.xml
+          path: |
+            target/nextest/default/junit.xml
+            target/nextest/default/runner-name.txt
           if-no-files-found: ignore
           retention-days: 3
       - name: Stop all workflows if failed
@@ -228,9 +249,20 @@ jobs:
         with:
           pattern: junit-*
           path: junit-reports
+      - name: Fetch job URLs
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api \
+            "repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/attempts/${{ github.run_attempt }}/jobs" \
+            --paginate \
+            --jq '[.jobs[] | {runner_name, name, html_url}]' \
+            > jobs.json || echo '[]' > jobs.json
       - name: Test report
         run: |
-          python3 .github/scripts/flaky-report.py 'junit-reports/*/junit*.xml' | tee test-report.md
+          python3 .github/scripts/flaky-report.py 'junit-reports/*/junit*.xml' jobs.json | tee test-report.md
           cat test-report.md >> $GITHUB_STEP_SUMMARY
       - name: Comment on PR
         # Skip for PRs from forks — github.token is read-only there and gh API calls would 403
