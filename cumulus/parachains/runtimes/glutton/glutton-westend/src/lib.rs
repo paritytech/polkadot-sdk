@@ -175,11 +175,24 @@ parameter_types! {
 	pub const RelayOrigin: AggregateMessageOrigin = AggregateMessageOrigin::Parent;
 }
 
+/// Build with an offset of 1 behind the relay chain.
+const RELAY_PARENT_OFFSET: u32 = 1;
+
+/// The upper limit of how many parachain blocks are processed by the relay chain per
+/// parent. Limits the number of blocks authored per slot. This determines the minimum
+/// block time of the parachain:
+/// `RELAY_CHAIN_SLOT_DURATION_MILLIS/BLOCK_PROCESSING_VELOCITY`
+const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+
+/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+/// into the relay chain.
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
-	3,
-	9,
+	BLOCK_PROCESSING_VELOCITY,
+	UNINCLUDED_SEGMENT_CAPACITY,
 >;
 
 impl cumulus_pallet_parachain_system::Config for Runtime {
@@ -194,7 +207,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
-	type RelayParentOffset = ConstU32<0>;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 }
 
 parameter_types! {
@@ -241,7 +254,7 @@ impl pallet_aura::Config for Runtime {
 	type DisabledValidators = ();
 	type MaxAuthorities = ConstU32<100_000>;
 	type AllowMultipleBlocksPerSlot = ConstBool<true>;
-	type SlotDuration = ConstU64<2000>;
+	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
 impl pallet_glutton::Config for Runtime {
@@ -373,7 +386,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			0
+			RELAY_PARENT_OFFSET
 		}
 	}
 
