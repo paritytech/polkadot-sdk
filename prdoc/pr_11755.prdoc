@@ -8,4 +8,4 @@ doc:
     to the public `sp-core` traits (`VrfSecret`, `VrfPublic`, `RingVrfSign`, `RingVrfVerify`).
 crates:
 - name: sp-core
-  bump: patch
+  bump: minor
