@@ -78,6 +78,22 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PanicSwitch<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Too few nudges were provided (below the runtime minimum).
+		TooFewNudges,
+		/// A nudge in the inherent is too old (slot is beyond the validity window).
+		StaleNudge,
+		/// A nudge in the inherent is a duplicate.
+		DuplicateNudge,
+		/// A nudge in the inherent has an invalid authority.
+		InvalidAuthority,
+		/// A nudge in the inherent has an invalid signature.
+		InvalidSignature,
+		/// Duplicate inherent in the same block.
+		DuplicateInherent,
+	}
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
@@ -111,16 +127,8 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		/// Submit a set of signed nudges as an inherent.
 		///
-		/// Validation is intentionally graceful: invalid nudges (stale, duplicate authority,
-		/// bad signature, unknown authority) are skipped rather than causing a block rejection.
-		/// This is because:
-		/// - The slot visible to the block author's node may differ by 1 from the runtime's slot
-		///   (node reads parent header, runtime has the current block's slot), making borderline
-		///   nudges valid on one side but stale on the other.
-		/// - The validator set can change between when a nudge was signed and when it's included,
-		///   making a previously-valid authority index invalid.
-		///
-		/// We may change any of them to a panic if needed.
+		/// Validation is strict: any invalid nudge (stale, duplicate authority, bad signature,
+		/// unknown authority) causes this inherent to fail and the block to be rejected.
 		///
 		/// `check_inherent` (run by importers) only enforces `MinNudges` as a reasonableness
 		/// check. All per-nudge validation happens here.
@@ -131,10 +139,8 @@ pub mod pallet {
 		))]
 		pub fn submit_nudges(origin: OriginFor<T>, nudges: Vec<SignedNudge>) -> DispatchResult {
 			ensure_none(origin)?;
-			assert!(
-				!NudgeCount::<T>::exists(),
-				"Price oracle inherent must be submitted only once per block"
-			);
+			ensure!(!NudgeCount::<T>::exists(), Error::<T>::DuplicateInherent);
+			ensure!(nudges.len() >= T::MinNudges::get() as usize, Error::<T>::TooFewNudges);
 
 			let authorities = T::AuthorityProvider::authorities();
 			let current_slot = T::AuthorityProvider::current_slot();
@@ -146,44 +152,15 @@ pub mod pallet {
 			let mut seen_authorities = alloc::collections::BTreeSet::<u32>::new();
 
 			for nudge in &nudges {
-				if *nudge.slot + validity <= *current_slot {
-					log::warn!(
-						target: LOG_TARGET,
-						"Stale nudge from slot {:?}, current slot {:?}, validity {}",
-						nudge.slot, current_slot, validity,
-					);
-					continue;
-				}
+				ensure!(*nudge.slot + validity > *current_slot, Error::<T>::StaleNudge);
 
-				if !seen_authorities.insert(nudge.authority_index) {
-					log::warn!(
-						target: LOG_TARGET,
-						"Duplicate nudge from authority index {}, skipping",
-						nudge.authority_index,
-					);
-					continue;
-				}
+				ensure!(seen_authorities.insert(nudge.authority_index), Error::<T>::DuplicateNudge);
 
-				let authority = match authorities.get(nudge.authority_index as usize) {
-					Some(a) => a,
-					None => {
-						log::warn!(
-							target: LOG_TARGET,
-							"Invalid authority index {}",
-							nudge.authority_index,
-						);
-						continue;
-					},
-				};
+				let authority = authorities
+					.get(nudge.authority_index as usize)
+					.ok_or(Error::<T>::InvalidAuthority)?;
 
-				if !nudge.verify(authority) {
-					log::warn!(
-						target: LOG_TARGET,
-						"Invalid signature for authority index {}",
-						nudge.authority_index,
-					);
-					continue;
-				}
+				ensure!(nudge.verify(authority), Error::<T>::InvalidSignature);
 
 				match nudge.nudge {
 					Nudge::Up => ups += 1,
@@ -194,7 +171,7 @@ pub mod pallet {
 			let total_valid = ups + downs;
 			let current_price = CurrentPrice::<T>::get();
 			if total_valid > 0 {
-				let net = if ups >= downs { ups - downs } else { downs - ups };
+				let net = ups.abs_diff(downs);
 				let delta = epsilon.saturating_mul(FixedU128::saturating_from_integer(net));
 
 				let new_price = if ups >= downs {
@@ -267,6 +244,14 @@ pub mod pallet {
 	impl<T: Config> Pallet<T> {
 		pub fn current_price() -> FixedU128 {
 			CurrentPrice::<T>::get()
+		}
+
+		pub fn nudge_validity() -> u64 {
+			T::NudgeValidity::get()
+		}
+
+		pub fn minimum_nudges_required() -> u32 {
+			T::MinNudges::get()
 		}
 	}
 }

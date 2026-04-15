@@ -1356,12 +1356,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Staking => {
 				matches!(
 					c,
-					RuntimeCall::Staking(..)
-						| RuntimeCall::Session(..)
-						| RuntimeCall::Utility(..)
-						| RuntimeCall::FastUnstake(..)
-						| RuntimeCall::VoterList(..)
-						| RuntimeCall::NominationPools(..)
+					RuntimeCall::Staking(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
+						RuntimeCall::FastUnstake(..) |
+						RuntimeCall::VoterList(..) |
+						RuntimeCall::NominationPools(..)
 				)
 			},
 			ProxyType::NominationPools => {
@@ -1377,33 +1377,33 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Governance => matches!(
 				c,
 				// OpenGov calls
-				RuntimeCall::ConvictionVoting(..)
-					| RuntimeCall::Referenda(..)
-					| RuntimeCall::Whitelist(..)
+				RuntimeCall::ConvictionVoting(..) |
+					RuntimeCall::Referenda(..) |
+					RuntimeCall::Whitelist(..)
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
-					| RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
+					RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions(..)
-					| RuntimeCall::Crowdloan(..)
-					| RuntimeCall::Registrar(..)
-					| RuntimeCall::Slots(..)
+				RuntimeCall::Auctions(..) |
+					RuntimeCall::Crowdloan(..) |
+					RuntimeCall::Registrar(..) |
+					RuntimeCall::Slots(..)
 			),
 			ProxyType::ParaRegistration => matches!(
 				c,
-				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. })
-					| RuntimeCall::Registrar(paras_registrar::Call::register { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch_all { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
-					| RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
+				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. }) |
+					RuntimeCall::Registrar(paras_registrar::Call::register { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. }) |
+					RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
 			),
 		}
 	}
@@ -3208,6 +3208,10 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
 			use pallet_price_oracle::pallet::AuthorityProvider;
 			BabeAuthorityProvider::authorities()
+		}
+
+		fn minimum_nudges_required() -> u32 {
+			OracleMinNudges::get()
 		}
 	}
 }

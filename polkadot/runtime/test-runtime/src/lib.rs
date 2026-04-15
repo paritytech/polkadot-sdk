@@ -307,7 +307,7 @@ impl pallet_timestamp::Config for Runtime {
 
 parameter_types! {
 	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 100);
-	pub const OracleMinNudges: u32 = 0;
+	pub const OracleMinNudges: u32 = 1;
 	pub const OracleNudgeValidity: u64 = 10;
 }
 
@@ -1416,6 +1416,10 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
 			use pallet_price_oracle::pallet::AuthorityProvider;
 			BabeAuthorityProvider::authorities()
+		}
+
+		fn minimum_nudges_required() -> u32 {
+			OracleMinNudges::get()
 		}
 	}
 
