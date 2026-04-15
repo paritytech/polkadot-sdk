@@ -34,9 +34,9 @@ use codec::{Decode, DecodeLimit, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
-	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
-	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CoreInfo,
+	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
+	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
 	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
@@ -412,22 +412,15 @@ pub mod pallet {
 
 				let digest = frame_system::Pallet::<T>::digest();
 
-				if let Some(core_info) = CumulusDigestItem::find_core_info(&digest) {
-					PendingUpwardSignals::<T>::append(
-						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-							.encode(),
-					);
+				let core_info = CumulusDigestItem::find_core_info(&digest);
+				PreviousCoreCount::<T>::put(
+					core_info.as_ref().map_or(Compact(1u16), |ci| ci.number_of_cores),
+				);
 
-					PreviousCoreCount::<T>::put(core_info.number_of_cores);
-				} else {
-					// Without the digest, we assume that it is `1`.
-					PreviousCoreCount::<T>::put(Compact(1u16));
-				}
-
-				// Only send UMP signals on the last block of a bundle.
+				// Only send UMP signals on the last block of a PoV.
 				// For single-block PoVs (no BlockBundleInfo), always send signals.
 				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
-					Self::send_ump_signals();
+					Self::send_ump_signals(core_info);
 				}
 
 				// If the total size of the pending messages is less than the threshold,
@@ -779,9 +772,7 @@ pub mod pallet {
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
 			if let Some(collator_peer_id) = collator_peer_id {
-				PendingUpwardSignals::<T>::append(
-					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
-				);
+				PendingApprovedPeer::<T>::put(collator_peer_id);
 			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
@@ -1027,6 +1018,11 @@ pub mod pallet {
 	/// This will be cleared in `on_finalize` for each block.
 	#[pallet::storage]
 	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+
+	/// The approved peer id to be sent as a UMP signal on the last block of the PoV.
+	#[pallet::storage]
+	pub type PendingApprovedPeer<T: Config> =
+		StorageValue<_, relay_chain::ApprovedPeerId, OptionQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
@@ -1670,8 +1666,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send the pending ump signals
-	fn send_ump_signals() {
-		let ump_signals = PendingUpwardSignals::<T>::take();
+	fn send_ump_signals(core_info: Option<CoreInfo>) {
+		let mut ump_signals = PendingUpwardSignals::<T>::take();
+
+		if let Some(core_info) = core_info {
+			ump_signals.push(
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			);
+		}
+
+		if let Some(approved_peer) = PendingApprovedPeer::<T>::take() {
+			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
+		}
+
 		if !ump_signals.is_empty() {
 			UpwardMessages::<T>::append(UMP_SEPARATOR);
 			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
