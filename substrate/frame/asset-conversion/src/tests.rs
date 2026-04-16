@@ -983,6 +983,163 @@ fn quote_price_tokens_for_exact_tokens_matches_execution() {
 }
 
 #[test]
+fn quote_price_returns_none_when_output_exceeds_pool_withdrawable() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let ed = 1000;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10_000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			2_000,
+			1,
+			1,
+			user,
+		));
+		// Pool has 1_000_000 native and 2_000 of asset2 (min_balance=1000).
+		// Pool can only send out up to 2_000 - 1_000 = 1_000 of asset2 while staying alive.
+
+		// quote_price_tokens_for_exact_tokens: requesting exact output.
+		// Requesting 1001 of asset2 exceeds available (1000), must return None.
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1001,
+				true,
+			),
+			None
+		);
+		// Also without fees.
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1001,
+				false,
+			),
+			None
+		);
+		// Requesting exactly 1000 should succeed (at the boundary).
+		assert!(AssetConversion::quote_price_tokens_for_exact_tokens(
+			token_1.clone(),
+			token_2.clone(),
+			1000,
+			true,
+		)
+		.is_some());
+
+		// quote_price_exact_tokens_for_tokens: given input, computed output must fit.
+		// With reserves (1_000_000, 2_000), fee=0.3%, and max_output=1000:
+		// input=1_005_018, output=1001 > 1000, must return None.
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1_005_018,
+				true,
+			),
+			None
+		);
+		// Also without fees.
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1_005_018,
+				false,
+			),
+			None
+		);
+		// input=1_005_017, output=1000 ≤ 1000, must return Some.
+		assert!(AssetConversion::quote_price_exact_tokens_for_tokens(
+			token_1.clone(),
+			token_2.clone(),
+			1_005_017,
+			true,
+		)
+		.is_some());
+	});
+}
+
+#[test]
+fn quote_price_returns_none_swap_fails() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+		let ed = 1000;
+
+		create_tokens_with_ed(user, vec![token_2.clone()], ed);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 10_000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			2_000,
+			1,
+			1,
+			user,
+		));
+
+		// The AMM formula can compute a price for 1001 output (it's below reserve of 2000),
+		// but the pool can only deliver 1000 (2000 - 1000 min_balance).
+		// Verify the raw AMM math would produce a result...
+		let (reserve_in, reserve_out) =
+			AssetConversion::get_reserves(token_1.clone(), token_2.clone()).unwrap();
+		assert!(Pallet::<Test>::get_amount_in(&1001, &reserve_in, &reserve_out).is_ok());
+		// ...but the quote correctly returns None.
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1001,
+				true,
+			),
+			None
+		);
+
+		// And verify the actual swap would indeed fail.
+		let swapper = 3;
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), swapper, 10_000_000));
+		assert_noop!(
+			AssetConversion::swap_tokens_for_exact_tokens(
+				RuntimeOrigin::signed(swapper),
+				bvec![token_1.clone(), token_2.clone()],
+				1001,
+				10_000_000,
+				swapper,
+				false,
+			),
+			TokenError::NotExpendable
+		);
+	});
+}
+
+#[test]
 fn can_swap_with_native() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
