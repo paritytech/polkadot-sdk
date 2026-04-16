@@ -252,7 +252,7 @@ jobs:
           if [[ $BODY == "bench"* ]]; then
               echo "RUNNER=parity-weights" >> $GITHUB_OUTPUT
           elif [[ $BODY == "update-ui"* ]]; then
-              echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
+              echo "RUNNER=parity-large-test" >> $GITHUB_OUTPUT
           else
               echo "RUNNER=ubuntu-latest" >> $GITHUB_OUTPUT
           fi

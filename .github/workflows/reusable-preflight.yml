@@ -164,13 +164,13 @@ jobs:
           #
           # Run merge queues on persistent runners
           if [[ $GITHUB_REF_NAME == *"gh-readonly-queue"* ]]; then
-            echo "RUNNER=parity-large-persistent" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large-persistent-test" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX=parity-oldlinux-persistent" >> $GITHUB_OUTPUT
             echo "RUNNER_NEW=parity-large-persistent-test" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-persistent-new" >> $GITHUB_OUTPUT
           else
-            echo "RUNNER=parity-large" >> $GITHUB_OUTPUT
-            echo "RUNNER_OLDLINUX=parity-oldlinux" >> $GITHUB_OUTPUT
+            echo "RUNNER=parity-large-test" >> $GITHUB_OUTPUT
+            echo "RUNNER_OLDLINUX=parity-oldlinux-test" >> $GITHUB_OUTPUT
             echo "RUNNER_NEW=parity-large-new" >> $GITHUB_OUTPUT
             echo "RUNNER_OLDLINUX_NEW=parity-oldlinux-new" >> $GITHUB_OUTPUT
           fi
