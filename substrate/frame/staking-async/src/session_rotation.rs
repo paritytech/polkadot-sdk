@@ -1172,8 +1172,15 @@ impl<T: Config> EraElectionPlanner<T> {
 				!ErasValidatorIncentiveWeight::<T>::contains_key(new_planned_era, &stash)
 			{
 				let weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
-				total_validator_weight_page = total_validator_weight_page.saturating_add(weight);
-				ErasValidatorIncentiveWeight::<T>::insert(new_planned_era, &stash, weight);
+				if !weight.is_zero() {
+					total_validator_weight_page =
+						total_validator_weight_page.saturating_add(weight);
+					ErasValidatorIncentiveWeight::<T>::insert(
+						new_planned_era,
+						&stash,
+						weight,
+					);
+				}
 			}
 		});
 
