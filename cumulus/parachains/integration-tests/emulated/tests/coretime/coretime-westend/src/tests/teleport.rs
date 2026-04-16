@@ -118,8 +118,10 @@ fn dap_satellite_coretime_transfers_native_to_asset_hub_dap() {
 		AssetHubWestend,
 	>(
 		|acct, amount| CoretimeWestend::fund_accounts(vec![(acct, amount)]),
-		|n| cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
-			coretime_westend_runtime::Runtime,
-		>::put(n),
+		|n| {
+			cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
+				coretime_westend_runtime::Runtime,
+			>::put(n)
+		},
 	);
 }

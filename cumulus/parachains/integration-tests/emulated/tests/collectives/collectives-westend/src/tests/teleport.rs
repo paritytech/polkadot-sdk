@@ -117,8 +117,10 @@ fn dap_satellite_collectives_transfers_native_to_asset_hub_dap() {
 		AssetHubWestend,
 	>(
 		|acct, amount| CollectivesWestend::fund_accounts(vec![(acct, amount)]),
-		|n| cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
-			collectives_westend_runtime::Runtime,
-		>::put(n),
+		|n| {
+			cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
+				collectives_westend_runtime::Runtime,
+			>::put(n)
+		},
 	);
 }

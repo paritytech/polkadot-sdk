@@ -92,8 +92,10 @@ fn dap_satellite_people_transfers_native_to_asset_hub_dap() {
 		AssetHubWestend,
 	>(
 		|acct, amount| PeopleWestend::fund_accounts(vec![(acct, amount)]),
-		|n| cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
-			people_westend_runtime::Runtime,
-		>::put(n),
+		|n| {
+			cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
+				people_westend_runtime::Runtime,
+			>::put(n)
+		},
 	);
 }
