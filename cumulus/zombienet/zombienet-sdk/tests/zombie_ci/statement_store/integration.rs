@@ -388,16 +388,13 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 /// 1. Spawn charlie only and let the relay chain advance ~10 blocks
 /// 2. Submit multiple statements to charlie
 /// 3. Add dave as a late joiner — dave will enter major sync because the chain has already
-///    progressed. While dave is major syncing, its statement handler ignores incoming
-///    notifications, so the initial sync batch from charlie is dropped
+///    progressed. During major sync, `handle_sync_event` buffers charlie in `deferred_peers`
+///    instead of adding it to the reserved set, so no statement substream is opened and no
+///    initial sync occurs
 /// 4. Wait for dave to exit major sync
-/// 5. Subscribe to statements on dave AFTER sync has ended — any arrival is therefore caused
-///    exclusively by the reconnect triggered at sync completion
-/// 6. Assert the statement arrives, proving that `reconnect_statement_peers` fired and triggered a
-///    fresh initial sync with charlie
-///
-/// Without the fix (reconnect_statement_peers on sync-end), the subscription would time
-/// out because nothing re-triggers the initial sync after major sync completes
+/// 5. On sync-end, `drain_deferred_peers` adds charlie to the reserved set; the substream
+///    opens and charlie performs initial sync with dave, delivering the statements
+/// 6. Subscribe to statements on dave AFTER sync has ended and assert all statements arrive
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -450,11 +447,11 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	info!("{} statements submitted to charlie", STATEMENT_COUNT);
 
 	// Add dave as a late-joining collator.
-	// Dave will enter major sync because the chain already advanced. During that window
-	// dave's statement handler ignores incoming notifications (is_major_syncing guard),
-	// so charlie's 100ms initial-sync burst fires and is silently dropped.
-	// When sync ends, reconnect_statement_peers removes and re-adds all peers, causing
-	// charlie to perform a fresh initial sync and recover the lost statements
+	// Dave will enter major sync because the chain already advanced. During that window,
+	// handle_sync_event buffers charlie in deferred_peers rather than adding it to the
+	// reserved set, so no statement substream is opened and no initial sync fires.
+	// When sync ends, drain_deferred_peers adds charlie to the reserved set; the substream
+	// opens and charlie delivers the statements via initial sync
 	info!("Adding dave as late-joining collator");
 	let dave_join_time = std::time::Instant::now();
 	network.add_collator("dave", Default::default(), 1004).await?;
@@ -472,9 +469,9 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
 
 	// Subscribe after sync — any statements arriving are exclusively due to
-	// reconnect_statement_peers triggering a fresh initial sync from charlie. The subscription
-	// also returns statements already in dave's store as an initial batch, so we capture all
-	// recovered statements regardless of whether they arrive before or after the subscribe call
+	// drain_deferred_peers adding charlie to the reserved set and triggering initial sync.
+	// The subscription also returns statements already in dave's store as an initial batch,
+	// so we capture all recovered statements regardless of timing relative to the subscribe call
 	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
 	let received = expect_statements_unordered(&mut subscription, STATEMENT_COUNT, 30).await?;
 	let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
@@ -486,14 +483,14 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64()
 	);
 
-	// By the time all statements have arrived, reconnect_statement_peers must have already fired
+	// By the time all statements have arrived, drain_deferred_peers must have already fired
 	// and been logged (it is what triggered the initial sync from charlie that delivered them).
 	// Checking logs here — after statement delivery — avoids the race where the handler hasn't
 	// polled yet at the moment we read logs
 	let dave_logs = dave.logs().await?;
 	assert!(
-		dave_logs.lines().any(|l| l.contains("Major sync complete, reconnecting")),
-		"reconnect_statement_peers did not fire — dave may not have entered major sync"
+		dave_logs.lines().any(|l| l.contains("Major sync complete, adding")),
+		"drain_deferred_peers did not fire — dave may not have entered major sync or had no deferred peers"
 	);
 
 	Ok(())

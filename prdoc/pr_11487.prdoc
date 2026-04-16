@@ -1,19 +1,22 @@
-title: 'statement-store: reconnect peers after major sync for statement recovery'
+title: 'statement-store: buffer peers during major sync for statement recovery'
 doc:
 - audience: Node Dev
   description: |-
     # Description
 
-    Nodes drop all statements received from peers during major sync because of the `is_major_syncing()` guard.
-    After major sync completes, those statements are permanently lost because peers will not re-send them.
+    Nodes drop all statements received from peers during major sync because of the
+    `is_major_syncing()` guard. Before this fix, peers were added to the reserved set immediately
+    on connect, so their initial-sync batch fired while the handler was ignoring all incoming
+    statements — those statements were permanently lost.
 
-    This fix detects when major sync ends and reconnects all statement protocol peers by closing and
-    reopening their notification substreams. This triggers bidirectional initial sync on both sides,
-    recovering any statements that were missed during the sync period.
+    This fix changes `handle_sync_event` to buffer peers that connect during major sync in a
+    `deferred_peers` set instead of adding them to the reserved set. When major sync ends, the
+    `was_major_syncing → false` transition drains the buffer: all deferred peers are added to
+    the reserved set in a single call, their notification substreams open, and each peer
+    performs a fresh initial sync that delivers the statements missed during sync.
 
-    The approach is minimal: only reacts to the sync-end transition with a single `was_major_syncing`
-    flag. No peer tracking or debounce needed since the reconnect only closes notification substreams
-    (not TCP connections) and is inexpensive.
+    No `remove_peers_from_reserved_set` is called, eliminating the 5-second reconnect backoff
+    and peerset races that the previous `remove+add` approach introduced.
 crates:
 - name: sc-network-statement
   bump: patch

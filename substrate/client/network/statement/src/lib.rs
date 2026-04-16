@@ -381,6 +381,7 @@ impl StatementHandlerPrototype {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: is_major_syncing,
+			deferred_peers: HashSet::new(),
 		};
 
 		Ok(handler)
@@ -427,6 +428,8 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Whether the node was major syncing on the last `run()` loop poll
 	was_major_syncing: bool,
+	/// Tracks peers that connected while major sync was active and adds them to the reserved set once sync ends
+	deferred_peers: HashSet<PeerId>,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -590,6 +593,7 @@ where
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
+			deferred_peers: HashSet::new(),
 		}
 	}
 
@@ -645,11 +649,10 @@ where
 				},
 			}
 
-			// When major sync ends, reconnect all statement peers to trigger
-			// bidirectional initial sync and recover statements missed during sync
+			// When major sync ends, add all peers that were deferred during sync
 			let currently_syncing = self.sync.is_major_syncing();
 			if self.was_major_syncing && !currently_syncing {
-				self.reconnect_statement_peers();
+				self.drain_deferred_peers();
 			}
 			self.was_major_syncing = currently_syncing;
 		}
@@ -700,46 +703,44 @@ where
 		}
 	}
 
-	/// Close and reopen notification substreams with all connected statement peers.
-	/// This triggers bidirectional initial sync so both sides exchange any statements
-	/// that were missed during major sync
-	fn reconnect_statement_peers(&mut self) {
-		let peer_ids: Vec<PeerId> = self.peers.keys().copied().collect();
-		if peer_ids.is_empty() {
+	/// Add all peers that were deferred during major sync to the reserved set.
+	/// Called once when the `was_major_syncing → false` transition is detected in the run loop
+	fn drain_deferred_peers(&mut self) {
+		if self.deferred_peers.is_empty() {
 			return;
 		}
 
 		log::info!(
 			target: LOG_TARGET,
-			"Major sync complete, reconnecting {} statement peers for initial sync",
-			peer_ids.len(),
+			"Major sync complete, adding {} deferred statement peers",
+			self.deferred_peers.len(),
 		);
 
-		if let Err(err) = self
-			.network
-			.remove_peers_from_reserved_set(self.protocol_name.clone(), peer_ids.clone())
-		{
-			log::warn!(target: LOG_TARGET, "Failed to remove reserved peers: {err}");
-		}
-
-		// Re-add all peers to trigger substream reopening and bidirectional initial sync.
-		// The multiaddrs are constructed from PeerIds in self.peers, which guarantees valid
-		// /p2p/ addresses and excludes the local peer ID
-		let addrs: HashSet<multiaddr::Multiaddr> = peer_ids
-			.into_iter()
+		let addrs: HashSet<multiaddr::Multiaddr> = self
+			.deferred_peers
+			.drain()
 			.map(|p| {
 				iter::once(multiaddr::Protocol::P2p(p.into())).collect::<multiaddr::Multiaddr>()
 			})
 			.collect();
+
 		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs)
 		{
-			log::warn!(target: LOG_TARGET, "Failed to re-add reserved peers: {err}");
+			log::warn!(target: LOG_TARGET, "Failed to add deferred peers: {err}");
 		}
 	}
 
 	fn handle_sync_event(&mut self, event: SyncEvent) {
 		match event {
 			SyncEvent::PeerConnected(remote) => {
+				if self.sync.is_major_syncing() {
+					log::debug!(
+						target: LOG_TARGET,
+						"Major sync in progress, deferring connection to {remote}",
+					);
+					self.deferred_peers.insert(remote);
+					return;
+				}
 				let addr = iter::once(multiaddr::Protocol::P2p(remote.into()))
 					.collect::<multiaddr::Multiaddr>();
 				let result = self.network.add_peers_to_reserved_set(
@@ -751,6 +752,7 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
+				self.deferred_peers.remove(&remote);
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(remote).collect(),
@@ -1152,6 +1154,8 @@ mod tests {
 	struct TestNetwork {
 		reported_peers: Arc<Mutex<Vec<(PeerId, sc_network::ReputationChange)>>>,
 		disconnected_peers: Arc<Mutex<Vec<PeerId>>>,
+		added_reserved: Arc<Mutex<Vec<HashSet<sc_network::Multiaddr>>>>,
+		removed_reserved: Arc<Mutex<Vec<Vec<PeerId>>>>,
 	}
 
 	impl TestNetwork {
@@ -1159,6 +1163,8 @@ mod tests {
 			Self {
 				reported_peers: Arc::new(Mutex::new(Vec::new())),
 				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
+				added_reserved: Arc::new(Mutex::new(Vec::new())),
+				removed_reserved: Arc::new(Mutex::new(Vec::new())),
 			}
 		}
 
@@ -1168,6 +1174,14 @@ mod tests {
 
 		fn get_disconnected_peers(&self) -> Vec<PeerId> {
 			self.disconnected_peers.lock().unwrap().clone()
+		}
+
+		fn get_added_reserved(&self) -> Vec<HashSet<sc_network::Multiaddr>> {
+			self.added_reserved.lock().unwrap().clone()
+		}
+
+		fn get_removed_reserved(&self) -> Vec<Vec<PeerId>> {
+			self.removed_reserved.lock().unwrap().clone()
 		}
 	}
 
@@ -1227,17 +1241,19 @@ mod tests {
 		fn add_peers_to_reserved_set(
 			&self,
 			_: sc_network::ProtocolName,
-			_: std::collections::HashSet<sc_network::Multiaddr>,
+			addrs: std::collections::HashSet<sc_network::Multiaddr>,
 		) -> Result<(), String> {
-			unimplemented!()
+			self.added_reserved.lock().unwrap().push(addrs);
+			Ok(())
 		}
 
 		fn remove_peers_from_reserved_set(
 			&self,
 			_: sc_network::ProtocolName,
-			_: Vec<PeerId>,
+			peers: Vec<PeerId>,
 		) -> Result<(), String> {
-			unimplemented!()
+			self.removed_reserved.lock().unwrap().push(peers);
+			Ok(())
 		}
 
 		fn sync_num_connected(&self) -> usize {
@@ -1250,6 +1266,37 @@ mod tests {
 
 		async fn reserved_peers(&self) -> Result<Vec<PeerId>, ()> {
 			unimplemented!();
+		}
+	}
+
+	/// A sync oracle whose `is_major_syncing` flag can be flipped from tests
+	struct TestSyncControllable {
+		major_syncing: Arc<std::sync::atomic::AtomicBool>,
+	}
+
+	impl TestSyncControllable {
+		fn new(initial: bool) -> (Self, Arc<std::sync::atomic::AtomicBool>) {
+			let flag = Arc::new(std::sync::atomic::AtomicBool::new(initial));
+			(Self { major_syncing: flag.clone() }, flag)
+		}
+	}
+
+	impl SyncEventStream for TestSyncControllable {
+		fn event_stream(
+			&self,
+			_name: &'static str,
+		) -> Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>> {
+			Box::pin(futures::stream::pending())
+		}
+	}
+
+	impl sp_consensus::SyncOracle for TestSyncControllable {
+		fn is_major_syncing(&self) -> bool {
+			self.major_syncing.load(std::sync::atomic::Ordering::Relaxed)
+		}
+
+		fn is_offline(&self) -> bool {
+			false
 		}
 	}
 
@@ -1551,6 +1598,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
+			deferred_peers: HashSet::new(),
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
@@ -2436,5 +2484,170 @@ mod tests {
 		let mut all_hashes = hashes.clone();
 		all_hashes.sort();
 		assert_eq!(sorted_peer_c, all_hashes, "peer_c should get all 5 statements");
+	}
+
+	#[test]
+	fn peers_deferred_during_major_sync() {
+		let (sync, _flag) = TestSyncControllable::new(true);
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(100);
+
+		let mut handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync,
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store),
+			queue_sender,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: true,
+			deferred_peers: HashSet::new(),
+		};
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let peer3 = PeerId::random();
+
+		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
+		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
+		handler.handle_sync_event(SyncEvent::PeerConnected(peer3));
+
+		assert!(
+			network.get_added_reserved().is_empty(),
+			"add_peers_to_reserved_set must not be called during major sync",
+		);
+		assert!(
+			network.get_removed_reserved().is_empty(),
+			"remove_peers_from_reserved_set must not be called during major sync",
+		);
+		assert_eq!(handler.deferred_peers.len(), 3, "All three peers should be in deferred_peers");
+		assert!(handler.deferred_peers.contains(&peer1));
+		assert!(handler.deferred_peers.contains(&peer2));
+		assert!(handler.deferred_peers.contains(&peer3));
+	}
+
+	#[test]
+	fn deferred_peers_flushed_on_sync_end_without_remove() {
+		let (sync, flag) = TestSyncControllable::new(true);
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(100);
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+		let mut deferred = HashSet::new();
+		deferred.insert(peer1);
+		deferred.insert(peer2);
+
+		let mut handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync,
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store),
+			queue_sender,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: true,
+			deferred_peers: deferred,
+		};
+
+		flag.store(false, std::sync::atomic::Ordering::Relaxed);
+		handler.drain_deferred_peers();
+
+		assert!(handler.deferred_peers.is_empty());
+
+		let added = network.get_added_reserved();
+		assert_eq!(added.len(), 1, "Expected exactly one add_peers_to_reserved_set call");
+		let added_addrs = &added[0];
+		let expected_addr1: sc_network::Multiaddr =
+			iter::once(multiaddr::Protocol::P2p(peer1.into())).collect();
+		let expected_addr2: sc_network::Multiaddr =
+			iter::once(multiaddr::Protocol::P2p(peer2.into())).collect();
+		assert!(added_addrs.contains(&expected_addr1), "peer1 must be in added set");
+		assert!(added_addrs.contains(&expected_addr2), "peer2 must be in added set");
+
+		assert!(
+			network.get_removed_reserved().is_empty(),
+			"remove_peers_from_reserved_set must never be called by the buffer approach",
+		);
+	}
+
+	#[test]
+	fn deferred_peer_removed_on_disconnect_before_sync_ends() {
+		let (sync, _flag) = TestSyncControllable::new(true);
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+		let statement_store = TestStatementStore::new();
+		let (queue_sender, _queue_receiver) = async_channel::bounded(100);
+
+		let peer1 = PeerId::random();
+		let peer2 = PeerId::random();
+
+		let mut handler = StatementHandler {
+			protocol_name: "/statement/1".into(),
+			notification_service: Box::new(notification_service),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync,
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers: HashMap::new(),
+			statement_store: Arc::new(statement_store),
+			queue_sender,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: true,
+			deferred_peers: HashSet::new(),
+		};
+
+		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
+		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
+		assert_eq!(handler.deferred_peers.len(), 2);
+
+		handler.handle_sync_event(SyncEvent::PeerDisconnected(peer1));
+
+		assert_eq!(handler.deferred_peers.len(), 1);
+		assert!(!handler.deferred_peers.contains(&peer1));
+		assert!(handler.deferred_peers.contains(&peer2));
 	}
 }
