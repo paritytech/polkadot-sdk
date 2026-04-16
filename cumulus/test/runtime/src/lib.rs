@@ -18,7 +18,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-// Make the WASM binary available.
+// Make the WASM binaries available.
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
@@ -64,6 +64,21 @@ pub mod sync_backing {
 pub mod async_backing {
 	#[cfg(feature = "std")]
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+}
+
+pub mod async_backing_v3 {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3.rs"));
+}
+
+pub mod async_backing_v3_rpo {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_async_backing_v3_rpo.rs"));
+}
+
+pub mod elastic_scaling_v3 {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_elastic_scaling_v3.rs"));
 }
 
 pub mod slot_duration_18s {
@@ -378,6 +393,11 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 #[cfg(not(feature = "relay-parent-offset"))]
 const RELAY_PARENT_OFFSET: u32 = 0;
 
+#[cfg(any(feature = "async-backing-v3", feature = "elastic-scaling-v3"))]
+const SCHEDULING_V3_ENABLED: bool = true;
+#[cfg(not(any(feature = "async-backing-v3", feature = "elastic-scaling-v3")))]
+const SCHEDULING_V3_ENABLED: bool = false;
+
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,
 	RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -399,6 +419,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 		cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
+	type SchedulingV3Enabled = ConstBool<SCHEDULING_V3_ENABLED>;
 }
 
 impl parachain_info::Config for Runtime {}
@@ -548,6 +569,16 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
 			RELAY_PARENT_OFFSET
+		}
+
+		fn max_claim_queue_offset() -> u8 {
+			cumulus_pallet_parachain_system::Pallet::<Runtime>::max_claim_queue_offset()
+		}
+	}
+
+	impl cumulus_primitives_core::SchedulingV3EnabledApi<Block> for Runtime {
+		fn scheduling_v3_enabled() -> bool {
+			SCHEDULING_V3_ENABLED
 		}
 	}
 

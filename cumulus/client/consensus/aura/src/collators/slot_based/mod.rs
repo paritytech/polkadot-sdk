@@ -73,7 +73,9 @@ use consensus_common::ParachainCandidate;
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{KeyToIncludeInRelayProof, RelayParentOffsetApi};
+use cumulus_primitives_core::{
+	KeyToIncludeInRelayProof, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::FutureExt;
 use polkadot_primitives::{
@@ -99,6 +101,7 @@ mod block_builder_task;
 mod block_import;
 mod collation_task;
 mod relay_chain_data_cache;
+mod scheduling;
 mod slot_timer;
 
 #[cfg(test)]
@@ -169,7 +172,8 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 	Client::Api: AuraApi<Block, P::Public>
 		+ AuraUnincludedSegmentApi<Block>
 		+ RelayParentOffsetApi<Block>
-		+ KeyToIncludeInRelayProof<Block>,
+		+ KeyToIncludeInRelayProof<Block>
+		+ SchedulingV3EnabledApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -260,6 +264,8 @@ pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS, Spaw
 struct CollatorMessage<Block: BlockT> {
 	/// The hash of the relay chain block that provides the context for the parachain block.
 	pub relay_parent: RelayHash,
+	/// V3 scheduling proof. None for V1/V2 candidates.
+	pub scheduling_proof: Option<SchedulingProof>,
 	/// The header of the parent block.
 	pub parent_header: Block::Header,
 	/// The parachain block candidate.

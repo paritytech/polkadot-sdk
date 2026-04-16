@@ -306,4 +306,8 @@ impl RelayChainInterface for RelayChainRpcInterface {
 	) -> RelayChainResult<Vec<CandidateEvent>> {
 		self.rpc_client.parachain_host_candidate_events(relay_parent).await
 	}
+
+	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32> {
+		self.rpc_client.parachain_host_max_relay_parent_session_age(at).await
+	}
 }

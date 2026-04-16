@@ -259,6 +259,8 @@ pub trait RelayChainInterface: Send + Sync {
 	async fn scheduling_lookahead(&self, relay_parent: PHash) -> RelayChainResult<u32>;
 
 	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>>;
+
+	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32>;
 }
 
 #[async_trait]
@@ -429,6 +431,10 @@ where
 
 	async fn candidate_events(&self, at: RelayHash) -> RelayChainResult<Vec<CandidateEvent>> {
 		(**self).candidate_events(at).await
+	}
+
+	async fn max_relay_parent_session_age(&self, at: RelayHash) -> RelayChainResult<u32> {
+		(**self).max_relay_parent_session_age(at).await
 	}
 }
 

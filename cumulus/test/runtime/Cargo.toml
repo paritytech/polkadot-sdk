@@ -111,5 +111,11 @@ sync-backing = []
 async-backing = []
 # An elastic scaling runtime with 12s slots.
 elastic-scaling-12s-slot = []
+# An async-backing runtime with scheduling V3 enabled.
+async-backing-v3 = ["async-backing"]
+# An async-backing runtime with scheduling V3 and relay parent offset enabled.
+async-backing-v3-rpo = ["async-backing-v3", "relay-parent-offset"]
+# An elastic scaling runtime with scheduling V3 enabled.
+elastic-scaling-v3 = ["elastic-scaling"]
 # A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 slot-duration-18s = ["increment-spec-version"]

@@ -342,6 +342,7 @@ where
 		inherent_data: (ParachainInherentData, InherentData),
 		proposal_duration: Duration,
 		max_pov_size: usize,
+		scheduling_proof: Option<cumulus_primitives_core::SchedulingProof>,
 	) -> Result<Option<(Collation, ParachainBlockData<Block>)>, Box<dyn Error + Send + 'static>> {
 		let maybe_candidate = self
 			.build_block_and_import(BuildBlockAndImportParams {
@@ -360,9 +361,12 @@ where
 		let Some(candidate) = maybe_candidate else { return Ok(None) };
 
 		let hash = candidate.block.header().hash();
-		if let Some((collation, block_data)) =
-			self.collator_service.build_collation(parent_header, hash, candidate.into())
-		{
+		if let Some((collation, block_data)) = self.collator_service.build_collation(
+			parent_header,
+			hash,
+			candidate.into(),
+			scheduling_proof,
+		) {
 			block_data.log_size_info();
 
 			if let MaybeCompressedPoV::Compressed(ref pov) = collation.proof_of_validity {
@@ -447,7 +451,7 @@ where
 	P::Signature: Codec,
 {
 	let mut runtime_api = client.runtime_api();
-	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	let authorities = runtime_api.authorities(parent_hash).map_err(Box::new)?;
 
 	// Determine the current slot and timestamp based on the relay-parent's.

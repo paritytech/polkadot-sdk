@@ -26,7 +26,7 @@ use crate::{
 			relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
 			slot_timer::{SlotInfo, SlotTimer},
 		},
-		BackingGroupConnectionHelper, RelayParentData,
+		BackingGroupConnectionHelper, RelayHash, RelayParentData,
 	},
 	LOG_TARGET,
 };
@@ -35,13 +35,12 @@ use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockIm
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	extract_relay_parent, rpsr_digest, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi,
+	KeyToIncludeInRelayProof, PersistedValidationData, RelayParentOffsetApi, RelayProofRequest,
+	SchedulingProof, SchedulingV3EnabledApi,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
-use polkadot_primitives::{
-	Block as RelayBlock, CoreIndex, Hash as RelayHash, Header as RelayHeader, Id as ParaId,
-};
+use polkadot_primitives::{Block as RelayBlock, CoreIndex, Header as RelayHeader, Id as ParaId};
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf, UsageProvider};
 use sc_consensus::BlockImport;
 use sc_consensus_aura::SlotDuration;
@@ -133,7 +132,8 @@ where
 	Client::Api: AuraApi<Block, P::Public>
 		+ RelayParentOffsetApi<Block>
 		+ AuraUnincludedSegmentApi<Block>
-		+ KeyToIncludeInRelayProof<Block>,
+		+ KeyToIncludeInRelayProof<Block>
+		+ SchedulingV3EnabledApi<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RelayClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
@@ -188,6 +188,20 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
+		let best_notifications = match relay_client.new_best_notification_stream().await {
+			Ok(s) => s,
+			Err(err) => {
+				tracing::error!(
+					target: LOG_TARGET,
+					?err,
+					"Failed to initialize consensus: no relay chain best block notification stream"
+				);
+				return;
+			},
+		};
+		let mut scheduling_info =
+			super::scheduling::SchedulingInfo::new(best_notifications, slot_offset);
+
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
 			keystore.clone(),
@@ -205,24 +219,50 @@ where
 				return;
 			};
 
-			let Ok(relay_best_hash) = relay_client.best_block_hash().await else {
-				tracing::warn!(target: crate::LOG_TARGET, "Unable to fetch latest relay chain block hash.");
+			// Query scheduling parameters at the parachain best head. This assumes
+			// they match the para parent head we build on top of — a practical
+			// optimisation that can only fail if a runtime upgrade changing these
+			// values was done through an unbacked/unincluded candidate. In that
+			// edge case, block building will fail and self-correct once the upgrade
+			// is included on the relay chain.
+			let para_best_hash = para_client.info().best_hash;
+			let v3_enabled =
+				para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
+			if v3_enabled {
+				// Ignore the time offset when V3 scheduling is enabled,
+				// since `descendants_start` already handles relay-chain slot alignment.
+				slot_timer.set_time_offset(Duration::ZERO);
+			}
+
+			let Some(scheduling_parent_header) = scheduling_info
+				.descendants_start(
+					&relay_client,
+					&mut relay_chain_data_cache,
+					relay_chain_slot_duration,
+					v3_enabled,
+				)
+				.await
+			else {
 				continue;
 			};
-
-			let best_hash = para_client.info().best_hash;
-			let relay_parent_offset =
-				para_client.runtime_api().relay_parent_offset(best_hash).unwrap_or_default();
+			let scheduling_parent = scheduling_parent_header.hash();
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
 				continue;
 			};
 
+			let relay_parent_offset = para_client
+				.runtime_api()
+				.relay_parent_offset(para_best_hash)
+				.unwrap_or_default();
+			let max_relay_parent_session_age =
+				relay_client.max_relay_parent_session_age(scheduling_parent).await.unwrap_or(0);
 			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
-				relay_best_hash,
+				scheduling_parent_header.clone(),
 				relay_parent_offset,
+				max_relay_parent_session_age,
 			)
 			.await
 			else {
@@ -239,6 +279,7 @@ where
 
 			let relay_parent = rp_data.relay_parent().hash();
 			let relay_parent_header = rp_data.relay_parent().clone();
+			let rp_descendants = rp_data.descendants().to_vec();
 
 			let Some(parent_search_result) =
 				crate::collators::find_parent(relay_parent, para_id, &*para_backend, &relay_client)
@@ -254,13 +295,33 @@ where
 			let unincluded_segment_len =
 				parent_header.number().saturating_sub(*included_header.number());
 
+			// Determine claim queue lookup parameters.
+			//
+			// V3: look up at scheduling_parent (fresh RC tip), offset is just
+			// max_claim_queue_offset since the claim queue is already at the tip.
+			//
+			// V1/V2: look up at relay_parent which is relay_parent_offset blocks
+			// behind the tip, so the offset includes relay_parent_offset to
+			// compensate.
+			let max_claim_queue_offset =
+				para_client.runtime_api().max_claim_queue_offset(para_best_hash).unwrap_or(1);
+			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
+				// V3: look up at scheduling_parent (fresh tip)
+				(scheduling_parent, max_claim_queue_offset)
+			} else {
+				// V1/V2: look up at relay_parent, add relay_parent_offset
+				let total_offset = relay_parent_offset as u8 + max_claim_queue_offset;
+				(relay_parent, total_offset)
+			};
+
 			// Retrieve the core.
 			let core = match determine_core(
 				&mut relay_chain_data_cache,
+				claim_queue_relay_block,
 				&relay_parent_header,
 				para_id,
 				parent_header,
-				relay_parent_offset,
+				claim_queue_offset,
 			)
 			.await
 			{
@@ -319,7 +380,8 @@ where
 
 			{
 				let mut runtime_api = para_client.runtime_api();
-				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				runtime_api
+					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
 					connection_helper.update::<P>(para_slot.slot, &authorities).await;
 				}
@@ -359,6 +421,8 @@ where
 				relay_parent = %relay_parent,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
+				claim_queue_offset,
+				v3_enabled,
 				included_hash = %included_header_hash,
 				included_num = %included_header.number(),
 				parent = %parent_hash,
@@ -373,8 +437,13 @@ where
 				max_pov_size: *max_pov_size,
 			};
 
-			let relay_proof_request =
-				super::super::get_relay_proof_request(&*para_client, parent_hash);
+			// relay_proof_request is going to be ignored by the runtime if v3 is enabled, so we
+			// can skip supplying it in that case
+			let mut relay_proof_request = RelayProofRequest::default();
+			if !v3_enabled {
+				relay_proof_request =
+					crate::collators::get_relay_proof_request(&*para_client, parent_hash);
+			};
 
 			let (parachain_inherent_data, other_inherent_data) = match collator
 				.create_inherent_data_with_rp_offset(
@@ -468,8 +537,29 @@ where
 
 			*last_claimed_core_selector = Some(core.core_selector());
 
+			// Check if V3 scheduling is enabled and build scheduling proof if so.
+			let scheduling_proof = v3_enabled.then_some({
+				// The descendants are ordered from oldest to newest, so reverse them
+				let header_chain: Vec<_> = rp_descendants.iter().rev().cloned().collect();
+
+				tracing::debug!(
+					target: crate::LOG_TARGET,
+					?relay_parent,
+					?scheduling_parent,
+					header_chain_len = header_chain.len(),
+					"Building V3 collation with scheduling proof",
+				);
+
+				SchedulingProof {
+					header_chain,
+					// Initial submission: no signature needed, core selection from UMP signals
+					signed_scheduling_info: None,
+				}
+			});
+
 			if let Err(err) = collator_sender.unbounded_send(CollatorMessage {
 				relay_parent,
+				scheduling_proof,
 				parent_header: parent_header.clone(),
 				parachain_candidate: candidate.into(),
 				validation_code_hash,
@@ -518,61 +608,60 @@ fn adjust_para_to_relay_parent_slot(
 /// offset, collecting all blocks in between to maintain the chain of ancestry.
 pub(crate) async fn offset_relay_parent_find_descendants<RelayClient>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	relay_best_block: RelayHash,
+	scheduling_parent: RelayHeader,
 	relay_parent_offset: u32,
+	max_relay_parent_session_age: u32,
 ) -> Result<Option<RelayParentData>, ()>
 where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
-	let Ok(mut relay_header) = relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_best_block)
-		.await
-		.map(|d| d.relay_parent_header.clone())
-	else {
-		tracing::error!(target: LOG_TARGET, ?relay_best_block, "Unable to fetch best relay chain block header.");
-		return Err(());
-	};
+	let scheduling_parent_hash = scheduling_parent.hash();
+	let mut current_relay_header = scheduling_parent;
 
-	if relay_parent_offset == 0 {
-		return Ok(Some(RelayParentData::new(relay_header)));
-	}
-
-	if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&relay_header) {
-		tracing::debug!(target: LOG_TARGET, ?relay_best_block, relay_best_block_number = relay_header.number(), "Relay parent is in previous session.");
-		return Ok(None);
-	}
-
-	let mut required_ancestors: VecDeque<RelayHeader> = Default::default();
-	required_ancestors.push_front(relay_header.clone());
-	while required_ancestors.len() < relay_parent_offset as usize {
-		let next_header = relay_chain_data_cache
-			.get_mut_relay_chain_data(*relay_header.parent_hash())
-			.await?
-			.relay_parent_header
-			.clone();
-		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_header) {
-			tracing::debug!(target: LOG_TARGET, ?relay_best_block, ancestor = %next_header.hash(), ancestor_block_number = next_header.number(), "Ancestor of best block is in previous session.");
+	let mut relay_parent_descendants: VecDeque<RelayHeader> = Default::default();
+	let mut relay_parent_session_age = 0;
+	loop {
+		if current_relay_header.number == 0 {
 			return Ok(None);
 		}
-		required_ancestors.push_front(next_header.clone());
-		relay_header = next_header;
-	}
+		if relay_parent_session_age > max_relay_parent_session_age {
+			tracing::debug!(target: LOG_TARGET,
+				?scheduling_parent_hash,
+				ancestor = %current_relay_header.hash(),
+				ancestor_block_number = current_relay_header.number(),
+				"max_relay_parent_session_age exceeded."
+			);
+			return Ok(None);
+		}
 
-	let relay_parent = relay_chain_data_cache
-		.get_mut_relay_chain_data(*relay_header.parent_hash())
-		.await?
-		.relay_parent_header
-		.clone();
+		if relay_parent_descendants.len() == relay_parent_offset as usize {
+			break;
+		}
+		relay_parent_descendants.push_front(current_relay_header.clone());
+
+		// If the current header contains an epoch change log, it means that it's the last block of
+		// the current session. So the next block will be the first one of the following session.
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&current_relay_header) {
+			relay_parent_session_age += 1;
+		}
+		let next_relay_block = relay_chain_data_cache
+			.get_mut_relay_chain_data(*current_relay_header.parent_hash())
+			.await?;
+		current_relay_header = next_relay_block.relay_parent_header.clone();
+	}
 
 	tracing::debug!(
 		target: LOG_TARGET,
-		relay_parent_hash = %relay_parent.hash(),
-		relay_parent_num = relay_parent.number(),
-		num_descendants = required_ancestors.len(),
+		relay_parent_hash = %current_relay_header.hash(),
+		relay_parent_num = current_relay_header.number(),
+		num_descendant = relay_parent_descendants.len(),
 		"Relay parent descendants."
 	);
 
-	Ok(Some(RelayParentData::new_with_descendants(relay_parent, required_ancestors.into())))
+	Ok(Some(RelayParentData::new_with_descendants(
+		current_relay_header,
+		relay_parent_descendants.into(),
+	)))
 }
 
 /// Return value of [`determine_core`].
@@ -610,18 +699,25 @@ impl Core {
 }
 
 /// Determine the core for the given `para_id`.
+///
+/// Looks up the claim queue at `claim_queue_relay_block` at depth `claim_queue_offset`
+/// to find which cores are assigned. Uses the `CoreSelector` round-robin to pick the
+/// next core in sequence.
+///
+/// See: <https://github.com/paritytech/polkadot-sdk/issues/8893>
 pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static>(
 	relay_chain_data_cache: &mut RelayChainDataCache<RI>,
+	claim_queue_relay_block: RelayHash,
 	relay_parent: &RelayHeader,
 	para_id: ParaId,
 	para_parent: &H,
-	relay_parent_offset: u32,
+	claim_queue_offset: u8,
 ) -> Result<Option<Core>, ()> {
 	let cores_at_offset = &relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_parent.hash())
+		.get_mut_relay_chain_data(claim_queue_relay_block)
 		.await?
 		.claim_queue
-		.iter_claims_at_depth_for_para(relay_parent_offset as usize, para_id)
+		.iter_claims_at_depth_for_para(claim_queue_offset as usize, para_id)
 		.collect::<Vec<_>>();
 
 	let is_new_relay_parent = if para_parent.number().is_zero() {
@@ -651,7 +747,7 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 		(selector, *core_index)
 	} else {
 		let last_claimed_core_selector = relay_chain_data_cache
-			.get_mut_relay_chain_data(relay_parent.hash())
+			.get_mut_relay_chain_data(claim_queue_relay_block)
 			.await?
 			.last_claimed_core_selector;
 
@@ -664,7 +760,7 @@ pub(crate) async fn determine_core<H: HeaderT, RI: RelayChainInterface + 'static
 	Ok(Some(Core {
 		selector: CoreSelector(selector as u8),
 		core_index,
-		claim_queue_offset: ClaimQueueOffset(relay_parent_offset as u8),
+		claim_queue_offset: ClaimQueueOffset(claim_queue_offset),
 		number_of_cores: cores_at_offset.len() as u16,
 	}))
 }

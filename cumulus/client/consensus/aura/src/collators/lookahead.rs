@@ -387,7 +387,8 @@ where
 				params.relay_chain_slot_duration,
 			) {
 				let mut runtime_api = para_client.runtime_api();
-				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				runtime_api
+					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
 					connection_helper.update::<P>(slot_now, &authorities).await;
 				}
@@ -466,7 +467,7 @@ where
 					validation_data.max_pov_size * 85 / 100
 				} as usize;
 
-				match collator
+				let collation_result = collator
 					.collate(
 						&parent_header,
 						&slot_claim,
@@ -474,9 +475,11 @@ where
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
 						allowed_pov_size,
+						None,
 					)
-					.await
-				{
+					.await;
+
+				match collation_result {
 					Ok(Some((collation, block_data))) => {
 						let Some(new_block_header) =
 							block_data.blocks().first().map(|b| b.header().clone())

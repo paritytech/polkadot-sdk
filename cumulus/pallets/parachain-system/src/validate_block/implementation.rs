@@ -16,7 +16,7 @@
 
 //! The actual implementation of the validate block functionality.
 
-use super::{trie_cache, trie_recorder, MemoryOptimizedValidationParams};
+use super::{scheduling, trie_cache, trie_recorder, MemoryOptimizedValidationParams};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use cumulus_primitives_core::{
@@ -79,12 +79,25 @@ pub fn validate_block<B: BlockT, E: ExecuteBlock<B>, PSC: crate::Config>(
 		parent_head: parachain_head,
 		relay_parent_number,
 		relay_parent_storage_root,
+		extension,
 	}: MemoryOptimizedValidationParams,
 ) -> ValidationResult
 where
 	B::Extrinsic: ExtrinsicCall,
 	<B::Extrinsic as ExtrinsicCall>::Call: IsSubType<crate::Call<PSC>>,
 {
+	// Decode block data first - we need it for both scheduling validation and block execution
+	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
+		.expect("Invalid parachain block data");
+
+	// V3 scheduling validation.
+	let _validated_scheduling = scheduling::validate_v3_scheduling(
+		PSC::SchedulingV3Enabled::get(),
+		&extension.0,
+		block_data.scheduling_proof(),
+		PSC::RelayParentOffset::get(),
+	);
+
 	let _guard = (
 		// Replace storage calls with our own implementations
 		sp_io::storage::host_read.replace_implementation(host_storage_read),
@@ -129,9 +142,6 @@ where
 		#[cfg(feature = "transaction-index")]
 		sp_io::transaction_index::host_renew.replace_implementation(host_transaction_index_renew),
 	);
-
-	let block_data = codec::decode_from_bytes::<ParachainBlockData<B::LazyBlock>>(block_data)
-		.expect("Invalid parachain block data");
 
 	// Initialize hashmaps randomness.
 	sp_trie::add_extra_randomness(build_seed_from_head_data::<B>(

@@ -140,7 +140,7 @@ fn compute_time_until_next_slot_change(
 }
 
 /// Returns current duration since Unix epoch.
-fn duration_now() -> Duration {
+pub(super) fn duration_now() -> Duration {
 	use std::time::SystemTime;
 	let now = SystemTime::now();
 	now.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_else(|e| {
@@ -270,6 +270,11 @@ where
 		self.last_reported_core_num = Some(num_cores_next_block);
 	}
 
+	/// Set the time offset.
+	pub fn set_time_offset(&mut self, offset: Duration) {
+		self.time_offset = offset;
+	}
+
 	/// Returns the slot and how much time left until the next block production attempt.
 	pub fn time_until_next_block(&mut self, slot_duration: SlotDuration) -> (Duration, Slot) {
 		compute_next_wake_up_time(
@@ -301,7 +306,7 @@ where
 		let best_hash = self.client.usage_info().chain.best_hash;
 
 		let mut runtime_api = self.client.runtime_api();
-		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+		runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 		let Ok(authorities) = runtime_api.authorities(best_hash) else {
 			// Presume they are different, this will adjust the slot authoring duration more
 			// conservatively.

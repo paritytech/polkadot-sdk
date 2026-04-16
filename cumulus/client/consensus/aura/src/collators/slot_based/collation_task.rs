@@ -120,6 +120,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 	export_pov: Option<PathBuf>,
 ) {
 	let CollatorMessage {
+		scheduling_proof,
 		parent_header,
 		parachain_candidate,
 		validation_code_hash,
@@ -130,14 +131,22 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 	let hash = parachain_candidate.block.header().hash();
 	let number = *parachain_candidate.block.header().number();
-	let (collation, block_data) =
-		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
-			Some(collation) => collation,
-			None => {
-				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
-				return;
-			},
-		};
+	// Derive scheduling_parent from the proof's header chain.
+	// If header chain is empty, it means we're building at the relay parent.
+	let scheduling_parent =
+		scheduling_proof.as_ref().map(|p| p.scheduling_parent().unwrap_or(relay_parent));
+	let (collation, block_data) = match collator_service.build_collation(
+		&parent_header,
+		hash,
+		parachain_candidate,
+		scheduling_proof,
+	) {
+		Some(collation) => collation,
+		None => {
+			tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
+			return;
+		},
+	};
 
 	block_data.log_size_info();
 
@@ -193,7 +202,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 				validation_code_hash,
 				core_index,
 				result_sender: None,
-				scheduling_parent: None,
+				scheduling_parent,
 				session_index,
 				validation_data,
 			}),
