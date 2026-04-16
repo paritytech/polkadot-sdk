@@ -501,7 +501,7 @@ where
 	/// Poll the active runtime API requests.
 	async fn poll_requests(&mut self) {
 		// If there are no active requests, this future should be pending forever.
-		if self.active_requests.len() == 0 {
+		if self.active_requests.is_empty() {
 			return futures::pending!();
 		}
 
