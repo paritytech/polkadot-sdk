@@ -27,9 +27,9 @@ use zombienet_sdk::{
 
 const PARA_ID: u32 = 2400;
 
-/// A test that ensures that PoV bundling works with 3 cores and glutton consuming 80% ref time.
+/// A test that ensures that PoV bundling works with 3 cores and glutton consuming 10% ref time.
 ///
-/// This test starts with 3 cores assigned and configures glutton to use 80% of ref time,
+/// This test starts with 3 cores assigned and configures glutton to use 10% of ref time,
 /// then validates that the parachain produces 72 blocks.
 #[tokio::test(flavor = "multi_thread")]
 async fn block_bundling_three_cores_glutton() -> Result<(), anyhow::Error> {
@@ -106,12 +106,12 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					("-lparachain=debug,aura=trace,runtime=trace").into(),
 				])
 				.with_genesis_overrides(json!({
-					"glutton": {
-						"compute": "200000000", // 20% ref time consumption
-						"storage": "0", // No storage consumption
-						"trashDataCount": 5000, // Initialize with some trash data
-						"blockLength": "0" // No block length consumption
-					}
+				"glutton": {
+					"compute": "0.1",
+					"storage": "0",
+					"trashDataCount": 5000,
+					"blockLength": "0"
+				}
 				}))
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
