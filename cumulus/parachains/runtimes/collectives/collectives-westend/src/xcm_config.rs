@@ -21,8 +21,8 @@ use super::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, ConstU8, Contains,
-		Equals, Everything, LinearStoragePrice, Nothing, PalletInfoAccess,
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
+		Everything, LinearStoragePrice, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
@@ -43,11 +43,11 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
-	HashedDescription, IsConcrete, IsParentsOnly, LocatableAssetId, LocationAsSuperuser,
-	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
-	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	HashedDescription, IsConcrete, LocatableAssetId, LocationAsSuperuser, OriginToPluralityVoice,
+	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
+	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -147,6 +147,13 @@ parameter_types! {
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
+}
+
 pub struct LocalPlurality;
 impl Contains<Location> for LocalPlurality {
 	fn contains(loc: &Location) -> bool {
@@ -168,9 +175,10 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and sibling system parachains get free execution.
+					// Parent, its pluralities (i.e. governance bodies), and sibling system
+					// parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
+						ParentOrParentsPlurality,
 						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						Equals<GovernanceLocation>,
 					)>,

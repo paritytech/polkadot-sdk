@@ -41,4 +41,7 @@ mod imports {
 mod common;
 
 #[cfg(test)]
+mod open_gov_on_relay;
+
+#[cfg(test)]
 mod open_gov_on_asset_hub;

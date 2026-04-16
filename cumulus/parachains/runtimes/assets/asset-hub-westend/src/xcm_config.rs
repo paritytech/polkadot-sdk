@@ -33,7 +33,7 @@ use frame_support::{
 	traits::{
 		fungible::HoldConsideration,
 		tokens::imbalance::{ResolveAssetTo, ResolveTo},
-		ConstU32, ConstU8, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
+		ConstU32, Contains, Equals, Everything, LinearStoragePrice, PalletInfoAccess,
 	},
 	PalletId,
 };
@@ -56,7 +56,7 @@ use xcm_builder::{
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
 	FrameTransactionalProcessor, FungibleAdapter, FungiblesAdapter, HashedDescription, IsConcrete,
-	IsParentsOnly, LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
+	LocalMint, MatchInClassInstances, MatchedConvertedConcreteId, MintLocation,
 	NetworkExportTableItem, NoChecking, OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset,
 	RelayChainAsNative, SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SingleAssetExchangeAdapter,
@@ -269,6 +269,13 @@ parameter_types! {
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
 
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
+	}
+}
+
 pub struct FellowshipEntities;
 impl Contains<Location> for FellowshipEntities {
 	fn contains(location: &Location) -> bool {
@@ -315,9 +322,10 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and sibling system parachains get free execution.
+					// Parent, its pluralities (i.e. governance bodies) and sibling system
+					// parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
+						ParentOrParentsPlurality,
 						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						FellowshipEntities,
 						AmbassadorEntities,

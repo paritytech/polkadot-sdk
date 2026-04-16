@@ -24,7 +24,7 @@ use bridge_hub_common::DenyExportMessageFrom;
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, ConstU8, Equals,
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
 		Everything, EverythingBut, LinearStoragePrice, Nothing,
 	},
 };
@@ -47,7 +47,7 @@ use xcm_builder::{
 	AllowHrmpNotificationsFromRelayChain, AllowKnownQueryResponses, AllowSubscriptionsFrom,
 	AllowTopLevelPaidExecutionFrom, DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry,
 	DescribeAllTerminal, DescribeFamily, EnsureXcmOrigin, ExternalConsensusLocationsConverterFor,
-	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete, IsParentsOnly,
+	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsConcrete,
 	LocationAsSuperuser, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
 	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
 	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
@@ -127,6 +127,15 @@ pub type XcmOriginToTransactDispatchOrigin = (
 	XcmPassthrough<RuntimeOrigin>,
 );
 
+pub struct ParentOrParentsPlurality;
+impl Contains<Location> for ParentOrParentsPlurality {
+	fn contains(location: &Location) -> bool {
+		let result = matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]));
+		tracing::trace!(target: "xcm::contains", ?location, ?result, "ParentOrParentsPlurality matches");
+		result
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		(
@@ -148,9 +157,10 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and sibling system parachains get free execution.
+					// Parent, its pluralities (i.e. governance bodies), and sibling system
+					// parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
-						IsParentsOnly<ConstU8<1>>,
+						ParentOrParentsPlurality,
 						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						Equals<SnowbridgeFrontendLocation>,
 						Equals<GovernanceLocation>,
