@@ -56,7 +56,7 @@ pub enum DhtEvent {
 	/// Successfully started providing the given key.
 	StartedProviding(Key),
 
-	/// An error occured while registering as a content provider on the DHT.
+	/// An error occurred while registering as a content provider on the DHT.
 	StartProvidingFailed(Key),
 
 	/// The DHT received a put record request.
