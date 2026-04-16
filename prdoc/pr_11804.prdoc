@@ -1,0 +1,18 @@
+title: Small fixes
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - **Cleanup LpFee underflow and integrity_test**
+    - **WE DO NOT PANIC IN A RUNTIME UPGRADE**
+    - **Remove tautological assert**
+    - **harden tips pallet**
+crates:
+- name: pallet-asset-conversion
+  bump: patch
+- name: pallet-psm
+  bump: patch
+- name: pallet-balances
+  bump: patch
+- name: pallet-tips
+  bump: patch
