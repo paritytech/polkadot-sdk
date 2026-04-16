@@ -1,10 +1,10 @@
 # Using Containers
 
-Using containers via **Podman** or **Docker** brings benefit, whether it is to build a container image or run a node
+Using containers via **Podman** or **Docker** brings benefits, whether it is to build a container image or run a node
 while keeping a minimum footprint on your local system.
 
-This document mentions using `podman` or `docker`. Those are usually interchangeable and it is encouraged using
-preferably **Podman**. If you have podman installed and want to use all the commands mentioned below, you can simply
+This document mentions using `podman` or `docker`. These are usually interchangeable and using
+**Podman** is preferred. If you have podman installed and want to use all the commands mentioned below, you can simply
 create an alias with `alias docker=podman`.
 
 There are a few options to build a node within a container and inject a binary inside an image.
@@ -53,13 +53,13 @@ ARTIFACTS_FOLDER=./target/release /docker/scripts/build-injected.sh
 
 ## Container build
 
-Alternatively, you can build an image with a builder pattern. This options takes a while but offers a simple method for
+Alternatively, you can build an image with a builder pattern. This option takes a while but offers a simple method for
 anyone to get a working container image without requiring any of the Rust toolchain installed locally.
 
 ```bash
 docker build \
 	--tag $OWNER/$IMAGE_NAME \
- --file ./docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Dockerfile .
+ 	--file ./docker/dockerfiles/polkadot-parachain/polkadot-parachain_builder.Dockerfile .
 ```
 
 You may then run your new container:
