@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use cumulus_pallet_parachain_system::LastRelayChainBlockNumber;
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -33,7 +34,8 @@ where
 	Sender: Chain + TestExt,
 	Sender::Runtime: pallet_dap_satellite::Config
 		+ pallet_balances::Config<Balance = Balance>
-		+ frame_system::Config<AccountId = AccountId>,
+		+ frame_system::Config<AccountId = AccountId>
+		+ cumulus_pallet_parachain_system::Config,
 	Sender::RuntimeEvent: TryInto<pallet_dap_satellite::Event<Sender::Runtime>>,
 	pallet_dap_satellite::Pallet<Sender::Runtime>: Hooks<u32>,
 	<Sender::Runtime as pallet_dap_satellite::Config>::MinTransferAmount: Get<Balance>,
@@ -86,9 +88,11 @@ where
 
 	let transfer_period = <Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod::get();
 
-	// Trigger `on_idle` to initiate a transfer to DAP. The block number must be an exact multiple
-	// of `TransferPeriod`.
+	// Trigger `on_idle` to initiate a transfer to DAP. The relay block number must be an exact
+	// multiple of `TransferPeriod` — `RelaychainDataProvider` reads `LastRelayChainBlockNumber`
+	// in the emulated test environment, so we set it directly.
 	Sender::execute_with(|| {
+		LastRelayChainBlockNumber::<Sender::Runtime>::put(transfer_period.saturating_mul(3));
 		let _ = <pallet_dap_satellite::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
 			transfer_period.saturating_mul(3),
 			Weight::MAX,
