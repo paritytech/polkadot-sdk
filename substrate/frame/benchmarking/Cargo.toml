@@ -46,8 +46,7 @@ sp-state-machine = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"anyhow",
-	"anyhow?/std",
+	"anyhow/std",
 	"codec/std",
 	"frame-support-procedural/std",
 	"frame-support/std",
