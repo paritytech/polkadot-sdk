@@ -67,7 +67,7 @@ use frame_support::{
 	weights::WeightMeter,
 	PalletId,
 };
-use sp_runtime::{Percent, Saturating};
+use sp_runtime::{traits::BlockNumberProvider, Percent, Saturating};
 
 pub use pallet::*;
 
@@ -86,11 +86,15 @@ pub mod pallet {
 	use super::*;
 	use crate::weights::WeightInfo as _;
 	use frame_support::sp_runtime::traits::AccountIdConversion;
-	use frame_system::pallet_prelude::BlockNumberFor;
+	use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 
 	/// The in-code storage version.
 	const STORAGE_VERSION: frame_support::traits::StorageVersion =
 		frame_support::traits::StorageVersion::new(1);
+
+	/// Block number type derived from the configured [`Config::BlockNumberProvider`].
+	pub type BlockNumberFor<T> =
+		<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -122,6 +126,10 @@ pub mod pallet {
 		#[pallet::constant]
 		type MinTransferAmount: Get<BalanceOf<Self>>;
 
+		/// Block number provider. Use `RelaychainDataProvider` on parachains so that
+		/// `TransferPeriod` is expressed in relay chain blocks, keeping the cadence stable.
+		type BlockNumberProvider: BlockNumberProvider;
+
 		/// Weight information for the pallet's operations.
 		type WeightInfo: weights::WeightInfo;
 	}
@@ -137,9 +145,10 @@ pub mod pallet {
 	}
 
 	#[pallet::hooks]
-	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		fn on_idle(block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
+		fn on_idle(_block: SystemBlockNumberFor<T>, remaining_weight: Weight) -> Weight {
 			// Only attempt transfers on blocks that are exact multiples of `TransferPeriod`.
+			let block = T::BlockNumberProvider::current_block_number();
 			if (block % T::TransferPeriod::get()) != Zero::zero() {
 				return Weight::zero();
 			}

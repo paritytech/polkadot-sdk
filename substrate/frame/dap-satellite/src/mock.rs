@@ -103,6 +103,7 @@ impl Config for Test {
 	type SendToDap = MockSendToDap;
 	type TransferPeriod = TransferPeriod;
 	type MinTransferAmount = MinTransferAmount;
+	type BlockNumberProvider = System;
 	type WeightInfo = ();
 }
 

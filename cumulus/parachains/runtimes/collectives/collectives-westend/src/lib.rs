@@ -53,7 +53,7 @@ pub use ambassador::pallet_ambassador_origins;
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
@@ -702,6 +702,7 @@ impl pallet_dap_satellite::Config for Runtime {
 	>;
 	type TransferPeriod = DapSatelliteTransferPeriod;
 	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
 	type WeightInfo = ();
 }
 

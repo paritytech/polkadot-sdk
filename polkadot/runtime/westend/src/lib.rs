@@ -1759,6 +1759,7 @@ impl pallet_dap_satellite::Config for Runtime {
 	>;
 	type TransferPeriod = DapSatelliteTransferPeriod;
 	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
 	type WeightInfo = ();
 }
 

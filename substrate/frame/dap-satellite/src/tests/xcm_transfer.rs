@@ -70,6 +70,7 @@ fn rate_limit_rejects_non_period_blocks() {
 		// Non-multiples within and around the first period.
 		for block in (period.saturating_sub(4)..=period.saturating_add(4)).filter(|b| *b != period)
 		{
+			System::set_block_number(block);
 			DapSatellitePallet::on_idle(block, Weight::from_all(u64::MAX));
 			assert_eq!(get_send_count(), 0, "unexpected send at block {block}");
 
@@ -97,6 +98,7 @@ fn transfer_triggers_on_period_multiple() {
 			reset_send_count();
 
 			let block = period.saturating_mul(i);
+			System::set_block_number(block);
 			DapSatellitePallet::on_idle(block, Weight::from_all(u64::MAX));
 			assert_eq!(get_send_count(), 1, "expected send at block {block} (iteration {i})");
 			assert_eq!(
@@ -121,6 +123,7 @@ fn each_period_multiple_triggers_independently() {
 		reset_last_sent_amount();
 
 		// First transfer at block `period`.
+		System::set_block_number(period);
 		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(get_last_sent_amount(), Some(funds));
@@ -131,6 +134,7 @@ fn each_period_multiple_triggers_independently() {
 		fund_satellite_account(funds);
 		reset_last_sent_amount();
 
+		System::set_block_number(period.saturating_mul(2));
 		DapSatellitePallet::on_idle(period.saturating_mul(2), Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 2);
 		assert_eq!(get_last_sent_amount(), Some(funds));
@@ -150,6 +154,7 @@ fn ensure_minimum_amount_limit_is_respected() {
 		reset_send_count();
 		reset_last_sent_amount();
 
+		System::set_block_number(period);
 		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 0);
 
@@ -161,6 +166,7 @@ fn ensure_minimum_amount_limit_is_respected() {
 		);
 
 		// Next period multiple — transfer should now succeed.
+		System::set_block_number(2 * period);
 		DapSatellitePallet::on_idle(2 * period, Weight::from_all(u64::MAX));
 		assert_eq!(get_send_count(), 1);
 		assert_eq!(get_last_sent_amount(), Some(limit));
@@ -178,7 +184,7 @@ fn verify_success_path() {
 		reset_last_sent_amount();
 		fund_satellite_account(funds);
 
-		System::set_block_number(1);
+		System::set_block_number(period);
 		DapSatellitePallet::on_idle(period, Weight::from_all(u64::MAX));
 
 		assert_eq!(get_send_count(), 1);
@@ -200,7 +206,7 @@ fn verify_failure_path() {
 		reset_last_sent_amount();
 		fund_satellite_account(funds);
 
-		System::set_block_number(1);
+		System::set_block_number(period);
 		SEND_FAIL.with(|f| *f.borrow_mut() = true);
 
 		let balance_before = Balances::free_balance(sat);
@@ -232,6 +238,7 @@ fn on_idle_consumes_no_weight_on_non_period_block() {
 		reset_send_count();
 
 		// Block 1 is not a multiple of TransferPeriod.
+		System::set_block_number(1);
 		let consumed = DapSatellitePallet::on_idle(1, Weight::from_all(u64::MAX));
 
 		assert_eq!(consumed, Weight::zero());
@@ -250,6 +257,7 @@ fn on_idle_skips_when_no_weight_for_balance_read() {
 		reset_send_count();
 
 		let period = TransferPeriod::get();
+		System::set_block_number(period);
 		let consumed = DapSatellitePallet::on_idle(period, Weight::zero());
 
 		assert_eq!(consumed, Weight::zero());
@@ -267,6 +275,7 @@ fn on_idle_consumes_one_read_when_below_min_transfer() {
 		reset_send_count();
 
 		let period = TransferPeriod::get();
+		System::set_block_number(period);
 		let one_read = RocksDbWeight::get().reads(1);
 		let consumed = DapSatellitePallet::on_idle(period, one_read);
 
