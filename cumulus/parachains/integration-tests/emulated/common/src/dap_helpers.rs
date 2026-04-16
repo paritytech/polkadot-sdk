@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cumulus_pallet_parachain_system::LastRelayChainBlockNumber;
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -29,13 +28,14 @@ use xcm_emulator::{Chain, TestExt};
 /// Tests that the DAP satellite accumulates native tokens, teleports them to the staging
 /// account on AssetHub, and that `pallet-dap`'s `on_idle` subsequently drains and
 /// deactivates those funds into the main DAP buffer account.
-pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(fund_sender: fn(AccountId, Balance))
-where
+pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
+	fund_sender: fn(AccountId, Balance),
+	setup_block_number: fn(u32),
+) where
 	Sender: Chain + TestExt,
 	Sender::Runtime: pallet_dap_satellite::Config
 		+ pallet_balances::Config<Balance = Balance>
-		+ frame_system::Config<AccountId = AccountId>
-		+ cumulus_pallet_parachain_system::Config,
+		+ frame_system::Config<AccountId = AccountId>,
 	Sender::RuntimeEvent: TryInto<pallet_dap_satellite::Event<Sender::Runtime>>,
 	pallet_dap_satellite::Pallet<Sender::Runtime>: Hooks<u32>,
 	<Sender::Runtime as pallet_dap_satellite::Config>::MinTransferAmount: Get<Balance>,
@@ -88,11 +88,10 @@ where
 
 	let transfer_period = <Sender::Runtime as pallet_dap_satellite::Config>::TransferPeriod::get();
 
-	// Trigger `on_idle` to initiate a transfer to DAP. The relay block number must be an exact
-	// multiple of `TransferPeriod` — `RelaychainDataProvider` reads `LastRelayChainBlockNumber`
-	// in the emulated test environment, so we set it directly.
+	// Trigger `on_idle` to initiate a transfer to DAP. The block number used by
+	// `BlockNumberProvider` must be an exact multiple of `TransferPeriod`.
 	Sender::execute_with(|| {
-		LastRelayChainBlockNumber::<Sender::Runtime>::put(transfer_period.saturating_mul(3));
+		setup_block_number(transfer_period.saturating_mul(3));
 		let _ = <pallet_dap_satellite::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
 			transfer_period.saturating_mul(3),
 			Weight::MAX,

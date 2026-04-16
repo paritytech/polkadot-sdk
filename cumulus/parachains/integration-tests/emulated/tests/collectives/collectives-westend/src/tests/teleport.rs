@@ -115,5 +115,10 @@ fn dap_satellite_collectives_transfers_native_to_asset_hub_dap() {
 	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
 		CollectivesWestend,
 		AssetHubWestend,
-	>(|acct, amount| CollectivesWestend::fund_accounts(vec![(acct, amount)]));
+	>(
+		|acct, amount| CollectivesWestend::fund_accounts(vec![(acct, amount)]),
+		|n| cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
+			collectives_westend_runtime::Runtime,
+		>::put(n),
+	);
 }

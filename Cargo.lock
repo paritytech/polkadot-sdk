@@ -1708,6 +1708,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "westend-runtime",
  "westend-system-emulated-network",
  "xcm-runtime-apis",
 ]
@@ -4191,6 +4192,7 @@ dependencies = [
 name = "coretime-westend-integration-tests"
 version = "0.0.0"
 dependencies = [
+ "coretime-westend-runtime",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
@@ -15437,6 +15439,7 @@ dependencies = [
 name = "people-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",

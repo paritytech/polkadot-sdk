@@ -808,5 +808,10 @@ fn dap_satellite_relay_transfers_native_to_asset_hub_dap() {
 	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
 		Westend,
 		AssetHubWestend,
-	>(|acct, amount| Westend::fund_accounts(vec![(acct, amount)]));
+	>(
+		|acct, amount| Westend::fund_accounts(vec![(acct, amount)]),
+		|n| frame_system::Pallet::<
+			westend_runtime::Runtime,
+		>::set_block_number(n),
+	);
 }
