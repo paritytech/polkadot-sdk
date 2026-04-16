@@ -1056,7 +1056,7 @@ impl<T: Encode> Encode for WrapperOpaque<T> {
 
 impl<T: Decode> Decode for WrapperOpaque<T> {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
-		Ok(Self(T::decode_all_with_depth_limit(
+		Ok(Self(T::decode_with_depth_limit(
 			crate::MAX_EXTRINSIC_DEPTH,
 			&mut &<Vec<u8>>::decode(input)?[..],
 		)?))
@@ -1494,8 +1494,9 @@ mod test {
 		assert_eq!(<WrapperOpaque<[u8; 2usize.pow(14)]>>::max_encoded_len(), 2usize.pow(14) + 4);
 
 		let data = 4u64;
-		// Ensure that we check that the `Vec<u8>` is consumed completely on decode.
-		assert!(WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).is_err());
+		// Trailing bytes inside the blob are tolerated (forward compatibility).
+		let decoded = WrapperOpaque::<u32>::decode(&mut &data.encode().encode()[..]).unwrap();
+		assert_eq!(decoded.0, 4u64 as u32);
 	}
 
 	#[test]
@@ -1509,6 +1510,76 @@ mod test {
 		let decoded = WrapperKeepOpaque::<u32>::decode(&mut &data[..]).unwrap();
 		let data = decoded.encode();
 		WrapperOpaque::<u32>::decode(&mut &data[..]).unwrap();
+	}
+
+	// ----- Toy example: WrapperOpaque forward compatibility ----------
+
+	#[derive(Debug, Default, Clone, Encode, Decode, PartialEq, Eq)]
+	struct CallLogV1 {
+		address: u64,
+		data: Vec<u8>,
+		position: u32,
+	}
+
+	#[derive(Debug, Default, Clone, Encode, Decode, PartialEq, Eq)]
+	struct CallLogV2 {
+		address: u64,
+		data: Vec<u8>,
+		position: u32,
+		index: u32, // new field
+	}
+
+	/// New runtime (V2) → old RPC (V1). Trailing `index` bytes should be skipped.
+	///
+	/// FAILS with current `decode_all`. PASSES after changing to `decode_with_depth_limit`.
+	#[test]
+	fn wrapper_opaque_forward_compat() {
+		let new_logs: Vec<WrapperOpaque<CallLogV2>> = vec![
+			WrapperOpaque(CallLogV2 {
+				address: 1,
+				data: b"first".to_vec(),
+				position: 0,
+				index: 100,
+			}),
+			WrapperOpaque(CallLogV2 {
+				address: 2,
+				data: b"second".to_vec(),
+				position: 1,
+				index: 101,
+			}),
+		];
+
+		let bytes = new_logs.encode();
+
+		// Old RPC decodes as V1 — should work, trailing bytes skipped.
+		let old_logs: Vec<WrapperOpaque<CallLogV1>> =
+			Decode::decode(&mut &bytes[..]).expect("old decoder should handle new fields");
+
+		assert_eq!(old_logs.len(), 2);
+		assert_eq!(old_logs[0].0.address, 1);
+		assert_eq!(old_logs[0].0.position, 0);
+		assert_eq!(old_logs[1].0.address, 2);
+		assert_eq!(old_logs[1].0.position, 1);
+	}
+
+	/// Without WrapperOpaque, extra bytes corrupt the next Vec item.
+	#[test]
+	fn bare_vec_breaks_on_new_field() {
+		let new_logs: Vec<CallLogV2> = vec![
+			CallLogV2 { address: 1, data: b"first".to_vec(), position: 0, index: 100 },
+			CallLogV2 { address: 2, data: b"second".to_vec(), position: 1, index: 101 },
+		];
+
+		let bytes = new_logs.encode();
+
+		match <Vec<CallLogV1>>::decode(&mut &bytes[..]) {
+			Err(_) => {},
+			Ok(decoded) => {
+				let correct =
+					decoded.len() == 2 && decoded[0].address == 1 && decoded[1].address == 2;
+				assert!(!correct, "bare Vec cannot round-trip with extra fields");
+			},
+		}
 	}
 
 	#[test]
