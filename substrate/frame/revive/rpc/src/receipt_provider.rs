@@ -31,6 +31,38 @@ use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
 
+/// Parse a SQLite row from the `logs` table into a [`Log`].
+fn parse_log_row(row: sqlx::sqlite::SqliteRow) -> Result<Log, sqlx::Error> {
+	let block_hash: Vec<u8> = row.try_get("block_hash")?;
+	let transaction_index: i64 = row.try_get("transaction_index")?;
+	let log_index: i64 = row.try_get("log_index")?;
+	let address: Vec<u8> = row.try_get("address")?;
+	let block_number: i64 = row.try_get("block_number")?;
+	let transaction_hash: Vec<u8> = row.try_get("transaction_hash")?;
+	let topic_0: Option<Vec<u8>> = row.try_get("topic_0")?;
+	let topic_1: Option<Vec<u8>> = row.try_get("topic_1")?;
+	let topic_2: Option<Vec<u8>> = row.try_get("topic_2")?;
+	let topic_3: Option<Vec<u8>> = row.try_get("topic_3")?;
+	let data: Option<Vec<u8>> = row.try_get("data")?;
+
+	let topics = [topic_0, topic_1, topic_2, topic_3]
+		.iter()
+		.filter_map(|t| t.as_ref().map(|t| H256::from_slice(t)))
+		.collect::<Vec<_>>();
+
+	Ok(Log {
+		address: Address::from_slice(&address),
+		block_hash: H256::from_slice(&block_hash),
+		block_number: U256::from(block_number as u64),
+		data: data.map(Bytes::from),
+		log_index: U256::from(log_index as u64),
+		topics,
+		transaction_hash: H256::from_slice(&transaction_hash),
+		transaction_index: U256::from(transaction_index as u64),
+		removed: false,
+	})
+}
+
 /// ReceiptProvider stores transaction receipts and logs in a SQLite database.
 #[derive(Clone)]
 pub struct ReceiptProvider<B: BlockInfoProvider = SubxtBlockInfoProvider> {
@@ -428,12 +460,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Fetch receipts from the given block.
+	/// Look up the ethereum block hash for a previously processed block from the in-memory cache.
+	pub async fn get_existing_eth_block_hash(
+		&self,
+		block_number: SubstrateBlockNumber,
+		substrate_hash: H256,
+	) -> Option<H256> {
+		self.block_number_to_hashes
+			.lock()
+			.await
+			.get(&block_number)
+			.filter(|entry| entry.substrate_hash == substrate_hash)
+			.map(|entry| entry.ethereum_hash)
+	}
+
+	/// Fetch receipts from the given block, using a pre-fetched ethereum block hash.
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
+		ethereum_hash: H256,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		self.receipt_extractor.extract_from_block(block).await
+		self.receipt_extractor
+			.extract_from_block_with_eth_hash(block, ethereum_hash)
+			.await
 	}
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
@@ -451,18 +500,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Extract receipts from the given block, insert them, and update the block cache.
+	/// Insert pre-extracted receipts and update the block cache.
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
 		ethereum_hash: &H256,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		let receipts = self
-			.receipt_extractor
-			.extract_from_block_with_eth_hash(block, *ethereum_hash)
-			.await?;
-		self.insert(block, &receipts, ethereum_hash).await?;
-		Ok(receipts)
+	) -> Result<(), ClientError> {
+		self.insert(block, receipts, ethereum_hash).await
 	}
 
 	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
@@ -717,40 +762,26 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		qb.push(" LIMIT 10000");
 
-		let logs = qb
-			.build()
-			.try_map(|row| {
-				let block_hash: Vec<u8> = row.try_get("block_hash")?;
-				let transaction_index: i64 = row.try_get("transaction_index")?;
-				let log_index: i64 = row.try_get("log_index")?;
-				let address: Vec<u8> = row.try_get("address")?;
-				let block_number: i64 = row.try_get("block_number")?;
-				let transaction_hash: Vec<u8> = row.try_get("transaction_hash")?;
-				let topic_0: Option<Vec<u8>> = row.try_get("topic_0")?;
-				let topic_1: Option<Vec<u8>> = row.try_get("topic_1")?;
-				let topic_2: Option<Vec<u8>> = row.try_get("topic_2")?;
-				let topic_3: Option<Vec<u8>> = row.try_get("topic_3")?;
-				let data: Option<Vec<u8>> = row.try_get("data")?;
+		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
-				let topics = [topic_0, topic_1, topic_2, topic_3]
-					.iter()
-					.filter_map(|t| t.as_ref().map(|t| H256::from_slice(t)))
-					.collect::<Vec<_>>();
+		Ok(logs)
+	}
 
-				Ok(Log {
-					address: Address::from_slice(&address),
-					block_hash: H256::from_slice(&block_hash),
-					block_number: U256::from(block_number as u64),
-					data: data.map(Bytes::from),
-					log_index: U256::from(log_index as u64),
-					topics,
-					transaction_hash: H256::from_slice(&transaction_hash),
-					transaction_index: U256::from(transaction_index as u64),
-					removed: false,
-				})
-			})
-			.fetch_all(&self.pool)
-			.await?;
+	/// Fetch all logs for a given block from the database.
+	pub async fn logs_by_block_number(
+		&self,
+		block_number: SubstrateBlockNumber,
+		block_hash: H256,
+	) -> Result<Vec<Log>, ClientError> {
+		let mut query_builder =
+			QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE block_number = ");
+		query_builder
+			.push_bind(block_number as i64)
+			.push(" AND block_hash = ")
+			.push_bind(block_hash.as_bytes().to_vec())
+			.push(" ORDER BY log_index");
+
+		let logs = query_builder.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
 		Ok(logs)
 	}
