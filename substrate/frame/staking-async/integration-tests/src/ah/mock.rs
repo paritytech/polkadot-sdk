@@ -524,6 +524,8 @@ parameter_types! {
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 	pub static MockTime: u64 = 0;
 	pub static UseLegacyEraPayout: bool = false;
+	/// Staker percentage for legacy EraPayout. Remainder = 100 - this value.
+	pub static LegacyStakerPercent: u32 = 50;
 }
 
 impl frame_support::traits::Time for MockTime {
@@ -534,6 +536,7 @@ impl frame_support::traits::Time for MockTime {
 }
 
 /// Switchable EraPayout: returns (0,0) in DAP mode, real values in legacy mode.
+/// In legacy mode, uses `LegacyStakerPercent` for the staker/remainder split.
 pub struct TestEraPayout;
 impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
 	fn era_payout(
@@ -544,10 +547,10 @@ impl pallet_staking_async::EraPayout<Balance> for TestEraPayout {
 		if !UseLegacyEraPayout::get() {
 			(0, 0)
 		} else {
-			// 1 token per millisecond, 50/50 split.
+			// 1 token per millisecond, split per LegacyStakerPercent.
 			let total = era_duration_millis as Balance;
-			let remainder = total / 2;
-			let stakers = total - remainder;
+			let stakers = Perbill::from_percent(LegacyStakerPercent::get()).mul_floor(total);
+			let remainder = total - stakers;
 			(stakers, remainder)
 		}
 	}
@@ -576,6 +579,7 @@ impl pallet_dap::Config for Runtime {
 	type BudgetRecipients = (
 		pallet_dap::Pallet<Runtime>,
 		pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest>,
+		pallet_staking_async::ValidatorIncentiveRecipient<pallet_staking_async::SequentialTest>,
 	);
 	type Time = MockTime;
 	type IssuanceCadence = DapIssuanceCadence;
@@ -907,24 +911,51 @@ impl ExtBuilder {
 	}
 }
 
+pub(crate) fn staker_reward_key() -> sp_staking::budget::BudgetKey {
+	<pallet_staking_async::StakerRewardRecipient<pallet_staking_async::SequentialTest> as
+		BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
+	<pallet_staking_async::ValidatorIncentiveRecipient<pallet_staking_async::SequentialTest> as
+		BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn buffer_key() -> sp_staking::budget::BudgetKey {
+	<pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn build_budget(
+	entries: &[(sp_staking::budget::BudgetKey, u32)],
+) -> pallet_dap::BudgetAllocationMap {
+	let mut budget = pallet_dap::BudgetAllocationMap::new();
+	for (key, pct) in entries {
+		budget.try_insert(key.clone(), Perbill::from_percent(*pct)).unwrap();
+	}
+	budget
+}
+
 /// Set up DAP infrastructure: budget allocation, timestamp, fund pots with ED.
 pub(crate) fn setup_dap() {
-	let staker_key = <pallet_staking_async::StakerRewardRecipient<
-		pallet_staking_async::SequentialTest,
-	> as BudgetRecipient<AccountId>>::budget_key();
-	let buffer_key = <pallet_dap::Pallet<Runtime> as BudgetRecipient<AccountId>>::budget_key();
-	let mut budget = pallet_dap::BudgetAllocationMap::new();
-	budget.try_insert(staker_key, Perbill::from_percent(50)).unwrap();
-	budget.try_insert(buffer_key, Perbill::from_percent(50)).unwrap();
-	pallet_dap::BudgetAllocation::<Runtime>::put(budget);
+	pallet_dap::BudgetAllocation::<Runtime>::put(build_budget(&[
+		(staker_reward_key(), 50),
+		(buffer_key(), 50),
+	]));
 
 	pallet_dap::LastIssuanceTimestamp::<Runtime>::put(MockTime::get());
 
-	// Fund general staker pot with ED to keep it alive.
-	let general_pot = pallet_staking_async::SequentialTest::pot_account(
+	// Fund general pots with ED to keep them alive.
+	let general_staker = pallet_staking_async::SequentialTest::pot_account(
 		pallet_staking_async::RewardPot::General(pallet_staking_async::RewardKind::StakerRewards),
 	);
-	Balances::mint_into(&general_pot, 1).unwrap();
+	Balances::mint_into(&general_staker, 1).unwrap();
+
+	let general_incentive = pallet_staking_async::SequentialTest::pot_account(
+		pallet_staking_async::RewardPot::General(
+			pallet_staking_async::RewardKind::ValidatorSelfStake,
+		),
+	);
+	Balances::mint_into(&general_incentive, 1).unwrap();
 }
 
 parameter_types! {
