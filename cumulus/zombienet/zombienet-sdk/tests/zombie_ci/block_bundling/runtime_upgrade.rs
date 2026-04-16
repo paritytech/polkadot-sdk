@@ -142,6 +142,15 @@ fn inflate_runtime_wasm(
 		.map_err(|e| anyhow!("Decompression failed: {:?}", e))?
 		.into_owned();
 
+	// Bump the `spec_version` so that `apply_authorized_upgrade`'s version check passes.
+	// On chain nothing will change, as we only change the runtime version stored inside the wasm
+	// file.
+	let blob = sc_executor_common::runtime_blob::RuntimeBlob::new(&wasm)?;
+	let mut version = sc_executor::read_embedded_version(&blob)?
+		.ok_or_else(|| anyhow!("No runtime version found?"))?;
+	version.spec_version += 1;
+	wasm = sp_version::embed::embed_runtime_version(&wasm, version)?;
+
 	let mut rng_state: u64 = 0xdeadbeef;
 	let mut padding = Vec::new();
 	let chunk_size = 256 * 1024;
