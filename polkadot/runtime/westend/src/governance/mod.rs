@@ -19,14 +19,13 @@
 use super::*;
 use crate::xcm_config::Collectives;
 use frame_support::{parameter_types, traits::EitherOf};
-use frame_system::EnsureRootWithSuccess;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use xcm::latest::BodyId;
 
 mod origins;
 pub use origins::{
 	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin,
-	ReferendumCanceller, ReferendumKiller, Spender, StakingAdmin, Treasurer, WhitelistedCaller,
+	ReferendumCanceller, ReferendumKiller, Spender, StakingAdmin, WhitelistedCaller,
 };
 mod tracks;
 pub use tracks::TracksInfo;
@@ -53,11 +52,6 @@ parameter_types! {
 	pub const SubmissionDeposit: Balance = 1 * 3 * CENTS;
 	pub const UndecidingTimeout: BlockNumber = 14 * DAYS;
 }
-
-parameter_types! {
-	pub const MaxBalance: Balance = Balance::max_value();
-}
-pub type TreasurySpender = EitherOf<EnsureRootWithSuccess<AccountId, MaxBalance>, Spender>;
 
 impl origins::pallet_custom_origins::Config for Runtime {}
 
@@ -87,7 +81,7 @@ impl pallet_referenda::Config for Runtime {
 	type SubmitOrigin = frame_system::EnsureSigned<AccountId>;
 	type CancelOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumCanceller>;
 	type KillOrigin = EitherOf<EnsureRoot<AccountId>, ReferendumKiller>;
-	type Slash = Treasury;
+	type Slash = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_conviction_voting::VotesOf<Runtime>;
 	type Tally = pallet_conviction_voting::TallyOf<Runtime>;
 	type SubmissionDeposit = SubmissionDeposit;

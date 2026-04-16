@@ -28,11 +28,11 @@ use asset_hub_westend_runtime::{
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, Executive, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
-	WeightToFee, XcmpQueue,
+	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Executive, ExistentialDeposit,
+	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
+	ParachainSystem, PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	SessionKeys, ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension,
+	UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -2488,6 +2488,33 @@ mod remote_test {
 			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
 		});
 	}
+}
+
+#[test]
+fn ah_treasury_creates_asset_reward_pool() {
+	use frame_support::traits::schedule::DispatchTime;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let treasury_account: AccountId =
+			asset_hub_westend_runtime::governance::TreasuryAccount::get();
+
+		// Fund the treasury account so it exists and can hold the pool-creation deposit.
+		assert_ok!(Balances::mint_into(&treasury_account, 100 * UNITS));
+
+		let native = WestendLocation::get();
+		let reward_rate_per_block = 1_000_000_000;
+
+		assert_ok!(AssetRewards::create_pool(
+			RuntimeOrigin::signed(treasury_account.clone()),
+			Box::new(native.clone()),
+			Box::new(native),
+			reward_rate_per_block,
+			DispatchTime::After(1_000_000),
+			None,
+		));
+
+		assert_eq!(pallet_asset_rewards::Pools::<Runtime>::iter().count(), 1);
+	});
 }
 
 mod dap {
