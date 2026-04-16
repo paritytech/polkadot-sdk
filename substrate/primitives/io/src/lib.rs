@@ -909,11 +909,12 @@ pub trait Storage {
 	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
 		let root = self.storage_root(StateVersion::V0);
+		let encoded = codec::Encode::encode(&root);
 		assert!(
-			out.len() >= root.len(),
+			out.len() >= encoded.len(),
 			"Output buffer provided to store the storage root hash must be large enough"
 		);
-		out[..root.len()].copy_from_slice(&root[..]);
+		out[..encoded.len()].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -925,7 +926,8 @@ pub trait Storage {
 		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(&mut root_out[..]);
-		root_out
+		codec::Decode::decode(&mut &root_out[..])
+			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -1458,9 +1460,12 @@ pub trait DefaultChildStorage {
 	) {
 		let child_info = ChildInfo::new_default(storage_key);
 		let root = self.child_storage_root(&child_info, StateVersion::V0);
-		if out.len() >= root.len() {
-			out[..root.len()].copy_from_slice(&root[..]);
-		}
+		let encoded = codec::Encode::encode(&root);
+		assert!(
+			out.len() >= encoded.len(),
+			"Output buffer provided to store the child storage root hash must be large enough"
+		);
+		out[..encoded.len()].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1472,7 +1477,8 @@ pub trait DefaultChildStorage {
 		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		root_out
+		codec::Decode::decode(&mut &root_out[..])
+			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
 	}
 
 	/// Child storage key iteration.
