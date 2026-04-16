@@ -59,8 +59,8 @@ tokio-stream = { workspace = true }
 [dev-dependencies]
 alloy-network = { workspace = true, default-features = true }
 alloy-primitives = { workspace = true, default-features = true }
-alloy-provider = { workspace = true, default-features = true, features = ["reqwest"] }
-alloy-rpc-types = { workspace = true, default-features = true }
+alloy-provider = { workspace = true, default-features = true, features = ["debug-api", "reqwest"] }
+alloy-rpc-types = { workspace = true, default-features = true, features = ["trace"] }
 alloy-signer-local = { workspace = true, default-features = true }
 env_logger = { workspace = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }

@@ -32,8 +32,9 @@ use pallet_revive::{
 	EthTransactError,
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
-		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet,
+		SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256,
+		decode_revert_reason,
 	},
 };
 use runtime_api::RuntimeApi;
@@ -561,16 +562,29 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
+			macro_rules! time {
+				($label:expr, $expr:expr) => {{
+					let t = std::time::Instant::now();
+					let r = $expr;
+					log::trace!(
+						target: LOG_TARGET,
+						"⏱️ [{subscription_type:?}] #{} {}: {:?}",
+						block.number(), $label, t.elapsed(),
+					);
+					r
+				}};
+			}
+
 			let hash = block.hash();
 			let block_number = block.number();
-			let evm_block = self.runtime_api(hash).eth_block().await?;
+			let evm_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
 
-			let (_, receipts): (Vec<_>, Vec<_>) = self
-				.receipt_provider
-				.insert_block_receipts(&block, &evm_block.hash)
-				.await?
-				.into_iter()
-				.unzip();
+			let (_, receipts): (Vec<_>, Vec<_>) = time!(
+				"insert_block_receipts",
+				self.receipt_provider.insert_block_receipts(&block, &evm_block.hash).await?
+			)
+			.into_iter()
+			.unzip();
 
 			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
@@ -990,10 +1004,11 @@ impl Client {
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
 		config: TracerType,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
-		runtime_api.trace_call(transaction, config).await
+		runtime_api.trace_call(transaction, config, state_overrides).await
 	}
 
 	/// Get the EVM block for the given Substrate block.
