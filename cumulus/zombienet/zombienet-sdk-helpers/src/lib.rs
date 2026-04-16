@@ -86,8 +86,9 @@ async fn is_session_change(
 // Helper function for asserting the throughput of parachains, after the first session change.
 //
 // The throughput is measured as total number of backed candidates in a window of `stop_after` relay
-// chain blocks. Relay chain blocks with session changes are generally ignored, but it is ensured
-// that no blocks are build on top of these relay blocks.
+// chain blocks. The counting window starts from the relay chain block after the first one that
+// contains a backed candidate for a tracked para. Relay chain blocks with session changes are
+// generally ignored, but it is ensured that no blocks are build on top of these relay blocks.
 pub async fn assert_para_throughput(
 	relay_client: &OnlineClient<PolkadotConfig>,
 	stop_after: u32,
@@ -149,8 +150,45 @@ where
 	// Wait for the first session, block production on the parachain will start after that.
 	wait_for_first_session_change(&mut blocks_sub).await?;
 	log::info!(
-		"First session change detected. Counting {stop_after} finalized relay chain blocks."
+		"First session change detected. Waiting for backed candidates from all tracked paras before counting."
 	);
+
+	// Skip relay chain blocks until every tracked para has had at least one backed candidate.
+	// This avoids counting the initial warm-up period where the backing pipeline (PVF
+	// compilation, first collation) hasn't reached steady state yet.
+	let mut paras_seen = std::collections::HashSet::new();
+	loop {
+		let block = blocks_sub
+			.next()
+			.await
+			.ok_or_else(|| anyhow!("Block stream ended while waiting for first candidate"))??;
+
+		if is_session_change(&block).await? {
+			continue;
+		}
+
+		let events = block.events().await?;
+		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
+			&events,
+			"ParaInclusion",
+			"CandidateBacked",
+		)?;
+
+		for receipt in &receipts {
+			let para_id = receipt.descriptor.para_id();
+			if valid_para_ids.contains(&para_id) {
+				paras_seen.insert(para_id);
+			}
+		}
+
+		if paras_seen.len() == valid_para_ids.len() {
+			log::info!(
+				"All tracked paras have produced candidates by relay block {}. Counting {stop_after} blocks from the next one.",
+				block.number()
+			);
+			break;
+		}
+	}
 
 	while let Some(block) = blocks_sub.next().await {
 		let block = block?;
