@@ -1414,16 +1414,26 @@ pub mod pallet {
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_out(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance1, &balance2).ok()
-				}
-			} else {
-				None
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+
+			if balance1.is_zero() {
+				return None;
 			}
+
+			let amount_out = if include_fee {
+				Self::get_amount_out(&amount, &balance1, &balance2).ok()?
+			} else {
+				Self::quote(&amount, &balance1, &balance2).ok()?
+			};
+
+			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+			// preservation level to determine the actual withdrawable amount.
+			let max_output = T::Assets::reducible_balance(asset2, &pool_account, Preserve, Polite);
+			if amount_out > max_output {
+				return None;
+			}
+
+			Some(amount_out)
 		}
 
 		/// Gets a quote for swapping `amount` of `asset1` for an exact amount of `asset2`.
@@ -1442,15 +1452,23 @@ pub mod pallet {
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
-			let balance2 = Self::get_balance(&pool_account, asset2);
-			if !balance1.is_zero() {
-				if include_fee {
-					Self::get_amount_in(&amount, &balance1, &balance2).ok()
-				} else {
-					Self::quote(&amount, &balance2, &balance1).ok()
-				}
+			let balance2 = Self::get_balance(&pool_account, asset2.clone());
+
+			if balance1.is_zero() {
+				return None;
+			}
+
+			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
+			// preservation level to determine the actual withdrawable amount.
+			let max_output = T::Assets::reducible_balance(asset2, &pool_account, Preserve, Polite);
+			if amount > max_output {
+				return None;
+			}
+
+			if include_fee {
+				Self::get_amount_in(&amount, &balance1, &balance2).ok()
 			} else {
-				None
+				Self::quote(&amount, &balance2, &balance1).ok()
 			}
 		}
 	}
