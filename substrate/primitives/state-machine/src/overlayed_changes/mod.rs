@@ -674,7 +674,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 	/// Updates the recorder's proof size by recording trie nodes using `backend` and all changes
 	/// as seen by the current transaction.
-	pub fn compute_pov_size_for_storage_root<B: Backend<H>>(
+	pub fn record_proof_for_dirty_keys<B: Backend<H>>(
 		&mut self,
 		backend: &B,
 		state_version: StateVersion,
@@ -691,7 +691,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.iter()
 			.map(|(info, snap)| (*info, snap.values().map(|(k, op)| (&k[..], *op))));
 
-		backend.compute_pov_size_for_storage_root_full(delta, child_delta, state_version);
+		backend.record_proof_for_dirty_keys_full(delta, child_delta, state_version);
 	}
 
 	/// Generate the child storage root using `backend` and all child changes

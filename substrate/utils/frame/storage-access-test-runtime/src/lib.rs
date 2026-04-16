@@ -157,7 +157,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 			child_info: maybe_child_info,
 			estimation_batch_size,
 		} => {
-			// Call compute_pov_size_for_storage_root if enabled
+			// Call record_proof_for_dirty_keys if enabled
 			if estimation_batch_size > 0 {
 				let batch_size = changes.len();
 				let triggers_per_batch = estimation_batch_size as usize;
@@ -174,7 +174,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 
 					match &maybe_child_info {
 						Some(child_info) => {
-							let _ = backend.compute_pov_size_for_child_storage_root(
+							let _ = backend.record_proof_for_child_dirty_keys(
 								child_info,
 								trigger_delta,
 								StateVersion::V1,
@@ -182,7 +182,7 @@ pub fn proceed_storage_access<B: traits::Block>(mut params: &[u8]) {
 						},
 						None => {
 							let _ = backend
-								.compute_pov_size_for_storage_root(trigger_delta, StateVersion::V1);
+								.record_proof_for_dirty_keys(trigger_delta, StateVersion::V1);
 						},
 					}
 				}

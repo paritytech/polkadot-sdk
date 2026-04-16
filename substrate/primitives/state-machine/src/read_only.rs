@@ -176,9 +176,9 @@ where
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
-	fn compute_pov_size_for_storage_root(&mut self, _: StateVersion) {
+	fn record_proof_for_dirty_keys(&mut self, _: StateVersion) {
 		unimplemented!(
-			"compute_pov_size_for_storage_root is not supported in ReadOnlyExternalities"
+			"record_proof_for_dirty_keys is not supported in ReadOnlyExternalities"
 		)
 	}
 

@@ -50,7 +50,7 @@ pub trait StorageProofSize {
 	#[version(2)]
 	fn storage_proof_size(&mut self, state_version: PassAs<StateVersion, u8>) -> u64 {
 		if self.extension::<ProofSizeExt>().is_some() {
-			self.compute_pov_size_for_storage_root(state_version);
+			self.record_proof_for_dirty_keys(state_version);
 		}
 
 		self.extension::<ProofSizeExt>()

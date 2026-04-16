@@ -185,7 +185,7 @@ pub struct StorageParams {
 	#[arg(long)]
 	pub random_seed: Option<u64>,
 
-	/// Number of compute_pov_size_for_storage_root calls per batch.
+	/// Number of record_proof_for_dirty_keys calls per batch.
 	///
 	/// If set to 0, compute calls are disabled. If set to a value N > 0, the compute will be
 	/// called N times per batch_size, distributing the calls evenly across the batch.

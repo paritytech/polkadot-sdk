@@ -491,14 +491,14 @@ where
 		root.encode()
 	}
 
-	fn compute_pov_size_for_storage_root(&mut self, state_version: StateVersion) {
+	fn record_proof_for_dirty_keys(&mut self, state_version: StateVersion) {
 		let _guard = guard();
 
-		self.overlay.compute_pov_size_for_storage_root(self.backend, state_version);
+		self.overlay.record_proof_for_dirty_keys(self.backend, state_version);
 
 		trace!(
 			target: "state",
-			method = "ComputePovSizeForStorageRoot",
+			method = "RecordProofForDirtyKeys",
 			ext_id = %HexDisplay::from(&self.id.to_le_bytes()),
 		);
 	}
@@ -1127,7 +1127,7 @@ mod tests {
 		ext.place_child_storage(child_info, 1u32.encode(), None);
 		ext.place_child_storage(child_info, 6000u32.encode(), None);
 
-		ext.compute_pov_size_for_storage_root(StateVersion::V1);
+		ext.record_proof_for_dirty_keys(StateVersion::V1);
 		let size_before = recorder.estimate_encoded_size();
 
 		ext.storage_root(StateVersion::V1);
@@ -1182,7 +1182,7 @@ mod tests {
 		ext.place_child_storage(child_info, key2.encode(), Some(vec![40]));
 		let _ = ext.storage_commit_transaction();
 
-		ext.compute_pov_size_for_storage_root(StateVersion::V1);
+		ext.record_proof_for_dirty_keys(StateVersion::V1);
 
 		ext.storage_start_transaction();
 		ext.place_storage(key1.encode(), None);
@@ -1192,7 +1192,7 @@ mod tests {
 		ext.place_child_storage(child_info, key2.encode(), None);
 		let _ = ext.storage_commit_transaction();
 
-		ext.compute_pov_size_for_storage_root(StateVersion::V1);
+		ext.record_proof_for_dirty_keys(StateVersion::V1);
 
 		let size_before = recorder.estimate_encoded_size();
 

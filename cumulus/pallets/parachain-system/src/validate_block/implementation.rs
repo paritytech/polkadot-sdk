@@ -456,7 +456,7 @@ fn host_storage_clear(key: &[u8]) {
 }
 
 fn host_storage_proof_size(state_version: StateVersion) -> u64 {
-	with_externalities(|ext| ext.compute_pov_size_for_storage_root(state_version));
+	with_externalities(|ext| ext.record_proof_for_dirty_keys(state_version));
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 

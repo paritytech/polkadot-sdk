@@ -679,7 +679,7 @@ where
 	///
 	/// Note: This function does not modify the actual storage state - it only reads and records
 	/// the trie nodes that would be affected by the given delta for proof size estimation.
-	pub fn compute_pov_size_for_storage_root<'a>(
+	pub fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
@@ -809,8 +809,8 @@ where
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
 	///
-	/// Refer to [`Self::compute_pov_size_for_storage_root`] for more details.
-	pub fn compute_pov_size_for_child_storage_root<'a>(
+	/// Refer to [`Self::record_proof_for_dirty_keys`] for more details.
+	pub fn record_proof_for_child_dirty_keys<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,

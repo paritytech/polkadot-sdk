@@ -310,8 +310,8 @@ impl Externalities for BasicExternalities {
 		.encode()
 	}
 
-	fn compute_pov_size_for_storage_root(&mut self, _: StateVersion) {
-		unimplemented!("compute_pov_size_for_storage_root not supported for Basic")
+	fn record_proof_for_dirty_keys(&mut self, _: StateVersion) {
+		unimplemented!("record_proof_for_dirty_keys not supported for Basic")
 	}
 
 	fn storage_start_transaction(&mut self) {

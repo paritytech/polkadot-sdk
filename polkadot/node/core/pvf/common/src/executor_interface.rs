@@ -332,11 +332,11 @@ impl sp_externalities::Externalities for ValidationExternalities {
 		panic!("get_read_and_written_keys: unsupported feature for parachain validation")
 	}
 
-	fn compute_pov_size_for_storage_root(
+	fn record_proof_for_dirty_keys(
 		&mut self,
 		_state_version: sp_core::storage::StateVersion,
 	) {
-		panic!("compute_pov_size_for_storage_root: unsupported feature for parachain validation")
+		panic!("record_proof_for_dirty_keys: unsupported feature for parachain validation")
 	}
 }
 

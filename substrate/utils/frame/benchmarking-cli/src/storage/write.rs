@@ -314,7 +314,7 @@ impl StorageCmd {
 
 		let start = Instant::now();
 
-		// Call compute_pov_size_for_storage_root if enabled
+		// Call record_proof_for_dirty_keys if enabled
 		if self.params.estimation_batch_size > 0 {
 			let triggers_per_batch = self.params.estimation_batch_size;
 			let trigger_interval = batch_size.div_ceil(triggers_per_batch);
@@ -329,14 +329,14 @@ impl StorageCmd {
 
 				match child_info {
 					Some(info) => {
-						let _ = trie.compute_pov_size_for_child_storage_root(
+						let _ = trie.record_proof_for_child_dirty_keys(
 							info,
 							trigger_delta,
 							version,
 						);
 					},
 					None => {
-						let _ = trie.compute_pov_size_for_storage_root(trigger_delta, version);
+						let _ = trie.record_proof_for_dirty_keys(trigger_delta, version);
 					},
 				}
 			}

@@ -269,7 +269,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Updates the recorder's proof size by recording trie nodes for a given delta.
 	///
 	/// Does not include child storage updates.
-	fn compute_pov_size_for_storage_root<'a>(
+	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		state_version: StateVersion,
@@ -277,7 +277,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		H::Out: Ord;
 
 	/// Updates the recorder's proof size by recording child trie nodes for a given delta.
-	fn compute_pov_size_for_child_storage_root<'a>(
+	fn record_proof_for_child_dirty_keys<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
@@ -347,7 +347,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 
 	/// Updates the recorder's proof size by recording trie nodes for a given delta and children
 	/// trie nodes for given child_deltas.
-	fn compute_pov_size_for_storage_root_full<'a>(
+	fn record_proof_for_dirty_keys_full<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
 		child_deltas: impl Iterator<
@@ -360,7 +360,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		let mut child_roots: Vec<Vec<u8>> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			self.compute_pov_size_for_child_storage_root(child_info, child_delta, state_version);
+			self.record_proof_for_child_dirty_keys(child_info, child_delta, state_version);
 			child_roots.push(child_info.prefixed_storage_key().into_inner());
 		}
 		// At "estimation phase" we don't know if child trie is empty or not. Let's assume
@@ -368,7 +368,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		let mut delta_and_child_roots: Vec<_> = delta.collect();
 		delta_and_child_roots
 			.extend(child_roots.iter().map(|k| (k.as_slice(), DeltaKeyOp::Deleted)));
-		self.compute_pov_size_for_storage_root(delta_and_child_roots.into_iter(), state_version);
+		self.record_proof_for_dirty_keys(delta_and_child_roots.into_iter(), state_version);
 	}
 
 	/// Register stats from overlay of state machine.
