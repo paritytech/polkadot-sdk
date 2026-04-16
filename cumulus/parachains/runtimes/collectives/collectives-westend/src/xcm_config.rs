@@ -21,8 +21,8 @@ use super::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		ConstU32, Contains, Equals, Everything, LinearStoragePrice, Nothing, PalletInfoAccess,
-		fungible::HoldConsideration, tokens::imbalance::ResolveTo,
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
+		Everything, LinearStoragePrice, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
@@ -35,7 +35,7 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
-use xcm::latest::{WESTEND_GENESIS_HASH, prelude::*};
+use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AliasOriginRootUsingFilter,
 	AllowExplicitUnpaidExecutionFrom, AllowHrmpNotificationsFromRelayChain,
