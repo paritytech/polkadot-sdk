@@ -707,12 +707,8 @@ macro_rules! decl_test_parachains {
 					Self::ext_wrapper(|| {
 						let slot_duration = $crate::pallet_aura::Pallet::<$runtime::Runtime>::slot_duration();
 
-						let relay_blocks_per_para_block =
-							(slot_duration / RELAY_CHAIN_SLOT_DURATION_MILLIS).max(1) as u32;
-
-						// Increase Relay Chain block number by relay_blocks_per_para_block
 						let mut relay_block_number = N::relay_block_number();
-						relay_block_number += relay_blocks_per_para_block;
+						relay_block_number += 1;
 						N::set_relay_block_number(relay_block_number);
 
 						// Initialize a new Parachain block
