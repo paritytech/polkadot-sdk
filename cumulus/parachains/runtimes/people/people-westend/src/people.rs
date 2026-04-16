@@ -14,14 +14,13 @@
 // limitations under the License.
 
 use super::*;
-use crate::xcm_config::LocationToAccountId;
 use codec::{Decode, Encode, MaxEncodedLen};
 use enumflags2::{bitflags, BitFlags};
 use frame_support::{
 	parameter_types, traits::ConstU32, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound,
 };
 use pallet_identity::{Data, IdentityInformationProvider};
-use parachains_common::{impls::ToParentTreasury, DAYS};
+use parachains_common::DAYS;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AccountIdConversion, Verify},
@@ -51,7 +50,7 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = ConstU32<100>;
 	type IdentityInformation = IdentityInfo;
 	type MaxRegistrars = ConstU32<20>;
-	type Slashed = ToParentTreasury<RelayTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type OffchainSignature = Signature;

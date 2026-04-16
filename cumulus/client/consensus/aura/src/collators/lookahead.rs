@@ -317,6 +317,20 @@ where
 				},
 			};
 
+			let session_index =
+				match params.relay_client.session_index_for_child(relay_parent).await {
+					Ok(session_index) => session_index,
+					Err(err) => {
+						tracing::error!(
+							target: crate::LOG_TARGET,
+							?err,
+							?relay_parent,
+							"Failed to fetch session index."
+						);
+						continue;
+					},
+				};
+
 			let parent_search_result = match crate::collators::find_parent(
 				relay_parent,
 				params.para_id,
@@ -373,7 +387,8 @@ where
 				params.relay_chain_slot_duration,
 			) {
 				let mut runtime_api = para_client.runtime_api();
-				runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+				runtime_api
+					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
 					connection_helper.update::<P>(slot_now, &authorities).await;
 				}
@@ -501,11 +516,12 @@ where
 									SubmitCollationParams {
 										relay_parent,
 										collation,
-										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: None,
 										core_index,
 										scheduling_parent: None,
+										session_index,
+										validation_data,
 									},
 								),
 								"SubmitCollation",

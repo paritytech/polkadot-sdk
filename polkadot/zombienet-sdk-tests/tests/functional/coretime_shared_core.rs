@@ -6,11 +6,16 @@
 
 use crate::utils::{
 	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, BLOCK_HEIGHT_FINALIZED_METRIC, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
+	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::submit_extrinsic_and_wait_for_finalization_success_with_timeout;
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
+	wait_for_first_session_change,
+};
+use polkadot_primitives::Id as ParaId;
 use serde_json::json;
+use std::ops::Range;
 use zombienet_sdk::{
 	subxt::{dynamic::Value, ext::scale_value::value, tx},
 	subxt_signer::sr25519::dev,
@@ -96,33 +101,20 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Core 0 assignment shared for all paras completed");
 
-	//  Timeout derivation (zombienet checks run sequentially; each timeout starts after the
-	//  previous check passes, with actual elapsed time anywhere from 0s to the full budget):
-	//
+	// Wait 1 sessions for registration/core assignment
+	log::info!("Waiting for 1 session boundaries");
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	wait_for_first_session_change(&mut blocks_sub).await?;
+	log::info!("Session boundaries passed");
+
+	// Check that all parachains produce at least 5..15 blocks within 40 RC blocks
+	// (since core 0 is shared between all paras)
 	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
 	//  time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
-	//
-	//  Paras registered in 2 batches (weight limit). force-register-paras.js waits for
-	//  finalization (~3 blocks) between batches. This causes batch 2 to land in the next
-	//  session, and with SESSION_DELAY=2, batch 2 paras activate 1 full session (60s) later.
-	//
-	//  collator-2000 (250s): from test start. Registration (~54s) + onboarding (2 sessions
-	//    = 120s) + block production (3 slots × 24s = 72s) ≈ 246s, rounded to 250s + margin.
-	//  collator-2001 (30s): same batch as 2000, max 1 slot-cycle lag (24s) + margin.
-	//  collator-2002 (90s): different batch, 60s session stagger + 24s slot-cycle = 84s after
-	//    2000 reaches #6. Sized assuming best case (0s) for preceding checks. 90s with margin.
-	//  collator-2003 (30s): same batch as 2002, max 1 slot-cycle lag (24s) + margin.
-
-	log::info!("Checks parachains block production...");
-	let para_timeout = vec![(2000, 260), (2001, 30), (2002, 90), (2003, 30)];
-	for (para_id, timeout) in para_timeout {
-		let node = network.get_node(format!("collator-{para_id}"))?;
-		node.wait_metric_with_timeout(BLOCK_HEIGHT_FINALIZED_METRIC, |v| v >= 6.0, timeout as u64)
-			.await
-			.map_err(|e| {
-				anyhow!("node {} check failed ({BLOCK_HEIGHT_FINALIZED_METRIC}): {e}", node.name())
-			})?;
-	}
+	log::info!("Checking parachain block production");
+	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 5..15));
+	assert_para_throughput(&relay_client, 40, para_throughput).await?;
+	log::info!("All parachains producing blocks");
 
 	log::info!("Test finished successfully");
 	Ok(())

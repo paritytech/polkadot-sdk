@@ -799,14 +799,14 @@ impl RelayChainRpcClient {
 			.await
 	}
 
-	pub async fn parachain_host_allowed_relay_parent_info(
+	pub async fn parachain_host_ancestor_relay_parent_info(
 		&self,
 		at: RelayHash,
 		session_index: SessionIndex,
 		relay_parent: RelayHash,
 	) -> Result<Option<RelayParentInfo<RelayHash, BlockNumber>>, RelayChainError> {
 		self.call_remote_runtime_function(
-			"ParachainHost_allowed_relay_parent_info",
+			"ParachainHost_ancestor_relay_parent_info",
 			at,
 			Some((session_index, relay_parent)),
 		)

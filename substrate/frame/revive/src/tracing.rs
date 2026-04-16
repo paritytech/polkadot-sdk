@@ -22,6 +22,9 @@ use sp_core::{H160, H256, U256};
 
 environmental!(tracer: dyn Tracing + 'static);
 
+/// Synthetic syscall name used for tracing PVM interpreter fuel consumption between real syscalls.
+pub const PVM_FUEL_NAME: &str = "pvm_fuel";
+
 /// Trace the execution of the given closure.
 ///
 /// # Warning

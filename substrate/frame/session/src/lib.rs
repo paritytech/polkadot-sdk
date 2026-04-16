@@ -924,7 +924,14 @@ impl<T: Config> Pallet<T> {
 		let who = T::ValidatorIdOf::convert(account.clone())
 			.ok_or(Error::<T>::NoAssociatedValidatorId)?;
 
-		ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+		// Only check consumer capacity when we will actually increment the consumer
+		// count: first-time local registration or external-to-local transition.
+		// Key rotation for an existing locally-managed validator does not need this.
+		let needs_new_consumer =
+			!NextKeys::<T>::contains_key(&who) || ExternallySetKeys::<T>::contains_key(account);
+		if needs_new_consumer {
+			ensure!(frame_system::Pallet::<T>::can_inc_consumer(account), Error::<T>::NoAccount);
+		}
 
 		let old_keys = Self::inner_set_keys(&who, keys)?;
 

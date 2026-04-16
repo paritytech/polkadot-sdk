@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "\n\t\t\tDELETE FROM sync_state WHERE label = $1\n\t\t\t",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "0b667102134cdbe0776b46a8ffa651cefd9590006ea59b8fa7490dae024c16ac"
+}
