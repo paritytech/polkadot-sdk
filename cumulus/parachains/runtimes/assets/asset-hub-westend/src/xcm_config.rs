@@ -49,7 +49,9 @@ use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
 use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
-use westend_runtime_constants::system_parachain::{BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID};
+use westend_runtime_constants::system_parachain::{
+	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
+};
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,

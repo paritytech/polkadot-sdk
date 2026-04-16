@@ -92,9 +92,7 @@ use parachains_common::{
 	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
 	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use testnet_parachains_constants::westend::{
-	account::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
-};
+use testnet_parachains_constants::westend::{consensus::*, currency::*, dap::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
