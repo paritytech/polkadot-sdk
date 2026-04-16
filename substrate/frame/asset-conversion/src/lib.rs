@@ -157,7 +157,9 @@ pub mod pallet {
 			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>
 			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
-		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
+		/// A permill ratio the liquidity providers will take as fee of every swap.
+		///
+		/// Value `3` means 0.3% (3 / 1000).
 		#[pallet::constant]
 		type LPFee: Get<u32>;
 
@@ -387,6 +389,11 @@ pub mod pallet {
 			assert!(
 				T::MaxSwapPathLength::get() > 1,
 				"the `MaxSwapPathLength` should be greater than 1",
+			);
+
+			assert!(
+				T::LPFee::get() <= 1000,
+				"Constant `LPFee` MUST NOT be greater than 1000 permill",
 			);
 		}
 	}
@@ -1287,17 +1294,18 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity);
 			}
 
-			let amount_in_with_fee = amount_in
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - (T::LPFee::get().into())))
+			let amount_net_ratio = T::HigherPrecisionBalance::from(1000u32)
+				.checked_sub(&T::LPFee::get().into())
 				.ok_or(Error::<T>::Overflow)?;
+			let amount_in_net =
+				amount_in.checked_mul(&amount_net_ratio).ok_or(Error::<T>::Overflow)?;
 
-			let numerator =
-				amount_in_with_fee.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
+			let numerator = amount_in_net.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
 				.checked_mul(&1000u32.into())
 				.ok_or(Error::<T>::Overflow)?
-				.checked_add(&amount_in_with_fee)
+				.checked_add(&amount_in_net)
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator.checked_div(&denominator).ok_or(Error::<T>::Overflow)?;
@@ -1332,10 +1340,14 @@ pub mod pallet {
 				.checked_mul(&1000u32.into())
 				.ok_or(Error::<T>::Overflow)?;
 
+			let amount_net_ratio = T::HigherPrecisionBalance::from(1000u32)
+				.checked_sub(&T::LPFee::get().into())
+				.ok_or(Error::<T>::Overflow)?;
+
 			let denominator = reserve_out
 				.checked_sub(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - T::LPFee::get().into()))
+				.checked_mul(&amount_net_ratio)
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator
