@@ -60,7 +60,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT},
+	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
 	ApplyExtrinsicResult, MultiSignature, MultiSigner, Perbill, Percent,
 };
@@ -89,14 +89,10 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::{DealWithFees, ToParentTreasury},
-	message_queue::*,
-	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
+	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
+	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use testnet_parachains_constants::westend::{
-	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
-};
+use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
@@ -130,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -600,7 +596,6 @@ pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 WND bond to join as an Ally
-	pub WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -613,7 +608,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -853,6 +848,10 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
+	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
+	// Safe to remove once confirmed.
+	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.

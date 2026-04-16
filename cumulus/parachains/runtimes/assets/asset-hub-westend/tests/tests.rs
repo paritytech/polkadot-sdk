@@ -22,17 +22,17 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
 		WestendLocation, XcmConfig,
 	},
-	AllPalletsWithoutSystem, Assets, Balances, Block, Executive, ExistentialDeposit, ForeignAssets,
-	ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte, ParachainSystem,
-	PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, SessionKeys,
-	ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension, UncheckedExtrinsic, Uniques,
-	WeightToFee, XcmpQueue,
+	AllPalletsWithoutSystem, AssetRewards, Assets, Balances, Block, Executive, ExistentialDeposit,
+	ForeignAssets, ForeignAssetsInstance, MetadataDepositBase, MetadataDepositPerByte,
+	ParachainSystem, PolkadotXcm, Proxy, Revive, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin,
+	SessionKeys, ToRococoXcmRouterInstance, TrustBackedAssetsInstance, TxExtension,
+	UncheckedExtrinsic, Uniques, WeightToFee, XcmpQueue,
 };
 pub use asset_hub_westend_runtime::{AssetConversion, AssetDeposit, CollatorSelection, System};
 use asset_test_utils::{
@@ -1204,8 +1204,8 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		}),
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
-		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(governance::TreasuryAccount::get()),
+		None,
+		Some(xcm_config::DapBufferAccount::get()),
 	)
 }
 
@@ -1833,16 +1833,10 @@ fn withdraw_and_deposit_erc20s() {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let code = compile_module_with_type("MyToken", FixtureType::Resolc)
 			.expect("compile ERC20")
@@ -1907,16 +1901,10 @@ fn non_existent_erc20_will_error() {
 	ExtBuilder::<Runtime>::default().build().execute_with(|| {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let wnd_amount_for_fees = 1_000_000_000_000u128;
 		let erc20_transfer_amount = 100u128;
@@ -1952,16 +1940,10 @@ fn smart_contract_not_erc20_will_error() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		let (code, _) = compile_module("dummy").unwrap();
 
@@ -2008,16 +1990,10 @@ fn smart_contract_does_not_return_bool_fails() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract implements the ERC20 interface for `transfer` except it returns a uint256.
 		let code = compile_module_with_type("MyTokenFake", FixtureType::Resolc)
@@ -2069,16 +2045,10 @@ fn expensive_erc20_runs_out_of_gas() {
 		// Bring the revive account to life.
 		assert_ok!(Balances::mint_into(&revive_account, initial_wnd_amount));
 
-		// We need to give enough funds for every account involved so they
-		// can call `Revive::map_account`.
+		// Fund all accounts involved.
 		assert_ok!(Balances::mint_into(&sender, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&beneficiary, initial_wnd_amount));
 		assert_ok!(Balances::mint_into(&checking_account, initial_wnd_amount));
-
-		// We need to map all accounts.
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(checking_account.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(sender.clone())));
-		assert_ok!(Revive::map_account(RuntimeOrigin::signed(beneficiary.clone())));
 
 		// This contract does a lot more storage writes in `transfer`.
 		let code = compile_module_with_type("MyTokenExpensive", FixtureType::Resolc)
@@ -2518,6 +2488,33 @@ mod remote_test {
 			println!("Total claimed: {}.{:02} DOT", total_whole, total_fraction);
 		});
 	}
+}
+
+#[test]
+fn ah_treasury_creates_asset_reward_pool() {
+	use frame_support::traits::schedule::DispatchTime;
+
+	ExtBuilder::<Runtime>::default().build().execute_with(|| {
+		let treasury_account: AccountId =
+			asset_hub_westend_runtime::governance::TreasuryAccount::get();
+
+		// Fund the treasury account so it exists and can hold the pool-creation deposit.
+		assert_ok!(Balances::mint_into(&treasury_account, 100 * UNITS));
+
+		let native = WestendLocation::get();
+		let reward_rate_per_block = 1_000_000_000;
+
+		assert_ok!(AssetRewards::create_pool(
+			RuntimeOrigin::signed(treasury_account.clone()),
+			Box::new(native.clone()),
+			Box::new(native),
+			reward_rate_per_block,
+			DispatchTime::After(1_000_000),
+			None,
+		));
+
+		assert_eq!(pallet_asset_rewards::Pools::<Runtime>::iter().count(), 1);
+	});
 }
 
 mod dap {

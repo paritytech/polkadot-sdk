@@ -232,7 +232,7 @@ where
 	P::Signature: Codec,
 {
 	let mut runtime_api = client.runtime_api();
-	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain);
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
 	let authorities = runtime_api.authorities(parent_hash).ok()?;
 	let author_pub = aura_internal::claim_slot::<P>(para_slot, &authorities, keystore).await?;
 
