@@ -30,6 +30,7 @@ use std::{
 use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
+const MAX_LOG_RESULTS: usize = 10_000;
 
 /// Parse a SQLite row from the `logs` table into a [`Log`].
 fn parse_log_row(row: sqlx::sqlite::SqliteRow) -> Result<Log, sqlx::Error> {
@@ -461,7 +462,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	}
 
 	/// Look up the ethereum block hash for a previously processed block from the in-memory cache.
-	pub async fn get_existing_eth_block_hash(
+	pub async fn get_processed_eth_block_hash(
 		&self,
 		block_number: SubstrateBlockNumber,
 		substrate_hash: H256,
@@ -760,7 +761,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 		}
 
-		qb.push(" LIMIT 10000");
+		qb.push(" LIMIT ").push(MAX_LOG_RESULTS.to_string());
 
 		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
@@ -779,7 +780,8 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.push_bind(block_number as i64)
 			.push(" AND block_hash = ")
 			.push_bind(block_hash.as_bytes().to_vec())
-			.push(" ORDER BY log_index");
+			.push(" ORDER BY log_index LIMIT ")
+			.push(MAX_LOG_RESULTS.to_string());
 
 		let logs = query_builder.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
@@ -1650,24 +1652,32 @@ mod tests {
 	}
 
 	#[sqlx::test]
-	async fn test_get_existing_eth_block_hash(pool: SqlitePool) -> anyhow::Result<()> {
+	async fn test_get_processed_eth_block_hash(pool: SqlitePool) -> anyhow::Result<()> {
 		let provider = setup_sqlite_provider(pool).await;
 		let block = MockBlockInfo { hash: H256::from([0xAA; 32]), number: 10 };
 		let ethereum_hash = H256::from([0xBB; 32]);
 		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
 
 		// Not cached yet
-		assert!(provider.get_existing_eth_block_hash(10, block.hash).await.is_none());
+		assert!(provider.get_processed_eth_block_hash(10, block.hash).await.is_none());
 
 		// Insert also populates the in-memory cache
 		provider.insert(&block, &receipts, &ethereum_hash).await?;
-		assert_eq!(provider.get_existing_eth_block_hash(10, block.hash).await, Some(ethereum_hash));
+		assert_eq!(
+			provider.get_processed_eth_block_hash(10, block.hash).await,
+			Some(ethereum_hash)
+		);
 
 		// Wrong hash for same block number
-		assert!(provider.get_existing_eth_block_hash(10, H256::from([0xCC; 32])).await.is_none());
+		assert!(
+			provider
+				.get_processed_eth_block_hash(10, H256::from([0xCC; 32]))
+				.await
+				.is_none()
+		);
 
 		// Wrong block number
-		assert!(provider.get_existing_eth_block_hash(11, block.hash).await.is_none());
+		assert!(provider.get_processed_eth_block_hash(11, block.hash).await.is_none());
 
 		Ok(())
 	}

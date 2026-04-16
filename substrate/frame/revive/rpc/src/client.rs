@@ -632,7 +632,7 @@ impl Client {
 					let block_number = block.number();
 					let (receipt_infos, eth_hash) = match self
 						.receipt_provider
-						.get_existing_eth_block_hash(block_number, hash)
+						.get_processed_eth_block_hash(block_number, hash)
 						.await
 					{
 						Some(eth_hash) => {
