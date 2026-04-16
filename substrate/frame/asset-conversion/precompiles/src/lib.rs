@@ -136,8 +136,12 @@ where
 	) -> Result<Vec<u8>, Error> {
 		use IAssetConversion::IAssetConversionCalls;
 
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
+
 		match input {
-			_ if env.is_delegate_call() => Err(Error::Revert(ERR_DELEGATE_CALL.into())),
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
 			IAssetConversionCalls::swapTokensForExactTokens(_)
 				if env.is_read_only() =>
@@ -164,7 +168,6 @@ const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_POOL_NOT_FOUND: &str = "Pool does not exist or has no liquidity";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
-const ERR_DELEGATE_CALL: &str = "Cannot be called via delegate call";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
 
 impl<const ADDRESS: u16, Runtime> AssetConversion<ADDRESS, Runtime>

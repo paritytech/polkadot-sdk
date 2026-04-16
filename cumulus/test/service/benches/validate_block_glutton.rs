@@ -28,7 +28,7 @@ use cumulus_test_runtime::{Block, GluttonCall, Header, SudoCall};
 use polkadot_primitives::HeadData;
 use sc_client_api::UsageProvider;
 use sc_consensus::{BlockImport, BlockImportParams, ForkChoiceStrategy, ImportResult, StateAction};
-use sc_executor_common::wasm_runtime::WasmModule;
+use sc_executor_common::wasm_runtime::{WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sp_api::ProvideRuntimeApi;
 
 use frame_system_rpc_runtime_api::AccountNonceApi;
@@ -118,7 +118,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 			),
 			|b| {
 				b.iter_batched(
-					|| runtime.new_instance().unwrap(),
+					|| runtime.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY).unwrap(),
 					|mut instance| {
 						instance.call_export("validate_block", &encoded_params).unwrap();
 					},
@@ -131,7 +131,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 
 fn verify_expected_result(runtime: &Box<dyn WasmModule>, encoded_params: &[u8], block: Block) {
 	let res = runtime
-		.new_instance()
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
 		.unwrap()
 		.call_export("validate_block", encoded_params)
 		.expect("Call `validate_block`.");

@@ -26,7 +26,10 @@ use frame_support::{
 	assert_ok,
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
-use pallet_revive::{precompiles::TransactionLimits, AddressMapper, ExecConfig};
+use pallet_revive::{
+	precompiles::{alloy::sol_types::SolCall, TransactionLimits},
+	AddressMapper, Code, ExecConfig,
+};
 use sp_runtime::Weight;
 
 /// SCALE-encode asset kinds for use in precompile calls.
@@ -351,5 +354,87 @@ fn quote_fails_with_invalid_encoding() {
 		let failed =
 			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
 		assert!(failed, "quote with invalid SCALE encoding must fail");
+	});
+}
+
+alloy::sol! {
+	interface ICaller {
+		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
+	}
+}
+
+/// The delegatecall guard rejects all calls via delegatecall.
+#[test]
+fn delegatecall_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let deployer = 123456789u64;
+		use frame_support::traits::{fungible::Mutate, Currency};
+		pallet_balances::Pallet::<Test>::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
+
+		// Initialize pallet-revive's internal account (needed for storage deposits).
+		let revive_account = pallet_revive::Pallet::<Test>::account_id();
+		pallet_balances::Pallet::<Test>::mint_into(
+			&revive_account,
+			<Test as pallet_balances::Config>::ExistentialDeposit::get(),
+		)
+		.unwrap();
+
+		let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
+			"Caller",
+			pallet_revive_fixtures::FixtureType::Solc,
+		)
+		.expect("Caller fixture must be compiled");
+		let caller_addr = pallet_revive::Pallet::<Test>::bare_instantiate(
+			RuntimeOrigin::signed(deployer),
+			0u64.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			Code::Upload(init_code),
+			vec![],
+			None,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("Caller deployment must succeed")
+		.addr;
+
+		let calldata = ICaller::delegateCall {
+			callee: alloy::primitives::Address::from(precompile_address().0),
+			data: IAssetConversion::quoteExactTokensForTokensCall {
+				asset1: encode_native().into(),
+				asset2: encode_asset(1).into(),
+				amount: U256::from(100),
+				includeFee: true,
+			}
+			.abi_encode()
+			.into(),
+			gas: u64::MAX,
+		}
+		.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(deployer),
+			caller_addr,
+			0u64.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			calldata,
+			&ExecConfig::new_substrate_tx(),
+		)
+		.result
+		.expect("outer call must succeed");
+
+		let ret = ICaller::delegateCall::abi_decode_returns(&result.data)
+			.expect("return must decode as (bool, bytes)");
+		assert!(!ret.success, "DELEGATECALL to asset-conversion precompile must be rejected");
+		assert!(
+			ret.output.is_empty(),
+			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
+			ret.output.len(),
+		);
 	});
 }
