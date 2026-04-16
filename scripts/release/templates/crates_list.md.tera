@@ -1,9 +1,5 @@
 The following crates were updated to the corresponding versions:
 
-<details>
-  <summary>Click to see crates list</summary>
-
-- sc-authority-discovery@0.53.1
-- cumulus-client-consensus-aura@0.26.3
-
-</details>
+- frame-support@43.0.2
+- pallet-conviction-voting@43.0.1
+- pallet-mmr@43.0.1
