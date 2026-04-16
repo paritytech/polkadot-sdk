@@ -1411,6 +1411,11 @@ pub mod pallet {
 			amount: T::Balance,
 			include_fee: bool,
 		) -> Option<T::Balance> {
+			// Swaps reject zero amounts, match that behavior.
+			if amount.is_zero() {
+				return None;
+			}
+
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
@@ -1425,6 +1430,11 @@ pub mod pallet {
 			} else {
 				Self::quote(&amount, &balance1, &balance2).ok()?
 			};
+
+			// Small inputs can round output to zero due to integer division.
+			if amount_out.is_zero() {
+				return None;
+			}
 
 			// Swap withdrawals from pools use `keep_alive=true` (Preserve). Use the same
 			// preservation level to determine the actual withdrawable amount.
@@ -1449,6 +1459,10 @@ pub mod pallet {
 			amount: T::Balance,
 			include_fee: bool,
 		) -> Option<T::Balance> {
+			// Swaps reject zero amounts, match that behavior.
+			if amount.is_zero() {
+				return None;
+			}
 			let pool_account = T::PoolLocator::pool_address(&asset1, &asset2).ok()?;
 
 			let balance1 = Self::get_balance(&pool_account, asset1);
