@@ -1175,11 +1175,7 @@ impl<T: Config> EraElectionPlanner<T> {
 				if !weight.is_zero() {
 					total_validator_weight_page =
 						total_validator_weight_page.saturating_add(weight);
-					ErasValidatorIncentiveWeight::<T>::insert(
-						new_planned_era,
-						&stash,
-						weight,
-					);
+					ErasValidatorIncentiveWeight::<T>::insert(new_planned_era, &stash, weight);
 				}
 			}
 		});
