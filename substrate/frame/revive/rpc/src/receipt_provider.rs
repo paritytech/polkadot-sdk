@@ -1648,4 +1648,87 @@ mod tests {
 
 		Ok(())
 	}
+
+	#[sqlx::test]
+	async fn test_get_existing_eth_block_hash(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let block = MockBlockInfo { hash: H256::from([0xAA; 32]), number: 10 };
+		let ethereum_hash = H256::from([0xBB; 32]);
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+
+		// Not cached yet
+		assert!(provider.get_existing_eth_block_hash(10, block.hash).await.is_none());
+
+		// Insert also populates the in-memory cache
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
+		assert_eq!(provider.get_existing_eth_block_hash(10, block.hash).await, Some(ethereum_hash));
+
+		// Wrong hash for same block number
+		assert!(provider.get_existing_eth_block_hash(10, H256::from([0xCC; 32])).await.is_none());
+
+		// Wrong block number
+		assert!(provider.get_existing_eth_block_hash(11, block.hash).await.is_none());
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_logs_by_block_number(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let substrate_hash = H256::from([0xAA; 32]);
+		let tx_hash = H256::from([0xBB; 32]);
+		let block = MockBlockInfo { hash: substrate_hash, number: 42 };
+		let ethereum_hash = H256::from([0xCC; 32]);
+
+		let log0 = Log {
+			block_hash: ethereum_hash,
+			block_number: U256::from(42),
+			transaction_hash: tx_hash,
+			log_index: U256::from(0),
+			address: H160::from([0x01; 20]),
+			..Default::default()
+		};
+		let log1 = Log {
+			block_hash: ethereum_hash,
+			block_number: U256::from(42),
+			transaction_hash: tx_hash,
+			log_index: U256::from(1),
+			address: H160::from([0x02; 20]),
+			..Default::default()
+		};
+
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: tx_hash,
+				block_hash: ethereum_hash,
+				logs: vec![log0.clone(), log1.clone()],
+				..Default::default()
+			},
+		)];
+
+		// No logs before insert
+		let logs = provider.logs_by_block_number(42, ethereum_hash).await?;
+		assert!(logs.is_empty());
+
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
+
+		// Logs returned in log_index order
+		let logs = provider.logs_by_block_number(42, ethereum_hash).await?;
+		assert_eq!(logs.len(), 2);
+		assert_eq!(logs[0].address, log0.address);
+		assert_eq!(logs[1].address, log1.address);
+		assert_eq!(logs[0].log_index, U256::from(0));
+		assert_eq!(logs[1].log_index, U256::from(1));
+
+		// Different block number returns empty
+		let logs = provider.logs_by_block_number(43, ethereum_hash).await?;
+		assert!(logs.is_empty());
+
+		// Wrong ethereum hash returns empty
+		let logs = provider.logs_by_block_number(42, H256::from([0xDD; 32])).await?;
+		assert!(logs.is_empty());
+
+		Ok(())
+	}
 }
