@@ -118,8 +118,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	/// - `block_number`: Current relay chain block number.
 	/// - `id`: The identifier of the bid to adjust.
 	/// - `who`: Account adjusting the bid.
-	/// - `new_price`: The new bid price. If `None` is provided, the bid will be withdrawn (if
-	///   allowed by the market rules).
+	/// - `new_price`: The new bid price. If `None` is provided, the bid will be withdrawn.
 	fn adjust_bid(
 		block_number: RelayBlockNumber,
 		id: Self::BidId,
@@ -150,6 +149,8 @@ pub trait CoreRangeProvider {
 }
 
 /// A range of cores available for sale on a coretime market.
+///
+/// Represents the half-open range `[from, to)`.
 pub struct SoldCoresRange {
 	/// Minimum core index (inclusive).
 	pub from: CoreIndex,
@@ -188,11 +189,8 @@ pub struct MarketSaleInfo<RelayBlockNumber> {
 
 /// Outcome of [`Market::start_sales`].
 pub struct SalesStarted<RelayBlockNumber> {
-	/// An imaginary "previous" sale used only for bootstrapping the first real sale. Used by
-	/// `pallet-broker` to execute the logic that's normally executed on the sales boundary.
-	pub imaginary_old_sale: MarketSaleInfo<RelayBlockNumber>,
 	/// The first active sale.
-	pub new_sale: MarketSaleInfo<RelayBlockNumber>,
+	pub sale: MarketSaleInfo<RelayBlockNumber>,
 }
 
 /// Possible outcomes of [`Market::place_order`].
