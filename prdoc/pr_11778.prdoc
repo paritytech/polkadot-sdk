@@ -16,3 +16,5 @@ crates:
   bump: patch
 - name: yet-another-parachain-runtime
   bump: patch
+- name: xcm-emulator
+  bump: patch
