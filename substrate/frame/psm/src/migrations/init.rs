@@ -168,7 +168,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 				"PSM migration: asset decimals do not match stable asset decimals",
 			);
 		}
-		
+
 		Ok(Vec::new())
 	}
 
