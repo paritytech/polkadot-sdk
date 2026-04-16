@@ -189,6 +189,8 @@ jobs:
           cache-on-failure: true
 
       - name: Install parity-publish
+        env:
+          LIBCURL_SYS_USE_PKG_CONFIG: 1
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
           cargo install parity-publish@0.10.15 --locked -q
