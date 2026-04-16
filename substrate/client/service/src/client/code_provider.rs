@@ -18,11 +18,11 @@
 
 use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes};
 use parking_lot::RwLock;
-use sc_client_api::{TrieCacheContext, backend};
+use sc_client_api::{backend, TrieCacheContext};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
-use sp_state_machine::{Ext, OverlayedChanges, backend::TryPendingCode};
+use sp_state_machine::{backend::TryPendingCode, Ext, OverlayedChanges};
 use std::{collections::HashMap, sync::Arc};
 
 /// Provider for fetching `:code` of a block.
@@ -34,10 +34,9 @@ pub struct CodeProvider<Block: BlockT, Backend, Executor> {
 	executor: Arc<Executor>,
 	wasm_override: Arc<Option<WasmOverride>>,
 	wasm_substitutes: WasmSubstitutes<Block, Executor, Backend>,
-	/// Cache: code_hash → RuntimeVersion.
-	/// Avoids re-reading the full `:code` blob from the trie just to determine the runtime
-	/// version. Unbounded, but safe: grows by one entry per runtime upgrade, and real chains
-	/// see O(10–50) upgrades over their entire lifetime.
+	/// Avoids rereading the full `:code` blob from the trie just to determine the runtime
+	/// version. Unbounded, but safe: grows by one entry per runtime upgrade, which don't happen
+	/// often
 	runtime_version_cache: Arc<RwLock<HashMap<Vec<u8>, RuntimeVersion>>>,
 }
 
@@ -162,10 +161,6 @@ where
 	}
 
 	/// Returns the on chain runtime version.
-	///
-	/// Results are cached by code hash to avoid constructing `OverlayedChanges`/`Ext` and
-	/// going through the executor's runtime cache (mutex, LRU lookup, instance pool
-	/// reservation) on repeat calls.
 	fn on_chain_runtime_version(
 		&self,
 		code: &RuntimeCode,
@@ -193,14 +188,14 @@ where
 mod tests {
 	use super::*;
 	use backend::Backend;
-	use sc_client_api::{HeaderBackend, in_mem};
+	use sc_client_api::{in_mem, HeaderBackend};
 	use sc_executor::WasmExecutor;
 	use sp_core::{
 		testing::TaskExecutor,
 		traits::{FetchRuntimeCode, WrappedRuntimeCode},
 	};
 	use std::collections::HashMap;
-	use substrate_test_runtime_client::{GenesisInit, runtime};
+	use substrate_test_runtime_client::{runtime, GenesisInit};
 
 	#[test]
 	fn no_override_no_substitutes_work() {
