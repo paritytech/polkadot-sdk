@@ -44,6 +44,7 @@ use prometheus_endpoint::{
 	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
 	Registry, U64,
 };
+use rand::seq::IteratorRandom;
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
@@ -62,7 +63,6 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
-use rand::seq::IteratorRandom;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
@@ -4130,7 +4130,11 @@ mod tests {
 		// One remove call must have been issued for the connected peer
 		{
 			let removed = network.removed_reserved.lock().unwrap();
-			assert_eq!(removed.len(), 1, "Expected exactly one remove_peers_from_reserved_set call");
+			assert_eq!(
+				removed.len(),
+				1,
+				"Expected exactly one remove_peers_from_reserved_set call"
+			);
 			assert!(removed[0].contains(&connected_peer));
 		}
 
@@ -4148,12 +4152,17 @@ mod tests {
 		}
 
 		// Move the deadline to the past so the next poll fires immediately
-		handler.sync_recovery_peer = Some((connected_peer, Instant::now() - std::time::Duration::from_secs(1)));
+		handler.sync_recovery_peer =
+			Some((connected_peer, Instant::now() - std::time::Duration::from_secs(1)));
 		handler.try_readd_sync_recovery_peer();
 		assert!(handler.sync_recovery_peer.is_none());
 		{
 			let added = network.added_reserved.lock().unwrap();
-			assert_eq!(added.len(), 1, "Expected one add_peers_to_reserved_set call after deadline");
+			assert_eq!(
+				added.len(),
+				1,
+				"Expected one add_peers_to_reserved_set call after deadline"
+			);
 			let expected_addr: multiaddr::Multiaddr =
 				iter::once(multiaddr::Protocol::P2p(connected_peer.into())).collect();
 			assert!(added[0].contains(&expected_addr), "Re-added peer multiaddr mismatch");
