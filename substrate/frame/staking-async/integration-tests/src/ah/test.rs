@@ -2172,11 +2172,7 @@ fn legacy_to_dap_era_payout_e2e() {
 				StakingEvent::SessionRotated { starting_session: 5, active_era: 0, planned_era: 1 },
 				StakingEvent::SessionRotated { starting_session: 6, active_era: 0, planned_era: 1 },
 				// 27 blocks × 12_000ms = 324_000ms. 85% = 275_400 staker, 15% = 48_600 treasury.
-				StakingEvent::EraPaid {
-					era_index: 0,
-					validator_payout: 275400,
-					remainder: 48600,
-				},
+				StakingEvent::EraPaid { era_index: 0, validator_payout: 275400, remainder: 48600 },
 				StakingEvent::SessionRotated { starting_session: 7, active_era: 1, planned_era: 2 },
 			]
 		);
@@ -2285,7 +2281,6 @@ fn legacy_to_dap_era_payout_e2e() {
 		assert_eq!(ErasValidatorReward::<T>::get(3).unwrap(), 210600); // 65%
 		assert_eq!(ErasValidatorIncentiveBudget::<T>::get(3), 64800); // 20%
 
-
 		// Payout alice for era 3.
 		// Staker share per validator = 210600 / 4 = 52650. Split 50/50 → 26325 each.
 		// Incentive per validator = 64800 / 4 = 16200. Goes entirely to alice.
@@ -2303,7 +2298,10 @@ fn legacy_to_dap_era_payout_e2e() {
 		let era3_alice_staker = 26325u128; // 52650 * 50%
 		let era3_alice_incentive = 16200u128; // 64800 / 4
 		let era3_bob = 26325u128; // 52650 * 50%
-		assert_eq!(Balances::total_balance(&alice) - alice_before, era3_alice_staker + era3_alice_incentive);
+		assert_eq!(
+			Balances::total_balance(&alice) - alice_before,
+			era3_alice_staker + era3_alice_incentive
+		);
 		assert_eq!(Balances::total_balance(&bob) - bob_before, era3_bob);
 		assert_eq!(
 			staking_events_since_last_call(),
@@ -2336,29 +2334,26 @@ fn legacy_to_dap_era_payout_e2e() {
 		// -- Key comparisons across eras --
 		// All eras have identical total issuance rate (324_000 tokens/era).
 
-		// 1) Legacy and DAP produce identical staker rewards with same budget.
-		//    legacy era 0 staker payout = DAP era 1 staker payout = 275400.
+		// 1) Legacy and DAP produce identical staker rewards with same budget. legacy era 0 staker
+		//    payout = DAP era 1 staker payout = 275400.
 
-		// 2) Validator reward increases with incentive.
-		//    era 1: alice got 34425 (staker only).
-		//    era 3: alice got 26325 + 16200 = 42525 (staker + incentive). +23.5% increase.
+		// 2) Validator reward increases with incentive. era 1: alice got 34425 (staker only). era
+		//    3: alice got 26325 + 16200 = 42525 (staker + incentive). +23.5% increase.
 		assert_eq!(era1_alice, 34425);
 		assert_eq!(era3_alice_staker + era3_alice_incentive, 42525);
 		assert!(era3_alice_staker + era3_alice_incentive > era1_alice);
 
-		// 3) Nominator reward decreases (staker budget dropped 85→65%).
-		//    era 1: bob got 34425. era 3: bob got 26325. -23.5% decrease.
+		// 3) Nominator reward decreases (staker budget dropped 85→65%). era 1: bob got 34425. era
+		//    3: bob got 26325. -23.5% decrease.
 		assert_eq!(era1_bob, 34425);
 		assert_eq!(era3_bob, 26325);
 		assert!(era3_bob < era1_bob);
 
-		// 4) Treasury/buffer portion stays at 15% across all phases.
-		//    legacy: remainder=48600 (15% of 324000).
-		//    DAP: buffer gets 15% of each era's issuance.
+		// 4) Treasury/buffer portion stays at 15% across all phases. legacy: remainder=48600 (15%
+		//    of 324000). DAP: buffer gets 15% of each era's issuance.
 
-		// 5) Total inflation is the same — just distributed differently.
-		//    era 1 total per-validator: 34425 + 34425 = 68850.
-		//    era 3 total per-validator: 42525 + 26325 = 68850. Same!
+		// 5) Total inflation is the same — just distributed differently. era 1 total per-validator:
+		//    34425 + 34425 = 68850. era 3 total per-validator: 42525 + 26325 = 68850. Same!
 		assert_eq!(era1_alice + era1_bob, era3_alice_staker + era3_alice_incentive + era3_bob);
 	});
 }
