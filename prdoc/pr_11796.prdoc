@@ -1,0 +1,30 @@
+title: Removed OpenGov pallets from Westend relay chain post-AHM
+doc:
+- audience: Runtime Dev
+  description: |-
+    Removed pallet_conviction_voting, pallet_referenda, pallet_custom_origins,
+    and pallet_whitelist from the Westend relay chain runtime. Governance now
+    lives on AssetHub.
+
+    - Re-rooted all EitherOf<EnsureRoot, GovernanceOrigin> to plain EnsureRoot
+    - Added RemovePallet migrations for ConvictionVoting, Referenda, Origins,
+      and Whitelist
+    - Replaced ParentOrParentsPlurality with IsParentsOnly<ConstU8<1>> on all
+      5 Westend system parachains (dead code post-governance removal)
+    - Removed relay governance integration tests (open_gov_on_relay,
+      fellows_whitelist_call)
+
+    Closes https://github.com/paritytech/polkadot-sdk/issues/11775.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major
+- name: bridge-hub-westend-runtime
+  bump: major
+- name: collectives-westend-runtime
+  bump: major
+- name: coretime-westend-runtime
+  bump: major
+- name: people-westend-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
