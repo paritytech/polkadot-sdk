@@ -761,7 +761,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 		}
 
-		qb.push(" LIMIT ").push(MAX_LOG_RESULTS.to_string());
+		qb.push(" LIMIT ").push_bind(MAX_LOG_RESULTS as i64);
 
 		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
@@ -772,16 +772,16 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 	pub async fn logs_by_block_number(
 		&self,
 		block_number: SubstrateBlockNumber,
-		block_hash: H256,
+		ethereum_hash: H256,
 	) -> Result<Vec<Log>, ClientError> {
 		let mut query_builder =
 			QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE block_number = ");
 		query_builder
 			.push_bind(block_number as i64)
 			.push(" AND block_hash = ")
-			.push_bind(block_hash.as_bytes().to_vec())
+			.push_bind(ethereum_hash.as_bytes().to_vec())
 			.push(" ORDER BY log_index LIMIT ")
-			.push(MAX_LOG_RESULTS.to_string());
+			.push_bind(MAX_LOG_RESULTS as i64);
 
 		let logs = query_builder.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
