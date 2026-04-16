@@ -1572,8 +1572,13 @@ mod tests {
 	}
 
 	impl TestSync {
-		fn new(initial: bool) -> Self {
+		fn new() -> Self {
 			Self { major_syncing: Arc::new(AtomicBool::new(false)) }
+		}
+
+		fn with_syncing(initial: bool) -> (Self, Arc<AtomicBool>) {
+			let flag = Arc::new(AtomicBool::new(initial));
+			(Self { major_syncing: flag.clone() }, flag)
 		}
 	}
 
@@ -1582,17 +1587,17 @@ mod tests {
 			&self,
 			_name: &'static str,
 		) -> Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>> {
-            Box::pin(futures::stream::pending())
-        }
+			Box::pin(futures::stream::pending())
+		}
 	}
 
 	impl sp_consensus::SyncOracle for TestSync {
 		fn is_major_syncing(&self) -> bool {
 			self.major_syncing.load(Ordering::Relaxed)
-        }
+		}
 
 		fn is_offline(&self) -> bool {
-            false
+			false
 		}
 	}
 
@@ -2101,6 +2106,8 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: false,
+			deferred_peers: HashSet::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2140,6 +2147,8 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: false,
+			deferred_peers: HashSet::new(),
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3547,6 +3556,8 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: false,
+			deferred_peers: HashSet::new(),
 		};
 
 		// Add a statement so there's something to sync.
@@ -3867,7 +3878,7 @@ mod tests {
 
 	#[test]
 	fn peers_deferred_during_major_sync() {
-		let (sync, _flag) = TestSyncControllable::new(true);
+		let (sync, _flag) = TestSync::with_syncing(true);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 		let statement_store = TestStatementStore::new();
@@ -3893,6 +3904,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: true,
@@ -3923,7 +3935,7 @@ mod tests {
 
 	#[test]
 	fn deferred_peers_flushed_on_sync_end_without_remove() {
-		let (sync, flag) = TestSyncControllable::new(true);
+		let (sync, flag) = TestSync::with_syncing(true);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 		let statement_store = TestStatementStore::new();
@@ -3955,6 +3967,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: true,
@@ -3984,7 +3997,7 @@ mod tests {
 
 	#[test]
 	fn deferred_peer_removed_on_disconnect_before_sync_ends() {
-		let (sync, _flag) = TestSyncControllable::new(true);
+		let (sync, _flag) = TestSync::with_syncing(true);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
 		let statement_store = TestStatementStore::new();
@@ -4013,6 +4026,7 @@ mod tests {
 				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
 			metrics: None,
 			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: true,
