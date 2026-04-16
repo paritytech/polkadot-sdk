@@ -30,7 +30,7 @@ use crate::{
 };
 use alloy_network::EthereumWallet;
 use alloy_primitives::{Address as AlloyAddress, B256, Bytes as AlloyBytes, U256 as AlloyU256};
-use alloy_provider::{Provider, ProviderBuilder};
+use alloy_provider::{Provider, ProviderBuilder, ext::DebugApi as _};
 use alloy_rpc_types::{
 	TransactionRequest,
 	state::{AccountOverride, StateOverride},
@@ -401,6 +401,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_state_override_empty_set,
 		test_state_override_storage_on_eoa_fails,
 		test_state_override_balance_zero,
+		test_state_override_trace_call,
 		test_subscription_gap_filler_backfills_queued_range,
 	);
 
@@ -3195,6 +3196,56 @@ async fn test_state_override_balance_zero() -> anyhow::Result<()> {
 		result.is_err(),
 		"call transferring value with balance overridden to zero should fail: {result:?}"
 	);
+
+	Ok(())
+}
+
+/// Verifies that `debug_traceCall` works with state overrides by injecting code onto an empty
+/// address and tracing a call to it. Uses alloy's `DebugApi` to ensure wire-format compatibility
+/// with the wider Ethereum ecosystem.
+async fn test_state_override_trace_call() -> anyhow::Result<()> {
+	// Arrange
+	let provider = SharedResources::provider();
+	let from = AlloyAddress::from(Account::default().address().0);
+	let target = AlloyAddress::from([0xE1; 20]);
+
+	let (code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Callee",
+		pallet_revive_fixtures::FixtureType::SolcRuntime,
+	)?;
+
+	let call_data = Callee::echoCall { _data: 42 }.abi_encode();
+
+	let tx = TransactionRequest::default()
+		.from(from)
+		.to(target)
+		.input(AlloyBytes::from(call_data).into());
+
+	let overrides = StateOverride::from_iter([(
+		target,
+		AccountOverride::default().with_code(AlloyBytes::from(code)),
+	)]);
+
+	let trace_options = alloy_rpc_types::trace::geth::GethDebugTracingCallOptions {
+		tracing_options: alloy_rpc_types::trace::geth::GethDebugTracingOptions {
+			tracer: Some(alloy_rpc_types::trace::geth::GethDebugTracerType::BuiltInTracer(
+				alloy_rpc_types::trace::geth::GethDebugBuiltInTracerType::CallTracer,
+			)),
+			..Default::default()
+		},
+		state_overrides: Some(overrides),
+		..Default::default()
+	};
+
+	// Act
+	let result = provider
+		.debug_trace_call_callframe(tx, alloy_rpc_types::BlockId::latest(), trace_options)
+		.await;
+
+	// Assert
+	assert!(result.is_ok(), "debug_traceCall with state overrides should succeed: {result:?}");
+	let frame = result.unwrap();
+	assert!(frame.output.is_some(), "trace should have output from echo(42)");
 
 	Ok(())
 }
