@@ -139,6 +139,7 @@ where
 		// Quote the amount of the `asset_id` needed to pay the fee in the asset `A`.
 		let asset_fee =
 			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
+				.filter(|asset_fee| !asset_fee.is_zero())
 				.ok_or(InvalidTransaction::Payment)?;
 
 		// Withdraw the `asset_id` credit for the swap.
@@ -191,6 +192,7 @@ where
 
 		let asset_fee =
 			S::quote_price_tokens_for_exact_tokens(asset_id.clone(), A::get(), fee, true)
+				.filter(|asset_fee| !asset_fee.is_zero())
 				.ok_or(InvalidTransaction::Payment)?;
 
 		// Ensure we can withdraw enough `asset_id` for the swap.
@@ -227,26 +229,28 @@ where
 		if asset_id == A::get() {
 			let (refund, adjusted_paid) = fee_paid.split(refund_amount);
 
-			let adjusted_paid = match F::resolve(who, refund) {
-				Ok(_) => adjusted_paid,
+			let (fee_asset_amount, adjusted_paid) = match F::resolve(who, refund) {
+				Ok(_) => (adjusted_paid.peek(), adjusted_paid),
 				Err(refund) => {
 					// cancel `refund` and include it back into `adjusted_paid`.
-					adjusted_paid.merge(refund).unwrap_or_else(|(adjusted_paid, refund)| {
-						defensive!(
-							"`adjusted_paid` and `refund` are credits of the same asset.",
-							(adjusted_paid.asset(), refund.asset(), who)
-						);
-						// drop `refund` and return `adjusted_paid` without it.
-						adjusted_paid
-					})
+					adjusted_paid.merge(refund).map_or_else(
+						|(adjusted_paid, refund)| {
+							defensive!(
+								"`adjusted_paid` and `refund` are credits of the same asset.",
+								(adjusted_paid.asset(), refund.asset(), who)
+							);
+							// drop `refund` and return `adjusted_paid` without it.
+							(fee_asset_amount, adjusted_paid)
+						},
+						|fee_paid| (fee_paid.peek(), fee_paid),
+					)
 				},
 			};
 
 			// Handle the imbalance (fee and tip separately).
-			let fee_in_asset = adjusted_paid.peek();
 			let (tip, fee) = adjusted_paid.split(tip);
 			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
-			return Ok(fee_in_asset);
+			return Ok(fee_asset_amount);
 		}
 
 		// refund is non zero and `who`'s fee `asset_id` is not the target asset.
