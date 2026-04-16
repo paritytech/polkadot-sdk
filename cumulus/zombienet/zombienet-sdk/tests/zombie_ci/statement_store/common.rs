@@ -76,10 +76,18 @@ pub(super) async fn subscribe_topic(
 	rpc: &RpcClient,
 	topic: Topic,
 ) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
+	let filter = TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"));
+	subscribe_topic_filter(rpc, filter).await
+}
+
+pub(super) async fn subscribe_topic_filter(
+	rpc: &RpcClient,
+	filter: TopicFilter,
+) -> Result<RpcSubscription<StatementEvent>, anyhow::Error> {
 	let subscription = rpc
 		.subscribe::<StatementEvent>(
 			"statement_subscribeStatement",
-			rpc_params![TopicFilter::MatchAll(vec![topic].try_into().expect("Single topic"))],
+			rpc_params![filter],
 			"statement_unsubscribeStatement",
 		)
 		.await?;
@@ -208,7 +216,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.with_default_args(vec![
 					"--force-authoring".into(),
 					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
+					"-linfo,statement-store=trace,statement-gossip=trace".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
 					format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}")
@@ -222,7 +230,9 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+			global_settings
+				.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+				.with_tear_down_on_failure(false) // To allow restart nodes without failing in CI
 		})
 		.build()
 		.map_err(|e| {
