@@ -168,7 +168,7 @@ fn inflate_runtime_wasm(
 			min_compressed_size,
 		);
 		if compressed.len() >= min_compressed_size {
-			return Ok(wasm);
+			return Ok(compressed);
 		}
 	}
 }
