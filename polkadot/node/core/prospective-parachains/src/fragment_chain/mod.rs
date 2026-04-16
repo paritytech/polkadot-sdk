@@ -154,8 +154,6 @@ pub(crate) enum Error {
 	MultiplePaths,
 	#[error("Attempting to directly introduce a Backed candidate. It should first be introduced as Seconded")]
 	IntroduceBackedCandidate,
-	#[error("Relay parent {0:?} of the candidate precedes the relay parent {1:?} of a pending availability candidate")]
-	RelayParentPrecedesCandidatePendingAvailability(Hash, Hash),
 	#[error("Candidate would introduce a fork with a pending availability candidate: {0:?}")]
 	ForkWithCandidatePendingAvailability(CandidateHash),
 	#[error("Fork selection rule favours another candidate: {0:?}")]
@@ -1109,56 +1107,60 @@ impl FragmentChain {
 			return Ok(None);
 		};
 
-		// Check if the relay parent moved backwards from the latest candidate pending availability.
+		// Try seeing if the parent candidate is in the current chain or if it is the latest
+		// included candidate. If so, get the constraints the candidate must satisfy.
+		let parent_candidate_in_chain = if let Some(parent_hash) =
+			self.chain.by_output_head.get(&parent_head_hash)
+		{
+			let Some(parent) =
+				self.chain.chain.iter().find(|c| &c.candidate_hash == parent_hash)
+			else {
+				// Should never really happen.
+				return Err(Error::ParentCandidateNotFound);
+			};
+			Some(parent)
+		} else {
+			None
+		};
+
+		let is_unconnected = parent_candidate_in_chain.is_none() &&
+			self.scope.base_constraints.required_parent.hash() != parent_head_hash;
+
+		let constraints = if let Some(parent_candidate) = parent_candidate_in_chain {
+			self.scope
+				.base_constraints
+				.apply_modifications(&parent_candidate.cumulative_modifications)
+				.map_err(Error::ComputeConstraints)?
+		} else {
+			self.scope.base_constraints.clone()
+		};
+
+		// The relay parent must not move backwards. Compute the minimum allowed relay parent
+		// number from all committed state:
+		// 1. `constraints.min_relay_parent_number` — the runtime's lower bound (accounts for
+		//    the included candidate's relay parent via `para_most_recent_context`).
+		// 2. The relay parent of the latest candidate pending availability — candidates
+		//    on-chain must not be preceded.
+		// 3. The relay parent of the parent candidate in the chain — a child must not
+		//    regress from its parent's execution context (HRMP watermark, DMP).
+		let mut min_relay_parent_number = constraints.min_relay_parent_number;
+
 		if let Some(earliest_rp_of_pending_availability) =
 			self.earliest_relay_parent_pending_availability()
 		{
-			if relay_parent.number < earliest_rp_of_pending_availability.number {
-				return Err(Error::RelayParentPrecedesCandidatePendingAvailability(
-					relay_parent.hash,
-					earliest_rp_of_pending_availability.hash,
-				));
-			}
+			min_relay_parent_number =
+				std::cmp::max(min_relay_parent_number, earliest_rp_of_pending_availability.number);
 		}
 
-		// Try seeing if the parent candidate is in the current chain or if it is the latest
-		// included candidate. If so, get the constraints the candidate must satisfy.
-		let (is_unconnected, constraints, maybe_min_relay_parent_number) =
-			if let Some(parent_candidate) = self.chain.by_output_head.get(&parent_head_hash) {
-				let Some(parent_candidate) =
-					self.chain.chain.iter().find(|c| &c.candidate_hash == parent_candidate)
-				else {
-					// Should never really happen.
-					return Err(Error::ParentCandidateNotFound);
-				};
-
-				(
-					false,
-					self.scope
-						.base_constraints
-						.apply_modifications(&parent_candidate.cumulative_modifications)
-						.map_err(Error::ComputeConstraints)?,
-					// Execution context: relay parent block number for HRMP
-					// watermark and DMP constraint checking.
-					Some(parent_candidate.fragment.relay_parent().number),
-				)
-			} else if self.scope.base_constraints.required_parent.hash() == parent_head_hash {
-				// It builds on the latest included candidate.
-				(false, self.scope.base_constraints.clone(), None)
-			} else {
-				// The parent is not yet part of the chain
-				(true, self.scope.base_constraints.clone(), None)
-			};
-
-		// Execution context: check if the relay parent is in scope.
-		if relay_parent.number < constraints.min_relay_parent_number {
-			return Err(Error::RelayParentNotInScope(relay_parent.hash));
+		if let Some(parent_candidate) = parent_candidate_in_chain {
+			min_relay_parent_number = std::cmp::max(
+				min_relay_parent_number,
+				parent_candidate.fragment.relay_parent().number,
+			);
 		}
 
-		if let Some(earliest_rp) = maybe_min_relay_parent_number {
-			if relay_parent.number < earliest_rp {
-				return Err(Error::RelayParentMovedBackwards);
-			}
+		if relay_parent.number < min_relay_parent_number {
+			return Err(Error::RelayParentMovedBackwards);
 		}
 
 		Ok(Some((is_unconnected, constraints)))
