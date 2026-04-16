@@ -26,6 +26,7 @@ fastbloom = { workspace = true }
 futures = { workspace = true }
 governor = { workspace = true }
 log = { workspace = true, default-features = true }
+rand = { workspace = true, default-features = true }
 prometheus-endpoint = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-common = { workspace = true, default-features = true }

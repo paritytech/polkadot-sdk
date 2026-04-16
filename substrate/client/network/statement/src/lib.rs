@@ -62,6 +62,7 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
+use rand::seq::IteratorRandom;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
@@ -154,6 +155,9 @@ const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
+/// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
+/// Must exceed the 5-second reconnect backoff to avoid peerset races.
+const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -444,6 +448,7 @@ impl StatementHandlerPrototype {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: is_major_syncing,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 
 		Ok(handler)
@@ -494,6 +499,9 @@ pub struct StatementHandler<
 	was_major_syncing: bool,
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set once sync ends
 	deferred_peers: HashSet<PeerId>,
+	/// Peer to re-add to the reserved set after a forced disconnect for sync recovery, along with
+	/// the instant at which the re-add should happen (after `SYNC_RECOVERY_READD_DELAY`)
+	sync_recovery_peer: Option<(PeerId, Instant)>,
 }
 
 /// Per-peer rate limiter using a token bucket algorithm.
@@ -696,6 +704,7 @@ where
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		}
 	}
 
@@ -756,12 +765,17 @@ where
 				},
 			}
 
-			// When major sync ends, add all peers that were deferred during sync
+			// When major sync ends, add all peers that were deferred during sync and
+			// force-reconnect one already-connected peer so it re-sends statements we
+			// dropped while the is_major_syncing guard was active
 			let currently_syncing = self.sync.is_major_syncing();
 			if self.was_major_syncing && !currently_syncing {
 				self.drain_deferred_peers();
+				self.start_sync_recovery();
 			}
 			self.was_major_syncing = currently_syncing;
+
+			self.try_readd_sync_recovery_peer();
 		}
 	}
 
@@ -847,6 +861,56 @@ where
 		if let Err(err) = self.network.add_peers_to_reserved_set(self.protocol_name.clone(), addrs)
 		{
 			log::warn!(target: LOG_TARGET, "Failed to add deferred peers: {err}");
+		}
+	}
+
+	/// Pick one connected peer, remove it from the reserved set (forcing a disconnect), and
+	/// schedule it for re-adding after `SYNC_RECOVERY_READD_DELAY`. When the peer reconnects it
+	/// performs a fresh initial sync, delivering any statements that were dropped while the
+	/// `is_major_syncing` guard was active
+	fn start_sync_recovery(&mut self) {
+		if self.sync_recovery_peer.is_some() {
+			return;
+		}
+
+		let Some(&peer_id) = self.peers.keys().choose(&mut rand::thread_rng()) else {
+			return;
+		};
+
+		log::info!(
+			target: LOG_TARGET,
+			"Major sync complete, force-reconnecting {peer_id} for statement recovery",
+		);
+
+		if let Err(err) = self.network.remove_peers_from_reserved_set(
+			self.protocol_name.clone(),
+			iter::once(peer_id).collect(),
+		) {
+			log::warn!(target: LOG_TARGET, "Failed to remove peer {peer_id} for sync recovery: {err}");
+			return;
+		}
+
+		self.sync_recovery_peer = Some((peer_id, Instant::now() + SYNC_RECOVERY_READD_DELAY));
+	}
+
+	/// Re-adds the sync-recovery peer to the reserved set if its backoff window has elapsed
+	fn try_readd_sync_recovery_peer(&mut self) {
+		let Some((peer_id, readd_at)) = self.sync_recovery_peer else { return };
+		if Instant::now() < readd_at {
+			return;
+		}
+		self.sync_recovery_peer = None;
+		log::info!(
+			target: LOG_TARGET,
+			"Re-adding {peer_id} to reserved set after sync recovery window",
+		);
+		let addr =
+			iter::once(multiaddr::Protocol::P2p(peer_id.into())).collect::<multiaddr::Multiaddr>();
+		if let Err(err) = self
+			.network
+			.add_peers_to_reserved_set(self.protocol_name.clone(), iter::once(addr).collect())
+		{
+			log::warn!(target: LOG_TARGET, "Failed to re-add sync recovery peer {peer_id}: {err}");
 		}
 	}
 
@@ -1888,6 +1952,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 		(handler, statement_store, network, notification_service, queue_receiver, peer_ids)
 	}
@@ -2108,6 +2173,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -2149,6 +2215,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 		(handler, statement_store, network, notification_service)
 	}
@@ -3558,6 +3625,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 
 		// Add a statement so there's something to sync.
@@ -3909,6 +3977,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: true,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 
 		let peer1 = PeerId::random();
@@ -3972,6 +4041,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: true,
 			deferred_peers: deferred,
+			sync_recovery_peer: None,
 		};
 
 		flag.store(false, std::sync::atomic::Ordering::Relaxed);
@@ -4028,6 +4098,7 @@ mod tests {
 			initial_sync_peer_queue: VecDeque::new(),
 			was_major_syncing: true,
 			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
 		};
 
 		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
@@ -4039,5 +4110,98 @@ mod tests {
 		assert_eq!(handler.deferred_peers.len(), 1);
 		assert!(!handler.deferred_peers.contains(&peer1));
 		assert!(handler.deferred_peers.contains(&peer2));
+	}
+
+	#[test]
+	fn sync_recovery_schedules_remove_for_one_connected_peer() {
+		let network = TestNetwork::new();
+		let notification_service = TestNotificationService::new();
+		let (sync, _flag) = TestSync::with_syncing(false);
+		let (queue_sender, _) = async_channel::bounded(2);
+		let statement_store = TestStatementStore::new();
+
+		let connected_peer = PeerId::random();
+
+		let mut peers = HashMap::new();
+		peers.insert(
+			connected_peer,
+			Peer {
+				known_statements: LruHashSet::new(NonZeroUsize::new(1024).unwrap()),
+				rate_limiter: PeerRateLimiter::new(
+					NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+					NonZeroU32::new(
+						DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+					)
+					.expect("burst capacity is nonzero"),
+				),
+				protocol_version: PeerProtocolVersion::V1,
+				topic_affinity: None,
+				is_light: false,
+				pending_topic_affinity: None,
+			},
+		);
+
+		let mut handler = StatementHandler {
+			protocol_name: format!("/{STATEMENT_PROTOCOL_V1}").into(),
+			notification_service: Box::new(notification_service),
+			propagate_timeout: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = ()> + Send>>)
+				.fuse(),
+			pending_statements: FuturesUnordered::new(),
+			pending_statements_peers: HashMap::new(),
+			network: network.clone(),
+			sync,
+			sync_event_stream: (Box::pin(futures::stream::pending())
+				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+				.fuse(),
+			peers,
+			statement_store: Arc::new(statement_store),
+			queue_sender,
+			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+			metrics: None,
+			initial_sync_timeout: Box::pin(futures::future::pending()),
+			pending_affinities_timeout: Box::pin(futures::future::pending()),
+			pending_initial_syncs: HashMap::new(),
+			initial_sync_peer_queue: VecDeque::new(),
+			was_major_syncing: false,
+			deferred_peers: HashSet::new(),
+			sync_recovery_peer: None,
+		};
+
+		handler.start_sync_recovery();
+
+		// One remove call must have been issued for the connected peer
+		{
+			let removed = network.removed_reserved.lock().unwrap();
+			assert_eq!(removed.len(), 1, "Expected exactly one remove_peers_from_reserved_set call");
+			assert!(removed[0].contains(&connected_peer));
+		}
+
+		// The recovery peer must be scheduled with a future readd instant
+		let (scheduled_peer, readd_at) = handler.sync_recovery_peer.unwrap();
+		assert_eq!(scheduled_peer, connected_peer);
+		assert!(readd_at > Instant::now());
+
+		// Deadline is in the future — re-add must not fire yet
+		handler.try_readd_sync_recovery_peer();
+		assert!(handler.sync_recovery_peer.is_some(), "Should still be pending before deadline");
+		{
+			let added = network.added_reserved.lock().unwrap();
+			assert!(added.is_empty(), "No re-add before deadline");
+		}
+
+		// Move the deadline to the past so the next poll fires immediately
+		handler.sync_recovery_peer = Some((connected_peer, Instant::now() - std::time::Duration::from_secs(1)));
+		handler.try_readd_sync_recovery_peer();
+		assert!(handler.sync_recovery_peer.is_none());
+		{
+			let added = network.added_reserved.lock().unwrap();
+			assert_eq!(added.len(), 1, "Expected one add_peers_to_reserved_set call after deadline");
+			let expected_addr: multiaddr::Multiaddr =
+				iter::once(multiaddr::Protocol::P2p(connected_peer.into())).collect();
+			assert!(added[0].contains(&expected_addr), "Re-added peer multiaddr mismatch");
+		}
 	}
 }
