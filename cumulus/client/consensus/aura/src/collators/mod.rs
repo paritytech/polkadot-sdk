@@ -35,10 +35,12 @@ use polkadot_primitives::{
 	Hash as RelayHash, Id as ParaId, OccupiedCoreAssumption, ValidationCodeHash,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
+use sc_client_api::HeaderBackend;
 use sc_consensus_aura::{standalone as aura_internal, AuraApi};
 use sp_api::{ApiExt, ProvideRuntimeApi, RuntimeApiInfo};
 use sp_core::Pair;
 use sp_keystore::KeystorePtr;
+use sp_runtime::traits::Header;
 use sp_timestamp::Timestamp;
 
 pub mod basic;
@@ -276,8 +278,8 @@ where
 /// Use [`cumulus_client_consensus_common::find_parent_for_building`] to find the best parachain
 /// block to build on.
 ///
-/// If the best parent does not pass `filter_parent`, falls back to building on the included
-/// block.
+/// If the best parent does not pass `filter_parent`, walks backwards through ancestors
+/// until finding one that does, or reaching the included block.
 async fn find_parent<Block>(
 	relay_parent: RelayHash,
 	para_id: ParaId,
@@ -324,9 +326,24 @@ where
 		},
 	};
 
-	// If the best parent doesn't pass the filter, fall back to the included block.
-	if !filter_parent(&result.best_parent_header) {
-		result.best_parent_header = result.included_header.clone();
+	// If the best parent doesn't pass the filter (e.g. it's a middle block in a bundle),
+	// walk backwards towards the included block until we find one that does.
+	// This avoids falling all the way back to the included block when there are valid
+	// last-in-core ancestors closer to the chain tip.
+	while !filter_parent(&result.best_parent_header) {
+		let parent_hash = *result.best_parent_header.parent_hash();
+		match para_backend.blockchain().header(parent_hash) {
+			Ok(Some(header)) => {
+				result.best_parent_header = header;
+				if parent_hash == result.included_header.hash() {
+					break;
+				}
+			},
+			_ => {
+				result.best_parent_header = result.included_header.clone();
+				break;
+			},
+		}
 	}
 
 	Some(result)
