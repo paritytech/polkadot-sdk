@@ -22,6 +22,7 @@ test-helpers = []
 array-bytes = { workspace = true, default-features = true }
 async-channel = { workspace = true }
 codec = { features = ["derive"], workspace = true, default-features = true }
+fastbloom = { workspace = true }
 futures = { workspace = true }
 governor = { workspace = true }
 log = { workspace = true, default-features = true }

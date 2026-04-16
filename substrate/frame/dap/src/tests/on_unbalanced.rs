@@ -21,10 +21,11 @@ use crate::mock::{build_and_execute, set_default_budget_allocation, Balances, Te
 use frame_support::traits::{
 	fungible::{Balanced, Inspect},
 	tokens::{Fortitude, Precision, Preservation},
-	OnUnbalanced,
+	Currency, OnUnbalanced,
 };
 
 type DapPallet = crate::Pallet<Test>;
+type DapLegacy = crate::DapLegacyAdapter<Test, Balances>;
 
 #[test]
 #[should_panic(expected = "Failed to deposit slash to DAP buffer")]
@@ -138,7 +139,7 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 100);
 
 		// When: slash with zero amount (no-op)
-		let credit = Balances::issue(0);
+		let credit = <Balances as Balanced<_>>::issue(0);
 		DapPallet::on_unbalanced(credit);
 
 		// Then: buffer unchanged (still ED + 100)
@@ -149,5 +150,36 @@ fn slash_to_dap_accumulates_multiple_slashes_to_buffer() {
 
 		// And: active issuance decreased by 100 (funds deactivated in DAP buffer)
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 100);
+	});
+}
+
+#[test]
+fn legacy_adapter_redirects_slash_to_buffer() {
+	build_and_execute(true, || {
+		set_default_budget_allocation();
+
+		let buffer = DapPallet::buffer_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+
+		// Given: buffer has ED, alice has 100
+		assert_eq!(Balances::free_balance(buffer), ed);
+		let initial_active = <Balances as Inspect<_>>::active_issuance();
+		let initial_total = <Balances as Inspect<_>>::total_issuance();
+
+		// When: legacy slash via Currency::slash -> DapLegacyAdapter
+		let (imbalance, _) = <Balances as Currency<_>>::slash(&1, 30);
+		DapLegacy::on_unbalanced(imbalance);
+
+		// Then: buffer accumulated the slash
+		assert_eq!(Balances::free_balance(buffer), ed + 30);
+
+		// And: alice lost the slashed amount
+		assert_eq!(Balances::free_balance(1), 100 - 30);
+
+		// And: total issuance unchanged (funds moved, not destroyed)
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_total);
+
+		// And: active issuance decreased by 30 (funds deactivated in DAP buffer)
+		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active - 30);
 	});
 }

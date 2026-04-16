@@ -22,7 +22,7 @@ use alloy_core::{
 	sol_types::{sol_data, SolType},
 };
 use asset_hub_westend_runtime::{
-	governance, xcm_config,
+	xcm_config,
 	xcm_config::{
 		bridging, CheckingAccount, LocationToAccountId, StakingPot,
 		TrustBackedAssetsPalletLocation, UniquesConvertedConcreteId, UniquesPalletLocation,
@@ -1204,8 +1204,8 @@ fn limited_reserve_transfer_assets_for_native_asset_to_asset_hub_rococo_works() 
 		}),
 		bridging_to_asset_hub_rococo,
 		WeightLimit::Unlimited,
-		Some(xcm_config::bridging::XcmBridgeHubRouterFeeAssetId::get()),
-		Some(governance::TreasuryAccount::get()),
+		None,
+		Some(xcm_config::DapBufferAccount::get()),
 	)
 }
 

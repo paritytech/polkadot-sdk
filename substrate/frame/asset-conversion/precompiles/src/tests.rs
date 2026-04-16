@@ -26,7 +26,10 @@ use frame_support::{
 	assert_ok,
 	traits::{fungibles::Inspect, tokens::fungible::NativeOrWithId},
 };
-use pallet_revive::{precompiles::TransactionLimits, AddressMapper, ExecConfig};
+use pallet_revive::{
+	precompiles::{alloy::sol_types::SolCall, TransactionLimits},
+	AddressMapper, Code, ExecConfig,
+};
 use sp_runtime::Weight;
 
 /// SCALE-encode asset kinds for use in precompile calls.
@@ -90,6 +93,11 @@ fn bare_call(
 		data,
 		&ExecConfig::new_substrate_tx(),
 	)
+}
+
+/// Check if a bare_call result failed (either error or revert).
+fn did_fail(result: &pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64>) -> bool {
+	result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert())
 }
 
 #[test]
@@ -306,9 +314,7 @@ fn swap_fails_with_insufficient_output() {
 		.abi_encode();
 
 		let result = bare_call(swapper, data);
-		let failed =
-			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "swap with excessive amountOutMin must fail");
+		assert!(did_fail(&result), "swap with excessive amountOutMin must fail");
 	});
 }
 
@@ -326,9 +332,7 @@ fn quote_fails_for_nonexistent_pool() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		let failed =
-			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "quote for nonexistent pool must fail");
+		assert!(did_fail(&result), "quote for nonexistent pool must fail");
 	});
 }
 
@@ -348,8 +352,348 @@ fn quote_fails_with_invalid_encoding() {
 		.abi_encode();
 
 		let result = bare_call(caller, data);
-		let failed =
-			result.result.is_err() || result.result.as_ref().map_or(false, |v| v.did_revert());
-		assert!(failed, "quote with invalid SCALE encoding must fail");
+		assert!(did_fail(&result), "quote with invalid SCALE encoding must fail");
+	});
+}
+
+#[test]
+fn create_pool_works() {
+	new_test_ext().execute_with(|| {
+		let creator = 1u64;
+
+		// Create asset 1 first.
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1u32, creator, true, 1));
+
+		let data = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let result = bare_call(creator, data.clone());
+		let return_data = result.result.expect("create_pool must succeed");
+		assert!(!return_data.did_revert(), "create_pool must not revert");
+
+		// Creating the same pool again should fail.
+		let result2 = bare_call(creator, data);
+		assert!(did_fail(&result2), "creating duplicate pool must fail");
+	});
+}
+
+#[test]
+fn add_and_remove_liquidity_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		// Set up asset and pool (without using setup_pool helper since we want to test
+		// add_liquidity via the precompile).
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 1u32, provider, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(provider), 1, provider, 100_000));
+
+		// Create pool via precompile.
+		let create_data = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+		let create_result = bare_call(provider, create_data);
+		assert!(!create_result.result.unwrap().did_revert());
+
+		// Record balances before adding liquidity.
+		let native_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+
+		// Add liquidity via precompile.
+		let add_data = IAssetConversion::addLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount1Desired: U256::from(10_000),
+			amount2Desired: U256::from(10_000),
+			amount1Min: U256::from(0),
+			amount2Min: U256::from(0),
+			mintTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let add_result = bare_call(provider, add_data);
+		let add_return = add_result.result.expect("add_liquidity must succeed");
+		assert!(!add_return.did_revert(), "add_liquidity must not revert");
+
+		let lp_tokens = IAssetConversion::addLiquidityCall::abi_decode_returns(&add_return.data)
+			.expect("return data must decode");
+		// sqrt(10_000 * 10_000) - MintMinLiquidity(100) = 9_900
+		assert_eq!(lp_tokens, U256::from(9_900), "LP tokens must match expected amount");
+
+		// Verify provider was debited.
+		let native_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+		// First liquidity provision to an empty pool debits exactly the desired amounts.
+		assert_eq!(native_before - native_after, 10_000, "native must be debited exactly");
+		assert_eq!(asset1_before - asset1_after, 10_000, "asset1 must be debited exactly");
+
+		// Verify pool has reserves by quoting.
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+		let quote_result = bare_call(provider, quote_data);
+		assert!(
+			!quote_result.result.unwrap().did_revert(),
+			"quote must work after adding liquidity"
+		);
+
+		// Record balances before removal.
+		let native_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_before =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+
+		// Remove liquidity via precompile.
+		let remove_data = IAssetConversion::removeLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			lpTokenBurn: lp_tokens,
+			amount1MinReceive: U256::from(1),
+			amount2MinReceive: U256::from(1),
+			withdrawTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let remove_result = bare_call(provider, remove_data);
+		let remove_return = remove_result.result.expect("remove_liquidity must succeed");
+		assert!(!remove_return.did_revert(), "remove_liquidity must not revert");
+
+		let ret = IAssetConversion::removeLiquidityCall::abi_decode_returns(&remove_return.data)
+			.expect("return data must decode");
+		assert!(ret.amount1 > U256::ZERO, "must receive asset1 back");
+		assert!(ret.amount2 > U256::ZERO, "must receive asset2 back");
+
+		// Verify actual balance changes match return values.
+		let native_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::Native, &provider);
+		let asset1_after =
+			<NativeAndAssets as Inspect<u64>>::balance(NativeOrWithId::WithId(1), &provider);
+		assert_eq!(
+			U256::from(native_after - native_before),
+			ret.amount1,
+			"native balance delta must match return value"
+		);
+		assert_eq!(
+			U256::from(asset1_after - asset1_before),
+			ret.amount2,
+			"asset1 balance delta must match return value"
+		);
+	});
+}
+
+#[test]
+fn add_liquidity_fails_for_nonexistent_pool() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		let data = IAssetConversion::addLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount1Desired: U256::from(1_000),
+			amount2Desired: U256::from(1_000),
+			amount1Min: U256::from(0),
+			amount2Min: U256::from(0),
+			mintTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		assert!(did_fail(&result), "add_liquidity to nonexistent pool must fail");
+	});
+}
+
+#[test]
+fn remove_liquidity_fails_with_excessive_lp_burn() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		setup_pool(provider, 10_000, 10_000);
+
+		// Try to burn far more LP tokens than exist.
+		let data = IAssetConversion::removeLiquidityCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			lpTokenBurn: U256::from(999_999),
+			amount1MinReceive: U256::from(1),
+			amount2MinReceive: U256::from(1),
+			withdrawTo: account_addr(&provider),
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		assert!(did_fail(&result), "remove_liquidity with excessive LP burn must fail");
+	});
+}
+
+// --- Read-only guard tests via STATICCALL ---
+
+alloy::sol! {
+	interface ICaller {
+		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
+		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
+	}
+}
+
+/// Dedicated account for deploying test fixture contracts (avoids clobbering test account
+/// balances).
+const FIXTURE_DEPLOYER: u64 = 555;
+
+/// Deploy the Caller fixture contract and return its address.
+/// The FIXTURE_DEPLOYER account is funded in genesis (see mock.rs).
+fn deploy_caller() -> sp_core::H160 {
+	let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
+		"Caller",
+		pallet_revive_fixtures::FixtureType::Solc,
+	)
+	.expect("Caller fixture must be compiled");
+
+	pallet_revive::Pallet::<Test>::bare_instantiate(
+		RuntimeOrigin::signed(FIXTURE_DEPLOYER),
+		0u64.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		Code::Upload(init_code),
+		vec![],
+		None,
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.expect("Caller deployment must succeed")
+	.addr
+}
+
+/// Encode a forwarding call through the Caller fixture via STATICCALL or DELEGATECALL.
+fn encode_static_call(precompile_calldata: Vec<u8>) -> Vec<u8> {
+	ICaller::staticCallCall {
+		callee: alloy::primitives::Address::from(precompile_address().0),
+		data: precompile_calldata.into(),
+		gas: u64::MAX,
+	}
+	.abi_encode()
+}
+
+fn encode_delegate_call(precompile_calldata: Vec<u8>) -> Vec<u8> {
+	ICaller::delegateCall {
+		callee: alloy::primitives::Address::from(precompile_address().0),
+		data: precompile_calldata.into(),
+		gas: u64::MAX,
+	}
+	.abi_encode()
+}
+
+/// Helper: call the Caller fixture and decode (success, output).
+fn call_fixture(caller_contract: sp_core::H160, calldata: Vec<u8>) -> (bool, Vec<u8>) {
+	let result = pallet_revive::Pallet::<Test>::bare_call(
+		RuntimeOrigin::signed(FIXTURE_DEPLOYER),
+		caller_contract,
+		0u64.into(),
+		TransactionLimits::WeightAndDeposit { weight_limit: Weight::MAX, deposit_limit: u64::MAX },
+		calldata,
+		&ExecConfig::new_substrate_tx(),
+	)
+	.result
+	.expect("call to Caller must succeed")
+	.data;
+
+	// Both staticCall and delegate return (bool, bytes).
+	use alloy::sol_types::SolValue;
+	let (success, output): (bool, alloy::primitives::Bytes) =
+		SolValue::abi_decode_params(&result).expect("return must decode");
+	(success, output.into())
+}
+
+use test_case::test_case;
+
+#[test_case(encode_static_call ; "staticcall")]
+#[test_case(encode_delegate_call ; "delegatecall")]
+fn swap_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
+	new_test_ext().execute_with(|| {
+		let caller_contract = deploy_caller();
+
+		let swap_data = IAssetConversion::swapExactTokensForTokensCall {
+			path: vec![encode_asset(1).into(), encode_native().into()],
+			amountIn: U256::from(100),
+			amountOutMin: U256::from(1),
+			sendTo: account_addr(&1u64),
+			keepAlive: false,
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode(swap_data));
+		assert!(!success, "swap must fail in indirect call context");
+	});
+}
+
+#[test_case(encode_static_call, true ; "staticcall_allowed")]
+#[test_case(encode_delegate_call, false ; "delegatecall_rejected")]
+fn quote_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 10_000);
+
+		let caller_contract = deploy_caller();
+
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_asset(1).into(),
+			asset2: encode_native().into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode(quote_data));
+		assert_eq!(success, expect_success);
+	});
+}
+
+#[test_case(encode_static_call ; "staticcall")]
+#[test_case(encode_delegate_call ; "delegatecall")]
+fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
+	new_test_ext().execute_with(|| {
+		let caller_contract = deploy_caller();
+
+		let data = IAssetConversion::createPoolCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode(data));
+		assert!(!success, "create_pool must fail in indirect call context");
+	});
+}
+
+/// The delegatecall guard rejects all calls via delegatecall and returns empty output.
+#[test]
+fn delegatecall_is_rejected() {
+	new_test_ext().execute_with(|| {
+		let caller_contract = deploy_caller();
+
+		let quote_data = IAssetConversion::quoteExactTokensForTokensCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+			amount: U256::from(100),
+			includeFee: true,
+		}
+		.abi_encode();
+
+		let (success, output) = call_fixture(caller_contract, encode_delegate_call(quote_data));
+		assert!(!success, "DELEGATECALL to asset-conversion precompile must be rejected");
+		assert!(
+			output.is_empty(),
+			"expected empty output from PrecompileDelegateDenied trap, got {} bytes",
+			output.len(),
+		);
 	});
 }

@@ -37,6 +37,7 @@ pub struct TransactionBuilder<Client: EthRpcClient + Sync + Send> {
 	input: Bytes,
 	to: Option<H160>,
 	nonce: Option<U256>,
+	gas: Option<U256>,
 	mutate: Box<dyn FnOnce(&mut TransactionUnsigned)>,
 }
 
@@ -62,28 +63,32 @@ impl<Client: EthRpcClient + Sync + Send> SubmittedTransaction<Client> {
 		self.tx.clone()
 	}
 
-	/// Wait for the receipt of the transaction.
-	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
+	/// Wait for the receipt regardless of success or failure status.
+	pub async fn wait_for_receipt_any(&self) -> anyhow::Result<ReceiptInfo> {
 		let hash = self.hash();
 		for _ in 0..30 {
 			tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-			let receipt = self.client.get_transaction_receipt(hash).await?;
-			if let Some(receipt) = receipt {
-				if receipt.is_success() {
-					assert!(
-						self.gas() > receipt.gas_used,
-						"Gas used {:?} should be less than gas estimated {:?}",
-						receipt.gas_used,
-						self.gas()
-					);
-					return Ok(receipt);
-				} else {
-					anyhow::bail!("Transaction failed receipt: {receipt:?}")
-				}
+			if let Some(receipt) = self.client.get_transaction_receipt(hash).await? {
+				return Ok(receipt);
 			}
 		}
+		anyhow::bail!("Timeout, failed to get receipt for {hash:?}")
+	}
 
-		anyhow::bail!("Timeout, failed to get receipt")
+	/// Wait for the receipt and assert the transaction succeeded.
+	pub async fn wait_for_receipt(&self) -> anyhow::Result<ReceiptInfo> {
+		let receipt = self.wait_for_receipt_any().await?;
+		if receipt.is_success() {
+			assert!(
+				self.gas() >= receipt.gas_used,
+				"Gas used {:?} should be less than or equal to gas limit {:?}",
+				receipt.gas_used,
+				self.gas()
+			);
+			Ok(receipt)
+		} else {
+			anyhow::bail!("Transaction failed receipt: {receipt:?}")
+		}
 	}
 }
 
@@ -96,6 +101,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 			input: Bytes::default(),
 			to: None,
 			nonce: None,
+			gas: None,
 			mutate: Box::new(|_| {}),
 		}
 	}
@@ -126,6 +132,12 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 	/// Set the nonce.
 	pub fn nonce(mut self, nonce: U256) -> Self {
 		self.nonce = Some(nonce);
+		self
+	}
+
+	/// Set the gas limit explicitly, skipping eth_estimateGas.
+	pub fn gas(mut self, gas: U256) -> Self {
+		self.gas = Some(gas);
 		self
 	}
 
@@ -167,7 +179,7 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 		self,
 		tx_type: TransactionType,
 	) -> anyhow::Result<SubmittedTransaction<Client>> {
-		let TransactionBuilder { client, signer, value, input, to, nonce, mutate } = self;
+		let TransactionBuilder { client, signer, value, input, to, nonce, gas, mutate } = self;
 
 		let from = signer.address();
 		let chain_id = client.chain_id().await?;
@@ -181,20 +193,24 @@ impl<Client: EthRpcClient + Send + Sync> TransactionBuilder<Client> {
 				.with_context(|| "Failed to fetch account nonce")?
 		};
 
-		let gas = client
-			.estimate_gas(
-				GenericTransaction {
-					from: Some(from),
-					input: input.clone().into(),
-					value: Some(value),
-					gas_price: Some(gas_price),
-					to,
-					..Default::default()
-				},
-				None,
-			)
-			.await
-			.with_context(|| "Failed to fetch gas estimate")?;
+		let gas = if let Some(gas) = gas {
+			gas
+		} else {
+			client
+				.estimate_gas(
+					GenericTransaction {
+						from: Some(from),
+						input: input.clone().into(),
+						value: Some(value),
+						gas_price: Some(gas_price),
+						to,
+						..Default::default()
+					},
+					None,
+				)
+				.await
+				.with_context(|| "Failed to fetch gas estimate")?
+		};
 
 		println!("Gas estimate: {gas:?}");
 
