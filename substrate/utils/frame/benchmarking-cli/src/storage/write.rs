@@ -15,6 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::cmp::min;
+
 use codec::Encode;
 use frame_storage_access_test_runtime::StorageAccessParams;
 use log::{debug, info, trace, warn};
