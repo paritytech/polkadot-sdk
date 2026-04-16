@@ -937,7 +937,9 @@ where
 				}
 			},
 			SyncEvent::PeerDisconnected(remote) => {
-				self.deferred_peers.remove(&remote);
+				if self.deferred_peers.remove(&remote) {
+					return;
+				}
 				let result = self.network.remove_peers_from_reserved_set(
 					self.protocol_name.clone(),
 					iter::once(remote).collect(),
@@ -3945,8 +3947,10 @@ mod tests {
 		assert_eq!(sorted_peer_c, all_hashes, "peer_c should get all 5 statements");
 	}
 
+	/// Verifies that peers connecting during major sync are buffered in `deferred_peers` with no
+	/// network calls, and that a disconnect before sync ends removes the peer from the buffer
 	#[test]
-	fn peers_deferred_during_major_sync() {
+	fn major_sync_defers_peers_and_handles_disconnect() {
 		let (sync, _flag) = TestSync::with_syncing(true);
 		let network = TestNetwork::new();
 		let notification_service = TestNotificationService::new();
@@ -3989,18 +3993,18 @@ mod tests {
 		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
 		handler.handle_sync_event(SyncEvent::PeerConnected(peer3));
 
-		assert!(
-			network.get_added_reserved().is_empty(),
-			"add_peers_to_reserved_set must not be called during major sync",
-		);
-		assert!(
-			network.get_removed_reserved().is_empty(),
-			"remove_peers_from_reserved_set must not be called during major sync",
-		);
+		// No network calls while major sync is active
+		assert!(network.get_added_reserved().is_empty());
+		assert!(network.get_removed_reserved().is_empty());
 		assert_eq!(handler.deferred_peers.len(), 3);
-		assert!(handler.deferred_peers.contains(&peer1));
+
+		// Disconnect before sync ends must remove from buffer only
+		handler.handle_sync_event(SyncEvent::PeerDisconnected(peer1));
+		assert_eq!(handler.deferred_peers.len(), 2);
+		assert!(!handler.deferred_peers.contains(&peer1), "disconnected peer must leave buffer");
 		assert!(handler.deferred_peers.contains(&peer2));
 		assert!(handler.deferred_peers.contains(&peer3));
+		assert!(network.get_removed_reserved().is_empty(), "no remove call for buffered peer");
 	}
 
 	#[test]
@@ -4061,56 +4065,6 @@ mod tests {
 		assert!(added_addrs.contains(&expected_addr2), "peer2 must be in added set");
 
 		assert!(network.get_removed_reserved().is_empty());
-	}
-
-	#[test]
-	fn deferred_peer_removed_on_disconnect_before_sync_ends() {
-		let (sync, _flag) = TestSync::with_syncing(true);
-		let network = TestNetwork::new();
-		let notification_service = TestNotificationService::new();
-		let statement_store = TestStatementStore::new();
-		let (queue_sender, _queue_receiver) = async_channel::bounded(100);
-
-		let peer1 = PeerId::random();
-		let peer2 = PeerId::random();
-
-		let mut handler = StatementHandler {
-			protocol_name: "/statement/1".into(),
-			notification_service: Box::new(notification_service),
-			propagate_timeout: (Box::pin(futures::stream::pending())
-				as Pin<Box<dyn Stream<Item = ()> + Send>>)
-				.fuse(),
-			pending_statements: FuturesUnordered::new(),
-			pending_statements_peers: HashMap::new(),
-			network: network.clone(),
-			sync,
-			sync_event_stream: (Box::pin(futures::stream::pending())
-				as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
-				.fuse(),
-			peers: HashMap::new(),
-			statement_store: Arc::new(statement_store),
-			queue_sender,
-			statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
-				.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-			metrics: None,
-			initial_sync_timeout: Box::pin(futures::future::pending()),
-			pending_affinities_timeout: Box::pin(futures::future::pending()),
-			pending_initial_syncs: HashMap::new(),
-			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: true,
-			deferred_peers: HashSet::new(),
-			sync_recovery_peer: None,
-		};
-
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer1));
-		handler.handle_sync_event(SyncEvent::PeerConnected(peer2));
-		assert_eq!(handler.deferred_peers.len(), 2);
-
-		handler.handle_sync_event(SyncEvent::PeerDisconnected(peer1));
-
-		assert_eq!(handler.deferred_peers.len(), 1);
-		assert!(!handler.deferred_peers.contains(&peer1));
-		assert!(handler.deferred_peers.contains(&peer2));
 	}
 
 	#[test]

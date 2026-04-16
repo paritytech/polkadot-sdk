@@ -382,39 +382,32 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Test that verifies statement recovery after major sync completes
+/// Verifies the `deferred_peers` buffer delivers statements to a late-joining node.
 ///
-/// Scenario:
-/// 1. Spawn charlie only and let the relay chain advance ~10 blocks
-/// 2. Submit multiple statements to charlie
-/// 3. Add dave as a late joiner — dave will enter major sync because the chain has already
-///    progressed. During major sync, `handle_sync_event` buffers charlie in `deferred_peers`
-///    instead of adding it to the reserved set, so no statement substream is opened and no initial
-///    sync occurs
-/// 4. Wait for dave to exit major sync
-/// 5. On sync-end, `drain_deferred_peers` adds charlie to the reserved set; the substream opens and
-///    charlie performs initial sync with dave, delivering the statements
-/// 6. Subscribe to statements on dave AFTER sync has ended and assert all statements arrive
+/// Dave joins after charlie has produced ~10 blocks and enters major sync. While syncing,
+/// dave's statement handler holds charlie/alice's peer IDs in `deferred_peers` — no statement
+/// substream opens until sync ends. Statements submitted both before and during dave's sync
+/// window must all arrive via the single initial sync that fires when `drain_deferred_peers`
+/// runs on sync completion.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	const STATEMENT_COUNT: usize = 5;
+	const PRE_JOIN_COUNT: usize = 3;
+	const DURING_SYNC_COUNT: usize = 2;
+	const TOTAL: usize = PRE_JOIN_COUNT + DURING_SYNC_COUNT;
 	let items = create_allowance_items(&[(
 		0,
-		StatementAllowance { max_count: STATEMENT_COUNT as u32, max_size: 1_000_000 },
+		StatementAllowance { max_count: TOTAL as u32, max_size: 1_000_000 },
 	)]);
 	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;
 
-	// Wait for at least 10 parachain blocks before dave joins.
-	// More blocks means the relay chain has also advanced further, giving dave a wider sync
-	// window and making it reliably enter major-sync mode for long enough that the statement
-	// handler's 100ms poll observes the true → false transition
+	// Wait for at least 10 blocks so any late joiner reliably enters major sync
 	let charlie_height = {
 		let h = Cell::new(0.0f64);
 		charlie
@@ -430,68 +423,60 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 180s"))?;
 		h.get()
 	};
-	info!("Charlie is at block height {:.0} before dave joins", charlie_height);
+	info!("Charlie at block {:.0} before dave joins", charlie_height);
 
 	let topic: Topic = [0u8; 32].into();
 	let keypair = get_keypair(0);
-	let statements: Vec<_> = (0..STATEMENT_COUNT as u32)
+	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32)
 		.map(|seq| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq))
 		.collect();
-	let mut expected: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
-	expected.sort();
-
-	for stmt in &statements {
-		let result = submit_statement(&charlie_rpc, stmt).await?;
-		assert_eq!(result, SubmitResult::New);
+	for stmt in &pre_join {
+		assert_eq!(submit_statement(&charlie_rpc, stmt).await?, SubmitResult::New);
 	}
-	info!("{} statements submitted to charlie", STATEMENT_COUNT);
 
-	// Add dave as a late-joining collator.
-	// Dave will enter major sync because the chain already advanced. During that window,
-	// handle_sync_event buffers charlie in deferred_peers rather than adding it to the
-	// reserved set, so no statement substream is opened and no initial sync fires.
-	// When sync ends, drain_deferred_peers adds charlie to the reserved set; the substream
-	// opens and charlie delivers the statements via initial sync
 	info!("Adding dave as late-joining collator");
 	let dave_join_time = std::time::Instant::now();
 	network.add_collator("dave", Default::default(), 1004).await?;
-
 	let dave = network.get_node("dave")?;
 	let dave_rpc = dave.rpc().await?;
 
-	// Wait for dave to reach charlie's block height
+	// Subscribe immediately after dave starts — the deferred_peers buffer prevents any
+	// substream from opening while dave is syncing, so this subscription starts empty.
+	let mut sub = subscribe_topic(&dave_rpc, topic).await?;
+
+	// Dave holds charlie/alice's peer IDs in deferred_peers during sync; on sync-end
+	// drain fires, substream opens, and charlie's initial sync delivers both batches
+	let during_sync: Vec<_> = (PRE_JOIN_COUNT as u32..(PRE_JOIN_COUNT + DURING_SYNC_COUNT) as u32)
+		.map(|seq| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq))
+		.collect();
+	for stmt in &during_sync {
+		assert_eq!(submit_statement(&charlie_rpc, stmt).await?, SubmitResult::New);
+	}
+
 	dave.wait_metric_with_timeout("block_height{status=\"best\"}", |h| h >= charlie_height, 120u64)
 		.await
 		.map_err(|_| {
 			anyhow::anyhow!("Dave did not reach block height {:.0} within 120s", charlie_height)
 		})?;
 	let sync_end = dave_join_time.elapsed();
-	info!("Dave reached block height {:.0} after {:.1}s", charlie_height, sync_end.as_secs_f64());
+	info!("Dave synced to block {:.0} in {:.1}s", charlie_height, sync_end.as_secs_f64());
 
-	// Subscribe after sync — any statements arriving are exclusively due to
-	// drain_deferred_peers adding charlie to the reserved set and triggering initial sync.
-	// The subscription also returns statements already in dave's store as an initial batch,
-	// so we capture all recovered statements regardless of timing relative to the subscribe call
-	let mut subscription = subscribe_topic(&dave_rpc, topic).await?;
-	let received = expect_statements_unordered(&mut subscription, STATEMENT_COUNT, 30).await?;
+	let received = expect_statements_unordered(&mut sub, TOTAL, 30).await?;
+	let mut expected: Vec<Vec<u8>> =
+		pre_join.iter().chain(during_sync.iter()).map(|s| s.encode()).collect();
+	expected.sort();
 	let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
 	received_bytes.sort();
-	assert_eq!(received_bytes, expected);
+	assert_eq!(received_bytes, expected, "Dave must receive all {TOTAL} statements after sync");
 	info!(
-		"All {} statements arrived {:.1}s after dave finished syncing",
-		STATEMENT_COUNT,
-		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64()
+		"All {TOTAL} statements ({PRE_JOIN_COUNT} pre-join + {DURING_SYNC_COUNT} during-sync) \
+		 arrived {:.1}s after dave finished syncing",
+		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64(),
 	);
 
-	// By the time all statements have arrived, drain_deferred_peers must have already fired
-	// and been logged (it is what triggered the initial sync from charlie that delivered them).
-	// Checking logs here — after statement delivery — avoids the race where the handler hasn't
-	// polled yet at the moment we read logs
+	// Verify drain_deferred_peers fired
 	let dave_logs = dave.logs().await?;
-	assert!(
-		dave_logs.lines().any(|l| l.contains("Major sync complete, adding")),
-		"drain_deferred_peers did not fire — dave may not have entered major sync or had no deferred peers"
-	);
+	assert!(dave_logs.lines().any(|l| l.contains("Major sync complete, adding")));
 
 	Ok(())
 }
