@@ -1597,7 +1597,7 @@ mod tests {
 		}
 
 		fn is_offline(&self) -> bool {
-			false
+			unimplemented!()
 		}
 	}
 
@@ -3927,7 +3927,7 @@ mod tests {
 			network.get_removed_reserved().is_empty(),
 			"remove_peers_from_reserved_set must not be called during major sync",
 		);
-		assert_eq!(handler.deferred_peers.len(), 3, "All three peers should be in deferred_peers");
+		assert_eq!(handler.deferred_peers.len(), 3);
 		assert!(handler.deferred_peers.contains(&peer1));
 		assert!(handler.deferred_peers.contains(&peer2));
 		assert!(handler.deferred_peers.contains(&peer3));
@@ -3980,7 +3980,7 @@ mod tests {
 		assert!(handler.deferred_peers.is_empty());
 
 		let added = network.get_added_reserved();
-		assert_eq!(added.len(), 1, "Expected exactly one add_peers_to_reserved_set call");
+		assert_eq!(added.len(), 1);
 		let added_addrs = &added[0];
 		let expected_addr1: sc_network::Multiaddr =
 			iter::once(multiaddr::Protocol::P2p(peer1.into())).collect();
@@ -3989,10 +3989,7 @@ mod tests {
 		assert!(added_addrs.contains(&expected_addr1), "peer1 must be in added set");
 		assert!(added_addrs.contains(&expected_addr2), "peer2 must be in added set");
 
-		assert!(
-			network.get_removed_reserved().is_empty(),
-			"remove_peers_from_reserved_set must never be called by the buffer approach",
-		);
+		assert!(network.get_removed_reserved().is_empty());
 	}
 
 	#[test]

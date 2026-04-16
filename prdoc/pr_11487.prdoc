@@ -14,9 +14,6 @@ doc:
     `was_major_syncing → false` transition drains the buffer: all deferred peers are added to
     the reserved set in a single call, their notification substreams open, and each peer
     performs a fresh initial sync that delivers the statements missed during sync.
-
-    No `remove_peers_from_reserved_set` is called, eliminating the 5-second reconnect backoff
-    and peerset races that the previous `remove+add` approach introduced.
 crates:
 - name: sc-network-statement
   bump: patch
