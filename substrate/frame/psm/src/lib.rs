@@ -977,7 +977,16 @@ pub mod pallet {
 				"total_psm_debt() does not match sum of per-asset debts"
 			);
 
-			// Check 4: Per-asset debt should not exceed its ceiling.
+			// Check 4: Total PSM debt must not exceed the global ceiling.
+			// May be transiently violated if governance lowers MaxPsmDebtOfTotal after debt
+			// has already been accumulated. Checked before per-asset ceilings so it fires
+			// independently when only the global ceiling has been lowered.
+			ensure!(
+				Self::total_psm_debt() <= Self::max_psm_debt(),
+				"Total PSM debt exceeds global ceiling"
+			);
+
+			// Check 5: Per-asset debt should not exceed its ceiling.
 			// (May be transiently violated if governance lowers ceilings.)
 			for (asset_id, status) in ExternalAssets::<T>::iter() {
 				if status.allows_minting() {
@@ -987,7 +996,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 5: No non-zero PsmDebt entry for a non-approved asset.
+			// Check 6: No non-zero PsmDebt entry for a non-approved asset.
 			// Note: if this is violated, check 3 will also fail because total_psm_debt()
 			// iterates all PsmDebt entries while the sum above only covers ExternalAssets.
 			// Both checks are retained since they report distinct invariant violations.
@@ -1000,7 +1009,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 6: Orphan fee/ceiling storage entries (warn only — may be intentional
+			// Check 7: Orphan fee/ceiling storage entries (warn only; may be intentional
 			// pre-configuration via setMintingFee before addExternalAsset).
 			for asset_id in MintingFee::<T>::iter_keys() {
 				if !ExternalAssets::<T>::contains_key(asset_id) {
@@ -1030,21 +1039,21 @@ pub mod pallet {
 				}
 			}
 
-			// Check 7: PSM account must exist.
+			// Check 8: PSM account must exist.
 			let psm_account = Self::account_id();
 			ensure!(
 				frame_system::Pallet::<T>::account_exists(&psm_account),
 				"PSM account does not exist"
 			);
 
-			// Check 8: ExternalAssets count within bound.
+			// Check 9: ExternalAssets count within bound.
 			let count = ExternalAssets::<T>::iter_keys().count() as u32;
 			ensure!(
 				count <= T::MaxExternalAssets::get(),
 				"ExternalAssets count exceeds MaxExternalAssets"
 			);
 
-			// Check 9: Zero ceiling weight + zero debt implies zero reserve.
+			// Check 10: Zero ceiling weight + zero debt implies zero reserve.
 			// Non-zero reserve under these conditions is likely a donation or bug.
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
 				if AssetCeilingWeight::<T>::get(asset_id).is_zero()
@@ -1059,18 +1068,6 @@ pub mod pallet {
 						);
 					}
 				}
-			}
-
-			// Check 10: Total PSM debt should not exceed MaxPsmDebtOfTotal ceiling.
-			// May be transiently violated if governance lowers MaxPsmDebtOfTotal.
-			let total_debt = Self::total_psm_debt();
-			let max_debt = Self::max_psm_debt();
-			if total_debt > max_debt {
-				log::warn!(
-					target: "runtime::psm",
-					"Total PSM debt {:?} exceeds max {:?}",
-					total_debt, max_debt
-				);
 			}
 
 			// Check 11: Fee destination account must exist.
