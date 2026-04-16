@@ -1599,3 +1599,131 @@ mod cycles {
 		});
 	}
 }
+
+mod try_state {
+	use super::*;
+
+	#[test]
+	fn passes_on_valid_state() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
+	#[test]
+	fn detects_reserve_deficit() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{
+				fungibles::Mutate,
+				tokens::{Fortitude, Precision, Preservation},
+			};
+
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * PUSD_UNIT));
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+
+			let psm = psm_account();
+			let reserve = Assets::balance(USDC_ASSET_ID, psm);
+			let _ = Assets::burn_from(
+				USDC_ASSET_ID,
+				&psm,
+				reserve,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other("PSM reserve is less than tracked debt for an asset")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_orphan_debt() {
+		new_test_ext().execute_with(|| {
+			// Register the asset fully so all earlier checks pass, then remove it from
+			// ExternalAssets to leave an orphan PsmDebt entry. Check 3 (sum mismatch) fires
+			// first because total_psm_debt() includes the orphan while the approved-asset
+			// sum does not; check 5 (orphan debt) would fire if check 3 did not. Both checks
+			// cover the same underlying invariant violation from different angles.
+			create_asset_with_metadata(UNSUPPORTED_ASSET_ID);
+			ExternalAssets::<Test>::insert(UNSUPPORTED_ASSET_ID, CircuitBreakerLevel::AllEnabled);
+			set_asset_ceiling_weight(UNSUPPORTED_ASSET_ID, Permill::from_percent(50));
+			let debt = 1_000 * PUSD_UNIT;
+			PsmDebt::<Test>::insert(UNSUPPORTED_ASSET_ID, debt);
+			fund_external_asset(UNSUPPORTED_ASSET_ID, psm_account(), debt);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+			ExternalAssets::<Test>::remove(UNSUPPORTED_ASSET_ID);
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other("total_psm_debt() does not match sum of per-asset debts")
+			);
+		});
+	}
+
+	#[test]
+	fn zero_orphan_debt_does_not_error() {
+		new_test_ext().execute_with(|| {
+			PsmDebt::<Test>::insert(UNSUPPORTED_ASSET_ID, 0u128);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+		});
+	}
+
+	#[test]
+	fn detects_missing_psm_account() {
+		new_test_ext().execute_with(|| {
+			let psm = psm_account();
+			let _ = frame_system::Pallet::<Test>::dec_providers(&psm);
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other("PSM account does not exist")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_missing_fee_destination() {
+		new_test_ext().execute_with(|| {
+			let _ = frame_system::Pallet::<Test>::dec_providers(&INSURANCE_FUND);
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other("Fee destination account does not exist")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_asset_count_exceeds_bound() {
+		new_test_ext().execute_with(|| {
+			// Check 1 verifies decimals of all approved assets. Create assets with matching
+			// decimals before inserting them into ExternalAssets, so checks 1-4 pass and
+			// check 8 fires.
+			for id in 10u32..20u32 {
+				create_asset_with_metadata(id);
+				ExternalAssets::<Test>::insert(id, CircuitBreakerLevel::AllEnabled);
+			}
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other("ExternalAssets count exceeds MaxExternalAssets")
+			);
+		});
+	}
+
+	#[test]
+	fn detects_debt_exceeds_asset_ceiling() {
+		new_test_ext().execute_with(|| {
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * PUSD_UNIT));
+			set_max_psm_debt_ratio(Permill::from_parts(1));
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other("Per-asset PSM debt exceeds its ceiling")
+			);
+		});
+	}
+}
