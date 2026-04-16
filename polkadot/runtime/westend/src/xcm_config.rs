@@ -33,7 +33,6 @@ use polkadot_runtime_common::{
 	ToAuthor,
 };
 use sp_core::ConstU32;
-use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{
 	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
 };
@@ -60,7 +59,7 @@ parameter_types! {
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
 	// TODO(#11705): remove TreasuryLocation and migrate treasury funds to DapSatellite.
 	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
-	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.

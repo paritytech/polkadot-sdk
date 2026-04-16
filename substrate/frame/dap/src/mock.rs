@@ -18,9 +18,7 @@
 //! Test mock for the DAP pallet.
 
 use crate::{self as pallet_dap, Config};
-use frame_support::{
-	derive_impl, parameter_types, sp_runtime::traits::AccountIdConversion, PalletId,
-};
+use frame_support::{derive_impl, parameter_types, PalletId};
 use sp_core::crypto::AccountId32;
 use sp_runtime::{traits::IdentityLookup, BuildStorage};
 
@@ -136,11 +134,10 @@ fn new_test_ext_inner(fund_buffer: bool) -> sp_io::TestExternalities {
 		vec![(account_id(1), 100u64), (account_id(2), 200u64), (account_id(3), 300u64)];
 
 	if fund_buffer {
-		let buffer: AccountId = DapPalletId::get().into_account_truncating();
+		let buffer: AccountId = Dap::buffer_account();
 		balances.push((buffer, ExistentialDeposit::get()));
 		// Also pre-fund staging account so tests can deposit without hitting the ED requirement.
-		let staging: AccountId =
-			sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID);
+		let staging: AccountId = Dap::staging_account();
 		balances.push((staging, ExistentialDeposit::get()));
 	}
 
