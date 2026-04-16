@@ -1,15 +1,101 @@
 title: 'Deprecate private pallet storage types '
 doc:
-- audience: Runtime Dev
+- audience: [Runtime Dev, Runtime User]
   description: |-
     # Description
-
     This PR implements a compile-time deprecation warning for non-public pallet storage items in the FRAME `#[pallet::storage]` macro.
-
     Storage items in FRAME are always publicly accessible through the underlying storage API and cannot be effectively restricted via Rust's visibility modifiers. Applying `pub(crate)` or `pub(super)` to storage types is misleading and can complicates pallet development and integration.
 
 crates:
 - name: frame-support-procedural
-  bump: major
+  bump: minor
 - name: frame-system
-  bump: major
+  bump: minor
+- name: pallet-authorship
+  bump: minor
+- name: pallet-timestamp
+  bump: minor
+- name: pallet-transaction-payment
+  bump: minor
+- name: cumulus-pallet-aura-ext
+  bump: minor
+- name: cumulus-pallet-solo-to-para
+  bump: minor
+- name: cumulus-pallet-xcmp-queue
+  bump: minor
+- name: staging-parachain-info
+  bump: minor
+- name: cumulus-ping
+  bump: minor
+- name: pallet-assets-holder
+  bump: minor
+- name: frame-benchmarking-pallet-pov
+  bump: minor
+- name: pallet-contracts
+  bump: minor
+- name: pallet-glutton
+  bump: minor
+- name: pallet-oracle
+  bump: minor
+- name: pallet-lottery
+  bump: minor
+- name: pallet-mmr
+  bump: minor
+- name: pallet-mixnet
+  bump: minor
+- name: pallet-origin-restriction
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-scored-pool
+  bump: minor
+- name: pallet-staking-async-ah-client
+  bump: minor
+- name: pallet-state-trie-migration
+  bump: minor
+- name: frame-support
+  bump: minor
+- name: pallet-asset-conversion-tx-payment
+  bump: minor
+- name: pallet-asset-tx-payment
+  bump: minor
+- name: pallet-transaction-storage
+  bump: minor
+- name: pallet-bridge-grandpa
+  bump: minor
+- name: pallet-bridge-parachains
+  bump: minor
+- name: pallet-bridge-relayers
+  bump: minor
+- name: snowbridge-pallet-outbound-queue
+  bump: minor
+- name: polkadot-runtime-common
+  bump: minor
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: rococo-runtime
+  bump: minor
+- name: pallet-xcm
+  bump: minor
+- name: frame-benchmarking
+  bump: minor
+- name: pallet-contracts-mock-network
+  bump: minor
+- name: pallet-election-provider-multi-block
+  bump: minor
+- name: pallet-elections-phragmen
+  bump: minor
+- name: pallet-scheduler
+  bump: minor
+- name: pallet-session
+  bump: minor
+- name: pallet-staking
+  bump: minor
+- name: sp-state-machine
+  bump: minor
+- name: sp-core
+  bump: minor
+- name: pallet-psm
+  bump: minor
+- name: pallet-sudo
+  bump: minor
