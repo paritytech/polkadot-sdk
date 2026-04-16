@@ -492,7 +492,8 @@ pub struct StatementHandler<
 	initial_sync_peer_queue: VecDeque<PeerId>,
 	/// Whether the node was major syncing on the last `run()` loop poll
 	was_major_syncing: bool,
-	/// Tracks peers that connected while major sync was active and adds them to the reserved set once sync ends
+	/// Tracks peers that connected while major sync was active and adds them to the reserved set
+	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
 }
 
@@ -1450,8 +1451,8 @@ mod tests {
 				reported_peers: Arc::new(Mutex::new(Vec::new())),
 				disconnected_peers: Arc::new(Mutex::new(Vec::new())),
 				default_role: sc_network::ObservedRole::Full,
-                added_reserved: Arc::new(Mutex::new(Vec::new())),
-                removed_reserved: Arc::new(Mutex::new(Vec::new())),
+				added_reserved: Arc::new(Mutex::new(Vec::new())),
+				removed_reserved: Arc::new(Mutex::new(Vec::new())),
 			}
 		}
 

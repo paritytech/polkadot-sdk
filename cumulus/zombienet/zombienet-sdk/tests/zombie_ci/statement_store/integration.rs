@@ -389,11 +389,11 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 /// 2. Submit multiple statements to charlie
 /// 3. Add dave as a late joiner — dave will enter major sync because the chain has already
 ///    progressed. During major sync, `handle_sync_event` buffers charlie in `deferred_peers`
-///    instead of adding it to the reserved set, so no statement substream is opened and no
-///    initial sync occurs
+///    instead of adding it to the reserved set, so no statement substream is opened and no initial
+///    sync occurs
 /// 4. Wait for dave to exit major sync
-/// 5. On sync-end, `drain_deferred_peers` adds charlie to the reserved set; the substream
-///    opens and charlie performs initial sync with dave, delivering the statements
+/// 5. On sync-end, `drain_deferred_peers` adds charlie to the reserved set; the substream opens and
+///    charlie performs initial sync with dave, delivering the statements
 /// 6. Subscribe to statements on dave AFTER sync has ended and assert all statements arrive
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error> {
