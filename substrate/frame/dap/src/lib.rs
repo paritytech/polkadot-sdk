@@ -224,8 +224,9 @@ pub mod pallet {
 				return meter.consumed();
 			}
 
-			// Need 1 read and 2 writes for the transfer.
-			if meter.try_consume(T::DbWeight::get().reads_writes(1, 2)).is_err() {
+			// Need 1 read and 2 writes for the transfer, plus 1 read and 1 write for
+			// deactivate (InactiveIssuance) and 1 read for TotalIssuance.
+			if meter.try_consume(T::DbWeight::get().reads_writes(3, 3)).is_err() {
 				return meter.consumed();
 			}
 
