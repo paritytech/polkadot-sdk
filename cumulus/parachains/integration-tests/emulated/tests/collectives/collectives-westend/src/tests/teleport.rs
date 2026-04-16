@@ -17,6 +17,7 @@ use crate::imports::*;
 use emulated_integration_tests_common::{
 	test_parachain_is_trusted_teleporter_for_relay, test_relay_is_trusted_teleporter,
 };
+use frame_support::sp_runtime::traits::BlockNumberProvider;
 
 #[test]
 fn teleport_via_limited_teleport_assets_from_and_to_relay() {
@@ -112,15 +113,15 @@ fn teleport_via_transfer_assets_from_asset_hub_to_collectives() {
 
 #[test]
 fn dap_satellite_collectives_transfers_native_to_asset_hub_dap() {
+	type RelayDataProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<
+		collectives_westend_runtime::Runtime,
+	>;
 	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
 		CollectivesWestend,
 		AssetHubWestend,
 	>(
 		|acct, amount| CollectivesWestend::fund_accounts(vec![(acct, amount)]),
-		|n| {
-			cumulus_pallet_parachain_system::LastRelayChainBlockNumber::<
-				collectives_westend_runtime::Runtime,
-			>::put(n)
-		},
+		|| RelayDataProvider::current_block_number(),
+		|n| RelayDataProvider::set_block_number(n),
 	);
 }

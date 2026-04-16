@@ -30,7 +30,8 @@ use xcm_emulator::{Chain, TestExt};
 /// deactivates those funds into the main DAP buffer account.
 pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 	fund_sender: fn(AccountId, Balance),
-	setup_block_number: fn(u32),
+	get_relay_block: fn() -> u32,
+	set_relay_block: fn(u32),
 ) where
 	Sender: Chain + TestExt,
 	Sender::Runtime: pallet_dap_satellite::Config
@@ -91,7 +92,10 @@ pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 	// Trigger `on_idle` to initiate a transfer to DAP. The block number used by
 	// `BlockNumberProvider` must be an exact multiple of `TransferPeriod`.
 	Sender::execute_with(|| {
-		setup_block_number(transfer_period.saturating_mul(3));
+		// Save the current relay block so we can restore it before `on_finalize` runs.
+		let orig_relay_block = get_relay_block();
+
+		set_relay_block(transfer_period.saturating_mul(3));
 		let _ = <pallet_dap_satellite::Pallet<Sender::Runtime> as Hooks<u32>>::on_idle(
 			transfer_period.saturating_mul(3),
 			Weight::MAX,
@@ -100,6 +104,10 @@ pub fn test_dap_satellite_transfers_to_asset_hub<Sender, AH>(
 			.into_iter()
 			.any(|e| matches!(e.try_into(), Ok(pallet_dap_satellite::Event::SendSucceeded { .. })));
 		assert!(send_succeeded, "Expected DapSatellite::SendSucceeded event");
+
+		// Restore the relay block so `on_finalize` writes the correct value into
+		// `LastRelayChainBlockNumber`.
+		set_relay_block(orig_relay_block);
 	});
 
 	// Delivery fees are waived for the satellite, so it retains exactly the ED.
