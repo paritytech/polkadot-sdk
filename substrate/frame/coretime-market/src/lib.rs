@@ -292,9 +292,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RenewalCount<T> = StorageValue<_, u32, ValueQuery>;
 
-	/// Pending refunds from bid displacements, drained in `tick()`.
+	/// Displaced auction winners during the Renewal phase. Refunded in `finalize_sale`.
 	#[pallet::storage]
-	pub type PendingRefunds<T: Config> = StorageValue<
+	pub type DisplacedBids<T: Config> = StorageValue<
 		_,
 		BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxBids>,
 		ValueQuery,
@@ -482,9 +482,9 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 							refund,
 						});
 
-						// Queue the displacement refund for the next tick().
-						PendingRefunds::<T>::mutate(|refunds| {
-							let _ = refunds
+						// Track displaced bid; refunded in finalize_sale.
+						DisplacedBids::<T>::mutate(|bids| {
+							let _ = bids
 								.try_push((displaced_alloc.who, refund));
 						});
 
@@ -550,12 +550,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		block_number: RelayBlockNumberOf<T>,
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickActionOf<T>> {
-		// Drain pending displacement refunds first.
-		let pending = PendingRefunds::<T>::take();
-		let mut actions: Vec<TickActionOf<T>> = pending
-			.into_iter()
-			.map(|(who, amount)| TickAction::Refund { amount, who })
-			.collect();
+		let mut actions: Vec<TickActionOf<T>> = vec![];
 
 		let Some(config) = Configuration::<T>::get() else {
 			return actions;
@@ -789,6 +784,9 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 }
 
 /// Finalize the sale at the end of the Renewal phase.
+///
+/// Issues regions for auction winners, refunds displaced bids, and updates
+/// cores_sold to include renewals for the next sale's price adjustment.
 fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
 	let mut actions = vec![];
 	let allocations = Allocations::<T>::take();
@@ -808,6 +806,11 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 			region_id,
 			region_end: sale.region_end,
 		});
+	}
+
+	// Refund displaced auction winners.
+	for (who, amount) in DisplacedBids::<T>::take() {
+		actions.push(TickAction::Refund { amount, who });
 	}
 
 	let renewal_count = RenewalCount::<T>::get() as u16;
