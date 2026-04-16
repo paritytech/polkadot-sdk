@@ -143,9 +143,9 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 pub trait CoreRangeProvider {
 	/// Returns the range of core indices that can be sold on a market.
 	///
-	/// Returns `Err` if the range is unknown (e.g., the [`CoreRangeProvider`]
+	/// Returns `None` if the range is unknown (e.g., the [`CoreRangeProvider`]
 	/// implementer is not initialized).
-	fn core_range() -> Result<SoldCoresRange, ()>;
+	fn core_range() -> Option<SoldCoresRange>;
 }
 
 /// A range of cores available for sale on a coretime market.
