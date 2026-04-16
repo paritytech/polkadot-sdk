@@ -511,6 +511,20 @@ mod tests {
 	}
 
 	#[test]
+	fn revert_to_first_nodes_parent_head_returns_none() {
+		// The first node's parent head hash is not any node's output head hash,
+		// so revert_to_output_head should return None and leave the chain unchanged.
+		let (mut chain, node_a, _node_b, _node_c) = make_chain_abc();
+
+		let first_parent_head = node_a.parent_head_data_hash;
+		// Confirm this hash is not an output head of any node.
+		assert!(chain.candidate_by_output_head(&first_parent_head).is_none());
+
+		assert!(chain.revert_to_output_head(&first_parent_head).is_none());
+		assert_eq!(chain.len(), 3);
+	}
+
+	#[test]
 	fn iteration_and_ordering() {
 		let (chain, node_a, node_b, node_c) = make_chain_abc();
 
