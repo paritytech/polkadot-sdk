@@ -1,0 +1,17 @@
+title: 'rpc: cache runtime version by code hash in `CodeProvider`'
+doc:
+- audience: Node Dev
+  description: "Every call to `CodeProvider::on_chain_runtime_version()` goes through\
+    \ the executor's `RuntimeCache` infrastructure -acquiring its mutex, performing\
+    \ an LRU lookup, reserving an instance pool slot, and constructing `OverlayedChanges`/`Ext`\
+    \ objects - just to retrieve the already-known `RuntimeVersion`.\n\nThis PR adds\
+    \ a `code_hash \u2192 RuntimeVersion` cache to `CodeProvider` so that `on_chain_runtime_version()`\
+    \ short-circuits all of that on repeat calls with a single `HashMap` lookup behind\
+    \ a `RwLock` (concurrent reads on the hot path).\n\nThe cache is unbounded but\
+    \ safe: it grows by one entry per runtime upgrade, which are not that often.\n\
+    \n## Changes\n\n- Add `RwLock<HashMap<Vec<u8>, RuntimeVersion>>` cache to `CodeProvider`\n\
+    - Cache hit returns cloned version via read lock; miss computes and inserts via\
+    \ write lock\n- Add tests verifying cache population, reuse, and per-hash differentiation"
+crates:
+- name: sc-service
+  bump: patch
