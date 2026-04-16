@@ -644,6 +644,108 @@ fn can_not_redeem_more_lp_tokens_than_were_minted() {
 }
 
 #[test]
+fn quote_price_returns_none_for_zero_amount() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 100000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			10000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				0,
+				true,
+			),
+			None
+		);
+		assert_eq!(
+			AssetConversion::quote_price_tokens_for_exact_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				0,
+				true,
+			),
+			None
+		);
+	});
+}
+
+#[test]
+fn quote_price_returns_none_for_zero_output() {
+	new_test_ext().execute_with(|| {
+		let user = 1;
+		let token_1 = NativeOrWithId::Native;
+		let token_2 = NativeOrWithId::WithId(2);
+
+		create_tokens(user, vec![token_2.clone()]);
+		assert_ok!(AssetConversion::create_pool(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone())
+		));
+
+		assert_ok!(Balances::force_set_balance(RuntimeOrigin::root(), user, 10_000_000));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(user), 2, user, 1000));
+
+		// Create a heavily skewed pool: lots of asset1, very little asset2.
+		assert_ok!(AssetConversion::add_liquidity(
+			RuntimeOrigin::signed(user),
+			Box::new(token_1.clone()),
+			Box::new(token_2.clone()),
+			1_000_000,
+			200,
+			1,
+			1,
+			user,
+		));
+
+		// Tiny input into a skewed pool rounds output to zero.
+		// get_amount_out(1, 1_000_000, 200) = 1*997*200 / (1_000_000*1000 + 997) = 0
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1,
+				true,
+			),
+			None
+		);
+		// Without fees: quote(1, 1_000_000, 200) = 1*200/1_000_000 = 0
+		assert_eq!(
+			AssetConversion::quote_price_exact_tokens_for_tokens(
+				token_1.clone(),
+				token_2.clone(),
+				1,
+				false,
+			),
+			None
+		);
+	});
+}
+
+#[test]
 fn can_quote_price() {
 	new_test_ext().execute_with(|| {
 		let user = 1;
