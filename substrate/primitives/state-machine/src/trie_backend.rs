@@ -533,23 +533,20 @@ where
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) where
 		H::Out: Ord,
 	{
-		self.essence.record_proof_for_dirty_keys(delta, state_version)
+		self.essence.record_proof_for_dirty_keys(delta)
 	}
 
 	fn record_proof_for_child_dirty_keys<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) where
 		H::Out: Ord,
 	{
-		self.essence
-			.record_proof_for_child_dirty_keys(child_info, delta, state_version)
+		self.essence.record_proof_for_child_dirty_keys(child_info, delta)
 	}
 
 	fn register_overlay_stats(&self, _stats: &crate::stats::StateMachineStats) {}

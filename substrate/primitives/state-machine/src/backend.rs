@@ -272,7 +272,6 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) where
 		H::Out: Ord;
 
@@ -281,7 +280,6 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) where
 		H::Out: Ord;
 
@@ -353,14 +351,13 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		child_deltas: impl Iterator<
 			Item = (&'a ChildInfo, impl Iterator<Item = (&'a [u8], DeltaKeyOp)>),
 		>,
-		state_version: StateVersion,
 	) where
 		H::Out: Ord + Encode,
 	{
 		let mut child_roots: Vec<Vec<u8>> = Default::default();
 		// child first
 		for (child_info, child_delta) in child_deltas {
-			self.record_proof_for_child_dirty_keys(child_info, child_delta, state_version);
+			self.record_proof_for_child_dirty_keys(child_info, child_delta);
 			child_roots.push(child_info.prefixed_storage_key().into_inner());
 		}
 		// At "estimation phase" we don't know if child trie is empty or not. Let's assume
@@ -368,7 +365,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		let mut delta_and_child_roots: Vec<_> = delta.collect();
 		delta_and_child_roots
 			.extend(child_roots.iter().map(|k| (k.as_slice(), DeltaKeyOp::Deleted)));
-		self.record_proof_for_dirty_keys(delta_and_child_roots.into_iter(), state_version);
+		self.record_proof_for_dirty_keys(delta_and_child_roots.into_iter());
 	}
 
 	/// Register stats from overlay of state machine.

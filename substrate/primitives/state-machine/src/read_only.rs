@@ -176,7 +176,7 @@ where
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
-	fn record_proof_for_dirty_keys(&mut self, _: StateVersion) {
+	fn record_proof_for_dirty_keys(&mut self) {
 		unimplemented!(
 			"record_proof_for_dirty_keys is not supported in ReadOnlyExternalities"
 		)

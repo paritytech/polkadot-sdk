@@ -205,19 +205,16 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 	fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) {
-		self.state.record_proof_for_dirty_keys(delta, state_version)
+		self.state.record_proof_for_dirty_keys(delta)
 	}
 
 	fn record_proof_for_child_dirty_keys<'a>(
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) {
-		self.state
-			.record_proof_for_child_dirty_keys(child_info, delta, state_version)
+		self.state.record_proof_for_child_dirty_keys(child_info, delta)
 	}
 
 	fn raw_iter(&self, args: IterArgs) -> Result<Self::RawIter, Self::Error> {

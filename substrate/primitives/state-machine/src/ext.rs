@@ -491,10 +491,10 @@ where
 		root.encode()
 	}
 
-	fn record_proof_for_dirty_keys(&mut self, state_version: StateVersion) {
+	fn record_proof_for_dirty_keys(&mut self) {
 		let _guard = guard();
 
-		self.overlay.record_proof_for_dirty_keys(self.backend, state_version);
+		self.overlay.record_proof_for_dirty_keys(self.backend);
 
 		trace!(
 			target: "state",
@@ -1127,7 +1127,7 @@ mod tests {
 		ext.place_child_storage(child_info, 1u32.encode(), None);
 		ext.place_child_storage(child_info, 6000u32.encode(), None);
 
-		ext.record_proof_for_dirty_keys(StateVersion::V1);
+		ext.record_proof_for_dirty_keys();
 		let size_before = recorder.estimate_encoded_size();
 
 		ext.storage_root(StateVersion::V1);
@@ -1182,7 +1182,7 @@ mod tests {
 		ext.place_child_storage(child_info, key2.encode(), Some(vec![40]));
 		let _ = ext.storage_commit_transaction();
 
-		ext.record_proof_for_dirty_keys(StateVersion::V1);
+		ext.record_proof_for_dirty_keys();
 
 		ext.storage_start_transaction();
 		ext.place_storage(key1.encode(), None);
@@ -1192,7 +1192,7 @@ mod tests {
 		ext.place_child_storage(child_info, key2.encode(), None);
 		let _ = ext.storage_commit_transaction();
 
-		ext.record_proof_for_dirty_keys(StateVersion::V1);
+		ext.record_proof_for_dirty_keys();
 
 		let size_before = recorder.estimate_encoded_size();
 

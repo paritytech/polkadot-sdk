@@ -48,9 +48,9 @@ pub trait StorageProofSize {
 	/// (recording trie nodes that would be accessed during storage root calculation),
 	/// then returns the updated proof size.
 	#[version(2)]
-	fn storage_proof_size(&mut self, state_version: PassAs<StateVersion, u8>) -> u64 {
+	fn storage_proof_size(&mut self) -> u64 {
 		if self.extension::<ProofSizeExt>().is_some() {
-			self.record_proof_for_dirty_keys(state_version);
+			self.record_proof_for_dirty_keys();
 		}
 
 		self.extension::<ProofSizeExt>()

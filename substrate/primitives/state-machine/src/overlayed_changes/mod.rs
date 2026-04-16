@@ -677,7 +677,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 	pub fn record_proof_for_dirty_keys<B: Backend<H>>(
 		&mut self,
 		backend: &B,
-		state_version: StateVersion,
 	) where
 		H::Out: Ord + Encode + codec::Codec,
 	{
@@ -691,7 +690,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 			.iter()
 			.map(|(info, snap)| (*info, snap.values().map(|(k, op)| (&k[..], *op))));
 
-		backend.record_proof_for_dirty_keys_full(delta, child_delta, state_version);
+		backend.record_proof_for_dirty_keys_full(delta, child_delta);
 	}
 
 	/// Generate the child storage root using `backend` and all child changes

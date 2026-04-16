@@ -682,8 +682,9 @@ where
 	pub fn record_proof_for_dirty_keys<'a>(
 		&self,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) {
+		// LayoutV1 is used unconditionally: V0 and V1 are read-compatible, and this function
+		// only reads trie nodes (remove uses disable_commit_on_drop). See sp_trie::TrieDB.
 		let mut write_overlay = PrefixedMemoryDB::with_hasher(Default::default());
 		let backend_storage = &self.backend_storage();
 		let mut eph = Ephemeral::new(backend_storage, &mut write_overlay);
@@ -694,24 +695,13 @@ where
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			let res = {
-				match state_version {
-					StateVersion::V0 => read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
-						&eph,
-						self.root,
-						keys_to_be_read,
-						recorder,
-						cache,
-					),
-					StateVersion::V1 => read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
-						&eph,
-						self.root,
-						keys_to_be_read,
-						recorder,
-						cache,
-					),
-				}
-			};
+			let res = read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+				&eph,
+				self.root,
+				keys_to_be_read,
+				recorder,
+				cache,
+			);
 
 			if let Err(e) = res {
 				warn!(target: "trie", "Failed to read delta keys from trie: {}", e);
@@ -719,28 +709,13 @@ where
 		});
 
 		self.with_recorder_and_cache(None, |recorder, cache| {
-			let res = {
-				match state_version {
-					StateVersion::V0 => {
-						remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _>(
-							&mut eph,
-							self.root,
-							keys_to_be_removed,
-							recorder,
-							cache,
-						)
-					},
-					StateVersion::V1 => {
-						remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
-							&mut eph,
-							self.root,
-							keys_to_be_removed,
-							recorder,
-							cache,
-						)
-					},
-				}
-			};
+			let res = remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _>(
+				&mut eph,
+				self.root,
+				keys_to_be_removed,
+				recorder,
+				cache,
+			);
 
 			if let Err(e) = res {
 				warn!(target: "trie", "Failed to remove delta keys from trie: {}", e);
@@ -814,7 +789,6 @@ where
 		&self,
 		child_info: &ChildInfo,
 		delta: impl Iterator<Item = (&'a [u8], DeltaKeyOp)>,
-		state_version: StateVersion,
 	) {
 		let default_root = match child_info.child_type() {
 			ChildType::ParentKeyId => empty_child_trie_root::<sp_trie::LayoutV1<H>>(),
@@ -835,53 +809,27 @@ where
 
 		let (keys_to_be_read, keys_to_be_removed) = Self::partition_delta(delta);
 
-		let _ =
-			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
-				StateVersion::V0 => {
-					child_read_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
-						child_info.keyspace(),
-						&eph,
-						child_root,
-						keys_to_be_read,
-						recorder,
-						cache,
-					)
-				},
-				StateVersion::V1 => {
-					child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
-						child_info.keyspace(),
-						&eph,
-						child_root,
-						keys_to_be_read,
-						recorder,
-						cache,
-					)
-				},
-			});
+		let _ = self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+			child_read_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+				child_info.keyspace(),
+				&eph,
+				child_root,
+				keys_to_be_read,
+				recorder,
+				cache,
+			)
+		});
 
-		let _ =
-			self.with_recorder_and_cache(Some(child_root), |recorder, cache| match state_version {
-				StateVersion::V0 => {
-					child_remove_trie_keys_from_delta::<sp_trie::LayoutV0<H>, _, _, _, _>(
-						child_info.keyspace(),
-						&mut eph,
-						child_root,
-						keys_to_be_removed,
-						recorder,
-						cache,
-					)
-				},
-				StateVersion::V1 => {
-					child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
-						child_info.keyspace(),
-						&mut eph,
-						child_root,
-						keys_to_be_removed,
-						recorder,
-						cache,
-					)
-				},
-			});
+		let _ = self.with_recorder_and_cache(Some(child_root), |recorder, cache| {
+			child_remove_trie_keys_from_delta::<sp_trie::LayoutV1<H>, _, _, _, _>(
+				child_info.keyspace(),
+				&mut eph,
+				child_root,
+				keys_to_be_removed,
+				recorder,
+				cache,
+			)
+		});
 	}
 }
 

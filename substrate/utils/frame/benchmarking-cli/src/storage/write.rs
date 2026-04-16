@@ -332,11 +332,10 @@ impl StorageCmd {
 						let _ = trie.record_proof_for_child_dirty_keys(
 							info,
 							trigger_delta,
-							version,
 						);
 					},
 					None => {
-						let _ = trie.record_proof_for_dirty_keys(trigger_delta, version);
+						let _ = trie.record_proof_for_dirty_keys(trigger_delta);
 					},
 				}
 			}
