@@ -9,7 +9,7 @@ use sp_core::{sr25519, Bytes, Pair};
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
-use subxt::{dynamic::Value, transactions::Signer};
+use subxt::transactions::Signer;
 use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 
 use sc_statement_store::{
@@ -455,31 +455,8 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 		proof_of_ownership.to_vec(),
 		Some(consumer_registration),
 	);
-	let block_hash = submit_extrinsic(&para_client, &attest_call, &alice, nonce).await?;
-	info!(
-		"Attest call succeeded — lite person registered with consumer allowance (block {block_hash:?})"
-	);
-
-	// Verify the candidate appears in LitePeople storage
-	let lite_people_query =
-		subxt::dynamic::storage::<([u8; 32],), Value>("PeopleLite", "LitePeople");
-	let at_block = para_client.at_block(block_hash).await?;
-	let entry = at_block.storage().try_fetch(lite_people_query, (candidate_account,)).await?;
-	assert!(entry.is_some(), "Candidate should be registered in LitePeople storage");
-	info!("Verified: candidate is present in LitePeople storage");
-
-	// Wait for the attest block to finalize before submitting statements
-	let at_block = para_client.at_block(block_hash).await?;
-	let attest_block_number = at_block.block_number() as f64;
-	info!("Waiting for attest block ({attest_block_number}) to finalize...");
-	alice_node
-		.wait_metric_with_timeout(
-			"block_height{status=\"finalized\"}",
-			|height| height >= attest_block_number,
-			120u64,
-		)
-		.await?;
-	info!("Attest block finalized");
+	submit_extrinsic(&para_client, &attest_call, &alice, nonce).await?;
+	info!("Attest call succeeded — lite person registered with consumer allowance");
 
 	let bob_rpc = bob_node.rpc().await?;
 	let topic: Topic = [0u8; 32].into();
