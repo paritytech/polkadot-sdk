@@ -235,6 +235,8 @@ where
 				// Ignore the time offset when V3 scheduling is enabled,
 				// since `descendants_start` already handles relay-chain slot alignment.
 				slot_timer.set_time_offset(Duration::ZERO);
+			} else {
+				slot_timer.set_time_offset(slot_offset);
 			}
 
 			let Some(scheduling_parent_header) = scheduling_info

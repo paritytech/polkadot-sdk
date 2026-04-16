@@ -53,6 +53,14 @@ fn get_current_relay_slot_at(
 	)
 }
 
+fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Duration) -> Slot {
+	get_current_relay_slot_at(
+		Timestamp::current().as_duration(),
+		slot_offset,
+		relay_chain_slot_duration,
+	)
+}
+
 /// Wait until the best relay chain block is from the current relay chain slot.
 ///
 /// If the current best block is already current, returns its hash immediately.
@@ -72,13 +80,11 @@ where
 	RelayClient: RelayChainInterface + Clone + 'static,
 {
 	let relay_best_hash = relay_client.best_block_hash().await.ok()?;
-	let mut maybe_best_header = Some(
-		relay_chain_data_cache
-			.get_mut_relay_chain_data(relay_best_hash)
-			.await
-			.ok()
-			.map(|d| d.relay_parent_header.clone())?,
-	);
+	let mut maybe_best_header = relay_chain_data_cache
+		.get_mut_relay_chain_data(relay_best_hash)
+		.await
+		.ok()
+		.map(|data| data.relay_parent_header.clone());
 
 	loop {
 		// Drain buffered notifications.
@@ -90,13 +96,9 @@ where
 			Some(h) => h,
 			None => best_notifications.next().await?, // Block until one arrives.
 		};
-		let best_slot = get_babe_slot(&best_header)?;
-		let current_relay_slot = get_current_relay_slot_at(
-			Timestamp::current().as_duration(),
-			slot_offset,
-			relay_chain_slot_duration,
-		);
-		if best_slot >= current_relay_slot {
+		let best_relay_slot = get_babe_slot(&best_header)?;
+		let current_relay_slot = get_current_relay_slot(slot_offset, relay_chain_slot_duration);
+		if best_relay_slot >= current_relay_slot {
 			return Some(best_header);
 		}
 
@@ -104,7 +106,7 @@ where
 			target: LOG_TARGET,
 			?relay_best_hash,
 			relay_best_num = %best_header.number(),
-			?best_slot,
+			?best_relay_slot,
 			"Best relay block is stale, waiting for fresh one."
 		);
 	}
@@ -172,13 +174,10 @@ impl SchedulingInfo {
 			return Some(relay_best_header);
 		}
 
-		let babe_slot = get_babe_slot(&relay_best_header)?;
-		let current_relay_slot = get_current_relay_slot_at(
-			Timestamp::current().as_duration(),
-			Duration::from_millis(0),
-			self.relay_chain_slot_duration,
-		);
-		if babe_slot < current_relay_slot {
+		let best_relay_slot = get_babe_slot(&relay_best_header)?;
+		let current_relay_slot =
+			get_current_relay_slot(Default::default(), self.relay_chain_slot_duration);
+		if best_relay_slot < current_relay_slot {
 			Some(relay_best_header)
 		} else {
 			let relay_best_hash = *relay_best_header.parent_hash();
