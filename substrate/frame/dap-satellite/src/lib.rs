@@ -46,6 +46,8 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+pub mod migrations;
+
 #[cfg(test)]
 pub(crate) mod mock;
 #[cfg(test)]

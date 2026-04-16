@@ -19,12 +19,11 @@
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
+	TransactionByteFee, WeightToFee, XcmPallet,
 };
-use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Disabled, Equals, Everything, Nothing, PalletInfoAccess},
+	traits::{Contains, Disabled, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -57,8 +56,6 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
-	// TODO(#11705): remove TreasuryLocation and migrate treasury funds to DapSatellite.
-	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
 	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
@@ -199,7 +196,6 @@ pub type WaivedLocations = (
 	SystemParachains,
 	Equals<RootLocation>,
 	LocalPlurality,
-	Equals<TreasuryLocation>,
 	Equals<DapSatelliteLocation>,
 );
 
@@ -259,8 +255,6 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
-	// `Treasurer` pluralistic body.
-	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 	// DDay pluralistic body.
 	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
 }
@@ -285,9 +279,6 @@ pub type StakingAdminToPlurality =
 pub type FellowshipAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId>;
 
-/// Type to convert the `Treasurer` origin to a Plurality `Location` value.
-pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasurerBodyId>;
-
 /// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
@@ -297,8 +288,6 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
-	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
-	TreasurerToPlurality,
 );
 
 impl pallet_xcm::Config for Runtime {

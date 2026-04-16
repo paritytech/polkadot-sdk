@@ -172,10 +172,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies), and the Fellows plurality
-					// get free execution.
+					// Parent, its pluralities (i.e. governance bodies), the Fellows plurality,
+					// and sibling system parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
+						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						FellowsPlurality,
 						Equals<GovernanceLocation>,
 					)>,
@@ -192,8 +193,6 @@ pub type Barrier = TrailingSetTopicAsId<
 >;
 
 parameter_types! {
-	// TODO(#11705): remove RelayTreasuryLocation and migrate old treasury funds to DapSatellite.
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	/// The DAP satellite account on this chain.
 	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	pub DapSatelliteLocation: Location = {
@@ -206,7 +205,6 @@ parameter_types! {
 pub type WaivedLocations = (
 	Equals<RootLocation>,
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-	Equals<RelayTreasuryLocation>,
 	Equals<DapSatelliteLocation>,
 );
 
