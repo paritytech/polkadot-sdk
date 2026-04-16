@@ -32,7 +32,7 @@ use pallet_revive::{
 };
 use sp_core::keccak_256;
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	future::Future,
 	pin::Pin,
 	sync::{
@@ -369,30 +369,29 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let (extrinsics, eth_tx_hash_by_extrinsic): (Vec<_>, HashMap<u32, H256>) = self
+		let eth_tx_by_index: BTreeMap<u32, (EthTransact, H256, ReceiptGasInfo)> = self
 			.get_block_extrinsics(block)
 			.await?
 			.map(|(call, receipt_gas_info, extrinsic_index)| {
 				let hash = H256(keccak_256(&call.payload));
-				let extrinsic_index = extrinsic_index as u32;
-				((call, hash, receipt_gas_info, extrinsic_index), (extrinsic_index, hash))
+				(extrinsic_index as u32, (call, hash, receipt_gas_info))
 			})
-			.unzip();
+			.collect();
 
-		if extrinsics.is_empty() {
+		if eth_tx_by_index.is_empty() {
 			return Ok(vec![]);
 		}
 
 		let block_number: U256 = block.number().into();
 		let (reverted_extrinsics, mut logs_by_extrinsic) =
 			extract_revive_events(block, block_number, eth_block_hash, |idx| {
-				eth_tx_hash_by_extrinsic.get(&idx).copied()
+				eth_tx_by_index.get(&idx).map(|(_, hash, _)| *hash)
 			})
 			.await?;
 
-		extrinsics
+		eth_tx_by_index
 			.into_iter()
-			.map(|(call, transaction_hash, receipt_gas_info, transaction_index)| {
+			.map(|(transaction_index, (call, transaction_hash, receipt_gas_info))| {
 				let reverted = reverted_extrinsics.contains(&transaction_index);
 				let logs = logs_by_extrinsic.remove(&transaction_index).unwrap_or_default();
 				self.decode_transaction_and_build_receipt(
@@ -466,11 +465,10 @@ impl ReceiptExtractor {
 			.get_block_extrinsics(block)
 			.await?
 			.find_map(|(call, receipt_gas_info, extrinsic_index)| {
-				if extrinsic_index != transaction_index {
-					return None;
-				}
-				let hash = H256(keccak_256(&call.payload));
-				Some((call, receipt_gas_info, hash))
+				(extrinsic_index == transaction_index).then(|| {
+					let hash = H256(keccak_256(&call.payload));
+					(call, receipt_gas_info, hash)
+				})
 			})
 			.ok_or_else(|| {
 				log::trace!(target: LOG_TARGET,
@@ -481,7 +479,6 @@ impl ReceiptExtractor {
 
 		let eth_block_number: U256 = block.number().into();
 		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
-
 		let transaction_index = transaction_index as u32;
 		let (reverted_extrinsics, mut logs_by_extrinsic) =
 			extract_revive_events(block, eth_block_number, eth_block_hash, |idx| {
