@@ -702,13 +702,17 @@ where
 	/// Removal operation applies to provided transactions. Their descendants can be removed from
 	/// the view, but will not be invalidated or banned.
 	///
-	/// Invalid future and stale transaction will be removed only from given `at` view, and will be
-	/// kept in the view_store. Such transaction will not be reported in returned vector. They
-	/// also will not be banned from re-entering the pool. No event will be triggered.
+	/// Invalid future, stale, and module-specific transactions will be removed only from given
+	/// `at` view, and will be kept in the view_store. Such transactions will not be reported in
+	/// the returned vector. They also will not be banned from re-entering the pool. No event will
+	/// be triggered.
 	///
-	/// For other errors, the transaction will be removed from the view_store, and it will be
-	/// included in the returned vector. Additionally, transactions provided as input will be banned
-	/// from re-entering the pool.
+	/// `Module(ModuleInvalidity)` is treated as view-scoped (like `Stale`) because a pallet
+	/// invalidity on one fork does not necessarily mean the transaction is invalid on all forks.
+	///
+	/// For other errors (e.g. `BadProof`, `Payment`), the transaction will be removed from the
+	/// view_store, and it will be included in the returned vector. Additionally, transactions
+	/// provided as input will be banned from re-entering the pool.
 	///
 	/// If the tuple's error is None, the transaction will be forcibly removed from the view_store,
 	/// banned and included into the returned vector.
@@ -728,7 +732,9 @@ where
 
 		invalid_tx_errors.into_iter().for_each(|(hash, e)| match e {
 			Some(TransactionValidityError::Invalid(
-				InvalidTransaction::Future | InvalidTransaction::Stale,
+				InvalidTransaction::Future |
+				InvalidTransaction::Stale |
+				InvalidTransaction::Module(_),
 			)) => {
 				remove_from_view.push(hash);
 			},
