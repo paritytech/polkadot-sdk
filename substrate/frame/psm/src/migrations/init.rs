@@ -121,11 +121,15 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 				continue;
 			}
 
-			assert!(
-				T::Fungibles::decimals(*asset_id) == stable_decimals,
-				"PSM migration: asset {:?} decimals do not match stable asset decimals",
-				asset_id,
-			);
+			if T::Fungibles::decimals(*asset_id) != stable_decimals {
+				log::error!(
+					target: LOG_TARGET,
+					"Asset {:?} decimals do not match stable asset decimals, skipping",
+					asset_id,
+				);
+				continue;
+			}
+
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			MintingFee::<T>::insert(asset_id, minting_fee);
 			RedemptionFee::<T>::insert(asset_id, redemption_fee);
@@ -153,6 +157,18 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
+		let stable_decimals = T::StableAsset::decimals();
+
+		for (asset_id, _) in I::asset_configs() {
+			if ExternalAssets::<T>::contains_key(&asset_id) {
+				continue;
+			}
+			ensure!(
+				T::Fungibles::decimals(asset_id) == stable_decimals,
+				"PSM migration: asset decimals do not match stable asset decimals",
+			);
+		}
+		
 		Ok(Vec::new())
 	}
 
