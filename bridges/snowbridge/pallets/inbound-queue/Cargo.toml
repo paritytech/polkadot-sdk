@@ -39,10 +39,10 @@ xcm.workspace = true
 xcm-executor.workspace = true
 
 [dev-dependencies]
-frame-benchmarking = { default-features = true, workspace = true }
+frame-benchmarking = { default-features = true, path = "../../../../substrate/frame/benchmarking" }
 hex-literal = { workspace = true, default-features = true }
-snowbridge-pallet-ethereum-client = { default-features = true, workspace = true }
-sp-keyring = { default-features = true, workspace = true }
+snowbridge-pallet-ethereum-client = { default-features = true, path = "../ethereum-client" }
+sp-keyring = { default-features = true, path = "../../../../substrate/primitives/keyring" }
 
 [features]
 default = ["std"]
@@ -75,7 +75,6 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
-	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-fixtures/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 	"xcm-executor/runtime-benchmarks",
@@ -85,6 +84,5 @@ try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

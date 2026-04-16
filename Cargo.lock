@@ -6887,7 +6887,7 @@ dependencies = [
 
 [[package]]
 name = "frame-support"
-version = "43.0.1"
+version = "43.0.2"
 dependencies = [
  "Inflector",
  "aquamarine",
@@ -11964,7 +11964,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-conviction-voting"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "assert_matches",
  "frame-benchmarking",
@@ -12635,7 +12635,7 @@ dependencies = [
 
 [[package]]
 name = "pallet-mmr"
-version = "43.0.0"
+version = "43.0.1"
 dependencies = [
  "itertools 0.11.0",
  "log",

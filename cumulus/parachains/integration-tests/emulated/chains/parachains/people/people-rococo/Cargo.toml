@@ -14,8 +14,8 @@ workspace = true
 cumulus-primitives-core.workspace = true
 emulated-integration-tests-common.workspace = true
 frame-support.workspace = true
-parachains-common.default-features = true
 parachains-common.workspace = true
+parachains-common.default-features = true
 people-rococo-runtime.workspace = true
 sp-core.workspace = true
 testnet-parachains-constants = { features = ["rococo"], workspace = true, default-features = true }

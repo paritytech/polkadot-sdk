@@ -13,57 +13,57 @@ workspace = true
 [dependencies]
 async-std = { features = ["attributes"], workspace = true }
 async-trait = { workspace = true }
-bp-header-chain.default-features = true
 bp-header-chain.workspace = true
-bp-messages.default-features = true
+bp-header-chain.default-features = true
 bp-messages.workspace = true
-bp-polkadot-core.default-features = true
+bp-messages.default-features = true
 bp-polkadot-core.workspace = true
-bp-runtime.default-features = true
+bp-polkadot-core.default-features = true
 bp-runtime.workspace = true
+bp-runtime.default-features = true
 codec = { workspace = true, default-features = true }
 finality-relay.workspace = true
-frame-support.default-features = true
 frame-support.workspace = true
+frame-support.default-features = true
 futures = { workspace = true }
 jsonrpsee = { features = ["macros", "ws-client"], workspace = true }
 log = { workspace = true }
 num-traits = { workspace = true, default-features = true }
-pallet-transaction-payment.default-features = true
 pallet-transaction-payment.workspace = true
-pallet-transaction-payment-rpc-runtime-api.default-features = true
+pallet-transaction-payment.default-features = true
 pallet-transaction-payment-rpc-runtime-api.workspace = true
-pallet-utility.default-features = true
+pallet-transaction-payment-rpc-runtime-api.default-features = true
 pallet-utility.workspace = true
+pallet-utility.default-features = true
 quick_cache = { workspace = true }
 rand = { workspace = true, default-features = true }
 relay-utils.workspace = true
-sc-chain-spec.default-features = true
 sc-chain-spec.workspace = true
-sc-rpc-api.default-features = true
+sc-chain-spec.default-features = true
 sc-rpc-api.workspace = true
-sc-transaction-pool-api.default-features = true
+sc-rpc-api.default-features = true
 sc-transaction-pool-api.workspace = true
+sc-transaction-pool-api.default-features = true
 scale-info = { features = ["derive"], workspace = true, default-features = true }
 serde_json = { workspace = true }
-sp-consensus-grandpa.default-features = true
 sp-consensus-grandpa.workspace = true
-sp-core.default-features = true
+sp-consensus-grandpa.default-features = true
 sp-core.workspace = true
-sp-rpc.default-features = true
+sp-core.default-features = true
 sp-rpc.workspace = true
-sp-runtime.default-features = true
+sp-rpc.default-features = true
 sp-runtime.workspace = true
-sp-std.default-features = true
+sp-runtime.default-features = true
 sp-std.workspace = true
-sp-trie.default-features = true
+sp-std.default-features = true
 sp-trie.workspace = true
-sp-version.default-features = true
+sp-trie.default-features = true
 sp-version.workspace = true
+sp-version.default-features = true
 thiserror = { workspace = true }
 tokio = { features = ["rt-multi-thread"], workspace = true, default-features = true }
-xcm.default-features = true
 xcm.workspace = true
+xcm.default-features = true
 
 [features]
 default = []
