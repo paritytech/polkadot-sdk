@@ -115,7 +115,6 @@ use xcm_runtime_apis::{
 
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
-pub use pallet_election_provider_multi_phase::{Call as EPMCall, GeometricDepositBase};
 pub use pallet_timestamp::Call as TimestampCall;
 
 /// Constant values used within the runtime.
@@ -966,7 +965,6 @@ pub enum ProxyType {
 	IdentityJudgement,
 	CancelProxy,
 	Auction,
-	NominationPools,
 	ParaRegistration,
 }
 impl Default for ProxyType {
@@ -1018,7 +1016,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Auctions(..) // Specifically omitting the entire XCM Pallet
 			),
 			ProxyType::Staking => false,
-			ProxyType::NominationPools => false,
 			ProxyType::SudoBalances => match c {
 				RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: ref x }) => {
 					matches!(x.as_ref(), &RuntimeCall::Balances(..))
@@ -2361,17 +2358,7 @@ sp_api::impl_runtime_apis! {
 	impl frame_try_runtime::TryRuntime<Block> for Runtime {
 		fn on_runtime_upgrade(checks: frame_try_runtime::UpgradeCheckSelect) -> (Weight, Weight) {
 			log::info!("try-runtime::on_runtime_upgrade westend.");
-		  // TODO:: remove once https://github.com/paritytech/polkadot-sdk/issues/9442 is resolved.
-			let excluded_pallets = vec![
-				b"Staking".to_vec(),          // replaced by staking-async
-				b"NominationPools".to_vec(),  // moved to AH
-				b"FastUnstake".to_vec(),      // deprecated
-				b"DelegatedStaking".to_vec(), // moved to AH
-			];
-			let config = frame_executive::TryRuntimeUpgradeConfig::new(checks)
-				.with_try_state_select(frame_try_runtime::TryStateSelect::AllExcept(
-					excluded_pallets,
-				));
+			let config = frame_executive::TryRuntimeUpgradeConfig::new(checks);
 			let weight = Executive::try_runtime_upgrade_with_config(config).unwrap();
 			(weight, BlockWeights::get().max_block)
 		}
@@ -2514,7 +2501,6 @@ sp_api::impl_runtime_apis! {
 			}
 			impl frame_system_benchmarking::Config for Runtime {}
 			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
-			impl pallet_nomination_pools_benchmarking::Config for Runtime {}
 			impl polkadot_runtime_parachains::disputes::slashing::benchmarking::Config for Runtime {}
 
 			use xcm::latest::{
