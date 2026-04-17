@@ -49,7 +49,7 @@ use core::marker::PhantomData;
 
 /// Weight functions for `pallet_dap`.
 pub struct WeightInfo<T>(PhantomData<T>);
-impl<T: frame_system::Config> pallet_dap::WeightInfo for WeightInfo<T> {
+impl<T: frame_system::Config> pallet_dap::weights::WeightInfo for WeightInfo<T> {
 	/// Storage: `Dap::BudgetAllocation` (r:0 w:1)
 	/// Proof: `Dap::BudgetAllocation` (`max_values`: Some(1), `max_size`: Some(593), added: 1088, mode: `MaxEncodedLen`)
 	fn set_budget_allocation() -> Weight {
