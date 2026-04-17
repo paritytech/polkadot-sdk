@@ -282,13 +282,19 @@ mod tests {
 
 	#[test]
 	fn weight_zero_self_stake() {
-		assert_eq!(incentive_weight::<Balance>(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)), 0);
+		assert_eq!(
+			incentive_weight::<Balance>(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			0
+		);
 	}
 
 	#[test]
 	fn weight_config_not_set() {
 		// Both optimum and cap are zero (config never set) -> disabled.
-		assert_eq!(incentive_weight::<Balance>(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)), 0);
+		assert_eq!(
+			incentive_weight::<Balance>(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)),
+			0
+		);
 	}
 
 	#[test]
@@ -308,7 +314,12 @@ mod tests {
 	fn weight_below_optimum() {
 		// √10_000 = 100
 		assert_eq!(
-			incentive_weight::<Balance>(10_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(
+				10_000,
+				100_000,
+				500_000,
+				Perbill::from_rational(1u32, 2u32)
+			),
 			100
 		);
 	}
@@ -317,7 +328,12 @@ mod tests {
 	fn weight_at_optimum() {
 		// √100_000 ≈ 316
 		assert_eq!(
-			incentive_weight::<Balance>(100_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(
+				100_000,
+				100_000,
+				500_000,
+				Perbill::from_rational(1u32, 2u32)
+			),
 			316
 		);
 	}
@@ -326,7 +342,12 @@ mod tests {
 	fn weight_between_optimum_and_cap() {
 		// √(100k + 0.25 × 200k) = √150k ≈ 387
 		assert_eq!(
-			incentive_weight::<Balance>(300_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(
+				300_000,
+				100_000,
+				500_000,
+				Perbill::from_rational(1u32, 2u32)
+			),
 			387
 		);
 	}
@@ -335,17 +356,30 @@ mod tests {
 	fn weight_at_cap() {
 		// √(100k + 0.25 × 400k) = √200k ≈ 447
 		assert_eq!(
-			incentive_weight::<Balance>(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(
+				500_000,
+				100_000,
+				500_000,
+				Perbill::from_rational(1u32, 2u32)
+			),
 			447
 		);
 	}
 
 	#[test]
 	fn weight_plateau_above_cap() {
-		let at_cap =
-			incentive_weight::<Balance>(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
-		let above =
-			incentive_weight::<Balance>(1_000_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+		let at_cap = incentive_weight::<Balance>(
+			500_000,
+			100_000,
+			500_000,
+			Perbill::from_rational(1u32, 2u32),
+		);
+		let above = incentive_weight::<Balance>(
+			1_000_000,
+			100_000,
+			500_000,
+			Perbill::from_rational(1u32, 2u32),
+		);
 		assert_eq!(at_cap, above);
 	}
 
@@ -362,12 +396,24 @@ mod tests {
 	#[test]
 	fn weight_different_slope_factors() {
 		let self_stake = 300_000;
-		let w_025 =
-			incentive_weight::<Balance>(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 4u32));
-		let w_050 =
-			incentive_weight::<Balance>(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
-		let w_075 =
-			incentive_weight::<Balance>(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
+		let w_025 = incentive_weight::<Balance>(
+			self_stake,
+			100_000,
+			500_000,
+			Perbill::from_rational(1u32, 4u32),
+		);
+		let w_050 = incentive_weight::<Balance>(
+			self_stake,
+			100_000,
+			500_000,
+			Perbill::from_rational(1u32, 2u32),
+		);
+		let w_075 = incentive_weight::<Balance>(
+			self_stake,
+			100_000,
+			500_000,
+			Perbill::from_rational(3u32, 4u32),
+		);
 		assert!(w_025 < w_050 && w_050 < w_075);
 	}
 
