@@ -43,6 +43,7 @@ use prometheus_endpoint::{
 	exponential_buckets, register, Counter, Gauge, Histogram, HistogramOpts, PrometheusError,
 	Registry, U64,
 };
+use rand::seq::IteratorRandom;
 use sc_network::{
 	config::{NonReservedPeerMode, SetConfig},
 	error, multiaddr,
@@ -61,7 +62,6 @@ use sp_runtime::traits::Block as BlockT;
 use sp_statement_store::{
 	FilterDecision, Hash, Statement, StatementSource, StatementStore, SubmitResult,
 };
-use rand::seq::IteratorRandom;
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	iter,
@@ -155,7 +155,6 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
-/// Must exceed the 5-second reconnect backoff to avoid peerset races.
 const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(600);
 
 struct Metrics {
@@ -501,9 +500,7 @@ pub struct StatementHandler<
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
-	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true.
-	/// Reset when a new major sync episode starts. Guards `start_sync_recovery` so it only fires
-	/// when there is actually something to recover
+	/// Set to `true` when an incoming statement is dropped because `is_major_syncing()` is true
 	dropped_statements_during_sync: bool,
 	/// Peer scheduled for forced disconnect+reconnect to recover statements missed during sync
 	sync_recovery_peer: Option<PeerId>,
@@ -4156,7 +4153,11 @@ mod tests {
 		// One remove call must have been issued for the connected peer
 		{
 			let removed = network.removed_reserved.lock().unwrap();
-			assert_eq!(removed.len(), 1, "Expected exactly one remove_peers_from_reserved_set call");
+			assert_eq!(
+				removed.len(),
+				1,
+				"Expected exactly one remove_peers_from_reserved_set call"
+			);
 			assert!(removed[0].contains(&connected_peer));
 		}
 
@@ -4174,5 +4175,95 @@ mod tests {
 				iter::once(multiaddr::Protocol::P2p(connected_peer.into())).collect();
 			assert!(added[0].contains(&expected_addr));
 		}
+
+		// Re-entry guard: restore state to simulate a second sync-end while recovery is still
+		// in flight (sync_recovery_peer is Some). The second call must not issue another remove.
+		{
+			let peer2 = PeerId::random();
+			handler.sync_recovery_peer = Some(peer2);
+			handler.start_sync_recovery();
+			assert_eq!(
+				handler.sync_recovery_peer,
+				Some(peer2),
+				"Re-entry guard: recovery peer must not change on second call"
+			);
+			assert_eq!(
+				network.removed_reserved.lock().unwrap().len(),
+				1,
+				"Re-entry guard: no extra remove call while recovery is in flight"
+			);
+		}
+	}
+
+	#[tokio::test]
+	async fn sync_recovery_gated_by_dropped_statements_flag() {
+		let make_peer = || Peer {
+			known_statements: LruHashSet::new(NonZeroUsize::new(1024).unwrap()),
+			rate_limiter: PeerRateLimiter::new(
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
+					.expect("burst capacity is nonzero"),
+			),
+			protocol_version: PeerProtocolVersion::V1,
+			topic_affinity: None,
+			is_light: false,
+			pending_topic_affinity: None,
+		};
+
+		let make_handler =
+			|network: TestNetwork, dropped: bool| -> StatementHandler<TestNetwork, TestSync> {
+				let (sync, _) = TestSync::with_syncing(false);
+				let (queue_sender, _) = async_channel::bounded(2);
+				let mut peers = HashMap::new();
+				peers.insert(PeerId::random(), make_peer());
+				StatementHandler {
+					protocol_name: format!("/{STATEMENT_PROTOCOL_V1}").into(),
+					notification_service: Box::new(TestNotificationService::new()),
+					propagate_timeout: (Box::pin(futures::stream::pending())
+						as Pin<Box<dyn Stream<Item = ()> + Send>>)
+						.fuse(),
+					pending_statements: FuturesUnordered::new(),
+					pending_statements_peers: HashMap::new(),
+					network,
+					sync,
+					sync_event_stream: (Box::pin(futures::stream::pending())
+						as Pin<Box<dyn Stream<Item = sc_network_sync::types::SyncEvent> + Send>>)
+						.fuse(),
+					peers,
+					statement_store: Arc::new(TestStatementStore::new()),
+					queue_sender,
+					statements_per_second: NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
+						.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
+					metrics: None,
+					initial_sync_timeout: Box::pin(futures::future::pending()),
+					pending_affinities_timeout: Box::pin(futures::future::pending()),
+					pending_initial_syncs: HashMap::new(),
+					initial_sync_peer_queue: VecDeque::new(),
+					was_major_syncing: false,
+					deferred_peers: HashSet::new(),
+					dropped_statements_during_sync: dropped,
+					sync_recovery_peer: None,
+					sync_recovery_readd_timeout: Box::pin(pending().fuse()),
+				}
+			};
+
+		// flag=false → no recovery
+		let net = TestNetwork::new();
+		let mut handler = make_handler(net.clone(), false);
+		if handler.dropped_statements_during_sync {
+			handler.start_sync_recovery();
+		}
+		assert!(handler.sync_recovery_peer.is_none());
+		assert!(net.get_removed_reserved().is_empty());
+
+		// flag=true → recovery fires
+		let net2 = TestNetwork::new();
+		let mut handler2 = make_handler(net2.clone(), true);
+		if handler2.dropped_statements_during_sync {
+			handler2.start_sync_recovery();
+		}
+		assert!(handler2.sync_recovery_peer.is_some());
+		assert_eq!(net2.get_removed_reserved().len(), 1);
 	}
 }
