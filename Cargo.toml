@@ -508,6 +508,7 @@ members = [
 	"substrate/primitives/crypto/ec-utils",
 	"substrate/primitives/crypto/hashing",
 	"substrate/primitives/crypto/hashing/proc-macro",
+	"substrate/primitives/dap",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/ethereum-standards",
@@ -1338,6 +1339,7 @@ sp-core = { path = "substrate/primitives/core", default-features = false }
 sp-crypto-ec-utils = { default-features = false, path = "substrate/primitives/crypto/ec-utils" }
 sp-crypto-hashing = { path = "substrate/primitives/crypto/hashing", default-features = false }
 sp-crypto-hashing-proc-macro = { path = "substrate/primitives/crypto/hashing/proc-macro", default-features = false }
+sp-dap = { path = "substrate/primitives/dap", default-features = false }
 sp-database = { path = "substrate/primitives/database", default-features = false }
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }

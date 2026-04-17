@@ -28,6 +28,7 @@ use assets_common::{
 	},
 	TrustBackedAssetsAsLocation,
 };
+use cumulus_primitives_core::{IsSystem, ParaId};
 use frame_support::{
 	parameter_types,
 	traits::{
@@ -45,9 +46,12 @@ use parachains_common::xcm_config::{
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
 use snowbridge_outbound_queue_primitives::v2::exporter::PausableExporter;
+use sp_dap::DAP_SATELLITE_PALLET_ID;
 use sp_runtime::traits::{AccountIdConversion, TryConvertInto};
 use testnet_parachains_constants::westend::locations::AssetHubParaId;
-use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
+use westend_runtime_constants::system_parachain::{
+	BRIDGE_HUB_ID, BROKER_ID, COLLECTIVES_ID, PEOPLE_ID,
+};
 use xcm::latest::{prelude::*, ROCOCO_GENESIS_HASH, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	unique_instances::UniqueInstancesAdapter, AccountId32Aliases, AliasChildLocation,
@@ -210,7 +214,7 @@ parameter_types! {
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
 	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
 	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
-	pub DapBufferAccount: AccountId = crate::staking::DapPalletId::get().into_account_truncating();
+	pub DapBufferAccount: AccountId = pallet_dap::Pallet::<Runtime>::buffer_account();
 }
 
 /// Transactor for ERC20 tokens.
@@ -309,6 +313,24 @@ impl Contains<Location> for SecretaryEntities {
 	}
 }
 
+pub struct SystemChainDapSatelliteAccounts;
+impl Contains<Location> for SystemChainDapSatelliteAccounts {
+	fn contains(location: &Location) -> bool {
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		match location.unpack() {
+			// Relay chain (parent) DAP satellite account.
+			(1, [AccountId32 { id, .. }]) => *id == satellite_account,
+			// Sibling system parachain DAP satellite account.
+			(1, [Parachain(id), AccountId32 { id: account_id, .. }]) => {
+				ParaId::from(*id).is_system() &&
+					matches!(*id, BRIDGE_HUB_ID | BROKER_ID | COLLECTIVES_ID | PEOPLE_ID) &&
+					*account_id == satellite_account
+			},
+			_ => false,
+		}
+	}
+}
+
 pub type Barrier = TrailingSetTopicAsId<
 	DenyThenTry<
 		DenyRecursively<DenyReserveTransferToRelayChain>,
@@ -331,6 +353,12 @@ pub type Barrier = TrailingSetTopicAsId<
 						AmbassadorEntities,
 						SecretaryEntities,
 					)>,
+					// DAP satellite accounts get free execution, while aliasing allows the chain
+					// (as the XCM sending origin) to claim the identity of its satellite account.
+					AllowExplicitUnpaidExecutionFrom<
+						SystemChainDapSatelliteAccounts,
+						AliasChildLocation,
+					>,
 					// Subscriptions for version tracking are OK.
 					AllowSubscriptionsFrom<Everything>,
 					// HRMP notifications from the relay chain are OK.
@@ -763,5 +791,66 @@ pub mod bridging {
 				});
 			Some(alias.expect("we expect here BridgeHubWestend to Rococo mapping at least"))
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use frame_support::traits::Contains;
+	use sp_runtime::traits::AccountIdConversion;
+
+	#[test]
+	fn system_chain_dap_satellite_accounts_allows_sibling_system_parachain() {
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		// A sibling system parachain with the DAP satellite account — use BridgeHub (1002).
+		let location = Location::new(
+			1,
+			[Parachain(BRIDGE_HUB_ID), AccountId32 { network: None, id: satellite_account }],
+		);
+		assert!(SystemChainDapSatelliteAccounts::contains(&location));
+	}
+
+	#[test]
+	fn system_chain_dap_satellite_accounts_allows_relay_chain_parent() {
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		// Relay chain (parent) with the DAP satellite account.
+		let location = Location::new(1, [AccountId32 { network: None, id: satellite_account }]);
+		assert!(SystemChainDapSatelliteAccounts::contains(&location));
+	}
+
+	#[test]
+	fn system_chain_dap_satellite_accounts_rejects_wrong_account() {
+		let wrong_account = [0u8; 32];
+		// Correct sibling system parachain, but wrong account.
+		let location =
+			Location::new(1, [Parachain(1000), AccountId32 { network: None, id: wrong_account }]);
+		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+	}
+
+	#[test]
+	fn system_chain_dap_satellite_accounts_rejects_non_system_parachain() {
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		// Non-system parachain (id=2000, the lowest public parachain id).
+		let location = Location::new(
+			1,
+			[Parachain(2000), AccountId32 { network: None, id: satellite_account }],
+		);
+		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+	}
+
+	#[test]
+	fn system_chain_dap_satellite_accounts_rejects_local_account() {
+		let satellite_account: [u8; 32] = DAP_SATELLITE_PALLET_ID.into_account_truncating();
+		// Local account (parents=0) — not a system chain origin.
+		let location = Location::new(0, [AccountId32 { network: None, id: satellite_account }]);
+		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
+	}
+
+	#[test]
+	fn system_chain_dap_satellite_accounts_rejects_parachain_without_account() {
+		// Sibling system parachain with no account junction.
+		let location = Location::new(1, [Parachain(1000)]);
+		assert!(!SystemChainDapSatelliteAccounts::contains(&location));
 	}
 }
