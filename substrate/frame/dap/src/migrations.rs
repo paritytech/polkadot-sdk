@@ -30,7 +30,11 @@ use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 ///   `ActiveEra.start` from staking). Only used as an input to the catch-up drip — not persisted.
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation.
 ///
-/// Note: The catch-up drip bypasses `MaxElapsedPerDrip`.
+/// Idempotent: the catch-up is skipped if `LastIssuanceTimestamp` is already
+/// non-zero, so a re-entry does not double-credit.
+///
+/// The catch-up drip bypasses `MaxElapsedPerDrip`: the cap protects the
+/// `on_initialize` hot path from bugs/stalls, not a deliberate one-shot step.
 pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
@@ -67,7 +71,6 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 			return weight;
 		}
 
-		// Catch-up drip for the window between the last legacy inflation point and now.
 		let last_inflation = P::get();
 		let elapsed = now.saturating_sub(last_inflation);
 		let minted = pallet::Pallet::<T>::mint_and_distribute(elapsed);
@@ -119,18 +122,16 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 			"LastIssuanceTimestamp should equal `now` after migration"
 		);
 
-		// Budget shape.
-		let budget = BudgetAllocation::<T>::get();
-		frame_support::ensure!(!budget.is_empty(), "BudgetAllocation should be non-empty");
-		let total: u64 = budget.values().map(|p| p.deconstruct() as u64).sum();
-		frame_support::ensure!(
-			total == Perbill::one().deconstruct() as u64,
-			"BudgetAllocation must sum to 100%"
-		);
+		// Budget invariants (non-empty, registered keys, sum == 100%).
+		pallet::Pallet::<T>::do_try_state()?;
 
-		// Catch-up actually minted.
+		// The catch-up mint should land in `[expected - dust, expected]`. Each recipient
+		// share is `Perbill::mul_floor(issuance)`, so the sum only ever rounds *down*,
+		// bounded by one unit per budget entry. Anything outside this window indicates
+		// something other than the catch-up touched issuance.
 		let actual_mint = T::Currency::total_issuance().saturating_sub(total_issuance_before);
-		let max_dust = BalanceOf::<T>::from(budget.len() as u32);
+		let budget_len = BudgetAllocation::<T>::get().len();
+		let max_dust = BalanceOf::<T>::from(budget_len as u32);
 		frame_support::ensure!(
 			actual_mint <= expected_mint && actual_mint.saturating_add(max_dust) >= expected_mint,
 			"Catch-up mint outside expected [expected - dust, expected] window"
