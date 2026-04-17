@@ -7065,6 +7065,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
+ "anyhow",
  "array-bytes 6.2.2",
  "frame-support",
  "frame-support-procedural",
@@ -7095,6 +7096,7 @@ name = "frame-benchmarking-cli"
 version = "32.0.0"
 dependencies = [
  "Inflector",
+ "anyhow",
  "array-bytes 6.2.2",
  "chrono",
  "clap",
