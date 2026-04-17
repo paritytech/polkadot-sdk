@@ -59,7 +59,7 @@ fn decode_revive_event(
 	event: &EventDetails,
 	block_number: U256,
 	transaction_hash: H256,
-	transaction_index: u32,
+	transaction_index: usize,
 	block_hash: H256,
 ) -> Option<ReviveEvent> {
 	if event.pallet_name() != ContractEmitted::PALLET {
@@ -96,15 +96,20 @@ fn decode_revive_event(
 /// Fetch block events and collect revert flags and logs for the given EthTransact
 /// extrinsics in a single pass. Events for other extrinsics are skipped.
 ///
+/// Events are stored sequentially without size markers, so a single
+/// undecodable event (e.g. from a runtime upgrade that shifted variant
+/// indices) corrupts the offset for all subsequent events.
+/// Decode errors are logged and skipped to avoid losing the entire receipt.
+///
 /// Returns `(reverted_extrinsics, logs_by_extrinsic)` keyed by extrinsic index.
 async fn extract_revive_events(
 	block: &SubstrateBlock,
 	block_number: U256,
 	eth_block_hash: H256,
-	eth_tx_hash_for: impl Fn(u32) -> Option<H256>,
-) -> Result<(HashSet<u32>, HashMap<u32, Vec<Log>>), ClientError> {
-	let mut reverted_extrinsics: HashSet<u32> = HashSet::new();
-	let mut logs_by_extrinsic: HashMap<u32, Vec<Log>> = HashMap::new();
+	eth_tx_hash_for: impl Fn(usize) -> Option<H256>,
+) -> Result<(HashSet<usize>, HashMap<usize, Vec<Log>>), ClientError> {
+	let mut reverted_extrinsics: HashSet<usize> = HashSet::new();
+	let mut logs_by_extrinsic: HashMap<usize, Vec<Log>> = HashMap::new();
 
 	let block_events = block.events().await.inspect_err(|err| {
 		log::debug!(
@@ -128,7 +133,7 @@ async fn extract_revive_events(
 		};
 
 		let extrinsic_index = match event.phase() {
-			Phase::ApplyExtrinsic(idx) => idx,
+			Phase::ApplyExtrinsic(idx) => idx as usize,
 			_ => continue,
 		};
 
@@ -299,7 +304,7 @@ impl ReceiptExtractor {
 		block_number: U256,
 		call: EthTransact,
 		transaction_hash: H256,
-		transaction_index: u32,
+		transaction_index: usize,
 		receipt_gas_info: ReceiptGasInfo,
 		reverted: bool,
 		logs: Vec<Log>,
@@ -369,12 +374,12 @@ impl ReceiptExtractor {
 			return Ok(vec![]);
 		}
 
-		let eth_tx_by_index: BTreeMap<u32, (EthTransact, H256, ReceiptGasInfo)> = self
+		let eth_tx_by_index: BTreeMap<usize, (EthTransact, H256, ReceiptGasInfo)> = self
 			.get_block_extrinsics(block)
 			.await?
 			.map(|(call, receipt_gas_info, extrinsic_index)| {
 				let hash = H256(keccak_256(&call.payload));
-				(extrinsic_index as u32, (call, hash, receipt_gas_info))
+				(extrinsic_index, (call, hash, receipt_gas_info))
 			})
 			.collect();
 
@@ -479,7 +484,6 @@ impl ReceiptExtractor {
 
 		let eth_block_number: U256 = block.number().into();
 		let eth_block_hash = self.resolve_eth_block_hash(block.hash(), block.number() as u64).await;
-		let transaction_index = transaction_index as u32;
 		let (reverted_extrinsics, mut logs_by_extrinsic) =
 			extract_revive_events(block, eth_block_number, eth_block_hash, |idx| {
 				(idx == transaction_index).then_some(transaction_hash)
