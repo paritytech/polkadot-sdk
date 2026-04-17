@@ -505,6 +505,7 @@ members = [
 	"substrate/primitives/consensus/slots",
 	"substrate/primitives/core",
 	"substrate/primitives/core/fuzz",
+	"substrate/primitives/coretime",
 	"substrate/primitives/crypto/ec-utils",
 	"substrate/primitives/crypto/hashing",
 	"substrate/primitives/crypto/hashing/proc-macro",
@@ -1335,6 +1336,7 @@ sp-consensus-pow = { path = "substrate/primitives/consensus/pow", default-featur
 sp-consensus-sassafras = { path = "substrate/primitives/consensus/sassafras", default-features = false }
 sp-consensus-slots = { path = "substrate/primitives/consensus/slots", default-features = false }
 sp-core = { path = "substrate/primitives/core", default-features = false }
+sp-coretime = { path = "substrate/primitives/coretime", default-features = false }
 sp-crypto-ec-utils = { default-features = false, path = "substrate/primitives/crypto/ec-utils" }
 sp-crypto-hashing = { path = "substrate/primitives/crypto/hashing", default-features = false }
 sp-crypto-hashing-proc-macro = { path = "substrate/primitives/crypto/hashing/proc-macro", default-features = false }
