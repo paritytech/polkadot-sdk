@@ -136,14 +136,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					"configuration": {
 						"config": {
 							"scheduler_params": {
-								"num_cores": 3,
+								"num_cores": 2,
 								"max_validators_per_core": 1
 							}
 						}
 					}
 				}))
 				.with_validator(|node| node.with_name("validator-0"));
-			(1..5).fold(r, |acc, i| {
+			(1..9).fold(r, |acc, i| {
 				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
 			})
 		})
