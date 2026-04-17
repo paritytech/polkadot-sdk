@@ -47,7 +47,6 @@ pallet-conviction-voting = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-block = { workspace = true }
 pallet-fast-unstake = { workspace = true }
-pallet-gas-allowance = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
@@ -59,6 +58,7 @@ pallet-nfts-runtime-api = { workspace = true }
 pallet-nomination-pools = { workspace = true }
 pallet-nomination-pools-runtime-api = { workspace = true }
 pallet-parameters = { workspace = true }
+pallet-pgas-allowance = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-psm = { workspace = true }
@@ -198,7 +198,7 @@ runtime-benchmarks = [
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-election-provider-multi-block/runtime-benchmarks",
 	"pallet-fast-unstake/runtime-benchmarks",
-	"pallet-gas-allowance/runtime-benchmarks",
+	"pallet-pgas-allowance/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
@@ -282,7 +282,7 @@ try-runtime = [
 	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-block/try-runtime",
 	"pallet-fast-unstake/try-runtime",
-	"pallet-gas-allowance/try-runtime",
+	"pallet-pgas-allowance/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
@@ -372,7 +372,7 @@ std = [
 	"pallet-delegated-staking/std",
 	"pallet-election-provider-multi-block/std",
 	"pallet-fast-unstake/std",
-	"pallet-gas-allowance/std",
+	"pallet-pgas-allowance/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate as pallet_gas_allowance;
+use crate as pallet_pgas_allowance;
 
 use frame_support::{
 	derive_impl,
@@ -44,7 +44,7 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Assets: pallet_assets,
-		GasAllowance: pallet_gas_allowance,
+		PgasAllowance: pallet_pgas_allowance,
 		DummyPallet: pallet_dummy,
 	}
 );
@@ -139,7 +139,7 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 	}
 }
 
-impl pallet_gas_allowance::Config for Runtime {
+impl pallet_pgas_allowance::Config for Runtime {
 	type AssetId = AssetId;
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
@@ -152,12 +152,7 @@ impl pallet_gas_allowance::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct BenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_gas_allowance::BenchmarkHelperTrait<AccountId, AssetId, Balance> for BenchmarkHelper {
-	fn create_asset(asset_id: AssetId) {
-		use frame_support::traits::tokens::fungibles::Create;
-		// Force-create so benchmarks don't require a deposit.
-		let _ = <Assets as Create<AccountId>>::create(asset_id, 999u64, true, 1);
-	}
+impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetId, Balance> for BenchmarkHelper {
 	fn mint_pgas(who: &AccountId, asset_id: AssetId, amount: Balance) {
 		use frame_support::traits::tokens::fungibles::Mutate;
 		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
@@ -238,23 +233,21 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		let owner = 999u64;
-		pallet_assets::GenesisConfig::<Runtime> {
-			assets: vec![(PGAS_ASSET_ID, owner, true, 1)],
-			metadata: vec![],
-			accounts: self
-				.pgas_balances
-				.iter()
-				.map(|(who, bal)| (PGAS_ASSET_ID, *who, *bal))
-				.collect(),
-			reserves: vec![],
-			next_asset_id: None,
+		pallet_pgas_allowance::GenesisConfig::<Runtime> {
+			min_balance: 1,
+			_phantom: Default::default(),
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 		let mut ext: sp_io::TestExternalities = t.into();
-		ext.execute_with(|| System::set_block_number(1));
+		ext.execute_with(|| {
+			System::set_block_number(1);
+			for (who, bal) in &self.pgas_balances {
+				use frame_support::traits::tokens::fungibles::Mutate;
+				<Assets as Mutate<AccountId>>::mint_into(PGAS_ASSET_ID, who, *bal).unwrap();
+			}
+		});
 		ext
 	}
 }

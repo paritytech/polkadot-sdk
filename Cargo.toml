@@ -379,7 +379,6 @@ members = [
 	"substrate/frame/examples/view-functions",
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
-	"substrate/frame/gas-allowance",
 	"substrate/frame/glutton",
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
@@ -415,6 +414,7 @@ members = [
 	"substrate/frame/paged-list/fuzzer",
 	"substrate/frame/parameters",
 	"substrate/frame/people",
+	"substrate/frame/pgas-allowance",
 	"substrate/frame/preimage",
 	"substrate/frame/proxy",
 	"substrate/frame/psm",
@@ -1009,7 +1009,6 @@ pallet-example-tasks = { path = "substrate/frame/examples/tasks", default-featur
 pallet-example-view-functions = { path = "substrate/frame/examples/view-functions", default-features = false }
 pallet-examples = { path = "substrate/frame/examples" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false }
-pallet-gas-allowance = { path = "substrate/frame/gas-allowance", default-features = false }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false }
 pallet-grandpa = { path = "substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "substrate/frame/identity", default-features = false }
@@ -1036,6 +1035,7 @@ pallet-paged-list = { path = "substrate/frame/paged-list", default-features = fa
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
+pallet-pgas-allowance = { path = "substrate/frame/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }

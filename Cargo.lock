@@ -1765,7 +1765,6 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
- "pallet-gas-allowance",
  "pallet-indices",
  "pallet-message-queue",
  "pallet-meta-tx",
@@ -1778,6 +1777,7 @@ dependencies = [
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
  "pallet-parameters",
+ "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
@@ -13202,22 +13202,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-gas-allowance"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "pallet-assets",
- "pallet-balances",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "scale-info",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
-]
-
-[[package]]
 name = "pallet-glutton"
 version = "14.0.0"
 dependencies = [
@@ -13791,6 +13775,22 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "verifiable",
+]
+
+[[package]]
+name = "pallet-pgas-allowance"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]

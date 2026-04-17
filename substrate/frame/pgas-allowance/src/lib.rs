@@ -35,16 +35,17 @@ use frame_support::{
 			fungibles::{self, Credit},
 			AssetId, Fortitude, Precision, Preservation,
 		},
-		Contains, Get,
+		BuildGenesisConfig, Contains, Get,
 	},
 	weights::Weight,
+	PalletId,
 };
 use frame_system::pallet_prelude::OriginFor;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
-		TransactionExtension, ValidateResult, Zero,
+		AccountIdConversion, AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication,
+		PostDispatchInfoOf, TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -64,6 +65,11 @@ pub mod weights;
 pub type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
 	pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
 
+/// Internal pallet id used to derive the sovereign account that owns the PGAS asset created at
+/// genesis. Kept out of [`Config`] since the identifier only has to be unique within a runtime
+/// and runtimes never need to customise it.
+const PALLET_ID: PalletId = PalletId(*b"py/pgasa");
+
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
@@ -75,11 +81,12 @@ pub mod pallet {
 
 		/// Access to the PGAS asset. `Balanced` exposes the imbalance API used to withdraw the
 		/// reserved fee into a [`Credit`] and refund the unused portion in `post_dispatch`.
+		/// `Create` is used by the pallet's `GenesisConfig` to provision the PGAS asset.
 		type Assets: fungibles::Balanced<
-			Self::AccountId,
-			AssetId = <Self as Config>::AssetId,
-			Balance = BalanceOf<Self>,
-		>;
+				Self::AccountId,
+				AssetId = <Self as Config>::AssetId,
+				Balance = BalanceOf<Self>,
+			> + fungibles::Create<Self::AccountId>;
 
 		/// The PGAS asset id.
 		type PGASAssetId: frame_support::traits::Get<<Self as Config>::AssetId>;
@@ -92,8 +99,9 @@ pub mod pallet {
 		/// Weight information for the extension.
 		type WeightInfo: WeightInfo;
 
-		/// Helper used by the extension benchmarks to create the PGAS asset and endow the
-		/// caller with enough balance to cover the fee.
+		/// Helper used by the extension benchmarks to endow the caller with enough PGAS to cover
+		/// the fee. The PGAS asset itself is expected to be created by the pallet's genesis
+		/// config or by the runtime's chain spec.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: BenchmarkHelperTrait<
 			Self::AccountId,
@@ -102,17 +110,45 @@ pub mod pallet {
 		>;
 	}
 
-	/// Trait used by runtimes to set up the PGAS asset for the extension benchmarks.
+	/// Trait used by runtimes to mint PGAS to the benchmark caller.
 	#[cfg(feature = "runtime-benchmarks")]
 	pub trait BenchmarkHelperTrait<AccountId, AssetId, Balance> {
-		/// Create the PGAS asset with the given id if it does not exist.
-		fn create_asset(asset_id: AssetId);
 		/// Mint `amount` of PGAS to `who`.
 		fn mint_pgas(who: &AccountId, asset_id: AssetId, amount: Balance);
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	/// Genesis configuration provisions the PGAS asset so that the extension's `Create` bound is
+	/// satisfied at chain start. The asset is owned by a sovereign account derived from
+	/// [`PALLET_ID`] so that no user key controls it; setting `min_balance` to zero skips asset
+	/// creation.
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Minimum balance (existential deposit) of the PGAS asset. When zero, no asset is
+		/// created at genesis.
+		pub min_balance: BalanceOf<T>,
+		#[serde(skip)]
+		pub _phantom: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			if self.min_balance.is_zero() {
+				return;
+			}
+			<T::Assets as fungibles::Create<T::AccountId>>::create(
+				T::PGASAssetId::get(),
+				PALLET_ID.into_account_truncating(),
+				true,
+				self.min_balance,
+			)
+			.expect("PGAS asset creation failed at genesis");
+		}
+	}
 }
 
 /// Transaction extension that charges transaction fees in PGAS when the caller holds enough and
@@ -161,10 +197,14 @@ pub enum Val<InnerVal, T: Config> {
 pub enum Pre<InnerPre, T: Config> {
 	/// Fee withdrawn as a credit against the PGAS asset; `post_dispatch` splits this into the
 	/// actual-fee portion (dropped, which reduces total issuance) and the refund portion
-	/// (resolved back to `who`).
-	PGAS { who: T::AccountId, credit: Credit<T::AccountId, T::Assets> },
-	/// Inner extension was used.
-	Inner(InnerPre),
+	/// (resolved back to `who`). `refund` carries the weight difference between what
+	/// [`ChargePGAS::weight`] reserved and the full PGAS path (`charge_pgas`).
+	PGAS { who: T::AccountId, credit: Credit<T::AccountId, T::Assets>, refund: Weight },
+	/// Inner extension was used. `extra_refund` is the weight to return on top of whatever the
+	/// inner extension refunds: zero on a filter miss, and the slack between the reserved
+	/// `max(inner_weight, charge_pgas)` and the actual skip-path cost
+	/// (`inner_weight + charge_pgas_skip`) on a filter-pass skip.
+	Inner { inner: InnerPre, extra_refund: Weight },
 }
 
 impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
@@ -189,8 +229,16 @@ where
 	}
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
-		// Reserve the worst case: inner weight plus the full PGAS path.
-		self.inner.weight(call).saturating_add(<T as Config>::WeightInfo::charge_pgas())
+		let inner = self.inner.weight(call);
+		if T::CallFilter::contains(call) {
+			// Filter pass: either the PGAS path runs (cost `charge_pgas`, inner is skipped) or
+			// we fall through to the inner extension. Reserve the worst of the two so neither
+			// case can under-bill.
+			inner.max(<T as Config>::WeightInfo::charge_pgas())
+		} else {
+			// Filter miss: always delegates to the inner extension.
+			inner
+		}
 	}
 
 	fn validate(
@@ -268,6 +316,10 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
+		// Compute inner's claimed weight before consuming `self.inner`, so that `Pre` can carry
+		// the refund owed for the slack between what `weight()` reserved and the path we'll
+		// actually take.
+		let inner_weight = self.inner.weight(call);
 		match val {
 			Val::PGAS { who, fee } => {
 				let credit = <T::Assets as fungibles::Balanced<T::AccountId>>::withdraw(
@@ -279,9 +331,26 @@ where
 					Fortitude::Polite,
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
-				Ok(Pre::PGAS { who, credit })
+				// Reserved `max(inner_weight, charge_pgas)`, spending `charge_pgas` on this path.
+				let refund = inner_weight.saturating_sub(<T as Config>::WeightInfo::charge_pgas());
+				Ok(Pre::PGAS { who, credit, refund })
 			},
-			Val::Inner(val) => Ok(Pre::Inner(self.inner.prepare(val, origin, call, info, len)?)),
+			Val::Inner(val) => {
+				// Filter-pass skip: reserved `max(inner_weight, charge_pgas)`, actual cost is
+				// `inner_actual + charge_pgas_skip`. Inner already refunds `inner_weight -
+				// inner_actual`, so the extra we owe on top is
+				// `max(0, charge_pgas - inner_weight) - charge_pgas_skip`.
+				// Filter-miss: reserved `inner_weight`; no extra refund from us.
+				let extra_refund = if T::CallFilter::contains(call) {
+					<T as Config>::WeightInfo::charge_pgas()
+						.saturating_sub(inner_weight)
+						.saturating_sub(<T as Config>::WeightInfo::charge_pgas_skip())
+				} else {
+					Weight::zero()
+				};
+				let inner = self.inner.prepare(val, origin, call, info, len)?;
+				Ok(Pre::Inner { inner, extra_refund })
+			},
 		}
 	}
 
@@ -293,7 +362,7 @@ where
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
-			Pre::PGAS { who, credit } => {
+			Pre::PGAS { who, credit, refund } => {
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,
@@ -303,23 +372,19 @@ where
 				// Split: keep `actual_fee` as the consumed portion (dropped below to burn), and
 				// hand the remainder back to `who`. If the resolve fails (e.g. the account was
 				// reaped) the refund is merged back into the consumed portion and burned too.
-				let (consumed, refund) = credit.split(actual_fee);
-				if !refund.peek().is_zero() {
-					if let Err(refund) =
-						<T::Assets as fungibles::Balanced<T::AccountId>>::resolve(&who, refund)
+				let (consumed, fee_refund) = credit.split(actual_fee);
+				if !fee_refund.peek().is_zero() {
+					if let Err(fee_refund) =
+						<T::Assets as fungibles::Balanced<T::AccountId>>::resolve(&who, fee_refund)
 					{
-						let _ = consumed.merge(refund);
+						let _ = consumed.merge(fee_refund);
 					}
 				}
-				Ok(Weight::zero())
+				Ok(refund)
 			},
-			Pre::Inner(pre) => {
-				// Skip path: refund the difference between the reserved `charge_pgas` worst
-				// case and the actual `charge_pgas_skip` cost.
-				let inner_weight = S::post_dispatch_details(pre, info, post_info, len, result)?;
-				let refund = <T as Config>::WeightInfo::charge_pgas()
-					.saturating_sub(<T as Config>::WeightInfo::charge_pgas_skip());
-				Ok(inner_weight.saturating_add(refund))
+			Pre::Inner { inner, extra_refund } => {
+				let inner_refund = S::post_dispatch_details(inner, info, post_info, len, result)?;
+				Ok(inner_refund.saturating_add(extra_refund))
 			},
 		}
 	}

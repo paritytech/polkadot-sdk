@@ -1139,12 +1139,17 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 	}
 }
 
-impl pallet_gas_allowance::Config for Runtime {
+impl pallet_pgas_allowance::Config for Runtime {
 	type AssetId = AssetIdForTrustBackedAssets;
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
+	// Benchmarks use a passthrough so `charge_pgas` (which dispatches `frame_system::remark`)
+	// exercises the full PGAS path instead of falling through to the skip branch.
+	#[cfg(not(feature = "runtime-benchmarks"))]
 	type CallFilter = PGASCallFilter;
-	type WeightInfo = pallet_gas_allowance::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type CallFilter = frame_support::traits::Everything;
+	type WeightInfo = pallet_pgas_allowance::weights::SubstrateWeight<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PGASBenchmarkHelper;
 }
@@ -1152,15 +1157,9 @@ impl pallet_gas_allowance::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PGASBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl
-	pallet_gas_allowance::BenchmarkHelperTrait<AccountId, AssetIdForTrustBackedAssets, Balance>
+impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetIdForTrustBackedAssets, Balance>
 	for PGASBenchmarkHelper
 {
-	fn create_asset(asset_id: AssetIdForTrustBackedAssets) {
-		use frame_support::traits::tokens::fungibles::Create;
-		let owner: AccountId = frame_benchmarking::account("pgas_asset_owner", 0, 0);
-		let _ = <Assets as Create<AccountId>>::create(asset_id, owner, true, 1);
-	}
 	fn mint_pgas(who: &AccountId, asset_id: AssetIdForTrustBackedAssets, amount: Balance) {
 		use frame_support::traits::tokens::fungibles::Mutate;
 		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
@@ -1657,7 +1656,7 @@ construct_runtime!(
 		// AssetTxPayment: pallet_asset_tx_payment = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
 		Vesting: pallet_vesting = 14,
-		GasAllowance: pallet_gas_allowance = 15,
+		PgasAllowance: pallet_pgas_allowance = 15,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -1765,7 +1764,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_gas_allowance::ChargePGAS<
+		pallet_pgas_allowance::ChargePGAS<
 			Runtime,
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 		>,
@@ -1793,7 +1792,7 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckMortality::from(generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_gas_allowance::ChargePGAS::<
+			pallet_pgas_allowance::ChargePGAS::<
 				Runtime,
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 			>::new(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
@@ -2092,7 +2091,7 @@ mod benches {
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
-		[pallet_gas_allowance, GasAllowance]
+		[pallet_pgas_allowance, PgasAllowance]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]

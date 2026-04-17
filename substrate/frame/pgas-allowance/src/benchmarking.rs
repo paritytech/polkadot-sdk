@@ -49,7 +49,6 @@ mod benchmarks {
 	#[benchmark]
 	fn charge_pgas() {
 		let caller: T::AccountId = account("caller", 0, 0);
-		<T as Config>::BenchmarkHelper::create_asset(T::PGASAssetId::get());
 		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), u64::MAX.into());
 
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
@@ -80,7 +79,6 @@ mod benchmarks {
 	#[benchmark]
 	fn charge_pgas_skip() {
 		let caller: T::AccountId = account("caller", 0, 0);
-		<T as Config>::BenchmarkHelper::create_asset(T::PGASAssetId::get());
 
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();

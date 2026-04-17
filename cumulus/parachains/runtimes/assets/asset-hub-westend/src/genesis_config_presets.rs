@@ -97,7 +97,8 @@ fn asset_hub_westend_genesis(
 				.map(|asset| (asset.0.try_into().unwrap(), asset.1, asset.2))
 				.collect(),
 			..Default::default()
-		}
+		},
+		pgas_allowance: PgasAllowanceConfig { min_balance: ASSET_HUB_WESTEND_ED },
 	})
 }
 

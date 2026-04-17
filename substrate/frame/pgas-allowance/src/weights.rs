@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Weights for `pallet_gas_allowance`.
+//! Weights for `pallet_pgas_allowance`.
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -25,7 +25,7 @@ use frame_support::{
 	weights::{constants::RocksDbWeight, Weight},
 };
 
-/// Weight functions needed for `pallet_gas_allowance`.
+/// Weight functions needed for `pallet_pgas_allowance`.
 pub trait WeightInfo {
 	/// Full PGAS path: validate, withdraw into a credit and resolve refund.
 	fn charge_pgas() -> Weight;
@@ -33,7 +33,7 @@ pub trait WeightInfo {
 	fn charge_pgas_skip() -> Weight;
 }
 
-/// Weights for `pallet_gas_allowance` using the Substrate node and recommended hardware.
+/// Weights for `pallet_pgas_allowance` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	fn charge_pgas() -> Weight {

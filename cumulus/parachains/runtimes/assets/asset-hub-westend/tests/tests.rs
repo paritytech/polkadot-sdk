@@ -142,7 +142,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_gas_allowance::ChargePGAS::<
+		pallet_pgas_allowance::ChargePGAS::<
 			Runtime,
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
 		>::new(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
