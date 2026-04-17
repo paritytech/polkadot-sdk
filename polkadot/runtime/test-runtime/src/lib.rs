@@ -309,6 +309,8 @@ parameter_types! {
 	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 100);
 	pub const OracleMinNudges: u32 = 0;
 	pub const OracleNudgeValidity: u64 = 10;
+	pub const OracleMaxEndpoints: u32 = 20;
+	pub const OracleMaxUrlLength: u32 = 256;
 }
 
 pub struct BabeAuthorityProvider;
@@ -324,36 +326,15 @@ impl pallet_price_oracle::pallet::AuthorityProvider for BabeAuthorityProvider {
 	}
 }
 
-pub struct TestEndpointProvider;
-impl pallet_price_oracle::pallet::EndpointProvider for TestEndpointProvider {
-	fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::string::String)> {
-		use alloc::string::ToString;
-		alloc::vec![
-			(0, "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT".to_string()),
-			(1, "https://api.coinlore.net/api/ticker/?id=45219".to_string()),
-			(2, "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD".to_string()),
-		]
-	}
-
-	fn decode_result(endpoint_id: u8, raw_response: &[u8]) -> Option<sp_runtime::FixedU128> {
-		use pallet_price_oracle::decoders::*;
-		match endpoint_id {
-			0 => decode_binance(raw_response),
-			1 => decode_coinlore(raw_response),
-			2 => decode_cryptocompare(raw_response),
-			_ => None,
-		}
-	}
-}
-
 impl pallet_price_oracle::Config for Runtime {
 	type Epsilon = OracleEpsilon;
 	type MinNudges = OracleMinNudges;
 	type NudgeValidity = OracleNudgeValidity;
 	type AuthorityProvider = BabeAuthorityProvider;
-	type EndpointProvider = TestEndpointProvider;
 	type TimeProvider = Timestamp;
 	type OnPriceUpdate = ();
+	type MaxEndpoints = OracleMaxEndpoints;
+	type MaxUrlLength = OracleMaxUrlLength;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -1441,17 +1422,17 @@ sp_api::impl_runtime_apis! {
 		}
 
 		fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)> {
-			use pallet_price_oracle::pallet::EndpointProvider;
-			TestEndpointProvider::endpoint_list()
+			pallet_price_oracle::ActiveEndpoints::<Runtime>::get()
 				.into_iter()
-				.map(|(id, url)| (id, url.into_bytes()))
+				.map(|(method, url)| (method.into(), url.into_inner()))
 				.collect()
 		}
 
-		fn decode_results(data: alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)>) -> alloc::vec::Vec<(u8, Option<sp_runtime::FixedU128>)> {
-			use pallet_price_oracle::pallet::EndpointProvider;
+		fn decode_results(
+			data: alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)>,
+		) -> alloc::vec::Vec<(u8, Option<sp_runtime::FixedU128>)> {
 			data.into_iter()
-				.map(|(id, bytes)| (id, TestEndpointProvider::decode_result(id, &bytes)))
+				.map(|(id, bytes)| (id, pallet_price_oracle::decoders::decode_by_id(id, &bytes)))
 				.collect()
 		}
 	}

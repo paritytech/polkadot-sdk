@@ -6,8 +6,106 @@
 
 extern crate alloc;
 
-use sp_runtime::FixedU128;
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::str::FromStr;
+use scale_info::TypeInfo;
+use sp_runtime::FixedU128;
+
+/// Identifies which decoder to apply to a raw HTTP response body.
+///
+/// Each variant corresponds to a specific price-feed API's response format.
+/// This lives inside the pallet; the outside world (runtime API, extrinsic
+/// input, node) refers to each variant by its `u8` id via the
+/// [`From<ParsingMethod> for u8`] and [`TryFrom<u8>`] conversions below.
+#[derive(
+	Debug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+)]
+pub enum ParsingMethod {
+	Binance = 0,
+	CoinLore = 1,
+	CryptoCompare = 2,
+	CoinGecko = 3,
+	CoinMarketCap = 4,
+	CoinPaprika = 5,
+	LiveCoinWatch = 6,
+	Dia = 7,
+	Coinbase = 8,
+	Kraken = 9,
+	Okx = 10,
+	Bybit = 11,
+	KuCoin = 12,
+	CryptoCom = 13,
+	GateIo = 14,
+}
+
+impl From<ParsingMethod> for u8 {
+	fn from(m: ParsingMethod) -> u8 {
+		m as u8
+	}
+}
+
+impl TryFrom<u8> for ParsingMethod {
+	type Error = ();
+
+	fn try_from(v: u8) -> Result<Self, Self::Error> {
+		match v {
+			0 => Ok(ParsingMethod::Binance),
+			1 => Ok(ParsingMethod::CoinLore),
+			2 => Ok(ParsingMethod::CryptoCompare),
+			3 => Ok(ParsingMethod::CoinGecko),
+			4 => Ok(ParsingMethod::CoinMarketCap),
+			5 => Ok(ParsingMethod::CoinPaprika),
+			6 => Ok(ParsingMethod::LiveCoinWatch),
+			7 => Ok(ParsingMethod::Dia),
+			8 => Ok(ParsingMethod::Coinbase),
+			9 => Ok(ParsingMethod::Kraken),
+			10 => Ok(ParsingMethod::Okx),
+			11 => Ok(ParsingMethod::Bybit),
+			12 => Ok(ParsingMethod::KuCoin),
+			13 => Ok(ParsingMethod::CryptoCom),
+			14 => Ok(ParsingMethod::GateIo),
+			_ => Err(()),
+		}
+	}
+}
+
+/// Dispatch a raw response body to the decoder identified by `method`.
+pub fn decode(method: ParsingMethod, body: &[u8]) -> Option<FixedU128> {
+	match method {
+		ParsingMethod::Binance => decode_binance(body),
+		ParsingMethod::CoinLore => decode_coinlore(body),
+		ParsingMethod::CryptoCompare => decode_cryptocompare(body),
+		ParsingMethod::CoinGecko => decode_coingecko(body),
+		ParsingMethod::CoinMarketCap => decode_coinmarketcap(body),
+		ParsingMethod::CoinPaprika => decode_coinpaprika(body),
+		ParsingMethod::LiveCoinWatch => decode_livecoinwatch(body),
+		ParsingMethod::Dia => decode_dia(body),
+		ParsingMethod::Coinbase => decode_coinbase(body),
+		ParsingMethod::Kraken => decode_kraken(body),
+		ParsingMethod::Okx => decode_okx(body),
+		ParsingMethod::Bybit => decode_bybit(body),
+		ParsingMethod::KuCoin => decode_kucoin(body),
+		ParsingMethod::CryptoCom => decode_cryptocom(body),
+		ParsingMethod::GateIo => decode_gateio(body),
+	}
+}
+
+/// Decode a raw response body given a `u8` parsing method id.
+///
+/// Returns `None` if the id does not map to a known [`ParsingMethod`] or if
+/// the body cannot be parsed.
+pub fn decode_by_id(id: u8, body: &[u8]) -> Option<FixedU128> {
+	ParsingMethod::try_from(id).ok().and_then(|m| decode(m, body))
+}
 
 /// Binance: `{"symbol":"DOTUSDT","price":"4.20600000"}`
 pub fn decode_binance(body: &[u8]) -> Option<FixedU128> {
@@ -267,5 +365,39 @@ mod tests {
 		assert_plausible(price);
 
 		assert!(decode_gateio(br#"[]"#).is_none());
+	}
+
+	#[test]
+	fn parsing_method_u8_roundtrip() {
+		let all = [
+			ParsingMethod::Binance,
+			ParsingMethod::CoinLore,
+			ParsingMethod::CryptoCompare,
+			ParsingMethod::CoinGecko,
+			ParsingMethod::CoinMarketCap,
+			ParsingMethod::CoinPaprika,
+			ParsingMethod::LiveCoinWatch,
+			ParsingMethod::Dia,
+			ParsingMethod::Coinbase,
+			ParsingMethod::Kraken,
+			ParsingMethod::Okx,
+			ParsingMethod::Bybit,
+			ParsingMethod::KuCoin,
+			ParsingMethod::CryptoCom,
+			ParsingMethod::GateIo,
+		];
+		for m in all {
+			let id: u8 = m.into();
+			assert_eq!(ParsingMethod::try_from(id).unwrap(), m);
+		}
+		assert!(ParsingMethod::try_from(15u8).is_err());
+		assert!(ParsingMethod::try_from(u8::MAX).is_err());
+	}
+
+	#[test]
+	fn decode_by_id_dispatches() {
+		let body = br#"{"symbol":"DOTUSDT","price":"4.20"}"#;
+		assert!(decode_by_id(u8::from(ParsingMethod::Binance), body).is_some());
+		assert!(decode_by_id(99, body).is_none());
 	}
 }

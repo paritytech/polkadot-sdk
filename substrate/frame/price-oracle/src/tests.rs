@@ -2,17 +2,15 @@ use super::*;
 use crate as pallet_price_oracle;
 
 use alloc::vec;
-use frame_support::{assert_ok, derive_impl, parameter_types, traits::ConstU32};
+use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
 use sp_consensus_babe::{AuthorityId, AuthoritySignature};
 use sp_consensus_slots::Slot;
 use sp_core::{crypto::Pair as PairT, sr25519};
 use sp_inherents::InherentData;
 use sp_io::TestExternalities;
-use sp_price_oracle::{Nudge, PriceOracleInherentData, SignedNudge, INHERENT_IDENTIFIER};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup},
-	BuildStorage, FixedU128,
-};
+use pallet_price_oracle::ParsingMethod;
+use sp_price_oracle::{Nudge, SignedNudge, INHERENT_IDENTIFIER};
+use sp_runtime::{BuildStorage, FixedU128};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -40,6 +38,8 @@ parameter_types! {
 	pub const Epsilon: FixedU128 = FixedU128::from_rational(1, 100); // 0.01
 	pub const MinNudges: u32 = 0;
 	pub const NudgeValidity: u64 = 10;
+	pub const MaxEndpoints: u32 = 20;
+	pub const MaxUrlLength: u32 = 64;
 }
 
 thread_local! {
@@ -54,16 +54,6 @@ impl pallet::AuthorityProvider for MockAuthorityProvider {
 	}
 	fn current_slot() -> Slot {
 		CURRENT_SLOT.with(|s| *s.borrow())
-	}
-}
-
-pub struct MockEndpointProvider;
-impl pallet::EndpointProvider for MockEndpointProvider {
-	fn endpoint_list() -> Vec<(u8, alloc::string::String)> {
-		alloc::vec![]
-	}
-	fn decode_result(_endpoint_id: u8, _raw_response: &[u8]) -> Option<FixedU128> {
-		None
 	}
 }
 
@@ -82,9 +72,10 @@ impl Config for Test {
 	type MinNudges = MinNudges;
 	type NudgeValidity = NudgeValidity;
 	type AuthorityProvider = MockAuthorityProvider;
-	type EndpointProvider = MockEndpointProvider;
 	type TimeProvider = MockTime;
 	type OnPriceUpdate = ();
+	type MaxEndpoints = MaxEndpoints;
+	type MaxUrlLength = MaxUrlLength;
 }
 
 fn new_test_ext() -> TestExternalities {
@@ -456,6 +447,127 @@ mod inherent_pipeline {
 
 			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
 			assert_eq!(pallet::NudgeCount::<Test>::get(), 0);
+		});
+	}
+}
+
+mod active_endpoints {
+	use super::*;
+	use sp_runtime::DispatchError;
+
+	fn stored_ids() -> Vec<(u8, Vec<u8>)> {
+		pallet::ActiveEndpoints::<Test>::get()
+			.into_iter()
+			.map(|(m, url)| (m.into(), url.into_inner()))
+			.collect()
+	}
+
+	#[test]
+	fn starts_empty() {
+		new_test_ext().execute_with(|| {
+			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
+		});
+	}
+
+	#[test]
+	fn root_can_set() {
+		new_test_ext().execute_with(|| {
+			let endpoints = vec![
+				(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec()),
+				(u8::from(ParsingMethod::CoinGecko), b"https://coingecko.example/price".to_vec()),
+			];
+			assert_ok!(PriceOracle::set_active_endpoints(
+				frame_system::RawOrigin::Root.into(),
+				endpoints.clone(),
+			));
+			assert_eq!(stored_ids(), endpoints);
+		});
+	}
+
+	#[test]
+	fn non_root_rejected() {
+		new_test_ext().execute_with(|| {
+			let endpoints =
+				vec![(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec())];
+			assert_noop!(
+				PriceOracle::set_active_endpoints(
+					frame_system::RawOrigin::Signed(1).into(),
+					endpoints.clone(),
+				),
+				DispatchError::BadOrigin,
+			);
+			assert_noop!(
+				PriceOracle::set_active_endpoints(
+					frame_system::RawOrigin::None.into(),
+					endpoints,
+				),
+				DispatchError::BadOrigin,
+			);
+			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
+		});
+	}
+
+	#[test]
+	fn overwrites_previous() {
+		new_test_ext().execute_with(|| {
+			let first = vec![(u8::from(ParsingMethod::Binance), b"a".to_vec())];
+			let second = vec![
+				(u8::from(ParsingMethod::Kraken), b"b".to_vec()),
+				(u8::from(ParsingMethod::Okx), b"c".to_vec()),
+			];
+			assert_ok!(PriceOracle::set_active_endpoints(
+				frame_system::RawOrigin::Root.into(),
+				first,
+			));
+			assert_ok!(PriceOracle::set_active_endpoints(
+				frame_system::RawOrigin::Root.into(),
+				second.clone(),
+			));
+			assert_eq!(stored_ids(), second);
+		});
+	}
+
+	#[test]
+	fn rejects_too_many_endpoints() {
+		new_test_ext().execute_with(|| {
+			// MaxEndpoints = 20 in the mock runtime.
+			let endpoints: Vec<_> =
+				(0..21).map(|_| (u8::from(ParsingMethod::Binance), b"x".to_vec())).collect();
+			assert_noop!(
+				PriceOracle::set_active_endpoints(
+					frame_system::RawOrigin::Root.into(),
+					endpoints,
+				),
+				pallet::Error::<Test>::TooManyEndpoints,
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_url_too_long() {
+		new_test_ext().execute_with(|| {
+			// MaxUrlLength = 64 in the mock runtime.
+			let long_url = vec![b'x'; 65];
+			assert_noop!(
+				PriceOracle::set_active_endpoints(
+					frame_system::RawOrigin::Root.into(),
+					vec![(u8::from(ParsingMethod::Binance), long_url)],
+				),
+				pallet::Error::<Test>::UrlTooLong,
+			);
+		});
+	}
+
+	#[test]
+	fn rejects_unknown_parsing_method() {
+		new_test_ext().execute_with(|| {
+			assert_noop!(
+				PriceOracle::set_active_endpoints(
+					frame_system::RawOrigin::Root.into(),
+					vec![(99u8, b"https://example/price".to_vec())],
+				),
+				pallet::Error::<Test>::UnknownParsingMethod,
+			);
 		});
 	}
 }

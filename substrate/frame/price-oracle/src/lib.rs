@@ -13,6 +13,8 @@ use sp_price_oracle::{
 };
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 
+pub use decoders::ParsingMethod;
+
 pub mod decoders;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -33,21 +35,6 @@ pub mod pallet {
 		fn current_slot() -> Slot;
 	}
 
-	/// Provides the list of price feed endpoints and their response decoders.
-	///
-	/// The runtime implements this trait to define which APIs to query and how to
-	/// extract prices from their JSON responses. The node calls `endpoints()` to
-	/// get URLs, fetches them via HTTP, and passes raw response bytes back to
-	/// `decode()` for parsing.
-	pub trait EndpointProvider {
-		/// Returns `(endpoint_id, url)` pairs.
-		fn endpoint_list() -> Vec<(u8, alloc::string::String)>;
-
-		/// Decode a raw HTTP response body for the given endpoint_id into a price.
-		/// Returns `None` if the response cannot be parsed or the endpoint_id is unknown.
-		fn decode_result(endpoint_id: u8, raw_response: &[u8]) -> Option<FixedU128>;
-	}
-
 	/// Called whenever the on-chain price is updated.
 	/// Can be used to propagate the price via XCM to other chains (e.g. Asset Hub).
 	#[impl_trait_for_tuples::impl_for_tuples(8)]
@@ -56,7 +43,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// Absolute price change per net nudge (e.g. 0.001 means each net Up adds $0.001).
 		#[pallet::constant]
 		type Epsilon: Get<FixedU128>;
@@ -72,14 +59,27 @@ pub mod pallet {
 
 		type AuthorityProvider: AuthorityProvider;
 
-		/// Provides price feed endpoint URLs and response decoders.
-		type EndpointProvider: EndpointProvider;
-
 		type TimeProvider: Time;
 
 		/// Hook called when the price is updated. Set to `()` if unused.
 		type OnPriceUpdate: OnPriceUpdate<BlockNumberFor<Self>>;
+
+		/// Maximum number of entries allowed in [`ActiveEndpoints`].
+		#[pallet::constant]
+		type MaxEndpoints: Get<u32>;
+
+		/// Maximum length in bytes of a single endpoint URL in [`ActiveEndpoints`].
+		#[pallet::constant]
+		type MaxUrlLength: Get<u32>;
 	}
+
+	/// A URL bounded by [`Config::MaxUrlLength`].
+	pub type BoundedUrl<T> = BoundedVec<u8, <T as Config>::MaxUrlLength>;
+
+	/// The active endpoint list, bounded by [`Config::MaxEndpoints`] and
+	/// [`Config::MaxUrlLength`].
+	pub type BoundedEndpoints<T> =
+		BoundedVec<(ParsingMethod, BoundedUrl<T>), <T as Config>::MaxEndpoints>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -90,6 +90,29 @@ pub mod pallet {
 	/// Number of valid nudges accepted in the current block's inherent.
 	#[pallet::storage]
 	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+	/// The set of price feed endpoints currently queried by the node.
+	/// Each entry is a `(ParsingMethod, url_bytes)` pair. Mutated via the
+	/// root-only [`Pallet::set_active_endpoints`] extrinsic.
+	#[pallet::storage]
+	pub type ActiveEndpoints<T: Config> = StorageValue<_, BoundedEndpoints<T>, ValueQuery>;
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// The active endpoint list was replaced.
+		ActiveEndpointsUpdated { count: u32 },
+	}
+
+	#[pallet::error]
+	pub enum Error<T> {
+		/// Too many endpoints supplied for [`Config::MaxEndpoints`].
+		TooManyEndpoints,
+		/// An endpoint URL exceeded [`Config::MaxUrlLength`].
+		UrlTooLong,
+		/// A parsing method id does not map to a known [`ParsingMethod`].
+		UnknownParsingMethod,
+	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
@@ -220,6 +243,38 @@ pub mod pallet {
 			}
 
 			NudgeCount::<T>::put(total_valid);
+			Ok(())
+		}
+
+		/// Replace the set of active price feed endpoints.
+		///
+		/// Root-only. Accepts `(parsing_method_id, url_bytes)` pairs — the id
+		/// is a `u8` handle for a [`ParsingMethod`] variant. Overwrites
+		/// [`ActiveEndpoints`] wholesale. Fails with
+		/// [`Error::TooManyEndpoints`], [`Error::UrlTooLong`], or
+		/// [`Error::UnknownParsingMethod`] if the input is invalid.
+		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::from_parts(10_000, 0).saturating_mul(endpoints.len() as u64))]
+		pub fn set_active_endpoints(
+			origin: OriginFor<T>,
+			endpoints: Vec<(u8, Vec<u8>)>,
+		) -> DispatchResult {
+			ensure_root(origin)?;
+			let converted: Vec<(ParsingMethod, BoundedUrl<T>)> = endpoints
+				.into_iter()
+				.map(|(id, url)| {
+					let method = ParsingMethod::try_from(id)
+						.map_err(|_| Error::<T>::UnknownParsingMethod)?;
+					let url: BoundedUrl<T> =
+						url.try_into().map_err(|_| Error::<T>::UrlTooLong)?;
+					Ok((method, url))
+				})
+				.collect::<Result<_, Error<T>>>()?;
+			let bounded: BoundedEndpoints<T> =
+				converted.try_into().map_err(|_| Error::<T>::TooManyEndpoints)?;
+			let count = bounded.len() as u32;
+			ActiveEndpoints::<T>::put(bounded);
+			Self::deposit_event(Event::ActiveEndpointsUpdated { count });
 			Ok(())
 		}
 	}
