@@ -539,7 +539,7 @@ async fn send_dispute_messages<Context>(
 			gum::error!(
 				target: LOG_TARGET,
 				?validator_index,
-				session_index = ?env.session_index(),
+				session_index = ?env.scheduling_session(),
 				"Could not find our own key in `SessionInfo`"
 			);
 			continue;
@@ -547,7 +547,7 @@ async fn send_dispute_messages<Context>(
 		let our_vote_signed = SignedDisputeStatement::new_checked(
 			kind.clone(),
 			vote_state.votes().candidate_receipt.hash(),
-			env.session_index(),
+			env.scheduling_session(),
 			public_key,
 			sig.clone(),
 		);

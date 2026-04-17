@@ -125,7 +125,7 @@ impl<'a> CandidateEnvironment<'a> {
 	}
 
 	/// Retrieve the scheduling `SessionIndex` for this environment.
-	pub fn session_index(&self) -> SessionIndex {
+	pub fn scheduling_session(&self) -> SessionIndex {
 		self.scheduling_session
 	}
 
@@ -332,7 +332,7 @@ impl CandidateVoteState<CandidateVotes> {
 				);
 				continue;
 			}
-			if statement.session_index() != env.session_index() {
+			if statement.session_index() != env.scheduling_session() {
 				gum::error!(
 					target: LOG_TARGET,
 					?val_index,
@@ -584,7 +584,7 @@ impl ImportResult {
 						.validators
 						.get(index)
 						.expect("indices are validated by approval-voting subsystem; qed");
-					let session_index = env.session_index();
+					let session_index = env.scheduling_session();
 					candidate_hashes.contains(&votes.candidate_receipt.hash()) &&
 						DisputeStatement::Valid(
 							ValidDisputeStatementKind::ApprovalCheckingMultipleCandidates(
@@ -602,7 +602,7 @@ impl ImportResult {
 						.is_ok()
 				},
 				"Signature check for imported approval votes failed! This is a serious bug. Session: {:?}, candidate hash: {:?}, validator index: {:?}",
-				env.session_index(),
+				env.scheduling_session(),
 				votes.candidate_receipt.hash(),
 				index
 			);
