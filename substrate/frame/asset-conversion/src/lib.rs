@@ -379,7 +379,7 @@ pub mod pallet {
 		IncorrectPoolAssetId,
 		/// The destination account cannot exist with the swapped funds.
 		BelowMinimum,
-		/// The pool exists but has no liquidity (both reserves are zero).
+		/// The pool exists but has no liquidity (at least one of the reserves is zero).
 		PoolEmpty,
 	}
 
