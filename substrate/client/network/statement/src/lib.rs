@@ -155,7 +155,7 @@ const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::fr
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.
-const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(600);
+const SYNC_RECOVERY_READD_DELAY: std::time::Duration = std::time::Duration::from_secs(60);
 
 struct Metrics {
 	propagated_statements: Counter<U64>,
@@ -421,7 +421,6 @@ impl StatementHandlerPrototype {
 			);
 		}
 
-		let is_major_syncing = sync.is_major_syncing();
 		let handler = StatementHandler {
 			protocol_name: self.protocol_name,
 			notification_service: self.notification_service,
@@ -444,7 +443,6 @@ impl StatementHandlerPrototype {
 			),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: is_major_syncing,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -495,8 +493,6 @@ pub struct StatementHandler<
 	pending_initial_syncs: HashMap<PeerId, PendingInitialSync>,
 	/// Queue for round-robin processing of initial syncs.
 	initial_sync_peer_queue: VecDeque<PeerId>,
-	/// Whether the node was major syncing on the last `run()` loop poll
-	was_major_syncing: bool,
 	/// Tracks peers that connected while major sync was active and adds them to the reserved set
 	/// once sync ends
 	deferred_peers: HashSet<PeerId>,
@@ -706,7 +702,6 @@ where
 			pending_affinities_timeout: Box::pin(pending().fuse()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -775,18 +770,13 @@ where
 				},
 			}
 
-			let currently_syncing = self.sync.is_major_syncing();
-			// Fires if statements are actually dropped
-			if !self.was_major_syncing && currently_syncing {
-				self.dropped_statements_during_sync = false;
-			}
-			if self.was_major_syncing && !currently_syncing {
+			if !self.sync.is_major_syncing() {
 				self.drain_deferred_peers();
 				if self.dropped_statements_during_sync {
+					self.dropped_statements_during_sync = false;
 					self.start_sync_recovery();
 				}
 			}
-			self.was_major_syncing = currently_syncing;
 		}
 	}
 
@@ -849,7 +839,7 @@ where
 	}
 
 	/// Add all peers that were deferred during major sync to the reserved set.
-	/// Called once when the `was_major_syncing → false` transition is detected in the run loop
+	/// Called each run loop iteration while not major syncing; returns early when the set is empty
 	fn drain_deferred_peers(&mut self) {
 		if self.deferred_peers.is_empty() {
 			return;
@@ -1962,7 +1952,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2185,7 +2174,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -2229,7 +2217,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -3641,7 +3628,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -3997,7 +3983,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: true,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4063,7 +4048,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: true,
 			deferred_peers: deferred,
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4141,7 +4125,6 @@ mod tests {
 			pending_affinities_timeout: Box::pin(futures::future::pending()),
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
-			was_major_syncing: false,
 			deferred_peers: HashSet::new(),
 			dropped_statements_during_sync: false,
 			sync_recovery_peer: None,
@@ -4240,7 +4223,6 @@ mod tests {
 					pending_affinities_timeout: Box::pin(futures::future::pending()),
 					pending_initial_syncs: HashMap::new(),
 					initial_sync_peer_queue: VecDeque::new(),
-					was_major_syncing: false,
 					deferred_peers: HashSet::new(),
 					dropped_statements_during_sync: dropped,
 					sync_recovery_peer: None,

@@ -10,7 +10,7 @@ doc:
 
     **Already-connected peers (fall-behind):** when a running node temporarily falls behind
     and drops statements via the `is_major_syncing()` guard, one peer is force-disconnected
-    and re-added after a 10-minute window so it re-sends its statements via initial sync.
+    and re-added after a 1-minute window so it re-sends its statements via initial sync.
     The recovery only fires when statements were actually dropped during sync.
 crates:
 - name: sc-network-statement
