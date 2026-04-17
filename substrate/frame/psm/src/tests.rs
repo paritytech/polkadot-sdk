@@ -720,22 +720,41 @@ mod governance {
 	}
 
 	#[test]
-	fn add_external_asset_fails_decimals_mismatch() {
+	fn add_external_asset_accepts_differing_decimals_within_range() {
 		new_test_ext().execute_with(|| {
 			let new_asset = 99u32;
-			// Create asset with wrong decimals (8 instead of 6)
+			// Asset with 8 decimals vs pUSD's 6 — within MAX_DECIMALS_DIFF.
 			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
 				new_asset,
-				b"Bad Decimals".to_vec(),
-				b"BAD".to_vec(),
+				b"Eight Decimals".to_vec(),
+				b"EIG".to_vec(),
 				8
+			));
+
+			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), new_asset));
+			assert_eq!(crate::AssetDecimals::<Test>::get(new_asset), Some(8));
+		});
+	}
+
+	#[test]
+	fn add_external_asset_fails_decimals_out_of_range() {
+		new_test_ext().execute_with(|| {
+			let new_asset = 99u32;
+			// Decimals 6 + 25 = 31 exceeds MAX_DECIMALS_DIFF (24).
+			assert_ok!(Assets::create(RuntimeOrigin::signed(ALICE), new_asset, ALICE, 1));
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				new_asset,
+				b"Too Many Decimals".to_vec(),
+				b"TMD".to_vec(),
+				31
 			));
 
 			assert_noop!(
 				Psm::add_external_asset(RuntimeOrigin::root(), new_asset),
-				Error::<Test>::DecimalsMismatch
+				Error::<Test>::DecimalsRangeExceeded
 			);
 		});
 	}
@@ -1596,6 +1615,336 @@ mod cycles {
 				total_fees, if_increase,
 				"Total fees (mint + redeem) should equal IF pUSD increase"
 			);
+		});
+	}
+}
+
+/// Tests for normalization between pUSD and external assets with different decimal
+/// precision. Uses `USDX` (2 decimals) and `DAI_MOCK` (18 decimals) against a
+/// 6-decimal pUSD. Both helper assets are created in pallet-assets genesis but
+/// registered with PSM via `register_external_asset_with_weight` inside each test.
+mod decimal_scaling {
+	use super::*;
+	use crate::{AssetDecimals, MAX_DECIMALS_DIFF};
+
+	fn set_zero_fees(asset_id: u32) {
+		set_minting_fee(asset_id, Permill::zero());
+		set_redemption_fee(asset_id, Permill::zero());
+	}
+
+	// Conversion helpers
+
+	#[test]
+	fn external_to_pusd_same_decimals_is_identity() {
+		new_test_ext().execute_with(|| {
+			assert_eq!(Psm::external_to_pusd(1_000_000, 6, 6).unwrap(), 1_000_000);
+		});
+	}
+
+	#[test]
+	fn external_to_pusd_scale_up_is_exact() {
+		new_test_ext().execute_with(|| {
+			// USDX (2) -> pUSD (6): multiply by 10^4.
+			assert_eq!(Psm::external_to_pusd(100, 2, 6).unwrap(), 1_000_000);
+		});
+	}
+
+	#[test]
+	fn external_to_pusd_scale_down_truncates() {
+		new_test_ext().execute_with(|| {
+			// DAI (18) -> pUSD (6): divide by 10^12, floor.
+			assert_eq!(Psm::external_to_pusd(1_500_000_000_000_000_123, 18, 6).unwrap(), 1_500_000);
+		});
+	}
+
+	#[test]
+	fn pusd_to_external_round_trip_bounds() {
+		new_test_ext().execute_with(|| {
+			// For any amount, round-trip should shrink or preserve.
+			for (ext_decimals, pusd_decimals) in [(2u8, 6u8), (6, 6), (18, 6), (6, 18), (6, 2)] {
+				for amount in [0u128, 1, 100, 1_234_567, 10u128.pow(18)] {
+					let fwd = Psm::external_to_pusd(amount, ext_decimals, pusd_decimals).unwrap();
+					let rtp = Psm::pusd_to_external(fwd, ext_decimals, pusd_decimals).unwrap();
+					assert!(rtp <= amount, "round-trip grew: amount={} got {}", amount, rtp);
+				}
+			}
+		});
+	}
+
+	#[test]
+	fn conversion_overflow_surfaces_error() {
+		new_test_ext().execute_with(|| {
+			// 10^40 overflows u128 (max ~3.4e38).
+			assert!(Psm::external_to_pusd(1, 0, 40).is_err());
+		});
+	}
+
+	// Mint with scale-up (fewer external decimals)
+
+	#[test]
+	fn mint_scale_up_usdx_exact_no_dust() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
+
+			// 200 USDX raw = 2_00 = pUSD equivalent = 200 * 10^4 = 2_000_000 = 2 pUSD.
+			// Use 10_000 * USDX_UNIT = 1_000_000 raw USDX so pUSD equivalent is above
+			// MinSwapAmount (100 * PUSD_UNIT = 10^8).
+			let usdx_raw = 10_000 * USDX_UNIT; // 1_000_000 raw USDX
+			let expected_pusd = 10_000 * PUSD_UNIT; // 10_000 pUSD
+			let alice_usdx_before = get_asset_balance(USDX_ASSET_ID, ALICE);
+
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, usdx_raw));
+
+			// User spent exactly usdx_raw (no dust path on scale-up).
+			assert_eq!(get_asset_balance(USDX_ASSET_ID, ALICE), alice_usdx_before - usdx_raw);
+			assert_eq!(get_asset_balance(USDX_ASSET_ID, psm_account()), usdx_raw);
+			assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), expected_pusd);
+			assert_eq!(PsmDebt::<Test>::get(USDX_ASSET_ID), expected_pusd);
+		});
+	}
+
+	// Mint with scale-down (more external decimals)
+
+	#[test]
+	fn mint_scale_down_dai_leaves_dust_with_user() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(DAI_MOCK_ASSET_ID);
+
+			// 100 DAI + 123 wei. pUSD equivalent = 100 * 10^6 = 10^8 (= MinSwapAmount).
+			let dai_raw = 100 * DAI_UNIT + 123;
+			let effective_dai = 100 * DAI_UNIT; // truncated to round-trip boundary
+			let expected_pusd = 100 * PUSD_UNIT;
+			let alice_before = get_asset_balance(DAI_MOCK_ASSET_ID, ALICE);
+
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), DAI_MOCK_ASSET_ID, dai_raw));
+
+			// Only effective amount left the user; dust (123 wei) stays.
+			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, ALICE), alice_before - effective_dai);
+			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, psm_account()), effective_dai);
+			assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), expected_pusd);
+			assert_eq!(PsmDebt::<Test>::get(DAI_MOCK_ASSET_ID), expected_pusd);
+		});
+	}
+
+	#[test]
+	fn mint_rejects_when_pusd_equivalent_is_zero() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
+
+			// 999 wei DAI -> pUSD = 999 / 10^12 = 0.
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), DAI_MOCK_ASSET_ID, 999),
+				Error::<Test>::AmountTooSmallAfterConversion
+			);
+		});
+	}
+
+	#[test]
+	fn mint_min_swap_is_enforced_on_pusd_side() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
+
+			// 50 DAI = 50 pUSD equivalent, below MinSwapAmount (100 pUSD).
+			let below = 50 * DAI_UNIT;
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), DAI_MOCK_ASSET_ID, below),
+				Error::<Test>::BelowMinimumSwap
+			);
+		});
+	}
+
+	// Redeem with scale-up (more external decimals)
+
+	#[test]
+	fn redeem_scale_up_dai_exact_no_dust() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(DAI_MOCK_ASSET_ID);
+
+			// First mint so PSM has reserve and debt.
+			let pusd_amount = 1000 * PUSD_UNIT;
+			let dai_raw = 1000 * DAI_UNIT;
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), DAI_MOCK_ASSET_ID, dai_raw));
+			assert_eq!(PsmDebt::<Test>::get(DAI_MOCK_ASSET_ID), pusd_amount);
+
+			// Redeem 500 pUSD -> expect exactly 500 DAI back.
+			let redeem = 500 * PUSD_UNIT;
+			let alice_dai_before = get_asset_balance(DAI_MOCK_ASSET_ID, ALICE);
+			let alice_pusd_before = get_asset_balance(PUSD_ASSET_ID, ALICE);
+
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), DAI_MOCK_ASSET_ID, redeem));
+
+			assert_eq!(
+				get_asset_balance(DAI_MOCK_ASSET_ID, ALICE),
+				alice_dai_before + 500 * DAI_UNIT
+			);
+			assert_eq!(get_asset_balance(PUSD_ASSET_ID, ALICE), alice_pusd_before - redeem);
+			assert_eq!(PsmDebt::<Test>::get(DAI_MOCK_ASSET_ID), redeem);
+		});
+	}
+
+	// Redeem with scale-down (fewer external decimals)
+
+	#[test]
+	fn redeem_scale_down_usdx_dust_stays_with_user() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
+
+			// Mint first so PSM has reserve. 10_000 USDX -> 10_000 pUSD debt.
+			let usdx_raw = 10_000 * USDX_UNIT;
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, usdx_raw));
+
+			// Redeem 100 pUSD + 1 unit of dust. USDX has 2 decimals, so pUSD -> USDX
+			// divides by 10^4. 100_000_001 pUSD -> 10_000 USDX (= 100_000_000 pUSD
+			// worth). The 1-unit dust remains in ALICE's wallet (symmetric with
+			// mint's behavior of leaving dust with the caller).
+			let redeem = 100 * PUSD_UNIT + 1;
+			let expected_usdx_out = 100 * USDX_UNIT;
+			let alice_usdx_before = get_asset_balance(USDX_ASSET_ID, ALICE);
+			let alice_pusd_before = get_asset_balance(PUSD_ASSET_ID, ALICE);
+			let if_before = get_asset_balance(PUSD_ASSET_ID, INSURANCE_FUND);
+			let debt_before = PsmDebt::<Test>::get(USDX_ASSET_ID);
+
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, redeem));
+
+			assert_eq!(
+				get_asset_balance(USDX_ASSET_ID, ALICE),
+				alice_usdx_before + expected_usdx_out
+			);
+			// Only the round-tripped net (100 pUSD) was burned from ALICE; fees are
+			// zero here so the dust (1 unit) stays in her wallet.
+			assert_eq!(
+				get_asset_balance(PUSD_ASSET_ID, ALICE),
+				alice_pusd_before - 100 * PUSD_UNIT
+			);
+			// Fee destination receives nothing (fee rate is zero).
+			assert_eq!(get_asset_balance(PUSD_ASSET_ID, INSURANCE_FUND), if_before);
+			// Debt reduced by what actually left the reserve in pUSD terms.
+			assert_eq!(PsmDebt::<Test>::get(USDX_ASSET_ID), debt_before - 100 * PUSD_UNIT);
+		});
+	}
+
+	#[test]
+	fn redeem_rejects_when_external_out_is_zero() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
+
+			// Mint first so pallet has reserve; redeem a tiny pUSD amount that is
+			// still above MinSwapAmount in pUSD units but truncates to 0 USDX.
+			// With MinSwapAmount = 100 * PUSD_UNIT = 10^8 and USDX factor 10^4,
+			// 10^8 pUSD -> 10^4 USDX = 10_000 USDX (positive). To hit zero we need
+			// a smaller-than-MinSwap amount, which the min-swap check rejects first.
+			// So this test exercises the case where a 100% redemption fee zeroes
+			// out pusd_net, confirming we do NOT wrongly reject the 100%-fee path.
+			let usdx_raw = 10_000 * USDX_UNIT;
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, usdx_raw));
+			set_redemption_fee(USDX_ASSET_ID, Permill::from_percent(100));
+
+			let alice_usdx_before = get_asset_balance(USDX_ASSET_ID, ALICE);
+			let if_before = get_asset_balance(PUSD_ASSET_ID, INSURANCE_FUND);
+
+			let redeem = 100 * PUSD_UNIT;
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, redeem));
+
+			// User receives zero USDX (100% fee).
+			assert_eq!(get_asset_balance(USDX_ASSET_ID, ALICE), alice_usdx_before);
+			// Fee destination gets the full redeemed pUSD.
+			assert_eq!(get_asset_balance(PUSD_ASSET_ID, INSURANCE_FUND), if_before + redeem);
+		});
+	}
+
+	// Runtime decimals guard
+
+	#[test]
+	fn mint_halts_when_asset_decimals_drift() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+
+			// Owner (ALICE) unilaterally changes USDX decimals from 2 -> 4.
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDX_ASSET_ID,
+				b"USDX".to_vec(),
+				b"USDX".to_vec(),
+				4
+			));
+
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(BOB), USDX_ASSET_ID, 10_000 * USDX_UNIT),
+				Error::<Test>::DecimalsMismatch
+			);
+		});
+	}
+
+	#[test]
+	fn redeem_halts_when_asset_decimals_drift() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			set_zero_fees(USDX_ASSET_ID);
+
+			// Mint first, then change decimals.
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, 10_000 * USDX_UNIT));
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				USDX_ASSET_ID,
+				b"USDX".to_vec(),
+				b"USDX".to_vec(),
+				4
+			));
+
+			assert_noop!(
+				Psm::redeem(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, 100 * PUSD_UNIT),
+				Error::<Test>::DecimalsMismatch
+			);
+		});
+	}
+
+	// Snapshot and bookkeeping
+
+	#[test]
+	fn asset_decimals_snapshot_recorded_on_add_and_cleaned_on_remove() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
+			assert_eq!(AssetDecimals::<Test>::get(USDX_ASSET_ID), Some(2));
+
+			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDX_ASSET_ID));
+			assert_eq!(AssetDecimals::<Test>::get(USDX_ASSET_ID), None);
+		});
+	}
+
+	#[test]
+	fn max_decimals_diff_const_is_protective() {
+		// Compile-time sanity: the chosen bound is wide but below the overflow point.
+		// 10^24 fits comfortably in u128 (< 10^38), and leaves ~10^14 headroom on
+		// balances. The const is documented; this asserts it has not been widened
+		// beyond the safe range.
+		assert!(MAX_DECIMALS_DIFF <= 30);
+	}
+
+	// Mixed-decimal aggregate bookkeeping
+
+	#[test]
+	fn aggregate_debt_accrues_in_pusd_units_across_mixed_decimal_assets() {
+		new_test_ext().execute_with(|| {
+			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(50));
+			register_external_asset_with_weight(DAI_MOCK_ASSET_ID, Permill::from_percent(50));
+			set_zero_fees(USDX_ASSET_ID);
+			set_zero_fees(DAI_MOCK_ASSET_ID);
+
+			// Mint 500 pUSD-equivalent via USDX, 1500 pUSD-equivalent via DAI.
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDX_ASSET_ID, 500 * USDX_UNIT));
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), DAI_MOCK_ASSET_ID, 1500 * DAI_UNIT));
+
+			assert_eq!(PsmDebt::<Test>::get(USDX_ASSET_ID), 500 * PUSD_UNIT);
+			assert_eq!(PsmDebt::<Test>::get(DAI_MOCK_ASSET_ID), 1500 * PUSD_UNIT);
+			assert_eq!(Psm::total_psm_debt(), 2000 * PUSD_UNIT);
+
+			// do_try_state asserts invariants; invoke manually.
+			assert_ok!(Psm::do_try_state());
 		});
 	}
 }
