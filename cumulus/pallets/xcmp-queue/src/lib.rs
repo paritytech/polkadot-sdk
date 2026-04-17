@@ -1101,17 +1101,6 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				flags,
 			} = status;
 
-			if excluded_recipients.contains(para_id) {
-				return true;
-			}
-
-			// This is a hard limit from the host config; not even signals can bypass it.
-			if result.len() == max_message_count {
-				// We check this condition in the beginning of the loop so that we don't include
-				// a message where the limit is 0.
-				return true;
-			}
-
 			let (max_size_now, max_size_ever) = match T::ChannelInfo::get_channel_status(*para_id) {
 				ChannelStatus::Closed => {
 					// This means that there is no such channel anymore. Nothing to be done but
@@ -1127,6 +1116,18 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				ChannelStatus::Full => return true,
 				ChannelStatus::Ready(max_size_now, max_size_ever) => (max_size_now, max_size_ever),
 			};
+
+			// Check if we should omit the recipient.
+			if excluded_recipients.contains(para_id) {
+				return true;
+			}
+
+			// This is a hard limit from the host config; not even signals can bypass it.
+			if result.len() == max_message_count {
+				// We check this condition in the beginning of the loop so that we don't include
+				// a message where the limit is 0.
+				return true;
+			}
 
 			let page = 'page_fetch: {
 				if *signals_exist {
