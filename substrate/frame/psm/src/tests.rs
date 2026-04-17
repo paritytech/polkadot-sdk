@@ -1249,6 +1249,101 @@ mod ceiling_redistribution {
 	}
 }
 
+mod multi_asset_ceiling {
+	use super::*;
+
+	const OVER: u128 = 100 * PUSD_UNIT;
+
+	#[test]
+	fn usdc_at_ceiling_does_not_consume_usdt_ceiling() {
+		new_test_ext().execute_with(|| {
+			// 1. Set global ceiling to 50% of MaximumIssuance, split 60/40 between USDC and USDT
+			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
+			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
+			let usdc_ceiling = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let usdt_ceiling = crate::Pallet::<Test>::max_asset_debt(USDT_ASSET_ID);
+			fund_external_asset(USDC_ASSET_ID, ALICE, usdc_ceiling);
+			fund_external_asset(USDT_ASSET_ID, ALICE, usdt_ceiling);
+
+			// 2. Mint USDC to its exact per-asset ceiling
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, usdc_ceiling));
+			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), usdc_ceiling);
+			assert_eq!(crate::Pallet::<Test>::max_asset_debt(USDT_ASSET_ID), usdt_ceiling);
+
+			// 3. USDT can still mint to its full ceiling
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDT_ASSET_ID, usdt_ceiling));
+			assert_eq!(PsmDebt::<Test>::get(USDT_ASSET_ID), usdt_ceiling);
+		});
+	}
+
+	#[test]
+	fn minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom() {
+		new_test_ext().execute_with(|| {
+			// 1. 50% global ceiling, 60/40 split: USDC ceiling is 3M, global is 5M
+			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
+			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
+			let usdc_ceiling = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			fund_external_asset(USDC_ASSET_ID, ALICE, usdc_ceiling + OVER);
+
+			// 2. Mint USDC to its per-asset ceiling
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, usdc_ceiling));
+
+			// 3. Global ceiling still has 2M headroom
+			assert!(
+				crate::Pallet::<Test>::total_psm_debt().saturating_add(OVER)
+					<= crate::Pallet::<Test>::max_psm_debt(),
+				"global headroom must exist for this test to be meaningful",
+			);
+
+			// 4. Further USDC mint blocked by per-asset ceiling, not global
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, OVER),
+				Error::<Test>::ExceedsMaxPsmDebt
+			);
+		});
+	}
+
+	#[test]
+	fn boundary_both_assets_min_swap_below_ceiling() {
+		new_test_ext().execute_with(|| {
+			// 1. 50% global ceiling, 60/40 split
+			set_max_psm_debt_ratio(Permill::from_percent(50));
+			set_asset_ceiling_weight(USDC_ASSET_ID, Permill::from_percent(60));
+			set_asset_ceiling_weight(USDT_ASSET_ID, Permill::from_percent(40));
+			let usdc_ceiling = crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID);
+			let usdt_ceiling = crate::Pallet::<Test>::max_asset_debt(USDT_ASSET_ID);
+			fund_external_asset(USDC_ASSET_ID, ALICE, usdc_ceiling + OVER);
+			fund_external_asset(USDT_ASSET_ID, ALICE, usdt_ceiling + OVER);
+
+			// 2. Mint both to one MinSwapAmount below their ceilings
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, usdc_ceiling - OVER));
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDT_ASSET_ID, usdt_ceiling - OVER));
+
+			// 3. Fill the remaining MinSwapAmount gap
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, OVER));
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDT_ASSET_ID, OVER));
+
+			// 4. Per-asset ceilings sum to global ceiling exactly
+			assert_eq!(
+				crate::Pallet::<Test>::total_psm_debt(),
+				crate::Pallet::<Test>::max_psm_debt()
+			);
+
+			// 5. One more MinSwapAmount fails for both
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, OVER),
+				Error::<Test>::ExceedsMaxPsmDebt
+			);
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), USDT_ASSET_ID, OVER),
+				Error::<Test>::ExceedsMaxPsmDebt
+			);
+		});
+	}
+}
+
 mod cycles {
 	use super::*;
 
