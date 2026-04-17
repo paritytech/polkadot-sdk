@@ -36,7 +36,6 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::locations::AssetHubLocation;
 use westend_runtime_constants::system_parachain::COLLECTIVES_ID;
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
@@ -194,13 +193,20 @@ pub type Barrier = TrailingSetTopicAsId<
 >;
 
 parameter_types! {
-	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	pub DapSatelliteLocation: Location = {
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
+	};
 }
 
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(Equals<RootLocation>, RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>);
+pub type WaivedLocations = (
+	Equals<RootLocation>,
+	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+	Equals<DapSatelliteLocation>,
+);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - WND with the parent Relay Chain and sibling parachains.

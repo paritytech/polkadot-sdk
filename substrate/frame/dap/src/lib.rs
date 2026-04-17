@@ -53,14 +53,18 @@ use frame_support::{
 	pallet_prelude::*,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, Mutate, Unbalanced},
+		tokens::{Fortitude, Preservation},
 		Currency, Imbalance, OnUnbalanced, Time,
 	},
+	weights::WeightMeter,
 	PalletId,
 };
 use sp_runtime::{traits::Zero, BoundedBTreeMap, Perbill, SaturatedConversion, Saturating};
 use sp_staking::budget::{BudgetKey, BudgetRecipientList, IssuanceCurve};
 
 pub use pallet::*;
+
+pub use sp_dap::DAP_PALLET_ID;
 
 const LOG_TARGET: &str = "runtime::dap";
 
@@ -155,6 +159,11 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
+		/// Funds were drained from the staging account into the DAP buffer.
+		StagingDrained {
+			/// Amount drained.
+			amount: BalanceOf<T>,
+		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
@@ -199,6 +208,50 @@ pub mod pallet {
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(_n: BlockNumberFor<T>) -> Weight {
 			Self::drip_issuance()
+		}
+
+		fn on_idle(_block: BlockNumberFor<T>, remaining_weight: Weight) -> Weight {
+			let mut meter = WeightMeter::with_limit(remaining_weight);
+
+			// Need at least one read (staging account balance).
+			if meter.try_consume(T::DbWeight::get().reads(1)).is_err() {
+				return meter.consumed();
+			}
+
+			let staging_account = Self::staging_account();
+			let available = T::Currency::reducible_balance(
+				&staging_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+
+			if available.is_zero() {
+				return meter.consumed();
+			}
+
+			// Need 1 read and 2 writes for the transfer, plus 1 read and 1 write for
+			// deactivate (InactiveIssuance) and 1 read for TotalIssuance.
+			if meter.try_consume(T::DbWeight::get().reads_writes(3, 3)).is_err() {
+				return meter.consumed();
+			}
+
+			let buffer = Self::buffer_account();
+			if T::Currency::transfer(&staging_account, &buffer, available, Preservation::Preserve)
+				.is_err()
+			{
+				defensive!("DAP: staging account transfer to buffer failed");
+				return meter.consumed();
+			}
+
+			Self::deactivate_buffer_funds(available);
+			Self::deposit_event(Event::StagingDrained { amount: available });
+
+			log::debug!(
+				target: LOG_TARGET,
+				"DAP: drained {available:?} from staging account to DAP buffer"
+			);
+
+			meter.consumed()
 		}
 
 		fn integrity_test() {
@@ -263,8 +316,16 @@ pub mod pallet {
 		///
 		/// Collects any burn source wired to it (staking slashes, unclaimed rewards, etc.)
 		/// and its explicit budget allocation share.
-		pub(crate) fn buffer_account() -> T::AccountId {
+		pub fn buffer_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
+		}
+
+		/// The DAP staging account.
+		///
+		/// Incoming funds land here and are periodically drained and deactivated into the
+		/// DAP buffer account by `on_idle`.
+		pub fn staging_account() -> T::AccountId {
+			sp_dap::DAP_PALLET_ID.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID)
 		}
 
 		/// Deactivate funds on buffer inflow.
@@ -402,28 +463,21 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 /// use [`DapLegacyAdapter`] instead.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
-		let buffer = Self::buffer_account();
+		let staging = Self::staging_account();
 		let numeric_amount = amount.peek();
 
-		// Resolve should never fail because:
-		// - can_deposit on destination succeeds since buffer exists (created with provider at
-		//   genesis/runtime upgrade so no ED issue)
-		// - amount is guaranteed non-zero by the trait method signature
-		// The only failure would be overflow on destination.
-		let _ = T::Currency::resolve(&buffer, amount)
-			.inspect_err(|_| {
-				defensive!(
-					"🚨 Failed to deposit slash to DAP buffer - funds burned, it should never happen!"
-				);
-			})
-			.inspect(|_| {
-				// Deactivate on success; if resolve failed, tokens were burned.
-				Self::deactivate_buffer_funds(numeric_amount);
-				log::debug!(
-					target: LOG_TARGET,
-					"💸 Deposited slash of {numeric_amount:?} to DAP buffer"
-				);
-			});
+		// Funds land in the staging account; `on_idle` will drain them into the buffer and
+		// deactivate them there.  Deactivation is intentionally deferred so that active issuance
+		// does not flicker down-then-up within the same block.
+		let _ = T::Currency::resolve(&staging, amount).inspect_err(|_| {
+			defensive!(
+				"🚨 Failed to deposit slash to DAP staging account - funds burned, it should never happen!"
+			);
+		});
+		log::debug!(
+			target: LOG_TARGET,
+			"💸 Deposited {numeric_amount:?} to DAP staging account"
+		);
 	}
 }
 
@@ -449,14 +503,13 @@ where
 	C: Currency<T::AccountId, Balance = BalanceOf<T>>,
 {
 	fn on_nonzero_unbalanced(amount: LegacyNegativeImbalance<T::AccountId, C>) {
-		let buffer = Pallet::<T>::buffer_account();
+		let staging = Pallet::<T>::staging_account();
 		let numeric_amount = amount.peek();
 		// NOTE: resolve_creating is infallible.
-		C::resolve_creating(&buffer, amount);
-		Pallet::<T>::deactivate_buffer_funds(numeric_amount);
+		C::resolve_creating(&staging, amount);
 		log::debug!(
 			target: LOG_TARGET,
-			"💸 Deposited (legacy) slash of {numeric_amount:?} to DAP buffer"
+			"💸 Deposited (legacy) {numeric_amount:?} to DAP staging account"
 		);
 	}
 }

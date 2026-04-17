@@ -1344,6 +1344,10 @@ pub use sp_crypto_hashing;
 #[cfg(feature = "sp-crypto-hashing-proc-macro")]
 pub use sp_crypto_hashing_proc_macro;
 
+/// Primitives for the Dynamic Allocation Pool (DAP).
+#[cfg(feature = "sp-dap")]
+pub use sp_dap;
+
 /// Substrate database trait.
 #[cfg(feature = "sp-database")]
 pub use sp_database;

@@ -379,6 +379,8 @@ pub mod pallet {
 		IncorrectPoolAssetId,
 		/// The destination account cannot exist with the swapped funds.
 		BelowMinimum,
+		/// The pool exists but has no liquidity (at least one of the reserves is zero).
+		PoolEmpty,
 	}
 
 	#[pallet::hooks]
@@ -1392,7 +1394,7 @@ pub mod pallet {
 			let balance2 = Self::get_balance(&pool_account, asset2);
 
 			if balance1.is_zero() || balance2.is_zero() {
-				Err(Error::<T>::PoolNotFound)?;
+				Err(Error::<T>::PoolEmpty)?;
 			}
 
 			Ok((balance1, balance2))
