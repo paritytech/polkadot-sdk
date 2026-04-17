@@ -46,7 +46,15 @@ pub type PartsOf57600 = u16;
 
 /// Self-describing identity for a Region of Bulk Coretime.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Copy, Clone, PartialEq, Eq, Debug, TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
 	MaxEncodedLen,
 )]
 pub struct RegionId {
@@ -70,7 +78,15 @@ impl From<RegionId> for u128 {
 
 /// The identity of a possibly renewable Core workload.
 #[derive(
-	Encode, Decode, DecodeWithMemTracking, Copy, Clone, PartialEq, Eq, Debug, TypeInfo,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
 	MaxEncodedLen,
 )]
 pub struct PotentialRenewalId {
