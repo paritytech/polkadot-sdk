@@ -537,6 +537,46 @@ fn remove_liquidity_fails_with_excessive_lp_burn() {
 	});
 }
 
+#[test]
+fn get_reserves_works() {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+
+		setup_pool(provider, 10_000, 20_000);
+
+		let data = IAssetConversion::getReservesCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let result = bare_call(provider, data);
+		let return_data = result.result.expect("get_reserves must succeed");
+		assert!(!return_data.did_revert(), "get_reserves must not revert");
+
+		let ret = IAssetConversion::getReservesCall::abi_decode_returns(&return_data.data)
+			.expect("return data must decode");
+		assert_eq!(ret.reserve1, U256::from(10_000), "native reserve must match");
+		assert_eq!(ret.reserve2, U256::from(20_000), "asset1 reserve must match");
+	});
+}
+
+#[test]
+fn get_reserves_fails_for_nonexistent_pool() {
+	new_test_ext().execute_with(|| {
+		let caller = 1u64;
+
+		let data = IAssetConversion::getReservesCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(99).into(),
+		}
+		.abi_encode();
+
+		let result = bare_call(caller, data);
+		assert!(did_fail(&result), "get_reserves for nonexistent pool must fail");
+	});
+}
+
 // --- Read-only guard tests via STATICCALL ---
 
 alloy::sol! {

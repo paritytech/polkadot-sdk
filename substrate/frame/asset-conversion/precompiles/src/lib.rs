@@ -154,6 +154,16 @@ alloy::sol! {
 			uint256 amount2MinReceive,
 			address withdrawTo
 		) external returns (uint256 amount1, uint256 amount2);
+
+		/// Get the reserves (token balances) of a liquidity pool.
+		/// @param asset1 SCALE-encoded identifier of the first asset.
+		/// @param asset2 SCALE-encoded identifier of the second asset.
+		/// @return reserve1 The balance of asset1 in the pool.
+		/// @return reserve2 The balance of asset2 in the pool.
+		function getReserves(
+			bytes calldata asset1,
+			bytes calldata asset2
+		) external view returns (uint256 reserve1, uint256 reserve2);
 	}
 }
 
@@ -213,6 +223,7 @@ where
 			IAssetConversionCalls::createPool(call) => Self::create_pool(call, env),
 			IAssetConversionCalls::addLiquidity(call) => Self::add_liquidity(call, env),
 			IAssetConversionCalls::removeLiquidity(call) => Self::remove_liquidity(call, env),
+			IAssetConversionCalls::getReserves(call) => Self::get_reserves(call, env),
 		}
 	}
 }
@@ -473,6 +484,32 @@ where
 			&IAssetConversion::removeLiquidityReturn {
 				amount1: Self::to_u256(amount1)?,
 				amount2: Self::to_u256(amount2)?,
+			},
+		))
+	}
+
+	fn get_reserves(
+		call: &IAssetConversion::getReservesCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		// Same weight rationale as quote functions: charge swap weight for path length 2.
+		env.charge(
+			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
+				2,
+			),
+		)?;
+
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
+		let (reserve1, reserve2) =
+			pallet_asset_conversion::Pallet::<Runtime>::get_reserves(asset1, asset2)
+				.map_err(|_| Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }))?;
+
+		Ok(IAssetConversion::getReservesCall::abi_encode_returns(
+			&IAssetConversion::getReservesReturn {
+				reserve1: Self::to_u256(reserve1)?,
+				reserve2: Self::to_u256(reserve2)?,
 			},
 		))
 	}
