@@ -17,6 +17,6 @@
 
 //! Migrations for the PSM pallet.
 
-pub mod v1;
+pub mod init;
 
-pub use v1::MigrateToV1;
+pub use init::InitializePsm;

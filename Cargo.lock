@@ -378,7 +378,9 @@ dependencies = [
  "alloy-network-primitives",
  "alloy-primitives",
  "alloy-rpc-client",
+ "alloy-rpc-types-debug",
  "alloy-rpc-types-eth",
+ "alloy-rpc-types-trace",
  "alloy-signer",
  "alloy-sol-types",
  "alloy-transport",
@@ -457,6 +459,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rpc-types-engine",
  "alloy-rpc-types-eth",
+ "alloy-rpc-types-trace",
  "alloy-serde",
  "serde",
 ]
@@ -470,6 +473,18 @@ dependencies = [
  "alloy-consensus-any",
  "alloy-rpc-types-eth",
  "alloy-serde",
+]
+
+[[package]]
+name = "alloy-rpc-types-debug"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2145138f3214928f08cd13da3cb51ef7482b5920d8ac5a02ecd4e38d1a8f6d1e"
+dependencies = [
+ "alloy-primitives",
+ "derive_more 2.0.1",
+ "serde",
+ "serde_with",
 ]
 
 [[package]]
@@ -508,6 +523,20 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_with",
+ "thiserror 2.0.12",
+]
+
+[[package]]
+name = "alloy-rpc-types-trace"
+version = "1.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2e5a4d010f86cd4e01e5205ec273911e538e1738e76d8bafe9ecd245910ea5a3"
+dependencies = [
+ "alloy-primitives",
+ "alloy-rpc-types-eth",
+ "alloy-serde",
+ "serde",
+ "serde_json",
  "thiserror 2.0.12",
 ]
 
@@ -1679,6 +1708,7 @@ dependencies = [
  "staging-xcm",
  "staging-xcm-builder",
  "staging-xcm-executor",
+ "westend-runtime",
  "westend-system-emulated-network",
  "xcm-runtime-apis",
 ]
@@ -1796,6 +1826,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
@@ -3240,6 +3271,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
@@ -3800,6 +3832,7 @@ dependencies = [
  "pallet-utility",
  "pallet-whitelist",
  "pallet-xcm",
+ "parachains-common",
  "parity-scale-codec",
  "polkadot-runtime-common",
  "sp-runtime 31.0.1",
@@ -3872,6 +3905,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
@@ -4158,6 +4192,7 @@ dependencies = [
 name = "coretime-westend-integration-tests"
 version = "0.0.0"
 dependencies = [
+ "coretime-westend-runtime",
  "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
@@ -4223,6 +4258,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-keyring",
@@ -6369,6 +6405,8 @@ dependencies = [
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
+ "pallet-dap",
+ "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-whitelist",
  "pallet-xcm",
@@ -6384,6 +6422,7 @@ dependencies = [
  "sp-consensus-babe",
  "sp-consensus-beefy",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-keyring",
  "sp-runtime 31.0.1",
  "staging-xcm",
@@ -7062,6 +7101,7 @@ checksum = "6c2141d6d6c8512188a7891b4b01590a45f6dac67afb4f255c4124dbb86d4eaa"
 name = "frame-benchmarking"
 version = "28.0.0"
 dependencies = [
+ "anyhow",
  "array-bytes 6.2.2",
  "frame-support",
  "frame-support-procedural",
@@ -7092,6 +7132,7 @@ name = "frame-benchmarking-cli"
 version = "32.0.0"
 dependencies = [
  "Inflector",
+ "anyhow",
  "array-bytes 6.2.2",
  "chrono",
  "clap",
@@ -12014,7 +12055,6 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -12025,6 +12065,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
+ "test-case",
 ]
 
 [[package]]
@@ -12752,6 +12793,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
@@ -12770,6 +12812,7 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
 ]
@@ -15424,6 +15467,7 @@ dependencies = [
 name = "people-westend-integration-tests"
 version = "0.1.0"
 dependencies = [
+ "cumulus-pallet-parachain-system",
  "emulated-integration-tests-common",
  "frame-support",
  "pallet-balances",
@@ -15492,6 +15536,7 @@ dependencies = [
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-keyring",
@@ -17395,6 +17440,7 @@ dependencies = [
  "sp-crypto-ec-utils",
  "sp-crypto-hashing 0.1.0",
  "sp-crypto-hashing-proc-macro 0.1.0",
+ "sp-dap",
  "sp-database 10.0.0",
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
@@ -24606,6 +24652,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-dap"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+]
+
+[[package]]
 name = "sp-database"
 version = "10.0.0"
 dependencies = [
@@ -25901,6 +25954,7 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
@@ -29428,7 +29482,6 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
- "pallet-treasury",
  "pallet-utility",
  "pallet-vesting",
  "pallet-whitelist",
@@ -29452,6 +29505,7 @@ dependencies = [
  "sp-consensus-beefy",
  "sp-consensus-grandpa",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-genesis-builder 0.8.0",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
@@ -29484,6 +29538,7 @@ dependencies = [
  "polkadot-runtime-common",
  "smallvec",
  "sp-core 28.0.0",
+ "sp-dap",
  "sp-runtime 31.0.1",
  "sp-weights 27.0.0",
  "staging-xcm",
