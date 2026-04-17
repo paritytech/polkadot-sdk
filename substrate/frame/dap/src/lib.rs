@@ -319,7 +319,7 @@ pub mod pallet {
 		/// Returns the total amount successfully minted. Individual recipient mint
 		/// failures emit `MintFailed` and are skipped; the function does not roll
 		/// back successful mints for earlier recipients.
-		pub fn mint_and_distribute(elapsed: u64) -> BalanceOf<T> {
+		pub(crate) fn mint_and_distribute(elapsed: u64) -> BalanceOf<T> {
 			let total_issuance = T::Currency::total_issuance();
 			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 

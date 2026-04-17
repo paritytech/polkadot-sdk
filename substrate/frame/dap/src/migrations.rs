@@ -30,8 +30,7 @@ use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 ///   `ActiveEra.start` from staking). Only used as an input to the catch-up drip — not persisted.
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation.
 ///
-/// Note: The catch-up drip bypasses `MaxElapsedPerDrip` because the cap protects the
-/// `on_initialize` hot path from bugs/stalls, not a deliberate migration step.
+/// Note: The catch-up drip bypasses `MaxElapsedPerDrip`.
 pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
