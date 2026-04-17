@@ -308,7 +308,7 @@ mod tests {
 	#[test]
 	fn initialize_psm_skips_assets_with_wrong_decimals() {
 		use frame_support::traits::{
-			fungibles::{Create as FungiblesCreate, metadata::Mutate as MetadataMutate},
+			fungibles::{metadata::Mutate as MetadataMutate, Create as FungiblesCreate},
 			OnRuntimeUpgrade,
 		};
 
