@@ -3063,9 +3063,7 @@ pub mod pallet {
 				ConfigOp::Remove => BalanceOf::<T>::zero(),
 			};
 
-			if !new_optimum.is_zero() && !new_cap.is_zero() {
-				ensure!(new_optimum <= new_cap, Error::<T>::OptimumGreaterThanCap);
-			}
+			ensure!(new_optimum <= new_cap, Error::<T>::OptimumGreaterThanCap);
 
 			let has_changes = !matches!(
 				(&optimum_self_stake, &hard_cap_self_stake, &self_stake_slope_factor),
