@@ -73,7 +73,7 @@ use sp_statement_store::{
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -246,13 +246,22 @@ impl Default for Config {
 #[derive(Default)]
 struct EvictedIndex {
 	hashes: HashSet<Hash>,
-	queue: BTreeMap<(u64, Hash), ()>,
+	queue: BTreeSet<(u64, Hash)>,
+	/// Hashes displaced by the capacity cap, pending deletion from `col::EXPIRED`
+	overflow: Vec<Hash>,
 }
 
 impl EvictedIndex {
-	fn insert(&mut self, hash: Hash, purge_at: u64) {
+	fn insert(&mut self, hash: Hash, purge_at: u64, max: usize) {
+		if self.hashes.len() >= max {
+			if let Some(&key) = self.queue.iter().next() {
+				self.queue.remove(&key);
+				self.hashes.remove(&key.1);
+				self.overflow.push(key.1);
+			}
+		}
 		self.hashes.insert(hash);
-		self.queue.insert((purge_at, hash), ());
+		self.queue.insert((purge_at, hash));
 	}
 
 	fn contains(&self, hash: &Hash) -> bool {
@@ -263,17 +272,18 @@ impl EvictedIndex {
 		self.hashes.len()
 	}
 
-	/// Removes and returns all hashes whose purge deadline is at or before `current_time`
+	/// Removes and returns all hashes whose purge deadline is at or before `current_time`,
+	/// plus any hashes displaced by the capacity cap since the last call.
 	fn drain_due(&mut self, current_time: u64) -> Vec<Hash> {
 		let cutoff = (current_time.saturating_add(1), Hash::default());
 		let to_keep = self.queue.split_off(&cutoff);
 		let due = std::mem::replace(&mut self.queue, to_keep);
-		due.into_keys()
-			.map(|(_, hash)| {
-				self.hashes.remove(&hash);
-				hash
-			})
-			.collect()
+		let mut result: Vec<Hash> = std::mem::take(&mut self.overflow);
+		result.extend(due.into_iter().map(|(_, hash)| {
+			self.hashes.remove(&hash);
+			hash
+		}));
+		result
 	}
 }
 
@@ -400,7 +410,7 @@ impl Index {
 
 	fn insert_expired(&mut self, hash: Hash, timestamp: u64) {
 		let purge_at = timestamp.saturating_add(self.config.purge_after_sec);
-		self.evicted.insert(hash, purge_at);
+		self.evicted.insert(hash, purge_at, self.config.max_total_statements);
 	}
 
 	fn iterate_with(
@@ -542,7 +552,7 @@ impl Index {
 				let purge_at = expiry
 					.get_expiration_timestamp_secs()
 					.min(current_time.saturating_add(self.config.purge_after_sec));
-				self.evicted.insert(*hash, purge_at);
+				self.evicted.insert(*hash, purge_at, self.config.max_total_statements);
 			}
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
