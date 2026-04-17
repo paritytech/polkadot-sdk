@@ -26,9 +26,8 @@ use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 /// `now` so regular drips start a fresh cadence from here.
 ///
 /// - `T`: DAP pallet config
-/// - `P`: `Get<u64>` providing the last inflation timestamp before DAP activation
-///   (e.g. `ActiveEra.start` from staking). Only used as an input to the catch-up
-///   drip — not persisted.
+/// - `P`: `Get<u64>` providing the last inflation timestamp before DAP activation (e.g.
+///   `ActiveEra.start` from staking). Only used as an input to the catch-up drip — not persisted.
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation.
 ///
 /// Note: The catch-up drip bypasses `MaxElapsedPerDrip` because the cap protects the
@@ -131,12 +130,10 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 		);
 
 		// Catch-up actually minted.
-		let actual_mint =
-			T::Currency::total_issuance().saturating_sub(total_issuance_before);
+		let actual_mint = T::Currency::total_issuance().saturating_sub(total_issuance_before);
 		let max_dust = BalanceOf::<T>::from(budget.len() as u32);
 		frame_support::ensure!(
-			actual_mint <= expected_mint &&
-				actual_mint.saturating_add(max_dust) >= expected_mint,
+			actual_mint <= expected_mint && actual_mint.saturating_add(max_dust) >= expected_mint,
 			"Catch-up mint outside expected [expected - dust, expected] window"
 		);
 
