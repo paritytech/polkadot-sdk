@@ -1,0 +1,19 @@
+title: Introduce `sp-coretime` primitives crate
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Introduces sp-coretime, a primitives crate for Polkadot Coretime types and traits.
+      Moves shared coretime types and the Market trait from pallet-broker into sp-coretime.
+
+      This allows market implementations (e.g. an RFC-17 pallet) to depend on sp-coretime
+      instead of pallet-broker, avoiding a pallet dependency just for trait definitions and
+      shared types.
+
+      pallet-broker re-exports everything from sp-coretime for backward compatibility.
+
+crates:
+  - name: sp-coretime
+    bump: major
+  - name: pallet-broker
+    bump: patch
