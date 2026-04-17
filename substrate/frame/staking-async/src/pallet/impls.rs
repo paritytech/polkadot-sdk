@@ -724,18 +724,14 @@ impl<T: Config> Pallet<T> {
 	/// Transfer validator incentive from era pot to the validator's payout account.
 	///
 	/// This is a direct liquid transfer. Future PRs may introduce vesting via a trait.
-	fn transfer_validator_incentive(
-		era: EraIndex,
-		stash: &T::AccountId,
-		amount: BalanceOf<T>,
-	) -> BalanceOf<T> {
+	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
 		let (dest, payout_account) = match Self::payee(Stash(stash.clone())) {
 			Some(d) if !matches!(d, RewardDestination::None) => {
 				match Self::payout_account_for_dest(stash, &d) {
 					Some(account) => (d, account),
 					None => {
 						defensive!("Unable to determine payout account for destination");
-						return Zero::zero();
+						return;
 					},
 				}
 			},
@@ -745,7 +741,7 @@ impl<T: Config> Pallet<T> {
 					stash: stash.clone(),
 				}));
 				defensive!("Validator missing payee");
-				return Zero::zero();
+				return;
 			},
 		};
 
@@ -767,7 +763,6 @@ impl<T: Config> Pallet<T> {
 					dest,
 					amount,
 				});
-				amount
 			},
 			Err(e) => {
 				log!(warn, "Failed to transfer liquid incentive: {:?}", e);
@@ -775,7 +770,6 @@ impl<T: Config> Pallet<T> {
 					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
 				));
 				defensive!("Validator incentive liquid transfer failed");
-				Zero::zero()
 			},
 		}
 	}
