@@ -203,6 +203,7 @@ std = [
 	"sp-core?/std",
 	"sp-crypto-ec-utils?/std",
 	"sp-crypto-hashing?/std",
+	"sp-dap?/std",
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
 	"sp-genesis-builder?/std",
@@ -772,6 +773,7 @@ runtime-full = [
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
+	"sp-dap",
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
@@ -845,6 +847,7 @@ runtime = [
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
+	"sp-dap",
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
@@ -2041,6 +2044,11 @@ path = "../substrate/primitives/crypto/hashing"
 default-features = false
 optional = true
 path = "../substrate/primitives/crypto/hashing/proc-macro"
+
+[dependencies.sp-dap]
+default-features = false
+optional = true
+path = "../substrate/primitives/dap"
 
 [dependencies.sp-debug-derive]
 default-features = false
