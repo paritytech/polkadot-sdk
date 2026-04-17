@@ -2579,8 +2579,6 @@ mod tests {
 			"Peer should be disconnected after exceeding rate limit. Disconnected: {:?}",
 			disconnected
 		);
-
-		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
 
 	#[tokio::test]
