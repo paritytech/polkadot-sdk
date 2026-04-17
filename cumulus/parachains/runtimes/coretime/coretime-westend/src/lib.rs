@@ -642,7 +642,7 @@ impl pallet_dap_satellite::Config for Runtime {
 	type TransferPeriod = DapSatelliteTransferPeriod;
 	type MinTransferAmount = DapSatelliteMinTransferAmount;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
 }
 
 pub struct BrokerMigrationV4BlockConversion;
