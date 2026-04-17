@@ -43,4 +43,6 @@ pub trait Backend {
 		bumps: BTreeMap<ParaId, HashMap<PeerId, Score>>,
 		decay_value: Option<Score>,
 	) -> Vec<ReputationUpdate>;
+	/// Get the maximum scores for the given paraids.
+	async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score>;
 }

@@ -68,14 +68,6 @@
 //! # use sp_runtime::transaction_validity::{
 //! #    TransactionValidity, UnknownTransaction, TransactionSource,
 //! # };
-//! # use sp_runtime::traits::ValidateUnsigned;
-//! # impl ValidateUnsigned for Runtime {
-//! #     type Call = ();
-//! #
-//! #     fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
-//! #         UnknownTransaction::NoUnsignedValidator.into()
-//! #     }
-//! # }
 //! /// Executive: handles dispatch to the various modules.
 //! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem>;
 //! ```
@@ -135,11 +127,14 @@ use sp_runtime::{
 	generic::Digest,
 	traits::{
 		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, LazyBlock, NumberFor, One,
-		ValidateUnsigned, Zero,
+		Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
+
+#[allow(deprecated)]
+use sp_runtime::traits::ValidateUnsigned;
 
 #[cfg(feature = "try-runtime")]
 use ::{
@@ -195,12 +190,15 @@ pub enum ExecutiveError {
 impl core::fmt::Debug for ExecutiveError {
 	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match self {
-			ExecutiveError::UnableToDecodeExtrinsic =>
-				write!(fmt, "The extrinsic could not be decoded correctly"),
-			ExecutiveError::InvalidInherentPosition(i) =>
-				write!(fmt, "Invalid inherent position for extrinsic at index {}", i),
-			ExecutiveError::OnlyInherentsAllowed =>
-				write!(fmt, "Only inherents are allowed in this block"),
+			ExecutiveError::UnableToDecodeExtrinsic => {
+				write!(fmt, "The extrinsic could not be decoded correctly")
+			},
+			ExecutiveError::InvalidInherentPosition(i) => {
+				write!(fmt, "Invalid inherent position for extrinsic at index {}", i)
+			},
+			ExecutiveError::OnlyInherentsAllowed => {
+				write!(fmt, "Only inherents are allowed in this block")
+			},
 			ExecutiveError::ApplyExtrinsic(e) => write!(
 				fmt,
 				"ExecuteBlockError applying extrinsic: {}",
@@ -719,6 +717,7 @@ where
 			let header = block.header();
 			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
+			<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 			Self::final_checks(&header);
 		}
 	}
@@ -761,7 +760,7 @@ where
 			} else {
 				// Check if there are any forbidden non-inherents in the block.
 				if mode == ExtrinsicInclusionMode::OnlyInherents {
-					return Err(ExecutiveError::OnlyInherentsAllowed)
+					return Err(ExecutiveError::OnlyInherentsAllowed);
 				}
 			}
 
@@ -796,6 +795,7 @@ where
 		let block_number = <frame_system::Pallet<System>>::block_number();
 		Self::on_idle_hook(block_number);
 		Self::on_finalize_hook(block_number);
+		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 		<frame_system::Pallet<System>>::finalize()
 	}
 
@@ -803,7 +803,7 @@ where
 	/// ongoing MBMs.
 	fn on_idle_hook(block_number: NumberFor<Block>) {
 		if <System as frame_system::Config>::MultiBlockMigrator::ongoing() {
-			return
+			return;
 		}
 
 		let weight = <frame_system::Pallet<System>>::block_weight();
@@ -897,7 +897,7 @@ where
 		// The entire block should be discarded if an inherent fails to apply. Otherwise
 		// it may open an attack vector.
 		if r.is_err() && dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::BadMandatory.into())
+			return Err(InvalidTransaction::BadMandatory.into());
 		}
 
 		<frame_system::Pallet<System>>::note_applied_extrinsic(&r, dispatch_info);
@@ -982,7 +982,7 @@ where
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {
-			return Err(InvalidTransaction::MandatoryValidation.into())
+			return Err(InvalidTransaction::MandatoryValidation.into());
 		}
 
 		within_span! {

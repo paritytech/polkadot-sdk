@@ -42,32 +42,20 @@ jobs:
     # However, env variables don't work for forks: https://github.com/orgs/community/discussions/44322
     # This workaround sets the container image for each job using 'set-image' job output.
     runs-on: ubuntu-latest
-    env:
-      BINARY: ${{ inputs.binary }}
     outputs:
       IMAGE: ${{ steps.set_image.outputs.IMAGE }}
-      RUNNER: ${{ steps.set_image.outputs.RUNNER }}
     steps:
       - name: Checkout
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - id: set_image
-        run: |
-          cat .github/env >> $GITHUB_OUTPUT
-          RUNNER=""
-          if [[ "${BINARY}" =~ "polkadot-parachain" || "${BINARY}" =~ "polkadot-omni-node" ]]; then
-            RUNNER="ubuntu-latest-m"
-            echo "Using ubuntu-latest-m runner"
-          else
-            RUNNER="ubuntu-latest"
-            echo "Using ubuntu-latest runner"
-          fi
-          echo "RUNNER=${RUNNER}" >> $GITHUB_OUTPUT
+        run: cat .github/env >> $GITHUB_OUTPUT
+        
 
   build-rc:
     if: ${{ inputs.target == 'x86_64-unknown-linux-gnu' }}
     needs: [set-image]
-    runs-on: ${{ needs.set-image.outputs.RUNNER }}
+    runs-on: ubuntu-latest-m
     environment: release
     container:
       image: ${{ needs.set-image.outputs.IMAGE }}
@@ -85,11 +73,11 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151"
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae"
           which pgpkms
 
       - name: Checkout sources
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ inputs.release_tag }}
           fetch-depth: 0
@@ -102,39 +90,49 @@ jobs:
           import_gpg_keys
 
       - name: Build binary
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
+          INPUT_PACKAGE: ${{ inputs.package }}
+          INPUT_FEATURES: ${{ inputs.features }}
         run: |
           git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-          ./.github/scripts/release/build-linux-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
+          ./.github/scripts/release/build-linux-release.sh "$BINARY_NAME" "$INPUT_PACKAGE" "$INPUT_FEATURES"
 
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+        uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
         with:
           subject-path: /artifacts/${{ matrix.binaries }}/${{ matrix.binaries }}
 
       - name: Sign artifacts
         working-directory: /artifacts/${{ matrix.binaries }}
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
         run: |
-          python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+          python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
 
       - name: Check sha256 ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
         shell: bash
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
         run: |
           .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          echo "Checking binary  ${{ matrix.binaries }}"
-          check_sha256  ${{ matrix.binaries }}
+          echo "Checking binary  $BINARY_NAME"
+          check_sha256  "$BINARY_NAME"
 
       - name: Check GPG ${{ matrix.binaries }}
         working-directory: /artifacts/${{ matrix.binaries }}
         shell: bash
+        env:
+          BINARY_NAME: ${{ matrix.binaries }}
         run: |
           . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-          check_gpg  ${{ matrix.binaries }}
+          check_gpg  "$BINARY_NAME"
 
       - name: Upload ${{ matrix.binaries }} artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: ${{ matrix.binaries }}_${{ inputs.target }}
           path: /artifacts/${{ matrix.binaries }}
@@ -154,7 +152,7 @@ jobs:
        AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
      steps:
        - name: Checkout sources
-         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
          with:
            ref: ${{ inputs.release_tag }}
            fetch-depth: 0
@@ -176,7 +174,7 @@ jobs:
          run: echo "/opt/homebrew/bin" >>  $GITHUB_PATH
 
        - name: Install rust ${{ env.RUST_VERSION }}
-         uses: actions-rust-lang/setup-rust-toolchain@fb51252c7ba57d633bc668f941da052e410add48 # v1.13.0
+         uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # v1.15.2
          with:
            cache: false
            toolchain: ${{ env.RUST_VERSION }}
@@ -201,18 +199,11 @@ jobs:
            touch ~/.gnupg/dirmngr.conf
            echo "standard-resolver" >  ~/.gnupg/dirmngr.conf
 
-       - name: Install solc
-         run: brew install solidity
+       - name: Install Solc
+         uses: ./.github/actions/get-solc
 
        - name: Install resolc
-         run: |
-            VERSION="0.3.0"
-            ASSET_URL="https://github.com/paritytech/revive/releases/download/v$VERSION/resolc-universal-apple-darwin"
-            echo "Downloading resolc v$VERSION from $ASSET_URL"
-            curl -Lsf --show-error -o $HOME/.cargo/bin/resolc "$ASSET_URL"
-            chmod +x $HOME/.cargo/bin/resolc
-            xattr -c $HOME/.cargo/bin/resolc
-            resolc --version
+         uses: ./.github/actions/get-resolc
 
        - name: Install llvm
          run: |
@@ -220,11 +211,20 @@ jobs:
 
        - name: Set dynamic library path
          run: |
-           LLVM_PATH=$(brew --prefix llvm)
-           export LIBCLANG_PATH="$LLVM_PATH/lib"
-           export LDFLAGS="-L$LLVM_PATH/lib"
-           export CPPFLAGS="-I$LLVM_PATH/include"
+           LLVM_PATH=$(brew --prefix llvm@21)
+           echo "LLVM_PATH resolved to: $LLVM_PATH"
+           ls -la "$LLVM_PATH/lib/libclang.dylib" || echo "libclang.dylib not found at $LLVM_PATH/lib/"
+           # Fallback: try unversioned path
+           if [ ! -f "$LLVM_PATH/lib/libclang.dylib" ]; then
+             LLVM_PATH=$(brew --prefix llvm)
+             echo "Falling back to: $LLVM_PATH"
+             ls -la "$LLVM_PATH/lib/libclang.dylib" || echo "libclang.dylib not found at $LLVM_PATH/lib/ either"
+           fi
+           echo "LIBCLANG_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+           echo "LDFLAGS=-L$LLVM_PATH/lib" >> $GITHUB_ENV
+           echo "CPPFLAGS=-I$LLVM_PATH/include" >> $GITHUB_ENV
            echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+           echo "DYLD_FALLBACK_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
 
        - name: Install sha256sum
          run: |
@@ -233,7 +233,7 @@ jobs:
        - name: Install pgpkkms
          run: |
            # Install pgpkms that is used to sign built artifacts
-           python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151" --break-system-packages
+           python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae" --break-system-packages
 
        - name: Import gpg keys
          shell: bash
@@ -243,39 +243,49 @@ jobs:
            import_gpg_keys
 
        - name: Build binary
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
+           INPUT_PACKAGE: ${{ inputs.package }}
+           INPUT_FEATURES: ${{ inputs.features }}
          run: |
            git config --global --add safe.directory "${GITHUB_WORKSPACE}" #avoid "detected dubious ownership" error
-           ./.github/scripts/release/build-macos-release.sh ${{ matrix.binaries }} ${{ inputs.package }} ${{ inputs.features }}
+           ./.github/scripts/release/build-macos-release.sh "$BINARY_NAME" "$INPUT_PACKAGE" "$INPUT_FEATURES"
 
        - name: Generate artifact attestation
-         uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
+         uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
          with:
            subject-path: ${{ env.ARTIFACTS_PATH }}/${{ matrix.binaries }}
 
        - name: Sign artifacts
          working-directory: ${{ env.ARTIFACTS_PATH }}
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
          run: |
-           python3 -m pgpkms sign --input ${{matrix.binaries }} -o ${{ matrix.binaries }}.asc
+           python3 -m pgpkms sign --input "$BINARY_NAME" -o "${BINARY_NAME}.asc"
 
        - name: Check sha256 ${{ matrix.binaries }}
          working-directory: ${{ env.ARTIFACTS_PATH }}
          shell: bash
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
          run: |
            .  "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-           echo "Checking binary  ${{ matrix.binaries }}"
-           check_sha256  ${{ matrix.binaries }}
+           echo "Checking binary  $BINARY_NAME"
+           check_sha256  "$BINARY_NAME"
 
        - name: Check GPG ${{ matrix.binaries }}
          working-directory: ${{ env.ARTIFACTS_PATH }}
          shell: bash
+         env:
+           BINARY_NAME: ${{ matrix.binaries }}
          run: |
            . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
 
-           check_gpg  ${{ matrix.binaries }}
+           check_gpg  "$BINARY_NAME"
 
        - name: Upload ${{ matrix.binaries }} artifacts
-         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
+         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
          with:
            name: ${{ matrix.binaries }}_${{ inputs.target }}
            path: ${{ env.ARTIFACTS_PATH }}
@@ -287,27 +297,27 @@ jobs:
 
     steps:
     - name: Checkout sources
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         ref: ${{ inputs.release_tag }}
         fetch-depth: 0
 
     - name: Download polkadot_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         name: polkadot_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
     - name: Download polkadot-execute-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         name: polkadot-execute-worker_x86_64-unknown-linux-gnu
         path: target/production
         merge-multiple: true
 
     - name: Download polkadot-prepare-worker_x86_64-unknown-linux-gnu artifacts
-      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
       with:
         name: polkadot-prepare-worker_x86_64-unknown-linux-gnu
         path: target/production
@@ -326,27 +336,31 @@ jobs:
 
     - name: Build polkadot deb package
       shell: bash
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
       run: |
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
         VERSION=$(get_polkadot_node_version_from_code)
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh ${{ inputs.package }} ${VERSION}
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-deb.sh "$INPUT_PACKAGE" "${VERSION}"
 
     - name: Build polkadot rpm package
       shell: bash
+      env:
+        INPUT_PACKAGE: ${{ inputs.package }}
       run: |
         . "${GITHUB_WORKSPACE}"/.github/scripts/common/lib.sh
         VERSION=$(get_polkadot_node_version_from_code)
-        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh ${{ inputs.package }} ${VERSION}
+        . "${GITHUB_WORKSPACE}"/.github/scripts/release/build-rpm.sh "$INPUT_PACKAGE" "${VERSION}"
 
     - name: Generate artifact attestation
-      uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3.0.0
+      uses: actions/attest-build-provenance@96278af6caaf10aea03fd8d33a09a777ca52d62f # v3.2.0
       with:
         subject-path: |
           target/production/*.deb
           target/production/*.rpm
 
     - name: Upload ${{inputs.package }} artifacts
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
       with:
         name: ${{ inputs.package }}_${{ inputs.target }}
         path: target/production

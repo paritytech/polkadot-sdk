@@ -1,0 +1,12 @@
+title: 'Weight: Put `must_use` above some of the functions'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Some functions return the modified weight and the user must use this or the changes are lost. This way the compiler informs the user.
+crates:
+- name: pallet-xcm
+  bump: patch
+- name: staging-xcm-executor
+  bump: patch
+- name: sp-weights
+  bump: patch

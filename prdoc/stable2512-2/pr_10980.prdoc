@@ -1,0 +1,11 @@
+title: Add StakingOperator proxy type to Westend AssetHub
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduces StakingOperator proxy type that allows validator operational tasks (validate, chill, kick) and session key management (set_keys, purge_keys) without access to fund management operations.
+
+    This enables pure proxy stashes to delegate validator operations: now that pallet_staking_async_rc_client provides
+    set_keys/purge_keys on AssetHub, pure proxies can fully utilize StakingOperator.
+crates:
+- name: asset-hub-westend-runtime
+  bump: major

@@ -235,7 +235,7 @@ mod tests {
 			if response != not_ready {
 				assert_eq!(response, expected);
 				// Success
-				return
+				return;
 			}
 			tokio::time::sleep(std::time::Duration::from_millis(50)).await;
 		}

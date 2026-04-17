@@ -24,7 +24,7 @@ use frame_support::traits::{
 };
 use pallet_treasury::TreasuryAccountId;
 use polkadot_primitives::Balance;
-use sp_runtime::{traits::TryConvert, Perquintill, RuntimeDebug};
+use sp_runtime::{traits::TryConvert, Perquintill};
 use xcm::VersionedLocation;
 
 /// Logic for the author to get a portion of fees.
@@ -137,7 +137,7 @@ pub fn relay_era_payout(params: EraPayoutParams) -> (Balance, Balance) {
 	Eq,
 	PartialEq,
 	Clone,
-	RuntimeDebug,
+	Debug,
 	scale_info::TypeInfo,
 	MaxEncodedLen,
 )]
@@ -176,13 +176,15 @@ impl TryConvert<VersionedLocatableAsset, xcm_builder::LocatableAssetId>
 					asset_id: v4_asset_id.try_into().map_err(|_| asset.clone())?,
 				})
 			},
-			VersionedLocatableAsset::V4 { ref location, ref asset_id } =>
+			VersionedLocatableAsset::V4 { ref location, ref asset_id } => {
 				Ok(xcm_builder::LocatableAssetId {
 					location: location.clone().try_into().map_err(|_| asset.clone())?,
 					asset_id: asset_id.clone().try_into().map_err(|_| asset.clone())?,
-				}),
-			VersionedLocatableAsset::V5 { location, asset_id } =>
-				Ok(xcm_builder::LocatableAssetId { location, asset_id }),
+				})
+			},
+			VersionedLocatableAsset::V5 { location, asset_id } => {
+				Ok(xcm_builder::LocatableAssetId { location, asset_id })
+			},
 		}
 	}
 }
@@ -336,7 +338,9 @@ mod tests {
 				weight.max_total = Some(Weight::from_parts(1024, u64::MAX));
 			})
 			.build_or_panic();
-		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 

@@ -191,7 +191,7 @@ impl<V: FullCodec> Page<V> {
 			.and_then(|raw| alloc::vec::Vec::<V>::decode(&mut &raw[..]).ok())?;
 		if values.is_empty() {
 			// Don't create empty pages.
-			return None
+			return None;
 		}
 		let values = values.into_iter().skip(value_index as usize);
 
@@ -281,7 +281,7 @@ where
 				defensive!("There are no empty pages in storage; nuking the list");
 				self.meta.reset();
 				self.page = None;
-				return None
+				return None;
 			},
 		};
 

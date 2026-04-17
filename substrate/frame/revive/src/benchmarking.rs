@@ -19,29 +19,29 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 use crate::{
-	call_builder::{caller_funding, default_deposit_limit, CallSetup, Contract, VmBinaryModule},
+	Pallet as Contracts,
+	call_builder::{CallSetup, Contract, VmBinaryModule, caller_funding, default_deposit_limit},
 	evm::{
-		block_hash::EthereumBlockBuilder, block_storage, TransactionLegacyUnsigned,
-		TransactionSigned, TransactionUnsigned,
+		TransactionLegacyUnsigned, TransactionSigned, TransactionUnsigned,
+		block_hash::EthereumBlockBuilder, block_storage,
 	},
-	exec::{Key, PrecompileExt},
+	exec::{Key, Origin as ExecOrigin, PrecompileExt},
 	limits,
 	precompiles::{
-		self,
+		self, BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 		alloy::sol_types::{
-			sol_data::{Bool, Bytes, FixedBytes, Uint},
 			SolType,
+			sol_data::{Bool, Bytes, FixedBytes, Uint},
 		},
 		run::builtin as run_builtin_precompile,
-		BenchmarkStorage, BenchmarkSystem, BuiltinPrecompile,
 	},
 	storage::WriteOutcome,
 	vm::{
 		evm,
-		evm::{instructions, instructions::utility::IntoAddress, Interpreter},
+		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
 		pvm,
 	},
-	Pallet as Contracts, *,
+	*,
 };
 use alloc::{vec, vec::Vec};
 use alloy_core::sol_types::{SolInterface, SolValue};
@@ -51,21 +51,20 @@ use frame_support::{
 	self, assert_ok,
 	migrations::SteppedMigration,
 	storage::child,
-	traits::{fungible::InspectHold, Hooks},
+	traits::{Hooks, fungible::InspectHold},
 	weights::{Weight, WeightMeter},
 };
 use frame_system::RawOrigin;
 use k256::ecdsa::SigningKey;
 use pallet_revive_uapi::{
-	pack_hi_lo,
+	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
-	CallFlags, ReturnErrorCode, StorageFlags,
 };
 use revm::bytecode::Bytecode;
 use sp_consensus_aura::AURA_ENGINE_ID;
 use sp_consensus_babe::{
-	digests::{PreDigest, PrimaryPreDigest},
 	BABE_ENGINE_ID,
+	digests::{PreDigest, PrimaryPreDigest},
 };
 use sp_consensus_slots::Slot;
 use sp_runtime::{generic::DigestItem, traits::Zero};
@@ -177,10 +176,21 @@ mod benchmarks {
 	/// This is similar to `call_with_pvm_code_per_byte` but for EVM bytecode.
 	#[benchmark(pov_mode = Measured)]
 	fn call_with_evm_code_per_byte(c: Linear<1, { 10 * 1024 }>) -> Result<(), BenchmarkError> {
-		let instance =
-			Contract::<T>::with_caller(whitelisted_caller(), VmBinaryModule::evm_sized(c), vec![])?;
+		let instance = Contract::<T>::with_caller(
+			whitelisted_caller(),
+			VmBinaryModule::evm_init_code_for_runtime_size(c),
+			vec![],
+		)?;
 		let value = Pallet::<T>::min_balance();
 		let storage_deposit = default_deposit_limit::<T>();
+
+		let code_len = PristineCode::<T>::get(instance.info()?.code_hash)
+			.expect("code should be stored")
+			.len();
+		assert_eq!(
+			code_len, c as usize,
+			"runtime bytecode should be exactly {c} bytes, got {code_len}"
+		);
 
 		#[extrinsic_call]
 		call(
@@ -245,7 +255,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let addr = crate::address::create2(&deployer, &code, &input, &salt);
 		let account_id = T::AddressMapper::to_fallback_account_id(&addr);
@@ -296,7 +308,9 @@ mod benchmarks {
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let VmBinaryModule { code, .. } = VmBinaryModule::sized(c);
 		let origin = Origin::EthTransaction(caller.clone());
-		Contracts::<T>::map_account(OriginFor::<T>::signed(caller.clone())).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let deployer = T::AddressMapper::to_address(&caller);
 		let nonce = System::<T>::account_nonce(&caller).try_into().unwrap_or_default();
 		let addr = crate::address::create1(&deployer, nonce);
@@ -312,6 +326,7 @@ mod benchmarks {
 			origin,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			code,
 			input,
 			TransactionSigned::default().signed_payload(),
@@ -345,7 +360,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		Contracts::<T>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		let VmBinaryModule { code, .. } = VmBinaryModule::dummy();
 		let storage_deposit = default_deposit_limit::<T>();
 		let deployer = T::AddressMapper::to_address(&caller);
@@ -454,6 +471,7 @@ mod benchmarks {
 			instance.address,
 			evm_value,
 			Weight::MAX,
+			U256::MAX,
 			data,
 			TransactionSigned::default().signed_payload(),
 			effective_gas_price,
@@ -544,6 +562,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
+		if T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::unmap(&caller).unwrap();
+		}
 		assert!(!T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -555,7 +576,9 @@ mod benchmarks {
 		let caller = whitelisted_caller();
 		T::Currency::set_balance(&caller, caller_funding::<T>());
 		let origin = RawOrigin::Signed(caller.clone());
-		<Contracts<T>>::map_account(origin.clone().into()).unwrap();
+		if !T::AddressMapper::is_mapped(&caller) {
+			T::AddressMapper::map(&caller).unwrap();
+		}
 		assert!(T::AddressMapper::is_mapped(&caller));
 		#[extrinsic_call]
 		_(origin);
@@ -626,7 +649,9 @@ mod benchmarks {
 		let account_id = account("precompile_to_account_id", 0, 0);
 		let address = {
 			T::Currency::set_balance(&account_id, caller_funding::<T>());
-			T::AddressMapper::map(&account_id).unwrap();
+			if !T::AddressMapper::is_mapped(&account_id) {
+				T::AddressMapper::map(&account_id).unwrap();
+			}
 			T::AddressMapper::to_address(&account_id)
 		};
 
@@ -781,7 +806,7 @@ mod benchmarks {
 		let mut call_setup = CallSetup::<T>::default();
 		let (mut ext, _) = call_setup.ext();
 
-		let weight_left_before = ext.gas_meter().gas_left();
+		let weight_left_before = ext.frame_meter().weight_left().unwrap();
 		let result;
 		#[block]
 		{
@@ -791,7 +816,7 @@ mod benchmarks {
 				input_bytes,
 			);
 		}
-		let weight_left_after = ext.gas_meter().gas_left();
+		let weight_left_after = ext.frame_meter().weight_left().unwrap();
 		assert_ne!(weight_left_after.ref_time(), 0);
 		assert!(weight_left_before.ref_time() > weight_left_after.ref_time());
 
@@ -1227,14 +1252,31 @@ mod benchmarks {
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
+		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
+			weight_limit: Default::default(),
+			deposit_limit: BalanceOf::<T>::max_value(),
+		})
+		.unwrap();
+		let exec_config = ExecConfig::new_substrate_tx();
+		let contract_account = &instance.account_id;
+		let origin = &ExecOrigin::from_account_id(caller);
+		let beneficiary_clone = beneficiary.clone();
+		let trie_id = instance.info()?.trie_id.clone();
+		let code_hash = instance.info()?.code_hash;
+		let only_if_same_tx = false;
+
 		let result;
 		#[block]
 		{
-			result = crate::exec::terminate_contract_for_benchmark::<T>(
-				caller,
-				&instance.account_id,
-				&instance.info()?,
-				beneficiary.clone(),
+			result = crate::exec::bench_do_terminate::<T>(
+				&mut transaction_meter,
+				&exec_config,
+				contract_account,
+				&origin,
+				beneficiary_clone,
+				trie_id,
+				code_hash,
+				only_if_same_tx,
 			);
 		}
 		result.unwrap();
@@ -2093,7 +2135,7 @@ mod benchmarks {
 		i: Linear<{ 10 * 1024 }, { 48 * 1024 }>,
 	) -> Result<(), BenchmarkError> {
 		use crate::vm::evm::instructions::BENCH_INIT_CODE;
-		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_sized(0));
+		let mut setup = CallSetup::<T>::new(VmBinaryModule::evm_init_code_for_runtime_size(0));
 		setup.set_origin(ExecOrigin::from_account_id(setup.contract().account_id.clone()));
 		setup.set_balance(caller_funding::<T>());
 
@@ -2381,7 +2423,7 @@ mod benchmarks {
 	#[benchmark(pov_mode = Measured)]
 	fn bn128_pairing(n: Linear<0, { 20 }>) {
 		fn generate_random_ecpairs(n: usize) -> Vec<u8> {
-			use bn::{AffineG1, AffineG2, Fr, Group, G1, G2};
+			use bn::{AffineG1, AffineG2, Fr, G1, G2, Group};
 			use rand::SeedableRng;
 			use rand_pcg::Pcg64;
 			let mut rng = Pcg64::seed_from_u64(1);
@@ -2469,35 +2511,6 @@ mod benchmarks {
 		assert_eq!(&memory[..20], runtime.ext().ecdsa_to_eth_address(&pub_key_bytes).unwrap());
 	}
 
-	/// Benchmark the cost of setting the code hash of a contract.
-	///
-	/// `r`: whether the old code will be removed as a result of this operation. (1: yes, 0: no)
-	#[benchmark(pov_mode = Measured)]
-	fn seal_set_code_hash(r: Linear<0, 1>) -> Result<(), BenchmarkError> {
-		let delete_old_code = r == 1;
-		let code_hash = Contract::<T>::with_index(1, VmBinaryModule::sized(42), vec![])?
-			.info()?
-			.code_hash;
-
-		build_runtime!(runtime, instance, memory: [ code_hash.encode(),]);
-		let old_code_hash = instance.info()?.code_hash;
-
-		// Increment the refcount of the code hash so that it does not get deleted
-		if !delete_old_code {
-			<CodeInfo<T>>::increment_refcount(old_code_hash).unwrap();
-		}
-
-		let result;
-		#[block]
-		{
-			result = runtime.bench_set_code_hash(memory.as_mut_slice(), 0);
-		}
-
-		assert_ok!(result);
-		assert_eq!(PristineCode::<T>::get(old_code_hash).is_none(), delete_old_code);
-		Ok(())
-	}
-
 	/// Benchmark the cost of executing `r` noop (JUMPDEST) instructions.
 	#[benchmark(pov_mode = Measured)]
 	fn evm_opcode(r: Linear<0, 10_000>) -> Result<(), BenchmarkError> {
@@ -2524,7 +2537,7 @@ mod benchmarks {
 	// and then accessing it so that each instruction generates two cache misses.
 	#[benchmark(pov_mode = Ignored)]
 	fn instr(r: Linear<0, 10_000>) {
-		use rand::{seq::SliceRandom, SeedableRng};
+		use rand::{SeedableRng, seq::SliceRandom};
 		use rand_pcg::Pcg64;
 
 		// Ideally, this needs to be bigger than the cache.
@@ -2679,6 +2692,34 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v2_migration_step() * 2);
 	}
 
+	#[benchmark]
+	fn v3_migration_step() {
+		use crate::migrations::v3;
+		// Remove all pre-existing accounts
+		let _ = frame_system::Account::<T>::clear(u32::MAX, None);
+
+		let account = account::<T::AccountId>("target", 0, 0);
+		T::Currency::mint_into(&account, Pallet::<T>::min_balance())
+			.expect("should mint into account");
+
+		// clear the mapping so the migration has work to do
+		let addr = T::AddressMapper::to_address(&account);
+		crate::OriginalAccount::<T>::remove(addr);
+
+		assert!(!T::AddressMapper::is_mapped(&account));
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			v3::Migration::<T>::step(None, &mut meter).unwrap();
+		}
+
+		assert!(T::AddressMapper::is_mapped(&account));
+
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
+	}
+
 	/// Helper function to create a test signer for finalize_block benchmark
 	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
 		use hex_literal::hex;
@@ -2725,8 +2766,8 @@ mod benchmarks {
 	}
 
 	/// Helper function to generate common finalize_block benchmark setup
-	fn setup_finalize_block_benchmark<T>(
-	) -> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
+	fn setup_finalize_block_benchmark<T>()
+	-> Result<(Contract<T>, BalanceOf<T>, U256, SigningKey, BlockNumberFor<T>), BenchmarkError>
 	where
 		BalanceOf<T>: Into<U256> + TryFrom<U256>,
 		T: Config,

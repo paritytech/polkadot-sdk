@@ -1,0 +1,7 @@
+title: add must_use attributes
+doc:
+- audience: Runtime Dev
+  description: "Add must_use attributes on arithmetic fns \n"
+crates:
+- name: sp-arithmetic
+  bump: patch

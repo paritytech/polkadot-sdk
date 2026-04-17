@@ -53,16 +53,16 @@ pub use ambassador::pallet_ambassador_origins;
 
 use alloc::{vec, vec::Vec};
 use ambassador::AmbassadorCoreInstance;
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use fellowship::{pallet_fellowship_origins, Fellows, FellowshipCoreInstance};
 use impls::{AllianceProposalProvider, EqualOrGreatestRootCmp};
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	generic, impl_opaque_keys,
-	traits::{AccountIdConversion, BlakeTwo256, Block as BlockT},
+	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, Perbill,
+	ApplyExtrinsicResult, MultiSignature, MultiSigner, Perbill, Percent,
 };
 
 #[cfg(feature = "std")]
@@ -89,19 +89,17 @@ use frame_system::{
 };
 pub use parachains_common as common;
 use parachains_common::{
-	impls::{DealWithFees, ToParentTreasury},
-	message_queue::*,
-	AccountId, AuraId, Balance, BlockNumber, Hash, Header, Nonce, Signature,
-	AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
+	impls::DealWithFees, message_queue::*, AccountId, AuraId, Balance, BlockNumber, Hash, Header,
+	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
-use sp_runtime::RuntimeDebug;
 use testnet_parachains_constants::westend::{
-	account::*, consensus::*, currency::*, fee::WeightToFee, time::*,
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
 };
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
 	XcmOriginToTransactDispatchOrigin,
 };
+use Debug;
 
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -130,7 +128,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("collectives-westend"),
 	authoring_version: 1,
-	spec_version: 1_020_001,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -151,8 +149,12 @@ pub type RootOrAllianceTwoThirdsMajority = EitherOfDiverse<
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -223,7 +225,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = ();
+	type DustRemoval = DapSatellite;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -239,12 +241,17 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to DAP satellite.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
 }
+
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -298,7 +305,7 @@ parameter_types! {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -591,7 +598,6 @@ pub const MAX_ALLIES: u32 = 100;
 
 parameter_types! {
 	pub const AllyDeposit: Balance = 1_000 * UNITS; // 1,000 WND bond to join as an Ally
-	pub WestendTreasuryAccount: AccountId = WESTEND_TREASURY_PALLET_ID.into_account_truncating();
 	// The number of blocks a member must wait between giving a retirement notice and retiring.
 	// Supposed to be greater than time required to `kick_member` with alliance motion.
 	pub const AllianceRetirementPeriod: BlockNumber = (90 * DAYS) + ALLIANCE_MOTION_DURATION;
@@ -604,7 +610,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -683,6 +689,50 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+	type SendToDap = xcm_builder::SendToDapViaTeleport<
+		xcm_config::XcmConfig,
+		xcm_config::AssetHub,
+		xcm_config::WndLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+}
+
+pub type MetaTxExtension = (
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_meta_tx::MetaTxMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -697,6 +747,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		DapSatellite: pallet_dap_satellite = 12,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -718,6 +769,8 @@ construct_runtime!(
 		Preimage: pallet_preimage = 43,
 		Scheduler: pallet_scheduler = 44,
 		AssetRate: pallet_asset_rate = 45,
+		MetaTx: pallet_meta_tx = 46,
+		VerifySignature: pallet_verify_signature = 47,
 
 		// The main stage.
 
@@ -791,6 +844,7 @@ type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	// unreleased
@@ -802,6 +856,10 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
+	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
+	// Safe to remove once confirmed.
+	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -824,6 +882,8 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
+		[pallet_meta_tx, MetaTx]
+		[pallet_verify_signature, VerifySignature]
 		[pallet_timestamp, Timestamp]
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_collator_selection, CollatorSelection]
@@ -852,6 +912,7 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
+		[pallet_dap_satellite, DapSatellite]
 	);
 }
 
@@ -947,8 +1008,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -1147,7 +1208,15 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
+
+			impl pallet_transaction_payment::BenchmarkConfig for Runtime {}
+
 			use xcm_config::WndLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 
@@ -1189,7 +1258,7 @@ impl_runtime_apis! {
 				}
 
 				fn set_up_complex_asset_transfer(
-				) -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				) -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					// Collectives only supports teleports to system parachain.
 					// Relay/native token can be teleported between Collectives and Relay.
 					let native_location = WndLocation::get();
@@ -1221,15 +1290,15 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHubLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> Assets {
+				fn worst_case_holding(_depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// just concrete assets according to relay chain.
-					let assets: Vec<Asset> = vec![
-						Asset {
-							id: AssetId(WndLocation::get()),
-							fun: Fungible(1_000_000 * UNITS),
-						}
-					];
-					assets.into()
+					let mut holding = xcm_executor::AssetsInHolding::new();
+					holding.fungible.insert(
+						AssetId(WndLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding
 				}
 			}
 

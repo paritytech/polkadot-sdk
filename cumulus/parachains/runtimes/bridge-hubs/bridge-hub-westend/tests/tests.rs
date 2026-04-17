@@ -254,6 +254,7 @@ fn handle_export_message_from_system_parachain_add_to_outbound_queue_works() {
 			Runtime,
 			XcmConfig,
 			WithBridgeHubRococoMessagesInstance,
+			LocationToAccountId,
 		>(
 			collator_session_keys(),
 			bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
@@ -813,15 +814,16 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(GovernanceOrigin::Location(Location::new(1, Parachain(ASSET_HUB_ID)))));
-	// no - Collectives
+	// no - Collectives (passes barrier as system parachain, but not root)
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
 			RuntimeOrigin,
 		>(GovernanceOrigin::Location(Location::new(1, Parachain(COLLECTIVES_ID)))),
-		Either::Right(InstructionError { index: 0, error: XcmError::Barrier })
+		Either::Right(InstructionError { index: 1, error: XcmError::BadOrigin })
 	);
-	// no - Collectives Voice of Fellows plurality
+	// no - Collectives Voice of Fellows plurality (bridge-hub has no FellowsPlurality
+	// in its barrier, so the descended origin is rejected)
 	assert_err!(
 		parachains_runtimes_test_utils::test_cases::can_governance_authorize_upgrade::<
 			Runtime,
@@ -844,4 +846,64 @@ fn governance_authorize_upgrade_works() {
 		Runtime,
 		RuntimeOrigin,
 	>(Governance::get()));
+}
+
+#[test]
+fn tx_fees_go_to_dap_satellite() {
+	let alice = AccountId::from(Alice);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![(alice.clone(), 100 * ed), (satellite.clone(), ed)],
+		|| {
+			let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
+
+			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
+			let xt = construct_extrinsic(Alice, call);
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let alice_after = <Balances as Inspect<AccountId>>::balance(&alice);
+			let fee_paid = alice_before - alice_after;
+			assert!(fee_paid > 0, "a fee should have been paid");
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
+
+			assert_eq!(satellite_after, satellite_before + fee_paid);
+			assert_eq!(issuance_before, issuance_after);
+		},
+	);
+}
+
+#[test]
+fn dust_removal_goes_to_dap_satellite() {
+	let alice = AccountId::from(Alice);
+	let bob = AccountId::from(Bob);
+	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let ed = ExistentialDeposit::get();
+	let dust = ed / 2;
+
+	run_test::<Runtime, _>(
+		collator_session_keys(),
+		bp_bridge_hub_westend::BRIDGE_HUB_WESTEND_PARACHAIN_ID,
+		vec![(alice.clone(), 100 * ed), (bob.clone(), ed + dust), (satellite.clone(), ed)],
+		|| {
+			let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+
+			assert_ok!(Balances::transfer_allow_death(
+				RuntimeOrigin::signed(bob.clone()),
+				alice.clone().into(),
+				ed,
+			));
+
+			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+			assert_eq!(satellite_after, satellite_before + dust);
+			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
+		},
+	);
 }

@@ -1,4 +1,6 @@
 name: "build and push image"
+description: "Build a Docker image and push it to GCP and DockerHub registries"
+
 inputs:
   dockerfile:
     description: "dockerfile to build"
@@ -7,9 +9,11 @@ inputs:
     description: "image name (without registry)"
     required: true
   username:
+    description: "DockerHub username for authentication"
     required: false
     default: ""
   password:
+    description: "DockerHub password for authentication"
     required: false
     default: ""
 outputs:

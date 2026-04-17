@@ -39,7 +39,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 					}
 				}))
 				// Adding malicious validator.
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("malus-validator")
 						.with_image(
 							std::env::var("MALUS_IMAGE")
@@ -58,7 +58,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				});
 			// Also honest validators.
 			let r = (0..3).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("honest-validator-{i}"))
 						.with_args(vec![("-lparachain=debug,runtime::staking=debug".into())])
 						.invulnerable(false)
@@ -74,6 +74,7 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 				.with_default_args(vec!["-lparachain=debug".into()])
 				.with_collator(|n| n.with_name("alice"))
 		})
+		.with_global_settings(|global_settings| global_settings.with_tear_down_on_failure(false))
 		.build()
 		.map_err(|e| {
 			let errors = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
@@ -87,12 +88,8 @@ async fn validator_disabling_test() -> Result<(), anyhow::Error> {
 	log::info!("Waiting for parablocks to be produced");
 	let honest_validator = network.get_node("honest-validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = honest_validator.wait_client().await?;
-	assert_para_throughput(
-		&relay_client,
-		20,
-		[(polkadot_primitives::Id::from(1000), 10..30)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 20, [(polkadot_primitives::Id::from(1000), 10..30)])
+		.await?;
 
 	log::info!("Wait for a dispute to be initialized.");
 	let mut best_blocks = relay_client.blocks().subscribe_best().await?;

@@ -24,7 +24,7 @@ use std::{
 };
 
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::{ApiExt, Core, ProvideRuntimeApi};
+use sp_api::{ApiExt, Core, ProofRecorder, ProvideRuntimeApi};
 use sp_externalities::{decl_extension, TransactionType};
 use sp_runtime::{
 	traits::{HashingFor, Header as HeaderT},
@@ -111,21 +111,23 @@ fn record_proof_works() {
 	}
 	.into_unchecked_extrinsic();
 
+	let storage_proof_recorder = ProofRecorder::<Block>::default();
+
 	// Build the block and record proof
 	let mut builder = BlockBuilderBuilder::new(&client)
 		.on_parent_block(client.chain_info().best_hash)
 		.with_parent_block_number(client.chain_info().best_number)
-		.enable_proof_recording()
+		.with_proof_recorder(storage_proof_recorder.clone())
 		.build()
 		.unwrap();
 	builder.push(transaction.clone()).unwrap();
-	let (block, _, proof) = builder.build().expect("Bake block").into_inner();
 
-	let backend = create_proof_check_backend::<HashingFor<Block>>(
-		storage_root,
-		proof.expect("Proof was generated"),
-	)
-	.expect("Creates proof backend.");
+	let (block, _) = builder.build().expect("Bake block").into_inner();
+
+	let proof = storage_proof_recorder.drain_storage_proof();
+
+	let backend = create_proof_check_backend::<HashingFor<Block>>(storage_root, proof)
+		.expect("Creates proof backend.");
 
 	// Use the proof backend to execute `execute_block`.
 	let mut overlay = Default::default();

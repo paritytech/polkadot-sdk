@@ -27,7 +27,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -62,17 +62,15 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{BlakeTwo256, Block as BlockT},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, MultiSignature, MultiSigner,
 };
-pub use sp_runtime::{MultiAddress, Perbill, Permill, RuntimeDebug};
-use sp_statement_store::{
-	runtime_api::{InvalidStatement, StatementSource, ValidStatement},
-	SignatureVerificationResult, Statement,
-};
+pub use sp_runtime::{MultiAddress, Perbill, Percent, Permill};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
@@ -83,6 +81,22 @@ use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
 };
+
+/// Build with an offset of 1 behind the relay chain.
+const RELAY_PARENT_OFFSET: u32 = 1;
+
+/// The upper limit of how many parachain blocks are processed by the relay chain per
+/// parent. Limits the number of blocks authored per slot. This determines the minimum
+/// block time of the parachain:
+/// `RELAY_CHAIN_SLOT_DURATION_MILLIS/BLOCK_PROCESSING_VELOCITY`
+const BLOCK_PROCESSING_VELOCITY: u32 = 3;
+
+/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
+/// into the relay chain.
+const UNINCLUDED_SEGMENT_CAPACITY: u32 = (3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY;
+
+/// Relay chain slot duration, in milliseconds.
+const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
 /// The address format for describing accounts.
 pub type Address = MultiAddress<AccountId, ()>;
@@ -109,6 +123,7 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
 		pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
+		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 	),
 >;
 
@@ -123,6 +138,10 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
+	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
+	// Safe to remove once confirmed.
+	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -148,7 +167,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("people-westend"),
 	authoring_version: 1,
-	spec_version: 1_020_001,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 2,
@@ -163,8 +182,12 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
 		.for_class(DispatchClass::all(), |weights| {
@@ -231,7 +254,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type DustRemoval = ();
+	type DustRemoval = DapSatellite;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -249,12 +272,17 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10.
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to DAP satellite.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
 }
+
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -280,7 +308,7 @@ impl cumulus_pallet_parachain_system::Config for Runtime {
 	type CheckAssociatedRelayNumber = RelayNumberMonotonicallyIncreases;
 	type ConsensusHook = ConsensusHook;
 	type WeightInfo = weights::cumulus_pallet_parachain_system::WeightInfo<Runtime>;
-	type RelayParentOffset = ConstU32<0>;
+	type RelayParentOffset = ConstU32<RELAY_PARENT_OFFSET>;
 }
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
@@ -440,7 +468,7 @@ impl pallet_multisig::Config for Runtime {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	MaxEncodedLen,
 	scale_info::TypeInfo,
 )]
@@ -578,6 +606,50 @@ impl pallet_migrations::Config for Runtime {
 	type WeightInfo = weights::pallet_migrations::WeightInfo<Runtime>;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+	type SendToDap = xcm_builder::SendToDapViaTeleport<
+		xcm_config::XcmConfig,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+		xcm_config::RelayLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+}
+
+pub type MetaTxExtension = (
+	pallet_verify_signature::VerifySignature<Runtime>,
+	pallet_meta_tx::MetaTxMarker<Runtime>,
+	frame_system::CheckNonZeroSender<Runtime>,
+	frame_system::CheckSpecVersion<Runtime>,
+	frame_system::CheckTxVersion<Runtime>,
+	frame_system::CheckGenesis<Runtime>,
+	frame_system::CheckEra<Runtime>,
+	frame_system::CheckNonce<Runtime>,
+	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+);
+
+impl pallet_meta_tx::Config for Runtime {
+	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
+	type RuntimeEvent = RuntimeEvent;
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type Extension = MetaTxExtension;
+	#[cfg(feature = "runtime-benchmarks")]
+	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
+}
+
+impl pallet_verify_signature::Config for Runtime {
+	type Signature = MultiSignature;
+	type AccountIdentifier = MultiSigner;
+	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -592,6 +664,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		DapSatellite: pallet_dap_satellite = 12,
 
 		// Collator support. The order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -610,6 +683,8 @@ construct_runtime!(
 		Utility: pallet_utility = 40,
 		Multisig: pallet_multisig = 41,
 		Proxy: pallet_proxy = 42,
+		MetaTx: pallet_meta_tx = 43,
+		VerifySignature: pallet_verify_signature = 44,
 
 		// The main stage.
 		Identity: pallet_identity = 50,
@@ -634,6 +709,8 @@ mod benches {
 		[pallet_proxy, Proxy]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_utility, Utility]
+		[pallet_meta_tx, MetaTx]
+		[pallet_verify_signature, VerifySignature]
 		[pallet_timestamp, Timestamp]
 		[pallet_migrations, MultiBlockMigrations]
 		// Polkadot
@@ -647,6 +724,7 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[pallet_dap_satellite, DapSatellite]
 	);
 }
 
@@ -663,7 +741,7 @@ impl_runtime_apis! {
 
 	impl cumulus_primitives_core::RelayParentOffsetApi<Block> for Runtime {
 		fn relay_parent_offset() -> u32 {
-			0
+			RELAY_PARENT_OFFSET
 		}
 	}
 
@@ -742,8 +820,8 @@ impl_runtime_apis! {
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(seed)
+		fn generate_session_keys(owner: Vec<u8>, seed: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, seed).into()
 		}
 
 		fn decode_session_keys(
@@ -940,7 +1018,12 @@ impl_runtime_apis! {
 			}
 
 			use cumulus_pallet_session_benchmarking::Pallet as SessionBench;
-			impl cumulus_pallet_session_benchmarking::Config for Runtime {}
+			impl cumulus_pallet_session_benchmarking::Config for Runtime {
+				fn generate_session_keys_and_proof(owner: Self::AccountId) -> (Self::Keys, Vec<u8>) {
+					let keys = SessionKeys::generate(&owner.encode(), None);
+					(keys.keys, keys.proof.encode())
+				}
+			}
 			use xcm_config::RelayLocation;
 			use testnet_parachains_constants::westend::locations::{AssetHubParaId, AssetHubLocation};
 
@@ -973,7 +1056,7 @@ impl_runtime_apis! {
 					None
 				}
 
-				fn set_up_complex_asset_transfer() -> Option<(Assets, AssetId, Location, alloc::boxed::Box<dyn FnOnce()>)> {
+				fn set_up_complex_asset_transfer() -> Option<(Assets, u32, Location, alloc::boxed::Box<dyn FnOnce()>)> {
 					let native_location = Parent.into();
 					let dest = AssetHubLocation::get();
 
@@ -1012,15 +1095,15 @@ impl_runtime_apis! {
 				fn valid_destination() -> Result<Location, BenchmarkError> {
 					Ok(AssetHubLocation::get())
 				}
-				fn worst_case_holding(_depositable_count: u32) -> Assets {
+				fn worst_case_holding(_depositable_count: u32) -> xcm_executor::AssetsInHolding {
+					use pallet_xcm_benchmarks::MockCredit;
 					// just concrete assets according to relay chain.
-					let assets: Vec<Asset> = vec![
-						Asset {
-							id: AssetId(RelayLocation::get()),
-							fun: Fungible(1_000_000 * UNITS),
-						}
-					];
-					assets.into()
+					let mut holding = xcm_executor::AssetsInHolding::new();
+					holding.fungible.insert(
+						AssetId(RelayLocation::get()),
+						alloc::boxed::Box::new(MockCredit(1_000_000 * UNITS)),
+					);
+					holding
 				}
 			}
 
@@ -1139,39 +1222,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::TargetBlockRate<Block> for Runtime {
 		fn target_block_rate() -> u32 {
 			1
-		}
-	}
-
-	impl sp_statement_store::runtime_api::ValidateStatement<Block> for Runtime {
-		fn validate_statement(
-			_source: StatementSource,
-			statement: Statement,
-		) -> Result<ValidStatement, InvalidStatement> {
-			let account = match statement.verify_signature() {
-				SignatureVerificationResult::Valid(account) => account.into(),
-				SignatureVerificationResult::Invalid => {
-					tracing::debug!(target: "runtime", "Bad statement signature.");
-					return Err(InvalidStatement::BadProof)
-				},
-				SignatureVerificationResult::NoSignature => {
-					tracing::debug!(target: "runtime", "Missing statement signature.");
-					return Err(InvalidStatement::NoProof)
-				},
-			};
-
-			// For now just allow validators to store some statements.
-			// In the future we will allow people.
-			if pallet_session::Validators::<Runtime>::get().contains(&account) {
-				Ok(ValidStatement {
-					max_count: 2,
-					max_size: 1024,
-				})
-			} else {
-				Ok(ValidStatement {
-					max_count: 0,
-					max_size: 0,
-				})
-			}
 		}
 	}
 }

@@ -53,13 +53,10 @@
 //!
 //! Pause specific all:
 #![doc = docify::embed!("src/tests.rs", can_pause_specific_call)]
-//!
 //! Unpause specific all:
 #![doc = docify::embed!("src/tests.rs", can_unpause_specific_call)]
-//!
 //! Pause all calls in a pallet:
 #![doc = docify::embed!("src/tests.rs", can_pause_all_calls_in_pallet_except_on_whitelist)]
-//!
 //! ## Low Level / Implementation Details
 //!
 //! ### Use Cost
@@ -235,7 +232,7 @@ impl<T: Config> Pallet<T> {
 	/// Return whether this call is paused.
 	pub fn is_paused(full_name: &RuntimeCallNameOf<T>) -> bool {
 		if T::WhitelistedCalls::contains(full_name) {
-			return false
+			return false;
 		}
 
 		<PausedCalls<T>>::contains_key(full_name)
@@ -256,14 +253,14 @@ impl<T: Config> Pallet<T> {
 	pub fn ensure_can_pause(full_name: &RuntimeCallNameOf<T>) -> Result<(), Error<T>> {
 		// SAFETY: The `TxPause` pallet can never pause itself.
 		if full_name.0.as_slice() == <Self as PalletInfoAccess>::name().as_bytes() {
-			return Err(Error::<T>::Unpausable)
+			return Err(Error::<T>::Unpausable);
 		}
 
 		if T::WhitelistedCalls::contains(&full_name) {
-			return Err(Error::<T>::Unpausable)
+			return Err(Error::<T>::Unpausable);
 		}
 		if Self::is_paused(&full_name) {
-			return Err(Error::<T>::IsPaused)
+			return Err(Error::<T>::IsPaused);
 		}
 		Ok(())
 	}

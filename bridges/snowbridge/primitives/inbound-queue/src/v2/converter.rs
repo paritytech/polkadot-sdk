@@ -8,7 +8,7 @@ use codec::{Decode, DecodeLimit, Encode};
 use core::marker::PhantomData;
 use frame_support::ensure;
 use snowbridge_core::{ParaId, TokenId};
-use sp_core::{Get, RuntimeDebug, H160};
+use sp_core::{Get, H160};
 use sp_io::hashing::blake2_256;
 use sp_runtime::{traits::MaybeConvert, MultiAddress};
 use sp_std::prelude::*;
@@ -24,7 +24,7 @@ const INBOUND_QUEUE_TOPIC_PREFIX: &str = "SnowbridgeInboundQueueV2";
 
 /// Representation of an intermediate parsed message, before final
 /// conversion to XCM.
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub struct PreparedMessage {
 	/// Ethereum account that initiated this messaging operation
 	pub origin: H160,
@@ -39,13 +39,13 @@ pub struct PreparedMessage {
 }
 
 /// An asset transfer instruction
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub enum AssetTransfer {
 	ReserveDeposit(Asset),
 	ReserveWithdraw(Asset),
 }
 
-#[derive(Clone, RuntimeDebug, Encode)]
+#[derive(Clone, Debug, Encode)]
 pub struct CreateAssetCallInfo {
 	pub create_call: CallIndex,
 	pub deposit: u128,
@@ -136,9 +136,9 @@ where
 				Location::new(0, [AccountId32 { network: None, id: bridge_owner.clone().into() }])
 			});
 
-		let mut remote_xcm: Xcm<()> = match &message.xcm {
-			XcmPayload::Raw(raw) => Self::decode_raw_xcm(raw),
-			XcmPayload::CreateAsset { token, network } => Self::make_create_asset_xcm(
+		let mut remote_xcm: Xcm<()> = match &message.payload {
+			Payload::Raw(raw) => Self::decode_raw_xcm(raw),
+			Payload::CreateAsset { token, network } => Self::make_create_asset_xcm(
 				token,
 				*network,
 				message.value,
@@ -522,7 +522,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets,
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer,
 				value,
 				execution_fee,
@@ -659,7 +659,7 @@ mod tests {
 			nonce: 0,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_xcm.encode()),
+			payload: Payload::Raw(versioned_xcm.encode()),
 			claimer,
 			value,
 			execution_fee,
@@ -711,7 +711,7 @@ mod tests {
 			nonce: 0,
 			origin,
 			assets,
-			xcm: XcmPayload::Raw(versioned_xcm.encode()),
+			payload: Payload::Raw(versioned_xcm.encode()),
 			claimer,
 			value,
 			execution_fee,
@@ -748,7 +748,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets,
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer,
 				value,
 				execution_fee,
@@ -817,7 +817,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets,
-				xcm: XcmPayload::Raw(versioned_xcm),
+				payload: Payload::Raw(versioned_xcm),
 				claimer: Some(claimer.encode()),
 				value,
 				execution_fee,
@@ -853,7 +853,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets: vec![],
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer: None,
 				value,
 				execution_fee,
@@ -890,7 +890,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets: vec![],
-				xcm: XcmPayload::Raw(vec![]),
+				payload: Payload::Raw(vec![]),
 				claimer: None,
 				value,
 				execution_fee,
@@ -931,7 +931,7 @@ mod tests {
 				nonce: 0,
 				origin,
 				assets: vec![],
-				xcm: XcmPayload::Raw(versioned_xcm.encode()),
+				payload: Payload::Raw(versioned_xcm.encode()),
 				claimer: None,
 				value,
 				execution_fee,

@@ -64,14 +64,15 @@ pub mod currency {
 pub mod genesis_config_presets {
 	use super::*;
 	use crate::{
-		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig,
+		currency::DOLLARS, sp_keyring::Sr25519Keyring, Balance, BalancesConfig, ReviveConfig,
 		RuntimeGenesisConfig, SudoConfig,
 	};
 
 	use alloc::{vec, vec::Vec};
+	use pallet_revive::AddressMapper;
 	use serde_json::Value;
 
-	pub const ENDOWMENT: Balance = 1_000_000_001 * DOLLARS;
+	pub const ENDOWMENT: Balance = 10_000_000_000_001 * DOLLARS;
 
 	fn well_known_accounts() -> Vec<AccountId> {
 		Sr25519Keyring::well_known()
@@ -103,14 +104,23 @@ pub mod genesis_config_presets {
 
 	/// Returns a development genesis config preset.
 	pub fn development_config_genesis() -> Value {
+		let endowed_accounts = well_known_accounts();
 		frame_support::build_struct_json_patch!(RuntimeGenesisConfig {
 			balances: BalancesConfig {
-				balances: well_known_accounts()
-					.into_iter()
+				balances: endowed_accounts
+					.iter()
+					.cloned()
 					.map(|id| (id, ENDOWMENT))
 					.collect::<Vec<_>>(),
 			},
 			sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.to_account_id()) },
+			revive: ReviveConfig {
+				mapped_accounts: endowed_accounts
+					.iter()
+					.filter(|x| !<Runtime as pallet_revive::Config>::AddressMapper::is_mapped(x))
+					.cloned()
+					.collect(),
+			},
 		})
 	}
 
@@ -189,9 +199,10 @@ pub struct EthExtraImpl;
 
 impl EthExtra for EthExtraImpl {
 	type Config = Runtime;
-	type Extension = TxExtension;
+	type ExtensionV0 = TxExtension;
+	type ExtensionOtherVersions = sp_runtime::traits::InvalidVersion;
 
-	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::Extension {
+	fn get_eth_extension(nonce: u32, tip: Balance) -> Self::ExtensionV0 {
 		(
 			frame_system::CheckNonZeroSender::<Runtime>::new(),
 			frame_system::CheckSpecVersion::<Runtime>::new(),
@@ -269,8 +280,10 @@ const AVERAGE_ON_INITIALIZE_RATIO: Perbill = Perbill::from_percent(10);
 /// by  Operational  extrinsics.
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 /// We allow for 2 seconds of compute with a 6 second average block time, with maximum proof size.
-const MAXIMUM_BLOCK_WEIGHT: Weight =
-	Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2), u64::MAX);
+const MAXIMUM_BLOCK_WEIGHT: Weight = Weight::from_parts(
+	WEIGHT_REF_TIME_PER_SECOND.saturating_mul(2),
+	polkadot_primitives::MAX_POV_SIZE as u64,
+);
 
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
@@ -298,11 +311,14 @@ parameter_types! {
 #[derive_impl(frame_system::config_preludes::SolochainDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type Block = Block;
+	type BlockWeights = RuntimeBlockWeights;
 	type Version = Version;
 	type AccountId = AccountId;
 	type Hash = Hash;
 	type Nonce = Nonce;
 	type AccountData = pallet_balances::AccountData<<Runtime as pallet_balances::Config>::Balance>;
+	type OnNewAccount = pallet_revive::AutoMapper<Runtime>;
+	type OnKilledAccount = pallet_revive::AutoMapper<Runtime>;
 }
 
 parameter_types! {
@@ -334,7 +350,7 @@ parameter_types! {
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type OnChargeTransaction = pallet_transaction_payment::FungibleAdapter<Balances, ()>;
-	type WeightToFee = BlockRatioFee<1, 1, Self>;
+	type WeightToFee = BlockRatioFee<1, 1, Self, Balance>;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
 }
@@ -355,7 +371,9 @@ impl pallet_revive::Config for Runtime {
 	type InstantiateOrigin = EnsureSigned<Self::AccountId>;
 	type Time = Timestamp;
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
-	type DebugEnabled = ConstBool<false>;
+	type DebugEnabled = ConstBool<true>;
+	type AutoMap = ConstBool<true>;
+	type GasScale = ConstU32<50000>;
 }
 
 pallet_revive::impl_runtime_apis_plus_revive_traits!(
@@ -430,9 +448,10 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 	}
 
 	impl apis::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_seed: Option<Vec<u8>>) -> Vec<u8> {
-			Default::default()
+		fn generate_session_keys(_owner: Vec<u8>, _seed: Option<Vec<u8>>) -> apis::OpaqueGeneratedSessionKeys {
+		Default::default()
 		}
+
 
 		fn decode_session_keys(
 			_encoded: Vec<u8>,

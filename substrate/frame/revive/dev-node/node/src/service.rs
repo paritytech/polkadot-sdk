@@ -27,7 +27,7 @@ use polkadot_sdk::{
 use revive_dev_runtime::{OpaqueBlock as Block, Runtime, RuntimeApi};
 use std::sync::Arc;
 
-type HostFunctions = sp_io::SubstrateHostFunctions;
+type HostFunctions = (sp_io::SubstrateHostFunctions, sp_virtualization::host_fn::HostFunctions);
 
 #[docify::export]
 pub(crate) type FullClient =
@@ -65,6 +65,7 @@ pub fn new_partial(config: &Configuration) -> Result<Service, ServiceError> {
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			Default::default(),
 		)?;
 	let client = Arc::new(client);
 
@@ -133,6 +134,7 @@ pub fn new_full<Network: sc_network::NetworkBackend<Block, <Block as BlockT>::Ha
 			client: client.clone(),
 			transaction_pool: transaction_pool.clone(),
 			spawn_handle: task_manager.spawn_handle(),
+			spawn_essential_handle: task_manager.spawn_essential_handle(),
 			import_queue,
 			block_announce_validator_builder: None,
 			warp_sync_config: None,

@@ -22,14 +22,16 @@ use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
 use cumulus_test_runtime::{Block, GetLastTimestamp, Hash, Header};
 use polkadot_primitives::{BlockNumber as PBlockNumber, Hash as PHash};
 use sc_block_builder::BlockBuilderBuilder;
-use sp_api::{ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
+use sp_api::{ApiExt, ProofRecorder, ProofRecorderIgnoredNodes, ProvideRuntimeApi};
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_runtime::{traits::Header as HeaderT, Digest, DigestItem};
+use sp_trie::proof_size_extension::ProofSizeExt;
 
 /// A struct containing a block builder and support data required to build test scenarios.
 pub struct BlockBuilderAndSupportData<'a> {
 	pub block_builder: sc_block_builder::BlockBuilder<'a, Block, Client>,
 	pub persisted_validation_data: PersistedValidationData<PHash, PBlockNumber>,
+	pub proof_recorder: ProofRecorder<Block>,
 }
 
 /// An extension for the Cumulus test client to init a block builder.
@@ -82,6 +84,7 @@ pub trait InitBlockBuilder {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+		extra_pre_digests: Option<Vec<DigestItem>>,
 	) -> BlockBuilderAndSupportData<'_>;
 
 	/// Init a specific block builder that works for the test runtime.
@@ -107,6 +110,10 @@ fn init_block_builder(
 	extra_pre_digests: Option<Vec<DigestItem>>,
 	ignored_nodes: Option<ProofRecorderIgnoredNodes<Block>>,
 ) -> BlockBuilderAndSupportData<'_> {
+	let mut runtime_api = client.runtime_api();
+	runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+	let para_slot_duration = runtime_api.slot_duration(at).unwrap();
+
 	let timestamp = timestamp.unwrap_or_else(|| {
 		let last_timestamp =
 			client.runtime_api().get_last_timestamp(at).expect("Get last timestamp");
@@ -121,12 +128,11 @@ fn init_block_builder(
 					.as_millis() as u64
 			}
 		} else {
-			last_timestamp + client.runtime_api().slot_duration(at).unwrap().as_millis()
+			last_timestamp + para_slot_duration.as_millis()
 		}
 	});
 
-	let slot: Slot =
-		(timestamp / client.runtime_api().slot_duration(at).unwrap().as_millis()).into();
+	let slot: Slot = (timestamp / para_slot_duration.as_millis()).into();
 
 	if relay_sproof_builder.current_slot == 0u64 {
 		relay_sproof_builder.current_slot = (timestamp / 6_000).into();
@@ -143,14 +149,16 @@ fn init_block_builder(
 			.collect::<Vec<_>>(),
 	};
 
+	let proof_recorder =
+		ProofRecorder::<Block>::with_ignored_nodes(ignored_nodes.unwrap_or_default());
+
 	let mut block_builder = BlockBuilderBuilder::new(client)
 		.on_parent_block(at)
 		.fetch_parent_block_number(client)
 		.unwrap()
-		.with_proof_recorder(Some(ProofRecorder::<Block>::with_ignored_nodes(
-			ignored_nodes.unwrap_or_default(),
-		)))
+		.with_proof_recorder(Some(proof_recorder.clone()))
 		.with_inherent_digests(pre_digests)
+		.with_extra_extensions(ProofSizeExt::new(proof_recorder.clone()))
 		.build()
 		.expect("Creates new block builder for test runtime");
 
@@ -186,7 +194,11 @@ fn init_block_builder(
 		.into_iter()
 		.for_each(|ext| block_builder.push(ext).expect("Pushes inherent"));
 
-	BlockBuilderAndSupportData { block_builder, persisted_validation_data: validation_data }
+	BlockBuilderAndSupportData {
+		block_builder,
+		persisted_validation_data: validation_data,
+		proof_recorder,
+	}
 }
 
 impl InitBlockBuilder for Client {
@@ -233,6 +245,7 @@ impl InitBlockBuilder for Client {
 		relay_sproof_builder: RelayStateSproofBuilder,
 		timestamp: u64,
 		ignored_nodes: ProofRecorderIgnoredNodes<Block>,
+		extra_pre_digests: Option<Vec<DigestItem>>,
 	) -> BlockBuilderAndSupportData<'_> {
 		init_block_builder(
 			self,
@@ -240,7 +253,7 @@ impl InitBlockBuilder for Client {
 			validation_data,
 			relay_sproof_builder,
 			Some(timestamp),
-			None,
+			extra_pre_digests,
 			Some(ignored_nodes),
 		)
 	}
@@ -274,11 +287,11 @@ pub trait BuildParachainBlockData {
 
 impl<'a> BuildParachainBlockData for sc_block_builder::BlockBuilder<'a, Block, Client> {
 	fn build_parachain_block(self, parent_state_root: Hash) -> ParachainBlockData<Block> {
+		let proof_recorder = self.proof_recorder().expect("Proof recorder is always set");
 		let built_block = self.build().expect("Builds the block");
 
-		let storage_proof = built_block
-			.proof
-			.expect("We enabled proof recording before.")
+		let storage_proof = proof_recorder
+			.drain_storage_proof()
 			.into_compact_proof::<<Header as HeaderT>::Hashing>(parent_state_root)
 			.expect("Creates the compact proof");
 

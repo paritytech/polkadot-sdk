@@ -16,33 +16,33 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, LOG_TARGET, Pallet, Zero,
 	evm::{
+		CreateCallMode,
 		api::{GenericTransaction, TransactionSigned},
-		create_call,
 		fees::InfoT,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, Pallet, Zero, LOG_TARGET,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{
+		InherentBuilder, IsSubType, SignedTransactionBuilder,
 		fungible::Balanced,
 		tokens::{Fortitude, Precision, Preservation},
-		InherentBuilder, IsSubType, SignedTransactionBuilder,
 	},
 };
 use pallet_transaction_payment::Config as TxConfig;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::U256;
 use sp_runtime::{
+	Debug, OpaqueExtrinsic, Weight,
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
+		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic, Pipeline,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	OpaqueExtrinsic, RuntimeDebug, Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -55,30 +55,60 @@ pub trait SetWeightLimit {
 
 /// Wraps [`generic::UncheckedExtrinsic`] to support checking unsigned
 /// [`crate::Call::eth_transact`] extrinsic.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
-	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
+	pub  generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>,
 );
 
 impl<Address, Signature, E: EthExtra> TypeInfo for UncheckedExtrinsic<Address, Signature, E>
 where
 	Address: StaticTypeInfo,
 	Signature: StaticTypeInfo,
-	E::Extension: StaticTypeInfo,
+	E::ExtensionV0: StaticTypeInfo,
 {
-	type Identity =
-		generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>;
+	type Identity = generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>;
 	fn type_info() -> scale_info::Type {
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::type_info()
+		generic::UncheckedExtrinsic::<
+			Address,
+			CallOf<E::Config>,
+			Signature,
+			E::ExtensionV0,
+			E::ExtensionOtherVersions,
+		>::type_info()
 	}
 }
 
 impl<Address, Signature, E: EthExtra>
-	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>
-	for UncheckedExtrinsic<Address, Signature, E>
+	From<
+		generic::UncheckedExtrinsic<
+			Address,
+			CallOf<E::Config>,
+			Signature,
+			E::ExtensionV0,
+			E::ExtensionOtherVersions,
+		>,
+	> for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn from(
-		utx: generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
+		utx: generic::UncheckedExtrinsic<
+			Address,
+			CallOf<E::Config>,
+			Signature,
+			E::ExtensionV0,
+			E::ExtensionOtherVersions,
+		>,
 	) -> Self {
 		Self(utx)
 	}
@@ -99,9 +129,16 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 		Address,
 		CallOf<E::Config>,
 		Signature,
-		E::Extension,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
 	>::VERSIONS;
-	type TransactionExtensions = E::Extension;
+	type TransactionExtensionPipelines = <generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	> as ExtrinsicMetadata>::TransactionExtensionPipelines;
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
@@ -126,19 +163,39 @@ where
 	<E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 	CallOf<E::Config>: SetWeightLimit,
 	// required by Checkable for `generic::UncheckedExtrinsic`
-	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
-		Checkable<
+	generic::UncheckedExtrinsic<
+		LookupSource,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>: Checkable<
 			Lookup,
-			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+			Checked = CheckedExtrinsic<
+				AccountIdOf<E::Config>,
+				CallOf<E::Config>,
+				E::ExtensionV0,
+				E::ExtensionOtherVersions,
+			>,
 		>,
 {
-	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
+	type Checked = CheckedExtrinsic<
+		AccountIdOf<E::Config>,
+		CallOf<E::Config>,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
 			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
+				log::trace!(
+					target: LOG_TARGET,
+					"eth_transact substrate tx hash: 0x{}",
+					sp_core::hexdisplay::HexDisplay::from(&sp_core::hashing::blake2_256(&self.encode())),
+				);
 				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
-				return Ok(checked)
+				return Ok(checked);
 			};
 		}
 		self.0.check(lookup)
@@ -190,17 +247,17 @@ impl<Address, Signature, E: EthExtra> SignedTransactionBuilder
 where
 	Address: TypeInfo,
 	Signature: TypeInfo,
-	E::Extension: TypeInfo,
+	E::ExtensionV0: TypeInfo,
 {
 	type Address = Address;
 	type Signature = Signature;
-	type Extension = E::Extension;
+	type Extension = E::ExtensionV0;
 
 	fn new_signed_transaction(
 		call: Self::Call,
 		signed: Address,
 		signature: Signature,
-		tx_ext: E::Extension,
+		tx_ext: E::ExtensionV0,
 	) -> Self {
 		generic::UncheckedExtrinsic::new_signed(call, signed, signature, tx_ext).into()
 	}
@@ -210,7 +267,7 @@ impl<Address, Signature, E: EthExtra> InherentBuilder for UncheckedExtrinsic<Add
 where
 	Address: TypeInfo,
 	Signature: TypeInfo,
-	E::Extension: TypeInfo,
+	E::ExtensionV0: TypeInfo,
 {
 	fn new_inherent(call: Self::Call) -> Self {
 		generic::UncheckedExtrinsic::new_bare(call).into()
@@ -222,7 +279,7 @@ impl<Address, Signature, E: EthExtra> From<UncheckedExtrinsic<Address, Signature
 where
 	Address: Encode,
 	Signature: Encode,
-	E::Extension: Encode,
+	E::ExtensionV0: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
 		extrinsic.0.into()
@@ -231,7 +288,13 @@ where
 
 impl<Address, Signature, E: EthExtra> LazyExtrinsic for UncheckedExtrinsic<Address, Signature, E>
 where
-	generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>: LazyExtrinsic,
+	generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>: LazyExtrinsic,
 {
 	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Ok(Self(LazyExtrinsic::decode_unprefixed(data)?))
@@ -243,11 +306,16 @@ pub trait EthExtra {
 	/// The Runtime configuration.
 	type Config: Config + TxConfig;
 
-	/// The Runtime's transaction extension.
+	/// The Runtime's transaction extension version 0.
 	/// It should include at least:
 	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
 	///   correct.
-	type Extension: TransactionExtension<CallOf<Self::Config>>;
+	type ExtensionV0: TransactionExtension<CallOf<Self::Config>>;
+
+	/// The Runtime's transaction extension versions other than 0.
+	///
+	/// Use [`sp_runtime::traits::InvalidVersion`] if no other versions should be supported.
+	type ExtensionOtherVersions: Pipeline<CallOf<Self::Config>>;
 
 	/// Get the transaction extension to apply to an unsigned [`crate::Call::eth_transact`]
 	/// extrinsic.
@@ -258,11 +326,11 @@ pub trait EthExtra {
 	fn get_eth_extension(
 		nonce: <Self::Config as frame_system::Config>::Nonce,
 		tip: BalanceOf<Self::Config>,
-	) -> Self::Extension;
+	) -> Self::ExtensionV0;
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
-	/// the encoded_len, the injected gas_limit and storage_deposit_limit.
+	/// the encoded_len and the injected weight_limit.
 	///
 	/// # Parameters
 	/// - `payload`: The RLP-encoded Ethereum transaction.
@@ -271,7 +339,12 @@ pub trait EthExtra {
 		payload: &[u8],
 		encoded_len: usize,
 	) -> Result<
-		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
+		CheckedExtrinsic<
+			AccountIdOf<Self::Config>,
+			CallOf<Self::Config>,
+			Self::ExtensionV0,
+			Self::ExtensionOtherVersions,
+		>,
 		InvalidTransaction,
 	>
 	where
@@ -313,15 +386,18 @@ pub trait EthExtra {
 			InvalidTransaction::Call
 		})?;
 
-		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
-		let call_info =
-			create_call::<Self::Config>(tx, Some((encoded_len as u32, payload.to_vec())), true)?;
+		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction was: {tx:?}");
+		let call_info = tx.into_call::<Self::Config>(CreateCallMode::ExtrinsicExecution(
+			encoded_len as u32,
+			payload.to_vec(),
+		))?;
 		let storage_credit = <Self::Config as Config>::Currency::withdraw(
-					&signer,
-					call_info.storage_deposit,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
+			&signer,
+			call_info.storage_deposit,
+			Precision::Exact,
+			Preservation::Preserve,
+			Fortitude::Polite,
 		).map_err(|_| {
 			log::debug!(target: LOG_TARGET, "Not enough balance to hold additional storage deposit of {:?}", call_info.storage_deposit);
 			InvalidTransaction::Payment
@@ -343,7 +419,7 @@ pub trait EthExtra {
 			weight_limit={} \
 			nonce={nonce:?}\
 			",
-			call_info.gas,
+			call_info.eth_gas_limit,
 			call_info.tx_fee,
 			call_info.storage_deposit,
 			call_info.weight_limit,
@@ -365,12 +441,12 @@ pub trait EthExtra {
 mod test {
 	use super::*;
 	use crate::{
+		EthTransactInfo, RUNTIME_PALLETS_ADDR, Weight,
 		evm::*,
 		test_utils::*,
 		tests::{
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
 		},
-		EthTransactInfo, Weight, RUNTIME_PALLETS_ADDR,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
@@ -518,7 +594,7 @@ mod test {
 					result.function,
 					extra,
 					tx,
-					self.dry_run.unwrap().gas_required,
+					self.dry_run.unwrap().weight_required,
 					signed_transaction,
 				))
 			})
@@ -528,7 +604,7 @@ mod test {
 	#[test]
 	fn check_eth_transact_call_works() {
 		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
-		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
 			builder.check().unwrap();
 		let expected_effective_gas_price =
 			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
@@ -537,11 +613,12 @@ mod test {
 			RuntimeCall::Contracts(crate::Call::eth_call::<Test> {
 				dest,
 				value,
+				weight_limit,
 				data,
-				gas_limit,
 				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
+				..
 			}) if dest == tx.to.unwrap() &&
 				value == tx.value.unwrap_or_default().as_u64().into() &&
 				data == tx.input.to_vec() &&
@@ -550,8 +627,8 @@ mod test {
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
-					gas_limit.all_gte(gas_required),
-					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+					weight_limit.all_gte(weight_required),
+					"Assert failed: weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
 				);
 			},
 			_ => panic!("Call does not match."),
@@ -566,7 +643,7 @@ mod test {
 			expected_code.clone(),
 			expected_data.clone(),
 		);
-		let (expected_encoded_len, call, _, tx, gas_required, signed_transaction) =
+		let (expected_encoded_len, call, _, tx, weight_required, signed_transaction) =
 			builder.check().unwrap();
 		let expected_effective_gas_price =
 			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee());
@@ -575,12 +652,13 @@ mod test {
 		match call {
 			RuntimeCall::Contracts(crate::Call::eth_instantiate_with_code::<Test> {
 				value,
+				weight_limit,
 				code,
 				data,
-				gas_limit,
 				transaction_encoded,
 				effective_gas_price,
 				encoded_len,
+				..
 			}) if value == expected_value &&
 				code == expected_code &&
 				data == expected_data &&
@@ -589,8 +667,8 @@ mod test {
 			{
 				assert_eq!(encoded_len, expected_encoded_len);
 				assert!(
-					gas_limit.all_gte(gas_required),
-					"Assert failed: gas_limit={gas_limit:?} >= gas_required={gas_required:?}"
+					weight_limit.all_gte(weight_required),
+					"Assert failed: weight_limit={weight_limit:?} >= weight_required={weight_required:?}"
 				);
 			},
 			_ => panic!("Call does not match."),
@@ -672,6 +750,26 @@ mod test {
 	}
 
 	#[test]
+	fn eth_pre_dispatch_weight_matches_check_weight_booking() {
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+		let (encoded_len, call, _, _, _, signed_transaction) = builder.check().unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let reported =
+				Pallet::<Test>::eth_pre_dispatch_weight(signed_transaction.signed_payload())
+					.unwrap();
+			let info = <Test as Config>::FeeInfo::dispatch_info(&call);
+			let expected = frame_system::calculate_consumed_extrinsic_weight::<CallOf<Test>>(
+				&<Test as frame_system::Config>::BlockWeights::get(),
+				&info,
+				encoded_len as usize,
+			);
+
+			assert_eq!(reported, expected);
+		});
+	}
+
+	#[test]
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
 		// create some dummy data to increase the gas fee
@@ -704,5 +802,59 @@ mod test {
 			},
 			_ => panic!("Expected the RuntimeCall::Contracts variant, got: {:?}", call),
 		}
+	}
+
+	/// The raw bytes seen in this test is of a deployment transaction from [eip-2470] which publish
+	/// a contract at a predicable address on any chain that it's run on. We use these bytes to test
+	/// that if we were to run this transaction on pallet-revive that it would run and also produce
+	/// a contract at the address described in the EIP.
+	///
+	/// Note: the linked EIP is not an EIP for Nick's method, it's just an EIP that makes use of
+	/// Nick's method.
+	///
+	/// [eip-2470]: https://eips.ethereum.org/EIPS/eip-2470
+	#[test]
+	fn contract_deployment_with_nick_method_works() {
+		// Arrange
+		let raw_transaction_bytes = alloy_core::hex!(
+			"0xf9016c8085174876e8008303c4d88080b90154608060405234801561001057600080fd5b50610134806100206000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c634300060200331b83247000822470"
+		);
+
+		let mut signed_transaction = TransactionSigned::decode(raw_transaction_bytes.as_slice())
+			.expect("Invalid raw transaction bytes");
+		if let TransactionSigned::TransactionLegacySigned(ref mut legacy_transaction) =
+			signed_transaction
+		{
+			legacy_transaction.transaction_legacy_unsigned.gas =
+				U256::from_dec_str("3750815700000").unwrap();
+		}
+		let generic_transaction = GenericTransaction::from_signed(
+			signed_transaction.clone(),
+			ExtBuilder::default().build().execute_with(|| Pallet::<Test>::evm_base_fee()),
+			None,
+		);
+
+		let unchecked_extrinsic_builder = UncheckedExtrinsicBuilder {
+			tx: generic_transaction,
+			before_validate: None,
+			dry_run: None,
+		};
+
+		// Act
+		let eth_transact_result = unchecked_extrinsic_builder.check();
+
+		// Assert
+		let (
+			_encoded_len,
+			_function,
+			_extra,
+			generic_transaction,
+			_gas_required,
+			_signed_transaction,
+		) = eth_transact_result.expect("eth_transact failed");
+		assert!(
+			generic_transaction.chain_id.is_none(),
+			"Chain Id in the generic transaction is not None"
+		);
 	}
 }

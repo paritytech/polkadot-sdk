@@ -369,7 +369,7 @@ pub mod pallet {
 			let mut pruned_messages = 0;
 			for _ in outbound_lane.queued_messages() {
 				if pruned_messages == may_prune_messages {
-					break
+					break;
 				}
 
 				outbound_lane.remove_oldest_unpruned_message();
@@ -402,7 +402,7 @@ pub mod pallet {
 					enqueued_messages,
 				});
 
-				return Ok(())
+				return Ok(());
 			}
 
 			// else we have pruned all messages, so lanes and the bridge itself may gone
@@ -758,8 +758,9 @@ pub mod pallet {
 
 				let lane_id = match maybe_lane_id {
 					Some(lane_id) => *lane_id,
-					None =>
-						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations"),
+					None => {
+						locations.calculate_lane_id(xcm::latest::VERSION).expect("Valid locations")
+					},
 				};
 
 				Pallet::<T, I>::do_open_bridge(locations, lane_id, true)

@@ -166,6 +166,17 @@ pub struct RunCmd {
 	///  **Dangerous!** Do not touch unless explicitly advised to.
 	#[arg(long, hide = true)]
 	pub collator_protocol_hold_off: Option<u64>,
+
+	/// Enable experimental collator protocol. TESTING ONLY! Don't use on production
+	#[arg(long, hide = true, default_value = "false")]
+	pub experimental_collator_protocol: bool,
+
+	/// Collator reputation persistence interval in seconds.
+	/// If not specified, defaults to 600 seconds (10 minutes).
+	/// This should be used only with experimental_collator_protocol
+	/// and only on validators.
+	#[arg(long, requires = "experimental_collator_protocol", requires = "validator")]
+	pub collator_reputation_persist_interval: Option<u64>,
 }
 
 #[allow(missing_docs)]

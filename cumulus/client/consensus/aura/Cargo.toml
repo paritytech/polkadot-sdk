@@ -37,6 +37,7 @@ sp-blockchain = { workspace = true, default-features = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-externalities = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
@@ -47,7 +48,6 @@ sp-trie = { workspace = true, default-features = true }
 # Cumulus
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
-cumulus-client-consensus-proposer = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }

@@ -50,10 +50,10 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				.with_node(|node| node.with_name("honest-validator-0"))
-				.with_node(|node| node.with_name("honest-validator-1"))
-				.with_node(|node| node.with_name("honest-flaky-validator-0"))
-				.with_node(|node| {
+				.with_validator(|node| node.with_name("honest-validator-0"))
+				.with_validator(|node| node.with_name("honest-validator-1"))
+				.with_validator(|node| node.with_name("honest-flaky-validator-0"))
+				.with_validator(|node| {
 					node.with_name("malicious-backer")
 						.with_image(
 							std::env::var("MALUS_IMAGE")
@@ -92,8 +92,7 @@ async fn dispute_past_session_slashing() -> Result<(), anyhow::Error> {
 	let relay_client: OnlineClient<PolkadotConfig> = honest.wait_client().await?;
 
 	// Wait for some para blocks being produced
-	assert_para_throughput(&relay_client, 20, [(ParaId::from(1337), 10..20)].into_iter().collect())
-		.await?;
+	assert_para_throughput(&relay_client, 20, [(ParaId::from(1337), 10..20)]).await?;
 
 	// Let's initiate a dispute
 	malus.resume().await?;

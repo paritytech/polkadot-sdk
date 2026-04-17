@@ -1,0 +1,10 @@
+title: '[frame-support] remove error reporting in `remote_transfer_xcm` for paid execution'
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: 'The reason is that it is broken and will result in spamming errors
+    until we fix it properly: https://github.com/paritytech/polkadot-sdk/issues/10078.'
+crates:
+- name: staging-xcm-builder
+  bump: patch

@@ -173,7 +173,7 @@ impl RewardAgent {
 
 	fn join(&mut self) {
 		if self.pool_id.is_some() {
-			return
+			return;
 		}
 		let pool_id = LastPoolId::<T>::get();
 		let amount = 10 * ExistentialDeposit::get();
@@ -189,7 +189,7 @@ impl RewardAgent {
 		// calculated.
 		if !PoolMembers::<T>::contains_key(&self.who) {
 			log!(warn, "reward agent is not in the pool yet, cannot claim");
-			return
+			return;
 		}
 		let pre = Balances::free_balance(&42);
 		let origin = RuntimeOrigin::signed(42);
@@ -267,12 +267,12 @@ fn main() {
 				}
 
 				// execute sanity checks at a fixed interval, possibly on every block.
-				if iteration %
+				if iteration.is_multiple_of(
 					(std::env::var("SANITY_CHECK_INTERVAL")
 						.ok()
 						.and_then(|x| x.parse::<u64>().ok()))
-					.unwrap_or(1) == 0
-				{
+					.unwrap_or(1),
+				) {
 					log!(info, "running sanity checks at {}", iteration);
 					Pools::do_try_state(u8::MAX).unwrap();
 				}
@@ -301,7 +301,7 @@ fn main() {
 				System::reset_events();
 
 				// trigger an era change, and check the status of the reward agent.
-				if iteration % ERA == 0 {
+				if iteration.is_multiple_of(ERA) {
 					CurrentEra::mutate(|c| *c += 1);
 					BondedPools::<T>::iter().for_each(|(id, _)| {
 						let amount = random_ed_multiple(&mut rng);

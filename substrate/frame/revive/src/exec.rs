@@ -16,23 +16,19 @@
 // limitations under the License.
 
 use crate::{
-	address::{self, AddressMapper},
-	evm::{
-		block_storage,
-		fees::{Combinator, InfoT},
-		transfer_with_dust,
-	},
-	gas::GasMeter,
-	limits,
-	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
-	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
-	runtime_decl_for_revive_api::{Decode, Encode, RuntimeDebugNoBound, TypeInfo},
-	storage::{self, meter::Diff, AccountIdOrAddress, WriteOutcome},
-	tracing::if_tracing,
-	transient_storage::TransientStorage,
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
-	Pallet as Contracts, RuntimeCosts, TrieId, LOG_TARGET,
+	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
+	address::{self, AddressMapper},
+	evm::{block_storage, transfer_with_dust},
+	limits,
+	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
+	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
+	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
+	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
+	storage::{AccountIdOrAddress, WriteOutcome},
+	tracing::if_tracing,
+	transient_storage::TransientStorage,
 };
 use alloc::{
 	collections::{BTreeMap, BTreeSet},
@@ -40,31 +36,31 @@ use alloc::{
 };
 use core::{cmp, fmt::Debug, marker::PhantomData, mem, ops::ControlFlow};
 use frame_support::{
+	Blake2_128Concat, BoundedVec, DebugNoBound, StorageHasher,
 	crypto::ecdsa::ECDSAExt,
 	dispatch::DispatchResult,
 	ensure,
-	storage::{with_transaction, TransactionOutcome},
+	storage::{TransactionOutcome, with_transaction},
 	traits::{
+		Time,
 		fungible::{Inspect, Mutate},
 		tokens::Preservation,
-		Time,
 	},
 	weights::Weight,
-	Blake2_128Concat, BoundedVec, StorageHasher,
 };
 use frame_system::{
-	pallet_prelude::{BlockNumberFor, OriginFor},
 	Pallet as System, RawOrigin,
+	pallet_prelude::{BlockNumberFor, OriginFor},
 };
 use sp_core::{
+	ConstU32, Get, H160, H256, U256,
 	ecdsa::Public as ECDSAPublic,
 	sr25519::{Public as SR25519Public, Signature as SR25519Signature},
-	ConstU32, Get, H160, H256, U256,
 };
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
-	traits::{BadOrigin, Bounded, Saturating, TrailingZeroInput},
 	DispatchError, SaturatedConversion,
+	traits::{BadOrigin, Saturating, TrailingZeroInput},
 };
 
 #[cfg(test)]
@@ -121,6 +117,28 @@ impl Key {
 	}
 }
 
+/// Level of reentrancy protection.
+///
+/// This needs to be specifed when a contract makes a message call. This way the calling contract
+/// can specify the level of re-entrancy protection while the callee (and it's recursive callees) is
+/// executing.
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub enum ReentrancyProtection {
+	/// Don't activate reentrancy protection
+	AllowReentry,
+	/// Activate strict reentrancy protection. The direct callee and none of its own recursive
+	/// callees must be the calling contract.
+	Strict,
+	/// Activate reentrancy protection where the direct callee can be the same contract as the
+	/// caller but none of the recursive callees of the callee must be the caller.
+	///
+	/// This is used for calls that transfer value but restrict gas so that the callee only has a
+	/// stipend gas amount. In Ethereum that is not sufficient for the callee to make another call.
+	/// However, due to gas scale differences that guarantee does not automatically hold in revive
+	/// and we enforce it explicitly here.
+	AllowNext,
+}
+
 /// Origin of the error.
 ///
 /// Call or instantiate both called into other contracts and pass through errors happening
@@ -153,7 +171,7 @@ impl<T: Into<DispatchError>> From<T> for ExecError {
 }
 
 /// The type of origins supported by the revive pallet.
-#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, RuntimeDebugNoBound)]
+#[derive(Clone, Encode, Decode, PartialEq, TypeInfo, DebugNoBound)]
 pub enum Origin<T: Config> {
 	Root,
 	Signed(T::AccountId),
@@ -194,6 +212,52 @@ impl<T: Config> Origin<T> {
 		}
 	}
 }
+
+/// Argument passed by a contact to describe the amount of resources allocated to a cross contact
+/// call.
+#[derive(DebugNoBound)]
+pub enum CallResources<T: Config> {
+	/// Resources are not limited
+	NoLimits,
+	/// Resources encoded using their actual values.
+	WeightDeposit { weight: Weight, deposit_limit: BalanceOf<T> },
+	/// Resources encoded as unified ethereum gas.
+	Ethereum { gas: BalanceOf<T>, add_stipend: bool },
+}
+
+impl<T: Config> CallResources<T> {
+	/// Creates a new `CallResources` with weight and deposit limits.
+	pub fn from_weight_and_deposit(weight: Weight, deposit_limit: U256) -> Self {
+		Self::WeightDeposit {
+			weight,
+			deposit_limit: deposit_limit.saturated_into::<BalanceOf<T>>(),
+		}
+	}
+
+	/// Creates a new `CallResources` from Ethereum gas limits.
+	pub fn from_ethereum_gas(gas: U256, add_stipend: bool) -> Self {
+		Self::Ethereum { gas: gas.saturated_into::<BalanceOf<T>>(), add_stipend }
+	}
+}
+
+impl<T: Config> Default for CallResources<T> {
+	fn default() -> Self {
+		Self::WeightDeposit { weight: Default::default(), deposit_limit: Default::default() }
+	}
+}
+
+/// Stored inside the `Stack` for each contract that is scheduled for termination.
+struct TerminateArgs<T: Config> {
+	/// Where to send the free balance of the terminated contract.
+	beneficiary: T::AccountId,
+	/// The storage child trie of the contract that needs to be deleted.
+	trie_id: TrieId,
+	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
+	code_hash: H256,
+	/// Triggered by the EVM opcode.
+	only_if_same_tx: bool,
+}
+
 /// Environment functions only available to host functions.
 pub trait Ext: PrecompileWithInfoExt {
 	/// Execute code in the current frame.
@@ -201,8 +265,7 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Returns the code size of the called contract.
 	fn delegate_call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources<Self::T>,
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
@@ -218,10 +281,6 @@ pub trait Ext: PrecompileWithInfoExt {
 	/// Returns the code hash of the contract being executed.
 	#[allow(dead_code)]
 	fn own_code_hash(&mut self) -> &H256;
-
-	/// Sets new code hash and immutable data for an existing contract.
-	/// Returns whether the old code was removed as a result of this operation.
-	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError>;
 
 	/// Get the length of the immutable data.
 	///
@@ -251,8 +310,7 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 	/// value transferred from the caller to the newly created account.
 	fn instantiate(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		limits: &CallResources<Self::T>,
 		code: Code,
 		value: U256,
 		input_data: Vec<u8>,
@@ -264,33 +322,36 @@ pub trait PrecompileWithInfoExt: PrecompileExt {
 pub trait PrecompileExt: sealing::Sealed {
 	type T: Config;
 
-	/// Charges the gas meter with the given weight.
-	fn charge(&mut self, weight: Weight) -> Result<crate::gas::ChargedAmount, DispatchError> {
-		self.gas_meter_mut().charge(RuntimeCosts::Precompile(weight))
+	/// Charges the weight meter with the given weight.
+	fn charge(&mut self, weight: Weight) -> Result<ChargedAmount, DispatchError> {
+		self.frame_meter_mut().charge_weight_token(RuntimeCosts::Precompile(weight))
 	}
 
-	fn adjust_gas(&mut self, charged: crate::gas::ChargedAmount, actual_weight: Weight) {
-		self.gas_meter_mut()
-			.adjust_gas(charged, RuntimeCosts::Precompile(actual_weight));
+	/// Reconcile an earlier gas charge with the actual weight consumed.
+	/// This updates the current weight meter to reflect the real cost of the token.
+	fn adjust_gas(&mut self, charged: ChargedAmount, actual_weight: Weight) {
+		self.frame_meter_mut()
+			.adjust_weight(charged, RuntimeCosts::Precompile(actual_weight));
 	}
 
-	/// Charges the gas meter with the given token or halts execution if not enough gas is left.
-	fn charge_or_halt<Tok: crate::gas::Token<Self::T>>(
+	/// Charges the weight meter with the given token or halts execution if not enough weight is
+	/// left.
+	#[inline]
+	fn charge_or_halt<Tok: Token<Self::T>>(
 		&mut self,
 		token: Tok,
-	) -> ControlFlow<crate::vm::evm::Halt, crate::gas::ChargedAmount> {
-		self.gas_meter_mut().charge_or_halt(token)
+	) -> ControlFlow<crate::vm::evm::Halt, ChargedAmount> {
+		self.frame_meter_mut().charge_or_halt(token)
 	}
 
 	/// Call (possibly transferring some amount of funds) into the specified account.
 	fn call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources<Self::T>,
 		to: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		allows_reentry: bool,
+		reentrancy: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError>;
 
@@ -388,11 +449,21 @@ pub trait PrecompileExt: sealing::Sealed {
 	/// Returns the chain id.
 	fn chain_id(&self) -> u64;
 
-	/// Get an immutable reference to the nested gas meter.
-	fn gas_meter(&self) -> &GasMeter<Self::T>;
+	/// Get an immutable reference to the nested resource meter of the frame.
+	#[deprecated(note = "Renamed to `frame_meter`; this alias will be removed in future versions")]
+	fn gas_meter(&self) -> &FrameMeter<Self::T>;
 
-	/// Get a mutable reference to the nested gas meter.
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T>;
+	/// Get a mutable reference to the nested resource meter of the frame.
+	#[deprecated(
+		note = "Renamed to `frame_meter_mut`; this alias will be removed in future versions"
+	)]
+	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
+
+	/// Get an immutable reference to the nested resource meter of the frame.
+	fn frame_meter(&self) -> &FrameMeter<Self::T>;
+
+	/// Get a mutable reference to the nested resource meter of the frame.
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T>;
 
 	/// Recovers ECDSA compressed public key based on signature and message hash.
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()>;
@@ -401,7 +472,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	fn sr25519_verify(&self, signature: &[u8; 64], message: &[u8], pub_key: &[u8; 32]) -> bool;
 
 	/// Returns Ethereum address from the ECDSA compressed public key.
-	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()>;
+	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], DispatchError>;
 
 	/// Tests sometimes need to modify and inspect the contract info directly.
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -449,6 +520,7 @@ pub trait PrecompileExt: sealing::Sealed {
 
 	/// The amount of gas left in eth gas units.
 	fn gas_left(&self) -> u64;
+
 	/// Returns the storage entry of the executing account by the given `key`.
 	///
 	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
@@ -471,7 +543,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	) -> Result<WriteOutcome, DispatchError>;
 
 	/// Charges `diff` from the meter.
-	fn charge_storage(&mut self, diff: &Diff);
+	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult;
 }
 
 /// Describes the different functions that can be exported by an [`Executable`].
@@ -480,7 +552,7 @@ pub trait PrecompileExt: sealing::Sealed {
 	Clone,
 	PartialEq,
 	Eq,
-	sp_core::RuntimeDebug,
+	Debug,
 	codec::Decode,
 	codec::Encode,
 	codec::MaxEncodedLen,
@@ -501,8 +573,11 @@ pub trait Executable<T: Config>: Sized {
 	/// Load the executable from storage.
 	///
 	/// # Note
-	/// Charges size base load weight from the gas meter.
-	fn from_storage(code_hash: H256, gas_meter: &mut GasMeter<T>) -> Result<Self, DispatchError>;
+	/// Charges size base load weight from the weight meter.
+	fn from_storage<S: State>(
+		code_hash: H256,
+		meter: &mut ResourceMeter<T, S>,
+	) -> Result<Self, DispatchError>;
 
 	/// Load the executable from EVM bytecode
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError>;
@@ -548,10 +623,8 @@ pub struct Stack<'a, T: Config, E> {
 	/// than a plain account when being called through one of the contract RPCs where the
 	/// client can freely choose the origin. This usually makes no sense but is still possible.
 	origin: Origin<T>,
-	/// The gas meter where costs are charged to.
-	gas_meter: &'a mut GasMeter<T>,
-	/// The storage meter makes sure that the storage deposit limit is obeyed.
-	storage_meter: &'a mut storage::meter::Meter<T>,
+	/// The resource meter that tracks all resource usage before the first frame starts.
+	transaction_meter: &'a mut TransactionMeter<T>,
 	/// The timestamp at the point of call stack instantiation.
 	timestamp: MomentOf<T>,
 	/// The block number at the time of call stack instantiation.
@@ -582,10 +655,8 @@ struct Frame<T: Config> {
 	value_transferred: U256,
 	/// Determines whether this is a call or instantiate frame.
 	entry_point: ExportedFunction,
-	/// The gas meter capped to the supplied gas limit.
-	nested_gas: GasMeter<T>,
-	/// The storage meter for the individual call.
-	nested_storage: storage::meter::NestedMeter<T>,
+	/// The resource meter that tracks all resource usage of this frame.
+	frame_meter: FrameMeter<T>,
 	/// If `false` the contract enabled its defense against reentrance attacks.
 	allows_reentry: bool,
 	/// If `true` subsequent calls cannot modify storage.
@@ -603,7 +674,7 @@ struct Frame<T: Config> {
 
 /// This structure is used to represent the arguments in a delegate call frame in order to
 /// distinguish who delegated the call and where it was delegated to.
-#[derive(Clone)]
+#[derive(Clone, DebugNoBound)]
 pub struct DelegateInfo<T: Config> {
 	/// The caller of the contract.
 	pub caller: Origin<T>,
@@ -621,11 +692,7 @@ enum ExecutableOrPrecompile<T: Config, E: Executable<T>, Env> {
 
 impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 	fn as_executable(&self) -> Option<&E> {
-		if let Self::Executable(executable) = self {
-			Some(executable)
-		} else {
-			None
-		}
+		if let Self::Executable(executable) = self { Some(executable) } else { None }
 	}
 
 	fn is_pvm(&self) -> bool {
@@ -636,20 +703,12 @@ impl<T: Config, E: Executable<T>, Env> ExecutableOrPrecompile<T, E, Env> {
 	}
 
 	fn as_precompile(&self) -> Option<&PrecompileInstance<Env>> {
-		if let Self::Precompile { instance, .. } = self {
-			Some(instance)
-		} else {
-			None
-		}
+		if let Self::Precompile { instance, .. } = self { Some(instance) } else { None }
 	}
 
 	#[cfg(any(feature = "runtime-benchmarks", test))]
 	fn into_executable(self) -> Option<E> {
-		if let Self::Executable(executable) = self {
-			Some(executable)
-		} else {
-			None
-		}
+		if let Self::Executable(executable) = self { Some(executable) } else { None }
 	}
 }
 
@@ -740,30 +799,21 @@ macro_rules! top_frame_mut {
 impl<T: Config> CachedContract<T> {
 	/// Return `Some(ContractInfo)` if the contract is in cached state. `None` otherwise.
 	fn into_contract(self) -> Option<ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
+		if let CachedContract::Cached(contract) = self { Some(contract) } else { None }
 	}
 
 	/// Return `Some(&mut ContractInfo)` if the contract is in cached state. `None` otherwise.
 	fn as_contract(&mut self) -> Option<&mut ContractInfo<T>> {
-		if let CachedContract::Cached(contract) = self {
-			Some(contract)
-		} else {
-			None
-		}
+		if let CachedContract::Cached(contract) = self { Some(contract) } else { None }
 	}
 
 	/// Load the `contract_info` from storage if necessary.
 	fn load(&mut self, account_id: &T::AccountId) {
-		if let CachedContract::Invalidated = self {
-			if let Some(contract) =
+		if let CachedContract::Invalidated = self &&
+			let Some(contract) =
 				AccountInfo::<T>::load_contract(&T::AddressMapper::to_address(account_id))
-			{
-				*self = CachedContract::Cached(contract);
-			}
+		{
+			*self = CachedContract::Cached(contract);
 		}
 	}
 
@@ -794,8 +844,7 @@ where
 	pub fn run_call(
 		origin: Origin<T>,
 		dest: H160,
-		gas_meter: &mut GasMeter<T>,
-		storage_meter: &mut storage::meter::Meter<T>,
+		transaction_meter: &'a mut TransactionMeter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		exec_config: &ExecConfig<T>,
@@ -804,8 +853,7 @@ where
 		if let Some((mut stack, executable)) = Stack::<'_, T, E>::new(
 			FrameArgs::Call { dest: dest.clone(), cached_info: None, delegated_call: None },
 			origin.clone(),
-			gas_meter,
-			storage_meter,
+			transaction_meter,
 			value,
 			exec_config,
 			&input_data,
@@ -816,11 +864,11 @@ where
 				t.enter_child_span(
 					origin.account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
 					T::AddressMapper::to_address(&dest),
-					false,
+					None,
 					false,
 					value,
 					&input_data,
-					Weight::zero(),
+					Default::default(),
 				);
 			});
 
@@ -835,14 +883,20 @@ where
 					&origin,
 					&dest,
 					value,
-					storage_meter,
+					transaction_meter,
 					exec_config,
 				)
 			};
 
 			if_tracing(|t| match result {
-				Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-				Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+				Ok(ref output) => {
+					t.exit_child_span(&output, Default::default(), Default::default())
+				},
+				Err(e) => t.exit_child_span_with_error(
+					e.error.into(),
+					Default::default(),
+					Default::default(),
+				),
 			});
 
 			log::trace!(target: LOG_TARGET, "call finished with: {result:?}");
@@ -859,8 +913,7 @@ where
 	pub fn run_instantiate(
 		origin: T::AccountId,
 		executable: E,
-		gas_meter: &mut GasMeter<T>,
-		storage_meter: &mut storage::meter::Meter<T>,
+		transaction_meter: &'a mut TransactionMeter<T>,
 		value: U256,
 		input_data: Vec<u8>,
 		salt: Option<&[u8; 32]>,
@@ -875,8 +928,7 @@ where
 				input_data: input_data.as_ref(),
 			},
 			Origin::from_account_id(origin),
-			gas_meter,
-			storage_meter,
+			transaction_meter,
 			value,
 			exec_config,
 			&input_data,
@@ -886,10 +938,10 @@ where
 		let result = stack
 			.run(executable, input_data)
 			.map(|_| (address, stack.first_frame.last_frame_output));
-		if let Ok((contract, ref output)) = result {
-			if !output.did_revert() {
-				Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract });
-			}
+		if let Ok((contract, output)) = &result &&
+			!output.did_revert()
+		{
+			Contracts::<T>::deposit_event(Event::Instantiated { deployer, contract: *contract });
 		}
 		log::trace!(target: LOG_TARGET, "instantiate finished with: {result:?}");
 		result
@@ -899,10 +951,11 @@ where
 	pub fn bench_new_call(
 		dest: H160,
 		origin: Origin<T>,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		transaction_meter: &'a mut TransactionMeter<T>,
 		value: BalanceOf<T>,
 		exec_config: &'a ExecConfig<T>,
+		read_only: bool,
+		delegate_call: bool,
 	) -> (Self, E) {
 		let call = Self::new(
 			FrameArgs::Call {
@@ -911,15 +964,25 @@ where
 				delegated_call: None,
 			},
 			origin,
-			gas_meter,
-			storage_meter,
+			transaction_meter,
 			value.into(),
 			exec_config,
 			&Default::default(),
 		)
 		.unwrap()
 		.unwrap();
-		(call.0, call.1.into_executable().unwrap())
+		let mut stack = call.0;
+		if read_only {
+			stack.top_frame_mut().read_only = true;
+		}
+		if delegate_call {
+			let frame = stack.top_frame_mut();
+			frame.delegate = Some(DelegateInfo {
+				caller: Origin::from_account_id(frame.account_id.clone()),
+				callee: H160::zero(),
+			});
+		}
+		(stack, call.1.into_executable().unwrap())
 	}
 
 	/// Create a new call stack.
@@ -929,8 +992,7 @@ where
 	fn new(
 		args: FrameArgs<T, E>,
 		origin: Origin<T>,
-		gas_meter: &'a mut GasMeter<T>,
-		storage_meter: &'a mut storage::meter::Meter<T>,
+		transaction_meter: &'a mut TransactionMeter<T>,
 		value: U256,
 		exec_config: &'a ExecConfig<T>,
 		input_data: &Vec<u8>,
@@ -939,10 +1001,8 @@ where
 		let Some((first_frame, executable)) = Self::new_frame(
 			args,
 			value,
-			gas_meter,
-			Weight::max_value(),
-			storage_meter,
-			BalanceOf::<T>::max_value(),
+			transaction_meter,
+			&CallResources::NoLimits,
 			false,
 			true,
 			input_data,
@@ -966,8 +1026,7 @@ where
 
 		let stack = Self {
 			origin,
-			gas_meter,
-			storage_meter,
+			transaction_meter,
 			timestamp,
 			block_number,
 			first_frame,
@@ -983,13 +1042,11 @@ where
 	///
 	/// This does not take `self` because when constructing the first frame `self` is
 	/// not initialized, yet.
-	fn new_frame<S: storage::meter::State + Default + Debug>(
+	fn new_frame<S: State>(
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
-		gas_meter: &mut GasMeter<T>,
-		gas_limit: Weight,
-		storage_meter: &mut storage::meter::GenericMeter<T, S>,
-		deposit_limit: BalanceOf<T>,
+		meter: &mut ResourceMeter<T, S>,
+		call_resources: &CallResources<T>,
 		read_only: bool,
 		origin_is_caller: bool,
 		input_data: &[u8],
@@ -1004,12 +1061,13 @@ where
 				// is a delegate call or not
 				let mut contract = match (cached_info, &precompile) {
 					(Some(info), _) => CachedContract::Cached(info),
-					(None, None) =>
+					(None, None) => {
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
 							CachedContract::Cached(info)
 						} else {
 							return Ok(None);
-						},
+						}
+					},
 					(None, Some(precompile)) if precompile.has_contract_info() => {
 						log::trace!(target: LOG_TARGET, "found precompile for address {address:?}");
 						if let Some(info) = AccountInfo::<T>::load_contract(&address) {
@@ -1041,7 +1099,7 @@ where
 						else {
 							return Ok(None);
 						};
-						let executable = E::from_storage(info.code_hash, gas_meter)?;
+						let executable = E::from_storage(info.code_hash, meter)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
 				} else {
@@ -1056,7 +1114,7 @@ where
 								.as_contract()
 								.expect("When not a precompile the contract was loaded above; qed")
 								.code_hash,
-							gas_meter,
+							meter,
 						)?;
 						ExecutableOrPrecompile::Executable(executable)
 					}
@@ -1103,8 +1161,7 @@ where
 			contract_info,
 			account_id,
 			entry_point,
-			nested_gas: gas_meter.nested(gas_limit),
-			nested_storage: storage_meter.nested(deposit_limit),
+			frame_meter: meter.new_nested(call_resources)?,
 			allows_reentry: true,
 			read_only,
 			last_frame_output: Default::default(),
@@ -1120,8 +1177,7 @@ where
 		&mut self,
 		frame_args: FrameArgs<T, E>,
 		value_transferred: U256,
-		gas_limit: Weight,
-		deposit_limit: BalanceOf<T>,
+		call_resources: &CallResources<T>,
 		read_only: bool,
 		input_data: &[u8],
 	) -> Result<Option<ExecutableOrPrecompile<T, E, Self>>, ExecError> {
@@ -1133,26 +1189,31 @@ where
 		// See the `in_memory_changes_not_discarded` test for more information.
 		// We do not store on instantiate because we do not allow to call into a contract
 		// from its own constructor.
+		//
+		// Additionally, we need to apply pending storage changes to the ContractInfo before
+		// saving it, so that child frames can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
 		let frame = self.top_frame();
 		if let (CachedContract::Cached(contract), ExportedFunction::Call) =
 			(&frame.contract_info, frame.entry_point)
 		{
+			let mut contract_with_pending_changes = contract.clone();
+			frame
+				.frame_meter
+				.apply_pending_storage_changes(&mut contract_with_pending_changes);
 			AccountInfo::<T>::insert_contract(
 				&T::AddressMapper::to_address(&frame.account_id),
-				contract.clone(),
+				contract_with_pending_changes,
 			);
 		}
 
 		let frame = top_frame_mut!(self);
-		let nested_gas = &mut frame.nested_gas;
-		let nested_storage = &mut frame.nested_storage;
+		let meter = &mut frame.frame_meter;
 		if let Some((frame, executable)) = Self::new_frame(
 			frame_args,
 			value_transferred,
-			nested_gas,
-			gas_limit,
-			nested_storage,
-			deposit_limit,
+			meter,
+			call_resources,
 			read_only,
 			false,
 			input_data,
@@ -1178,14 +1239,33 @@ where
 		let is_pvm = executable.is_pvm();
 
 		if_tracing(|tracer| {
+			// For DELEGATECALL, `from` is the contract making the delegatecall and
+			// `to` is the target contract whose code is being executed.
+			let (from, to) = match frame.delegate.as_ref() {
+				Some(delegate) => {
+					(T::AddressMapper::to_address(&frame.account_id), delegate.callee)
+				},
+				None => (
+					self.caller()
+						.account_id()
+						.map(T::AddressMapper::to_address)
+						.unwrap_or_default(),
+					T::AddressMapper::to_address(&frame.account_id),
+				),
+			};
 			tracer.enter_child_span(
-				self.caller().account_id().map(T::AddressMapper::to_address).unwrap_or_default(),
-				T::AddressMapper::to_address(&frame.account_id),
-				frame.delegate.is_some(),
+				from,
+				to,
+				frame.delegate.as_ref().map(|delegate| delegate.callee),
 				frame.read_only,
 				frame.value_transferred,
 				&input_data,
-				frame.nested_gas.gas_left(),
+				frame
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
 			);
 		});
 		let mock_answer = self.exec_config.mock_handler.as_ref().and_then(|handler| {
@@ -1211,11 +1291,13 @@ where
 			*caller_frame = Default::default();
 		}
 
-		self.transient_storage.start_transaction();
+		self.with_transient_storage_mut(|transient_storage| {
+			transient_storage.start_transaction();
+		});
+		let is_first_frame = self.frames.is_empty();
 
 		let do_transaction = || -> ExecResult {
 			let caller = self.caller();
-			let is_first_frame = self.frames.len() == 0;
 			let bump_nonce = self.exec_config.bump_nonce;
 			let frame = top_frame_mut!(self);
 			let account_id = &frame.account_id.clone();
@@ -1236,7 +1318,7 @@ where
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
 					let ed = <Contracts<T>>::min_balance();
-					frame.nested_storage.record_charge(&StorageDeposit::Charge(ed))?;
+					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
 					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)?;
 				}
 
@@ -1274,7 +1356,7 @@ where
 					&caller,
 					account_id,
 					frame.value_transferred,
-					&mut frame.nested_storage,
+					&mut frame.frame_meter,
 					self.exec_config,
 				)?;
 			}
@@ -1285,17 +1367,16 @@ where
 			//    account.
 			//  - Only when not delegate calling we are executing in the context of the pre-compile.
 			//    Pre-compiles itself cannot delegate call.
-			if let Some(precompile) = executable.as_precompile() {
-				if precompile.has_contract_info() &&
-					frame.delegate.is_none() &&
-					!<System<T>>::account_exists(account_id)
-				{
-					// prefix matching pre-compiles cannot have a contract info
-					// hence we only mint once per pre-compile
-					T::Currency::mint_into(account_id, T::Currency::minimum_balance())?;
-					// make sure the pre-compile does not destroy its account by accident
-					<System<T>>::inc_consumers(account_id)?;
-				}
+			if let Some(precompile) = executable.as_precompile() &&
+				precompile.has_contract_info() &&
+				frame.delegate.is_none() &&
+				!<System<T>>::account_exists(account_id)
+			{
+				// prefix matching pre-compiles cannot have a contract info
+				// hence we only mint once per pre-compile
+				T::Currency::mint_into(account_id, T::Currency::minimum_balance())?;
+				// make sure the pre-compile does not destroy its account by accident
+				<System<T>>::inc_consumers(account_id)?;
 			}
 
 			let mut code_deposit = executable
@@ -1304,10 +1385,12 @@ where
 				.unwrap_or_default();
 
 			let mut output = match executable {
-				ExecutableOrPrecompile::Executable(executable) =>
-					executable.execute(self, entry_point, input_data),
-				ExecutableOrPrecompile::Precompile { instance, .. } =>
-					instance.call(input_data, self),
+				ExecutableOrPrecompile::Executable(executable) => {
+					executable.execute(self, entry_point, input_data)
+				},
+				ExecutableOrPrecompile::Precompile { instance, .. } => {
+					instance.call(input_data, self)
+				},
 			}
 			.and_then(|output| {
 				if u32::try_from(output.data.len())
@@ -1345,7 +1428,7 @@ where
 					};
 
 					let mut module = crate::ContractBlob::<T>::from_evm_runtime_code(data, origin)?;
-					module.store_code(&self.exec_config, Some(&mut frame.nested_storage))?;
+					module.store_code(&self.exec_config, &mut frame.frame_meter)?;
 					code_deposit = module.code_info().deposit();
 
 					let contract_info = frame.contract_info();
@@ -1354,9 +1437,10 @@ where
 				}
 
 				let deposit = frame.contract_info().update_base_deposit(code_deposit);
-				frame
-					.nested_storage
-					.charge_deposit(frame.account_id.clone(), StorageDeposit::Charge(deposit));
+				frame.frame_meter.charge_contract_deposit_and_transfer(
+					frame.account_id.clone(),
+					StorageDeposit::Charge(deposit),
+				)?;
 				frame
 			} else {
 				self.top_frame_mut()
@@ -1367,8 +1451,8 @@ where
 			// the limit is manually enforced here.
 			let contract = frame.contract_info.as_contract();
 			frame
-				.nested_storage
-				.enforce_limit(contract)
+				.frame_meter
+				.finalize(contract)
 				.map_err(|e| ExecError { error: e, origin: ErrorOrigin::Callee })?;
 
 			Ok(output)
@@ -1388,8 +1472,9 @@ where
 					do_transaction()
 				};
 				match &output {
-					Ok(result) if !result.did_revert() =>
-						TransactionOutcome::Commit(Ok((true, output))),
+					Ok(result) if !result.did_revert() => {
+						TransactionOutcome::Commit(Ok((true, output)))
+					},
 					_ => TransactionOutcome::Rollback(Ok((false, output))),
 				}
 			});
@@ -1398,10 +1483,28 @@ where
 			// `with_transactional` executed successfully, and we have the expected output.
 			Ok((success, output)) => {
 				if_tracing(|tracer| {
-					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
+					let frame_meter = &top_frame!(self).frame_meter;
+
+					// we treat the initial frame meter differently to address
+					// https://github.com/paritytech/polkadot-sdk/issues/8362
+					let gas_consumed = if is_first_frame {
+						frame_meter.total_consumed_gas()
+					} else {
+						frame_meter.eth_gas_consumed()
+					};
+
+					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
+
 					match &output {
-						Ok(output) => tracer.exit_child_span(&output, gas_consumed),
-						Err(e) => tracer.exit_child_span_with_error(e.error.into(), gas_consumed),
+						Ok(output) => {
+							tracer.exit_child_span(&output, gas_consumed, weight_consumed)
+						},
+						Err(e) => tracer.exit_child_span_with_error(
+							e.error.into(),
+							gas_consumed,
+							weight_consumed,
+						),
 					}
 				});
 
@@ -1411,19 +1514,31 @@ where
 			// has changed.
 			Err(error) => {
 				if_tracing(|tracer| {
-					let gas_consumed = top_frame!(self).nested_gas.gas_consumed();
-					tracer.exit_child_span_with_error(error.into(), gas_consumed);
+					let frame_meter = &top_frame!(self).frame_meter;
+
+					// we treat the initial frame meter differently to address
+					// https://github.com/paritytech/polkadot-sdk/issues/8362
+					let gas_consumed = if is_first_frame {
+						frame_meter.total_consumed_gas()
+					} else {
+						frame_meter.eth_gas_consumed()
+					};
+
+					let gas_consumed: u64 = gas_consumed.try_into().unwrap_or(u64::MAX);
+					let weight_consumed = frame_meter.weight_consumed();
+					tracer.exit_child_span_with_error(error.into(), gas_consumed, weight_consumed);
 				});
 
 				(false, Err(error.into()))
 			},
 		};
-
-		if success {
-			self.transient_storage.commit_transaction();
-		} else {
-			self.transient_storage.rollback_transaction();
-		}
+		self.with_transient_storage_mut(|transient_storage| {
+			if success {
+				transient_storage.commit_transaction();
+			} else {
+				transient_storage.rollback_transaction();
+			}
+		});
 		log::trace!(target: LOG_TARGET, "frame finished with: {output:?}");
 
 		self.pop_frame(success);
@@ -1448,10 +1563,9 @@ where
 			let account_id = &frame.account_id;
 			let prev = top_frame_mut!(self);
 
-			prev.nested_gas.absorb_nested(frame.nested_gas);
-
-			// Only gas counter changes are persisted in case of a failure.
+			// Only weight counter changes are persisted in case of a failure.
 			if !persist {
+				prev.frame_meter.absorb_weight_meter_only(frame.frame_meter);
 				return;
 			}
 
@@ -1461,43 +1575,36 @@ where
 			// it was invalidated.
 			frame.contract_info.load(account_id);
 			let mut contract = frame.contract_info.into_contract();
-			prev.nested_storage.absorb(frame.nested_storage, account_id, contract.as_mut());
+			prev.frame_meter
+				.absorb_all_meters(frame.frame_meter, account_id, contract.as_mut());
 
 			// only on success inherit the created and to be destroyed contracts
 			prev.contracts_created.extend(frame.contracts_created);
 			prev.contracts_to_be_destroyed.extend(frame.contracts_to_be_destroyed);
 
 			if let Some(contract) = contract {
-				// optimization: Predecessor is the same contract.
-				// We can just copy the contract into the predecessor without a storage write.
-				// This is possible when there is no other contract in-between that could
-				// trigger a rollback.
-				if prev.account_id == *account_id {
-					prev.contract_info = CachedContract::Cached(contract);
-					return;
-				}
-
-				// Predecessor is a different contract: We persist the info and invalidate the first
-				// stale cache we find. This triggers a reload from storage on next use. We skip(1)
-				// because that case is already handled by the optimization above. Only the first
+				// Persist the info and invalidate the first stale cache we find.
+				// This triggers a reload from storage on next use. Only the first
 				// cache needs to be invalidated because that one will invalidate the next cache
 				// when it is popped from the stack.
 				AccountInfo::<T>::insert_contract(
 					&T::AddressMapper::to_address(account_id),
 					contract,
 				);
-				if let Some(f) = self.frames_mut().skip(1).find(|f| f.account_id == *account_id) {
+				if let Some(f) = self.frames_mut().find(|f| f.account_id == *account_id) {
 					f.contract_info.invalidate();
 				}
 			}
 		} else {
-			self.gas_meter.absorb_nested(mem::take(&mut self.first_frame.nested_gas));
 			if !persist {
+				self.transaction_meter
+					.absorb_weight_meter_only(mem::take(&mut self.first_frame.frame_meter));
 				return;
 			}
+
 			let mut contract = self.first_frame.contract_info.as_contract();
-			self.storage_meter.absorb(
-				mem::take(&mut self.first_frame.nested_storage),
+			self.transaction_meter.absorb_all_meters(
+				mem::take(&mut self.first_frame.frame_meter),
 				&self.first_frame.account_id,
 				contract.as_deref_mut(),
 			);
@@ -1516,7 +1623,7 @@ where
 					continue;
 				}
 				Self::do_terminate(
-					&mut self.storage_meter,
+					&mut self.transaction_meter,
 					self.exec_config,
 					&contract_account,
 					&self.origin,
@@ -1539,13 +1646,13 @@ where
 	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
 	/// not provide the ED or transferring `value` from `from` to `to` fails.
 	/// Note: This will also fail if `origin` is root.
-	fn transfer<S: storage::meter::State + Default + Debug>(
+	fn transfer<S: State>(
 		origin: &Origin<T>,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		value: U256,
 		preservation: Preservation,
-		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		meter: &mut ResourceMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> DispatchResult {
 		let value = BalanceWithDust::<BalanceOf<T>>::from_value::<T>(value)
@@ -1555,14 +1662,14 @@ where
 		}
 
 		if <System<T>>::account_exists(to) {
-			return transfer_with_dust::<T>(from, to, value, preservation)
+			return transfer_with_dust::<T>(from, to, value, preservation);
 		}
 
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			match storage_meter
-				.record_charge(&StorageDeposit::Charge(ed))
+			match meter
+				.charge_deposit(&StorageDeposit::Charge(ed))
 				.and_then(|_| <Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config))
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
 			{
@@ -1573,12 +1680,12 @@ where
 	}
 
 	/// Same as `transfer` but `from` is an `Origin`.
-	fn transfer_from_origin<S: storage::meter::State + Default + Debug>(
+	fn transfer_from_origin<S: State>(
 		origin: &Origin<T>,
 		from: &Origin<T>,
 		to: &T::AccountId,
 		value: U256,
-		storage_meter: &mut storage::meter::GenericMeter<T, S>,
+		meter: &mut ResourceMeter<T, S>,
 		exec_config: &ExecConfig<T>,
 	) -> ExecResult {
 		// If the from address is root there is no account to transfer from, and therefore we can't
@@ -1588,14 +1695,14 @@ where
 			Origin::Root if value.is_zero() => return Ok(Default::default()),
 			Origin::Root => return Err(DispatchError::RootNotAllowed.into()),
 		};
-		Self::transfer(origin, from, to, value, Preservation::Preserve, storage_meter, exec_config)
+		Self::transfer(origin, from, to, value, Preservation::Preserve, meter, exec_config)
 			.map(|_| Default::default())
 			.map_err(Into::into)
 	}
 
 	/// Performs the actual deletion of a contract at the end of a call stack.
 	fn do_terminate(
-		storage_meter: &mut storage::meter::Meter<T>,
+		transaction_meter: &mut TransactionMeter<T>,
 		exec_config: &ExecConfig<T>,
 		contract_account: &T::AccountId,
 		origin: &Origin<T>,
@@ -1629,7 +1736,7 @@ where
 				origin.account_id()?,
 				Contracts::<T>::convert_native_to_evm(T::Currency::minimum_balance()),
 				Preservation::Expendable,
-				storage_meter,
+				transaction_meter,
 				exec_config,
 			)?;
 
@@ -1645,7 +1752,7 @@ where
 				&args.beneficiary,
 				balance,
 				Preservation::Expendable,
-				storage_meter,
+				transaction_meter,
 				exec_config,
 			)?;
 
@@ -1659,7 +1766,7 @@ where
 
 			// the meter needs to discard all deposits interacting with the terminated contract
 			// we do this last as we cannot roll this back
-			storage_meter.terminate(contract_account.clone(), refund);
+			transaction_meter.terminate(contract_account.clone(), refund);
 
 			Ok(())
 		};
@@ -1670,7 +1777,6 @@ where
 		with_transaction(|| -> TransactionOutcome<Result<_, DispatchError>> {
 			match delete_contract(&args.trie_id, &args.code_hash) {
 				Ok(()) => {
-					// TODO: emit sucicide trace
 					log::trace!(target: LOG_TARGET, "Terminated {contract_address:?}");
 					TransactionOutcome::Commit(Ok(()))
 				},
@@ -1761,6 +1867,24 @@ where
 		}
 		true
 	}
+
+	fn with_transient_storage_mut<R, F: FnOnce(&mut TransientStorage<T>) -> R>(
+		&mut self,
+		f: F,
+	) -> R {
+		if let Some(transient) = &self.exec_config.test_env_transient_storage {
+			f(&mut transient.borrow_mut())
+		} else {
+			f(&mut self.transient_storage)
+		}
+	}
+	fn with_transient_storage<R, F: FnOnce(&TransientStorage<T>) -> R>(&self, f: F) -> R {
+		if let Some(transient) = &self.exec_config.test_env_transient_storage {
+			f(&transient.borrow())
+		} else {
+			f(&self.transient_storage)
+		}
+	}
 }
 
 impl<'a, T, E> Ext for Stack<'a, T, E>
@@ -1770,8 +1894,7 @@ where
 {
 	fn delegate_call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources<T>,
 		address: H160,
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError> {
@@ -1780,7 +1903,11 @@ where
 		*self.last_frame_output_mut() = Default::default();
 
 		let top_frame = self.top_frame_mut();
-		let contract_info = top_frame.contract_info().clone();
+		// Clone the contract info and apply pending storage changes so that
+		// the child frame can correctly calculate storage deposit refunds.
+		// See: <https://github.com/paritytech/contract-issues/issues/213>
+		let mut contract_info = top_frame.contract_info().clone();
+		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
 		let account_id = top_frame.account_id.clone();
 		let value = top_frame.value_transferred;
 		if let Some(executable) = self.push_frame(
@@ -1793,8 +1920,7 @@ where
 				}),
 			},
 			value,
-			gas_limit,
-			deposit_limit.saturated_into::<BalanceOf<T>>(),
+			call_resources,
 			self.is_read_only(),
 			&input_data,
 		)? {
@@ -1811,7 +1937,12 @@ where
 			tracer.terminate(
 				addr,
 				*beneficiary,
-				self.top_frame().nested_gas.gas_left(),
+				self.top_frame()
+					.frame_meter
+					.eth_gas_left()
+					.unwrap_or_default()
+					.try_into()
+					.unwrap_or_default(),
 				crate::Pallet::<T>::evm_balance(&addr),
 			);
 		});
@@ -1829,7 +1960,7 @@ where
 			&beneficiary,
 			<Contracts<T>>::evm_balance(&contract_address),
 			Preservation::Preserve,
-			&mut frame.nested_storage,
+			&mut frame.frame_meter,
 			self.exec_config,
 		)?;
 
@@ -1844,43 +1975,6 @@ where
 
 	fn own_code_hash(&mut self) -> &H256 {
 		&self.top_frame_mut().contract_info().code_hash
-	}
-
-	/// TODO: This should be changed to run the constructor of the supplied `hash`.
-	///
-	/// Because the immutable data is attached to a contract and not a code,
-	/// we need to update the immutable data too.
-	///
-	/// Otherwise we open a massive footgun:
-	/// If the immutables changed in the new code, the contract will brick.
-	///
-	/// A possible implementation strategy is to add a flag to `FrameArgs::Instantiate`,
-	/// so that `fn run()` will roll back any changes if this flag is set.
-	///
-	/// After running the constructor, the new immutable data is already stored in
-	/// `self.immutable_data` at the address of the (reverted) contract instantiation.
-	///
-	/// The `set_code_hash` contract API stays disabled until this change is implemented.
-	fn set_code_hash(&mut self, hash: H256) -> Result<CodeRemoved, DispatchError> {
-		let frame = top_frame_mut!(self);
-
-		let info = frame.contract_info();
-
-		let prev_hash = info.code_hash;
-		info.code_hash = hash;
-
-		let code_info = CodeInfoOf::<T>::get(hash).ok_or(Error::<T>::CodeNotFound)?;
-
-		let old_base_deposit = info.storage_base_deposit();
-		let new_base_deposit = info.update_base_deposit(code_info.deposit());
-		let deposit = StorageDeposit::Charge(new_base_deposit)
-			.saturating_sub(&StorageDeposit::Charge(old_base_deposit));
-
-		frame.nested_storage.charge_deposit(frame.account_id.clone(), deposit);
-
-		<CodeInfo<T>>::increment_refcount(hash)?;
-		let removed = <CodeInfo<T>>::decrement_refcount(prev_hash)?;
-		Ok(removed)
 	}
 
 	fn immutable_data_len(&mut self) -> u32 {
@@ -1920,8 +2014,7 @@ where
 {
 	fn instantiate(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources<T>,
 		mut code: Code,
 		value: U256,
 		input_data: Vec<u8>,
@@ -1944,7 +2037,7 @@ where
 					E::from_evm_init_code(initcode, sender.clone())?
 				},
 				Code::Existing(hash) => {
-					let executable = E::from_storage(*hash, self.gas_meter_mut())?;
+					let executable = E::from_storage(*hash, self.frame_meter_mut())?;
 					ensure!(executable.code_info().is_pvm(), <Error<T>>::EvmConstructedFromHash);
 					executable
 				},
@@ -1957,8 +2050,7 @@ where
 					input_data: input_data.as_ref(),
 				},
 				value,
-				gas_limit,
-				deposit_limit.saturated_into::<BalanceOf<T>>(),
+				call_resources,
 				self.is_read_only(),
 				&input_data,
 			)?
@@ -1984,18 +2076,20 @@ where
 
 	fn call(
 		&mut self,
-		gas_limit: Weight,
-		deposit_limit: U256,
+		call_resources: &CallResources<T>,
 		dest_addr: &H160,
 		value: U256,
 		input_data: Vec<u8>,
-		allows_reentry: bool,
+		allows_reentry: ReentrancyProtection,
 		read_only: bool,
 	) -> Result<(), ExecError> {
 		// Before pushing the new frame: Protect the caller contract against reentrancy attacks.
 		// It is important to do this before calling `allows_reentry` so that a direct recursion
 		// is caught by it.
-		self.top_frame_mut().allows_reentry = allows_reentry;
+
+		if allows_reentry == ReentrancyProtection::Strict {
+			self.top_frame_mut().allows_reentry = false;
+		}
 
 		// We reset the return data now, so it is cleared out even if no new frame was executed.
 		// This is for example the case for balance transfers or when creating the frame fails.
@@ -2016,22 +2110,33 @@ where
 				return Err(<Error<T>>::ReentranceDenied.into());
 			}
 
+			if allows_reentry == ReentrancyProtection::AllowNext {
+				self.top_frame_mut().allows_reentry = false;
+			}
+
 			// We ignore instantiate frames in our search for a cached contract.
 			// Otherwise it would be possible to recursively call a contract from its own
 			// constructor: We disallow calling not fully constructed contracts.
+			//
+			// When cloning the cached contract, we apply pending storage changes so that
+			// the child frame can correctly calculate storage deposit refunds.
+			// See: <https://github.com/paritytech/contract-issues/issues/213>
 			let cached_info = self
 				.frames()
 				.find(|f| f.entry_point == ExportedFunction::Call && f.account_id == dest)
 				.and_then(|f| match &f.contract_info {
-					CachedContract::Cached(contract) => Some(contract.clone()),
+					CachedContract::Cached(contract) => {
+						let mut contract_with_pending = contract.clone();
+						f.frame_meter.apply_pending_storage_changes(&mut contract_with_pending);
+						Some(contract_with_pending)
+					},
 					_ => None,
 				});
 
 			if let Some(executable) = self.push_frame(
 				FrameArgs::Call { dest: dest.clone(), cached_info, delegated_call: None },
 				value,
-				gas_limit,
-				deposit_limit.saturated_into::<BalanceOf<T>>(),
+				call_resources,
 				is_read_only,
 				&input_data,
 			)? {
@@ -2041,11 +2146,11 @@ where
 					t.enter_child_span(
 						T::AddressMapper::to_address(self.account_id()),
 						T::AddressMapper::to_address(&dest),
-						false,
+						None,
 						is_read_only,
 						value,
 						&input_data,
-						Weight::zero(),
+						Default::default(),
 					);
 				});
 				let result = if let Some(mock_answer) =
@@ -2066,14 +2171,20 @@ where
 						&Origin::from_account_id(account_id),
 						&dest,
 						value,
-						&mut frame.nested_storage,
+						&mut frame.frame_meter,
 						self.exec_config,
 					)
 				};
 
 				if_tracing(|t| match result {
-					Ok(ref output) => t.exit_child_span(&output, Weight::zero()),
-					Err(e) => t.exit_child_span_with_error(e.error.into(), Weight::zero()),
+					Ok(ref output) => {
+						t.exit_child_span(&output, Default::default(), Default::default())
+					},
+					Err(e) => t.exit_child_span_with_error(
+						e.error.into(),
+						Default::default(),
+						Default::default(),
+					),
 				});
 
 				result.map(|_| ())
@@ -2090,13 +2201,15 @@ where
 	}
 
 	fn get_transient_storage(&self, key: &Key) -> Option<Vec<u8>> {
-		self.transient_storage.read(self.account_id(), key)
+		self.with_transient_storage(|transient_storage| {
+			transient_storage.read(self.account_id(), key)
+		})
 	}
 
 	fn get_transient_storage_size(&self, key: &Key) -> Option<u32> {
-		self.transient_storage
-			.read(self.account_id(), key)
-			.map(|value| value.len() as _)
+		self.with_transient_storage(|transient_storage| {
+			transient_storage.read(self.account_id(), key).map(|value| value.len() as _)
+		})
 	}
 
 	fn set_transient_storage(
@@ -2106,7 +2219,9 @@ where
 		take_old: bool,
 	) -> Result<WriteOutcome, DispatchError> {
 		let account_id = self.account_id().clone();
-		self.transient_storage.write(&account_id, key, value, take_old)
+		self.with_transient_storage_mut(|transient_storage| {
+			transient_storage.write(&account_id, key, value, take_old)
+		})
 	}
 
 	fn account_id(&self) -> &T::AccountId {
@@ -2165,8 +2280,13 @@ where
 	}
 
 	fn code_hash(&self, address: &H160) -> H256 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return sp_io::hashing::keccak_256(code).into()
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return sp_io::hashing::keccak_256(code).into();
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2180,8 +2300,13 @@ where
 	}
 
 	fn code_size(&self, address: &H160) -> u64 {
-		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()) {
-			return code.len() as u64
+		if let Some(code) = <AllPrecompiles<T>>::code(address.as_fixed_bytes()).or_else(|| {
+			self.exec_config
+				.mock_handler
+				.as_ref()
+				.and_then(|handler| handler.mocked_code(*address))
+		}) {
+			return code.len() as u64;
 		}
 
 		<AccountInfo<T>>::load_contract(&address)
@@ -2258,12 +2383,22 @@ where
 		<T as Config>::ChainId::get()
 	}
 
-	fn gas_meter(&self) -> &GasMeter<Self::T> {
-		&self.top_frame().nested_gas
+	fn gas_meter(&self) -> &FrameMeter<Self::T> {
+		&self.top_frame().frame_meter
 	}
 
-	fn gas_meter_mut(&mut self) -> &mut GasMeter<Self::T> {
-		&mut self.top_frame_mut().nested_gas
+	#[inline]
+	fn gas_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.top_frame_mut().frame_meter
+	}
+
+	fn frame_meter(&self) -> &FrameMeter<Self::T> {
+		&self.top_frame().frame_meter
+	}
+
+	#[inline]
+	fn frame_meter_mut(&mut self) -> &mut FrameMeter<Self::T> {
+		&mut self.top_frame_mut().frame_meter
 	}
 
 	fn ecdsa_recover(&self, signature: &[u8; 65], message_hash: &[u8; 32]) -> Result<[u8; 33], ()> {
@@ -2278,8 +2413,10 @@ where
 		)
 	}
 
-	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], ()> {
-		ECDSAPublic::from(*pk).to_eth_address()
+	fn ecdsa_to_eth_address(&self, pk: &[u8; 33]) -> Result<[u8; 20], DispatchError> {
+		Ok(ECDSAPublic::from(*pk)
+			.to_eth_address()
+			.or_else(|()| Err(Error::<T>::EcdsaRecoveryFailed))?)
 	}
 
 	#[cfg(any(test, feature = "runtime-benchmarks"))]
@@ -2327,11 +2464,7 @@ where
 
 	fn terminate_caller(&mut self, beneficiary: &H160) -> Result<(), DispatchError> {
 		ensure!(self.top_frame().delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
-		let parent = core::iter::once(&mut self.first_frame)
-			.chain(&mut self.frames)
-			.rev()
-			.nth(1)
-			.ok_or_else(|| Error::<T>::ContractNotFound)?;
+		let parent = self.frames_mut().nth(1).ok_or_else(|| Error::<T>::ContractNotFound)?;
 		ensure!(parent.entry_point == ExportedFunction::Call, Error::<T>::TerminatedInConstructor);
 		ensure!(parent.delegate.is_none(), Error::<T>::PrecompileDelegateDenied);
 
@@ -2341,21 +2474,22 @@ where
 		let contract_address = T::AddressMapper::to_address(&parent.account_id);
 		let beneficiary = T::AddressMapper::to_account_id(beneficiary);
 
+		let parent_account_id = parent.account_id.clone();
+
 		// balance transfer is immediate
 		Self::transfer(
 			&self.origin,
-			&parent.account_id,
+			&parent_account_id,
 			&beneficiary,
 			<Contracts<T>>::evm_balance(&contract_address),
 			Preservation::Preserve,
-			&mut parent.nested_storage,
+			&mut top_frame_mut!(self).frame_meter,
 			&self.exec_config,
 		)?;
 
 		// schedule for delayed deletion
 		let args = TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx: false };
-		let account_id = parent.account_id.clone();
-		self.top_frame_mut().contracts_to_be_destroyed.insert(account_id, args);
+		self.top_frame_mut().contracts_to_be_destroyed.insert(parent_account_id, args);
 
 		Ok(())
 	}
@@ -2368,40 +2502,8 @@ where
 
 	fn gas_left(&self) -> u64 {
 		let frame = self.top_frame();
-		if let Some((encoded_len, base_weight)) = self.exec_config.collect_deposit_from_hold {
-			// when using the txhold we know the overall available fee by looking at the tx credit
-			// we work backwards: the gas_left is the overall fee minus what was already consumed
-			let weight_fee_consumed = T::FeeInfo::tx_fee_from_weight(
-				encoded_len,
-				&frame.nested_gas.gas_consumed().saturating_add(base_weight),
-			);
-			let available = T::FeeInfo::remaining_txfee().saturating_sub(weight_fee_consumed);
-			let deposit_consumed = self
-				.frames
-				.iter()
-				.chain(core::iter::once(&self.first_frame))
-				.fold(StorageDeposit::default(), |acc, frame| {
-					acc.saturating_add(&frame.nested_storage.consumed())
-				});
-			deposit_consumed.available(&available)
-		} else {
-			// when not using the hold we expect the transaction to contain a limit for the storage
-			// deposit we work forwards: add up what is left from both meters
-			// in case no storage limit is set we limit by all the free balance of the signer
-			use frame_support::traits::tokens::{Fortitude, Preservation};
-			let weight_fee_available =
-				T::FeeInfo::weight_to_fee(&frame.nested_gas.gas_left(), Combinator::Min);
-			let available_balance = self
-				.origin
-				.account_id()
-				.map(|acc| {
-					T::Currency::reducible_balance(acc, Preservation::Preserve, Fortitude::Polite)
-				})
-				.unwrap_or(BalanceOf::<T>::max_value());
-			let deposit_available = frame.nested_storage.available().min(available_balance);
-			weight_fee_available.saturating_add(deposit_available)
-		}
-		.saturated_into()
+
+		frame.frame_meter.eth_gas_left().unwrap_or_default().saturated_into::<u64>()
 	}
 
 	fn get_storage(&mut self, key: &Key) -> Option<Vec<u8>> {
@@ -2425,14 +2527,14 @@ where
 		frame.contract_info.get(&frame.account_id).write(
 			key.into(),
 			value,
-			Some(&mut frame.nested_storage),
+			Some(&mut frame.frame_meter),
 			take_old,
 		)
 	}
 
-	fn charge_storage(&mut self, diff: &Diff) {
+	fn charge_storage(&mut self, diff: &Diff) -> DispatchResult {
 		assert!(self.has_contract_info());
-		self.top_frame_mut().nested_storage.charge(diff)
+		self.top_frame_mut().frame_meter.record_contract_storage_changes(diff)
 	}
 }
 
@@ -2442,37 +2544,23 @@ pub fn is_precompile<T: Config, E: Executable<T>>(address: &H160) -> bool {
 }
 
 #[cfg(feature = "runtime-benchmarks")]
-pub fn terminate_contract_for_benchmark<T: Config>(
-	origin: T::AccountId,
-	contract: &T::AccountId,
-	info: &ContractInfo<T>,
+pub fn bench_do_terminate<T: Config>(
+	transaction_meter: &mut TransactionMeter<T>,
+	exec_config: &ExecConfig<T>,
+	contract_account: &T::AccountId,
+	origin: &Origin<T>,
 	beneficiary: T::AccountId,
-) -> Result<(), DispatchError> {
-	let mut meter = storage::meter::Meter::<T>::new(BalanceOf::<T>::max_value());
-	Stack::<T, crate::ContractBlob<T>>::do_terminate(
-		&mut meter,
-		&ExecConfig::new_substrate_tx(),
-		contract,
-		&Origin::from_account_id(origin),
-		&TerminateArgs {
-			beneficiary,
-			trie_id: info.trie_id.clone(),
-			code_hash: info.code_hash,
-			only_if_same_tx: false,
-		},
-	)
-}
-
-/// Stored inside the `Stack` for each contract that is scheduled for termination.
-struct TerminateArgs<T: Config> {
-	/// Where to send the free balance of the terminated contract.
-	beneficiary: T::AccountId,
-	/// The storage child trie of the contract that needs to be deleted.
 	trie_id: TrieId,
-	/// The code referenced by the contract. Will be deleted if refcount drops to zero.
 	code_hash: H256,
-	/// Triggered by the EVM opcode.
 	only_if_same_tx: bool,
+) -> Result<(), DispatchError> {
+	Stack::<T, crate::ContractBlob<T>>::do_terminate(
+		transaction_meter,
+		exec_config,
+		contract_account,
+		origin,
+		&TerminateArgs { beneficiary, trie_id, code_hash, only_if_same_tx },
+	)
 }
 
 mod sealing {

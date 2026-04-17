@@ -29,19 +29,40 @@
 //! While `pallet-staking` was somewhat general-purpose, this pallet is absolutely NOT right from
 //! the get-go: It is designed to be used ONLY in Polkadot/Kusama AssetHub system parachains.
 //!
-//! The workings of this pallet can be divided into a number of subsystems, as follows.
+//! ## Reward and Inflation
 //!
-//! ## User Interactions
+//! This pallet supports two reward modes, controlled by [`Config::DisableMinting`]:
 //!
-//! TODO
+//! ### Non-minting mode (`DisableMinting = true`)
 //!
-//! ## Session and Era Rotation
+//! Staking does **not** mint tokens. It expects an external source (e.g. `pallet-dap`) to
+//! fund the general staker reward pot ([`PotAccountProvider`]). At each era boundary,
+//! staking snapshots the accumulated balance into an era-specific pot via
+//! [`EraRewardManager`](reward::EraRewardManager). Payouts transfer from the era pot.
 //!
-//! TODO
+//! Unclaimed rewards from expired eras (past `HistoryDepth`) are withdrawn and passed to
+//! [`Config::UnclaimedRewardHandler`].
 //!
-//! ## Exposure Collection
+//! [`DisableMintingGuard`] is set on the first successful snapshot as a safety net — it
+//! prevents the payout side from falling back to legacy minting for eras that should have
+//! reward pots.
 //!
-//! TODO
+//! ### Legacy minting mode (`DisableMinting = false`)
+//!
+//! At era boundary, [`Config::EraPayout`] computes inflation based on `total_staked`,
+//! `total_issuance`, and era duration. Tokens are minted on-the-fly during `payout_stakers`.
+//! The treasury remainder is sent to [`Config::RewardRemainder`]. [`MaxStakedRewards`] can
+//! cap the staker portion. [`Config::MaxEraDuration`] caps the effective era duration.
+//!
+//! This mode is kept for Kusama/non-polkadot runtime's compatibility where inflation depends on the
+//! staking ratio.
+//!
+//! ### Switching modes
+//!
+//! Switching from legacy to non-minting is a one-way migration. Once `DisableMinting` is
+//! set to `true`, it must **never** be switched back — eras created in non-minting mode
+//! have funded reward pots, and switching to legacy would orphan those pots and cause
+//! double-minting.
 //!
 //! ## Slashing Pipeline and Withdrawal Restrictions
 //!
@@ -191,6 +212,7 @@ pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
 mod pallet;
+pub mod reward;
 pub mod session_rotation;
 pub mod slashing;
 pub mod weights;
@@ -204,15 +226,14 @@ use frame_support::{
 		tokens::fungible::{Credit, Debt},
 		ConstU32, Contains, Get, LockIdentifier,
 	},
-	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-	WeakBoundedVec,
+	BoundedVec, DebugNoBound, DefaultNoBound, EqNoBound, PartialEqNoBound, WeakBoundedVec,
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use ledger::LedgerIntegrityState;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
-	BoundedBTreeMap, Perbill, RuntimeDebug, Saturating,
+	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
 use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
 pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
@@ -270,7 +291,7 @@ pub type NegativeImbalanceOf<T> =
 type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 
 /// Information regarding the active era (era in used in session).
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, MaxEncodedLen, PartialEq, Eq, Clone)]
+#[derive(Encode, Decode, Debug, TypeInfo, MaxEncodedLen, PartialEq, Eq, Clone)]
 pub struct ActiveEraInfo {
 	/// Index of era.
 	pub index: EraIndex,
@@ -305,7 +326,7 @@ pub struct EraRewardPoints<T: Config> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 )]
@@ -332,7 +353,7 @@ pub enum RewardDestination<AccountId> {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
@@ -362,7 +383,7 @@ pub enum SnapshotStatus<AccountId> {
 
 /// A record of the nominations made by a specific account.
 #[derive(
-	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen,
+	PartialEqNoBound, EqNoBound, Clone, Encode, Decode, DebugNoBound, TypeInfo, MaxEncodedLen,
 )]
 #[codec(mel_bound())]
 #[scale_info(skip_type_params(T))]
@@ -384,7 +405,7 @@ pub struct Nominations<T: Config> {
 ///
 /// This is useful where we need to take into account the validator's own stake and total exposure
 /// in consideration, in addition to the individual nominators backing them.
-#[derive(Encode, Decode, RuntimeDebug, TypeInfo, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, TypeInfo, PartialEq, Eq)]
 pub struct PagedExposure<AccountId, Balance: HasCompact + codec::MaxEncodedLen> {
 	exposure_metadata: PagedExposureMetadata<Balance>,
 	exposure_page: ExposurePage<AccountId, Balance>,
@@ -403,6 +424,22 @@ impl<AccountId, Balance: HasCompact + Copy + AtLeast32BitUnsigned + codec::MaxEn
 				page_count: 1,
 			},
 			exposure_page: ExposurePage { page_total: exposure.total, others: exposure.others },
+		}
+	}
+
+	/// Create a new instance of `PagedExposure` from just the exposure metadata (overview).
+	///
+	/// This creates a `PagedExposure` with an empty `others` list, useful when only the
+	/// validator's own stake needs to be considered (e.g., when nominators are not slashable).
+	pub fn from_overview(overview: PagedExposureMetadata<Balance>) -> Self {
+		Self {
+			exposure_metadata: PagedExposureMetadata {
+				total: overview.total,
+				own: overview.own,
+				nominator_count: overview.nominator_count,
+				page_count: 1,
+			},
+			exposure_page: ExposurePage { page_total: overview.total, others: vec![] },
 		}
 	}
 
@@ -474,28 +511,7 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 	}
 }
 
-/// Handler for determining how much of a balance should be paid out on the current era.
-pub trait EraPayout<Balance> {
-	/// Determine the payout for this era.
-	///
-	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
-	/// paid out ("the rest").
-	fn era_payout(
-		total_staked: Balance,
-		total_issuance: Balance,
-		era_duration_millis: u64,
-	) -> (Balance, Balance);
-}
-
-impl<Balance: Default> EraPayout<Balance> for () {
-	fn era_payout(
-		_total_staked: Balance,
-		_total_issuance: Balance,
-		_era_duration_millis: u64,
-	) -> (Balance, Balance) {
-		(Default::default(), Default::default())
-	}
-}
+pub use sp_staking::EraPayout;
 
 /// Mode of era-forcing.
 #[derive(
@@ -506,7 +522,7 @@ impl<Balance: Default> EraPayout<Balance> for () {
 	Encode,
 	Decode,
 	DecodeWithMemTracking,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	MaxEncodedLen,
 	serde::Serialize,
@@ -548,6 +564,79 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	/// - `false` otherwise.
 	fn contains(account: &T::AccountId) -> bool {
 		Ledger::<T>::contains_key(account)
+	}
+}
+
+/// Kind of reward managed by staking pots.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum RewardKind {
+	/// Staker rewards (nominators + validators).
+	StakerRewards,
+}
+
+/// Identifies a reward pot account.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum RewardPot {
+	/// General pot: funded by an external source (e.g. pallet-dap).
+	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+	General(RewardKind),
+	/// Era-specific pot: snapshotted from the general pot at era boundaries.
+	Era(EraIndex, RewardKind),
+}
+
+/// Trait for generating reward pot account IDs.
+pub trait PotAccountProvider<AccountId> {
+	fn pot_account(pot: RewardPot) -> AccountId;
+}
+
+/// Seed-based pot account provider for production use.
+pub struct Seed<S>(core::marker::PhantomData<S>);
+
+impl<AccountId, S> PotAccountProvider<AccountId> for Seed<S>
+where
+	AccountId: codec::FullCodec,
+	S: Get<frame_support::PalletId>,
+{
+	fn pot_account(pot: RewardPot) -> AccountId {
+		use sp_runtime::traits::AccountIdConversion;
+		S::get().into_sub_account_truncating(pot)
+	}
+}
+
+/// Sequential pot account provider for testing.
+#[cfg(feature = "std")]
+pub struct SequentialTest;
+
+#[cfg(feature = "std")]
+impl<AccountId> PotAccountProvider<AccountId> for SequentialTest
+where
+	AccountId: From<u64>,
+{
+	fn pot_account(pot: RewardPot) -> AccountId {
+		match pot {
+			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
+			RewardPot::Era(era, RewardKind::StakerRewards) => {
+				AccountId::from(100_000 + (era as u64 * 10))
+			},
+		}
+	}
+}
+
+/// Budget recipient for staker rewards.
+///
+/// Exposes the general staker reward pot so DAP can drip inflation into it.
+pub struct StakerRewardRecipient<P>(core::marker::PhantomData<P>);
+
+impl<AccountId, P> sp_staking::budget::BudgetRecipient<AccountId> for StakerRewardRecipient<P>
+where
+	P: PotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
 	}
 }
 

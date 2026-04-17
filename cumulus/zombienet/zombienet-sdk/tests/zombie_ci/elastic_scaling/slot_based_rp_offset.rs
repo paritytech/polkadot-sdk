@@ -40,11 +40,13 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..6).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..6).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2400)
@@ -53,7 +55,7 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 				.with_chain("relay-parent-offset")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
-					("-lparachain=debug,aura=debug,parachain::collator-protocol=debug").into(),
+					("-lparachain=debug,aura=debug").into(),
 				])
 				.with_collator(|n| n.with_name("collator-rp-offset"))
 		})
@@ -77,7 +79,7 @@ async fn elastic_scaling_slot_based_relay_parent_offset_test() -> Result<(), any
 
 	let para_client = para_node_rp_offset.wait_client().await?;
 
-	assign_cores(relay_node, 2400, vec![0, 1]).await?;
+	assign_cores(&relay_client, 2400, vec![0, 1]).await?;
 
 	assert_relay_parent_offset(&relay_client, &para_client, 2, 45).await?;
 

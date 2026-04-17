@@ -113,12 +113,13 @@ pub mod foreign_assets_reserves {
 					// At first, start migrating assets.
 					None => Self::asset_step(None),
 					// Migrate any remaining assets.
-					Some(MigrationState::Asset(maybe_last_asset)) =>
-						Self::asset_step(Some(maybe_last_asset)),
+					Some(MigrationState::Asset(maybe_last_asset)) => {
+						Self::asset_step(Some(maybe_last_asset))
+					},
 					// After the last asset, migration is finished.
 					Some(MigrationState::Finished) => {
 						tracing::info!(target: "runtime::ForeignAssetsReservesMigration", "migration finished");
-						return Ok(None)
+						return Ok(None);
 					},
 				};
 
@@ -175,14 +176,24 @@ pub mod foreign_assets_reserves {
 					target: "runtime::ForeignAssetsReservesMigration::asset_step",
 					?asset_id, ?reserves, "updating reserves for"
 				);
-				if let Err(e) = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
-					asset_id.clone(),
-					reserves,
-				) {
-					tracing::error!(
-						target: "runtime::ForeignAssetsReservesMigration::asset_step",
-						?e, ?asset_id, "failed migrating reserves for asset"
-					);
+				match reserves.try_into() {
+					Ok(bounded_reserves) => {
+						if let Err(e) = pallet_assets::Pallet::<T, I>::unchecked_update_reserves(
+							asset_id.clone(),
+							bounded_reserves,
+						) {
+							tracing::error!(
+								target: "runtime::ForeignAssetsReservesMigration::asset_step",
+								?e, ?asset_id, "failed migrating reserves for asset"
+							);
+						}
+					},
+					Err(_) => {
+						tracing::error!(
+							target: "runtime::ForeignAssetsReservesMigration::asset_step",
+							?asset_id, "too many reserves for asset"
+						);
+					},
 				}
 				MigrationState::Asset(asset_id)
 			} else {

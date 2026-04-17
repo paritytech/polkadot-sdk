@@ -54,12 +54,7 @@ async fn pov_recovery() -> Result<(), anyhow::Error> {
 	assert_para_is_registered(&validator_client, ParaId::from(PARA_ID), 30).await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(
-		&validator_client,
-		20,
-		[(ParaId::from(PARA_ID), 2..20)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&validator_client, 20, [(ParaId::from(PARA_ID), 2..20)]).await?;
 
 	for (name, timeout_secs) in [("bob", 600u64)] {
 		log::info!("Checking block production for {name} within {timeout_secs}s");
@@ -156,14 +151,14 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 							}
 						}
 				}))
-				.with_node(|node| {
+				.with_validator(|node| {
 					node.with_name("validator-0").validator(true).with_args(vec![
 						("-lparachain::availability=trace,sync=info,parachain=debug,libp2p_mdns=debug,info").into(),
 					])
 				});
 
 			(1..validator_cnt).fold(r, |acc, i| {
-				acc.with_node(|node| {
+				acc.with_validator(|node| {
 					node.with_name(&format!("validator-{i}")).with_args(vec![
 						("-lparachain::availability=trace,sync=debug,parachain=debug,libp2p_mdns=debug").into(),
 						("--reserved-only").into(),

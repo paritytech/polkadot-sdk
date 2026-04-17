@@ -1,0 +1,8 @@
+title: revive eth-rpc Add polkadot_postDispatchWeight rpc methods
+doc:
+- audience: Runtime Dev
+  description: "Add a new RPC method to return the post-dispatch weight of a transaction\r\
+    \n"
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

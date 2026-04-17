@@ -31,12 +31,7 @@ async fn rpc_collator_builds_blocks() -> Result<(), anyhow::Error> {
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(
-		&alice_client,
-		20,
-		[(ParaId::from(PARA_ID), 2..40)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 2..40)]).await?;
 
 	let dave = network.get_node("dave")?;
 	let eve = network.get_node("eve")?;
@@ -113,12 +108,12 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
-				.with_node(|node| node.with_name("charlie"))
-				.with_node(|node| node.with_name("one").validator(false))
-				.with_node(|node| node.with_name("two").validator(false))
-				.with_node(|node| node.with_name("three").validator(false))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("charlie"))
+				.with_validator(|node| node.with_name("one").validator(false))
+				.with_validator(|node| node.with_name("two").validator(false))
+				.with_validator(|node| node.with_name("three").validator(false))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)

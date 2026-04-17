@@ -86,5 +86,5 @@
 //! 	}
 //! }
 //! ```
-//! 4. Increase the `UNINCLUDED_SEGMENT_CAPICITY` for your runtime. It needs to be increased by
+//! 4. Increase the `UNINCLUDED_SEGMENT_CAPACITY` for your runtime. It needs to be increased by
 //!    `RELAY_PARENT_OFFSET * BLOCK_PROCESSING_VELOCITY`.

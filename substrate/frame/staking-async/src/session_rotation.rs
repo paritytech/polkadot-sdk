@@ -77,12 +77,14 @@
 //! * end 5, start 6, plan 7 // Session report contains activation timestamp with Current Era.
 
 use crate::*;
-use alloc::vec::Vec;
+use alloc::{boxed::Box, vec::Vec};
 use frame_election_provider_support::{BoundedSupportsOf, ElectionProvider, PageIndex};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{Defensive, DefensiveMax, DefensiveSaturating, OnUnbalanced, TryCollect},
+	weights::WeightMeter,
 };
+use pallet_staking_async_rc_client::RcClientInterface;
 use sp_runtime::{Perbill, Percent, Saturating};
 use sp_staking::{
 	currency_to_vote::CurrencyToVote, Exposure, Page, PagedExposureMetadata, SessionIndex,
@@ -200,6 +202,15 @@ impl<T: Config> Eras<T> {
 		all_claimable_pages.into_iter().find(|p| !claimed_pages.contains(p))
 	}
 
+	/// Returns whether nominators are slashable for a specific era.
+	///
+	/// This checks the per-era storage [`ErasNominatorsSlashable`] which captures
+	/// the value of [`AreNominatorsSlashable`] at the start of that era.
+	/// If no entry exists for the era, nominators are assumed to be slashable (default).
+	pub(crate) fn are_nominators_slashable(era: EraIndex) -> bool {
+		ErasNominatorsSlashable::<T>::get(era).unwrap_or(true)
+	}
+
 	/// Creates an entry to track validator reward has been claimed for a given era and page.
 	/// Noop if already claimed.
 	pub(crate) fn set_rewards_as_claimed(era: EraIndex, validator: &T::AccountId, page: Page) {
@@ -209,7 +220,7 @@ impl<T: Config> Eras<T> {
 		if claimed_pages.contains(&page) {
 			defensive!("Trying to set an already claimed reward");
 			// nevertheless don't do anything since the page already exist in claimed rewards.
-			return
+			return;
 		}
 
 		// add page to claimed entries
@@ -340,6 +351,9 @@ impl<T: Config> Eras<T> {
 			// insert metadata.
 			ErasStakersOverview::<T>::insert(era, &validator, exposure_metadata);
 
+			// Track that this validator was active in this era for slash liability tracking.
+			LastValidatorEra::<T>::insert(validator, era);
+
 			// insert validator's overview.
 			exposure_pages.into_iter().enumerate().for_each(|(idx, paged_exposure)| {
 				let append_at = idx as Page;
@@ -348,11 +362,11 @@ impl<T: Config> Eras<T> {
 		};
 	}
 
-	pub(crate) fn set_validators_reward(era: EraIndex, amount: BalanceOf<T>) {
+	pub(crate) fn set_stakers_reward(era: EraIndex, amount: BalanceOf<T>) {
 		ErasValidatorReward::<T>::insert(era, amount);
 	}
 
-	pub(crate) fn get_validators_reward(era: EraIndex) -> Option<BalanceOf<T>> {
+	pub(crate) fn get_stakers_reward(era: EraIndex) -> Option<BalanceOf<T>> {
 		ErasValidatorReward::<T>::get(era)
 	}
 
@@ -546,12 +560,27 @@ impl<T: Config> Rotator<T> {
 
 				// If we have an active era, bonded eras must always be the range
 				// [active - bonding_duration .. active_era]
+				let bonded_eras: Vec<_> = bonded.iter().map(|(era, _sess)| *era).collect();
 				ensure!(
-					bonded.into_iter().map(|(era, _sess)| era).collect::<Vec<_>>() ==
+					bonded_eras ==
 						(active.index.saturating_sub(T::BondingDuration::get())..=active.index)
 							.collect::<Vec<_>>(),
 					"BondedEras range incorrect"
 				);
+
+				// ErasNominatorsSlashable entries are cleaned up via lazy pruning at HistoryDepth +
+				// 1. Entries can exist from [active - HistoryDepth, active] inclusive.
+				// Entries older than HistoryDepth should have been pruned (or be in the process of
+				// pruning).
+				let oldest_allowed_era = active.index.saturating_sub(T::HistoryDepth::get()).max(1);
+				for (era, _) in ErasNominatorsSlashable::<T>::iter() {
+					// Allow entries being pruned (EraPruningState exists)
+					let being_pruned = EraPruningState::<T>::contains_key(era);
+					ensure!(
+						(era >= oldest_allowed_era && era <= active.index) || being_pruned,
+						"ErasNominatorsSlashable entry exists for era outside history depth range and not being pruned"
+					);
+				}
 			},
 			_ => {
 				ensure!(false, "ActiveEra and CurrentEra must both be None or both be Some");
@@ -707,11 +736,16 @@ impl<T: Config> Rotator<T> {
 		Self::start_era_inc_active_era(new_era_start_timestamp);
 		Self::start_era_update_bonded_eras(starting_era, starting_session);
 
+		// Snapshot the current nominators slashable setting for this era.
+		// Cleanup will happen via lazy pruning at HistoryDepth.
+		ErasNominatorsSlashable::<T>::insert(starting_era, AreNominatorsSlashable::<T>::get());
+
 		// cleanup election state
 		EraElectionPlanner::<T>::cleanup();
 
-		// Mark ancient era for lazy pruning instead of immediately pruning it.
+		// Cleanup era pot accounts and mark for lazy pruning.
 		if let Some(old_era) = starting_era.checked_sub(T::HistoryDepth::get() + 1) {
+			reward::EraRewardManager::<T>::cleanup_era(old_era);
 			log!(debug, "Marking era {:?} for lazy pruning", old_era);
 			EraPruningState::<T>::insert(old_era, PruningStep::ErasStakersPaged);
 		}
@@ -756,7 +790,6 @@ impl<T: Config> Rotator<T> {
 					era_removed <= (starting_era.saturating_sub(bonding_duration)),
 					"should not delete an era that is not older than bonding duration"
 				);
-				slashing::clear_era_metadata::<T>(era_removed);
 			}
 
 			// must work -- we were not full, or just removed the oldest era.
@@ -765,51 +798,41 @@ impl<T: Config> Rotator<T> {
 	}
 
 	fn end_era(ending_era: &ActiveEraInfo, new_era_start: u64) {
+		if T::DisableMinting::get() {
+			Self::end_era_dap(ending_era);
+		} else {
+			Self::end_era_legacy(ending_era, new_era_start);
+		}
+	}
+
+	/// Legacy end-era: compute inflation via `EraPayout`, mint, send remainder.
+	fn end_era_legacy(ending_era: &ActiveEraInfo, new_era_start: u64) {
 		let previous_era_start = ending_era.start.defensive_unwrap_or(new_era_start);
-		let uncapped_era_duration = new_era_start.saturating_sub(previous_era_start);
+		let era_duration = new_era_start.saturating_sub(previous_era_start);
 
-		// maybe cap the era duration to the maximum allowed by the runtime.
 		let cap = T::MaxEraDuration::get();
-		let era_duration = if cap == 0 {
-			// if the cap is zero (not set), we don't cap the era duration.
-			uncapped_era_duration
-		} else if uncapped_era_duration > cap {
+		let era_duration = if cap == 0 || era_duration <= cap {
+			era_duration
+		} else {
 			Pallet::<T>::deposit_event(Event::Unexpected(UnexpectedKind::EraDurationBoundExceeded));
-
-			// if the cap is set, and era duration exceeds the cap, we cap the era duration to the
-			// maximum allowed.
 			log!(
 				warn,
-				"capping era duration for era {:?} from {:?} to max allowed {:?}",
+				"capping era duration for era {:?} from {:?} to max {:?}",
 				ending_era.index,
-				uncapped_era_duration,
+				era_duration,
 				cap
 			);
 			cap
-		} else {
-			uncapped_era_duration
 		};
 
-		Self::end_era_compute_payout(ending_era, era_duration);
-	}
-
-	fn end_era_compute_payout(ending_era: &ActiveEraInfo, era_duration: u64) {
 		let staked = ErasTotalStake::<T>::get(ending_era.index);
 		let issuance = asset::total_issuance::<T>();
-
-		log!(
-			debug,
-			"computing inflation for era {:?} with duration {:?}",
-			ending_era.index,
-			era_duration
-		);
 		let (validator_payout, remainder) =
 			T::EraPayout::era_payout(staked, issuance, era_duration);
 
 		let total_payout = validator_payout.saturating_add(remainder);
 		let max_staked_rewards = MaxStakedRewards::<T>::get().unwrap_or(Percent::from_percent(100));
 
-		// apply cap to validators payout and add difference to remainder.
 		let validator_payout = validator_payout.min(max_staked_rewards * total_payout);
 		let remainder = total_payout.saturating_sub(validator_payout);
 
@@ -819,9 +842,36 @@ impl<T: Config> Rotator<T> {
 			remainder,
 		});
 
-		// Set ending era reward.
-		Eras::<T>::set_validators_reward(ending_era.index, validator_payout);
+		Eras::<T>::set_stakers_reward(ending_era.index, validator_payout);
 		T::RewardRemainder::on_unbalanced(asset::issue::<T>(remainder));
+	}
+
+	/// DAP end-era: snapshot from general reward pot into era-specific pot.
+	///
+	/// The snapshotted amount is stored in `ErasValidatorReward` — this represents the total
+	/// reward budget for the era before any payouts. Individual payouts draw from the era pot.
+	fn end_era_dap(ending_era: &ActiveEraInfo) {
+		let staker_rewards = reward::EraRewardManager::<T>::snapshot_era_rewards(ending_era.index);
+
+		if staker_rewards.is_zero() {
+			log!(warn, "Era {:?} has zero staker rewards in general pot", ending_era.index);
+		}
+
+		Eras::<T>::set_stakers_reward(ending_era.index, staker_rewards);
+
+		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
+			era_index: ending_era.index,
+			validator_payout: staker_rewards,
+			remainder: Zero::zero(),
+		});
+
+		if !staker_rewards.is_zero() {
+			DisableMintingGuard::<T>::mutate(|maybe_era| {
+				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
+					*maybe_era = Some(ending_era.index);
+				}
+			});
+		}
 	}
 
 	/// Plans a new era by kicking off the election process.
@@ -873,8 +923,9 @@ impl<T: Config> Rotator<T> {
 ///   backing after all calls to `maybe_fetch_election_results` are done. Note that older versions
 ///   of this pallet had a `MinimumValidatorCount` to double-check this, but we don't check it
 ///   anymore.
-/// * `maybe_fetch_election_results` returns no weight. Its weight should be taken account in the
-///   e2e benchmarking of the [`Config::ElectionProvider`].
+/// * `maybe_fetch_election_results` returns a tuple of `(weight, closure)`. The `weight` is the
+///   worst-case weight that `exec` might consume. The caller should check if `weight` fits within
+///   the boundaries of that context, and execute `closure` if so.
 ///
 /// TODOs:
 ///
@@ -902,9 +953,24 @@ impl<T: Config> EraElectionPlanner<T> {
 			.inspect_err(|e| log!(warn, "Election provider failed to start: {:?}", e))
 	}
 
-	/// Hook to be used in the pallet's on-initialize.
-	pub(crate) fn maybe_fetch_election_results() {
-		if let Ok(true) = T::ElectionProvider::status() {
+	pub(crate) fn maybe_fetch_election_results() -> (Weight, Box<dyn Fn(&mut WeightMeter)>) {
+		let Ok(Some(mut required_weight)) = T::ElectionProvider::status() else {
+			// no election ongoing
+			let weight = T::DbWeight::get().reads(1);
+			return (weight, Box::new(move |meter: &mut WeightMeter| meter.consume(weight)));
+		};
+
+		// Add a few things to the required weights that are not captured in `do_elect_paged`, which
+		// is benchmarked via `fetch_page`.
+		// * 1 extra read and write for `NextElectionPage`
+		// * 1 extra write for `RcClientInterface::validator_set` (implementation leak -- we assume
+		//   that we know this writes one storage item under the hood)
+		// * 1 extra read for `CurrentEra`
+		// * 1 extra read for `BondedEras` in `get_prune_up_to`
+		// ElectableStashes already read in `do_elect_paged`
+		required_weight.saturating_accrue(T::DbWeight::get().reads_writes(3, 2));
+
+		let exec = Box::new(move |meter: &mut WeightMeter| {
 			crate::log!(
 				debug,
 				"Election provider is ready, our status is {:?}",
@@ -925,10 +991,7 @@ impl<T: Config> EraElectionPlanner<T> {
 			Self::do_elect_paged(current_page);
 			NextElectionPage::<T>::set(maybe_next_page);
 
-			// if current page was `Some`, and next is `None`, we have finished an election and
-			// we can report it now.
 			if maybe_next_page.is_none() {
-				use pallet_staking_async_rc_client::RcClientInterface;
 				let id = CurrentEra::<T>::get().defensive_unwrap_or(0);
 				let prune_up_to = Self::get_prune_up_to();
 				let rc_validators = ElectableStashes::<T>::take().into_iter().collect::<Vec<_>>();
@@ -940,10 +1003,14 @@ impl<T: Config> EraElectionPlanner<T> {
 					id,
 					prune_up_to
 				);
-
 				T::RcClientInterface::validator_set(rc_validators, id, prune_up_to);
 			}
-		}
+
+			// consume the reported worst case weight.
+			meter.consume(required_weight)
+		});
+
+		(required_weight, exec)
 	}
 
 	/// Get the right value of the first session that needs to be pruned on the RC's historical

@@ -28,12 +28,7 @@ async fn sync_blocks_from_tip_without_connected_collator() -> Result<(), anyhow:
 	let relay_client: OnlineClient<PolkadotConfig> = relay_alice.wait_client().await?;
 
 	log::info!("Ensuring parachain making progress");
-	assert_para_throughput(
-		&relay_client,
-		10,
-		[(ParaId::from(PARA_ID), 5..11)].into_iter().collect(),
-	)
-	.await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 5..11)]).await?;
 
 	let para_ferdie = network.get_node("ferdie")?;
 	let para_eve = network.get_node("eve")?;
@@ -83,8 +78,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					// Leaving them in case we switch to `k8s` some day.
 					resources.with_request_cpu(2).with_request_memory("2G")
 				})
-				.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+				.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)

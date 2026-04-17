@@ -26,7 +26,7 @@ impl RuntimeStructDef {
 			item
 		} else {
 			let msg = "Invalid runtime::runtime, expected struct definition";
-			return Err(syn::Error::new(item.span(), msg))
+			return Err(syn::Error::new(item.span(), msg));
 		};
 
 		Ok(Self { ident: item.ident.clone() })
