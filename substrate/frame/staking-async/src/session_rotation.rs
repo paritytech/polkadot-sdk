@@ -1164,21 +1164,25 @@ impl<T: Config> EraElectionPlanner<T> {
 			// accumulate total stake and backer count for bookkeeping.
 			total_stake_page = total_stake_page.saturating_add(exposure.total);
 			total_backers += exposure.others.len() as u32;
-			// set or update staker exposure for this era.
+			let own = exposure.own;
 			Eras::<T>::upsert_exposure(new_planned_era, &stash, exposure);
 
-			// Calculate incentive weight from own-stake.
-			let own = ErasStakersOverview::<T>::get(new_planned_era, &stash)
-				.map(|o| o.own)
-				.unwrap_or_default();
-			if !own.is_zero() &&
-				!ErasValidatorIncentiveWeight::<T>::contains_key(new_planned_era, &stash)
-			{
-				let weight = T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
-				if !weight.is_zero() {
-					total_validator_weight_page =
-						total_validator_weight_page.saturating_add(weight);
-					ErasValidatorIncentiveWeight::<T>::insert(new_planned_era, &stash, weight);
+			// Calculate incentive weight from own-stake. Own-stake appears only on the
+			// first page of a multi-page exposure, so if the key already exists with a
+			// non-zero own, something is wrong upstream.
+			if !own.is_zero() {
+				if ErasValidatorIncentiveWeight::<T>::contains_key(new_planned_era, &stash) {
+					defensive!(
+						"validator own-stake seen twice in the same era across election pages"
+					);
+				} else {
+					let incentive_weight =
+						T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
+					if !incentive_weight.is_zero() {
+						total_validator_weight_page =
+							total_validator_weight_page.saturating_add(incentive_weight);
+						ErasValidatorIncentiveWeight::<T>::insert(new_planned_era, &stash, incentive_weight);
+					}
 				}
 			}
 		});
