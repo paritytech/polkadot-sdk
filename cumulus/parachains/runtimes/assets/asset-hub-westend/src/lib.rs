@@ -1144,6 +1144,27 @@ impl pallet_gas_allowance::Config for Runtime {
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
 	type CallFilter = PGASCallFilter;
+	type WeightInfo = pallet_gas_allowance::weights::SubstrateWeight<Runtime>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PGASBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PGASBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl
+	pallet_gas_allowance::BenchmarkHelperTrait<AccountId, AssetIdForTrustBackedAssets, Balance>
+	for PGASBenchmarkHelper
+{
+	fn create_asset(asset_id: AssetIdForTrustBackedAssets) {
+		use frame_support::traits::tokens::fungibles::Create;
+		let owner: AccountId = frame_benchmarking::account("pgas_asset_owner", 0, 0);
+		let _ = <Assets as Create<AccountId>>::create(asset_id, owner, true, 1);
+	}
+	fn mint_pgas(who: &AccountId, asset_id: AssetIdForTrustBackedAssets, amount: Balance) {
+		use frame_support::traits::tokens::fungibles::Mutate;
+		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
+	}
 }
 
 parameter_types! {
@@ -2071,6 +2092,7 @@ mod benches {
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
+		[pallet_gas_allowance, GasAllowance]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]

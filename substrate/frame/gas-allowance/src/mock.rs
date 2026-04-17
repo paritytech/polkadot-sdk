@@ -157,6 +157,24 @@ impl pallet_gas_allowance::Config for Runtime {
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
 	type CallFilter = PGASCallFilter;
+	type WeightInfo = ();
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = BenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct BenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_gas_allowance::BenchmarkHelperTrait<AccountId, AssetId, Balance> for BenchmarkHelper {
+	fn create_asset(asset_id: AssetId) {
+		use frame_support::traits::tokens::fungibles::Create;
+		// Force-create so benchmarks don't require a deposit.
+		let _ = <Assets as Create<AccountId>>::create(asset_id, 999u64, true, 1);
+	}
+	fn mint_pgas(who: &AccountId, asset_id: AssetId, amount: Balance) {
+		use frame_support::traits::tokens::fungibles::Mutate;
+		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
+	}
 }
 
 #[frame_support::pallet(dev_mode)]
@@ -268,8 +286,5 @@ pub fn post_info_from_weight(w: Weight) -> frame_support::dispatch::PostDispatch
 }
 
 pub fn default_post_info() -> frame_support::dispatch::PostDispatchInfo {
-	frame_support::dispatch::PostDispatchInfo {
-		actual_weight: None,
-		pays_fee: Default::default(),
-	}
+	frame_support::dispatch::PostDispatchInfo { actual_weight: None, pays_fee: Default::default() }
 }

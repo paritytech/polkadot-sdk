@@ -50,11 +50,15 @@ use sp_runtime::{
 };
 
 pub use pallet::*;
+pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 /// Balance type alias, sourced from `pallet-transaction-payment`.
 pub type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
@@ -84,6 +88,27 @@ pub mod pallet {
 		/// filter fall through to the inner fee extension unconditionally, even if the caller
 		/// holds PGAS.
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Weight information for the extension.
+		type WeightInfo: WeightInfo;
+
+		/// Helper used by the extension benchmarks to create the PGAS asset and endow the
+		/// caller with enough balance to cover the fee.
+		#[cfg(feature = "runtime-benchmarks")]
+		type BenchmarkHelper: BenchmarkHelperTrait<
+			Self::AccountId,
+			<Self as Config>::AssetId,
+			BalanceOf<Self>,
+		>;
+	}
+
+	/// Trait used by runtimes to set up the PGAS asset for the extension benchmarks.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub trait BenchmarkHelperTrait<AccountId, AssetId, Balance> {
+		/// Create the PGAS asset with the given id if it does not exist.
+		fn create_asset(asset_id: AssetId);
+		/// Mint `amount` of PGAS to `who`.
+		fn mint_pgas(who: &AccountId, asset_id: AssetId, amount: Balance);
 	}
 
 	#[pallet::pallet]
@@ -164,7 +189,8 @@ where
 	}
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
-		self.inner.weight(call)
+		// Reserve the worst case: inner weight plus the full PGAS path.
+		self.inner.weight(call).saturating_add(<T as Config>::WeightInfo::charge_pgas())
 	}
 
 	fn validate(
@@ -205,8 +231,15 @@ where
 
 		let fee =
 			pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, Zero::zero());
-		let pgas =
-			<T::Assets as fungibles::Inspect<T::AccountId>>::balance(T::PGASAssetId::get(), &who);
+		// Use `reducible_balance` with `Preservation::Preserve` so that we only take the PGAS
+		// path when the caller can pay the fee without dropping below the asset's existential
+		// deposit. Otherwise we fall through to the inner extension.
+		let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
+			T::PGASAssetId::get(),
+			&who,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 		if pgas >= fee {
 			return Ok((
 				ValidTransaction { priority: 0, ..Default::default() },
@@ -242,7 +275,7 @@ where
 					&who,
 					fee,
 					Precision::Exact,
-					Preservation::Expendable,
+					Preservation::Preserve,
 					Fortitude::Polite,
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
@@ -272,15 +305,22 @@ where
 				// reaped) the refund is merged back into the consumed portion and burned too.
 				let (consumed, refund) = credit.split(actual_fee);
 				if !refund.peek().is_zero() {
-					if let Err(refund) = <T::Assets as fungibles::Balanced<T::AccountId>>::resolve(
-						&who, refund,
-					) {
+					if let Err(refund) =
+						<T::Assets as fungibles::Balanced<T::AccountId>>::resolve(&who, refund)
+					{
 						let _ = consumed.merge(refund);
 					}
 				}
 				Ok(Weight::zero())
 			},
-			Pre::Inner(pre) => S::post_dispatch_details(pre, info, post_info, len, result),
+			Pre::Inner(pre) => {
+				// Skip path: refund the difference between the reserved `charge_pgas` worst
+				// case and the actual `charge_pgas_skip` cost.
+				let inner_weight = S::post_dispatch_details(pre, info, post_info, len, result)?;
+				let refund = <T as Config>::WeightInfo::charge_pgas()
+					.saturating_sub(<T as Config>::WeightInfo::charge_pgas_skip());
+				Ok(inner_weight.saturating_add(refund))
+			},
 		}
 	}
 }

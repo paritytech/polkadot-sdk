@@ -48,11 +48,8 @@ fn pgas_pays_for_filtered_call_with_zero_native() {
 			let len = 10;
 			let info = info_from_weight(Weight::from_parts(7, 0));
 
-			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32,
-				&info,
-				0,
-			);
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
 			assert!(fee > 0);
 
 			assert_eq!(Balances::free_balance(ALICE), 0);
@@ -91,19 +88,15 @@ fn falls_back_to_inner_when_no_pgas() {
 			let len = 10;
 			let info = info_from_weight(Weight::from_parts(7, 0));
 
-			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32,
-				&info,
-				0,
-			);
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
 			assert!(fee > 0);
 
 			assert_eq!(Balances::free_balance(BOB), native_initial);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, BOB), 0);
 
-			let (_pre, _) = new_ext()
-				.validate_and_prepare(Some(BOB).into(), &call, &info, len, 0)
-				.unwrap();
+			let (_pre, _) =
+				new_ext().validate_and_prepare(Some(BOB).into(), &call, &info, len, 0).unwrap();
 
 			assert_eq!(Balances::free_balance(BOB), native_initial - fee);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, BOB), 0);
@@ -126,11 +119,8 @@ fn filter_miss_uses_inner_even_with_pgas() {
 			let len = 10;
 			let info = info_from_weight(Weight::from_parts(7, 0));
 
-			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32,
-				&info,
-				0,
-			);
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
 			assert!(fee > 0);
 
 			let (_pre, _) = new_ext()
@@ -157,11 +147,8 @@ fn pgas_refund_on_unused_weight() {
 			let actual = Weight::from_parts(40, 0);
 			let info = info_from_weight(claimed);
 
-			let reserved = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32,
-				&info,
-				0,
-			);
+			let reserved =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
 			let actual_fee = pallet_transaction_payment::Pallet::<Runtime>::compute_actual_fee(
 				len as u32,
 				&info,
@@ -183,6 +170,49 @@ fn pgas_refund_on_unused_weight() {
 				&Ok(()),
 			));
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial - actual_fee);
+		});
+}
+
+/// PGAS balance that would leave the account below the asset's existential deposit must fall
+/// through to the inner extension, preserving the account rather than reaping it.
+#[test]
+fn pgas_below_ed_falls_back_to_native() {
+	let native_initial = 1_000;
+	// Asset ED is 1 (see `ExtBuilder::build`). Give Alice just enough PGAS to cover the fee
+	// but not the fee plus ED, forcing the extension to fall through.
+	ExtBuilder::default()
+		.with_native(vec![(ALICE, native_initial)])
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let call = pgas_call();
+			let len = 10;
+			let info = info_from_weight(Weight::from_parts(7, 0));
+
+			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
+				len as u32,
+				&info,
+				0,
+			);
+			assert!(fee > 0);
+
+			let pgas_initial = fee;
+			// Set up PGAS balance after computing the fee.
+			assert_ok!(<pallet_assets::Pallet<Runtime> as frame_support::traits::tokens::fungibles::Mutate<AccountId>>::mint_into(
+				PGAS_ASSET_ID,
+				&ALICE,
+				pgas_initial,
+			));
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
+
+			let (_pre, _) = new_ext()
+				.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0)
+				.unwrap();
+
+			// PGAS untouched: the PGAS path was skipped because paying would have reaped the
+			// account. Native covered the fee instead.
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
+			assert_eq!(Balances::free_balance(ALICE), native_initial - fee);
 		});
 }
 
