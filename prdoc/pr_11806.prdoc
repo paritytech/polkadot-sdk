@@ -8,4 +8,4 @@ doc:
 
 crates:
 - name: pallet-staking-async
-  bump: patch
+  bump: major
