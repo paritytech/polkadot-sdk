@@ -2,7 +2,7 @@ title: '[DAP] Catch-up drip on V1->V2 migration'
 doc:
 - audience: Runtime Dev
   description: |-
-    The V1->V2 migration seeded `LastIssuanceTimestamp` to a point in the past
+    The DAP V2 migration seeded `LastIssuanceTimestamp` to a point in the past
     (typically the active era start) so the next regular drip would credit
     elapsed time back to that point. That elapsed is then clamped by
     `MaxElapsedPerDrip`, so only up to one cap's worth of inflation is actually
