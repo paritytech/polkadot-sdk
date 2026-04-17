@@ -22,7 +22,7 @@ use crate::{
 };
 use futures::{StreamExt, TryFutureExt, stream};
 use pallet_revive::{
-	DryRunConfig, EthTransactInfo,
+	DryRunConfig, EthTransactInfo, TracingConfig,
 	evm::{
 		Block as EthBlock, BlockNumberOrTagOrHash, BlockTag, GenericTransaction, H160,
 		ReceiptGasInfo, StateOverrideSet, Trace, U256,
@@ -265,18 +265,35 @@ impl RuntimeApi {
 	}
 
 	/// Get the trace for the given call.
+	///
+	/// If `state_overrides` are provided, uses the `trace_call_with_config` runtime API
+	/// which supports state overrides. Otherwise falls back to the original `trace_call`
+	/// for backwards compatibility with older runtimes.
 	pub async fn trace_call(
 		&self,
 		transaction: GenericTransaction,
 		tracer_type: crate::TracerType,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<Trace, ClientError> {
-		let payload = subxt_client::apis()
-			.revive_api()
-			.trace_call(transaction.into(), tracer_type.into())
-			.unvalidated();
+		let result = if let Some(overrides) = state_overrides {
+			let config = TracingConfig::new().with_state_overrides(overrides);
+			let payload = subxt_client::apis()
+				.revive_api()
+				.trace_call_with_config(transaction.into(), tracer_type.into(), config.into())
+				.unvalidated();
+			self.0.call(payload).await?
+		} else {
+			let payload = subxt_client::apis()
+				.revive_api()
+				.trace_call(transaction.into(), tracer_type.into())
+				.unvalidated();
+			self.0.call(payload).await?
+		};
 
-		let trace = self.0.call(payload).await?.map_err(|err| ClientError::TransactError(err.0))?;
-		Ok(trace.0)
+		match result {
+			Err(err) => Err(ClientError::TransactError(err.0)),
+			Ok(trace) => Ok(trace.0),
+		}
 	}
 
 	/// Get the code of the given address.

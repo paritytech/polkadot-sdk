@@ -16,8 +16,7 @@
 use super::{
 	AccountId, AllPalletsWithSystem, Balance, Balances, BaseDeliveryFee, FeeAssetId, Fellows,
 	ParachainInfo, ParachainSystem, PolkadotXcm, Runtime, RuntimeCall, RuntimeEvent,
-	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, WestendTreasuryAccount,
-	XcmpQueue,
+	RuntimeHoldReason, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmpQueue,
 };
 use frame_support::{
 	parameter_types,
@@ -35,6 +34,7 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
+use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -62,7 +62,6 @@ parameter_types! {
 	pub RelayChainOrigin: RuntimeOrigin = cumulus_pallet_xcm::Origin::Relay.into();
 	pub UniversalLocation: InteriorLocation =
 		[GlobalConsensus(RelayNetwork::get().unwrap()), Parachain(ParachainInfo::parachain_id().into())].into();
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub FellowshipTreasuryLocation: Location =
 		PalletInstance(<crate::FellowshipTreasury as PalletInfoAccess>::index() as u8).into();
 	pub FellowshipSalaryLocation: Location =
@@ -72,6 +71,7 @@ parameter_types! {
 	pub AmbassadorSalaryLocation: Location =
 		PalletInstance(<crate::AmbassadorSalary as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
+	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: Location = (Parent, Parachain(ASSET_HUB_ID)).into();
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
@@ -175,9 +175,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent and its pluralities (i.e. governance bodies) get free execution.
+					// Parent, its pluralities (i.e. governance bodies), and sibling system
+					// parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
+						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						Equals<GovernanceLocation>,
 					)>,
 					// Subscriptions for version tracking are OK.
@@ -197,7 +199,6 @@ pub type Barrier = TrailingSetTopicAsId<
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-	Equals<RelayTreasuryLocation>,
 	Equals<FellowshipTreasuryLocation>,
 	Equals<FellowshipSalaryLocation>,
 	Equals<SecretarySalaryLocation>,
@@ -257,10 +258,9 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type AssetLocker = ();
 	type AssetExchanger = ();
-	// TODO: once DAP allocates budgets, split delivery fees to DAP via a HandleFee wrapper.
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, WestendTreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapSatelliteAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
