@@ -1127,15 +1127,8 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 }
 
 parameter_types! {
-	/// Location of the PGAS gas-allowance asset. PGAS is issued by the People's chain and
-	/// registered on AH as a foreign asset.
-	pub PGASAssetId: xcm::v5::Location = xcm::v5::Location::new(
-		1,
-		[
-			xcm::v5::Junction::Parachain(westend_runtime_constants::system_parachain::PEOPLE_ID),
-			xcm::v5::Junction::GeneralIndex(0),
-		],
-	);
+	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
+	pub const PGASAssetId: AssetIdForTrustBackedAssets = 0;
 }
 
 /// Calls eligible to be paid for with PGAS. Currently only `pallet-revive` calls.
@@ -1147,8 +1140,8 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 }
 
 impl pallet_gas_allowance::Config for Runtime {
-	type AssetId = xcm::v5::Location;
-	type Assets = ForeignAssets;
+	type AssetId = AssetIdForTrustBackedAssets;
+	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
 	type CallFilter = PGASCallFilter;
 }
