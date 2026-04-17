@@ -737,7 +737,7 @@ async fn request_candidate_validation(
 			validation_code,
 			candidate_receipt,
 			pov,
-			session_index,
+			scheduling_session_index: session_index,
 			exec_kind: if is_system {
 				PvfExecKind::BackingSystemParas(scheduling_parent)
 			} else {

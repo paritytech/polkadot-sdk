@@ -43,8 +43,8 @@ use crate::LOG_TARGET;
 
 /// (Session) environment of a candidate.
 pub struct CandidateEnvironment<'a> {
-	/// The session the candidate appeared in.
-	session_index: SessionIndex,
+	/// The scheduling session the candidate appeared in.
+	scheduling_session: SessionIndex,
 	/// Session for above index.
 	session: &'a SessionInfo,
 	/// Validator indices controlled by this node.
@@ -62,7 +62,7 @@ impl<'a> CandidateEnvironment<'a> {
 	pub async fn new<Context>(
 		ctx: &mut Context,
 		runtime_info: &'a mut RuntimeInfo,
-		session_index: SessionIndex,
+		scheduling_session: SessionIndex,
 		scheduling_parent: Hash,
 		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
 		controlled_indices: &mut ControlledValidatorIndices,
@@ -82,7 +82,7 @@ impl<'a> CandidateEnvironment<'a> {
 		// update, thus this call will succeed even if the scheduling parent's state is not
 		// available.
 		let session = match runtime_info
-			.get_session_info_by_index(ctx.sender(), scheduling_parent, session_index)
+			.get_session_info_by_index(ctx.sender(), scheduling_parent, scheduling_session)
 			.await
 		{
 			Ok(extended_session_info) => &extended_session_info.session_info,
@@ -108,10 +108,10 @@ impl<'a> CandidateEnvironment<'a> {
 		};
 
 		let controlled_indices = controlled_indices
-			.get(session_index, &session.validators)
+			.get(scheduling_session, &session.validators)
 			.map_or(HashSet::new(), |index| HashSet::from([index]));
 
-		Some(Self { session_index, session, controlled_indices, disabled_indices })
+		Some(Self { scheduling_session, session, controlled_indices, disabled_indices })
 	}
 
 	/// Validators in the candidate's session.
@@ -124,9 +124,9 @@ impl<'a> CandidateEnvironment<'a> {
 		&self.session
 	}
 
-	/// Retrieve `SessionIndex` for this environment.
+	/// Retrieve the scheduling `SessionIndex` for this environment.
 	pub fn session_index(&self) -> SessionIndex {
-		self.session_index
+		self.scheduling_session
 	}
 
 	/// Indices controlled by this node.
@@ -314,7 +314,7 @@ impl CandidateVoteState<CandidateVotes> {
 				gum::error!(
 					target: LOG_TARGET,
 					?val_index,
-					session= ?env.session_index,
+					session= ?env.scheduling_session,
 					claimed_key = ?statement.validator_public(),
 					"Validator index doesn't match claimed key",
 				);
@@ -325,7 +325,7 @@ impl CandidateVoteState<CandidateVotes> {
 				gum::error!(
 					target: LOG_TARGET,
 					?val_index,
-					session= ?env.session_index,
+					session= ?env.scheduling_session,
 					given_candidate_hash = ?statement.candidate_hash(),
 					?expected_candidate_hash,
 					"Vote is for unexpected candidate!",
@@ -336,7 +336,7 @@ impl CandidateVoteState<CandidateVotes> {
 				gum::error!(
 					target: LOG_TARGET,
 					?val_index,
-					session= ?env.session_index,
+					session= ?env.scheduling_session,
 					given_candidate_hash = ?statement.candidate_hash(),
 					?expected_candidate_hash,
 					"Vote is for unexpected session!",

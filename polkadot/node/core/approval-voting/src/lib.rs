@@ -3595,7 +3595,7 @@ async fn launch_approval<
 				validation_code,
 				candidate_receipt: candidate.clone(),
 				pov: available_data.pov,
-				session_index,
+				scheduling_session_index: session_index,
 				exec_kind: PvfExecKind::Approval,
 				response_sender: val_tx,
 			})

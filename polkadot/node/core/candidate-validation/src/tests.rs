@@ -2540,6 +2540,147 @@ fn default_session_params() -> SessionParams {
 	}
 }
 
+/// V3 descriptor: executor_params use the execution (relay-parent) session,
+/// bomb limit uses the scheduling session. Verify the correct session index is
+/// passed to each runtime API call.
+///
+/// Runs two sub-cases, both with relay parent != scheduling parent:
+/// - scheduling session == execution session
+/// - scheduling session != execution session
+#[test]
+fn fetch_params_uses_correct_sessions_for_v3() {
+	let relay_parent = Hash::repeat_byte(0xAA);
+	let scheduling_parent = Hash::repeat_byte(0xBB);
+	let recent_leaf = Hash::repeat_byte(0xCC);
+	// Caller fallback — must NOT be used for V3 descriptors.
+	let caller_session: SessionIndex = 99;
+
+	let cases: [(SessionIndex, SessionIndex); 2] = [(5, 5), (5, 7)];
+	for (execution_session, scheduling_session) in cases {
+		let pov = PoV { block_data: BlockData(vec![1]) };
+		let validation_code = ValidationCode(vec![2]);
+		let descriptor = make_valid_candidate_descriptor_v3(
+			ParaId::from(1_u32),
+			relay_parent,
+			CoreIndex(0),
+			execution_session,
+			scheduling_session,
+			dummy_hash(),
+			pov.hash(),
+			validation_code.hash(),
+			dummy_hash(),
+			dummy_hash(),
+			scheduling_parent,
+		);
+
+		let pool = TaskExecutor::new();
+		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+
+		let test_fut = async move {
+			// First call: SessionExecutorParams — must use execution_session.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					leaf,
+					RuntimeApiRequest::SessionExecutorParams(session, tx),
+				)) => {
+					assert_eq!(leaf, recent_leaf);
+					assert_eq!(session, execution_session, "executor_params must use execution session");
+					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+				}
+			);
+
+			// Second call: ValidationCodeBombLimit — must use scheduling_session.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					leaf,
+					RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
+				)) => {
+					assert_eq!(leaf, recent_leaf);
+					assert_eq!(session, scheduling_session, "bomb limit must use scheduling session");
+					tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT)).unwrap();
+				}
+			);
+		};
+
+		let fetch_fut = async move {
+			let mut cache = SessionCache::new();
+
+			let result = cache
+				.fetch_params(recent_leaf, caller_session, &descriptor, true, ctx.sender())
+				.await;
+
+			assert!(result.is_ok(), "fetch_params should succeed");
+		};
+
+		executor::block_on(future::join(test_fut, fetch_fut));
+	}
+}
+
+/// V1 descriptor: both executor_params and bomb limit fall back to the
+/// caller-provided session index.
+#[test]
+fn fetch_params_uses_fallback_session_for_v1() {
+	let recent_leaf = Hash::repeat_byte(0xCC);
+	let caller_session: SessionIndex = 42;
+
+	let pov = PoV { block_data: BlockData(vec![1]) };
+	let validation_code = ValidationCode(vec![2]);
+	// V1-like descriptor within the V2 struct — reserved fields are non-zero so
+	// version() returns V1, and session_index_for_candidate_validation() returns None.
+	let descriptor = CandidateDescriptorV2::new_v1(
+		ParaId::from(1_u32),
+		dummy_hash(),
+		dummy_hash(),
+		pov.hash(),
+		dummy_hash(),
+		dummy_hash(),
+		validation_code.hash(),
+	);
+
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+
+	let test_fut = async move {
+		// SessionExecutorParams — must use caller_session (42) as fallback.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutorParams(session, tx),
+			)) => {
+				assert_eq!(session, caller_session, "V1 must fall back to caller session for executor_params");
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
+		);
+
+		// ValidationCodeBombLimit — must also use caller_session (42).
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
+			)) => {
+				assert_eq!(session, caller_session, "V1 must fall back to caller session for bomb limit");
+				tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT)).unwrap();
+			}
+		);
+	};
+
+	let fetch_fut = async move {
+		let mut cache = SessionCache::new();
+
+		let result = cache
+			.fetch_params(recent_leaf, caller_session, &descriptor, false, ctx.sender())
+			.await;
+
+		assert!(result.is_ok(), "fetch_params should succeed");
+	};
+
+	executor::block_on(future::join(test_fut, fetch_fut));
+}
+
 /// Scheduling session check: backing rejects when the descriptor's session
 /// doesn't match the runtime; approval/dispute skips the check entirely.
 ///
@@ -2613,7 +2754,7 @@ fn pre_validation_scheduling_session_check() {
 				validation_code: validation_code.clone(),
 				candidate_receipt: candidate_receipt.clone(),
 				pov: Arc::new(pov.clone()),
-				session_index: 100,
+				scheduling_session_index: 100,
 				exec_kind,
 				response_sender: response_tx,
 			},
@@ -2703,7 +2844,7 @@ fn pre_validation_v3_scheduling_offset_mismatch() {
 			validation_code: validation_code.clone(),
 			candidate_receipt: candidate_receipt.clone(),
 			pov: Arc::new(pov.clone()),
-			session_index: 2,
+			scheduling_session_index: 2,
 			exec_kind: PvfExecKind::Backing(dummy_hash()),
 			response_sender: response_tx,
 		},
@@ -2827,7 +2968,7 @@ fn pre_validation_basic_checks() {
 					validation_code: validation_code.clone(),
 					candidate_receipt,
 					pov: Arc::new(test_pov.clone()),
-					session_index: 1,
+					scheduling_session_index: 1,
 					exec_kind: *exec_kind,
 					response_sender: response_tx,
 				},
@@ -2917,7 +3058,7 @@ fn pre_validation_relay_parent_session_check() {
 				validation_code: validation_code.clone(),
 				candidate_receipt: candidate_receipt.clone(),
 				pov: Arc::new(pov.clone()),
-				session_index: 1,
+				scheduling_session_index: 1,
 				exec_kind: PvfExecKind::Backing(dummy_hash()),
 				response_sender: response_tx,
 			},
@@ -2969,7 +3110,7 @@ fn pre_validation_relay_parent_session_check() {
 				validation_code: validation_code.clone(),
 				candidate_receipt: candidate_receipt.clone(),
 				pov: Arc::new(pov.clone()),
-				session_index: 1,
+				scheduling_session_index: 1,
 				exec_kind: PvfExecKind::Backing(dummy_hash()),
 				response_sender: response_tx,
 			},
@@ -3099,7 +3240,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 				validation_code: validation_code.clone(),
 				candidate_receipt: candidate_receipt.clone(),
 				pov: Arc::new(pov.clone()),
-				session_index: 1,
+				scheduling_session_index: 1,
 				exec_kind: PvfExecKind::Backing(scheduling_parent),
 				response_sender: response_tx,
 			},
@@ -3152,7 +3293,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 				validation_code: validation_code.clone(),
 				candidate_receipt: candidate_receipt.clone(),
 				pov: Arc::new(pov.clone()),
-				session_index: 1,
+				scheduling_session_index: 1,
 				exec_kind: PvfExecKind::Backing(scheduling_parent),
 				response_sender: response_tx,
 			},
@@ -3214,7 +3355,7 @@ fn pre_validation_relay_parent_session_check_v3_ancestor_query() {
 				validation_code: validation_code.clone(),
 				candidate_receipt: candidate_receipt.clone(),
 				pov: Arc::new(pov.clone()),
-				session_index: 1,
+				scheduling_session_index: 1,
 				exec_kind: PvfExecKind::Backing(scheduling_parent),
 				response_sender: response_tx,
 			},

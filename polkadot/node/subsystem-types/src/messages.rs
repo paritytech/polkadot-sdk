@@ -204,8 +204,12 @@ pub enum CandidateValidationMessage {
 		candidate_receipt: CandidateReceipt,
 		/// The proof-of-validity
 		pov: Arc<PoV>,
-		/// Session index for fetching session-scoped parameters
-		session_index: SessionIndex,
+		/// Scheduling session index for this candidate. For V1 descriptors this
+		/// equals the relay-parent session and serves as fallback for both
+		/// execution and scheduling session. For V2+, sessions are in the
+		/// descriptor and this field is ignored. Can be removed once V1 support
+		/// is dropped.
+		scheduling_session_index: SessionIndex,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
 		/// The sending side of the response channel
