@@ -368,7 +368,7 @@ impl pallet_dap::Config for Runtime {
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_dap::WeightInfo<Runtime>;
 }
 
 #[derive(Encode, Decode)]
