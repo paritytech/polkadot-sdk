@@ -29396,8 +29396,7 @@ dependencies = [
 name = "westend-runtime"
 version = "7.0.0"
 dependencies = [
- "binary-merkle-tree",
- "approx",
+ "binary-merkle-tree 13.0.0",
  "bitvec",
  "frame-benchmarking",
  "frame-election-provider-support",

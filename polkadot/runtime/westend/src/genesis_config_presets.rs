@@ -18,15 +18,13 @@
 
 use crate::{
 	BabeConfig, BalancesConfig, ConfigurationConfig, ExistentialDeposit, RegistrarConfig, Runtime,
-	RuntimeGenesisConfig, SessionConfig, SessionKeys, StakingConfig, SudoConfig,
-	BABE_GENESIS_EPOCH_CONFIG,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
 use frame_support::build_struct_json_patch;
-use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
-use pallet_staking::{Forcing, StakerStatus};
+use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;

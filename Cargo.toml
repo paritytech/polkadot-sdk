@@ -228,8 +228,6 @@ members = [
 	"polkadot/runtime/westend/bridge-primitives",
 	"polkadot/runtime/westend/constants",
 	"polkadot/statement-table",
-	"polkadot/utils/generate-bags",
-	"polkadot/utils/remote-ext-tests/bags-list",
 	"polkadot/utils/remote-ext-tests/psm",
 	"polkadot/xcm",
 	"polkadot/xcm/docs",

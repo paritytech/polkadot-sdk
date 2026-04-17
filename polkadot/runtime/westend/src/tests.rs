@@ -19,7 +19,13 @@
 use std::collections::HashSet;
 
 use crate::{xcm_config::LocationConverter, *};
-use frame_support::traits::WhitelistedStorageKeys;
+use frame_support::{
+	assert_ok,
+	traits::{
+		fungible::{Inspect, Mutate},
+		WhitelistedStorageKeys,
+	},
+};
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::{self, Alice};
 use sp_runtime::generic::Era;
