@@ -1,20 +1,10 @@
 title: "statement-store: fix unbounded growth of the evicted-hashes map"
 doc:
   - audience: Node Dev
-    description: |
-      The statement store keeps a map of recently-removed statement hashes to
-      suppress re-gossip. This map could grow unboundedly over time.
-
-      - Naturally-expired statements are no longer added to the evicted map.
-        Re-gossip suppression is still guaranteed because `submit` rejects
-        them unconditionally via `AlreadyExpired`.
-
-      - The evicted map is now bounded to `max_total_statements` entries and
-        uses deadline-ordered purging so maintenance is efficient.
-
-      - The purge deadline for a forcibly evicted statement is
-        `min(expiry_timestamp, current_time + purge_after_sec)`, so hashes
-        close to their natural expiry are drained sooner.
+    description: |-
+      Fix unbounded growth of the evicted-statement map used for re-gossip suppression.
+      Naturally-expired statements are no longer inserted into the map, and the map is
+      now bounded to `max_total_statements` entries with deadline-ordered purging.
 
 crates:
   - name: sc-statement-store
