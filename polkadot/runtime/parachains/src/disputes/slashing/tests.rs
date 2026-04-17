@@ -765,10 +765,7 @@ fn pre_dispatch_replays_validation() {
 			key_owner_proof: unregistered_proof,
 		};
 
-		assert_eq!(
-			Pallet::<Test>::pre_dispatch(&call).map_err(|e| e),
-			Err(InvalidTransaction::BadProof.into()),
-		);
+		assert_eq!(Pallet::<Test>::pre_dispatch(&call), Err(InvalidTransaction::BadProof.into()));
 	});
 }
 
