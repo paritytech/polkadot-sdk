@@ -5,4 +5,6 @@ doc:
     \ per extrinsic, reducing O(N\xD7E) to O(E)\n- Merge two integration tests into\
     \ one that validates revert and logs are correctly attributed within the same\
     \ block"
-crates: []
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch
