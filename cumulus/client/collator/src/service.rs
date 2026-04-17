@@ -286,6 +286,7 @@ where
 			upward_messages.extend(messages);
 			upward_message_signals.extend(signals);
 			horizontal_messages.extend(collation_info.horizontal_messages);
+
 			if let Some(new_code) = collation_info.new_validation_code {
 				if new_validation_code.replace(new_code).is_some() {
 					tracing::warn!(
@@ -299,6 +300,9 @@ where
 			hrmp_watermark = Some(collation_info.hrmp_watermark);
 			head_data = Some(collation_info.head_data);
 		}
+
+		// Sort by recipient as required by the relay chain rules.
+		horizontal_messages.sort_by(|a, b| a.recipient.cmp(&b.recipient));
 
 		let block_data = ParachainBlockData::<Block>::new(blocks, compact_proof);
 

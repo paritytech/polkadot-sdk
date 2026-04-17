@@ -17,12 +17,17 @@
 
 use crate::utils::initialize_network;
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_test_runtime::test_pallet::{HRMP_RECIPIENT_HIGH, HRMP_RECIPIENT_LOW};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores,
+	submit_extrinsic_and_wait_for_finalization_success,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use tokio::{join, spawn, task::JoinHandle};
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
+	subxt::{ext::scale_value::value, OnlineClient, PolkadotConfig},
+	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder, NetworkNode,
 };
 
@@ -50,6 +55,25 @@ async fn block_bundling_basic() -> Result<(), anyhow::Error> {
 
 	let para_client = para_node.wait_client().await?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
+
+	for recipient in [HRMP_RECIPIENT_LOW, HRMP_RECIPIENT_HIGH] {
+		let call = zombienet_sdk::subxt::tx::dynamic(
+			"Sudo",
+			"sudo",
+			vec![value! {
+				Hrmp(force_open_hrmp_channel {
+					sender: PARA_ID,
+					recipient: recipient,
+					max_capacity: 1000u32,
+					max_message_size: 1024u32
+				})
+			}],
+		);
+		submit_extrinsic_and_wait_for_finalization_success(&relay_client, &call, &dev::alice())
+			.await?;
+	}
+	log::info!("HRMP channels opened to {HRMP_RECIPIENT_LOW} and {HRMP_RECIPIENT_HIGH}");
+
 	assert_para_throughput(
 		&relay_client,
 		6,
@@ -152,7 +176,11 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 							"scheduler_params": {
 								"num_cores": 7,
 								"max_validators_per_core": 1
-							}
+							},
+							"hrmp_channel_max_capacity": 1000,
+							"hrmp_channel_max_message_size": 1024,
+							"hrmp_max_message_num_per_candidate": 100,
+							"hrmp_max_parachain_outbound_channels": 10
 						}
 					}
 				}))
@@ -175,13 +203,28 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				])
 				.with_genesis_overrides(json!({
 					"testPallet": {
-						"enableBigValueMove": true
+						"enableBigValueMove": true,
+						"enableHrmpSending": true
 					}
 				}))
 				.with_collator(|n| n.with_name("collator-0"))
 				.with_collator(|n| n.with_name("collator-1"))
 				.with_collator(|n| n.with_name("collator-2"))
 				.with_collator(|n| n.with_name("para-full-node").validator(false))
+		})
+		.with_parachain(|p| {
+			p.with_id(HRMP_RECIPIENT_LOW)
+				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_chain("sync-backing")
+				.with_collator(|n| n.with_name("hrmp-recipient-low"))
+		})
+		.with_parachain(|p| {
+			p.with_id(HRMP_RECIPIENT_HIGH)
+				.with_default_command("test-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_chain("async-backing")
+				.with_collator(|n| n.with_name("hrmp-recipient-high"))
 		})
 		.with_global_settings(|global_settings| match std::env::var("ZOMBIENET_SDK_BASE_DIR") {
 			Ok(val) => global_settings.with_base_dir(val),

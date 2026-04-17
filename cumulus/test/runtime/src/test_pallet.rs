@@ -96,6 +96,13 @@ pub mod pallet {
 		}
 	}
 
+	/// When active, `on_initialize` queues one HRMP message per block, alternating
+	/// between `HRMP_RECIPIENT_HIGH` (odd blocks) and `HRMP_RECIPIENT_LOW` (even blocks).
+	/// This produces descending recipient order across consecutive blocks in a bundle,
+	/// exercising the HRMP message sorting in the collation path.
+	#[pallet::storage]
+	pub type HrmpSendingActive<T: Config> = StorageValue<_, bool, ValueQuery>;
+
 	/// Flag to indicate if a 1s weight should be registered in the next `on_initialize`.
 	#[pallet::storage]
 	pub type ScheduleWeightRegistration<T: Config> = StorageValue<_, bool, ValueQuery>;
@@ -113,9 +120,24 @@ pub mod pallet {
 	pub type BigValueMove<T: Config> =
 		StorageMap<_, Twox64Concat, BlockNumberFor<T>, Vec<u8>, OptionQuery>;
 
+	pub const HRMP_RECIPIENT_LOW: u32 = 2500;
+	pub const HRMP_RECIPIENT_HIGH: u32 = 2600;
+
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
 		fn on_initialize(n: BlockNumberFor<T>) -> Weight {
+			if HrmpSendingActive::<T>::get() {
+				let block_num: u32 = n.try_into().unwrap_or(0);
+				let recipient = if block_num % 2 == 1 {
+					ParaId::from(HRMP_RECIPIENT_HIGH)
+				} else {
+					ParaId::from(HRMP_RECIPIENT_LOW)
+				};
+				PendingOutboundHrmpMessages::<T>::mutate(|messages| {
+					messages.push((recipient, vec![block_num as u8]));
+				});
+			}
+
 			if ScheduleWeightRegistration::<T>::get() {
 				let weight_to_register = Weight::from_parts(WEIGHT_REF_TIME_PER_SECOND, 0);
 
@@ -346,6 +368,8 @@ pub mod pallet {
 		pub _config: core::marker::PhantomData<T>,
 		/// Controls if the `BigValueMove` logic is enabled.
 		pub enable_big_value_move: bool,
+		/// Activate HRMP sending with descending recipients from genesis.
+		pub enable_hrmp_sending: bool,
 	}
 
 	#[pallet::genesis_build]
@@ -355,6 +379,10 @@ pub mod pallet {
 
 			if self.enable_big_value_move {
 				BigValueMove::<T>::insert(BlockNumberFor::<T>::from(0u32), vec![0u8; 4 * 1024]);
+			}
+
+			if self.enable_hrmp_sending {
+				HrmpSendingActive::<T>::set(true);
 			}
 		}
 	}
