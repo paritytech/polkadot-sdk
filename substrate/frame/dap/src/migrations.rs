@@ -29,25 +29,27 @@ use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 /// - `P`: `Get<u64>` providing the last inflation timestamp before DAP activation (e.g.
 ///   `ActiveEra.start` from staking). Only used as an input to the catch-up drip — not persisted.
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation.
+/// - `M`: `Get<u64>` providing the maximum elapsed window (ms) the catch-up is allowed
+///   to credit. Should usually be max staking era length.
 ///
 /// Idempotent: the catch-up is skipped if `LastIssuanceTimestamp` is already
 /// non-zero, so a re-entry does not double-credit.
 ///
-/// The catch-up drip bypasses `MaxElapsedPerDrip`: the cap protects the
-/// `on_initialize` hot path from bugs/stalls, not a deliberate one-shot step.
-pub type MigrateV1ToV2<T, P, B> = frame_support::migrations::VersionedMigration<
+/// The catch-up drip bypasses `MaxElapsedPerDrip` but is clamped by `M` as the
+/// one-shot safety ceiling.
+pub type MigrateV1ToV2<T, P, B, M> = frame_support::migrations::VersionedMigration<
 	1,
 	2,
-	InnerMigrateV1ToV2<T, P, B>,
+	InnerMigrateV1ToV2<T, P, B, M>,
 	pallet::Pallet<T>,
 	<T as frame_system::Config>::DbWeight,
 >;
 
 /// Inner (unversioned) migration logic. Use [`MigrateV1ToV2`] instead.
-pub struct InnerMigrateV1ToV2<T, P, B>(core::marker::PhantomData<(T, P, B)>);
+pub struct InnerMigrateV1ToV2<T, P, B, M>(core::marker::PhantomData<(T, P, B, M)>);
 
-impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgrade
-	for InnerMigrateV1ToV2<T, P, B>
+impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>, M: Get<u64>> UncheckedOnRuntimeUpgrade
+	for InnerMigrateV1ToV2<T, P, B, M>
 {
 	fn on_runtime_upgrade() -> frame_support::weights::Weight {
 		let mut weight = T::DbWeight::get().reads(3);
@@ -72,7 +74,14 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 		}
 
 		let last_inflation = P::get();
-		let elapsed = now.saturating_sub(last_inflation);
+		let raw_elapsed = now.saturating_sub(last_inflation);
+		let elapsed = raw_elapsed.min(M::get());
+		if elapsed < raw_elapsed {
+			log::info!(
+				target: LOG_TARGET,
+				"DAP V1->V2: elapsed {raw_elapsed}ms clamped to bound {elapsed}ms"
+			);
+		}
 		let minted = pallet::Pallet::<T>::mint_and_distribute(elapsed);
 		weight = weight.saturating_add(<T as Config>::WeightInfo::drip_issuance());
 
@@ -101,7 +110,7 @@ impl<T: Config, P: Get<u64>, B: Get<BudgetAllocationMap>> UncheckedOnRuntimeUpgr
 		// Capture `now` and the expected catch-up mint to validate post-upgrade.
 		let last_inflation = P::get();
 		let now: u64 = T::Time::now().saturated_into();
-		let elapsed = now.saturating_sub(last_inflation);
+		let elapsed = now.saturating_sub(last_inflation).min(M::get());
 		let total_issuance_before = T::Currency::total_issuance();
 		let expected_mint = T::IssuanceCurve::issue(total_issuance_before, elapsed);
 
