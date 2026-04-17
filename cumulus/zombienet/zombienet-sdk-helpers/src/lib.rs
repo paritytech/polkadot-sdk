@@ -171,6 +171,88 @@ where
 	Ok(())
 }
 
+/// Like [`assert_para_throughput_with`], but starts counting immediately without waiting for a
+/// session change first. Use this when the network is already producing blocks at startup (e.g. a
+/// bitten network with features already enabled).
+pub async fn assert_para_throughput_immediate_with<F>(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	stop_after: u32,
+	expected_candidate_ranges: impl Into<HashMap<ParaId, Range<u32>>>,
+	validate: F,
+) -> Result<(), anyhow::Error>
+where
+	F: Fn(&CandidateReceiptV2<H256>) -> Result<bool, anyhow::Error>,
+{
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
+	let mut candidate_count: HashMap<ParaId, u32> = HashMap::new();
+	let mut current_block_count = 0;
+
+	let expected_candidate_ranges = expected_candidate_ranges.into();
+	let valid_para_ids: Vec<ParaId> = expected_candidate_ranges.keys().cloned().collect();
+
+	log::info!(
+		"Asserting parachain throughput for para_ids: {:?}. Counting {stop_after} finalized relay chain blocks immediately.",
+		valid_para_ids
+	);
+
+	while let Some(block) = blocks_sub.next().await {
+		let block = block?;
+		log::debug!("Finalized relay chain block {}", block.number());
+		let events = block.events().await?;
+
+		// Do not count blocks with session changes, no backed blocks there.
+		if is_session_change(&block).await? {
+			continue;
+		}
+
+		current_block_count += 1;
+
+		let receipts = find_event_and_decode_fields::<CandidateReceiptV2<H256>>(
+			&events,
+			"ParaInclusion",
+			"CandidateBacked",
+		)?;
+
+		for receipt in receipts {
+			let para_id = receipt.descriptor.para_id();
+			log::debug!("Block backed for para_id {para_id}");
+
+			if !valid_para_ids.contains(&para_id) {
+				continue;
+			}
+
+			if !validate(&receipt)? {
+				continue;
+			}
+
+			*(candidate_count.entry(para_id).or_default()) += 1;
+		}
+
+		if current_block_count == stop_after {
+			break;
+		}
+	}
+
+	log::info!(
+		"Reached {stop_after} finalized relay chain blocks that contain backed candidates. The per-parachain distribution is: {:#?}",
+		candidate_count.iter().map(|(para_id, count)| format!("{para_id} has {count} backed candidates")).collect::<Vec<_>>()
+	);
+
+	for (para_id, expected_candidate_range) in expected_candidate_ranges {
+		let actual = candidate_count
+			.get(&para_id)
+			.ok_or_else(|| anyhow!("ParaId {} did not have any backed candidates", para_id))?;
+
+		if !expected_candidate_range.contains(actual) {
+			return Err(anyhow!(
+				"Candidate count {actual} not within range {expected_candidate_range:?}"
+			));
+		}
+	}
+
+	Ok(())
+}
+
 /// Wait for the first block with a session change.
 ///
 /// The session change is detected by inspecting the events in the block.

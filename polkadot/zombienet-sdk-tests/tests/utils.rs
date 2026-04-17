@@ -2,8 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use anyhow::{anyhow, Result};
-use cumulus_zombienet_sdk_helpers::assert_para_throughput_with;
-use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId};
+use codec::Decode;
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput_immediate_with, assert_para_throughput_with,
+};
+use polkadot_primitives::{CandidateDescriptorVersion, Id as ParaId, NodeFeatures};
 use std::{collections::HashMap, ops::Range};
 use zombienet_orchestrator::network::node::LogLineCountOptions;
 use zombienet_sdk::{
@@ -185,6 +188,31 @@ pub async fn assert_validator_backed_candidates(
 		})
 }
 
+/// Asserts that the given node feature bit is enabled in the active runtime configuration.
+///
+/// Queries `ParachainHost_node_features` via the runtime API at the latest finalized block.
+pub async fn assert_node_feature_enabled(
+	client: &OnlineClient<PolkadotConfig>,
+	feature_bit: usize,
+) -> Result<(), anyhow::Error> {
+	let raw = client
+		.runtime_api()
+		.at_latest()
+		.await?
+		.call_raw("ParachainHost_node_features", None)
+		.await?;
+
+	let node_features = NodeFeatures::decode(&mut &raw[..])?;
+	let is_enabled = node_features.get(feature_bit).map(|v| *v).unwrap_or(false);
+
+	if !is_enabled {
+		return Err(anyhow!("Node feature bit {feature_bit} is not enabled"));
+	}
+
+	log::info!("Node feature bit {feature_bit} is enabled ✓");
+	Ok(())
+}
+
 /// Asserts that candidates of the expected version are being backed for the given parachains.
 ///
 /// Waits for the first session change (so that genesis configuration like `node_features` is
@@ -197,6 +225,56 @@ pub async fn assert_candidates_version(
 	max_blocks: u32,
 ) -> Result<(), anyhow::Error> {
 	assert_para_throughput_with(relay_client, max_blocks, expected_ranges, |receipt| {
+		let para_id = receipt.descriptor.para_id();
+		let version = receipt.descriptor.version();
+		log::info!(
+			"Para {} candidate backed: version={:?}, \
+			 relay_parent={:?}, \
+			 session_index={:?}, \
+			 scheduling_parent={:?}",
+			para_id,
+			version,
+			receipt.descriptor.relay_parent(),
+			receipt.descriptor.session_index(),
+			receipt.descriptor.scheduling_parent(),
+		);
+
+		if version != expected_version {
+			return Err(anyhow!(
+				"Para {para_id} candidate has version {:?}, expected {:?}",
+				version,
+				expected_version,
+			));
+		}
+
+		if expected_version == CandidateDescriptorVersion::V2 {
+			if receipt.descriptor.session_index().is_none() {
+				return Err(anyhow!("Para {para_id} V2 candidate has session_index=None",));
+			}
+			if receipt.descriptor.relay_parent() != receipt.descriptor.scheduling_parent() {
+				return Err(anyhow!(
+					"Para {para_id} V2 candidate has scheduling_parent={:?} \
+					 != relay_parent={:?}",
+					receipt.descriptor.scheduling_parent(),
+					receipt.descriptor.relay_parent(),
+				));
+			}
+		}
+
+		Ok(true)
+	})
+	.await
+}
+
+/// Like [`assert_candidates_version`], but starts counting immediately without waiting for a
+/// session change first. Use this when the feature is already active at network startup.
+pub async fn assert_candidates_version_immediate(
+	relay_client: &OnlineClient<PolkadotConfig>,
+	expected_version: CandidateDescriptorVersion,
+	expected_ranges: HashMap<ParaId, Range<u32>>,
+	max_blocks: u32,
+) -> Result<(), anyhow::Error> {
+	assert_para_throughput_immediate_with(relay_client, max_blocks, expected_ranges, |receipt| {
 		let para_id = receipt.descriptor.para_id();
 		let version = receipt.descriptor.version();
 		log::info!(
