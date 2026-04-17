@@ -7,121 +7,83 @@
 extern crate alloc;
 
 use sp_runtime::FixedU128;
-
-/// Parse a price string (e.g. "4.206") into `FixedU128`.
-///
-/// Works in `no_std` by parsing the decimal string directly instead of going
-/// through `f64` and `FixedU128::from_float` (which requires `std`).
-pub fn parse_price_string(s: &str) -> Option<FixedU128> {
-	let s = s.trim();
-	if s.is_empty() || s.starts_with('-') {
-		return None;
-	}
-
-	let (integer_str, frac_str) = match s.find('.') {
-		Some(dot) => (&s[..dot], &s[dot + 1..]),
-		None => (s, ""),
-	};
-
-	let integer_part: u128 = integer_str.parse().ok()?;
-	let (frac_part, frac_digits) = if frac_str.is_empty() {
-		(0u128, 0u32)
-	} else {
-		(frac_str.parse::<u128>().ok()?, frac_str.len() as u32)
-	};
-
-	// FixedU128 has 18 decimal places of precision (DIV = 10^18).
-	let divisor = 10u128.checked_pow(frac_digits)?;
-	Some(FixedU128::from_rational(integer_part * divisor + frac_part, divisor))
-}
-
-/// Parse a float value into `FixedU128`, rejecting negatives.
-///
-/// Uses string formatting to avoid `FixedU128::from_float` (which requires `std`).
-fn parse_price_float(n: f64) -> Option<FixedU128> {
-	if n < 0.0 || n.is_nan() || n.is_infinite() {
-		return None;
-	}
-	// Format with enough precision and reuse the string parser.
-	let s = alloc::format!("{:.18}", n);
-	parse_price_string(&s)
-}
+use core::str::FromStr;
 
 /// Binance: `{"symbol":"DOTUSDT","price":"4.20600000"}`
 pub fn decode_binance(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.get("price")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// CoinLore: `[{"id":"45219", ..., "price_usd":"4.20", ...}]`
 pub fn decode_coinlore(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.as_array()?.first()?.get("price_usd")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// CryptoCompare: `{"USD":4.202}`
 pub fn decode_cryptocompare(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("USD")?.as_f64()?;
-	parse_price_float(n)
+	let n = v.get("USD")?.as_number()?.as_str();
+	FixedU128::from_str(n).ok()
 }
 
 /// CoinGecko: `{"polkadot":{"usd":4.20}}`
 pub fn decode_coingecko(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("polkadot")?.get("usd")?.as_f64()?;
-	parse_price_float(n)
+	let n = v.get("polkadot")?.get("usd")?.as_number()?.as_str();
+	FixedU128::from_str(n).ok()
 }
 
 /// CoinMarketCap: `{"data":[{"quote":[{"price":4.20}]}]}`
 pub fn decode_coinmarketcap(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("data")?.as_array()?.first()?.get("quote")?.as_array()?.first()?.get("price")?.as_f64()?;
-	parse_price_float(n)
+	let n = v.get("data")?.as_array()?.first()?.get("quote")?.as_array()?.first()?.get("price")?.as_number()?.as_str();
+	FixedU128::from_str(n).ok()
 }
 
 /// CoinPaprika: `{"quotes":{"USD":{"price":4.20}}}`
 pub fn decode_coinpaprika(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("quotes")?.get("USD")?.get("price")?.as_f64()?;
-	parse_price_float(n)
+	let n = v.get("quotes")?.get("USD")?.get("price")?.as_number()?.as_str();
+	FixedU128::from_str(n).ok()
 }
 
 /// LiveCoinWatch: `{"rate":4.20}`
 pub fn decode_livecoinwatch(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("rate")?.as_f64()?;
-	parse_price_float(n)
+	let n = v.get("rate")?.as_number()?.as_str();
+	FixedU128::from_str(n).ok()
 }
 
 /// Dia: `{"Price":4.20}`
 pub fn decode_dia(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("Price")?.as_f64()?;
-	parse_price_float(n)
+	let n = v.get("Price")?.as_number()?.as_str();
+	FixedU128::from_str(n).ok()
 }
 
 /// Coinbase: `{"data":{"amount":"4.20"}}`
 pub fn decode_coinbase(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.get("data")?.get("amount")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// Kraken: `{"result":{"DOTUSD":{"c":["4.20"]}}}`
 pub fn decode_kraken(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.get("result")?.get("DOTUSD")?.get("c")?.as_array()?.first()?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// OKX: `{"data":[{"last":"4.20"}]}`
 pub fn decode_okx(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.get("data")?.as_array()?.first()?.get("last")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// Bybit: `{"result":{"list":[{"lastPrice":"4.20"}]}}`
@@ -134,28 +96,28 @@ pub fn decode_bybit(body: &[u8]) -> Option<FixedU128> {
 		.first()?
 		.get("lastPrice")?
 		.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// KuCoin: `{"data":{"price":"4.20"}}`
 pub fn decode_kucoin(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.get("data")?.get("price")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// Crypto.com: `{"result":{"data":[{"a":"4.20"}]}}`
 pub fn decode_cryptocom(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.get("result")?.get("data")?.as_array()?.first()?.get("a")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 /// Gate.io: `[{"last":"4.20"}]`
 pub fn decode_gateio(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
 	let s = v.as_array()?.first()?.get("last")?.as_str()?;
-	parse_price_string(s)
+	FixedU128::from_str(s).ok()
 }
 
 #[cfg(test)]
@@ -305,23 +267,5 @@ mod tests {
 		assert_plausible(price);
 
 		assert!(decode_gateio(br#"[]"#).is_none());
-	}
-
-	#[test]
-	fn parse_price_string_works() {
-		let price = parse_price_string("5.23").unwrap();
-		let expected = FixedU128::from_rational(523, 100);
-		assert_eq!(price, expected);
-	}
-
-	#[test]
-	fn parse_price_string_rejects_negative() {
-		assert!(parse_price_string("-1.5").is_none());
-	}
-
-	#[test]
-	fn parse_price_string_rejects_invalid() {
-		assert!(parse_price_string("abc").is_none());
-		assert!(parse_price_string("").is_none());
 	}
 }
