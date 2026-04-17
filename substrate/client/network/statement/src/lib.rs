@@ -1825,6 +1825,19 @@ mod tests {
 			.collect()
 	}
 
+	/// Simulate the network closing the substream for every disconnected
+	/// peer, so the handler runs its per-peer cleanup.
+	async fn dispatch_disconnects(
+		handler: &mut StatementHandler<TestNetwork, TestSync>,
+		network: &TestNetwork,
+	) {
+		for peer in network.get_disconnected_peers() {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamClosed { peer })
+				.await;
+		}
+	}
+
 	#[tokio::test]
 	async fn test_skips_processing_statements_that_already_in_store() {
 		let (mut handler, statement_store, _network, _notification_service, queue_receiver, _) =
@@ -2480,6 +2493,8 @@ mod tests {
 			disconnected
 		);
 
+		dispatch_disconnects(&mut handler, &network).await;
+
 		// Verify peer state was cleaned up
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 		assert!(
@@ -2579,6 +2594,10 @@ mod tests {
 			"Peer should be disconnected after exceeding rate limit. Disconnected: {:?}",
 			disconnected
 		);
+
+		dispatch_disconnects(&mut handler, &network).await;
+
+		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
 
 	#[tokio::test]
@@ -2667,6 +2686,8 @@ mod tests {
 			"Peer should be disconnected after sustained high rate. Disconnected: {:?}",
 			disconnected
 		);
+
+		dispatch_disconnects(&mut handler, &network).await;
 
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
