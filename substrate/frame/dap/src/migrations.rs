@@ -29,8 +29,8 @@ use frame_support::traits::{Time, UncheckedOnRuntimeUpgrade};
 /// - `P`: `Get<u64>` providing the last inflation timestamp before DAP activation (e.g.
 ///   `ActiveEra.start` from staking). Only used as an input to the catch-up drip — not persisted.
 /// - `B`: `Get<BudgetAllocationMap>` providing the initial budget allocation.
-/// - `M`: `Get<u64>` providing the maximum elapsed window (ms) the catch-up is allowed
-///   to credit. Should usually be max staking era length.
+/// - `M`: `Get<u64>` providing the maximum elapsed window (ms) the catch-up is allowed to credit.
+///   Should usually be max staking era length.
 ///
 /// Idempotent: the catch-up is skipped if `LastIssuanceTimestamp` is already
 /// non-zero, so a re-entry does not double-credit.
