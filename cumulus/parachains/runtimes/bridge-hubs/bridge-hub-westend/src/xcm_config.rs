@@ -37,7 +37,6 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_runtime::traits::AccountIdConversion;
 use testnet_parachains_constants::westend::{
 	locations::AssetHubLocation, snowbridge::EthereumNetwork,
 };
@@ -68,7 +67,11 @@ parameter_types! {
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	pub DapSatelliteLocation: Location = {
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
+	};
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -180,8 +183,11 @@ pub type Barrier = TrailingSetTopicAsId<
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations =
-	(Equals<RootLocation>, RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>);
+pub type WaivedLocations = (
+	Equals<RootLocation>,
+	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
+	Equals<DapSatelliteLocation>,
+);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.

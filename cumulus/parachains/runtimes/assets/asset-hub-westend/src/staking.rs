@@ -347,7 +347,7 @@ impl pallet_staking_async_rc_client::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	/// Minimum time (ms) between issuance drips. 60s = drip at most once per minute.
 	pub const IssuanceCadence: u64 = 60_000;
 	/// Safety ceiling (ms) for elapsed time in a single drip. Prevents over-minting after stalls.

@@ -34,7 +34,6 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -71,7 +70,7 @@ parameter_types! {
 	pub AmbassadorSalaryLocation: Location =
 		PalletInstance(<crate::AmbassadorSalary as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: Location = (Parent, Parachain(ASSET_HUB_ID)).into();
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
@@ -83,6 +82,10 @@ parameter_types! {
 	pub WndAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
 		asset_id: WndLocation::get().into(),
+	};
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
 	};
 }
 
@@ -205,6 +208,7 @@ pub type WaivedLocations = (
 	Equals<AmbassadorSalaryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
+	Equals<DapSatelliteLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
