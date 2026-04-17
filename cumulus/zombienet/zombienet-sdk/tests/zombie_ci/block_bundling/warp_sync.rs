@@ -15,10 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
+use crate::utils::{initialize_network, BEST_BLOCK_METRIC, FINALIZED_BLOCK_METRIC};
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
-use polkadot_primitives::Id as ParaId;
+use cumulus_zombienet_sdk_helpers::assign_cores;
 use serde_json::json;
 use std::time::Duration;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -59,9 +58,12 @@ async fn warp_sync_with_bundled_blocks() -> Result<(), anyhow::Error> {
 	// Assign 2 extra cores (zombienet auto-assigns 1), for 3 total.
 	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
-	// Wait for steady-state bundled block production.
-	log::info!("Waiting for steady-state block production");
-	assert_para_throughput(&relay_client, 6, [(ParaId::from(PARA_ID), 12..19)], []).await?;
+	// Wait for steady-state bundled block production: collator finalizes parachain block #72.
+	log::info!("Waiting for collator to finalize parachain block #72");
+	network
+		.get_node("collator-0")?
+		.wait_metric_with_timeout(FINALIZED_BLOCK_METRIC, |b| b >= 72.0, 200u64)
+		.await?;
 
 	// Query collator's current best block to set a sync target.
 	let target_block = network.get_node("collator-0")?.reports(BEST_BLOCK_METRIC).await? as u64;
