@@ -895,9 +895,12 @@ impl<T: Config> Rotator<T> {
 		Eras::<T>::set_stakers_reward(ending_era.index, allocation.staker_rewards);
 		Eras::<T>::set_validator_incentive_budget(ending_era.index, allocation.validator_incentive);
 
+		// Include both staker rewards and validator incentive in the event
 		Pallet::<T>::deposit_event(Event::<T>::EraPaid {
 			era_index: ending_era.index,
-			validator_payout: allocation.staker_rewards,
+			validator_payout: allocation
+				.staker_rewards
+				.saturating_add(allocation.validator_incentive),
 			remainder: Zero::zero(),
 		});
 
