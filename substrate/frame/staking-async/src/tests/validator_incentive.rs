@@ -49,7 +49,7 @@ fn config_set_noop_remove_works() {
 			} if *slope_factor == Perbill::from_rational(1u32, 2u32)
 		)));
 
-		// WHEN: noop.
+		// WHEN: noop, THEN: values remain the same
 		assert_storage_noop!(assert_ok!(Staking::set_validator_self_stake_incentive_config(
 			RuntimeOrigin::root(),
 			ConfigOp::Noop,
