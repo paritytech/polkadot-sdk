@@ -1,32 +1,59 @@
 title: Add pallet-gas-allowance with ChargePGAS transaction extension
 doc:
-- audience: Runtime Dev
-  description: "## Summary\n\n- Introduces `pallet-gas-allowance` providing a new\
-    \ `ChargePGAS<T, S>` transaction extension that wraps an inner fee extension `S`.\n\
-    - When a signed transaction dispatches a call matching `Config::CallFilter` and\
-    \ the signer holds enough PGAS (a foreign asset, id is a `Location`), the fee\
-    \ is withdrawn as a `fungibles::Credit`. In `post_dispatch` the credit is split:\
-    \ the `actual_fee` portion is dropped (burning total issuance via `OnDropCredit`)\
-    \ and the unused remainder is `resolve`d back to the payer. Otherwise the inner\
-    \ extension runs unchanged.\n- Wires the extension into `asset-hub-westend` around\
-    \ `ChargeAssetTxPayment`, with the filter matching `pallet-revive` calls and PGAS\
-    \ pointing at `Parachain(PEOPLE_ID) / GeneralIndex(0)`.\n\n## Flow\n\n1. `validate`:\
-    \ unsigned origin or filter miss \u2192 delegate to inner. Signed + filter hit\
-    \ + `balance(PGAS) >= fee` \u2192 tag as PGAS path.\n2. `prepare`: `Balanced::withdraw(fee)`\
-    \ \u2192 `Credit` stored in `Pre::PGAS`.\n3. `post_dispatch_details`: split `Credit`\
-    \ by `actual_fee`; `resolve` refund to payer; drop consumed portion (burns issuance).\n\
-    \nThe imbalance-based flow mirrors `FungibleAdapter::correct_and_deposit_fee`\
-    \ in `pallet-transaction-payment`.\n\n## Test plan\n\n- [x] `cargo test -p pallet-gas-allowance`\
-    \ \u2014 7 tests:\n  - `pgas_pays_for_filtered_call_with_zero_native` (zero DOT,\
-    \ enough PGAS \u2192 PGAS burns, DOT unchanged)\n  - `falls_back_to_inner_when_no_pgas`\n\
-    \  - `filter_miss_uses_inner_even_with_pgas`\n  - `pgas_refund_on_unused_weight`\
-    \ (verifies refund via `resolve`)\n  - `unsigned_delegates_to_inner`\n  - mock\
-    \ construct-runtime integrity + genesis builder\n- [x] `cargo check -p asset-hub-westend-runtime`\n\
-    - [x] `cargo check -p pallet-gas-allowance --all-targets --all-features`\n- [\
-    \ ] CI runs full workspace build / clippy / tests\n- [ ] prdoc added\n\n## Follow-ups\n\
-    \n- Benchmarks & weights for `ChargePGAS`."
+  - audience: Runtime Dev
+    description: |
+      ## Summary
+
+      - Introduces `pallet-gas-allowance` providing a new `ChargePGAS<T, S>` transaction
+        extension that wraps an inner fee extension `S`.
+      - When a signed transaction dispatches a call matching `Config::CallFilter` and the
+        signer holds enough PGAS (a trusted asset on Asset Hub), the fee is withdrawn as
+        a `fungibles::Credit`. In `post_dispatch` the credit is split: the `actual_fee`
+        portion is dropped (burning total issuance via `OnDropCredit`) and the unused
+        remainder is `resolve`d back to the payer. Otherwise the inner extension runs
+        unchanged.
+      - Wires the extension into `asset-hub-westend` around `ChargeAssetTxPayment`, with
+        the filter matching `pallet-revive` calls and PGAS bound to
+        `AssetIdForTrustBackedAssets = 0`.
+
+      ## Flow
+
+      1. `validate`: unsigned origin or filter miss -> delegate to inner. Signed + filter
+         hit + `reducible_balance(PGAS, Preserve) >= fee` -> tag as PGAS path.
+      2. `prepare`: `Balanced::withdraw(fee, Preservation::Preserve)` -> `Credit` stored
+         in `Pre::PGAS`. Using `Preserve` keeps at least the asset's existential deposit
+         in the payer's account.
+      3. `post_dispatch_details`: split `Credit` by `actual_fee`; `resolve` refund to
+         payer; drop consumed portion (burns issuance).
+
+      The imbalance-based flow mirrors `FungibleAdapter::correct_and_deposit_fee` in
+      `pallet-transaction-payment`.
+
+      ## Benchmarks
+
+      Two benchmarks measure the extension overhead:
+      - `charge_pgas`: full PGAS path (validate + withdraw credit + resolve refund).
+      - `charge_pgas_skip`: PGAS path skipped (validation preamble only, falls through
+        to the inner extension).
+
+      `weight()` reserves the worst case (`charge_pgas`); `post_dispatch_details`
+      refunds the difference when the skip path is taken.
+
+      ## Test plan
+
+      - [x] `cargo test -p pallet-gas-allowance --features runtime-benchmarks` - 10 tests:
+        - `pgas_pays_for_filtered_call_with_zero_native`
+        - `falls_back_to_inner_when_no_pgas`
+        - `filter_miss_uses_inner_even_with_pgas`
+        - `pgas_refund_on_unused_weight`
+        - `pgas_below_ed_falls_back_to_native`
+        - `unsigned_delegates_to_inner`
+        - `bench_charge_pgas`, `bench_charge_pgas_skip`
+        - mock construct-runtime integrity + genesis builder
+      - [x] `cargo check -p asset-hub-westend-runtime --features runtime-benchmarks`
+      - [ ] CI runs full workspace build / clippy / tests
 crates:
-- name: asset-hub-westend-runtime
-  bump: minor
-- name: pallet-gas-allowance
-  bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: pallet-gas-allowance
+    bump: minor

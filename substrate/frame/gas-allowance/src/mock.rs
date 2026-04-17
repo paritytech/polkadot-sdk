@@ -20,7 +20,7 @@ use frame_support::{
 	dispatch::DispatchClass,
 	pallet_prelude::Get,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, Contains},
+	traits::{AsEnsureOriginWithArg, ConstU64, Contains},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system::EnsureRoot;
@@ -114,30 +114,17 @@ impl pallet_transaction_payment::Config for Runtime {
 	type LengthToFee = TransactionByteFee;
 }
 
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
 impl pallet_assets::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
-	type AssetId = AssetId;
-	type AssetIdParameter = codec::Compact<AssetId>;
-	type ReserveData = ();
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
+	// No deposits in tests.
 	type AssetDeposit = ConstU64<0>;
 	type AssetAccountDeposit = ConstU64<0>;
 	type MetadataDepositBase = ConstU64<0>;
 	type MetadataDepositPerByte = ConstU64<0>;
 	type ApprovalDeposit = ConstU64<0>;
-	type StringLimit = ConstU32<20>;
-	type Holder = ();
-	type Freezer = ();
-	type Extra = ();
-	type CallbackHandle = ();
-	type WeightInfo = ();
-	type RemoveItemsLimit = ConstU32<1000>;
-	pallet_assets::runtime_benchmarks_enabled! {
-		type BenchmarkHelper = ();
-	}
 }
 
 parameter_types! {
