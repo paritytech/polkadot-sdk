@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{hash_map::Entry, HashMap, HashSet},
 	time::Duration,
 };
 
@@ -54,15 +54,9 @@ use polkadot_node_subsystem_util::{
 	TimeoutExt,
 };
 use polkadot_primitives::{
-<<<<<<< HEAD
 	vstaging::{CandidateEvent, CandidateReceiptV2 as CandidateReceipt},
-	AuthorityDiscoveryId, BlockNumber, CandidateHash, CollatorPair, CoreIndex, GroupIndex, Hash,
-	HeadData, Id as ParaId, SessionIndex,
-=======
-	AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CollatorPair, CoreIndex, Hash, HeadData, Id as ParaId,
-	SessionIndex,
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
+	AuthorityDiscoveryId, BlockNumber, CandidateHash, CollatorPair, CoreIndex, Hash, HeadData,
+	Id as ParaId,
 };
 
 use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
@@ -288,13 +282,8 @@ impl PerRelayParent {
 		para_id: ParaId,
 		claim_queue: ClaimQueueSnapshot,
 		block_number: Option<BlockNumber>,
-<<<<<<< HEAD
-	) -> Self {
-=======
 		block_hash: Hash,
-		session_index: SessionIndex,
 	) -> Result<Self> {
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 		let assignments =
 			claim_queue.iter_all_claims().fold(HashMap::new(), |mut acc, (core, claims)| {
 				let n_claims = claims.iter().filter(|para| para == &&para_id).count();
@@ -319,12 +308,7 @@ impl PerRelayParent {
 			collations: HashMap::new(),
 			assignments,
 			block_number,
-<<<<<<< HEAD
-		}
-=======
-			session_index,
 		})
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 	}
 }
 
@@ -567,23 +551,9 @@ async fn distribute_collation<Context>(
 				status: CollationStatus::Created,
 			},
 			core_index,
-<<<<<<< HEAD
 			stats: per_relay_parent
 				.block_number
 				.map(|n| CollationStats::new(para_head, n, &state.metrics)),
-=======
-			session_index: per_relay_parent.session_index,
-			stats: per_relay_parent.block_number.map(|n| {
-				CollationStats::new(
-					para_head,
-					n,
-					candidate_relay_parent,
-					&state.metrics,
-					*candidate_hash,
-					pov_hash,
-				)
-			}),
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 		},
 	);
 
@@ -1335,16 +1305,12 @@ async fn handle_network_msg<Context>(
 		},
 		OurViewChange(view) => {
 			gum::trace!(target: LOG_TARGET, ?view, "Own view change");
-<<<<<<< HEAD
-			handle_our_view_change(ctx, state, view).await?;
-=======
 			handle_our_view_change(ctx, runtime, state, view).await?;
 			// Connect only if we are collating on a para.
 			if let Some(para_id) = state.collating_on {
 				connect_to_validators(ctx, &state.implicit_view, &state.per_relay_parent, para_id)
 					.await;
 			}
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 		},
 		PeerMessage(remote, msg) => {
 			handle_incoming_peer_message(ctx, runtime, state, remote, msg).await?;
@@ -1435,13 +1401,7 @@ async fn handle_our_view_change<Context>(
 	let added: Vec<_> = view.iter().filter(|h| !implicit_view.contains_leaf(h)).collect();
 
 	for leaf in added {
-<<<<<<< HEAD
-		let claim_queue: ClaimQueueSnapshot = fetch_claim_queue(ctx.sender(), *leaf).await?;
-=======
-		let session_index = runtime.get_session_index_for_child(ctx.sender(), *leaf).await?;
-
 		let claim_queue = fetch_claim_queue(ctx.sender(), *leaf).await?;
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 
 		implicit_view
 			.activate_leaf(ctx.sender(), *leaf)
@@ -1449,26 +1409,11 @@ async fn handle_our_view_change<Context>(
 			.map_err(Error::ImplicitViewFetchError)?;
 
 		let block_number = implicit_view.block_number(leaf);
-<<<<<<< HEAD
-		state
-			.per_relay_parent
-			.insert(*leaf, PerRelayParent::new(para_id, claim_queue, block_number));
-=======
 
 		state.per_relay_parent.insert(
 			*leaf,
-			PerRelayParent::new(
-				ctx,
-				runtime,
-				para_id,
-				claim_queue,
-				block_number,
-				*leaf,
-				session_index,
-			)
-			.await?,
+			PerRelayParent::new(ctx, runtime, para_id, claim_queue, block_number, *leaf).await?,
 		);
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 
 		process_block_events(
 			ctx,
@@ -1494,17 +1439,6 @@ async fn handle_our_view_change<Context>(
 		for block_hash in allowed_ancestry {
 			let block_number = implicit_view.block_number(block_hash);
 
-<<<<<<< HEAD
-			if state.per_relay_parent.get(block_hash).is_none() {
-				let claim_queue = fetch_claim_queue(ctx.sender(), *block_hash).await?;
-				state
-					.per_relay_parent
-					.insert(*block_hash, PerRelayParent::new(para_id, claim_queue, block_number));
-			}
-
-			let per_relay_parent =
-				state.per_relay_parent.get_mut(block_hash).expect("Just inserted");
-=======
 			let per_relay_parent = match state.per_relay_parent.entry(*block_hash) {
 				Entry::Vacant(entry) => {
 					let claim_queue = match fetch_claim_queue(ctx.sender(), *block_hash).await {
@@ -1519,19 +1453,6 @@ async fn handle_our_view_change<Context>(
 							continue
 						},
 					};
-					let session_index =
-						match runtime.get_session_index_for_child(ctx.sender(), *leaf).await {
-							Ok(si) => si,
-							Err(error) => {
-								gum::debug!(
-									target: LOG_TARGET,
-									?block_hash,
-									?error,
-									"Failed to fetch session index while iterating allowed ancestry",
-								);
-								continue
-							},
-						};
 
 					entry.insert(
 						PerRelayParent::new(
@@ -1541,14 +1462,12 @@ async fn handle_our_view_change<Context>(
 							claim_queue,
 							block_number,
 							*block_hash,
-							session_index,
 						)
 						.await?,
 					)
 				},
 				Entry::Occupied(entry) => entry.into_mut(),
 			};
->>>>>>> db5c89ff (collator-protocol: cleanup connecting to backing group (#9178))
 
 			// Announce relevant collations to these peers.
 			for peer_id in &peers {
