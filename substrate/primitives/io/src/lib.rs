@@ -4021,9 +4021,17 @@ mod tests {
 		});
 
 		t.execute_with(|| {
+			// `read` with a buffer that is too small does NOT write data into the buffer (RFC-145).
 			let mut v = [0u8; 4];
 			assert_eq!(storage::read(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			assert_eq!(v, [0u8, 0, 0, 0]);
+
+			// `read_partial` with a buffer that is too small DOES write partial data.
+			let mut v = [0u8; 4];
+			assert_eq!(storage::read_partial(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
 			assert_eq!(v, [11u8, 0, 0, 0]);
+
+			// `read` with an exact-sized buffer works.
 			let mut w = [0u8; 11];
 			assert_eq!(storage::read(b":test", &mut w[..], 4).unwrap(), value.len() as u32 - 4);
 			assert_eq!(&w, b"Hello world");
