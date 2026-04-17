@@ -45,7 +45,7 @@
 //! - **Clearing-price auction**: All winners pay the same uniform price (the Kth highest bid).
 //! - **Lock-then-charge**: Funds are locked at bid time by the broker. At settlement, excess
 //!   is refunded via [`TickAction::Refund`]. Winners are charged the clearing price.
-//! - **Binding bids**: Bids cannot be cancelled, only raised. This prevents gaming.
+//! - **Binding bids**: Bids cannot be cancelled, only raised.
 //! - **Displacement protection**: Auction winners with renewal rights cannot be displaced.
 
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -402,114 +402,112 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 	fn place_renewal_order(
 		_block_number: RelayBlockNumberOf<T>,
 		who: &T::AccountId,
-		_renewal: PotentialRenewalId,
+		renewal: PotentialRenewalId,
 	) -> Result<RenewalOrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		let range =
-			Self::CoreRangeProvider::core_range().ok_or(Error::<T>::Uninitialized)?;
 
-		match CurrentPhase::<T>::get().ok_or(Error::<T>::Uninitialized)? {
-			SalePhase::Renewal => {
-				let clearing =
-					AuctionClearingPrice::<T>::get().unwrap_or(sale.reserve_price);
+		ensure!(
+			CurrentPhase::<T>::get() == Some(SalePhase::Renewal),
+			Error::<T>::WrongPhase
+		);
 
-				let allocations = Allocations::<T>::get();
-				let oversubscribed = allocations.len() as u16 >= sale.cores_offered;
+		// Verify the caller holds a renewal right for this sale period.
+		ensure!(
+			T::RenewalRights::renewal_rights_count(who, renewal.when) > 0,
+			Error::<T>::Unavailable
+		);
 
-				let penalty = if oversubscribed {
-					config.penalty * clearing
-				} else {
-					Zero::zero()
+		let clearing = AuctionClearingPrice::<T>::get().unwrap_or(sale.reserve_price);
+
+		let allocations = Allocations::<T>::get();
+		let oversubscribed = allocations.len() as u16 >= sale.cores_offered;
+
+		let penalty =
+			if oversubscribed { config.penalty * clearing } else { Zero::zero() };
+		let renewal_price = clearing.saturating_add(penalty);
+
+		let allocated_count =
+			allocations.len() as u16 + RenewalCount::<T>::get() as u16;
+
+		if allocated_count < sale.cores_offered {
+			// Unallocated core available — direct renewal.
+			let core = sale.first_core.saturating_add(allocated_count);
+			let region_id = RegionId {
+				begin: sale.region_begin,
+				core,
+				mask: CoreMask::complete(),
+			};
+			RenewalCount::<T>::mutate(|c| c.saturating_inc());
+
+			Self::deposit_event(Event::RenewalExercised {
+				who: who.clone(),
+				price: renewal_price,
+				region_id,
+			});
+
+			Ok(RenewalOrderResult::Renewed {
+				price: renewal_price,
+				region_id,
+				effective_to: sale.region_end,
+			})
+		} else if oversubscribed {
+			// All cores allocated — displace lowest non-renewer auction winner.
+			let mut allocs = allocations;
+
+			let displace_idx = allocs
+				.iter()
+				.enumerate()
+				.filter(|(_, a)| {
+					T::RenewalRights::renewal_rights_count(
+						&a.who,
+						sale.region_begin,
+					) == 0
+				})
+				.min_by_key(|(_, a)| a.bid_price)
+				.map(|(i, _)| i);
+
+			if let Some(idx) = displace_idx {
+				let displaced_alloc = allocs.remove(idx);
+
+				let region_id = RegionId {
+					begin: sale.region_begin,
+					core: displaced_alloc.core,
+					mask: CoreMask::complete(),
 				};
-				let renewal_price = clearing.saturating_add(penalty);
 
-				let allocated_count =
-					allocations.len() as u16 + RenewalCount::<T>::get() as u16;
-				let available = range.to.saturating_sub(sale.first_core);
+				let refund = sale.clearing_price.unwrap_or_default();
 
-				if allocated_count < available {
-					// Unallocated core available — direct renewal.
-					let core = sale.first_core.saturating_add(allocated_count);
-					let region_id = RegionId {
-						begin: sale.region_begin,
-						core,
-						mask: CoreMask::complete(),
-					};
-					RenewalCount::<T>::mutate(|c| c.saturating_inc());
+				Self::deposit_event(Event::BidDisplaced {
+					who: displaced_alloc.who.clone(),
+					bid_id: displaced_alloc.bid_id,
+					refund,
+				});
 
-					Self::deposit_event(Event::RenewalExercised {
-						who: who.clone(),
-						price: renewal_price,
-						region_id,
-					});
+				// Track displaced bid; refunded in finalize_sale.
+				DisplacedBids::<T>::mutate(|bids| {
+					let _ = bids.try_push((displaced_alloc.who, refund));
+				});
 
-					Ok(RenewalOrderResult::Renewed {
-						price: renewal_price,
-						region_id,
-						effective_to: sale.region_end,
-					})
-				} else if oversubscribed {
-					// All cores allocated — displace lowest non-renewer auction winner.
-					let mut allocs = allocations;
+				Allocations::<T>::put(allocs);
+				RenewalCount::<T>::mutate(|c| c.saturating_inc());
 
-					let displace_idx = allocs
-						.iter()
-						.enumerate()
-						.filter(|(_, a)| {
-							T::RenewalRights::renewal_rights_count(
-								&a.who,
-								sale.region_begin,
-							) == 0
-						})
-						.min_by_key(|(_, a)| a.bid_price)
-						.map(|(i, _)| i);
+				Self::deposit_event(Event::RenewalExercised {
+					who: who.clone(),
+					price: renewal_price,
+					region_id,
+				});
 
-					if let Some(idx) = displace_idx {
-						let displaced_alloc = allocs.remove(idx);
-
-						let region_id = RegionId {
-							begin: sale.region_begin,
-							core: displaced_alloc.core,
-							mask: CoreMask::complete(),
-						};
-
-						let refund = sale.clearing_price.unwrap_or_default();
-
-						Self::deposit_event(Event::BidDisplaced {
-							who: displaced_alloc.who.clone(),
-							bid_id: displaced_alloc.bid_id,
-							refund,
-						});
-
-						// Track displaced bid; refunded in finalize_sale.
-						DisplacedBids::<T>::mutate(|bids| {
-							let _ = bids
-								.try_push((displaced_alloc.who, refund));
-						});
-
-						Allocations::<T>::put(allocs);
-						RenewalCount::<T>::mutate(|c| c.saturating_inc());
-
-						Self::deposit_event(Event::RenewalExercised {
-							who: who.clone(),
-							price: renewal_price,
-							region_id,
-						});
-
-						Ok(RenewalOrderResult::Renewed {
-							price: renewal_price,
-							region_id,
-							effective_to: sale.region_end,
-						})
-					} else {
-						Err(Error::<T>::Unavailable)
-					}
-				} else {
-					Err(Error::<T>::Unavailable)
-				}
-			},
-			SalePhase::Market | SalePhase::Settlement => Err(Error::<T>::WrongPhase),
+				Ok(RenewalOrderResult::Renewed {
+					price: renewal_price,
+					region_id,
+					effective_to: sale.region_end,
+				})
+			} else {
+				Err(Error::<T>::Unavailable)
+			}
+		} else {
+			Err(Error::<T>::Unavailable)
 		}
 	}
 

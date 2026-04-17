@@ -199,7 +199,10 @@ fn renewal_during_renewal_phase() {
 
 		let sale = SaleInfo::<Test>::get().unwrap();
 
-		// Renew — should succeed since 1 of 2 cores allocated.
+		// Give user 2 a renewal right for this sale.
+		TestRenewalRights::set(2, sale.region_begin, 1);
+
+		// Renew — should succeed since 1 of 2 cores allocated and user has renewal right.
 		let result = place_renewal(25, 2, 0, sale.region_begin).unwrap();
 		match result {
 			RenewalOrderResult::Renewed { price, region_id, effective_to } => {
