@@ -1,0 +1,22 @@
+title: 'collator-protocol: Readvertise collations after peer disconnects'
+doc:
+- audience: Node Dev
+  description: |-
+    There's a possible race case between peer connectivity and collation advertisement:
+    - The advertisement was generated
+    - peer disconnected before receiving the advertisement
+
+    As a result of that, when the peer reconnects, the previous collation (C0) is not sent.
+    This happens when the collator has produced another collation (C1).
+    However, from the logs it looks like the collation C1 is advertising, but C0 is skipped.
+
+    - T0: peer disconnects without receiving C0
+    - T1: peer reconnects
+    - T2: collator advertises C1, but not C0
+
+    This PR aims to resubmit collations on `PeerConect` events to mitigate these cases
+
+    Closes https://github.com/paritytech/polkadot-sdk/issues/10463
+crates:
+- name: polkadot-collator-protocol
+  bump: patch

@@ -296,7 +296,6 @@ pub mod v2 {
 		}
 
 		/// For testing purpose, we want a inner mutable ref.
-		#[cfg(test)]
 		pub fn inner_mut(&mut self) -> &mut BitVec<u8, bitvec::order::Lsb0> {
 			&mut self.0
 		}

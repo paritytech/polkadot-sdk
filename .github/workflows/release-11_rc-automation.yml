@@ -9,21 +9,6 @@ on:
       version:
         description: Current release/rc version in format polkadot-stableYYMM
         type: string
-    secrets:
-      PGP_KMS_SIGN_COMMITS_KEY:
-        required: true
-      PGP_KMS_HASH:
-        required: true
-      AWS_ACCESS_KEY_ID:
-        required: true
-      AWS_SECRET_ACCESS_KEY:
-        required: true
-      AWS_DEFAULT_REGION:
-        required: true
-      RELEASE_AUTOMATION_APP_PRIVATE_KEY:
-        required: true
-      RELEASENOTES_MATRIX_V2_ACCESS_TOKEN:
-        required: true
 
 jobs:
   tag_rc:
@@ -45,7 +30,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign commits
-          pip install git+https://github.com/paritytech-release/pgpkms.git@e7f806f99e9be5c52f0b4a536b7d4ef9c3e695ed
+          pip install git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae
 
       - name: Generate content write token for the release automation
         id: generate_write_token
@@ -79,14 +64,16 @@ jobs:
         # if: ${{ steps.get_rel_product.outputs.product == 'polkadot' }}
         id: compute_tag
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           . ./.github/scripts/common/lib.sh
 
           # Get last rc tag if exists, else set it to {version}-rc1
-          if [[ -z "${{ inputs.version }}" ]]; then
+          if [[ -z "$INPUT_VERSION" ]]; then
             version=v$(get_polkadot_node_version_from_code)
           else
-            version=$(validate_stable_tag ${{ inputs.version }})
+            version=$(validate_stable_tag "$INPUT_VERSION")
           fi
           echo "$version"
           echo "version=$version" >> $GITHUB_OUTPUT

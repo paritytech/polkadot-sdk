@@ -319,6 +319,13 @@ impl Collations {
 			.map(|state| state.seconded_per_para)
 			.unwrap_or_default()
 	}
+
+	/// Remove all pending collations for a specific peer from the waiting queue.
+	pub(super) fn remove_pending_for_peer(&mut self, peer_id: &PeerId) {
+		for queue in self.waiting_queue.values_mut() {
+			queue.retain(|(pending, _)| &pending.peer_id != peer_id);
+		}
+	}
 }
 
 // Any error that can occur when awaiting a collation fetch response.
