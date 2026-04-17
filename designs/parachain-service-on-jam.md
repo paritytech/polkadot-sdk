@@ -18,12 +18,13 @@
    - 4.2 [PVF Entry Point](#42-pvf-entry-point)
    - 4.3 [Host Functions & PVM Imports](#43-host-functions-pvm-imports)
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
-   - 5.3 [Code Upgrade Lifecycle](#53-code-upgrade-lifecycle)
-6. [Authorization & Coretime](#6-authorization-coretime)
-   - 6.3 [Authorizer Design: AURA Example](#63-authorizer-design-aura-example)
-   - 6.4 [On-Demand Parachains](#64-on-demand-parachains)
-7. [Messaging](#7-messaging)
-8. [Open Questions](#8-open-questions)
+   - 5.1 [What Accumulate Does](#51-what-accumulate-does)
+   - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
+6. [Parachain Registration](#6-parachain-registration)
+7. [Authorization & Coretime](#7-authorization-coretime)
+   - 7.3 [Authorizer Design: AURA Example](#73-authorizer-design-aura-example)
+   - 7.4 [On-Demand Parachains](#74-on-demand-parachains)
+8. [Messaging](#8-messaging)
 9. [Missing JAM / Gray Paper Features](#9-missing-jam-gray-paper-features)
 10. [References](#10-references)
 
@@ -118,8 +119,9 @@ The CRJA pipeline for a parachain block:
     │
     ▼
 [Accumulate]  ON-CHAIN: The Parachain Service's Accumulate function runs on-chain.
-              It records the new parachain head, processes upward signals (code upgrades,
-              HRMP channel management, outbound transfers) and queues downward signals for parachains.
+              It records the new parachain head, applies the PVF's upward host-function
+              effects (code upgrades, outbound transfers, authorizer updates), and queues
+              incoming transfers from other services.
 
 ```
 
@@ -174,9 +176,9 @@ struct ParachainServiceState {
     incoming_transfers: Vec<(ServiceId, Amount, Memo)>,
 
     /// Per-parachain error log. Stores the opaque error payload and
-    /// authorizer trace from failed Refine executions, keyed by the
-    /// lookup-anchor timeslot when they were recorded. Each parachain keeps
-    /// at most 8 entries.
+    /// authorizer trace from failed Refine executions, keyed by the JAM
+    /// block timeslot at which Accumulate recorded them. Each parachain
+    /// keeps at most 8 entries.
     error_log: Map<ParaId, CountedMap<Timeslot, ErrorEntry, 8>>,
 
     /// Pending authorizer queue updates that should be applied once the
@@ -191,8 +193,6 @@ struct ParachainServiceState {
 }
 
 struct ErrorEntry {
-    /// Lookup-anchor timeslot when this error was recorded.
-    lookup_anchor_timeslot: Timeslot,
     /// Opaque error payload from the PVF (max 1024 bytes).
     error_data: BoundedVec<u8, 1024>,
     /// Authorizer trace from the work-report.
@@ -212,7 +212,8 @@ struct ParaInfo {
     head_data: HeadData,
     /// Hash of the currently active validation code.
     validation_code_hash: ValidationCodeHash,
-    /// Pending code upgrade, if any. See §5.3 for the full lifecycle.
+    /// Pending code upgrade, if any: the new validation code hash and the
+    /// deadline timeslot after which the upgrade is rejected. See §5.2.
     pending_upgrade: Option<(ValidationCodeHash, Timeslot)>,
 }
 ```
@@ -282,14 +283,14 @@ to **48 KiB** by the Gray Paper.
 - **`Ok`** is returned when PVF validation succeeds. The upward host-function calls made
   during Refine (code upgrades, transfers, authorizer updates, etc.) are carried alongside
   this result and applied by Accumulate.
+
 - **`Err`** is returned when PVF validation fails. The PVF calls `report_error(data)` to
   supply an opaque error payload (up to 1024 bytes). Accumulate stores this payload together
-  with the authorizer trace in the per-parachain error log (see §3.1). This can be used for
-  example to slash a collator who claimed an authorizer slot that was not theirs.
-
-Accumulate stores the error payload and authorizer trace per `ParaId`, tagged with the
-lookup-anchor timeslot when they were recorded. The entry is deleted when a successful
-candidate with a later lookup-anchor timeslot is included for the same parachain.
+  with the authorizer trace in the per-parachain error log (see §3.1), keyed by the
+  timeslot of the JAM block in which Accumulate is running. The entry is deleted when a
+  later successful candidate for the same parachain is accumulated **whose lookup-anchor
+  timeslot is strictly greater than the stored entry's key**. This can be used for example
+  to slash a collator who claimed an authorizer slot that was not theirs.
 
 ---
 
@@ -304,8 +305,8 @@ The Refine entry point of the Parachain Service executes the **Parachain Validat
 Refine:
 1. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
 2. Instantiates a child PVM with the PVF.
-3. Executes the PVF against the PoV (the `validate_block` call).
-4. Returns a `ParachainWorkResult` with the committed outputs.
+3. Executes the PVF against the PoV (the `jam_validate_block` call).
+4. Assembles a `ParachainWorkResult` from the PVF's host-function side effects (see §4.2).
 
 Because Refine is stateless, it cannot write to service storage.
 
@@ -314,7 +315,7 @@ Because Refine is stateless, it cannot write to service storage.
 The Parachain Service's Refine spawns a child PVM and calls the PVF's single entry point:
 
 ```rust
-fn validate_block() -> ()
+fn jam_validate_block() -> ()
 ```
 
 The PVF reads its inputs (PoV, context, downward transfers) through host functions and
@@ -339,18 +340,18 @@ These forward the full JAM fetch functionality to the PVF:
 
 | Host function | Returns | Purpose |
 |---|---|---|
-| `lookup(hash)` | `Option<Vec<u8>>` | Fetch a preimage (e.g. PVF code) |
-| `foreign_lookup(service, hash)` | `Option<Vec<u8>>` | Fetch a preimage from another service's store |
+| `lookup(hash: Hash)` | `Option<Vec<u8>>` | Fetch a preimage (e.g. PVF code) |
+| `foreign_lookup(service: ServiceId, hash: Hash)` | `Option<Vec<u8>>` | Fetch a preimage from another service's store |
 | `gas()` | `u64` | Query the remaining gas budget |
 | `work_package()` | `WorkPackage` | Access the full encoded work package |
 | `work_package_context()` | `RefineContext` | Access the refinement context (anchor, lookup-anchor, prerequisites) |
 | `auth_config()` | `Vec<u8>` | Access the authorizer config blob |
 | `auth_token()` | `Vec<u8>` | Access the authorization token blob |
 | `work_items_summary()` | `Vec<WorkItemSummary>` | Summary of all work items (service, code hash, gas limits, counts, payload length) |
-| `work_item_summary(index)` | `Option<WorkItemSummary>` | Summary of a specific work item by index |
-| `work_item_payload(index)` | `Option<Vec<u8>>` | Payload of a specific work item by index |
+| `work_item_summary(index: u32)` | `Option<WorkItemSummary>` | Summary of a specific work item by index |
+| `work_item_payload(index: u32)` | `Option<Vec<u8>>` | Payload of a specific work item by index |
 | `import_segments()` | `Vec<SegmentMeta>` | Import segments metadata |
-| `import_segment(index)` | `Option<Vec<u8>>` | A specific import segment by index |
+| `import_segment(index: u32)` | `Option<Vec<u8>>` | A specific import segment by index |
 
 #### Side-effect host functions
 
@@ -358,13 +359,15 @@ These produce effects carried in the work result and applied by Accumulate:
 
 | Host function | Returns | Purpose |
 |---|---|---|
-| `export(data)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
-| `request_code_upgrade(hash)` | `()` | Signal a PVF code upgrade request (see §5.3) |
-| `transfer_out(dest, amount, memo)` | `()` | Transfer balance to another JAM service (AssetHub only) |
-| `set_authorizer_queue(core, queue, mode)` | `()` | Update the authorizer queue for a core (Coretime Chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. |
-| `set_validator_keys(keys)` | `()` | Set the next epoch's validator key set (AssetHub only) |
-| `consume_transfers_up_to(index)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (AssetHub only) |
-| `report_error(data)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
+| `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
+| `request_code_upgrade(hash: ValidationCodeHash)` | `()` | Signal a PVF code upgrade request (see §5.2) |
+| `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (AssetHub only) |
+| `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode)` | `()` | Update the authorizer queue for a core (Coretime Chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. |
+| `set_validator_keys(keys: Vec<ValidatorKey>)` | `()` | Set the next epoch's validator key set (AssetHub only) |
+| `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (AssetHub only) |
+| `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
+| `register_parachain(para_id: ParaId, genesis_head: HeadData, validation_code_hash: ValidationCodeHash)` | `()` | Register a new parachain (Coretime chain only). See §6. |
+| `deregister_parachain(para_id: ParaId)` | `()` | Deregister a parachain (Coretime chain only). See §6. |
 
 Host functions that are tailored to a special parachain will lead to abortion if called by not authorized parachains.
 
@@ -378,9 +381,9 @@ Once a work report has been guaranteed and its data is available, JAM invokes th
 **Accumulate** entry point of the Parachain Service. This runs on-chain with full access to
 service storage, roughly ~10ms of PVM gas per work result.
 
-Accumulate for the Parachain Service performs the following operations, in order. These
-correspond directly to the relay chain's current `enact_candidate` logic in the inclusion
-pallet (`polkadot/runtime/parachains/src/inclusion/mod.rs`):
+Accumulate for the Parachain Service performs the following operations, in order. They
+cover the parachain-specific parts of what the relay chain's `enact_candidate` does today;
+availability, approvals, disputes, and rewards are handled by JAM natively (see §2):
 
 1. **Head data update + code upgrade check**: Writes the new `head_data` from the work result into `ParaInfo`
    for the parachain, records the relay-parent context, and immediately checks whether the
@@ -391,7 +394,7 @@ pallet (`polkadot/runtime/parachains/src/inclusion/mod.rs`):
    functions invoked by the PVF during Refine:
    - `request_code_upgrade` — calls `solicit(new_code_hash, code_len)` to request the
      preimage via the JAM preimage store, sets `pending_upgrade` with a deadline, and
-     begins the dual-code transition period. See §5.3 for the full lifecycle.
+     begins the dual-code transition period. See §5.2 for the full lifecycle.
    - `transfer_out` — calls `transfer()` to the destination JAM service.
    - `set_authorizer_queue` — either calls JAM `assign` immediately or caches the queue in
      `pending_authorizer_queues` for deferred application once the current 80-slot queue ends.
@@ -406,15 +409,14 @@ Because selected work-reports are not replayed automatically, the service should
 after finishing each work-report so that progress survives any later out-of-gas or panic during
 the same accumulation invocation.
 
-### 5.3 Code Upgrade Lifecycle
+### 5.2 Code Upgrade Lifecycle
 
 Runtime (PVF) code upgrades follow a well-defined lifecycle using JAM's preimage
 store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
 
 ```
 Phase 1: Request
-  Parachain includes UpwardSignal::RequestCodeUpgrade { new_code_hash }
-  in its candidate commitments.
+  Parachain calls request_code_upgrade(new_code_hash) during Refine.
       │
       ▼
 Phase 2: Request Preimage
@@ -465,13 +467,77 @@ Phase 5: Activation or Rejection
 - **Timeout protection**: The deadline prevents parachains from indefinitely occupying
   preimage store space with unused code. `UPGRADE_TIMEOUT` is set to **24 hours**, which
   should be sufficient for the preimage to be submitted to JAM after solicitation.
-- **No active polling needed**: The service does not need a background polling mechanism for
-  pending upgrades. Upgrade state is checked when a candidate for that parachain is accumulated,
-  and the always-accumulate control path can additionally clear timed-out upgrades as part of
-  normal service execution.
 ---
 
-## 6. Authorization & Coretime
+## 6. Parachain Registration
+
+Parachain registration is managed by the **Coretime chain**, which owns the registration
+policy (deposits, governance checks, quotas) and uses dedicated host functions to mutate
+the Parachain Service's `parachains: Map<ParaId, ParaInfo>` state.
+
+### 6.1 Registration Flow
+
+```
+Account on Coretime chain
+    │  Submits registration with genesis head + validation code hash
+    │  Places required deposit
+    ▼
+Coretime chain
+    │  Governance / policy checks
+    │  Calls register_parachain(para_id, genesis_head, validation_code_hash)
+    ▼
+Parachain Service (Accumulate)
+    │  Inserts ParaInfo { head_data: genesis_head, validation_code_hash, pending_upgrade: None }
+    │  Solicits the validation code preimage via the JAM preimage store
+    │  Increments pvf_registry[validation_code_hash].ref_count
+    ▼
+User submits the validation code preimage to JAM (xtpreimages extrinsic)
+    ▼
+Parachain is live on its assigned core once the preimage is available
+```
+
+Registration does **not** wait for the preimage to be available — it only takes the
+validation code hash. The Parachain Service solicits the preimage immediately, and the
+user (typically the registering account) is responsible for submitting the actual PVF
+bytecode via `xtpreimages` before any block can be validated.
+
+The Coretime chain is responsible for:
+
+- collecting and locking the registration deposit,
+- validating governance policy (e.g. OpenGov approval, rate limiting, reserved IDs).
+
+The Parachain Service is responsible for:
+
+- inserting the initial `ParaInfo` entry,
+- soliciting the validation code preimage,
+- bumping the `pvf_registry` refcount for the validation code,
+- rejecting duplicate `ParaId` registrations.
+
+### 6.2 Deregistration Flow
+
+```
+Coretime chain
+    │  Governance / policy approves removal (e.g. deposit reclaim, inactivity)
+    │  Calls deregister_parachain(para_id)
+    ▼
+Parachain Service (Accumulate)
+    │  Removes parachains[para_id]
+    │  Decrements pvf_registry[validation_code_hash].ref_count
+    │    → when refcount hits 0, forget() is called on the preimage
+    │  Drops error_log[para_id], pending_upgrade, and any per-para state
+```
+
+Deposits and any economic unwinding are handled by the Coretime chain. Parachains
+cannot deregister themselves — all lifecycle transitions go through the Coretime chain
+to keep bookkeeping (deposits, quotas) in one place.
+
+**Authorization:** both `register_parachain` and `deregister_parachain` are only callable
+by the Coretime chain and abort when called by any other service. They are listed in the
+main host-function table in §4.3.
+
+---
+
+## 7. Authorization & Coretime
 
 JAM natively handles core assignment and coretime tracking, but the Parachain Service still needs
 to decide **which authorizers are valid for each core**. For now, that control-plane function is
@@ -517,7 +583,7 @@ acting on its behalf) decides the full next 80-entry queue and the Parachain Ser
 directly. If later we want delayed queue-rollover semantics, that should be specified explicitly as
 service-level logic rather than assumed from JAM itself.
 
-### 6.3 Authorizer Design: AURA Example
+### 7.3 Authorizer Design: AURA Example
 
 The authorizer is a single piece of PVM code (≤ 64 KB) deployed once as a preimage and
 reused across all cores. Per-core behavior is controlled by the **config blob** (`pf`),
@@ -605,7 +671,7 @@ Parachain runtime
     │  Sends XCM to Coretime Chain with new collator set root + size
     ▼
 Coretime Chain
-    │  UpwardSignal::SetAuthorizerQueue { core, authorizers }
+    │  calls set_authorizer_queue(core, authorizers, mode)
     │  (new authorizer hashes computed from same code + updated config)
     ▼
 Parachain Service (Accumulate)
@@ -617,7 +683,7 @@ Pool (8 entries)
     │  New ones rotate in
 ```
 
-### 6.4 On-Demand Parachains
+### 7.4 On-Demand Parachains
 
 On-demand parachains (currently acquired via `pallet-on-demand`) continue to work: they
 acquire a single-shot coretime allocation for one slot, submitted as a work package to the
@@ -631,15 +697,15 @@ Coretime-Chain policy question, not part of the Parachain Service itself.
 
 ---
 
-## 7. Messaging
+## 8. Messaging
 
-### 7.1 Current Limitations
+### 8.1 Current Limitations
 
 Today, HRMP (Horizontal Relay-routed Message Passing) routes all inter-parachain messages
 through the relay chain, with a practical limit of ~1 MB per channel per block. UMP (Upward
 Message Passing) similarly routes messages from parachain to relay chain.
 
-### 7.2 Full XCMP on JAM
+### 8.2 Full XCMP on JAM
 
 The current HRMP model — routing full message payloads through the relay chain — cannot
 work on JAM because the work result output is too small to carry message payloads on-chain.
@@ -653,7 +719,7 @@ records the message hashes and channel metadata on-chain.
 
 This also enables **speculative messaging**: since message payloads are in DA segments
 (available for 28 days), recipient parachains can optimistically consume messages before
-they are finalized, as proposed in the speculative messaging design.
+they are finalized.
 
 For the Parachain Service:
 
@@ -666,18 +732,6 @@ For the Parachain Service:
 The exact host functions for HRMP channel management (open, accept, close) and XCMP message
 handling are not yet specified. Additional host functions will likely be needed once the
 messaging model is finalized.
-
----
-
-## 8. Open Questions
-
-The following questions are not yet resolved and require further design work or community input:
-
-1. **Parachain registration & governance**: Registration should remain chain-managed rather than
-   become internal Parachain Service governance. Concretely, Asset Hub / the Coretime-management
-   chain should handle registration much as Polkadot does today: the registering account places
-   the required deposit, governance or policy checks run there, and the managing chain then calls
-   a `register_parachain` host function on the Parachain Service.
 
 ---
 
