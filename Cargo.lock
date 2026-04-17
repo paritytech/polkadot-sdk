@@ -1765,6 +1765,7 @@ dependencies = [
  "pallet-delegated-staking",
  "pallet-election-provider-multi-block",
  "pallet-fast-unstake",
+ "pallet-gas-allowance",
  "pallet-indices",
  "pallet-message-queue",
  "pallet-meta-tx",
@@ -13198,6 +13199,21 @@ dependencies = [
  "sp-runtime 31.0.1",
  "sp-staking",
  "sp-tracing 16.0.0",
+]
+
+[[package]]
+name = "pallet-gas-allowance"
+version = "0.1.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]

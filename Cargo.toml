@@ -379,6 +379,7 @@ members = [
 	"substrate/frame/examples/view-functions",
 	"substrate/frame/executive",
 	"substrate/frame/fast-unstake",
+	"substrate/frame/gas-allowance",
 	"substrate/frame/glutton",
 	"substrate/frame/grandpa",
 	"substrate/frame/honzon/oracle",
@@ -1008,6 +1009,7 @@ pallet-example-tasks = { path = "substrate/frame/examples/tasks", default-featur
 pallet-example-view-functions = { path = "substrate/frame/examples/view-functions", default-features = false }
 pallet-examples = { path = "substrate/frame/examples" }
 pallet-fast-unstake = { path = "substrate/frame/fast-unstake", default-features = false }
+pallet-gas-allowance = { path = "substrate/frame/gas-allowance", default-features = false }
 pallet-glutton = { path = "substrate/frame/glutton", default-features = false }
 pallet-grandpa = { path = "substrate/frame/grandpa", default-features = false }
 pallet-identity = { path = "substrate/frame/identity", default-features = false }
