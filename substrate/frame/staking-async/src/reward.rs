@@ -280,30 +280,35 @@ mod tests {
 
 	type Balance = u128;
 
-	fn calculate_weight(
-		self_stake: Balance,
-		optimum: Balance,
-		cap: Balance,
-		slope_factor: Perbill,
-	) -> Balance {
-		incentive_weight(self_stake, optimum, cap, slope_factor)
-	}
-
 	#[test]
 	fn weight_zero_self_stake() {
-		assert_eq!(calculate_weight(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)), 0);
+		assert_eq!(incentive_weight::<Balance>(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)), 0);
 	}
 
 	#[test]
 	fn weight_config_not_set() {
-		assert_eq!(calculate_weight(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)), 0);
+		// Both optimum and cap are zero (config never set) -> disabled.
+		assert_eq!(incentive_weight::<Balance>(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)), 0);
+	}
+
+	#[test]
+	fn weight_optimum_zero_cap_set() {
+		// optimum = 0, cap > 0: dampened-growth zone from 0 up to cap.
+		let slope = Perbill::from_rational(1u32, 2u32);
+		// self_stake below cap: w(s) = √(0 + 0.25·s) = √(s/4).
+		// s = 400_000 -> √100_000 ≈ 316.
+		assert_eq!(incentive_weight::<Balance>(400_000, 0, 500_000, slope), 316);
+		// Same self-stake with a positive optimum yields higher weight
+		assert_eq!(incentive_weight::<Balance>(400_000, 100_000, 500_000, slope), 418);
+		// Above cap plateaus at √(0.25·cap) = √125_000 ≈ 353.
+		assert_eq!(incentive_weight::<Balance>(1_000_000, 0, 500_000, slope), 353);
 	}
 
 	#[test]
 	fn weight_below_optimum() {
 		// √10_000 = 100
 		assert_eq!(
-			calculate_weight(10_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(10_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
 			100
 		);
 	}
@@ -312,7 +317,7 @@ mod tests {
 	fn weight_at_optimum() {
 		// √100_000 ≈ 316
 		assert_eq!(
-			calculate_weight(100_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(100_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
 			316
 		);
 	}
@@ -321,7 +326,7 @@ mod tests {
 	fn weight_between_optimum_and_cap() {
 		// √(100k + 0.25 × 200k) = √150k ≈ 387
 		assert_eq!(
-			calculate_weight(300_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(300_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
 			387
 		);
 	}
@@ -330,7 +335,7 @@ mod tests {
 	fn weight_at_cap() {
 		// √(100k + 0.25 × 400k) = √200k ≈ 447
 		assert_eq!(
-			calculate_weight(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
+			incentive_weight::<Balance>(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
 			447
 		);
 	}
@@ -338,19 +343,19 @@ mod tests {
 	#[test]
 	fn weight_plateau_above_cap() {
 		let at_cap =
-			calculate_weight(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+			incentive_weight::<Balance>(500_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
 		let above =
-			calculate_weight(1_000_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+			incentive_weight::<Balance>(1_000_000, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
 		assert_eq!(at_cap, above);
 	}
 
 	#[test]
 	fn weight_monotonically_increasing_below_cap() {
 		let slope = Perbill::from_rational(1u32, 2u32);
-		let w1 = calculate_weight(50_000, 100_000, 500_000, slope);
-		let w2 = calculate_weight(100_000, 100_000, 500_000, slope);
-		let w3 = calculate_weight(200_000, 100_000, 500_000, slope);
-		let w4 = calculate_weight(400_000, 100_000, 500_000, slope);
+		let w1 = incentive_weight::<Balance>(50_000, 100_000, 500_000, slope);
+		let w2 = incentive_weight::<Balance>(100_000, 100_000, 500_000, slope);
+		let w3 = incentive_weight::<Balance>(200_000, 100_000, 500_000, slope);
+		let w4 = incentive_weight::<Balance>(400_000, 100_000, 500_000, slope);
 		assert!(w1 < w2 && w2 < w3 && w3 < w4);
 	}
 
@@ -358,27 +363,27 @@ mod tests {
 	fn weight_different_slope_factors() {
 		let self_stake = 300_000;
 		let w_025 =
-			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 4u32));
+			incentive_weight::<Balance>(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 4u32));
 		let w_050 =
-			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
+			incentive_weight::<Balance>(self_stake, 100_000, 500_000, Perbill::from_rational(1u32, 2u32));
 		let w_075 =
-			calculate_weight(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
+			incentive_weight::<Balance>(self_stake, 100_000, 500_000, Perbill::from_rational(3u32, 4u32));
 		assert!(w_025 < w_050 && w_050 < w_075);
 	}
 
 	#[test]
 	fn weight_slope_factor_zero_plateaus_at_optimum() {
 		// k=0 -> immediate plateau at optimum (no growth beyond T).
-		let at_optimum = calculate_weight(100_000, 100_000, 500_000, Perbill::zero());
-		let above_optimum = calculate_weight(300_000, 100_000, 500_000, Perbill::zero());
+		let at_optimum = incentive_weight::<Balance>(100_000, 100_000, 500_000, Perbill::zero());
+		let above_optimum = incentive_weight::<Balance>(300_000, 100_000, 500_000, Perbill::zero());
 		assert_eq!(at_optimum, above_optimum);
 	}
 
 	#[test]
 	fn weight_slope_factor_one_no_discouragement() {
 		// k=1 -> no discouragement above T (same curve as below T).
-		let at_optimum = calculate_weight(100_000, 100_000, 500_000, Perbill::one());
-		let at_cap = calculate_weight(500_000, 100_000, 500_000, Perbill::one());
+		let at_optimum = incentive_weight::<Balance>(100_000, 100_000, 500_000, Perbill::one());
+		let at_cap = incentive_weight::<Balance>(500_000, 100_000, 500_000, Perbill::one());
 		// sqrt(100_000) = 316, sqrt(500_000) = 707
 		assert_eq!(at_optimum, 316);
 		assert_eq!(at_cap, 707);
@@ -388,8 +393,8 @@ mod tests {
 	fn weight_optimum_equals_cap() {
 		// When T == C, the middle segment vanishes -- plateau immediately at T.
 		let slope = Perbill::from_rational(1u32, 2u32);
-		let at_boundary = calculate_weight(100_000, 100_000, 100_000, slope);
-		let above = calculate_weight(200_000, 100_000, 100_000, slope);
+		let at_boundary = incentive_weight::<Balance>(100_000, 100_000, 100_000, slope);
+		let above = incentive_weight::<Balance>(200_000, 100_000, 100_000, slope);
 		assert_eq!(at_boundary, above);
 		assert_eq!(at_boundary, 316); // sqrt(100_000)
 	}
