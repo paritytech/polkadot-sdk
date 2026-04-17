@@ -144,11 +144,20 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 1_000_000), (2, 1_000_000), (3, 1_000_000)],
+		balances: vec![
+			(1, 1_000_000),
+			(2, 1_000_000),
+			(3, 1_000_000),
+			(555, 1_000_000_000_000_000),
+		],
 		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
+
+	pallet_revive::GenesisConfig::<Test> { ..Default::default() }
+		.assimilate_storage(&mut t)
+		.unwrap();
 
 	let mut ext = sp_io::TestExternalities::new(t);
 	ext.execute_with(|| System::set_block_number(1));

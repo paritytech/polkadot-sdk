@@ -318,7 +318,7 @@ jobs:
   #         name: hfuzz-${{ github.sha }}
 
   cargo-check-each-crate:
-    timeout-minutes: 70
+    timeout-minutes: 120
     needs: [preflight]
     runs-on: ${{ needs.preflight.outputs.RUNNER }}
     if: ${{ needs.preflight.outputs.changes_rust }}

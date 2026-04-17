@@ -68,8 +68,6 @@ parameter_types! {
 		[GlobalConsensus(RelayNetwork::get()), Parachain(ParachainInfo::parachain_id().into())].into();
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
-	// TODO(#11705): remove RelayTreasuryLocation and migrate old treasury funds to DapSatellite.
-	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(westend_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
 }
 
@@ -159,11 +157,11 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies) and relay treasury pallet
-					// get free execution.
+					// Parent, its pluralities (i.e. governance bodies), and sibling system
+					// parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
 						ParentOrParentsPlurality,
-						Equals<RelayTreasuryLocation>,
+						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						Equals<SnowbridgeFrontendLocation>,
 						Equals<GovernanceLocation>,
 					)>,
@@ -182,11 +180,8 @@ pub type Barrier = TrailingSetTopicAsId<
 /// Locations that will not be charged fees in the executor,
 /// either execution or delivery.
 /// We only waive fees for system functions, which these locations represent.
-pub type WaivedLocations = (
-	Equals<RootLocation>,
-	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
-	Equals<RelayTreasuryLocation>,
-);
+pub type WaivedLocations =
+	(Equals<RootLocation>, RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>);
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
 /// - NativeToken with the parent Relay Chain and sibling parachains.
