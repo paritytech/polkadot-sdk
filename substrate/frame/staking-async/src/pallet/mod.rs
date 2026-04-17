@@ -3095,4 +3095,30 @@ pub mod pallet {
 			Ok(())
 		}
 	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Resolve the account ID for a given reward pot.
+		pub fn pot_account(pot: crate::RewardPot) -> T::AccountId {
+			<T::RewardPots as crate::PotAccountProvider<T::AccountId>>::pot_account(pot)
+		}
+
+		/// Current balance held in a given reward pot.
+		pub fn pot_balance(pot: crate::RewardPot) -> BalanceOf<T> {
+			let account =
+				<T::RewardPots as crate::PotAccountProvider<T::AccountId>>::pot_account(pot);
+			<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(
+				&account,
+			)
+		}
+
+		/// Per-era reward allocation: (staker rewards, validator incentive).
+		/// Both are zero for eras created in legacy minting mode.
+		pub fn era_reward_allocation(era: EraIndex) -> (BalanceOf<T>, BalanceOf<T>) {
+			(
+				ErasValidatorReward::<T>::get(era).unwrap_or_else(Zero::zero),
+				ErasValidatorIncentiveBudget::<T>::get(era),
+			)
+		}
+	}
 }

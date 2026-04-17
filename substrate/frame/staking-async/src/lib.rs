@@ -568,7 +568,9 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 }
 
 /// Kind of reward managed by staking pots.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+)]
 pub enum RewardKind {
 	/// Staker rewards (nominators + validators).
 	StakerRewards,
@@ -577,7 +579,9 @@ pub enum RewardKind {
 }
 
 /// Identifies a reward pot account.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+)]
 pub enum RewardPot {
 	/// General pot: funded by an external source (e.g. pallet-dap).
 	/// At era boundaries, staking snapshots the balance into an era-specific pot.
