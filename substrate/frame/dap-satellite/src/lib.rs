@@ -87,7 +87,6 @@ pub type BalanceOf<T> =
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use crate::weights::WeightInfo as _;
 	use frame_support::sp_runtime::traits::AccountIdConversion;
 	use frame_system::pallet_prelude::BlockNumberFor as SystemBlockNumberFor;
 

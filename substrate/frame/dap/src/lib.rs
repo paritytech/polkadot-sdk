@@ -159,6 +159,11 @@ pub mod pallet {
 			/// The new budget allocation map.
 			allocations: BudgetAllocationMap,
 		},
+		/// Funds were drained from the staging account into the DAP buffer.
+		StagingDrained {
+			/// Amount drained.
+			amount: BalanceOf<T>,
+		},
 		/// An unexpected/defensive event was triggered.
 		Unexpected(UnexpectedKind),
 	}
@@ -239,6 +244,7 @@ pub mod pallet {
 			}
 
 			Self::deactivate_buffer_funds(available);
+			Self::deposit_event(Event::StagingDrained { amount: available });
 
 			log::debug!(
 				target: LOG_TARGET,
