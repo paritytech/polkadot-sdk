@@ -2465,12 +2465,15 @@ impl<T: Config> Pallet<T> {
 	pub fn reclaim_weight(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+		extrinsic_len: usize,
 	) -> Result<(), TransactionValidityError>
 	where
 		T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	{
 		let already_reclaimed = crate::ExtrinsicWeightReclaimed::<T>::get();
 		let unspent = post_info.calc_unspent(info);
+		let unspent = unspent
+			.set_proof_size(unspent.proof_size().saturating_sub(extrinsic_len as u64));
 		let accurate_reclaim = already_reclaimed.max(unspent);
 		// Saturation never happens, we took the maximum above.
 		let to_reclaim_more = accurate_reclaim.saturating_sub(already_reclaimed);

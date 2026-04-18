@@ -928,6 +928,7 @@ fn reclaim_works() {
 				actual_weight: Some(Weight::from_parts(50, 100)),
 				..Default::default()
 			},
+			0,
 		)
 		.unwrap();
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(50, 100));
@@ -938,6 +939,7 @@ fn reclaim_works() {
 				actual_weight: Some(Weight::from_parts(25, 200)),
 				..Default::default()
 			},
+			0,
 		)
 		.unwrap();
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 100));
@@ -948,6 +950,7 @@ fn reclaim_works() {
 				actual_weight: Some(Weight::from_parts(300, 50)),
 				..Default::default()
 			},
+			0,
 		)
 		.unwrap();
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));
@@ -958,6 +961,7 @@ fn reclaim_works() {
 				actual_weight: Some(Weight::from_parts(300, 300)),
 				..Default::default()
 			},
+			0,
 		)
 		.unwrap();
 		assert_eq!(crate::ExtrinsicWeightReclaimed::<Test>::get(), Weight::from_parts(75, 150));

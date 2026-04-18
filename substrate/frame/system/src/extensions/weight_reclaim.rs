@@ -88,10 +88,10 @@ where
 		_pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
+		len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info, len).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -113,10 +113,10 @@ where
 	fn bare_post_dispatch(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
+		len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info)
+		crate::Pallet::<T>::reclaim_weight(info, post_info, len)
 	}
 }
 

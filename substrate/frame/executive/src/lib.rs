@@ -877,7 +877,16 @@ where
 		// Verify that the signature is good.
 		let xt = check(uxt, &Context::default())?;
 
-		let dispatch_info = xt.get_dispatch_info();
+		let dispatch_info = {
+			let mut info = xt.get_dispatch_info();
+			// Include the encoded extrinsic length in the proof_size weight dimension.
+			// The extrinsic bytes are part of the storage proof and must always be accounted
+			// for. By adding it here, transaction extensions no longer need to handle len
+			// separately for proof_size accounting.
+			info.call_weight =
+				info.call_weight.saturating_add_proof_size(encoded_len as u64);
+			info
+		};
 
 		if !is_inherent && !<frame_system::Pallet<System>>::inherents_applied() {
 			Self::inherents_applied();
@@ -977,8 +986,14 @@ where
 			uxt.check(&Default::default())
 		}?;
 
+		let encoded_len = encoded.len();
 		let dispatch_info = within_span! { sp_tracing::Level::TRACE, "dispatch_info";
-			xt.get_dispatch_info()
+			let mut info = xt.get_dispatch_info();
+			// Include the encoded extrinsic length in the proof_size weight dimension so
+			// that transaction extensions receive the correct total proof_size upfront.
+			info.call_weight =
+				info.call_weight.saturating_add_proof_size(encoded_len as u64);
+			info
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {
@@ -987,7 +1002,7 @@ where
 
 		within_span! {
 			sp_tracing::Level::TRACE, "validate";
-			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded.len())
+			xt.validate::<UnsignedValidator>(source, &dispatch_info, encoded_len)
 		}
 	}
 

@@ -56,17 +56,15 @@ where
 	/// with given `DispatchClass` can have.
 	fn check_extrinsic_weight(
 		info: &DispatchInfoOf<T::RuntimeCall>,
-		len: usize,
 	) -> Result<(), TransactionValidityError> {
 		let max = T::BlockWeights::get().get(info.class).max_extrinsic;
-		let total_weight_including_length =
-			info.total_weight().saturating_add_proof_size(len as u64);
+		let total_weight = info.total_weight();
 		match max {
-			Some(max) if total_weight_including_length.any_gt(max) => {
+			Some(max) if total_weight.any_gt(max) => {
 				log::debug!(
 					target: LOG_TARGET,
-					"Extrinsic with length included {} is greater than the max extrinsic {}",
-					total_weight_including_length,
+					"Extrinsic weight {} is greater than the max extrinsic {}",
+					total_weight,
 					max,
 				);
 
@@ -120,7 +118,8 @@ where
 		// during validation we skip block limit check. Since the `validate_transaction`
 		// call runs on an empty block anyway, by this we prevent `on_initialize` weight
 		// consumption from causing false negatives.
-		Self::check_extrinsic_weight(info, len)?;
+		// Note: the extrinsic length is already included in `info.call_weight.proof_size`.
+		Self::check_extrinsic_weight(info)?;
 
 		Ok((Default::default(), next_len))
 	}
@@ -149,7 +148,9 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
 	) -> Result<(), TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info)
+		// Pass 0 for extrinsic_len: callers of this deprecated API do not have access to len.
+		// Prefer calling `frame_system::Pallet::reclaim_weight` with the correct len directly.
+		crate::Pallet::<T>::reclaim_weight(info, post_info, 0)
 	}
 }
 
@@ -160,16 +161,15 @@ pub fn calculate_consumed_weight<Call>(
 	maximum_weight: &BlockWeights,
 	mut all_weight: crate::ConsumedWeight,
 	info: &DispatchInfoOf<Call>,
-	len: usize,
+	_len: usize,
 ) -> Result<crate::ConsumedWeight, TransactionValidityError>
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	// Also Consider extrinsic length as proof weight.
+	// The extrinsic length is already reflected in info.total_weight() (via call_weight.proof_size).
 	let extrinsic_weight = info
 		.total_weight()
-		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
-		.saturating_add(Weight::from_parts(0, len as u64));
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic);
 	let limit_per_class = maximum_weight.get(info.class);
 
 	// add the weight. If class is unlimited, use saturating add instead of checked one.
@@ -267,10 +267,10 @@ where
 		_pre: Self::Pre,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
+		len: usize,
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info).map(|()| Weight::zero())
+		crate::Pallet::<T>::reclaim_weight(info, post_info, len).map(|()| Weight::zero())
 	}
 
 	fn bare_validate(
@@ -293,10 +293,10 @@ where
 	fn bare_post_dispatch(
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		post_info: &mut PostDispatchInfoOf<T::RuntimeCall>,
-		_len: usize,
+		len: usize,
 		_result: &DispatchResult,
 	) -> Result<(), TransactionValidityError> {
-		crate::Pallet::<T>::reclaim_weight(info, post_info)
+		crate::Pallet::<T>::reclaim_weight(info, post_info, len)
 	}
 }
 
@@ -451,7 +451,7 @@ mod tests {
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), block_weight_limit().set_proof_size(0));
 			// Checking single extrinsic should not take current block weight into account.
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&rest_operational, len), Ok(()));
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&rest_operational), Ok(()));
 		});
 	}
 
@@ -514,7 +514,7 @@ mod tests {
 			);
 			// Even with full block, validity of single transaction should be correct.
 			assert_eq!(
-				CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational, len),
+				CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational),
 				Ok(())
 			);
 		});
@@ -904,7 +904,7 @@ mod tests {
 			assert_ok!(CheckWeight::<Test>::do_prepare(&mandatory, len, next_len));
 			assert_eq!(block_weight_limit(), Weight::from_parts(1024, u64::MAX));
 			assert_eq!(System::block_weight().total(), Weight::from_parts(1024 + 768, 0));
-			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory, len), Ok(()));
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&mandatory), Ok(()));
 		});
 	}
 
@@ -964,77 +964,56 @@ mod tests {
 	#[test]
 	fn check_extrinsic_proof_weight_includes_length() {
 		new_test_ext().execute_with(|| {
-			// Test that check_extrinsic_weight properly includes length in proof size check
+			let with_len = |base_call_weight: Weight, len: usize| DispatchInfo {
+				call_weight: base_call_weight.saturating_add_proof_size(len as u64),
+				class: DispatchClass::Normal,
+				..Default::default()
+			};
+
 			let weights = block_weights();
 			let max_extrinsic = weights.get(DispatchClass::Normal).max_extrinsic.unwrap();
-
 			let max_proof_size = max_extrinsic.proof_size() as usize;
-			// Extrinsic weight that fits without length
-			let info = DispatchInfo {
-				call_weight: max_extrinsic.set_proof_size(0),
-				class: DispatchClass::Normal,
-				..Default::default()
-			};
 
-			// With zero length, should succeed
-			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, 0));
+			// Base call weight that uses the full ref_time budget but zero proof_size.
+			let base_weight = max_extrinsic.set_proof_size(0);
 
-			// With small length, should succeed
-			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, 100));
+			// No length — should succeed.
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&with_len(base_weight, 0)));
 
-			// With small length, should succeed
-			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info, max_proof_size));
+			// Small length — should succeed.
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&with_len(base_weight, 100)));
 
-			// One byte above limit, should fail
+			// Length exactly at the proof_size limit — should succeed.
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(
+				&with_len(base_weight, max_proof_size)
+			));
+
+			// One byte above the proof_size limit — should fail.
 			assert_err!(
-				CheckWeight::<Test>::check_extrinsic_weight(&info, max_proof_size + 1),
+				CheckWeight::<Test>::check_extrinsic_weight(&with_len(base_weight, max_proof_size + 1)),
 				InvalidTransaction::ExhaustsResources
 			);
 
-			// Now test an extrinsic that's at the limit for proof size
-			let info_at_limit = DispatchInfo {
-				call_weight: max_extrinsic,
-				class: DispatchClass::Normal,
-				..Default::default()
-			};
-
-			// At limit with zero length should succeed
-			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&info_at_limit, 0));
-
-			// Over limit when length is added should fail
+			// Call weight already at the full limit; adding any length should fail.
+			let at_limit = with_len(max_extrinsic, 0);
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&at_limit));
 			assert_err!(
-				CheckWeight::<Test>::check_extrinsic_weight(&info_at_limit, 1),
+				CheckWeight::<Test>::check_extrinsic_weight(&with_len(max_extrinsic, 1)),
 				InvalidTransaction::ExhaustsResources
 			);
 
-			// Test with very large length (near usize::MAX on 32-bit systems)
-			let info_zero = DispatchInfo {
-				call_weight: Weight::zero(),
-				class: DispatchClass::Normal,
-				..Default::default()
-			};
-			// Should handle large lengths gracefully via saturating conversion
-			let large_len = usize::MAX;
-
-			// Weight proof size should equal u64::MAX (initial zero + u64::MAX)
-			let result = CheckWeight::<Test>::check_extrinsic_weight(&info_zero, large_len);
-			// This should fail because u64::MAX proof size exceeds limits
-			assert_err!(result, InvalidTransaction::ExhaustsResources);
-
-			// Test with very large length
-			let info_with_minimal_proof_size = DispatchInfo {
-				call_weight: Weight::from_parts(0, 10),
-				class: DispatchClass::Normal,
-				..Default::default()
-			};
-
-			// Weight proof size saturates at u64::MAX (initial 10 + u64::MAX)
-			let result = CheckWeight::<Test>::check_extrinsic_weight(
-				&info_with_minimal_proof_size,
-				large_len,
+			// Saturating: usize::MAX as proof_size saturates to u64::MAX which exceeds limits.
+			assert_err!(
+				CheckWeight::<Test>::check_extrinsic_weight(&with_len(Weight::zero(), usize::MAX)),
+				InvalidTransaction::ExhaustsResources
 			);
-			// This should fail because u64::MAX proof size exceeds limits
-			assert_err!(result, InvalidTransaction::ExhaustsResources);
+			assert_err!(
+				CheckWeight::<Test>::check_extrinsic_weight(&with_len(
+					Weight::from_parts(0, 10),
+					usize::MAX
+				)),
+				InvalidTransaction::ExhaustsResources
+			);
 		});
 	}
 
@@ -1057,80 +1036,90 @@ mod tests {
 			DispatchClass::Mandatory => Weight::from_parts(0, 0),
 		});
 
-		let normal = DispatchInfo {
+		// The executive pre-adds the extrinsic length to call_weight.proof_size before calling
+		// into the extension pipeline. Tests must replicate this to get realistic dispatch infos.
+		let normal_base = DispatchInfo {
 			call_weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
-
-		let mandatory = DispatchInfo {
+		let mandatory_base = DispatchInfo {
 			call_weight: Weight::from_parts(5, 0),
 			class: DispatchClass::Mandatory,
 			..Default::default()
 		};
+		let with_len = |base: &DispatchInfo, len: u64| DispatchInfo {
+			call_weight: base.call_weight.saturating_add_proof_size(len),
+			..*base
+		};
 
-		// Using 0 length extrinsics.
+		// Zero-length extrinsics — no proof_size contribution from len.
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
 			all_weight.clone(),
-			&normal,
+			&normal_base,
 			0,
 		)
 		.unwrap();
-
-		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal.total_weight());
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal_base.total_weight());
 
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
 			all_weight.clone(),
-			&mandatory,
+			&mandatory_base,
 			0,
 		)
 		.unwrap();
-		assert_eq!(consumed.total().saturating_sub(all_weight.total()), mandatory.total_weight());
+		assert_eq!(
+			consumed.total().saturating_sub(all_weight.total()),
+			mandatory_base.total_weight()
+		);
 
-		// Using non zero length extrinsics.
+		// Non-zero length: executive adds len to call_weight.proof_size before this call.
+		let normal_100 = with_len(&normal_base, 100);
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
 			all_weight.clone(),
-			&normal,
+			&normal_100,
+			100,
+		)
+		.unwrap();
+		// The proof_size in normal_100.total_weight() already includes the 100-byte contribution.
+		assert_eq!(
+			consumed.total().saturating_sub(all_weight.total()),
+			normal_100.total_weight()
+		);
+
+		let mandatory_100 = with_len(&mandatory_base, 100);
+		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
+			&maximum_weight,
+			all_weight.clone(),
+			&mandatory_100,
 			100,
 		)
 		.unwrap();
 		// Must account for the len in the proof size
 		assert_eq!(
 			consumed.total().saturating_sub(all_weight.total()),
-			normal.total_weight().add_proof_size(100)
+			mandatory_100.total_weight()
 		);
 
+		// Oversized: extrinsic length pushes proof_size over the per-class limit — errors out.
+		let normal_oversized = with_len(&normal_base, 2000);
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
 			all_weight.clone(),
-			&mandatory,
-			100,
-		)
-		.unwrap();
-		// Must account for the len in the proof size
-		assert_eq!(
-			consumed.total().saturating_sub(all_weight.total()),
-			mandatory.total_weight().add_proof_size(100)
-		);
-
-		// Using oversized zero length extrinsics.
-		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
-			&maximum_weight,
-			all_weight.clone(),
-			&normal,
+			&normal_oversized,
 			2000,
 		);
 		// errors out
 		assert_eq!(consumed, Err(InvalidTransaction::ExhaustsResources.into()));
 
-		// Using oversized zero length extrinsics.
+		let mandatory_oversized = with_len(&mandatory_base, 2000);
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
 			&maximum_weight,
 			all_weight.clone(),
-			&mandatory,
+			&mandatory_oversized,
 			2000,
 		);
 		// errors out
