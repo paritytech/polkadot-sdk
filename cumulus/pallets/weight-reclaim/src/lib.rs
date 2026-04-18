@@ -300,6 +300,6 @@ where
 	) -> Result<(), TransactionValidityError> {
 		S::bare_post_dispatch(info, post_info, len, result)?;
 
-		frame_system::Pallet::<T>::reclaim_weight(info, post_info)
+		frame_system::Pallet::<T>::reclaim_weight(info, post_info, len)
 	}
 }

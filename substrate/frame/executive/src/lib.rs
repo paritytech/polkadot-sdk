@@ -883,8 +883,7 @@ where
 			// The extrinsic bytes are part of the storage proof and must always be accounted
 			// for. By adding it here, transaction extensions no longer need to handle len
 			// separately for proof_size accounting.
-			info.call_weight =
-				info.call_weight.saturating_add_proof_size(encoded_len as u64);
+			info.call_weight = info.call_weight.saturating_add_proof_size(encoded_len as u64);
 			info
 		};
 
@@ -988,12 +987,14 @@ where
 
 		let encoded_len = encoded.len();
 		let dispatch_info = within_span! { sp_tracing::Level::TRACE, "dispatch_info";
-			let mut info = xt.get_dispatch_info();
-			// Include the encoded extrinsic length in the proof_size weight dimension so
-			// that transaction extensions receive the correct total proof_size upfront.
-			info.call_weight =
-				info.call_weight.saturating_add_proof_size(encoded_len as u64);
-			info
+			{
+				let mut info = xt.get_dispatch_info();
+				// Include the encoded extrinsic length in the proof_size weight dimension so
+				// that transaction extensions receive the correct total proof_size upfront.
+				info.call_weight =
+					info.call_weight.saturating_add_proof_size(encoded_len as u64);
+				info
+			}
 		};
 
 		if dispatch_info.class == DispatchClass::Mandatory {

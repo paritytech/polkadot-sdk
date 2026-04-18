@@ -180,7 +180,8 @@ pub fn calculate_consumed_weight<Call>(
 where
 	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 {
-	// The extrinsic length is already reflected in info.total_weight() (via call_weight.proof_size).
+	// The extrinsic length is already reflected in info.total_weight() (via
+	// call_weight.proof_size).
 	let extrinsic_weight = info
 		.total_weight()
 		.saturating_add(maximum_weight.get(info.class).base_extrinsic);
@@ -527,10 +528,7 @@ mod tests {
 				InvalidTransaction::ExhaustsResources
 			);
 			// Even with full block, validity of single transaction should be correct.
-			assert_eq!(
-				CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational),
-				Ok(())
-			);
+			assert_eq!(CheckWeight::<Test>::check_extrinsic_weight(&dispatch_operational), Ok(()));
 		});
 	}
 
@@ -998,13 +996,17 @@ mod tests {
 			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&with_len(base_weight, 100)));
 
 			// Length exactly at the proof_size limit — should succeed.
-			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(
-				&with_len(base_weight, max_proof_size)
-			));
+			assert_ok!(CheckWeight::<Test>::check_extrinsic_weight(&with_len(
+				base_weight,
+				max_proof_size
+			)));
 
 			// One byte above the proof_size limit — should fail.
 			assert_err!(
-				CheckWeight::<Test>::check_extrinsic_weight(&with_len(base_weight, max_proof_size + 1)),
+				CheckWeight::<Test>::check_extrinsic_weight(&with_len(
+					base_weight,
+					max_proof_size + 1
+				)),
 				InvalidTransaction::ExhaustsResources
 			);
 
@@ -1099,10 +1101,7 @@ mod tests {
 		)
 		.unwrap();
 		// The proof_size in normal_100.total_weight() already includes the 100-byte contribution.
-		assert_eq!(
-			consumed.total().saturating_sub(all_weight.total()),
-			normal_100.total_weight()
-		);
+		assert_eq!(consumed.total().saturating_sub(all_weight.total()), normal_100.total_weight());
 
 		let mandatory_100 = with_len(&mandatory_base, 100);
 		let consumed = calculate_consumed_weight::<<Test as Config>::RuntimeCall>(
