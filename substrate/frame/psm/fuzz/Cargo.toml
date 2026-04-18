@@ -1,0 +1,33 @@
+[package]
+name = "pallet-psm-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+rand = "0.8"
+pallet-psm = { path = "..", features = ["fuzzing"] }
+pallet-assets = { path = "../../assets" }
+pallet-balances = { path = "../../balances" }
+frame-support = { path = "../../support" }
+frame-system = { path = "../../system" }
+sp-runtime = { path = "../../../primitives/runtime" }
+sp-io = { path = "../../../primitives/io" }
+
+[[bin]]
+name = "psm"
+path = "fuzz_targets/psm.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "psm_stateful"
+path = "fuzz_targets/psm_stateful.rs"
