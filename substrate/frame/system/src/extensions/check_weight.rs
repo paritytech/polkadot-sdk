@@ -154,6 +154,20 @@ where
 	}
 }
 
+/// Returns the weight that `CheckWeight` books for an extrinsic before dispatch.
+pub fn calculate_consumed_extrinsic_weight<Call>(
+	maximum_weight: &BlockWeights,
+	info: &DispatchInfoOf<Call>,
+	len: usize,
+) -> Weight
+where
+	Call: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
+{
+	info.total_weight()
+		.saturating_add(maximum_weight.get(info.class).base_extrinsic)
+		.saturating_add_proof_size(len as u64)
+}
+
 /// Checks if the current extrinsic can fit into the block with respect to block weight limits.
 ///
 /// Upon successes, it returns the new block weight as a `Result`.
