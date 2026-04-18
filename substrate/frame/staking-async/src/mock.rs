@@ -416,7 +416,7 @@ parameter_types! {
 	pub static RemainderRatio: Perbill = Perbill::from_percent(50);
 	pub static MaxEraDuration: u64 = time_per_era() * 7;
 	pub const MaxPruningItems: u32 = 100;
-	pub const DapPalletId: frame_support::PalletId = frame_support::PalletId(*b"dap/buff");
+	pub const DapPalletId: frame_support::PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const TestIssuanceCadence: u64 = 0; // drip every block
 	pub const TestMaxElapsedPerDrip: u64 = 600_000; // 10 minutes
 }
