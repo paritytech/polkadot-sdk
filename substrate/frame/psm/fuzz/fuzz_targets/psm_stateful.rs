@@ -8,13 +8,14 @@
 //! Usage: `psm_stateful [seed] [max_commands]`
 
 use frame_support::traits::fungibles::Inspect;
-use pallet_psm::mock::fuzz_helpers as fh;
+use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
 	set_mock_maximum_issuance, Assets, MockMaximumIssuance, Psm, RuntimeOrigin, System, Test,
 	ALL_EXTERNAL_ASSETS, DAI_ASSET_ID, FRAX_ASSET_ID, INSURANCE_FUND, PUSD_ASSET_ID, PUSD_UNIT,
 	USDC_ASSET_ID, USDP_ASSET_ID, USDT_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
+use pallet_psm::PsmDebt;
 use rand::seq::SliceRandom;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 use sp_io::TestExternalities;
@@ -197,19 +198,19 @@ fn build_fuzzer_genesis() -> TestExternalities {
 // ---------------------------------------------------------------------------
 
 fn snapshot_state() -> FuzzState {
-	let approved = fh::approved_assets();
+	let approved = fuzz_helpers::approved_assets();
 	let max_issuance = MockMaximumIssuance::get();
 	let total_pusd_issuance = Assets::total_issuance(PUSD_ASSET_ID);
 
 	let mut assets = Vec::with_capacity(approved.len());
 	for &asset_id in &approved {
-		let debt = fh::psm_debt(asset_id);
-		let ceiling = fh::max_asset_debt(asset_id);
+		let debt = PsmDebt::<Test>::get(asset_id);
+		let ceiling = fuzz_helpers::max_asset_debt(asset_id);
 		let remaining_ceiling = ceiling.saturating_sub(debt);
-		let reserve = fh::get_reserve(asset_id);
-		let minting_fee = fh::minting_fee(asset_id);
-		let redemption_fee = fh::redemption_fee(asset_id);
-		let weight = fh::asset_ceiling_weight(asset_id);
+		let reserve = fuzz_helpers::get_reserve(asset_id);
+		let minting_fee = fuzz_helpers::minting_fee(asset_id);
+		let redemption_fee = fuzz_helpers::redemption_fee(asset_id);
+		let weight = fuzz_helpers::asset_ceiling_weight(asset_id);
 
 		let mut account_external = Vec::with_capacity(N_ACCOUNTS as usize);
 		let mut account_pusd = Vec::with_capacity(N_ACCOUNTS as usize);
@@ -234,7 +235,7 @@ fn snapshot_state() -> FuzzState {
 
 	let unapproved: Vec<u32> = ALL_EXTERNAL_ASSETS
 		.iter()
-		.filter(|&&id| !fh::is_approved_asset(id))
+		.filter(|&&id| !fuzz_helpers::is_approved_asset(id))
 		.copied()
 		.collect();
 
@@ -244,9 +245,9 @@ fn snapshot_state() -> FuzzState {
 	FuzzState {
 		assets,
 		unapproved,
-		max_psm_debt: fh::max_psm_debt(),
-		total_psm_debt: fh::total_psm_debt(),
-		max_psm_debt_ratio: fh::max_psm_debt_ratio(),
+		max_psm_debt: fuzz_helpers::max_psm_debt(),
+		total_psm_debt: fuzz_helpers::total_psm_debt(),
+		max_psm_debt_ratio: fuzz_helpers::max_psm_debt_ratio(),
 		max_issuance,
 		total_pusd_issuance,
 		block_number,
@@ -575,12 +576,12 @@ fn gen_command(rng: &mut StdRng, state: &FuzzState) -> Command {
 fn execute_command(cmd: &Command) {
 	match cmd {
 		Command::Mint { account, asset_id, amount } => {
-			if fh::is_approved_asset(*asset_id) {
+			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::mint(RuntimeOrigin::signed(*account), *asset_id, *amount);
 			}
 		},
 		Command::Redeem { account, asset_id, amount } => {
-			if fh::is_approved_asset(*asset_id) {
+			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::redeem(RuntimeOrigin::signed(*account), *asset_id, *amount);
 			}
 		},
@@ -588,22 +589,22 @@ fn execute_command(cmd: &Command) {
 			let _ = Psm::set_max_psm_debt(RuntimeOrigin::root(), *ratio);
 		},
 		Command::SetAssetCeilingWeight { asset_id, weight } => {
-			if fh::is_approved_asset(*asset_id) {
+			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), *asset_id, *weight);
 			}
 		},
 		Command::SetMintingFee { asset_id, fee } => {
-			if fh::is_approved_asset(*asset_id) {
+			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_minting_fee(RuntimeOrigin::root(), *asset_id, *fee);
 			}
 		},
 		Command::SetRedemptionFee { asset_id, fee } => {
-			if fh::is_approved_asset(*asset_id) {
+			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_redemption_fee(RuntimeOrigin::root(), *asset_id, *fee);
 			}
 		},
 		Command::SetAssetStatus { asset_id, status } => {
-			if fh::is_approved_asset(*asset_id) {
+			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_asset_status(RuntimeOrigin::root(), *asset_id, *status);
 			}
 		},
@@ -730,7 +731,7 @@ fn run_campaign(seed: u64, max_commands: usize) {
 			let cmd = gen_command(&mut rng, &state);
 			log_command(i, &cmd, &state);
 			execute_command(&cmd);
-			fh::do_try_state().expect("PSM invariant violated — see command log above");
+			fuzz_helpers::do_try_state().expect("PSM invariant violated — see command log above");
 		}
 	});
 }

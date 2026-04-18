@@ -35,7 +35,13 @@ pub const INSURANCE_FUND: u64 = 100;
 pub const PUSD_ASSET_ID: u32 = 1;
 pub const USDC_ASSET_ID: u32 = 2;
 pub const USDT_ASSET_ID: u32 = 3;
+pub const DAI_ASSET_ID: u32 = 4;
+pub const USDP_ASSET_ID: u32 = 5;
+pub const FRAX_ASSET_ID: u32 = 6;
 pub const UNSUPPORTED_ASSET_ID: u32 = 99;
+
+pub const ALL_EXTERNAL_ASSETS: &[u32] =
+	&[USDC_ASSET_ID, USDT_ASSET_ID, DAI_ASSET_ID, USDP_ASSET_ID, FRAX_ASSET_ID];
 
 // pUSD unit (6 decimals)
 pub const PUSD_UNIT: u128 = 1_000_000;
@@ -193,11 +199,17 @@ pub fn new_test_ext() -> TestState {
 			(PUSD_ASSET_ID, ALICE, true, 1),
 			(USDC_ASSET_ID, ALICE, true, 1),
 			(USDT_ASSET_ID, ALICE, true, 1),
+			(DAI_ASSET_ID, ALICE, true, 1),
+			(USDP_ASSET_ID, ALICE, true, 1),
+			(FRAX_ASSET_ID, ALICE, true, 1),
 		],
 		metadata: vec![
 			(PUSD_ASSET_ID, b"pUSD Stablecoin".to_vec(), b"pUSD".to_vec(), 6),
 			(USDC_ASSET_ID, b"USD Coin".to_vec(), b"USDC".to_vec(), 6),
 			(USDT_ASSET_ID, b"Tether USD".to_vec(), b"USDT".to_vec(), 6),
+			(DAI_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 6),
+			(USDP_ASSET_ID, b"Pax Dollar".to_vec(), b"USDP".to_vec(), 6),
+			(FRAX_ASSET_ID, b"Frax".to_vec(), b"FRAX".to_vec(), 6),
 		],
 		accounts: vec![
 			(USDC_ASSET_ID, ALICE, 10_000 * PUSD_UNIT),
@@ -324,4 +336,57 @@ pub fn get_asset_balance(asset_id: u32, account: u64) -> u128 {
 
 pub fn psm_account() -> u64 {
 	crate::Pallet::<Test>::account_id()
+}
+
+#[cfg(feature = "fuzzing")]
+pub mod fuzz_helpers {
+	use super::*;
+
+	// PsmDebt is already pub — import it directly from the crate.
+	// Everything else below is pub(crate) and cannot be re-exported, so
+	// it goes through monomorphized wrapper functions.
+
+	pub fn max_psm_debt() -> u128 {
+		Psm::max_psm_debt()
+	}
+
+	pub fn max_asset_debt(asset_id: u32) -> u128 {
+		Psm::max_asset_debt(asset_id)
+	}
+
+	pub fn total_psm_debt() -> u128 {
+		Psm::total_psm_debt()
+	}
+
+	pub fn get_reserve(asset_id: u32) -> u128 {
+		Psm::get_reserve(asset_id)
+	}
+
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		Psm::do_try_state()
+	}
+
+	pub fn is_approved_asset(asset_id: u32) -> bool {
+		Psm::is_approved_asset(&asset_id)
+	}
+
+	pub fn minting_fee(asset_id: u32) -> Permill {
+		crate::MintingFee::<Test>::get(asset_id)
+	}
+
+	pub fn redemption_fee(asset_id: u32) -> Permill {
+		crate::RedemptionFee::<Test>::get(asset_id)
+	}
+
+	pub fn asset_ceiling_weight(asset_id: u32) -> Permill {
+		crate::AssetCeilingWeight::<Test>::get(asset_id)
+	}
+
+	pub fn max_psm_debt_ratio() -> Permill {
+		crate::MaxPsmDebtOfTotal::<Test>::get()
+	}
+
+	pub fn approved_assets() -> Vec<u32> {
+		crate::ExternalAssets::<Test>::iter().map(|(id, _)| id).collect()
+	}
 }

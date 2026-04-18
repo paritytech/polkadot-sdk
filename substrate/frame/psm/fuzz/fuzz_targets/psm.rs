@@ -10,12 +10,13 @@
 use arbitrary::{Arbitrary, Unstructured};
 use frame_support::traits::fungibles::Inspect;
 use libfuzzer_sys::fuzz_target;
-use pallet_psm::mock::fuzz_helpers as fh;
+use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
 	Assets, Psm, RuntimeOrigin, System, Test, ALL_EXTERNAL_ASSETS, DAI_ASSET_ID, FRAX_ASSET_ID,
 	INSURANCE_FUND, PUSD_ASSET_ID, PUSD_UNIT, USDC_ASSET_ID, USDP_ASSET_ID, USDT_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
+use pallet_psm::PsmDebt;
 use sp_runtime::{BuildStorage, Permill};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -354,7 +355,7 @@ fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 }
 
 // ---------------------------------------------------------------------------
-// Dispatch (runs inside externalities, reads storage via fh::*)
+// Dispatch (runs inside externalities, reads storage via fuzz_helpers::*)
 // ---------------------------------------------------------------------------
 
 fn dispatch_op(op: &Op) {
@@ -369,13 +370,14 @@ fn dispatch_op(op: &Op) {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
 			let account = (*account_idx % N_ACCOUNTS + 1) as u64;
-			if !fh::is_approved_asset(asset_id) {
+			if !fuzz_helpers::is_approved_asset(asset_id) {
 				return;
 			}
-			let debt = fh::psm_debt(asset_id);
-			let ceiling = fh::max_asset_debt(asset_id);
+			let debt = PsmDebt::<Test>::get(asset_id);
+			let ceiling = fuzz_helpers::max_asset_debt(asset_id);
 			let remaining = ceiling.saturating_sub(debt);
-			let global_remaining = fh::max_psm_debt().saturating_sub(fh::total_psm_debt());
+			let global_remaining =
+				fuzz_helpers::max_psm_debt().saturating_sub(fuzz_helpers::total_psm_debt());
 			let balance = Assets::balance(asset_id, account);
 			let issuance_remaining = pallet_psm::mock::MockMaximumIssuance::get()
 				.saturating_sub(Assets::total_issuance(PUSD_ASSET_ID));
@@ -390,10 +392,10 @@ fn dispatch_op(op: &Op) {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
 			let account = (*account_idx % N_ACCOUNTS + 1) as u64;
-			if !fh::is_approved_asset(asset_id) {
+			if !fuzz_helpers::is_approved_asset(asset_id) {
 				return;
 			}
-			let debt = fh::psm_debt(asset_id);
+			let debt = PsmDebt::<Test>::get(asset_id);
 			let user_pusd = Assets::balance(PUSD_ASSET_ID, account);
 			let effective_cap = debt.min(user_pusd);
 			let amount = resolve_amount(tier, effective_cap);
@@ -408,7 +410,7 @@ fn dispatch_op(op: &Op) {
 		// debt is redeemed or the ceiling is raised.
 		Op::SetMaxPsmDebt { force_below_debt, parts } => {
 			let ratio = if *force_below_debt {
-				let debt = fh::total_psm_debt();
+				let debt = fuzz_helpers::total_psm_debt();
 				let max_issuance = pallet_psm::mock::MockMaximumIssuance::get();
 				if debt == 0 || max_issuance == 0 {
 					Permill::from_parts(parts % 1_000_001)
@@ -442,7 +444,7 @@ fn dispatch_op(op: &Op) {
 		Op::SetAssetStatus { asset_idx, level } => {
 			let asset_id =
 				ALL_EXTERNAL_ASSETS[(*asset_idx % ALL_EXTERNAL_ASSETS.len() as u8) as usize];
-			if !fh::is_approved_asset(asset_id) {
+			if !fuzz_helpers::is_approved_asset(asset_id) {
 				return;
 			}
 			let status = match level % 3 {
@@ -459,7 +461,7 @@ fn dispatch_op(op: &Op) {
 		Op::AddExternalAsset { asset_idx } => {
 			let candidates: Vec<u32> = ALL_EXTERNAL_ASSETS
 				.iter()
-				.filter(|&&id| !fh::is_approved_asset(id))
+				.filter(|&&id| !fuzz_helpers::is_approved_asset(id))
 				.copied()
 				.collect();
 			if candidates.is_empty() {
@@ -472,8 +474,10 @@ fn dispatch_op(op: &Op) {
 			}
 		},
 		Op::RemoveExternalAsset { asset_idx } => {
-			let candidates: Vec<u32> =
-				fh::approved_assets().into_iter().filter(|&id| fh::psm_debt(id) == 0).collect();
+			let candidates: Vec<u32> = fuzz_helpers::approved_assets()
+				.into_iter()
+				.filter(|&id| PsmDebt::<Test>::get(id) == 0)
+				.collect();
 			if candidates.is_empty() {
 				return;
 			}
@@ -515,7 +519,7 @@ fuzz_target!(|input: MultiBlockOps| {
 			for op in &block.0 {
 				dispatch_op(op);
 			}
-			fh::do_try_state().expect("PSM invariant violated");
+			fuzz_helpers::do_try_state().expect("PSM invariant violated");
 		});
 		block_number += 1;
 	}
