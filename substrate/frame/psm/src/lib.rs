@@ -72,8 +72,8 @@ pub mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
-#[cfg(test)]
-mod mock;
+#[cfg(any(test, feature = "fuzzing"))]
+pub mod mock;
 #[cfg(test)]
 mod tests;
 
@@ -926,7 +926,7 @@ pub mod pallet {
 		}
 
 		/// Check if an asset is approved for PSM swaps.
-		#[cfg(test)]
+		#[cfg(any(test, feature = "fuzzing"))]
 		pub(crate) fn is_approved_asset(asset_id: &T::AssetId) -> bool {
 			ExternalAssets::<T>::contains_key(asset_id)
 		}
@@ -978,21 +978,32 @@ pub mod pallet {
 			);
 
 			// Check 4: Total PSM debt must not exceed the global ceiling.
-			// May be transiently violated if governance lowers MaxPsmDebtOfTotal after debt
-			// has already been accumulated. Checked before per-asset ceilings so it fires
-			// independently when only the global ceiling has been lowered.
-			ensure!(
-				Self::total_psm_debt() <= Self::max_psm_debt(),
-				"Total PSM debt exceeds global ceiling"
-			);
+			// This is a warning, not a hard invariant: governance may lower MaxPsmDebtOfTotal
+			// below current debt, creating a transient state that redemptions or further
+			// governance action can resolve.
+			if Self::total_psm_debt() > Self::max_psm_debt() {
+				log::warn!(
+					"PSM: total debt ({:?}) exceeds global ceiling ({:?})",
+					Self::total_psm_debt(),
+					Self::max_psm_debt(),
+				);
+			}
 
-			// Check 5: Per-asset debt should not exceed its ceiling.
-			// (May be transiently violated if governance lowers ceilings.)
+			// Check 5: Per-asset debt exceeding its ceiling is a warning.
+			// Governance may change weights or MaxPsmDebtOfTotal, transiently causing
+			// per-asset debt to exceed the newly computed ceiling.
 			for (asset_id, status) in ExternalAssets::<T>::iter() {
 				if status.allows_minting() {
 					let debt = PsmDebt::<T>::get(asset_id);
 					let ceiling = Self::max_asset_debt(asset_id);
-					ensure!(debt <= ceiling, "Per-asset PSM debt exceeds its ceiling");
+					if debt > ceiling {
+						log::warn!(
+							"PSM: asset {:?} debt ({:?}) exceeds ceiling ({:?})",
+							asset_id,
+							debt,
+							ceiling,
+						);
+					}
 				}
 			}
 

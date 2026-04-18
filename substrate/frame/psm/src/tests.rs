@@ -248,6 +248,9 @@ mod mint {
 		});
 	}
 
+	// Companion to multi_asset_ceiling::minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom:
+	// this test hits the global ceiling (per-asset ceiling allows the mint), that one hits the per-asset
+	// ceiling (global ceiling allows the mint). Both error ExceedsMaxPsmDebt from different ensure! gates.
 	#[test]
 	fn fails_mint_exceeds_aggregate_psm_ceiling() {
 		new_test_ext().execute_with(|| {
@@ -1118,7 +1121,7 @@ mod ceiling_redistribution {
 	fn multiple_assets_share_redistributed_ceiling() {
 		new_test_ext().execute_with(|| {
 			// Add a third asset
-			let bridged_usdc_asset_id = 4u32;
+			let bridged_usdc_asset_id = 7u32;
 			create_asset_with_metadata(bridged_usdc_asset_id);
 			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), bridged_usdc_asset_id));
 
@@ -1277,6 +1280,8 @@ mod multi_asset_ceiling {
 		});
 	}
 
+	// Companion to mint::fails_mint_exceeds_aggregate_psm_ceiling: that test hits the global ceiling
+	// (per-asset allows), this one hits the per-asset ceiling (global allows). Same error, different gate.
 	#[test]
 	fn minting_past_per_asset_ceiling_blocked_regardless_of_global_headroom() {
 		new_test_ext().execute_with(|| {
@@ -1783,32 +1788,24 @@ mod try_state {
 		});
 	}
 
-	// Check 4: total debt exceeds global ceiling.
+	// Check 4: total debt exceeding global ceiling is a warning, not an error.
+	// Governance may transiently create this state; it is logged, not rejected.
 	#[test]
-	fn detects_total_debt_exceeds_global_ceiling() {
+	fn warns_on_total_debt_exceeds_global_ceiling() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * PUSD_UNIT));
-			// Lower MaxPsmDebtOfTotal below accumulated debt via storage.
-			// Per-asset ceilings (derived from max_psm_debt) also shrink, so check 5
-			// would fire too, but check 4 fires first since it is ordered before check 5.
 			MaxPsmDebtOfTotal::<Test>::put(Permill::from_parts(1));
 
-			assert_eq!(
-				crate::Pallet::<Test>::do_try_state().unwrap_err(),
-				DispatchError::Other("Total PSM debt exceeds global ceiling")
-			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
 		});
 	}
 
 	/// Check 5: per-asset debt exceeds its ceiling.
 	///
-	/// Mints 1000 UNIT of USDC, then lowers `MaxPsmDebtOfTotal` such that the global ceiling
-	/// (check 4) still passes (`max_psm_debt` = 1100 UNIT > 1000 UNIT debt), but the
-	/// per-asset ceiling for USDC (`max_asset_debt` = 1100 * 60% = 660 UNIT) falls below the
-	/// accumulated debt. The ratio is derived dynamically from `MockMaximumIssuance` to avoid
-	/// sensitivity to thread-local state across tests.
+	/// Per-asset debt exceeding ceiling is a warning, not an error.
+	/// Governance may change weights or MaxPsmDebtOfTotal, transiently causing this.
 	#[test]
-	fn detects_debt_exceeds_asset_ceiling() {
+	fn warns_on_debt_exceeds_asset_ceiling() {
 		new_test_ext().execute_with(|| {
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * PUSD_UNIT));
 			let max_issuance = crate::mock::MockMaximumIssuance::get();
@@ -1817,10 +1814,7 @@ mod try_state {
 			assert!(crate::Pallet::<Test>::max_psm_debt() > 1_000 * PUSD_UNIT);
 			assert!(crate::Pallet::<Test>::max_asset_debt(USDC_ASSET_ID) < 1_000 * PUSD_UNIT);
 
-			assert_eq!(
-				crate::Pallet::<Test>::do_try_state().unwrap_err(),
-				DispatchError::Other("Per-asset PSM debt exceeds its ceiling")
-			);
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
 		});
 	}
 
