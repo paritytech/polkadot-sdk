@@ -274,7 +274,7 @@ fn basic_refund_no_post_info() {
 
 		let tx_ext = new_tx_ext();
 
-		// Check weight should add 500 + 150 (len) to weight.
+		// Check weight should add 500 to weight.
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -284,7 +284,7 @@ fn basic_refund_no_post_info() {
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(post_info.actual_weight, None);
-		assert_eq!(get_storage_weight().proof_size(), 1250);
+		assert_eq!(get_storage_weight().proof_size(), 1100);
 	});
 }
 
@@ -303,7 +303,7 @@ fn basic_refund_some_post_info() {
 
 		let tx_ext = new_tx_ext();
 
-		// Check weight should add 500 + 150 (len) to weight.
+		// Check weight should add 500 to weight.
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -313,7 +313,7 @@ fn basic_refund_some_post_info() {
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(post_info.actual_weight.unwrap(), Weight::from_parts(0, 100));
-		assert_eq!(get_storage_weight().proof_size(), 1250);
+		assert_eq!(get_storage_weight().proof_size(), 1100);
 	});
 }
 
