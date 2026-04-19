@@ -108,7 +108,8 @@ impl DoubleEncodedT for () {
 
 /// Marker trait representing a local runtime call.
 ///
-/// We automaticall implement `DoubleEncodedT` for any struct that implements `LocalRuntimeCall`
+/// Local runtime calls can be decoded locally, so we automatically implement `DoubleEncodedT`
+/// accordingly.
 pub trait LocalRuntimeCall: Decode {}
 
 impl<T> DoubleEncodedT for T
