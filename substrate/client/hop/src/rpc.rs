@@ -23,7 +23,10 @@
 use crate::{
 	pool::HopDataPool,
 	primitives::HopHash,
-	types::{HopError, PoolStatus, SubmitResult},
+	types::{
+		signing_payload, HopError, PoolStatus, RecipientVec, SubmitResult, HOP_SUBMIT_CONTEXT,
+		MAX_RECIPIENTS,
+	},
 };
 use codec::Decode;
 use jsonrpsee::{
@@ -139,38 +142,32 @@ where
 		signature: Bytes,
 		signer: Bytes,
 	) -> RpcResult<SubmitResult> {
-		// SCALE-decode signer
-		let signer = MultiSigner::decode(&mut &signer.0[..])
-			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSigner))?;
-
-		// SCALE-decode signature
-		let multi_sig = MultiSignature::decode(&mut &signature.0[..])
-			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSignature))?;
-
-		// SCALE-decode each recipient as MultiSigner
-		let recipient_keys: Vec<MultiSigner> = recipients
+		let recipient_keys: RecipientVec = recipients
 			.into_iter()
 			.map(|r| {
 				MultiSigner::decode(&mut &r.0[..])
 					.map_err(|_| ErrorObjectOwned::from(HopError::InvalidRecipientKey))
 			})
-			.collect::<RpcResult<Vec<_>>>()?;
+			.collect::<RpcResult<Vec<_>>>()?
+			.try_into()
+			.map_err(|v: Vec<MultiSigner>| {
+				ErrorObjectOwned::from(HopError::TooManyRecipients {
+					provided: v.len(),
+					limit: MAX_RECIPIENTS as usize,
+				})
+			})?;
 
-		// Compute data hash and verify signature
-		let hash = H256(blake2_256(&data.0));
-		let account_id: AccountId32 = signer.into_account();
-		if !multi_sig.verify(hash.as_bytes(), &account_id) {
-			return Err(ErrorObjectOwned::from(HopError::InvalidSignature));
-		}
+		let signer = MultiSigner::decode(&mut &signer.0[..])
+			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSigner))?;
+		let multi_sig = MultiSignature::decode(&mut &signature.0[..])
+			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSignature))?;
 
-		// Snapshot chain state once for consistent authorization + block number.
 		let chain_info = self.client.info();
 		let best_hash = chain_info.best_hash;
 		let current_block = chain_info.best_number.saturated_into::<u32>();
 
 		let runtime_api = self.client.runtime_api();
 
-		// Reject data that exceeds the runtime's promotion limit.
 		let max_size = runtime_api
 			.max_promotion_size(best_hash)
 			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
@@ -181,12 +178,21 @@ where
 			)));
 		}
 
-		// Check authorization via runtime API
+		// Check authorization before verifying the signature: a flood of unauthorized
+		// requests must not force a signature verification per submit.
+		let account_id: AccountId32 = signer.into_account();
 		let authorized = runtime_api
 			.is_account_authorized(best_hash, account_id.clone())
 			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
 		if !authorized {
 			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
+		}
+
+		// Domain-separated payload so a submit signature cannot be replayed as claim/ack.
+		let hash = H256(blake2_256(&data.0));
+		let submit_payload = signing_payload(HOP_SUBMIT_CONTEXT, &hash);
+		if !multi_sig.verify(&submit_payload[..], &account_id) {
+			return Err(ErrorObjectOwned::from(HopError::InvalidSignature));
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
@@ -307,7 +313,16 @@ mod tests {
 
 	fn setup(authorized: bool) -> (HopRpcServer<MockClient, Block>, Arc<HopDataPool>, TempDir) {
 		let dir = TempDir::new().unwrap();
-		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let pool = Arc::new(
+			HopDataPool::new(
+				1024 * 1024,
+				1024 * 1024,
+				100,
+				dir.path().to_path_buf(),
+				crate::rate_limit::RateLimitConfig::disabled(),
+			)
+			.unwrap(),
+		);
 		let client = Arc::new(MockClient::new(authorized));
 		let rpc = HopRpcServer::new(pool.clone(), client);
 		(rpc, pool, dir)
@@ -319,23 +334,38 @@ mod tests {
 		(pair, signer)
 	}
 
-	fn sign_data(pair: &ed25519::Pair, data: &[u8]) -> (Bytes, Bytes) {
+	/// Produce a domain-separated submit signature for `data`.
+	fn submit_sig(pair: &ed25519::Pair, data: &[u8]) -> Bytes {
 		let hash = H256(blake2_256(data));
-		let sig = pair.sign(hash.as_bytes());
-		let multi_sig = MultiSignature::Ed25519(sig);
-		(Bytes(multi_sig.encode()), Bytes(hash.0.to_vec()))
+		let payload = signing_payload(HOP_SUBMIT_CONTEXT, &hash);
+		let multi_sig = MultiSignature::Ed25519(pair.sign(&payload));
+		Bytes(multi_sig.encode())
+	}
+
+	fn claim_sig(pair: &ed25519::Pair, hash: &H256) -> Bytes {
+		use crate::types::HOP_CLAIM_CONTEXT;
+		let payload = signing_payload(HOP_CLAIM_CONTEXT, hash);
+		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
+	}
+
+	fn ack_sig(pair: &ed25519::Pair, hash: &H256) -> Bytes {
+		use crate::types::HOP_ACK_CONTEXT;
+		let payload = signing_payload(HOP_ACK_CONTEXT, hash);
+		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
 	}
 
 	#[test]
 	fn submit_invalid_scale_signer_returns_error() {
 		let (rpc, _, _dir) = setup(true);
+		// One valid recipient so the RecipientVec step passes; then the SCALE-invalid
+		// signer bytes trigger `InvalidSigner`.
+		let (_, valid_signer) = make_keypair();
 		let result = rpc.submit(
 			Bytes(vec![1, 2, 3]),
-			vec![],
-			Bytes(vec![0u8; 3]), // invalid signature SCALE
-			Bytes(vec![0u8; 3]), // invalid signer SCALE
+			vec![Bytes(valid_signer.encode())],
+			Bytes(vec![0u8; 3]),
+			Bytes(vec![0u8; 3]),
 		);
-		// Signer is decoded first, so InvalidSigner error
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("SCALE-decode MultiSigner"), "got: {}", err.message());
@@ -347,8 +377,8 @@ mod tests {
 		let (_, signer) = make_keypair();
 		let result = rpc.submit(
 			Bytes(vec![1, 2, 3]),
-			vec![],
-			Bytes(vec![0u8; 3]), // invalid signature SCALE
+			vec![Bytes(signer.encode())],
+			Bytes(vec![0u8; 3]),
 			Bytes(signer.encode()),
 		);
 		assert!(result.is_err());
@@ -360,19 +390,13 @@ mod tests {
 	fn submit_bad_signature_returns_error() {
 		let (rpc, _, _dir) = setup(true);
 		let (_, signer) = make_keypair();
-		// Sign with a different key
+		// Sign with a different key.
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
 		let data = vec![1, 2, 3];
-		let hash = H256(blake2_256(&data));
-		let sig = wrong_pair.sign(hash.as_bytes());
-		let multi_sig = MultiSignature::Ed25519(sig);
+		let sig = submit_sig(&wrong_pair, &data);
 
-		let result = rpc.submit(
-			Bytes(data),
-			vec![Bytes(signer.encode())],
-			Bytes(multi_sig.encode()),
-			Bytes(signer.encode()),
-		);
+		let result =
+			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("Invalid signature"), "got: {}", err.message());
@@ -380,10 +404,10 @@ mod tests {
 
 	#[test]
 	fn submit_unauthorized_account_returns_error() {
-		let (rpc, _, _dir) = setup(false); // not authorized
+		let (rpc, _, _dir) = setup(false);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3];
-		let (sig, _) = sign_data(&pair, &data);
+		let sig = submit_sig(&pair, &data);
 
 		let result =
 			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
@@ -397,15 +421,33 @@ mod tests {
 		let (rpc, pool, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3, 4, 5];
-		let (sig, _) = sign_data(&pair, &data);
+		let sig = submit_sig(&pair, &data);
 
 		let result =
 			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
 		assert!(result.is_ok(), "submit failed: {:?}", result.err());
 		let submit_result = result.unwrap();
 		assert_eq!(submit_result.pool_status.entry_count, 1);
-		assert_eq!(submit_result.pool_status.total_bytes, 5);
+		// Accounted bytes include per-recipient metadata overhead, not just the blob.
+		assert_eq!(submit_result.pool_status.total_bytes, crate::types::entry_accounted_size(5, 1),);
 		assert_eq!(pool.status().entry_count, 1);
+	}
+
+	#[test]
+	fn submit_rejects_oversized_recipient_list() {
+		let (rpc, _, _dir) = setup(true);
+		let (pair, signer) = make_keypair();
+		let data = vec![1, 2, 3];
+		let sig = submit_sig(&pair, &data);
+
+		let oversized: Vec<Bytes> = std::iter::repeat_with(|| Bytes(signer.encode()))
+			.take(MAX_RECIPIENTS as usize + 1)
+			.collect();
+
+		let result = rpc.submit(Bytes(data), oversized, sig, Bytes(signer.encode()));
+		assert!(result.is_err());
+		let err = result.unwrap_err();
+		assert!(err.message().contains("Too many recipients"), "got: {}", err.message());
 	}
 
 	#[test]
@@ -422,25 +464,17 @@ mod tests {
 		let (rpc, _, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![10, 20, 30];
-		let (sig, _) = sign_data(&pair, &data);
+		let sig = submit_sig(&pair, &data);
 
-		// Submit
 		rpc.submit(Bytes(data.clone()), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()))
 			.unwrap();
 
-		// Claim
 		let hash = H256(blake2_256(&data));
-		let claim_sig = pair.sign(hash.as_bytes());
-		let multi_claim_sig = MultiSignature::Ed25519(claim_sig);
-		let encoded_claim_sig = Bytes(multi_claim_sig.encode());
-
-		let claimed = rpc.claim(Bytes(hash.0.to_vec()), encoded_claim_sig.clone()).unwrap();
+		let claimed = rpc.claim(Bytes(hash.0.to_vec()), claim_sig(&pair, &hash)).unwrap();
 		assert_eq!(claimed.0, data);
 
-		// Ack
-		rpc.ack(Bytes(hash.0.to_vec()), encoded_claim_sig).unwrap();
+		rpc.ack(Bytes(hash.0.to_vec()), ack_sig(&pair, &hash)).unwrap();
 
-		// Pool should be empty
 		let status = rpc.pool_status().unwrap();
 		assert_eq!(status.entry_count, 0);
 	}

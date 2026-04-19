@@ -16,9 +16,10 @@
 
 //! HOP types and data structures.
 
-use crate::primitives::HopBlockNumber;
+use crate::primitives::{HopBlockNumber, HopHash};
 use codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use sp_core::{bounded_vec::BoundedVec, hashing::blake2_256, ConstU32};
 use sp_runtime::MultiSigner;
 
 /// Sender identity derived from the account that signed the submission.
@@ -34,7 +35,11 @@ pub struct HopEntryMeta {
 	/// Size in bytes
 	pub size: u64,
 	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
-	pub recipients: Vec<MultiSigner>,
+	///
+	/// Using a `BoundedVec` means a corrupted / hostile on-disk `.meta` file with
+	/// too many recipients fails to SCALE-decode and is discarded during startup
+	/// recovery rather than being loaded into the in-memory index.
+	pub recipients: RecipientVec,
 	/// Tracks which recipients have claimed (by index into `recipients`).
 	pub claimed: Vec<bool>,
 	/// Account ID of the sender who submitted this entry.
@@ -49,7 +54,7 @@ impl HopEntryMeta {
 		size: u64,
 		added_at: HopBlockNumber,
 		retention_blocks: u32,
-		recipients: Vec<MultiSigner>,
+		recipients: RecipientVec,
 		sender_id: SenderId,
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
@@ -131,6 +136,15 @@ pub enum HopError {
 
 	#[error("Runtime API error: {0}")]
 	RuntimeApiError(String),
+
+	#[error("Too many recipients: {provided} (max {limit})")]
+	TooManyRecipients { provided: usize, limit: usize },
+
+	#[error("Duplicate recipient in list")]
+	DuplicateRecipient,
+
+	#[error("Rate limited: retry after {retry_after_secs}s")]
+	RateLimited { retry_after_secs: u64 },
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -153,6 +167,9 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::AlreadyClaimed => 1015,
 			HopError::InvalidHashLength(_) => 1016,
 			HopError::RuntimeApiError(_) => 1017,
+			HopError::TooManyRecipients { .. } => 1018,
+			HopError::DuplicateRecipient => 1019,
+			HopError::RateLimited { .. } => 1020,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
@@ -173,3 +190,62 @@ pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024)
 
 /// Default maintenance interval in seconds (1 hour)
 pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 3600;
+
+/// Maximum number of recipients allowed per submission.
+///
+/// Caps the fan-out so that per-entry metadata (both RAM and disk) is bounded
+/// and `find_recipient`'s signature-verification scan is bounded.
+pub const MAX_RECIPIENTS: u32 = 256;
+
+/// A `Vec<MultiSigner>` that SCALE-decode rejects if it exceeds `MAX_RECIPIENTS`,
+/// enforcing the fan-out cap at the type level instead of via scattered runtime checks.
+pub type RecipientVec = BoundedVec<MultiSigner, ConstU32<MAX_RECIPIENTS>>;
+
+/// Default per-user quota in MiB (1 GiB). Hard cap, not scaled by active users.
+pub const DEFAULT_MAX_USER_SIZE_MIB: u64 = 1024;
+
+/// Default buffer before expiry at which to start promoting entries on-chain
+/// (600 blocks ≈ 1 h at 6 s per block).
+pub const DEFAULT_PROMOTION_BUFFER_BLOCKS: u32 = 600;
+
+/// Default sustained submit rate per account (requests per minute).
+pub const DEFAULT_SUBMIT_RATE_PER_MIN: u32 = 60;
+
+/// Default submit burst per account (requests).
+pub const DEFAULT_SUBMIT_BURST: u32 = 120;
+
+/// Default sustained bandwidth per account in MiB per minute.
+pub const DEFAULT_BANDWIDTH_PER_MIN_MIB: u64 = 256;
+
+/// Default bandwidth burst per account in MiB.
+pub const DEFAULT_BANDWIDTH_BURST_MIB: u64 = 512;
+
+/// Domain-separator prefix for `hop_submit` signatures.
+pub const HOP_SUBMIT_CONTEXT: &[u8] = b"hop-submit-v1:";
+
+/// Domain-separator prefix for `hop_claim` signatures.
+pub const HOP_CLAIM_CONTEXT: &[u8] = b"hop-claim-v1:";
+
+/// Domain-separator prefix for `hop_ack` signatures.
+pub const HOP_ACK_CONTEXT: &[u8] = b"hop-ack-v1:";
+
+/// Compute the 32-byte payload that HOP recipients / submitters sign for a given
+/// operation. This is `blake2_256(context || hash)` and ensures signatures from
+/// one operation cannot be replayed in another.
+pub fn signing_payload(context: &[u8], hash: &HopHash) -> [u8; 32] {
+	let mut buf = Vec::with_capacity(context.len() + 32);
+	buf.extend_from_slice(context);
+	buf.extend_from_slice(hash.as_bytes());
+	blake2_256(&buf)
+}
+
+/// Per-recipient overhead charged against pool capacity and per-user quota, in bytes.
+/// Covers the in-memory `MultiSigner` variant plus its parallel `bool` in `claimed`.
+/// Kept as a small constant that over-approximates `size_of::<MultiSigner>() + 1`.
+pub const METADATA_COST_PER_RECIPIENT: u64 = 40;
+
+/// Total bytes an entry charges against pool capacity: the blob plus bounded
+/// per-recipient metadata overhead.
+pub fn entry_accounted_size(data_size: u64, num_recipients: usize) -> u64 {
+	data_size.saturating_add((num_recipients as u64).saturating_mul(METADATA_COST_PER_RECIPIENT))
+}

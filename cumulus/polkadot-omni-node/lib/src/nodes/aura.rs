@@ -422,23 +422,18 @@ where
 			config.database.path().map(|p| p.to_path_buf()),
 		)?;
 		if let Some(ref pool) = hop_pool {
-			let task_pool = pool.clone();
-			let task_client = client.clone();
-			let check_interval = hop.check_interval;
-			task_manager.spawn_handle().spawn("hop-cleanup", None, async move {
-				loop {
-					futures_timer::Delay::new(std::time::Duration::from_secs(check_interval)).await;
-					let block: u32 = task_client.info().best_number.saturated_into();
-					let freed = task_pool.cleanup_expired(block);
-					if freed > 0 {
-						log::info!(
-							target: "hop",
-							"Cleaned up expired HOP entries, freed {} bytes",
-							freed,
-						);
-					}
-				}
-			});
+			let promoter = sc_hop::try_build_promoter::<Block, _, _>(&client, &transaction_pool);
+			let best_block_client = client.clone();
+			let best_block: Arc<dyn Fn() -> u32 + Send + Sync> =
+				Arc::new(move || best_block_client.info().best_number.saturated_into::<u32>());
+			let task = sc_hop::HopMaintenanceTask::new(
+				pool.clone(),
+				promoter,
+				best_block,
+				hop.promotion_buffer_blocks,
+				hop.check_interval,
+			);
+			task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
 		}
 
 		let spawn_handle = Arc::new(task_manager.spawn_handle());

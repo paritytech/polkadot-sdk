@@ -59,7 +59,7 @@ use sc_transaction_pool::TransactionPoolHandle;
 use sc_transaction_pool_api::OffchainTransactionPoolFactory;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_keystore::KeystorePtr;
-use sp_runtime::{traits::AccountIdConversion, SaturatedConversion};
+use sp_runtime::traits::AccountIdConversion;
 use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 // Override default idle connection timeout of 10 seconds to give IPFS clients more
@@ -435,23 +435,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				parachain_config.database.path().map(|p| p.to_path_buf()),
 			)?;
 			if let Some(ref pool) = hop_pool {
-				let task_pool = pool.clone();
-				let task_client = client.clone();
-				let check_interval = node_extra_args.hop.check_interval;
-				task_manager.spawn_handle().spawn("hop-cleanup", None, async move {
-					loop {
-						futures_timer::Delay::new(Duration::from_secs(check_interval)).await;
-						let block = task_client.info().best_number.saturated_into::<u32>();
-						let freed = task_pool.cleanup_expired(block);
-						if freed > 0 {
-							log::info!(
-								target: "hop",
-								"Cleaned up expired HOP entries, freed {} bytes",
-								freed,
-							);
-						}
-					}
-				});
+				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
+					&client,
+					&transaction_pool,
+					pool.clone(),
+					node_extra_args.hop.promotion_buffer_blocks,
+					node_extra_args.hop.check_interval,
+				);
+				task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
 			}
 
 			if parachain_config.offchain_worker.enabled {

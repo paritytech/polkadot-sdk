@@ -30,7 +30,7 @@ use crate::pool::HopDataPool;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_hop::HopApi;
-use sp_runtime::{traits::Block as BlockT, AccountId32};
+use sp_runtime::{traits::Block as BlockT, AccountId32, SaturatedConversion};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 /// Trait for promoting HOP data to permanent on-chain storage.
@@ -124,6 +124,31 @@ where
 	}
 }
 
+/// Build a [`HopMaintenanceTask`] wired to the node's client and transaction pool.
+///
+/// Detects `HopApi` support at startup (see [`try_build_promoter`]) and captures
+/// a best-block closure over `client` so callers only need to spawn the returned
+/// task on their task manager.
+pub fn build_maintenance_task<Block, C, P>(
+	client: &Arc<C>,
+	tx_pool: &Arc<P>,
+	pool: Arc<HopDataPool>,
+	buffer_blocks: u32,
+	check_interval_secs: u64,
+) -> HopMaintenanceTask
+where
+	Block: BlockT,
+	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	C::Api: sp_hop::HopApi<Block, AccountId32>,
+	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
+{
+	let promoter = try_build_promoter::<Block, _, _>(client, tx_pool);
+	let best_block_client = client.clone();
+	let best_block: Arc<dyn Fn() -> u32 + Send + Sync> =
+		Arc::new(move || best_block_client.info().best_number.saturated_into::<u32>());
+	HopMaintenanceTask::new(pool, promoter, best_block, buffer_blocks, check_interval_secs)
+}
+
 /// Background task that periodically promotes near-expiry HOP pool entries to
 /// permanent on-chain storage and cleans up expired entries.
 pub struct HopMaintenanceTask {
@@ -214,7 +239,11 @@ impl HopMaintenanceTask {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{pool::HopDataPool, types::SenderId};
+	use crate::{
+		pool::HopDataPool,
+		rate_limit::RateLimitConfig,
+		types::{RecipientVec, SenderId},
+	};
 	use sp_core::{crypto::Pair, ed25519};
 	use sp_runtime::MultiSigner;
 	use std::sync::Mutex;
@@ -226,6 +255,23 @@ mod tests {
 		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
 		let signer = MultiSigner::Ed25519(pair.public());
 		(pair, signer)
+	}
+
+	fn bv(v: Vec<MultiSigner>) -> RecipientVec {
+		RecipientVec::try_from(v).expect("test recipient list exceeds MAX_RECIPIENTS")
+	}
+
+	fn test_pool(max_size: u64, retention_blocks: u32, dir: &TempDir) -> Arc<HopDataPool> {
+		Arc::new(
+			HopDataPool::new(
+				max_size,
+				max_size,
+				retention_blocks,
+				dir.path().to_path_buf(),
+				RateLimitConfig::disabled(),
+			)
+			.unwrap(),
+		)
 	}
 
 	struct MockPromoter {
@@ -262,11 +308,11 @@ mod tests {
 	fn tick_promotes_near_expiry_entries() {
 		let dir = TempDir::new().unwrap();
 		// retention=100 blocks
-		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
 		// Insert at block 0, expires at block 100.
-		let hash = pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
+		let hash = pool.insert(vec![42u8; 10], 0, bv(vec![signer]), SENDER_A).unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(false));
 		let task = HopMaintenanceTask::new(
@@ -291,10 +337,10 @@ mod tests {
 	#[test]
 	fn tick_skips_promotion_when_no_promoter() {
 		let dir = TempDir::new().unwrap();
-		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
+		pool.insert(vec![42u8; 10], 0, bv(vec![signer]), SENDER_A).unwrap();
 
 		let task = HopMaintenanceTask::new(
 			pool.clone(),
@@ -314,10 +360,10 @@ mod tests {
 	#[test]
 	fn tick_does_not_mark_promoted_on_failure() {
 		let dir = TempDir::new().unwrap();
-		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(vec![42u8; 10], 0, vec![signer], SENDER_A).unwrap();
+		pool.insert(vec![42u8; 10], 0, bv(vec![signer]), SENDER_A).unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(true)); // will fail
 		let task =
@@ -337,10 +383,10 @@ mod tests {
 	fn tick_cleans_up_expired_entries() {
 		let dir = TempDir::new().unwrap();
 		// retention=10 blocks
-		let pool = Arc::new(HopDataPool::new(1024 * 1024, 10, dir.path().to_path_buf()).unwrap());
+		let pool = test_pool(1024 * 1024, 10, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(vec![42u8; 50], 0, vec![signer], SENDER_A).unwrap();
+		pool.insert(vec![42u8; 50], 0, bv(vec![signer]), SENDER_A).unwrap();
 		assert_eq!(pool.status().entry_count, 1);
 
 		let task = HopMaintenanceTask::new(
@@ -361,11 +407,11 @@ mod tests {
 	fn tick_promotes_then_cleans_up_independently() {
 		let dir = TempDir::new().unwrap();
 		// retention=100
-		let pool = Arc::new(HopDataPool::new(1024 * 1024, 100, dir.path().to_path_buf()).unwrap());
+		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
 		// Entry A: inserted at block 0, expires at 100 — near expiry at block 80 with buffer 30.
-		pool.insert(vec![1u8; 10], 0, vec![signer.clone()], SENDER_A).unwrap();
+		pool.insert(vec![1u8; 10], 0, bv(vec![signer.clone()]), SENDER_A).unwrap();
 		// Entry B: inserted at block 0 with retention 100 but we'll test at block 100 where it's
 		// expired. Actually both entries have the same retention. Let's use a different pool.
 

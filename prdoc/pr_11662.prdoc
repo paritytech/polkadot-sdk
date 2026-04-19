@@ -16,9 +16,21 @@ doc:
         `HopApi::is_account_authorized`.
       - Data size validated against `HopApi::max_promotion_size` (8 MiB default,
         matching Bulletin Chain's `MaxTransactionSize`).
-      - Per-user fair-share quota enforcement with automatic cleanup on ack/expiry.
+      - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
+        `BoundedVec` (`RecipientVec`) so oversized lists are rejected before
+        SCALE decoding and signature verification. Duplicate recipients are also
+        rejected.
+      - Fixed hard per-user quota (no dynamic scaling with active users) plus
+        bounded per-recipient metadata overhead charged against both pool
+        capacity and per-user usage to close the metadata-amplification DoS.
+      - Domain-separated signing contexts for submit / claim / ack
+        (`hop-submit-v1:`, `hop-claim-v1:`, `hop-ack-v1:`) so a signature issued
+        for one operation cannot be replayed as another.
+      - Per-account submit rate limiter (`RateLimiter`): two token buckets per
+        sender (requests + bandwidth), generous defaults sized for chat media.
       - Background maintenance task (`HopMaintenanceTask`) that promotes near-expiry
-        entries to on-chain storage and garbage-collects expired ones.
+        entries to on-chain storage, garbage-collects expired ones, and evicts
+        stale per-sender rate-limit state.
 
       **`sp-hop`** defines the `HopApi` runtime API trait: `is_account_authorized`,
       `create_promotion_extrinsic`, and `max_promotion_size`.
@@ -32,12 +44,23 @@ doc:
       New `--enable-hop` flag activates the HOP data pool for ephemeral
       peer-to-peer data exchange. Related flags:
       - `--hop-max-pool-size <MiB>` — pool capacity (default: 10240 MiB / 10 GiB)
+      - `--hop-max-user-size <MiB>` — per-user hard cap (default: 1024 MiB / 1 GiB)
       - `--hop-retention-blocks <blocks>` — data lifetime (default: 14400, ~24h at 6s blocks)
       - `--hop-check-interval <seconds>` — maintenance cycle (default: 3600, 1 hour)
+      - `--hop-promotion-buffer-blocks <blocks>` — start promoting this many blocks
+        before expiry (default: 600, ~1h at 6s blocks)
+      - `--hop-submit-rate-per-min <requests>` — sustained submit rate (default: 60)
+      - `--hop-submit-burst <requests>` — submit burst (default: 120)
+      - `--hop-bandwidth-per-min-mib <MiB>` — sustained bandwidth (default: 256)
+      - `--hop-bandwidth-burst-mib <MiB>` — bandwidth burst (default: 512)
+      - `--hop-disable-rate-limit` — turn off rate limiting (dev / tests)
       - `--hop-data-dir <path>` — storage directory (default: `<chain-data>/hop`)
 
       Pool state (blobs + metadata) persists across restarts. Orphan and corrupt
-      files are cleaned up automatically on startup.
+      files are cleaned up automatically on startup. HOP RPC clients from earlier
+      branches must be updated: the on-wire signing payload now includes a
+      domain-separator prefix (`hop-submit-v1:`, `hop-claim-v1:`, `hop-ack-v1:`)
+      wrapped in a `blake2_256` hash — old signatures will fail verification.
 
 crates:
   - name: sc-hop
