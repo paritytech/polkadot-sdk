@@ -1332,6 +1332,10 @@ pub use sp_core_hashing;
 #[cfg(feature = "sp-core-hashing-proc-macro")]
 pub use sp_core_hashing_proc_macro;
 
+/// Primitives for Polkadot Coretime.
+#[cfg(feature = "sp-coretime")]
+pub use sp_coretime;
+
 /// Host functions for common Arkworks elliptic curve operations.
 #[cfg(feature = "sp-crypto-ec-utils")]
 pub use sp_crypto_ec_utils;

@@ -17397,6 +17397,7 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-core-hashing",
  "sp-core-hashing-proc-macro",
+ "sp-coretime",
  "sp-crypto-ec-utils",
  "sp-crypto-hashing 0.1.0",
  "sp-crypto-hashing-proc-macro 0.1.0",

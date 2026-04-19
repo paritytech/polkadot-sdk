@@ -201,6 +201,7 @@ std = [
 	"sp-consensus-slots?/std",
 	"sp-core-hashing?/std",
 	"sp-core?/std",
+	"sp-coretime?/std",
 	"sp-crypto-ec-utils?/std",
 	"sp-crypto-hashing?/std",
 	"sp-debug-derive?/std",
@@ -769,6 +770,7 @@ runtime-full = [
 	"sp-consensus-pow",
 	"sp-consensus-slots",
 	"sp-core",
+	"sp-coretime",
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
@@ -842,6 +844,7 @@ runtime = [
 	"sp-consensus-pow",
 	"sp-consensus-slots",
 	"sp-core",
+	"sp-coretime",
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
@@ -2026,6 +2029,11 @@ path = "../substrate/primitives/consensus/slots"
 default-features = false
 optional = true
 path = "../substrate/primitives/core"
+
+[dependencies.sp-coretime]
+default-features = false
+optional = true
+path = "../substrate/primitives/coretime"
 
 [dependencies.sp-crypto-ec-utils]
 default-features = false
