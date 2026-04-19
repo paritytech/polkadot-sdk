@@ -107,6 +107,28 @@ fn start_sales_works() {
 	});
 }
 
+#[test]
+fn start_sales_fails_without_config() {
+	new_test_ext().execute_with(|| {
+		TestCoreRangeProvider::set(0, 2);
+		// No configure() called — should fail.
+		let init = InitData { reserve_price: 100 };
+		let result = <CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init);
+		assert!(result.is_err());
+	});
+}
+
+#[test]
+fn start_sales_fails_without_core_range() {
+	new_test_ext().execute_with(|| {
+		<CoretimeMarket as Market<u64, u64, u64>>::configure(new_config()).unwrap();
+		// CoreRangeProvider returns None — should fail.
+		let init = InitData { reserve_price: 100 };
+		let result = <CoretimeMarket as Market<u64, u64, u64>>::start_sales(0, init);
+		assert!(result.is_err());
+	});
+}
+
 // --- Bidding ---
 
 #[test]
@@ -131,6 +153,41 @@ fn place_bid_wrong_phase() {
 	TestExt::new().execute_with(|| {
 		// No sales started.
 		assert!(place_bid(0, 1, 100).is_err());
+	});
+}
+
+#[test]
+fn bid_capped_at_current_descending_price() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		// At block 0, current_price = opening = 200.
+		// Bid with price_limit 500 → should be capped at 200.
+		let result = place_bid(0, 1, 500).unwrap();
+		match result {
+			OrderResult::BidPlaced { bid_price, .. } => assert_eq!(bid_price, 200),
+			_ => panic!("Expected BidPlaced"),
+		}
+
+		// At block 10 (midpoint), current_price = 150.
+		let result = place_bid(10, 2, 500).unwrap();
+		match result {
+			OrderResult::BidPlaced { bid_price, .. } => assert_eq!(bid_price, 150),
+			_ => panic!("Expected BidPlaced"),
+		}
+	});
+}
+
+#[test]
+fn max_bids_limit_enforced() {
+	TestExt::new().execute_with(|| {
+		// MaxBids = 100 in mock config.
+		start_sales(100);
+		for i in 0..100u64 {
+			place_bid(0, i + 1, 200).unwrap();
+		}
+
+		// 101st bid should fail.
+		assert!(matches!(place_bid(0, 101, 200), Err(Error::TooManyBids)));
 	});
 }
 
@@ -160,6 +217,49 @@ fn adjust_bid_withdraw_not_allowed() {
 
 		// Withdrawal should fail (RFC-17: binding bids).
 		assert!(matches!(adjust_bid(0, id, 1, None), Err(Error::NotAllowed)));
+	});
+}
+
+#[test]
+fn adjust_bid_lower_fails() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
+
+		assert!(matches!(adjust_bid(0, id, 1, Some(100)), Err(Error::Overpriced)));
+	});
+}
+
+#[test]
+fn adjust_bid_wrong_owner_fails() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
+
+		// User 2 tries to adjust user 1's bid.
+		assert!(matches!(adjust_bid(0, id, 2, Some(180)), Err(Error::BidNotExist)));
+	});
+}
+
+#[test]
+fn adjust_bid_nonexistent_fails() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		assert!(matches!(adjust_bid(0, 999, 1, Some(100)), Err(Error::BidNotExist)));
+	});
+}
+
+#[test]
+fn adjust_bid_wrong_phase_fails() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
+
+		// Settle auction → Renewal phase.
+		tick(20);
+		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+
+		assert!(matches!(adjust_bid(25, id, 1, Some(180)), Err(Error::WrongPhase)));
 	});
 }
 
@@ -717,6 +817,141 @@ fn multiple_displacements_in_one_renewal_phase() {
 		assert_eq!(sell_count, 1, "1 remaining auction winner");
 		assert_eq!(renew_count, 2, "2 renewals");
 		assert_eq!(refund_count, 2, "2 displaced refunds");
+	});
+}
+
+// --- Descending price ---
+
+#[test]
+fn descending_price_linear() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let sale = SaleInfo::<Test>::get().unwrap();
+
+		// opening = reserve(100) * multiplier(2) = 200, reserve = 100, market_period = 20.
+		let price_at_start = CoretimeMarket::current_price(sale.sale_start).unwrap();
+		assert_eq!(price_at_start, 200, "Price at start should be opening price");
+
+		let price_at_mid = CoretimeMarket::current_price(sale.sale_start + 10).unwrap();
+		assert_eq!(price_at_mid, 150, "Price at midpoint should be halfway");
+
+		let price_at_end = CoretimeMarket::current_price(sale.sale_start + 20).unwrap();
+		assert_eq!(price_at_end, 100, "Price at end should be reserve price");
+
+		// Past the end should clamp at reserve.
+		let price_past_end = CoretimeMarket::current_price(sale.sale_start + 30).unwrap();
+		assert_eq!(price_past_end, 100, "Price past end should be reserve");
+	});
+}
+
+// --- Price adaptation ---
+
+#[test]
+fn reserve_price_increases_after_high_consumption() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+
+		// Fill all 2 cores → 100% consumption.
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 2, 200).unwrap();
+
+		// Settle → Renewal → Settlement → Rotate.
+		tick(20);
+		tick(30);
+		let old_sale = SaleInfo::<Test>::get().unwrap();
+		let old_reserve = old_sale.reserve_price;
+
+		tick_with_ts(35, old_sale.region_begin);
+		let new_sale = SaleInfo::<Test>::get().unwrap();
+
+		assert!(
+			new_sale.reserve_price > old_reserve,
+			"Reserve price should increase after 100% consumption: {} > {}",
+			new_sale.reserve_price,
+			old_reserve,
+		);
+	});
+}
+
+#[test]
+fn reserve_price_decreases_after_low_consumption() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+
+		// No bids → 0% consumption.
+		// Settle → Renewal → Settlement → Rotate.
+		tick(20);
+		tick(30);
+		let old_sale = SaleInfo::<Test>::get().unwrap();
+		let old_reserve = old_sale.reserve_price;
+
+		tick_with_ts(35, old_sale.region_begin);
+		let new_sale = SaleInfo::<Test>::get().unwrap();
+
+		assert!(
+			new_sale.reserve_price < old_reserve,
+			"Reserve price should decrease after 0% consumption: {} < {}",
+			new_sale.reserve_price,
+			old_reserve,
+		);
+	});
+}
+
+// --- Sale rotation ---
+
+#[test]
+fn sale_rotation_sets_correct_regions() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+
+		// Get first sale's region boundaries.
+		let first_sale = SaleInfo::<Test>::get().unwrap();
+		let first_region_begin = first_sale.region_begin;
+		let first_region_end = first_sale.region_end;
+		let config = Configuration::<Test>::get().unwrap();
+
+		assert_eq!(first_region_end, first_region_begin + config.region_length);
+
+		// Run through full cycle to rotate.
+		tick(20);
+		tick(30);
+		tick_with_ts(35, first_sale.region_begin);
+
+		let second_sale = SaleInfo::<Test>::get().unwrap();
+
+		// New sale's region_begin should be old sale's region_end.
+		assert_eq!(second_sale.region_begin, first_region_end);
+		assert_eq!(second_sale.region_end, first_region_end + config.region_length);
+		assert_eq!(second_sale.cores_sold, 0);
+		assert!(second_sale.clearing_price.is_none());
+	});
+}
+
+#[test]
+fn sale_rotation_respects_core_range() {
+	TestExt::new().execute_with(|| {
+		// Set core range [2, 5) → 3 sellable cores, first_core = 2.
+		TestCoreRangeProvider::set(2, 5);
+		start_sales(100);
+
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.first_core, 2);
+		assert_eq!(sale.cores_offered, 3);
+	});
+}
+
+#[test]
+fn sale_rotation_opening_price_from_reserve() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let sale = SaleInfo::<Test>::get().unwrap();
+		let config = Configuration::<Test>::get().unwrap();
+
+		// opening = max(min_opening_price, reserve * multiplier)
+		let expected = sale.reserve_price
+			.saturating_mul(config.price_multiplier as u64)
+			.max(config.min_opening_price);
+		assert_eq!(sale.opening_price, expected);
 	});
 }
 
