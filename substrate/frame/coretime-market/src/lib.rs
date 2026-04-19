@@ -292,6 +292,26 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type RenewalCount<T> = StorageValue<_, u32, ValueQuery>;
 
+	/// Number of cores won per account in the auction. Set during settlement, used to reduce
+	/// renewal quota (RFC-17: auction wins count against renewal rights).
+	#[pallet::storage]
+	pub type AuctionWins<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+
+	/// Number of renewal rights consumed per account in the current Renewal phase.
+	#[pallet::storage]
+	pub type RenewalsUsed<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
+
+	/// Completed renewals during the Renewal phase. Drained in `finalize_sale` to emit
+	/// `TickAction::RenewRegion`.
+	#[pallet::storage]
+	pub type CompletedRenewals<T: Config> = StorageValue<
+		_,
+		BoundedVec<(T::AccountId, PotentialRenewalId), T::MaxBids>,
+		ValueQuery,
+	>;
+
 	/// Displaced auction winners during the Renewal phase. Refunded in `finalize_sale`.
 	#[pallet::storage]
 	pub type DisplacedBids<T: Config> = StorageValue<
@@ -412,16 +432,22 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			Error::<T>::WrongPhase
 		);
 
-		// Verify the caller holds a renewal right for this sale period.
-		ensure!(
-			T::RenewalRights::renewal_rights_count(who, renewal.when) > 0,
-			Error::<T>::Unavailable
-		);
+		// RFC-17: auction wins count against renewal quota.
+		// remaining = total_rights - auction_wins - renewals_already_used
+		let total_rights = T::RenewalRights::renewal_rights_count(who, renewal.when);
+		let auction_wins = AuctionWins::<T>::get(who);
+		let renewals_used = RenewalsUsed::<T>::get(who);
+		let remaining = total_rights
+			.saturating_sub(auction_wins)
+			.saturating_sub(renewals_used);
+		ensure!(remaining > 0, Error::<T>::Unavailable);
 
 		let clearing = AuctionClearingPrice::<T>::get().unwrap_or(sale.reserve_price);
 
 		let allocations = Allocations::<T>::get();
-		let oversubscribed = allocations.len() as u16 >= sale.cores_offered;
+		// Use cores_sold from settlement (not current Allocations.len(), which shrinks
+		// after displacement) to determine if the auction was oversubscribed.
+		let oversubscribed = sale.cores_sold >= sale.cores_offered;
 
 		let penalty =
 			if oversubscribed { config.penalty * clearing } else { Zero::zero() };
@@ -431,7 +457,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			allocations.len() as u16 + RenewalCount::<T>::get() as u16;
 
 		if allocated_count < sale.cores_offered {
-			// Unallocated core available — direct renewal.
+			// Unallocated core available: direct renewal.
 			let core = sale.first_core.saturating_add(allocated_count);
 			let region_id = RegionId {
 				begin: sale.region_begin,
@@ -439,6 +465,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				mask: CoreMask::complete(),
 			};
 			RenewalCount::<T>::mutate(|c| c.saturating_inc());
+			RenewalsUsed::<T>::mutate(who, |c| c.saturating_inc());
+			CompletedRenewals::<T>::mutate(|r| {
+				let _ = r.try_push((who.clone(), renewal));
+			});
 
 			Self::deposit_event(Event::RenewalExercised {
 				who: who.clone(),
@@ -452,18 +482,14 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 				effective_to: sale.region_end,
 			})
 		} else if oversubscribed {
-			// All cores allocated — displace lowest non-renewer auction winner.
+			// All cores allocated: displace lowest non-renewer auction winner.
 			let mut allocs = allocations;
 
+			// Only displace winners who are NOT existing tenants.
 			let displace_idx = allocs
 				.iter()
 				.enumerate()
-				.filter(|(_, a)| {
-					T::RenewalRights::renewal_rights_count(
-						&a.who,
-						sale.region_begin,
-					) == 0
-				})
+				.filter(|(_, a)| !a.is_existing_tenant)
 				.min_by_key(|(_, a)| a.bid_price)
 				.map(|(i, _)| i);
 
@@ -491,6 +517,10 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 				Allocations::<T>::put(allocs);
 				RenewalCount::<T>::mutate(|c| c.saturating_inc());
+				RenewalsUsed::<T>::mutate(who, |c| c.saturating_inc());
+				CompletedRenewals::<T>::mutate(|r| {
+					let _ = r.try_push((who.clone(), renewal));
+				});
 
 				Self::deposit_event(Event::RenewalExercised {
 					who: who.clone(),
@@ -599,6 +629,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					let mut finalize_actions = finalize_sale::<T>(&sale);
 					CurrentPhase::<T>::put(SalePhase::Settlement);
 					RenewalCount::<T>::kill();
+					let _ = RenewalsUsed::<T>::clear(u32::MAX, None);
+					let _ = AuctionWins::<T>::clear(u32::MAX, None);
 
 					Self::deposit_event(Event::PhaseTransitioned {
 						from: SalePhase::Renewal,
@@ -754,12 +786,17 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 			}
 
 			let core = sale.first_core.saturating_add(i as u16);
+			let is_existing_tenant =
+				T::RenewalRights::renewal_rights_count(&bid.who, sale.region_begin) > 0;
+
+			AuctionWins::<T>::mutate(&bid.who, |c| c.saturating_inc());
 
 			allocations.push(AllocationRecord {
 				who: bid.who,
 				bid_price: bid.price,
 				bid_id,
 				core,
+				is_existing_tenant,
 			});
 
 			winner_count += 1;
@@ -804,6 +841,11 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 			region_id,
 			region_end: sale.region_end,
 		});
+	}
+
+	// Emit RenewRegion for each completed renewal.
+	for (owner, renewal_id) in CompletedRenewals::<T>::take() {
+		actions.push(TickAction::RenewRegion { owner, renewal_id });
 	}
 
 	// Refund displaced auction winners.
