@@ -338,12 +338,13 @@ impl<T: Config> Pallet<T> {
 		price: BalanceOf<T>,
 		region_id: RegionId,
 		region_end: Timeslice,
-	) -> RenewalOrderResult<BalanceOf<T>, u32> {
+	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
+		CompletedRenewals::<T>::try_mutate(|r| {
+			r.try_push((who.clone(), renewal)).map_err(|_| Error::<T>::TooManyBids)
+		})?;
+
 		RenewalCount::<T>::mutate(|c| c.saturating_inc());
 		RenewalsUsed::<T>::mutate(who, |c| c.saturating_inc());
-		CompletedRenewals::<T>::mutate(|r| {
-			let _ = r.try_push((who.clone(), renewal));
-		});
 
 		Self::deposit_event(Event::RenewalExercised {
 			who: who.clone(),
@@ -351,7 +352,7 @@ impl<T: Config> Pallet<T> {
 			region_id,
 		});
 
-		RenewalOrderResult::Renewed { price, region_id, effective_to: region_end }
+		Ok(RenewalOrderResult::Renewed { price, region_id, effective_to: region_end })
 	}
 }
 
@@ -506,13 +507,15 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			let core = displaced.core;
 			let refund = sale.clearing_price.unwrap_or_default();
 
+			DisplacedBids::<T>::try_mutate(|bids| {
+				bids.try_push((displaced.who.clone(), refund))
+					.map_err(|_| Error::<T>::TooManyBids)
+			})?;
+
 			Self::deposit_event(Event::BidDisplaced {
-				who: displaced.who.clone(),
+				who: displaced.who,
 				bid_id: displaced.bid_id,
 				refund,
-			});
-			DisplacedBids::<T>::mutate(|bids| {
-				let _ = bids.try_push((displaced.who, refund));
 			});
 			Allocations::<T>::put(allocs);
 
@@ -522,7 +525,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		};
 
 		let region_id = RegionId { begin: sale.region_begin, core, mask: CoreMask::complete() };
-		Ok(Self::record_renewal(who, renewal, renewal_price, region_id, sale.region_end))
+		Self::record_renewal(who, renewal, renewal_price, region_id, sale.region_end)
 	}
 
 	fn adjust_bid(

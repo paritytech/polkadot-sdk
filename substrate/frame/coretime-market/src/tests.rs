@@ -440,6 +440,45 @@ fn double_renewal_prevented() {
 }
 
 #[test]
+fn renewal_fails_when_completed_renewals_full() {
+	TestExt::new().execute_with(|| {
+		let sale = setup_renewal_phase(&[]);
+
+		// Pre-fill CompletedRenewals to capacity (MaxBids = 100).
+		crate::pallet::CompletedRenewals::<Test>::put(
+			sp_runtime::BoundedVec::truncate_from(
+				(0..100u64)
+					.map(|i| (i, PotentialRenewalId { core: i as u16, when: 0 }))
+					.collect::<alloc::vec::Vec<_>>(),
+			),
+		);
+
+		TestRenewalRights::set(1, sale.region_begin, 1);
+		let result = place_renewal(25, 1, 0, sale.region_begin);
+		assert!(matches!(result, Err(Error::TooManyBids)));
+	});
+}
+
+#[test]
+fn displacement_fails_when_displaced_bids_full() {
+	TestExt::new().execute_with(|| {
+		// 2 cores, 2 bids → oversubscribed.
+		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
+
+		// Pre-fill DisplacedBids to capacity.
+		crate::pallet::DisplacedBids::<Test>::put(
+			sp_runtime::BoundedVec::truncate_from(
+				(0..100u64).map(|i| (i, 50u64)).collect::<alloc::vec::Vec<_>>(),
+			),
+		);
+
+		TestRenewalRights::set(3, sale.region_begin, 1);
+		let result = place_renewal(25, 3, 0, sale.region_begin);
+		assert!(matches!(result, Err(Error::TooManyBids)));
+	});
+}
+
+#[test]
 fn multiple_renewal_rights_respected() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[]);
@@ -847,15 +886,20 @@ fn descending_price_linear() {
 // --- Price adaptation ---
 
 #[test]
-fn reserve_price_increases_after_high_consumption() {
+fn price_unchanged_at_target_consumption() {
 	TestExt::new().execute_with(|| {
-		start_sales(100);
+		// 10 cores, sell 9 = 90% = target consumption rate.
+		TestCoreRangeProvider::set(0, 10);
+		let mut config = new_config();
+		config.ideal_bulk_proportion = sp_arithmetic::Perbill::from_percent(100);
+		<CoretimeMarket as Market<u64, u64, u64>>::configure(config).unwrap();
 
-		// Fill all 2 cores → 100% consumption.
-		place_bid(0, 1, 200).unwrap();
-		place_bid(0, 2, 200).unwrap();
+		start_sales(1000);
+		// Place 9 bids to fill 9 of 10 cores = 90%.
+		for i in 1..=9u64 {
+			place_bid(0, i, 10000).unwrap();
+		}
 
-		// Settle → Renewal → Settlement → Rotate.
 		tick(20);
 		tick(30);
 		let old_sale = SaleInfo::<Test>::get().unwrap();
@@ -864,36 +908,87 @@ fn reserve_price_increases_after_high_consumption() {
 		tick_with_ts(35, old_sale.region_begin);
 		let new_sale = SaleInfo::<Test>::get().unwrap();
 
-		assert!(
-			new_sale.reserve_price > old_reserve,
-			"Reserve price should increase after 100% consumption: {} > {}",
-			new_sale.reserve_price,
-			old_reserve,
+		// At target: exp(K * 0) = exp(0) = 1 → reserve unchanged.
+		assert_eq!(new_sale.reserve_price, old_reserve);
+	});
+}
+
+#[test]
+fn full_consumption_applies_min_increment() {
+	TestExt::new().execute_with(|| {
+		// 100% consumption: exp(K * 0.1) increase is < min_increment(100),
+		// so min_increment applies → new reserve = 100 + 100 = 200.
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 2, 200).unwrap();
+
+		tick(20);
+		tick(30);
+		let old_sale = SaleInfo::<Test>::get().unwrap();
+
+		tick_with_ts(35, old_sale.region_begin);
+		let new_sale = SaleInfo::<Test>::get().unwrap();
+
+		// min_increment = 100, old_reserve = 100 → new_reserve = 200.
+		assert_eq!(new_sale.reserve_price, 200);
+	});
+}
+
+#[test]
+fn zero_consumption_price_drops_significantly() {
+	TestExt::new().execute_with(|| {
+		// 0% consumption → reserve drops from 100 to 10.
+		start_sales(100);
+
+		tick(20);
+		tick(30);
+		let old_sale = SaleInfo::<Test>::get().unwrap();
+
+		tick_with_ts(35, old_sale.region_begin);
+		let new_sale = SaleInfo::<Test>::get().unwrap();
+
+		assert_eq!(new_sale.reserve_price, 10);
+	});
+}
+
+#[test]
+fn reserve_price_floored_at_minimum() {
+	TestExt::new().execute_with(|| {
+		// Very low reserve (2), 0% consumption → candidate would be < 1.
+		// min_reserve_price = 1 should floor it.
+		start_sales(2);
+
+		tick(20);
+		tick(30);
+		let old_sale = SaleInfo::<Test>::get().unwrap();
+
+		tick_with_ts(35, old_sale.region_begin);
+		let new_sale = SaleInfo::<Test>::get().unwrap();
+
+		assert_eq!(
+			new_sale.reserve_price, 1,
+			"Reserve should be floored at min_reserve_price"
 		);
 	});
 }
 
 #[test]
-fn reserve_price_decreases_after_low_consumption() {
+fn half_consumption_price_decreases_moderately() {
 	TestExt::new().execute_with(|| {
+		// 2 cores, 1 sold = 50% consumption.
+		// deviation = 40% (negative), K = 2.5, exp(-1.0) ≈ 0.3679
+		// candidate = floor(0.3679 * 100) = 36
 		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
 
-		// No bids → 0% consumption.
-		// Settle → Renewal → Settlement → Rotate.
 		tick(20);
 		tick(30);
 		let old_sale = SaleInfo::<Test>::get().unwrap();
-		let old_reserve = old_sale.reserve_price;
 
 		tick_with_ts(35, old_sale.region_begin);
 		let new_sale = SaleInfo::<Test>::get().unwrap();
 
-		assert!(
-			new_sale.reserve_price < old_reserve,
-			"Reserve price should decrease after 0% consumption: {} < {}",
-			new_sale.reserve_price,
-			old_reserve,
-		);
+		assert_eq!(new_sale.reserve_price, 36);
 	});
 }
 
