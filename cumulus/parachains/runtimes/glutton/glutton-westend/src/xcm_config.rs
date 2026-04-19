@@ -22,7 +22,10 @@ use frame_support::{
 	traits::{Contains, Equals, Everything, Nothing},
 	weights::Weight,
 };
-use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
+use xcm::{
+	latest::{prelude::*, WESTEND_GENESIS_HASH},
+	LocalRuntimeCall,
+};
 use xcm_builder::{
 	AllowExplicitUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
 	LocationAsSuperuser, ParentAsSuperuser, ParentIsPreset, SovereignSignedViaLocation,
@@ -65,6 +68,8 @@ parameter_types! {
 	pub const MaxInstructions: u32 = 100;
 	pub const MaxAssetsIntoHolding: u32 = 64;
 }
+
+impl LocalRuntimeCall for RuntimeCall {}
 
 pub struct XcmConfig;
 impl xcm_executor::Config for XcmConfig {
