@@ -22,10 +22,7 @@ use frame_support::{
 use pallet_identity::{Data, IdentityInformationProvider};
 use parachains_common::DAYS;
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{AccountIdConversion, Verify},
-	Debug,
-};
+use sp_runtime::{traits::Verify, Debug};
 
 parameter_types! {
 	//   27 | Min encoded size of `Registration`
@@ -36,8 +33,6 @@ parameter_types! {
 	pub const ByteDeposit: Balance = deposit(0, 1);
 	pub const UsernameDeposit: Balance = deposit(0, 32);
 	pub const SubAccountDeposit: Balance = deposit(1, 53);
-	pub RelayTreasuryAccount: AccountId =
-		parachains_common::TREASURY_PALLET_ID.into_account_truncating();
 }
 
 impl pallet_identity::Config for Runtime {

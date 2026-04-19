@@ -109,6 +109,10 @@ pub use cumulus_client_parachain_inherent;
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
+/// Storage proof size recording utilities.
+#[cfg(feature = "cumulus-client-proof-size-recording")]
+pub use cumulus_client_proof_size_recording;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
@@ -1343,6 +1347,10 @@ pub use sp_crypto_hashing;
 /// Procedural macros for calculating static hashes.
 #[cfg(feature = "sp-crypto-hashing-proc-macro")]
 pub use sp_crypto_hashing_proc_macro;
+
+/// Primitives for the Dynamic Allocation Pool (DAP).
+#[cfg(feature = "sp-dap")]
+pub use sp_dap;
 
 /// Substrate database trait.
 #[cfg(feature = "sp-database")]

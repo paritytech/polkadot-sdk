@@ -52,6 +52,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive::evm::DryRunConfig<M>>"
 	),
 	substitute_type(
+		path = "pallet_revive::evm::api::rpc_types::TracingConfig",
+		with = "::subxt::utils::Static<::pallet_revive::evm::TracingConfig>"
+	),
+	substitute_type(
 		path = "pallet_revive::primitives::EthTransactInfo<B>",
 		with = "::subxt::utils::Static<::pallet_revive::EthTransactInfo<B>>"
 	),
