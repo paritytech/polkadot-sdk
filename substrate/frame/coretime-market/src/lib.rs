@@ -457,7 +457,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 		// RFC-17: auction wins count against renewal quota.
 		// remaining = total_rights - auction_wins - renewals_already_used
-		let total_rights = T::RenewalRights::renewal_rights_count(who, renewal.when);
+		let total_rights = T::RenewalRights::renewal_rights_count(who, sale.region_begin);
 		let auction_wins = AuctionWins::<T>::get(who);
 		let renewals_used = RenewalsUsed::<T>::get(who);
 		let remaining = total_rights
