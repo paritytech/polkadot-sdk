@@ -402,9 +402,9 @@ fn displacement_targets_lowest_non_tenant_bidder() {
 #[test]
 fn existing_tenant_protected_from_displacement() {
 	TestExt::new().execute_with(|| {
-		// 2 cores offered. User 1 (tenant) has the LOWER bid. Without protection,
-		// they'd be the displacement target.
-		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 1);
+		// 2 cores offered. User 1 (tenant) has the LOWER bid and 2 renewal rights.
+		// After winning 1 core in auction, they have 1 remaining right → protected.
+		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 2);
 		let sale = setup_renewal_phase(&[(1, 150), (2, 200)]);
 
 		TestRenewalRights::set(3, sale.region_begin, 1);
@@ -431,12 +431,13 @@ fn existing_tenant_protected_from_displacement() {
 #[test]
 fn displacement_fails_when_all_winners_are_tenants() {
 	TestExt::new().execute_with(|| {
-		// 2 cores offered, 2 bids. Both bidders are existing tenants.
-		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 1);
-		TestRenewalRights::set(2, FIRST_REGION_BEGIN, 1);
+		// 2 cores offered, 2 bids. Both bidders are tenants with 2 rights each.
+		// After 1 auction win each, they still have remaining capacity → protected.
+		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 2);
+		TestRenewalRights::set(2, FIRST_REGION_BEGIN, 2);
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
 
-		// User 3 is a tenant wanting to renew, but all auction winners are tenants too.
+		// User 3 is a tenant wanting to renew, but all auction winners are protected.
 		TestRenewalRights::set(3, sale.region_begin, 1);
 
 		let result = place_renewal(25, 3, 0, sale.region_begin);
@@ -491,6 +492,52 @@ fn auction_wins_plus_renewals_exhaust_quota() {
 			place_renewal(25, 1, 2, sale.region_begin),
 			Err(Error::Unavailable)
 		));
+	});
+}
+
+#[test]
+fn tenant_protection_limited_to_renewal_rights_count() {
+	TestExt::new().execute_with(|| {
+		// 3 cores offered. User 1 has 1 renewal right but wins 2 cores in auction.
+		// Only 1 of their allocations should be protected.
+		TestCoreRangeProvider::set(0, 3);
+		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 1);
+
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 1, 180).unwrap();
+		place_bid(0, 2, 150).unwrap();
+		tick(20);
+		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		let sale = SaleInfo::<Test>::get().unwrap();
+
+		// User 3 renews → should displace one of user 1's unprotected allocations
+		// or user 2, whichever has the lowest bid.
+		// User 2 bid 150, user 1's second allocation bid 180.
+		// User 2 is lowest non-tenant → displaced first.
+		TestRenewalRights::set(3, sale.region_begin, 1);
+		place_renewal(25, 3, 0, sale.region_begin).unwrap();
+
+		// User 4 renews → now user 1's unprotected allocation (bid 180) is the
+		// lowest remaining non-tenant. Should be displaced.
+		TestRenewalRights::set(4, sale.region_begin, 1);
+		place_renewal(25, 4, 0, sale.region_begin).unwrap();
+
+		let actions = tick(30);
+
+		// User 1 should have exactly 1 SellRegion (the protected one).
+		let user1_sells = actions
+			.iter()
+			.filter(|a| matches!(a, TickAction::SellRegion { owner, .. } if *owner == 1))
+			.count();
+		assert_eq!(user1_sells, 1, "Only 1 of user 1's 2 allocations should survive");
+
+		// Should have 2 refunds (user 2 displaced + user 1's unprotected allocation).
+		let refund_count = actions
+			.iter()
+			.filter(|a| matches!(a, TickAction::Refund { .. }))
+			.count();
+		assert_eq!(refund_count, 2);
 	});
 }
 

@@ -176,7 +176,4 @@ pub struct AllocationRecord<AccountId, Balance> {
 	pub bid_id: u32,
 	/// The core index assigned to this allocation.
 	pub core: CoreIndex,
-	/// Whether this winner is an existing tenant (holds renewal rights). Set at settlement.
-	/// Existing tenants cannot be displaced during the Renewal phase.
-	pub is_existing_tenant: bool,
 }
