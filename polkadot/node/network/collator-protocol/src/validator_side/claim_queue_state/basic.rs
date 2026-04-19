@@ -173,11 +173,12 @@ impl ClaimQueueState {
 				Some(future_block) => {
 					let future_claim = future_block.claim.as_ref();
 					if future_claim != Some(expected_claim) {
-						gum::warn!(
+						gum::debug!(
 							target: LOG_TARGET,
 							?future_claim,
 							?expected_claim,
-							"Inconsistency while adding a leaf to the `ClaimQueueState`."
+							leaf=?hash,
+							"Claim queue has changed. Expected on group rotations."
 						);
 
 						// There is an inconsistency. Update our view with the one from the claim
@@ -501,7 +502,8 @@ impl ClaimQueueState {
 	/// Returns `true` if there is a free spot in claim queue (free claim) for `para_id` at
 	/// `relay_parent` or if there is an existing claim for the provided candidate at
 	/// `relay_parent`.
-	pub(crate) fn has_or_can_claim_at(
+	#[cfg(test)]
+	pub(super) fn has_or_can_claim_at(
 		&mut self,
 		relay_parent: &Hash,
 		para_id: &ParaId,
@@ -518,15 +520,6 @@ impl ClaimQueueState {
 			return true;
 		}
 		self.find_claim(relay_parent, para_id, &[ClaimState::Free], true).is_some()
-	}
-
-	/// Returns a `Vec` of `ParaId`s with all free claims at `relay_parent`.
-	pub(crate) fn get_free_at(&self, relay_parent: &Hash) -> VecDeque<ParaId> {
-		let window = self.get_window(relay_parent);
-		window
-			.filter(|b| matches!(b.claimed, ClaimState::Free))
-			.filter_map(|b| b.claim)
-			.collect()
 	}
 
 	/// Returns the number of claims for a specific para id at a specific relay parent.

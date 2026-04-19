@@ -20,13 +20,22 @@ use super::{
 	FrameMeter, InfoT, ResourceMeter, RootStorageMeter, SaturatedConversion, SignedGas, State,
 	StorageDeposit, Token, TransactionLimits, TransactionMeter, Weight, WeightMeter, Zero,
 };
-use crate::vm::evm::EVMGas;
+use crate::vm::{RuntimeCosts, evm::EVMGas};
 use core::marker::PhantomData;
 use revm::interpreter::gas::CALL_STIPEND;
 
+/// Maximum number of LOG topics a stipend frame is expected to emit.
+const STIPEND_LOG_TOPICS: u32 = 4;
+/// Maximum LOG data size (in bytes) a stipend frame is expected to emit.
+const STIPEND_LOG_DATA_LEN: u32 = 64;
+
 fn determine_call_stipend<T: Config>() -> Weight {
-	let gas = EVMGas(CALL_STIPEND);
-	<EVMGas as Token<T>>::weight(&gas)
+	let gas_weight = <EVMGas as Token<T>>::weight(&EVMGas(CALL_STIPEND));
+	let event_weight = <RuntimeCosts as Token<T>>::weight(&RuntimeCosts::DepositEvent {
+		num_topic: STIPEND_LOG_TOPICS,
+		len: STIPEND_LOG_DATA_LEN,
+	});
+	gas_weight.saturating_add(event_weight)
 }
 
 pub mod substrate_execution {
@@ -115,6 +124,10 @@ pub mod substrate_execution {
 					else {
 						return Err(<Error<T>>::OutOfGas.into());
 					};
+
+					// Cap to u64::MAX since Ethereum gas is u64. Without this, large deposit_left
+					// (e.g., u128::MAX) causes ratio ≈ 0, giving nested calls almost no weight.
+					let remaining_gas = remaining_gas.min(u64::MAX.saturated_into());
 
 					let gas_limit = remaining_gas.min(*gas);
 

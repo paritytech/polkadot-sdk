@@ -1,3 +1,13 @@
+{% if env.NO_RUNTIMES == "false" and env.CRATES_ONLY == "false" -%}
+ℹ️ **Please note:**
+
+The tag corresponding to the current stable release `{{ env.REF2 }}` and matching the old pattern will be
+available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{
+env.NODE_VERSION }}).
+
+The node version for this release is: **{{ env.NODE_VERSION }}**
+{% endif -%}
+
 {% if env.NO_RUNTIMES == "true" -%}
 ℹ️ **Please note:**
 
@@ -6,6 +16,8 @@ you should upgrade to this patch version to get the latest fixes.
 
 The tag corresponding to the current patch release `{{ env.REF2 }}` and matching the old pattern will be
 available under [polkadot-{{ env.NODE_VERSION }}](https://github.com/paritytech/polkadot-sdk/releases/tag/polkadot-{{ env.NODE_VERSION }}).
+
+The node version for this release is: **{{ env.NODE_VERSION }}**
 {% endif -%}
 
 {% if env.CRATES_ONLY == "true" -%}

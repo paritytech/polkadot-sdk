@@ -584,7 +584,7 @@ mod tests {
 		let mut data = vec![];
 		for i in 1..16 {
 			for c in 'a'..'z' {
-				if c as usize % i != 0 {
+				if !(c as usize).is_multiple_of(i) {
 					data.push(c.to_string());
 				}
 			}

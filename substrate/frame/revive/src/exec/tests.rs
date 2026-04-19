@@ -244,7 +244,7 @@ fn transfer_works() {
 		let value = 55;
 		let origin = Origin::from_account_id(ALICE);
 		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(Default::default(), u64::MAX).unwrap();
+			TransactionMeter::<Test>::new_from_limits(Default::default(), u128::MAX).unwrap();
 
 		MockStack::transfer(
 			&origin,
@@ -283,7 +283,7 @@ fn transfer_to_nonexistent_account_works() {
 		let value = 1024;
 		let evm_value = Pallet::<Test>::convert_native_to_evm(value);
 		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(Default::default(), u64::MAX).unwrap();
+			TransactionMeter::<Test>::new_from_limits(Default::default(), u128::MAX).unwrap();
 
 		// Transfers to nonexistent accounts should work
 		set_balance(&ALICE, ed * 2);
@@ -493,13 +493,13 @@ fn balance_too_low() {
 		set_balance(&ALICE, ed * 2);
 		set_balance(&from, ed + 99);
 		let mut meter =
-			TransactionMeter::<Test>::new_from_limits(Default::default(), u64::MAX).unwrap();
+			TransactionMeter::<Test>::new_from_limits(Default::default(), u128::MAX).unwrap();
 
 		let result = MockStack::transfer(
 			&Origin::from_account_id(ALICE),
 			&from,
 			&dest,
-			Pallet::<Test>::convert_native_to_evm(100u64).as_u64().into(),
+			Pallet::<Test>::convert_native_to_evm(100u128).as_u64().into(),
 			Preservation::Preserve,
 			&mut meter,
 			&ExecConfig::new_substrate_tx(),
@@ -1330,7 +1330,7 @@ fn termination_from_instantiate_succeeds() {
 				ALICE,
 				executable,
 				&mut meter,
-				Pallet::<Test>::convert_native_to_evm(100u64),
+				Pallet::<Test>::convert_native_to_evm(100u128),
 				vec![],
 				Some(&[0; 32]),
 				&ExecConfig::new_substrate_tx(),

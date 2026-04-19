@@ -76,7 +76,7 @@ fn main() -> Result<()> {
 		None => {
 			let runner = cli.create_runner(&cli.run.base).map_err(|e| {
 				SubstrateCliError::Application(
-					Box::new(e) as Box<(dyn 'static + Send + Sync + std::error::Error)>
+					Box::new(e) as Box<dyn 'static + Send + Sync + std::error::Error>
 				)
 			})?;
 

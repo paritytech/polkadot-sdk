@@ -35,10 +35,10 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::UnityOrOuterConversion, AsEnsureOriginWithArg,
-		ConstU32, Contains, EitherOf, EitherOfDiverse, EnsureOriginWithArg, FromContains,
-		InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage,
-		ProcessMessageError, VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU32, Contains, EitherOf,
+		EitherOfDiverse, EnsureOriginWithArg, InstanceFilter, KeyOwnerProofSystem,
+		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
+		WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -67,16 +67,13 @@ use polkadot_runtime_common::{
 	assigned_slots, auctions, crowdloan,
 	elections::OnChainAccuracy,
 	identity_migrator, impl_runtime_weights,
-	impls::{
-		ContainsParts, LocatableAssetConverter, ToAuthor, VersionedLocatableAsset,
-		VersionedLocationConverter,
-	},
+	impls::{ToAuthor, VersionedLocatableAsset},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
 	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -97,17 +94,17 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstU8, ConstUint, OpaqueMetadata, H256};
+use sp_core::{ConstBool, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::{
-		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, IdentityLookup,
-		Keccak256, OpaqueKeys, SaturatedConversion, Verify,
+		AccountIdConversion, BlakeTwo256, Block as BlockT, ConvertInto, Get, Keccak256, OpaqueKeys,
+		SaturatedConversion, Verify,
 	},
 	transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, FixedU128, KeyTypeId, MultiSignature, MultiSigner, Percent,
+	ApplyExtrinsicResult, FixedU128, KeyTypeId, Percent,
 };
 use sp_staking::{EraIndex, SessionIndex};
 #[cfg(any(feature = "std", test))]
@@ -117,7 +114,6 @@ use xcm::{
 	latest::prelude::*, Version as XcmVersion, VersionedAsset, VersionedAssetId, VersionedAssets,
 	VersionedLocation, VersionedXcm,
 };
-use xcm_builder::PayOverXcm;
 use xcm_runtime_apis::{
 	dry_run::{CallDryRunEffects, Error as XcmDryRunApiError, XcmDryRunEffects},
 	fees::Error as XcmPaymentApiError,
@@ -132,7 +128,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 use westend_runtime_constants::{
 	currency::*,
 	fee::*,
-	system_parachain::{coretime::TIMESLICE_PERIOD, ASSET_HUB_ID, BROKER_ID},
+	system_parachain::{coretime::TIMESLICE_PERIOD, dap::*, ASSET_HUB_ID, BROKER_ID},
 	time::*,
 };
 
@@ -149,7 +145,6 @@ use impls::ToParachainIdentityReaper;
 pub mod governance;
 use governance::{
 	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin,
-	Treasurer, TreasurySpender,
 };
 use xcm_config::XcmConfig;
 
@@ -173,7 +168,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("parity-westend"),
 	authoring_version: 2,
-	spec_version: 1_021_001,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 27,
@@ -395,7 +390,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type DustRemoval = ();
+	type DustRemoval = DapSatellite;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -479,11 +474,18 @@ parameter_types! {
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	pub const OperationalFeeMultiplier: u8 = 5;
+	/// Percentage of fees that go to DAP satellite.
+	/// The remainder goes to block author. Tips always go 100% to author.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
 }
+
+/// Fee handler that splits fees between DAP satellite and block author.
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, ToAuthor<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, ToAuthor<Runtime>>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -549,7 +551,7 @@ impl Get<u32> for MaybeSignedPhase {
 	fn get() -> u32 {
 		// 1 day = 4 eras -> 1 week = 28 eras. We want to disable signed phase once a week to test
 		// the fallback unsigned phase is able to compute elections on Westend.
-		if pallet_staking::CurrentEra::<Runtime>::get().unwrap_or(1) % 28 == 0 {
+		if pallet_staking::CurrentEra::<Runtime>::get().unwrap_or(1).is_multiple_of(28) {
 			0
 		} else {
 			SignedPhase::get()
@@ -921,62 +923,7 @@ impl pallet_fast_unstake::Config for Runtime {
 }
 
 parameter_types! {
-	pub const SpendPeriod: BlockNumber = 6 * DAYS;
-	pub const TreasuryPalletId: PalletId = PalletId(*b"py/trsry");
-	pub const PayoutSpendPeriod: BlockNumber = 30 * DAYS;
-	// The asset's interior location for the paying account. This is the Treasury
-	// pallet instance (which sits at index 37).
-	pub TreasuryInteriorLocation: InteriorLocation = PalletInstance(37).into();
-
-	pub const TipCountdown: BlockNumber = 1 * DAYS;
-	pub const TipFindersFee: Percent = Percent::from_percent(20);
-	pub const TipReportDepositBase: Balance = 100 * CENTS;
-	pub const DataDepositPerByte: Balance = 1 * CENTS;
-	pub const MaxApprovals: u32 = 100;
 	pub const MaxAuthorities: u32 = 100_000;
-	pub const MaxKeys: u32 = 10_000;
-	pub const MaxPeerInHeartbeats: u32 = 10_000;
-	pub const MaxBalance: Balance = Balance::max_value();
-}
-
-impl pallet_treasury::Config for Runtime {
-	type PalletId = TreasuryPalletId;
-	type Currency = Balances;
-	type RejectOrigin = EitherOfDiverse<EnsureRoot<AccountId>, Treasurer>;
-	type RuntimeEvent = RuntimeEvent;
-	type SpendPeriod = SpendPeriod;
-	type Burn = ();
-	type BurnDestination = ();
-	type MaxApprovals = MaxApprovals;
-	type WeightInfo = weights::pallet_treasury::WeightInfo<Runtime>;
-	type SpendFunds = ();
-	type SpendOrigin = TreasurySpender;
-	type AssetKind = VersionedLocatableAsset;
-	type Beneficiary = VersionedLocation;
-	type BeneficiaryLookup = IdentityLookup<Self::Beneficiary>;
-	type Paymaster = PayOverXcm<
-		TreasuryInteriorLocation,
-		crate::xcm_config::XcmConfig,
-		crate::XcmPallet,
-		ConstU32<{ 6 * HOURS }>,
-		Self::Beneficiary,
-		Self::AssetKind,
-		LocatableAssetConverter,
-		VersionedLocationConverter,
-	>;
-	type BalanceConverter = UnityOrOuterConversion<
-		ContainsParts<
-			FromContains<
-				xcm_builder::IsChildSystemParachain<ParaId>,
-				xcm_builder::IsParentsOnly<ConstU8<1>>,
-			>,
-		>,
-		AssetRate,
-	>;
-	type PayoutPeriod = PayoutSpendPeriod;
-	type BlockNumberProvider = System;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::TreasuryArguments;
 }
 
 impl pallet_offences::Config for Runtime {
@@ -1429,7 +1376,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = CoretimeAssignmentProvider;
+	type AssignCoretime = ParaScheduler;
 	type Fungible = Balances;
 	// Per day the cooldown is removed earlier, it should cost 1000.
 	type CooldownRemovalMultiplier = ConstUint<{ 1000 * UNITS / DAYS as u128 }>;
@@ -1515,11 +1462,7 @@ impl parachains_paras_inherent::Config for Runtime {
 	type WeightInfo = weights::polkadot_runtime_parachains_paras_inherent::WeightInfo<Runtime>;
 }
 
-impl parachains_scheduler::Config for Runtime {
-	// If you change this, make sure the `Assignment` type of the new provider is binary compatible,
-	// otherwise provide a migration.
-	type AssignmentProvider = CoretimeAssignmentProvider;
-}
+impl parachains_scheduler::Config for Runtime {}
 
 parameter_types! {
 	pub const BrokerId: u32 = BROKER_ID;
@@ -1565,8 +1508,6 @@ impl parachains_on_demand::Config for Runtime {
 	type MaxHistoricalRevenue = MaxHistoricalRevenue;
 	type PalletId = OnDemandPalletId;
 }
-
-impl parachains_assigner_coretime::Config for Runtime {}
 
 impl parachains_initializer::Config for Runtime {
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
@@ -1745,6 +1686,21 @@ impl pallet_root_offences::Config for Runtime {
 	type ReportOffence = Offences;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+	type SendToDap = xcm_builder::SendToDapViaTeleport<
+		xcm_config::XcmConfig,
+		xcm_config::AssetHub,
+		xcm_config::TokenLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = frame_system::Pallet<Runtime>;
+	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+}
+
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * BlockWeights::get().max_block;
 }
@@ -1778,7 +1734,7 @@ impl pallet_asset_rate::Config for Runtime {
 	type RemoveOrigin = EnsureRoot<AccountId>;
 	type UpdateOrigin = EnsureRoot<AccountId>;
 	type Currency = Balances;
-	type AssetKind = <Runtime as pallet_treasury::Config>::AssetKind;
+	type AssetKind = VersionedLocatableAsset;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
@@ -1789,35 +1745,6 @@ impl OnSwap for SwapLeases {
 	fn on_swap(one: ParaId, other: ParaId) {
 		coretime::Pallet::<Runtime>::on_legacy_lease_swap(one, other);
 	}
-}
-
-pub type MetaTxExtension = (
-	pallet_verify_signature::VerifySignature<Runtime>,
-	pallet_meta_tx::MetaTxMarker<Runtime>,
-	frame_system::CheckNonZeroSender<Runtime>,
-	frame_system::CheckSpecVersion<Runtime>,
-	frame_system::CheckTxVersion<Runtime>,
-	frame_system::CheckGenesis<Runtime>,
-	frame_system::CheckMortality<Runtime>,
-	frame_system::CheckNonce<Runtime>,
-	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
-);
-
-impl pallet_meta_tx::Config for Runtime {
-	type WeightInfo = weights::pallet_meta_tx::WeightInfo<Runtime>;
-	type RuntimeEvent = RuntimeEvent;
-	#[cfg(not(feature = "runtime-benchmarks"))]
-	type Extension = MetaTxExtension;
-	#[cfg(feature = "runtime-benchmarks")]
-	type Extension = pallet_meta_tx::WeightlessExtension<Runtime>;
-}
-
-impl pallet_verify_signature::Config for Runtime {
-	type Signature = MultiSignature;
-	type AccountIdentifier = MultiSigner;
-	type WeightInfo = weights::pallet_verify_signature::WeightInfo<Runtime>;
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = ();
 }
 
 #[frame_support::runtime(legacy_ordering)]
@@ -1853,6 +1780,9 @@ mod runtime {
 	pub type Balances = pallet_balances;
 	#[runtime::pallet_index(26)]
 	pub type TransactionPayment = pallet_transaction_payment;
+	// DAP Satellite - collects funds for transfer to DAP on AssetHub
+	#[runtime::pallet_index(106)]
+	pub type DapSatellite = pallet_dap_satellite;
 
 	// Consensus support.
 	// Authorship must be before session in order to note author in the correct session and era.
@@ -1936,10 +1866,6 @@ mod runtime {
 	#[runtime::pallet_index(36)]
 	pub type Whitelist = pallet_whitelist;
 
-	// Treasury
-	#[runtime::pallet_index(37)]
-	pub type Treasury = pallet_treasury;
-
 	// Staking extension for delegation
 	#[runtime::pallet_index(38)]
 	pub type DelegatedStaking = pallet_delegated_staking;
@@ -1974,8 +1900,8 @@ mod runtime {
 	pub type ParasSlashing = parachains_slashing;
 	#[runtime::pallet_index(56)]
 	pub type OnDemandAssignmentProvider = parachains_on_demand;
-	#[runtime::pallet_index(57)]
-	pub type CoretimeAssignmentProvider = parachains_assigner_coretime;
+	// RIP CoretimeAssignmentProvider 57 - Moved to scheduler::assigner_coretime submodule in PR
+	// #10184 (Had no extrinsics nor events exposed)
 
 	// Parachain Onboarding Pallets. Start indices at 60 to leave room.
 	#[runtime::pallet_index(60)]
@@ -2014,12 +1940,6 @@ mod runtime {
 	// Root testing pallet.
 	#[runtime::pallet_index(102)]
 	pub type RootTesting = pallet_root_testing;
-
-	#[runtime::pallet_index(103)]
-	pub type MetaTx = pallet_meta_tx::Pallet<Runtime>;
-
-	#[runtime::pallet_index(104)]
-	pub type VerifySignature = pallet_verify_signature::Pallet<Runtime>;
 
 	// Root offences pallet
 	#[runtime::pallet_index(105)]
@@ -2081,6 +2001,10 @@ pub type Migrations = migrations::Unreleased;
 pub mod migrations {
 	use super::*;
 
+	parameter_types! {
+		pub const TreasuryPalletStr: &'static str = "Treasury";
+	}
+
 	/// Unreleased migrations. Add new ones here:
 	pub type Unreleased = (
 		// This is only needed for Westend.
@@ -2088,12 +2012,23 @@ pub mod migrations {
 			Runtime,
 			MaxAgentsToMigrate,
 		>,
-		parachains_shared::migration::MigrateToV1<Runtime>,
-		parachains_scheduler::migration::MigrateV2ToV3<Runtime>,
 		pallet_staking::migrations::v16::MigrateV15ToV16<Runtime>,
 		pallet_session::migrations::v1::MigrateV0ToV1<
 			Runtime,
 			pallet_staking::migrations::v17::MigrateDisabledToSession<Runtime>,
+		>,
+		// Migrate scheduler v3 -> v4 and on-demand v1 -> v2
+		parachains_on_demand::migration::MigrateV1ToV2<Runtime>,
+		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
+		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
+		parachains_shared::migration::MigrateToV2<Runtime>,
+		// #11705: drain residual relay-treasury balance into DAP satellite, then clear orphaned
+		// storage. Idempotent. No further activity on the legacy `py/trsry` account is expected.
+		// Safe to remove once confirmed.
+		pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
+		frame_support::migrations::RemovePallet<
+			TreasuryPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
@@ -2169,13 +2104,11 @@ mod benches {
 		[frame_system_extensions, SystemExtensionsBench::<Runtime>]
 		[pallet_timestamp, Timestamp]
 		[pallet_transaction_payment, TransactionPayment]
-		[pallet_treasury, Treasury]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
-		[pallet_meta_tx, MetaTx]
-		[pallet_verify_signature, VerifySignature]
+		[pallet_dap_satellite, DapSatellite]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.
@@ -2256,7 +2189,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(15)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			parachains_runtime_api_impl::validators::<Runtime>()
@@ -2442,6 +2375,17 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			parachains_staging_runtime_api_impl::para_ids::<Runtime>()
+		}
+
+		fn max_relay_parent_session_age() -> u32 {
+			parachains_staging_runtime_api_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn ancestor_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			parachains_staging_runtime_api_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 	}
 

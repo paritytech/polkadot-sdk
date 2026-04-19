@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2025-05-09
+  TOOLCHAIN: nightly
 
 jobs:
   isdraft:
@@ -81,8 +81,10 @@ jobs:
           rustup component add rust-src --toolchain $TOOLCHAIN
 
       - name: Install parity-publish
-        # Set the target dir to cache the build.
-        run: CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          # Set the target dir to cache the build.
+          CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.10 --locked -q
 
       - name: Get original PR number
         shell: bash

@@ -19,12 +19,11 @@
 use super::{
 	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
 	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
+	TransactionByteFee, WeightToFee, XcmPallet,
 };
-use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Disabled, Equals, Everything, Nothing, PalletInfoAccess},
+	traits::{Contains, Disabled, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -60,14 +59,17 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
-	pub TreasuryAccount: AccountId = Treasury::account_id();
-	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
+	};
 }
 
 pub type LocationConverter = (
@@ -194,7 +196,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations =
-	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<TreasuryLocation>);
+	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<DapSatelliteLocation>);
 
 /// We let locations alias into child locations of their own.
 /// This is a very simple aliasing rule, mimicking the behaviour of
@@ -217,6 +219,9 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
+	// TODO: once DAP allocates validator/author budgets, redirect XCM execution fees to DAP
+	// satellite instead of block author (use crate::DealWithFeesSatellite as the OnUnbalanced
+	// handler).
 	type Trader =
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToAuthor<Runtime>>;
 	type ResponseHandler = XcmPallet;
@@ -228,7 +233,7 @@ impl xcm_executor::Config for XcmConfig {
 	type MaxAssetsIntoHolding = MaxAssetsIntoHolding;
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, TreasuryAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, DapSatelliteAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;
@@ -249,8 +254,6 @@ parameter_types! {
 	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
 	// FellowshipAdmin pluralistic body.
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
-	// `Treasurer` pluralistic body.
-	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
 	// DDay pluralistic body.
 	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
 }
@@ -275,9 +278,6 @@ pub type StakingAdminToPlurality =
 pub type FellowshipAdminToPlurality =
 	OriginToPluralityVoice<RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId>;
 
-/// Type to convert the `Treasurer` origin to a Plurality `Location` value.
-pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasurerBodyId>;
-
 /// Type to convert a pallet `Origin` type value into a `Location` value which represents an
 /// interior location of this chain for a destination chain.
 pub type LocalPalletOriginToLocation = (
@@ -287,8 +287,6 @@ pub type LocalPalletOriginToLocation = (
 	StakingAdminToPlurality,
 	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
 	FellowshipAdminToPlurality,
-	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
-	TreasurerToPlurality,
 );
 
 impl LocalRuntimeCall for RuntimeCall {}

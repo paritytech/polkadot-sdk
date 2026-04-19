@@ -40,7 +40,7 @@ use alloc::{vec, vec::Vec};
 use bridge_runtime_common::extensions::{
 	CheckAndBoostBridgeGrandpaTransactions, CheckAndBoostBridgeParachainsTransactions,
 };
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use cumulus_primitives_core::ParaId;
 use sp_api::impl_runtime_apis;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -48,7 +48,7 @@ use sp_runtime::{
 	generic, impl_opaque_keys,
 	traits::Block as BlockT,
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult,
+	ApplyExtrinsicResult, Percent,
 };
 
 use sp_session::OpaqueGeneratedSessionKeys;
@@ -101,7 +101,9 @@ use parachains_common::{
 };
 use snowbridge_core::{AgentId, PricingParameters};
 use snowbridge_outbound_queue_primitives::v1::{Command, Fee};
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use xcm::{Version as XcmVersion, VersionedLocation};
 
 use westend_runtime_constants::system_parachain::{ASSET_HUB_ID, BRIDGE_HUB_ID};
@@ -151,6 +153,7 @@ pub type Migrations = (
 	// unreleased
 	cumulus_pallet_xcmp_queue::migration::v4::MigrationToV4<Runtime>,
 	cumulus_pallet_xcmp_queue::migration::v5::MigrateV4ToV5<Runtime>,
+	cumulus_pallet_xcmp_queue::migration::v6::MigrateV5ToV6<Runtime>,
 	pallet_bridge_messages::migration::v1::MigrationToV1<
 		Runtime,
 		bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance,
@@ -185,6 +188,10 @@ pub type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
+	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
+	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
+	// Safe to remove once confirmed.
+	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 	// permanent
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
@@ -244,7 +251,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	impl_name: alloc::borrow::Cow::Borrowed("bridge-hub-westend"),
 	authoring_version: 1,
-	spec_version: 1_021_001,
+	spec_version: 1_022_003,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -345,7 +352,7 @@ parameter_types! {
 impl pallet_balances::Config for Runtime {
 	/// The type for recording an account's balance.
 	type Balance = Balance;
-	type DustRemoval = ();
+	type DustRemoval = DapSatellite;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
@@ -364,12 +371,18 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
+	/// Percentage of fees to send to DAP satellite.
+	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
 }
+
+/// Fee handler that splits fees between DAP satellite and staking pot.
+type DealWithFeesSatellite =
+	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFees<Runtime>>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
 	type OperationalFeeMultiplier = ConstU8<5>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -557,6 +570,21 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = weights::pallet_utility::WeightInfo<Runtime>;
 }
 
+impl pallet_dap_satellite::Config for Runtime {
+	type Currency = Balances;
+	type PalletId = DapSatellitePalletId;
+	type SendToDap = xcm_builder::SendToDapViaTeleport<
+		xcm_config::XcmConfig,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+		xcm_config::WestendLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
@@ -571,6 +599,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
+		DapSatellite: pallet_dap_satellite = 12,
 
 		// Collator support. The order of these 4 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -617,7 +646,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		Runtime,
 		bridge_to_rococo_config::BridgeGrandpaRococoInstance,
 		bridge_to_rococo_config::PriorityBoostPerRelayHeader,
-		xcm_config::TreasuryAccount,
+		xcm_config::DapSatelliteAccount,
 	>,
 	// Parachains
 	CheckAndBoostBridgeParachainsTransactions<
@@ -625,7 +654,7 @@ bridge_runtime_common::generate_bridge_reject_obsolete_headers_and_messages! {
 		bridge_to_rococo_config::BridgeParachainRococoInstance,
 		bp_bridge_hub_rococo::BridgeHubRococo,
 		bridge_to_rococo_config::PriorityBoostPerParachainHeader,
-		xcm_config::TreasuryAccount,
+		xcm_config::DapSatelliteAccount,
 	>,
 	// Messages
 	BridgeRococoMessages
@@ -667,6 +696,7 @@ mod benches {
 		[snowbridge_pallet_outbound_queue_v2, EthereumOutboundQueueV2]
 
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[pallet_dap_satellite, DapSatellite]
 	);
 }
 
@@ -1322,7 +1352,7 @@ impl_runtime_apis! {
 					params: MessageProofParams<LaneIdOf<Runtime, bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>>,
 				) -> (bridge_to_rococo_config::FromRococoBridgeHubMessagesProof<bridge_to_rococo_config::WithBridgeHubRococoMessagesInstance>, Weight) {
 					use cumulus_primitives_core::XcmpMessageSource;
-					assert!(XcmpQueue::take_outbound_messages(usize::MAX).is_empty());
+					assert!(XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty());
 					ParachainSystem::open_outbound_hrmp_channel_for_benchmarks_or_tests(42.into());
 					let universal_source = bridge_to_rococo_config::open_bridge_for_benchmarks::<
 						Runtime,
@@ -1353,7 +1383,7 @@ impl_runtime_apis! {
 
 				fn is_message_successfully_dispatched(_nonce: bp_messages::MessageNonce) -> bool {
 					use cumulus_primitives_core::XcmpMessageSource;
-					!XcmpQueue::take_outbound_messages(usize::MAX).is_empty()
+					!XcmpQueue::take_outbound_messages(usize::MAX, &[]).is_empty()
 				}
 			}
 

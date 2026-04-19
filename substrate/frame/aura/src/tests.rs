@@ -21,10 +21,11 @@
 
 use super::pallet;
 use crate::mock::{
-	build_ext, build_ext_and_execute_test, Aura, MockDisabledValidators, System, Test, Timestamp,
+	build_ext, build_ext_and_execute_test, Aura, MockDisabledValidators, SlotDurationValue, System,
+	Test, Timestamp,
 };
 use codec::Encode;
-use frame_support::traits::OnInitialize;
+use frame_support::traits::Hooks;
 use sp_consensus_aura::{Slot, AURA_ENGINE_ID};
 use sp_runtime::{Digest, DigestItem, TryRuntimeError};
 
@@ -144,5 +145,68 @@ fn try_state_validates_timestamp_slot_consistency() {
 			Aura::do_try_state(),
 			Err(TryRuntimeError::Other("Timestamp slot must match CurrentSlot."))
 		);
+	});
+}
+
+#[test]
+fn integrity_test_passes_with_valid_config() {
+	use frame_support::traits::Hooks;
+	build_ext(vec![0, 1, 2, 3]).execute_with(|| {
+		// This should not panic with valid configuration
+		<Aura as Hooks<frame_system::pallet_prelude::BlockNumberFor<Test>>>::integrity_test();
+	});
+}
+
+#[test]
+fn increase_slot_duration() {
+	build_ext(vec![0, 1, 2, 3]).execute_with(|| {
+		// Running with slot_duration=2: timestamp=100, slot=50.
+		pallet_timestamp::Now::<Test>::put(100u64);
+		pallet::CurrentSlot::<Test>::put(Slot::from(50u64));
+
+		// Increase slot duration from 2 to 4.
+		SlotDurationValue::set(4);
+		Aura::on_runtime_upgrade();
+
+		// CurrentSlot migrated: 100 / 4 = 25.
+		assert_eq!(u64::from(pallet::CurrentSlot::<Test>::get()), 25);
+
+		// Next block: slot 26 works with on_initialize.
+		let slot = Slot::from(26);
+		let pre_digest =
+			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
+		System::reset_events();
+		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		Aura::on_initialize(1);
+
+		assert_eq!(pallet::CurrentSlot::<Test>::get(), slot);
+
+		SlotDurationValue::set(2);
+	});
+}
+
+#[test]
+fn decrease_slot_duration() {
+	build_ext(vec![0, 1, 2, 3]).execute_with(|| {
+		// Running with slot_duration=4: timestamp=100, slot=25.
+		pallet_timestamp::Now::<Test>::put(100u64);
+		pallet::CurrentSlot::<Test>::put(Slot::from(25u64));
+
+		// Decrease slot duration from 4 to 2.
+		SlotDurationValue::set(2);
+		Aura::on_runtime_upgrade();
+
+		// CurrentSlot migrated: 100 / 2 = 50.
+		assert_eq!(u64::from(pallet::CurrentSlot::<Test>::get()), 50);
+
+		// Next block: slot 51 works with on_initialize.
+		let slot = Slot::from(51);
+		let pre_digest =
+			Digest { logs: vec![DigestItem::PreRuntime(AURA_ENGINE_ID, slot.encode())] };
+		System::reset_events();
+		System::initialize(&1, &System::parent_hash(), &pre_digest);
+		Aura::on_initialize(1);
+
+		assert_eq!(pallet::CurrentSlot::<Test>::get(), slot);
 	});
 }

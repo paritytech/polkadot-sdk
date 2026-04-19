@@ -39,6 +39,7 @@ jobs:
             bridge-hub-westend,
             collectives-westend,
             coretime-westend,
+            people-westend,
           ]
         include:
           - network: westend
@@ -61,6 +62,10 @@ jobs:
             package: coretime-westend-runtime
             wasm: coretime_westend_runtime.compact.compressed.wasm
             uri: "wss://westend-coretime-rpc.polkadot.io:443"
+          - network: people-westend
+            package: people-westend-runtime
+            wasm: people_westend_runtime.compact.compressed.wasm
+            uri: "wss://westend-people-rpc.polkadot.io:443"
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -81,7 +86,16 @@ jobs:
         id: check-compatibility
         run: |
           echo "---------- Checking runtime compatibility for ${{ matrix.network }} ----------"
-          npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
+          set +e
+          # check-runtime hangs indefinitely if the RPC node is unreachable.
+          timeout 120 npx @polkadot-api/check-runtime@latest problems ${{ matrix.uri }} --wasm ./target/release/wbuild/${{ matrix.package }}/${{ matrix.wasm }}
+          EXIT_CODE=$?
+          set -e
+          # When the time limit is reached, timeout returns exit code 124
+          if [ $EXIT_CODE -eq 124 ]; then
+            echo "::error::Timed out connecting to ${{ matrix.uri }} for ${{ matrix.network }}"
+          fi
+          exit $EXIT_CODE
 
       - name: Stop all workflows if failed
         if: ${{ failure() && (steps.build-runtime.conclusion == 'failure' || steps.check-compatibility.conclusion == 'failure') }}

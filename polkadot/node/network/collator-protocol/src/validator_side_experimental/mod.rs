@@ -33,7 +33,7 @@ use futures::{future::Fuse, select, FutureExt, StreamExt};
 use futures_timer::Delay;
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
-	CollationProtocols, PeerId,
+	v3_collation as protocol_v3, CollationProtocols, PeerId,
 };
 use polkadot_node_subsystem::{
 	messages::{CollatorProtocolMessage, NetworkBridgeEvent, NetworkBridgeTxMessage},
@@ -325,11 +325,11 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 				);
 			}
 		},
-		Seconded(_parent, stmt) => {
-			state.handle_seconded_collation(sender, stmt).await;
+		Seconded(parent, stmt) => {
+			state.handle_seconded_collation(sender, stmt, parent).await;
 		},
-		Invalid(_parent, candidate_receipt) => {
-			state.handle_invalid_collation(candidate_receipt).await;
+		Invalid(parent, candidate_receipt) => {
+			state.handle_invalid_collation(candidate_receipt, parent).await;
 		},
 		ConnectToBackingGroups => {
 			gum::warn!(
@@ -402,18 +402,22 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 	msg: CollationProtocols<
 		protocol_v1::CollatorProtocolMessage,
 		protocol_v2::CollatorProtocolMessage,
+		protocol_v3::CollatorProtocolMessage,
 	>,
 ) {
 	use protocol_v1::CollatorProtocolMessage as V1;
 	use protocol_v2::CollatorProtocolMessage as V2;
+	use protocol_v3::CollatorProtocolMessage as V3;
 
 	match msg {
 		CollationProtocols::V1(V1::Declare(_collator_id, para_id, _signature)) |
-		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) => {
+		CollationProtocols::V2(V2::Declare(_collator_id, para_id, _signature)) |
+		CollationProtocols::V3(V3::Declare(_collator_id, para_id, _signature)) => {
 			state.handle_declare(sender, origin, para_id).await;
 		},
 		CollationProtocols::V1(V1::CollationSeconded(..)) |
-		CollationProtocols::V2(V2::CollationSeconded(..)) => {
+		CollationProtocols::V2(V2::CollationSeconded(..)) |
+		CollationProtocols::V3(V3::CollationSeconded(..)) => {
 			gum::warn!(
 				target: LOG_TARGET,
 				peer_id = ?origin,
@@ -421,19 +425,38 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 			);
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(sender, origin, relay_parent, None).await;
+			state.handle_advertisement(sender, origin, relay_parent, None, None).await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
-			relay_parent,
+			scheduling_parent,
 			candidate_hash,
 			parent_head_data_hash,
+			..
 		}) => {
 			state
 				.handle_advertisement(
 					sender,
 					origin,
-					relay_parent,
+					scheduling_parent,
 					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					None,
+				)
+				.await;
+		},
+		CollationProtocols::V3(V3::AdvertiseCollation {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+			..
+		}) => {
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					scheduling_parent,
+					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					Some(candidate_descriptor_version),
 				)
 				.await;
 		},

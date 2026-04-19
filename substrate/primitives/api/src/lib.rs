@@ -684,7 +684,11 @@ pub trait CallApiAt<Block: BlockT> {
 	fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError>;
 
 	/// Returns the runtime version at the given block.
-	fn runtime_version_at(&self, at_hash: Block::Hash) -> Result<RuntimeVersion, ApiError>;
+	fn runtime_version_at(
+		&self,
+		at_hash: Block::Hash,
+		call_context: CallContext,
+	) -> Result<RuntimeVersion, ApiError>;
 
 	/// Get the state `at` the given block.
 	fn state_at(&self, at: Block::Hash) -> Result<Self::StateBackend, ApiError>;
@@ -708,8 +712,9 @@ impl<Block: BlockT, T: CallApiAt<Block>> CallApiAt<Block> for std::sync::Arc<T> 
 	fn runtime_version_at(
 		&self,
 		at_hash: <Block as BlockT>::Hash,
+		call_context: CallContext,
 	) -> Result<RuntimeVersion, ApiError> {
-		(**self).runtime_version_at(at_hash)
+		(**self).runtime_version_at(at_hash, call_context)
 	}
 
 	fn state_at(&self, at: <Block as BlockT>::Hash) -> Result<Self::StateBackend, ApiError> {
