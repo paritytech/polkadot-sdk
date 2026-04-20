@@ -119,9 +119,7 @@ pub mod pallet {
 		PGASFeePaid { who: T::AccountId, actual_fee: BalanceOf<T> },
 	}
 
-	/// Genesis configuration provisions the PGAS asset so that the extension's `Create` bound is
-	/// satisfied at chain start. The asset is owned by a sovereign account derived from an
-	/// internal pallet id so that no user key controls it.
+	/// Genesis configuration provisions the PGAS asset so it exists at chain start.
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
@@ -330,7 +328,13 @@ where
 			},
 			Val::Inner(val) => {
 				let extra_refund = if T::CallFilter::contains(call) {
-					charge_pgas.saturating_sub(inner_weight.saturating_add(charge_pgas_skip))
+					let reserved = charge_pgas.max(inner_weight.saturating_add(charge_pgas_skip));
+					let consumed = if origin.as_system_origin_signer().is_some() {
+						inner_weight.saturating_add(charge_pgas_skip)
+					} else {
+						inner_weight
+					};
+					reserved.saturating_sub(consumed)
 				} else {
 					Weight::zero()
 				};

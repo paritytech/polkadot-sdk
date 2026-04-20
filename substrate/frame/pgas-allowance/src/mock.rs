@@ -18,9 +18,8 @@ use crate as pallet_pgas_allowance;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
-	pallet_prelude::Get,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU64, Contains},
+	traits::{AsEnsureOriginWithArg, ConstU64, Contains, Get},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 };
 use frame_system::EnsureRoot;
