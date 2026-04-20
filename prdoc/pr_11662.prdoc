@@ -64,10 +64,10 @@ doc:
 
 crates:
   - name: sc-hop
-    bump: minor
+    bump: patch
   - name: sp-hop
-    bump: minor
+    bump: patch
   - name: polkadot-omni-node-lib
-    bump: minor
+    bump: major
   - name: pallet-transaction-storage
-    bump: none
+    bump: minor

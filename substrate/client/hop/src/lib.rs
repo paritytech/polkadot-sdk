@@ -104,8 +104,7 @@ pub use cli::HopParams;
 pub use pool::HopDataPool;
 pub use primitives::{HopBlockNumber, HopHash};
 pub use promotion::{
-	build_maintenance_task, try_build_promoter, HopMaintenanceTask, HopPromoter,
-	RuntimeApiPromoter,
+	build_maintenance_task, try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter,
 };
 pub use rate_limit::{RateLimitConfig, RateLimiter};
 pub use rpc::{HopApiServer, HopRpcServer};

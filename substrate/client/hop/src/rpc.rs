@@ -306,7 +306,7 @@ mod tests {
 
 	impl sp_api::ProvideRuntimeApi<Block> for MockClient {
 		type Api = MockRuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<MockRuntimeApi> {
+		fn runtime_api(&self) -> sp_api::ApiRef<'_, MockRuntimeApi> {
 			MockRuntimeApi { authorized: self.authorized.load(Ordering::Relaxed) }.into()
 		}
 	}

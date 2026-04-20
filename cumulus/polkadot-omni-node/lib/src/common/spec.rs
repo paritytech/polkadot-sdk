@@ -44,7 +44,7 @@ use log::{debug, info};
 use parachains_common_types::Hash;
 use polkadot_primitives::CollatorPair;
 use prometheus_endpoint::Registry;
-use sc_client_api::{Backend, HeaderBackend};
+use sc_client_api::Backend;
 use sc_consensus::DefaultImportQueue;
 use sc_executor::{HeapAllocStrategy, DEFAULT_HEAP_ALLOC_STRATEGY};
 use sc_network::{
