@@ -252,11 +252,11 @@ fn zero_reward_points_means_no_payout() {
 		let events = staking_events_since_last_call();
 
 		// THEN: alice gets nothing (no points).
-		assert!(staker_reward_for(alice, &events).is_none());
-		assert!(incentive_paid_for(alice, &events).is_none());
+		assert_eq!(staker_reward_for(alice, &events), None);
+		assert_eq!(incentive_paid_for(alice, &events), None);
 		// THEN: bob gets both staker reward and incentive bonus.
-		assert!(staker_reward_for(bob, &events).is_some());
-		assert!(incentive_paid_for(bob, &events).is_some());
+		assert_eq!(staker_reward_for(bob, &events), Some(5400));
+		assert_eq!(incentive_paid_for(bob, &events), Some(375));
 	});
 }
 
@@ -275,10 +275,14 @@ fn incentive_weight_stored_correctly() {
 		let incentive_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
 		assert_eq!(incentive_weight, 31);
 
-		// THEN: incentive is paid.
+		// THEN: incentive is paid. Two validators have equal weight so each gets half of the
+		// incentive budget (750 = 5% of era issuance 15_000).
 		let _ = staking_events_since_last_call();
 		make_all_reward_payment(2);
-		assert!(incentive_paid_for(alice, &staking_events_since_last_call()).is_some());
+		assert_eq!(
+			incentive_paid_for(alice, &staking_events_since_last_call()),
+			Some(375)
+		);
 	});
 }
 
