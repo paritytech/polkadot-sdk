@@ -44,7 +44,7 @@ pub struct DbContext {
 }
 
 impl DbContext {
-	/// SQLite default for `SQLITE_LIMIT_VARIABLE_NUMBER`.
+	/// Conservative default for `SQLITE_LIMIT_VARIABLE_NUMBER`; SQLite >=3.32 uses 32766.
 	pub const DEFAULT_MAX_VARIABLE_NUMBER: usize = 999;
 	/// Columns in the `transaction_hashes` table.
 	const TX_HASH_COLUMNS: usize = 3;
@@ -1722,10 +1722,12 @@ mod tests {
 			(1000, 3),                 // multiple tx and log chunks
 		];
 
+		let mut tx_offset = 0;
 		for (i, (n_tx, n_logs)) in cases.into_iter().enumerate() {
 			let block = MockBlockInfo { hash: make_hash(i, 0x00), number: i as u32 + 1 };
 			let ethereum_hash = make_hash(i, 0xff);
-			let receipts = make_receipts(0, n_tx, n_logs);
+			let receipts = make_receipts(tx_offset, n_tx, n_logs);
+			tx_offset += n_tx;
 			provider.insert(&block, &receipts, &ethereum_hash).await?;
 			assert_receipts_inserted(&provider, &block, &ethereum_hash, &receipts).await;
 		}
