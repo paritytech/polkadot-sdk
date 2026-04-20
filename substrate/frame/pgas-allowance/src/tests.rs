@@ -27,7 +27,7 @@ fn new_ext() -> Ext {
 }
 
 fn pgas_call() -> RuntimeCall {
-	RuntimeCall::DummyPallet(pallet_dummy::Call::<Runtime>::noop {})
+	RuntimeCall::System(frame_system::Call::remark { remark: Default::default() })
 }
 
 fn non_pgas_call() -> RuntimeCall {

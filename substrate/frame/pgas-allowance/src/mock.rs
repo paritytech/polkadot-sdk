@@ -44,7 +44,6 @@ frame_support::construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Assets: pallet_assets,
 		PgasAllowance: pallet_pgas_allowance,
-		DummyPallet: pallet_dummy,
 	}
 );
 
@@ -118,25 +117,18 @@ impl pallet_assets::Config for Runtime {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
-	// No deposits in tests.
-	type AssetDeposit = ConstU64<0>;
-	type AssetAccountDeposit = ConstU64<0>;
-	type MetadataDepositBase = ConstU64<0>;
-	type MetadataDepositPerByte = ConstU64<0>;
-	type ApprovalDeposit = ConstU64<0>;
 }
 
 parameter_types! {
 	pub const PGASAssetId: AssetId = PGAS_ASSET_ID;
 }
 
-/// Filter that matches the dummy pallet plus `frame_system` calls. The dummy pallet is used by
-/// the unit tests and `frame_system` covers the `frame_system::remark` call that the benchmarks
-/// dispatch; `Balances` and other calls fall through so the filter-miss path stays exercised.
+/// Filter that matches `frame_system` calls (used by tests via `System::remark` and by the
+/// benchmarks). `Balances` and other calls fall through so the filter-miss path stays exercised.
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::DummyPallet(..) | RuntimeCall::System(..))
+		matches!(call, RuntimeCall::System(..))
 	}
 }
 
@@ -158,28 +150,6 @@ impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetId, Balance> fo
 		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
 	}
 }
-
-#[frame_support::pallet(dev_mode)]
-pub mod pallet_dummy {
-	use frame_support::pallet_prelude::*;
-	use frame_system::pallet_prelude::*;
-
-	#[pallet::pallet]
-	pub struct Pallet<T>(_);
-
-	#[pallet::config]
-	pub trait Config: frame_system::Config {}
-
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// A no-op call whose only purpose is to match the PGAS filter in tests.
-		pub fn noop(_origin: OriginFor<T>) -> DispatchResult {
-			Ok(())
-		}
-	}
-}
-
-impl pallet_dummy::Config for Runtime {}
 
 pub struct ExtBuilder {
 	native_balances: Vec<(AccountId, Balance)>,
