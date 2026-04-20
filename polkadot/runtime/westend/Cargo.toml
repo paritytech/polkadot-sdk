@@ -95,8 +95,6 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-system-benchmarking = { optional = true, workspace = true }
 frame-try-runtime = { optional = true, workspace = true }
 hex-literal = { workspace = true, default-features = true }
-pallet-offences-benchmarking = { optional = true, workspace = true }
-pallet-session-benchmarking = { optional = true, workspace = true }
 
 polkadot-parachain-primitives = { workspace = true }
 polkadot-primitives = { workspace = true }
@@ -150,7 +148,6 @@ std = [
 	"pallet-migrations/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
-	"pallet-offences-benchmarking?/std",
 	"pallet-offences/std",
 	"pallet-parameters/std",
 	"pallet-preimage/std",
@@ -160,7 +157,6 @@ std = [
 	"pallet-root-offences/std",
 	"pallet-root-testing/std",
 	"pallet-scheduler/std",
-	"pallet-session-benchmarking?/std",
 	"pallet-session/std",
 	"pallet-staking-async-ah-client/std",
 	"pallet-staking-async-rc-client/std",
@@ -229,7 +225,6 @@ runtime-benchmarks = [
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
-	"pallet-offences-benchmarking/runtime-benchmarks",
 	"pallet-offences/runtime-benchmarks",
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
@@ -238,7 +233,6 @@ runtime-benchmarks = [
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-root-offences/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
-	"pallet-session-benchmarking/runtime-benchmarks",
 	"pallet-session/runtime-benchmarks",
 	"pallet-staking-async-ah-client/runtime-benchmarks",
 	"pallet-staking-async-rc-client/runtime-benchmarks",

@@ -56,7 +56,8 @@ pub async fn execute<Runtime, Block>(
 		);
 		log::info!(target: LOG_TARGET, "Moved {} nominators", moved);
 
-		let voter_list_len = <Runtime as pallet_staking_async::Config>::VoterList::iter().count() as u32;
+		let voter_list_len =
+			<Runtime as pallet_staking_async::Config>::VoterList::iter().count() as u32;
 		let voter_list_count = <Runtime as pallet_staking_async::Config>::VoterList::count();
 		// and confirm it is equal to the length of the `VoterList`.
 		assert_eq!(pre_migrate_nominator_count, voter_list_len);
