@@ -13,45 +13,7 @@ doc:
         remainder is `resolve`d back to the payer. Otherwise the inner extension runs
         unchanged.
       - Wires the extension into `asset-hub-westend` around `ChargeAssetTxPayment`, with
-        the filter matching `pallet-revive` calls and PGAS bound to
-        `AssetIdForTrustBackedAssets = 0`.
-
-      ## Flow
-
-      1. `validate`: unsigned origin or filter miss -> delegate to inner. Signed + filter
-         hit + `reducible_balance(PGAS, Preserve) >= fee` -> tag as PGAS path.
-      2. `prepare`: `Balanced::withdraw(fee, Preservation::Preserve)` -> `Credit` stored
-         in `Pre::PGAS`. Using `Preserve` keeps at least the asset's existential deposit
-         in the payer's account.
-      3. `post_dispatch_details`: split `Credit` by `actual_fee`; `resolve` refund to
-         payer; drop consumed portion (burns issuance).
-
-      The imbalance-based flow mirrors `FungibleAdapter::correct_and_deposit_fee` in
-      `pallet-transaction-payment`.
-
-      ## Benchmarks
-
-      Two benchmarks measure the extension overhead:
-      - `charge_pgas`: full PGAS path (validate + withdraw credit + resolve refund).
-      - `charge_pgas_skip`: PGAS path skipped (validation preamble only, falls through
-        to the inner extension).
-
-      `weight()` reserves the worst case (`charge_pgas`); `post_dispatch_details`
-      refunds the difference when the skip path is taken.
-
-      ## Test plan
-
-      - [x] `cargo test -p pallet-pgas-allowance --features runtime-benchmarks` - 10 tests:
-        - `pgas_pays_for_filtered_call_with_zero_native`
-        - `falls_back_to_inner_when_no_pgas`
-        - `filter_miss_uses_inner_even_with_pgas`
-        - `pgas_refund_on_unused_weight`
-        - `pgas_below_ed_falls_back_to_native`
-        - `unsigned_delegates_to_inner`
-        - `bench_charge_pgas`, `bench_charge_pgas_skip`
-        - mock construct-runtime integrity + genesis builder
-      - [x] `cargo check -p asset-hub-westend-runtime --features runtime-benchmarks`
-      - [ ] CI runs full workspace build / clippy / tests
+        the filter matching `pallet-revive` calls and PGAS bound to `AssetIdForTrustBackedAssets = <TODO>`.
 crates:
   - name: asset-hub-westend-runtime
     bump: minor

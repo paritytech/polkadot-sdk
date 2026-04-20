@@ -54,6 +54,8 @@ use sp_runtime::{
 pub use pallet::*;
 pub use weights::WeightInfo;
 
+const LOG_TARGET: &str = "runtime::pgas-allowance";
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -65,11 +67,6 @@ pub mod weights;
 /// Balance type alias, sourced from `pallet-transaction-payment`.
 pub type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
 	pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
-
-/// Internal pallet id used to derive the sovereign account that owns the PGAS asset created at
-/// genesis. Kept out of [`Config`] since the identifier only has to be unique within a runtime
-/// and runtimes never need to customise it.
-const PALLET_ID: PalletId = PalletId(*b"py/pgasa");
 
 /// Trait used by runtimes to mint PGAS to the benchmark caller.
 #[cfg(feature = "runtime-benchmarks")]
@@ -122,15 +119,11 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	/// Genesis configuration provisions the PGAS asset so that the extension's `Create` bound is
-	/// satisfied at chain start. The asset is owned by a sovereign account derived from
-	/// [`PALLET_ID`] so that no user key controls it; setting `min_balance` to zero skips asset
-	/// creation.
+	/// satisfied at chain start. The asset is owned by a sovereign account derived from an
+	/// internal pallet id so that no user key controls it.
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Minimum balance (existential deposit) of the PGAS asset. When zero, no asset is
-		/// created at genesis.
-		pub min_balance: BalanceOf<T>,
 		#[serde(skip)]
 		pub _phantom: core::marker::PhantomData<T>,
 	}
@@ -138,16 +131,19 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			if self.min_balance.is_zero() {
-				return;
-			}
-			<T::Assets as fungibles::Create<T::AccountId>>::create(
+			const PALLET_ID: PalletId = PalletId(*b"py/pgasa");
+			if let Err(e) = <T::Assets as fungibles::Create<T::AccountId>>::create(
 				T::PGASAssetId::get(),
 				PALLET_ID.into_account_truncating(),
 				true,
-				self.min_balance,
-			)
-			.expect("PGAS asset creation failed at genesis");
+				1u32.into(),
+			) {
+				log::warn!(
+					target: LOG_TARGET,
+					"PGAS asset creation failed at genesis: {:?}",
+					e,
+				);
+			}
 		}
 	}
 }
@@ -243,11 +239,11 @@ where
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		let inner = self.inner.weight(call);
-		let skip = <T as Config>::WeightInfo::charge_pgas_skip();
 		if T::CallFilter::contains(call) {
-			<T as Config>::WeightInfo::charge_pgas().max(inner.saturating_add(skip))
+			<T as Config>::WeightInfo::charge_pgas()
+				.max(inner.saturating_add(<T as Config>::WeightInfo::charge_pgas_skip()))
 		} else {
-			inner.saturating_add(skip)
+			inner
 		}
 	}
 
@@ -340,18 +336,12 @@ where
 					Fortitude::Polite,
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
-				// Reserved `max(charge_pgas, inner + charge_pgas_skip)`, spending `charge_pgas`:
-				// refund the slack when `inner + charge_pgas_skip` was the larger summand.
+
 				let refund =
 					inner_weight.saturating_add(charge_pgas_skip).saturating_sub(charge_pgas);
 				Ok(Pre::PGAS { who, credit, refund })
 			},
 			Val::Inner(val) => {
-				// Filter-pass skip: reserved `max(charge_pgas, inner + charge_pgas_skip)`, actual
-				// cost is `inner_actual + charge_pgas_skip`. Inner already refunds `inner -
-				// inner_actual`, so the extra we owe on top is `max(0, charge_pgas - inner -
-				// charge_pgas_skip)`.
-				// Filter-miss: reserved `inner + charge_pgas_skip`; no extra refund from us.
 				let extra_refund = if T::CallFilter::contains(call) {
 					charge_pgas.saturating_sub(inner_weight.saturating_add(charge_pgas_skip))
 				} else {

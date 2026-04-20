@@ -98,7 +98,7 @@ fn asset_hub_westend_genesis(
 				.collect(),
 			..Default::default()
 		},
-		pgas_allowance: PgasAllowanceConfig { min_balance: 1u32.into() },
+		pgas_allowance: PgasAllowanceConfig { ..Default::default() },
 	})
 }
 

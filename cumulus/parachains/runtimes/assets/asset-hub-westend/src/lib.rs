@@ -1128,6 +1128,7 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 
 parameter_types! {
 	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
+	/// TODO: Set the westend value
 	pub const PGASAssetId: AssetIdForTrustBackedAssets = 0;
 }
 
@@ -1143,13 +1144,14 @@ impl pallet_pgas_allowance::Config for Runtime {
 	type AssetId = AssetIdForTrustBackedAssets;
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
-	// Benchmarks use a passthrough so `charge_pgas` (which dispatches `frame_system::remark`)
-	// exercises the full PGAS path instead of falling through to the skip branch.
+
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type CallFilter = PGASCallFilter;
 	#[cfg(feature = "runtime-benchmarks")]
 	type CallFilter = frame_support::traits::Everything;
+
 	type WeightInfo = pallet_pgas_allowance::weights::SubstrateWeight<Runtime>;
+
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PGASBenchmarkHelper;
 }

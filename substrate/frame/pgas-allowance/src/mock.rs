@@ -235,12 +235,9 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_pgas_allowance::GenesisConfig::<Runtime> {
-			min_balance: 1,
-			_phantom: Default::default(),
-		}
-		.assimilate_storage(&mut t)
-		.unwrap();
+		pallet_pgas_allowance::GenesisConfig::<Runtime> { _phantom: Default::default() }
+			.assimilate_storage(&mut t)
+			.unwrap();
 
 		let mut ext: sp_io::TestExternalities = t.into();
 		ext.execute_with(|| {
