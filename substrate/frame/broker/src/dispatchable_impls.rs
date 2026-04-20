@@ -348,10 +348,12 @@ impl<T: Config> Pallet<T> {
 			if duration == config.region_length && finality == Finality::Final {
 				if let Some(price) = region.paid {
 					let renewal_id = PotentialRenewalId { core: region_id.core, when: region.end };
-					let assigned = match PotentialRenewals::<T>::get(renewal_id) {
-						Some(PotentialRenewalRecord { completion: Partial(w) }) if price == p => w,
-						_ => CoreMask::void(),
-					} | region_id.mask;
+					// TODO: Fix logic.
+					// let assigned = match PotentialRenewals::<T>::get(renewal_id) {
+					// 	Some(PotentialRenewalRecord { completion: Partial(w) }) if price == p => w,
+					// 	_ => CoreMask::void(),
+					// } | region_id.mask;
+					let assigned = region_id.mask;
 
 					let workload =
 						if assigned.is_complete() { Complete(workplan) } else { Partial(assigned) };
