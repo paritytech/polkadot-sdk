@@ -418,7 +418,7 @@ impl ReceiptExtractor {
 
 	/// Return the ETH extrinsics of the block grouped with reconstruction receipt info and
 	/// extrinsic index
-	pub async fn get_block_extrinsics(
+	async fn get_block_extrinsics(
 		&self,
 		block: &SubstrateBlock,
 	) -> Result<impl Iterator<Item = (EthTransact, ReceiptGasInfo, usize)>, ClientError> {
