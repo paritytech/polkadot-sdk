@@ -182,15 +182,12 @@ impl<T: Config> Pallet<T> {
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		match Self::place_renewal_order(now, &who, renewal_id, record.price)? {
+		match T::CoretimeMarket::place_renewal_order(now, &who, renewal_id)? {
 			RenewalOrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
-
-				Self::deposit_event(Event::BidPlaced { bid_id: id, price: bid_price });
-
 				Ok(DoRenewResult::BidPlaced { id })
 			},
-			RenewalOrderResult::Sold { price, next_renewal_price, region_id, effective_to } => {
+			RenewalOrderResult::Renewed { price, region_id, effective_to } => {
 				Self::charge(&who, price)?;
 
 				Workplan::<T>::insert((region_id.begin, region_id.core), &workload);
@@ -205,10 +202,7 @@ impl<T: Config> Pallet<T> {
 					workload: workload.clone(),
 				});
 
-				let new_record = PotentialRenewalRecord {
-					price: next_renewal_price,
-					completion: Complete(workload),
-				};
+				let new_record = PotentialRenewalRecord { completion: Complete(workload) };
 				PotentialRenewals::<T>::remove(renewal_id);
 				PotentialRenewals::<T>::insert(
 					PotentialRenewalId { core: region_id.core, when: effective_to },

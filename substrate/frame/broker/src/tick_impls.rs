@@ -160,20 +160,18 @@ impl<T: Config> Pallet<T> {
 
 	pub(crate) fn process_market_logic(meter: &mut WeightMeter) {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let result = <Self as Market<T>>::tick(now, meter);
+		let result = T::CoretimeMarket::tick(now, meter);
 
 		for action in result {
 			Self::process_tick_action(action, meter);
 		}
 	}
 
-	pub(crate) fn process_tick_action(action: TickAction<T>, meter: &mut WeightMeter) {
+	pub(crate) fn process_tick_action(
+		action: TickAction<T::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>,
+		meter: &mut WeightMeter,
+	) {
 		match action {
-			TickAction::BidClosed { id, owner } => {
-				meter.consume(T::WeightInfo::process_tick_action_bid_closed());
-
-				Self::deposit_event(Event::BidClosed { bid_id: id, owner });
-			},
 			TickAction::RenewRegion { owner, renewal_id } => {
 				meter.consume(T::WeightInfo::process_tick_action_renew_region());
 
@@ -196,13 +194,16 @@ impl<T: Config> Pallet<T> {
 
 				Self::refund(&who, amount).defensive_ok();
 			},
-			TickAction::SaleRotated { old_sale, new_sale, new_prices, start_price } => {
+			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
+				Self::renew_cores(after_timeslice, next_renewal_at);
+			},
+			TickAction::SaleRotated { old_sale, new_sale } => {
 				if let Some(status) = Status::<T>::get() {
 					meter.consume(T::WeightInfo::process_tick_action_sale_rotated(
 						status.core_count.into(),
 					));
 
-					Self::rotate_sale(&old_sale, &new_sale, new_prices, start_price, &status);
+					Self::rotate_sale(&old_sale, &new_sale, &status);
 				} else {
 					// Consume for the storage read.
 					meter.consume(T::WeightInfo::process_tick_action_sale_rotated(0));
@@ -213,10 +214,8 @@ impl<T: Config> Pallet<T> {
 
 	/// Begin selling for the next sale period.
 	pub(crate) fn rotate_sale(
-		old_sale: &SaleInfoRecordOf<T>,
-		new_sale: &SaleInfoRecordOf<T>,
-		new_prices: AdaptedPrices<BalanceOf<T>>,
-		start_price: BalanceOf<T>,
+		old_sale: &MarketSaleInfo<RelayBlockNumberOf<T>>,
+		new_sale: &MarketSaleInfo<RelayBlockNumberOf<T>>,
 		status: &StatusRecord,
 	) {
 		let pool_item =
@@ -296,22 +295,21 @@ impl<T: Config> Pallet<T> {
 		});
 		Leases::<T>::put(&leases);
 
-		Self::renew_cores(new_sale);
-
-		Self::deposit_event(Event::SaleInitialized {
-			sale_start: new_sale.sale_start,
-			leadin_length: new_sale.leadin_length,
-			start_price,
-			end_price: new_prices.end_price,
-			region_begin: new_sale.region_begin,
-			region_end: new_sale.region_end,
-			ideal_cores_sold: new_sale.ideal_cores_sold,
-			cores_offered: new_sale.cores_offered,
-		});
+		// TODO: Reduce amount of fields?
+		// Self::deposit_event(Event::SaleInitialized {
+		// 	sale_start: new_sale.sale_start,
+		// 	leadin_length: new_sale.leadin_length,
+		// 	start_price,
+		// 	end_price: new_prices.end_price,
+		// 	region_begin: new_sale.region_begin,
+		// 	region_end: new_sale.region_end,
+		// 	ideal_cores_sold: new_sale.ideal_cores_sold,
+		// 	cores_offered: new_sale.cores_offered,
+		// });
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.
-	pub(crate) fn renew_cores(sale: &SaleInfoRecordOf<T>) {
+	pub(crate) fn renew_cores(after_timeslice: Timeslice, next_renewal: Timeslice) {
 		let renewals = AutoRenewals::<T>::get();
 
 		let Ok(auto_renewals) = renewals
@@ -319,7 +317,7 @@ impl<T: Config> Pallet<T> {
 			.flat_map(|record| {
 				// Check if the next renewal is scheduled further in the future than the start of
 				// the next region beginning. If so, we skip the renewal for this core.
-				if sale.region_begin < record.next_renewal {
+				if after_timeslice < record.next_renewal {
 					return Some(record);
 				}
 
@@ -333,11 +331,9 @@ impl<T: Config> Pallet<T> {
 
 				let renew_result = Self::do_renew(payer.clone(), record.core);
 				match renew_result {
-					Ok(DoRenewResult::Renewed { new_core }) => Some(AutoRenewalRecord {
-						core: new_core,
-						task: record.task,
-						next_renewal: sale.region_end,
-					}),
+					Ok(DoRenewResult::Renewed { new_core }) => {
+						Some(AutoRenewalRecord { core: new_core, task: record.task, next_renewal })
+					},
 					Ok(DoRenewResult::BidPlaced { .. }) => {
 						// We don't support auto-renewals when market doesn't allow purchasing
 						// regions right away.

@@ -20,7 +20,6 @@
 
 pub use pallet::*;
 
-mod adapt_price;
 mod benchmarking;
 mod core_mask;
 mod coretime_interface;
@@ -44,7 +43,6 @@ pub mod runtime_api;
 pub mod weights;
 pub use weights::WeightInfo;
 
-pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
 pub use market::*;
@@ -102,9 +100,6 @@ pub mod pallet {
 		/// system.
 		type Coretime: CoretimeInterface;
 
-		/// The algorithm to determine the next price on the basis of market performance.
-		type PriceAdapter: AdaptPrice<BalanceOf<Self>>;
-
 		/// Reversible conversion from local balance to Relay-chain balance. This will typically be
 		/// the `Identity`, but provided just in case the chains use different representations.
 		type ConvertBalance: Convert<BalanceOf<Self>, RelayBalanceOf<Self>>
@@ -113,6 +108,10 @@ pub mod pallet {
 		/// Type used for getting the associated account of a task. This account is controlled by
 		/// the task itself.
 		type SovereignAccountOf: MaybeConvert<TaskId, Self::AccountId>;
+
+		/// Market implementation that will be used to execute all the logic related to the bulk
+		/// coretime sales.
+		type CoretimeMarket: Market<RelayBlockNumberOf<Self>, BalanceOf<Self>, Self::AccountId>;
 
 		/// Identifier from which the internal Pot is generated.
 		#[pallet::constant]
@@ -527,20 +526,6 @@ pub mod pallet {
 			core: CoreIndex,
 			/// The timeslice associated with the potential renewal that was removed.
 			timeslice: Timeslice,
-		},
-		/// The bid was placed on coretime auction.
-		BidPlaced {
-			/// Unique ID of the bid that was placed.
-			bid_id: BidIdOf<T>,
-			/// Bid amount.
-			price: BalanceOf<T>,
-		},
-		/// The bid was removed.
-		BidClosed {
-			/// Unique ID of the bid that was removed.
-			bid_id: BidIdOf<T>,
-			/// An account that originally made the bid.
-			owner: T::AccountId,
 		},
 	}
 

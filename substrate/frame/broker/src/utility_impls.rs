@@ -149,16 +149,15 @@ impl<T: Config> Pallet<T> {
 	}
 }
 
-pub struct CoreCountProviderImpl<T: Config>(PhantomData<T>);
+pub struct CoreRangeProviderImpl<T: Config>(PhantomData<T>);
 
-impl<T: Config> CoreCountProvider<T> for CoreCountProviderImpl<T> {
-	fn reserved_core_count() -> CoreIndex {
-		Reservations::<T>::decode_len().unwrap_or_default() as CoreIndex +
-			Leases::<T>::decode_len().unwrap_or_default() as CoreIndex
-	}
+impl<T: Config> CoreRangeProvider for CoreRangeProviderImpl<T> {
+	fn core_range() -> Option<SoldCoresRange> {
+		let reserved = Reservations::<T>::decode_len().unwrap_or_default() as CoreIndex +
+			Leases::<T>::decode_len().unwrap_or_default() as CoreIndex;
+		let core_count = Status::<T>::get()?.core_count;
 
-	fn core_count() -> Option<CoreIndex> {
-		Status::<T>::get().map(|status| status.core_count)
+		Some(SoldCoresRange { from: reserved, to: core_count })
 	}
 }
 
@@ -171,5 +170,16 @@ impl<T: Config> TimesliceProvider for TimesliceProviderImpl<T> {
 		} else {
 			None
 		}
+	}
+
+	fn latest_timeslice_ready_to_commit() -> Option<Timeslice> {
+		let Some(config) = Configuration::<T>::get() else {
+			return None;
+		};
+
+		let latest = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let advanced = latest.saturating_add(config.advance_notice);
+		let timeslice_period = T::TimeslicePeriod::get();
+		Some((advanced / timeslice_period).saturated_into())
 	}
 }
