@@ -384,7 +384,7 @@ impl<T: Config> Eras<T> {
 		incentive_weight: BalanceOf<T>,
 	) {
 		<ErasSumValidatorIncentiveWeight<T>>::mutate(era, |sum| {
-			*sum += incentive_weight;
+			*sum = sum.saturating_add(incentive_weight);
 		});
 	}
 
