@@ -299,7 +299,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type RuntimeCall = RuntimeCall;
 	type RuntimeEvent = RuntimeEvent;
 	type Scheduler = Scheduler;
-	type Currency = Balances;
+	type NativeBalance = Balances;
 	type SubmitOrigin =
 		pallet_ranked_collective::EnsureMember<Runtime, FellowshipCollectiveInstance, 1>;
 	type CancelOrigin = FellowshipExperts;
