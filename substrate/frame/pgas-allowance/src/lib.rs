@@ -175,7 +175,7 @@ pub enum Pre<InnerPre, T: Config> {
 		credit: Credit<T::AccountId, T::Assets>,
 		/// Weight difference between what [`ChargePGAS::weight`] reserved and the full PGAS path
 		/// (`charge_pgas`), returned to the caller in `post_dispatch`.
-		refund: Weight,
+		weight_refund: Weight,
 	},
 	/// Inner extension was used (filter miss, unsigned, or caller lacked PGAS).
 	Inner {
@@ -291,12 +291,16 @@ where
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
 
-				let refund =
-					inner_weight.saturating_add(charge_pgas_skip).saturating_sub(charge_pgas);
-				Ok(Pre::PGAS { who, credit, refund })
+				// `weight()` reserved `charge_pgas.max(inner + charge_pgas_skip)`; the PGAS path
+				// only consumes `charge_pgas`, so the excess is refunded.
+				let reserved = charge_pgas.max(inner_weight.saturating_add(charge_pgas_skip));
+				let weight_refund = reserved.saturating_sub(charge_pgas);
+				Ok(Pre::PGAS { who, credit, weight_refund })
 			},
 			Val::Inner(val) => {
 				let extra_refund = if T::CallFilter::contains(call) {
+					// Filter matched, but likely the caller didn't hold enough PGAS, so we fell
+					// back to `S`.
 					let reserved = charge_pgas.max(inner_weight.saturating_add(charge_pgas_skip));
 					let consumed = if origin.as_system_origin_signer().is_some() {
 						inner_weight.saturating_add(charge_pgas_skip)
@@ -321,7 +325,7 @@ where
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
-			Pre::PGAS { who, credit, refund } => {
+			Pre::PGAS { who, credit, weight_refund } => {
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,
@@ -343,7 +347,7 @@ where
 					}
 				}
 				Pallet::<T>::deposit_event(Event::PGASFeePaid { who, actual_fee });
-				Ok(refund)
+				Ok(weight_refund)
 			},
 			Pre::Inner { inner, extra_refund } => {
 				let inner_refund = S::post_dispatch_details(inner, info, post_info, len, result)?;
