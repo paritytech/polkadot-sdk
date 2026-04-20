@@ -865,12 +865,8 @@ impl<T: Config> Rotator<T> {
 			remainder: Zero::zero(),
 		});
 
-		if !staker_rewards.is_zero() {
-			DisableMintingGuard::<T>::mutate(|maybe_era| {
-				if maybe_era.is_none() || maybe_era.is_some_and(|e| ending_era.index < e) {
-					*maybe_era = Some(ending_era.index);
-				}
-			});
+		if DisableMintingGuard::<T>::get().is_none() {
+			DisableMintingGuard::<T>::put(ending_era.index);
 		}
 	}
 
