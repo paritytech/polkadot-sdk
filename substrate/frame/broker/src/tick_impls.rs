@@ -275,17 +275,15 @@ impl<T: Config> Pallet<T> {
 			if expire {
 				// last time for this one - make it renewable in the next sale.
 				let renewal_id = PotentialRenewalId { core: first_core, when: new_sale.region_end };
-				let record = PotentialRenewalRecord {
-					price: new_prices.target_price,
-					completion: Complete(schedule),
-				};
+				let record = PotentialRenewalRecord { completion: Complete(schedule) };
 				PotentialRenewals::<T>::insert(renewal_id, &record);
-				Self::deposit_event(Event::Renewable {
-					core: first_core,
-					price: new_prices.target_price,
-					begin: new_sale.region_end,
-					workload: record.completion.drain_complete().unwrap_or_default(),
-				});
+				// TODO: Emit?
+				// Self::deposit_event(Event::Renewable {
+				// 	core: first_core,
+				// 	price: new_prices.target_price,
+				// 	begin: new_sale.region_end,
+				// 	workload: record.completion.drain_complete().unwrap_or_default(),
+				// });
 				Self::deposit_event(Event::LeaseEnding { when: new_sale.region_end, task });
 			}
 

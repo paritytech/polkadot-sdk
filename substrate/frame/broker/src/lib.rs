@@ -172,14 +172,14 @@ pub mod pallet {
 
 	/// The details of the current sale, including its properties and status.
 	#[pallet::storage]
-	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
+	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecord, OptionQuery>;
 
 	/// Records of potential renewals.
 	///
 	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.
 	#[pallet::storage]
 	pub type PotentialRenewals<T> =
-		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecordOf<T>, OptionQuery>;
+		StorageMap<_, Twox64Concat, PotentialRenewalId, PotentialRenewalRecord, OptionQuery>;
 
 	/// The current (unassigned or provisionally assigend) Regions.
 	#[pallet::storage]
@@ -712,11 +712,11 @@ pub mod pallet {
 		))]
 		pub fn start_sales(
 			origin: OriginFor<T>,
-			end_price: BalanceOf<T>,
+			init_data: MarketInitDataOf<T>,
 			extra_cores: CoreIndex,
 		) -> DispatchResultWithPostInfo {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
-			Self::do_start_sales(end_price, extra_cores)?;
+			Self::do_start_sales(init_data, extra_cores)?;
 			Ok(Pays::No.into())
 		}
 

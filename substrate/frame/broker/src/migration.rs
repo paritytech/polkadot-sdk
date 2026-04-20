@@ -89,7 +89,7 @@ mod v2 {
 		Pallet<T>,
 		Twox64Concat,
 		PotentialRenewalId,
-		PotentialRenewalRecordOf<T>,
+		PotentialRenewalRecord,
 		OptionQuery,
 	>;
 
@@ -317,19 +317,20 @@ pub mod v4 {
 				let updated_leadin_length: RelayBlockNumberOf<T> =
 					BlockConversion::convert_block_length_to_relay_length(sale_info.leadin_length);
 
-				let updated_sale_info = SaleInfoRecord {
-					sale_start: updated_sale_start,
-					leadin_length: updated_leadin_length,
-					end_price: sale_info.price,
-					region_begin: sale_info.region_begin,
-					region_end: sale_info.region_end,
-					ideal_cores_sold: sale_info.ideal_cores_sold,
-					cores_offered: sale_info.cores_offered,
-					first_core: sale_info.first_core,
-					sellout_price: sale_info.sellout_price,
-					cores_sold: sale_info.cores_sold,
-				};
-				SaleInfo::<T>::put(updated_sale_info);
+				// TODO: Fix.
+				// let updated_sale_info = SaleInfoRecord {
+				// 	sale_start: updated_sale_start,
+				// 	leadin_length: updated_leadin_length,
+				// 	end_price: sale_info.price,
+				// 	region_begin: sale_info.region_begin,
+				// 	region_end: sale_info.region_end,
+				// 	ideal_cores_sold: sale_info.ideal_cores_sold,
+				// 	cores_offered: sale_info.cores_offered,
+				// 	first_core: sale_info.first_core,
+				// 	sellout_price: sale_info.sellout_price,
+				// 	cores_sold: sale_info.cores_sold,
+				// };
+				// SaleInfo::<T>::put(updated_sale_info);
 			}
 
 			weight.saturating_add(T::DbWeight::get().reads_writes(1, 2))

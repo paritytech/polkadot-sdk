@@ -104,7 +104,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_start_sales(
-		end_price: BalanceOf<T>,
+		init_data: MarketInitDataOf<T>,
 		extra_cores: CoreIndex,
 	) -> DispatchResult {
 		// Determine the core count
@@ -127,17 +127,13 @@ impl<T: Config> Pallet<T> {
 		Self::do_request_core_count(core_count)?;
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let sales_started = <Self as Market<T>>::start_sales(now, end_price)?;
+		let sales_started = T::CoretimeMarket::start_sales(now, init_data).map_err(Into::into)?;
 
-		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
+		// TODO: Emit it?
+		// Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
 
-		Self::rotate_sale(
-			&sales_started.imaginary_old_sale,
-			&sales_started.new_sale,
-			sales_started.new_prices,
-			sales_started.start_price,
-			&status,
-		);
+		// TODO
+		// Self::rotate_sale(&sales_started.imaginary_old_sale, &sales_started.new_sale, &status);
 
 		Ok(())
 	}
@@ -147,11 +143,9 @@ impl<T: Config> Pallet<T> {
 		price_limit: BalanceOf<T>,
 	) -> Result<(), DispatchError> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		match Self::place_order(now, &who, price_limit)? {
+		match T::CoretimeMarket::place_order(now, &who, price_limit).map_err(Into::into)? {
 			OrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
-
-				Self::deposit_event(Event::BidPlaced { bid_id: id, price: bid_price });
 			},
 			OrderResult::Sold { price, region_id, region_end } => {
 				Self::charge(&who, price)?;
@@ -182,7 +176,7 @@ impl<T: Config> Pallet<T> {
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		match T::CoretimeMarket::place_renewal_order(now, &who, renewal_id)? {
+		match T::CoretimeMarket::place_renewal_order(now, &who, renewal_id).map_err(Into::into)? {
 			RenewalOrderResult::BidPlaced { id, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
 				Ok(DoRenewResult::BidPlaced { id })
@@ -348,17 +342,16 @@ impl<T: Config> Pallet<T> {
 			if duration == config.region_length && finality == Finality::Final {
 				if let Some(price) = region.paid {
 					let renewal_id = PotentialRenewalId { core: region_id.core, when: region.end };
-					let assigned = match PotentialRenewals::<T>::get(renewal_id) {
-						Some(PotentialRenewalRecord { completion: Partial(w), price: p })
-							if price == p =>
-						{
-							w
-						},
-						_ => CoreMask::void(),
-					} | region_id.mask;
+					// TODO
+					// let assigned = match PotentialRenewals::<T>::get(renewal_id) {
+					// 	Some(PotentialRenewalRecord { completion: Partial(w) }) if price == p => w,
+					// 	_ => CoreMask::void(),
+					// } | region_id.mask;
+					let assigned = region_id.mask;
+
 					let workload =
 						if assigned.is_complete() { Complete(workplan) } else { Partial(assigned) };
-					let record = PotentialRenewalRecord { price, completion: workload };
+					let record = PotentialRenewalRecord { completion: workload };
 					// Note: This entry alone does not yet actually allow renewals (the completion
 					// status has to be complete for `do_renew` to accept it).
 					PotentialRenewals::<T>::insert(&renewal_id, &record);
@@ -639,5 +632,5 @@ impl<T: Config> Pallet<T> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DoRenewResult<T: Config> {
 	Renewed { new_core: CoreIndex },
-	BidPlaced { id: BidIdOf<T> },
+	BidPlaced { id: MarketBidIdOf<T> },
 }
