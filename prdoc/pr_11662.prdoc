@@ -69,5 +69,7 @@ crates:
     bump: patch
   - name: polkadot-omni-node-lib
     bump: major
+  - name: polkadot-sdk
+    bump: patch
   - name: pallet-transaction-storage
     bump: minor
