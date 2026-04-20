@@ -22,12 +22,12 @@ scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-pallet-assets = { workspace = true }
-pallet-balances = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
+pallet-assets = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
 [features]
@@ -38,8 +38,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"log/std",
-	"pallet-assets/std",
-	"pallet-balances/std",
 	"pallet-transaction-payment/std",
 	"scale-info/std",
 	"sp-runtime/std",
@@ -56,8 +54,6 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
-	"pallet-assets/try-runtime",
-	"pallet-balances/try-runtime",
 	"pallet-transaction-payment/try-runtime",
 	"sp-runtime/try-runtime",
 ]

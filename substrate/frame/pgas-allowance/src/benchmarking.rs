@@ -24,7 +24,7 @@ use super::*;
 use crate::{BenchmarkHelperTrait, Pallet};
 use frame_benchmarking::v2::*;
 use frame_support::{
-	dispatch::{DispatchClass, DispatchInfo, Pays, PostDispatchInfo},
+	dispatch::{DispatchClass, DispatchInfo, PostDispatchInfo},
 	pallet_prelude::Weight,
 	traits::tokens::fungibles,
 };
@@ -39,7 +39,7 @@ use sp_runtime::traits::{
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>
 		+ From<frame_system::Call<T>>,
 	BalanceOf<T>: Send + Sync + From<u64>,
-	<T as Config>::AssetId: Send + Sync,
+	AssetIdOf<T>: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 )]
 mod benchmarks {
@@ -56,7 +56,7 @@ mod benchmarks {
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
 		let info = DispatchInfo {
-			call_weight: Weight::from_parts(10, 0),
+			call_weight: Weight::from_parts(100, 0),
 			class: DispatchClass::Normal,
 			..Default::default()
 		};
@@ -100,10 +100,13 @@ mod benchmarks {
 			pays_fee: Default::default(),
 		};
 
+		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(0, &info, Zero::zero());
+		assert!(!fee.is_zero(), "skip path requires fee > 0 to exercise `pgas < fee`");
 		let before = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
 			T::PGASAssetId::get(),
 			&caller,
 		);
+		assert!(before < fee, "caller must not hold enough PGAS to take the PGAS branch");
 		let result;
 		#[block]
 		{

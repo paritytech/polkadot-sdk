@@ -19,8 +19,9 @@
 //! call that passes [`Config::CallFilter`] is submitted by an account holding at least the
 //! required fee in the PGAS asset, the fee is withdrawn as a [`fungibles::Credit`] held in the
 //! extension's `Pre`. Any unused portion is refunded from that credit in `post_dispatch`; the
-//! remainder is dropped, which burns the consumed fee via `OnDropCredit`. Otherwise the wrapped
-//! extension `S` runs unchanged.
+//! remainder is dropped, which burns the consumed fee via `OnDropCredit`. A
+//! [`Event::PGASFeePaid`] event is emitted mirroring
+//! [`pallet_transaction_payment::Event::TransactionFeePaid`] so PGAS fee payments are observable.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -33,7 +34,7 @@ use frame_support::{
 	traits::{
 		tokens::{
 			fungibles::{self, Credit},
-			AssetId, Fortitude, Precision, Preservation,
+			Fortitude, Precision, Preservation,
 		},
 		BuildGenesisConfig, Contains, Get,
 	},
@@ -67,6 +68,9 @@ pub mod weights;
 type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
 	pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
 
+type AssetIdOf<T> =
+	<<T as Config>::Assets as fungibles::Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
+
 /// Trait used by runtimes to mint PGAS to the benchmark caller.
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelperTrait<AccountId, AssetId, Balance> {
@@ -79,19 +83,14 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + pallet_transaction_payment::Config {
-		/// The asset id type used by the PGAS asset.
-		type AssetId: AssetId;
-
+	pub trait Config:
+		frame_system::Config<RuntimeEvent: From<Event<Self>>> + pallet_transaction_payment::Config
+	{
 		/// Access to the PGAS asset.
-		type Assets: fungibles::Balanced<
-			Self::AccountId,
-			AssetId = <Self as Config>::AssetId,
-			Balance = BalanceOf<Self>,
-		>;
+		type Assets: fungibles::Balanced<Self::AccountId, Balance = BalanceOf<Self>>;
 
 		/// The PGAS asset id.
-		type PGASAssetId: frame_support::traits::Get<<Self as Config>::AssetId>;
+		type PGASAssetId: frame_support::traits::Get<AssetIdOf<Self>>;
 
 		/// Filter deciding which calls are eligible to be paid with PGAS.
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
@@ -104,13 +103,21 @@ pub mod pallet {
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::BenchmarkHelperTrait<
 			Self::AccountId,
-			<Self as Config>::AssetId,
+			AssetIdOf<Self>,
 			BalanceOf<Self>,
 		>;
 	}
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// A transaction fee `actual_fee` has been paid by `who` in PGAS and burned. Mirrors
+		/// [`pallet_transaction_payment::Event::TransactionFeePaid`].
+		PGASFeePaid { who: T::AccountId, actual_fee: BalanceOf<T> },
+	}
 
 	/// Genesis configuration provisions the PGAS asset so that the extension's `Create` bound is
 	/// satisfied at chain start. The asset is owned by a sovereign account derived from an
@@ -219,7 +226,7 @@ impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync,
-	<T as Config>::AssetId: Send + Sync,
+	AssetIdOf<T>: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
 	const IDENTIFIER: &'static str = S::IDENTIFIER;
@@ -362,6 +369,7 @@ where
 						let _ = consumed.merge(fee_refund);
 					}
 				}
+				Pallet::<T>::deposit_event(Event::PGASFeePaid { who, actual_fee });
 				Ok(refund)
 			},
 			Pre::Inner { inner, extra_refund } => {

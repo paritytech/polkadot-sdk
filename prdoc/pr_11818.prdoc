@@ -12,6 +12,8 @@ doc:
         portion is dropped (burning total issuance via `OnDropCredit`) and the unused
         remainder is `resolve`d back to the payer. Otherwise the inner extension runs
         unchanged.
+      - Tips are not supported on the PGAS path: the inner extension that would have
+        charged the tip is bypassed, and priority is computed with a zero tip.
       - Wires the extension into `asset-hub-westend` around `ChargeAssetTxPayment`, with
         the filter matching `pallet-revive` calls and PGAS bound to `AssetIdForTrustBackedAssets = <TODO>`.
 crates:

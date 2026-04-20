@@ -13,12 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, ChargePGAS};
+use crate::{mock::*, ChargePGAS, Event, Val};
 
 use frame_support::{assert_ok, weights::Weight};
 use pallet_balances::Call as BalancesCall;
 use pallet_transaction_payment::ChargeTransactionPayment;
-use sp_runtime::traits::DispatchTransaction;
+use sp_runtime::traits::{DispatchTransaction, TransactionExtension, TxBaseImplication};
 
 type Ext = ChargePGAS<Runtime, ChargeTransactionPayment<Runtime>>;
 
@@ -71,6 +71,8 @@ fn pgas_pays_for_filtered_call_with_zero_native() {
 			));
 			assert_eq!(Balances::free_balance(ALICE), 0);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial - fee);
+
+			System::assert_has_event(Event::PGASFeePaid { who: ALICE, actual_fee: fee }.into());
 		});
 }
 
@@ -228,20 +230,17 @@ fn unsigned_delegates_to_inner() {
 			let len = 10;
 			let info = info_from_weight(Weight::from_parts(7, 0));
 
-			// Unsigned origin: the inner extension rejects non-inherent unsigned txs, which
-			// is proof we took the fall-through branch rather than the PGAS branch.
-			let res = new_ext().validate_only(
+			let (_, val, _) = <Ext as TransactionExtension<RuntimeCall>>::validate(
+				&new_ext(),
 				frame_system::RawOrigin::None.into(),
 				&call,
 				&info,
 				len,
+				(),
+				&TxBaseImplication((0u8, &call)),
 				sp_runtime::transaction_validity::TransactionSource::External,
-				0,
-			);
-			assert!(matches!(
-				res,
-				Err(sp_runtime::transaction_validity::TransactionValidityError::Invalid(_))
-			));
-			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), 1_000);
+			)
+			.unwrap();
+			assert!(matches!(val, Val::Inner(_)));
 		});
 }

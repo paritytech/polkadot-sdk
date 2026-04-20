@@ -1141,7 +1141,6 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 }
 
 impl pallet_pgas_allowance::Config for Runtime {
-	type AssetId = AssetIdForTrustBackedAssets;
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
 
@@ -1150,7 +1149,7 @@ impl pallet_pgas_allowance::Config for Runtime {
 	#[cfg(feature = "runtime-benchmarks")]
 	type CallFilter = frame_support::traits::Everything;
 
-	type WeightInfo = pallet_pgas_allowance::weights::SubstrateWeight<Runtime>;
+	type WeightInfo = weights::pallet_pgas_allowance::WeightInfo<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = PGASBenchmarkHelper;

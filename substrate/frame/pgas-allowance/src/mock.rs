@@ -142,7 +142,6 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 }
 
 impl pallet_pgas_allowance::Config for Runtime {
-	type AssetId = AssetId;
 	type Assets = Assets;
 	type PGASAssetId = PGASAssetId;
 	type CallFilter = PGASCallFilter;
