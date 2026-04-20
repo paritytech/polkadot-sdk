@@ -30,8 +30,6 @@ const SUP_ROOT: Curve = Curve::make_linear(28, 28, percent(0), percent(50));
 const APP_STAKING_ADMIN: Curve = Curve::make_linear(17, 28, percent(50), percent(100));
 const SUP_STAKING_ADMIN: Curve =
 	Curve::make_reciprocal(12, 28, percent(1), percent(0), percent(50));
-const APP_TREASURER: Curve = Curve::make_reciprocal(4, 28, percent(80), percent(50), percent(100));
-const SUP_TREASURER: Curve = Curve::make_linear(28, 28, percent(0), percent(50));
 const APP_FELLOWSHIP_ADMIN: Curve = Curve::make_linear(17, 28, percent(50), percent(100));
 const SUP_FELLOWSHIP_ADMIN: Curve =
 	Curve::make_reciprocal(12, 28, percent(1), percent(0), percent(50));
@@ -68,7 +66,7 @@ const APP_WHITELISTED_CALLER: Curve =
 const SUP_WHITELISTED_CALLER: Curve =
 	Curve::make_reciprocal(1, 28, percent(20), percent(5), percent(50));
 
-const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
+const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 14] = [
 	pallet_referenda::Track {
 		id: 0,
 		info: pallet_referenda::TrackInfo {
@@ -111,20 +109,7 @@ const TRACKS_DATA: [pallet_referenda::Track<u16, Balance, BlockNumber>; 15] = [
 			min_support: SUP_STAKING_ADMIN,
 		},
 	},
-	pallet_referenda::Track {
-		id: 11,
-		info: pallet_referenda::TrackInfo {
-			name: s("treasurer"),
-			max_deciding: 10,
-			decision_deposit: 1 * GRAND,
-			prepare_period: 8 * MINUTES,
-			decision_period: 20 * MINUTES,
-			confirm_period: 8 * MINUTES,
-			min_enactment_period: 5 * MINUTES,
-			min_approval: APP_TREASURER,
-			min_support: SUP_TREASURER,
-		},
-	},
+	// Track id 11 (treasurer) removed by #11705.
 	pallet_referenda::Track {
 		id: 12,
 		info: pallet_referenda::TrackInfo {
@@ -302,7 +287,6 @@ impl pallet_referenda::TracksInfo<Balance, BlockNumber> for TracksInfo {
 				origins::Origin::WhitelistedCaller => Ok(1),
 				// General admin
 				origins::Origin::StakingAdmin => Ok(10),
-				origins::Origin::Treasurer => Ok(11),
 				origins::Origin::LeaseAdmin => Ok(12),
 				origins::Origin::FellowshipAdmin => Ok(13),
 				origins::Origin::GeneralAdmin => Ok(14),

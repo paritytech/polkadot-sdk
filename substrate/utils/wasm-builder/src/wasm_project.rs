@@ -284,7 +284,7 @@ fn maybe_compact_and_compress_wasm(
 	build_config: &BuildConfiguration,
 	bloaty_changed: bool,
 ) -> (Option<WasmBinary>, WasmBinaryBloaty, bool) {
-	let needs_compact = build_config.blob_build_profile.wants_compact();
+	let needs_compact = build_config.outer_build_profile.wants_compact();
 	let compact_path = blob_paths.compact();
 	let compressed_path = blob_paths.compact_compressed();
 	let compact_or_compressed_exists = compact_path.exists() || compressed_path.exists();
@@ -810,7 +810,9 @@ impl Profile {
 /// The build configuration for this build.
 #[derive(Debug)]
 struct BuildConfiguration {
-	/// The profile to use to build the runtime blob and decide whether to compact/compress.
+	/// The profile that is used to build the outer project.
+	pub outer_build_profile: Profile,
+	/// The profile to use to build the runtime blob.
 	pub blob_build_profile: Profile,
 }
 
@@ -826,7 +828,9 @@ impl BuildConfiguration {
 	/// When not overridden by a env variable we always default to building wasm with the `Release`
 	/// profile even when the main build uses the debug build. This is because wasm built with the
 	/// `Debug` profile is too slow for normal development activities and almost never intended.
-	/// Compaction and compression are also decided by this profile.
+	///
+	/// When cargo is building in `--profile dev`, user likely intends to compile fast, so we don't
+	/// bother producing compact or compressed blobs.
 	///
 	/// # Note
 	///
@@ -856,8 +860,8 @@ impl BuildConfiguration {
 				.to_string();
 			(name, false)
 		};
-		let detected_profile = Profile::iter().find(|p| p.directory() == name);
-		let blob_build_profile = match (detected_profile, overridden) {
+		let outer_build_profile = Profile::iter().find(|p| p.directory() == name);
+		let blob_build_profile = match (outer_build_profile.clone(), overridden) {
 			// When not overridden by a env variable we default to using the `Release` profile
 			// for the wasm build even when the main build uses the debug build. This
 			// is because the `Debug` profile is too slow for normal development activities.
@@ -885,7 +889,10 @@ impl BuildConfiguration {
 				process::exit(1);
 			},
 		};
-		BuildConfiguration { blob_build_profile }
+		BuildConfiguration {
+			outer_build_profile: outer_build_profile.unwrap_or(Profile::Release),
+			blob_build_profile,
+		}
 	}
 }
 
