@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{
-	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, Pallet,
-	RCBlockNumberOf, TaskId, TickAction, CORE_MASK_BITS,
+	Config, CoreAssignment, CoreIndex, CoreMask, CoretimeInterface, Market, RCBlockNumberOf,
+	TaskId, CORE_MASK_BITS,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use frame_support::traits::{fungible::Inspect, tokens::Balance};
+use frame_support::traits::fungible::Inspect;
 use frame_system::{pallet_prelude::AccountIdFor, Config as SConfig};
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;

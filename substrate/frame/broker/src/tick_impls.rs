@@ -277,13 +277,11 @@ impl<T: Config> Pallet<T> {
 				let renewal_id = PotentialRenewalId { core: first_core, when: new_sale.region_end };
 				let record = PotentialRenewalRecord { completion: Complete(schedule) };
 				PotentialRenewals::<T>::insert(renewal_id, &record);
-				// TODO: Emit?
-				// Self::deposit_event(Event::Renewable {
-				// 	core: first_core,
-				// 	price: new_prices.target_price,
-				// 	begin: new_sale.region_end,
-				// 	workload: record.completion.drain_complete().unwrap_or_default(),
-				// });
+				Self::deposit_event(Event::Renewable {
+					core: first_core,
+					begin: new_sale.region_end,
+					workload: record.completion.drain_complete().unwrap_or_default(),
+				});
 				Self::deposit_event(Event::LeaseEnding { when: new_sale.region_end, task });
 			}
 
@@ -293,17 +291,12 @@ impl<T: Config> Pallet<T> {
 		});
 		Leases::<T>::put(&leases);
 
-		// TODO: Reduce amount of fields?
-		// Self::deposit_event(Event::SaleInitialized {
-		// 	sale_start: new_sale.sale_start,
-		// 	leadin_length: new_sale.leadin_length,
-		// 	start_price,
-		// 	end_price: new_prices.end_price,
-		// 	region_begin: new_sale.region_begin,
-		// 	region_end: new_sale.region_end,
-		// 	ideal_cores_sold: new_sale.ideal_cores_sold,
-		// 	cores_offered: new_sale.cores_offered,
-		// });
+		Self::deposit_event(Event::SaleInitialized {
+			sale_start: new_sale.sale_start,
+			region_begin: new_sale.region_begin,
+			region_end: new_sale.region_end,
+			cores_offered: new_sale.cores_offered,
+		});
 	}
 
 	/// Renews all the cores which have auto-renewal enabled.

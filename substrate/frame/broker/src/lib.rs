@@ -241,8 +241,6 @@ pub mod pallet {
 		Renewable {
 			/// The core whose workload can be renewed.
 			core: CoreIndex,
-			/// The price at which the workload can be renewed.
-			price: BalanceOf<T>,
 			/// The time at which the workload would recommence of this renewal. The call to renew
 			/// cannot happen before the beginning of the interlude prior to the sale for regions
 			/// which begin at this time.
@@ -341,20 +339,11 @@ pub mod pallet {
 		SaleInitialized {
 			/// The relay block number at which the sale will/did start.
 			sale_start: RelayBlockNumberOf<T>,
-			/// The length in relay chain blocks of the Leadin Period (where the price is
-			/// decreasing).
-			leadin_length: RelayBlockNumberOf<T>,
-			/// The price of Bulk Coretime at the beginning of the Leadin Period.
-			start_price: BalanceOf<T>,
-			/// The price of Bulk Coretime after the Leadin Period.
-			end_price: BalanceOf<T>,
 			/// The first timeslice of the Regions which are being sold in this sale.
 			region_begin: Timeslice,
 			/// The timeslice on which the Regions which are being sold in the sale terminate.
 			/// (i.e. One after the last timeslice which the Regions control.)
 			region_end: Timeslice,
-			/// The number of cores we want to sell, ideally.
-			ideal_cores_sold: CoreIndex,
 			/// Number of cores which are/have been offered for sale.
 			cores_offered: CoreIndex,
 		},
@@ -381,8 +370,8 @@ pub mod pallet {
 		},
 		/// The sale rotation has been started and a new sale is imminent.
 		SalesStarted {
-			/// The nominal price of an Region of Bulk Coretime.
-			price: BalanceOf<T>,
+			/// Initialization data that was provided to the coretime market.
+			init_data: MarketInitDataOf<T>,
 			/// The maximum number of cores which this pallet will attempt to assign.
 			core_count: CoreIndex,
 		},

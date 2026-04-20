@@ -127,13 +127,20 @@ impl<T: Config> Pallet<T> {
 		Self::do_request_core_count(core_count)?;
 
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let sales_started = T::CoretimeMarket::start_sales(now, init_data).map_err(Into::into)?;
+		let sales_started =
+			T::CoretimeMarket::start_sales(now, init_data.clone()).map_err(Into::into)?;
 
-		// TODO: Emit it?
-		// Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
+		Self::deposit_event(Event::<T>::SalesStarted { init_data, core_count });
 
-		// TODO
-		// Self::rotate_sale(&sales_started.imaginary_old_sale, &sales_started.new_sale, &status);
+		let imaginary_old_sale = MarketSaleInfo {
+			sale_start: now,
+			region_begin: commit_timeslice,
+			region_end: commit_timeslice.saturating_add(config.region_length),
+			first_core: 0,
+			cores_offered: 0,
+			cores_sold: 0,
+		};
+		Self::rotate_sale(&imaginary_old_sale, &sales_started.sale, &status);
 
 		Ok(())
 	}
@@ -144,7 +151,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<(), DispatchError> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
 		match T::CoretimeMarket::place_order(now, &who, price_limit).map_err(Into::into)? {
-			OrderResult::BidPlaced { id, bid_price } => {
+			OrderResult::BidPlaced { id: _, bid_price } => {
 				Self::lock_funds(&who, bid_price)?;
 			},
 			OrderResult::Sold { price, region_id, region_end } => {
@@ -206,7 +213,6 @@ impl<T: Config> Pallet<T> {
 					log::debug!("Recording renewable price for next run: {:?}", price);
 					Self::deposit_event(Event::Renewable {
 						core: region_id.core,
-						price,
 						begin: effective_to,
 						workload,
 					});
@@ -342,12 +348,10 @@ impl<T: Config> Pallet<T> {
 			if duration == config.region_length && finality == Finality::Final {
 				if let Some(price) = region.paid {
 					let renewal_id = PotentialRenewalId { core: region_id.core, when: region.end };
-					// TODO
-					// let assigned = match PotentialRenewals::<T>::get(renewal_id) {
-					// 	Some(PotentialRenewalRecord { completion: Partial(w) }) if price == p => w,
-					// 	_ => CoreMask::void(),
-					// } | region_id.mask;
-					let assigned = region_id.mask;
+					let assigned = match PotentialRenewals::<T>::get(renewal_id) {
+						Some(PotentialRenewalRecord { completion: Partial(w) }) if price == p => w,
+						_ => CoreMask::void(),
+					} | region_id.mask;
 
 					let workload =
 						if assigned.is_complete() { Complete(workplan) } else { Partial(assigned) };
@@ -358,7 +362,6 @@ impl<T: Config> Pallet<T> {
 					if let Some(workload) = record.completion.drain_complete() {
 						Self::deposit_event(Event::Renewable {
 							core: region_id.core,
-							price,
 							begin: region.end,
 							workload,
 						});
