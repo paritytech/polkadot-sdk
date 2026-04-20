@@ -249,10 +249,12 @@ fn zero_reward_points_means_no_payout() {
 		make_all_reward_payment(1);
 		let events = staking_events_since_last_call();
 
-		// THEN: alice gets nothing, bob gets staker reward.
+		// THEN: alice gets nothing (no points).
 		assert!(staker_reward_for(alice, &events).is_none());
 		assert!(incentive_paid_for(alice, &events).is_none());
+		// THEN: bob gets both staker reward and incentive bonus (has points).
 		assert!(staker_reward_for(bob, &events).is_some());
+		assert!(incentive_paid_for(bob, &events).is_some());
 	});
 }
 
