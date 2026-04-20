@@ -143,9 +143,12 @@ impl ExtBuilder {
 		.assimilate_storage(&mut t)
 		.unwrap();
 
-		pallet_pgas_allowance::GenesisConfig::<Runtime> { _phantom: Default::default() }
-			.assimilate_storage(&mut t)
-			.unwrap();
+		pallet_assets::GenesisConfig::<Runtime> {
+			assets: vec![(PGAS_ASSET_ID, ALICE, true, 1)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
 
 		let mut ext: sp_io::TestExternalities = t.into();
 		ext.execute_with(|| {

@@ -36,26 +36,23 @@ use frame_support::{
 			fungibles::{self, Credit},
 			Fortitude, Precision, Preservation,
 		},
-		BuildGenesisConfig, Contains, Get,
+		Contains, Get,
 	},
 	weights::Weight,
-	PalletId,
 };
 use frame_system::pallet_prelude::OriginFor;
 use pallet_transaction_payment::ChargeTransactionPayment;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
-		AccountIdConversion, AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication,
-		PostDispatchInfoOf, TransactionExtension, ValidateResult, Zero,
+		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
+		TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
 
 pub use pallet::*;
 pub use weights::WeightInfo;
-
-const LOG_TARGET: &str = "runtime::pgas-allowance";
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -117,36 +114,6 @@ pub mod pallet {
 		/// A transaction fee `actual_fee` has been paid by `who` in PGAS and burned. Mirrors
 		/// [`pallet_transaction_payment::Event::TransactionFeePaid`].
 		PGASFeePaid { who: T::AccountId, actual_fee: BalanceOf<T> },
-	}
-
-	/// Genesis configuration provisions the PGAS asset so it exists at chain start.
-	#[pallet::genesis_config]
-	#[derive(frame_support::DefaultNoBound)]
-	pub struct GenesisConfig<T: Config> {
-		#[serde(skip)]
-		pub _phantom: core::marker::PhantomData<T>,
-	}
-
-	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
-	where
-		T::Assets: fungibles::Create<T::AccountId>,
-	{
-		fn build(&self) {
-			const PALLET_ID: PalletId = PalletId(*b"py/pgasa");
-			if let Err(e) = <T::Assets as fungibles::Create<T::AccountId>>::create(
-				T::PGASAssetId::get(),
-				PALLET_ID.into_account_truncating(),
-				true,
-				1u32.into(),
-			) {
-				log::warn!(
-					target: LOG_TARGET,
-					"PGAS asset creation failed at genesis: {:?}",
-					e,
-				);
-			}
-		}
 	}
 }
 
