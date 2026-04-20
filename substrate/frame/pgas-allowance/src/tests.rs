@@ -216,25 +216,22 @@ fn pgas_below_ed_falls_back_to_native() {
 /// Unsigned origins skip the PGAS path entirely and go straight to the inner extension.
 #[test]
 fn unsigned_delegates_to_inner() {
-	ExtBuilder::default()
-		.with_pgas(vec![(ALICE, 1_000)])
-		.build()
-		.execute_with(|| {
-			let call = pgas_call();
-			let len = 10;
-			let info = info_from_weight(Weight::from_parts(7, 0));
+	ExtBuilder::default().with_pgas(vec![(ALICE, 1_000)]).build().execute_with(|| {
+		let call = pgas_call();
+		let len = 10;
+		let info = info_from_weight(Weight::from_parts(7, 0));
 
-			let (_, val, _) = <Ext as TransactionExtension<RuntimeCall>>::validate(
-				&new_ext(),
-				frame_system::RawOrigin::None.into(),
-				&call,
-				&info,
-				len,
-				(),
-				&TxBaseImplication((0u8, &call)),
-				sp_runtime::transaction_validity::TransactionSource::External,
-			)
-			.unwrap();
-			assert!(matches!(val, Val::Inner(_)));
-		});
+		let (_, val, _) = <Ext as TransactionExtension<RuntimeCall>>::validate(
+			&new_ext(),
+			frame_system::RawOrigin::None.into(),
+			&call,
+			&info,
+			len,
+			(),
+			&TxBaseImplication((0u8, &call)),
+			sp_runtime::transaction_validity::TransactionSource::External,
+		)
+		.unwrap();
+		assert!(matches!(val, Val::Inner(_)));
+	});
 }
