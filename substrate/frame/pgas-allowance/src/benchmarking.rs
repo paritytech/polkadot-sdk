@@ -93,7 +93,6 @@ mod benchmarks {
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(10, 0),
 			class: DispatchClass::Normal,
-			pays_fee: Pays::No,
 			..Default::default()
 		};
 		let post_info = PostDispatchInfo {
