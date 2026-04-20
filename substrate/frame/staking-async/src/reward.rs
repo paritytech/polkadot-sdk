@@ -137,7 +137,8 @@ impl<T: Config> EraRewardManager<T> {
 			.defensive_proof("Provider was added in Self::create; qed");
 	}
 
-	/// Checks if an era has a staker rewards pot.
+	/// Checks if the pot account for an era's staker rewards exists.
+	#[cfg(any(test, feature = "try-runtime"))]
 	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
 		let pot = T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 		frame_system::Pallet::<T>::providers(&pot) > 0

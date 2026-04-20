@@ -578,3 +578,24 @@ fn disable_legacy_minting_era_write_once_semantics() {
 		assert_eq!(DisableMintingGuard::<Test>::get(), Some(1));
 	});
 }
+
+#[test]
+fn dap_era_with_zero_rewards_still_sets_guard() {
+	// A DAP era with nothing to snapshot is still a DAP era. The guard must be set so
+	// payout routing for this era uses the DAP path, not legacy minting.
+	ExtBuilder::default().build_and_execute(|| {
+		// GIVEN: pre-migration state (no guard) and a budget that drips nothing to the
+		// staker reward pot.
+		DisableMintingGuard::<Test>::kill();
+		pallet_dap::BudgetAllocation::<Test>::put(build_budget(&[(buffer_key(), 100)]));
+		assert_eq!(DisableMintingGuard::<Test>::get(), None);
+
+		// WHEN: an era ends with zero staker rewards.
+		Session::roll_until_active_era(2);
+		let _ = staking_events_since_last_call();
+
+		// THEN: guard records this era so future payouts route via DAP.
+		assert_eq!(ErasValidatorReward::<Test>::get(1), Some(0));
+		assert_eq!(DisableMintingGuard::<Test>::get(), Some(1));
+	});
+}
