@@ -66,6 +66,7 @@ runs:
 
     - name: Create App installation token
       id: app_token
+      # paritytech members use creds, external contributors user default GH token
       if: inputs.app-id != ''
       uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
       with:
