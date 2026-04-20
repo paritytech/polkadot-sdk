@@ -323,55 +323,57 @@ impl<T: Config> Pallet<T> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
-		if let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)? {
-			let workplan_key = (region_id.begin, region_id.core);
-			let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
+		let Some((region_id, region)) = Self::utilize(region_id, maybe_check_owner, finality)?
+		else {
+			return Ok(());
+		};
 
-			// Remove this region from the pool in case it has been assigned provisionally. If we
-			// get this far then it is still in `Regions` and thus could only have been pooled
-			// provisionally.
-			Self::force_unpool_region(region_id, &region, &status);
+		let workplan_key = (region_id.begin, region_id.core);
+		let mut workplan = Workplan::<T>::get(&workplan_key).unwrap_or_default();
 
-			// Ensure no previous allocations exist.
-			workplan.retain(|i| (i.mask & region_id.mask).is_void());
-			if workplan
-				.try_push(ScheduleItem {
-					mask: region_id.mask,
-					assignment: CoreAssignment::Task(target),
-				})
-				.is_ok()
-			{
-				Workplan::<T>::insert(&workplan_key, &workplan);
-			}
+		// Remove this region from the pool in case it has been assigned provisionally. If we
+		// get this far then it is still in `Regions` and thus could only have been pooled
+		// provisionally.
+		Self::force_unpool_region(region_id, &region, &status);
 
-			let duration = region.end.saturating_sub(region_id.begin);
-			if duration == config.region_length && finality == Finality::Final {
-				if let Some(price) = region.paid {
-					let renewal_id = PotentialRenewalId { core: region_id.core, when: region.end };
-					// TODO: Fix logic.
-					// let assigned = match PotentialRenewals::<T>::get(renewal_id) {
-					// 	Some(PotentialRenewalRecord { completion: Partial(w) }) if price == p => w,
-					// 	_ => CoreMask::void(),
-					// } | region_id.mask;
-					let assigned = region_id.mask;
-
-					let workload =
-						if assigned.is_complete() { Complete(workplan) } else { Partial(assigned) };
-					let record = PotentialRenewalRecord { completion: workload };
-					// Note: This entry alone does not yet actually allow renewals (the completion
-					// status has to be complete for `do_renew` to accept it).
-					PotentialRenewals::<T>::insert(&renewal_id, &record);
-					if let Some(workload) = record.completion.drain_complete() {
-						Self::deposit_event(Event::Renewable {
-							core: region_id.core,
-							begin: region.end,
-							workload,
-						});
-					}
-				}
-			}
-			Self::deposit_event(Event::Assigned { region_id, task: target, duration });
+		// Ensure no previous allocations exist.
+		workplan.retain(|i| (i.mask & region_id.mask).is_void());
+		if workplan
+			.try_push(ScheduleItem {
+				mask: region_id.mask,
+				assignment: CoreAssignment::Task(target),
+			})
+			.is_ok()
+		{
+			Workplan::<T>::insert(&workplan_key, &workplan);
 		}
+
+		let duration = region.end.saturating_sub(region_id.begin);
+		if duration == config.region_length && finality == Finality::Final {
+			let renewal_id = PotentialRenewalId { core: region_id.core, when: region.end };
+			let assigned = match PotentialRenewals::<T>::get(renewal_id) {
+				Some(PotentialRenewalRecord { completion: Partial(w) }) => w,
+				_ => CoreMask::void(),
+			} | region_id.mask;
+
+			let workload =
+				if assigned.is_complete() { Complete(workplan) } else { Partial(assigned) };
+			let record = PotentialRenewalRecord { completion: workload };
+			// Note: This entry alone does not yet actually allow renewals (the completion
+			// status has to be complete for `do_renew` to accept it).
+			PotentialRenewals::<T>::insert(&renewal_id, &record);
+
+			if let Some(workload) = record.completion.drain_complete() {
+				Self::deposit_event(Event::Renewable {
+					core: region_id.core,
+					begin: region.end,
+					workload,
+				});
+			}
+		}
+
+		Self::deposit_event(Event::Assigned { region_id, task: target, duration });
+
 		Ok(())
 	}
 
