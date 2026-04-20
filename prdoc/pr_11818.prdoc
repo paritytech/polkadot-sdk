@@ -8,14 +8,10 @@ doc:
         extension that wraps an inner fee extension `S`.
       - When a signed transaction dispatches a call matching `Config::CallFilter` and the
         signer holds enough PGAS (a trusted asset on Asset Hub), the fee is withdrawn as
-        a `fungibles::Credit`. In `post_dispatch` the credit is split: the `actual_fee`
-        portion is dropped (burning total issuance via `OnDropCredit`) and the unused
-        remainder is `resolve`d back to the payer. Otherwise the inner extension runs
-        unchanged.
-      - Tips are not supported on the PGAS path: the inner extension that would have
-        charged the tip is bypassed, and priority is computed with a zero tip.
-      - Wires the extension into `asset-hub-westend` around `ChargeAssetTxPayment`, with
-        the filter matching `pallet-revive` calls and PGAS bound to `AssetIdForTrustBackedAssets = <TODO>`.
+        a `fungibles::Credit`. In `post_dispatch` the `actual_fee`
+        portion is dropped and the unused remainder is `resolve`d back to the payer.
+      - Emits a `PGASFeePaid { who, actual_fee }` event when the fee is paid in PGAS.
+      - Wires the extension into `asset-hub-westend`.
 crates:
   - name: asset-hub-westend-runtime
     bump: minor
