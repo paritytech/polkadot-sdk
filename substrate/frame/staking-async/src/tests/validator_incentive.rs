@@ -321,7 +321,10 @@ fn incentive_paid_to_custom_account() {
 
 #[test]
 fn multi_page_election_does_not_overwrite_incentive_weight() {
-	ExtBuilder::default().exposures_page_size(1).build_and_execute(|| {
+	ExtBuilder::default()
+		.multi_page_election_provider(3)
+		.exposures_page_size(1)
+		.build_and_execute(|| {
 		let alice = 11; // validator
 		setup_incentive_config();
 
