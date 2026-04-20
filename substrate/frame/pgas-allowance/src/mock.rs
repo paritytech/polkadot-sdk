@@ -145,19 +145,18 @@ impl ExtBuilder {
 
 		pallet_assets::GenesisConfig::<Runtime> {
 			assets: vec![(PGAS_ASSET_ID, ALICE, true, 1)],
+			accounts: self
+				.pgas_balances
+				.iter()
+				.map(|(who, bal)| (PGAS_ASSET_ID, *who, *bal))
+				.collect(),
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
 		.unwrap();
 
 		let mut ext: sp_io::TestExternalities = t.into();
-		ext.execute_with(|| {
-			System::set_block_number(1);
-			for (who, bal) in &self.pgas_balances {
-				use frame_support::traits::tokens::fungibles::Mutate;
-				<Assets as Mutate<AccountId>>::mint_into(PGAS_ASSET_ID, who, *bal).unwrap();
-			}
-		});
+		ext.execute_with(|| System::set_block_number(1));
 		ext
 	}
 }
