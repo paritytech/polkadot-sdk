@@ -272,8 +272,8 @@ fn incentive_weight_stored_correctly() {
 		Session::roll_until_active_era(3);
 
 		// THEN: weight = √1000 ≈ 31.
-		let weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
-		assert_eq!(weight, 31);
+		let incentive_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		assert_eq!(incentive_weight, 31);
 
 		// THEN: incentive is paid.
 		let _ = staking_events_since_last_call();
@@ -335,8 +335,9 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 				},
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
-			let weight = ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
-			assert_eq!(weight, 31); // √1000 ≈ 31
+			let incentive_weight =
+				ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
+			assert_eq!(incentive_weight, 31); // √1000 ≈ 31
 
 			let page2 = bounded_vec![(
 				alice,
@@ -348,10 +349,10 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
 
-			// THEN: weight not overwritten by page 2 (own=0).
+			// THEN: incentive weight not overwritten by page 2 (own=0).
 			assert_eq!(
 				ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap(),
-				weight
+				incentive_weight
 			);
 		});
 
@@ -378,9 +379,10 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 			)];
 			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
 
-			// THEN: weight set from overview when own-stake arrives.
-			let weight = ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
-			assert_eq!(weight, 31); // √1000 ≈ 31
+			// THEN: incentive weight set from overview when own-stake arrives.
+			let incentive_weight =
+				ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
+			assert_eq!(incentive_weight, 31); // √1000 ≈ 31
 		});
 	});
 }
@@ -405,13 +407,14 @@ fn multiple_validators_share_incentive_pot_correctly() {
 		let expected = Perbill::from_percent(5).mul_floor(total_payout_for(time_per_era()));
 		assert_eq_error_rate!(pot_snapshot, expected, 1);
 
-		let alice_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
-		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
-		let total_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+		let alice_incentive_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		let bob_incentive_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+		let sum_incentive_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 
-		let alice_expected =
-			Perbill::from_rational(alice_weight, total_weight).mul_floor(pot_snapshot);
-		let bob_expected = Perbill::from_rational(bob_weight, total_weight).mul_floor(pot_snapshot);
+		let alice_expected = Perbill::from_rational(alice_incentive_weight, sum_incentive_weight)
+			.mul_floor(pot_snapshot);
+		let bob_expected = Perbill::from_rational(bob_incentive_weight, sum_incentive_weight)
+			.mul_floor(pot_snapshot);
 
 		// WHEN: both validators claim.
 		make_all_reward_payment(2);
@@ -441,10 +444,12 @@ fn validator_incentive_prorated_across_pages() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		let validator_weight = ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
-		let total_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
+		let validator_incentive_weight =
+			ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap();
+		let sum_incentive_weight = ErasSumValidatorIncentiveWeight::<Test>::get(2);
 		let pot = ErasValidatorIncentiveBudget::<Test>::get(2);
-		let expected_total = Perbill::from_rational(validator_weight, total_weight).mul_floor(pot);
+		let expected_total =
+			Perbill::from_rational(validator_incentive_weight, sum_incentive_weight).mul_floor(pot);
 
 		// WHEN: all pages paid out.
 		make_all_reward_payment(2);

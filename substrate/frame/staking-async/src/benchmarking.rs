@@ -143,10 +143,10 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	let _ = asset::mint_creating::<T>(&incentive_pot, incentive_payout);
 	ErasValidatorIncentiveBudget::<T>::insert(planned_era, incentive_payout);
 
-	// All validators get equal weight for benchmark simplicity.
-	let weight = BalanceOf::<T>::from(100u64);
-	ErasValidatorIncentiveWeight::<T>::insert(planned_era, &v_stash, weight);
-	ErasSumValidatorIncentiveWeight::<T>::insert(planned_era, weight);
+	// Single-validator benchmark setup: sum == this validator's weight.
+	let incentive_weight = BalanceOf::<T>::from(100u64);
+	ErasValidatorIncentiveWeight::<T>::insert(planned_era, &v_stash, incentive_weight);
+	ErasSumValidatorIncentiveWeight::<T>::insert(planned_era, incentive_weight);
 
 	Ok((v_stash, nominators, planned_era))
 }
@@ -1298,9 +1298,9 @@ mod benchmarks {
 			}
 
 			// ErasValidatorIncentiveWeight
-			let weight = BalanceOf::<T>::from(100u64);
-			ErasValidatorIncentiveWeight::<T>::insert(era, validator, weight);
-			total_incentive_weight += weight;
+			let incentive_weight = BalanceOf::<T>::from(100u64);
+			ErasValidatorIncentiveWeight::<T>::insert(era, validator, incentive_weight);
+			total_incentive_weight += incentive_weight;
 		}
 
 		// Single-entry storages

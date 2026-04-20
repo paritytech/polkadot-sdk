@@ -379,9 +379,12 @@ impl<T: Config> Eras<T> {
 		ErasValidatorIncentiveBudget::<T>::get(era)
 	}
 
-	pub(crate) fn add_sum_validator_incentive_weight(era: EraIndex, weight: BalanceOf<T>) {
-		<ErasSumValidatorIncentiveWeight<T>>::mutate(era, |total_weight| {
-			*total_weight += weight;
+	pub(crate) fn add_sum_validator_incentive_weight(
+		era: EraIndex,
+		incentive_weight: BalanceOf<T>,
+	) {
+		<ErasSumValidatorIncentiveWeight<T>>::mutate(era, |sum| {
+			*sum += incentive_weight;
 		});
 	}
 
@@ -1149,7 +1152,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		let mut elected_stashes_page = Vec::with_capacity(exposures.len());
 		let mut total_backers = 0u32;
 
-		let mut total_validator_weight_page: BalanceOf<T> = Zero::zero();
+		let mut total_incentive_weight_page: BalanceOf<T> = Zero::zero();
 
 		exposures.into_iter().for_each(|(stash, exposure)| {
 			log!(
@@ -1179,8 +1182,8 @@ impl<T: Config> EraElectionPlanner<T> {
 					let incentive_weight =
 						T::StakerRewardCalculator::calculate_validator_incentive_weight(own);
 					if !incentive_weight.is_zero() {
-						total_validator_weight_page =
-							total_validator_weight_page.saturating_add(incentive_weight);
+						total_incentive_weight_page =
+							total_incentive_weight_page.saturating_add(incentive_weight);
 						ErasValidatorIncentiveWeight::<T>::insert(
 							new_planned_era,
 							&stash,
@@ -1200,7 +1203,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
 
 		// adds to total validator self-stake weight for incentive distribution.
-		Eras::<T>::add_sum_validator_incentive_weight(new_planned_era, total_validator_weight_page);
+		Eras::<T>::add_sum_validator_incentive_weight(new_planned_era, total_incentive_weight_page);
 
 		// collect or update the pref of all winners.
 		// TODO: rather inefficient, we can do this once at the last page across all entries in
