@@ -15,12 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::cmp;
-
 use super::*;
 use frame_support::{
 	pallet_prelude::*,
 	traits::{fungible::Mutate, tokens::Preservation::Expendable, DefensiveResult},
+	transactional,
 };
 use sp_arithmetic::traits::{CheckedDiv, Saturating, Zero};
 use sp_runtime::traits::{BlockNumberProvider, Convert};
@@ -108,14 +107,12 @@ impl<T: Config> Pallet<T> {
 		end_price: BalanceOf<T>,
 		extra_cores: CoreIndex,
 	) -> DispatchResult {
-		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-
 		// Determine the core count
 		let core_count = Leases::<T>::decode_len().unwrap_or(0) as CoreIndex +
 			Reservations::<T>::decode_len().unwrap_or(0) as CoreIndex +
 			extra_cores;
 
-		Self::do_request_core_count(core_count)?;
+		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 
 		let commit_timeslice = Self::latest_timeslice_ready_to_commit(&config);
 		let status = StatusRecord {
@@ -125,105 +122,111 @@ impl<T: Config> Pallet<T> {
 			last_committed_timeslice: commit_timeslice.saturating_sub(1),
 			last_timeslice: Self::current_timeslice(),
 		};
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		// Imaginary old sale for bootstrapping the first actual sale:
-		let old_sale = SaleInfoRecord {
-			sale_start: now,
-			leadin_length: Zero::zero(),
-			end_price,
-			sellout_price: None,
-			region_begin: commit_timeslice,
-			region_end: commit_timeslice.saturating_add(config.region_length),
-			first_core: 0,
-			ideal_cores_sold: 0,
-			cores_offered: 0,
-			cores_sold: 0,
-		};
-		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
-		Self::rotate_sale(old_sale, &config, &status);
 		Status::<T>::put(&status);
+
+		Self::do_request_core_count(core_count)?;
+
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let sales_started = <Self as Market<T>>::start_sales(now, end_price)?;
+
+		Self::deposit_event(Event::<T>::SalesStarted { price: end_price, core_count });
+
+		Self::rotate_sale(
+			&sales_started.imaginary_old_sale,
+			&sales_started.new_sale,
+			sales_started.new_prices,
+			sales_started.start_price,
+			&status,
+		);
+
 		Ok(())
 	}
 
 	pub(crate) fn do_purchase(
 		who: T::AccountId,
 		price_limit: BalanceOf<T>,
-	) -> Result<RegionId, DispatchError> {
-		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		Self::ensure_cores_for_sale(&status, &sale)?;
-
+	) -> Result<(), DispatchError> {
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		ensure!(now > sale.sale_start, Error::<T>::TooEarly);
-		let price = Self::sale_price(&sale, now);
-		ensure!(price_limit >= price, Error::<T>::Overpriced);
+		match Self::place_order(now, &who, price_limit)? {
+			OrderResult::BidPlaced { id, bid_price } => {
+				Self::lock_funds(&who, bid_price)?;
 
-		let core = Self::purchase_core(&who, price, &mut sale)?;
+				Self::deposit_event(Event::BidPlaced { bid_id: id, price: bid_price });
+			},
+			OrderResult::Sold { price, region_id, region_end } => {
+				Self::charge(&who, price)?;
 
-		SaleInfo::<T>::put(&sale);
-		let id = Self::issue(
-			core,
-			sale.region_begin,
-			CoreMask::complete(),
-			sale.region_end,
-			Some(who.clone()),
-			Some(price),
-		);
-		let duration = sale.region_end.saturating_sub(sale.region_begin);
-		Self::deposit_event(Event::Purchased { who, region_id: id, price, duration });
-		Ok(id)
+				Self::issue(region_id, region_end, Some(who.clone()), Some(price));
+				let duration = region_end.saturating_sub(region_id.begin);
+
+				Self::deposit_event(Event::Purchased { who, region_id, price, duration });
+			},
+		};
+
+		Ok(())
 	}
 
 	/// Must be called on a core in `PotentialRenewals` whose value is a timeslice equal to the
 	/// current sale status's `region_end`.
-	pub(crate) fn do_renew(who: T::AccountId, core: CoreIndex) -> Result<CoreIndex, DispatchError> {
-		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let mut sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-		Self::ensure_cores_for_sale(&status, &sale)?;
+	#[transactional] // It gets called in `do_enable_auto_renew` and can mutate the storage.
+	pub(crate) fn do_renew(
+		who: T::AccountId,
+		core: CoreIndex,
+	) -> Result<DoRenewResult<T>, DispatchError> {
+		// TODO: Try to avoid reading SaleInfo here.
+		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
 		let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
 		let record = PotentialRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
 		let workload =
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
 
-		let old_core = core;
-
-		let core = Self::purchase_core(&who, record.price, &mut sale)?;
-
-		Self::deposit_event(Event::Renewed {
-			who,
-			old_core,
-			core,
-			price: record.price,
-			begin: sale.region_begin,
-			duration: sale.region_end.saturating_sub(sale.region_begin),
-			workload: workload.clone(),
-		});
-
-		Workplan::<T>::insert((sale.region_begin, core), &workload);
-
-		let begin = sale.region_end;
-		let end_price = sale.end_price;
-		// Renewals should never be priced lower than the current `end_price`:
-		let price_cap = cmp::max(record.price + config.renewal_bump * record.price, end_price);
 		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let price = Self::sale_price(&sale, now).min(price_cap);
-		log::debug!(
-			"Renew with: sale price: {:?}, price cap: {:?}, old price: {:?}",
-			price,
-			price_cap,
-			record.price
-		);
-		let new_record = PotentialRenewalRecord { price, completion: Complete(workload) };
-		PotentialRenewals::<T>::remove(renewal_id);
-		PotentialRenewals::<T>::insert(PotentialRenewalId { core, when: begin }, &new_record);
-		SaleInfo::<T>::put(&sale);
-		if let Some(workload) = new_record.completion.drain_complete() {
-			log::debug!("Recording renewable price for next run: {:?}", price);
-			Self::deposit_event(Event::Renewable { core, price, begin, workload });
+		match Self::place_renewal_order(now, &who, renewal_id, record.price)? {
+			RenewalOrderResult::BidPlaced { id, bid_price } => {
+				Self::lock_funds(&who, bid_price)?;
+
+				Self::deposit_event(Event::BidPlaced { bid_id: id, price: bid_price });
+
+				Ok(DoRenewResult::BidPlaced { id })
+			},
+			RenewalOrderResult::Sold { price, next_renewal_price, region_id, effective_to } => {
+				Self::charge(&who, price)?;
+
+				Workplan::<T>::insert((region_id.begin, region_id.core), &workload);
+
+				Self::deposit_event(Event::Renewed {
+					who,
+					old_core: core,
+					core: region_id.core,
+					price,
+					begin: region_id.begin,
+					duration: effective_to.saturating_sub(region_id.begin),
+					workload: workload.clone(),
+				});
+
+				let new_record = PotentialRenewalRecord {
+					price: next_renewal_price,
+					completion: Complete(workload),
+				};
+				PotentialRenewals::<T>::remove(renewal_id);
+				PotentialRenewals::<T>::insert(
+					PotentialRenewalId { core: region_id.core, when: effective_to },
+					&new_record,
+				);
+				if let Some(workload) = new_record.completion.drain_complete() {
+					log::debug!("Recording renewable price for next run: {:?}", price);
+					Self::deposit_event(Event::Renewable {
+						core: region_id.core,
+						price,
+						begin: effective_to,
+						workload,
+					});
+				}
+
+				Ok(DoRenewResult::Renewed { new_core: region_id.core })
+			},
 		}
-		Ok(core)
 	}
 
 	pub(crate) fn do_transfer(
@@ -571,7 +574,13 @@ impl<T: Config> Pallet<T> {
 		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
 			.is_some()
 		{
-			core = Self::do_renew(sovereign_account.clone(), core)?;
+			let DoRenewResult::Renewed { new_core } =
+				Self::do_renew(sovereign_account.clone(), core)?
+			else {
+				return Err(Error::<T>::NotAllowed.into());
+			};
+
+			core = new_core;
 		} else if let Some(workload_end) = workload_end_hint {
 			ensure!(
 				PotentialRenewals::<T>::get(PotentialRenewalId { core, when: workload_end })
@@ -631,25 +640,10 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
+}
 
-	pub(crate) fn ensure_cores_for_sale(
-		status: &StatusRecord,
-		sale: &SaleInfoRecordOf<T>,
-	) -> Result<(), DispatchError> {
-		ensure!(sale.first_core < status.core_count, Error::<T>::Unavailable);
-		ensure!(sale.cores_sold < sale.cores_offered, Error::<T>::SoldOut);
-
-		Ok(())
-	}
-
-	/// If there is an ongoing sale returns the current price of a core.
-	pub fn current_price() -> Result<BalanceOf<T>, DispatchError> {
-		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
-		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-
-		Self::ensure_cores_for_sale(&status, &sale)?;
-
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		Ok(Self::sale_price(&sale, now))
-	}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DoRenewResult<T: Config> {
+	Renewed { new_core: CoreIndex },
+	BidPlaced { id: BidIdOf<T> },
 }

@@ -34,7 +34,7 @@ use sp_arithmetic::{FixedU64, Perbill};
 use sp_core::Get;
 use sp_runtime::{
 	traits::{BlockNumberProvider, MaybeConvert},
-	FixedPointNumber, Saturating,
+	DispatchError, FixedPointNumber, Saturating,
 };
 
 const SEED: u32 = 0;
@@ -138,13 +138,29 @@ fn get_start_end_price<T: Config>(initial_price: BalanceOf<T>) -> (BalanceOf<T>,
 		cores_sold: 0,
 	})
 	.end_price;
-	let start_price = <T as Config>::PriceAdapter::leadin_factor_at(FixedU64::from(0))
-		.saturating_mul_int(end_price);
+	let start_price = market::leadin_factor_at(FixedU64::from(0)).saturating_mul_int(end_price);
 	(start_price, end_price)
+}
+
+fn purchase_and_get_region_id<T: Config>(
+	who: T::AccountId,
+	price_limit: BalanceOf<T>,
+) -> Result<RegionId, DispatchError> {
+	Broker::<T>::do_purchase(who, price_limit)?;
+
+	let sale = SaleInfo::<T>::get().expect("Sale should exist");
+
+	let begin = sale.region_begin;
+	let core = sale.first_core.saturating_add(sale.cores_sold) - 1;
+	let mask = CoreMask::complete();
+
+	Ok(RegionId { begin, core, mask })
 }
 
 #[benchmarks]
 mod benches {
+	use frame_support::weights::WeightMeter;
+
 	use super::*;
 	use crate::Finality::*;
 
@@ -339,7 +355,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		Broker::<T>::do_assign(region, None, 1001, Final)
@@ -368,7 +384,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -401,7 +417,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		// Worst case has an existing provisional pool assignment.
@@ -450,7 +466,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		// Worst case has an existing provisional pool assignment.
@@ -491,7 +507,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		// Worst case has an existing provisional pool assignment.
@@ -531,7 +547,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -572,7 +588,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(200_000_000u32.into()),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -659,7 +675,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		advance_to::<T>(
@@ -694,7 +710,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		let recipient: T::AccountId = account("recipient", 0, SEED);
@@ -865,185 +881,6 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn rotate_sale(n: Linear<0, { MAX_CORE_COUNT.into() }>) -> Result<(), BenchmarkError> {
-		let config = new_config_record::<T>();
-		Configuration::<T>::put(config.clone());
-
-		// Ensure there is one buyable core then use the rest to max out reservations and leases, if
-		// possible for worst case.
-
-		// First allocate up to MaxReservedCores for reservations
-		let n_reservations = T::MaxReservedCores::get().min(n.saturating_sub(1));
-		setup_reservations::<T>(n_reservations);
-		// Then allocate remaining cores to leases, up to MaxLeasedCores
-		let n_leases =
-			T::MaxLeasedCores::get().min(n.saturating_sub(1).saturating_sub(n_reservations));
-		setup_leases::<T>(n_leases, 1, 20);
-
-		// Start sales so we can test the auto-renewals.
-		let initial_price = 10_000_000u32.into();
-		let (start_price, _) = get_start_end_price::<T>(initial_price);
-		Broker::<T>::do_start_sales(
-			initial_price,
-			n.saturating_sub(n_reservations)
-				.saturating_sub(n_leases)
-				.try_into()
-				.expect("Upper limit of n is a u16."),
-		)
-		.expect("Configuration was initialized before; qed");
-
-		// Advance to the fixed price period.
-		advance_to::<T>(2);
-
-		// Assume max auto renewals for worst case. This is between 1 and the value of
-		// MaxAutoRenewals.
-		let n_renewable = T::MaxAutoRenewals::get()
-			.min(n.saturating_sub(n_leases).saturating_sub(n_reservations));
-
-		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
-		let sale = SaleInfo::<T>::get().expect("Sale has started.");
-
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let price = Broker::<T>::sale_price(&sale, now);
-		(0..n_renewable.into()).try_for_each(|indx| -> Result<(), BenchmarkError> {
-			let task = 1000 + indx;
-			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
-				.expect("Failed to get sovereign account");
-			T::Currency::set_balance(
-				&caller.clone(),
-				T::Currency::minimum_balance()
-					.saturating_add(start_price)
-					.saturating_add(start_price),
-			);
-
-			let region = Broker::<T>::do_purchase(caller.clone(), start_price)
-				.expect("Offer not high enough for configuration.");
-
-			Broker::<T>::do_assign(region, None, task, Final)
-				.map_err(|_| BenchmarkError::Weightless)?;
-
-			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(sale.region_end))?;
-
-			Ok(())
-		})?;
-
-		// Advance to the block before the rotate_sale in which the auto-renewals will take place.
-		let rotate_block = timeslice_period.saturating_mul(config.region_length) - 2;
-		advance_to::<T>(rotate_block - 1);
-
-		// Advance one block and manually tick so we can isolate the `rotate_sale` call.
-		System::<T>::set_block_number(rotate_block.into());
-		RCBlockNumberProviderOf::<T::Coretime>::set_block_number(rotate_block.into());
-		let mut status = Status::<T>::get().expect("Sale has started.");
-		let sale = SaleInfo::<T>::get().expect("Sale has started.");
-		Broker::<T>::process_core_count(&mut status);
-		Broker::<T>::process_revenue();
-		status.last_committed_timeslice = config.region_length;
-
-		#[block]
-		{
-			Broker::<T>::rotate_sale(sale.clone(), &config, &status);
-		}
-
-		// Get prices from the actual price adapter.
-		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&sale));
-		let new_sale = SaleInfo::<T>::get().expect("Sale has started.");
-		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-		let sale_start = config.interlude_length.saturating_add(rotate_block.into());
-
-		assert_has_event::<T>(
-			Event::SaleInitialized {
-				sale_start,
-				leadin_length: 1u32.into(),
-				start_price: Broker::<T>::sale_price(&new_sale, now),
-				end_price: new_prices.end_price,
-				region_begin: sale.region_begin + config.region_length,
-				region_end: sale.region_end + config.region_length,
-				ideal_cores_sold: 0,
-				cores_offered: n
-					.saturating_sub(n_reservations)
-					.saturating_sub(n_leases)
-					.try_into()
-					.unwrap(),
-			}
-			.into(),
-		);
-
-		// Make sure all cores got renewed:
-		(0..n_renewable).for_each(|indx| {
-			let task = 1000 + indx;
-			let who = T::SovereignAccountOf::maybe_convert(task)
-				.expect("Failed to get sovereign account");
-			assert_has_event::<T>(
-				Event::Renewed {
-					who,
-					old_core: n_reservations as u16 + n_leases as u16 + indx as u16,
-					core: n_reservations as u16 + n_leases as u16 + indx as u16,
-					price,
-					begin: new_sale.region_begin,
-					duration: config.region_length,
-					workload: Schedule::truncate_from(vec![ScheduleItem {
-						assignment: Task(task),
-						mask: CoreMask::complete(),
-					}]),
-				}
-				.into(),
-			);
-		});
-
-		Ok(())
-	}
-
-	#[benchmark]
-	fn process_pool() {
-		let when = 10u32.into();
-		let private_pool_size = 5u32.into();
-		let system_pool_size = 4u32.into();
-
-		let config = new_config_record::<T>();
-		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
-		let mut status = StatusRecord {
-			core_count: 5u16.into(),
-			private_pool_size,
-			system_pool_size,
-			last_committed_timeslice: commit_timeslice.saturating_sub(1),
-			last_timeslice: Broker::<T>::current_timeslice(),
-		};
-
-		#[block]
-		{
-			Broker::<T>::process_pool(when, &mut status);
-		}
-
-		assert!(InstaPoolHistory::<T>::get(when).is_some());
-		assert_last_event::<T>(
-			Event::HistoryInitialized { when, private_pool_size, system_pool_size }.into(),
-		);
-	}
-
-	#[benchmark]
-	fn process_core_schedule() {
-		let timeslice = 10u32.into();
-		let core = 5u16.into();
-		let rc_begin = 1u32.into();
-
-		Workplan::<T>::insert((timeslice, core), new_schedule());
-
-		#[block]
-		{
-			Broker::<T>::process_core_schedule(timeslice, rc_begin, core);
-		}
-
-		assert_eq!(Workload::<T>::get(core).len(), CORE_MASK_BITS);
-
-		let mut assignment: Vec<(CoreAssignment, PartsOf57600)> = vec![];
-		for i in 0..CORE_MASK_BITS {
-			assignment.push((CoreAssignment::Task(i.try_into().unwrap()), 57600));
-		}
-		assert_last_event::<T>(Event::CoreAssigned { core, when: rc_begin, assignment }.into());
-	}
-
-	#[benchmark]
 	fn request_revenue_info_at() {
 		let current_timeslice = Broker::<T>::current_timeslice();
 		let rc_block = T::TimeslicePeriod::get() * current_timeslice.into();
@@ -1171,7 +1008,7 @@ mod benches {
 				T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 			);
 
-			let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+			let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 				.expect("Offer not high enough for configuration.");
 
 			Broker::<T>::do_assign(region, None, task, Final)
@@ -1192,7 +1029,7 @@ mod benches {
 		);
 
 		// The region for which we benchmark enable auto renew.
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 		Broker::<T>::do_assign(region, None, 2001, Final)
 			.map_err(|_| BenchmarkError::Weightless)?;
@@ -1236,7 +1073,7 @@ mod benches {
 				T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 			);
 
-			let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+			let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 				.expect("Offer not high enough for configuration.");
 
 			Broker::<T>::do_assign(region, None, task, Final)
@@ -1272,7 +1109,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let _region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let _region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		let timeslice = Broker::<T>::current_timeslice();
@@ -1297,7 +1134,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 
 		Broker::<T>::do_assign(region, None, 1000, Provisional)
@@ -1323,7 +1160,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(sale_data.start_price),
 		);
 
-		let region_id = Broker::<T>::do_purchase(caller.clone(), sale_data.start_price)
+		let region_id = purchase_and_get_region_id::<T>(caller.clone(), sale_data.start_price)
 			.expect("Offer not high enough for configuration.");
 		let region = Regions::<T>::get(region_id).expect("Requested region not found");
 
@@ -1341,6 +1178,316 @@ mod benches {
 		);
 
 		Ok(())
+	}
+
+	#[benchmark]
+	fn process_tick_action_bid_closed() {
+		let owner: T::AccountId = whitelisted_caller();
+		let action = TickAction::BidClosed { id: (), owner: owner.clone() };
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			Broker::<T>::process_tick_action(action, &mut meter);
+		}
+
+		assert_last_event::<T>(Event::BidClosed { bid_id: (), owner }.into());
+	}
+
+	#[benchmark]
+	fn process_tick_action_renew_region() {
+		#[block]
+		{
+			// TODO #10900. This benchmark is useless for the current implementation of the market
+			// logic but will be useful with RFC-17 implementation.
+		}
+	}
+
+	#[benchmark]
+	fn process_tick_action_sell_region() {
+		let owner: T::AccountId = whitelisted_caller();
+		let action = TickAction::SellRegion {
+			owner: owner.clone(),
+			paid: T::Currency::minimum_balance(),
+			region_begin: 0,
+			region_end: 1,
+			core: 0,
+		};
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			Broker::<T>::process_tick_action(action, &mut meter);
+		}
+
+		assert_last_event::<T>(
+			Event::Purchased {
+				who: owner,
+				region_id: RegionId { begin: 0, core: 0, mask: CoreMask::complete() },
+				price: T::Currency::minimum_balance(),
+				duration: 1,
+			}
+			.into(),
+		);
+	}
+
+	#[benchmark]
+	fn process_tick_action_refund() {
+		#[block]
+		{
+			// TODO #10900. This benchmark is useless for the current implementation of the market
+			// logic but will be useful with RFC-17 implementation.
+		}
+	}
+
+	#[benchmark]
+	fn process_tick_action_sale_rotated(
+		n: Linear<0, { MAX_CORE_COUNT.into() }>,
+	) -> Result<(), BenchmarkError> {
+		let config = new_config_record::<T>();
+		Configuration::<T>::put(config.clone());
+
+		// Ensure there is one buyable core then use the rest to max out reservations and leases, if
+		// possible for worst case.
+
+		// First allocate up to MaxReservedCores for reservations
+		let n_reservations = T::MaxReservedCores::get().min(n.saturating_sub(1));
+		setup_reservations::<T>(n_reservations);
+		// Then allocate remaining cores to leases, up to MaxLeasedCores
+		let n_leases =
+			T::MaxLeasedCores::get().min(n.saturating_sub(1).saturating_sub(n_reservations));
+		setup_leases::<T>(n_leases, 1, 20);
+
+		// Start sales so we can test the auto-renewals.
+		let initial_price = 10_000_000u32.into();
+		let (start_price, _) = get_start_end_price::<T>(initial_price);
+		Broker::<T>::do_start_sales(
+			initial_price,
+			n.saturating_sub(n_reservations)
+				.saturating_sub(n_leases)
+				.try_into()
+				.expect("Upper limit of n is a u16."),
+		)
+		.expect("Configuration was initialized before; qed");
+
+		// Advance to the fixed price period.
+		advance_to::<T>(2);
+
+		// Assume max auto renewals for worst case. This is between 1 and the value of
+		// MaxAutoRenewals.
+		let n_renewable = T::MaxAutoRenewals::get()
+			.min(n.saturating_sub(n_leases).saturating_sub(n_reservations));
+
+		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
+		let sale = SaleInfo::<T>::get().expect("Sale has started.");
+
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let price = market::sell_price::<T>(now, &sale);
+		(0..n_renewable.into()).try_for_each(|indx| -> Result<(), BenchmarkError> {
+			let task = 1000 + indx;
+			let caller: T::AccountId = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			T::Currency::set_balance(
+				&caller.clone(),
+				T::Currency::minimum_balance()
+					.saturating_add(start_price)
+					.saturating_add(start_price),
+			);
+
+			let region = purchase_and_get_region_id::<T>(caller.clone(), start_price)
+				.expect("Offer not high enough for configuration.");
+
+			Broker::<T>::do_assign(region, None, task, Final)
+				.map_err(|_| BenchmarkError::Weightless)?;
+
+			Broker::<T>::do_enable_auto_renew(caller, region.core, task, Some(sale.region_end))?;
+
+			Ok(())
+		})?;
+
+		// Advance to the block before the rotate_sale in which the auto-renewals will take place.
+		let rotate_block = timeslice_period.saturating_mul(config.region_length) - 2;
+		advance_to::<T>(rotate_block - 1);
+
+		// Advance one block and manually tick so we can isolate the `rotate_sale` call.
+		System::<T>::set_block_number(rotate_block.into());
+		RCBlockNumberProviderOf::<T::Coretime>::set_block_number(rotate_block.into());
+		let mut status = Status::<T>::get().expect("Sale has started.");
+		let sale = SaleInfo::<T>::get().expect("Sale has started.");
+		Broker::<T>::process_core_count(&mut status);
+		Broker::<T>::process_revenue();
+		status.last_committed_timeslice = config.region_length;
+		Status::<T>::put(status.clone());
+
+		let block = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let reserved_cores = <Broker<T> as Market<T>>::CoreCount::reserved_core_count();
+		let (new_prices, new_sale) =
+			market::rotate_sale::<T>(&sale, &config, &status, reserved_cores, block);
+		SaleInfo::<T>::put(new_sale.clone());
+		let start_price = market::sell_price::<T>(block, &new_sale);
+		let action =
+			TickAction::SaleRotated { old_sale: sale.clone(), new_sale, new_prices, start_price };
+
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			Broker::<T>::process_tick_action(action, &mut meter);
+		}
+
+		// Get prices from the actual price adapter.
+		let new_prices = T::PriceAdapter::adapt_price(SalePerformance::from_sale(&sale));
+		let new_sale = SaleInfo::<T>::get().expect("Sale has started.");
+		let now = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let sale_start = config.interlude_length.saturating_add(rotate_block.into());
+
+		assert_has_event::<T>(
+			Event::SaleInitialized {
+				sale_start,
+				leadin_length: 1u32.into(),
+				start_price,
+				end_price: new_prices.end_price,
+				region_begin: sale.region_begin + config.region_length,
+				region_end: sale.region_end + config.region_length,
+				ideal_cores_sold: 0,
+				cores_offered: n
+					.saturating_sub(n_reservations)
+					.saturating_sub(n_leases)
+					.try_into()
+					.unwrap(),
+			}
+			.into(),
+		);
+
+		// Make sure all cores got renewed:
+		(0..n_renewable).for_each(|indx| {
+			let task = 1000 + indx;
+			let who = T::SovereignAccountOf::maybe_convert(task)
+				.expect("Failed to get sovereign account");
+			assert_has_event::<T>(
+				Event::Renewed {
+					who,
+					old_core: n_reservations as u16 + n_leases as u16 + indx as u16,
+					core: n_reservations as u16 + n_leases as u16 + indx as u16,
+					price,
+					begin: new_sale.region_begin,
+					duration: config.region_length,
+					workload: Schedule::truncate_from(vec![ScheduleItem {
+						assignment: Task(task),
+						mask: CoreMask::complete(),
+					}]),
+				}
+				.into(),
+			);
+		});
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn process_tick_action_timeslice_commited(n: Linear<0, { MAX_CORE_COUNT.into() }>) {
+		let private_pool_size = 5u32.into();
+		let system_pool_size = 4u32.into();
+
+		let config = new_config_record::<T>();
+		let commit_timeslice = Broker::<T>::latest_timeslice_ready_to_commit(&config);
+		let status = StatusRecord {
+			core_count: n as u16,
+			private_pool_size,
+			system_pool_size,
+			last_committed_timeslice: commit_timeslice.saturating_sub(1),
+			last_timeslice: Broker::<T>::current_timeslice(),
+		};
+
+		let timeslice = status.last_committed_timeslice;
+
+		Status::<T>::put(status.clone());
+
+		for core in 0..status.core_count {
+			Workplan::<T>::insert((timeslice, core), new_schedule());
+		}
+
+		let action = TickAction::TimesliceCommited { timeslice };
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			Broker::<T>::process_tick_action(action, &mut meter);
+		}
+
+		assert!(InstaPoolHistory::<T>::get(timeslice).is_some());
+		assert_has_event::<T>(
+			Event::HistoryInitialized { when: timeslice, private_pool_size, system_pool_size }
+				.into(),
+		);
+
+		let timeslice_period = T::TimeslicePeriod::get();
+		let rc_begin = RelayBlockNumberOf::<T>::from(timeslice) * timeslice_period;
+
+		let mut assignment: Vec<(CoreAssignment, PartsOf57600)> = vec![];
+		for i in 0..CORE_MASK_BITS {
+			assignment.push((CoreAssignment::Task(i.try_into().unwrap()), 57600));
+		}
+
+		for core in 0..status.core_count {
+			assert_eq!(Workload::<T>::get(core).len(), CORE_MASK_BITS);
+			assert_has_event::<T>(
+				Event::CoreAssigned { core, when: rc_begin, assignment: assignment.clone() }.into(),
+			);
+		}
+	}
+
+	#[benchmark]
+	fn market_sale_rotated() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+
+		let config = new_config_record::<T>();
+		let sale = SaleInfo::<T>::get().expect("Sale should be present at this point");
+		let status = StatusRecord {
+			core_count: 0,
+			private_pool_size: 0,
+			system_pool_size: 0,
+			last_committed_timeslice: 0,
+			last_timeslice: 0,
+		};
+		let block_number = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
+		let mut actions = vec![];
+
+		#[block]
+		{
+			market::sale_rotated::<T, Broker<T>>(
+				sale,
+				&config,
+				&status,
+				block_number,
+				&mut actions,
+			);
+		}
+
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], TickAction::SaleRotated { .. }));
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn market_last_timeslice_changed() {
+		let mut status = StatusRecord {
+			core_count: 0,
+			private_pool_size: 0,
+			system_pool_size: 0,
+			last_committed_timeslice: 0,
+			last_timeslice: 0,
+		};
+		let mut actions = vec![];
+
+		#[block]
+		{
+			market::last_timeslice_changed::<T>(&mut status, &mut actions);
+		}
+
+		assert_eq!(actions.len(), 1);
+		assert!(matches!(actions[0], TickAction::LastTimesliceChanged { .. }));
 	}
 
 	#[benchmark]

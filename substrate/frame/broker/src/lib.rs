@@ -47,6 +47,7 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use core_mask::*;
 pub use coretime_interface::*;
+pub use market::*;
 pub use types::*;
 
 extern crate alloc;
@@ -61,7 +62,7 @@ pub mod pallet {
 	use frame_support::{
 		pallet_prelude::{DispatchResult, DispatchResultWithPostInfo, *},
 		traits::{
-			fungible::{Balanced, Credit, Mutate},
+			fungible::{hold::Mutate as FunHoldMutate, Balanced, Credit, Mutate},
 			BuildGenesisConfig, EnsureOrigin, OnUnbalanced,
 		},
 		PalletId,
@@ -84,7 +85,12 @@ pub mod pallet {
 		type WeightInfo: WeightInfo;
 
 		/// Currency used to pay for Coretime.
-		type Currency: Mutate<Self::AccountId> + Balanced<Self::AccountId>;
+		type Currency: Mutate<Self::AccountId>
+			+ Balanced<Self::AccountId>
+			+ FunHoldMutate<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+
+		/// Overarching hold reason.
+		type RuntimeHoldReason: From<HoldReason>;
 
 		/// The origin test needed for administrating this pallet.
 		type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -133,6 +139,14 @@ pub mod pallet {
 		/// Needed to prevent spam attacks.
 		#[pallet::constant]
 		type MinimumCreditPurchase: Get<BalanceOf<Self>>;
+	}
+
+	/// A reason for placing a hold on funds.
+	#[pallet::composite_enum]
+	pub enum HoldReason {
+		/// Funds locked for a coretime auction bid.
+		#[codec(index = 0)]
+		CoretimeBid,
 	}
 
 	/// The current configuration of this pallet.
@@ -513,6 +527,20 @@ pub mod pallet {
 			core: CoreIndex,
 			/// The timeslice associated with the potential renewal that was removed.
 			timeslice: Timeslice,
+		},
+		/// The bid was placed on coretime auction.
+		BidPlaced {
+			/// Unique ID of the bid that was placed.
+			bid_id: BidIdOf<T>,
+			/// Bid amount.
+			price: BalanceOf<T>,
+		},
+		/// The bid was removed.
+		BidClosed {
+			/// Unique ID of the bid that was removed.
+			bid_id: BidIdOf<T>,
+			/// An account that originally made the bid.
+			owner: T::AccountId,
 		},
 	}
 

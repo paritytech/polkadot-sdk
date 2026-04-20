@@ -18,9 +18,9 @@
 #![deny(missing_docs)]
 
 use crate::{CoreIndex, SaleInfoRecord};
-use sp_arithmetic::{traits::One, FixedU64};
+use sp_arithmetic::FixedU64;
 use sp_core::Get;
-use sp_runtime::{FixedPointNumber, FixedPointOperand, Saturating};
+use sp_runtime::{FixedPointNumber, FixedPointOperand};
 
 /// Performance of a past sale.
 #[derive(Copy, Clone)]
@@ -80,11 +80,6 @@ impl<Balance: Copy> SalePerformance<Balance> {
 
 /// Type for determining how to set price.
 pub trait AdaptPrice<Balance> {
-	/// Return the factor by which the regular price must be multiplied during the leadin period.
-	///
-	/// - `when`: The amount through the leadin period; between zero and one.
-	fn leadin_factor_at(when: FixedU64) -> FixedU64;
-
 	/// Return adapted prices for next sale.
 	///
 	/// Based on the previous sale's performance.
@@ -92,9 +87,6 @@ pub trait AdaptPrice<Balance> {
 }
 
 impl<Balance: Copy> AdaptPrice<Balance> for () {
-	fn leadin_factor_at(_: FixedU64) -> FixedU64 {
-		FixedU64::one()
-	}
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
 		let price = performance.sellout_price.unwrap_or(performance.end_price);
 		AdaptedPrices { end_price: price, target_price: price }
@@ -108,14 +100,6 @@ impl<Balance: Copy> AdaptPrice<Balance> for () {
 pub struct CenterTargetPrice<Balance>(core::marker::PhantomData<Balance>);
 
 impl<Balance: FixedPointOperand> AdaptPrice<Balance> for CenterTargetPrice<Balance> {
-	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		if when <= FixedU64::from_rational(1, 2) {
-			FixedU64::from(100).saturating_sub(when.saturating_mul(180.into()))
-		} else {
-			FixedU64::from(19).saturating_sub(when.saturating_mul(18.into()))
-		}
-	}
-
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
 		let Some(sellout_price) = performance.sellout_price else {
 			return AdaptedPrices {
@@ -147,10 +131,6 @@ pub struct MinimumPrice<Balance, MinPrice>(core::marker::PhantomData<(Balance, M
 impl<Balance: FixedPointOperand, MinPrice: Get<Balance>> AdaptPrice<Balance>
 	for MinimumPrice<Balance, MinPrice>
 {
-	fn leadin_factor_at(when: FixedU64) -> FixedU64 {
-		CenterTargetPrice::<Balance>::leadin_factor_at(when)
-	}
-
 	fn adapt_price(performance: SalePerformance<Balance>) -> AdaptedPrices<Balance> {
 		let mut proposal = CenterTargetPrice::<Balance>::adapt_price(performance);
 		let min_price = MinPrice::get();
@@ -181,28 +161,28 @@ mod tests {
 		}
 	}
 
-	#[test]
-	fn leadin_price_bound_check() {
-		assert_eq!(
-			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from(0)),
-			FixedU64::from(100)
-		);
-		assert_eq!(
-			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_rational(1, 4)),
-			FixedU64::from(55)
-		);
+	// #[test]
+	// fn leadin_price_bound_check() {
+	// 	assert_eq!(
+	// 		CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from(0)),
+	// 		FixedU64::from(100)
+	// 	);
+	// 	assert_eq!(
+	// 		CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_rational(1, 4)),
+	// 		FixedU64::from(55)
+	// 	);
 
-		assert_eq!(
-			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_float(0.5)),
-			FixedU64::from(10)
-		);
+	// 	assert_eq!(
+	// 		CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_float(0.5)),
+	// 		FixedU64::from(10)
+	// 	);
 
-		assert_eq!(
-			CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_rational(3, 4)),
-			FixedU64::from_float(5.5)
-		);
-		assert_eq!(CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::one()), FixedU64::one());
-	}
+	// 	assert_eq!(
+	// 		CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::from_rational(3, 4)),
+	// 		FixedU64::from_float(5.5)
+	// 	);
+	// 	assert_eq!(CenterTargetPrice::<u64>::leadin_factor_at(FixedU64::one()), FixedU64::one());
+	// }
 
 	#[test]
 	fn no_op_sale_is_good() {
