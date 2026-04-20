@@ -41,7 +41,6 @@ fn pgas_pays_for_filtered_call_with_zero_native() {
 	let pgas_initial = 1_000;
 	ExtBuilder::default()
 		.with_pgas(vec![(ALICE, pgas_initial)])
-		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
 			let call = pgas_call();
@@ -83,7 +82,6 @@ fn falls_back_to_inner_when_no_pgas() {
 	let native_initial = 1_000;
 	ExtBuilder::default()
 		.with_native(vec![(BOB, native_initial)])
-		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
 			let call = pgas_call();
@@ -114,7 +112,6 @@ fn filter_miss_uses_inner_even_with_pgas() {
 	ExtBuilder::default()
 		.with_native(vec![(CHARLIE, native_initial), (BOB, 10)])
 		.with_pgas(vec![(CHARLIE, pgas_initial)])
-		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
 			let call = non_pgas_call();
@@ -140,7 +137,6 @@ fn pgas_refund_on_unused_weight() {
 	let pgas_initial = 1_000;
 	ExtBuilder::default()
 		.with_pgas(vec![(ALICE, pgas_initial)])
-		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
 			let call = pgas_call();
@@ -184,7 +180,6 @@ fn pgas_below_ed_falls_back_to_native() {
 	// but not the fee plus ED, forcing the extension to fall through.
 	ExtBuilder::default()
 		.with_native(vec![(ALICE, native_initial)])
-		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
 			let call = pgas_call();
@@ -223,7 +218,6 @@ fn pgas_below_ed_falls_back_to_native() {
 fn unsigned_delegates_to_inner() {
 	ExtBuilder::default()
 		.with_pgas(vec![(ALICE, 1_000)])
-		.base_weight(Weight::from_parts(5, 0))
 		.build()
 		.execute_with(|| {
 			let call = pgas_call();

@@ -18,17 +18,16 @@ use crate as pallet_pgas_allowance;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
-	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU64, Contains, Get},
-	weights::{Weight, WeightToFee as WeightToFeeT},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Get},
+	weights::{IdentityFee, Weight},
 };
 use frame_system::EnsureRoot;
 use pallet_transaction_payment::FungibleAdapter;
-use sp_runtime::{traits::SaturatedConversion, BuildStorage};
+use sp_runtime::BuildStorage;
 
-pub type AccountId = u64;
-pub type Balance = u64;
-pub type AssetId = u32;
+pub type AccountId = <Runtime as frame_system::Config>::AccountId;
+pub type Balance = <Runtime as pallet_balances::Config>::Balance;
+pub type AssetId = <Runtime as pallet_assets::Config>::AssetId;
 
 type Block = frame_system::mocking::MockBlock<Runtime>;
 
@@ -47,17 +46,13 @@ frame_support::construct_runtime!(
 	}
 );
 
-parameter_types! {
-	pub(crate) static ExtrinsicBaseWeight: Weight = Weight::zero();
-}
-
 pub struct BlockWeights;
 impl Get<frame_system::limits::BlockWeights> for BlockWeights {
 	fn get() -> frame_system::limits::BlockWeights {
 		frame_system::limits::BlockWeights::builder()
 			.base_block(Weight::zero())
 			.for_class(DispatchClass::all(), |weights| {
-				weights.base_extrinsic = ExtrinsicBaseWeight::get().into();
+				weights.base_extrinsic = Weight::zero();
 			})
 			.for_class(DispatchClass::non_mandatory(), |weights| {
 				weights.max_total = Weight::from_parts(1024, u64::MAX).into();
@@ -66,18 +61,11 @@ impl Get<frame_system::limits::BlockWeights> for BlockWeights {
 	}
 }
 
-parameter_types! {
-	pub static WeightToFee: u64 = 1;
-	pub static TransactionByteFee: u64 = 1;
-}
-
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Runtime {
 	type BlockWeights = BlockWeights;
 	type Block = Block;
 	type AccountData = pallet_balances::AccountData<Balance>;
-	type AccountId = AccountId;
-	type Lookup = sp_runtime::traits::IdentityLookup<AccountId>;
 }
 
 #[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
@@ -86,30 +74,12 @@ impl pallet_balances::Config for Runtime {
 	type AccountStore = System;
 }
 
-impl WeightToFeeT for WeightToFee {
-	type Balance = Balance;
-
-	fn weight_to_fee(weight: &Weight) -> Self::Balance {
-		Self::Balance::saturated_from(weight.ref_time())
-			.saturating_mul(WEIGHT_TO_FEE.with(|v| *v.borrow()))
-	}
-}
-
-impl WeightToFeeT for TransactionByteFee {
-	type Balance = Balance;
-
-	fn weight_to_fee(weight: &Weight) -> Self::Balance {
-		Self::Balance::saturated_from(weight.ref_time())
-			.saturating_mul(TRANSACTION_BYTE_FEE.with(|v| *v.borrow()))
-	}
-}
-
 #[derive_impl(pallet_transaction_payment::config_preludes::TestDefaultConfig)]
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction = FungibleAdapter<Balances, ()>;
-	type WeightToFee = WeightToFee;
-	type LengthToFee = TransactionByteFee;
+	type WeightToFee = IdentityFee<Balance>;
+	type LengthToFee = IdentityFee<Balance>;
 }
 
 #[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
@@ -117,10 +87,6 @@ impl pallet_assets::Config for Runtime {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId>>;
 	type ForceOrigin = EnsureRoot<AccountId>;
-}
-
-parameter_types! {
-	pub const PGASAssetId: AssetId = PGAS_ASSET_ID;
 }
 
 /// Filter that matches `frame_system` calls (used by tests via `System::remark` and by the
@@ -134,7 +100,7 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 
 impl pallet_pgas_allowance::Config for Runtime {
 	type Assets = Assets;
-	type PGASAssetId = PGASAssetId;
+	type PGASAssetId = ConstU32<PGAS_ASSET_ID>;
 	type CallFilter = PGASCallFilter;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
@@ -151,24 +117,10 @@ impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetId, Balance> fo
 	}
 }
 
+#[derive(Default)]
 pub struct ExtBuilder {
 	native_balances: Vec<(AccountId, Balance)>,
 	pgas_balances: Vec<(AccountId, Balance)>,
-	base_weight: Weight,
-	byte_fee: u64,
-	weight_to_fee: u64,
-}
-
-impl Default for ExtBuilder {
-	fn default() -> Self {
-		Self {
-			native_balances: vec![],
-			pgas_balances: vec![],
-			base_weight: Weight::zero(),
-			byte_fee: 1,
-			weight_to_fee: 1,
-		}
-	}
 }
 
 impl ExtBuilder {
@@ -182,19 +134,7 @@ impl ExtBuilder {
 		self
 	}
 
-	pub fn base_weight(mut self, base_weight: Weight) -> Self {
-		self.base_weight = base_weight;
-		self
-	}
-
-	fn set_constants(&self) {
-		ExtrinsicBaseWeight::mutate(|v| *v = self.base_weight);
-		TRANSACTION_BYTE_FEE.with(|v| *v.borrow_mut() = self.byte_fee);
-		WEIGHT_TO_FEE.with(|v| *v.borrow_mut() = self.weight_to_fee);
-	}
-
 	pub fn build(self) -> sp_io::TestExternalities {
-		self.set_constants();
 		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
 		pallet_balances::GenesisConfig::<Runtime> {
 			balances: self.native_balances.clone(),
