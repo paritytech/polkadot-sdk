@@ -839,14 +839,13 @@ where
 		}
 	}
 
-	/// Add all peers that were deferred during major sync to the reserved set.
-	/// Called each run loop iteration while not major syncing; returns early when the set is empty
+	/// Add all peers that were deferred during major sync to the reserved set
 	fn drain_deferred_peers(&mut self) {
 		if self.deferred_peers.is_empty() {
 			return;
 		}
 
-		log::info!(
+		log::debug!(
 			target: LOG_TARGET,
 			"Major sync complete, adding {} deferred statement peers",
 			self.deferred_peers.len(),
@@ -884,7 +883,7 @@ where
 			return;
 		};
 
-		log::info!(
+		log::trace!(
 			target: LOG_TARGET,
 			"Major sync complete, force-reconnecting {peer_id} for statement recovery",
 		);
@@ -905,7 +904,7 @@ where
 	/// Re-adds the sync-recovery peer to the reserved set after the backoff window has elapsed
 	fn try_readd_sync_recovery_peer(&mut self) {
 		let Some(peer_id) = self.sync_recovery_peer.take() else { return };
-		log::info!(
+		log::trace!(
 			target: LOG_TARGET,
 			"Re-adding {peer_id} to reserved set after sync recovery window",
 		);
@@ -923,7 +922,7 @@ where
 		match event {
 			SyncEvent::PeerConnected(remote) => {
 				if self.sync.is_major_syncing() {
-					log::debug!(
+					log::trace!(
 						target: LOG_TARGET,
 						"Major sync in progress, deferring connection to {remote}",
 					);

@@ -287,7 +287,7 @@ pub(super) async fn spawn_network_sudo(
 					"--authoring".into(),
 					"slot-based".into(),
 					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
+					"-linfo,statement-store=trace,statement-gossip=trace".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
 					format!(
