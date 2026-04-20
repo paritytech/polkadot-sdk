@@ -251,42 +251,37 @@ where
 			.ok()
 			.flatten()?;
 
-		let is_v3 = scheduling_proof.is_some();
+		// We are always using the `api_version` of the parent block. The `api_version` can only
+		// change with a runtime upgrade and this is when we want to observe the old
+		// `api_version`. Because this old `api_version` is the one used to validate this
+		// block. Otherwise, we already assume the `api_version` is higher than what the relay
+		// chain will use and this will lead to validation errors.
+		let api_version = self
+			.runtime_api
+			.runtime_api()
+			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+			.ok()
+			.flatten()?;
+
 		let block_data =
 			ParachainBlockData::<Block>::new(vec![block], compact_proof, scheduling_proof);
 
-		let pov = if is_v3 {
-			// V3 always uses the latest encoding
-			polkadot_node_primitives::maybe_compress_pov(PoV {
-				block_data: BlockData(block_data.encode()),
-			})
-		} else {
-			// Legacy path: check api_version for backwards compatibility
-			// Workaround for: https://github.com/paritytech/polkadot-sdk/issues/64
-			let api_version = self
-				.runtime_api
-				.runtime_api()
-				.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
-				.ok()
-				.flatten()?;
+		let pov = polkadot_node_primitives::maybe_compress_pov(PoV {
+			block_data: BlockData(if api_version >= 3 {
+				block_data.encode()
+			} else {
+				let block_data = block_data.as_v0();
 
-			polkadot_node_primitives::maybe_compress_pov(PoV {
-				block_data: BlockData(if api_version >= 3 {
-					block_data.encode()
-				} else {
-					let block_data = block_data.as_v0();
+				if block_data.is_none() {
+					tracing::error!(
+						target: LOG_TARGET,
+						"Trying to submit a collation with multiple blocks is not supported by the current runtime."
+					);
+				}
 
-					if block_data.is_none() {
-						tracing::error!(
-							target: LOG_TARGET,
-							"Trying to submit a collation with multiple blocks is not supported by the current runtime."
-						);
-					}
-
-					block_data?.encode()
-				}),
-			})
-		};
+				block_data?.encode()
+			}),
+		});
 
 		let upward_messages = collation_info
 			.upward_messages
