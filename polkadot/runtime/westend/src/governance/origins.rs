@@ -35,58 +35,83 @@ pub mod pallet_custom_origins {
 	#[pallet::origin]
 	pub enum Origin {
 		/// Origin for cancelling slashes.
+		#[codec(index = 0)]
 		StakingAdmin,
-		/// Origin for spending (any amount of) funds.
-		Treasurer,
+		// index 1 was Treasurer, removed by #11705.
 		/// Origin for managing the composition of the fellowship.
+		#[codec(index = 2)]
 		FellowshipAdmin,
 		/// Origin for managing the registrar.
+		#[codec(index = 3)]
 		GeneralAdmin,
 		/// Origin for starting auctions.
+		#[codec(index = 4)]
 		AuctionAdmin,
 		/// Origin able to force slot leases.
+		#[codec(index = 5)]
 		LeaseAdmin,
 		/// Origin able to cancel referenda.
+		#[codec(index = 6)]
 		ReferendumCanceller,
 		/// Origin able to kill referenda.
+		#[codec(index = 7)]
 		ReferendumKiller,
 		/// Origin able to spend up to 1 KSM from the treasury at once.
+		#[codec(index = 8)]
 		SmallTipper,
 		/// Origin able to spend up to 5 KSM from the treasury at once.
+		#[codec(index = 9)]
 		BigTipper,
 		/// Origin able to spend up to 50 KSM from the treasury at once.
+		#[codec(index = 10)]
 		SmallSpender,
 		/// Origin able to spend up to 500 KSM from the treasury at once.
+		#[codec(index = 11)]
 		MediumSpender,
 		/// Origin able to spend up to 5,000 KSM from the treasury at once.
+		#[codec(index = 12)]
 		BigSpender,
 		/// Origin able to dispatch a whitelisted call.
+		#[codec(index = 13)]
 		WhitelistedCaller,
 		/// Origin commanded by any members of the Polkadot Fellowship (no Dan grade needed).
+		#[codec(index = 14)]
 		FellowshipInitiates,
 		/// Origin commanded by Polkadot Fellows (3rd Dan fellows or greater).
+		#[codec(index = 15)]
 		Fellows,
 		/// Origin commanded by Polkadot Experts (5th Dan fellows or greater).
+		#[codec(index = 16)]
 		FellowshipExperts,
 		/// Origin commanded by Polkadot Masters (7th Dan fellows of greater).
+		#[codec(index = 17)]
 		FellowshipMasters,
 		/// Origin commanded by rank 1 of the Polkadot Fellowship and with a success of 1.
+		#[codec(index = 18)]
 		Fellowship1Dan,
 		/// Origin commanded by rank 2 of the Polkadot Fellowship and with a success of 2.
+		#[codec(index = 19)]
 		Fellowship2Dan,
 		/// Origin commanded by rank 3 of the Polkadot Fellowship and with a success of 3.
+		#[codec(index = 20)]
 		Fellowship3Dan,
 		/// Origin commanded by rank 4 of the Polkadot Fellowship and with a success of 4.
+		#[codec(index = 21)]
 		Fellowship4Dan,
 		/// Origin commanded by rank 5 of the Polkadot Fellowship and with a success of 5.
+		#[codec(index = 22)]
 		Fellowship5Dan,
 		/// Origin commanded by rank 6 of the Polkadot Fellowship and with a success of 6.
+		#[codec(index = 23)]
 		Fellowship6Dan,
 		/// Origin commanded by rank 7 of the Polkadot Fellowship and with a success of 7.
+		#[codec(index = 24)]
 		Fellowship7Dan,
 		/// Origin commanded by rank 8 of the Polkadot Fellowship and with a success of 8.
+		#[codec(index = 25)]
 		Fellowship8Dan,
 		/// Origin commanded by rank 9 of the Polkadot Fellowship and with a success of 9.
+		#[codec(index = 26)]
 		Fellowship9Dan,
 	}
 
@@ -125,7 +150,6 @@ pub mod pallet_custom_origins {
 	}
 	decl_unit_ensures!(
 		StakingAdmin,
-		Treasurer,
 		FellowshipAdmin,
 		GeneralAdmin,
 		AuctionAdmin,
@@ -182,7 +206,6 @@ pub mod pallet_custom_origins {
 			SmallSpender = 10 * GRAND,
 			MediumSpender = 100 * GRAND,
 			BigSpender = 1_000 * GRAND,
-			Treasurer = 10_000 * GRAND,
 		}
 	}
 

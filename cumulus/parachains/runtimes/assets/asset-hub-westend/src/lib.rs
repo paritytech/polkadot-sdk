@@ -36,7 +36,7 @@ pub mod governance;
 mod migrations;
 pub mod staking;
 
-use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
+use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin};
 
 extern crate alloc;
 
@@ -165,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_002,
+	spec_version: 1_022_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1571,7 +1571,7 @@ impl pallet_psm::Config for Runtime {
 ///
 /// Sets up USDT (1984) as the first external asset.
 pub struct PsmInitialConfig;
-impl pallet_psm::migrations::v1::InitialPsmConfig<Runtime> for PsmInitialConfig {
+impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
 	fn max_psm_debt_of_total() -> Permill {
 		// USDT PSM cap is 5M out of 50M total issuance = 10%.
 		Permill::from_percent(10)
@@ -1839,8 +1839,14 @@ pub type Migrations = (
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
 	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
-	pallet_psm::migrations::v1::MigrateToV1<Runtime, PsmInitialConfig>,
-	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
+	// Idempotent — skips assets that are already configured.
+	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
+	pallet_dap::migrations::MigrateV1ToV2<
+		Runtime,
+		DapLastIssuanceTimestamp,
+		DefaultDapBudget,
+		staking::MaxEraDuration,
+	>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

@@ -20,7 +20,6 @@ mod fellowship_treasury;
 mod foreign_assets;
 mod hybrid_transfers;
 mod reserve_transfer;
-mod reward_pool;
 mod send;
 mod set_asset_claimer;
 mod set_xcm_versions;
@@ -28,7 +27,6 @@ mod swap;
 mod teleport;
 mod transact;
 mod transfer_assets_validation;
-mod treasury;
 mod xcm_fee_estimation;
 
 #[macro_export]

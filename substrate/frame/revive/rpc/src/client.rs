@@ -32,8 +32,9 @@ use pallet_revive::{
 	EthTransactError,
 	evm::{
 		Block, BlockNumberOrTag, BlockNumberOrTagOrHash, FeeHistoryResult, Filter,
-		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, SyncingProgress,
-		SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256, decode_revert_reason,
+		GenericTransaction, H256, HashesOrTransactionInfos, Log, ReceiptInfo, StateOverrideSet,
+		SyncingProgress, SyncingStatus, Trace, TransactionSigned, TransactionTrace, U256,
+		decode_revert_reason,
 	},
 };
 use runtime_api::RuntimeApi;
@@ -1003,10 +1004,11 @@ impl Client {
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
 		config: TracerType,
+		state_overrides: Option<StateOverrideSet>,
 	) -> Result<Trace, ClientError> {
 		let block_hash = self.block_hash_for_tag(block).await?;
 		let runtime_api = self.runtime_api(block_hash);
-		runtime_api.trace_call(transaction, config).await
+		runtime_api.trace_call(transaction, config, state_overrides).await
 	}
 
 	/// Get the EVM block for the given Substrate block.
