@@ -207,6 +207,7 @@ std = [
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
 	"sp-genesis-builder?/std",
+	"sp-hop?/std",
 	"sp-inherents?/std",
 	"sp-io?/std",
 	"sp-keyring?/std",
@@ -777,6 +778,7 @@ runtime-full = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -851,6 +853,7 @@ runtime = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -975,6 +978,7 @@ node = [
 	"sc-executor-common",
 	"sc-executor-polkavm",
 	"sc-executor-wasmtime",
+	"sc-hop",
 	"sc-informant",
 	"sc-keystore",
 	"sc-mixnet",
@@ -2066,6 +2070,11 @@ default-features = false
 optional = true
 path = "../substrate/primitives/genesis-builder"
 
+[dependencies.sp-hop]
+default-features = false
+optional = true
+path = "../substrate/primitives/hop"
+
 [dependencies.sp-inherents]
 default-features = false
 optional = true
@@ -2720,6 +2729,11 @@ path = "../substrate/client/executor/polkavm"
 default-features = false
 optional = true
 path = "../substrate/client/executor/wasmtime"
+
+[dependencies.sc-hop]
+default-features = false
+optional = true
+path = "../substrate/client/hop"
 
 [dependencies.sc-informant]
 default-features = false

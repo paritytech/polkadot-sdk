@@ -1142,6 +1142,10 @@ pub use sc_executor_polkavm;
 #[cfg(feature = "sc-executor-wasmtime")]
 pub use sc_executor_wasmtime;
 
+/// Hand-Off Protocol (HOP) ephemeral data pool service.
+#[cfg(feature = "sc-hop")]
+pub use sc_hop;
+
 /// Substrate informant.
 #[cfg(feature = "sc-informant")]
 pub use sc_informant;
@@ -1367,6 +1371,10 @@ pub use sp_externalities;
 /// Substrate RuntimeGenesisConfig builder API.
 #[cfg(feature = "sp-genesis-builder")]
 pub use sp_genesis_builder;
+
+/// HOP (Hand-Off Protocol) primitives and runtime API.
+#[cfg(feature = "sp-hop")]
+pub use sp_hop;
 
 /// Provides types and traits for creating and checking inherents.
 #[cfg(feature = "sp-inherents")]
