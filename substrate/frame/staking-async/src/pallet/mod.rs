@@ -3119,7 +3119,9 @@ pub mod pallet {
 		/// Per-era reward allocation (staker rewards + validator incentive budget).
 		///
 		/// Both fields are zero for eras created in legacy minting mode.
-		pub fn era_reward_allocation(era: EraIndex) -> crate::reward::EraRewardAllocation<BalanceOf<T>> {
+		pub fn era_reward_allocation(
+			era: EraIndex,
+		) -> crate::reward::EraRewardAllocation<BalanceOf<T>> {
 			crate::reward::EraRewardAllocation {
 				staker_rewards: ErasValidatorReward::<T>::get(era).unwrap_or_else(Zero::zero),
 				validator_incentive: ErasValidatorIncentiveBudget::<T>::get(era),

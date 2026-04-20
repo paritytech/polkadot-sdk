@@ -1200,10 +1200,7 @@ impl<T: Config> EraElectionPlanner<T> {
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
 
 		// adds to total validator self-stake weight for incentive distribution.
-		Eras::<T>::add_sum_validator_incentive_weight(
-			new_planned_era,
-			total_validator_weight_page,
-		);
+		Eras::<T>::add_sum_validator_incentive_weight(new_planned_era, total_validator_weight_page);
 
 		// collect or update the pref of all winners.
 		// TODO: rather inefficient, we can do this once at the last page across all entries in
