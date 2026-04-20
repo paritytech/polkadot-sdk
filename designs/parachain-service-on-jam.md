@@ -20,7 +20,7 @@
 5. [Accumulate: On-Chain Integration](#5-accumulate-on-chain-integration)
    - 5.1 [What Accumulate Does](#51-what-accumulate-does)
    - 5.2 [Code Upgrade Lifecycle](#52-code-upgrade-lifecycle)
-6. [Parachain Registration](#6-parachain-registration)
+6. [Parachain Management](#6-parachain-management)
 7. [Authorization & Coretime](#7-authorization-coretime)
    - 7.3 [Authorizer Design: AURA Example](#73-authorizer-design-aura-example)
    - 7.4 [On-Demand Parachains](#74-on-demand-parachains)
@@ -366,8 +366,10 @@ These produce effects carried in the work result and applied by Accumulate:
 | `set_validator_keys(keys: Vec<ValidatorKey>)` | `()` | Set the next epoch's validator key set (AssetHub only) |
 | `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (AssetHub only) |
 | `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
-| `register_parachain(para_id: ParaId, genesis_head: HeadData, validation_code_hash: ValidationCodeHash)` | `()` | Register a new parachain (Coretime chain only). See §6. |
-| `deregister_parachain(para_id: ParaId)` | `()` | Deregister a parachain (Coretime chain only). See §6. |
+| `register_parachain(para_id: ParaId, genesis_head: HeadData, validation_code_hash: ValidationCodeHash)` | `()` | Register a new parachain (Coretime chain only). See §6.1. |
+| `deregister_parachain(para_id: ParaId)` | `()` | Deregister a parachain (Coretime chain only). See §6.2. |
+| `force_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Force-overwrite a parachain's head data (Coretime chain only). See §6.3. |
+| `force_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash)` | `()` | Force-switch a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). See §6.3. |
 
 Host functions that are tailored to a special parachain will lead to abortion if called by not authorized parachains.
 
@@ -469,21 +471,19 @@ Phase 5: Activation or Rejection
   should be sufficient for the preimage to be submitted to JAM after solicitation.
 ---
 
-## 6. Parachain Registration
+## 6. Parachain Management
 
-Parachain registration is managed by the **Coretime chain**, which owns the registration
-policy (deposits, governance checks, quotas) and uses dedicated host functions to mutate
-the Parachain Service's `parachains: Map<ParaId, ParaInfo>` state.
+Parachain lifecycle and management is driven by the **Coretime chain**, which collects
+any required deposits, verifies the caller's rights for each operation, and uses dedicated
+host functions to mutate the Parachain Service's `parachains: Map<ParaId, ParaInfo>`
+state.
 
 ### 6.1 Registration Flow
 
 ```
-Account on Coretime chain
-    │  Submits registration with genesis head + validation code hash
-    │  Places required deposit
-    ▼
 Coretime chain
-    │  Governance / policy checks
+    │  Account submits registration with genesis head + validation code hash,
+    │  placing the required deposit
     │  Calls register_parachain(para_id, genesis_head, validation_code_hash)
     ▼
 Parachain Service (Accumulate)
@@ -497,14 +497,11 @@ Parachain is live on its assigned core once the preimage is available
 ```
 
 Registration does **not** wait for the preimage to be available — it only takes the
-validation code hash. The Parachain Service solicits the preimage immediately, and the
-user (typically the registering account) is responsible for submitting the actual PVF
-bytecode via `xtpreimages` before any block can be validated.
+validation code hash. The Parachain Service solicits the preimage immediately, and then
+anyone can submit the actual PVF bytecode via `xtpreimages`. Once the preimage is
+available the parachain is ready to produce blocks.
 
-The Coretime chain is responsible for:
-
-- collecting and locking the registration deposit,
-- validating governance policy (e.g. OpenGov approval, rate limiting, reserved IDs).
+The Coretime chain is responsible for collecting and locking the registration deposit.
 
 The Parachain Service is responsible for:
 
@@ -517,7 +514,7 @@ The Parachain Service is responsible for:
 
 ```
 Coretime chain
-    │  Governance / policy approves removal (e.g. deposit reclaim, inactivity)
+    │  Verifies the rights of the caller
     │  Calls deregister_parachain(para_id)
     ▼
 Parachain Service (Accumulate)
@@ -527,13 +524,34 @@ Parachain Service (Accumulate)
     │  Drops error_log[para_id], pending_upgrade, and any per-para state
 ```
 
-Deposits and any economic unwinding are handled by the Coretime chain. Parachains
-cannot deregister themselves — all lifecycle transitions go through the Coretime chain
-to keep bookkeeping (deposits, quotas) in one place.
+Deposits and any economic unwinding are handled by the Coretime chain.
 
-**Authorization:** both `register_parachain` and `deregister_parachain` are only callable
-by the Coretime chain and abort when called by any other service. They are listed in the
-main host-function table in §4.3.
+### 6.3 Management Operations
+
+Beyond registration and deregistration, a parachain's owner may need to recover from
+exceptional situations — e.g. a stuck chain, a broken validation code upgrade, or a
+manual migration. The Coretime chain supports this by exposing two management operations,
+implemented as host functions on the Parachain Service:
+
+- **Force head update**: overwrite `ParaInfo.head_data` for a given `ParaId`. Used to
+  manually unstick a parachain whose last included block cannot be built on.
+- **Force validation code update**: immediately switch `ParaInfo.validation_code_hash` to
+  a new hash, bypassing the normal upgrade lifecycle. The Parachain Service solicits the
+  new preimage and releases the old one via `forget()`.
+
+```
+Coretime chain
+    │  Verifies the rights of the caller
+    │  Calls force_set_head(para_id, new_head) OR
+    │        force_set_validation_code(para_id, new_validation_code_hash)
+    ▼
+Parachain Service (Accumulate)
+    │  Applies the change, updates the pvf_registry refcounts and preimage
+    │  solicitations as needed
+```
+
+Both management operations are Coretime-chain-only; all right-checking lives on the
+Coretime chain side.
 
 ---
 
