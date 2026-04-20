@@ -272,7 +272,7 @@ where
 				&metrics,
 				&mut net_config,
 			);
-			(proto, ss_config.clone())
+			(proto, *ss_config)
 		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =

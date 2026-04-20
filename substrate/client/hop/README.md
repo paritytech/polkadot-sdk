@@ -1,6 +1,7 @@
 # HOP Service
 
-HOP (Hand-Off Protocol) is a standalone service crate for Substrate nodes that provides ephemeral data storage with an RPC for submitting data and Bitswap protocol for retrieval.
+HOP (Hand-Off Protocol) is a standalone service crate for Substrate nodes that provides ephemeral data
+storage with an RPC for submitting data and Bitswap protocol for retrieval.
 
 ## Overview
 
@@ -282,7 +283,8 @@ The data pool uses `Arc<RwLock<HashMap>>` for thread-safe concurrent access:
 
 ## Omni-Node Integration
 
-This crate is designed for easy integration into `polkadot-omni-node`. The integration pattern follows the SDK's Statement Store pattern:
+This crate is designed for easy integration into `polkadot-omni-node`. The integration pattern follows the
+SDK's Statement Store pattern:
 
 ```rust
 // In omni-node NodeExtraArgs
