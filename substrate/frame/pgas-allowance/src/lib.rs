@@ -312,6 +312,8 @@ where
 		let charge_pgas_skip = <T as Config>::WeightInfo::charge_pgas_skip();
 		match val {
 			Val::PGAS { who, fee } => {
+				// PGAS is committed at `validate`; if the balance dropped since, the tx is
+				// rejected rather than falling back to the inner extension.
 				let credit = <T::Assets as fungibles::Balanced<T::AccountId>>::withdraw(
 					T::PGASAssetId::get(),
 					&who,
