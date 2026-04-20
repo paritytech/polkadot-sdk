@@ -64,8 +64,7 @@ mod mock;
 mod tests;
 pub mod weights;
 
-/// Balance type alias, sourced from `pallet-transaction-payment`.
-pub type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
+type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
 	pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
 
 /// Trait used by runtimes to mint PGAS to the benchmark caller.
@@ -84,29 +83,24 @@ pub mod pallet {
 		/// The asset id type used by the PGAS asset.
 		type AssetId: AssetId;
 
-		/// Access to the PGAS asset. `Balanced` exposes the imbalance API used to withdraw the
-		/// reserved fee into a [`Credit`] and refund the unused portion in `post_dispatch`.
-		/// `Create` is used by the pallet's `GenesisConfig` to provision the PGAS asset.
+		/// Access to the PGAS asset.
 		type Assets: fungibles::Balanced<
-				Self::AccountId,
-				AssetId = <Self as Config>::AssetId,
-				Balance = BalanceOf<Self>,
-			> + fungibles::Create<Self::AccountId>;
+			Self::AccountId,
+			AssetId = <Self as Config>::AssetId,
+			Balance = BalanceOf<Self>,
+		>;
 
 		/// The PGAS asset id.
 		type PGASAssetId: frame_support::traits::Get<<Self as Config>::AssetId>;
 
-		/// Filter deciding which calls are eligible to be paid with PGAS. Calls that fail the
-		/// filter fall through to the inner fee extension unconditionally, even if the caller
-		/// holds PGAS.
+		/// Filter deciding which calls are eligible to be paid with PGAS.
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
 
 		/// Weight information for the extension.
 		type WeightInfo: WeightInfo;
 
 		/// Helper used by the extension benchmarks to endow the caller with enough PGAS to cover
-		/// the fee. The PGAS asset itself is expected to be created by the pallet's genesis
-		/// config or by the runtime's chain spec.
+		/// the fee.
 		#[cfg(feature = "runtime-benchmarks")]
 		type BenchmarkHelper: crate::BenchmarkHelperTrait<
 			Self::AccountId,
@@ -129,7 +123,10 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_build]
-	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T>
+	where
+		T::Assets: fungibles::Create<T::AccountId>,
+	{
 		fn build(&self) {
 			const PALLET_ID: PalletId = PalletId(*b"py/pgasa");
 			if let Err(e) = <T::Assets as fungibles::Create<T::AccountId>>::create(
@@ -151,10 +148,6 @@ pub mod pallet {
 /// Transaction extension that charges transaction fees in PGAS when the caller holds enough and
 /// the dispatched call passes [`Config::CallFilter`]. Otherwise it delegates to the wrapped
 /// extension `S`.
-///
-/// The wrapper is transparent from the outside: it encodes as `S` (the `PhantomData` does not
-/// contribute bytes) and its [`TypeInfo`] / [`TransactionExtension::metadata`] forward to `S`.
-/// Clients (wallets, block explorers) therefore see only the inner extension.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
 pub struct ChargePGAS<T, S> {
 	inner: S,
@@ -202,16 +195,23 @@ pub enum Val<InnerVal, T: Config> {
 
 /// Info passed from `prepare` to `post_dispatch`.
 pub enum Pre<InnerPre, T: Config> {
-	/// Fee withdrawn as a credit against the PGAS asset; `post_dispatch` splits this into the
-	/// actual-fee portion (dropped, which reduces total issuance) and the refund portion
-	/// (resolved back to `who`). `refund` carries the weight difference between what
-	/// [`ChargePGAS::weight`] reserved and the full PGAS path (`charge_pgas`).
-	PGAS { who: T::AccountId, credit: Credit<T::AccountId, T::Assets>, refund: Weight },
-	/// Inner extension was used. `extra_refund` is the weight to return on top of whatever the
-	/// inner extension refunds: zero on a filter miss (reserve matches actual cost), and the
-	/// slack between the reserved `max(charge_pgas, inner_weight + charge_pgas_skip)` and the
-	/// actual skip-path cost (`inner_weight + charge_pgas_skip`) on a filter-pass skip.
-	Inner { inner: InnerPre, extra_refund: Weight },
+	/// Fee withdrawn as a credit against the PGAS asset.
+	PGAS {
+		/// Account the fee was withdrawn from.
+		who: T::AccountId,
+		/// Credit holding the full reserved fee.
+		credit: Credit<T::AccountId, T::Assets>,
+		/// Weight difference between what [`ChargePGAS::weight`] reserved and the full PGAS path
+		/// (`charge_pgas`), returned to the caller in `post_dispatch`.
+		refund: Weight,
+	},
+	/// Inner extension was used (filter miss, unsigned, or caller lacked PGAS).
+	Inner {
+		/// `Pre` produced by the inner extension, forwarded to its `post_dispatch`.
+		inner: InnerPre,
+		/// Weight to refund on top of whatever the inner extension refunds
+		extra_refund: Weight,
+	},
 }
 
 impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
@@ -257,51 +257,33 @@ where
 		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		let Some(who) = origin.as_system_origin_signer().cloned() else {
-			let (validity, val, origin) = self.inner.validate(
-				origin,
-				call,
-				info,
-				len,
-				self_implicit,
-				inherited_implication,
-				source,
-			)?;
-			return Ok((validity, Val::Inner(val), origin));
-		};
-
-		if !T::CallFilter::contains(call) {
-			let (validity, val, origin) = self.inner.validate(
-				origin,
-				call,
-				info,
-				len,
-				self_implicit,
-				inherited_implication,
-				source,
-			)?;
-			return Ok((validity, Val::Inner(val), origin));
+		// PGAS path: signed origin, call passes the filter, and caller holds at least `fee`.
+		if let Some(who) = origin.as_system_origin_signer().cloned() {
+			if T::CallFilter::contains(call) {
+				let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+					len as u32,
+					info,
+					Zero::zero(),
+				);
+				let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
+					T::PGASAssetId::get(),
+					&who,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				);
+				if pgas >= fee {
+					let priority =
+						ChargeTransactionPayment::<T>::get_priority(info, len, Zero::zero(), fee);
+					return Ok((
+						ValidTransaction { priority, ..Default::default() },
+						Val::PGAS { who, fee },
+						origin,
+					));
+				}
+			}
 		}
 
-		let fee =
-			pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, Zero::zero());
-
-		let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
-			T::PGASAssetId::get(),
-			&who,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		if pgas >= fee {
-			let priority =
-				ChargeTransactionPayment::<T>::get_priority(info, len, Zero::zero(), fee);
-			return Ok((
-				ValidTransaction { priority, ..Default::default() },
-				Val::PGAS { who, fee },
-				origin,
-			));
-		}
-
+		// Fall through to the inner extension.
 		let (validity, val, origin) = self.inner.validate(
 			origin,
 			call,
