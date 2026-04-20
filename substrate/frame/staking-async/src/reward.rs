@@ -294,7 +294,7 @@ mod tests {
 	type Balance = u128;
 
 	#[test]
-	fn weight_zero_self_stake() {
+	fn incentive_weight_zero_self_stake() {
 		assert_eq!(
 			incentive_weight::<Balance>(0, 100_000, 500_000, Perbill::from_rational(1u32, 2u32)),
 			0
@@ -302,7 +302,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_config_not_set() {
+	fn incentive_weight_config_not_set() {
 		// Both optimum and cap are zero (config never set) -> disabled.
 		assert_eq!(
 			incentive_weight::<Balance>(100_000, 0, 0, Perbill::from_rational(1u32, 2u32)),
@@ -311,7 +311,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_optimum_zero_cap_set() {
+	fn incentive_weight_optimum_zero_cap_set() {
 		// optimum = 0, cap > 0: dampened-growth zone from 0 up to cap.
 		let slope = Perbill::from_rational(1u32, 2u32);
 		// self_stake below cap: w(s) = √(0 + 0.25·s) = √(s/4).
@@ -324,7 +324,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_below_optimum() {
+	fn incentive_weight_below_optimum() {
 		// √10_000 = 100
 		assert_eq!(
 			incentive_weight::<Balance>(
@@ -338,7 +338,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_at_optimum() {
+	fn incentive_weight_at_optimum() {
 		// √100_000 ≈ 316
 		assert_eq!(
 			incentive_weight::<Balance>(
@@ -352,7 +352,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_between_optimum_and_cap() {
+	fn incentive_weight_between_optimum_and_cap() {
 		// √(100k + 0.25 × 200k) = √150k ≈ 387
 		assert_eq!(
 			incentive_weight::<Balance>(
@@ -366,7 +366,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_at_cap() {
+	fn incentive_weight_at_cap() {
 		// √(100k + 0.25 × 400k) = √200k ≈ 447
 		assert_eq!(
 			incentive_weight::<Balance>(
@@ -380,7 +380,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_plateau_above_cap() {
+	fn incentive_weight_plateau_above_cap() {
 		let at_cap = incentive_weight::<Balance>(
 			500_000,
 			100_000,
@@ -397,7 +397,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_monotonically_increasing_below_cap() {
+	fn incentive_weight_monotonically_increasing_below_cap() {
 		let slope = Perbill::from_rational(1u32, 2u32);
 		let w1 = incentive_weight::<Balance>(50_000, 100_000, 500_000, slope);
 		let w2 = incentive_weight::<Balance>(100_000, 100_000, 500_000, slope);
@@ -407,7 +407,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_different_slope_factors() {
+	fn incentive_weight_different_slope_factors() {
 		let self_stake = 300_000;
 		let w_025 = incentive_weight::<Balance>(
 			self_stake,
@@ -431,7 +431,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_slope_factor_zero_plateaus_at_optimum() {
+	fn incentive_weight_slope_factor_zero_plateaus_at_optimum() {
 		// k=0 -> immediate plateau at optimum (no growth beyond T).
 		let at_optimum = incentive_weight::<Balance>(100_000, 100_000, 500_000, Perbill::zero());
 		let above_optimum = incentive_weight::<Balance>(300_000, 100_000, 500_000, Perbill::zero());
@@ -439,7 +439,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_slope_factor_one_no_discouragement() {
+	fn incentive_weight_slope_factor_one_no_discouragement() {
 		// k=1 -> no discouragement above T (same curve as below T).
 		let at_optimum = incentive_weight::<Balance>(100_000, 100_000, 500_000, Perbill::one());
 		let at_cap = incentive_weight::<Balance>(500_000, 100_000, 500_000, Perbill::one());
@@ -449,7 +449,7 @@ mod tests {
 	}
 
 	#[test]
-	fn weight_optimum_equals_cap() {
+	fn incentive_weight_optimum_equals_cap() {
 		// When T == C, the middle segment vanishes -- plateau immediately at T.
 		let slope = Perbill::from_rational(1u32, 2u32);
 		let at_boundary = incentive_weight::<Balance>(100_000, 100_000, 100_000, slope);
