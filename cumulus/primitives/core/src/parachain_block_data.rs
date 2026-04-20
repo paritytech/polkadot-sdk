@@ -16,6 +16,7 @@
 
 //! Provides [`ParachainBlockData`] and its historical versions.
 
+use crate::SchedulingProof;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use sp_runtime::traits::Block as BlockT;
@@ -81,7 +82,7 @@ pub enum ParachainBlockData<Block> {
 	V2 {
 		blocks: Vec<Block>,
 		proof: CompactProof,
-		scheduling_proof: crate::SchedulingProof,
+		scheduling_proof: SchedulingProof,
 	},
 }
 
@@ -142,8 +143,15 @@ impl<Block: Decode> Decode for ParachainBlockData<Block> {
 
 impl<Block> ParachainBlockData<Block> {
 	/// Creates a new instance of `Self`.
-	pub fn new(blocks: Vec<Block>, proof: CompactProof) -> Self {
-		Self::V1 { blocks, proof }
+	pub fn new(
+		blocks: Vec<Block>,
+		proof: CompactProof,
+		scheduling_proof: Option<SchedulingProof>,
+	) -> Self {
+		match scheduling_proof {
+			Some(sp) => Self::V2 { blocks, proof, scheduling_proof: sp },
+			None => Self::V1 { blocks, proof },
+		}
 	}
 
 	/// Returns references to the stored blocks.

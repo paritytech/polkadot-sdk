@@ -716,7 +716,9 @@ async fn single_pending_candidate_recovery_success(
 			assert_eq!(session_index, TEST_SESSION_INDEX);
 			let block_data =
 					ParachainBlockData::<Block>::new(
-						vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+						vec![Block::new(header.clone(), vec![])],
+						CompactProof { encoded_nodes: vec![] },
+						None
 					);
 
 			response_tx.send(
@@ -828,7 +830,9 @@ async fn single_pending_candidate_recovery_retry_succeeds() {
 					AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								vec![Block::new(header.clone(), Vec::new())], CompactProof { encoded_nodes: vec![] }
+								vec![Block::new(header.clone(), Vec::new())],
+								CompactProof { encoded_nodes: vec![] },
+								None
 							).encode().into()
 						}),
 						validation_data: dummy_pvd(),
@@ -1135,6 +1139,7 @@ async fn candidate_is_imported_while_awaiting_recovery() {
 				block_data: ParachainBlockData::<Block>::new(
 					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
+					None,
 				)
 				.encode()
 				.into(),
@@ -1232,6 +1237,7 @@ async fn candidate_is_finalized_while_awaiting_recovery() {
 				block_data: ParachainBlockData::<Block>::new(
 					vec![Block::new(header.clone(), vec![])],
 					CompactProof { encoded_nodes: vec![] },
+					None,
 				)
 				.encode()
 				.into(),
@@ -1317,7 +1323,9 @@ async fn chained_recovery_success() {
 					.send(Ok(AvailableData {
 						pov: Arc::new(PoV {
 							block_data: ParachainBlockData::<Block>::new(
-								vec![Block::new(header.clone(), vec![])], CompactProof { encoded_nodes: vec![] }
+								vec![Block::new(header.clone(), vec![])],
+								CompactProof { encoded_nodes: vec![] },
+								None
 							)
 							.encode()
 							.into(),
@@ -1434,6 +1442,7 @@ async fn chained_recovery_child_succeeds_before_parent() {
 					block_data: ParachainBlockData::<Block>::new(
 						vec![Block::new(header.clone(), vec![])],
 						CompactProof { encoded_nodes: vec![] },
+						None,
 					)
 					.encode()
 					.into(),
@@ -1522,6 +1531,7 @@ async fn recovery_multiple_blocks_per_candidate() {
 						block_data: ParachainBlockData::<Block>::new(
 							headers.iter().map(|h| Block::new(h.clone(), vec![])).collect(),
 							CompactProof { encoded_nodes: vec![] },
+							None
 						)
 						.encode()
 						.into(),

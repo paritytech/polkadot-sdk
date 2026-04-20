@@ -252,16 +252,8 @@ where
 			.flatten()?;
 
 		let is_v3 = scheduling_proof.is_some();
-		let block_data = if let Some(scheduling_proof) = scheduling_proof {
-			// V3: ParachainBlockData::V2 with scheduling proof
-			ParachainBlockData::<Block>::V2 {
-				blocks: vec![block],
-				proof: compact_proof,
-				scheduling_proof,
-			}
-		} else {
-			ParachainBlockData::<Block>::new(vec![block], compact_proof)
-		};
+		let block_data =
+			ParachainBlockData::<Block>::new(vec![block], compact_proof, scheduling_proof);
 
 		let pov = if is_v3 {
 			// V3 always uses the latest encoding
