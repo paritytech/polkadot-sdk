@@ -772,10 +772,7 @@ where
 
 			if !self.sync.is_major_syncing() {
 				self.drain_deferred_peers();
-				if self.dropped_statements_during_sync {
-					self.dropped_statements_during_sync = false;
-					self.start_sync_recovery();
-				}
+				self.start_sync_recovery();
 			}
 		}
 	}
@@ -870,6 +867,11 @@ where
 	/// performs a fresh initial sync, delivering any statements that were dropped while the
 	/// `is_major_syncing` guard was active
 	fn start_sync_recovery(&mut self) {
+		if !self.dropped_statements_during_sync {
+			return;
+		}
+		self.dropped_statements_during_sync = false;
+
 		if self.sync_recovery_peer.is_some() {
 			return;
 		}
@@ -4126,7 +4128,7 @@ mod tests {
 			pending_initial_syncs: HashMap::new(),
 			initial_sync_peer_queue: VecDeque::new(),
 			deferred_peers: HashSet::new(),
-			dropped_statements_during_sync: false,
+			dropped_statements_during_sync: true,
 			sync_recovery_peer: None,
 			sync_recovery_readd_timeout: Box::pin(futures::future::pending()),
 		};
@@ -4233,18 +4235,14 @@ mod tests {
 		// flag=false → no recovery
 		let net = TestNetwork::new();
 		let mut handler = make_handler(net.clone(), false);
-		if handler.dropped_statements_during_sync {
-			handler.start_sync_recovery();
-		}
+		handler.start_sync_recovery();
 		assert!(handler.sync_recovery_peer.is_none());
 		assert!(net.get_removed_reserved().is_empty());
 
 		// flag=true → recovery fires
 		let net2 = TestNetwork::new();
 		let mut handler2 = make_handler(net2.clone(), true);
-		if handler2.dropped_statements_during_sync {
-			handler2.start_sync_recovery();
-		}
+		handler2.start_sync_recovery();
 		assert!(handler2.sync_recovery_peer.is_some());
 		assert_eq!(net2.get_removed_reserved().len(), 1);
 	}
