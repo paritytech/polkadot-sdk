@@ -35,8 +35,19 @@ use sp_runtime::{
 };
 use sp_staking::EraIndex;
 
-/// Allocation breakdown returned by [`EraRewardManager::snapshot_era_rewards`].
-pub(crate) struct EraRewardAllocation<Balance> {
+/// Allocation breakdown of era-end rewards.
+#[derive(
+	Debug,
+	Clone,
+	Copy,
+	PartialEq,
+	Eq,
+	codec::Encode,
+	codec::Decode,
+	codec::DecodeWithMemTracking,
+	scale_info::TypeInfo,
+)]
+pub struct EraRewardAllocation<Balance> {
 	pub staker_rewards: Balance,
 	pub validator_incentive: Balance,
 }
