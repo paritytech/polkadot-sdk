@@ -32,8 +32,12 @@ use crate::config::*;
 
 use affinity::AffinityFilter;
 use codec::{Compact, Decode, Encode, MaxEncodedLen};
-use futures::future::pending;
-use futures::{channel::oneshot, future::FusedFuture, prelude::*, stream::FuturesUnordered};
+use futures::{
+	channel::oneshot,
+	future::{pending, FusedFuture},
+	prelude::*,
+	stream::FuturesUnordered,
+};
 use governor::{
 	clock::DefaultClock,
 	state::{InMemoryState, NotKeyed},
@@ -4187,8 +4191,10 @@ mod tests {
 			rate_limiter: PeerRateLimiter::new(
 				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND)
 					.expect("DEFAULT_STATEMENTS_PER_SECOND is nonzero"),
-				NonZeroU32::new(DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT)
-					.expect("burst capacity is nonzero"),
+				NonZeroU32::new(
+					DEFAULT_STATEMENTS_PER_SECOND * config::STATEMENTS_BURST_COEFFICIENT,
+				)
+				.expect("burst capacity is nonzero"),
 			),
 			protocol_version: PeerProtocolVersion::V1,
 			topic_affinity: None,
