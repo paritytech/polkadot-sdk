@@ -194,12 +194,20 @@ pub enum ChannelStatus {
 
 /// A means of figuring out what outbound XCMP messages should be being sent.
 pub trait XcmpMessageSource {
-	/// Take a single XCMP message from the queue for the given `dest`, if one exists.
-	fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)>;
+	/// Take outbound XCMP messages from the queue.
+	///
+	/// `excluded_recipients` contains para IDs that must be skipped.
+	fn take_outbound_messages(
+		maximum_channels: usize,
+		excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)>;
 }
 
 impl XcmpMessageSource for () {
-	fn take_outbound_messages(_maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
+	fn take_outbound_messages(
+		_maximum_channels: usize,
+		_excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)> {
 		Vec::new()
 	}
 }
@@ -248,7 +256,7 @@ impl CoreInfo {
 
 /// Information about a block that is part of a PoV bundle.
 #[derive(Clone, Debug, Decode, Encode, PartialEq)]
-pub struct BundleInfo {
+pub struct BlockBundleInfo {
 	/// The index of the block in the bundle.
 	pub index: u8,
 	/// Is this the last block in the bundle from the point of view of the node?
@@ -256,14 +264,14 @@ pub struct BundleInfo {
 	/// It is possible that the runtime outputs the
 	/// [`CumulusDigestItem::UseFullCore`] to inform the node to use an entire for one block
 	/// only.
-	pub maybe_last: bool,
+	pub is_last: bool,
 }
 
-impl BundleInfo {
-	/// Puts this into a [`CumulusDigestItem::BundleInfo`] and then encodes it as a Substrate
+impl BlockBundleInfo {
+	/// Puts this into a [`CumulusDigestItem::BlockBundleInfo`] and then encodes it as a Substrate
 	/// [`DigestItem`].
 	pub fn to_digest_item(&self) -> DigestItem {
-		CumulusDigestItem::BundleInfo(self.clone()).to_digest_item()
+		CumulusDigestItem::BlockBundleInfo(self.clone()).to_digest_item()
 	}
 }
 
@@ -299,7 +307,7 @@ pub enum CumulusDigestItem {
 	CoreInfo(CoreInfo),
 	/// A digest item providing information about the position of the block in the bundle.
 	#[codec(index = 2)]
-	BundleInfo(BundleInfo),
+	BlockBundleInfo(BlockBundleInfo),
 	/// A digest item informing the node that this block should be put alone onto a core.
 	///
 	/// In other words, the core should not be shared with other blocks.
@@ -400,11 +408,11 @@ impl CumulusDigestItem {
 		})
 	}
 
-	/// Returns the [`BundleInfo`] from the given `digest`.
-	pub fn find_bundle_info(digest: &Digest) -> Option<BundleInfo> {
+	/// Returns the [`BlockBundleInfo`] from the given `digest`.
+	pub fn find_block_bundle_info(digest: &Digest) -> Option<BlockBundleInfo> {
 		digest.convert_first(|d| match d {
 			DigestItem::PreRuntime(id, val) if id == &CUMULUS_CONSENSUS_ID => {
-				let Ok(CumulusDigestItem::BundleInfo(bundle_info)) =
+				let Ok(CumulusDigestItem::BlockBundleInfo(bundle_info)) =
 					CumulusDigestItem::decode_all(&mut &val[..])
 				else {
 					return None;
@@ -432,6 +440,28 @@ impl CumulusDigestItem {
 				_ => None,
 			})
 			.unwrap_or_default()
+	}
+
+	/// Returns `true` if the given `digest` is from a block that is the last block in a core.
+	///
+	/// Checks the following conditions:
+	///
+	/// - Is [`BlockBundleInfo::is_last`] set to true?
+	/// - Or is [`Self::UseFullCore`] digest present?
+	/// - Or is [`DigestItem::RuntimeEnvironmentUpdated`] digest present?
+	///
+	/// If any of these conditions is `true`, this function will return `true`.
+	///
+	/// Returns `None` if the `BlockBundleInfo` digest is not present, which is interpreted as the
+	/// associated block is not using block bundling.
+	pub fn is_last_block_in_core(digest: &Digest) -> Option<bool> {
+		let bundle_info = Self::find_block_bundle_info(digest)?;
+
+		Some(
+			bundle_info.is_last ||
+				Self::contains_use_full_core(digest) ||
+				digest.logs.iter().any(|l| matches!(l, DigestItem::RuntimeEnvironmentUpdated)),
+		)
 	}
 }
 

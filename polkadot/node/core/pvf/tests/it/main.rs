@@ -118,13 +118,15 @@ impl TestHost {
 	) -> Result<ValidationResult, ValidationError> {
 		let (result_tx, result_rx) = futures::channel::oneshot::channel();
 
+		let candidate_receipt: polkadot_primitives::CandidateReceiptV2 =
+			dummy_candidate_receipt(relay_parent).into();
 		let validation_context = ValidationContext {
-			candidate_receipt: dummy_candidate_receipt(relay_parent).into(),
+			candidate_receipt,
 			pvd: Arc::new(pvd),
 			pov: Arc::new(pov),
 			executor_params: executor_params.clone(),
 			exec_timeout: TEST_EXECUTION_TIMEOUT,
-			v3_enabled: false,
+			v3_seen: false,
 		};
 
 		self.host
@@ -775,7 +777,7 @@ async fn artifact_does_reprepare_on_meaningful_exec_parameter_change() {
 	let cache_dir = host.cache_dir.path();
 
 	let set1 = ExecutorParams::default();
-	let set2 = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(128)][..]);
+	let set2 = ExecutorParams::from(&[ExecutorParam::StackLogicalMax(1024)][..]);
 
 	let _stats = host
 		.precheck_pvf(test_parachain_halt::wasm_binary_unwrap(), set1)

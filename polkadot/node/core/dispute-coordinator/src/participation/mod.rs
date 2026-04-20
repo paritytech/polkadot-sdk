@@ -161,6 +161,7 @@ impl Participation {
 		ctx: &mut Context,
 		priority: ParticipationPriority,
 		mut req: ParticipationRequest,
+		v3_ever_seen: bool,
 	) -> Result<()> {
 		// Participation already running - we can ignore that request, discarding its timer:
 		if self.running_participations.contains(req.candidate_hash()) {
@@ -175,7 +176,7 @@ impl Participation {
 			}
 		}
 		// Out of capacity/no recent block yet - queue:
-		self.queue.queue(ctx.sender(), priority, req).await
+		self.queue.queue(ctx.sender(), priority, req, v3_ever_seen).await
 	}
 
 	/// Message from a worker task was received - get the outcome.
@@ -230,9 +231,10 @@ impl Participation {
 		&mut self,
 		ctx: &mut Context,
 		included_receipts: &Vec<CandidateReceipt>,
+		v3_ever_seen: bool,
 	) -> Result<()> {
 		for receipt in included_receipts {
-			self.queue.prioritize_if_present(ctx.sender(), receipt).await?;
+			self.queue.prioritize_if_present(ctx.sender(), receipt, v3_ever_seen).await?;
 		}
 		Ok(())
 	}
