@@ -22,7 +22,7 @@
 
 use asset_hub_westend_runtime::Runtime as WAHRuntime;
 use clap::{Parser, ValueEnum};
-use generate_bags::generate_thresholds;
+use generate_bags::generate_thresholds_async as generate_thresholds;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, ValueEnum)]

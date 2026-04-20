@@ -125,7 +125,6 @@ use westend_runtime_constants::{
 	time::*,
 };
 
-mod bag_thresholds;
 mod genesis_config_presets;
 mod weights;
 pub mod xcm_config;

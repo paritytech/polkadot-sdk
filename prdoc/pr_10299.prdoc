@@ -1,6 +1,6 @@
 title: 'Post AHM Cleanup: Remove Staking (and friends) from Westend Runtime.'
 doc:
-- audience: Todo
+- audience: Runtime Dev
   description: |-
     ## TODO
     - [ ] Remove following pallets from westend runtime: pallet_election_provider_multi_phase, pallet_bags_list, pallet_nomination_pools, pallet_fast_unstake, pallet_delegated_staking (including weights and other related code such as bag generation logic)
