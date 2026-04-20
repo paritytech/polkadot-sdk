@@ -41,7 +41,8 @@ use frame_support::{
 	PalletId,
 };
 use frame_system::pallet_prelude::OriginFor;
-use scale_info::TypeInfo;
+use pallet_transaction_payment::ChargeTransactionPayment;
+use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
 		AccountIdConversion, AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication,
@@ -69,6 +70,13 @@ pub type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTran
 /// genesis. Kept out of [`Config`] since the identifier only has to be unique within a runtime
 /// and runtimes never need to customise it.
 const PALLET_ID: PalletId = PalletId(*b"py/pgasa");
+
+/// Trait used by runtimes to mint PGAS to the benchmark caller.
+#[cfg(feature = "runtime-benchmarks")]
+pub trait BenchmarkHelperTrait<AccountId, AssetId, Balance> {
+	/// Mint `amount` of PGAS to `who`.
+	fn mint_pgas(who: &AccountId, asset_id: AssetId, amount: Balance);
+}
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -103,18 +111,11 @@ pub mod pallet {
 		/// the fee. The PGAS asset itself is expected to be created by the pallet's genesis
 		/// config or by the runtime's chain spec.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: BenchmarkHelperTrait<
+		type BenchmarkHelper: crate::BenchmarkHelperTrait<
 			Self::AccountId,
 			<Self as Config>::AssetId,
 			BalanceOf<Self>,
 		>;
-	}
-
-	/// Trait used by runtimes to mint PGAS to the benchmark caller.
-	#[cfg(feature = "runtime-benchmarks")]
-	pub trait BenchmarkHelperTrait<AccountId, AssetId, Balance> {
-		/// Mint `amount` of PGAS to `who`.
-		fn mint_pgas(who: &AccountId, asset_id: AssetId, amount: Balance);
 	}
 
 	#[pallet::pallet]
@@ -154,11 +155,21 @@ pub mod pallet {
 /// Transaction extension that charges transaction fees in PGAS when the caller holds enough and
 /// the dispatched call passes [`Config::CallFilter`]. Otherwise it delegates to the wrapped
 /// extension `S`.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
-#[scale_info(skip_type_params(T))]
+///
+/// The wrapper is transparent from the outside: it encodes as `S` (the `PhantomData` does not
+/// contribute bytes) and its [`TypeInfo`] / [`TransactionExtension::metadata`] forward to `S`.
+/// Clients (wallets, block explorers) therefore see only the inner extension.
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
 pub struct ChargePGAS<T, S> {
 	inner: S,
 	_phantom: core::marker::PhantomData<T>,
+}
+
+impl<T, S: StaticTypeInfo> TypeInfo for ChargePGAS<T, S> {
+	type Identity = S;
+	fn type_info() -> scale_info::Type {
+		S::type_info()
+	}
 }
 
 impl<T, S: Default> Default for ChargePGAS<T, S> {
@@ -201,9 +212,9 @@ pub enum Pre<InnerPre, T: Config> {
 	/// [`ChargePGAS::weight`] reserved and the full PGAS path (`charge_pgas`).
 	PGAS { who: T::AccountId, credit: Credit<T::AccountId, T::Assets>, refund: Weight },
 	/// Inner extension was used. `extra_refund` is the weight to return on top of whatever the
-	/// inner extension refunds: zero on a filter miss, and the slack between the reserved
-	/// `max(inner_weight, charge_pgas)` and the actual skip-path cost
-	/// (`inner_weight + charge_pgas_skip`) on a filter-pass skip.
+	/// inner extension refunds: zero on a filter miss (reserve matches actual cost), and the
+	/// slack between the reserved `max(charge_pgas, inner_weight + charge_pgas_skip)` and the
+	/// actual skip-path cost (`inner_weight + charge_pgas_skip`) on a filter-pass skip.
 	Inner { inner: InnerPre, extra_refund: Weight },
 }
 
@@ -215,7 +226,9 @@ where
 	<T as Config>::AssetId: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
-	const IDENTIFIER: &'static str = "ChargePGAS";
+	// Fully transparent to decoders: forward both the identifier and the metadata so the
+	// extension is indistinguishable from `S` on-chain and in wallets.
+	const IDENTIFIER: &'static str = S::IDENTIFIER;
 	type Implicit = S::Implicit;
 	type Val = Val<S::Val, T>;
 	type Pre = Pre<S::Pre, T>;
@@ -230,14 +243,11 @@ where
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		let inner = self.inner.weight(call);
+		let skip = <T as Config>::WeightInfo::charge_pgas_skip();
 		if T::CallFilter::contains(call) {
-			// Filter pass: either the PGAS path runs (cost `charge_pgas`, inner is skipped) or
-			// we fall through to the inner extension. Reserve the worst of the two so neither
-			// case can under-bill.
-			inner.max(<T as Config>::WeightInfo::charge_pgas())
+			<T as Config>::WeightInfo::charge_pgas().max(inner.saturating_add(skip))
 		} else {
-			// Filter miss: always delegates to the inner extension.
-			inner
+			inner.saturating_add(skip)
 		}
 	}
 
@@ -279,9 +289,7 @@ where
 
 		let fee =
 			pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, Zero::zero());
-		// Use `reducible_balance` with `Preservation::Preserve` so that we only take the PGAS
-		// path when the caller can pay the fee without dropping below the asset's existential
-		// deposit. Otherwise we fall through to the inner extension.
+
 		let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
 			T::PGASAssetId::get(),
 			&who,
@@ -289,8 +297,10 @@ where
 			Fortitude::Polite,
 		);
 		if pgas >= fee {
+			let priority =
+				ChargeTransactionPayment::<T>::get_priority(info, len, Zero::zero(), fee);
 			return Ok((
-				ValidTransaction { priority: 0, ..Default::default() },
+				ValidTransaction { priority, ..Default::default() },
 				Val::PGAS { who, fee },
 				origin,
 			));
@@ -316,10 +326,9 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		// Compute inner's claimed weight before consuming `self.inner`, so that `Pre` can carry
-		// the refund owed for the slack between what `weight()` reserved and the path we'll
-		// actually take.
 		let inner_weight = self.inner.weight(call);
+		let charge_pgas = <T as Config>::WeightInfo::charge_pgas();
+		let charge_pgas_skip = <T as Config>::WeightInfo::charge_pgas_skip();
 		match val {
 			Val::PGAS { who, fee } => {
 				let credit = <T::Assets as fungibles::Balanced<T::AccountId>>::withdraw(
@@ -331,20 +340,20 @@ where
 					Fortitude::Polite,
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
-				// Reserved `max(inner_weight, charge_pgas)`, spending `charge_pgas` on this path.
-				let refund = inner_weight.saturating_sub(<T as Config>::WeightInfo::charge_pgas());
+				// Reserved `max(charge_pgas, inner + charge_pgas_skip)`, spending `charge_pgas`:
+				// refund the slack when `inner + charge_pgas_skip` was the larger summand.
+				let refund =
+					inner_weight.saturating_add(charge_pgas_skip).saturating_sub(charge_pgas);
 				Ok(Pre::PGAS { who, credit, refund })
 			},
 			Val::Inner(val) => {
-				// Filter-pass skip: reserved `max(inner_weight, charge_pgas)`, actual cost is
-				// `inner_actual + charge_pgas_skip`. Inner already refunds `inner_weight -
-				// inner_actual`, so the extra we owe on top is
-				// `max(0, charge_pgas - inner_weight) - charge_pgas_skip`.
-				// Filter-miss: reserved `inner_weight`; no extra refund from us.
+				// Filter-pass skip: reserved `max(charge_pgas, inner + charge_pgas_skip)`, actual
+				// cost is `inner_actual + charge_pgas_skip`. Inner already refunds `inner -
+				// inner_actual`, so the extra we owe on top is `max(0, charge_pgas - inner -
+				// charge_pgas_skip)`.
+				// Filter-miss: reserved `inner + charge_pgas_skip`; no extra refund from us.
 				let extra_refund = if T::CallFilter::contains(call) {
-					<T as Config>::WeightInfo::charge_pgas()
-						.saturating_sub(inner_weight)
-						.saturating_sub(<T as Config>::WeightInfo::charge_pgas_skip())
+					charge_pgas.saturating_sub(inner_weight.saturating_add(charge_pgas_skip))
 				} else {
 					Weight::zero()
 				};

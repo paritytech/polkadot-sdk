@@ -21,11 +21,12 @@
 extern crate alloc;
 
 use super::*;
-use crate::{pallet::BenchmarkHelperTrait, Pallet};
+use crate::{BenchmarkHelperTrait, Pallet};
 use frame_benchmarking::v2::*;
 use frame_support::{
 	dispatch::{DispatchClass, DispatchInfo, Pays, PostDispatchInfo},
 	pallet_prelude::Weight,
+	traits::tokens::fungibles,
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{
@@ -49,7 +50,8 @@ mod benchmarks {
 	#[benchmark]
 	fn charge_pgas() {
 		let caller: T::AccountId = account("caller", 0, 0);
-		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), u64::MAX.into());
+		let initial: BalanceOf<T> = u64::MAX.into();
+		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), initial);
 
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
@@ -64,18 +66,27 @@ mod benchmarks {
 			pays_fee: Pays::Yes,
 		};
 
+		let result;
 		#[block]
 		{
-			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, 0, |_| Ok(post_info))
-				.unwrap()
-				.is_ok());
+			result =
+				ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 0, 0, |_| {
+					Ok(post_info)
+				});
 		}
+		assert!(result.unwrap().is_ok());
+		// PGAS path actually charged the caller: final balance must be below the initial endowment.
+		let remaining = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
+			T::PGASAssetId::get(),
+			&caller,
+		);
+		assert!(remaining < initial, "PGAS should be charged on the PGAS path");
 	}
 
 	/// Skip path: caller holds no PGAS so the extension falls through to the inner extension.
 	/// Measures the overhead of the PGAS preamble (origin, filter, balance read) when the path
-	/// is ultimately skipped.
+	/// is ultimately skipped; this is the most expensive skip variant (filter-miss and unsigned
+	/// skip paths are cheaper subsets) so it is used as the `charge_pgas_skip` upper bound.
 	#[benchmark]
 	fn charge_pgas_skip() {
 		let caller: T::AccountId = account("caller", 0, 0);
@@ -91,13 +102,25 @@ mod benchmarks {
 		let post_info =
 			PostDispatchInfo { actual_weight: Some(Weight::from_parts(10, 0)), pays_fee: Pays::No };
 
+		let before = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
+			T::PGASAssetId::get(),
+			&caller,
+		);
+		let result;
 		#[block]
 		{
-			assert!(ext
-				.test_run(RawOrigin::Signed(caller).into(), &call, &info, 0, 0, |_| Ok(post_info))
-				.unwrap()
-				.is_ok());
+			result =
+				ext.test_run(RawOrigin::Signed(caller.clone()).into(), &call, &info, 0, 0, |_| {
+					Ok(post_info)
+				});
 		}
+		assert!(result.unwrap().is_ok());
+		// Skip path must not touch the caller's PGAS balance.
+		let after = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
+			T::PGASAssetId::get(),
+			&caller,
+		);
+		assert_eq!(before, after, "PGAS must not be charged on the skip path");
 	}
 
 	impl_benchmark_test_suite!(

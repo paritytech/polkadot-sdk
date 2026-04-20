@@ -131,11 +131,13 @@ parameter_types! {
 	pub const PGASAssetId: AssetId = PGAS_ASSET_ID;
 }
 
-/// Filter that only matches the dummy pallet's calls; everything else falls through.
+/// Filter that matches the dummy pallet plus `frame_system` calls. The dummy pallet is used by
+/// the unit tests and `frame_system` covers the `frame_system::remark` call that the benchmarks
+/// dispatch; `Balances` and other calls fall through so the filter-miss path stays exercised.
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::DummyPallet(..))
+		matches!(call, RuntimeCall::DummyPallet(..) | RuntimeCall::System(..))
 	}
 }
 
