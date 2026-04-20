@@ -725,24 +725,17 @@ impl<T: Config> Pallet<T> {
 	///
 	/// This is a direct liquid transfer. Future PRs may introduce vesting via a trait.
 	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
-		let (dest, payout_account) = match Self::payee(Stash(stash.clone())) {
-			Some(d) if !matches!(d, RewardDestination::None) => {
-				match Self::payout_account_for_dest(stash, &d) {
-					Some(account) => (d, account),
-					None => {
-						defensive!("Unable to determine payout account for destination");
-						return;
-					},
-				}
-			},
-			_ => {
-				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
-					era,
-					stash: stash.clone(),
-				}));
-				defensive!("Validator missing payee");
-				return;
-			},
+		let Some(dest) = Self::payee(Stash(stash.clone())) else {
+			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
+				era,
+				stash: stash.clone(),
+			}));
+			defensive!("Validator missing payee");
+			return;
+		};
+		let Some(payout_account) = Self::payout_account_for_dest(stash, &dest) else {
+			// Destination is `None`; intentional opt-out.
+			return;
 		};
 
 		let incentive_pot = T::RewardPots::pot_account(crate::RewardPot::Era(

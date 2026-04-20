@@ -279,10 +279,7 @@ fn incentive_weight_stored_correctly() {
 		// incentive budget (750 = 5% of era issuance 15_000).
 		let _ = staking_events_since_last_call();
 		make_all_reward_payment(2);
-		assert_eq!(
-			incentive_paid_for(alice, &staking_events_since_last_call()),
-			Some(375)
-		);
+		assert_eq!(incentive_paid_for(alice, &staking_events_since_last_call()), Some(375));
 	});
 }
 
@@ -325,73 +322,73 @@ fn multi_page_election_does_not_overwrite_incentive_weight() {
 		.multi_page_election_provider(3)
 		.exposures_page_size(1)
 		.build_and_execute(|| {
-		let alice = 11; // validator
-		setup_incentive_config();
+			let alice = 11; // validator
+			setup_incentive_config();
 
-		Session::roll_to_next_session();
-		let planned_era = Rotator::<Test>::planned_era();
+			Session::roll_to_next_session();
+			let planned_era = Rotator::<Test>::planned_era();
 
-		// GIVEN/WHEN: page 1 has own-stake, page 2 has only nominators.
-		hypothetically!({
-			let page1 = bounded_vec![(
-				alice,
-				Exposure {
-					total: 1250,
-					own: 1000,
-					others: vec![IndividualExposure { who: 101, value: 250 }]
-				},
-			)];
-			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
-			let incentive_weight =
-				ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
-			assert_eq!(incentive_weight, 31); // √1000 ≈ 31
+			// GIVEN/WHEN: page 1 has own-stake, page 2 has only nominators.
+			hypothetically!({
+				let page1 = bounded_vec![(
+					alice,
+					Exposure {
+						total: 1250,
+						own: 1000,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					},
+				)];
+				EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
+				let incentive_weight =
+					ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
+				assert_eq!(incentive_weight, 31); // √1000 ≈ 31
 
-			let page2 = bounded_vec![(
-				alice,
-				Exposure {
-					total: 250,
-					own: 0,
-					others: vec![IndividualExposure { who: 102, value: 250 }]
-				},
-			)];
-			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
+				let page2 = bounded_vec![(
+					alice,
+					Exposure {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 102, value: 250 }]
+					},
+				)];
+				EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
 
-			// THEN: incentive weight not overwritten by page 2 (own=0).
-			assert_eq!(
-				ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap(),
-				incentive_weight
-			);
+				// THEN: incentive weight not overwritten by page 2 (own=0).
+				assert_eq!(
+					ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap(),
+					incentive_weight
+				);
+			});
+
+			// GIVEN/WHEN: own-stake arrives on page 2 instead.
+			hypothetically!({
+				let page1 = bounded_vec![(
+					alice,
+					Exposure {
+						total: 250,
+						own: 0,
+						others: vec![IndividualExposure { who: 101, value: 250 }]
+					},
+				)];
+				EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
+				assert_eq!(ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice), None);
+
+				let page2 = bounded_vec![(
+					alice,
+					Exposure {
+						total: 1250,
+						own: 1000,
+						others: vec![IndividualExposure { who: 102, value: 250 }]
+					},
+				)];
+				EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
+
+				// THEN: incentive weight set from overview when own-stake arrives.
+				let incentive_weight =
+					ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
+				assert_eq!(incentive_weight, 31); // √1000 ≈ 31
+			});
 		});
-
-		// GIVEN/WHEN: own-stake arrives on page 2 instead.
-		hypothetically!({
-			let page1 = bounded_vec![(
-				alice,
-				Exposure {
-					total: 250,
-					own: 0,
-					others: vec![IndividualExposure { who: 101, value: 250 }]
-				},
-			)];
-			EraElectionPlanner::<Test>::store_stakers_info(page1, planned_era);
-			assert_eq!(ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice), None);
-
-			let page2 = bounded_vec![(
-				alice,
-				Exposure {
-					total: 1250,
-					own: 1000,
-					others: vec![IndividualExposure { who: 102, value: 250 }]
-				},
-			)];
-			EraElectionPlanner::<Test>::store_stakers_info(page2, planned_era);
-
-			// THEN: incentive weight set from overview when own-stake arrives.
-			let incentive_weight =
-				ErasValidatorIncentiveWeight::<Test>::get(planned_era, alice).unwrap();
-			assert_eq!(incentive_weight, 31); // √1000 ≈ 31
-		});
-	});
 }
 
 // ===== Pot distribution and proration =====
