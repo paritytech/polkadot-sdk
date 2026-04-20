@@ -17255,6 +17255,7 @@ dependencies = [
  "pallet-paged-list",
  "pallet-parameters",
  "pallet-people",
+ "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
