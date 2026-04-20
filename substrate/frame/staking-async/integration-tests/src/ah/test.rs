@@ -2119,6 +2119,22 @@ mod session_keys {
 	}
 }
 
+/// Mirrors the DAP drip setup migration logic.
+struct LastInflationTs;
+impl frame_support::traits::Get<u64> for LastInflationTs {
+	fn get() -> u64 {
+		ActiveEra::<T>::get().and_then(|e| e.start).unwrap_or(0)
+	}
+}
+
+/// Provides the initial DAP budget (85 staker / 15 buffer / 0 incentive) for the migration.
+struct InitialBudget;
+impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for InitialBudget {
+	fn get() -> pallet_dap::BudgetAllocationMap {
+		build_budget(&[(staker_reward_key(), 85), (buffer_key(), 15)])
+	}
+}
+
 /// E2E: legacy → DAP (no incentive) → DAP (with validator incentive).
 ///
 /// Budget splits are staker/incentive/treasury throughout:
@@ -2177,19 +2193,58 @@ fn legacy_to_dap_era_payout_e2e() {
 			]
 		);
 
-		// -- Switch to DAP 85/0/15 --
+		// -- Switch to DAP 85/0/15 mid-era via runtime upgrade migration --
+		// Emulates what AH will do in a real upgrade: `MigrateV1ToV2` seeds
+		// `BudgetAllocation`, backfills a catch-up drip from `ActiveEra.start` to `now`,
+		// then sets `LastIssuanceTimestamp = now` so regular drips resume from here.
 
 		UseLegacyEraPayout::set(false);
-		pallet_dap::BudgetAllocation::<T>::put(build_budget(&[
-			(staker_reward_key(), 85),
-			(buffer_key(), 15),
-		]));
-		pallet_dap::LastIssuanceTimestamp::<T>::put(MockTime::get());
-		Balances::mint_into(
-			&SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards)),
-			1,
-		)
-		.unwrap();
+		// ED to keep the general staker pot alive for the catch-up drip.
+		let general_staker =
+			SequentialTest::pot_account(RewardPot::General(RewardKind::StakerRewards));
+		Balances::mint_into(&general_staker, 1).unwrap();
+
+		// Roll 5 blocks into era 1 so the migration has a non-trivial elapsed window to
+		// backfill: `elapsed = now - ActiveEra.start`.
+		let era_1_start = ActiveEra::<T>::get().and_then(|e| e.start).unwrap();
+		roll_many(5);
+		let before_migration = MockTime::get();
+		let expected_elapsed = before_migration - era_1_start;
+		assert_eq!(expected_elapsed, 5 * BLOCK_TIME);
+
+		// Reset `LastIssuanceTimestamp` to 0 so the migration sees a fresh DAP install
+		pallet_dap::LastIssuanceTimestamp::<T>::kill();
+		let pot_before_migration = Balances::total_balance(&general_staker);
+
+		// Run the migration.
+		use frame_support::traits::UncheckedOnRuntimeUpgrade;
+		let _ = pallet_dap::migrations::InnerMigrateV1ToV2::<
+			T,
+			LastInflationTs,
+			InitialBudget,
+			frame_support::traits::ConstU64<{ 6 * 12_000 }>,
+		>::on_runtime_upgrade();
+
+		// Migration seeded the budget and anchored `LastIssuanceTimestamp` at `now`.
+		assert!(!pallet_dap::BudgetAllocation::<T>::get().is_empty());
+		assert_eq!(pallet_dap::LastIssuanceTimestamp::<T>::get(), before_migration);
+
+		// Catch-up drip minted 1 token/ms × elapsed; 85% → staker pot.
+		let expected_backfill_to_staker =
+			Perbill::from_percent(85).mul_floor(expected_elapsed as u128);
+		assert_eq!(
+			Balances::total_balance(&general_staker) - pot_before_migration,
+			expected_backfill_to_staker
+		);
+
+		// Regular drips resume per block from here: one `roll_next` → +1 block of drip.
+		let pot_after_migration = Balances::total_balance(&general_staker);
+		roll_next();
+		let expected_per_block_drip = Perbill::from_percent(85).mul_floor(BLOCK_TIME as u128);
+		assert_eq!(
+			Balances::total_balance(&general_staker) - pot_after_migration,
+			expected_per_block_drip
+		);
 
 		// Switching to DAP mode alone doesn't flip the guard; it only flips when the
 		// first DAP era ends (snapshotted into an era pot).
