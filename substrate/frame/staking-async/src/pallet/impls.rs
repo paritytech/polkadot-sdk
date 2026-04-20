@@ -440,35 +440,29 @@ impl<T: Config> Pallet<T> {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
 
-		// Check if this era has a staker rewards pot.
-		let nominator_payout_count: u32 =
-			if crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era) {
-				Self::payout_from_provider(
-					era,
-					&stash,
-					validator_staker_payout_for_page,
-					&exposure,
-					overview_own,
-					reward_split.nominator_payout,
-				)
-			} else {
-				// LEGACY: Only used for old eras finalised before reward provider impl.
-				if let Some(disable_era) = DisableMintingGuard::<T>::get() {
-					if era >= disable_era {
-						defensive!("Era has no reward pot but legacy minting is disabled!");
-						return Err(Error::<T>::LegacyMintingDisabled.into());
-					}
-				}
+		// Determine whether to use dap payout or legacy path.
+		let use_dap_payout =
+			DisableMintingGuard::<T>::get().is_some_and(|guard_era| era >= guard_era);
 
-				Self::payout_legacy_mint(
-					era,
-					&stash,
-					validator_staker_payout_for_page,
-					&exposure,
-					overview_own,
-					reward_split.nominator_payout,
-				)
-			};
+		let nominator_payout_count: u32 = if use_dap_payout {
+			Self::payout_from_provider(
+				era,
+				&stash,
+				validator_staker_payout_for_page,
+				&exposure,
+				overview_own,
+				reward_split.nominator_payout,
+			)
+		} else {
+			Self::payout_legacy_mint(
+				era,
+				&stash,
+				validator_staker_payout_for_page,
+				&exposure,
+				overview_own,
+				reward_split.nominator_payout,
+			)
+		};
 
 		debug_assert!(nominator_payout_count <= T::MaxExposurePageSize::get());
 

@@ -1515,8 +1515,6 @@ pub mod pallet {
 		CancelledSlash,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
-		/// Era has no reward pot but legacy minting is disabled.
-		LegacyMintingDisabled,
 		/// Optimum self-stake cannot be greater than hard cap.
 		OptimumGreaterThanCap,
 	}
