@@ -2191,13 +2191,18 @@ fn legacy_to_dap_era_payout_e2e() {
 		)
 		.unwrap();
 
+		// Switching to DAP mode alone doesn't flip the guard; it only flips when the
+		// first DAP era ends (snapshotted into an era pot).
+		assert!(DisableMintingGuard::<T>::get().is_none());
+
 		// -- Era 1 (DAP 85/0/15, no incentive) --
 
 		set_reward_points(1);
 		let _ = staking_events_since_last_call();
 		roll_until_next_active(7);
 		assert_eq!(Rotator::<T>::active_era(), 2);
-		assert!(DisableMintingGuard::<T>::get().is_some());
+		// Era 1 just ended in DAP mode → guard flips to Some(1).
+		assert_eq!(DisableMintingGuard::<T>::get(), Some(1));
 
 		// Same 85% split as legacy, same era duration → identical total staker reward.
 		assert_eq!(ErasValidatorReward::<T>::get(1).unwrap(), 275400);
