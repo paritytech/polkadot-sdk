@@ -98,7 +98,7 @@ fn asset_hub_westend_genesis(
 				.collect(),
 			..Default::default()
 		},
-		pgas_allowance: PgasAllowanceConfig { min_balance: ASSET_HUB_WESTEND_ED },
+		pgas_allowance: PgasAllowanceConfig { min_balance: 1u32.into() },
 	})
 }
 
