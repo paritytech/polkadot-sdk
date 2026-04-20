@@ -379,7 +379,7 @@ impl<T: Config> Eras<T> {
 		ErasValidatorIncentiveBudget::<T>::get(era)
 	}
 
-	pub(crate) fn add_validator_incentive_weight(era: EraIndex, weight: BalanceOf<T>) {
+	pub(crate) fn add_sum_validator_incentive_weight(era: EraIndex, weight: BalanceOf<T>) {
 		<ErasSumValidatorIncentiveWeight<T>>::mutate(era, |total_weight| {
 			*total_weight += weight;
 		});
@@ -1200,7 +1200,10 @@ impl<T: Config> EraElectionPlanner<T> {
 		Eras::<T>::add_total_stake(new_planned_era, total_stake_page);
 
 		// adds to total validator self-stake weight for incentive distribution.
-		Eras::<T>::add_validator_incentive_weight(new_planned_era, total_validator_weight_page);
+		Eras::<T>::add_sum_validator_incentive_weight(
+			new_planned_era,
+			total_validator_weight_page,
+		);
 
 		// collect or update the pref of all winners.
 		// TODO: rather inefficient, we can do this once at the last page across all entries in
