@@ -137,6 +137,14 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
+		// GIVEN: era pot starts with full snapshotted budget (nothing paid yet).
+		let era_pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			2,
+			RewardKind::ValidatorSelfStake,
+		));
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		assert_eq!(Balances::free_balance(&era_pot), budget);
+
 		// WHEN: payout.
 		let alice_before = asset::total_balance::<Test>(&alice);
 		make_all_reward_payment(2);
@@ -156,14 +164,15 @@ fn validator_receives_both_staker_and_incentive_rewards() {
 		);
 		assert!(incentive_paid_for(bob, &events).is_none());
 
-		// THEN: era pot balance matches snapshotted budget.
-		let era_pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
-			2,
-			RewardKind::ValidatorSelfStake,
-		));
-		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
-		// After payout, remaining balance = budget - claimed.
-		assert!(Balances::free_balance(&era_pot) < budget);
+		// THEN: era pot deducted by exactly the sum of all incentives paid out.
+		let total_incentive_paid: Balance = events
+			.iter()
+			.filter_map(|e| match e {
+				Event::ValidatorIncentivePaid { amount, .. } => Some(*amount),
+				_ => None,
+			})
+			.sum();
+		assert_eq!(Balances::free_balance(&era_pot), budget - total_incentive_paid);
 
 		// General pot retains ED after snapshot drained it.
 		assert_eq!(Balances::free_balance(&general_incentive_pot()), ExistentialDeposit::get());
