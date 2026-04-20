@@ -503,13 +503,15 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		let (reserve1, reserve2) =
-			pallet_asset_conversion::Pallet::<Runtime>::get_reserves(asset1, asset2)
-				.map_err(|e| match e {
-					pallet_asset_conversion::Error::InvalidAssetPair =>
-						Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() }),
-					_ => Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }),
-				})?;
+		let (reserve1, reserve2) = pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
+			asset1, asset2,
+		)
+		.map_err(|e| match e {
+			pallet_asset_conversion::Error::InvalidAssetPair => {
+				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
+			},
+			_ => Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }),
+		})?;
 
 		Ok(IAssetConversion::getReservesCall::abi_encode_returns(
 			&IAssetConversion::getReservesReturn {
