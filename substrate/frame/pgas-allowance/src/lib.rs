@@ -222,8 +222,6 @@ where
 	<T as Config>::AssetId: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
-	// Fully transparent to decoders: forward both the identifier and the metadata so the
-	// extension is indistinguishable from `S` on-chain and in wallets.
 	const IDENTIFIER: &'static str = S::IDENTIFIER;
 	type Implicit = S::Implicit;
 	type Val = Val<S::Val, T>;
@@ -350,14 +348,17 @@ where
 					post_info,
 					Zero::zero(),
 				);
-				// Split: keep `actual_fee` as the consumed portion (dropped below to burn), and
-				// hand the remainder back to `who`. If the resolve fails (e.g. the account was
-				// reaped) the refund is merged back into the consumed portion and burned too.
+
+				// Split the reserved credit into the consumed portion (dropped below to burn)
+				// and the refund owed back to `who`.
 				let (consumed, fee_refund) = credit.split(actual_fee);
 				if !fee_refund.peek().is_zero() {
+					// Resolve the refund back to `who`.
 					if let Err(fee_refund) =
 						<T::Assets as fungibles::Balanced<T::AccountId>>::resolve(&who, fee_refund)
 					{
+						// Resolve can fail if `who` was reaped between `prepare` and here;
+						// merge the refund back into `consumed` so it is burned with the rest.
 						let _ = consumed.merge(fee_refund);
 					}
 				}
