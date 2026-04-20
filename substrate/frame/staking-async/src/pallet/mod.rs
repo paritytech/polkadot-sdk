@@ -553,11 +553,15 @@ pub mod pallet {
 	pub type SelfStakeSlopeFactor<T: Config> = StorageValue<_, Perbill, ValueQuery>;
 
 	/// The total validator incentive budget for the given era, snapshotted at era end.
+	///
+	/// This is the similar to [`ErasValidatorReward`] but for the self-stake incentive pot.
 	#[pallet::storage]
 	pub type ErasValidatorIncentiveBudget<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
 
 	/// Sum of all validators' incentive weights for the era.
+	///
+	/// Directly linked to [`ErasValidatorIncentiveWeight`].
 	#[pallet::storage]
 	pub type ErasSumValidatorIncentiveWeight<T: Config> =
 		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
