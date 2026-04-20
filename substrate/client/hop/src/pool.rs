@@ -613,7 +613,7 @@ impl HopDataPool {
 	}
 
 	/// Return hashes of entries within `buffer_blocks` of expiry that have not yet been promoted.
-	/// Returns up to `limit` hashes. Use [`get`] to read blob data when needed.
+	/// Returns up to `limit` hashes. Use [`Self::get`] to read blob data when needed.
 	/// The maintenance task runs periodically, so remaining entries are picked up next cycle.
 	pub fn get_promotable(
 		&self,
