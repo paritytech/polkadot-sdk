@@ -57,13 +57,12 @@ mod benchmarks {
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(10, 0),
-			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
-			pays_fee: Pays::Yes,
+			..Default::default()
 		};
 		let post_info = PostDispatchInfo {
 			actual_weight: Some(Weight::from_parts(10, 0)),
-			pays_fee: Pays::Yes,
+			pays_fee: Default::default(),
 		};
 
 		let result;
@@ -75,7 +74,6 @@ mod benchmarks {
 				});
 		}
 		assert!(result.unwrap().is_ok());
-		// PGAS path actually charged the caller: final balance must be below the initial endowment.
 		let remaining = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
 			T::PGASAssetId::get(),
 			&caller,
@@ -85,8 +83,7 @@ mod benchmarks {
 
 	/// Skip path: caller holds no PGAS so the extension falls through to the inner extension.
 	/// Measures the overhead of the PGAS preamble (origin, filter, balance read) when the path
-	/// is ultimately skipped; this is the most expensive skip variant (filter-miss and unsigned
-	/// skip paths are cheaper subsets) so it is used as the `charge_pgas_skip` upper bound.
+	/// is ultimately skipped.
 	#[benchmark]
 	fn charge_pgas_skip() {
 		let caller: T::AccountId = account("caller", 0, 0);
@@ -95,12 +92,14 @@ mod benchmarks {
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(10, 0),
-			extension_weight: Weight::zero(),
 			class: DispatchClass::Normal,
 			pays_fee: Pays::No,
+			..Default::default()
 		};
-		let post_info =
-			PostDispatchInfo { actual_weight: Some(Weight::from_parts(10, 0)), pays_fee: Pays::No };
+		let post_info = PostDispatchInfo {
+			actual_weight: Some(Weight::from_parts(10, 0)),
+			pays_fee: Default::default(),
+		};
 
 		let before = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
 			T::PGASAssetId::get(),
@@ -115,7 +114,6 @@ mod benchmarks {
 				});
 		}
 		assert!(result.unwrap().is_ok());
-		// Skip path must not touch the caller's PGAS balance.
 		let after = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
 			T::PGASAssetId::get(),
 			&caller,

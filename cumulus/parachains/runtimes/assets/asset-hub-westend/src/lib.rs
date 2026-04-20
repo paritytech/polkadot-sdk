@@ -1132,7 +1132,7 @@ parameter_types! {
 	pub const PGASAssetId: AssetIdForTrustBackedAssets = 0;
 }
 
-/// Calls eligible to be paid for with PGAS. Currently only `pallet-revive` calls.
+/// Calls eligible to be paid for with PGAS.
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
