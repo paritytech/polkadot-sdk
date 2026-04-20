@@ -239,20 +239,22 @@ fn zero_reward_points_means_no_payout() {
 		let alice = 11; // validator (no reward points)
 		let bob = 21; // validator (has reward points)
 
-		// GIVEN: only bob earns points.
+		// GIVEN: incentive enabled; roll to era 2 so its election runs with config.
 		setup_incentive_with_budget(45, 5);
-		Eras::<Test>::reward_active_era(vec![(bob, 1)]);
 		Session::roll_until_active_era(2);
+		// Only bob earns points in era 2.
+		Eras::<Test>::reward_active_era(vec![(bob, 1)]);
+		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
-		// WHEN: payout.
-		make_all_reward_payment(1);
+		// WHEN: payout era 2.
+		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
 		// THEN: alice gets nothing (no points).
 		assert!(staker_reward_for(alice, &events).is_none());
 		assert!(incentive_paid_for(alice, &events).is_none());
-		// THEN: bob gets both staker reward and incentive bonus (has points).
+		// THEN: bob gets both staker reward and incentive bonus.
 		assert!(staker_reward_for(bob, &events).is_some());
 		assert!(incentive_paid_for(bob, &events).is_some());
 	});
