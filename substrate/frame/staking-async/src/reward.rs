@@ -244,6 +244,8 @@ fn incentive_weight<Balance>(
 where
 	Balance: AtLeast32BitUnsigned + Copy + Into<u128> + From<u128>,
 {
+	debug_assert!(optimum <= cap, "config invariant: optimum must be <= cap");
+
 	if self_stake.is_zero() {
 		return Balance::zero();
 	}
