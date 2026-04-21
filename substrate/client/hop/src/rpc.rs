@@ -55,7 +55,8 @@ pub trait HopApi<BlockHash> {
 	/// * `signature`: SCALE-encoded `MultiSignature` over the blake2_256 hash of `data`
 	/// * `signer`: SCALE-encoded `MultiSigner` of the account signing the submission
 	///
-	/// The signer must have an active Bulletin Chain authorization.
+	/// The signer must be authorized by the runtime (checked via
+	/// `HopApi::is_account_authorized`).
 	///
 	/// # Returns
 	/// The current pool status
