@@ -38,7 +38,7 @@ use std::{
 static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	let mut config = Config::from_env().expect("Invalid config.");
 	config.set_worker_count(10);
-	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L1Hit)));
+	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
 	Engine::new(&config).expect("Failed to initialize PolkaVM.")
 });
 
