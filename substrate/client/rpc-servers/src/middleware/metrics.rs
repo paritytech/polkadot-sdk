@@ -74,6 +74,8 @@ pub struct RpcMetrics {
 	ws_sessions_closed: Option<Counter<U64>>,
 	/// Histogram over RPC websocket sessions.
 	ws_sessions_time: HistogramVec,
+	/// Histogram over runtime API call times via `state_call` / `chainHead_v1_call`.
+	runtime_api_calls_time: HistogramVec,
 }
 
 impl RpcMetrics {
@@ -160,6 +162,17 @@ impl RpcMetrics {
 						)
 						.buckets(HISTOGRAM_BUCKETS.to_vec()),
 						&["protocol"],
+					)?,
+					metrics_registry,
+				)?,
+				runtime_api_calls_time: register(
+					HistogramVec::new(
+						HistogramOpts::new(
+							"substrate_rpc_runtime_api_calls_time",
+							"Total time [μs] of runtime API calls via state_call / chainHead_v1_call",
+						)
+						.buckets(HISTOGRAM_BUCKETS.to_vec()),
+						&["runtime_api"],
 					)?,
 					metrics_registry,
 				)?,
@@ -250,6 +263,13 @@ impl RpcMetrics {
 				if is_rate_limited { "true" } else { "false" },
 			])
 			.inc();
+
+		// Record per-runtime-API timing for state_call / chainHead_v1_call.
+		if rp.is_success() {
+			if let Some(api_name) = extract_runtime_api_name(req) {
+				self.runtime_api_calls_time.with_label_values(&[&api_name]).observe(micros as _);
+			}
+		}
 	}
 }
 
@@ -295,4 +315,23 @@ impl Metrics {
 	) {
 		self.inner.on_response(req, rp, is_rate_limited, self.transport_label, now)
 	}
+}
+
+/// Extract the runtime API function name from `state_call` or `chainHead_v1_call` params.
+///
+/// - `state_call` params: `["RuntimeApi_method", "0x...", ...]`
+/// - `chainHead_v1_call` params: `["follow_sub", "0xhash", "RuntimeApi_method", "0x..."]`
+fn extract_runtime_api_name(req: &Request) -> Option<String> {
+	let idx = match req.method_name() {
+		"state_call" | "state_callAt" => 0,
+		"chainHead_v1_call" => 2,
+		_ => return None,
+	};
+
+	let params_raw = req.params();
+	let params_str = params_raw.as_str()?;
+	let params: Vec<&serde_json::value::RawValue> = serde_json::from_str(params_str).ok()?;
+	let raw = params.get(idx)?;
+	let name: String = serde_json::from_str(raw.get()).ok()?;
+	Some(name)
 }
