@@ -214,7 +214,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	collators: &[&str],
 	participant_count: u32,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(collators.len() >= 2);
+	assert!(!collators.is_empty());
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
@@ -291,7 +291,7 @@ pub(super) async fn spawn_network_sudo(
 					"--authoring".into(),
 					"slot-based".into(),
 					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
+					"-linfo,statement-store=trace,statement-gossip=trace".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
 					format!(
