@@ -20,16 +20,16 @@
 //! Storage deposits can be backed by the native currency or by PGAS.
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
-use crate::{evm::fees::InfoT as FeeInfo, BalanceOf, Config, DotByContractUser, HoldReason};
+use crate::{BalanceOf, Config, DotByContractUser, HoldReason, evm::fees::InfoT as FeeInfo};
 use core::marker::PhantomData;
 use frame_support::traits::{
-	fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
-	tokens::{fungibles, Fortitude, Precision, Preservation, Restriction},
 	Get,
+	fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
+	tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
 };
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchResult,
+	traits::{Saturating, Zero},
 };
 
 /// Payment backend used to charge storage deposits.
@@ -152,16 +152,16 @@ impl<T: Config> GasPayment<T> for () {
 /// currency otherwise; native-currency contributions are recorded in [`DotByContractUser`].
 /// Refunds and collects try the native side first, capped by the user's tracked
 /// [`DotByContractUser`] entitlement, and pull any remainder from PGAS.
-pub struct PGasPayment<Assets, Id>(PhantomData<(Assets, Id)>);
+pub struct PGasPayment<Mutator, Holder, Id>(PhantomData<(Mutator, Holder, Id)>);
 
-impl<Assets, Id> PGasPayment<Assets, Id> {
+impl<Mutator, Holder, Id> PGasPayment<Mutator, Holder, Id> {
 	fn pgas_reducible_balance<T>(who: &T::AccountId) -> BalanceOf<T>
 	where
 		T: Config,
-		Assets: fungibles::Inspect<T::AccountId, Balance = BalanceOf<T>>,
-		Id: Get<<Assets as fungibles::Inspect<T::AccountId>>::AssetId>,
+		Mutator: fungibles::Inspect<T::AccountId, Balance = BalanceOf<T>>,
+		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	{
-		<Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
+		<Mutator as fungibles::Inspect<T::AccountId>>::reducible_balance(
 			Id::get(),
 			who,
 			Preservation::Preserve,
@@ -170,19 +170,23 @@ impl<Assets, Id> PGasPayment<Assets, Id> {
 	}
 }
 
-impl<T, Assets, Id> GasPayment<T> for PGasPayment<Assets, Id>
+impl<T, Mutator, Holder, Id> GasPayment<T> for PGasPayment<Mutator, Holder, Id>
 where
 	T: Config,
-	Assets: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>
-		+ fungibles::MutateHold<T::AccountId>,
-	<Assets as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
-	Id: Get<<Assets as fungibles::Inspect<T::AccountId>>::AssetId>,
+	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
+	Holder: fungibles::MutateHold<
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
+	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
+	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 {
 	/// Pays the full `amount` in PGAS when `from`'s reducible PGAS covers it; otherwise pays
 	/// in native currency and records the contribution in [`DotByContractUser`].
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
-			<Assets as fungibles::Mutate<T::AccountId>>::transfer(
+			<Mutator as fungibles::Mutate<T::AccountId>>::transfer(
 				Id::get(),
 				from,
 				to,
@@ -205,7 +209,7 @@ where
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
-			<Assets as fungibles::MutateHold<T::AccountId>>::transfer_and_hold(
+			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_and_hold(
 				Id::get(),
 				&reason.into(),
 				from,
@@ -266,7 +270,7 @@ where
 
 		let pgas_needed = amount.saturating_sub(dot_refunded);
 		if !pgas_needed.is_zero() {
-			<Assets as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
+			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
 				Id::get(),
 				&reason.into(),
 				from,
@@ -283,7 +287,7 @@ where
 	/// Sum of the contract's DOT-on-hold and PGAS-on-hold for `reason`.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
 		let dot_held = T::Currency::balance_on_hold(&reason.into(), who);
-		let pgas_held = <Assets as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
+		let pgas_held = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
 			Id::get(),
 			&reason.into(),
 			who,
@@ -328,7 +332,7 @@ where
 
 		let pgas_needed = amount.saturating_sub(dot_collected);
 		if !pgas_needed.is_zero() {
-			<Assets as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
+			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
 				Id::get(),
 				&reason.into(),
 				from,

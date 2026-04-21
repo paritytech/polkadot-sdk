@@ -76,6 +76,8 @@ serde_json = { workspace = true }
 test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
+pallet-assets = { workspace = true, default-features = true }
+pallet-assets-holder = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 pallet-proxy = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
