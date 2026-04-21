@@ -14,9 +14,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 
 use super::common::{
-	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter, assert_statements_match, submit_statement, subscribe_topic,
+	assert_no_more_statements, assert_statements_match, expect_one_statement,
+	expect_statements_unordered, spawn_network_sudo, spawn_network_with_injected_allowances,
+	submit_statement, subscribe_topic, subscribe_topic_filter,
 };
 
 /// Verifies basic statement propagation and data integrity across two nodes
