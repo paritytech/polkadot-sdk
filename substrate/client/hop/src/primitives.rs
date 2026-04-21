@@ -14,10 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Type definitions for HOP service
+//! Type definitions for HOP service.
 //!
-//! These type aliases allow flexibility for different chains while maintaining
-//! compatibility with the Bulletin Chain.
+//! Re-exports of the block number and hash types used by HOP, kept as
+//! crate-local aliases so the rest of the crate doesn't depend on a specific
+//! chain's primitives.
 
 pub use polkadot_primitives::{BlockNumber, Hash};
 

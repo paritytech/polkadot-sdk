@@ -12,10 +12,10 @@ doc:
       - Disk-backed data pool (`HopDataPool`) with 256-way sharded blob/meta storage
         and crash-recovery from disk on restart.
       - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
-      - Submission auth via Bulletin Chain account signatures, verified against
-        `HopApi::is_account_authorized`.
-      - Data size validated against `HopApi::max_promotion_size` (8 MiB default,
-        matching Bulletin Chain's `MaxTransactionSize`).
+      - Submission gated by `HopApi::is_account_authorized` — the runtime
+        defines its own authorization policy; the node is agnostic.
+      - Data size validated against `HopApi::max_promotion_size` (crate-level
+        upper bound: 8 MiB).
       - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
         `BoundedVec` (`RecipientVec`) so oversized lists are rejected before
         SCALE decoding and signature verification. Duplicate recipients are also

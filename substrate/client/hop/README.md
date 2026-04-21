@@ -6,10 +6,11 @@ to one or more recipients who claim it directly from the same collator over
 JSON-RPC. Unclaimed blobs are promoted to on-chain storage as a best-effort
 fallback before they expire, or simply cleaned up.
 
-HOP complements `pallet-transaction-storage` by keeping short-lived hand-off
-data off-chain until it actually needs permanence — data lives on one
-collator's disk instead of being replicated across the chain, and round-trip
-latency stays well under a block time.
+HOP keeps short-lived hand-off data off-chain until it actually needs
+permanence — data lives on one collator's disk instead of being replicated
+across the chain, and round-trip latency stays well under a block time. The
+node is agnostic about what "authorized to submit" and "promote on-chain"
+mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
 
 ## Overview
 
@@ -24,8 +25,10 @@ latency stays well under a block time.
 - **Domain-separated signatures** — distinct context prefixes for submit,
   claim, and ack (`HOP_SUBMIT_CONTEXT`, `HOP_CLAIM_CONTEXT`, `HOP_ACK_CONTEXT`)
   so a signature from one operation cannot be replayed as another.
-- **Authorization reuse** — submit requires an active
-  `pallet-transaction-storage` authorization for the signer account.
+- **Runtime-defined authorization** — submit is gated by
+  `HopApi::is_account_authorized`; the runtime decides what "authorized"
+  means (e.g. reuse an existing on-chain authorization, check a dedicated
+  HOP allowlist, or any other policy).
 - **Per-account rate limiting** — token-bucket caps on both submit rate and
   bandwidth; see [CLI flags](#cli-flags).
 - **Best-effort on-chain promotion** — near-expiry entries are promoted via a
@@ -141,10 +144,10 @@ Store a blob for the given list of recipients.
   `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data))`.
 - `signer`: SCALE-encoded `MultiSigner` of the submitting account.
 
-Submit fails with `NotAuthorized` if the signer lacks an active
-`pallet-transaction-storage` authorization, and with `RateLimited` if the
-per-account buckets are exhausted. Authorization is checked *before*
-signature verification so unauthorized floods don't force crypto work.
+Submit fails with `NotAuthorized` if `HopApi::is_account_authorized` returns
+`false` for the signer, and with `RateLimited` if the per-account buckets
+are exhausted. Authorization is checked *before* signature verification so
+unauthorized floods don't force crypto work.
 
 ### `hop_claim(hash, signature) -> Bytes`
 
@@ -185,7 +188,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1009 | `NoRecipients` | Submit provided an empty recipient list |
 | 1010 | `InvalidRecipientKey` | A recipient entry did not decode as `MultiSigner` |
 | 1011 | `UserQuotaExceeded` | Sender's per-user quota (`--hop-max-user-size`) is full |
-| 1012 | `NotAuthorized` | Signer lacks an active `pallet-transaction-storage` authorization |
+| 1012 | `NotAuthorized` | `HopApi::is_account_authorized` returned `false` for the signer |
 | 1013 | `IoError` | Disk I/O failure |
 | 1014 | `InvalidSigner` | Submit `signer` did not decode as `MultiSigner` |
 | 1015 | `AlreadyClaimed` | Recipient has already ack'd and the entry was deleted |
@@ -197,8 +200,8 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 
 ## Limits and fixed parameters
 
-- `MAX_DATA_SIZE` = 8 MiB (matches `DefaultMaxTransactionSize` in the Bulletin
-  Chain transaction-storage pallet).
+- `MAX_DATA_SIZE` = 8 MiB — a crate-level upper bound. The effective cap is
+  whatever `HopApi::max_promotion_size()` returns on the current runtime.
 - `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt on-disk
   `.meta` files with too many recipients fail to SCALE-decode and are
   discarded during startup recovery).

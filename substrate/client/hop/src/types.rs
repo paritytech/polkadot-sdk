@@ -176,7 +176,9 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 	}
 }
 
-/// Maximum data size (8 MiB, matching `DefaultMaxTransactionSize` in Bulletin Chain)
+/// Crate-level upper bound on a HOP entry's data size (8 MiB). The effective
+/// cap is whatever `HopApi::max_promotion_size()` reports on the current
+/// runtime; this constant just anchors the worst case.
 pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
 /// Default retention period in blocks (24 hours at 6 seconds per block = 14,400 blocks)
