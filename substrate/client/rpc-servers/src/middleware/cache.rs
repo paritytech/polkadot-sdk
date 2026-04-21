@@ -25,6 +25,11 @@
 //! Caching is safe for any block hash because the response is deterministic — a block hash
 //! uniquely identifies the block and its state. Non-finalized block entries are naturally
 //! evicted by LRU when the cache is full.
+//!
+//! **Metrics note**: The cache layer sits outside the RPC metrics layer, so cache hits are
+//! NOT reflected in `substrate_rpc_calls_total` or latency histograms. Use
+//! `substrate_rpc_cache_hits_total` (broken down by method) to account for cached call
+//! volume.
 
 // TODO: Consider resolving "latest" (missing block hash) to the current best block hash
 // so that repeated queries targeting the same "latest" block can hit the cache within the

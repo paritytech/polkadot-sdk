@@ -358,8 +358,14 @@ where
 
 						// Middleware ordering (outermost → innermost):
 						// cache → rate_limit/metrics → logger → service
+						//
 						// Cache hits return before rate limiting — intentional:
 						// they are cheap and don't hit the backend.
+						//
+						// NOTE: Cache hits bypass the metrics layer, so they are NOT
+						// counted in `substrate_rpc_calls_total` or latency histograms.
+						// Use `substrate_rpc_cache_hits_total` to account for cached
+						// call volume.
 						let rpc_middleware = RpcServiceBuilder::new()
 							.rpc_logger(request_logger_limit)
 							.option_layer(middleware_layer.clone())
