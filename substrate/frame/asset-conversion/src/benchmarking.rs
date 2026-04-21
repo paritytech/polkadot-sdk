@@ -416,8 +416,7 @@ mod benchmarks {
 		let (asset1, asset2) = T::BenchmarkHelper::create_pair(0, 1);
 
 		create_fee_asset::<T>(&caller);
-		let (_, liquidity1, liquidity2) =
-			create_asset_and_pool::<T>(&caller, &asset1, &asset2);
+		let (_, liquidity1, liquidity2) = create_asset_and_pool::<T>(&caller, &asset1, &asset2);
 
 		assert_ok!(AssetConversion::<T>::add_liquidity(
 			SystemOrigin::Signed(caller.clone()).into(),
@@ -432,8 +431,7 @@ mod benchmarks {
 
 		#[block]
 		{
-			AssetConversion::<T>::get_reserves(asset1, asset2)
-				.expect("pool has liquidity; qed");
+			AssetConversion::<T>::get_reserves(asset1, asset2).expect("pool has liquidity; qed");
 		}
 	}
 
