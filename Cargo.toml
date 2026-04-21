@@ -1545,3 +1545,12 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[workspace.metadata.inheritance-check]
+ignore = [
+	# `frame-benchmarking-cli` is still written against the subxt 0.44 API
+	# (OfflineClient::new, subxt::client::RuntimeVersion, .tx() on OfflineClient).
+	# Keep it pinned to 0.44 until the port to 0.50 is done as its own change.
+	{ dependency = "subxt", member = "substrate/utils/frame/benchmarking-cli" },
+	{ dependency = "subxt-signer", member = "substrate/utils/frame/benchmarking-cli" },
+]

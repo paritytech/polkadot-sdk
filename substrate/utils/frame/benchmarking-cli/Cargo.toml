@@ -72,8 +72,8 @@ sp-transaction-pool = { workspace = true, default-features = true }
 sp-trie = { workspace = true, default-features = true }
 sp-version = { workspace = true, default-features = true }
 sp-wasm-interface = { workspace = true, default-features = true }
-subxt = { workspace = true, features = ["native"] }
-subxt-signer = { workspace = true, features = ["unstable-eth"] }
+subxt = { version = "0.44", default-features = false, features = ["native"] }
+subxt-signer = { version = "0.44", features = ["unstable-eth"] }
 thiserror = { workspace = true }
 thousands = { workspace = true }
 
