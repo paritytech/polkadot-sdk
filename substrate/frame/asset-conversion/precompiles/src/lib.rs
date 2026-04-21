@@ -504,10 +504,12 @@ where
 			asset1, asset2,
 		)
 		.map_err(|e| match e {
-			pallet_asset_conversion::Error::InvalidAssetPair =>
-				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() }),
-			pallet_asset_conversion::Error::PoolEmpty =>
-				Error::Revert(Revert { reason: ERR_POOL_EMPTY.into() }),
+			pallet_asset_conversion::Error::InvalidAssetPair => {
+				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
+			},
+			pallet_asset_conversion::Error::PoolEmpty => {
+				Error::Revert(Revert { reason: ERR_POOL_EMPTY.into() })
+			},
 			_ => Error::Revert(Revert { reason: ERR_UNEXPECTED.into() }),
 		})?;
 
