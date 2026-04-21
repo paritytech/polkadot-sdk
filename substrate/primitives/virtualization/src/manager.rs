@@ -28,7 +28,7 @@ use polkavm::{
 };
 use std::{
 	collections::HashMap,
-	sync::{LazyLock, RwLock},
+	sync::{Arc, LazyLock, RwLock},
 };
 
 /// This is the single PolkaVM engine we use for everything.
@@ -45,9 +45,9 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 /// Process-global cache of compiled modules keyed by `keccak_256(program)`.
 ///
 /// Held across runtime calls so `compile_from_hash` can reuse modules compiled by a
-/// previous [`VirtManager`] instance. Stores `Module` directly — it is internally an
-/// `Arc` and cheap to clone.
-static MODULE_CACHE: LazyLock<RwLock<HashMap<[u8; 32], Module>>> =
+/// previous [`VirtManager`] instance. Stores [`Arc<CompiledModule>`] so the precomputed
+/// export/import tables are shared across all reuses and cloning is O(1).
+static MODULE_CACHE: LazyLock<RwLock<HashMap<[u8; 32], Arc<CompiledModule>>>> =
 	LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
@@ -61,12 +61,62 @@ fn map_memory_error(error: MemoryAccessError) -> MemoryError {
 	}
 }
 
+/// A compiled module together with lookup tables derived from it once at compile time.
+///
+/// Precomputing these avoids an O(n) `exports()` scan on every `prepare` call and a
+/// re-copy of the import symbol bytes on every syscall.
+struct CompiledModule {
+	module: Module,
+	/// Export symbol → program counter. Consulted by `prepare`.
+	exports: HashMap<Vec<u8>, ProgramCounter>,
+	/// Preassembled `SyscallSymbol` for each import, indexed by hostcall index.
+	imports: Vec<SyscallSymbol>,
+}
+
+impl CompiledModule {
+	fn new(module: Module) -> Result<Self, ModuleError> {
+		let exports = module
+			.exports()
+			.map(|e| (e.symbol().as_bytes().to_vec(), e.program_counter()))
+			.collect();
+
+		// `ImportsIter` yields `Option<ProgramSymbol>` (None on malformed offsets);
+		// we also reject any symbol longer than our fixed-size `SyscallSymbol` buffer
+		// so the Ecalli hot path can just index into the vec.
+		let imports: Vec<SyscallSymbol> = module
+			.imports()
+			.into_iter()
+			.map(|symbol| {
+				let symbol = symbol.ok_or(ModuleError::InvalidImage)?;
+				let bytes_slice = symbol.as_bytes();
+				if bytes_slice.len() > MAX_SYSCALL_SYMBOL_LEN {
+					return Err(ModuleError::InvalidImage);
+				}
+				let mut bytes = [0u8; MAX_SYSCALL_SYMBOL_LEN];
+				bytes[..bytes_slice.len()].copy_from_slice(bytes_slice);
+				Ok(SyscallSymbol { bytes, len: bytes_slice.len() as u64 })
+			})
+			.collect::<Result<_, _>>()?;
+
+		Ok(Self { module, exports, imports })
+	}
+}
+
 /// The state an instance can be in.
 enum InstanceState {
 	/// Idle — ready to be prepared for execution.
 	Idle(RawInstance),
 	/// Running — prepared and executing (possibly suspended at a syscall).
 	Running(RawInstance),
+}
+
+/// An instance together with the compiled module it was instantiated from.
+///
+/// The module handle is kept here so the hot paths can consult the precomputed
+/// export/import tables without going through `RawInstance::module()`.
+struct ManagedInstance {
+	state: InstanceState,
+	module: Arc<CompiledModule>,
 }
 
 /// Manages virtualization instances and their lifecycle.
@@ -77,8 +127,8 @@ enum InstanceState {
 /// NOTE: Module dedup across runtime calls is handled by the process-global [`MODULE_CACHE`].
 /// Eventually that will be replaced by PolkaVM's built-in on-disk persistent cache.
 pub struct VirtManager {
-	instances: HashMap<InstanceId, InstanceState>,
-	modules: HashMap<ModuleId, Module>,
+	instances: HashMap<InstanceId, ManagedInstance>,
+	modules: HashMap<ModuleId, Arc<CompiledModule>>,
 	instance_counter: u32,
 	module_counter: u32,
 }
@@ -108,6 +158,7 @@ impl VirtManager {
 					panic!("Polkavm failed during compilation: {err}. This is a bug.");
 				},
 			})?;
+		let compiled = Arc::new(CompiledModule::new(module)?);
 
 		let module_id = ModuleId({
 			let old = self.module_counter;
@@ -120,29 +171,29 @@ impl VirtManager {
 		// NOTE: keccak256 is chosen because pallet-revive uses it to identify code.
 		// Eventually the hash function needs to be agreed upon with the PVM caching system.
 		let hash = sp_crypto_hashing::keccak_256(program);
-		MODULE_CACHE.write().unwrap().insert(hash, module.clone());
-		self.modules.insert(module_id, module);
+		MODULE_CACHE.write().unwrap().insert(hash, compiled.clone());
+		self.modules.insert(module_id, compiled);
 
 		Ok(module_id)
 	}
 
 	pub fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError> {
 		let hash: [u8; 32] = hash.try_into().map_err(|_| ModuleError::NotCached)?;
-		let module =
+		let compiled =
 			MODULE_CACHE.read().unwrap().get(&hash).cloned().ok_or(ModuleError::NotCached)?;
 		let module_id = ModuleId({
 			let old = self.module_counter;
 			self.module_counter = old + 1;
 			old
 		});
-		self.modules.insert(module_id, module);
+		self.modules.insert(module_id, compiled);
 		Ok(module_id)
 	}
 
 	pub fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
-		let module = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?;
+		let compiled = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?.clone();
 
-		let instance = module.instantiate().map_err(|err| {
+		let instance = compiled.module.instantiate().map_err(|err| {
 			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
 			InstantiateError::InvalidImage
 		})?;
@@ -153,53 +204,51 @@ impl VirtManager {
 			old
 		});
 
-		self.instances.insert(instance_id, InstanceState::Idle(instance));
+		self.instances.insert(
+			instance_id,
+			ManagedInstance { state: InstanceState::Idle(instance), module: compiled },
+		);
 
 		Ok(instance_id)
 	}
 
 	pub fn prepare(&mut self, instance_id: InstanceId, function: &[u8]) -> Result<(), ExecError> {
-		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
-		let (state, result) = Self::prepare_impl(state, function);
-		self.instances.insert(instance_id, state);
+		let managed = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let (managed, result) = Self::prepare_impl(managed, function);
+		self.instances.insert(instance_id, managed);
 		result
 	}
 
 	fn prepare_impl(
-		state: InstanceState,
+		managed: ManagedInstance,
 		function: &[u8],
-	) -> (InstanceState, Result<(), ExecError>) {
-		fn find_export(
-			instance: &RawInstance,
-			function: &[u8],
-		) -> Result<ProgramCounter, ExecError> {
-			instance
-				.module()
-				.exports()
-				.find(|export| export.symbol().as_bytes() == function)
-				.map(|export| export.program_counter())
-				.ok_or_else(|| {
-					log::debug!(
-						target: LOG_TARGET,
-						"Export not found: {}",
-						String::from_utf8_lossy(function),
-					);
-					ExecError::InvalidImage
-				})
-		}
-
+	) -> (ManagedInstance, Result<(), ExecError>) {
+		let ManagedInstance { state, module } = managed;
 		let mut instance = match state {
 			InstanceState::Idle(i) => i,
 			running @ InstanceState::Running(_) => {
-				return (running, Err(ExecError::InvalidInstance));
+				return (
+					ManagedInstance { state: running, module },
+					Err(ExecError::InvalidInstance),
+				);
 			},
 		};
-		match find_export(&instance, function) {
-			Ok(pc) => {
+		match module.exports.get(function).copied() {
+			Some(pc) => {
 				instance.prepare_call_untyped(pc, &[]);
-				(InstanceState::Running(instance), Ok(()))
+				(ManagedInstance { state: InstanceState::Running(instance), module }, Ok(()))
 			},
-			Err(err) => (InstanceState::Idle(instance), Err(err)),
+			None => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Export not found: {}",
+					String::from_utf8_lossy(function),
+				);
+				(
+					ManagedInstance { state: InstanceState::Idle(instance), module },
+					Err(ExecError::InvalidImage),
+				)
+			},
 		}
 	}
 
@@ -209,20 +258,23 @@ impl VirtManager {
 		gas_left: i64,
 		a0: u64,
 	) -> Result<(ExecStatus, ExecBuffer), ExecError> {
-		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
-		let (state, result) = Self::run_impl(state, gas_left, a0);
-		self.instances.insert(instance_id, state);
+		let managed = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let (managed, result) = Self::run_impl(managed, gas_left, a0);
+		self.instances.insert(instance_id, managed);
 		result
 	}
 
 	fn run_impl(
-		state: InstanceState,
+		managed: ManagedInstance,
 		gas_left: i64,
 		a0: u64,
-	) -> (InstanceState, Result<(ExecStatus, ExecBuffer), ExecError>) {
+	) -> (ManagedInstance, Result<(ExecStatus, ExecBuffer), ExecError>) {
+		let ManagedInstance { state, module } = managed;
 		let mut instance = match state {
 			InstanceState::Running(i) => i,
-			idle @ InstanceState::Idle(_) => return (idle, Err(ExecError::InvalidInstance)),
+			idle @ InstanceState::Idle(_) => {
+				return (ManagedInstance { state: idle, module }, Err(ExecError::InvalidInstance));
+			},
 		};
 
 		instance.set_reg(Reg::A0, a0);
@@ -237,30 +289,29 @@ impl VirtManager {
 			InterruptKind::Finished => {
 				let gas_left = instance.gas();
 				(
-					InstanceState::Idle(instance),
+					ManagedInstance { state: InstanceState::Idle(instance), module },
 					Ok((ExecStatus::Finished, ExecBuffer { gas_left, ..Default::default() })),
 				)
 			},
-			InterruptKind::Trap => (InstanceState::Idle(instance), Err(ExecError::Trap)),
-			InterruptKind::NotEnoughGas => {
-				(InstanceState::Idle(instance), Err(ExecError::OutOfGas))
-			},
+			InterruptKind::Trap => (
+				ManagedInstance { state: InstanceState::Idle(instance), module },
+				Err(ExecError::Trap),
+			),
+			InterruptKind::NotEnoughGas => (
+				ManagedInstance { state: InstanceState::Idle(instance), module },
+				Err(ExecError::OutOfGas),
+			),
 			InterruptKind::Step | InterruptKind::Segfault(_) => {
 				unreachable!("PolkaVM failed. This is a bug.");
 			},
 			InterruptKind::Ecalli(hostcall_index) => {
-				let Some(import_symbol) = instance
-					.module()
-					.imports()
-					.get(hostcall_index)
-					.filter(|s| s.as_bytes().len() <= MAX_SYSCALL_SYMBOL_LEN)
+				let Some(syscall_symbol) = module.imports.get(hostcall_index as usize).copied()
 				else {
-					return (InstanceState::Idle(instance), Err(ExecError::InvalidImage));
+					return (
+						ManagedInstance { state: InstanceState::Idle(instance), module },
+						Err(ExecError::InvalidImage),
+					);
 				};
-				let import_symbol = import_symbol.as_bytes();
-				let mut bytes = [0u8; MAX_SYSCALL_SYMBOL_LEN];
-				bytes[..import_symbol.len()].copy_from_slice(import_symbol);
-				let syscall_symbol = SyscallSymbol { bytes, len: import_symbol.len() as u64 };
 				let gas_left = instance.gas();
 				let a0 = instance.reg(Reg::A0);
 				let a1 = instance.reg(Reg::A1);
@@ -269,7 +320,7 @@ impl VirtManager {
 				let a4 = instance.reg(Reg::A4);
 				let a5 = instance.reg(Reg::A5);
 				(
-					InstanceState::Running(instance),
+					ManagedInstance { state: InstanceState::Running(instance), module },
 					Ok((
 						ExecStatus::Syscall,
 						ExecBuffer { gas_left, syscall_symbol, a0, a1, a2, a3, a4, a5 },
@@ -293,7 +344,9 @@ impl VirtManager {
 		offset: u32,
 		dest: &mut [u8],
 	) -> Result<(), MemoryError> {
-		let Some(InstanceState::Running(instance)) = self.instances.get_mut(&instance_id) else {
+		let Some(ManagedInstance { state: InstanceState::Running(instance), .. }) =
+			self.instances.get_mut(&instance_id)
+		else {
 			return Err(MemoryError::InvalidInstance);
 		};
 		instance.read_memory_into(offset, dest).map(|_| ()).map_err(map_memory_error)
@@ -305,7 +358,9 @@ impl VirtManager {
 		offset: u32,
 		src: &[u8],
 	) -> Result<(), MemoryError> {
-		let Some(InstanceState::Running(instance)) = self.instances.get_mut(&instance_id) else {
+		let Some(ManagedInstance { state: InstanceState::Running(instance), .. }) =
+			self.instances.get_mut(&instance_id)
+		else {
 			return Err(MemoryError::InvalidInstance);
 		};
 		instance.write_memory(offset, src).map_err(map_memory_error)
