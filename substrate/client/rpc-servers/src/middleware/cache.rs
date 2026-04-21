@@ -37,6 +37,7 @@
 // to the blockchain backend.
 
 use std::{
+	borrow::Cow,
 	collections::hash_map::DefaultHasher,
 	hash::{Hash, Hasher},
 	sync::Arc,
@@ -70,25 +71,28 @@ fn is_block_hash(s: &str) -> bool {
 }
 
 /// Check whether the last element of a JSON params array is a block hash.
+/// Returns the canonical (whitespace-normalized) params on success.
 ///
 /// A block hash is a 66-character hex string (`0x` + 64 hex chars = 32 bytes).
 ///
-/// The raw params string is used directly for cache key computation — no
-/// whitespace normalization. In practice JSON-RPC clients always send compact
-/// JSON, so two semantically identical requests will share a cache entry.
-fn has_block_hash_param(params: &str) -> bool {
-	let parsed: serde_json::Value = match serde_json::from_str(params) {
-		Ok(v) => v,
-		Err(_) => return false,
-	};
-	let arr = match parsed.as_array().filter(|a| !a.is_empty()) {
-		Some(a) => a,
-		None => return false,
-	};
-	arr.last().and_then(|v| v.as_str()).is_some_and(|s| is_block_hash(s))
+/// Returns `Cow::Borrowed` when the input is already in canonical form (the
+/// common case for JSON-RPC clients), avoiding an allocation.
+fn check_block_hash_param(params: &str) -> Option<Cow<'_, str>> {
+	let parsed: serde_json::Value = serde_json::from_str(params).ok()?;
+	let arr = parsed.as_array().filter(|a| !a.is_empty())?;
+	match arr.last().and_then(|v| v.as_str()) {
+		Some(s) if is_block_hash(s) => {},
+		_ => return None,
+	}
+	let canonical = serde_json::to_string(&parsed).expect("re-serialization cannot fail");
+	if canonical == params {
+		Some(Cow::Borrowed(params))
+	} else {
+		Some(Cow::Owned(canonical))
+	}
 }
 
-/// Compute a cache key from the method name and raw params string.
+/// Compute a cache key from the method name and params string.
 fn cache_key(method: &str, canonical_params: &str) -> u64 {
 	let mut hasher = DefaultHasher::new();
 	method.hash(&mut hasher);
@@ -100,7 +104,7 @@ fn cache_key(method: &str, canonical_params: &str) -> u64 {
 struct CachedResponse {
 	/// Method name used to verify cache key integrity on hit.
 	method: String,
-	/// Raw params string used to verify cache key integrity on hit.
+	/// Canonical params used to verify cache key integrity on hit.
 	params: String,
 	/// The raw JSON of the `"result"` field from the JSON-RPC response.
 	result_json: String,
@@ -355,20 +359,23 @@ where
 			return async move { service.call(req).await }.boxed();
 		}
 
-		// Check for explicit block hash in params.
+		// Check for explicit block hash in params and normalize for cache key.
 		let params = req.params();
 		let params_str = params.as_str().unwrap_or("[]");
-		if !has_block_hash_param(params_str) {
-			let service = self.service.clone();
-			return async move { service.call(req).await }.boxed();
-		}
+		let canonical_params = match check_block_hash_param(params_str) {
+			Some(p) => p,
+			None => {
+				let service = self.service.clone();
+				return async move { service.call(req).await }.boxed();
+			},
+		};
 
-		// Compute cache key from raw params (no whitespace normalization).
-		let key = cache_key(method, params_str);
+		// Compute cache key and check for hit.
+		let key = cache_key(method, &canonical_params);
 		{
 			let mut cache = self.cache.lock();
 			if let Some(cached) = cache.get(&key) {
-				if cached.matches(method, params_str) {
+				if cached.matches(method, &canonical_params) {
 					if let Some(rp) = response_from_cache(req.id(), &cached.result_json) {
 						if let Some(ref metrics) = self.metrics {
 							metrics.on_hit(method);
@@ -391,7 +398,7 @@ where
 		let cache = self.cache.clone();
 		let metrics = self.metrics.clone();
 		let method_name = method.to_string();
-		let params_owned = params_str.to_string();
+		let canonical_owned = canonical_params.into_owned();
 
 		async move {
 			let rp = service.call(req).await;
@@ -400,7 +407,7 @@ where
 			if rp.is_success() {
 				if let Some(result_json) = extract_result_field(rp.as_result()) {
 					let cached =
-						CachedResponse::new(method_name.clone(), params_owned, result_json);
+						CachedResponse::new(method_name.clone(), canonical_owned, result_json);
 					let byte_size = cached.byte_size;
 					let mut cache_guard = cache.lock();
 					cache_guard.insert(key, cached);
@@ -519,38 +526,38 @@ mod tests {
 		assert!(!is_block_hash(""));
 	}
 
-	// --- has_block_hash_param tests ---
+	// --- check_block_hash_param tests ---
 
 	const HASH_66: &str = "0xf1212766e424bdc1f8f1d2c11ee236cff70ad77cad64d82b7823acc1e682a815";
 
 	#[test]
 	fn detects_block_hash_as_last_param() {
 		let params = format!(r#"["ReviveApi_eth_block", "0x", "{}"]"#, HASH_66);
-		assert!(has_block_hash_param(&params));
+		assert!(check_block_hash_param(&params).is_some());
 
 		let params = format!(r#"["{}"]"#, HASH_66);
-		assert!(has_block_hash_param(&params));
+		assert!(check_block_hash_param(&params).is_some());
 	}
 
 	#[test]
 	fn rejects_when_hash_omitted() {
-		assert!(!has_block_hash_param(r#"["ReviveApi_eth_block", "0x"]"#));
+		assert!(check_block_hash_param(r#"["ReviveApi_eth_block", "0x"]"#).is_none());
 	}
 
 	#[test]
 	fn rejects_when_null() {
-		assert!(!has_block_hash_param(r#"["method", "0x", null]"#));
+		assert!(check_block_hash_param(r#"["method", "0x", null]"#).is_none());
 	}
 
 	#[test]
 	fn rejects_when_empty_params() {
-		assert!(!has_block_hash_param(r#"[]"#));
+		assert!(check_block_hash_param(r#"[]"#).is_none());
 	}
 
 	#[test]
 	fn rejects_when_wrong_length() {
-		assert!(!has_block_hash_param(r#"["method", "0xdata"]"#));
-		assert!(!has_block_hash_param(r#"["0x"]"#));
+		assert!(check_block_hash_param(r#"["method", "0xdata"]"#).is_none());
+		assert!(check_block_hash_param(r#"["0x"]"#).is_none());
 	}
 
 	#[test]
@@ -559,12 +566,29 @@ mod tests {
 		let bad_hash = format!("0xzz{}", "a".repeat(62));
 		assert_eq!(bad_hash.len(), 66);
 		let params = format!(r#"["{}"]"#, bad_hash);
-		assert!(!has_block_hash_param(&params));
+		assert!(check_block_hash_param(&params).is_none());
 	}
 
 	#[test]
 	fn rejects_invalid_json() {
-		assert!(!has_block_hash_param("not json"));
+		assert!(check_block_hash_param("not json").is_none());
+	}
+
+	#[test]
+	fn normalizes_whitespace() {
+		let p1 = format!(r#"["a",  "0x",  "{}"]"#, HASH_66);
+		let p2 = format!(r#"["a","0x","{}"]"#, HASH_66);
+		let n1 = check_block_hash_param(&p1).unwrap();
+		let n2 = check_block_hash_param(&p2).unwrap();
+		assert_eq!(n1, n2);
+		assert_eq!(cache_key("state_call", &n1), cache_key("state_call", &n2));
+	}
+
+	#[test]
+	fn compact_params_return_borrowed() {
+		let params = format!(r#"["a","0x","{}"]"#, HASH_66);
+		let result = check_block_hash_param(&params).unwrap();
+		assert!(matches!(result, Cow::Borrowed(_)));
 	}
 
 	// --- Helper: extract_result_field ---
