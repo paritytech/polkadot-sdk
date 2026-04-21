@@ -79,6 +79,13 @@ fn main() {
 
 	WasmBuilder::new()
 		.with_current_project()
+		.enable_feature("block-bundling")
+		.import_memory()
+		.set_file_name("wasm_binary_block_bundling.rs")
+		.build();
+
+	WasmBuilder::new()
+		.with_current_project()
 		.enable_feature("async-backing-v3")
 		.import_memory()
 		.set_file_name("wasm_binary_async_backing_v3.rs")

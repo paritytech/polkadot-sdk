@@ -336,6 +336,7 @@ where
 				params.para_id,
 				&*params.para_backend,
 				&params.relay_client,
+				|_| true,
 			)
 			.await
 			{
@@ -346,24 +347,7 @@ where
 			let included_header = &parent_search_result.included_header;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
-			let can_build_upon = |block_hash| {
-				let (slot_now, relay_slot, timestamp) = get_parachain_slot::<_, _, P::Public>(
-					para_client,
-					block_hash,
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				)?;
-
-				Some(super::can_build_upon::<_, _, P>(
-					slot_now,
-					relay_slot,
-					timestamp,
-					block_hash,
-					included_header.hash(),
-					para_client,
-					&keystore,
-				))
-			};
+			let included_block_hash = included_header.hash();
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
@@ -397,13 +381,38 @@ where
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
 			for n_built in 0..2u32 {
-				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
-						Some(c) => c,
-					},
-					None => break,
+				let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				) else {
+					break;
 				};
+
+				let Some(slot_claim) = super::claim_slot::<_, _, P>(
+					slot_now,
+					timestamp,
+					parent_hash,
+					para_client,
+					&keystore,
+				)
+				.await
+				else {
+					break;
+				};
+
+				if !super::can_build_upon::<_, _>(
+					parent_hash,
+					included_block_hash,
+					relay_slot,
+					slot_now,
+					para_client,
+				)
+				.await
+				{
+					break;
+				}
 
 				tracing::debug!(
 					target: crate::LOG_TARGET,
