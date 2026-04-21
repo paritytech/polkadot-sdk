@@ -69,24 +69,26 @@ fn is_block_hash(s: &str) -> bool {
 	s.len() == 66 && s.starts_with("0x") && s[2..].bytes().all(|b| b.is_ascii_hexdigit())
 }
 
-/// Parse params and check whether the last element is a block hash.
-///
-/// Returns the canonically serialized params string (whitespace-normalized) on success,
-/// or `None` if the params don't contain an explicit block hash.
+/// Check whether the last element of a JSON params array is a block hash.
 ///
 /// A block hash is a 66-character hex string (`0x` + 64 hex chars = 32 bytes).
-fn parse_and_check_params(params: &str) -> Option<String> {
-	let parsed: serde_json::Value = serde_json::from_str(params).ok()?;
-	let arr = parsed.as_array().filter(|a| !a.is_empty())?;
-	match arr.last().and_then(|v| v.as_str()) {
-		Some(s) if is_block_hash(s) => {},
-		_ => return None,
-	}
-	// Re-serialize to get a canonical (whitespace-normalized) form for hashing.
-	Some(serde_json::to_string(&parsed).expect("re-serialization of valid JSON cannot fail"))
+///
+/// The raw params string is used directly for cache key computation — no
+/// whitespace normalization. In practice JSON-RPC clients always send compact
+/// JSON, so two semantically identical requests will share a cache entry.
+fn has_block_hash_param(params: &str) -> bool {
+	let parsed: serde_json::Value = match serde_json::from_str(params) {
+		Ok(v) => v,
+		Err(_) => return false,
+	};
+	let arr = match parsed.as_array().filter(|a| !a.is_empty()) {
+		Some(a) => a,
+		None => return false,
+	};
+	arr.last().and_then(|v| v.as_str()).is_some_and(|s| is_block_hash(s))
 }
 
-/// Compute a cache key from the method name and canonical params.
+/// Compute a cache key from the method name and raw params string.
 fn cache_key(method: &str, canonical_params: &str) -> u64 {
 	let mut hasher = DefaultHasher::new();
 	method.hash(&mut hasher);
@@ -98,8 +100,8 @@ fn cache_key(method: &str, canonical_params: &str) -> u64 {
 struct CachedResponse {
 	/// Method name used to verify cache key integrity on hit.
 	method: String,
-	/// Canonical params used to verify cache key integrity on hit.
-	canonical_params: String,
+	/// Raw params string used to verify cache key integrity on hit.
+	params: String,
 	/// The raw JSON of the `"result"` field from the JSON-RPC response.
 	result_json: String,
 	/// Byte size estimate for the limiter (result_json + method + params).
@@ -108,15 +110,15 @@ struct CachedResponse {
 }
 
 impl CachedResponse {
-	fn new(method: String, canonical_params: String, result_json: String) -> Self {
+	fn new(method: String, params: String, result_json: String) -> Self {
 		let byte_size =
-			std::mem::size_of::<Self>() + method.len() + canonical_params.len() + result_json.len();
-		Self { method, canonical_params, result_json, byte_size }
+			std::mem::size_of::<Self>() + method.len() + params.len() + result_json.len();
+		Self { method, params, result_json, byte_size }
 	}
 
 	/// Returns `true` if this entry matches the given method and params.
-	fn matches(&self, method: &str, canonical_params: &str) -> bool {
-		self.method == method && self.canonical_params == canonical_params
+	fn matches(&self, method: &str, params: &str) -> bool {
+		self.method == method && self.params == params
 	}
 }
 
@@ -353,23 +355,20 @@ where
 			return async move { service.call(req).await }.boxed();
 		}
 
-		// Parse params, check for explicit block hash, and normalize for cache key.
+		// Check for explicit block hash in params.
 		let params = req.params();
 		let params_str = params.as_str().unwrap_or("[]");
-		let canonical_params = match parse_and_check_params(params_str) {
-			Some(p) => p,
-			None => {
-				let service = self.service.clone();
-				return async move { service.call(req).await }.boxed();
-			},
-		};
+		if !has_block_hash_param(params_str) {
+			let service = self.service.clone();
+			return async move { service.call(req).await }.boxed();
+		}
 
-		// Compute cache key and check for hit.
-		let key = cache_key(method, &canonical_params);
+		// Compute cache key from raw params (no whitespace normalization).
+		let key = cache_key(method, params_str);
 		{
 			let mut cache = self.cache.lock();
 			if let Some(cached) = cache.get(&key) {
-				if cached.matches(method, &canonical_params) {
+				if cached.matches(method, params_str) {
 					if let Some(rp) = response_from_cache(req.id(), &cached.result_json) {
 						if let Some(ref metrics) = self.metrics {
 							metrics.on_hit(method);
@@ -392,6 +391,7 @@ where
 		let cache = self.cache.clone();
 		let metrics = self.metrics.clone();
 		let method_name = method.to_string();
+		let params_owned = params_str.to_string();
 
 		async move {
 			let rp = service.call(req).await;
@@ -400,7 +400,7 @@ where
 			if rp.is_success() {
 				if let Some(result_json) = extract_result_field(rp.as_result()) {
 					let cached =
-						CachedResponse::new(method_name.clone(), canonical_params, result_json);
+						CachedResponse::new(method_name.clone(), params_owned, result_json);
 					let byte_size = cached.byte_size;
 					let mut cache_guard = cache.lock();
 					cache_guard.insert(key, cached);
@@ -519,38 +519,38 @@ mod tests {
 		assert!(!is_block_hash(""));
 	}
 
-	// --- parse_and_check_params tests ---
+	// --- has_block_hash_param tests ---
 
 	const HASH_66: &str = "0xf1212766e424bdc1f8f1d2c11ee236cff70ad77cad64d82b7823acc1e682a815";
 
 	#[test]
-	fn parses_when_last_param_is_hash() {
+	fn detects_block_hash_as_last_param() {
 		let params = format!(r#"["ReviveApi_eth_block", "0x", "{}"]"#, HASH_66);
-		assert!(parse_and_check_params(&params).is_some());
+		assert!(has_block_hash_param(&params));
 
 		let params = format!(r#"["{}"]"#, HASH_66);
-		assert!(parse_and_check_params(&params).is_some());
+		assert!(has_block_hash_param(&params));
 	}
 
 	#[test]
 	fn rejects_when_hash_omitted() {
-		assert!(parse_and_check_params(r#"["ReviveApi_eth_block", "0x"]"#).is_none());
+		assert!(!has_block_hash_param(r#"["ReviveApi_eth_block", "0x"]"#));
 	}
 
 	#[test]
 	fn rejects_when_null() {
-		assert!(parse_and_check_params(r#"["method", "0x", null]"#).is_none());
+		assert!(!has_block_hash_param(r#"["method", "0x", null]"#));
 	}
 
 	#[test]
 	fn rejects_when_empty_params() {
-		assert!(parse_and_check_params(r#"[]"#).is_none());
+		assert!(!has_block_hash_param(r#"[]"#));
 	}
 
 	#[test]
 	fn rejects_when_wrong_length() {
-		assert!(parse_and_check_params(r#"["method", "0xdata"]"#).is_none());
-		assert!(parse_and_check_params(r#"["0x"]"#).is_none());
+		assert!(!has_block_hash_param(r#"["method", "0xdata"]"#));
+		assert!(!has_block_hash_param(r#"["0x"]"#));
 	}
 
 	#[test]
@@ -559,17 +559,12 @@ mod tests {
 		let bad_hash = format!("0xzz{}", "a".repeat(62));
 		assert_eq!(bad_hash.len(), 66);
 		let params = format!(r#"["{}"]"#, bad_hash);
-		assert!(parse_and_check_params(&params).is_none());
+		assert!(!has_block_hash_param(&params));
 	}
 
 	#[test]
-	fn normalizes_whitespace() {
-		let p1 = format!(r#"["a",  "0x",  "{}"]"#, HASH_66);
-		let p2 = format!(r#"["a","0x","{}"]"#, HASH_66);
-		let n1 = parse_and_check_params(&p1).unwrap();
-		let n2 = parse_and_check_params(&p2).unwrap();
-		assert_eq!(n1, n2);
-		assert_eq!(cache_key("state_call", &n1), cache_key("state_call", &n2));
+	fn rejects_invalid_json() {
+		assert!(!has_block_hash_param("not json"));
 	}
 
 	// --- Helper: extract_result_field ---
