@@ -80,7 +80,7 @@ impl Metrics {
 			submitted_statements: register(
 				Counter::new(
 					"substrate_sub_statement_store_submitted_statements",
-					"Total number of statements submitted",
+					"Total number of new statements successfully accepted into the store",
 				)?,
 				registry,
 			)?,
@@ -93,8 +93,8 @@ impl Metrics {
 			)?,
 			statements_pruned: register(
 				Counter::new(
-					"substrate_sub_statement_store_block_statements",
-					"Total number of statements that was requested to be pruned by block events",
+					"substrate_sub_statement_store_statements_pruned_total",
+					"Total number of expired-statement hashes pruned after the grace period, leaving no trace of the statement",
 				)?,
 				registry,
 			)?,
@@ -174,7 +174,7 @@ impl Metrics {
 			statements_expired_total: register(
 				Counter::new(
 					"substrate_sub_statement_store_statements_expired_total",
-					"Total number of statements that expired and were removed",
+					"Total number of statements that expired and were removed; the hash is retained to be pruned after the grace period",
 				)?,
 				registry,
 			)?,
