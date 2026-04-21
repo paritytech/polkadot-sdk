@@ -177,7 +177,7 @@ pub use extensions::{
 	check_nonce::{CheckNonce, ValidNonceInfo},
 	check_spec_version::CheckSpecVersion,
 	check_tx_version::CheckTxVersion,
-	check_weight::CheckWeight,
+	check_weight::{calculate_consumed_extrinsic_weight, CheckWeight},
 	weight_reclaim::WeightReclaim,
 	weights::SubstrateWeight as SubstrateExtensionsWeight,
 	WeightInfo as ExtensionsWeightInfo,

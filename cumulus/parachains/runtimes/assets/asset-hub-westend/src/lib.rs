@@ -36,7 +36,7 @@ pub mod governance;
 mod migrations;
 pub mod staking;
 
-use governance::{pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer};
+use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin};
 
 extern crate alloc;
 
@@ -165,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_003,
+	spec_version: 1_022_004,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -1779,7 +1779,7 @@ impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
 	}
 }
 
-/// Default budget: 85% staker rewards, 15% buffer.
+/// Default budget: 85% staker rewards, 15% buffer, 0% validator incentive.
 pub struct DefaultDapBudget;
 impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
 	fn get() -> pallet_dap::BudgetAllocationMap {
@@ -1787,8 +1787,9 @@ impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapB
 		use sp_staking::budget::BudgetRecipientList;
 
 		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
-		// [dap (buffer), StakerRewardRecipient]
-		let percentages = [Perbill::from_percent(15), Perbill::from_percent(85)];
+		// [dap (buffer), StakerRewardRecipient, ValidatorIncentiveRecipient]
+		let percentages =
+			[Perbill::from_percent(15), Perbill::from_percent(85), Perbill::from_percent(0)];
 
 		let mut map = pallet_dap::BudgetAllocationMap::new();
 		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
@@ -1841,7 +1842,12 @@ pub type Migrations = (
 	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
 	// Idempotent — skips assets that are already configured.
 	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
-	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
+	pallet_dap::migrations::MigrateV1ToV2<
+		Runtime,
+		DapLastIssuanceTimestamp,
+		DefaultDapBudget,
+		staking::MaxEraDuration,
+	>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.
@@ -2156,6 +2162,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
+		}
+	}
+
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
+			Runtime::execute_view_function(id, input)
 		}
 	}
 
