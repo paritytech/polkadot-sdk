@@ -501,7 +501,7 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Insert pre-extracted receipts and update the block cache.
+	/// Insert pre-extracted receipts and update the block cache (with fork detection).
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
@@ -765,6 +765,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 
 		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
 
+		if logs.len() == MAX_LOG_RESULTS {
+			log::warn!(
+				target: LOG_TARGET,
+				"Log query hit limit of {MAX_LOG_RESULTS}; results may be truncated",
+			);
+		}
+
 		Ok(logs)
 	}
 
@@ -784,6 +791,13 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			.push_bind(MAX_LOG_RESULTS as i64);
 
 		let logs = query_builder.build().try_map(parse_log_row).fetch_all(&self.pool).await?;
+
+		if logs.len() == MAX_LOG_RESULTS {
+			log::warn!(
+				target: LOG_TARGET,
+				"Log query for block {block_number} hit limit of {MAX_LOG_RESULTS}; results may be truncated",
+			);
+		}
 
 		Ok(logs)
 	}
