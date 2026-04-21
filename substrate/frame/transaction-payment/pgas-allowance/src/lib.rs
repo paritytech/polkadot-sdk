@@ -243,8 +243,7 @@ where
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		// PGAS path: signed origin, call passes the filter, and caller holds at least `fee`.
 		// Skipped entirely when the extension was constructed with `new_skip_pgas`.
-		if !self.skip_pgas {
-			if let Some(who) = origin.as_system_origin_signer().cloned() {
+			if let Some(who) = origin.as_system_origin_signer().cloned() && !self.skip_pgas {
 				if T::CallFilter::contains(call) {
 					let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
 						len as u32,
