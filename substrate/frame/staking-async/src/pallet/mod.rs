@@ -1445,8 +1445,6 @@ pub mod pallet {
 		CancelledSlash,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
-		/// Era has no reward pot but legacy minting is disabled.
-		LegacyMintingDisabled,
 	}
 
 	impl<T: Config> Pallet<T> {

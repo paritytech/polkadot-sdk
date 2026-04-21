@@ -28,6 +28,7 @@ pub mod pallet_collective;
 pub mod pallet_collective_content;
 pub mod pallet_core_fellowship_ambassador_core;
 pub mod pallet_core_fellowship_fellowship_core;
+pub mod pallet_dap_satellite;
 pub mod pallet_message_queue;
 pub mod pallet_meta_tx;
 pub mod pallet_multisig;
