@@ -269,10 +269,10 @@ fn zero_reward_points_means_no_payout() {
 		assert_eq!(incentive_paid_for(alice, &events), None);
 		// THEN: bob gets staker reward, plus half the incentive budget (his weight /
 		// sum_weight = 1/2). Alice's half stays unclaimed in the pot .
-		assert!(staker_reward_for(bob, &events).unwrap() > budget/2);
-		assert_eq!(incentive_paid_for(bob, &events), Some(budget/2));
+		assert!(staker_reward_for(bob, &events).unwrap() > budget / 2);
+		assert_eq!(incentive_paid_for(bob, &events), Some(budget / 2));
 		// Reward that alice forfeited
-		assert_eq!(Balances::free_balance(&pot), budget/2);
+		assert_eq!(Balances::free_balance(&pot), budget / 2);
 	});
 }
 
