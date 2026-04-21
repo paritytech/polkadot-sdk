@@ -510,6 +510,7 @@ where
 			pallet_asset_conversion::Error::InvalidAssetPair => {
 				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
 			},
+			// Today only `PoolEmpty`; catch-all is defensive against future variants.
 			_ => Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }),
 		})?;
 
