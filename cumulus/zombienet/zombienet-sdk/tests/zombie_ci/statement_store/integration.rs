@@ -1,7 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::collections::HashSet;
+use std::{cell::Cell, collections::HashSet};
 
 use codec::Encode;
 use log::{debug, info};
@@ -379,5 +379,104 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	}
 
 	info!("Node crash recovery test passed");
+	Ok(())
+}
+
+/// Verifies the `deferred_peers` buffer delivers statements to a late-joining node.
+///
+/// Dave joins after charlie has produced ~10 blocks and enters major sync. While syncing,
+/// dave's statement handler holds charlie/alice's peer IDs in `deferred_peers` — no statement
+/// substream opens until sync ends. Statements submitted both before and during dave's sync
+/// window must all arrive via the single initial sync that fires when `drain_deferred_peers`
+/// runs on sync completion.
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	const PRE_JOIN_COUNT: usize = 3;
+	const DURING_SYNC_COUNT: usize = 2;
+	const TOTAL: usize = PRE_JOIN_COUNT + DURING_SYNC_COUNT;
+	let items = create_allowance_items(&[(
+		0,
+		StatementAllowance { max_count: TOTAL as u32, max_size: 1_000_000 },
+	)]);
+	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
+
+	let charlie = network.get_node("charlie")?;
+	let charlie_rpc = charlie.rpc().await?;
+
+	// Wait for at least 10 blocks so any late joiner reliably enters major sync
+	let charlie_height = {
+		let h = Cell::new(0.0f64);
+		charlie
+			.wait_metric_with_timeout(
+				"block_height{status=\"best\"}",
+				|v| {
+					h.set(v);
+					v >= 10.0
+				},
+				180u64,
+			)
+			.await
+			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 180s"))?;
+		h.get()
+	};
+	info!("Charlie at block {:.0} before dave joins", charlie_height);
+
+	let topic: Topic = [0u8; 32].into();
+	let keypair = get_keypair(0);
+	let pre_join: Vec<_> = (0..PRE_JOIN_COUNT as u32)
+		.map(|seq| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq))
+		.collect();
+	for stmt in &pre_join {
+		assert_eq!(submit_statement(&charlie_rpc, stmt).await?, SubmitResult::New);
+	}
+
+	info!("Adding dave as late-joining collator");
+	let dave_join_time = std::time::Instant::now();
+	network.add_collator("dave", Default::default(), 1004).await?;
+	let dave = network.get_node("dave")?;
+	let dave_rpc = dave.rpc().await?;
+
+	// Subscribe immediately after dave starts — the deferred_peers buffer prevents any
+	// substream from opening while dave is syncing, so this subscription starts empty.
+	let mut sub = subscribe_topic(&dave_rpc, topic).await?;
+
+	// Dave holds charlie/alice's peer IDs in deferred_peers during sync; on sync-end
+	// drain fires, substream opens, and charlie's initial sync delivers both batches
+	let during_sync: Vec<_> = (PRE_JOIN_COUNT as u32..(PRE_JOIN_COUNT + DURING_SYNC_COUNT) as u32)
+		.map(|seq| create_test_statement(&keypair, &[topic], None, vec![seq as u8], u32::MAX, seq))
+		.collect();
+	for stmt in &during_sync {
+		assert_eq!(submit_statement(&charlie_rpc, stmt).await?, SubmitResult::New);
+	}
+
+	dave.wait_metric_with_timeout("block_height{status=\"best\"}", |h| h >= charlie_height, 120u64)
+		.await
+		.map_err(|_| {
+			anyhow::anyhow!("Dave did not reach block height {:.0} within 120s", charlie_height)
+		})?;
+	let sync_end = dave_join_time.elapsed();
+	info!("Dave synced to block {:.0} in {:.1}s", charlie_height, sync_end.as_secs_f64());
+
+	let received = expect_statements_unordered(&mut sub, TOTAL, 30).await?;
+	let mut expected: Vec<Vec<u8>> =
+		pre_join.iter().chain(during_sync.iter()).map(|s| s.encode()).collect();
+	expected.sort();
+	let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+	received_bytes.sort();
+	assert_eq!(received_bytes, expected, "Dave must receive all {TOTAL} statements after sync");
+	info!(
+		"All {TOTAL} statements ({PRE_JOIN_COUNT} pre-join + {DURING_SYNC_COUNT} during-sync) \
+		 arrived {:.1}s after dave finished syncing",
+		dave_join_time.elapsed().as_secs_f64() - sync_end.as_secs_f64(),
+	);
+
+	// Verify drain_deferred_peers fired
+	let dave_logs = dave.logs().await?;
+	assert!(dave_logs.lines().any(|l| l.contains("Major sync complete, adding")));
+
 	Ok(())
 }
