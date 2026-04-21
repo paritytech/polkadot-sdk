@@ -59,6 +59,9 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 	// TODO: this can be replaced with `testing_utils` version?
 	// Clean up any existing state.
 	clear_validators_and_nominators::<T>();
+
+	// Disable legacy minting so benchmarks always exercise the reward-pot path.
+	DisableMintingGuard::<T>::put(0);
 	let mut points_total = 0;
 	let mut points_individual = Vec::new();
 
@@ -123,6 +126,11 @@ pub(crate) fn create_validator_with_nominators<T: Config>(
 		.saturating_mul(upper_bound.into())
 		.saturating_mul(1000u32.into());
 	<ErasValidatorReward<T>>::insert(planned_era, total_payout);
+
+	// Create and fund the era reward pot so payout_stakers can transfer from it.
+	let era_pot =
+		crate::reward::EraRewardManager::<T>::create(planned_era, RewardKind::StakerRewards);
+	let _ = asset::mint_creating::<T>(&era_pot, total_payout);
 
 	Ok((v_stash, nominators, planned_era))
 }
@@ -937,6 +945,16 @@ mod benchmarks {
 		_(RawOrigin::Root, min_commission);
 
 		assert_eq!(MinCommission::<T>::get(), Perbill::from_percent(100));
+	}
+
+	#[benchmark]
+	fn set_max_commission() {
+		let max_commission = Perbill::max_value();
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, max_commission);
+
+		assert_eq!(MaxCommission::<T>::get(), Perbill::from_percent(100));
 	}
 
 	#[benchmark]

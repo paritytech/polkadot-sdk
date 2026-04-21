@@ -24,6 +24,7 @@ pub mod frame_system;
 pub mod frame_system_extensions;
 pub mod pallet_balances;
 pub mod pallet_collator_selection;
+pub mod pallet_dap_satellite;
 pub mod pallet_identity;
 pub mod pallet_message_queue;
 pub mod pallet_meta_tx;
