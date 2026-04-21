@@ -55,7 +55,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Check workspace dependency inheritance
-        uses: RomarQ/cargo-workspace-inheritance-check@4da96f0421766bcd2b7db8331cfb6bdbb4436e22 # v1.2.0
+        uses: RomarQ/cargo-workspace-inheritance-check@ca470feb48c8ca8d62c25c72bc5a4cad4a1775b5 # v1.3.0
         with:
           promotion-failure: true
           promotion-threshold: 1
