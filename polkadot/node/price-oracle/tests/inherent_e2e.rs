@@ -8,8 +8,8 @@
 //! slot the node signs nudges with and the slot the runtime checks against.
 
 use polkadot_test_client::{
-	Client, ClientBlockImportExt, DefaultTestClientBuilderExt, InitPolkadotBlockBuilder,
-	TestClientBuilder, TestClientBuilderExt,
+	construct_extrinsic, BlockBuilderExt, Client, ClientBlockImportExt,
+	DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::BlockOrigin;
@@ -228,6 +228,53 @@ fn single_nudge_updates_price() {
 	// 1 Up nudge × epsilon(0.01) = 0.01
 	let price = client.runtime_api().current_price(hash).expect("price");
 	assert_eq!(price, FixedU128::from_rational(1, 100));
+}
+
+/// Helper: build and import a block that enables the panic switch via sudo.
+fn enable_panic_switch(client: &polkadot_test_client::Client) {
+	use polkadot_test_client::runtime::RuntimeCall;
+
+	let inner =
+		RuntimeCall::PriceOracle(pallet_price_oracle::Call::set_panic_switch { enabled: true });
+	let sudo = RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(inner) });
+	let ext = construct_extrinsic(client, sudo, sp_keyring::Sr25519Keyring::Alice, 0);
+
+	let mut block_builder = client.init_polkadot_block_builder();
+	block_builder.push_polkadot_extrinsic(ext).expect("pushes sudo extrinsic");
+
+	let block = block_builder.build().expect("builds block").block;
+	futures::executor::block_on(client.import(BlockOrigin::Own, block))
+		.expect("imports block with panic switch enabled");
+}
+
+#[test]
+fn panic_switch_on_with_inherent_does_not_panic() {
+	let client = TestClientBuilder::new().build();
+
+	// Block 1: enable the panic switch.
+	enable_panic_switch(&client);
+
+	// Block 2: includes the oracle inherent (empty nudges) — should succeed.
+	let block = client
+		.init_polkadot_block_builder()
+		.build()
+		.expect("block with inherent builds despite panic switch")
+		.block;
+
+	futures::executor::block_on(client.import(BlockOrigin::Own, block))
+		.expect("block with inherent imports despite panic switch");
+}
+
+#[test]
+fn panic_switch_on_without_inherent_panics() {
+	let client = TestClientBuilder::new().build();
+
+	// Block 1: enable the panic switch.
+	enable_panic_switch(&client);
+
+	// Block 2: NO oracle inherent — on_finalize should panic.
+	let result = client.init_polkadot_build_block_without_price_oracle_inherent().build();
+	assert!(result.is_err(), "block without oracle inherent must fail when panic switch is on");
 }
 
 #[test]

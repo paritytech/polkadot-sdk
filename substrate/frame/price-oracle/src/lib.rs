@@ -3,7 +3,10 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use frame_support::{pallet_prelude::*, traits::Time};
+use frame_support::{
+	pallet_prelude::*,
+	traits::{EnsureOrigin, Time},
+};
 use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;
@@ -59,6 +62,9 @@ pub mod pallet {
 
 		/// Hook called when the price is updated. Set to `()` if unused.
 		type OnPriceUpdate: OnPriceUpdate<BlockNumberFor<Self>>;
+
+		/// Origin allowed to toggle the panic switch.
+		type PriceOracleOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 	}
 
 	#[pallet::pallet]
@@ -69,7 +75,12 @@ pub mod pallet {
 
 	/// Number of valid nudges accepted in the current block's inherent.
 	#[pallet::storage]
-	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, OptionQuery>;
+
+	/// When enabled, `on_finalize` panics if no inherent was included in the block.
+	/// Default is false.
+	#[pallet::storage]
+	pub type PanicSwitch<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
@@ -93,7 +104,15 @@ pub mod pallet {
 			T::DbWeight::get().reads(1)
 		}
 
-		fn on_finalize(_n: BlockNumberFor<T>) {}
+		fn on_finalize(_n: BlockNumberFor<T>) {
+			if PanicSwitch::<T>::get() {
+				let inherent_included = NudgeCount::<T>::take().is_some();
+				assert!(
+					inherent_included,
+					"Price oracle: panic switch is on but no inherent was included in this block",
+				);
+			}
+		}
 	}
 
 	#[pallet::call]
@@ -168,6 +187,17 @@ pub mod pallet {
 			NudgeCount::<T>::put(total_valid);
 			Ok(())
 		}
+
+		/// Enable or disable the panic switch.
+		///
+		/// When enabled, `on_finalize` will panic if no inherent was included in the block.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::DbWeight::get().writes(1))]
+		pub fn set_panic_switch(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
+			T::PriceOracleOrigin::ensure_origin(origin)?;
+			PanicSwitch::<T>::put(enabled);
+			Ok(())
+		}
 	}
 
 	#[pallet::inherent]
@@ -179,8 +209,7 @@ pub mod pallet {
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
 			let nudges = data
 				.get_data::<PriceOracleInherentData>(&INHERENT_IDENTIFIER)
-				.expect("Price oracle inherent data encoded correctly")
-				.unwrap_or_default();
+				.expect("Price oracle inherent data encoded correctly")?;
 
 			Some(Call::submit_nudges { nudges })
 		}

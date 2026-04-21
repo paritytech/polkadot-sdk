@@ -331,6 +331,7 @@ impl pallet_price_oracle::Config for Runtime {
 	type AuthorityProvider = BabeAuthorityProvider;
 	type TimeProvider = Timestamp;
 	type OnPriceUpdate = ();
+	type PriceOracleOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl pallet_authorship::Config for Runtime {
