@@ -8292,7 +8292,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-runtime 31.0.1",
  "staging-xcm",
- "westend-runtime",
  "westend-system-emulated-network",
 ]
 
@@ -29890,7 +29889,6 @@ dependencies = [
  "pallet-balances",
  "pallet-beefy",
  "pallet-beefy-mmr",
- "pallet-conviction-voting",
  "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
@@ -29912,7 +29910,6 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-recovery",
- "pallet-referenda",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
@@ -29928,7 +29925,6 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-utility",
  "pallet-vesting",
- "pallet-whitelist",
  "pallet-xcm",
  "pallet-xcm-benchmarks",
  "parity-scale-codec",
