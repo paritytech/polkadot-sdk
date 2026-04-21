@@ -64,9 +64,11 @@ alloy-provider = { workspace = true, default-features = true, features = ["debug
 alloy-rpc-types = { workspace = true, default-features = true, features = ["trace"] }
 alloy-signer-local = { workspace = true, default-features = true }
 env_logger = { workspace = true }
+frame-system = { workspace = true, default-features = true }
 pallet-revive-fixtures = { workspace = true, default-features = true }
 pretty_assertions = { workspace = true }
 revive-dev-node = { workspace = true }
+revive-dev-runtime = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 
