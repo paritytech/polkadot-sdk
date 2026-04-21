@@ -55,8 +55,8 @@ fn map_memory_error(error: MemoryAccessError) -> MemoryError {
 		MemoryAccessError::OutOfRangeAccess { .. } | MemoryAccessError::MemoryLimitReached => {
 			MemoryError::OutOfBounds
 		},
-		_ => {
-			panic!("Error accessing polkavm memory. This is a bug.");
+		MemoryAccessError::Error(error) => {
+			panic!("Error accessing PolkaVM memory: {error}. This is a bug.");
 		},
 	}
 }
@@ -230,10 +230,7 @@ impl VirtManager {
 
 		let interrupt = match instance.run() {
 			Ok(interrupt) => interrupt,
-			Err(err) => {
-				log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
-				return (InstanceState::Idle(instance), Err(ExecError::InvalidImage));
-			},
+			Err(err) => panic!("Polkavm failed during execution: {err}. This is a bug."),
 		};
 
 		match interrupt {
