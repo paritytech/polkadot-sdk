@@ -404,8 +404,7 @@ where
 			// Only cache successful responses.
 			if rp.is_success() {
 				if let Some(result) = extract_result(rp.as_result()) {
-					let cached =
-						CachedResponse::new(method_name.clone(), canonical_owned, result);
+					let cached = CachedResponse::new(method_name.clone(), canonical_owned, result);
 					let byte_size = cached.byte_size;
 					let mut cache_guard = cache.lock();
 					cache_guard.insert(key, cached);
