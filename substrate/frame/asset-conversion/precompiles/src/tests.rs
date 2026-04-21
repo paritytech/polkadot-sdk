@@ -697,6 +697,26 @@ fn quote_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
 	});
 }
 
+#[test_case(encode_static_call, true ; "staticcall_allowed")]
+#[test_case(encode_delegate_call, false ; "delegatecall_rejected")]
+fn get_reserves_via(encode: fn(Vec<u8>) -> Vec<u8>, expect_success: bool) {
+	new_test_ext().execute_with(|| {
+		let provider = 1u64;
+		setup_pool(provider, 10_000, 20_000);
+
+		let caller_contract = deploy_caller();
+
+		let data = IAssetConversion::getReservesCall {
+			asset1: encode_native().into(),
+			asset2: encode_asset(1).into(),
+		}
+		.abi_encode();
+
+		let (success, _) = call_fixture(caller_contract, encode(data));
+		assert_eq!(success, expect_success);
+	});
+}
+
 #[test_case(encode_static_call ; "staticcall")]
 #[test_case(encode_delegate_call ; "delegatecall")]
 fn create_pool_rejected_via(encode: fn(Vec<u8>) -> Vec<u8>) {
