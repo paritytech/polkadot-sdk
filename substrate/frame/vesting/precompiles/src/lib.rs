@@ -114,7 +114,6 @@ where
 		use IVesting::IVestingCalls;
 		match input {
 			IVestingCalls::vest(IVesting::vestCall {}) => {
-				ensure_mutable::<T>(env)?;
 				// TODO: pallet_vesting::vest returns DispatchResult, not
 				// DispatchResultWithPostInfo, so we can't refund the difference
 				// between vest_locked and vest_unlocked. Once the pallet is
@@ -131,6 +130,8 @@ where
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
 
+				ensure_mutable::<T>(env)?;
+
 				let account_id = caller_account_id(env, "vest")?;
 				let origin = frame_system::RawOrigin::Signed(account_id).into();
 				pallet_vesting::Pallet::<T>::vest(origin)
@@ -138,7 +139,6 @@ where
 				Ok(Vec::new())
 			},
 			IVestingCalls::vestOther(IVesting::vestOtherCall { target }) => {
-				ensure_mutable::<T>(env)?;
 				// TODO: same as vest — pallet returns DispatchResult so we
 				// can't refund the locked vs unlocked weight difference.
 				let max_locks = MaxLocksOf::<T>::get();
@@ -152,6 +152,8 @@ where
 				));
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
+
+				ensure_mutable::<T>(env)?;
 
 				let caller_account = caller_account_id(env, "vestOther")?;
 				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
@@ -169,7 +171,6 @@ where
 				perBlock,
 				startingBlock,
 			}) => {
-				ensure_mutable::<T>(env)?;
 				// Charge weight upfront before any conversion work. The pallet weight
 				// is constant (depends only on MaxLocks and MAX_VESTING_SCHEDULES).
 				let max_locks = MaxLocksOf::<T>::get();
@@ -179,6 +180,8 @@ where
 				);
 				env.frame_meter_mut()
 					.charge_weight_token(RuntimeCosts::Precompile(dispatch_weight))?;
+
+				ensure_mutable::<T>(env)?;
 
 				let caller_account = caller_account_id(env, "vestedTransfer")?;
 				let target_account = env.to_account_id(&H160::from_slice(target.as_slice()));
