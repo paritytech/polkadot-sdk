@@ -1,0 +1,32 @@
+title: 'RPC: add response cache for deterministic block queries'
+doc:
+- audience: Node Dev
+  description: "## Summary\n\nOpt-in RPC response cache (`--rpc-cache-size <MB>`,\
+    \ default 0 = disabled) for `state_*` and `childstate_*` methods when the request\
+    \ includes an explicit block hash.\n\nBlock-hash-keyed responses are deterministic,\
+    \ so caching is safe for any block. Requests without a block hash (targeting \"\
+    latest\") bypass the cache. Non-finalized entries are  evicted naturally by LRU\
+    \ pressure.\n\n## Design\n\n- `CacheLayer` middleware sits outermost \u2014 cache\
+    \ hits skip rate limiting and RPC metrics (use `substrate_rpc_cache_hits_total`\
+    \ for full call volume)\n- `schnellru::LruMap` with byte-size limiter; results\
+    \ stored as `Box<RawValue>` to skip re-parsing on hit\n- Params whitespace-normalized\
+    \ via `Cow` (zero-alloc for compact JSON from the wire)\n- Method+params verified\
+    \ on hit to guard against hash collisions\n\n## Metrics\n\n| Metric | Type | Description\
+    \ |\n|--------|------|-------------|\n| `substrate_rpc_cache_hits_total` | CounterVec\
+    \ (method) | Cache hits |\n| `substrate_rpc_cache_misses_total` | CounterVec (method)\
+    \ | Cache misses |\n| `substrate_rpc_cache_size_bytes` | Gauge | Current cache\
+    \ size |\n| `substrate_rpc_cache_entries` | Gauge | Current entry count |\n| `substrate_rpc_cache_evictions_total`\
+    \ | Counter | Total evictions |\n\n**Note:** Cache hits bypass the RPC metrics\
+    \ layer, so they are not reflected in `substrate_rpc_calls_total`.\nTo get total\
+    \ call volume, sum `substrate_rpc_calls_started` with `substrate_rpc_cache_hits_total`."
+crates:
+- name: sc-rpc-server
+  bump: patch
+- name: sc-service
+  bump: patch
+- name: sc-cli
+  bump: patch
+- name: pallet-revive-eth-rpc
+  bump: patch
+- name: cumulus-client-cli
+  bump: patch
