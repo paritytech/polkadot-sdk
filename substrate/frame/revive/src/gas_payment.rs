@@ -17,42 +17,27 @@
 
 //! Storage deposit payment backend.
 //!
-//! Storage deposits can be backed by the native currency or by PGAS. The
-//! [`GasPayment`] trait abstracts the choice so the pallet does not need to
-//! branch on asset type: the implementation decides whether a charge is taken
-//! in PGAS or in the native currency, and records DOT-paid contributions in
-//! [`DotByContractUser`]. Runtimes without PGAS leave the default `()` binding,
-//! which always uses the native currency and matches pre-PGAS behaviour.
-use crate::{BalanceOf, Config, DotByContractUser, HoldReason, evm::fees::InfoT as FeeInfo};
+//! Storage deposits can be backed by the native currency or by PGAS.
+//! Runtimes without PGAS leave the default `()` binding,
+//! which always uses the native currency.
+use crate::{evm::fees::InfoT as FeeInfo, BalanceOf, Config, DotByContractUser, HoldReason};
 use core::marker::PhantomData;
 use frame_support::traits::{
-	Get,
 	fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
-	tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
+	tokens::{fungibles, Fortitude, Precision, Preservation, Restriction},
+	Get,
 };
 use sp_runtime::{
-	DispatchResult,
 	traits::{Saturating, Zero},
+	DispatchResult,
 };
 
 /// Payment backend used to charge storage deposits.
-///
-/// Implementations decide whether a charge is paid in PGAS or in the native
-/// currency. When paid in native currency, the DOT contribution is recorded in
-/// [`DotByContractUser`] so that refunds can later be bounded to the amount the
-/// user actually paid as DOT. PGAS charges are never tracked there: they refund
-/// as PGAS and can never exit as DOT.
 pub trait GasPayment<T: Config> {
 	/// Transfer `amount` from `from` to `to` to back a storage deposit.
-	///
-	/// Uses PGAS when the payer holds enough; falls back to the native currency otherwise,
-	/// recording the DOT contribution in [`DotByContractUser`].
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult;
 
 	/// Transfer `amount` from `from` to `to` and place it on hold under `reason`.
-	///
-	/// Uses PGAS when the payer holds enough; falls back to the native currency otherwise,
-	/// recording the DOT contribution in [`DotByContractUser`].
 	fn transfer_and_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -61,10 +46,6 @@ pub trait GasPayment<T: Config> {
 	) -> DispatchResult;
 
 	/// Refund `amount` of held funds from contract `from` to user `to`'s free balance.
-	///
-	/// Refunds DOT first up to `DotByContractUser[from][to]` and the contract's actual
-	/// DOT-on-hold for `reason`; the rest comes from PGAS. The aggregate transferred is
-	/// always exactly `amount` (otherwise an error is returned and storage rolls back).
 	fn refund_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -73,11 +54,6 @@ pub trait GasPayment<T: Config> {
 	) -> DispatchResult;
 
 	/// Collect `amount` of held funds from contract `from` back into the tx fee pool.
-	///
-	/// Releases DOT first up to `DotByContractUser[from][to]` and the actual DOT-on-hold
-	/// for `reason`, withdraws it from `from`, and deposits the credit to the tx fee pool.
-	/// Any remainder is released from PGAS and transferred to `to`'s free balance (PGAS
-	/// cannot feed the native-currency fee pool).
 	fn collect_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -85,15 +61,12 @@ pub trait GasPayment<T: Config> {
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
 
-	/// Total amount held for `who` under `reason` across DOT and PGAS.
-	///
-	/// Used by error classifiers to distinguish "insufficient deposit" from "locks prevent
-	/// release" without the caller needing to know which asset backed the deposit.
+	/// Total amount held for `who` under `reason`.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
 		T::Currency::balance_on_hold(&reason.into(), who)
 	}
 
-	/// Record that user `from` contributed `amount` in DOT to contract `to`.
+	/// Record that user `from` contributed `amount` in native balance to contract `to`.
 	fn record_dot_contribution(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) {
 		DotByContractUser::<T>::mutate(to, from, |entitlement| {
 			*entitlement = entitlement.saturating_add(amount);
@@ -173,8 +146,12 @@ impl<T: Config> GasPayment<T> for () {
 	}
 }
 
-/// PGAS-backed payment backend. Prefers PGAS when the payer holds enough and
-/// falls back to the native currency otherwise.
+/// PGAS-backed payment backend.
+///
+/// Charges prefer PGAS when the payer has enough reducible PGAS and fall back to the native
+/// currency otherwise; native-currency contributions are recorded in [`DotByContractUser`].
+/// Refunds and collects try the native side first, capped by the user's tracked
+/// [`DotByContractUser`] entitlement, and pull any remainder from PGAS.
 pub struct PGasPayment<Assets, Id>(PhantomData<(Assets, Id)>);
 
 impl<Assets, Id> PGasPayment<Assets, Id> {
@@ -201,6 +178,8 @@ where
 	<Assets as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Assets as fungibles::Inspect<T::AccountId>>::AssetId>,
 {
+	/// Pays the full `amount` in PGAS when `from`'s reducible PGAS covers it; otherwise pays
+	/// in native currency and records the contribution in [`DotByContractUser`].
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
 			<Assets as fungibles::Mutate<T::AccountId>>::transfer(
@@ -218,6 +197,7 @@ where
 		}
 	}
 
+	/// Same asset-selection rule as [`Self::transfer`], applied to a transfer-and-hold.
 	fn transfer_and_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -251,6 +231,12 @@ where
 		}
 	}
 
+	/// Refunds DOT first, capped by `DotByContractUser[from][to]` (the user's tracked native
+	/// contribution) and by the contract's actual DOT-on-hold (`Precision::BestEffort`, so a
+	/// short hold does not fail). The DOT actually released is subtracted from
+	/// [`DotByContractUser`], and any shortfall is covered by a `Precision::Exact` PGAS
+	/// `transfer_on_hold`. The aggregate refunded is always exactly `amount`; otherwise the
+	/// call errors and storage rolls back.
 	fn refund_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -294,6 +280,7 @@ where
 		Ok(())
 	}
 
+	/// Sum of the contract's DOT-on-hold and PGAS-on-hold for `reason`.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
 		let dot_held = T::Currency::balance_on_hold(&reason.into(), who);
 		let pgas_held = <Assets as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
@@ -304,6 +291,11 @@ where
 		dot_held.saturating_add(pgas_held)
 	}
 
+	/// Collects DOT first into the tx fee pool, capped like [`Self::refund_on_hold`]
+	/// (`DotByContractUser[from][to]` and `Precision::BestEffort` on release), then withdraws
+	/// the released amount and deposits it via [`FeeInfo::deposit_txfee`]. Any remainder
+	/// cannot be fed to the DOT fee pool, so it is released from PGAS and transferred to
+	/// `to`'s free PGAS balance with `Precision::Exact`.
 	fn collect_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
