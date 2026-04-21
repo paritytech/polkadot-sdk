@@ -170,6 +170,7 @@ pub trait TimesliceProvider {
 }
 
 /// Information about the sale.
+#[derive(Clone)]
 pub struct MarketSaleInfo<RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,

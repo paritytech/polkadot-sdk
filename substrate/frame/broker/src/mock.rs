@@ -35,7 +35,7 @@ use frame_support::{
 	},
 	PalletId,
 };
-use frame_system::{EnsureRoot, EnsureSignedBy};
+use frame_system::{pallet_prelude::AccountIdFor, EnsureRoot, EnsureSignedBy};
 use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
@@ -221,64 +221,135 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type SovereignAccountOf = SovereignAccountOf;
-	type CoretimeMarket = MarketMock<Self>;
+	type CoretimeMarket = MarketMock;
 	type MaxAutoRenewals = ConstU32<3>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
 }
 
-pub struct MarketMock<T: Config> {
-	_phantom: PhantomData<T>,
+pub struct MarketMock;
+
+parameter_types! {
+	pub static MarketSaleInfoStorage: MarketSaleInfo<RelayBlockNumberOf<Test>> = MarketSaleInfo {
+		sale_start: 0,
+		region_begin: 0,
+		region_end: 0,
+		cores_offered: 0,
+		first_core: 0,
+		cores_sold: 0
+	};
 }
 
-impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for MarketMock<T> {
+const REGION_PRICE: BalanceOf<Test> = 10;
+
+impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for MarketMock {
 	type Error = DispatchError;
 	type BidId = ();
 	type InitData = ();
 	type Configuration = ();
-	type CoreRangeProvider = CoreRangeProviderImpl<T>;
-	type TimesliceProvider = TimesliceProviderImpl<T>;
+	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
+	type TimesliceProvider = TimesliceProviderImpl<Test>;
 
 	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error> {
 		Ok(())
 	}
 
 	fn start_sales(
-		block_number: RelayBlockNumberOf<T>,
+		block_number: RelayBlockNumberOf<Test>,
 		init_data: Self::InitData,
-	) -> Result<SalesStarted<RelayBlockNumberOf<T>>, Self::Error> {
-		todo!()
+	) -> Result<SalesStarted<RelayBlockNumberOf<Test>>, Self::Error> {
+		let config = new_config();
+		let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core count");
+
+		let commit_timeslice = Self::TimesliceProvider::latest_timeslice_ready_to_commit()
+			.expect("Failed to get timeslice");
+
+		let region_begin = commit_timeslice.saturating_add(config.region_length);
+
+		let sale = MarketSaleInfo {
+			sale_start: block_number,
+			region_begin,
+			region_end: region_begin.saturating_add(config.region_length),
+			cores_offered: cores.to - cores.from,
+			first_core: cores.from,
+			cores_sold: 0,
+		};
+		MarketSaleInfoStorage::set(sale.clone());
+
+		Ok(SalesStarted { sale })
 	}
 
 	fn place_order(
-		block_number: RelayBlockNumberOf<T>,
-		who: &T::AccountId,
-		price_limit: BalanceOf<T>,
-	) -> Result<OrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
-		todo!()
+		block_number: RelayBlockNumberOf<Test>,
+		who: &AccountIdFor<Test>,
+		price_limit: BalanceOf<Test>,
+	) -> Result<OrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
+		let sale = MarketSaleInfoStorage::get();
+		let config = new_config();
+
+		if sale.cores_sold >= sale.cores_offered {
+			return Err(DispatchError::Other("Sold Out"));
+		}
+
+		if price_limit < REGION_PRICE {
+			return Err(DispatchError::Other("Overpriced"));
+		}
+
+		let result = OrderResult::Sold {
+			price: REGION_PRICE,
+			region_id: RegionId {
+				begin: sale.region_end,
+				core: sale.first_core + sale.cores_sold,
+				mask: CoreMask::complete(),
+			},
+			region_end: sale.region_end + config.region_length,
+		};
+
+		MarketSaleInfoStorage::mutate(|sale| sale.cores_sold += 1);
+
+		Ok(result)
 	}
 
 	fn place_renewal_order(
-		block_number: RelayBlockNumberOf<T>,
-		who: &T::AccountId,
+		block_number: RelayBlockNumberOf<Test>,
+		who: &AccountIdFor<Test>,
 		renewal: PotentialRenewalId,
-	) -> Result<RenewalOrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
-		todo!()
+	) -> Result<RenewalOrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
+		let sale = MarketSaleInfoStorage::get();
+		let config = new_config();
+
+		if sale.cores_sold >= sale.cores_offered {
+			return Err(DispatchError::Other("Sold Out"));
+		}
+
+		let result = RenewalOrderResult::Renewed {
+			price: 0,
+			region_id: RegionId {
+				begin: sale.region_begin,
+				core: renewal.core,
+				mask: CoreMask::complete(),
+			},
+			effective_to: sale.region_end,
+		};
+
+		MarketSaleInfoStorage::mutate(|sale| sale.cores_sold += 1);
+
+		Ok(result)
 	}
 
 	fn tick(
-		now: RelayBlockNumberOf<T>,
+		now: RelayBlockNumberOf<Test>,
 		weight_meter: &mut frame_support::weights::WeightMeter,
-	) -> Vec<TickAction<T::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>> {
-		todo!()
+	) -> Vec<TickAction<AccountIdFor<Test>, BalanceOf<Test>, RelayBlockNumberOf<Test>>> {
+		vec![]
 	}
 
 	fn adjust_bid(
-		block_number: RelayBlockNumberOf<T>,
+		block_number: RelayBlockNumberOf<Test>,
 		id: Self::BidId,
-		who: &T::AccountId,
-		new_price: Option<BalanceOf<T>>,
-	) -> Result<AdjustBidResult<BalanceOf<T>>, Self::Error> {
-		todo!()
+		who: &AccountIdFor<Test>,
+		new_price: Option<BalanceOf<Test>>,
+	) -> Result<AdjustBidResult<BalanceOf<Test>>, Self::Error> {
+		unimplemented!()
 	}
 }
 
