@@ -132,13 +132,16 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 			let asset_decimals = T::Fungibles::decimals(*asset_id);
 			let diff = asset_decimals.abs_diff(stable_decimals) as u32;
-			assert!(
-				diff <= MAX_DECIMALS_DIFF,
-				"PSM migration: asset {:?} decimals diff ({}) exceeds MAX_DECIMALS_DIFF ({})",
-				asset_id,
-				diff,
-				MAX_DECIMALS_DIFF,
-			);
+			if diff > MAX_DECIMALS_DIFF {
+				log::error!(
+					target: LOG_TARGET,
+					"Asset {:?} decimals diff ({}) exceeds MAX_DECIMALS_DIFF ({}), skipping",
+					asset_id,
+					diff,
+					MAX_DECIMALS_DIFF,
+				);
+				continue;
+			}
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
 			AssetDecimals::<T>::insert(asset_id, asset_decimals);
 			MintingFee::<T>::insert(asset_id, minting_fee);
@@ -210,7 +213,8 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::mock::{new_test_ext, Test, USDC_ASSET_ID, USDT_ASSET_ID};
+	use crate::mock::{new_test_ext, Assets, Test, ALICE, USDC_ASSET_ID, USDT_ASSET_ID};
+	use frame_support::assert_ok;
 
 	struct TestPsmConfig;
 
@@ -368,6 +372,63 @@ mod tests {
 			assert_eq!(MintingFee::<Test>::get(USDT_ASSET_ID), minting_fee);
 			assert_eq!(RedemptionFee::<Test>::get(USDT_ASSET_ID), redemption_fee);
 			assert_eq!(AssetCeilingWeight::<Test>::get(USDT_ASSET_ID), ceiling_weight);
+		});
+	}
+
+	#[test]
+	fn initialize_psm_skips_assets_with_wrong_decimals() {
+		use frame_support::traits::{
+			fungibles::{metadata::Mutate as MetadataMutate, Create as FungiblesCreate},
+			OnRuntimeUpgrade,
+		};
+
+		const WRONG_DECIMALS_ID: u32 = 99;
+
+		new_test_ext().execute_with(|| {
+			// Create an asset with 8 decimals (stable asset has 6).
+			assert_ok!(<Assets as FungiblesCreate<u64>>::create(WRONG_DECIMALS_ID, ALICE, true, 1));
+			assert_ok!(<Assets as MetadataMutate<u64>>::set(
+				WRONG_DECIMALS_ID,
+				&ALICE,
+				b"Wrong".to_vec(),
+				b"WRG".to_vec(),
+				(MAX_DECIMALS_DIFF + 6 + 1).try_into().unwrap(), // exceeds MAX_DECIMALS_DIFF
+			));
+
+			struct MixedDecimalsConfig;
+			impl InitialPsmConfig<Test> for MixedDecimalsConfig {
+				fn max_psm_debt_of_total() -> Permill {
+					Permill::from_percent(50)
+				}
+				fn asset_configs() -> BTreeMap<u32, (Permill, Permill, Permill)> {
+					[
+						(
+							WRONG_DECIMALS_ID,
+							(Permill::zero(), Permill::zero(), Permill::from_percent(50)),
+						),
+						(
+							USDC_ASSET_ID, // 6 decimals — matches stable asset
+							(Permill::zero(), Permill::zero(), Permill::from_percent(50)),
+						),
+					]
+					.into_iter()
+					.collect()
+				}
+			}
+
+			ExternalAssets::<Test>::remove(WRONG_DECIMALS_ID);
+			ExternalAssets::<Test>::remove(USDC_ASSET_ID);
+
+			InitializePsm::<Test, MixedDecimalsConfig>::on_runtime_upgrade();
+
+			// Wrong decimals asset was skipped.
+			assert_eq!(ExternalAssets::<Test>::get(WRONG_DECIMALS_ID), None);
+
+			// Matching decimals asset was configured.
+			assert_eq!(
+				ExternalAssets::<Test>::get(USDC_ASSET_ID),
+				Some(CircuitBreakerLevel::AllEnabled)
+			);
 		});
 	}
 

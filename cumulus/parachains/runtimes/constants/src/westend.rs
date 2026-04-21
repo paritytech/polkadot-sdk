@@ -155,7 +155,7 @@ pub mod consensus {
 	///
 	/// Change this to adjust the block time.
 	pub const MILLISECS_PER_BLOCK: u64 = 6000;
-	pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
+	pub const SLOT_DURATION: u64 = 24_000;
 }
 
 /// Time-related
