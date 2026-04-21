@@ -472,6 +472,10 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
+		fn minimum_nudges_required() -> u32 {
+			unimplemented!()
+		}
+
 		fn endpoint_list() -> Vec<(u8, Vec<u8>)> {
 			unimplemented!()
 		}

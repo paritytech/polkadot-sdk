@@ -323,7 +323,8 @@ where
 	use sp_consensus_babe::digests::CompatibleDigestItem;
 	use sp_runtime::traits::Header as _;
 
-	// TODO: is this the slot of the current block being authored, or the parent block? 99% it is the parent!
+	// TODO: is this the slot of the current block being authored, or the parent block? 99% it is
+	// the parent!
 	let best_hash = client.info().best_hash;
 	client
 		.header(best_hash)
@@ -521,7 +522,8 @@ mod tests {
 		store.insert(make_nudge(10, 1, Nudge::Up));
 		store.insert(make_nudge(15, 2, Nudge::Up));
 
-		// validity=5, current_slot=16 → slot 5 is stale (16-5=11>=5), slot 10 is stale (16-10=6>=5), slot 15 valid
+		// validity=5, current_slot=16 → slot 5 is stale (16-5=11>=5), slot 10 is stale
+		// (16-10=6>=5), slot 15 valid
 		let valid = store.get_all_valid(Slot::from(16u64), 5);
 		assert_eq!(valid.len(), 1);
 		assert_eq!(valid[0].authority_index, 2);
@@ -536,7 +538,8 @@ mod tests {
 
 		store.prune(Slot::from(12u64), 5);
 
-		// After pruning: slot 1 gone (12-1=11>=5), slot 5 gone (12-5=7>=5), slot 10 kept (12-10=2<5)
+		// After pruning: slot 1 gone (12-1=11>=5), slot 5 gone (12-5=7>=5), slot 10 kept
+		// (12-10=2<5)
 		let remaining = store.get_all_valid(Slot::from(12u64), 100);
 		assert_eq!(remaining.len(), 1);
 		assert_eq!(remaining[0].authority_index, 2);

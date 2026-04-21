@@ -169,6 +169,9 @@ sp_api::decl_runtime_apis! {
 		/// Get the current set of BABE authorities (used for signature verification).
 		fn authorities() -> Vec<AuthorityId>;
 
+		/// Get the minimum number of nudges required to update the price.
+		fn minimum_nudges_required() -> u32;
+
 		/// Get the list of price feed endpoints as `(endpoint_id, url_bytes)` pairs.
 		/// The node fetches these URLs and passes raw response bytes to `decode_results`.
 		fn endpoint_list() -> Vec<(u8, Vec<u8>)>;
