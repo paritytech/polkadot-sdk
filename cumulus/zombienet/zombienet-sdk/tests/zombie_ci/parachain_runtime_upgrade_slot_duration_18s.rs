@@ -81,7 +81,7 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 
 	log::info!("Checking that parachain continues producing blocks after upgrade...");
 
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 10..30)]).await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 10..30)], []).await?;
 	Ok(())
 }
 

@@ -363,16 +363,31 @@ pub mod pallet {
 				elapsed = max_elapsed;
 			}
 
-			let total_issuance = T::Currency::total_issuance();
-			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
 			// Always advance the clock so elapsed time doesn't accumulate across skipped drips.
 			LastIssuanceTimestamp::<T>::put(now);
 
+			let _ = Self::mint_and_distribute(elapsed);
+			T::WeightInfo::drip_issuance()
+		}
+
+		/// Mints `IssuanceCurve::issue(total_issuance, elapsed)` and distributes the
+		/// result according to `BudgetAllocation`.
+		///
+		/// Does not read or write `LastIssuanceTimestamp`, does not enforce
+		/// `IssuanceCadence`, and does not apply the `MaxElapsedPerDrip` safety
+		/// ceiling.
+		///
+		/// Returns the total amount successfully minted. Individual recipient mint
+		/// failures emit `MintFailed` and are skipped; the function does not roll
+		/// back successful mints for earlier recipients.
+		pub(crate) fn mint_and_distribute(elapsed: u64) -> BalanceOf<T> {
+			let total_issuance = T::Currency::total_issuance();
+			let issuance = T::IssuanceCurve::issue(total_issuance, elapsed);
+
 			if issuance.is_zero() {
-				return T::DbWeight::get().reads_writes(3, 3);
+				return BalanceOf::<T>::zero();
 			}
 
-			// Distribute according to budget map.
 			let budget = BudgetAllocation::<T>::get();
 			if budget.is_empty() {
 				// TODO: Add defensive! panic once budget is always configured.
@@ -380,7 +395,7 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"BudgetAllocation is empty — no issuance will be distributed"
 				);
-				return T::DbWeight::get().reads_writes(4, 4);
+				return BalanceOf::<T>::zero();
 			}
 			let recipients = T::BudgetRecipients::recipients();
 			let mut total_minted = BalanceOf::<T>::zero();
@@ -408,10 +423,15 @@ pub mod pallet {
 
 			log::debug!(
 				target: LOG_TARGET,
-				"Issuance drip: total={issuance:?}, elapsed={elapsed}ms"
+				"Issuance drip: issued={issuance:?}, minted={total_minted:?}, elapsed={elapsed}ms"
 			);
 
-			T::WeightInfo::drip_issuance()
+			debug_assert!(
+				!total_minted.is_zero(),
+				"mint_and_distribute: issuance was non-zero but nothing was minted"
+			);
+
+			total_minted
 		}
 	}
 
