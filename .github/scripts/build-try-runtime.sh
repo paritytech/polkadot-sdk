@@ -25,7 +25,7 @@ echo "::group::Generate Cargo patches"
 # since some workspace aliases differ from the published crate name
 # (e.g. workspace key "xcm" -> package name "staging-xcm").
 python3 - "$SDK_PATH" "$WORK_DIR/try-runtime-cli/Cargo.toml" <<'PYEOF'
-import re, sys, os, tomllib
+import re, sys, os
 
 sdk_path = sys.argv[1]
 target_cargo_toml = sys.argv[2]
@@ -36,17 +36,31 @@ with open(f"{sdk_path}/Cargo.toml") as f:
 pattern = r'^(\S+)\s*=\s*\{[^}]*path\s*=\s*"([^"]+)"[^}]*\}'
 matches = re.findall(pattern, content, re.MULTILINE)
 
+# Extract `name = "..."` from the [package] section of a crate's Cargo.toml.
+# Avoids the tomllib stdlib module (Python 3.11+) since older CI images may
+# ship an earlier interpreter. Cargo does not allow inheriting `name` from
+# the workspace, so the field is always a literal string.
+pkg_section_re = re.compile(r'^\[package\]\s*\n(.*?)(?=^\[|\Z)', re.MULTILINE | re.DOTALL)
+name_re = re.compile(r'^name\s*=\s*"([^"]+)"', re.MULTILINE)
+
+def read_pkg_name(path):
+    try:
+        with open(path) as f:
+            text = f.read()
+    except OSError:
+        return None
+    section = pkg_section_re.search(text)
+    if not section:
+        return None
+    m = name_re.search(section.group(1))
+    return m.group(1) if m else None
+
 patches = {}  # pkg_name -> abs_path (deduplicated by actual package name)
 for _, rel_path in matches:
     crate_toml = os.path.join(sdk_path, rel_path, "Cargo.toml")
     if not os.path.isfile(crate_toml):
         continue
-    with open(crate_toml, "rb") as f:
-        try:
-            meta = tomllib.load(f)
-        except Exception:
-            continue
-    pkg_name = meta.get("package", {}).get("name")
+    pkg_name = read_pkg_name(crate_toml)
     if not pkg_name:
         continue
     patches[pkg_name] = f"{sdk_path}/{rel_path}"
