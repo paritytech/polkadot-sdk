@@ -146,6 +146,16 @@ impl VirtManager {
 	}
 
 	pub fn prepare(&mut self, instance_id: InstanceId, function: &[u8]) -> Result<(), ExecError> {
+		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let (state, result) = Self::prepare_impl(state, function);
+		self.instances.insert(instance_id, state);
+		result
+	}
+
+	fn prepare_impl(
+		state: InstanceState,
+		function: &[u8],
+	) -> (InstanceState, Result<(), ExecError>) {
 		fn find_export(
 			instance: &RawInstance,
 			function: &[u8],
@@ -165,24 +175,18 @@ impl VirtManager {
 				})
 		}
 
-		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
 		let mut instance = match state {
 			InstanceState::Idle(i) => i,
-			InstanceState::Running(i) => {
-				self.instances.insert(instance_id, InstanceState::Running(i));
-				return Err(ExecError::InvalidInstance);
+			running @ InstanceState::Running(_) => {
+				return (running, Err(ExecError::InvalidInstance));
 			},
 		};
 		match find_export(&instance, function) {
 			Ok(pc) => {
 				instance.prepare_call_untyped(pc, &[]);
-				self.instances.insert(instance_id, InstanceState::Running(instance));
-				Ok(())
+				(InstanceState::Running(instance), Ok(()))
 			},
-			Err(err) => {
-				self.instances.insert(instance_id, InstanceState::Idle(instance));
-				Err(err)
-			},
+			Err(err) => (InstanceState::Idle(instance), Err(err)),
 		}
 	}
 
@@ -193,12 +197,19 @@ impl VirtManager {
 		a0: u64,
 	) -> Result<(ExecStatus, ExecBuffer), ExecError> {
 		let state = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let (state, result) = Self::run_impl(state, gas_left, a0);
+		self.instances.insert(instance_id, state);
+		result
+	}
+
+	fn run_impl(
+		state: InstanceState,
+		gas_left: i64,
+		a0: u64,
+	) -> (InstanceState, Result<(ExecStatus, ExecBuffer), ExecError>) {
 		let mut instance = match state {
 			InstanceState::Running(i) => i,
-			InstanceState::Idle(i) => {
-				self.instances.insert(instance_id, InstanceState::Idle(i));
-				return Err(ExecError::InvalidInstance);
-			},
+			idle @ InstanceState::Idle(_) => return (idle, Err(ExecError::InvalidInstance)),
 		};
 
 		instance.set_reg(Reg::A0, a0);
@@ -208,27 +219,24 @@ impl VirtManager {
 			Ok(interrupt) => interrupt,
 			Err(err) => {
 				log::error!(target: LOG_TARGET, "polkavm execution error: {}", err);
-				self.instances.insert(instance_id, InstanceState::Idle(instance));
-				return Err(ExecError::InvalidImage);
+				return (InstanceState::Idle(instance), Err(ExecError::InvalidImage));
 			},
 		};
 
 		match interrupt {
 			InterruptKind::Finished => {
 				let gas_left = instance.gas();
-				self.instances.insert(instance_id, InstanceState::Idle(instance));
-				Ok((ExecStatus::Finished, ExecBuffer { gas_left, ..Default::default() }))
+				(
+					InstanceState::Idle(instance),
+					Ok((ExecStatus::Finished, ExecBuffer { gas_left, ..Default::default() })),
+				)
 			},
-			InterruptKind::Trap => {
-				self.instances.insert(instance_id, InstanceState::Idle(instance));
-				Err(ExecError::Trap)
+			InterruptKind::Trap => (InstanceState::Idle(instance), Err(ExecError::Trap)),
+			InterruptKind::NotEnoughGas => {
+				(InstanceState::Idle(instance), Err(ExecError::OutOfGas))
 			},
 			InterruptKind::Step | InterruptKind::Segfault(_) => {
 				unreachable!("PolkaVM failed. This is a bug.");
-			},
-			InterruptKind::NotEnoughGas => {
-				self.instances.insert(instance_id, InstanceState::Idle(instance));
-				Err(ExecError::OutOfGas)
 			},
 			InterruptKind::Ecalli(hostcall_index) => {
 				let Some(import_symbol) = instance
@@ -237,8 +245,7 @@ impl VirtManager {
 					.get(hostcall_index)
 					.filter(|s| s.as_bytes().len() <= MAX_SYSCALL_SYMBOL_LEN)
 				else {
-					self.instances.insert(instance_id, InstanceState::Idle(instance));
-					return Err(ExecError::InvalidImage);
+					return (InstanceState::Idle(instance), Err(ExecError::InvalidImage));
 				};
 				let import_symbol = import_symbol.as_bytes();
 				let mut bytes = [0u8; MAX_SYSCALL_SYMBOL_LEN];
@@ -251,11 +258,13 @@ impl VirtManager {
 				let a3 = instance.reg(Reg::A3);
 				let a4 = instance.reg(Reg::A4);
 				let a5 = instance.reg(Reg::A5);
-				self.instances.insert(instance_id, InstanceState::Running(instance));
-				Ok((
-					ExecStatus::Syscall,
-					ExecBuffer { gas_left, syscall_symbol, a0, a1, a2, a3, a4, a5 },
-				))
+				(
+					InstanceState::Running(instance),
+					Ok((
+						ExecStatus::Syscall,
+						ExecBuffer { gas_left, syscall_symbol, a0, a1, a2, a3, a4, a5 },
+					)),
+				)
 			},
 		}
 	}
