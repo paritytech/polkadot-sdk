@@ -76,7 +76,6 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::{
 	app_crypto::AppCrypto,
 	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedInto},
-	SaturatedConversion,
 };
 use sp_transaction_storage_proof::runtime_api::TransactionStorageApi;
 use std::{marker::PhantomData, ops::Sub, sync::Arc, time::Duration};
@@ -422,14 +421,10 @@ where
 			config.database.path().map(|p| p.to_path_buf()),
 		)?;
 		if let Some(ref pool) = hop_pool {
-			let promoter = sc_hop::try_build_promoter::<Block, _, _>(&client, &transaction_pool);
-			let best_block_client = client.clone();
-			let best_block: Arc<dyn Fn() -> u32 + Send + Sync> =
-				Arc::new(move || best_block_client.info().best_number.saturated_into::<u32>());
-			let task = sc_hop::HopMaintenanceTask::new(
+			let task = sc_hop::build_maintenance_task::<Block, _, _>(
+				&client,
+				&transaction_pool,
 				pool.clone(),
-				promoter,
-				best_block,
 				hop.promotion_buffer_blocks,
 				hop.check_interval,
 			);
