@@ -62,8 +62,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
-		// Sales must have started, otherwise reserve is equivalent.
-		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let region_begin = T::CoretimeMarket::get_region_begin();
 
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
@@ -77,7 +76,7 @@ impl<T: Config> Pallet<T> {
 		// boundary.
 		let status = Status::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let timeslice = status.last_committed_timeslice.saturating_add(1);
-		if timeslice < sale.region_begin {
+		if timeslice < region_begin {
 			Workplan::<T>::insert((timeslice, core), &workload);
 		}
 
@@ -174,10 +173,9 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		core: CoreIndex,
 	) -> Result<DoRenewResult<T>, DispatchError> {
-		// TODO: Try to avoid reading SaleInfo here.
-		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let region_begin = T::CoretimeMarket::get_region_begin();
 
-		let renewal_id = PotentialRenewalId { core, when: sale.region_begin };
+		let renewal_id = PotentialRenewalId { core, when: region_begin };
 		let record = PotentialRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
 		let workload =
 			record.completion.drain_complete().ok_or(Error::<T>::IncompleteAssignment)?;
@@ -558,16 +556,15 @@ impl<T: Config> Pallet<T> {
 		task: TaskId,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
-		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		let region_begin = T::CoretimeMarket::get_region_begin();
+		let region_end = T::CoretimeMarket::get_region_end();
 		let mut core = core;
 
 		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
 		//
 		// In case we renew it now, we don't need to check the workload end since we know it is
 		// eligible for renewal.
-		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: sale.region_begin })
-			.is_some()
-		{
+		if PotentialRenewals::<T>::get(PotentialRenewalId { core, when: region_begin }).is_some() {
 			let DoRenewResult::Renewed { new_core } =
 				Self::do_renew(sovereign_account.clone(), core)?
 			else {
@@ -595,7 +592,7 @@ impl<T: Config> Pallet<T> {
 				AutoRenewalRecord {
 					core,
 					task,
-					next_renewal: workload_end_hint.unwrap_or(sale.region_end),
+					next_renewal: workload_end_hint.unwrap_or(region_end),
 				},
 			)
 		})

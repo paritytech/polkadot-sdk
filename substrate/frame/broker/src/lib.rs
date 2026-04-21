@@ -170,10 +170,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type Status<T> = StorageValue<_, StatusRecord, OptionQuery>;
 
-	/// The details of the current sale, including its properties and status.
-	#[pallet::storage]
-	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecord, OptionQuery>;
-
 	/// Records of potential renewals.
 	///
 	/// Renewals will only actually be allowed if `CompletionStatus` is actually `Complete`.

@@ -137,6 +137,10 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 		now: RelayBlockNumber,
 		weight_meter: &mut WeightMeter,
 	) -> Vec<TickAction<AccountId, Balance, RelayBlockNumber>>;
+
+	// TODO: Remove.
+	fn get_region_begin() -> Timeslice;
+	fn get_region_end() -> Timeslice;
 }
 
 /// Provides information about the range of cores that can be sold on a market.

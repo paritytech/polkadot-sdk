@@ -341,23 +341,24 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		let config = new_config();
 
 		if let Some(timeslice) = Self::TimesliceProvider::next_timeslice_to_commit() {
-			let mut sale = MarketSaleInfoStorage::get();
+			let old_sale = MarketSaleInfoStorage::get();
 			let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core range");
 
-			let sale = MarketSaleInfo {
+			let new_sale = MarketSaleInfo {
 				sale_start: now,
-				region_begin: sale.region_end,
-				region_end: sale.region_end + config.region_length,
+				region_begin: old_sale.region_end,
+				region_end: old_sale.region_end + config.region_length,
 				cores_offered: cores.to - cores.from,
 				first_core: cores.from,
 				cores_sold: 0,
 			};
 
-			MarketSaleInfoStorage::set(sale.clone());
+			MarketSaleInfoStorage::set(new_sale.clone());
 
+			actions.push(TickAction::SaleRotated { old_sale, new_sale: new_sale.clone() });
 			actions.push(TickAction::ProcessAutoRenewals {
-				after_timeslice: sale.region_begin,
-				next_renewal_at: sale.region_end,
+				after_timeslice: new_sale.region_begin,
+				next_renewal_at: new_sale.region_end,
 			})
 		};
 
@@ -372,6 +373,14 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	) -> Result<AdjustBidResult<BalanceOf<Test>>, Self::Error> {
 		unimplemented!()
 	}
+
+	fn get_region_begin() -> Timeslice {
+		MarketSaleInfoStorage::get().region_begin
+	}
+
+	fn get_region_end() -> Timeslice {
+		MarketSaleInfoStorage::get().region_end
+	}
 }
 
 pub fn advance_to(b: u64) {
@@ -383,7 +392,7 @@ pub fn advance_to(b: u64) {
 }
 
 pub fn advance_sale_period() {
-	let sale = SaleInfo::<Test>::get().unwrap();
+	let sale = MarketSaleInfoStorage::get();
 
 	let target_block_number =
 		sale.region_begin as u64 * <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
