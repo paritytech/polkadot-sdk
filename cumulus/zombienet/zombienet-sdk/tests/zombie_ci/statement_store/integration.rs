@@ -7,7 +7,7 @@ use codec::Encode;
 use log::{debug, info};
 use sp_core::Bytes;
 use sp_statement_store::{
-    InvalidReason, RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
+	InvalidReason, RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
