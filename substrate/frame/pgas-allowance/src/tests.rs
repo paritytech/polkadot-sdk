@@ -235,3 +235,45 @@ fn unsigned_delegates_to_inner() {
 		assert!(matches!(val, Val::Inner(_)));
 	});
 }
+
+/// An extension built with `new_skip_pgas` always delegates to the inner extension, even when
+/// the caller holds enough PGAS and the call passes the filter. The native balance pays the
+/// fee and PGAS is untouched.
+#[test]
+fn skip_pgas_always_delegates_to_inner() {
+	let native_initial = 1_000;
+	let pgas_initial = 1_000;
+	ExtBuilder::default()
+		.with_native(vec![(ALICE, native_initial)])
+		.with_pgas(vec![(ALICE, pgas_initial)])
+		.build()
+		.execute_with(|| {
+			let call = pgas_call();
+			let len = 10;
+			let info = info_from_weight(Weight::from_parts(7, 0));
+
+			let fee =
+				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
+			assert!(fee > 0);
+
+			let ext = ChargePGAS::new_skip_pgas(ChargeTransactionPayment::<Runtime>::from(0));
+			let (_, val, _) = <Ext as TransactionExtension<RuntimeCall>>::validate(
+				&ext,
+				Some(ALICE).into(),
+				&call,
+				&info,
+				len,
+				(),
+				&TxBaseImplication((0u8, &call)),
+				sp_runtime::transaction_validity::TransactionSource::External,
+			)
+			.unwrap();
+			assert!(matches!(val, Val::Inner(_)));
+
+			let (_pre, _) =
+				ext.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0).unwrap();
+
+			assert_eq!(Balances::free_balance(ALICE), native_initial - fee);
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
+		});
+}

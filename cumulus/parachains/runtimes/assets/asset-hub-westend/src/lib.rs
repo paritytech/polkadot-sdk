@@ -1796,9 +1796,11 @@ impl EthExtra for EthExtraImpl {
 			pallet_pgas_allowance::ChargePGAS::<
 				Runtime,
 				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
-			>::new(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
-				tip, None,
-			)),
+			>::new_skip_pgas(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+					tip, None,
+				),
+			),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 		)

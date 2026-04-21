@@ -123,6 +123,10 @@ pub mod pallet {
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
 pub struct ChargePGAS<T, S> {
 	inner: S,
+	/// When set, the PGAS path is unconditionally skipped and the extension behaves as a pure
+	/// delegate to `inner`. Skipped in the codec because it can only be set by runtime code
+	#[codec(skip)]
+	skip_pgas: bool,
 	_phantom: core::marker::PhantomData<T>,
 }
 
@@ -135,14 +139,20 @@ impl<T, S: StaticTypeInfo> TypeInfo for ChargePGAS<T, S> {
 
 impl<T, S: Default> Default for ChargePGAS<T, S> {
 	fn default() -> Self {
-		Self { inner: S::default(), _phantom: core::marker::PhantomData }
+		Self { inner: S::default(), skip_pgas: false, _phantom: core::marker::PhantomData }
 	}
 }
 
 impl<T, S> ChargePGAS<T, S> {
 	/// Create a new `ChargePGAS` wrapping the given inner extension.
 	pub fn new(inner: S) -> Self {
-		Self { inner, _phantom: core::marker::PhantomData }
+		Self { inner, skip_pgas: false, _phantom: core::marker::PhantomData }
+	}
+
+	/// Create a new `ChargePGAS` that unconditionally delegates to `inner`, skipping the PGAS
+	/// path entirely.
+	pub fn new_skip_pgas(inner: S) -> Self {
+		Self { inner, skip_pgas: true, _phantom: core::marker::PhantomData }
 	}
 }
 
@@ -209,6 +219,9 @@ where
 
 	fn weight(&self, call: &T::RuntimeCall) -> Weight {
 		let inner = self.inner.weight(call);
+		if self.skip_pgas {
+			return inner;
+		}
 		if T::CallFilter::contains(call) {
 			<T as Config>::WeightInfo::charge_pgas()
 				.max(inner.saturating_add(<T as Config>::WeightInfo::charge_pgas_skip()))
@@ -228,27 +241,34 @@ where
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		// PGAS path: signed origin, call passes the filter, and caller holds at least `fee`.
-		if let Some(who) = origin.as_system_origin_signer().cloned() {
-			if T::CallFilter::contains(call) {
-				let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
-					len as u32,
-					info,
-					Zero::zero(),
-				);
-				let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
-					T::PGASAssetId::get(),
-					&who,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				);
-				if pgas >= fee {
-					let priority =
-						ChargeTransactionPayment::<T>::get_priority(info, len, Zero::zero(), fee);
-					return Ok((
-						ValidTransaction { priority, ..Default::default() },
-						Val::PGAS { who, fee },
-						origin,
-					));
+		// Skipped entirely when the extension was constructed with `new_skip_pgas`.
+		if !self.skip_pgas {
+			if let Some(who) = origin.as_system_origin_signer().cloned() {
+				if T::CallFilter::contains(call) {
+					let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+						len as u32,
+						info,
+						Zero::zero(),
+					);
+					let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
+						T::PGASAssetId::get(),
+						&who,
+						Preservation::Preserve,
+						Fortitude::Polite,
+					);
+					if pgas >= fee {
+						let priority = ChargeTransactionPayment::<T>::get_priority(
+							info,
+							len,
+							Zero::zero(),
+							fee,
+						);
+						return Ok((
+							ValidTransaction { priority, ..Default::default() },
+							Val::PGAS { who, fee },
+							origin,
+						));
+					}
 				}
 			}
 		}
@@ -298,7 +318,7 @@ where
 				Ok(Pre::PGAS { who, credit, weight_refund })
 			},
 			Val::Inner(val) => {
-				let extra_refund = if T::CallFilter::contains(call) {
+				let extra_refund = if !self.skip_pgas && T::CallFilter::contains(call) {
 					// Filter matched, but likely the caller didn't hold enough PGAS, so we fell
 					// back to `S`.
 					let reserved = charge_pgas.max(inner_weight.saturating_add(charge_pgas_skip));
@@ -309,6 +329,7 @@ where
 					};
 					reserved.saturating_sub(consumed)
 				} else {
+					// `skip_pgas` reserved only `inner_weight` in `weight()`, so no extra refund.
 					Weight::zero()
 				};
 				let inner = self.inner.prepare(val, origin, call, info, len)?;
