@@ -1,0 +1,17 @@
+title: 'RPC: add runtime apis metrics'
+doc:
+- audience: Node Dev
+  description: "## Summary\nAdd a metics `substrate_rpc_runtime_api_calls_time` that\
+    \ tracks which runtime APIs are called via `state_call` / `state_callAt` / `chainHead_v1_call`,\
+    \ with per-call latency.\n\n### Metric labels:\n- `runtime_api` \u2014 the runtime\
+    \ API function name (e.g. `ReviveApi_eth_block`, `Metadata_metadata`)\n- `cached`\
+    \ \u2014 \"true\" / \"false\" indicating whether the response was served from\
+    \ the RPC response cache\n\nThe runtime API name is extracted from the JSON-RPC\
+    \ request params in the existing middleware layer.\n\nThis complements `substrate_rpc_calls_time{method=...}`\
+    \ which already tracks per-RPC-method latency but doesn't reveal which runtime\
+    \ API is being invoked when callers use the generic `state_call` (or other mentioned\
+    \ above) pass-through.\n\n## Motivation\n\nWhen debugging node performance issues,\
+    \ it's useful to know which runtime APIs are being called and how often."
+crates:
+- name: sc-rpc-server
+  bump: patch

@@ -39,6 +39,22 @@ pub(crate) static RPC_THREADS_ALIVE: LazyLock<GenericGauge<U64>> = LazyLock::new
 		.expect("Creating of statics doesn't fail. qed")
 });
 
+/// Histogram of runtime API call times via `state_call` / `chainHead_v1_call`.
+///
+/// Shared between the RPC metrics layer (non-cached) and the cache layer (cached hits).
+/// Registered with the prometheus registry in [`RpcMetrics::new`].
+pub(crate) static RUNTIME_API_CALLS_TIME: LazyLock<HistogramVec> = LazyLock::new(|| {
+	HistogramVec::new(
+		HistogramOpts::new(
+			"substrate_rpc_runtime_api_calls_time",
+			"Total time [μs] of runtime API calls via state_call / chainHead_v1_call",
+		)
+		.buckets(HISTOGRAM_BUCKETS.to_vec()),
+		&["runtime_api", "cached"],
+	)
+	.expect("Creating of statics doesn't fail. qed")
+});
+
 /// Histogram time buckets in microseconds.
 const HISTOGRAM_BUCKETS: [f64; 11] = [
 	5.0,
@@ -84,7 +100,7 @@ impl RpcMetrics {
 			metrics_registry.register(Box::new(RPC_THREADS_TOTAL.clone()))?;
 			metrics_registry.register(Box::new(RPC_THREADS_ALIVE.clone()))?;
 
-			Ok(Some(Self {
+			let metrics = Self {
 				calls_time: register(
 					HistogramVec::new(
 						HistogramOpts::new(
@@ -163,7 +179,12 @@ impl RpcMetrics {
 					)?,
 					metrics_registry,
 				)?,
-			}))
+			};
+
+			// Register shared static metric.
+			metrics_registry.register(Box::new(RUNTIME_API_CALLS_TIME.clone()))?;
+
+			Ok(Some(metrics))
 		} else {
 			Ok(None)
 		}
@@ -250,6 +271,15 @@ impl RpcMetrics {
 				if is_rate_limited { "true" } else { "false" },
 			])
 			.inc();
+
+		// Record per-runtime-API timing for state_call / chainHead_v1_call.
+		if rp.is_success() {
+			if let Some(api_name) = extract_runtime_api_name(req) {
+				RUNTIME_API_CALLS_TIME
+					.with_label_values(&[&api_name, "false"])
+					.observe(micros as _);
+			}
+		}
 	}
 }
 
@@ -295,4 +325,23 @@ impl Metrics {
 	) {
 		self.inner.on_response(req, rp, is_rate_limited, self.transport_label, now)
 	}
+}
+
+/// Extract the runtime API function name from `state_call` or `chainHead_v1_call` params.
+///
+/// - `state_call` params: `["RuntimeApi_method", "0x...", ...]`
+/// - `chainHead_v1_call` params: `["follow_sub", "0xhash", "RuntimeApi_method", "0x..."]`
+pub(crate) fn extract_runtime_api_name(req: &Request) -> Option<String> {
+	let idx = match req.method_name() {
+		"state_call" | "state_callAt" => 0,
+		"chainHead_v1_call" => 2,
+		_ => return None,
+	};
+
+	let params_raw = req.params();
+	let params_str = params_raw.as_str()?;
+	let params: Vec<&serde_json::value::RawValue> = serde_json::from_str(params_str).ok()?;
+	let raw = params.get(idx)?;
+	let name: String = serde_json::from_str(raw.get()).ok()?;
+	Some(name)
 }
