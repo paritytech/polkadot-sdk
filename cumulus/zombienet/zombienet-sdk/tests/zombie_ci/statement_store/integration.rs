@@ -203,19 +203,15 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 /// 3. After enforce_limits cleans up the 48 expired statements across 8 accounts,
 /// all nodes converge on the 16 surviving persistent statements
 ///
-/// Test uses sudo-based allowances
+/// Test uses genesis-injected allowances
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	// 16 keypairs
-	let entries: Vec<(u32, StatementAllowance)> = (0..16u32)
-		.map(|i| (i, StatementAllowance { max_count: 100, max_size: 1_000_000 }))
-		.collect();
-	let items = create_allowance_items(&entries);
-	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
+	let network =
+		spawn_network_with_injected_allowances(&["alice", "bob", "charlie", "dave"], 16).await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
