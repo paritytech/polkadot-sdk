@@ -182,9 +182,9 @@ pub(crate) trait BaseNodeSpec {
 				.parachain_id(best_hash)
 				.inspect_err(|err| {
 					log::error!(
-								"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
-								err
-							);
+						"`cumulus_primitives_core::GetParachainInfo` runtime API call errored with {}",
+						err
+					);
 				})
 				.ok()?
 		} else {
@@ -316,6 +316,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
+		_node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
@@ -340,7 +341,10 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 			if parachain_config.network.idle_connection_timeout < IPFS_WORKAROUND_TIMEOUT &&
 				parachain_config.network.ipfs_server
 			{
-				debug!("Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.", parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT);
+				debug!(
+					"Overriding `config.network.idle_connection_timeout` to allow long-lived connections with IPFS nodes. The old value: {:?} is replaced by: {:?}.",
+					parachain_config.network.idle_connection_timeout, IPFS_WORKAROUND_TIMEOUT
+				);
 				parachain_config.network.idle_connection_timeout = IPFS_WORKAROUND_TIMEOUT;
 			}
 
@@ -608,6 +612,7 @@ pub(crate) trait DynNodeSpec: NodeCommandRunner {
 		self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager>;
 
 	/// Start the node.
@@ -629,8 +634,9 @@ where
 		self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_dev_node(config, mode)
+		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
 	}
 
 	fn start_node(
