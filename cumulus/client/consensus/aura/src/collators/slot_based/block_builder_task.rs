@@ -250,7 +250,7 @@ where
 			else {
 				continue;
 			};
-			let scheduling_parent = scheduling_parent_header.hash();
+			let scheduling_parent_hash = scheduling_parent_header.hash();
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
@@ -261,9 +261,11 @@ where
 				.runtime_api()
 				.relay_parent_offset(para_best_hash)
 				.unwrap_or_default();
-			let max_relay_parent_session_age =
-				relay_client.max_relay_parent_session_age(scheduling_parent).await.unwrap_or(0);
-			let Ok(Some(rp_data)) = offset_relay_parent_find_descendants(
+			let max_relay_parent_session_age = relay_client
+				.max_relay_parent_session_age(scheduling_parent_hash)
+				.await
+				.unwrap_or(0);
+			let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				scheduling_parent_header.clone(),
 				relay_parent_offset,
@@ -273,21 +275,20 @@ where
 			else {
 				continue;
 			};
+			let relay_parent_header = relay_parent_data.relay_parent().clone();
+			let relay_parent_hash = relay_parent_header.hash();
 
 			// Use the slot calculated from relay parent
 			let Some(para_slot) = adjust_para_to_relay_parent_slot(
-				rp_data.relay_parent(),
+				&relay_parent_header,
 				relay_chain_slot_duration,
 				para_slot_duration,
 			) else {
 				continue;
 			};
 
-			let relay_parent = rp_data.relay_parent().hash();
-			let relay_parent_header = rp_data.relay_parent().clone();
-
 			let Some(parent_search_result) = crate::collators::find_parent(
-				relay_parent,
+				relay_parent_hash,
 				para_id,
 				&*para_backend,
 				&relay_client,
@@ -311,7 +312,7 @@ where
 				initial_parent_header.number().saturating_sub(*included_header.number());
 
 			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_mut_relay_chain_data(relay_parent)
+				.get_mut_relay_chain_data(relay_parent_hash)
 				.await
 				.map(|d| d.max_pov_size)
 			else {
@@ -338,7 +339,7 @@ where
 				sc_consensus_babe::find_pre_digest::<RelayBlock>(&relay_parent_header)
 					.map(|babe_pre_digest| babe_pre_digest.slot())
 			else {
-				tracing::error!(target: crate::LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
+				tracing::error!(target: LOG_TARGET, "Relay chain does not contain babe slot. This should never happen.");
 				continue;
 			};
 
@@ -363,9 +364,9 @@ where
 			.await
 			else {
 				tracing::debug!(
-					target: crate::LOG_TARGET,
+					target: LOG_TARGET,
 					?unincluded_segment_len,
-					relay_parent = ?relay_parent,
+					relay_parent = ?relay_parent_hash,
 					relay_parent_num = %relay_parent_header.number(),
 					included_hash = ?included_header_hash,
 					included_num = %included_header.number(),
@@ -377,9 +378,9 @@ where
 			};
 
 			tracing::debug!(
-				target: crate::LOG_TARGET,
+				target: LOG_TARGET,
 				?unincluded_segment_len,
-				relay_parent = ?relay_parent,
+				relay_parent = ?relay_parent_hash,
 				relay_parent_num = %relay_parent_header.number(),
 				relay_parent_offset,
 				included_hash = ?included_header_hash,
@@ -419,16 +420,16 @@ where
 				Ok(Some(core)) => core,
 				Ok(None) => {
 					tracing::debug!(
-						target: crate::LOG_TARGET,
-						relay_parent = ?relay_parent,
+						target: LOG_TARGET,
+						relay_parent = ?relay_parent_hash,
 						"No cores scheduled."
 					);
 					continue;
 				},
 				Err(()) => {
 					tracing::error!(
-						target: crate::LOG_TARGET,
-						relay_parent = ?relay_parent,
+						target: LOG_TARGET,
+						relay_parent = ?relay_parent_hash,
 						"Failed to determine cores."
 					);
 
@@ -441,7 +442,7 @@ where
 					Ok(interval) => interval,
 					Err(error) => {
 						tracing::debug!(
-							target: crate::LOG_TARGET,
+							target: LOG_TARGET,
 							block = ?initial_parent_hash,
 							?error,
 							"Failed to fetch `slot_schedule`, assuming one block per core"
@@ -464,7 +465,7 @@ where
 				.collect::<Vec<_>>();
 
 			tracing::debug!(
-				target: crate::LOG_TARGET,
+				target: LOG_TARGET,
 				?blocks_per_cores,
 				core_indices = ?cores.core_indices(),
 				"Core configuration",
@@ -481,7 +482,7 @@ where
 					pov_parent_header,
 					pov_parent_hash,
 					relay_parent_header: &relay_parent_header,
-					relay_parent_hash: relay_parent,
+					relay_parent_hash,
 					max_pov_size,
 					para_id,
 					relay_client: &relay_client,
@@ -498,7 +499,7 @@ where
 					is_last_core_in_parachain_slot: cores.is_last_core() &&
 						slot_time.is_parachain_slot_ending(para_slot_duration.as_duration()),
 					collator_peer_id,
-					relay_parent_data: rp_data.clone(),
+					relay_parent_data: relay_parent_data.clone(),
 					total_number_of_blocks: number_of_blocks,
 					included_header_hash,
 					relay_slot,
@@ -660,7 +661,7 @@ where
 
 	let Some(validation_code_hash) = code_hash_provider.code_hash_at(pov_parent_hash) else {
 		tracing::error!(
-			target: crate::LOG_TARGET,
+			target: LOG_TARGET,
 			?pov_parent_hash,
 			"Could not fetch validation code hash",
 		);
@@ -743,7 +744,7 @@ where
 			.await
 		{
 			Err(err) => {
-				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to create inherent data.");
+				tracing::error!(target: LOG_TARGET, ?err, "Failed to create inherent data.");
 				return Ok(None);
 			},
 			Ok(x) => x,
@@ -801,7 +802,7 @@ where
 			})
 			.await
 		else {
-			tracing::error!(target: crate::LOG_TARGET, "Unable to build block at slot.");
+			tracing::error!(target: LOG_TARGET, "Unable to build block at slot.");
 			return Ok(None);
 		};
 
@@ -824,7 +825,7 @@ where
 		}
 
 		if let Err(error) = collator.import_block(import_block).await {
-			tracing::error!(target: crate::LOG_TARGET, ?error, "Failed to import built block.");
+			tracing::error!(target: LOG_TARGET, ?error, "Failed to import built block.");
 			return Ok(None);
 		}
 
@@ -843,7 +844,7 @@ where
 
 		if full_core_digest || runtime_upgrade_digest {
 			tracing::trace!(
-				target: crate::LOG_TARGET,
+				target: LOG_TARGET,
 				block_hash = ?parent_hash,
 				time_used_by_block_in_secs = %block_production_start.elapsed().as_secs_f32(),
 				%full_core_digest,
@@ -901,7 +902,7 @@ where
 		core_index,
 		validation_data,
 	}) {
-		tracing::error!(target: crate::LOG_TARGET, ?err, "Unable to send block to collation task.");
+		tracing::error!(target: LOG_TARGET, ?err, "Unable to send block to collation task.");
 		Err(())
 	} else {
 		// Now let's sleep for the rest of the core.

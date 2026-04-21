@@ -251,7 +251,17 @@ where
 				},
 			};
 
-		let mut api_version = 0;
+		// We are always using the `api_version` of the parent block. The `api_version` can only
+		// change with a runtime upgrade and this is when we want to observe the old
+		// `api_version`. Because this old `api_version` is the one used to validate this
+		// block. Otherwise, we already assume the `api_version` is higher than what the relay
+		// chain will use and this will lead to validation errors.
+		let api_version = self
+			.runtime_api
+			.runtime_api()
+			.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
+			.ok()
+			.flatten()?;
 		let mut upward_messages = Vec::new();
 		let mut upward_message_signals = Vec::<Vec<u8>>::with_capacity(4);
 		let mut horizontal_messages = Vec::new();
@@ -271,18 +281,6 @@ where
 						"Failed to collect collation info.",
 					)
 				})
-				.ok()
-				.flatten()?;
-
-			// We are always using the `api_version` of the parent block. The `api_version` can only
-			// change with a runtime upgrade and this is when we want to observe the old
-			// `api_version`. Because this old `api_version` is the one used to validate this
-			// block. Otherwise, we already assume the `api_version` is higher than what the relay
-			// chain will use and this will lead to validation errors.
-			api_version = self
-				.runtime_api
-				.runtime_api()
-				.api_version::<dyn CollectCollationInfo<Block>>(parent_header.hash())
 				.ok()
 				.flatten()?;
 
