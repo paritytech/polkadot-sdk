@@ -468,6 +468,57 @@ mod tests {
 		assert!(!is_cacheable("state_unsubscribeStorage"));
 	}
 
+	// --- is_block_hash tests ---
+
+	#[test]
+	fn is_block_hash_valid_lowercase() {
+		assert!(is_block_hash(HASH_66));
+	}
+
+	#[test]
+	fn is_block_hash_valid_uppercase() {
+		assert!(is_block_hash(
+			"0xABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890"
+		));
+	}
+
+	#[test]
+	fn is_block_hash_valid_mixed_case() {
+		assert!(is_block_hash(
+			"0xaBcDeF1234567890abcdef1234567890ABCDEF1234567890abcdef1234567890"
+		));
+	}
+
+	#[test]
+	fn is_block_hash_rejects_too_short() {
+		assert!(!is_block_hash("0xabcd"));
+	}
+
+	#[test]
+	fn is_block_hash_rejects_too_long() {
+		let long = format!("0x{}", "a".repeat(65));
+		assert!(!is_block_hash(&long));
+	}
+
+	#[test]
+	fn is_block_hash_rejects_missing_prefix() {
+		let no_prefix = "a".repeat(66);
+		assert!(!is_block_hash(&no_prefix));
+	}
+
+	#[test]
+	fn is_block_hash_rejects_non_hex() {
+		// 'g' is not a hex character.
+		let bad = format!("0x{}g{}", "a".repeat(31), "b".repeat(32));
+		assert_eq!(bad.len(), 66);
+		assert!(!is_block_hash(&bad));
+	}
+
+	#[test]
+	fn is_block_hash_rejects_empty() {
+		assert!(!is_block_hash(""));
+	}
+
 	// --- parse_and_check_params tests ---
 
 	const HASH_66: &str = "0xf1212766e424bdc1f8f1d2c11ee236cff70ad77cad64d82b7823acc1e682a815";
@@ -616,6 +667,34 @@ mod tests {
 		assert!(cache.get(&1).is_none());
 		assert!(cache.get(&2).is_none());
 		assert_eq!(cache.limiter().current_bytes, 0);
+	}
+
+	#[test]
+	fn on_replace_updates_size_tracking() {
+		let limiter = ByteSizeLimiter::new(10000, None);
+		let mut cache = LruMap::new(limiter);
+
+		// Insert an entry, then replace it with a larger one under the same key.
+		cache.insert(1, cached_response("small".to_string()));
+		assert_eq!(cache.limiter().current_bytes, 5 + OVERHEAD);
+
+		cache.insert(1, cached_response("much_larger_value".to_string()));
+		assert_eq!(cache.limiter().current_bytes, 17 + OVERHEAD);
+		assert_eq!(cache.len(), 1);
+	}
+
+	#[test]
+	fn on_replace_shrinks_size_tracking() {
+		let limiter = ByteSizeLimiter::new(10000, None);
+		let mut cache = LruMap::new(limiter);
+
+		// Insert a large entry, then replace with a smaller one.
+		cache.insert(1, cached_response("a".repeat(500)));
+		assert_eq!(cache.limiter().current_bytes, 500 + OVERHEAD);
+
+		cache.insert(1, cached_response("b".repeat(50)));
+		assert_eq!(cache.limiter().current_bytes, 50 + OVERHEAD);
+		assert_eq!(cache.len(), 1);
 	}
 
 	// --- Cache key ---
@@ -787,6 +866,72 @@ mod tests {
 		// Check cache is empty.
 		let cache = layer.cache.lock();
 		assert_eq!(cache.len(), 0);
+	}
+
+	#[tokio::test]
+	async fn concurrent_cache_access() {
+		let mock = MockService::new();
+		let layer = make_cache_layer(1024 * 1024);
+		let svc = layer.layer(mock.clone());
+
+		let req_json = make_request("state_call", &format!(r#"["method","0xdata","{}"]"#, HASH_66));
+
+		// Prime the cache.
+		let req = serde_json::from_str::<Request>(&req_json).unwrap();
+		svc.call(req).await;
+		assert_eq!(mock.call_count(), 1);
+
+		// Spawn many concurrent requests that should all hit the cache.
+		let mut handles = Vec::new();
+		for _ in 0..50 {
+			let svc = svc.clone();
+			let json = req_json.clone();
+			handles.push(tokio::spawn(async move {
+				let req = serde_json::from_str::<Request>(&json).unwrap();
+				let rp = svc.call(req).await;
+				assert!(rp.is_success());
+			}));
+		}
+		for h in handles {
+			h.await.unwrap();
+		}
+
+		// Inner service should still have been called only once (the initial miss).
+		assert_eq!(mock.call_count(), 1);
+	}
+
+	#[tokio::test]
+	async fn different_block_hashes_cached_separately() {
+		let mock = MockService::new();
+		let layer = make_cache_layer(1024 * 1024);
+		let svc = layer.layer(mock.clone());
+
+		let hash_a = "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+		let hash_b = "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+		let req_a = make_request("state_call", &format!(r#"["method","0xdata","{}"]"#, hash_a));
+		let req_b = make_request("state_call", &format!(r#"["method","0xdata","{}"]"#, hash_b));
+
+		// Miss for hash_a.
+		let req = serde_json::from_str::<Request>(&req_a).unwrap();
+		svc.call(req).await;
+		assert_eq!(mock.call_count(), 1);
+
+		// Miss for hash_b.
+		let req = serde_json::from_str::<Request>(&req_b).unwrap();
+		svc.call(req).await;
+		assert_eq!(mock.call_count(), 2);
+
+		// Hit for hash_a.
+		let req = serde_json::from_str::<Request>(&req_a).unwrap();
+		svc.call(req).await;
+		assert_eq!(mock.call_count(), 2);
+
+		// Hit for hash_b.
+		let req = serde_json::from_str::<Request>(&req_b).unwrap();
+		svc.call(req).await;
+		assert_eq!(mock.call_count(), 2);
+
+		assert_eq!(layer.cache.lock().len(), 2);
 	}
 
 	#[tokio::test]
