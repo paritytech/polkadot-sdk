@@ -35,14 +35,15 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU32, Contains, EitherOf,
-		EitherOfDiverse, EnsureOriginWithArg, InstanceFilter, KeyOwnerProofSystem,
-		LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError, VariantCountOf,
-		WithdrawReasons,
+		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU32, Contains, EitherOfDiverse,
+		EnsureOriginWithArg, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
+		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
 };
+#[cfg(not(feature = "runtime-benchmarks"))]
+use frame_system::EnsureNever;
 use frame_system::{EnsureRoot, EnsureSigned};
 use pallet_grandpa::{fg_primitives, AuthorityId as GrandpaId};
 use pallet_identity::legacy::IdentityInfo;
@@ -141,11 +142,7 @@ pub mod xcm_config;
 mod impls;
 use impls::ToParachainIdentityReaper;
 
-// Governance and configurations.
-pub mod governance;
-use governance::{
-	pallet_custom_origins, AuctionAdmin, FellowshipAdmin, GeneralAdmin, LeaseAdmin, StakingAdmin,
-};
+// XCM configuration.
 use xcm_config::XcmConfig;
 
 #[cfg(test)]
@@ -237,9 +234,7 @@ impl pallet_scheduler::Config for Runtime {
 	type PalletsOrigin = OriginCaller;
 	type RuntimeCall = RuntimeCall;
 	type MaximumWeight = MaximumSchedulerWeight;
-	// The goal of having ScheduleOrigin include AuctionAdmin is to allow the auctions track of
-	// OpenGov to schedule periodic auctions.
-	type ScheduleOrigin = EitherOf<EnsureRoot<AccountId>, AuctionAdmin>;
+	type ScheduleOrigin = EnsureRoot<AccountId>;
 	type MaxScheduledPerBlock = MaxScheduledPerBlock;
 	type WeightInfo = weights::pallet_scheduler::WeightInfo<Runtime>;
 	type OriginPrivilegeCmp = frame_support::traits::EqualPrivilegeOnly;
@@ -683,6 +678,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 		(),
 	>;
 	type BenchmarkingConfig = polkadot_runtime_common::elections::BenchmarkConfig;
+	// TODO: drop once pallet is removed from Westend RC (post-AHM cleanup).
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type ForceOrigin = EnsureNever<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
 	type ForceOrigin = EnsureRoot<AccountId>;
 	type WeightInfo = weights::pallet_election_provider_multi_phase::WeightInfo<Self>;
 	type ElectionBounds = ElectionBounds;
@@ -760,7 +759,11 @@ impl pallet_staking::Config for Runtime {
 	type SessionsPerEra = SessionsPerEra;
 	type BondingDuration = BondingDuration;
 	type SlashDeferDuration = SlashDeferDuration;
-	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	// TODO: drop once pallet is removed from Westend RC (post-AHM cleanup).
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type AdminOrigin = EnsureNever<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type SessionInterface = Self;
 	type EraPayout = EraPayout;
 	type MaxExposurePageSize = MaxExposurePageSize;
@@ -916,6 +919,10 @@ impl pallet_fast_unstake::Config for Runtime {
 	type Currency = Balances;
 	type BatchSize = frame_support::traits::ConstU32<64>;
 	type Deposit = frame_support::traits::ConstU128<{ UNITS }>;
+	// TODO: drop once pallet is removed from Westend RC (post-AHM cleanup).
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type ControlOrigin = EnsureNever<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
 	type ControlOrigin = EnsureRoot<AccountId>;
 	type Staking = Staking;
 	type MaxErasToCheckPerBlock = ConstU32<1>;
@@ -1089,8 +1096,8 @@ impl pallet_identity::Config for Runtime {
 	type MaxSubAccounts = MaxSubAccounts;
 	type IdentityInformation = IdentityInfo<MaxAdditionalFields>;
 	type MaxRegistrars = MaxRegistrars;
-	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
-	type RegistrarOrigin = EitherOf<EnsureRoot<Self::AccountId>, GeneralAdmin>;
+	type ForceOrigin = EnsureRoot<Self::AccountId>;
+	type RegistrarOrigin = EnsureRoot<Self::AccountId>;
 	type OffchainSignature = Signature;
 	type SigningPublicKey = <Signature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<Self::AccountId>;
@@ -1233,9 +1240,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Grandpa(..) |
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
-				RuntimeCall::ConvictionVoting(..) |
-				RuntimeCall::Referenda(..) |
-				RuntimeCall::Whitelist(..) |
 				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..}) |
 				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..}) |
 				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..}) |
@@ -1282,13 +1286,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Utility(..) => true,
 				_ => false,
 			},
-			ProxyType::Governance => matches!(
-				c,
-				// OpenGov calls
-				RuntimeCall::ConvictionVoting(..) |
-					RuntimeCall::Referenda(..) |
-					RuntimeCall::Whitelist(..)
-			),
+			// Governance has moved to AssetHub post-AHM; no calls to proxy.
+			ProxyType::Governance => false,
 			ProxyType::IdentityJudgement => matches!(
 				c,
 				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
@@ -1382,6 +1381,7 @@ impl parachains_paras::Config for Runtime {
 	type CooldownRemovalMultiplier = ConstUint<{ 1000 * UNITS / DAYS as u128 }>;
 	type AuthorizeCurrentCodeOrigin = EitherOfDiverse<
 		EnsureRoot<AccountId>,
+		// TODO: is DDay plurality still used / needed post-governance removal?
 		// Collectives DDay plurality mapping.
 		AsEnsureOriginWithArg<
 			EnsureXcm<IsVoiceOfBody<xcm_config::Collectives, xcm_config::DDayBodyId>>,
@@ -1584,7 +1584,7 @@ impl slots::Config for Runtime {
 	type Registrar = Registrar;
 	type LeasePeriod = LeasePeriod;
 	type LeaseOffset = ();
-	type ForceOrigin = EitherOf<EnsureRoot<Self::AccountId>, LeaseAdmin>;
+	type ForceOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::polkadot_runtime_common_slots::WeightInfo<Runtime>;
 }
 
@@ -1624,7 +1624,7 @@ impl auctions::Config for Runtime {
 	type EndingPeriod = EndingPeriod;
 	type SampleLength = SampleLength;
 	type Randomness = pallet_babe::RandomnessFromOneEpochAgo<Runtime>;
-	type InitiateOrigin = EitherOf<EnsureRoot<Self::AccountId>, AuctionAdmin>;
+	type InitiateOrigin = EnsureRoot<Self::AccountId>;
 	type WeightInfo = weights::polkadot_runtime_common_auctions::WeightInfo<Runtime>;
 }
 
@@ -1656,7 +1656,11 @@ impl pallet_nomination_pools::Config for Runtime {
 	type MaxUnbonding = <Self as pallet_staking::Config>::MaxUnlockingChunks;
 	type PalletId = PoolsPalletId;
 	type MaxPointsToBalance = MaxPointsToBalance;
-	type AdminOrigin = EitherOf<EnsureRoot<AccountId>, StakingAdmin>;
+	// TODO: drop once pallet is removed from Westend RC (post-AHM cleanup).
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type AdminOrigin = EnsureNever<AccountId>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type AdminOrigin = EnsureRoot<AccountId>;
 	type BlockNumberProvider = System;
 	type Filter = Nothing;
 }
@@ -1856,15 +1860,7 @@ mod runtime {
 	#[runtime::pallet_index(30)]
 	pub type FastUnstake = pallet_fast_unstake;
 
-	// OpenGov
-	#[runtime::pallet_index(31)]
-	pub type ConvictionVoting = pallet_conviction_voting;
-	#[runtime::pallet_index(32)]
-	pub type Referenda = pallet_referenda;
-	#[runtime::pallet_index(35)]
-	pub type Origins = pallet_custom_origins;
-	#[runtime::pallet_index(36)]
-	pub type Whitelist = pallet_whitelist;
+	// Indices 31, 32, 35, 36 permanently unused (OpenGov removed post-AHM).
 
 	// Staking extension for delegation
 	#[runtime::pallet_index(38)]
@@ -2003,6 +1999,10 @@ pub mod migrations {
 
 	parameter_types! {
 		pub const TreasuryPalletStr: &'static str = "Treasury";
+		pub const ConvictionVotingPalletStr: &'static str = "ConvictionVoting";
+		pub const ReferendaPalletStr: &'static str = "Referenda";
+		pub const OriginsPalletStr: &'static str = "Origins";
+		pub const WhitelistPalletStr: &'static str = "Whitelist";
 	}
 
 	/// Unreleased migrations. Add new ones here:
@@ -2028,6 +2028,23 @@ pub mod migrations {
 		pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		// OpenGov removal: clear orphaned storage for governance pallets.
+		frame_support::migrations::RemovePallet<
+			ConvictionVotingPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			ReferendaPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			OriginsPalletStr,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
+		frame_support::migrations::RemovePallet<
+			WhitelistPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
 		// permanent
@@ -2079,7 +2096,6 @@ mod benches {
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_beefy_mmr, BeefyMmrLeaf]
-		[pallet_conviction_voting, ConvictionVoting]
 		[pallet_election_provider_multi_phase, ElectionProviderMultiPhase]
 		[frame_election_provider_support, ElectionProviderBench::<Runtime>]
 		[pallet_fast_unstake, FastUnstake]
@@ -2095,7 +2111,6 @@ mod benches {
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
 		[pallet_recovery, Recovery]
-		[pallet_referenda, Referenda]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
@@ -2106,7 +2121,6 @@ mod benches {
 		[pallet_transaction_payment, TransactionPayment]
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
-		[pallet_whitelist, Whitelist]
 		[pallet_asset_rate, AssetRate]
 		[pallet_dap_satellite, DapSatellite]
 		// XCM
