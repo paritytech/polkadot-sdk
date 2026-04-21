@@ -2776,7 +2776,8 @@ fn deposit_limit_in_nested_instantiate() {
 		let storage_len = 50u32;
 		let caller_deposit = 2 + 48 + storage_len as u128;
 		let callee_deposit = callee_min_deposit + storage_len as u128;
-		let callee_eip_150_peak = (callee_deposit * DENOMINATOR as u128).div_ceil(NUMERATOR as u128);
+		let callee_eip_150_peak =
+			(callee_deposit * DENOMINATOR as u128).div_ceil(NUMERATOR as u128);
 		let caller_total_deposit = callee_eip_150_peak + caller_deposit;
 		let eip_150_retained = (callee_eip_150_peak + NUMERATOR as u128) / DENOMINATOR as u128;
 		assert!(

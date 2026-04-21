@@ -1381,7 +1381,10 @@ fn substrate_nesting_with_large_deposit_and_max_gas_request() {
 
 			let weight_left_before = root_meter.weight_left().unwrap();
 			let nested = root_meter
-				.new_nested(&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false }, eip_150::Rule::Skip)
+				.new_nested(
+					&CallResources::Ethereum { gas: u64::MAX as _, add_stipend: false },
+					eip_150::Rule::Skip,
+				)
 				.unwrap();
 
 			let nested_weight_left = nested.weight_left().unwrap();
