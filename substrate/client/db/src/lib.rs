@@ -2249,8 +2249,14 @@ fn apply_index_ops<Block: BlockT>(
 			},
 		}
 	}
+	let mut n_inserted = 0usize;
+	let mut n_renew_slots = 0usize;
+	let mut n_renew_hashes = 0usize;
+	let mut n_full = 0usize;
 	for (index, extrinsic) in body.into_iter().enumerate() {
-		let db_extrinsic = if let Some(hashes) = renewed_map.get(&(index as u32)) {
+		let db_extrinsic = if let Some(hashes) = renewed_map.remove(&(index as u32)) {
+			n_renew_slots += 1;
+			n_renew_hashes += hashes.len();
 			let encoded = extrinsic.encode();
 			if hashes.len() == 1 {
 				// Single renewal: backwards-compatible Indexed variant
@@ -2258,16 +2264,17 @@ fn apply_index_ops<Block: BlockT>(
 				DbExtrinsic::Indexed { hash: hashes[0], header: encoded }
 			} else {
 				// Multi-renewal: bump ref counter for each hash
-				for hash in hashes {
+				for hash in &hashes {
 					transaction.reference(columns::TRANSACTION, *hash);
 				}
-				DbExtrinsic::MultiRenew { hashes: hashes.clone(), extrinsic: encoded }
+				DbExtrinsic::MultiRenew { hashes, extrinsic: encoded }
 			}
 		} else {
 			match index_map.get(&(index as u32)) {
 				Some((hash, size)) => {
 					let encoded = extrinsic.encode();
 					if *size as usize <= encoded.len() {
+						n_inserted += 1;
 						let offset = encoded.len() - *size as usize;
 						transaction.store(
 							columns::TRANSACTION,
@@ -2280,20 +2287,25 @@ fn apply_index_ops<Block: BlockT>(
 						}
 					} else {
 						// Invalid indexed slice. Just store full data and don't index anything.
+						n_full += 1;
 						DbExtrinsic::Full(extrinsic)
 					}
 				},
-				_ => DbExtrinsic::Full(extrinsic),
+				_ => {
+					n_full += 1;
+					DbExtrinsic::Full(extrinsic)
+				},
 			}
 		};
 		extrinsic_index.push(db_extrinsic);
 	}
 	debug!(
 		target: "db",
-		"DB transaction index: {} inserted, {} renewed, {} full",
-		index_map.len(),
-		renewed_map.len(),
-		extrinsic_index.len() - index_map.len() - renewed_map.len(),
+		"DB transaction index: {} inserted, {} slots renewed ({} hashes), {} full",
+		n_inserted,
+		n_renew_slots,
+		n_renew_hashes,
+		n_full,
 	);
 	extrinsic_index.encode()
 }
