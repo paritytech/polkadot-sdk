@@ -5,4 +5,4 @@ doc:
     Post-AHM cleanup following #11796. The DDay plurality origin in `AuthorizeCurrentCodeOrigin` is no longer needed since governance lives on AssetHub. Simplified to `EnsureRoot`.
 crates:
 - name: westend-runtime
-  bump: patch
+  bump: major
