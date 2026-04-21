@@ -493,11 +493,8 @@ where
 		call: &IAssetConversion::getReservesCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		// Same weight rationale as quote functions: charge swap weight for path length 2.
 		env.charge(
-			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
-				2,
-			),
+			<Runtime as pallet_asset_conversion::Config>::WeightInfo::get_reserves(),
 		)?;
 
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
