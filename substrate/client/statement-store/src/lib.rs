@@ -1416,7 +1416,11 @@ impl StatementStore for Store {
 					"Account {} has no statement allowance set",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+				let reason = RejectionReason::NoAllowance;
+				self.metrics.report(|metrics| {
+					metrics.rejections.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Rejected(reason);
 			},
 			Err(e) => {
 				log::debug!(
