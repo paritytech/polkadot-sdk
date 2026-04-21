@@ -22,7 +22,7 @@
 use core::marker::PhantomData;
 use frame_support::{
 	traits::Get,
-	weights::{Weight, constants::RocksDbWeight},
+	weights::{constants::RocksDbWeight, Weight},
 };
 
 /// Weight functions needed for `pallet_pgas_allowance`.
