@@ -29,7 +29,7 @@ use frame_support::{
 			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
 			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 		},
-		Get, UncheckedOnRuntimeUpgrade,
+		Get,
 	},
 };
 use remote_externalities::{Builder, Mode, OfflineConfig, OnlineConfig, SnapshotConfig};
@@ -80,14 +80,14 @@ struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
 
 /// Create pUSD if needed, configure PSM, and fund test accounts.
 /// Must be called inside `execute_with`.
-fn setup<Runtime, MigrationConfig>(config: &PsmTestConfig) -> TestEnv<Runtime>
+fn setup<Runtime, InitialPsmConfig>(config: &PsmTestConfig) -> TestEnv<Runtime>
 where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Runtime::AssetId: From<u32>,
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
+	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	let asset_id: Runtime::AssetId = config.external_asset_id.into();
 	let stable_asset_id: Runtime::AssetId = config.stable_asset_id.into();
@@ -153,8 +153,9 @@ where
 		stable_decimals, external_decimals,
 	);
 
-	// Run the V1 migration to initialize PSM.
-	pallet_psm::migrations::v1::UncheckedMigrateToV1::<Runtime, MigrationConfig>::on_runtime_upgrade();
+	// Initialize PSM parameters (idempotent — skips already-configured assets).
+	<pallet_psm::migrations::init::InitializePsm::<Runtime, InitialPsmConfig> as
+		frame_support::traits::OnRuntimeUpgrade>::on_runtime_upgrade();
 
 	// Fund test account.
 	let caller: Runtime::AccountId =
@@ -223,7 +224,7 @@ pub fn clear_ext() {
 /// 2. Mints pUSD by depositing the external stablecoin
 /// 3. Redeems pUSD back for the external stablecoin
 /// 4. Verifies balances, debt tracking, and fee accounting
-pub fn mint_and_redeem<Runtime, Block, MigrationConfig>(
+pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfig,
 ) where
@@ -233,11 +234,11 @@ pub fn mint_and_redeem<Runtime, Block, MigrationConfig>(
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
+	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
 		let TestEnv { asset_id, caller, psm_account, swap_amount } =
-			setup::<Runtime, MigrationConfig>(config);
+			setup::<Runtime, InitialPsmConfig>(config);
 
 		let balance_before = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 			asset_id, &caller,
@@ -327,7 +328,7 @@ pub fn mint_and_redeem<Runtime, Block, MigrationConfig>(
 /// 2. Activates circuit breaker to `MintingDisabled` — verifies mint fails, redeem works
 /// 3. Activates circuit breaker to `AllDisabled` — verifies both mint and redeem fail
 /// 4. Deactivates circuit breaker — verifies both operations resume
-pub fn circuit_breaker<Runtime, Block, MigrationConfig>(
+pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
 	config: &PsmTestConfig,
 ) where
@@ -337,11 +338,11 @@ pub fn circuit_breaker<Runtime, Block, MigrationConfig>(
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
-	MigrationConfig: pallet_psm::migrations::v1::InitialPsmConfig<Runtime>,
+	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
 		let TestEnv { asset_id, caller, swap_amount, .. } =
-			setup::<Runtime, MigrationConfig>(config);
+			setup::<Runtime, InitialPsmConfig>(config);
 
 		// Mint some pUSD first so we have something to redeem later.
 		assert_ok!(pallet_psm::Pallet::<Runtime>::mint(
