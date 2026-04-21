@@ -16,6 +16,11 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 echo "::group::Clone try-runtime-cli ${VERSION}"
 git clone --depth 1 --branch "${VERSION}" \
     https://github.com/paritytech/try-runtime-cli.git "$WORK_DIR/try-runtime-cli"
+# try-runtime-cli ships a rust-toolchain.toml that pins `channel = "stable"`.
+# Building try-runtime-cli against polkadot-sdk only needs whatever stable is already
+# installed in the image, so drop the pin and use the preinstalled toolchain as-is.
+rm -f "$WORK_DIR/try-runtime-cli/rust-toolchain.toml" \
+      "$WORK_DIR/try-runtime-cli/rust-toolchain"
 echo "::endgroup::"
 
 echo "::group::Generate Cargo patches"
