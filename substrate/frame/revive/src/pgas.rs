@@ -20,7 +20,7 @@
 //! Revive can back storage deposits either with the native currency (DOT-convertible) or with
 //! PGAS. The [`PgasBackend`] trait abstracts PGAS access so the pallet does not depend on any
 //! particular fungibles implementation. Runtimes without PGAS leave the default `()` binding,
-//! which reports a zero balance and rejects any withdrawal: the DOT path is then used for every
+//! which reports a zero balance and rejects any transfer: the DOT path is then used for every
 //! deposit, matching pre-PGAS behaviour.
 
 use crate::{BalanceOf, Config, Error};
@@ -28,13 +28,10 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::traits::{
 	Get,
-	tokens::{
-		Fortitude, Precision, Preservation,
-		fungibles::{self, Credit},
-	},
+	tokens::{Fortitude, Precision, Preservation, fungibles},
 };
 use scale_info::TypeInfo;
-use sp_runtime::{DispatchError, traits::Zero};
+use sp_runtime::{DispatchError, DispatchResult, traits::Zero};
 
 /// Which asset paid for a deposit.
 ///
@@ -57,7 +54,7 @@ use sp_runtime::{DispatchError, traits::Zero};
 pub enum DepositAsset {
 	/// Native, DOT-convertible asset (the pre-PGAS default).
 	DotConvertible,
-	/// PGAS — cannot be refunded as DOT-convertible value.
+	/// PGAS, cannot be refunded as DOT-convertible value.
 	Pgas,
 }
 
@@ -69,67 +66,40 @@ impl Default for DepositAsset {
 
 /// Abstraction over the PGAS asset used to back storage deposits.
 ///
-/// The trait deals in credits so PGAS never has to be routed through an intermediate account:
-/// [`withdraw`](Self::withdraw) takes balance from a user as a credit, and
-/// [`resolve`](Self::resolve) deposits that credit into another account (the contract or the
-/// pallet account).
+/// Runtimes without PGAS leave the default `()` binding, which reports a zero balance and
+/// rejects any transfer.
 pub trait PgasBackend<T: Config> {
-	/// Credit type produced by [`Self::withdraw`] and consumed by [`Self::resolve`].
-	type Credit;
+	/// The PGAS balance of `who` that can be transferred out while keeping the account alive.
+	fn balance(who: &T::AccountId) -> BalanceOf<T>;
 
-	/// Amount of PGAS `who` can currently spend without being reaped.
-	fn reducible(who: &T::AccountId) -> BalanceOf<T>;
-
-	/// Amount of PGAS `who` can give up in full, even if the account is reaped.
+	/// Transfer `amount` of PGAS from `from` to `to`.
 	///
-	/// Used on contract termination to drain the contract's PGAS balance before the account is
-	/// removed.
-	fn drainable(who: &T::AccountId) -> BalanceOf<T>;
-
-	/// Withdraw `amount` PGAS from `who` as a credit.
-	fn withdraw(who: &T::AccountId, amount: BalanceOf<T>) -> Result<Self::Credit, DispatchError>;
-
-	/// Withdraw `amount` PGAS from `who` allowing the account to be reaped.
-	///
-	/// Used on contract termination alongside [`Self::drainable`].
-	fn withdraw_expendable(
-		who: &T::AccountId,
+	/// `preservation` controls whether `from` may be reaped by the transfer. Termination uses
+	/// [`Preservation::Expendable`] to drain the contract's PGAS balance before the account is
+	/// removed; regular charges/refunds use [`Preservation::Preserve`].
+	fn transfer(
+		from: &T::AccountId,
+		to: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Result<Self::Credit, DispatchError>;
-
-	/// Resolve `credit` into `who`'s account.
-	///
-	/// On failure returns the unresolved credit so the caller can merge or drop it.
-	fn resolve(who: &T::AccountId, credit: Self::Credit) -> Result<(), Self::Credit>;
+		preservation: Preservation,
+	) -> DispatchResult;
 }
 
 /// No-op PGAS backend used when a runtime does not enable PGAS-backed deposits.
 ///
-/// [`Self::reducible`] always reports zero, so the charge path never selects PGAS.
+/// [`Self::balance`] always reports zero, so the charge path never selects PGAS.
 impl<T: Config> PgasBackend<T> for () {
-	type Credit = ();
-
-	fn reducible(_: &T::AccountId) -> BalanceOf<T> {
+	fn balance(_: &T::AccountId) -> BalanceOf<T> {
 		Zero::zero()
 	}
 
-	fn drainable(_: &T::AccountId) -> BalanceOf<T> {
-		Zero::zero()
-	}
-
-	fn withdraw(_: &T::AccountId, _: BalanceOf<T>) -> Result<Self::Credit, DispatchError> {
-		Err(Error::<T>::StorageDepositNotEnoughFunds.into())
-	}
-
-	fn withdraw_expendable(
+	fn transfer(
+		_: &T::AccountId,
 		_: &T::AccountId,
 		_: BalanceOf<T>,
-	) -> Result<Self::Credit, DispatchError> {
+		_: Preservation,
+	) -> DispatchResult {
 		Err(Error::<T>::StorageDepositNotEnoughFunds.into())
-	}
-
-	fn resolve(_: &T::AccountId, _: Self::Credit) -> Result<(), Self::Credit> {
-		Ok(())
 	}
 }
 
@@ -145,9 +115,7 @@ where
 	Assets: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>>,
 	Id: Get<<Assets as fungibles::Inspect<T::AccountId>>::AssetId>,
 {
-	type Credit = Credit<T::AccountId, Assets>;
-
-	fn reducible(who: &T::AccountId) -> BalanceOf<T> {
+	fn balance(who: &T::AccountId) -> BalanceOf<T> {
 		<Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
 			Id::get(),
 			who,
@@ -156,41 +124,23 @@ where
 		)
 	}
 
-	fn drainable(who: &T::AccountId) -> BalanceOf<T> {
-		<Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
-			Id::get(),
-			who,
-			Preservation::Expendable,
-			Fortitude::Polite,
-		)
-	}
-
-	fn withdraw(who: &T::AccountId, amount: BalanceOf<T>) -> Result<Self::Credit, DispatchError> {
-		<Assets as fungibles::Balanced<T::AccountId>>::withdraw(
-			Id::get(),
-			who,
-			amount,
-			Precision::Exact,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		)
-	}
-
-	fn withdraw_expendable(
-		who: &T::AccountId,
+	fn transfer(
+		from: &T::AccountId,
+		to: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Result<Self::Credit, DispatchError> {
-		<Assets as fungibles::Balanced<T::AccountId>>::withdraw(
+		preservation: Preservation,
+	) -> DispatchResult {
+		let credit = <Assets as fungibles::Balanced<T::AccountId>>::withdraw(
 			Id::get(),
-			who,
+			from,
 			amount,
 			Precision::Exact,
-			Preservation::Expendable,
+			preservation,
 			Fortitude::Polite,
-		)
-	}
-
-	fn resolve(who: &T::AccountId, credit: Self::Credit) -> Result<(), Self::Credit> {
-		<Assets as fungibles::Balanced<T::AccountId>>::resolve(who, credit)
+		)?;
+		<Assets as fungibles::Balanced<T::AccountId>>::resolve(to, credit).map_err(|_| {
+			DispatchError::Other("pallet-revive: failed to resolve PGAS credit")
+		})?;
+		Ok(())
 	}
 }

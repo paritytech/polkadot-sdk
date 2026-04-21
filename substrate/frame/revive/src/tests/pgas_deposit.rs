@@ -19,11 +19,11 @@
 //!
 //! The `Test` runtime binds `PgasBackend = ()`, so every charge/refund path deterministically
 //! exercises the DOT fallback. These tests pin down the bookkeeping around
-//! [`DotConvertibleByContractUser`], `historic_deposit` and the termination prefix-clear.
+//! [`DotByContractUser`], `historic_deposit` and the termination prefix-clear.
 
 use crate::{
 	AccountInfo, AccountInfoOf, AccountType, Config, ContractInfo, DepositAsset,
-	DotConvertibleByContractUser, ExecConfig, HoldReason, Pallet,
+	DotByContractUser, ExecConfig, HoldReason, Pallet,
 	test_utils::*,
 	tests::{ExtBuilder, Test, test_utils::get_balance_on_hold},
 };
@@ -59,6 +59,27 @@ fn historic_deposit_of(address: &H160) -> u128 {
 	}
 }
 
+fn charge_storage(origin: &sp_runtime::AccountId32, contract: &sp_runtime::AccountId32, amount: u128) {
+	assert_ok!(Pallet::<Test>::charge_deposit(
+		Some(HoldReason::StorageDepositReserve),
+		origin,
+		contract,
+		amount,
+		&ExecConfig::<Test>::new_substrate_tx(),
+	));
+}
+
+fn refund_storage(origin: &sp_runtime::AccountId32, contract: &sp_runtime::AccountId32, amount: u128) {
+	assert_ok!(Pallet::<Test>::refund_deposit(
+		HoldReason::StorageDepositReserve,
+		contract,
+		origin,
+		amount,
+		DepositAsset::DotConvertible,
+		Some(&ExecConfig::<Test>::new_substrate_tx()),
+	));
+}
+
 #[test]
 fn charge_storage_deposit_takes_dot_and_records_entitlement() {
 	ExtBuilder::default().build().execute_with(|| {
@@ -70,18 +91,13 @@ fn charge_storage_deposit_takes_dot_and_records_entitlement() {
 		<Test as Config>::Currency::set_balance(&origin, 10_000);
 		<Test as Config>::Currency::set_balance(&contract_account, 1);
 
-		assert_ok!(Pallet::<Test>::charge_storage_deposit(
-			&origin,
-			&contract_account,
-			amount,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		charge_storage(&origin, &contract_account, amount);
 
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract_account),
 			amount,
 		);
-		assert_eq!(DotConvertibleByContractUser::<Test>::get(&contract_address, &origin), amount,);
+		assert_eq!(DotByContractUser::<Test>::get(&contract_address, &origin), amount,);
 	});
 }
 
@@ -99,23 +115,13 @@ fn refund_storage_deposit_consumes_historic_deposit_first() {
 
 		insert_contract_with_historic(contract_address, historic);
 
-		assert_ok!(Pallet::<Test>::charge_storage_deposit(
-			&origin,
-			&contract_account,
-			charge,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		charge_storage(&origin, &contract_account, charge);
 
 		// Refund `historic` worth: historic_deposit must absorb it all, entitlement untouched.
-		assert_ok!(Pallet::<Test>::refund_storage_deposit(
-			&origin,
-			&contract_account,
-			historic,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		refund_storage(&origin, &contract_account, historic);
 
 		assert_eq!(historic_deposit_of(&contract_address), 0);
-		assert_eq!(DotConvertibleByContractUser::<Test>::get(&contract_address, &origin), charge,);
+		assert_eq!(DotByContractUser::<Test>::get(&contract_address, &origin), charge,);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract_account),
 			charge - historic,
@@ -138,25 +144,15 @@ fn refund_storage_deposit_spills_to_dot_convertible_after_historic() {
 
 		insert_contract_with_historic(contract_address, historic);
 
-		assert_ok!(Pallet::<Test>::charge_storage_deposit(
-			&origin,
-			&contract_account,
-			charge,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		charge_storage(&origin, &contract_account, charge);
 
-		assert_ok!(Pallet::<Test>::refund_storage_deposit(
-			&origin,
-			&contract_account,
-			refund,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		refund_storage(&origin, &contract_account, refund);
 
 		// historic drained first, remainder taken from the per-user entitlement.
 		assert_eq!(historic_deposit_of(&contract_address), 0);
 		let spill = refund - historic;
 		assert_eq!(
-			DotConvertibleByContractUser::<Test>::get(&contract_address, &origin),
+			DotByContractUser::<Test>::get(&contract_address, &origin),
 			charge - spill,
 		);
 		assert_eq!(
@@ -177,74 +173,15 @@ fn refund_storage_deposit_removes_entry_when_exhausted() {
 		<Test as Config>::Currency::set_balance(&origin, 10_000);
 		<Test as Config>::Currency::set_balance(&contract_account, 1);
 
-		assert_ok!(Pallet::<Test>::charge_storage_deposit(
-			&origin,
-			&contract_account,
-			charge,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		charge_storage(&origin, &contract_account, charge);
 
-		assert_ok!(Pallet::<Test>::refund_storage_deposit(
-			&origin,
-			&contract_account,
-			charge,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
+		refund_storage(&origin, &contract_account, charge);
 
-		assert!(!DotConvertibleByContractUser::<Test>::contains_key(&contract_address, &origin,));
+		assert!(!DotByContractUser::<Test>::contains_key(&contract_address, &origin,));
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract_account),
 			0,
 		);
-	});
-}
-
-#[test]
-fn terminate_storage_deposit_clears_prefix_for_contract() {
-	ExtBuilder::default().build().execute_with(|| {
-		let contract_account = CHARLIE;
-		let contract_address = CHARLIE_ADDR;
-		let alice_deposit: u128 = 500;
-		let bob_deposit: u128 = 300;
-
-		<Test as Config>::Currency::set_balance(&ALICE, 10_000);
-		<Test as Config>::Currency::set_balance(&BOB, 10_000);
-		<Test as Config>::Currency::set_balance(&contract_account, 1);
-
-		assert_ok!(Pallet::<Test>::charge_storage_deposit(
-			&ALICE,
-			&contract_account,
-			alice_deposit,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
-		assert_ok!(Pallet::<Test>::charge_storage_deposit(
-			&BOB,
-			&contract_account,
-			bob_deposit,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		));
-
-		let total = alice_deposit + bob_deposit;
-		assert_eq!(
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract_account),
-			total,
-		);
-
-		// The termination refunds everything back to ALICE (a single origin) and clears the
-		// entire double-map prefix for the contract, regardless of who contributed.
-		let refunded = Pallet::<Test>::terminate_storage_deposit(
-			&ALICE,
-			&contract_account,
-			&ExecConfig::<Test>::new_substrate_tx(),
-		)
-		.unwrap();
-
-		assert_eq!(refunded, total);
-		assert_eq!(
-			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract_account),
-			0,
-		);
-		assert_eq!(DotConvertibleByContractUser::<Test>::iter_prefix(&contract_address).count(), 0,);
 	});
 }
 
@@ -258,8 +195,10 @@ fn charge_code_upload_deposit_returns_dot_convertible_on_dot_path() {
 		<Test as Config>::Currency::set_balance(&owner, 10_000);
 
 		let before = get_balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet);
-		let asset = Pallet::<Test>::charge_code_upload_deposit(
+		let asset = Pallet::<Test>::charge_deposit(
+			Some(HoldReason::CodeUploadDepositReserve),
 			&owner,
+			&pallet,
 			amount,
 			&ExecConfig::<Test>::new_substrate_tx(),
 		)
@@ -271,10 +210,13 @@ fn charge_code_upload_deposit_returns_dot_convertible_on_dot_path() {
 			before + amount,
 		);
 
-		assert_ok!(Pallet::<Test>::refund_code_upload_deposit(
+		assert_ok!(Pallet::<Test>::refund_deposit(
+			HoldReason::CodeUploadDepositReserve,
+			&pallet,
 			&owner,
 			amount,
 			DepositAsset::DotConvertible,
+			None,
 		));
 
 		assert_eq!(

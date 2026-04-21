@@ -108,7 +108,7 @@ pub struct ContractInfo<T: Config> {
 	/// Pre-PGAS deposit balance treated as DOT-convertible for refund purposes.
 	///
 	/// Seeded by the PGAS migration with the contract's total deposit at upgrade time. Consumed
-	/// before [`DotConvertibleByContractUser`](crate::pallet::DotConvertibleByContractUser) on
+	/// before [`DotByContractUser`](crate::pallet::DotByContractUser) on
 	/// refund, because the historic deposit predates PGAS and is known to be DOT-backed.
 	/// New contracts start at zero.
 	pub historic_deposit: BalanceOf<T>,

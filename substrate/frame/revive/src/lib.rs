@@ -696,7 +696,7 @@ pub mod pallet {
 	/// storage deposit. Any refund in excess is returned as PGAS. Missing entries mean zero:
 	/// the user has only ever paid this contract's storage in PGAS (or not at all).
 	#[pallet::storage]
-	pub(crate) type DotConvertibleByContractUser<T: Config> = StorageDoubleMap<
+	pub(crate) type DotByContractUser<T: Config> = StorageDoubleMap<
 		_,
 		Identity,
 		H160,
@@ -2626,17 +2626,29 @@ impl<T: Config> Pallet<T> {
 	///
 	/// `from` is usually the transaction origin and `to` a contract or
 	/// the pallets own account.
+	///
+	/// When `hold_reason` is `Some` the charge is a deposit and PGAS is tried first: if `from`
+	/// can cover the full amount in PGAS, the deposit is taken in PGAS instead of the native
+	/// currency. The returned [`DepositAsset`] reflects which asset ultimately paid. For
+	/// `StorageDepositReserve` the DOT-backed portion is additionally recorded in
+	/// [`DotByContractUser`] so refunds can return the same asset.
 	fn charge_deposit(
 		hold_reason: Option<HoldReason>,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
 		exec_config: &ExecConfig<T>,
-	) -> DispatchResult {
+	) -> Result<DepositAsset, DispatchError> {
 		use frame_support::traits::tokens::{Fortitude, Precision, Preservation};
 
 		if amount.is_zero() {
-			return Ok(());
+			return Ok(DepositAsset::DotConvertible);
+		}
+
+		if hold_reason.is_some() && T::PgasBackend::balance(from) >= amount {
+			T::PgasBackend::transfer(from, to, amount, Preservation::Preserve)
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+			return Ok(DepositAsset::Pgas);
 		}
 
 		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
@@ -2669,14 +2681,85 @@ impl<T: Config> Pallet<T> {
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 		}
-		Ok(())
+
+		if let Some(HoldReason::StorageDepositReserve) = hold_reason {
+			let contract_address = T::AddressMapper::to_address(to);
+			DotByContractUser::<T>::mutate(&contract_address, from, |v| {
+				*v = v.saturating_add(amount);
+			});
+		}
+
+		Ok(DepositAsset::DotConvertible)
 	}
 
 	/// Refund a deposit.
 	///
 	/// `to` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
+	///
+	/// For `StorageDepositReserve` the refund is split across three tiers (the `asset`
+	/// parameter is ignored): the contract's `historic_deposit` (DOT) is consumed first, then
+	/// the caller's [`DotByContractUser`] entitlement (DOT), and any remainder is refunded from
+	/// the contract's PGAS balance. For other hold reasons the refund is returned in the
+	/// provided `asset`.
 	fn refund_deposit(
+		hold_reason: HoldReason,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+		asset: DepositAsset,
+		exec_config: Option<&ExecConfig<T>>,
+	) -> Result<(), DispatchError> {
+		if amount.is_zero() {
+			return Ok(());
+		}
+
+		if let HoldReason::StorageDepositReserve = hold_reason {
+			let contract_address = T::AddressMapper::to_address(from);
+			let mut remaining = amount;
+
+			let historic = AccountInfo::<T>::consume_historic_deposit(&contract_address, remaining);
+			if !historic.is_zero() {
+				Self::refund_from_hold(hold_reason, from, to, historic, exec_config)?;
+				remaining = remaining.saturating_sub(historic);
+			}
+
+			if !remaining.is_zero() {
+				let entitlement = DotByContractUser::<T>::get(&contract_address, to);
+				let dot_refund = remaining.min(entitlement);
+				if !dot_refund.is_zero() {
+					Self::refund_from_hold(hold_reason, from, to, dot_refund, exec_config)?;
+					let new_entitlement = entitlement.saturating_sub(dot_refund);
+					if new_entitlement.is_zero() {
+						DotByContractUser::<T>::remove(&contract_address, to);
+					} else {
+						DotByContractUser::<T>::insert(
+							&contract_address,
+							to,
+							new_entitlement,
+						);
+					}
+					remaining = remaining.saturating_sub(dot_refund);
+				}
+			}
+
+			if !remaining.is_zero() {
+				Self::refund_pgas(from, to, remaining)?;
+			}
+
+			return Ok(());
+		}
+
+		match asset {
+			DepositAsset::Pgas => Self::refund_pgas(from, to, amount),
+			DepositAsset::DotConvertible =>
+				Self::refund_from_hold(hold_reason, from, to, amount, exec_config),
+		}
+	}
+
+	/// Refund `amount` previously held under `hold_reason` from `from` back to `to` in the
+	/// native currency.
+	pub(crate) fn refund_from_hold(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -2687,10 +2770,6 @@ impl<T: Config> Pallet<T> {
 			fungible::InspectHold,
 			tokens::{Fortitude, Precision, Preservation, Restriction},
 		};
-
-		if amount.is_zero() {
-			return Ok(());
-		}
 
 		let hold_reason = hold_reason.into();
 		let result = if exec_config.map(|c| c.collect_deposit_from_hold.is_some()).unwrap_or(false)
@@ -2745,257 +2824,15 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Charge a storage deposit of `amount` from `origin` into `contract_account`.
-	///
-	/// Picks PGAS when `origin` has enough PGAS to cover the full amount, otherwise falls back to
-	/// the DOT path and records the charge in [`DotConvertibleByContractUser`].
-	fn charge_storage_deposit(
-		origin: &T::AccountId,
-		contract_account: &T::AccountId,
+	/// Refund `amount` of PGAS from `from` to `to` via the PGAS backend.
+	pub(crate) fn refund_pgas(
+		from: &T::AccountId,
+		to: &T::AccountId,
 		amount: BalanceOf<T>,
-		exec_config: &ExecConfig<T>,
-	) -> DispatchResult {
-		if amount.is_zero() {
-			return Ok(());
-		}
-
-		if T::PgasBackend::reducible(origin) >= amount {
-			let credit = T::PgasBackend::withdraw(origin, amount)?;
-			T::PgasBackend::resolve(contract_account, credit).map_err(|_| {
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to resolve PGAS storage deposit {:?} into contract {:?}. This is a bug.",
-					amount, contract_account,
-				);
-				Error::<T>::StorageDepositNotEnoughFunds
-			})?;
-			return Ok(());
-		}
-
-		Self::charge_deposit(
-			Some(HoldReason::StorageDepositReserve),
-			origin,
-			contract_account,
-			amount,
-			exec_config,
-		)?;
-
-		let contract_address = T::AddressMapper::to_address(contract_account);
-		DotConvertibleByContractUser::<T>::mutate(&contract_address, origin, |v| {
-			*v = v.saturating_add(amount);
-		});
-		Ok(())
-	}
-
-	/// Refund a storage deposit of `amount` from `contract_account` to `origin`.
-	///
-	/// Consumes the contract's `historic_deposit` first (DOT), then the caller's
-	/// [`DotConvertibleByContractUser`] entitlement (DOT), and finally refunds the remainder as
-	/// PGAS by withdrawing from the contract account. A shortfall in PGAS balance on the contract
-	/// surfaces as an error, which indicates an accounting bug or a user requesting a refund for
-	/// storage they did not back.
-	fn refund_storage_deposit(
-		origin: &T::AccountId,
-		contract_account: &T::AccountId,
-		amount: BalanceOf<T>,
-		exec_config: &ExecConfig<T>,
-	) -> DispatchResult {
-		if amount.is_zero() {
-			return Ok(());
-		}
-
-		let contract_address = T::AddressMapper::to_address(contract_account);
-		let mut remaining = amount;
-
-		let historic_refund =
-			AccountInfo::<T>::consume_historic_deposit(&contract_address, remaining);
-		if !historic_refund.is_zero() {
-			Self::refund_deposit(
-				HoldReason::StorageDepositReserve,
-				contract_account,
-				origin,
-				historic_refund,
-				Some(exec_config),
-			)?;
-			remaining = remaining.saturating_sub(historic_refund);
-		}
-
-		if !remaining.is_zero() {
-			let dot_entitlement = DotConvertibleByContractUser::<T>::get(&contract_address, origin);
-			let dot_refund = remaining.min(dot_entitlement);
-			if !dot_refund.is_zero() {
-				Self::refund_deposit(
-					HoldReason::StorageDepositReserve,
-					contract_account,
-					origin,
-					dot_refund,
-					Some(exec_config),
-				)?;
-				let new_entitlement = dot_entitlement.saturating_sub(dot_refund);
-				if new_entitlement.is_zero() {
-					DotConvertibleByContractUser::<T>::remove(&contract_address, origin);
-				} else {
-					DotConvertibleByContractUser::<T>::insert(
-						&contract_address,
-						origin,
-						new_entitlement,
-					);
-				}
-				remaining = remaining.saturating_sub(dot_refund);
-			}
-		}
-
-		if !remaining.is_zero() {
-			let credit = T::PgasBackend::withdraw(contract_account, remaining).map_err(|err| {
-				log::warn!(
-					target: LOG_TARGET,
-					"Failed to withdraw PGAS refund {:?} from contract {:?} to origin {:?}: {:?}.",
-					remaining, contract_account, origin, err,
-				);
-				Error::<T>::StorageRefundNotEnoughFunds
-			})?;
-			T::PgasBackend::resolve(origin, credit).map_err(|_| {
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to resolve PGAS refund {:?} into origin {:?}. This is a bug.",
-					remaining, origin,
-				);
-				Error::<T>::StorageRefundNotEnoughFunds
-			})?;
-		}
-
-		Ok(())
-	}
-
-	/// Charge a code-upload deposit of `amount` from `owner` and return the asset used.
-	///
-	/// Prefers PGAS when `owner` can cover the whole amount; otherwise falls back to the DOT
-	/// path (hold on the pallet account). The returned [`DepositAsset`] must be stored alongside
-	/// the [`CodeInfo`] so the matching refund goes back in the same asset.
-	fn charge_code_upload_deposit(
-		owner: &T::AccountId,
-		amount: BalanceOf<T>,
-		exec_config: &ExecConfig<T>,
-	) -> Result<DepositAsset, DispatchError> {
-		if amount.is_zero() {
-			return Ok(DepositAsset::DotConvertible);
-		}
-
-		if T::PgasBackend::reducible(owner) >= amount {
-			let credit = T::PgasBackend::withdraw(owner, amount)?;
-			T::PgasBackend::resolve(&Self::account_id(), credit).map_err(|_| {
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to resolve PGAS code-upload deposit {:?} into pallet account. This is a bug.",
-					amount,
-				);
-				Error::<T>::StorageDepositNotEnoughFunds
-			})?;
-			return Ok(DepositAsset::Pgas);
-		}
-
-		Self::charge_deposit(
-			Some(HoldReason::CodeUploadDepositReserve),
-			owner,
-			&Self::account_id(),
-			amount,
-			exec_config,
-		)?;
-		Ok(DepositAsset::DotConvertible)
-	}
-
-	/// Refund a code-upload deposit of `amount` back to `owner` in the asset it was paid with.
-	fn refund_code_upload_deposit(
-		owner: &T::AccountId,
-		amount: BalanceOf<T>,
-		asset: DepositAsset,
-	) -> DispatchResult {
-		if amount.is_zero() {
-			return Ok(());
-		}
-
-		match asset {
-			DepositAsset::DotConvertible => Self::refund_deposit(
-				HoldReason::CodeUploadDepositReserve,
-				&Self::account_id(),
-				owner,
-				amount,
-				None,
-			),
-			DepositAsset::Pgas => {
-				let credit =
-					T::PgasBackend::withdraw(&Self::account_id(), amount).map_err(|err| {
-						log::error!(
-							target: LOG_TARGET,
-							"Failed to withdraw PGAS code-upload refund {:?} from pallet account: {:?}. This is a bug.",
-							amount, err,
-						);
-						Error::<T>::StorageRefundNotEnoughFunds
-					})?;
-				T::PgasBackend::resolve(owner, credit).map_err(|_| {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to resolve PGAS code-upload refund {:?} to owner {:?}. This is a bug.",
-						amount, owner,
-					);
-					Error::<T>::StorageRefundNotEnoughFunds.into()
-				})
-			},
-		}
-	}
-
-	/// Drain all storage-deposit backing from `contract_account` back to `origin` during
-	/// termination, clearing the per-user DOT ledger for this contract.
-	///
-	/// Returns the total amount refunded (DOT hold + drained PGAS). The contract's
-	/// `historic_deposit` is implicitly discarded along with its [`AccountInfoOf`] entry.
-	fn terminate_storage_deposit(
-		origin: &T::AccountId,
-		contract_account: &T::AccountId,
-		exec_config: &ExecConfig<T>,
-	) -> Result<BalanceOf<T>, DispatchError> {
-		use frame_support::traits::fungible::InspectHold;
-
-		let contract_address = T::AddressMapper::to_address(contract_account);
-
-		let dot_refund = T::Currency::balance_on_hold(
-			&HoldReason::StorageDepositReserve.into(),
-			contract_account,
-		);
-		if !dot_refund.is_zero() {
-			Self::refund_deposit(
-				HoldReason::StorageDepositReserve,
-				contract_account,
-				origin,
-				dot_refund,
-				Some(exec_config),
-			)?;
-		}
-
-		let pgas_refund = T::PgasBackend::drainable(contract_account);
-		if !pgas_refund.is_zero() {
-			let credit = T::PgasBackend::withdraw_expendable(contract_account, pgas_refund)
-				.map_err(|err| {
-					log::error!(
-						target: LOG_TARGET,
-						"Failed to drain PGAS {:?} from contract {:?} on termination: {:?}. This is a bug.",
-						pgas_refund, contract_account, err,
-					);
-					Error::<T>::StorageRefundNotEnoughFunds
-				})?;
-			T::PgasBackend::resolve(origin, credit).map_err(|_| {
-				log::error!(
-					target: LOG_TARGET,
-					"Failed to resolve drained PGAS {:?} to origin {:?} on termination. This is a bug.",
-					pgas_refund, origin,
-				);
-				Error::<T>::StorageRefundNotEnoughFunds
-			})?;
-		}
-
-		let _ = DotConvertibleByContractUser::<T>::clear_prefix(&contract_address, u32::MAX, None);
-
-		Ok(dot_refund.saturating_add(pgas_refund))
+	) -> Result<(), DispatchError> {
+		use frame_support::traits::tokens::Preservation;
+		T::PgasBackend::transfer(from, to, amount, Preservation::Preserve)
+			.map_err(|_| Error::<T>::StorageRefundNotEnoughFunds.into())
 	}
 
 	/// Returns true if the evm value carries dust.

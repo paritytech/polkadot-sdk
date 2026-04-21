@@ -26,7 +26,7 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, DepositAsset, Error, ExecConfig,
-	ExecError, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
 	metering::{ResourceMeter, State, Token},
@@ -166,10 +166,13 @@ impl<T: Config> ContractBlob<T> {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
 				ensure!(&code_info.owner == origin, BadOrigin);
-				<Pallet<T>>::refund_code_upload_deposit(
+				<Pallet<T>>::refund_deposit(
+					HoldReason::CodeUploadDepositReserve,
+					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					code_info.deposit_asset,
+					None,
 				)?;
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
@@ -200,13 +203,15 @@ impl<T: Config> ContractBlob<T> {
 				None => {
 					let deposit = self.code_info.deposit;
 
-					let asset = <Pallet<T>>::charge_code_upload_deposit(
-						&self.code_info.owner,
-						deposit,
-						exec_config,
-					)
-					.inspect_err(|err| {
-						log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
+					let asset = <Pallet<T>>::charge_deposit(
+							Some(HoldReason::CodeUploadDepositReserve),
+							&self.code_info.owner,
+							&Pallet::<T>::account_id(),
+							deposit,
+							exec_config,
+						)
+					 .inspect_err(|err| {
+							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 					})?;
 
 					self.code_info.deposit_asset = asset;
@@ -285,10 +290,13 @@ impl<T: Config> CodeInfo<T> {
 			let Some(code_info) = existing else { return Err(Error::<T>::CodeNotFound.into()) };
 
 			if code_info.refcount == 1 {
-				<Pallet<T>>::refund_code_upload_deposit(
+				<Pallet<T>>::refund_deposit(
+					HoldReason::CodeUploadDepositReserve,
+					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
 					code_info.deposit_asset,
+					None,
 				)?;
 
 				*existing = None;
