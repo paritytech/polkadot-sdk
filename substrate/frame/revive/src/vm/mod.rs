@@ -25,8 +25,8 @@ mod runtime_costs;
 pub use runtime_costs::RuntimeCosts;
 
 use crate::{
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, DepositAsset, Error, ExecConfig,
+	ExecError, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
 	metering::{ResourceMeter, State, Token},
@@ -97,6 +97,8 @@ pub struct CodeInfo<T: Config> {
 	///
 	/// As of right now this is a reserved field that is always set to 0.
 	behaviour_version: u32,
+	/// Asset used by the owner to pay the upload deposit. Refunds are returned in the same asset.
+	deposit_asset: DepositAsset,
 }
 
 /// Calculate the deposit required for storing code and its metadata.
@@ -164,12 +166,10 @@ impl<T: Config> ContractBlob<T> {
 			if let Some(code_info) = existing {
 				ensure!(code_info.refcount == 0, <Error<T>>::CodeInUse);
 				ensure!(&code_info.owner == origin, BadOrigin);
-				<Pallet<T>>::refund_deposit(
-					HoldReason::CodeUploadDepositReserve,
-					&Pallet::<T>::account_id(),
+				<Pallet<T>>::refund_code_upload_deposit(
 					&code_info.owner,
 					code_info.deposit,
-					None,
+					code_info.deposit_asset,
 				)?;
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
@@ -200,16 +200,16 @@ impl<T: Config> ContractBlob<T> {
 				None => {
 					let deposit = self.code_info.deposit;
 
-					<Pallet<T>>::charge_deposit(
-							Some(HoldReason::CodeUploadDepositReserve),
-							&self.code_info.owner,
-							&Pallet::<T>::account_id(),
-							deposit,
-							exec_config,
-						)
-					 .inspect_err(|err| {
-							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
+					let asset = <Pallet<T>>::charge_code_upload_deposit(
+						&self.code_info.owner,
+						deposit,
+						exec_config,
+					)
+					.inspect_err(|err| {
+						log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 					})?;
+
+					self.code_info.deposit_asset = asset;
 
 					meter.charge_deposit(&StorageDeposit::Charge(deposit))?;
 
@@ -232,6 +232,7 @@ impl<T: Config> CodeInfo<T> {
 			code_len: 0,
 			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
+			deposit_asset: Default::default(),
 		}
 	}
 
@@ -284,12 +285,10 @@ impl<T: Config> CodeInfo<T> {
 			let Some(code_info) = existing else { return Err(Error::<T>::CodeNotFound.into()) };
 
 			if code_info.refcount == 1 {
-				<Pallet<T>>::refund_deposit(
-					HoldReason::CodeUploadDepositReserve,
-					&Pallet::<T>::account_id(),
+				<Pallet<T>>::refund_code_upload_deposit(
 					&code_info.owner,
 					code_info.deposit,
-					None,
+					code_info.deposit_asset,
 				)?;
 
 				*existing = None;

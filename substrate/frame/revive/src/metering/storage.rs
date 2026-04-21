@@ -22,8 +22,8 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
-	StorageDeposit as Deposit, storage::ContractInfo,
+	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, Pallet, StorageDeposit as Deposit,
+	storage::ContractInfo,
 };
 use alloc::vec::Vec;
 use core::{marker::PhantomData, mem};
@@ -520,22 +520,10 @@ impl<T: Config> Ext<T> for ReservingExt {
 		match amount {
 			Deposit::Charge(amount) | Deposit::Refund(amount) if amount.is_zero() => (),
 			Deposit::Charge(amount) => {
-				<Pallet<T>>::charge_deposit(
-					Some(HoldReason::StorageDepositReserve),
-					origin,
-					contract,
-					*amount,
-					exec_config,
-				)?;
+				<Pallet<T>>::charge_storage_deposit(origin, contract, *amount, exec_config)?;
 			},
 			Deposit::Refund(amount) => {
-				<Pallet<T>>::refund_deposit(
-					HoldReason::StorageDepositReserve,
-					contract,
-					origin,
-					*amount,
-					Some(exec_config),
-				)?;
+				<Pallet<T>>::refund_storage_deposit(origin, contract, *amount, exec_config)?;
 			},
 		}
 		Ok(())

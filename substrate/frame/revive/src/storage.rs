@@ -105,6 +105,13 @@ pub struct ContractInfo<T: Config> {
 	/// We need to store this information separately so it is not used when calculating any refunds
 	/// since the base deposit can only ever be refunded on contract termination.
 	pub storage_base_deposit: BalanceOf<T>,
+	/// Pre-PGAS deposit balance treated as DOT-convertible for refund purposes.
+	///
+	/// Seeded by the PGAS migration with the contract's total deposit at upgrade time. Consumed
+	/// before [`DotConvertibleByContractUser`](crate::pallet::DotConvertibleByContractUser) on
+	/// refund, because the historic deposit predates PGAS and is known to be DOT-backed.
+	/// New contracts start at zero.
+	pub historic_deposit: BalanceOf<T>,
 	/// The size of the immutable data of this contract.
 	pub immutable_data_len: u32,
 }
@@ -186,6 +193,26 @@ impl<T: Config> AccountInfo<T> {
 			}
 		});
 	}
+
+	/// Reduce the contract's `historic_deposit` by `amount`, saturating at zero.
+	///
+	/// Returns the amount actually consumed (bounded by the remaining historic deposit).
+	/// Returns `0` when the address is not a contract.
+	pub fn consume_historic_deposit(address: &H160, amount: BalanceOf<T>) -> BalanceOf<T> {
+		if amount.is_zero() {
+			return Zero::zero();
+		}
+		let mut consumed = Zero::zero();
+		AccountInfoOf::<T>::mutate(address, |account| {
+			if let Some(account) = account &&
+				let AccountType::Contract(info) = &mut account.account_type
+			{
+				consumed = info.historic_deposit.min(amount);
+				info.historic_deposit = info.historic_deposit.saturating_sub(consumed);
+			}
+		});
+		consumed
+	}
 }
 
 impl<T: Config> ContractInfo<T> {
@@ -218,6 +245,7 @@ impl<T: Config> ContractInfo<T> {
 			storage_byte_deposit: Zero::zero(),
 			storage_item_deposit: Zero::zero(),
 			storage_base_deposit: Zero::zero(),
+			historic_deposit: Zero::zero(),
 			immutable_data_len: 0,
 		};
 

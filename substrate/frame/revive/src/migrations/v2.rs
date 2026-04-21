@@ -178,8 +178,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			.expect("Failed to decode the previous storage state");
 
 		// Check the len of prev and post are the same.
+		// v2 writes in the pre-v4 CodeInfo shape; use the v2-local alias to count.
 		assert_eq!(
-			crate::CodeInfoOf::<T>::iter().count(),
+			new::CodeInfoOf::<T>::iter().count(),
 			prev_map.len(),
 			"Migration failed: the number of items in the storage after the migration is not the same as before"
 		);
@@ -289,7 +290,8 @@ fn migrate_to_v2() {
 			cursor = Some(new_cursor);
 		}
 
-		assert_eq!(crate::CodeInfoOf::<Test>::iter().count(), 10);
+		// v2 writes in the pre-v4 CodeInfo shape; use the v2-local alias to count.
+		assert_eq!(new::CodeInfoOf::<Test>::iter().count(), 10);
 
 		// Verify all values match between old and new with code_type set to PVM
 		for (code_hash, old_value) in original_values {

@@ -17,6 +17,7 @@
 
 mod block_hash;
 mod pallet_dummy;
+mod pgas_deposit;
 mod precompiles;
 mod pvm;
 mod sol;

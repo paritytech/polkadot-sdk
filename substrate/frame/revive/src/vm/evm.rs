@@ -82,6 +82,7 @@ impl<T: Config> ContractBlob<T> {
 			code_len,
 			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
+			deposit_asset: Default::default(),
 		};
 
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {
@@ -115,6 +116,7 @@ impl<T: Config> ContractBlob<T> {
 			code_len,
 			code_type: BytecodeType::Evm,
 			behaviour_version: Default::default(),
+			deposit_asset: Default::default(),
 		};
 
 		Bytecode::new_raw_checked(Bytes::from(code.to_vec())).map_err(|err| {

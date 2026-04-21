@@ -1225,7 +1225,7 @@ fn instantiation_from_contract() {
 			place_contract(&BOB, instantiator_ch);
 			let origin = Origin::from_account_id(ALICE);
 			let mut meter =
-				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 10).unwrap();
+				TransactionMeter::<Test>::new_from_limits(WEIGHT_LIMIT, min_balance * 20).unwrap();
 
 			assert_matches!(
 				MockStack::run_call(

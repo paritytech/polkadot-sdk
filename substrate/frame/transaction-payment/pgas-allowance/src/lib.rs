@@ -32,11 +32,11 @@ use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
 	traits::{
-		tokens::{
-			fungibles::{self, Credit},
-			Fortitude, Precision, Preservation,
-		},
 		Contains, Get,
+		tokens::{
+			Fortitude, Precision, Preservation,
+			fungibles::{self, Credit},
+		},
 	},
 	weights::Weight,
 };
@@ -98,11 +98,7 @@ pub mod pallet {
 		/// Helper used by the extension benchmarks to endow the caller with enough PGAS to cover
 		/// the fee.
 		#[cfg(feature = "runtime-benchmarks")]
-		type BenchmarkHelper: crate::BenchmarkHelperTrait<
-			Self::AccountId,
-			AssetIdOf<Self>,
-			BalanceOf<Self>,
-		>;
+		type BenchmarkHelper: crate::BenchmarkHelperTrait<Self::AccountId, AssetIdOf<Self>, BalanceOf<Self>>;
 	}
 
 	#[pallet::pallet]
@@ -259,12 +255,8 @@ where
 				Fortitude::Polite,
 			);
 			if pgas >= fee {
-				let priority = ChargeTransactionPayment::<T>::get_priority(
-					info,
-					len,
-					Zero::zero(),
-					fee,
-				);
+				let priority =
+					ChargeTransactionPayment::<T>::get_priority(info, len, Zero::zero(), fee);
 				return Ok((
 					ValidTransaction { priority, ..Default::default() },
 					Val::PGAS { who, fee },
