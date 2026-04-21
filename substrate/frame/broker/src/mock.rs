@@ -17,8 +17,6 @@
 
 #![cfg(test)]
 
-use std::marker::PhantomData;
-
 use crate::{
 	test_fungibles::TestFungibles,
 	utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl},
@@ -297,11 +295,11 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		let result = OrderResult::Sold {
 			price: REGION_PRICE,
 			region_id: RegionId {
-				begin: sale.region_end,
+				begin: sale.region_begin,
 				core: sale.first_core + sale.cores_sold,
 				mask: CoreMask::complete(),
 			},
-			region_end: sale.region_end + config.region_length,
+			region_end: sale.region_end,
 		};
 
 		MarketSaleInfoStorage::mutate(|sale| sale.cores_sold += 1);
@@ -310,12 +308,11 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	}
 
 	fn place_renewal_order(
-		block_number: RelayBlockNumberOf<Test>,
-		who: &AccountIdFor<Test>,
+		_block_number: RelayBlockNumberOf<Test>,
+		_who: &AccountIdFor<Test>,
 		renewal: PotentialRenewalId,
 	) -> Result<RenewalOrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
 		let sale = MarketSaleInfoStorage::get();
-		let config = new_config();
 
 		if sale.cores_sold >= sale.cores_offered {
 			return Err(DispatchError::Other("Sold Out"));
@@ -340,7 +337,31 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		now: RelayBlockNumberOf<Test>,
 		weight_meter: &mut frame_support::weights::WeightMeter,
 	) -> Vec<TickAction<AccountIdFor<Test>, BalanceOf<Test>, RelayBlockNumberOf<Test>>> {
-		vec![]
+		let mut actions = vec![];
+		let config = new_config();
+
+		if let Some(timeslice) = Self::TimesliceProvider::next_timeslice_to_commit() {
+			let mut sale = MarketSaleInfoStorage::get();
+			let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core range");
+
+			let sale = MarketSaleInfo {
+				sale_start: now,
+				region_begin: sale.region_end,
+				region_end: sale.region_end + config.region_length,
+				cores_offered: cores.to - cores.from,
+				first_core: cores.from,
+				cores_sold: 0,
+			};
+
+			MarketSaleInfoStorage::set(sale.clone());
+
+			actions.push(TickAction::ProcessAutoRenewals {
+				after_timeslice: sale.region_begin,
+				next_renewal_at: sale.region_end,
+			})
+		};
+
+		actions
 	}
 
 	fn adjust_bid(
