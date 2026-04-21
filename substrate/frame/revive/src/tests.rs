@@ -343,7 +343,6 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId32>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
 	type Holder = AssetsHolder;
-	type Freezer = ();
 }
 
 impl pallet_assets_holder::Config for Test {
