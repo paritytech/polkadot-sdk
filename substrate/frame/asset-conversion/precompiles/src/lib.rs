@@ -232,6 +232,8 @@ const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
 const ERR_INVALID_ASSET_PAIR: &str = "Invalid asset pair";
 const ERR_POOL_NOT_FOUND: &str = "Pool does not exist or has no liquidity";
+const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
+const ERR_UNEXPECTED: &str = "Unexpected error";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
 
@@ -502,11 +504,11 @@ where
 			asset1, asset2,
 		)
 		.map_err(|e| match e {
-			pallet_asset_conversion::Error::InvalidAssetPair => {
-				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
-			},
-			// Today only `PoolEmpty`; catch-all is defensive against future variants.
-			_ => Error::Revert(Revert { reason: ERR_POOL_NOT_FOUND.into() }),
+			pallet_asset_conversion::Error::InvalidAssetPair =>
+				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() }),
+			pallet_asset_conversion::Error::PoolEmpty =>
+				Error::Revert(Revert { reason: ERR_POOL_EMPTY.into() }),
+			_ => Error::Revert(Revert { reason: ERR_UNEXPECTED.into() }),
 		})?;
 
 		Ok(IAssetConversion::getReservesCall::abi_encode_returns(
