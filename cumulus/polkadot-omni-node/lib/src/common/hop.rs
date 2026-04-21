@@ -55,7 +55,7 @@ pub(crate) fn build_hop_pool(
 		data_dir,
 		node_extra_args.hop.rate_limit_config(),
 	)
-	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 	log::info!(target: "hop", "HOP data pool initialized, RPC methods will be registered");
 
