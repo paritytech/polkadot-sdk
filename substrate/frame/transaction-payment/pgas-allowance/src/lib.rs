@@ -243,34 +243,33 @@ where
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
 		// PGAS path: signed origin, call passes the filter, and caller holds at least `fee`.
 		// Skipped entirely when the extension was constructed with `new_skip_pgas`.
-		if !self.skip_pgas {
-			if let Some(who) = origin.as_system_origin_signer().cloned() {
-				if T::CallFilter::contains(call) {
-					let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
-						len as u32,
-						info,
-						Zero::zero(),
-					);
-					let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
-						T::PGASAssetId::get(),
-						&who,
-						Preservation::Preserve,
-						Fortitude::Polite,
-					);
-					if pgas >= fee {
-						let priority = ChargeTransactionPayment::<T>::get_priority(
-							info,
-							len,
-							Zero::zero(),
-							fee,
-						);
-						return Ok((
-							ValidTransaction { priority, ..Default::default() },
-							Val::PGAS { who, fee },
-							origin,
-						));
-					}
-				}
+		if !self.skip_pgas &&
+			let Some(who) = origin.as_system_origin_signer().cloned() &&
+			T::CallFilter::contains(call)
+		{
+			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
+				len as u32,
+				info,
+				Zero::zero(),
+			);
+			let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
+				T::PGASAssetId::get(),
+				&who,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			);
+			if pgas >= fee {
+				let priority = ChargeTransactionPayment::<T>::get_priority(
+					info,
+					len,
+					Zero::zero(),
+					fee,
+				);
+				return Ok((
+					ValidTransaction { priority, ..Default::default() },
+					Val::PGAS { who, fee },
+					origin,
+				));
 			}
 		}
 
