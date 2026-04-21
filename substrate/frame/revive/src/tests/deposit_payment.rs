@@ -15,13 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Tests for the [`PGasPayment`] storage-deposit backend.
+//! Tests for the [`PGasDeposit`] storage-deposit backend.
 
 use crate::{
-	DotByContractUser, HoldReason,
-	gas_payment::GasPayment,
+	deposit_payment::Deposit,
 	test_utils::{ALICE, BOB},
-	tests::{Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, Test},
+	tests::{Assets, AssetsHolder, Balances, ExtBuilder, Test, PGAS_ASSET_ID},
+	Config, DotByContractUser, HoldReason,
 };
 use frame_support::{
 	assert_ok,
@@ -31,7 +31,7 @@ use frame_support::{
 	},
 };
 use pretty_assertions::assert_eq;
-use sp_runtime::AccountId32;
+use sp_runtime::{AccountId32, DispatchResult};
 
 /// Full observable state snapshot for a (payer, contract) pair.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -81,8 +81,25 @@ struct TestCase {
 	expected_after_refund: State,
 }
 
+fn transfer_and_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> DispatchResult {
+	<<Test as Config>::Deposit as Deposit<Test>>::transfer_and_hold(
+		HoldReason::StorageDepositReserve,
+		from,
+		to,
+		amount,
+	)
+}
+
+fn refund_on_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> DispatchResult {
+	<<Test as Config>::Deposit as Deposit<Test>>::refund_on_hold(
+		HoldReason::StorageDepositReserve,
+		from,
+		to,
+		amount,
+	)
+}
+
 fn run(case: TestCase) {
-	type Gas = <Test as crate::Config>::GasPayment;
 	let mut builder = ExtBuilder::default();
 	if case.initial_pgas > 0 {
 		builder = builder.with_pgas_balances(vec![(ALICE, case.initial_pgas)]);
@@ -93,21 +110,11 @@ fn run(case: TestCase) {
 		frame_system::Pallet::<Test>::inc_providers(&BOB);
 
 		for (i, charge) in case.charges.iter().enumerate() {
-			assert_ok!(<Gas as GasPayment<Test>>::transfer_and_hold(
-				HoldReason::StorageDepositReserve,
-				&ALICE,
-				&BOB,
-				charge.amount,
-			));
+			assert_ok!(transfer_and_hold(&ALICE, &BOB, charge.amount));
 			assert_eq!(snapshot(&ALICE, &BOB), charge.expected, "after charge {i}");
 		}
 
-		assert_ok!(<Gas as GasPayment<Test>>::refund_on_hold(
-			HoldReason::StorageDepositReserve,
-			&BOB,
-			&ALICE,
-			case.refund,
-		));
+		assert_ok!(refund_on_hold(&BOB, &ALICE, case.refund));
 		assert_eq!(snapshot(&ALICE, &BOB), case.expected_after_refund, "after refund");
 	});
 }

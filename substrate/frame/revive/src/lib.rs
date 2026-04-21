@@ -28,7 +28,7 @@ mod benchmarking;
 pub mod call_builder;
 mod debug;
 mod exec;
-mod gas_payment;
+mod deposit_payment;
 mod impl_fungibles;
 mod limits;
 mod metering;
@@ -103,7 +103,7 @@ pub use crate::{
 		block_hash::ReceiptGasInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
-	gas_payment::{GasPayment, PGasPayment},
+	deposit_payment::{Deposit, PGasDeposit},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
@@ -336,7 +336,7 @@ pub mod pallet {
 		/// Payment backend used to charge storage deposits.
 		/// The default `()` binding always uses the native currency.
 		#[pallet::no_default_bounds]
-		type GasPayment: GasPayment<Self>;
+		type Deposit: Deposit<Self>;
 
 		/// The fraction the maximum extrinsic weight `eth_transact` extrinsics are capped to.
 		///
@@ -466,7 +466,7 @@ pub mod pallet {
 			type NativeToEthRatio = ConstU32<1_000_000>;
 			type FindAuthor = ();
 			type FeeInfo = ();
-			type GasPayment = ();
+			type Deposit = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
 			type AutoMap = ConstBool<false>;
@@ -2641,17 +2641,17 @@ impl<T: Config> Pallet<T> {
 						if let Some(hold_reason) = hold_reason {
 							T::Currency::hold(&hold_reason.into(), to, amount).map_err(|_| ())?;
 						}
-						T::GasPayment::record_dot_contribution(from, to, amount);
+						T::Deposit::record_dot_contribution(from, to, amount);
 						Ok(())
 					})
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, Some(hold_reason)) => {
-				T::GasPayment::transfer_and_hold(hold_reason, from, to, amount)
+				T::Deposit::transfer_and_hold(hold_reason, from, to, amount)
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, None) => {
-				T::GasPayment::transfer(from, to, amount)
+				T::Deposit::transfer(from, to, amount)
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 		}
@@ -2675,13 +2675,13 @@ impl<T: Config> Pallet<T> {
 
 		let result = if exec_config.map(|c| c.collect_deposit_from_hold.is_some()).unwrap_or(false)
 		{
-			T::GasPayment::collect_on_hold(hold_reason, from, to, amount)
+			T::Deposit::collect_on_hold(hold_reason, from, to, amount)
 		} else {
-			T::GasPayment::refund_on_hold(hold_reason, from, to, amount)
+			T::Deposit::refund_on_hold(hold_reason, from, to, amount)
 		};
 
 		result.map_err(|_| {
-			let available = T::GasPayment::total_on_hold(hold_reason, from);
+			let available = T::Deposit::total_on_hold(hold_reason, from);
 			if available < amount {
 				// The storage deposit accounting got out of sync with the balance: This would be a
 				// straight up bug in this pallet.

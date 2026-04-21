@@ -20,23 +20,23 @@
 //! Storage deposits can be backed by the native currency or by PGAS.
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
-use crate::{BalanceOf, Config, DotByContractUser, HoldReason, evm::fees::InfoT as FeeInfo};
+use crate::{evm::fees::InfoT as FeeInfo, BalanceOf, Config, DotByContractUser, HoldReason};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
 	traits::{
-		Get,
 		fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
-		tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
+		tokens::{fungibles, Fortitude, Precision, Preservation, Restriction},
+		Get,
 	},
 };
 use sp_runtime::{
-	DispatchResult,
 	traits::{Saturating, Zero},
+	DispatchResult,
 };
 
 /// Payment backend used to charge storage deposits.
-pub trait GasPayment<T: Config> {
+pub trait Deposit<T: Config> {
 	/// Transfer `amount` from `from` to `to` to back a storage deposit.
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult;
 
@@ -78,10 +78,10 @@ pub trait GasPayment<T: Config> {
 }
 
 /// Default backend: every storage deposit charge goes through the native currency.
-impl<T: Config> GasPayment<T> for () {
+impl<T: Config> Deposit<T> for () {
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
-		<Self as GasPayment<T>>::record_dot_contribution(from, to, amount);
+		<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
 		Ok(())
 	}
 
@@ -100,7 +100,7 @@ impl<T: Config> GasPayment<T> for () {
 			Preservation::Preserve,
 			Fortitude::Polite,
 		)?;
-		<Self as GasPayment<T>>::record_dot_contribution(from, to, amount);
+		<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
 		Ok(())
 	}
 
@@ -155,9 +155,9 @@ impl<T: Config> GasPayment<T> for () {
 /// currency otherwise; native-currency contributions are recorded in [`DotByContractUser`].
 /// Refunds and collects try the native side first, capped by the user's tracked
 /// [`DotByContractUser`] entitlement, and pull any remainder from PGAS.
-pub struct PGasPayment<Mutator, Holder, Id>(PhantomData<(Mutator, Holder, Id)>);
+pub struct PGasDeposit<Mutator, Holder, Id>(PhantomData<(Mutator, Holder, Id)>);
 
-impl<Mutator, Holder, Id> PGasPayment<Mutator, Holder, Id> {
+impl<Mutator, Holder, Id> PGasDeposit<Mutator, Holder, Id> {
 	fn pgas_reducible_balance<T>(who: &T::AccountId) -> BalanceOf<T>
 	where
 		T: Config,
@@ -173,15 +173,15 @@ impl<Mutator, Holder, Id> PGasPayment<Mutator, Holder, Id> {
 	}
 }
 
-impl<T, Mutator, Holder, Id> GasPayment<T> for PGasPayment<Mutator, Holder, Id>
+impl<T, Mutator, Holder, Id> Deposit<T> for PGasDeposit<Mutator, Holder, Id>
 where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 	Holder: fungibles::MutateHold<
-			T::AccountId,
-			Balance = BalanceOf<T>,
-			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-		>,
+		T::AccountId,
+		Balance = BalanceOf<T>,
+		AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+	>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 {
@@ -199,7 +199,7 @@ where
 			.map(|_| ())
 		} else {
 			T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
-			<Self as GasPayment<T>>::record_dot_contribution(from, to, amount);
+			<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
 			Ok(())
 		}
 	}
@@ -233,7 +233,7 @@ where
 				Preservation::Preserve,
 				Fortitude::Polite,
 			)?;
-			<Self as GasPayment<T>>::record_dot_contribution(from, to, amount);
+			<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
 			Ok(())
 		}
 	}

@@ -16,7 +16,7 @@
 // limitations under the License.
 
 mod block_hash;
-mod gas_payment;
+mod deposit_payment;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
@@ -33,7 +33,7 @@ use crate::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
 	},
-	gas_payment::PGasPayment,
+	deposit_payment::PGasDeposit,
 	genesis::{Account, ContractData},
 	mock::MockHandler,
 	test_utils::*,
@@ -433,7 +433,7 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
-	type GasPayment = PGasPayment<Assets, AssetsHolder, PGasAssetId>;
+	type Deposit = PGasDeposit<Assets, AssetsHolder, PGasAssetId>;
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;
