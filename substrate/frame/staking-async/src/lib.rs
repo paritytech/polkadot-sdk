@@ -568,14 +568,20 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 }
 
 /// Kind of reward managed by staking pots.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+)]
 pub enum RewardKind {
 	/// Staker rewards (nominators + validators).
 	StakerRewards,
+	/// Pot for validator self-stake incentive.
+	ValidatorSelfStake,
 }
 
 /// Identifies a reward pot account.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+)]
 pub enum RewardPot {
 	/// General pot: funded by an external source (e.g. pallet-dap).
 	/// At era boundaries, staking snapshots the balance into an era-specific pot.
@@ -615,8 +621,12 @@ where
 	fn pot_account(pot: RewardPot) -> AccountId {
 		match pot {
 			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
+			RewardPot::General(RewardKind::ValidatorSelfStake) => AccountId::from(200_001u64),
 			RewardPot::Era(era, RewardKind::StakerRewards) => {
 				AccountId::from(100_000 + (era as u64 * 10))
+			},
+			RewardPot::Era(era, RewardKind::ValidatorSelfStake) => {
+				AccountId::from(100_000 + (era as u64 * 10) + 1)
 			},
 		}
 	}
@@ -637,6 +647,24 @@ where
 
 	fn pot_account() -> AccountId {
 		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
+	}
+}
+
+/// Budget recipient for validator self-stake incentive.
+///
+/// Exposes the general validator incentive pot so DAP can drip inflation into it.
+pub struct ValidatorIncentiveRecipient<P>(core::marker::PhantomData<P>);
+
+impl<AccountId, P> sp_staking::budget::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<P>
+where
+	P: PotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		P::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
 	}
 }
 
