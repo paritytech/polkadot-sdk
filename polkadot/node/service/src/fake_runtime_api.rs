@@ -471,5 +471,17 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> Vec<sp_consensus_babe::AuthorityId> {
 			unimplemented!()
 		}
+
+		fn minimum_nudges_required() -> u32 {
+			unimplemented!()
+		}
+
+		fn endpoint_list() -> Vec<(u8, Vec<u8>)> {
+			unimplemented!()
+		}
+
+		fn decode_results(_data: Vec<(u8, Vec<u8>)>) -> Vec<(u8, Option<sp_runtime::FixedU128>)> {
+			unimplemented!()
+		}
 	}
 }

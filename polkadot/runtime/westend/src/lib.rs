@@ -512,6 +512,8 @@ parameter_types! {
 	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 1000);
 	pub const OracleMinNudges: u32 = 0;
 	pub const OracleNudgeValidity: u64 = 2;
+	pub const OracleMaxEndpoints: u32 = 20;
+	pub const OracleMaxUrlLength: u32 = 256;
 }
 
 pub struct BabeAuthorityProvider;
@@ -535,6 +537,9 @@ impl pallet_price_oracle::Config for Runtime {
 	type TimeProvider = Timestamp;
 	// Note: Later we wire this to pallet-xcm to send the price to AH and anywhere else interested.
 	type OnPriceUpdate = ();
+	type MaxEndpoints = OracleMaxEndpoints;
+	type MaxUrlLength = OracleMaxUrlLength;
+	type PriceOracleOrigin = EnsureRoot<AccountId>;
 }
 
 impl pallet_authorship::Config for Runtime {
@@ -1355,12 +1360,12 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Staking => {
 				matches!(
 					c,
-					RuntimeCall::Staking(..)
-						| RuntimeCall::Session(..)
-						| RuntimeCall::Utility(..)
-						| RuntimeCall::FastUnstake(..)
-						| RuntimeCall::VoterList(..)
-						| RuntimeCall::NominationPools(..)
+					RuntimeCall::Staking(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
+						RuntimeCall::FastUnstake(..) |
+						RuntimeCall::VoterList(..) |
+						RuntimeCall::NominationPools(..)
 				)
 			},
 			ProxyType::NominationPools => {
@@ -1376,33 +1381,33 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 			ProxyType::Governance => matches!(
 				c,
 				// OpenGov calls
-				RuntimeCall::ConvictionVoting(..)
-					| RuntimeCall::Referenda(..)
-					| RuntimeCall::Whitelist(..)
+				RuntimeCall::ConvictionVoting(..) |
+					RuntimeCall::Referenda(..) |
+					RuntimeCall::Whitelist(..)
 			),
 			ProxyType::IdentityJudgement => matches!(
 				c,
-				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. })
-					| RuntimeCall::Utility(..)
+				RuntimeCall::Identity(pallet_identity::Call::provide_judgement { .. }) |
+					RuntimeCall::Utility(..)
 			),
 			ProxyType::CancelProxy => {
 				matches!(c, RuntimeCall::Proxy(pallet_proxy::Call::reject_announcement { .. }))
 			},
 			ProxyType::Auction => matches!(
 				c,
-				RuntimeCall::Auctions(..)
-					| RuntimeCall::Crowdloan(..)
-					| RuntimeCall::Registrar(..)
-					| RuntimeCall::Slots(..)
+				RuntimeCall::Auctions(..) |
+					RuntimeCall::Crowdloan(..) |
+					RuntimeCall::Registrar(..) |
+					RuntimeCall::Slots(..)
 			),
 			ProxyType::ParaRegistration => matches!(
 				c,
-				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. })
-					| RuntimeCall::Registrar(paras_registrar::Call::register { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::batch_all { .. })
-					| RuntimeCall::Utility(pallet_utility::Call::force_batch { .. })
-					| RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
+				RuntimeCall::Registrar(paras_registrar::Call::reserve { .. }) |
+					RuntimeCall::Registrar(paras_registrar::Call::register { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::batch_all { .. }) |
+					RuntimeCall::Utility(pallet_utility::Call::force_batch { .. }) |
+					RuntimeCall::Proxy(pallet_proxy::Call::remove_proxy { .. })
 			),
 		}
 	}
@@ -3207,6 +3212,25 @@ sp_api::impl_runtime_apis! {
 		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
 			use pallet_price_oracle::pallet::AuthorityProvider;
 			BabeAuthorityProvider::authorities()
+		}
+
+		fn minimum_nudges_required() -> u32 {
+			OracleMinNudges::get()
+		}
+
+		fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)> {
+			pallet_price_oracle::ActiveEndpoints::<Runtime>::get()
+				.into_iter()
+				.map(|(method, url)| (method.into(), url.into_inner()))
+				.collect()
+		}
+
+		fn decode_results(
+			data: alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)>,
+		) -> alloc::vec::Vec<(u8, Option<sp_runtime::FixedU128>)> {
+			data.into_iter()
+				.map(|(id, bytes)| (id, pallet_price_oracle::decoders::decode_by_id(id, &bytes)))
+				.collect()
 		}
 	}
 }
