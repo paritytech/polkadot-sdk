@@ -14,7 +14,6 @@
 // limitations under the License.
 
 //! Weights for `pallet_pgas_allowance`.
-//! see /cumulus/parachains/runtimes/assets/asset-hub-westend/src/weights/pallet_pgas_allowance.rs
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]
@@ -37,70 +36,24 @@ pub trait WeightInfo {
 /// Weights for `pallet_pgas_allowance` using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	/// Storage: `Assets::Asset` (r:1 w:1)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode:
-	/// `MaxEncodedLen`) Storage: `Assets::Account` (r:1 w:1)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode:
-	/// `MaxEncodedLen`) Storage: `AssetsFreezer::FrozenBalances` (r:1 w:0)
-	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added:
-	/// 2559, mode: `MaxEncodedLen`)
 	fn charge_pgas() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `459`
-		//  Estimated: `3675`
-		// Minimum execution time: 58_073_000 picoseconds.
-		Weight::from_parts(61_039_000, 0)
-			.saturating_add(Weight::from_parts(0, 3675))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
+		Weight::from_parts(45_000_000, 3675)
+			.saturating_add(T::DbWeight::get().reads(5_u64))
+			.saturating_add(T::DbWeight::get().writes(2_u64))
 	}
-	/// Storage: `Assets::Asset` (r:1 w:0)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode:
-	/// `MaxEncodedLen`) Storage: `Assets::Account` (r:1 w:0)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode:
-	/// `MaxEncodedLen`)
 	fn charge_pgas_skip() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `347`
-		//  Estimated: `3675`
-		// Minimum execution time: 10_930_000 picoseconds.
-		Weight::from_parts(11_844_000, 0)
-			.saturating_add(Weight::from_parts(0, 3675))
-			.saturating_add(T::DbWeight::get().reads(2))
+		Weight::from_parts(1_000_000, 0).saturating_add(T::DbWeight::get().reads(1_u64))
 	}
 }
 
 // For backwards compatibility and tests.
 impl WeightInfo for () {
-	/// Storage: `Assets::Asset` (r:1 w:1)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode:
-	/// `MaxEncodedLen`) Storage: `Assets::Account` (r:1 w:1)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode:
-	/// `MaxEncodedLen`) Storage: `AssetsFreezer::FrozenBalances` (r:1 w:0)
-	/// Proof: `AssetsFreezer::FrozenBalances` (`max_values`: None, `max_size`: Some(84), added:
-	/// 2559, mode: `MaxEncodedLen`)
 	fn charge_pgas() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `459`
-		//  Estimated: `3675`
-		// Minimum execution time: 58_073_000 picoseconds.
-		Weight::from_parts(61_039_000, 0)
-			.saturating_add(Weight::from_parts(0, 3675))
-			.saturating_add(T::DbWeight::get().reads(3))
-			.saturating_add(T::DbWeight::get().writes(2))
+		Weight::from_parts(45_000_000, 3675)
+			.saturating_add(RocksDbWeight::get().reads(5_u64))
+			.saturating_add(RocksDbWeight::get().writes(2_u64))
 	}
-	/// Storage: `Assets::Asset` (r:1 w:0)
-	/// Proof: `Assets::Asset` (`max_values`: None, `max_size`: Some(210), added: 2685, mode:
-	/// `MaxEncodedLen`) Storage: `Assets::Account` (r:1 w:0)
-	/// Proof: `Assets::Account` (`max_values`: None, `max_size`: Some(134), added: 2609, mode:
-	/// `MaxEncodedLen`)
 	fn charge_pgas_skip() -> Weight {
-		// Proof Size summary in bytes:
-		//  Measured:  `347`
-		//  Estimated: `3675`
-		// Minimum execution time: 10_930_000 picoseconds.
-		Weight::from_parts(11_844_000, 0)
-			.saturating_add(Weight::from_parts(0, 3675))
-			.saturating_add(T::DbWeight::get().reads(2))
+		Weight::from_parts(1_000_000, 0).saturating_add(RocksDbWeight::get().reads(1_u64))
 	}
 }
