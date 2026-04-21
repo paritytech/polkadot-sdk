@@ -863,6 +863,28 @@ mod governance {
 	}
 
 	#[test]
+	fn remove_external_asset_succeeds_after_debt_drained() {
+		new_test_ext().execute_with(|| {
+			// Zero fees so a single mint/redeem pair brings debt exactly to 0.
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
+
+			// With non-zero debt, removal is blocked.
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * PUSD_UNIT));
+			assert_noop!(
+				Psm::remove_external_asset(RuntimeOrigin::root(), USDC_ASSET_ID),
+				Error::<Test>::AssetHasDebt
+			);
+
+			// Drain debt to zero — removal now succeeds.
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * PUSD_UNIT));
+			assert_eq!(PsmDebt::<Test>::get(USDC_ASSET_ID), 0);
+			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDC_ASSET_ID));
+			assert!(!ExternalAssets::<Test>::contains_key(USDC_ASSET_ID));
+		});
+	}
+
+	#[test]
 	fn emergency_origin_can_set_asset_status() {
 		new_test_ext().execute_with(|| {
 			let new_status = CircuitBreakerLevel::MintingDisabled;
@@ -1063,6 +1085,18 @@ mod helpers {
 	}
 
 	#[test]
+	fn is_approved_asset_false_after_removal() {
+		new_test_ext().execute_with(|| {
+			// USDC is approved at genesis.
+			assert!(crate::Pallet::<Test>::is_approved_asset(&USDC_ASSET_ID));
+
+			// Removal flips the predicate.
+			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDC_ASSET_ID));
+			assert!(!crate::Pallet::<Test>::is_approved_asset(&USDC_ASSET_ID));
+		});
+	}
+
+	#[test]
 	fn get_reserve_returns_balance() {
 		new_test_ext().execute_with(|| {
 			assert_eq!(crate::Pallet::<Test>::get_reserve(USDC_ASSET_ID), 0);
@@ -1081,6 +1115,70 @@ mod helpers {
 			assert_ne!(account, ALICE);
 			assert_ne!(account, BOB);
 			assert_ne!(account, INSURANCE_FUND);
+		});
+	}
+}
+
+mod circuit_breaker {
+	use super::*;
+
+	#[test]
+	fn circuit_breaker_full_transition_flow() {
+		new_test_ext().execute_with(|| {
+			// Zero fees so every mint/redeem amount maps 1:1 onto debt.
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
+
+			let asset = USDC_ASSET_ID;
+			let amount = 100 * PUSD_UNIT;
+
+			// Seed debt upfront so every redeem below has something to drain
+			// against — the circuit breaker check is what we want to exercise,
+			// not the debt floor.
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), asset, 500 * PUSD_UNIT));
+
+			// Baseline: AllEnabled — both swaps work.
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), asset, amount));
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), asset, amount));
+
+			// Transition: AllEnabled -> MintingDisabled. Mint blocked, redeem
+			// still works (useful for draining debt during a partial outage).
+			assert_ok!(Psm::set_asset_status(
+				RuntimeOrigin::root(),
+				asset,
+				CircuitBreakerLevel::MintingDisabled,
+			));
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), asset, amount),
+				Error::<Test>::MintingStopped
+			);
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), asset, amount));
+
+			// Transition: MintingDisabled -> AllDisabled. Both blocked. Debt is
+			// still > 0 here, so a redeem rejection is a real circuit-breaker
+			// rejection (AllSwapsStopped), not an InsufficientReserve one.
+			assert_ok!(Psm::set_asset_status(
+				RuntimeOrigin::root(),
+				asset,
+				CircuitBreakerLevel::AllDisabled,
+			));
+			assert_noop!(
+				Psm::mint(RuntimeOrigin::signed(ALICE), asset, amount),
+				Error::<Test>::MintingStopped
+			);
+			assert_noop!(
+				Psm::redeem(RuntimeOrigin::signed(ALICE), asset, amount),
+				Error::<Test>::AllSwapsStopped
+			);
+
+			// Transition: AllDisabled -> AllEnabled. Both resume normally.
+			assert_ok!(Psm::set_asset_status(
+				RuntimeOrigin::root(),
+				asset,
+				CircuitBreakerLevel::AllEnabled,
+			));
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), asset, amount));
+			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), asset, amount));
 		});
 	}
 }
