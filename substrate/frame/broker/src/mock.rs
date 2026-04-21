@@ -17,7 +17,13 @@
 
 #![cfg(test)]
 
-use crate::{test_fungibles::TestFungibles, *};
+use std::marker::PhantomData;
+
+use crate::{
+	test_fungibles::TestFungibles,
+	utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl},
+	*,
+};
 use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
@@ -34,7 +40,7 @@ use sp_arithmetic::Perbill;
 use sp_core::{ConstU32, ConstU64, Get};
 use sp_runtime::{
 	traits::{BlockNumberProvider, Identity, MaybeConvert},
-	BuildStorage, Saturating,
+	BuildStorage, DispatchError, Saturating,
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -215,9 +221,65 @@ impl crate::Config for Test {
 	type PalletId = TestBrokerId;
 	type AdminOrigin = EnsureOneOrRoot;
 	type SovereignAccountOf = SovereignAccountOf;
+	type CoretimeMarket = MarketMock<Self>;
 	type MaxAutoRenewals = ConstU32<3>;
-	type PriceAdapter = CenterTargetPrice<BalanceOf<Self>>;
 	type MinimumCreditPurchase = MinimumCreditPurchase;
+}
+
+pub struct MarketMock<T: Config> {
+	_phantom: PhantomData<T>,
+}
+
+impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for MarketMock<T> {
+	type Error = DispatchError;
+	type BidId = ();
+	type InitData = ();
+	type Configuration = ();
+	type CoreRangeProvider = CoreRangeProviderImpl<T>;
+	type TimesliceProvider = TimesliceProviderImpl<T>;
+
+	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error> {
+		Ok(())
+	}
+
+	fn start_sales(
+		block_number: RelayBlockNumberOf<T>,
+		init_data: Self::InitData,
+	) -> Result<SalesStarted<RelayBlockNumberOf<T>>, Self::Error> {
+		todo!()
+	}
+
+	fn place_order(
+		block_number: RelayBlockNumberOf<T>,
+		who: &T::AccountId,
+		price_limit: BalanceOf<T>,
+	) -> Result<OrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
+		todo!()
+	}
+
+	fn place_renewal_order(
+		block_number: RelayBlockNumberOf<T>,
+		who: &T::AccountId,
+		renewal: PotentialRenewalId,
+	) -> Result<RenewalOrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
+		todo!()
+	}
+
+	fn tick(
+		now: RelayBlockNumberOf<T>,
+		weight_meter: &mut frame_support::weights::WeightMeter,
+	) -> Vec<TickAction<T::AccountId, BalanceOf<T>, RelayBlockNumberOf<T>>> {
+		todo!()
+	}
+
+	fn adjust_bid(
+		block_number: RelayBlockNumberOf<T>,
+		id: Self::BidId,
+		who: &T::AccountId,
+		new_price: Option<BalanceOf<T>>,
+	) -> Result<AdjustBidResult<BalanceOf<T>>, Self::Error> {
+		todo!()
+	}
 }
 
 pub fn advance_to(b: u64) {
