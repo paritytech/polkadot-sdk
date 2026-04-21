@@ -670,6 +670,11 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Calculate the validator incentive amount for a single page.
+	///
+	/// Share = `(validator_weight / sum_weight) × budget × page_stake_part`, where
+	/// `sum_weight` covers ALL elected validators. A validator that earns no reward
+	/// points forfeits their share (stays in the pot, handled by `UnclaimedRewardHandler`
+	/// at pruning) rather than redistributing it.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,

@@ -247,16 +247,32 @@ fn zero_reward_points_means_no_payout() {
 		Session::roll_until_active_era(3);
 		let _ = staking_events_since_last_call();
 
+		// Alice and bob both elected with equal self-stake, so both have equal weights
+		// and the sum counts both.
+		let bob_weight = ErasValidatorIncentiveWeight::<Test>::get(2, bob).unwrap();
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		assert_eq!(ErasValidatorIncentiveWeight::<Test>::get(2, alice).unwrap(), bob_weight);
+		assert_eq!(ErasSumValidatorIncentiveWeight::<Test>::get(2), 2 * bob_weight);
+		assert_eq!(budget, 750);
+
 		// WHEN: payout era 2.
+		let pot: AccountId = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			2,
+			RewardKind::ValidatorSelfStake,
+		));
 		make_all_reward_payment(2);
 		let events = staking_events_since_last_call();
 
-		// THEN: alice gets nothing (no points).
+		// THEN: alice gets nothing — no reward points => no staker reward and no
+		// incentive share, even though she was elected and has self-stake.
 		assert_eq!(staker_reward_for(alice, &events), None);
 		assert_eq!(incentive_paid_for(alice, &events), None);
-		// THEN: bob gets both staker reward and incentive bonus.
-		assert_eq!(staker_reward_for(bob, &events), Some(5400));
-		assert_eq!(incentive_paid_for(bob, &events), Some(375));
+		// THEN: bob gets staker reward, plus half the incentive budget (his weight /
+		// sum_weight = 1/2). Alice's half stays unclaimed in the pot .
+		assert!(staker_reward_for(bob, &events).unwrap() > budget/2);
+		assert_eq!(incentive_paid_for(bob, &events), Some(budget/2));
+		// Reward that alice forfeited
+		assert_eq!(Balances::free_balance(&pot), budget/2);
 	});
 }
 
