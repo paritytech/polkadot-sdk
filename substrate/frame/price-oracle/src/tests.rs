@@ -543,14 +543,14 @@ mod active_endpoints {
 
 	#[test]
 	fn starts_empty() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
 		});
 	}
 
 	#[test]
-	fn root_can_set() {
-		new_test_ext().execute_with(|| {
+	fn custom_origin_can_set() {
+		ExtBuilder::default().build_and_execute(|| {
 			let endpoints = vec![
 				(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec()),
 				(u8::from(ParsingMethod::CoinGecko), b"https://coingecko.example/price".to_vec()),
@@ -564,8 +564,8 @@ mod active_endpoints {
 	}
 
 	#[test]
-	fn non_root_rejected() {
-		new_test_ext().execute_with(|| {
+	fn non_custom_origin_rejected() {
+		ExtBuilder::default().build_and_execute(|| {
 			let endpoints =
 				vec![(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec())];
 			assert_noop!(
@@ -588,7 +588,7 @@ mod active_endpoints {
 
 	#[test]
 	fn overwrites_previous() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			let first = vec![(u8::from(ParsingMethod::Binance), b"a".to_vec())];
 			let second = vec![
 				(u8::from(ParsingMethod::Kraken), b"b".to_vec()),
@@ -608,7 +608,7 @@ mod active_endpoints {
 
 	#[test]
 	fn rejects_too_many_endpoints() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// MaxEndpoints = 20 in the mock runtime.
 			let endpoints: Vec<_> =
 				(0..21).map(|_| (u8::from(ParsingMethod::Binance), b"x".to_vec())).collect();
@@ -624,7 +624,7 @@ mod active_endpoints {
 
 	#[test]
 	fn rejects_url_too_long() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			// MaxUrlLength = 64 in the mock runtime.
 			let long_url = vec![b'x'; 65];
 			assert_noop!(
@@ -639,128 +639,7 @@ mod active_endpoints {
 
 	#[test]
 	fn rejects_unknown_parsing_method() {
-		new_test_ext().execute_with(|| {
-			assert_noop!(
-				PriceOracle::set_active_endpoints(
-					frame_system::RawOrigin::Root.into(),
-					vec![(99u8, b"https://example/price".to_vec())],
-				),
-				pallet::Error::<Test>::UnknownParsingMethod,
-			);
-		});
-	}
-}
-
-mod active_endpoints {
-	use super::*;
-	use sp_runtime::DispatchError;
-
-	fn stored_ids() -> Vec<(u8, Vec<u8>)> {
-		pallet::ActiveEndpoints::<Test>::get()
-			.into_iter()
-			.map(|(m, url)| (m.into(), url.into_inner()))
-			.collect()
-	}
-
-	#[test]
-	fn starts_empty() {
-		new_test_ext().execute_with(|| {
-			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
-		});
-	}
-
-	#[test]
-	fn root_can_set() {
-		new_test_ext().execute_with(|| {
-			let endpoints = vec![
-				(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec()),
-				(u8::from(ParsingMethod::CoinGecko), b"https://coingecko.example/price".to_vec()),
-			];
-			assert_ok!(PriceOracle::set_active_endpoints(
-				frame_system::RawOrigin::Root.into(),
-				endpoints.clone(),
-			));
-			assert_eq!(stored_ids(), endpoints);
-		});
-	}
-
-	#[test]
-	fn non_root_rejected() {
-		new_test_ext().execute_with(|| {
-			let endpoints =
-				vec![(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec())];
-			assert_noop!(
-				PriceOracle::set_active_endpoints(
-					frame_system::RawOrigin::Signed(1).into(),
-					endpoints.clone(),
-				),
-				DispatchError::BadOrigin,
-			);
-			assert_noop!(
-				PriceOracle::set_active_endpoints(
-					frame_system::RawOrigin::None.into(),
-					endpoints,
-				),
-				DispatchError::BadOrigin,
-			);
-			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
-		});
-	}
-
-	#[test]
-	fn overwrites_previous() {
-		new_test_ext().execute_with(|| {
-			let first = vec![(u8::from(ParsingMethod::Binance), b"a".to_vec())];
-			let second = vec![
-				(u8::from(ParsingMethod::Kraken), b"b".to_vec()),
-				(u8::from(ParsingMethod::Okx), b"c".to_vec()),
-			];
-			assert_ok!(PriceOracle::set_active_endpoints(
-				frame_system::RawOrigin::Root.into(),
-				first,
-			));
-			assert_ok!(PriceOracle::set_active_endpoints(
-				frame_system::RawOrigin::Root.into(),
-				second.clone(),
-			));
-			assert_eq!(stored_ids(), second);
-		});
-	}
-
-	#[test]
-	fn rejects_too_many_endpoints() {
-		new_test_ext().execute_with(|| {
-			// MaxEndpoints = 20 in the mock runtime.
-			let endpoints: Vec<_> =
-				(0..21).map(|_| (u8::from(ParsingMethod::Binance), b"x".to_vec())).collect();
-			assert_noop!(
-				PriceOracle::set_active_endpoints(
-					frame_system::RawOrigin::Root.into(),
-					endpoints,
-				),
-				pallet::Error::<Test>::TooManyEndpoints,
-			);
-		});
-	}
-
-	#[test]
-	fn rejects_url_too_long() {
-		new_test_ext().execute_with(|| {
-			// MaxUrlLength = 64 in the mock runtime.
-			let long_url = vec![b'x'; 65];
-			assert_noop!(
-				PriceOracle::set_active_endpoints(
-					frame_system::RawOrigin::Root.into(),
-					vec![(u8::from(ParsingMethod::Binance), long_url)],
-				),
-				pallet::Error::<Test>::UrlTooLong,
-			);
-		});
-	}
-
-	#[test]
-	fn rejects_unknown_parsing_method() {
-		new_test_ext().execute_with(|| {
+		ExtBuilder::default().build_and_execute(|| {
 			assert_noop!(
 				PriceOracle::set_active_endpoints(
 					frame_system::RawOrigin::Root.into(),
