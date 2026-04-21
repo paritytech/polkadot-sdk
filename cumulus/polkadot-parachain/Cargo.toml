@@ -105,3 +105,6 @@ fast-runtime = [
 	"bridge-hub-westend-runtime/fast-runtime",
 	"coretime-westend-runtime/fast-runtime",
 ]
+
+[profile.release]
+debug = true

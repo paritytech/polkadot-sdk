@@ -101,13 +101,13 @@ mod tests {
 		ext.register_extension(ProofSizeExt::new(recorder));
 
 		ext.execute_with(|| {
-			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 0);
+			assert_eq!(storage_proof_size::storage_proof_size(), 0);
 			sp_io::storage::get(b"key1");
-			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 175);
+			assert_eq!(storage_proof_size::storage_proof_size(), 175);
 			sp_io::storage::get(b"key2");
-			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 275);
+			assert_eq!(storage_proof_size::storage_proof_size(), 275);
 			sp_io::storage::get(b"key2");
-			assert_eq!(storage_proof_size::storage_proof_size(StateVersion::V1), 275);
+			assert_eq!(storage_proof_size::storage_proof_size(), 275);
 		});
 	}
 
@@ -117,17 +117,17 @@ mod tests {
 
 		ext.execute_with(|| {
 			assert_eq!(
-				storage_proof_size::storage_proof_size(StateVersion::V1),
+				storage_proof_size::storage_proof_size(),
 				PROOF_RECORDING_DISABLED
 			);
 			sp_io::storage::get(b"key1");
 			assert_eq!(
-				storage_proof_size::storage_proof_size(StateVersion::V1),
+				storage_proof_size::storage_proof_size(),
 				PROOF_RECORDING_DISABLED
 			);
 			sp_io::storage::get(b"key2");
 			assert_eq!(
-				storage_proof_size::storage_proof_size(StateVersion::V1),
+				storage_proof_size::storage_proof_size(),
 				PROOF_RECORDING_DISABLED
 			);
 		});

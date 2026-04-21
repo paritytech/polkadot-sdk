@@ -51,23 +51,22 @@ const LOG_TARGET: &'static str = "runtime::storage_reclaim";
 pub struct StorageWeightReclaimer {
 	previous_remaining_proof_size: u64,
 	previous_reported_proof_size: Option<u64>,
-	state_version: StateVersion,
 }
 
 impl StorageWeightReclaimer {
 	/// Creates a new `StorageWeightReclaimer` instance and initializes it with the storage
 	/// size provided by `weight_meter` and reported proof size from the node.
 	#[must_use = "Must call `reclaim_with_meter` to reclaim the weight"]
-	pub fn new(weight_meter: &WeightMeter, state_version: StateVersion) -> StorageWeightReclaimer {
+	pub fn new(weight_meter: &WeightMeter) -> StorageWeightReclaimer {
 		let previous_remaining_proof_size = weight_meter.remaining().proof_size();
-		let previous_reported_proof_size = get_proof_size(state_version);
-		Self { previous_remaining_proof_size, previous_reported_proof_size, state_version }
+		let previous_reported_proof_size = get_proof_size();
+		Self { previous_remaining_proof_size, previous_reported_proof_size }
 	}
 
 	/// Check the consumed storage weight and calculate the consumed excess weight.
 	fn reclaim(&mut self, remaining_weight: Weight) -> Option<Weight> {
 		let current_remaining_weight = remaining_weight.proof_size();
-		let current_storage_proof_size = get_proof_size(self.state_version)?;
+		let current_storage_proof_size = get_proof_size()?;
 		let previous_storage_proof_size = self.previous_reported_proof_size?;
 		let used_weight =
 			self.previous_remaining_proof_size.saturating_sub(current_remaining_weight);
@@ -99,8 +98,8 @@ impl StorageWeightReclaimer {
 /// recording trie nodes that would be accessed during storage root calculation.
 ///
 /// Returns `None` if proof recording is disabled on the host.
-pub fn get_proof_size(state_version: StateVersion) -> Option<u64> {
-	let proof_size = storage_proof_size(state_version);
+pub fn get_proof_size() -> Option<u64> {
+	let proof_size = storage_proof_size();
 	(proof_size != PROOF_RECORDING_DISABLED).then_some(proof_size)
 }
 
@@ -161,7 +160,7 @@ where
 		_info: &DispatchInfoOf<T::RuntimeCall>,
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		Ok(get_proof_size(T::Version::get().state_version()))
+		Ok(get_proof_size())
 	}
 
 	fn post_dispatch_details(
@@ -175,7 +174,7 @@ where
 			return Ok(Weight::zero());
 		};
 
-		let Some(post_dispatch_proof_size) = get_proof_size(T::Version::get().state_version())
+		let Some(post_dispatch_proof_size) = get_proof_size()
 		else {
 			log::debug!(
 				target: LOG_TARGET,
