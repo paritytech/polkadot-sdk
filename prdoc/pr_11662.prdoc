@@ -71,5 +71,3 @@ crates:
     bump: major
   - name: polkadot-sdk
     bump: minor
-  - name: pallet-transaction-storage
-    bump: minor
