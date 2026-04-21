@@ -20791,6 +20791,7 @@ dependencies = [
  "governor",
  "log",
  "parity-scale-codec",
+ "rand 0.8.5",
  "sc-keystore",
  "sc-network 0.56.0",
  "sc-network-common 0.53.0",
