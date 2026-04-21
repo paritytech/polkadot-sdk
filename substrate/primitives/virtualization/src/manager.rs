@@ -302,7 +302,7 @@ impl VirtManager {
 				Err(ExecError::OutOfGas),
 			),
 			InterruptKind::Step | InterruptKind::Segfault(_) => {
-				unreachable!("PolkaVM failed. This is a bug.");
+				unreachable!("PolkaVM is configured per config not to emit Step or Segfault; qed");
 			},
 			InterruptKind::Ecalli(hostcall_index) => {
 				let Some(syscall_symbol) = module.imports.get(hostcall_index as usize).copied()
