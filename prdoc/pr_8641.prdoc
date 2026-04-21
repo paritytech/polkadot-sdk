@@ -23,7 +23,7 @@ crates:
 - name: sp-state-machine
   bump: minor
 - name: frame-support
-  bump: patch
+  bump: major
 - name: sp-runtime
   bump: patch
 - name: sp-runtime-interface-proc-macro
@@ -33,11 +33,11 @@ crates:
 - name: sc-executor
   bump: patch
 - name: sc-executor-common
-  bump: patch
+  bump: minor
 - name: sp-virtualization
   bump: patch
 - name: sp-api
-  bump: patch
+  bump: minor
 - name: sp-api-proc-macro
   bump: patch
 - name: frame-executive
@@ -45,7 +45,7 @@ crates:
 - name: frame-system
   bump: patch
 - name: frame-benchmarking
-  bump: patch
+  bump: minor
 - name: frame-support-procedural
   bump: patch
 - name: pallet-migrations
@@ -61,11 +61,11 @@ crates:
 - name: polkadot-runtime-common
   bump: patch
 - name: cumulus-pallet-parachain-system
-  bump: patch
+  bump: minor
 - name: cumulus-pallet-parachain-system-proc-macro
   bump: patch
 - name: frame-storage-access-test-runtime
-  bump: patch
+  bump: minor
 - name: pallet-democracy
   bump: patch
 - name: cumulus-pallet-dmp-queue
