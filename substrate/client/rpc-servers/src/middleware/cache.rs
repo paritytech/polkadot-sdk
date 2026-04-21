@@ -41,6 +41,7 @@ use std::{
 	collections::hash_map::DefaultHasher,
 	hash::{Hash, Hasher},
 	sync::Arc,
+	time::Instant,
 };
 
 use futures::future::{BoxFuture, FutureExt};
@@ -350,6 +351,7 @@ where
 	type Future = BoxFuture<'a, MethodResponse>;
 
 	fn call(&self, req: Request<'a>) -> Self::Future {
+		let now = Instant::now();
 		let method = req.method_name();
 
 		// Check if this method is cacheable.
@@ -378,6 +380,13 @@ where
 					let rp = response_from_cache(req.id(), &cached.result);
 					if let Some(ref metrics) = self.metrics {
 						metrics.on_hit(method);
+					}
+					// Record runtime API name for state_call / chainHead_v1_call cache hits.
+					if let Some(api_name) = super::metrics::extract_runtime_api_name(&req) {
+						let micros = now.elapsed().as_micros();
+						super::metrics::RUNTIME_API_CALLS_TIME
+							.with_label_values(&[&api_name, "true"])
+							.observe(micros as _);
 					}
 					log::trace!(
 						target: "rpc_cache",
