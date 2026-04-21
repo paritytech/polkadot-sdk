@@ -716,6 +716,10 @@ jobs:
       - build-malus
       - build-linux-substrate
       - build-templates-node
+      - prepare-cumulus-zombienet-artifacts
+      - prepare-parachain-templates-zombienet-artifacts
+      - prepare-polkadot-zombienet-artifacts
+      - prepare-substrate-zombienet-artifacts
     if: always() && !cancelled()
     outputs:
       build_success: ${{ steps.check_success.outputs.build_success }}
