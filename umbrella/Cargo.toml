@@ -1667,7 +1667,7 @@ path = "../substrate/frame/people"
 [dependencies.pallet-pgas-allowance]
 default-features = false
 optional = true
-path = "../substrate/frame/pgas-allowance"
+path = "../substrate/frame/transaction-payment/pgas-allowance"
 
 [dependencies.pallet-preimage]
 default-features = false
