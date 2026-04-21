@@ -264,8 +264,8 @@ where
 				// No refund given if it cannot be swapped back.
 				.unwrap_or(Zero::zero());
 
-		// `fee_paid` cannot be swapped back into `who`'s fee `asset_id`, exist without refund or
-		// the refund amount cannot be deposited into `who`'s fee `asset_id`.
+		// `fee_paid` cannot be swapped back into `who`'s fee `asset_id` or the refund amount cannot
+		// be deposited into `who`'s fee `asset_id`, exit without refund.
 		if refund_asset_amount.is_zero() ||
 			!matches!(
 				F::can_deposit(asset_id.clone(), who, refund_asset_amount, Provenance::Extant),
