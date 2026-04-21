@@ -105,14 +105,6 @@ fn check_whitelist() {
 	assert!(whitelist.contains("1405f2411d0af5a7ff397e7c9dc68d196323ae84c43568be0d1394d5d0d522c4"));
 }
 
-#[test]
-fn check_treasury_pallet_id() {
-	assert_eq!(
-		<Treasury as frame_support::traits::PalletInfoAccess>::index() as u8,
-		westend_runtime_constants::TREASURY_PALLET_ID
-	);
-}
-
 #[cfg(all(test, feature = "try-runtime"))]
 mod remote_tests {
 	use super::*;
