@@ -69,6 +69,8 @@ pub struct Metrics {
 	pub capacity_statements: Gauge<U64>,
 	pub capacity_bytes: Gauge<U64>,
 	pub rejections: CounterVec<U64>,
+	pub internal_errors: CounterVec<U64>,
+	pub known_statements: CounterVec<U64>,
 	pub submit_duration_seconds: Histogram,
 	pub check_expiration_duration_seconds: Histogram,
 	pub statements_expired_total: Counter<U64>,
@@ -148,6 +150,26 @@ impl Metrics {
 						"Total statement rejections by reason",
 					),
 					&["reason"],
+				)?,
+				registry,
+			)?,
+			internal_errors: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_internal_errors_total",
+						"Total internal errors during statement submission by source",
+					),
+					&["source"],
+				)?,
+				registry,
+			)?,
+			known_statements: register(
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_known_statements_total",
+						"Total submissions of statements already known to the store, by prior state",
+					),
+					&["state"],
 				)?,
 				registry,
 			)?,

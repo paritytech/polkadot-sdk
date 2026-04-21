@@ -1345,11 +1345,17 @@ impl StatementStore for Store {
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known_expired"]).inc();
+					});
 					return SubmitResult::KnownExpired;
 				}
 			},
 			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known"]).inc();
+					});
 					return SubmitResult::Known;
 				}
 			},
@@ -1428,6 +1434,9 @@ impl StatementStore for Store {
 					"Reading statement allowance for account {} failed",
 					HexDisplay::from(&account_id),
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["read_allowance"]).inc();
+				});
 				return SubmitResult::InternalError(e);
 			},
 		};
@@ -1460,6 +1469,9 @@ impl StatementStore for Store {
 					e,
 					statement
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["db_commit"]).inc();
+				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 			self.subscription_manager.notify(statement);
