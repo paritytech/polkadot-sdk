@@ -262,14 +262,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type CurrentPhase<T> = StorageValue<_, SalePhase, OptionQuery>;
 
-	/// Active bids during the Market phase. Keyed by bid ID.
+	/// Active bids during the Market phase, sorted by price descending.
 	#[pallet::storage]
-	pub type Bids<T: Config> = StorageMap<
+	pub type Bids<T: Config> = StorageValue<
 		_,
-		Blake2_128Concat,
-		u32,
-		BidRecord<T::AccountId, BalanceOf<T>>,
-		OptionQuery,
+		BoundedVec<BidRecord<T::AccountId, BalanceOf<T>>, T::MaxBids>,
+		ValueQuery,
 	>;
 
 	/// The next bid ID to assign. Also serves as the count of bids placed in this sale.
@@ -423,16 +421,17 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
 
-		let bid_count = NextBidId::<T>::get();
-		ensure!(bid_count < T::MaxBids::get(), Error::<T>::TooManyBids);
-
 		let current_price = descending_price::<T>(block_number, &sale);
 		let bid_price = price_limit.min(current_price);
 
-		let bid_id = bid_count;
+		let bid_id = NextBidId::<T>::get();
 		NextBidId::<T>::put(bid_id.saturating_add(1));
 
-		Bids::<T>::insert(bid_id, BidRecord { who: who.clone(), price: bid_price });
+		let record = BidRecord { bid_id, who: who.clone(), price: bid_price };
+		Bids::<T>::try_mutate(|bids| {
+			let pos = bids.partition_point(|b| b.price > bid_price);
+			bids.try_insert(pos, record).map_err(|_| Error::<T>::TooManyBids)
+		})?;
 
 		Self::deposit_event(Event::BidPlaced {
 			who: who.clone(),
@@ -540,16 +539,25 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		ensure!(CurrentPhase::<T>::get() == Some(SalePhase::Market), Error::<T>::WrongPhase);
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
 
-		let mut bid = Bids::<T>::get(id).ok_or(Error::<T>::BidNotExist)?;
-		ensure!(&bid.who == who, Error::<T>::BidNotExist);
-		ensure!(new_price > bid.price, Error::<T>::Overpriced);
+		let mut bids = Bids::<T>::get();
+		let idx = bids
+			.iter()
+			.position(|b| b.bid_id == id)
+			.ok_or(Error::<T>::BidNotExist)?;
+		ensure!(&bids[idx].who == who, Error::<T>::BidNotExist);
+		ensure!(new_price > bids[idx].price, Error::<T>::Overpriced);
 
 		let current_price = descending_price::<T>(block_number, &sale);
 		ensure!(new_price <= current_price, Error::<T>::BidTooHigh);
 
-		let additional = new_price.saturating_sub(bid.price);
-		bid.price = new_price;
-		Bids::<T>::insert(id, bid);
+		let additional = new_price.saturating_sub(bids[idx].price);
+		let mut record = bids.remove(idx);
+		record.price = new_price;
+		let new_pos = bids.partition_point(|b| b.price > new_price);
+		// Re-insert cannot fail — we just removed one element.
+		bids.try_insert(new_pos, record)
+			.expect("just removed one element; capacity cannot be exceeded; qed");
+		Bids::<T>::put(bids);
 
 		Self::deposit_event(Event::BidRaised {
 			who: who.clone(),
@@ -705,11 +713,11 @@ fn descending_price<T: Config>(
 
 /// Fisher-Yates shuffle of the sub-slice of bids that tie at the clearing price.
 fn shuffle_marginal_bids<T: Config>(
-	bids: &mut [(u32, BidRecord<T::AccountId, BalanceOf<T>>)],
+	bids: &mut [BidRecord<T::AccountId, BalanceOf<T>>],
 	clearing_price: BalanceOf<T>,
 ) {
-	let start = bids.partition_point(|b| b.1.price > clearing_price);
-	let end = bids.partition_point(|b| b.1.price >= clearing_price);
+	let start = bids.partition_point(|b| b.price > clearing_price);
+	let end = bids.partition_point(|b| b.price >= clearing_price);
 
 	if end.saturating_sub(start) <= 1 {
 		return;
@@ -738,58 +746,57 @@ fn shuffle_marginal_bids<T: Config>(
 }
 
 /// Settle the auction at the end of the Market phase.
+///
+/// Bids are already sorted by price descending in storage. Determines the clearing price,
+/// shuffles marginal bids for fair selection, then splits into winners and losers.
 fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> {
-	let mut actions = vec![];
-
-	let mut all_bids: Vec<(u32, BidRecord<T::AccountId, BalanceOf<T>>)> = Vec::new();
-	for (id, bid) in Bids::<T>::iter() {
-		all_bids.push((id, bid));
-	}
-	all_bids.sort_by(|a, b| b.1.price.cmp(&a.1.price));
-
+	let mut bids: Vec<_> = Bids::<T>::take().into_inner();
 	let k = sale.cores_offered as usize;
 	let reserve = sale.reserve_price;
 
-	let clearing_price = if all_bids.len() >= k && k > 0 {
-		all_bids[k - 1].1.price.max(reserve)
-	} else {
-		reserve
-	};
+	// Clearing price: the Kth highest bid, floored at reserve. Falls back to reserve
+	// when fewer than K bids are placed.
+	let clearing_price = bids
+		.get(k.saturating_sub(1))
+		.filter(|_| k > 0)
+		.map(|b| b.price.max(reserve))
+		.unwrap_or(reserve);
 
-	shuffle_marginal_bids::<T>(&mut all_bids, clearing_price);
-
+	shuffle_marginal_bids::<T>(&mut bids, clearing_price);
 	AuctionClearingPrice::<T>::put(clearing_price);
 
-	let mut allocations: Vec<AllocationRecord<T::AccountId, BalanceOf<T>>> = Vec::new();
-	let mut winner_count = 0u32;
+	let (winners, losers): (Vec<_>, Vec<_>) = bids
+		.into_iter()
+		.enumerate()
+		.partition(|(i, bid)| *i < k && bid.price >= clearing_price);
 
-	for (i, (bid_id, bid)) in all_bids.into_iter().enumerate() {
-		Bids::<T>::remove(bid_id);
+	let mut actions = Vec::with_capacity(winners.len() + losers.len());
 
-		if i < k && bid.price >= clearing_price {
+	// Refund losers in full.
+	for (_, bid) in &losers {
+		actions.push(TickAction::Refund { amount: bid.price, who: bid.who.clone() });
+	}
+
+	// Process winners: refund excess, track auction wins, build allocations.
+	let allocations: Vec<_> = winners
+		.into_iter()
+		.map(|(i, bid)| {
 			let excess = bid.price.saturating_sub(clearing_price);
 			if !excess.is_zero() {
 				actions.push(TickAction::Refund { amount: excess, who: bid.who.clone() });
 			}
-
-			let core = sale.first_core.saturating_add(i as u16);
 			AuctionWins::<T>::mutate(&bid.who, |c| c.saturating_inc());
-
-			allocations.push(AllocationRecord {
+			AllocationRecord {
 				who: bid.who,
 				bid_price: bid.price,
-				bid_id,
-				core,
-			});
+				bid_id: bid.bid_id,
+				core: sale.first_core.saturating_add(i as u16),
+			}
+		})
+		.collect();
 
-			winner_count += 1;
-		} else {
-			actions.push(TickAction::Refund { amount: bid.price, who: bid.who });
-		}
-	}
-
-	let bounded: BoundedVec<_, T::MaxBids> = BoundedVec::truncate_from(allocations);
-	Allocations::<T>::put(bounded);
+	let winner_count = allocations.len() as u32;
+	Allocations::<T>::put(BoundedVec::truncate_from(allocations));
 
 	let mut updated_sale = sale.clone();
 	updated_sale.cores_sold = winner_count as u16;

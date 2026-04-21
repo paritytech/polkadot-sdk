@@ -149,6 +149,8 @@ pub enum SalePhase {
 	MaxEncodedLen,
 )]
 pub struct BidRecord<AccountId, Balance> {
+	/// Unique identifier for this bid.
+	pub bid_id: u32,
 	/// The bidder's account.
 	pub who: AccountId,
 	/// The bid price (amount locked from the bidder).
