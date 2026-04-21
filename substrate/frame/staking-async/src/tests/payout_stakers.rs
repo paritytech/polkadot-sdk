@@ -1732,27 +1732,30 @@ fn test_runtime_api_pending_rewards() {
 }
 
 #[test]
-#[should_panic(expected = "Era has no reward pot but legacy minting is disabled!")]
-fn payout_fails_when_pot_missing_and_minting_disabled() {
-	// Payout should fail with LegacyMintingDisabled when the era has no reward pot
-	// but DisableMintingGuard prevents legacy minting.
-	ExtBuilder::default().build_and_execute(|| {
+fn legacy_payout_ignores_pot_account_existence() {
+	ExtBuilder::default().legacy_reward_mode().build_and_execute(|| {
 		let validator = 11; // validator
 
+		// GIVEN: a legacy era with rewards to pay out, guard unset.
 		Staking::reward_by_ids(vec![(validator, 1)]);
 		Session::roll_until_active_era(2);
 
 		let era = 1;
-		assert!(ErasValidatorReward::<Test>::get(era).unwrap() > 0);
-		assert!(DisableMintingGuard::<T>::get().is_some());
+		let expected_stakers =
+			(time_per_era() as Balance) - RemainderRatio::get() * (time_per_era() as Balance);
+		assert_eq!(ErasValidatorReward::<Test>::get(era).unwrap(), expected_stakers);
+		assert_eq!(DisableMintingGuard::<Test>::get(), None);
 
-		// GIVEN: era pot exists in DAP mode — destroy it to simulate corruption.
+		// WHEN: the era pot account is made to exist externally (dust transfer at ED).
 		let pot = SequentialTest::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
-		assert!(crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
-		frame_system::Account::<T>::remove::<&AccountId>(&pot);
-		assert!(!crate::reward::EraRewardManager::<T>::has_staker_rewards_pot(era));
+		asset::set_stakeable_balance::<Test>(&pot, asset::existential_deposit::<Test>());
+		assert!(crate::reward::EraRewardManager::<Test>::has_staker_rewards_pot(era));
 
-		// WHEN: payout is attempted — defensive! panics (returns LegacyMintingDisabled in prod).
-		let _ = Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era);
+		// THEN: payout still takes the legacy (mint) path. Issuance growing by the full
+		// staker reward means new tokens were minted rather than transferred from a pot.
+		let pre_issuance = pallet_balances::TotalIssuance::<Test>::get();
+		assert_ok!(Staking::payout_stakers(RuntimeOrigin::signed(1337), validator, era));
+		let minted = pallet_balances::TotalIssuance::<Test>::get() - pre_issuance;
+		assert_eq!(minted, expected_stakers);
 	});
 }
