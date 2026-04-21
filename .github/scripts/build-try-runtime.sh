@@ -91,8 +91,9 @@ echo "::endgroup::"
 
 echo "::group::Build try-runtime"
 cd "$WORK_DIR/try-runtime-cli"
-# Remove the lock file since patched dependencies will have different versions.
-rm -f Cargo.lock
+# Seed the lockfile from polkadot-sdk so yanked-but-already-locked registry
+# versions in polkadot-sdk's transitive graph stay resolvable.
+cp "$SDK_PATH/Cargo.lock" Cargo.lock
 cargo build --release -p try-runtime-cli
 cp target/release/try-runtime "$OUTPUT"
 echo "::endgroup::"
