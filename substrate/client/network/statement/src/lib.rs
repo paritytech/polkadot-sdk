@@ -180,7 +180,7 @@ impl Metrics {
 			propagated_statements: register(
 				Counter::new(
 					"substrate_sync_propagated_statements",
-					"Number of statements propagated to at least one peer",
+					"Total statements propagated to peers, counted once per recipient (a statement sent to N peers increments by N)",
 				)?,
 				r,
 			)?,
@@ -211,7 +211,7 @@ impl Metrics {
 			pending_statements: register(
 				Gauge::new(
 					"substrate_sync_pending_statement_validations",
-					"Number of pending statement validations",
+					"Number of pending statement validations, sampled once per propagation tick",
 				)?,
 				r,
 			)?,
@@ -246,7 +246,7 @@ impl Metrics {
 			bytes_received_total: register(
 				Counter::new(
 					"substrate_sync_statement_bytes_received_total",
-					"Total bytes received for statement protocol messages",
+					"Total bytes received for statement protocol messages (includes bytes from notifications that are later discarded — e.g. while major-syncing)",
 				)?,
 				r,
 			)?,
@@ -271,7 +271,7 @@ impl Metrics {
 			initial_sync_bursts_total: register(
 				Counter::new(
 					"substrate_sync_initial_sync_bursts_total",
-					"Total number of initial sync burst rounds processed",
+					"Total initial-sync burst rounds attempted (includes rounds that return early with no hashes left)",
 				)?,
 				r,
 			)?,
@@ -286,7 +286,7 @@ impl Metrics {
 				Histogram::with_opts(
 					HistogramOpts::new(
 						"substrate_sync_initial_sync_duration_seconds",
-						"Per-peer total duration of initial sync from start to completion",
+						"Per-peer duration of initial sync from start until completion or peer disconnect (whichever comes first)",
 					)
 					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
 				)?,
