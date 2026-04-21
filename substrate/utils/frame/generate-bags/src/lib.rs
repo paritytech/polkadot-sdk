@@ -277,7 +277,7 @@ fn generate_thresholds_inner<T: frame_system::Config>(
 
 /// Write a thresholds module for a runtime using `pallet_staking`.
 ///
-/// See [`generate_thresholds_inner`] for parameter documentation.
+/// See `generate_thresholds_inner` for parameter documentation.
 pub fn generate_thresholds<T: pallet_staking::Config>(
 	n_bags: usize,
 	output: &Path,
@@ -290,7 +290,7 @@ pub fn generate_thresholds<T: pallet_staking::Config>(
 
 /// Write a thresholds module for a runtime using `pallet_staking_async`.
 ///
-/// See [`generate_thresholds_inner`] for parameter documentation.
+/// See `generate_thresholds_inner` for parameter documentation.
 pub fn generate_thresholds_async<T: pallet_staking_async::Config>(
 	n_bags: usize,
 	output: &Path,
