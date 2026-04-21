@@ -411,11 +411,10 @@ where
 						entries,
 						total_bytes,
 					);
+					if let Some(ref metrics) = metrics {
+						metrics.on_miss(&method_name);
+					}
 				}
-			}
-
-			if let Some(ref metrics) = metrics {
-				metrics.on_miss(&method_name);
 			}
 
 			rp
