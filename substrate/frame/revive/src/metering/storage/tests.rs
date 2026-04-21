@@ -90,7 +90,6 @@ fn new_info(info: StorageInfo) -> ContractInfo<Test> {
 		storage_byte_deposit: info.bytes_deposit,
 		storage_item_deposit: info.items_deposit,
 		storage_base_deposit: Default::default(),
-		historic_deposit: Default::default(),
 		immutable_data_len: info.immutable_data_len,
 	}
 }

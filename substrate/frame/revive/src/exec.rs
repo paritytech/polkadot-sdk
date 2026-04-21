@@ -18,7 +18,7 @@
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
 	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
-	LOG_TARGET, Pallet as Contracts, PgasBackend, RuntimeCosts, TrieId,
+	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
 	evm::{block_storage, transfer_with_dust},
 	limits,
@@ -60,7 +60,7 @@ use sp_core::{
 use sp_io::{crypto::secp256k1_ecdsa_recover_compressed, hashing::blake2_256};
 use sp_runtime::{
 	DispatchError, SaturatedConversion,
-	traits::{BadOrigin, Saturating, TrailingZeroInput, Zero},
+	traits::{BadOrigin, Saturating, TrailingZeroInput},
 };
 
 #[cfg(test)]
@@ -1708,42 +1708,23 @@ where
 		origin: &Origin<T>,
 		args: &TerminateArgs<T>,
 	) -> Result<(), DispatchError> {
-		use frame_support::traits::{fungible::InspectHold, tokens::Preservation};
+		use frame_support::traits::fungible::InspectHold;
 
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
-			let origin_account = origin.account_id()?;
-			let dot_refund = T::Currency::balance_on_hold(
+			let refund = T::Currency::balance_on_hold(
 				&HoldReason::StorageDepositReserve.into(),
+				&contract_account,
+			);
+			<Contracts<T>>::refund_deposit(
+				HoldReason::StorageDepositReserve,
 				contract_account,
-			);
-			if !dot_refund.is_zero() {
-				<Contracts<T>>::refund_from_hold(
-					HoldReason::StorageDepositReserve,
-					contract_account,
-					origin_account,
-					dot_refund,
-					Some(exec_config),
-				)?;
-			}
-			let pgas_refund = T::PgasBackend::balance(contract_account);
-			if !pgas_refund.is_zero() {
-				T::PgasBackend::transfer(
-					contract_account,
-					origin_account,
-					pgas_refund,
-					Preservation::Expendable,
-				)
-				.map_err(|_| Error::<T>::StorageRefundNotEnoughFunds)?;
-			}
-			let _ = crate::pallet::DotByContractUser::<T>::clear_prefix(
-				&contract_address,
-				u32::MAX,
-				None,
-			);
-			let refund = dot_refund.saturating_add(pgas_refund);
+				origin.account_id()?,
+				refund,
+				Some(exec_config),
+			)?;
 
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);

@@ -25,8 +25,8 @@ mod runtime_costs;
 pub use runtime_costs::RuntimeCosts;
 
 use crate::{
-	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, DepositAsset, Error, ExecConfig,
-	ExecError, HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
+	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
 	metering::{ResourceMeter, State, Token},
@@ -97,8 +97,6 @@ pub struct CodeInfo<T: Config> {
 	///
 	/// As of right now this is a reserved field that is always set to 0.
 	behaviour_version: u32,
-	/// Asset used by the owner to pay the upload deposit. Refunds are returned in the same asset.
-	deposit_asset: DepositAsset,
 }
 
 /// Calculate the deposit required for storing code and its metadata.
@@ -171,7 +169,6 @@ impl<T: Config> ContractBlob<T> {
 					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					code_info.deposit_asset,
 					None,
 				)?;
 				*existing = None;
@@ -203,7 +200,7 @@ impl<T: Config> ContractBlob<T> {
 				None => {
 					let deposit = self.code_info.deposit;
 
-					let asset = <Pallet<T>>::charge_deposit(
+					<Pallet<T>>::charge_deposit(
 							Some(HoldReason::CodeUploadDepositReserve),
 							&self.code_info.owner,
 							&Pallet::<T>::account_id(),
@@ -213,8 +210,6 @@ impl<T: Config> ContractBlob<T> {
 					 .inspect_err(|err| {
 							log::debug!(target: LOG_TARGET, "failed to hold store code deposit {deposit:?} for owner: {:?}: {err:?}", self.code_info.owner);
 					})?;
-
-					self.code_info.deposit_asset = asset;
 
 					meter.charge_deposit(&StorageDeposit::Charge(deposit))?;
 
@@ -237,7 +232,6 @@ impl<T: Config> CodeInfo<T> {
 			code_len: 0,
 			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
-			deposit_asset: Default::default(),
 		}
 	}
 
@@ -295,7 +289,6 @@ impl<T: Config> CodeInfo<T> {
 					&Pallet::<T>::account_id(),
 					&code_info.owner,
 					code_info.deposit,
-					code_info.deposit_asset,
 					None,
 				)?;
 

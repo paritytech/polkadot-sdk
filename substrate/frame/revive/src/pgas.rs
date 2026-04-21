@@ -138,9 +138,8 @@ where
 			preservation,
 			Fortitude::Polite,
 		)?;
-		<Assets as fungibles::Balanced<T::AccountId>>::resolve(to, credit).map_err(|_| {
-			DispatchError::Other("pallet-revive: failed to resolve PGAS credit")
-		})?;
+		<Assets as fungibles::Balanced<T::AccountId>>::resolve(to, credit)
+			.map_err(|_| DispatchError::Other("pallet-revive: failed to resolve PGAS credit"))?;
 		Ok(())
 	}
 }

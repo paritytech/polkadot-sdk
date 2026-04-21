@@ -22,8 +22,8 @@
 //! [`DotByContractUser`], `historic_deposit` and the termination prefix-clear.
 
 use crate::{
-	AccountInfo, AccountInfoOf, AccountType, Config, ContractInfo, DepositAsset,
-	DotByContractUser, ExecConfig, HoldReason, Pallet,
+	AccountInfo, AccountInfoOf, AccountType, Config, ContractInfo, DepositAsset, DotByContractUser,
+	ExecConfig, HoldReason, Pallet,
 	test_utils::*,
 	tests::{ExtBuilder, Test, test_utils::get_balance_on_hold},
 };
@@ -59,7 +59,11 @@ fn historic_deposit_of(address: &H160) -> u128 {
 	}
 }
 
-fn charge_storage(origin: &sp_runtime::AccountId32, contract: &sp_runtime::AccountId32, amount: u128) {
+fn charge_storage(
+	origin: &sp_runtime::AccountId32,
+	contract: &sp_runtime::AccountId32,
+	amount: u128,
+) {
 	assert_ok!(Pallet::<Test>::charge_deposit(
 		Some(HoldReason::StorageDepositReserve),
 		origin,
@@ -69,7 +73,11 @@ fn charge_storage(origin: &sp_runtime::AccountId32, contract: &sp_runtime::Accou
 	));
 }
 
-fn refund_storage(origin: &sp_runtime::AccountId32, contract: &sp_runtime::AccountId32, amount: u128) {
+fn refund_storage(
+	origin: &sp_runtime::AccountId32,
+	contract: &sp_runtime::AccountId32,
+	amount: u128,
+) {
 	assert_ok!(Pallet::<Test>::refund_deposit(
 		HoldReason::StorageDepositReserve,
 		contract,
@@ -151,10 +159,7 @@ fn refund_storage_deposit_spills_to_dot_convertible_after_historic() {
 		// historic drained first, remainder taken from the per-user entitlement.
 		assert_eq!(historic_deposit_of(&contract_address), 0);
 		let spill = refund - historic;
-		assert_eq!(
-			DotByContractUser::<Test>::get(&contract_address, &origin),
-			charge - spill,
-		);
+		assert_eq!(DotByContractUser::<Test>::get(&contract_address, &origin), charge - spill,);
 		assert_eq!(
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &contract_account),
 			charge - refund,

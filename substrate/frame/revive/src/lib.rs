@@ -2733,11 +2733,7 @@ impl<T: Config> Pallet<T> {
 					if new_entitlement.is_zero() {
 						DotByContractUser::<T>::remove(&contract_address, to);
 					} else {
-						DotByContractUser::<T>::insert(
-							&contract_address,
-							to,
-							new_entitlement,
-						);
+						DotByContractUser::<T>::insert(&contract_address, to, new_entitlement);
 					}
 					remaining = remaining.saturating_sub(dot_refund);
 				}
@@ -2752,8 +2748,9 @@ impl<T: Config> Pallet<T> {
 
 		match asset {
 			DepositAsset::Pgas => Self::refund_pgas(from, to, amount),
-			DepositAsset::DotConvertible =>
-				Self::refund_from_hold(hold_reason, from, to, amount, exec_config),
+			DepositAsset::DotConvertible => {
+				Self::refund_from_hold(hold_reason, from, to, amount, exec_config)
+			},
 		}
 	}
 

@@ -122,7 +122,6 @@ impl<T: Config> ContractBlob<T> {
 			code_len,
 			code_type: BytecodeType::Pvm,
 			behaviour_version: Default::default(),
-			deposit_asset: Default::default(),
 		};
 		let code_hash = H256(sp_io::hashing::keccak_256(&code));
 		Ok(ContractBlob { code, code_info, code_hash })

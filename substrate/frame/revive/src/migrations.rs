@@ -26,9 +26,5 @@ pub mod v2;
 /// Auto-map all existing accounts
 pub mod v3;
 
-/// Seed PGAS-related fields on `AccountInfoOf` (`historic_deposit`) and `CodeInfoOf`
-/// (`deposit_asset`).
-pub mod v4;
-
 /// A unique identifier across all pallets.
 const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";

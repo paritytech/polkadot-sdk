@@ -22,7 +22,7 @@ mod tests;
 
 use super::{Nested, Root, State};
 use crate::{
-	BalanceOf, Config, DepositAsset, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
+	BalanceOf, Config, ExecConfig, ExecOrigin as Origin, HoldReason, Pallet,
 	StorageDeposit as Deposit, storage::ContractInfo,
 };
 use alloc::vec::Vec;
@@ -534,7 +534,6 @@ impl<T: Config> Ext<T> for ReservingExt {
 					contract,
 					origin,
 					*amount,
-					DepositAsset::DotConvertible,
 					Some(exec_config),
 				)?;
 			},
