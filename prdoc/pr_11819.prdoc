@@ -33,3 +33,5 @@ doc:
 crates:
 - name: pallet-psm
   bump: minor
+- name: asset-hub-westend-runtime
+  bump: patch

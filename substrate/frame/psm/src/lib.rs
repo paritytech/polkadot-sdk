@@ -227,7 +227,7 @@ pub mod pallet {
 	/// Maximum absolute difference between an external asset's decimals and the stable
 	/// asset's decimals. Bounds the scaling factor `10^diff` well below `u128::MAX`
 	/// so realistic balances cannot overflow during conversion.
-	pub(crate) const MAX_DECIMALS_DIFF: u32 = 24;
+	pub const MAX_DECIMALS_DIFF: u32 = 24;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {

@@ -19,8 +19,8 @@
 //! deployment.
 //!
 //! Purpose: chains that approved external assets before the multi-decimal upgrade
-//! have entries in [`ExternalAssets`] but no [`AssetDecimals`] snapshots, and no
-//! [`StableDecimals`] either. Mint and redeem both require these snapshots and
+//! have entries in `ExternalAssets` but no `AssetDecimals` snapshots, and no
+//! `StableDecimals` either. Mint and redeem both require these snapshots and
 //! will fail closed (`Error::DecimalsMismatch` / `Error::Unexpected`) until they
 //! are populated. This migration reads live metadata and writes the snapshots.
 //!
@@ -46,10 +46,11 @@
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 use frame_support::{
+	migrations::VersionedMigration,
 	pallet_prelude::Weight,
 	traits::{
 		fungible::metadata::Inspect as FungibleMetadataInspect,
-		fungibles::metadata::Inspect as FungiblesMetadataInspect, Get,
+		fungibles::metadata::Inspect as FungiblesMetadataInspect, Get, UncheckedOnRuntimeUpgrade,
 	},
 };
 
@@ -57,7 +58,7 @@ use crate::{
 	pallet::{
 		AssetDecimals, CircuitBreakerLevel, ExternalAssets, StableDecimals, MAX_DECIMALS_DIFF,
 	},
-	Config,
+	Config, Pallet,
 };
 
 #[cfg(feature = "try-runtime")]
@@ -67,11 +68,25 @@ use sp_runtime::TryRuntimeError;
 
 const LOG_TARGET: &str = "runtime::psm::migration::populate_decimals";
 
-/// One-shot migration that fills in decimal snapshots for all pre-existing
-/// external assets and the stable asset.
-pub struct PopulateDecimals<T>(core::marker::PhantomData<T>);
+/// Version-gated v1 -> v2 migration that fills in decimal snapshots for all
+/// pre-existing external assets and the stable asset, and bumps the pallet
+/// on-chain storage version from 1 to 2.
+pub type PopulateDecimals<T> = VersionedMigration<
+	1,
+	2,
+	InnerPopulateDecimals<T>,
+	Pallet<T>,
+	<T as frame_system::Config>::DbWeight,
+>;
 
-impl<T: Config> frame_support::traits::OnRuntimeUpgrade for PopulateDecimals<T> {
+/// Version-unchecked migration logic. Exposed only for use by [`PopulateDecimals`].
+///
+/// Should never be placed directly into a runtime's migrations tuple — use the
+/// versioned alias [`PopulateDecimals`] so the on-chain storage version is
+/// checked and bumped.
+pub struct InnerPopulateDecimals<T>(core::marker::PhantomData<T>);
+
+impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 	fn on_runtime_upgrade() -> Weight {
 		log::info!(
 			target: LOG_TARGET,
@@ -182,13 +197,23 @@ mod tests {
 		},
 		Pallet,
 	};
-	use frame_support::{assert_ok, traits::OnRuntimeUpgrade};
+	use frame_support::{
+		assert_ok,
+		traits::{GetStorageVersion, OnRuntimeUpgrade, StorageVersion},
+	};
+
+	/// The wrapper only runs when on-chain version is 1. Genesis sets it to 2,
+	/// so tests must roll it back to simulate a v1 chain.
+	fn prepare_v1() {
+		StorageVersion::new(1).put::<Pallet<Test>>();
+	}
 
 	#[test]
 	fn populate_decimals_backfills_existing_assets() {
 		new_test_ext().execute_with(|| {
 			// Simulate a pre-migration state: existing assets have ExternalAssets
 			// entries but no decimals snapshots (and no StableDecimals).
+			prepare_v1();
 			StableDecimals::<Test>::kill();
 			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
 			AssetDecimals::<Test>::remove(USDT_ASSET_ID);
@@ -213,6 +238,7 @@ mod tests {
 	#[test]
 	fn populate_decimals_does_not_overwrite_existing_snapshots() {
 		new_test_ext().execute_with(|| {
+			prepare_v1();
 			// Genesis already wrote snapshots. Plant a sentinel to verify the
 			// migration does not overwrite it.
 			AssetDecimals::<Test>::insert(USDC_ASSET_ID, 42u8);
@@ -250,9 +276,11 @@ mod tests {
 				45,
 			));
 
-			// Wipe DAI's snapshot and StableDecimals to force repopulation.
+			// Wipe DAI's snapshot and StableDecimals to force repopulation, then
+			// roll back to v1 so the versioned wrapper actually runs.
 			AssetDecimals::<Test>::remove(DAI_MOCK_ASSET_ID);
 			StableDecimals::<Test>::kill();
+			prepare_v1();
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
@@ -273,18 +301,40 @@ mod tests {
 	}
 
 	#[test]
-	fn populate_decimals_is_idempotent() {
+	fn populate_decimals_runs_once_then_skips() {
 		new_test_ext().execute_with(|| {
+			prepare_v1();
 			StableDecimals::<Test>::kill();
 			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
 
+			// First run: on-chain version is 1, migration executes and bumps to 2.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 			let stable1 = StableDecimals::<Test>::get();
 			let usdc1 = AssetDecimals::<Test>::get(USDC_ASSET_ID);
 
+			// Second run: on-chain version is 2, versioned wrapper skips — state
+			// is unchanged.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 			assert_eq!(StableDecimals::<Test>::get(), stable1);
 			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), usdc1);
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
+		});
+	}
+
+	#[test]
+	fn populate_decimals_skips_when_not_on_version_one() {
+		new_test_ext().execute_with(|| {
+			// Simulate an already-upgraded chain at v2. Wrapper must skip.
+			StorageVersion::new(2).put::<Pallet<Test>>();
+
+			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
+			PopulateDecimals::<Test>::on_runtime_upgrade();
+
+			// Snapshot not repopulated — migration was skipped.
+			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), None);
+			// Version unchanged.
+			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 		});
 	}
 }

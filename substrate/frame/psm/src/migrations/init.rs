@@ -110,7 +110,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 		// Stable decimals snapshot: populate from live metadata if not yet set.
 		// Per-asset snapshots for pre-existing approved assets are owned by
-		// [`super::decimals::PopulateDecimals`] — this migration only touches [`AssetDecimals`] for
+		// `super::decimals::PopulateDecimals` — this migration only touches `AssetDecimals` for
 		// assets it adds as new below.
 		let stable_decimals = T::StableAsset::decimals();
 		reads += 1;
