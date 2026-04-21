@@ -346,8 +346,7 @@ async fn run_all_eth_rpc_tests_inner() -> anyhow::Result<()> {
 		test_fibonacci_call_via_runtime_api,
 		test_transfer,
 		test_deploy_and_call,
-		test_receipt_deploy_and_revert,
-		test_receipt_multiple_logs,
+		test_receipt_mixed_revert_and_logs_same_block,
 		test_runtime_api_dry_run_addr_works,
 		test_invalid_transaction,
 		test_evm_blocks_should_match,
@@ -534,95 +533,118 @@ async fn test_deploy_and_call() -> anyhow::Result<()> {
 	Ok(())
 }
 
-/// Verify receipt correctness for deploy (contractAddress, status=success)
-/// and reverted calls (status=0x0).
-async fn test_receipt_deploy_and_revert() -> anyhow::Result<()> {
+/// Verify that a reverted transaction and a log-emitting transaction in the same block
+/// produce correct, independent receipts: revert status and logs are not mixed up.
+/// Also exercises eth_getTransactionByBlockNumberAndIndex for both transactions.
+async fn test_receipt_mixed_revert_and_logs_same_block() -> anyhow::Result<()> {
 	let client = Arc::new(SharedResources::client().await);
 	let account = Account::default();
 
-	// Deploy ok_trap_revert (reverts when called with input byte 1)
-	let (bytes, _) = pallet_revive_fixtures::compile_module("ok_trap_revert")?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(client.clone()).input(bytes).send().await?;
-	let receipt = tx.wait_for_receipt().await?;
-	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(
-		Some(contract_address),
-		receipt.contract_address,
-		"Deploy should set contractAddress"
-	);
-	assert!(receipt.is_success(), "Deploy should succeed");
+	let deploy = |name, fixture_type| {
+		let client = client.clone();
+		let address = account.address();
+		async move {
+			let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(name, fixture_type)?;
+			let nonce = client.get_transaction_count(address, BlockTag::Latest.into()).await?;
+			let tx = TransactionBuilder::new(client).input(bytes).send().await?;
+			tx.wait_for_receipt().await?;
+			Ok::<_, anyhow::Error>(create1(&address, nonce.try_into().unwrap()))
+		}
+	};
 
-	// Send a reverting call with explicit gas (eth_estimateGas would revert).
-	let receipt = TransactionBuilder::new(client.clone())
-		.to(contract_address)
-		.input(vec![1, 0, 0, 0])
-		.gas(U256::from(1_000_000))
-		.send()
-		.await?
-		.wait_for_receipt_any()
-		.await?;
+	let revert_contract =
+		deploy("ok_trap_revert", pallet_revive_fixtures::FixtureType::Rust).await?;
+	let event_contract = deploy("MultiEvent", pallet_revive_fixtures::FixtureType::Solc).await?;
 
-	assert!(!receipt.is_success(), "Reverted call should have status=0x0");
-	assert!(receipt.logs.is_empty(), "Reverted call should produce no logs");
-	assert_eq!(Some(contract_address), receipt.to);
-
-	Ok(())
-}
-
-/// Verify that multiple ContractEmitted events in a single transaction
-/// are all collected into the receipt logs.
-async fn test_receipt_multiple_logs() -> anyhow::Result<()> {
-	let client = Arc::new(SharedResources::client().await);
-	let account = Account::default();
-
-	// Deploy MultiEvent contract
-	let (bytes, _) = pallet_revive_fixtures::compile_module_with_type(
-		"MultiEvent",
-		pallet_revive_fixtures::FixtureType::Solc,
-	)?;
-	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
-	let tx = TransactionBuilder::new(client.clone()).input(bytes).send().await?;
-	let receipt = tx.wait_for_receipt().await?;
-	let contract_address = create1(&account.address(), nonce.try_into().unwrap());
-	assert_eq!(Some(contract_address), receipt.contract_address);
-
-	// Call emitMultiple(1, 2) — should emit two events (Ping and Pong)
 	alloy::sol! {
 		function emitMultiple(uint64 a, uint64 b);
 		event Ping(uint64 value);
 		event Pong(uint64 value);
 	}
-	let input = emitMultipleCall { a: 1, b: 2 }.abi_encode();
 
-	let tx = TransactionBuilder::new(client.clone())
-		.to(contract_address)
-		.input(input)
+	// Get the current nonce and submit two transactions with descending nonces
+	// so they land in the same block.
+	let nonce = client.get_transaction_count(account.address(), BlockTag::Latest.into()).await?;
+
+	let revert_tx = TransactionBuilder::new(client.clone())
+		.to(revert_contract)
+		.input(vec![1, 0, 0, 0])
+		.gas(U256::from(1_000_000))
+		.nonce(nonce.saturating_add(U256::from(1)))
 		.send()
 		.await?;
-	let receipt = tx.wait_for_receipt().await?;
 
-	assert!(receipt.is_success(), "emitMultiple call should succeed");
-	assert_eq!(receipt.logs.len(), 2, "Receipt should contain exactly 2 logs");
-	assert_eq!(receipt.logs[0].address, contract_address);
-	assert_eq!(receipt.logs[1].address, contract_address);
+	let emit_input = emitMultipleCall { a: 1, b: 2 }.abi_encode();
+	let emit_tx = TransactionBuilder::new(client.clone())
+		.to(event_contract)
+		.input(emit_input)
+		.gas(U256::from(1_000_000))
+		.nonce(nonce)
+		.send()
+		.await?;
+
+	let emit_receipt = emit_tx.wait_for_receipt().await?;
+	let revert_receipt = revert_tx.wait_for_receipt_any().await?;
+
+	// Both should be in the same block
+	assert_eq!(
+		emit_receipt.block_number, revert_receipt.block_number,
+		"Both transactions should be in the same block"
+	);
+
+	// Reverted transaction: status=0, no logs
+	assert!(!revert_receipt.is_success(), "Reverted call should have status=0x0");
+	assert!(revert_receipt.logs.is_empty(), "Reverted call should produce no logs");
+
+	// Successful transaction: status=1, 2 logs correctly attributed
+	assert!(emit_receipt.is_success(), "emitMultiple call should succeed");
+	assert_eq!(emit_receipt.logs.len(), 2, "Receipt should contain exactly 2 logs");
+	assert_eq!(emit_receipt.logs[0].address, event_contract);
+	assert_eq!(emit_receipt.logs[1].address, event_contract);
 
 	let ping_sig = H256(Ping::SIGNATURE_HASH.0);
 	let pong_sig = H256(Pong::SIGNATURE_HASH.0);
-	assert_eq!(receipt.logs[0].topics[0], ping_sig, "First log should be Ping");
-	assert_eq!(receipt.logs[1].topics[0], pong_sig, "Second log should be Pong");
+	assert_eq!(emit_receipt.logs[0].topics[0], ping_sig, "First log should be Ping");
+	assert_eq!(emit_receipt.logs[1].topics[0], pong_sig, "Second log should be Pong");
 
-	let ping_data = &receipt.logs[0].data.as_ref().unwrap().0;
-	let pong_data = &receipt.logs[1].data.as_ref().unwrap().0;
+	for log in &emit_receipt.logs {
+		assert_eq!(
+			log.transaction_hash, emit_receipt.transaction_hash,
+			"Logs should belong to the emitting transaction"
+		);
+	}
+
+	// Verify log data values
+	let ping_data = &emit_receipt.logs[0].data.as_ref().unwrap().0;
+	let pong_data = &emit_receipt.logs[1].data.as_ref().unwrap().0;
 	let ping = Ping::abi_decode_data(ping_data).expect("decode Ping data");
 	let pong = Pong::abi_decode_data(pong_data).expect("decode Pong data");
 	assert_eq!(ping.0, 1, "Ping value should be 1");
 	assert_eq!(pong.0, 2, "Pong value should be 2");
 
+	// log_index must be monotonically increasing within the block
 	assert!(
-		receipt.logs[0].log_index < receipt.logs[1].log_index,
+		emit_receipt.logs[0].log_index < emit_receipt.logs[1].log_index,
 		"log_index values should be monotonically increasing"
 	);
+
+	let block_number = emit_receipt.block_number;
+	// Verify eth_getTransactionByBlockNumberAndIndex for both
+	let tx0 = client
+		.get_transaction_by_block_number_and_index(
+			block_number.try_into().unwrap(),
+			emit_receipt.transaction_index,
+		)
+		.await?;
+	assert_eq!(tx0.unwrap().hash, emit_receipt.transaction_hash);
+
+	let tx1 = client
+		.get_transaction_by_block_number_and_index(
+			block_number.try_into().unwrap(),
+			revert_receipt.transaction_index,
+		)
+		.await?;
+	assert_eq!(tx1.unwrap().hash, revert_receipt.transaction_hash);
 
 	Ok(())
 }
