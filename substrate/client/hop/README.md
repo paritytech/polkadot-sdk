@@ -1,332 +1,217 @@
-# HOP Service
+# `sc-hop` — Hand-Off Protocol
 
-HOP (Hand-Off Protocol) is a standalone service crate for Substrate nodes that provides ephemeral data
-storage with an RPC for submitting data and Bitswap protocol for retrieval.
+Node-level ephemeral data pool for Substrate collators. HOP gives a collator a
+disk-backed pool where an authorized sender can upload a blob and hand it off
+to one or more recipients who claim it directly from the same collator over
+JSON-RPC. Unclaimed blobs are promoted to on-chain storage as a best-effort
+fallback before they expire, or simply cleaned up.
+
+HOP complements `pallet-transaction-storage` by keeping short-lived hand-off
+data off-chain until it actually needs permanence — data lives on one
+collator's disk instead of being replicated across the chain, and round-trip
+latency stays well under a block time.
 
 ## Overview
 
-HOP enables peer-to-peer data sharing when recipients are offline by providing:
+- **Disk-backed** — blobs are written to disk immediately, only metadata lives
+  in RAM. The in-memory index is rebuilt from on-disk `.meta` files on restart.
+- **Content-addressed** — entries are keyed by `blake2_256(data)`; duplicates
+  are rejected at submit time.
+- **Per-recipient ephemeral keypairs** — the sender generates a one-time
+  `MultiSigner` keypair per recipient and shares the private key out-of-band.
+  The collator verifies signatures on claim/ack without learning recipient
+  identities.
+- **Domain-separated signatures** — distinct context prefixes for submit,
+  claim, and ack (`HOP_SUBMIT_CONTEXT`, `HOP_CLAIM_CONTEXT`, `HOP_ACK_CONTEXT`)
+  so a signature from one operation cannot be replayed as another.
+- **Authorization reuse** — submit requires an active
+  `pallet-transaction-storage` authorization for the signer account.
+- **Per-account rate limiting** — token-bucket caps on both submit rate and
+  bandwidth; see [CLI flags](#cli-flags).
+- **Best-effort on-chain promotion** — near-expiry entries are promoted via a
+  runtime API; if the runtime doesn't implement `HopApi` the node runs in
+  cleanup-only mode so it can be deployed ahead of a runtime upgrade.
 
-- **In-memory data pool** with configurable size and retention period
-- **Content-addressed storage** using Blake2-256 hashes
-- **RPC** for data submission
-- **Bitswap protocol** support for retrieval
+## Crate layout
 
-## Use Cases
+| Module | Purpose |
+|---|---|
+| `cli` | `HopParams` — `clap`-flattenable CLI parameters |
+| `pool` | `HopDataPool` — disk-backed blob store + in-memory metadata index |
+| `rpc` | `HopApi` trait, `HopRpcServer` — jsonrpsee methods (`hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`) |
+| `promotion` | `HopPromoter`, `RuntimeApiPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
+| `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
+| `types` | Errors, `HopEntryMeta`, `PoolStatus`, `SubmitResult`, signing contexts, defaults |
+| `primitives` | `HopHash`, `HopBlockNumber` |
 
-- Chat attachments when recipient is offline
-- Collaborative document auto-save
-- Temporary cache for blockchain data
-- P2P data exchange before permanent storage
+Companion runtime crate: [`sp-hop`](../../primitives/hop/) — defines the
+`HopApi` runtime API used for authorization checks and promotion.
 
-## Integration into Substrate Nodes
+## Integration
 
-### 1. Add Dependency
+Three-step wiring for a Cumulus / omni-node style service builder.
 
-Add to your node's `Cargo.toml`:
+### 1. Flatten CLI
 
-```toml
-[dependencies]
-hop-service = { path = "../hop-service" }
-```
-
-Or from the bulletin-chain workspace:
-
-```toml
-[dependencies]
-hop-service = { workspace = true }
-```
-
-### 2. CLI Integration
-
-Add HOP parameters to your node CLI:
-
-```rust
-use hop_service::HopParams;
+```rust,ignore
+use sc_hop::HopParams;
 
 #[derive(Debug, clap::Parser)]
 pub struct Cli {
-    #[clap(subcommand)]
-    pub subcommand: Option<Subcommand>,
-
-    #[clap(flatten)]
-    pub run: sc_cli::RunCmd,
-
     #[clap(flatten)]
     pub hop: HopParams,
+    // ... other CLI fields
 }
 ```
 
-### 3. Service Initialization
+### 2. Initialize the pool
 
-Initialize the HOP pool in your service builder:
-
-```rust
-use hop_service::HopDataPool;
+```rust,ignore
+use sc_hop::HopDataPool;
 use std::sync::Arc;
 
-// Initialize pool if enabled
-let hop_pool = if hop_params.enable_hop {
-    Some(Arc::new(HopDataPool::new(
-        hop_params.hop_max_pool_size * 1024 * 1024,  // Convert MiB to bytes
-        hop_params.hop_retention_blocks,
-    )?))
-} else {
-    None
-};
-
-// Alternative: Use SDK-style .then() pattern for consistency with polkadot-omni-node
-let hop_pool = hop_params.enable_hop.then(|| {
+let hop_pool = hop_params.enabled.then(|| {
     HopDataPool::new(
-        hop_params.hop_max_pool_size * 1024 * 1024,
-        hop_params.hop_retention_blocks,
+        hop_params.max_pool_size * 1024 * 1024,  // pool cap, bytes
+        hop_params.max_user_size * 1024 * 1024,  // per-user cap, bytes
+        hop_params.retention_blocks,
+        hop_params.data_dir.clone()
+            .unwrap_or_else(|| chain_data_dir.join("hop")),
+        hop_params.rate_limit_config(),
     )
     .map(Arc::new)
-    .map_err(|e| ServiceError::Other(format!("Failed to create HOP pool: {}", e)))
+    .map_err(|e| format!("Failed to create HOP pool: {e}"))
 }).transpose()?;
 ```
 
-### 4. RPC Registration
+### 3. Register RPC and spawn the maintenance task
 
-Register HOP RPC methods:
+```rust,ignore
+use sc_hop::{build_maintenance_task, HopApiServer, HopRpcServer};
 
-```rust
-use hop_service::{HopApiServer, HopRpcServer};
-
-pub struct FullDeps<C, P, SC, B> {
-    pub client: Arc<C>,
-    pub pool: Arc<P>,
-    pub hop_pool: Option<Arc<HopDataPool>>,
-    // ... other fields
+if let Some(pool) = hop_pool.clone() {
+    rpc_module.merge(HopRpcServer::new(pool, client.clone()).into_rpc())?;
 }
 
-// In your RPC builder
-if let Some(hop_pool) = deps.hop_pool {
-    module.merge(HopRpcServer::new(hop_pool, deps.client.clone()).into_rpc())?;
-}
-```
-
-## RPC Methods
-
-### `hop_submit`
-
-Submit data to the pool.
-
-**Request:**
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "hop_submit",
-  "params": ["0x68656c6c6f"],
-  "id": 1
+if let Some(pool) = hop_pool {
+    let task = build_maintenance_task(
+        &client,
+        &transaction_pool,
+        pool,
+        hop_params.promotion_buffer_blocks,
+        hop_params.check_interval,
+    );
+    task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
 }
 ```
 
-**Response:**
-```json
-{
-  "jsonrpc": "2.0",
-  "result": "0x324dcf027dd4a30a932c441f365a25e86b173defa4b8e58948253471b81b72cf",
-  "id": 1
-}
-```
+`build_maintenance_task` detects `HopApi` support at startup and falls back to
+cleanup-only if the runtime doesn't implement it.
 
-### `hop_get` (only for v0, until we have Bitswap retrieval)
+## CLI flags
 
-Retrieve data by hash (deletes after retrieval).
+| Flag | Default | Description |
+|---|---|---|
+| `--enable-hop` | off | Enable HOP |
+| `--hop-max-pool-size <MiB>` | 10240 (10 GiB) | Total pool size cap |
+| `--hop-max-user-size <MiB>` | 1024 (1 GiB) | Per-user hard cap (not scaled by active users) |
+| `--hop-retention-blocks <n>` | 14400 (24 h @ 6 s) | How long entries are kept before expiry |
+| `--hop-check-interval <s>` | 3600 | Maintenance cycle period |
+| `--hop-promotion-buffer-blocks <n>` | 600 (~1 h) | Blocks before expiry to start promoting |
+| `--hop-submit-rate-per-min <n>` | 60 | Sustained per-account submit rate |
+| `--hop-submit-burst <n>` | 120 | Per-account submit burst size |
+| `--hop-bandwidth-per-min-mib <MiB>` | 256 | Sustained per-account bandwidth |
+| `--hop-bandwidth-burst-mib <MiB>` | 512 | Per-account bandwidth burst |
+| `--hop-disable-rate-limit` | off | Disable per-account rate limiting (dev/tests only) |
+| `--hop-data-dir <path>` | `<chain-data-dir>/hop` | Directory for persistent blob and metadata storage |
 
-**Request:**
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "hop_get",
-  "params": ["0x324dcf027dd4a30a932c441f365a25e86b173defa4b8e58948253471b81b72cf"],
-  "id": 1
-}
-```
+All HOP RPC methods are also subject to the node-global `--rpc-rate-limit`.
 
-**Response:**
-```json
-{
-  "jsonrpc": "2.0",
-  "result": "0x68656c6c6f",
-  "id": 1
-}
-```
+## RPC methods
 
-### `hop_has`
+### `hop_submit(data, recipients, signature, signer) -> SubmitResult`
 
-Check if data exists in the pool.
+Store a blob for the given list of recipients.
 
-**Request:**
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "hop_has",
-  "params": ["0x324dcf027dd4a30a932c441f365a25e86b173defa4b8e58948253471b81b72cf"],
-  "id": 1
-}
-```
+- `data`: raw bytes, must be ≤ `HopApi::max_promotion_size()` (the runtime
+  cap; also bounded by the 8 MiB `MAX_DATA_SIZE` constant).
+- `recipients`: up to **256** SCALE-encoded `MultiSigner` values (ed25519,
+  sr25519, or ecdsa ephemeral public keys).
+- `signature`: SCALE-encoded `MultiSignature` over
+  `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data))`.
+- `signer`: SCALE-encoded `MultiSigner` of the submitting account.
 
-**Response:**
-```json
-{
-  "jsonrpc": "2.0",
-  "result": true,
-  "id": 1
-}
-```
+Submit fails with `NotAuthorized` if the signer lacks an active
+`pallet-transaction-storage` authorization, and with `RateLimited` if the
+per-account buckets are exhausted. Authorization is checked *before*
+signature verification so unauthorized floods don't force crypto work.
 
-### `hop_poolStatus`
+### `hop_claim(hash, signature) -> Bytes`
 
-Get pool statistics.
+Read-only download of the blob. Requires a SCALE-encoded `MultiSignature`
+from one of the recipients' ephemeral keypairs over
+`blake2_256(HOP_CLAIM_CONTEXT || hash)`. Does **not** mark the recipient as
+claimed — call `hop_ack` separately.
 
-**Request:**
-```json
-{
-  "jsonrpc": "2.0",
-  "method": "hop_poolStatus",
-  "params": [],
-  "id": 1
-}
-```
+The blob may be deleted concurrently by another recipient's final ack;
+callers must be prepared for `NotFound` between successive calls.
 
-**Response:**
-```json
-{
-  "jsonrpc": "2.0",
-  "result": {
-    "entryCount": 42,
-    "totalBytes": 1048576,
-    "maxBytes": 10737418240
-  },
-  "id": 1
-}
-```
+### `hop_ack(hash, signature) -> ()`
 
-## CLI Flags
+Mark the calling recipient as claimed. When all recipients have acked, the
+entry is deleted. Idempotent: calling twice with the same signature is a
+no-op, but if the entry has already been deleted (all recipients ack'd, or
+it expired), the call returns `NotFound` — treat `NotFound` as a benign
+terminal state.
 
-When running your node with HOP enabled:
+Signature payload is `blake2_256(HOP_ACK_CONTEXT || hash)`.
 
-```bash
-# Enable HOP with default settings (10 GiB pool, 24h retention)
-./your-node --enable-hop
+### `hop_poolStatus() -> PoolStatus`
 
-# Custom pool size (1 GiB)
-./your-node --enable-hop --hop-max-pool-size 1024
+Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 
-# Custom retention (12 hours at 6s blocks = 7200 blocks)
-./your-node --enable-hop --hop-retention-blocks 7200
+## Error codes
 
-# All options
-./your-node \
-  --enable-hop \
-  --hop-max-pool-size 2048 \
-  --hop-retention-blocks 14400 \
-  --hop-check-interval 60
-```
+| Code | Variant | Meaning |
+|---|---|---|
+| 1001 | `DataTooLarge` | Blob exceeds runtime-reported `max_promotion_size` |
+| 1002 | `PoolFull` | Total pool capacity exhausted |
+| 1003 | `DuplicateEntry` | A blob with this hash is already in the pool |
+| 1004 | `NotFound` | No entry for this hash (expired, never submitted, or deleted after final ack) |
+| 1005 | `EmptyData` | Blob is zero bytes |
+| 1006 | `Encoding` | SCALE codec error |
+| 1007 | `InvalidSignature` | Signature verification failed |
+| 1008 | `NotRecipient` | No recipient's public key matches the claim/ack signature |
+| 1009 | `NoRecipients` | Submit provided an empty recipient list |
+| 1010 | `InvalidRecipientKey` | A recipient entry did not decode as `MultiSigner` |
+| 1011 | `UserQuotaExceeded` | Sender's per-user quota (`--hop-max-user-size`) is full |
+| 1012 | `NotAuthorized` | Signer lacks an active `pallet-transaction-storage` authorization |
+| 1013 | `IoError` | Disk I/O failure |
+| 1014 | `InvalidSigner` | Submit `signer` did not decode as `MultiSigner` |
+| 1015 | `AlreadyClaimed` | Recipient has already ack'd and the entry was deleted |
+| 1016 | `InvalidHashLength` | Hash input was not exactly 32 bytes |
+| 1017 | `RuntimeApiError` | Runtime API call failed (authorization check, extrinsic construction, etc.) |
+| 1018 | `TooManyRecipients` | Submit exceeded the 256-recipient cap |
+| 1019 | `DuplicateRecipient` | Recipient list contains duplicates |
+| 1020 | `RateLimited` | Per-account rate limit exceeded; response includes `retry_after_secs` |
 
-## Configuration
+## Limits and fixed parameters
 
-### Default Values
+- `MAX_DATA_SIZE` = 8 MiB (matches `DefaultMaxTransactionSize` in the Bulletin
+  Chain transaction-storage pallet).
+- `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt on-disk
+  `.meta` files with too many recipients fail to SCALE-decode and are
+  discarded during startup recovery).
+- Hash: Blake2-256.
+- On-disk layout: 256 shard directories under `<data_dir>/blobs/` and
+  `<data_dir>/meta/`.
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `enable_hop` | `false` | Enable HOP service |
-| `hop_max_pool_size` | `10240` MiB (10 GiB) | Maximum pool size |
-| `hop_retention_blocks` | `14400` blocks (24h @ 6s) | Retention period |
-| `hop_check_interval` | `60` seconds | Promotion check interval |
+## Graceful degradation
 
-### Limits
-
-- **Maximum data size**: 8 MiB (matches transaction-storage pallet)
-- **Hash algorithm**: Blake2-256
-- **Storage**: In-memory only (not persisted)
-
-## Error Codes
-
-| Code | Error | Description |
-|------|-------|-------------|
-| 1001 | DataTooLarge | Data exceeds 8 MiB limit |
-| 1002 | PoolFull | Pool has reached capacity |
-| 1003 | DuplicateEntry | Data already exists in pool |
-| 1004 | NotFound | Data not found in pool |
-| 1005 | EmptyData | Data cannot be empty |
-| 1006 | Encoding | Encoding/decoding error |
-| 1008 | InvalidHash | Hash must be 32 bytes |
-
-## Architecture
-
-### Components
-
-- **`HopDataPool`**: Core in-memory storage with thread-safe access
-- **`HopParams`**: CLI configuration parameters
-- **`HopRpcServer`**: RPC interface implementation
-- **`HopEntryMeta`**: Metadata for stored entries
-- **`PoolStatus`**: Statistics and monitoring
-
-### Thread Safety
-
-The data pool uses `Arc<RwLock<HashMap>>` for thread-safe concurrent access:
-- Multiple readers can access simultaneously
-- Writers get exclusive access
-- Atomic counters track pool size
-
-### Data Flow
-
-1. Client submits data via `hop_submit` RPC
-2. Data is validated (size, duplicates, capacity)
-3. Blake2-256 hash is computed
-4. Entry stored in pool with expiration metadata
-5. Hash returned to client
-6. Client retrieves data via `hop_get` (deletes after retrieval)
-
-## Omni-Node Integration
-
-This crate is designed for easy integration into `polkadot-omni-node`. The integration pattern follows the
-SDK's Statement Store pattern:
-
-```rust
-// In omni-node NodeExtraArgs
-pub struct NodeExtraArgs {
-    #[command(flatten)]
-    pub hop_params: hop_service::HopParams,
-    // ... other fields
-}
-
-// In service builder
-let hop_pool = node_extra_args.hop_params.enable_hop.then(|| {
-    Arc::new(hop_service::HopDataPool::new(
-        node_extra_args.hop_params.hop_max_pool_size * 1024 * 1024,
-        node_extra_args.hop_params.hop_retention_blocks,
-    ))
-}).transpose()?;
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-cargo test -p hop-service
-```
-
-Test with a running node:
-
-```bash
-# Start node with HOP enabled
-./your-node --dev --enable-hop
-
-# Submit data
-curl -H "Content-Type: application/json" \
-  -d '{"id":1, "jsonrpc":"2.0", "method":"hop_submit", "params":["0x68656c6c6f"]}' \
-  http://localhost:9944
-
-# Check status
-curl -H "Content-Type: application/json" \
-  -d '{"id":1, "jsonrpc":"2.0", "method":"hop_poolStatus"}' \
-  http://localhost:9944
-```
+If the runtime doesn't implement `sp_hop::HopApi`, `try_build_promoter`
+logs a warning and the maintenance task runs in cleanup-only mode (no
+promotion). This lets operators deploy an HOP-enabled node ahead of the
+runtime upgrade that adds `HopApi`.
 
 ## License
 

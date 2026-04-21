@@ -14,82 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! # HOP (Hand-Off Protocol) Service
+//! # `sc-hop` — Hand-Off Protocol
 //!
-//! Ephemeral data pool service for Substrate nodes. Provides 24-hour disk-backed
-//! storage with an RPC interface for submission and retrieval.
+//! Node-level ephemeral disk-backed data pool for Substrate collators, with an
+//! RPC for submit/claim/ack, best-effort on-chain promotion, per-account rate
+//! limiting, and graceful degradation when the runtime lacks `HopApi`.
 //!
-//! ## Overview
+//! See the crate [`README`] for the design overview, integration guide, CLI
+//! flags, RPC reference, and error codes.
 //!
-//! HOP is a node-level service that enables peer-to-peer data sharing when
-//! recipients are offline. Data is stored temporarily in a disk-backed pool
-//! before being promoted to permanent chain storage.
-//!
-//! ## Features
-//!
-//! - **Disk-backed data pool** with configurable size limits
-//! - **24-hour retention** (configurable in blocks)
-//! - **RPC interface** for data submission and retrieval
-//! - **Content-addressed storage** using Blake2-256 hashes
-//!
-//! ## Integration Guide
-//!
-//! ### 1. Add CLI Parameters
-//!
-//! ```rust,ignore
-//! use sc_hop::HopParams;
-//!
-//! #[derive(Debug, clap::Parser)]
-//! pub struct Cli {
-//!     #[clap(flatten)]
-//!     pub hop: HopParams,
-//!     // ... other CLI fields
-//! }
-//! ```
-//!
-//! ### 2. Initialize the Service
-//!
-//! ```rust,ignore
-//! use sc_hop::HopDataPool;
-//! use std::sync::Arc;
-//!
-//! // Conditional initialization (SDK pattern)
-//! let hop_pool = hop_params.enabled.then(|| {
-//!     HopDataPool::new(
-//!         hop_params.max_pool_size * 1024 * 1024,  // Convert MiB to bytes
-//!         hop_params.retention_blocks,
-//!     )
-//!     .map(Arc::new)
-//!     .map_err(|e| format!("Failed to create HOP pool: {}", e))
-//! }).transpose()?;
-//! ```
-//!
-//! ### 3. Register RPC Methods
-//!
-//! ```rust,ignore
-//! use sc_hop::{HopApiServer, HopRpcServer};
-//!
-//! if let Some(hop_pool) = hop_pool {
-//!     module.merge(HopRpcServer::new(hop_pool, client.clone()).into_rpc())?;
-//! }
-//! ```
-//!
-//! ## RPC Methods
-//!
-//! - `hop_submit(data: Bytes, recipients: Vec<Bytes>, signature: Bytes, signer: Bytes) ->
-//!   SubmitResult` - Submit data with a signature from an authorized account
-//! - `hop_claim(hash: Bytes, signature: Bytes) -> Bytes` - Claim data with SCALE-encoded
-//!   MultiSignature
-//! - `hop_ack(hash: Bytes, signature: Bytes) -> ()` - Acknowledge receipt. Marks recipient as
-//!   claimed, triggers cleanup when all recipients have ack'd. Idempotent.
-//! - `hop_poolStatus() -> PoolStatus` - Get pool statistics
-//!
-//! ## CLI Flags
-//!
-//! - `--enable-hop` - Enable HOP service
-//! - `--hop-max-pool-size <MiB>` - Maximum pool size (default: 10240 MiB)
-//! - `--hop-retention-blocks <blocks>` - Retention period (default: 14400)
-//! - `--hop-check-interval <seconds>` - Maintenance interval (default: 3600)
+//! [`README`]: https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/hop/README.md
 
 pub mod cli;
 pub mod pool;

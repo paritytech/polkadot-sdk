@@ -73,6 +73,10 @@ pub trait HopApi<BlockHash> {
 	/// This does NOT mark the recipient as claimed. After receiving the data,
 	/// call `hop_ack` with the same arguments to confirm receipt.
 	///
+	/// The blob may be deleted concurrently by another recipient's ack once all
+	/// recipients have acknowledged; callers must be prepared for `NotFound`
+	/// and should not assume availability between successive calls.
+	///
 	/// Requires a SCALE-encoded `MultiSignature` over the hash using the ephemeral
 	/// private key corresponding to one of the recipient public keys.
 	///
@@ -88,7 +92,10 @@ pub trait HopApi<BlockHash> {
 	/// Acknowledge receipt of claimed data.
 	///
 	/// Marks the recipient as claimed and triggers cleanup when all recipients
-	/// have acknowledged. Idempotent: acking twice succeeds silently.
+	/// have acknowledged. Idempotent: acking twice succeeds silently, but if the
+	/// entry has already been deleted (either because all recipients have
+	/// acknowledged or because it expired) the call returns `NotFound` — callers
+	/// should treat `NotFound` as a benign terminal state rather than an error.
 	///
 	/// # Arguments
 	/// * `hash`: The hash of the data, in bytes (32 bytes)
