@@ -41,8 +41,8 @@ mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
 |---|---|
 | `cli` | `HopParams` — `clap`-flattenable CLI parameters |
 | `pool` | `HopDataPool` — disk-backed blob store + in-memory metadata index |
-| `rpc` | `HopApi` trait, `HopRpcServer` — jsonrpsee methods (`hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`) |
-| `promotion` | `HopPromoter`, `RuntimeApiPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
+| `rpc` | `HopApi` / `HopRpcServer` — jsonrpsee methods (`hop_submit`/`claim`/`ack`/`poolStatus`) |
+| `promotion` | `HopPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
 | `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
 | `types` | Errors, `HopEntryMeta`, `PoolStatus`, `SubmitResult`, signing contexts, defaults |
 | `primitives` | `HopHash`, `HopBlockNumber` |
