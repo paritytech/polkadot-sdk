@@ -38,8 +38,8 @@ use frame_support::{
 	dispatch::WithPostDispatchInfo,
 	pallet_prelude::*,
 	traits::{
-		Defensive, DefensiveSaturating, Get, Imbalance, InspectLockableCurrency, LockableCurrency,
-		OnUnbalanced,
+		fungible::Mutate as FunMutate, tokens::Preservation, Defensive, DefensiveSaturating, Get,
+		Imbalance, InspectLockableCurrency, LockableCurrency, OnUnbalanced,
 	},
 	weights::Weight,
 	StorageDoubleMap,
@@ -432,6 +432,14 @@ impl<T: Config> Pallet<T> {
 			next: Eras::<T>::get_next_claimable_page(era, &stash),
 		});
 
+		// Pay validator incentive bonus from the separate incentive pot.
+		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
+		if let Some(incentive) =
+			Self::calculate_validator_incentive_for_page(era, &stash, page_stake_part)
+		{
+			Self::transfer_validator_incentive(era, &stash, incentive);
+		}
+
 		// Determine whether to use dap payout or legacy path.
 		let use_dap_payout =
 			DisableMintingGuard::<T>::get().is_some_and(|guard_era| era >= guard_era);
@@ -564,8 +572,6 @@ impl<T: Config> Pallet<T> {
 		stash: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> Option<(BalanceOf<T>, RewardDestination<T::AccountId>)> {
-		use frame_support::traits::{fungible::Mutate as FunMutate, tokens::Preservation};
-
 		if amount.is_zero() {
 			return None;
 		}
@@ -661,6 +667,103 @@ impl<T: Config> Pallet<T> {
 			}),
 		};
 		maybe_imbalance.map(|imbalance| (imbalance, dest))
+	}
+
+	/// Calculate the validator incentive amount for a single page.
+	///
+	/// Share = `(validator_weight / sum_weight) × budget × page_stake_part`, where
+	/// `sum_weight` covers ALL elected validators. A validator that earns no reward
+	/// points forfeits their share (stays in the pot, handled by `UnclaimedRewardHandler`
+	/// at pruning) rather than redistributing it.
+	fn calculate_validator_incentive_for_page(
+		era: EraIndex,
+		stash: &T::AccountId,
+		page_stake_part: Perbill,
+	) -> Option<BalanceOf<T>> {
+		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
+		if era_incentive_budget.is_zero() {
+			return None;
+		}
+
+		let (validator_weight, total_weight) = match (
+			ErasValidatorIncentiveWeight::<T>::get(era, stash),
+			ErasSumValidatorIncentiveWeight::<T>::get(era),
+		) {
+			(Some(w), t) => (w, t),
+			_ => return None,
+		};
+
+		if total_weight.is_zero() {
+			log!(
+				warn,
+				"Total validator incentive weight is zero but budget exists for era {}",
+				era
+			);
+			Self::deposit_event(Event::<T>::Unexpected(
+				UnexpectedKind::ValidatorIncentiveWeightMismatch { era },
+			));
+			return None;
+		}
+
+		if validator_weight.is_zero() {
+			return None;
+		}
+
+		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
+		let validator_total_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
+
+		if validator_incentive_for_page.is_zero() {
+			return None;
+		}
+
+		Some(validator_incentive_for_page)
+	}
+
+	/// Transfer validator incentive from era pot to the validator's payout account.
+	///
+	/// This is a direct liquid transfer. Future PRs may introduce vesting via a trait.
+	fn transfer_validator_incentive(era: EraIndex, stash: &T::AccountId, amount: BalanceOf<T>) {
+		let Some(dest) = Self::payee(Stash(stash.clone())) else {
+			Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
+				era,
+				stash: stash.clone(),
+			}));
+			defensive!("Validator missing payee");
+			return;
+		};
+		let Some(payout_account) = Self::payout_account_for_dest(stash, &dest) else {
+			// Destination is `None`; intentional opt-out.
+			return;
+		};
+
+		let incentive_pot = T::RewardPots::pot_account(crate::RewardPot::Era(
+			era,
+			crate::RewardKind::ValidatorSelfStake,
+		));
+
+		match T::Currency::transfer(
+			&incentive_pot,
+			&payout_account,
+			amount,
+			Preservation::Expendable,
+		) {
+			Ok(_) => {
+				Self::deposit_event(Event::<T>::ValidatorIncentivePaid {
+					era,
+					validator_stash: stash.clone(),
+					dest,
+					amount,
+				});
+			},
+			Err(e) => {
+				log!(warn, "Failed to transfer liquid incentive: {:?}", e);
+				Self::deposit_event(Event::<T>::Unexpected(
+					UnexpectedKind::ValidatorIncentiveTransferFailed { era },
+				));
+				defensive!("Validator incentive liquid transfer failed");
+			},
+		}
 	}
 
 	/// Chill a stash account.
