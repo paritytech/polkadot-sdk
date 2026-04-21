@@ -106,18 +106,19 @@ struct CachedResponse {
 	method: String,
 	/// Canonical params used to verify cache key integrity on hit.
 	params: String,
-	/// The raw JSON of the `"result"` field from the JSON-RPC response.
-	result_json: String,
-	/// Byte size estimate for the limiter (result_json + method + params).
+	/// The `"result"` field from the JSON-RPC response, stored as pre-validated
+	/// `RawValue` so cache hits can build a `MethodResponse` without re-parsing.
+	result: Box<serde_json::value::RawValue>,
+	/// Byte size estimate for the limiter.
 	/// Estimated memory footprint: struct overhead + string content.
 	byte_size: usize,
 }
 
 impl CachedResponse {
-	fn new(method: String, params: String, result_json: String) -> Self {
+	fn new(method: String, params: String, result: Box<serde_json::value::RawValue>) -> Self {
 		let byte_size =
-			std::mem::size_of::<Self>() + method.len() + params.len() + result_json.len();
-		Self { method, params, result_json, byte_size }
+			std::mem::size_of::<Self>() + method.len() + params.len() + result.get().len();
+		Self { method, params, result, byte_size }
 	}
 
 	/// Returns `true` if this entry matches the given method and params.
@@ -126,25 +127,23 @@ impl CachedResponse {
 	}
 }
 
-/// Extract the `"result"` field from a JSON-RPC response string.
-fn extract_result_field(response_json: &str) -> Option<String> {
+/// Extract the `"result"` field from a JSON-RPC response string as a `RawValue`.
+fn extract_result(response_json: &str) -> Option<Box<serde_json::value::RawValue>> {
 	#[derive(serde::Deserialize)]
-	struct Envelope<'a> {
-		#[serde(borrow)]
-		result: &'a serde_json::value::RawValue,
+	struct Envelope {
+		result: Box<serde_json::value::RawValue>,
 	}
 
 	let envelope: Envelope = serde_json::from_str(response_json).ok()?;
-	Some(envelope.result.get().to_string())
+	Some(envelope.result)
 }
 
-/// Reconstruct a [`MethodResponse`] from a cached result payload and a request ID.
+/// Reconstruct a [`MethodResponse`] from a cached `RawValue` result and a request ID.
 ///
-/// Uses `RawValue` to avoid a parse-then-reserialize round-trip — the cached JSON
-/// fragment is injected directly into the response envelope.
-fn response_from_cache(id: Id<'_>, result_json: &str) -> Option<MethodResponse> {
-	let raw: Box<serde_json::value::RawValue> = serde_json::from_str(result_json).ok()?;
-	Some(MethodResponse::response(id, ResponsePayload::success_borrowed(&raw), usize::MAX))
+/// `MethodResponse::response` serializes immediately, so the borrow from the cached
+/// `Box<RawValue>` only needs to live for this call.
+fn response_from_cache(id: Id<'_>, result: &Box<serde_json::value::RawValue>) -> MethodResponse {
+	MethodResponse::response(id, ResponsePayload::success_borrowed(result), usize::MAX)
 }
 
 // --- Byte-size limiter for schnellru ---
@@ -376,19 +375,18 @@ where
 			let mut cache = self.cache.lock();
 			if let Some(cached) = cache.get(&key) {
 				if cached.matches(method, &canonical_params) {
-					if let Some(rp) = response_from_cache(req.id(), &cached.result_json) {
-						if let Some(ref metrics) = self.metrics {
-							metrics.on_hit(method);
-						}
-						log::trace!(
-							target: "rpc_cache",
-							"Cache hit for {} (key={:#x}, cached_size={}B)",
-							method,
-							key,
-							cached.byte_size,
-						);
-						return async move { rp }.boxed();
+					let rp = response_from_cache(req.id(), &cached.result);
+					if let Some(ref metrics) = self.metrics {
+						metrics.on_hit(method);
 					}
+					log::trace!(
+						target: "rpc_cache",
+						"Cache hit for {} (key={:#x}, cached_size={}B)",
+						method,
+						key,
+						cached.byte_size,
+					);
+					return async move { rp }.boxed();
 				}
 			}
 		}
@@ -405,9 +403,9 @@ where
 
 			// Only cache successful responses.
 			if rp.is_success() {
-				if let Some(result_json) = extract_result_field(rp.as_result()) {
+				if let Some(result) = extract_result(rp.as_result()) {
 					let cached =
-						CachedResponse::new(method_name.clone(), canonical_owned, result_json);
+						CachedResponse::new(method_name.clone(), canonical_owned, result);
 					let byte_size = cached.byte_size;
 					let mut cache_guard = cache.lock();
 					cache_guard.insert(key, cached);
@@ -444,8 +442,16 @@ mod tests {
 	const OVERHEAD: usize = std::mem::size_of::<CachedResponse>();
 
 	/// Helper to build a `CachedResponse` with empty method/params for limiter tests.
-	fn cached_response(result_json: String) -> CachedResponse {
-		CachedResponse::new(String::new(), String::new(), result_json)
+	///
+	/// Generates a JSON string value whose `RawValue` representation is exactly
+	/// `json_len` bytes (e.g. `json_len=7` → `"aaaaa"` which is 5 chars + 2 quotes).
+	fn cached_response(json_len: usize) -> CachedResponse {
+		assert!(json_len >= 2, "minimum json_len is 2 for an empty JSON string");
+		let fill = "a".repeat(json_len - 2);
+		let json = format!(r#""{}""#, fill);
+		let raw: Box<serde_json::value::RawValue> = serde_json::from_str(&json).unwrap();
+		debug_assert_eq!(raw.get().len(), json_len);
+		CachedResponse::new(String::new(), String::new(), raw)
 	}
 
 	// --- is_cacheable tests ---
@@ -591,34 +597,38 @@ mod tests {
 		assert!(matches!(result, Cow::Borrowed(_)));
 	}
 
-	// --- Helper: extract_result_field ---
+	// --- Helper: extract_result ---
 
 	#[test]
-	fn extract_result_field_works() {
+	fn extract_result_works() {
 		let response = r#"{"jsonrpc":"2.0","result":"0x1234","id":1}"#;
-		let result = extract_result_field(response).unwrap();
-		assert_eq!(result, r#""0x1234""#);
+		let result = extract_result(response).unwrap();
+		assert_eq!(result.get(), r#""0x1234""#);
 	}
 
 	#[test]
-	fn extract_result_field_complex_result() {
+	fn extract_result_complex() {
 		let response = r#"{"jsonrpc":"2.0","result":{"key":"val","num":42},"id":1}"#;
-		let result = extract_result_field(response).unwrap();
-		assert_eq!(result, r#"{"key":"val","num":42}"#);
+		let result = extract_result(response).unwrap();
+		assert_eq!(result.get(), r#"{"key":"val","num":42}"#);
 	}
 
 	#[test]
-	fn extract_result_field_error_response() {
+	fn extract_result_error_response() {
 		let response = r#"{"jsonrpc":"2.0","error":{"code":-32600,"message":"Invalid"},"id":1}"#;
-		let result = extract_result_field(response);
-		assert!(result.is_none());
+		assert!(extract_result(response).is_none());
 	}
 
 	// --- response_from_cache ---
 
+	fn raw_value(json: &str) -> Box<serde_json::value::RawValue> {
+		serde_json::from_str(json).unwrap()
+	}
+
 	#[test]
 	fn response_from_cache_simple() {
-		let rp = response_from_cache(Id::Number(42), r#""0x1234""#).unwrap();
+		let raw = raw_value(r#""0x1234""#);
+		let rp = response_from_cache(Id::Number(42), &raw);
 		assert!(rp.is_success());
 		let result_str = rp.as_result();
 		assert!(result_str.contains(r#""result":"0x1234""#));
@@ -627,8 +637,9 @@ mod tests {
 
 	#[test]
 	fn response_from_cache_different_id() {
-		let rp1 = response_from_cache(Id::Number(1), r#""0xaaa""#).unwrap();
-		let rp2 = response_from_cache(Id::Number(99), r#""0xaaa""#).unwrap();
+		let raw = raw_value(r#""0xaaa""#);
+		let rp1 = response_from_cache(Id::Number(1), &raw);
+		let rp2 = response_from_cache(Id::Number(99), &raw);
 		assert!(rp1.as_result().contains(r#""id":1"#));
 		assert!(rp2.as_result().contains(r#""id":99"#));
 	}
@@ -637,13 +648,13 @@ mod tests {
 
 	#[test]
 	fn eviction_on_byte_limit() {
-		// Budget fits one entry (60 + OVERHEAD) but not two.
+		// Budget fits one 60-byte entry but not two.
 		let limiter = ByteSizeLimiter::new(60 + OVERHEAD + 1, None);
 		let mut cache = LruMap::new(limiter);
 
 		// Insert entries that exceed the limit.
-		cache.insert(1, cached_response("a".repeat(60)));
-		cache.insert(2, cached_response("b".repeat(60)));
+		cache.insert(1, cached_response(60));
+		cache.insert(2, cached_response(60));
 
 		// First entry should have been evicted.
 		assert!(cache.get(&1).is_none());
@@ -655,8 +666,8 @@ mod tests {
 		let limiter = ByteSizeLimiter::new(10000, None);
 		let mut cache = LruMap::new(limiter);
 
-		cache.insert(1, cached_response("a".repeat(100)));
-		cache.insert(2, cached_response("b".repeat(200)));
+		cache.insert(1, cached_response(100));
+		cache.insert(2, cached_response(200));
 
 		assert_eq!(cache.limiter().current_bytes, 300 + 2 * OVERHEAD);
 	}
@@ -666,23 +677,23 @@ mod tests {
 		let limiter = ByteSizeLimiter::new(0, None);
 		let mut cache = LruMap::new(limiter);
 
-		cache.insert(1, cached_response("data".to_string()));
+		cache.insert(1, cached_response(10));
 		assert!(cache.get(&1).is_none());
 	}
 
 	#[test]
 	fn single_entry_larger_than_budget_evicts_immediately() {
 		// Budget fits one small entry but not the large one.
-		let limiter = ByteSizeLimiter::new(5 + OVERHEAD + 1, None);
+		let limiter = ByteSizeLimiter::new(10 + OVERHEAD + 1, None);
 		let mut cache = LruMap::new(limiter);
 
 		// Insert a small entry first.
-		cache.insert(1, cached_response("small".to_string()));
+		cache.insert(1, cached_response(10));
 		assert!(cache.get(&1).is_some());
 
 		// Insert an entry larger than the entire budget — should evict everything
 		// (including itself) to satisfy the byte limit.
-		cache.insert(2, cached_response("x".repeat(100)));
+		cache.insert(2, cached_response(100));
 		assert!(cache.get(&1).is_none());
 		assert!(cache.get(&2).is_none());
 		assert_eq!(cache.limiter().current_bytes, 0);
@@ -694,11 +705,11 @@ mod tests {
 		let mut cache = LruMap::new(limiter);
 
 		// Insert an entry, then replace it with a larger one under the same key.
-		cache.insert(1, cached_response("small".to_string()));
-		assert_eq!(cache.limiter().current_bytes, 5 + OVERHEAD);
+		cache.insert(1, cached_response(10));
+		assert_eq!(cache.limiter().current_bytes, 10 + OVERHEAD);
 
-		cache.insert(1, cached_response("much_larger_value".to_string()));
-		assert_eq!(cache.limiter().current_bytes, 17 + OVERHEAD);
+		cache.insert(1, cached_response(50));
+		assert_eq!(cache.limiter().current_bytes, 50 + OVERHEAD);
 		assert_eq!(cache.len(), 1);
 	}
 
@@ -708,10 +719,10 @@ mod tests {
 		let mut cache = LruMap::new(limiter);
 
 		// Insert a large entry, then replace with a smaller one.
-		cache.insert(1, cached_response("a".repeat(500)));
+		cache.insert(1, cached_response(500));
 		assert_eq!(cache.limiter().current_bytes, 500 + OVERHEAD);
 
-		cache.insert(1, cached_response("b".repeat(50)));
+		cache.insert(1, cached_response(50));
 		assert_eq!(cache.limiter().current_bytes, 50 + OVERHEAD);
 		assert_eq!(cache.len(), 1);
 	}
