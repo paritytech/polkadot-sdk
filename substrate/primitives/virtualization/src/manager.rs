@@ -26,23 +26,29 @@ use polkavm::{
 	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
 	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
 };
-use std::{collections::HashMap, sync::OnceLock};
+use std::{
+	collections::HashMap,
+	sync::{LazyLock, RwLock},
+};
 
 /// This is the single PolkaVM engine we use for everything.
 ///
 /// By using a common engine we allow PolkaVM to use caching. This caching is important
 /// to reduce startup costs. This is even the case when instances use different code.
-static ENGINE: OnceLock<Engine> = OnceLock::new();
+static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
+	let mut config = Config::from_env().expect("Invalid config.");
+	config.set_worker_count(10);
+	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L1Hit)));
+	Engine::new(&config).expect("Failed to initialize PolkaVM.")
+});
 
-/// Engine wide configuration.
-fn engine() -> &'static Engine {
-	ENGINE.get_or_init(|| {
-		let mut config = Config::from_env().expect("Invalid config.");
-		config.set_worker_count(10);
-		config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L1Hit)));
-		Engine::new(&config).expect("Failed to initialize PolkaVM.")
-	})
-}
+/// Process-global cache of compiled modules keyed by `keccak_256(program)`.
+///
+/// Held across runtime calls so `compile_from_hash` can reuse modules compiled by a
+/// previous [`VirtManager`] instance. Stores `Module` directly — it is internally an
+/// `Arc` and cheap to clone.
+static MODULE_CACHE: LazyLock<RwLock<HashMap<[u8; 32], Module>>> =
+	LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
 	match error {
@@ -68,12 +74,11 @@ enum InstanceState {
 /// Instance and module IDs are assigned deterministically from incrementing counters,
 /// ensuring no non-determinism across different executions.
 ///
-/// NOTE: This is our own in-memory module cache. Eventually this will be replaced by
-/// PolkaVM's built-in on-disk persistent cache.
+/// NOTE: Module dedup across runtime calls is handled by the process-global [`MODULE_CACHE`].
+/// Eventually that will be replaced by PolkaVM's built-in on-disk persistent cache.
 pub struct VirtManager {
 	instances: HashMap<InstanceId, InstanceState>,
 	modules: HashMap<ModuleId, Module>,
-	module_hash_index: HashMap<[u8; 32], ModuleId>,
 	instance_counter: u32,
 	module_counter: u32,
 }
@@ -83,7 +88,6 @@ impl Default for VirtManager {
 		Self {
 			instances: HashMap::new(),
 			modules: HashMap::new(),
-			module_hash_index: HashMap::new(),
 			instance_counter: 0,
 			module_counter: 0,
 		}
@@ -95,7 +99,7 @@ impl VirtManager {
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module =
-			Module::new(engine(), &module_config, program.into()).map_err(|err| match err {
+			Module::new(&ENGINE, &module_config, program.into()).map_err(|err| match err {
 				CompileError::ValidationFailed(err) => {
 					log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
 					ModuleError::InvalidImage
@@ -111,11 +115,12 @@ impl VirtManager {
 			old
 		});
 
-		// Cache by keccak256 hash for from_hash lookups.
-		// NOTE: We use keccak256 because it is also used by pallet-revive to identify code.
+		// Populate the process-global cache so subsequent `compile_from_hash` calls — possibly
+		// from a different `VirtManager` instance in a later runtime call — can skip recompiling.
+		// NOTE: keccak256 is chosen because pallet-revive uses it to identify code.
 		// Eventually the hash function needs to be agreed upon with the PVM caching system.
 		let hash = sp_crypto_hashing::keccak_256(program);
-		self.module_hash_index.insert(hash, module_id);
+		MODULE_CACHE.write().unwrap().insert(hash, module.clone());
 		self.modules.insert(module_id, module);
 
 		Ok(module_id)
@@ -123,7 +128,15 @@ impl VirtManager {
 
 	pub fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError> {
 		let hash: [u8; 32] = hash.try_into().map_err(|_| ModuleError::NotCached)?;
-		self.module_hash_index.get(&hash).copied().ok_or(ModuleError::NotCached)
+		let module =
+			MODULE_CACHE.read().unwrap().get(&hash).cloned().ok_or(ModuleError::NotCached)?;
+		let module_id = ModuleId({
+			let old = self.module_counter;
+			self.module_counter = old + 1;
+			old
+		});
+		self.modules.insert(module_id, module);
+		Ok(module_id)
 	}
 
 	pub fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
