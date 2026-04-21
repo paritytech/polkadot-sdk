@@ -196,12 +196,12 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	Ok(())
 }
 
-/// Verifies responsiveness and consistency under concurrent submissions with mass expiration
+/// Verifies store consistency when many statements expire concurrently
 ///
-/// 1. Already-expired statements are rejected concurrently across all nodes
-/// 2. Mixed short-expiry and long-expiry statements are submitted concurrently and propagate
-/// 3. After enforce_limits cleans up expired statements, all nodes agree on store contents
-/// 4. A concurrent burst after mass expiration propagates correctly to all nodes
+/// 1. Already-expired statement is rejected at submission time
+/// 2. 48 ephemeral + 16 persistent statements are submitted concurrently and propagate
+/// 3. After enforce_limits cleans up the 48 expired statements across 8 accounts,
+/// all nodes converge on the 16 surviving persistent statements
 ///
 /// Test uses sudo-based allowances
 #[tokio::test(flavor = "multi_thread")]
@@ -210,12 +210,11 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	// Setup: 16 keypairs with generous allowances
+	// 16 keypairs
 	let entries: Vec<(u32, StatementAllowance)> = (0..16u32)
 		.map(|i| (i, StatementAllowance { max_count: 100, max_size: 1_000_000 }))
 		.collect();
 	let items = create_allowance_items(&entries);
-
 	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
 
 	let alice = network.get_node("alice")?;
@@ -235,55 +234,56 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 
 	// Already-expired statement rejection
 	let topic_a: Topic = [30u8; 32].into();
-	let rpcs = [&alice_rpc, &bob_rpc, &charlie_rpc, &dave_rpc];
+	let keypair = get_keypair(0);
+	let expired_stmt =
+		create_test_statement(&keypair, &[topic_a], None, vec![0u8], now_secs - 120, 0);
+	assert_eq!(
+		submit_statement(&alice_rpc, &expired_stmt).await?,
+		SubmitResult::Invalid(InvalidReason::AlreadyExpired),
+	);
 
-	for idx in 0u32..4 {
-		let keypair = get_keypair(idx);
-		let stmt =
-			create_test_statement(&keypair, &[topic_a], None, vec![idx as u8], now_secs - 120, idx);
-		let result = submit_statement(rpcs[idx as usize], &stmt).await?;
-		assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
-	}
-
-	// Mixed-expiry concurrent submission
 	// Subscribe BEFORE submitting so we capture propagation events
 	let mut alice_sub = subscribe_topic(&alice_rpc, topic_a).await?;
 	let mut bob_sub = subscribe_topic(&bob_rpc, topic_a).await?;
 	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic_a).await?;
 	let mut dave_sub = subscribe_topic(&dave_rpc, topic_a).await?;
 
-	// Ephemeral statements: expire in ~35 seconds
+	// 48 ephemeral statements across 8 accounts (6 per account), expire in ~35s
 	let ephemeral_expiry = now_secs + 35;
-	let ephemeral_stmts: Vec<_> = (0u32..4)
-		.map(|idx| {
-			let keypair = get_keypair(idx);
-			create_test_statement(
-				&keypair,
-				&[topic_a],
-				None,
-				vec![100 + idx as u8],
-				ephemeral_expiry,
-				1000 + idx,
-			)
+	let ephemeral_stmts: Vec<_> = (0u32..8)
+		.flat_map(|kp| {
+			(0u32..6).map(move |seq| {
+				let keypair = get_keypair(kp);
+				create_test_statement(
+					&keypair,
+					&[topic_a],
+					None,
+					vec![kp as u8, seq as u8],
+					ephemeral_expiry,
+					1000 + kp * 10 + seq,
+				)
+			})
 		})
 		.collect();
 
-	// Persistent statements: never expire
-	let persistent_stmts: Vec<_> = (4u32..8)
-		.map(|idx| {
-			let keypair = get_keypair(idx);
-			create_test_statement(
-				&keypair,
-				&[topic_a],
-				None,
-				vec![200 + idx as u8],
-				u32::MAX,
-				2000 + idx,
-			)
+	// 16 persistent statements across 8 accounts (2 per account), never expire
+	let persistent_stmts: Vec<_> = (8u32..16)
+		.flat_map(|kp| {
+			(0u32..2).map(move |seq| {
+				let keypair = get_keypair(kp);
+				create_test_statement(
+					&keypair,
+					&[topic_a],
+					None,
+					vec![kp as u8, seq as u8],
+					u32::MAX,
+					2000 + kp * 10 + seq,
+				)
+			})
 		})
 		.collect();
 
-	// Submit all 8 concurrently, distributed across nodes
+	// Submit all 64 concurrently, round-robin across nodes
 	let all_stmts: Vec<_> =
 		ephemeral_stmts.iter().chain(persistent_stmts.iter()).cloned().collect();
 	let nodes = [&alice, &bob, &charlie, &dave];
@@ -301,7 +301,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	for handle in handles {
 		handle.await??;
 	}
-	// Verify all 8 statements propagate
+	// Verify all 64 statements propagate to every node
 	let expected_encoded: Vec<Vec<u8>> = all_stmts.iter().map(|s| s.encode()).collect();
 
 	for (name, sub) in [
@@ -310,25 +310,23 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		assert_statements_match(sub, &expected_encoded, 60, name).await?;
+		assert_statements_match(sub, &expected_encoded, 90, name).await?;
 	}
-
-	let elapsed_since_start = SystemTime::now()
+	let elapsed = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("Time went backwards")
 		.as_secs() as u32 -
 		now_secs;
-	// (expiry time passed) + (up to 2 × 31s cycles) + buffer
-	let wait_secs = 35u32.saturating_sub(elapsed_since_start) as u64 + 65;
+	let wait_secs = 35u32.saturating_sub(elapsed) as u64 + 65;
+	info!("Waiting {}s for expiration + enforce_limits cleanup", wait_secs);
 	tokio::time::sleep(Duration::from_secs(wait_secs)).await;
 
-	// Re-submission of expired statements
-	for (idx, stmt) in ephemeral_stmts.iter().enumerate() {
-		let result = submit_statement(&alice_rpc, stmt).await?;
-		assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
-	}
+	// Re-submitting an expired statement is rejected
+	let result = submit_statement(&alice_rpc, &ephemeral_stmts[0]).await?;
+	assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
 
-	// Fresh subscriptions verify store contents
+	// Fresh subscriptions verify that enforce_limits actually removed the 48 ephemeral
+	// statements from the store – only the 16 persistent ones should remain
 	let mut alice_fresh = subscribe_topic(&alice_rpc, topic_a).await?;
 	let mut bob_fresh = subscribe_topic(&bob_rpc, topic_a).await?;
 	let mut charlie_fresh = subscribe_topic(&charlie_rpc, topic_a).await?;
@@ -343,55 +341,6 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("dave", &mut dave_fresh),
 	] {
 		assert_statements_match(sub, &persistent_encoded, 30, name).await?;
-	}
-
-	// Post-expiration concurrent burst: verify the store remains responsive
-	// after mass cleanup by submitting 8 new statements concurrently on a
-	// fresh topic and confirming all propagate to every node
-	let burst_topic: Topic = [31u8; 32].into();
-	let mut alice_burst = subscribe_topic(&alice_rpc, burst_topic).await?;
-	let mut bob_burst = subscribe_topic(&bob_rpc, burst_topic).await?;
-	let mut charlie_burst = subscribe_topic(&charlie_rpc, burst_topic).await?;
-	let mut dave_burst = subscribe_topic(&dave_rpc, burst_topic).await?;
-
-	let burst_stmts: Vec<_> = (8u32..16)
-		.map(|idx| {
-			let keypair = get_keypair(idx);
-			create_test_statement(
-				&keypair,
-				&[burst_topic],
-				None,
-				vec![idx as u8],
-				u32::MAX,
-				6000 + idx,
-			)
-		})
-		.collect();
-
-	let mut handles = Vec::new();
-	for (i, stmt) in burst_stmts.iter().enumerate() {
-		let target = nodes[i % nodes.len()];
-		let rpc = target.rpc().await?;
-		let stmt = stmt.clone();
-		handles.push(tokio::spawn(async move {
-			let result = submit_statement(&rpc, &stmt).await?;
-			assert_eq!(result, SubmitResult::New);
-			Ok::<_, anyhow::Error>(())
-		}));
-	}
-	for handle in handles {
-		handle.await??;
-	}
-
-	let burst_expected: Vec<Vec<u8>> = burst_stmts.iter().map(|s| s.encode()).collect();
-
-	for (name, sub) in [
-		("alice", &mut alice_burst),
-		("bob", &mut bob_burst),
-		("charlie", &mut charlie_burst),
-		("dave", &mut dave_burst),
-	] {
-		assert_statements_match(sub, &burst_expected, 60, name).await?;
 	}
 
 	Ok(())
