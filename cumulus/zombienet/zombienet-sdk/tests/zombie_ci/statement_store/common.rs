@@ -185,7 +185,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	collators: &[&str],
 	participant_count: u32,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	assert!(collators.len() >= 2);
+	assert!(!collators.is_empty());
 	let images = zombienet_sdk::environment::get_images_from_env();
 
 	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
@@ -230,7 +230,9 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+			global_settings
+				.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+				.with_tear_down_on_failure(false) // To allow restart nodes without failing in CI
 		})
 		.build()
 		.map_err(|e| {
@@ -285,7 +287,7 @@ pub(super) async fn spawn_network_sudo(
 					"--authoring".into(),
 					"slot-based".into(),
 					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=info,statement-gossip=info".into(),
+					"-linfo,statement-store=trace,statement-gossip=trace".into(),
 					"--enable-statement-store".into(),
 					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
 					format!(
