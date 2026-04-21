@@ -23,11 +23,12 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Inspect, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
-		OnUnbalanced,
+		Currency, OnUnbalanced,
 	},
 };
 
 type DapSatellitePallet = crate::Pallet<Test>;
+type DapSatelliteLegacy = crate::DapSatelliteLegacyAdapter<Test, Balances>;
 
 #[test]
 fn on_unbalanced_deposits_to_satellite() {
@@ -187,5 +188,30 @@ fn on_unbalanced_multiple_dust_removals_accumulate_to_satellite() {
 
 		// And: total issuance unchanged (dust moved, not destroyed).
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance_before);
+	});
+}
+
+#[test]
+fn legacy_adapter_redirects_slash_to_satellite() {
+	new_test_ext(true).execute_with(|| {
+		let satellite = DapSatellitePallet::satellite_account();
+		let ed = <Balances as Inspect<_>>::minimum_balance();
+
+		// Given: satellite has ED, user 1 has 100
+		assert_eq!(Balances::free_balance(satellite), ed);
+		let initial_total = <Balances as Inspect<_>>::total_issuance();
+
+		// When: legacy slash via Currency::slash -> DapSatelliteLegacyAdapter
+		let (imbalance, _) = <Balances as Currency<_>>::slash(&1, 30);
+		DapSatelliteLegacy::on_unbalanced(imbalance);
+
+		// Then: satellite accumulated the slash
+		assert_eq!(Balances::free_balance(satellite), ed + 30);
+
+		// And: user lost the slashed amount
+		assert_eq!(Balances::free_balance(1), 100 - 30);
+
+		// And: total issuance unchanged (funds moved, not destroyed)
+		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_total);
 	});
 }

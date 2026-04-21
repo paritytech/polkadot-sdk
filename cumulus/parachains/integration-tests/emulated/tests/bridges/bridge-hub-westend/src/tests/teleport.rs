@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::imports::*;
+use frame_support::sp_runtime::traits::BlockNumberProvider;
 
 #[test]
 fn teleport_via_limited_teleport_assets_to_other_system_parachains_works() {
@@ -78,5 +79,20 @@ fn teleport_via_transfer_assets_from_and_to_relay() {
 		Westend,
 		amount,
 		transfer_assets
+	);
+}
+
+#[test]
+fn dap_satellite_bridge_hub_transfers_native_to_asset_hub_dap() {
+	type RelayDataProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<
+		bridge_hub_westend_runtime::Runtime,
+	>;
+	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
+		BridgeHubWestend,
+		AssetHubWestend,
+	>(
+		|acct, amount| BridgeHubWestend::fund_accounts(vec![(acct, amount)]),
+		|| RelayDataProvider::current_block_number(),
+		|n| RelayDataProvider::set_block_number(n),
 	);
 }
