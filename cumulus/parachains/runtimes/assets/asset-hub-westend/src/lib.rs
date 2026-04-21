@@ -1567,6 +1567,33 @@ impl pallet_psm::Config for Runtime {
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
 
+/// Initial PSM configuration applied via the V1 migration.
+///
+/// Sets up USDT (1984) as the first external asset.
+pub struct PsmInitialConfig;
+impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
+	fn max_psm_debt_of_total() -> Permill {
+		// USDT PSM cap is 5M out of 50M total issuance = 10%.
+		Permill::from_percent(10)
+	}
+
+	fn asset_configs() -> alloc::collections::btree_map::BTreeMap<
+		AssetIdForTrustBackedAssets,
+		(Permill, Permill, Permill),
+	> {
+		[(
+			1984u32, // USDT
+			(
+				Permill::zero(),                         // 0% minting fee
+				Permill::from_rational(1u32, 10_000u32), // 0.01% redemption fee
+				Permill::from_percent(100),              // ceiling weight
+			),
+		)]
+		.into_iter()
+		.collect()
+	}
+}
+
 // Create the runtime by composing the FRAME pallets that were previously configured.
 construct_runtime!(
 	pub enum Runtime
