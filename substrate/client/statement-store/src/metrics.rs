@@ -60,7 +60,7 @@ impl MetricsLink {
 /// Statement store Prometheus metrics.
 pub struct Metrics {
 	pub submitted_statements: Counter<U64>,
-	pub validations_invalid: Counter<U64>,
+	pub validations_invalid: CounterVec<U64>,
 	pub statements_pruned: Counter<U64>,
 	pub statements_total: Gauge<U64>,
 	pub bytes_total: Gauge<U64>,
@@ -87,9 +87,12 @@ impl Metrics {
 				registry,
 			)?,
 			validations_invalid: register(
-				Counter::new(
-					"substrate_sub_statement_store_validations_invalid",
-					"Total number of statements that were fail validation during submission",
+				CounterVec::new(
+					Opts::new(
+						"substrate_sub_statement_store_validations_invalid",
+						"Total statement validation failures during submission, by reason",
+					),
+					&["reason"],
 				)?,
 				registry,
 			)?,
