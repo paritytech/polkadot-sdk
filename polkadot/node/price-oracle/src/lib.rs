@@ -38,6 +38,15 @@ mod fetcher;
 
 pub use fetcher::PriceFetcher;
 
+// Needs to be discussed
+fn pick_random_index(len: usize) -> usize {
+	let seed = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap_or_default()
+		.subsec_nanos();
+	seed as usize % len
+}
+
 /// Thread-safe store of collected nudges, keyed by authority index.
 /// Only the latest nudge per authority is kept.
 #[derive(Clone)]
@@ -181,14 +190,60 @@ pub async fn run<Block, Client>(
 	loop {
 		tokio::select! {
 			_ = price_fetch_timer.tick() => {
-				match fetcher.fetch_dot_usd_price().await {
-					Ok(price) => {
-						debug!(target: LOG_TARGET, "Fetched DOT/USD price: {}", price);
-						nudge_store.set_cached_price(price);
-					},
+				let best_hash = client.info().best_hash;
+
+				// Get endpoint list from runtime
+				let endpoints = match client.runtime_api().endpoint_list(best_hash) {
+					Ok(eps) => eps.into_iter().filter_map(|(id, url_bytes)| {
+						String::from_utf8(url_bytes).ok().map(|url| (id, url))
+					}).collect::<Vec<_>>(),
 					Err(e) => {
-						warn!(target: LOG_TARGET, "Failed to fetch price: {}", e);
-					},
+						warn!(target: LOG_TARGET, "Failed to get endpoint list: {}", e);
+						continue;
+					}
+				};
+
+				if endpoints.is_empty() {
+					warn!(target: LOG_TARGET, "No endpoints configured in runtime");
+					continue;
+				}
+
+				// Pick a random endpoint as primary, fall back to others
+				let primary_idx = pick_random_index(endpoints.len());
+				let mut order: Vec<usize> = (0..endpoints.len()).collect();
+				order.swap(0, primary_idx);
+
+				let mut fetched = None;
+				for idx in order {
+					let (id, ref url) = endpoints[idx];
+					match fetcher.fetch_raw(url).await {
+						Ok(bytes) => {
+							fetched = Some(vec![(id, bytes)]);
+							break;
+						},
+						Err(e) => {
+							warn!(target: LOG_TARGET, "Endpoint {} ({}) failed: {}, trying fallback", id, url, e);
+						},
+					}
+				}
+
+				if let Some(raw_responses) = fetched {
+					match client.runtime_api().decode_results(best_hash, raw_responses) {
+						Ok(decoded) => {
+							for (id, maybe_price) in decoded {
+								if let Some(price) = maybe_price {
+									debug!(target: LOG_TARGET, "Decoded DOT/USD price from endpoint {}: {}", id, price);
+									nudge_store.set_cached_price(price);
+									break;
+								} else {
+									warn!(target: LOG_TARGET, "Failed to decode response from endpoint {}", id);
+								}
+							}
+						},
+						Err(e) => warn!(target: LOG_TARGET, "decode_results runtime call failed: {}", e),
+					}
+				} else {
+					warn!(target: LOG_TARGET, "All endpoints failed");
 				}
 			},
 

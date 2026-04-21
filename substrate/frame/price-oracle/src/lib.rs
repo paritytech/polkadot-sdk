@@ -15,6 +15,9 @@ use sp_price_oracle::{
 };
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 
+pub use decoders::ParsingMethod;
+
+pub mod decoders;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -42,7 +45,7 @@ pub mod pallet {
 	}
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config {
+	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
 		/// Absolute price change per net nudge (e.g. 0.001 means each net Up adds $0.001).
 		#[pallet::constant]
 		type Epsilon: Get<FixedU128>;
@@ -65,7 +68,23 @@ pub mod pallet {
 
 		/// Origin allowed to toggle the panic switch.
 		type PriceOracleOrigin: EnsureOrigin<Self::RuntimeOrigin>;
+
+		/// Maximum number of entries allowed in [`ActiveEndpoints`].
+		#[pallet::constant]
+		type MaxEndpoints: Get<u32>;
+
+		/// Maximum length in bytes of a single endpoint URL in [`ActiveEndpoints`].
+		#[pallet::constant]
+		type MaxUrlLength: Get<u32>;
 	}
+
+	/// A URL bounded by [`Config::MaxUrlLength`].
+	pub type BoundedUrl<T> = BoundedVec<u8, <T as Config>::MaxUrlLength>;
+
+	/// The active endpoint list, bounded by [`Config::MaxEndpoints`] and
+	/// [`Config::MaxUrlLength`].
+	pub type BoundedEndpoints<T> =
+		BoundedVec<(ParsingMethod, BoundedUrl<T>), <T as Config>::MaxEndpoints>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -82,6 +101,12 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PanicSwitch<T: Config> = StorageValue<_, bool, ValueQuery>;
 
+	/// The set of price feed endpoints currently queried by the node.
+	/// Each entry is a `(ParsingMethod, url_bytes)` pair. Mutated via the
+	/// root-only [`Pallet::set_active_endpoints`] extrinsic.
+	#[pallet::storage]
+	pub type ActiveEndpoints<T: Config> = StorageValue<_, BoundedEndpoints<T>, ValueQuery>;
+
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Too few nudges were provided (below the runtime minimum).
@@ -96,6 +121,20 @@ pub mod pallet {
 		InvalidSignature,
 		/// Duplicate inherent in the same block.
 		DuplicateInherent,
+		/// Too many endpoints supplied for [`Config::MaxEndpoints`].
+		TooManyEndpoints,
+		/// An endpoint URL exceeded [`Config::MaxUrlLength`].
+		UrlTooLong,
+		/// A parsing method id does not map to a known [`ParsingMethod`].
+		UnknownParsingMethod,
+	}
+
+
+	#[pallet::event]
+	#[pallet::generate_deposit(pub(super) fn deposit_event)]
+	pub enum Event<T: Config> {
+		/// The active endpoint list was replaced.
+		ActiveEndpointsUpdated { count: u32 },
 	}
 
 	#[pallet::hooks]
@@ -196,6 +235,38 @@ pub mod pallet {
 		pub fn set_panic_switch(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
 			T::PriceOracleOrigin::ensure_origin(origin)?;
 			PanicSwitch::<T>::put(enabled);
+			Ok(())
+		}
+
+		/// Replace the set of active price feed endpoints.
+		///
+		/// Root-only. Accepts `(parsing_method_id, url_bytes)` pairs — the id
+		/// is a `u8` handle for a [`ParsingMethod`] variant. Overwrites
+		/// [`ActiveEndpoints`] wholesale. Fails with
+		/// [`Error::TooManyEndpoints`], [`Error::UrlTooLong`], or
+		/// [`Error::UnknownParsingMethod`] if the input is invalid.
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::from_parts(10_000, 0).saturating_mul(endpoints.len() as u64))]
+		pub fn set_active_endpoints(
+			origin: OriginFor<T>,
+			endpoints: Vec<(u8, Vec<u8>)>,
+		) -> DispatchResult {
+			T::PriceOracleOrigin::ensure_origin(origin)?;
+			let converted: Vec<(ParsingMethod, BoundedUrl<T>)> = endpoints
+				.into_iter()
+				.map(|(id, url)| {
+					let method = ParsingMethod::try_from(id)
+						.map_err(|_| Error::<T>::UnknownParsingMethod)?;
+					let url: BoundedUrl<T> =
+						url.try_into().map_err(|_| Error::<T>::UrlTooLong)?;
+					Ok((method, url))
+				})
+				.collect::<Result<_, Error<T>>>()?;
+			let bounded: BoundedEndpoints<T> =
+				converted.try_into().map_err(|_| Error::<T>::TooManyEndpoints)?;
+			let count = bounded.len() as u32;
+			ActiveEndpoints::<T>::put(bounded);
+			Self::deposit_event(Event::ActiveEndpointsUpdated { count });
 			Ok(())
 		}
 	}

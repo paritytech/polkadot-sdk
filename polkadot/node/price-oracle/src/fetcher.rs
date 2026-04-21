@@ -1,46 +1,8 @@
 use log::warn;
-use sp_runtime::FixedU128;
 use std::time::Duration;
 
 const LOG_TARGET: &str = "price-oracle::fetcher";
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Endpoint {
-	Binance,
-	CoinLore,
-	CryptoCompare,
-}
-
-impl Endpoint {
-	pub const ALL: &[Endpoint] = &[Endpoint::Binance, Endpoint::CoinLore, Endpoint::CryptoCompare];
-
-	fn url(&self) -> &'static str {
-		match self {
-			Self::Binance => "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT",
-			Self::CoinLore => "https://api.coinlore.net/api/ticker/?id=45219",
-			Self::CryptoCompare => {
-				"https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD"
-			},
-		}
-	}
-
-	fn parse(&self, body: &[u8]) -> Result<FixedU128, String> {
-		match self {
-			Self::Binance => parse_binance(body),
-			Self::CoinLore => parse_coinlore(body),
-			Self::CryptoCompare => parse_cryptocompare(body),
-		}
-	}
-
-	fn pick_random() -> Self {
-		let seed = std::time::SystemTime::now()
-			.duration_since(std::time::UNIX_EPOCH)
-			.unwrap_or_default()
-			.subsec_nanos();
-		Self::ALL[seed as usize % Self::ALL.len()]
-	}
-}
 
 pub struct PriceFetcher {
 	client: reqwest::Client,
@@ -55,128 +17,30 @@ impl PriceFetcher {
 		Self { client }
 	}
 
-	pub async fn fetch_dot_usd_price(&self) -> Result<FixedU128, String> {
-		let primary = Endpoint::pick_random();
-		match self.fetch_from(primary).await {
-			Ok(price) => return Ok(price),
-			Err(e) => warn!(target: LOG_TARGET, "{:?} failed: {}, trying fallbacks", primary, e),
-		}
-
-		for endpoint in Endpoint::ALL {
-			if *endpoint == primary {
-				continue;
-			}
-			match self.fetch_from(*endpoint).await {
-				Ok(price) => return Ok(price),
-				Err(e) => warn!(target: LOG_TARGET, "{:?} failed: {}", endpoint, e),
-			}
-		}
-
-		Err("All endpoints failed".into())
-	}
-
-	pub async fn fetch_from(&self, endpoint: Endpoint) -> Result<FixedU128, String> {
-		let url = endpoint.url();
-		let bytes = self
-			.client
+	/// Fetch raw HTTP response bytes from a single endpoint.
+	pub async fn fetch_raw(&self, url: &str) -> Result<Vec<u8>, String> {
+		self.client
 			.get(url)
 			.send()
 			.await
 			.map_err(|e| format!("Request to {} failed: {}", url, e))?
 			.bytes()
 			.await
-			.map_err(|e| format!("Reading body from {} failed: {}", url, e))?;
-
-		endpoint.parse(&bytes)
-	}
-}
-
-/// `{"symbol":"DOTUSDT","price":"4.20600000"}`
-fn parse_binance(body: &[u8]) -> Result<FixedU128, String> {
-	let v: serde_json::Value =
-		serde_json::from_slice(body).map_err(|e| format!("JSON parse: {}", e))?;
-	let price_str = v.get("price").and_then(|v| v.as_str()).ok_or("missing 'price' field")?;
-	parse_price_string(price_str)
-}
-
-/// `[{"id":"45219", ..., "price_usd":"4.20", ...}]`
-fn parse_coinlore(body: &[u8]) -> Result<FixedU128, String> {
-	let v: serde_json::Value =
-		serde_json::from_slice(body).map_err(|e| format!("JSON parse: {}", e))?;
-	let price_str = v
-		.as_array()
-		.and_then(|arr| arr.first())
-		.and_then(|obj| obj.get("price_usd"))
-		.and_then(|v| v.as_str())
-		.ok_or("missing 'price_usd' in CoinLore response")?;
-	parse_price_string(price_str)
-}
-
-/// `{"USD":4.202}`
-fn parse_cryptocompare(body: &[u8]) -> Result<FixedU128, String> {
-	let v: serde_json::Value =
-		serde_json::from_slice(body).map_err(|e| format!("JSON parse: {}", e))?;
-	let price_num = v
-		.get("USD")
-		.and_then(|v| v.as_f64())
-		.ok_or("missing 'USD' field in CryptoCompare response")?;
-	if price_num < 0.0 {
-		return Err("Negative price".into());
-	}
-	Ok(FixedU128::from_float(price_num))
-}
-
-fn parse_price_string(s: &str) -> Result<FixedU128, String> {
-	let price: f64 = s.parse().map_err(|e| format!("Price parse error: {}", e))?;
-	if price < 0.0 {
-		return Err("Negative price".into());
-	}
-	Ok(FixedU128::from_float(price))
-}
-
-#[cfg(test)]
-mod parsing_tests {
-	use super::*;
-
-	#[test]
-	fn binance_parsing() {
-		let body = br#"{"symbol":"DOTUSDT","price":"4.20600000"}"#;
-		let price = parse_binance(body).unwrap();
-		assert!(price > FixedU128::from_u32(4) && price < FixedU128::from_u32(5));
-
-		assert!(parse_binance(br#"{"symbol":"DOTUSDT"}"#).is_err());
-		assert!(parse_binance(br#"{"price":123}"#).is_err()); // price not a string
+			.map(|b| b.to_vec())
+			.map_err(|e| format!("Reading body from {} failed: {}", url, e))
 	}
 
-	#[test]
-	fn coinlore_parsing() {
-		let body = br#"[{"id":"45219","price_usd":"4.20"}]"#;
-		let price = parse_coinlore(body).unwrap();
-		assert!(price > FixedU128::from_u32(4) && price < FixedU128::from_u32(5));
-
-		assert!(parse_coinlore(br#"[{"id":"45219"}]"#).is_err());
-		assert!(parse_coinlore(br#"[]"#).is_err());
-	}
-
-	#[test]
-	fn cryptocompare_parsing() {
-		let body = br#"{"USD":4.202}"#;
-		let price = parse_cryptocompare(body).unwrap();
-		assert!(price > FixedU128::from_u32(4) && price < FixedU128::from_u32(5));
-
-		assert!(parse_cryptocompare(br#"{"EUR":1.5}"#).is_err());
-	}
-
-	#[test]
-	fn parse_price_string_works() {
-		let price = parse_price_string("5.23").unwrap();
-		let expected = FixedU128::from_rational(523, 100);
-		assert_eq!(price, expected);
-	}
-
-	#[test]
-	fn parse_price_string_rejects_negative() {
-		assert!(parse_price_string("-1.5").is_err());
+	/// Fetch raw response bytes from multiple endpoints.
+	/// Returns `(endpoint_id, raw_bytes)` for each successful fetch.
+	pub async fn fetch_all(&self, endpoints: &[(u8, String)]) -> Vec<(u8, Vec<u8>)> {
+		let mut results = Vec::new();
+		for (id, url) in endpoints {
+			match self.fetch_raw(url).await {
+				Ok(bytes) => results.push((*id, bytes)),
+				Err(e) => warn!(target: LOG_TARGET, "Endpoint {} ({}) failed: {}", id, url, e),
+			}
+		}
+		results
 	}
 }
 
@@ -187,10 +51,9 @@ mod parsing_tests {
 #[cfg(all(test, feature = "live-test"))]
 mod live_tests {
 	use super::*;
-	use std::process::Command;
 
 	fn curl_get(url: &str) -> Vec<u8> {
-		let output = Command::new("curl")
+		let output = std::process::Command::new("curl")
 			.args(["-s", "--fail", "--max-time", "15", url])
 			.output()
 			.expect("curl not installed");
@@ -202,34 +65,202 @@ mod live_tests {
 		output.stdout
 	}
 
-	fn assert_plausible_dot_price(price: FixedU128, source: &str) {
+	#[test]
+	fn live_binance() {
+		let url = "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_binance(&body)
+			.expect("Binance response format changed");
 		assert!(
-			price > FixedU128::from_rational(1, 100) && price < FixedU128::from_rational(10_000, 1),
-			"{source} returned implausible DOT price: {price:?}"
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
 	#[test]
-	fn live_binance() {
-		let ep = Endpoint::Binance;
-		let body = curl_get(ep.url());
-		let price = ep.parse(&body).expect("Binance response format changed");
-		assert_plausible_dot_price(price, "Binance");
-	}
-
-	#[test]
 	fn live_coinlore() {
-		let ep = Endpoint::CoinLore;
-		let body = curl_get(ep.url());
-		let price = ep.parse(&body).expect("CoinLore response format changed");
-		assert_plausible_dot_price(price, "CoinLore");
+		let url = "https://api.coinlore.net/api/ticker/?id=45219";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_coinlore(&body)
+			.expect("CoinLore response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
 	}
 
 	#[test]
 	fn live_cryptocompare() {
-		let ep = Endpoint::CryptoCompare;
-		let body = curl_get(ep.url());
-		let price = ep.parse(&body).expect("CryptoCompare response format changed");
-		assert_plausible_dot_price(price, "CryptoCompare");
+		let url = "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_cryptocompare(&body)
+			.expect("CryptoCompare response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_coingecko() {
+		let url =
+			"https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_coingecko(&body)
+			.expect("CoinGecko response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_coinpaprika() {
+		let url = "https://api.coinpaprika.com/v1/tickers/dot-polkadot";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_coinpaprika(&body)
+			.expect("CoinPaprika response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_dia() {
+		let url = "https://api.diadata.org/v1/assetQuotation/Polkadot/0x0000000000000000000000000000000000000000";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_dia(&body)
+			.expect("Dia response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_coinbase() {
+		let url = "https://api.coinbase.com/v2/prices/DOT-USD/spot";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_coinbase(&body)
+			.expect("Coinbase response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_kraken() {
+		let url = "https://api.kraken.com/0/public/Ticker?pair=DOTUSD";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_kraken(&body)
+			.expect("Kraken response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_okx() {
+		let url = "https://www.okx.com/api/v5/market/ticker?instId=DOT-USDT";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_okx(&body)
+			.expect("OKX response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_bybit() {
+		let url =
+			"https://api.bybit.com/v5/market/tickers?category=spot&symbol=DOTUSDT";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_bybit(&body)
+			.expect("Bybit response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_kucoin() {
+		let url =
+			"https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=DOT-USDT";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_kucoin(&body)
+			.expect("KuCoin response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_cryptocom() {
+		let url = "https://api.crypto.com/v2/public/get-ticker?instrument_name=DOT_USDT";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_cryptocom(&body)
+			.expect("Crypto.com response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	#[test]
+	fn live_gateio() {
+		let url =
+			"https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOT_USDT";
+		let body = curl_get(url);
+		let price = pallet_price_oracle::decoders::decode_gateio(&body)
+			.expect("Gate.io response format changed");
+		assert!(
+			price > sp_runtime::FixedU128::from_rational(1, 100)
+				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+		);
+	}
+
+	/// Tests fetch_all with multiple endpoints in one call.
+	#[tokio::test]
+	async fn live_fetch_all_multiple_endpoints() {
+		let fetcher = PriceFetcher::new();
+		let endpoints = vec![
+			(0u8, "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT".to_string()),
+			(2u8, "https://min-api.cryptocompare.com/data/price?fsym=DOT&tsyms=USD".to_string()),
+			(9u8, "https://api.kraken.com/0/public/Ticker?pair=DOTUSD".to_string()),
+		];
+		let results = fetcher.fetch_all(&endpoints).await;
+		// At least one endpoint should succeed
+		assert!(!results.is_empty(), "All endpoints failed in fetch_all");
+		for (id, bytes) in &results {
+			assert!(!bytes.is_empty(), "Empty response from endpoint {}", id);
+		}
+	}
+
+	/// Tests that fetch_raw returns an error for an unreachable endpoint.
+	#[tokio::test]
+	async fn live_fetch_raw_invalid_url() {
+		let fetcher = PriceFetcher::new();
+		let result = fetcher.fetch_raw("http://localhost:1/nonexistent").await;
+		assert!(result.is_err());
+	}
+
+	/// Tests that fetch_all gracefully skips failing endpoints.
+	#[tokio::test]
+	async fn live_fetch_all_skips_failures() {
+		let fetcher = PriceFetcher::new();
+		let endpoints = vec![
+			(99u8, "http://localhost:1/nonexistent".to_string()),
+			(0u8, "https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT".to_string()),
+		];
+		let results = fetcher.fetch_all(&endpoints).await;
+		// The bad endpoint should be skipped, Binance should succeed
+		assert_eq!(results.len(), 1);
+		assert_eq!(results[0].0, 0);
 	}
 }

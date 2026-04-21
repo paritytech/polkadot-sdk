@@ -171,6 +171,16 @@ sp_api::decl_runtime_apis! {
 
 		/// Get the minimum number of nudges required to update the price.
 		fn minimum_nudges_required() -> u32;
+
+		/// Get the list of price feed endpoints as `(endpoint_id, url_bytes)` pairs.
+		/// The node fetches these URLs and passes raw response bytes to `decode_results`.
+		fn endpoint_list() -> Vec<(u8, Vec<u8>)>;
+
+		/// Batch-decode raw HTTP response bodies into prices.
+		/// Takes `(endpoint_id, raw_response_bytes)` pairs and returns
+		/// `(endpoint_id, Option<price>)` — `None` means the response could not be parsed.
+		/// Batched to minimize Wasm boundary crossings.
+		fn decode_results(data: Vec<(u8, Vec<u8>)>) -> Vec<(u8, Option<FixedU128>)>;
 	}
 }
 
