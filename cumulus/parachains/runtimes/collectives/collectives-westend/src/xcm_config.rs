@@ -21,8 +21,8 @@ use super::{
 use frame_support::{
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, Contains, Equals,
-		Everything, LinearStoragePrice, Nothing, PalletInfoAccess,
+		fungible::HoldConsideration, tokens::imbalance::ResolveTo, ConstU32, ConstU8, Contains,
+		Equals, Everything, LinearStoragePrice, Nothing, PalletInfoAccess,
 	},
 };
 use frame_system::EnsureRoot;
@@ -34,7 +34,6 @@ use parachains_common::xcm_config::{
 };
 use polkadot_parachain_primitives::primitives::Sibling;
 use polkadot_runtime_common::xcm_sender::ExponentialPrice;
-use sp_runtime::traits::AccountIdConversion;
 use westend_runtime_constants::{system_parachain::ASSET_HUB_ID, xcm as xcm_constants};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
@@ -43,11 +42,11 @@ use xcm_builder::{
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	DenyRecursively, DenyReserveTransferToRelayChain, DenyThenTry, DescribeAllTerminal,
 	DescribeFamily, EnsureXcmOrigin, FrameTransactionalProcessor, FungibleAdapter,
-	HashedDescription, IsConcrete, LocatableAssetId, LocationAsSuperuser, OriginToPluralityVoice,
-	ParentAsSuperuser, ParentIsPreset, RelayChainAsNative, SendXcmFeeToAccount,
-	SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
-	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	HashedDescription, IsConcrete, IsParentsOnly, LocatableAssetId, LocationAsSuperuser,
+	OriginToPluralityVoice, ParentAsSuperuser, ParentIsPreset, RelayChainAsNative,
+	SendXcmFeeToAccount, SiblingParachainAsNative, SiblingParachainConvertsVia,
+	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
+	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -71,7 +70,7 @@ parameter_types! {
 	pub AmbassadorSalaryLocation: Location =
 		PalletInstance(<crate::AmbassadorSalary as PalletInfoAccess>::index() as u8).into();
 	pub CheckingAccount: AccountId = PolkadotXcm::check_account();
-	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(xcm_constants::body::FELLOWSHIP_ADMIN_INDEX);
 	pub AssetHub: Location = (Parent, Parachain(ASSET_HUB_ID)).into();
 	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
@@ -83,6 +82,10 @@ parameter_types! {
 	pub WndAssetHub: LocatableAssetId = LocatableAssetId {
 		location: AssetHub::get(),
 		asset_id: WndLocation::get().into(),
+	};
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
 	};
 }
 
@@ -147,13 +150,6 @@ parameter_types! {
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
 }
 
-pub struct ParentOrParentsPlurality;
-impl Contains<Location> for ParentOrParentsPlurality {
-	fn contains(location: &Location) -> bool {
-		matches!(location.unpack(), (1, []) | (1, [Plurality { .. }]))
-	}
-}
-
 pub struct LocalPlurality;
 impl Contains<Location> for LocalPlurality {
 	fn contains(loc: &Location) -> bool {
@@ -175,10 +171,9 @@ pub type Barrier = TrailingSetTopicAsId<
 					// If the message is one that immediately attempts to pay for execution, then
 					// allow it.
 					AllowTopLevelPaidExecutionFrom<Everything>,
-					// Parent, its pluralities (i.e. governance bodies), and sibling system
-					// parachains get free execution.
+					// Parent and sibling system parachains get free execution.
 					AllowExplicitUnpaidExecutionFrom<(
-						ParentOrParentsPlurality,
+						IsParentsOnly<ConstU8<1>>,
 						RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 						Equals<GovernanceLocation>,
 					)>,
@@ -205,6 +200,7 @@ pub type WaivedLocations = (
 	Equals<AmbassadorSalaryLocation>,
 	Equals<RootLocation>,
 	LocalPlurality,
+	Equals<DapSatelliteLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:

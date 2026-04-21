@@ -306,11 +306,11 @@ impl SubstrateCli for TestCollatorCli {
 					ParaId::from(2300),
 				))) as Box<_>
 			},
-			"elastic-scaling-multi-block-slot" => {
-				tracing::info!("Using elastic-scaling multi-block-slot chain spec.");
-				Box::new(cumulus_test_service::get_elastic_scaling_multi_block_slot_chain_spec(
-					Some(ParaId::from(2400)),
-				)) as Box<_>
+			"block-bundling" => {
+				tracing::info!("Using block-bundling chain spec.");
+				Box::new(cumulus_test_service::get_block_bundling_chain_spec(Some(ParaId::from(
+					2400,
+				)))) as Box<_>
 			},
 			"sync-backing" => {
 				tracing::info!("Using sync backing chain spec.");

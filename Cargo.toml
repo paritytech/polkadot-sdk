@@ -70,6 +70,7 @@ members = [
 	"cumulus/client/network",
 	"cumulus/client/parachain-inherent",
 	"cumulus/client/pov-recovery",
+	"cumulus/client/proof-size-recording",
 	"cumulus/client/relay-chain-inprocess-interface",
 	"cumulus/client/relay-chain-interface",
 	"cumulus/client/relay-chain-minimal-node",
@@ -508,6 +509,7 @@ members = [
 	"substrate/primitives/crypto/ec-utils",
 	"substrate/primitives/crypto/hashing",
 	"substrate/primitives/crypto/hashing/proc-macro",
+	"substrate/primitives/dap",
 	"substrate/primitives/database",
 	"substrate/primitives/debug-derive",
 	"substrate/primitives/ethereum-standards",
@@ -764,6 +766,7 @@ cumulus-client-consensus-relay-chain = { path = "cumulus/client/consensus/relay-
 cumulus-client-network = { path = "cumulus/client/network", default-features = false }
 cumulus-client-parachain-inherent = { path = "cumulus/client/parachain-inherent", default-features = false }
 cumulus-client-pov-recovery = { path = "cumulus/client/pov-recovery", default-features = false }
+cumulus-client-proof-size-recording = { path = "cumulus/client/proof-size-recording", default-features = false }
 cumulus-client-service = { path = "cumulus/client/service", default-features = false }
 cumulus-pallet-aura-ext = { path = "cumulus/pallets/aura-ext", default-features = false }
 cumulus-pallet-parachain-system = { path = "cumulus/pallets/parachain-system", default-features = false }
@@ -907,6 +910,7 @@ libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
 libp2p-kad = { version = "0.46.2", default-features = false }
 libsecp256k1 = { version = "0.7.0", default-features = false }
+libsqlite3-sys = { version = "0.30", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
@@ -1338,6 +1342,7 @@ sp-core = { path = "substrate/primitives/core", default-features = false }
 sp-crypto-ec-utils = { default-features = false, path = "substrate/primitives/crypto/ec-utils" }
 sp-crypto-hashing = { path = "substrate/primitives/crypto/hashing", default-features = false }
 sp-crypto-hashing-proc-macro = { path = "substrate/primitives/crypto/hashing/proc-macro", default-features = false }
+sp-dap = { path = "substrate/primitives/dap", default-features = false }
 sp-database = { path = "substrate/primitives/database", default-features = false }
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }
@@ -1457,7 +1462,7 @@ wasm-instrument = { version = "0.4", default-features = false }
 wasm-opt = { version = "0.116" }
 wasm-timer = { version = "0.2.5" }
 wasmi = { version = "0.32.3", default-features = false }
-wasmtime = { version = "35.0.0", default-features = false }
+wasmtime = { version = "36.0.7", default-features = false }
 wat = { version = "1.0.0" }
 westend-emulated-chain = { path = "cumulus/parachains/integration-tests/emulated/chains/relays/westend", default-features = false }
 westend-runtime = { path = "polkadot/runtime/westend", default-features = false }
