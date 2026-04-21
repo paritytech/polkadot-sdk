@@ -22,10 +22,13 @@
 //! which always uses the native currency.
 use crate::{BalanceOf, Config, DotByContractUser, HoldReason, evm::fees::InfoT as FeeInfo};
 use core::marker::PhantomData;
-use frame_support::traits::{
-	Get,
-	fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
-	tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
+use frame_support::{
+	storage::with_storage_layer,
+	traits::{
+		Get,
+		fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
+		tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
+	},
 };
 use sp_runtime::{
 	DispatchResult,
@@ -239,49 +242,52 @@ where
 	/// contribution) and by the contract's actual DOT-on-hold (`Precision::BestEffort`, so a
 	/// short hold does not fail). The DOT actually released is subtracted from
 	/// [`DotByContractUser`], and any shortfall is covered by a `Precision::Exact` PGAS
-	/// `transfer_on_hold`. The aggregate refunded is always exactly `amount`; otherwise the
-	/// call errors and storage rolls back.
+	/// `transfer_on_hold`. The aggregate refunded is always exactly `amount`.
+	///
+	/// Atomic: on any sub-op failure all state changes are rolled back.
 	fn refund_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let contribution = DotByContractUser::<T>::get(from, to);
-		let dot_requested = amount.min(contribution);
+		with_storage_layer(|| {
+			let contribution = DotByContractUser::<T>::get(from, to);
+			let dot_requested = amount.min(contribution);
 
-		let dot_refunded = if !dot_requested.is_zero() {
-			let refunded = T::Currency::transfer_on_hold(
-				&reason.into(),
-				from,
-				to,
-				dot_requested,
-				Precision::BestEffort,
-				Restriction::Free,
-				Fortitude::Polite,
-			)?;
-			DotByContractUser::<T>::mutate(from, to, |entitlement| {
-				*entitlement = entitlement.saturating_sub(refunded);
-			});
-			refunded
-		} else {
-			BalanceOf::<T>::zero()
-		};
+			let dot_refunded = if !dot_requested.is_zero() {
+				let refunded = T::Currency::transfer_on_hold(
+					&reason.into(),
+					from,
+					to,
+					dot_requested,
+					Precision::BestEffort,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+				DotByContractUser::<T>::mutate(from, to, |entitlement| {
+					*entitlement = entitlement.saturating_sub(refunded);
+				});
+				refunded
+			} else {
+				BalanceOf::<T>::zero()
+			};
 
-		let pgas_needed = amount.saturating_sub(dot_refunded);
-		if !pgas_needed.is_zero() {
-			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
-				Id::get(),
-				&reason.into(),
-				from,
-				to,
-				pgas_needed,
-				Precision::Exact,
-				Restriction::Free,
-				Fortitude::Polite,
-			)?;
-		}
-		Ok(())
+			let pgas_needed = amount.saturating_sub(dot_refunded);
+			if !pgas_needed.is_zero() {
+				<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
+					Id::get(),
+					&reason.into(),
+					from,
+					to,
+					pgas_needed,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+			}
+			Ok(())
+		})
 	}
 
 	/// Sum of the contract's DOT-on-hold and PGAS-on-hold for `reason`.
@@ -300,49 +306,57 @@ where
 	/// the released amount and deposits it via [`FeeInfo::deposit_txfee`]. Any remainder
 	/// cannot be fed to the DOT fee pool, so it is released from PGAS and transferred to
 	/// `to`'s free PGAS balance with `Precision::Exact`.
+	///
+	/// Atomic: on any sub-op failure all state changes are rolled back.
 	fn collect_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let contribution = DotByContractUser::<T>::get(from, to);
-		let dot_requested = amount.min(contribution);
+		with_storage_layer(|| {
+			let contribution = DotByContractUser::<T>::get(from, to);
+			let dot_requested = amount.min(contribution);
 
-		let dot_collected = if !dot_requested.is_zero() {
-			let released =
-				T::Currency::release(&reason.into(), from, dot_requested, Precision::BestEffort)?;
-			if !released.is_zero() {
-				let credit = T::Currency::withdraw(
+			let dot_collected = if !dot_requested.is_zero() {
+				let released = T::Currency::release(
+					&reason.into(),
 					from,
-					released,
+					dot_requested,
+					Precision::BestEffort,
+				)?;
+				if !released.is_zero() {
+					let credit = T::Currency::withdraw(
+						from,
+						released,
+						Precision::Exact,
+						Preservation::Preserve,
+						Fortitude::Polite,
+					)?;
+					T::FeeInfo::deposit_txfee(credit);
+					DotByContractUser::<T>::mutate(from, to, |entitlement| {
+						*entitlement = entitlement.saturating_sub(released);
+					});
+				}
+				released
+			} else {
+				BalanceOf::<T>::zero()
+			};
+
+			let pgas_needed = amount.saturating_sub(dot_collected);
+			if !pgas_needed.is_zero() {
+				<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
+					Id::get(),
+					&reason.into(),
+					from,
+					to,
+					pgas_needed,
 					Precision::Exact,
-					Preservation::Preserve,
+					Restriction::Free,
 					Fortitude::Polite,
 				)?;
-				T::FeeInfo::deposit_txfee(credit);
-				DotByContractUser::<T>::mutate(from, to, |entitlement| {
-					*entitlement = entitlement.saturating_sub(released);
-				});
 			}
-			released
-		} else {
-			BalanceOf::<T>::zero()
-		};
-
-		let pgas_needed = amount.saturating_sub(dot_collected);
-		if !pgas_needed.is_zero() {
-			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
-				Id::get(),
-				&reason.into(),
-				from,
-				to,
-				pgas_needed,
-				Precision::Exact,
-				Restriction::Free,
-				Fortitude::Polite,
-			)?;
-		}
-		Ok(())
+			Ok(())
+		})
 	}
 }
