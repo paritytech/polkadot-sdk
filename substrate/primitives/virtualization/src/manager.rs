@@ -104,10 +104,10 @@ impl CompiledModule {
 
 /// The state an instance can be in.
 enum InstanceState {
-	/// Idle — ready to be prepared for execution.
+	/// Idle — awaiting a `prepare` call before it can be run.
 	Idle(RawInstance),
-	/// Running — prepared and executing (possibly suspended at a syscall).
-	Running(RawInstance),
+	/// Ready — prepared for execution, or suspended mid-execution at a syscall.
+	Ready(RawInstance),
 }
 
 /// An instance together with the compiled module it was instantiated from.
@@ -226,17 +226,14 @@ impl VirtManager {
 		let ManagedInstance { state, module } = managed;
 		let mut instance = match state {
 			InstanceState::Idle(i) => i,
-			running @ InstanceState::Running(_) => {
-				return (
-					ManagedInstance { state: running, module },
-					Err(ExecError::InvalidInstance),
-				);
+			ready @ InstanceState::Ready(_) => {
+				return (ManagedInstance { state: ready, module }, Err(ExecError::InvalidInstance));
 			},
 		};
 		match module.exports.get(function).copied() {
 			Some(pc) => {
 				instance.prepare_call_untyped(pc, &[]);
-				(ManagedInstance { state: InstanceState::Running(instance), module }, Ok(()))
+				(ManagedInstance { state: InstanceState::Ready(instance), module }, Ok(()))
 			},
 			None => {
 				log::debug!(
@@ -271,7 +268,7 @@ impl VirtManager {
 	) -> (ManagedInstance, Result<(ExecStatus, ExecBuffer), ExecError>) {
 		let ManagedInstance { state, module } = managed;
 		let mut instance = match state {
-			InstanceState::Running(i) => i,
+			InstanceState::Ready(i) => i,
 			idle @ InstanceState::Idle(_) => {
 				return (ManagedInstance { state: idle, module }, Err(ExecError::InvalidInstance));
 			},
@@ -320,7 +317,7 @@ impl VirtManager {
 				let a4 = instance.reg(Reg::A4);
 				let a5 = instance.reg(Reg::A5);
 				(
-					ManagedInstance { state: InstanceState::Running(instance), module },
+					ManagedInstance { state: InstanceState::Ready(instance), module },
 					Ok((
 						ExecStatus::Syscall,
 						ExecBuffer { gas_left, syscall_symbol, a0, a1, a2, a3, a4, a5 },
@@ -344,7 +341,7 @@ impl VirtManager {
 		offset: u32,
 		dest: &mut [u8],
 	) -> Result<(), MemoryError> {
-		let Some(ManagedInstance { state: InstanceState::Running(instance), .. }) =
+		let Some(ManagedInstance { state: InstanceState::Ready(instance), .. }) =
 			self.instances.get_mut(&instance_id)
 		else {
 			return Err(MemoryError::InvalidInstance);
@@ -358,7 +355,7 @@ impl VirtManager {
 		offset: u32,
 		src: &[u8],
 	) -> Result<(), MemoryError> {
-		let Some(ManagedInstance { state: InstanceState::Running(instance), .. }) =
+		let Some(ManagedInstance { state: InstanceState::Ready(instance), .. }) =
 			self.instances.get_mut(&instance_id)
 		else {
 			return Err(MemoryError::InvalidInstance);
