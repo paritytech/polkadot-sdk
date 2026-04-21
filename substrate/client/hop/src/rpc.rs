@@ -178,7 +178,7 @@ where
 
 		let max_size = runtime_api
 			.max_promotion_size(best_hash)
-			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
+			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e)))?;
 		if data.0.len() > max_size as usize {
 			return Err(ErrorObjectOwned::from(HopError::DataTooLarge(
 				data.0.len(),
@@ -191,7 +191,7 @@ where
 		let account_id: AccountId32 = signer.into_account();
 		let authorized = runtime_api
 			.is_account_authorized(best_hash, account_id.clone())
-			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
+			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e)))?;
 		if !authorized {
 			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
 		}

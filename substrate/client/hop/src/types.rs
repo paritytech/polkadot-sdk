@@ -101,9 +101,6 @@ pub enum HopError {
 	#[error("Invalid data: size cannot be zero")]
 	EmptyData,
 
-	#[error("Encoding error: {0}")]
-	Encoding(String),
-
 	#[error("Invalid signature")]
 	InvalidSignature,
 
@@ -126,7 +123,7 @@ pub enum HopError {
 	InvalidSigner,
 
 	#[error("I/O error: {0}")]
-	IoError(String),
+	IoError(#[from] std::io::Error),
 
 	#[error("Recipient already acknowledged, data may have been deleted")]
 	AlreadyClaimed,
@@ -135,7 +132,7 @@ pub enum HopError {
 	InvalidHashLength(usize),
 
 	#[error("Runtime API error: {0}")]
-	RuntimeApiError(String),
+	RuntimeApiError(#[from] sp_api::ApiError),
 
 	#[error("Too many recipients: {provided} (max {limit})")]
 	TooManyRecipients { provided: usize, limit: usize },
@@ -155,7 +152,6 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::DuplicateEntry => 1003,
 			HopError::NotFound => 1004,
 			HopError::EmptyData => 1005,
-			HopError::Encoding(_) => 1006,
 			HopError::InvalidSignature => 1007,
 			HopError::NotRecipient => 1008,
 			HopError::NoRecipients => 1009,
