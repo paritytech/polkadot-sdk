@@ -57,7 +57,12 @@ pub(crate) fn build_hop_pool(
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
 
-	log::info!(target: "hop", "HOP data pool initialized, RPC methods will be registered");
+	log::info!(
+	log::info!(
+		target: "hop",
+		"HOP data pool initialized: {:?}, RPC methods will be registered",
+		pool.status(),
+	);
 
 	Ok(Some(Arc::new(pool)))
 }
