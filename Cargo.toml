@@ -1546,3 +1546,16 @@ twox-hash = { opt-level = 3 }
 wasmi = { opt-level = 3 }
 x25519-dalek = { opt-level = 3 }
 zeroize = { opt-level = 3 }
+
+[workspace.metadata.inheritance-check]
+ignore = [
+	# These crates need subxt 0.50 APIs that the rest of the workspace (on
+	# 0.44) does not. Pinned explicitly to 0.50 until the workspace pin is
+	# bumped and the 0.44-era callers are ported.
+	{ dependency = "subxt", member = "substrate/client/statement-store" },
+	{ dependency = "subxt-signer", member = "substrate/client/statement-store" },
+	{ dependency = "subxt", member = "substrate/client/statement-store/statement-latency-bench" },
+	{ dependency = "subxt-signer", member = "substrate/client/statement-store/statement-latency-bench" },
+	{ dependency = "subxt", member = "cumulus/zombienet/zombienet-sdk" },
+	{ dependency = "subxt-signer", member = "cumulus/zombienet/zombienet-sdk" },
+]
