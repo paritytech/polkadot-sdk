@@ -23,7 +23,7 @@ use sp_runtime::traits::{DispatchTransaction, TransactionExtension, TxBaseImplic
 type Ext = ChargePGAS<Runtime, ChargeTransactionPayment<Runtime>>;
 
 fn new_ext() -> Ext {
-	ChargePGAS::new(ChargeTransactionPayment::<Runtime>::from(0))
+	ChargePGAS::from(ChargeTransactionPayment::<Runtime>::from(0))
 }
 
 fn pgas_call() -> RuntimeCall {

@@ -145,7 +145,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 		pallet_pgas_allowance::ChargePGAS::<
 			Runtime,
 			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
-		>::new(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+		>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
 			0, None,
 		)),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),

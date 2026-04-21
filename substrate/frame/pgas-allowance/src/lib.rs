@@ -144,15 +144,16 @@ impl<T, S: Default> Default for ChargePGAS<T, S> {
 }
 
 impl<T, S> ChargePGAS<T, S> {
-	/// Create a new `ChargePGAS` wrapping the given inner extension.
-	pub fn new(inner: S) -> Self {
-		Self { inner, skip_pgas: false, _phantom: core::marker::PhantomData }
-	}
-
 	/// Create a new `ChargePGAS` that unconditionally delegates to `inner`, skipping the PGAS
 	/// path entirely.
 	pub fn new_skip_pgas(inner: S) -> Self {
 		Self { inner, skip_pgas: true, _phantom: core::marker::PhantomData }
+	}
+}
+
+impl<T, S> From<S> for ChargePGAS<T, S> {
+	fn from(inner: S) -> Self {
+		Self { inner, skip_pgas: false, _phantom: core::marker::PhantomData }
 	}
 }
 

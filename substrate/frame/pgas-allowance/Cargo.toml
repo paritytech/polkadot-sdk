@@ -1,6 +1,6 @@
 [package]
 name = "pallet-pgas-allowance"
-description = "PGAS gas-allowance transaction extension for pallet-revive-payable calls."
+description = "Transaction extension that pays transaction fees with a gas allowance asset."
 license = "Apache-2.0"
 version = "0.1.0"
 edition.workspace = true
