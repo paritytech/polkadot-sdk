@@ -1324,12 +1324,12 @@ fn asset_account_killed_post_withdraw_emits_full_fee_event() {
 		});
 }
 
-/// Covers Path D2 (swap Ok, `F::resolve` Err): the caller's asset account is blocked between
+/// Covers the `can_deposit` pre-flight check: the caller's asset account is blocked between
 /// withdraw and post_dispatch via `Assets::block`. `F::total_balance` still reports a positive
-/// balance (Path A does not short-circuit). The refund swap from native back to asset succeeds,
-/// but the subsequent `resolve` deposit into the blocked account fails (`can_increase` returns
-/// `DepositConsequence::Blocked`). The refund credit is dropped (burned); the returned value
-/// is `fee_asset_amount` — what the user actually paid.
+/// balance (Path A does not short-circuit) and the refund quote succeeds, but
+/// `F::can_deposit` returns `DepositConsequence::Blocked`. The refactor skips the swap
+/// entirely: pool state is untouched, full `fee_paid` goes to OU, event reports full initial
+/// `fee_in_asset`.
 #[test]
 fn post_dispatch_ok_when_asset_account_blocked_post_withdraw() {
 	let base_weight = 5;
@@ -1383,23 +1383,28 @@ fn post_dispatch_ok_when_asset_account_blocked_post_withdraw() {
 			let balance_after_withdraw = balance - fee_in_asset;
 			assert_eq!(Assets::balance(asset_id, &caller), balance_after_withdraw);
 
-			// Block the caller's asset account — `can_increase` will now return `Blocked`,
-			// so the refund `resolve` (backed by `deposit(..., Exact)`) fails.
+			// Block the caller's asset account — `can_deposit` will now return `Blocked`,
+			// so the refund pre-flight check fails and the swap is skipped entirely.
 			assert_ok!(Assets::block(
 				RuntimeOrigin::signed(freezer),
 				asset_id.into(),
 				<Runtime as system::Config>::Lookup::unlookup(caller),
 			));
 
-			// Actual weight is less than estimated → a refund would normally be due.
-			let actual_ext_weight = MockWeights::charge_asset_tx_payment_asset();
-			let ext_weight_refund = extension_weight - actual_ext_weight;
-			let call_weight_refund = call_weight - 50;
-			let expected_fee_in_native =
-				fee_in_native - call_weight_refund - ext_weight_refund.ref_time();
+			// Record the pool state before post-dispatch — it must be untouched since
+			// the refund swap is skipped.
+			let pool_account = <<Runtime as pallet_asset_conversion::Config>::PoolLocator
+				as pallet_asset_conversion::PoolLocator<_, _, _>>::pool_address(
+				&NativeOrWithId::Native,
+				&NativeOrWithId::WithId(asset_id),
+			)
+			.unwrap();
+			let pool_native_before = Balances::free_balance(&pool_account);
+			let pool_asset_before = Assets::balance(asset_id, &pool_account);
 
 			let post_info = post_info_from_weight(WEIGHT_50.saturating_add(extension_weight));
 
+			// Security invariant: post_dispatch must NOT return `Err`.
 			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
 				pre,
 				&info,
@@ -1412,13 +1417,19 @@ fn post_dispatch_ok_when_asset_account_blocked_post_withdraw() {
 			// because the account is blocked.
 			assert_eq!(Assets::balance(asset_id, &caller), balance_after_withdraw);
 
-			// OU received only the corrected fee in native; the swap output (in asset) was
-			// dropped (burned via `DecreaseIssuance`).
-			assert_eq!(TipUnbalancedAmount::get(), tip);
-			assert_eq!(FeeUnbalancedAmount::get(), expected_fee_in_native - tip);
+			// Pool state is untouched — the `can_deposit` pre-flight check prevents
+			// the swap from executing.
+			assert_eq!(Balances::free_balance(&pool_account), pool_native_before);
+			assert_eq!(Assets::balance(asset_id, &pool_account), pool_asset_before);
 
-			// Event reports the full initial `fee_in_asset` — the refactor returns the
-			// unchanged `fee_asset_amount` from D2 because no refund reached the user.
+			// Full initial `fee_paid` (= `fee_in_native`) goes to OU. There is no
+			// refund-then-burn cycle: the swap never happened, so no asset was minted
+			// or burned.
+			assert_eq!(TipUnbalancedAmount::get(), tip);
+			assert_eq!(FeeUnbalancedAmount::get(), fee_in_native - tip);
+
+			// Event reports the full initial `fee_in_asset` — no refund reached the user,
+			// so the returned `fee_asset_amount` equals what was debited at withdraw.
 			System::assert_has_event(RuntimeEvent::AssetTxPayment(crate::Event::AssetTxFeePaid {
 				who: caller,
 				actual_fee: fee_in_asset,

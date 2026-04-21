@@ -23,7 +23,10 @@ use frame_support::{
 	defensive, ensure,
 	traits::{
 		fungibles,
-		tokens::{Balance, Fortitude, Precision, Preservation, WithdrawConsequence},
+		tokens::{
+			Balance, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+			WithdrawConsequence,
+		},
 		Defensive, OnUnbalanced,
 	},
 	unsigned::TransactionValidityError,
@@ -261,8 +264,13 @@ where
 				// No refund given if it cannot be swapped back.
 				.unwrap_or(Zero::zero());
 
-		// `fee_paid` cannot be swapped back into `who`'s fee `asset_id`, exist without refund.
-		if refund_asset_amount.is_zero() {
+		// `fee_paid` cannot be swapped back into `who`'s fee `asset_id`, exist without refund or
+		// the refund amount cannot be deposited into `who`'s fee `asset_id`.
+		if refund_asset_amount.is_zero() ||
+			!matches!(
+				F::can_deposit(asset_id.clone(), who, refund_asset_amount, Provenance::Extant),
+				DepositConsequence::Success
+			) {
 			let (tip, fee) = fee_paid.split(tip);
 			OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
 			return Ok(fee_asset_amount);
@@ -280,10 +288,9 @@ where
 			Ok(refund_asset) => match F::resolve(who, refund_asset) {
 				Ok(_) => (fee_asset_amount.saturating_sub(refund_asset_amount), adjusted_paid),
 				Err(refund_asset) => {
-					log::warn!(
-						target: LOG_TARGET,
-						"Failed to resolve refund asset: {:?}, who: {:?}",
-						refund_asset, who
+					defensive!(
+						"Refund resolve should pass since `can_deposit` was checked",
+						(refund_asset.asset(), refund_asset.peek(), who)
 					);
 					(fee_asset_amount, adjusted_paid)
 				},

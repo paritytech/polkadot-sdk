@@ -93,7 +93,7 @@ type BalanceOf<T> = <<T as Config>::OnChargeTransaction as OnChargeTransaction<T
 type CreditOf<T> = <StoredCreditOf<T> as SuppressedDrop>::Inner;
 type StoredCreditOf<T> = <<T as Config>::OnChargeTransaction as TxCreditHold<T>>::Credit;
 
-pub const LOG_TARGET: &str = "runtime::txpayment";
+const LOG_TARGET: &str = "runtime::txpayment";
 
 /// A struct to update the weight multiplier per block. It implements `Convert<Multiplier,
 /// Multiplier>`, meaning that it can convert the previous multiplier to the next one. This should
