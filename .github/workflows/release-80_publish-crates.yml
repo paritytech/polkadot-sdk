@@ -50,6 +50,11 @@ on:
         required: false
         type: string
         default: '0'
+      publish_delay:
+        description: 'Delay in seconds between parallel publish batches to avoid crates.io rate limits. Only applies when publish_jobs > 0. (0 = no delay, preserves existing behavior)'
+        required: false
+        type: string
+        default: '0'
 
 permissions:
   contents: write
@@ -177,7 +182,7 @@ jobs:
       - name: Install parity-publish
         run: |
           sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
-          cargo install parity-publish@0.10.15 --locked -q
+          cargo install parity-publish@0.10.16 --locked -q
 
       - name: Run parity-publish plan
         if: inputs.resume_from == 'full'
@@ -339,6 +344,7 @@ jobs:
           REGISTRY: ${{ inputs.registry }}
           PUBLISH_JOBS: ${{ inputs.publish_jobs }}
           CLEAN_EVERY: ${{ inputs.clean_every }}
+          PUBLISH_DELAY: ${{ inputs.publish_delay }}
         run: |
           PARALLEL_ARGS=""
           if [ "$PUBLISH_JOBS" -gt 0 ] 2>/dev/null; then
@@ -352,6 +358,12 @@ jobs:
             CLEAN_ARGS="--clean-every $CLEAN_EVERY"
           fi
 
+          DELAY_ARGS=""
+          if [ "$PUBLISH_DELAY" -gt 0 ] 2>/dev/null; then
+            echo "Publish delay enabled: ${PUBLISH_DELAY}s between parallel batches"
+            DELAY_ARGS="--publish-delay $PUBLISH_DELAY"
+          fi
+
           STAGING_ARG=""
           if [ "$REGISTRY" = "staging.crates.io" ]; then
             STAGING_ARG="--staging"
@@ -360,10 +372,10 @@ jobs:
           if [ "$DRY_RUN" = true ]; then
             echo "DRY RUN - Not actually publishing crates"
             echo "Target registry: $REGISTRY"
-            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
+            parity-publish apply -p -d $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS $DELAY_ARGS
           else
             echo "Publishing crates to $REGISTRY..."
-            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS
+            parity-publish apply -p $STAGING_ARG $PARALLEL_ARGS $CLEAN_ARGS $DELAY_ARGS
             echo "Crates published successfully to $REGISTRY!"
           fi
 
