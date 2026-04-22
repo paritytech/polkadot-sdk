@@ -1057,6 +1057,14 @@ pub mod pallet {
 		pub dev_stakers: Option<(u32, u32)>,
 		/// initial active era, corresponding session index and start timestamp.
 		pub active_era: (u32, u32, u64),
+		/// Pre-seed [`DisableMintingGuard`] to skip the legacy-to-DAP transition.
+		///
+		/// If `Some(era)`, the guard is set at genesis so payouts for eras `>= era`
+		/// take the DAP branch immediately instead of waiting for `end_era_dap` to
+		/// fire. Only valid when [`Config::DisableMinting`] is `true`; panics otherwise.
+		///
+		/// Use `Some(0)` on fresh test chains to start in DAP mode from era 0.
+		pub disable_minting_guard: Option<EraIndex>,
 	}
 
 	impl<T: Config> GenesisConfig<T> {
@@ -1102,6 +1110,15 @@ pub mod pallet {
 			}
 			if let Some(x) = self.max_nominator_count {
 				MaxNominatorsCount::<T>::put(x);
+			}
+
+			if let Some(guard_era) = self.disable_minting_guard {
+				assert!(
+					T::DisableMinting::get(),
+					"disable_minting_guard is only meaningful when DisableMinting is true; \
+					 setting it on a legacy-minting chain would orphan era pots"
+				);
+				DisableMintingGuard::<T>::put(guard_era);
 			}
 
 			// First pass: set up all validators and idle stakers

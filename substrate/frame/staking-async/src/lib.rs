@@ -632,6 +632,12 @@ where
 	}
 }
 
+/// Canonical budget key for the staker-rewards recipient.
+pub const STAKER_REWARDS_BUDGET_KEY: &[u8] = b"staker_rewards";
+
+/// Canonical budget key for the validator self-stake incentive recipient.
+pub const VALIDATOR_INCENTIVE_BUDGET_KEY: &[u8] = b"validator_incentive";
+
 /// Budget recipient for staker rewards.
 ///
 /// Exposes the general staker reward pot so DAP can drip inflation into it.
@@ -642,7 +648,7 @@ where
 	P: PotAccountProvider<AccountId>,
 {
 	fn budget_key() -> sp_staking::budget::BudgetKey {
-		sp_staking::budget::BudgetKey::truncate_from(b"staker_rewards".to_vec())
+		sp_staking::budget::BudgetKey::truncate_from(STAKER_REWARDS_BUDGET_KEY.to_vec())
 	}
 
 	fn pot_account() -> AccountId {
@@ -660,7 +666,7 @@ where
 	P: PotAccountProvider<AccountId>,
 {
 	fn budget_key() -> sp_staking::budget::BudgetKey {
-		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+		sp_staking::budget::BudgetKey::truncate_from(VALIDATOR_INCENTIVE_BUDGET_KEY.to_vec())
 	}
 
 	fn pot_account() -> AccountId {
