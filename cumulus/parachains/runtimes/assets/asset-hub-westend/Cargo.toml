@@ -86,6 +86,7 @@ sp-arithmetic = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -427,6 +428,7 @@ std = [
 	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",

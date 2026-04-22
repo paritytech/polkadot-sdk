@@ -21,6 +21,7 @@ pallet-message-queue = { workspace = true }
 pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }
 pallet-whitelist = { workspace = true }
+parachains-common = { workspace = true, default-features = true }
 sp-runtime = { workspace = true }
 
 # Polkadot

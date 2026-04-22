@@ -17,14 +17,12 @@
 //! XCM configurations for Westend.
 
 use super::{
-	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, FellowshipAdmin,
-	GeneralAdmin, ParaId, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, StakingAdmin,
-	TransactionByteFee, Treasury, WeightToFee, XcmPallet,
+	parachains_origin, AccountId, AllPalletsWithSystem, Balances, Dmp, ParaId, Runtime,
+	RuntimeCall, RuntimeEvent, RuntimeOrigin, TransactionByteFee, WeightToFee, XcmPallet,
 };
-use crate::governance::pallet_custom_origins::Treasurer;
 use frame_support::{
 	parameter_types,
-	traits::{Contains, Disabled, Equals, Everything, Nothing, PalletInfoAccess},
+	traits::{Contains, Disabled, Equals, Everything, Nothing},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -33,19 +31,16 @@ use polkadot_runtime_common::{
 	ToAuthor,
 };
 use sp_core::ConstU32;
-use sp_runtime::traits::AccountIdConversion;
-use westend_runtime_constants::{
-	currency::CENTS, system_parachain::*, xcm::body::FELLOWSHIP_ADMIN_INDEX,
-};
+use westend_runtime_constants::{currency::CENTS, system_parachain::*};
 use xcm::latest::{prelude::*, WESTEND_GENESIS_HASH};
 use xcm_builder::{
 	AccountId32Aliases, AliasChildLocation, AllowExplicitUnpaidExecutionFrom,
 	AllowKnownQueryResponses, AllowSubscriptionsFrom, AllowTopLevelPaidExecutionFrom,
 	ChildParachainAsNative, ChildParachainConvertsVia, DescribeAllTerminal, DescribeFamily,
 	FrameTransactionalProcessor, FungibleAdapter, HashedDescription, IsChildSystemParachain,
-	IsConcrete, LocationAsSuperuser, MintLocation, OriginToPluralityVoice, SendXcmFeeToAccount,
-	SignedAccountId32AsNative, SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit,
-	TrailingSetTopicAsId, UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
+	IsConcrete, LocationAsSuperuser, MintLocation, SendXcmFeeToAccount, SignedAccountId32AsNative,
+	SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, TrailingSetTopicAsId,
+	UsingComponents, WeightInfoBounds, WithComputedOrigin, WithUniqueTopic,
 	XcmFeeManagerFromComponents,
 };
 use xcm_executor::XcmExecutor;
@@ -58,15 +53,17 @@ parameter_types! {
 	pub CheckAccount: AccountId = XcmPallet::check_account();
 	/// Westend does not have mint authority anymore after the Asset Hub migration.
 	pub TeleportTracking: Option<(AccountId, MintLocation)> = None;
-	// TODO(#11705): remove TreasuryLocation and migrate treasury funds to DapSatellite.
-	pub TreasuryLocation: Location = PalletInstance(<Treasury as PalletInfoAccess>::index() as u8).into();
-	pub DapSatelliteAccount: AccountId = crate::DapSatellitePalletId::get().into_account_truncating();
+	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
 	/// The asset ID for the asset that we use to pay for message delivery fees.
 	pub FeeAssetId: AssetId = AssetId(TokenLocation::get());
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 	// Fellows pluralistic body.
 	pub const FellowsBodyId: BodyId = BodyId::Technical;
+	/// The DAP satellite account on this chain.
+	pub DapSatelliteLocation: Location = {
+		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
+	};
 }
 
 pub type LocationConverter = (
@@ -193,7 +190,7 @@ pub type Barrier = TrailingSetTopicAsId<(
 /// Locations that will not be charged fees in the executor, neither for execution nor delivery.
 /// We only waive fees for system functions, which these locations represent.
 pub type WaivedLocations =
-	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<TreasuryLocation>);
+	(SystemParachains, Equals<RootLocation>, LocalPlurality, Equals<DapSatelliteLocation>);
 
 /// We let locations alias into child locations of their own.
 /// This is a very simple aliasing rule, mimicking the behaviour of
@@ -244,63 +241,13 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
-parameter_types! {
-	// `GeneralAdmin` pluralistic body.
-	pub const GeneralAdminBodyId: BodyId = BodyId::Administration;
-	// StakingAdmin pluralistic body.
-	pub const StakingAdminBodyId: BodyId = BodyId::Defense;
-	// FellowshipAdmin pluralistic body.
-	pub const FellowshipAdminBodyId: BodyId = BodyId::Index(FELLOWSHIP_ADMIN_INDEX);
-	// `Treasurer` pluralistic body.
-	pub const TreasurerBodyId: BodyId = BodyId::Treasury;
-	// DDay pluralistic body.
-	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
-}
-
-/// Type to convert the `GeneralAdmin` origin to a Plurality `Location` value.
-pub type GeneralAdminToPlurality =
-	OriginToPluralityVoice<RuntimeOrigin, GeneralAdmin, GeneralAdminBodyId>;
-
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
-pub type LocalOriginToLocation = (
-	GeneralAdminToPlurality,
-	// And a usual Signed origin to be used in XCM as a corresponding AccountId32
-	SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>,
-);
-
-/// Type to convert the `StakingAdmin` origin to a Plurality `Location` value.
-pub type StakingAdminToPlurality =
-	OriginToPluralityVoice<RuntimeOrigin, StakingAdmin, StakingAdminBodyId>;
-
-/// Type to convert the `FellowshipAdmin` origin to a Plurality `Location` value.
-pub type FellowshipAdminToPlurality =
-	OriginToPluralityVoice<RuntimeOrigin, FellowshipAdmin, FellowshipAdminBodyId>;
-
-/// Type to convert the `Treasurer` origin to a Plurality `Location` value.
-pub type TreasurerToPlurality = OriginToPluralityVoice<RuntimeOrigin, Treasurer, TreasurerBodyId>;
-
-/// Type to convert a pallet `Origin` type value into a `Location` value which represents an
-/// interior location of this chain for a destination chain.
-pub type LocalPalletOriginToLocation = (
-	// GeneralAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
-	GeneralAdminToPlurality,
-	// StakingAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
-	StakingAdminToPlurality,
-	// FellowshipAdmin origin to be used in XCM as a corresponding Plurality `Location` value.
-	FellowshipAdminToPlurality,
-	// `Treasurer` origin to be used in XCM as a corresponding Plurality `Location` value.
-	TreasurerToPlurality,
-);
+pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;
 
 impl pallet_xcm::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	// Note that this configuration of `SendXcmOrigin` is different from the one present in
-	// production.
-	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<
-		RuntimeOrigin,
-		(LocalPalletOriginToLocation, LocalOriginToLocation),
-	>;
+	type SendXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
 	type XcmRouter = XcmRouter;
 	// Anyone can execute XCM messages locally.
 	type ExecuteXcmOrigin = xcm_builder::EnsureXcmOrigin<RuntimeOrigin, LocalOriginToLocation>;
