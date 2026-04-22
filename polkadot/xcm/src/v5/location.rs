@@ -440,6 +440,70 @@ impl Location {
 	}
 }
 
+/// Snapshot of where a `Location` sits in the root-absolute view defined by
+/// a `context`. The "absolute interior" of a location is the path from the
+/// root described by `context` down to the node the location points to:
+///
+///     absolute_interior = context[0 .. context.len() - parents] ++ interior
+///
+/// `anchor_depth` is the depth at which the absolute interior leaves `context`
+/// and enters the location's own `interior`. `absolute_len` is the total
+/// length of the absolute interior. Together they let `hop_at` index into the
+/// absolute interior without materialising it.
+struct AbsoluteView<'a> {
+	context: &'a InteriorLocation,
+	interior: &'a InteriorLocation,
+	anchor_depth: usize,
+	absolute_len: usize,
+}
+
+impl<'a> AbsoluteView<'a> {
+	/// Returns `Err(())` if the location climbs past the root described by
+	/// `context` (i.e. `parents > context.len()`).
+	#[inline]
+	fn new(
+		parents: u8,
+		interior: &'a InteriorLocation,
+		context: &'a InteriorLocation,
+	) -> Result<Self, ()> {
+		let parents = parents as usize;
+		let context_len = context.len();
+		if parents > context_len {
+			return Err(());
+		}
+		let anchor_depth = context_len - parents;
+		Ok(Self { context, interior, anchor_depth, absolute_len: anchor_depth + interior.len() })
+	}
+
+	/// Returns the junction at the given depth in the absolute interior, or
+	/// `None` if `depth >= absolute_len`.
+	#[inline]
+	fn hop_at(&self, depth: usize) -> Option<&Junction> {
+		if depth < self.anchor_depth {
+			self.context.at(depth)
+		} else {
+			self.interior.at(depth - self.anchor_depth)
+		}
+	}
+}
+
+/// Returns the length of the longest common prefix of the two absolute
+/// interiors described by `target` and `this`. The first
+/// `min(target.anchor_depth, this.anchor_depth)` hops always match because
+/// both prefixes come from `context`; from there on the loop walks one
+/// junction at a time.
+#[inline]
+fn longest_common_ancestor_depth(target: &AbsoluteView, this: &AbsoluteView) -> usize {
+	let mut depth = target.anchor_depth.min(this.anchor_depth);
+	while depth < target.absolute_len && depth < this.absolute_len {
+		match (target.hop_at(depth), this.hop_at(depth)) {
+			(Some(a), Some(b)) if a == b => depth += 1,
+			_ => break,
+		}
+	}
+	depth
+}
+
 impl Reanchorable for Location {
 	type Error = Self;
 
@@ -447,20 +511,71 @@ impl Reanchorable for Location {
 	/// The context of `self` is provided as `context`.
 	///
 	/// Does not modify `self` in case of overflow.
+	///
+	/// Implements the optimisation requested in
+	/// paritytech/polkadot-sdk#897: the three-step algorithm (invert target,
+	/// prepend to self, simplify) is replaced with a single pass that
+	/// computes the deepest common ancestor of `target` and `self` directly
+	/// in the root-absolute view described by `context` and builds the
+	/// result already anchored at `target`, skipping the final simplify.
+	///
+	/// Both `target` and `self` are expressed from the same vantage point —
+	/// the node `self` sits at before reanchoring. In the root-absolute
+	/// view, the absolute interiors each one points to are:
+	///
+	///     target_absolute = context[0 .. context.len() - target.parents] ++ target.interior
+	///     self_absolute   = context[0 .. context.len() - self.parents ] ++ self.interior
+	///
+	/// The common ancestor the original algorithm implicitly materialised
+	/// is simply the longest common prefix of those two absolute interiors.
 	fn reanchor(&mut self, target: &Location, context: &InteriorLocation) -> Result<(), ()> {
-		// TODO: https://github.com/paritytech/polkadot/issues/4489 Optimize this.
+		// Invariants we rely on (enforced by the type system):
+		//   - context, self.interior, target.interior: all `Junctions`, so each has length in
+		//     0..=MAX_JUNCTIONS (= 8).
+		//   - context has no parents (`InteriorLocation` is `Junctions`).
 
-		// 1. Use our `context` to figure out how the `target` would address us.
-		let inverted_target = context.invert_target(target)?;
+		// 1. Build the absolute view of self and target. `AbsoluteView::new` rejects the cases
+		//    where either side climbs past the root.
+		let target_view = AbsoluteView::new(target.parents, target.interior(), context)?;
+		let self_view = AbsoluteView::new(self.parents, &self.interior, context)?;
 
-		// 2. Prepend `inverted_target` to `self` to get self's location from the perspective of
-		// `target`.
-		self.prepend_with(inverted_target).map_err(|_| ())?;
+		// 2. Longest common prefix of the two absolute interiors.
+		let ancestor_depth = longest_common_ancestor_depth(&target_view, &self_view);
 
-		// 3. Given that we know some of `target` context, ensure that any parents in `self` are
-		// strictly needed.
-		self.simplify(target.interior());
+		// 3. New parent count = distance from target up to the common ancestor. With MAX_JUNCTIONS
+		//    = 8 the maximum possible value is 16, so the `try_from` is defensive against future
+		//    layout changes; it cannot fail today.
+		let new_parents: u8 =
+			u8::try_from(target_view.absolute_len - ancestor_depth).map_err(|_| ())?;
 
+		// 4. Validate the resulting interior length up-front so the build phase cannot fail. Any
+		//    failure here returns `Err` without touching `self`.
+		let final_interior_len = self_view.absolute_len - ancestor_depth;
+		if final_interior_len > super::junctions::MAX_JUNCTIONS {
+			return Err(());
+		}
+
+		// 5. Build the new interior in two stages, both safe no-ops in the cases where they don't
+		//    apply: stage A: drop the prefix of `self.interior` consumed by the common ancestor
+		//    (only when the ancestor sits inside `self.interior`). stage B: prepend the slice of
+		//    `context` between the common ancestor and where `self` was anchored.
+		let prefix_to_drop_from_self = ancestor_depth.saturating_sub(self_view.anchor_depth);
+		let context_prefix_to_keep = self_view.anchor_depth.saturating_sub(ancestor_depth);
+
+		let mut new_interior = self.interior.clone();
+		for _ in 0..prefix_to_drop_from_self {
+			new_interior.take_first();
+		}
+		for i in (ancestor_depth..ancestor_depth + context_prefix_to_keep).rev() {
+			let junction = context.at(i).expect("i < context.len(); qed").clone();
+			debug_assert!(new_interior.len() < super::junctions::MAX_JUNCTIONS);
+			new_interior
+				.push_front(junction)
+				.expect("final_interior_len <= MAX_JUNCTIONS checked above; qed");
+		}
+
+		self.parents = new_parents;
+		self.interior = new_interior;
 		Ok(())
 	}
 
@@ -654,8 +769,7 @@ mod tests {
 	fn reanchor_same_branch_target_deeper_multi_hop() {
 		let mut id: Location = (Parent, Parachain(1000), GeneralIndex(42)).into();
 		let context: InteriorLocation = Parachain(2000).into();
-		let target: Location =
-			(Parent, Parachain(1000), Parachain(3000), Parachain(4000)).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000), Parachain(4000)).into();
 		let expected: Location = (Parent, Parent, GeneralIndex(42)).into();
 		id.reanchor(&target, &context).unwrap();
 		assert_eq!(id, expected);
@@ -664,8 +778,7 @@ mod tests {
 	// target is shallower than id on the same branch, multi-hop.
 	#[test]
 	fn reanchor_same_branch_target_shallower_multi_hop() {
-		let mut id: Location =
-			(Parent, Parachain(1000), Parachain(4000), GeneralIndex(42)).into();
+		let mut id: Location = (Parent, Parachain(1000), Parachain(4000), GeneralIndex(42)).into();
 		let context: InteriorLocation = Parachain(2000).into();
 		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
 		let expected: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
@@ -681,8 +794,7 @@ mod tests {
 		let mut id: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
 		let context: InteriorLocation = Parachain(2000).into();
 		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
-		let expected: Location =
-			(Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
+		let expected: Location = (Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
 		id.reanchor(&target, &context).unwrap();
 		assert_eq!(id, expected);
 	}
@@ -707,8 +819,7 @@ mod tests {
 		let mut id: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
 		let context: InteriorLocation = Parachain(2000).into();
 		let target: Location = (Parachain(1000), Parachain(3000)).into();
-		let expected: Location =
-			(Parent, Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
+		let expected: Location = (Parent, Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
 		id.reanchor(&target, &context).unwrap();
 		assert_eq!(id, expected);
 	}
@@ -718,8 +829,7 @@ mod tests {
 	// IDs. The duplicate must remain in the result.
 	#[test]
 	fn reanchor_id_with_duplicate_parachain_index() {
-		let mut id: Location =
-			(Parent, Parachain(2000), Parachain(4000), GeneralIndex(42)).into();
+		let mut id: Location = (Parent, Parachain(2000), Parachain(4000), GeneralIndex(42)).into();
 		let context: InteriorLocation = Parachain(2000).into();
 		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
 		let expected: Location =
@@ -737,8 +847,7 @@ mod tests {
 		let context: InteriorLocation =
 			(Parachain(2000), Parachain(2022), PalletInstance(50), GeneralIndex(32)).into();
 		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
-		let expected: Location =
-			(Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
+		let expected: Location = (Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
 		id.reanchor(&target, &context).unwrap();
 		assert_eq!(id, expected);
 	}
