@@ -73,7 +73,7 @@ pub struct Cli {
 use sc_hop::HopDataPool;
 use std::sync::Arc;
 
-let hop_pool = hop_params.enabled.then(|| {
+let hop_pool = hop_params.enable_hop.then(|| {
     HopDataPool::new(
         hop_params.max_pool_size * 1024 * 1024,  // pool cap, bytes
         hop_params.max_user_size * 1024 * 1024,  // per-user cap, bytes

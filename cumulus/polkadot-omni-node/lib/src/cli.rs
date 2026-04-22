@@ -320,7 +320,7 @@ impl<Config: CliConfig> Cli<Config> {
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
-			hop: self.hop.enabled.then(|| self.hop.clone()),
+			hop: self.hop.enable_hop.then(|| self.hop.clone()),
 		}
 	}
 

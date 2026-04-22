@@ -46,8 +46,8 @@ use clap::Parser;
 #[derive(Debug, Clone, Parser)]
 pub struct HopParams {
 	/// Enable HOP
-	#[arg(long = "enable-hop")]
-	pub enabled: bool,
+	#[arg(long)]
+	pub enable_hop: bool,
 
 	/// HOP maximum data pool size in MiB
 	#[arg(long = "hop-max-pool-size", default_value_t = DEFAULT_MAX_POOL_SIZE_MIB)]
@@ -99,7 +99,7 @@ pub struct HopParams {
 impl Default for HopParams {
 	fn default() -> Self {
 		Self {
-			enabled: false,
+			enable_hop: false,
 			max_pool_size: DEFAULT_MAX_POOL_SIZE_MIB,
 			max_user_size: DEFAULT_MAX_USER_SIZE_MIB,
 			retention_blocks: DEFAULT_RETENTION_BLOCKS,
