@@ -415,12 +415,12 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 				"block_height{status=\"best\"}",
 				|v| {
 					h.set(v);
-					v >= 15.0
+					v >= 30.0
 				},
-				180u64,
+				360u64,
 			)
 			.await
-			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 15 within 180s"))?;
+			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 30 within 360s"))?;
 		h.get()
 	};
 	info!("Charlie at block {:.0} before dave joins", charlie_height);
