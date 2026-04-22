@@ -83,10 +83,8 @@ impl HopDataPool {
 		// Create shard directories (256 each for blobs/ and meta/).
 		for i in 0u8..=255 {
 			let shard = format!("{:02x}", i);
-			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))
-				.map_err(|e| HopError::IoError(format!("create blobs/{}: {}", shard, e)))?;
-			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))
-				.map_err(|e| HopError::IoError(format!("create meta/{}: {}", shard, e)))?;
+			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))?;
+			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))?;
 		}
 
 		let mut index = HashMap::new();
@@ -245,10 +243,8 @@ impl HopDataPool {
 	/// Atomically write data to a file (write to .tmp, then rename).
 	fn write_atomic(path: &Path, data: &[u8]) -> Result<(), HopError> {
 		let tmp_path = path.with_extension("tmp");
-		fs::write(&tmp_path, data)
-			.map_err(|e| HopError::IoError(format!("write {}: {}", tmp_path.display(), e)))?;
-		fs::rename(&tmp_path, path)
-			.map_err(|e| HopError::IoError(format!("rename {}: {}", path.display(), e)))?;
+		fs::write(&tmp_path, data)?;
+		fs::rename(&tmp_path, path)?;
 		Ok(())
 	}
 
@@ -439,7 +435,7 @@ impl HopDataPool {
 			if e.kind() == std::io::ErrorKind::NotFound {
 				HopError::NotFound
 			} else {
-				HopError::IoError(format!("read blob: {}", e))
+				HopError::IoError(e)
 			}
 		})?;
 

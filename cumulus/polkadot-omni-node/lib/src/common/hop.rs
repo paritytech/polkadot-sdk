@@ -41,10 +41,8 @@ pub(crate) fn build_hop_pool(
 
 	log::info!(
 		target: "hop",
-		"Initializing HOP data pool: max_size={}MiB, max_user_size={}MiB, retention={} blocks, data_dir={}",
-		node_extra_args.hop.max_pool_size,
-		node_extra_args.hop.max_user_size,
-		node_extra_args.hop.retention_blocks,
+		"Initializing HOP data pool: {:?} (resolved data_dir: {})",
+		node_extra_args.hop,
 		data_dir.display(),
 	);
 
@@ -55,7 +53,7 @@ pub(crate) fn build_hop_pool(
 		data_dir,
 		node_extra_args.hop.rate_limit_config(),
 	)
-	.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+	.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 	log::info!(
 		target: "hop",

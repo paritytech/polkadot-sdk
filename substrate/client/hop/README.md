@@ -41,8 +41,8 @@ mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
 |---|---|
 | `cli` | `HopParams` — `clap`-flattenable CLI parameters |
 | `pool` | `HopDataPool` — disk-backed blob store + in-memory metadata index |
-| `rpc` | `HopApi` trait, `HopRpcServer` — jsonrpsee methods (`hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`) |
-| `promotion` | `HopPromoter`, `RuntimeApiPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
+| `rpc` | `HopApi` / `HopRpcServer` — jsonrpsee methods (`hop_submit`/`claim`/`ack`/`poolStatus`) |
+| `promotion` | `HopPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
 | `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
 | `types` | Errors, `HopEntryMeta`, `PoolStatus`, `SubmitResult`, signing contexts, defaults |
 | `primitives` | `HopHash`, `HopBlockNumber` |
@@ -182,7 +182,6 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1003 | `DuplicateEntry` | A blob with this hash is already in the pool |
 | 1004 | `NotFound` | No entry for this hash (expired, never submitted, or deleted after final ack) |
 | 1005 | `EmptyData` | Blob is zero bytes |
-| 1006 | `Encoding` | SCALE codec error |
 | 1007 | `InvalidSignature` | Signature verification failed |
 | 1008 | `NotRecipient` | No recipient's public key matches the claim/ack signature |
 | 1009 | `NoRecipients` | Submit provided an empty recipient list |

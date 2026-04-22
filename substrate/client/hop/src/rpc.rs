@@ -32,7 +32,6 @@ use codec::Decode;
 use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
-	types::ErrorObjectOwned,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -131,7 +130,7 @@ impl<C, Block> HopRpcServer<C, Block> {
 			.0
 			.as_slice()
 			.try_into()
-			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidHashLength(bytes.0.len())))?;
+			.map_err(|_| HopError::InvalidHashLength(bytes.0.len()))?;
 		Ok(HopHash::from(hash_bytes))
 	}
 }
@@ -152,23 +151,18 @@ where
 	) -> RpcResult<SubmitResult> {
 		let recipient_keys: RecipientVec = recipients
 			.into_iter()
-			.map(|r| {
-				MultiSigner::decode(&mut &r.0[..])
-					.map_err(|_| ErrorObjectOwned::from(HopError::InvalidRecipientKey))
-			})
-			.collect::<RpcResult<Vec<_>>>()?
+			.map(|r| MultiSigner::decode(&mut &r.0[..]).map_err(|_| HopError::InvalidRecipientKey))
+			.collect::<Result<Vec<_>, _>>()?
 			.try_into()
-			.map_err(|v: Vec<MultiSigner>| {
-				ErrorObjectOwned::from(HopError::TooManyRecipients {
-					provided: v.len(),
-					limit: MAX_RECIPIENTS as usize,
-				})
+			.map_err(|v: Vec<MultiSigner>| HopError::TooManyRecipients {
+				provided: v.len(),
+				limit: MAX_RECIPIENTS as usize,
 			})?;
 
-		let signer = MultiSigner::decode(&mut &signer.0[..])
-			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSigner))?;
+		let signer =
+			MultiSigner::decode(&mut &signer.0[..]).map_err(|_| HopError::InvalidSigner)?;
 		let multi_sig = MultiSignature::decode(&mut &signature.0[..])
-			.map_err(|_| ErrorObjectOwned::from(HopError::InvalidSignature))?;
+			.map_err(|_| HopError::InvalidSignature)?;
 
 		let chain_info = self.client.info();
 		let best_hash = chain_info.best_hash;
@@ -176,14 +170,9 @@ where
 
 		let runtime_api = self.client.runtime_api();
 
-		let max_size = runtime_api
-			.max_promotion_size(best_hash)
-			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
+		let max_size = runtime_api.max_promotion_size(best_hash).map_err(HopError::from)?;
 		if data.0.len() > max_size as usize {
-			return Err(ErrorObjectOwned::from(HopError::DataTooLarge(
-				data.0.len(),
-				max_size as u64,
-			)));
+			return Err(HopError::DataTooLarge(data.0.len(), max_size as u64).into());
 		}
 
 		// Check authorization before verifying the signature: a flood of unauthorized
@@ -191,16 +180,16 @@ where
 		let account_id: AccountId32 = signer.into_account();
 		let authorized = runtime_api
 			.is_account_authorized(best_hash, account_id.clone())
-			.map_err(|e| ErrorObjectOwned::from(HopError::RuntimeApiError(e.to_string())))?;
+			.map_err(HopError::from)?;
 		if !authorized {
-			return Err(ErrorObjectOwned::from(HopError::NotAuthorized));
+			return Err(HopError::NotAuthorized.into());
 		}
 
 		// Domain-separated payload so a submit signature cannot be replayed as claim/ack.
 		let hash = H256(blake2_256(&data.0));
 		let submit_payload = signing_payload(HOP_SUBMIT_CONTEXT, &hash);
 		if !multi_sig.verify(&submit_payload[..], &account_id) {
-			return Err(ErrorObjectOwned::from(HopError::InvalidSignature));
+			return Err(HopError::InvalidSignature.into());
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
