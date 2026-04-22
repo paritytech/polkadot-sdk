@@ -367,28 +367,29 @@ mod tests {
 
 	#[test]
 	fn eoa_accounts_are_skipped() {
+		use crate::test_utils::{ALICE, ALICE_ADDR, BOB, BOB_ADDR};
+		use frame_support::traits::tokens::fungibles::InspectHold;
+
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let eoa = H160::repeat_byte(0x99);
+			let _ = <Test as Config>::Currency::mint_into(&ALICE, Pallet::<Test>::min_balance());
+			let _ = <Test as Config>::Currency::mint_into(&BOB, Pallet::<Test>::min_balance());
 			AccountInfoOf::<Test>::insert(
-				eoa,
+				ALICE_ADDR,
 				AccountInfo::<Test> { account_type: AccountType::EOA, dust: 0 },
 			);
 
 			let owner = AccountId32::new([1; 32]);
 			let hash = H256::repeat_byte(0xDD);
 			seed_code_upload(hash, owner.clone(), 0);
-			let c = H160::repeat_byte(0x30);
-			seed_contract(c, hash, 400);
+			seed_contract(BOB_ADDR, hash, 400);
 
 			V4::run_to_completion();
 
-			let c_acc = <Test as Config>::AddressMapper::to_account_id(&c);
-			use frame_support::traits::tokens::fungibles::InspectHold;
 			assert_eq!(
 				AssetsHolder::balance_on_hold(
 					PGasAssetId::get(),
 					&HoldReason::StorageDepositReserve.into(),
-					&c_acc,
+					&BOB,
 				),
 				400,
 			);

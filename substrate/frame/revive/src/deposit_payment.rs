@@ -20,7 +20,9 @@
 //! Storage deposits can be backed by the native currency or by PGAS.
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
-use crate::{BalanceOf, Config, HoldReason, NativeDepositOf, evm::fees::InfoT as FeeInfo};
+use crate::{
+	BalanceOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, evm::fees::InfoT as FeeInfo,
+};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
@@ -376,14 +378,27 @@ where
 			amount,
 			Precision::Exact,
 			Fortitude::Polite,
+		)
+		.inspect_err(
+			|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
 		)?;
 
-		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)?;
+		// Bring the contract's PGAS account into existence at ED so that after holding `amount`
+		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		<Mutator as fungibles::Mutate<T::AccountId>>::set_balance(Id::get(), contract, pgas_ed);
+
+		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)
+			.inspect_err(
+				|err| log::debug!(target: LOG_TARGET, "Failed to mint {amount:?} into {contract:?}: {err:?}"),
+			)?;
 		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
 			Id::get(),
 			&reason.into(),
 			contract,
 			amount,
+		)
+		.inspect_err(
+			|err| log::debug!(target: LOG_TARGET, "Failed to hold amount: {amount:?}: {err:?}"),
 		)?;
 		Ok(())
 	}
