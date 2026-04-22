@@ -23,6 +23,7 @@ use crate::common::{
 	ConstructNodeRuntimeApi,
 };
 use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+use sc_hop::{HopApiServer, HopRpcServer};
 use sc_rpc::{
 	dev::{Dev, DevApiServer},
 	statement::{StatementApiServer, StatementStore},
@@ -81,7 +82,6 @@ where
 				module.merge(StatementStore::new(statement_store, spawn_handle).into_rpc())?;
 			}
 			if let Some(hop_pool) = hop_pool {
-				use sc_hop::{HopApiServer, HopRpcServer};
 				module.merge(HopRpcServer::new(hop_pool, client.clone()).into_rpc())?;
 			}
 			module.merge(Dev::new(client).into_rpc())?;
