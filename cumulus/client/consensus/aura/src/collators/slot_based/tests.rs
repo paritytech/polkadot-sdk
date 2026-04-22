@@ -18,7 +18,7 @@
 use super::{
 	block_builder_task::{determine_cores, offset_relay_parent_find_descendants},
 	relay_chain_data_cache::{RelayChainData, RelayChainDataCache},
-	scheduling::wait_for_current_relay_block,
+	scheduling::SchedulingInfo,
 };
 use async_trait::async_trait;
 use codec::Encode;
@@ -28,7 +28,7 @@ use futures::Stream;
 use polkadot_node_subsystem_util::runtime::ClaimQueueSnapshot;
 use polkadot_primitives::{
 	CandidateEvent, CommittedCandidateReceiptV2, CoreIndex, Hash as RelayHash,
-	Header as RelayHeader, Id as ParaId,
+	Header as RelayHeader, Id as ParaId, NodeFeatures,
 };
 use rstest::rstest;
 use sc_consensus_babe::{
@@ -429,6 +429,10 @@ impl RelayChainInterface for TestRelayClient {
 	async fn max_relay_parent_session_age(&self, _at: RelayHash) -> RelayChainResult<u32> {
 		unimplemented!("Not needed for test")
 	}
+
+	async fn node_features(&self, _at: RelayHash) -> RelayChainResult<NodeFeatures> {
+		Ok(NodeFeatures::default())
+	}
 }
 
 /// Build a consecutive set of relay headers whose digest entries optionally carry a BABE
@@ -596,18 +600,12 @@ async fn wait_for_current_relay_block_waits_when_stale() {
 	cache.set_test_data(r_stale, vec![]);
 	cache.set_test_data(r_fresh, vec![]);
 
-	let (tx, mut rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 
+	let mut scheduling_info = SchedulingInfo::new(Box::pin(rx), relay_slot_duration, slot_offset);
 	let client_clone = client.clone();
 	let mut handle = tokio::spawn(async move {
-		wait_for_current_relay_block(
-			&client_clone,
-			&mut cache,
-			&mut rx,
-			relay_slot_duration,
-			slot_offset,
-		)
-		.await
+		scheduling_info.wait_for_current_relay_block(&client_clone, &mut cache).await
 	});
 
 	// The function should not return before receiving a notification — the best
@@ -656,17 +654,12 @@ async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
 	cache.set_test_data(header, vec![]);
 
 	// Create a notification stream that will never produce (no sender).
-	let (_tx, mut rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
+	let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 
+	let mut scheduling_info = SchedulingInfo::new(Box::pin(rx), relay_slot_duration, slot_offset);
 	let result = tokio::time::timeout(
 		Duration::from_secs(1),
-		wait_for_current_relay_block(
-			&client,
-			&mut cache,
-			&mut rx,
-			relay_slot_duration,
-			slot_offset,
-		),
+		scheduling_info.wait_for_current_relay_block(&client, &mut cache),
 	)
 	.await
 	.expect("Should return immediately, not timeout");

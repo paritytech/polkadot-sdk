@@ -229,7 +229,7 @@ where
 
 			// Query scheduling parameters at the parachain best head. This assumes
 			// they match the para parent head we build on top of — a practical
-			// optimisation that can only fail if a runtime upgrade changing these
+			// optimization that can only fail if a runtime upgrade changing these
 			// values was done through an unbacked/unincluded candidate. In that
 			// edge case, block building will fail and self-correct once the upgrade
 			// is included on the relay chain.

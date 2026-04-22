@@ -32,7 +32,7 @@ use polkadot_node_subsystem::{
 	messages::{AvailabilityRecoveryMessage, RuntimeApiRequest},
 	RecoveryError, TimeoutExt,
 };
-use polkadot_primitives::CandidateEvent;
+use polkadot_primitives::{CandidateEvent, NodeFeatures};
 use rstest::rstest;
 use sc_client_api::{
 	BlockImportNotification, ClientInfo, CompactProof, FinalityNotification, FinalityNotifications,
@@ -530,6 +530,10 @@ impl RelayChainInterface for Relaychain {
 	}
 
 	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test");
+	}
+
+	async fn node_features(&self, _at: PHash) -> RelayChainResult<NodeFeatures> {
 		unimplemented!("Not needed for test");
 	}
 }

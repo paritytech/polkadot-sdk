@@ -17,10 +17,13 @@
 
 use crate::{collators::slot_based::relay_chain_data_cache::RelayChainDataCache, LOG_TARGET};
 use cumulus_primitives_aura::Slot;
-use cumulus_relay_chain_interface::{PHeader, RelayChainInterface};
+use cumulus_primitives_core::relay_chain::Hash;
+use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
 use polkadot_node_subsystem::gen::{stream::Stream, FutureExt};
-use polkadot_primitives::{Block as RelayBlock, Header as RelayHeader};
+use polkadot_primitives::{
+	node_features::FeatureIndex, Block as RelayBlock, Header as RelayHeader,
+};
 use sc_consensus_aura::SlotDuration;
 use sp_runtime::traits::Header as HeaderT;
 use sp_timestamp::Timestamp;
@@ -61,57 +64,6 @@ fn get_current_relay_slot(slot_offset: Duration, relay_chain_slot_duration: Dura
 	)
 }
 
-/// Wait until the best relay chain block is from the current relay chain slot.
-///
-/// If the current best block is already current, returns its hash immediately.
-/// Otherwise, waits for a new-best notification and re-checks. This ensures
-/// the collator doesn't build on a stale scheduling parent when relay block
-/// propagation exceeds `slot_offset` at a slot boundary.
-///
-/// Returns the best relay block hash, or `None` on error.
-pub(crate) async fn wait_for_current_relay_block<RelayClient>(
-	relay_client: &RelayClient,
-	relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-	best_notifications: &mut (impl Stream<Item = RelayHeader> + Unpin),
-	relay_chain_slot_duration: Duration,
-	slot_offset: Duration,
-) -> Option<RelayHeader>
-where
-	RelayClient: RelayChainInterface + Clone + 'static,
-{
-	let relay_best_hash = relay_client.best_block_hash().await.ok()?;
-	let mut maybe_best_header = relay_chain_data_cache
-		.get_mut_relay_chain_data(relay_best_hash)
-		.await
-		.ok()
-		.map(|data| data.relay_parent_header.clone());
-
-	loop {
-		// Drain buffered notifications.
-		while let Some(maybe_header) = best_notifications.next().now_or_never() {
-			maybe_best_header = Some(maybe_header?);
-		}
-
-		let best_header = match maybe_best_header.take() {
-			Some(h) => h,
-			None => best_notifications.next().await?, // Block until one arrives.
-		};
-		let best_relay_slot = get_babe_slot(&best_header)?;
-		let current_relay_slot = get_current_relay_slot(slot_offset, relay_chain_slot_duration);
-		if best_relay_slot >= current_relay_slot {
-			return Some(best_header);
-		}
-
-		tracing::debug!(
-			target: LOG_TARGET,
-			?relay_best_hash,
-			relay_best_num = %best_header.number(),
-			?best_relay_slot,
-			"Best relay block is stale, waiting for fresh one."
-		);
-	}
-}
-
 /// Tracks relay chain scheduling information, including the relay best block hash
 /// and whether its slot is still in progress.
 ///
@@ -119,18 +71,99 @@ where
 /// per relay chain slot. This struct provides methods to fetch and inspect relay
 /// chain state for scheduling decisions.
 pub(crate) struct SchedulingInfo {
-	best_notifications: Pin<Box<dyn Stream<Item = PHeader> + Send>>,
+	best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send>>,
 	relay_chain_slot_duration: Duration,
 	slot_offset: Duration,
+	v3_enabled_on_relay: bool,
 }
 
 impl SchedulingInfo {
 	pub fn new(
-		best_notifications: Pin<Box<dyn Stream<Item = PHeader> + Send>>,
+		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send>>,
 		relay_chain_slot_duration: Duration,
 		slot_offset: Duration,
 	) -> Self {
-		Self { best_notifications, relay_chain_slot_duration, slot_offset }
+		Self {
+			best_notifications,
+			relay_chain_slot_duration,
+			slot_offset,
+			v3_enabled_on_relay: false,
+		}
+	}
+
+	async fn update_v3_enabled_on_relay<RelayClient>(
+		&mut self,
+		relay_client: &RelayClient,
+		at: Hash,
+	) where
+		RelayClient: RelayChainInterface,
+	{
+		if !self.v3_enabled_on_relay {
+			let node_features = match relay_client.node_features(at).await {
+				Ok(node_features) => node_features,
+				Err(err) => {
+					tracing::warn!(
+						target: LOG_TARGET,
+						?at,
+						?err,
+						"Unable to fetch node features for relay chain. \
+						Will use Scheduling V2 by default"
+					);
+					return;
+				},
+			};
+			self.v3_enabled_on_relay = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
+		}
+	}
+
+	/// Wait until the best relay chain block is from the current relay chain slot.
+	///
+	/// If the current best block is already current, returns its hash immediately.
+	/// Otherwise, waits for a new-best notification and re-checks. This ensures
+	/// the collator doesn't build on a stale scheduling parent when relay block
+	/// propagation exceeds `slot_offset` at a slot boundary.
+	///
+	/// Returns the best relay block hash, or `None` on error.
+	pub(crate) async fn wait_for_current_relay_block<RelayClient>(
+		&mut self,
+		relay_client: &RelayClient,
+		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
+	) -> Option<RelayHeader>
+	where
+		RelayClient: RelayChainInterface + 'static,
+	{
+		let relay_best_hash = relay_client.best_block_hash().await.ok()?;
+		let mut maybe_best_header = relay_chain_data_cache
+			.get_mut_relay_chain_data(relay_best_hash)
+			.await
+			.ok()
+			.map(|data| data.relay_parent_header.clone());
+
+		loop {
+			// Drain buffered notifications.
+			while let Some(maybe_header) = self.best_notifications.next().now_or_never() {
+				maybe_best_header = Some(maybe_header?);
+			}
+
+			let best_header = match maybe_best_header.take() {
+				Some(h) => h,
+				None => self.best_notifications.next().await?, // Block until one arrives.
+			};
+			let best_relay_slot = get_babe_slot(&best_header)?;
+			let current_relay_slot =
+				get_current_relay_slot(self.slot_offset, self.relay_chain_slot_duration);
+			if best_relay_slot >= current_relay_slot {
+				return Some(best_header);
+			}
+
+			tracing::debug!(
+				target: LOG_TARGET,
+				?relay_best_hash,
+				relay_best_num = %best_header.number(),
+				?best_relay_slot,
+				"Best relay block is stale, waiting for fresh one."
+			);
+		}
 	}
 
 	/// Returns the relay chain block hash to use as the starting point for finding
@@ -145,23 +178,17 @@ impl SchedulingInfo {
 		&mut self,
 		relay_client: &RelayClient,
 		relay_chain_data_cache: &mut RelayChainDataCache<RelayClient>,
-		v3_enabled: bool,
+		v3_enabled_on_para: bool,
 	) -> Option<RelayHeader>
 	where
-		RelayClient: RelayChainInterface + Clone + 'static,
+		RelayClient: RelayChainInterface + 'static,
 	{
 		// Wait for the best relay block to be from the current relay
 		// chain slot. If propagation exceeded `slot_offset`, this
 		// blocks until a new-best notification arrives.
 		// See: https://github.com/paritytech/polkadot-sdk/pull/11453
-		let Some(relay_best_header) = wait_for_current_relay_block(
-			relay_client,
-			relay_chain_data_cache,
-			&mut self.best_notifications,
-			self.relay_chain_slot_duration,
-			self.slot_offset,
-		)
-		.await
+		let Some(relay_best_header) =
+			self.wait_for_current_relay_block(relay_client, relay_chain_data_cache).await
 		else {
 			tracing::warn!(
 				target: LOG_TARGET,
@@ -170,6 +197,8 @@ impl SchedulingInfo {
 			return None;
 		};
 
+		self.update_v3_enabled_on_relay(relay_client, relay_best_header.hash()).await;
+		let v3_enabled = self.v3_enabled_on_relay && v3_enabled_on_para;
 		if !v3_enabled {
 			return Some(relay_best_header);
 		}

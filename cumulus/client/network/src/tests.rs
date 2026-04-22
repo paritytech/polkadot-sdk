@@ -29,8 +29,8 @@ use polkadot_node_primitives::{SignedFullStatement, Statement};
 use polkadot_primitives::{
 	BlockNumber, CandidateCommitments, CandidateDescriptorV2, CandidateEvent, CollatorPair,
 	CommittedCandidateReceiptV2, CoreState, Hash as PHash, HeadData, InboundDownwardMessage,
-	InboundHrmpMessage, OccupiedCoreAssumption, PersistedValidationData, SessionIndex,
-	SigningContext, ValidationCodeHash, ValidatorId,
+	InboundHrmpMessage, NodeFeatures, OccupiedCoreAssumption, PersistedValidationData,
+	SessionIndex, SigningContext, ValidationCodeHash, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{CandidateDescriptor, CommittedCandidateReceipt};
 use polkadot_test_client::{
@@ -365,6 +365,10 @@ impl RelayChainInterface for DummyRelayChainInterface {
 	}
 
 	async fn max_relay_parent_session_age(&self, _at: PHash) -> RelayChainResult<u32> {
+		unimplemented!("Not needed for test")
+	}
+
+	async fn node_features(&self, _at: PHash) -> RelayChainResult<NodeFeatures> {
 		unimplemented!("Not needed for test")
 	}
 }
