@@ -210,6 +210,10 @@ jobs:
       - name: Copy over the new changes
         run: |
           cp -r polkadot-sdk/templates/${{ matrix.template }}/* "${{ env.template-path }}/"
+      - name: Copy .rustfmt.toml for parachain template
+        if: ${{ matrix.template == 'parachain' }}
+        run: |
+          cp polkadot-sdk/.rustfmt.toml "${{ env.template-path }}/.rustfmt.toml"
       - name: Remove unnecessary files from parachain template
         if: ${{ matrix.template == 'parachain' }}
         run: |

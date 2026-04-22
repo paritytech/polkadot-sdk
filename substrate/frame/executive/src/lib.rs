@@ -68,14 +68,6 @@
 //! # use sp_runtime::transaction_validity::{
 //! #    TransactionValidity, UnknownTransaction, TransactionSource,
 //! # };
-//! # use sp_runtime::traits::ValidateUnsigned;
-//! # impl ValidateUnsigned for Runtime {
-//! #     type Call = ();
-//! #
-//! #     fn validate_unsigned(_source: TransactionSource, _call: &Self::Call) -> TransactionValidity {
-//! #         UnknownTransaction::NoUnsignedValidator.into()
-//! #     }
-//! # }
 //! /// Executive: handles dispatch to the various modules.
 //! pub type Executive = executive::Executive<Runtime, Block, Context, Runtime, AllPalletsWithSystem>;
 //! ```
@@ -135,11 +127,14 @@ use sp_runtime::{
 	generic::Digest,
 	traits::{
 		self, Applyable, CheckEqual, Checkable, Dispatchable, Header, LazyBlock, NumberFor, One,
-		ValidateUnsigned, Zero,
+		Zero,
 	},
 	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode,
 };
+
+#[allow(deprecated)]
+use sp_runtime::traits::ValidateUnsigned;
 
 #[cfg(feature = "try-runtime")]
 use ::{
@@ -722,6 +717,7 @@ where
 			let header = block.header();
 			Self::on_idle_hook(*header.number());
 			Self::on_finalize_hook(*header.number());
+			<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 			Self::final_checks(&header);
 		}
 	}
@@ -799,6 +795,7 @@ where
 		let block_number = <frame_system::Pallet<System>>::block_number();
 		Self::on_idle_hook(block_number);
 		Self::on_finalize_hook(block_number);
+		<frame_system::Pallet<System>>::maybe_apply_pending_code_upgrade();
 		<frame_system::Pallet<System>>::finalize()
 	}
 

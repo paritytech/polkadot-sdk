@@ -79,4 +79,15 @@ impl<T: frame_system::Config> cumulus_pallet_parachain_system::WeightInfo for We
 			.saturating_add(T::DbWeight::get().reads(4))
 			.saturating_add(T::DbWeight::get().writes(4))
 	}
+	fn block_weight_tx_extension_max_weight() -> Weight {
+		Weight::zero()
+	}
+
+	fn block_weight_tx_extension_stays_fraction_of_core() -> Weight {
+		Weight::zero()
+	}
+
+	fn block_weight_tx_extension_full_core() -> Weight {
+		Weight::zero()
+	}
 }

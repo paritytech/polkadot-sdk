@@ -536,7 +536,7 @@ pub enum TrieCacheContext {
 impl From<CallContext> for TrieCacheContext {
 	fn from(call_context: CallContext) -> Self {
 		match call_context {
-			CallContext::Onchain => TrieCacheContext::Trusted,
+			CallContext::Onchain { .. } => TrieCacheContext::Trusted,
 			CallContext::Offchain => TrieCacheContext::Untrusted,
 		}
 	}

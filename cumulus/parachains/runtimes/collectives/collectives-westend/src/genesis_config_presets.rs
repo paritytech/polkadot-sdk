@@ -37,6 +37,10 @@ fn collectives_westend_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, COLLECTIVES_WESTEND_ED * 4096))
+				.chain(core::iter::once((
+					DapSatellite::satellite_account(),
+					COLLECTIVES_WESTEND_ED
+				)))
 				.collect::<Vec<_>>(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },

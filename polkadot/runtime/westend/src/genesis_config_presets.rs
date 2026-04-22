@@ -17,15 +17,16 @@
 //! Genesis configs presets for the Westend runtime
 
 use crate::{
-	BabeConfig, BalancesConfig, ConfigurationConfig, RegistrarConfig, RuntimeGenesisConfig,
-	SessionConfig, SessionKeys, StakingConfig, SudoConfig, BABE_GENESIS_EPOCH_CONFIG,
+	BabeConfig, BalancesConfig, ConfigurationConfig, ExistentialDeposit, RegistrarConfig, Runtime,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, StakingConfig, SudoConfig,
+	BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
 use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
-use polkadot_primitives::{AccountId, AssignmentId, SchedulerParams, ValidatorId};
+use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_consensus_beefy::ecdsa_crypto::AuthorityId as BeefyId;
@@ -35,6 +36,10 @@ use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use sp_runtime::Perbill;
 use westend_runtime_constants::currency::UNITS as WND;
+
+fn dap_satellite_account() -> AccountId {
+	pallet_dap_satellite::Pallet::<Runtime>::satellite_account()
+}
 
 /// Helper function to generate stash, controller and session key from seed
 fn get_authority_keys_from_seed(
@@ -142,6 +147,7 @@ fn default_parachains_host_configuration(
 			paras_availability_period: 4,
 			..Default::default()
 		},
+		max_relay_parent_session_age: 0,
 		approval_voting_params: ApprovalVotingParams { max_approval_coalesce_count: 5 },
 		..Default::default()
 	}
@@ -174,7 +180,11 @@ fn westend_testnet_genesis(
 
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
+			balances: endowed_accounts
+				.iter()
+				.map(|k| (k.clone(), ENDOWMENT))
+				.chain(core::iter::once((dap_satellite_account(), ExistentialDeposit::get())))
+				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {
 			keys: initial_authorities
@@ -345,6 +355,7 @@ fn westend_staging_testnet_config_genesis() -> serde_json::Value {
 				.iter()
 				.map(|k: &AccountId| (k.clone(), ENDOWMENT))
 				.chain(initial_authorities.iter().map(|x| (x.0.clone(), STASH)))
+				.chain(core::iter::once((dap_satellite_account(), ExistentialDeposit::get())))
 				.collect::<Vec<_>>(),
 		},
 		session: SessionConfig {

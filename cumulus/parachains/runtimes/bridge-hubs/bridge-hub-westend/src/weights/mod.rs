@@ -35,6 +35,7 @@ pub mod pallet_bridge_messages;
 pub mod pallet_bridge_parachains;
 pub mod pallet_bridge_relayers;
 pub mod pallet_collator_selection;
+pub mod pallet_dap_satellite;
 pub mod pallet_message_queue;
 pub mod pallet_multisig;
 pub mod pallet_session;

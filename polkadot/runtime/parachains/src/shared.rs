@@ -26,7 +26,8 @@ use alloc::{
 use frame_support::{pallet_prelude::*, traits::DisabledValidators};
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	transpose_claim_queue, CoreIndex, Id, SessionIndex, ValidatorId, ValidatorIndex,
+	transpose_claim_queue, vstaging::RelayParentInfo, CoreIndex, Id as ParaId, Id, SessionIndex,
+	ValidatorId, ValidatorIndex,
 };
 use sp_runtime::traits::AtLeast32BitUnsigned;
 
@@ -47,100 +48,77 @@ mod tests;
 
 pub mod migration;
 
-/// Information about a relay parent.
+/// Information about a scheduling parent.
 #[derive(Encode, Decode, Default, TypeInfo, Debug)]
-pub struct RelayParentInfo<Hash> {
-	// Relay parent hash
-	pub relay_parent: Hash,
-	// The state root at this block
-	pub state_root: Hash,
+pub struct SchedulingParentInfo<Hash> {
+	// Scheduling parent hash
+	pub scheduling_parent: Hash,
 	// Claim queue snapshot, optimized for accessing the assignments by `ParaId`.
 	// For each para we store the cores assigned per depth.
 	pub claim_queue: BTreeMap<Id, BTreeMap<u8, BTreeSet<CoreIndex>>>,
 }
 
-/// Keeps tracks of information about all viable relay parents.
+/// Keeps tracks of information about all viable scheduling parents.
 #[derive(Encode, Decode, Default, TypeInfo)]
-pub struct AllowedRelayParentsTracker<Hash, BlockNumber> {
-	// Information about past relay parents that are viable to build upon.
+pub struct AllowedSchedulingParentsTracker<Hash, BlockNumber> {
+	// Information about past scheduling parents that are viable to use for backing.
 	//
-	// They are in ascending chronologic order, so the newest relay parents are at
+	// They are in ascending chronologic order, so the newest scheduling parents are at
 	// the back of the deque.
-	buffer: VecDeque<RelayParentInfo<Hash>>,
+	buffer: VecDeque<SchedulingParentInfo<Hash>>,
 
-	// The number of the most recent relay-parent, if any.
+	// The number of the most recent scheduling-parent, if any.
 	// If the buffer is empty, this value has no meaning and may
 	// be nonsensical.
 	latest_number: BlockNumber,
 }
 
 impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
-	AllowedRelayParentsTracker<Hash, BlockNumber>
+	AllowedSchedulingParentsTracker<Hash, BlockNumber>
 {
-	/// Add a new relay-parent to the allowed relay parents, along with info about the header.
-	/// Provide a maximum ancestry length for the buffer, which will cause old relay-parents to be
-	/// pruned.
-	/// If the relay parent hash is already present, do nothing.
+	/// Add a new scheduling-parent to the allowed scheduling parents, along with info about the
+	/// header. Provide a maximum ancestry length for the buffer, which will cause old
+	/// scheduling-parents to be pruned.
+	/// If the scheduling parent hash is already present, do nothing.
 	pub(crate) fn update(
 		&mut self,
-		relay_parent: Hash,
-		state_root: Hash,
+		scheduling_parent: Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumber,
 		max_ancestry_len: u32,
 	) {
-		if self.buffer.iter().any(|info| info.relay_parent == relay_parent) {
+		if self.buffer.iter().any(|info| info.scheduling_parent == scheduling_parent) {
 			// Already present.
 			return;
 		}
 
 		let claim_queue = transpose_claim_queue(claim_queue);
 
-		self.buffer.push_back(RelayParentInfo { relay_parent, state_root, claim_queue });
+		self.buffer.push_back(SchedulingParentInfo { scheduling_parent, claim_queue });
 
 		self.latest_number = number;
 		while self.buffer.len() > (max_ancestry_len as usize) {
 			let _ = self.buffer.pop_front();
 		}
 
-		// We only allow relay parents within the same sessions, the buffer
+		// We only allow scheduling parents within the same sessions, the buffer
 		// gets cleared on session changes.
 	}
 
 	/// Attempt to acquire the state root and block number to be used when building
-	/// upon the given relay-parent.
-	///
-	/// This only succeeds if the relay-parent is one of the allowed relay-parents.
-	/// If a previous relay-parent number is passed, then this only passes if the new relay-parent
-	/// is more recent than the previous.
+	/// upon the given scheduling-parent.
 	pub(crate) fn acquire_info(
 		&self,
-		relay_parent: Hash,
-		prev: Option<BlockNumber>,
-	) -> Option<(&RelayParentInfo<Hash>, BlockNumber)> {
-		let pos = self.buffer.iter().position(|info| info.relay_parent == relay_parent)?;
+		scheduling_parent: Hash,
+	) -> Option<(&SchedulingParentInfo<Hash>, BlockNumber)> {
+		let pos = self
+			.buffer
+			.iter()
+			.position(|info| info.scheduling_parent == scheduling_parent)?;
 		let age = (self.buffer.len() - 1) - pos;
 		let number = self.latest_number - BlockNumber::from(age as u32);
 
-		if let Some(prev) = prev {
-			if prev > number {
-				return None;
-			}
-		}
-
 		Some((&self.buffer[pos], number))
-	}
-
-	/// Returns block number of the earliest block the buffer would contain if
-	/// `now` is pushed into it.
-	pub(crate) fn hypothetical_earliest_block_number(
-		&self,
-		now: BlockNumber,
-		max_ancestry_len: u32,
-	) -> BlockNumber {
-		let allowed_ancestry_len = max_ancestry_len.min(self.buffer.len() as u32);
-
-		now - allowed_ancestry_len.into()
 	}
 }
 
@@ -148,7 +126,7 @@ impl<Hash: PartialEq + Copy, BlockNumber: AtLeast32BitUnsigned + Copy>
 pub mod pallet {
 	use super::*;
 
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::without_storage_info]
@@ -174,10 +152,34 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type ActiveValidatorKeys<T: Config> = StorageValue<_, Vec<ValidatorId>, ValueQuery>;
 
-	/// All allowed relay-parents.
+	/// All allowed scheduling parents.
 	#[pallet::storage]
-	pub(crate) type AllowedRelayParents<T: Config> =
-		StorageValue<_, AllowedRelayParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
+	pub(crate) type AllowedSchedulingParents<T: Config> =
+		StorageValue<_, AllowedSchedulingParentsTracker<T::Hash, BlockNumberFor<T>>, ValueQuery>;
+
+	/// All allowed relay parents, keyed by (session_index, relay_parent_hash).
+	#[pallet::storage]
+	pub(crate) type AllowedRelayParents<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		SessionIndex,
+		Blake2_128Concat,
+		T::Hash,
+		RelayParentInfo<T::Hash, BlockNumberFor<T>>,
+	>;
+
+	/// The oldest session index for which we still have relay parent entries in
+	/// `AllowedRelayParents`. Used to efficiently prune all expired sessions
+	/// when `max_relay_parent_session_age` decreases.
+	#[pallet::storage]
+	pub(crate) type OldestRelayParentSession<T: Config> = StorageValue<_, SessionIndex, ValueQuery>;
+
+	/// The minimum relay parent block number for each session that has entries in
+	/// `AllowedRelayParents`. This is the block number of the first relay parent
+	/// added to each session.
+	#[pallet::storage]
+	pub(crate) type MinimumRelayParentNumber<T: Config> =
+		StorageMap<_, Twox64Concat, SessionIndex, BlockNumberFor<T>>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {}
@@ -201,16 +203,16 @@ impl<T: Config> Pallet<T> {
 		new_config: &HostConfiguration<BlockNumberFor<T>>,
 		all_validators: Vec<ValidatorId>,
 	) -> Vec<ValidatorId> {
-		// Drop allowed relay parents buffer on a session change.
+		// Drop allowed scheduling parents buffer on a session change.
 		//
 		// During the initialization of the next block we always add its parent
 		// to the tracker.
 		//
-		// With asynchronous backing candidates built on top of relay
+		// With asynchronous backing candidates built on top of scheduling
 		// parent `R` are still restricted by the runtime to be backed
 		// by the group assigned at `number(R) + 1`, which is guaranteed
 		// to be in the current session.
-		AllowedRelayParents::<T>::mutate(|tracker| tracker.buffer.clear());
+		AllowedSchedulingParents::<T>::mutate(|tracker| tracker.buffer.clear());
 
 		CurrentSessionIndex::<T>::set(session_index);
 		let mut rng: ChaCha20Rng = SeedableRng::from_seed(random_seed);
@@ -259,6 +261,71 @@ impl<T: Config> Pallet<T> {
 			.collect()
 	}
 
+	/// Called at the beginning of each block to update the allowed scheduling and relay parents.
+	///
+	/// Adds the parent block as an allowed scheduling parent and relay parent.
+	/// Prunes relay parents from sessions that are older than `max_relay_parent_session_age`.
+	pub fn new_block(
+		hash: T::Hash,
+		cq: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+		block_number: BlockNumberFor<T>,
+		max_ancestry_len: u32,
+		storage_root: T::Hash,
+		session_index: SessionIndex,
+		max_relay_parent_session_age: u32,
+	) {
+		// Update the allowed scheduling parents.
+		AllowedSchedulingParents::<T>::mutate(|tracker| {
+			tracker.update(hash, cq, block_number, max_ancestry_len);
+		});
+
+		// Insert this block's parent as an allowed relay parent for the current session.
+		AllowedRelayParents::<T>::insert(
+			session_index,
+			hash,
+			RelayParentInfo { number: block_number, state_root: storage_root },
+		);
+
+		// Track the minimum relay parent number for this session.
+		// Only set on the first relay parent of the session (subsequent blocks have
+		// higher numbers).
+		if !MinimumRelayParentNumber::<T>::contains_key(session_index) {
+			MinimumRelayParentNumber::<T>::insert(session_index, block_number);
+		}
+
+		// Prune relay parents from sessions that are now too old.
+		let oldest_allowed_session = session_index.saturating_sub(max_relay_parent_session_age);
+		let oldest_stored = OldestRelayParentSession::<T>::get();
+
+		// Only prune and advance the pointer if the allowed oldest session has moved
+		// forward. If max_relay_parent_session_age was increased at runtime,
+		// oldest_allowed_session may be less than oldest_stored; in that case, entries
+		// for those older sessions were already pruned in prior blocks and we must not
+		// move the pointer backward.
+		if oldest_allowed_session > oldest_stored {
+			for expired in oldest_stored..oldest_allowed_session {
+				let _ = AllowedRelayParents::<T>::clear_prefix(expired, u32::MAX, None);
+				MinimumRelayParentNumber::<T>::remove(expired);
+			}
+			OldestRelayParentSession::<T>::set(oldest_allowed_session);
+		}
+	}
+
+	/// Retrieve relay parent info by session index and relay parent hash.
+	pub fn get_relay_parent_info(
+		session_index: SessionIndex,
+		relay_parent: T::Hash,
+	) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {
+		AllowedRelayParents::<T>::get(session_index, relay_parent)
+	}
+
+	/// Get the minimum allowed relay parent block number across all sessions.
+	/// Returns the minimum from the oldest session's entry in `MinimumRelayParentNumber`.
+	pub fn get_minimum_relay_parent_number() -> Option<BlockNumberFor<T>> {
+		let oldest_session = OldestRelayParentSession::<T>::get();
+		MinimumRelayParentNumber::<T>::get(oldest_session)
+	}
+
 	/// Test function for setting the current session index.
 	#[cfg(any(feature = "std", feature = "runtime-benchmarks", test))]
 	pub fn set_session_index(index: SessionIndex) {
@@ -284,15 +351,23 @@ impl<T: Config> Pallet<T> {
 	}
 
 	#[cfg(test)]
-	pub(crate) fn add_allowed_relay_parent(
-		relay_parent: T::Hash,
-		state_root: T::Hash,
+	pub(crate) fn add_allowed_scheduling_parent(
+		scheduling_parent: T::Hash,
 		claim_queue: BTreeMap<CoreIndex, VecDeque<Id>>,
 		number: BlockNumberFor<T>,
 		max_ancestry_len: u32,
 	) {
-		AllowedRelayParents::<T>::mutate(|tracker| {
-			tracker.update(relay_parent, state_root, claim_queue, number, max_ancestry_len + 1)
-		})
+		AllowedSchedulingParents::<T>::mutate(|tracker| {
+			tracker.update(scheduling_parent, claim_queue, number, max_ancestry_len + 1)
+		});
+
+		// Also populate the AllowedRelayParents DoubleMap so that tests
+		// which call verify_backed_candidate can look up relay parent info.
+		let session_index = CurrentSessionIndex::<T>::get();
+		AllowedRelayParents::<T>::insert(
+			session_index,
+			scheduling_parent,
+			RelayParentInfo { number, state_root: Default::default() },
+		);
 	}
 }
