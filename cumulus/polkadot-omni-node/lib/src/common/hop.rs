@@ -23,12 +23,12 @@ pub(crate) fn build_hop_pool(
 	node_extra_args: &NodeExtraArgs,
 	database_path: Option<PathBuf>,
 ) -> sc_service::error::Result<Option<Arc<HopDataPool>>> {
-	if !node_extra_args.hop.enabled {
+	let Some(hop) = &node_extra_args.hop else {
 		log::info!(target: "hop", "HOP data pool is disabled (use --enable-hop to enable)");
 		return Ok(None);
-	}
+	};
 
-	let data_dir = match &node_extra_args.hop.data_dir {
+	let data_dir = match &hop.data_dir {
 		Some(dir) => dir.clone(),
 		None => database_path
 			.ok_or_else(|| {
@@ -42,16 +42,16 @@ pub(crate) fn build_hop_pool(
 	log::info!(
 		target: "hop",
 		"Initializing HOP data pool: {:?} (resolved data_dir: {})",
-		node_extra_args.hop,
+		hop,
 		data_dir.display(),
 	);
 
 	let pool = HopDataPool::new(
-		node_extra_args.hop.max_pool_size * 1024 * 1024,
-		node_extra_args.hop.max_user_size * 1024 * 1024,
-		node_extra_args.hop.retention_blocks,
+		hop.max_pool_size * 1024 * 1024,
+		hop.max_user_size * 1024 * 1024,
+		hop.retention_blocks,
 		data_dir,
-		node_extra_args.hop.rate_limit_config(),
+		hop.rate_limit_config(),
 	)
 	.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 

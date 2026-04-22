@@ -139,5 +139,6 @@ pub struct NodeExtraArgs {
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 
 	/// HOP (Hand-Off Protocol) configuration parameters.
-	pub hop: sc_hop::HopParams,
+	/// `None` disables HOP.
+	pub hop: Option<sc_hop::HopParams>,
 }

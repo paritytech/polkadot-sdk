@@ -420,7 +420,7 @@ where
 			&node_extra_args,
 			config.database.path().map(|p| p.to_path_buf()),
 		)?;
-		if let Some(ref pool) = hop_pool {
+		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
 			let task = sc_hop::build_maintenance_task::<Block, _, _>(
 				&client,
 				&transaction_pool,

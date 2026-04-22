@@ -434,13 +434,13 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				&node_extra_args,
 				parachain_config.database.path().map(|p| p.to_path_buf()),
 			)?;
-			if let Some(ref pool) = hop_pool {
+			if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), node_extra_args.hop.as_ref()) {
 				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
 					&client,
 					&transaction_pool,
 					pool.clone(),
-					node_extra_args.hop.promotion_buffer_blocks,
-					node_extra_args.hop.check_interval,
+					hop.promotion_buffer_blocks,
+					hop.check_interval,
 				);
 				task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
 			}
