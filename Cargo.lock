@@ -25381,7 +25381,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "assert_matches",
  "criterion",
- "foldhash",
+ "foldhash 0.1.5",
  "hash-db",
  "indexmap 2.9.0",
  "log",
