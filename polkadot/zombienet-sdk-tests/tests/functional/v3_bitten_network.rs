@@ -12,10 +12,11 @@
 //! ## Setup
 //!
 //! ```sh
-//! zombie-bite bite -d /tmp/zombie_bites -r polkadot \
-//!   --rc-override polkadot_runtime-v2002000.compact.compressed.wasm \
+//!  ZOMBIE_RC_RUNWAY=X zombie-bite bite -d /tmp/zombie_bites -r polkadot \
+//!   --rc-override polkadot_runtime-v2002001.compact.compressed.wasm \
 //!   --parachains people,collectives
 //! ```
+//! where X = number of slots before the next BABE epoch boundary
 //!
 //! ## Run
 //!
@@ -28,15 +29,17 @@
 //!
 //! ## What it checks
 //!
-//! 1. `CandidateReceiptV3` node feature (bit 4) is enabled in the active config.
-//! 2. Both system parachains (people 1004, collectives 1001) back V2 candidates.
-//! 3. No disputes are raised.
-//! 4. All validators sign backing statements.
-//! 5. Approval checking finality lag stays below 6 on all validators.
-//! 6. GRANDPA finality is not stalled on any of the two parachains.
+//! 1. `CandidateReceiptV3` node feature (bit 4) is NOT enabled before the session change.
+//! 2. Both system parachains (people 1004, collectives 1001) produce V2 candidates after the
+//!    session transition.
+//! 3. `CandidateReceiptV3` node feature (bit 4) is enabled after the session change.
+//! 4. No disputes are raised.
+//! 5. All validators sign backing statements.
+//! 6. Approval checking finality lag stays below 6 on all validators.
+//! 7. GRANDPA finality is not stalled on either parachain.
 
 use crate::utils::{
-	assert_candidates_version_immediate, assert_node_feature_enabled,
+	assert_candidates_version, assert_node_feature_enabled,
 	assert_validator_backed_candidates,
 };
 use anyhow::anyhow;
@@ -134,12 +137,12 @@ async fn v3_bitten_network_test() -> Result<(), anyhow::Error> {
 	let para_people = ParaId::from(1004);
 	let para_collectives = ParaId::from(1001);
 
-	// Verify CandidateReceiptV3 (node_features bit 4) is enabled by default.
-	log::info!("verifying V3 node feature is enabled");
-	assert_node_feature_enabled(&relay_client, 4).await?;
+	log::info!("verifying V3 inode feature is NOT enabled before session change");
+	assert!(assert_node_feature_enabled(&relay_client, 4).await.is_err());
 
-	log::info!("asserting V2 candidate versions");
-	assert_candidates_version_immediate(
+	// Assert candidates on first session change.
+	// On session change v3 feature will be enabled
+	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V2,
 		HashMap::from([
@@ -149,6 +152,8 @@ async fn v3_bitten_network_test() -> Result<(), anyhow::Error> {
 		30,
 	)
 	.await?;
+
+	assert_node_feature_enabled(&relay_client, 4).await?;
 
 	// Verify no disputes are raised.
 	log::info!("checking no disputes");
