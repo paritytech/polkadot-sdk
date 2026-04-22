@@ -140,6 +140,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"k256",
+	"pallet-assets-holder/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
@@ -162,5 +164,7 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
+	"pallet-assets/try-runtime",
+	"pallet-assets-holder/try-runtime"
 ]
 trybuild = []

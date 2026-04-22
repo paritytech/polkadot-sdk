@@ -1252,6 +1252,12 @@ mod benchmarks {
 
 		T::Currency::set_balance(&instance.account_id, Pallet::<T>::min_balance() * 10u32.into());
 
+		let storage_deposit = T::Currency::balance_on_hold(
+			&HoldReason::StorageDepositReserve.into(),
+			&instance.account_id,
+		);
+		NativeDepositOf::<T>::insert(&instance.account_id, &caller, storage_deposit);
+
 		let mut transaction_meter = TransactionMeter::new(TransactionLimits::WeightAndDeposit {
 			weight_limit: Default::default(),
 			deposit_limit: BalanceOf::<T>::max_value(),

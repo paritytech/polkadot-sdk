@@ -2680,15 +2680,14 @@ impl<T: Config> Pallet<T> {
 			T::Deposit::refund_on_hold(hold_reason, from, to, amount)
 		};
 
-		result.map_err(|_| {
+		result.map_err(|err| {
 			let available = T::Deposit::total_on_hold(hold_reason, from);
 			if available < amount {
 				// The storage deposit accounting got out of sync with the balance: This would be a
 				// straight up bug in this pallet.
 				log::error!(
 					target: LOG_TARGET,
-					"Failed to refund storage deposit {:?} from contract {:?} to origin {:?}. Not enough deposit: {:?}. This is a bug.",
-					amount, from, to, available,
+					"Failed to refund storage deposit {amount:?} from contract {from:?} to origin {to:?}. Not enough deposit: {available:?}. This is a bug.",
 				);
 				Error::<T>::StorageRefundNotEnoughFunds.into()
 			} else {
@@ -2698,8 +2697,7 @@ impl<T: Config> Pallet<T> {
 				// reducing the lock.
 				log::warn!(
 					target: LOG_TARGET,
-					"Failed to refund storage deposit {:?} from contract {:?} to origin {:?}. First remove locks (staking, governance) from the contracts account.",
-					amount, from, to,
+					"Failed to refund storage deposit {amount:?} from contract {from:?} to origin {to:?}: {err:?}. First remove locks (staking, governance) from the contracts account.",
 				);
 				Error::<T>::StorageRefundLocked.into()
 			}

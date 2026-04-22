@@ -20,19 +20,19 @@
 //! Storage deposits can be backed by the native currency or by PGAS.
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
-use crate::{evm::fees::InfoT as FeeInfo, BalanceOf, Config, HoldReason, NativeDepositOf};
+use crate::{BalanceOf, Config, HoldReason, NativeDepositOf, evm::fees::InfoT as FeeInfo};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
 	traits::{
-		fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
-		tokens::{fungibles, Fortitude, Precision, Preservation, Restriction},
 		Get,
+		fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
+		tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
 	},
 };
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchResult, Perbill,
+	traits::{Saturating, Zero},
 };
 
 mod sealed {
@@ -209,10 +209,10 @@ where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 	Holder: fungibles::MutateHold<
-		T::AccountId,
-		Balance = BalanceOf<T>,
-		AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-	>,
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
@@ -270,8 +270,8 @@ where
 		}
 	}
 
-	/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from PGAS
-	/// with `RefundPercent` refunded and the rest burned.
+	/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from
+	/// PGAS with `RefundPercent` refunded and the rest burned.
 	fn refund_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -317,8 +317,8 @@ where
 		dot_held.saturating_add(pgas_held)
 	}
 
-	/// Collects native currency first into the tx fee pool (capped by [`NativeDepositOf`]); any shortfall
-	/// is taken from PGAS with `RefundPercent` refunded and the rest burned.
+	/// Collects native currency first into the tx fee pool (capped by [`NativeDepositOf`]); any
+	/// shortfall is taken from PGAS with `RefundPercent` refunded and the rest burned.
 	fn collect_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -401,10 +401,10 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 	where
 		T: Config,
 		Holder: fungibles::MutateHold<
-			T::AccountId,
-			Balance = BalanceOf<T>,
-			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-		>,
+				T::AccountId,
+				Balance = BalanceOf<T>,
+				AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+			>,
 		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 		Mutator: fungibles::Inspect<T::AccountId, Balance = BalanceOf<T>>,
 		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
