@@ -27,8 +27,8 @@ mod benchmarking;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 pub mod call_builder;
 mod debug;
-mod exec;
 mod deposit_payment;
+mod exec;
 mod impl_fungibles;
 mod limits;
 mod metering;
@@ -98,12 +98,12 @@ use sp_runtime::{
 pub use crate::{
 	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
+	deposit_payment::{Deposit, PGasDeposit},
 	evm::{
 		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo, TracingConfig,
 		block_hash::ReceiptGasInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
-	deposit_payment::{Deposit, PGasDeposit},
 	limits::TRANSIENT_STORAGE_BYTES as TRANSIENT_STORAGE_LIMIT,
 	metering::{
 		EthTxInfo, FrameMeter, ResourceMeter, Token as WeightToken, TransactionLimits,
@@ -691,7 +691,7 @@ pub mod pallet {
 	/// Bounds how much DOT value the user can receive back from that contract's
 	/// storage deposit.
 	#[pallet::storage]
-	pub(crate) type DotByContractUser<T: Config> = StorageDoubleMap<
+	pub(crate) type NativeDepositOf<T: Config> = StorageDoubleMap<
 		_,
 		Identity,
 		T::AccountId,
@@ -2641,7 +2641,7 @@ impl<T: Config> Pallet<T> {
 						if let Some(hold_reason) = hold_reason {
 							T::Currency::hold(&hold_reason.into(), to, amount).map_err(|_| ())?;
 						}
-						T::Deposit::record_dot_contribution(from, to, amount);
+						T::Deposit::record_native_deposit(from, to, amount);
 						Ok(())
 					})
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;

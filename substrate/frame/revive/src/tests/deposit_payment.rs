@@ -18,10 +18,10 @@
 //! Tests for the [`PGasDeposit`] storage-deposit backend.
 
 use crate::{
+	Config, HoldReason, NativeDepositOf,
 	deposit_payment::Deposit,
 	test_utils::{ALICE, BOB},
-	tests::{Assets, AssetsHolder, Balances, ExtBuilder, Test, PGAS_ASSET_ID},
-	Config, DotByContractUser, HoldReason,
+	tests::{Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, Test},
 };
 use frame_support::{
 	assert_ok,
@@ -44,7 +44,7 @@ struct State {
 	contract_dot_held: u128,
 	/// PGAS currently held on the contract.
 	contract_pgas_held: u128,
-	/// `DotByContractUser[contract][payer]`: the payer's outstanding native-currency
+	/// `NativeDepositOf[contract][payer]`: the payer's outstanding native-currency
 	dot_entitlement: u128,
 }
 
@@ -55,7 +55,7 @@ fn snapshot(payer: &AccountId32, contract: &AccountId32) -> State {
 		payer_pgas: Assets::balance(PGAS_ASSET_ID, payer),
 		contract_dot_held: Balances::balance_on_hold(&hold, contract),
 		contract_pgas_held: AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, contract),
-		dot_entitlement: DotByContractUser::<Test>::get(contract, payer),
+		dot_entitlement: NativeDepositOf::<Test>::get(contract, payer),
 	}
 }
 
@@ -120,7 +120,7 @@ fn run(case: TestCase) {
 }
 
 /// DOT-only: ALICE has no PGAS, so the 100-unit hold is fully backed by DOT and
-/// [`DotByContractUser`] tracks it; the refund returns the DOT.
+/// [`NativeDepositOf`] tracks it; the refund returns the DOT.
 #[test]
 fn pay_dot_refund_dot() {
 	run(TestCase {
@@ -141,7 +141,8 @@ fn pay_dot_refund_dot() {
 }
 
 /// PGAS-only: ALICE's PGAS covers the hold, so DOT is untouched and no
-/// entitlement is recorded; the refund returns PGAS.
+/// entitlement is recorded. On refund only `PGasRefundPercent` (10%) of the held
+/// PGAS comes back to ALICE; the rest is burned.
 #[test]
 fn pay_pgas_refund_pgas() {
 	run(TestCase {
@@ -157,13 +158,14 @@ fn pay_pgas_refund_pgas() {
 			},
 		}],
 		refund: 100,
-		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 1_000, ..State::default() },
+		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 910, ..State::default() },
 	});
 }
 
 /// Mixed: first charge (40) fits into ALICE's 100 PGAS; second charge (80)
 /// exceeds remaining PGAS (60) so falls back to DOT in full. Refund pays DOT
-/// first (capped by the entitlement), then PGAS for the remainder.
+/// first (capped by the entitlement, in full since that's the user's own
+/// money), then PGAS for the remainder at `PGasRefundPercent` (10%).
 #[test]
 fn pay_mixed_refund_mixed() {
 	run(TestCase {
@@ -191,6 +193,6 @@ fn pay_mixed_refund_mixed() {
 			},
 		],
 		refund: 120,
-		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 100, ..State::default() },
+		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 64, ..State::default() },
 	});
 }

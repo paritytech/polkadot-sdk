@@ -2720,6 +2720,108 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
 	}
 
+	/// Benchmarks one step of the v4 migration's phase 1: reads a [`CodeInfoOf`] entry and
+	/// credits the uploader's [`NativeDepositOf`] bucket against the pallet account.
+	#[benchmark]
+	fn v4_code_upload_step() {
+		use crate::migrations::v4;
+
+		let _ = CodeInfoOf::<T>::clear(u32::MAX, None);
+
+		let owner: T::AccountId = whitelisted_caller();
+		let deposit: BalanceOf<T> = 1_000u32.into();
+
+		// Pallet account already exists with ED; put the code-upload deposit on top.
+		let pallet_account = Pallet::<T>::account_id();
+		T::Currency::mint_into(&pallet_account, Pallet::<T>::min_balance())
+			.expect("seed pallet account ED");
+		T::Currency::mint_into(&pallet_account, deposit).expect("mint code-upload deposit");
+		T::Currency::hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account, deposit)
+			.expect("hold DOT on pallet account");
+
+		let code_hash = H256::from([0u8; 32]);
+		CodeInfoOf::<T>::insert(code_hash, CodeInfo::<T>::new_with_deposit(owner.clone(), deposit));
+
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			<v4::Migration<T> as SteppedMigration>::step(None, &mut meter).unwrap();
+		}
+
+		assert_eq!(crate::NativeDepositOf::<T>::get(&pallet_account, &owner), deposit);
+
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v4_code_upload_step() * 2);
+	}
+
+	/// Benchmarks one step of the v4 migration's phase 2: reads an [`AccountInfoOf`] contract
+	/// entry, burns its native `StorageDepositReserve` hold, and replaces it with PGAS held
+	/// under the same reason.
+	#[benchmark]
+	fn v4_contract_step() {
+		use crate::{deposit_payment::Deposit, migrations::v4};
+		use frame_support::traits::{
+			fungible::Inspect,
+			tokens::{Fortitude, Preservation},
+		};
+
+		let _ = AccountInfoOf::<T>::clear(u32::MAX, None);
+
+		let addr = H160::from([0x42u8; 20]);
+		let contract_account = T::AddressMapper::to_account_id(&addr);
+		let code_hash = H256::from([0u8; 32]);
+		let info =
+			ContractInfo::<T>::new(&addr, 1u32.into(), code_hash).expect("fresh contract info");
+		AccountInfoOf::<T>::insert(
+			addr,
+			crate::storage::AccountInfo::<T> {
+				account_type: crate::storage::AccountType::Contract(info),
+				dust: 0,
+			},
+		);
+
+		// The contract already has ED from its instantiation; add the storage deposit on top
+		// and place it on hold to mirror the pre-migration state.
+		T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance())
+			.expect("seed contract ED");
+		let deposit: BalanceOf<T> = 1_000u32.into();
+		T::Currency::mint_into(&contract_account, deposit).expect("mint storage deposit");
+		T::Currency::hold(&HoldReason::StorageDepositReserve.into(), &contract_account, deposit)
+			.expect("hold DOT on contract account");
+
+		// Drive straight into phase 2.
+		let start_cursor = Some(v4::Cursor::Contract(None));
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			<v4::Migration<T> as SteppedMigration>::step(start_cursor, &mut meter).unwrap();
+		}
+
+		// Invariant: the contract's total hold under `StorageDepositReserve` equals the
+		// original deposit — DOT is burned and an equal PGAS hold takes its place.
+		assert_eq!(
+			<T as Config>::Deposit::total_on_hold(
+				HoldReason::StorageDepositReserve,
+				&contract_account,
+			),
+			deposit,
+		);
+		// And the native hold has been fully released — no spendable DOT remains past ED.
+		assert!(
+			<T as Config>::Currency::reducible_balance(
+				&contract_account,
+				Preservation::Preserve,
+				Fortitude::Polite,
+			)
+			.is_zero()
+		);
+
+		// uses twice the weight: once for migration and then for checking if there is another key.
+		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v4_contract_step() * 2);
+	}
+
 	/// Helper function to create a test signer for finalize_block benchmark
 	fn create_test_signer<T: Config>() -> (T::AccountId, SigningKey, H160) {
 		use hex_literal::hex;

@@ -20,7 +20,7 @@
 //! Storage deposits can be backed by the native currency or by PGAS.
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
-use crate::{evm::fees::InfoT as FeeInfo, BalanceOf, Config, DotByContractUser, HoldReason};
+use crate::{evm::fees::InfoT as FeeInfo, BalanceOf, Config, HoldReason, NativeDepositOf};
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
@@ -32,11 +32,28 @@ use frame_support::{
 };
 use sp_runtime::{
 	traits::{Saturating, Zero},
-	DispatchResult,
+	DispatchResult, Perbill,
 };
 
+mod sealed {
+	use super::PGasDeposit;
+
+	/// Prevents third-party crates from implementing [`super::Deposit`]. Only the two
+	/// in-crate backends (`()` and [`PGasDeposit`]) are allowed.
+	pub trait Sealed {}
+
+	impl Sealed for () {}
+
+	impl<Mutator, Holder, Id, RefundPercent> Sealed
+		for PGasDeposit<Mutator, Holder, Id, RefundPercent>
+	{
+	}
+}
+
 /// Payment backend used to charge storage deposits.
-pub trait Deposit<T: Config> {
+///
+/// Sealed: only the in-crate `()` and [`PGasDeposit`] backends can implement this trait.
+pub trait Deposit<T: Config>: sealed::Sealed {
 	/// Transfer `amount` from `from` to `to` to back a storage deposit.
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult;
 
@@ -70,10 +87,24 @@ pub trait Deposit<T: Config> {
 	}
 
 	/// Record that user `from` contributed `amount` in native balance to contract `to`.
-	fn record_dot_contribution(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) {
-		DotByContractUser::<T>::mutate(to, from, |entitlement| {
+	fn record_native_deposit(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) {
+		NativeDepositOf::<T>::mutate(to, from, |entitlement| {
 			*entitlement = entitlement.saturating_add(amount);
 		});
+	}
+
+	/// Burn the native currency held on `contract` under `reason` and replace it with the same
+	/// amount of PGAS, minted into `contract` and placed on hold under the same reason.
+	///
+	/// Called by the v4 storage migration to move existing native-denominated storage deposits
+	/// over to PGAS. The default implementation is a no-op, which is correct for the
+	/// native-only `()` backend where no migration is needed.
+	fn migrate_native_to_pgas(
+		_reason: HoldReason,
+		_contract: &T::AccountId,
+		_amount: BalanceOf<T>,
+	) -> DispatchResult {
+		Ok(())
 	}
 }
 
@@ -81,7 +112,7 @@ pub trait Deposit<T: Config> {
 impl<T: Config> Deposit<T> for () {
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
-		<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
+		<Self as Deposit<T>>::record_native_deposit(from, to, amount);
 		Ok(())
 	}
 
@@ -100,7 +131,7 @@ impl<T: Config> Deposit<T> for () {
 			Preservation::Preserve,
 			Fortitude::Polite,
 		)?;
-		<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
+		<Self as Deposit<T>>::record_native_deposit(from, to, amount);
 		Ok(())
 	}
 
@@ -119,8 +150,8 @@ impl<T: Config> Deposit<T> for () {
 			Restriction::Free,
 			Fortitude::Polite,
 		)?;
-		let contribution = DotByContractUser::<T>::get(from, to);
-		DotByContractUser::<T>::mutate(from, to, |entitlement| {
+		let contribution = NativeDepositOf::<T>::get(from, to);
+		NativeDepositOf::<T>::mutate(from, to, |entitlement| {
 			*entitlement = entitlement.saturating_sub(amount.min(contribution));
 		});
 		Ok(())
@@ -141,8 +172,8 @@ impl<T: Config> Deposit<T> for () {
 			Fortitude::Polite,
 		)?;
 		T::FeeInfo::deposit_txfee(credit);
-		let contribution = DotByContractUser::<T>::get(from, to);
-		DotByContractUser::<T>::mutate(from, to, |entitlement| {
+		let contribution = NativeDepositOf::<T>::get(from, to);
+		NativeDepositOf::<T>::mutate(from, to, |entitlement| {
 			*entitlement = entitlement.saturating_sub(amount.min(contribution));
 		});
 		Ok(())
@@ -152,12 +183,19 @@ impl<T: Config> Deposit<T> for () {
 /// PGAS-backed payment backend.
 ///
 /// Charges prefer PGAS when the payer has enough reducible PGAS and fall back to the native
-/// currency otherwise; native-currency contributions are recorded in [`DotByContractUser`].
+/// currency otherwise; native-currency contributions are recorded in [`NativeDepositOf`].
 /// Refunds and collects try the native side first, capped by the user's tracked
-/// [`DotByContractUser`] entitlement, and pull any remainder from PGAS.
-pub struct PGasDeposit<Mutator, Holder, Id>(PhantomData<(Mutator, Holder, Id)>);
+/// [`NativeDepositOf`] entitlement, and pull any remainder from PGAS.
+///
+/// `RefundPercent` is the share of the PGAS portion of a refund/collect that is actually
+/// returned to the user; the rest is burned. This exists so users cannot harvest free PGAS
+/// out of storage churn and later use it to spam execution. The native (DOT) portion is
+/// always refunded in full.
+pub struct PGasDeposit<Mutator, Holder, Id, RefundPercent>(
+	PhantomData<(Mutator, Holder, Id, RefundPercent)>,
+);
 
-impl<Mutator, Holder, Id> PGasDeposit<Mutator, Holder, Id> {
+impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, RefundPercent> {
 	fn pgas_reducible_balance<T>(who: &T::AccountId) -> BalanceOf<T>
 	where
 		T: Config,
@@ -173,7 +211,8 @@ impl<Mutator, Holder, Id> PGasDeposit<Mutator, Holder, Id> {
 	}
 }
 
-impl<T, Mutator, Holder, Id> Deposit<T> for PGasDeposit<Mutator, Holder, Id>
+impl<T, Mutator, Holder, Id, RefundPercent> Deposit<T>
+	for PGasDeposit<Mutator, Holder, Id, RefundPercent>
 where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
@@ -184,9 +223,10 @@ where
 	>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
+	RefundPercent: Get<Perbill>,
 {
 	/// Pays the full `amount` in PGAS when `from`'s reducible PGAS covers it; otherwise pays
-	/// in native currency and records the contribution in [`DotByContractUser`].
+	/// in native currency and records the contribution in [`NativeDepositOf`].
 	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
 			<Mutator as fungibles::Mutate<T::AccountId>>::transfer(
@@ -199,7 +239,7 @@ where
 			.map(|_| ())
 		} else {
 			T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
-			<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
+			<Self as Deposit<T>>::record_native_deposit(from, to, amount);
 			Ok(())
 		}
 	}
@@ -233,16 +273,16 @@ where
 				Preservation::Preserve,
 				Fortitude::Polite,
 			)?;
-			<Self as Deposit<T>>::record_dot_contribution(from, to, amount);
+			<Self as Deposit<T>>::record_native_deposit(from, to, amount);
 			Ok(())
 		}
 	}
 
-	/// Refunds DOT first, capped by `DotByContractUser[from][to]` (the user's tracked native
+	/// Refunds DOT first, capped by `NativeDepositOf[from][to]` (the user's tracked native
 	/// contribution) and by the contract's actual DOT-on-hold (`Precision::BestEffort`, so a
 	/// short hold does not fail). The DOT actually released is subtracted from
-	/// [`DotByContractUser`], and any shortfall is covered by a `Precision::Exact` PGAS
-	/// `transfer_on_hold`. The aggregate refunded is always exactly `amount`.
+	/// [`NativeDepositOf`], and any shortfall is taken from PGAS on hold: `RefundPercent` of
+	/// that PGAS is transferred to `to`'s free balance, the rest is burned.
 	///
 	/// Atomic: on any sub-op failure all state changes are rolled back.
 	fn refund_on_hold(
@@ -252,7 +292,7 @@ where
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		with_storage_layer(|| {
-			let contribution = DotByContractUser::<T>::get(from, to);
+			let contribution = NativeDepositOf::<T>::get(from, to);
 			let dot_requested = amount.min(contribution);
 
 			let dot_refunded = if !dot_requested.is_zero() {
@@ -265,7 +305,7 @@ where
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
-				DotByContractUser::<T>::mutate(from, to, |entitlement| {
+				NativeDepositOf::<T>::mutate(from, to, |entitlement| {
 					*entitlement = entitlement.saturating_sub(refunded);
 				});
 				refunded
@@ -274,18 +314,7 @@ where
 			};
 
 			let pgas_needed = amount.saturating_sub(dot_refunded);
-			if !pgas_needed.is_zero() {
-				<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
-					Id::get(),
-					&reason.into(),
-					from,
-					to,
-					pgas_needed,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
-				)?;
-			}
+			Self::settle_pgas_refund::<T>(reason, from, to, pgas_needed)?;
 			Ok(())
 		})
 	}
@@ -302,7 +331,7 @@ where
 	}
 
 	/// Collects DOT first into the tx fee pool, capped like [`Self::refund_on_hold`]
-	/// (`DotByContractUser[from][to]` and `Precision::BestEffort` on release), then withdraws
+	/// (`NativeDepositOf[from][to]` and `Precision::BestEffort` on release), then withdraws
 	/// the released amount and deposits it via [`FeeInfo::deposit_txfee`]. Any remainder
 	/// cannot be fed to the DOT fee pool, so it is released from PGAS and transferred to
 	/// `to`'s free PGAS balance with `Precision::Exact`.
@@ -315,7 +344,7 @@ where
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		with_storage_layer(|| {
-			let contribution = DotByContractUser::<T>::get(from, to);
+			let contribution = NativeDepositOf::<T>::get(from, to);
 			let dot_requested = amount.min(contribution);
 
 			let dot_collected = if !dot_requested.is_zero() {
@@ -334,7 +363,7 @@ where
 						Fortitude::Polite,
 					)?;
 					T::FeeInfo::deposit_txfee(credit);
-					DotByContractUser::<T>::mutate(from, to, |entitlement| {
+					NativeDepositOf::<T>::mutate(from, to, |entitlement| {
 						*entitlement = entitlement.saturating_sub(released);
 					});
 				}
@@ -344,19 +373,96 @@ where
 			};
 
 			let pgas_needed = amount.saturating_sub(dot_collected);
-			if !pgas_needed.is_zero() {
-				<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
-					Id::get(),
-					&reason.into(),
-					from,
-					to,
-					pgas_needed,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
-				)?;
-			}
+			Self::settle_pgas_refund::<T>(reason, from, to, pgas_needed)?;
 			Ok(())
 		})
+	}
+
+	/// Burn the native hold at `contract` under `reason`, then mint the same amount of PGAS
+	/// into `contract` and place it on hold under the same reason. `mint_into` also tops up
+	/// the asset's `min_balance` so the PGAS account has enough reducible balance for the hold
+	/// to succeed (pallet-assets keeps `min_balance` untouchable).
+	fn migrate_native_to_pgas(
+		reason: HoldReason,
+		contract: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> DispatchResult {
+		if amount.is_zero() {
+			return Ok(());
+		}
+		T::Currency::burn_held(
+			&reason.into(),
+			contract,
+			amount,
+			Precision::Exact,
+			Fortitude::Force,
+		)?;
+
+		let pgas_min = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+			Id::get(),
+			contract,
+			amount.saturating_add(pgas_min),
+		)?;
+		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
+			Id::get(),
+			&reason.into(),
+			contract,
+			amount,
+		)?;
+		Ok(())
+	}
+}
+
+impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, RefundPercent> {
+	/// Settle `amount` of PGAS held on `from` under `reason`: refund `RefundPercent` of it to
+	/// `to`'s free balance and burn the remainder. Discourages users from harvesting free PGAS
+	/// allowance out of storage churn.
+	fn settle_pgas_refund<T>(
+		reason: HoldReason,
+		from: &T::AccountId,
+		to: &T::AccountId,
+		amount: BalanceOf<T>,
+	) -> DispatchResult
+	where
+		T: Config,
+		Holder: fungibles::MutateHold<
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
+		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
+		Mutator: fungibles::Inspect<T::AccountId, Balance = BalanceOf<T>>,
+		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
+		RefundPercent: Get<Perbill>,
+	{
+		if amount.is_zero() {
+			return Ok(());
+		}
+		let refund = RefundPercent::get().mul_floor(amount);
+		if !refund.is_zero() {
+			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
+				Id::get(),
+				&reason.into(),
+				from,
+				to,
+				refund,
+				Precision::Exact,
+				Restriction::Free,
+				Fortitude::Polite,
+			)?;
+		}
+		let burn = amount.saturating_sub(refund);
+		if !burn.is_zero() {
+			<Holder as fungibles::MutateHold<T::AccountId>>::burn_held(
+				Id::get(),
+				&reason.into(),
+				from,
+				burn,
+				Precision::Exact,
+				Fortitude::Polite,
+			)?;
+		}
+		Ok(())
 	}
 }

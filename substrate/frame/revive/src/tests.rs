@@ -29,11 +29,11 @@ use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
 	},
-	deposit_payment::PGasDeposit,
 	genesis::{Account, ContractData},
 	mock::MockHandler,
 	test_utils::*,
@@ -355,6 +355,9 @@ pub const PGAS_ASSET_ID: u32 = 42;
 
 parameter_types! {
 	pub const PGasAssetId: u32 = PGAS_ASSET_ID;
+	/// Match the asset-hub-westend setting: 10% of PGAS storage deposits are refunded, the
+	/// rest is burned so users can't harvest free PGAS allowance from storage churn.
+	pub const PGasRefundPercent: Perbill = Perbill::from_percent(10);
 }
 
 impl pallet_dummy::Config for Test {}
@@ -433,7 +436,7 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
-	type Deposit = PGasDeposit<Assets, AssetsHolder, PGasAssetId>;
+	type Deposit = PGasDeposit<Assets, AssetsHolder, PGasAssetId, PGasRefundPercent>;
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;

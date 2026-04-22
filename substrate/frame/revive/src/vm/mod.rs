@@ -235,6 +235,18 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	pub fn new_with_deposit(owner: T::AccountId, deposit: BalanceOf<T>) -> Self {
+		CodeInfo {
+			owner,
+			deposit,
+			refcount: 0,
+			code_len: 0,
+			code_type: BytecodeType::Pvm,
+			behaviour_version: Default::default(),
+		}
+	}
+
 	/// Returns reference count of the module.
 	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
@@ -244,6 +256,11 @@ impl<T: Config> CodeInfo<T> {
 	/// Returns the deposit of the module.
 	pub fn deposit(&self) -> BalanceOf<T> {
 		self.deposit
+	}
+
+	/// Returns the account that uploaded the module.
+	pub fn owner(&self) -> &AccountIdOf<T> {
+		&self.owner
 	}
 
 	/// Returns the code length.

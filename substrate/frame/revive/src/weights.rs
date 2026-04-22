@@ -168,6 +168,8 @@ pub trait WeightInfo {
 	fn v1_migration_step() -> Weight;
 	fn v2_migration_step() -> Weight;
 	fn v3_migration_step() -> Weight;
+	fn v4_code_upload_step() -> Weight;
+	fn v4_contract_step() -> Weight;
 	fn on_finalize_per_transaction(n: u32, ) -> Weight;
 	fn on_finalize_per_transaction_data(d: u32, ) -> Weight;
 	fn on_finalize_per_event(e: u32, ) -> Weight;
@@ -1380,6 +1382,16 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		Weight::from_parts(8_000_000, 3593)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn v4_code_upload_step() -> Weight {
+		Weight::from_parts(20_000_000, 6000)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(1_u64))
+	}
+	fn v4_contract_step() -> Weight {
+		Weight::from_parts(80_000_000, 10_000)
+			.saturating_add(T::DbWeight::get().reads(4_u64))
+			.saturating_add(T::DbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
 	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
@@ -2688,6 +2700,16 @@ impl WeightInfo for () {
 		Weight::from_parts(8_000_000, 3593)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn v4_code_upload_step() -> Weight {
+		Weight::from_parts(20_000_000, 6000)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(1_u64))
+	}
+	fn v4_contract_step() -> Weight {
+		Weight::from_parts(80_000_000, 10_000)
+			.saturating_add(RocksDbWeight::get().reads(4_u64))
+			.saturating_add(RocksDbWeight::get().writes(4_u64))
 	}
 	/// Storage: `Revive::EthBlockBuilderIR` (r:1 w:1)
 	/// Proof: `Revive::EthBlockBuilderIR` (`max_values`: Some(1), `max_size`: None, mode: `Measured`)
