@@ -22159,6 +22159,7 @@ dependencies = [
  "futures-timer",
  "jsonrpsee",
  "log",
+ "once_cell",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "pin-project",
