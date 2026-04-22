@@ -700,3 +700,213 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 
 	Ok(())
 }
+
+/// Verifies that multiple new peers joining a stable network each receive the
+/// complete statement
+///
+/// Scenario:
+/// 1. Spawn a stable 2-node network (alice, bob)
+/// 2. Submit 20 statements from 4 keypairs across 2 topics
+/// 3. Wait for full propagation to both nodes
+/// 4. Add 3 new collators (charlie, dave, eve) simultaneously
+/// 5. Subscribe on each new node immediately (before block sync completes)
+/// 6. Verify each new node receives all 20 statements with correct content
+/// 7. Verify initial_sync_statements_sent metric increased on sender nodes
+///
+/// Key difference from `statement_store_recovery_after_major_sync`: all statements
+/// are fully propagated BEFORE any new peer joins, isolating the initial sync
+/// mechanism from deferred_peers timing and mid-sync submission races.
+///
+/// Test uses sudo-based allowances
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	const STMTS_PER_KEYPAIR: u32 = 5;
+	const KEYPAIR_COUNT: u32 = 4;
+	const TOTAL_STMTS: usize = (STMTS_PER_KEYPAIR * KEYPAIR_COUNT) as usize;
+
+	let topic_a: Topic = [0xA1; 32].into();
+	let topic_b: Topic = [0xB2; 32].into();
+
+	let mut entries: Vec<(u32, StatementAllowance)> = Vec::new();
+	for i in 0..KEYPAIR_COUNT {
+		entries.push((i, StatementAllowance { max_count: STMTS_PER_KEYPAIR, max_size: 1_000_000 }));
+	}
+	let items = create_allowance_items(&entries);
+
+	let mut network = spawn_network_sudo(&["charlie", "dave"], items).await?;
+
+	let filter = TopicFilter::MatchAny(vec![topic_a, topic_b].try_into().unwrap());
+
+	let all_statements: Vec<Statement> = (0..KEYPAIR_COUNT)
+		.flat_map(|kp_idx| {
+			let topic = if kp_idx < 2 { topic_a } else { topic_b };
+			let keypair = get_keypair(kp_idx);
+			(0..STMTS_PER_KEYPAIR).map(move |seq| {
+				create_test_statement(
+					&keypair,
+					&[topic],
+					None,
+					vec![kp_idx as u8, seq as u8],
+					u32::MAX,
+					kp_idx * 100 + seq,
+				)
+			})
+		})
+		.collect();
+
+	let expected_encoded: Vec<Vec<u8>> = all_statements.iter().map(|s| s.encode()).collect();
+
+	let charlie_sent_before = Cell::new(0.0f64);
+	let dave_sent_before = Cell::new(0.0f64);
+	{
+		let charlie = network.get_node("charlie")?;
+		let dave = network.get_node("dave")?;
+		let charlie_rpc = charlie.rpc().await?;
+		let dave_rpc = dave.rpc().await?;
+
+		let mut charlie_sub = subscribe_topic_filter(&charlie_rpc, filter.clone()).await?;
+		let mut dave_sub = subscribe_topic_filter(&dave_rpc, filter.clone()).await?;
+
+		let rpcs = [&charlie_rpc, &dave_rpc];
+		for (i, stmt) in all_statements.iter().enumerate() {
+			let result = submit_statement(rpcs[i % 2], stmt).await?;
+			assert_eq!(result, SubmitResult::New, "Statement {} rejected", i);
+		}
+		info!("All {} statements submitted", TOTAL_STMTS);
+
+		// Wait for full propagation on both nodes
+		for (name, sub) in [("charlie", &mut charlie_sub), ("dave", &mut dave_sub)] {
+			let received = expect_statements_unordered(sub, TOTAL_STMTS, 60).await?;
+			let mut received_sorted: Vec<Vec<u8>> =
+				received.into_iter().map(|b| b.to_vec()).collect();
+			received_sorted.sort();
+			let mut expected_sorted = expected_encoded.clone();
+			expected_sorted.sort();
+			assert_eq!(received_sorted, expected_sorted);
+			assert_no_more_statements(sub, 5).await?;
+		}
+
+		charlie
+			.wait_metric_with_timeout(
+				"substrate_sync_initial_sync_statements_sent",
+				|v| {
+					charlie_sent_before.set(v);
+					true
+				},
+				10u64,
+			)
+			.await?;
+		dave.wait_metric_with_timeout(
+			"substrate_sync_initial_sync_statements_sent",
+			|v| {
+				dave_sent_before.set(v);
+				true
+			},
+			10u64,
+		)
+		.await?;
+	}
+
+	let new_collators = ["alice", "bob", "eve"];
+	for name in &new_collators {
+		network.add_collator(*name, Default::default(), 1004).await?;
+	}
+
+	let charlie = network.get_node("charlie")?;
+	let dave = network.get_node("dave")?;
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let eve = network.get_node("eve")?;
+
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+	let eve_rpc = eve.rpc().await?;
+
+	let mut alice_sub = subscribe_topic_filter(&alice_rpc, filter.clone()).await?;
+	let mut bob_sub = subscribe_topic_filter(&bob_rpc, filter.clone()).await?;
+	let mut eve_sub = subscribe_topic_filter(&eve_rpc, filter).await?;
+
+	// Wait for all new nodes to sync blocks
+	let charlie_height = Cell::new(0.0f64);
+	charlie
+		.wait_metric_with_timeout(
+			"block_height{status=\"best\"}",
+			|v| {
+				charlie_height.set(v);
+				true
+			},
+			10u64,
+		)
+		.await?;
+	let target_height = charlie_height.get();
+
+	for (name, node) in [("alice", &alice), ("bob", &bob), ("eve", &eve)] {
+		node.wait_metric_with_timeout(
+			"block_height{status=\"best\"}",
+			|h| h >= target_height,
+			120u64,
+		)
+		.await
+		.map_err(|_| {
+			anyhow::anyhow!("{} did not reach block height {:.0} within 120s", name, target_height)
+		})?;
+		info!("{} synced to block {:.0}", name, target_height);
+	}
+
+	for (name, sub) in [
+		("alice", &mut alice_sub),
+		("bob", &mut bob_sub),
+		("eve", &mut eve_sub),
+	] {
+		let received = expect_statements_unordered(sub, TOTAL_STMTS, 60).await?;
+		let mut received_sorted: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+		received_sorted.sort();
+		let mut expected_sorted = expected_encoded.clone();
+		expected_sorted.sort();
+		assert_eq!(received_sorted, expected_sorted, "Statement content mismatch on {}", name);
+		assert_no_more_statements(sub, 10).await?;
+		info!("{}: received all {} statements via initial sync", name, TOTAL_STMTS);
+	}
+
+	let charlie_sent_after = Cell::new(0.0f64);
+	charlie
+		.wait_metric_with_timeout(
+			"substrate_sync_initial_sync_statements_sent",
+			|v| {
+				charlie_sent_after.set(v);
+				v > charlie_sent_before.get()
+			},
+			30u64,
+		)
+		.await?;
+	let dave_sent_after = Cell::new(0.0f64);
+	dave.wait_metric_with_timeout(
+		"substrate_sync_initial_sync_statements_sent",
+		|v| {
+			dave_sent_after.set(v);
+			v > dave_sent_before.get()
+		},
+		30u64,
+	)
+	.await?;
+
+	let total_sent = (charlie_sent_after.get() - charlie_sent_before.get())
+		+ (dave_sent_after.get() - dave_sent_before.get());
+
+	// Both charlie and dave independently run schedule_initial_sync_for_peer for
+	// each new peer, sending all 20 statements each: 2 senders × 3 peers × 20 = 120
+	const SENDER_COUNT: usize = 2;
+	let expected_min = (SENDER_COUNT * new_collators.len() * TOTAL_STMTS) as f64;
+	assert!(
+		total_sent >= expected_min,
+		"Expected at least {} initial sync statements sent, got {}",
+		expected_min,
+		total_sent,
+	);
+
+	Ok(())
+}
