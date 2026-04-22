@@ -5782,6 +5782,7 @@ dependencies = [
  "rstest",
  "sc-executor 0.32.0",
  "sc-executor-common 0.29.0",
+ "sc-network-statement",
  "sc-statement-store",
  "scale-info",
  "serde",
