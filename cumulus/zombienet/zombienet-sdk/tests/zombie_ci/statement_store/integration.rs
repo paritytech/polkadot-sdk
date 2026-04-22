@@ -837,6 +837,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("dave", &mut dave_fresh),
 	] {
 		assert_statements_match(sub, &persistent_encoded, 120, name).await?;
+		assert_no_more_statements(sub, 10).await?;
 	}
 
 	Ok(())
