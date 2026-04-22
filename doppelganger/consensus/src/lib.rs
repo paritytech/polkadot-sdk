@@ -686,12 +686,18 @@ async fn get_overrides_para(id: u32) -> OverrideKeys {
 
 fn calculate_genesis_slot(current: Vec<u8>, epoch_idx: Vec<u8>) -> Slot {
 	const DEFAULT_EPOCH_DURARION: u64 = 2400;
+  const DEFAULT_RUNWAY: u64 = 10;
+
+  let runway: u64 = std::env::var("ZOMBIE_RC_RUNWAY")
+      .unwrap_or(DEFAULT_RUNWAY.to_string())
+      .parse()
+      .expect("ZOMBIE_RC_RUNWAY must be a u64");
 
 	let epoch_duration: u64 = std::env::var("ZOMBIE_RC_EPOCH_DURATION")
 		.unwrap_or(DEFAULT_EPOCH_DURARION.to_string())
 		.parse()
 		.expect("ZOMBIE_RC_EPOCH_DURATION should be a valid u64");
-	let diff_target = epoch_duration - 10;
+  let diff_target = epoch_duration - runway;
 	let current_slot: Slot = Decode::decode(&mut current.as_slice()).unwrap();
 	let epoch_index: u64 = Decode::decode(&mut epoch_idx.as_slice()).unwrap();
 	let genesis_slot = current_slot.saturating_sub((epoch_index * epoch_duration) + diff_target);
