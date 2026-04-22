@@ -859,21 +859,37 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		info!("{}: received all {} statements via initial sync", name, TOTAL_STMTS);
 	}
 
-	// Verify schedule_initial_sync_for_peer fired on both senders
+	// Verify initial sync delivered statements
+	let charlie_sent_after = Cell::new(0.0f64);
 	charlie
 		.wait_metric_with_timeout(
 			"substrate_sync_initial_sync_statements_sent",
-			|v| v >= charlie_sent_before.get() + TOTAL_STMTS as f64,
+			|v| {
+				charlie_sent_after.set(v);
+				v > charlie_sent_before.get()
+			},
 			30u64,
 		)
 		.await?;
+	let alice_sent_after = Cell::new(0.0f64);
 	alice
 		.wait_metric_with_timeout(
 			"substrate_sync_initial_sync_statements_sent",
-			|v| v >= alice_sent_before.get() + TOTAL_STMTS as f64,
+			|v| {
+				alice_sent_after.set(v);
+				v > alice_sent_before.get()
+			},
 			30u64,
 		)
 		.await?;
+	let total_delta = (charlie_sent_after.get() - charlie_sent_before.get())
+		+ (alice_sent_after.get() - alice_sent_before.get());
+	assert!(
+		total_delta >= TOTAL_STMTS as f64,
+		"Initial sync sent only {} statements total, expected at least {}",
+		total_delta,
+		TOTAL_STMTS,
+	);
 
 	Ok(())
 }
