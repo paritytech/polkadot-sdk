@@ -14,10 +14,15 @@ workspace = true
 [dependencies]
 fatality = { workspace = true }
 futures = { workspace = true }
+<<<<<<< HEAD
 gum = { default-features = true, workspace = true }
 polkadot-node-subsystem = { default-features = true, workspace = true }
 polkadot-node-subsystem-util = { default-features = true, workspace = true }
 polkadot-primitives = { default-features = true, workspace = true }
+=======
+gum = { workspace = true, default-features = true }
+schnellru = { workspace = true }
+>>>>>>> b2a12a6 (allow older relay parents in prospective-parachains (#11772))
 thiserror = { workspace = true }
 
 [dev-dependencies]
