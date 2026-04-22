@@ -141,8 +141,7 @@ fn pay_dot_refund_dot() {
 }
 
 /// PGAS-only: ALICE's PGAS covers the hold, so DOT is untouched and no
-/// entitlement is recorded. On refund only `PGasRefundPercent` (10%) of the held
-/// PGAS comes back to ALICE; the rest is burned.
+/// entitlement is recorded; the refund returns PGAS (at `PGasRefundPercent`).
 #[test]
 fn pay_pgas_refund_pgas() {
 	run(TestCase {
@@ -164,8 +163,7 @@ fn pay_pgas_refund_pgas() {
 
 /// Mixed: first charge (40) fits into ALICE's 100 PGAS; second charge (80)
 /// exceeds remaining PGAS (60) so falls back to DOT in full. Refund pays DOT
-/// first (capped by the entitlement, in full since that's the user's own
-/// money), then PGAS for the remainder at `PGasRefundPercent` (10%).
+/// first (capped by the entitlement), then PGAS for the remainder.
 #[test]
 fn pay_mixed_refund_mixed() {
 	run(TestCase {
