@@ -859,10 +859,7 @@ fn verify_rejects_when_halted() {
 
 		// While halted, the verifier refuses all proofs — blocks inbound_queue_v2::submit and
 		// outbound_queue_v2::submit_delivery_receipt from paying out against fraudulent proofs.
-		assert_err!(
-			EthereumBeaconClient::verify(&event_log, &proof),
-			VerificationError::Halted
-		);
+		assert_err!(EthereumBeaconClient::verify(&event_log, &proof), VerificationError::Halted);
 
 		// Resuming restores verification.
 		assert_ok!(EthereumBeaconClient::set_operating_mode(

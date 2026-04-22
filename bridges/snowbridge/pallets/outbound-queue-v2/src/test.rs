@@ -394,8 +394,7 @@ fn poc_m1() {
 	new_tester().execute_with(|| {
 		let nonce = 1;
 		let fee: u128 = 1_000_000;
-		let order =
-			PendingOrder { nonce, fee, block_number: System::block_number() };
+		let order = PendingOrder { nonce, fee, block_number: System::block_number() };
 		PendingOrders::<Test>::insert(nonce, order);
 
 		let relayer: AccountId32 = [7u8; 32].into();
@@ -423,8 +422,7 @@ fn submit_delivery_receipt_succeeds_after_unhalt() {
 	new_tester().execute_with(|| {
 		let nonce = 0;
 		let fee: u128 = 1_000_000;
-		let order =
-			PendingOrder { nonce, fee, block_number: System::block_number() };
+		let order = PendingOrder { nonce, fee, block_number: System::block_number() };
 		PendingOrders::<Test>::insert(nonce, order);
 
 		let relayer: AccountId32 = [7u8; 32].into();
