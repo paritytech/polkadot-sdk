@@ -29,7 +29,10 @@ use frame_support::{
 	traits::{
 		Get,
 		fungible::{Balanced as _, InspectHold as _, Mutate as _, MutateHold as _},
-		tokens::{Fortitude, Precision, Preservation, Restriction, fungibles},
+		tokens::{
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
+			fungibles,
+		},
 	},
 };
 use sp_runtime::{
@@ -239,6 +242,10 @@ where
 	}
 
 	/// Same asset-selection rule as [`Self::transfer`], applied to a transfer-and-hold.
+	///
+	/// The PGAS branch writes directly to the payer's free balance and the contract's hold
+	/// storage, so the contract never needs a `pallet_assets::Account` entry. This allows
+	/// deposits below the PGAS existential deposit to succeed.
 	fn transfer_and_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -246,17 +253,22 @@ where
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
-			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_and_hold(
+			<Mutator as fungibles::Unbalanced<T::AccountId>>::decrease_balance(
 				Id::get(),
-				&reason.into(),
 				from,
-				to,
 				amount,
 				Precision::Exact,
 				Preservation::Preserve,
 				Fortitude::Polite,
-			)
-			.map(|_| ())
+			)?;
+			<Holder as fungibles::hold::Unbalanced<T::AccountId>>::increase_balance_on_hold(
+				Id::get(),
+				&reason.into(),
+				to,
+				amount,
+				Precision::Exact,
+			)?;
+			Ok(())
 		} else {
 			T::Currency::transfer_and_hold(
 				&reason.into(),
@@ -363,7 +375,11 @@ where
 	}
 
 	/// Burn the native hold at `contract` under `reason`, then mint the same amount of PGAS
-	/// into `contract` and place it on hold under the same reason.
+	/// directly onto a hold on `contract` under the same reason.
+	///
+	/// Writes to the holder pallet storage without creating a `pallet_assets::Account` for
+	/// the contract, so no existential deposit is minted alongside. The PGAS supply is
+	/// bumped by exactly `amount`; `burn_held` on refund/termination decrements it back.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
@@ -383,19 +399,15 @@ where
 			|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
 		)?;
 
-		// Bring the contract's PGAS account into existence at ED so that after holding `amount`
-		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
-		<Mutator as fungibles::Mutate<T::AccountId>>::set_balance(Id::get(), contract, pgas_ed);
-
-		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)
-			.inspect_err(
-				|err| log::debug!(target: LOG_TARGET, "Failed to mint {amount:?} into {contract:?}: {err:?}"),
-			)?;
-		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
+		let new_supply = <Mutator as fungibles::Inspect<T::AccountId>>::total_issuance(Id::get())
+			.saturating_add(amount);
+		<Mutator as fungibles::Unbalanced<T::AccountId>>::set_total_issuance(Id::get(), new_supply);
+		<Holder as fungibles::hold::Unbalanced<T::AccountId>>::increase_balance_on_hold(
 			Id::get(),
 			&reason.into(),
 			contract,
 			amount,
+			Precision::Exact,
 		)
 		.inspect_err(
 			|err| log::debug!(target: LOG_TARGET, "Failed to hold amount: {amount:?}: {err:?}"),
@@ -407,6 +419,10 @@ where
 impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, RefundPercent> {
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
 	/// burn the rest.
+	///
+	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
+	/// account and the refund would create one below ED), the refund portion is folded into
+	/// the burn rather than aborting the whole refund.
 	fn settle_pgas_refund<T>(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -421,7 +437,7 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 				AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
 			>,
 		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
-		Mutator: fungibles::Inspect<T::AccountId, Balance = BalanceOf<T>>,
+		Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 		RefundPercent: Get<Perbill>,
 	{
@@ -429,19 +445,37 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 			return Ok(());
 		}
 		let refund = RefundPercent::get().mul_floor(amount);
+		let mut burn = amount.saturating_sub(refund);
+
 		if !refund.is_zero() {
-			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
-				Id::get(),
-				&reason.into(),
-				from,
-				to,
-				refund,
-				Precision::Exact,
-				Restriction::Free,
-				Fortitude::Polite,
-			)?;
+			let can_credit = matches!(
+				<Mutator as fungibles::Inspect<T::AccountId>>::can_deposit(
+					Id::get(),
+					to,
+					refund,
+					Provenance::Extant,
+				),
+				DepositConsequence::Success
+			);
+			if can_credit {
+				<Holder as fungibles::hold::Unbalanced<T::AccountId>>::decrease_balance_on_hold(
+					Id::get(),
+					&reason.into(),
+					from,
+					refund,
+					Precision::Exact,
+				)?;
+				<Mutator as fungibles::Unbalanced<T::AccountId>>::increase_balance(
+					Id::get(),
+					to,
+					refund,
+					Precision::Exact,
+				)?;
+			} else {
+				burn = burn.saturating_add(refund);
+			}
 		}
-		let burn = amount.saturating_sub(refund);
+
 		if !burn.is_zero() {
 			<Holder as fungibles::MutateHold<T::AccountId>>::burn_held(
 				Id::get(),
