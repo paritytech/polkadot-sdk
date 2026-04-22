@@ -16,6 +16,11 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID:
+        required: false
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY:
+        required: false
   workflow_dispatch:
     inputs:
       test_pattern:
@@ -80,12 +85,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - name: Generate App token for artifact downloads
+        id: artifact_token
+        if: ${{ matrix.test.needs-wasm-binary }}
+        shell: bash
+        run: |
+          if [[ -n "${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}" ]]; then
+            echo "use_app_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "use_app_token=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create App installation token
+        id: app_token
+        if: ${{ matrix.test.needs-wasm-binary && steps.artifact_token.outputs.use_app_token == 'true' }}
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
+
       - name: Download test parachain artifact
         if: ${{ matrix.test.needs-wasm-binary }}
         uses: ./.github/actions/download-artifact-extract
         with:
           artifact-name: build-test-parachain-${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
-          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          gh-token: ${{ steps.app_token.outputs.token || secrets.GITHUB_TOKEN }}
           run-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
 
       - name: zombienet_test
@@ -98,6 +122,8 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          app-private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
       - name: process_logs
         if: ${{ always() }}

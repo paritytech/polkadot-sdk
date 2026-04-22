@@ -241,11 +241,6 @@ impl xcm_executor::Config for XcmConfig {
 	type XcmRecorder = XcmPallet;
 }
 
-parameter_types! {
-	// DDay pluralistic body.
-	pub const DDayBodyId: BodyId = BodyId::Moniker([b'd', b'd', b'a', b'y']);
-}
-
 /// Converts a local signed origin into an XCM location. Forms the basis for local origins
 /// sending/executing XCMs.
 pub type LocalOriginToLocation = SignedToAccountId32<RuntimeOrigin, AccountId, ThisNetwork>;

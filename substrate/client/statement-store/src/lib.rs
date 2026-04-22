@@ -1323,8 +1323,11 @@ impl StatementStore for Store {
 				"Statement is already expired: {:?}",
 				HexDisplay::from(&hash),
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::AlreadyExpired);
+			let reason = InvalidReason::AlreadyExpired;
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
 		}
 		let encoded_size = statement.encoded_size();
 		if encoded_size > MAX_STATEMENT_SIZE {
@@ -1335,21 +1338,30 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+			let reason = InvalidReason::EncodingTooLarge {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
+			};
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
 			});
+			return SubmitResult::Invalid(reason);
 		}
 
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known_expired"]).inc();
+					});
 					return SubmitResult::KnownExpired;
 				}
 			},
 			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known"]).inc();
+					});
 					return SubmitResult::Known;
 				}
 			},
@@ -1362,8 +1374,11 @@ impl StatementStore for Store {
 				"Statement validation failed: Missing proof ({:?})",
 				HexDisplay::from(&hash),
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::NoProof);
+			let reason = InvalidReason::NoProof;
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
 		};
 
 		match statement.verify_signature() {
@@ -1374,8 +1389,11 @@ impl StatementStore for Store {
 					"Statement validation failed: BadProof, {:?}",
 					HexDisplay::from(&hash),
 				);
-				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Invalid(InvalidReason::BadProof);
+				let reason = InvalidReason::BadProof;
+				self.metrics.report(|metrics| {
+					metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Invalid(reason);
 			},
 			SignatureVerificationResult::NoSignature => {
 				if let Some(Proof::OnChain { .. }) = statement.proof() {
@@ -1390,8 +1408,11 @@ impl StatementStore for Store {
 						"Statement validation failed: NoProof, {:?}",
 						HexDisplay::from(&hash),
 					);
-					self.metrics.report(|metrics| metrics.validations_invalid.inc());
-					return SubmitResult::Invalid(InvalidReason::NoProof);
+					let reason = InvalidReason::NoProof;
+					self.metrics.report(|metrics| {
+						metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+					});
+					return SubmitResult::Invalid(reason);
 				}
 			},
 		};
@@ -1416,7 +1437,11 @@ impl StatementStore for Store {
 					"Account {} has no statement allowance set",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+				let reason = RejectionReason::NoAllowance;
+				self.metrics.report(|metrics| {
+					metrics.rejections.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Rejected(reason);
 			},
 			Err(e) => {
 				log::debug!(
@@ -1424,6 +1449,9 @@ impl StatementStore for Store {
 					"Reading statement allowance for account {} failed",
 					HexDisplay::from(&account_id),
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["read_allowance"]).inc();
+				});
 				return SubmitResult::InternalError(e);
 			},
 		};
@@ -1456,6 +1484,9 @@ impl StatementStore for Store {
 					e,
 					statement
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["db_commit"]).inc();
+				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 			self.subscription_manager.notify(statement);
