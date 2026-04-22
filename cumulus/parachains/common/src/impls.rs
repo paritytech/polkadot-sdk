@@ -20,7 +20,7 @@ use alloc::boxed::Box;
 use core::marker::PhantomData;
 use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
-	Get, Imbalance, OnUnbalanced, OriginTrait,
+	Get, Imbalance, OnUnbalanced, OriginTrait, TypedGet,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
@@ -83,7 +83,12 @@ where
 
 /// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
+#[deprecated(
+	note = "AssetsToBlockAuthor is deprecated and will be removed after June 2026. Please use frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor, ...> instead."
+)]
 pub struct AssetsToBlockAuthor<R, I>(PhantomData<(R, I)>);
+
+#[allow(deprecated)]
 impl<R, I> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R, I>> for AssetsToBlockAuthor<R, I>
 where
 	I: 'static,
@@ -96,6 +101,22 @@ where
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit).defensive();
 		}
+	}
+}
+
+/// Implements `TypedGet` with an option return value to pass into
+/// frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor, ...>.
+pub struct BlockAuthor<Runtime>(PhantomData<Runtime>);
+
+impl<R> TypedGet for BlockAuthor<R>
+where
+	R: pallet_authorship::Config,
+	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
+{
+	type Type = Option<AccountIdOf<R>>;
+
+	fn get() -> Self::Type {
+		pallet_authorship::Pallet::<R>::author()
 	}
 }
 

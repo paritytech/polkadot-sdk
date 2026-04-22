@@ -31,6 +31,7 @@ sp-consensus-babe = { workspace = true }
 sp-consensus-beefy = { workspace = true }
 sp-consensus-grandpa = { workspace = true }
 sp-core = { workspace = true }
+sp-dap = { workspace = true }
 sp-genesis-builder = { workspace = true }
 sp-inherents = { workspace = true }
 sp-io = { workspace = true }
@@ -59,7 +60,7 @@ pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
-pallet-conviction-voting = { workspace = true }
+pallet-dap-satellite = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
@@ -67,7 +68,6 @@ pallet-grandpa = { workspace = true }
 pallet-identity = { workspace = true }
 pallet-indices = { workspace = true }
 pallet-message-queue = { workspace = true }
-pallet-meta-tx = { workspace = true }
 pallet-migrations = { workspace = true }
 pallet-mmr = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -78,7 +78,6 @@ pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
 pallet-recovery = { workspace = true }
-pallet-referenda = { workspace = true }
 pallet-root-offences = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -91,11 +90,8 @@ pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-transaction-payment-rpc-runtime-api = { workspace = true }
-pallet-treasury = { workspace = true }
 pallet-utility = { workspace = true }
-pallet-verify-signature = { workspace = true }
 pallet-vesting = { workspace = true }
-pallet-whitelist = { workspace = true }
 pallet-xcm = { workspace = true }
 pallet-xcm-benchmarks = { optional = true, workspace = true }
 westend-runtime-constants = { workspace = true }
@@ -155,7 +151,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-beefy-mmr/std",
 	"pallet-beefy/std",
-	"pallet-conviction-voting/std",
+	"pallet-dap-satellite/std",
 	"pallet-delegated-staking/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
@@ -164,7 +160,6 @@ std = [
 	"pallet-identity/std",
 	"pallet-indices/std",
 	"pallet-message-queue/std",
-	"pallet-meta-tx/std",
 	"pallet-migrations/std",
 	"pallet-mmr/std",
 	"pallet-multisig/std",
@@ -177,7 +172,6 @@ std = [
 	"pallet-preimage/std",
 	"pallet-proxy/std",
 	"pallet-recovery/std",
-	"pallet-referenda/std",
 	"pallet-root-offences/std",
 	"pallet-root-testing/std",
 	"pallet-scheduler/std",
@@ -191,11 +185,8 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-	"pallet-treasury/std",
 	"pallet-utility/std",
-	"pallet-verify-signature/std",
 	"pallet-vesting/std",
-	"pallet-whitelist/std",
 	"pallet-xcm-benchmarks?/std",
 	"pallet-xcm/std",
 	"polkadot-parachain-primitives/std",
@@ -215,6 +206,7 @@ std = [
 	"sp-consensus-beefy/std",
 	"sp-consensus-grandpa/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-genesis-builder/std",
 	"sp-inherents/std",
 	"sp-io/std",
@@ -245,7 +237,7 @@ runtime-benchmarks = [
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-beefy-mmr/runtime-benchmarks",
-	"pallet-conviction-voting/runtime-benchmarks",
+	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
@@ -254,7 +246,6 @@ runtime-benchmarks = [
 	"pallet-identity/runtime-benchmarks",
 	"pallet-indices/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
-	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-migrations/runtime-benchmarks",
 	"pallet-mmr/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -266,7 +257,6 @@ runtime-benchmarks = [
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-recovery/runtime-benchmarks",
-	"pallet-referenda/runtime-benchmarks",
 	"pallet-root-offences/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
@@ -277,11 +267,8 @@ runtime-benchmarks = [
 	"pallet-sudo/runtime-benchmarks",
 	"pallet-timestamp/runtime-benchmarks",
 	"pallet-transaction-payment/runtime-benchmarks",
-	"pallet-treasury/runtime-benchmarks",
 	"pallet-utility/runtime-benchmarks",
-	"pallet-verify-signature/runtime-benchmarks",
 	"pallet-vesting/runtime-benchmarks",
-	"pallet-whitelist/runtime-benchmarks",
 	"pallet-xcm-benchmarks/runtime-benchmarks",
 	"pallet-xcm/runtime-benchmarks",
 	"polkadot-parachain-primitives/runtime-benchmarks",
@@ -311,7 +298,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-beefy/try-runtime",
-	"pallet-conviction-voting/try-runtime",
+	"pallet-dap-satellite/try-runtime",
 	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
@@ -319,7 +306,6 @@ try-runtime = [
 	"pallet-identity/try-runtime",
 	"pallet-indices/try-runtime",
 	"pallet-message-queue/try-runtime",
-	"pallet-meta-tx/try-runtime",
 	"pallet-migrations/try-runtime",
 	"pallet-mmr/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -329,7 +315,6 @@ try-runtime = [
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-recovery/try-runtime",
-	"pallet-referenda/try-runtime",
 	"pallet-root-offences/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",
@@ -340,11 +325,8 @@ try-runtime = [
 	"pallet-sudo/try-runtime",
 	"pallet-timestamp/try-runtime",
 	"pallet-transaction-payment/try-runtime",
-	"pallet-treasury/try-runtime",
 	"pallet-utility/try-runtime",
-	"pallet-verify-signature/try-runtime",
 	"pallet-vesting/try-runtime",
-	"pallet-whitelist/try-runtime",
 	"pallet-xcm/try-runtime",
 	"polkadot-runtime-common/try-runtime",
 	"polkadot-runtime-parachains/try-runtime",

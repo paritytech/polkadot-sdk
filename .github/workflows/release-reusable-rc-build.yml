@@ -73,7 +73,7 @@ jobs:
       - name: Install pgpkkms
         run: |
           # Install pgpkms that is used to sign built artifacts
-          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151"
+          python3 -m pip install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae"
           which pgpkms
 
       - name: Checkout sources
@@ -211,11 +211,20 @@ jobs:
 
        - name: Set dynamic library path
          run: |
-           LLVM_PATH=$(brew --prefix llvm)
-           export LIBCLANG_PATH="$LLVM_PATH/lib"
-           export LDFLAGS="-L$LLVM_PATH/lib"
-           export CPPFLAGS="-I$LLVM_PATH/include"
+           LLVM_PATH=$(brew --prefix llvm@21)
+           echo "LLVM_PATH resolved to: $LLVM_PATH"
+           ls -la "$LLVM_PATH/lib/libclang.dylib" || echo "libclang.dylib not found at $LLVM_PATH/lib/"
+           # Fallback: try unversioned path
+           if [ ! -f "$LLVM_PATH/lib/libclang.dylib" ]; then
+             LLVM_PATH=$(brew --prefix llvm)
+             echo "Falling back to: $LLVM_PATH"
+             ls -la "$LLVM_PATH/lib/libclang.dylib" || echo "libclang.dylib not found at $LLVM_PATH/lib/ either"
+           fi
+           echo "LIBCLANG_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+           echo "LDFLAGS=-L$LLVM_PATH/lib" >> $GITHUB_ENV
+           echo "CPPFLAGS=-I$LLVM_PATH/include" >> $GITHUB_ENV
            echo "DYLD_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
+           echo "DYLD_FALLBACK_LIBRARY_PATH=$LLVM_PATH/lib" >> $GITHUB_ENV
 
        - name: Install sha256sum
          run: |
@@ -224,7 +233,7 @@ jobs:
        - name: Install pgpkkms
          run: |
            # Install pgpkms that is used to sign built artifacts
-           python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@6cb1cecce1268412189b77e4b130f4fa248c4151" --break-system-packages
+           python3 -m pip  install "pgpkms @ git+https://github.com/paritytech-release/pgpkms.git@dc30e487d47f53d069831a4306377a3ec32638ae" --break-system-packages
 
        - name: Import gpg keys
          shell: bash

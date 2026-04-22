@@ -40,7 +40,17 @@ use sp_runtime::{
 /// The `NativeOrWithId` enum classifies an asset as either `Native` to the current chain or as an
 /// asset with a specific ID.
 #[derive(
-	Decode, DecodeWithMemTracking, Encode, Default, MaxEncodedLen, TypeInfo, Clone, Debug, Eq,
+	Decode,
+	DecodeWithMemTracking,
+	Encode,
+	Default,
+	MaxEncodedLen,
+	TypeInfo,
+	Clone,
+	Debug,
+	Eq,
+	serde::Serialize,
+	serde::Deserialize,
 )]
 pub enum NativeOrWithId<AssetId>
 where

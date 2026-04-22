@@ -1,6 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
+mod block_bundling;
 mod bootnodes;
 mod elastic_scaling;
 mod full_node_catching_up;
@@ -11,5 +12,4 @@ mod pov_recovery;
 mod rpc_collator_build_blocks;
 mod runtime_upgrade;
 mod statement_store;
-mod statement_store_bench;
 mod sync_blocks;

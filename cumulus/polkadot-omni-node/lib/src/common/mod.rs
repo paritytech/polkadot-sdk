@@ -124,14 +124,9 @@ pub struct NodeExtraArgs {
 	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
 	pub max_pov_percentage: Option<u32>,
 
-	/// If true then the statement store will be enabled.
-	pub enable_statement_store: bool,
-
-	/// Number of concurrent workers for statement validation from the network.
-	pub statement_network_workers: usize,
-
-	/// Maximum statements per second per peer before rate limiting kicks in.
-	pub statement_rate_limit: u32,
+	/// Statement store and network handler configuration.
+	/// `None` disables the statement store.
+	pub statement_store_config: Option<sc_statement_store::Config>,
 
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
