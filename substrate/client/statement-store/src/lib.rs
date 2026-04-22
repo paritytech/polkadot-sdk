@@ -1323,8 +1323,11 @@ impl StatementStore for Store {
 				"Statement is already expired: {:?}",
 				HexDisplay::from(&hash),
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::AlreadyExpired);
+			let reason = InvalidReason::AlreadyExpired;
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
 		}
 		let encoded_size = statement.encoded_size();
 		if encoded_size > MAX_STATEMENT_SIZE {
@@ -1335,21 +1338,30 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+			let reason = InvalidReason::EncodingTooLarge {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
+			};
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
 			});
+			return SubmitResult::Invalid(reason);
 		}
 
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known_expired"]).inc();
+					});
 					return SubmitResult::KnownExpired;
 				}
 			},
 			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known"]).inc();
+					});
 					return SubmitResult::Known;
 				}
 			},
@@ -1362,8 +1374,11 @@ impl StatementStore for Store {
 				"Statement validation failed: Missing proof ({:?})",
 				HexDisplay::from(&hash),
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::NoProof);
+			let reason = InvalidReason::NoProof;
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
 		};
 
 		match statement.verify_signature() {
@@ -1374,8 +1389,11 @@ impl StatementStore for Store {
 					"Statement validation failed: BadProof, {:?}",
 					HexDisplay::from(&hash),
 				);
-				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Invalid(InvalidReason::BadProof);
+				let reason = InvalidReason::BadProof;
+				self.metrics.report(|metrics| {
+					metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Invalid(reason);
 			},
 			SignatureVerificationResult::NoSignature => {
 				if let Some(Proof::OnChain { .. }) = statement.proof() {
@@ -1390,8 +1408,11 @@ impl StatementStore for Store {
 						"Statement validation failed: NoProof, {:?}",
 						HexDisplay::from(&hash),
 					);
-					self.metrics.report(|metrics| metrics.validations_invalid.inc());
-					return SubmitResult::Invalid(InvalidReason::NoProof);
+					let reason = InvalidReason::NoProof;
+					self.metrics.report(|metrics| {
+						metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+					});
+					return SubmitResult::Invalid(reason);
 				}
 			},
 		};
@@ -1416,7 +1437,11 @@ impl StatementStore for Store {
 					"Account {} has no statement allowance set",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+				let reason = RejectionReason::NoAllowance;
+				self.metrics.report(|metrics| {
+					metrics.rejections.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Rejected(reason);
 			},
 			Err(e) => {
 				log::debug!(
@@ -1424,6 +1449,9 @@ impl StatementStore for Store {
 					"Reading statement allowance for account {} failed",
 					HexDisplay::from(&account_id),
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["read_allowance"]).inc();
+				});
 				return SubmitResult::InternalError(e);
 			},
 		};
@@ -1456,6 +1484,9 @@ impl StatementStore for Store {
 					e,
 					statement
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["db_commit"]).inc();
+				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 			self.subscription_manager.notify(statement);
@@ -3056,5 +3087,91 @@ mod tests {
 			assert!(index.entries.contains_key(&h_ch_big), "New channel message added");
 			assert_eq!(index.total_size, 900); // 300 (mid) + 600 (new channel)
 		}
+	}
+
+	#[test]
+	fn subscription_reconnect_receives_current_state() {
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+
+		// Submit 3 statements
+		for i in 0..3u8 {
+			let res = store.submit(signed_statement(i), source);
+			assert_eq!(res, SubmitResult::New);
+		}
+
+		// First subscribe → should get 3 existing statements
+		let (existing, sender, stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		assert_eq!(existing.len(), 3, "First subscribe should return 3 existing statements");
+
+		// Drop stream
+		drop(stream);
+		drop(sender);
+
+		// Submit 2 more while disconnected
+		for i in 3..5u8 {
+			assert_eq!(store.submit(signed_statement(i), source), SubmitResult::New);
+		}
+		let (existing, sender, stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		assert_eq!(existing.len(), 5, "Re-subscribe should return all 5 current statements");
+
+		// Drop and remove one statement
+		drop(stream);
+		drop(sender);
+		let hash_to_remove = signed_statement(0).hash();
+		store.remove(&hash_to_remove).unwrap();
+
+		// Re-subscribe → should get 4
+		let (existing, _sender, _stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		assert_eq!(existing.len(), 4, "Re-subscribe after removal should return 4 statements");
+	}
+
+	#[test]
+	fn subscription_reconnect_with_topic_filter() {
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+		let topic_a = topic(1);
+		let topic_b = topic(2);
+
+		// s1: topic A only
+		let s1 = signed_statement_with_topics(1, &[topic_a], None);
+		// s2: topic B only
+		let s2 = signed_statement_with_topics(2, &[topic_b], None);
+		// s3: topics A + B
+		let s3 = signed_statement_with_topics(3, &[topic_a, topic_b], None);
+
+		assert_eq!(store.submit(s1, source), SubmitResult::New);
+		assert_eq!(store.submit(s2, source), SubmitResult::New);
+		assert_eq!(store.submit(s3, source), SubmitResult::New);
+
+		// Subscribe with MatchAll([A]) → s1, s3
+		let filter_a = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_a]));
+		let (existing, sender, stream) = store.subscribe_statement(filter_a.clone()).unwrap();
+		assert_eq!(existing.len(), 2, "MatchAll([A]) should match s1 and s3");
+
+		// Drop and add s4 with topic A
+		drop(sender);
+		drop(stream);
+		let s4 = signed_statement_with_topics(4, &[topic_a], None);
+		assert_eq!(store.submit(s4, source), SubmitResult::New);
+		// Re-subscribe with same filter → s1, s3, s4
+		let (existing, sender, stream) = store.subscribe_statement(filter_a).unwrap();
+		assert_eq!(existing.len(), 3, "Re-subscribe MatchAll([A]) should return s1, s3, s4");
+
+		// Drop and re-subscribe with different filter MatchAll([B]) → s2, s3
+		drop(sender);
+		drop(stream);
+		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
+		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
+		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
 	}
 }

@@ -773,7 +773,7 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
-	pub const DapPalletId: PalletId = PalletId(*b"dap/buff");
+	pub const DapPalletId: PalletId = pallet_dap::DAP_PALLET_ID;
 	pub const DapIssuanceCadence: u64 = 0; // drip every block
 	pub const DapMaxElapsedPerDrip: u64 = 600_000;
 }

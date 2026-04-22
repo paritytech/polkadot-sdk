@@ -57,6 +57,8 @@ permissions:
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    with:
+      concurrency_suffix: publish-crates
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
@@ -281,7 +283,7 @@ jobs:
           echo "Cargo.lock updated"
 
       - name: Verify workspace compiles
-        if: inputs.resume_from == 'full' || inputs.resume_from == 'apply'
+        if: (inputs.resume_from == 'full' || inputs.resume_from == 'apply') && inputs.publish_jobs > 0
         env:
           SKIP_WASM_BUILD: 1
         run: |
