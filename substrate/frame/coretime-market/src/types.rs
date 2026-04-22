@@ -10,6 +10,10 @@ use sp_arithmetic::Perbill;
 pub trait RenewalRightsProvider<AccountId> {
 	/// Returns the number of renewal rights held by `who` at timeslice `when`.
 	fn renewal_rights_count(who: &AccountId, when: Timeslice) -> u32;
+
+	/// Set renewal rights for benchmarking purposes.
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &AccountId, when: Timeslice, count: u32);
 }
 
 /// Initialization data for starting sales.

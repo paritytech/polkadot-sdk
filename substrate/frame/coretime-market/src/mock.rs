@@ -98,6 +98,11 @@ impl RenewalRightsProvider<u64> for TestRenewalRights {
 	fn renewal_rights_count(who: &u64, when: Timeslice) -> u32 {
 		RENEWAL_RIGHTS.with(|r| r.borrow().get(&(*who, when)).copied().unwrap_or(0))
 	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	fn set_rights_count(who: &u64, when: Timeslice, count: u32) {
+		Self::set(*who, when, count);
+	}
 }
 
 impl crate::pallet::Config for Test {
