@@ -39,7 +39,9 @@ fn setup_sale<T: Config>() -> Result<(), BenchmarkError> {
 fn fill_bids<T: Config>(n: u32) -> Result<(), BenchmarkError> {
 	for i in 0..n {
 		let who: T::AccountId = account("bidder", i, SEED);
-		Pallet::<T>::place_order(0u32.into(), &who, 200u32.into())
+		// Vary prices so bids spread across the sorted vec.
+		let price: u32 = 200u32.saturating_sub(i % 100);
+		Pallet::<T>::place_order(0u32.into(), &who, price.into())
 			.map_err(|_| BenchmarkError::Weightless)?;
 	}
 	Ok(())

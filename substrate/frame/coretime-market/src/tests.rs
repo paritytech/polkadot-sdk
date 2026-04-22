@@ -3,9 +3,10 @@
 use crate::{
 	mock::*,
 	pallet::{Configuration, CurrentPhase, SaleInfo},
-	InitData, SalePhase,
+	Event, InitData, SalePhase,
 };
 use frame_support::weights::WeightMeter;
+use frame_system::EventRecord;
 use pallet_broker::{
 	market::{AdjustBidResult, Market, OrderResult, RenewalOrderResult, TickAction},
 	PotentialRenewalId, Timeslice,
@@ -13,6 +14,24 @@ use pallet_broker::{
 
 type CoretimeMarket = crate::Pallet<Test>;
 type Error = crate::pallet::Error<Test>;
+type RuntimeEvent = <Test as frame_system::Config>::RuntimeEvent;
+
+fn market_events() -> Vec<Event<Test>> {
+	frame_system::Pallet::<Test>::events()
+		.into_iter()
+		.filter_map(|EventRecord { event, .. }| {
+			if let RuntimeEvent::CoretimeMarket(e) = event {
+				Some(e)
+			} else {
+				None
+			}
+		})
+		.collect()
+}
+
+fn last_market_event() -> Event<Test> {
+	market_events().pop().expect("Expected at least one market event")
+}
 
 /// The region_begin of the first sale with default config.
 /// Computed as: old_region_end = commit_ts + region_length = (0+2)/2 + 3 = 4, new_begin = 4.
@@ -139,12 +158,14 @@ fn place_bid_works() {
 		match result {
 			OrderResult::BidPlaced { id, bid_price } => {
 				assert_eq!(id, 0);
-				// Bid price should be min(price_limit, current_price).
-				// At block 0, current_price = opening_price = reserve * multiplier = 200.
 				assert_eq!(bid_price, 200);
 			},
 			_ => panic!("Expected BidPlaced"),
 		}
+		assert_eq!(
+			last_market_event(),
+			Event::BidPlaced { who: 1, bid_id: 0, amount: 200 }
+		);
 	});
 }
 
@@ -153,6 +174,21 @@ fn place_bid_wrong_phase() {
 	TestExt::new().execute_with(|| {
 		// No sales started.
 		assert!(place_bid(0, 1, 100).is_err());
+	});
+}
+
+#[test]
+fn place_bid_too_early() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		let sale = SaleInfo::<Test>::get().unwrap();
+
+		if sale.sale_start > 0 {
+			assert!(matches!(
+				place_bid(sale.sale_start - 1, 1, 200),
+				Err(Error::TooEarly)
+			));
+		}
 	});
 }
 
@@ -198,14 +234,17 @@ fn adjust_bid_raise_works() {
 		let OrderResult::BidPlaced { id, bid_price: _ } =
 			place_bid(0, 1, 150).unwrap() else { panic!() };
 
-		// Raise bid (still within descending price at block 0 = 200).
 		let result = adjust_bid(0, id, 1, Some(180)).unwrap();
 		match result {
 			AdjustBidResult::Lock { amount } => {
-				assert_eq!(amount, 30); // 180 - 150
+				assert_eq!(amount, 30);
 			},
 			_ => panic!("Expected Lock"),
 		}
+		assert_eq!(
+			last_market_event(),
+			Event::BidRaised { who: 1, bid_id: id, new_price: 180, additional: 30 }
+		);
 	});
 }
 
@@ -255,11 +294,21 @@ fn adjust_bid_wrong_phase_fails() {
 		start_sales(100);
 		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
-		// Settle auction → Renewal phase.
 		tick(20);
 		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
 
 		assert!(matches!(adjust_bid(25, id, 1, Some(180)), Err(Error::WrongPhase)));
+	});
+}
+
+#[test]
+fn adjust_bid_above_current_price_fails() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		// At block 10, price = 150 (midpoint between 200 and 100).
+		let OrderResult::BidPlaced { id, .. } = place_bid(10, 1, 140).unwrap() else { panic!() };
+
+		assert!(matches!(adjust_bid(10, id, 1, Some(160)), Err(Error::BidTooHigh)));
 	});
 }
 
@@ -269,20 +318,22 @@ fn adjust_bid_wrong_phase_fails() {
 fn auction_settles_on_tick() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-
-		// Place 2 bids (2 cores offered).
 		place_bid(0, 1, 200).unwrap();
 		place_bid(0, 2, 150).unwrap();
 
-		// Tick at market_end (market_period = 20).
 		let actions = tick(20);
 
-		// Should contain settlement actions (refunds) and ProcessAutoRenewals.
 		assert!(CurrentPhase::<Test>::get() == Some(SalePhase::Renewal));
 		assert!(SaleInfo::<Test>::get().unwrap().clearing_price.is_some());
 
 		let has_process = actions.iter().any(|a| matches!(a, TickAction::ProcessAutoRenewals { .. }));
 		assert!(has_process, "Should have ProcessAutoRenewals action");
+
+		let events = market_events();
+		assert!(events.iter().any(|e| matches!(e, Event::AuctionSettled { .. })));
+		assert!(events.iter().any(|e| matches!(e,
+			Event::PhaseTransitioned { from: SalePhase::Market, to: SalePhase::Renewal }
+		)));
 	});
 }
 
@@ -370,12 +421,49 @@ fn losers_get_full_refund() {
 		place_bid(0, 3, 150).unwrap();
 		let actions = tick(20);
 
-		// User 3 should get full 150 refund (loser).
 		let refund_3 = actions.iter().find(|a| matches!(a, TickAction::Refund { who, .. } if *who == 3));
 		match refund_3 {
 			Some(TickAction::Refund { amount, .. }) => assert_eq!(*amount, 150),
 			_ => panic!("Expected full refund for losing user 3"),
 		}
+	});
+}
+
+#[test]
+fn highest_bidders_win_not_first_bidders() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		place_bid(0, 1, 100).unwrap(); // lowest
+		place_bid(0, 2, 150).unwrap(); // mid
+		place_bid(0, 3, 200).unwrap(); // highest
+
+		let actions = tick(20);
+
+		let refund_1 = actions.iter().find(|a| matches!(a, TickAction::Refund { who, amount } if *who == 1 && *amount == 100));
+		assert!(refund_1.is_some(), "User 1 (lowest) should lose");
+
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.cores_sold, 2);
+	});
+}
+
+#[test]
+fn same_account_multiple_bids() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 1, 180).unwrap();
+
+		tick(20);
+		let sale = SaleInfo::<Test>::get().unwrap();
+		assert_eq!(sale.cores_sold, 2);
+
+		let actions = tick(30);
+		let user1_sells = actions
+			.iter()
+			.filter(|a| matches!(a, TickAction::SellRegion { owner, .. } if *owner == 1))
+			.count();
+		assert_eq!(user1_sells, 2);
 	});
 }
 
@@ -398,6 +486,11 @@ fn renewal_during_renewal_phase() {
 				assert!(price > 0);
 				assert_eq!(region_id.begin, sale.region_begin);
 				assert_eq!(effective_to, sale.region_end);
+
+				assert_eq!(
+					last_market_event(),
+					Event::RenewalExercised { who: 2, price, region_id }
+				);
 			},
 			_ => panic!("Expected Renewed"),
 		}
@@ -594,6 +687,27 @@ fn no_displacement_when_not_oversubscribed() {
 }
 
 #[test]
+fn quotas_cleared_between_sales() {
+	TestExt::new().execute_with(|| {
+		TestRenewalRights::set(1, FIRST_REGION_BEGIN, 2);
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		tick(20);
+
+		let sale = SaleInfo::<Test>::get().unwrap();
+		let quota = crate::pallet::Quotas::<Test>::get(1);
+		assert_eq!(quota.auction_wins, 1);
+
+		tick(30);
+		tick_with_ts(35, sale.region_begin);
+
+		let quota = crate::pallet::Quotas::<Test>::get(1);
+		assert_eq!(quota.auction_wins, 0);
+		assert_eq!(quota.renewals_used, 0);
+	});
+}
+
+#[test]
 fn renewal_rights_reset_after_sale_cycle() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[]);
@@ -712,6 +826,10 @@ fn displacement_works_when_oversubscribed() {
 			_ => panic!("Expected Renewed via displacement"),
 		}
 
+		let events = market_events();
+		assert!(events.iter().any(|e| matches!(e, Event::BidDisplaced { who: 2, .. })));
+		assert!(events.iter().any(|e| matches!(e, Event::RenewalExercised { who: 3, .. })));
+
 		let actions = tick(30);
 		let sell_count = actions
 			.iter()
@@ -824,6 +942,29 @@ fn tenant_protection_limited_to_renewal_rights_count() {
 			.filter(|a| matches!(a, TickAction::Refund { .. }))
 			.count();
 		assert_eq!(refund_count, 2);
+	});
+}
+
+#[test]
+fn displaced_refund_equals_clearing_price() {
+	TestExt::new().execute_with(|| {
+		start_sales(200); // reserve=200, opening=400
+		place_bid(0, 1, 300).unwrap();
+		place_bid(0, 2, 250).unwrap();
+		tick(20);
+
+		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
+
+		let sale = SaleInfo::<Test>::get().unwrap();
+		TestRenewalRights::set(3, sale.region_begin, 1);
+		place_renewal(25, 3, 0, sale.region_begin).unwrap();
+
+		let actions = tick(30);
+		let refund = actions.iter().find_map(|a| match a {
+			TickAction::Refund { amount, .. } => Some(*amount),
+			_ => None,
+		});
+		assert_eq!(refund, Some(clearing));
 	});
 }
 
@@ -1054,7 +1195,37 @@ fn sale_rotation_opening_price_from_reserve() {
 	});
 }
 
+#[test]
+fn settlement_does_not_rotate_until_timeslice_ready() {
+	TestExt::new().execute_with(|| {
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+
+		tick(20); // → Renewal
+		tick(30); // → Settlement
+		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+
+		TestTimesliceProvider::set_latest_ready(0);
+		let sale = SaleInfo::<Test>::get().unwrap();
+		let actions = tick(35);
+		assert!(actions.is_empty());
+		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+
+		let actions = tick_with_ts(36, sale.region_begin);
+		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
+		assert!(actions.iter().any(|a| matches!(a, TickAction::SaleRotated { .. })));
+	});
+}
+
 // --- Full sale cycle ---
+
+#[test]
+fn tick_before_sales_started_returns_empty() {
+	TestExt::new().execute_with(|| {
+		let actions = tick(10);
+		assert!(actions.is_empty());
+	});
+}
 
 #[test]
 fn full_sale_cycle() {
@@ -1075,11 +1246,50 @@ fn full_sale_cycle() {
 			.count();
 		assert_eq!(sell_count, 2);
 
+		let events = market_events();
+		assert!(events.iter().any(|e| matches!(e, Event::SaleFinalized { regions_issued: 2 })));
+		assert!(events.iter().any(|e| matches!(e,
+			Event::PhaseTransitioned { from: SalePhase::Renewal, to: SalePhase::Settlement }
+		)));
+
 		let sale = SaleInfo::<Test>::get().unwrap();
 		let actions = tick_with_ts(35, sale.region_begin);
 		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
 
 		let has_rotated = actions.iter().any(|a| matches!(a, TickAction::SaleRotated { .. }));
 		assert!(has_rotated, "Should have SaleRotated action");
+
+		let events = market_events();
+		assert!(events.iter().any(|e| matches!(e, Event::SaleInitialized { .. })));
+	});
+}
+
+#[test]
+fn multiple_sale_cycles_price_adapts() {
+	TestExt::new().execute_with(|| {
+		// Cycle 1: 100% consumption → price increases.
+		start_sales(100);
+		place_bid(0, 1, 200).unwrap();
+		place_bid(0, 2, 200).unwrap();
+		tick(20);
+		tick(30);
+		let sale1 = SaleInfo::<Test>::get().unwrap();
+		tick_with_ts(35, sale1.region_begin);
+
+		let sale2 = SaleInfo::<Test>::get().unwrap();
+		let reserve_after_cycle1 = sale2.reserve_price;
+		assert!(reserve_after_cycle1 > 100, "Reserve should increase after full consumption");
+
+		// Cycle 2: 0% consumption → price decreases.
+		tick(55);
+		tick(65);
+		let sale2_final = SaleInfo::<Test>::get().unwrap();
+		tick_with_ts(70, sale2_final.region_begin);
+
+		let sale3 = SaleInfo::<Test>::get().unwrap();
+		assert!(
+			sale3.reserve_price < reserve_after_cycle1,
+			"Reserve should decrease after zero consumption"
+		);
 	});
 }

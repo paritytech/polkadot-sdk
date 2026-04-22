@@ -158,6 +158,7 @@ impl TestExt {
 
 	pub fn execute_with<R>(self, f: impl Fn() -> R) -> R {
 		new_test_ext().execute_with(|| {
+			frame_system::Pallet::<Test>::set_block_number(1);
 			TestCoreRangeProvider::set(DEFAULT_RESERVED, DEFAULT_CORE_COUNT);
 			TestTimesliceProvider::set_latest_ready(0);
 			<CoretimeMarket as Market<u64, u64, u64>>::configure(self.0)

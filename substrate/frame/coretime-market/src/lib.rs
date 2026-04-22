@@ -96,7 +96,6 @@ type TickActionOf<T> =
 pub trait WeightInfo {
 	fn place_order() -> Weight;
 	fn adjust_bid() -> Weight;
-	fn place_renewal_order_market() -> Weight;
 	fn place_renewal_order_renewal() -> Weight;
 	fn place_renewal_order_displacement() -> Weight;
 	fn settle_auction() -> Weight;
@@ -109,9 +108,6 @@ impl WeightInfo for () {
 		Weight::zero()
 	}
 	fn adjust_bid() -> Weight {
-		Weight::zero()
-	}
-	fn place_renewal_order_market() -> Weight {
 		Weight::zero()
 	}
 	fn place_renewal_order_renewal() -> Weight {
