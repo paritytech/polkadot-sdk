@@ -243,6 +243,21 @@ async fn spawn_flooding_network(
 
 	let network = crate::utils::initialize_network(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
+
+	// Wait until both collators are past major sync. Statements received while a peer is
+	// major-syncing are dropped before the rate-limiter runs, so the flooding metric would
+	// never increment if we submitted the burst too early.
+	for name in ["alice", "bob"] {
+		network
+			.get_node(name)?
+			.wait_metric_with_timeout(
+				"block_height{status=\"best\"}",
+				|height| height >= 1.0,
+				300u64,
+			)
+			.await?;
+	}
+
 	Ok(network)
 }
 
