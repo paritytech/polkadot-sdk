@@ -859,47 +859,21 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		info!("{}: received all {} statements via initial sync", name, TOTAL_STMTS);
 	}
 
-	// Verify initial sync was used by both senders. The exact count per sender varies
-	// because gossip between new peers can deliver statements before initial sync
-	// completes, causing known_statements to skip already-gossiped entries.
-	// We assert each sender contributed at least TOTAL_STMTS (one full peer served).
-	let charlie_sent_after = Cell::new(0.0f64);
+	// Verify schedule_initial_sync_for_peer fired on both senders
 	charlie
 		.wait_metric_with_timeout(
 			"substrate_sync_initial_sync_statements_sent",
-			|v| {
-				charlie_sent_after.set(v);
-				v >= charlie_sent_before.get() + TOTAL_STMTS as f64
-			},
+			|v| v >= charlie_sent_before.get() + TOTAL_STMTS as f64,
 			30u64,
 		)
-		.await
-		.map_err(|_| {
-			anyhow::anyhow!(
-				"Charlie initial sync sent only {}, expected at least {}",
-				charlie_sent_after.get() - charlie_sent_before.get(),
-				TOTAL_STMTS
-			)
-		})?;
-
-	let alice_sent_after = Cell::new(0.0f64);
+		.await?;
 	alice
 		.wait_metric_with_timeout(
 			"substrate_sync_initial_sync_statements_sent",
-			|v| {
-				alice_sent_after.set(v);
-				v >= alice_sent_before.get() + TOTAL_STMTS as f64
-			},
+			|v| v >= alice_sent_before.get() + TOTAL_STMTS as f64,
 			30u64,
 		)
-		.await
-		.map_err(|_| {
-			anyhow::anyhow!(
-				"Alice initial sync sent only {}, expected at least {}",
-				alice_sent_after.get() - alice_sent_before.get(),
-				TOTAL_STMTS
-			)
-		})?;
+		.await?;
 
 	Ok(())
 }
