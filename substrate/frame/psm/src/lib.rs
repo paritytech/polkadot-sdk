@@ -489,6 +489,10 @@ pub mod pallet {
 		/// - [`Error::ExceedsMaxIssuance`]: If minting would exceed system-wide pUSD issuance cap
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed PSM debt ceiling (aggregate or
 		///   per-asset)
+		/// - [`Error::DecimalsMismatch`]: If the asset's decimals do not match the stable asset's
+		///   decimals
+		/// - [`Error::AmountTooSmallAfterConversion`]: if the conversion to the counter-asset
+		///   rounds to zero; swap would transfer nothing
 		///
 		/// ## Events
 		///
@@ -597,6 +601,10 @@ pub mod pallet {
 		/// - [`Error::AllSwapsStopped`]: If circuit breaker is at `AllDisabled`
 		/// - [`Error::BelowMinimumSwap`]: If `pusd_amount` is below [`Config::MinSwapAmount`]
 		/// - [`Error::InsufficientReserve`]: If PSM has insufficient external stablecoin
+		/// - [`Error::DecimalsMismatch`]: If the asset's decimals do not match the stable asset's
+		///   decimals
+		/// - [`Error::AmountTooSmallAfterConversion`]: if the conversion to the counter-asset
+		///   rounds to zero; swap would transfer nothing
 		///
 		/// ## Events
 		///

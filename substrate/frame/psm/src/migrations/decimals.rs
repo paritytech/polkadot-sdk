@@ -29,8 +29,8 @@
 //! the migration still writes its decimals snapshot but flips its circuit
 //! breaker to [`CircuitBreakerLevel::AllDisabled`]. The chain keeps upgrading;
 //! governance can remove or re-enable the asset later once the off-chain
-//! situation is resolved. The `try-runtime` post-upgrade hook fails in this
-//! case so operators are alerted before going live.
+//! situation is resolved. The `try-runtime` post-upgrade hook verifies this
+//! invariant — any out-of-range asset must end up disabled.
 //!
 //! Safe to run multiple times — already-populated snapshots are not overwritten.
 //!
@@ -97,7 +97,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 		let mut writes = 0u64;
 
 		// Stable asset snapshot — only write if missing.
-		reads += 1;
+		reads += 2;
 		let stable_decimals = T::StableAsset::decimals();
 		if !StableDecimals::<T>::exists() {
 			StableDecimals::<T>::put(stable_decimals);
@@ -106,7 +106,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 		// Per-asset snapshots. Walk every approved external asset.
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
-			reads += 2; // ExternalAssets iter item + AssetDecimals read below
+			reads += 3; // ExternalAssets iter item + AssetDecimals + Fungibles::decimals reads below
 			if AssetDecimals::<T>::contains_key(asset_id) {
 				log::info!(
 					target: LOG_TARGET,
@@ -169,7 +169,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 		);
 
 		let stable_decimals = T::StableAsset::decimals();
-		for (asset_id, _status) in ExternalAssets::<T>::iter() {
+		for (asset_id, status) in ExternalAssets::<T>::iter() {
 			let snapshot = AssetDecimals::<T>::get(asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
 			ensure!(
@@ -177,10 +177,12 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 				"AssetDecimals snapshot differs from live metadata after migration"
 			);
 			let diff = snapshot.abs_diff(stable_decimals) as u32;
-			ensure!(
-				diff <= MAX_DECIMALS_DIFF,
-				"Approved external asset decimals diff exceeds MAX_DECIMALS_DIFF"
-			);
+			if diff > MAX_DECIMALS_DIFF {
+				ensure!(
+					status == CircuitBreakerLevel::AllDisabled,
+					"Out-of-range external asset was not disabled by migration"
+				);
+			}
 		}
 
 		Ok(())
