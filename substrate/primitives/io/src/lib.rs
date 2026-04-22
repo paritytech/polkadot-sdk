@@ -908,7 +908,11 @@ pub trait Storage {
 	#[version(3)]
 	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
-		let root = self.storage_root(StateVersion::V0);
+		let version = self
+			.extension::<sp_core::traits::RuntimeStateVersionExt>()
+			.map(|ext| ext.0)
+			.unwrap_or(StateVersion::V1);
+		let root = self.storage_root(version);
 		let encoded = codec::Encode::encode(&root);
 		assert!(
 			out.len() >= encoded.len(),
@@ -1458,8 +1462,12 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) {
+		let version = self
+			.extension::<sp_core::traits::RuntimeStateVersionExt>()
+			.map(|ext| ext.0)
+			.unwrap_or(StateVersion::V1);
 		let child_info = ChildInfo::new_default(storage_key);
-		let root = self.child_storage_root(&child_info, StateVersion::V0);
+		let root = self.child_storage_root(&child_info, version);
 		let encoded = codec::Encode::encode(&root);
 		assert!(
 			out.len() >= encoded.len(),

@@ -349,19 +349,32 @@ where
 			AssertUnwindSafe<&mut dyn Externalities>,
 		) -> Result<Result<R>>,
 	{
-		match self.cache.with_instance::<H, _, _>(
+		let inner_result = self.cache.with_instance::<H, _, _>(
 			runtime_code,
 			ext,
 			self.method,
 			heap_alloc_strategy,
 			self.allow_missing_host_functions,
 			|module, instance, version, ext| {
+				if let Some(v) = version {
+					use sp_externalities::ExternalitiesExt as _;
+					let mut e: &mut dyn sp_externalities::Externalities = ext;
+					let _ = e.register_extension(sp_core::traits::RuntimeStateVersionExt(
+						v.state_version(),
+					));
+				}
 				let module = AssertUnwindSafe(module);
 				let instance = AssertUnwindSafe(instance);
 				let ext = AssertUnwindSafe(ext);
 				f(module, instance, version, ext)
 			},
-		)? {
+		);
+
+		use sp_externalities::ExternalitiesExt as _;
+		let mut e: &mut dyn sp_externalities::Externalities = ext;
+		let _ = e.deregister_extension::<sp_core::traits::RuntimeStateVersionExt>();
+
+		match inner_result? {
 			Ok(r) => r,
 			Err(e) => Err(e),
 		}

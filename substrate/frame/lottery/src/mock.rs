@@ -79,7 +79,5 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	// Match the `StateVersion` hardcoded in the `sp_io::storage::root()` wrapper (V0).
-	// See https://github.com/paritytech/polkadot-sdk/issues/11833
-	(t, sp_core::storage::StateVersion::V0).into()
+	t.into()
 }

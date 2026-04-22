@@ -179,6 +179,11 @@ impl ReadRuntimeVersionExt {
 	}
 }
 
+sp_externalities::decl_extension! {
+	/// Exposes the state version of the currently-loaded runtime to host functions.
+	pub struct RuntimeStateVersionExt(sp_storage::StateVersion);
+}
+
 /// Something that can spawn tasks (blocking and non-blocking) with an assigned name
 /// and optional group.
 pub trait SpawnNamed: dyn_clone::DynClone + Send + Sync {
