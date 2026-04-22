@@ -612,12 +612,246 @@ mod tests {
 		assert_eq!(location, expected);
 	}
 
+	// Baseline case that already existed: target and id on same branch, target
+	// shallower than id. We sit at Parachain(2000); id points to GI(42) inside
+	// Parachain(1000). From target (Parachain(1000)) the same thing is just GI(42).
 	#[test]
-	fn reanchor_works() {
+	fn reanchor_same_branch_target_shallower_than_id() {
 		let mut id: Location = (Parent, Parachain(1000), GeneralIndex(42)).into();
-		let context = Parachain(2000).into();
-		let target = (Parent, Parachain(1000)).into();
-		let expected = GeneralIndex(42).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000)).into();
+		let expected: Location = GeneralIndex(42).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// id = Parachain(1000), target = Parachain(1000)/GI(42). From target, id is
+	// one level up with empty interior: Location { parents: 1, interior: Here }.
+	#[test]
+	fn reanchor_same_branch_target_deeper_than_id() {
+		let mut id: Location = (Parent, Parachain(1000)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000), GeneralIndex(42)).into();
+		let expected: Location = Location::new(1, Here);
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// Same branch, same depth: target and id share the first hop but diverge
+	// at the second.
+	#[test]
+	fn reanchor_same_branch_same_depth() {
+		let mut id: Location = (Parent, Parachain(1000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location = (Parent, GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// target is deeper than id on the same branch, multi-hop.
+	#[test]
+	fn reanchor_same_branch_target_deeper_multi_hop() {
+		let mut id: Location = (Parent, Parachain(1000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location =
+			(Parent, Parachain(1000), Parachain(3000), Parachain(4000)).into();
+		let expected: Location = (Parent, Parent, GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// target is shallower than id on the same branch, multi-hop.
+	#[test]
+	fn reanchor_same_branch_target_shallower_multi_hop() {
+		let mut id: Location =
+			(Parent, Parachain(1000), Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// id and target on different branches at the relay level. id = our sibling
+	// Parachain(4000); target = Parachain(1000)/Parachain(3000). From target we
+	// must go up twice to the relay and then down to the sibling.
+	#[test]
+	fn reanchor_different_branches_at_relay() {
+		let mut id: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location =
+			(Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// id has no parents (it lives inside us). Reaching it from target requires
+	// first traversing the full context (Parachain(2000)).
+	#[test]
+	fn reanchor_id_without_parents() {
+		let mut id: Location = (Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location =
+			(Parent, Parent, Parachain(2000), Parachain(4000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// target has no parents (it lives inside us). One extra parent jump is
+	// needed compared to the sibling case because target is one level deeper.
+	#[test]
+	fn reanchor_target_without_parents() {
+		let mut id: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parachain(1000), Parachain(3000)).into();
+		let expected: Location =
+			(Parent, Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// id has a Parachain index equal to our own (Parachain(2000)). This is NOT
+	// the same node as the context — junctions are relative hops, not absolute
+	// IDs. The duplicate must remain in the result.
+	#[test]
+	fn reanchor_id_with_duplicate_parachain_index() {
+		let mut id: Location =
+			(Parent, Parachain(2000), Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location =
+			(Parent, Parent, Parachain(2000), Parachain(4000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// Multi-junction context (smart contract scenario) with id and target on
+	// different branches. The context is not visited in the result because
+	// target only needs to climb up to the relay.
+	#[test]
+	fn reanchor_multi_junction_context_different_branches() {
+		let mut id: Location = (Parent, Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation =
+			(Parachain(2000), Parachain(2022), PalletInstance(50), GeneralIndex(32)).into();
+		let target: Location = (Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location =
+			(Parent, Parent, Parachain(4000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// Multi-junction context plus target with two parents. target climbs past
+	// the pallet level of our context, so the result must include
+	// PalletInstance(50)/GeneralIndex(32) from the context.
+	#[test]
+	fn reanchor_multi_junction_context_target_with_two_parents() {
+		let mut id: Location = (Parachain(4000), GeneralIndex(42)).into();
+		let context: InteriorLocation =
+			(Parachain(2000), Parachain(2022), PalletInstance(50), GeneralIndex(32)).into();
+		let target: Location = (Parent, Parent, Parachain(1000), Parachain(3000)).into();
+		let expected: Location = (
+			Parent,
+			Parent,
+			PalletInstance(50),
+			GeneralIndex(32),
+			Parachain(4000),
+			GeneralIndex(42),
+		)
+			.into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// target climbs past the root described by context — must be rejected.
+	#[test]
+	fn reanchor_rejects_target_parents_exceeding_context() {
+		let mut id: Location = (Parent, Parachain(1000)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = Location::new(2, Here);
+		assert!(id.reanchor(&target, &context).is_err());
+	}
+
+	// self already climbs past the root described by context — must be rejected.
+	#[test]
+	fn reanchor_rejects_self_parents_exceeding_context() {
+		let mut id: Location = Location::new(3, Here);
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = Location::new(1, Here);
+		assert!(id.reanchor(&target, &context).is_err());
+	}
+
+	// Final interior would overflow MAX_JUNCTIONS = 8. self starts deep (0 parents,
+	// 7 interior) and the target sits outside the shared subtree, which forces the
+	// full 4-junction context to be prepended — 7 + 4 > 8, so it must be rejected.
+	#[test]
+	fn reanchor_rejects_final_interior_overflow() {
+		let mut id: Location = (
+			Parachain(4000),
+			GeneralIndex(1),
+			GeneralIndex(2),
+			GeneralIndex(3),
+			GeneralIndex(4),
+			GeneralIndex(5),
+			GeneralIndex(6),
+		)
+			.into();
+		let context: InteriorLocation =
+			(Parachain(2000), Parachain(2022), PalletInstance(50), GeneralIndex(32)).into();
+		let target: Location = (Parent, Parent, Parent, Parent, Parachain(9)).into();
+		assert!(id.reanchor(&target, &context).is_err());
+	}
+
+	// Invariant: on overflow, `self` must not be mutated.
+	#[test]
+	fn reanchor_does_not_mutate_on_overflow() {
+		let original: Location = Location::new(3, Here);
+		let mut id = original.clone();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = Location::new(1, Here);
+		let _ = id.reanchor(&target, &context);
+		assert_eq!(id, original, "self must be untouched when reanchor returns Err");
+	}
+
+	// self.interior is empty. id points to the relay itself. From target
+	// (Parachain(1000)), the relay is one level up.
+	#[test]
+	fn reanchor_with_empty_self_interior() {
+		let mut id: Location = Location::new(1, Here);
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = (Parent, Parachain(1000)).into();
+		let expected: Location = Location::new(1, Here);
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// target.interior is empty (target is the relay itself). From the relay,
+	// our asset is "down into Parachain(2000), then to the asset".
+	#[test]
+	fn reanchor_with_empty_target_interior() {
+		let mut id: Location = (Parent, Parachain(1000), GeneralIndex(42)).into();
+		let context: InteriorLocation = Parachain(2000).into();
+		let target: Location = Location::new(1, Here);
+		let expected: Location = (Parachain(1000), GeneralIndex(42)).into();
+		id.reanchor(&target, &context).unwrap();
+		assert_eq!(id, expected);
+	}
+
+	// Context is Here (we are at the root). Any self/target with parents > 0 is
+	// rejected; otherwise the operation degenerates to a trivial rewrite.
+	#[test]
+	fn reanchor_with_here_context() {
+		let context: InteriorLocation = Here;
+		// parents > 0 is rejected.
+		let mut id = Location::new(1, Here);
+		let target = Location::new(0, Here);
+		assert!(id.reanchor(&target, &context).is_err());
+		// Both sides with parents = 0 and shared root: self absolute == target absolute.
+		let mut id: Location = Parachain(4000).into();
+		let target: Location = Parachain(1000).into();
+		let expected: Location = (Parent, Parachain(4000)).into();
 		id.reanchor(&target, &context).unwrap();
 		assert_eq!(id, expected);
 	}
