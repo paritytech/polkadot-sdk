@@ -36,11 +36,11 @@ use sp_runtime::{AccountId32, DispatchResult};
 /// Full observable state snapshot for a (payer, contract) pair.
 #[derive(Debug, Default, PartialEq, Eq)]
 struct State {
-	/// Payer's free DOT balance.
+	/// Payer's free native currency balance.
 	payer_dot: u128,
 	/// Payer's free PGAS balance.
 	payer_pgas: u128,
-	/// DOT currently held on the contract.
+	/// Native currency currently held on the contract.
 	contract_dot_held: u128,
 	/// PGAS currently held on the contract.
 	contract_pgas_held: u128,
@@ -69,7 +69,7 @@ struct Charge {
 
 /// A full scenario: initial balances, a sequence of charges, then one refund.
 struct TestCase {
-	/// ALICE's starting free DOT balance.
+	/// ALICE's starting free native currency balance.
 	initial_dot: u128,
 	/// ALICE's starting PGAS balance.
 	initial_pgas: u128,
@@ -106,7 +106,7 @@ fn run(case: TestCase) {
 	}
 	builder.build().execute_with(|| {
 		Balances::set_balance(&ALICE, case.initial_dot);
-		// Ensure BOB's account exists so DOT holds can be created on it.
+		// Ensure BOB's account exists so native currency holds can be created on it.
 		frame_system::Pallet::<Test>::inc_providers(&BOB);
 
 		for (i, charge) in case.charges.iter().enumerate() {
@@ -119,8 +119,8 @@ fn run(case: TestCase) {
 	});
 }
 
-/// DOT-only: ALICE has no PGAS, so the 100-unit hold is fully backed by DOT and
-/// [`NativeDepositOf`] tracks it; the refund returns the DOT.
+/// Native-only: ALICE has no PGAS, so the 100-unit hold is fully backed by native currency
+/// and [`NativeDepositOf`] tracks it; the refund returns the native currency.
 #[test]
 fn pay_dot_refund_dot() {
 	run(TestCase {
@@ -140,7 +140,7 @@ fn pay_dot_refund_dot() {
 	});
 }
 
-/// PGAS-only: ALICE's PGAS covers the hold, so DOT is untouched and no
+/// PGAS-only: ALICE's PGAS covers the hold, so native currency is untouched and no
 /// entitlement is recorded; the refund returns PGAS (at `PGasRefundPercent`).
 #[test]
 fn pay_pgas_refund_pgas() {
@@ -162,7 +162,7 @@ fn pay_pgas_refund_pgas() {
 }
 
 /// Mixed: first charge (40) fits into ALICE's 100 PGAS; second charge (80)
-/// exceeds remaining PGAS (60) so falls back to DOT in full. Refund pays DOT
+/// exceeds remaining PGAS (60) so falls back to native currency in full. Refund pays native
 /// first (capped by the entitlement), then PGAS for the remainder.
 #[test]
 fn pay_mixed_refund_mixed() {

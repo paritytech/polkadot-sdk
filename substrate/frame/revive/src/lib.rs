@@ -686,9 +686,9 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
 
-	/// DOT storage deposit contributed by a user into a contract.
+	/// Native currency storage deposit contributed by a user into a contract.
 	///
-	/// Bounds how much DOT value the user can receive back from that contract's
+	/// Bounds how much native value the user can receive back from that contract's
 	/// storage deposit.
 	#[pallet::storage]
 	pub(crate) type NativeDepositOf<T: Config> = StorageDoubleMap<

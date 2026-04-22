@@ -270,7 +270,7 @@ where
 		}
 	}
 
-	/// Refunds DOT first (capped by [`NativeDepositOf`]); any shortfall is taken from PGAS
+	/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from PGAS
 	/// with `RefundPercent` refunded and the rest burned.
 	fn refund_on_hold(
 		reason: HoldReason,
@@ -306,7 +306,7 @@ where
 		})
 	}
 
-	/// Sum of `who`'s DOT-on-hold and PGAS-on-hold for `reason`.
+	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
 		let dot_held = T::Currency::balance_on_hold(&reason.into(), who);
 		let pgas_held = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
@@ -317,7 +317,7 @@ where
 		dot_held.saturating_add(pgas_held)
 	}
 
-	/// Collects DOT first into the tx fee pool (capped by [`NativeDepositOf`]); any shortfall
+	/// Collects native currency first into the tx fee pool (capped by [`NativeDepositOf`]); any shortfall
 	/// is taken from PGAS with `RefundPercent` refunded and the rest burned.
 	fn collect_on_hold(
 		reason: HoldReason,

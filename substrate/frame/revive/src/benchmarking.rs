@@ -2756,7 +2756,7 @@ mod benchmarks {
 		);
 	}
 
-	/// One step of v4 phase 2: burn DOT hold, mint and hold PGAS.
+	/// One step of v4 phase 2: burn native hold, mint and hold PGAS.
 	#[benchmark]
 	fn v4_contract_step() {
 		use crate::{deposit_payment::Deposit, migrations::v4};

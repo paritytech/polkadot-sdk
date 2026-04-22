@@ -21,7 +21,7 @@
 //!
 //! Phase 1 iterates [`CodeInfoOf`] and for each uploaded code records the uploader's existing
 //! native `CodeUploadDepositReserve` contribution under [`NativeDepositOf`], keyed by the
-//! pallet's own account (the holder of that deposit). The DOT itself stays where it is.
+//! pallet's own account (the holder of that deposit). The native currency itself stays where it is.
 //!
 //! Phase 2 iterates [`AccountInfoOf`] and for each contract delegates to
 //! [`Deposit::migrate_native_to_pgas`], which burns the native `StorageDepositReserve` hold and
@@ -206,7 +206,7 @@ impl<T: Config> Migration<T> {
 			) {
 				log::error!(
 					target: LOG_TARGET,
-					"v4: failed to migrate DOT -> PGAS deposit for contract {addr:?}: {err:?}",
+					"v4: failed to migrate native -> PGAS deposit for contract {addr:?}: {err:?}",
 				);
 			}
 		}
