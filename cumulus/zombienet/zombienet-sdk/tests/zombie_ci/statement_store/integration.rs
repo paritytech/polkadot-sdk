@@ -1,22 +1,22 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-use std::{cell::Cell, collections::HashSet};
-
+use super::common::{
+	assert_no_more_statements, base_dir, collator_default_args, create_chain_spec_with_allowances,
+	expect_one_statement, expect_statements_unordered, spawn_network_sudo,
+	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	subscribe_topic_filter,
+};
 use codec::Encode;
 use log::{debug, info};
+use sc_network_statement::config::STATEMENTS_BURST_COEFFICIENT;
+use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 use sp_core::Bytes;
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
-
-use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
-
-use super::common::{
-	assert_no_more_statements, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter,
-};
+use std::{cell::Cell, collections::HashSet, sync::Arc, time::Duration};
+use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 /// Verifies basic statement propagation and data integrity across two nodes
 ///
@@ -201,6 +201,226 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		let received = expect_statements_unordered(sub, 1, 30).await?;
 		info!("{}: eviction statements propagated ({} received)", name, received.len());
 	}
+
+	Ok(())
+}
+
+async fn spawn_flooding_network(
+	rate_limit: u32,
+	participant_count: u32,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let images = zombienet_sdk::environment::get_images_from_env();
+	let base_dir = base_dir()?;
+	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
+
+	let default_args = collator_default_args(participant_count);
+	let mut bob_args = default_args.clone();
+	bob_args.push(format!("--statement-rate-limit={rate_limit}").as_str().into());
+
+	let config = NetworkConfigBuilder::new()
+		.with_relaychain(|r| {
+			r.with_chain("westend-local")
+				.with_default_command("polkadot")
+				.with_default_image(images.polkadot.as_str())
+				.with_default_args(vec!["-lparachain=debug".into()])
+				.with_validator(|node| node.with_name("validator-0"))
+				.with_validator(|node| node.with_name("validator-1"))
+		})
+		.with_parachain(|p| {
+			p.with_id(1004)
+				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
+				.with_default_command("polkadot-parachain")
+				.with_default_image(images.cumulus.as_str())
+				.with_default_args(default_args)
+				.with_collator(|n| n.with_name("alice"))
+				.with_collator(|n| n.with_name("bob").with_args(bob_args))
+		})
+		.with_global_settings(|global_settings| {
+			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+		})
+		.build()
+		.map_err(super::common::format_build_errors)?;
+
+	let network = crate::utils::initialize_network(config).await?;
+	assert!(network.wait_until_is_up(60).await.is_ok());
+	Ok(network)
+}
+
+/// Verifies sustained-rate flooding detection.
+///
+/// Submissions arrive faster than the sustained rate limit allows. Early batches
+/// fit within the burst allowance and are accepted, but tokens drain over time
+/// until the rate limiter kicks in.
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	// Low enough that batches can be submitted within 1s via RPC.
+	let rate_limit = 50u32;
+	let bucket_capacity = rate_limit * STATEMENTS_BURST_COEFFICIENT;
+	// Half the burst capacity so the bucket drains gradually over several batches.
+	let batch_size = bucket_capacity / 2;
+	// Enough batches to drain the bucket, plus a margin.
+	let batches_needed = bucket_capacity / (batch_size - rate_limit) + 1;
+	let network = spawn_flooding_network(rate_limit, batch_size * batches_needed).await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+
+	let bob_peers_before = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|v| {
+			bob_peers_before.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+
+	let alice_rpc = Arc::new(alice.rpc().await?);
+
+	let submit_handle = tokio::spawn({
+		let alice_rpc = Arc::clone(&alice_rpc);
+		async move {
+			let topic: Topic = [42u8; 32].into();
+			for batch in 0..batches_needed {
+				let now = tokio::time::Instant::now();
+				let start = batch * batch_size;
+				for idx in start..start + batch_size {
+					let keypair = get_keypair(idx);
+					let statement = create_test_statement(
+						&keypair,
+						&[topic],
+						None,
+						vec![idx as u8],
+						u32::MAX,
+						0,
+					);
+					let _ = submit_statement(&alice_rpc, &statement).await;
+				}
+				info!("Batch {}: submitted {} statements", batch, batch_size);
+				let elapsed = now.elapsed();
+				if elapsed < Duration::from_secs(1) {
+					tokio::time::sleep(Duration::from_secs(1) - elapsed).await;
+				}
+			}
+		}
+	});
+
+	bob.wait_metric_with_timeout(
+		"substrate_sync_statement_flooding_detected",
+		|count| count >= 1.0,
+		120u64,
+	)
+	.await?;
+	info!("Bob detected sustained-rate flooding");
+
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|count| count < bob_peers_before.get(),
+		30u64,
+	)
+	.await?;
+	info!("Bob disconnected the flooding peer");
+
+	submit_handle.abort();
+
+	let bob_submitted = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_statement_store_submitted_statements",
+		|v| {
+			bob_submitted.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+	assert!(
+		bob_submitted.get() > 0.0,
+		"Bob should have accepted early batches before flooding (got {})",
+		bob_submitted.get()
+	);
+	info!("Bob accepted {} statements before flooding (sustained, not burst)", bob_submitted.get());
+
+	Ok(())
+}
+
+/// Verifies burst flooding detection end-to-end.
+///
+/// The very first gossip batch already exceeds the burst allowance, so bob
+/// rejects all statements immediately without accepting any.
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	// Low enough that batches can be submitted within 1s via RPC.
+	let rate_limit = 50u32;
+	// One more than the burst capacity so the first gossip batch overflows the bucket.
+	let bucket_capacity = rate_limit * STATEMENTS_BURST_COEFFICIENT + 1;
+	let network = spawn_flooding_network(rate_limit, bucket_capacity).await?;
+
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+
+	let bob_peers_before = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|v| {
+			bob_peers_before.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+
+	let alice_rpc = alice.rpc().await?;
+	let topic: Topic = [43u8; 32].into();
+
+	for idx in 0..bucket_capacity {
+		let keypair = get_keypair(idx);
+		let statement =
+			create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, 0);
+		let _ = submit_statement(&alice_rpc, &statement).await;
+	}
+	info!("Submitted {} statements to alice", bucket_capacity);
+
+	bob.wait_metric_with_timeout(
+		"substrate_sync_statement_flooding_detected",
+		|count| count >= 1.0,
+		60u64,
+	)
+	.await?;
+	info!("Bob detected burst flooding");
+
+	bob.wait_metric_with_timeout(
+		"substrate_sub_libp2p_peers_count",
+		|count| count < bob_peers_before.get(),
+		30u64,
+	)
+	.await?;
+	info!("Bob disconnected the flooding peer");
+
+	let bob_submitted = Cell::new(0.0f64);
+	bob.wait_metric_with_timeout(
+		"substrate_sub_statement_store_submitted_statements",
+		|v| {
+			bob_submitted.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
+	assert_eq!(
+		bob_submitted.get() as u64,
+		0,
+		"Bob should not have accepted any statements (burst, not sustained)"
+	);
+	info!("Bob accepted 0 statements (burst flooding confirmed)");
 
 	Ok(())
 }
