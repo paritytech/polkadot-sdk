@@ -2720,8 +2720,7 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
 	}
 
-	/// Benchmarks one step of the v4 migration's phase 1: reads a [`CodeInfoOf`] entry and
-	/// credits the uploader's [`NativeDepositOf`] bucket against the pallet account.
+	/// One step of v4 phase 1: credit the uploader's [`NativeDepositOf`] bucket.
 	#[benchmark]
 	fn v4_code_upload_step() {
 		use crate::migrations::v4;
@@ -2731,13 +2730,11 @@ mod benchmarks {
 		let owner: T::AccountId = whitelisted_caller();
 		let deposit: BalanceOf<T> = 1_000u32.into();
 
-		// Pallet account already exists with ED; put the code-upload deposit on top.
 		let pallet_account = Pallet::<T>::account_id();
-		T::Currency::mint_into(&pallet_account, Pallet::<T>::min_balance())
-			.expect("seed pallet account ED");
-		T::Currency::mint_into(&pallet_account, deposit).expect("mint code-upload deposit");
+		T::Currency::mint_into(&pallet_account, Pallet::<T>::min_balance()).unwrap();
+		T::Currency::mint_into(&pallet_account, deposit).unwrap();
 		T::Currency::hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account, deposit)
-			.expect("hold DOT on pallet account");
+			.unwrap();
 
 		let code_hash = H256::from([0u8; 32]);
 		CodeInfoOf::<T>::insert(code_hash, CodeInfo::<T>::new_with_deposit(owner.clone(), deposit));
@@ -2751,13 +2748,15 @@ mod benchmarks {
 
 		assert_eq!(crate::NativeDepositOf::<T>::get(&pallet_account, &owner), deposit);
 
-		// uses twice the weight: once for migration and then for checking if there is another key.
-		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v4_code_upload_step() * 2);
+		// process 1 code + phase-1 end-check + phase-2 end-check on empty AccountInfoOf.
+		assert_eq!(
+			meter.consumed(),
+			<T as Config>::WeightInfo::v4_code_upload_step() * 2 +
+				<T as Config>::WeightInfo::v4_contract_step()
+		);
 	}
 
-	/// Benchmarks one step of the v4 migration's phase 2: reads an [`AccountInfoOf`] contract
-	/// entry, burns its native `StorageDepositReserve` hold, and replaces it with PGAS held
-	/// under the same reason.
+	/// One step of v4 phase 2: burn DOT hold, mint and hold PGAS.
 	#[benchmark]
 	fn v4_contract_step() {
 		use crate::{deposit_payment::Deposit, migrations::v4};
@@ -2781,16 +2780,12 @@ mod benchmarks {
 			},
 		);
 
-		// The contract already has ED from its instantiation; add the storage deposit on top
-		// and place it on hold to mirror the pre-migration state.
-		T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance())
-			.expect("seed contract ED");
+		T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
 		let deposit: BalanceOf<T> = 1_000u32.into();
-		T::Currency::mint_into(&contract_account, deposit).expect("mint storage deposit");
+		T::Currency::mint_into(&contract_account, deposit).unwrap();
 		T::Currency::hold(&HoldReason::StorageDepositReserve.into(), &contract_account, deposit)
-			.expect("hold DOT on contract account");
+			.unwrap();
 
-		// Drive straight into phase 2.
 		let start_cursor = Some(v4::Cursor::Contract(None));
 		let mut meter = WeightMeter::new();
 
@@ -2799,8 +2794,6 @@ mod benchmarks {
 			<v4::Migration<T> as SteppedMigration>::step(start_cursor, &mut meter).unwrap();
 		}
 
-		// Invariant: the contract's total hold under `StorageDepositReserve` equals the
-		// original deposit — DOT is burned and an equal PGAS hold takes its place.
 		assert_eq!(
 			<T as Config>::Deposit::total_on_hold(
 				HoldReason::StorageDepositReserve,
@@ -2808,7 +2801,6 @@ mod benchmarks {
 			),
 			deposit,
 		);
-		// And the native hold has been fully released — no spendable DOT remains past ED.
 		assert!(
 			<T as Config>::Currency::reducible_balance(
 				&contract_account,
@@ -2818,7 +2810,7 @@ mod benchmarks {
 			.is_zero()
 		);
 
-		// uses twice the weight: once for migration and then for checking if there is another key.
+		// process 1 contract + end-check.
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v4_contract_step() * 2);
 	}
 

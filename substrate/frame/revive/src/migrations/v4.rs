@@ -32,8 +32,8 @@ use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
 use crate::BalanceOf;
 use crate::{
-	AccountInfoOf, CodeInfoOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, Pallet,
 	address::AddressMapper, deposit_payment::Deposit, storage::AccountType, weights::WeightInfo,
+	AccountInfoOf, CodeInfoOf, Config, HoldReason, NativeDepositOf, Pallet, LOG_TARGET,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
@@ -85,7 +85,6 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		}
 
 		loop {
-			// Pick the weight for the next step based on the phase we're about to run.
 			let step_weight = match &cursor {
 				None | Some(Cursor::CodeUpload(_)) => code_step,
 				Some(Cursor::Contract(_)) => contract_step,
@@ -95,21 +94,12 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			}
 
 			match cursor {
-				None => {
-					cursor = Self::step_code_upload(None);
-					// If phase 1 was empty, yield so phase 2 starts in a fresh step().
-					if matches!(cursor, Some(Cursor::Contract(None))) {
-						break;
-					}
+				None | Some(Cursor::CodeUpload(_)) => {
+					let last =
+						if let Some(Cursor::CodeUpload(h)) = cursor { Some(h) } else { None };
+					cursor = Self::step_1_code_upload(last);
 				},
-				Some(Cursor::CodeUpload(last)) => {
-					cursor = Self::step_code_upload(Some(last));
-					// End of phase 1: yield so phase 2 starts in a fresh step().
-					if matches!(cursor, Some(Cursor::Contract(None))) {
-						break;
-					}
-				},
-				Some(Cursor::Contract(last)) => match Self::step_contract(last) {
+				Some(Cursor::Contract(last)) => match Self::step_2_contract(last) {
 					Some(next) => cursor = Some(Cursor::Contract(Some(next))),
 					None => {
 						cursor = None;
@@ -125,15 +115,12 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
 		use crate::deposit_payment::Deposit;
 
-		// (owner, sum of code-upload deposits) before migration.
 		let mut per_owner: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
 		for (_hash, info) in CodeInfoOf::<T>::iter() {
 			let entry = per_owner.entry(info.owner().clone()).or_default();
 			*entry = entry.saturating_add(info.deposit());
 		}
 
-		// Snapshot per-contract total hold (DOT + PGAS) under StorageDepositReserve; the swap
-		// must keep this invariant.
 		let mut per_contract: BTreeMap<H160, BalanceOf<T>> = BTreeMap::new();
 		for (addr, info) in AccountInfoOf::<T>::iter() {
 			if !matches!(info.account_type, AccountType::Contract(_)) {
@@ -157,8 +144,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		)>::decode(&mut &prev[..])
 		.expect("Failed to decode pre_upgrade state");
 
-		// `NativeDepositOf` is introduced in this migration and starts empty, so phase 1's
-		// saturating_add leaves exactly the summed code-upload deposit for each owner.
+		// `NativeDepositOf` is introduced in this migration and starts empty.
 		let pallet_account = Pallet::<T>::account_id();
 		for (owner, expected) in per_owner {
 			let got = NativeDepositOf::<T>::get(&pallet_account, &owner);
@@ -168,8 +154,6 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			);
 		}
 
-		// Total hold under `StorageDepositReserve` must be preserved per contract: for
-		// `PGasDeposit` the DOT side is burned and an equal PGAS hold takes its place.
 		for (addr, expected) in per_contract {
 			let contract = T::AddressMapper::to_account_id(&addr);
 			let total = T::Deposit::total_on_hold(HoldReason::StorageDepositReserve, &contract);
@@ -183,12 +167,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 }
 
 impl<T: Config> Migration<T> {
-	/// Phase 1: read the next `CodeInfoOf` entry after `last` and credit the pallet-held
-	/// `CodeUploadDepositReserve` to the owner in [`NativeDepositOf`].
-	///
-	/// Returns the next cursor: `Some(CodeUpload(h))` while iterating, or
-	/// `Some(Contract(None))` when phase 1 is exhausted.
-	fn step_code_upload(last: Option<H256>) -> Option<Cursor> {
+	/// Phase 1: credit the next `CodeInfoOf` entry's owner in [`NativeDepositOf`]. Returns
+	/// `Some(Cursor::Contract(None))` when phase 1 is exhausted.
+	fn step_1_code_upload(last: Option<H256>) -> Option<Cursor> {
 		let mut iter = match last {
 			Some(last) => CodeInfoOf::<T>::iter_from(CodeInfoOf::<T>::hashed_key_for(last)),
 			None => CodeInfoOf::<T>::iter(),
@@ -203,12 +184,9 @@ impl<T: Config> Migration<T> {
 		Some(Cursor::CodeUpload(hash))
 	}
 
-	/// Phase 2: read the next contract after `last` and hand it to
-	/// [`Deposit::migrate_native_to_pgas`]. EOA entries are skipped but still advance the cursor.
-	///
-	/// Returns the address of the entry just processed, or `None` when the iteration is
-	/// exhausted.
-	fn step_contract(last: Option<H160>) -> Option<H160> {
+	/// Phase 2: hand the next contract to [`Deposit::migrate_native_to_pgas`]. EOAs are
+	/// skipped but still advance the cursor.
+	fn step_2_contract(last: Option<H160>) -> Option<H160> {
 		use frame_support::traits::fungible::InspectHold;
 
 		let mut iter = match last {
@@ -252,32 +230,21 @@ impl<T: Config> Migration<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		CodeInfo,
 		storage::{AccountInfo, ContractInfo},
 		tests::{AssetsHolder, ExtBuilder, PGasAssetId, Test},
+		CodeInfo,
 	};
-	use frame_support::traits::fungible::{InspectHold as _, Mutate as _, MutateHold as _};
+	use frame_support::traits::fungible::{
+		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
+	};
 	use sp_runtime::AccountId32;
 
 	type V4 = Migration<Test>;
 
-	fn acc(byte: u8) -> AccountId32 {
-		AccountId32::new([byte; 32])
-	}
-
-	fn addr(byte: u8) -> H160 {
-		H160::repeat_byte(byte)
-	}
-
-	fn fund_with_ed(who: &AccountId32) {
-		use frame_support::traits::fungible::Inspect as _;
-		let ed = <Test as Config>::Currency::minimum_balance();
-		<Test as Config>::Currency::mint_into(who, ed).unwrap();
-	}
-
 	fn seed_code_upload(hash: H256, owner: AccountId32, deposit: u128) {
 		let pallet_account = Pallet::<Test>::account_id();
-		fund_with_ed(&pallet_account);
+		let ed = <Test as Config>::Currency::minimum_balance();
+		<Test as Config>::Currency::mint_into(&pallet_account, ed).unwrap();
 		<Test as Config>::Currency::mint_into(&pallet_account, deposit).unwrap();
 		<Test as Config>::Currency::hold(
 			&HoldReason::CodeUploadDepositReserve.into(),
@@ -296,7 +263,8 @@ mod tests {
 			AccountInfo::<Test> { account_type: AccountType::Contract(info), dust: 0 },
 		);
 
-		fund_with_ed(&contract_account);
+		let ed = <Test as Config>::Currency::minimum_balance();
+		<Test as Config>::Currency::mint_into(&contract_account, ed).unwrap();
 		<Test as Config>::Currency::mint_into(&contract_account, storage_deposit).unwrap();
 		<Test as Config>::Currency::hold(
 			&HoldReason::StorageDepositReserve.into(),
@@ -310,8 +278,8 @@ mod tests {
 	fn phase_one_populates_native_deposit_for_code_upload() {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 			let pallet_account = Pallet::<Test>::account_id();
-			let owner_a = acc(1);
-			let owner_b = acc(2);
+			let owner_a = AccountId32::new([1; 32]);
+			let owner_b = AccountId32::new([2; 32]);
 			seed_code_upload(H256::repeat_byte(0xAA), owner_a.clone(), 1_000);
 			seed_code_upload(H256::repeat_byte(0xAB), owner_a.clone(), 500);
 			seed_code_upload(H256::repeat_byte(0xBB), owner_b.clone(), 2_000);
@@ -329,7 +297,6 @@ mod tests {
 				"owner_b sum of code deposits"
 			);
 
-			// Code-upload DOT stays on hold at the pallet account.
 			assert_eq!(
 				<Test as Config>::Currency::balance_on_hold(
 					&HoldReason::CodeUploadDepositReserve.into(),
@@ -343,12 +310,12 @@ mod tests {
 	#[test]
 	fn phase_two_burns_dot_and_mints_pgas_on_contracts() {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			let owner = acc(1);
+			let owner = AccountId32::new([1; 32]);
 			let hash = H256::repeat_byte(0xCC);
 			seed_code_upload(hash, owner.clone(), 0);
 
-			let c1 = addr(0x10);
-			let c2 = addr(0x20);
+			let c1 = H160::repeat_byte(0x10);
+			let c2 = H160::repeat_byte(0x20);
 			seed_contract(c1, hash, 700);
 			seed_contract(c2, hash, 1_300);
 
@@ -359,7 +326,6 @@ mod tests {
 
 			V4::run_to_completion();
 
-			// DOT under StorageDepositReserve is gone from each contract.
 			assert_eq!(
 				<Test as Config>::Currency::balance_on_hold(
 					&HoldReason::StorageDepositReserve.into(),
@@ -375,13 +341,11 @@ mod tests {
 				0,
 			);
 
-			// DOT supply decreased by the burned storage deposits.
 			assert_eq!(
 				total_issuance_before - <Test as Config>::Currency::total_issuance(),
 				700 + 1_300,
 			);
 
-			// PGAS held on each contract under the same reason.
 			use frame_support::traits::tokens::fungibles::InspectHold;
 			assert_eq!(
 				AssetsHolder::balance_on_hold(
@@ -405,18 +369,16 @@ mod tests {
 	#[test]
 	fn eoa_accounts_are_skipped() {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
-			// An EOA entry in AccountInfoOf.
-			let eoa = addr(0x99);
+			let eoa = H160::repeat_byte(0x99);
 			AccountInfoOf::<Test>::insert(
 				eoa,
 				AccountInfo::<Test> { account_type: AccountType::EOA, dust: 0 },
 			);
 
-			// Mixed with a contract.
-			let owner = acc(1);
+			let owner = AccountId32::new([1; 32]);
 			let hash = H256::repeat_byte(0xDD);
 			seed_code_upload(hash, owner.clone(), 0);
-			let c = addr(0x30);
+			let c = H160::repeat_byte(0x30);
 			seed_contract(c, hash, 400);
 
 			V4::run_to_completion();

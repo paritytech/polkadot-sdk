@@ -355,8 +355,8 @@ pub const PGAS_ASSET_ID: u32 = 42;
 
 parameter_types! {
 	pub const PGasAssetId: u32 = PGAS_ASSET_ID;
-	/// Match the asset-hub-westend setting: 10% of PGAS storage deposits are refunded, the
-	/// rest is burned so users can't harvest free PGAS allowance from storage churn.
+	/// 10% of PGAS storage deposits are refunded, the rest is burned so users can't harvest
+	/// free PGAS allowance from storage churn.
 	pub const PGasRefundPercent: Perbill = Perbill::from_percent(10);
 }
 
