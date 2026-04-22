@@ -1,0 +1,27 @@
+title: 'xcm: single-pass Location::reanchor algorithm'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Replace the three-step (invert + prepend + simplify) implementation of
+    `v5::Location::reanchor` with a direct, single-pass algorithm that
+    computes the deepest common ancestor between target and self in the
+    root-absolute view defined by `context` and assembles the result
+    already anchored at `target`, skipping the final simplify.
+
+    Behaviour is unchanged: the new implementation returns the same result
+    as the previous one across the v5 reanchor test suite (now expanded to
+    cover the scenarios explored in https://github.com/paritytech/polkadot/pull/4697
+    plus multi-junction context cases). Failure modes are preserved — the
+    function still refuses to mutate `self` on overflow and returns `Err`
+    when `target` climbs past the root described by `context`.
+
+    Addresses https://github.com/paritytech/polkadot-sdk/issues/897.
+
+    Local microbenchmark (release, 200_000 iters, Apple Silicon, median of 3):
+    - sibling_parachain         48.30 ns -> 24.25 ns (-50%)
+    - same_branch_deeper_target 52.35 ns -> 27.38 ns (-48%)
+    - multi_junction_context   136.73 ns -> 59.76 ns (-56%)
+
+crates:
+- name: staging-xcm
+  bump: patch
