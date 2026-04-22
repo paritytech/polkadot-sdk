@@ -214,8 +214,8 @@ fn scope_takes_all_ancestors() {
 	)
 	.unwrap();
 
-	// Should include all provided ancestors
-	assert_eq!(scheduling_scope.scheduling_ancestors.len(), 3);
+	// Should include all provided ancestors + the scheduling parent itself.
+	assert_eq!(scheduling_scope.scheduling_parents.len(), 4);
 }
 
 #[test]

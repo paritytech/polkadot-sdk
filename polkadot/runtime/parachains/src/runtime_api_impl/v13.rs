@@ -463,21 +463,20 @@ pub fn backing_constraints<T: initializer::Config>(
 	let now = frame_system::Pallet::<T>::block_number();
 
 	// Workaround for issue #64.
-	let min_allowed_relay_parent_number = || {
-		if shared::Pallet::<T>::on_chain_storage_version() == StorageVersion::new(1) {
-			shared::migration::v1::AllowedRelayParents::<T>::get()
-				.hypothetical_earliest_block_number(
-					now,
-					config.scheduler_params.lookahead.saturating_sub(1),
-				)
-		} else {
-			shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
-		}
+	let min_global_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
+		StorageVersion::new(1)
+	{
+		shared::migration::v1::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
+			now,
+			config.scheduler_params.lookahead.saturating_sub(1),
+		)
+	} else {
+		shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
 	};
 
-	let min_relay_parent_number = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
-		.map(|ctx| core::cmp::max(ctx, min_allowed_relay_parent_number()))
-		.unwrap_or_else(min_allowed_relay_parent_number);
+	let min_para_relay_parent_number = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
+		.map(|ctx| core::cmp::max(ctx, min_global_relay_parent_number))
+		.unwrap_or(min_global_relay_parent_number);
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
 	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
@@ -509,7 +508,7 @@ pub fn backing_constraints<T: initializer::Config>(
 		.collect();
 
 	Some(Constraints {
-		min_relay_parent_number,
+		min_relay_parent_number: min_para_relay_parent_number,
 		max_pov_size: config.max_pov_size,
 		max_code_size: config.max_code_size,
 		max_head_data_size: Constraints::<BlockNumberFor<T>>::DEFAULT_MAX_HEAD_DATA_SIZE,

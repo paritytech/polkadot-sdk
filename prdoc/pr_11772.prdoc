@@ -14,6 +14,9 @@ doc:
       - `backing_constraints` runtime API computes a more up to date `min_relay_parent_number`, which is the maximum
       between the oldest allowed RP based on the HostConfiguration and the relay parent of the most recently backed candidate
       of the para.
+      - assumes the ParachainHost runtime API is at least v13 (`BackingConstraints`). The
+      `ParaBackingState` fallback in prospective-parachains has been removed; against a runtime
+      with a lower version the subsystem will fail to process active leaves.
 
 crates:
   - name: polkadot-node-core-prospective-parachains

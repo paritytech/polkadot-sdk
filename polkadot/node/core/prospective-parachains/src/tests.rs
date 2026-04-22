@@ -16,6 +16,7 @@
 
 use super::*;
 use assert_matches::assert_matches;
+use futures::FutureExt;
 use polkadot_node_subsystem::{
 	messages::{
 		AllMessages, HypotheticalMembershipRequest, ParentHeadData, ProspectiveParachainsMessage,
@@ -34,7 +35,8 @@ use polkadot_primitives::{
 use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v3};
 use rstest::rstest;
 use std::{
-	collections::{BTreeMap, VecDeque},
+	cell::RefCell,
+	collections::{BTreeMap, HashSet, VecDeque},
 	sync::Arc,
 };
 use test_helpers::mock::new_leaf;
@@ -79,6 +81,12 @@ struct TestState {
 	/// If set, overrides the `min_relay_parent_number` returned in the backing constraints.
 	/// Otherwise, defaults to `leaf.number - (scheduling_lookahead - 1)`.
 	min_relay_parent_number_override: Option<BlockNumber>,
+	/// Mirrors the production LRU cache populated by `fetch_relay_parent_info_cached`. When a
+	/// relay parent is already cached, the subsystem won't send a runtime API request for it, so
+	/// the test harness must not block on `recv`. Tests use a single session (1), so we key by
+	/// relay parent only. `RefCell` allows interior mutability while helpers still take
+	/// `&TestState`.
+	cached_relay_parents: RefCell<HashSet<Hash>>,
 }
 
 impl Default for TestState {
@@ -103,6 +111,7 @@ impl Default for TestState {
 			claim_queue,
 			runtime_api_version: RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT,
 			min_relay_parent_number_override: None,
+			cached_relay_parents: RefCell::new(HashSet::new()),
 		}
 	}
 }
@@ -199,14 +208,31 @@ impl TestLeaf {
 ///   `NotSupported`, causing production to fall back to SessionIndexForChild + BlockHeader.
 async fn handle_fetch_relay_parent_info(
 	virtual_overseer: &mut VirtualOverseer,
-	runtime_api_version: u32,
+	test_state: &TestState,
 	relay_parent: Hash,
 	relay_parent_number: BlockNumber,
 ) {
-	let ancestor_api_supported =
-		runtime_api_version >= RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT;
-
 	let msg = virtual_overseer.recv().await;
+	handle_fetch_relay_parent_info_message(
+		virtual_overseer,
+		msg,
+		test_state,
+		relay_parent,
+		relay_parent_number,
+	)
+	.await;
+}
+
+async fn handle_fetch_relay_parent_info_message(
+	virtual_overseer: &mut VirtualOverseer,
+	msg: AllMessages,
+	test_state: &TestState,
+	relay_parent: Hash,
+	relay_parent_number: BlockNumber,
+) {
+	let ancestor_api_supported = test_state.runtime_api_version >=
+		RuntimeApiRequest::ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT;
+
 	match msg {
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			_parent,
@@ -244,6 +270,10 @@ async fn handle_fetch_relay_parent_info(
 		},
 		other => panic!("Unexpected message in handle_fetch_relay_parent_info: {:?}", other),
 	}
+
+	// Production just populated its LRU cache for this relay parent; mirror that here so the
+	// harness can skip subsequent expected messages that won't arrive.
+	test_state.cached_relay_parents.borrow_mut().insert(relay_parent);
 }
 
 async fn send_block_header(virtual_overseer: &mut VirtualOverseer, hash: Hash, number: u32) {
@@ -422,9 +452,20 @@ async fn handle_leaf_activation(
 
 		if let Some(para_id) = para_id {
 			for pending in leaf.para_data(para_id).pending_availability.clone() {
+				// Production calls `fetch_relay_parent_info_cached`: on a cache hit no runtime API
+				// request is sent, so we must not call `recv`. The tracker mirrors which relay
+				// parents have already been cached by earlier operations (including prior pending
+				// availability candidates within this same activation).
+				if test_state
+					.cached_relay_parents
+					.borrow()
+					.contains(&pending.descriptor.relay_parent())
+				{
+					continue;
+				}
 				handle_fetch_relay_parent_info(
 					virtual_overseer,
-					test_state.runtime_api_version,
+					test_state,
 					pending.descriptor.relay_parent(),
 					pending.relay_parent_number,
 				)
@@ -442,11 +483,46 @@ async fn deactivate_leaf(virtual_overseer: &mut VirtualOverseer, hash: Hash) {
 		.await;
 }
 
+// The subsystem verifies the relay parent once per entry in `per_scheduling_parent` during
+// candidate introduction and hypothetical membership checks. We don't know the count ahead of
+// time, so this helper races the response channel against overseer messages: whenever a
+// verification runtime-api request arrives we handle it; whenever the response arrives we
+// return.
+async fn handle_potential_relay_parent_info_calls<T>(
+	virtual_overseer: &mut VirtualOverseer,
+	rx: oneshot::Receiver<T>,
+	test_state: &TestState,
+	relay_parent: Hash,
+	relay_parent_number: BlockNumber,
+) -> T {
+	let mut rx = rx.fuse();
+	loop {
+		futures::select! {
+			response = &mut rx => {
+				return response.expect("oneshot sender dropped unexpectedly");
+			}
+			msg = virtual_overseer.recv().fuse() => {
+				handle_fetch_relay_parent_info_message(
+					virtual_overseer,
+					msg,
+					test_state,
+					relay_parent,
+					relay_parent_number,
+				)
+				.await;
+			}
+		}
+	}
+}
+
 async fn introduce_seconded_candidate(
 	virtual_overseer: &mut VirtualOverseer,
+	test_state: &TestState,
 	candidate: CommittedCandidateReceipt,
 	pvd: PersistedValidationData,
 ) {
+	let relay_parent = candidate.descriptor.relay_parent();
+	let relay_parent_number = pvd.relay_parent_number;
 	let req = IntroduceSecondedCandidateRequest {
 		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
@@ -458,14 +534,25 @@ async fn introduce_seconded_candidate(
 			msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx),
 		})
 		.await;
-	assert!(rx.await.unwrap());
+	let response = handle_potential_relay_parent_info_calls(
+		virtual_overseer,
+		rx,
+		test_state,
+		relay_parent,
+		relay_parent_number,
+	)
+	.await;
+	assert!(response);
 }
 
 async fn introduce_seconded_candidate_failed(
 	virtual_overseer: &mut VirtualOverseer,
+	test_state: &TestState,
 	candidate: CommittedCandidateReceipt,
 	pvd: PersistedValidationData,
 ) {
+	let relay_parent = candidate.descriptor.relay_parent();
+	let relay_parent_number = pvd.relay_parent_number;
 	let req = IntroduceSecondedCandidateRequest {
 		candidate_para: candidate.descriptor.para_id(),
 		candidate_receipt: candidate,
@@ -477,7 +564,15 @@ async fn introduce_seconded_candidate_failed(
 			msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req, tx),
 		})
 		.await;
-	assert!(!rx.await.unwrap());
+	let response = handle_potential_relay_parent_info_calls(
+		virtual_overseer,
+		rx,
+		test_state,
+		relay_parent,
+		relay_parent_number,
+	)
+	.await;
+	assert!(!response);
 }
 
 async fn back_candidate(
@@ -521,11 +616,14 @@ async fn get_backable_candidates(
 
 async fn get_hypothetical_membership(
 	virtual_overseer: &mut VirtualOverseer,
+	test_state: &TestState,
 	candidate_hash: CandidateHash,
 	receipt: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
 	expected_membership: Vec<Hash>,
 ) {
+	let relay_parent = receipt.descriptor.relay_parent();
+	let relay_parent_number = persisted_validation_data.relay_parent_number;
 	let hypothetical_candidate = HypotheticalCandidate::Complete {
 		candidate_hash,
 		receipt: Arc::new(receipt),
@@ -541,7 +639,14 @@ async fn get_hypothetical_membership(
 			msg: ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx),
 		})
 		.await;
-	let mut resp = rx.await.unwrap();
+	let mut resp = handle_potential_relay_parent_info_calls(
+		virtual_overseer,
+		rx,
+		test_state,
+		relay_parent,
+		relay_parent_number,
+	)
+	.await;
 	assert_eq!(resp.len(), 1);
 	let (candidate, membership) = resp.remove(0);
 	assert_eq!(candidate, hypothetical_candidate);
@@ -553,7 +658,7 @@ async fn get_hypothetical_membership(
 
 async fn get_pvd(
 	virtual_overseer: &mut VirtualOverseer,
-	runtime_api_version: u32,
+	test_state: &TestState,
 	para_id: ParaId,
 	candidate_relay_parent: Hash,
 	parent_head_data: HeadData,
@@ -572,19 +677,18 @@ async fn get_pvd(
 		})
 		.await;
 
-	// answer_prospective_validation_data_request calls fetch_relay_parent_info.
-	// The path depends on: (a) whether query_at == relay_parent (self-query takes
-	// SessionIndexForChild + BlockHeader), and (b) whether the `AncestorRelayParentInfo`
-	// runtime API is supported (controlled by `runtime_api_version`).
-	handle_fetch_relay_parent_info(
+	// answer_prospective_validation_data_request calls fetch_relay_parent_info_cached. On a
+	// cache hit, no runtime API message is sent. `handle_potential_relay_parent_info_calls` races
+	// the response channel against incoming messages so we handle any verification query that does
+	// fire and return as soon as the response arrives.
+	let resp = handle_potential_relay_parent_info_calls(
 		virtual_overseer,
-		runtime_api_version,
+		rx,
+		test_state,
 		candidate_relay_parent,
 		expected_pvd.as_ref().map_or(0, |p| p.relay_parent_number),
 	)
 	.await;
-
-	let resp = rx.await.unwrap();
 	assert_eq!(resp, expected_pvd);
 }
 
@@ -601,7 +705,8 @@ macro_rules! make_and_back_candidate {
 		// Set a field to make this candidate unique.
 		candidate.descriptor.set_para_head(Hash::from_low_u64_le($index));
 		let candidate_hash = candidate.hash();
-		introduce_seconded_candidate(&mut $virtual_overseer, candidate.clone(), pvd).await;
+		introduce_seconded_candidate(&mut $virtual_overseer, &$test_state, candidate.clone(), pvd)
+			.await;
 		back_candidate(&mut $virtual_overseer, &candidate, candidate_hash).await;
 
 		(candidate, candidate_hash)
@@ -719,10 +824,34 @@ fn introduce_candidates_basic() {
 		}];
 
 		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a1.clone(), pvd_a1).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a2.clone(), pvd_a2).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a1.clone(),
+			pvd_a1,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a2.clone(),
+			pvd_a2,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_c.clone(),
+			pvd_c,
+		)
+		.await;
 
 		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
 		back_candidate(&mut virtual_overseer, &candidate_a1, candidate_hash_a1).await;
@@ -855,6 +984,7 @@ fn introduce_candidates_error() {
 		{
 			get_hypothetical_membership(
 				&mut virtual_overseer,
+				&test_state,
 				candidate.hash(),
 				candidate,
 				pvd,
@@ -866,6 +996,7 @@ fn introduce_candidates_error() {
 		// Fails constraints check
 		get_hypothetical_membership(
 			&mut virtual_overseer,
+			&test_state,
 			candidate_c.hash(),
 			candidate_c.clone(),
 			pvd_c.clone(),
@@ -874,13 +1005,24 @@ fn introduce_candidates_error() {
 		.await;
 
 		// Add candidates
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b.clone(),
+		)
+		.await;
 		// Fails constraints check
 		introduce_seconded_candidate_failed(
 			&mut virtual_overseer,
+			&test_state,
 			candidate_c.clone(),
 			pvd_c.clone(),
 		)
@@ -948,8 +1090,13 @@ fn introduce_candidate_multiple_times() {
 		}];
 
 		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
 
 		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
@@ -968,8 +1115,13 @@ fn introduce_candidate_multiple_times() {
 		// Introduce the same candidate multiple times. It'll return true but it will only be added
 		// once.
 		for _ in 0..5 {
-			introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-				.await;
+			introduce_seconded_candidate(
+				&mut virtual_overseer,
+				&test_state,
+				candidate_a.clone(),
+				pvd_a.clone(),
+			)
+			.await;
 		}
 
 		// Check candidate tree membership.
@@ -1036,8 +1188,20 @@ fn fragment_chain_chain_length_is_bounded() {
 		);
 
 		// Introduce candidates A and B. Since max depth is 2, only these two will be allowed.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b,
+		)
+		.await;
 
 		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates and
 		// they won't be part of the chain.
@@ -1065,7 +1229,13 @@ fn fragment_chain_chain_length_is_bounded() {
 		.await;
 
 		// Introducing C will not fail. It will be kept as unconnected storage.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_c.clone(),
+			pvd_c,
+		)
+		.await;
 		// When being backed, candidate C will be dropped.
 		back_candidate(&mut virtual_overseer, &candidate_c, candidate_c.hash()).await;
 
@@ -1186,10 +1356,34 @@ fn introduce_candidate_parent_leaving_view() {
 		}];
 
 		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a1.clone(), pvd_a1).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a2.clone(), pvd_a2).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a1.clone(),
+			pvd_a1,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a2.clone(),
+			pvd_a2,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_c.clone(),
+			pvd_c,
+		)
+		.await;
 
 		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
 		back_candidate(&mut virtual_overseer, &candidate_a1, candidate_hash_a1).await;
@@ -1370,7 +1564,13 @@ fn introduce_candidate_on_multiple_forks() {
 		}];
 
 		// Introduce candidate. Should be present on leaves B and C.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a,
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		// Check candidate tree membership.
@@ -1459,12 +1659,27 @@ fn unconnected_candidates_become_connected() {
 		);
 
 		// Introduce candidates A, C and D.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c.clone(), pvd_c.clone())
-			.await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_d.clone(), pvd_d.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_c.clone(),
+			pvd_c.clone(),
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_d.clone(),
+			pvd_d.clone(),
+		)
+		.await;
 
 		// Back candidates. Otherwise, we cannot check membership with GetBackableCandidates.
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
@@ -1486,8 +1701,13 @@ fn unconnected_candidates_become_connected() {
 		.await;
 
 		// Introduce C and check membership. Full chain should be returned.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b.clone(),
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
 		get_backable_candidates(
 			&mut virtual_overseer,
@@ -1569,8 +1789,20 @@ fn check_backable_query_single_candidate() {
 		let candidate_hash_b = candidate_b.hash();
 
 		// Introduce candidates.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a,
+		)
+		.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b,
+		)
+		.await;
 
 		// Should not get any backable candidates.
 		get_backable_candidates(
@@ -1714,7 +1946,13 @@ fn check_backable_query_multiple_candidates() {
 			test_state.validation_code_hash,
 		);
 		let candidate_hash_a = candidate_a.hash();
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a,
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		let (candidate_b, candidate_hash_b) =
@@ -2109,6 +2347,7 @@ fn check_hypothetical_membership_query() {
 		] {
 			get_hypothetical_membership(
 				&mut virtual_overseer,
+				&test_state,
 				candidate.hash(),
 				candidate,
 				pvd,
@@ -2118,8 +2357,13 @@ fn check_hypothetical_membership_query() {
 		}
 
 		// Add candidate A.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
 
 		// Get membership of candidates after adding A. They all are still unconnected candidates
 		// (not part of the backable chain).
@@ -2130,6 +2374,7 @@ fn check_hypothetical_membership_query() {
 		] {
 			get_hypothetical_membership(
 				&mut virtual_overseer,
+				&test_state,
 				candidate.hash(),
 				candidate,
 				pvd,
@@ -2149,6 +2394,7 @@ fn check_hypothetical_membership_query() {
 		] {
 			get_hypothetical_membership(
 				&mut virtual_overseer,
+				&test_state,
 				candidate.hash(),
 				candidate,
 				pvd,
@@ -2166,7 +2412,8 @@ fn check_hypothetical_membership_query() {
 			HeadData(vec![2]),
 			test_state.validation_code_hash,
 		);
-		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_d, pvd_d).await;
+		introduce_seconded_candidate_failed(&mut virtual_overseer, &test_state, candidate_d, pvd_d)
+			.await;
 
 		// Candidate E has invalid head data.
 		let (candidate_e, pvd_e) = make_candidate(
@@ -2177,11 +2424,17 @@ fn check_hypothetical_membership_query() {
 			HeadData(vec![0; 20481]),
 			test_state.validation_code_hash,
 		);
-		introduce_seconded_candidate_failed(&mut virtual_overseer, candidate_e, pvd_e).await;
+		introduce_seconded_candidate_failed(&mut virtual_overseer, &test_state, candidate_e, pvd_e)
+			.await;
 
 		// Add candidate B and back it.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b.clone(),
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_b.hash()).await;
 
 		// Get membership of candidates after adding B.
@@ -2192,6 +2445,7 @@ fn check_hypothetical_membership_query() {
 		] {
 			get_hypothetical_membership(
 				&mut virtual_overseer,
+				&test_state,
 				candidate.hash(),
 				candidate,
 				pvd,
@@ -2268,7 +2522,7 @@ fn check_pvd_query() {
 		// Get pvd of candidate A before adding it.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1, 2, 3]),
@@ -2277,14 +2531,19 @@ fn check_pvd_query() {
 		.await;
 
 		// Add candidate A.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_a.hash()).await;
 
 		// Get pvd of candidate A after adding it.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1, 2, 3]),
@@ -2295,7 +2554,7 @@ fn check_pvd_query() {
 		// Get pvd of candidate B before adding it.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1]),
@@ -2304,12 +2563,18 @@ fn check_pvd_query() {
 		.await;
 
 		// Add candidate B.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b, pvd_b.clone()).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b,
+			pvd_b.clone(),
+		)
+		.await;
 
 		// Get pvd of candidate B after adding it.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![1]),
@@ -2320,7 +2585,7 @@ fn check_pvd_query() {
 		// Get pvd of candidate C before adding it.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![2]),
@@ -2329,12 +2594,18 @@ fn check_pvd_query() {
 		.await;
 
 		// Add candidate C.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_c, pvd_c.clone()).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_c,
+			pvd_c.clone(),
+		)
+		.await;
 
 		// Get pvd of candidate C after adding it.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![2]),
@@ -2343,22 +2614,21 @@ fn check_pvd_query() {
 		.await;
 
 		// Get pvd of candidate E before adding it. It won't be found, as we don't have its parent.
-		get_pvd(
+		get_pvd(&mut virtual_overseer, &test_state, 1.into(), leaf_a.hash, HeadData(vec![5]), None)
+			.await;
+
+		// Add candidate E and check again. Should succeed this time.
+		introduce_seconded_candidate(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
-			1.into(),
-			leaf_a.hash,
-			HeadData(vec![5]),
-			None,
+			&test_state,
+			candidate_e,
+			pvd_e.clone(),
 		)
 		.await;
 
-		// Add candidate E and check again. Should succeed this time.
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_e, pvd_e.clone()).await;
-
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			1.into(),
 			leaf_a.hash,
 			HeadData(vec![5]),
@@ -2502,7 +2772,13 @@ fn handle_active_leaves_update_gets_candidates_from_parent() {
 			test_state.validation_code_hash,
 		);
 		let candidate_hash_a = candidate_a.hash();
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a,
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		let (candidate_b, candidate_hash_b) =
@@ -2884,8 +3160,13 @@ fn persists_pending_availability_candidate() {
 		);
 		let candidate_hash_b = candidate_b.hash();
 
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		let candidate_a_pending_av = CandidatePendingAvailability {
@@ -2907,6 +3188,7 @@ fn persists_pending_availability_candidate() {
 
 		get_hypothetical_membership(
 			&mut virtual_overseer,
+			&test_state,
 			candidate_hash_a,
 			candidate_a,
 			pvd_a,
@@ -2914,7 +3196,13 @@ fn persists_pending_availability_candidate() {
 		)
 		.await;
 
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_b.clone(), pvd_b).await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_b.clone(),
+			pvd_b,
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_b, candidate_hash_b).await;
 
 		get_backable_candidates(
@@ -3057,8 +3345,13 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 		assert_eq!(candidate_a.descriptor.relay_parent(), older_relay_parent);
 		assert_eq!(candidate_a.descriptor.scheduling_parent(), leaf_a.hash);
 
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a.clone(), pvd_a.clone())
-			.await;
+		introduce_seconded_candidate(
+			&mut virtual_overseer,
+			&test_state,
+			candidate_a.clone(),
+			pvd_a.clone(),
+		)
+		.await;
 		back_candidate(&mut virtual_overseer, &candidate_a, candidate_hash_a).await;
 
 		// Verify it's returned as backable anchored at the scheduling parent (leaf_a.hash).
@@ -3078,6 +3371,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 		// And that hypothetical membership treats the leaf as a valid anchor.
 		get_hypothetical_membership(
 			&mut virtual_overseer,
+			&test_state,
 			candidate_hash_a,
 			candidate_a,
 			pvd_a,
@@ -3136,7 +3430,7 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		introduce_seconded_candidate(&mut virtual_overseer, candidate_a, pvd_a).await;
+		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
 
 		// Ask for PVD of a *child* candidate whose parent_head is candidate A's output and
 		// whose relay_parent is the OLDER block. The returned PVD should:
@@ -3147,7 +3441,7 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 		// the chain-header fallback based on `test_state.runtime_api_version`.
 		get_pvd(
 			&mut virtual_overseer,
-			test_state.runtime_api_version,
+			&test_state,
 			para_id,
 			older_relay_parent,
 			HeadData(vec![1]),

@@ -48,6 +48,9 @@ pub enum Error {
 
 	#[error("Request to runtime API subsystem dropped")]
 	RuntimeApiRequestCanceled(oneshot::Canceled),
+
+	#[error("Relay parent of candidate outside the leaf's scope")]
+	RelayParentOutOfScope,
 }
 
 /// General `Result` type.

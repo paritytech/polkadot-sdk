@@ -446,7 +446,7 @@ pub(crate) struct PendingAvailability {
 /// The relay chain portion of a fragment chain scope.
 ///
 /// Represents the scheduling parent blocks that parachain candidates can be anchored in.
-/// This includes the scheduling parent and its ancestors up to a bounded depth
+/// This includes the leaf and its ancestors up to a bounded depth
 /// (typically `scheduling_lookahead - 1`).
 ///
 /// This data is shared across all paras for a given scheduling parent, as all paras have the
@@ -454,10 +454,8 @@ pub(crate) struct PendingAvailability {
 /// constraints and pending availability candidates.
 #[derive(Debug, Clone)]
 pub(super) struct SchedulingScope {
-	/// The scheduling parent — the most recent relay chain block in this scope.
-	scheduling_parent: Hash,
-	/// Older scheduling parents that candidates are allowed to reference.
-	scheduling_ancestors: BTreeSet<Hash>,
+	/// All scheduling parents that candidates are allowed to reference in this scope.
+	scheduling_parents: BTreeSet<Hash>,
 }
 
 /// An error variant indicating that ancestors provided to a scope
@@ -491,38 +489,32 @@ impl SchedulingScope {
 		(scheduling_parent, scheduling_parent_number): (Hash, BlockNumber),
 		scheduling_ancestors: impl IntoIterator<Item = (Hash, BlockNumber)>,
 	) -> Result<Self, UnexpectedAncestor> {
-		let mut ancestors = BTreeSet::new();
+		let mut scheduling_parents = BTreeSet::new();
+
+		scheduling_parents.insert(scheduling_parent);
 
 		let mut prev = scheduling_parent_number;
 		for (ancestor, ancestor_number) in scheduling_ancestors {
-			if prev == 0 {
-				return Err(UnexpectedAncestor { number: ancestor_number, prev });
-			} else if ancestor_number != prev - 1 {
-				return Err(UnexpectedAncestor { number: ancestor_number, prev });
-			} else {
+			if Some(ancestor_number) == prev.checked_sub(1) {
 				prev = ancestor_number;
-				ancestors.insert(ancestor);
+				scheduling_parents.insert(ancestor);
+			} else {
+				return Err(UnexpectedAncestor { number: ancestor_number, prev });
 			}
 		}
 
-		Ok(SchedulingScope { scheduling_parent, scheduling_ancestors: ancestors })
-	}
-
-	pub fn scheduling_parent(&self) -> Hash {
-		self.scheduling_parent
-	}
-
-	/// Get the relay ancestor by hash.
-	///
-	/// Returns `Some` if the hash is either the scheduling parent or one of its ancestors.
-	pub fn contains_scheduling_ancestor(&self, hash: &Hash) -> bool {
-		hash == &self.scheduling_parent || self.scheduling_ancestors.contains(hash)
+		Ok(SchedulingScope { scheduling_parents })
 	}
 
 	/// Returns an iterator over all allowed scheduling parent hashes (scheduling parent +
 	/// ancestors).
 	pub fn scheduling_parent_hashes(&self) -> impl Iterator<Item = Hash> + '_ {
-		std::iter::once(self.scheduling_parent).chain(self.scheduling_ancestors.iter().copied())
+		self.scheduling_parents.iter().copied()
+	}
+
+	/// Return if the given hash is a valid scheduling parent within this scope.
+	fn contains(&self, hash: &Hash) -> bool {
+		self.scheduling_parents.contains(hash)
 	}
 }
 
@@ -1001,7 +993,6 @@ impl FragmentChain {
 	// right now. This is the relay parent of the last candidate in the chain.
 	// The value returned may not be valid if we want to add a candidate pending availability, which
 	// may have a relay parent which is out of scope. Special handling is needed in that case.
-	// `None` is returned if the candidate's relay parent info cannot be found.
 	// Execution context: the relay parent determines constraint progression
 	// (HRMP watermark, DMP advancement must not regress).
 	fn earliest_relay_parent_number(&self) -> BlockNumber {
@@ -1083,7 +1074,7 @@ impl FragmentChain {
 		output_head_hash: Option<Hash>,
 	) -> Result<Option<(bool, Constraints)>, Error> {
 		// Check if the scheduling parent is in scope.
-		if !scheduling_scope.contains_scheduling_ancestor(&scheduling_parent) {
+		if !scheduling_scope.contains(&scheduling_parent) {
 			return Err(Error::SchedulingParentNotInScope(scheduling_parent));
 		}
 
@@ -1374,9 +1365,7 @@ impl FragmentChain {
 					// For non-pending candidates, scheduling parent must be in scope.
 					// Pending availability candidates may have out-of-scope scheduling parents —
 					// they're already on-chain and don't need to satisfy the current scope.
-					if pending.is_none() &&
-						!scheduling_scope
-							.contains_scheduling_ancestor(&candidate.scheduling_parent)
+					if pending.is_none() && !scheduling_scope.contains(&candidate.scheduling_parent)
 					{
 						return None;
 					}
