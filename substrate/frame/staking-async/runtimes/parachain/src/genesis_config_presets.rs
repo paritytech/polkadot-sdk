@@ -103,6 +103,11 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 				.into_iter()
 				.map(|acc| (acc, endowment / 2, StakerStatus::Validator))
 				.collect(),
+			// Forces dev_staker synthetic validators below this bond to be
+			// filtered out of the validator set during bonding/validate. Keeps
+			// the self-vote pre-loop in `get_npos_voters` from being flooded by
+			// low-stake synthetic validators.
+			min_validator_bond: 10_000 * WND,
 			// Latch DAP mode at era 0: test chains skip the legacy warmup entirely.
 			// Only valid because this runtime sets `DisableMinting = true`.
 			disable_minting_guard: Some(0),
