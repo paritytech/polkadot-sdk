@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, base_dir, collator_default_args, create_chain_spec_with_allowances,
-	expect_one_statement, expect_statements_unordered, spawn_network_sudo,
-	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
+	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 	subscribe_topic_filter,
 };
 use codec::Encode;
@@ -15,17 +15,9 @@ use sp_core::Bytes;
 use sp_statement_store::{
 	InvalidReason, RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{cell::Cell, collections::HashSet, sync::Arc, time::Duration};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-
-use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
-
-use super::common::{
-	assert_no_more_statements, assert_statements_match, expect_one_statement,
-	expect_statements_unordered, spawn_network_sudo, spawn_network_with_injected_allowances,
-	submit_statement, subscribe_topic, subscribe_topic_filter,
-};
 
 /// Verifies basic statement propagation and data integrity across two nodes
 ///
@@ -707,9 +699,9 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 /// Verifies store consistency when many statements expire concurrently
 ///
 /// 1. Already-expired statement is rejected at submission time
-/// 2. 48 ephemeral + 16 persistent statements are submitted concurrently and propagate
-/// 3. After enforce_limits cleans up the 48 expired statements across 8 accounts,
-/// all nodes converge on the 16 surviving persistent statements
+/// 2. 1200 ephemeral + 240 persistent statements are submitted concurrently and propagate
+/// 3. After enforce_limits cleans up the 1200 expired statements across 8 accounts,
+/// all nodes converge on the 240 surviving persistent statements
 ///
 /// Test uses genesis-injected allowances
 #[tokio::test(flavor = "multi_thread")]
@@ -719,7 +711,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	);
 
 	let network =
-		spawn_network_with_injected_allowances(&["alice", "bob", "charlie", "dave"], 16).await?;
+		spawn_network_with_injected_allowances(&["alice", "bob", "charlie", "dave"], 256).await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -752,11 +744,11 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic_a).await?;
 	let mut dave_sub = subscribe_topic(&dave_rpc, topic_a).await?;
 
-	// 48 ephemeral statements across 8 accounts (6 per account), expire in ~35s
+	// 1200 ephemeral statements across 8 accounts (150 per account), expire in ~35s
 	let ephemeral_expiry = now_secs + 35;
 	let ephemeral_stmts: Vec<_> = (0u32..8)
 		.flat_map(|kp| {
-			(0u32..6).map(move |seq| {
+			(0u32..150).map(move |seq| {
 				let keypair = get_keypair(kp);
 				create_test_statement(
 					&keypair,
@@ -764,16 +756,16 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 					None,
 					vec![kp as u8, seq as u8],
 					ephemeral_expiry,
-					1000 + kp * 10 + seq,
+					1000 + kp * 200 + seq,
 				)
 			})
 		})
 		.collect();
 
-	// 16 persistent statements across 8 accounts (2 per account), never expire
+	// 240 persistent statements across 8 accounts (30 per account), never expire
 	let persistent_stmts: Vec<_> = (8u32..16)
 		.flat_map(|kp| {
-			(0u32..2).map(move |seq| {
+			(0u32..30).map(move |seq| {
 				let keypair = get_keypair(kp);
 				create_test_statement(
 					&keypair,
@@ -781,13 +773,13 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 					None,
 					vec![kp as u8, seq as u8],
 					u32::MAX,
-					2000 + kp * 10 + seq,
+					5000 + kp * 200 + seq,
 				)
 			})
 		})
 		.collect();
 
-	// Submit all 64 concurrently, round-robin across nodes
+	// Submit all 1440 concurrently, round-robin across nodes
 	let all_stmts: Vec<_> =
 		ephemeral_stmts.iter().chain(persistent_stmts.iter()).cloned().collect();
 	let nodes = [&alice, &bob, &charlie, &dave];
@@ -805,7 +797,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	for handle in handles {
 		handle.await??;
 	}
-	// Verify all 64 statements propagate to every node
+	// Verify all 1440 statements propagate to every node
 	let expected_encoded: Vec<Vec<u8>> = all_stmts.iter().map(|s| s.encode()).collect();
 
 	for (name, sub) in [
@@ -814,7 +806,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		assert_statements_match(sub, &expected_encoded, 90, name).await?;
+		assert_statements_match(sub, &expected_encoded, 300, name).await?;
 	}
 	let elapsed = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
@@ -829,8 +821,8 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let result = submit_statement(&alice_rpc, &ephemeral_stmts[0]).await?;
 	assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
 
-	// Fresh subscriptions verify that enforce_limits actually removed the 48 ephemeral
-	// statements from the store – only the 16 persistent ones should remain
+	// Fresh subscriptions verify that enforce_limits actually removed the 1200 ephemeral
+	// statements from the store – only the 240 persistent ones should remain
 	let mut alice_fresh = subscribe_topic(&alice_rpc, topic_a).await?;
 	let mut bob_fresh = subscribe_topic(&bob_rpc, topic_a).await?;
 	let mut charlie_fresh = subscribe_topic(&charlie_rpc, topic_a).await?;
@@ -844,7 +836,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("charlie", &mut charlie_fresh),
 		("dave", &mut dave_fresh),
 	] {
-		assert_statements_match(sub, &persistent_encoded, 30, name).await?;
+		assert_statements_match(sub, &persistent_encoded, 120, name).await?;
 	}
 
 	Ok(())
