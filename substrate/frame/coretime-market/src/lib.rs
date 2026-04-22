@@ -65,9 +65,10 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use frame_support::{
 	ensure,
-	traits::{tokens::Balance as BalanceT, Get},
+	traits::{tokens::Balance as BalanceT, Get, Randomness},
 	weights::{Weight, WeightMeter},
 };
+use frame_system::pallet_prelude::BlockNumberFor;
 use pallet_broker::{
 	market::{
 		AdjustBidResult, CoreRangeProvider, Market, OrderResult, RenewalOrderResult,
@@ -167,6 +168,9 @@ pub mod pallet {
 		/// Maximum number of bids that can be placed in a single sale.
 		#[pallet::constant]
 		type MaxBids: Get<u32>;
+
+		/// Source of randomness for shuffling marginal bids at settlement.
+		type Randomness: frame_support::traits::Randomness<Self::Hash, BlockNumberFor<Self>>;
 	}
 
 	#[pallet::event]
@@ -458,7 +462,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let renewal_price = clearing.saturating_add(penalty);
 
 		let allocated_count =
-			allocations.len() as u16 + sale.renewal_count as u16;
+			(allocations.len() as u16).saturating_add(sale.renewal_count as u16);
 
 		let core = if allocated_count < sale.cores_offered {
 			// Unallocated core available: direct renewal.
@@ -706,7 +710,7 @@ fn shuffle_marginal_bids<T: Config>(
 	let slice = &mut bids[start..end];
 	let n = slice.len();
 
-	let seed = frame_system::Pallet::<T>::parent_hash();
+	let (seed, _) = T::Randomness::random(b"coretime-market/shuffle");
 	let seed_bytes: &[u8] = seed.as_ref();
 
 	let hash_len = seed_bytes.len().saturating_sub(3);

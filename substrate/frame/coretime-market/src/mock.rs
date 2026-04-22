@@ -1,12 +1,23 @@
 #![cfg(test)]
 
 use crate::*;
-use frame_support::derive_impl;
+use frame_support::{derive_impl, traits::Randomness};
 use pallet_broker::market::{CoreRangeProvider, SoldCoresRange, TimesliceProvider};
 use sp_core::ConstU32;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
+
+/// Test randomness derived from parent hash and subject.
+pub struct TestRandomness;
+impl Randomness<sp_core::H256, u64> for TestRandomness {
+	fn random(subject: &[u8]) -> (sp_core::H256, u64) {
+		let parent_hash = frame_system::Pallet::<Test>::parent_hash();
+		let mut seed = parent_hash.as_ref().to_vec();
+		seed.extend_from_slice(subject);
+		(sp_core::H256::from(sp_io::hashing::blake2_256(&seed)), 0)
+	}
+}
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -98,6 +109,7 @@ impl crate::pallet::Config for Test {
 	type RenewalRights = TestRenewalRights;
 	type TimeslicePeriod = sp_core::ConstU64<2>;
 	type MaxBids = ConstU32<100>;
+	type Randomness = TestRandomness;
 }
 
 pub fn new_config() -> ConfigRecord<u64, u64> {
