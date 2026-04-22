@@ -2,7 +2,7 @@
 
 use crate::{
 	mock::*,
-	pallet::{AuctionClearingPrice, Configuration, CurrentPhase, SaleInfo},
+	pallet::{Configuration, CurrentPhase, SaleInfo},
 	InitData, SalePhase,
 };
 use frame_support::weights::WeightMeter;
@@ -279,7 +279,7 @@ fn auction_settles_on_tick() {
 
 		// Should contain settlement actions (refunds) and ProcessAutoRenewals.
 		assert!(CurrentPhase::<Test>::get() == Some(SalePhase::Renewal));
-		assert!(AuctionClearingPrice::<Test>::get().is_some());
+		assert!(SaleInfo::<Test>::get().unwrap().clearing_price.is_some());
 
 		let has_process = actions.iter().any(|a| matches!(a, TickAction::ProcessAutoRenewals { .. }));
 		assert!(has_process, "Should have ProcessAutoRenewals action");
@@ -294,7 +294,7 @@ fn fewer_bids_than_cores_clearing_at_reserve() {
 		place_bid(0, 1, 200).unwrap();
 		let actions = tick(20);
 
-		let clearing = AuctionClearingPrice::<Test>::get().unwrap();
+		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
 		let sale = SaleInfo::<Test>::get().unwrap();
 		assert_eq!(clearing, sale.reserve_price);
 
@@ -318,7 +318,7 @@ fn no_bids_settles_cleanly() {
 		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
 
 		// Clearing price should be reserve.
-		let clearing = AuctionClearingPrice::<Test>::get().unwrap();
+		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
 		let sale = SaleInfo::<Test>::get().unwrap();
 		assert_eq!(clearing, sale.reserve_price);
 		assert_eq!(sale.cores_sold, 0);
@@ -343,7 +343,7 @@ fn settlement_refunds_excess_to_winners() {
 		place_bid(0, 2, 200).unwrap(); // bid capped at 200
 		let actions = tick(20);
 
-		let clearing = AuctionClearingPrice::<Test>::get().unwrap();
+		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
 		assert_eq!(clearing, 200);
 
 		// User 1 bid 300, clearing 200 → should get 100 excess refund.
@@ -440,15 +440,18 @@ fn double_renewal_prevented() {
 }
 
 #[test]
-fn renewal_fails_when_completed_renewals_full() {
+fn renewal_fails_when_pending_actions_full() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[]);
 
-		// Pre-fill CompletedRenewals to capacity (MaxBids = 100).
-		crate::pallet::CompletedRenewals::<Test>::put(
+		// Pre-fill PendingRenewalActions to capacity (MaxBids = 100).
+		crate::pallet::PendingRenewalActions::<Test>::put(
 			sp_runtime::BoundedVec::truncate_from(
 				(0..100u64)
-					.map(|i| (i, PotentialRenewalId { core: i as u16, when: 0 }))
+					.map(|i| crate::RenewalAction::Renewed {
+						who: i,
+						renewal_id: PotentialRenewalId { core: i as u16, when: 0 },
+					})
 					.collect::<alloc::vec::Vec<_>>(),
 			),
 		);
@@ -460,15 +463,16 @@ fn renewal_fails_when_completed_renewals_full() {
 }
 
 #[test]
-fn displacement_fails_when_displaced_bids_full() {
+fn displacement_fails_when_pending_actions_full() {
 	TestExt::new().execute_with(|| {
-		// 2 cores, 2 bids → oversubscribed.
 		let sale = setup_renewal_phase(&[(1, 200), (2, 150)]);
 
-		// Pre-fill DisplacedBids to capacity.
-		crate::pallet::DisplacedBids::<Test>::put(
+		// Pre-fill PendingRenewalActions to capacity.
+		crate::pallet::PendingRenewalActions::<Test>::put(
 			sp_runtime::BoundedVec::truncate_from(
-				(0..100u64).map(|i| (i, 50u64)).collect::<alloc::vec::Vec<_>>(),
+				(0..100u64)
+					.map(|i| crate::RenewalAction::Displaced { who: i, refund: 50 })
+					.collect::<alloc::vec::Vec<_>>(),
 			),
 		);
 
@@ -533,7 +537,7 @@ fn penalty_applied_when_oversubscribed() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[(1, 200), (2, 180)]);
 
-		let clearing = AuctionClearingPrice::<Test>::get().unwrap();
+		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
 		let config = Configuration::<Test>::get().unwrap();
 		let expected_penalty = config.penalty * clearing;
 		let expected_price = clearing + expected_penalty;
@@ -555,7 +559,7 @@ fn no_penalty_when_not_oversubscribed() {
 	TestExt::new().execute_with(|| {
 		let sale = setup_renewal_phase(&[(1, 200)]);
 
-		let clearing = AuctionClearingPrice::<Test>::get().unwrap();
+		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
 
 		TestRenewalRights::set(2, sale.region_begin, 1);
 		let result = place_renewal(25, 2, 0, sale.region_begin).unwrap();

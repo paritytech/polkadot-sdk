@@ -270,11 +270,7 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The next bid ID to assign. Also serves as the count of bids placed in this sale.
-	#[pallet::storage]
-	pub type NextBidId<T> = StorageValue<_, u32, ValueQuery>;
-
-	/// Auction winners after settlement, awaiting region issuance at the end of Renewal phase.
+	/// Auction winners after settlement. May be displaced by renewers during the Renewal phase.
 	#[pallet::storage]
 	pub type Allocations<T: Config> = StorageValue<
 		_,
@@ -282,39 +278,16 @@ pub mod pallet {
 		ValueQuery,
 	>;
 
-	/// The clearing price from the most recent auction settlement.
+	/// Per-account quota tracking: auction wins and renewals used this sale.
 	#[pallet::storage]
-	pub type AuctionClearingPrice<T: Config> = StorageValue<_, BalanceOf<T>, OptionQuery>;
+	pub type Quotas<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AccountId, AccountQuota, ValueQuery>;
 
-	/// Number of renewals exercised in the current Renewal phase.
+	/// Actions accumulated during the Renewal phase, resolved at sale finalization.
 	#[pallet::storage]
-	pub type RenewalCount<T> = StorageValue<_, u32, ValueQuery>;
-
-	/// Number of cores won per account in the auction. Set during settlement, used to reduce
-	/// renewal quota (RFC-17: auction wins count against renewal rights).
-	#[pallet::storage]
-	pub type AuctionWins<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
-
-	/// Number of renewal rights consumed per account in the current Renewal phase.
-	#[pallet::storage]
-	pub type RenewalsUsed<T: Config> =
-		StorageMap<_, Blake2_128Concat, T::AccountId, u32, ValueQuery>;
-
-	/// Completed renewals during the Renewal phase. Drained in `finalize_sale` to emit
-	/// `TickAction::RenewRegion`.
-	#[pallet::storage]
-	pub type CompletedRenewals<T: Config> = StorageValue<
+	pub type PendingRenewalActions<T: Config> = StorageValue<
 		_,
-		BoundedVec<(T::AccountId, PotentialRenewalId), T::MaxBids>,
-		ValueQuery,
-	>;
-
-	/// Displaced auction winners during the Renewal phase. Refunded in `finalize_sale`.
-	#[pallet::storage]
-	pub type DisplacedBids<T: Config> = StorageValue<
-		_,
-		BoundedVec<(T::AccountId, BalanceOf<T>), T::MaxBids>,
+		BoundedVec<RenewalAction<T::AccountId, BalanceOf<T>>, T::MaxBids>,
 		ValueQuery,
 	>;
 }
@@ -325,7 +298,7 @@ impl<T: Config> Pallet<T> {
 		let sale = SaleInfo::<T>::get()?;
 		match CurrentPhase::<T>::get()? {
 			SalePhase::Market => Some(descending_price::<T>(block_number, &sale)),
-			SalePhase::Renewal | SalePhase::Settlement => AuctionClearingPrice::<T>::get(),
+			SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
 		}
 	}
 
@@ -337,12 +310,21 @@ impl<T: Config> Pallet<T> {
 		region_id: RegionId,
 		region_end: Timeslice,
 	) -> Result<RenewalOrderResult<BalanceOf<T>, u32>, Error<T>> {
-		CompletedRenewals::<T>::try_mutate(|r| {
-			r.try_push((who.clone(), renewal)).map_err(|_| Error::<T>::TooManyBids)
+		PendingRenewalActions::<T>::try_mutate(|actions| {
+			actions
+				.try_push(RenewalAction::Renewed {
+					who: who.clone(),
+					renewal_id: renewal,
+				})
+				.map_err(|_| Error::<T>::TooManyBids)
 		})?;
 
-		RenewalCount::<T>::mutate(|c| c.saturating_inc());
-		RenewalsUsed::<T>::mutate(who, |c| c.saturating_inc());
+		SaleInfo::<T>::mutate(|s| {
+			if let Some(sale) = s {
+				sale.renewal_count.saturating_inc();
+			}
+		});
+		Quotas::<T>::mutate(who, |q| q.renewals_used.saturating_inc());
 
 		Self::deposit_event(Event::RenewalExercised {
 			who: who.clone(),
@@ -391,6 +373,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			ideal_cores_sold: 0,
 			cores_offered: 0,
 			cores_sold: 0,
+			renewal_count: 0,
 		};
 
 		let new_sale = rotate_sale::<T>(&old_sale, &config, &range, block_number);
@@ -424,13 +407,12 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let current_price = descending_price::<T>(block_number, &sale);
 		let bid_price = price_limit.min(current_price);
 
-		let bid_id = NextBidId::<T>::get();
-		NextBidId::<T>::put(bid_id.saturating_add(1));
-
-		let record = BidRecord { bid_id, who: who.clone(), price: bid_price };
-		Bids::<T>::try_mutate(|bids| {
+		let bid_id = Bids::<T>::try_mutate(|bids| {
+			let bid_id = bids.len() as u32;
+			let record = BidRecord { bid_id, who: who.clone(), price: bid_price };
 			let pos = bids.partition_point(|b| b.price > bid_price);
-			bids.try_insert(pos, record).map_err(|_| Error::<T>::TooManyBids)
+			bids.try_insert(pos, record).map_err(|_| Error::<T>::TooManyBids)?;
+			Ok::<u32, Error<T>>(bid_id)
 		})?;
 
 		Self::deposit_event(Event::BidPlaced {
@@ -458,14 +440,13 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		// RFC-17: auction wins count against renewal quota.
 		// remaining = total_rights - auction_wins - renewals_already_used
 		let total_rights = T::RenewalRights::renewal_rights_count(who, sale.region_begin);
-		let auction_wins = AuctionWins::<T>::get(who);
-		let renewals_used = RenewalsUsed::<T>::get(who);
+		let quota = Quotas::<T>::get(who);
 		let remaining = total_rights
-			.saturating_sub(auction_wins)
-			.saturating_sub(renewals_used);
+			.saturating_sub(quota.auction_wins)
+			.saturating_sub(quota.renewals_used);
 		ensure!(remaining > 0, Error::<T>::Unavailable);
 
-		let clearing = AuctionClearingPrice::<T>::get().unwrap_or(sale.reserve_price);
+		let clearing = sale.clearing_price.unwrap_or(sale.reserve_price);
 
 		let allocations = Allocations::<T>::get();
 		// Use cores_sold from settlement (not Allocations len, which shrinks
@@ -477,7 +458,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let renewal_price = clearing.saturating_add(penalty);
 
 		let allocated_count =
-			allocations.len() as u16 + RenewalCount::<T>::get() as u16;
+			allocations.len() as u16 + sale.renewal_count as u16;
 
 		let core = if allocated_count < sale.cores_offered {
 			// Unallocated core available: direct renewal.
@@ -495,7 +476,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						&a.who,
 						sale.region_begin,
 					);
-					let wins = AuctionWins::<T>::get(&a.who);
+					let wins = Quotas::<T>::get(&a.who).auction_wins;
 					rights <= wins
 				})
 				.min_by_key(|(_, a)| a.bid_price)
@@ -506,8 +487,12 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			let core = displaced.core;
 			let refund = sale.clearing_price.unwrap_or_default();
 
-			DisplacedBids::<T>::try_mutate(|bids| {
-				bids.try_push((displaced.who.clone(), refund))
+			PendingRenewalActions::<T>::try_mutate(|actions| {
+				actions
+					.try_push(RenewalAction::Displaced {
+						who: displaced.who.clone(),
+						refund,
+					})
 					.map_err(|_| Error::<T>::TooManyBids)
 			})?;
 
@@ -623,9 +608,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 
 					let mut finalize_actions = finalize_sale::<T>(&sale);
 					CurrentPhase::<T>::put(SalePhase::Settlement);
-					RenewalCount::<T>::kill();
-					let _ = RenewalsUsed::<T>::clear(u32::MAX, None);
-					let _ = AuctionWins::<T>::clear(u32::MAX, None);
+					let _ = Quotas::<T>::clear(u32::MAX, None);
 
 					Self::deposit_event(Event::PhaseTransitioned {
 						from: SalePhase::Renewal,
@@ -654,9 +637,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					SaleInfo::<T>::put(&new_sale);
 					CurrentPhase::<T>::put(SalePhase::Market);
 
-					// Clean up state from previous sale.
-					NextBidId::<T>::kill();
-					AuctionClearingPrice::<T>::kill();
 
 					Self::deposit_event(Event::PhaseTransitioned {
 						from: SalePhase::Settlement,
@@ -763,7 +743,6 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 		.unwrap_or(reserve);
 
 	shuffle_marginal_bids::<T>(&mut bids, clearing_price);
-	AuctionClearingPrice::<T>::put(clearing_price);
 
 	let (winners, losers): (Vec<_>, Vec<_>) = bids
 		.into_iter()
@@ -785,7 +764,7 @@ fn settle_auction<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>>
 			if !excess.is_zero() {
 				actions.push(TickAction::Refund { amount: excess, who: bid.who.clone() });
 			}
-			AuctionWins::<T>::mutate(&bid.who, |c| c.saturating_inc());
+			Quotas::<T>::mutate(&bid.who, |q| q.auction_wins.saturating_inc());
 			AllocationRecord {
 				who: bid.who,
 				bid_price: bid.price,
@@ -833,21 +812,22 @@ fn finalize_sale<T: Config>(sale: &SaleInfoRecordOf<T>) -> Vec<TickActionOf<T>> 
 		});
 	}
 
-	// Emit RenewRegion for each completed renewal.
-	for (owner, renewal_id) in CompletedRenewals::<T>::take() {
-		actions.push(TickAction::RenewRegion { owner, renewal_id });
+	// Process pending renewal actions: renewals and displacement refunds.
+	for action in PendingRenewalActions::<T>::take() {
+		match action {
+			RenewalAction::Renewed { who, renewal_id } =>
+				actions.push(TickAction::RenewRegion { owner: who, renewal_id }),
+			RenewalAction::Displaced { who, refund } =>
+				actions.push(TickAction::Refund { amount: refund, who }),
+		}
 	}
 
-	// Refund displaced auction winners.
-	for (who, amount) in DisplacedBids::<T>::take() {
-		actions.push(TickAction::Refund { amount, who });
-	}
-
-	let renewal_count = RenewalCount::<T>::get() as u16;
-	if renewal_count > 0 {
-		let mut updated_sale = sale.clone();
-		updated_sale.cores_sold = updated_sale.cores_sold.saturating_add(renewal_count);
-		SaleInfo::<T>::put(updated_sale);
+	if sale.renewal_count > 0 {
+		SaleInfo::<T>::mutate(|s| {
+			if let Some(sale) = s {
+				sale.cores_sold = sale.cores_sold.saturating_add(sale.renewal_count as u16);
+			}
+		});
 	}
 
 	Pallet::<T>::deposit_event(Event::SaleFinalized { regions_issued: count });
@@ -953,5 +933,6 @@ fn rotate_sale<T: Config>(
 		ideal_cores_sold,
 		cores_offered,
 		cores_sold: 0,
+		renewal_count: 0,
 	}
 }

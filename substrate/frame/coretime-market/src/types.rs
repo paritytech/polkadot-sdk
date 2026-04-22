@@ -1,7 +1,7 @@
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use pallet_broker::{
 	market::MarketSaleInfo,
-	CoreIndex, Timeslice,
+	CoreIndex, PotentialRenewalId, Timeslice,
 };
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
@@ -48,6 +48,8 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	pub first_core: CoreIndex,
 	/// Number of cores which have been sold; never more than cores_offered.
 	pub cores_sold: CoreIndex,
+	/// Number of renewals exercised in the current Renewal phase.
+	pub renewal_count: u32,
 }
 
 impl<Balance: Clone, BlockNumber: Clone> SaleInfoRecord<Balance, BlockNumber> {
@@ -178,4 +180,26 @@ pub struct AllocationRecord<AccountId, Balance> {
 	pub bid_id: u32,
 	/// The core index assigned to this allocation.
 	pub core: CoreIndex,
+}
+
+/// Per-account tracking of how many cores were acquired through each path in a sale.
+/// Used to enforce the RFC-17 rule: auction wins + renewals ≤ total renewal rights.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, Default, PartialEq, Eq, Debug, TypeInfo,
+	MaxEncodedLen,
+)]
+pub struct AccountQuota {
+	/// Number of cores won in the auction.
+	pub auction_wins: u32,
+	/// Number of renewals exercised during the Renewal phase.
+	pub renewals_used: u32,
+}
+
+/// Actions accumulated during the Renewal phase and resolved at sale finalization.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
+pub enum RenewalAction<AccountId, Balance> {
+	/// A renewal was exercised. Emits `TickAction::RenewRegion` at finalization.
+	Renewed { who: AccountId, renewal_id: PotentialRenewalId },
+	/// An auction winner was displaced. Emits `TickAction::Refund` at finalization.
+	Displaced { who: AccountId, refund: Balance },
 }
