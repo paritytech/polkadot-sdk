@@ -15,8 +15,12 @@ use sp_core::Bytes;
 use sp_statement_store::{
 	InvalidReason, RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::{cell::Cell, collections::HashSet, sync::Arc, time::Duration};
+use std::{
+	cell::Cell,
+	collections::HashSet,
+	sync::Arc,
+	time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 /// Verifies basic statement propagation and data integrity across two nodes
