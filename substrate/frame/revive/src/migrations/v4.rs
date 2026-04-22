@@ -23,10 +23,9 @@
 //! native `CodeUploadDepositReserve` contribution under [`NativeDepositOf`], keyed by the
 //! pallet's own account (the holder of that deposit). The native currency itself stays where it is.
 //!
-//! Phase 2 iterates [`AccountInfoOf`] and for each contract delegates to
-//! [`Deposit::migrate_native_to_pgas`], which burns the native `StorageDepositReserve` hold and
-//! replaces it with the same amount of PGAS minted into the contract and held under the same
-//! reason. Runtimes with the native-only `()` backend get a no-op here, which is correct.
+//! Phase 2 iterates [`AccountInfoOf`] and for each contract burn the native
+//! `StorageDepositReserve` hold and replaces it with the same amount of PGAS minted into the
+//! contract and held under the same reason.
 
 use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
