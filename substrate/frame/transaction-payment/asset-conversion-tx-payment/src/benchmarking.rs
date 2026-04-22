@@ -28,7 +28,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use sp_runtime::traits::{
-	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
+	AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
 };
 
 #[benchmarks(where
@@ -36,7 +36,7 @@ use sp_runtime::traits::{
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::AssetId: Send + Sync,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: Clone,
 )]
 mod benchmarks {
 	use super::*;

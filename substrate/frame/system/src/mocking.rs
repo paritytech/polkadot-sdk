@@ -45,3 +45,57 @@ pub type MockBlockU128<T, Signature = (), Extra = ()> = generic::Block<
 	generic::Header<u128, sp_runtime::traits::BlakeTwo256>,
 	MockUncheckedExtrinsic<T, Signature, Extra>,
 >;
+
+/// A minimal pallet with a custom origin for testing `AccountLike` integration
+/// with `CheckNonce` and transaction payment extensions.
+///
+/// Variants cover every combination of `as_account`, `nonce_provider`, and `fee_payer`:
+/// - `Member(AccountId)`: `as_account` + `nonce_provider` + `fee_payer`
+/// - `NonceOnly(AccountId)`: `as_account` + `nonce_provider`
+/// - `FeeOnly(AccountId)`: `as_account` + `fee_payer`
+/// - `NonPaying(AccountId)`: `as_account` only (no nonce/fee)
+/// - `Council`: no account mapping at all
+#[frame_support::pallet(dev_mode)]
+pub mod pallet_with_custom_origin {
+	use crate as frame_system;
+	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::*;
+
+	#[pallet::pallet]
+	pub struct Pallet<T>(_);
+
+	#[pallet::config]
+	pub trait Config: frame_system::Config {}
+
+	#[pallet::call]
+	impl<T: Config> Pallet<T> {
+		pub fn noop(_origin: OriginFor<T>) -> DispatchResult {
+			Ok(())
+		}
+	}
+
+	#[pallet::origin]
+	#[derive(
+		Clone, PartialEq, Eq, Debug, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo,
+	)]
+	pub enum Origin<T: Config> {
+		/// A member with full account integration (nonce + fee payment).
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::nonce_provider]
+		#[pallet::fee_payer]
+		Member(T::AccountId),
+		/// An account origin that only participates in nonce tracking (no fee payment).
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::nonce_provider]
+		NonceOnly(T::AccountId),
+		/// An account origin that only pays fees (no nonce tracking).
+		#[pallet::as_account(|who| Some(who.clone()))]
+		#[pallet::fee_payer]
+		FeeOnly(T::AccountId),
+		/// An account origin that does NOT participate in nonce/fee tracking.
+		#[pallet::as_account(|who| Some(who.clone()))]
+		NonPaying(T::AccountId),
+		/// A governance-style origin with no account mapping.
+		Council,
+	}
+}

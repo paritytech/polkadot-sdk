@@ -121,6 +121,20 @@ impl<AccountId> RawOrigin<AccountId> {
 	}
 }
 
+impl<AccountId: Clone> crate::traits::AccountLike<AccountId> for RawOrigin<AccountId> {
+	fn as_account(&self) -> Option<AccountId> {
+		self.as_signed().cloned()
+	}
+
+	fn nonce_provider(&self) -> Option<AccountId> {
+		self.as_signed().cloned()
+	}
+
+	fn fee_payer(&self) -> Option<AccountId> {
+		self.as_signed().cloned()
+	}
+}
+
 /// A type that can be used as a parameter in a dispatchable function.
 ///
 /// When using `decl_module` all arguments for call functions must implement this trait.
@@ -746,7 +760,7 @@ mod weight_tests {
 		#[pallet::disable_frame_system_supertrait_check]
 		pub trait Config: 'static {
 			type Block: Parameter + sp_runtime::traits::Block;
-			type AccountId;
+			type AccountId: Clone;
 			type Balance;
 			type BaseCallFilter: crate::traits::Contains<Self::RuntimeCall>;
 			type RuntimeOrigin;

@@ -48,15 +48,15 @@ use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
-	traits::IsType,
+	traits::{AccountLike, IsType, OriginTrait},
 	DefaultNoBound,
 };
 use pallet_transaction_payment::{ChargeTransactionPayment, OnChargeTransaction};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{
-		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight,
-		TransactionExtension, ValidateResult, Zero,
+		DispatchInfoOf, Dispatchable, PostDispatchInfoOf, RefundWeight, TransactionExtension,
+		ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -287,7 +287,7 @@ where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	BalanceOf<T>: Send + Sync + From<u64>,
 	T::AssetId: Send + Sync,
-	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: Clone,
 {
 	const IDENTIFIER: &'static str = "ChargeAssetTxPayment";
 	type Implicit = ();
@@ -312,7 +312,7 @@ where
 		_inherited_implication: &impl Encode,
 		_source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		let Some(who) = origin.as_system_origin_signer() else {
+		let Some(who) = origin.caller().fee_payer() else {
 			return Ok((ValidTransaction::default(), Val::NoCharge, origin));
 		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
@@ -320,7 +320,7 @@ where
 		self.can_withdraw_fee(&who, call, info, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
 		let validity = ValidTransaction { priority, ..Default::default() };
-		let val = Val::Charge { tip: self.tip, who: who.clone(), fee };
+		let val = Val::Charge { tip: self.tip, who, fee };
 		Ok((validity, val, origin))
 	}
 

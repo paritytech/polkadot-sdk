@@ -1459,6 +1459,24 @@ where
 	}
 }
 
+#[docify::export]
+/// Ensure that the origin `o` represents either a signed extrinsic (i.e. transaction) or some other
+/// origin (e.g. a custom pallet origin authorized by a `TransactionExtension`) which can be
+/// interpreted as an account via [`AccountLike::as_account()`](frame_support::traits::AccountLike).
+///
+/// This accepts any origin whose [`CallerTrait::as_account()`](frame_support::traits::CallerTrait)
+/// returns `Some`, including `Signed` origins and custom pallet origins annotated with
+/// `#[pallet::as_account(...)]`.
+///
+/// Returns `Ok` with the account extracted from the origin or an `Err` otherwise.
+pub fn ensure_account<OuterOrigin, AccountId>(o: OuterOrigin) -> Result<AccountId, BadOrigin>
+where
+	OuterOrigin: OriginTrait<AccountId = AccountId>,
+{
+	use frame_support::traits::AccountLike;
+	o.into_caller().as_account().ok_or(BadOrigin)
+}
+
 /// Ensure that the origin `o` represents either a signed extrinsic (i.e. transaction) or the root.
 /// Returns `Ok` with the account that signed the extrinsic, `None` if it was root,  or an `Err`
 /// otherwise.

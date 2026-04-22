@@ -455,7 +455,9 @@ pub trait UnfilteredDispatchable {
 /// Unlike `OriginTrait` impls, this does not include any kind of dispatch/call filter. Also, this
 /// trait is more flexible in terms of how it can be used: it is a `Parameter` and `Member`, so it
 /// can be used as dispatchable parameters as well as in storage items.
-pub trait CallerTrait<AccountId>: Parameter + Member + From<RawOrigin<AccountId>> {
+pub trait CallerTrait<AccountId>:
+	Parameter + Member + From<RawOrigin<AccountId>> + AccountLike<AccountId>
+{
 	/// Extract the signer from the message if it is a `Signed` origin.
 	fn into_system(self) -> Option<RawOrigin<AccountId>>;
 
@@ -475,6 +477,108 @@ pub trait CallerTrait<AccountId>: Parameter + Member + From<RawOrigin<AccountId>
 	/// Returns `true` if `self` is a system `None` origin, `None` otherwise.
 	fn is_none(&self) -> bool {
 		self.as_system_ref().map_or(false, RawOrigin::is_none)
+	}
+}
+
+/// Trait for pallet `Origin` types that represent account-like entities.
+///
+/// Origins that are "like accounts" can expose an account (through `as_account`) which can be used
+/// in various authentication and validation work in runtime code. Additionally, if an origin which
+/// exposes an account can also mark that account to be used for nonce checking or fee payment.
+///
+/// # How this trait is used
+///
+/// This trait is **not meant to be called directly** on individual pallet origin types. Instead, it
+/// is a building block used by the FRAME macros: the `#[pallet]` macro generates an `AccountLike`
+/// impl on each pallet's `Origin` type, and `construct_runtime!` composes those per-pallet impls
+/// into the [`CallerTrait`] implementation on `OriginCaller`. Consumer code (e.g. other pallets
+/// which want to authorize other origins besides `Signed` to run something) accesses account
+/// information through `origin.caller().as_account()`, which goes through `CallerTrait` →
+/// `AccountLike` on `OriginCaller`, not on individual pallet origins.
+///
+/// There is native support for nonce checking and fee payment in FRAME extensions. `CheckNonce` and
+/// the `ChargeTransactionPayment` family of `TransactionExtension`s use the
+/// `origin.caller().nonce_provider()` and `origin.caller().fee_payer()` respectively to understand
+/// if their logic needs to run for a given origin.
+///
+/// For non-generic enum origins (those without `<T: Config>`), the `AccountLike` impl on the origin
+/// type itself uses default implementations (returning `None`), because the `as_account` closures
+/// may need access to `Pallet<T>`, which is not available without `T`. The runtime-level
+/// `OriginCaller` path works correctly because `construct_runtime!` routes through
+/// `Pallet::<T>::__as_account_for_origin()` which has `T` in scope.
+///
+/// Right now, there is no weight associated with `as_account`, so closures **must not access
+/// storage as this can lead to unaccounted weight**. Currently there is no use case for accessing
+/// storage for computing an associated account in an origin and, if there was, it could be done by
+/// the `TransactionExtension` computing the origin and it can be stored as data inside the origin
+/// type.
+///
+/// # Pallet macro attributes
+///
+/// For **enum origins**: implemented automatically by the `#[pallet]` macro. Pallet developers
+/// annotate individual enum variants with `#[pallet::as_account(|fields...| -> Option<AccountId>)]`
+/// and optionally `#[pallet::nonce_provider]` and/or `#[pallet::fee_payer]` flags.
+///
+/// **Important:** `#[pallet::nonce_provider]` and `#[pallet::fee_payer]` reuse the closure provided
+/// to `#[pallet::as_account(...)]` so they cannot accept their own closure. When present, they
+/// cause [`nonce_provider()`](AccountLike::nonce_provider) /
+/// [`fee_payer()`](AccountLike::fee_payer) to return the same value as
+/// [`as_account()`](AccountLike::as_account) for that variant.
+///
+/// For **type alias origins** (e.g. `type Origin<T> = CustomOrigin<...>`): the aliased type must
+/// implement this trait. The generated code delegates to the trait impl.
+///
+/// # When to use this
+///
+/// These attributes are intended for pallet developers who:
+///
+/// 1. Want custom origins to participate in the standard
+/// [`CheckNonce`](frame_system::extensions::check_nonce) and/or
+/// [`ChargeTransactionPayment`](pallet_transaction_payment) extensions without writing custom
+/// transaction extensions. They handle the simple case where a custom origin maps directly to an
+/// account.
+/// 2. Want custom origins which can be interpreted as an account or have an associated account to
+/// be allowed to run in their pallet call context.
+///
+/// Using `#[pallet::nonce_provider]` without `#[pallet::fee_payer]` means the origin's transactions
+/// will have nonce tracking but no fee payment — the developer must provide their own spam
+/// protection mechanism.
+///
+/// Using `#[pallet::fee_payer]` without `#[pallet::nonce_provider]` means fees are charged but
+/// there is no replay protection — the developer must provide their own replay protection (e.g.
+/// single-use transactions or a custom nonce scheme).
+pub trait AccountLike<AccountId> {
+	/// Return the `AccountId` this origin maps to, if any.
+	///
+	/// IMPORTANT!
+	///
+	/// Do **not** do any storage access in this function, it does not track weight!
+	fn as_account(&self) -> Option<AccountId> {
+		None
+	}
+
+	/// Return the `AccountId` to use for nonce tracking, if this origin participates.
+	///
+	/// When derived via `#[pallet::nonce_provider]`, this returns the same value as
+	/// [`as_account()`](AccountLike::as_account).
+	///
+	/// IMPORTANT!
+	///
+	/// Do **not** do any storage access in this function, it does not track weight!
+	fn nonce_provider(&self) -> Option<AccountId> {
+		None
+	}
+
+	/// Return the `AccountId` to charge fees from, if this origin participates.
+	///
+	/// When derived via `#[pallet::fee_payer]`, this returns the same value as
+	/// [`as_account()`](AccountLike::as_account).
+	///
+	/// IMPORTANT!
+	///
+	/// Do **not** do any storage access in this function, it does not track weight!
+	fn fee_payer(&self) -> Option<AccountId> {
+		None
 	}
 }
 

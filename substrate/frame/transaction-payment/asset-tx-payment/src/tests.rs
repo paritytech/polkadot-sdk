@@ -649,3 +649,86 @@ fn no_fee_and_no_weight_for_other_origins() {
 		assert_eq!(post_info.actual_weight, Some(info.call_weight));
 	})
 }
+
+#[test]
+fn pallet_origin_with_fee_payer_charges_native_fees() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = CALL.encoded_size();
+
+			let balance_before = Balances::free_balance(1);
+
+			// Member(1) has fee_payer returning Some(1), so native fees should be charged.
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::Member(1).into();
+			let (pre, _origin) =
+				ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+
+			// Balance should have decreased.
+			assert!(Balances::free_balance(1) < balance_before);
+
+			let pd_res = Ok(());
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+			<ChargeAssetTxPayment<Runtime> as TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+		});
+}
+
+#[test]
+fn pallet_origin_without_fee_payer_skips_fees() {
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(5, 0))
+		.build()
+		.execute_with(|| {
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+
+			let mut info = info_from_weight(Weight::from_parts(5, 0));
+			info.extension_weight = ext.weight(CALL);
+			let len = CALL.encoded_size();
+
+			let balance_before = Balances::free_balance(1);
+
+			// NonPaying(1) has as_account but NOT fee_payer, so no fees charged.
+			let origin: RuntimeOrigin =
+				frame_system::mocking::pallet_with_custom_origin::Origin::<Runtime>::NonPaying(1).into();
+			let (pre, _origin) =
+				ext.validate_and_prepare(origin, CALL, &info, len, 0).unwrap();
+
+			// Balance should be unchanged.
+			assert_eq!(Balances::free_balance(1), balance_before);
+
+			let pd_res = Ok(());
+			let mut post_info = PostDispatchInfo {
+				actual_weight: Some(info.total_weight()),
+				pays_fee: Default::default(),
+			};
+			<ChargeAssetTxPayment<Runtime> as TransactionExtension<RuntimeCall>>::post_dispatch(
+				pre,
+				&info,
+				&mut post_info,
+				len,
+				&pd_res,
+			)
+			.unwrap();
+
+			// Extension weight should be refunded since NoCharge path was taken.
+			assert_eq!(post_info.actual_weight, Some(info.call_weight));
+		});
+}

@@ -43,6 +43,7 @@ frame_support::construct_runtime!(
 		Assets: pallet_assets,
 		Authorship: pallet_authorship,
 		AssetTxPayment: pallet_asset_tx_payment,
+		CustomOriginPallet: frame_system::mocking::pallet_with_custom_origin,
 	}
 );
 
@@ -194,6 +195,8 @@ impl WeightInfo for MockWeights {
 		Weight::from_parts(20, 0)
 	}
 }
+
+impl frame_system::mocking::pallet_with_custom_origin::Config for Runtime {}
 
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
