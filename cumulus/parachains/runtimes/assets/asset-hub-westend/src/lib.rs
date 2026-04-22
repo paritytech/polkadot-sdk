@@ -1779,7 +1779,7 @@ impl frame_support::traits::Get<u64> for DapLastIssuanceTimestamp {
 	}
 }
 
-/// Default budget: 85% staker rewards, 15% buffer.
+/// Default budget: 85% staker rewards, 15% buffer, 0% validator incentive.
 pub struct DefaultDapBudget;
 impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapBudget {
 	fn get() -> pallet_dap::BudgetAllocationMap {
@@ -1787,8 +1787,9 @@ impl frame_support::traits::Get<pallet_dap::BudgetAllocationMap> for DefaultDapB
 		use sp_staking::budget::BudgetRecipientList;
 
 		let recipients = <Runtime as pallet_dap::Config>::BudgetRecipients::recipients();
-		// [dap (buffer), StakerRewardRecipient]
-		let percentages = [Perbill::from_percent(15), Perbill::from_percent(85)];
+		// [dap (buffer), StakerRewardRecipient, ValidatorIncentiveRecipient]
+		let percentages =
+			[Perbill::from_percent(15), Perbill::from_percent(85), Perbill::from_percent(0)];
 
 		let mut map = pallet_dap::BudgetAllocationMap::new();
 		for ((key, _), perbill) in recipients.into_iter().zip(percentages) {
@@ -2161,6 +2162,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn metadata_versions() -> alloc::vec::Vec<u32> {
 			Runtime::metadata_versions()
+		}
+	}
+
+	impl frame_support::view_functions::runtime_api::RuntimeViewFunction<Block> for Runtime {
+		fn execute_view_function(id: frame_support::view_functions::ViewFunctionId, input: Vec<u8>) -> Result<Vec<u8>, frame_support::view_functions::ViewFunctionDispatchError> {
+			Runtime::execute_view_function(id, input)
 		}
 	}
 

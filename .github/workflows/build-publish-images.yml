@@ -716,6 +716,10 @@ jobs:
       - build-malus
       - build-linux-substrate
       - build-templates-node
+      - prepare-cumulus-zombienet-artifacts
+      - prepare-parachain-templates-zombienet-artifacts
+      - prepare-polkadot-zombienet-artifacts
+      - prepare-substrate-zombienet-artifacts
     if: always() && !cancelled()
     outputs:
       build_success: ${{ steps.check_success.outputs.build_success }}
@@ -741,6 +745,9 @@ jobs:
     with:
       build_run_id: ${{ github.run_id }}
       ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
   trigger-zombienet-cumulus:
     needs: [preflight, confirm-required-build-jobs-passed]
@@ -749,6 +756,9 @@ jobs:
     with:
       build_run_id: ${{ github.run_id }}
       ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
   trigger-zombienet-substrate:
     needs: [preflight, confirm-required-build-jobs-passed]
@@ -757,6 +767,9 @@ jobs:
     with:
       build_run_id: ${{ github.run_id }}
       ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
   trigger-zombienet-parachain-template:
     needs: [preflight, confirm-required-build-jobs-passed]
@@ -765,6 +778,9 @@ jobs:
     with:
       build_run_id: ${{ github.run_id }}
       ref_slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
   confirm-zombienet-tests-passed:
     runs-on: ubuntu-latest
