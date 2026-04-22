@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, base_dir, collator_default_args, create_chain_spec_with_allowances,
-	expect_one_statement, expect_statements_unordered, spawn_network_sudo,
+	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
+	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
+	spawn_network_sudo,
 	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 	subscribe_topic_filter,
 };
@@ -737,7 +738,7 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	}
 	let items = create_allowance_items(&entries);
 
-	let mut network = spawn_network_sudo(&["charlie", "dave"], items).await?;
+	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
 
 	let filter = TopicFilter::MatchAny(vec![topic_a, topic_b].try_into().unwrap());
 
@@ -761,17 +762,17 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	let expected_encoded: Vec<Vec<u8>> = all_statements.iter().map(|s| s.encode()).collect();
 
 	let charlie_sent_before = Cell::new(0.0f64);
-	let dave_sent_before = Cell::new(0.0f64);
+	let alice_sent_before = Cell::new(0.0f64);
 	{
 		let charlie = network.get_node("charlie")?;
-		let dave = network.get_node("dave")?;
+		let alice = network.get_node("alice")?;
 		let charlie_rpc = charlie.rpc().await?;
-		let dave_rpc = dave.rpc().await?;
+		let alice_rpc = alice.rpc().await?;
 
 		let mut charlie_sub = subscribe_topic_filter(&charlie_rpc, filter.clone()).await?;
-		let mut dave_sub = subscribe_topic_filter(&dave_rpc, filter.clone()).await?;
+		let mut alice_sub = subscribe_topic_filter(&alice_rpc, filter.clone()).await?;
 
-		let rpcs = [&charlie_rpc, &dave_rpc];
+		let rpcs = [&charlie_rpc, &alice_rpc];
 		for (i, stmt) in all_statements.iter().enumerate() {
 			let result = submit_statement(rpcs[i % 2], stmt).await?;
 			assert_eq!(result, SubmitResult::New, "Statement {} rejected", i);
@@ -779,14 +780,8 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		info!("All {} statements submitted", TOTAL_STMTS);
 
 		// Wait for full propagation on both nodes
-		for (name, sub) in [("charlie", &mut charlie_sub), ("dave", &mut dave_sub)] {
-			let received = expect_statements_unordered(sub, TOTAL_STMTS, 60).await?;
-			let mut received_sorted: Vec<Vec<u8>> =
-				received.into_iter().map(|b| b.to_vec()).collect();
-			received_sorted.sort();
-			let mut expected_sorted = expected_encoded.clone();
-			expected_sorted.sort();
-			assert_eq!(received_sorted, expected_sorted);
+		for (name, sub) in [("charlie", &mut charlie_sub), ("alice", &mut alice_sub)] {
+			assert_statements_match(sub, &expected_encoded, 60, name).await?;
 			assert_no_more_statements(sub, 5).await?;
 		}
 
@@ -800,33 +795,34 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 				10u64,
 			)
 			.await?;
-		dave.wait_metric_with_timeout(
-			"substrate_sync_initial_sync_statements_sent",
-			|v| {
-				dave_sent_before.set(v);
-				true
-			},
-			10u64,
-		)
-		.await?;
+		alice
+			.wait_metric_with_timeout(
+				"substrate_sync_initial_sync_statements_sent",
+				|v| {
+					alice_sent_before.set(v);
+					true
+				},
+				10u64,
+			)
+			.await?;
 	}
 
-	let new_collators = ["alice", "bob", "eve"];
+	let new_collators = ["dave", "bob", "eve"];
 	for name in &new_collators {
 		network.add_collator(*name, Default::default(), 1004).await?;
 	}
 
 	let charlie = network.get_node("charlie")?;
-	let dave = network.get_node("dave")?;
 	let alice = network.get_node("alice")?;
+	let dave = network.get_node("dave")?;
 	let bob = network.get_node("bob")?;
 	let eve = network.get_node("eve")?;
 
-	let alice_rpc = alice.rpc().await?;
+	let dave_rpc = dave.rpc().await?;
 	let bob_rpc = bob.rpc().await?;
 	let eve_rpc = eve.rpc().await?;
 
-	let mut alice_sub = subscribe_topic_filter(&alice_rpc, filter.clone()).await?;
+	let mut dave_sub = subscribe_topic_filter(&dave_rpc, filter.clone()).await?;
 	let mut bob_sub = subscribe_topic_filter(&bob_rpc, filter.clone()).await?;
 	let mut eve_sub = subscribe_topic_filter(&eve_rpc, filter).await?;
 
@@ -844,7 +840,7 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		.await?;
 	let target_height = charlie_height.get();
 
-	for (name, node) in [("alice", &alice), ("bob", &bob), ("eve", &eve)] {
+	for (name, node) in [("dave", &dave), ("bob", &bob), ("eve", &eve)] {
 		node.wait_metric_with_timeout(
 			"block_height{status=\"best\"}",
 			|h| h >= target_height,
@@ -858,16 +854,11 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	}
 
 	for (name, sub) in [
-		("alice", &mut alice_sub),
+		("dave", &mut dave_sub),
 		("bob", &mut bob_sub),
 		("eve", &mut eve_sub),
 	] {
-		let received = expect_statements_unordered(sub, TOTAL_STMTS, 60).await?;
-		let mut received_sorted: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
-		received_sorted.sort();
-		let mut expected_sorted = expected_encoded.clone();
-		expected_sorted.sort();
-		assert_eq!(received_sorted, expected_sorted, "Statement content mismatch on {}", name);
+		assert_statements_match(sub, &expected_encoded, 60, name).await?;
 		assert_no_more_statements(sub, 10).await?;
 		info!("{}: received all {} statements via initial sync", name, TOTAL_STMTS);
 	}
@@ -883,21 +874,22 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 			30u64,
 		)
 		.await?;
-	let dave_sent_after = Cell::new(0.0f64);
-	dave.wait_metric_with_timeout(
-		"substrate_sync_initial_sync_statements_sent",
-		|v| {
-			dave_sent_after.set(v);
-			v > dave_sent_before.get()
-		},
-		30u64,
-	)
-	.await?;
+	let alice_sent_after = Cell::new(0.0f64);
+	alice
+		.wait_metric_with_timeout(
+			"substrate_sync_initial_sync_statements_sent",
+			|v| {
+				alice_sent_after.set(v);
+				v > alice_sent_before.get()
+			},
+			30u64,
+		)
+		.await?;
 
 	let total_sent = (charlie_sent_after.get() - charlie_sent_before.get())
-		+ (dave_sent_after.get() - dave_sent_before.get());
+		+ (alice_sent_after.get() - alice_sent_before.get());
 
-	// Both charlie and dave independently run schedule_initial_sync_for_peer for
+	// Both charlie and alice independently run schedule_initial_sync_for_peer for
 	// each new peer, sending all 20 statements each: 2 senders × 3 peers × 20 = 120
 	const SENDER_COUNT: usize = 2;
 	let expected_min = (SENDER_COUNT * new_collators.len() * TOTAL_STMTS) as f64;
