@@ -185,8 +185,8 @@ impl<T: Config> EraRewardManager<T> {
 			}
 		}
 
-		let _ = frame_system::Pallet::<T>::dec_providers(&pot_account)
-			.defensive_proof("Provider was added in Self::create; qed");
+		// try decrementing the provider we added at create.
+		let _ = frame_system::Pallet::<T>::dec_providers(&pot_account);
 	}
 
 	/// Checks if the pot account for an era's staker rewards exists.
