@@ -596,10 +596,8 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 
 		// THEN: alice's incentive is skipped with an Unexpected event; other validators still paid.
 		let events = staking_events_since_last_call();
-		assert!(events.contains(&Event::Unexpected(UnexpectedKind::MissingPayee {
-			era: 2,
-			stash: alice,
-		})));
+		assert!(events
+			.contains(&Event::Unexpected(UnexpectedKind::MissingPayee { era: 2, stash: alice })));
 		assert!(incentive_paid_for(alice, &events).is_none());
 		assert!(incentive_paid_for(21, &events).is_some());
 	});
