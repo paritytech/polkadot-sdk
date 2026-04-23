@@ -1425,6 +1425,31 @@ impl OnSwap for SwapLeases {
 	}
 }
 
+/// Minimal stub pallet preserving `RuntimeHoldReason::DelegatedStaking(StakingDelegation)`
+/// encoding (pallet_index 38, codec index 0) for existing on-chain holds created by the
+/// now-removed `pallet_delegated_staking`. Enables `try_decode_entire_state` to succeed
+/// until all holds are migrated away. Remove once Westend storage is clean.
+pub mod delegated_staking_stub {
+	pub use pallet::*;
+
+	#[frame_support::pallet]
+	pub mod pallet {
+		#[pallet::pallet]
+		pub struct Pallet<T>(_);
+
+		#[pallet::config]
+		pub trait Config: frame_system::Config {}
+
+		#[pallet::composite_enum]
+		pub enum HoldReason {
+			#[codec(index = 0)]
+			StakingDelegation,
+		}
+	}
+}
+
+impl delegated_staking_stub::pallet::Config for Runtime {}
+
 #[frame_support::runtime(legacy_ordering)]
 mod runtime {
 	#[runtime::runtime]
@@ -1515,6 +1540,11 @@ mod runtime {
 	// Multisig module. Late addition.
 	#[runtime::pallet_index(23)]
 	pub type Multisig = pallet_multisig;
+
+	// Stub preserving RuntimeHoldReason::DelegatedStaking encoding for on-chain holds left by
+	// the removed pallet_delegated_staking. Remove once Westend storage is clean.
+	#[runtime::pallet_index(38)]
+	pub type DelegatedStaking = delegated_staking_stub;
 
 	// Parachains pallets. Start indices at 40 to leave room.
 	#[runtime::pallet_index(41)]
