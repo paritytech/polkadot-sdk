@@ -82,3 +82,9 @@ all-curves = [
 	"pallas",
 	"vesta",
 ]
+rfc163 = [
+	"bls12-381",
+	"ed-on-bls12-381-bandersnatch",
+	"pallas",
+	"vesta",
+]

@@ -420,11 +420,18 @@ async fn connect_and_declare_collator(
 				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
 			))
 		},
-		CollationVersion::V2 | CollationVersion::V3 => {
+		CollationVersion::V2 => {
 			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::Declare(
 				collator.public(),
 				para_id,
-				collator.sign(&protocol_v1::declare_signature_payload(&peer)),
+				collator.sign(&protocol_v2::declare_signature_payload(&peer)),
+			))
+		},
+		CollationVersion::V3 => {
+			CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::Declare(
+				collator.public(),
+				para_id,
+				collator.sign(&protocol_v3::declare_signature_payload(&peer)),
 			))
 		},
 	};
@@ -439,53 +446,79 @@ async fn connect_and_declare_collator(
 	.await;
 }
 
-/// Advertise a collation.
-async fn advertise_collation(
-	virtual_overseer: &mut VirtualOverseer,
-	peer: PeerId,
-	scheduling_parent: Hash,
-	candidate: Option<(CandidateHash, Hash)>, // Candidate hash + parent head data hash.
-) {
-	let wire_message = match candidate {
-		Some((candidate_hash, parent_head_data_hash)) => {
-			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
-				scheduling_parent,
-				candidate_hash,
-				parent_head_data_hash,
-			})
-		},
-		None => CollationProtocols::V1(protocol_v1::CollatorProtocolMessage::AdvertiseCollation(
-			scheduling_parent,
-		)),
-	};
-	overseer_send(
-		virtual_overseer,
-		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
-			peer,
-			wire_message,
-		)),
-	)
-	.await;
+/// Version-specific advertisement payload.
+enum AdvertisementPayload {
+	/// V1: relay parent only.
+	V1 { relay_parent: Hash },
+	/// V2: relay parent, candidate hash, and parent head data hash.
+	V2 { relay_parent: Hash, candidate_hash: CandidateHash, parent_head_data_hash: Hash },
+	/// V3: V2 fields plus descriptor version and separate scheduling parent.
+	V3 {
+		scheduling_parent: Hash,
+		candidate_hash: CandidateHash,
+		parent_head_data_hash: Hash,
+		candidate_descriptor_version: CandidateDescriptorVersion,
+		relay_parent: Hash,
+	},
 }
 
-/// Advertise a collation using the V3 protocol, which includes the candidate descriptor version.
-async fn advertise_collation_v3(
-	virtual_overseer: &mut VirtualOverseer,
-	peer: PeerId,
-	scheduling_parent: Hash,
-	candidate_hash: CandidateHash,
-	parent_head_data_hash: Hash,
-	candidate_descriptor_version: CandidateDescriptorVersion,
-	relay_parent: Hash,
-) {
-	let wire_message =
-		CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+impl AdvertisementPayload {
+	fn v1(relay_parent: Hash) -> Self {
+		Self::V1 { relay_parent }
+	}
+
+	fn v2(relay_parent: Hash, candidate_hash: CandidateHash, parent_head_data_hash: Hash) -> Self {
+		Self::V2 { relay_parent, candidate_hash, parent_head_data_hash }
+	}
+
+	fn v3(
+		scheduling_parent: Hash,
+		candidate_hash: CandidateHash,
+		parent_head_data_hash: Hash,
+		candidate_descriptor_version: CandidateDescriptorVersion,
+		relay_parent: Hash,
+	) -> Self {
+		Self::V3 {
 			scheduling_parent,
 			candidate_hash,
 			parent_head_data_hash,
 			candidate_descriptor_version,
 			relay_parent,
-		});
+		}
+	}
+}
+
+/// Advertise a collation via V1, V2, or V3 protocol.
+async fn advertise_collation(
+	virtual_overseer: &mut VirtualOverseer,
+	peer: PeerId,
+	payload: AdvertisementPayload,
+) {
+	let wire_message = match payload {
+		AdvertisementPayload::V3 {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+			relay_parent,
+		} => CollationProtocols::V3(protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+			relay_parent,
+		}),
+		AdvertisementPayload::V2 { relay_parent, candidate_hash, parent_head_data_hash } => {
+			CollationProtocols::V2(protocol_v2::CollatorProtocolMessage::AdvertiseCollation {
+				scheduling_parent: relay_parent,
+				candidate_hash,
+				parent_head_data_hash,
+			})
+		},
+		AdvertisementPayload::V1 { relay_parent } => CollationProtocols::V1(
+			protocol_v1::CollatorProtocolMessage::AdvertiseCollation(relay_parent),
+		),
+	};
 	overseer_send(
 		virtual_overseer,
 		CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::PeerMessage(
@@ -579,8 +612,10 @@ fn fetch_one_collation_at_a_time_for_v1_advertisement() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, relay_parent, None).await;
-		advertise_collation(&mut virtual_overseer, peer_c, relay_parent, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(relay_parent))
+			.await;
+		advertise_collation(&mut virtual_overseer, peer_c, AdvertisementPayload::v1(relay_parent))
+			.await;
 
 		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -678,9 +713,9 @@ fn fetches_next_collation() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, second, None).await;
-		advertise_collation(&mut virtual_overseer, peer_c, second, None).await;
-		advertise_collation(&mut virtual_overseer, peer_d, second, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(second)).await;
+		advertise_collation(&mut virtual_overseer, peer_c, AdvertisementPayload::v1(second)).await;
+		advertise_collation(&mut virtual_overseer, peer_d, AdvertisementPayload::v1(second)).await;
 
 		// Dropping the response channel should lead to fetching the second collation.
 		assert_fetch_collation_request(
@@ -824,8 +859,10 @@ fn fetch_next_collation_on_invalid_collation() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, relay_parent, None).await;
-		advertise_collation(&mut virtual_overseer, peer_c, relay_parent, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(relay_parent))
+			.await;
+		advertise_collation(&mut virtual_overseer, peer_c, AdvertisementPayload::v1(relay_parent))
+			.await;
 
 		let response_channel = assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -914,7 +951,8 @@ fn inactive_disconnected() {
 			CollationVersion::V1,
 		)
 		.await;
-		advertise_collation(&mut virtual_overseer, peer_b, relay_parent, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(relay_parent))
+			.await;
 
 		assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -964,7 +1002,7 @@ fn activity_extends_life() {
 
 		Delay::new(ACTIVITY_TIMEOUT * 2 / 3).await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, hash_a, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(hash_a)).await;
 
 		assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -976,7 +1014,7 @@ fn activity_extends_life() {
 
 		Delay::new(ACTIVITY_TIMEOUT * 2 / 3).await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, hash_b, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(hash_b)).await;
 
 		assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -988,7 +1026,7 @@ fn activity_extends_life() {
 
 		Delay::new(ACTIVITY_TIMEOUT * 2 / 3).await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, hash_c, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(hash_c)).await;
 
 		assert_fetch_collation_request(
 			&mut virtual_overseer,
@@ -1220,7 +1258,8 @@ fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_a, relay_parent, None).await;
+		advertise_collation(&mut virtual_overseer, peer_a, AdvertisementPayload::v1(relay_parent))
+			.await;
 
 		// First collation fetch is initiated.
 		let response_channel_a = assert_fetch_collation_request(
@@ -1245,7 +1284,8 @@ fn peer_disconnect_clears_pending_collations_from_waiting_queue() {
 		)
 		.await;
 
-		advertise_collation(&mut virtual_overseer, peer_b, relay_parent, None).await;
+		advertise_collation(&mut virtual_overseer, peer_b, AdvertisementPayload::v1(relay_parent))
+			.await;
 
 		// Now disconnect peer_b. This should clean up their entry from the waiting queue.
 		overseer_send(

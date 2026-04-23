@@ -60,7 +60,7 @@ pub use disputes::{
 /// relatively rare.
 ///
 /// The associated worker binaries should use the same version as the node that spawns them.
-pub const NODE_VERSION: &'static str = "1.21.2";
+pub const NODE_VERSION: &'static str = "1.22.0";
 
 // For a 16-ary Merkle Prefix Trie, we can expect at most 16 32-byte hashes per node
 // plus some overhead:
@@ -529,8 +529,6 @@ pub struct SubmitCollationParams {
 	pub relay_parent: Hash,
 	/// The collation itself (PoV and commitments)
 	pub collation: Collation,
-	/// The parent block's head-data.
-	pub parent_head: HeadData,
 	/// The hash of the validation code the collation was created against.
 	pub validation_code_hash: ValidationCodeHash,
 	/// An optional result sender that should be informed about a successfully seconded collation.
@@ -547,6 +545,12 @@ pub struct SubmitCollationParams {
 	///
 	/// WARNING: Should only be set if the `CandidateReceiptV3` node feature is set.
 	pub scheduling_parent: Option<Hash>,
+	/// The session index of the relay parent. Goes into the candidate descriptor.
+	/// Must be provided by the caller because the relay parent's state may be pruned.
+	pub session_index: SessionIndex,
+	/// The persisted validation data for this collation. The `parent_head` field must be set
+	/// to the correct parent head-data for the parablock being submitted.
+	pub validation_data: PersistedValidationData,
 }
 
 /// This is the data we keep available for each candidate included in the relay chain.

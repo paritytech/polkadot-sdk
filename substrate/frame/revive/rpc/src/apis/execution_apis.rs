@@ -37,6 +37,7 @@ pub trait EthRpc {
 		&self,
 		transaction: GenericTransaction,
 		block: Option<BlockNumberOrTagOrHash>,
+		state_overrides: Option<StateOverrideSet>,
 	) -> RpcResult<Bytes>;
 
 	/// Returns the chain ID of the current network.
