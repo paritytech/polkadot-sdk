@@ -32,10 +32,10 @@ use polkadot_node_subsystem::{
 use polkadot_node_subsystem_types::UnpinHandle;
 use polkadot_primitives::{
 	node_features::FeatureIndex, slashing, CandidateEvent, CandidateHash, CoreIndex, CoreState,
-	EncodeAs, ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec,
-	NodeFeatures, OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId,
-	ValidatorIndex, DEFAULT_SCHEDULING_LOOKAHEAD,
+	EncodeAs, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, IndexedVec, NodeFeatures,
+	OccupiedCore, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed, SigningContext,
+	UncheckedSigned, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
 
 use std::collections::{BTreeMap, VecDeque};
@@ -43,10 +43,9 @@ use std::collections::{BTreeMap, VecDeque};
 use crate::{
 	request_availability_cores, request_candidate_events, request_claim_queue,
 	request_disabled_validators, request_from_runtime, request_key_ownership_proof,
-	request_node_features, request_on_chain_votes, request_session_executor_params,
-	request_session_index_for_child, request_session_info, request_submit_report_dispute_lost,
-	request_unapplied_slashes, request_unapplied_slashes_v2, request_validation_code_by_hash,
-	request_validator_groups,
+	request_node_features, request_on_chain_votes, request_session_index_for_child,
+	request_session_info, request_submit_report_dispute_lost, request_unapplied_slashes,
+	request_unapplied_slashes_v2, request_validation_code_by_hash, request_validator_groups,
 };
 
 /// Errors that can happen on runtime fetches.
@@ -100,8 +99,6 @@ pub struct ExtendedSessionInfo {
 	pub session_info: SessionInfo,
 	/// Contains useful information about ourselves, in case this node is a validator.
 	pub validator_info: ValidatorInfo,
-	/// Session executor parameters
-	pub executor_params: ExecutorParams,
 	/// Node features
 	pub node_features: NodeFeatures,
 }
@@ -233,11 +230,6 @@ impl RuntimeInfo {
 					.await?
 					.ok_or(JfyiError::NoSuchSession(session_index))?;
 
-			let executor_params =
-				recv_runtime(request_session_executor_params(parent, session_index, sender).await)
-					.await?
-					.ok_or(JfyiError::NoExecutorParams(session_index))?;
-
 			let validator_info = self.get_validator_info(&session_info)?;
 
 			let node_features =
@@ -247,12 +239,7 @@ impl RuntimeInfo {
 				gum::warn!(target: LOG_TARGET, "Runtime requires feature bit {} that node doesn't support, please upgrade node version", last_set_index);
 			}
 
-			let full_info = ExtendedSessionInfo {
-				session_info,
-				validator_info,
-				executor_params,
-				node_features,
-			};
+			let full_info = ExtendedSessionInfo { session_info, validator_info, node_features };
 
 			self.session_info_cache.insert(session_index, full_info);
 		}
