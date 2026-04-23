@@ -242,7 +242,7 @@ mod tests {
 	use crate::{
 		pool::HopDataPool,
 		rate_limit::RateLimitConfig,
-		types::{RecipientVec, SenderId},
+		types::{Recipient, RecipientVec, SenderId},
 	};
 	use sp_core::{crypto::Pair, ed25519};
 	use sp_runtime::MultiSigner;
@@ -258,7 +258,9 @@ mod tests {
 	}
 
 	fn bv(v: Vec<MultiSigner>) -> RecipientVec {
-		RecipientVec::try_from(v).expect("test recipient list exceeds MAX_RECIPIENTS")
+		let recipients: Vec<Recipient> =
+			v.into_iter().map(|signer| Recipient { signer, claimed: false }).collect();
+		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
 	}
 
 	fn test_pool(max_size: u64, retention_blocks: u32, dir: &TempDir) -> Arc<HopDataPool> {

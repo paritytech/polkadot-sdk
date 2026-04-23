@@ -20,7 +20,8 @@ use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
 	types::{
 		entry_accounted_size, signing_payload, HopBlockNumber, HopEntryMeta, HopError, HopHash,
-		PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT, MAX_DATA_SIZE,
+		PoolStatus, Recipient, RecipientVec, SenderId, HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT,
+		MAX_DATA_SIZE,
 	},
 };
 use codec::{Decode, Encode};
@@ -260,7 +261,7 @@ impl HopDataPool {
 		if recipients.is_empty() {
 			return Err(HopError::NoRecipients);
 		}
-		let unique: BTreeSet<&MultiSigner> = recipients.iter().collect();
+		let unique: BTreeSet<&MultiSigner> = recipients.iter().map(|r| &r.signer).collect();
 		if unique.len() != recipients.len() {
 			return Err(HopError::DuplicateRecipient);
 		}
@@ -380,32 +381,38 @@ impl HopDataPool {
 		}
 	}
 
-	/// Decode a signature and find the matching recipient index.
-	///
-	/// `context` is the operation-specific domain separator (claim vs. ack) so that
-	/// a signature produced for one operation cannot be replayed in another.
-	/// The scan is bounded by `MAX_RECIPIENTS` (enforced at insert time).
-	fn find_recipient(
-		meta: &HopEntryMeta,
+	/// Decode `signature` and return the matching recipient in `meta`. `context` is
+	/// the operation's domain separator (claim / ack).
+	fn find_recipient<'a>(
+		meta: &'a HopEntryMeta,
 		hash: &HopHash,
 		signature: &[u8],
 		context: &[u8],
-	) -> Result<usize, HopError> {
+	) -> Result<&'a Recipient, HopError> {
 		let multi_sig =
 			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 		let payload = signing_payload(context, hash);
 
 		meta.recipients
 			.iter()
-			.enumerate()
-			.find_map(|(i, signer)| {
-				let account_id = signer.clone().into_account();
-				if multi_sig.verify(&payload[..], &account_id) {
-					Some(i)
-				} else {
-					None
-				}
-			})
+			.find(|r| multi_sig.verify(&payload[..], &r.signer.clone().into_account()))
+			.ok_or(HopError::NotRecipient)
+	}
+
+	/// Mutable variant of [`Self::find_recipient`].
+	fn find_recipient_mut<'a>(
+		meta: &'a mut HopEntryMeta,
+		hash: &HopHash,
+		signature: &[u8],
+		context: &[u8],
+	) -> Result<&'a mut Recipient, HopError> {
+		let multi_sig =
+			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
+		let payload = signing_payload(context, hash);
+
+		meta.recipients
+			.iter_mut()
+			.find(|r| multi_sig.verify(&payload[..], &r.signer.clone().into_account()))
 			.ok_or(HopError::NotRecipient)
 	}
 
@@ -419,10 +426,10 @@ impl HopDataPool {
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
 		let index = self.index.read();
 		let meta = index.get(hash).ok_or(HopError::NotFound)?;
-		let recipient_index = Self::find_recipient(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
+		let recipient = Self::find_recipient(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
 
 		// If this recipient already acked, the data may be gone.
-		if meta.claimed[recipient_index] {
+		if recipient.claimed {
 			return Err(HopError::AlreadyClaimed);
 		}
 
@@ -446,32 +453,30 @@ impl HopDataPool {
 	///
 	/// Idempotent: acking a recipient that already acked returns `Ok(())`.
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
-		// Phase 1: find recipient under read lock (crypto verification happens here).
-		let recipient_index = {
+		// Phase 1: idempotent fast path under read lock.
+		{
 			let index = self.index.read();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient(meta, hash, signature, HOP_ACK_CONTEXT)?;
-
-			// Fast path: already acked (idempotent).
-			if meta.claimed[idx] {
+			let recipient = Self::find_recipient(meta, hash, signature, HOP_ACK_CONTEXT)?;
+			if recipient.claimed {
 				return Ok(());
 			}
-			idx
-		};
+		}
 
-		// Phase 2: write lock — re-verify and update atomically.
+		// Phase 2: re-run `find_recipient_mut` against the current meta — the entry could
+		// have been removed and re-submitted with a different recipient list since Phase 1.
 		let mut index = self.index.write();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
+		let recipient = Self::find_recipient_mut(meta, hash, signature, HOP_ACK_CONTEXT)?;
 
-		// Re-check under write lock (concurrent ack may have beaten us).
-		if meta.claimed[recipient_index] {
+		if recipient.claimed {
 			return Ok(());
 		}
 
-		meta.claimed[recipient_index] = true;
+		recipient.claimed = true;
 
 		// If all recipients have acked, remove the entry entirely.
-		if meta.claimed.iter().all(|&c| c) {
+		if meta.recipients.iter().all(|r| r.claimed) {
 			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
 			let sender = meta.sender_id;
 			index.remove(hash);
@@ -489,7 +494,7 @@ impl HopDataPool {
 				"All recipients acked, data removed"
 			);
 		} else {
-			let claimed_count = meta.claimed.iter().filter(|&&c| c).count();
+			let claimed_count = meta.recipients.iter().filter(|r| r.claimed).count();
 			// Persist updated claimed state to disk.
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
@@ -723,10 +728,12 @@ mod tests {
 			.unwrap_or(0)
 	}
 
-	/// Convert a `Vec<MultiSigner>` into a `RecipientVec` for test ergonomics; panics
-	/// only if a test exceeds `MAX_RECIPIENTS` (in which case the test is wrong).
+	/// Convert a `Vec<MultiSigner>` into a `RecipientVec` (with `claimed=false` for
+	/// each) for test ergonomics; panics only if a test exceeds `MAX_RECIPIENTS`.
 	fn bv(v: Vec<MultiSigner>) -> RecipientVec {
-		RecipientVec::try_from(v).expect("test recipient list exceeds MAX_RECIPIENTS")
+		let recipients: Vec<Recipient> =
+			v.into_iter().map(|signer| Recipient { signer, claimed: false }).collect();
+		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
 	}
 
 	#[test]
@@ -775,11 +782,14 @@ mod tests {
 		// Construction of a `RecipientVec` with more than `MAX_RECIPIENTS` entries
 		// fails at `try_from`; callers (like the RPC) turn that into a
 		// `TooManyRecipients` error before reaching the pool.
-		let recipients: Vec<MultiSigner> = (0..=MAX_RECIPIENTS as u64)
+		let recipients: Vec<Recipient> = (0..=MAX_RECIPIENTS as u64)
 			.map(|i| {
 				let mut seed = [0u8; 32];
 				seed[..8].copy_from_slice(&i.to_le_bytes());
-				MultiSigner::Ed25519(ed25519::Pair::from_seed(&seed).public())
+				Recipient {
+					signer: MultiSigner::Ed25519(ed25519::Pair::from_seed(&seed).public()),
+					claimed: false,
+				}
 			})
 			.collect();
 		assert_eq!(recipients.len(), MAX_RECIPIENTS as usize + 1);
