@@ -138,10 +138,7 @@ impl HopParams {
 	/// The resolved data directory is [`Self::data_dir`] if set, otherwise
 	/// `<database_path>/hop`; if neither is available, returns [`HopError::MissingDataDir`].
 	/// Callers gate on whether HOP is enabled (e.g. via `--enable-hop`) before calling this.
-	pub fn build_pool(
-		&self,
-		database_path: Option<PathBuf>,
-	) -> Result<Arc<HopDataPool>, HopError> {
+	pub fn build_pool(&self, database_path: Option<PathBuf>) -> Result<Arc<HopDataPool>, HopError> {
 		let data_dir = match &self.data_dir {
 			Some(dir) => dir.clone(),
 			None => database_path.ok_or(HopError::MissingDataDir)?.join("hop"),

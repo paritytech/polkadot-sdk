@@ -16,11 +16,17 @@
 
 //! HOP types and data structures.
 
-use crate::primitives::{HopBlockNumber, HopHash};
 use codec::{Decode, Encode};
+use polkadot_primitives::{BlockNumber, Hash};
 use serde::{Deserialize, Serialize};
 use sp_core::{bounded_vec::BoundedVec, hashing::blake2_256, ConstU32};
 use sp_runtime::MultiSigner;
+
+/// Block number type used by HOP.
+pub type HopBlockNumber = BlockNumber;
+
+/// Hash type used by HOP.
+pub type HopHash = Hash;
 
 /// Sender identity derived from the account that signed the submission.
 pub type SenderId = [u8; 32];

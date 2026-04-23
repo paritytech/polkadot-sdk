@@ -22,10 +22,9 @@
 
 use crate::{
 	pool::HopDataPool,
-	primitives::HopHash,
 	types::{
-		signing_payload, HopError, PoolStatus, RecipientVec, SubmitResult, HOP_SUBMIT_CONTEXT,
-		MAX_RECIPIENTS,
+		signing_payload, HopError, HopHash, PoolStatus, RecipientVec, SubmitResult,
+		HOP_SUBMIT_CONTEXT, MAX_RECIPIENTS,
 	},
 };
 use codec::Decode;

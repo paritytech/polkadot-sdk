@@ -17,11 +17,10 @@
 //! HOP data pool implementation with disk-backed storage.
 
 use crate::{
-	primitives::{HopBlockNumber, HopHash},
 	rate_limit::{RateLimitConfig, RateLimiter},
 	types::{
-		entry_accounted_size, signing_payload, HopEntryMeta, HopError, PoolStatus, RecipientVec,
-		SenderId, HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT, MAX_DATA_SIZE,
+		entry_accounted_size, signing_payload, HopBlockNumber, HopEntryMeta, HopError, HopHash,
+		PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT, MAX_DATA_SIZE,
 	},
 };
 use codec::{Decode, Encode};
