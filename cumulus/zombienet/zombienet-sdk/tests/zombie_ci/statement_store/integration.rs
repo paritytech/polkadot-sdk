@@ -3,8 +3,8 @@
 
 use super::common::{
 	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
-	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered, spawn_network_sudo,
-	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 	subscribe_topic_filter,
 };
 use codec::Encode;
