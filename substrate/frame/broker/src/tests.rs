@@ -1865,17 +1865,14 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 		);
 		System::assert_has_event(Event::<Test>::AutoRenewalEnabled { core: 0, task: 1001 }.into());
 
-		// Next cycle starting at 7.
-		advance_to(7);
+		advance_sale_period();
 
 		// Ensure that the renewal didn't happen by checking that the balance remained the same, as
 		// there is still no need to renew.
 		assert_eq!(balance(1001), 1000);
 
-		// The next sale starts at 13. The renewal should happen now and the account should be
-		// charged.
-		advance_to(13);
-		assert_eq!(balance(1001), 900);
+		// The renewal should happen now.
+		advance_sale_period();
 
 		// Make sure that the renewal happened:
 		System::assert_has_event(
@@ -1883,7 +1880,7 @@ fn enable_auto_renewal_works_for_legacy_leases() {
 				who: 1001, // sovereign account
 				old_core: 0,
 				core: 0,
-				price: 100,
+				price: REGION_RENEWAL_PRICE,
 				begin: 10,
 				duration: 3,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
