@@ -14,13 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use std::{
-	collections::{HashMap, HashSet},
-};
+use std::collections::{HashMap, HashSet};
 
-use polkadot_node_subsystem_util::inclusion_emulator::{
-	ConstraintModifications, Fragment,
-};
+use polkadot_node_subsystem_util::inclusion_emulator::{ConstraintModifications, Fragment};
 use polkadot_primitives::{CandidateHash, Hash, HeadData, Id as ParaId};
 
 /// A node in the backed candidate chain.
@@ -182,10 +178,7 @@ impl BackedChain {
 	}
 
 	/// Find the node whose output head data matches the given hash.
-	pub(super) fn node_by_output_head(
-		&self,
-		output_head_hash: &Hash,
-	) -> Option<&FragmentNode> {
+	pub(super) fn node_by_output_head(&self, output_head_hash: &Hash) -> Option<&FragmentNode> {
 		let candidate_hash = self.by_output_head.get(output_head_hash)?;
 		self.node_by_candidate_hash(candidate_hash)
 	}
@@ -205,14 +198,7 @@ impl BackedChain {
 
 		self.chain.iter().find_map(|candidate| {
 			if &candidate.parent_head_data_hash == head_data_hash {
-				Some(
-					candidate
-						.fragment
-						.candidate()
-						.persisted_validation_data
-						.parent_head
-						.clone(),
-				)
+				Some(candidate.fragment.candidate().persisted_validation_data.parent_head.clone())
 			} else if &candidate.output_head_data_hash == head_data_hash {
 				Some(candidate.fragment.candidate().commitments.head_data.clone())
 			} else {
@@ -226,21 +212,16 @@ impl BackedChain {
 mod tests {
 	use super::*;
 	use polkadot_node_subsystem_util::inclusion_emulator::{
-		Constraints, Fragment, InboundHrmpLimitations,
-		RelayChainBlockInfo as RelayParentInfo,
+		Constraints, Fragment, InboundHrmpLimitations, RelayChainBlockInfo as RelayParentInfo,
 	};
 	use polkadot_primitives::{
-		CandidateCommitments, HeadData, PersistedValidationData,
+		CandidateCommitments, CandidateDescriptorV2, HeadData, PersistedValidationData,
 	};
 	use polkadot_primitives_test_helpers as test_helpers;
 	use polkadot_primitives_test_helpers::CandidateDescriptor;
-	use polkadot_primitives::CandidateDescriptorV2;
 	use std::sync::Arc;
 
-	fn make_constraints(
-		min_relay_parent_number: u32,
-		required_parent: HeadData,
-	) -> Constraints {
+	fn make_constraints(min_relay_parent_number: u32, required_parent: HeadData) -> Constraints {
 		Constraints {
 			min_relay_parent_number,
 			max_pov_size: 1_000_000,
@@ -261,11 +242,7 @@ mod tests {
 	}
 
 	fn make_relay_parent(number: u32, byte: u8) -> RelayParentInfo {
-		RelayParentInfo {
-			number,
-			hash: Hash::repeat_byte(byte),
-			storage_root: Hash::zero(),
-		}
+		RelayParentInfo { number, hash: Hash::repeat_byte(byte), storage_root: Hash::zero() }
 	}
 
 	/// Build a `FragmentNode` with the given parent/output head data and relay parent.
@@ -311,19 +288,16 @@ mod tests {
 
 		let candidate_hash = candidate.hash();
 
-		let prospective = Arc::new(polkadot_node_subsystem_util::inclusion_emulator::ProspectiveCandidate {
-			commitments: candidate.commitments.clone(),
-			persisted_validation_data: persisted_validation_data.clone(),
-			pov_hash: Hash::repeat_byte(1),
-			validation_code_hash: Hash::repeat_byte(42).into(),
-		});
+		let prospective =
+			Arc::new(polkadot_node_subsystem_util::inclusion_emulator::ProspectiveCandidate {
+				commitments: candidate.commitments.clone(),
+				persisted_validation_data: persisted_validation_data.clone(),
+				pov_hash: Hash::repeat_byte(1),
+				validation_code_hash: Hash::repeat_byte(42).into(),
+			});
 
-		let fragment = Fragment::new(
-			relay_parent.clone(),
-			constraints.clone(),
-			prospective,
-		)
-		.expect("fragment should be valid");
+		let fragment = Fragment::new(relay_parent.clone(), constraints.clone(), prospective)
+			.expect("fragment should be valid");
 
 		let parent_head_data_hash = parent_head.hash();
 		let output_head_data_hash = output_head.hash();
@@ -344,12 +318,7 @@ mod tests {
 		let relay_parent = make_relay_parent(0, 1);
 		let constraints = make_constraints(0, vec![0x0a].into());
 
-		let node_a = make_node(
-			vec![0x0a].into(),
-			vec![0x0b].into(),
-			&relay_parent,
-			&constraints,
-		);
+		let node_a = make_node(vec![0x0a].into(), vec![0x0b].into(), &relay_parent, &constraints);
 		let node_b = make_node(
 			vec![0x0b].into(),
 			vec![0x0c].into(),
@@ -379,12 +348,7 @@ mod tests {
 		let mut chain = BackedChain::default();
 
 		// First push to empty chain always succeeds.
-		let node_a = make_node(
-			vec![0x0a].into(),
-			vec![0x0b].into(),
-			&relay_parent,
-			&constraints,
-		);
+		let node_a = make_node(vec![0x0a].into(), vec![0x0b].into(), &relay_parent, &constraints);
 		let hash_a = node_a.candidate_hash;
 		assert!(chain.push(node_a).is_ok());
 		assert_eq!(chain.len(), 1);
@@ -426,12 +390,7 @@ mod tests {
 		let constraints = make_constraints(0, vec![0x0a].into());
 
 		let mut chain = BackedChain::default();
-		let node = make_node(
-			vec![0x0a].into(),
-			vec![0x0b].into(),
-			&relay_parent,
-			&constraints,
-		);
+		let node = make_node(vec![0x0a].into(), vec![0x0b].into(), &relay_parent, &constraints);
 		let hash = node.candidate_hash;
 		let parent_head_hash = node.parent_head_data_hash;
 		let output_head_hash = node.output_head_data_hash;
@@ -546,7 +505,10 @@ mod tests {
 
 		// iter() returns in order.
 		let hashes: Vec<_> = chain.iter().map(|n| n.candidate_hash).collect();
-		assert_eq!(hashes, vec![node_a.candidate_hash, node_b.candidate_hash, node_c.candidate_hash]);
+		assert_eq!(
+			hashes,
+			vec![node_a.candidate_hash, node_b.candidate_hash, node_c.candidate_hash]
+		);
 
 		// candidate_hashes() matches.
 		assert_eq!(chain.candidate_hashes(), hashes);
@@ -561,7 +523,10 @@ mod tests {
 
 		// Reverse iteration.
 		let rev_hashes: Vec<_> = chain.iter().rev().map(|n| n.candidate_hash).collect();
-		assert_eq!(rev_hashes, vec![node_c.candidate_hash, node_b.candidate_hash, node_a.candidate_hash]);
+		assert_eq!(
+			rev_hashes,
+			vec![node_c.candidate_hash, node_b.candidate_hash, node_a.candidate_hash]
+		);
 	}
 
 	#[test]
