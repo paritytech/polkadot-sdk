@@ -1754,6 +1754,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
  "pallet-authorship",
