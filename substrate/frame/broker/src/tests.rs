@@ -1952,7 +1952,7 @@ fn auto_renewal_works() {
 		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
 		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
 
-		let workload_end = MarketMock::get_region_end();
+		let workload_end = MarketMock::get_region_end().unwrap();
 
 		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(workload_end)));
 		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(workload_end)));
@@ -2008,7 +2008,7 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
-		let next_renewal = MarketMock::get_region_end();
+		let next_renewal = MarketMock::get_region_end().unwrap();
 
 		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
@@ -2382,6 +2382,7 @@ fn force_reserve_works() {
 		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
 
+		assert_eq!(frame_system::Pallet::<Test>::block_number(), 12);
 		assert_ok!(Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 3));
 
 		assert_eq!(
@@ -2478,10 +2479,10 @@ fn force_reserve_works() {
 				),
 				// Immediate assignment from force_reserve
 				(
-					16,
+					12,
 					AssignCore {
 						core: 3,
-						begin: 18,
+						begin: 14,
 						assignment: vec![(Task(1004), 57600)],
 						end_hint: None
 					}

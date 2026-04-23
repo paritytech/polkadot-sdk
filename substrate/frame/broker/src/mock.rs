@@ -375,12 +375,12 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		unimplemented!()
 	}
 
-	fn get_region_begin() -> Timeslice {
-		MarketSaleInfoStorage::<Test>::get().unwrap().region_begin
+	fn get_region_begin() -> Result<Timeslice, ()> {
+		Ok(MarketSaleInfoStorage::<Test>::get().ok_or(())?.region_begin)
 	}
 
-	fn get_region_end() -> Timeslice {
-		MarketSaleInfoStorage::<Test>::get().unwrap().region_end
+	fn get_region_end() -> Result<Timeslice, ()> {
+		Ok(MarketSaleInfoStorage::<Test>::get().ok_or(())?.region_end)
 	}
 }
 

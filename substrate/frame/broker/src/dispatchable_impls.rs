@@ -61,7 +61,8 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub(crate) fn do_force_reserve(workload: Schedule, core: CoreIndex) -> DispatchResult {
-		let region_begin = T::CoretimeMarket::get_region_begin();
+		let region_begin =
+			T::CoretimeMarket::get_region_begin().map_err(|_| Error::<T>::Uninitialized)?;
 
 		// Reserve - starts at second sale period boundary from now.
 		Self::do_reserve(workload.clone())?;
@@ -172,7 +173,8 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		core: CoreIndex,
 	) -> Result<DoRenewResult<T>, DispatchError> {
-		let region_begin = T::CoretimeMarket::get_region_begin();
+		let region_begin =
+			T::CoretimeMarket::get_region_begin().map_err(|_| Error::<T>::Uninitialized)?;
 
 		let renewal_id = PotentialRenewalId { core, when: region_begin };
 		let record = PotentialRenewals::<T>::get(renewal_id).ok_or(Error::<T>::NotAllowed)?;
@@ -555,8 +557,10 @@ impl<T: Config> Pallet<T> {
 		task: TaskId,
 		workload_end_hint: Option<Timeslice>,
 	) -> DispatchResult {
-		let region_begin = T::CoretimeMarket::get_region_begin();
-		let region_end = T::CoretimeMarket::get_region_end();
+		let region_begin =
+			T::CoretimeMarket::get_region_begin().map_err(|_| Error::<T>::Uninitialized)?;
+		let region_end =
+			T::CoretimeMarket::get_region_end().map_err(|_| Error::<T>::Uninitialized)?;
 		let mut core = core;
 
 		// Check if the core is expiring in the next bulk period; if so, we will renew it now.
