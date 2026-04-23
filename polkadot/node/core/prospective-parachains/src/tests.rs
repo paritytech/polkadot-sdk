@@ -268,6 +268,17 @@ async fn handle_fetch_relay_parent_info_message(
 			tx.send(Ok(1)).unwrap();
 			send_block_header(virtual_overseer, relay_parent, relay_parent_number).await;
 		},
+		// The backport of `answer_prospective_validation_data_request` queries this per leaf to
+		// size the session loop. 0 collapses to a single attempt at the leaf's own session, which
+		// matches how every test in this file is built. Return early — this call does not
+		// populate the production relay-parent-info cache.
+		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+			_parent,
+			RuntimeApiRequest::MaxRelayParentSessionAge(_, tx),
+		)) => {
+			tx.send(Ok(0)).unwrap();
+			return;
+		},
 		other => panic!("Unexpected message in handle_fetch_relay_parent_info: {:?}", other),
 	}
 
@@ -667,7 +678,6 @@ async fn get_pvd(
 	let request = ProspectiveValidationDataRequest {
 		para_id,
 		candidate_relay_parent,
-		session_index: 1,
 		parent_head_data: ParentHeadData::OnlyHash(parent_head_data.hash()),
 	};
 	let (tx, rx) = oneshot::channel();

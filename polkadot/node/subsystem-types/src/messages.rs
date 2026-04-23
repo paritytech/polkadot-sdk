@@ -1451,8 +1451,6 @@ pub struct ProspectiveValidationDataRequest {
 	pub para_id: ParaId,
 	/// The relay-parent of the candidate.
 	pub candidate_relay_parent: Hash,
-	/// The session index of the candidate's relay parent
-	pub session_index: SessionIndex,
 	/// The parent head-data.
 	pub parent_head_data: ParentHeadData,
 }

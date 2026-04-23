@@ -641,6 +641,7 @@ async fn construct_and_distribute_receipt(
 				relay_parent,
 				core_index,
 				session_index,
+				session_index,
 				persisted_validation_data_hash,
 				pov_hash,
 				erasure_root,

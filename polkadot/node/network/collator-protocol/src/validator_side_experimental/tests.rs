@@ -770,7 +770,6 @@ impl TestState {
 						para_id,
 						candidate_relay_parent,
 						parent_head_data,
-						session_index: _,
 					}, tx)
 				) => {
 					assert_eq!(para_id, adv.para_id);

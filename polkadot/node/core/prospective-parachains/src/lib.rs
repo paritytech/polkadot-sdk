@@ -38,14 +38,14 @@ use polkadot_node_subsystem::{
 		Ancestors, BackableCandidateRef, ChainApiMessage, HypotheticalCandidate,
 		HypotheticalMembership, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
 		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
-		RuntimeApiMessage,
+		RuntimeApiMessage, RuntimeApiRequest,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
 	fetch_relay_parent_info,
 	inclusion_emulator::{Constraints, RelayChainBlockInfo as RelayParentInfo},
-	request_backing_constraints, request_candidates_pending_availability,
+	request_backing_constraints, request_candidates_pending_availability, request_from_runtime,
 	request_session_index_for_child,
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
@@ -1038,33 +1038,49 @@ async fn answer_prospective_validation_data_request<Context>(
 		}
 
 		if relay_parent_info.is_none() {
-			relay_parent_info = if let Some(info) = fetch_relay_parent_info_cached(
-				ctx.sender(),
-				&mut view.relay_parent_info_cache,
-				leaf_session_index,
-				leaf,
-				request.session_index,
-				request.candidate_relay_parent,
-			)
+			// Backport: the request no longer carries a session_index, so try each session from
+			// the leaf's session backwards for `max_relay_parent_session_age + 1` steps. The
+			// runtime returns `Some` only when the queried session matches the relay parent's
+			// actual session, so the first hit wins. Default to 0 if the runtime API isn't
+			// supported (collapses to a single attempt at the leaf's own session).
+			let max_age = request_from_runtime(leaf, ctx.sender(), |tx| {
+				RuntimeApiRequest::MaxRelayParentSessionAge(leaf_session_index, tx)
+			})
+			.await
 			.await
 			.ok()
-			.flatten()
-			{
-				if max_pov_size.is_none() {
-					// TODO(https://github.com/paritytech/polkadot-sdk/issues/11256): serve
-					// `max_pov_size` from the candidate's relay-parent session rather than the
-					// scheduling session. We are leaning hard on two assumptions here:
-					// 1. Collators need to use the max_pov_size of the scheduling session, not of
-					//    the relay parent session.
-					// 2. The max_pov_size is only configurable per session and is expected to
-					//    change extremely rarely. It is acceptable if the collators will have to
-					//    rebuild the block if there was a change in the max_pov_size.
-					max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
-				}
+			.and_then(|r| r.ok())
+			.unwrap_or(0);
 
-				Some(info)
-			} else {
-				None
+			for offset in 0..=max_age {
+				let Some(fetch_session) = leaf_session_index.checked_sub(offset) else { break };
+
+				if let Some(info) = fetch_relay_parent_info_cached(
+					ctx.sender(),
+					&mut view.relay_parent_info_cache,
+					leaf_session_index,
+					leaf,
+					fetch_session,
+					request.candidate_relay_parent,
+				)
+				.await
+				.ok()
+				.flatten()
+				{
+					if max_pov_size.is_none() {
+						// TODO(https://github.com/paritytech/polkadot-sdk/issues/11256): serve
+						// `max_pov_size` from the candidate's relay-parent session rather than
+						// the scheduling session. We are leaning hard on two assumptions here:
+						// 1. Collators need to use the max_pov_size of the scheduling session, not
+						//    of the relay parent session.
+						// 2. The max_pov_size is only configurable per session and is expected to
+						//    change extremely rarely. It is acceptable if the collators will have
+						//    to rebuild the block if there was a change in the max_pov_size.
+						max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
+					}
+					relay_parent_info = Some(info);
+					break;
+				}
 			}
 		}
 
