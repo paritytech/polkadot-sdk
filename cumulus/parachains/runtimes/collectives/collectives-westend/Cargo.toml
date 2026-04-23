@@ -34,7 +34,7 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-collective = { workspace = true }
 pallet-core-fellowship = { workspace = true }
-pallet-dap-satellite = { workspace = true }
+pallet-accumulate-and-forward = { workspace = true }
 pallet-multisig = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
@@ -124,7 +124,7 @@ runtime-benchmarks = [
 	"pallet-collective-content/runtime-benchmarks",
 	"pallet-collective/runtime-benchmarks",
 	"pallet-core-fellowship/runtime-benchmarks",
-	"pallet-dap-satellite/runtime-benchmarks",
+	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -172,7 +172,7 @@ try-runtime = [
 	"pallet-collective-content/try-runtime",
 	"pallet-collective/try-runtime",
 	"pallet-core-fellowship/try-runtime",
-	"pallet-dap-satellite/try-runtime",
+	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
 	"pallet-multisig/try-runtime",
@@ -223,7 +223,7 @@ std = [
 	"pallet-collective-content/std",
 	"pallet-collective/std",
 	"pallet-core-fellowship/std",
-	"pallet-dap-satellite/std",
+	"pallet-accumulate-and-forward/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
 	"pallet-multisig/std",

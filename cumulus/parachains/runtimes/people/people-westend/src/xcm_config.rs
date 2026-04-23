@@ -69,9 +69,9 @@ parameter_types! {
 	/// The base fee for the message delivery fees.
 	pub const BaseDeliveryFee: u128 = CENTS.saturating_mul(3);
 	/// The DAP satellite account on this chain.
-	pub DapSatelliteAccount: AccountId = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
-	pub DapSatelliteLocation: Location = {
-		AccountId32 { network: None, id: DapSatelliteAccount::get().into() }.into()
+	pub AccumulateAccount: AccountId = pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
+	pub AccumulateForwardLocation: Location = {
+		AccountId32 { network: None, id: AccumulateAccount::get().into() }.into()
 	};
 }
 
@@ -209,7 +209,7 @@ pub type WaivedLocations = (
 	RelayOrOtherSystemParachains<AllSiblingSystemParachains, Runtime>,
 	Equals<RootLocation>,
 	LocalPlurality,
-	Equals<DapSatelliteLocation>,
+	Equals<AccumulateForwardLocation>,
 );
 
 /// Cases where a remote origin is accepted as trusted Teleporter for a given asset:
@@ -266,7 +266,7 @@ impl xcm_executor::Config for XcmConfig {
 	type AssetExchanger = ();
 	type FeeManager = XcmFeeManagerFromComponents<
 		WaivedLocations,
-		SendXcmFeeToAccount<Self::AssetTransactor, DapSatelliteAccount>,
+		SendXcmFeeToAccount<Self::AssetTransactor, AccumulateAccount>,
 	>;
 	type MessageExporter = ();
 	type UniversalAliases = Nothing;

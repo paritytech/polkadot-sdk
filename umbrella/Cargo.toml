@@ -86,7 +86,7 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
-	"pallet-dap-satellite?/std",
+	"pallet-accumulate-and-forward?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -289,7 +289,7 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
-	"pallet-dap-satellite?/runtime-benchmarks",
+	"pallet-accumulate-and-forward?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -435,7 +435,7 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
-	"pallet-dap-satellite?/try-runtime",
+	"pallet-accumulate-and-forward?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -654,7 +654,7 @@ runtime-full = [
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
 	"pallet-dap",
-	"pallet-dap-satellite",
+	"pallet-accumulate-and-forward",
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-derivatives",
@@ -1450,10 +1450,10 @@ default-features = false
 optional = true
 path = "../substrate/frame/dap"
 
-[dependencies.pallet-dap-satellite]
+[dependencies.pallet-accumulate-and-forward]
 default-features = false
 optional = true
-path = "../substrate/frame/dap-satellite"
+path = "../substrate/frame/accumulate-and-forward"
 
 [dependencies.pallet-delegated-staking]
 default-features = false

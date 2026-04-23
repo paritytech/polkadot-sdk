@@ -19,7 +19,7 @@
 use codec::Encode;
 use coretime_westend_runtime::{
 	xcm_config::{GovernanceLocation, LocationToAccountId},
-	Balances, Block, DapSatellite, Executive, ExistentialDeposit, Runtime, RuntimeCall,
+	AccumulateForward, Balances, Block, Executive, ExistentialDeposit, Runtime, RuntimeCall,
 	RuntimeOrigin, TxExtension, UncheckedExtrinsic,
 };
 use frame_support::{assert_err, assert_ok, traits::fungible::Inspect};
@@ -240,9 +240,10 @@ fn governance_authorize_upgrade_works() {
 }
 
 #[test]
-fn tx_fees_go_to_dap_satellite() {
+fn tx_fees_go_to_accumulation_account() {
 	let alice = AccountId::from(Sr25519Keyring::Alice);
-	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	let ed = ExistentialDeposit::get();
 
 	ExtBuilder::<Runtime>::default()
@@ -273,10 +274,11 @@ fn tx_fees_go_to_dap_satellite() {
 }
 
 #[test]
-fn dust_removal_goes_to_dap_satellite() {
+fn dust_removal_goes_to_accumulation_account() {
 	let alice = AccountId::from(Sr25519Keyring::Alice);
 	let bob = AccountId::from(Sr25519Keyring::Bob);
-	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	let ed = ExistentialDeposit::get();
 	let dust = ed / 2;
 
@@ -308,11 +310,12 @@ fn dust_removal_goes_to_dap_satellite() {
 }
 
 #[test]
-fn coretime_revenue_goes_to_dap_satellite() {
+fn coretime_revenue_goes_to_accumulation_account() {
 	use frame_support::traits::{fungible::Balanced, tokens::imbalance::OnUnbalanced};
 
 	// Given: satellite account funded with ED.
-	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	let ed = ExistentialDeposit::get();
 	let revenue = 1_000_000_000u128;
 
@@ -327,7 +330,7 @@ fn coretime_revenue_goes_to_dap_satellite() {
 
 			// When: simulate coretime revenue via OnUnbalanced with an issued credit.
 			let credit = <Balances as Balanced<AccountId>>::issue(revenue);
-			<DapSatellite as OnUnbalanced<_>>::on_unbalanced(credit);
+			<AccumulateForward as OnUnbalanced<_>>::on_unbalanced(credit);
 
 			// Then: satellite receives the revenue.
 			let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);

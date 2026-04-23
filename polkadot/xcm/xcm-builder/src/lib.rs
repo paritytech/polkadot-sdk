@@ -60,7 +60,7 @@ mod currency_adapter;
 pub use currency_adapter::CurrencyAdapter;
 
 mod dap;
-pub use dap::SendToDapViaTeleport;
+pub use dap::TeleportForwarder;
 
 mod fee_handling;
 pub use fee_handling::{

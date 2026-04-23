@@ -1,12 +1,12 @@
 [package]
-name = "pallet-dap-satellite"
+name = "pallet-accumulate-and-forward"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub"
+description = "FRAME pallet for periodic accumulation and forwarding of native token funds"
 
 [lints]
 workspace = true

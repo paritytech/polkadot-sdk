@@ -31,7 +31,7 @@ pallet-aura = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-broker = { workspace = true }
-pallet-dap-satellite = { workspace = true }
+pallet-accumulate-and-forward = { workspace = true }
 pallet-message-queue = { workspace = true }
 pallet-meta-tx = { workspace = true }
 pallet-multisig = { workspace = true }
@@ -117,7 +117,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-broker/std",
 	"pallet-collator-selection/std",
-	"pallet-dap-satellite/std",
+	"pallet-accumulate-and-forward/std",
 	"pallet-message-queue/std",
 	"pallet-meta-tx/std",
 	"pallet-multisig/std",
@@ -175,7 +175,7 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"pallet-broker/runtime-benchmarks",
 	"pallet-collator-selection/runtime-benchmarks",
-	"pallet-dap-satellite/runtime-benchmarks",
+	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-message-queue/runtime-benchmarks",
 	"pallet-meta-tx/runtime-benchmarks",
 	"pallet-multisig/runtime-benchmarks",
@@ -213,7 +213,7 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-broker/try-runtime",
 	"pallet-collator-selection/try-runtime",
-	"pallet-dap-satellite/try-runtime",
+	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-message-queue/try-runtime",
 	"pallet-meta-tx/try-runtime",
 	"pallet-multisig/try-runtime",

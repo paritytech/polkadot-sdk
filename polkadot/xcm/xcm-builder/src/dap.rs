@@ -14,9 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! XCM adapters for the Dynamic Allocation Pool (DAP).
+//! XCM adapters for the accumulate-and-forward pallet.
 //!
-//! - [`SendToDapViaTeleport`]: satellite-side fund sending adapter.
+//! - [`TeleportForwarder`]: accumulation-account-side forwarding adapter.
 
 use alloc::vec;
 use core::marker::PhantomData;
@@ -29,18 +29,18 @@ use sp_runtime::DispatchError;
 use xcm::latest::{prelude::*, AssetTransferFilter};
 use xcm_executor::XcmExecutor;
 
-const LOG_TARGET: &str = "xcm::dap";
+const LOG_TARGET: &str = "xcm::accumulate-forward";
 
-/// XCM adapter that implements [`sp_dap::SendToDap`] by teleporting native tokens to
-/// the DAP staging account on a destination chain. The execution is transactional:
+/// XCM adapter that implements [`pallet_accumulate_and_forward::Forwarder`] by teleporting native
+/// tokens to a staging account on a destination chain. The execution is transactional:
 /// if anything fails, all local state changes are rolled back.
-pub struct SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, StagingLocation>(
+pub struct TeleportForwarder<XcmConfig, Dest, NativeAsset, StagingLocation>(
 	PhantomData<(XcmConfig, Dest, NativeAsset, StagingLocation)>,
 );
 
 impl<XcmConfig, Dest, NativeAsset, StagingLocation, AccountId, Balance>
-	sp_dap::SendToDap<AccountId, Balance>
-	for SendToDapViaTeleport<XcmConfig, Dest, NativeAsset, StagingLocation>
+	pallet_accumulate_and_forward::Forwarder<AccountId, Balance>
+	for TeleportForwarder<XcmConfig, Dest, NativeAsset, StagingLocation>
 where
 	XcmConfig: xcm_executor::Config,
 	Dest: Get<Location>,
@@ -49,16 +49,16 @@ where
 	AccountId: Into<[u8; 32]> + Clone,
 	Balance: Into<u128> + Copy,
 {
-	fn send_native(source: AccountId, amount: Balance) -> Result<(), ()> {
+	fn forward(source: AccountId, amount: Balance) -> Result<(), ()> {
 		let dest = Dest::get();
 		let asset = Asset { id: AssetId(NativeAsset::get()), fun: Fungible(amount.into()) };
 		let beneficiary: Location = StagingLocation::get().into_location();
 
 		let remote_xcm = Xcm(vec![DepositAsset { assets: Wild(AllCounted(1)), beneficiary }]);
 
-		// The XCM flow: `ReceiveTeleportedAsset → AliasOrigin(satellite) → UnpaidExecution →
+		// The XCM flow: `ReceiveTeleportedAsset → AliasOrigin(source) → UnpaidExecution →
 		// DepositAsset`. `preserve_origin: true` causes `InitiateTransfer` to prepend
-		// `AliasOrigin(satellite_location)` to the remote XCM.
+		// `AliasOrigin(source_location)` to the remote XCM.
 		let xcm: Xcm<XcmConfig::RuntimeCall> = Xcm(vec![
 			UnpaidExecution { weight_limit: WeightLimit::Unlimited, check_origin: None },
 			DescendOrigin(Junction::AccountId32 { network: None, id: source.into() }.into()),
@@ -89,7 +89,7 @@ where
 					tracing::debug!(
 						target: LOG_TARGET,
 						?exec_error,
-						"DAP satellite: XCM execution failed"
+						"accumulate-forward: XCM execution failed"
 					);
 
 					TransactionOutcome::Rollback(Err(DispatchError::Other("XCM execution failed")))

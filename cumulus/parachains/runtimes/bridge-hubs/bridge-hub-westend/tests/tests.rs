@@ -849,9 +849,10 @@ fn governance_authorize_upgrade_works() {
 }
 
 #[test]
-fn tx_fees_go_to_dap_satellite() {
+fn tx_fees_go_to_accumulation_account() {
 	let alice = AccountId::from(Alice);
-	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	let ed = ExistentialDeposit::get();
 
 	run_test::<Runtime, _>(
@@ -881,10 +882,11 @@ fn tx_fees_go_to_dap_satellite() {
 }
 
 #[test]
-fn dust_removal_goes_to_dap_satellite() {
+fn dust_removal_goes_to_accumulation_account() {
 	let alice = AccountId::from(Alice);
 	let bob = AccountId::from(Bob);
-	let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+	let accumulation_account =
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	let ed = ExistentialDeposit::get();
 	let dust = ed / 2;
 

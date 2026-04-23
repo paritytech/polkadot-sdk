@@ -451,9 +451,10 @@ pub use pallet_core_fellowship;
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;
 
-/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
-#[cfg(feature = "pallet-dap-satellite")]
-pub use pallet_dap_satellite;
+/// FRAME pallet for accumulate-and-forward - collects funds for periodic transfer to a
+/// destination.
+#[cfg(feature = "pallet-accumulate-and-forward")]
+pub use pallet_accumulate_and_forward;
 
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
