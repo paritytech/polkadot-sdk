@@ -433,16 +433,7 @@ pub fn attribute<T: codec::Decode>(nft: RegionId, attribute: impl codec::Encode)
 }
 
 pub fn new_config() -> ConfigRecordOf<Test> {
-	ConfigRecord {
-		advance_notice: 2,
-		interlude_length: 1,
-		leadin_length: 1,
-		ideal_bulk_proportion: Default::default(),
-		limit_cores_offered: None,
-		region_length: 3,
-		renewal_bump: Perbill::from_percent(10),
-		contribution_timeout: 5,
-	}
+	ConfigRecord { advance_notice: 2, region_length: 3, contribution_timeout: 5 }
 }
 
 pub fn endow(who: u64, amount: u64) {
@@ -465,33 +456,8 @@ impl TestExt {
 		self
 	}
 
-	pub fn interlude_length(mut self, interlude_length: u64) -> Self {
-		self.0.interlude_length = interlude_length;
-		self
-	}
-
-	pub fn leadin_length(mut self, leadin_length: u64) -> Self {
-		self.0.leadin_length = leadin_length;
-		self
-	}
-
 	pub fn region_length(mut self, region_length: Timeslice) -> Self {
 		self.0.region_length = region_length;
-		self
-	}
-
-	pub fn ideal_bulk_proportion(mut self, ideal_bulk_proportion: Perbill) -> Self {
-		self.0.ideal_bulk_proportion = ideal_bulk_proportion;
-		self
-	}
-
-	pub fn limit_cores_offered(mut self, limit_cores_offered: Option<CoreIndex>) -> Self {
-		self.0.limit_cores_offered = limit_cores_offered;
-		self
-	}
-
-	pub fn renewal_bump(mut self, renewal_bump: Perbill) -> Self {
-		self.0.renewal_bump = renewal_bump;
 		self
 	}
 

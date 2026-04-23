@@ -27,7 +27,6 @@ use CompletionStatus::{Complete, Partial};
 
 impl<T: Config> Pallet<T> {
 	pub(crate) fn do_configure(config: ConfigRecordOf<T>) -> DispatchResult {
-		config.validate().map_err(|()| Error::<T>::InvalidConfig)?;
 		Configuration::<T>::put(config);
 		Ok(())
 	}

@@ -1637,18 +1637,6 @@ fn pool_should_drop_invalid_region() {
 	});
 }
 
-#[test]
-fn config_works() {
-	TestExt::new().execute_with(|| {
-		let mut cfg = new_config();
-		// Good config works:
-		assert_ok!(Broker::configure(Root.into(), cfg.clone()));
-		// Bad config is a noop:
-		cfg.leadin_length = 0;
-		assert_noop!(Broker::configure(Root.into(), cfg), Error::<Test>::InvalidConfig);
-	});
-}
-
 /// Ensure that a lease that ended before `start_sales` was called can be renewed.
 #[test]
 fn renewal_works_leases_ended_before_start_sales() {
@@ -1789,7 +1777,7 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 #[test]
 fn enable_auto_renew_works() {
-	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales((), 5));
 		advance_to(2);
 		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
@@ -2038,6 +2026,7 @@ fn auto_renewal_works() {
 	});
 }
 
+// TODO
 // #[test]
 // fn enable_auto_renew_immediate_updates_core_and_renews() {
 // 	TestExt::new().endow(1, 1000).endow(2, 1000).endow(1001, 1000).execute_with(|| {
@@ -2105,7 +2094,7 @@ fn auto_renewal_works() {
 
 #[test]
 fn disable_auto_renew_works() {
-	TestExt::new().endow(1, 1000).limit_cores_offered(Some(10)).execute_with(|| {
+	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales((), 3));
 		advance_to(2);
 		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();

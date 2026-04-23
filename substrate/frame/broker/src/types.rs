@@ -289,41 +289,12 @@ pub struct ConfigRecord<RelayBlockNumber> {
 	/// The number of Relay-chain blocks in advance which scheduling should be fixed and the
 	/// `Coretime::assign` API used to inform the Relay-chain.
 	pub advance_notice: RelayBlockNumber,
-	/// The length in blocks of the Interlude Period for forthcoming sales.
-	pub interlude_length: RelayBlockNumber,
-	/// The length in blocks of the Leadin Period for forthcoming sales.
-	pub leadin_length: RelayBlockNumber,
 	/// The length in timeslices of Regions which are up for sale in forthcoming sales.
 	pub region_length: Timeslice,
-	/// The proportion of cores available for sale which should be sold.
-	///
-	/// If more cores are sold than this, then further sales will no longer be considered in
-	/// determining the sellout price. In other words the sellout price will be the last price
-	/// paid, without going over this limit.
-	pub ideal_bulk_proportion: Perbill,
-	/// An artificial limit to the number of cores which are allowed to be sold. If `Some` then
-	/// no more cores will be sold than this.
-	pub limit_cores_offered: Option<CoreIndex>,
-	/// The amount by which the renewal price increases each sale period.
-	pub renewal_bump: Perbill,
 	/// The duration by which rewards for contributions to the InstaPool must be collected.
 	pub contribution_timeout: Timeslice,
 }
 pub type ConfigRecordOf<T> = ConfigRecord<RelayBlockNumberOf<T>>;
-
-impl<RelayBlockNumber> ConfigRecord<RelayBlockNumber>
-where
-	RelayBlockNumber: sp_arithmetic::traits::Zero,
-{
-	/// Check the config for basic validity constraints.
-	pub(crate) fn validate(&self) -> Result<(), ()> {
-		if self.leadin_length.is_zero() {
-			return Err(());
-		}
-
-		Ok(())
-	}
-}
 
 /// A record containing information regarding auto-renewal for a specific core.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
