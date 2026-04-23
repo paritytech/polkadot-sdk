@@ -35,7 +35,7 @@ use scale_info::TypeInfo;
 /// Index of a Polkadot Core.
 pub type CoreIndex = u16;
 
-/// Relay-chain block number with a fixed divisor of Config::TimeslicePeriod.
+/// A Coretime timeslice index. Each timeslice represents a fixed block interval.
 pub type Timeslice = u32;
 
 /// A Task Id. In general this is called a ParachainId.
