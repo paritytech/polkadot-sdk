@@ -55,6 +55,8 @@ pub use types::*;
 
 mod types;
 
+pub mod runtime_api;
+
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 #[cfg(test)]
@@ -83,7 +85,6 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, SaturatedConversion, Saturating, Zero},
 	BoundedVec, FixedPointOperand, FixedU64,
 };
-
 
 type BalanceOf<T> = <T as pallet::Config>::Balance;
 type RelayBlockNumberOf<T> = <T as pallet::Config>::RelayBlockNumber;
