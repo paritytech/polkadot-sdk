@@ -356,8 +356,6 @@ pub enum CandidateEntryError {
 /// - **scheduling_parent**: Determines scheduling context (backing group, core). Must be recent.
 ///
 /// For V1/V2 candidates, both fields contain the same value (relay_parent).
-///
-/// The fragment chain validates that relay_parent is within the allowed ancestry scope.
 pub(crate) struct CandidateEntry {
 	candidate_hash: CandidateHash,
 	parent_head_data_hash: Hash,
@@ -895,10 +893,8 @@ impl FragmentChain {
 		}
 	}
 
-	// Return the earliest relay parent a potential candidate may have for it to ever be added to
-	// the chain. This is the relay parent of the last candidate pending availability or the
-	// earliest relay parent in scope.
-	fn earliest_relay_parent_pending_availability(&self) -> Option<&RelayParentInfo> {
+	// Return the relay parent of the latest (newest) candidate pending availability in the chain.
+	fn latest_relay_parent_pending_availability(&self) -> Option<&RelayParentInfo> {
 		self.chain.iter().rev().find_map(|candidate| {
 			self.scope
 				.get_pending_availability(&candidate.candidate_hash)
@@ -1027,11 +1023,11 @@ impl FragmentChain {
 		//    its parent's execution context (HRMP watermark, DMP).
 		let mut min_relay_parent_number = constraints.min_relay_parent_number;
 
-		if let Some(earliest_rp_of_pending_availability) =
-			self.earliest_relay_parent_pending_availability()
+		if let Some(latest_rp_of_pending_availability) =
+			self.latest_relay_parent_pending_availability()
 		{
 			min_relay_parent_number =
-				std::cmp::max(min_relay_parent_number, earliest_rp_of_pending_availability.number);
+				std::cmp::max(min_relay_parent_number, latest_rp_of_pending_availability.number);
 		}
 
 		if let Some(parent_candidate) = parent_candidate_in_chain {
