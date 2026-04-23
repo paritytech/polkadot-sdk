@@ -23,7 +23,7 @@
 use alloc::vec::Vec;
 use core::fmt::Debug;
 
-use codec::{Codec, MaxEncodedLen};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{weights::WeightMeter, Parameter};
 use scale_info::TypeInfo;
 use sp_runtime::DispatchError;
@@ -174,7 +174,9 @@ pub trait TimesliceProvider {
 }
 
 /// Information about the sale.
-#[derive(Clone)]
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub struct MarketSaleInfo<RelayBlockNumber> {
 	/// The relay block number at which the sale will/did start.
 	pub sale_start: RelayBlockNumber,

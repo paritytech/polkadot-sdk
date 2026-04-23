@@ -24,7 +24,9 @@ use crate::{
 };
 use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
-	assert_ok, derive_impl, ensure, ord_parameter_types, parameter_types,
+	assert_ok, derive_impl, ensure, ord_parameter_types,
+	pallet_prelude::StorageValue,
+	parameter_types, storage_alias,
 	traits::{
 		fungible::{Balanced, Credit, Inspect, ItemOf, Mutate},
 		nonfungible::Inspect as NftInspect,
@@ -226,18 +228,13 @@ impl crate::Config for Test {
 
 pub struct MarketMock;
 
-parameter_types! {
-	pub static MarketSaleInfoStorage: MarketSaleInfo<RelayBlockNumberOf<Test>> = MarketSaleInfo {
-		sale_start: 0,
-		region_begin: 0,
-		region_end: 0,
-		cores_offered: 0,
-		first_core: 0,
-		cores_sold: 0
-	};
-}
+#[storage_alias]
+pub type MarketSaleInfoStorage<T: Config> =
+	StorageValue<Pallet<T>, MarketSaleInfo<RelayBlockNumberOf<Test>>>;
 
 const REGION_PRICE: BalanceOf<Test> = 10;
+pub const REGION_RENEWAL_PRICE: BalanceOf<Test> = 20;
+pub const REGION_LENGTH: Timeslice = 3;
 
 impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for MarketMock {
 	type Error = DispatchError;
@@ -271,18 +268,17 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 			first_core: cores.from,
 			cores_sold: 0,
 		};
-		MarketSaleInfoStorage::set(sale.clone());
+		MarketSaleInfoStorage::<Test>::put(sale.clone());
 
 		Ok(SalesStarted { sale })
 	}
 
 	fn place_order(
-		block_number: RelayBlockNumberOf<Test>,
-		who: &AccountIdFor<Test>,
+		_block_number: RelayBlockNumberOf<Test>,
+		_who: &AccountIdFor<Test>,
 		price_limit: BalanceOf<Test>,
 	) -> Result<OrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
-		let sale = MarketSaleInfoStorage::get();
-		let config = new_config();
+		let sale = MarketSaleInfoStorage::<Test>::get().unwrap();
 
 		if sale.cores_sold >= sale.cores_offered {
 			return Err(DispatchError::Other("Sold Out"));
@@ -302,7 +298,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 			region_end: sale.region_end,
 		};
 
-		MarketSaleInfoStorage::mutate(|sale| sale.cores_sold += 1);
+		MarketSaleInfoStorage::<Test>::mutate_extant(|sale| sale.cores_sold += 1);
 
 		Ok(result)
 	}
@@ -310,25 +306,25 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	fn place_renewal_order(
 		_block_number: RelayBlockNumberOf<Test>,
 		_who: &AccountIdFor<Test>,
-		renewal: PotentialRenewalId,
+		_renewal: PotentialRenewalId,
 	) -> Result<RenewalOrderResult<BalanceOf<Test>, Self::BidId>, Self::Error> {
-		let sale = MarketSaleInfoStorage::get();
+		let sale = MarketSaleInfoStorage::<Test>::get().unwrap();
 
 		if sale.cores_sold >= sale.cores_offered {
 			return Err(DispatchError::Other("Sold Out"));
 		}
 
 		let result = RenewalOrderResult::Renewed {
-			price: 0,
+			price: REGION_RENEWAL_PRICE,
 			region_id: RegionId {
 				begin: sale.region_begin,
-				core: renewal.core,
+				core: sale.first_core + sale.cores_sold,
 				mask: CoreMask::complete(),
 			},
 			effective_to: sale.region_end,
 		};
 
-		MarketSaleInfoStorage::mutate(|sale| sale.cores_sold += 1);
+		MarketSaleInfoStorage::<Test>::mutate_extant(|sale| sale.cores_sold += 1);
 
 		Ok(result)
 	}
@@ -341,7 +337,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		let config = new_config();
 
 		if let Some(timeslice) = Self::TimesliceProvider::next_timeslice_to_commit() {
-			let old_sale = MarketSaleInfoStorage::get();
+			let old_sale = MarketSaleInfoStorage::<Test>::get().unwrap();
 			let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core range");
 
 			let new_sale = MarketSaleInfo {
@@ -353,7 +349,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 				cores_sold: 0,
 			};
 
-			MarketSaleInfoStorage::set(new_sale.clone());
+			MarketSaleInfoStorage::<Test>::put(new_sale.clone());
 
 			actions.push(TickAction::SaleRotated { old_sale, new_sale: new_sale.clone() });
 			actions.push(TickAction::ProcessAutoRenewals {
@@ -375,29 +371,35 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	}
 
 	fn get_region_begin() -> Timeslice {
-		MarketSaleInfoStorage::get().region_begin
+		MarketSaleInfoStorage::<Test>::get().unwrap().region_begin
 	}
 
 	fn get_region_end() -> Timeslice {
-		MarketSaleInfoStorage::get().region_end
+		MarketSaleInfoStorage::<Test>::get().unwrap().region_end
 	}
 }
 
 pub fn advance_to(b: u64) {
 	while System::block_number() < b {
-		System::set_block_number(System::block_number() + 1);
-		TestCoretimeProvider::bump();
-		Broker::on_initialize(System::block_number());
+		advance_one_block();
 	}
 }
 
 pub fn advance_sale_period() {
-	let sale = MarketSaleInfoStorage::get();
+	let sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+	loop {
+		advance_one_block();
+		let new_sale = MarketSaleInfoStorage::<Test>::get().unwrap();
+		if new_sale.sale_start != sale.sale_start {
+			return;
+		}
+	}
+}
 
-	let target_block_number =
-		sale.region_begin as u64 * <<Test as crate::Config>::TimeslicePeriod as Get<u64>>::get();
-
-	advance_to(target_block_number)
+fn advance_one_block() {
+	System::set_block_number(System::block_number() + 1);
+	TestCoretimeProvider::bump();
+	Broker::on_initialize(System::block_number());
 }
 
 pub fn pot() -> u64 {
@@ -433,7 +435,7 @@ pub fn attribute<T: codec::Decode>(nft: RegionId, attribute: impl codec::Encode)
 }
 
 pub fn new_config() -> ConfigRecordOf<Test> {
-	ConfigRecord { advance_notice: 2, region_length: 3, contribution_timeout: 5 }
+	ConfigRecord { advance_notice: 2, region_length: REGION_LENGTH, contribution_timeout: 5 }
 }
 
 pub fn endow(who: u64, amount: u64) {

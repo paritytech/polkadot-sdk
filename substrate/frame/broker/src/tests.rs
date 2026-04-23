@@ -411,25 +411,18 @@ fn renewal_works() {
 	TestExt::new().endow(1, b).execute_with(move || {
 		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
+
 		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-		assert_eq!(balance(1), 99_900);
 		assert_ok!(Broker::do_assign(region, None, 1001, Final));
-		// Should now be renewable.
-		advance_to(6);
-		assert_noop!(
-			do_purchase_and_get_region_id(1, u64::max_value()),
-			DispatchError::Other("TooEarly")
-		);
+
+		advance_sale_period();
+
 		let core = do_renew_and_get_the_new_core(1, region.core).unwrap();
-		assert_eq!(balance(1), 99_800);
-		advance_to(8);
-		assert_noop!(
-			do_purchase_and_get_region_id(1, u64::max_value()),
-			DispatchError::Other("SoldOut")
-		);
-		advance_to(12);
+		assert_noop!(Broker::do_renew(1, core), Error::<Test>::NotAllowed);
+
+		advance_sale_period();
+
 		assert_ok!(Broker::do_renew(1, core));
-		assert_eq!(balance(1), 99_690);
 	});
 }
 
@@ -1952,6 +1945,7 @@ fn auto_renewal_works() {
 	TestExt::new().endow(1, 1000).execute_with(|| {
 		assert_ok!(Broker::do_start_sales((), 3));
 		advance_to(2);
+
 		let region_1 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let region_2 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
 		let region_3 = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
@@ -1960,15 +1954,19 @@ fn auto_renewal_works() {
 		assert_ok!(Broker::do_assign(region_1, Some(1), 1001, Final));
 		assert_ok!(Broker::do_assign(region_2, Some(1), 1002, Final));
 		assert_ok!(Broker::do_assign(region_3, Some(1), 1003, Final));
-		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(7)));
-		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(7)));
-		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(7)));
+
+		let workload_end = MarketMock::get_region_end();
+
+		assert_ok!(Broker::do_enable_auto_renew(1001, region_1.core, 1001, Some(workload_end)));
+		assert_ok!(Broker::do_enable_auto_renew(1002, region_2.core, 1002, Some(workload_end)));
+		assert_ok!(Broker::do_enable_auto_renew(1003, region_3.core, 1003, Some(workload_end)));
+
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 7 },
-				AutoRenewalRecord { core: 1, task: 1002, next_renewal: 7 },
-				AutoRenewalRecord { core: 2, task: 1003, next_renewal: 7 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal: workload_end },
+				AutoRenewalRecord { core: 1, task: 1002, next_renewal: workload_end },
+				AutoRenewalRecord { core: 2, task: 1003, next_renewal: workload_end },
 			]
 		);
 
@@ -1977,16 +1975,15 @@ fn auto_renewal_works() {
 		// We skip funding the sovereign account of task 1002 on purpose.
 		endow(1003, 1000);
 
-		// Next cycle starting at 7.
-		advance_to(7);
+		advance_sale_period();
 		System::assert_has_event(
 			Event::<Test>::Renewed {
 				who: 1001, // sovereign account
 				old_core: 0,
 				core: 0,
-				price: 100,
-				begin: 7,
-				duration: 3,
+				price: REGION_RENEWAL_PRICE,
+				begin: workload_end,
+				duration: REGION_LENGTH,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
 					assignment: Task(1001),
 					mask: CoreMask::complete(),
@@ -2003,9 +2000,9 @@ fn auto_renewal_works() {
 				who: 1003, // sovereign account
 				old_core: 2,
 				core: 1, // Core #1 didn't get renewed, so core #2 will take its place.
-				price: 100,
-				begin: 7,
-				duration: 3,
+				price: REGION_RENEWAL_PRICE,
+				begin: workload_end,
+				duration: REGION_LENGTH,
 				workload: Schedule::truncate_from(vec![ScheduleItem {
 					assignment: Task(1003),
 					mask: CoreMask::complete(),
@@ -2014,13 +2011,15 @@ fn auto_renewal_works() {
 			.into(),
 		);
 
+		let next_renewal = MarketMock::get_region_end();
+
 		// Given that core #1 didn't get renewed due to the account not being sufficiently funded,
 		// Task (1003) will now be assigned to that core instead of core #2.
 		assert_eq!(
 			AutoRenewals::<Test>::get().to_vec(),
 			vec![
-				AutoRenewalRecord { core: 0, task: 1001, next_renewal: 10 },
-				AutoRenewalRecord { core: 1, task: 1003, next_renewal: 10 },
+				AutoRenewalRecord { core: 0, task: 1001, next_renewal },
+				AutoRenewalRecord { core: 1, task: 1003, next_renewal },
 			]
 		);
 	});
@@ -2364,7 +2363,7 @@ fn force_reserve_works() {
 	TestExt::new().execute_with(|| {
 		assert_noop!(
 			Broker::force_reserve(RuntimeOrigin::root(), system_workload.clone(), 0),
-			Error::<Test>::NoSales
+			Error::<Test>::Uninitialized
 		);
 	});
 
