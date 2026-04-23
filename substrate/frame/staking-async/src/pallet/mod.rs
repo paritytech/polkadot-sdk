@@ -1065,6 +1065,15 @@ pub mod pallet {
 		///
 		/// Use `Some(0)` on fresh test chains to start in DAP mode from era 0.
 		pub disable_minting_guard: Option<EraIndex>,
+		/// Pre-seed validator self-stake incentive parameters.
+		///
+		/// All three must be `Some` to activate the incentive curve; any `None`
+		/// leaves the corresponding storage at its zero default. When
+		/// `optimum_self_stake == 0 && hard_cap_self_stake == 0`, the incentive
+		/// feature is disabled and validators earn no incentive weight.
+		pub optimum_self_stake: Option<BalanceOf<T>>,
+		pub hard_cap_self_stake: Option<BalanceOf<T>>,
+		pub self_stake_slope_factor: Option<Perbill>,
 	}
 
 	impl<T: Config> GenesisConfig<T> {
@@ -1119,6 +1128,22 @@ pub mod pallet {
 					 setting it on a legacy-minting chain would orphan era pots"
 				);
 				DisableMintingGuard::<T>::put(guard_era);
+			}
+
+			let next_optimum = self.optimum_self_stake.unwrap_or_else(OptimumSelfStake::<T>::get);
+			let next_cap = self.hard_cap_self_stake.unwrap_or_else(HardCapSelfStake::<T>::get);
+			assert!(
+				next_optimum <= next_cap,
+				"genesis incentive config: optimum must be <= cap"
+			);
+			if let Some(optimum) = self.optimum_self_stake {
+				OptimumSelfStake::<T>::put(optimum);
+			}
+			if let Some(cap) = self.hard_cap_self_stake {
+				HardCapSelfStake::<T>::put(cap);
+			}
+			if let Some(slope) = self.self_stake_slope_factor {
+				SelfStakeSlopeFactor::<T>::put(slope);
 			}
 
 			// First pass: set up all validators and idle stakers

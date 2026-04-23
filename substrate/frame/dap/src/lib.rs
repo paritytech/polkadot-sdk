@@ -363,6 +363,13 @@ pub mod pallet {
 				})
 				.collect()
 		}
+
+		/// Account that holds burned/slashed funds before they are drained into
+		/// the DAP buffer by `on_idle`. Exposed to clients so they don't have to
+		/// re-derive the sub-account themselves.
+		pub fn staging() -> T::AccountId {
+			Self::staging_account()
+		}
 	}
 
 	impl<T: Config> Pallet<T> {

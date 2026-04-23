@@ -111,6 +111,12 @@ fn staking_async_parachain_genesis(params: GenesisParams, preset: String) -> ser
 			// Latch DAP mode at era 0: test chains skip the legacy warmup entirely.
 			// Only valid because this runtime sets `DisableMinting = true`.
 			disable_minting_guard: Some(0),
+			// Activate the validator self-stake incentive curve so DAP-funded
+			// incentive budgets actually have non-zero weights to distribute
+			// against. Disabled (both zero) leaves the incentive pot stranded.
+			optimum_self_stake: Some(10_000 * WND),
+			hard_cap_self_stake: Some(100_000 * WND),
+			self_stake_slope_factor: Some(Perbill::from_percent(50)),
 			..Default::default()
 		},
 		dap: DapConfig { budget_allocation: dap_allocation, ..Default::default() }
