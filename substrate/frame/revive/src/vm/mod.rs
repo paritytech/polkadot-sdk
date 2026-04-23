@@ -201,7 +201,7 @@ impl<T: Config> ContractBlob<T> {
 					let deposit = self.code_info.deposit;
 
 					<Pallet<T>>::charge_deposit(
-							Some(HoldReason::CodeUploadDepositReserve),
+							HoldReason::CodeUploadDepositReserve,
 							&self.code_info.owner,
 							&Pallet::<T>::account_id(),
 							deposit,

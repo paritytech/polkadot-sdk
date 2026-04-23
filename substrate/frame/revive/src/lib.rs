@@ -2617,12 +2617,12 @@ impl<T: Config> Pallet<T> {
 		})
 	}
 
-	/// Transfer a deposit from some account to another.
+	/// Transfer a deposit from some account to another and place it on hold under `hold_reason`.
 	///
 	/// `from` is usually the transaction origin and `to` a contract or
 	/// the pallets own account.
 	fn charge_deposit(
-		hold_reason: Option<HoldReason>,
+		hold_reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
@@ -2632,29 +2632,8 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		}
 
-		match (exec_config.collect_deposit_from_hold.is_some(), hold_reason) {
-			(true, hold_reason) => {
-				T::FeeInfo::withdraw_txfee(amount)
-					.ok_or(())
-					.and_then(|credit| T::Currency::resolve(to, credit).map_err(|_| ()))
-					.and_then(|_| {
-						if let Some(hold_reason) = hold_reason {
-							T::Currency::hold(&hold_reason.into(), to, amount).map_err(|_| ())?;
-						}
-						T::Deposit::record_native_deposit(from, to, amount);
-						Ok(())
-					})
-					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			},
-			(false, Some(hold_reason)) => {
-				T::Deposit::charge_and_hold(hold_reason, from, to, amount)
-					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			},
-			(false, None) => {
-				T::Deposit::charge(from, to, amount)
-					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-			},
-		}
+		T::Deposit::charge_and_hold(hold_reason, exec_config.funds(from), to, amount)
+			.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 		Ok(())
 	}
 
@@ -2673,12 +2652,8 @@ impl<T: Config> Pallet<T> {
 			return Ok(());
 		}
 
-		let result = if exec_config.map(|c| c.collect_deposit_from_hold.is_some()).unwrap_or(false)
-		{
-			T::Deposit::refund_to_txfee(hold_reason, from, to, amount)
-		} else {
-			T::Deposit::refund_on_hold(hold_reason, from, to, amount)
-		};
+		let dst = exec_config.map(|c| c.funds(to)).unwrap_or(deposit_payment::Funds::Balance(to));
+		let result = T::Deposit::refund_on_hold(hold_reason, from, dst, amount);
 
 		result.map_err(|err| {
 			let available = T::Deposit::total_on_hold(hold_reason, from);
@@ -2715,6 +2690,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Return the existential deposit of [`Config::Currency`].
+	#[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 	fn min_balance() -> BalanceOf<T> {
 		<T::Currency as Inspect<AccountIdOf<T>>>::minimum_balance()
 	}

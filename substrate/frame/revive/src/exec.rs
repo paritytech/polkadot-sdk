@@ -20,7 +20,8 @@ use crate::{
 	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
 	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
-	evm::{block_storage, transfer_with_dust},
+	deposit_payment::Deposit as _,
+	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
 	limits,
 	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -43,7 +44,7 @@ use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
 	traits::{
 		Time,
-		fungible::{Inspect, Mutate},
+		fungible::{Balanced as _, Inspect, Mutate},
 		tokens::Preservation,
 	},
 	weights::Weight,
@@ -1317,9 +1318,9 @@ where
 				let origin = &self.origin.account_id()?;
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					let ed = <Contracts<T>>::min_balance();
+					let ed = T::Deposit::charge_ed(self.exec_config.funds(origin), account_id)
+						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
-					<Contracts<T>>::charge_deposit(None, origin, account_id, ed, self.exec_config)?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1667,10 +1668,23 @@ where
 
 		let origin = origin.account_id()?;
 		let ed = <T as Config>::Currency::minimum_balance();
+		let is_eth_tx = exec_config.collect_deposit_from_hold.is_some();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
 			match meter
 				.charge_deposit(&StorageDeposit::Charge(ed))
-				.and_then(|_| <Contracts<T>>::charge_deposit(None, origin, to, ed, exec_config))
+				.and_then(|_| {
+					if is_eth_tx {
+						let credit = T::FeeInfo::withdraw_txfee(ed)
+							.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
+						T::Currency::resolve(to, credit)
+							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+						Ok(())
+					} else {
+						T::Currency::transfer(origin, to, ed, Preservation::Preserve)
+							.map(|_| ())
+							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+					}
+				})
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
