@@ -1392,8 +1392,7 @@ fn leases_can_be_renewed() {
 		// Advance to sale period 2, where we can renew.
 		advance_sale_period();
 		assert_ok!(Broker::do_renew(1, 0));
-		// We renew for the price of the previous sale period.
-		assert_eq!(balance(1), initial_balance - 1000);
+		assert_eq!(balance(1), initial_balance - REGION_RENEWAL_PRICE);
 
 		// We just renewed for this period.
 		advance_sale_period();
@@ -2648,7 +2647,7 @@ fn remove_potential_renewal_makes_auto_renewal_die() {
 		const TASK_ID: TaskId = 1111;
 		Broker::do_assign(region_id, None, TASK_ID, Finality::Final).unwrap();
 
-		advance_to(6);
+		advance_sale_period();
 
 		Broker::do_enable_auto_renew(1, region_id.core, TASK_ID, None).unwrap();
 
@@ -2660,7 +2659,7 @@ fn remove_potential_renewal_makes_auto_renewal_die() {
 
 		assert_eq!(AutoRenewals::<Test>::get().len(), 1);
 
-		advance_to(12);
+		advance_sale_period();
 
 		assert_eq!(AutoRenewals::<Test>::get().len(), 0);
 	})
