@@ -26,7 +26,7 @@ use frame_support::{
 	traits::{
 		fungible::{Balanced, Inspect, Mutate},
 		tokens::{Fortitude, Precision, Preservation},
-		Defensive, OnUnbalanced,
+		OnUnbalanced,
 	},
 };
 use sp_runtime::{
