@@ -24,14 +24,14 @@ use crate::{
 	tests::{Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, Test},
 };
 use frame_support::{
-	assert_ok,
+	assert_noop, assert_ok,
 	traits::{
 		fungible::{InspectHold, Mutate as _},
 		tokens::fungibles::InspectHold as _,
 	},
 };
 use pretty_assertions::assert_eq;
-use sp_runtime::{AccountId32, DispatchResult};
+use sp_runtime::{AccountId32, DispatchResult, TokenError};
 
 /// Full observable state snapshot for a (payer, contract) pair.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -81,8 +81,12 @@ struct TestCase {
 	expected_after_refund: State,
 }
 
-fn transfer_and_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> DispatchResult {
-	<<Test as Config>::Deposit as Deposit<Test>>::transfer_and_hold(
+fn charge(from: &AccountId32, to: &AccountId32, amount: u128) -> DispatchResult {
+	<<Test as Config>::Deposit as Deposit<Test>>::charge(from, to, amount)
+}
+
+fn charge_and_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> DispatchResult {
+	<<Test as Config>::Deposit as Deposit<Test>>::charge_and_hold(
 		HoldReason::StorageDepositReserve,
 		from,
 		to,
@@ -110,7 +114,7 @@ fn run(case: TestCase) {
 		frame_system::Pallet::<Test>::inc_providers(&BOB);
 
 		for (i, charge) in case.charges.iter().enumerate() {
-			assert_ok!(transfer_and_hold(&ALICE, &BOB, charge.amount));
+			assert_ok!(charge_and_hold(&ALICE, &BOB, charge.amount));
 			assert_eq!(snapshot(&ALICE, &BOB), charge.expected, "after charge {i}");
 		}
 
@@ -193,4 +197,41 @@ fn pay_mixed_refund_mixed() {
 		refund: 120,
 		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 64, ..State::default() },
 	});
+}
+
+// ------------------------------------------------------------------
+// Playground: probes for sub-ED gaps in `charge`.
+//
+// `charge` uses `Preservation::Preserve` on both branches, so it cannot create a fresh
+// destination account with an amount below the destination asset's existential deposit.
+// The two tests below lock in that observation for native and PGAS respectively.
+// ------------------------------------------------------------------
+
+/// Native path: ALICE has no PGAS so `charge` goes through `T::Currency::transfer`. BOB is
+/// empty, and `amount = 50 < native ED (100)`, so the call fails with `BelowMinimum`.
+#[test]
+fn charge_native_below_ed_fails_on_empty_recipient() {
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		Balances::set_balance(&ALICE, 1_000);
+		// BOB has a provider but a zero native balance.
+		frame_system::Pallet::<Test>::inc_providers(&BOB);
+
+		assert_noop!(charge(&ALICE, &BOB, 50), sp_runtime::DispatchError::from(TokenError::BelowMinimum));
+	});
+}
+
+/// PGAS path: ALICE has PGAS so `charge` goes through `fungibles::Mutate::transfer`. BOB has
+/// no PGAS account, and `amount = 5 < PGAS ED (10)`, so the call fails with `BelowMinimum`.
+#[test]
+fn charge_pgas_below_ed_fails_on_empty_recipient() {
+	ExtBuilder::default()
+		.with_pgas_min_balance(10)
+		.with_pgas_balances(vec![(ALICE, 1_000)])
+		.build()
+		.execute_with(|| {
+			Balances::set_balance(&ALICE, 1_000);
+			frame_system::Pallet::<Test>::inc_providers(&BOB);
+
+			assert_noop!(charge(&ALICE, &BOB, 5), sp_runtime::DispatchError::from(TokenError::BelowMinimum));
+		});
 }

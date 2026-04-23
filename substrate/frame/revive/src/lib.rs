@@ -2647,11 +2647,11 @@ impl<T: Config> Pallet<T> {
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, Some(hold_reason)) => {
-				T::Deposit::transfer_and_hold(hold_reason, from, to, amount)
+				T::Deposit::charge_and_hold(hold_reason, from, to, amount)
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 			(false, None) => {
-				T::Deposit::transfer(from, to, amount)
+				T::Deposit::charge(from, to, amount)
 					.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 			},
 		}
@@ -2675,7 +2675,7 @@ impl<T: Config> Pallet<T> {
 
 		let result = if exec_config.map(|c| c.collect_deposit_from_hold.is_some()).unwrap_or(false)
 		{
-			T::Deposit::collect_on_hold(hold_reason, from, to, amount)
+			T::Deposit::refund_to_txfee(hold_reason, from, to, amount)
 		} else {
 			T::Deposit::refund_on_hold(hold_reason, from, to, amount)
 		};

@@ -55,11 +55,11 @@ mod sealed {
 
 /// Payment backend used to charge storage deposits.
 pub trait Deposit<T: Config>: sealed::Sealed {
-	/// Transfer `amount` from `from` to `to` to back a storage deposit.
-	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult;
+	/// Charge `amount` from `from` to `to` to back a storage deposit.
+	fn charge(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult;
 
-	/// Transfer `amount` from `from` to `to` and place it on hold under `reason`.
-	fn transfer_and_hold(
+	/// Charge `amount` from `from` to `to` and place it on hold under `reason`.
+	fn charge_and_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -74,8 +74,8 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
 
-	/// Collect `amount` of held funds from contract `from` back into the tx fee pool.
-	fn collect_on_hold(
+	/// Refund `amount` of held funds from contract `from` back into the tx fee pool.
+	fn refund_to_txfee(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -103,13 +103,13 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
-	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+	fn charge(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		T::Currency::transfer(from, to, amount, Preservation::Preserve)?;
 		<Self as Deposit<T>>::record_native_deposit(from, to, amount);
 		Ok(())
 	}
 
-	fn transfer_and_hold(
+	fn charge_and_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -150,7 +150,7 @@ impl<T: Config> Deposit<T> for () {
 		Ok(())
 	}
 
-	fn collect_on_hold(
+	fn refund_to_txfee(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -224,7 +224,7 @@ where
 {
 	/// Pays the full `amount` in PGAS when `from`'s reducible PGAS covers it; otherwise pays
 	/// in native currency and records the contribution in [`NativeDepositOf`].
-	fn transfer(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+	fn charge(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
 			<Mutator as fungibles::Mutate<T::AccountId>>::transfer(
 				Id::get(),
@@ -241,12 +241,12 @@ where
 		}
 	}
 
-	/// Same asset-selection rule as [`Self::transfer`], applied to a transfer-and-hold.
+	/// Same asset-selection rule as [`Self::charge`], applied to a transfer-and-hold.
 	///
 	/// The PGAS branch writes directly to the payer's free balance and the contract's hold
 	/// storage, so the contract never needs a `pallet_assets::Account` entry. This allows
 	/// deposits below the PGAS existential deposit to succeed.
-	fn transfer_and_hold(
+	fn charge_and_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
@@ -331,9 +331,9 @@ where
 		dot_held.saturating_add(pgas_held)
 	}
 
-	/// Collects native currency first into the tx fee pool (capped by [`NativeDepositOf`]); any
+	/// Refunds native currency first into the tx fee pool (capped by [`NativeDepositOf`]); any
 	/// shortfall is taken from PGAS with `RefundPercent` refunded and the rest burned.
-	fn collect_on_hold(
+	fn refund_to_txfee(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,

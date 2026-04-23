@@ -477,6 +477,7 @@ pub struct ExtBuilder {
 	genesis_state_overrides: Option<Storage>,
 	next_fee_multiplier: Option<FixedU128>,
 	pgas_balances: Vec<(AccountId32, u128)>,
+	pgas_min_balance: u128,
 }
 
 impl Default for ExtBuilder {
@@ -489,6 +490,7 @@ impl Default for ExtBuilder {
 			genesis_state_overrides: None,
 			next_fee_multiplier: None,
 			pgas_balances: vec![],
+			pgas_min_balance: 1,
 		}
 	}
 }
@@ -517,6 +519,11 @@ impl ExtBuilder {
 		self.pgas_balances = balances;
 		self
 	}
+	/// Override the PGAS asset's `min_balance` (existential deposit).
+	pub fn with_pgas_min_balance(mut self, min_balance: u128) -> Self {
+		self.pgas_min_balance = min_balance;
+		self
+	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
@@ -543,7 +550,7 @@ impl ExtBuilder {
 		.unwrap();
 
 		pallet_assets::GenesisConfig::<Test> {
-			assets: vec![(PGAS_ASSET_ID, ALICE, true, 1)],
+			assets: vec![(PGAS_ASSET_ID, ALICE, true, self.pgas_min_balance)],
 			accounts: self
 				.pgas_balances
 				.iter()
