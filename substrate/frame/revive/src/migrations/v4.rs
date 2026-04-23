@@ -19,11 +19,12 @@
 //!
 //! Switches storage deposits from the native currency to PGAS.
 //!
-//! Phase 1 iterates [`CodeInfoOf`] and for each uploaded code records the uploader's existing
-//! native `CodeUploadDepositReserve` contribution under [`NativeDepositOf`], keyed by the
-//! pallet's own account (the holder of that deposit). The native currency itself stays where it is.
+//! Phase 1 iterates [`crate::CodeInfoOf`] and for each uploaded code records the uploader's
+//! existing native `CodeUploadDepositReserve` contribution under [`crate::NativeDepositOf`],
+//! keyed by the pallet's own account (the holder of that deposit). The native currency itself
+//! stays where it is.
 //!
-//! Phase 2 iterates [`AccountInfoOf`] and for each contract burn the native
+//! Phase 2 iterates [`crate::AccountInfoOf`] and for each contract burn the native
 //! `StorageDepositReserve` hold and replaces it with the same amount of PGAS minted into the
 //! contract and held under the same reason.
 

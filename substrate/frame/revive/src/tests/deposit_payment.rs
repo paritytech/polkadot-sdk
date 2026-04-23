@@ -194,3 +194,72 @@ fn pay_mixed_refund_mixed() {
 		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 64, ..State::default() },
 	});
 }
+
+// ---------------------------------------------------------------------------
+// Playground: does `burn_held` work when the contract's PGAS hold is below the PGAS asset's
+// ED? `charge_and_hold`'s PGAS branch writes directly via `increase_balance_on_hold`
+// (bypassing ED), so this is reachable in practice. The refund path's `settle_pgas_refund`
+// calls `burn_held` on the hold, and we want to confirm that's safe.
+// ---------------------------------------------------------------------------
+
+/// Sub-ED hold: charge 50 PGAS with PGAS ED = 100, then refund — the 10% refund (5) credits
+/// ALICE and the rest (45) is burned. `burn_held` should not reject the sub-ED hold.
+#[test]
+fn burn_held_on_sub_ed_hold_works() {
+	ExtBuilder::default()
+		.with_pgas_min_balance(100)
+		.with_pgas_balances(vec![(ALICE, 1_000)])
+		.build()
+		.execute_with(|| {
+			Balances::set_balance(&ALICE, 1_000);
+			frame_system::Pallet::<Test>::inc_providers(&BOB);
+
+			// PGAS branch: writes directly to the hold, bypassing PGAS ED.
+			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
+			assert_eq!(
+				snapshot(&ALICE, &BOB),
+				State {
+					payer_dot: 1_000,
+					payer_pgas: 950,
+					contract_pgas_held: 50,
+					..State::default()
+				},
+				"after sub-ED charge",
+			);
+
+			// Refund: 10% of 50 = 5 goes to ALICE, 45 is burned via burn_held.
+			assert_ok!(refund_on_hold(&BOB, &ALICE, 50));
+			assert_eq!(
+				snapshot(&ALICE, &BOB),
+				State { payer_dot: 1_000, payer_pgas: 955, ..State::default() },
+				"after refund (5 refunded, 45 burned)",
+			);
+		});
+}
+
+/// Partial sub-ED refund: charge 50 PGAS (below PGAS ED = 100), refund 20. Expect 2 refunded
+/// to ALICE, 18 burned, 30 still held.
+#[test]
+fn burn_held_on_sub_ed_hold_partial_refund() {
+	ExtBuilder::default()
+		.with_pgas_min_balance(100)
+		.with_pgas_balances(vec![(ALICE, 1_000)])
+		.build()
+		.execute_with(|| {
+			Balances::set_balance(&ALICE, 1_000);
+			frame_system::Pallet::<Test>::inc_providers(&BOB);
+
+			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
+			assert_ok!(refund_on_hold(&BOB, &ALICE, 20));
+			assert_eq!(
+				snapshot(&ALICE, &BOB),
+				State {
+					payer_dot: 1_000,
+					payer_pgas: 952,
+					contract_pgas_held: 30,
+					..State::default()
+				},
+				"after partial refund (2 refunded, 18 burned, 30 still held)",
+			);
+		});
+}

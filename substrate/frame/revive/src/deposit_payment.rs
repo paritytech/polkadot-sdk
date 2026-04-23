@@ -95,7 +95,7 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// Refund `amount` of held funds from contract `from`.
 	///
 	/// The PGAS portion (if any) is always settled to the account embedded in `dst` under
-	/// [`PGasDeposit::RefundPercent`].
+	/// `PGasDeposit`'s `RefundPercent`.
 	///
 	/// # Parameters
 	/// - `reason`: hold reason the funds were placed under.
