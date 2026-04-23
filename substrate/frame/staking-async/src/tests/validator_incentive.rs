@@ -600,6 +600,9 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 			.contains(&Event::Unexpected(UnexpectedKind::MissingPayee { era: 2, stash: alice })));
 		assert!(incentive_paid_for(alice, &events).is_none());
 		assert!(incentive_paid_for(21, &events).is_some());
+
+		// Restore payee so post-test try_state passes.
+		Payee::<Test>::insert(alice, RewardDestination::Staked);
 	});
 }
 
