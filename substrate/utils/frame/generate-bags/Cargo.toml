@@ -25,4 +25,10 @@ chrono = { workspace = true }
 num-format = { workspace = true }
 
 [features]
-try-runtime = ["pallet-staking-async/try-runtime"]
+try-runtime = [
+    "pallet-staking-async/try-runtime",
+	"frame-election-provider-support/try-runtime",
+	"frame-support/try-runtime",
+	"frame-system/try-runtime",
+	"pallet-staking/try-runtime"
+]
