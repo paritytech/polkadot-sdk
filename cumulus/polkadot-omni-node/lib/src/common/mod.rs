@@ -21,7 +21,6 @@
 pub(crate) mod aura;
 pub mod chain_spec;
 pub mod command;
-pub(crate) mod hop;
 pub mod rpc;
 pub mod runtime;
 pub mod spec;

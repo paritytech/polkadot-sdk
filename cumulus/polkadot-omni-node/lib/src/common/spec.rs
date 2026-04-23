@@ -19,7 +19,6 @@ use crate::{
 	cli::DevSealMode,
 	common::{
 		command::NodeCommandRunner,
-		hop::build_hop_pool,
 		rpc::BuildRpcExtensions,
 		statement_store::{build_statement_store, new_statement_handler_proto},
 		types::{
@@ -430,10 +429,14 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				})
 				.transpose()?;
 
-			let hop_pool = build_hop_pool(
-				&node_extra_args,
-				parachain_config.database.path().map(|p| p.to_path_buf()),
-			)?;
+			let hop_pool = node_extra_args
+				.hop
+				.as_ref()
+				.map(|params| {
+					params.build_pool(parachain_config.database.path().map(|p| p.to_path_buf()))
+				})
+				.transpose()
+				.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 			if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), node_extra_args.hop.as_ref()) {
 				let task = sc_hop::build_maintenance_task::<Self::Block, _, _>(
 					&client,

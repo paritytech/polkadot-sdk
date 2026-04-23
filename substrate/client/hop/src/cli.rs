@@ -33,14 +33,17 @@
 //! ```
 
 use crate::{
+	pool::HopDataPool,
 	rate_limit::RateLimitConfig,
 	types::{
-		DEFAULT_BANDWIDTH_BURST_MIB, DEFAULT_BANDWIDTH_PER_MIN_MIB, DEFAULT_CHECK_INTERVAL_SECS,
-		DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_MAX_USER_SIZE_MIB, DEFAULT_PROMOTION_BUFFER_BLOCKS,
-		DEFAULT_RETENTION_BLOCKS, DEFAULT_SUBMIT_BURST, DEFAULT_SUBMIT_RATE_PER_MIN,
+		HopError, DEFAULT_BANDWIDTH_BURST_MIB, DEFAULT_BANDWIDTH_PER_MIN_MIB,
+		DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_MAX_POOL_SIZE_MIB, DEFAULT_MAX_USER_SIZE_MIB,
+		DEFAULT_PROMOTION_BUFFER_BLOCKS, DEFAULT_RETENTION_BLOCKS, DEFAULT_SUBMIT_BURST,
+		DEFAULT_SUBMIT_RATE_PER_MIN,
 	},
 };
 use clap::Parser;
+use std::{path::PathBuf, sync::Arc};
 
 /// HOP (Hand-Off Protocol) configuration parameters
 #[derive(Debug, Clone, Parser)]
@@ -127,6 +130,58 @@ impl HopParams {
 			submit_burst: self.submit_burst,
 			bandwidth_per_min: self.bandwidth_per_min_mib.saturating_mul(1024 * 1024),
 			bandwidth_burst: self.bandwidth_burst_mib.saturating_mul(1024 * 1024),
+		}
+	}
+
+	/// Build a HOP data pool from these CLI parameters, resolving the data directory.
+	///
+	/// The resolved data directory is [`Self::data_dir`] if set, otherwise
+	/// `<database_path>/hop`; if neither is available, returns [`HopError::MissingDataDir`].
+	/// Callers gate on whether HOP is enabled (e.g. via `--enable-hop`) before calling this.
+	pub fn build_pool(
+		&self,
+		database_path: Option<PathBuf>,
+	) -> Result<Arc<HopDataPool>, HopError> {
+		let data_dir = match &self.data_dir {
+			Some(dir) => dir.clone(),
+			None => database_path.ok_or(HopError::MissingDataDir)?.join("hop"),
+		};
+
+		tracing::info!(
+			target: "hop",
+			params = ?self,
+			data_dir = %data_dir.display(),
+			"Initializing HOP data pool",
+		);
+
+		let pool = HopDataPool::new(
+			self.max_pool_size.saturating_mul(1024 * 1024),
+			self.max_user_size.saturating_mul(1024 * 1024),
+			self.retention_blocks,
+			data_dir,
+			self.rate_limit_config(),
+		)?;
+
+		tracing::info!(
+			target: "hop",
+			status = ?pool.status(),
+			"HOP data pool initialized, RPC methods will be registered",
+		);
+
+		Ok(Arc::new(pool))
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn build_pool_without_any_dir_returns_missing_data_dir() {
+		match HopParams::default().build_pool(None) {
+			Err(HopError::MissingDataDir) => (),
+			Err(other) => panic!("expected MissingDataDir, got: {other:?}"),
+			Ok(_) => panic!("expected MissingDataDir, got Ok"),
 		}
 	}
 }

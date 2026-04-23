@@ -416,10 +416,11 @@ where
 				);
 			},
 		}
-		let hop_pool = crate::common::hop::build_hop_pool(
-			&node_extra_args,
-			config.database.path().map(|p| p.to_path_buf()),
-		)?;
+		let hop_pool = hop
+			.as_ref()
+			.map(|params| params.build_pool(config.database.path().map(|p| p.to_path_buf())))
+			.transpose()
+			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
 			let task = sc_hop::build_maintenance_task::<Block, _, _>(
 				&client,

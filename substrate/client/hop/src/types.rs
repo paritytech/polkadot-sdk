@@ -142,6 +142,9 @@ pub enum HopError {
 
 	#[error("Rate limited: retry after {retry_after_secs}s")]
 	RateLimited { retry_after_secs: u64 },
+
+	#[error("No database path available and --hop-data-dir not specified")]
+	MissingDataDir,
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -166,6 +169,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::TooManyRecipients { .. } => 1018,
 			HopError::DuplicateRecipient => 1019,
 			HopError::RateLimited { .. } => 1020,
+			HopError::MissingDataDir => 1021,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
