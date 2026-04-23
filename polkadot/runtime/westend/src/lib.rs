@@ -957,6 +957,9 @@ pub enum ProxyType {
 	IdentityJudgement,
 	CancelProxy,
 	Auction,
+	// Preserve the NominationPools variants after the AH migration to keep on-chain
+	// proxy entries with this type decodable.
+	NominationPools,
 	ParaRegistration,
 }
 impl Default for ProxyType {
@@ -1005,6 +1008,7 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Auctions(..) // Specifically omitting the entire XCM Pallet
 			),
 			ProxyType::Staking => false,
+			ProxyType::NominationPools => false,
 			ProxyType::SudoBalances => match c {
 				RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: ref x }) => {
 					matches!(x.as_ref(), &RuntimeCall::Balances(..))
