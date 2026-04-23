@@ -15726,14 +15726,9 @@ dependencies = [
  "polkadot-primitives-test-helpers",
  "rand 0.8.5",
  "rstest",
-<<<<<<< HEAD
+ "schnellru",
  "sp-core 40.0.0",
  "sp-tracing 19.0.0",
-=======
- "schnellru",
- "sp-core 28.0.0",
- "sp-tracing 16.0.0",
->>>>>>> b2a12a6 (allow older relay parents in prospective-parachains (#11772))
  "thiserror 1.0.65",
  "tracing-gum",
 ]
