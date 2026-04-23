@@ -16,6 +16,11 @@ on:
         description: "Run tests which names match this pattern (also flaky)"
         default: ""
         required: false
+    secrets:
+      ARTIFACTS_DOWNLOADER_APP_ID:
+        required: false
+      ARTIFACTS_DOWNLOADER_PRIVATE_KEY:
+        required: false
   workflow_dispatch:
     inputs:
       test_pattern:
@@ -85,6 +90,8 @@ jobs:
           gh-token: ${{ secrets.GITHUB_TOKEN }}
           build-id: ${{ needs.preflight.outputs.BUILD_RUN_ID }}
           ref-slug: ${{ needs.preflight.outputs.SOURCE_REF_SLUG }}
+          app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
+          app-private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
 
       - name: process_logs
         if: ${{ always() }}

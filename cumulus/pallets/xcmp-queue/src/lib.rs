@@ -1082,7 +1082,10 @@ impl<T: Config> XcmpMessageHandler for Pallet<T> {
 }
 
 impl<T: Config> XcmpMessageSource for Pallet<T> {
-	fn take_outbound_messages(maximum_channels: usize) -> Vec<(ParaId, Vec<u8>)> {
+	fn take_outbound_messages(
+		maximum_channels: usize,
+		excluded_recipients: &[ParaId],
+	) -> Vec<(ParaId, Vec<u8>)> {
 		let mut statuses = <OutboundXcmpStatus<T>>::get().into_inner();
 		let old_statuses_len = statuses.len();
 		let max_message_count = statuses.len().min(maximum_channels);
@@ -1113,6 +1116,11 @@ impl<T: Config> XcmpMessageSource for Pallet<T> {
 				ChannelStatus::Full => return true,
 				ChannelStatus::Ready(max_size_now, max_size_ever) => (max_size_now, max_size_ever),
 			};
+
+			// Check if we should omit the recipient.
+			if excluded_recipients.contains(para_id) {
+				return true;
+			}
 
 			// This is a hard limit from the host config; not even signals can bypass it.
 			if result.len() == max_message_count {

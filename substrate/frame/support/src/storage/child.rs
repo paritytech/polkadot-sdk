@@ -224,8 +224,9 @@ pub fn get_raw_with_status(
 	key: &[u8],
 ) -> sp_io::StateLoad<Option<Vec<u8>>> {
 	match child_info.child_type() {
-		ChildType::ParentKeyId =>
-			sp_io::default_child_storage::get_with_status(child_info.storage_key(), key),
+		ChildType::ParentKeyId => {
+			sp_io::default_child_storage::get_with_status(child_info.storage_key(), key)
+		},
 	}
 }
 

@@ -164,9 +164,35 @@ fn refunding_asset_deposit_with_burn_should_work() {
 		Balances::make_free_balance_be(&1, 100);
 		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
 		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::total_supply(0), 100);
 		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, true));
 		assert_eq!(Balances::reserved_balance(&1), 0);
 		assert_eq!(Assets::balance(1, 0), 0);
+		assert_eq!(Assets::total_supply(0), 0);
+		System::assert_last_event(RuntimeEvent::Assets(crate::Event::Burned {
+			asset_id: 0,
+			owner: 1,
+			balance: 100,
+		}));
+	});
+}
+
+#[test]
+fn refund_with_zero_balance_does_not_emit_burned() {
+	build_and_execute(|| {
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), 0, 1, false, 1));
+		Balances::make_free_balance_be(&1, 100);
+		assert_ok!(Assets::touch(RuntimeOrigin::signed(1), 0));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_ok!(Assets::burn(RuntimeOrigin::signed(1), 0, 1, 100));
+		assert_eq!(Assets::total_supply(0), 0);
+
+		System::reset_events();
+		assert_ok!(Assets::refund(RuntimeOrigin::signed(1), 0, false));
+		assert_eq!(Assets::total_supply(0), 0);
+		assert!(System::events()
+			.iter()
+			.all(|e| !matches!(e.event, RuntimeEvent::Assets(crate::Event::Burned { .. }))));
 	});
 }
 
