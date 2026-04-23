@@ -10,7 +10,7 @@ HOP keeps short-lived hand-off data off-chain until it actually needs
 permanence — data lives on one collator's disk instead of being replicated
 across the chain, and round-trip latency stays well under a block time. The
 node is agnostic about what "authorized to submit" and "promote on-chain"
-mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
+mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 
 ## Overview
 
@@ -26,13 +26,13 @@ mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
   claim, and ack (`HOP_SUBMIT_CONTEXT`, `HOP_CLAIM_CONTEXT`, `HOP_ACK_CONTEXT`)
   so a signature from one operation cannot be replayed as another.
 - **Runtime-defined authorization** — submit is gated by
-  `HopApi::can_account_promote`; the runtime decides what "authorized"
+  `HopRuntimeApi::can_account_promote`; the runtime decides what "authorized"
   means (e.g. reuse an existing on-chain authorization, check a dedicated
   HOP allowlist, or any other policy).
 - **Per-account rate limiting** — token-bucket caps on both submit rate and
   bandwidth; see [CLI flags](#cli-flags).
 - **Best-effort on-chain promotion** — near-expiry entries are promoted via a
-  runtime API; if the runtime doesn't implement `HopApi` the node runs in
+  runtime API; if the runtime doesn't implement `HopRuntimeApi` the node runs in
   cleanup-only mode so it can be deployed ahead of a runtime upgrade.
 
 ## Crate layout
@@ -48,7 +48,7 @@ mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
 | `primitives` | `HopHash`, `HopBlockNumber` |
 
 Companion runtime crate: [`sp-hop`](../../primitives/hop/) — defines the
-`HopApi` runtime API used for authorization checks and promotion.
+`HopRuntimeApi` runtime API used for authorization checks and promotion.
 
 ## Integration
 
@@ -108,7 +108,7 @@ if let Some(pool) = hop_pool {
 }
 ```
 
-`build_maintenance_task` detects `HopApi` support at startup and falls back to
+`build_maintenance_task` detects `HopRuntimeApi` support at startup and falls back to
 cleanup-only if the runtime doesn't implement it.
 
 ## CLI flags
@@ -140,7 +140,7 @@ All HOP RPC methods are also subject to the node-global `--rpc-rate-limit`.
 
 Store a blob for the given list of recipients.
 
-- `data`: raw bytes, must be ≤ `HopApi::max_promotion_size()` (the runtime
+- `data`: raw bytes, must be ≤ `HopRuntimeApi::max_promotion_size()` (the runtime
   cap; also bounded by the 8 MiB `MAX_DATA_SIZE` constant).
 - `recipients`: up to **256** SCALE-encoded `MultiSigner` values (ed25519,
   sr25519, or ecdsa ephemeral public keys).
@@ -148,7 +148,7 @@ Store a blob for the given list of recipients.
   `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data))`.
 - `signer`: SCALE-encoded `MultiSigner` of the submitting account.
 
-Submit fails with `NotAuthorized` if `HopApi::can_account_promote(signer, data_len)`
+Submit fails with `NotAuthorized` if `HopRuntimeApi::can_account_promote(signer, data_len)`
 returns `false`, and with `RateLimited` if the per-account buckets are exhausted.
 The runtime sees `data_len` so it can express size-tiered policies (e.g. "up to
 1 MiB per submit"). Authorization is checked *before* signature verification so
@@ -192,7 +192,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1009 | `NoRecipients` | Submit provided an empty recipient list |
 | 1010 | `InvalidRecipientKey` | A recipient entry did not decode as `MultiSigner` |
 | 1011 | `UserQuotaExceeded` | Sender's per-user quota (`--hop-max-user-size`) is full |
-| 1012 | `NotAuthorized` | `HopApi::can_account_promote` returned `false` for the signer |
+| 1012 | `NotAuthorized` | `HopRuntimeApi::can_account_promote` returned `false` for the signer |
 | 1013 | `IoError` | Disk I/O failure |
 | 1014 | `InvalidSigner` | Submit `signer` did not decode as `MultiSigner` |
 | 1015 | `AlreadyClaimed` | Recipient has already ack'd and the entry was deleted |
@@ -205,7 +205,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 ## Limits and fixed parameters
 
 - `MAX_DATA_SIZE` = 8 MiB — a crate-level upper bound. The effective cap is
-  whatever `HopApi::max_promotion_size()` returns on the current runtime.
+  whatever `HopRuntimeApi::max_promotion_size()` returns on the current runtime.
 - `MAX_RECIPIENTS` = 256 per entry (enforced by `BoundedVec` — corrupt on-disk
   `.meta` files with too many recipients fail to SCALE-decode and are
   discarded during startup recovery).
@@ -215,10 +215,10 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 
 ## Graceful degradation
 
-If the runtime doesn't implement `sp_hop::HopApi`, `try_build_promoter`
+If the runtime doesn't implement `sp_hop::HopRuntimeApi`, `try_build_promoter`
 logs a warning and the maintenance task runs in cleanup-only mode (no
 promotion). This lets operators deploy an HOP-enabled node ahead of the
-runtime upgrade that adds `HopApi`.
+runtime upgrade that adds `HopRuntimeApi`.
 
 ## License
 

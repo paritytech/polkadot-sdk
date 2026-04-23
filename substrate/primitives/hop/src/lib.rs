@@ -29,7 +29,7 @@ sp_api::decl_runtime_apis! {
 	///
 	/// Runtimes that support HOP implement this API so the node can check
 	/// authorization and promote near-expiry pool entries to on-chain storage.
-	pub trait HopApi<AccountId> where AccountId: codec::Codec {
+	pub trait HopRuntimeApi<AccountId> where AccountId: codec::Codec {
 		/// Whether `who` may submit a HOP blob of `data_len` bytes for promotion.
 		fn can_account_promote(who: AccountId, data_len: u32) -> bool;
 		/// Construct a general transaction extrinsic for promoting HOP data.

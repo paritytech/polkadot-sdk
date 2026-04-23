@@ -35,7 +35,7 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
-use sp_hop::HopApi;
+use sp_hop::HopRuntimeApi;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
@@ -139,7 +139,7 @@ impl<C, Block> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopApi<Block, AccountId32>,
+	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 {
 	fn submit(
 		&self,
@@ -290,7 +290,7 @@ mod tests {
 	}
 
 	sp_api::mock_impl_runtime_apis! {
-		impl sp_hop::HopApi<Block, AccountId32> for MockRuntimeApi {
+		impl sp_hop::HopRuntimeApi<Block, AccountId32> for MockRuntimeApi {
 			fn can_account_promote(_who: AccountId32, _data_len: u32) -> bool {
 				self.authorized
 			}

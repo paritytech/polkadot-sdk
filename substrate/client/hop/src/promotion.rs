@@ -20,7 +20,7 @@
 //! ## Architecture
 //!
 //! - [`HopPromoter`] — trait for promoting data on-chain (trait-object friendly).
-//! - [`RuntimeApiPromoter`] — concrete implementation using [`sp_hop::HopApi`] and
+//! - [`RuntimeApiPromoter`] — concrete implementation using [`sp_hop::HopRuntimeApi`] and
 //!   [`sc_transaction_pool_api::LocalTransactionPool`].
 //! - [`try_build_promoter`] — detects runtime API support at startup, returns `Some(promoter)` or
 //!   logs a warning and returns `None`.
@@ -29,7 +29,7 @@
 use crate::pool::HopDataPool;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_hop::HopApi;
+use sp_hop::HopRuntimeApi;
 use sp_runtime::{traits::Block as BlockT, AccountId32, SaturatedConversion};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
@@ -37,13 +37,13 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 ///
 /// Implemented as a trait object so that `HopMaintenanceTask` is not generic
 /// over runtime-specific types. The concrete implementation
-/// ([`RuntimeApiPromoter`]) uses the `HopApi` runtime API.
+/// ([`RuntimeApiPromoter`]) uses the `HopRuntimeApi` runtime API.
 pub trait HopPromoter: Send + Sync + 'static {
 	/// Promote a blob of HOP data to permanent on-chain storage.
 	fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
-/// Concrete [`HopPromoter`] that uses the [`sp_hop::HopApi`] runtime
+/// Concrete [`HopPromoter`] that uses the [`sp_hop::HopRuntimeApi`] runtime
 /// API to construct general transaction extrinsics and submits them to the local
 /// transaction pool.
 pub struct RuntimeApiPromoter<Block: BlockT, C, P> {
@@ -56,7 +56,7 @@ impl<Block, C, P> RuntimeApiPromoter<Block, C, P>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopApi<Block, AccountId32>,
+	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	/// Create a new promoter.
@@ -69,7 +69,7 @@ impl<Block, C, P> HopPromoter for RuntimeApiPromoter<Block, C, P>
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopApi<Block, AccountId32>,
+	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -82,7 +82,7 @@ where
 	}
 }
 
-/// Try to build a [`HopPromoter`] by detecting the `HopApi` runtime
+/// Try to build a [`HopPromoter`] by detecting the `HopRuntimeApi` runtime
 /// API at the current best block.
 ///
 /// Returns `Some(promoter)` if the runtime supports the API, or `None` with a
@@ -94,22 +94,22 @@ pub fn try_build_promoter<Block, C, P>(
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopApi<Block, AccountId32>,
+	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	let best_hash = client.info().best_hash;
 	match client
 		.runtime_api()
-		.has_api_with::<dyn sp_hop::HopApi<Block, AccountId32>, _>(best_hash, |v| v >= 1)
+		.has_api_with::<dyn sp_hop::HopRuntimeApi<Block, AccountId32>, _>(best_hash, |v| v >= 1)
 	{
 		Ok(true) => {
-			tracing::info!(target: "hop", "HopApi detected — promotion enabled");
+			tracing::info!(target: "hop", "HopRuntimeApi detected — promotion enabled");
 			Some(Arc::new(RuntimeApiPromoter::new(client.clone(), tx_pool.clone())))
 		},
 		Ok(false) => {
 			tracing::warn!(
 				target: "hop",
-				"HOP enabled but runtime does not support HopApi — running cleanup only"
+				"HOP enabled but runtime does not support HopRuntimeApi — running cleanup only"
 			);
 			None
 		},
@@ -117,7 +117,7 @@ where
 			tracing::warn!(
 				target: "hop",
 				error = %e,
-				"Failed to check HopApi support — running cleanup only"
+				"Failed to check HopRuntimeApi support — running cleanup only"
 			);
 			None
 		},
@@ -126,7 +126,7 @@ where
 
 /// Build a [`HopMaintenanceTask`] wired to the node's client and transaction pool.
 ///
-/// Detects `HopApi` support at startup (see [`try_build_promoter`]) and captures
+/// Detects `HopRuntimeApi` support at startup (see [`try_build_promoter`]) and captures
 /// a best-block closure over `client` so callers only need to spawn the returned
 /// task on their task manager.
 pub fn build_maintenance_task<Block, C, P>(
@@ -139,7 +139,7 @@ pub fn build_maintenance_task<Block, C, P>(
 where
 	Block: BlockT,
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopApi<Block, AccountId32>,
+	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	let promoter = try_build_promoter::<Block, _, _>(client, tx_pool);

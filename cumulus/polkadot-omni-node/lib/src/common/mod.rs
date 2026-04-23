@@ -79,7 +79,7 @@ pub trait NodeRuntimeApi<Block: BlockT>:
 	+ GetParachainInfo<Block>
 	+ TransactionStorageApi<Block>
 	+ RelayParentOffsetApi<Block>
-	+ sp_hop::HopApi<Block, AccountId32>
+	+ sp_hop::HopRuntimeApi<Block, AccountId32>
 	+ Sized
 {
 }
@@ -95,7 +95,7 @@ impl<T, Block: BlockT> NodeRuntimeApi<Block> for T where
 		+ CollectCollationInfo<Block>
 		+ GetParachainInfo<Block>
 		+ TransactionStorageApi<Block>
-		+ sp_hop::HopApi<Block, AccountId32>
+		+ sp_hop::HopRuntimeApi<Block, AccountId32>
 {
 }
 
