@@ -1993,13 +1993,15 @@ mod decimal_scaling {
 			// Debt reduces by exactly the round-tripped pUSD amount.
 			assert_eq!(PsmDebt::<Test>::get(USDX_ASSET_ID), debt_before - eff_pusd_net);
 
-			// Redeemed event matches the actual movements: external_received is
-			// the round-tripped amount, and `fee` is the nominal configured fee.
+			// Redeemed event matches the actual movements: `pusd_paid` reflects
+			// the pUSD actually charged (burn + fee) with round-trip dust excluded,
+			// `external_received` is the round-tripped external amount, and `fee`
+			// is the nominal configured fee.
 			System::assert_has_event(
 				Event::<Test>::Redeemed {
 					who: ALICE,
 					asset_id: USDX_ASSET_ID,
-					pusd_paid: redeem,
+					pusd_paid: eff_pusd_net + fee,
 					external_received: external_out,
 					fee,
 				}

@@ -696,7 +696,7 @@ pub mod pallet {
 			Self::deposit_event(Event::Redeemed {
 				who,
 				asset_id,
-				pusd_paid: pusd_amount,
+				pusd_paid: effective_pusd_net.saturating_add(fee),
 				external_received: external_out,
 				fee,
 			});
