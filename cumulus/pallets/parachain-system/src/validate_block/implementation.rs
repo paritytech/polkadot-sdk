@@ -91,7 +91,7 @@ where
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
-		sp_io::storage::host_root.replace_implementation(host_storage_root),
+		sp_io::storage::host_root.replace_implementation(host_storage_root::<PSC>),
 		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
 		sp_io::storage::host_append.replace_implementation(host_storage_append),
 		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
@@ -114,7 +114,7 @@ where
 		sp_io::default_child_storage::host_clear_prefix
 			.replace_implementation(host_default_child_storage_clear_prefix),
 		sp_io::default_child_storage::host_root
-			.replace_implementation(host_default_child_storage_root),
+			.replace_implementation(host_default_child_storage_root::<PSC>),
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
@@ -516,9 +516,10 @@ fn host_storage_proof_size() -> u64 {
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
-fn host_storage_root(out: &mut [u8]) {
+fn host_storage_root<PSC: crate::Config>(out: &mut [u8]) {
+	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
 	with_externalities(|ext| {
-		let root = ext.storage_root(StateVersion::V0);
+		let root = ext.storage_root(state_version);
 		let encoded = root.encode();
 		let write_len = encoded.len().min(out.len());
 		out[..write_len].copy_from_slice(&encoded[..write_len]);
@@ -662,10 +663,11 @@ fn host_default_child_storage_clear_prefix(
 	})
 }
 
-fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
+fn host_default_child_storage_root<PSC: crate::Config>(storage_key: &[u8], out: &mut [u8]) {
+	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
-		let root = ext.child_storage_root(&child_info, StateVersion::V0);
+		let root = ext.child_storage_root(&child_info, state_version);
 		let encoded = root.encode();
 		let write_len = encoded.len().min(out.len());
 		out[..write_len].copy_from_slice(&encoded[..write_len]);

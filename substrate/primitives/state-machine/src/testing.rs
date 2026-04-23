@@ -100,13 +100,10 @@ where
 
 		let backend = (storage, state_version).into();
 
-		let mut extensions = Extensions::default();
-		extensions.register(sp_core::traits::RuntimeStateVersionExt(state_version));
-
 		TestExternalities {
 			overlay: OverlayedChanges::default(),
 			offchain_db,
-			extensions,
+			extensions: Default::default(),
 			backend,
 			state_version,
 		}
