@@ -12,8 +12,8 @@ doc:
       - Disk-backed data pool (`HopDataPool`) with 256-way sharded blob/meta storage
         and crash-recovery from disk on restart.
       - RPC interface: `hop_submit`, `hop_claim`, `hop_ack`, `hop_poolStatus`.
-      - Submission gated by `HopApi::is_account_authorized` — the runtime
-        defines its own authorization policy; the node is agnostic.
+      - Submission gated by `HopApi::can_account_promote(who, data_len)` — the
+        runtime defines its own authorization policy; the node is agnostic.
       - Data size validated against `HopApi::max_promotion_size` (crate-level
         upper bound: 8 MiB).
       - Recipient fan-out capped at `MAX_RECIPIENTS` (256) via a type-level
@@ -32,7 +32,7 @@ doc:
         entries to on-chain storage, garbage-collects expired ones, and evicts
         stale per-sender rate-limit state.
 
-      **`sp-hop`** defines the `HopApi` runtime API trait: `is_account_authorized`,
+      **`sp-hop`** defines the `HopApi` runtime API trait: `can_account_promote`,
       `create_promotion_extrinsic`, and `max_promotion_size`.
 
       Integration requires flattening `HopParams` into your CLI, constructing a

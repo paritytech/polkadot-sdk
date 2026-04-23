@@ -255,7 +255,7 @@ macro_rules! impl_node_runtime_apis {
 			}
 
 			impl sp_hop::HopApi<$block, AccountId> for $runtime {
-				fn is_account_authorized(_who: AccountId) -> bool {
+				fn can_account_promote(_who: AccountId, _data_len: u32) -> bool {
 					unimplemented!()
 				}
 

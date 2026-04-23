@@ -54,7 +54,7 @@ pub trait HopApi<BlockHash> {
 	/// * `signer`: SCALE-encoded `MultiSigner` of the account signing the submission
 	///
 	/// The signer must be authorized by the runtime (checked via
-	/// `HopApi::is_account_authorized`).
+	/// `HopApi::can_account_promote`).
 	///
 	/// # Returns
 	/// The current pool status
@@ -173,16 +173,17 @@ where
 
 		let runtime_api = self.client.runtime_api();
 
+		let data_len = data.0.len();
 		let max_size = runtime_api.max_promotion_size(best_hash).map_err(HopError::from)?;
-		if data.0.len() > max_size as usize {
-			return Err(HopError::DataTooLarge(data.0.len(), max_size as u64).into());
+		if data_len > max_size as usize {
+			return Err(HopError::DataTooLarge(data_len, max_size as u64).into());
 		}
 
 		// Check authorization before verifying the signature: a flood of unauthorized
 		// requests must not force a signature verification per submit.
 		let account_id: AccountId32 = signer.into_account();
 		let authorized = runtime_api
-			.is_account_authorized(best_hash, account_id.clone())
+			.can_account_promote(best_hash, account_id.clone(), data_len as u32)
 			.map_err(HopError::from)?;
 		if !authorized {
 			return Err(HopError::NotAuthorized.into());
@@ -290,7 +291,7 @@ mod tests {
 
 	sp_api::mock_impl_runtime_apis! {
 		impl sp_hop::HopApi<Block, AccountId32> for MockRuntimeApi {
-			fn is_account_authorized(_who: AccountId32) -> bool {
+			fn can_account_promote(_who: AccountId32, _data_len: u32) -> bool {
 				self.authorized
 			}
 
