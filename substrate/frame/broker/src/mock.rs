@@ -339,7 +339,7 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 		if let Some(timeslice) = Self::TimesliceProvider::next_timeslice_to_commit() {
 			let old_sale = MarketSaleInfoStorage::<Test>::get().unwrap();
 
-			if timeslice <= old_sale.region_begin {
+			if timeslice < old_sale.region_begin {
 				return actions;
 			}
 

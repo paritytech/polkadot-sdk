@@ -941,6 +941,7 @@ fn initialize_with_leased_slots_works() {
 
 		advance_sale_period();
 		advance_sale_period();
+		advance_sale_period();
 
 		let end_hint = None;
 		assert_eq!(
