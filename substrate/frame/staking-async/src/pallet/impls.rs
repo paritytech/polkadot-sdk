@@ -862,6 +862,41 @@ impl<T: Config> Pallet<T> {
 			SnapshotStatus::Consumed => Box::new(vec![].into_iter()),
 		};
 
+		// Validators must always be electable with their own stake exposed;
+		// without this pre-loop, heavy nominators can crowd validator self-votes
+		// out of the snapshot and leave elected validators with `exposure.own = 0`.
+		if matches!(status, SnapshotStatus::Waiting) {
+			for (validator, _prefs) in Validators::<T>::iter() {
+				if all_voters.len() >= page_len_prediction as usize {
+					break;
+				}
+
+				let weight = weight_of(&validator);
+
+				if weight.is_zero() {
+					continue;
+				}
+
+				let self_vote = (
+					validator.clone(),
+					weight,
+					vec![validator.clone()]
+						.try_into()
+						.expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
+				);
+
+				if voters_size_tracker.try_register_voter(&self_vote, &bounds).is_err() {
+					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
+						size: voters_size_tracker.size as u32,
+					});
+					break;
+				}
+
+				all_voters.push(self_vote);
+				validators_taken.saturating_inc();
+			}
+		}
+
 		while all_voters.len() < page_len_prediction as usize &&
 			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * page_len_prediction as u32)
 		{
@@ -904,24 +939,8 @@ impl<T: Config> Pallet<T> {
 				min_active_stake =
 					if voter_weight < min_active_stake { voter_weight } else { min_active_stake };
 			} else if Validators::<T>::contains_key(&voter) {
-				// if this voter is a validator:
-				let self_vote = (
-					voter.clone(),
-					voter_weight,
-					vec![voter.clone()]
-						.try_into()
-						.expect("`MaxVotesPerVoter` must be greater than or equal to 1"),
-				);
-
-				if voters_size_tracker.try_register_voter(&self_vote, &bounds).is_err() {
-					// no more space left for the election snapshot, stop iterating.
-					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
-						size: voters_size_tracker.size as u32,
-					});
-					break;
-				}
-				all_voters.push(self_vote);
-				validators_taken.saturating_inc();
+				// Already emitted by the validator self-vote pre-loop.
+				continue;
 			} else {
 				// this can only happen if: 1. there a bug in the bags-list (or whatever is the
 				// sorted list) logic and the state of the two pallets is no longer compatible, or
