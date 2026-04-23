@@ -938,7 +938,10 @@ fn initialize_with_leased_slots_works() {
 		assert_ok!(Broker::do_set_lease(1000, 6));
 		assert_ok!(Broker::do_set_lease(1001, 7));
 		assert_ok!(Broker::do_start_sales((), 0));
-		advance_to(18);
+
+		advance_sale_period();
+		advance_sale_period();
+
 		let end_hint = None;
 		assert_eq!(
 			CoretimeTrace::get(),
@@ -1351,10 +1354,8 @@ fn short_leases_are_cleaned() {
 		assert_ok!(Broker::do_set_lease(1000, Broker::current_timeslice().saturating_add(1)));
 		assert_eq!(Leases::<Test>::get().len(), 1);
 
-		// But are cleaned up in the next rotate_sale.
-		let config = Configuration::<Test>::get().unwrap();
-		let timeslice_period: u64 = <Test as Config>::TimeslicePeriod::get();
-		advance_to(timeslice_period.saturating_mul(config.region_length.into()));
+		advance_sale_period();
+
 		assert_eq!(Leases::<Test>::get().len(), 0);
 	});
 }
@@ -1479,7 +1480,9 @@ fn short_leases_cannot_be_renewed() {
 		assert_eq!(Leases::<Test>::get().len(), 0);
 
 		// Advance to sale period 2, where we now cannot renew.
-		advance_to(13);
+		advance_sale_period();
+		advance_sale_period();
+
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
 
 		// Check the trace.
