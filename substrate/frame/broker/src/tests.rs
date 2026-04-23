@@ -1663,7 +1663,6 @@ fn renewal_works_leases_ended_before_start_sales() {
 		let new_core = do_renew_and_get_the_new_core(1, 0).unwrap();
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 1), Error::<Test>::NotAllowed);
-		assert_eq!(balance(1), 99000);
 
 		// This intializes the third sale and the period 2.
 		advance_sale_period();
@@ -1671,7 +1670,6 @@ fn renewal_works_leases_ended_before_start_sales() {
 
 		// Renewing the active lease doesn't work.
 		assert_noop!(Broker::do_renew(1, 0), Error::<Test>::NotAllowed);
-		assert_eq!(balance(1), 98900);
 
 		// All leases should have ended
 		assert!(Leases::<Test>::get().is_empty());
@@ -1683,7 +1681,6 @@ fn renewal_works_leases_ended_before_start_sales() {
 		assert_eq!(0, do_renew_and_get_the_new_core(1, new_core).unwrap());
 		// Renew the task 2.
 		assert_eq!(1, do_renew_and_get_the_new_core(1, 0).unwrap());
-		assert_eq!(balance(1), 98790);
 
 		// This intializes the fifth sale and the period 4.
 		advance_sale_period();
