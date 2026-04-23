@@ -36,10 +36,12 @@ tokio = { workspace = true, features = ["rt", "time", "macros"] }
 futures = { workspace = true }
 pallet-price-oracle = { workspace = true, default-features = true }
 pallet-sudo = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
 polkadot-test-client = { workspace = true }
 sp-consensus = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "net", "io-util", "macros", "time", "sync"] }
 
 [features]
 live-test = []

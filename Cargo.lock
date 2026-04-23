@@ -15950,6 +15950,7 @@ dependencies = [
  "pallet-sudo",
  "parity-scale-codec",
  "parking_lot 0.12.3",
+ "polkadot-primitives",
  "polkadot-test-client",
  "reqwest",
  "sc-network 0.34.0",

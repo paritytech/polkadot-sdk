@@ -190,61 +190,7 @@ pub async fn run<Block, Client>(
 	loop {
 		tokio::select! {
 			_ = price_fetch_timer.tick() => {
-				let best_hash = client.info().best_hash;
-
-				// Get endpoint list from runtime
-				let endpoints = match client.runtime_api().endpoint_list(best_hash) {
-					Ok(eps) => eps.into_iter().filter_map(|(id, url_bytes)| {
-						String::from_utf8(url_bytes).ok().map(|url| (id, url))
-					}).collect::<Vec<_>>(),
-					Err(e) => {
-						warn!(target: LOG_TARGET, "Failed to get endpoint list: {}", e);
-						continue;
-					}
-				};
-
-				if endpoints.is_empty() {
-					warn!(target: LOG_TARGET, "No endpoints configured in runtime");
-					continue;
-				}
-
-				// Pick a random endpoint as primary, fall back to others
-				let primary_idx = pick_random_index(endpoints.len());
-				let mut order: Vec<usize> = (0..endpoints.len()).collect();
-				order.swap(0, primary_idx);
-
-				let mut fetched = None;
-				for idx in order {
-					let (id, ref url) = endpoints[idx];
-					match fetcher.fetch_raw(url).await {
-						Ok(bytes) => {
-							fetched = Some(vec![(id, bytes)]);
-							break;
-						},
-						Err(e) => {
-							warn!(target: LOG_TARGET, "Endpoint {} ({}) failed: {}, trying fallback", id, url, e);
-						},
-					}
-				}
-
-				if let Some(raw_responses) = fetched {
-					match client.runtime_api().decode_results(best_hash, raw_responses) {
-						Ok(decoded) => {
-							for (id, maybe_price) in decoded {
-								if let Some(price) = maybe_price {
-									debug!(target: LOG_TARGET, "Decoded DOT/USD price from endpoint {}: {}", id, price);
-									nudge_store.set_cached_price(price);
-									break;
-								} else {
-									warn!(target: LOG_TARGET, "Failed to decode response from endpoint {}", id);
-								}
-							}
-						},
-						Err(e) => warn!(target: LOG_TARGET, "decode_results runtime call failed: {}", e),
-					}
-				} else {
-					warn!(target: LOG_TARGET, "All endpoints failed");
-				}
+				fetch_and_cache::<Block, Client>(&client, &fetcher, &nudge_store).await;
 			},
 
 			_ = gossip_timer.tick() => {
@@ -315,7 +261,7 @@ pub async fn run<Block, Client>(
 	}
 }
 
-fn get_current_slot<Block, Client>(client: &Arc<Client>) -> Slot
+fn get_current_slot<Block, Client>(client: &Client) -> Slot
 where
 	Block: BlockT,
 	Client: HeaderBackend<Block>,
@@ -335,8 +281,80 @@ where
 		.unwrap_or(Slot::from(0u64))
 }
 
+/// Fetch one price tick from the configured endpoints and, if a value is
+/// obtained, store it as the cached price in `nudge_store`.
+///
+/// Picks a random primary endpoint, tries others in order on failure, and
+/// takes the first successfully-decoded price. Does nothing on any failure
+/// (empty endpoint list, network errors, decode errors) — the caller's
+/// cached price is left unchanged.
+pub async fn fetch_and_cache<Block, Client>(
+	client: &Client,
+	fetcher: &PriceFetcher,
+	nudge_store: &NudgeStore,
+) where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block> + HeaderBackend<Block>,
+	Client::Api: sp_price_oracle::PriceOracleApi<Block>,
+{
+	let best_hash = client.info().best_hash;
+
+	let endpoints = match client.runtime_api().endpoint_list(best_hash) {
+		Ok(eps) => eps
+			.into_iter()
+			.filter_map(|(id, url_bytes)| String::from_utf8(url_bytes).ok().map(|url| (id, url)))
+			.collect::<Vec<_>>(),
+		Err(e) => {
+			warn!(target: LOG_TARGET, "Failed to get endpoint list: {}", e);
+			return;
+		},
+	};
+
+	if endpoints.is_empty() {
+		warn!(target: LOG_TARGET, "No endpoints configured in runtime");
+		return;
+	}
+
+	let primary_idx = pick_random_index(endpoints.len());
+	let mut order: Vec<usize> = (0..endpoints.len()).collect();
+	order.swap(0, primary_idx);
+
+	let mut fetched = None;
+	for idx in order {
+		let (id, ref url) = endpoints[idx];
+		match fetcher.fetch_raw(url).await {
+			Ok(bytes) => {
+				fetched = Some(vec![(id, bytes)]);
+				break;
+			},
+			Err(e) => {
+				warn!(target: LOG_TARGET, "Endpoint {} ({}) failed: {}, trying fallback", id, url, e);
+			},
+		}
+	}
+
+	let Some(raw_responses) = fetched else {
+		warn!(target: LOG_TARGET, "All endpoints failed");
+		return;
+	};
+
+	match client.runtime_api().decode_results(best_hash, raw_responses) {
+		Ok(decoded) => {
+			for (id, maybe_price) in decoded {
+				if let Some(price) = maybe_price {
+					debug!(target: LOG_TARGET, "Decoded DOT/USD price from endpoint {}: {}", id, price);
+					nudge_store.set_cached_price(price);
+					return;
+				}
+				warn!(target: LOG_TARGET, "Failed to decode response from endpoint {}", id);
+			}
+		},
+		Err(e) => warn!(target: LOG_TARGET, "decode_results runtime call failed: {}", e),
+	}
+}
+
 fn produce_and_sign_nudge<Block, Client>(
-	client: &Arc<Client>,
+	client: &Client,
 	keystore: &KeystorePtr,
 	nudge_store: &NudgeStore,
 ) -> Option<SignedNudge>
@@ -354,7 +372,7 @@ where
 
 	let nudge = if cached_price >= onchain_price { Nudge::Up } else { Nudge::Down };
 
-	let slot = get_current_slot::<Block, Client>(client);
+	let slot = get_current_slot::<Block, _>(client);
 
 	let local_keys = keystore.sr25519_public_keys(sp_consensus_babe::KEY_TYPE);
 	let (authority_index, local_public) =
@@ -379,7 +397,7 @@ where
 ///
 /// Called during block authoring to select a subset of valid nudges.
 pub fn create_inherent_data<Block, Client>(
-	client: &Arc<Client>,
+	client: &Client,
 	nudge_store: &NudgeStore,
 	parent_hash: Block::Hash,
 ) -> PriceOracleInherentData
@@ -418,7 +436,7 @@ where
 		},
 	};
 
-	let slot = get_current_slot::<Block, Client>(client);
+	let slot = get_current_slot::<Block, _>(client);
 	let all_nudges = nudge_store.get_all_valid(slot, validity);
 
 	if epsilon.is_zero() || all_nudges.is_empty() {

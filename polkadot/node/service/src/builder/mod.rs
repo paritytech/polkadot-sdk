@@ -744,7 +744,7 @@ where
 						let oracle_nudges = polkadot_node_price_oracle::create_inherent_data::<
 							Block,
 							_,
-						>(&client_clone, &nudge_store, parent);
+						>(&*client_clone, &nudge_store, parent);
 						let oracle = sp_price_oracle::InherentDataProvider::new(oracle_nudges);
 
 						Ok((slot, timestamp, parachain, oracle))

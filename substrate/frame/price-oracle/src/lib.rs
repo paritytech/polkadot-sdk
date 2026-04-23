@@ -144,8 +144,10 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
+			// Clear `NudgeCount` every block so the next block's `submit_nudges`
+			// does not trip `DuplicateInherent`.
+			let inherent_included = NudgeCount::<T>::take().is_some();
 			if PanicSwitch::<T>::get() {
-				let inherent_included = NudgeCount::<T>::take().is_some();
 				assert!(
 					inherent_included,
 					"Price oracle: panic switch is on but no inherent was included in this block",

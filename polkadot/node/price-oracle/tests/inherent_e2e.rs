@@ -231,6 +231,9 @@ fn single_nudge_updates_price() {
 }
 
 /// Helper: build and import a block that enables the panic switch via sudo.
+///
+/// `MinNudges = 1` in the test runtime, so the oracle inherent must carry
+/// at least one valid nudge — Alice's is included for that purpose.
 fn enable_panic_switch(client: &polkadot_test_client::Client) {
 	use polkadot_test_client::runtime::RuntimeCall;
 
@@ -239,7 +242,14 @@ fn enable_panic_switch(client: &polkadot_test_client::Client) {
 	let sudo = RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(inner) });
 	let ext = construct_extrinsic(client, sudo, sp_keyring::Sr25519Keyring::Alice, 0);
 
-	let mut block_builder = client.init_polkadot_block_builder();
+	let now_ms = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as u64;
+	let slot = now_ms / 6000;
+	let nudges = vec![make_signed_nudge(&alice_babe_pair(), Nudge::Up, slot, 0)];
+
+	let mut block_builder = client.init_polkadot_block_builder_with_nudges(nudges);
 	block_builder.push_polkadot_extrinsic(ext).expect("pushes sudo extrinsic");
 
 	let block = block_builder.build().expect("builds block").block;
@@ -254,9 +264,15 @@ fn panic_switch_on_with_inherent_does_not_panic() {
 	// Block 1: enable the panic switch.
 	enable_panic_switch(&client);
 
-	// Block 2: includes the oracle inherent (empty nudges) — should succeed.
+	// Block 2: includes a valid oracle inherent — should succeed.
+	let now_ms = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as u64;
+	let slot = now_ms / 6000;
+	let nudges = vec![make_signed_nudge(&alice_babe_pair(), Nudge::Up, slot, 0)];
 	let block = client
-		.init_polkadot_block_builder()
+		.init_polkadot_block_builder_with_nudges(nudges)
 		.build()
 		.expect("block with inherent builds despite panic switch")
 		.block;
