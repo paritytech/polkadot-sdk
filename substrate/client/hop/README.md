@@ -26,7 +26,7 @@ mean; both are delegated to the runtime via the `sp_hop::HopApi` runtime API.
   claim, and ack (`HOP_SUBMIT_CONTEXT`, `HOP_CLAIM_CONTEXT`, `HOP_ACK_CONTEXT`)
   so a signature from one operation cannot be replayed as another.
 - **Runtime-defined authorization** — submit is gated by
-  `HopApi::is_account_authorized`; the runtime decides what "authorized"
+  `HopApi::can_account_promote`; the runtime decides what "authorized"
   means (e.g. reuse an existing on-chain authorization, check a dedicated
   HOP allowlist, or any other policy).
 - **Per-account rate limiting** — token-bucket caps on both submit rate and
@@ -148,9 +148,10 @@ Store a blob for the given list of recipients.
   `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data))`.
 - `signer`: SCALE-encoded `MultiSigner` of the submitting account.
 
-Submit fails with `NotAuthorized` if `HopApi::is_account_authorized` returns
-`false` for the signer, and with `RateLimited` if the per-account buckets
-are exhausted. Authorization is checked *before* signature verification so
+Submit fails with `NotAuthorized` if `HopApi::can_account_promote(signer, data_len)`
+returns `false`, and with `RateLimited` if the per-account buckets are exhausted.
+The runtime sees `data_len` so it can express size-tiered policies (e.g. "up to
+1 MiB per submit"). Authorization is checked *before* signature verification so
 unauthorized floods don't force crypto work.
 
 ### `hop_claim(hash, signature) -> Bytes`
@@ -191,7 +192,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1009 | `NoRecipients` | Submit provided an empty recipient list |
 | 1010 | `InvalidRecipientKey` | A recipient entry did not decode as `MultiSigner` |
 | 1011 | `UserQuotaExceeded` | Sender's per-user quota (`--hop-max-user-size`) is full |
-| 1012 | `NotAuthorized` | `HopApi::is_account_authorized` returned `false` for the signer |
+| 1012 | `NotAuthorized` | `HopApi::can_account_promote` returned `false` for the signer |
 | 1013 | `IoError` | Disk I/O failure |
 | 1014 | `InvalidSigner` | Submit `signer` did not decode as `MultiSigner` |
 | 1015 | `AlreadyClaimed` | Recipient has already ack'd and the entry was deleted |
