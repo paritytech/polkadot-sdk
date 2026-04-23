@@ -619,7 +619,7 @@ pub use pallet_parameters;
 #[cfg(feature = "pallet-people")]
 pub use pallet_people;
 
-/// PGAS gas-allowance transaction extension for pallet-revive-payable calls.
+/// Transaction extension that pays transaction fees with a gas allowance asset.
 #[cfg(feature = "pallet-pgas-allowance")]
 pub use pallet_pgas_allowance;
 
