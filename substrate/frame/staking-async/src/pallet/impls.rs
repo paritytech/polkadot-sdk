@@ -865,6 +865,7 @@ impl<T: Config> Pallet<T> {
 		// Validators must always be electable with their own stake exposed;
 		// without this pre-loop, heavy nominators can crowd validator self-votes
 		// out of the snapshot and leave elected validators with `exposure.own = 0`.
+		let mut size_exhausted = false;
 		if matches!(status, SnapshotStatus::Waiting) {
 			for (validator, _prefs) in Validators::<T>::iter() {
 				if all_voters.len() >= page_len_prediction as usize {
@@ -889,6 +890,7 @@ impl<T: Config> Pallet<T> {
 					Self::deposit_event(Event::<T>::SnapshotVotersSizeExceeded {
 						size: voters_size_tracker.size as u32,
 					});
+					size_exhausted = true;
 					break;
 				}
 
@@ -897,7 +899,8 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		while all_voters.len() < page_len_prediction as usize &&
+		while !size_exhausted &&
+			all_voters.len() < page_len_prediction as usize &&
 			voters_seen < (NPOS_MAX_ITERATIONS_COEFFICIENT * page_len_prediction as u32)
 		{
 			let voter = match sorted_voters.next() {
@@ -957,8 +960,11 @@ impl<T: Config> Pallet<T> {
 		// all_voters should have not re-allocated.
 		debug_assert!(all_voters.capacity() == page_len_prediction as usize);
 
+		// `min_active_stake` is only updated inside the nominator branch above; if no
+		// nominators were taken (e.g. a page consumed entirely by validator self-votes),
+		// the sentinel `u64::MAX` must not leak out.
 		let min_active_stake: T::CurrencyBalance =
-			if all_voters.is_empty() { Zero::zero() } else { min_active_stake.into() };
+			if nominators_taken == 0 { Zero::zero() } else { min_active_stake.into() };
 
 		MinimumActiveStake::<T>::put(min_active_stake);
 

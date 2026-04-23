@@ -753,7 +753,9 @@ mod paged_snapshot {
 			.set_status(41, StakerStatus::Nominator(vec![51]))
 			.set_status(101, StakerStatus::Validator)
 			.build_and_execute(|| {
-				let bounds = ElectionBoundsBuilder::default().voters_count(2.into()).build().voters;
+				// Budget=5 leaves room for the main voter-list loop to run after the
+				// self-vote pre-loop, which takes the bag-list lock mid-snapshot.
+				let bounds = ElectionBoundsBuilder::default().voters_count(5.into()).build().voters;
 				assert_eq!(
 					<Test as Config>::VoterList::iter()
 						.collect::<Vec<_>>()
@@ -782,16 +784,32 @@ mod paged_snapshot {
 				// initially not locked
 				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
 
-				let voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
-					.unwrap()
-					.into_iter()
-					.map(|(a, _, _)| a)
-					.collect::<Vec<_>>();
+				let _voters_page_3 = <Staking as ElectionDataProvider>::electing_voters(bounds, 3)
+					.unwrap();
+				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), Some(()));
 
-				// With budget=2 the self-vote pre-loop fills the page with two validators
-				// and the voter-list is never iterated — so the bag-list lock stays released.
-				assert_eq!(voters_page_3, vec![51, 101]);
-				assert_eq!(pallet_bags_list::Lock::<T, VoterBagsListInstance>::get(), None);
+				// 51, already in the snapshot, might want to unbond — its bag position is frozen.
+				hypothetically!({
+					assert_ok!(Staking::unbond(RuntimeOrigin::signed(51), 500));
+					assert_eq!(
+						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(51)
+							.unwrap()
+							.bag_upper,
+						10_000
+					);
+				});
+
+				// 11, not yet emitted, might want to bond extra — its bag position is also frozen.
+				hypothetically!({
+					crate::asset::set_stakeable_balance::<T>(&11, 10000);
+					assert_ok!(Staking::bond_extra(RuntimeOrigin::signed(11), 5000));
+					assert_eq!(
+						pallet_bags_list::ListNodes::<T, VoterBagsListInstance>::get(11)
+							.unwrap()
+							.bag_upper,
+						1000
+					);
+				});
 			})
 	}
 }
