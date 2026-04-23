@@ -41,7 +41,7 @@ pub type Timeslice = u32;
 /// A Task Id. In general this is called a ParachainId.
 pub type TaskId = u32;
 
-/// Fraction expressed as a nominator with an assumed denominator of 57,600.
+/// Fraction expressed as a numerator with an implicit denominator of 57,600.
 pub type PartsOf57600 = u16;
 
 /// Self-describing identity for a Region of Bulk Coretime.
