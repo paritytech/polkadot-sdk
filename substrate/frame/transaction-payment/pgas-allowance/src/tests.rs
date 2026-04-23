@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{mock::*, ChargePGAS, Event, Val};
+use crate::{ChargePGAS, Event, Val, mock::*};
 
 use frame_support::{assert_ok, weights::Weight};
 use pallet_balances::Call as BalancesCall;
