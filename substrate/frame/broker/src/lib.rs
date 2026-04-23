@@ -51,7 +51,7 @@ pub use sp_coretime::{
 pub use types::*;
 
 pub mod market {
-    pub use sp_coretime::market::*;
+	pub use sp_coretime::market::*;
 }
 
 extern crate alloc;
