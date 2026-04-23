@@ -260,10 +260,6 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type SaleInfo<T> = StorageValue<_, SaleInfoRecordOf<T>, OptionQuery>;
 
-	/// The current phase of the sale cycle. `None` before sales are started.
-	#[pallet::storage]
-	pub type CurrentPhase<T> = StorageValue<_, SalePhase, OptionQuery>;
-
 	/// Active bids during the Market phase, sorted by price descending.
 	#[pallet::storage]
 	pub type Bids<T: Config> = StorageValue<
@@ -296,9 +292,17 @@ pub mod pallet {
 
 impl<T: Config> Pallet<T> {
 	/// Get the current price at a given block number.
+	fn set_phase(phase: SalePhase) {
+		SaleInfo::<T>::mutate(|s| {
+			if let Some(sale) = s {
+				sale.phase = phase;
+			}
+		});
+	}
+
 	pub fn current_price(block_number: RelayBlockNumberOf<T>) -> Option<BalanceOf<T>> {
 		let sale = SaleInfo::<T>::get()?;
-		match CurrentPhase::<T>::get()? {
+		match sale.phase {
 			SalePhase::Market => Some(descending_price::<T>(block_number, &sale)),
 			SalePhase::Renewal | SalePhase::Settlement => sale.clearing_price,
 		}
@@ -376,12 +380,12 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 			cores_offered: 0,
 			cores_sold: 0,
 			renewal_count: 0,
+			phase: SalePhase::Settlement, // Dummy — rotate_sale will create the real one.
 		};
 
 		let new_sale = rotate_sale::<T>(&old_sale, &config, &range, block_number);
 
 		SaleInfo::<T>::put(&new_sale);
-		CurrentPhase::<T>::put(SalePhase::Market);
 
 		Self::deposit_event(Event::SaleInitialized {
 			sale_start: new_sale.sale_start,
@@ -402,8 +406,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		who: &T::AccountId,
 		price_limit: BalanceOf<T>,
 	) -> Result<OrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
-		ensure!(CurrentPhase::<T>::get() == Some(SalePhase::Market), Error::<T>::WrongPhase);
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 		ensure!(block_number >= sale.sale_start, Error::<T>::TooEarly);
 
 		let current_price = descending_price::<T>(block_number, &sale);
@@ -433,11 +437,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 	) -> Result<RenewalOrderResult<BalanceOf<T>, Self::BidId>, Self::Error> {
 		let config = Configuration::<T>::get().ok_or(Error::<T>::Uninitialized)?;
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
-
-		ensure!(
-			CurrentPhase::<T>::get() == Some(SalePhase::Renewal),
-			Error::<T>::WrongPhase
-		);
+		ensure!(sale.phase == SalePhase::Renewal, Error::<T>::WrongPhase);
+		ensure!(renewal.when == sale.region_begin, Error::<T>::Unavailable);
 
 		// RFC-17: auction wins count against renewal quota.
 		// remaining = total_rights - auction_wins - renewals_already_used
@@ -523,8 +524,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		// RFC-17: bids are binding and cannot be cancelled.
 		let new_price = new_price.ok_or(Error::<T>::NotAllowed)?;
 
-		ensure!(CurrentPhase::<T>::get() == Some(SalePhase::Market), Error::<T>::WrongPhase);
 		let sale = SaleInfo::<T>::get().ok_or(Error::<T>::NoSales)?;
+		ensure!(sale.phase == SalePhase::Market, Error::<T>::WrongPhase);
 
 		let mut bids = Bids::<T>::get();
 		let idx = bids
@@ -568,11 +569,8 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 		let Some(sale) = SaleInfo::<T>::get() else {
 			return actions;
 		};
-		let Some(phase) = CurrentPhase::<T>::get() else {
-			return actions;
-		};
 
-		match phase {
+		match sale.phase {
 			SalePhase::Market => {
 				let market_end = sale.sale_start.saturating_add(config.market_period);
 
@@ -583,7 +581,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					weight_meter.consume(T::WeightInfo::settle_auction());
 
 					let mut settlement_actions = settle_auction::<T>(&sale);
-					CurrentPhase::<T>::put(SalePhase::Renewal);
+					Self::set_phase(SalePhase::Renewal);
 
 					Self::deposit_event(Event::PhaseTransitioned {
 						from: SalePhase::Market,
@@ -609,7 +607,7 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 					weight_meter.consume(T::WeightInfo::finalize_sale());
 
 					let mut finalize_actions = finalize_sale::<T>(&sale);
-					CurrentPhase::<T>::put(SalePhase::Settlement);
+					Self::set_phase(SalePhase::Settlement);
 					let _ = Quotas::<T>::clear(u32::MAX, None);
 
 					Self::deposit_event(Event::PhaseTransitioned {
@@ -637,8 +635,6 @@ impl<T: Config> Market<RelayBlockNumberOf<T>, BalanceOf<T>, T::AccountId> for Pa
 						rotate_sale::<T>(&sale, &config, &range, block_number);
 
 					SaleInfo::<T>::put(&new_sale);
-					CurrentPhase::<T>::put(SalePhase::Market);
-
 
 					Self::deposit_event(Event::PhaseTransitioned {
 						from: SalePhase::Settlement,
@@ -936,5 +932,6 @@ fn rotate_sale<T: Config>(
 		cores_offered,
 		cores_sold: 0,
 		renewal_count: 0,
+		phase: SalePhase::Market,
 	}
 }

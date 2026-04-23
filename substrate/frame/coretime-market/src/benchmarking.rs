@@ -52,7 +52,7 @@ fn advance_to_renewal<T: Config>(n_bids: u32) -> Result<(), BenchmarkError> {
 	fill_bids::<T>(n_bids)?;
 	let mut meter = frame_support::weights::WeightMeter::new();
 	Pallet::<T>::tick(20u32.into(), &mut meter);
-	assert_eq!(CurrentPhase::<T>::get(), Some(SalePhase::Renewal));
+	assert_eq!(SaleInfo::<T>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 	Ok(())
 }
 

@@ -2,7 +2,7 @@
 
 use crate::{
 	mock::*,
-	pallet::{Configuration, CurrentPhase, SaleInfo},
+	pallet::{Configuration, SaleInfo},
 	Event, InitData, SalePhase,
 };
 use frame_support::weights::WeightMeter;
@@ -89,7 +89,7 @@ fn setup_renewal_phase(bids: &[(u64, u64)]) -> crate::SaleInfoRecord<u64, u64> {
 		place_bid(0, who, price).unwrap();
 	}
 	tick(20); // settle auction → Renewal
-	assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+	assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 	SaleInfo::<Test>::get().unwrap()
 }
 
@@ -122,7 +122,7 @@ fn start_sales_works() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
 		assert!(SaleInfo::<Test>::get().is_some());
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Market));
 	});
 }
 
@@ -295,7 +295,7 @@ fn adjust_bid_wrong_phase_fails() {
 		let OrderResult::BidPlaced { id, .. } = place_bid(0, 1, 150).unwrap() else { panic!() };
 
 		tick(20);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 
 		assert!(matches!(adjust_bid(25, id, 1, Some(180)), Err(Error::WrongPhase)));
 	});
@@ -323,7 +323,7 @@ fn auction_settles_on_tick() {
 
 		let actions = tick(20);
 
-		assert!(CurrentPhase::<Test>::get() == Some(SalePhase::Renewal));
+		assert!(SaleInfo::<Test>::get().map(|s| s.phase) == Some(SalePhase::Renewal));
 		assert!(SaleInfo::<Test>::get().unwrap().clearing_price.is_some());
 
 		let has_process = actions.iter().any(|a| matches!(a, TickAction::ProcessAutoRenewals { .. }));
@@ -366,7 +366,7 @@ fn no_bids_settles_cleanly() {
 		start_sales(100);
 		// No bids placed.
 		let actions = tick(20);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 
 		// Clearing price should be reserve.
 		let clearing = SaleInfo::<Test>::get().unwrap().clearing_price.unwrap();
@@ -475,7 +475,7 @@ fn renewal_during_renewal_phase() {
 		start_sales(100);
 		place_bid(0, 1, 200).unwrap();
 		tick(20);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 
 		let sale = SaleInfo::<Test>::get().unwrap();
 		TestRenewalRights::set(2, sale.region_begin, 1);
@@ -511,11 +511,24 @@ fn renewal_without_rights_fails() {
 fn renewal_wrong_phase_fails() {
 	TestExt::new().execute_with(|| {
 		start_sales(100);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Market));
 
 		TestRenewalRights::set(1, 3, 1);
 		let result = place_renewal(5, 1, 0, 3);
 		assert!(matches!(result, Err(Error::WrongPhase)));
+	});
+}
+
+#[test]
+fn renewal_with_wrong_timeslice_fails() {
+	TestExt::new().execute_with(|| {
+		let sale = setup_renewal_phase(&[(1, 200)]);
+
+		TestRenewalRights::set(2, sale.region_begin, 1);
+
+		// Pass a PotentialRenewalId with wrong `when` — doesn't match sale.region_begin.
+		let result = place_renewal(25, 2, 0, sale.region_begin + 1);
+		assert!(matches!(result, Err(Error::Unavailable)));
 	});
 }
 
@@ -600,7 +613,7 @@ fn renewal_emits_renew_region_in_finalize() {
 		place_renewal(25, 2, 0, sale.region_begin).unwrap();
 
 		let actions = tick(30);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
 
 		let sell_count = actions
 			.iter()
@@ -716,14 +729,14 @@ fn renewal_rights_reset_after_sale_cycle() {
 		place_renewal(25, 1, 0, sale.region_begin).unwrap();
 
 		tick(30);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
 
 		let sale = SaleInfo::<Test>::get().unwrap();
 		tick_with_ts(35, sale.region_begin);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Market));
 
 		tick(55);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 
 		let new_sale = SaleInfo::<Test>::get().unwrap();
 		TestRenewalRights::set(1, new_sale.region_begin, 1);
@@ -744,7 +757,7 @@ fn renewal_quota_reduced_by_auction_wins() {
 		place_bid(0, 1, 200).unwrap();
 		place_bid(0, 1, 180).unwrap();
 		tick(20);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 		let sale = SaleInfo::<Test>::get().unwrap();
 
 		// remaining = 3 total - 2 auction wins = 1 renewal allowed.
@@ -919,7 +932,7 @@ fn tenant_protection_limited_to_renewal_rights_count() {
 		place_bid(0, 1, 180).unwrap();
 		place_bid(0, 2, 150).unwrap();
 		tick(20);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 		let sale = SaleInfo::<Test>::get().unwrap();
 
 		// User 2 (150) displaced first, then user 1's unprotected allocation (180).
@@ -1203,16 +1216,16 @@ fn settlement_does_not_rotate_until_timeslice_ready() {
 
 		tick(20); // → Renewal
 		tick(30); // → Settlement
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
 
 		TestTimesliceProvider::set_latest_ready(0);
 		let sale = SaleInfo::<Test>::get().unwrap();
 		let actions = tick(35);
 		assert!(actions.is_empty());
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
 
 		let actions = tick_with_ts(36, sale.region_begin);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Market));
 		assert!(actions.iter().any(|a| matches!(a, TickAction::SaleRotated { .. })));
 	});
 }
@@ -1235,10 +1248,10 @@ fn full_sale_cycle() {
 		place_bid(0, 2, 180).unwrap();
 
 		let _actions = tick(20);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Renewal));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Renewal));
 
 		let actions = tick(30);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Settlement));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Settlement));
 
 		let sell_count = actions
 			.iter()
@@ -1254,7 +1267,7 @@ fn full_sale_cycle() {
 
 		let sale = SaleInfo::<Test>::get().unwrap();
 		let actions = tick_with_ts(35, sale.region_begin);
-		assert_eq!(CurrentPhase::<Test>::get(), Some(SalePhase::Market));
+		assert_eq!(SaleInfo::<Test>::get().map(|s| s.phase), Some(SalePhase::Market));
 
 		let has_rotated = actions.iter().any(|a| matches!(a, TickAction::SaleRotated { .. }));
 		assert!(has_rotated, "Should have SaleRotated action");

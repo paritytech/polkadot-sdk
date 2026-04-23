@@ -54,6 +54,8 @@ pub struct SaleInfoRecord<Balance, BlockNumber> {
 	pub cores_sold: CoreIndex,
 	/// Number of renewals exercised in the current Renewal phase.
 	pub renewal_count: u32,
+	/// The current phase of this sale cycle.
+	pub phase: SalePhase,
 }
 
 impl<Balance: Clone, BlockNumber: Clone> SaleInfoRecord<Balance, BlockNumber> {
