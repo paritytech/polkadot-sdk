@@ -125,6 +125,30 @@ pub mod system_parachain {
 	/// All system parachains of Westend.
 	pub type SystemParachains = IsChildSystemParachain<ParaId>;
 
+	/// DAP constants.
+	pub mod dap {
+		use frame_support::{parameter_types, PalletId};
+		use polkadot_primitives::{Balance, BlockNumber};
+		use sp_runtime::traits::AccountIdConversion;
+		use xcm::latest::{InteriorLocation, Junction};
+
+		parameter_types! {
+			/// The pallet ID.
+			pub const DapSatellitePalletId: PalletId = sp_dap::DAP_SATELLITE_PALLET_ID;
+			/// The interior location of the DAP staging account on AssetHub.
+			pub DapStagingLocation: InteriorLocation = Junction::AccountId32 {
+				network: None,
+				id: sp_dap::DAP_PALLET_ID
+				.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID),
+			}
+			.into();
+			/// How often the satellite flushes its buffer to the central DAP.
+			pub const DapSatelliteTransferPeriod: BlockNumber = super::super::time::HOURS;
+			/// Minimum balance required to trigger a satellite-to-DAP transfer.
+			pub const DapSatelliteMinTransferAmount: Balance = 10 * super::super::currency::UNITS;
+		}
+	}
+
 	/// Coretime constants
 	pub mod coretime {
 		/// Coretime timeslice period in blocks

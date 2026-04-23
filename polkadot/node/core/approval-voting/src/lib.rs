@@ -54,9 +54,8 @@ use polkadot_node_subsystem_util::{
 };
 use polkadot_primitives::{
 	ApprovalVoteMultipleCandidates, ApprovalVotingParams, BlockNumber, CandidateHash,
-	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, ExecutorParams, GroupIndex,
-	Hash, SessionExecutionConfig, SessionIndex, SessionInfo, ValidatorId, ValidatorIndex,
-	ValidatorPair, ValidatorSignature,
+	CandidateIndex, CandidateReceiptV2 as CandidateReceipt, CoreIndex, GroupIndex, Hash,
+	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorPair, ValidatorSignature,
 };
 use sc_keystore::LocalKeystore;
 use sp_application_crypto::Pair;
@@ -734,8 +733,6 @@ enum ApprovalOutcome {
 struct RetryApprovalInfo {
 	candidate: CandidateReceipt,
 	backing_group: GroupIndex,
-	executor_params: ExecutorParams,
-	session_execution_config: Option<SessionExecutionConfig>,
 	core_index: Option<CoreIndex>,
 	session_index: SessionIndex,
 	attempts_remaining: u32,
@@ -1193,8 +1190,6 @@ enum Action {
 		assignment_tranche: DelayTranche,
 		relay_block_hash: Hash,
 		session: SessionIndex,
-		executor_params: ExecutorParams,
-		session_execution_config: Option<SessionExecutionConfig>,
 		candidate: CandidateReceipt,
 		backing_group: GroupIndex,
 		distribute_assignment: bool,
@@ -1357,9 +1352,6 @@ where
 							let spawn_handle = subsystem.spawner.clone();
 							let metrics = subsystem.metrics.clone();
 							let retry_info = retry_info.clone();
-							let executor_params = retry_info.executor_params.clone();
-							let session_execution_config =
-								retry_info.session_execution_config;
 							let candidate = retry_info.candidate.clone();
 
 							currently_checking_set
@@ -1377,8 +1369,6 @@ where
 											validator_index,
 											block_hash,
 											retry_info.backing_group,
-											executor_params,
-											session_execution_config,
 											retry_info.core_index,
 											retry_info,
 										)
@@ -1609,8 +1599,6 @@ async fn handle_actions<
 				assignment_tranche,
 				relay_block_hash,
 				session,
-				executor_params,
-				session_execution_config,
 				candidate,
 				backing_group,
 				distribute_assignment,
@@ -1652,8 +1640,6 @@ async fn handle_actions<
 						let retry = RetryApprovalInfo {
 							candidate: candidate.clone(),
 							backing_group,
-							executor_params: executor_params.clone(),
-							session_execution_config,
 							core_index,
 							session_index: session,
 							attempts_remaining: max_approval_retries,
@@ -1675,8 +1661,6 @@ async fn handle_actions<
 										validator_index,
 										block_hash,
 										backing_group,
-										executor_params,
-										session_execution_config,
 										core_index,
 										retry,
 									)
@@ -1695,11 +1679,9 @@ async fn handle_actions<
 				*mode = Mode::Active;
 
 				let (messages, next_actions) = distribution_messages_for_activation(
-					sender,
 					overlayed_db,
 					state,
 					delayed_approvals_timers,
-					session_info_provider,
 				)
 				.await?;
 				for message in messages.into_iter() {
@@ -1781,13 +1763,10 @@ fn get_assignment_core_indices(
 	}
 }
 
-#[overseer::contextbounds(ApprovalVoting, prefix = self::overseer)]
-async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApiMessage>>(
-	sender: &mut Sender,
+async fn distribution_messages_for_activation(
 	db: &OverlayedBackend<'_, impl Backend>,
 	state: &State,
 	delayed_approvals_timers: &mut DelayedApprovalTimer,
-	session_info_provider: &mut RuntimeInfo,
 ) -> SubsystemResult<(Vec<ApprovalDistributionMessage>, Vec<Action>)> {
 	let all_blocks: Vec<Hash> = db.load_all_blocks()?;
 
@@ -1907,31 +1886,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 									if !block_entry.candidate_is_pending_signature(*candidate_hash)
 									{
-										// Executor params are session-buffered, so we use
-										// block_hash (the including relay block) for the runtime
-										// API query — its state is guaranteed available. The
-										// session index comes from the candidate descriptor
-										// (relay_parent's session), falling back to the including
-										// block's session for V1 descriptors where relay_parent
-										// == scheduling_parent.
-										let session = candidate_entry
-											.candidate_receipt()
-											.descriptor()
-											.session_index()
-											.unwrap_or(block_entry.session());
-										let extended_info =
-											match get_extended_session_info_by_index(
-												session_info_provider,
-												sender,
-												block_hash,
-												session,
-											)
-											.await
-											{
-												Some(i) => i,
-												None => continue,
-											};
-
 										actions.push(Action::LaunchApproval {
 											claimed_candidate_indices: bitfield,
 											candidate_hash: candidate_entry
@@ -1941,9 +1895,6 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 											assignment_tranche: assignment.tranche(),
 											relay_block_hash: block_hash,
 											session: block_entry.session(),
-											executor_params: extended_info.executor_params.clone(),
-											session_execution_config: extended_info
-												.session_execution_config,
 											candidate: candidate_entry.candidate_receipt().clone(),
 											backing_group: approval_entry.backing_group(),
 											distribute_assignment: false,
@@ -3384,22 +3335,6 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
-		// Executor params are session-buffered, so we use relay_block (the including relay
-		// block) for the runtime API query — its state is guaranteed available. The session
-		// index comes from the candidate descriptor (relay_parent's session), falling back
-		// to the including block's session for V1 descriptors.
-		let session = candidate_receipt.descriptor.session_index().unwrap_or(block_entry.session());
-		let extended_info = match get_extended_session_info_by_index(
-			session_info_provider,
-			sender,
-			relay_block,
-			session,
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(actions),
-		};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 
@@ -3435,8 +3370,6 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 						assignment_tranche: tranche,
 						relay_block_hash: relay_block,
 						session: block_entry.session(),
-						executor_params: extended_info.executor_params.clone(),
-						session_execution_config: extended_info.session_execution_config,
 						candidate: candidate_receipt,
 						backing_group,
 						distribute_assignment,
@@ -3506,8 +3439,6 @@ async fn launch_approval<
 	validator_index: ValidatorIndex,
 	block_hash: Hash,
 	backing_group: GroupIndex,
-	executor_params: ExecutorParams,
-	session_execution_config: Option<SessionExecutionConfig>,
 	core_index: Option<CoreIndex>,
 	retry: RetryApprovalInfo,
 ) -> SubsystemResult<RemoteHandle<ApprovalState>> {
@@ -3592,8 +3523,6 @@ async fn launch_approval<
 							next_retry = Some(RetryApprovalInfo {
 								candidate,
 								backing_group,
-								executor_params,
-								session_execution_config,
 								core_index,
 								session_index,
 								attempts_remaining: retry.attempts_remaining - 1,
@@ -3666,8 +3595,7 @@ async fn launch_approval<
 				validation_code,
 				candidate_receipt: candidate.clone(),
 				pov: available_data.pov,
-				executor_params,
-				session_execution_config,
+				scheduling_session_index: session_index,
 				exec_kind: PvfExecKind::Approval,
 				response_sender: val_tx,
 			})
