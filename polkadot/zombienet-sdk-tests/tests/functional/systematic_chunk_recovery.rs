@@ -193,7 +193,10 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				}))
 				.with_default_image(col_image.as_str())
 				.with_default_command("polkadot-parachain")
-				.with_default_args(vec!["-lparachain=debug".into()])
+				.with_default_args(vec![
+					"-lparachain=debug".into(),
+					"--authoring=slot-based".into(),
+				])
 				.with_collator(|n| n.with_name(&format!("collator-{para_id}")))
 		})
 	});
