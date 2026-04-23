@@ -31,6 +31,19 @@ pub type HopHash = Hash;
 /// Sender identity derived from the account that signed the submission.
 pub type SenderId = [u8; 32];
 
+/// One intended recipient of a HOP entry: the ephemeral public key the sender
+/// generated for this handoff, paired with the `claimed` flag that tracks whether
+/// this recipient has acked. Fusing the two into a single struct (and a single
+/// `BoundedVec<Recipient, ...>`) makes it impossible — by construction and on
+/// disk — for the key list and the ack state to drift out of sync.
+#[derive(Debug, Clone, Encode, Decode)]
+pub struct Recipient {
+	/// Ephemeral public key (MultiSigner: ed25519, sr25519, or ecdsa).
+	pub signer: MultiSigner,
+	/// Whether this recipient has acked receipt.
+	pub claimed: bool,
+}
+
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
@@ -40,14 +53,12 @@ pub struct HopEntryMeta {
 	pub expires_at: HopBlockNumber,
 	/// Size in bytes
 	pub size: u64,
-	/// Ephemeral public keys of intended recipients (MultiSigner: ed25519, sr25519, or ecdsa).
+	/// Intended recipients and their per-recipient ack state.
 	///
 	/// Using a `BoundedVec` means a corrupted / hostile on-disk `.meta` file with
 	/// too many recipients fails to SCALE-decode and is discarded during startup
 	/// recovery rather than being loaded into the in-memory index.
 	pub recipients: RecipientVec,
-	/// Tracks which recipients have claimed (by index into `recipients`).
-	pub claimed: Vec<bool>,
 	/// Account ID of the sender who submitted this entry.
 	pub sender_id: SenderId,
 	/// Whether this entry has been promoted to permanent on-chain storage.
@@ -64,8 +75,7 @@ impl HopEntryMeta {
 		sender_id: SenderId,
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
-		let claimed = vec![false; recipients.len()];
-		Self { added_at, expires_at, size, recipients, claimed, sender_id, promoted: false }
+		Self { added_at, expires_at, size, recipients, sender_id, promoted: false }
 	}
 }
 
@@ -205,9 +215,9 @@ pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 3600;
 /// and `find_recipient`'s signature-verification scan is bounded.
 pub const MAX_RECIPIENTS: u32 = 256;
 
-/// A `Vec<MultiSigner>` that SCALE-decode rejects if it exceeds `MAX_RECIPIENTS`,
+/// A `Vec<Recipient>` that SCALE-decode rejects if it exceeds `MAX_RECIPIENTS`,
 /// enforcing the fan-out cap at the type level instead of via scattered runtime checks.
-pub type RecipientVec = BoundedVec<MultiSigner, ConstU32<MAX_RECIPIENTS>>;
+pub type RecipientVec = BoundedVec<Recipient, ConstU32<MAX_RECIPIENTS>>;
 
 /// Default per-user quota in MiB (1 GiB). Hard cap, not scaled by active users.
 pub const DEFAULT_MAX_USER_SIZE_MIB: u64 = 1024;
@@ -248,8 +258,8 @@ pub fn signing_payload(context: &[u8], hash: &HopHash) -> [u8; 32] {
 }
 
 /// Per-recipient overhead charged against pool capacity and per-user quota, in bytes.
-/// Covers the in-memory `MultiSigner` variant plus its parallel `bool` in `claimed`.
-/// Kept as a small constant that over-approximates `size_of::<MultiSigner>() + 1`.
+/// Covers the in-memory `Recipient` (a `MultiSigner` plus a `bool`). Kept as a
+/// small constant that over-approximates `size_of::<Recipient>()`.
 pub const METADATA_COST_PER_RECIPIENT: u64 = 40;
 
 /// Total bytes an entry charges against pool capacity: the blob plus bounded

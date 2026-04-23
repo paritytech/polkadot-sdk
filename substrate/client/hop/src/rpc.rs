@@ -23,7 +23,7 @@
 use crate::{
 	pool::HopDataPool,
 	types::{
-		signing_payload, HopError, HopHash, PoolStatus, RecipientVec, SubmitResult,
+		signing_payload, HopError, HopHash, PoolStatus, Recipient, RecipientVec, SubmitResult,
 		HOP_SUBMIT_CONTEXT, MAX_RECIPIENTS,
 	},
 };
@@ -150,10 +150,14 @@ where
 	) -> RpcResult<SubmitResult> {
 		let recipient_keys: RecipientVec = recipients
 			.into_iter()
-			.map(|r| MultiSigner::decode(&mut &r.0[..]).map_err(|_| HopError::InvalidRecipientKey))
+			.map(|r| {
+				MultiSigner::decode(&mut &r.0[..])
+					.map(|signer| Recipient { signer, claimed: false })
+					.map_err(|_| HopError::InvalidRecipientKey)
+			})
 			.collect::<Result<Vec<_>, _>>()?
 			.try_into()
-			.map_err(|v: Vec<MultiSigner>| HopError::TooManyRecipients {
+			.map_err(|v: Vec<Recipient>| HopError::TooManyRecipients {
 				provided: v.len(),
 				limit: MAX_RECIPIENTS as usize,
 			})?;

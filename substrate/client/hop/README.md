@@ -130,6 +130,10 @@ cleanup-only if the runtime doesn't implement it.
 
 All HOP RPC methods are also subject to the node-global `--rpc-rate-limit`.
 
+> **Note on `--hop-data-dir`.** The path is used as-is with the node user's
+> filesystem permissions — point it at a dedicated directory, not a shared or
+> privileged path.
+
 ## RPC methods
 
 ### `hop_submit(data, recipients, signature, signer) -> SubmitResult`
