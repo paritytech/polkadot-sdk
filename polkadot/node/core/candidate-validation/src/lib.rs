@@ -28,7 +28,7 @@ use polkadot_node_core_pvf::{
 	PrepareError, PrepareJobKind, PvfPrepData, ValidationError, ValidationHost,
 };
 use polkadot_node_core_pvf_common::execute::ValidationContext;
-use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult, DISPUTE_WINDOW};
+use polkadot_node_primitives::{InvalidCandidate, PoV, ValidationResult};
 use polkadot_node_subsystem::{
 	errors::RuntimeApiError,
 	messages::{
@@ -39,7 +39,8 @@ use polkadot_node_subsystem::{
 	SubsystemSender,
 };
 use polkadot_node_subsystem_util::{
-	self as util, request_node_features, request_session_executor_params,
+	self as util, request_node_features, request_session_execution_config,
+	request_session_executor_params,
 	runtime::{fetch_scheduling_lookahead, ClaimQueueSnapshot},
 };
 use polkadot_overseer::{ActivatedLeaf, ActiveLeavesUpdate};
@@ -63,8 +64,6 @@ use sp_keystore::KeystorePtr;
 use codec::Encode;
 
 use futures::{channel::oneshot, prelude::*, stream::FuturesUnordered};
-
-use schnellru::{ByLength, LruMap};
 
 use std::{
 	collections::HashSet,
@@ -186,72 +185,62 @@ struct SessionParams {
 	executor_params: ExecutorParams,
 	/// Fetched for the scheduling session.
 	validation_code_bomb_limit: u32,
+	/// Per-session override of `PersistedValidationData.max_pov_size`, when the
+	/// runtime exposes `SessionExecutionConfig` for the scheduling session.
+	/// `None` on older runtimes — callers should fall back to PVD.
+	max_pov_size: Option<u32>,
 }
 
-/// Per-session cache for parameters needed during candidate validation.
-struct SessionCache {
-	/// Cached executor parameters, keyed by session index.
-	executor_params: LruMap<SessionIndex, ExecutorParams>,
-	/// Cached validation code bomb limits, keyed by session index.
-	bomb_limit: LruMap<SessionIndex, u32>,
-}
+/// Fetch session-scoped parameters for a candidate.
+///
+/// For V2+ descriptors the sessions come from the descriptor itself. For V1
+/// descriptors `scheduling_session_index` is used as fallback for both
+/// execution and scheduling session (they are identical in V1). Results are
+/// cached centrally by the `runtime-api` subsystem.
+async fn fetch_params<Sender>(
+	recent_leaf: Hash,
+	scheduling_session_index: SessionIndex,
+	candidate_descriptor: &CandidateDescriptor,
+	v3_ever_seen: bool,
+	sender: &mut Sender,
+) -> Result<SessionParams, String>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	// Executor params: relay-parent (execution) session.
+	// V2+ has this in the descriptor, V1 falls back to scheduling_session_index.
+	let execution_session = candidate_descriptor
+		.session_index_for_candidate_validation(v3_ever_seen)
+		.unwrap_or(scheduling_session_index);
 
-impl SessionCache {
-	fn new() -> Self {
-		Self {
-			executor_params: LruMap::new(ByLength::new(DISPUTE_WINDOW.get())),
-			bomb_limit: LruMap::new(ByLength::new(DISPUTE_WINDOW.get())),
-		}
-	}
+	let executor_params = request_session_executor_params(recent_leaf, execution_session, sender)
+		.await
+		.await
+		.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
+		.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
+		.ok_or_else(|| "Executor params not found for session".to_string())?;
 
-	/// Fetch session-scoped parameters for a candidate.
-	///
-	/// For V2+ descriptors the sessions come from the descriptor itself. For V1
-	/// descriptors `scheduling_session_index` is used as fallback for both
-	/// execution and scheduling session (they are identical in V1). Results are
-	/// cached per session.
-	async fn fetch_params<Sender>(
-		&mut self,
-		recent_leaf: Hash,
-		scheduling_session_index: SessionIndex,
-		candidate_descriptor: &CandidateDescriptor,
-		v3_ever_seen: bool,
-		sender: &mut Sender,
-	) -> Result<SessionParams, String>
-	where
-		Sender: SubsystemSender<RuntimeApiMessage>,
-	{
-		// Executor params: relay-parent (execution) session.
-		// V2+ has this in the descriptor, V1 falls back to scheduling_session_index.
-		let execution_session = candidate_descriptor
-			.session_index_for_candidate_validation(v3_ever_seen)
-			.unwrap_or(scheduling_session_index);
+	// Bomb limit uses the scheduling session. Both scheduling
+	// and execution session would be sensible, what matters is that validators
+	// agree.
+	let scheduling_session = candidate_descriptor
+		.scheduling_session_for_candidate_validation(v3_ever_seen)
+		.unwrap_or(scheduling_session_index);
 
-		let executor_params = match self.executor_params.get(&execution_session) {
-			Some(cached) => cached.clone(),
-			None => {
-				let params =
-					request_session_executor_params(recent_leaf, execution_session, sender)
-						.await
-						.await
-						.map_err(|e| format!("Cannot fetch executor params: channel error: {e:?}"))?
-						.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
-						.ok_or_else(|| "Executor params not found for session".to_string())?;
-				let _ = self.executor_params.insert(execution_session, params.clone());
-				params
-			},
-		};
-
-		// Bomb limit uses the scheduling session. Both scheduling and execution
-		// session would be sensible, what matters is that validators agree.
-		let scheduling_session = candidate_descriptor
-			.scheduling_session_for_candidate_validation(v3_ever_seen)
-			.unwrap_or(scheduling_session_index);
-
-		let validation_code_bomb_limit = match self.bomb_limit.get(&scheduling_session) {
-			Some(cached) => *cached,
-			None => {
-				let limit = util::runtime::fetch_validation_code_bomb_limit(
+	// Prefer `SessionExecutionConfig` (runtime API v17+): it carries both
+	// `max_pov_size` and `validation_code_bomb_limit`. On older runtimes that
+	// don't expose the API (or when the session's config isn't stored), fall
+	// back to the standalone bomb-limit call and leave `max_pov_size`
+	// as `None` so callers use PVD's limit.
+	let (validation_code_bomb_limit, max_pov_size) =
+		match request_session_execution_config(recent_leaf, scheduling_session, sender)
+			.await
+			.await
+			.map_err(|e| format!("Cannot fetch session execution config: channel error: {e:?}"))?
+		{
+			Ok(Some(cfg)) => (cfg.validation_code_bomb_limit, Some(cfg.max_pov_size)),
+			Ok(None) | Err(RuntimeApiError::NotSupported { .. }) => {
+				let bomb_limit = util::runtime::fetch_validation_code_bomb_limit(
 					recent_leaf,
 					scheduling_session,
 					sender,
@@ -260,13 +249,14 @@ impl SessionCache {
 				.map_err(|_| {
 					"Cannot fetch validation code bomb limit from the runtime".to_string()
 				})?;
-				let _ = self.bomb_limit.insert(scheduling_session, limit);
-				limit
+				(bomb_limit, None)
+			},
+			Err(e) => {
+				return Err(format!("Cannot fetch session execution config: runtime error: {e:?}"))
 			},
 		};
 
-		Ok(SessionParams { executor_params, validation_code_bomb_limit })
-	}
+	Ok(SessionParams { executor_params, validation_code_bomb_limit, max_pov_size })
 }
 
 /// Output of [`pre_validate_candidate`]: data needed by PVF execution and
@@ -300,7 +290,7 @@ enum PreValidationError {
 async fn pre_validate_candidate<Sender>(
 	sender: &mut Sender,
 	candidate_receipt: &CandidateReceipt,
-	validation_data: &PersistedValidationData,
+	max_pov_size: u32,
 	pov: &PoV,
 	validation_code_hash: &ValidationCodeHash,
 	validation_code_bomb_limit: u32,
@@ -310,12 +300,9 @@ async fn pre_validate_candidate<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	if let Err(e) = perform_basic_checks(
-		&candidate_receipt.descriptor,
-		validation_data.max_pov_size,
-		pov,
-		validation_code_hash,
-	) {
+	if let Err(e) =
+		perform_basic_checks(&candidate_receipt.descriptor, max_pov_size, pov, validation_code_hash)
+	{
 		return Err(PreValidationError::Invalid(e));
 	}
 
@@ -425,11 +412,16 @@ where
 				},
 			};
 
+			// Prefer the per-session `max_pov_size` from `SessionExecutionConfig`
+			// (scheduling session); fall back to `PersistedValidationData` on
+			// older runtimes that don't expose the config.
+			let max_pov_size = session_params.max_pov_size.unwrap_or(validation_data.max_pov_size);
+
 			// Phase 1: Pre-validation — basic checks + backing-specific checks.
 			let pre = match pre_validate_candidate(
 				&mut sender,
 				&candidate_receipt,
-				&validation_data,
+				max_pov_size,
 				&pov,
 				&validation_code.hash(),
 				session_params.validation_code_bomb_limit,
@@ -581,7 +573,7 @@ async fn run<Context>(
 									..
 								} => {
 									if let Some(recent_leaf) = state.last_active_leaf {
-										match state.session_cache.fetch_params(
+										match fetch_params(
 											recent_leaf,
 											*scheduling_session_index,
 											&candidate_receipt.descriptor,
@@ -661,8 +653,6 @@ struct State {
 	/// `version()` (V3-capable) or fall back to `version_old_rules()`.
 	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
 	v3_ever_seen: bool,
-	/// Per-session cache for session-scoped validation parameters.
-	session_cache: SessionCache,
 	/// PVF preparation state (proactive pre-compilation for next session).
 	pvf_prep: PvfPrepState,
 }
@@ -673,7 +663,6 @@ impl Default for State {
 			session_index: None,
 			last_active_leaf: None,
 			v3_ever_seen: false,
-			session_cache: SessionCache::new(),
 			pvf_prep: PvfPrepState::default(),
 		}
 	}

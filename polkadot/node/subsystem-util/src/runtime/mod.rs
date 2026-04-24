@@ -101,8 +101,6 @@ pub struct ExtendedSessionInfo {
 	pub validator_info: ValidatorInfo,
 	/// Node features
 	pub node_features: NodeFeatures,
-	/// Execution-relevant host configuration for this session.
-	pub session_execution_config: Option<SessionExecutionConfig>,
 }
 
 /// Information about ourselves, in case we are an `Authority`.

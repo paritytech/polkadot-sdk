@@ -201,16 +201,15 @@ impl<T: Config> Pallet<T> {
 		};
 		Sessions::<T>::insert(&new_session_index, &new_session_info);
 
-		SessionExecutorParams::<T>::insert(&new_session_index, config.executor_params);
-
 		SessionExecutionConfigs::<T>::insert(
 			&new_session_index,
 			SessionExecutionConfig {
 				max_pov_size: config.max_pov_size,
-				validation_code_bomb_limit: config.max_code_size *
-					configuration::MAX_VALIDATION_CODE_COMPRESSION_RATIO,
+				validation_code_bomb_limit: config.validation_code_bomb_limit(),
 			},
 		);
+
+		SessionExecutorParams::<T>::insert(&new_session_index, config.executor_params);
 	}
 
 	/// Called by the initializer to initialize the session info pallet.

@@ -351,6 +351,12 @@ impl<BlockNumber> HostConfiguration<BlockNumber>
 where
 	BlockNumber: Zero + PartialOrd + core::fmt::Debug + Clone + From<u32>,
 {
+	/// The maximum size of a decompressed validation code, derived from
+	/// [`Self::max_code_size`] and [`MAX_VALIDATION_CODE_COMPRESSION_RATIO`].
+	pub(crate) fn validation_code_bomb_limit(&self) -> u32 {
+		self.max_code_size * MAX_VALIDATION_CODE_COMPRESSION_RATIO
+	}
+
 	/// Checks that this instance is consistent with the requirements on each individual member.
 	///
 	/// # Errors
