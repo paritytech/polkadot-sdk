@@ -1961,6 +1961,12 @@ where
 		let mut contract_info = top_frame.contract_info().clone();
 		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
 		let account_id = top_frame.account_id.clone();
+		if !value.is_zero() {
+			let self_address = T::AddressMapper::to_address(&account_id);
+			if <Contracts<T>>::evm_balance(&self_address) < value {
+				return Err(Error::<T>::TransferFailed.into());
+			}
+		}
 		// CALLCODE sets `msg.sender` to the current contract, unlike DELEGATECALL which
 		// preserves the outer sender.
 		let caller = Origin::from_account_id(account_id.clone());
