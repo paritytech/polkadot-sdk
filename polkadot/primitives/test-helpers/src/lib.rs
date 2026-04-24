@@ -575,6 +575,44 @@ pub fn make_candidate_v2(
 	(candidate, pvd)
 }
 
+/// Create a meaningless v3 candidate, returning its receipt and PVD.
+pub fn make_candidate_v3(
+	relay_parent_hash: Hash,
+	relay_parent_number: u32,
+	scheduling_parent: Hash,
+	para_id: ParaId,
+	parent_head: HeadData,
+	head_data: HeadData,
+	validation_code_hash: ValidationCodeHash,
+) -> (CommittedCandidateReceiptV2, PersistedValidationData) {
+	let pvd = dummy_pvd(parent_head, relay_parent_number);
+	let commitments = CandidateCommitments {
+		head_data: head_data.clone(),
+		horizontal_messages: Default::default(),
+		upward_messages: Default::default(),
+		new_validation_code: None,
+		processed_downward_messages: 0,
+		hrmp_watermark: relay_parent_number,
+	};
+
+	let descriptor = CandidateDescriptorV2::new_v3(
+		para_id,
+		relay_parent_hash,
+		CoreIndex(0),
+		1, // session_index
+		1, // scheduling_session_index (offset = 0)
+		pvd.hash(),
+		Hash::repeat_byte(1), // pov_hash
+		Hash::repeat_byte(1), // erasure_root
+		head_data.hash(),
+		validation_code_hash,
+		scheduling_parent,
+	);
+	let candidate = CommittedCandidateReceiptV2 { descriptor, commitments };
+
+	(candidate, pvd)
+}
+
 /// Create a new candidate descriptor, and apply a valid signature
 /// using the provided `collator` key.
 pub fn make_valid_candidate_descriptor<H: AsRef<[u8]>>(
