@@ -31,3 +31,6 @@ crates:
     bump: minor
   - name: polkadot-runtime-parachains
     bump: patch
+  - name: polkadot-primitives
+    bump: none
+    validate: false
