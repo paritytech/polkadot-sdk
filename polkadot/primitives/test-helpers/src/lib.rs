@@ -599,7 +599,6 @@ pub fn make_candidate_v3(
 		relay_parent_hash,
 		CoreIndex(0),
 		1, // session_index
-		1, // scheduling_session_index (offset = 0)
 		pvd.hash(),
 		Hash::repeat_byte(1), // pov_hash
 		Hash::repeat_byte(1), // erasure_root
@@ -702,7 +701,6 @@ pub fn make_valid_candidate_descriptor_v3<H: AsRef<[u8]> + Copy + Default>(
 		relay_parent,
 		core_index,
 		session_index,
-		session_index, // scheduling_session_index (offset = 0)
 		persisted_validation_data_hash,
 		pov_hash,
 		erasure_root,

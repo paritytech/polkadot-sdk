@@ -322,7 +322,6 @@ impl TestCandidateBuilder {
 				self.relay_parent,
 				core_index,
 				self.descriptor_session_index.unwrap_or(0),
-				self.descriptor_session_index.unwrap_or(0),
 				self.persisted_validation_data_hash,
 				self.pov_hash,
 				Default::default(),

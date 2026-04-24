@@ -22,7 +22,7 @@ crates:
   - name: polkadot-node-core-prospective-parachains
     bump: minor
   - name: polkadot-collator-protocol
-    bump: minor
+    bump: patch
   - name: polkadot-statement-distribution
     bump: patch
   - name: polkadot-node-subsystem-util
