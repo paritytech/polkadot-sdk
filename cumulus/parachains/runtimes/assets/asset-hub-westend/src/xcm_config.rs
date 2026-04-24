@@ -214,6 +214,14 @@ parameter_types! {
 	pub const ERC20TransferGasLimit: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
 	pub const ERC20TransferStorageDepositLimit: Balance = 10_200_000_000;
 	pub ERC20TransfersCheckingAccount: AccountId = PalletId(*b"py/revch").into_account_truncating();
+	/// Taken from the real gas and deposits of a standard ERC721 transferFrom call.
+	/// ERC-721 transfers cost slightly more gas than ERC-20 transfers due to storage writes
+	/// on the owner mapping, so we use the same conservative upper bound.
+	pub const ERC721TransferGasLimit: Weight = Weight::from_parts(500_000_000_000, 10 * 1024 * 1024);
+	pub const ERC721TransferStorageDepositLimit: Balance = 10_200_000_000;
+	/// Sovereign checking account for ERC-721 transfers. Distinct from the ERC-20 checking
+	/// account so NFT ownership is tracked separately and auditable on-chain.
+	pub ERC721TransfersCheckingAccount: AccountId = PalletId(*b"py/72ich").into_account_truncating();
 	pub DapBufferAccount: AccountId = pallet_dap::Pallet::<Runtime>::buffer_account();
 }
 
@@ -235,6 +243,25 @@ pub type ERC20Transactor = assets_common::ERC20Transactor<
 	ERC20TransfersCheckingAccount,
 >;
 
+/// Transactor for ERC-721 non-fungible tokens.
+pub type ERC721Transactor = assets_common::ERC721Transactor<
+	// We need this for accessing pallet-revive.
+	Runtime,
+	// The matcher for ERC-721 smart contracts: matches Location(0, [AccountKey20]) with
+	// NonFungible(AssetInstance::Index(token_id)).
+	assets_common::ERC721Matcher,
+	// How to convert from a location to an account id.
+	LocationToAccountId,
+	// The maximum gas that can be used by a standard ERC-721 transferFrom call.
+	ERC721TransferGasLimit,
+	// The maximum storage deposit that can be used by a standard ERC-721 transferFrom call.
+	ERC721TransferStorageDepositLimit,
+	// We're generic over this so we can't escape specifying it.
+	AccountId,
+	// Checking account for ERC-721 transfers.
+	ERC721TransfersCheckingAccount,
+>;
+
 /// Means for transacting assets on this chain.
 pub type AssetTransactors = (
 	FungibleTransactor,
@@ -242,6 +269,7 @@ pub type AssetTransactors = (
 	ForeignFungiblesTransactor,
 	UniquesTransactor,
 	ERC20Transactor,
+	ERC721Transactor,
 );
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,

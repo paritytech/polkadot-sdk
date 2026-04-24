@@ -18,6 +18,7 @@
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks;
 mod erc20_transactor;
+mod erc721_transactor;
 pub mod foreign_creators;
 pub mod fungible_conversion;
 pub mod local_and_foreign_assets;
@@ -26,6 +27,7 @@ pub mod migrations;
 pub mod runtime_api;
 
 pub use erc20_transactor::ERC20Transactor;
+pub use erc721_transactor::ERC721Transactor;
 
 extern crate alloc;
 extern crate core;
@@ -159,6 +161,35 @@ impl MaybeEquivalence<Location, H160> for AccountKey20ToH160 {
 /// ERC20 tokens.
 pub type ERC20Matcher =
 	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
+
+/// Converts an [`AssetInstance::Index`] to a `u128` token ID.
+///
+/// Used by [`ERC721Matcher`] to extract the numeric token ID from a non-fungible XCM asset.
+/// Only `AssetInstance::Index` variants are accepted; all others are rejected.
+pub struct AssetInstanceIndexToU128;
+impl sp_runtime::traits::MaybeEquivalence<xcm::latest::AssetInstance, u128>
+	for AssetInstanceIndexToU128
+{
+	fn convert(instance: &xcm::latest::AssetInstance) -> Option<u128> {
+		match instance {
+			xcm::latest::AssetInstance::Index(id) => Some(*id),
+			_ => None,
+		}
+	}
+
+	fn convert_back(id: &u128) -> Option<xcm::latest::AssetInstance> {
+		Some(xcm::latest::AssetInstance::Index(*id))
+	}
+}
+
+/// [`xcm_executor::traits::MatchesNonFungibles`] implementation that matches ERC-721 tokens.
+pub type ERC721Matcher = MatchedConvertedConcreteId<
+	H160,
+	u128,
+	IsLocalAccountKey20,
+	AccountKey20ToH160,
+	AssetInstanceIndexToU128,
+>;
 
 pub type AssetIdForPoolAssets = u32;
 
