@@ -17,6 +17,8 @@ doc:
 
 crates:
   - name: sp-coretime
-    bump: minor
+    bump: patch
   - name: pallet-broker
     bump: major
+  - name: polkadot-sdk
+    bump: patch
