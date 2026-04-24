@@ -68,6 +68,15 @@ impl InputOrData {
 	pub fn to_vec(self) -> Vec<u8> {
 		self.to_bytes().0
 	}
+
+	/// Returns true if the input carries no bytes.
+	pub fn is_empty(&self) -> bool {
+		match self {
+			InputOrData { input: Some(input), .. } => input.0.is_empty(),
+			InputOrData { input: None, data: Some(data) } => data.0.is_empty(),
+			_ => true,
+		}
+	}
 }
 
 fn deserialize_input_or_data<'d, D: Deserializer<'d>>(d: D) -> Result<InputOrData, D::Error> {

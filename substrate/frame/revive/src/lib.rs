@@ -1856,8 +1856,15 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		// TODO: Implement a short circuit for simple transfers. We just need to determine the gas
-		// needed for it.
+		let simple_transfer_gas = U256::from(SIMPLE_TRANSFER_GAS);
+		if simple_transfer_gas <= high && Self::is_simple_transfer(&tx, &config) {
+			log::trace!(
+				target: LOG_TARGET,
+				"eth_estimate_gas short-circuiting simple transfer to {:?}",
+				tx.to,
+			);
+			return Ok(simple_transfer_gas);
+		}
 
 		// Perform the first dry run with the gas limit of the binary search's high bound. If it
 		// fails then we attempt again with the max extrinsic weight in gas which we do since some
@@ -1958,6 +1965,42 @@ impl<T: Config> Pallet<T> {
 
 		log::trace!(target: LOG_TARGET, "eth_estimate_gas completed. high={high}");
 		Ok(high)
+	}
+
+	/// Returns true when `tx` is a "simple" ETH transfer that can be priced at exactly
+	/// [`SIMPLE_TRANSFER_GAS`] without dry-running the call.
+	pub(crate) fn is_simple_transfer(
+		tx: &GenericTransaction,
+		config: &DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+	) -> bool {
+		let Some(to) = tx.to else { return false };
+
+		if !tx.input.is_empty() {
+			return false;
+		}
+
+		if tx.access_list.as_ref().is_some_and(|list| !list.is_empty()) {
+			return false;
+		}
+		if !tx.authorization_list.is_empty() {
+			return false;
+		}
+		if !tx.blob_versioned_hashes.is_empty() || !tx.blobs.is_empty() {
+			return false;
+		}
+
+		if config.state_overrides.is_some() {
+			return false;
+		}
+
+		if exec::is_precompile::<T, ContractBlob<T>>(&to) {
+			return false;
+		}
+		if <AccountInfo<T>>::is_contract(&to) {
+			return false;
+		}
+
+		true
 	}
 
 	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
@@ -2789,6 +2832,14 @@ impl<T: Config> Pallet<T> {
 /// computed with PalletId(*b"py/paddr").into_account_truncating();
 pub const RUNTIME_PALLETS_ADDR: H160 =
 	H160(hex_literal::hex!("6d6f646c70792f70616464720000000000000000"));
+
+/// Fixed gas cost of a "simple" ETH transfer: an EOA-to-EOA call with empty calldata and no
+/// access list, EIP-7702 authorization list, or EIP-4844 blob payload.
+///
+/// Matches the Ethereum yellow-paper `G_transaction` constant and is used by
+/// [`Pallet::eth_estimate_gas`] to short-circuit the binary-search dry-run when the call clearly
+/// has no execution component.
+pub const SIMPLE_TRANSFER_GAS: u64 = 21_000;
 
 // Set up a global reference to the boolean flag used for the re-entrancy guard.
 environmental!(executing_contract: bool);
