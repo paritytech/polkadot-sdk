@@ -21,4 +21,4 @@ crates:
   - name: pallet-broker
     bump: major
   - name: polkadot-sdk
-    bump: patch
+    bump: minor
