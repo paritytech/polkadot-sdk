@@ -2685,11 +2685,8 @@ where
 		ParentHeadData::OnlyHash(parent_head_data_hash)
 	};
 
-	let request = ProspectiveValidationDataRequest {
-		para_id,
-		candidate_relay_parent,
-		parent_head_data,
-	};
+	let request =
+		ProspectiveValidationDataRequest { para_id, candidate_relay_parent, parent_head_data };
 
 	sender
 		.send_message(ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx))

@@ -539,13 +539,7 @@ impl CollationManager {
 					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
-				self.can_begin_seconding(
-					sender,
-					fetched_collation,
-					true,
-					reject_info,
-				)
-				.await
+				self.can_begin_seconding(sender, fetched_collation, true, reject_info).await
 			},
 			Err(rep_change) => CanSecond::No(rep_change, reject_info),
 		}
@@ -630,15 +624,11 @@ impl CollationManager {
 				),
 				maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
 			};
-			if !self
-				.per_scheduling_parent
-				.contains_key(&fetched_collation.scheduling_parent())
-			{
+			if !self.per_scheduling_parent.contains_key(&fetched_collation.scheduling_parent()) {
 				continue;
 			}
-			let can_second = self
-				.can_begin_seconding(sender, fetched_collation, false, reject_info)
-				.await;
+			let can_second =
+				self.can_begin_seconding(sender, fetched_collation, false, reject_info).await;
 			unblocked_can_second.push(can_second)
 		}
 
