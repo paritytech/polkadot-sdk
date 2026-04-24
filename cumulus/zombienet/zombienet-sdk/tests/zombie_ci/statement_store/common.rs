@@ -244,7 +244,8 @@ async fn launch_network(
 				.fold(p, |acc, &name| acc.with_collator(|n| n.with_name(name)))
 		})
 		.with_global_settings(|global_settings| {
-			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
+			global_settings
+				.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
 				.with_tear_down_on_failure(false) // To allow restart nodes without failing in CI
 		})
 		.build()
@@ -287,18 +288,11 @@ async fn spawn_network_inner(
 		"--enable-statement-store".into(),
 	];
 	if participant_count > 0 {
+		args.push(format!("--rpc-max-connections={}", participant_count + 1000).as_str().into());
 		args.push(
-			format!("--rpc-max-connections={}", participant_count + 1000)
+			format!("--rpc-max-subscriptions-per-connection={}", (participant_count * 16).max(32))
 				.as_str()
 				.into(),
-		);
-		args.push(
-			format!(
-				"--rpc-max-subscriptions-per-connection={}",
-				(participant_count * 16).max(32)
-			)
-			.as_str()
-			.into(),
 		);
 	}
 
@@ -322,6 +316,7 @@ pub(super) async fn spawn_network_sudo(
 	let node = network.get_node(collators[0])?;
 	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
 		.await?;
+
 	Ok(network)
 }
 
@@ -332,7 +327,6 @@ pub(super) async fn spawn_network(
 	spawn_network_inner(collators, 0).await
 }
 
-/// Creates an `OnlineClient<CustomConfig>` from a zombienet node
 pub(super) async fn online_client_from_node(
 	node: &zombienet_sdk::NetworkNode,
 ) -> Result<OnlineClient<CustomConfig>, anyhow::Error> {

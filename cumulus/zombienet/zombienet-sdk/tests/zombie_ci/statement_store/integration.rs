@@ -715,15 +715,10 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 	let alice_rpc = alice_node.rpc().await?;
 	let result = submit_statement(&alice_rpc, &statement).await?;
 	assert_eq!(result, SubmitResult::New);
-	info!("Statement submitted to alice");
 
-	// Statement should propagate to bob
 	let received = expect_one_statement(&mut bob_sub, 20).await?;
 	assert_eq!(received, expected);
-	info!("Statement received on bob with correct data");
-
 	assert_no_more_statements(&mut bob_sub, 20).await?;
-	info!("Statement store lite person submit and propagate test passed");
 
 	Ok(())
 }
