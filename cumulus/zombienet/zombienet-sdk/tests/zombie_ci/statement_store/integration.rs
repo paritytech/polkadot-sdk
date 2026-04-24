@@ -775,7 +775,6 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		}
 		info!("All {} statements submitted", TOTAL_STMTS);
 
-		// Wait for full propagation on both nodes
 		for (name, sub) in [("charlie", &mut charlie_sub), ("alice", &mut alice_sub)] {
 			assert_statements_match(sub, &expected_encoded, 60, name).await?;
 		}
@@ -874,8 +873,8 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 			10u64,
 		)
 		.await?;
-	let total_delta = (charlie_sent_after.get() - charlie_sent_before.get())
-		+ (alice_sent_after.get() - alice_sent_before.get());
+	let total_delta = (charlie_sent_after.get() - charlie_sent_before.get()) +
+		(alice_sent_after.get() - alice_sent_before.get());
 	assert!(
 		total_delta >= TOTAL_STMTS as f64,
 		"Initial sync sent only {} statements total (charlie: {}, alice: {}), expected at least {}",
