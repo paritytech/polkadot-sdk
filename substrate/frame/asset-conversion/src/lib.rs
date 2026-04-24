@@ -103,7 +103,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::fungibles::Refund};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{traits::Unsigned, Permill};
+	use sp_arithmetic::{traits::Unsigned, PerThing, Permill};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -157,11 +157,9 @@ pub mod pallet {
 			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>
 			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
-		/// A permill ratio the liquidity providers will take as fee of every swap.
-		///
-		/// Value `3` means 0.3% (3 / 1000).
+		/// The fraction of every swap that the liquidity providers take as a fee.
 		#[pallet::constant]
-		type LPFee: Get<u32>;
+		type LPFee: Get<Permill>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -389,11 +387,6 @@ pub mod pallet {
 			assert!(
 				T::MaxSwapPathLength::get() > 1,
 				"the `MaxSwapPathLength` should be greater than 1",
-			);
-
-			assert!(
-				T::LPFee::get() <= 1000,
-				"Constant `LPFee` MUST NOT be greater than 1000 permill",
 			);
 		}
 	}
@@ -1294,8 +1287,9 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity);
 			}
 
-			let amount_net_ratio = T::HigherPrecisionBalance::from(1000u32)
-				.checked_sub(&T::LPFee::get().into())
+			let accuracy = T::HigherPrecisionBalance::from(Permill::ACCURACY);
+			let amount_net_ratio = accuracy
+				.checked_sub(&T::LPFee::get().deconstruct().into())
 				.ok_or(Error::<T>::Overflow)?;
 			let amount_in_net =
 				amount_in.checked_mul(&amount_net_ratio).ok_or(Error::<T>::Overflow)?;
@@ -1303,7 +1297,7 @@ pub mod pallet {
 			let numerator = amount_in_net.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
-				.checked_mul(&1000u32.into())
+				.checked_mul(&accuracy)
 				.ok_or(Error::<T>::Overflow)?
 				.checked_add(&amount_in_net)
 				.ok_or(Error::<T>::Overflow)?;
@@ -1334,14 +1328,15 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
+			let accuracy = T::HigherPrecisionBalance::from(Permill::ACCURACY);
 			let numerator = reserve_in
 				.checked_mul(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&1000u32.into())
+				.checked_mul(&accuracy)
 				.ok_or(Error::<T>::Overflow)?;
 
-			let amount_net_ratio = T::HigherPrecisionBalance::from(1000u32)
-				.checked_sub(&T::LPFee::get().into())
+			let amount_net_ratio = accuracy
+				.checked_sub(&T::LPFee::get().deconstruct().into())
 				.ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_out
