@@ -658,7 +658,6 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 	let alice_account_id =
 		<subxt_signer::sr25519::Keypair as Signer<CustomConfig>>::account_id(&alice);
 
-	// Grant one attestation allowance via sudo
 	info!("Granting attestation allowance to Alice...");
 	let increase_call = create_increase_allowance_call(alice_account_id.0.to_vec(), 1);
 	let mut nonce = para_client.tx().await?.account_nonce(&alice_account_id).await?;
@@ -684,7 +683,7 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 		Crypto::sign(&ring_secret, &msg).expect("ring VRF signing should succeed");
 
 	// Consumer registration: Alice registers herself as consumer.
-	// The consumer signs the payload; verifier is Alice (the attest origin).
+	// The consumer signs the payload; verifier is Alice (the attest origin)
 	let alice_sp_pair =
 		sr25519::Pair::from_string("//Alice", None).expect("Alice dev key should be valid");
 	let consumer_registration = create_consumer_registration_params(
