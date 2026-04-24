@@ -38,7 +38,7 @@ extern crate alloc;
 
 use alloc::{vec, vec::Vec};
 use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
-use cumulus_pallet_parachain_system::RelayNumberMonotonicallyIncreases;
+use cumulus_pallet_parachain_system::{RelayNumberMonotonicallyIncreases, RelaychainDataProvider};
 use cumulus_primitives_core::{AggregateMessageOrigin, ParaId};
 use frame_support::{
 	construct_runtime, derive_impl,
@@ -78,7 +78,9 @@ use sp_session::OpaqueGeneratedSessionKeys;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use testnet_parachains_constants::westend::{consensus::*, currency::*, fee::WeightToFee, time::*};
+use testnet_parachains_constants::westend::{
+	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+};
 use weights::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight};
 use xcm::{prelude::*, Version as XcmVersion};
 use xcm_config::{
@@ -628,13 +630,19 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-	pub const DapSatellitePalletId: PalletId = PalletId(*b"dap/satl");
-}
-
 impl pallet_dap_satellite::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = DapSatellitePalletId;
+	type SendToDap = xcm_builder::SendToDapViaTeleport<
+		xcm_config::XcmConfig,
+		testnet_parachains_constants::westend::locations::AssetHubLocation,
+		xcm_config::TokenRelayLocation,
+		DapStagingLocation,
+	>;
+	type TransferPeriod = DapSatelliteTransferPeriod;
+	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
 }
 
 pub struct BrokerMigrationV4BlockConversion;
@@ -751,6 +759,7 @@ mod benches {
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
 		[cumulus_pallet_weight_reclaim, WeightReclaim]
+		[pallet_dap_satellite, DapSatellite]
 	);
 }
 
