@@ -74,7 +74,7 @@ crates:
   bump: patch
 - name: pallet-core-fellowship
   bump: patch
-- name: pallet-lottery
+- name: pallet-beefy-mmr
   bump: patch
 - name: pallet-node-authorization
   bump: patch
