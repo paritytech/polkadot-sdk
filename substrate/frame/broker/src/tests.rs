@@ -2479,10 +2479,10 @@ fn force_reserve_works() {
 				),
 				// Immediate assignment from force_reserve
 				(
-					12,
+					14,
 					AssignCore {
 						core: 3,
-						begin: 14,
+						begin: 16,
 						assignment: vec![(Task(1004), 57600)],
 						end_hint: None
 					}

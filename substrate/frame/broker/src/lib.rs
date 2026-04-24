@@ -47,6 +47,7 @@ pub use core_mask::*;
 pub use coretime_interface::*;
 pub use market::*;
 pub use types::*;
+pub use utility_impls::{CoreRangeProviderImpl, TimesliceProviderImpl};
 
 extern crate alloc;
 

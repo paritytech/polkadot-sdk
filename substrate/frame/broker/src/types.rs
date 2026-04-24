@@ -23,7 +23,6 @@ use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::traits::fungible::Inspect;
 use frame_system::{pallet_prelude::AccountIdFor, Config as SConfig};
 use scale_info::TypeInfo;
-use sp_arithmetic::Perbill;
 use sp_core::ConstU32;
 use sp_runtime::BoundedVec;
 
