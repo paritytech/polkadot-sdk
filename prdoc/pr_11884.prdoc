@@ -1,0 +1,12 @@
+title: '[pallet-revive] EVM backend: support CALLCODE opcode'
+doc:
+- audience: Runtime Dev
+  description: |-
+    fixes https://github.com/paritytech/polkadot-sdk/issues/9573
+
+    Implements the `CALLCODE` opcode in the EVM backend by adding an `Ext::call_code` method that runs the target's code in the current contract's storage context with a fresh `msg.sender` and msg.value from the stack, unblocking YUL inline-assembly `callcode(...)`.
+crates:
+- name: pallet-revive-fixtures
+  bump: minor
+- name: pallet-revive
+  bump: minor
