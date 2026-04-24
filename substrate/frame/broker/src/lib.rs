@@ -45,14 +45,10 @@ pub use weights::WeightInfo;
 pub use adapt_price::*;
 pub use coretime_interface::*;
 pub use sp_coretime::{
-	CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
+	market, CoreIndex, CoreMask, PartsOf57600, PotentialRenewalId, RegionId, TaskId, Timeslice,
 	CORE_MASK_BITS,
 };
 pub use types::*;
-
-pub mod market {
-	pub use sp_coretime::market::*;
-}
 
 extern crate alloc;
 

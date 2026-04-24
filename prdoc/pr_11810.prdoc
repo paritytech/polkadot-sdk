@@ -10,10 +10,13 @@ doc:
       instead of pallet-broker, avoiding a pallet dependency just for trait definitions and
       shared types.
 
-      pallet-broker re-exports everything from sp-coretime for backward compatibility.
+      pallet-broker re-exports everything from sp-coretime for backward
+      compatibility. No breaking changes. The major bump on pallet-broker is because
+      type paths in the public API changed (e.g. RegionId now originates from
+      sp-coretime), which the semver tool picks up as a major change.
 
 crates:
   - name: sp-coretime
     bump: minor
   - name: pallet-broker
-    bump: patch
+    bump: major
