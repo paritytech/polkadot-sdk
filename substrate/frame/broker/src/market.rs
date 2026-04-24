@@ -50,7 +50,7 @@ pub trait Market<RelayBlockNumber, Balance, AccountId> {
 	type BidId: Copy + Debug + Codec + MaxEncodedLen + TypeInfo + Eq;
 
 	/// Initialization data used in [`Market::start_sales`].
-	type InitData: Parameter;
+	type InitData: Parameter + Default;
 
 	/// Configuration of the market.
 	///
