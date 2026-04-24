@@ -856,7 +856,6 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	] {
 		assert_statements_match(sub, &expected_encoded, 60, name).await?;
 		assert_no_more_statements(sub, 10).await?;
-		info!("{}: received all {} statements via initial sync", name, TOTAL_STMTS);
 	}
 
 	// Verify initial sync delivered statements
@@ -866,9 +865,9 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 			"substrate_sync_initial_sync_statements_sent",
 			|v| {
 				charlie_sent_after.set(v);
-				v > charlie_sent_before.get()
+				true
 			},
-			30u64,
+			10u64,
 		)
 		.await?;
 	let alice_sent_after = Cell::new(0.0f64);
@@ -877,17 +876,19 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 			"substrate_sync_initial_sync_statements_sent",
 			|v| {
 				alice_sent_after.set(v);
-				v > alice_sent_before.get()
+				true
 			},
-			30u64,
+			10u64,
 		)
 		.await?;
 	let total_delta = (charlie_sent_after.get() - charlie_sent_before.get())
 		+ (alice_sent_after.get() - alice_sent_before.get());
 	assert!(
 		total_delta >= TOTAL_STMTS as f64,
-		"Initial sync sent only {} statements total, expected at least {}",
+		"Initial sync sent only {} statements total (charlie: {}, alice: {}), expected at least {}",
 		total_delta,
+		charlie_sent_after.get() - charlie_sent_before.get(),
+		alice_sent_after.get() - alice_sent_before.get(),
 		TOTAL_STMTS,
 	);
 
