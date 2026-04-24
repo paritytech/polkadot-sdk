@@ -467,7 +467,8 @@ impl pallet_dap::Config for Test {
 	type Currency = Balances;
 	type PalletId = DapPalletId;
 	type IssuanceCurve = OneTokenPerMillisecond;
-	type BudgetRecipients = (Dap, StakerRewardRecipient<SequentialTest>);
+	type BudgetRecipients =
+		(Dap, StakerRewardRecipient<SequentialTest>, ValidatorIncentiveRecipient<SequentialTest>);
 	type Time = MockTime;
 	type IssuanceCadence = TestIssuanceCadence;
 	type MaxElapsedPerDrip = TestMaxElapsedPerDrip;
@@ -484,6 +485,14 @@ impl IssuanceCurve<Balance> for OneTokenPerMillisecond {
 
 pub(crate) fn staker_reward_key() -> sp_staking::budget::BudgetKey {
 	<StakerRewardRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn validator_incentive_key() -> sp_staking::budget::BudgetKey {
+	<ValidatorIncentiveRecipient<SequentialTest> as BudgetRecipient<AccountId>>::budget_key()
+}
+
+pub(crate) fn general_incentive_pot() -> AccountId {
+	SequentialTest::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
 }
 
 pub(crate) fn buffer_key() -> sp_staking::budget::BudgetKey {
@@ -1135,4 +1144,53 @@ pub(crate) fn apply_pending_slashes_from_era(era: EraIndex) {
 	for (key, _) in UnappliedSlashes::<T>::iter_prefix(era) {
 		assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), era, key));
 	}
+}
+
+pub(crate) fn setup_incentive_config() {
+	assert_ok!(Staking::set_validator_self_stake_incentive_config(
+		RuntimeOrigin::root(),
+		ConfigOp::Set(30_000),
+		ConfigOp::Set(100_000),
+		ConfigOp::Set(Perbill::from_rational(1u32, 2u32)),
+	));
+}
+
+/// Sets up incentive config and DAP budget. Remainder goes to buffer.
+/// E.g. `(45, 5)` → 45% staker, 5% incentive, 50% buffer.
+pub(crate) fn setup_incentive_with_budget(staker_pct: u32, incentive_pct: u32) {
+	setup_incentive_config();
+	let buffer_pct = 100u32.saturating_sub(staker_pct).saturating_sub(incentive_pct);
+	let mut entries = vec![(staker_reward_key(), staker_pct)];
+	if incentive_pct > 0 {
+		entries.push((validator_incentive_key(), incentive_pct));
+	}
+	if buffer_pct > 0 {
+		entries.push((buffer_key(), buffer_pct));
+	}
+	pallet_dap::BudgetAllocation::<Test>::put(build_budget(&entries));
+}
+
+pub(crate) fn staker_reward_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	events.iter().find_map(|e| match e {
+		Event::Rewarded { stash: s, amount, .. } if *s == stash => Some(*amount),
+		_ => None,
+	})
+}
+
+pub(crate) fn incentive_paid_for(stash: AccountId, events: &[Event<Test>]) -> Option<Balance> {
+	incentive_paid_details(stash, events).map(|(amount, _)| amount)
+}
+
+pub(crate) fn incentive_paid_details(
+	stash: AccountId,
+	events: &[Event<Test>],
+) -> Option<(Balance, RewardDestination<AccountId>)> {
+	events.iter().find_map(|e| match e {
+		Event::ValidatorIncentivePaid { validator_stash, amount, dest, .. }
+			if *validator_stash == stash =>
+		{
+			Some((*amount, *dest))
+		},
+		_ => None,
+	})
 }

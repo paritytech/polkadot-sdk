@@ -239,7 +239,7 @@ impl RequestManager {
 		}
 	}
 
-	/// Remove based on relay-parent.
+	/// Remove all requests associated with the given scheduling parent.
 	pub fn remove_by_scheduling_parent(&mut self, scheduling_parent: Hash) {
 		let mut candidate_hashes = HashSet::new();
 
@@ -284,6 +284,19 @@ impl RequestManager {
 		}
 
 		false
+	}
+
+	#[cfg(test)]
+	pub(super) fn requests_count_by_scheduling_parent(&self, scheduling_parent: Hash) -> usize {
+		self.requests
+			.keys()
+			.filter(|id| id.scheduling_parent == scheduling_parent)
+			.count()
+	}
+
+	#[cfg(test)]
+	pub(super) fn total_requests_count(&self) -> usize {
+		self.requests.len()
 	}
 
 	/// Returns an instant at which the next request to be retried will be ready.
@@ -942,7 +955,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_remove_by_relay_parent() {
+	fn test_remove_by_scheduling_parent() {
 		let parent_a = Hash::from_low_u64_le(1);
 		let parent_b = Hash::from_low_u64_le(2);
 		let parent_c = Hash::from_low_u64_le(3);

@@ -6,17 +6,17 @@
 // https://github.com/paritytech/individuality/blob/main/runtimes/people-westend/chain-spec/create_people_westend_spec.sh
 // To regenerate, run that script and replace the JSON file in this directory.
 
-use std::{
-	path::{Path, PathBuf},
-	time::Duration,
-};
-
 use anyhow::anyhow;
 use codec::Encode;
 use log::info;
+use sc_statement_store::test_utils::get_keypair;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
 use sp_statement_store::{
 	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
+};
+use std::{
+	path::{Path, PathBuf},
+	time::Duration,
 };
 use zombienet_sdk::{
 	subxt::{
@@ -25,8 +25,6 @@ use zombienet_sdk::{
 	},
 	LocalFileSystem, Network, NetworkConfigBuilder,
 };
-
-use sc_statement_store::test_utils::get_keypair;
 
 pub(super) const RPC_POOL_SIZE: usize = 10000;
 
@@ -143,7 +141,7 @@ pub(super) async fn expect_statements_unordered(
 }
 
 /// Creates a custom chain spec with uniform allowances for all participants
-fn create_chain_spec_with_allowances(
+pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
 	base_dir: &Path,
 ) -> Result<PathBuf, anyhow::Error> {
@@ -180,6 +178,37 @@ fn create_chain_spec_with_allowances(
 	Ok(chain_spec_path)
 }
 
+pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk::Arg> {
+	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
+	[
+		"--force-authoring".to_string(),
+		"--max-runtime-instances=32".to_string(),
+		// TODO: we need trace only for statement_store_crash_mid_sync
+		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
+		"--enable-statement-store".to_string(),
+		format!("--rpc-max-connections={}", participant_count + 1000),
+		format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),
+	]
+	.iter()
+	.map(|s| s.as_str().into())
+	.collect()
+}
+
+pub(super) fn base_dir() -> Result<PathBuf, anyhow::Error> {
+	let path = std::env::var("ZOMBIENET_SDK_BASE_DIR")
+		.ok()
+		.map(PathBuf::from)
+		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombie-{}", std::process::id())));
+	std::fs::create_dir_all(&path)
+		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
+	Ok(path)
+}
+
+pub(super) fn format_build_errors(errors: Vec<anyhow::Error>) -> anyhow::Error {
+	let errs = errors.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
+	anyhow!("config errs: {errs}")
+}
+
 /// Spawns a zombienet network with a custom chain spec containing injected statement allowances
 pub(super) async fn spawn_network_with_injected_allowances(
 	collators: &[&str],
@@ -187,16 +216,9 @@ pub(super) async fn spawn_network_with_injected_allowances(
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(!collators.is_empty());
 	let images = zombienet_sdk::environment::get_images_from_env();
-
-	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
-		.ok()
-		.map(PathBuf::from)
-		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombienet-{}", std::process::id())));
-	std::fs::create_dir_all(&base_dir)
-		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
-
+	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
+	let default_args = collator_default_args(participant_count);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {
@@ -213,16 +235,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.with_chain_spec_path(chain_spec_path.to_str().expect("Valid UTF-8 path"))
 				.with_default_command("polkadot-parachain")
 				.with_default_image(images.cumulus.as_str())
-				.with_default_args(vec![
-					"--force-authoring".into(),
-					"--max-runtime-instances=32".into(),
-					"-linfo,statement-store=trace,statement-gossip=trace".into(),
-					"--enable-statement-store".into(),
-					format!("--rpc-max-connections={}", participant_count + 1000).as_str().into(),
-					format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}")
-						.as_str()
-						.into(),
-				])
+				.with_default_args(default_args)
 				.with_collator(|n| n.with_name(collators[0]));
 
 			collators[1..]
@@ -235,10 +248,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 				.with_tear_down_on_failure(false) // To allow restart nodes without failing in CI
 		})
 		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})?;
+		.map_err(format_build_errors)?;
 
 	let network = crate::utils::initialize_network(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
@@ -252,13 +262,7 @@ pub(super) async fn spawn_network_sudo(
 	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let images = zombienet_sdk::environment::get_images_from_env();
-
-	let base_dir = std::env::var("ZOMBIENET_SDK_BASE_DIR")
-		.ok()
-		.map(PathBuf::from)
-		.unwrap_or_else(|| std::env::temp_dir().join(format!("zombienet-{}", std::process::id())));
-	std::fs::create_dir_all(&base_dir)
-		.map_err(|e| anyhow!("Failed to create base directory: {}", e))?;
+	let base_dir = base_dir()?;
 
 	let participant_count = allowance_items.len();
 
@@ -307,10 +311,7 @@ pub(super) async fn spawn_network_sudo(
 			global_settings.with_base_dir(base_dir.to_str().expect("Valid UTF-8 path"))
 		})
 		.build()
-		.map_err(|e| {
-			let errs = e.into_iter().map(|e| e.to_string()).collect::<Vec<_>>().join(" ");
-			anyhow!("config errs: {errs}")
-		})?;
+		.map_err(format_build_errors)?;
 
 	let network = crate::utils::initialize_network(config).await?;
 	assert!(network.wait_until_is_up(60).await.is_ok());
