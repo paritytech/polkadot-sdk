@@ -1341,39 +1341,6 @@ mod benches {
 	// 	Ok(())
 	// }
 
-	// #[benchmark]
-	// fn market_sale_rotated() -> Result<(), BenchmarkError> {
-	// 	setup_and_start_sale::<T>()?;
-
-	// 	let config = new_config_record::<T>();
-	// 	let sale = SaleInfo::<T>::get().expect("Sale should be present at this point");
-	// 	let status = StatusRecord {
-	// 		core_count: 0,
-	// 		private_pool_size: 0,
-	// 		system_pool_size: 0,
-	// 		last_committed_timeslice: 0,
-	// 		last_timeslice: 0,
-	// 	};
-	// 	let block_number = RCBlockNumberProviderOf::<T::Coretime>::current_block_number();
-	// 	let mut actions = vec![];
-
-	// 	#[block]
-	// 	{
-	// 		market::sale_rotated::<T, Broker<T>>(
-	// 			sale,
-	// 			&config,
-	// 			&status,
-	// 			block_number,
-	// 			&mut actions,
-	// 		);
-	// 	}
-
-	// 	assert_eq!(actions.len(), 1);
-	// 	assert!(matches!(actions[0], TickAction::SaleRotated { .. }));
-
-	// 	Ok(())
-	// }
-
 	#[benchmark]
 	fn force_transfer() -> Result<(), BenchmarkError> {
 		setup_and_start_sale::<T>()?;

@@ -106,14 +106,10 @@ pub trait WeightInfo {
 	fn remove_assignment() -> Weight;
 	fn remove_potential_renewal() -> Weight;
 	fn force_transfer() -> Weight;
-	fn process_tick_action_bid_closed() -> Weight;
 	fn process_tick_action_renew_region() -> Weight;
 	fn process_tick_action_sell_region() -> Weight;
 	fn process_tick_action_refund() -> Weight;
 	fn process_tick_action_sale_rotated(n: u32) -> Weight;
-	fn process_tick_action_timeslice_commited(n: u32) -> Weight;
-	fn market_sale_rotated() -> Weight;
-	fn market_last_timeslice_changed() -> Weight;
 }
 
 /// Weights for `pallet_broker` using the Substrate node and recommended hardware.
@@ -577,10 +573,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().writes(1_u64))
 	}
 
-	fn process_tick_action_bid_closed() -> Weight {
-		Weight::zero()
-	}
-
 	fn process_tick_action_renew_region() -> Weight {
 		Weight::zero()
 	}
@@ -594,18 +586,6 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	}
 
 	fn process_tick_action_sale_rotated(n: u32) -> Weight {
-		Weight::zero()
-	}
-
-	fn process_tick_action_timeslice_commited(n: u32) -> Weight {
-		Weight::zero()
-	}
-
-	fn market_sale_rotated() -> Weight {
-		Weight::zero()
-	}
-
-	fn market_last_timeslice_changed() -> Weight {
 		Weight::zero()
 	}
 }
@@ -1070,10 +1050,6 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().writes(1_u64))
 	}
 
-	fn process_tick_action_bid_closed() -> Weight {
-		Weight::zero()
-	}
-
 	fn process_tick_action_renew_region() -> Weight {
 		Weight::zero()
 	}
@@ -1087,18 +1063,6 @@ impl WeightInfo for () {
 	}
 
 	fn process_tick_action_sale_rotated(n: u32) -> Weight {
-		Weight::zero()
-	}
-
-	fn process_tick_action_timeslice_commited(n: u32) -> Weight {
-		Weight::zero()
-	}
-	
-	fn market_sale_rotated() -> Weight {
-		Weight::zero()
-	}
-
-	fn market_last_timeslice_changed() -> Weight {
 		Weight::zero()
 	}
 }

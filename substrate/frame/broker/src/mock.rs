@@ -244,13 +244,13 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	type CoreRangeProvider = CoreRangeProviderImpl<Test>;
 	type TimesliceProvider = TimesliceProviderImpl<Test>;
 
-	fn configure(configuration: Self::Configuration) -> Result<(), Self::Error> {
+	fn configure(_configuration: Self::Configuration) -> Result<(), Self::Error> {
 		Ok(())
 	}
 
 	fn start_sales(
 		block_number: RelayBlockNumberOf<Test>,
-		init_data: Self::InitData,
+		_init_data: Self::InitData,
 	) -> Result<SalesStarted<RelayBlockNumberOf<Test>>, Self::Error> {
 		let config = new_config();
 		let cores = Self::CoreRangeProvider::core_range().expect("Failed to get core count");

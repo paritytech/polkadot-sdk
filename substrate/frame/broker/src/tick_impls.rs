@@ -195,6 +195,8 @@ impl<T: Config> Pallet<T> {
 				Self::refund(&who, amount).defensive_ok();
 			},
 			TickAction::ProcessAutoRenewals { after_timeslice, next_renewal_at } => {
+				// TODO: Consume weight.
+
 				Self::renew_cores(after_timeslice, next_renewal_at);
 			},
 			TickAction::SaleRotated { old_sale, new_sale } => {
