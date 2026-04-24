@@ -4960,6 +4960,13 @@ fn eip3607_reject_tx_from_contract_or_precompile() {
 				call.clone(),
 			);
 			assert_err!(result, DispatchError::BadOrigin);
+
+			let result = <Pallet<Test>>::eth_substrate_call(
+				Origin::EthTransaction(origin.clone()).into(),
+				call.clone(),
+				vec![],
+			);
+			assert_err!(result, DispatchError::BadOrigin);
 		}
 	});
 }
@@ -5029,6 +5036,13 @@ fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 					RuntimeOrigin::signed(origin.clone()),
 					binary.clone(),
 					<BalanceOf<Test>>::MAX,
+				);
+				assert_ok!(result);
+
+				let result = <Pallet<Test>>::eth_substrate_call(
+					Origin::EthTransaction(origin.clone()).into(),
+					Box::new(RuntimeCall::System(frame_system::Call::remark { remark: vec![] })),
+					vec![],
 				);
 				assert_ok!(result);
 			}
