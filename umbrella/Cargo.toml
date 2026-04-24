@@ -78,6 +78,7 @@ std = [
 	"pallet-bridge-parachains?/std",
 	"pallet-bridge-relayers?/std",
 	"pallet-broker?/std",
+	"pallet-coretime-market?/std",
 	"pallet-child-bounties?/std",
 	"pallet-collator-selection?/std",
 	"pallet-collective-content?/std",
@@ -280,6 +281,7 @@ runtime-benchmarks = [
 	"pallet-bridge-parachains?/runtime-benchmarks",
 	"pallet-bridge-relayers?/runtime-benchmarks",
 	"pallet-broker?/runtime-benchmarks",
+	"pallet-coretime-market?/runtime-benchmarks",
 	"pallet-child-bounties?/runtime-benchmarks",
 	"pallet-collator-selection?/runtime-benchmarks",
 	"pallet-collective-content?/runtime-benchmarks",
@@ -427,6 +429,7 @@ try-runtime = [
 	"pallet-bridge-parachains?/try-runtime",
 	"pallet-bridge-relayers?/try-runtime",
 	"pallet-broker?/try-runtime",
+	"pallet-coretime-market?/try-runtime",
 	"pallet-child-bounties?/try-runtime",
 	"pallet-collator-selection?/try-runtime",
 	"pallet-collective-content?/try-runtime",
@@ -643,6 +646,7 @@ runtime-full = [
 	"pallet-bridge-parachains",
 	"pallet-bridge-relayers",
 	"pallet-broker",
+	"pallet-coretime-market",
 	"pallet-child-bounties",
 	"pallet-collator-selection",
 	"pallet-collective",
@@ -1396,6 +1400,11 @@ path = "../bridges/modules/relayers"
 default-features = false
 optional = true
 path = "../substrate/frame/broker"
+
+[dependencies.pallet-coretime-market]
+default-features = false
+optional = true
+path = "../substrate/frame/coretime-market"
 
 [dependencies.pallet-child-bounties]
 default-features = false

@@ -82,9 +82,11 @@ mod benches {
 	fn adjust_bid() -> Result<(), BenchmarkError> {
 		setup_sale::<T>()?;
 		let max = T::MaxBids::get();
+		// Pick the last-inserted bidder — they hold the lowest price and their bid
+		// will shift across the whole sorted vec when raised (worst-case cost).
+		let caller: T::AccountId = account("bidder", max - 1, SEED);
 		fill_bids::<T>(max)?;
 
-		let caller: T::AccountId = account("bidder", 0, SEED);
 		let bid_id = pallet::Bids::<T>::get()
 			.iter()
 			.find(|b| b.who == caller)
