@@ -144,7 +144,7 @@ fn purchase_and_get_region_id<T: Config>(who: T::AccountId) -> Result<RegionId, 
 
 #[benchmarks]
 mod benches {
-	use frame_support::weights::WeightMeter;
+	use frame_support::{assert_ok, weights::WeightMeter};
 
 	use super::*;
 	use crate::Finality::*;
@@ -1085,6 +1085,7 @@ mod benches {
 
 	#[benchmark]
 	fn on_new_timeslice() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);
 
 		let caller: T::AccountId = whitelisted_caller();
@@ -1093,8 +1094,7 @@ mod benches {
 			T::Currency::minimum_balance().saturating_add(REGION_PRICE.into()),
 		);
 
-		let _region = purchase_and_get_region_id::<T>(caller.clone())
-			.expect("Offer not high enough for configuration.");
+		assert_ok!(Broker::<T>::do_purchase(caller.clone(), u32::MAX.into()));
 
 		let timeslice = Broker::<T>::current_timeslice();
 
@@ -1135,6 +1135,7 @@ mod benches {
 
 	#[benchmark]
 	fn remove_potential_renewal() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);
 
 		let caller: T::AccountId = whitelisted_caller();
