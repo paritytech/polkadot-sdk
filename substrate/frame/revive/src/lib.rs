@@ -1444,6 +1444,7 @@ pub mod pallet {
 			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
+			Self::ensure_non_contract_if_signed(&OriginFor::<T>::signed(signer.clone()))?;
 			let tx_len = transaction_encoded.len() as u32;
 			let weight_overhead = T::WeightInfo::eth_substrate_call(tx_len)
 				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(tx_len));
