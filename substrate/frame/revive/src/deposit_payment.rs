@@ -129,6 +129,17 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 		contract: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
+
+	/// Ensure that `contract` has a PGAS asset account so that balanced (event-emitting)
+	/// operations like `transfer` and `hold` work on it.
+	///
+	/// For the PGAS backend this mints the PGAS ED into the contract if it doesn't already
+	/// have a pallet-assets Account. The `()` backend is a no-op.
+	fn ensure_pgas_account(contract: &T::AccountId) -> DispatchResult;
+
+	/// Remove the PGAS asset account from `contract` by burning the PGAS ED that was minted
+	/// by [`Self::ensure_pgas_account`]. The `()` backend is a no-op.
+	fn cleanup_pgas_account(contract: &T::AccountId) -> DispatchResult;
 }
 
 /// Default backend: every storage deposit charge goes through the native currency.
@@ -226,6 +237,14 @@ impl<T: Config> Deposit<T> for () {
 	) -> DispatchResult {
 		Ok(())
 	}
+
+	fn ensure_pgas_account(_contract: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
+
+	fn cleanup_pgas_account(_contract: &T::AccountId) -> DispatchResult {
+		Ok(())
+	}
 }
 
 /// PGAS-backed payment backend. Charges prefer PGAS and fall back to the native currency;
@@ -321,9 +340,9 @@ where
 
 	/// Same asset-selection rule as [`Self::charge_ed`], applied to a transfer-and-hold.
 	///
-	/// The PGAS branch writes directly to the payer's free balance and the contract's hold
-	/// storage, so the contract never needs a `pallet_assets::Account` entry. This allows
-	/// deposits below the PGAS existential deposit to succeed.
+	/// The PGAS branch transfers PGAS from the payer to the contract (emitting a `Transferred`
+	/// event) and then holds it (emitting a `Held` event). The contract must have a PGAS
+	/// account created by [`Self::ensure_pgas_account`].
 	///
 	/// When `src` is [`Funds::TxFee`] (eth-tx dispatch), `amount` is withdrawn from the txfee
 	/// pool and placed on hold at `to` regardless of the payer's PGAS balance.
@@ -347,20 +366,18 @@ where
 		};
 
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
-			<Mutator as fungibles::Unbalanced<T::AccountId>>::decrease_balance(
+			<Mutator as fungibles::Mutate<T::AccountId>>::transfer(
 				Id::get(),
 				from,
+				to,
 				amount,
-				Precision::Exact,
 				Preservation::Preserve,
-				Fortitude::Polite,
 			)?;
-			<Holder as fungibles::hold::Unbalanced<T::AccountId>>::increase_balance_on_hold(
+			<Holder as fungibles::MutateHold<T::AccountId>>::hold(
 				Id::get(),
 				&reason.into(),
 				to,
 				amount,
-				Precision::Exact,
 			)?;
 			Ok(())
 		} else {
@@ -452,11 +469,7 @@ where
 	}
 
 	/// Burn the native hold at `contract` under `reason`, then mint the same amount of PGAS
-	/// directly onto a hold on `contract` under the same reason.
-	///
-	/// Writes to the holder pallet storage without creating a `pallet_assets::Account` for
-	/// the contract, so no existential deposit is minted alongside. The PGAS supply is
-	/// bumped by exactly `amount`; `burn_held` on refund/termination decrements it back.
+	/// into `contract` and place it on hold under the same reason.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
@@ -476,19 +489,46 @@ where
 			|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
 		)?;
 
-		let new_supply = <Mutator as fungibles::Inspect<T::AccountId>>::total_issuance(Id::get())
-			.saturating_add(amount);
-		<Mutator as fungibles::Unbalanced<T::AccountId>>::set_total_issuance(Id::get(), new_supply);
-		<Holder as fungibles::hold::Unbalanced<T::AccountId>>::increase_balance_on_hold(
+		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)?;
+		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
 			Id::get(),
 			&reason.into(),
 			contract,
 			amount,
-			Precision::Exact,
-		)
-		.inspect_err(
-			|err| log::debug!(target: LOG_TARGET, "Failed to hold amount: {amount:?}: {err:?}"),
 		)?;
+		Ok(())
+	}
+
+	fn ensure_pgas_account(contract: &T::AccountId) -> DispatchResult {
+		let pgas_ed =
+			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		let balance =
+			<Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
+		if balance.is_zero() {
+			<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+				Id::get(),
+				contract,
+				pgas_ed,
+			)?;
+		}
+		Ok(())
+	}
+
+	fn cleanup_pgas_account(contract: &T::AccountId) -> DispatchResult {
+		let pgas_ed =
+			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		let balance =
+			<Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
+		if !balance.is_zero() {
+			<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
+				Id::get(),
+				contract,
+				balance.min(pgas_ed),
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			)?;
+		}
 		Ok(())
 	}
 }
@@ -535,18 +575,20 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 				DepositConsequence::Success
 			);
 			if can_credit {
-				<Holder as fungibles::hold::Unbalanced<T::AccountId>>::decrease_balance_on_hold(
+				// Release held PGAS back to contract's free balance, then transfer to user.
+				<Holder as fungibles::MutateHold<T::AccountId>>::release(
 					Id::get(),
 					&reason.into(),
 					from,
 					refund,
 					Precision::Exact,
 				)?;
-				<Mutator as fungibles::Unbalanced<T::AccountId>>::increase_balance(
+				<Mutator as fungibles::Mutate<T::AccountId>>::transfer(
 					Id::get(),
+					from,
 					to,
 					refund,
-					Precision::Exact,
+					Preservation::Preserve,
 				)?;
 			} else {
 				burn = burn.saturating_add(refund);

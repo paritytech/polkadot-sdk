@@ -1361,6 +1361,61 @@ fn call_return_code() {
 	});
 }
 
+/// A PGAS-only origin (no DOT) can trigger a contract-to-new-account transfer.
+///
+/// Without the fix in `exec.rs::transfer`, this would fail with `StorageDepositNotEnoughFunds`
+/// because the old code hardcoded `T::Currency::transfer(origin, to, ed, ...)` which requires
+/// the origin to have native ED. The fix delegates to `T::Deposit::charge_ed` which uses PGAS
+/// to create the destination account when the origin has no DOT.
+#[test]
+fn pgas_origin_can_fund_ed_for_transfer_to_new_account() {
+	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
+	ExtBuilder::default()
+		.existential_deposit(50)
+		.with_pgas_balances(vec![(BOB, 1_000)])
+		.build()
+		.execute_with(|| {
+			let min_balance = Contracts::min_balance();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+
+			// Deploy contract (funded by ALICE who has DOT).
+			let contract = builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(min_balance * 100)
+				.build_and_unwrap_contract();
+
+			// BOB has PGAS but zero DOT.
+			assert_eq!(get_balance(&BOB), 0);
+			let bob_before = 1000;
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_before);
+
+			// BOB calls the contract which tries to transfer min_balance to DJANGO (non-existent).
+			// The contract has plenty of DOT to send, but the old code would require BOB
+			// (the origin) to provide native ED for DJANGO's account creation.
+			// With the fix, charge_ed uses BOB's PGAS instead.
+			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+			let result = builder::bare_call(contract.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&value.to_little_endian())
+						.cloned()
+						.collect(),
+				)
+				.origin(RuntimeOrigin::signed(BOB))
+				.build_and_unwrap_result();
+
+			assert_return_code!(result, RuntimeReturnCode::Success);
+			// DJANGO's account was created and received the transfer.
+			assert!(frame_system::Pallet::<Test>::account_exists(
+				&<Test as Config>::AddressMapper::to_account_id(&DJANGO_ADDR)
+			));
+			// Bob's PGAS balance is reduced by the PGAS ED (1), not the native ED (50),
+			// because charge_ed transfers the *PGAS* minimum balance to create the account.
+			let pgas_ed = 1u128; // default from ExtBuilder::pgas_min_balance
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_before - pgas_ed);
+		});
+}
+
 #[test]
 fn instantiate_return_code() {
 	let (caller_code, _caller_hash) = compile_module("instantiate_return_code").unwrap();

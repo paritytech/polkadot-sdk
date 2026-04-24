@@ -21,7 +21,7 @@ use crate::{
 	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
-	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
+	evm::{block_storage, transfer_with_dust},
 	limits,
 	metering::{ChargedAmount, Diff, FrameMeter, ResourceMeter, State, Token, TransactionMeter},
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
@@ -44,7 +44,7 @@ use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
 	traits::{
 		Time,
-		fungible::{Balanced as _, Inspect, Mutate},
+		fungible::{Inspect, Mutate},
 		tokens::Preservation,
 	},
 	weights::Weight,
@@ -1323,6 +1323,10 @@ where
 					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
 				}
 
+				// Ensure the contract has a PGAS asset account so that balanced
+				// (event-emitting) operations work for PGAS storage deposits.
+				T::Deposit::ensure_pgas_account(account_id)?;
+
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
 				// account must exist. With the consumer, a correct runtime cannot remove the
@@ -1667,24 +1671,10 @@ where
 		}
 
 		let origin = origin.account_id()?;
-		let ed = <T as Config>::Currency::minimum_balance();
-		let is_eth_tx = exec_config.collect_deposit_from_hold.is_some();
 		with_transaction(|| -> TransactionOutcome<DispatchResult> {
-			match meter
-				.charge_deposit(&StorageDeposit::Charge(ed))
-				.and_then(|_| {
-					if is_eth_tx {
-						let credit = T::FeeInfo::withdraw_txfee(ed)
-							.ok_or(Error::<T>::StorageDepositNotEnoughFunds)?;
-						T::Currency::resolve(to, credit)
-							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-						Ok(())
-					} else {
-						T::Currency::transfer(origin, to, ed, Preservation::Preserve)
-							.map(|_| ())
-							.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
-					}
-				})
+			match T::Deposit::charge_ed(exec_config.funds(origin), to)
+				.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds.into())
+				.and_then(|ed| meter.charge_deposit(&StorageDeposit::Charge(ed)))
 				.and_then(|_| transfer_with_dust::<T>(from, to, value, preservation))
 			{
 				Ok(_) => TransactionOutcome::Commit(Ok(())),
@@ -1739,6 +1729,9 @@ where
 				refund,
 				Some(exec_config),
 			)?;
+
+			// Burn the PGAS ED that was minted by ensure_pgas_account at instantiation.
+			T::Deposit::cleanup_pgas_account(&contract_account)?;
 
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);
