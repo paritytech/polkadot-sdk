@@ -30,11 +30,10 @@ use frame_support::{
 	},
 };
 use frame_system::{Pallet as System, RawOrigin};
-use sp_arithmetic::{FixedU64, Perbill};
 use sp_core::Get;
 use sp_runtime::{
 	traits::{BlockNumberProvider, MaybeConvert},
-	DispatchError, FixedPointNumber, Saturating,
+	DispatchError, Saturating,
 };
 
 const SEED: u32 = 0;
@@ -52,8 +51,20 @@ fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
 }
 
+fn get_pallet_events<T: Config>() -> Vec<Event<T>> {
+	frame_system::Pallet::<T>::events()
+		.into_iter()
+		.rev()
+		.filter_map(|event| (<T as Config>::RuntimeEvent::from(event.event)).try_into().ok())
+		.collect()
+}
+
 fn new_config_record<T: Config>() -> ConfigRecordOf<T> {
-	ConfigRecord { advance_notice: 2u32.into(), region_length: 3, contribution_timeout: 5 }
+	ConfigRecord {
+		advance_notice: 2u32.into(),
+		region_length: REGION_LENGTH,
+		contribution_timeout: 5,
+	}
 }
 
 fn new_schedule() -> Schedule {
@@ -122,12 +133,13 @@ fn purchase_and_get_region_id<T: Config>(who: T::AccountId) -> Result<RegionId, 
 	let price_limit = u32::MAX.into();
 	Broker::<T>::do_purchase(who, price_limit)?;
 
-	let begin = T::CoretimeMarket::get_region_begin().map_err(|_| Error::<T>::Uninitialized)?;
-	// TODO: Determine.
-	let core = 0; // sale.first_core.saturating_add(sale.cores_sold) - 1;
-	let mask = CoreMask::complete();
+	for event in get_pallet_events().into_iter().rev() {
+		if let Event::<T>::Purchased { region_id, .. } = event {
+			return Ok(region_id);
+		}
+	}
 
-	Ok(RegionId { begin, core, mask })
+	panic!("If do_purchase succeeded the Purchased event must've been deposited")
 }
 
 #[benchmarks]
@@ -310,7 +322,7 @@ mod benches {
 
 	#[benchmark]
 	fn renew() -> Result<(), BenchmarkError> {
-		let sale_data = setup_and_start_sale::<T>()?;
+		setup_and_start_sale::<T>()?;
 		let region_len = Configuration::<T>::get().unwrap().region_length;
 
 		advance_to::<T>(2);
@@ -318,7 +330,9 @@ mod benches {
 		let caller: T::AccountId = whitelisted_caller();
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add(REGION_PRICE.into()),
+			T::Currency::minimum_balance()
+				.saturating_add(REGION_RENEWAL_PRICE.into())
+				.saturating_add(REGION_PRICE.into()),
 		);
 
 		let region = purchase_and_get_region_id::<T>(caller.clone())
@@ -340,7 +354,7 @@ mod benches {
 
 	#[benchmark]
 	fn transfer() -> Result<(), BenchmarkError> {
-		let sale_data = setup_and_start_sale::<T>()?;
+		setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
 
@@ -631,7 +645,6 @@ mod benches {
 	fn drop_region() -> Result<(), BenchmarkError> {
 		let sale_data = setup_and_start_sale::<T>()?;
 		let core = sale_data.first_core;
-		let region_len = Configuration::<T>::get().unwrap().region_length;
 
 		advance_to::<T>(2);
 
@@ -645,7 +658,10 @@ mod benches {
 			.expect("Offer not high enough for configuration.");
 
 		advance_to::<T>(
-			(T::TimeslicePeriod::get() * (region_len * 4).into()).try_into().ok().unwrap(),
+			(T::TimeslicePeriod::get() * (REGION_LENGTH * 4).into())
+				.try_into()
+				.ok()
+				.unwrap(),
 		);
 
 		#[extrinsic_call]
@@ -959,7 +975,7 @@ mod benches {
 
 	#[benchmark]
 	fn enable_auto_renew() -> Result<(), BenchmarkError> {
-		let sale_data = setup_and_start_sale::<T>()?;
+		setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
 
@@ -992,7 +1008,9 @@ mod benches {
 		// Sovereign account needs sufficient funds to purchase and renew.
 		T::Currency::set_balance(
 			&caller.clone(),
-			T::Currency::minimum_balance().saturating_add((2 * REGION_PRICE as u32).into()),
+			T::Currency::minimum_balance()
+				.saturating_add(REGION_PRICE.into())
+				.saturating_add(REGION_RENEWAL_PRICE.into()),
 		);
 
 		// The region for which we benchmark enable auto renew.
@@ -1004,8 +1022,7 @@ mod benches {
 		// The most 'intensive' path is when we renew the core upon enabling auto-renewal.
 		// Therefore, we advance to next bulk sale:
 		let timeslice_period: u32 = T::TimeslicePeriod::get().try_into().ok().unwrap();
-		let config = Configuration::<T>::get().expect("Already configured.");
-		advance_to::<T>(config.region_length * timeslice_period);
+		advance_to::<T>(REGION_LENGTH * timeslice_period);
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(caller), region.core, 2001, None);
@@ -1091,7 +1108,7 @@ mod benches {
 
 	#[benchmark]
 	fn remove_assignment() -> Result<(), BenchmarkError> {
-		let sale_data = setup_and_start_sale::<T>()?;
+		setup_and_start_sale::<T>()?;
 
 		advance_to::<T>(2);
 
@@ -1358,7 +1375,7 @@ mod benches {
 
 	#[benchmark]
 	fn force_transfer() -> Result<(), BenchmarkError> {
-		let sale_data = setup_and_start_sale::<T>()?;
+		setup_and_start_sale::<T>()?;
 		advance_to::<T>(2);
 
 		let caller: T::AccountId = whitelisted_caller();

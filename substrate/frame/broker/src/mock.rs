@@ -367,10 +367,10 @@ impl Market<RelayBlockNumberOf<Test>, BalanceOf<Test>, AccountIdFor<Test>> for M
 	}
 
 	fn adjust_bid(
-		block_number: RelayBlockNumberOf<Test>,
-		id: Self::BidId,
-		who: &AccountIdFor<Test>,
-		new_price: Option<BalanceOf<Test>>,
+		_block_number: RelayBlockNumberOf<Test>,
+		_id: Self::BidId,
+		_who: &AccountIdFor<Test>,
+		_new_price: Option<BalanceOf<Test>>,
 	) -> Result<AdjustBidResult<BalanceOf<Test>>, Self::Error> {
 		unimplemented!()
 	}
