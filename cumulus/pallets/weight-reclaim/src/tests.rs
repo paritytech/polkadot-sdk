@@ -370,10 +370,7 @@ fn negative_refund_is_added_to_weight() {
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(post_info.actual_weight.unwrap(), info.total_weight());
-		assert_eq!(
-			get_storage_weight().proof_size(),
-			1100 + info.total_weight().proof_size()
-		);
+		assert_eq!(get_storage_weight().proof_size(), 1100 + info.total_weight().proof_size());
 	})
 }
 
@@ -415,7 +412,7 @@ fn test_larger_pre_dispatch_proof_size() {
 
 		let tx_ext = new_tx_ext();
 
-		// Adds 500 + 150 (len) weight, total weight is 1950
+		// Adds 500 weight, total weight is 1800
 		let (pre, _) = tx_ext
 			.validate_and_prepare(ALICE_ORIGIN.clone().into(), CALL, &info, LEN, 0)
 			.unwrap();
@@ -423,14 +420,14 @@ fn test_larger_pre_dispatch_proof_size() {
 		assert_eq!(pre.0, Some(300));
 
 		// check weight:
-		// Refund 500 unspent weight according to `post_info`, total weight is now 1650
+		// Refund 500 unspent weight according to `post_info`, total weight is now 1500
 		//
 		// storage reclaim:
-		// Recorded proof size is negative -200, total weight is now 1450
+		// Recorded proof size is negative -200, total weight is now 1300
 		assert_ok!(Tx::post_dispatch(pre, &info, &mut post_info, LEN, &Ok(())));
 
 		assert_eq!(post_info.actual_weight.unwrap(), Weight::from_parts(0, 0));
-		assert_eq!(get_storage_weight().proof_size(), 1450);
+		assert_eq!(get_storage_weight().proof_size(), 1300);
 	});
 }
 
@@ -582,8 +579,7 @@ fn test_series() {
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(0, 0),
 			assert_post_info_weight: None,
-			assert_block_weight_post_dispatch: base_extrinsic +
-				Weight::from_parts(1100, 1300),
+			assert_block_weight_post_dispatch: base_extrinsic + Weight::from_parts(1100, 1300),
 		},
 		// some tx ext refund is ignored, because post info is None.
 		TestCfg {
@@ -595,8 +591,7 @@ fn test_series() {
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(20, 20),
 			assert_post_info_weight: None,
-			assert_block_weight_post_dispatch: base_extrinsic +
-				Weight::from_parts(1100, 1300),
+			assert_block_weight_post_dispatch: base_extrinsic + Weight::from_parts(1100, 1300),
 		},
 		// some tx ext refund is ignored on proof size because lower than actual measure.
 		TestCfg {
@@ -608,8 +603,7 @@ fn test_series() {
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(20, 20),
 			assert_post_info_weight: Some(Weight::from_parts(80, 300)),
-			assert_block_weight_post_dispatch: base_extrinsic +
-				Weight::from_parts(1080, 1300),
+			assert_block_weight_post_dispatch: base_extrinsic + Weight::from_parts(1080, 1300),
 		},
 		// post info doesn't double refund the call and is missing some.
 		TestCfg {
@@ -622,8 +616,7 @@ fn test_series() {
 			mock_ext_refund: Weight::from_parts(20, 20),
 			// 50 are missed in pov because 100 is unspent in post info but it should be only 50.
 			assert_post_info_weight: Some(Weight::from_parts(40, 200)),
-			assert_block_weight_post_dispatch: base_extrinsic +
-				Weight::from_parts(1040, 1250),
+			assert_block_weight_post_dispatch: base_extrinsic + Weight::from_parts(1040, 1250),
 		},
 		// post info doesn't double refund the call and is accurate.
 		TestCfg {
@@ -635,8 +628,7 @@ fn test_series() {
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(20, 20),
 			assert_post_info_weight: Some(Weight::from_parts(40, 150)),
-			assert_block_weight_post_dispatch: base_extrinsic +
-				Weight::from_parts(1040, 1150),
+			assert_block_weight_post_dispatch: base_extrinsic + Weight::from_parts(1040, 1150),
 		},
 		// post info doesn't double refund the call and is accurate. Even if mock ext is refunding
 		// too much.
@@ -649,8 +641,7 @@ fn test_series() {
 			block_weight_pre_dispatch: Weight::from_parts(1000, 1000),
 			mock_ext_refund: Weight::from_parts(20, 300),
 			assert_post_info_weight: Some(Weight::from_parts(40, 150)),
-			assert_block_weight_post_dispatch: base_extrinsic +
-				Weight::from_parts(1040, 1150),
+			assert_block_weight_post_dispatch: base_extrinsic + Weight::from_parts(1040, 1150),
 		},
 	];
 

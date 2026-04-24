@@ -241,7 +241,9 @@ where
 			// If we encounter a situation where the node-side proof size is already higher than
 			// what we have in the runtime bookkeeping, we add the difference to the `BlockWeight`.
 			// This prevents that the proof size grows faster than the runtime proof size.
-			let block_size = frame_system::BlockSize::<T>::get().unwrap_or(0);
+			let block_size = frame_system::BlockSize::<T>::get()
+				.unwrap_or(0)
+				.saturating_sub(len as u32);
 			let node_side_pov_size = proof_size_after_dispatch.saturating_add(block_size.into());
 			let block_weight_proof_size = current_weight.total().proof_size();
 			let pov_size_missing_from_node =
