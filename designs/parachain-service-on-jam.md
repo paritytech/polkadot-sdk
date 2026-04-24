@@ -25,8 +25,8 @@
    - 6.2 [Forced Updates (Recovery)](#62-forced-updates-recovery)
    - 6.3 [Clean-up (Deregistration)](#63-clean-up-deregistration)
 7. [Authorization & Coretime](#7-authorization-coretime)
-   - 7.3 [Authorizer Design: AURA Example](#73-authorizer-design-aura-example)
-   - 7.4 [On-Demand Parachains](#74-on-demand-parachains)
+   - 7.1 [Authorizer Design: AURA Example](#71-authorizer-design-aura-example)
+   - 7.2 [On-Demand Parachains](#72-on-demand-parachains)
 8. [Messaging](#8-messaging)
 9. [Missing JAM / Gray Paper Features](#9-missing-jam-gray-paper-features)
 10. [References](#10-references)
@@ -196,11 +196,11 @@ enum ParachainError {
 }
 
 struct PvfEntry {
-	/// Length of the solicited preimage, used when forgetting it later.
-	code_len: u32,
-	/// Number of parachains currently referencing this validation code.
-	/// When this drops to zero the preimage can be released immediately.
-	ref_count: u32,
+    /// Length of the solicited preimage, used when forgetting it later.
+    code_len: u32,
+    /// Number of parachains currently referencing this validation code.
+    /// When this drops to zero the preimage can be released immediately.
+    ref_count: u32,
 }
 
 struct ParaInfo {
@@ -227,7 +227,10 @@ struct ParachainWorkItem {
     validation_code_hash: ValidationCodeHash,
 
     /// The Proof-of-Validity (PoV) — the actual block data + witness.
-    /// This is the large input to Refine (up to ~15 MB per slot across all items).
+    /// This is the large input to Refine. Its upper bound is set by JAM's
+    /// work-bundle budget (~13.6 MB, shared with authtoken, authconfig,
+    /// extrinsics, and imports) minus whatever the package uses for
+    /// everything else.
     pov: Vec<u8>,
 }
 ```
@@ -236,7 +239,7 @@ Initially, each work package will contain a single work item (one parachain cand
 Support for multiple items per package may be added later.
 
 The `ParaId` for each work item is **not** stored in the work item itself. Instead, it is
-sourced from the authorizer config, which is pinned by the Coretime chain (see §7.3). The
+sourced from the authorizer config, which is pinned by the Coretime chain (see §7.1). The
 Parachain Service enforces that every authorizer config begins with a `Vec<ParaId>` whose
 length matches the number of work items in the package, so that work item `i` is
 authoritatively bound to `authorized_paras[i]`. Refine reads this prefix via `auth_config()`
@@ -244,8 +247,9 @@ and uses it to populate `ParachainWorkResult.para_id`.
 
 ### 3.3 Refine Result
 
-The Parachain Service's Refine function returns a parachain work result per work item. This result is forwarded to `accumulate`.
-From the service's perspective, Refine either succeeds or fails:
+The Parachain Service's Refine function returns a parachain work result per work item.
+This result is forwarded to Accumulate. From the service's perspective, Refine either
+succeeds or fails:
 
 ```rust
 /// The Parachain Service's Refine output for one parachain candidate.
@@ -339,7 +343,7 @@ The Refine entry point of the Parachain Service executes the **Parachain Validat
 Refine:
 1. Reads the authorizer config via `auth_config()` and decodes the `authorized_paras`
    prefix; enforces `len(authorized_paras) == len(workitems)` and rejects the package
-   otherwise (see §7.3).
+   otherwise (see §7.1).
 2. For each work item `i`, takes `para_id = authorized_paras[i]` as authoritative.
 3. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
 4. Instantiates a child PVM with the PVF.
@@ -400,16 +404,17 @@ These produce effects carried in the work result and applied by Accumulate:
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
 | `request_code_upgrade(hash: ValidationCodeHash)` | `()` | Signal a PVF code upgrade request (see §5.2) |
-| `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (AssetHub only) |
+| `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
-| `set_validator_keys(keys: Vec<ValidatorKey>)` | `()` | Write the upcoming validator keys to JAM's `stagingset` (AssetHub only). Keys take effect two epoch transitions later, after flowing through `pendingset → activeset`. |
-| `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (AssetHub only) |
+| `set_validator_keys(keys: Vec<ValidatorKey>)` | `()` | Write the upcoming validator keys to JAM's `stagingset` (Asset Hub only). Keys take effect two epoch transitions later, after flowing through `pendingset → activeset`. |
+| `consume_transfers_up_to(index: u32)` | `()` | Mark all incoming transfers up to `index` as consumed. Accumulate prunes processed entries. When the queue is empty, index resets to 0. (Asset Hub only) |
 | `report_error(data: BoundedVec<u8, 1024>)` | `()` | Provide an opaque error payload (max 1024 bytes) before aborting the execution of the PVF. Stored per-parachain by Accumulate (see §3.3). |
 | `parachain_set_head(para_id: ParaId, new_head: HeadData)` | `()` | Upsert a parachain's head data (Coretime chain only). Used for both initial registration and recovery from a stuck chain. See §6. |
 | `parachain_set_validation_code(para_id: ParaId, new_validation_code_hash: ValidationCodeHash)` | `()` | Upsert a parachain's validation code, bypassing the normal upgrade lifecycle (Coretime chain only). Used for both initial registration and forced code replacement. See §6. |
 | `parachain_clean_up(para_id: ParaId)` | `()` | Remove all per-parachain state (Coretime chain only). See §6. |
 
-Host functions that are tailored to a special parachain will lead to abortion if called by not authorized parachains.
+Host functions that are restricted to specific services (e.g. Coretime chain, Asset Hub)
+will abort with an error when called by any other service.
 
 ---
 
@@ -538,13 +543,14 @@ Phase 5: Activation or Rejection
 - **Timeout protection**: The deadline prevents parachains from indefinitely occupying
   preimage store space with unused code. `UPGRADE_TIMEOUT` is set to **24 hours**, which
   should be sufficient for the preimage to be submitted to JAM after solicitation.
+
 ---
 
 ## 6. Parachain Management
 
 Parachain lifecycle and management is driven by the **Coretime chain**, which owns the
-policy layer: ParaId allocation, deposits, and deciding when it is
-valid to create, overwrite, or clean up a parachain's state.
+policy layer: ParaId allocation, deposits, and deciding when to create, overwrite, or
+clean up a parachain's state.
 
 The Parachain Service itself deliberately exposes only three low-level, idempotent host
 functions. Registration, forced updates, and deregistration all map onto them:
@@ -647,7 +653,7 @@ For the Parachain Service, the ownership boundary is:
 - JAM's `is_authorized` invocation then checks a work-package token against one of the
   authorizers currently in the core's authorizer pool.
 
-### 7.3 Authorizer Design: AURA Example
+### 7.1 Authorizer Design: AURA Example
 
 The authorizer is a single piece of PVM code (≤ 64 KB) deployed once as a preimage and
 reused across all cores. Per-core behavior is controlled by the **config blob** (`pf`),
@@ -679,7 +685,7 @@ the pool and queue as long as the collator set, slot duration, and `authorized_p
 remain unchanged.
 
 When a parachain wants to **rotate its collator set** or **change its slot duration**, it
-announces this to the Coretime Chain. 
+announces this to the Coretime chain.
 
 #### Authorization Token
 
@@ -721,8 +727,9 @@ Independently of the authorizer code, the Parachain Service's **Refine wrapper**
 #### Anchor Selection and Slot Claiming
 
 The collator picks an anchor block (one of the last 8 JAM blocks) whose timeslot maps
-to their collator index. Since the authorizer pool holds 8 entries — all with the
-**same** authorizer hash — the collator can pick any of the 8 recent anchors.
+to their collator index. In steady-state AURA the authorizer queue is filled with the
+**same** authorizer hash, so the pool's 8 entries are all the same hash and the collator
+can pick any of the 8 recent anchors.
 
 This has a consequence: for **small collator sets** (< 8 collators), a collator could
 claim **two consecutive blocks** by choosing different anchor blocks whose timeslots
@@ -741,22 +748,22 @@ read by slashing logic of the parachain.
 ```
 Parachain runtime
     │  Decides to rotate collator set (e.g. via session change)
-    │  Sends XCM to Coretime Chain with new collator set root + size
+    │  Sends XCM to Coretime chain with new collator set root + size
     ▼
-Coretime Chain
-    │  calls set_authorizer_queue(core, authorizers, mode)
+Coretime chain
+    │  calls set_authorizer_queue(core, authorizers, mode, new_assigner)
     │  (new authorizer hashes computed from same code + updated config)
     ▼
 Parachain Service (Accumulate)
-    │  assign(core, new_queue)
+    │  assign(core, new_queue, new_assigner)
     │  New authorizer hashes enter the pool via queue rotation
     ▼
-Pool (8 entries)
+Pool (up to 8 entries)
     │  Old authorizer hashes drain out over ~8 blocks (48s)
     │  New ones rotate in
 ```
 
-### 7.4 On-Demand Parachains
+### 7.2 On-Demand Parachains
 
 On-demand coretime is not a special case for the Parachain Service — it is handled
 entirely by the **Coretime chain**. When someone buys a single-slot coretime allocation,
@@ -831,15 +838,14 @@ The current design assumes two pieces of context that are not yet clearly expose
 host interface and therefore likely need either specification work or an explicit embedding into the
 Parachain Service protocol:
 
-1. **Anchor timeslot access**: the authorizer wants direct access to the anchor block's timeslot in
-   order to derive the expected collator index. If this is not provided in the refinement context,
-   JAM likely needs a dedicated host function or an equivalent context field.
-2. **Lookup-anchor posterior state root access**: Parachain validation flows will need the
-   posterior state root associated with the lookup anchor, not just its hash and timeslot.
-
-The authorizer needs anchor-timeslot access in order to derive the expected collator slot, and parachain
-validation is likely to need the lookup-anchor posterior state root for state-proof reuse and retry
-scenarios where an earlier work package failed to make it on-chain despite having a reusable PoV.
+1. **Anchor timeslot access**: the authorizer needs direct access to the anchor block's
+   timeslot in order to derive the expected collator index. If this is not provided in the
+   refinement context, JAM likely needs a dedicated host function or an equivalent context
+   field.
+2. **Lookup-anchor posterior state root access**: parachain validation flows will need the
+   posterior state root associated with the lookup anchor, not just its hash and timeslot,
+   to support state-proof reuse and retry scenarios where an earlier work package failed
+   to make it on-chain despite having a reusable PoV.
 
 ---
 
