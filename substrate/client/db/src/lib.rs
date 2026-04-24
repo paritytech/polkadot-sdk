@@ -697,6 +697,30 @@ impl<Block: BlockT> BlockchainDb<Block> {
 		}
 		Ok(None)
 	}
+
+	fn block_indexed_hashes_iter(
+		&self,
+		hash: Block::Hash,
+	) -> ClientResult<Option<impl Iterator<Item = DbHash>>> {
+		let Some(body) = read_db(
+			&*self.db,
+			columns::KEY_LOOKUP,
+			columns::BODY_INDEX,
+			BlockId::<Block>::Hash(hash),
+		)?
+		else {
+			return Ok(None);
+		};
+		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
+			Ok(index) => Ok(Some(index.into_iter().flat_map(|ex| match ex {
+				DbExtrinsic::Indexed { hash, .. } => Some(hash),
+				_ => None,
+			}))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
+			},
+		}
+	}
 }
 
 impl<Block: BlockT> sc_client_api::blockchain::HeaderBackend<Block> for BlockchainDb<Block> {
@@ -782,44 +806,32 @@ impl<Block: BlockT> sc_client_api::blockchain::Backend<Block> for BlockchainDb<B
 		children::read_children(&*self.db, columns::META, meta_keys::CHILDREN_PREFIX, parent_hash)
 	}
 
-	fn indexed_transaction(&self, hash: Block::Hash) -> ClientResult<Option<Vec<u8>>> {
+	fn indexed_transaction(&self, hash: DbHash) -> ClientResult<Option<Vec<u8>>> {
 		Ok(self.db.get(columns::TRANSACTION, hash.as_ref()))
 	}
 
-	fn has_indexed_transaction(&self, hash: Block::Hash) -> ClientResult<bool> {
+	fn has_indexed_transaction(&self, hash: DbHash) -> ClientResult<bool> {
 		Ok(self.db.contains(columns::TRANSACTION, hash.as_ref()))
 	}
 
+	fn block_indexed_hashes(&self, hash: Block::Hash) -> ClientResult<Option<Vec<DbHash>>> {
+		self.block_indexed_hashes_iter(hash).map(|hashes| hashes.map(Iterator::collect))
+	}
+
 	fn block_indexed_body(&self, hash: Block::Hash) -> ClientResult<Option<Vec<Vec<u8>>>> {
-		let body = match read_db(
-			&*self.db,
-			columns::KEY_LOOKUP,
-			columns::BODY_INDEX,
-			BlockId::<Block>::Hash(hash),
-		)? {
-			Some(body) => body,
-			None => return Ok(None),
-		};
-		match Vec::<DbExtrinsic<Block>>::decode(&mut &body[..]) {
-			Ok(index) => {
-				let mut transactions = Vec::new();
-				for ex in index.into_iter() {
-					if let DbExtrinsic::Indexed { hash, .. } = ex {
-						match self.db.get(columns::TRANSACTION, hash.as_ref()) {
-							Some(t) => transactions.push(t),
-							None => {
-								return Err(sp_blockchain::Error::Backend(format!(
-									"Missing indexed transaction {hash:?}",
-								)))
-							},
-						}
-					}
-				}
-				Ok(Some(transactions))
-			},
-			Err(err) => {
-				Err(sp_blockchain::Error::Backend(format!("Error decoding body list: {err}")))
-			},
+		match self.block_indexed_hashes_iter(hash) {
+			Ok(Some(hashes)) => Ok(Some(
+				hashes
+					.map(|hash| match self.db.get(columns::TRANSACTION, hash.as_ref()) {
+						Some(t) => Ok(t),
+						None => Err(sp_blockchain::Error::Backend(format!(
+							"Missing indexed transaction {hash:?}",
+						))),
+					})
+					.collect::<Result<_, _>>()?,
+			)),
+			Ok(None) => Ok(None),
+			Err(err) => Err(err),
 		}
 	}
 }
@@ -1361,6 +1373,30 @@ impl<Block: BlockT> Backend<Block> {
 				is_finalized: true,
 				with_state: true,
 			});
+		}
+
+		// Non archive nodes cannot fill the missing block gap with bodies.
+		// If the gap is present, it means that every restart will try to fill the gap:
+		// - a block request is made for each and every block in the gap
+		// - the request is fulfilled putting pressure on the network and other nodes
+		// - upon receiving the block, the block cannot be executed since the state
+		//  of the parent block might have been discarded
+		// - then the sync engine closes the gap in memory, but never in DB.
+		//
+		// This leads to inefficient syncing and high CPU usage on every restart. To mitigate this,
+		// remove the gap from the DB if we detect it and the current node is not an archive.
+		match (backend.is_archive, info.block_gap) {
+			(false, Some(gap)) if matches!(gap.gap_type, BlockGapType::MissingBody) => {
+				warn!(
+					"Detected a missing body gap for non-archive nodes. Removing the gap={:?}",
+					gap
+				);
+
+				db_init_transaction.remove(columns::META, meta_keys::BLOCK_GAP);
+				db_init_transaction.remove(columns::META, meta_keys::BLOCK_GAP_VERSION);
+				backend.blockchain.update_block_gap(None);
+			},
+			_ => {},
 		}
 
 		db.commit(db_init_transaction)?;
@@ -5494,5 +5530,161 @@ pub(crate) mod tests {
 		// Blocks 3 and 4 are within the pruning window
 		assert!(bc.body(blocks[3]).unwrap().is_some());
 		assert!(bc.body(blocks[4]).unwrap().is_some());
+	}
+
+	/// Insert a header without body as best block. This triggers `MissingBody` gap creation
+	/// when the parent header exists and `create_gap` is true.
+	fn insert_header_no_body_as_best(
+		backend: &Backend<Block>,
+		number: u64,
+		parent_hash: H256,
+	) -> H256 {
+		use sp_runtime::testing::Digest;
+
+		let digest = Digest::default();
+		let header = Header {
+			number,
+			parent_hash,
+			state_root: Default::default(),
+			digest,
+			extrinsics_root: Default::default(),
+		};
+
+		let mut op = backend.begin_operation().unwrap();
+		// body = None triggers MissingBody gap when parent exists
+		op.set_block_data(header.clone(), None, None, None, NewBlockState::Best, true)
+			.unwrap();
+		backend.commit_operation(op).unwrap();
+
+		header.hash()
+	}
+
+	/// Re-open a backend from an existing database with the given blocks pruning mode.
+	fn reopen_backend(
+		db: Arc<dyn sp_database::Database<DbHash>>,
+		blocks_pruning: BlocksPruning,
+	) -> Backend<Block> {
+		let state_pruning = match blocks_pruning {
+			BlocksPruning::KeepAll => PruningMode::ArchiveAll,
+			BlocksPruning::KeepFinalized => PruningMode::ArchiveCanonical,
+			BlocksPruning::Some(n) => PruningMode::blocks_pruning(n),
+		};
+		Backend::<Block>::new(
+			DatabaseSettings {
+				trie_cache_maximum_size: Some(16 * 1024 * 1024),
+				state_pruning: Some(state_pruning),
+				source: DatabaseSource::Custom { db, require_create_flag: false },
+				blocks_pruning,
+				pruning_filters: Default::default(),
+				metrics_registry: None,
+			},
+			0,
+		)
+		.unwrap()
+	}
+
+	#[test]
+	fn missing_body_gap_is_removed_for_non_archive_node() {
+		// Create a non-archive backend and produce a multi-block MissingBody gap.
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(100), 0);
+		assert!(!backend.is_archive);
+
+		let genesis_hash = insert_header(&backend, 0, Default::default(), None, Default::default());
+
+		// Insert blocks 1..3 without bodies — creates a MissingBody gap spanning blocks 1 to 3.
+		let hash_1 = insert_header_no_body_as_best(&backend, 1, genesis_hash);
+		let hash_2 = insert_header_no_body_as_best(&backend, 2, hash_1);
+		insert_header_no_body_as_best(&backend, 3, hash_2);
+
+		let info = backend.blockchain().info();
+		assert!(info.block_gap.is_some(), "MissingBody gap should have been created");
+		let gap = info.block_gap.unwrap();
+		assert!(matches!(gap.gap_type, BlockGapType::MissingBody));
+		assert_eq!(gap.start, 1);
+		assert_eq!(gap.end, 3);
+
+		// Re-open the same database as a non-archive node.
+		let db = backend.storage.db.clone();
+		let backend = reopen_backend(db, BlocksPruning::Some(100));
+		assert!(!backend.is_archive);
+
+		// The multi-block gap should have been removed on re-open.
+		let info = backend.blockchain().info();
+		assert!(
+			info.block_gap.is_none(),
+			"MissingBody gap should be removed for non-archive nodes, got: {:?}",
+			info.block_gap,
+		);
+	}
+
+	#[test]
+	fn missing_body_gap_is_preserved_for_archive_node() {
+		// Create a backend with archive pruning and produce a multi-block MissingBody gap.
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::KeepAll, 0);
+		assert!(backend.is_archive);
+
+		let genesis_hash = insert_header(&backend, 0, Default::default(), None, Default::default());
+
+		// Insert blocks 1..3 without bodies — creates a MissingBody gap spanning blocks 1 to 3.
+		let hash_1 = insert_header_no_body_as_best(&backend, 1, genesis_hash);
+		let hash_2 = insert_header_no_body_as_best(&backend, 2, hash_1);
+		insert_header_no_body_as_best(&backend, 3, hash_2);
+
+		let info = backend.blockchain().info();
+		assert!(info.block_gap.is_some(), "MissingBody gap should have been created");
+		let gap = info.block_gap.unwrap();
+		assert!(matches!(gap.gap_type, BlockGapType::MissingBody));
+		assert_eq!(gap.start, 1);
+		assert_eq!(gap.end, 3);
+
+		// Re-open the same database as an archive node.
+		let db = backend.storage.db.clone();
+		let backend = reopen_backend(db, BlocksPruning::KeepAll);
+		assert!(backend.is_archive);
+
+		// The gap should be preserved for archive nodes.
+		let info = backend.blockchain().info();
+		assert!(info.block_gap.is_some(), "MissingBody gap should be preserved for archive nodes",);
+		let gap = info.block_gap.unwrap();
+		assert!(matches!(gap.gap_type, BlockGapType::MissingBody));
+		assert_eq!(gap.start, 1);
+		assert_eq!(gap.end, 3);
+	}
+
+	#[test]
+	fn missing_header_and_body_gap_is_preserved_for_non_archive_node() {
+		// Create a non-archive backend and produce a MissingHeaderAndBody gap (from warp sync).
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(100), 0);
+		assert!(!backend.is_archive);
+
+		let _genesis_hash =
+			insert_header(&backend, 0, Default::default(), None, Default::default());
+
+		// Insert a disconnected block at height 3 with a fake parent to create a
+		// MissingHeaderAndBody gap (blocks 1..2 are missing).
+		insert_disconnected_header(&backend, 3, H256::from([200; 32]), Default::default(), true);
+
+		let info = backend.blockchain().info();
+		assert!(info.block_gap.is_some(), "Gap should have been created");
+		let gap = info.block_gap.unwrap();
+		assert!(matches!(gap.gap_type, BlockGapType::MissingHeaderAndBody));
+		assert_eq!(gap.start, 1);
+		assert_eq!(gap.end, 2);
+
+		// Re-open the same database as a non-archive node.
+		let db = backend.storage.db.clone();
+		let backend = reopen_backend(db, BlocksPruning::Some(100));
+		assert!(!backend.is_archive);
+
+		// The MissingHeaderAndBody gap should NOT be removed — only MissingBody gaps are removed.
+		let info = backend.blockchain().info();
+		assert!(
+			info.block_gap.is_some(),
+			"MissingHeaderAndBody gap should be preserved for non-archive nodes",
+		);
+		let gap = info.block_gap.unwrap();
+		assert!(matches!(gap.gap_type, BlockGapType::MissingHeaderAndBody));
+		assert_eq!(gap.start, 1);
+		assert_eq!(gap.end, 2);
 	}
 }

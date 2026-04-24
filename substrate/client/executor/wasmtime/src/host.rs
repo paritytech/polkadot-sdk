@@ -19,12 +19,11 @@
 //! This module defines `HostState` and `HostContext` structs which provide logic and state
 //! required for execution of host.
 
-use wasmtime::Caller;
-
-use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
-use sp_wasm_interface::{Pointer, WordSize};
-
 use crate::{instance_wrapper::MemoryWrapper, runtime::StoreData, util};
+use sc_allocator::{AllocationStats, FreeingBumpHeapAllocator};
+use sp_virtualization::VirtManager;
+use sp_wasm_interface::{Pointer, WordSize};
+use wasmtime::Caller;
 
 /// The state required to construct a HostContext context. The context only lasts for one host
 /// call, whereas the state is maintained for the duration of a Wasm runtime call, which may make
@@ -38,6 +37,8 @@ pub struct HostState {
 	pub(crate) allocator: Option<FreeingBumpHeapAllocator>,
 	panic_message: Option<String>,
 	pub(crate) input_data: Option<Vec<u8>>,
+	/// Manages virtualization instances spawned by the runtime.
+	virt_manager: VirtManager,
 }
 
 impl HostState {
@@ -47,6 +48,7 @@ impl HostState {
 			allocator: Some(allocator),
 			panic_message: None,
 			input_data: Some(input_data.as_ref().to_vec()),
+			virt_manager: VirtManager::default(),
 		}
 	}
 
@@ -80,7 +82,7 @@ impl<'a> HostContext<'a> {
 
 impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 	fn read_memory_into(
-		&self,
+		&mut self,
 		address: Pointer<u8>,
 		dest: &mut [u8],
 	) -> sp_wasm_interface::Result<()> {
@@ -144,5 +146,9 @@ impl<'a> sp_wasm_interface::FunctionContext for HostContext<'a> {
 		assert_eq!(input_data.len(), size as usize, "input data length mismatch");
 		self.write_memory(ptr, &input_data[..])?;
 		Ok(())
+	}
+
+	fn virtualization(&mut self) -> &mut dyn sp_wasm_interface::Virtualization {
+		&mut self.host_state_mut().virt_manager
 	}
 }

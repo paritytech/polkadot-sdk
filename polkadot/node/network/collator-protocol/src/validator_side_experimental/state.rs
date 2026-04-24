@@ -38,7 +38,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util::{request_session_index_for_child, runtime::recv_runtime};
 use polkadot_primitives::{
-	BlockNumber, CandidateReceiptV2 as CandidateReceipt, Hash, Id as ParaId,
+	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Id as ParaId,
 };
 use std::time::Duration;
 
@@ -222,12 +223,13 @@ impl<B: Backend> State<B> {
 		&mut self,
 		sender: &mut Sender,
 		peer_id: PeerId,
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		maybe_prospective_candidate: Option<ProspectiveCandidate>,
+		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 	) {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?scheduling_parent,
 			?maybe_prospective_candidate,
 			?peer_id,
 			"Received advertisement",
@@ -236,7 +238,7 @@ impl<B: Backend> State<B> {
 		let Some(PeerInfo { state, .. }) = self.peer_manager.peer_info(&peer_id) else {
 			gum::warn!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?peer_id,
 				?maybe_prospective_candidate,
 				"Received an advertisement from an unconnected peer"
@@ -248,7 +250,7 @@ impl<B: Backend> State<B> {
 		let PeerState::Collating(para_id) = state else {
 			gum::debug!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?maybe_prospective_candidate,
 				?peer_id,
 				"Received advertisement for undeclared peer",
@@ -267,8 +269,9 @@ impl<B: Backend> State<B> {
 				Advertisement {
 					peer_id,
 					para_id: *para_id,
-					scheduling_parent: relay_parent,
+					scheduling_parent,
 					prospective_candidate: maybe_prospective_candidate,
+					advertised_descriptor_version,
 				},
 			)
 			.await
@@ -276,7 +279,7 @@ impl<B: Backend> State<B> {
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
@@ -287,7 +290,7 @@ impl<B: Backend> State<B> {
 			Ok(()) => {
 				gum::debug!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?maybe_prospective_candidate,
 					?peer_id,
 					?para_id,
@@ -327,18 +330,17 @@ impl<B: Backend> State<B> {
 			);
 		}
 
-		let can_second = self.collation_manager.note_fetched(sender, res).await;
+		let collation_version = self.peer_manager.get_peer_protocol_version(&advertisement.peer_id);
+		let can_second = self.collation_manager.note_fetched(sender, res, collation_version).await;
 
 		// To be consistent with the old implementation, if the fetch is successful we count the
 		// request as successful, despite we might not be able to second it.
 		let collation_request_metrics_result = if fetch_result { Ok(()) } else { Err(()) };
 		match can_second {
 			CanSecond::Yes(candidate_receipt, pov, pvd) => {
-				// TODO: use the actual scheduling_parent once V3 is supported in the
-				// experimental module (relay_parent == scheduling_parent before V3).
 				sender
 					.send_message(CandidateBackingMessage::Second {
-						scheduling_parent: candidate_receipt.descriptor.relay_parent(),
+						scheduling_parent: candidate_receipt.descriptor().scheduling_parent(),
 						candidate: candidate_receipt,
 						pvd,
 						pov,
@@ -366,7 +368,7 @@ impl<B: Backend> State<B> {
 				}
 
 				self.collation_manager.release_slot(
-					&reject_info.relay_parent,
+					&reject_info.scheduling_parent,
 					reject_info.para_id,
 					reject_info.maybe_candidate_hash.as_ref(),
 					reject_info.maybe_output_head_hash,
@@ -385,20 +387,23 @@ impl<B: Backend> State<B> {
 		self.metrics.on_request(collation_request_metrics_result);
 	}
 
-	pub async fn handle_invalid_collation(&mut self, receipt: CandidateReceipt) {
-		let relay_parent = receipt.descriptor.relay_parent();
+	pub async fn handle_invalid_collation(
+		&mut self,
+		receipt: CandidateReceipt,
+		scheduling_parent: Hash,
+	) {
 		let candidate_hash = receipt.hash();
 
 		gum::debug!(
 			target: LOG_TARGET,
 			para_id = ?receipt.descriptor.para_id(),
-			?relay_parent,
+			?scheduling_parent,
 			?candidate_hash,
 			"Invalid collation",
 		);
 
 		self.collation_manager.release_slot(
-			&relay_parent,
+			&scheduling_parent,
 			receipt.descriptor.para_id(),
 			Some(&candidate_hash),
 			Some(receipt.descriptor.para_head()),
@@ -406,12 +411,12 @@ impl<B: Backend> State<B> {
 
 		let Some(peer_id) = self
 			.collation_manager
-			.get_fetched_collation_peer_id(&relay_parent, &candidate_hash)
+			.get_fetched_collation_peer_id(&scheduling_parent, &candidate_hash)
 		else {
 			gum::warn!(
 				target: LOG_TARGET,
 				para_id = ?receipt.descriptor.para_id(),
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
 				"Could not find the peer id of the invalid collation",
 			);
@@ -420,7 +425,7 @@ impl<B: Backend> State<B> {
 
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?scheduling_parent,
 			?candidate_hash,
 			?peer_id,
 			"Invalid collation reported, slashing peer reputation",
@@ -435,6 +440,7 @@ impl<B: Backend> State<B> {
 		&mut self,
 		sender: &mut Sender,
 		statement: SignedFullStatement,
+		scheduling_parent: Hash,
 	) {
 		let receipt = match statement.payload() {
 			Statement::Seconded(receipt) => receipt,
@@ -449,13 +455,12 @@ impl<B: Backend> State<B> {
 		};
 
 		let candidate_hash = receipt.hash();
-		let relay_parent = receipt.descriptor.relay_parent();
 		let para_id = receipt.descriptor.para_id();
 
 		gum::debug!(
 			target: LOG_TARGET,
 			?para_id,
-			?relay_parent,
+			?scheduling_parent,
 			?candidate_hash,
 			"Collation seconded",
 		);
@@ -464,7 +469,7 @@ impl<B: Backend> State<B> {
 			.collation_manager
 			.note_seconded(
 				sender,
-				&relay_parent,
+				&scheduling_parent,
 				&para_id,
 				&candidate_hash,
 				receipt.descriptor.para_head(),
@@ -477,18 +482,19 @@ impl<B: Backend> State<B> {
 			gum::debug!(
 				target: LOG_TARGET,
 				?para_id,
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
 				?peer_id,
 				"Notifying collator about seconded collation",
 			);
-			notify_collation_seconded(sender, peer_id, *version, relay_parent, statement).await;
+			notify_collation_seconded(sender, peer_id, *version, scheduling_parent, statement)
+				.await;
 		}
 
 		if !unblocked_collations.is_empty() {
 			gum::debug!(
 				target: LOG_TARGET,
-				?relay_parent,
+				?scheduling_parent,
 				?candidate_hash,
 				?para_id,
 				"Seconded candidate unblocked {} collations",
@@ -546,15 +552,13 @@ impl<B: Backend> State<B> {
 		for can_second_unblocked in unblocked_collations {
 			match can_second_unblocked {
 				CanSecond::Yes(candidate_receipt, pov, pvd) => {
-					let relay_parent = candidate_receipt.descriptor.relay_parent();
 					let candidate_hash = candidate_receipt.hash();
 					let para_id = candidate_receipt.descriptor.para_id();
+					let scheduling_parent = candidate_receipt.descriptor().scheduling_parent();
 
-					// TODO: use the actual scheduling_parent once V3 is supported in the
-					// experimental module (relay_parent == scheduling_parent before V3).
 					sender
 						.send_message(CandidateBackingMessage::Second {
-							scheduling_parent: relay_parent,
+							scheduling_parent,
 							candidate: candidate_receipt,
 							pvd,
 							pov,
@@ -563,7 +567,7 @@ impl<B: Backend> State<B> {
 
 					gum::debug!(
 						target: LOG_TARGET,
-						?relay_parent,
+						?scheduling_parent,
 						?candidate_hash,
 						?para_id,
 						"Started seconding unblocked collation"
@@ -572,7 +576,7 @@ impl<B: Backend> State<B> {
 				CanSecond::No(maybe_slash, reject_info) => {
 					gum::debug!(
 						target: LOG_TARGET,
-						relay_parent = ?reject_info.relay_parent,
+						scheduling_parent = ?reject_info.scheduling_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
 						para_id = ?reject_info.para_id,
 						"Cannot second unblocked collation"
@@ -585,7 +589,7 @@ impl<B: Backend> State<B> {
 					}
 
 					self.collation_manager.release_slot(
-						&reject_info.relay_parent,
+						&reject_info.scheduling_parent,
 						reject_info.para_id,
 						reject_info.maybe_candidate_hash.as_ref(),
 						reject_info.maybe_output_head_hash,
@@ -594,7 +598,7 @@ impl<B: Backend> State<B> {
 				CanSecond::BlockedOnParent(parent, reject_info) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						relay_parent = ?reject_info.relay_parent,
+						scheduling_parent = ?reject_info.scheduling_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
 						?parent,
 						para_id = ?reject_info.para_id,
@@ -602,7 +606,7 @@ impl<B: Backend> State<B> {
 					);
 
 					self.collation_manager.release_slot(
-						&reject_info.relay_parent,
+						&reject_info.scheduling_parent,
 						reject_info.para_id,
 						reject_info.maybe_candidate_hash.as_ref(),
 						reject_info.maybe_output_head_hash,
