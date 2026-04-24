@@ -13,42 +13,49 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # Gas Allowance Pallet
+//! # PGAS Fee Payment
 //!
-//! Provides the [`ChargePGAS`] transaction extension. When a signed transaction dispatching a
-//! call that passes [`Config::CallFilter`] is submitted by an account holding at least the
-//! required fee in the PGAS asset, the fee is withdrawn as a [`fungibles::Credit`] held in the
-//! extension's `Pre`. Any unused portion is refunded from that credit in `post_dispatch`; the
-//! remainder is dropped, which burns the consumed fee via `OnDropCredit`. A
-//! [`Event::PGASFeePaid`] event is emitted mirroring
-//! [`pallet_transaction_payment::Event::TransactionFeePaid`] so PGAS fee payments are observable.
+//! Provides:
+//!
+//! - [`PgasOnChargeAssetTransaction`]: an [`OnChargeAssetTransaction`] adapter that withdraws and
+//!   burns PGAS when it is the fee asset, and delegates to an inner adapter for any other asset.
+//! - [`ChargeFeeWithPgas`]: a transaction extension that wraps
+//!   [`ChargeAssetTxPayment`](pallet_asset_conversion_tx_payment::ChargeAssetTxPayment) and
+//!   auto-routes fee payment to PGAS when a signed transaction leaves the asset unspecified but the
+//!   call matches [`Config::CallFilter`] and the signer holds enough PGAS. When the user specifies
+//!   PGAS explicitly the path is taken regardless of the filter. Otherwise the extension behaves
+//!   exactly like `ChargeAssetTxPayment`.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
 
 use codec::{Decode, DecodeWithMemTracking, Encode};
+use core::marker::PhantomData;
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
 	pallet_prelude::TransactionSource,
 	traits::{
 		Contains, Get,
 		tokens::{
-			Fortitude, Precision, Preservation,
-			fungibles::{self, Credit},
+			Fortitude, Precision, Preservation, WithdrawConsequence,
+			fungibles::{self, Credit, Inspect},
 		},
 	},
+	unsigned::TransactionValidityError,
 	weights::Weight,
 };
 use frame_system::pallet_prelude::OriginFor;
-use pallet_transaction_payment::ChargeTransactionPayment;
+use pallet_asset_conversion_tx_payment::{
+	ChargeAssetTxPayment, OnChargeAssetTransaction, Pre as InnerPre, Val as InnerVal,
+};
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
-		TransactionExtension, ValidateResult, Zero,
+		TransactionExtension, ValidateResult,
 	},
-	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
+	transaction_validity::InvalidTransaction,
 };
 
 pub use pallet::*;
@@ -62,13 +69,15 @@ mod mock;
 mod tests;
 pub mod weights;
 
-type BalanceOf<T> = <<T as pallet_transaction_payment::Config>::OnChargeTransaction as
-	pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
+/// Native balance type, as seen by `pallet_transaction_payment`.
+pub type BalanceOf<T> =
+	<<T as pallet_transaction_payment::Config>::OnChargeTransaction as
+		pallet_transaction_payment::OnChargeTransaction<T>>::Balance;
 
-type AssetIdOf<T> =
-	<<T as Config>::Assets as fungibles::Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
+/// Asset identifier type configured in `pallet_asset_conversion_tx_payment`.
+pub type AssetIdOf<T> = <T as pallet_asset_conversion_tx_payment::Config>::AssetId;
 
-/// Trait used by runtimes to mint PGAS to the benchmark caller.
+/// Helper used by the extension benchmarks to endow the caller with PGAS.
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelperTrait<AccountId, AssetId, Balance> {
 	/// Mint `amount` of PGAS to `who`.
@@ -80,17 +89,20 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::config]
-	pub trait Config:
-		frame_system::Config<RuntimeEvent: From<Event<Self>>> + pallet_transaction_payment::Config
-	{
-		/// Access to the PGAS asset.
-		type Assets: fungibles::Balanced<Self::AccountId, Balance = BalanceOf<Self>>;
-
+	pub trait Config: frame_system::Config + pallet_asset_conversion_tx_payment::Config {
 		/// The PGAS asset id.
-		type PGASAssetId: frame_support::traits::Get<AssetIdOf<Self>>;
+		type PgasId: Get<AssetIdOf<Self>>;
 
-		/// Filter deciding which calls are eligible to be paid with PGAS.
+		/// Filter deciding which calls auto-route to PGAS when the transaction leaves the asset
+		/// unspecified.
 		type CallFilter: Contains<<Self as frame_system::Config>::RuntimeCall>;
+
+		/// Fungibles registry used to inspect PGAS balances at validate time.
+		type Fungibles: fungibles::Inspect<
+				Self::AccountId,
+				AssetId = AssetIdOf<Self>,
+				Balance = BalanceOf<Self>,
+			>;
 
 		/// Weight information for the extension.
 		type WeightInfo: WeightInfo;
@@ -103,60 +115,179 @@ pub mod pallet {
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
+}
 
-	#[pallet::event]
-	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-	pub enum Event<T: Config> {
-		/// A transaction fee `actual_fee` has been paid by `who` in PGAS and burned. Mirrors
-		/// [`pallet_transaction_payment::Event::TransactionFeePaid`].
-		PGASFeePaid { who: T::AccountId, actual_fee: BalanceOf<T> },
+// -- `OnChargeAssetTransaction` adapter ---------------------------------------------------------
+
+/// Liquidity info produced by [`PgasOnChargeAssetTransaction::withdraw_fee`]: either PGAS (held as
+/// a fungibles credit ready to be split and burned in `correct_and_deposit_fee`) or whatever the
+/// inner adapter produces for non-PGAS assets.
+pub enum PgasLiquidityInfo<PgasInfo, InnerInfo> {
+	/// Fee was withdrawn as PGAS.
+	Pgas(PgasInfo),
+	/// Fee handling was delegated to the inner adapter.
+	Other(InnerInfo),
+}
+
+/// [`OnChargeAssetTransaction`] adapter that intercepts PGAS fee payments (withdraw + burn) and
+/// delegates to `Inner` for any other asset.
+pub struct PgasOnChargeAssetTransaction<PgasId, F, Inner>(PhantomData<(PgasId, F, Inner)>);
+
+impl<T, PgasId, F, Inner> OnChargeAssetTransaction<T>
+	for PgasOnChargeAssetTransaction<PgasId, F, Inner>
+where
+	T: pallet_asset_conversion_tx_payment::Config,
+	PgasId: Get<T::AssetId>,
+	F: fungibles::Balanced<T::AccountId, Balance = BalanceOf<T>, AssetId = T::AssetId>,
+	Inner: OnChargeAssetTransaction<T, Balance = BalanceOf<T>, AssetId = T::AssetId>,
+{
+	type AssetId = T::AssetId;
+	type Balance = BalanceOf<T>;
+	type LiquidityInfo = PgasLiquidityInfo<Credit<T::AccountId, F>, Inner::LiquidityInfo>;
+
+	fn withdraw_fee(
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+		tip: Self::Balance,
+	) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+		if asset_id == PgasId::get() {
+			// PGAS is pegged 1:1 with the native fee, so no swap is needed. `Expendable` lets the
+			// caller fully drain their PGAS on the final tx (PGAS is a sufficient asset, so reaping
+			// on payment is safe).
+			let credit = F::withdraw(
+				asset_id,
+				who,
+				fee,
+				Precision::Exact,
+				Preservation::Expendable,
+				Fortitude::Polite,
+			)
+			.map_err(|_| InvalidTransaction::Payment)?;
+			Ok(PgasLiquidityInfo::Pgas(credit))
+		} else {
+			Inner::withdraw_fee(who, call, dispatch_info, asset_id, fee, tip)
+				.map(PgasLiquidityInfo::Other)
+		}
+	}
+
+	fn can_withdraw_fee(
+		who: &T::AccountId,
+		asset_id: Self::AssetId,
+		fee: Self::Balance,
+	) -> Result<(), TransactionValidityError> {
+		if asset_id == PgasId::get() {
+			match F::can_withdraw(asset_id, who, fee) {
+				WithdrawConsequence::Success | WithdrawConsequence::ReducedToZero(_) => Ok(()),
+				_ => Err(InvalidTransaction::Payment.into()),
+			}
+		} else {
+			Inner::can_withdraw_fee(who, asset_id, fee)
+		}
+	}
+
+	fn correct_and_deposit_fee(
+		who: &T::AccountId,
+		dispatch_info: &DispatchInfoOf<T::RuntimeCall>,
+		post_info: &PostDispatchInfoOf<T::RuntimeCall>,
+		corrected_fee: Self::Balance,
+		tip: Self::Balance,
+		asset_id: Self::AssetId,
+		already_withdrawn: Self::LiquidityInfo,
+	) -> Result<BalanceOf<T>, TransactionValidityError> {
+		match already_withdrawn {
+			PgasLiquidityInfo::Pgas(credit) => {
+				let (fee_credit, refund_credit) = credit.split(corrected_fee);
+				// If resolve fails the refund credit is dropped, which burns it. That matches the
+				// PGAS "burn on fee" semantics so we don't need to recover from it.
+				let _ = F::resolve(who, refund_credit);
+				// Drop burns the fee via `pallet_assets::OnDropCredit`.
+				drop(fee_credit);
+				Ok(corrected_fee)
+			},
+			PgasLiquidityInfo::Other(inner_info) => Inner::correct_and_deposit_fee(
+				who,
+				dispatch_info,
+				post_info,
+				corrected_fee,
+				tip,
+				asset_id,
+				inner_info,
+			),
+		}
 	}
 }
 
-/// Transaction extension that charges transaction fees in PGAS when the caller holds enough and
-/// the dispatched call passes [`Config::CallFilter`]. Otherwise it delegates to the wrapped
-/// extension `S`.
+// -- `ChargeFeeWithPgas` extension --------------------------------------------------------------
+
+/// Transaction extension wrapping [`ChargeAssetTxPayment`]. When a signed call has no asset
+/// specified, passes [`Config::CallFilter`] and the signer holds enough PGAS, the extension
+/// substitutes [`Config::PgasId`] as the fee asset; otherwise it delegates to the inner extension
+/// unchanged.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq)]
-pub struct ChargePGAS<T, S> {
-	inner: S,
-	/// When set, the PGAS path is unconditionally skipped and the extension behaves as a pure
-	/// delegate to `inner`. Skipped in the codec because it can only be set by runtime code
+pub struct ChargeFeeWithPgas<T: Config> {
+	#[codec(compact)]
+	tip: BalanceOf<T>,
+	asset_id: Option<AssetIdOf<T>>,
+	/// When set, the PGAS routing is disabled and the extension behaves exactly like
+	/// `ChargeAssetTxPayment`. Codec-skipped: this flag is only populated by runtime code
+	/// (e.g. the Ethereum transaction pipeline) and never comes from the wire.
 	#[codec(skip)]
 	skip_pgas: bool,
-	_phantom: core::marker::PhantomData<T>,
 }
 
-impl<T, S: StaticTypeInfo> TypeInfo for ChargePGAS<T, S> {
-	type Identity = S;
+impl<T: Config> ChargeFeeWithPgas<T> {
+	/// Build an extension mirroring [`ChargeAssetTxPayment::from`] but with PGAS auto-routing.
+	pub fn from(tip: BalanceOf<T>, asset_id: Option<AssetIdOf<T>>) -> Self {
+		Self { tip, asset_id, skip_pgas: false }
+	}
+
+	/// Build an extension that never auto-routes to PGAS. Used by pipelines (Ethereum) where the
+	/// originator cannot be assumed to hold PGAS.
+	pub fn new_skip_pgas(tip: BalanceOf<T>, asset_id: Option<AssetIdOf<T>>) -> Self {
+		Self { tip, asset_id, skip_pgas: true }
+	}
+
+	/// Decide which asset to charge for this transaction.
+	fn effective_asset_id(
+		&self,
+		who: &T::AccountId,
+		call: &T::RuntimeCall,
+		fee: BalanceOf<T>,
+	) -> Option<AssetIdOf<T>> {
+		if self.skip_pgas || self.asset_id.is_some() || !T::CallFilter::contains(call) {
+			return self.asset_id.clone();
+		}
+		let pgas_id = T::PgasId::get();
+		let pgas_balance = T::Fungibles::reducible_balance(
+			pgas_id.clone(),
+			who,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		);
+		if pgas_balance >= fee { Some(pgas_id) } else { None }
+	}
+}
+
+/// Present the same metadata as [`ChargeAssetTxPayment`] so clients (wallets, indexers) cannot
+/// distinguish the two on the wire. The wire-level encoding must stay in lockstep with
+/// `ChargeAssetTxPayment<T>`: `(Compact<Balance>, Option<AssetId>)`.
+impl<T: Config> TypeInfo for ChargeFeeWithPgas<T>
+where
+	ChargeAssetTxPayment<T>: StaticTypeInfo,
+{
+	type Identity = ChargeAssetTxPayment<T>;
 	fn type_info() -> scale_info::Type {
-		S::type_info()
+		<ChargeAssetTxPayment<T> as TypeInfo>::type_info()
 	}
 }
 
-impl<T, S: Default> Default for ChargePGAS<T, S> {
-	fn default() -> Self {
-		Self { inner: S::default(), skip_pgas: false, _phantom: core::marker::PhantomData }
-	}
-}
-
-impl<T, S> ChargePGAS<T, S> {
-	/// Create a new `ChargePGAS` that unconditionally delegates to `inner`, skipping the PGAS
-	/// path entirely.
-	pub fn new_skip_pgas(inner: S) -> Self {
-		Self { inner, skip_pgas: true, _phantom: core::marker::PhantomData }
-	}
-}
-
-impl<T, S> From<S> for ChargePGAS<T, S> {
-	fn from(inner: S) -> Self {
-		Self { inner, skip_pgas: false, _phantom: core::marker::PhantomData }
-	}
-}
-
-impl<T, S: core::fmt::Debug> core::fmt::Debug for ChargePGAS<T, S> {
+impl<T: Config> core::fmt::Debug for ChargeFeeWithPgas<T> {
 	#[cfg(feature = "std")]
 	fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
-		write!(f, "ChargePGAS({:?})", self.inner)
+		write!(f, "ChargeFeeWithPgas<{:?}, {:?}>", self.tip, self.asset_id.encode())
 	}
 	#[cfg(not(feature = "std"))]
 	fn fmt(&self, _: &mut core::fmt::Formatter) -> core::fmt::Result {
@@ -164,67 +295,46 @@ impl<T, S: core::fmt::Debug> core::fmt::Debug for ChargePGAS<T, S> {
 	}
 }
 
-/// Info passed from `validate` to `prepare`.
-pub enum Val<InnerVal, T: Config> {
-	/// Caller pays with PGAS: `fee` units will be withdrawn in `prepare`.
-	PGAS { who: T::AccountId, fee: BalanceOf<T> },
-	/// Delegate to the inner extension.
-	Inner(InnerVal),
+/// Info passed from `validate` to `prepare`. Carries the asset id the extension settled on (the
+/// runtime-level decision) so `prepare` doesn't have to reach for the balance again.
+pub enum Val<T: pallet_asset_conversion_tx_payment::Config> {
+	/// Either the PGAS or the native path (matches the inner extension's `Charge`/`NoCharge`
+	/// result through `inner`).
+	Charge { asset_id: Option<AssetIdOf<T>>, inner: InnerVal<T> },
 }
 
-/// Info passed from `prepare` to `post_dispatch`.
-pub enum Pre<InnerPre, T: Config> {
-	/// Fee withdrawn as a credit against the PGAS asset.
-	PGAS {
-		/// Account the fee was withdrawn from.
-		who: T::AccountId,
-		/// Credit holding the full reserved fee.
-		credit: Credit<T::AccountId, T::Assets>,
-		/// Weight difference between what [`ChargePGAS::weight`] reserved and the full PGAS path
-		/// (`charge_pgas`), returned to the caller in `post_dispatch`.
-		weight_refund: Weight,
-	},
-	/// Inner extension was used (filter miss, unsigned, or caller lacked PGAS).
-	Inner {
-		/// `Pre` produced by the inner extension, forwarded to its `post_dispatch`.
-		inner: InnerPre,
-		/// Weight to refund on top of whatever the inner extension refunds
-		extra_refund: Weight,
-	},
+/// Info passed from `prepare` to `post_dispatch_details`. Tracks both the inner `Pre` and the
+/// weight this extension reserved so we can refund the unused portion ourselves (the inner refund
+/// formula assumes the inner's own reservation).
+pub enum Pre<T: pallet_asset_conversion_tx_payment::Config> {
+	Charge { asset_id: Option<AssetIdOf<T>>, inner: InnerPre<T>, reserved: Weight },
 }
 
-impl<T: Config + Send + Sync, S: TransactionExtension<T::RuntimeCall>>
-	TransactionExtension<T::RuntimeCall> for ChargePGAS<T, S>
+impl<T: Config + Send + Sync> TransactionExtension<T::RuntimeCall> for ChargeFeeWithPgas<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
-	BalanceOf<T>: Send + Sync,
+	BalanceOf<T>: Send + Sync + From<u64>,
 	AssetIdOf<T>: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	ChargeAssetTxPayment<T>: StaticTypeInfo,
 {
-	const IDENTIFIER: &'static str = S::IDENTIFIER;
-	type Implicit = S::Implicit;
-	type Val = Val<S::Val, T>;
-	type Pre = Pre<S::Pre, T>;
+	const IDENTIFIER: &'static str =
+		<ChargeAssetTxPayment<T> as TransactionExtension<T::RuntimeCall>>::IDENTIFIER;
+	type Implicit = <ChargeAssetTxPayment<T> as TransactionExtension<T::RuntimeCall>>::Implicit;
+	type Val = Val<T>;
+	type Pre = Pre<T>;
 
 	fn implicit(&self) -> Result<Self::Implicit, TransactionValidityError> {
-		self.inner.implicit()
+		ChargeAssetTxPayment::<T>::from(self.tip, self.asset_id.clone()).implicit()
 	}
 
 	fn metadata() -> alloc::vec::Vec<sp_runtime::traits::TransactionExtensionMetadata> {
-		S::metadata()
+		<ChargeAssetTxPayment<T> as TransactionExtension<T::RuntimeCall>>::metadata()
 	}
 
-	fn weight(&self, call: &T::RuntimeCall) -> Weight {
-		let inner = self.inner.weight(call);
-		if self.skip_pgas {
-			return inner;
-		}
-		if T::CallFilter::contains(call) {
-			<T as Config>::WeightInfo::charge_pgas()
-				.max(inner.saturating_add(<T as Config>::WeightInfo::charge_pgas_skip()))
-		} else {
-			inner
-		}
+	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
+		// Worst case: the PGAS balance read ran and `ChargeAssetTxPayment` took its asset path.
+		<T as Config>::WeightInfo::charge_pgas().max(<T as Config>::WeightInfo::charge_pgas_skip())
 	}
 
 	fn validate(
@@ -233,40 +343,20 @@ where
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
-		self_implicit: S::Implicit,
+		self_implicit: Self::Implicit,
 		inherited_implication: &impl Implication,
 		source: TransactionSource,
 	) -> ValidateResult<Self::Val, T::RuntimeCall> {
-		// PGAS path: signed origin, call passes the filter, and caller holds at least `fee`.
-		// Skipped entirely when the extension was constructed with `new_skip_pgas`.
-		if !self.skip_pgas &&
-			let Some(who) = origin.as_system_origin_signer().cloned() &&
-			T::CallFilter::contains(call)
-		{
-			let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(
-				len as u32,
-				info,
-				Zero::zero(),
-			);
-			let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
-				T::PGASAssetId::get(),
-				&who,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			);
-			if pgas >= fee {
-				let priority =
-					ChargeTransactionPayment::<T>::get_priority(info, len, Zero::zero(), fee);
-				return Ok((
-					ValidTransaction { priority, ..Default::default() },
-					Val::PGAS { who, fee },
-					origin,
-				));
-			}
-		}
+		let effective = if let Some(who) = origin.as_system_origin_signer() {
+			let fee =
+				pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
+			self.effective_asset_id(who, call, fee)
+		} else {
+			self.asset_id.clone()
+		};
 
-		// Fall through to the inner extension.
-		let (validity, val, origin) = self.inner.validate(
+		let inner = ChargeAssetTxPayment::<T>::from(self.tip, effective.clone());
+		let (validity, inner_val, origin) = inner.validate(
 			origin,
 			call,
 			info,
@@ -275,7 +365,7 @@ where
 			inherited_implication,
 			source,
 		)?;
-		Ok((validity, Val::Inner(val), origin))
+		Ok((validity, Val::Charge { asset_id: effective, inner: inner_val }, origin))
 	}
 
 	fn prepare(
@@ -286,48 +376,11 @@ where
 		info: &DispatchInfoOf<T::RuntimeCall>,
 		len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
-		let inner_weight = self.inner.weight(call);
-		let charge_pgas = <T as Config>::WeightInfo::charge_pgas();
-		let charge_pgas_skip = <T as Config>::WeightInfo::charge_pgas_skip();
-		match val {
-			Val::PGAS { who, fee } => {
-				// PGAS is committed at `validate`; if the balance dropped since, the tx is
-				// rejected rather than falling back to the inner extension.
-				let credit = <T::Assets as fungibles::Balanced<T::AccountId>>::withdraw(
-					T::PGASAssetId::get(),
-					&who,
-					fee,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				)
-				.map_err(|_| InvalidTransaction::Payment)?;
-
-				// `weight()` reserved `charge_pgas.max(inner + charge_pgas_skip)`; the PGAS path
-				// only consumes `charge_pgas`, so the excess is refunded.
-				let reserved = charge_pgas.max(inner_weight.saturating_add(charge_pgas_skip));
-				let weight_refund = reserved.saturating_sub(charge_pgas);
-				Ok(Pre::PGAS { who, credit, weight_refund })
-			},
-			Val::Inner(val) => {
-				let extra_refund = if !self.skip_pgas && T::CallFilter::contains(call) {
-					// Filter matched, but likely the caller didn't hold enough PGAS, so we fell
-					// back to `S`.
-					let reserved = charge_pgas.max(inner_weight.saturating_add(charge_pgas_skip));
-					let consumed = if origin.as_system_origin_signer().is_some() {
-						inner_weight.saturating_add(charge_pgas_skip)
-					} else {
-						inner_weight
-					};
-					reserved.saturating_sub(consumed)
-				} else {
-					// `skip_pgas` reserved only `inner_weight` in `weight()`, so no extra refund.
-					Weight::zero()
-				};
-				let inner = self.inner.prepare(val, origin, call, info, len)?;
-				Ok(Pre::Inner { inner, extra_refund })
-			},
-		}
+		let reserved = <Self as TransactionExtension<T::RuntimeCall>>::weight(&self, call);
+		let Val::Charge { asset_id, inner } = val;
+		let inner_ext = ChargeAssetTxPayment::<T>::from(self.tip, asset_id.clone());
+		let inner_pre = inner_ext.prepare(inner, origin, call, info, len)?;
+		Ok(Pre::Charge { asset_id, inner: inner_pre, reserved })
 	}
 
 	fn post_dispatch_details(
@@ -337,35 +390,18 @@ where
 		len: usize,
 		result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
-		match pre {
-			Pre::PGAS { who, credit, weight_refund } => {
-				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
-					len as u32,
-					info,
-					post_info,
-					Zero::zero(),
-				);
-
-				// Split the reserved credit into the consumed portion (dropped below to burn)
-				// and the refund owed back to `who`.
-				let (consumed, fee_refund) = credit.split(actual_fee);
-				if !fee_refund.peek().is_zero() {
-					// Resolve the refund back to `who`.
-					if let Err(fee_refund) =
-						<T::Assets as fungibles::Balanced<T::AccountId>>::resolve(&who, fee_refund)
-					{
-						// Resolve can fail if `who` was reaped between `prepare` and here;
-						// merge the refund back into `consumed` so it is burned with the rest.
-						let _ = consumed.merge(fee_refund);
-					}
-				}
-				Pallet::<T>::deposit_event(Event::PGASFeePaid { who, actual_fee });
-				Ok(weight_refund)
-			},
-			Pre::Inner { inner, extra_refund } => {
-				let inner_refund = S::post_dispatch_details(inner, info, post_info, len, result)?;
-				Ok(inner_refund.saturating_add(extra_refund))
-			},
-		}
+		let Pre::Charge { asset_id, inner, reserved } = pre;
+		// Delegate for the fee-correction side effects (refund/burn/deposit). The inner's own
+		// weight refund is relative to its own reservation, which is never part of ours, so we
+		// discard it.
+		let _ = <ChargeAssetTxPayment<T> as TransactionExtension<T::RuntimeCall>>::post_dispatch_details(
+			inner, info, post_info, len, result,
+		)?;
+		let actual_path = if asset_id.is_some() {
+			<T as Config>::WeightInfo::charge_pgas()
+		} else {
+			<T as Config>::WeightInfo::charge_pgas_skip()
+		};
+		Ok(reserved.saturating_sub(actual_path))
 	}
 }

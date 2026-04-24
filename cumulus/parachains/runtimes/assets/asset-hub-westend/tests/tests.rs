@@ -142,12 +142,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_pgas_allowance::ChargePGAS::<
-			Runtime,
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
-		>::from(pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
-			0, None,
-		)),
+		pallet_pgas_allowance::ChargeFeeWithPgas::<Runtime>::from(0, None),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		Default::default(),
 	)
@@ -2644,13 +2639,13 @@ mod dap {
 	}
 }
 
-// Exercises the real `ChargePGAS` extension pipeline via `Executive::apply_extrinsic`. The runtime
-// overrides `CallFilter` to `Everything` under `runtime-benchmarks`, so these tests only make sense
-// without that feature.
+// Exercises the real `ChargeFeeWithPgas` extension pipeline via `Executive::apply_extrinsic`. The
+// runtime overrides `CallFilter` to `Everything` under `runtime-benchmarks`, so these tests only
+// make sense without that feature.
 #[cfg(not(feature = "runtime-benchmarks"))]
 mod pgas_allowance {
 	use super::*;
-	use asset_hub_westend_runtime::PGASAssetId;
+	use asset_hub_westend_runtime::{PGASAssetId, PGASAssetIdLocation};
 	use sp_core::H160;
 	use sp_runtime::BuildStorage;
 
@@ -2693,12 +2688,18 @@ mod pgas_allowance {
 		<Assets as FungiblesInspect<_>>::balance(PGASAssetId::get(), who)
 	}
 
+	/// Look up the `AssetTxFeePaid` event for `who` paid in PGAS.
 	fn pgas_fee_paid_event(who: &AccountId) -> Option<Balance> {
+		let pgas_location = PGASAssetIdLocation::get();
 		System::events().into_iter().find_map(|e| match e.event {
-			RuntimeEvent::PgasAllowance(pallet_pgas_allowance::Event::PGASFeePaid {
-				who: w,
-				actual_fee,
-			}) if &w == who => Some(actual_fee),
+			RuntimeEvent::AssetTxPayment(
+				pallet_asset_conversion_tx_payment::Event::AssetTxFeePaid {
+					who: w,
+					actual_fee,
+					asset_id,
+					..
+				},
+			) if &w == who && asset_id == pgas_location => Some(actual_fee),
 			_ => None,
 		})
 	}
@@ -2729,8 +2730,8 @@ mod pgas_allowance {
 		});
 	}
 
-	/// Caller holds no PGAS: the extension falls through to the inner tx-payment and native is
-	/// charged; no `PGASFeePaid` event is emitted.
+	/// Caller holds no PGAS: the extension falls back to native; no `AssetTxFeePaid` event is
+	/// emitted.
 	#[test]
 	fn falls_back_to_native_when_caller_has_no_pgas() {
 		let sender = SENDER.to_account_id();

@@ -13,17 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{ChargePGAS, Event, Val, mock::*};
+use crate::{ChargeFeeWithPgas, mock::*};
 
 use frame_support::{assert_ok, weights::Weight};
+use pallet_asset_conversion_tx_payment::Event as AssetTxPaymentEvent;
 use pallet_balances::Call as BalancesCall;
-use pallet_transaction_payment::ChargeTransactionPayment;
 use sp_runtime::traits::{DispatchTransaction, TransactionExtension, TxBaseImplication};
 
-type Ext = ChargePGAS<Runtime, ChargeTransactionPayment<Runtime>>;
+type Ext = ChargeFeeWithPgas<Runtime>;
 
 fn new_ext() -> Ext {
-	ChargePGAS::from(ChargeTransactionPayment::<Runtime>::from(0))
+	ChargeFeeWithPgas::from(0, None)
 }
 
 fn pgas_call() -> RuntimeCall {
@@ -34,10 +34,23 @@ fn non_pgas_call() -> RuntimeCall {
 	RuntimeCall::Balances(BalancesCall::transfer_allow_death { dest: BOB, value: 1 })
 }
 
-/// Alice holds no native but enough PGAS. A filter-matching call is paid by burning PGAS;
-/// her native balance is untouched.
+/// Expect an `AssetTxFeePaid` event for `who` paid in PGAS; returns the actual fee.
+fn pgas_fee_paid_event(who: &AccountId) -> Option<Balance> {
+	System::events().into_iter().find_map(|e| match e.event {
+		RuntimeEvent::AssetTxPayment(AssetTxPaymentEvent::AssetTxFeePaid {
+			who: w,
+			actual_fee,
+			asset_id,
+			..
+		}) if &w == who && asset_id == PGAS_ASSET_ID => Some(actual_fee),
+		_ => None,
+	})
+}
+
+/// Alice holds no native but enough PGAS. A filter-matching call with `asset_id=None` auto-routes
+/// to PGAS; her native balance stays zero and the fee is burned from PGAS.
 #[test]
-fn pgas_pays_for_filtered_call_with_zero_native() {
+fn none_asset_filter_match_routes_to_pgas() {
 	let pgas_initial = 1_000;
 	ExtBuilder::default()
 		.with_pgas(vec![(ALICE, pgas_initial)])
@@ -57,11 +70,9 @@ fn pgas_pays_for_filtered_call_with_zero_native() {
 			let (pre, _) = new_ext()
 				.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0)
 				.unwrap();
-
-			assert_eq!(Balances::free_balance(ALICE), 0);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial - fee);
 
-			assert_ok!(<Ext as sp_runtime::traits::TransactionExtension<RuntimeCall>>::post_dispatch_details(
+			assert_ok!(<Ext as TransactionExtension<RuntimeCall>>::post_dispatch_details(
 				pre,
 				&info,
 				&default_post_info(),
@@ -70,15 +81,37 @@ fn pgas_pays_for_filtered_call_with_zero_native() {
 			));
 			assert_eq!(Balances::free_balance(ALICE), 0);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial - fee);
-
-			System::assert_has_event(Event::PGASFeePaid { who: ALICE, actual_fee: fee }.into());
+			assert_eq!(pgas_fee_paid_event(&ALICE), Some(fee));
 		});
 }
 
-/// Bob holds native but no PGAS. A filter-matching call falls through to the inner extension
-/// and is paid in native.
+/// When the user explicitly specifies PGAS as the fee asset, PGAS is used regardless of whether
+/// the call passes `CallFilter`.
 #[test]
-fn falls_back_to_inner_when_no_pgas() {
+fn explicit_pgas_routes_to_pgas_even_on_filter_miss() {
+	let pgas_initial = 1_000;
+	ExtBuilder::default()
+		.with_pgas(vec![(CHARLIE, pgas_initial)])
+		.with_native(vec![(CHARLIE, 10)])
+		.build()
+		.execute_with(|| {
+			let call = non_pgas_call();
+			let len = 10;
+			let info = info_from_weight(Weight::from_parts(7, 0));
+
+			let ext = ChargeFeeWithPgas::<Runtime>::from(0, Some(PGAS_ASSET_ID));
+			let (_pre, _) =
+				ext.validate_and_prepare(Some(CHARLIE).into(), &call, &info, len, 0).unwrap();
+
+			assert_eq!(Balances::free_balance(CHARLIE), 10, "native untouched on explicit PGAS");
+			assert!(Assets::balance(PGAS_ASSET_ID, CHARLIE) < pgas_initial);
+		});
+}
+
+/// Bob holds native but no PGAS. A filter-matching call falls back to native because PGAS balance
+/// is insufficient.
+#[test]
+fn falls_back_to_native_when_no_pgas() {
 	let native_initial = 1_000;
 	ExtBuilder::default()
 		.with_native(vec![(BOB, native_initial)])
@@ -92,7 +125,6 @@ fn falls_back_to_inner_when_no_pgas() {
 				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
 			assert!(fee > 0);
 
-			assert_eq!(Balances::free_balance(BOB), native_initial);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, BOB), 0);
 
 			let (_pre, _) =
@@ -100,13 +132,14 @@ fn falls_back_to_inner_when_no_pgas() {
 
 			assert_eq!(Balances::free_balance(BOB), native_initial - fee);
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, BOB), 0);
+			assert_eq!(pgas_fee_paid_event(&BOB), None);
 		});
 }
 
-/// Charlie holds both native and PGAS but dispatches a call the filter rejects. The inner
-/// extension must charge the native fee; PGAS stays untouched.
+/// Charlie holds both native and PGAS but dispatches a call the filter rejects. The extension
+/// stays on the native path; PGAS stays untouched.
 #[test]
-fn filter_miss_uses_inner_even_with_pgas() {
+fn filter_miss_uses_native_even_with_pgas() {
 	let native_initial = 1_000;
 	let pgas_initial = 1_000;
 	ExtBuilder::default()
@@ -131,7 +164,7 @@ fn filter_miss_uses_inner_even_with_pgas() {
 		});
 }
 
-/// Unused weight must be refunded by minting PGAS back to the payer.
+/// Unused weight must refund PGAS back to the payer.
 #[test]
 fn pgas_refund_on_unused_weight() {
 	let pgas_initial = 1_000;
@@ -160,7 +193,7 @@ fn pgas_refund_on_unused_weight() {
 				.unwrap();
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial - reserved);
 
-			assert_ok!(<Ext as sp_runtime::traits::TransactionExtension<RuntimeCall>>::post_dispatch_details(
+			assert_ok!(<Ext as TransactionExtension<RuntimeCall>>::post_dispatch_details(
 				pre,
 				&info,
 				&post_info_from_weight(actual),
@@ -171,57 +204,16 @@ fn pgas_refund_on_unused_weight() {
 		});
 }
 
-/// PGAS balance that would leave the account below the asset's existential deposit must fall
-/// through to the inner extension, preserving the account rather than reaping it.
+/// Unsigned origins skip the PGAS routing by default (no signer; `NoCharge` path in the inner
+/// extension).
 #[test]
-fn pgas_below_ed_falls_back_to_native() {
-	let native_initial = 1_000;
-	// Asset ED is 1 (see `ExtBuilder::build`). Give Alice just enough PGAS to cover the fee
-	// but not the fee plus ED, forcing the extension to fall through.
-	ExtBuilder::default()
-		.with_native(vec![(ALICE, native_initial)])
-		.build()
-		.execute_with(|| {
-			let call = pgas_call();
-			let len = 10;
-			let info = info_from_weight(Weight::from_parts(7, 0));
-
-			let fee = pallet_transaction_payment::Pallet::<Runtime>::compute_fee(
-				len as u32,
-				&info,
-				0,
-			);
-			assert!(fee > 0);
-
-			let pgas_initial = fee;
-			// Set up PGAS balance after computing the fee.
-			assert_ok!(<pallet_assets::Pallet<Runtime> as frame_support::traits::tokens::fungibles::Mutate<AccountId>>::mint_into(
-				PGAS_ASSET_ID,
-				&ALICE,
-				pgas_initial,
-			));
-			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
-
-			let (_pre, _) = new_ext()
-				.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0)
-				.unwrap();
-
-			// PGAS untouched: the PGAS path was skipped because paying would have reaped the
-			// account. Native covered the fee instead.
-			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
-			assert_eq!(Balances::free_balance(ALICE), native_initial - fee);
-		});
-}
-
-/// Unsigned origins skip the PGAS path entirely and go straight to the inner extension.
-#[test]
-fn unsigned_delegates_to_inner() {
+fn unsigned_delegates_to_no_charge() {
 	ExtBuilder::default().with_pgas(vec![(ALICE, 1_000)]).build().execute_with(|| {
 		let call = pgas_call();
 		let len = 10;
 		let info = info_from_weight(Weight::from_parts(7, 0));
 
-		let (_, val, _) = <Ext as TransactionExtension<RuntimeCall>>::validate(
+		let (_validity, _val, _origin) = <Ext as TransactionExtension<RuntimeCall>>::validate(
 			&new_ext(),
 			frame_system::RawOrigin::None.into(),
 			&call,
@@ -232,15 +224,14 @@ fn unsigned_delegates_to_inner() {
 			sp_runtime::transaction_validity::TransactionSource::External,
 		)
 		.unwrap();
-		assert!(matches!(val, Val::Inner(_)));
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), 1_000);
 	});
 }
 
-/// An extension built with `new_skip_pgas` always delegates to the inner extension, even when
-/// the caller holds enough PGAS and the call passes the filter. The native balance pays the
-/// fee and PGAS is untouched.
+/// An extension built with `new_skip_pgas` never auto-routes to PGAS: native pays the fee even
+/// with enough PGAS and a matching filter.
 #[test]
-fn skip_pgas_always_delegates_to_inner() {
+fn skip_pgas_forces_native() {
 	let native_initial = 1_000;
 	let pgas_initial = 1_000;
 	ExtBuilder::default()
@@ -256,20 +247,7 @@ fn skip_pgas_always_delegates_to_inner() {
 				pallet_transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, &info, 0);
 			assert!(fee > 0);
 
-			let ext = ChargePGAS::new_skip_pgas(ChargeTransactionPayment::<Runtime>::from(0));
-			let (_, val, _) = <Ext as TransactionExtension<RuntimeCall>>::validate(
-				&ext,
-				Some(ALICE).into(),
-				&call,
-				&info,
-				len,
-				(),
-				&TxBaseImplication((0u8, &call)),
-				sp_runtime::transaction_validity::TransactionSource::External,
-			)
-			.unwrap();
-			assert!(matches!(val, Val::Inner(_)));
-
+			let ext = ChargeFeeWithPgas::<Runtime>::new_skip_pgas(0, None);
 			let (_pre, _) =
 				ext.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0).unwrap();
 

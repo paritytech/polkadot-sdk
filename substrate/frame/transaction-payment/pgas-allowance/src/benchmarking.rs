@@ -13,10 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for the `ChargePGAS` transaction extension.
+//! Benchmarks for the `ChargeFeeWithPgas` transaction extension.
 //!
-//! The inner extension is pinned to `()` so the benchmarks measure only the wrapper's own
-//! cost; runtimes add the inner extension's weight via its own `weight()` fn.
+//! Both benchmarks exercise the full `validate → prepare → dispatch → post_dispatch` flow so the
+//! measured weight covers the wrapper's routing overhead plus the inner `ChargeAssetTxPayment`
+//! work on each path.
 
 extern crate alloc;
 
@@ -29,8 +30,10 @@ use frame_support::{
 	traits::tokens::fungibles,
 };
 use frame_system::RawOrigin;
+use pallet_asset_conversion_tx_payment::ChargeAssetTxPayment;
+use pallet_transaction_payment::OnChargeTransaction;
 use sp_runtime::traits::{
-	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable,
+	AsSystemOriginSigner, AsTransactionAuthorizedOrigin, DispatchTransaction, Dispatchable, Zero,
 };
 
 #[benchmarks(where
@@ -41,19 +44,20 @@ use sp_runtime::traits::{
 	BalanceOf<T>: Send + Sync + From<u64>,
 	AssetIdOf<T>: Send + Sync,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
+	ChargeAssetTxPayment<T>: scale_info::StaticTypeInfo,
 )]
 mod benchmarks {
 	use super::*;
 
-	/// PGAS path: caller holds enough PGAS and the call matches the filter, so the fee is
-	/// withdrawn into a credit and the unused portion is resolved back to the caller.
+	/// PGAS path: caller holds enough PGAS and the call matches the filter, so the extension
+	/// routes to the PGAS asset path and burns the consumed portion.
 	#[benchmark]
 	fn charge_pgas() {
 		let caller: T::AccountId = account("caller", 0, 0);
 		let initial: BalanceOf<T> = u64::MAX.into();
-		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), initial);
+		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PgasId::get(), initial);
 
-		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
+		let ext = ChargeFeeWithPgas::<T>::from(Zero::zero(), None);
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(100, 0),
@@ -74,21 +78,24 @@ mod benchmarks {
 				});
 		}
 		assert!(result.unwrap().is_ok());
-		let remaining = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
-			T::PGASAssetId::get(),
+		let remaining = <<T as Config>::Fungibles as fungibles::Inspect<T::AccountId>>::balance(
+			T::PgasId::get(),
 			&caller,
 		);
 		assert!(remaining < initial, "PGAS should be charged on the PGAS path");
 	}
 
-	/// Skip path: caller holds no PGAS so the extension falls through to the inner extension.
-	/// Measures the overhead of the PGAS preamble (origin, filter, balance read) when the path
-	/// is ultimately skipped.
+	/// Skip path: caller holds no PGAS so the extension falls back to the native path. Measures
+	/// the extension's routing overhead plus the native-path inner cost.
 	#[benchmark]
 	fn charge_pgas_skip() {
 		let caller: T::AccountId = account("caller", 0, 0);
+		<T as pallet_transaction_payment::Config>::OnChargeTransaction::endow_account(
+			&caller,
+			u64::MAX.into(),
+		);
 
-		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
+		let ext = ChargeFeeWithPgas::<T>::from(Zero::zero(), None);
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();
 		let info = DispatchInfo {
 			call_weight: Weight::from_parts(10, 0),
@@ -100,13 +107,10 @@ mod benchmarks {
 			pays_fee: Default::default(),
 		};
 
-		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(0, &info, Zero::zero());
-		assert!(!fee.is_zero(), "skip path requires fee > 0 to exercise `pgas < fee`");
-		let before = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
-			T::PGASAssetId::get(),
+		let before = <<T as Config>::Fungibles as fungibles::Inspect<T::AccountId>>::balance(
+			T::PgasId::get(),
 			&caller,
 		);
-		assert!(before < fee, "caller must not hold enough PGAS to take the PGAS branch");
 		let result;
 		#[block]
 		{
@@ -116,8 +120,8 @@ mod benchmarks {
 				});
 		}
 		assert!(result.unwrap().is_ok());
-		let after = <T::Assets as fungibles::Inspect<T::AccountId>>::balance(
-			T::PGASAssetId::get(),
+		let after = <<T as Config>::Fungibles as fungibles::Inspect<T::AccountId>>::balance(
+			T::PgasId::get(),
 			&caller,
 		);
 		assert_eq!(before, after, "PGAS must not be charged on the skip path");
