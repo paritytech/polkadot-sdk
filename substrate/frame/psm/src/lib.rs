@@ -441,6 +441,8 @@ pub mod pallet {
 		ExceedsMaxIssuance,
 		/// Asset is already in the approved list.
 		AssetAlreadyApproved,
+		/// Asset does not exist.
+		AssetDoesNotExist,
 		/// Cannot remove asset: not in approved list.
 		AssetNotApproved,
 		/// Cannot remove asset: has non-zero PSM debt.
@@ -893,6 +895,7 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
 			ensure!(!ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetAlreadyApproved);
+			ensure!(T::Fungibles::asset_exists(asset_id), Error::<T>::AssetDoesNotExist);
 			let count = ExternalAssets::<T>::count();
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);
 

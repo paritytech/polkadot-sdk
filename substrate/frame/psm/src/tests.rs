@@ -780,6 +780,23 @@ mod governance {
 	}
 
 	#[test]
+	fn add_external_asset_fails_when_asset_does_not_exist() {
+		new_test_ext().execute_with(|| {
+			// 12345 is not created in the fungibles pallet and not approved in PSM.
+			let ghost: u32 = 12345;
+			assert!(!<Assets as frame_support::traits::fungibles::Inspect<u64>>::asset_exists(
+				ghost
+			));
+			assert!(!crate::Pallet::<Test>::is_approved_asset(&ghost));
+
+			assert_noop!(
+				Psm::add_external_asset(RuntimeOrigin::root(), ghost),
+				Error::<Test>::AssetDoesNotExist
+			);
+		});
+	}
+
+	#[test]
 	fn add_external_asset_fails_too_many() {
 		new_test_ext().execute_with(|| {
 			use frame_support::traits::Get;
