@@ -241,7 +241,7 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite.
+	/// Percentage of fees to send to the accumulation account.
 	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 

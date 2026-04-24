@@ -213,8 +213,8 @@ impl xcm_executor::Config for XcmConfig {
 		RuntimeCall,
 		MaxInstructions,
 	>;
-	// TODO: once DAP allocates validator/author budgets, redirect XCM execution fees to DAP
-	// satellite instead of block author (use crate::DealWithFeesSatellite as the OnUnbalanced
+	// TODO: once DAP allocates validator/author budgets, redirect XCM execution fees to the
+	// accumulation account instead of block author (use AccumulateForward as the OnUnbalanced
 	// handler).
 	type Trader =
 		UsingComponents<WeightToFee, TokenLocation, AccountId, Balances, ToAuthor<Runtime>>;
