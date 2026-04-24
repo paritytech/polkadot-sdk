@@ -232,7 +232,7 @@ pub struct MarketMock;
 pub type MarketSaleInfoStorage<T: Config> =
 	StorageValue<Pallet<T>, MarketSaleInfo<RelayBlockNumberOf<Test>>>;
 
-const REGION_PRICE: BalanceOf<Test> = 10;
+pub const REGION_PRICE: BalanceOf<Test> = 10;
 pub const REGION_RENEWAL_PRICE: BalanceOf<Test> = 20;
 pub const REGION_LENGTH: Timeslice = 3;
 

@@ -355,7 +355,7 @@ fn nft_metadata_works() {
 		assert_eq!(attribute::<Option<u64>>(region, b"owner"), Some(1));
 		assert_eq!(attribute::<CoreMask>(region, b"part"), 0xfffff_fffff_fffff_fffff.into());
 		assert_eq!(attribute::<CoreIndex>(region, b"core"), 0);
-		assert_eq!(attribute::<Option<u64>>(region, b"paid"), Some(100));
+		assert_eq!(attribute::<Option<u64>>(region, b"paid"), Some(REGION_PRICE));
 
 		assert_ok!(Broker::do_transfer(region, None, 42));
 		let (_, region) = Broker::do_partition(region, None, 2).unwrap();
@@ -386,7 +386,7 @@ fn migration_works() {
 		// Ending in this sale period.
 		// Should now be renewable.
 		assert_ok!(Broker::do_renew(1, 0));
-		assert_eq!(balance(1), 900);
+		assert_eq!(balance(1), 1000 - REGION_RENEWAL_PRICE);
 		advance_to(18);
 
 		let just_pool = || vec![(Pool, 57600)];
@@ -434,18 +434,18 @@ fn instapool_payouts_work() {
 		assert_ok!(Broker::do_start_sales((), 2));
 		advance_to(2);
 		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		assert_ok!(Broker::do_pool(region, None, 2, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		// Should get revenue amount 10 from RC, from which 6 is system payout (goes to account0
 		// instantly) and the rest is private (kept in the pot until claimed)
 		assert_eq!(pot(), 4);
-		assert_eq!(revenue(), 106);
+		assert_eq!(revenue(), REGION_PRICE + 6);
 
 		// Cannot claim for 0 timeslices.
 		assert_noop!(Broker::do_claim_revenue(region, 0), Error::<Test>::NoClaimTimeslices);
@@ -453,7 +453,7 @@ fn instapool_payouts_work() {
 		// Revenue can be claimed.
 		assert_ok!(Broker::do_claim_revenue(region, 100));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 106);
+		assert_eq!(revenue(), REGION_PRICE + 6);
 		assert_eq!(balance(2), 4);
 	});
 }
@@ -473,7 +473,7 @@ fn instapool_partial_core_payouts_work() {
 		// Buy and spend 40 credits to make the interlaced region payouts a nice round number.
 		assert_ok!(Broker::do_purchase_credit(1, 40, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 40));
 		advance_to(11);
@@ -486,7 +486,7 @@ fn instapool_partial_core_payouts_work() {
 		assert_eq!(balance(3), 15);
 		// And the bookkeeping is correct.
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 120);
+		assert_eq!(revenue(), REGION_PRICE + 20);
 	});
 }
 
@@ -496,7 +496,7 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		assert_ok!(Broker::do_start_sales((), 1));
 		advance_to(2);
 		let region = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		let (region1, region2) = Broker::do_partition(region, None, 2).unwrap();
 		// `region1` duration is from rcblock 8 to rcblock 12. This means that the
 		// coretime purchased during this time period will be purchased from `region1`
@@ -507,12 +507,12 @@ fn instapool_core_payouts_work_with_partitioned_region() {
 		assert_ok!(Broker::do_pool(region2, None, 3, Final));
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		assert_eq!(pot(), 10);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		assert_ok!(Broker::do_claim_revenue(region1, 100));
 		assert_eq!(pot(), 0);
 		assert_eq!(balance(2), 10);
@@ -538,7 +538,7 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 
 		// Buy core to add to pool. This adds 100 to revenue.
 		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 
 		// Ensure InstaPoolIo corresponds to one full region provided by the system.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -579,17 +579,17 @@ fn instapool_payouts_cannot_be_duplicated_through_partition() {
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		advance_to(11);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 
 		// Revenue cannot be claimed for the old region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 		assert_eq!(balance(2), 0);
 	});
 }
@@ -769,7 +769,7 @@ fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 
 		// Buy core to add to pool. This adds 100 to revenue.
 		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 
 		// Ensure InstaPoolIo corresponds to one full region provided by the system.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -810,18 +810,18 @@ fn instapool_payouts_cannot_be_duplicated_through_interlacing() {
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		// Pot is still zero and the 10 is all system revenue.
 		advance_to(11);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 
 		// Revenue cannot be claimed for the old region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 		assert_eq!(balance(2), 0);
 	});
 }
@@ -836,7 +836,7 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 
 		// Buy core to add to pool. This adds 100 to revenue.
 		let region_id = do_purchase_and_get_region_id(1, u64::max_value()).unwrap();
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 
 		// Ensure InstaPoolIo corresponds to one full region provided by the system.
 		let region = Regions::<Test>::get(&region_id).unwrap();
@@ -877,18 +877,18 @@ fn instapool_payouts_cannot_be_duplicated_through_reassignment() {
 		// Add some revenue.
 		assert_ok!(Broker::do_purchase_credit(1, 20, 1));
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 100);
+		assert_eq!(revenue(), REGION_PRICE);
 		advance_to(8);
 		assert_ok!(TestCoretimeProvider::spend_instantaneous(1, 10));
 		// Pot is still zero and the 10 is all system revenue.
 		advance_to(11);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 
 		// Revenue cannot be claimed for the reassigned region.
 		assert_noop!(Broker::do_claim_revenue(region_id, 100), Error::<Test>::UnknownContribution);
 		assert_eq!(pot(), 0);
-		assert_eq!(revenue(), 110);
+		assert_eq!(revenue(), REGION_PRICE + 10);
 		assert_eq!(balance(2), 0);
 	});
 }
