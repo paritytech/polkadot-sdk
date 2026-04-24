@@ -29,7 +29,8 @@ use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::{crypto::get_public_from_string_or_panic, sr25519};
 use sp_keyring::Sr25519Keyring;
-use sp_runtime::Perbill;
+use sp_price_oracle::PairConfig;
+use sp_runtime::{FixedU128, Perbill};
 use test_runtime_constants::currency::DOTS;
 
 const DEFAULT_PROTOCOL_ID: &str = "dot";
@@ -119,6 +120,20 @@ fn polkadot_testnet_genesis(
 	node_features.set(node_features::FeatureIndex::CandidateReceiptV2 as u8 as usize, true);
 	node_features.set(node_features::FeatureIndex::ElasticScalingMVP as u8 as usize, true);
 
+	// DOT/USD pair (id 0) with values that preserve the pre-multi-pair test behaviour:
+	// Epsilon = 0.01, MinNudges = 1, NudgeValidity = 10.
+	let price_oracle_pairs: Vec<(u8, PairConfig, Vec<(u8, Vec<u8>)>)> = vec![(
+		0u8,
+		PairConfig {
+			min_nudges: 1,
+			nudge_validity: 10,
+			inherent_mandatory: false,
+			invalid_inherent_panics: false,
+			epsilon: FixedU128::from_rational(1, 100),
+		},
+		Vec::new(),
+	)];
+
 	serde_json::json!({
 		"balances": {
 			"balances": endowed_accounts.iter().map(|k| (k.clone(), ENDOWMENT)).collect::<Vec<_>>(),
@@ -156,6 +171,9 @@ fn polkadot_testnet_genesis(
 			"epochConfig": Some(BABE_GENESIS_EPOCH_CONFIG),
 		},
 		"sudo": { "key": Some(root_key) },
+		"priceOracle": {
+			"pairs": price_oracle_pairs,
+		},
 		"configuration": {
 			"config": polkadot_runtime_parachains::configuration::HostConfiguration {
 				validation_upgrade_cooldown: 10u32,

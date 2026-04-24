@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::vec::Vec;
+use alloc::{collections::BTreeSet, vec::Vec};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{EnsureOrigin, Time},
@@ -11,15 +11,16 @@ use frame_system::pallet_prelude::*;
 use sp_consensus_babe::AuthorityId;
 use sp_consensus_slots::Slot;
 use sp_price_oracle::{
-	InherentError, Nudge, PriceOracleInherentData, SignedNudge, INHERENT_IDENTIFIER,
+	InherentError, Nudge, PairConfig, PairId, PriceOracleInherentData, SignedNudge,
+	INHERENT_IDENTIFIER,
 };
 use sp_runtime::{traits::Saturating, FixedPointNumber, FixedU128};
 
 pub use decoders::ParsingMethod;
 
-pub mod decoders;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
+pub mod decoders;
 #[cfg(test)]
 mod tests;
 
@@ -37,43 +38,36 @@ pub mod pallet {
 		fn current_slot() -> Slot;
 	}
 
-	/// Called whenever the on-chain price is updated.
+	/// Called whenever an on-chain price is updated for a pair.
 	/// Can be used to propagate the price via XCM to other chains (e.g. Asset Hub).
 	#[impl_trait_for_tuples::impl_for_tuples(8)]
 	pub trait OnPriceUpdate<BlockNumber> {
-		fn on_price_update(new_price: FixedU128, block_number: BlockNumber, timestamp: u64);
+		fn on_price_update(
+			pair_id: PairId,
+			new_price: FixedU128,
+			block_number: BlockNumber,
+			timestamp: u64,
+		);
 	}
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config<RuntimeEvent: From<Event<Self>>> {
-		/// Absolute price change per net nudge (e.g. 0.001 means each net Up adds $0.001).
-		#[pallet::constant]
-		type Epsilon: Get<FixedU128>;
-
-		/// Minimum valid nudges required per block. Block panics in `on_finalize` if not met.
-		/// Set to 0 to make oracle inherents optional.
-		#[pallet::constant]
-		type MinNudges: Get<u32>;
-
-		/// Number of slots a nudge remains valid: [slot, slot + NudgeValidity).
-		#[pallet::constant]
-		type NudgeValidity: Get<u64>;
-
 		type AuthorityProvider: AuthorityProvider;
 
 		type TimeProvider: Time;
 
-		/// Hook called when the price is updated. Set to `()` if unused.
+		/// Hook called when any pair's price is updated. Set to `()` if unused.
 		type OnPriceUpdate: OnPriceUpdate<BlockNumberFor<Self>>;
 
-		/// Origin allowed to toggle the panic switch.
+		/// Origin allowed to manage pairs and their endpoints.
 		type PriceOracleOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-		/// Maximum number of entries allowed in [`ActiveEndpoints`].
+
+		/// Maximum number of endpoints per pair.
 		#[pallet::constant]
 		type MaxEndpoints: Get<u32>;
 
-		/// Maximum length in bytes of a single endpoint URL in [`ActiveEndpoints`].
+		/// Maximum length in bytes of a single endpoint URL.
 		#[pallet::constant]
 		type MaxUrlLength: Get<u32>;
 	}
@@ -81,7 +75,7 @@ pub mod pallet {
 	/// A URL bounded by [`Config::MaxUrlLength`].
 	pub type BoundedUrl<T> = BoundedVec<u8, <T as Config>::MaxUrlLength>;
 
-	/// The active endpoint list, bounded by [`Config::MaxEndpoints`] and
+	/// The per-pair endpoint list, bounded by [`Config::MaxEndpoints`] and
 	/// [`Config::MaxUrlLength`].
 	pub type BoundedEndpoints<T> =
 		BoundedVec<(ParsingMethod, BoundedUrl<T>), <T as Config>::MaxEndpoints>;
@@ -89,37 +83,45 @@ pub mod pallet {
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
 
+	/// Registered asset pairs and their configuration. Pairs are added and removed via
+	/// [`Pallet::register_pair`], [`Pallet::remove_pair`], and
+	/// [`Pallet::update_pair_config`].
 	#[pallet::storage]
-	pub type CurrentPrice<T: Config> = StorageValue<_, FixedU128, ValueQuery>;
+	pub type Pairs<T: Config> = StorageMap<_, Blake2_128Concat, PairId, PairConfig, OptionQuery>;
 
-	/// Number of valid nudges accepted in the current block's inherent.
+	/// Current on-chain price per pair. Defaults to zero.
 	#[pallet::storage]
-	pub(crate) type NudgeCount<T: Config> = StorageValue<_, u32, OptionQuery>;
+	pub type CurrentPrice<T: Config> =
+		StorageMap<_, Blake2_128Concat, PairId, FixedU128, ValueQuery>;
 
-	/// When enabled, `on_finalize` panics if no inherent was included in the block.
-	/// Default is false.
+	/// Active endpoint list per pair, mutated via
+	/// [`Pallet::set_active_endpoints`].
 	#[pallet::storage]
-	pub type PanicSwitch<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type ActiveEndpoints<T: Config> =
+		StorageMap<_, Blake2_128Concat, PairId, BoundedEndpoints<T>, ValueQuery>;
 
-	/// The set of price feed endpoints currently queried by the node.
-	/// Each entry is a `(ParsingMethod, url_bytes)` pair. Mutated via the
-	/// root-only [`Pallet::set_active_endpoints`] extrinsic.
+	/// Whether an inherent entry was processed for the pair in the current block. Cleared
+	/// during `on_finalize`.
 	#[pallet::storage]
-	pub type ActiveEndpoints<T: Config> = StorageValue<_, BoundedEndpoints<T>, ValueQuery>;
+	pub type InherentSeen<T: Config> = StorageMap<_, Blake2_128Concat, PairId, bool, ValueQuery>;
+
+	/// Re-entry guard for `submit_nudges` within a single block. Cleared during `on_finalize`.
+	#[pallet::storage]
+	pub(crate) type InherentCalled<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	#[pallet::error]
 	pub enum Error<T> {
-		/// Too few nudges were provided (below the runtime minimum).
+		/// Too few nudges were provided for a pair (below its per-pair minimum).
 		TooFewNudges,
 		/// A nudge in the inherent is too old (slot is beyond the validity window).
 		StaleNudge,
-		/// A nudge in the inherent is a duplicate.
+		/// A nudge in the inherent has a duplicate authority within its pair.
 		DuplicateNudge,
 		/// A nudge in the inherent has an invalid authority.
 		InvalidAuthority,
 		/// A nudge in the inherent has an invalid signature.
 		InvalidSignature,
-		/// Duplicate inherent in the same block.
+		/// `submit_nudges` was called more than once in the same block.
 		DuplicateInherent,
 		/// Too many endpoints supplied for [`Config::MaxEndpoints`].
 		TooManyEndpoints,
@@ -127,14 +129,26 @@ pub mod pallet {
 		UrlTooLong,
 		/// A parsing method id does not map to a known [`ParsingMethod`].
 		UnknownParsingMethod,
-	}
+		/// The pair referenced is not registered on-chain.
+		UnknownPair,
+		/// Tried to register a pair id that is already in use.
+		PairAlreadyExists,
+		/// The same pair appeared more than once in a single inherent.
+		DuplicatePairInInherent,
 
+	}
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// The active endpoint list was replaced.
-		ActiveEndpointsUpdated { count: u32 },
+		/// A new pair was registered.
+		PairRegistered { pair_id: PairId },
+		/// A pair's config was replaced.
+		PairConfigUpdated { pair_id: PairId },
+		/// A pair was removed and its storage cleared.
+		PairRemoved { pair_id: PairId },
+		/// The endpoint list for a pair was replaced.
+		ActiveEndpointsUpdated { pair_id: PairId, count: u32 },
 	}
 
 	#[pallet::hooks]
@@ -144,54 +158,186 @@ pub mod pallet {
 		}
 
 		fn on_finalize(_n: BlockNumberFor<T>) {
-			if PanicSwitch::<T>::get() {
-				let inherent_included = NudgeCount::<T>::take().is_some();
-				assert!(
-					inherent_included,
-					"Price oracle: panic switch is on but no inherent was included in this block",
-				);
+			InherentCalled::<T>::kill();
+			for (pair_id, cfg) in Pairs::<T>::iter() {
+				if cfg.inherent_mandatory {
+					// If the pair is mandatory, we assert that an inherent entry was included.
+					assert!(
+						InherentSeen::<T>::take(pair_id),
+						"Price oracle: pair {} marked inherent_mandatory but no inherent entry was included",
+						pair_id,
+					);
+				}
 			}
 		}
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Submit a set of signed nudges as an inherent.
+		/// Submit a batch of per-pair signed nudges as an inherent.
 		///
-		/// Validation is strict: any invalid nudge (stale, duplicate authority, bad signature,
-		/// unknown authority) causes this inherent to fail and the block to be rejected.
+		/// The outer vector groups nudges by pair. Each pair must be registered, must appear
+		/// at most once, and must satisfy its per-pair config.
 		///
-		/// `check_inherent` (run by importers) only enforces `MinNudges` as a reasonableness
-		/// check. All per-nudge validation happens here.
+		/// Per-pair behavior on invalid nudges is controlled by
+		/// [`PairConfig::invalid_inherent_panics`]: if `true`, errors become runtime panics;
+		/// if `false`, they are returned as dispatch errors and the whole block is rejected.
 		#[pallet::call_index(0)]
-		#[pallet::weight((
-			Weight::from_parts(10_000, 0).saturating_mul(nudges.len() as u64),
-			DispatchClass::Mandatory
-		))]
-		pub fn submit_nudges(origin: OriginFor<T>, nudges: Vec<SignedNudge>) -> DispatchResult {
+		#[pallet::weight({
+			let p = pair_nudges.len() as u64;
+			(
+				Weight::from_parts(10_000, 0)
+					.saturating_add(Weight::from_parts(5_000, 0).saturating_mul(p)),
+				DispatchClass::Mandatory
+			)
+		})]
+		pub fn submit_nudges(
+			origin: OriginFor<T>,
+			pair_nudges: Vec<(PairId, Vec<SignedNudge>)>,
+		) -> DispatchResult {
 			ensure_none(origin)?;
-			ensure!(!NudgeCount::<T>::exists(), Error::<T>::DuplicateInherent);
-			ensure!(nudges.len() >= T::MinNudges::get() as usize, Error::<T>::TooFewNudges);
+			ensure!(!InherentCalled::<T>::get(), Error::<T>::DuplicateInherent);
+			InherentCalled::<T>::put(true);
 
 			let authorities = T::AuthorityProvider::authorities();
 			let current_slot = T::AuthorityProvider::current_slot();
-			let validity = T::NudgeValidity::get();
-			let epsilon = T::Epsilon::get();
+			let block_number = frame_system::Pallet::<T>::block_number();
+			let timestamp: u64 = T::TimeProvider::now().try_into().unwrap_or(0u64);
+
+			let mut seen_pairs = BTreeSet::<PairId>::new();
+
+			for (pair_id, nudges) in pair_nudges {
+				ensure!(seen_pairs.insert(pair_id), Error::<T>::DuplicatePairInInherent);
+
+				// Unknown pair always errors — we have no config to consult for the
+				// "panic instead" choice.
+				let cfg = Pairs::<T>::get(pair_id).ok_or(Error::<T>::UnknownPair)?;
+
+				Self::apply_pair_nudges(
+					pair_id,
+					&cfg,
+					&nudges,
+					&authorities,
+					current_slot,
+					block_number,
+					timestamp,
+				)?;
+
+				InherentSeen::<T>::insert(pair_id, true);
+			}
+
+			Ok(())
+		}
+
+		/// Enable or disable an existing pair's inherent-mandatory flag via a full config
+		/// update — see [`Pallet::update_pair_config`]. Also available: register / remove.
+		#[pallet::call_index(1)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		pub fn register_pair(
+			origin: OriginFor<T>,
+			pair_id: PairId,
+			config: PairConfig,
+		) -> DispatchResult {
+			T::PriceOracleOrigin::ensure_origin(origin)?;
+			ensure!(!Pairs::<T>::contains_key(pair_id), Error::<T>::PairAlreadyExists);
+			Pairs::<T>::insert(pair_id, config);
+			Self::deposit_event(Event::PairRegistered { pair_id });
+			Ok(())
+		}
+
+		/// Update the config for an existing pair.
+		#[pallet::call_index(2)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+		pub fn update_pair_config(
+			origin: OriginFor<T>,
+			pair_id: PairId,
+			config: PairConfig,
+		) -> DispatchResult {
+			T::PriceOracleOrigin::ensure_origin(origin)?;
+			ensure!(Pairs::<T>::contains_key(pair_id), Error::<T>::UnknownPair);
+			Pairs::<T>::insert(pair_id, config);
+			Self::deposit_event(Event::PairConfigUpdated { pair_id });
+			Ok(())
+		}
+
+		/// Remove a pair and clear all of its per-pair storage.
+		#[pallet::call_index(3)]
+		#[pallet::weight(T::DbWeight::get().reads_writes(1, 5))]
+		pub fn remove_pair(origin: OriginFor<T>, pair_id: PairId) -> DispatchResult {
+			T::PriceOracleOrigin::ensure_origin(origin)?;
+			ensure!(Pairs::<T>::contains_key(pair_id), Error::<T>::UnknownPair);
+			Pairs::<T>::remove(pair_id);
+			CurrentPrice::<T>::remove(pair_id);
+			ActiveEndpoints::<T>::remove(pair_id);
+			InherentSeen::<T>::remove(pair_id);
+			Self::deposit_event(Event::PairRemoved { pair_id });
+			Ok(())
+		}
+
+		/// Replace the active endpoint list for a given pair.
+		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::from_parts(10_000, 0).saturating_mul(endpoints.len() as u64))]
+		pub fn set_active_endpoints(
+			origin: OriginFor<T>,
+			pair_id: PairId,
+			endpoints: Vec<(u8, Vec<u8>)>,
+		) -> DispatchResult {
+			T::PriceOracleOrigin::ensure_origin(origin)?;
+			ensure!(Pairs::<T>::contains_key(pair_id), Error::<T>::UnknownPair);
+			let converted: Vec<(ParsingMethod, BoundedUrl<T>)> = endpoints
+				.into_iter()
+				.map(|(id, url)| {
+					let method = ParsingMethod::try_from(id)
+						.map_err(|_| Error::<T>::UnknownParsingMethod)?;
+					let url: BoundedUrl<T> = url.try_into().map_err(|_| Error::<T>::UrlTooLong)?;
+					Ok((method, url))
+				})
+				.collect::<Result<_, Error<T>>>()?;
+			let bounded: BoundedEndpoints<T> =
+				converted.try_into().map_err(|_| Error::<T>::TooManyEndpoints)?;
+			let count = bounded.len() as u32;
+			ActiveEndpoints::<T>::insert(pair_id, bounded);
+			Self::deposit_event(Event::ActiveEndpointsUpdated { pair_id, count });
+			Ok(())
+		}
+	}
+
+	impl<T: Config> Pallet<T> {
+		/// Apply a group of nudges for a single pair. Pure validation + state transition; no
+		/// panic semantics here — the caller decides whether to panic or error.
+		fn apply_pair_nudges(
+			pair_id: PairId,
+			cfg: &PairConfig,
+			nudges: &[SignedNudge],
+			authorities: &[AuthorityId],
+			current_slot: Slot,
+			block_number: BlockNumberFor<T>,
+			timestamp: u64,
+		) -> Result<(), Error<T>> {
+			if (nudges.len() as u32) < cfg.min_nudges {
+				return Err(Error::<T>::TooFewNudges);
+			}
 
 			let mut ups: u32 = 0;
 			let mut downs: u32 = 0;
-			let mut seen_authorities = alloc::collections::BTreeSet::<u32>::new();
+			let mut seen_authorities = BTreeSet::<u32>::new();
 
-			for nudge in &nudges {
-				ensure!(*nudge.slot + validity > *current_slot, Error::<T>::StaleNudge);
+			for nudge in nudges {
+				if *nudge.slot + cfg.nudge_validity <= *current_slot {
+					return Err(Error::<T>::StaleNudge);
+				}
 
-				ensure!(seen_authorities.insert(nudge.authority_index), Error::<T>::DuplicateNudge);
+				if !seen_authorities.insert(nudge.authority_index) {
+					return Err(Error::<T>::DuplicateNudge);
+				}
 
 				let authority = authorities
 					.get(nudge.authority_index as usize)
 					.ok_or(Error::<T>::InvalidAuthority)?;
 
-				ensure!(nudge.verify(authority), Error::<T>::InvalidSignature);
+				if !nudge.verify(authority) {
+					return Err(Error::<T>::InvalidSignature);
+				}
 
 				match nudge.nudge {
 					Nudge::Up => ups += 1,
@@ -200,73 +346,28 @@ pub mod pallet {
 			}
 
 			let total_valid = ups + downs;
-			let current_price = CurrentPrice::<T>::get();
-			if total_valid > 0 {
-				let net = ups.abs_diff(downs);
-				let delta = epsilon.saturating_mul(FixedU128::saturating_from_integer(net));
-
-				let new_price = if ups >= downs {
-					current_price.saturating_add(delta)
-				} else {
-					current_price.saturating_sub(delta)
-				};
-
-				log::info!(
-					target: LOG_TARGET,
-					"Price oracle: {} ups, {} downs, price {} -> {}",
-					ups, downs, current_price, new_price,
-				);
-
-				CurrentPrice::<T>::put(new_price);
-				let block_number = frame_system::Pallet::<T>::block_number();
-				let timestamp: u64 = T::TimeProvider::now().try_into().unwrap_or(0u64);
-				T::OnPriceUpdate::on_price_update(new_price, block_number, timestamp);
+			if total_valid == 0 {
+				return Ok(());
 			}
 
-			NudgeCount::<T>::put(total_valid);
-			Ok(())
-		}
+			let net = ups.abs_diff(downs);
+			let delta = cfg.epsilon.saturating_mul(FixedU128::saturating_from_integer(net));
+			let current_price = CurrentPrice::<T>::get(pair_id);
+			let new_price = if ups >= downs {
+				current_price.saturating_add(delta)
+			} else {
+				current_price.saturating_sub(delta)
+			};
 
-		/// Enable or disable the panic switch.
-		///
-		/// When enabled, `on_finalize` will panic if no inherent was included in the block.
-		#[pallet::call_index(1)]
-		#[pallet::weight(T::DbWeight::get().writes(1))]
-		pub fn set_panic_switch(origin: OriginFor<T>, enabled: bool) -> DispatchResult {
-			T::PriceOracleOrigin::ensure_origin(origin)?;
-			PanicSwitch::<T>::put(enabled);
-			Ok(())
-		}
+			log::info!(
+				target: LOG_TARGET,
+				"Price oracle [pair {}]: {} ups, {} downs, price {} -> {}",
+				pair_id, ups, downs, current_price, new_price,
+			);
 
-		/// Replace the set of active price feed endpoints.
-		///
-		/// Root-only. Accepts `(parsing_method_id, url_bytes)` pairs — the id
-		/// is a `u8` handle for a [`ParsingMethod`] variant. Overwrites
-		/// [`ActiveEndpoints`] wholesale. Fails with
-		/// [`Error::TooManyEndpoints`], [`Error::UrlTooLong`], or
-		/// [`Error::UnknownParsingMethod`] if the input is invalid.
-		#[pallet::call_index(2)]
-		#[pallet::weight(Weight::from_parts(10_000, 0).saturating_mul(endpoints.len() as u64))]
-		pub fn set_active_endpoints(
-			origin: OriginFor<T>,
-			endpoints: Vec<(u8, Vec<u8>)>,
-		) -> DispatchResult {
-			T::PriceOracleOrigin::ensure_origin(origin)?;
-			let converted: Vec<(ParsingMethod, BoundedUrl<T>)> = endpoints
-				.into_iter()
-				.map(|(id, url)| {
-					let method = ParsingMethod::try_from(id)
-						.map_err(|_| Error::<T>::UnknownParsingMethod)?;
-					let url: BoundedUrl<T> =
-						url.try_into().map_err(|_| Error::<T>::UrlTooLong)?;
-					Ok((method, url))
-				})
-				.collect::<Result<_, Error<T>>>()?;
-			let bounded: BoundedEndpoints<T> =
-				converted.try_into().map_err(|_| Error::<T>::TooManyEndpoints)?;
-			let count = bounded.len() as u32;
-			ActiveEndpoints::<T>::put(bounded);
-			Self::deposit_event(Event::ActiveEndpointsUpdated { count });
+			CurrentPrice::<T>::insert(pair_id, new_price);
+			T::OnPriceUpdate::on_price_update(pair_id, new_price, block_number, timestamp);
+
 			Ok(())
 		}
 	}
@@ -278,22 +379,28 @@ pub mod pallet {
 		const INHERENT_IDENTIFIER: InherentIdentifier = INHERENT_IDENTIFIER;
 
 		fn create_inherent(data: &InherentData) -> Option<Self::Call> {
-			let nudges = data
+			let pair_nudges = data
 				.get_data::<PriceOracleInherentData>(&INHERENT_IDENTIFIER)
 				.expect("Price oracle inherent data encoded correctly")?;
-
-			Some(Call::submit_nudges { nudges })
+			Some(Call::submit_nudges { pair_nudges })
 		}
 
 		fn check_inherent(call: &Self::Call, _data: &InherentData) -> Result<(), Self::Error> {
-			let nudges = match call {
-				Call::submit_nudges { ref nudges } => nudges,
+			let pair_nudges = match call {
+				Call::submit_nudges { ref pair_nudges } => pair_nudges,
 				_ => return Ok(()),
 			};
 
-			let min = T::MinNudges::get();
-			if (nudges.len() as u32) < min {
-				return Err(InherentError::TooFewNudges(nudges.len() as u32, min));
+			let mut seen = BTreeSet::<PairId>::new();
+			for (pair_id, nudges) in pair_nudges {
+				if !seen.insert(*pair_id) {
+					return Err(InherentError::DuplicatePairInInherent(*pair_id));
+				}
+				let cfg = Pairs::<T>::get(pair_id).ok_or(InherentError::UnknownPair(*pair_id))?;
+				let got = nudges.len() as u32;
+				if got < cfg.min_nudges {
+					return Err(InherentError::TooFewNudges(*pair_id, got, cfg.min_nudges));
+				}
 			}
 
 			Ok(())
@@ -305,16 +412,58 @@ pub mod pallet {
 	}
 
 	impl<T: Config> Pallet<T> {
-		pub fn current_price() -> FixedU128 {
-			CurrentPrice::<T>::get()
+		/// Current on-chain price for a pair (zero if unknown / unset).
+		pub fn current_price(pair_id: PairId) -> FixedU128 {
+			CurrentPrice::<T>::get(pair_id)
 		}
 
-		pub fn nudge_validity() -> u64 {
-			T::NudgeValidity::get()
+		/// The per-pair config, or `None` if the pair is not registered.
+		pub fn pair_config(pair_id: PairId) -> Option<PairConfig> {
+			Pairs::<T>::get(pair_id)
 		}
 
-		pub fn minimum_nudges_required() -> u32 {
-			T::MinNudges::get()
+		/// All registered pair ids.
+		pub fn list_pairs() -> Vec<PairId> {
+			Pairs::<T>::iter_keys().collect()
+		}
+	}
+
+	#[pallet::genesis_config]
+	#[derive(frame_support::DefaultNoBound)]
+	pub struct GenesisConfig<T: Config> {
+		/// Initial pairs to register: `(pair_id, config, endpoints)`. Endpoints are
+		/// `(parsing_method_id, url_bytes)` pairs matching [`Pallet::set_active_endpoints`].
+		pub pairs: Vec<(PairId, PairConfig, Vec<(u8, Vec<u8>)>)>,
+		#[serde(skip)]
+		pub _marker: core::marker::PhantomData<T>,
+	}
+
+	#[pallet::genesis_build]
+	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
+		fn build(&self) {
+			for (pair_id, cfg, endpoints) in &self.pairs {
+				assert!(
+					!Pairs::<T>::contains_key(pair_id),
+					"Price oracle genesis: duplicate pair id {}",
+					pair_id,
+				);
+				Pairs::<T>::insert(pair_id, cfg.clone());
+				let converted: Vec<(ParsingMethod, BoundedUrl<T>)> = endpoints
+					.iter()
+					.cloned()
+					.map(|(id, url)| {
+						let method = ParsingMethod::try_from(id)
+							.expect("Price oracle genesis: unknown parsing method");
+						let url: BoundedUrl<T> =
+							url.try_into().expect("Price oracle genesis: URL too long");
+						(method, url)
+					})
+					.collect();
+				let bounded: BoundedEndpoints<T> = converted
+					.try_into()
+					.expect("Price oracle genesis: too many endpoints for pair");
+				ActiveEndpoints::<T>::insert(pair_id, bounded);
+			}
 		}
 	}
 }

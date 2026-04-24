@@ -456,15 +456,15 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_price_oracle::PriceOracleApi<Block> for Runtime {
-		fn current_price() -> sp_runtime::FixedU128 {
+		fn list_pairs() -> Vec<sp_price_oracle::PairId> {
 			unimplemented!()
 		}
 
-		fn epsilon() -> sp_runtime::FixedU128 {
+		fn pair_config(_pair_id: sp_price_oracle::PairId) -> Option<sp_price_oracle::PairConfig> {
 			unimplemented!()
 		}
 
-		fn nudge_validity() -> u64 {
+		fn current_price(_pair_id: sp_price_oracle::PairId) -> sp_runtime::FixedU128 {
 			unimplemented!()
 		}
 
@@ -472,15 +472,19 @@ sp_api::impl_runtime_apis! {
 			unimplemented!()
 		}
 
-		fn minimum_nudges_required() -> u32 {
+		fn endpoint_list() -> Vec<(
+			sp_price_oracle::PairId,
+			Vec<(sp_price_oracle::EndpointId, Vec<u8>)>,
+		)> {
 			unimplemented!()
 		}
 
-		fn endpoint_list() -> Vec<(u8, Vec<u8>)> {
-			unimplemented!()
-		}
-
-		fn decode_results(_data: Vec<(u8, Vec<u8>)>) -> Vec<(u8, Option<sp_runtime::FixedU128>)> {
+		fn decode_results(
+			_data: Vec<(sp_price_oracle::PairId, Vec<(sp_price_oracle::EndpointId, Vec<u8>)>)>,
+		) -> Vec<(
+			sp_price_oracle::PairId,
+			Vec<Option<sp_runtime::FixedU128>>,
+		)> {
 			unimplemented!()
 		}
 	}

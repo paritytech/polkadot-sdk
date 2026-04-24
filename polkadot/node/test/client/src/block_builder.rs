@@ -45,16 +45,20 @@ pub trait InitPolkadotBlockBuilder {
 		hash: <Block as BlockT>::Hash,
 	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
 
-	/// Same as [`InitPolkadotBlockBuilder::init_polkadot_block_builder`] but with custom
-	/// price oracle nudges included in the inherent data.
+	/// Init a block builder with per-pair price oracle nudges included in the inherent data.
+	fn init_polkadot_block_builder_with_pair_nudges(
+		&self,
+		pair_nudges: sp_price_oracle::PriceOracleInherentData,
+	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
+
+	/// Convenience wrapper: submits the given nudges under pair id `0` (the default test
+	/// DOT/USD pair).
 	fn init_polkadot_block_builder_with_nudges(
 		&self,
-		nudges: sp_price_oracle::PriceOracleInherentData,
+		nudges: Vec<sp_price_oracle::SignedNudge>,
 	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
 
 	/// Init a block builder that does **not** include the price oracle inherent.
-	///
-	/// Useful for testing the panic switch, which requires blocks without the oracle inherent.
 	fn init_polkadot_build_block_without_price_oracle_inherent(
 		&self,
 	) -> sc_block_builder::BlockBuilder<'_, Block, Client>;
@@ -73,12 +77,19 @@ impl InitPolkadotBlockBuilder for Client {
 		build_block_with_nudges(self, hash, Vec::new())
 	}
 
-	fn init_polkadot_block_builder_with_nudges(
+	fn init_polkadot_block_builder_with_pair_nudges(
 		&self,
-		nudges: sp_price_oracle::PriceOracleInherentData,
+		pair_nudges: sp_price_oracle::PriceOracleInherentData,
 	) -> BlockBuilder<'_, Block, Client> {
 		let chain_info = self.chain_info();
-		build_block_with_nudges(self, chain_info.best_hash, nudges)
+		build_block_with_nudges(self, chain_info.best_hash, pair_nudges)
+	}
+
+	fn init_polkadot_block_builder_with_nudges(
+		&self,
+		nudges: Vec<sp_price_oracle::SignedNudge>,
+	) -> BlockBuilder<'_, Block, Client> {
+		self.init_polkadot_block_builder_with_pair_nudges(vec![(0u8, nudges)])
 	}
 
 	fn init_polkadot_build_block_without_price_oracle_inherent(
@@ -92,7 +103,7 @@ impl InitPolkadotBlockBuilder for Client {
 fn build_block_with_nudges<'a>(
 	client: &'a Client,
 	hash: <Block as BlockT>::Hash,
-	nudges: sp_price_oracle::PriceOracleInherentData,
+	pair_nudges: sp_price_oracle::PriceOracleInherentData,
 ) -> BlockBuilder<'a, Block, Client> {
 	let last_timestamp = client.runtime_api().get_last_timestamp(hash).expect("Get last timestamp");
 
@@ -152,7 +163,7 @@ fn build_block_with_nudges<'a>(
 		.expect("Put parachains inherent data");
 
 	inherent_data
-		.put_data(sp_price_oracle::INHERENT_IDENTIFIER, &nudges)
+		.put_data(sp_price_oracle::INHERENT_IDENTIFIER, &pair_nudges)
 		.expect("Put price oracle inherent data");
 
 	let inherents = block_builder.create_inherents(inherent_data).expect("Creates inherents");
