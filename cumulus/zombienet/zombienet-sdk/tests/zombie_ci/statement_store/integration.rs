@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, assert_expected_statements_received, base_dir, collator_default_args,
-	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
-	subscribe_topic, subscribe_topic_filter,
+	assert_expected_statements_received, assert_no_more_statements, base_dir,
+	collator_default_args, create_chain_spec_with_allowances, expect_one_statement,
+	expect_statements_unordered, spawn_network_sudo, spawn_network_with_injected_allowances,
+	submit_statement, subscribe_topic, subscribe_topic_filter,
 };
 use codec::Encode;
 use log::{debug, info};
@@ -480,9 +480,12 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let bob_stmt_hashes: HashSet<String> =
 		bob_stmts.iter().map(|s| hash_to_hex(&s.hash())).collect();
 
-	let network =
-		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32, None)
-			.await?;
+	let network = spawn_network_with_injected_allowances(
+		&["alice", "bob", "charlie"],
+		total_stmts as u32,
+		None,
+	)
+	.await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -774,14 +777,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 				let keypair = get_keypair(kp);
 				let mut data = kp.to_le_bytes().to_vec();
 				data.extend_from_slice(&seq.to_le_bytes());
-				create_test_statement(
-					&keypair,
-					&[topic_a],
-					None,
-					data,
-					u32::MAX,
-					kp * 1000 + seq,
-				)
+				create_test_statement(&keypair, &[topic_a], None, data, u32::MAX, kp * 1000 + seq)
 			})
 		})
 		.collect();
