@@ -43,7 +43,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	let statements_per_task = submit_capacity / total_tasks as u64;
 
 	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
-	let network = spawn_network_with_injected_allowances(&collator_names, total_tasks).await?;
+	let network = spawn_network_with_injected_allowances(&collator_names, total_tasks, None).await?;
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;
@@ -248,7 +248,7 @@ async fn statement_store_latency_bench() -> Result<(), anyhow::Error> {
 	let collator_names: Vec<&str> = collator_names.iter().map(|s| s.as_str()).collect();
 
 	let network =
-		spawn_network_with_injected_allowances(&collator_names, config.num_clients).await?;
+		spawn_network_with_injected_allowances(&collator_names, config.num_clients, None).await?;
 
 	info!("Starting Latency benchmark");
 	info!("");

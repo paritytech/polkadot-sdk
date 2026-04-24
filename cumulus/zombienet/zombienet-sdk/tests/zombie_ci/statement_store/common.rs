@@ -140,9 +140,11 @@ pub(super) async fn expect_statements_unordered(
 	Ok(collected)
 }
 
-/// Collects `count` statements from a subscription, then asserts they match
-/// `expected` (order-independent, compared as sorted encoded bytes)
-pub(super) async fn assert_statements_match(
+/// Collects `expected.len()` statements from a subscription, then asserts they match
+/// `expected` (order-independent, compared as sorted encoded bytes).
+/// Does NOT verify that the subscription has no further statements — use
+/// `assert_no_more_statements` separately when exclusivity is needed
+pub(super) async fn assert_expected_statements_received(
 	subscription: &mut RpcSubscription<StatementEvent>,
 	expected: &[Vec<u8>],
 	timeout_secs: u64,
@@ -197,12 +199,20 @@ pub(super) fn create_chain_spec_with_allowances(
 }
 
 pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk::Arg> {
+	collator_args_with_log_level(participant_count, "trace")
+}
+
+pub(super) fn collator_args_with_log_level(
+	participant_count: u32,
+	statement_log_level: &str,
+) -> Vec<zombienet_sdk::Arg> {
 	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
 	[
 		"--force-authoring".to_string(),
 		"--max-runtime-instances=32".to_string(),
-		// TODO: we need trace only for statement_store_crash_mid_sync
-		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
+		format!(
+			"-linfo,statement-store={statement_log_level},statement-gossip={statement_log_level}"
+		),
 		"--enable-statement-store".to_string(),
 		format!("--rpc-max-connections={}", participant_count + 1000),
 		format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),
@@ -231,12 +241,14 @@ pub(super) fn format_build_errors(errors: Vec<anyhow::Error>) -> anyhow::Error {
 pub(super) async fn spawn_network_with_injected_allowances(
 	collators: &[&str],
 	participant_count: u32,
+	statement_log_level: Option<&str>,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	assert!(!collators.is_empty());
 	let images = zombienet_sdk::environment::get_images_from_env();
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let default_args = collator_default_args(participant_count);
+	let log_level = statement_log_level.unwrap_or("trace");
+	let default_args = collator_args_with_log_level(participant_count, log_level);
 
 	let config = NetworkConfigBuilder::new()
 		.with_relaychain(|r| {

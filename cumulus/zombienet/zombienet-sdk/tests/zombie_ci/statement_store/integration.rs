@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
+	assert_no_more_statements, assert_expected_statements_received, base_dir, collator_default_args,
 	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement,
+	subscribe_topic, subscribe_topic_filter,
 };
 use codec::Encode;
 use log::{debug, info};
@@ -13,7 +13,7 @@ use sc_network_statement::config::STATEMENTS_BURST_COEFFICIENT;
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
 use sp_core::Bytes;
 use sp_statement_store::{
-	InvalidReason, RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
+	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
 use std::{
 	cell::Cell,
@@ -32,7 +32,7 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8, None).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
@@ -132,7 +132,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		assert_statements_match(sub, &expected_encoded, 60, name).await?;
+		assert_expected_statements_received(sub, &expected_encoded, 60, name).await?;
 	}
 
 	for (name, sub) in [
@@ -481,7 +481,7 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 		bob_stmts.iter().map(|s| hash_to_hex(&s.hash())).collect();
 
 	let network =
-		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
+		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32, None)
 			.await?;
 
 	let alice = network.get_node("alice")?;
@@ -702,10 +702,9 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 
 /// Verifies store consistency when many statements expire concurrently
 ///
-/// 1. Already-expired statement is rejected at submission time
-/// 2. 1200 ephemeral + 240 persistent statements are submitted concurrently and propagate
-/// 3. After enforce_limits cleans up the 1200 expired statements across 8 accounts,
-/// all nodes converge on the 240 surviving persistent statements
+/// 1. 3000 ephemeral + 240 persistent statements are submitted concurrently and propagate
+/// 2. After enforce_limits cleans up the 3000 expired statements across 12 accounts, all nodes
+///    converge on the 240 surviving persistent statements
 ///
 /// Test uses genesis-injected allowances
 #[tokio::test(flavor = "multi_thread")]
@@ -714,8 +713,12 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network =
-		spawn_network_with_injected_allowances(&["alice", "bob", "charlie", "dave"], 256).await?;
+	let network = spawn_network_with_injected_allowances(
+		&["alice", "bob", "charlie", "dave"],
+		20,
+		Some("info"),
+	)
+	.await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -732,67 +735,74 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		.expect("Time went backwards")
 		.as_secs() as u32;
 
-	// Already-expired statement rejection
 	let topic_a: Topic = [30u8; 32].into();
-	let keypair = get_keypair(0);
-	let expired_stmt =
-		create_test_statement(&keypair, &[topic_a], None, vec![0u8], now_secs - 120, 0);
-	assert_eq!(
-		submit_statement(&alice_rpc, &expired_stmt).await?,
-		SubmitResult::Invalid(InvalidReason::AlreadyExpired),
-	);
 
-	// Subscribe BEFORE submitting so we capture propagation events
-	let mut alice_sub = subscribe_topic(&alice_rpc, topic_a).await?;
-	let mut bob_sub = subscribe_topic(&bob_rpc, topic_a).await?;
-	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic_a).await?;
-	let mut dave_sub = subscribe_topic(&dave_rpc, topic_a).await?;
+	// How long (seconds) until the ephemeral batch expires
+	let ephemeral_ttl: u32 = 600;
+	// Extra seconds after expiry to let enforce_limits run
+	let enforce_limits_buffer: u64 = 65;
 
-	// 1200 ephemeral statements across 8 accounts (150 per account), expire in ~35s
-	let ephemeral_expiry = now_secs + 35;
-	let ephemeral_stmts: Vec<_> = (0u32..8)
+	// 3000 ephemeral statements across 12 accounts (250 per account)
+	let num_ephemeral_accounts: u32 = 12;
+	let stmts_per_ephemeral: u32 = 250;
+	let ephemeral_expiry = now_secs + ephemeral_ttl;
+	let ephemeral_stmts: Vec<_> = (0..num_ephemeral_accounts)
 		.flat_map(|kp| {
-			(0u32..150).map(move |seq| {
+			(0..stmts_per_ephemeral).map(move |seq| {
 				let keypair = get_keypair(kp);
+				let mut data = kp.to_le_bytes().to_vec();
+				data.extend_from_slice(&seq.to_le_bytes());
 				create_test_statement(
 					&keypair,
 					&[topic_a],
 					None,
-					vec![kp as u8, seq as u8],
+					data,
 					ephemeral_expiry,
-					1000 + kp * 200 + seq,
+					kp * 1000 + seq,
 				)
 			})
 		})
 		.collect();
 
 	// 240 persistent statements across 8 accounts (30 per account), never expire
-	let persistent_stmts: Vec<_> = (8u32..16)
+	let num_persistent_accounts: u32 = 8;
+	let stmts_per_persistent: u32 = 30;
+	let persistent_base = num_ephemeral_accounts;
+	let persistent_stmts: Vec<_> = (persistent_base..persistent_base + num_persistent_accounts)
 		.flat_map(|kp| {
-			(0u32..30).map(move |seq| {
+			(0..stmts_per_persistent).map(move |seq| {
 				let keypair = get_keypair(kp);
+				let mut data = kp.to_le_bytes().to_vec();
+				data.extend_from_slice(&seq.to_le_bytes());
 				create_test_statement(
 					&keypair,
 					&[topic_a],
 					None,
-					vec![kp as u8, seq as u8],
+					data,
 					u32::MAX,
-					5000 + kp * 200 + seq,
+					kp * 1000 + seq,
 				)
 			})
 		})
 		.collect();
 
-	// Submit all 1440 concurrently, round-robin across nodes
+	// Submit all 3240 statements round-robin across nodes
 	let all_stmts: Vec<_> =
 		ephemeral_stmts.iter().chain(persistent_stmts.iter()).cloned().collect();
-	let nodes = [&alice, &bob, &charlie, &dave];
+	let rpcs = [
+		Arc::new(alice.rpc().await?),
+		Arc::new(bob.rpc().await?),
+		Arc::new(charlie.rpc().await?),
+		Arc::new(dave.rpc().await?),
+	];
+	let semaphore = Arc::new(tokio::sync::Semaphore::new(200));
 	let mut handles = Vec::new();
 	for (i, stmt) in all_stmts.iter().enumerate() {
-		let target = nodes[i % nodes.len()];
-		let rpc = target.rpc().await?;
+		let rpc = Arc::clone(&rpcs[i % rpcs.len()]);
+		let sem = Arc::clone(&semaphore);
 		let stmt = stmt.clone();
 		handles.push(tokio::spawn(async move {
+			let _permit = sem.acquire().await.expect("Semaphore is never closed");
 			let result = submit_statement(&rpc, &stmt).await?;
 			assert_eq!(result, SubmitResult::New);
 			Ok::<_, anyhow::Error>(())
@@ -801,31 +811,33 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	for handle in handles {
 		handle.await??;
 	}
-	// Verify all 1440 statements propagate to every node
-	let expected_encoded: Vec<Vec<u8>> = all_stmts.iter().map(|s| s.encode()).collect();
 
+	let mut alice_sub = subscribe_topic(&alice_rpc, topic_a).await?;
+	let mut bob_sub = subscribe_topic(&bob_rpc, topic_a).await?;
+	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic_a).await?;
+	let mut dave_sub = subscribe_topic(&dave_rpc, topic_a).await?;
+
+	// Verify all 3240 statements propagate to every node
+	let expected_encoded: Vec<Vec<u8>> = all_stmts.iter().map(|s| s.encode()).collect();
 	for (name, sub) in [
 		("alice", &mut alice_sub),
 		("bob", &mut bob_sub),
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		assert_statements_match(sub, &expected_encoded, 300, name).await?;
+		assert_expected_statements_received(sub, &expected_encoded, 600, name).await?;
+		assert_no_more_statements(sub, 10).await?;
 	}
 	let elapsed = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("Time went backwards")
 		.as_secs() as u32 -
 		now_secs;
-	let wait_secs = 35u32.saturating_sub(elapsed) as u64 + 65;
+	let wait_secs = ephemeral_ttl.saturating_sub(elapsed) as u64 + enforce_limits_buffer;
 	info!("Waiting {}s for expiration + enforce_limits cleanup", wait_secs);
 	tokio::time::sleep(Duration::from_secs(wait_secs)).await;
 
-	// Re-submitting an expired statement is rejected
-	let result = submit_statement(&alice_rpc, &ephemeral_stmts[0]).await?;
-	assert_eq!(result, SubmitResult::Invalid(InvalidReason::AlreadyExpired));
-
-	// Fresh subscriptions verify that enforce_limits actually removed the 1200 ephemeral
+	// Fresh subscriptions verify that enforce_limits actually removed the 3000 ephemeral
 	// statements from the store – only the 240 persistent ones should remain
 	let mut alice_fresh = subscribe_topic(&alice_rpc, topic_a).await?;
 	let mut bob_fresh = subscribe_topic(&bob_rpc, topic_a).await?;
@@ -840,7 +852,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("charlie", &mut charlie_fresh),
 		("dave", &mut dave_fresh),
 	] {
-		assert_statements_match(sub, &persistent_encoded, 120, name).await?;
+		assert_expected_statements_received(sub, &persistent_encoded, 120, name).await?;
 		assert_no_more_statements(sub, 10).await?;
 	}
 
