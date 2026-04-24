@@ -71,17 +71,6 @@ type BalanceOf<T> = <<T as pallet_revive::Config>::Currency as Inspect<
 >>::Balance;
 
 /// An Asset Transactor that deals with ERC-721 non-fungible tokens.
-///
-/// Generic parameters:
-/// - `T`: The runtime type, must implement `pallet_revive::Config`.
-/// - `Matcher`: Matches an XCM `Asset` to an ERC-721 contract address (`H160`) and token ID
-///   (`u128`). Use [`ERC721Matcher`](crate::ERC721Matcher) for the standard case.
-/// - `AccountIdConverter`: Converts an XCM `Location` into an `AccountId`.
-/// - `WeightLimit`: The maximum weight (gas limit) allowed for a single ERC-721 contract call.
-/// - `StorageDepositLimit`: The maximum storage deposit allowed per contract call.
-/// - `AccountId`: The runtime account ID type.
-/// - `TransfersCheckingAccount`: A sovereign account used as an intermediate holder of NFTs during
-///   cross-chain transfers.
 pub struct ERC721Transactor<
 	T,
 	Matcher,
@@ -145,12 +134,6 @@ where
 	}
 
 	/// Withdraws an ERC-721 token from the sender by transferring it to the checking account.
-	///
-	/// Calls `transferFrom(owner, checking_account, tokenId)` on the ERC-721 contract.
-	/// Because `msg.sender` is the NFT owner (via `signed(who)` origin), the ERC-721
-	/// contract authorises the transfer without requiring a prior `approve` call.
-	///
-	/// Returns the asset in holding and any unused weight as a surplus.
 	fn withdraw_asset_with_surplus(
 		what: &Asset,
 		who: &Location,
@@ -234,15 +217,6 @@ where
 	}
 
 	/// Deposits an ERC-721 token to the beneficiary by transferring it from the checking account.
-	///
-	/// Calls `transferFrom(checking_account, beneficiary, tokenId)` on the ERC-721 contract,
-	/// signed by the checking account so that `msg.sender == from`, which the ERC-721 contract
-	/// permits.
-	///
-	/// Note: Only a single non-fungible asset is processed per call. `defensive_assert!` guards
-	/// against misuse during development.
-	///
-	/// Returns any unused weight as a surplus.
 	fn deposit_asset_with_surplus(
 		what: AssetsInHolding,
 		who: &Location,

@@ -163,9 +163,6 @@ pub type ERC20Matcher =
 	MatchedConvertedConcreteId<H160, u128, IsLocalAccountKey20, AccountKey20ToH160, JustTry>;
 
 /// Converts an [`AssetInstance::Index`] to a `u128` token ID.
-///
-/// Used by [`ERC721Matcher`] to extract the numeric token ID from a non-fungible XCM asset.
-/// Only `AssetInstance::Index` variants are accepted; all others are rejected.
 pub struct AssetInstanceIndexToU128;
 impl sp_runtime::traits::MaybeEquivalence<xcm::latest::AssetInstance, u128>
 	for AssetInstanceIndexToU128
