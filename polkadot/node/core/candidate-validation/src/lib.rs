@@ -175,11 +175,11 @@ where
 /// Session-scoped parameters needed for candidate validation.
 ///
 /// Each field may come from a different session for V3+ descriptors:
+///
 /// - `executor_params`: relay-parent (execution) session.
-/// - `validation_code_bomb_limit`: scheduling session
+/// - `validation_code_bomb_limit`: scheduling session.
 ///
 /// For V1 descriptors both sessions are identical.
-#[derive(Clone)]
 struct SessionParams {
 	/// Fetched for the relay-parent (execution) session.
 	executor_params: ExecutorParams,
@@ -227,36 +227,46 @@ where
 		.scheduling_session_for_candidate_validation(v3_ever_seen)
 		.unwrap_or(scheduling_session_index);
 
-	// Prefer `SessionExecutionConfig` (runtime API v17+): it carries both
-	// `max_pov_size` and `validation_code_bomb_limit`. On older runtimes that
-	// don't expose the API (or when the session's config isn't stored), fall
-	// back to the standalone bomb-limit call and leave `max_pov_size`
-	// as `None` so callers use PVD's limit.
 	let (validation_code_bomb_limit, max_pov_size) =
-		match request_session_execution_config(recent_leaf, scheduling_session, sender)
-			.await
-			.await
-			.map_err(|e| format!("Cannot fetch session execution config: channel error: {e:?}"))?
-		{
-			Ok(Some(cfg)) => (cfg.validation_code_bomb_limit, Some(cfg.max_pov_size)),
-			Ok(None) | Err(RuntimeApiError::NotSupported { .. }) => {
-				let bomb_limit = util::runtime::fetch_validation_code_bomb_limit(
-					recent_leaf,
-					scheduling_session,
-					sender,
-				)
-				.await
-				.map_err(|_| {
-					"Cannot fetch validation code bomb limit from the runtime".to_string()
-				})?;
-				(bomb_limit, None)
-			},
-			Err(e) => {
-				return Err(format!("Cannot fetch session execution config: runtime error: {e:?}"))
-			},
-		};
+		fetch_bomb_limit_and_max_pov(recent_leaf, scheduling_session, sender).await?;
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit, max_pov_size })
+}
+
+/// Fetch the validation-code bomb limit and, if available, the per-session
+/// `max_pov_size` override.
+///
+/// Prefer `SessionExecutionConfig` (runtime API v17+): it carries both
+/// `max_pov_size` and `validation_code_bomb_limit`. On older runtimes that
+/// don't expose the API (or when the session's config isn't stored), fall
+/// back to the standalone bomb-limit call and leave `max_pov_size` as `None`
+/// so callers use PVD's limit.
+async fn fetch_bomb_limit_and_max_pov<Sender>(
+	recent_leaf: Hash,
+	scheduling_session: SessionIndex,
+	sender: &mut Sender,
+) -> Result<(u32, Option<u32>), String>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	match request_session_execution_config(recent_leaf, scheduling_session, sender)
+		.await
+		.await
+		.map_err(|e| format!("Cannot fetch session execution config: channel error: {e:?}"))?
+	{
+		Ok(Some(cfg)) => Ok((cfg.validation_code_bomb_limit, Some(cfg.max_pov_size))),
+		Ok(None) | Err(RuntimeApiError::NotSupported { .. }) => {
+			let bomb_limit = util::runtime::fetch_validation_code_bomb_limit(
+				recent_leaf,
+				scheduling_session,
+				sender,
+			)
+			.await
+			.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())?;
+			Ok((bomb_limit, None))
+		},
+		Err(e) => Err(format!("Cannot fetch session execution config: runtime error: {e:?}")),
+	}
 }
 
 /// Output of [`pre_validate_candidate`]: data needed by PVF execution and
@@ -400,14 +410,13 @@ where
 			let _timer = metrics.time_validate_from_exhaustive();
 
 			// Session params were resolved by the run loop (cached, fetched at a
-			// recent leaf). If resolution failed (e.g. no active leaf yet), the
-			// task cannot proceed.
+			// recent leaf). If resolution failed the task cannot proceed; the
+			// specific cause is logged by the run loop.
 			let session_params = match session_params {
 				Some(params) => params,
 				None => {
-					let _ = response_sender.send(Err(ValidationFailed(
-						"Session params unavailable (no active leaf?)".to_string(),
-					)));
+					let _ = response_sender
+						.send(Err(ValidationFailed("Session params unavailable".to_string())));
 					return;
 				},
 			};

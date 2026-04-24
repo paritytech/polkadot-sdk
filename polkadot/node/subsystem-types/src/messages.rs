@@ -206,9 +206,9 @@ pub enum CandidateValidationMessage {
 		pov: Arc<PoV>,
 		/// Scheduling session index for this candidate. For V1 descriptors this
 		/// equals the relay-parent session and serves as fallback for both
-		/// execution and scheduling session. For V2+, sessions are in the
-		/// descriptor and this field is ignored. Can be removed once V1 support
-		/// is dropped.
+		/// execution and scheduling session. For V2+ descriptors this field is
+		/// only used as a fallback if the descriptor's session fields are unset.
+		/// Can be removed once V1 support is dropped.
 		scheduling_session_index: SessionIndex,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,
