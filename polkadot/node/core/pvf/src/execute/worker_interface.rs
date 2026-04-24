@@ -29,7 +29,7 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Execution, Handshake, WorkerError, WorkerResponse, ValidationContext},
+	execute::{Execution, Handshake, ValidationContext, WorkerError, WorkerResponse},
 	worker::WorkerKind,
 	worker_dir, ArtifactChecksum, SecurityStatus,
 };
@@ -165,24 +165,18 @@ pub async fn start_work(
 	let execution = Execution::from(executable);
 	let execution_timeout = validation_context.exec_timeout;
 
-	send_request(
-		&mut stream,
-		execution,
-		validation_context,
-		artifact_checksum,
-		code_bomb_limit,
-	)
-	.await
-	.map_err(|error| {
-		gum::warn!(
-			target: LOG_TARGET,
-			worker_pid = %pid,
-			validation_code_hash = ?code_hash,
-			"failed to send an execute request: {}",
-			error,
-		);
-		Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
-	})?;
+	send_request(&mut stream, execution, validation_context, artifact_checksum, code_bomb_limit)
+		.await
+		.map_err(|error| {
+			gum::warn!(
+				target: LOG_TARGET,
+				worker_pid = %pid,
+				validation_code_hash = ?code_hash,
+				"failed to send an execute request: {}",
+				error,
+			);
+			Error::InternalError(InternalValidationError::HostCommunication(error.to_string()))
+		})?;
 
 	// We use a generous timeout here. This is in addition to the one in the child process, in
 	// case the child stalls. We have a wall clock timeout here in the host, but a CPU timeout
@@ -225,8 +219,9 @@ pub async fn start_work(
 	};
 
 	let result = match worker_result {
-		Ok(worker_response) =>
-			Ok(Response { worker_response, idle_worker: IdleWorker { stream, pid, worker_dir } }),
+		Ok(worker_response) => {
+			Ok(Response { worker_response, idle_worker: IdleWorker { stream, pid, worker_dir } })
+		},
 		Err(worker_error) => Err(worker_error.into()),
 	};
 
@@ -243,7 +238,7 @@ pub async fn start_work(
 			err: format!("{:?}", err),
 			path: worker_dir_path.to_str().map(String::from),
 		}
-		.into())
+		.into());
 	}
 
 	result
@@ -289,7 +284,8 @@ async fn send_request(
 	artifact_checksum: ArtifactChecksum,
 	code_bomb_limit: u32,
 ) -> io::Result<()> {
-	let request = validation_context.into_execute_request(execution, artifact_checksum, code_bomb_limit);
+	let request =
+		validation_context.into_execute_request(execution, artifact_checksum, code_bomb_limit);
 	framed_send(stream, &request.encode()).await
 }
 

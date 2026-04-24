@@ -310,8 +310,8 @@ pub trait FunctionContext {
 	fn allocate_memory(&mut self, size: WordSize) -> Result<Pointer<u8>>;
 	/// Deallocate a given memory instance.
 	fn deallocate_memory(&mut self, ptr: Pointer<u8>) -> Result<()>;
-	/// Fill the input data into the memory.
-	fn fill_input_data(&mut self, ptr: Pointer<u8>, size: WordSize) -> Result<()>;
+	/// Take the input data from the host state.
+	fn take_input_data(&mut self) -> Result<Vec<u8>>;
 	/// Registers a panic error message within the executor.
 	///
 	/// This is meant to be used in situations where the runtime

@@ -50,8 +50,8 @@ use std::{
 	collections::HashMap,
 	fmt::{Debug, Display},
 	path::PathBuf,
-	time::{Duration, SystemTime},
 	sync::Arc,
+	time::{Duration, SystemTime},
 };
 
 /// The time period after which a failed preparation artifact is considered ready to be retried.
@@ -819,12 +819,7 @@ async fn handle_execute_pvf(
 			pvf,
 			priority,
 			artifact_id,
-			PendingExecutionRequest {
-				validation_context,
-				code_bomb_limit,
-				result_tx,
-				exec_kind,
-			},
+			PendingExecutionRequest { validation_context, code_bomb_limit, result_tx, exec_kind },
 		)
 		.await?;
 	}
@@ -946,12 +941,8 @@ async fn handle_prepare_done(
 	// It's finally time to dispatch all the execution requests that were waiting for this artifact
 	// to be prepared.
 	let pending_requests = awaiting_prepare.take(&artifact_id);
-	for PendingExecutionRequest {
-		validation_context,
-		code_bomb_limit,
-		result_tx,
-		exec_kind,
-	} in pending_requests
+	for PendingExecutionRequest { validation_context, code_bomb_limit, result_tx, exec_kind } in
+		pending_requests
 	{
 		if result_tx.is_canceled() {
 			// Preparation could've taken quite a bit of time and the requester may be not

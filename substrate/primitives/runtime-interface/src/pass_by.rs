@@ -30,14 +30,12 @@ use crate::host::*;
 use crate::wasm::*;
 
 #[cfg(not(substrate_runtime))]
-use byte_slice_cast::AsByteSlice;
-#[cfg(substrate_runtime)]
-use byte_slice_cast::AsMutByteSlice;
+use byte_slice_cast::FromByteSlice;
 #[cfg(not(substrate_runtime))]
 use sp_wasm_interface::{FunctionContext, Pointer, Result};
 
 #[cfg(not(substrate_runtime))]
-use alloc::{format, string::String};
+use alloc::{format, string::String, vec};
 
 use alloc::vec::Vec;
 use core::{any::type_name, marker::PhantomData};
@@ -234,15 +232,15 @@ where
 ///
 /// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer).
 /// `u64::MAX` is used to represent `None`.
-pub struct PassMaybeFatPointerAndRead<T>(PhantomData<T>);
+pub struct PassOptionalFatPointerAndRead<T>(PhantomData<T>);
 
-impl<T> RIType for PassMaybeFatPointerAndRead<T> {
+impl<T> RIType for PassOptionalFatPointerAndRead<T> {
 	type FFIType = u64;
 	type Inner = T;
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a> FromFFIValue<'a> for PassMaybeFatPointerAndRead<Option<&'a [u8]>> {
+impl<'a> FromFFIValue<'a> for PassOptionalFatPointerAndRead<Option<&'a [u8]>> {
 	type Owned = Option<Vec<u8>>;
 
 	fn from_ffi_value(
@@ -263,7 +261,7 @@ impl<'a> FromFFIValue<'a> for PassMaybeFatPointerAndRead<Option<&'a [u8]>> {
 }
 
 #[cfg(substrate_runtime)]
-impl<T> IntoFFIValue for PassMaybeFatPointerAndRead<Option<T>>
+impl<T> IntoFFIValue for PassOptionalFatPointerAndRead<Option<T>>
 where
 	T: AsRef<[u8]>,
 {
@@ -296,30 +294,20 @@ impl<T> RIType for PassFatPointerAndReadWrite<T> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]>
-where
-	[T]: AsByteSlice<T>,
-{
-	type Owned = Vec<T>;
+impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndReadWrite<&'a mut [T]> {
+	type Owned = Vec<u8>;
 
 	fn from_ffi_value(
 		context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		let bytes =
-			context.read_memory(Pointer::new(ptr), len * core::mem::size_of::<T>() as u32)?;
-		let ptr = bytes.as_ptr() as *mut _;
-		let cap = bytes.capacity() / core::mem::size_of::<T>();
-		core::mem::forget(bytes);
-		// SAFETY: Only types that may be converted to a byte slice are transferred via the FFI
-		// boundary, which is enforced by the trait bounds. Slice types are statically checked
-		// on both sides.
-		unsafe { Ok(Vec::from_raw_parts(ptr, len as usize, cap)) }
+		context.read_memory(Pointer::new(ptr), len)
 	}
 
 	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		&mut *owned
+		FromByteSlice::from_mut_byte_slice(owned)
+			.expect("byte slice has wrong alignment or size for target type")
 	}
 
 	fn write_back_into_runtime(
@@ -328,26 +316,17 @@ where
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len() * core::mem::size_of::<T>());
-		context.write_memory(Pointer::new(ptr), value.as_byte_slice())
+		assert_eq!(len as usize, value.len());
+		context.write_memory(Pointer::new(ptr), &value)
 	}
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]>
-where
-	[T]: AsMutByteSlice<T>,
-{
+impl<'a, T> IntoFFIValue for PassFatPointerAndReadWrite<&'a mut [T]> {
 	type Destructor = ();
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		(
-			pack_ptr_and_len(
-				value.as_mut_byte_slice().as_ptr() as u32,
-				value.len() as u32 * core::mem::size_of::<T>() as u32,
-			),
-			(),
-		)
+		(pack_ptr_and_len(value.as_ptr() as u32, core::mem::size_of_val(*value) as u32), ())
 	}
 }
 
@@ -367,25 +346,20 @@ impl<T> RIType for PassFatPointerAndWrite<T> {
 }
 
 #[cfg(not(substrate_runtime))]
-impl<'a, T> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]>
-where
-	T: Default,
-	[T]: AsByteSlice<T>,
-{
-	type Owned = Vec<T>;
+impl<'a, T: FromByteSlice> FromFFIValue<'a> for PassFatPointerAndWrite<&'a mut [T]> {
+	type Owned = Vec<u8>;
 
 	fn from_ffi_value(
 		_context: &mut dyn FunctionContext,
 		arg: Self::FFIType,
 	) -> Result<Self::Owned> {
 		let (_, len) = unpack_ptr_and_len(arg);
-		let mut vec = Vec::with_capacity(len as usize);
-		vec.resize_with(len as usize, T::default);
-		Ok(vec)
+		Ok(vec![0u8; len as usize])
 	}
 
 	fn take_from_owned(owned: &'a mut Self::Owned) -> Self::Inner {
-		&mut *owned
+		FromByteSlice::from_mut_byte_slice(owned)
+			.expect("byte slice has wrong alignment or size for target type")
 	}
 
 	fn write_back_into_runtime(
@@ -394,75 +368,17 @@ where
 		arg: Self::FFIType,
 	) -> Result<()> {
 		let (ptr, len) = unpack_ptr_and_len(arg);
-		assert_eq!(len as usize, value.len() * core::mem::size_of::<T>());
-		context.write_memory(Pointer::new(ptr), value.as_byte_slice())
+		assert_eq!(len as usize, value.len());
+		context.write_memory(Pointer::new(ptr), &value)
 	}
 }
 
 #[cfg(substrate_runtime)]
-impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]>
-where
-	[T]: AsMutByteSlice<T>,
-{
+impl<'a, T> IntoFFIValue for PassFatPointerAndWrite<&'a mut [T]> {
 	type Destructor = ();
 
 	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		(
-			pack_ptr_and_len(
-				value.as_mut_byte_slice().as_ptr() as u32,
-				value.len() as u32 * core::mem::size_of::<T>() as u32,
-			),
-			(),
-		)
-	}
-}
-
-/// Pass a buffer into the host by a fat pointer. The host will write input data into it.
-///
-/// Handles a specific case of passing input data from the host to the runtime after the runtime
-/// has allocated memory for it.
-///
-/// Raw FFI type: `u64` (a fat pointer; upper 32 bits is the size, lower 32 bits is the pointer)
-pub struct PassFatPointerAndWriteInputData<T>(PhantomData<T>);
-
-impl<T> RIType for PassFatPointerAndWriteInputData<T> {
-	type FFIType = u64;
-	type Inner = T;
-}
-
-#[cfg(not(substrate_runtime))]
-impl<'a> FromFFIValue<'a> for PassFatPointerAndWriteInputData<&'a mut [u8]> {
-	type Owned = ();
-
-	fn from_ffi_value(
-		_context: &mut dyn FunctionContext,
-		_arg: Self::FFIType,
-	) -> Result<Self::Owned> {
-		Ok(())
-	}
-
-	fn take_from_owned(_owned: &'a mut Self::Owned) -> Self::Inner {
-		// SAFETY: The result is never used. The dangling pointer is guaranteed to be non-null,
-		// so it is not a UB.
-		unsafe { core::slice::from_raw_parts_mut(core::ptr::dangling_mut(), 0) as _ }
-	}
-
-	fn write_back_into_runtime(
-		_value: Self::Owned,
-		context: &mut dyn FunctionContext,
-		arg: Self::FFIType,
-	) -> Result<()> {
-		let (ptr, len) = unpack_ptr_and_len(arg);
-		context.fill_input_data(Pointer::new(ptr), len)
-	}
-}
-
-#[cfg(substrate_runtime)]
-impl<'a> IntoFFIValue for PassFatPointerAndWriteInputData<&'a mut [u8]> {
-	type Destructor = ();
-
-	fn into_ffi_value(value: &mut Self::Inner) -> (Self::FFIType, Self::Destructor) {
-		(pack_ptr_and_len(value.as_ptr() as u32, value.len() as u32), ())
+		(pack_ptr_and_len(value.as_ptr() as u32, core::mem::size_of_val(*value) as u32), ())
 	}
 }
 
@@ -814,7 +730,7 @@ where
 impl<T, U, V> IntoFFIValue for ConvertAndReturnAs<T, U, V>
 where
 	V: RIType + IntoFFIValue + Primitive,
-	<V as RIType>::Inner: From<U>,
+	<V as RIType>::Inner: TryFrom<U>,
 	U: From<Self::Inner>,
 {
 	fn into_ffi_value(
@@ -822,7 +738,13 @@ where
 		context: &mut dyn FunctionContext,
 	) -> Result<Self::FFIType> {
 		let value: U = value.into();
-		let value: <V as RIType>::Inner = value.into();
+		let value: <V as RIType>::Inner = value.try_into().map_err(|_| {
+			format!(
+				"failed to convert intermediate type '{}' into '{}' when marshalling a hostcall's return value through the FFI boundary",
+				type_name::<U>(),
+				type_name::<<V as RIType>::Inner>()
+			)
+		})?;
 		<V as IntoFFIValue>::into_ffi_value(value, context)
 	}
 }

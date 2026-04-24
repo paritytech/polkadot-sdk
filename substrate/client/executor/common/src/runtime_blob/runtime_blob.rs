@@ -39,9 +39,9 @@ impl RuntimeBlob {
 	///
 	/// See [`sp_maybe_compressed_blob`] for details about decompression.
 	pub fn uncompress_if_needed(blob: &[u8]) -> Result<Self, WasmError> {
-		let blob_type = blob_type(blob).map_err(|_| WasmError::InvalidModule)?;
+		let blob_type = blob_type(blob).map_err(|e| WasmError::InvalidModule(e.to_string()))?;
 		if !blob_type.is_code() {
-			return Err(WasmError::InvalidModule);
+			return Err(WasmError::InvalidModule("Blob is not code".to_owned()));
 		}
 		let code = decompress_as(blob_type, blob, CODE_BLOB_BOMB_LIMIT)
 			.map_err(|e| WasmError::Other(format!("Decompression error: {:?}", e)))?;

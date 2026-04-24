@@ -106,18 +106,21 @@ impl BlobPaths {
 	fn compact(&self, target: RuntimeTarget) -> PathBuf {
 		match target {
 			RuntimeTarget::Wasm => self.project.join(format!("{}.compact.wasm", self.blob_name)),
-			RuntimeTarget::Riscv =>
-				self.project.join(format!("{}.compact.polkavm", self.blob_name)),
+			RuntimeTarget::Riscv => {
+				self.project.join(format!("{}.compact.polkavm", self.blob_name))
+			},
 		}
 	}
 
 	/// Returns the path to the compact compressed wasm file.
 	fn compact_compressed(&self, target: RuntimeTarget) -> PathBuf {
 		match target {
-			RuntimeTarget::Wasm =>
-				self.project.join(format!("{}.compact.compressed.wasm", self.blob_name)),
-			RuntimeTarget::Riscv =>
-				self.project.join(format!("{}.compact.compressed.polkavm", self.blob_name)),
+			RuntimeTarget::Wasm => {
+				self.project.join(format!("{}.compact.compressed.wasm", self.blob_name))
+			},
+			RuntimeTarget::Riscv => {
+				self.project.join(format!("{}.compact.compressed.polkavm", self.blob_name))
+			},
 		}
 	}
 

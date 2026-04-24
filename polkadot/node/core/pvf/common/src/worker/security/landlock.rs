@@ -89,18 +89,16 @@ pub type Result<T> = std::result::Result<T, Error>;
 /// Try to enable landlock for the given kind of worker.
 pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 	let exceptions: Vec<(PathBuf, BitFlags<AccessFs>)> = match worker_info.kind {
-		WorkerKind::Prepare =>
+		WorkerKind::Prepare => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::WriteFile.into())]
-		,
-		WorkerKind::ExecuteWasm =>
+		},
+		WorkerKind::ExecuteWasm => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
-		,
-		WorkerKind::ExecutePvm =>
-			unimplemented!("PVM workers do not need landlock")
-		,
-		WorkerKind::CheckPivotRoot =>
-			panic!("this should only be passed for checking pivot_root; qed"),
-
+		},
+		WorkerKind::ExecutePvm => unimplemented!("PVM workers do not need landlock"),
+		WorkerKind::CheckPivotRoot => {
+			panic!("this should only be passed for checking pivot_root; qed")
+		},
 	};
 
 	gum::trace!(

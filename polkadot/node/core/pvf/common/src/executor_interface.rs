@@ -133,20 +133,23 @@ pub unsafe fn execute_wasm(
 
 pub fn execute_pvm(
 	code: &[u8],
-	_executor_params: &ExecutorParams,
+	executor_params: &ExecutorParams,
 	params: &[u8],
 ) -> Result<Vec<u8>, ExecuteError> {
 	let mut ext = prepare_externalities();
 
 	match sc_executor::with_externalities_safe(&mut ext, || {
 		let blob = RuntimeBlob::new(code)?;
-		// TODO: Executor params
+		let (semantics, _) = params_to_wasmtime_semantics(executor_params);
+		// TODO: Executor params for runtime construction
 		let runtime = sc_executor_polkavm::create_runtime::<HostFunctions>(
 			blob.as_polkavm_blob()
 				.ok_or(ExecuteError::Other("PVM blob creation failure".to_owned()))?,
 		)?;
 
-		runtime.new_instance()?.call("validate_block", params)
+		runtime
+			.new_instance(semantics.heap_alloc_strategy)?
+			.call("validate_block", params)
 	}) {
 		Ok(Ok(ok)) => Ok(ok),
 		Ok(Err(err)) | Err(err) => Err(err),
@@ -235,7 +238,7 @@ pub fn prepare(
 	if blob.as_polkavm_blob().is_some() {
 		// For PVM, actual compilation is done by execution worker for now, so just copy the blob
 		// over and pretend it's compiled
-		return Ok(blob.serialize())
+		return Ok(blob.serialize());
 	}
 	// if let Some(pvm_blob) = blob.as_polkavm_blob() {
 	// 	// For PVM, actual compilation is done by execution worker for now, so just copy the blob

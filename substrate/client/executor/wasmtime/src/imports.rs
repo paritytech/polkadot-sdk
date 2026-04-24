@@ -23,7 +23,8 @@ use std::collections::HashMap;
 use wasmtime::{ExternType, FuncType, ImportType, Linker, Module};
 
 /// Goes over all imports of a module and prepares the given linker for instantiation of the module.
-/// Returns an error if there are imports that cannot be satisfied.
+/// Returns an error if there are imports that cannot be satisfied or if the runtime mixes both
+/// allocation sides.
 pub(crate) fn prepare_imports<H>(
 	linker: &mut Linker<StoreData>,
 	module: &Module,

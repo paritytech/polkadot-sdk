@@ -257,7 +257,8 @@ impl Queue {
 			if let Some(finished_worker) = finished_worker {
 				if let Some(worker_data) = self.workers.running.get(finished_worker) {
 					for (i, job) in queue.iter().enumerate() {
-						if worker_data.executor_params_hash == job.validation_context.executor_params.hash() &&
+						if worker_data.executor_params_hash ==
+							job.validation_context.executor_params.hash() &&
 							worker_data.worker_kind == job.executable.worker_kind()
 						{
 							(worker, job_index) = (Some(finished_worker), i);
@@ -270,9 +271,10 @@ impl Queue {
 
 		if worker.is_none() {
 			// Try to obtain a worker for the job
-			worker = self
-				.workers
-				.find_available(queue[job_index].validation_context.executor_params.hash(), queue[job_index].executable.worker_kind());
+			worker = self.workers.find_available(
+				queue[job_index].validation_context.executor_params.hash(),
+				queue[job_index].executable.worker_kind(),
+			);
 		}
 
 		if worker.is_none() {

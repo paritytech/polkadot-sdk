@@ -183,9 +183,13 @@ impl WasmtimeInstance {
 		match &mut self.strategy {
 			Strategy::RecreateInstance(ref mut instance_creator) => {
 				let mut instance_wrapper = instance_creator.instantiate()?;
-				let heap_base = instance_wrapper.extract_heap_base()?;
 				let entrypoint = instance_wrapper.resolve_entrypoint(method)?;
-				let allocator = FreeingBumpHeapAllocator::new(heap_base);
+				let allocator = if matches!(entrypoint, EntryPoint::V1(_)) {
+					let heap_base = instance_wrapper.extract_heap_base()?;
+					Some(FreeingBumpHeapAllocator::new(heap_base))
+				} else {
+					None
+				};
 
 				perform_call(data, &mut instance_wrapper, entrypoint, allocator, allocation_stats)
 			},
@@ -685,7 +689,7 @@ fn perform_call(
 	data: &[u8],
 	instance_wrapper: &mut InstanceWrapper,
 	entrypoint: EntryPoint,
-	allocator: FreeingBumpHeapAllocator,
+	allocator: Option<FreeingBumpHeapAllocator>,
 	allocation_stats: &mut Option<AllocationStats>,
 ) -> Result<Vec<u8>> {
 	let host_state = HostState::new(allocator, data);

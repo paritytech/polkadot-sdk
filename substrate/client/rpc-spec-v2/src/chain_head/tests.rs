@@ -41,9 +41,7 @@ use sp_core::{
 	storage::well_known_keys::{self, CODE},
 	Blake2Hasher, Hasher,
 };
-use sp_maybe_compressed_blob::{
-	decompress_as, MaybeCompressedBlobType, CODE_BLOB_BOMB_LIMIT,
-};
+use sp_maybe_compressed_blob::{decompress_as, MaybeCompressedBlobType, CODE_BLOB_BOMB_LIMIT};
 use sp_runtime::traits::Block as BlockT;
 use sp_version::RuntimeVersion;
 use std::{

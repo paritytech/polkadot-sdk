@@ -1434,7 +1434,7 @@ fn candidate_validation_commitment_hash_mismatch_is_invalid() {
 
 #[test]
 fn compressed_code_works() {
-	use sp_maybe_compressed_blob::{compress_as, MaybeCompressedBlobType};
+	use sp_maybe_compressed_blob::MaybeCompressedBlobType;
 
 	let validation_data = PersistedValidationData { max_pov_size: 1024, ..Default::default() };
 	let pov = PoV { block_data: BlockData(vec![1; 32]) };

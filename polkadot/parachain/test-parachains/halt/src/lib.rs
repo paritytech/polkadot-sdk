@@ -47,6 +47,6 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 
 #[cfg(not(feature = "std"))]
 #[no_mangle]
-pub extern "C" fn validate_block(_params: *const u8, _len: usize) -> u64 {
+pub extern "C" fn validate_block(_arguments_len: usize) -> u64 {
 	loop {}
 }

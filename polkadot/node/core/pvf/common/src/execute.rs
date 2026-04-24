@@ -80,7 +80,12 @@ impl ValidationContext {
 	/// Convert to an ExecuteRequest for sending to the worker.
 	/// This extracts only the data needed by the execute worker process.
 	/// Consumes self since the context is no longer needed after sending to the worker.
-	pub fn into_execute_request(self, execution: Execution, artifact_checksum: ArtifactChecksum, code_bomb_limit: u32) -> ExecuteRequest {
+	pub fn into_execute_request(
+		self,
+		execution: Execution,
+		artifact_checksum: ArtifactChecksum,
+		code_bomb_limit: u32,
+	) -> ExecuteRequest {
 		ExecuteRequest {
 			execution,
 			pvd: (*self.pvd).clone(),

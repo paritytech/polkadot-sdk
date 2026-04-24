@@ -120,8 +120,8 @@ use sp_runtime_interface::{
 		AllocateAndReturnByCodec, AllocateAndReturnFatPointer, AllocateAndReturnPointer,
 		ConvertAndPassAs, ConvertAndReturnAs, PassAs, PassFatPointerAndDecode,
 		PassFatPointerAndDecodeSlice, PassFatPointerAndRead, PassFatPointerAndReadWrite,
-		PassFatPointerAndWrite, PassFatPointerAndWriteInputData, PassMaybeFatPointerAndRead,
-		PassPointerAndRead, PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
+		PassFatPointerAndWrite, PassOptionalFatPointerAndRead, PassPointerAndRead,
+		PassPointerAndReadCopy, PassPointerAndWrite, ReturnAs,
 	},
 	runtime_interface, Pointer,
 };
@@ -142,11 +142,7 @@ pub use sp_externalities::MultiRemovalResults;
 #[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_family = "wasm"))]
 mod global_alloc_wasm;
 
-#[cfg(all(
-	not(feature = "disable_allocator"),
-	substrate_runtime,
-	target_arch = "riscv64"
-))]
+#[cfg(all(not(feature = "disable_allocator"), substrate_runtime, target_arch = "riscv64"))]
 mod global_alloc_riscv;
 
 #[cfg(not(substrate_runtime))]
@@ -299,7 +295,7 @@ impl AsRef<[u8]> for StorageIterations {
 		// endianness, so that is checked statically.
 		unsafe {
 			core::slice::from_raw_parts(
-				self as *const Self as *const u8,
+				(&raw const *self).cast::<u8>(),
 				core::mem::size_of::<Self>(),
 			)
 		}
@@ -324,75 +320,52 @@ impl AsMut<[u8]> for StorageIterations {
 	}
 }
 
-/// A workaround for 512-bit values (`[u8; 64]`) not implementing `Default`.
-#[repr(transparent)]
-pub struct Val512(pub [u8; 64]);
+/// Defines a `#[repr(transparent)]` newtype over a fixed-size byte array with `Default`,
+/// `AsRef<[u8]>`, and `AsMut<[u8]>` implementations.
+macro_rules! define_byte_array_type {
+	($(#[$meta:meta])* $vis:vis struct $name:ident($size:expr);) => {
+		$(#[$meta])*
+		#[repr(transparent)]
+		$vis struct $name(pub [u8; $size]);
 
-impl Default for Val512 {
-	fn default() -> Self {
-		Self([0; 64])
-	}
+		impl Default for $name {
+			fn default() -> Self {
+				Self([0; $size])
+			}
+		}
+
+		impl AsRef<[u8]> for $name {
+			fn as_ref(&self) -> &[u8] {
+				&self.0
+			}
+		}
+
+		impl AsMut<[u8]> for $name {
+			fn as_mut(&mut self) -> &mut [u8] {
+				&mut self.0
+			}
+		}
+	};
 }
 
-impl AsRef<[u8]> for Val512 {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
+define_byte_array_type! {
+	/// Wrapper type for 512-bit hashes.
+	pub struct Hash512(64);
 }
 
-impl AsMut<[u8]> for Val512 {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0
-	}
+define_byte_array_type! {
+	/// Wrapper type for 512-bit pubkeys.
+	pub struct Pubkey512(64);
 }
 
-/// Wrapper type for 512-bit hashes.
-pub type Hash512 = Val512;
-/// Wrapper type for 512-bit pubkeys.
-pub type Pubkey512 = Val512;
-
-/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
-#[repr(transparent)]
-pub struct Pubkey264(pub [u8; 33]);
-
-impl Default for Pubkey264 {
-	fn default() -> Self {
-		Self([0; 33])
-	}
+define_byte_array_type! {
+	/// A workaround wrapper type for 264-bit values (`[u8; 33]`) not implementing `Default`.
+	pub struct Pubkey264(33);
 }
 
-impl AsRef<[u8]> for Pubkey264 {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
-}
-
-impl AsMut<[u8]> for Pubkey264 {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0
-	}
-}
-
-/// Represents an opaque network peer ID
-#[repr(transparent)]
-pub struct NetworkPeerId(pub [u8; 38]);
-
-impl Default for NetworkPeerId {
-	fn default() -> Self {
-		Self([0; 38])
-	}
-}
-
-impl AsRef<[u8]> for NetworkPeerId {
-	fn as_ref(&self) -> &[u8] {
-		&self.0
-	}
-}
-
-impl AsMut<[u8]> for NetworkPeerId {
-	fn as_mut(&mut self) -> &mut [u8] {
-		&mut self.0
-	}
+define_byte_array_type! {
+	/// Represents an opaque network peer ID.
+	pub struct NetworkPeerId(38);
 }
 
 trait IntoI64: Into<i64> {
@@ -576,17 +549,19 @@ impl TryFrom<i64> for VoidError {
 	}
 }
 
-impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> From<RIIntResult<R, E>> for i64 {
-	fn from(result: RIIntResult<R, E>) -> Self {
+impl<R: Into<i64> + IntoI64, E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<R, E>> for i64 {
+	type Error = ();
+
+	fn try_from(result: RIIntResult<R, E>) -> Result<Self, ()> {
 		match result {
-			RIIntResult::Ok(value) => value.into(),
+			RIIntResult::Ok(value) => Ok(value.into()),
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
-				assert!(
-					error_code < 0 && error_code >= -(E::COUNT as i64),
-					"Error variant index out of bounds"
-				);
-				error_code
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code)
+				} else {
+					Err(())
+				}
 			},
 		}
 	}
@@ -618,17 +593,19 @@ impl<R: TryFrom<i64> + IntoI64, E: TryFrom<i64> + strum::EnumCount> TryFrom<i32>
 	}
 }
 
-impl<E: Into<i64> + strum::EnumCount> From<RIIntResult<VoidResult, E>> for i32 {
-	fn from(value: RIIntResult<VoidResult, E>) -> Self {
+impl<E: Into<i64> + strum::EnumCount> TryFrom<RIIntResult<VoidResult, E>> for i32 {
+	type Error = ();
+
+	fn try_from(value: RIIntResult<VoidResult, E>) -> Result<Self, ()> {
 		match value {
-			RIIntResult::Ok(_) => 0,
+			RIIntResult::Ok(_) => Ok(0),
 			RIIntResult::Err(e) => {
 				let error_code: i64 = e.into();
-				assert!(
-					error_code < 0 && error_code >= -(E::COUNT as i64),
-					"Error variant index out of bounds"
-				);
-				error_code as i32
+				if error_code < 0 && error_code >= -(E::COUNT as i64) {
+					Ok(error_code as i32)
+				} else {
+					Err(())
+				}
 			},
 		}
 	}
@@ -807,13 +784,33 @@ pub trait Storage {
 	///
 	/// NOTE: Please note that keys which are residing in the overlay for that prefix when
 	/// issuing this call are deleted without counting towards the `limit`.
-	#[version(3)]
+	#[version(3, register_only)]
+	fn clear_prefix(
+		&mut self,
+		maybe_prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		Externalities::clear_prefix(
+			*self,
+			maybe_prefix,
+			maybe_limit,
+			maybe_cursor.as_ref().map(|x| &x[..]),
+		)
+		.into()
+	}
+
+	/// Same as version 3 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_storage_clear_prefix_version_3`, but since
+	// version 3 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 4 instead.
+	#[version(4)]
 	#[wrapped]
 	fn clear_prefix(
 		&mut self,
 		maybe_prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
-		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
@@ -911,12 +908,17 @@ pub trait Storage {
 	#[version(3)]
 	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
-		let root = self.storage_root(StateVersion::V0);
+		let version = self
+			.extension::<sp_core::traits::RuntimeStateVersionExt>()
+			.map(|ext| ext.0)
+			.unwrap_or(StateVersion::V1);
+		let root = self.storage_root(version);
+		let encoded = codec::Encode::encode(&root);
 		assert!(
-			out.len() >= root.len(),
+			out.len() >= encoded.len(),
 			"Output buffer provided to store the storage root hash must be large enough"
 		);
-		out[..root.len()].copy_from_slice(&root[..]);
+		out[..encoded.len()].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -928,7 +930,8 @@ pub trait Storage {
 		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(&mut root_out[..]);
-		root_out
+		codec::Decode::decode(&mut &root_out[..])
+			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -1204,13 +1207,29 @@ pub trait DefaultChildStorage {
 	/// Clear a child storage key.
 	///
 	/// See `Storage` module `clear_prefix` documentation.
-	#[version(4)]
+	#[version(4, register_only)]
+	fn storage_kill(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.kill_child_storage(&child_info, maybe_limit, maybe_cursor.as_ref().map(|x| &x[..]))
+			.into()
+	}
+
+	/// Same as version 4 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_default_child_storage_storage_kill_version_4`,
+	// but since version 4 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 5 instead.
+	#[version(5)]
 	#[wrapped]
 	fn storage_kill(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
-		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
@@ -1309,14 +1328,36 @@ pub trait DefaultChildStorage {
 	/// Clear the child storage of each key-value pair where the key starts with the given `prefix`.
 	///
 	/// See `Storage` module `clear_prefix` documentation.
-	#[version(3)]
+	#[version(3, register_only)]
+	fn clear_prefix(
+		&mut self,
+		storage_key: PassFatPointerAndRead<&[u8]>,
+		prefix: PassFatPointerAndRead<&[u8]>,
+		maybe_limit: PassFatPointerAndDecode<Option<u32>>,
+		maybe_cursor: PassFatPointerAndDecode<Option<Vec<u8>>>,
+	) -> AllocateAndReturnByCodec<MultiRemovalResults> {
+		let child_info = ChildInfo::new_default(storage_key);
+		self.clear_child_prefix(
+			&child_info,
+			prefix,
+			maybe_limit,
+			maybe_cursor.as_ref().map(|x| &x[..]),
+		)
+		.into()
+	}
+
+	/// Same as version 3 but avoids host-side allocation.
+	// ERRATA: The RFC specifies this as `ext_default_child_storage_clear_prefix_version_3`,
+	// but since version 3 was already registered with a different signature prior to the RFC
+	// implementation, this is registered as version 4 instead.
+	#[version(4)]
 	#[wrapped]
 	fn clear_prefix(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		prefix: PassFatPointerAndRead<&[u8]>,
 		maybe_limit: ConvertAndPassAs<Option<u32>, RIIntOption<u32>, i64>,
-		maybe_cursor_in: PassMaybeFatPointerAndRead<Option<&[u8]>>,
+		maybe_cursor_in: PassOptionalFatPointerAndRead<Option<&[u8]>>,
 		maybe_cursor_out: PassFatPointerAndWrite<&mut [u8]>,
 		counters_out: PassPointerAndWrite<&mut StorageIterations, 12>,
 	) -> u32 {
@@ -1414,21 +1455,25 @@ pub trait DefaultChildStorage {
 	/// Fills provided output buffer with the SCALE encoded hash. Since the size of the resulting
 	/// value is known to the caller, this function requires the provided buffer to be large enough
 	/// to store the entire value; otherwise, it will panic.
-	///
-	/// Returns the number of bytes written to the output buffer.
 	#[version(3)]
 	#[wrapped]
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
 		out: PassFatPointerAndWrite<&mut [u8]>,
-	) -> u32 {
+	) {
+		let version = self
+			.extension::<sp_core::traits::RuntimeStateVersionExt>()
+			.map(|ext| ext.0)
+			.unwrap_or(StateVersion::V1);
 		let child_info = ChildInfo::new_default(storage_key);
-		let root = self.child_storage_root(&child_info, StateVersion::V0);
-		if out.len() >= root.len() {
-			out[..root.len()].copy_from_slice(&root[..]);
-		}
-		root.len() as u32
+		let root = self.child_storage_root(&child_info, version);
+		let encoded = codec::Encode::encode(&root);
+		assert!(
+			out.len() >= encoded.len(),
+			"Output buffer provided to store the child storage root hash must be large enough"
+		);
+		out[..encoded.len()].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1440,7 +1485,8 @@ pub trait DefaultChildStorage {
 		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		root_out
+		codec::Decode::decode(&mut &root_out[..])
+			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
 	}
 
 	/// Child storage key iteration.
@@ -1853,9 +1899,8 @@ pub trait Misc {
 			.read_runtime_version(wasm, &mut ext)
 		{
 			Ok(v) => {
-				if out.len() >= v.len() {
-					out.copy_from_slice(&v[..]);
-				}
+				let copy_len = v.len().min(out.len());
+				out[..copy_len].copy_from_slice(&v[..copy_len]);
 				Some(v.len() as u32)
 			},
 			Err(err) => {
@@ -1895,7 +1940,7 @@ pub trait Misc {
 		let cursor = self.take_last_cursor()?;
 
 		if out.len() >= cursor.len() {
-			out.copy_from_slice(&cursor[..]);
+			out[..cursor.len()].copy_from_slice(&cursor[..]);
 		} else {
 			self.store_last_cursor(&cursor[..]);
 		}
@@ -1960,7 +2005,7 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ed25519_public_keys(id);
 		if out.len() >= keys.len() {
-			out.copy_from_slice(&keys[..]);
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
 		(keys.len() * core::mem::size_of::<ed25519::Public>()) as u32
 	}
@@ -2243,7 +2288,7 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.sr25519_public_keys(id);
 		if out.len() >= keys.len() {
-			out.copy_from_slice(&keys[..]);
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
 		(keys.len() * core::mem::size_of::<sr25519::Public>()) as u32
 	}
@@ -2401,7 +2446,7 @@ pub trait Crypto {
 			.expect("No `keystore` associated for the current context!")
 			.ecdsa_public_keys(id);
 		if out.len() >= keys.len() {
-			out.copy_from_slice(&keys[..]);
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
 		(keys.len() * core::mem::size_of::<ecdsa::Public>()) as u32
 	}
@@ -2544,6 +2589,7 @@ pub trait Crypto {
 	///
 	/// Returns the signature.
 	#[version(2)]
+	#[wrapped]
 	fn ecdsa_sign_prehashed(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
@@ -2560,6 +2606,19 @@ pub trait Crypto {
 				out.0.copy_from_slice(&sig);
 			})
 			.ok_or(())
+	}
+
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `ecdsa_sign_prehashed` host function.
+	#[wrapper]
+	fn ecdsa_sign_prehashed(
+		id: KeyTypeId,
+		pub_key: &ecdsa::Public,
+		msg: &[u8; 32],
+	) -> Option<ecdsa::Signature> {
+		let mut signature = ecdsa::Signature::default();
+		ecdsa_sign_prehashed__wrapped(id, pub_key, msg, &mut signature).ok()?;
+		Some(signature)
 	}
 
 	/// Verify `ecdsa` signature.
@@ -2719,7 +2778,7 @@ pub trait Crypto {
 		signature: &[u8; 65],
 		message: &[u8; 32],
 	) -> Result<[u8; 64], EcdsaVerifyError> {
-		let mut public = Val512([0u8; 64]);
+		let mut public = Pubkey512([0u8; 64]);
 		secp256k1_ecdsa_recover__wrapped(signature, message, &mut public)?;
 		Ok(public.0)
 	}
@@ -2939,7 +2998,7 @@ pub trait Hashing {
 	/// Conduct a 512-bit Keccak hash.
 	#[version(2)]
 	#[wrapped]
-	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Val512, 64>) {
+	fn keccak_512(data: PassFatPointerAndRead<&[u8]>, out: PassPointerAndWrite<&mut Hash512, 64>) {
 		out.0.copy_from_slice(&sp_crypto_hashing::keccak_512(data));
 	}
 
@@ -2947,7 +3006,7 @@ pub trait Hashing {
 	/// `keccak_512` host function.
 	#[wrapper]
 	fn keccak_512(data: &[u8]) -> [u8; 64] {
-		let mut out = Val512::default();
+		let mut out = Hash512::default();
 		keccak_512__wrapped(data, &mut out);
 		out.0
 	}
@@ -3548,9 +3607,8 @@ pub trait Offchain {
 			.expect("http_response_header_name can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.0;
-		if out.len() >= res.len() {
-			out.copy_from_slice(&res[..]);
-		}
+		let copy_len = res.len().min(out.len());
+		out[..copy_len].copy_from_slice(&res[..copy_len]);
 		Some(res.len() as u32)
 	}
 
@@ -3571,9 +3629,8 @@ pub trait Offchain {
 			.expect("http_response_header_value can be called only in the offchain worker context")
 			.http_response_headers(request_id);
 		let res = &headers.get(header_index as usize)?.1;
-		if out.len() >= res.len() {
-			out.copy_from_slice(&res[..]);
-		}
+		let copy_len = res.len().min(out.len());
+		out[..copy_len].copy_from_slice(&res[..copy_len]);
 		Some(res.len() as u32)
 	}
 
@@ -3589,19 +3646,20 @@ pub trait Offchain {
 		while let Some(name_len) =
 			http_response_header_name(request_id, head_idx, &mut name_buf[..])
 		{
-			if name_len as usize > name_buf.len() {
-				name_buf.resize(name_len as usize, 0);
+			let name_len = name_len as usize;
+			if name_len > name_buf.len() {
+				name_buf.resize(name_len, 0);
 				http_response_header_name(request_id, head_idx, &mut name_buf[..])
 					.expect("It was checked that the header exists");
 			}
 			let value_len = http_response_header_value(request_id, head_idx, &mut value_buf[..])
-				.expect("It was checked that the header exists");
-			if value_len as usize > value_buf.len() {
-				value_buf.resize(value_len as usize, 0);
+				.expect("It was checked that the header exists") as usize;
+			if value_len > value_buf.len() {
+				value_buf.resize(value_len, 0);
 				http_response_header_value(request_id, head_idx, &mut value_buf[..])
 					.expect("It was checked that the header exists");
 			}
-			headers.push((name_buf.clone(), value_buf.clone()));
+			headers.push((name_buf[..name_len].to_vec(), value_buf[..value_len].to_vec()));
 			head_idx += 1;
 		}
 		headers
@@ -3886,12 +3944,15 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 }
 
 /// Input data handling functions
-#[runtime_interface]
+#[runtime_interface(wasm_only)]
 pub trait Input {
 	/// Read input data into the provided buffer.
-	fn read(_buffer: PassFatPointerAndWriteInputData<&mut [u8]>) {
-		// The body has been deliberately left empty. The logic is handled by a specific marshalling
-		// strategy (see [`PassFatPointerAndWriteInputData`]).
+	fn read(&mut self, buffer: PassFatPointerAndWrite<&mut [u8]>) {
+		let data = self
+			.take_input_data()
+			.expect("input data is not empty on code entry and is only taken once; qed");
+		assert_eq!(data.len(), buffer.len());
+		buffer.copy_from_slice(&data[..]);
 	}
 }
 
@@ -3968,9 +4029,17 @@ mod tests {
 		});
 
 		t.execute_with(|| {
+			// `read` with a buffer that is too small does NOT write data into the buffer (RFC-145).
 			let mut v = [0u8; 4];
 			assert_eq!(storage::read(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			assert_eq!(v, [0u8, 0, 0, 0]);
+
+			// `read_partial` with a buffer that is too small DOES write partial data.
+			let mut v = [0u8; 4];
+			assert_eq!(storage::read_partial(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
 			assert_eq!(v, [11u8, 0, 0, 0]);
+
+			// `read` with an exact-sized buffer works.
 			let mut w = [0u8; 11];
 			assert_eq!(storage::read(b":test", &mut w[..], 4).unwrap(), value.len() as u32 - 4);
 			assert_eq!(&w, b"Hello world");
