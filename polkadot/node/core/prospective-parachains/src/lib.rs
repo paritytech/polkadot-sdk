@@ -34,6 +34,7 @@ use fragment_chain::CandidateStorage;
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
+	errors::RuntimeApiError,
 	messages::{
 		Ancestors, BackableCandidateRef, ChainApiMessage, HypotheticalCandidate,
 		HypotheticalMembership, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
@@ -46,7 +47,7 @@ use polkadot_node_subsystem_util::{
 	fetch_relay_parent_info,
 	inclusion_emulator::{Constraints, RelayChainBlockInfo as RelayParentInfo},
 	request_backing_constraints, request_candidates_pending_availability,
-	request_session_index_for_child,
+	request_session_execution_config, request_session_index_for_child,
 	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
@@ -1021,8 +1022,15 @@ async fn answer_prospective_validation_data_request<Context>(
 		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
 	};
 
-	// Search fragment chains across active leaves to find the head_data, relay_parent_info, and
-	// max_pov_size needed to construct the PersistedValidationData for this candidate:
+	// Search fragment chains across active leaves to find the head_data, relay_parent_info,
+	// and max_pov_size needed to construct the PersistedValidationData for this candidate.
+	//
+	// `max_pov_size` must come from the candidate's relay-parent session, because that is the
+	// value the runtime writes into the PVD at the relay parent and therefore the value the
+	// collator will hash into the candidate descriptor.
+	// `SessionExecutionConfig` (runtime API v17+) queried at the current active leaf;
+	// on older runtimes fall back to the scheduling session's
+	// `base_constraints.max_pov_size` (legacy behavior).
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
 	for (leaf, leaf_session_index, fragment_chain) in
@@ -1051,15 +1059,16 @@ async fn answer_prospective_validation_data_request<Context>(
 			.flatten()
 			{
 				if max_pov_size.is_none() {
-					// TODO(https://github.com/paritytech/polkadot-sdk/issues/11256): serve
-					// `max_pov_size` from the candidate's relay-parent session rather than the
-					// scheduling session. We are leaning hard on two assumptions here:
-					// 1. Collators need to use the max_pov_size of the scheduling session, not of
-					//    the relay parent session.
-					// 2. The max_pov_size is only configurable per session and is expected to
-					//    change extremely rarely. It is acceptable if the collators will have to
-					//    rebuild the block if there was a change in the max_pov_size.
-					max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
+					max_pov_size = fetch_session_execution_config_max_pov_size(
+						ctx,
+						leaf,
+						request.session_index,
+					)
+					.await
+					.or_else(|| {
+						// Pre-v17 fallback: scheduling session's `max_pov_size`.
+						Some(fragment_chain.scope().base_constraints().max_pov_size)
+					});
 				}
 
 				Some(info)
@@ -1082,6 +1091,55 @@ async fn answer_prospective_validation_data_request<Context>(
 		}),
 		_ => None,
 	});
+}
+
+/// Fetch the `max_pov_size` from `SessionExecutionConfig` for the given
+/// session, queried at `query_at`. Returns `None` on older runtimes that
+/// don't expose the runtime API (or when the session's config isn't stored),
+/// so callers can fall back to the scheduling-session value from backing
+/// constraints.
+///
+/// The `usize` return matches `Constraints::max_pov_size` in the
+/// `inclusion_emulator` module.
+///
+/// Unexpected runtime or channel errors are logged and treated as "no
+/// override"; the worst-case consequence is that the collator builds with the
+/// scheduling-session `max_pov_size` and has to rebuild but we don't want to mask the underlying
+/// failure silently.
+#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+async fn fetch_session_execution_config_max_pov_size<Context>(
+	ctx: &mut Context,
+	query_at: Hash,
+	session_index: SessionIndex,
+) -> Option<usize> {
+	match request_session_execution_config(query_at, session_index, ctx.sender())
+		.await
+		.await
+	{
+		Ok(Ok(Some(cfg))) => Some(cfg.max_pov_size as usize),
+		// Expected fallback paths: pre-v17 runtime, or session's config not stored.
+		Ok(Ok(None)) | Ok(Err(RuntimeApiError::NotSupported { .. })) => None,
+		Ok(Err(e)) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?query_at,
+				?session_index,
+				error = ?e,
+				"Unexpected runtime error fetching SessionExecutionConfig; falling back to scheduling-session max_pov_size",
+			);
+			None
+		},
+		Err(e) => {
+			gum::warn!(
+				target: LOG_TARGET,
+				?query_at,
+				?session_index,
+				error = ?e,
+				"Channel error fetching SessionExecutionConfig; falling back to scheduling-session max_pov_size",
+			);
+			None
+		},
+	}
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]

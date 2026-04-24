@@ -177,7 +177,12 @@ where
 /// Each field may come from a different session for V3+ descriptors:
 ///
 /// - `executor_params`: relay-parent (execution) session.
-/// - `validation_code_bomb_limit`: scheduling session.
+/// - `max_pov_size`: relay-parent (execution) session. This matches the value baked into
+///   `PersistedValidationData` by the runtime at the candidate's relay parent (see
+///   `runtime/parachains/src/util.rs`), so the committed PVD hash and this override agree.
+/// - `validation_code_bomb_limit`: scheduling session. Unlike `max_pov_size`, the bomb limit is a
+///   node-local decompression cap that is not part of any on-chain commitment, so either session
+///   works as long as validators agree.
 ///
 /// For V1 descriptors both sessions are identical.
 struct SessionParams {
@@ -185,8 +190,8 @@ struct SessionParams {
 	executor_params: ExecutorParams,
 	/// Fetched for the scheduling session.
 	validation_code_bomb_limit: u32,
-	/// Per-session override of `PersistedValidationData.max_pov_size`, when the
-	/// runtime exposes `SessionExecutionConfig` for the scheduling session.
+	/// Per-session override of `PersistedValidationData.max_pov_size`, from
+	/// `SessionExecutionConfig` for the relay-parent (execution) session.
 	/// `None` on older runtimes — callers should fall back to PVD.
 	max_pov_size: Option<u32>,
 }
@@ -207,7 +212,7 @@ async fn fetch_params<Sender>(
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	// Executor params: relay-parent (execution) session.
+	// Executor params and max_pov_size: relay-parent (execution) session.
 	// V2+ has this in the descriptor, V1 falls back to scheduling_session_index.
 	let execution_session = candidate_descriptor
 		.session_index_for_candidate_validation(v3_ever_seen)
@@ -220,53 +225,56 @@ where
 		.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
 		.ok_or_else(|| "Executor params not found for session".to_string())?;
 
-	// Bomb limit uses the scheduling session. Both scheduling
-	// and execution session would be sensible, what matters is that validators
-	// agree.
+	let max_pov_size = fetch_session_max_pov_size(recent_leaf, execution_session, sender).await?;
+
+	// Bomb limit uses the scheduling session. It's a node-local decompression cap, not part of
+	// any on-chain commitment, so either session works as long as validators agree.
 	let scheduling_session = candidate_descriptor
 		.scheduling_session_for_candidate_validation(v3_ever_seen)
 		.unwrap_or(scheduling_session_index);
 
-	let (validation_code_bomb_limit, max_pov_size) =
-		fetch_bomb_limit_and_max_pov(recent_leaf, scheduling_session, sender).await?;
+	let validation_code_bomb_limit =
+		fetch_bomb_limit(recent_leaf, scheduling_session, sender).await?;
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit, max_pov_size })
 }
 
-/// Fetch the validation-code bomb limit and, if available, the per-session
-/// `max_pov_size` override.
+/// Fetch the per-session `max_pov_size` override.
 ///
-/// Prefer `SessionExecutionConfig` (runtime API v17+): it carries both
-/// `max_pov_size` and `validation_code_bomb_limit`. On older runtimes that
-/// don't expose the API (or when the session's config isn't stored), fall
-/// back to the standalone bomb-limit call and leave `max_pov_size` as `None`
-/// so callers use PVD's limit.
-async fn fetch_bomb_limit_and_max_pov<Sender>(
+/// Uses `SessionExecutionConfig` (runtime API v17+). Returns `None` on older
+/// runtimes that don't expose the API (or when the session's config isn't
+/// stored) so callers can fall back to PVD's `max_pov_size`.
+async fn fetch_session_max_pov_size<Sender>(
 	recent_leaf: Hash,
-	scheduling_session: SessionIndex,
+	execution_session: SessionIndex,
 	sender: &mut Sender,
-) -> Result<(u32, Option<u32>), String>
+) -> Result<Option<u32>, String>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match request_session_execution_config(recent_leaf, scheduling_session, sender)
+	match request_session_execution_config(recent_leaf, execution_session, sender)
 		.await
 		.await
 		.map_err(|e| format!("Cannot fetch session execution config: channel error: {e:?}"))?
 	{
-		Ok(Some(cfg)) => Ok((cfg.validation_code_bomb_limit, Some(cfg.max_pov_size))),
-		Ok(None) | Err(RuntimeApiError::NotSupported { .. }) => {
-			let bomb_limit = util::runtime::fetch_validation_code_bomb_limit(
-				recent_leaf,
-				scheduling_session,
-				sender,
-			)
-			.await
-			.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())?;
-			Ok((bomb_limit, None))
-		},
+		Ok(Some(cfg)) => Ok(Some(cfg.max_pov_size)),
+		Ok(None) | Err(RuntimeApiError::NotSupported { .. }) => Ok(None),
 		Err(e) => Err(format!("Cannot fetch session execution config: runtime error: {e:?}")),
 	}
+}
+
+/// Fetch the validation-code bomb limit for the scheduling session.
+async fn fetch_bomb_limit<Sender>(
+	recent_leaf: Hash,
+	scheduling_session: SessionIndex,
+	sender: &mut Sender,
+) -> Result<u32, String>
+where
+	Sender: SubsystemSender<RuntimeApiMessage>,
+{
+	util::runtime::fetch_validation_code_bomb_limit(recent_leaf, scheduling_session, sender)
+		.await
+		.map_err(|_| "Cannot fetch validation code bomb limit from the runtime".to_string())
 }
 
 /// Output of [`pre_validate_candidate`]: data needed by PVF execution and

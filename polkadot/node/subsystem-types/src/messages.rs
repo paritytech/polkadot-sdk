@@ -204,11 +204,16 @@ pub enum CandidateValidationMessage {
 		candidate_receipt: CandidateReceipt,
 		/// The proof-of-validity
 		pov: Arc<PoV>,
-		/// Scheduling session index for this candidate. For V1 descriptors this
-		/// equals the relay-parent session and serves as fallback for both
-		/// execution and scheduling session. For V2+ descriptors this field is
-		/// only used as a fallback if the descriptor's session fields are unset.
-		/// Can be removed once V1 support is dropped.
+		/// Scheduling session index for this candidate. Used for:
+		/// - `validation_code_bomb_limit`: keyed on the scheduling session.
+		///
+		/// For V1 descriptors this also serves as the fallback for the
+		/// **execution (relay-parent) session** — which keys `executor_params`
+		/// and `max_pov_size` — because V1 has `relay_parent == scheduling_parent`,
+		/// so execution session == scheduling session. For V2+ descriptors the
+		/// execution session is taken from the descriptor itself, and this field
+		/// is only used as a fallback if the descriptor's session fields are
+		/// unset. Can be removed once V1 support is dropped.
 		scheduling_session_index: SessionIndex,
 		/// Execution kind, used for timeouts and retries (backing/approvals)
 		exec_kind: PvfExecKind,

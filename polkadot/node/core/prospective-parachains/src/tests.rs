@@ -502,6 +502,19 @@ async fn handle_potential_relay_parent_info_calls<T>(
 				return response.expect("oneshot sender dropped unexpectedly");
 			}
 			msg = virtual_overseer.recv().fuse() => {
+				// `answer_prospective_validation_data_request` queries
+				// `SessionExecutionConfig` for per-session `max_pov_size` (relay-parent
+				// session). Default tests exercise the pre-v17 fallback path — respond
+				// with `NotSupported` so the subsystem falls back to the scheduling
+				// session's `base_constraints.max_pov_size`.
+				if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionExecutionConfig(_, tx),
+				)) = msg
+				{
+					tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
+					continue;
+				}
 				handle_fetch_relay_parent_info_message(
 					virtual_overseer,
 					msg,
@@ -3387,8 +3400,13 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 
 // Test that `GetProspectiveValidationData` for a candidate with a MUCH OLDER `relay_parent`
 // (older than the scheduling lookahead) returns a PVD that uses the old relay parent's
-// number/storage_root, but the SCHEDULING session's `max_pov_size`. This locks in the
-// load-bearing assumption documented in `answer_prospective_validation_data_request`.
+// number/storage_root.
+//
+// `max_pov_size` handling:
+// - Pre-v17 runtime (test harness responds `NotSupported` to `SessionExecutionConfig`): falls back
+//   to the scheduling session's `base_constraints.max_pov_size` (legacy behavior — `MAX_POV_SIZE`
+//   in test fixtures).
+// - v17+ is covered by `get_pvd_uses_relay_parent_session_max_pov_size_on_v17` below.
 //
 // Parameterized over `runtime_api_version`:
 // - `case_1` uses the default runtime version (< `ANCESTOR_RELAY_PARENT_INFO_RUNTIME_REQUIREMENT`),
@@ -3436,9 +3454,8 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 		// whose relay_parent is the OLDER block. The returned PVD should:
 		//   - use the old block's number (OLDER_RELAY_PARENT_NUMBER),
 		//   - use the old block's storage_root (Hash::zero() in test fixtures),
-		//   - use the max_pov_size from the scheduling session's constraints (MAX_POV_SIZE).
-		// The version-aware `handle_fetch_relay_parent_info` routes through the API path or
-		// the chain-header fallback based on `test_state.runtime_api_version`.
+		//   - fall back to the scheduling session's `max_pov_size` (MAX_POV_SIZE) because the test
+		//     harness responds `NotSupported` to `SessionExecutionConfig`.
 		get_pvd(
 			&mut virtual_overseer,
 			&test_state,
@@ -3453,6 +3470,107 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 			}),
 		)
 		.await;
+
+		virtual_overseer
+	});
+}
+
+// v17+ path: `GetProspectiveValidationData` must take `max_pov_size` from
+// `SessionExecutionConfig` keyed on the **candidate's relay-parent session** (not the
+// scheduling session). This is the session whose `max_pov_size` the runtime wrote into
+// the PVD at the relay parent, so the returned PVD matches what the collator will
+// produce when they hash the PVD into the candidate descriptor.
+#[test]
+fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
+	const LEAF_NUMBER: BlockNumber = 100;
+	const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDULING_LOOKAHEAD;
+	// Deliberately distinct from `MAX_POV_SIZE` so the assertion can distinguish the
+	// relay-parent-session path from the scheduling-session fallback.
+	const RELAY_PARENT_SESSION_MAX_POV_SIZE: u32 = 123_456;
+
+	let para_id = ParaId::from(1);
+	let mut test_state = TestState::default();
+	test_state
+		.set_runtime_api_version(RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT);
+	test_state.set_min_relay_parent_number(OLDER_RELAY_PARENT_NUMBER);
+
+	test_harness(|mut virtual_overseer| async move {
+		let leaf_a = TestLeaf {
+			number: LEAF_NUMBER,
+			hash: Hash::from_low_u64_be(130),
+			para_data: vec![
+				(para_id, PerParaData::new(HeadData(vec![1, 2, 3]))),
+				(2.into(), PerParaData::new(HeadData(vec![2, 3, 4]))),
+			],
+		};
+		activate_leaf(&mut virtual_overseer, &leaf_a, &test_state).await;
+
+		let older_relay_parent = Hash::from_low_u64_be(9999);
+		let (candidate_a, pvd_a) = make_candidate_v3(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			para_id,
+			HeadData(vec![1, 2, 3]),
+			HeadData(vec![1]),
+			test_state.validation_code_hash,
+		);
+		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
+
+		let request = ProspectiveValidationDataRequest {
+			para_id,
+			candidate_relay_parent: older_relay_parent,
+			session_index: 1,
+			parent_head_data: ParentHeadData::OnlyHash(HeadData(vec![1]).hash()),
+		};
+		let (tx, rx) = oneshot::channel();
+		virtual_overseer
+			.send(overseer::FromOrchestra::Communication {
+				msg: ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx),
+			})
+			.await;
+
+		// Race the response against incoming runtime messages. Intercept
+		// `SessionExecutionConfig` with a `Some(cfg)` using the relay-parent-session value,
+		// and delegate the rest (relay parent info fetches) to the default helper.
+		let mut rx = rx.fuse();
+		let resp = loop {
+			futures::select! {
+				response = &mut rx => break response.expect("oneshot sender dropped unexpectedly"),
+				msg = virtual_overseer.recv().fuse() => {
+					if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutionConfig(_, tx),
+					)) = msg
+					{
+						tx.send(Ok(Some(polkadot_primitives::SessionExecutionConfig {
+							max_pov_size: RELAY_PARENT_SESSION_MAX_POV_SIZE,
+							validation_code_bomb_limit: 0,
+						})))
+						.unwrap();
+						continue;
+					}
+					handle_fetch_relay_parent_info_message(
+						&mut virtual_overseer,
+						msg,
+						&test_state,
+						older_relay_parent,
+						OLDER_RELAY_PARENT_NUMBER,
+					)
+					.await;
+				}
+			}
+		};
+
+		assert_eq!(
+			resp,
+			Some(PersistedValidationData {
+				parent_head: HeadData(vec![1]),
+				relay_parent_number: OLDER_RELAY_PARENT_NUMBER,
+				relay_parent_storage_root: Hash::zero(),
+				max_pov_size: RELAY_PARENT_SESSION_MAX_POV_SIZE,
+			})
+		);
 
 		virtual_overseer
 	});

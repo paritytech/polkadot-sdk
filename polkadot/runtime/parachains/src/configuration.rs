@@ -28,8 +28,8 @@ use polkadot_parachain_primitives::primitives::{
 };
 use polkadot_primitives::{
 	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE,
-	ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	NodeFeatures, SessionExecutionConfig, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE,
+	MAX_HEAD_DATA_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
 
@@ -355,6 +355,16 @@ where
 	/// [`Self::max_code_size`] and [`MAX_VALIDATION_CODE_COMPRESSION_RATIO`].
 	pub(crate) fn validation_code_bomb_limit(&self) -> u32 {
 		self.max_code_size * MAX_VALIDATION_CODE_COMPRESSION_RATIO
+	}
+
+	/// Build the execution-relevant subset of this configuration for per-session
+	/// snapshotting. Keeps the field mapping in one place so adding a new field
+	/// to [`SessionExecutionConfig`] only requires touching this function.
+	pub(crate) fn session_execution_config(&self) -> SessionExecutionConfig {
+		SessionExecutionConfig {
+			max_pov_size: self.max_pov_size,
+			validation_code_bomb_limit: self.validation_code_bomb_limit(),
+		}
 	}
 
 	/// Checks that this instance is consistent with the requirements on each individual member.
