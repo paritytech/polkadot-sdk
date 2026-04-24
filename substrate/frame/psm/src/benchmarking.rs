@@ -22,7 +22,8 @@ use crate::Pallet as Psm;
 use frame_benchmarking::v2::*;
 use frame_support::traits::{
 	fungibles::{
-		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
+		metadata::Inspect as FungiblesMetadataInspect, Create as FungiblesCreate,
+		Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
 	Get,
 };
@@ -43,7 +44,7 @@ const ASSET_ID_OFFSET: u32 = 100;
 fn ensure_stable_setup<T: Config>() -> u8 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
-	let stable_decimals = T::StableAssetDecimals::get();
+	let stable_decimals = T::Fungibles::decimals(T::StablecoinAssetId::get());
 	if !crate::StableDecimals::<T>::exists() {
 		crate::StableDecimals::<T>::put(stable_decimals);
 	}

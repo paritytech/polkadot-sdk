@@ -97,7 +97,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 		// Stable asset snapshot — only write if missing.
 		reads += 2;
-		let stable_decimals = T::StableAssetDecimals::get();
+		let stable_decimals = T::Fungibles::decimals(T::StablecoinAssetId::get());
 		if !StableDecimals::<T>::exists() {
 			StableDecimals::<T>::put(stable_decimals);
 			writes += 1;
@@ -163,11 +163,11 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		// Stable asset snapshot present and consistent with live metadata.
 		ensure!(
-			StableDecimals::<T>::get() == Some(T::StableAssetDecimals::get()),
+			StableDecimals::<T>::get() == Some(T::Fungibles::decimals(T::StablecoinAssetId::get())),
 			"StableDecimals snapshot missing or stale after migration"
 		);
 
-		let stable_decimals = T::StableAssetDecimals::get();
+		let stable_decimals = T::Fungibles::decimals(T::StablecoinAssetId::get());
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
 			let snapshot = AssetDecimals::<T>::get(asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
@@ -253,24 +253,27 @@ mod tests {
 	#[test]
 	fn populate_decimals_disables_out_of_range_assets() {
 		new_test_ext().execute_with(|| {
-			// Stable decimals are the pallet constant (6 in the mock) on
-			// stable2603. Master drives this test by shifting pUSD's live
-			// metadata; here we drive the diff from the external asset side
-			// instead — push DAI_MOCK's decimals high enough to exceed
-			// MAX_DECIMALS_DIFF and expect the migration to disable it.
-			use crate::mock::{Assets, DAI_MOCK_ASSET_ID};
+			// Simulate: DAI_MOCK (18 decimals) was approved under a prior pUSD
+			// configuration; then pUSD metadata was changed to something exotic
+			// that makes the diff exceed MAX_DECIMALS_DIFF. We fake this by
+			// approving DAI and then shifting the stable asset's live decimals
+			// through metadata update.
+			use crate::mock::{Assets, PUSD_ASSET_ID};
 			use frame_support::traits::fungibles::metadata::Mutate as MetadataMutate;
 
 			assert_ok!(Pallet::<Test>::add_external_asset(
 				RuntimeOrigin::root(),
 				DAI_MOCK_ASSET_ID
 			));
-			// Push DAI_MOCK to 45 decimals. With stable=6, diff = 39 > 24.
+			// DAI has 18 decimals; pUSD currently 6; diff = 12 (in range).
+			// Shift pUSD to 40 decimals so the diff becomes 22 — still in range
+			// (MAX_DECIMALS_DIFF is 24). Push further to make diff too large:
+			// setting pUSD to the extreme (say, 45) would push diff = 27, > 24.
 			assert_ok!(<Assets as MetadataMutate<u64>>::set(
-				DAI_MOCK_ASSET_ID,
+				PUSD_ASSET_ID,
 				&ALICE,
-				b"DAI".to_vec(),
-				b"DAI".to_vec(),
+				b"pUSD".to_vec(),
+				b"pUSD".to_vec(),
 				45,
 			));
 
@@ -283,9 +286,9 @@ mod tests {
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
 			// Snapshot was written regardless.
-			assert_eq!(StableDecimals::<Test>::get(), Some(6));
-			assert_eq!(AssetDecimals::<Test>::get(DAI_MOCK_ASSET_ID), Some(45));
-			// DAI is disabled because 45 - 6 = 39 > MAX_DECIMALS_DIFF (24).
+			assert_eq!(StableDecimals::<Test>::get(), Some(45));
+			assert_eq!(AssetDecimals::<Test>::get(DAI_MOCK_ASSET_ID), Some(18));
+			// DAI is disabled because 45 - 18 = 27 > MAX_DECIMALS_DIFF (24).
 			assert_eq!(
 				ExternalAssets::<Test>::get(DAI_MOCK_ASSET_ID),
 				Some(CircuitBreakerLevel::AllDisabled)

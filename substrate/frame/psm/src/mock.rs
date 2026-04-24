@@ -116,7 +116,6 @@ parameter_types! {
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
 	pub const MinSwapAmount: u128 = 100 * PUSD_UNIT;
 	pub const PsmPalletId: PalletId = PalletId(*b"py/psm!!");
-	pub const StableDecimals: u8 = 6;
 }
 
 /// Account used as emergency origin (non-root).
@@ -172,7 +171,7 @@ impl crate::Config for Test {
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
 	type StableAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;
-	type StableAssetDecimals = StableDecimals;
+	type StablecoinAssetId = StablecoinAssetId;
 	type FeeDestination = InsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;

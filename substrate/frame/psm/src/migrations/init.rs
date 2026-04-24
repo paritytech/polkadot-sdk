@@ -109,7 +109,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		// Per-asset snapshots for pre-existing approved assets are owned by
 		// `super::decimals::PopulateDecimals` — this migration only touches `AssetDecimals` for
 		// assets it adds as new below.
-		let stable_decimals = T::StableAssetDecimals::get();
+		let stable_decimals = T::Fungibles::decimals(T::StablecoinAssetId::get());
 		reads += 1;
 		if !StableDecimals::<T>::exists() {
 			StableDecimals::<T>::put(stable_decimals);
@@ -271,7 +271,7 @@ mod tests {
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
 			assert_eq!(
 				StableDecimals::<Test>::get(),
-				Some(<Test as Config>::StableAssetDecimals::get())
+				Some(<Test as Config>::Fungibles::decimals(<Test as Config>::StablecoinAssetId::get()))
 			);
 
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
@@ -295,7 +295,7 @@ mod tests {
 
 	#[test]
 	fn initialize_psm_populates_stable_decimals_when_missing() {
-		use frame_support::traits::OnRuntimeUpgrade;
+		use frame_support::traits::{fungibles::metadata::Inspect as _, OnRuntimeUpgrade};
 
 		new_test_ext().execute_with(|| {
 			// StableDecimals was populated by genesis; clear it to simulate a
@@ -306,7 +306,7 @@ mod tests {
 
 			assert_eq!(
 				StableDecimals::<Test>::get(),
-				Some(<Test as Config>::StableAssetDecimals::get())
+				Some(<Test as Config>::Fungibles::decimals(<Test as Config>::StablecoinAssetId::get()))
 			);
 		});
 	}

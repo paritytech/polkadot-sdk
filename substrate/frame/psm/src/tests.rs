@@ -2171,10 +2171,15 @@ mod decimal_scaling {
 	#[test]
 	fn mint_halts_when_stable_decimals_drift() {
 		new_test_ext().execute_with(|| {
-			// Config constant is 6; overwrite the snapshot so it disagrees.
-			// Master tests this by mutating live pUSD metadata — not possible here
-			// because stable decimals are now a pallet constant, not a live read.
-			crate::StableDecimals::<Test>::put(8);
+			// pUSD starts at 6 decimals; StableDecimals snapshot matches. The owner
+			// (ALICE) changes the stable asset's live metadata to simulate drift.
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				PUSD_ASSET_ID,
+				b"pUSD".to_vec(),
+				b"pUSD".to_vec(),
+				8
+			));
 
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * PUSD_UNIT),
@@ -2187,9 +2192,15 @@ mod decimal_scaling {
 	fn redeem_halts_when_stable_decimals_drift() {
 		new_test_ext().execute_with(|| {
 			// Seed ALICE's pUSD balance and PSM reserve with a prior mint, then
-			// drift the snapshot. See note on `mint_halts_when_stable_decimals_drift`.
+			// drift the stable asset's decimals.
 			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * PUSD_UNIT));
-			crate::StableDecimals::<Test>::put(8);
+			assert_ok!(Assets::set_metadata(
+				RuntimeOrigin::signed(ALICE),
+				PUSD_ASSET_ID,
+				b"pUSD".to_vec(),
+				b"pUSD".to_vec(),
+				8
+			));
 
 			assert_noop!(
 				Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 100 * PUSD_UNIT),

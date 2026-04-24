@@ -261,9 +261,11 @@ pub mod pallet {
 		/// Must use the same `Balance` type as `Asset`.
 		type StableAsset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>;
 
-		/// Decimals of the pUSD stable asset.
+		/// Asset id of the pUSD stable asset, used to read its decimals via
+		/// `T::Fungibles::decimals`. Must identify the same asset that backs
+		/// `StableAsset`.
 		#[pallet::constant]
-		type StableAssetDecimals: Get<u8>;
+		type StablecoinAssetId: Get<Self::AssetId>;
 
 		/// Account that receives pUSD fees from minting and redemption.
 		///
@@ -372,7 +374,7 @@ pub mod pallet {
 				T::MaxExternalAssets::get(),
 			);
 			MaxPsmDebtOfTotal::<T>::put(self.max_psm_debt_of_total);
-			let stable_decimals = T::StableAssetDecimals::get();
+			let stable_decimals = T::Fungibles::decimals(T::StablecoinAssetId::get());
 			StableDecimals::<T>::put(stable_decimals);
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &self.asset_configs {
 				let asset_decimals = T::Fungibles::decimals(*asset_id);
@@ -908,7 +910,7 @@ pub mod pallet {
 
 			let asset_decimals = T::Fungibles::decimals(asset_id);
 			let stable_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
-			ensure!(T::StableAssetDecimals::get() == stable_decimals, Error::<T>::DecimalsMismatch);
+			ensure!(T::Fungibles::decimals(T::StablecoinAssetId::get()) == stable_decimals, Error::<T>::DecimalsMismatch);
 			ensure!(
 				(asset_decimals.abs_diff(stable_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
@@ -1094,7 +1096,7 @@ pub mod pallet {
 			ensure!(T::Fungibles::decimals(asset_id) == ext_decimals, Error::<T>::DecimalsMismatch);
 
 			let pusd_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
-			ensure!(T::StableAssetDecimals::get() == pusd_decimals, Error::<T>::DecimalsMismatch);
+			ensure!(T::Fungibles::decimals(T::StablecoinAssetId::get()) == pusd_decimals, Error::<T>::DecimalsMismatch);
 
 			Ok((ext_decimals, pusd_decimals))
 		}
@@ -1115,7 +1117,7 @@ pub mod pallet {
 			let stable_decimals_snapshot =
 				StableDecimals::<T>::get().ok_or("StableDecimals not initialized")?;
 			ensure!(
-				T::StableAssetDecimals::get() == stable_decimals_snapshot,
+				T::Fungibles::decimals(T::StablecoinAssetId::get()) == stable_decimals_snapshot,
 				"Stable asset live decimals differ from the genesis snapshot"
 			);
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
