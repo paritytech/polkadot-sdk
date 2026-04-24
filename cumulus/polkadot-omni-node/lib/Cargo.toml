@@ -98,11 +98,14 @@ polkadot-primitives = { workspace = true, default-features = true }
 cumulus-client-bootnodes = { workspace = true, default-features = true }
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
+cumulus-client-collator-mesh = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-consensus-relay-chain = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
 cumulus-client-service = { workspace = true, default-features = true }
+sc-authority-discovery = { workspace = true, default-features = true }
+sp-authority-discovery = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }

@@ -25,6 +25,71 @@ use westend_runtime_constants::system_parachain::ASSET_HUB_ID;
 use xcm::v5::{Junction, Location};
 use xcm_builder::StartsWith;
 
+/// One-shot migration that rewrites the parachain's `SessionKeys` storage to add the
+/// `authority_discovery` slot alongside the existing `aura` slot.
+///
+/// Before the upgrade, `pallet_session::NextKeys` and `QueuedKeys` hold entries encoded with
+/// the old single-field `SessionKeys { aura }`. Running the upgrade without re-encoding these
+/// entries would leave session rotation broken — the new two-field type can't decode the old
+/// bytes, and `pallet_session::KeyOwner` wouldn't have entries for the new `audi` key type.
+///
+/// The migration uses [`pallet_session::Pallet::upgrade_keys`] to:
+/// * decode every existing entry as `OldSessionKeys { aura }`,
+/// * construct a `crate::SessionKeys { aura, authority_discovery }` per validator by seeding
+///   the authority-discovery slot with the existing aura sr25519 bytes, and
+/// * rebuild `KeyOwner` so the new `audi` entries point back to their validators.
+///
+/// Seeding audi from aura is a bootstrap convenience — operators are expected to rotate the
+/// authority-discovery key independently via `session.setKeys` after the upgrade.
+pub mod authority_discovery_session_key {
+	use frame_support::{
+		traits::{Get, OnRuntimeUpgrade},
+		weights::Weight,
+	};
+	use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+	use sp_runtime::{impl_opaque_keys, RuntimeAppPublic};
+
+	impl_opaque_keys! {
+		/// The shape of the old [`crate::SessionKeys`] before the authority-discovery slot
+		/// was added. Kept only so the migration can decode on-chain entries.
+		pub struct OldSessionKeys {
+			pub aura: crate::Aura,
+		}
+	}
+
+	/// Runtime migration that extends the parachain's session keys with an
+	/// `authority_discovery` slot. Idempotent: re-running is a no-op because
+	/// `upgrade_keys` only acts on entries still decodable as `OldSessionKeys`.
+	pub struct MigrateToSessionKeysWithAuthorityDiscovery<T>(core::marker::PhantomData<T>);
+
+	impl<T> OnRuntimeUpgrade for MigrateToSessionKeysWithAuthorityDiscovery<T>
+	where
+		T: pallet_session::Config<Keys = crate::SessionKeys>,
+	{
+		fn on_runtime_upgrade() -> Weight {
+			pallet_session::Pallet::<T>::upgrade_keys::<OldSessionKeys, _>(
+				|_validator_id, old: OldSessionKeys| {
+					let audi_bytes: [u8; 32] = old
+						.aura
+						.to_raw_vec()
+						.try_into()
+						.expect("parachain aura key is sr25519 (32 bytes); qed");
+					let authority_discovery = AuthorityDiscoveryId::from(
+						sp_core::sr25519::Public::from_raw(audi_bytes),
+					);
+					crate::SessionKeys { aura: old.aura, authority_discovery }
+				},
+			);
+
+			// We touch every entry in `NextKeys` and `QueuedKeys` twice (read old, write
+			// new) and rebuild `KeyOwner` for one removed + two added keys per validator.
+			// Validator count is bounded at the runtime level — this is just a loose upper
+			// bound rather than a per-row weight.
+			T::DbWeight::get().reads_writes(500, 500)
+		}
+	}
+}
+
 /// This type provides reserves information for `asset_id`. Meant to be used in a migration running
 /// on the Asset Hub Westend upgrade which changes the Foreign Assets reserve-transfers and
 /// teleports from hardcoded rules to per-asset configured reserves.

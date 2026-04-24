@@ -24,7 +24,8 @@ use cumulus_primitives_core::ParaId;
 use frame_support::build_struct_json_patch;
 use hex_literal::hex;
 use parachains_common::{AccountId, AuraId};
-use sp_core::crypto::UncheckedInto;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_core::crypto::{get_public_from_string_or_panic, UncheckedInto};
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 use testnet_parachains_constants::westend::{
@@ -37,7 +38,7 @@ use xcm_executor::traits::ConvertLocation;
 const ASSET_HUB_WESTEND_ED: Balance = ExistentialDeposit::get();
 
 fn asset_hub_westend_genesis(
-	invulnerables: Vec<(AccountId, AuraId)>,
+	invulnerables: Vec<(AccountId, AuraId, AuthorityDiscoveryId)>,
 	endowed_accounts: Vec<AccountId>,
 	endowment: Balance,
 	dev_stakers: Option<(u32, u32)>,
@@ -55,17 +56,17 @@ fn asset_hub_westend_genesis(
 		balances: BalancesConfig { balances },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {
-			invulnerables: invulnerables.iter().cloned().map(|(acc, _)| acc).collect(),
+			invulnerables: invulnerables.iter().cloned().map(|(acc, _, _)| acc).collect(),
 			candidacy_bond: ASSET_HUB_WESTEND_ED * 16,
 		},
 		session: SessionConfig {
 			keys: invulnerables
 				.into_iter()
-				.map(|(acc, aura)| {
+				.map(|(acc, aura, authority_discovery)| {
 					(
-						acc.clone(),          // account id
-						acc,                  // validator id
-						SessionKeys { aura }, // session keys
+						acc.clone(),
+						acc,
+						SessionKeys { aura, authority_discovery },
 					)
 				})
 				.collect(),
@@ -113,9 +114,14 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		PRESET_GENESIS => asset_hub_westend_genesis(
 			// initial collators.
+			// NOTE: The authority-discovery pubkey is initialised from the same bytes as the
+			// aura key for bootstrap convenience. Operators can rotate the authority-discovery
+			// key independently via `session.setKeys` once the chain is running.
 			vec![
 				(
 					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325").into(),
+					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
+						.unchecked_into(),
 					hex!("9cfd429fa002114f33c1d3e211501d62830c9868228eb3b4b8ae15a83de04325")
 						.unchecked_into(),
 				),
@@ -123,14 +129,20 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876").into(),
 					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
 						.unchecked_into(),
+					hex!("12a03fb4e7bda6c9a07ec0a11d03c24746943e054ff0bb04938970104c783876")
+						.unchecked_into(),
 				),
 				(
 					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f").into(),
 					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
 						.unchecked_into(),
+					hex!("1256436307dfde969324e95b8c62cb9101f520a39435e6af0f7ac07b34e1931f")
+						.unchecked_into(),
 				),
 				(
 					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322").into(),
+					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
+						.unchecked_into(),
 					hex!("98102b7bca3f070f9aa19f58feed2c0a4e107d203396028ec17a47e1ed80e322")
 						.unchecked_into(),
 				),
@@ -144,10 +156,22 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 		),
 		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
 			asset_hub_westend_genesis(
-				// initial collators.
+				// Initial collators. Aura and authority-discovery are seeded independently
+				// through the relay-chain idiom `get_public_from_string_or_panic`; for
+				// sr25519-backed types the derived bytes happen to match across key-types,
+				// but the two slots stay functionally distinct so operators can rotate them
+				// independently via `session.setKeys`.
 				vec![
-					(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into()),
-					(Sr25519Keyring::Bob.to_account_id(), Sr25519Keyring::Bob.public().into()),
+					(
+						Sr25519Keyring::Alice.to_account_id(),
+						get_public_from_string_or_panic::<AuraId>("Alice"),
+						get_public_from_string_or_panic::<AuthorityDiscoveryId>("Alice"),
+					),
+					(
+						Sr25519Keyring::Bob.to_account_id(),
+						get_public_from_string_or_panic::<AuraId>("Bob"),
+						get_public_from_string_or_panic::<AuthorityDiscoveryId>("Bob"),
+					),
 				],
 				Sr25519Keyring::well_known().map(|k| k.to_account_id()).collect(),
 				WND * 1_000_000,
@@ -175,8 +199,13 @@ pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 			)
 		},
 		sp_genesis_builder::DEV_RUNTIME_PRESET => asset_hub_westend_genesis(
-			// initial collators.
-			vec![(Sr25519Keyring::Alice.to_account_id(), Sr25519Keyring::Alice.public().into())],
+			// Initial collator — see the LOCAL_TESTNET preset above for the key-derivation
+			// rationale.
+			vec![(
+				Sr25519Keyring::Alice.to_account_id(),
+				get_public_from_string_or_panic::<AuraId>("Alice"),
+				get_public_from_string_or_panic::<AuthorityDiscoveryId>("Alice"),
+			)],
 			vec![
 				Sr25519Keyring::Alice.to_account_id(),
 				Sr25519Keyring::Bob.to_account_id(),
