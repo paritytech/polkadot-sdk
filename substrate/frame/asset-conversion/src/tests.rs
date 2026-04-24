@@ -1373,7 +1373,7 @@ fn can_not_swap_in_pool_with_no_liquidity_added_yet() {
 				user,
 				false,
 			),
-			Error::<Test>::PoolNotFound
+			Error::<Test>::PoolEmpty
 		);
 	});
 }
