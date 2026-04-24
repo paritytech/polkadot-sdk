@@ -4,8 +4,7 @@
 use super::common::{
 	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
 	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
-	spawn_network_sudo,
-	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
 	subscribe_topic_filter,
 };
 use codec::Encode;
@@ -822,7 +821,6 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	let mut bob_sub = subscribe_topic_filter(&bob_rpc, filter.clone()).await?;
 	let mut eve_sub = subscribe_topic_filter(&eve_rpc, filter).await?;
 
-	// Wait for all new nodes to sync blocks
 	let charlie_height = Cell::new(0.0f64);
 	charlie
 		.wait_metric_with_timeout(
@@ -849,16 +847,11 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		info!("{} synced to block {:.0}", name, target_height);
 	}
 
-	for (name, sub) in [
-		("dave", &mut dave_sub),
-		("bob", &mut bob_sub),
-		("eve", &mut eve_sub),
-	] {
+	for (name, sub) in [("dave", &mut dave_sub), ("bob", &mut bob_sub), ("eve", &mut eve_sub)] {
 		assert_statements_match(sub, &expected_encoded, 60, name).await?;
 		assert_no_more_statements(sub, 10).await?;
 	}
 
-	// Verify initial sync delivered statements
 	let charlie_sent_after = Cell::new(0.0f64);
 	charlie
 		.wait_metric_with_timeout(
