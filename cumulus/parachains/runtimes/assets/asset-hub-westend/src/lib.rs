@@ -1112,15 +1112,36 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 }
 
+parameter_types! {
+	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
+	/// TODO: Set the westend value
+	pub const PGASAssetId: AssetIdForTrustBackedAssets = 42;
+	/// `xcm::v5::Location` representation of [`PGASAssetId`] as seen by the fungibles union.
+	pub PGASAssetIdLocation: xcm::v5::Location = xcm::v5::Location::new(
+		0,
+		[
+			xcm::v5::Junction::PalletInstance(
+				<Assets as frame_support::traits::PalletInfoAccess>::index() as u8,
+			),
+			xcm::v5::Junction::GeneralIndex(PGASAssetId::get() as u128),
+		],
+	);
+}
+
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = xcm::v5::Location;
-	type OnChargeAssetTransaction = SwapAssetAdapter<
-		WestendLocation,
-		NativeAndNonPoolAssets,
-		AssetConversion,
-		ResolveAssetTo<StakingPot, NativeAndNonPoolAssets>,
-	>;
+	type OnChargeAssetTransaction =
+		pallet_asset_conversion_tx_payment::pgas::PgasOnChargeAssetTransaction<
+			PGASAssetIdLocation,
+			NativeAndNonPoolAssets,
+			SwapAssetAdapter<
+				WestendLocation,
+				NativeAndNonPoolAssets,
+				AssetConversion,
+				ResolveAssetTo<StakingPot, NativeAndNonPoolAssets>,
+			>,
+		>;
 	type WeightInfo = weights::pallet_asset_conversion_tx_payment::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetConversionTxHelper;

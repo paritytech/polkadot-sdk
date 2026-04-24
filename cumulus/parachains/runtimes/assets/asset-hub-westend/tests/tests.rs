@@ -130,6 +130,14 @@ fn bare_instantiate(origin: &AccountId, code: Vec<u8>) -> BareInstantiateBuilder
 }
 
 fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedExtrinsic {
+	construct_extrinsic_with_asset(sender, call, None)
+}
+
+fn construct_extrinsic_with_asset(
+	sender: Sr25519Keyring,
+	call: RuntimeCall,
+	asset_id: Option<xcm::v5::Location>,
+) -> UncheckedExtrinsic {
 	let account_id = AccountId::from(sender.public());
 	let tx_ext: TxExtension = (
 		frame_system::AuthorizeCall::<Runtime>::new(),
@@ -142,7 +150,7 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 			frame_system::Pallet::<Runtime>::account(&account_id).nonce,
 		),
 		frame_system::CheckWeight::<Runtime>::new(),
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, None),
+		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(0, asset_id),
 		frame_metadata_hash_extension::CheckMetadataHash::new(false),
 		Default::default(),
 	)
@@ -2636,5 +2644,100 @@ mod dap {
 				);
 				assert_eq!(<Balances as Inspect<AccountId>>::total_issuance(), issuance_before);
 			});
+	}
+}
+
+// Exercises the real `PgasOnChargeAssetTransaction` adapter via `Executive::apply_extrinsic`.
+// Users opt into PGAS payment by setting the extension's asset_id to `Some(PGAS)`.
+#[cfg(not(feature = "runtime-benchmarks"))]
+mod pgas_allowance {
+	use super::*;
+	use asset_hub_westend_runtime::{PGASAssetId, PGASAssetIdLocation};
+	use sp_core::H160;
+	use sp_runtime::BuildStorage;
+
+	const SENDER: Sr25519Keyring = Sr25519Keyring::Bob;
+
+	fn revive_call() -> RuntimeCall {
+		RuntimeCall::Revive(pallet_revive::Call::call {
+			dest: H160::default(),
+			value: 0,
+			weight_limit: Weight::zero(),
+			storage_deposit_limit: 0,
+			data: vec![],
+		})
+	}
+
+	fn setup_ext(funded_accounts: Vec<(AccountId, Balance)>) -> sp_io::TestExternalities {
+		let mut t = frame_system::GenesisConfig::<Runtime>::default().build_storage().unwrap();
+		pallet_balances::GenesisConfig::<Runtime> {
+			balances: funded_accounts,
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		pallet_assets::GenesisConfig::<Runtime, pallet_assets::Instance1> {
+			assets: vec![(PGASAssetId::get(), AccountId::from(ALICE), true, 1)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+		let mut ext: sp_io::TestExternalities = t.into();
+		ext.execute_with(|| System::set_block_number(1));
+		ext
+	}
+
+	fn mint_pgas(to: &AccountId, amount: Balance) {
+		assert_ok!(<Assets as FungiblesMutate<_>>::mint_into(PGASAssetId::get(), to, amount));
+	}
+
+	fn pgas_balance(who: &AccountId) -> Balance {
+		<Assets as FungiblesInspect<_>>::balance(PGASAssetId::get(), who)
+	}
+
+	/// Look up the `AssetTxFeePaid` event for `who` paid in PGAS.
+	fn pgas_fee_paid_event(who: &AccountId) -> Option<Balance> {
+		let pgas_location = PGASAssetIdLocation::get();
+		System::events().into_iter().find_map(|e| match e.event {
+			RuntimeEvent::AssetTxPayment(
+				pallet_asset_conversion_tx_payment::Event::AssetTxFeePaid {
+					who: w,
+					actual_fee,
+					asset_id,
+					..
+				},
+			) if &w == who && asset_id == pgas_location => Some(actual_fee),
+			_ => None,
+		})
+	}
+
+	/// Caller holds PGAS and signs the tx with `asset_id=Some(PGAS)`: the fee is burned from PGAS
+	/// and native is untouched.
+	#[test]
+	fn pgas_pays_when_specified_as_fee_asset() {
+		let sender = SENDER.to_account_id();
+		let initial_native = 10 * UNITS;
+		let initial_pgas = 100 * UNITS;
+		setup_ext(vec![(sender.clone(), initial_native)]).execute_with(|| {
+			mint_pgas(&sender, initial_pgas);
+
+			let native_before = <Balances as Inspect<_>>::balance(&sender);
+			let pgas_before = pgas_balance(&sender);
+
+			let xt = construct_extrinsic_with_asset(
+				SENDER,
+				revive_call(),
+				Some(PGASAssetIdLocation::get()),
+			);
+			assert_ok!(Executive::apply_extrinsic(xt).unwrap());
+
+			let native_after = <Balances as Inspect<_>>::balance(&sender);
+			let pgas_after = pgas_balance(&sender);
+
+			assert_eq!(native_before, native_after, "native untouched on PGAS path");
+			let fee = pgas_before.checked_sub(pgas_after).expect("PGAS charged");
+			assert!(fee > 0);
+			assert_eq!(pgas_fee_paid_event(&sender), Some(fee));
+		});
 	}
 }

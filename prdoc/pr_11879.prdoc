@@ -1,0 +1,18 @@
+title: Add PgasOnChargeAssetTransaction adapter to pallet-asset-conversion-tx-payment
+doc:
+  - audience: Runtime Dev
+    description: |
+      - Introduces `pallet_asset_conversion_tx_payment::pgas::PgasOnChargeAssetTransaction<PgasId, F, Inner>`,
+        an `OnChargeAssetTransaction` adapter. When the fee asset is `PgasId` it withdraws PGAS
+        directly (no swap) and burns the consumed portion by dropping the credit, refunding the
+        rest. For any other asset it delegates to `Inner` (e.g. `SwapAssetAdapter`).
+      - Users opt into PGAS payment by signing a transaction with the extension's `asset_id` set
+        to `Some(PGAS)`. The standard `AssetTxFeePaid { who, actual_fee, tip, asset_id }` event
+        carries the PGAS asset id on the PGAS path.
+      - Wires the adapter into `asset-hub-westend` inside the existing
+        `pallet_asset_conversion_tx_payment::Config::OnChargeAssetTransaction`.
+crates:
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: pallet-asset-conversion-tx-payment
+    bump: minor

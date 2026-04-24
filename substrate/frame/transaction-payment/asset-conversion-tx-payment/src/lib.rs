@@ -71,6 +71,7 @@ pub mod weights;
 mod benchmarking;
 
 mod payment;
+pub mod pgas;
 use frame_support::{pallet_prelude::Weight, traits::tokens::AssetId};
 pub use payment::*;
 pub use weights::WeightInfo;
