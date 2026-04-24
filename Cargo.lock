@@ -13226,6 +13226,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-psm"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 45.0.0",
+ "sp-runtime 46.0.0",
+]
+
+[[package]]
 name = "pallet-ranked-collective"
 version = "46.0.0"
 dependencies = [
