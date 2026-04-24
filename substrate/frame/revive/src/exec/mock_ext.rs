@@ -284,6 +284,16 @@ impl<T: Config> Ext for MockExt<T> {
 		panic!("MockExt::delegate_call")
 	}
 
+	fn call_code(
+		&mut self,
+		_call_resources: &CallResources<T>,
+		_address: H160,
+		_input_data: Vec<u8>,
+		_value: U256,
+	) -> Result<(), ExecError> {
+		panic!("MockExt::call_code")
+	}
+
 	fn terminate_if_same_tx(&mut self, _beneficiary: &H160) -> Result<CodeRemoved, DispatchError> {
 		panic!("MockExt::terminate_if_same_tx")
 	}

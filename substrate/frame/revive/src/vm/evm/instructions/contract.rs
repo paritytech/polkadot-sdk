@@ -129,12 +129,30 @@ pub fn call<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
 
 /// Implements the CALLCODE instruction.
 ///
-/// Message call with alternative account's code.
-///
-/// Isn't supported yet: [`solc` no longer emits it since Solidity v0.3.0 in 2016]
-/// (https://soliditylang.org/blog/2016/03/11/solidity-0.3.0-release-announcement/).
-pub fn call_code<E: Ext>(_interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
-	ControlFlow::Break(Error::<E::T>::InvalidInstruction.into())
+/// Executes the code at the target address in the current contract's storage context.
+/// Unlike DELEGATECALL, `msg.sender` is set to the current contract and `msg.value` is
+/// taken from the stack. solc has not emitted CALLCODE since Solidity v0.3.0 (2016), but
+/// it is still reachable from YUL inline assembly.
+pub fn call_code<E: Ext>(interpreter: &mut Interpreter<E>) -> ControlFlow<Halt> {
+	let [gas_limit, to, value] = interpreter.stack.popn()?;
+	let to = to.into_address();
+	let has_transfer = !value.is_zero();
+	if interpreter.ext.is_read_only() && has_transfer {
+		return ControlFlow::Break(Error::<E::T>::StateChangeDenied.into());
+	}
+	let (input, return_memory_range) = get_memory_in_and_out_ranges(interpreter)?;
+	let scheme = CallScheme::CallCode;
+	charge_call_gas(interpreter, to, scheme, input.len(), value)?;
+
+	run_call(
+		interpreter,
+		to,
+		gas_limit,
+		interpreter.memory.slice(input).to_vec(),
+		scheme,
+		value,
+		return_memory_range,
+	)
 }
 
 /// Implements the DELEGATECALL instruction.
@@ -217,9 +235,12 @@ fn run_call<'a, E: Ext>(
 			callee,
 			input,
 		),
-		CallScheme::CallCode => {
-			unreachable!()
-		},
+		CallScheme::CallCode => interpreter.ext.call_code(
+			&CallResources::from_ethereum_gas(gas_limit, add_stipend),
+			callee,
+			input,
+			value,
+		),
 	};
 
 	match call_result {

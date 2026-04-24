@@ -380,6 +380,33 @@ fn delegatecall_works(caller_type: FixtureType, callee_type: FixtureType) {
 	});
 }
 
+/// CALLCODE runs the target's code in the caller's storage context, with
+/// `msg.sender` set to the caller and `msg.value` taken from the stack.
+/// The opcode is only emitted by YUL, so both contracts are Solc-compiled.
+#[test]
+fn callcode_works() {
+	use pallet_revive_fixtures::CodeCaller;
+
+	let (caller_code, _) = compile_module_with_type("CodeCaller", FixtureType::Solc).unwrap();
+	let (callee_code, _) = compile_module_with_type("CodeCallee", FixtureType::Solc).unwrap();
+
+	ExtBuilder::default().build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 100_000_000_000);
+
+		let Contract { addr: callee_addr, .. } =
+			builder::bare_instantiate(Code::Upload(callee_code)).build_and_unwrap_contract();
+		let Contract { addr: caller_addr, .. } =
+			builder::bare_instantiate(Code::Upload(caller_code)).build_and_unwrap_contract();
+
+		let result = builder::bare_call(caller_addr)
+			.data(CodeCaller::doCallCodeCall { target: callee_addr.0.into() }.abi_encode())
+			.build_and_unwrap_result();
+
+		let ok = CodeCaller::doCallCodeCall::abi_decode_returns(&result.data).unwrap();
+		assert!(ok, "callcode must succeed and return true");
+	});
+}
+
 #[test_case(FixtureType::Solc,   FixtureType::Solc;   "solc->solc")]
 #[test_case(FixtureType::Solc,   FixtureType::Resolc; "solc->resolc")]
 #[test_case(FixtureType::Resolc, FixtureType::Solc;   "resolc->solc")]

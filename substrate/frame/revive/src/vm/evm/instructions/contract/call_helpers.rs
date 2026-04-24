@@ -83,7 +83,9 @@ pub fn charge_call_gas<'a, E: Ext>(
 				.charge_or_halt(RuntimeCosts::PrecompileDecode(input_len as u32))?;
 		},
 		None => {
-			// Regular CALL / DELEGATECALL base cost / CALLCODE not supported
+			// Base cost for CALL / CALLCODE / STATICCALL / DELEGATECALL.
+			// CALLCODE is charged the regular CallBase (like CALL) since it runs target code
+			// in the caller's context with its own msg.sender and msg.value.
 			interpreter.ext.charge_or_halt(if scheme.is_delegate_call() {
 				RuntimeCosts::DelegateCallBase
 			} else {

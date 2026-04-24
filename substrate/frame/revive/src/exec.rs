@@ -270,6 +270,22 @@ pub trait Ext: PrecompileWithInfoExt {
 		input_data: Vec<u8>,
 	) -> Result<(), ExecError>;
 
+	/// Execute the code at `address` in the context of the current contract.
+	///
+	/// Like `delegate_call`, the code runs against the current contract's storage and address,
+	/// but unlike `delegate_call` the message sender is set to the current contract and
+	/// `msg.value` is the supplied `value`. The value is (notionally) transferred from the
+	/// current contract to itself, so no balance change occurs.
+	///
+	/// Implements the semantics of the EVM `CALLCODE` opcode.
+	fn call_code(
+		&mut self,
+		call_resources: &CallResources<Self::T>,
+		address: H160,
+		input_data: Vec<u8>,
+		value: U256,
+	) -> Result<(), ExecError>;
+
 	/// Register the contract for destruction at the end of the call stack.
 	///
 	/// Transfer all funds to `beneficiary`.
@@ -1927,6 +1943,42 @@ where
 			self.run(executable, input_data)
 		} else {
 			// Delegate-calls to non-contract accounts are considered success.
+			Ok(())
+		}
+	}
+
+	fn call_code(
+		&mut self,
+		call_resources: &CallResources<T>,
+		address: H160,
+		input_data: Vec<u8>,
+		value: U256,
+	) -> Result<(), ExecError> {
+		// Like `delegate_call`, clear the cached return data up front.
+		*self.last_frame_output_mut() = Default::default();
+
+		let top_frame = self.top_frame_mut();
+		let mut contract_info = top_frame.contract_info().clone();
+		top_frame.frame_meter.apply_pending_storage_changes(&mut contract_info);
+		let account_id = top_frame.account_id.clone();
+		// CALLCODE sets `msg.sender` to the current contract, unlike DELEGATECALL which
+		// preserves the outer sender.
+		let caller = Origin::from_account_id(account_id.clone());
+		if let Some(executable) = self.push_frame(
+			FrameArgs::Call {
+				dest: account_id,
+				cached_info: Some(contract_info),
+				delegated_call: Some(DelegateInfo { caller, callee: address }),
+			},
+			// `msg.value` is taken from the stack argument. The `delegated_call` marker
+			// ensures no balance transfer happens (the transfer would be self -> self anyway).
+			value,
+			call_resources,
+			self.is_read_only(),
+			&input_data,
+		)? {
+			self.run(executable, input_data)
+		} else {
 			Ok(())
 		}
 	}
