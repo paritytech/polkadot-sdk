@@ -2606,7 +2606,24 @@ fn fetch_params_uses_correct_sessions_for_v3() {
 				}
 			);
 
-			// Third call: ValidationCodeBombLimit — must use scheduling_session.
+			// Third call: SessionExecutionConfig — keyed on the scheduling session
+			// for the bomb limit. In production, when scheduling == execution this
+			// is served from the runtime-api subsystem's LRU cache; in these tests
+			// there is no cache layer so the call shows up at the mock either way.
+			// Also NotSupported → falls through to the legacy ValidationCodeBombLimit API.
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					leaf,
+					RuntimeApiRequest::SessionExecutionConfig(session, tx),
+				)) => {
+					assert_eq!(leaf, recent_leaf);
+					assert_eq!(session, scheduling_session, "scheduling-session config lookup must use scheduling session");
+					tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "SessionExecutionConfig" })).unwrap();
+				}
+			);
+
+			// Pre-v17 fallback: ValidationCodeBombLimit — must use scheduling_session.
 			assert_matches!(
 				ctx_handle.recv().await,
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -2683,6 +2700,20 @@ fn fetch_params_uses_fallback_session_for_v1() {
 			}
 		);
 
+		// Second SessionExecutionConfig call — keyed on the scheduling session,
+		// which equals caller_session for V1 descriptors. Production serves this
+		// from the runtime-api cache; the test harness sees it as an explicit call.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutionConfig(session, tx),
+			)) => {
+				assert_eq!(session, caller_session, "scheduling-session config lookup must use caller session for V1");
+				tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "SessionExecutionConfig" })).unwrap();
+			}
+		);
+
 		// ValidationCodeBombLimit — must also use caller_session (42).
 		assert_matches!(
 			ctx_handle.recv().await,
@@ -2709,9 +2740,16 @@ fn fetch_params_uses_fallback_session_for_v1() {
 }
 
 /// SessionExecutionConfig path: when the runtime returns a config, fetch_params
-/// takes `max_pov_size` from it. `validation_code_bomb_limit` still comes from
-/// its own runtime API call (keyed on the scheduling session, which equals the
-/// execution session for V1 descriptors).
+/// takes BOTH `max_pov_size` and `validation_code_bomb_limit` from it — no
+/// legacy `ValidationCodeBombLimit` call should be made.
+///
+/// The mocked `cfg.validation_code_bomb_limit` is deliberately distinct from
+/// the global `VALIDATION_CODE_BOMB_LIMIT` constant (which the legacy API
+/// would have returned in the test fixture) so that the assertion at the end
+/// unambiguously proves the value came from `SessionExecutionConfig` and not
+/// from a stray fallback path. If a regression caused the legacy API to be
+/// called, the oneshot from `ValidationCodeBombLimit` would be unanswered and
+/// the test would hang (caught by CI timeout).
 #[test]
 fn fetch_params_uses_session_execution_config_when_supported() {
 	let recent_leaf = Hash::repeat_byte(0xCC);
@@ -2729,10 +2767,16 @@ fn fetch_params_uses_session_execution_config_when_supported() {
 		validation_code.hash(),
 	);
 
+	// Distinct from `VALIDATION_CODE_BOMB_LIMIT` so the assertion can tell
+	// apart a cfg-derived value from a legacy-fallback value.
 	let cfg = polkadot_primitives::SessionExecutionConfig {
 		max_pov_size: 4096,
 		validation_code_bomb_limit: 123_456,
 	};
+	assert_ne!(
+		cfg.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT,
+		"test sentinel collision: cfg value must differ from the legacy-path value",
+	);
 
 	let pool = TaskExecutor::new();
 	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
@@ -2748,31 +2792,25 @@ fn fetch_params_uses_session_execution_config_when_supported() {
 			}
 		);
 
-		// SessionExecutionConfig returns Some(cfg) — `max_pov_size` is taken
-		// from it. The bomb limit is fetched separately below via the standalone
-		// `ValidationCodeBombLimit` runtime API (keyed on the scheduling
-		// session).
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::SessionExecutionConfig(idx, tx),
-			)) => {
-				assert_eq!(idx, session);
-				tx.send(Ok(Some(cfg))).unwrap();
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_,
-				RuntimeApiRequest::ValidationCodeBombLimit(idx, tx),
-			)) => {
-				assert_eq!(idx, session);
-				tx.send(Ok(cfg.validation_code_bomb_limit)).unwrap();
-			}
-		);
+		// Two SessionExecutionConfig calls: one for the execution session
+		// (`max_pov_size`) and one for the scheduling session (bomb limit).
+		// For a V1 descriptor both keys equal `session`; in production the
+		// second is a cache hit inside the `runtime-api` subsystem, but in
+		// these tests there's no cache layer so the call reaches the mock.
+		// No legacy `ValidationCodeBombLimit` call is expected on this path —
+		// its value must come from `cfg.validation_code_bomb_limit`.
+		for _ in 0..2 {
+			assert_matches!(
+				ctx_handle.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionExecutionConfig(idx, tx),
+				)) => {
+					assert_eq!(idx, session);
+					tx.send(Ok(Some(cfg))).unwrap();
+				}
+			);
+		}
 	};
 
 	let fetch_fut = async move {
@@ -2780,7 +2818,10 @@ fn fetch_params_uses_session_execution_config_when_supported() {
 			.await
 			.expect("fetch_params should succeed");
 
-		assert_eq!(params.validation_code_bomb_limit, cfg.validation_code_bomb_limit);
+		assert_eq!(
+			params.validation_code_bomb_limit, cfg.validation_code_bomb_limit,
+			"bomb limit must come from SessionExecutionConfig, not the legacy API",
+		);
 		assert_eq!(params.max_pov_size, Some(cfg.max_pov_size));
 	};
 

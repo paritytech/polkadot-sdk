@@ -55,8 +55,8 @@ use polkadot_primitives::{
 	CandidateDescriptorV2 as CandidateDescriptor, CandidateEvent,
 	CandidateReceiptV2 as CandidateReceipt,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, ExecutorParams, Hash,
-	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind, SessionIndex,
-	ValidationCode, ValidationCodeHash, ValidatorId,
+	PersistedValidationData, PvfExecKind as RuntimePvfExecKind, PvfPrepKind,
+	SessionExecutionConfig, SessionIndex, ValidationCode, ValidationCodeHash, ValidatorId,
 };
 use sp_application_crypto::{AppCrypto, ByteArray};
 use sp_keystore::KeystorePtr;
@@ -225,45 +225,56 @@ where
 		.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
 		.ok_or_else(|| "Executor params not found for session".to_string())?;
 
-	let max_pov_size = fetch_session_max_pov_size(recent_leaf, execution_session, sender).await?;
+	// Fetch the execution session's config for `max_pov_size`.
+	let max_pov_size = fetch_session_execution_config(recent_leaf, execution_session, sender)
+		.await?
+		.map(|cfg| cfg.max_pov_size);
 
 	// Bomb limit uses the scheduling session. It's a node-local decompression cap, not part of
 	// any on-chain commitment, so either session works as long as validators agree.
+	// When scheduling_session == execution_session (V1/V2, and the V3 same-session case) the
+	// `runtime-api` subsystem serves this from its cache — no extra runtime round-trip.
 	let scheduling_session = candidate_descriptor
 		.scheduling_session_for_candidate_validation(v3_ever_seen)
 		.unwrap_or(scheduling_session_index);
 
 	let validation_code_bomb_limit =
-		fetch_bomb_limit(recent_leaf, scheduling_session, sender).await?;
+		match fetch_session_execution_config(recent_leaf, scheduling_session, sender).await? {
+			Some(cfg) => cfg.validation_code_bomb_limit,
+			// Pre-v17 fallback: session-less legacy runtime API.
+			None => fetch_bomb_limit(recent_leaf, scheduling_session, sender).await?,
+		};
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit, max_pov_size })
 }
 
-/// Fetch the per-session `max_pov_size` override.
+/// Fetch the per-session `SessionExecutionConfig`.
 ///
-/// Uses `SessionExecutionConfig` (runtime API v17+). Returns `None` on older
-/// runtimes that don't expose the API (or when the session's config isn't
-/// stored) so callers can fall back to PVD's `max_pov_size`.
-async fn fetch_session_max_pov_size<Sender>(
+/// Uses runtime API v17+. Returns `None` on older runtimes that don't expose
+/// the API (or when the session's config isn't stored) so callers can fall
+/// back to previous behavior.
+async fn fetch_session_execution_config<Sender>(
 	recent_leaf: Hash,
-	execution_session: SessionIndex,
+	session_index: SessionIndex,
 	sender: &mut Sender,
-) -> Result<Option<u32>, String>
+) -> Result<Option<SessionExecutionConfig>, String>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match request_session_execution_config(recent_leaf, execution_session, sender)
+	match request_session_execution_config(recent_leaf, session_index, sender)
 		.await
 		.await
 		.map_err(|e| format!("Cannot fetch session execution config: channel error: {e:?}"))?
 	{
-		Ok(Some(cfg)) => Ok(Some(cfg.max_pov_size)),
-		Ok(None) | Err(RuntimeApiError::NotSupported { .. }) => Ok(None),
+		Ok(cfg) => Ok(cfg),
+		Err(RuntimeApiError::NotSupported { .. }) => Ok(None),
 		Err(e) => Err(format!("Cannot fetch session execution config: runtime error: {e:?}")),
 	}
 }
 
-/// Fetch the validation-code bomb limit for the scheduling session.
+/// Fetch the validation-code bomb limit via the legacy (session-less) runtime API.
+///
+/// Used only on pre-v17 runtimes where `SessionExecutionConfig` is unavailable.
 async fn fetch_bomb_limit<Sender>(
 	recent_leaf: Hash,
 	scheduling_session: SessionIndex,
@@ -430,8 +441,10 @@ where
 			};
 
 			// Prefer the per-session `max_pov_size` from `SessionExecutionConfig`
-			// (scheduling session); fall back to `PersistedValidationData` on
-			// older runtimes that don't expose the config.
+			// (execution / relay-parent session — matches the value the runtime
+			// baked into PVD at the candidate's relay parent). Fall back to
+			// `PersistedValidationData` on older runtimes that don't expose the
+			// config.
 			let max_pov_size = session_params.max_pov_size.unwrap_or(validation_data.max_pov_size);
 
 			// Phase 1: Pre-validation — basic checks + backing-specific checks.
