@@ -1313,14 +1313,12 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				// Root origin can't be used to instantiate a contract, so it is safe to assume that
-				// if we reached this point the origin has an associated account.
-				let origin = &self.origin.account_id()?;
+				// Root origin can't be used to instantiate a contract.
+				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					let ed = T::Deposit::charge_ed(self.exec_config.funds(origin), account_id)
+					T::Deposit::init_account(account_id)
 						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
@@ -1743,16 +1741,8 @@ where
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);
 
-			// ed needs to be send to the origin
-			Self::transfer(
-				origin,
-				contract_account,
-				origin.account_id()?,
-				Contracts::<T>::convert_native_to_evm(T::Currency::minimum_balance()),
-				Preservation::Expendable,
-				transaction_meter,
-				exec_config,
-			)?;
+			// ED was minted when the account was brought into existence; burn it now.
+			T::Deposit::deinit_account(contract_account)?;
 
 			// this is needed to:
 			// 1) Send any balance that was send to the contract after termination.

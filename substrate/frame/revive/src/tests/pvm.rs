@@ -209,6 +209,10 @@ fn instantiate_and_call_and_deposit_event() {
 
 		let hold_balance = contract_base_deposit(&addr);
 
+		let pgas_ed =
+			<Assets as frame_support::traits::tokens::fungibles::Inspect<_>>::minimum_balance(
+				PGAS_ASSET_ID,
+			);
 		assert_eq!(
 			System::events(),
 			vec![
@@ -229,10 +233,18 @@ fn instantiate_and_call_and_deposit_event() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: account_id.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: account_id.clone(),
+						amount: pgas_ed,
 					}),
 					topics: vec![],
 				},
@@ -634,6 +646,10 @@ fn deploy_and_call_other_contract() {
 				.build()
 		);
 
+		let pgas_ed =
+			<Assets as frame_support::traits::tokens::fungibles::Inspect<_>>::minimum_balance(
+				PGAS_ASSET_ID,
+			);
 		assert_eq!(
 			System::events(),
 			vec![
@@ -654,10 +670,18 @@ fn deploy_and_call_other_contract() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: callee_account.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: callee_account.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: callee_account.clone(),
+						amount: pgas_ed,
 					}),
 					topics: vec![],
 				},
@@ -1002,6 +1026,10 @@ fn self_destruct_by_precompile_works() {
 			1_000_000 - initial_contract_balance,
 		);
 
+		let pgas_ed =
+			<Assets as frame_support::traits::tokens::fungibles::Inspect<_>>::minimum_balance(
+				PGAS_ASSET_ID,
+			);
 		assert_eq!(
 			System::events(),
 			vec![
@@ -1028,6 +1056,14 @@ fn self_destruct_by_precompile_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Burned {
+						who: contract.account_id.clone(),
+						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
 						account: contract.account_id.clone()
 					}),
@@ -1035,10 +1071,10 @@ fn self_destruct_by_precompile_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: ALICE,
-						amount: min_balance,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Burned {
+						asset_id: PGAS_ASSET_ID,
+						owner: contract.account_id.clone(),
+						balance: pgas_ed,
 					}),
 					topics: vec![],
 				},
@@ -1376,14 +1412,6 @@ fn instantiate_return_code() {
 		let contract = builder::bare_instantiate(Code::Upload(caller_code))
 			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
-
-		// bob cannot pay the ED to create the contract as he has no money
-		// this traps the caller rather than returning an error
-		let result = builder::bare_call(contract.addr)
-			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
-			.origin(RuntimeOrigin::signed(BOB))
-			.build();
-		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
 
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
@@ -2092,6 +2120,10 @@ fn instantiate_with_zero_balance_works() {
 			min_balance + contract_base_deposit(&addr)
 		);
 
+		let pgas_ed =
+			<Assets as frame_support::traits::tokens::fungibles::Inspect<_>>::minimum_balance(
+				PGAS_ASSET_ID,
+			);
 		assert_eq!(
 			System::events(),
 			vec![
@@ -2124,10 +2156,18 @@ fn instantiate_with_zero_balance_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: account_id.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: account_id.clone(),
+						amount: pgas_ed,
 					}),
 					topics: vec![],
 				},
@@ -2181,6 +2221,10 @@ fn instantiate_with_below_existential_deposit_works() {
 			min_balance + value + contract_base_deposit(&addr)
 		);
 
+		let pgas_ed =
+			<Assets as frame_support::traits::tokens::fungibles::Inspect<_>>::minimum_balance(
+				PGAS_ASSET_ID,
+			);
 		assert_eq!(
 			System::events(),
 			vec![
@@ -2213,10 +2257,18 @@ fn instantiate_with_below_existential_deposit_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: account_id.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: account_id.clone(),
+						amount: pgas_ed,
 					}),
 					topics: vec![],
 				},
@@ -2720,14 +2772,15 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// - callee_info_len + 2 for storing the new contract info
 		// - the deposit for depending on a code hash
-		// - ED for deployed contract account
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
 		// - 48 for the key
+		//
+		// ED is not charged: `init_account` mints it rather than taking it from the origin.
 		let callee_min_deposit = {
 			let callee_info_len =
 				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u128;
 			let code_deposit = lockup_deposit(&code_hash_callee);
-			callee_info_len + code_deposit + 2 + ED + 2 + 48
+			callee_info_len + code_deposit + 2 + 2 + 48
 		};
 
 		// The parent just stores an item of the passed size so at least
@@ -4890,9 +4943,11 @@ fn storage_deposit_from_hold_works() {
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
 			base_deposit,
 		);
+		// ED is minted into the contract (not withdrawn from the txfee pool) so only the base
+		// and code deposits are taken.
 		assert_eq!(
 			<Test as Config>::FeeInfo::remaining_txfee(),
-			hold_initial - base_deposit - code_deposit - ed,
+			hold_initial - base_deposit - code_deposit,
 		);
 	});
 }

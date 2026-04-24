@@ -232,7 +232,7 @@ mod tests {
 	use crate::{
 		CodeInfo,
 		storage::{AccountInfo, ContractInfo},
-		tests::{AssetsHolder, ExtBuilder, PGasAssetId, Test},
+		tests::{Assets, AssetsHolder, ExtBuilder, PGasAssetId, Test},
 	};
 	use frame_support::traits::fungible::{
 		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
@@ -346,7 +346,8 @@ mod tests {
 				700 + 1_300,
 			);
 
-			use frame_support::traits::tokens::fungibles::InspectHold;
+			use frame_support::traits::tokens::fungibles::{Inspect, InspectHold};
+			let pgas_ed = Assets::minimum_balance(PGasAssetId::get());
 			assert_eq!(
 				AssetsHolder::balance_on_hold(
 					PGasAssetId::get(),
@@ -363,6 +364,10 @@ mod tests {
 				),
 				1_300,
 			);
+			// Each migrated contract also gets the PGAS ED minted into its free balance to
+			// match the post-`init_account` invariant.
+			assert_eq!(Assets::balance(PGasAssetId::get(), &c1_acc), pgas_ed);
+			assert_eq!(Assets::balance(PGasAssetId::get(), &c2_acc), pgas_ed);
 		});
 	}
 

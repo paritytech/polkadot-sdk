@@ -28,7 +28,10 @@ use frame_support::{
 	storage::with_storage_layer,
 	traits::{
 		Get,
-		fungible::{Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _},
+		fungible::{
+			Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
+			Unbalanced as _,
+		},
 		tokens::{
 			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
 			fungibles,
@@ -66,17 +69,19 @@ pub enum Funds<'a, AccountId> {
 
 /// Payment backend used to charge storage deposits.
 pub trait Deposit<T: Config>: sealed::Sealed {
-	/// Charge the existential deposit to bring `to`'s account into existence.
-	///
-	/// Returns the amount charged.
+	/// Bring `to`'s account into existence.
 	///
 	/// # Parameters
-	/// - `src`: source of the ED. See [`Funds`].
 	/// - `to`: account to bring into existence.
-	fn charge_ed(
-		src: Funds<T::AccountId>,
-		to: &T::AccountId,
-	) -> Result<BalanceOf<T>, DispatchError>;
+	fn init_account(to: &T::AccountId) -> DispatchResult;
+
+	/// Inverse of [`Self::init_account`]: tear down the state it set up.
+	///
+	/// Called when a contract is destroyed.
+	///
+	/// # Parameters
+	/// - `contract`: account being torn down.
+	fn deinit_account(contract: &T::AccountId) -> DispatchResult;
 
 	/// Charge `amount` from `src` to `to` and place it on hold under `reason`.
 	///
@@ -133,23 +138,28 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
-	fn charge_ed(
-		src: Funds<T::AccountId>,
-		to: &T::AccountId,
-	) -> Result<BalanceOf<T>, DispatchError> {
+	fn init_account(to: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
-		match src {
-			Funds::Balance(from) => {
-				T::Currency::transfer(from, to, ed, Preservation::Preserve)?;
-			},
-			Funds::TxFee(_) => {
-				let credit = T::FeeInfo::withdraw_txfee(ed)
-					.ok_or(DispatchError::Token(TokenError::FundsUnavailable))?;
-				T::Currency::resolve(to, credit)
-					.map_err(|_| DispatchError::Token(TokenError::FundsUnavailable))?;
-			},
-		}
-		Ok(ed)
+		T::Currency::mint_into(to, ed)?;
+		// The minted ED is not a user claim and should not inflate the active issuance
+		// that opengov uses for quorum/turnout maths.
+		T::Currency::deactivate(ed);
+		Ok(())
+	}
+
+	fn deinit_account(contract: &T::AccountId) -> DispatchResult {
+		let ed = T::Currency::minimum_balance();
+		// Pair with [`Self::init_account`]: shrink the inactive pool first so the burn only
+		// nets out the mint, rather than also taking an ED off the active issuance.
+		T::Currency::reactivate(ed);
+		T::Currency::burn_from(
+			contract,
+			ed,
+			Preservation::Expendable,
+			Precision::BestEffort,
+			Fortitude::Polite,
+		)?;
+		Ok(())
 	}
 
 	fn charge_and_hold(
@@ -277,53 +287,52 @@ where
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
 {
-	/// Picks the asset and amount internally: uses the PGAS asset's ED when the payer has enough
-	/// reducible PGAS, otherwise falls back to the native currency ED and records the
-	/// contribution in [`NativeDepositOf`]. Returns the amount actually charged.
-	///
-	/// When `src` is [`Funds::TxFee`] (eth-tx dispatch), the native ED is withdrawn from the
-	/// txfee pool regardless of the payer's PGAS balance.
-	fn charge_ed(
-		src: Funds<T::AccountId>,
-		to: &T::AccountId,
-	) -> Result<BalanceOf<T>, DispatchError> {
-		match src {
-			Funds::TxFee(origin) => {
-				let native_ed = T::Currency::minimum_balance();
-				let credit = T::FeeInfo::withdraw_txfee(native_ed)
-					.ok_or(DispatchError::Token(TokenError::FundsUnavailable))?;
-				T::Currency::resolve(to, credit)
-					.map_err(|_| DispatchError::Token(TokenError::FundsUnavailable))?;
-				Self::record_native_deposit::<T>(origin, to, native_ed);
-				Ok(native_ed)
-			},
-			Funds::Balance(from) => {
-				let pgas_ed =
-					<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
-				if Self::pgas_reducible_balance::<T>(from) >= pgas_ed {
-					<Mutator as fungibles::Mutate<T::AccountId>>::transfer(
-						Id::get(),
-						from,
-						to,
-						pgas_ed,
-						Preservation::Preserve,
-					)?;
-					Ok(pgas_ed)
-				} else {
-					let native_ed = T::Currency::minimum_balance();
-					T::Currency::transfer(from, to, native_ed, Preservation::Preserve)?;
-					Self::record_native_deposit::<T>(from, to, native_ed);
-					Ok(native_ed)
-				}
-			},
-		}
+	/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
+	/// deposits in either asset without tripping existential-deposit checks. The minted native
+	/// ED is [`deactivated`](fungible::Unbalanced::deactivate) so it stays outside active
+	/// issuance.
+	fn init_account(to: &T::AccountId) -> DispatchResult {
+		let native_ed = T::Currency::minimum_balance();
+		T::Currency::mint_into(to, native_ed)?;
+		T::Currency::deactivate(native_ed);
+		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+			Id::get(),
+			to,
+			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get()),
+		)?;
+		Ok(())
 	}
 
-	/// Same asset-selection rule as [`Self::charge_ed`], applied to a transfer-and-hold.
+	/// Burns the native and PGAS ED minted by [`Self::init_account`], reactivating the native
+	/// ED first so the burn doesn't also eat into active issuance. Best-effort on the PGAS
+	/// side: contracts that predate the mint-based init may be missing the PGAS ED, in which
+	/// case nothing is burned for that asset.
+	fn deinit_account(contract: &T::AccountId) -> DispatchResult {
+		let native_ed = T::Currency::minimum_balance();
+		T::Currency::reactivate(native_ed);
+		T::Currency::burn_from(
+			contract,
+			native_ed,
+			Preservation::Expendable,
+			Precision::BestEffort,
+			Fortitude::Polite,
+		)?;
+		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
+			Id::get(),
+			contract,
+			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get()),
+			Preservation::Expendable,
+			Precision::BestEffort,
+			Fortitude::Polite,
+		)?;
+		Ok(())
+	}
+
+	/// Charges a deposit and places it on hold.
 	///
-	/// The PGAS branch writes directly to the payer's free balance and the contract's hold
-	/// storage, so the contract never needs a `pallet_assets::Account` entry. This allows
-	/// deposits below the PGAS existential deposit to succeed.
+	/// Uses PGAS when the payer has enough reducible PGAS, otherwise falls back to the native
+	/// currency and records the contribution in [`NativeDepositOf`] so refunds return native up
+	/// to the contributed amount.
 	///
 	/// When `src` is [`Funds::TxFee`] (eth-tx dispatch), `amount` is withdrawn from the txfee
 	/// pool and placed on hold at `to` regardless of the payer's PGAS balance.
@@ -347,20 +356,15 @@ where
 		};
 
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
-			<Mutator as fungibles::Unbalanced<T::AccountId>>::decrease_balance(
+			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_and_hold(
 				Id::get(),
+				&reason.into(),
 				from,
+				to,
 				amount,
 				Precision::Exact,
 				Preservation::Preserve,
 				Fortitude::Polite,
-			)?;
-			<Holder as fungibles::hold::Unbalanced<T::AccountId>>::increase_balance_on_hold(
-				Id::get(),
-				&reason.into(),
-				to,
-				amount,
-				Precision::Exact,
 			)?;
 			Ok(())
 		} else {
@@ -451,17 +455,30 @@ where
 		dot_held.saturating_add(pgas_held)
 	}
 
-	/// Burn the native hold at `contract` under `reason`, then mint the same amount of PGAS
-	/// directly onto a hold on `contract` under the same reason.
+	/// Bring a pre-existing contract up to the post-[`Self::init_account`] invariant:
+	/// mint the PGAS ED into `contract`'s free balance if it is missing, then burn the native
+	/// hold under `reason` and replace it with the same amount of PGAS held on `contract`.
 	///
-	/// Writes to the holder pallet storage without creating a `pallet_assets::Account` for
-	/// the contract, so no existential deposit is minted alongside. The PGAS supply is
-	/// bumped by exactly `amount`; `burn_held` on refund/termination decrements it back.
+	/// The hold is written directly via the holder pallet storage (no `pallet_assets::Account`
+	/// is created for it); the free PGAS ED provides that account entry instead. The PGAS
+	/// supply is bumped by exactly `amount + pgas_ed`; `burn_held` on refund/termination and
+	/// `deinit_account` on destruction decrement it back.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
+		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		if <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract).is_zero() {
+			<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, pgas_ed)
+				.inspect_err(|err| {
+				log::debug!(
+					target: LOG_TARGET,
+					"Failed to mint PGAS ED for contract: {err:?}",
+				)
+			})?;
+		}
+
 		if amount.is_zero() {
 			return Ok(());
 		}
