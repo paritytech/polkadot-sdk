@@ -28,9 +28,9 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
 use polkadot_primitives::{
-	node_features, BlockNumber, CandidateDescriptorVersion, CollatorId, CollatorSignature,
-	CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2, OccupiedCore,
-	PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	node_features, BlockNumber, CandidateDescriptorV2, CandidateDescriptorVersion, CollatorId,
+	CollatorSignature, CoreState, GroupRotationInfo, HeadData, Header, MutateDescriptorV2,
+	OccupiedCore, PersistedValidationData, ScheduledCore, SessionIndex, LEGACY_MIN_BACKING_VOTES,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_bad_sig, dummy_committed_candidate_receipt_v2, dummy_hash,
@@ -264,34 +264,14 @@ async fn assert_validation_request(
 	virtual_overseer: &mut VirtualOverseer,
 	validation_code: ValidationCode,
 ) {
-	// executor_params may be requested before validation (if not cached).
-	// Handle it if present, otherwise proceed to validation code request.
-	let msg = virtual_overseer.recv().await;
-	match msg {
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::SessionExecutorParams(_session_index, tx),
-		)) => {
-			tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-			// Now expect the validation code request
-			assert_matches!(
-				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(
-					RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
-				) if hash == validation_code.hash() => {
-					tx.send(Ok(Some(validation_code))).unwrap();
-				}
-			);
-		},
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_,
-			RuntimeApiRequest::ValidationCodeByHash(hash, tx),
-		)) if hash == validation_code.hash() => {
-			// executor_params was cached, go directly to validation code
+	assert_matches!(
+		virtual_overseer.recv().await,
+		AllMessages::RuntimeApi(
+			RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))
+		) if hash == validation_code.hash() => {
 			tx.send(Ok(Some(validation_code))).unwrap();
-		},
-		other => panic!("Expected SessionExecutorParams or ValidationCodeByHash, got: {:?}", other),
-	}
+		}
+	);
 }
 
 async fn assert_validate_from_exhaustive(
@@ -638,7 +618,6 @@ async fn assert_validate_seconded_candidate(
 	expected_head_data: &HeadData,
 	fetch_pov: bool,
 ) {
-	// executor_params is handled inside assert_validation_request
 	assert_validation_request(virtual_overseer, assert_validation_code.clone()).await;
 
 	if fetch_pov {
@@ -3926,13 +3905,6 @@ fn concurrent_dependent_candidates() {
 					tx.send(Ok(1u32.into())).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(sess_idx, tx),
-				)) => {
-					assert_eq!(sess_idx, 1);
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_parent,
 					RuntimeApiRequest::ValidatorGroups(tx),
 				)) => {
@@ -4661,13 +4633,13 @@ fn version_acceptance_before_and_after_v3_activation_on_second() {
 			.await;
 
 		// The candidate passed version acceptance and proceeds to validation —
-		// executor params are fetched as part of the validation setup.
+		// validation code is fetched as part of the validation setup.
 		// (Before V3 activation, the same candidate produced a timeout above.)
 		assert_matches!(
 			virtual_overseer.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				_,
-				RuntimeApiRequest::SessionExecutorParams(_, _),
+				RuntimeApiRequest::ValidationCodeByHash(_, _),
 			))
 		);
 
