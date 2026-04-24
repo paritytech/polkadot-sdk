@@ -448,12 +448,23 @@ impl Client {
 		self.backfill_complete.store(true, Ordering::Release);
 	}
 
-	/// Whether it is safe to advance the sync_state head.
+	/// Advance the sync_state head label if safe to do so.
 	/// Requires: archive mode, historic backfill complete, and no pending gap fills.
-	fn should_advance_head(&self) -> bool {
-		self.is_archive &&
-			self.backfill_complete.load(Ordering::Acquire) &&
-			!self.subscription_gap_queue.has_pending()
+	async fn advance_sync_head(&self, block_number: SubstrateBlockNumber, hash: H256) {
+		if !self.is_archive ||
+			!self.backfill_complete.load(Ordering::Acquire) ||
+			self.subscription_gap_queue.has_pending()
+		{
+			return;
+		}
+
+		if let Err(err) = self
+			.receipt_provider
+			.advance_sync_label(SyncLabel::Head, SyncCheckpoint::new(block_number, hash))
+			.await
+		{
+			log::warn!(target: LOG_TARGET, "Failed to advance sync head: {err:?}");
+		}
 	}
 
 	/// Creates a block notifier instance.
@@ -555,6 +566,45 @@ impl Client {
 		Ok(())
 	}
 
+	/// Extract receipts from a block, persist them and update fee history.
+	async fn process_block(
+		&self,
+		block: &SubstrateBlock,
+	) -> Result<(Block, Vec<ReceiptInfo>), ClientError> {
+		let block_number = block.number();
+		let hash = block.hash();
+
+		macro_rules! time {
+			($label:expr, $expr:expr) => {{
+				let t = std::time::Instant::now();
+				let r = $expr;
+				log::trace!(
+					target: LOG_TARGET,
+					"⏱️ #{block_number} {}: {:?}",
+					$label, t.elapsed(),
+				);
+				r
+			}};
+		}
+
+		let eth_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
+		let receipts = time!(
+			"receipts_from_block",
+			self.receipt_provider.receipts_from_block(block, eth_block.hash).await?
+		);
+		time!(
+			"insert_block_receipts",
+			self.receipt_provider
+				.insert_block_receipts(block, &receipts, &eth_block.hash)
+				.await?
+		);
+
+		let (_, receipt_infos): (Vec<_>, Vec<_>) = receipts.into_iter().unzip();
+		self.fee_history_provider.update_fee_history(&eth_block, &receipt_infos).await;
+
+		Ok((eth_block, receipt_infos))
+	}
+
 	/// Start the block subscription, and populate the block cache.
 	pub async fn subscribe_and_cache_new_blocks(
 		&self,
@@ -562,71 +612,58 @@ impl Client {
 	) -> Result<(), ClientError> {
 		log::info!(target: LOG_TARGET, "🔌 Subscribing to new blocks ({subscription_type:?})");
 		self.subscribe_new_blocks(subscription_type, |block| async {
-			macro_rules! time {
-				($label:expr, $expr:expr) => {{
-					let t = std::time::Instant::now();
-					let r = $expr;
-					log::trace!(
-						target: LOG_TARGET,
-						"⏱️ [{subscription_type:?}] #{} {}: {:?}",
-						block.number(), $label, t.elapsed(),
-					);
-					r
-				}};
-			}
-
 			let hash = block.hash();
-			let block_number = block.number();
-			let evm_block = time!("eth_block", self.runtime_api(hash).eth_block().await?);
 
-			let (_, receipts): (Vec<_>, Vec<_>) = time!(
-				"insert_block_receipts",
-				self.receipt_provider.insert_block_receipts(&block, &evm_block.hash).await?
-			)
-			.into_iter()
-			.unzip();
+			match subscription_type {
+				SubscriptionType::BestBlocks => {
+					let (eth_block, _) = self.process_block(&block).await?;
+					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
 
-			self.block_provider.update_latest(Arc::new(block), subscription_type).await;
-			self.fee_history_provider.update_fee_history(&evm_block, &receipts).await;
-
-			match (subscription_type, &self.block_notifier) {
-				(SubscriptionType::FinalizedBlocks, _) if self.should_advance_head() => {
-					// Track finalized block in sync_state
-					if let Err(err) = self
-						.receipt_provider
-						.advance_sync_label(
-							SyncLabel::Head,
-							SyncCheckpoint::new(block_number, hash),
-						)
-						.await
-					{
-						log::warn!(target: LOG_TARGET,
-							"Failed to update sync_label[{}]: {err:?}",
-						SyncLabel::Head);
+					if let Some(sender) = &self.block_notifier {
+						if sender.receiver_count() > 0 {
+							let _ = sender.send(hash);
+						}
+					}
+					if self.block_subscription_tx.receiver_count() > 0 {
+						let _ = self.block_subscription_tx.send(eth_block);
 					}
 				},
-				// Only broadcast for best blocks to avoid duplicate notifications.
-				(SubscriptionType::BestBlocks, Some(sender)) if sender.receiver_count() > 0 => {
-					let _ = sender.send(hash);
+				SubscriptionType::FinalizedBlocks => {
+					let block_number = block.number();
+					let (receipt_infos, eth_hash) = match self
+						.receipt_provider
+						.get_processed_eth_block_hash(block_number, hash)
+						.await
+					{
+						Some(eth_hash) => {
+							log::trace!(target: LOG_TARGET_SUBSCRIPTION,
+									"⏩ Finalized block #{block_number} already processed, \
+									 skipping extraction");
+							(None, eth_hash)
+						},
+						None => {
+							let (eth_block, infos) = self.process_block(&block).await?;
+							(Some(infos), eth_block.hash)
+						},
+					};
+
+					self.block_provider.update_latest(Arc::new(block), subscription_type).await;
+					self.advance_sync_head(block_number, hash).await;
+
+					if self.log_subscription_tx.receiver_count() > 0 {
+						let logs = match receipt_infos {
+							Some(infos) => infos.into_iter().flat_map(|r| r.logs).collect(),
+							None => {
+								self.receipt_provider
+									.logs_by_block_number(block_number, eth_hash)
+									.await?
+							},
+						};
+						for log in logs {
+							let _ = self.log_subscription_tx.send(log);
+						}
+					}
 				},
-				_ => {},
-			}
-
-			// Broadcast the best blocks
-			if let SubscriptionType::BestBlocks = subscription_type &&
-				self.block_subscription_tx.receiver_count() > 0
-			{
-				let _ = self.block_subscription_tx.send(evm_block);
-			}
-
-			// Broadcast the logs, we require a finalized subscription for this so that all of the
-			// events we broadcast are finalized and not prone to reorgs.
-			if let SubscriptionType::FinalizedBlocks = subscription_type &&
-				self.log_subscription_tx.receiver_count() > 0
-			{
-				receipts.iter().flat_map(|receipt| receipt.logs.iter()).for_each(|log| {
-					let _ = self.log_subscription_tx.send(log.clone());
-				});
 			}
 
 			Ok(())
@@ -1041,7 +1078,7 @@ impl Client {
 					// Hydrate the block.
 					let tx_infos = self
 						.receipt_provider
-						.receipts_from_block(&block)
+						.receipts_from_block(&block, eth_block.hash)
 						.await
 						.inspect_err(|err| {
 							log::trace!(target: LOG_TARGET,
