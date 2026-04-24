@@ -579,7 +579,6 @@ impl<T: Config> Pallet<T> {
 		let dest = match Self::payee(Stash(stash.clone())) {
 			Some(d) => d,
 			None => {
-				defensive!("Staker missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
 					era,
 					stash: stash.clone(),
@@ -634,7 +633,6 @@ impl<T: Config> Pallet<T> {
 		let dest = match Self::payee(StakingAccount::Stash(stash.clone())) {
 			Some(d) => d,
 			None => {
-				defensive!("Staker missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
 					era,
 					stash: stash.clone(),
@@ -729,7 +727,6 @@ impl<T: Config> Pallet<T> {
 				era,
 				stash: stash.clone(),
 			}));
-			defensive!("Validator missing payee");
 			return;
 		};
 		let Some(payout_account) = Self::payout_account_for_dest(stash, &dest) else {
