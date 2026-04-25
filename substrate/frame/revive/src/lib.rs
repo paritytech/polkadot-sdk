@@ -1856,15 +1856,7 @@ impl<T: Config> Pallet<T> {
 			}
 		}
 
-		let simple_transfer_gas = U256::from(SIMPLE_TRANSFER_GAS);
-		if simple_transfer_gas <= high && Self::is_simple_transfer(&tx, &config) {
-			log::trace!(
-				target: LOG_TARGET,
-				"eth_estimate_gas short-circuiting simple transfer to {:?}",
-				tx.to,
-			);
-			return Ok(simple_transfer_gas);
-		}
+		let is_simple_transfer = Self::is_simple_transfer(&tx, &config);
 
 		// Perform the first dry run with the gas limit of the binary search's high bound. If it
 		// fails then we attempt again with the max extrinsic weight in gas which we do since some
@@ -1903,6 +1895,17 @@ impl<T: Config> Pallet<T> {
 		);
 		low = first_dry_run_result.eth_gas;
 		high = gas_limit;
+
+		// For "simple" EOA-to-EOA value transfers there is no contract execution component, so the
+		// `eth_gas` returned by the first dry-run is already the minimum gas required: the binary
+		// search would only converge back to it. Short-circuit to skip the iterative refinement.
+		if is_simple_transfer {
+			log::trace!(
+				target: LOG_TARGET,
+				"eth_estimate_gas short-circuiting simple transfer estimate={low}",
+			);
+			return Ok(low);
+		}
 
 		while low + U256::one() < high {
 			log::trace!(target: LOG_TARGET, "eth_estimate_gas estimation iteration with low={low} high={high}");
@@ -1967,8 +1970,10 @@ impl<T: Config> Pallet<T> {
 		Ok(high)
 	}
 
-	/// Returns true when `tx` is a "simple" ETH transfer that can be priced at exactly
-	/// [`SIMPLE_TRANSFER_GAS`] without dry-running the call.
+	/// Returns true when `tx` is a "simple" EOA-to-EOA value transfer with no contract execution
+	/// component. Used by [`Self::eth_estimate_gas`] to skip the iterative binary-search refinement
+	/// after the first dry-run, since `weight_required` cannot vary with the supplied gas in this
+	/// case.
 	pub(crate) fn is_simple_transfer(
 		tx: &GenericTransaction,
 		config: &DryRunConfig<<<T as Config>::Time as Time>::Moment>,
@@ -2832,14 +2837,6 @@ impl<T: Config> Pallet<T> {
 /// computed with PalletId(*b"py/paddr").into_account_truncating();
 pub const RUNTIME_PALLETS_ADDR: H160 =
 	H160(hex_literal::hex!("6d6f646c70792f70616464720000000000000000"));
-
-/// Fixed gas cost of a "simple" ETH transfer: an EOA-to-EOA call with empty calldata and no
-/// access list, EIP-7702 authorization list, or EIP-4844 blob payload.
-///
-/// Matches the Ethereum yellow-paper `G_transaction` constant and is used by
-/// [`Pallet::eth_estimate_gas`] to short-circuit the binary-search dry-run when the call clearly
-/// has no execution component.
-pub const SIMPLE_TRANSFER_GAS: u64 = 21_000;
 
 // Set up a global reference to the boolean flag used for the re-entrancy guard.
 environmental!(executing_contract: bool);
