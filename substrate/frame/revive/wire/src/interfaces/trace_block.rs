@@ -23,17 +23,24 @@ use scale_info::TypeInfo;
 use crate::{BlockV1, IndexedTraceV1, TracerTypeV1};
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime to trace every transaction in a block
+	/// under a chosen tracer configuration. The block is supplied as its Ethereum-format wire shape
+	/// so that the runtime can replay each transaction inside it under the tracer.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct TraceBlockVersionedInputPayloadV1 {
-		/// Block to trace.
+		/// Block whose transactions should be traced.
 		pub block: BlockV1,
-		/// Tracer configuration to use.
+		/// Tracer configuration controlling which kind of trace is produced for each transaction in
+		/// the block.
 		pub config: TracerTypeV1
 	}
 
+	/// Version 1 of the output payload returned for a [`TraceBlockVersionedInputPayloadV1`]
+	/// request, carrying one trace per transaction in the block.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct TraceBlockVersionedOutputPayloadV1 {
-		/// Traces keyed by their transaction index.
+		/// Traces produced by replaying the block, paired with the transaction index they
+		/// correspond to.
 		pub traces: Vec<IndexedTraceV1>
 	}
 }

@@ -25,19 +25,34 @@ use sp_weights::Weight;
 use crate::{GenericTransactionV1, StateOverrideSetV1};
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that dry-runs an Ethereum transaction. The runtime simulates
+	/// the transaction against the current state (with optional state overrides) and reports back
+	/// the resources it would have consumed plus the encoded inner-call output, so that the ETH-RPC
+	/// layer can charge the right fee and return data the same way an Ethereum execution client
+	/// would.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct EthTransactVersionedInputPayloadV1<Moment> {
+		/// Ethereum transaction to dry-run.
 		pub tx: GenericTransactionV1,
+		/// Timestamp to use during the simulation. `None` uses the current chain time.
 		pub timestamp_override: Option<Moment>,
+		/// State overrides applied to the runtime state before simulating the transaction.
 		pub state_overrides: StateOverrideSetV1
 	}
 
+	/// Version 1 of the output payload returned for an [`EthTransactVersionedInputPayloadV1`]
+	/// request, carrying the simulated resource consumption and the encoded inner-call output.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct EthTransactVersionedOutputPayloadV1<Balance> {
+		/// Weight the transaction would require to dispatch.
 		pub weight_required: Weight,
+		/// Storage deposit charged by the transaction.
 		pub storage_deposit: Balance,
+		/// Largest storage deposit the transaction would have charged in the worst case.
 		pub max_storage_deposit: Balance,
+		/// Gas, in Ethereum gas units, consumed by the transaction.
 		pub eth_gas: U256,
+		/// Encoded inner-call output emitted by the transaction.
 		pub data: Vec<u8>
 	}
 }

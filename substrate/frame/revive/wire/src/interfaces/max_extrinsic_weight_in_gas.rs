@@ -21,11 +21,18 @@ use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime to express its maximum allowed
+	/// extrinsic weight as an Ethereum gas amount, i.e. the largest gas value any single
+	/// transaction can claim and still hope to be included in a block.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct MaxExtrinsicWeightInGasVersionedInputPayloadV1 {}
 
+	/// Version 1 of the output payload returned for a
+	/// [`MaxExtrinsicWeightInGasVersionedInputPayloadV1`] request, carrying the gas-equivalent of
+	/// the runtime's maximum extrinsic weight.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct MaxExtrinsicWeightInGasVersionedOutputPayloadV1 {
+		/// Maximum extrinsic weight expressed in Ethereum gas units.
 		pub gas: U256
 	}
 }

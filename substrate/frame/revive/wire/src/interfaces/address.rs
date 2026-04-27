@@ -21,13 +21,20 @@ use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime for the Ethereum H160 address
+	/// associated with a given substrate `AccountId`. This is the inverse of
+	/// [`AccountIdVersionedInputPayloadV1`](crate::AccountIdVersionedInputPayloadV1).
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct AddressVersionedInputPayloadV1<AccountId> {
+		/// `AccountId` whose Ethereum H160 address should be returned.
 		pub account_id: AccountId
 	}
 
+	/// Version 1 of the output payload returned for an [`AddressVersionedInputPayloadV1`] request,
+	/// carrying the Ethereum address derived from the supplied `AccountId`.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct AddressVersionedOutputPayloadV1 {
+		/// Ethereum address that the runtime associates with the requested `AccountId`.
 		pub address: H160
 	}
 }

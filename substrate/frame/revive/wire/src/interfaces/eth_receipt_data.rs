@@ -23,11 +23,19 @@ use scale_info::TypeInfo;
 use crate::ReceiptGasInfoV1;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime for the per-transaction gas data needed
+	/// to assemble Ethereum-style receipts for the current block. Off-chain clients combine this
+	/// data with their own transaction list to build receipts that match what an Ethereum execution
+	/// client would emit.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct EthReceiptDataVersionedInputPayloadV1 {}
 
+	/// Version 1 of the output payload returned for an [`EthReceiptDataVersionedInputPayloadV1`]
+	/// request, carrying the gas data for every transaction in the current block.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct EthReceiptDataVersionedOutputPayloadV1 {
+		/// One [`ReceiptGasInfoV1`] entry for each transaction in the current block, in
+		/// transaction-index order.
 		pub receipt_data: Vec<ReceiptGasInfoV1>
 	}
 }

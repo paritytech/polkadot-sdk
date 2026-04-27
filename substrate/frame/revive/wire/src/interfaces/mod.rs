@@ -15,6 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Versioned input and output payload pairs, one pair per `pallet-revive` runtime API function.
+//!
+//! Each submodule declares the input and output payload structs for one runtime API function with
+//! the [`define_versioned_interface!`] macro from `pallet-revive-proc-macro`. Adding a new version
+//! to a function lives entirely inside that function's submodule and follows the rules in the
+//! crate-level documentation.
+//!
+//! [`define_versioned_interface!`]: pallet_revive_proc_macro::define_versioned_interface
+
 mod account_id;
 mod address;
 mod balance;

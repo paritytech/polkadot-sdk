@@ -22,19 +22,24 @@ use scale_info::TypeInfo;
 use crate::{GenericTransactionV1, StateOverrideSetV1, TraceV1, TracerTypeV1};
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime to trace a single Ethereum call without
+	/// committing it. The runtime simulates the transaction against the current state (with
+	/// optional overrides) and returns the trace shape selected by the tracer config.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct TraceCallVersionedInputPayloadV1 {
 		/// Transaction to trace.
 		pub tx: GenericTransactionV1,
-		/// Tracer configuration to use.
+		/// Tracer configuration controlling which kind of trace is produced.
 		pub tracer_type: TracerTypeV1,
-		/// Optional state overrides to apply before tracing the call.
+		/// State overrides applied before tracing. `None` traces against the unmodified state.
 		pub state_overrides: Option<StateOverrideSetV1>
 	}
 
+	/// Version 1 of the output payload returned for a [`TraceCallVersionedInputPayloadV1`] request,
+	/// carrying the trace produced by replaying the transaction.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct TraceCallVersionedOutputPayloadV1 {
-		/// Trace produced by executing the transaction.
+		/// Trace produced by executing the transaction under the requested tracer.
 		pub trace: TraceV1
 	}
 }

@@ -109,10 +109,17 @@ impl Bytes {
 	}
 }
 
+/// Conversion to and from `0x`-prefixed hex strings, used by the JSON-RPC layer to encode the
+/// `Bytes`, `Byte`, `Bytes8`, and `Bytes256` newtypes produced by [`impl_hex`].
 trait HexCodec: Sized {
+	/// Error returned when [`HexCodec::from_hex`] receives a string that does not parse as the
+	/// expected hex shape.
 	type Error;
 
+	/// Renders the value as a `0x`-prefixed hex string.
 	fn to_hex(&self) -> String;
+	/// Parses a `0x`-prefixed hex string into the value, returning [`Self::Error`] on a malformed
+	/// input.
 	fn from_hex(value: String) -> Result<Self, Self::Error>;
 }
 
@@ -153,11 +160,14 @@ impl HexCodec for Vec<u8> {
 	}
 }
 
+/// `serde` adapter that routes JSON serialization of any [`HexCodec`] value through its
+/// `0x`-prefixed hex string form. Plugged into newtypes via `#[serde(with = "hex_serde")]`.
 mod hex_serde {
 	use super::HexCodec;
 	use alloc::{format, string::String};
 	use serde::{Deserialize, Deserializer, Serializer};
 
+	/// Serializes a [`HexCodec`] value as its `0x`-prefixed hex string.
 	pub(super) fn serialize<S, T>(value: &T, serializer: S) -> Result<S::Ok, S::Error>
 	where
 		S: Serializer,
@@ -166,6 +176,8 @@ mod hex_serde {
 		serializer.serialize_str(&value.to_hex())
 	}
 
+	/// Deserializes a `0x`-prefixed hex string into a [`HexCodec`] value, surfacing the codec's own
+	/// error inside a `serde::de::Error::custom`.
 	pub(super) fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
 	where
 		D: Deserializer<'de>,

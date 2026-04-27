@@ -21,11 +21,18 @@ use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime for the conventional Ethereum address
+	/// used as the `from` of pallet-originated transactions. Off-chain clients use it to recognise
+	/// transactions emitted by runtime code rather than by externally-signed accounts.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct RuntimePalletsAddressVersionedInputPayloadV1 {}
 
+	/// Version 1 of the output payload returned for a
+	/// [`RuntimePalletsAddressVersionedInputPayloadV1`] request, carrying the runtime's
+	/// pallet-internal Ethereum address.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct RuntimePalletsAddressVersionedOutputPayloadV1 {
+		/// Ethereum address that the runtime uses as the `from` of pallet-originated transactions.
 		pub address: H160
 	}
 }

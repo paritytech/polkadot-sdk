@@ -21,13 +21,19 @@ use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime for the balance of an
+	/// Ethereum-addressed account, expressed in 18-decimal Ethereum units.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct BalanceVersionedInputPayloadV1 {
+		/// Ethereum address whose balance should be returned.
 		pub address: H160
 	}
 
+	/// Version 1 of the output payload returned for a [`BalanceVersionedInputPayloadV1`] request,
+	/// carrying the requested balance.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct BalanceVersionedOutputPayloadV1 {
+		/// Balance of the requested account, in 18-decimal Ethereum units.
 		pub balance: U256
 	}
 }

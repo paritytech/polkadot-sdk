@@ -21,11 +21,17 @@ use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime for the gas limit configured for the
+	/// current block, expressed in Ethereum gas units so that callers can populate the `gasLimit`
+	/// field of an Ethereum block.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct BlockGasLimitVersionedInputPayloadV1 {}
 
+	/// Version 1 of the output payload returned for a [`BlockGasLimitVersionedInputPayloadV1`]
+	/// request, carrying the configured block gas limit.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct BlockGasLimitVersionedOutputPayloadV1 {
+		/// Block gas limit, in Ethereum gas units.
 		pub gas_limit: U256
 	}
 }

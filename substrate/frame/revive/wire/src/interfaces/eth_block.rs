@@ -22,11 +22,17 @@ use scale_info::TypeInfo;
 use crate::BlockV1;
 
 define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime to render the current substrate block
+	/// in Ethereum block format. The result is suitable for serving back to Ethereum tooling that
+	/// expects a JSON-RPC `eth_getBlockByNumber`-shaped response.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct EthBlockVersionedInputPayloadV1 {}
 
+	/// Version 1 of the output payload returned for an [`EthBlockVersionedInputPayloadV1`] request,
+	/// carrying the current block in Ethereum format.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
 	pub struct EthBlockVersionedOutputPayloadV1 {
+		/// The current block, rendered as an Ethereum block.
 		pub block: BlockV1
 	}
 }
