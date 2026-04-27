@@ -703,11 +703,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner cannot determine transaction validity"
 					);
-					Some((
-						tx_hash,
-						tx_source,
-						InvalidTxReason::Unknown(error.as_ref().to_string()),
-					))
+					Some((tx_hash, tx_source, InvalidTxReason::Unknown(error.as_ref().to_string())))
 				},
 				Ok(Err(TransactionValidityError::Invalid(error))) => {
 					trace!(
@@ -716,11 +712,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner transaction is invalid"
 					);
-					Some((
-						tx_hash,
-						tx_source,
-						InvalidTxReason::Invalid(error.as_ref().to_string()),
-					))
+					Some((tx_hash, tx_source, InvalidTxReason::Invalid(error.as_ref().to_string())))
 				},
 			})
 			.collect::<Vec<_>>();
@@ -728,10 +720,8 @@ where
 		let mut invalid_hashes_subtrees = Vec::new();
 		// Include also subtree txs.
 		for (tx, _, reason) in &invalid_hashes {
-			let txs_in_subtree = view_store
-				.remove_transaction_subtree(*tx, |_, _| {})
-				.into_iter()
-				.map(|tx| {
+			let txs_in_subtree =
+				view_store.remove_transaction_subtree(*tx, |_, _| {}).into_iter().map(|tx| {
 					let subtree_source = tx.source.clone();
 					(tx.hash, subtree_source, InvalidTxReason::Subtree(reason.to_string()))
 				});
@@ -791,11 +781,7 @@ where
 					let age = removed_at.saturating_duration_since(submitted_at);
 					let source = tx.source.source;
 					self.metrics.report(|metrics| {
-						metrics.tx_age_at_removal.observe(
-							RemovalReason::Finalized,
-							source,
-							age,
-						);
+						metrics.tx_age_at_removal.observe(RemovalReason::Finalized, source, age);
 					});
 				}
 			}

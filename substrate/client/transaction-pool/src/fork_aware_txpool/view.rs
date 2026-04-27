@@ -633,7 +633,8 @@ where
 			let start = Instant::now();
 			let revalidated_len = revalidation_result.revalidated.len();
 			let validated_pool = self.pool.validated_pool();
-			let removed_invalid = validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
+			let removed_invalid =
+				validated_pool.remove_invalid(&revalidation_result.invalid_hashes);
 			let removed_at = Instant::now();
 			if revalidated_len > 0 {
 				self.pool.resubmit(revalidation_result.revalidated);

@@ -788,10 +788,7 @@ mod tests {
 			RemovalReason::InvalidRevalidationMempool.as_str(),
 			"invalid_revalidation_mempool",
 		);
-		assert_eq!(
-			RemovalReason::InvalidRevalidationView.as_str(),
-			"invalid_revalidation_view",
-		);
+		assert_eq!(RemovalReason::InvalidRevalidationView.as_str(), "invalid_revalidation_view",);
 		assert_eq!(RemovalReason::InvalidReported.as_str(), "invalid_reported");
 		assert_eq!(RemovalReason::DroppedUsurped.as_str(), "dropped_usurped");
 		assert_eq!(RemovalReason::DroppedLimits.as_str(), "dropped_limits");
@@ -817,10 +814,8 @@ mod tests {
 			.into_iter()
 			.find(|m| {
 				let labels = m.get_label();
-				labels.iter().any(|l| l.get_name() == "reason" && l.get_value() == reason)
-					&& labels
-						.iter()
-						.any(|l| l.get_name() == "source" && l.get_value() == source)
+				labels.iter().any(|l| l.get_name() == "reason" && l.get_value() == reason) &&
+					labels.iter().any(|l| l.get_name() == "source" && l.get_value() == source)
 			})
 			.map(|m| m.get_histogram().get_sample_count())
 	}
