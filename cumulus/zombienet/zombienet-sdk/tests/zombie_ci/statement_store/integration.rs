@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_no_more_statements, base_dir, collator_default_args, create_chain_spec_with_allowances,
+	assert_no_more_statements, base_dir, collator_args, create_chain_spec_with_allowances,
 	expect_one_statement, expect_statements_unordered, online_client_from_node, spawn_network,
 	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter,
+	subscribe_topic_filter, wait_for_first_block, CollatorLogLevel,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -222,7 +222,7 @@ async fn spawn_flooding_network(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 
-	let default_args = collator_default_args(participant_count);
+	let default_args = collator_args(participant_count, CollatorLogLevel::Trace);
 	let mut bob_args = default_args.clone();
 	bob_args.push(format!("--statement-rate-limit={rate_limit}").as_str().into());
 
@@ -278,14 +278,7 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
-	for node in [alice, bob] {
-		node.wait_metric_with_timeout(
-			"block_height{status=\"best\"}",
-			|height| height >= 1.0,
-			300u64,
-		)
-		.await?;
-	}
+	wait_for_first_block(&[alice, bob], 300).await?;
 
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
@@ -385,14 +378,7 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
-	for node in [alice, bob] {
-		node.wait_metric_with_timeout(
-			"block_height{status=\"best\"}",
-			|height| height >= 1.0,
-			300u64,
-		)
-		.await?;
-	}
+	wait_for_first_block(&[alice, bob], 300).await?;
 
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(

@@ -180,21 +180,39 @@ pub(super) fn create_chain_spec_with_allowances(
 	Ok(chain_spec_path)
 }
 
-pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk::Arg> {
-	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
-	[
+#[derive(Clone, Copy)]
+pub(super) enum CollatorLogLevel {
+	Info,
+	Trace,
+}
+
+impl CollatorLogLevel {
+	fn as_filter(self) -> &'static str {
+		match self {
+			Self::Info => "info,statement-store=info,statement-gossip=info",
+			Self::Trace => "info,statement-store=trace,statement-gossip=trace",
+		}
+	}
+}
+
+/// Builds the standard collator CLI args for the statement-store zombienet tests
+pub(super) fn collator_args(
+	participant_count: u32,
+	log: CollatorLogLevel,
+) -> Vec<zombienet_sdk::Arg> {
+	let mut args: Vec<String> = vec![
 		"--force-authoring".to_string(),
 		"--authoring=slot-based".to_string(),
 		"--max-runtime-instances=32".to_string(),
-		// TODO: we need trace only for statement_store_crash_mid_sync
-		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),
+		format!("-l{}", log.as_filter()),
 		"--enable-statement-store".to_string(),
-		format!("--rpc-max-connections={}", participant_count + 1000),
-		format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"),
-	]
-	.iter()
-	.map(|s| s.as_str().into())
-	.collect()
+	];
+	if participant_count > 0 {
+		let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
+		args.push(format!("--rpc-max-connections={}", participant_count + 1000));
+		args.push(format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"));
+	}
+	args.iter().map(|s| s.as_str().into()).collect()
 }
 
 pub(super) fn base_dir() -> Result<PathBuf, anyhow::Error> {
@@ -277,7 +295,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	assert!(!collators.is_empty());
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let args = collator_default_args(participant_count);
+	let args = collator_args(participant_count, CollatorLogLevel::Trace);
 	launch_network(collators, &chain_spec_path, args).await
 }
 
@@ -292,23 +310,9 @@ async fn spawn_network_inner(
 	std::fs::write(&chain_spec_path, chain_spec_template)
 		.map_err(|e| anyhow!("Failed to write chain spec to file: {}", e))?;
 
-	let mut args = vec![
-		"--force-authoring".into(),
-		"--authoring".into(),
-		"slot-based".into(),
-		"--max-runtime-instances=32".into(),
-		"-linfo,statement-store=info,statement-gossip=info".into(),
-		"--enable-statement-store".into(),
-	];
-	if participant_count > 0 {
-		args.push(format!("--rpc-max-connections={}", participant_count + 1000).as_str().into());
-		args.push(
-			format!("--rpc-max-subscriptions-per-connection={}", (participant_count * 16).max(32))
-				.as_str()
-				.into(),
-		);
-	}
-
+	let participant_count_u32 = u32::try_from(participant_count)
+		.expect("participant_count must fit in u32 for collator args");
+	let args = collator_args(participant_count_u32, CollatorLogLevel::Info);
 	let network = launch_network(collators, &chain_spec_path, args).await?;
 
 	info!("Waiting for parachain to produce blocks...");
@@ -330,11 +334,26 @@ pub(super) async fn spawn_network(
 pub(super) async fn online_client_from_node(
 	node: &zombienet_sdk::NetworkNode,
 ) -> Result<OnlineClient<CustomConfig>, anyhow::Error> {
-	let ws_uri = node.ws_uri();
-	let client = OnlineClient::<CustomConfig>::from_insecure_url_with_config(
+	OnlineClient::<CustomConfig>::from_insecure_url_with_config(
 		CustomConfig::default(),
-		ws_uri,
+		node.ws_uri(),
 	)
-	.await?;
-	Ok(client)
+	.await
+	.map_err(Into::into)
+}
+
+/// Waits up to `timeout_secs` for each node to produce at least one block
+pub(super) async fn wait_for_first_block(
+	nodes: &[&zombienet_sdk::NetworkNode],
+	timeout_secs: u64,
+) -> Result<(), anyhow::Error> {
+	for node in nodes {
+		node.wait_metric_with_timeout(
+			crate::utils::BEST_BLOCK_METRIC,
+			|height| height >= 1.0,
+			timeout_secs,
+		)
+		.await?;
+	}
+	Ok(())
 }
