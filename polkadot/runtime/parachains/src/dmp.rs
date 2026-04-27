@@ -378,7 +378,9 @@ impl<T: Config> Pallet<T> {
 	/// DO NOT CALL IN CONSENSUS. Returns the downward message queue contents for the given para.
 	///
 	/// The most recent messages are the latest in the vector.
-	pub fn dmq_contents_do_not_call_in_consensus(recipient: ParaId) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
+	pub fn dmq_contents_do_not_call_in_consensus(
+		recipient: ParaId,
+	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		InboundDownwardQueue::<T>::peek_all_do_not_call_in_consensus(recipient)
 	}
 

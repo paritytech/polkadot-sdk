@@ -158,9 +158,7 @@ pub mod pallet {
 			dmp::Pallet::<T>::queue_downward_message(&config, id, xcm.encode()).map_err(|e| match e
 			{
 				dmp::QueueDownwardMessageError::ExceedsMaxMessageSize |
-				dmp::QueueDownwardMessageError::ExceedsMaxQueueSize => {
-					Error::<T>::ExceedsMaxMessageSize.into()
-				},
+				dmp::QueueDownwardMessageError::ExceedsMaxQueueSize => Error::<T>::ExceedsMaxMessageSize.into(),
 				dmp::QueueDownwardMessageError::Unroutable => Error::<T>::Unroutable.into(),
 			})
 		}

@@ -16,9 +16,8 @@
 
 use super::{
 	mock::{
-		default_genesis_config, execute_with_integrity, new_test_ext_integrity,
-		pages_in_storage, queue_downward_message, register_paras, run_to_block,
-		EXPECTED_LAZY_DELETE_PAGES,
+		default_genesis_config, execute_with_integrity, new_test_ext_integrity, pages_in_storage,
+		queue_downward_message, register_paras, run_to_block, EXPECTED_LAZY_DELETE_PAGES,
 	},
 	*,
 };
@@ -717,8 +716,9 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	// rate (the implementation may legitimately remove only one page per call).
 	let mut iterations = 0u32;
 	loop {
-		let still_pending =
-			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		let still_pending = execute_with_integrity(&mut ext, || {
+			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
+		});
 		if !still_pending {
 			break;
 		}
@@ -904,8 +904,9 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	// Now drain the lazy-delete queue to completion.
 	let mut iterations = 0u32;
 	loop {
-		let still_pending =
-			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		let still_pending = execute_with_integrity(&mut ext, || {
+			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
+		});
 		if !still_pending {
 			break;
 		}
@@ -971,8 +972,9 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	// Run lazy delete to completion.
 	let mut iterations = 0u32;
 	loop {
-		let still_pending =
-			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		let still_pending = execute_with_integrity(&mut ext, || {
+			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
+		});
 		if !still_pending {
 			break;
 		}
@@ -1056,7 +1058,9 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	let bound = (first_batch + second_batch) * 2;
 	let mut iterations = 0u64;
 	loop {
-		let pending = execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		let pending = execute_with_integrity(&mut ext, || {
+			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
+		});
 		if !pending {
 			break;
 		}
@@ -1247,7 +1251,10 @@ fn dmp_prune_zero_keeps_all_messages() {
 
 		Dmp::prune_dmq(a, 0);
 		assert_eq!(Dmp::dmq_length(a), 2);
-		let msgs: Vec<_> = Dmp::dmq_contents_do_not_call_in_consensus(a).into_iter().map(|m| m.msg).collect();
+		let msgs: Vec<_> = Dmp::dmq_contents_do_not_call_in_consensus(a)
+			.into_iter()
+			.map(|m| m.msg)
+			.collect();
 		assert_eq!(msgs, vec![vec![1], vec![2]]);
 	});
 }
@@ -1394,8 +1401,9 @@ fn dmp_on_poll_drives_lazy_delete() {
 
 	let mut iterations = 0u32;
 	loop {
-		let still_pending =
-			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		let still_pending = execute_with_integrity(&mut ext, || {
+			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
+		});
 		if !still_pending {
 			break;
 		}

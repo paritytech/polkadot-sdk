@@ -104,10 +104,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 	}
 
 	pub fn lazy_delete_some(weight_meter: &mut WeightMeter) {
-		if weight_meter
-			.try_consume(<T as Config>::WeightInfo::lazy_delete_some())
-			.is_err()
-		{
+		if weight_meter.try_consume(<T as Config>::WeightInfo::lazy_delete_some()).is_err() {
 			return;
 		}
 
@@ -131,7 +128,9 @@ impl<T: Config> InboundDownwardQueue<T> {
 	}
 
 	/// DO NOT CALL IN CONSENSUS. Inspect all messages in the queue.
-	pub fn peek_all_do_not_call_in_consensus(para: ParaId) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
+	pub fn peek_all_do_not_call_in_consensus(
+		para: ParaId,
+	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		let Some(meta) = Self::meta(para) else {
 			return Vec::new();
 		};
@@ -149,9 +148,9 @@ impl<T: Config> InboundDownwardQueue<T> {
 	/// Invariants:
 	/// - For every meta `{first_full, first_free}`: `first_full <= first_free`.
 	/// - For every lazy-delete `(first, last)`: `first <= last`.
-	/// - Every page `(para, idx)` in storage is covered by *either* the para's
-	///   meta range `[first_full, first_free)` *or* its lazy-delete range
-	///   `[first, last)`. Anything else is an orphan.
+	/// - Every page `(para, idx)` in storage is covered by *either* the para's meta range
+	///   `[first_full, first_free)` *or* its lazy-delete range `[first, last)`. Anything else is an
+	///   orphan.
 	#[cfg(feature = "std")]
 	pub fn integrity_test() {
 		for (para, meta) in DownwardMessageQueueMeta::<T>::iter() {
