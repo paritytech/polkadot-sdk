@@ -25,7 +25,7 @@
 //! are populated. This migration reads live metadata and writes the snapshots.
 //!
 //! Out-of-range assets are handled gracefully: if an existing asset's decimals
-//! differ from the stable asset's decimals by more than [`MAX_DECIMALS_DIFF`],
+//! differ from the internal asset's decimals by more than [`MAX_DECIMALS_DIFF`],
 //! the migration still writes its decimals snapshot but flips its circuit
 //! breaker to [`CircuitBreakerLevel::AllDisabled`]. The chain keeps upgrading;
 //! governance can remove or re-enable the asset later once the off-chain
@@ -69,7 +69,7 @@ use sp_runtime::TryRuntimeError;
 const LOG_TARGET: &str = "runtime::psm::migration::populate_decimals";
 
 /// Version-gated v1 -> v2 migration that fills in decimal snapshots for all
-/// pre-existing external assets and the stable asset, and bumps the pallet
+/// pre-existing external assets and the internal asset, and bumps the pallet
 /// on-chain storage version from 1 to 2.
 pub type PopulateDecimals<T> = VersionedMigration<
 	1,
@@ -96,11 +96,11 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 		let mut reads = 0u64;
 		let mut writes = 0u64;
 
-		// Stable asset snapshot — only write if missing.
+		// Internal asset snapshot — only write if missing.
 		reads += 2;
-		let stable_decimals = T::InternalAsset::decimals();
+		let internal_decimals = T::InternalAsset::decimals();
 		if !InternalDecimals::<T>::exists() {
-			InternalDecimals::<T>::put(stable_decimals);
+			InternalDecimals::<T>::put(internal_decimals);
 			writes += 1;
 		}
 
@@ -120,7 +120,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 			AssetDecimals::<T>::insert(asset_id, asset_decimals);
 			writes += 1;
 
-			let diff = asset_decimals.abs_diff(stable_decimals) as u32;
+			let diff = asset_decimals.abs_diff(internal_decimals) as u32;
 			if diff > MAX_DECIMALS_DIFF {
 				// Do not fail the migration. Disable swaps for this asset so
 				// mint/redeem cannot operate on an unsupported decimal gap. The
@@ -162,13 +162,13 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		// Stable asset snapshot present and consistent with live metadata.
+		// Internal asset snapshot present and consistent with live metadata.
 		ensure!(
 			InternalDecimals::<T>::get() == Some(T::InternalAsset::decimals()),
 			"InternalDecimals snapshot missing or stale after migration"
 		);
 
-		let stable_decimals = T::InternalAsset::decimals();
+		let internal_decimals = T::InternalAsset::decimals();
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
 			let snapshot = AssetDecimals::<T>::get(asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
@@ -176,7 +176,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 				snapshot == T::Fungibles::decimals(asset_id),
 				"AssetDecimals snapshot differs from live metadata after migration"
 			);
-			let diff = snapshot.abs_diff(stable_decimals) as u32;
+			let diff = snapshot.abs_diff(internal_decimals) as u32;
 			if diff > MAX_DECIMALS_DIFF {
 				ensure!(
 					status == CircuitBreakerLevel::AllDisabled,
@@ -254,27 +254,27 @@ mod tests {
 	#[test]
 	fn populate_decimals_disables_out_of_range_assets() {
 		new_test_ext().execute_with(|| {
-			// Simulate: DAI_MOCK (18 decimals) was approved under a prior pUSD
-			// configuration; then pUSD metadata was changed to something exotic
+			// Simulate: DAI_MOCK (18 decimals) was approved under a prior internal
+			// configuration; then internal metadata was changed to something exotic
 			// that makes the diff exceed MAX_DECIMALS_DIFF. We fake this by
-			// approving DAI and then shifting the stable asset's live decimals
+			// approving DAI and then shifting the internal asset's live decimals
 			// through metadata update.
-			use crate::mock::{Assets, PUSD_ASSET_ID};
+			use crate::mock::{Assets, INTERNAL_ASSET_ID};
 			use frame_support::traits::fungibles::metadata::Mutate as MetadataMutate;
 
 			assert_ok!(Pallet::<Test>::add_external_asset(
 				RuntimeOrigin::root(),
 				DAI_MOCK_ASSET_ID
 			));
-			// DAI has 18 decimals; pUSD currently 6; diff = 12 (in range).
-			// Shift pUSD to 40 decimals so the diff becomes 22 — still in range
+			// DAI has 18 decimals; internal currently 6; diff = 12 (in range).
+			// Shift internal to 40 decimals so the diff becomes 22 — still in range
 			// (MAX_DECIMALS_DIFF is 24). Push further to make diff too large:
-			// setting pUSD to the extreme (say, 45) would push diff = 27, > 24.
+			// setting internal to the extreme (say, 45) would push diff = 27, > 24.
 			assert_ok!(<Assets as MetadataMutate<u64>>::set(
-				PUSD_ASSET_ID,
+				INTERNAL_ASSET_ID,
 				&ALICE,
-				b"pUSD".to_vec(),
-				b"pUSD".to_vec(),
+				b"Internal Asset".to_vec(),
+				b"INTERNAL".to_vec(),
 				45,
 			));
 

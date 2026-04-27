@@ -108,14 +108,14 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 			writes += 1;
 		}
 
-		// Stable decimals snapshot: populate from live metadata if not yet set.
+		// Internal decimals snapshot: populate from live metadata if not yet set.
 		// Per-asset snapshots for pre-existing approved assets are owned by
 		// `super::decimals::PopulateDecimals` — this migration only touches `AssetDecimals` for
 		// assets it adds as new below.
-		let stable_decimals = T::InternalAsset::decimals();
+		let internal_decimals = T::InternalAsset::decimals();
 		reads += 1;
 		if !InternalDecimals::<T>::exists() {
-			InternalDecimals::<T>::put(stable_decimals);
+			InternalDecimals::<T>::put(internal_decimals);
 			writes += 1;
 		}
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
@@ -131,7 +131,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 			}
 
 			let asset_decimals = T::Fungibles::decimals(*asset_id);
-			let diff = asset_decimals.abs_diff(stable_decimals) as u32;
+			let diff = asset_decimals.abs_diff(internal_decimals) as u32;
 			if diff > MAX_DECIMALS_DIFF {
 				log::error!(
 					target: LOG_TARGET,
@@ -299,7 +299,7 @@ mod tests {
 	}
 
 	#[test]
-	fn initialize_psm_populates_stable_decimals_when_missing() {
+	fn initialize_psm_populates_internal_decimals_when_missing() {
 		use frame_support::traits::{fungible::metadata::Inspect as _, OnRuntimeUpgrade};
 
 		new_test_ext().execute_with(|| {
@@ -317,7 +317,7 @@ mod tests {
 	}
 
 	#[test]
-	fn initialize_psm_preserves_existing_stable_decimals() {
+	fn initialize_psm_preserves_existing_internal_decimals() {
 		use frame_support::traits::OnRuntimeUpgrade;
 
 		new_test_ext().execute_with(|| {
@@ -385,7 +385,7 @@ mod tests {
 		const WRONG_DECIMALS_ID: u32 = 99;
 
 		new_test_ext().execute_with(|| {
-			// Create an asset with 8 decimals (stable asset has 6).
+			// Create an asset with 8 decimals (internal asset has 6).
 			assert_ok!(<Assets as FungiblesCreate<u64>>::create(WRONG_DECIMALS_ID, ALICE, true, 1));
 			assert_ok!(<Assets as MetadataMutate<u64>>::set(
 				WRONG_DECIMALS_ID,
@@ -407,7 +407,7 @@ mod tests {
 							(Permill::zero(), Permill::zero(), Permill::from_percent(50)),
 						),
 						(
-							USDC_ASSET_ID, // 6 decimals — matches stable asset
+							USDC_ASSET_ID, // 6 decimals — matches internal asset
 							(Permill::zero(), Permill::zero(), Permill::from_percent(50)),
 						),
 					]
