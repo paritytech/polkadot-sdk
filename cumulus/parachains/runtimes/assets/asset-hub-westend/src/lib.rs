@@ -1112,41 +1112,27 @@ parameter_types! {
 	pub StakingPot: AccountId = CollatorSelection::account_id();
 }
 
-parameter_types! {
-	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
-	/// TODO: Set the westend value
-	pub const PGASAssetId: AssetIdForTrustBackedAssets = 42;
-	/// `xcm::v5::Location` representation of [`PGASAssetId`] as seen by the fungibles union.
-	pub PGASAssetIdLocation: xcm::v5::Location = xcm::v5::Location::new(
-		0,
-		[
-			xcm::v5::Junction::PalletInstance(
-				<Assets as frame_support::traits::PalletInfoAccess>::index() as u8,
-			),
-			xcm::v5::Junction::GeneralIndex(PGASAssetId::get() as u128),
-		],
-	);
-}
-
 impl pallet_asset_conversion_tx_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AssetId = xcm::v5::Location;
-	type OnChargeAssetTransaction = pallet_pgas_allowance::PgasOnChargeAssetTransaction<
-		PGASAssetIdLocation,
+	type OnChargeAssetTransaction = SwapAssetAdapter<
+		WestendLocation,
 		NativeAndNonPoolAssets,
-		SwapAssetAdapter<
-			WestendLocation,
-			NativeAndNonPoolAssets,
-			AssetConversion,
-			ResolveAssetTo<StakingPot, NativeAndNonPoolAssets>,
-		>,
+		AssetConversion,
+		ResolveAssetTo<StakingPot, NativeAndNonPoolAssets>,
 	>;
 	type WeightInfo = weights::pallet_asset_conversion_tx_payment::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = AssetConversionTxHelper;
 }
 
-/// Calls eligible to be auto-routed to PGAS when the transaction leaves the asset unspecified.
+parameter_types! {
+	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
+	/// TODO: Set the westend value
+	pub const PGASAssetId: AssetIdForTrustBackedAssets = 80_716_583;
+}
+
+/// Calls eligible to be paid for with PGAS.
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -1155,14 +1141,14 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 }
 
 impl pallet_pgas_allowance::Config for Runtime {
-	type PgasId = PGASAssetIdLocation;
+	type Assets = Assets;
+	type PGASAssetId = PGASAssetId;
 
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type CallFilter = PGASCallFilter;
 	#[cfg(feature = "runtime-benchmarks")]
 	type CallFilter = frame_support::traits::Everything;
 
-	type Fungibles = NativeAndNonPoolAssets;
 	type WeightInfo = weights::pallet_pgas_allowance::WeightInfo<Runtime>;
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -1172,12 +1158,12 @@ impl pallet_pgas_allowance::Config for Runtime {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PGASBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, xcm::v5::Location, Balance>
+impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetIdForTrustBackedAssets, Balance>
 	for PGASBenchmarkHelper
 {
-	fn mint_pgas(who: &AccountId, asset_id: xcm::v5::Location, amount: Balance) {
+	fn mint_pgas(who: &AccountId, asset_id: AssetIdForTrustBackedAssets, amount: Balance) {
 		use frame_support::traits::tokens::fungibles::Mutate;
-		<NativeAndNonPoolAssets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
+		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
 	}
 }
 
@@ -1779,7 +1765,10 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_pgas_allowance::ChargeFeeWithPgas<Runtime>,
+		pallet_pgas_allowance::ChargePGAS<
+			Runtime,
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 		pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	),
@@ -1804,7 +1793,14 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckMortality::from(generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_pgas_allowance::ChargeFeeWithPgas::<Runtime>::new_skip_pgas(tip, None),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::new_skip_pgas(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+					tip, None,
+				),
+			),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 		)

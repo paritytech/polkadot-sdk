@@ -18,18 +18,12 @@ use crate as pallet_pgas_allowance;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
-	traits::{AsEnsureOriginWithArg, ConstU64, Contains, Get},
-	unsigned::TransactionValidityError,
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, Contains, Get},
 	weights::{IdentityFee, Weight},
 };
 use frame_system::EnsureRoot;
-use pallet_asset_conversion_tx_payment::OnChargeAssetTransaction;
 use pallet_transaction_payment::FungibleAdapter;
-use sp_runtime::{
-	BuildStorage,
-	traits::{DispatchInfoOf, PostDispatchInfoOf},
-	transaction_validity::InvalidTransaction,
-};
+use sp_runtime::BuildStorage;
 
 pub type AccountId = <Runtime as frame_system::Config>::AccountId;
 pub type Balance = <Runtime as pallet_balances::Config>::Balance;
@@ -48,7 +42,6 @@ frame_support::construct_runtime!(
 		Balances: pallet_balances,
 		TransactionPayment: pallet_transaction_payment,
 		Assets: pallet_assets,
-		AssetTxPayment: pallet_asset_conversion_tx_payment,
 		PgasAllowance: pallet_pgas_allowance,
 	}
 );
@@ -96,78 +89,8 @@ impl pallet_assets::Config for Runtime {
 	type ForceOrigin = EnsureRoot<AccountId>;
 }
 
-pub struct PgasId;
-impl Get<AssetId> for PgasId {
-	fn get() -> AssetId {
-		PGAS_ASSET_ID
-	}
-}
-
-/// `OnChargeAssetTransaction` that rejects anything it's handed. The mock only exercises the PGAS
-/// asset path, so the delegate is never reached in tests; a reject keeps the surface minimal.
-pub struct RejectOtherAssets;
-impl OnChargeAssetTransaction<Runtime> for RejectOtherAssets {
-	type AssetId = AssetId;
-	type Balance = Balance;
-	type LiquidityInfo = ();
-
-	fn withdraw_fee(
-		_who: &AccountId,
-		_call: &RuntimeCall,
-		_info: &DispatchInfoOf<RuntimeCall>,
-		_asset_id: AssetId,
-		_fee: Balance,
-		_tip: Balance,
-	) -> Result<(), TransactionValidityError> {
-		Err(InvalidTransaction::Payment.into())
-	}
-
-	fn can_withdraw_fee(
-		_who: &AccountId,
-		_asset_id: AssetId,
-		_fee: Balance,
-	) -> Result<(), TransactionValidityError> {
-		Err(InvalidTransaction::Payment.into())
-	}
-
-	fn correct_and_deposit_fee(
-		_who: &AccountId,
-		_info: &DispatchInfoOf<RuntimeCall>,
-		_post_info: &PostDispatchInfoOf<RuntimeCall>,
-		_corrected_fee: Balance,
-		_tip: Balance,
-		_asset_id: AssetId,
-		_already_withdrawn: (),
-	) -> Result<Balance, TransactionValidityError> {
-		Err(InvalidTransaction::Payment.into())
-	}
-}
-
-impl pallet_asset_conversion_tx_payment::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type AssetId = AssetId;
-	type OnChargeAssetTransaction =
-		pallet_pgas_allowance::PgasOnChargeAssetTransaction<PgasId, Assets, RejectOtherAssets>;
-	type WeightInfo = ();
-	#[cfg(feature = "runtime-benchmarks")]
-	type BenchmarkHelper = AssetTxPaymentBenchmarkHelper;
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-pub struct AssetTxPaymentBenchmarkHelper;
-#[cfg(feature = "runtime-benchmarks")]
-impl pallet_asset_conversion_tx_payment::BenchmarkHelperTrait<AccountId, AssetId, AssetId>
-	for AssetTxPaymentBenchmarkHelper
-{
-	fn create_asset_id_parameter(id: u32) -> (AssetId, AssetId) {
-		(id, id)
-	}
-	fn setup_balances_and_pool(_asset_id: AssetId, _account: AccountId) {
-		// The PGAS benchmarks never swap, so pool setup is unnecessary.
-	}
-}
-
-/// Matches `frame_system` calls so the filter matches test-supplied `System::remark` calls.
+/// Filter that matches `frame_system` calls (used by tests via `System::remark` and by the
+/// benchmarks). `Balances` and other calls fall through so the filter-miss path stays exercised.
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
@@ -176,9 +99,9 @@ impl Contains<RuntimeCall> for PGASCallFilter {
 }
 
 impl pallet_pgas_allowance::Config for Runtime {
-	type PgasId = PgasId;
+	type Assets = Assets;
+	type PGASAssetId = ConstU32<PGAS_ASSET_ID>;
 	type CallFilter = PGASCallFilter;
-	type Fungibles = Assets;
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = BenchmarkHelper;
@@ -239,16 +162,12 @@ impl ExtBuilder {
 }
 
 /// Build a `DispatchInfo` with the given call weight.
-pub fn info_from_weight(
-	w: frame_support::weights::Weight,
-) -> frame_support::dispatch::DispatchInfo {
+pub fn info_from_weight(w: Weight) -> frame_support::dispatch::DispatchInfo {
 	frame_support::dispatch::DispatchInfo { call_weight: w, ..Default::default() }
 }
 
 /// Build a `PostDispatchInfo` reporting the given actual weight.
-pub fn post_info_from_weight(
-	w: frame_support::weights::Weight,
-) -> frame_support::dispatch::PostDispatchInfo {
+pub fn post_info_from_weight(w: Weight) -> frame_support::dispatch::PostDispatchInfo {
 	frame_support::dispatch::PostDispatchInfo {
 		actual_weight: Some(w),
 		pays_fee: Default::default(),
