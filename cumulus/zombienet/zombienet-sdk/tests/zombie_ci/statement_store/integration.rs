@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use super::common::{
-	assert_expected_statements_received, assert_no_more_statements, base_dir,
-	collator_default_args, create_chain_spec_with_allowances, expect_one_statement,
-	expect_statements_unordered, spawn_network_sudo, spawn_network_with_injected_allowances,
-	submit_statement, subscribe_topic, subscribe_topic_filter,
+	assert_no_more_statements, assert_statements_match, base_dir, collator_default_args,
+	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
+	spawn_network_sudo, spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
+	subscribe_topic_filter,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -33,7 +33,7 @@ async fn statement_store_basic_propagation() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8, None).await?;
+	let network = spawn_network_with_injected_allowances(&["charlie", "dave"], 8).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let dave = network.get_node("dave")?;
@@ -507,12 +507,9 @@ async fn statement_store_crash_mid_sync() -> Result<(), anyhow::Error> {
 	let bob_stmt_hashes: HashSet<String> =
 		bob_stmts.iter().map(|s| hash_to_hex(&s.hash())).collect();
 
-	let network = spawn_network_with_injected_allowances(
-		&["alice", "bob", "charlie"],
-		total_stmts as u32,
-		None,
-	)
-	.await?;
+	let network =
+		spawn_network_with_injected_allowances(&["alice", "bob", "charlie"], total_stmts as u32)
+			.await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -729,6 +726,64 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	Ok(())
 }
 
+/// Verifies that a reconnecting subscriber receives the full current state
+///
+/// Scenario:
+/// 1. Subscribe on bob, submit statements to alice → bob receives via gossip
+/// 2. Drop subscription (disconnect)
+/// 3. Submit more statements while bob is unsubscribed, wait for gossip
+/// 4. Re-subscribe on bob → initial snapshot must contain ALL current statements
+/// 5. Submit another statement → verify live delivery still works after reconnection
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_subscription_reconnect() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network_with_injected_allowances(&["alice", "bob"], 5).await?;
+	let alice = network.get_node("alice")?;
+	let bob = network.get_node("bob")?;
+	let alice_rpc = alice.rpc().await?;
+	let bob_rpc = bob.rpc().await?;
+
+	let topic: Topic = [1u8; 32].into();
+	let stmts: Vec<_> = (0..5u32)
+		.map(|idx| {
+			let keypair = get_keypair(idx);
+			create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, 0)
+		})
+		.collect();
+
+	let mut sub = subscribe_topic(&bob_rpc, topic).await?;
+	for s in &stmts[..2] {
+		assert_eq!(submit_statement(&alice_rpc, s).await?, SubmitResult::New);
+	}
+	let received = expect_statements_unordered(&mut sub, 2, 30).await?;
+	assert_eq!(received.len(), 2);
+
+	// Disconnect bob subs
+	drop(sub);
+
+	// Submit 2 more while bob is unsubscribed
+	for s in &stmts[2..4] {
+		assert_eq!(submit_statement(&alice_rpc, s).await?, SubmitResult::New);
+	}
+	tokio::time::sleep(Duration::from_secs(10)).await;
+
+	// Re-subscribe → initial snapshot must contain all 4 statements
+	let mut sub = subscribe_topic(&bob_rpc, topic).await?;
+	let expected: Vec<Vec<u8>> = stmts[..4].iter().map(|s| s.encode()).collect();
+	assert_statements_match(&mut sub, &expected, 30, "bob").await?;
+
+	assert_eq!(submit_statement(&alice_rpc, &stmts[4]).await?, SubmitResult::New);
+
+	let received = expect_one_statement(&mut sub, 30).await?;
+	assert_eq!(received, Bytes::from(stmts[4].encode()), "Post-reconnect live delivery mismatch");
+	assert_no_more_statements(&mut sub, 10).await?;
+
+	Ok(())
+}
+
 /// Verifies store consistency when many statements expire concurrently
 ///
 /// 1. 3000 ephemeral + 240 persistent statements are submitted concurrently and propagate
@@ -742,11 +797,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network_with_injected_allowances(
-		&["alice", "bob", "charlie", "dave"],
-		20,
-		Some("info"),
-	)
+	let network = spawn_network_with_injected_allowances(&["alice", "bob", "charlie", "dave"], 20)
 	.await?;
 
 	let alice = network.get_node("alice")?;
