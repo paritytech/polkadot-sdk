@@ -23,7 +23,6 @@ use alloc::{vec, vec::Vec};
 use codec::{Decode, Encode};
 use core::{fmt::Debug, marker::PhantomData};
 use frame_support::{
-	defensive_assert,
 	dispatch::GetDispatchInfo,
 	ensure,
 	traits::{Contains, ContainsPair, Defensive, Get, PalletsInfoAccess},
@@ -1855,49 +1854,43 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// This function can write into storage and also return an error at the same time, it should
 	/// always be called within a transactional context.
 	fn deposit_assets_with_retry(
-		mut to_deposit: AssetsInHolding,
+		to_deposit: AssetsInHolding,
 		beneficiary: &Location,
 		context: Option<&XcmContext>,
 	) -> Result<Weight, XcmError> {
 		let mut total_surplus = Weight::zero();
 		let mut failed_deposits = AssetsInHolding::new();
-		let assets: Vec<Asset> = to_deposit.assets_iter().collect();
-		for asset in assets {
-			let what = to_deposit.try_take(asset.into()).map_err(|_| XcmError::AssetNotFound)?;
-			match Config::AssetTransactor::deposit_asset_with_surplus(what, &beneficiary, context) {
-				Ok(surplus) => {
-					total_surplus.saturating_accrue(surplus);
-				},
+
+		// First pass: try to deposit each asset; failures go to retry.
+		for single in to_deposit.into_per_asset_holdings() {
+			match Config::AssetTransactor::deposit_asset_with_surplus(single, beneficiary, context)
+			{
+				Ok(surplus) => total_surplus.saturating_accrue(surplus),
 				Err((unspent, _)) => {
-					// if deposit failed for asset, mark it for retry.
+					// First-pass failure: keep for retry. A subsequent deposit in the same
+					// pass may create the destination account (by satisfying ED), allowing
+					// the retry pass to succeed for assets that fall here.
 					failed_deposits.subsume_assets(unspent);
 				},
 			}
 		}
-		defensive_assert!(to_deposit.is_empty(), "Should have fully consumed `to_deposit`");
-		tracing::trace!(
-			target: "xcm::deposit_assets_with_retry",
-			?failed_deposits,
-			"First‐pass failures, about to retry"
-		);
-		// retry previously failed deposits, this time short-circuiting on any error.
-		let assets: Vec<Asset> = failed_deposits.assets_iter().collect();
-		for asset in assets {
-			let what =
-				failed_deposits.try_take(asset.into()).map_err(|_| XcmError::AssetNotFound)?;
+
+		// Retry previously failed deposits, this time short-circuiting on any error.
+		for single in failed_deposits.into_per_asset_holdings() {
 			let surplus =
-				Config::AssetTransactor::deposit_asset_with_surplus(what, &beneficiary, context)
-					.map_err(|(_, error)| {
-						tracing::debug!(
-							target: "xcm::deposit_assets_with_retry",
-							?error,
-							"Retry-pass deposit failed; bubbling up so the instruction is rolled back \
-							 and the leftover holding can be trapped by post_process"
-						);
-						error
-					})?;
+				Config::AssetTransactor::deposit_asset_with_surplus(single, beneficiary, context)
+					.map_err(|(unspent, error)| {
+					tracing::debug!(
+						target: "xcm::deposit_assets_with_retry",
+						?error,
+						?unspent,
+						"Retry-pass deposit failed"
+					);
+					error
+				})?;
 			total_surplus.saturating_accrue(surplus);
 		}
+
 		Ok(total_surplus)
 	}
 
