@@ -339,10 +339,12 @@ where
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
 			Pre::PGAS { who, credit, weight_refund } => {
+				let mut actual_post_info = *post_info;
+				actual_post_info.refund(weight_refund);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,
-					post_info,
+					&actual_post_info,
 					Zero::zero(),
 				);
 
