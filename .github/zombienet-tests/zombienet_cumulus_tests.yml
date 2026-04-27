@@ -150,3 +150,8 @@
   test-filter: "zombie_ci::statement_store::integration::statement_store_subscription_reconnect"
   runner-type: "default"
   cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0031-statement_store_initial_sync"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_initial_sync"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
