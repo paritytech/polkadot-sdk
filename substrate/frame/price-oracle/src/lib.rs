@@ -231,16 +231,23 @@ pub mod pallet {
 
 		/// Enable or disable an existing pair's inherent-mandatory flag via a full config
 		/// update — see [`Pallet::update_pair_config`]. Also available: register / remove.
+		///
+		/// `initial_price` seeds [`CurrentPrice`] for the new pair. Without this, the price
+		/// would read as zero until the first successful inherent — and `apply_pair_nudges`
+		/// only adds/subtracts `epsilon * net` from the current price, so a pair seeded with
+		/// zero can never recover a meaningful starting value from nudges alone.
 		#[pallet::call_index(1)]
-		#[pallet::weight(T::DbWeight::get().reads_writes(2, 2))]
+		#[pallet::weight(T::DbWeight::get().reads_writes(2, 3))]
 		pub fn register_pair(
 			origin: OriginFor<T>,
 			pair_id: PairId,
 			config: PairConfig,
+			initial_price: FixedU128,
 		) -> DispatchResult {
 			T::PriceOracleOrigin::ensure_origin(origin)?;
 			ensure!(!Pairs::<T>::contains_key(pair_id), Error::<T>::PairAlreadyExists);
 			Pairs::<T>::insert(pair_id, config);
+			CurrentPrice::<T>::insert(pair_id, initial_price);
 			Self::deposit_event(Event::PairRegistered { pair_id });
 			Ok(())
 		}
@@ -431,9 +438,11 @@ pub mod pallet {
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]
 	pub struct GenesisConfig<T: Config> {
-		/// Initial pairs to register: `(pair_id, config, endpoints)`. Endpoints are
-		/// `(parsing_method_id, url_bytes)` pairs matching [`Pallet::set_active_endpoints`].
-		pub pairs: Vec<(PairId, PairConfig, Vec<(u8, Vec<u8>)>)>,
+		/// Initial pairs to register: `(pair_id, config, initial_price, endpoints)`.
+		/// `initial_price` seeds [`CurrentPrice`] so reads return a real value before the
+		/// first inherent. Endpoints are `(parsing_method_id, url_bytes)` pairs matching
+		/// [`Pallet::set_active_endpoints`].
+		pub pairs: Vec<(PairId, PairConfig, FixedU128, Vec<(u8, Vec<u8>)>)>,
 		#[serde(skip)]
 		pub _marker: core::marker::PhantomData<T>,
 	}
@@ -441,13 +450,14 @@ pub mod pallet {
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
-			for (pair_id, cfg, endpoints) in &self.pairs {
+			for (pair_id, cfg, initial_price, endpoints) in &self.pairs {
 				assert!(
 					!Pairs::<T>::contains_key(pair_id),
 					"Price oracle genesis: duplicate pair id {}",
 					pair_id,
 				);
 				Pairs::<T>::insert(pair_id, cfg.clone());
+				CurrentPrice::<T>::insert(pair_id, *initial_price);
 				let converted: Vec<(ParsingMethod, BoundedUrl<T>)> = endpoints
 					.iter()
 					.cloned()

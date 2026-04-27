@@ -398,12 +398,15 @@ fn too_few_nudges_returns_error() {
 fn register_pair_works() {
 	ExtBuilder::default().no_pairs().build_and_execute(|| {
 		let cfg = cfg_with(1, 5, true, false);
+		let initial_price = FixedU128::from_rational(123, 100);
 		assert_ok!(PriceOracle::register_pair(
 			frame_system::RawOrigin::Root.into(),
 			7,
 			cfg.clone(),
+			initial_price,
 		));
 		assert_eq!(pallet::Pairs::<Test>::get(7), Some(cfg));
+		assert_eq!(pallet::CurrentPrice::<Test>::get(7), initial_price);
 	});
 }
 
@@ -415,6 +418,7 @@ fn register_pair_duplicate_rejected() {
 				frame_system::RawOrigin::Root.into(),
 				0,
 				default_pair_config(),
+				FixedU128::zero(),
 			),
 			Error::<Test>::PairAlreadyExists,
 		);
@@ -429,6 +433,7 @@ fn register_pair_requires_custom_origin() {
 				frame_system::RawOrigin::Signed(1).into(),
 				0,
 				default_pair_config(),
+				FixedU128::zero(),
 			),
 			BadOrigin,
 		);

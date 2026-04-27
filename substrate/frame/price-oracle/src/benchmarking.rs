@@ -72,7 +72,7 @@ mod benchmarks {
 	#[benchmark]
 	fn register_pair() {
 		#[extrinsic_call]
-		_(RawOrigin::Root, 0u8, default_cfg());
+		_(RawOrigin::Root, 0u8, default_cfg(), FixedU128::zero());
 	}
 
 	#[benchmark]

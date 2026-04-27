@@ -19,13 +19,18 @@ PAIR_ID=0
 # min_nudges=0, nudge_validity=2 slots, inherent neither mandatory nor panicking.
 PAIR_CONFIG='{"minNudges":0,"nudgeValidity":30,"inherentMandatory":false,"invalidInherentPanics":false,"epsilon":"1000000000000000"}'
 
+# Initial on-chain price seeded at registration (FixedU128 inner; 10^18 = 1.0).
+# Quoted as a JSON string so polkadot-js-api parses it as a BigInt — bare
+# numbers above 2^53-1 overflow JS Number.
+INITIAL_PRICE='"1000000000000000000"'
+
 # (parsing_method_id, url). Ids come from substrate/frame/price-oracle/src/decoders.rs:
 #   0 = Binance, 1 = CoinLore.
 ENDPOINTS='[[0,"https://data-api.binance.vision/api/v3/ticker/price?symbol=DOTUSDT"],[1,"https://api.coinlore.net/api/ticker/?id=45219"]]'
 
 echo "==> Registering pair $PAIR_ID (DOT) via sudo at $WS_URL"
 polkadot-js-api --ws "$WS_URL" --seed "$SUDO_SEED" --sudo \
-  tx.priceOracle.registerPair "$PAIR_ID" "$PAIR_CONFIG"
+  tx.priceOracle.registerPair "$PAIR_ID" "$PAIR_CONFIG" "$INITIAL_PRICE"
 
 echo "==> Setting active endpoints for pair $PAIR_ID via sudo"
 polkadot-js-api --ws "$WS_URL" --seed "$SUDO_SEED" --sudo \

@@ -560,6 +560,7 @@ fn register_pair_one(client: &polkadot_test_client::Client) {
 	let inner = RuntimeCall::PriceOracle(pallet_price_oracle::Call::register_pair {
 		pair_id: 1u8,
 		config: cfg,
+		initial_price: FixedU128::zero(),
 	});
 	let sudo = RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(inner) });
 	let ext = construct_extrinsic(client, sudo, sp_keyring::Sr25519Keyring::Alice, 0);
