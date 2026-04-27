@@ -1,5 +1,5 @@
 error: define_versioned_interface! only accepts named-field payload structs
- --> tests/ui/define_versioned_interface/fail/unit_struct.rs:4:33
-  |
-4 |     pub struct UiUnitInputPayloadV1;
-  |                                    ^
+  --> tests/ui/define_versioned_interface/fail/unit_struct.rs:21:33
+   |
+21 |     pub struct UiUnitInputPayloadV1;
+   |                                    ^

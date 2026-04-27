@@ -1,11 +1,11 @@
 error: No output type defined for V1. Expected `UiMissingPairOutputPayloadV1` to pair with `UiMissingPairInputPayloadV1`. Input type is defined here
- --> tests/ui/define_versioned_interface/fail/missing_pair.rs:4:13
-  |
-4 |     pub struct UiMissingPairInputPayloadV1 {
-  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  --> tests/ui/define_versioned_interface/fail/missing_pair.rs:21:13
+   |
+21 |     pub struct UiMissingPairInputPayloadV1 {
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 error: No input type defined for V2. Expected `UiMissingPairInputPayloadV2` to pair with `UiMissingPairOutputPayloadV2`. Output type is defined here
- --> tests/ui/define_versioned_interface/fail/missing_pair.rs:8:13
-  |
-8 |     pub struct UiMissingPairOutputPayloadV2 {
-  |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  --> tests/ui/define_versioned_interface/fail/missing_pair.rs:25:13
+   |
+25 |     pub struct UiMissingPairOutputPayloadV2 {
+   |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
