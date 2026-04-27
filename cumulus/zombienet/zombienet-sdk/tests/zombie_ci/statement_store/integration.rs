@@ -927,17 +927,17 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 ///    62s, so the window is guaranteed to overlap a cleanup pass — inserts
 ///    and bulk eviction of the 10000 expired ephemerals hit the index and
 ///    DB at the same time.
-/// 3. After a 90s drain, a fresh subscription (which replays from the DB)
-///    must yield exactly the 500 persistent statements — proving no insert
-///    was dropped and every expired ephemeral was removed from index and
-///    DB.
+/// 3. Immediately after the window closes, a fresh subscription (which
+///    replays from the DB) must yield exactly the 500 persistent statements —
+///    proving no insert was dropped and every expired ephemeral was removed
+///    from index and DB within the overlap window itself.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network_with_injected_allowances(&["alice"], 25).await?;
+	let network = spawn_network_with_injected_allowances(&["alice", "bob"], 25).await?;
 	let alice = network.get_node("alice")?;
 	let alice_rpc = alice.rpc().await?;
 
@@ -947,11 +947,22 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		.expect("Time went backwards")
 		.as_secs() as u32;
 
-	// Sized to bracket `ENFORCE_LIMITS_PERIOD = 31s` (eviction tick every 62s)
+	// `enforce_limits` runs every `ENFORCE_LIMITS_PERIOD = 31s` with a two-phase
+	// design: the 1st tick only snapshots accounts and returns, the 2nd actually
+	// evicts — so a full eviction pass takes 2 × 31s = 62s.
+	//
+	// - pre_expiry_lead (5s):  start persistents before TTL expiry so inserts
+	//                          cross the expiry boundary mid-stream.
+	// - overlap_window  (95s): > 62s guarantees a full eviction pass (snapshot
+	//                          tick + work tick) lands inside the window
+	//                          regardless of phase. A single work tick can
+	//                          remove up to 10k entries
+	//                          (`MAX_EXPIRY_STATEMENTS_PER_ITERATION`), so
+	//                          all 10k expired ephemerals must be drained
+	//                          before the window closes.
 	let ephemeral_ttl: u32 = 360;
 	let pre_expiry_lead: u64 = 5;
 	let overlap_window: u64 = 95;
-	let post_window_grace: u64 = 90;
 	let ephemeral_expiry = now_secs + ephemeral_ttl;
 
 	// 10_000 ephemeral statements across 20 accounts (500 per account)
@@ -959,8 +970,8 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let stmts_per_ephemeral: u32 = 500;
 	let ephemeral_stmts: Vec<_> = (0..num_ephemeral_accounts)
 		.flat_map(|kp| {
+			let keypair = get_keypair(kp);
 			(0..stmts_per_ephemeral).map(move |seq| {
-				let keypair = get_keypair(kp);
 				let mut data = kp.to_le_bytes().to_vec();
 				data.extend_from_slice(&seq.to_le_bytes());
 				create_test_statement(
@@ -1000,8 +1011,8 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let persistent_base = num_ephemeral_accounts;
 	let persistent_stmts: Vec<_> = (persistent_base..persistent_base + num_persistent_accounts)
 		.flat_map(|kp| {
+			let keypair = get_keypair(kp);
 			(0..stmts_per_persistent).map(move |seq| {
-				let keypair = get_keypair(kp);
 				let mut data = kp.to_le_bytes().to_vec();
 				data.extend_from_slice(&seq.to_le_bytes());
 				create_test_statement(&keypair, &[topic_a], None, data, u32::MAX, kp * 1000 + seq)
@@ -1036,8 +1047,6 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	for handle in handles {
 		handle.await??;
 	}
-
-	tokio::time::sleep(Duration::from_secs(post_window_grace)).await;
 
 	// Fresh subscription must see exactly the 500 persistent statements
 	let persistent_encoded: Vec<Vec<u8>> = persistent_stmts.iter().map(|s| s.encode()).collect();
