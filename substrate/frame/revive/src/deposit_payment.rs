@@ -28,7 +28,10 @@ use frame_support::{
 	storage::with_storage_layer,
 	traits::{
 		Get,
-		fungible::{Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _},
+		fungible::{
+			Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
+			Unbalanced as _,
+		},
 		tokens::{
 			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
 			fungibles,
@@ -130,16 +133,23 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 		amount: BalanceOf<T>,
 	) -> DispatchResult;
 
-	/// Ensure that `contract` has a PGAS asset account so that balanced (event-emitting)
-	/// operations like `transfer` and `hold` work on it.
+	/// Mint each backend's existential deposit into `contract` so its native (and, for the PGAS
+	/// backend, its PGAS) asset account is alive. The native ED is freshly minted and immediately
+	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
+	/// active issuance — and therefore opengov conviction, inflation accounting, etc. — is
+	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
+	/// exists, so this minted ED is not extractable: the account cannot be reaped.
 	///
-	/// For the PGAS backend this mints the PGAS ED into the contract if it doesn't already
-	/// have a pallet-assets Account. The `()` backend is a no-op.
-	fn ensure_pgas_account(contract: &T::AccountId) -> DispatchResult;
+	/// Idempotent: if the contract already has the asset account, the corresponding mint is
+	/// skipped. Used by [`crate::exec`] when bringing a new contract account into existence.
+	fn mint_contract_eds(contract: &T::AccountId) -> DispatchResult;
 
-	/// Remove the PGAS asset account from `contract` by burning the PGAS ED that was minted
-	/// by [`Self::ensure_pgas_account`]. The `()` backend is a no-op.
-	fn cleanup_pgas_account(contract: &T::AccountId) -> DispatchResult;
+	/// Burn the existential deposits that [`Self::mint_contract_eds`] minted into `contract`.
+	/// The native ED is reactivated before being burned so that inactive issuance does not get
+	/// stuck above total issuance.
+	///
+	/// Used by [`crate::exec::Stack::do_terminate`] when destroying a contract.
+	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult;
 }
 
 /// Default backend: every storage deposit charge goes through the native currency.
@@ -238,11 +248,25 @@ impl<T: Config> Deposit<T> for () {
 		Ok(())
 	}
 
-	fn ensure_pgas_account(_contract: &T::AccountId) -> DispatchResult {
+	fn mint_contract_eds(contract: &T::AccountId) -> DispatchResult {
+		let ed = T::Currency::minimum_balance();
+		if T::Currency::balance(contract).is_zero() {
+			T::Currency::mint_into(contract, ed)?;
+			T::Currency::deactivate(ed);
+		}
 		Ok(())
 	}
 
-	fn cleanup_pgas_account(_contract: &T::AccountId) -> DispatchResult {
+	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult {
+		let ed = T::Currency::minimum_balance();
+		T::Currency::reactivate(ed);
+		T::Currency::burn_from(
+			contract,
+			ed,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Force,
+		)?;
 		Ok(())
 	}
 }
@@ -302,6 +326,16 @@ where
 	///
 	/// When `src` is [`Funds::TxFee`] (eth-tx dispatch), the native ED is withdrawn from the
 	/// txfee pool regardless of the payer's PGAS balance.
+	///
+	/// **Sub-ED caveat.** The PGAS branch only brings `to` into existence as a PGAS
+	/// asset-account; it does not create a native (DOT) account. A follow-up native transfer
+	/// of less than the native ED into a fresh EOA fails — the underlying balance pallet
+	/// won't create a sub-ED native account and the enclosing `with_transaction` rolls the
+	/// PGAS charge back too, so the contract sees `TransferFailed`. This is by design:
+	/// forcing the more expensive native ED for every contract→EOA transfer would defeat the
+	/// point of letting PGAS-only origins drive activity. When the destination is another
+	/// contract this is not a concern — contract accounts are always created with both EDs by
+	/// [`Self::mint_contract_eds`].
 	fn charge_ed(
 		src: Funds<T::AccountId>,
 		to: &T::AccountId,
@@ -342,7 +376,7 @@ where
 	///
 	/// The PGAS branch transfers PGAS from the payer to the contract (emitting a `Transferred`
 	/// event) and then holds it (emitting a `Held` event). The contract must have a PGAS
-	/// account created by [`Self::ensure_pgas_account`].
+	/// account created by [`Self::mint_contract_eds`].
 	///
 	/// When `src` is [`Funds::TxFee`] (eth-tx dispatch), `amount` is withdrawn from the txfee
 	/// pool and placed on hold at `to` regardless of the payer's PGAS balance.
@@ -470,6 +504,11 @@ where
 
 	/// Burn the native hold at `contract` under `reason`, then mint the same amount of PGAS
 	/// into `contract` and place it on hold under the same reason.
+	///
+	/// Also mints the PGAS ED into the contract (if it doesn't already have a PGAS asset
+	/// account) so that the subsequent balanced `hold` doesn't try to drag the contract's free
+	/// PGAS balance below the asset's ED. This matches the post-instantiate state of new
+	/// contracts (which always have both EDs alive — see [`Self::mint_contract_eds`]).
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
@@ -489,6 +528,20 @@ where
 			|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
 		)?;
 
+		// Ensure the contract has a PGAS asset account with at least PGAS ED free, so the
+		// `hold` below — which uses `Preservation::Protect` internally — doesn't fail by
+		// trying to drop the free balance below ED.
+		let pgas_ed =
+			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		if <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract).is_zero()
+		{
+			<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+				Id::get(),
+				contract,
+				pgas_ed,
+			)?;
+		}
+
 		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)?;
 		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
 			Id::get(),
@@ -499,12 +552,18 @@ where
 		Ok(())
 	}
 
-	fn ensure_pgas_account(contract: &T::AccountId) -> DispatchResult {
+	fn mint_contract_eds(contract: &T::AccountId) -> DispatchResult {
+		let dot_ed = T::Currency::minimum_balance();
+		if T::Currency::balance(contract).is_zero() {
+			T::Currency::mint_into(contract, dot_ed)?;
+			T::Currency::deactivate(dot_ed);
+		}
+
 		let pgas_ed =
 			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
-		let balance =
+		let pgas_balance =
 			<Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
-		if balance.is_zero() {
+		if pgas_balance.is_zero() {
 			<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
 				Id::get(),
 				contract,
@@ -514,21 +573,27 @@ where
 		Ok(())
 	}
 
-	fn cleanup_pgas_account(contract: &T::AccountId) -> DispatchResult {
+	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult {
+		let dot_ed = T::Currency::minimum_balance();
+		T::Currency::reactivate(dot_ed);
+		T::Currency::burn_from(
+			contract,
+			dot_ed,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Force,
+		)?;
+
 		let pgas_ed =
 			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
-		let balance =
-			<Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
-		if !balance.is_zero() {
-			<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
-				Id::get(),
-				contract,
-				balance.min(pgas_ed),
-				Preservation::Expendable,
-				Precision::BestEffort,
-				Fortitude::Force,
-			)?;
-		}
+		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
+			Id::get(),
+			contract,
+			pgas_ed,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Force,
+		)?;
 		Ok(())
 	}
 }

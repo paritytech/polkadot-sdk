@@ -44,7 +44,7 @@ use frame_support::{
 	storage::{TransactionOutcome, with_transaction},
 	traits::{
 		Time,
-		fungible::{Inspect, Mutate},
+		fungible::Inspect,
 		tokens::Preservation,
 	},
 	weights::Weight,
@@ -1313,19 +1313,16 @@ where
 			// We need to make sure that the contract's account exists before calling its
 			// constructor.
 			if entry_point == ExportedFunction::Constructor {
-				// Root origin can't be used to instantiate a contract, so it is safe to assume that
-				// if we reached this point the origin has an associated account.
-				let origin = &self.origin.account_id()?;
-
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					let ed = T::Deposit::charge_ed(self.exec_config.funds(origin), account_id)
-						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
-					frame.frame_meter.charge_deposit(&StorageDeposit::Charge(ed))?;
+					// Mint the native ED (and the PGAS ED, when the runtime has the PGAS
+					// backend) into the contract so every relevant asset account is alive.
+					// Origin pays nothing: the native ED is minted out of thin air and
+					// immediately deactivated to keep active issuance accounting (and any
+					// downstream conviction/inflation accounting) undisturbed. The contract's
+					// system consumer (added below) prevents the account from being reaped,
+					// so the minted ED is not extractable through any normal flow.
+					T::Deposit::mint_contract_eds(account_id)?;
 				}
-
-				// Ensure the contract has a PGAS asset account so that balanced
-				// (event-emitting) operations work for PGAS storage deposits.
-				T::Deposit::ensure_pgas_account(account_id)?;
 
 				// A consumer is added at account creation and removed it on termination, otherwise
 				// the runtime could remove the account. As long as a contract exists its
@@ -1378,8 +1375,10 @@ where
 				!<System<T>>::account_exists(account_id)
 			{
 				// prefix matching pre-compiles cannot have a contract info
-				// hence we only mint once per pre-compile
-				T::Currency::mint_into(account_id, T::Currency::minimum_balance())?;
+				// hence we only mint once per pre-compile.
+				// Use the same mint scheme as regular contracts so the precompile gets a
+				// PGAS asset account too (when applicable) and the native ED is deactivated.
+				T::Deposit::mint_contract_eds(account_id)?;
 				// make sure the pre-compile does not destroy its account by accident
 				<System<T>>::inc_consumers(account_id)?;
 			}
@@ -1643,13 +1642,28 @@ where
 	///
 	/// This is a no-op for zero `value`, avoiding events to be emitted for zero balance transfers.
 	///
-	/// If the destination account does not exist, it is pulled into existence by transferring the
-	/// ED from `origin` to the new account. The total amount transferred to `to` will be ED +
-	/// `value`. This makes the ED fully transparent for contracts.
-	/// The ED transfer is executed atomically with the actual transfer, avoiding the possibility of
-	/// the ED transfer succeeding but the actual transfer failing. In other words, if the `to` does
-	/// not exist, the transfer does fail and nothing will be sent to `to` if either `origin` can
-	/// not provide the ED or transferring `value` from `from` to `to` fails.
+	/// If the destination account does not exist, it is pulled into existence by charging the
+	/// ED from `origin` (via [`Deposit::charge_ed`]) to the new account. With the PGAS backend,
+	/// this prefers the origin's PGAS balance and falls back to native; with the `()` backend it
+	/// is always native. The ED charge and the actual transfer run inside a `with_transaction`:
+	/// if the actual transfer fails (e.g. because the destination ends up below ED), both the
+	/// ED charge and the transfer are rolled back atomically.
+	///
+	/// # Sub-ED transfers to fresh EOAs
+	///
+	/// When the destination is a fresh EOA and the origin pays the ED in PGAS, only a PGAS asset
+	/// account is created on the destination — the destination still has no native (DOT) account.
+	/// If `value` is in DOT and below the native ED, the underlying transfer rejects creating a
+	/// sub-ED native account; the whole `with_transaction` rolls back and the call surfaces as
+	/// `TransferFailed` to the caller contract. This is intentional: forcing the origin to pay
+	/// the *native* ED on every contract→EOA call would defeat the purpose of letting PGAS-only
+	/// origins drive contract activity. Callers/contracts wanting to deliver sub-ED amounts to
+	/// EOAs must transfer at least the native ED — or check `account_exists(to)` ahead of time.
+	///
+	/// When the destination is another contract, this case does not arise: contract accounts are
+	/// always created with both EDs minted (see [`Deposit::mint_contract_eds`]), so the
+	/// `account_exists` short-circuit above runs and `value` is delivered exactly.
+	///
 	/// Note: This will also fail if `origin` is root.
 	fn transfer<S: State>(
 		origin: &Origin<T>,
@@ -1730,22 +1744,18 @@ where
 				Some(exec_config),
 			)?;
 
-			// Burn the PGAS ED that was minted by ensure_pgas_account at instantiation.
-			T::Deposit::cleanup_pgas_account(&contract_account)?;
-
-			// we added this consumer manually when instantiating
+			// We added this consumer manually when instantiating. Drop it BEFORE burning the
+			// EDs: with the consumer still pinned, the underlying `burn_from` would treat the
+			// native ED as untouchable (see `pallet-balances::reducible_balance`'s
+			// `can_dec_provider` branch) and the burn would fail.
 			System::<T>::dec_consumers(&contract_account);
 
-			// ed needs to be send to the origin
-			Self::transfer(
-				origin,
-				contract_account,
-				origin.account_id()?,
-				Contracts::<T>::convert_native_to_evm(T::Currency::minimum_balance()),
-				Preservation::Expendable,
-				transaction_meter,
-				exec_config,
-			)?;
+			// Burn the native ED (and PGAS ED, when applicable) that was minted into this
+			// contract at instantiation by [`Deposit::mint_contract_eds`]. The native ED is
+			// reactivated before being burned so inactive issuance does not stay above total
+			// issuance after termination. Origin is not refunded an ED here because it never
+			// paid one in the first place.
+			T::Deposit::burn_contract_eds(&contract_account)?;
 
 			// this is needed to:
 			// 1) Send any balance that was send to the contract after termination.

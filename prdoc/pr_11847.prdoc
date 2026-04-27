@@ -89,11 +89,49 @@ doc:
       `Deposit::migrate_native_to_pgas`, which:
 
       1. Burns the native `StorageDepositReserve` hold from the contract.
-      2. Mints the same amount of PGAS into the contract.
-      3. Places the minted PGAS on hold under the same reason.
+      2. Mints the PGAS ED into the contract (idempotent), so the subsequent balanced
+         hold doesn't pull free PGAS below the asset's ED.
+      3. Mints the same amount of PGAS into the contract.
+      4. Places the minted PGAS on hold under the same reason.
 
       Pre-PR DOT deposits weren't tracked per-contributor, so leaving them as DOT would
       let users harvest free DOT by refunding against deposits they never paid.
+
+      ### Free EDs minted into every contract account
+
+      `substrate/frame/revive/src/exec.rs`, `deposit_payment.rs`
+
+      In addition to the storage-deposit accounting, every contract is now created with
+      both EDs alive on its account:
+
+      - The native (DOT) ED is minted into the contract for free at instantiate and
+        immediately `deactivate`-d. The contract's system consumer pin keeps this ED
+        non-extractable for the contract's lifetime, and `deactivate` keeps active
+        issuance accounting (and any downstream conviction/inflation logic) unperturbed.
+      - The PGAS ED is minted into the contract's PGAS asset account.
+
+      At termination both EDs are burned (DOT is reactivated first, so total = inactive +
+      active stays consistent), so the lifecycle is issuance-neutral.
+
+      Effects:
+
+      - Origins no longer pay an ED at instantiate time — neither out of their free
+        balance nor out of the eth-tx fee pool. This is now visible in
+        `storage_deposit_from_hold_works` and other deposit accounting tests.
+      - Contracts can receive sub-ED transfers in either currency, because both asset
+        accounts already exist.
+      - Contract→EOA transfers from a PGAS-only origin still charge the *PGAS* ED on the
+        destination's PGAS asset account; if the value the contract is trying to send is
+        in DOT and below the native ED, the destination has no DOT account yet and the
+        underlying balance pallet rejects creating a sub-ED native account. The whole
+        `with_transaction` rolls back atomically and the contract sees `TransferFailed`.
+        Contracts that need to deliver sub-ED amounts to fresh EOAs must transfer at
+        least the native ED. See the doc comment on `Stack::transfer` for the precise
+        semantics.
+
+      The two new trait methods on `Deposit` driving this are
+      `mint_contract_eds(contract)` and `burn_contract_eds(contract)`. The `()` backend
+      mints/burns just the native ED; `PGasDeposit` mints/burns both.
 crates:
   - name: pallet-revive
     bump: major

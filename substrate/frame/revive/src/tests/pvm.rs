@@ -227,12 +227,23 @@ fn instantiate_and_call_and_deposit_event() {
 					}),
 					topics: vec![],
 				},
+				// Native ED is now minted into the contract for free (and immediately
+				// deactivated to keep active issuance accounting honest).
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: account_id.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				// Plus the PGAS ED minted into the contract's PGAS asset account.
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: account_id.clone(),
+						amount: 1,
 					}),
 					topics: vec![],
 				},
@@ -652,12 +663,23 @@ fn deploy_and_call_other_contract() {
 					}),
 					topics: vec![],
 				},
+				// Native ED is now minted into the callee for free (deactivated) instead of
+				// being transferred from origin.
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: callee_account.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: callee_account.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				// And the PGAS ED is also minted free into the callee's PGAS asset account.
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: callee_account.clone(),
+						amount: 1,
 					}),
 					topics: vec![],
 				},
@@ -1005,6 +1027,8 @@ fn self_destruct_by_precompile_works() {
 		assert_eq!(
 			System::events(),
 			vec![
+				// Value transfer to beneficiary happens immediately inside `terminate_caller`,
+				// before the call stack unwinds.
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
@@ -1014,6 +1038,7 @@ fn self_destruct_by_precompile_works() {
 					}),
 					topics: vec![],
 				},
+				// Storage deposit refund flows to ALICE.
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::TransferOnHold {
@@ -1026,6 +1051,19 @@ fn self_destruct_by_precompile_works() {
 					}),
 					topics: vec![],
 				},
+				// New: instead of transferring the native ED back to ALICE, we now burn it.
+				// The DOT was minted (deactivated) into the contract at instantiate; on
+				// termination we reactivate and burn it.
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Balances(pallet_balances::Event::Burned {
+						who: contract.account_id.clone(),
+						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				// Burning the DOT ED dropped the contract's free balance to 0; with consumers
+				// already decremented this reaps the system account.
 				EventRecord {
 					phase: Phase::Initialization,
 					event: RuntimeEvent::System(frame_system::Event::KilledAccount {
@@ -1033,12 +1071,13 @@ fn self_destruct_by_precompile_works() {
 					}),
 					topics: vec![],
 				},
+				// And the PGAS ED minted at instantiate is burned too.
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: contract.account_id.clone(),
-						to: ALICE,
-						amount: min_balance,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Burned {
+						asset_id: PGAS_ASSET_ID,
+						owner: contract.account_id.clone(),
+						balance: 1,
 					}),
 					topics: vec![],
 				},
@@ -1361,6 +1400,139 @@ fn call_return_code() {
 	});
 }
 
+/// After `bare_instantiate`, the contract has both EDs minted into it (DOT + PGAS) on top
+/// of any value transferred. Active issuance is preserved across the mint because the DOT
+/// portion is deactivated.
+#[test]
+fn instantiate_mints_both_eds_into_contract() {
+	use frame_support::traits::tokens::fungibles::Inspect as FungiblesInspect;
+	let (binary, _hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let dot_active_before = Balances::active_issuance();
+		let dot_total_before = Balances::total_issuance();
+		let dot_inactive_before = Balances::inactive_issuance();
+		let pgas_total_before = <Assets as FungiblesInspect<_>>::total_issuance(PGAS_ASSET_ID);
+		let pgas_ed = <Assets as FungiblesInspect<_>>::minimum_balance(PGAS_ASSET_ID);
+		let dot_ed = <Test as Config>::Currency::minimum_balance();
+
+		let value = 10_000;
+		let Contract { addr: _addr, account_id } = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(value)
+			.build_and_unwrap_contract();
+
+		// Contract owns: dot_ed (free-minted, deactivated) + value_transferred (DOT) +
+		// pgas_ed (free-minted) + storage hold (DOT, on top of free).
+		assert_eq!(
+			<Test as Config>::Currency::free_balance(&account_id),
+			dot_ed + value,
+			"contract free DOT = native ED + value"
+		);
+		assert_eq!(
+			Assets::balance(PGAS_ASSET_ID, &account_id),
+			pgas_ed,
+			"contract has the PGAS ED"
+		);
+
+		// Active issuance is unchanged: the DOT ED that landed on the contract was
+		// deactivated. Total issuance grew by the same amount, and inactive issuance
+		// absorbed it.
+		assert_eq!(
+			Balances::active_issuance(),
+			dot_active_before,
+			"deactivate keeps DOT active issuance pinned across instantiate"
+		);
+		assert_eq!(Balances::total_issuance(), dot_total_before + dot_ed);
+		assert_eq!(Balances::inactive_issuance(), dot_inactive_before + dot_ed);
+		// PGAS total grew by exactly the PGAS ED (no PGAS deactivation logic).
+		assert_eq!(
+			<Assets as FungiblesInspect<_>>::total_issuance(PGAS_ASSET_ID),
+			pgas_total_before + pgas_ed,
+		);
+	});
+}
+
+/// Termination is the exact inverse of instantiation for issuance accounting: total /
+/// inactive / active issuance all return to their starting values, in DOT and PGAS.
+#[test]
+fn terminate_burns_both_eds_and_restores_active_issuance() {
+	use frame_support::traits::tokens::fungibles::Inspect as FungiblesInspect;
+	let (binary, _hash) = compile_module("self_destruct_by_precompile").unwrap();
+	ExtBuilder::default().existential_deposit(1_000).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&DJANGO_FALLBACK, 1_000_000);
+		let dot_active_before = Balances::active_issuance();
+		let dot_total_before = Balances::total_issuance();
+		let dot_inactive_before = Balances::inactive_issuance();
+		let pgas_total_before = <Assets as FungiblesInspect<_>>::total_issuance(PGAS_ASSET_ID);
+
+		let contract = builder::bare_instantiate(Code::Upload(binary))
+			.native_value(100_000)
+			.build_and_unwrap_contract();
+		// Sanity: contract is alive and the DOT was deactivated.
+		assert!(get_contract_checked(&contract.addr).is_some());
+		assert!(Balances::inactive_issuance() > dot_inactive_before);
+
+		// Trigger termination via the contract.
+		assert_matches!(builder::call(contract.addr).build(), Ok(_));
+		assert!(get_contract_checked(&contract.addr).is_none(), "contract should be gone");
+
+		// All DOT issuance counters are back to where they started.
+		assert_eq!(Balances::total_issuance(), dot_total_before, "DOT total restored");
+		assert_eq!(
+			Balances::inactive_issuance(),
+			dot_inactive_before,
+			"DOT inactive restored",
+		);
+		assert_eq!(
+			Balances::active_issuance(),
+			dot_active_before,
+			"DOT active restored",
+		);
+		// And PGAS total is unchanged across the lifecycle.
+		assert_eq!(
+			<Assets as FungiblesInspect<_>>::total_issuance(PGAS_ASSET_ID),
+			pgas_total_before,
+			"PGAS total restored",
+		);
+	});
+}
+
+/// The minted DOT ED is not extractable: a contract can't transfer its native balance
+/// down to zero while it has a system consumer pin. Trying drops to a graceful
+/// `TransferFailed` return code rather than violating the consumer invariant.
+#[test]
+fn contract_native_ed_is_not_extractable_via_transfer_hostcall() {
+	let (binary, _hash) = compile_module("call_return_code").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let dot_ed = <Test as Config>::Currency::minimum_balance();
+
+		// Instantiate with no extra value beyond the minted ED.
+		let contract =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+		assert_eq!(<Test as Config>::Currency::free_balance(&contract.account_id), dot_ed);
+
+		// Try to transfer the contract's full native balance (`dot_ed`) to ALICE. The
+		// transfer hostcall uses `Preservation::Preserve`, which requires the source
+		// account to keep at least the ED. The call returns `TransferFailed` rather
+		// than draining the contract.
+		let value = Pallet::<Test>::convert_native_to_evm(dot_ed);
+		let result = builder::bare_call(contract.addr)
+			.data(
+				AsRef::<[u8]>::as_ref(&ALICE_ADDR)
+					.iter()
+					.chain(&value.to_little_endian())
+					.cloned()
+					.collect(),
+			)
+			.build_and_unwrap_result();
+		assert_return_code!(result, RuntimeReturnCode::TransferFailed);
+		// The ED is still there.
+		assert_eq!(<Test as Config>::Currency::free_balance(&contract.account_id), dot_ed);
+	});
+}
+
 /// A PGAS-only origin (no DOT) can trigger a contract-to-new-account transfer.
 ///
 /// Without the fix in `exec.rs::transfer`, this would fail with `StorageDepositNotEnoughFunds`
@@ -1416,6 +1588,233 @@ fn pgas_origin_can_fund_ed_for_transfer_to_new_account() {
 		});
 }
 
+/// When the recipient of a contract→EOA transfer is fresh and the requested value is
+/// below the native ED, the call returns `TransferFailed` and the entire `with_transaction`
+/// rolls back: origin's PGAS is unchanged, and DJANGO has no PGAS asset account either.
+///
+/// This is the user-visible expression of the dust caveat documented on `Stack::transfer`:
+/// the PGAS branch only brings the destination into existence as a PGAS asset account,
+/// not as a native account, so a sub-ED native transfer cannot land a sub-ED amount on
+/// a fresh native account. The contract sees this as `TransferFailed`. Contracts that
+/// want to deliver sub-ED amounts to EOAs must transfer at least the native ED.
+#[test]
+fn pgas_origin_sub_ed_native_transfer_to_fresh_eoa_returns_transfer_failed() {
+	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
+	ExtBuilder::default()
+		.existential_deposit(50)
+		.with_pgas_balances(vec![(BOB, 1_000)])
+		.build()
+		.execute_with(|| {
+			let min_balance = Contracts::min_balance();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000 * min_balance);
+
+			let contract = builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(min_balance * 100)
+				.build_and_unwrap_contract();
+
+			// BOB has PGAS but no DOT.
+			assert_eq!(get_balance(&BOB), 0);
+			let bob_pgas_before = 1_000;
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_pgas_before);
+
+			let half_ed = min_balance / 2;
+			let value = Pallet::<Test>::convert_native_to_evm(half_ed);
+			let result = builder::bare_call(contract.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&value.to_little_endian())
+						.cloned()
+						.collect(),
+				)
+				.origin(RuntimeOrigin::signed(BOB))
+				.build_and_unwrap_result();
+
+			// The inner transfer fails; the contract's `call_return_code` fixture catches
+			// the error and returns `TransferFailed`.
+			assert_return_code!(result, RuntimeReturnCode::TransferFailed);
+
+			// `with_transaction` in `Stack::transfer` rolled the PGAS charge back, so
+			// neither side moved.
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_pgas_before);
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &DJANGO), 0);
+			assert_eq!(get_balance(&DJANGO), 0);
+		});
+}
+
+/// Counterpart: when the same contract→EOA transfer carries at least the native ED,
+/// DJANGO's native account is created normally and receives the value. Origin still pays
+/// only the PGAS ED for account creation.
+#[test]
+fn pgas_origin_above_ed_native_transfer_to_fresh_eoa_creates_native_account() {
+	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
+	ExtBuilder::default()
+		.existential_deposit(50)
+		.with_pgas_balances(vec![(BOB, 1_000)])
+		.build()
+		.execute_with(|| {
+			let min_balance = Contracts::min_balance();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000 * min_balance);
+
+			let contract = builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(min_balance * 100)
+				.build_and_unwrap_contract();
+
+			let bob_pgas_before = 1_000;
+			let value_native = min_balance + 7;
+			let value = Pallet::<Test>::convert_native_to_evm(value_native);
+			let result = builder::bare_call(contract.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&value.to_little_endian())
+						.cloned()
+						.collect(),
+				)
+				.origin(RuntimeOrigin::signed(BOB))
+				.build_and_unwrap_result();
+
+			assert_return_code!(result, RuntimeReturnCode::Success);
+			// DJANGO got the full native amount (no dust since value >= native ED).
+			assert_eq!(get_balance(&DJANGO), value_native);
+			// BOB still pays only one PGAS ED for the account-creation step.
+			let pgas_ed = 1u128;
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_pgas_before - pgas_ed);
+		});
+}
+
+/// When the recipient is another live contract (which always has both EDs minted), the
+/// transfer is short-circuited: `account_exists(to)` is already true so no `charge_ed`
+/// runs and the origin's PGAS is untouched. Sub-ED transfers between contracts work
+/// exactly because of this.
+#[test]
+fn contract_to_contract_sub_ed_transfer_does_not_charge_ed() {
+	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
+	let (callee_code, _callee_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default()
+		.existential_deposit(50)
+		.with_pgas_balances(vec![(BOB, 1_000)])
+		.build()
+		.execute_with(|| {
+			let min_balance = Contracts::min_balance();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000 * min_balance);
+
+			let caller = builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(min_balance * 100)
+				.build_and_unwrap_contract();
+			let callee = builder::bare_instantiate(Code::Upload(callee_code))
+				.build_and_unwrap_contract();
+
+			let bob_pgas_before = Assets::balance(PGAS_ASSET_ID, &BOB);
+			let callee_dot_before = get_balance(&callee.account_id);
+
+			// Sub-ED transfer (1 DOT, well below ED of 50) from caller contract to
+			// callee contract. The callee's account already exists with both EDs, so
+			// the transfer just delivers 1 DOT to it. No PGAS is debited from BOB.
+			let value = Pallet::<Test>::convert_native_to_evm(1u128);
+			let result = builder::bare_call(caller.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&callee.addr)
+						.iter()
+						.chain(&value.to_little_endian())
+						.cloned()
+						.collect(),
+				)
+				.origin(RuntimeOrigin::signed(BOB))
+				.build_and_unwrap_result();
+
+			assert_return_code!(result, RuntimeReturnCode::Success);
+			assert_eq!(get_balance(&callee.account_id), callee_dot_before + 1);
+			assert_eq!(
+				Assets::balance(PGAS_ASSET_ID, &BOB),
+				bob_pgas_before,
+				"contract→contract transfer should not draw any ED from origin's PGAS",
+			);
+		});
+}
+
+/// When the origin has neither sufficient PGAS nor sufficient DOT to fund the destination's
+/// ED, `charge_ed` fails and the failure traps the call: the outer `bare_call` returns
+/// `StorageDepositNotEnoughFunds` (rather than the contract gracefully catching a
+/// `TransferFailed` code).
+#[test]
+fn no_funds_origin_cannot_fund_ed_for_fresh_eoa() {
+	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let min_balance = Contracts::min_balance();
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000 * min_balance);
+		// BOB has nothing — neither DOT nor PGAS.
+		assert_eq!(get_balance(&BOB), 0);
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), 0);
+
+		let contract = builder::bare_instantiate(Code::Upload(caller_code))
+			.native_value(min_balance * 100)
+			.build_and_unwrap_contract();
+
+		let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+		let result = builder::bare_call(contract.addr)
+			.data(
+				AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+					.iter()
+					.chain(&value.to_little_endian())
+					.cloned()
+					.collect(),
+			)
+			.origin(RuntimeOrigin::signed(BOB))
+			.build();
+		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
+
+		// DJANGO was never created — the entire `with_transaction` rolled back.
+		assert!(!frame_system::Pallet::<Test>::account_exists(
+			&<Test as Config>::AddressMapper::to_account_id(&DJANGO_ADDR)
+		));
+	});
+}
+
+/// When the origin has both DOT and PGAS, `charge_ed` prefers PGAS (cheaper, and aligned
+/// with the PGAS-first policy). The DOT side is left alone.
+#[test]
+fn pgas_charge_preferred_when_origin_has_both() {
+	let (caller_code, _caller_hash) = compile_module("call_return_code").unwrap();
+	ExtBuilder::default()
+		.existential_deposit(50)
+		.with_pgas_balances(vec![(BOB, 1_000)])
+		.build()
+		.execute_with(|| {
+			let min_balance = Contracts::min_balance();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000 * min_balance);
+			// BOB has both DOT and PGAS now.
+			let _ = <Test as Config>::Currency::set_balance(&BOB, 10_000);
+
+			let contract = builder::bare_instantiate(Code::Upload(caller_code))
+				.native_value(min_balance * 100)
+				.build_and_unwrap_contract();
+
+			let bob_dot_before = get_balance(&BOB);
+			let bob_pgas_before = Assets::balance(PGAS_ASSET_ID, &BOB);
+
+			let value = Pallet::<Test>::convert_native_to_evm(min_balance);
+			let result = builder::bare_call(contract.addr)
+				.data(
+					AsRef::<[u8]>::as_ref(&DJANGO_ADDR)
+						.iter()
+						.chain(&value.to_little_endian())
+						.cloned()
+						.collect(),
+				)
+				.origin(RuntimeOrigin::signed(BOB))
+				.build_and_unwrap_result();
+			assert_return_code!(result, RuntimeReturnCode::Success);
+
+			// PGAS side paid for the ED. DOT side is untouched (apart from any
+			// gas-related accounting that would also be in the test mock — but in
+			// `bare_call` paths there is none).
+			let pgas_ed = 1u128;
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), bob_pgas_before - pgas_ed);
+			assert_eq!(get_balance(&BOB), bob_dot_before);
+		});
+}
+
 #[test]
 fn instantiate_return_code() {
 	let (caller_code, _caller_hash) = compile_module("instantiate_return_code").unwrap();
@@ -1432,13 +1831,17 @@ fn instantiate_return_code() {
 			.native_value(min_balance * 100)
 			.build_and_unwrap_contract();
 
-		// bob cannot pay the ED to create the contract as he has no money
-		// this traps the caller rather than returning an error
+		// BOB has no money. The contract account's ED is now minted for free at instantiate
+		// time (and burned at termination), so BOB doesn't need to pay it; only storage
+		// deposits and value transfers go through origin's funds. The caller contract has
+		// only `min_balance * 100`, but the inner instantiate asks to transfer
+		// 10_000_000_000 — which fails. The fixture catches that and returns
+		// `TransferFailed` rather than trapping.
 		let result = builder::bare_call(contract.addr)
 			.data(callee_hash.iter().chain(&0u32.to_le_bytes()).cloned().collect())
 			.origin(RuntimeOrigin::signed(BOB))
-			.build();
-		assert_err!(result.result, <Error<Test>>::StorageDepositNotEnoughFunds);
+			.build_and_unwrap_result();
+		assert_return_code!(result, RuntimeReturnCode::TransferFailed);
 
 		// Contract has only the minimal balance so any transfer will fail.
 		<Test as Config>::Currency::set_balance(&contract.account_id, min_balance);
@@ -2177,12 +2580,23 @@ fn instantiate_with_zero_balance_works() {
 					}),
 					topics: vec![],
 				},
+				// Native ED is now minted into the contract for free instead of being
+				// transferred from origin.
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: account_id.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				// And the PGAS ED also lands on the contract (free-mint into the asset).
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: account_id.clone(),
+						amount: 1,
 					}),
 					topics: vec![],
 				},
@@ -2266,12 +2680,23 @@ fn instantiate_with_below_existential_deposit_works() {
 					}),
 					topics: vec![],
 				},
+				// Native ED is now minted into the contract (deactivated) instead of being
+				// transferred from origin.
 				EventRecord {
 					phase: Phase::Initialization,
-					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
-						from: ALICE,
-						to: account_id.clone(),
+					event: RuntimeEvent::Balances(pallet_balances::Event::Minted {
+						who: account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				// Plus the PGAS ED minted into the contract's PGAS asset account.
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
+						asset_id: PGAS_ASSET_ID,
+						owner: account_id.clone(),
+						amount: 1,
 					}),
 					topics: vec![],
 				},
@@ -2775,14 +3200,17 @@ fn deposit_limit_in_nested_instantiate() {
 		//
 		// - callee_info_len + 2 for storing the new contract info
 		// - the deposit for depending on a code hash
-		// - ED for deployed contract account
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
 		// - 48 for the key
+		//
+		// Note: the contract's native ED is *not* part of this anymore. With the new mint
+		// scheme, the ED is minted into the contract for free at creation (and burned at
+		// termination), so it never lands on origin's deposit budget.
 		let callee_min_deposit = {
 			let callee_info_len =
 				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u128;
 			let code_deposit = lockup_deposit(&code_hash_callee);
-			callee_info_len + code_deposit + 2 + ED + 2 + 48
+			callee_info_len + code_deposit + 2 + 2 + 48
 		};
 
 		// The parent just stores an item of the passed size so at least
@@ -4945,9 +5373,13 @@ fn storage_deposit_from_hold_works() {
 			get_balance_on_hold(&HoldReason::StorageDepositReserve.into(), &account),
 			base_deposit,
 		);
+		// Note: the contract's native ED is no longer drawn from the txfee pool. With the new
+		// mint scheme, the ED is minted into the contract for free at instantiate (and burned
+		// at termination), so it never lands on origin's deposit budget — including for
+		// eth-tx flows that use `collect_deposit_from_hold`.
 		assert_eq!(
 			<Test as Config>::FeeInfo::remaining_txfee(),
-			hold_initial - base_deposit - code_deposit - ed,
+			hold_initial - base_deposit - code_deposit,
 		);
 	});
 }
