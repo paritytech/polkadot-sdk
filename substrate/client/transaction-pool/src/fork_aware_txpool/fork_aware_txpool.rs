@@ -285,6 +285,7 @@ where
 			mempool.clone(),
 			view_store.clone(),
 			import_notification_sink.clone(),
+			Default::default(),
 		);
 
 		let combined_tasks = async move {
@@ -342,6 +343,7 @@ where
 			Block::Hash,
 			ExtrinsicHash<ChainApi>,
 		>,
+		metrics: PrometheusMetrics,
 	) {
 		let dropped_stats = DurationSlidingStats::new(Duration::from_secs(STAT_SLIDING_WINDOW));
 		loop {
@@ -357,7 +359,7 @@ where
 				reason = ?dropped.reason,
 				"fatp::dropped notification, removing"
 			);
-			match dropped.reason {
+			let removal_reason = match dropped.reason {
 				DroppedReason::Usurped(new_tx_hash) => {
 					if let Some(new_tx) = mempool.get_by_hash(new_tx_hash).await {
 						view_store.replace_transaction(new_tx.source(), new_tx.tx(), tx_hash).await;
@@ -368,13 +370,29 @@ where
 							"error: dropped_monitor_task: no entry in mempool for new transaction"
 						);
 					};
+					RemovalReason::DroppedUsurped
 				},
-				DroppedReason::LimitsEnforced | DroppedReason::Invalid => {
+				DroppedReason::LimitsEnforced => {
 					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+					RemovalReason::DroppedLimits
+				},
+				DroppedReason::Invalid => {
+					view_store.remove_transaction_subtree(tx_hash, |_, _| {});
+					RemovalReason::DroppedInvalid
 				},
 			};
 
-			mempool.remove_transactions(&[tx_hash]).await;
+			let removed = mempool.remove_transactions(&[tx_hash]).await;
+			let removed_at = Instant::now();
+			for tx in &removed {
+				let tx_source = tx.source();
+				if let Some(submitted_at) = tx_source.timestamp {
+					let age = removed_at.saturating_duration_since(submitted_at);
+					metrics.report(|m| {
+						m.tx_age_at_removal.observe(removal_reason, tx_source.source, age)
+					});
+				}
+			}
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
 			insert_and_log_throttled!(
@@ -438,6 +456,7 @@ where
 			mempool.clone(),
 			view_store.clone(),
 			import_notification_sink.clone(),
+			metrics.clone(),
 		);
 
 		let combined_tasks = async move {

@@ -607,12 +607,25 @@ where
 	}
 
 	/// Removes transactions with given hashes from the memory pool.
-	pub(super) async fn remove_transactions(&self, tx_hashes: &[ExtrinsicHash<ChainApi>]) {
+	///
+	/// Returns the list of transactions that were actually removed (a hash that was not present
+	/// in the pool yields no entry in the returned vector). Callers that know the cause of the
+	/// removal should pass the returned slice to
+	/// [`TxAgeAtRemovalHistogram::observe_batch`] so the residence time of each removed
+	/// transaction is recorded on the `tx_age_at_removal_seconds` histogram.
+	pub(super) async fn remove_transactions(
+		&self,
+		tx_hashes: &[ExtrinsicHash<ChainApi>],
+	) -> Vec<Arc<TxInMemPool<ChainApi, Block>>> {
 		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
 		let mut transactions = self.transactions.write().await;
+		let mut removed = Vec::with_capacity(tx_hashes.len());
 		for tx_hash in tx_hashes {
-			transactions.remove(tx_hash);
+			if let Some(tx) = transactions.remove(tx_hash) {
+				removed.push(tx);
+			}
 		}
+		removed
 	}
 
 	/// Revalidates a batch of transactions against the provided finalized block.
