@@ -250,10 +250,12 @@ where
 				info,
 				Zero::zero(),
 			);
+			// `Expendable`: PGAS is meant to be minted across many accounts per user, so
+			// allow fee withdrawal to dust the account once it drops below ED.
 			let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
 				T::PGASAssetId::get(),
 				&who,
-				Preservation::Preserve,
+				Preservation::Expendable,
 				Fortitude::Polite,
 			);
 			if pgas >= fee {
@@ -300,7 +302,7 @@ where
 					&who,
 					fee,
 					Precision::Exact,
-					Preservation::Preserve,
+					Preservation::Expendable,
 					Fortitude::Polite,
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
