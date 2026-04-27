@@ -1720,14 +1720,12 @@ where
 		origin: &Origin<T>,
 		args: &TerminateArgs<T>,
 	) -> Result<(), DispatchError> {
-		use frame_support::traits::fungible::InspectHold;
-
 		let contract_address = T::AddressMapper::to_address(contract_account);
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
-			let refund = T::Currency::balance_on_hold(
-				&HoldReason::StorageDepositReserve.into(),
+			let refund = T::Deposit::total_on_hold(
+				HoldReason::StorageDepositReserve,
 				&contract_account,
 			);
 			<Contracts<T>>::refund_deposit(
