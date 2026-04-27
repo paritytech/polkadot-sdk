@@ -21,8 +21,7 @@
 //!
 //! 1. Submit a ~7.9 MiB `System::remark_with_event` and assert it is rejected with
 //!    `InvalidTransaction::ExhaustsResources` (above the Normal-class cap).
-//! 2. Submit a 7 MiB `System::remark_with_event` and assert it is accepted, included in
-//!    a block.
+//! 2. Submit a 7 MiB `System::remark_with_event` and assert it is accepted, included in a block.
 
 use polkadot_test_service::*;
 use sc_client_api::BlockBackend;
@@ -89,8 +88,11 @@ async fn make_big_block() {
 			.header(hash)
 			.expect("header query must succeed")
 			.expect("header must exist");
-		let body =
-			alice.client.block_body(hash).expect("body query must succeed").unwrap_or_default();
+		let body = alice
+			.client
+			.block_body(hash)
+			.expect("body query must succeed")
+			.unwrap_or_default();
 
 		let size = header.encoded_size() + body.iter().map(Encode::encoded_size).sum::<usize>();
 		if size > max_block_size {
