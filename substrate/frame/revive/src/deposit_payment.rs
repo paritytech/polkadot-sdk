@@ -463,11 +463,6 @@ where
 	/// Bring a pre-existing contract up to the post-[`Self::mint_contract_eds`] invariant:
 	/// mint the PGAS ED into `contract`'s free balance if it is missing, then burn the native
 	/// hold under `reason` and replace it with the same amount of PGAS held on `contract`.
-	///
-	/// The hold is written directly via the holder pallet storage (no `pallet_assets::Account`
-	/// is created for it); the free PGAS ED provides that account entry instead. The PGAS
-	/// supply is bumped by exactly `amount + pgas_ed`; `burn_held` on refund/termination and
-	/// `burn_contract_eds` on destruction decrement it back.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
@@ -487,6 +482,7 @@ where
 		if amount.is_zero() {
 			return Ok(());
 		}
+
 		T::Currency::burn_held(
 			&reason.into(),
 			contract,
@@ -498,18 +494,19 @@ where
 			|err| log::debug!(target: LOG_TARGET, "Failed to burn held amount {amount:?}: {err:?}"),
 		)?;
 
-		let new_supply = <Mutator as fungibles::Inspect<T::AccountId>>::total_issuance(Id::get())
-			.saturating_add(amount);
-		<Mutator as fungibles::Unbalanced<T::AccountId>>::set_total_issuance(Id::get(), new_supply);
-		<Holder as fungibles::hold::Unbalanced<T::AccountId>>::increase_balance_on_hold(
+		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, amount)
+			.inspect_err(
+				|err| log::debug!(target: LOG_TARGET, "Failed to mint to {contract:?} amount: {amount:?}: {err:?}"),
+			)?;
+
+		<Holder as fungibles::MutateHold<T::AccountId>>::hold(
 			Id::get(),
 			&reason.into(),
 			contract,
 			amount,
-			Precision::Exact,
 		)
 		.inspect_err(
-			|err| log::debug!(target: LOG_TARGET, "Failed to hold amount: {amount:?}: {err:?}"),
+			|err| log::debug!(target: LOG_TARGET, "Failed to hold amount in {contract:?}: {amount:?}: {err:?}"),
 		)?;
 		Ok(())
 	}
@@ -557,18 +554,15 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 				DepositConsequence::Success
 			);
 			if can_credit {
-				<Holder as fungibles::hold::Unbalanced<T::AccountId>>::decrease_balance_on_hold(
+				<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
 					Id::get(),
 					&reason.into(),
 					from,
-					refund,
-					Precision::Exact,
-				)?;
-				<Mutator as fungibles::Unbalanced<T::AccountId>>::increase_balance(
-					Id::get(),
 					to,
 					refund,
 					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
 				)?;
 			} else {
 				burn = burn.saturating_add(refund);
