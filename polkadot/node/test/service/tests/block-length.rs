@@ -42,9 +42,9 @@ async fn relay_chain_accepts_extrinsic_above_legacy_normal_cap() {
 	let alice = run_validator_node(alice_config, None).await;
 
 	let remark = vec![0u8; REMARK_PAYLOAD_SIZE];
-	let call = polkadot_test_runtime::RuntimeCall::System(
-		frame_system::Call::remark_with_event { remark },
-	);
+	let call = polkadot_test_runtime::RuntimeCall::System(frame_system::Call::remark_with_event {
+		remark,
+	});
 
 	tokio::time::timeout(TEST_TIMEOUT, alice.send_extrinsic(call, Sr25519Keyring::Bob))
 		.await
