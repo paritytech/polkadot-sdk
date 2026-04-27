@@ -771,9 +771,22 @@ where
 		);
 		log_xt_trace!(target: LOG_TARGET, finalized_xts, "purged finalized transactions");
 		let mut transactions = self.transactions.write().await;
-		finalized_xts.iter().for_each(|t| {
-			transactions.remove(t);
-		});
+		let removed_at = Instant::now();
+		for tx_hash in finalized_xts {
+			if let Some(tx) = transactions.remove(tx_hash) {
+				if let Some(submitted_at) = tx.source.timestamp {
+					let age = removed_at.saturating_duration_since(submitted_at);
+					let source = tx.source.source;
+					self.metrics.report(|metrics| {
+						metrics.tx_age_at_removal.observe(
+							RemovalReason::Finalized,
+							source,
+							age,
+						);
+					});
+				}
+			}
+		}
 	}
 
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
