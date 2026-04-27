@@ -63,7 +63,8 @@ use crate::{
 };
 
 use super::{
-	metrics::MetricsLink as PrometheusMetrics, multi_view_listener::MultiViewListener,
+	metrics::{MetricsLink as PrometheusMetrics, RemovalReason},
+	multi_view_listener::MultiViewListener,
 	view_store::ViewStore,
 };
 
@@ -649,6 +650,7 @@ where
 		};
 
 		let validations_futures = to_be_validated.into_iter().map(|(xt_hash, xt)| {
+			let xt_source = xt.source.clone();
 			self.api
 				.validate_transaction(
 					finalized_block.hash,
@@ -659,7 +661,7 @@ where
 				.map(move |validation_result| {
 					xt.validated_at
 						.store(finalized_block.number.into().as_u64(), atomic::Ordering::Relaxed);
-					(xt_hash, validation_result)
+					(xt_hash, xt_source, validation_result)
 				})
 		});
 		let validation_results = futures::future::join_all(validations_futures).await;
@@ -668,7 +670,7 @@ where
 		let duration = start.elapsed();
 		let invalid_hashes = validation_results
 			.into_iter()
-			.filter_map(|(tx_hash, validation_result)| match validation_result {
+			.filter_map(|(tx_hash, tx_source, validation_result)| match validation_result {
 				Ok(Ok(_) | Err(TransactionValidityError::Invalid(InvalidTransaction::Future))) => {
 					None
 				},
@@ -679,7 +681,7 @@ where
 						?validation_result,
 						"mempool::revalidate_inner error during revalidation"
 					);
-					Some((tx_hash, InvalidTxReason::ValidationFailed(error.label())))
+					Some((tx_hash, tx_source, InvalidTxReason::ValidationFailed(error.label())))
 				},
 				Ok(Err(TransactionValidityError::Unknown(error))) => {
 					trace!(
@@ -688,7 +690,11 @@ where
 						?validation_result,
 						"mempool::revalidate_inner cannot determine transaction validity"
 					);
-					Some((tx_hash, InvalidTxReason::Unknown(error.as_ref().to_string())))
+					Some((
+						tx_hash,
+						tx_source,
+						InvalidTxReason::Unknown(error.as_ref().to_string()),
+					))
 				},
 				Ok(Err(TransactionValidityError::Invalid(error))) => {
 					trace!(
@@ -697,28 +703,44 @@ where
 						?validation_result,
 						"mempool::revalidate_inner transaction is invalid"
 					);
-					Some((tx_hash, InvalidTxReason::Invalid(error.as_ref().to_string())))
+					Some((
+						tx_hash,
+						tx_source,
+						InvalidTxReason::Invalid(error.as_ref().to_string()),
+					))
 				},
 			})
 			.collect::<Vec<_>>();
 
 		let mut invalid_hashes_subtrees = Vec::new();
 		// Include also subtree txs.
-		for (tx, reason) in &invalid_hashes {
+		for (tx, _, reason) in &invalid_hashes {
 			let txs_in_subtree = view_store
 				.remove_transaction_subtree(*tx, |_, _| {})
 				.into_iter()
-				.map(|tx| (tx.hash, InvalidTxReason::Subtree(reason.to_string())));
+				.map(|tx| {
+					let subtree_source = tx.source.clone();
+					(tx.hash, subtree_source, InvalidTxReason::Subtree(reason.to_string()))
+				});
 			invalid_hashes_subtrees.extend(txs_in_subtree);
 		}
 
 		let revalidated_invalid_hashes_len = invalid_hashes.len();
+		let now = Instant::now();
 		let invalid_hashes = invalid_hashes
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
-			.map(|(tx, reason)| {
-				self.metrics
-					.report(|metrics| metrics.mempool_revalidation_invalid_txs.observe(&reason, 1));
+			.map(|(tx, tx_source, reason)| {
+				self.metrics.report(|metrics| {
+					metrics.mempool_revalidation_invalid_txs.observe(&reason, 1);
+					if let Some(submitted_at) = tx_source.timestamp {
+						metrics.tx_age_at_removal.observe(
+							RemovalReason::InvalidRevalidationMempool,
+							tx_source.source,
+							now.saturating_duration_since(submitted_at),
+						);
+					}
+				});
 				tx
 			})
 			.collect::<HashSet<_>>();
