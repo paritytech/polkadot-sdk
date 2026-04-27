@@ -15,30 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod block;
-mod bytes;
-mod code;
-mod contract;
-mod receipt;
-mod state_overrides;
-mod storage;
-mod tracing_common;
-mod tracing_config;
-mod tracing_result;
-mod transaction;
-mod transaction_signed;
-mod transaction_unsigned;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use pallet_revive_proc_macro::define_versioned_type;
+use scale_info::TypeInfo;
 
-pub use block::*;
-pub use bytes::*;
-pub use code::*;
-pub use contract::*;
-pub use receipt::*;
-pub use state_overrides::*;
-pub use storage::*;
-pub use tracing_common::*;
-pub use tracing_config::*;
-pub use tracing_result::*;
-pub use transaction::*;
-pub use transaction_signed::*;
-pub use transaction_unsigned::*;
+define_versioned_type! {
+	/// Version 1 of a contract storage key.
+	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub enum StorageKeyV1 {
+		/// A fixed-size contract storage key.
+		Fixed([u8; 32]),
+		/// A variable-size contract storage key.
+		Variable(Vec<u8>),
+	}
+}

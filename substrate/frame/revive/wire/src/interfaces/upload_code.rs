@@ -15,30 +15,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod block;
-mod bytes;
-mod code;
-mod contract;
-mod receipt;
-mod state_overrides;
-mod storage;
-mod tracing_common;
-mod tracing_config;
-mod tracing_result;
-mod transaction;
-mod transaction_signed;
-mod transaction_unsigned;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use pallet_revive_proc_macro::define_versioned_interface;
+use scale_info::TypeInfo;
 
-pub use block::*;
-pub use bytes::*;
-pub use code::*;
-pub use contract::*;
-pub use receipt::*;
-pub use state_overrides::*;
-pub use storage::*;
-pub use tracing_common::*;
-pub use tracing_config::*;
-pub use tracing_result::*;
-pub use transaction::*;
-pub use transaction_signed::*;
-pub use transaction_unsigned::*;
+use crate::CodeUploadReturnValueV1;
+
+define_versioned_interface! {
+	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct UploadCodeVersionedInputPayloadV1<AccountId, Balance> {
+		pub origin: AccountId,
+		pub code: Vec<u8>,
+		pub storage_deposit_limit: Option<Balance>
+	}
+
+	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct UploadCodeVersionedOutputPayloadV1<Balance> {
+		pub return_value: CodeUploadReturnValueV1<Balance>
+	}
+}

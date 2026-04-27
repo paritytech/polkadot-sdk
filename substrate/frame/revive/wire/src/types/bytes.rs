@@ -78,6 +78,7 @@ macro_rules! impl_hex {
 }
 
 impl_hex!(Bytes, Vec<u8>, Vec::new());
+impl_hex!(Byte, u8, 0u8);
 impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
@@ -113,6 +114,18 @@ trait HexCodec: Sized {
 
 	fn to_hex(&self) -> String;
 	fn from_hex(value: String) -> Result<Self, Self::Error>;
+}
+
+impl HexCodec for u8 {
+	type Error = core::num::ParseIntError;
+
+	fn to_hex(&self) -> String {
+		format!("0x{self:x}")
+	}
+
+	fn from_hex(value: String) -> Result<Self, Self::Error> {
+		u8::from_str_radix(value.trim_start_matches("0x"), 16)
+	}
 }
 
 impl<const N: usize> HexCodec for [u8; N] {

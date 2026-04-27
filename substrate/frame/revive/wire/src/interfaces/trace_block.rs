@@ -15,30 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod block;
-mod bytes;
-mod code;
-mod contract;
-mod receipt;
-mod state_overrides;
-mod storage;
-mod tracing_common;
-mod tracing_config;
-mod tracing_result;
-mod transaction;
-mod transaction_signed;
-mod transaction_unsigned;
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use pallet_revive_proc_macro::define_versioned_interface;
+use scale_info::TypeInfo;
 
-pub use block::*;
-pub use bytes::*;
-pub use code::*;
-pub use contract::*;
-pub use receipt::*;
-pub use state_overrides::*;
-pub use storage::*;
-pub use tracing_common::*;
-pub use tracing_config::*;
-pub use tracing_result::*;
-pub use transaction::*;
-pub use transaction_signed::*;
-pub use transaction_unsigned::*;
+use crate::{BlockV1, IndexedTraceV1, TracerTypeV1};
+
+define_versioned_interface! {
+	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct TraceBlockVersionedInputPayloadV1 {
+		/// Block to trace.
+		pub block: BlockV1,
+		/// Tracer configuration to use.
+		pub config: TracerTypeV1
+	}
+
+	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct TraceBlockVersionedOutputPayloadV1 {
+		/// Traces keyed by their transaction index.
+		pub traces: Vec<IndexedTraceV1>
+	}
+}

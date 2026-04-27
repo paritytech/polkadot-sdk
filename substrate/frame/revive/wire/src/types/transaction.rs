@@ -15,13 +15,131 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::transaction_signed::TransactionSignedV1;
+use super::{
+	bytes::{Byte, Bytes},
+	transaction_signed::TransactionSignedV1,
+};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use ethereum_types::{Address, H256, U256};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+
+define_versioned_type! {
+	/// Version 1 of transaction input data accepted under either `input` or `data`.
+	#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct InputOrDataV1 {
+		/// Transaction call data encoded under the preferred `input` key.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		input: Option<Bytes>,
+		/// Transaction call data encoded under the legacy `data` key.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		data: Option<Bytes>,
+	}
+}
+
+impl From<Bytes> for InputOrDataV1 {
+	fn from(value: Bytes) -> Self {
+		Self { input: Some(value), data: None }
+	}
+}
+
+impl From<Vec<u8>> for InputOrDataV1 {
+	fn from(value: Vec<u8>) -> Self {
+		Self { input: Some(Bytes(value)), data: None }
+	}
+}
+
+impl InputOrDataV1 {
+	/// Converts the transaction call data into its hex byte wrapper.
+	pub fn to_bytes(self) -> Bytes {
+		match self {
+			Self { input: Some(input), data: _ } => input,
+			Self { input: None, data: Some(data) } => data,
+			Self { input: None, data: None } => Default::default(),
+		}
+	}
+
+	/// Converts the transaction call data into raw bytes.
+	pub fn to_vec(self) -> Vec<u8> {
+		self.to_bytes().0
+	}
+}
+
+/// Deserializes `input` and `data` aliases while rejecting conflicting values.
+fn deserialize_input_or_data<'de, D>(deserializer: D) -> Result<InputOrDataV1, D::Error>
+where
+	D: Deserializer<'de>,
+{
+	let value = InputOrDataV1::deserialize(deserializer)?;
+	match &value {
+		InputOrDataV1 { input: Some(input), data: Some(data) } if input != data => {
+			Err(serde::de::Error::custom(
+				"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass \
+				transaction call data",
+			))
+		},
+		InputOrDataV1 { input: _, data: _ } => Ok(value),
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of a transaction object generic to all Ethereum transaction types.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(rename_all = "camelCase")]
+	pub struct GenericTransactionV1 {
+		/// EIP-2930 access list.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub access_list: Option<Vec<AccessListEntryV1>>,
+		/// List of account code authorizations for EIP-7702.
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
+		pub authorization_list: Vec<AuthorizationListEntryV1>,
+		/// Versioned blob hashes for EIP-4844 data blobs.
+		#[serde(default)]
+		pub blob_versioned_hashes: Vec<H256>,
+		/// Raw EIP-4844 blob data.
+		#[serde(default, skip_serializing_if = "Vec::is_empty")]
+		pub blobs: Vec<Bytes>,
+		/// Chain ID that this transaction is valid on.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub chain_id: Option<U256>,
+		/// Sender address.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub from: Option<Address>,
+		/// Gas limit.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub gas: Option<U256>,
+		/// Gas price willing to be paid by the sender.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub gas_price: Option<U256>,
+		/// Transaction call data.
+		#[serde(flatten, deserialize_with = "deserialize_input_or_data")]
+		pub input: InputOrDataV1,
+		/// Maximum total fee per blob gas.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub max_fee_per_blob_gas: Option<U256>,
+		/// Maximum total fee per gas.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub max_fee_per_gas: Option<U256>,
+		/// Maximum priority fee per gas.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub max_priority_fee_per_gas: Option<U256>,
+		/// Transaction nonce.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub nonce: Option<U256>,
+		/// Destination address.
+		pub to: Option<Address>,
+		/// Transaction type.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub r#type: Option<Byte>,
+		/// Transferred value.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub value: Option<U256>,
+	}
+}
 
 define_versioned_type! {
 	/// Version 1 of block transactions represented as hashes or full transaction objects.
@@ -135,8 +253,46 @@ define_versioned_type! {
 
 #[cfg(test)]
 mod tests {
+	use alloc::{string::ToString, vec};
+
 	use super::*;
 	use crate::types::{TransactionSignedV1, TypeEip1559V1};
+
+	#[test]
+	fn generic_transaction_deserializes_input_and_data_aliases() {
+		// Arrange
+		let cases = [
+			("with input", r#"{"input": "0x01"}"#),
+			("with data", r#"{"data": "0x01"}"#),
+			("with both", r#"{"data": "0x01", "input": "0x01"}"#),
+		];
+
+		// Act
+		let transactions = cases
+			.into_iter()
+			.map(|(_, json)| serde_json::from_str::<GenericTransactionV1>(json).unwrap())
+			.collect::<Vec<_>>();
+
+		// Assert
+		for transaction in transactions {
+			assert_eq!(transaction.input.to_vec(), vec![1u8]);
+		}
+	}
+
+	#[test]
+	fn generic_transaction_rejects_conflicting_input_and_data_aliases() {
+		// Arrange
+		let json = r#"{"data": "0x02", "input": "0x01"}"#;
+
+		// Act
+		let error = serde_json::from_str::<GenericTransactionV1>(json).unwrap_err();
+
+		// Assert
+		assert!(error.to_string().starts_with(
+			"Both \"data\" and \"input\" are set and not equal. Please use \"input\" to pass \
+			 transaction call data"
+		));
+	}
 
 	#[test]
 	fn derived_deserialize_handles_full_transaction_infos_from_value() {

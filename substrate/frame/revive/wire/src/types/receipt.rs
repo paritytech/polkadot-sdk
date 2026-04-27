@@ -15,30 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-mod block;
-mod bytes;
-mod code;
-mod contract;
-mod receipt;
-mod state_overrides;
-mod storage;
-mod tracing_common;
-mod tracing_config;
-mod tracing_result;
-mod transaction;
-mod transaction_signed;
-mod transaction_unsigned;
+use codec::{Decode, Encode};
+use ethereum_types::U256;
+use pallet_revive_proc_macro::define_versioned_type;
+use scale_info::TypeInfo;
 
-pub use block::*;
-pub use bytes::*;
-pub use code::*;
-pub use contract::*;
-pub use receipt::*;
-pub use state_overrides::*;
-pub use storage::*;
-pub use tracing_common::*;
-pub use tracing_config::*;
-pub use tracing_result::*;
-pub use transaction::*;
-pub use transaction_signed::*;
-pub use transaction_unsigned::*;
+define_versioned_type! {
+	/// Version 1 of the gas data needed to reconstruct an Ethereum receipt.
+	#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct ReceiptGasInfoV1 {
+		/// The amount of gas used by one transaction.
+		pub gas_used: U256,
+		/// The effective gas price paid by one transaction.
+		pub effective_gas_price: U256,
+	}
+}

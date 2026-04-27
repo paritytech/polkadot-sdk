@@ -14296,6 +14296,8 @@ dependencies = [
  "scale-info",
  "serde",
  "serde_json",
+ "sp-runtime 31.0.1",
+ "sp-weights 27.0.0",
 ]
 
 [[package]]

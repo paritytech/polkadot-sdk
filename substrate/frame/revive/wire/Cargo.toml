@@ -21,6 +21,8 @@ ethereum-types = { features = ["codec", "serialize"], workspace = true }
 pallet-revive-proc-macro = { workspace = true, default-features = false }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
+sp-runtime = { workspace = true }
+sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 serde_json = { features = ["alloc"], workspace = true }
@@ -34,4 +36,6 @@ std = [
 	"pallet-revive-proc-macro/std",
 	"scale-info/std",
 	"serde/std",
+	"sp-runtime/std",
+	"sp-weights/std",
 ]
