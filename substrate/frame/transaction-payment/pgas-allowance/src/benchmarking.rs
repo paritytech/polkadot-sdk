@@ -81,12 +81,18 @@ mod benchmarks {
 		assert!(remaining < initial, "PGAS should be charged on the PGAS path");
 	}
 
-	/// Skip path: caller holds no PGAS so the extension falls through to the inner extension.
-	/// Measures the overhead of the PGAS preamble (origin, filter, balance read) when the path
-	/// is ultimately skipped.
+	/// Skip path: caller holds some PGAS but not enough to cover the fee, so the extension falls
+	/// through to the inner extension. Measures the overhead of the PGAS preamble (origin, filter,
+	/// balance read) when the path is ultimately skipped.
 	#[benchmark]
 	fn charge_pgas_skip() {
 		let caller: T::AccountId = account("caller", 0, 0);
+		// Mint the asset's minimum balance so the caller has an `Assets::Account` entry.
+		// Without one, `reducible_balance` returns early before reading the freezer storage,
+		// so the worst-case storage path on the skip branch wouldn't be captured.
+		let min_balance =
+			<T::Assets as fungibles::Inspect<T::AccountId>>::minimum_balance(T::PGASAssetId::get());
+		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), min_balance);
 
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
 		let call: T::RuntimeCall = frame_system::Call::<T>::remark { remark: alloc::vec![] }.into();

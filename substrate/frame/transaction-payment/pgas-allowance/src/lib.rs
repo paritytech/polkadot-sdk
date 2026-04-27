@@ -27,6 +27,8 @@
 
 extern crate alloc;
 
+const LOG_TARGET: &str = "runtime::pgas-allowance";
+
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, DispatchResult, PostDispatchInfo},
@@ -46,7 +48,7 @@ use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_runtime::{
 	traits::{
 		AsSystemOriginSigner, DispatchInfoOf, Dispatchable, Implication, PostDispatchInfoOf,
-		TransactionExtension, ValidateResult, Zero,
+		RefundWeight, TransactionExtension, ValidateResult, Zero,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError, ValidTransaction},
 };
@@ -248,10 +250,12 @@ where
 				info,
 				Zero::zero(),
 			);
+			// `Expendable`: PGAS is meant to be minted across many accounts per user, so
+			// allow fee withdrawal to dust the account once it drops below ED.
 			let pgas = <T::Assets as fungibles::Inspect<T::AccountId>>::reducible_balance(
 				T::PGASAssetId::get(),
 				&who,
-				Preservation::Preserve,
+				Preservation::Expendable,
 				Fortitude::Polite,
 			);
 			if pgas >= fee {
@@ -298,7 +302,7 @@ where
 					&who,
 					fee,
 					Precision::Exact,
-					Preservation::Preserve,
+					Preservation::Expendable,
 					Fortitude::Polite,
 				)
 				.map_err(|_| InvalidTransaction::Payment)?;
@@ -339,27 +343,36 @@ where
 	) -> Result<Weight, TransactionValidityError> {
 		match pre {
 			Pre::PGAS { who, credit, weight_refund } => {
+				let mut actual_post_info = *post_info;
+				actual_post_info.refund(weight_refund);
 				let actual_fee = pallet_transaction_payment::Pallet::<T>::compute_actual_fee(
 					len as u32,
 					info,
-					post_info,
+					&actual_post_info,
 					Zero::zero(),
 				);
 
 				// Split the reserved credit into the consumed portion (dropped below to burn)
 				// and the refund owed back to `who`.
+				let reserved = credit.peek();
 				let (consumed, fee_refund) = credit.split(actual_fee);
-				if !fee_refund.peek().is_zero() {
-					// Resolve the refund back to `who`.
-					if let Err(fee_refund) =
-						<T::Assets as fungibles::Balanced<T::AccountId>>::resolve(&who, fee_refund)
-					{
-						// Resolve can fail if `who` was reaped between `prepare` and here;
-						// merge the refund back into `consumed` so it is burned with the rest.
-						let _ = consumed.merge(fee_refund);
+				// Equals `actual_fee` on the happy path; if the refund cannot be returned to
+				// `who` we burn the full reserved amount and report it.
+				let burned = if fee_refund.peek().is_zero() {
+					actual_fee
+				} else {
+					match <T::Assets as fungibles::Balanced<T::AccountId>>::resolve(
+						&who, fee_refund,
+					) {
+						Ok(()) => actual_fee,
+						Err(fee_refund) => {
+							log::debug!(target: LOG_TARGET, "PGAS fee refund to {who:?} failed; burning full reserved fee {reserved:?}");
+							let _ = consumed.merge(fee_refund);
+							reserved
+						},
 					}
-				}
-				Pallet::<T>::deposit_event(Event::PGASFeePaid { who, actual_fee });
+				};
+				Pallet::<T>::deposit_event(Event::PGASFeePaid { who, actual_fee: burned });
 				Ok(weight_refund)
 			},
 			Pre::Inner { inner, extra_refund } => {
