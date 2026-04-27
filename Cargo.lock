@@ -10719,8 +10719,7 @@ dependencies = [
 [[package]]
 name = "litep2p"
 version = "0.13.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbf3924cf539a761465543592b34c4198d60db2cda16594769edd43451e5ab41"
+source = "git+https://github.com/paritytech/litep2p.git?branch=lexnv/addr-store#186df09b283043d1a8a98c78ea27aa1e306c372a"
 dependencies = [
  "async-trait",
  "bs58",
