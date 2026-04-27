@@ -133,7 +133,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		assert_expected_statements_received(sub, &expected_encoded, 60, name).await?;
+		assert_statements_match(sub, &expected_encoded, 60, name).await?;
 	}
 
 	for (name, sub) in [
@@ -896,7 +896,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		assert_expected_statements_received(sub, &expected_encoded, 600, name).await?;
+		assert_statements_match(sub, &expected_encoded, 600, name).await?;
 		assert_no_more_statements(sub, 10).await?;
 	}
 	let elapsed = SystemTime::now()
@@ -923,7 +923,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		("charlie", &mut charlie_fresh),
 		("dave", &mut dave_fresh),
 	] {
-		assert_expected_statements_received(sub, &persistent_encoded, 120, name).await?;
+		assert_statements_match(sub, &persistent_encoded, 120, name).await?;
 		assert_no_more_statements(sub, 10).await?;
 	}
 
