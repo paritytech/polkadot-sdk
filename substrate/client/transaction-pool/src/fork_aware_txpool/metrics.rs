@@ -27,7 +27,7 @@ use crate::{
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
 	exponential_buckets, histogram_opts, linear_buckets, register, Counter, CounterVec, Gauge,
-	Histogram, Opts, PrometheusError, Registry, U64,
+	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
@@ -85,6 +85,13 @@ pub struct Metrics {
 	pub non_cloned_views: Counter<U64>,
 	/// Histograms to track the timing distribution of individual transaction pool events.
 	pub events_histograms: EventsHistograms,
+	/// Histogram of transaction age (residence time in the pool) at the moment a
+	/// transaction is removed, broken down by `reason` and `source`.
+	///
+	/// This metric is the main observability tool for detecting stuck transactions
+	/// in the fork-aware pool: spikes in the high-age buckets per `reason` indicate
+	/// transactions that lingered in the pool before leaving (see issue #7791).
+	pub tx_age_at_removal: TxAgeAtRemovalHistogram,
 }
 
 /// Represents a collection of histogram timings for different transaction statuses.
@@ -325,6 +332,102 @@ impl MempoolInvalidTxReasonCounter {
 	}
 }
 
+/// Reason why a transaction was removed from the pool.
+///
+/// Used as a Prometheus label on the [`TxAgeAtRemovalHistogram`] metric, so the
+/// variants are mapped to short snake_case strings via [`Self::as_str`].
+#[derive(Clone, Copy, Debug)]
+pub enum RemovalReason {
+	/// Transaction was finalized in a block.
+	Finalized,
+	/// Transaction was found invalid during mempool revalidation.
+	InvalidRevalidationMempool,
+	/// Transaction was found invalid during view revalidation.
+	InvalidRevalidationView,
+	/// Transaction was reported as invalid via the `report_invalid` API.
+	InvalidReported,
+	/// Transaction was dropped because it was usurped by another (higher-priority) one.
+	DroppedUsurped,
+	/// Transaction was dropped because the pool's size limits were enforced.
+	DroppedLimits,
+	/// Transaction was dropped because the view marked it as invalid.
+	DroppedInvalid,
+	/// Transaction reached the configured finality timeout without being finalized.
+	FinalityTimeout,
+	/// Transaction came in via block import but was unknown to the pool.
+	BlockImportUnknown,
+}
+
+impl RemovalReason {
+	/// Returns the snake_case label used as the Prometheus `reason` label value.
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Self::Finalized => "finalized",
+			Self::InvalidRevalidationMempool => "invalid_revalidation_mempool",
+			Self::InvalidRevalidationView => "invalid_revalidation_view",
+			Self::InvalidReported => "invalid_reported",
+			Self::DroppedUsurped => "dropped_usurped",
+			Self::DroppedLimits => "dropped_limits",
+			Self::DroppedInvalid => "dropped_invalid",
+			Self::FinalityTimeout => "finality_timeout",
+			Self::BlockImportUnknown => "block_import_unknown",
+		}
+	}
+}
+
+/// Maps a [`sp_runtime::transaction_validity::TransactionSource`] to the
+/// snake_case label used as the Prometheus `source` label value.
+fn source_label(source: sp_runtime::transaction_validity::TransactionSource) -> &'static str {
+	use sp_runtime::transaction_validity::TransactionSource;
+	match source {
+		TransactionSource::InBlock => "in_block",
+		TransactionSource::Local => "local",
+		TransactionSource::External => "external",
+	}
+}
+
+/// Histogram of transaction age in the pool at the moment of removal,
+/// labeled by `reason` and `source`.
+pub struct TxAgeAtRemovalHistogram {
+	inner: HistogramVec,
+}
+
+impl TxAgeAtRemovalHistogram {
+	fn register(registry: &Registry) -> Result<Self, PrometheusError> {
+		// Exponential buckets covering ~1s up to ~24h:
+		// 1s, 2.5s, 6.25s, 15.6s, 39s, 1.6m, 4m, 10.2m, 25.4m, 1.06h, 2.65h, 6.6h, 16.5h, 41.4h.
+		let buckets = exponential_buckets(1.0, 2.5, 14)
+			.expect("exponential_buckets parameters are valid; qed");
+		Ok(Self {
+			inner: register(
+				HistogramVec::new(
+					HistogramOpts::new(
+						"substrate_sub_txpool_tx_age_at_removal_seconds",
+						"Transaction age (in seconds) in the fork-aware pool at the moment of \
+						removal, labeled by `reason` and `source`. Used to detect stuck \
+						transactions (see issue #7791).",
+					)
+					.buckets(buckets),
+					&["reason", "source"],
+				)?,
+				registry,
+			)?,
+		})
+	}
+
+	/// Records the given residence `age` for a transaction leaving the pool.
+	pub fn observe(
+		&self,
+		reason: RemovalReason,
+		source: sp_runtime::transaction_validity::TransactionSource,
+		age: Duration,
+	) {
+		self.inner
+			.with_label_values(&[reason.as_str(), source_label(source)])
+			.observe(age.as_secs_f64())
+	}
+}
+
 impl MetricsRegistrant for Metrics {
 	fn register(registry: &Registry) -> Result<Box<Self>, PrometheusError> {
 		Ok(Box::from(Self {
@@ -444,6 +547,7 @@ impl MetricsRegistrant for Metrics {
 				registry,
 			)?,
 			events_histograms: EventsHistograms::register(registry)?,
+			tx_age_at_removal: TxAgeAtRemovalHistogram::register(registry)?,
 		}))
 	}
 }
