@@ -35,20 +35,20 @@ use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
 use crate::BalanceOf;
 use crate::{
-	AccountInfoOf, CodeInfoOf, Config, DeletionQueue, HoldReason, LOG_TARGET, NativeDepositOf,
-	Pallet, TrieId,
 	address::AddressMapper,
 	deposit_payment::Deposit,
 	storage::{AccountType, DeletionQueueItem},
 	weights::WeightInfo,
+	AccountInfoOf, CodeInfoOf, Config, DeletionQueue, HoldReason, NativeDepositOf, Pallet, TrieId,
+	LOG_TARGET,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
-	Twox64Concat,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	storage_alias,
 	weights::WeightMeter,
+	Twox64Concat,
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
@@ -211,28 +211,6 @@ impl<T: Config> Migration<T> {
 		Some(Cursor::CodeUpload(hash))
 	}
 
-	/// Phase 3: rewrite the next [`DeletionQueue`] slot from the old `TrieId`-only layout
-	/// into the new [`DeletionQueueItem`] format. Pre-v4 entries had no [`NativeDepositOf`]
-	/// rows, so the recorded `account_id` is a zero placeholder; phase 1 of the deletion
-	/// processor will clear an empty prefix on it. Returns `None` when phase 3 finishes.
-	fn step_3_deletion_queue(last: Option<u32>) -> Option<u32> {
-		let mut iter = match last {
-			Some(last) => {
-				OldDeletionQueue::<T>::iter_from(OldDeletionQueue::<T>::hashed_key_for(last))
-			},
-			None => OldDeletionQueue::<T>::iter(),
-		};
-
-		let (key, trie_id) = iter.next()?;
-		// Same physical slot as `OldDeletionQueue`; the insert overwrites the legacy value
-		// with the new encoding.
-		let zero_bytes = alloc::vec![0u8; <T::AccountId as MaxEncodedLen>::max_encoded_len()];
-		let zero_account = T::AccountId::decode(&mut &zero_bytes[..])
-			.expect("zero bytes decode to a valid AccountId; qed");
-		DeletionQueue::<T>::insert(key, DeletionQueueItem::<T>::new(trie_id, zero_account));
-		Some(key)
-	}
-
 	/// Phase 2: hand the next contract to [`Deposit::migrate_native_to_pgas`]. EOAs are
 	/// skipped but still advance the cursor.
 	fn step_2_contract(last: Option<H160>) -> Option<H160> {
@@ -261,6 +239,28 @@ impl<T: Config> Migration<T> {
 		}
 		Some(addr)
 	}
+
+	/// Phase 3: rewrite the next [`DeletionQueue`] slot from the old `TrieId`-only layout
+	/// into the new [`DeletionQueueItem`] format. Pre-v4 entries had no [`NativeDepositOf`]
+	/// rows, so the recorded `account_id` is a zero placeholder; phase 1 of the deletion
+	/// processor will clear an empty prefix on it. Returns `None` when phase 3 finishes.
+	fn step_3_deletion_queue(last: Option<u32>) -> Option<u32> {
+		let mut iter = match last {
+			Some(last) => {
+				OldDeletionQueue::<T>::iter_from(OldDeletionQueue::<T>::hashed_key_for(last))
+			},
+			None => OldDeletionQueue::<T>::iter(),
+		};
+
+		let (key, trie_id) = iter.next()?;
+		// Same physical slot as `OldDeletionQueue`; the insert overwrites the legacy value
+		// with the new encoding.
+		let zero_bytes = alloc::vec![0u8; <T::AccountId as MaxEncodedLen>::max_encoded_len()];
+		let zero_account = T::AccountId::decode(&mut &zero_bytes[..])
+			.expect("zero bytes decode to a valid AccountId; qed");
+		DeletionQueue::<T>::insert(key, DeletionQueueItem::<T>::new(trie_id, zero_account));
+		Some(key)
+	}
 }
 
 #[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
@@ -279,9 +279,9 @@ impl<T: Config> Migration<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		CodeInfo,
 		storage::{AccountInfo, ContractInfo},
 		tests::{Assets, AssetsHolder, ExtBuilder, PGasAssetId, Test},
+		CodeInfo,
 	};
 	use frame_support::traits::fungible::{
 		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
@@ -423,8 +423,8 @@ mod tests {
 	#[test]
 	fn phase_three_rewrites_legacy_deletion_queue_entries() {
 		use crate::{
-			DeletionQueueCounter,
 			storage::{DeletionQueueItem, DeletionQueueManager},
+			DeletionQueueCounter,
 		};
 
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
