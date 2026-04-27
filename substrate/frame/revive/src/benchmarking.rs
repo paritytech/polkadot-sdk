@@ -2749,7 +2749,10 @@ mod benchmarks {
 		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v3_migration_step() * 2);
 	}
 
-	/// One step of v4 phase 1: credit the uploader's [`NativeDepositOf`] bucket.
+	/// One iteration of v4 phase 1: credit the uploader's [`NativeDepositOf`] bucket.
+	///
+	/// Seeds two codes and primes the cursor with the first stored entry so the benched
+	/// iteration exercises the `iter_from` path that dominates phase 1 in production.
 	#[benchmark]
 	fn v4_code_upload_step() {
 		use crate::migrations::v4;
@@ -2765,88 +2768,96 @@ mod benchmarks {
 		T::Currency::hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account, deposit)
 			.unwrap();
 
-		let code_hash = H256::from([0u8; 32]);
-		CodeInfoOf::<T>::insert(code_hash, CodeInfo::<T>::new_with_deposit(owner.clone(), deposit));
+		CodeInfoOf::<T>::insert(
+			H256::from([1u8; 32]),
+			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
+		);
+		CodeInfoOf::<T>::insert(
+			H256::from([2u8; 32]),
+			CodeInfo::<T>::new_with_deposit(owner.clone(), deposit),
+		);
 
-		let mut meter = WeightMeter::new();
+		let first = match v4::Migration::<T>::step_once(None) {
+			Some(v4::Cursor::CodeUpload(h)) => h,
+			other => panic!("expected CodeUpload cursor, got {other:?}"),
+		};
+		let cursor = Some(v4::Cursor::CodeUpload(first));
 
 		#[block]
 		{
-			<v4::Migration<T> as SteppedMigration>::step(None, &mut meter).unwrap();
+			let _ = v4::Migration::<T>::step_once(cursor);
 		}
-
-		assert_eq!(crate::NativeDepositOf::<T>::get(&pallet_account, &owner), deposit);
-
-		// process 1 code + phase-1 end-check + phase-2 end-check on empty AccountInfoOf +
-		// phase-3 end-check on empty DeletionQueue.
-		assert_eq!(
-			meter.consumed(),
-			<T as Config>::WeightInfo::v4_code_upload_step() * 2 +
-				<T as Config>::WeightInfo::v4_contract_step() +
-				<T as Config>::WeightInfo::v4_deletion_queue_step()
-		);
 	}
 
-	/// One step of v4 phase 2: burn native hold, mint and hold PGAS.
+	/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
+	///
+	/// Seeds two contracts and primes the cursor with the first stored entry so the benched
+	/// iteration exercises the `iter_from` path that dominates phase 2 in production.
 	#[benchmark]
 	fn v4_contract_step() {
-		use crate::{deposit_payment::Deposit, migrations::v4};
-		use frame_support::traits::{
-			fungible::Inspect,
-			tokens::{Fortitude, Preservation},
-		};
+		use crate::migrations::v4;
 
 		let _ = AccountInfoOf::<T>::clear(u32::MAX, None);
 
-		let addr = H160::from([0x42u8; 20]);
-		let contract_account = T::AddressMapper::to_account_id(&addr);
 		let code_hash = H256::from([0u8; 32]);
-		let info =
-			ContractInfo::<T>::new(&addr, 1u32.into(), code_hash).expect("fresh contract info");
-		AccountInfoOf::<T>::insert(
-			addr,
-			crate::storage::AccountInfo::<T> {
-				account_type: crate::storage::AccountType::Contract(info),
-				dust: 0,
-			},
-		);
-
-		T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
 		let deposit: BalanceOf<T> = 1_000u32.into();
-		T::Currency::mint_into(&contract_account, deposit).unwrap();
-		T::Currency::hold(&HoldReason::StorageDepositReserve.into(), &contract_account, deposit)
-			.unwrap();
 
-		let start_cursor = Some(v4::Cursor::Contract(None));
-		let mut meter = WeightMeter::new();
+		for byte in [0x41u8, 0x42u8] {
+			let addr = H160::from([byte; 20]);
+			let contract_account = T::AddressMapper::to_account_id(&addr);
+			let info = ContractInfo::<T>::new(&addr, 1u32.into(), code_hash)
+				.expect("fresh contract info");
+			AccountInfoOf::<T>::insert(
+				addr,
+				crate::storage::AccountInfo::<T> {
+					account_type: crate::storage::AccountType::Contract(info),
+					dust: 0,
+				},
+			);
+			T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
+			T::Currency::mint_into(&contract_account, deposit).unwrap();
+			T::Currency::hold(&HoldReason::StorageDepositReserve.into(), &contract_account, deposit)
+				.unwrap();
+		}
+
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))) {
+			Some(v4::Cursor::Contract(Some(addr))) => addr,
+			other => panic!("expected Contract cursor, got {other:?}"),
+		};
+		let cursor = Some(v4::Cursor::Contract(Some(first)));
 
 		#[block]
 		{
-			<v4::Migration<T> as SteppedMigration>::step(start_cursor, &mut meter).unwrap();
+			let _ = v4::Migration::<T>::step_once(cursor);
 		}
+	}
 
-		assert_eq!(
-			<T as Config>::Deposit::total_on_hold(
-				HoldReason::StorageDepositReserve,
-				&contract_account,
-			),
-			deposit,
-		);
-		assert!(
-			<T as Config>::Currency::reducible_balance(
-				&contract_account,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)
-			.is_zero()
-		);
+	/// One iteration of v4 phase 3: rewrite a legacy [`OldDeletionQueue`] entry into the new
+	/// [`DeletionQueue`] format.
+	///
+	/// Seeds two legacy entries and primes the cursor with the first stored entry so the benched
+	/// iteration exercises the `iter_from` path.
+	#[benchmark]
+	fn v4_deletion_queue_step() {
+		use crate::migrations::v4;
 
-		// process 1 contract + phase-2 end-check + phase-3 end-check on empty DeletionQueue.
-		assert_eq!(
-			meter.consumed(),
-			<T as Config>::WeightInfo::v4_contract_step() * 2 +
-				<T as Config>::WeightInfo::v4_deletion_queue_step()
-		);
+		let _ = v4::OldDeletionQueue::<T>::clear(u32::MAX, None);
+
+		let trie_a: TrieId = vec![0xAAu8; 16].try_into().unwrap();
+		let trie_b: TrieId = vec![0xBBu8; 24].try_into().unwrap();
+		v4::OldDeletionQueue::<T>::insert(0u32, trie_a);
+		v4::OldDeletionQueue::<T>::insert(1u32, trie_b);
+
+		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))) {
+			Some(v4::Cursor::DeletionQueue(Some(key))) => key,
+			other => panic!("expected DeletionQueue cursor, got {other:?}"),
+		};
+		let cursor = Some(v4::Cursor::DeletionQueue(Some(first)));
+
+		#[block]
+		{
+			let _ = v4::Migration::<T>::step_once(cursor);
+		}
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark

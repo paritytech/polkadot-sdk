@@ -106,24 +106,9 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			if meter.try_consume(step_weight).is_err() {
 				break;
 			}
-
-			match cursor {
-				None | Some(Cursor::CodeUpload(_)) => {
-					let last =
-						if let Some(Cursor::CodeUpload(h)) = cursor { Some(h) } else { None };
-					cursor = Self::step_1_code_upload(last);
-				},
-				Some(Cursor::Contract(last)) => match Self::step_2_contract(last) {
-					Some(next) => cursor = Some(Cursor::Contract(Some(next))),
-					None => cursor = Some(Cursor::DeletionQueue(None)),
-				},
-				Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
-					Some(next) => cursor = Some(Cursor::DeletionQueue(Some(next))),
-					None => {
-						cursor = None;
-						break;
-					},
-				},
+			cursor = Self::step_once(cursor);
+			if cursor.is_none() {
+				break;
 			}
 		}
 		Ok(cursor)
@@ -187,9 +172,28 @@ impl<T: Config> SteppedMigration for Migration<T> {
 /// Pre-v4 layout of [`DeletionQueue`]: a single [`TrieId`] per slot, no associated contract
 /// account. We only iterate it; new entries are written via the live [`DeletionQueue`].
 #[storage_alias]
-type OldDeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
+pub(crate) type OldDeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
 
 impl<T: Config> Migration<T> {
+	/// Run a single iteration of the migration's inner loop, returning the next cursor or
+	/// `None` if the migration is complete.
+	pub(crate) fn step_once(cursor: Option<Cursor>) -> Option<Cursor> {
+		match cursor {
+			None | Some(Cursor::CodeUpload(_)) => {
+				let last = if let Some(Cursor::CodeUpload(h)) = cursor { Some(h) } else { None };
+				Self::step_1_code_upload(last)
+			},
+			Some(Cursor::Contract(last)) => Some(match Self::step_2_contract(last) {
+				Some(next) => Cursor::Contract(Some(next)),
+				None => Cursor::DeletionQueue(None),
+			}),
+			Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
+				Some(next) => Some(Cursor::DeletionQueue(Some(next))),
+				None => None,
+			},
+		}
+	}
+
 	/// Phase 1: credit the next `CodeInfoOf` entry's owner in [`NativeDepositOf`]. Returns
 	/// `Some(Cursor::Contract(None))` when phase 1 is exhausted.
 	fn step_1_code_upload(last: Option<H256>) -> Option<Cursor> {
