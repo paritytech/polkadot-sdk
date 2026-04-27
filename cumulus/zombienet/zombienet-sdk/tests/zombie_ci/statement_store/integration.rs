@@ -920,17 +920,15 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 /// and DB.
 ///
 /// Scenario:
-/// 1. Insert 10000 ephemeral statements (20 accounts × 500, `ttl = 360s`)
-///    and wait until a subscription confirms all are indexed.
-/// 2. Starting 5s before TTL expiry, stream 500 persistent statements
-///    (5 accounts × 100) over a 95s window. `enforce_limits` runs every
-///    62s, so the window is guaranteed to overlap a cleanup pass — inserts
-///    and bulk eviction of the 10000 expired ephemerals hit the index and
-///    DB at the same time.
-/// 3. Immediately after the window closes, a fresh subscription (which
-///    replays from the DB) must yield exactly the 500 persistent statements —
-///    proving no insert was dropped and every expired ephemeral was removed
-///    from index and DB within the overlap window itself.
+/// 1. Insert 10000 ephemeral statements (20 accounts × 500, `ttl = 360s`) and wait until a
+///    subscription confirms all are indexed.
+/// 2. Starting 5s before TTL expiry, stream 500 persistent statements (5 accounts × 100) over a 95s
+///    window. `enforce_limits` runs every 62s, so the window is guaranteed to overlap a cleanup
+///    pass — inserts and bulk eviction of the 10000 expired ephemerals hit the index and DB at the
+///    same time.
+/// 3. Immediately after the window closes, a fresh subscription (which replays from the DB) must
+///    yield exactly the 500 persistent statements — proving no insert was dropped and every expired
+///    ephemeral was removed from index and DB within the overlap window itself.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
@@ -951,15 +949,12 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	// design: the 1st tick only snapshots accounts and returns, the 2nd actually
 	// evicts — so a full eviction pass takes 2 × 31s = 62s.
 	//
-	// - pre_expiry_lead (5s):  start persistents before TTL expiry so inserts
-	//                          cross the expiry boundary mid-stream.
-	// - overlap_window  (95s): > 62s guarantees a full eviction pass (snapshot
-	//                          tick + work tick) lands inside the window
-	//                          regardless of phase. A single work tick can
-	//                          remove up to 10k entries
-	//                          (`MAX_EXPIRY_STATEMENTS_PER_ITERATION`), so
-	//                          all 10k expired ephemerals must be drained
-	//                          before the window closes.
+	// - pre_expiry_lead (5s):  start persistents before TTL expiry so inserts cross the expiry
+	//   boundary mid-stream.
+	// - overlap_window  (95s): > 62s guarantees a full eviction pass (snapshot tick + work tick)
+	//   lands inside the window regardless of phase. A single work tick can remove up to 10k
+	//   entries (`MAX_EXPIRY_STATEMENTS_PER_ITERATION`), so all 10k expired ephemerals must be
+	//   drained before the window closes.
 	let ephemeral_ttl: u32 = 360;
 	let pre_expiry_lead: u64 = 5;
 	let overlap_window: u64 = 95;
