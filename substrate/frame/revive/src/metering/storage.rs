@@ -532,9 +532,8 @@ impl<T: Config> Ext<T> for ReservingExt {
 				<Pallet<T>>::refund_deposit(
 					HoldReason::StorageDepositReserve,
 					contract,
-					origin,
+					exec_config.funds(origin),
 					*amount,
-					Some(exec_config),
 				)?;
 			},
 		}

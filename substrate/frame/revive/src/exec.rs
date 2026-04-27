@@ -1733,9 +1733,8 @@ where
 			<Contracts<T>>::refund_deposit(
 				HoldReason::StorageDepositReserve,
 				contract_account,
-				origin.account_id()?,
+				exec_config.funds(origin.account_id()?),
 				refund,
-				Some(exec_config),
 			)?;
 
 			// we added this consumer manually when instantiating

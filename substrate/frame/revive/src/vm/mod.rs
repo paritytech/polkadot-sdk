@@ -27,6 +27,7 @@ pub use runtime_costs::RuntimeCosts;
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
 	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
 	metering::{ResourceMeter, State, Token},
@@ -167,9 +168,8 @@ impl<T: Config> ContractBlob<T> {
 				<Pallet<T>>::refund_deposit(
 					HoldReason::CodeUploadDepositReserve,
 					&Pallet::<T>::account_id(),
-					&code_info.owner,
+					deposit_payment::Funds::Balance(&code_info.owner),
 					code_info.deposit,
-					None,
 				)?;
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
@@ -304,9 +304,8 @@ impl<T: Config> CodeInfo<T> {
 				<Pallet<T>>::refund_deposit(
 					HoldReason::CodeUploadDepositReserve,
 					&Pallet::<T>::account_id(),
-					&code_info.owner,
+					deposit_payment::Funds::Balance(&code_info.owner),
 					code_info.deposit,
-					None,
 				)?;
 
 				*existing = None;

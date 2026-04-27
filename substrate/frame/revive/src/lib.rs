@@ -690,6 +690,12 @@ pub mod pallet {
 	///
 	/// Bounds how much native value the user can receive back from that contract's
 	/// storage deposit.
+	///
+	/// Keys: `(holder, contributor) -> amount`
+	/// - `holder`: account on which the deposit is held (a contract, or the pallet's own
+	///   account for code-upload deposits).
+	/// - `contributor`: user that funded the deposit. Receives the native portion on refund,
+	///   capped at this entry's `amount`.
 	#[pallet::storage]
 	pub(crate) type NativeDepositOf<T: Config> = StorageDoubleMap<
 		_,
@@ -2639,20 +2645,21 @@ impl<T: Config> Pallet<T> {
 
 	/// Refund a deposit.
 	///
-	/// `to` is usually the transaction origin and `from` a contract or
+	/// `dst` is usually the transaction origin and `from` a contract or
 	/// the pallets own account.
 	fn refund_deposit(
 		hold_reason: HoldReason,
 		from: &T::AccountId,
-		to: &T::AccountId,
+		dst: deposit_payment::Funds<T::AccountId>,
 		amount: BalanceOf<T>,
-		exec_config: Option<&ExecConfig<T>>,
 	) -> Result<(), DispatchError> {
 		if amount.is_zero() {
 			return Ok(());
 		}
 
-		let dst = exec_config.map(|c| c.funds(to)).unwrap_or(deposit_payment::Funds::Balance(to));
+		let to = match &dst {
+			deposit_payment::Funds::Balance(to) | deposit_payment::Funds::TxFee(to) => *to,
+		};
 		let result = T::Deposit::refund_on_hold(hold_reason, from, dst, amount);
 
 		result.map_err(|err| {
