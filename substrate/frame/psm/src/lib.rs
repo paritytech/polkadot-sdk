@@ -910,7 +910,10 @@ pub mod pallet {
 
 			let asset_decimals = T::Fungibles::decimals(asset_id);
 			let stable_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
-			ensure!(T::Fungibles::decimals(T::StablecoinAssetId::get()) == stable_decimals, Error::<T>::DecimalsMismatch);
+			ensure!(
+				T::Fungibles::decimals(T::StablecoinAssetId::get()) == stable_decimals,
+				Error::<T>::DecimalsMismatch
+			);
 			ensure!(
 				(asset_decimals.abs_diff(stable_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
@@ -1096,7 +1099,10 @@ pub mod pallet {
 			ensure!(T::Fungibles::decimals(asset_id) == ext_decimals, Error::<T>::DecimalsMismatch);
 
 			let pusd_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
-			ensure!(T::Fungibles::decimals(T::StablecoinAssetId::get()) == pusd_decimals, Error::<T>::DecimalsMismatch);
+			ensure!(
+				T::Fungibles::decimals(T::StablecoinAssetId::get()) == pusd_decimals,
+				Error::<T>::DecimalsMismatch
+			);
 
 			Ok((ext_decimals, pusd_decimals))
 		}

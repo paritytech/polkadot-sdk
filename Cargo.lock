@@ -16614,6 +16614,7 @@ dependencies = [
  "pallet-people",
  "pallet-preimage",
  "pallet-proxy",
+ "pallet-psm",
  "pallet-ranked-collective",
  "pallet-recovery",
  "pallet-referenda",

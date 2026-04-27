@@ -1,0 +1,23 @@
+title: "[stable2603] Add pallet-psm for alpha release"
+doc:
+- audience: Runtime Dev
+  description: |
+    Adds `pallet-psm` to stable2603 for crates.io publication. The crate is a
+    snapshot of master's `substrate/frame/psm/` adapted to build against stable2603.
+
+    Adaptations vs. master:
+    - Stable decimals are read through `T::Fungibles::decimals(T::StablecoinAssetId::get())`
+      instead of `T::StableAsset::decimals()`. Adds `#[pallet::constant] type
+      StablecoinAssetId: Get<Self::AssetId>` to `Config`.
+      `frame_support::traits::tokens::fungible::metadata::Inspect` (the single-asset
+      fungible metadata trait) is not present on stable2603.
+    - Local `PsmInterface` trait defined in `lib.rs` instead of
+      `frame_support::traits::tokens::stable::PsmInterface`, which is not on stable2603.
+    - Benchmarks assume the stable asset is pre-created by the runtime;
+      `fungible::Create` is not on stable2603.
+
+    No runtime currently wires `pallet-psm` on stable2603 — this is a leaf-crate
+    publish only.
+crates:
+- name: pallet-psm
+  bump: major

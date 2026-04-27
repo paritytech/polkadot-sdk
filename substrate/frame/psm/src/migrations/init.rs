@@ -271,7 +271,9 @@ mod tests {
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
 			assert_eq!(
 				StableDecimals::<Test>::get(),
-				Some(<Test as Config>::Fungibles::decimals(<Test as Config>::StablecoinAssetId::get()))
+				Some(<Test as Config>::Fungibles::decimals(
+					<Test as Config>::StablecoinAssetId::get()
+				))
 			);
 
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
@@ -306,7 +308,9 @@ mod tests {
 
 			assert_eq!(
 				StableDecimals::<Test>::get(),
-				Some(<Test as Config>::Fungibles::decimals(<Test as Config>::StablecoinAssetId::get()))
+				Some(<Test as Config>::Fungibles::decimals(
+					<Test as Config>::StablecoinAssetId::get()
+				))
 			);
 		});
 	}
