@@ -903,7 +903,10 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// * `{Name}` — the *family name*. A non-empty identifier prefix that is identical for every
 ///   payload in the invocation. The family name may itself contain the letter `V`; the parser
 ///   locates the version suffix by splitting at the *last* `V` in the identifier, so
-///   `EveVInputPayloadV1` is accepted and parses as the family `EveV` at version 1.
+///   `EveVInputPayloadV1` is accepted and parses as the family `EveV` at version 1. If the family
+///   name ends with `Versioned`, that marker is stripped from generated enum and latest-alias
+///   names. For example, `EthTransactVersionedInputPayloadV1` still keeps its concrete struct name,
+///   but generates `VersionedEthTransactInputPayload`.
 /// * `{Side}` — exactly the literal `InputPayload` or `OutputPayload`. No other tokens are
 ///   permitted in this position.
 /// * `V{n}` — the literal `V` followed by a positive decimal integer with no leading zeros. `V0` is

@@ -51,8 +51,9 @@ fn generate_versioned_enum(
 	side: PayloadSide,
 ) -> Result<TokenStream2> {
 	let side_items = side_items(input, side);
+	let generated_name = generated_interface_name(&input.name);
 	let enum_ident =
-		Ident::new(&format!("Versioned{}{}", input.name, side.name_suffix()), input.name_span);
+		Ident::new(&format!("Versioned{}{}", generated_name, side.name_suffix()), input.name_span);
 	let enum_generics = merged_generics(&side_items)?;
 	let common_derives = common_derive_paths(&side_items)?;
 	let derive_attribute = derive_attribute(common_derives);
@@ -109,13 +110,14 @@ fn generate_latest_payload_alias(
 		));
 	};
 
+	let generated_name = generated_interface_name(&input.name);
 	let alias_ident =
-		Ident::new(&format!("Latest{}{}", input.name, side.name_suffix()), input.name_span);
+		Ident::new(&format!("Latest{}{}", generated_name, side.name_suffix()), input.name_span);
 	let payload_ident = &item.item().ident;
 	let visibility = &item.item().vis;
 	let alias_generics = type_alias_generics(&item.item().generics);
 	let payload_generics = payload_type_generics(&alias_generics);
-	let doc = format!("The latest version of `{}`{}.", input.name, side.name_suffix());
+	let doc = format!("The latest version of `{}`{}.", generated_name, side.name_suffix());
 
 	Ok(quote! {
 		#[doc = #doc]
@@ -132,6 +134,11 @@ fn side_items(
 		.values()
 		.map(|index| &input.items[*index])
 		.collect::<Vec<_>>()
+}
+
+/// Returns the public generated family name for an interface payload family.
+fn generated_interface_name(payload_family_name: &str) -> &str {
+	payload_family_name.strip_suffix("Versioned").unwrap_or(payload_family_name)
 }
 
 /// Returns the payload map for the provided side.
@@ -1245,6 +1252,45 @@ mod tests {
 			]
 		);
 		assert!(output.to_string().contains(expected_box_path()));
+	}
+
+	#[test]
+	fn generated_names_strip_trailing_versioned_marker_from_payload_family() {
+		// Arrange
+		let tokens = quote! {
+			pub struct EthTransactVersionedInputPayloadV1 {
+				pub tx: GenericTransaction,
+			}
+
+			pub struct EthTransactVersionedOutputPayloadV1 {
+				pub result: EthTransactInfo,
+			}
+		};
+
+		// Act
+		let output = expand(tokens);
+
+		// Assert
+		let file = parse2::<syn::File>(output.clone()).unwrap();
+		let item_names = file
+			.items
+			.iter()
+			.filter_map(|item| match item {
+				Item::Struct(item) => Some(item.ident.to_string()),
+				Item::Enum(item) => Some(item.ident.to_string()),
+				Item::Type(item) => Some(item.ident.to_string()),
+				Item::Impl(_) => None,
+				_ => None,
+			})
+			.collect::<Vec<_>>();
+		assert!(item_names.contains(&"EthTransactVersionedInputPayloadV1".to_owned()));
+		assert!(item_names.contains(&"EthTransactVersionedOutputPayloadV1".to_owned()));
+		assert!(item_names.contains(&"VersionedEthTransactInputPayload".to_owned()));
+		assert!(item_names.contains(&"VersionedEthTransactOutputPayload".to_owned()));
+		assert!(item_names.contains(&"LatestEthTransactInputPayload".to_owned()));
+		assert!(item_names.contains(&"LatestEthTransactOutputPayload".to_owned()));
+		assert!(!item_names.contains(&"VersionedEthTransactVersionedInputPayload".to_owned()));
+		assert!(!item_names.contains(&"VersionedEthTransactVersionedOutputPayload".to_owned()));
 	}
 
 	#[test]
