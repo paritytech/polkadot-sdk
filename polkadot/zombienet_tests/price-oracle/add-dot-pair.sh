@@ -17,7 +17,7 @@ PAIR_ID=0
 
 # PairConfig matches westend defaults: epsilon=0.001 (FixedU128 inner = 10^15),
 # min_nudges=0, nudge_validity=2 slots, inherent neither mandatory nor panicking.
-PAIR_CONFIG='{"minNudges":0,"nudgeValidity":2,"inherentMandatory":false,"invalidInherentPanics":false,"epsilon":"1000000000000000"}'
+PAIR_CONFIG='{"minNudges":0,"nudgeValidity":30,"inherentMandatory":false,"invalidInherentPanics":false,"epsilon":"1000000000000000"}'
 
 # (parsing_method_id, url). Ids come from substrate/frame/price-oracle/src/decoders.rs:
 #   0 = Binance, 1 = CoinLore.
