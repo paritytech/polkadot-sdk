@@ -1,0 +1,23 @@
+error: An enum can't be extended from a struct; the previous type is a struct
+ --> tests/ui/define_versioned_type/fail/enum_extend_from_struct.rs:8:19
+  |
+8 |     #[versioned_type(extend)]
+  |                      ^^^^^^
+
+error: Extend was requested here
+ --> tests/ui/define_versioned_type/fail/enum_extend_from_struct.rs:8:19
+  |
+8 |     #[versioned_type(extend)]
+  |                      ^^^^^^
+
+error: The previous type (struct) is defined here
+ --> tests/ui/define_versioned_type/fail/enum_extend_from_struct.rs:4:2
+  |
+4 |     pub struct UiFailV1 {
+  |     ^^^
+
+error: This type (enum) is defined here
+ --> tests/ui/define_versioned_type/fail/enum_extend_from_struct.rs:9:2
+  |
+9 |     pub enum UiFailV2 {
+  |     ^^^

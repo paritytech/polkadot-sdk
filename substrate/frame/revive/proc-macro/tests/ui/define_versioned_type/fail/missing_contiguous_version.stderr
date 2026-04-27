@@ -1,0 +1,11 @@
+error: versioned type definitions must be contiguous; missing version V2 before V3
+ --> tests/ui/define_versioned_type/fail/missing_contiguous_version.rs:8:13
+  |
+8 |     pub struct UiMissingVersionV3 {
+  |                ^^^^^^^^^^^^^^^^^^
+
+error: previous defined version was V1 here
+ --> tests/ui/define_versioned_type/fail/missing_contiguous_version.rs:4:13
+  |
+4 |     pub struct UiMissingVersionV1 {
+  |                ^^^^^^^^^^^^^^^^^^

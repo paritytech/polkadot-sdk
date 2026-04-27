@@ -20,6 +20,8 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a polkavm module.
 
+mod handle_define_versioned_type;
+
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -50,6 +52,733 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 		Ok(mut def) => expand_env(&mut def).into(),
 		Err(e) => e.to_compile_error().into(),
 	}
+}
+
+/// Defines a family of versioned struct or enum types where each successive version is expressed as
+/// a delta from the previous version, while still emitting full, standalone Rust definitions for
+/// every version.
+///
+/// # Motivation
+///
+/// On-chain types are often versioned (e.g. `CallLogV1`, `CallLogV2`, ...) and each successive
+/// version usually adds, replaces, or rearranges a small number of fields or variants relative to
+/// its predecessor. Hand-writing every version in full is verbose, error-prone, and obscures the
+/// actual change between versions because the diff is buried inside a re-statement of the unchanged
+/// fields. `define_versioned_type!` lets each version express only what it changes; the macro
+/// reconstructs the full type for every version and emits each one as an ordinary Rust item.
+///
+/// The macro produces *standalone* type definitions: there is no inheritance, trait magic, or
+/// runtime cost. Two versions of `CallLog` are two completely independent Rust types; only the
+/// *source* representation is compact.
+///
+/// # Examples
+///
+/// The examples below cover every supported feature in a progression that is intended to be
+/// readable on its own. Reading them straight through is enough to use the macro for almost any
+/// task; the reference sections that follow document the exact rules and the diagnostics.
+///
+/// ## Adding fields to a struct across versions
+///
+/// The most common use: each new version appends one or more fields. Mark the new version with
+/// `#[versioned_type(extend)]`; the macro inherits every field from the previous version and
+/// appends the new ones.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct CallLogV1 {
+///         pub caller: AccountId,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub struct CallLogV2 {
+///         pub gas_used: Weight,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub struct CallLogV3 {
+///         pub block: BlockNumber,
+///     }
+/// }
+/// ```
+///
+/// expands to three independent structs equivalent to:
+///
+/// ```ignore
+/// pub struct CallLogV1 {
+///     pub caller: AccountId,
+/// }
+///
+/// pub struct CallLogV2 {
+///     pub caller: AccountId,
+///     pub gas_used: Weight,
+/// }
+///
+/// pub struct CallLogV3 {
+///     pub caller: AccountId,
+///     pub gas_used: Weight,
+///     pub block: BlockNumber,
+/// }
+/// ```
+///
+/// ## Replacing a field's type (field-level override)
+///
+/// To change the type of a single field, redeclare it under `#[versioned_type(override)]`. The
+/// replacement keeps its original position; only its type (and any attributes) is replaced.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct ConfigV1 {
+///         pub timeout: u32,
+///         pub retries: u8,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub struct ConfigV2 {
+///         #[versioned_type(override)]
+///         pub timeout: u64,
+///         pub backoff: Duration,
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub struct ConfigV1 {
+///     pub timeout: u32,
+///     pub retries: u8,
+/// }
+///
+/// pub struct ConfigV2 {
+///     pub timeout: u64,
+///     pub retries: u8,
+///     pub backoff: Duration,
+/// }
+/// ```
+///
+/// `timeout` stays at field index 0 (its previous position); `retries` is inherited unchanged;
+/// `backoff` is appended at the end.
+///
+/// ## Tuple-struct extension
+///
+/// Tuple structs work the same way; new fields are appended positionally.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct PointV1(pub u32, pub u32);
+///
+///     #[versioned_type(extend)]
+///     pub struct PointV2(pub u32);
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub struct PointV1(pub u32, pub u32);
+/// pub struct PointV2(pub u32, pub u32, pub u32);
+/// ```
+///
+/// ## Inheriting an entire previous shape with a unit struct
+///
+/// A unit struct in the current version, marked `extend`, inherits the previous version's fields
+/// verbatim. This is useful when a version exists only to bump the version number without altering
+/// the schema.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct PayloadV1 {
+///         pub data: Vec<u8>,
+///         pub checksum: u32,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub struct PayloadV2;
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub struct PayloadV1 {
+///     pub data: Vec<u8>,
+///     pub checksum: u32,
+/// }
+///
+/// pub struct PayloadV2 {
+///     pub data: Vec<u8>,
+///     pub checksum: u32,
+/// }
+/// ```
+///
+/// ## Changing shape between versions
+///
+/// A version may switch between named, tuple, and unit shapes. Field merging adapts: previous tuple
+/// fields entering a named context are renamed to `field_0`, `field_1`, ...; previous named fields
+/// entering a tuple context lose their names; and a unit current version inherits the previous
+/// shape entirely.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct EnvelopeV1 {
+///         pub kind: u8,
+///         pub payload: Vec<u8>,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub struct EnvelopeV2(pub u32);
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub struct EnvelopeV1 {
+///     pub kind: u8,
+///     pub payload: Vec<u8>,
+/// }
+///
+/// pub struct EnvelopeV2(pub u8, pub Vec<u8>, pub u32);
+/// ```
+///
+/// ## Adding new variants to an enum
+///
+/// Enum extension copies all previous variants in order, then appends the new variants from the
+/// current source.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub enum EventV1 {
+///         Started,
+///         Stopped,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub enum EventV2 {
+///         Paused,
+///         Resumed,
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub enum EventV1 {
+///     Started,
+///     Stopped,
+/// }
+///
+/// pub enum EventV2 {
+///     Started,
+///     Stopped,
+///     Paused,
+///     Resumed,
+/// }
+/// ```
+///
+/// ## Replacing a variant in place (variant override)
+///
+/// `#[versioned_type(override)]` on a variant replaces the same-named variant from the previous
+/// version, keeping its original position. The new variant's fields fully replace the previous
+/// fields.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub enum EventV1 {
+///         Started,
+///         Stopped { code: u8 },
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub enum EventV2 {
+///         #[versioned_type(override)]
+///         Stopped { code: u32, reason: String },
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub enum EventV1 {
+///     Started,
+///     Stopped { code: u8 },
+/// }
+///
+/// pub enum EventV2 {
+///     Started,
+///     Stopped { code: u32, reason: String },
+/// }
+/// ```
+///
+/// ## Extending a variant's fields
+///
+/// `#[versioned_type(extend)]` on a variant inherits its previous fields and appends new ones,
+/// mirroring the struct-level rule.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub enum EventV1 {
+///         Started { caller: AccountId },
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub enum EventV2 {
+///         #[versioned_type(extend)]
+///         Started { gas_used: Weight },
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub enum EventV1 {
+///     Started { caller: AccountId },
+/// }
+///
+/// pub enum EventV2 {
+///     Started { caller: AccountId, gas_used: Weight },
+/// }
+/// ```
+///
+/// ## Replacing a variant *and* a single field inside it
+///
+/// Combine `override, extend` on the variant with `override` on a specific field to change one
+/// field's type while keeping (and possibly extending) the rest.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub enum EventV1 {
+///         Stopped { code: u8, reason: String },
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub enum EventV2 {
+///         #[versioned_type(override, extend)]
+///         Stopped {
+///             #[versioned_type(override)]
+///             code: u32,
+///         },
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub enum EventV1 {
+///     Stopped { code: u8, reason: String },
+/// }
+///
+/// pub enum EventV2 {
+///     Stopped { code: u32, reason: String },
+/// }
+/// ```
+///
+/// ## Cherry-picking variants without inheriting all of them
+///
+/// If the current enum is *not* annotated with `#[versioned_type(extend)]`, only the variants
+/// written in the current source appear in the output. The variant-level `extend` and `override`
+/// attributes still let you reuse fields from the previous version selectively.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub enum EventV1 {
+///         Started,
+///         Stopped { code: u8 },
+///         Errored,
+///     }
+///
+///     pub enum EventV2 {
+///         #[versioned_type(extend)]
+///         Stopped { reason: String },
+///         Replayed,
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub enum EventV1 {
+///     Started,
+///     Stopped { code: u8 },
+///     Errored,
+/// }
+///
+/// pub enum EventV2 {
+///     Stopped { code: u8, reason: String },
+///     Replayed,
+/// }
+/// ```
+///
+/// `Started` and `Errored` are dropped because the new enum only declares `Stopped` (extending the
+/// previous one) and `Replayed`.
+///
+/// ## A variant whose previous version was a struct
+///
+/// Type kinds may switch across versions: an enum may follow a struct. A variant with
+/// `#[versioned_type(extend)]` then inherits the struct's fields. (Type-level `extend` across kinds
+/// is *not* allowed; this is a variant-level operation.)
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct CallLogV1 {
+///         pub caller: AccountId,
+///         pub gas_used: Weight,
+///     }
+///
+///     pub enum CallLogV2 {
+///         #[versioned_type(extend)]
+///         Standard { block: BlockNumber },
+///         Failed { reason: String },
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub struct CallLogV1 {
+///     pub caller: AccountId,
+///     pub gas_used: Weight,
+/// }
+///
+/// pub enum CallLogV2 {
+///     Standard { caller: AccountId, gas_used: Weight, block: BlockNumber },
+///     Failed { reason: String },
+/// }
+/// ```
+///
+/// Inherited fields lose their `pub` modifiers because enum-variant fields take inherited
+/// visibility (which is the only valid setting in that position).
+///
+/// ## Preserving derives, attributes, generics, and `where` clauses
+///
+/// Every attribute that is not `versioned_type` is preserved exactly as written, and so are
+/// visibility, generic parameters, and `where` clauses. The macro only edits fields and variants
+/// according to its own attributes.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     /// A log of a contract call.
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct LogV1<T>
+///     where
+///         T: Encode,
+///     {
+///         #[serde(skip)]
+///         pub data: T,
+///     }
+///
+///     /// A log of a contract call.
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     #[versioned_type(extend)]
+///     pub struct LogV2<T>
+///     where
+///         T: Encode,
+///     {
+///         pub timestamp: u64,
+///     }
+/// }
+/// ```
+///
+/// The doc comment, the `#[derive]`, the `#[serde(skip)]` field attribute, the `<T>` generic
+/// parameter, and the `where` clause are all preserved on every version. The
+/// `#[versioned_type(extend)]` attribute is the only one stripped from the output.
+///
+/// ## Out-of-order definitions and non-1 starting versions
+///
+/// Items may be written in any source order, and the version sequence does not have to start at
+/// `V1` — only contiguity matters. The output is always emitted in ascending version order
+/// regardless of source order.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct StateV4 { /* ... */ }
+///
+///     #[versioned_type(extend)]
+///     pub struct StateV5 { /* ... */ }
+///
+///     pub struct StateV3 { /* ... */ }
+/// }
+/// ```
+///
+/// is accepted (versions `V3`, `V4`, `V5` are contiguous) and emits `StateV3`, then `StateV4`, then
+/// `StateV5`.
+///
+/// # Item shape and versioning rules
+///
+/// The macro accepts zero or more `struct` or `enum` items. Empty input is valid and produces no
+/// output, which makes the macro safe to invoke from code generation that may or may not have
+/// anything to declare.
+///
+/// Each item must be a `struct` or `enum` — no other Rust items are accepted — and each identifier
+/// must end with `V` followed by a positive integer (the version number).
+///
+/// The version suffix must:
+///
+/// * be a non-empty sequence of ASCII digits (e.g. `V1`, `V42`);
+/// * have no leading zeros (`V01` is rejected, `V10` is accepted);
+/// * be greater than zero (`V0` is rejected — versions start at `V1`).
+///
+/// The base name extends as far back as possible: the parser uses the *last* `V` followed by
+/// digits, so `VeryVerboseLogV2` correctly splits into base name `VeryVerboseLog` and version `V2`.
+///
+/// Within a single invocation:
+///
+/// * every item must share the same base name (mixing `CallLogV1` with `OtherLogV2` is rejected);
+/// * versions must be contiguous — gaps are rejected with a diagnostic naming the missing version
+///   or range;
+/// * the same version cannot be defined twice;
+/// * the starting version need not be `1` — `CallLogV3` and `CallLogV4` is a valid invocation;
+/// * items may appear in any source order; they are emitted in ascending version order regardless
+///   of the order they appear in source.
+///
+/// Each item independently chooses to be a `struct` or an `enum`. Switching kinds across versions
+/// is permitted as long as the new version does not request a *type-level* `extend` from a
+/// different kind (see "Type-level extension" below); variant-level operations against a previous
+/// struct *are* allowed and have specific semantics.
+///
+/// # The `#[versioned_type(...)]` helper attribute
+///
+/// All of the macro's behavior is controlled by the `#[versioned_type(...)]` helper attribute. It
+/// is recognized on:
+///
+/// * the item itself (struct or enum),
+/// * an enum variant,
+/// * a named struct field or named variant field.
+///
+/// The attribute is always written in *list form*: `#[versioned_type(option_a, option_b)]`. Other
+/// attribute syntaxes are rejected:
+///
+/// * a bare `#[versioned_type]` (path form) is rejected with a hint to use
+///   `#[versioned_type(extend)]`;
+/// * `#[versioned_type = "..."]` (name-value form) is rejected;
+/// * each option is a bare flag — `extend = true` and `extend(...)` are rejected because the
+///   options take no arguments;
+/// * `#[versioned_type()]` with an empty option list is accepted and is equivalent to the attribute
+///   being absent;
+/// * the same option cannot appear twice in the same attribute, and the same option cannot appear
+///   across two `#[versioned_type(...)]` attributes on the same item; both cases are rejected with
+///   diagnostics that point at both occurrences;
+/// * unrecognized options are rejected with a diagnostic listing the supported options.
+///
+/// The supported options are `extend` and `override`. Where each one is allowed:
+///
+/// * **on a type (struct or enum)** — `extend` is supported, `override` is rejected;
+/// * **on an enum variant** — both `extend` and `override` are supported, and they may be combined
+///   as `#[versioned_type(extend, override)]` (or `override, extend` — order is irrelevant);
+/// * **on a named field** — `override` is supported, `extend` is rejected;
+/// * **on a tuple field** — neither `extend` nor `override` is supported, because tuple fields have
+///   no stable names to anchor an override to.
+///
+/// All `#[versioned_type(...)]` attributes are stripped from the generated code. Every other
+/// attribute (including `#[derive]`, `#[doc]`, `#[cfg]`, `#[serde(...)]`, ...) is preserved exactly
+/// as written and travels with the item, variant, or field it adorns.
+///
+/// # Type-level extension: `#[versioned_type(extend)]`
+///
+/// Placing `#[versioned_type(extend)]` on a `struct` or `enum` declares that the item is derived
+/// from its immediately previous version.
+///
+/// * It requires a previous version to exist in the same invocation. The first item in a family
+///   cannot use `extend`; doing so produces a "no previous version" diagnostic.
+/// * Cross-kind type-level extension is forbidden: a `struct` cannot extend a previous `enum`, and
+///   an `enum` cannot extend a previous `struct`. Both cases produce diagnostics that point at the
+///   current item, the previous item, and the offending `extend` attribute. This restriction
+///   applies only to *type-level* `extend` — variant-level operations against a previous struct are
+///   still possible (see "Variant-level operations" below).
+///
+/// For structs, type-level `extend` performs field merging (see "Field merging" below).
+///
+/// For enums, type-level `extend` first copies *every* variant from the previous enum, preserving
+/// order, and then applies the current enum's variant declarations on top:
+///
+/// * variants without a `versioned_type` attribute are appended after the inherited variants (they
+///   are *new* variants);
+/// * variants with `#[versioned_type(override)]` replace the same-named inherited variant *in its
+///   original position*, leaving variant order unchanged for callers;
+/// * variants with `#[versioned_type(extend)]` merge with the same-named inherited variant (also in
+///   its original position);
+/// * variants with `#[versioned_type(override, extend)]` produce the same observable result as
+///   `#[versioned_type(extend)]` here — both replace the inherited variant in place and merge
+///   fields. The combined form is accepted as an explicit way of stating the intent.
+///
+/// A standalone variant in an extending enum that collides with the name of an inherited variant is
+/// an error. The diagnostic suggests adding `override` to acknowledge the replacement.
+///
+/// # Variant-level operations
+///
+/// Enum variants accept four modes:
+///
+/// * **standalone** (no `versioned_type` attribute) — the variant is appended to the output enum;
+/// * **`extend`** — the variant's fields are merged with the same-named variant in the previous
+///   version (the previous version may be an enum or a struct — see below);
+/// * **`override`** — the variant replaces the same-named variant from the previous enum *in its
+///   original position*; no field merging happens;
+/// * **`override, extend`** (or `extend, override` — order is irrelevant) — the variant replaces
+///   the previous variant *and* its fields are merged with the previous variant's fields.
+///
+/// Variant operations work in two surrounding contexts, with different bookkeeping:
+///
+/// 1. **Inside an enum that itself uses `#[versioned_type(extend)]`** — the output starts with all
+///    of the previous enum's variants in order, and current variants are merged in by name.
+///    Standalone variants must not collide with inherited names.
+///
+/// 2. **Inside a standalone enum** (no type-level `extend`) — the output starts empty, and only the
+///    variants declared in the current source appear. `extend` and `override` on individual
+///    variants still work selectively against the previous version. This lets a new enum
+///    cherry-pick which variants to inherit, override, or extend, and discard the rest.
+///
+/// Cross-kind variant inheritance is supported in one direction only: a variant's `extend` may
+/// reference a previous *struct*. In that case the previous struct's fields are merged into the
+/// variant. `override` (and therefore `override, extend`) on a variant cannot reference a previous
+/// struct — a struct has no variants to identify by name, and both forms are rejected with the same
+/// diagnostic that targets the offending option.
+///
+/// `extend` and `override` both require a target to exist in the previous version; targeting a
+/// non-existent name produces a diagnostic that points at the current variant and the offending
+/// attribute. Two variants in the same current enum cannot share an identifier; the macro rejects
+/// duplicates regardless of their attributes.
+///
+/// # Field-level override
+///
+/// `#[versioned_type(override)]` may be placed on a *named* struct field or named variant field to
+/// replace the same-named field from the previous version *in its original position*. The new
+/// field's type, attributes, and visibility take effect; the previous field's type and attributes
+/// are discarded.
+///
+/// Field-level override is only meaningful inside an extending context — the surrounding type
+/// carries `#[versioned_type(extend)]`, or the surrounding variant carries
+/// `#[versioned_type(extend)]` or `#[versioned_type(override, extend)]`. Using `override` on a
+/// field outside such a context is rejected.
+///
+/// Constraints:
+///
+/// * the previous fields must be *named* — overriding when the previous version was a tuple struct
+///   is rejected as ambiguous, because tuple positions have no stable names;
+/// * the override target must exist in the previous version; an override of a missing field is
+///   rejected with a diagnostic that points at the offending attribute;
+/// * `override` is not allowed on tuple fields, because tuple fields lack stable names to identify
+///   the override target;
+/// * field-level `extend` does not exist — field merging is controlled by the enclosing item or
+///   variant. Using `extend` on a field is rejected.
+///
+/// A current named field whose name matches an inherited field but lacks `override` is rejected
+/// with a diagnostic that suggests adding `override`. Two current fields in the same field list
+/// cannot share a name.
+///
+/// # Field merging
+///
+/// Field merging applies in two situations: a struct extending a previous struct, and an enum
+/// variant extending a previous variant or struct. The merge produces a single field list using the
+/// following rule:
+///
+/// 1. For every field in the *previous* version, in source order:
+///    * if the current source carries an `override` for that name, emit the *current* field in this
+///      position (the previous field's type and attributes are discarded);
+///    * otherwise, emit the *previous* field with its visibility adjusted (see "Visibility of
+///      inherited fields" below).
+/// 2. Append every *new* current field — those that have no override and whose name did not exist
+///    previously — in source order, after the inherited fields.
+///
+/// Overrides preserve the original field position from the previous version, while purely new
+/// fields appear at the end.
+///
+/// The current and previous shapes (`Named`, `Unnamed` / tuple, `Unit`) can differ. The macro
+/// handles every combination:
+///
+/// * **named ⇐ named** — fields are merged by name following the rule above.
+/// * **named ⇐ tuple** — the previous tuple fields are renamed to `field_0`, `field_1`, ... and
+///   placed first; current named fields are appended afterwards. If a current named field collides
+///   with one of these synthetic names, the macro reports an error that points at both the current
+///   field and the previous tuple field.
+/// * **named ⇐ unit** — nothing is inherited; current named fields are kept as-is. `override` is
+///   rejected with a "previous version has no fields" diagnostic.
+/// * **tuple ⇐ named** — the previous named fields lose their names and become positional fields;
+///   current tuple fields are appended afterwards.
+/// * **tuple ⇐ tuple** — the previous tuple fields are placed first, current tuple fields
+///   afterwards.
+/// * **tuple ⇐ unit** — nothing is inherited; current tuple fields are kept as-is.
+/// * **unit ⇐ named** — the current item becomes a *named* struct or variant containing the
+///   previous fields verbatim (with adjusted visibility).
+/// * **unit ⇐ tuple** — the current item becomes a *tuple* struct or variant containing the
+///   previous fields verbatim (with adjusted visibility).
+/// * **unit ⇐ unit** — the output stays unit.
+///
+/// # Visibility of inherited fields
+///
+/// Fields copied from a previous version have their visibility adjusted to fit their new location:
+///
+/// * struct fields become `pub`, regardless of their previous visibility;
+/// * enum variant fields become `Inherited` (no visibility modifier), which is the only valid
+///   setting on enum variant fields.
+///
+/// Fields written directly in the current source keep their stated visibility unchanged, including
+/// `pub`, `pub(crate)`, `pub(super)`, or no modifier.
+///
+/// # Stripping and preservation
+///
+/// The macro never lets `versioned_type` helpers leak into the output. Every
+/// `#[versioned_type(...)]` is removed from items, variants, and fields, even on items that do not
+/// perform any extension (where the helper has no effect anyway).
+///
+/// Everything else is preserved verbatim:
+///
+/// * outer attributes on items (`#[derive]`, `#[doc]`, `#[cfg]`, `#[serde(...)]`, ...);
+/// * doc comments on items, variants, and fields;
+/// * visibility modifiers (`pub`, `pub(crate)`, `pub(super)`, ...);
+/// * generic parameters and `where` clauses;
+/// * field-, variant-, and item-level attributes other than `versioned_type`.
+///
+/// When a current variant or field replaces a previous one through `override`, the previous
+/// attributes are dropped — the override is a full replacement, not an attribute merge.
+///
+/// # Output ordering
+///
+/// Items are emitted in ascending version order, regardless of the order they appear in source. So:
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct CallLogV4 { /* ... */ }
+///     pub struct CallLogV3 { /* ... */ }
+/// }
+/// ```
+///
+/// emits `CallLogV3` before `CallLogV4` in the generated code.
+///
+/// # Diagnostics
+///
+/// The macro reports compile errors with spans that point at the offending source. Common
+/// categories include:
+///
+/// * **Naming**: missing `V`, empty version suffix, non-numeric suffix, leading-zero version, `V0`,
+///   missing base name.
+/// * **Per-invocation**: mismatched base names, duplicate versions, non-contiguous versions.
+/// * **Attribute syntax**: bare `#[versioned_type]`, name-value form, options with arguments,
+///   duplicate options, unsupported options, `extend` on a field, `override` on a type.
+/// * **Type-level extension**: `extend` without a previous version, struct extending an enum, enum
+///   extending a struct.
+/// * **Variant operations**: `extend` or `override` targeting a variant that does not exist in the
+///   previous version, `override` against a previous struct, standalone variant colliding with an
+///   inherited variant, duplicate current variants.
+/// * **Field operations**: `override` on a tuple field, `override` against a previous tuple shape,
+///   `override` outside an extending context, redefining an inherited named field without
+///   `override`, override of a missing previous named field, current named field colliding with a
+///   synthetic `field_N` name produced from previous tuple fields, duplicate current fields.
+#[proc_macro]
+pub fn define_versioned_type(input: TokenStream) -> TokenStream {
+	let input =
+		syn::parse_macro_input!(input as handle_define_versioned_type::DefineVersionedTypeInput);
+	let items = match handle_define_versioned_type::handle_define_versioned_type(input) {
+		Ok(items) => items,
+		Err(error) => return error.to_compile_error().into(),
+	};
+
+	quote! { #( #items )* }.into()
 }
 
 /// Parsed environment definition.
