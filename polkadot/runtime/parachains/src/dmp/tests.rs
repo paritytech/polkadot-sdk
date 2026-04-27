@@ -1008,6 +1008,134 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	});
 }
 
+#[test]
+fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
+	// Sequence:
+	//   1. delete_all(A) spills, leaves pages in [0, R1) and sets
+	//      LazyDelete[A] = (0, R1).
+	//   2. Re-onboard A and push enough messages that pages span [R1, R2).
+	//   3. delete_all(A) again — this also spills, and the implementation
+	//      overwrites LazyDelete[A] with (R1, R2).
+	//
+	// If the second `delete_all` blindly overwrites the first range, every
+	// surviving page in [0, R1) is permanently orphaned because the
+	// numeric-scan in `lazy_delete_some` only walks the recorded range.
+	let a = ParaId::from(64);
+
+	// Pick numbers large enough that both delete_all calls are guaranteed to
+	// spill: first batch leaves a healthy population of old pages, second batch
+	// adds more than what `clear_prefix` can wipe in one go.
+	let first_batch: u64 = EXPECTED_LAZY_DELETE_PAGES * 3;
+	let second_batch: u64 = EXPECTED_LAZY_DELETE_PAGES * 2;
+
+	let mut ext = new_test_ext(default_genesis_config());
+
+	// Round 1: fill, delete_all (spill).
+	ext.execute_with(|| {
+		for i in 0..first_batch {
+			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
+		}
+	});
+	ext.commit_all().unwrap();
+
+	ext.execute_with(|| {
+		InboundDownwardQueue::<Test>::delete_all(a);
+		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		// Many old pages survived the first spill.
+		assert!(
+			pages_in_storage(a).len() as u64 >= first_batch - EXPECTED_LAZY_DELETE_PAGES,
+		);
+	});
+	ext.commit_all().unwrap();
+
+	// Round 2: re-onboard the same para and queue more.
+	ext.execute_with(|| {
+		for _ in 0..second_batch {
+			InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
+		}
+	});
+	ext.commit_all().unwrap();
+
+	ext.execute_with(|| {
+		InboundDownwardQueue::<Test>::delete_all(a);
+		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+	});
+	ext.commit_all().unwrap();
+
+	// Drain lazy delete to completion (generous bound: it only removes
+	// LAZY_DELETE_MAX_PAGES per call and we may have a couple of full ranges).
+	let bound = (first_batch + second_batch) * 2;
+	let mut iterations = 0u64;
+	loop {
+		let pending = ext.execute_with(|| {
+			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
+		});
+		if !pending {
+			break;
+		}
+		ext.execute_with(|| {
+			let mut wm = WeightMeter::new();
+			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
+		});
+		ext.commit_all().unwrap();
+		iterations += 1;
+		assert!(iterations < bound, "lazy_delete_some should make progress");
+	}
+
+	// No pages — old or new — must remain. Anything left here is orphaned
+	// because the second delete_all's range overwrote the first one's.
+	ext.execute_with(|| {
+		let pages = pages_in_storage(a);
+		assert!(
+			pages.is_empty(),
+			"orphan pages remain after both delete_all cycles: {:?}",
+			pages,
+		);
+	});
+}
+
+#[test]
+fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
+	// First spill on a para with `meta.first_full > 0` (achieved by dropping
+	// some messages before offboarding) must store a `LazyDelete` lower bound
+	// equal to `meta.first_full`, not 0.
+	//
+	// A buggy `unwrap_or((0, 0))` default combined with a
+	// `meta.first_full.min(old_first)` merge would lower the bound to 0 and
+	// have `lazy_delete_some` walk already-popped indices unnecessarily.
+	let a = ParaId::from(65);
+	let total: u64 = EXPECTED_LAZY_DELETE_PAGES * 2;
+	let popped: u64 = 30;
+
+	let mut ext = new_test_ext(default_genesis_config());
+	ext.execute_with(|| {
+		for i in 0..total {
+			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
+		}
+		assert_eq!(InboundDownwardQueue::<Test>::drop_front_n(a, popped), Some(popped));
+		// Sanity: meta now starts above 0.
+		let meta = InboundDownwardQueue::<Test>::meta(a).unwrap();
+		assert_eq!(meta.first_full, popped);
+		assert_eq!(meta.first_free, total);
+		// Sanity: no prior LazyDelete entry.
+		assert!(!DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+	});
+	ext.commit_all().unwrap();
+
+	ext.execute_with(|| {
+		InboundDownwardQueue::<Test>::delete_all(a);
+
+		let (first, last) = DownwardMessageQueueLazyDelete::<Test>::get(a)
+			.expect("delete_all must spill — we have more pages than the chunk size");
+		assert_eq!(
+			first, popped,
+			"LazyDelete lower bound should be meta.first_full ({}), not 0",
+			popped,
+		);
+		assert_eq!(last, total);
+	});
+}
+
 // ---------------------------------------------------------------------------
 // High-level `Dmp` API tests for the new storage layout.
 // ---------------------------------------------------------------------------

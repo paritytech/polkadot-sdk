@@ -86,9 +86,16 @@ impl<T: Config> InboundDownwardQueue<T> {
 		// Try to delete all at once but do it lazy otherwise
 		let cursor = DownwardMessageQueuePages::<T>::clear_prefix(para, LAZY_DELETE_MAX_PAGES, None);
 
-		if cursor.maybe_cursor.is_some() {
-			DownwardMessageQueueLazyDelete::<T>::insert(para, (meta.first_full, meta.first_free));
+		if cursor.maybe_cursor.is_none() {
+			// all done
+			return;
 		}
+		
+		let (lo, hi) = match DownwardMessageQueueLazyDelete::<T>::get(para) {
+			Some((old_first, old_last)) => (old_first, meta.first_free.max(old_last)),
+			None => (meta.first_full, meta.first_free),
+		}; 
+		DownwardMessageQueueLazyDelete::<T>::insert(para, (lo, hi));
 	}
 
 	pub fn lazy_delete_some(_weight_meter: &mut WeightMeter) {

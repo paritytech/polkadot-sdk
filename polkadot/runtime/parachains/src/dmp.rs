@@ -156,7 +156,7 @@ pub mod pallet {
 		OptionQuery,
 	>;
 
-	/// Queue with ParaIds who need to get their page queue swept.
+	/// Queue with ParaIds and the [first, last) page range to be deleted.
 	///
 	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
 	#[pallet::storage]
