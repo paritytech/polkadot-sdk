@@ -90,9 +90,8 @@ mod benchmarks {
 		// Mint the asset's minimum balance so the caller has an `Assets::Account` entry.
 		// Without one, `reducible_balance` returns early before reading the freezer storage,
 		// so the worst-case storage path on the skip branch wouldn't be captured.
-		let min_balance = <T::Assets as fungibles::Inspect<T::AccountId>>::minimum_balance(
-			T::PGASAssetId::get(),
-		);
+		let min_balance =
+			<T::Assets as fungibles::Inspect<T::AccountId>>::minimum_balance(T::PGASAssetId::get());
 		<T as Config>::BenchmarkHelper::mint_pgas(&caller, T::PGASAssetId::get(), min_balance);
 
 		let ext: ChargePGAS<T, ()> = ChargePGAS::<T, ()>::default();
