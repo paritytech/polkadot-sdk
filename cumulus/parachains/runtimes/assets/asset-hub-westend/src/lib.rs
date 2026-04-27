@@ -1128,7 +1128,6 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 
 parameter_types! {
 	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
-	/// TODO: Set the westend value
 	pub const PGASAssetId: AssetIdForTrustBackedAssets = 80_716_583;
 }
 
