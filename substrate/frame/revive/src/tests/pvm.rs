@@ -2775,7 +2775,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// - 2 for the storage item of 0 bytes being created in the callee constructor
 		// - 48 for the key
 		//
-		// ED is not charged: `on_contract_created` mints it rather than taking it from the origin.
+		// ED is not charged: `mint_contract_eds` mints it rather than taking it from the origin.
 		let callee_min_deposit = {
 			let callee_info_len =
 				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u128;

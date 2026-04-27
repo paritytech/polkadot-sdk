@@ -106,9 +106,9 @@ fn run(case: TestCase) {
 	}
 	builder.build().execute_with(|| {
 		Balances::set_balance(&ALICE, case.initial_native);
-		// Mint the native and PGAS ED onto BOB, mirroring what `on_contract_created` does at
+		// Mint the native and PGAS ED onto BOB, mirroring what `mint_contract_eds` does at
 		// contract creation time.
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::on_contract_created(&BOB));
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
 
 		for (i, charge) in case.charges.iter().enumerate() {
 			assert_ok!(charge_and_hold(&ALICE, &BOB, charge.amount));
@@ -206,9 +206,9 @@ fn burn_held_on_sub_ed_hold_works() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::on_contract_created(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
 
-			// PGAS branch: 50 transferred on top of the ED minted by `on_contract_created`.
+			// PGAS branch: 50 transferred on top of the ED minted by `mint_contract_eds`.
 			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
 			assert_eq!(
 				snapshot(&ALICE, &BOB),
@@ -241,7 +241,7 @@ fn burn_held_on_sub_ed_hold_partial_refund() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::on_contract_created(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
 
 			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
 			assert_ok!(refund_on_hold(&BOB, &ALICE, 20));

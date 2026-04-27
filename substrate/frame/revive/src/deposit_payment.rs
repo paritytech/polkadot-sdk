@@ -69,21 +69,23 @@ pub enum Funds<'a, AccountId> {
 
 /// Payment backend used to charge storage deposits.
 pub trait Deposit<T: Config>: sealed::Sealed {
-	/// Bring `to`'s account into existence. Idempotent: a no-op if the account already exists.
+	/// Mint each backend's existential deposit into `contract` so its native (and, for the PGAS
+	/// backend, its PGAS) asset account is alive. The native ED is freshly minted and immediately
+	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
+	/// active issuance, and therefore opengov conviction, inflation accounting, etc., is
+	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
+	/// exists, so this minted ED is not extractable: the account cannot be reaped.
 	///
-	/// Called when a contract is deployed.
-	///
-	/// # Parameters
-	/// - `to`: account to bring into existence.
-	fn on_contract_created(to: &T::AccountId) -> DispatchResult;
+	/// Idempotent: if the contract already has the asset account, the corresponding mint is
+	/// skipped. Used by [`crate::exec`] when bringing a new contract account into existence.
+	fn mint_contract_eds(contract: &T::AccountId) -> DispatchResult;
 
-	/// Inverse of [`Self::on_contract_created`]: tear down the state it set up.
+	/// Burn the existential deposits that [`Self::mint_contract_eds`] minted into `contract`.
+	/// The native ED is reactivated before being burned so that inactive issuance does not get
+	/// stuck above total issuance.
 	///
-	/// Called when a contract is destroyed.
-	///
-	/// # Parameters
-	/// - `contract`: account being torn down.
-	fn on_contract_destroyed(contract: &T::AccountId) -> DispatchResult;
+	/// Used by [`crate::exec::Stack::do_terminate`] when destroying a contract.
+	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult;
 
 	/// Charge `amount` from `src` to `to` and place it on hold under `reason`.
 	///
@@ -140,7 +142,7 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
-	fn on_contract_created(to: &T::AccountId) -> DispatchResult {
+	fn mint_contract_eds(to: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::mint_into(to, ed)?;
 		// The minted ED is not a user claim and should not inflate the active issuance
@@ -149,7 +151,7 @@ impl<T: Config> Deposit<T> for () {
 		Ok(())
 	}
 
-	fn on_contract_destroyed(contract: &T::AccountId) -> DispatchResult {
+	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::burn_from(
 			contract,
@@ -158,7 +160,7 @@ impl<T: Config> Deposit<T> for () {
 			Precision::BestEffort,
 			Fortitude::Polite,
 		)?;
-		// Pair with [`Self::on_contract_created`]: shrink the inactive pool first so the burn only
+		// Pair with [`Self::mint_contract_eds`]: shrink the inactive pool first so the burn only
 		// nets out the mint, rather than also taking an ED off the active issuance.
 		T::Currency::reactivate(ed);
 		Ok(())
@@ -293,8 +295,8 @@ where
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
 	/// ED is [`deactivated`](fungible::Unbalanced::deactivate) so it stays outside active
 	/// issuance.
-	fn on_contract_created(to: &T::AccountId) -> DispatchResult {
-		<() as Deposit<T>>::on_contract_created(to)?;
+	fn mint_contract_eds(to: &T::AccountId) -> DispatchResult {
+		<() as Deposit<T>>::mint_contract_eds(to)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
 			Id::get(),
 			to,
@@ -303,12 +305,12 @@ where
 		Ok(())
 	}
 
-	/// Burns the native and PGAS ED minted by [`Self::on_contract_created`], reactivating the
+	/// Burns the native and PGAS ED minted by [`Self::mint_contract_eds`], reactivating the
 	/// native ED first so the burn doesn't also eat into active issuance. Best-effort on the PGAS
 	/// side: contracts that predate the mint-based init may be missing the PGAS ED, in which
 	/// case nothing is burned for that asset.
-	fn on_contract_destroyed(contract: &T::AccountId) -> DispatchResult {
-		<() as Deposit<T>>::on_contract_destroyed(contract)?;
+	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult {
+		<() as Deposit<T>>::burn_contract_eds(contract)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
 			Id::get(),
 			contract,
@@ -399,14 +401,14 @@ where
 		native_held.saturating_add(pgas_held)
 	}
 
-	/// Bring a pre-existing contract up to the post-[`Self::on_contract_created`] invariant:
+	/// Bring a pre-existing contract up to the post-[`Self::mint_contract_eds`] invariant:
 	/// mint the PGAS ED into `contract`'s free balance if it is missing, then burn the native
 	/// hold under `reason` and replace it with the same amount of PGAS held on `contract`.
 	///
 	/// The hold is written directly via the holder pallet storage (no `pallet_assets::Account`
 	/// is created for it); the free PGAS ED provides that account entry instead. The PGAS
 	/// supply is bumped by exactly `amount + pgas_ed`; `burn_held` on refund/termination and
-	/// `on_contract_destroyed` on destruction decrement it back.
+	/// `burn_contract_eds` on destruction decrement it back.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
