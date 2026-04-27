@@ -35,8 +35,8 @@ use sp_runtime::traits::{
 	T::RuntimeOrigin: AsTransactionAuthorizedOrigin,
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
-	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
+	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>> + IsType<AssetBalanceOf<T>>,
+	ChargeAssetIdOf<T>: Send + Sync + IsType<AssetIdOf<T>>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
     Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
 )]

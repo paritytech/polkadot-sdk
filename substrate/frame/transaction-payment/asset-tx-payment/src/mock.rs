@@ -20,9 +20,8 @@ use codec;
 use frame_support::{
 	derive_impl,
 	dispatch::DispatchClass,
-	pallet_prelude::*,
 	parameter_types,
-	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, FindAuthor},
+	traits::{AsEnsureOriginWithArg, ConstU32, ConstU64, ConstU8, FindAuthor, Get},
 	weights::{Weight, WeightToFee as WeightToFeeT},
 	ConsensusEngineId,
 };
@@ -195,13 +194,21 @@ impl WeightInfo for MockWeights {
 	}
 }
 
+parameter_types! {
+	pub static PgasId: Option<AssetId> = None;
+}
+
 impl Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Fungibles = Assets;
-	type OnChargeAssetTransaction = FungiblesAdapter<
-		pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
-		CreditToBlockAuthor,
+	type OnChargeAssetTransaction = PgasOnChargeAssetTransaction<
+		PgasId,
+		FungiblesAdapter<
+			pallet_assets::BalanceToAssetBalance<Balances, Runtime, ConvertInto>,
+			CreditToBlockAuthor,
+		>,
 	>;
+	type PgasId = PgasId;
 	type WeightInfo = MockWeights;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = Helper;

@@ -613,6 +613,171 @@ fn post_dispatch_fee_is_zero_if_pre_dispatch_fee_is_zero() {
 		});
 }
 
+/// Helper for PGAS tests: create an asset, mint into the caller, set [`mock::PgasId`].
+fn setup_pgas_asset(caller: u64, balance: u64) -> u32 {
+	let asset_id = 7;
+	let min_balance = 1;
+	assert_ok!(Assets::force_create(
+		RuntimeOrigin::root(),
+		asset_id.into(),
+		42,   // owner
+		true, // is_sufficient
+		min_balance,
+	));
+	let beneficiary = <Runtime as system::Config>::Lookup::unlookup(caller);
+	assert_ok!(Assets::mint_into(asset_id.into(), &beneficiary, balance));
+	mock::PgasId::set(Some(asset_id));
+	asset_id
+}
+
+#[test]
+fn pgas_auto_route_when_signer_holds_pgas() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			let caller = 1;
+			let pgas_balance = 1_000;
+			let asset_id = setup_pgas_asset(caller, pgas_balance);
+
+			let weight = 5;
+			let len = 10;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+			let fee = base_weight + weight + len as u64 + info.extension_weight.ref_time();
+			let initial_native = Balances::free_balance(caller);
+
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
+
+			assert_eq!(Balances::free_balance(caller), initial_native);
+			assert_eq!(Assets::balance(asset_id, caller), pgas_balance - fee);
+
+			let issuance_before = Assets::total_issuance(asset_id);
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			));
+			let actual_fee = base_weight +
+				weight + len as u64 +
+				MockWeights::charge_asset_tx_payment_asset().ref_time();
+			assert_eq!(Assets::balance(asset_id, caller), pgas_balance - actual_fee);
+			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
+			assert_eq!(Assets::total_issuance(asset_id), issuance_before - actual_fee);
+		});
+}
+
+#[test]
+fn pgas_auto_route_falls_back_to_native_when_insufficient() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			let caller = 1;
+			let asset_id = setup_pgas_asset(caller, 1);
+
+			let weight = 5;
+			let len = 10;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+			let fee = base_weight + weight + len as u64 + info.extension_weight.ref_time();
+			let initial_native = Balances::free_balance(caller);
+
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
+
+			assert_eq!(Balances::free_balance(caller), initial_native - fee);
+			assert_eq!(Assets::balance(asset_id, caller), 1);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			));
+		});
+}
+
+#[test]
+fn pgas_auto_route_disabled_when_pgas_id_unset() {
+	mock::PgasId::set(None);
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			let caller = 1;
+			let len = 10;
+			let weight = 5;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, None);
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+
+			let initial_native = Balances::free_balance(caller);
+			let fee = base_weight + weight + len as u64 + info.extension_weight.ref_time();
+
+			let (_pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
+
+			assert_eq!(Balances::free_balance(caller), initial_native - fee);
+		});
+}
+
+#[test]
+fn explicit_pgas_asset_id_burns_pgas() {
+	let base_weight = 5;
+	ExtBuilder::default()
+		.balance_factor(100)
+		.base_weight(Weight::from_parts(base_weight, 0))
+		.build()
+		.execute_with(|| {
+			System::set_block_number(1);
+			let caller = 1;
+			let pgas_balance = 1_000;
+			let asset_id = setup_pgas_asset(caller, pgas_balance);
+
+			let weight = 5;
+			let len = 10;
+			let ext = ChargeAssetTxPayment::<Runtime>::from(0, Some(asset_id));
+			let mut info = info_from_weight(Weight::from_parts(weight, 0));
+			info.extension_weight = ext.weight(CALL);
+			let fee = base_weight + weight + len as u64 + info.extension_weight.ref_time();
+
+			let issuance_before = Assets::total_issuance(asset_id);
+			let (pre, _) =
+				ext.validate_and_prepare(Some(caller).into(), CALL, &info, len, 0).unwrap();
+			assert_eq!(Assets::balance(asset_id, caller), pgas_balance - fee);
+
+			assert_ok!(ChargeAssetTxPayment::<Runtime>::post_dispatch_details(
+				pre,
+				&info,
+				&default_post_info(),
+				len,
+				&Ok(()),
+			));
+			let actual_fee = base_weight +
+				weight + len as u64 +
+				MockWeights::charge_asset_tx_payment_asset().ref_time();
+			assert_eq!(Assets::balance(asset_id, caller), pgas_balance - actual_fee);
+			// PGAS path burns; block author should not receive any.
+			assert_eq!(Assets::balance(asset_id, BLOCK_AUTHOR), 0);
+			assert_eq!(Assets::total_issuance(asset_id), issuance_before - actual_fee);
+		});
+}
+
 #[test]
 fn no_fee_and_no_weight_for_other_origins() {
 	ExtBuilder::default().build().execute_with(|| {

@@ -42,9 +42,9 @@ use frame_support::{
 	traits::{
 		tokens::{
 			fungibles::{Balanced, Credit, Inspect},
-			WithdrawConsequence,
+			Fortitude, Preservation, WithdrawConsequence,
 		},
-		IsType,
+		Get, IsType,
 	},
 	DefaultNoBound,
 };
@@ -67,9 +67,11 @@ mod tests;
 mod benchmarking;
 
 mod payment;
+mod pgas;
 pub mod weights;
 
 pub use payment::*;
+pub use pgas::PgasOnChargeAssetTransaction;
 pub use weights::WeightInfo;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
@@ -127,6 +129,9 @@ pub mod pallet {
 		type Fungibles: Balanced<Self::AccountId>;
 		/// The actual transaction charging logic that charges the fees.
 		type OnChargeAssetTransaction: OnChargeAssetTransaction<Self>;
+		/// Optional PGAS asset id. When set and the signer leaves the asset unspecified, the
+		/// extension auto-routes payment to PGAS provided the signer holds enough.
+		type PgasId: Get<Option<ChargeAssetIdOf<Self>>>;
 		/// The weight information of this pallet.
 		type WeightInfo: WeightInfo;
 		/// Benchmark helper
@@ -198,12 +203,13 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
+		asset_id: &Option<ChargeAssetIdOf<T>>,
 		fee: BalanceOf<T>,
 	) -> Result<(BalanceOf<T>, InitialPayment<T>), TransactionValidityError> {
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok((fee, InitialPayment::Nothing))
-		} else if let Some(asset_id) = self.asset_id.clone() {
+		} else if let Some(asset_id) = asset_id.clone() {
 			T::OnChargeAssetTransaction::withdraw_fee(
 				who,
 				call,
@@ -229,12 +235,13 @@ where
 		who: &T::AccountId,
 		call: &T::RuntimeCall,
 		info: &DispatchInfoOf<T::RuntimeCall>,
+		asset_id: &Option<ChargeAssetIdOf<T>>,
 		fee: BalanceOf<T>,
 	) -> Result<(), TransactionValidityError> {
 		debug_assert!(self.tip <= fee, "tip should be included in the computed fee");
 		if fee.is_zero() {
 			Ok(())
-		} else if let Some(asset_id) = self.asset_id.clone() {
+		} else if let Some(asset_id) = asset_id.clone() {
 			T::OnChargeAssetTransaction::can_withdraw_fee(
 				who,
 				call,
@@ -249,6 +256,35 @@ where
 			)
 			.map_err(|_| -> TransactionValidityError { InvalidTransaction::Payment.into() })
 		}
+	}
+
+	/// Resolve the asset id used to pay this transaction's fees.
+	///
+	/// If the signer specified an asset, that choice is honored. Otherwise, when [`Config::PgasId`]
+	/// is set and the signer holds at least `fee` PGAS, the extension auto-routes to PGAS. Falls
+	/// back to the native currency.
+	fn effective_asset_id(
+		who: &T::AccountId,
+		signed_asset_id: &Option<ChargeAssetIdOf<T>>,
+		fee: BalanceOf<T>,
+	) -> Option<ChargeAssetIdOf<T>>
+	where
+		ChargeAssetIdOf<T>: IsType<AssetIdOf<T>>,
+		BalanceOf<T>: IsType<AssetBalanceOf<T>>,
+	{
+		if signed_asset_id.is_some() {
+			return signed_asset_id.clone();
+		}
+		let pgas_id = T::PgasId::get()?;
+		let pgas_id_inspect: AssetIdOf<T> = pgas_id.clone().into();
+		let pgas_balance = <T::Fungibles as Inspect<T::AccountId>>::reducible_balance(
+			pgas_id_inspect,
+			who,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		);
+		let fee_in_assets: AssetBalanceOf<T> = fee.into();
+		(pgas_balance >= fee_in_assets).then_some(pgas_id)
 	}
 }
 
@@ -271,6 +307,8 @@ pub enum Val<T: Config> {
 		who: T::AccountId,
 		// transaction fee
 		fee: BalanceOf<T>,
+		// resolved asset to charge in (after PGAS auto-routing)
+		asset_id: Option<ChargeAssetIdOf<T>>,
 	},
 	NoCharge,
 }
@@ -299,8 +337,9 @@ impl<T: Config> TransactionExtension<T::RuntimeCall> for ChargeAssetTxPayment<T>
 where
 	T::RuntimeCall: Dispatchable<Info = DispatchInfo, PostInfo = PostDispatchInfo>,
 	AssetBalanceOf<T>: Send + Sync,
-	BalanceOf<T>: Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>>,
-	ChargeAssetIdOf<T>: Send + Sync,
+	BalanceOf<T>:
+		Send + Sync + From<u64> + IsType<ChargeAssetBalanceOf<T>> + IsType<AssetBalanceOf<T>>,
+	ChargeAssetIdOf<T>: Send + Sync + IsType<AssetIdOf<T>>,
 	Credit<T::AccountId, T::Fungibles>: IsType<ChargeAssetLiquidityOf<T>>,
 	<T::RuntimeCall as Dispatchable>::RuntimeOrigin: AsSystemOriginSigner<T::AccountId> + Clone,
 {
@@ -310,7 +349,10 @@ where
 	type Pre = Pre<T>;
 
 	fn weight(&self, _: &T::RuntimeCall) -> Weight {
-		if self.asset_id.is_some() {
+		// When the signer left the asset unspecified but PGAS auto-routing is enabled, validate may
+		// pick the asset path. Reserve the worst case so refunds in `post_dispatch_details` stay
+		// non-negative; the extra is refunded there.
+		if self.asset_id.is_some() || T::PgasId::get().is_some() {
 			<T as Config>::WeightInfo::charge_asset_tx_payment_asset()
 		} else {
 			<T as Config>::WeightInfo::charge_asset_tx_payment_native()
@@ -336,9 +378,10 @@ where
 		};
 		// Non-mutating call of `compute_fee` to calculate the fee used in the transaction priority.
 		let fee = pallet_transaction_payment::Pallet::<T>::compute_fee(len as u32, info, self.tip);
-		self.can_withdraw_fee(&who, call, info, fee)?;
+		let asset_id = Self::effective_asset_id(&who, &self.asset_id, fee);
+		self.can_withdraw_fee(&who, call, info, &asset_id, fee)?;
 		let priority = ChargeTransactionPayment::<T>::get_priority(info, len, self.tip, fee);
-		let val = Val::Charge { tip: self.tip, who: who.clone(), fee };
+		let val = Val::Charge { tip: self.tip, who: who.clone(), fee, asset_id };
 		let validity = ValidTransaction { priority, ..Default::default() };
 		Ok((validity, val, origin))
 	}
@@ -352,16 +395,11 @@ where
 		_len: usize,
 	) -> Result<Self::Pre, TransactionValidityError> {
 		match val {
-			Val::Charge { tip, who, fee } => {
+			Val::Charge { tip, who, fee, asset_id } => {
 				// Mutating call of `withdraw_fee` to actually charge for the transaction.
-				let (_fee, initial_payment) = self.withdraw_fee(&who, call, info, fee)?;
-				Ok(Pre::Charge {
-					tip,
-					who,
-					initial_payment,
-					asset_id: self.asset_id.clone(),
-					weight: self.weight(call),
-				})
+				let (_fee, initial_payment) =
+					self.withdraw_fee(&who, call, info, &asset_id, fee)?;
+				Ok(Pre::Charge { tip, who, initial_payment, asset_id, weight: self.weight(call) })
 			},
 			Val::NoCharge => Ok(Pre::NoCharge { refund: self.weight(call) }),
 		}
