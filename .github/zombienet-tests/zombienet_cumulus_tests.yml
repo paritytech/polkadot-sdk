@@ -150,4 +150,3 @@
   test-filter: "zombie_ci::statement_store::integration::statement_store_lite_person_submit_and_propagate"
   runner-type: "default"
   cumulus-image: "test-parachain"
-  use-zombienet-sdk: true

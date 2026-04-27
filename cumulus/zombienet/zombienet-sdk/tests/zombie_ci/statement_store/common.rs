@@ -256,6 +256,19 @@ async fn launch_network(
 	Ok(network)
 }
 
+/// Spawns a network with a sudo-enabled chain spec and sets allowances at runtime
+pub(super) async fn spawn_network_sudo(
+	collators: &[&str],
+	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
+) -> Result<Network<LocalFileSystem>, anyhow::Error> {
+	let network = spawn_network_inner(collators, allowance_items.len()).await?;
+	let node = network.get_node(collators[0])?;
+	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
+		.await?;
+
+	Ok(network)
+}
+
 /// Spawns a zombienet network with a custom chain spec containing injected statement allowances
 pub(super) async fn spawn_network_with_injected_allowances(
 	collators: &[&str],
@@ -303,19 +316,6 @@ async fn spawn_network_inner(
 	node.wait_metric_with_timeout(crate::utils::BEST_BLOCK_METRIC, |height| height >= 1.0, 300u64)
 		.await?;
 	info!("Parachain is producing blocks");
-
-	Ok(network)
-}
-
-/// Spawns a network and sets statement allowances at runtime via sudo
-pub(super) async fn spawn_network_sudo(
-	collators: &[&str],
-	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
-) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let network = spawn_network_inner(collators, allowance_items.len()).await?;
-	let node = network.get_node(collators[0])?;
-	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
-		.await?;
 
 	Ok(network)
 }
