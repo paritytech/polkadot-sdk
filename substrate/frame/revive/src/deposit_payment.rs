@@ -21,26 +21,26 @@
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
 use crate::{
-	evm::fees::InfoT as FeeInfo, BalanceOf, Config, HoldReason, NativeDepositOf, LOG_TARGET,
+	BalanceOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, evm::fees::InfoT as FeeInfo,
 };
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
 	traits::{
+		Get,
 		fungible::{
 			Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
 			Unbalanced as _,
 		},
 		tokens::{
-			fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
-			Restriction,
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
+			fungibles,
 		},
-		Get,
 	},
 };
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchError, DispatchResult, Perbill, TokenError,
+	traits::{Saturating, Zero},
 };
 
 mod sealed {
@@ -138,12 +138,46 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	) -> DispatchResult;
 }
 
+/// Release `amount` of `from`'s held native funds and route them to `dst`.
+/// Returns the actual amount released.
+fn refund_native_on_hold<T: Config>(
+	reason: HoldReason,
+	from: &T::AccountId,
+	dst: Funds<T::AccountId>,
+	amount: BalanceOf<T>,
+	precision: Precision,
+) -> Result<BalanceOf<T>, DispatchError> {
+	let refunded = match dst {
+		Funds::Balance(to) => T::Currency::transfer_on_hold(
+			&reason.into(),
+			from,
+			to,
+			amount,
+			precision,
+			Restriction::Free,
+			Fortitude::Polite,
+		)?,
+		Funds::TxFee(_) => {
+			let released = T::Currency::release(&reason.into(), from, amount, precision)?;
+			if !released.is_zero() {
+				let credit = T::Currency::withdraw(
+					from,
+					released,
+					Precision::Exact,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				)?;
+				T::FeeInfo::deposit_txfee(credit);
+			}
+			released
+		},
+	};
+	Ok(refunded)
+}
+
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
 	fn init_account(to: &T::AccountId) -> DispatchResult {
-		if frame_system::Pallet::<T>::account_exists(to) {
-			return Ok(());
-		}
 		let ed = T::Currency::minimum_balance();
 		T::Currency::mint_into(to, ed)?;
 		// The minted ED is not a user claim and should not inflate the active issuance
@@ -154,9 +188,6 @@ impl<T: Config> Deposit<T> for () {
 
 	fn deinit_account(contract: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
-		// Pair with [`Self::init_account`]: shrink the inactive pool first so the burn only
-		// nets out the mint, rather than also taking an ED off the active issuance.
-		T::Currency::reactivate(ed);
 		T::Currency::burn_from(
 			contract,
 			ed,
@@ -164,6 +195,9 @@ impl<T: Config> Deposit<T> for () {
 			Precision::BestEffort,
 			Fortitude::Polite,
 		)?;
+		// Pair with [`Self::init_account`]: shrink the inactive pool first so the burn only
+		// nets out the mint, rather than also taking an ED off the active issuance.
+		T::Currency::reactivate(ed);
 		Ok(())
 	}
 
@@ -202,31 +236,7 @@ impl<T: Config> Deposit<T> for () {
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		match dst {
-			Funds::Balance(to) => {
-				T::Currency::transfer_on_hold(
-					&reason.into(),
-					from,
-					to,
-					amount,
-					Precision::Exact,
-					Restriction::Free,
-					Fortitude::Polite,
-				)?;
-			},
-			Funds::TxFee(_) => {
-				let released =
-					T::Currency::release(&reason.into(), from, amount, Precision::Exact)?;
-				let credit = T::Currency::withdraw(
-					from,
-					released,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				)?;
-				T::FeeInfo::deposit_txfee(credit);
-			},
-		}
+		refund_native_on_hold::<T>(reason, from, dst, amount, Precision::Exact)?;
 		Ok(())
 	}
 
@@ -284,10 +294,10 @@ where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 	Holder: fungibles::MutateHold<
-		T::AccountId,
-		Balance = BalanceOf<T>,
-		AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-	>,
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
@@ -297,12 +307,7 @@ where
 	/// ED is [`deactivated`](fungible::Unbalanced::deactivate) so it stays outside active
 	/// issuance.
 	fn init_account(to: &T::AccountId) -> DispatchResult {
-		if frame_system::Pallet::<T>::account_exists(to) {
-			return Ok(());
-		}
-		let native_ed = T::Currency::minimum_balance();
-		T::Currency::mint_into(to, native_ed)?;
-		T::Currency::deactivate(native_ed);
+		<() as Deposit<T>>::init_account(to)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
 			Id::get(),
 			to,
@@ -316,15 +321,7 @@ where
 	/// side: contracts that predate the mint-based init may be missing the PGAS ED, in which
 	/// case nothing is burned for that asset.
 	fn deinit_account(contract: &T::AccountId) -> DispatchResult {
-		let native_ed = T::Currency::minimum_balance();
-		T::Currency::reactivate(native_ed);
-		T::Currency::burn_from(
-			contract,
-			native_ed,
-			Preservation::Expendable,
-			Precision::BestEffort,
-			Fortitude::Polite,
-		)?;
+		<() as Deposit<T>>::deinit_account(contract)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
 			Id::get(),
 			contract,
@@ -340,27 +337,16 @@ where
 	///
 	/// Uses PGAS when the payer has enough reducible PGAS, otherwise falls back to the native
 	/// currency and records the contribution in [`NativeDepositOf`] so refunds return native up
-	/// to the contributed amount.
-	///
-	/// When `src` is [`Funds::TxFee`] (eth-tx dispatch), `amount` is withdrawn from the txfee
-	/// pool and placed on hold at `to` regardless of the payer's PGAS balance.
+	/// to the contributed amount. The native fallback honours [`Funds::TxFee`] by withdrawing
+	/// from the txfee pool instead of the payer's free balance.
 	fn charge_and_hold(
 		reason: HoldReason,
 		src: Funds<T::AccountId>,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let from = match src {
-			Funds::TxFee(from) => {
-				let credit = T::FeeInfo::withdraw_txfee(amount)
-					.ok_or(DispatchError::Token(TokenError::FundsUnavailable))?;
-				T::Currency::resolve(to, credit)
-					.map_err(|_| DispatchError::Token(TokenError::FundsUnavailable))?;
-				T::Currency::hold(&reason.into(), to, amount)?;
-				Self::record_native_deposit::<T>(from, to, amount);
-				return Ok(());
-			},
-			Funds::Balance(from) => from,
+		let from = match &src {
+			Funds::Balance(from) | Funds::TxFee(from) => *from,
 		};
 
 		if Self::pgas_reducible_balance::<T>(from) >= amount {
@@ -376,15 +362,7 @@ where
 			)?;
 			Ok(())
 		} else {
-			T::Currency::transfer_and_hold(
-				&reason.into(),
-				from,
-				to,
-				amount,
-				Precision::Exact,
-				Preservation::Preserve,
-				Fortitude::Polite,
-			)?;
+			<() as Deposit<T>>::charge_and_hold(reason, src, to, amount)?;
 			Self::record_native_deposit::<T>(from, to, amount);
 			Ok(())
 		}
@@ -400,44 +378,21 @@ where
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		let (to, to_txfee) = match dst {
-			Funds::Balance(to) => (to, false),
-			Funds::TxFee(to) => (to, true),
+		let to = match &dst {
+			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
 		with_storage_layer(|| {
 			let contribution = NativeDepositOf::<T>::get(from, to);
 			let native_requested = amount.min(contribution);
 
 			let native_refunded = if !native_requested.is_zero() {
-				let refunded = if to_txfee {
-					let released = T::Currency::release(
-						&reason.into(),
-						from,
-						native_requested,
-						Precision::BestEffort,
-					)?;
-					if !released.is_zero() {
-						let credit = T::Currency::withdraw(
-							from,
-							released,
-							Precision::Exact,
-							Preservation::Preserve,
-							Fortitude::Polite,
-						)?;
-						T::FeeInfo::deposit_txfee(credit);
-					}
-					released
-				} else {
-					T::Currency::transfer_on_hold(
-						&reason.into(),
-						from,
-						to,
-						native_requested,
-						Precision::BestEffort,
-						Restriction::Free,
-						Fortitude::Polite,
-					)?
-				};
+				let refunded = refund_native_on_hold::<T>(
+					reason,
+					from,
+					dst,
+					native_requested,
+					Precision::BestEffort,
+				)?;
 				NativeDepositOf::<T>::mutate(from, to, |entitlement| {
 					*entitlement = entitlement.saturating_sub(refunded);
 				});
@@ -454,7 +409,7 @@ where
 
 	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
-		let native_held = T::Currency::balance_on_hold(&reason.into(), who);
+		let native_held = <() as Deposit<T>>::total_on_hold(reason, who);
 		let pgas_held = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
 			Id::get(),
 			&reason.into(),
@@ -534,10 +489,10 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 	where
 		T: Config,
 		Holder: fungibles::MutateHold<
-			T::AccountId,
-			Balance = BalanceOf<T>,
-			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-		>,
+				T::AccountId,
+				Balance = BalanceOf<T>,
+				AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+			>,
 		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 		Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,

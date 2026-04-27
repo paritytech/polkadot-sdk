@@ -32,8 +32,8 @@ use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
 use crate::BalanceOf;
 use crate::{
+	AccountInfoOf, CodeInfoOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, Pallet,
 	address::AddressMapper, deposit_payment::Deposit, storage::AccountType, weights::WeightInfo,
-	AccountInfoOf, CodeInfoOf, Config, HoldReason, NativeDepositOf, Pallet, LOG_TARGET,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
@@ -230,9 +230,9 @@ impl<T: Config> Migration<T> {
 mod tests {
 	use super::*;
 	use crate::{
+		CodeInfo,
 		storage::{AccountInfo, ContractInfo},
 		tests::{Assets, AssetsHolder, ExtBuilder, PGasAssetId, Test},
-		CodeInfo,
 	};
 	use frame_support::traits::fungible::{
 		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
