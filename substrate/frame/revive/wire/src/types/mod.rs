@@ -15,19 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Wire types and versioned runtime API interfaces shared by `pallet-revive` runtime code and
-//! clients.
-//!
-//! This crate owns the stable boundary types that cross the runtime API. The types are kept
-//! separate from the pallet so clients can depend on the wire format without depending on the
-//! pallet's execution internals.
+mod block;
+mod bytes;
+mod transaction;
+mod transaction_signed;
+mod transaction_unsigned;
 
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(docsrs, feature(doc_cfg))]
-
-extern crate alloc;
-
-pub mod interfaces;
-pub mod types;
-
-pub use types::*;
+pub use block::*;
+pub use bytes::*;
+pub use transaction::*;
+pub use transaction_signed::*;
+pub use transaction_unsigned::*;

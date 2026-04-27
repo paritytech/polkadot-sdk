@@ -14289,10 +14289,13 @@ dependencies = [
 name = "pallet-revive-wire"
 version = "0.1.0"
 dependencies = [
+ "alloy-core",
+ "ethereum-types",
  "pallet-revive-proc-macro",
  "parity-scale-codec",
  "scale-info",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,0 +1,243 @@
+// This file is part of Substrate.
+
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: Apache-2.0
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+use super::{
+	bytes::Bytes,
+	transaction::{AccessListEntryV1, AuthorizationListEntryV1},
+};
+use alloc::{string::String, vec::Vec};
+use codec::{Decode, Encode, Input};
+use ethereum_types::{Address, H256, U256};
+use pallet_revive_proc_macro::define_versioned_type;
+use scale_info::TypeInfo;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+define_versioned_type! {
+	/// Version 1 of an EIP-7702 unsigned transaction.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(rename_all = "camelCase")]
+	pub struct Transaction7702UnsignedV1 {
+		/// EIP-2930 access list.
+		pub access_list: Vec<AccessListEntryV1>,
+		/// List of account code authorizations.
+		pub authorization_list: Vec<AuthorizationListEntryV1>,
+		/// Chain ID.
+		pub chain_id: U256,
+		/// Gas limit.
+		pub gas: U256,
+		/// Input data.
+		pub input: Bytes,
+		/// Maximum total fee per gas.
+		pub max_fee_per_gas: U256,
+		/// Maximum priority fee per gas.
+		pub max_priority_fee_per_gas: U256,
+		/// Nonce.
+		pub nonce: U256,
+		/// Destination address.
+		pub to: Address,
+		/// Transaction type.
+		pub r#type: TypeEip7702V1,
+		/// Value.
+		pub value: U256,
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of an EIP-4844 unsigned transaction.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(rename_all = "camelCase")]
+	pub struct Transaction4844UnsignedV1 {
+		/// EIP-2930 access list.
+		pub access_list: Vec<AccessListEntryV1>,
+		/// Versioned blob hashes.
+		pub blob_versioned_hashes: Vec<H256>,
+		/// Chain ID.
+		pub chain_id: U256,
+		/// Gas limit.
+		pub gas: U256,
+		/// Input data.
+		pub input: Bytes,
+		/// Maximum fee per blob gas.
+		pub max_fee_per_blob_gas: U256,
+		/// Maximum total fee per gas.
+		pub max_fee_per_gas: U256,
+		/// Maximum priority fee per gas.
+		pub max_priority_fee_per_gas: U256,
+		/// Nonce.
+		pub nonce: U256,
+		/// Destination address.
+		pub to: Address,
+		/// Transaction type.
+		pub r#type: TypeEip4844V1,
+		/// Value.
+		pub value: U256,
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of an EIP-1559 unsigned transaction.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(rename_all = "camelCase")]
+	pub struct Transaction1559UnsignedV1 {
+		/// EIP-2930 access list.
+		pub access_list: Vec<AccessListEntryV1>,
+		/// Chain ID.
+		pub chain_id: U256,
+		/// Gas limit.
+		pub gas: U256,
+		/// Effective gas price.
+		pub gas_price: U256,
+		/// Input data.
+		pub input: Bytes,
+		/// Maximum total fee per gas.
+		pub max_fee_per_gas: U256,
+		/// Maximum priority fee per gas.
+		pub max_priority_fee_per_gas: U256,
+		/// Nonce.
+		pub nonce: U256,
+		/// Destination address.
+		pub to: Option<Address>,
+		/// Transaction type.
+		pub r#type: TypeEip1559V1,
+		/// Value.
+		pub value: U256,
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of an EIP-2930 unsigned transaction.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(rename_all = "camelCase")]
+	pub struct Transaction2930UnsignedV1 {
+		/// EIP-2930 access list.
+		pub access_list: Vec<AccessListEntryV1>,
+		/// Chain ID.
+		pub chain_id: U256,
+		/// Gas limit.
+		pub gas: U256,
+		/// Gas price.
+		pub gas_price: U256,
+		/// Input data.
+		pub input: Bytes,
+		/// Nonce.
+		pub nonce: U256,
+		/// Destination address.
+		pub to: Option<Address>,
+		/// Transaction type.
+		pub r#type: TypeEip2930V1,
+		/// Value.
+		pub value: U256,
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of a legacy unsigned transaction.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(rename_all = "camelCase")]
+	pub struct TransactionLegacyUnsignedV1 {
+		/// Chain ID.
+		#[serde(skip_serializing_if = "Option::is_none")]
+		pub chain_id: Option<U256>,
+		/// Gas limit.
+		pub gas: U256,
+		/// Gas price.
+		pub gas_price: U256,
+		/// Input data.
+		pub input: Bytes,
+		/// Nonce.
+		pub nonce: U256,
+		/// Destination address.
+		pub to: Option<Address>,
+		/// Transaction type.
+		pub r#type: TypeLegacyV1,
+		/// Value.
+		pub value: U256,
+	}
+}
+
+macro_rules! transaction_type {
+	($name:ident, $value:literal) => {
+		define_versioned_type! {
+			#[doc = concat!("Version 1 transaction type identifier: ", stringify!($value), ".")]
+			#[derive(Clone, Default, Debug, Eq, PartialEq)]
+			pub struct $name;
+		}
+
+		impl Encode for $name {
+			fn using_encoded<R, F: FnOnce(&[u8]) -> R>(&self, f: F) -> R {
+				f(&[$value])
+			}
+		}
+
+		impl Decode for $name {
+			fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
+				if $value == input.read_byte()? {
+					Ok(Self)
+				} else {
+					Err(codec::Error::from(concat!("expected ", stringify!($value))))
+				}
+			}
+		}
+
+		impl TypeInfo for $name {
+			type Identity = u8;
+
+			fn type_info() -> scale_info::Type {
+				<u8 as TypeInfo>::type_info()
+			}
+		}
+
+		impl Serialize for $name {
+			fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+			where
+				S: Serializer,
+			{
+				serializer.serialize_str(concat!("0x", stringify!($value)))
+			}
+		}
+
+		impl<'de> Deserialize<'de> for $name {
+			fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+			where
+				D: Deserializer<'de>,
+			{
+				let value = String::deserialize(deserializer)?;
+				if value == concat!("0x", stringify!($value)) {
+					Ok(Self)
+				} else {
+					Err(serde::de::Error::custom(concat!("expected ", stringify!($value))))
+				}
+			}
+		}
+	};
+}
+
+transaction_type!(TypeLegacyV1, 0);
+transaction_type!(TypeEip2930V1, 1);
+transaction_type!(TypeEip1559V1, 2);
+transaction_type!(TypeEip4844V1, 3);
+transaction_type!(TypeEip7702V1, 4);
