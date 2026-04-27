@@ -14293,6 +14293,7 @@ dependencies = [
  "ethereum-types",
  "pallet-revive-proc-macro",
  "parity-scale-codec",
+ "paste",
  "scale-info",
  "serde",
  "serde_json",

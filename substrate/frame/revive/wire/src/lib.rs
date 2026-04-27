@@ -311,6 +311,8 @@ extern crate alloc;
 
 pub mod interfaces;
 pub mod types;
+pub mod version_declarations;
 
 pub use interfaces::*;
 pub use types::*;
+pub use version_declarations::*;
