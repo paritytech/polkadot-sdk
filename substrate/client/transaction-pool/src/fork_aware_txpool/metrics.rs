@@ -772,3 +772,98 @@ where
 		(Self { metrics_message_sink: Some(metrics_message_sink) }, task.boxed())
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sp_runtime::transaction_validity::TransactionSource;
+
+	#[test]
+	fn removal_reason_label_strings_are_stable() {
+		// The metric labels are part of the public observability surface
+		// and dashboards depend on them — keep this test in sync if you
+		// rename a variant.
+		assert_eq!(RemovalReason::Finalized.as_str(), "finalized");
+		assert_eq!(
+			RemovalReason::InvalidRevalidationMempool.as_str(),
+			"invalid_revalidation_mempool",
+		);
+		assert_eq!(
+			RemovalReason::InvalidRevalidationView.as_str(),
+			"invalid_revalidation_view",
+		);
+		assert_eq!(RemovalReason::InvalidReported.as_str(), "invalid_reported");
+		assert_eq!(RemovalReason::DroppedUsurped.as_str(), "dropped_usurped");
+		assert_eq!(RemovalReason::DroppedLimits.as_str(), "dropped_limits");
+		assert_eq!(RemovalReason::DroppedInvalid.as_str(), "dropped_invalid");
+		assert_eq!(RemovalReason::FinalityTimeout.as_str(), "finality_timeout");
+	}
+
+	#[test]
+	fn source_label_maps_each_variant() {
+		assert_eq!(source_label(TransactionSource::Local), "local");
+		assert_eq!(source_label(TransactionSource::External), "external");
+		assert_eq!(source_label(TransactionSource::InBlock), "in_block");
+	}
+
+	/// Returns the sample count of the histogram for the given (reason, source) pair,
+	/// or `None` if the metric family is not present yet.
+	fn sample_count(registry: &Registry, reason: &str, source: &str) -> Option<u64> {
+		registry
+			.gather()
+			.into_iter()
+			.find(|m| m.get_name() == "substrate_sub_txpool_tx_age_at_removal_seconds")?
+			.take_metric()
+			.into_iter()
+			.find(|m| {
+				let labels = m.get_label();
+				labels.iter().any(|l| l.get_name() == "reason" && l.get_value() == reason)
+					&& labels
+						.iter()
+						.any(|l| l.get_name() == "source" && l.get_value() == source)
+			})
+			.map(|m| m.get_histogram().get_sample_count())
+	}
+
+	#[test]
+	fn observe_records_one_sample_with_expected_labels() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+
+		histogram.observe(
+			RemovalReason::Finalized,
+			TransactionSource::External,
+			Duration::from_secs(42),
+		);
+
+		assert_eq!(sample_count(&registry, "finalized", "external"), Some(1));
+		// Other label combinations must not have been touched.
+		assert_eq!(sample_count(&registry, "finalized", "local"), None);
+		assert_eq!(sample_count(&registry, "dropped_usurped", "external"), None);
+	}
+
+	#[test]
+	fn observe_groups_samples_with_matching_labels() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+
+		histogram.observe(
+			RemovalReason::DroppedUsurped,
+			TransactionSource::Local,
+			Duration::from_millis(100),
+		);
+		histogram.observe(
+			RemovalReason::DroppedUsurped,
+			TransactionSource::Local,
+			Duration::from_secs(3600),
+		);
+		histogram.observe(
+			RemovalReason::DroppedUsurped,
+			TransactionSource::External,
+			Duration::from_secs(5),
+		);
+
+		assert_eq!(sample_count(&registry, "dropped_usurped", "local"), Some(2));
+		assert_eq!(sample_count(&registry, "dropped_usurped", "external"), Some(1));
+	}
+}
