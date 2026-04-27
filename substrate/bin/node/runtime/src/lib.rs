@@ -1979,6 +1979,7 @@ parameter_types! {
 	pub const MintMinLiquidity: Balance = 100;  // 100 is good enough when the main currency has 10-12 decimals.
 	pub const LpFee: Permill = Permill::from_parts(3_000); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub LPFee: Permill = Permill::from_rational(3u32, 1_000u32);
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
 

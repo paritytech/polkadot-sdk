@@ -1287,9 +1287,9 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity);
 			}
 
-			let accuracy = T::HigherPrecisionBalance::from(Permill::ACCURACY);
-			let amount_net_ratio = accuracy
-				.checked_sub(&T::LPFee::get().deconstruct().into())
+			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
+			let amount_in_with_fee = amount_in
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 			let amount_in_net =
 				amount_in.checked_mul(&amount_net_ratio).ok_or(Error::<T>::Overflow)?;
@@ -1297,7 +1297,7 @@ pub mod pallet {
 			let numerator = amount_in_net.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
-				.checked_mul(&accuracy)
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?
 				.checked_add(&amount_in_net)
 				.ok_or(Error::<T>::Overflow)?;
@@ -1328,21 +1328,17 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
-			let accuracy = T::HigherPrecisionBalance::from(Permill::ACCURACY);
+			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
 			let numerator = reserve_in
 				.checked_mul(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&accuracy)
-				.ok_or(Error::<T>::Overflow)?;
-
-			let amount_net_ratio = accuracy
-				.checked_sub(&T::LPFee::get().deconstruct().into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_out
 				.checked_sub(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&amount_net_ratio)
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator

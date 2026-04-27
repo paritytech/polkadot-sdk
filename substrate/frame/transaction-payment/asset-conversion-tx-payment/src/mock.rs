@@ -237,6 +237,7 @@ parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const LpFee: Permill = Permill::from_parts(3_000); // 0.3%
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub LPFee: Permill = Permill::from_rational(3u32, 1_000u32);
 	pub const MaxSwapPathLength: u32 = 4;
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }

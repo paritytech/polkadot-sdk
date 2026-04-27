@@ -126,6 +126,7 @@ parameter_types! {
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 	pub const LpFee: Permill = Permill::from_parts(3_000); // 0.3%
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
+	pub LPFee: Permill = Permill::from_rational(3u32, 1_000u32);
 }
 
 ord_parameter_types! {
