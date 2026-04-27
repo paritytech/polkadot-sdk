@@ -37,25 +37,25 @@ use sp_runtime::{AccountId32, DispatchResult};
 #[derive(Debug, Default, PartialEq, Eq)]
 struct State {
 	/// Payer's free native currency balance.
-	payer_dot: u128,
+	payer_native: u128,
 	/// Payer's free PGAS balance.
 	payer_pgas: u128,
 	/// Native currency currently held on the contract.
-	contract_dot_held: u128,
+	contract_native_held: u128,
 	/// PGAS currently held on the contract.
 	contract_pgas_held: u128,
 	/// `NativeDepositOf[contract][payer]`: the payer's outstanding native-currency
-	dot_entitlement: u128,
+	native_entitlement: u128,
 }
 
 fn snapshot(payer: &AccountId32, contract: &AccountId32) -> State {
 	let hold = HoldReason::StorageDepositReserve.into();
 	State {
-		payer_dot: Balances::free_balance(payer),
+		payer_native: Balances::free_balance(payer),
 		payer_pgas: Assets::balance(PGAS_ASSET_ID, payer),
-		contract_dot_held: Balances::balance_on_hold(&hold, contract),
+		contract_native_held: Balances::balance_on_hold(&hold, contract),
 		contract_pgas_held: AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, contract),
-		dot_entitlement: NativeDepositOf::<Test>::get(contract, payer),
+		native_entitlement: NativeDepositOf::<Test>::get(contract, payer),
 	}
 }
 
@@ -70,7 +70,7 @@ struct Charge {
 /// A full scenario: initial balances, a sequence of charges, then one refund.
 struct TestCase {
 	/// ALICE's starting free native currency balance.
-	initial_dot: u128,
+	initial_native: u128,
 	/// ALICE's starting PGAS balance.
 	initial_pgas: u128,
 	/// Sequential charges applied to BOB.
@@ -105,7 +105,7 @@ fn run(case: TestCase) {
 		builder = builder.with_pgas_balances(vec![(ALICE, case.initial_pgas)]);
 	}
 	builder.build().execute_with(|| {
-		Balances::set_balance(&ALICE, case.initial_dot);
+		Balances::set_balance(&ALICE, case.initial_native);
 		// Mint the native and PGAS ED onto BOB, mirroring what `init_account` does at
 		// contract creation time.
 		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_account(&BOB));
@@ -123,21 +123,21 @@ fn run(case: TestCase) {
 /// Native-only: ALICE has no PGAS, so the 100-unit hold is fully backed by native currency
 /// and [`NativeDepositOf`] tracks it; the refund returns the native currency.
 #[test]
-fn pay_dot_refund_dot() {
+fn pay_native_refund_native() {
 	run(TestCase {
-		initial_dot: 1_000,
+		initial_native: 1_000,
 		initial_pgas: 0,
 		charges: vec![Charge {
 			amount: 100,
 			expected: State {
-				payer_dot: 900,
-				contract_dot_held: 100,
-				dot_entitlement: 100,
+				payer_native: 900,
+				contract_native_held: 100,
+				native_entitlement: 100,
 				..State::default()
 			},
 		}],
 		refund: 100,
-		expected_after_refund: State { payer_dot: 1_000, ..State::default() },
+		expected_after_refund: State { payer_native: 1_000, ..State::default() },
 	});
 }
 
@@ -146,19 +146,19 @@ fn pay_dot_refund_dot() {
 #[test]
 fn pay_pgas_refund_pgas() {
 	run(TestCase {
-		initial_dot: 1_000,
+		initial_native: 1_000,
 		initial_pgas: 1_000,
 		charges: vec![Charge {
 			amount: 100,
 			expected: State {
-				payer_dot: 1_000,
+				payer_native: 1_000,
 				payer_pgas: 900,
 				contract_pgas_held: 100,
 				..State::default()
 			},
 		}],
 		refund: 100,
-		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 910, ..State::default() },
+		expected_after_refund: State { payer_native: 1_000, payer_pgas: 910, ..State::default() },
 	});
 }
 
@@ -168,13 +168,13 @@ fn pay_pgas_refund_pgas() {
 #[test]
 fn pay_mixed_refund_mixed() {
 	run(TestCase {
-		initial_dot: 1_000,
+		initial_native: 1_000,
 		initial_pgas: 100,
 		charges: vec![
 			Charge {
 				amount: 40,
 				expected: State {
-					payer_dot: 1_000,
+					payer_native: 1_000,
 					payer_pgas: 60,
 					contract_pgas_held: 40,
 					..State::default()
@@ -183,16 +183,16 @@ fn pay_mixed_refund_mixed() {
 			Charge {
 				amount: 80,
 				expected: State {
-					payer_dot: 920,
+					payer_native: 920,
 					payer_pgas: 60,
-					contract_dot_held: 80,
+					contract_native_held: 80,
 					contract_pgas_held: 40,
-					dot_entitlement: 80,
+					native_entitlement: 80,
 				},
 			},
 		],
 		refund: 120,
-		expected_after_refund: State { payer_dot: 1_000, payer_pgas: 64, ..State::default() },
+		expected_after_refund: State { payer_native: 1_000, payer_pgas: 64, ..State::default() },
 	});
 }
 
@@ -219,7 +219,7 @@ fn burn_held_on_sub_ed_hold_works() {
 			assert_eq!(
 				snapshot(&ALICE, &BOB),
 				State {
-					payer_dot: 1_000,
+					payer_native: 1_000,
 					payer_pgas: 950,
 					contract_pgas_held: 50,
 					..State::default()
@@ -231,7 +231,7 @@ fn burn_held_on_sub_ed_hold_works() {
 			assert_ok!(refund_on_hold(&BOB, &ALICE, 50));
 			assert_eq!(
 				snapshot(&ALICE, &BOB),
-				State { payer_dot: 1_000, payer_pgas: 955, ..State::default() },
+				State { payer_native: 1_000, payer_pgas: 955, ..State::default() },
 				"after refund (5 refunded, 45 burned)",
 			);
 		});
@@ -254,7 +254,7 @@ fn burn_held_on_sub_ed_hold_partial_refund() {
 			assert_eq!(
 				snapshot(&ALICE, &BOB),
 				State {
-					payer_dot: 1_000,
+					payer_native: 1_000,
 					payer_pgas: 952,
 					contract_pgas_held: 30,
 					..State::default()

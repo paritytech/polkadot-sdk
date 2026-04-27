@@ -32,8 +32,8 @@ use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
 use crate::BalanceOf;
 use crate::{
-	AccountInfoOf, CodeInfoOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, Pallet,
 	address::AddressMapper, deposit_payment::Deposit, storage::AccountType, weights::WeightInfo,
+	AccountInfoOf, CodeInfoOf, Config, HoldReason, NativeDepositOf, Pallet, LOG_TARGET,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
@@ -80,7 +80,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		let code_step = <T as Config>::WeightInfo::v4_code_upload_step();
 		let contract_step = <T as Config>::WeightInfo::v4_contract_step();
 		let required = code_step.max(contract_step);
-		if meter.remaining().any_lt(required) {
+		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
 
@@ -230,9 +230,9 @@ impl<T: Config> Migration<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		CodeInfo,
 		storage::{AccountInfo, ContractInfo},
 		tests::{Assets, AssetsHolder, ExtBuilder, PGasAssetId, Test},
+		CodeInfo,
 	};
 	use frame_support::traits::fungible::{
 		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
@@ -308,7 +308,7 @@ mod tests {
 	}
 
 	#[test]
-	fn phase_two_burns_dot_and_mints_pgas_on_contracts() {
+	fn phase_two_burns_native_and_mints_pgas_on_contracts() {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 			let owner = AccountId32::new([1; 32]);
 			let hash = H256::repeat_byte(0xCC);
