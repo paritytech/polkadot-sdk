@@ -1839,9 +1839,10 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
-	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
-	// Idempotent — skips assets that are already configured.
-	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
+	// PSM v1 -> v2: backfill AssetDecimals/StableDecimals snapshots for assets
+	// that were approved under v1 (no per-asset decimals). One-shot; only runs
+	// when the on-chain pallet storage version is 1, then bumps it to 2.
+	pallet_psm::migrations::decimals::PopulateDecimals<Runtime>,
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
 		DapLastIssuanceTimestamp,
