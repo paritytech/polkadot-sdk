@@ -755,7 +755,7 @@ fn iq_lazy_delete_some_no_op_when_nothing_pending() {
 fn iq_peek_all_empty_for_unknown_para() {
 	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(40);
-		assert_eq!(InboundDownwardQueue::<Test>::peek_all(a), Vec::new());
+		assert_eq!(InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(a), Vec::new());
 	});
 }
 
@@ -768,7 +768,7 @@ fn iq_peek_all_returns_messages_in_fifo_order() {
 		for m in &msgs {
 			InboundDownwardQueue::<Test>::push_back(a, m.clone()).unwrap();
 		}
-		let all = InboundDownwardQueue::<Test>::peek_all(a);
+		let all = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(a);
 		let got_msgs: Vec<_> = all.iter().map(|m| m.msg.clone()).collect();
 		assert_eq!(got_msgs, msgs);
 		for m in &all {
@@ -786,7 +786,7 @@ fn iq_peek_all_after_partial_drop() {
 		}
 		InboundDownwardQueue::<Test>::drop_front_n(a, 2).unwrap();
 
-		let all = InboundDownwardQueue::<Test>::peek_all(a);
+		let all = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(a);
 		let got: Vec<_> = all.into_iter().map(|m| m.msg).collect();
 		assert_eq!(got, vec![vec![2], vec![3]]);
 	});
@@ -1087,8 +1087,10 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 	// `meta.first_full.min(old_first)` merge would lower the bound to 0 and
 	// have `lazy_delete_some` walk already-popped indices unnecessarily.
 	let a = ParaId::from(65);
-	let total: u64 = EXPECTED_LAZY_DELETE_PAGES * 2;
-	let popped: u64 = 30;
+	// Need `total - popped > LAZY_DELETE_MAX_PAGES` so the spill branch fires
+	// and `popped > 0` so `meta.first_full` differs from 0.
+	let total: u64 = EXPECTED_LAZY_DELETE_PAGES * 3;
+	let popped: u64 = 2;
 
 	let mut ext = new_test_ext(default_genesis_config());
 	execute_with_integrity(&mut ext, || {
@@ -1189,7 +1191,7 @@ fn dmp_dmq_contents_returns_in_fifo_order() {
 		queue_downward_message(a, vec![2]).unwrap();
 		queue_downward_message(a, vec![3]).unwrap();
 
-		let contents = Dmp::dmq_contents(a);
+		let contents = Dmp::dmq_contents_do_not_call_in_consensus(a);
 		let msgs: Vec<_> = contents.iter().map(|m| m.msg.clone()).collect();
 		assert_eq!(msgs, vec![vec![1], vec![2], vec![3]]);
 		for m in &contents {
@@ -1214,7 +1216,7 @@ fn dmp_prune_dmq_keeps_correct_messages() {
 		Dmp::prune_dmq(a, 2);
 		assert_eq!(Dmp::dmq_length(a), 1);
 
-		let contents = Dmp::dmq_contents(a);
+		let contents = Dmp::dmq_contents_do_not_call_in_consensus(a);
 		let msgs: Vec<_> = contents.iter().map(|m| m.msg.clone()).collect();
 		assert_eq!(msgs, vec![vec![3]]);
 	});
@@ -1231,7 +1233,7 @@ fn dmp_prune_dmq_more_than_available_does_not_underflow() {
 		// More than queued: all should be pruned and length should clamp at 0.
 		Dmp::prune_dmq(a, 99);
 		assert_eq!(Dmp::dmq_length(a), 0);
-		assert_eq!(Dmp::dmq_contents(a), Vec::new());
+		assert_eq!(Dmp::dmq_contents_do_not_call_in_consensus(a), Vec::new());
 	});
 }
 
@@ -1245,7 +1247,7 @@ fn dmp_prune_zero_keeps_all_messages() {
 
 		Dmp::prune_dmq(a, 0);
 		assert_eq!(Dmp::dmq_length(a), 2);
-		let msgs: Vec<_> = Dmp::dmq_contents(a).into_iter().map(|m| m.msg).collect();
+		let msgs: Vec<_> = Dmp::dmq_contents_do_not_call_in_consensus(a).into_iter().map(|m| m.msg).collect();
 		assert_eq!(msgs, vec![vec![1], vec![2]]);
 	});
 }
@@ -1255,7 +1257,7 @@ fn dmp_dmq_length_zero_when_unknown() {
 	let a = ParaId::from(74);
 	new_test_ext_integrity(default_genesis_config(), || {
 		assert_eq!(Dmp::dmq_length(a), 0);
-		assert_eq!(Dmp::dmq_contents(a), Vec::new());
+		assert_eq!(Dmp::dmq_contents_do_not_call_in_consensus(a), Vec::new());
 	});
 }
 

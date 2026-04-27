@@ -61,12 +61,16 @@ use sp_runtime::{
 use xcm::latest::SendError;
 
 pub use pallet::*;
+pub use weights::WeightInfo;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
 pub mod inbound_downward_queue;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]
 mod tests;
+pub mod weights;
 
 const THRESHOLD_FACTOR: u32 = 2;
 
@@ -125,7 +129,10 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
+	pub trait Config: frame_system::Config + configuration::Config + paras::Config {
+		/// Weight info needed for the dmp pallet.
+		type WeightInfo: WeightInfo;
+	}
 
 	/// Metadata for managing `DownwardMessageQueuePages`.
 	///
@@ -368,12 +375,11 @@ impl<T: Config> Pallet<T> {
 		MAX_POSSIBLE_ALLOCATION.checked_div(max_downward_message_size).unwrap_or(0)
 	}
 
-	/// Returns the downward message queue contents for the given para.
+	/// DO NOT CALL IN CONSENSUS. Returns the downward message queue contents for the given para.
 	///
 	/// The most recent messages are the latest in the vector.
-	#[cfg(feature = "std")]
-	pub fn dmq_contents(recipient: ParaId) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
-		InboundDownwardQueue::<T>::peek_all(recipient)
+	pub fn dmq_contents_do_not_call_in_consensus(recipient: ParaId) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
+		InboundDownwardQueue::<T>::peek_all_do_not_call_in_consensus(recipient)
 	}
 
 	/// Make the parachain reachable for downward messages.

@@ -25,7 +25,7 @@ use sp_io::TestExternalities;
 ///
 /// Hardcoded so the tests act as an independent oracle and don't silently track
 /// changes to the production constant.
-pub(crate) const EXPECTED_LAZY_DELETE_PAGES: u64 = 100;
+pub(crate) const EXPECTED_LAZY_DELETE_PAGES: u64 = 3;
 
 pub(crate) fn run_to_block(to: BlockNumber, new_session: Option<Vec<BlockNumber>>) {
 	while System::block_number() < to {

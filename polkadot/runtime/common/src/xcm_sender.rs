@@ -155,28 +155,31 @@ where
 
 impl<T: dmp::Config, W, P> InspectMessageQueues for ChildParachainRouter<T, W, P> {
 	fn clear_messages() {
-		// Best effort.
-		let _ = dmp::DownwardMessageQueues::<T>::clear(u32::MAX, None);
+		// Best effort: clear all dmp storage maps.
+		let _ = dmp::DownwardMessageQueueMeta::<T>::clear(u32::MAX, None);
+		let _ = dmp::DownwardMessageQueuePages::<T>::clear(u32::MAX, None);
+		let _ = dmp::DownwardMessageQueueLazyDelete::<T>::clear(u32::MAX, None);
 	}
 
 	fn get_messages() -> Vec<(VersionedLocation, Vec<VersionedXcm<()>>)> {
-		dmp::DownwardMessageQueues::<T>::iter()
-			.map(|(para_id, messages)| {
-				let decoded_messages: Vec<VersionedXcm<()>> = messages
-					.iter()
-					.map(|downward_message| {
-						let message = VersionedXcm::<()>::decode_all_with_depth_limit(
-							MAX_XCM_DECODE_DEPTH,
-							&mut &downward_message.msg[..],
-						)
-						.unwrap();
-						log::trace!(
-							target: "xcm::DownwardMessageQueues::get_messages",
-							"Message: {:?}, sent at: {:?}", message, downward_message.sent_at
-						);
-						message
-					})
-					.collect();
+		dmp::DownwardMessageQueueMeta::<T>::iter_keys()
+			.map(|para_id| {
+				let decoded_messages: Vec<VersionedXcm<()>> =
+					dmp::Pallet::<T>::dmq_contents_do_not_call_in_consensus(para_id)
+						.iter()
+						.map(|downward_message| {
+							let message = VersionedXcm::<()>::decode_all_with_depth_limit(
+								MAX_XCM_DECODE_DEPTH,
+								&mut &downward_message.msg[..],
+							)
+							.unwrap();
+							log::trace!(
+								target: "xcm::DownwardMessageQueues::get_messages",
+								"Message: {:?}, sent at: {:?}", message, downward_message.sent_at
+							);
+							message
+						})
+						.collect();
 				(
 					VersionedLocation::from(Location::from(Parachain(para_id.into()))),
 					decoded_messages,

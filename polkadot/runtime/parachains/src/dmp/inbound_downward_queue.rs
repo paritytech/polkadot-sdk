@@ -2,7 +2,7 @@ use super::*;
 
 use frame_support::traits::DefensiveSaturating;
 
-pub const LAZY_DELETE_MAX_PAGES: u32 = 100;
+pub const LAZY_DELETE_MAX_PAGES: u32 = 3;
 
 /// Interface to modify
 pub struct InboundDownwardQueue<T>(pub core::marker::PhantomData<T>);
@@ -103,8 +103,14 @@ impl<T: Config> InboundDownwardQueue<T> {
 		DownwardMessageQueueLazyDelete::<T>::insert(para, (lo, hi));
 	}
 
-	pub fn lazy_delete_some(_weight_meter: &mut WeightMeter) {
-		// TODO weight
+	pub fn lazy_delete_some(weight_meter: &mut WeightMeter) {
+		if weight_meter
+			.try_consume(<T as Config>::WeightInfo::lazy_delete_some())
+			.is_err()
+		{
+			return;
+		}
+
 		let Some((para_id, (first, last))) = DownwardMessageQueueLazyDelete::<T>::iter().next()
 		else {
 			return;
@@ -124,9 +130,8 @@ impl<T: Config> InboundDownwardQueue<T> {
 		}
 	}
 
-	/// Inspect all messages in the queue.
-	#[cfg(feature = "std")]
-	pub fn peek_all(para: ParaId) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
+	/// DO NOT CALL IN CONSENSUS. Inspect all messages in the queue.
+	pub fn peek_all_do_not_call_in_consensus(para: ParaId) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
 		let Some(meta) = Self::meta(para) else {
 			return Vec::new();
 		};
@@ -173,7 +178,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 				.map_or(false, |m| idx >= m.first_full && idx < m.first_free);
 			let in_lazy = DownwardMessageQueueLazyDelete::<T>::get(para)
 				.map_or(false, |(first, last)| idx >= first && idx < last);
-				
+
 			assert!(
 				in_meta || in_lazy,
 				"page ({:?}, {}) is orphaned: not covered by meta or lazy-delete range",

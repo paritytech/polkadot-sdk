@@ -198,7 +198,9 @@ impl shared::Config for Test {
 	type DisabledValidators = ();
 }
 
-impl dmp::Config for Test {}
+impl dmp::Config for Test {
+	type WeightInfo = ();
+}
 
 impl origin::Config for Test {}
 
