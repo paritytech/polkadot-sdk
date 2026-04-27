@@ -1845,9 +1845,12 @@ impl<Config: config::Config> XcmExecutor<Config> {
 	/// Most common transient error is: `beneficiary` account does not yet exist and the first
 	/// asset(s) in the (sorted) list does not satisfy ED, but a subsequent one in the list does.
 	///
-	/// Deposits also proceed without aborting on “below minimum” (dust) errors. This ensures
-	/// that a batch of assets containing some legitimately depositable amounts will succeed
-	/// even if some “dust” deposits fall below the chain’s configured minimum balance.
+	/// Any per-asset failure on the retry pass propagates as `Err`, and the surrounding
+	/// `transactional_process` rolls back the whole instruction (storage changes are reverted by
+	/// `Config::TransactionalProcessor`, and `self.holding` is restored from its
+	/// pre-instruction backup). Anything left in `self.holding` after the program finishes is
+	/// then trapped by `post_process` via `Config::AssetTrap::drop_assets`, so funds are never
+	/// silently lost.
 	///
 	/// This function can write into storage and also return an error at the same time, it should
 	/// always be called within a transactional context.
@@ -1882,21 +1885,18 @@ impl<Config: config::Config> XcmExecutor<Config> {
 		for asset in assets {
 			let what =
 				failed_deposits.try_take(asset.into()).map_err(|_| XcmError::AssetNotFound)?;
-			match Config::AssetTransactor::deposit_asset_with_surplus(what, &beneficiary, context) {
-				Ok(surplus) => {
-					total_surplus.saturating_accrue(surplus);
-				},
-				Err((_, error)) => {
-					// Ignore dust deposit errors.
-					if !matches!(
-						error,
-						XcmError::FailedToTransactAsset(string)
-							if *string == *<&'static str>::from(sp_runtime::TokenError::BelowMinimum)
-					) {
-						return Err(error);
-					}
-				},
-			};
+			let surplus =
+				Config::AssetTransactor::deposit_asset_with_surplus(what, &beneficiary, context)
+					.map_err(|(_, error)| {
+						tracing::debug!(
+							target: "xcm::deposit_assets_with_retry",
+							?error,
+							"Retry-pass deposit failed; bubbling up so the instruction is rolled back \
+							 and the leftover holding can be trapped by post_process"
+						);
+						error
+					})?;
+			total_surplus.saturating_accrue(surplus);
 		}
 		Ok(total_surplus)
 	}
