@@ -186,7 +186,7 @@ impl Metrics {
 			propagated_statements: register(
 				Counter::new(
 					"substrate_sync_propagated_statements",
-					"Number of statements propagated to at least one peer",
+					"Total statements propagated to peers, counted once per recipient (a statement sent to N peers increments by N)",
 				)?,
 				r,
 			)?,
@@ -217,7 +217,7 @@ impl Metrics {
 			pending_statements: register(
 				Gauge::new(
 					"substrate_sync_pending_statement_validations",
-					"Number of pending statement validations",
+					"Number of pending statement validations, sampled once per propagation tick",
 				)?,
 				r,
 			)?,
@@ -252,7 +252,7 @@ impl Metrics {
 			bytes_received_total: register(
 				Counter::new(
 					"substrate_sync_statement_bytes_received_total",
-					"Total bytes received for statement protocol messages",
+					"Total bytes received for statement protocol messages (includes bytes from notifications that are later discarded — e.g. while major-syncing)",
 				)?,
 				r,
 			)?,
@@ -277,7 +277,7 @@ impl Metrics {
 			initial_sync_bursts_total: register(
 				Counter::new(
 					"substrate_sync_initial_sync_bursts_total",
-					"Total number of initial sync burst rounds processed",
+					"Total initial-sync burst rounds attempted (includes rounds that return early with no hashes left)",
 				)?,
 				r,
 			)?,
@@ -292,7 +292,7 @@ impl Metrics {
 				Histogram::with_opts(
 					HistogramOpts::new(
 						"substrate_sync_initial_sync_duration_seconds",
-						"Per-peer total duration of initial sync from start to completion",
+						"Per-peer duration of initial sync from start until completion or peer disconnect (whichever comes first)",
 					)
 					.buckets(vec![0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0, 60.0]),
 				)?,
@@ -1132,15 +1132,13 @@ where
 				);
 
 				self.network.report_peer(who, rep::STATEMENT_FLOODING);
+
+				// Initiate peer state cleanup in the `NotificationStreamClosed` handler
 				self.network.disconnect_peer(who, self.protocol_name.clone());
+
 				if let Some(ref metrics) = self.metrics {
 					metrics.statement_flooding_detected.inc();
 				}
-
-				// Clean up peer state immediately
-				self.peers.remove(&who);
-				self.pending_initial_syncs.remove(&who);
-				self.initial_sync_peer_queue.retain(|p| *p != who);
 
 				return;
 			}
@@ -1975,6 +1973,19 @@ mod tests {
 			.collect()
 	}
 
+	/// Simulate the network closing the substream for every disconnected
+	/// peer, so the handler runs its per-peer cleanup.
+	async fn dispatch_disconnects(
+		handler: &mut StatementHandler<TestNetwork, TestSync>,
+		network: &TestNetwork,
+	) {
+		for peer in network.get_disconnected_peers() {
+			handler
+				.handle_notification_event(NotificationEvent::NotificationStreamClosed { peer })
+				.await;
+		}
+	}
+
 	#[tokio::test]
 	async fn test_skips_processing_statements_that_already_in_store() {
 		let (mut handler, statement_store, _network, _notification_service, queue_receiver, _) =
@@ -2638,6 +2649,8 @@ mod tests {
 			disconnected
 		);
 
+		dispatch_disconnects(&mut handler, &network).await;
+
 		// Verify peer state was cleaned up
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 		assert!(
@@ -2738,6 +2751,8 @@ mod tests {
 			disconnected
 		);
 
+		dispatch_disconnects(&mut handler, &network).await;
+
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}
 
@@ -2827,6 +2842,8 @@ mod tests {
 			"Peer should be disconnected after sustained high rate. Disconnected: {:?}",
 			disconnected
 		);
+
+		dispatch_disconnects(&mut handler, &network).await;
 
 		assert!(!handler.peers.contains_key(&peer_id), "Peer should be removed from peers map");
 	}

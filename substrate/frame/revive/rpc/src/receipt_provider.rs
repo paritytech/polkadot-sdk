@@ -30,6 +30,39 @@ use std::{
 use tokio::sync::Mutex;
 
 const LOG_TARGET: &str = "eth-rpc::receipt_provider";
+const MAX_LOG_RESULTS: usize = 10_000;
+
+/// Parse a SQLite row from the `logs` table into a [`Log`].
+fn parse_log_row(row: sqlx::sqlite::SqliteRow) -> Result<Log, sqlx::Error> {
+	let block_hash: Vec<u8> = row.try_get("block_hash")?;
+	let transaction_index: i64 = row.try_get("transaction_index")?;
+	let log_index: i64 = row.try_get("log_index")?;
+	let address: Vec<u8> = row.try_get("address")?;
+	let block_number: i64 = row.try_get("block_number")?;
+	let transaction_hash: Vec<u8> = row.try_get("transaction_hash")?;
+	let topic_0: Option<Vec<u8>> = row.try_get("topic_0")?;
+	let topic_1: Option<Vec<u8>> = row.try_get("topic_1")?;
+	let topic_2: Option<Vec<u8>> = row.try_get("topic_2")?;
+	let topic_3: Option<Vec<u8>> = row.try_get("topic_3")?;
+	let data: Option<Vec<u8>> = row.try_get("data")?;
+
+	let topics = [topic_0, topic_1, topic_2, topic_3]
+		.iter()
+		.filter_map(|t| t.as_ref().map(|t| H256::from_slice(t)))
+		.collect::<Vec<_>>();
+
+	Ok(Log {
+		address: Address::from_slice(&address),
+		block_hash: H256::from_slice(&block_hash),
+		block_number: U256::from(block_number as u64),
+		data: data.map(Bytes::from),
+		log_index: U256::from(log_index as u64),
+		topics,
+		transaction_hash: H256::from_slice(&transaction_hash),
+		transaction_index: U256::from(transaction_index as u64),
+		removed: false,
+	})
+}
 
 /// SQLite connection pool with precomputed bulk-insert chunk sizes.
 #[derive(Clone)]
@@ -469,12 +502,29 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Fetch receipts from the given block.
+	/// Look up the ethereum block hash for a previously processed block from the in-memory cache.
+	pub async fn get_processed_eth_block_hash(
+		&self,
+		block_number: SubstrateBlockNumber,
+		substrate_hash: H256,
+	) -> Option<H256> {
+		self.block_number_to_hashes
+			.lock()
+			.await
+			.get(&block_number)
+			.filter(|entry| entry.substrate_hash == substrate_hash)
+			.map(|entry| entry.ethereum_hash)
+	}
+
+	/// Fetch receipts from the given block, using a pre-fetched ethereum block hash.
 	pub async fn receipts_from_block(
 		&self,
 		block: &SubstrateBlock,
+		ethereum_hash: H256,
 	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		self.receipt_extractor.extract_from_block(block).await
+		self.receipt_extractor
+			.extract_from_block_with_eth_hash(block, ethereum_hash)
+			.await
 	}
 
 	/// Like [`Self::insert_block_receipts`] but writes only to the DB (no cache update).
@@ -492,18 +542,14 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 		Ok(())
 	}
 
-	/// Extract receipts from the given block, insert them, and update the block cache.
+	/// Insert pre-extracted receipts and update the block cache (with fork detection).
 	pub async fn insert_block_receipts(
 		&self,
 		block: &SubstrateBlock,
+		receipts: &[(TransactionSigned, ReceiptInfo)],
 		ethereum_hash: &H256,
-	) -> Result<Vec<(TransactionSigned, ReceiptInfo)>, ClientError> {
-		let receipts = self
-			.receipt_extractor
-			.extract_from_block_with_eth_hash(block, *ethereum_hash)
-			.await?;
-		self.insert(block, &receipts, ethereum_hash).await?;
-		Ok(receipts)
+	) -> Result<(), ClientError> {
+		self.insert(block, receipts, ethereum_hash).await
 	}
 
 	/// Insert receipts into the provider, updating the in-memory block cache for fork detection.
@@ -747,42 +793,47 @@ impl<B: BlockInfoProvider> ReceiptProvider<B> {
 			}
 		}
 
-		qb.push(" LIMIT 10000");
+		qb.push(" LIMIT ").push_bind(MAX_LOG_RESULTS as i64);
 
-		let logs = qb
+		let logs = qb.build().try_map(parse_log_row).fetch_all(&self.db_ctx.pool).await?;
+
+		if logs.len() == MAX_LOG_RESULTS {
+			log::warn!(
+				target: LOG_TARGET,
+				"Log query hit limit of {MAX_LOG_RESULTS}; results may be truncated",
+			);
+		}
+
+		Ok(logs)
+	}
+
+	/// Fetch all logs for a given block from the database.
+	pub async fn logs_by_block_number(
+		&self,
+		block_number: SubstrateBlockNumber,
+		ethereum_hash: H256,
+	) -> Result<Vec<Log>, ClientError> {
+		let mut query_builder =
+			QueryBuilder::<Sqlite>::new("SELECT logs.* FROM logs WHERE block_number = ");
+		query_builder
+			.push_bind(block_number as i64)
+			.push(" AND block_hash = ")
+			.push_bind(ethereum_hash.as_bytes().to_vec())
+			.push(" ORDER BY log_index LIMIT ")
+			.push_bind(MAX_LOG_RESULTS as i64);
+
+		let logs = query_builder
 			.build()
-			.try_map(|row| {
-				let block_hash: Vec<u8> = row.try_get("block_hash")?;
-				let transaction_index: i64 = row.try_get("transaction_index")?;
-				let log_index: i64 = row.try_get("log_index")?;
-				let address: Vec<u8> = row.try_get("address")?;
-				let block_number: i64 = row.try_get("block_number")?;
-				let transaction_hash: Vec<u8> = row.try_get("transaction_hash")?;
-				let topic_0: Option<Vec<u8>> = row.try_get("topic_0")?;
-				let topic_1: Option<Vec<u8>> = row.try_get("topic_1")?;
-				let topic_2: Option<Vec<u8>> = row.try_get("topic_2")?;
-				let topic_3: Option<Vec<u8>> = row.try_get("topic_3")?;
-				let data: Option<Vec<u8>> = row.try_get("data")?;
-
-				let topics = [topic_0, topic_1, topic_2, topic_3]
-					.iter()
-					.filter_map(|t| t.as_ref().map(|t| H256::from_slice(t)))
-					.collect::<Vec<_>>();
-
-				Ok(Log {
-					address: Address::from_slice(&address),
-					block_hash: H256::from_slice(&block_hash),
-					block_number: U256::from(block_number as u64),
-					data: data.map(Bytes::from),
-					log_index: U256::from(log_index as u64),
-					topics,
-					transaction_hash: H256::from_slice(&transaction_hash),
-					transaction_index: U256::from(transaction_index as u64),
-					removed: false,
-				})
-			})
+			.try_map(parse_log_row)
 			.fetch_all(&self.db_ctx.pool)
 			.await?;
+
+		if logs.len() == MAX_LOG_RESULTS {
+			log::warn!(
+				target: LOG_TARGET,
+				"Log query for block {block_number} hit limit of {MAX_LOG_RESULTS}; results may be truncated",
+			);
+		}
 
 		Ok(logs)
 	}
@@ -1821,6 +1872,97 @@ mod tests {
 		assert_eq!(count(&provider.db_ctx.pool, "transaction_hashes", None).await, 0);
 		assert_eq!(count(&provider.db_ctx.pool, "logs", None).await, 0);
 		assert_eq!(count(&provider.db_ctx.pool, "eth_to_substrate_blocks", None).await, 0);
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_get_processed_eth_block_hash(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let block = MockBlockInfo { hash: H256::from([0xAA; 32]), number: 10 };
+		let ethereum_hash = H256::from([0xBB; 32]);
+		let receipts = vec![(TransactionSigned::default(), ReceiptInfo::default())];
+
+		// Not cached yet
+		assert!(provider.get_processed_eth_block_hash(10, block.hash).await.is_none());
+
+		// Insert also populates the in-memory cache
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
+		assert_eq!(
+			provider.get_processed_eth_block_hash(10, block.hash).await,
+			Some(ethereum_hash)
+		);
+
+		// Wrong hash for same block number
+		assert!(
+			provider
+				.get_processed_eth_block_hash(10, H256::from([0xCC; 32]))
+				.await
+				.is_none()
+		);
+
+		// Wrong block number
+		assert!(provider.get_processed_eth_block_hash(11, block.hash).await.is_none());
+
+		Ok(())
+	}
+
+	#[sqlx::test]
+	async fn test_logs_by_block_number(pool: SqlitePool) -> anyhow::Result<()> {
+		let provider = setup_sqlite_provider(pool).await;
+		let substrate_hash = H256::from([0xAA; 32]);
+		let tx_hash = H256::from([0xBB; 32]);
+		let block = MockBlockInfo { hash: substrate_hash, number: 42 };
+		let ethereum_hash = H256::from([0xCC; 32]);
+
+		let log0 = Log {
+			block_hash: ethereum_hash,
+			block_number: U256::from(42),
+			transaction_hash: tx_hash,
+			log_index: U256::from(0),
+			address: H160::from([0x01; 20]),
+			..Default::default()
+		};
+		let log1 = Log {
+			block_hash: ethereum_hash,
+			block_number: U256::from(42),
+			transaction_hash: tx_hash,
+			log_index: U256::from(1),
+			address: H160::from([0x02; 20]),
+			..Default::default()
+		};
+
+		let receipts = vec![(
+			TransactionSigned::default(),
+			ReceiptInfo {
+				transaction_hash: tx_hash,
+				block_hash: ethereum_hash,
+				logs: vec![log0.clone(), log1.clone()],
+				..Default::default()
+			},
+		)];
+
+		// No logs before insert
+		let logs = provider.logs_by_block_number(42, ethereum_hash).await?;
+		assert!(logs.is_empty());
+
+		provider.insert(&block, &receipts, &ethereum_hash).await?;
+
+		// Logs returned in log_index order
+		let logs = provider.logs_by_block_number(42, ethereum_hash).await?;
+		assert_eq!(logs.len(), 2);
+		assert_eq!(logs[0].address, log0.address);
+		assert_eq!(logs[1].address, log1.address);
+		assert_eq!(logs[0].log_index, U256::from(0));
+		assert_eq!(logs[1].log_index, U256::from(1));
+
+		// Different block number returns empty
+		let logs = provider.logs_by_block_number(43, ethereum_hash).await?;
+		assert!(logs.is_empty());
+
+		// Wrong ethereum hash returns empty
+		let logs = provider.logs_by_block_number(42, H256::from([0xDD; 32])).await?;
+		assert!(logs.is_empty());
 
 		Ok(())
 	}
