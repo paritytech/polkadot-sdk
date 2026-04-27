@@ -150,11 +150,11 @@ pub(super) async fn assert_statements_match(
 ) -> Result<(), anyhow::Error> {
 	let received = expect_statements_unordered(subscription, expected.len(), timeout_secs).await?;
 	assert_eq!(received.len(), expected.len());
-	let mut received_sorted: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
-	received_sorted.sort();
-	let mut expected_sorted = expected.to_vec();
-	expected_sorted.sort();
-	assert_eq!(received_sorted, expected_sorted, "Statement content mismatch on {}", node_name);
+	let mut received: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+	received.sort();
+	let mut expected = expected.to_vec();
+	expected.sort();
+	assert_eq!(received, expected, "Statement content mismatch on {}", node_name);
 	Ok(())
 }
 
