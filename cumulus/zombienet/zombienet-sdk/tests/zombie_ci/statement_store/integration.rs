@@ -988,7 +988,8 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 
 	let alice_rpc_arc = Arc::new(alice.rpc().await?);
 	let mut handles = Vec::new();
-	for stmt in ephemeral_stmts.iter().cloned() {
+	for stmt in &ephemeral_stmts {
+		let stmt = stmt.clone();
 		let rpc = Arc::clone(&alice_rpc_arc);
 		handles.push(tokio::spawn(async move {
 			let result = submit_statement(&rpc, &stmt).await?;
