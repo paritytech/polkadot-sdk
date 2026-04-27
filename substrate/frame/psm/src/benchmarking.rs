@@ -87,7 +87,7 @@ where
 	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
 	// Filler assets only populate PSM storage so mint()'s iterators touch `n`
 	// entries. They are never swapped against, so their underlying fungibles
-	// asset does not need to exist and no AssetDecimals snapshot is required.
+	// asset does not need to exist and no ExternalDecimals snapshot is required.
 	for i in 0..n {
 		let id: T::AssetId = (ASSET_ID_OFFSET + i).into();
 		crate::ExternalAssets::<T>::insert(id, CircuitBreakerLevel::AllEnabled);
@@ -97,7 +97,7 @@ where
 	// Target-specific: dominant weight so it can absorb the full mint amount,
 	// and a decimals snapshot so `ensure_decimals_match` passes.
 	crate::AssetCeilingWeight::<T>::insert(target_id, Permill::from_percent(100));
-	crate::AssetDecimals::<T>::insert(target_id, internal_decimals);
+	crate::ExternalDecimals::<T>::insert(target_id, internal_decimals);
 
 	target_id
 }

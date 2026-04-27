@@ -753,7 +753,7 @@ mod governance {
 			));
 
 			assert_ok!(Psm::add_external_asset(RuntimeOrigin::root(), new_asset));
-			assert_eq!(crate::AssetDecimals::<Test>::get(new_asset), Some(8));
+			assert_eq!(crate::ExternalDecimals::<Test>::get(new_asset), Some(8));
 		});
 	}
 
@@ -1802,7 +1802,7 @@ mod cycles {
 /// registered with PSM via `register_external_asset_with_weight` inside each test.
 mod decimal_scaling {
 	use super::*;
-	use crate::{AssetDecimals, MAX_DECIMALS_DIFF};
+	use crate::{ExternalDecimals, MAX_DECIMALS_DIFF};
 
 	fn set_zero_fees(asset_id: u32) {
 		set_minting_fee(asset_id, Permill::zero());
@@ -2289,7 +2289,7 @@ mod decimal_scaling {
 		new_test_ext().execute_with(|| {
 			// USDC is approved in genesis but we clear its decimals snapshot to
 			// simulate a partially-migrated state.
-			crate::AssetDecimals::<Test>::remove(USDC_ASSET_ID);
+			crate::ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * INTERNAL_UNIT),
@@ -2302,7 +2302,7 @@ mod decimal_scaling {
 	fn redeem_fails_when_asset_decimals_snapshot_missing() {
 		new_test_ext().execute_with(|| {
 			fund_internal(ALICE, 1000 * INTERNAL_UNIT);
-			crate::AssetDecimals::<Test>::remove(USDC_ASSET_ID);
+			crate::ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 
 			assert_noop!(
 				Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 100 * INTERNAL_UNIT),
@@ -2342,10 +2342,10 @@ mod decimal_scaling {
 	fn asset_decimals_snapshot_recorded_on_add_and_cleaned_on_remove() {
 		new_test_ext().execute_with(|| {
 			register_external_asset_with_weight(USDX_ASSET_ID, Permill::from_percent(100));
-			assert_eq!(AssetDecimals::<Test>::get(USDX_ASSET_ID), Some(2));
+			assert_eq!(ExternalDecimals::<Test>::get(USDX_ASSET_ID), Some(2));
 
 			assert_ok!(Psm::remove_external_asset(RuntimeOrigin::root(), USDX_ASSET_ID));
-			assert_eq!(AssetDecimals::<Test>::get(USDX_ASSET_ID), None);
+			assert_eq!(ExternalDecimals::<Test>::get(USDX_ASSET_ID), None);
 		});
 	}
 

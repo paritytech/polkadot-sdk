@@ -350,7 +350,7 @@ pub mod pallet {
 	/// Snapshot of each approved external asset's decimals at registration.
 	/// Used to detect runtime drift from the registered precision.
 	#[pallet::storage]
-	pub(crate) type AssetDecimals<T: Config> =
+	pub(crate) type ExternalDecimals<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, u8, OptionQuery>;
 
 	/// Snapshot of the internal asset's decimals taken at genesis.
@@ -394,7 +394,7 @@ pub mod pallet {
 					MAX_DECIMALS_DIFF,
 				);
 				ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
-				AssetDecimals::<T>::insert(asset_id, asset_decimals);
+				ExternalDecimals::<T>::insert(asset_id, asset_decimals);
 				MintingFee::<T>::insert(asset_id, minting_fee);
 				RedemptionFee::<T>::insert(asset_id, redemption_fee);
 				AssetCeilingWeight::<T>::insert(asset_id, ceiling_weight);
@@ -929,7 +929,7 @@ pub mod pallet {
 			);
 
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
-			AssetDecimals::<T>::insert(asset_id, asset_decimals);
+			ExternalDecimals::<T>::insert(asset_id, asset_decimals);
 			Self::deposit_event(Event::ExternalAssetAdded { asset_id });
 			Ok(())
 		}
@@ -975,7 +975,7 @@ pub mod pallet {
 			MintingFee::<T>::remove(asset_id);
 			RedemptionFee::<T>::remove(asset_id);
 			AssetCeilingWeight::<T>::remove(asset_id);
-			AssetDecimals::<T>::remove(asset_id);
+			ExternalDecimals::<T>::remove(asset_id);
 			PsmDebt::<T>::remove(asset_id);
 			Self::deposit_event(Event::ExternalAssetRemoved { asset_id });
 			Ok(())
@@ -1104,7 +1104,7 @@ pub mod pallet {
 			asset_id: T::AssetId,
 		) -> Result<(u8, u8), DispatchError> {
 			let ext_decimals =
-				AssetDecimals::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
+				ExternalDecimals::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(T::Fungibles::decimals(asset_id) == ext_decimals, Error::<T>::DecimalsMismatch);
 
 			let internal_decimals = InternalDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
@@ -1136,7 +1136,7 @@ pub mod pallet {
 				"Internal asset live decimals differ from the genesis snapshot"
 			);
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
-				let snapshot = AssetDecimals::<T>::get(asset_id)
+				let snapshot = ExternalDecimals::<T>::get(asset_id)
 					.ok_or("Approved external asset missing decimals snapshot")?;
 				ensure!(
 					T::Fungibles::decimals(asset_id) == snapshot,
@@ -1149,7 +1149,7 @@ pub mod pallet {
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
 				let debt = PsmDebt::<T>::get(asset_id);
 				let reserve = Self::get_reserve(asset_id);
-				let ext_decimals = AssetDecimals::<T>::get(asset_id)
+				let ext_decimals = ExternalDecimals::<T>::get(asset_id)
 					.ok_or("Approved external asset missing decimals snapshot")?;
 				let debt_as_external =
 					Self::internal_to_external(debt, ext_decimals, internal_decimals_snapshot)

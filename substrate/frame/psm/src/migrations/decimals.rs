@@ -19,7 +19,7 @@
 //! deployment.
 //!
 //! Purpose: chains that approved external assets before the multi-decimal upgrade
-//! have entries in `ExternalAssets` but no `AssetDecimals` snapshots, and no
+//! have entries in `ExternalAssets` but no `ExternalDecimals` snapshots, and no
 //! `InternalDecimals` either. Mint and redeem both require these snapshots and
 //! will fail closed (`Error::DecimalsMismatch` / `Error::Unexpected`) until they
 //! are populated. This migration reads live metadata and writes the snapshots.
@@ -56,7 +56,7 @@ use frame_support::{
 
 use crate::{
 	pallet::{
-		AssetDecimals, CircuitBreakerLevel, ExternalAssets, InternalDecimals, MAX_DECIMALS_DIFF,
+		CircuitBreakerLevel, ExternalAssets, ExternalDecimals, InternalDecimals, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
 };
@@ -106,8 +106,8 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 		// Per-asset snapshots. Walk every approved external asset.
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
-			reads += 3; // ExternalAssets iter item + AssetDecimals + Fungibles::decimals reads below
-			if AssetDecimals::<T>::contains_key(asset_id) {
+			reads += 3; // ExternalAssets iter item + ExternalDecimals + Fungibles::decimals reads below
+			if ExternalDecimals::<T>::contains_key(asset_id) {
 				log::info!(
 					target: LOG_TARGET,
 					"Asset {:?} already has a decimals snapshot, skipping",
@@ -117,7 +117,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 			}
 
 			let asset_decimals = T::Fungibles::decimals(asset_id);
-			AssetDecimals::<T>::insert(asset_id, asset_decimals);
+			ExternalDecimals::<T>::insert(asset_id, asset_decimals);
 			writes += 1;
 
 			let diff = asset_decimals.abs_diff(internal_decimals) as u32;
@@ -170,11 +170,11 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 		let internal_decimals = T::InternalAsset::decimals();
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
-			let snapshot = AssetDecimals::<T>::get(asset_id)
+			let snapshot = ExternalDecimals::<T>::get(asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
 			ensure!(
 				snapshot == T::Fungibles::decimals(asset_id),
-				"AssetDecimals snapshot differs from live metadata after migration"
+				"ExternalDecimals snapshot differs from live metadata after migration"
 			);
 			let diff = snapshot.abs_diff(internal_decimals) as u32;
 			if diff > MAX_DECIMALS_DIFF {
@@ -217,14 +217,14 @@ mod tests {
 			// entries but no decimals snapshots (and no InternalDecimals).
 			prepare_v1();
 			InternalDecimals::<Test>::kill();
-			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
-			AssetDecimals::<Test>::remove(USDT_ASSET_ID);
+			ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
+			ExternalDecimals::<Test>::remove(USDT_ASSET_ID);
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
 			assert_eq!(InternalDecimals::<Test>::get(), Some(6));
-			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), Some(6));
-			assert_eq!(AssetDecimals::<Test>::get(USDT_ASSET_ID), Some(6));
+			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), Some(6));
+			assert_eq!(ExternalDecimals::<Test>::get(USDT_ASSET_ID), Some(6));
 			// Normal status preserved since decimals are in range.
 			assert_eq!(
 				ExternalAssets::<Test>::get(USDC_ASSET_ID),
@@ -243,11 +243,11 @@ mod tests {
 			prepare_v1();
 			// Genesis already wrote snapshots. Plant a sentinel to verify the
 			// migration does not overwrite it.
-			AssetDecimals::<Test>::insert(USDC_ASSET_ID, 42u8);
+			ExternalDecimals::<Test>::insert(USDC_ASSET_ID, 42u8);
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
-			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), Some(42));
+			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), Some(42));
 		});
 	}
 
@@ -280,7 +280,7 @@ mod tests {
 
 			// Wipe DAI's snapshot and InternalDecimals to force repopulation, then
 			// roll back to v1 so the versioned wrapper actually runs.
-			AssetDecimals::<Test>::remove(DAI_MOCK_ASSET_ID);
+			ExternalDecimals::<Test>::remove(DAI_MOCK_ASSET_ID);
 			InternalDecimals::<Test>::kill();
 			prepare_v1();
 
@@ -288,7 +288,7 @@ mod tests {
 
 			// Snapshot was written regardless.
 			assert_eq!(InternalDecimals::<Test>::get(), Some(45));
-			assert_eq!(AssetDecimals::<Test>::get(DAI_MOCK_ASSET_ID), Some(18));
+			assert_eq!(ExternalDecimals::<Test>::get(DAI_MOCK_ASSET_ID), Some(18));
 			// DAI is disabled because 45 - 18 = 27 > MAX_DECIMALS_DIFF (24).
 			assert_eq!(
 				ExternalAssets::<Test>::get(DAI_MOCK_ASSET_ID),
@@ -307,19 +307,19 @@ mod tests {
 		new_test_ext().execute_with(|| {
 			prepare_v1();
 			InternalDecimals::<Test>::kill();
-			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
+			ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 
 			// First run: on-chain version is 1, migration executes and bumps to 2.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 			let stable1 = InternalDecimals::<Test>::get();
-			let usdc1 = AssetDecimals::<Test>::get(USDC_ASSET_ID);
+			let usdc1 = ExternalDecimals::<Test>::get(USDC_ASSET_ID);
 
 			// Second run: on-chain version is 2, versioned wrapper skips — state
 			// is unchanged.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 			assert_eq!(InternalDecimals::<Test>::get(), stable1);
-			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), usdc1);
+			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), usdc1);
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 		});
 	}
@@ -330,11 +330,11 @@ mod tests {
 			// Simulate an already-upgraded chain at v2. Wrapper must skip.
 			StorageVersion::new(2).put::<Pallet<Test>>();
 
-			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
+			ExternalDecimals::<Test>::remove(USDC_ASSET_ID);
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
 			// Snapshot not repopulated — migration was skipped.
-			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), None);
+			assert_eq!(ExternalDecimals::<Test>::get(USDC_ASSET_ID), None);
 			// Version unchanged.
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 		});
