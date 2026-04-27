@@ -99,7 +99,7 @@ jobs:
       - name: Create App installation token
         id: app_token
         if: ${{ matrix.test.needs-wasm-binary && steps.artifact_token.outputs.use_app_token == 'true' }}
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
           app-id: ${{ secrets.ARTIFACTS_DOWNLOADER_APP_ID }}
           private-key: ${{ secrets.ARTIFACTS_DOWNLOADER_PRIVATE_KEY }}
@@ -141,7 +141,7 @@ jobs:
 
 
       - name: upload_logs
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() }}
         with:
           name: zombienet-logs-${{ matrix.test.job-name }}-${{ github.sha }}
