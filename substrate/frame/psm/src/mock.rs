@@ -35,10 +35,16 @@ pub const INSURANCE_FUND: u64 = 100;
 pub const PUSD_ASSET_ID: u32 = 1;
 pub const USDC_ASSET_ID: u32 = 2;
 pub const USDT_ASSET_ID: u32 = 3;
+pub const USDX_ASSET_ID: u32 = 10;
+pub const DAI_MOCK_ASSET_ID: u32 = 11;
 pub const UNSUPPORTED_ASSET_ID: u32 = 99;
 
 // pUSD unit (6 decimals)
 pub const PUSD_UNIT: u128 = 1_000_000;
+/// USDX has 2 decimals — fewer than pUSD.
+pub const USDX_UNIT: u128 = 100;
+/// DAI_MOCK has 18 decimals — more than pUSD.
+pub const DAI_UNIT: u128 = 1_000_000_000_000_000_000;
 
 // Initial balances for testing
 pub const INITIAL_BALANCE: u128 = 1_000_000 * PUSD_UNIT; // 1M units
@@ -193,17 +199,25 @@ pub fn new_test_ext() -> TestState {
 			(PUSD_ASSET_ID, ALICE, true, 1),
 			(USDC_ASSET_ID, ALICE, true, 1),
 			(USDT_ASSET_ID, ALICE, true, 1),
+			(USDX_ASSET_ID, ALICE, true, 1),
+			(DAI_MOCK_ASSET_ID, ALICE, true, 1),
 		],
 		metadata: vec![
 			(PUSD_ASSET_ID, b"pUSD Stablecoin".to_vec(), b"pUSD".to_vec(), 6),
 			(USDC_ASSET_ID, b"USD Coin".to_vec(), b"USDC".to_vec(), 6),
 			(USDT_ASSET_ID, b"Tether USD".to_vec(), b"USDT".to_vec(), 6),
+			(USDX_ASSET_ID, b"Low-Decimal Coin".to_vec(), b"USDX".to_vec(), 2),
+			(DAI_MOCK_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 18),
 		],
 		accounts: vec![
 			(USDC_ASSET_ID, ALICE, 10_000 * PUSD_UNIT),
 			(USDC_ASSET_ID, BOB, 10_000 * PUSD_UNIT),
 			(USDT_ASSET_ID, ALICE, 10_000 * PUSD_UNIT),
 			(USDT_ASSET_ID, BOB, 10_000 * PUSD_UNIT),
+			(USDX_ASSET_ID, ALICE, 10_000 * USDX_UNIT),
+			(USDX_ASSET_ID, BOB, 10_000 * USDX_UNIT),
+			(DAI_MOCK_ASSET_ID, ALICE, 10_000 * DAI_UNIT),
+			(DAI_MOCK_ASSET_ID, BOB, 10_000 * DAI_UNIT),
 		],
 		..Default::default()
 	}
@@ -294,6 +308,18 @@ pub fn set_asset_ceiling_weight(asset_id: u32, weight: Permill) {
 
 pub fn set_asset_status(asset_id: u32, status: crate::CircuitBreakerLevel) {
 	crate::ExternalAssets::<Test>::insert(asset_id, status);
+}
+
+/// Register an external asset via the extrinsic (records snapshot decimals) and
+/// assign it a per-asset ceiling weight.
+pub fn register_external_asset_with_weight(asset_id: u32, weight: Permill) {
+	use frame_support::assert_ok;
+	assert_ok!(crate::Pallet::<Test>::add_external_asset(RuntimeOrigin::root(), asset_id));
+	assert_ok!(crate::Pallet::<Test>::set_asset_ceiling_weight(
+		RuntimeOrigin::root(),
+		asset_id,
+		weight,
+	));
 }
 
 pub fn fund_external_asset(asset_id: u32, account: u64, amount: u128) {
