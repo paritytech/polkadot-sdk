@@ -151,7 +151,12 @@
   runner-type: "default"
   cumulus-image: "test-parachain"
 
-- job-name: "zombienet-cumulus-0031-statement_store_lite_person_submit_and_propagate"
+- job-name: "zombienet-cumulus-0031-statement_store_initial_sync"
+  test-filter: "zombie_ci::statement_store::integration::statement_store_initial_sync"
+  runner-type: "default"
+  cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0032-statement_store_lite_person_submit_and_propagate"
   test-filter: "zombie_ci::statement_store::integration::statement_store_lite_person_submit_and_propagate"
   runner-type: "default"
   cumulus-image: "test-parachain"
