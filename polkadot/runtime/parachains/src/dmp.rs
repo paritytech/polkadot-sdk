@@ -66,6 +66,7 @@ pub use weights::WeightInfo;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
 pub mod inbound_downward_queue;
+pub mod migration;
 #[cfg(test)]
 mod mock;
 #[cfg(test)]

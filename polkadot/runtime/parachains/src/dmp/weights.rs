@@ -57,6 +57,8 @@ use core::marker::PhantomData;
 /// Weight functions needed for `polkadot_runtime_parachains::dmp`.
 pub trait WeightInfo {
 	fn lazy_delete_some() -> Weight;
+	fn migrate_v0_to_v1_step_base() -> Weight;
+	fn migrate_v0_to_v1_step_iter() -> Weight;
 }
 
 /// Weights for `polkadot_runtime_parachains::dmp` using the Substrate node and recommended hardware.
@@ -71,9 +73,34 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 		//  Measured:  `206`
 		//  Estimated: `6146`
 		// Minimum execution time: 9_000_000 picoseconds.
-		Weight::from_parts(11_000_000, 6146)
+		Weight::from_parts(13_000_000, 6146)
 			.saturating_add(T::DbWeight::get().reads(2_u64))
 			.saturating_add(T::DbWeight::get().writes(4_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:1 w:0)
+	fn migrate_v0_to_v1_step_base() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `175`
+		//  Estimated: `3640`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(3_000_000, 3640)
+			.saturating_add(T::DbWeight::get().reads(1_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:2 w:1)
+	/// Proof: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:2 w:1)
+	/// Storage: `Dmp::DownwardMessageQueuePages` (r:0 w:4)
+	/// Proof: `Dmp::DownwardMessageQueuePages` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueueMeta` (r:0 w:1)
+	/// Proof: `Dmp::DownwardMessageQueueMeta` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn migrate_v0_to_v1_step_iter() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4194553`
+		//  Estimated: `4200493`
+		// Minimum execution time: 1_810_000_000 picoseconds.
+		Weight::from_parts(1_856_000_000, 4200493)
+			.saturating_add(T::DbWeight::get().reads(2_u64))
+			.saturating_add(T::DbWeight::get().writes(6_u64))
 	}
 }
 
@@ -88,8 +115,33 @@ impl WeightInfo for () {
 		//  Measured:  `206`
 		//  Estimated: `6146`
 		// Minimum execution time: 9_000_000 picoseconds.
-		Weight::from_parts(11_000_000, 6146)
+		Weight::from_parts(13_000_000, 6146)
 			.saturating_add(RocksDbWeight::get().reads(2_u64))
 			.saturating_add(RocksDbWeight::get().writes(4_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:1 w:0)
+	/// Proof: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:1 w:0)
+	fn migrate_v0_to_v1_step_base() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `175`
+		//  Estimated: `3640`
+		// Minimum execution time: 2_000_000 picoseconds.
+		Weight::from_parts(3_000_000, 3640)
+			.saturating_add(RocksDbWeight::get().reads(1_u64))
+	}
+	/// Storage: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:2 w:1)
+	/// Proof: UNKNOWN KEY `0x63f78c98723ddc9073523ef3beefda0ca95dac46c07a40d91506e7637ec4ba57` (r:2 w:1)
+	/// Storage: `Dmp::DownwardMessageQueuePages` (r:0 w:4)
+	/// Proof: `Dmp::DownwardMessageQueuePages` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	/// Storage: `Dmp::DownwardMessageQueueMeta` (r:0 w:1)
+	/// Proof: `Dmp::DownwardMessageQueueMeta` (`max_values`: None, `max_size`: None, mode: `Measured`)
+	fn migrate_v0_to_v1_step_iter() -> Weight {
+		// Proof Size summary in bytes:
+		//  Measured:  `4194553`
+		//  Estimated: `4200493`
+		// Minimum execution time: 1_810_000_000 picoseconds.
+		Weight::from_parts(1_856_000_000, 4200493)
+			.saturating_add(RocksDbWeight::get().reads(2_u64))
+			.saturating_add(RocksDbWeight::get().writes(6_u64))
 	}
 }

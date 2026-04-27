@@ -18,24 +18,19 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use super::{inbound_downward_queue::LAZY_DELETE_MAX_PAGES, *};
+use super::{inbound_downward_queue::LAZY_DELETE_MAX_PAGES, migration, *};
 use frame_benchmarking::v2::*;
-use frame_support::weights::WeightMeter;
+use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use polkadot_primitives::Id as ParaId;
 
 #[benchmarks]
 mod benchmarks {
 	use super::*;
 
-	/// Worst case for `lazy_delete_some`: a single para is in `LazyDelete` and
-	/// the lazy-delete range contains `LAZY_DELETE_MAX_PAGES` pages, each
-	/// holding a max-sized message. Storage-trie deletion proofs include the
-	/// removed value bytes, so messages must be filled to capture the worst
-	/// case proof size.
 	#[benchmark]
 	fn lazy_delete_some() {
 		let para = ParaId::from(1);
-		let pages: u64 = LAZY_DELETE_MAX_PAGES as u64;
+		let pages: u64 = (LAZY_DELETE_MAX_PAGES + 1) as u64;
 		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size as usize;
 		let payload = alloc::vec![0u8; max_size];
 
@@ -59,6 +54,55 @@ mod benchmarks {
 		}
 
 		assert!(!DownwardMessageQueueLazyDelete::<T>::contains_key(para));
+	}
+
+	/// Base case for [`migration::MigrateV0ToV1::step`]: nothing left in
+	/// `v0::DownwardMessageQueues`, so the loop body terminates on the first
+	/// iter probe without doing any per-para work.
+	#[benchmark]
+	fn migrate_v0_to_v1_step_base() {
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			migration::MigrateV0ToV1::<T>::step(None, &mut meter).expect("step has full meter");
+		}
+	}
+
+	/// Worst case for a single iteration of [`migration::MigrateV0ToV1::step`]:
+	/// one para in the legacy `v0::DownwardMessageQueues` storage holds the
+	/// maximum possible number of max-sized messages (the
+	/// `MAX_POSSIBLE_ALLOCATION / max_downward_message_size` cap). Running with
+	/// a meter that has room for exactly one iteration on top of the base
+	/// charge isolates the per-iteration cost.
+	#[benchmark]
+	fn migrate_v0_to_v1_step_iter() {
+		let para = ParaId::from(1);
+		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size;
+		let payload = alloc::vec![0u8; max_size as usize];
+		let max_msgs = (LAZY_DELETE_MAX_PAGES + 1) as usize;
+
+		let messages: alloc::vec::Vec<InboundDownwardMessage<BlockNumberFor<T>>> = (0..max_msgs)
+			.map(|_| InboundDownwardMessage {
+				sent_at: frame_system::Pallet::<T>::block_number(),
+				msg: payload.clone(),
+			})
+			.collect();
+
+		migration::v0::DownwardMessageQueues::<T>::insert(para, &messages);
+		let mut meter = WeightMeter::new();
+
+		#[block]
+		{
+			migration::MigrateV0ToV1::<T>::step(None, &mut meter).expect("step has full meter");
+		}
+
+		// Para was migrated.
+		let meta =
+			DownwardMessageQueueMeta::<T>::get(para).expect("meta written for non-empty queue");
+		assert_eq!(meta.first_full, 0);
+		assert_eq!(meta.first_free, max_msgs as u64);
+		assert!(!migration::v0::DownwardMessageQueues::<T>::contains_key(para));
 	}
 
 	impl_benchmark_test_suite!(
