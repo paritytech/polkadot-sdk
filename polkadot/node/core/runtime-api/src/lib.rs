@@ -476,11 +476,9 @@ where
 				}
 			},
 			Request::SessionExecutionConfig(session_index, sender) => {
-				if let Some(value) =
-					self.requests_cache.session_execution_config(session_index)
-				{
+				if let Some(value) = self.requests_cache.session_execution_config(session_index) {
 					self.metrics.on_cached_request();
-					let _ = sender.send(Ok(value.clone()));
+					let _ = sender.send(Ok(*value));
 					None
 				} else {
 					Some(Request::SessionExecutionConfig(session_index, sender))
