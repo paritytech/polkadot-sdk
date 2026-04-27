@@ -1346,7 +1346,21 @@ where
 		for (block_hash, tx_hashes) in finality_timedout_blocks {
 			self.view_store.listener.transactions_finality_timeout(&tx_hashes, block_hash);
 
-			self.mempool.remove_transactions(&tx_hashes).await;
+			let removed = self.mempool.remove_transactions(&tx_hashes).await;
+			let removed_at = Instant::now();
+			for tx in &removed {
+				let tx_source = tx.source();
+				if let Some(submitted_at) = tx_source.timestamp {
+					let age = removed_at.saturating_duration_since(submitted_at);
+					self.metrics.report(|m| {
+						m.tx_age_at_removal.observe(
+							RemovalReason::FinalityTimeout,
+							tx_source.source,
+							age,
+						)
+					});
+				}
+			}
 			self.import_notification_sink.clean_notified_items(&tx_hashes);
 			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());
 		}
