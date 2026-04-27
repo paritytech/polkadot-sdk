@@ -461,6 +461,9 @@ fn instantiate_unique_trie_id() {
 		// Terminate the contract.
 		assert_ok!(builder::call(addr).build());
 
+		// Drain `NativeDepositOf` rows before re-instantiating at the same address.
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
 		// Re-Instantiate after termination.
 		Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, deposit_limit::<Test>())
 			.unwrap();
@@ -1563,7 +1566,24 @@ fn lazy_removal_partial_remove_works() {
 	// We create a contract with some extra keys above the weight limit
 	let extra_keys = 7u32;
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
-	let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
+	let weight_per_key =
+		<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(1)
+			.saturating_sub(
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(0),
+			);
+	let weight_per_native_key =
+		<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
+			.saturating_sub(
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(
+					0,
+				),
+			);
+	// Phase 1 of the deletion will consume one `NativeDepositOf` row (created by ALICE's
+	// native-fallback storage charge at instantiation); whatever remains feeds phase 2.
+	let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
+		.saturating_sub(weight_per_native_key)
+		.checked_div_per_component(&weight_per_key)
+		.unwrap_or(0) as u32;
 	let vals: Vec<_> = (0..max_keys + extra_keys)
 		.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
 		.collect();
@@ -1659,7 +1679,7 @@ fn lazy_removal_does_no_run_on_low_remaining_weight() {
 
 		// Assign a remaining weight which is too low for a successful deletion of the contract
 		let low_remaining_weight =
-			<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
+			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch();
 
 		// Run the lazy removal
 		Contracts::on_idle(System::block_number(), low_remaining_weight);
@@ -1688,7 +1708,7 @@ fn lazy_removal_does_not_use_all_weight() {
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
-	let (trie, vals, weight_per_key) = ext.execute_with(|| {
+	let (trie, vals, weight_per_key, weight_per_native_key) = ext.execute_with(|| {
 		let min_balance = Contracts::min_balance();
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
@@ -1697,7 +1717,24 @@ fn lazy_removal_does_not_use_all_weight() {
 			.build_and_unwrap_contract();
 
 		let info = get_contract(&addr);
-		let (weight_per_key, max_keys) = ContractInfo::<Test>::deletion_budget(&meter);
+		let weight_per_key =
+			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(1)
+				.saturating_sub(
+					<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(0),
+				);
+		let weight_per_native_key =
+			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
+				.saturating_sub(
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(
+					0,
+				),
+			);
+		// Phase 1 will consume one `NativeDepositOf` row (created by ALICE's native-fallback
+		// storage charge at instantiation); the rest feeds the trie phase.
+		let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
+			.saturating_sub(weight_per_native_key)
+			.checked_div_per_component(&weight_per_key)
+			.unwrap_or(0) as u32;
 		assert!(max_keys > 0);
 
 		// We create a contract with one less storage item than we can remove within the limit
@@ -1724,7 +1761,7 @@ fn lazy_removal_does_not_use_all_weight() {
 			assert_eq!(child::get::<u32>(&trie, &blake2_256(&val.0)), Some(val.1));
 		}
 
-		(trie, vals, weight_per_key)
+		(trie, vals, weight_per_key, weight_per_native_key)
 	});
 
 	// The lazy removal limit only applies to the backend but not to the overlay.
@@ -1734,9 +1771,11 @@ fn lazy_removal_does_not_use_all_weight() {
 	ext.execute_with(|| {
 		// Run the lazy removal
 		ContractInfo::<Test>::process_deletion_queue_batch(&mut meter);
-		let base_weight =
-			<<Test as Config>::WeightInfo as WeightInfo>::on_process_deletion_queue_batch();
-		assert_eq!(meter.consumed(), weight_per_key.mul(vals.len() as _) + base_weight);
+		let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch();
+		// `vals.len()` trie keys + 1 `NativeDepositOf` row that the native fallback created
+		// when ALICE instantiated the contract without any PGAS.
+		let expected = weight_per_native_key + weight_per_key.mul(vals.len() as _) + base_weight;
+		assert_eq!(meter.consumed(), expected);
 
 		// All the keys are removed
 		for val in vals {
@@ -3863,6 +3902,9 @@ fn mapped_address_works() {
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE_FALLBACK), 200);
 		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
 		assert_eq!(<Test as Config>::Currency::total_balance(&ALICE), 1_000_000 - 100);
+
+		// Drain `NativeDepositOf` rows before re-instantiating at the same address.
+		Contracts::on_idle(System::block_number(), Weight::MAX);
 
 		// after mapping it will be sent to the real eve account
 		let Contract { addr, .. } =

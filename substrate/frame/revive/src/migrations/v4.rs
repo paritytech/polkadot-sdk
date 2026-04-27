@@ -27,31 +27,39 @@
 //! Phase 2 iterates [`crate::AccountInfoOf`] and for each contract burn the native
 //! `StorageDepositReserve` hold and replaces it with the same amount of PGAS minted into the
 //! contract and held under the same reason.
+//!
+//! Phase 3 rewrites the [`crate::DeletionQueue`] entries from their old `TrieId` value into the
+//! new [`DeletionQueueItem`] format.
 
 use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
 use crate::BalanceOf;
 use crate::{
-	AccountInfoOf, CodeInfoOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, Pallet,
-	address::AddressMapper, deposit_payment::Deposit, storage::AccountType, weights::WeightInfo,
+	AccountInfoOf, CodeInfoOf, Config, DeletionQueue, HoldReason, LOG_TARGET, NativeDepositOf,
+	Pallet, TrieId,
+	address::AddressMapper,
+	deposit_payment::Deposit,
+	storage::{AccountType, DeletionQueueItem},
+	weights::WeightInfo,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
+	Twox64Concat,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
+	storage_alias,
 	weights::WeightMeter,
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
 use sp_runtime::traits::Saturating;
 
-#[cfg(feature = "try-runtime")]
 extern crate alloc;
 
 #[cfg(feature = "try-runtime")]
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
-/// Two-phase cursor: first code uploads, then contracts.
+/// Three-phase cursor: code uploads, contracts, then deletion-queue rewrite.
 #[derive(Clone, Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
 pub enum Cursor {
 	/// Last code hash processed in phase 1 (`CodeInfoOf` iteration).
@@ -60,6 +68,10 @@ pub enum Cursor {
 	///
 	/// `None` is the transition sentinel from phase 1 to phase 2.
 	Contract(Option<H160>),
+	/// Last deletion-queue index processed in phase 3 (`DeletionQueue` rewrite).
+	///
+	/// `None` is the transition sentinel from phase 2 to phase 3.
+	DeletionQueue(Option<u32>),
 }
 
 /// Switches native storage deposits over to PGAS.
@@ -79,7 +91,8 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let code_step = <T as Config>::WeightInfo::v4_code_upload_step();
 		let contract_step = <T as Config>::WeightInfo::v4_contract_step();
-		let required = code_step.max(contract_step);
+		let deletion_queue_step = <T as Config>::WeightInfo::v4_deletion_queue_step();
+		let required = code_step.max(contract_step).max(deletion_queue_step);
 		if !meter.can_consume(required) {
 			return Err(SteppedMigrationError::InsufficientWeight { required });
 		}
@@ -88,6 +101,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			let step_weight = match &cursor {
 				None | Some(Cursor::CodeUpload(_)) => code_step,
 				Some(Cursor::Contract(_)) => contract_step,
+				Some(Cursor::DeletionQueue(_)) => deletion_queue_step,
 			};
 			if meter.try_consume(step_weight).is_err() {
 				break;
@@ -101,6 +115,10 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				},
 				Some(Cursor::Contract(last)) => match Self::step_2_contract(last) {
 					Some(next) => cursor = Some(Cursor::Contract(Some(next))),
+					None => cursor = Some(Cursor::DeletionQueue(None)),
+				},
+				Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
+					Some(next) => cursor = Some(Cursor::DeletionQueue(Some(next))),
 					None => {
 						cursor = None;
 						break;
@@ -166,6 +184,11 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	}
 }
 
+/// Pre-v4 layout of [`DeletionQueue`]: a single [`TrieId`] per slot, no associated contract
+/// account. We only iterate it; new entries are written via the live [`DeletionQueue`].
+#[storage_alias]
+type OldDeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
+
 impl<T: Config> Migration<T> {
 	/// Phase 1: credit the next `CodeInfoOf` entry's owner in [`NativeDepositOf`]. Returns
 	/// `Some(Cursor::Contract(None))` when phase 1 is exhausted.
@@ -182,6 +205,28 @@ impl<T: Config> Migration<T> {
 			*entitlement = entitlement.saturating_add(info.deposit());
 		});
 		Some(Cursor::CodeUpload(hash))
+	}
+
+	/// Phase 3: rewrite the next [`DeletionQueue`] slot from the old `TrieId`-only layout
+	/// into the new [`DeletionQueueItem`] format. Pre-v4 entries had no [`NativeDepositOf`]
+	/// rows, so the recorded `account_id` is a zero placeholder; phase 1 of the deletion
+	/// processor will clear an empty prefix on it. Returns `None` when phase 3 finishes.
+	fn step_3_deletion_queue(last: Option<u32>) -> Option<u32> {
+		let mut iter = match last {
+			Some(last) => {
+				OldDeletionQueue::<T>::iter_from(OldDeletionQueue::<T>::hashed_key_for(last))
+			},
+			None => OldDeletionQueue::<T>::iter(),
+		};
+
+		let (key, trie_id) = iter.next()?;
+		// Same physical slot as `OldDeletionQueue`; the insert overwrites the legacy value
+		// with the new encoding.
+		let zero_bytes = alloc::vec![0u8; <T::AccountId as MaxEncodedLen>::max_encoded_len()];
+		let zero_account = T::AccountId::decode(&mut &zero_bytes[..])
+			.expect("zero bytes decode to a valid AccountId; qed");
+		DeletionQueue::<T>::insert(key, DeletionQueueItem::<T>::new(trie_id, zero_account));
+		Some(key)
 	}
 
 	/// Phase 2: hand the next contract to [`Deposit::migrate_native_to_pgas`]. EOAs are
@@ -368,6 +413,36 @@ mod tests {
 			// match the post-`mint_contract_eds` invariant.
 			assert_eq!(Assets::balance(PGasAssetId::get(), &c1_acc), pgas_ed);
 			assert_eq!(Assets::balance(PGasAssetId::get(), &c2_acc), pgas_ed);
+		});
+	}
+
+	#[test]
+	fn phase_three_rewrites_legacy_deletion_queue_entries() {
+		use crate::{
+			DeletionQueueCounter,
+			storage::{DeletionQueueItem, DeletionQueueManager},
+		};
+
+		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
+			let trie_a: TrieId = vec![0xAA; 16].try_into().unwrap();
+			let trie_b: TrieId = vec![0xBB; 24].try_into().unwrap();
+			OldDeletionQueue::<Test>::insert(0u32, trie_a.clone());
+			OldDeletionQueue::<Test>::insert(1u32, trie_b.clone());
+			let mut q = DeletionQueueManager::<Test>::from_test_values(2, 0);
+			DeletionQueueCounter::<Test>::set(q.clone());
+			let _ = &mut q;
+
+			V4::run_to_completion();
+
+			let zero = AccountId32::new([0u8; 32]);
+			assert_eq!(
+				DeletionQueue::<Test>::get(0u32),
+				Some(DeletionQueueItem::<Test>::new(trie_a, zero.clone())),
+			);
+			assert_eq!(
+				DeletionQueue::<Test>::get(1u32),
+				Some(DeletionQueueItem::<Test>::new(trie_b, zero)),
+			);
 		});
 	}
 

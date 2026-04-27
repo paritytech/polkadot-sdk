@@ -647,6 +647,10 @@ pub mod pallet {
 		EcdsaRecoveryFailed = 0x41,
 		/// Manual mapping is disabled when auto-mapping is enabled.
 		AutoMappingEnabled = 0x42,
+		/// A contract cannot be created at this address: it still has uncleared
+		/// [`NativeDepositOf`] entries from a previously terminated contract that the deletion
+		/// queue has not yet drained.
+		PendingDepositCleanup = 0x43,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -711,12 +715,14 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
 
-	/// Evicted contracts that await child trie deletion.
+	/// Terminated contracts that await lazy cleanup.
 	///
-	/// Child trie deletion is a heavy operation depending on the amount of storage items
-	/// stored in said trie. Therefore this operation is performed lazily in `on_idle`.
+	/// Each entry pairs a child trie ID with the contract account so that `on_idle` can
+	/// drain both the child trie and any [`NativeDepositOf`] entries that named the contract
+	/// as `holder`. Both can be arbitrarily large, so cleanup runs lazily in `on_idle`.
 	#[pallet::storage]
-	pub(crate) type DeletionQueue<T: Config> = StorageMap<_, Twox64Concat, u32, TrieId>;
+	pub(crate) type DeletionQueue<T: Config> =
+		StorageMap<_, Twox64Concat, u32, crate::storage::DeletionQueueItem<T>>;
 
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.

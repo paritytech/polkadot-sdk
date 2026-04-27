@@ -17,8 +17,8 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
-	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf, LOG_TARGET,
+	Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
 	evm::{block_storage, fees::InfoT as _, transfer_with_dust},
@@ -1755,7 +1755,7 @@ where
 			let _code_removed = <CodeInfo<T>>::decrement_refcount(*code_hash)?;
 
 			// delete the contracts data last as its infallible
-			ContractInfo::<T>::queue_trie_for_deletion(trie_id.clone());
+			ContractInfo::<T>::queue_for_deletion(trie_id.clone(), contract_account.clone());
 			AccountInfoOf::<T>::remove(contract_address);
 			ImmutableDataOf::<T>::remove(contract_address);
 

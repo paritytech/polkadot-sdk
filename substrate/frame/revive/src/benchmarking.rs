@@ -119,7 +119,7 @@ mod benchmarks {
 
 	// The base weight consumed on processing contracts deletion queue.
 	#[benchmark(pov_mode = Measured)]
-	fn on_process_deletion_queue_batch() {
+	fn deletion_queue_batch() {
 		#[block]
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
@@ -127,16 +127,48 @@ mod benchmarks {
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]
-	fn on_initialize_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+	fn deletion_queue_per_trie_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
 		let instance =
 			Contract::<T>::with_storage(VmBinaryModule::dummy(), k, limits::STORAGE_BYTES)?;
-		ContractInfo::<T>::queue_trie_for_deletion(instance.info()?.trie_id);
+		ContractInfo::<T>::queue_for_deletion(
+			instance.info()?.trie_id,
+			instance.account_id.clone(),
+		);
 
 		#[block]
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
 
+		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		Ok(())
+	}
+
+	/// Measures the cost of clearing one [`NativeDepositOf`] row during
+	/// [`ContractInfo::process_deletion_queue_batch`]. Pre-populates the contract with `k`
+	/// per-payer rows and queues the contract for deletion with `native_cleared = false` and
+	/// an empty trie. The deletion queue then drains all rows in one go.
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn deletion_queue_per_native_deposit_key(k: Linear<0, 1024>) -> Result<(), BenchmarkError> {
+		use frame_benchmarking::v2::account;
+
+		// Empty trie: zero items, zero bytes; we only want to measure native-deposit cleanup.
+		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
+		for i in 0..k {
+			let payer: T::AccountId = account("payer", i, 0);
+			NativeDepositOf::<T>::insert(&instance.account_id, &payer, BalanceOf::<T>::default());
+		}
+		ContractInfo::<T>::queue_for_deletion(
+			instance.info()?.trie_id,
+			instance.account_id.clone(),
+		);
+
+		#[block]
+		{
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
+		}
+
+		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
 		Ok(())
 	}
 
