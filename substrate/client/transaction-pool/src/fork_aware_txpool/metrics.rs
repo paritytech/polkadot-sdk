@@ -354,8 +354,6 @@ pub enum RemovalReason {
 	DroppedInvalid,
 	/// Transaction reached the configured finality timeout without being finalized.
 	FinalityTimeout,
-	/// Transaction came in via block import but was unknown to the pool.
-	BlockImportUnknown,
 }
 
 impl RemovalReason {
@@ -370,7 +368,6 @@ impl RemovalReason {
 			Self::DroppedLimits => "dropped_limits",
 			Self::DroppedInvalid => "dropped_invalid",
 			Self::FinalityTimeout => "finality_timeout",
-			Self::BlockImportUnknown => "block_import_unknown",
 		}
 	}
 }
