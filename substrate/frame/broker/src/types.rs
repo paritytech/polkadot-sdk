@@ -235,16 +235,6 @@ pub struct PoolIoRecord {
 	pub system: SignedCoreMaskBitCount,
 }
 
-/// The status of a Bulk Coretime Sale.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
-pub struct SaleInfoRecord {
-	/// The first timeslice of the Regions which are being sold in this sale.
-	pub region_begin: Timeslice,
-	/// The timeslice on which the Regions which are being sold in the sale terminate. (i.e. One
-	/// after the last timeslice which the Regions control.)
-	pub region_end: Timeslice,
-}
-
 /// Record for Polkadot Core reservations (generally tasked with the maintenance of System
 /// Chains).
 pub type ReservationsRecord<Max> = BoundedVec<Schedule, Max>;
