@@ -3476,10 +3476,14 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 }
 
 // v17+ path: `GetProspectiveValidationData` must take `max_pov_size` from
-// `SessionExecutionConfig` keyed on the **candidate's relay-parent session** (not the
-// scheduling session). This is the session whose `max_pov_size` the runtime wrote into
-// the PVD at the relay parent, so the returned PVD matches what the collator will
-// produce when they hash the PVD into the candidate descriptor.
+// `SessionExecutionConfig` keyed on the **candidate's relay-parent session** (the value
+// in `request.session_index`), not the leaf's session. This is the session whose
+// `max_pov_size` the runtime wrote into the PVD at the relay parent, so the returned PVD
+// matches what the collator will produce when they hash the PVD into the descriptor.
+//
+// The test deliberately uses `request.session_index = 42` while the leaf's session is 1
+// (hardcoded by the test harness). The intercept asserts the runtime API is called with
+// 42 — locking in that the lookup is keyed on the request, not the leaf.
 #[test]
 fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 	const LEAF_NUMBER: BlockNumber = 100;
@@ -3487,6 +3491,9 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 	// Deliberately distinct from `MAX_POV_SIZE` so the assertion can distinguish the
 	// relay-parent-session path from the scheduling-session fallback.
 	const RELAY_PARENT_SESSION_MAX_POV_SIZE: u32 = 123_456;
+	// Distinct from the leaf's session (1, hardcoded in `activate_leaf`). The runtime API
+	// must be queried with this session, not the leaf's.
+	const RELAY_PARENT_SESSION_INDEX: SessionIndex = 42;
 
 	let para_id = ParaId::from(1);
 	let mut test_state = TestState::default();
@@ -3520,7 +3527,7 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 		let request = ProspectiveValidationDataRequest {
 			para_id,
 			candidate_relay_parent: older_relay_parent,
-			session_index: 1,
+			session_index: RELAY_PARENT_SESSION_INDEX,
 			parent_head_data: ParentHeadData::OnlyHash(HeadData(vec![1]).hash()),
 		};
 		let (tx, rx) = oneshot::channel();
@@ -3540,9 +3547,13 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 				msg = virtual_overseer.recv().fuse() => {
 					if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 						_,
-						RuntimeApiRequest::SessionExecutionConfig(_, tx),
+						RuntimeApiRequest::SessionExecutionConfig(idx, tx),
 					)) = msg
 					{
+						assert_eq!(
+							idx, RELAY_PARENT_SESSION_INDEX,
+							"SessionExecutionConfig must be keyed on request.session_index, not the leaf's session",
+						);
 						tx.send(Ok(Some(polkadot_primitives::SessionExecutionConfig {
 							max_pov_size: RELAY_PARENT_SESSION_MAX_POV_SIZE,
 							validation_code_bomb_limit: 0,

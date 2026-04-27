@@ -358,10 +358,9 @@ where
 	}
 
 	/// Build the execution-relevant subset of this configuration for per-session
-	/// snapshotting. Keeps the field mapping in one place so adding a new field
-	/// to [`SessionExecutionConfig`] only requires touching this function.
+	/// snapshotting.
 	pub(crate) fn session_execution_config(&self) -> SessionExecutionConfig {
-		SessionExecutionConfig {
+			SessionExecutionConfig {
 			max_pov_size: self.max_pov_size,
 			validation_code_bomb_limit: self.validation_code_bomb_limit(),
 		}

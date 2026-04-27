@@ -2721,7 +2721,7 @@ fn fetch_params_uses_fallback_session_for_v1() {
 			.expect("fetch_params should succeed");
 
 		assert_eq!(params.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT);
-		assert_eq!(params.max_pov_size, None, "NotSupported must leave max_pov_size as None",);
+		assert_eq!(params.max_pov_size, None, "NotSupported must leave max_pov_size as None");
 	};
 
 	executor::block_on(future::join(test_fut, fetch_fut));
