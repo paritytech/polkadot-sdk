@@ -209,6 +209,7 @@ pub(super) fn collator_args_with_log_level(
 	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
 	[
 		"--force-authoring".to_string(),
+		"--authoring=slot-based".to_string(),
 		"--max-runtime-instances=32".to_string(),
 		format!(
 			"-linfo,statement-store={statement_log_level},statement-gossip={statement_log_level}"

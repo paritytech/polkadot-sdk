@@ -210,7 +210,7 @@ jobs:
 
       - name: Set changes
         id: set_changes
-        uses: tj-actions/changed-files@8cba46e29c11878d930bca7870bb54394d3e8b21 #v47.0.2
+        uses: tj-actions/changed-files@9426d40962ed5378910ee2e21d5f8c6fcbf2dd96 #v47.0.6
         with:
           files_yaml: |
             substrate:

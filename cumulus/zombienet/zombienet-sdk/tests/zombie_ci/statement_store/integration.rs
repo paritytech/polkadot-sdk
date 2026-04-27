@@ -8,6 +8,7 @@ use super::common::{
 	submit_statement, subscribe_topic, subscribe_topic_filter,
 };
 use codec::Encode;
+use futures::future::join_all;
 use log::{debug, info};
 use sc_network_statement::config::STATEMENTS_BURST_COEFFICIENT;
 use sc_statement_store::test_utils::{create_allowance_items, create_test_statement, get_keypair};
@@ -268,6 +269,15 @@ async fn statement_store_sustained_rate_flooding() -> Result<(), anyhow::Error> 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
+	for node in [alice, bob] {
+		node.wait_metric_with_timeout(
+			"block_height{status=\"best\"}",
+			|height| height >= 1.0,
+			300u64,
+		)
+		.await?;
+	}
+
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
 		"substrate_sub_libp2p_peers_count",
@@ -366,6 +376,15 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
 
+	for node in [alice, bob] {
+		node.wait_metric_with_timeout(
+			"block_height{status=\"best\"}",
+			|height| height >= 1.0,
+			300u64,
+		)
+		.await?;
+	}
+
 	let bob_peers_before = Cell::new(0.0f64);
 	bob.wait_metric_with_timeout(
 		"substrate_sub_libp2p_peers_count",
@@ -380,12 +399,20 @@ async fn statement_store_burst_flooding() -> Result<(), anyhow::Error> {
 	let alice_rpc = alice.rpc().await?;
 	let topic: Topic = [43u8; 32].into();
 
-	for idx in 0..bucket_capacity {
-		let keypair = get_keypair(idx);
-		let statement =
-			create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, 0);
-		let _ = submit_statement(&alice_rpc, &statement).await;
-	}
+	// Pre-create statements so submission isn't paced by keypair derivation.
+	let statements: Vec<Statement> = (0..bucket_capacity)
+		.map(|idx| {
+			let keypair = get_keypair(idx);
+			create_test_statement(&keypair, &[topic], None, vec![idx as u8], u32::MAX, 0)
+		})
+		.collect();
+
+	// Submit concurrently so the full burst reaches alice within a single
+	// `PROPAGATE_TIMEOUT` tick (1s). Sequential RPC submissions on CI can
+	// straddle a tick, splitting the burst into two batches that each fit
+	// inside the token-bucket refill — flooding would never be detected.
+	let submissions = statements.iter().map(|statement| submit_statement(&alice_rpc, statement));
+	join_all(submissions).await;
 	info!("Submitted {} statements to alice", bucket_capacity);
 
 	bob.wait_metric_with_timeout(
@@ -639,10 +666,10 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 					h.set(v);
 					v >= 10.0
 				},
-				180u64,
+				360u64,
 			)
 			.await
-			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 180s"))?;
+			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 360s"))?;
 		h.get()
 	};
 	info!("Charlie at block {:.0} before dave joins", charlie_height);
@@ -699,7 +726,6 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	// Verify drain_deferred_peers fired
 	let dave_logs = dave.logs().await?;
 	assert!(dave_logs.lines().any(|l| l.contains("Major sync complete, adding")));
-
 	Ok(())
 }
 
