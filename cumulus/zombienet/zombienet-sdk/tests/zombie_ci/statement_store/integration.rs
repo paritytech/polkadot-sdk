@@ -738,10 +738,6 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 /// 4. Add 3 new collators (charlie, dave, eve)
 /// 5. Verify each new node receives all 20 statements with correct content
 /// 6. Verify initial_sync_statements_sent metric increased on sender nodes
-///
-/// Key difference from `statement_store_recovery_after_major_sync`: all statements
-/// are fully propagated BEFORE any new peer joins, isolating the initial sync
-/// mechanism from deferred_peers timing and mid-sync submission races
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
