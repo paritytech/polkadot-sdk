@@ -146,6 +146,17 @@ pub struct InboundDownwardMessage<BlockNumber = crate::BlockNumber> {
 	pub msg: DownwardMessage,
 }
 
+pub type PageIndex = u64;
+
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
+pub struct InboundDownwardQueueMeta {
+	/// First page that holds data.
+	pub first_full: PageIndex,
+
+	/// First unused page index where to write data to.
+	pub first_free: PageIndex,
+}
+
 /// An HRMP message seen from the perspective of a recipient.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, Debug, PartialEq, TypeInfo)]
 pub struct InboundHrmpMessage<BlockNumber = crate::BlockNumber> {

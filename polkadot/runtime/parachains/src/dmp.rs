@@ -46,22 +46,30 @@ use crate::{
 	configuration::{self, HostConfiguration},
 	initializer, paras, FeeTracker, GetMinFeeFactor,
 };
+use polkadot_core_primitives::InboundDownwardQueueMeta;
+use polkadot_core_primitives::PageIndex;
 use alloc::vec::Vec;
 use core::fmt;
 use frame_support::pallet_prelude::*;
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{DownwardMessage, Hash, Id as ParaId, InboundDownwardMessage};
+use frame_support::weights::WeightMeter;
 use sp_core::MAX_POSSIBLE_ALLOCATION;
 use sp_runtime::{
-	traits::{BlakeTwo256, Hash as HashT, SaturatedConversion},
+	traits::{BlakeTwo256, Hash as HashT},
 	FixedU128,
 };
+use frame_support::traits::Defensive;
+use inbound_downward_queue::InboundDownwardQueue;
 use xcm::latest::SendError;
 
 pub use pallet::*;
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod mock;
+pub mod inbound_downward_queue;
 
 const THRESHOLD_FACTOR: u32 = 2;
 
@@ -70,6 +78,8 @@ const THRESHOLD_FACTOR: u32 = 2;
 pub enum QueueDownwardMessageError {
 	/// The message being sent exceeds the configured max message size.
 	ExceedsMaxMessageSize,
+	/// Message rejected due to queue being full.
+	ExceedsMaxQueueSize,
 	/// The destination is unknown.
 	Unroutable,
 }
@@ -77,7 +87,7 @@ pub enum QueueDownwardMessageError {
 impl From<QueueDownwardMessageError> for SendError {
 	fn from(err: QueueDownwardMessageError) -> Self {
 		match err {
-			QueueDownwardMessageError::ExceedsMaxMessageSize => SendError::ExceedsMaxMessageSize,
+			QueueDownwardMessageError::ExceedsMaxMessageSize | QueueDownwardMessageError::ExceedsMaxQueueSize => SendError::ExceedsMaxMessageSize,
 			QueueDownwardMessageError::Unroutable => SendError::Unroutable,
 		}
 	}
@@ -119,14 +129,43 @@ pub mod pallet {
 	#[pallet::config]
 	pub trait Config: frame_system::Config + configuration::Config + paras::Config {}
 
-	/// The downward messages addressed for a certain para.
+	/// Metadata for managing `DownwardMessageQueuePages`.
+	///
+	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
 	#[pallet::storage]
-	pub type DownwardMessageQueues<T: Config> = StorageMap<
+	pub type DownwardMessageQueueMeta<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,
-		Vec<InboundDownwardMessage<BlockNumberFor<T>>>,
-		ValueQuery,
+		InboundDownwardQueueMeta,
+		OptionQuery,
+	>;
+
+	/// Linked message data list to hold inbound downward message pages.
+	///
+	/// Messages are not packed and one page is equivalent to one message.
+	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
+	#[pallet::storage]
+	pub type DownwardMessageQueuePages<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		ParaId,
+		Twox64Concat,
+		PageIndex,
+		InboundDownwardMessage<BlockNumberFor<T>>,
+		OptionQuery,
+	>;
+
+	/// Queue with ParaIds who need to get their page queue swept.
+	///
+	/// DO NOT MODIFY manually. Only use `InboundDownwardQueue` to preserve invariants.
+	#[pallet::storage]
+	pub type DownwardMessageQueueLazyDelete<T: Config> = StorageMap<
+		_,
+		Blake2_128Concat,
+		ParaId,
+		(PageIndex, PageIndex), // Deletion range [first, last)
+		OptionQuery,
 	>;
 
 	/// A mapping that stores the downward message queue MQC head for each para.
@@ -144,6 +183,18 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
+			InboundDownwardQueue::<T>::lazy_delete_some(weight_meter);
+		}
+
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			InboundDownwardQueue::<T>::integrity_test()
+		}
+	}
 }
 /// Routines and getters related to downward message passing.
 impl<T: Config> Pallet<T> {
@@ -173,7 +224,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Remove all relevant storage items for an outgoing parachain.
 	fn clean_dmp_after_outgoing(outgoing_para: &ParaId) {
-		DownwardMessageQueues::<T>::remove(outgoing_para);
+		InboundDownwardQueue::<T>::delete_all(*outgoing_para);
 		DownwardMessageQueueHeads::<T>::remove(outgoing_para);
 	}
 
@@ -219,8 +270,8 @@ impl<T: Config> Pallet<T> {
 		let serialized_len = msg.len();
 		Self::can_queue_downward_message(config, &para, &msg)?;
 
-		let inbound =
-			InboundDownwardMessage { msg, sent_at: frame_system::Pallet::<T>::block_number() };
+		let inbound = InboundDownwardQueue::<T>::push_back(para, msg).map_err(|_| QueueDownwardMessageError::ExceedsMaxQueueSize)?;
+		let q_len = InboundDownwardQueue::<T>::len(para).unwrap_or(0);
 
 		// obtain the new link in the MQC and update the head.
 		DownwardMessageQueueHeads::<T>::mutate(para, |head| {
@@ -229,14 +280,9 @@ impl<T: Config> Pallet<T> {
 			*head = new_head;
 		});
 
-		let q_len = DownwardMessageQueues::<T>::mutate(para, |v| {
-			v.push(inbound);
-			v.len()
-		});
-
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
-		if q_len > (threshold as usize) {
+		if q_len > threshold as u64 {
 			Self::increase_fee_factor(para, serialized_len as u128);
 		}
 
@@ -255,10 +301,10 @@ impl<T: Config> Pallet<T> {
 			// The advancement rule is for at least one downwards message to be processed
 			// if the queue is non-empty at the relay-parent. Downwards messages are annotated
 			// with the block number, so we compare the earliest (first) against the relay parent.
-			let contents = Self::dmq_contents(para);
+			let first = InboundDownwardQueue::<T>::peek_front(para);
 
 			// sanity: if dmq_length is >0 this should always be 'Some'.
-			if contents.get(0).map_or(false, |msg| msg.sent_at <= relay_parent_number) {
+			if first.map_or(false, |msg| msg.sent_at <= relay_parent_number) {
 				return Err(ProcessedDownwardMessagesAcceptanceErr::AdvancementRule);
 			}
 		}
@@ -279,7 +325,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Prunes the specified number of messages from the downward message queue of the given para.
 	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) {
-		let q_len = DownwardMessageQueues::<T>::mutate(para, |q| {
+		/*let q_len = DownwardMessageQueues::<T>::mutate(para, |q| {
 			let processed_downward_messages = processed_downward_messages as usize;
 			if processed_downward_messages > q.len() {
 				// reaching this branch is unexpected due to the constraint established by
@@ -289,12 +335,14 @@ impl<T: Config> Pallet<T> {
 				*q = q.split_off(processed_downward_messages);
 			}
 			q.len()
-		});
+		});*/
+		let _dropped = InboundDownwardQueue::<T>::drop_front_n(para, processed_downward_messages as u64);
+		let q_len = InboundDownwardQueue::<T>::len(para).unwrap_or(0);
 
 		let config = configuration::ActiveConfig::<T>::get();
 		let threshold =
 			Self::dmq_max_length(config.max_downward_message_size).saturating_div(THRESHOLD_FACTOR);
-		if q_len <= (threshold as usize) {
+		if q_len <= threshold as u64 {
 			Self::decrease_fee_factor(para);
 		}
 	}
@@ -310,9 +358,11 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns 0 if the para doesn't have an associated downward message queue.
 	pub(crate) fn dmq_length(para: ParaId) -> u32 {
-		DownwardMessageQueues::<T>::decode_len(&para)
+		/*DownwardMessageQueues::<T>::decode_len(&para)
 			.unwrap_or(0)
 			.saturated_into::<u32>()
+		*/
+		InboundDownwardQueue::<T>::len(para).unwrap_or(0).try_into().defensive_unwrap_or(u32::MAX)
 	}
 
 	fn dmq_max_length(max_downward_message_size: u32) -> u32 {
@@ -322,10 +372,11 @@ impl<T: Config> Pallet<T> {
 	/// Returns the downward message queue contents for the given para.
 	///
 	/// The most recent messages are the latest in the vector.
-	pub(crate) fn dmq_contents(
+	#[cfg(feature = "std")]
+	pub fn dmq_contents(
 		recipient: ParaId,
 	) -> Vec<InboundDownwardMessage<BlockNumberFor<T>>> {
-		DownwardMessageQueues::<T>::get(&recipient)
+		InboundDownwardQueue::<T>::peek_all(recipient)
 	}
 
 	/// Make the parachain reachable for downward messages.
