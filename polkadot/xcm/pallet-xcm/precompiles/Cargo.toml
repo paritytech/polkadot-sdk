@@ -29,6 +29,7 @@ xcm-executor = { workspace = true }
 frame-system = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
 pallet-timestamp = { workspace = true, default-features = true }
 polkadot-parachain-primitives = { workspace = true, default-features = true }
 scale-info = { workspace = true, default-features = true }

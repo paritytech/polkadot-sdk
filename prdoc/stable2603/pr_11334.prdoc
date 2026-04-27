@@ -1,0 +1,32 @@
+title: Expose ECC host functions
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Expose host functions for `BLS12-381`, `Ed-on-BLS12-381-Bandersnatch`, `Pallas`, `Vesta` for parachains
+    - Add new executor param `EnabledHostFunction` that can be used to enable host function usage.
+
+    These were ratified in [RFC 163](https://github.com/polkadot-fellows/RFCs/pull/163). The missing Pasta curves will be added later https://github.com/paritytech/polkadot-sdk/pull/11035. We will use these on the people chain only.
+crates:
+- name: cumulus-client-service
+  bump: minor
+- name: sp-crypto-ec-utils
+  bump: minor
+- name: polkadot-node-core-pvf-common
+  bump: minor
+- name: polkadot-collator-protocol
+  bump: minor
+- name: polkadot-node-core-candidate-validation
+  bump: minor
+- name: polkadot-node-core-pvf-execute-worker
+  bump: none
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor
+- name: polkadot-node-core-pvf
+  bump: minor
+- name: polkadot-primitives
+  bump: major
+- name: polkadot-runtime-parachains
+  bump: minor
+- name: polkadot
+  bump: minor

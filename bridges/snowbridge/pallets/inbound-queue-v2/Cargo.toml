@@ -44,8 +44,13 @@ bp-relayers = { workspace = true }
 xcm = { workspace = true }
 
 [dev-dependencies]
+alloy-consensus = { workspace = true, features = ["std"] }
+alloy-primitives = { workspace = true, features = ["std"] }
+alloy-rlp = { workspace = true, features = ["std"] }
 frame-benchmarking = { workspace = true, default-features = true }
 hex-literal = { workspace = true, default-features = true }
+snowbridge-pallet-ethereum-client = { workspace = true, default-features = true }
+snowbridge-pallet-ethereum-client-fixtures = { workspace = true, default-features = true }
 snowbridge-test-utils = { workspace = true }
 sp-keyring = { workspace = true, default-features = true }
 
@@ -55,7 +60,10 @@ xcm-executor = { workspace = true }
 [features]
 default = ["std"]
 std = [
+	"alloy-consensus/std",
 	"alloy-core/std",
+	"alloy-primitives/std",
+	"alloy-rlp/std",
 	"bp-relayers/std",
 	"codec/std",
 	"frame-benchmarking/std",
@@ -86,6 +94,8 @@ runtime-benchmarks = [
 	"pallet-balances/runtime-benchmarks",
 	"snowbridge-core/runtime-benchmarks",
 	"snowbridge-inbound-queue-primitives/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client-fixtures/runtime-benchmarks",
+	"snowbridge-pallet-ethereum-client/runtime-benchmarks",
 	"snowbridge-pallet-inbound-queue-v2-fixtures/runtime-benchmarks",
 	"snowbridge-test-utils/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
@@ -98,5 +108,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
 	"snowbridge-inbound-queue-primitives/try-runtime",
+	"snowbridge-pallet-ethereum-client/try-runtime",
 	"sp-runtime/try-runtime",
 ]

@@ -33,7 +33,6 @@ use polkadot_primitives::{
 		AsyncBackingParams, BackingState, CandidatePendingAvailability, Constraints,
 		InboundHrmpLimitations, OutboundHrmpChannelLimitations,
 	},
-	node_features::FeatureIndex,
 	slashing, ApprovalVotingParams, AuthorityDiscoveryId, CandidateDescriptorVersion,
 	CandidateEvent, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
 	CoreIndex, CoreState, DisputeState, ExecutorParams, GroupIndex, GroupRotationInfo, Hash,
@@ -88,14 +87,11 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 		inclusion::Pallet::<T>::get_occupied_cores().collect();
 	let n_cores = scheduler::Pallet::<T>::num_availability_cores();
 
-	let node_features = configuration::ActiveConfig::<T>::get().node_features;
-	let v3_enabled = FeatureIndex::CandidateReceiptV3.is_set(&node_features);
-
 	(0..n_cores)
 		.map(|core_idx| {
 			let core_idx = CoreIndex(core_idx as u32);
 			if let Some(pending_availability) = occupied_cores.get(&core_idx) {
-				// Use the same block number for determining the responsible group as what
+				// Use the same block number for determining the responsible group as
 				// the backing subsystem would use when it calls validator_groups API.
 				// For V3 candidates, look up the scheduling parent block number from the
 				// relay parent tracker (because it may no longer be in the scheduling parent
@@ -108,10 +104,9 @@ pub fn availability_cores<T: initializer::Config>() -> Vec<CoreState<T::Hash, Bl
 				// parent.
 				let scheduling_parent_number = if pending_availability
 					.candidate_descriptor()
-					.version(v3_enabled) ==
-					CandidateDescriptorVersion::V3
+					.version() == CandidateDescriptorVersion::V3
 				{
-					let sp = pending_availability.candidate_descriptor().scheduling_parent(true);
+					let sp = pending_availability.candidate_descriptor().scheduling_parent();
 					// Workaround for issue #64.
 					let scheduling_parent_number = if shared::Pallet::<T>::on_chain_storage_version(
 					) == StorageVersion::new(1)
@@ -468,7 +463,7 @@ pub fn backing_constraints<T: initializer::Config>(
 	let now = frame_system::Pallet::<T>::block_number();
 
 	// Workaround for issue #64.
-	let min_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
+	let min_global_relay_parent_number = if shared::Pallet::<T>::on_chain_storage_version() ==
 		StorageVersion::new(1)
 	{
 		shared::migration::v1::AllowedRelayParents::<T>::get().hypothetical_earliest_block_number(
@@ -478,6 +473,10 @@ pub fn backing_constraints<T: initializer::Config>(
 	} else {
 		shared::Pallet::<T>::get_minimum_relay_parent_number().unwrap_or(now)
 	};
+
+	let min_para_relay_parent_number = inclusion::Pallet::<T>::para_most_recent_context(&para_id)
+		.map(|ctx| core::cmp::max(ctx, min_global_relay_parent_number))
+		.unwrap_or(min_global_relay_parent_number);
 
 	let required_parent = paras::Heads::<T>::get(para_id)?;
 	let validation_code_hash = paras::CurrentCodeHash::<T>::get(para_id)?;
@@ -509,7 +508,7 @@ pub fn backing_constraints<T: initializer::Config>(
 		.collect();
 
 	Some(Constraints {
-		min_relay_parent_number,
+		min_relay_parent_number: min_para_relay_parent_number,
 		max_pov_size: config.max_pov_size,
 		max_code_size: config.max_code_size,
 		max_head_data_size: Constraints::<BlockNumberFor<T>>::DEFAULT_MAX_HEAD_DATA_SIZE,

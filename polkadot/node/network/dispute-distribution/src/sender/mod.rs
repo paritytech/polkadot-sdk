@@ -127,6 +127,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 		ctx: &mut Context,
 		runtime: &mut RuntimeInfo,
 		msg: DisputeMessage,
+		v3_ever_seen: bool,
 	) -> Result<()> {
 		let req: DisputeRequest = msg.into();
 		let candidate_hash = req.0.candidate_receipt.hash();
@@ -145,6 +146,7 @@ impl<M: 'static + Send + Sync> DisputeSender<M> {
 					NestingSender::new(self.tx.clone(), DisputeSenderMessage::TaskFinish),
 					req,
 					&self.metrics,
+					v3_ever_seen,
 				)
 				.await?;
 				vacant.insert(send_task);

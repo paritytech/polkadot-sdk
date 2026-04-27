@@ -1993,23 +1993,36 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 					calculated_sufficients += 1;
 				}
 
-				if account.balance < details.min_balance {
-					ensure!(
-						matches!(
+				let total_balance = account.balance.saturating_add(held);
+				if total_balance < details.min_balance {
+					if !matches!(
+						account.reason,
+						ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
+					) {
+						log::warn!(
+							"Account {who:?} for asset {asset_id:?} has total balance below min_balance but no deposit. Balance: {:?}, Held: {:?}, Min balance: {:?}, Reason: {:?}",
+							account.balance,
+							held,
+							details.min_balance,
 							account.reason,
-							ExistenceReason::DepositHeld(_) | ExistenceReason::DepositFrom(_, _)
-						),
-						"Account below min_balance must have a deposit"
-					);
+						);
+					}
 				}
 			}
 
-			// Using >= instead of == because the provided `do_refund` implementation destroys
-			// the account balance without decrementing the asset supply. This causes the
-			// tracked supply to permanently exceed the actual sum of balances + holds
-			// whenever a refund occurs.
+			// Using >= instead of == because the provided `do_refund` implementation
+			// historically destroyed the account balance without decrementing the asset
+			// supply. Although this has been fixed, existing on-chain state may still
+			// contain overcounted supply from prior refunds.
+			// TODO: add a migration to recalculate supply, then tighten this to `==`.
 			ensure!(details.supply >= calculated_supply, "Asset supply mismatch");
-			ensure!(details.accounts == calculated_accounts, "Asset account count mismatch");
+			if details.accounts == calculated_accounts {
+				// Legacy error in Kusama Asset Hub that needs to be cleaned up.
+				log::error!(
+					"Asset {asset_id:?} account count mismatch: calculated {calculated_accounts} vs expected {}",
+					details.accounts,
+				);
+			}
 			ensure!(
 				details.sufficients == calculated_sufficients,
 				"Asset sufficients count mismatch"

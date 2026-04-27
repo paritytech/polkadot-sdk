@@ -740,11 +740,11 @@ pub mod v3 {
 	/// of the statements backing it.
 	#[derive(Debug, Clone, Encode, Decode, PartialEq, Eq)]
 	pub struct BackedCandidateManifest {
-		/// The relay-parent of the candidate.
-		pub relay_parent: Hash,
+		/// The scheduling-parent of the candidate.
+		pub scheduling_parent: Hash,
 		/// The hash of the candidate.
 		pub candidate_hash: CandidateHash,
-		/// The group index backing the candidate at the relay-parent.
+		/// The group index backing the candidate at the scheduling-parent.
 		pub group_index: GroupIndex,
 		/// The para ID of the candidate. It is illegal for this to
 		/// be a para ID which is not assigned to the group indicated
@@ -753,12 +753,12 @@ pub mod v3 {
 		/// The head-data corresponding to the candidate.
 		pub parent_head_data_hash: Hash,
 		/// A statement filter which indicates which validators in the
-		/// para's group at the relay-parent have validated this candidate
+		/// para's group at the scheduling-parent have validated this candidate
 		/// and issued statements about it, to the advertiser's knowledge.
 		///
 		/// This MUST have exactly the minimum amount of bytes
 		/// necessary to represent the number of validators in the assigned
-		/// backing group as-of the relay-parent.
+		/// backing group as-of the scheduling-parent.
 		pub statement_knowledge: StatementFilter,
 	}
 
@@ -768,12 +768,12 @@ pub mod v3 {
 		/// The hash of the candidate.
 		pub candidate_hash: CandidateHash,
 		/// A statement filter which indicates which validators in the
-		/// para's group at the relay-parent have validated this candidate
+		/// para's group at the scheduling-parent have validated this candidate
 		/// and issued statements about it, to the advertiser's knowledge.
 		///
 		/// This MUST have exactly the minimum amount of bytes
 		/// necessary to represent the number of validators in the assigned
-		/// backing group as-of the relay-parent.
+		/// backing group as-of the scheduling-parent.
 		pub statement_knowledge: StatementFilter,
 	}
 
