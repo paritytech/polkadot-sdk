@@ -766,9 +766,7 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 
 	let topic_a: Topic = [30u8; 32].into();
 
-	// How long (seconds) until the ephemeral batch expires
 	let ephemeral_ttl: u32 = 600;
-	// Extra seconds after expiry to let enforce_limits run
 	let enforce_limits_buffer: u64 = 65;
 
 	// 3000 ephemeral statements across 12 accounts (250 per account)
