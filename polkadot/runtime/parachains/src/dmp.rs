@@ -185,7 +185,9 @@ pub mod pallet {
 
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			InboundDownwardQueue::<T>::integrity_test()
+			InboundDownwardQueue::<T>::integrity_test();
+
+			Ok(())
 		}
 	}
 }

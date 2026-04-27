@@ -16,8 +16,9 @@
 
 use super::{
 	mock::{
-		default_genesis_config, pages_in_storage, queue_downward_message, register_paras,
-		run_to_block, EXPECTED_LAZY_DELETE_PAGES,
+		default_genesis_config, execute_with_integrity, new_test_ext_integrity,
+		pages_in_storage, queue_downward_message, register_paras, run_to_block,
+		EXPECTED_LAZY_DELETE_PAGES,
 	},
 	*,
 };
@@ -36,7 +37,7 @@ fn clean_dmp_works() {
 	let b = ParaId::from(228);
 	let c = ParaId::from(123);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a, b, c]);
 
 		// enqueue downward messages to A, B and C.
@@ -60,7 +61,7 @@ fn dmq_length_and_head_updated_properly() {
 	let a = ParaId::from(1312);
 	let b = ParaId::from(228);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a, b]);
 
 		assert_eq!(Dmp::dmq_length(a), 0);
@@ -79,7 +80,7 @@ fn dmq_length_and_head_updated_properly() {
 fn dmq_fail_if_para_does_not_exist() {
 	let a = ParaId::from(1312);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		assert_eq!(Dmp::dmq_length(a), 0);
 
 		assert!(matches!(
@@ -96,7 +97,7 @@ fn dmq_fail_if_para_does_not_exist() {
 fn dmp_mqc_head_fixture() {
 	let a = ParaId::from(2000);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 
 		run_to_block(2, None);
@@ -117,7 +118,7 @@ fn dmp_mqc_head_fixture() {
 fn check_processed_downward_messages() {
 	let a = ParaId::from(1312);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 
 		let block_number = System::block_number();
@@ -144,7 +145,7 @@ fn check_processed_downward_messages() {
 fn check_processed_downward_messages_advancement_rule() {
 	let a = ParaId::from(1312);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 
 		let block_number = System::block_number();
@@ -166,7 +167,7 @@ fn check_processed_downward_messages_advancement_rule() {
 fn dmq_pruning() {
 	let a = ParaId::from(1312);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 
 		assert_eq!(Dmp::dmq_length(a), 0);
@@ -192,7 +193,7 @@ fn queue_downward_message_critical() {
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 7;
 
-	new_test_ext(genesis).execute_with(|| {
+	new_test_ext_integrity(genesis, || {
 		register_paras(&[a]);
 
 		let smol = [0; 3].to_vec();
@@ -215,7 +216,7 @@ fn verify_dmq_mqc_head_is_externally_accessible() {
 
 	let a = ParaId::from(2020);
 
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 
 		let head = sp_io::storage::get(&well_known_keys::dmq_mqc_head(a));
@@ -241,7 +242,7 @@ fn verify_fee_increase_and_decrease() {
 
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 16777216;
-	new_test_ext(genesis).execute_with(|| {
+	new_test_ext_integrity(genesis, || {
 		register_paras(&[a]);
 
 		let initial = Pallet::<Test>::MIN_FEE_FACTOR;
@@ -292,7 +293,7 @@ fn verify_fee_factor_reaches_high_value() {
 	let a = ParaId::from(123);
 	let mut genesis = default_genesis_config();
 	genesis.configuration.config.max_downward_message_size = 51200;
-	new_test_ext(genesis).execute_with(|| {
+	new_test_ext_integrity(genesis, || {
 		register_paras(&[a]);
 
 		let max_messages =
@@ -317,7 +318,7 @@ fn verify_fee_factor_reaches_high_value() {
 
 #[test]
 fn iq_meta_returns_none_for_unknown_para() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(1);
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_none());
 	});
@@ -325,7 +326,7 @@ fn iq_meta_returns_none_for_unknown_para() {
 
 #[test]
 fn iq_len_is_none_for_unknown_para() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(1);
 		assert_eq!(InboundDownwardQueue::<Test>::len(a), None);
 	});
@@ -333,7 +334,7 @@ fn iq_len_is_none_for_unknown_para() {
 
 #[test]
 fn iq_len_tracks_pushes() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(7);
 		for i in 1u64..=5 {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
@@ -344,7 +345,8 @@ fn iq_len_tracks_pushes() {
 
 #[test]
 fn iq_push_back_returns_inbound_with_current_block_and_msg() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	let mut ext = new_test_ext(default_genesis_config());
+	execute_with_integrity(&mut ext, || {
 		let a = ParaId::from(8);
 		System::set_block_number(42);
 		let msg: DownwardMessage = vec![9, 8, 7];
@@ -357,7 +359,7 @@ fn iq_push_back_returns_inbound_with_current_block_and_msg() {
 
 #[test]
 fn iq_push_back_writes_page_at_first_free_then_advances() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(9);
 
 		// Initially nothing.
@@ -379,7 +381,7 @@ fn iq_push_back_writes_page_at_first_free_then_advances() {
 
 #[test]
 fn iq_pop_front_returns_none_for_unknown_para() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(11);
 		assert!(InboundDownwardQueue::<Test>::pop_front(a).is_none());
 		// No state should be created by a pop on an unknown queue.
@@ -389,7 +391,7 @@ fn iq_pop_front_returns_none_for_unknown_para() {
 
 #[test]
 fn iq_pop_front_is_fifo() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(12);
 		System::set_block_number(1);
 
@@ -410,7 +412,7 @@ fn iq_pop_front_is_fifo() {
 
 #[test]
 fn iq_pop_front_removes_storage_page_and_advances_first_full() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(13);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		InboundDownwardQueue::<Test>::push_back(a, vec![2]).unwrap();
@@ -434,7 +436,7 @@ fn iq_pop_front_removes_storage_page_and_advances_first_full() {
 
 #[test]
 fn iq_pop_front_after_drain_returns_none() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(14);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		assert!(InboundDownwardQueue::<Test>::pop_front(a).is_some());
@@ -444,7 +446,7 @@ fn iq_pop_front_after_drain_returns_none() {
 
 #[test]
 fn iq_peek_front_returns_none_for_unknown_para() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(15);
 		assert!(InboundDownwardQueue::<Test>::peek_front(a).is_none());
 	});
@@ -452,7 +454,7 @@ fn iq_peek_front_returns_none_for_unknown_para() {
 
 #[test]
 fn iq_peek_front_does_not_modify_state() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(16);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		InboundDownwardQueue::<Test>::push_back(a, vec![2]).unwrap();
@@ -473,7 +475,7 @@ fn iq_peek_front_does_not_modify_state() {
 
 #[test]
 fn iq_peek_front_matches_pop_front() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(17);
 		InboundDownwardQueue::<Test>::push_back(a, vec![10]).unwrap();
 		InboundDownwardQueue::<Test>::push_back(a, vec![20]).unwrap();
@@ -486,7 +488,7 @@ fn iq_peek_front_matches_pop_front() {
 
 #[test]
 fn iq_peek_front_after_drain_is_none() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(18);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		let _ = InboundDownwardQueue::<Test>::pop_front(a);
@@ -497,7 +499,7 @@ fn iq_peek_front_after_drain_is_none() {
 
 #[test]
 fn iq_drop_front_n_returns_none_for_unknown_para() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(19);
 		assert_eq!(InboundDownwardQueue::<Test>::drop_front_n(a, 3), None);
 	});
@@ -505,7 +507,7 @@ fn iq_drop_front_n_returns_none_for_unknown_para() {
 
 #[test]
 fn iq_drop_front_n_zero_is_noop() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(20);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		InboundDownwardQueue::<Test>::push_back(a, vec![2]).unwrap();
@@ -522,7 +524,7 @@ fn iq_drop_front_n_zero_is_noop() {
 
 #[test]
 fn iq_drop_front_n_drops_correct_pages_and_advances_meta() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(21);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		InboundDownwardQueue::<Test>::push_back(a, vec![2]).unwrap();
@@ -547,7 +549,7 @@ fn iq_drop_front_n_drops_correct_pages_and_advances_meta() {
 
 #[test]
 fn iq_drop_front_n_clamps_to_len() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(22);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 		InboundDownwardQueue::<Test>::push_back(a, vec![2]).unwrap();
@@ -569,7 +571,7 @@ fn iq_drop_front_n_clamps_to_len() {
 fn iq_drop_front_n_does_not_underflow_first_full() {
 	// Specifically guards against any logic that could push `first_full` past
 	// `first_free`.
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(23);
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
 
@@ -583,7 +585,7 @@ fn iq_drop_front_n_does_not_underflow_first_full() {
 
 #[test]
 fn iq_drop_front_n_then_push_continues_at_first_free() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(24);
 		for i in 0..3 {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i]).unwrap();
@@ -607,7 +609,7 @@ fn iq_drop_front_n_then_push_continues_at_first_free() {
 
 #[test]
 fn iq_delete_all_clears_meta_and_pages_for_small_queue() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(30);
 		for i in 0..5u8 {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i]).unwrap();
@@ -637,7 +639,7 @@ fn iq_delete_all_uses_lazy_delete_for_large_queue() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
@@ -646,7 +648,7 @@ fn iq_delete_all_uses_lazy_delete_for_large_queue() {
 	// Push pages into the backend so `clear_prefix` respects its limit.
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 
 		// Meta is gone immediately.
@@ -664,14 +666,14 @@ fn iq_delete_all_clears_immediately_when_under_limit() {
 	let total = EXPECTED_LAZY_DELETE_PAGES - 1;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_none());
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
@@ -681,7 +683,7 @@ fn iq_delete_all_clears_immediately_when_under_limit() {
 
 #[test]
 fn iq_delete_all_on_unknown_para_is_noop() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(32);
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_none());
@@ -696,14 +698,14 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	let total = EXPECTED_LAZY_DELETE_PAGES * 2 + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 	});
@@ -716,11 +718,11 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	let mut iterations = 0u32;
 	loop {
 		let still_pending =
-			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
-		ext.execute_with(|| {
+		execute_with_integrity(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -734,7 +736,7 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 		);
 	}
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_none());
 	});
@@ -742,7 +744,7 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 
 #[test]
 fn iq_lazy_delete_some_no_op_when_nothing_pending() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let mut wm = WeightMeter::new();
 		InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		assert_eq!(DownwardMessageQueueLazyDelete::<Test>::iter_keys().count(), 0);
@@ -751,7 +753,7 @@ fn iq_lazy_delete_some_no_op_when_nothing_pending() {
 
 #[test]
 fn iq_peek_all_empty_for_unknown_para() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(40);
 		assert_eq!(InboundDownwardQueue::<Test>::peek_all(a), Vec::new());
 	});
@@ -759,7 +761,7 @@ fn iq_peek_all_empty_for_unknown_para() {
 
 #[test]
 fn iq_peek_all_returns_messages_in_fifo_order() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(41);
 		System::set_block_number(7);
 		let msgs: Vec<DownwardMessage> = vec![vec![1], vec![2], vec![3], vec![4]];
@@ -777,7 +779,7 @@ fn iq_peek_all_returns_messages_in_fifo_order() {
 
 #[test]
 fn iq_peek_all_after_partial_drop() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(42);
 		for i in 0..4u8 {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i]).unwrap();
@@ -792,7 +794,7 @@ fn iq_peek_all_after_partial_drop() {
 
 #[test]
 fn iq_paras_are_isolated() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(50);
 		let b = ParaId::from(51);
 
@@ -818,7 +820,7 @@ fn iq_paras_are_isolated() {
 
 #[test]
 fn iq_full_lifecycle_push_pop_redrain() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(60);
 
 		// Round 1.
@@ -842,7 +844,7 @@ fn iq_full_lifecycle_push_pop_redrain() {
 
 #[test]
 fn iq_push_back_at_first_free_max_returns_err_without_orphaning_page() {
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(61);
 
 		// Plant a meta whose `first_free` is already at the maximum so the next
@@ -879,21 +881,21 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 	});
 	ext.commit_all().unwrap();
 
 	// Re-use the same ParaId: push a fresh message.
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		assert_eq!(InboundDownwardQueue::<Test>::len(a), Some(1));
 	});
@@ -903,11 +905,11 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	let mut iterations = 0u32;
 	loop {
 		let still_pending =
-			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
-		ext.execute_with(|| {
+		execute_with_integrity(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -917,7 +919,7 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	}
 
 	// The freshly-pushed message must still be readable.
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		let front = InboundDownwardQueue::<Test>::peek_front(a);
 		assert_eq!(
 			front.map(|m| m.msg),
@@ -939,14 +941,14 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	let total: u64 = EXPECTED_LAZY_DELETE_PAGES + 20;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		// At this point some old pages (in [0, total)) survived clear_prefix.
@@ -958,7 +960,7 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	// (from `new_meta` consulting the lazy-delete range) — outside the old
 	// `[0, total)` range.
 	let new_msgs: u64 = 5;
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for _ in 0..new_msgs {
 			InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		}
@@ -970,11 +972,11 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	let mut iterations = 0u32;
 	loop {
 		let still_pending =
-			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
-		ext.execute_with(|| {
+		execute_with_integrity(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -984,7 +986,7 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	}
 
 	// Check that no old pages remain. New pages must still be there.
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		let pages = pages_in_storage(a);
 		for &p in &pages {
 			assert!(
@@ -1020,14 +1022,14 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	let mut ext = new_test_ext(default_genesis_config());
 
 	// Round 1: fill, delete_all (spill).
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..first_batch {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		// Many old pages survived the first spill.
@@ -1036,14 +1038,14 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	ext.commit_all().unwrap();
 
 	// Round 2: re-onboard the same para and queue more.
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for _ in 0..second_batch {
 			InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 	});
@@ -1054,11 +1056,11 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	let bound = (first_batch + second_batch) * 2;
 	let mut iterations = 0u64;
 	loop {
-		let pending = ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		let pending = execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !pending {
 			break;
 		}
-		ext.execute_with(|| {
+		execute_with_integrity(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -1069,7 +1071,7 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 
 	// No pages — old or new — must remain. Anything left here is orphaned
 	// because the second delete_all's range overwrote the first one's.
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		let pages = pages_in_storage(a);
 		assert!(pages.is_empty(), "orphan pages remain after both delete_all cycles: {:?}", pages,);
 	});
@@ -1089,7 +1091,7 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 	let popped: u64 = 30;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
@@ -1103,7 +1105,7 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 
 		let (first, last) = DownwardMessageQueueLazyDelete::<Test>::get(a)
@@ -1117,6 +1119,62 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 	});
 }
 
+#[test]
+fn iq_integrity_test_passes_after_full_drain() {
+	// `try_state` runs `integrity_test` in try-runtime. Asserting that meta is
+	// always backed by at least one page is too strong: a meta legitimately
+	// exists with `first_full == first_free` after the queue has been drained
+	// by `pop_front` / `drop_front_n`, with no pages in storage.
+	let a = ParaId::from(66);
+	new_test_ext_integrity(default_genesis_config(), || {
+		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
+		assert!(InboundDownwardQueue::<Test>::pop_front(a).is_some());
+
+		// meta is still present, no pages exist.
+		assert!(InboundDownwardQueue::<Test>::meta(a).is_some());
+		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
+
+		// Should not panic.
+		InboundDownwardQueue::<Test>::integrity_test();
+	});
+}
+
+#[test]
+fn iq_integrity_test_passes_during_reonboard_with_pending_lazy_delete() {
+	// After delete_all spills and the same para is re-used (push_back creates
+	// a fresh meta), `LazyDelete[para]` and `DownwardMessageQueuePages[para,*]`
+	// legitimately coexist. `integrity_test` must not assert otherwise.
+	let a = ParaId::from(67);
+	let total: u64 = EXPECTED_LAZY_DELETE_PAGES + 5;
+
+	let mut ext = new_test_ext(default_genesis_config());
+	execute_with_integrity(&mut ext, || {
+		for i in 0..total {
+			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
+		}
+	});
+	ext.commit_all().unwrap();
+
+	execute_with_integrity(&mut ext, || {
+		InboundDownwardQueue::<Test>::delete_all(a);
+		// At this point: lazy delete pending, no meta. integrity_test must hold.
+		InboundDownwardQueue::<Test>::integrity_test();
+	});
+	ext.commit_all().unwrap();
+
+	execute_with_integrity(&mut ext, || {
+		// Re-onboard: now meta exists AND lazy delete still pending AND pages
+		// exist for the para.
+		InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
+		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+		assert!(InboundDownwardQueue::<Test>::meta(a).is_some());
+		assert!(!pages_in_storage(a).is_empty());
+
+		// Should not panic.
+		InboundDownwardQueue::<Test>::integrity_test();
+	});
+}
+
 // ---------------------------------------------------------------------------
 // High-level `Dmp` API tests for the new storage layout.
 // ---------------------------------------------------------------------------
@@ -1124,7 +1182,7 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 #[test]
 fn dmp_dmq_contents_returns_in_fifo_order() {
 	let a = ParaId::from(70);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 		System::set_block_number(5);
 		queue_downward_message(a, vec![1]).unwrap();
@@ -1147,7 +1205,7 @@ fn dmp_prune_dmq_keeps_correct_messages() {
 	// expected ones — catches bugs where pruning shifts the meta correctly but
 	// removes the wrong storage pages.
 	let a = ParaId::from(71);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 		queue_downward_message(a, vec![1]).unwrap();
 		queue_downward_message(a, vec![2]).unwrap();
@@ -1165,7 +1223,7 @@ fn dmp_prune_dmq_keeps_correct_messages() {
 #[test]
 fn dmp_prune_dmq_more_than_available_does_not_underflow() {
 	let a = ParaId::from(72);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 		queue_downward_message(a, vec![1]).unwrap();
 		queue_downward_message(a, vec![2]).unwrap();
@@ -1180,7 +1238,7 @@ fn dmp_prune_dmq_more_than_available_does_not_underflow() {
 #[test]
 fn dmp_prune_zero_keeps_all_messages() {
 	let a = ParaId::from(73);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 		queue_downward_message(a, vec![1]).unwrap();
 		queue_downward_message(a, vec![2]).unwrap();
@@ -1195,7 +1253,7 @@ fn dmp_prune_zero_keeps_all_messages() {
 #[test]
 fn dmp_dmq_length_zero_when_unknown() {
 	let a = ParaId::from(74);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		assert_eq!(Dmp::dmq_length(a), 0);
 		assert_eq!(Dmp::dmq_contents(a), Vec::new());
 	});
@@ -1206,7 +1264,7 @@ fn dmp_check_processed_downward_messages_uses_first_message_block() {
 	// The advancement-rule check now uses `peek_front` instead of indexing into
 	// a Vec. Make sure it correctly treats the front message's `sent_at`.
 	let a = ParaId::from(75);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
 
 		System::set_block_number(1);
@@ -1229,7 +1287,7 @@ fn dmp_check_processed_downward_messages_uses_first_message_block() {
 fn dmp_clean_dmp_after_outgoing_clears_queue() {
 	let a = ParaId::from(80);
 	let b = ParaId::from(81);
-	new_test_ext(default_genesis_config()).execute_with(|| {
+	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a, b]);
 		queue_downward_message(a, vec![1]).unwrap();
 		queue_downward_message(a, vec![2]).unwrap();
@@ -1255,7 +1313,7 @@ fn dmp_clean_dmp_large_queue_uses_lazy_delete() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		register_paras(&[a]);
 		for i in 0..total {
 			queue_downward_message(a, vec![i as u8]).unwrap();
@@ -1263,7 +1321,7 @@ fn dmp_clean_dmp_large_queue_uses_lazy_delete() {
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		let notification = crate::initializer::SessionChangeNotification::default();
 		Dmp::initializer_on_new_session(&notification, &vec![a]);
 
@@ -1296,7 +1354,7 @@ fn dmp_queue_message_returns_exceeds_max_queue_when_hard_limit_hit() {
 	// can hit the cap with two messages.
 	genesis.configuration.config.max_downward_message_size = MAX_POSSIBLE_ALLOCATION;
 
-	new_test_ext(genesis).execute_with(|| {
+	new_test_ext_integrity(genesis, || {
 		register_paras(&[a]);
 		// First message fills the queue up to the cap.
 		queue_downward_message(a, vec![1]).unwrap();
@@ -1317,7 +1375,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 3;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		register_paras(&[a]);
 		for i in 0..total {
 			queue_downward_message(a, vec![i as u8]).unwrap();
@@ -1325,7 +1383,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 	});
 	ext.commit_all().unwrap();
 
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		let notification = crate::initializer::SessionChangeNotification::default();
 		Dmp::initializer_on_new_session(&notification, &vec![a]);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
@@ -1335,11 +1393,11 @@ fn dmp_on_poll_drives_lazy_delete() {
 	let mut iterations = 0u32;
 	loop {
 		let still_pending =
-			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
+			execute_with_integrity(&mut ext, || DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
-		ext.execute_with(|| {
+		execute_with_integrity(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			<Dmp as frame_support::traits::Hooks<BlockNumberFor<Test>>>::on_poll(
 				System::block_number(),
@@ -1350,7 +1408,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 		iterations += 1;
 		assert!((iterations as u64) < total + 10, "on_poll lazy delete should make progress",);
 	}
-	ext.execute_with(|| {
+	execute_with_integrity(&mut ext, || {
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
 	});
 }

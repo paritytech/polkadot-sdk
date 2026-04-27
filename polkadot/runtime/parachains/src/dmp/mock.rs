@@ -17,8 +17,9 @@
 //! Test helpers for the dmp module tests.
 
 use super::*;
-use crate::mock::{Dmp, MockGenesisConfig, Paras, System};
+use crate::mock::{new_test_ext, Dmp, MockGenesisConfig, Paras, System, Test};
 use polkadot_primitives::BlockNumber;
+use sp_io::TestExternalities;
 
 /// Number of pages the lazy-delete path is supposed to clear per call.
 ///
@@ -79,4 +80,30 @@ pub(crate) fn pages_in_storage(para: ParaId) -> Vec<PageIndex> {
 		DownwardMessageQueuePages::<crate::mock::Test>::iter_key_prefix(&para).collect();
 	out.sort();
 	out
+}
+
+/// Run `f` against `ext`, asserting the dmp queue invariants both before and
+/// after — same shape as `TestExternalities::execute_with` but with always-on
+/// `integrity_test` checks.
+pub(crate) fn execute_with_integrity<R>(
+	ext: &mut TestExternalities,
+	f: impl FnOnce() -> R,
+) -> R {
+	ext.execute_with(|| {
+		InboundDownwardQueue::<Test>::integrity_test();
+		let r = f();
+		InboundDownwardQueue::<Test>::integrity_test();
+		r
+	})
+}
+
+/// Single-shot variant: build a fresh `TestExternalities` from `state` and
+/// run `f` inside it with always-on integrity checks. Drop-in replacement for
+/// `new_test_ext(state).execute_with(...)`.
+pub(crate) fn new_test_ext_integrity<R>(
+	state: MockGenesisConfig,
+	f: impl FnOnce() -> R,
+) -> R {
+	let mut ext = new_test_ext(state);
+	execute_with_integrity(&mut ext, f)
 }

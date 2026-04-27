@@ -140,23 +140,46 @@ impl<T: Config> InboundDownwardQueue<T> {
 	}
 
 	/// Run integrity checks for testing.
+	///
+	/// Invariants:
+	/// - For every meta `{first_full, first_free}`: `first_full <= first_free`.
+	/// - For every lazy-delete `(first, last)`: `first <= last`.
+	/// - Every page `(para, idx)` in storage is covered by *either* the para's
+	///   meta range `[first_full, first_free)` *or* its lazy-delete range
+	///   `[first, last)`. Anything else is an orphan.
 	#[cfg(feature = "std")]
 	pub fn integrity_test() {
-		let metas = DownwardMessageQueueMeta::<T>::iter_keys().collect::<Vec<_>>();
-		let queues = DownwardMessageQueuePages::<T>::iter_keys()
-			.map(|(para, _)| para)
-			.collect::<alloc::collections::BTreeSet<_>>();
-
-		for meta in &metas {
-			assert!(queues.contains(&meta), "Metadata should have a corresponding queue");
+		for (para, meta) in DownwardMessageQueueMeta::<T>::iter() {
+			assert!(
+				meta.first_full <= meta.first_free,
+				"meta for {:?} has first_full ({}) > first_free ({})",
+				para,
+				meta.first_full,
+				meta.first_free,
+			);
 		}
-		for queue in &queues {
-			assert!(metas.contains(&queue), "Queue should have a corresponding metadata");
+		for (para, (first, last)) in DownwardMessageQueueLazyDelete::<T>::iter() {
+			assert!(
+				first <= last,
+				"lazy delete for {:?} has first ({}) > last ({})",
+				para,
+				first,
+				last,
+			);
 		}
 
-		let lazy_deletes = DownwardMessageQueueLazyDelete::<T>::iter_keys();
-		for para in lazy_deletes {
-			assert!(!queues.contains(&para), "Lazy delete should not have a corresponding queue");
+		for (para, idx) in DownwardMessageQueuePages::<T>::iter_keys() {
+			let in_meta = DownwardMessageQueueMeta::<T>::get(para)
+				.map_or(false, |m| idx >= m.first_full && idx < m.first_free);
+			let in_lazy = DownwardMessageQueueLazyDelete::<T>::get(para)
+				.map_or(false, |(first, last)| idx >= first && idx < last);
+				
+			assert!(
+				in_meta || in_lazy,
+				"page ({:?}, {}) is orphaned: not covered by meta or lazy-delete range",
+				para,
+				idx,
+			);
 		}
 	}
 }
