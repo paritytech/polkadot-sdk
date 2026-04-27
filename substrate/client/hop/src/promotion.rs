@@ -30,7 +30,9 @@ use crate::pool::HopDataPool;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
 use sp_hop::HopRuntimeApi;
-use sp_runtime::{traits::Block as BlockT, AccountId32, SaturatedConversion};
+use sp_runtime::{
+	traits::Block as BlockT, AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
+};
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 /// Trait for promoting HOP data to permanent on-chain storage.
@@ -40,7 +42,18 @@ use std::{marker::PhantomData, sync::Arc, time::Duration};
 /// ([`RuntimeApiPromoter`]) uses the `HopRuntimeApi` runtime API.
 pub trait HopPromoter: Send + Sync + 'static {
 	/// Promote a blob of HOP data to permanent on-chain storage.
-	fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+	///
+	/// `signer`, `signature`, and `submit_timestamp` are the user's `hop_submit`-time
+	/// `MultiSigner`, signature, and wall-clock timestamp (ms since unix epoch),
+	/// carried into the unsigned promotion extrinsic so the runtime pallet can
+	/// verify consent on-chain and bound the signature's validity window.
+	fn promote(
+		&self,
+		data: Vec<u8>,
+		signer: MultiSigner,
+		signature: MultiSignature,
+		submit_timestamp: u64,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
 }
 
 /// Concrete [`HopPromoter`] that uses the [`sp_hop::HopRuntimeApi`] runtime
@@ -72,9 +85,21 @@ where
 	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
-	fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	fn promote(
+		&self,
+		data: Vec<u8>,
+		signer: MultiSigner,
+		signature: MultiSignature,
+		submit_timestamp: u64,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let best_hash = self.client.info().best_hash;
-		let ext = self.client.runtime_api().create_promotion_extrinsic(best_hash, data)?;
+		let ext = self.client.runtime_api().create_promotion_extrinsic(
+			best_hash,
+			data,
+			signer,
+			signature,
+			submit_timestamp,
+		)?;
 		self.tx_pool
 			.submit_local(best_hash, ext)
 			.map_err(|e| format!("submit_local failed: {:?}", e))?;
@@ -197,12 +222,13 @@ impl HopMaintenanceTask {
 				PROMOTION_BATCH_SIZE,
 			);
 			for hash in hashes {
-				let data = match self.hop_pool.get(&hash) {
-					Some(data) => data,
-					None => continue,
-				};
+				let (data, signer, signature, submit_timestamp) =
+					match self.hop_pool.get_with_auth(&hash) {
+						Some(t) => t,
+						None => continue,
+					};
 				let size = data.len();
-				match promoter.promote(data) {
+				match promoter.promote(data, signer, signature, submit_timestamp) {
 					Ok(()) => {
 						self.hop_pool.mark_promoted(&hash);
 						tracing::info!(
@@ -245,7 +271,7 @@ mod tests {
 		types::{Recipient, RecipientVec, SenderId},
 	};
 	use sp_core::{crypto::Pair, ed25519};
-	use sp_runtime::MultiSigner;
+	use sp_runtime::{MultiSignature, MultiSigner};
 	use std::sync::Mutex;
 	use tempfile::TempDir;
 
@@ -255,6 +281,13 @@ mod tests {
 		let pair = ed25519::Pair::from_seed(&[1u8; 32]);
 		let signer = MultiSigner::Ed25519(pair.public());
 		(pair, signer)
+	}
+
+	fn dummy_auth() -> (MultiSigner, MultiSignature) {
+		let pair = ed25519::Pair::from_seed(&[7u8; 32]);
+		let signer = MultiSigner::Ed25519(pair.public());
+		let sig = MultiSignature::Ed25519(pair.sign(&[]));
+		(signer, sig)
 	}
 
 	fn bv(v: Vec<MultiSigner>) -> RecipientVec {
@@ -296,7 +329,13 @@ mod tests {
 	}
 
 	impl HopPromoter for MockPromoter {
-		fn promote(&self, data: Vec<u8>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+		fn promote(
+			&self,
+			data: Vec<u8>,
+			_signer: MultiSigner,
+			_signature: MultiSignature,
+			_submit_timestamp: u64,
+		) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 			self.calls.lock().unwrap().push(data);
 			if self.should_fail {
 				Err("mock failure".into())
@@ -314,7 +353,17 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		// Insert at block 0, expires at block 100.
-		let hash = pool.insert(vec![42u8; 10], 0, bv(vec![signer]), SENDER_A).unwrap();
+		let hash = pool
+			.insert(
+				vec![42u8; 10],
+				0,
+				bv(vec![signer]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(false));
 		let task = HopMaintenanceTask::new(
@@ -342,7 +391,16 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(vec![42u8; 10], 0, bv(vec![signer]), SENDER_A).unwrap();
+		pool.insert(
+			vec![42u8; 10],
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
 
 		let task = HopMaintenanceTask::new(
 			pool.clone(),
@@ -365,7 +423,16 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(vec![42u8; 10], 0, bv(vec![signer]), SENDER_A).unwrap();
+		pool.insert(
+			vec![42u8; 10],
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(true)); // will fail
 		let task =
@@ -388,7 +455,16 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 10, &dir);
 		let (_, signer) = test_recipient();
 
-		pool.insert(vec![42u8; 50], 0, bv(vec![signer]), SENDER_A).unwrap();
+		pool.insert(
+			vec![42u8; 50],
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
 		assert_eq!(pool.status().entry_count, 1);
 
 		let task = HopMaintenanceTask::new(
@@ -413,7 +489,16 @@ mod tests {
 		let (_, signer) = test_recipient();
 
 		// Entry A: inserted at block 0, expires at 100 — near expiry at block 80 with buffer 30.
-		pool.insert(vec![1u8; 10], 0, bv(vec![signer.clone()]), SENDER_A).unwrap();
+		pool.insert(
+			vec![1u8; 10],
+			0,
+			bv(vec![signer.clone()]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
 		// Entry B: inserted at block 0 with retention 100 but we'll test at block 100 where it's
 		// expired. Actually both entries have the same retention. Let's use a different pool.
 

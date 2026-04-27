@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use polkadot_primitives::{BlockNumber, Hash};
 use serde::{Deserialize, Serialize};
 use sp_core::{bounded_vec::BoundedVec, hashing::blake2_256, ConstU32};
-use sp_runtime::MultiSigner;
+use sp_runtime::{MultiSignature, MultiSigner};
 
 /// Block number type used by HOP.
 pub type HopBlockNumber = BlockNumber;
@@ -63,6 +63,19 @@ pub struct HopEntryMeta {
 	pub sender_id: SenderId,
 	/// Whether this entry has been promoted to permanent on-chain storage.
 	pub promoted: bool,
+	/// `MultiSigner` of the account that signed the submission. The runtime pallet
+	/// re-verifies the submit signature using this key when the unsigned promotion
+	/// extrinsic lands on-chain.
+	pub signer: MultiSigner,
+	/// The user's `hop_submit` signature over `submit_signing_payload(blake2_256(data),
+	/// submit_timestamp)`. Carried along for the runtime to re-verify; "submit implies
+	/// consent to promote" is the protocol semantic.
+	pub signature: MultiSignature,
+	/// Submit-time wall-clock timestamp (ms since unix epoch) bound into the
+	/// signing payload. The runtime rejects promotions whose timestamp is too far
+	/// from on-chain time, so old `(data, signer, signature)` tuples cannot be
+	/// replayed indefinitely.
+	pub submit_timestamp: u64,
 }
 
 impl HopEntryMeta {
@@ -73,9 +86,22 @@ impl HopEntryMeta {
 		retention_blocks: u32,
 		recipients: RecipientVec,
 		sender_id: SenderId,
+		signer: MultiSigner,
+		signature: MultiSignature,
+		submit_timestamp: u64,
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
-		Self { added_at, expires_at, size, recipients, sender_id, promoted: false }
+		Self {
+			added_at,
+			expires_at,
+			size,
+			recipients,
+			sender_id,
+			promoted: false,
+			signer,
+			signature,
+			submit_timestamp,
+		}
 	}
 }
 
@@ -254,6 +280,20 @@ pub fn signing_payload(context: &[u8], hash: &HopHash) -> [u8; 32] {
 	let mut buf = Vec::with_capacity(context.len() + 32);
 	buf.extend_from_slice(context);
 	buf.extend_from_slice(hash.as_bytes());
+	blake2_256(&buf)
+}
+
+/// Compute the 32-byte payload signed at `hop_submit` time.
+///
+/// The runtime pallet re-derives this exact byte sequence to verify the
+/// signature on-chain, so the construction must remain byte-identical to the
+/// pallet's `signing_payload(data, submit_timestamp)`:
+/// `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`.
+pub fn submit_signing_payload(hash: &HopHash, submit_timestamp: u64) -> [u8; 32] {
+	let mut buf = [0u8; HOP_SUBMIT_CONTEXT.len() + 32 + 8];
+	buf[..HOP_SUBMIT_CONTEXT.len()].copy_from_slice(HOP_SUBMIT_CONTEXT);
+	buf[HOP_SUBMIT_CONTEXT.len()..HOP_SUBMIT_CONTEXT.len() + 32].copy_from_slice(hash.as_bytes());
+	buf[HOP_SUBMIT_CONTEXT.len() + 32..].copy_from_slice(&submit_timestamp.to_le_bytes());
 	blake2_256(&buf)
 }
 

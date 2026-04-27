@@ -33,7 +33,19 @@ doc:
         stale per-sender rate-limit state.
 
       **`sp-hop`** defines the `HopRuntimeApi` runtime API trait: `can_account_promote`,
-      `create_promotion_extrinsic`, and `max_promotion_size`.
+      `create_promotion_extrinsic`, and `max_promotion_size`. The promotion extrinsic
+      carries the submitter's `MultiSigner`, `hop_submit`-time `MultiSignature`, and
+      `submit_timestamp` (ms since unix epoch) so the runtime pallet can re-verify
+      the user's consent on-chain instead of trusting the collator. "Submit implies
+      consent to promote" is the protocol semantic, so the signature is reused — no
+      second user signature is needed. The timestamp is bound into the signed
+      payload (`blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`)
+      so the runtime can reject signatures whose submit time is too far from the
+      on-chain clock, preventing indefinite replay of an old `(data, signer, signature)`
+      tuple.
+
+      `hop_submit` now takes `submit_timestamp` as an additional argument; clients
+      must include the timestamp they signed over.
 
       Integration requires flattening `HopParams` into your CLI, constructing a
       `HopDataPool`, and merging `HopRpcServer` into the RPC module. See `sc-hop`

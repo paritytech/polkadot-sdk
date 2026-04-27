@@ -23,8 +23,8 @@
 use crate::{
 	pool::HopDataPool,
 	types::{
-		signing_payload, HopError, HopHash, PoolStatus, Recipient, RecipientVec, SubmitResult,
-		HOP_SUBMIT_CONTEXT, MAX_RECIPIENTS,
+		submit_signing_payload, HopError, HopHash, PoolStatus, Recipient, RecipientVec,
+		SubmitResult, MAX_RECIPIENTS,
 	},
 };
 use codec::Decode;
@@ -50,8 +50,11 @@ pub trait HopApi<BlockHash> {
 	/// # Arguments
 	/// * `data`: The data to store, in bytes
 	/// * `recipients`: List of SCALE-encoded `MultiSigner` (ed25519, sr25519, or ecdsa)
-	/// * `signature`: SCALE-encoded `MultiSignature` over the blake2_256 hash of `data`
+	/// * `signature`: SCALE-encoded `MultiSignature` over the submit signing payload
+	///   (`blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data) || submit_timestamp.to_le_bytes())`).
 	/// * `signer`: SCALE-encoded `MultiSigner` of the account signing the submission
+	/// * `submit_timestamp`: Wall-clock timestamp (ms since unix epoch) bound into the signed
+	///   payload. The runtime rejects promotions whose timestamp is too far from on-chain time.
 	///
 	/// The signer must be authorized by the runtime (checked via
 	/// `HopApi::can_account_promote`).
@@ -65,6 +68,7 @@ pub trait HopApi<BlockHash> {
 		recipients: Vec<Bytes>,
 		signature: Bytes,
 		signer: Bytes,
+		submit_timestamp: u64,
 	) -> RpcResult<SubmitResult>;
 
 	/// Claim data from the data pool by hash (read-only download).
@@ -147,6 +151,7 @@ where
 		recipients: Vec<Bytes>,
 		signature: Bytes,
 		signer: Bytes,
+		submit_timestamp: u64,
 	) -> RpcResult<SubmitResult> {
 		let recipient_keys: RecipientVec = recipients
 			.into_iter()
@@ -181,7 +186,7 @@ where
 
 		// Check authorization before verifying the signature: a flood of unauthorized
 		// requests must not force a signature verification per submit.
-		let account_id: AccountId32 = signer.into_account();
+		let account_id: AccountId32 = signer.clone().into_account();
 		let authorized = runtime_api
 			.can_account_promote(best_hash, account_id.clone(), data_len as u32)
 			.map_err(HopError::from)?;
@@ -189,15 +194,25 @@ where
 			return Err(HopError::NotAuthorized.into());
 		}
 
-		// Domain-separated payload so a submit signature cannot be replayed as claim/ack.
+		// Domain-separated payload so a submit signature cannot be replayed as claim/ack,
+		// and bound to `submit_timestamp` so an old signature can't be replayed long
+		// after the fact (the runtime enforces a tolerance window on the timestamp).
 		let hash = H256(blake2_256(&data.0));
-		let submit_payload = signing_payload(HOP_SUBMIT_CONTEXT, &hash);
+		let submit_payload = submit_signing_payload(&hash, submit_timestamp);
 		if !multi_sig.verify(&submit_payload[..], &account_id) {
 			return Err(HopError::InvalidSignature.into());
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
-		let _hash = self.pool.insert(data.0, current_block, recipient_keys, sender_id)?;
+		let _hash = self.pool.insert(
+			data.0,
+			current_block,
+			recipient_keys,
+			sender_id,
+			signer,
+			multi_sig,
+			submit_timestamp,
+		)?;
 		let pool_status = self.pool.status();
 		Ok(SubmitResult { pool_status })
 	}
@@ -295,7 +310,12 @@ mod tests {
 				self.authorized
 			}
 
-			fn create_promotion_extrinsic(_data: Vec<u8>) -> <Block as BlockT>::Extrinsic {
+			fn create_promotion_extrinsic(
+				_data: Vec<u8>,
+				_signer: MultiSigner,
+				_signature: MultiSignature,
+				_submit_timestamp: u64,
+			) -> <Block as BlockT>::Extrinsic {
 				unimplemented!()
 			}
 
@@ -335,22 +355,25 @@ mod tests {
 		(pair, signer)
 	}
 
-	/// Produce a domain-separated submit signature for `data`.
-	fn submit_sig(pair: &ed25519::Pair, data: &[u8]) -> Bytes {
+	/// Fixed submit timestamp used in tests where the actual value is irrelevant.
+	const TEST_SUBMIT_TS: u64 = 1_700_000_000_000;
+
+	/// Produce a domain-separated submit signature for `data` bound to a timestamp.
+	fn submit_sig(pair: &ed25519::Pair, data: &[u8], submit_timestamp: u64) -> Bytes {
 		let hash = H256(blake2_256(data));
-		let payload = signing_payload(HOP_SUBMIT_CONTEXT, &hash);
+		let payload = submit_signing_payload(&hash, submit_timestamp);
 		let multi_sig = MultiSignature::Ed25519(pair.sign(&payload));
 		Bytes(multi_sig.encode())
 	}
 
 	fn claim_sig(pair: &ed25519::Pair, hash: &H256) -> Bytes {
-		use crate::types::HOP_CLAIM_CONTEXT;
+		use crate::types::{signing_payload, HOP_CLAIM_CONTEXT};
 		let payload = signing_payload(HOP_CLAIM_CONTEXT, hash);
 		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
 	}
 
 	fn ack_sig(pair: &ed25519::Pair, hash: &H256) -> Bytes {
-		use crate::types::HOP_ACK_CONTEXT;
+		use crate::types::{signing_payload, HOP_ACK_CONTEXT};
 		let payload = signing_payload(HOP_ACK_CONTEXT, hash);
 		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
 	}
@@ -366,6 +389,7 @@ mod tests {
 			vec![Bytes(valid_signer.encode())],
 			Bytes(vec![0u8; 3]),
 			Bytes(vec![0u8; 3]),
+			TEST_SUBMIT_TS,
 		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
@@ -381,6 +405,7 @@ mod tests {
 			vec![Bytes(signer.encode())],
 			Bytes(vec![0u8; 3]),
 			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
 		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
@@ -394,10 +419,15 @@ mod tests {
 		// Sign with a different key.
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
 		let data = vec![1, 2, 3];
-		let sig = submit_sig(&wrong_pair, &data);
+		let sig = submit_sig(&wrong_pair, &data, TEST_SUBMIT_TS);
 
-		let result =
-			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("Invalid signature"), "got: {}", err.message());
@@ -408,10 +438,15 @@ mod tests {
 		let (rpc, _, _dir) = setup(false);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3];
-		let sig = submit_sig(&pair, &data);
+		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
 
-		let result =
-			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("authorization"), "got: {}", err.message());
@@ -422,10 +457,15 @@ mod tests {
 		let (rpc, pool, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3, 4, 5];
-		let sig = submit_sig(&pair, &data);
+		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
 
-		let result =
-			rpc.submit(Bytes(data), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()));
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_ok(), "submit failed: {:?}", result.err());
 		let submit_result = result.unwrap();
 		assert_eq!(submit_result.pool_status.entry_count, 1);
@@ -439,13 +479,14 @@ mod tests {
 		let (rpc, _, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3];
-		let sig = submit_sig(&pair, &data);
+		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
 
 		let oversized: Vec<Bytes> = std::iter::repeat_with(|| Bytes(signer.encode()))
 			.take(MAX_RECIPIENTS as usize + 1)
 			.collect();
 
-		let result = rpc.submit(Bytes(data), oversized, sig, Bytes(signer.encode()));
+		let result =
+			rpc.submit(Bytes(data), oversized, sig, Bytes(signer.encode()), TEST_SUBMIT_TS);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("Too many recipients"), "got: {}", err.message());
@@ -465,10 +506,16 @@ mod tests {
 		let (rpc, _, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![10, 20, 30];
-		let sig = submit_sig(&pair, &data);
+		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
 
-		rpc.submit(Bytes(data.clone()), vec![Bytes(signer.encode())], sig, Bytes(signer.encode()))
-			.unwrap();
+		rpc.submit(
+			Bytes(data.clone()),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		)
+		.unwrap();
 
 		let hash = H256(blake2_256(&data));
 		let claimed = rpc.claim(Bytes(hash.0.to_vec()), claim_sig(&pair, &hash)).unwrap();

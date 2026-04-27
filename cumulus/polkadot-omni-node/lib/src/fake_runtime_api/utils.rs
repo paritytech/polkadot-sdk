@@ -259,7 +259,12 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
-				fn create_promotion_extrinsic(_: Vec<u8>) -> <$block as BlockT>::Extrinsic {
+				fn create_promotion_extrinsic(
+					_: Vec<u8>,
+					_: sp_runtime::MultiSigner,
+					_: sp_runtime::MultiSignature,
+					_: u64,
+				) -> <$block as BlockT>::Extrinsic {
 					unimplemented!()
 				}
 

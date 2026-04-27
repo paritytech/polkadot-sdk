@@ -32,8 +32,16 @@ sp_api::decl_runtime_apis! {
 	pub trait HopRuntimeApi<AccountId> where AccountId: codec::Codec {
 		/// Whether `who` may submit a HOP blob of `data_len` bytes for promotion.
 		fn can_account_promote(who: AccountId, data_len: u32) -> bool;
-		/// Construct a general transaction extrinsic for promoting HOP data.
-		fn create_promotion_extrinsic(data: alloc::vec::Vec<u8>) -> Block::Extrinsic;
+		/// Construct an unsigned promotion extrinsic carrying the user's submit-time
+		/// signer, signature, and timestamp so the runtime pallet can verify consent
+		/// on-chain. `submit_timestamp` is bound into the signed payload and bounds
+		/// the signature's validity window, preventing replay long after the fact.
+		fn create_promotion_extrinsic(
+			data: alloc::vec::Vec<u8>,
+			signer: sp_runtime::MultiSigner,
+			signature: sp_runtime::MultiSignature,
+			submit_timestamp: u64,
+		) -> Block::Extrinsic;
 		/// Maximum data size per promotion extrinsic.
 		fn max_promotion_size() -> u32;
 	}
