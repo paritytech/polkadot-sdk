@@ -4,7 +4,7 @@ use frame_support::traits::DefensiveSaturating;
 
 pub const LAZY_DELETE_MAX_PAGES: u32 = 100;
 
-/// Interface to modify 
+/// Interface to modify
 pub struct InboundDownwardQueue<T>(pub core::marker::PhantomData<T>);
 impl<T: Config> InboundDownwardQueue<T> {
 	pub fn meta(para: ParaId) -> Option<InboundDownwardQueueMeta> {
@@ -19,10 +19,14 @@ impl<T: Config> InboundDownwardQueue<T> {
 	}
 
 	/// Append the message at the end of the queue and return the new message.
-	pub fn push_back(para: ParaId, msg: DownwardMessage) -> Result<InboundDownwardMessage<BlockNumberFor<T>>, ()> {
+	pub fn push_back(
+		para: ParaId,
+		msg: DownwardMessage,
+	) -> Result<InboundDownwardMessage<BlockNumberFor<T>>, ()> {
 		let mut meta = Self::meta(para).unwrap_or_else(|| Self::new_meta(para));
-		
-		let inbound = InboundDownwardMessage { sent_at: frame_system::Pallet::<T>::block_number(), msg };
+
+		let inbound =
+			InboundDownwardMessage { sent_at: frame_system::Pallet::<T>::block_number(), msg };
 
 		let insert_location = meta.first_free;
 		meta.first_free = meta.first_free.checked_add(1).ok_or(())?;
@@ -84,17 +88,18 @@ impl<T: Config> InboundDownwardQueue<T> {
 		}
 
 		// Try to delete all at once but do it lazy otherwise
-		let cursor = DownwardMessageQueuePages::<T>::clear_prefix(para, LAZY_DELETE_MAX_PAGES, None);
+		let cursor =
+			DownwardMessageQueuePages::<T>::clear_prefix(para, LAZY_DELETE_MAX_PAGES, None);
 
 		if cursor.maybe_cursor.is_none() {
 			// all done
 			return;
 		}
-		
+
 		let (lo, hi) = match DownwardMessageQueueLazyDelete::<T>::get(para) {
 			Some((old_first, old_last)) => (old_first, meta.first_free.max(old_last)),
 			None => (meta.first_full, meta.first_free),
-		}; 
+		};
 		DownwardMessageQueueLazyDelete::<T>::insert(para, (lo, hi));
 	}
 
@@ -138,7 +143,9 @@ impl<T: Config> InboundDownwardQueue<T> {
 	#[cfg(feature = "std")]
 	pub fn integrity_test() {
 		let metas = DownwardMessageQueueMeta::<T>::iter_keys().collect::<Vec<_>>();
-		let queues = DownwardMessageQueuePages::<T>::iter_keys().map(|(para, _)| para).collect::<alloc::collections::BTreeSet<_>>();
+		let queues = DownwardMessageQueuePages::<T>::iter_keys()
+			.map(|(para, _)| para)
+			.collect::<alloc::collections::BTreeSet<_>>();
 
 		for meta in &metas {
 			assert!(queues.contains(&meta), "Metadata should have a corresponding queue");

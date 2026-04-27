@@ -14,10 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use super::*;
-use super::mock::{
-	default_genesis_config, pages_in_storage, queue_downward_message, register_paras,
-	run_to_block, EXPECTED_LAZY_DELETE_PAGES,
+use super::{
+	mock::{
+		default_genesis_config, pages_in_storage, queue_downward_message, register_paras,
+		run_to_block, EXPECTED_LAZY_DELETE_PAGES,
+	},
+	*,
 };
 use crate::{
 	configuration::ActiveConfig,
@@ -713,9 +715,8 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	// rate (the implementation may legitimately remove only one page per call).
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = ext.execute_with(|| {
-			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
-		});
+		let still_pending =
+			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
@@ -806,10 +807,7 @@ fn iq_paras_are_isolated() {
 		InboundDownwardQueue::<Test>::drop_front_n(a, 2).unwrap();
 		assert_eq!(InboundDownwardQueue::<Test>::len(a), Some(0));
 		assert_eq!(InboundDownwardQueue::<Test>::len(b), Some(1));
-		assert_eq!(
-			InboundDownwardQueue::<Test>::peek_front(b).unwrap().msg,
-			vec![100]
-		);
+		assert_eq!(InboundDownwardQueue::<Test>::peek_front(b).unwrap().msg, vec![100]);
 
 		// `delete_all(a)` must not affect `b`.
 		InboundDownwardQueue::<Test>::delete_all(a);
@@ -904,9 +902,8 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	// Now drain the lazy-delete queue to completion.
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = ext.execute_with(|| {
-			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
-		});
+		let still_pending =
+			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
@@ -916,10 +913,7 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 		});
 		ext.commit_all().unwrap();
 		iterations += 1;
-		assert!(
-			(iterations as u64) < total + 10,
-			"lazy_delete_some should make progress",
-		);
+		assert!((iterations as u64) < total + 10, "lazy_delete_some should make progress",);
 	}
 
 	// The freshly-pushed message must still be readable.
@@ -975,9 +969,8 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	// Run lazy delete to completion.
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = ext.execute_with(|| {
-			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
-		});
+		let still_pending =
+			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
@@ -987,10 +980,7 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 		});
 		ext.commit_all().unwrap();
 		iterations += 1;
-		assert!(
-			(iterations as u64) < total + 100,
-			"lazy_delete_some should make progress",
-		);
+		assert!((iterations as u64) < total + 100, "lazy_delete_some should make progress",);
 	}
 
 	// Check that no old pages remain. New pages must still be there.
@@ -1011,11 +1001,10 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 #[test]
 fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	// Sequence:
-	//   1. delete_all(A) spills, leaves pages in [0, R1) and sets
-	//      LazyDelete[A] = (0, R1).
+	//   1. delete_all(A) spills, leaves pages in [0, R1) and sets LazyDelete[A] = (0, R1).
 	//   2. Re-onboard A and push enough messages that pages span [R1, R2).
-	//   3. delete_all(A) again — this also spills, and the implementation
-	//      overwrites LazyDelete[A] with (R1, R2).
+	//   3. delete_all(A) again — this also spills, and the implementation overwrites LazyDelete[A]
+	//      with (R1, R2).
 	//
 	// If the second `delete_all` blindly overwrites the first range, every
 	// surviving page in [0, R1) is permanently orphaned because the
@@ -1042,9 +1031,7 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		// Many old pages survived the first spill.
-		assert!(
-			pages_in_storage(a).len() as u64 >= first_batch - EXPECTED_LAZY_DELETE_PAGES,
-		);
+		assert!(pages_in_storage(a).len() as u64 >= first_batch - EXPECTED_LAZY_DELETE_PAGES,);
 	});
 	ext.commit_all().unwrap();
 
@@ -1067,9 +1054,7 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	let bound = (first_batch + second_batch) * 2;
 	let mut iterations = 0u64;
 	loop {
-		let pending = ext.execute_with(|| {
-			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
-		});
+		let pending = ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !pending {
 			break;
 		}
@@ -1086,11 +1071,7 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	// because the second delete_all's range overwrote the first one's.
 	ext.execute_with(|| {
 		let pages = pages_in_storage(a);
-		assert!(
-			pages.is_empty(),
-			"orphan pages remain after both delete_all cycles: {:?}",
-			pages,
-		);
+		assert!(pages.is_empty(), "orphan pages remain after both delete_all cycles: {:?}", pages,);
 	});
 }
 
@@ -1297,8 +1278,7 @@ fn dmp_clean_dmp_large_queue_uses_lazy_delete() {
 #[test]
 fn dmp_queue_full_returns_exceeds_max_message_size_send_error() {
 	// `ExceedsMaxQueueSize` maps to `SendError::ExceedsMaxMessageSize`.
-	let err: xcm::latest::SendError =
-		QueueDownwardMessageError::ExceedsMaxQueueSize.into();
+	let err: xcm::latest::SendError = QueueDownwardMessageError::ExceedsMaxQueueSize.into();
 	match err {
 		xcm::latest::SendError::ExceedsMaxMessageSize => {},
 		other => panic!("unexpected mapping: {:?}", other),
@@ -1354,9 +1334,8 @@ fn dmp_on_poll_drives_lazy_delete() {
 
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = ext.execute_with(|| {
-			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
-		});
+		let still_pending =
+			ext.execute_with(|| DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		if !still_pending {
 			break;
 		}
@@ -1369,10 +1348,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 		});
 		ext.commit_all().unwrap();
 		iterations += 1;
-		assert!(
-			(iterations as u64) < total + 10,
-			"on_poll lazy delete should make progress",
-		);
+		assert!((iterations as u64) < total + 10, "on_poll lazy delete should make progress",);
 	}
 	ext.execute_with(|| {
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());

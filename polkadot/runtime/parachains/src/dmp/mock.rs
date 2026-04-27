@@ -60,7 +60,11 @@ pub(crate) fn queue_downward_message(
 	para_id: ParaId,
 	msg: DownwardMessage,
 ) -> Result<(), QueueDownwardMessageError> {
-	Dmp::queue_downward_message(&configuration::ActiveConfig::<crate::mock::Test>::get(), para_id, msg)
+	Dmp::queue_downward_message(
+		&configuration::ActiveConfig::<crate::mock::Test>::get(),
+		para_id,
+		msg,
+	)
 }
 
 pub(crate) fn register_paras(paras: &[ParaId]) {
