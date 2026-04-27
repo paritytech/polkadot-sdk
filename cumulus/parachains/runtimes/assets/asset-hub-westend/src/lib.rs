@@ -1500,7 +1500,7 @@ parameter_types! {
 }
 
 /// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
-type PsmStableAsset =
+type PsmInternalAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
@@ -1558,7 +1558,7 @@ impl pallet_psm::Config for Runtime {
 	type MaximumIssuance = dynamic_params::pusd::MaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
-	type StableAsset = PsmStableAsset;
+	type InternalAsset = PsmInternalAsset;
 	type FeeDestination = PsmFeeDestination;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;

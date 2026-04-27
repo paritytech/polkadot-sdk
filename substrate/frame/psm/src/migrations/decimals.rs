@@ -20,7 +20,7 @@
 //!
 //! Purpose: chains that approved external assets before the multi-decimal upgrade
 //! have entries in `ExternalAssets` but no `AssetDecimals` snapshots, and no
-//! `StableDecimals` either. Mint and redeem both require these snapshots and
+//! `InternalDecimals` either. Mint and redeem both require these snapshots and
 //! will fail closed (`Error::DecimalsMismatch` / `Error::Unexpected`) until they
 //! are populated. This migration reads live metadata and writes the snapshots.
 //!
@@ -56,7 +56,7 @@ use frame_support::{
 
 use crate::{
 	pallet::{
-		AssetDecimals, CircuitBreakerLevel, ExternalAssets, StableDecimals, MAX_DECIMALS_DIFF,
+		AssetDecimals, CircuitBreakerLevel, ExternalAssets, InternalDecimals, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
 };
@@ -98,9 +98,9 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 		// Stable asset snapshot — only write if missing.
 		reads += 2;
-		let stable_decimals = T::StableAsset::decimals();
-		if !StableDecimals::<T>::exists() {
-			StableDecimals::<T>::put(stable_decimals);
+		let stable_decimals = T::InternalAsset::decimals();
+		if !InternalDecimals::<T>::exists() {
+			InternalDecimals::<T>::put(stable_decimals);
 			writes += 1;
 		}
 
@@ -164,11 +164,11 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 	fn post_upgrade(_state: Vec<u8>) -> Result<(), TryRuntimeError> {
 		// Stable asset snapshot present and consistent with live metadata.
 		ensure!(
-			StableDecimals::<T>::get() == Some(T::StableAsset::decimals()),
-			"StableDecimals snapshot missing or stale after migration"
+			InternalDecimals::<T>::get() == Some(T::InternalAsset::decimals()),
+			"InternalDecimals snapshot missing or stale after migration"
 		);
 
-		let stable_decimals = T::StableAsset::decimals();
+		let stable_decimals = T::InternalAsset::decimals();
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
 			let snapshot = AssetDecimals::<T>::get(asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
@@ -214,15 +214,15 @@ mod tests {
 	fn populate_decimals_backfills_existing_assets() {
 		new_test_ext().execute_with(|| {
 			// Simulate a pre-migration state: existing assets have ExternalAssets
-			// entries but no decimals snapshots (and no StableDecimals).
+			// entries but no decimals snapshots (and no InternalDecimals).
 			prepare_v1();
-			StableDecimals::<Test>::kill();
+			InternalDecimals::<Test>::kill();
 			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
 			AssetDecimals::<Test>::remove(USDT_ASSET_ID);
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
-			assert_eq!(StableDecimals::<Test>::get(), Some(6));
+			assert_eq!(InternalDecimals::<Test>::get(), Some(6));
 			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), Some(6));
 			assert_eq!(AssetDecimals::<Test>::get(USDT_ASSET_ID), Some(6));
 			// Normal status preserved since decimals are in range.
@@ -278,16 +278,16 @@ mod tests {
 				45,
 			));
 
-			// Wipe DAI's snapshot and StableDecimals to force repopulation, then
+			// Wipe DAI's snapshot and InternalDecimals to force repopulation, then
 			// roll back to v1 so the versioned wrapper actually runs.
 			AssetDecimals::<Test>::remove(DAI_MOCK_ASSET_ID);
-			StableDecimals::<Test>::kill();
+			InternalDecimals::<Test>::kill();
 			prepare_v1();
 
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 
 			// Snapshot was written regardless.
-			assert_eq!(StableDecimals::<Test>::get(), Some(45));
+			assert_eq!(InternalDecimals::<Test>::get(), Some(45));
 			assert_eq!(AssetDecimals::<Test>::get(DAI_MOCK_ASSET_ID), Some(18));
 			// DAI is disabled because 45 - 18 = 27 > MAX_DECIMALS_DIFF (24).
 			assert_eq!(
@@ -306,19 +306,19 @@ mod tests {
 	fn populate_decimals_runs_once_then_skips() {
 		new_test_ext().execute_with(|| {
 			prepare_v1();
-			StableDecimals::<Test>::kill();
+			InternalDecimals::<Test>::kill();
 			AssetDecimals::<Test>::remove(USDC_ASSET_ID);
 
 			// First run: on-chain version is 1, migration executes and bumps to 2.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
-			let stable1 = StableDecimals::<Test>::get();
+			let stable1 = InternalDecimals::<Test>::get();
 			let usdc1 = AssetDecimals::<Test>::get(USDC_ASSET_ID);
 
 			// Second run: on-chain version is 2, versioned wrapper skips — state
 			// is unchanged.
 			PopulateDecimals::<Test>::on_runtime_upgrade();
-			assert_eq!(StableDecimals::<Test>::get(), stable1);
+			assert_eq!(InternalDecimals::<Test>::get(), stable1);
 			assert_eq!(AssetDecimals::<Test>::get(USDC_ASSET_ID), usdc1);
 			assert_eq!(Pallet::<Test>::on_chain_storage_version(), StorageVersion::new(2));
 		});

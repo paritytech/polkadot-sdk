@@ -255,7 +255,7 @@ pub mod pallet {
 		///
 		/// Typically `ItemOf<Asset, StablecoinAssetId, AccountId>`.
 		/// Must use the same `Balance` type as `Asset`.
-		type StableAsset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
+		type InternalAsset: FungibleMutate<Self::AccountId, Balance = BalanceOf<Self>>
 			+ FungibleMetadataInspect<Self::AccountId>;
 
 		/// Account that receives pUSD fees from minting and redemption.
@@ -340,7 +340,7 @@ pub mod pallet {
 	/// Snapshot of the stable asset's decimals taken at genesis.
 	/// Set once during genesis build; present for the lifetime of the pallet.
 	#[pallet::storage]
-	pub(crate) type StableDecimals<T: Config> = StorageValue<_, u8, OptionQuery>;
+	pub(crate) type InternalDecimals<T: Config> = StorageValue<_, u8, OptionQuery>;
 
 	/// Genesis configuration for the PSM pallet.
 	#[pallet::genesis_config]
@@ -365,8 +365,8 @@ pub mod pallet {
 				T::MaxExternalAssets::get(),
 			);
 			MaxPsmDebtOfTotal::<T>::put(self.max_psm_debt_of_total);
-			let stable_decimals = T::StableAsset::decimals();
-			StableDecimals::<T>::put(stable_decimals);
+			let stable_decimals = T::InternalAsset::decimals();
+			InternalDecimals::<T>::put(stable_decimals);
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &self.asset_configs {
 				let asset_decimals = T::Fungibles::decimals(*asset_id);
 				let diff = asset_decimals.abs_diff(stable_decimals) as u32;
@@ -396,14 +396,14 @@ pub mod pallet {
 			who: T::AccountId,
 			asset_id: T::AssetId,
 			external_amount: BalanceOf<T>,
-			pusd_received: BalanceOf<T>,
+			received: BalanceOf<T>,
 			fee: BalanceOf<T>,
 		},
 		/// User swapped pUSD for external stablecoin.
 		Redeemed {
 			who: T::AccountId,
 			asset_id: T::AssetId,
-			pusd_paid: BalanceOf<T>,
+			paid: BalanceOf<T>,
 			external_received: BalanceOf<T>,
 			fee: BalanceOf<T>,
 		},
@@ -531,7 +531,7 @@ pub mod pallet {
 			let pusd_to_user = pusd_equivalent.saturating_sub(fee);
 
 			// Total new issuance = pusd_to_user + fee = pusd_equivalent.
-			let current_total_issuance = T::StableAsset::total_issuance();
+			let current_total_issuance = T::InternalAsset::total_issuance();
 			let max_issuance = T::MaximumIssuance::get();
 			ensure!(
 				current_total_issuance.saturating_add(pusd_equivalent) <= max_issuance,
@@ -561,9 +561,9 @@ pub mod pallet {
 				effective_external,
 				Preservation::Expendable,
 			)?;
-			T::StableAsset::mint_into(&who, pusd_to_user)?;
+			T::InternalAsset::mint_into(&who, pusd_to_user)?;
 			if !fee.is_zero() {
-				T::StableAsset::mint_into(&T::FeeDestination::get(), fee)?;
+				T::InternalAsset::mint_into(&T::FeeDestination::get(), fee)?;
 			}
 
 			PsmDebt::<T>::insert(asset_id, new_debt);
@@ -572,7 +572,7 @@ pub mod pallet {
 				who,
 				asset_id,
 				external_amount: effective_external,
-				pusd_received: pusd_to_user,
+				received: pusd_to_user,
 				fee,
 			});
 
@@ -587,7 +587,7 @@ pub mod pallet {
 		///
 		/// ## Details
 		///
-		/// Burns `pusd_amount` pUSD from the caller minus fee (transferred to
+		/// Burns `amount` pUSD from the caller minus fee (transferred to
 		/// [`Config::FeeDestination`]), then transfers the resulting amount in external
 		/// stablecoin from PSM to the caller. The fee is calculated using ceiling rounding
 		/// (`mul_ceil`), ensuring the protocol never undercharges.
@@ -595,13 +595,13 @@ pub mod pallet {
 		/// ## Parameters
 		///
 		/// - `asset_id`: The external stablecoin to receive (must be in `ExternalAssets`)
-		/// - `pusd_amount`: Amount of pUSD to redeem
+		/// - `amount`: Amount of pUSD to redeem
 		///
 		/// ## Errors
 		///
 		/// - [`Error::UnsupportedAsset`]: If `asset_id` is not an approved external stablecoin
 		/// - [`Error::AllSwapsStopped`]: If circuit breaker is at `AllDisabled`
-		/// - [`Error::BelowMinimumSwap`]: If `pusd_amount` is below [`Config::MinSwapAmount`]
+		/// - [`Error::BelowMinimumSwap`]: If `amount` is below [`Config::MinSwapAmount`]
 		/// - [`Error::InsufficientReserve`]: If PSM has insufficient external stablecoin
 		/// - [`Error::DecimalsMismatch`]: If the asset's decimals do not match the stable asset's
 		///   decimals
@@ -616,7 +616,7 @@ pub mod pallet {
 		pub fn redeem(
 			origin: OriginFor<T>,
 			asset_id: T::AssetId,
-			pusd_amount: BalanceOf<T>,
+			amount: BalanceOf<T>,
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 
@@ -628,10 +628,10 @@ pub mod pallet {
 			// Guard against runtime drift in live decimals.
 			let (ext_decimals, pusd_decimals) = Self::ensure_decimals_match(asset_id)?;
 
-			ensure!(pusd_amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
+			ensure!(amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
-			let fee = RedemptionFee::<T>::get(asset_id).mul_ceil(pusd_amount);
-			let pusd_net = pusd_amount.saturating_sub(fee);
+			let fee = RedemptionFee::<T>::get(asset_id).mul_ceil(amount);
+			let pusd_net = amount.saturating_sub(fee);
 
 			// Convert pUSD-net to external units (floor) and round-trip back. The round-tripped
 			// amount (`effective_pusd_net`) is what is actually burned and what the tracked debt
@@ -662,7 +662,7 @@ pub mod pallet {
 			// Transfer the nominal fee to the destination, then burn the redeemed portion.
 			// Round-trip dust is not charged.
 			if !fee.is_zero() {
-				T::StableAsset::transfer(
+				T::InternalAsset::transfer(
 					&who,
 					&T::FeeDestination::get(),
 					fee,
@@ -671,7 +671,7 @@ pub mod pallet {
 			}
 
 			if !effective_pusd_net.is_zero() {
-				T::StableAsset::burn_from(
+				T::InternalAsset::burn_from(
 					&who,
 					effective_pusd_net,
 					Preservation::Expendable,
@@ -698,7 +698,7 @@ pub mod pallet {
 			Self::deposit_event(Event::Redeemed {
 				who,
 				asset_id,
-				pusd_paid: effective_pusd_net.saturating_add(fee),
+				paid: effective_pusd_net.saturating_add(fee),
 				external_received: external_out,
 				fee,
 			});
@@ -900,8 +900,8 @@ pub mod pallet {
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);
 
 			let asset_decimals = T::Fungibles::decimals(asset_id);
-			let stable_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
-			ensure!(T::StableAsset::decimals() == stable_decimals, Error::<T>::DecimalsMismatch);
+			let stable_decimals = InternalDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
+			ensure!(T::InternalAsset::decimals() == stable_decimals, Error::<T>::DecimalsMismatch);
 			ensure!(
 				(asset_decimals.abs_diff(stable_decimals) as u32) <= MAX_DECIMALS_DIFF,
 				Error::<T>::DecimalsRangeExceeded
@@ -1086,8 +1086,8 @@ pub mod pallet {
 				AssetDecimals::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(T::Fungibles::decimals(asset_id) == ext_decimals, Error::<T>::DecimalsMismatch);
 
-			let pusd_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
-			ensure!(T::StableAsset::decimals() == pusd_decimals, Error::<T>::DecimalsMismatch);
+			let pusd_decimals = InternalDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
+			ensure!(T::InternalAsset::decimals() == pusd_decimals, Error::<T>::DecimalsMismatch);
 
 			Ok((ext_decimals, pusd_decimals))
 		}
@@ -1106,9 +1106,9 @@ pub mod pallet {
 			// Check 1: Live decimals must still match the snapshots taken at registration/genesis —
 			// both for the stable asset and every approved external asset.
 			let stable_decimals_snapshot =
-				StableDecimals::<T>::get().ok_or("StableDecimals not initialized")?;
+				InternalDecimals::<T>::get().ok_or("InternalDecimals not initialized")?;
 			ensure!(
-				T::StableAsset::decimals() == stable_decimals_snapshot,
+				T::InternalAsset::decimals() == stable_decimals_snapshot,
 				"Stable asset live decimals differ from the genesis snapshot"
 			);
 			for (asset_id, _) in ExternalAssets::<T>::iter() {

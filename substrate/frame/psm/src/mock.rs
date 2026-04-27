@@ -170,7 +170,7 @@ impl crate::Config for Test {
 	type MaximumIssuance = MockMaximumIssuance;
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
-	type StableAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;
+	type InternalAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;
 	type FeeDestination = InsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;

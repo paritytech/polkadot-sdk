@@ -41,16 +41,16 @@ const ASSET_ID_OFFSET: u32 = 100;
 /// stable decimals so callers can align external-asset metadata with it.
 fn ensure_stable_setup<T: Config>() -> u8
 where
-	T::StableAsset: FungibleCreate<T::AccountId>,
+	T::InternalAsset: FungibleCreate<T::AccountId>,
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
-	if T::StableAsset::minimum_balance().is_zero() {
-		let _ = T::StableAsset::create(admin, true, 1u32.into());
+	if T::InternalAsset::minimum_balance().is_zero() {
+		let _ = T::InternalAsset::create(admin, true, 1u32.into());
 	}
-	let stable_decimals = T::StableAsset::decimals();
-	if !crate::StableDecimals::<T>::exists() {
-		crate::StableDecimals::<T>::put(stable_decimals);
+	let stable_decimals = T::InternalAsset::decimals();
+	if !crate::InternalDecimals::<T>::exists() {
+		crate::InternalDecimals::<T>::put(stable_decimals);
 	}
 	stable_decimals
 }
@@ -67,7 +67,7 @@ where
 fn setup_assets<T: Config>(n: u32) -> T::AssetId
 where
 	T::Fungibles: FungiblesCreate<T::AccountId>,
-	T::StableAsset: FungibleCreate<T::AccountId>,
+	T::InternalAsset: FungibleCreate<T::AccountId>,
 	T::AssetId: From<u32>,
 {
 	let admin: T::AccountId = whitelisted_caller();
@@ -102,7 +102,7 @@ where
 	target_id
 }
 
-#[benchmarks(where T::Fungibles: FungiblesCreate<T::AccountId>, T::StableAsset: FungibleCreate<T::AccountId>, T::AssetId: From<u32>)]
+#[benchmarks(where T::Fungibles: FungiblesCreate<T::AccountId>, T::InternalAsset: FungibleCreate<T::AccountId>, T::AssetId: From<u32>)]
 mod benchmarks {
 	use super::*;
 
@@ -210,7 +210,7 @@ mod benchmarks {
 	}
 	#[benchmark]
 	fn add_external_asset() -> Result<(), BenchmarkError> {
-		// Seed StableDecimals and ensure the stable asset exists; the extrinsic
+		// Seed InternalDecimals and ensure the stable asset exists; the extrinsic
 		// reads the snapshot and compares it against live metadata.
 		let stable_decimals = ensure_stable_setup::<T>();
 		let caller: T::AccountId = whitelisted_caller();

@@ -48,7 +48,7 @@ mod mint {
 					who: ALICE,
 					asset_id: USDC_ASSET_ID,
 					external_amount: mint_amount,
-					pusd_received: pusd_to_user,
+					received: pusd_to_user,
 					fee,
 				}
 				.into(),
@@ -307,7 +307,7 @@ mod redeem {
 				Event::<Test>::Redeemed {
 					who: ALICE,
 					asset_id: USDC_ASSET_ID,
-					pusd_paid: redeem_amount,
+					paid: redeem_amount,
 					external_received: external_to_user,
 					fee,
 				}
@@ -1426,7 +1426,7 @@ mod cycles {
 				assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, amount));
 
 				let (mint_fee, pusd_received) = match last_event() {
-					Event::Minted { fee, pusd_received, .. } => (fee, pusd_received),
+					Event::Minted { fee, received: pusd_received, .. } => (fee, pusd_received),
 					_ => panic!("Expected Minted event"),
 				};
 				total_mint_fees += mint_fee;
@@ -1583,7 +1583,7 @@ mod cycles {
 				assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, amount));
 
 				let (mint_fee, pusd_received) = match last_event() {
-					Event::Minted { fee, pusd_received, .. } => (fee, pusd_received),
+					Event::Minted { fee, received: pusd_received, .. } => (fee, pusd_received),
 					_ => panic!("Expected Minted event"),
 				};
 				total_mint_fees += mint_fee;
@@ -1895,7 +1895,7 @@ mod decimal_scaling {
 					who: ALICE,
 					asset_id: DAI_MOCK_ASSET_ID,
 					external_amount: effective_external,
-					pusd_received: pusd_to_user,
+					received: pusd_to_user,
 					fee,
 				}
 				.into(),
@@ -2018,7 +2018,7 @@ mod decimal_scaling {
 				Event::<Test>::Redeemed {
 					who: ALICE,
 					asset_id: USDX_ASSET_ID,
-					pusd_paid: eff_pusd_net + fee,
+					paid: eff_pusd_net + fee,
 					external_received: external_out,
 					fee,
 				}
@@ -2171,7 +2171,7 @@ mod decimal_scaling {
 	#[test]
 	fn mint_halts_when_stable_decimals_drift() {
 		new_test_ext().execute_with(|| {
-			// pUSD starts at 6 decimals; StableDecimals snapshot matches. The owner
+			// pUSD starts at 6 decimals; InternalDecimals snapshot matches. The owner
 			// (ALICE) changes the stable asset's live metadata to simulate drift.
 			assert_ok!(Assets::set_metadata(
 				RuntimeOrigin::signed(ALICE),
@@ -2239,7 +2239,7 @@ mod decimal_scaling {
 	#[test]
 	fn mint_fails_when_stable_decimals_snapshot_missing() {
 		new_test_ext().execute_with(|| {
-			crate::StableDecimals::<Test>::kill();
+			crate::InternalDecimals::<Test>::kill();
 
 			assert_noop!(
 				Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1000 * PUSD_UNIT),
@@ -2252,7 +2252,7 @@ mod decimal_scaling {
 	fn redeem_fails_when_stable_decimals_snapshot_missing() {
 		new_test_ext().execute_with(|| {
 			fund_pusd(ALICE, 1000 * PUSD_UNIT);
-			crate::StableDecimals::<Test>::kill();
+			crate::InternalDecimals::<Test>::kill();
 
 			assert_noop!(
 				Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 100 * PUSD_UNIT),

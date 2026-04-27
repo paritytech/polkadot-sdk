@@ -48,8 +48,8 @@ use sp_runtime::Permill;
 
 use crate::{
 	pallet::{
-		AssetCeilingWeight, AssetDecimals, CircuitBreakerLevel, ExternalAssets, MaxPsmDebtOfTotal,
-		MintingFee, RedemptionFee, StableDecimals, MAX_DECIMALS_DIFF,
+		AssetCeilingWeight, AssetDecimals, CircuitBreakerLevel, ExternalAssets, InternalDecimals,
+		MaxPsmDebtOfTotal, MintingFee, RedemptionFee, MAX_DECIMALS_DIFF,
 	},
 	Config, Pallet,
 };
@@ -112,10 +112,10 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 		// Per-asset snapshots for pre-existing approved assets are owned by
 		// `super::decimals::PopulateDecimals` — this migration only touches `AssetDecimals` for
 		// assets it adds as new below.
-		let stable_decimals = T::StableAsset::decimals();
+		let stable_decimals = T::InternalAsset::decimals();
 		reads += 1;
-		if !StableDecimals::<T>::exists() {
-			StableDecimals::<T>::put(stable_decimals);
+		if !InternalDecimals::<T>::exists() {
+			InternalDecimals::<T>::put(stable_decimals);
 			writes += 1;
 		}
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &asset_configs {
@@ -249,7 +249,7 @@ mod tests {
 
 	fn clear_all_psm_state() {
 		MaxPsmDebtOfTotal::<Test>::kill();
-		StableDecimals::<Test>::kill();
+		InternalDecimals::<Test>::kill();
 		ExternalAssets::<Test>::remove(USDC_ASSET_ID);
 		ExternalAssets::<Test>::remove(USDT_ASSET_ID);
 		MintingFee::<Test>::remove(USDC_ASSET_ID);
@@ -275,8 +275,8 @@ mod tests {
 
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), TestPsmConfig::max_psm_debt_of_total());
 			assert_eq!(
-				StableDecimals::<Test>::get(),
-				Some(<Test as Config>::StableAsset::decimals())
+				InternalDecimals::<Test>::get(),
+				Some(<Test as Config>::InternalAsset::decimals())
 			);
 
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in
@@ -303,15 +303,15 @@ mod tests {
 		use frame_support::traits::{fungible::metadata::Inspect as _, OnRuntimeUpgrade};
 
 		new_test_ext().execute_with(|| {
-			// StableDecimals was populated by genesis; clear it to simulate a
+			// InternalDecimals was populated by genesis; clear it to simulate a
 			// pre-decimal-snapshot deployment where the migration must seed it.
-			StableDecimals::<Test>::kill();
+			InternalDecimals::<Test>::kill();
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
 			assert_eq!(
-				StableDecimals::<Test>::get(),
-				Some(<Test as Config>::StableAsset::decimals())
+				InternalDecimals::<Test>::get(),
+				Some(<Test as Config>::InternalAsset::decimals())
 			);
 		});
 	}
@@ -322,11 +322,11 @@ mod tests {
 
 		new_test_ext().execute_with(|| {
 			// Plant a sentinel (non-live) value. The migration must not overwrite.
-			StableDecimals::<Test>::put(42u8);
+			InternalDecimals::<Test>::put(42u8);
 
 			InitializePsm::<Test, TestPsmConfig>::on_runtime_upgrade();
 
-			assert_eq!(StableDecimals::<Test>::get(), Some(42));
+			assert_eq!(InternalDecimals::<Test>::get(), Some(42));
 		});
 	}
 

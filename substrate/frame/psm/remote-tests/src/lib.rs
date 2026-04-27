@@ -144,7 +144,7 @@ where
 
 	// Verify the stable asset and external asset have matching decimals.
 	let stable_decimals =
-		<Runtime::StableAsset as FungibleMetadataInspect<Runtime::AccountId>>::decimals();
+		<Runtime::InternalAsset as FungibleMetadataInspect<Runtime::AccountId>>::decimals();
 	let external_decimals =
 		<Runtime::Fungibles as FungiblesMetadataInspect<Runtime::AccountId>>::decimals(asset_id);
 	assert_eq!(
@@ -286,7 +286,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 		);
 
 		// Redeem all pUSD the caller has.
-		let pusd_balance = Runtime::StableAsset::balance(&caller);
+		let pusd_balance = Runtime::InternalAsset::balance(&caller);
 		let redeem_amount = pusd_balance;
 
 		assert_ok!(pallet_psm::Pallet::<Runtime>::redeem(
@@ -296,7 +296,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 		));
 
 		// Verify caller's pUSD was fully spent.
-		let pusd_after = Runtime::StableAsset::balance(&caller);
+		let pusd_after = Runtime::InternalAsset::balance(&caller);
 		assert_eq!(pusd_after, Zero::zero(), "Caller should have no pUSD remaining");
 
 		// Debt should decrease after redeem but not reach zero (fees keep some debt alive).
@@ -307,7 +307,7 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 
 		// Fee destination should have received fees.
 		let fee_dest = Runtime::FeeDestination::get();
-		let fee_balance = Runtime::StableAsset::balance(&fee_dest);
+		let fee_balance = Runtime::InternalAsset::balance(&fee_dest);
 		assert!(fee_balance > Zero::zero(), "Fee destination should have collected fees");
 
 		log::info!(
