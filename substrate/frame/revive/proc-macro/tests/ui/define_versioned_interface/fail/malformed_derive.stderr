@@ -1,0 +1,11 @@
+error: expected `,`
+ --> tests/ui/define_versioned_interface/fail/malformed_derive.rs:4:23
+  |
+4 |     #[derive(Clone, Debug())]
+  |                          ^
+
+error: failed to parse payload derive attribute while computing generated enum derives
+ --> tests/ui/define_versioned_interface/fail/malformed_derive.rs:4:2
+  |
+4 |     #[derive(Clone, Debug())]
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^

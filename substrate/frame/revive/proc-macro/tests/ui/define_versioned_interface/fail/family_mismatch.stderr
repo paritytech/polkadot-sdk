@@ -1,0 +1,11 @@
+error: all payloads in define_versioned_interface! must use the same family name; found `UiSecond` but expected `UiFirst`
+ --> tests/ui/define_versioned_interface/fail/family_mismatch.rs:8:13
+  |
+8 |     pub struct UiSecondOutputPayloadV1 {
+  |                ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: the expected interface family name `UiFirst` was established here
+ --> tests/ui/define_versioned_interface/fail/family_mismatch.rs:4:13
+  |
+4 |     pub struct UiFirstInputPayloadV1 {
+  |                ^^^^^^^^^^^^^^^^^^^^^

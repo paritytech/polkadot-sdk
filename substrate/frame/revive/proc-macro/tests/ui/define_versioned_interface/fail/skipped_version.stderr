@@ -1,0 +1,11 @@
+error: versioned interface payload versions must be contiguous; missing version V2 before V3
+  --> tests/ui/define_versioned_interface/fail/skipped_version.rs:12:13
+   |
+12 |     pub struct UiSkippedInputPayloadV3 {
+   |                ^^^^^^^^^^^^^^^^^^^^^^^
+
+error: previous defined version was V1 here
+ --> tests/ui/define_versioned_interface/fail/skipped_version.rs:4:13
+  |
+4 |     pub struct UiSkippedInputPayloadV1 {
+  |                ^^^^^^^^^^^^^^^^^^^^^^^

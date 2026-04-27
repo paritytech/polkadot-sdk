@@ -1,0 +1,5 @@
+error: define_versioned_interface! only accepts named-field payload structs
+ --> tests/ui/define_versioned_interface/fail/tuple_struct.rs:4:34
+  |
+4 |     pub struct UiTupleInputPayloadV1(pub u8);
+  |                                     ^^^^^^^^

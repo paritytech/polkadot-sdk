@@ -20,6 +20,7 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a polkavm module.
 
+mod handle_define_versioned_interface;
 mod handle_define_versioned_type;
 
 use proc_macro::TokenStream;
@@ -779,6 +780,622 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 	};
 
 	quote! { #( #items )* }.into()
+}
+
+/// Defines a paired family of input and output payload structs for a versioned wire interface and
+/// generates the enums, conversions, and accessors that route any known version through it.
+///
+/// # Motivation
+///
+/// Runtime APIs in `pallet-revive` are addressed by stable names like `eth_transact`, but the
+/// argument and return shapes carried by those names evolve as the runtime is upgraded. A node
+/// running a new version must still accept requests from clients that only know an older version,
+/// and historical state queries must continue to round-trip through every version that ever
+/// shipped. The accepted way to keep this honest is two layers of types:
+///
+/// 1. *Wire types* — one enum per side of the interface that lists every known version of the
+///    payload as its own variant. Anything that crosses the runtime boundary uses these.
+/// 2. *Execution types* — concrete `…V{n}` structs that the runtime works with internally once it
+///    has chosen which version of the interface this call belongs to.
+///
+/// Hand-writing both layers is repetitive and error-prone: every new version adds two structs
+/// (input and output), two enum variants, two `From` impls, two `TryFrom` impls, and a fresh batch
+/// of accessor methods, and any drift between the input and output sides has to be caught by code
+/// review. `define_versioned_interface!` collapses all of that boilerplate to the only thing that
+/// genuinely changes between versions: the field shapes of the input and output payloads.
+///
+/// One invocation declares one interface family. Multiple unrelated interfaces (e.g. `eth_transact`
+/// and `estimate_gas`) live in separate invocations.
+///
+/// `define_versioned_interface!` is the *interface* counterpart to `define_versioned_type!`: the
+/// type macro expresses each version of one struct as a delta from the previous version, while
+/// this macro pairs the input and output types of one runtime API and emits the wire-level enums
+/// and conversions that connect them.
+///
+/// # At a glance
+///
+/// The simplest invocation declares both sides of one interface for two versions. The payload
+/// structs are emitted verbatim; the macro adds one versioned enum per side, an inherent `impl`
+/// block of helpers, and `From`/`TryFrom` impls for each variant.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactInputPayloadV1 {
+///         pub tx: GenericTransaction,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactOutputPayloadV1 {
+///         pub result: EthTransactInfo,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactInputPayloadV2 {
+///         pub tx: GenericTransaction,
+///         pub config: DryRunConfig,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactOutputPayloadV2 {
+///         pub result: EthTransactInfo,
+///     }
+/// }
+/// ```
+///
+/// expands (conceptually) to the four payload structs verbatim, plus:
+///
+/// ```ignore
+/// // One enum per side, with each variant boxing its payload to keep the enum a fixed size.
+/// #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+/// pub enum VersionedEthTransactInputPayload {
+///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1>),
+///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2>),
+/// }
+/// // …and identically `VersionedEthTransactOutputPayload` with V1/V2 boxed variants.
+///
+/// // An inherent impl with constructors, version inspection, and per-version accessors.
+/// impl VersionedEthTransactInputPayload {
+///     pub fn new_v1(payload: EthTransactInputPayloadV1) -> Self { /* … */ }
+///     pub fn new_v2(payload: EthTransactInputPayloadV2) -> Self { /* … */ }
+///
+///     pub fn version(&self) -> usize { /* returns 1 for V1, 2 for V2 */ }
+///
+///     pub fn as_v1(&self) -> Option<&EthTransactInputPayloadV1> { /* … */ }
+///     pub fn into_v1(self) -> Option<EthTransactInputPayloadV1> { /* … */ }
+///     pub fn unwrap_v1(self) -> EthTransactInputPayloadV1 { /* panics on a different variant */ }
+///     // …same trio for v2.
+/// }
+///
+/// // `From` and `TryFrom` impls for every variant.
+/// impl ::core::convert::From<EthTransactInputPayloadV1> for VersionedEthTransactInputPayload {
+///     fn from(payload: EthTransactInputPayloadV1) -> Self { /* Self::V1(Box::new(payload)) */ }
+/// }
+/// impl ::core::convert::TryFrom<VersionedEthTransactInputPayload> for EthTransactInputPayloadV1 {
+///     type Error = ();
+///     fn try_from(versioned: VersionedEthTransactInputPayload) -> Result<Self, ()> {
+///         /* Ok(*v) on V1, Err(()) on every other variant */
+///     }
+/// }
+/// // …same `From` and `TryFrom` for V2, plus the same trio of helpers, From, and TryFrom for the
+/// // output side.
+/// ```
+///
+/// # Naming convention
+///
+/// Every payload identifier must match `{Name}{Side}PayloadV{n}` exactly:
+///
+/// * `{Name}` — the *family name*. A non-empty identifier prefix that is identical for every
+///   payload in the invocation. The family name may itself contain the letter `V`; the parser
+///   locates the version suffix by splitting at the *last* `V` in the identifier, so
+///   `EveVInputPayloadV1` is accepted and parses as the family `EveV` at version 1.
+/// * `{Side}` — exactly the literal `InputPayload` or `OutputPayload`. No other tokens are
+///   permitted in this position.
+/// * `V{n}` — the literal `V` followed by a positive decimal integer with no leading zeros. `V0`
+///   is rejected (versions start at 1) and `V01`, `V001`, `V010` are rejected (leading zero). The
+///   integer must be parseable as a `usize`.
+///
+/// Identifiers that fail to split into all three components are rejected with diagnostics that
+/// point at the offending identifier:
+///
+/// * `EthTransactPayloadV1` — missing `Input`/`Output`.
+/// * `InputPayloadV1` — empty family name.
+/// * `EthTransactInputPayloadVNext` — non-numeric version.
+/// * `EthTransactInputPayloadV1Extra` — extra suffix after the version.
+/// * `EthTransactInputPayloadV` — `V` with no digit suffix.
+///
+/// # Versioning rules
+///
+/// Within one invocation:
+///
+/// * Every payload must use the same family name. Mixing `EthTransactInputPayloadV1` with
+///   `EstimateGasOutputPayloadV1` is rejected and the diagnostic points at both spans.
+/// * Every version must define both an input payload *and* an output payload. The diagnostic names
+///   the missing struct (e.g. ``Expected `EthTransactOutputPayloadV1` to pair with
+///   `EthTransactInputPayloadV1` ``) and accumulates one error per missing pair so a single compile
+///   pass surfaces them all.
+/// * Versions must be contiguous. If you ship `V1` and `V3`, the macro reports the missing `V2`
+///   and points at the `V3` definition.
+/// * Versions need *not* start at `V1`. A family can begin at `V3`, `V42`, or any positive integer
+///   — only contiguity from the chosen starting point matters. This is useful when an interface
+///   is grafted onto an older numbering scheme or extracted from a previous codebase.
+/// * The same `(side, version)` pair cannot appear twice; a duplicate is rejected with both spans
+///   pointed out.
+/// * Source order is irrelevant. You can write V4 before V3, or interleave input and output
+///   structs however you find readable; the generated enum variants are always emitted in
+///   ascending version order.
+/// * Only named-field structs are accepted. Tuple structs (`struct V1(u32);`), unit structs
+///   (`struct V1;`), enums, type aliases, `const`s, `static`s, modules, `impl` blocks, functions,
+///   and unions are rejected with a diagnostic that names the offending kind.
+/// * The invocation must contribute at least one input and one output payload — empty input is
+///   rejected.
+///
+/// # Generated items
+///
+/// For every invocation, the macro emits, in this order:
+///
+/// 1. **Each payload struct, verbatim.** Doc comments, `#[derive(...)]`, `#[cfg(...)]`,
+///    `#[serde(...)]`, visibility, generic parameters, where-clauses, field attributes, and field
+///    visibility are all preserved exactly as written. The macro never edits the body of a payload
+///    struct.
+/// 2. **`Versioned{Name}InputPayload`** — a `pub` enum with one `V{n}` variant per input payload
+///    version. Each variant wraps the payload in `::alloc::boxed::Box<…>` so that every variant is
+///    the same size and the enum's footprint stays bounded as new versions are added.
+/// 3. **`Versioned{Name}OutputPayload`** — same shape as the input enum, listed independently.
+/// 4. For each enum, an inherent `impl` block exposing:
+///    - `pub fn new_v{n}(payload: PayloadVn) -> Self` — builds the corresponding variant.
+///    - `pub fn version(&self) -> usize` — returns the integer version of the held variant (`1`,
+///      `2`, `3`, …).
+///    - `pub fn as_v{n}(&self) -> Option<&PayloadVn>` — borrowing accessor; `None` if the
+///      contained variant is a different version.
+///    - `pub fn into_v{n}(self) -> Option<PayloadVn>` — consuming accessor; `None` if the
+///      contained variant is a different version.
+///    - `pub fn unwrap_v{n}(self) -> PayloadVn` — consuming accessor that panics with a message
+///      identifying the actual version (`Expected this to be a v3 variant, but it is a v2
+///      variant`) on a mismatched variant.
+/// 5. For each variant, an `impl ::core::convert::From<PayloadVn> for Versioned…Payload` that
+///    boxes the payload into the matching variant.
+/// 6. For each variant, an `impl ::core::convert::TryFrom<Versioned…Payload> for PayloadVn` with
+///    `type Error = ()` that returns `Ok(payload)` on the matching variant and `Err(())` on every
+///    other variant. The `match` lists every variant explicitly — there is no wildcard arm — so
+///    single-variant enums compile cleanly without unreachable-pattern warnings.
+///
+/// All of these identifiers are predictable from the family name and the version numbers, so
+/// downstream code can refer to them directly without inspecting the expansion.
+///
+/// # Why are variants boxed?
+///
+/// Each enum variant carries a `Box<PayloadVn>` rather than the payload directly. Without the box
+/// the enum's size grows with every new version, since a Rust enum is laid out at the size of its
+/// largest variant. Boxing keeps the enum at a single pointer's width regardless of how the
+/// payloads evolve, which matters when many of these are stored in collections, encoded for the
+/// wire, or held in long-lived state.
+///
+/// The cost is a single heap allocation on construction, which is negligible compared to the
+/// runtime API call the value is feeding into.
+///
+/// Because the macro emits the fully qualified path `::alloc::boxed::Box`, the consuming crate
+/// must have `alloc` reachable. In a `no_std` crate this means `extern crate alloc;` somewhere in
+/// the crate root; in an `std`-linked crate `alloc` is reachable transparently.
+///
+/// # Generics across versions
+///
+/// Each payload struct may declare its own generic parameters and where-clauses. The generated
+/// versioned enum carries the *union* of the parameters and the *union* of the bounds on each
+/// side, computed independently per side:
+///
+/// * Lifetime, type, and const parameters with the same name across versions are merged into a
+///   single declaration on the enum.
+/// * Inline bounds on a shared name are concatenated. If `V1` declares `T: Clone` and `V2`
+///   declares `T: Default`, the enum and every conversion impl on that side carry
+///   `T: Clone + Default`.
+/// * `where`-clause predicates from every payload on a side are concatenated. They are not
+///   deduplicated — if two payloads both declare `where T: Clone`, the enum's `where` clause
+///   contains both predicates. This compiles correctly and is rarely user-visible, but it is a
+///   detail worth knowing if you ever read the expansion.
+/// * Same-name parameters of *different kinds* (e.g. `T` is a type parameter in `V1` but a const
+///   parameter in `V2`) are rejected with a diagnostic that points at both definitions.
+/// * Same-name const parameters with *different types* (`const N: usize` vs. `const N: u32`) are
+///   rejected with a diagnostic that points at both definitions.
+///
+/// The merge happens per side. The input enum sees only the input payloads' generics; the output
+/// enum sees only the output payloads' generics. A type parameter that appears only on the input
+/// side does not bleed into the output enum.
+///
+/// Because the enum carries the union, every conversion impl uses the *enum's* generic signature
+/// — even when the payload alone needs fewer bounds. A `From<PayloadV1>` impl is callable only
+/// when the *enum-level* bounds are satisfied, not just `V1`'s narrower bounds. In practice this
+/// is a non-issue because constructing the enum already requires the union, but it explains why
+/// later versions' bounds appear together with `V1`'s at the conversion site.
+///
+/// # Derive forwarding
+///
+/// `#[derive(...)]` attributes on payload structs propagate to the generated enum on a per-side,
+/// *intersection* basis:
+///
+/// * The macro inspects every `#[derive(...)]` attribute on every payload on a side.
+/// * It computes the set of derive paths that appear on *every* payload on that side, in the
+///   source order they appear on the first payload.
+/// * That set is emitted as a single `#[derive(...)]` on the corresponding enum.
+///
+/// If `EthTransactInputPayloadV1` derives `Clone, Debug` and `EthTransactInputPayloadV2` derives
+/// only `Clone`, the input enum derives `Clone` (the intersection). The output side is computed
+/// independently — it does not see the input side's derives. Non-derive attributes
+/// (`#[doc = "…"]`, `#[cfg(...)]`, `#[serde(...)]`, `#[encode(...)]`, …) are *not* propagated;
+/// they remain on each payload struct only.
+///
+/// Multiple `#[derive(...)]` attributes on a single payload are flattened together. Malformed
+/// derive arguments inside a payload produce a diagnostic that names the offending payload.
+///
+/// # Examples
+///
+/// ## A two-version interface, no generics
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactInputPayloadV1 {
+///         pub tx: GenericTransaction,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactOutputPayloadV1 {
+///         pub result: EthTransactInfo,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactInputPayloadV2 {
+///         pub tx: GenericTransaction,
+///         pub config: DryRunConfig,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Encode, Decode)]
+///     pub struct EthTransactOutputPayloadV2 {
+///         pub result: EthTransactInfo,
+///     }
+/// }
+///
+/// // Build a versioned input from a v2 payload using `From`:
+/// let payload = EthTransactInputPayloadV2 { tx: some_tx, config: some_config };
+/// let versioned: VersionedEthTransactInputPayload = payload.into();
+///
+/// // Inspect its version, then borrow the inner data without consuming the enum:
+/// assert_eq!(versioned.version(), 2);
+/// let v2_ref: Option<&EthTransactInputPayloadV2> = versioned.as_v2();
+///
+/// // Convert back to a concrete version, returning Err(()) on any other variant:
+/// let v1: Result<EthTransactInputPayloadV1, ()> = versioned.try_into();
+/// assert_eq!(v1, Err(()));
+/// ```
+///
+/// ## A single version, starting after V1
+///
+/// Versions need not start at 1 — a family that begins at V7 is valid. Such an invocation
+/// generates exactly one `V7` variant and the matching helper trio, plus the `From`/`TryFrom`
+/// pair. The `TryFrom` impl emits an exhaustive `match` with no wildcard arm, so it compiles
+/// without unreachable-pattern warnings.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct SingleInputPayloadV7 {
+///         pub value: u8,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct SingleOutputPayloadV7 {
+///         pub value: u8,
+///     }
+/// }
+///
+/// let v7 = SingleInputPayloadV7 { value: 17 };
+/// let versioned = VersionedSingleInputPayload::from(v7.clone());
+/// assert_eq!(SingleInputPayloadV7::try_from(versioned), Ok(v7));
+/// ```
+///
+/// ## Out-of-order definitions
+///
+/// The macro does not require source order to follow version order. The generated enum variants
+/// are always emitted in ascending version order regardless of how the structs are written, and
+/// input and output payloads can be freely interleaved.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     // V4 first, V3 second — the generated enum has V3 then V4 anyway.
+///     pub struct TransferInputPayloadV4 {
+///         pub account: u64,
+///         pub amount: u128,
+///         pub memo: Option<&'static str>,
+///     }
+///
+///     pub struct TransferOutputPayloadV4 {
+///         pub accepted: bool,
+///         pub receipt: Option<u64>,
+///     }
+///
+///     pub struct TransferInputPayloadV3 {
+///         pub account: u64,
+///         pub amount: u128,
+///     }
+///
+///     pub struct TransferOutputPayloadV3 {
+///         pub accepted: bool,
+///     }
+/// }
+/// ```
+///
+/// ## Generic payloads with merged inline bounds
+///
+/// Per-version inline bounds are unioned per side. Below, `T: Clone` from V1 and `T: Default` from
+/// V2 merge into `T: Clone + Default` on the input enum; the output side is non-generic because
+/// none of its payloads declare any generics.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct EthTransactInputPayloadV1<T: Clone> {
+///         pub tx: u8,
+///         pub marker: T,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct EthTransactOutputPayloadV1 {
+///         pub result: u8,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct EthTransactInputPayloadV2<T: Default>
+///     where
+///         T: Clone,
+///     {
+///         pub tx: u8,
+///         pub marker: T,
+///         pub timestamp: u64,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct EthTransactOutputPayloadV2 {
+///         pub result: u16,
+///     }
+/// }
+/// ```
+///
+/// expands the input enum to (approximately):
+///
+/// ```ignore
+/// #[derive(Clone, Debug, PartialEq)]
+/// pub enum VersionedEthTransactInputPayload<T: Clone + Default>
+/// where
+///     T: Clone,
+/// {
+///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1<T>>),
+///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2<T>>),
+/// }
+/// ```
+///
+/// (The `where T: Clone` predicate is preserved verbatim from V2's payload — the macro unions
+/// where-clauses without deduplication.)
+///
+/// ## Lifetime and const generics
+///
+/// Lifetime parameters and const parameters merge the same way as type parameters. The example
+/// below mixes a borrowed key, a const generic for an array length, and an output side whose own
+/// generics differ from the input side's.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct QueryInputPayloadV1<'a, T: Clone>
+///     where
+///         T: PartialEq,
+///     {
+///         pub key: &'a T,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct QueryOutputPayloadV1<R>
+///     where
+///         R: Clone + PartialEq,
+///     {
+///         pub value: Option<R>,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct QueryInputPayloadV2<'a, T: Default, const N: usize>
+///     where
+///         T: Clone + PartialEq,
+///     {
+///         pub key: T,
+///         pub borrowed: Option<&'a T>,
+///         pub bytes: [u8; N],
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq)]
+///     pub struct QueryOutputPayloadV2<R, E>
+///     where
+///         R: Clone + PartialEq,
+///         E: Clone + PartialEq,
+///     {
+///         pub value: Option<R>,
+///         pub error: Option<E>,
+///     }
+/// }
+/// ```
+///
+/// The input enum becomes `VersionedQueryInputPayload<'a, T: Clone + Default + PartialEq, const N:
+/// usize>` and the output enum becomes `VersionedQueryOutputPayload<R, E>`, each carrying the
+/// merged where-clauses from its own side.
+///
+/// ## Asymmetric derives between input and output
+///
+/// Input and output payloads do not need to derive the same set of traits. The macro intersects
+/// the derives on each side independently — an enum receives only the derives shared by every
+/// payload on its side.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     #[derive(Clone, Debug, PartialEq, Eq)]
+///     pub struct AuditInputPayloadV1 {
+///         pub id: u64,
+///     }
+///
+///     // The output payloads do not derive `Clone`. The output enum will not derive `Clone`
+///     // either, but the input enum still derives `Clone` because both inputs derive it.
+///     #[derive(Debug, PartialEq, Eq)]
+///     pub struct AuditOutputPayloadV1 {
+///         pub ok: bool,
+///     }
+///
+///     #[derive(Clone, Debug, PartialEq, Eq)]
+///     pub struct AuditInputPayloadV2 {
+///         pub id: u64,
+///         pub tag: &'static str,
+///     }
+///
+///     #[derive(Debug, PartialEq, Eq)]
+///     pub struct AuditOutputPayloadV2 {
+///         pub ok: bool,
+///         pub code: u16,
+///     }
+/// }
+///
+/// // Input enum derives:  Clone, Debug, PartialEq, Eq
+/// // Output enum derives: Debug, PartialEq, Eq
+/// ```
+///
+/// ## Visibility, doc comments, and other attributes are preserved
+///
+/// Each payload struct keeps the visibility, doc comments, and any unrelated attributes it was
+/// written with. The generated enum is always `pub`; the macro does not propagate `#[cfg(...)]`,
+/// `#[doc(...)]`, or any other attribute from the payload structs to the enum. If you need to
+/// gate the entire interface, wrap the invocation in a private module or apply the attribute at
+/// the use site.
+///
+/// ```ignore
+/// define_versioned_interface! {
+///     /// The first version of the request shape. Carries the raw transaction.
+///     #[derive(Clone, Debug, PartialEq)]
+///     #[cfg(feature = "rpc")]
+///     pub(crate) struct EthTransactInputPayloadV1 {
+///         /// The encoded transaction submitted by the client.
+///         pub tx: Vec<u8>,
+///     }
+///
+///     /// The first version of the response shape.
+///     #[derive(Clone, Debug, PartialEq)]
+///     #[cfg(feature = "rpc")]
+///     pub(crate) struct EthTransactOutputPayloadV1 {
+///         pub result: u32,
+///     }
+/// }
+/// ```
+///
+/// The doc comments, the `#[cfg(...)]`, and the `pub(crate)` are preserved on each emitted payload
+/// struct; the generated `VersionedEthTransactInputPayload` and `VersionedEthTransactOutputPayload`
+/// enums are emitted as plain `pub` items without those attributes.
+///
+/// ## Constructing, inspecting, and round-tripping a value
+///
+/// ```ignore
+/// // Two equivalent ways to build a versioned value: an explicit constructor and `From`.
+/// let payload = EthTransactInputPayloadV2 { tx: some_tx, config: some_config };
+/// let v_via_new = VersionedEthTransactInputPayload::new_v2(payload.clone());
+/// let v_via_from = VersionedEthTransactInputPayload::from(payload.clone());
+/// assert_eq!(v_via_new, v_via_from);
+///
+/// // Inspect the version without consuming the value:
+/// assert_eq!(v_via_new.version(), 2);
+///
+/// // Borrow the inner payload, then later consume the enum to recover ownership:
+/// assert!(v_via_new.as_v1().is_none());
+/// assert!(v_via_new.as_v2().is_some());
+/// let inner: Option<EthTransactInputPayloadV2> = v_via_new.into_v2();
+/// assert_eq!(inner, Some(payload));
+///
+/// // The `unwrap_*` family panics with the actual version on a mismatch:
+/// let v2 = VersionedEthTransactInputPayload::new_v2(other_payload);
+/// // v2.unwrap_v1() panics with: "Expected this to be a v1 variant, but it is a v2 variant".
+/// ```
+///
+/// ## Round-tripping through `From` and `TryFrom`
+///
+/// ```ignore
+/// // `From` always succeeds — the conversion target is a single variant.
+/// let v2 = EthTransactInputPayloadV2 { tx: some_tx, config: some_config };
+/// let versioned: VersionedEthTransactInputPayload = v2.clone().into();
+///
+/// // `TryFrom` succeeds on a matching variant…
+/// let extracted: EthTransactInputPayloadV2 =
+///     EthTransactInputPayloadV2::try_from(versioned).unwrap();
+/// assert_eq!(extracted, v2);
+///
+/// // …and returns `Err(())` on every other variant.
+/// let v1 = VersionedEthTransactInputPayload::new_v1(EthTransactInputPayloadV1 { tx: some_tx });
+/// let attempted = EthTransactInputPayloadV2::try_from(v1);
+/// assert_eq!(attempted, Err(()));
+/// ```
+///
+/// # Diagnostics
+///
+/// Every error reported by the macro is a compile error with spans pointing at the offending
+/// source. The diagnostics fall into a small number of categories:
+///
+/// * **Naming.** Missing or empty `V`-suffix; non-numeric version (`VNext`); leading-zero version
+///   (`V01`); zero version (`V0`); missing `Input`/`Output` (`EthTransactPayloadV1`); empty family
+///   name (`InputPayloadV1`); extra suffix after the version (`EthTransactInputPayloadV1Extra`).
+/// * **Item shape.** Tuple struct, unit struct, enum, function, module, `impl`, type alias,
+///   `const`, `static`, or `union` items. The diagnostic names the offending kind so the
+///   correction is clear.
+/// * **Family-level pairing.** Different family names mixed in one invocation; missing input or
+///   missing output payload for a version (one diagnostic per missing pair, accumulated so a
+///   single compile pass surfaces them all); duplicate `(side, version)` pair; non-contiguous
+///   versions; empty input.
+/// * **Generic merging.** A name used as a different kind across versions (lifetime vs. type vs.
+///   const); a const parameter declared with two different concrete types (`const N: usize` vs.
+///   `const N: u32`).
+/// * **Derive parsing.** Malformed derive arguments inside a payload; the macro surfaces the
+///   underlying parse error along with a note identifying the payload it failed on.
+///
+/// Each diagnostic identifies both the offending site and any earlier site it conflicts with, so
+/// the error is actionable without having to scroll back through the source.
+///
+/// # Gotchas
+///
+/// * **Naming is non-negotiable.** Even small typos (`EthTransactInputV1` instead of
+///   `EthTransactInputPayloadV1`) are rejected. The generated enum uses the family name verbatim,
+///   so the family name is also user-visible — choose it as you would a public type.
+/// * **Variants are heap-allocated.** The macro forces every variant through `Box`. This is
+///   intentional but worth noting: avoid the macro for hot paths where the allocation cost
+///   matters (it is fine for the runtime API boundary it was designed for).
+/// * **`alloc` must be reachable.** The expansion uses `::alloc::boxed::Box`, so a `no_std` crate
+///   without `extern crate alloc;` will fail to compile.
+/// * **Bounds on the enum are the union.** A user calling `VersionedX::from(v1_payload)` has to
+///   satisfy the *enum's* bounds, which include any later versions' bounds, not just the bounds
+///   on V1. This is unavoidable because the value being constructed is the enum, but it can
+///   surprise readers who only consult the V1 payload's bounds.
+/// * **`From` and `TryFrom` are emitted unconditionally.** They are not gated on whether the
+///   payload struct itself implements anything; the impls only require the enum's bounds.
+/// * **Enum visibility is fixed at `pub`.** The macro does not let you scope the generated enum
+///   to `pub(crate)` or `pub(super)`. If you need a non-public enum, place the entire invocation
+///   inside a private module.
+/// * **Trait impls always pick the merged generics.** The `From`/`TryFrom` impls use the enum's
+///   full generic signature even when the payload alone has fewer parameters. Calls that cannot
+///   infer the missing parameters (e.g. an output-side type parameter that only appears in V2)
+///   require explicit turbofish at the call site.
+/// * **Non-derive attributes are not propagated to the enum.** `#[doc(...)]`, `#[cfg(...)]`,
+///   `#[serde(...)]`, and other attributes stay on the payload structs. If you need them on the
+///   enum, write them on the wrapping module that contains the invocation.
+#[proc_macro]
+pub fn define_versioned_interface(input: TokenStream) -> TokenStream {
+	let input = syn::parse_macro_input!(
+		input as handle_define_versioned_interface::DefineVersionedInterfaceInput
+	);
+	let output = match handle_define_versioned_interface::handle_define_versioned_interface(input) {
+		Ok(output) => output,
+		Err(error) => return error.to_compile_error().into(),
+	};
+
+	output.into()
 }
 
 /// Parsed environment definition.

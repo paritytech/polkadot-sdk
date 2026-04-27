@@ -1,0 +1,11 @@
+error: generic parameter `T` is used as a const parameter here, but it was already used as a type parameter
+  --> tests/ui/define_versioned_interface/fail/generic_conflict.rs:12:45
+   |
+12 |     pub struct UiGenericConflictInputPayloadV2<const T: usize> {
+   |                                                ^^^^^^^^^^^^^^
+
+error: first generic parameter `T` is defined here
+ --> tests/ui/define_versioned_interface/fail/generic_conflict.rs:4:45
+  |
+4 |     pub struct UiGenericConflictInputPayloadV1<T> {
+  |                                                ^

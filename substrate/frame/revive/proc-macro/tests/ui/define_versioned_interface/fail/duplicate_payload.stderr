@@ -1,0 +1,11 @@
+error: duplicate input payload version V1 for `UiDuplicate`
+ --> tests/ui/define_versioned_interface/fail/duplicate_payload.rs:8:13
+  |
+8 |     pub struct UiDuplicateInputPayloadV1 {
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+error: first input payload for version V1 is defined here
+ --> tests/ui/define_versioned_interface/fail/duplicate_payload.rs:4:13
+  |
+4 |     pub struct UiDuplicateInputPayloadV1 {
+  |                ^^^^^^^^^^^^^^^^^^^^^^^^^
