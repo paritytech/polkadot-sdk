@@ -33,7 +33,6 @@ use std::time::Duration;
 
 const OVERSIZED_PAYLOAD: usize = 7 * 1024 * 1024 + 921 * 1024; // ≈ 7.9 MiB
 const ACCEPTED_PAYLOAD: usize = 7 * 1024 * 1024;
-const LEGACY_MAX_BLOCK_LENGTH: usize = 5 * 1024 * 1024;
 const SUBMIT_TIMEOUT: Duration = Duration::from_secs(60);
 const BLOCK_WAIT_TIMEOUT: Duration = Duration::from_secs(180);
 
