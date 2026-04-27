@@ -849,8 +849,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// // One enum per side, with each variant boxing its payload to keep the enum a fixed size.
 /// #[derive(Clone, Debug, PartialEq, Encode, Decode)]
 /// pub enum VersionedEthTransactInputPayload {
-///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1>),
-///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2>),
+///     V1(::std::boxed::Box<EthTransactInputPayloadV1>),
+///     V2(::std::boxed::Box<EthTransactInputPayloadV2>),
 /// }
 /// // …and identically `VersionedEthTransactOutputPayload` with V1/V2 boxed variants.
 ///
@@ -891,8 +891,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///   `EveVInputPayloadV1` is accepted and parses as the family `EveV` at version 1.
 /// * `{Side}` — exactly the literal `InputPayload` or `OutputPayload`. No other tokens are
 ///   permitted in this position.
-/// * `V{n}` — the literal `V` followed by a positive decimal integer with no leading zeros. `V0`
-///   is rejected (versions start at 1) and `V01`, `V001`, `V010` are rejected (leading zero). The
+/// * `V{n}` — the literal `V` followed by a positive decimal integer with no leading zeros. `V0` is
+///   rejected (versions start at 1) and `V01`, `V001`, `V010` are rejected (leading zero). The
 ///   integer must be parseable as a `usize`.
 ///
 /// Identifiers that fail to split into all three components are rejected with diagnostics that
@@ -914,16 +914,16 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///   the missing struct (e.g. ``Expected `EthTransactOutputPayloadV1` to pair with
 ///   `EthTransactInputPayloadV1` ``) and accumulates one error per missing pair so a single compile
 ///   pass surfaces them all.
-/// * Versions must be contiguous. If you ship `V1` and `V3`, the macro reports the missing `V2`
-///   and points at the `V3` definition.
+/// * Versions must be contiguous. If you ship `V1` and `V3`, the macro reports the missing `V2` and
+///   points at the `V3` definition.
 /// * Versions need *not* start at `V1`. A family can begin at `V3`, `V42`, or any positive integer
-///   — only contiguity from the chosen starting point matters. This is useful when an interface
-///   is grafted onto an older numbering scheme or extracted from a previous codebase.
+///   — only contiguity from the chosen starting point matters. This is useful when an interface is
+///   grafted onto an older numbering scheme or extracted from a previous codebase.
 /// * The same `(side, version)` pair cannot appear twice; a duplicate is rejected with both spans
 ///   pointed out.
-/// * Source order is irrelevant. You can write V4 before V3, or interleave input and output
-///   structs however you find readable; the generated enum variants are always emitted in
-///   ascending version order.
+/// * Source order is irrelevant. You can write V4 before V3, or interleave input and output structs
+///   however you find readable; the generated enum variants are always emitted in ascending version
+///   order.
 /// * Only named-field structs are accepted. Tuple structs (`struct V1(u32);`), unit structs
 ///   (`struct V1;`), enums, type aliases, `const`s, `static`s, modules, `impl` blocks, functions,
 ///   and unions are rejected with a diagnostic that names the offending kind.
@@ -939,22 +939,22 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///    visibility are all preserved exactly as written. The macro never edits the body of a payload
 ///    struct.
 /// 2. **`Versioned{Name}InputPayload`** — a `pub` enum with one `V{n}` variant per input payload
-///    version. Each variant wraps the payload in `::alloc::boxed::Box<…>` so that every variant is
-///    the same size and the enum's footprint stays bounded as new versions are added.
+///    version. Each variant wraps the payload in `Box<…>` so that every variant is the same size
+///    and the enum's footprint stays bounded as new versions are added.
 /// 3. **`Versioned{Name}OutputPayload`** — same shape as the input enum, listed independently.
 /// 4. For each enum, an inherent `impl` block exposing:
 ///    - `pub fn new_v{n}(payload: PayloadVn) -> Self` — builds the corresponding variant.
 ///    - `pub fn version(&self) -> usize` — returns the integer version of the held variant (`1`,
 ///      `2`, `3`, …).
-///    - `pub fn as_v{n}(&self) -> Option<&PayloadVn>` — borrowing accessor; `None` if the
-///      contained variant is a different version.
-///    - `pub fn into_v{n}(self) -> Option<PayloadVn>` — consuming accessor; `None` if the
-///      contained variant is a different version.
+///    - `pub fn as_v{n}(&self) -> Option<&PayloadVn>` — borrowing accessor; `None` if the contained
+///      variant is a different version.
+///    - `pub fn into_v{n}(self) -> Option<PayloadVn>` — consuming accessor; `None` if the contained
+///      variant is a different version.
 ///    - `pub fn unwrap_v{n}(self) -> PayloadVn` — consuming accessor that panics with a message
-///      identifying the actual version (`Expected this to be a v3 variant, but it is a v2
-///      variant`) on a mismatched variant.
-/// 5. For each variant, an `impl ::core::convert::From<PayloadVn> for Versioned…Payload` that
-///    boxes the payload into the matching variant.
+///      identifying the actual version (`Expected this to be a v3 variant, but it is a v2 variant`)
+///      on a mismatched variant.
+/// 5. For each variant, an `impl ::core::convert::From<PayloadVn> for Versioned…Payload` that boxes
+///    the payload into the matching variant.
 /// 6. For each variant, an `impl ::core::convert::TryFrom<Versioned…Payload> for PayloadVn` with
 ///    `type Error = ()` that returns `Ok(payload)` on the matching variant and `Err(())` on every
 ///    other variant. The `match` lists every variant explicitly — there is no wildcard arm — so
@@ -974,9 +974,10 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// The cost is a single heap allocation on construction, which is negligible compared to the
 /// runtime API call the value is feeding into.
 ///
-/// Because the macro emits the fully qualified path `::alloc::boxed::Box`, the consuming crate
-/// must have `alloc` reachable. In a `no_std` crate this means `extern crate alloc;` somewhere in
-/// the crate root; in an `std`-linked crate `alloc` is reachable transparently.
+/// With the default `std` feature enabled on `pallet-revive-proc-macro`, the generated code uses
+/// `::std::boxed::Box`. With default features disabled, it uses `::alloc::boxed::Box` instead.
+/// Consuming no-std crates must make `alloc` reachable, usually with `extern crate alloc;` in the
+/// crate root.
 ///
 /// # Generics across versions
 ///
@@ -986,9 +987,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// * Lifetime, type, and const parameters with the same name across versions are merged into a
 ///   single declaration on the enum.
-/// * Inline bounds on a shared name are concatenated. If `V1` declares `T: Clone` and `V2`
-///   declares `T: Default`, the enum and every conversion impl on that side carry
-///   `T: Clone + Default`.
+/// * Inline bounds on a shared name are concatenated. If `V1` declares `T: Clone` and `V2` declares
+///   `T: Default`, the enum and every conversion impl on that side carry `T: Clone + Default`.
 /// * `where`-clause predicates from every payload on a side are concatenated. They are not
 ///   deduplicated — if two payloads both declare `where T: Clone`, the enum's `where` clause
 ///   contains both predicates. This compiles correctly and is rarely user-visible, but it is a
@@ -1014,8 +1014,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// *intersection* basis:
 ///
 /// * The macro inspects every `#[derive(...)]` attribute on every payload on a side.
-/// * It computes the set of derive paths that appear on *every* payload on that side, in the
-///   source order they appear on the first payload.
+/// * It computes the set of derive paths that appear on *every* payload on that side, in the source
+///   order they appear on the first payload.
 /// * That set is emitted as a single `#[derive(...)]` on the corresponding enum.
 ///
 /// If `EthTransactInputPayloadV1` derives `Clone, Debug` and `EthTransactInputPayloadV2` derives
@@ -1168,8 +1168,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// where
 ///     T: Clone,
 /// {
-///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1<T>>),
-///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2<T>>),
+///     V1(::std::boxed::Box<EthTransactInputPayloadV1<T>>),
+///     V2(::std::boxed::Box<EthTransactInputPayloadV2<T>>),
 /// }
 /// ```
 ///
@@ -1344,12 +1344,12 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///   (`V01`); zero version (`V0`); missing `Input`/`Output` (`EthTransactPayloadV1`); empty family
 ///   name (`InputPayloadV1`); extra suffix after the version (`EthTransactInputPayloadV1Extra`).
 /// * **Item shape.** Tuple struct, unit struct, enum, function, module, `impl`, type alias,
-///   `const`, `static`, or `union` items. The diagnostic names the offending kind so the
-///   correction is clear.
+///   `const`, `static`, or `union` items. The diagnostic names the offending kind so the correction
+///   is clear.
 /// * **Family-level pairing.** Different family names mixed in one invocation; missing input or
-///   missing output payload for a version (one diagnostic per missing pair, accumulated so a
-///   single compile pass surfaces them all); duplicate `(side, version)` pair; non-contiguous
-///   versions; empty input.
+///   missing output payload for a version (one diagnostic per missing pair, accumulated so a single
+///   compile pass surfaces them all); duplicate `(side, version)` pair; non-contiguous versions;
+///   empty input.
 /// * **Generic merging.** A name used as a different kind across versions (lifetime vs. type vs.
 ///   const); a const parameter declared with two different concrete types (`const N: usize` vs.
 ///   `const N: u32`).
@@ -1365,18 +1365,19 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///   `EthTransactInputPayloadV1`) are rejected. The generated enum uses the family name verbatim,
 ///   so the family name is also user-visible — choose it as you would a public type.
 /// * **Variants are heap-allocated.** The macro forces every variant through `Box`. This is
-///   intentional but worth noting: avoid the macro for hot paths where the allocation cost
-///   matters (it is fine for the runtime API boundary it was designed for).
-/// * **`alloc` must be reachable.** The expansion uses `::alloc::boxed::Box`, so a `no_std` crate
+///   intentional but worth noting: avoid the macro for hot paths where the allocation cost matters
+///   (it is fine for the runtime API boundary it was designed for).
+/// * **`alloc` must be reachable in no-std consumers.** Disabling default features on
+///   `pallet-revive-proc-macro` makes the expansion use `::alloc::boxed::Box`, so a no-std crate
 ///   without `extern crate alloc;` will fail to compile.
 /// * **Bounds on the enum are the union.** A user calling `VersionedX::from(v1_payload)` has to
-///   satisfy the *enum's* bounds, which include any later versions' bounds, not just the bounds
-///   on V1. This is unavoidable because the value being constructed is the enum, but it can
-///   surprise readers who only consult the V1 payload's bounds.
+///   satisfy the *enum's* bounds, which include any later versions' bounds, not just the bounds on
+///   V1. This is unavoidable because the value being constructed is the enum, but it can surprise
+///   readers who only consult the V1 payload's bounds.
 /// * **`From` and `TryFrom` are emitted unconditionally.** They are not gated on whether the
 ///   payload struct itself implements anything; the impls only require the enum's bounds.
-/// * **Enum visibility is fixed at `pub`.** The macro does not let you scope the generated enum
-///   to `pub(crate)` or `pub(super)`. If you need a non-public enum, place the entire invocation
+/// * **Enum visibility is fixed at `pub`.** The macro does not let you scope the generated enum to
+///   `pub(crate)` or `pub(super)`. If you need a non-public enum, place the entire invocation
 ///   inside a private module.
 /// * **Trait impls always pick the merged generics.** The `From`/`TryFrom` impls use the enum's
 ///   full generic signature even when the payload alone has fewer parameters. Calls that cannot

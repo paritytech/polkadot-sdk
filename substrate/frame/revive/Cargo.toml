@@ -50,7 +50,7 @@ frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-revive-fixtures = { workspace = true, optional = true }
-pallet-revive-proc-macro = { workspace = true }
+pallet-revive-proc-macro = { workspace = true, default-features = false }
 pallet-revive-uapi = { workspace = true, features = ["precompiles-sol-interfaces", "scale"] }
 pallet-transaction-payment = { workspace = true }
 ripemd = { workspace = true }
@@ -107,6 +107,7 @@ std = [
 	"num-traits/std",
 	"pallet-proxy/std",
 	"pallet-revive-fixtures?/std",
+	"pallet-revive-proc-macro/std",
 	"pallet-timestamp/std",
 	"pallet-transaction-payment/std",
 	"pallet-utility/std",

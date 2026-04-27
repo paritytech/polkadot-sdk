@@ -212,10 +212,8 @@ fn function_like_macro_exposes_public_boxed_variants() {
 	let output = TransferOutputPayloadV3 { accepted: true };
 
 	// Act
-	let versioned_input =
-		VersionedTransferInputPayload::V3(::alloc::boxed::Box::new(input.clone()));
-	let versioned_output =
-		VersionedTransferOutputPayload::V3(::alloc::boxed::Box::new(output.clone()));
+	let versioned_input = VersionedTransferInputPayload::V3(Box::new(input.clone()));
+	let versioned_output = VersionedTransferOutputPayload::V3(Box::new(output.clone()));
 
 	// Assert
 	assert_eq!(versioned_input.into_v3(), Some(input));

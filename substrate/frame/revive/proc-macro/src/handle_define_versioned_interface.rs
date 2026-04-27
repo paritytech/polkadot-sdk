@@ -102,9 +102,10 @@ fn enum_variant(item: &VersionedInterfaceItem) -> TokenStream2 {
 		version_variant_ident(item.payload_name().version(), item.item().ident.span());
 	let payload_ident = &item.item().ident;
 	let payload_generics = payload_type_generics(&item.item().generics);
+	let box_path = box_path();
 
 	quote! {
-		#variant_ident(::alloc::boxed::Box<#payload_ident #payload_generics>)
+		#variant_ident(#box_path<#payload_ident #payload_generics>)
 	}
 }
 
@@ -116,10 +117,11 @@ fn constructor_method(item: &VersionedInterfaceItem) -> TokenStream2 {
 	let variant_ident = version_variant_ident(item.payload_name().version(), span);
 	let payload_ident = &item.item().ident;
 	let payload_generics = payload_type_generics(&item.item().generics);
+	let box_path = box_path();
 
 	quote! {
 		pub fn #method_ident(payload: #payload_ident #payload_generics) -> Self {
-			Self::#variant_ident(::alloc::boxed::Box::new(payload))
+			Self::#variant_ident(#box_path::new(payload))
 		}
 	}
 }
@@ -186,6 +188,7 @@ fn from_impl(
 		version_variant_ident(item.payload_name().version(), item.item().ident.span());
 	let payload_ident = &item.item().ident;
 	let payload_generics = payload_type_generics(&item.item().generics);
+	let box_path = box_path();
 	let (impl_generics, type_generics, where_clause) = enum_generics.split_for_impl();
 
 	quote! {
@@ -193,7 +196,7 @@ fn from_impl(
 			for #enum_ident #type_generics #where_clause
 		{
 			fn from(payload: #payload_ident #payload_generics) -> Self {
-				Self::#variant_ident(::alloc::boxed::Box::new(payload))
+				Self::#variant_ident(#box_path::new(payload))
 			}
 		}
 	}
@@ -248,6 +251,15 @@ fn try_from_impl(
 /// Returns the enum variant identifier for a version.
 fn version_variant_ident(version: Version, span: Span) -> Ident {
 	format_ident!("V{}", version.value(), span = span)
+}
+
+/// Returns the `Box` path the generated code should use.
+fn box_path() -> TokenStream2 {
+	if cfg!(feature = "std") {
+		quote! { ::std::boxed::Box }
+	} else {
+		quote! { ::alloc::boxed::Box }
+	}
 }
 
 /// Builds type generic arguments for referring to a payload struct.
@@ -1051,6 +1063,15 @@ mod tests {
 		handle_define_versioned_interface(parse_input(tokens)).unwrap_err()
 	}
 
+	/// Returns the boxed payload path expected for this feature configuration.
+	fn expected_box_path() -> &'static str {
+		if cfg!(feature = "std") {
+			":: std :: boxed :: Box"
+		} else {
+			":: alloc :: boxed :: Box"
+		}
+	}
+
 	/// Returns the parse error produced by interface input tokens.
 	fn parse_error(tokens: TokenStream2) -> syn::Error {
 		match parse2::<DefineVersionedInterfaceInput>(tokens) {
@@ -1125,7 +1146,7 @@ mod tests {
 				"VersionedEthTransactOutputPayload",
 			]
 		);
-		assert!(output.to_string().contains(":: alloc :: boxed :: Box"));
+		assert!(output.to_string().contains(expected_box_path()));
 	}
 
 	#[test]

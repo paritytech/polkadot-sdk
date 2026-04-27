@@ -24,3 +24,7 @@ syn = { features = ["full"], workspace = true }
 
 [dev-dependencies]
 trybuild = { workspace = true }
+
+[features]
+default = ["std"]
+std = []
