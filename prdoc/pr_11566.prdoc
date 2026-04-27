@@ -1,0 +1,43 @@
+title: Use the host configuration of the session of the candidate for getting execution relevant information
+
+doc:
+  - audience: [Node Dev, Runtime Dev]
+    description: |
+      Snapshots the execution-relevant subset of the host configuration
+      (`max_pov_size`, `validation_code_bomb_limit`) per session as a new
+      `SessionExecutionConfig` primitive, stored in the `session_info`
+      pallet (pruned with the dispute window) and exposed via a new
+      `ParachainHost::session_execution_config` runtime API (v17).
+
+      candidate-validation and prospective-parachains now key these
+      parameters on the candidate's relay-parent session rather than the
+      current host configuration. inclusion_emulator takes `max_pov_size`
+      from the candidate's PVD instead of `constraints` when validating
+      fragments. Pre-v17 runtimes fall back to previous behavior at every
+      call site.
+
+crates:
+  - name: polkadot-primitives
+    bump: minor
+  - name: polkadot-runtime-parachains
+    bump: minor
+  - name: polkadot-node-subsystem-types
+    bump: minor
+  - name: polkadot-node-subsystem-util
+    bump: minor
+  - name: polkadot-node-core-runtime-api
+    bump: minor
+  - name: polkadot-node-core-candidate-validation
+    bump: minor
+  - name: polkadot-node-core-prospective-parachains
+    bump: minor
+  - name: cumulus-relay-chain-rpc-interface
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: polkadot-test-runtime
+    bump: minor
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
