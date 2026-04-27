@@ -29,6 +29,8 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
+#[cfg(not(substrate_runtime))]
+use sp_core::traits::RuntimeStateVersionExt;
 #[cfg(feature = "std")]
 use sp_externalities::TransactionType;
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
@@ -71,6 +73,9 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// Fallback state version used by `storage_root` when no `RuntimeStateVersionExt` is
+	/// registered. In no-std builds (where extensions are not supported) this is the only source.
+	state_version: StateVersion,
 	/// Last cursor of a storage operation.
 	last_cursor: Option<Vec<u8>>,
 }
@@ -83,7 +88,7 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0, last_cursor: None }
+		Ext { overlay, backend, id: 0, state_version: StateVersion::default(), last_cursor: None }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -98,8 +103,38 @@ where
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			state_version: StateVersion::default(),
 			last_cursor: None,
 		}
+	}
+
+	/// Override the fallback state version used by `storage_root`.
+	pub fn with_state_version(mut self, state_version: StateVersion) -> Self {
+		self.state_version = state_version;
+		self
+	}
+}
+
+impl<'a, H, B> Ext<'a, H, B>
+where
+	H: Hasher,
+	H::Out: Ord + 'static + codec::Codec,
+	B: Backend<H>,
+{
+	/// Resolve the state version: prefer the value carried by the
+	/// [`RuntimeStateVersionExt`] extension, otherwise fall back to
+	/// `self.state_version`.
+	fn resolve_state_version(&mut self) -> StateVersion {
+		#[cfg(not(substrate_runtime))]
+		{
+			if let Some(ext) =
+				ExtensionStore::extension_by_type_id(self, TypeId::of::<RuntimeStateVersionExt>())
+					.and_then(<dyn Any>::downcast_mut::<RuntimeStateVersionExt>)
+			{
+				return ext.0;
+			}
+		}
+		self.state_version
 	}
 }
 
@@ -478,9 +513,10 @@ where
 		});
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
 		let _guard = guard();
 
+		let state_version = self.resolve_state_version();
 		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
 
 		trace!(
@@ -494,13 +530,10 @@ where
 		root.encode()
 	}
 
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-		state_version: StateVersion,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		let _guard = guard();
 
+		let state_version = self.resolve_state_version();
 		let (root, _cached) = self
 			.overlay
 			.child_storage_root(child_info, self.backend, state_version)

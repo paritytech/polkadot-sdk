@@ -91,7 +91,7 @@ where
 		sp_io::storage::host_set.replace_implementation(host_storage_set),
 		sp_io::storage::host_exists.replace_implementation(host_storage_exists),
 		sp_io::storage::host_clear.replace_implementation(host_storage_clear),
-		sp_io::storage::host_root.replace_implementation(host_storage_root::<PSC>),
+		sp_io::storage::host_root.replace_implementation(host_storage_root),
 		sp_io::storage::host_clear_prefix.replace_implementation(host_storage_clear_prefix),
 		sp_io::storage::host_append.replace_implementation(host_storage_append),
 		sp_io::storage::host_next_key.replace_implementation(host_storage_next_key),
@@ -114,7 +114,7 @@ where
 		sp_io::default_child_storage::host_clear_prefix
 			.replace_implementation(host_default_child_storage_clear_prefix),
 		sp_io::default_child_storage::host_root
-			.replace_implementation(host_default_child_storage_root::<PSC>),
+			.replace_implementation(host_default_child_storage_root),
 		sp_io::default_child_storage::host_next_key
 			.replace_implementation(host_default_child_storage_next_key),
 		sp_io::offchain_index::host_set.replace_implementation(host_offchain_index_set),
@@ -151,6 +151,7 @@ where
 	let mut head_data = None;
 	let mut new_validation_code = None;
 	let num_blocks = blocks.len();
+	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
 
 	// Create the db
 	let mut db = match proof.to_memory_db(Some(parent_header.state_root())) {
@@ -190,6 +191,7 @@ where
 			&backend,
 			&mut Default::default(),
 			&mut Default::default(),
+			state_version,
 			|| {
 				E::verify_and_remove_seal(&mut block);
 			},
@@ -203,6 +205,7 @@ where
 			// mismatches in later blocks.
 			&mut execute_recorder,
 			&mut overlay,
+			state_version,
 			|| {
 				E::execute_verified_block(block);
 			},
@@ -225,6 +228,7 @@ where
 			// We are only reading here, but need to know what the old block has written. Thus, we
 			// are passing here the overlay.
 			&mut overlay,
+			state_version,
 			|| {
 				// Ensure the validation data is correct.
 				validate_validation_data(
@@ -279,10 +283,7 @@ where
 
 		if block_index + 1 != num_blocks {
 			let mut changes = overlay
-				.drain_storage_changes(
-					&backend,
-					<PSC as frame_system::Config>::Version::get().state_version(),
-				)
+				.drain_storage_changes(&backend, state_version)
 				.expect("Failed to get drain storage changes from the overlay.");
 
 			drop(backend);
@@ -473,9 +474,10 @@ fn run_with_externalities_and_recorder<Block: BlockT, R, F: FnOnce() -> R>(
 	backend: &impl sp_state_machine::Backend<HashingFor<Block>>,
 	recorder: &mut SizeOnlyRecorderProvider<HashingFor<Block>>,
 	overlay: &mut OverlayedChanges<HashingFor<Block>>,
+	state_version: sp_core::storage::StateVersion,
 	execute: F,
 ) -> R {
-	let mut ext = Ext::<Block, _>::new(overlay, backend);
+	let mut ext = Ext::<Block, _>::new(overlay, backend).with_state_version(state_version);
 
 	recorder::using(recorder, || set_and_run_with_externalities(&mut ext, || execute()))
 }
@@ -516,10 +518,9 @@ fn host_storage_proof_size() -> u64 {
 	recorder::with(|rec| rec.estimate_encoded_size()).expect("Recorder is always set; qed") as _
 }
 
-fn host_storage_root<PSC: crate::Config>(out: &mut [u8]) {
-	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
+fn host_storage_root(out: &mut [u8]) {
 	with_externalities(|ext| {
-		let root = ext.storage_root(state_version);
+		let root = ext.storage_root();
 		let encoded = root.encode();
 		let write_len = encoded.len().min(out.len());
 		out[..write_len].copy_from_slice(&encoded[..write_len]);
@@ -663,11 +664,10 @@ fn host_default_child_storage_clear_prefix(
 	})
 }
 
-fn host_default_child_storage_root<PSC: crate::Config>(storage_key: &[u8], out: &mut [u8]) {
-	let state_version = <PSC as frame_system::Config>::Version::get().state_version();
+fn host_default_child_storage_root(storage_key: &[u8], out: &mut [u8]) {
 	let child_info = ChildInfo::new_default(storage_key);
 	with_externalities(|ext| {
-		let root = ext.child_storage_root(&child_info, state_version);
+		let root = ext.child_storage_root(&child_info);
 		let encoded = root.encode();
 		let write_len = encoded.len().min(out.len());
 		out[..write_len].copy_from_slice(&encoded[..write_len]);

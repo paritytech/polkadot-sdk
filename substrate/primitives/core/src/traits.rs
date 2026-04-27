@@ -184,6 +184,16 @@ sp_externalities::decl_extension! {
 	pub struct RuntimeStateVersionExt(sp_storage::StateVersion);
 }
 
+/// Resolve the state version of the currently-loaded runtime via the [`RuntimeStateVersionExt`]
+/// extension, falling back to the latest known version when the extension is not registered.
+pub fn runtime_state_version(ext: &mut dyn Externalities) -> sp_storage::StateVersion {
+	use core::any::{Any, TypeId};
+	ext.extension_by_type_id(TypeId::of::<RuntimeStateVersionExt>())
+		.and_then(<dyn Any>::downcast_mut::<RuntimeStateVersionExt>)
+		.map(|ext| ext.0)
+		.unwrap_or(sp_storage::StateVersion::V1)
+}
+
 /// Something that can spawn tasks (blocking and non-blocking) with an assigned name
 /// and optional group.
 pub trait SpawnNamed: dyn_clone::DynClone + Send + Sync {

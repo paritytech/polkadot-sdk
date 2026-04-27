@@ -26,7 +26,7 @@ use core::{
 };
 use hash_db::Hasher;
 use sp_core::{
-	storage::{ChildInfo, StateVersion, TrackedStorageKey},
+	storage::{ChildInfo, TrackedStorageKey},
 	traits::Externalities,
 };
 use sp_externalities::MultiRemovalResults;
@@ -173,15 +173,11 @@ where
 		unimplemented!("storage_append is not supported in ReadOnlyExternalities")
 	}
 
-	fn storage_root(&mut self, _state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
 		unimplemented!("storage_root is not supported in ReadOnlyExternalities")
 	}
 
-	fn child_storage_root(
-		&mut self,
-		_child_info: &ChildInfo,
-		_state_version: StateVersion,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, _child_info: &ChildInfo) -> Vec<u8> {
 		unimplemented!("child_storage_root is not supported in ReadOnlyExternalities")
 	}
 

@@ -957,9 +957,9 @@ fn test_witness(proof: StorageProof, root: crate::Hash) {
 		None,
 	);
 	assert!(ext.storage(b"value3").is_some());
-	assert!(ext.storage_root(Default::default()).as_slice() == &root[..]);
+	assert!(ext.storage_root().as_slice() == &root[..]);
 	ext.place_storage(vec![0], Some(vec![1]));
-	assert!(ext.storage_root(Default::default()).as_slice() != &root[..]);
+	assert!(ext.storage_root().as_slice() != &root[..]);
 }
 
 /// Some tests require the hashed keys of the storage. As the values of hashed keys are not trivial

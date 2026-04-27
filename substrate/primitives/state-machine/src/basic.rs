@@ -273,7 +273,8 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn storage_root(&mut self) -> Vec<u8> {
+		let state_version = sp_core::traits::runtime_state_version(self);
 		let mut top = self
 			.overlay
 			.changes_mut()
@@ -284,7 +285,7 @@ impl Externalities for BasicExternalities {
 		// type of child trie support.
 		let empty_hash = empty_child_trie_root::<LayoutV1<Blake2Hasher>>();
 		for child_info in self.overlay.children().map(|d| d.1.clone()).collect::<Vec<_>>() {
-			let child_root = self.child_storage_root(&child_info, state_version);
+			let child_root = self.child_storage_root(&child_info);
 			if empty_hash[..] == child_root[..] {
 				top.remove(child_info.prefixed_storage_key().as_slice());
 			} else {
@@ -298,11 +299,8 @@ impl Externalities for BasicExternalities {
 		}
 	}
 
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-		state_version: StateVersion,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
+		let state_version = sp_core::traits::runtime_state_version(self);
 		if let Some((data, child_info)) = self.overlay.child_changes_mut(child_info.storage_key()) {
 			let delta =
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
@@ -403,7 +401,7 @@ mod tests {
 			"39245109cef3758c2eed2ccba8d9b370a917850af3824bc8348d505df2c298fa",
 		);
 
-		assert_eq!(&ext.storage_root(StateVersion::default())[..], &root);
+		assert_eq!(&ext.storage_root()[..], &root);
 	}
 
 	#[test]
