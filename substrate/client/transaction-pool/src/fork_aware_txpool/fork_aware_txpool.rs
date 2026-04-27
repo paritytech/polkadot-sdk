@@ -21,7 +21,7 @@
 use super::{
 	dropped_watcher::{MultiViewDroppedWatcherController, StreamOfDropped},
 	import_notification_sink::MultiViewImportNotificationSink,
-	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics},
+	metrics::{EventsMetricsCollector, MetricsLink as PrometheusMetrics, RemovalReason},
 	multi_view_listener::MultiViewListener,
 	tx_mem_pool::{InsertionInfo, TxMemPool},
 	view::View,
@@ -1048,13 +1048,24 @@ where
 			.report(|metrics| metrics.reported_invalid_txs.inc_by(invalid_tx_errors.len() as _));
 
 		let removed = self.view_store.report_invalid(at, invalid_tx_errors);
+		let removed_at = Instant::now();
 
 		let removed_hashes = removed.iter().map(|tx| tx.hash).collect::<Vec<_>>();
 		self.mempool.remove_transactions(&removed_hashes).await;
 		self.import_notification_sink.clean_notified_items(&removed_hashes);
 
-		self.metrics
-			.report(|metrics| metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _));
+		self.metrics.report(|metrics| {
+			metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _);
+			for tx in &removed {
+				if let Some(submitted_at) = tx.source.timestamp {
+					metrics.tx_age_at_removal.observe(
+						RemovalReason::InvalidReported,
+						tx.source.source,
+						removed_at.saturating_duration_since(submitted_at),
+					);
+				}
+			}
+		});
 
 		removed
 	}
