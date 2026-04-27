@@ -225,25 +225,29 @@ where
 		.map_err(|e| format!("Cannot fetch executor params: runtime error: {e:?}"))?
 		.ok_or_else(|| "Executor params not found for session".to_string())?;
 
-	// Fetch the execution session's config for `max_pov_size`.
-	let max_pov_size = fetch_session_execution_config(recent_leaf, execution_session, sender)
-		.await?
-		.map(|cfg| cfg.max_pov_size);
-
 	// Bomb limit uses the scheduling session. It's a node-local decompression cap, not part of
 	// any on-chain commitment, so either session works as long as validators agree.
-	// When scheduling_session == execution_session (V1/V2, and the V3 same-session case) the
-	// `runtime-api` subsystem serves this from its cache — no extra runtime round-trip.
 	let scheduling_session = candidate_descriptor
 		.scheduling_session_for_candidate_validation(v3_ever_seen)
 		.unwrap_or(scheduling_session_index);
 
-	let validation_code_bomb_limit =
-		match fetch_session_execution_config(recent_leaf, scheduling_session, sender).await? {
-			Some(cfg) => cfg.validation_code_bomb_limit,
-			// Pre-v17 fallback: session-less legacy runtime API.
-			None => fetch_bomb_limit(recent_leaf, scheduling_session, sender).await?,
-		};
+	// Fetch the execution session's config for `max_pov_size`. When the scheduling session
+	// equals the execution session (V1/V2, and the V3 same-session case — the common case)
+	// reuse this result for the bomb-limit lookup instead of re-issuing a runtime API call.
+	let exec_cfg = fetch_session_execution_config(recent_leaf, execution_session, sender).await?;
+	let max_pov_size = exec_cfg.map(|cfg| cfg.max_pov_size);
+
+	let sched_cfg = if scheduling_session == execution_session {
+		exec_cfg
+	} else {
+		fetch_session_execution_config(recent_leaf, scheduling_session, sender).await?
+	};
+
+	let validation_code_bomb_limit = match sched_cfg {
+		Some(cfg) => cfg.validation_code_bomb_limit,
+		// Pre-v17 fallback: session-less legacy runtime API.
+		None => fetch_bomb_limit(recent_leaf, scheduling_session, sender).await?,
+	};
 
 	Ok(SessionParams { executor_params, validation_code_bomb_limit, max_pov_size })
 }
