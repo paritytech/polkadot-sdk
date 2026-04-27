@@ -2777,11 +2777,13 @@ mod benchmarks {
 
 		assert_eq!(crate::NativeDepositOf::<T>::get(&pallet_account, &owner), deposit);
 
-		// process 1 code + phase-1 end-check + phase-2 end-check on empty AccountInfoOf.
+		// process 1 code + phase-1 end-check + phase-2 end-check on empty AccountInfoOf +
+		// phase-3 end-check on empty DeletionQueue.
 		assert_eq!(
 			meter.consumed(),
 			<T as Config>::WeightInfo::v4_code_upload_step() * 2 +
-				<T as Config>::WeightInfo::v4_contract_step()
+				<T as Config>::WeightInfo::v4_contract_step() +
+				<T as Config>::WeightInfo::v4_deletion_queue_step()
 		);
 	}
 
@@ -2839,8 +2841,12 @@ mod benchmarks {
 			.is_zero()
 		);
 
-		// process 1 contract + end-check.
-		assert_eq!(meter.consumed(), <T as Config>::WeightInfo::v4_contract_step() * 2);
+		// process 1 contract + phase-2 end-check + phase-3 end-check on empty DeletionQueue.
+		assert_eq!(
+			meter.consumed(),
+			<T as Config>::WeightInfo::v4_contract_step() * 2 +
+				<T as Config>::WeightInfo::v4_deletion_queue_step()
+		);
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark
