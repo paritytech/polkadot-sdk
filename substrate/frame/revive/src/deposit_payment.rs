@@ -125,6 +125,20 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// - `who`: account whose held balance is returned.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T>;
 
+	/// Release every storage-deposit fund held on `from` to `dst`, ignoring the per-contributor
+	/// caps that govern partial refunds. Used at contract termination.
+	///
+	/// Returns the total amount released, so the storage meter can finalise its deposit
+	/// accounting.
+	///
+	/// # Parameters
+	/// - `from`: contract whose hold is being released.
+	/// - `dst`: destination of the refund. See [`Funds`].
+	fn release_all(
+		from: &T::AccountId,
+		dst: Funds<T::AccountId>,
+	) -> Result<BalanceOf<T>, DispatchError>;
+
 	/// Burn the native currency held on `contract` under `reason` and replace it with the same
 	/// amount of PGAS, minted into `contract` and placed on hold under the same reason.
 	///
@@ -230,6 +244,18 @@ impl<T: Config> Deposit<T> for () {
 
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
 		T::Currency::balance_on_hold(&reason.into(), who)
+	}
+
+	fn release_all(
+		from: &T::AccountId,
+		dst: Funds<T::AccountId>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		let reason = HoldReason::StorageDepositReserve;
+		let amount = T::Currency::balance_on_hold(&reason.into(), from);
+		if !amount.is_zero() {
+			<Self as Deposit<T>>::refund_on_hold(reason, from, dst, amount)?;
+		}
+		Ok(amount)
 	}
 
 	fn migrate_native_to_pgas(
@@ -398,6 +424,40 @@ where
 			who,
 		);
 		native_held.saturating_add(pgas_held)
+	}
+
+	/// Refunds the full native hold to `dst` ignoring the per-contributor cap, then burns the
+	/// full PGAS hold. The cap and the `RefundPercent` only make sense for partial refunds on
+	/// a live contract; at termination there is one recipient and the contract is gone.
+	fn release_all(
+		from: &T::AccountId,
+		dst: Funds<T::AccountId>,
+	) -> Result<BalanceOf<T>, DispatchError> {
+		let reason = HoldReason::StorageDepositReserve;
+		with_storage_layer(|| {
+			let native = <() as Deposit<T>>::total_on_hold(reason, from);
+			if !native.is_zero() {
+				<() as Deposit<T>>::refund_on_hold(reason, from, dst, native)?;
+			}
+
+			let pgas = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
+				Id::get(),
+				&reason.into(),
+				from,
+			);
+			if !pgas.is_zero() {
+				<Holder as fungibles::MutateHold<T::AccountId>>::burn_held(
+					Id::get(),
+					&reason.into(),
+					from,
+					pgas,
+					Precision::Exact,
+					Fortitude::Polite,
+				)?;
+			}
+
+			Ok(native.saturating_add(pgas))
+		})
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::mint_contract_eds`] invariant:

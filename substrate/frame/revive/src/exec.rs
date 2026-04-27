@@ -17,7 +17,7 @@
 
 use crate::{
 	AccountInfo, AccountInfoOf, BalanceOf, BalanceWithDust, Code, CodeInfo, CodeInfoOf,
-	CodeRemoved, Config, ContractInfo, Error, Event, HoldReason, ImmutableData, ImmutableDataOf,
+	CodeRemoved, Config, ContractInfo, Error, Event, ImmutableData, ImmutableDataOf,
 	LOG_TARGET, Pallet as Contracts, RuntimeCosts, TrieId,
 	address::{self, AddressMapper},
 	deposit_payment::Deposit as _,
@@ -1724,15 +1724,9 @@ where
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
-			let refund = T::Deposit::total_on_hold(
-				HoldReason::StorageDepositReserve,
+			let refund = T::Deposit::release_all(
 				&contract_account,
-			);
-			<Contracts<T>>::refund_deposit(
-				HoldReason::StorageDepositReserve,
-				contract_account,
 				exec_config.funds(origin.account_id()?),
-				refund,
 			)?;
 
 			// we added this consumer manually when instantiating

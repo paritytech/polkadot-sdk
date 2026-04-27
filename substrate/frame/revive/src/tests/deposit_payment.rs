@@ -20,9 +20,16 @@
 use crate::{
 	Code, Config, HoldReason, NativeDepositOf,
 	deposit_payment::{Deposit, Funds},
-	test_utils::{ALICE, BOB, builder::Contract},
-	tests::{Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, Test, builder},
+	test_utils::{
+		ALICE, BOB, CHARLIE, DJANGO_ADDR,
+		builder::{BareCallBuilder, Contract},
+	},
+	tests::{
+		Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, RuntimeOrigin, Test, builder,
+		test_utils::get_contract_checked,
+	},
 };
+use alloy_core::sol_types::SolCall;
 use frame_support::{
 	assert_ok,
 	traits::{
@@ -33,9 +40,12 @@ use frame_support::{
 		},
 	},
 };
-use pallet_revive_fixtures::compile_module;
+use pallet_revive_fixtures::{
+	FixtureType, MultiContributorStorage, compile_module, compile_module_with_type,
+};
 use pretty_assertions::assert_eq;
 use sp_runtime::{AccountId32, DispatchResult};
+use test_case::test_case;
 
 /// Full observable state snapshot for a (payer, contract) pair.
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -367,5 +377,78 @@ fn minted_contract_native_ed_not_extractable_with_consumer() {
 			"the consumer pin must keep the native ED non-extractable; got {result:?}"
 		);
 		assert_eq!(Balances::balance(&account_id), before, "balance unchanged");
+	});
+}
+
+/// A contract whose storage was paid for by two different signers, both via the native
+/// fallback path, can still be terminated. Before [`Deposit::release_all`] was introduced this
+/// scenario silently failed: `do_terminate` asked `refund_on_hold` to refund the FULL
+/// `total_on_hold` to the terminator alone, the per-payer [`NativeDepositOf`] cap forced the
+/// remainder onto the PGAS settlement path, and `Precision::Exact` against a zero PGAS hold
+/// rolled the whole termination back. `release_all` removes the cap (one recipient at
+/// termination) and bypasses the PGAS-refund accounting (the contract is gone), so the full
+/// native hold goes to the terminator and any PGAS hold is burned.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn release_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&CHARLIE, 100_000_000_000);
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+
+		let alice_entry = NativeDepositOf::<Test>::get(&account_id, &ALICE);
+		let charlie_entry = NativeDepositOf::<Test>::get(&account_id, &CHARLIE);
+		assert!(alice_entry > 0);
+		assert!(charlie_entry > 0);
+
+		let hold: <Test as Config>::RuntimeHoldReason = HoldReason::StorageDepositReserve.into();
+		let native_held = Balances::balance_on_hold(&hold, &account_id);
+		let pgas_held = AssetsHolder::balance_on_hold(PGAS_ASSET_ID, &hold, &account_id);
+		assert_eq!(pgas_held, 0, "every charge fell back to native");
+		assert_eq!(native_held, alice_entry + charlie_entry);
+
+		let alice_before = Balances::balance(&ALICE);
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(
+					MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
+						.abi_encode(),
+				)
+				.build()
+				.result,
+		);
+		let alice_after = Balances::balance(&ALICE);
+
+		assert!(get_contract_checked(&addr).is_none(), "contract should be gone");
+		assert_eq!(
+			Balances::balance_on_hold(&hold, &account_id),
+			0,
+			"the full multi-contributor native hold has been released",
+		);
+		// ALICE receives the full storage-deposit hold (her own + CHARLIE's). The actual delta
+		// also picks up the code-upload deposit refund and any tx-level deposit accounting,
+		// so it is at least `native_held`.
+		assert!(
+			alice_after.saturating_sub(alice_before) >= native_held,
+			"expected ALICE balance delta >= {}, got {}",
+			native_held,
+			alice_after.saturating_sub(alice_before),
+		);
 	});
 }
