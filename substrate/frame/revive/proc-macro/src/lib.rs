@@ -751,6 +751,18 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///
 /// emits `CallLogV3` before `CallLogV4` in the generated code.
 ///
+/// # Latest alias
+///
+/// Each invocation also emits a `Latest{Name}` type alias pointing at the highest version in that
+/// invocation. For example, a family named `CallLogV1`, `CallLogV2` emits:
+///
+/// ```ignore
+/// pub type LatestCallLog = CallLogV2;
+/// ```
+///
+/// If the latest version is generic, the alias carries the same generic parameter names but omits
+/// bounds and `where` clauses because Rust does not enforce bounds written on type aliases.
+///
 /// # Diagnostics
 ///
 /// The macro reports compile errors with spans that point at the offending source. Common
@@ -774,12 +786,12 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 	let input =
 		syn::parse_macro_input!(input as handle_define_versioned_type::DefineVersionedTypeInput);
-	let items = match handle_define_versioned_type::handle_define_versioned_type(input) {
-		Ok(items) => items,
+	let output = match handle_define_versioned_type::handle_define_versioned_type(input) {
+		Ok(output) => output,
 		Err(error) => return error.to_compile_error().into(),
 	};
 
-	quote! { #( #items )* }.into()
+	quote! { #output }.into()
 }
 
 /// Defines a paired family of input and output payload structs for a versioned wire interface and

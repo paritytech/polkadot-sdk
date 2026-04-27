@@ -20,7 +20,7 @@ use std::{collections::BTreeMap, fmt};
 use quote::ToTokens;
 use syn::{
 	parse::{Parse, ParseStream},
-	Attribute, Ident, ItemEnum, ItemStruct, Result, Token, Visibility,
+	Attribute, Generics, Ident, ItemEnum, ItemStruct, Result, Token, Visibility,
 };
 
 /// The parsed input accepted by `define_versioned_type!`.
@@ -32,6 +32,9 @@ pub struct DefineVersionedTypeInput {
 	/// The shared base name for all parsed definitions.
 	pub(super) name: Option<String>,
 
+	/// The highest parsed version in this invocation.
+	pub(super) highest_version: Option<Version>,
+
 	/// The parsed item definitions keyed by ascending version.
 	pub(super) definitions: BTreeMap<Version, DefineVersionedTypeItem>,
 }
@@ -40,11 +43,13 @@ impl Parse for DefineVersionedTypeInput {
 	/// Parses every versioned type item and validates the version sequence.
 	fn parse(input: ParseStream) -> Result<Self> {
 		let mut name = None::<EstablishedName>;
+		let mut highest_version = None::<Version>;
 		let mut definitions = BTreeMap::<Version, DefineVersionedTypeItem>::new();
 
 		while !input.is_empty() {
 			let item = input.parse::<DefineVersionedTypeItem>()?;
 			let name_and_version = item.name_and_version()?;
+			let version = name_and_version.version();
 
 			match &name {
 				Some(existing_name) => existing_name.ensure_matches(&name_and_version, &item)?,
@@ -52,12 +57,13 @@ impl Parse for DefineVersionedTypeInput {
 			}
 
 			reject_duplicate_version(&definitions, &name_and_version, &item)?;
-			definitions.insert(name_and_version.version(), item);
+			highest_version = Some(highest_version.map_or(version, |highest| highest.max(version)));
+			definitions.insert(version, item);
 		}
 
 		ensure_contiguous_versions(&definitions)?;
 
-		Ok(Self { name: name.map(EstablishedName::into_name), definitions })
+		Ok(Self { name: name.map(EstablishedName::into_name), highest_version, definitions })
 	}
 }
 
@@ -94,6 +100,24 @@ impl DefineVersionedTypeItem {
 		match self {
 			Self::Struct(item_struct) => &item_struct.ident,
 			Self::Enum(item_enum) => &item_enum.ident,
+		}
+	}
+
+	/// Returns the visibility of the wrapped item.
+	#[must_use]
+	pub(super) fn visibility(&self) -> &Visibility {
+		match self {
+			Self::Struct(item_struct) => &item_struct.vis,
+			Self::Enum(item_enum) => &item_enum.vis,
+		}
+	}
+
+	/// Returns the generic parameters and where clause of the wrapped item.
+	#[must_use]
+	pub(super) fn generics(&self) -> &Generics {
+		match self {
+			Self::Struct(item_struct) => &item_struct.generics,
+			Self::Enum(item_enum) => &item_enum.generics,
 		}
 	}
 

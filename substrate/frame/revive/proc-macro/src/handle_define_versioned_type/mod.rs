@@ -16,8 +16,10 @@
 // limitations under the License.
 
 use proc_macro2::Span;
+use quote::ToTokens;
 use syn::{
-	punctuated::Punctuated, spanned::Spanned, token::Comma, ItemEnum, ItemStruct, Result, Variant,
+	punctuated::Punctuated, spanned::Spanned, token::Comma, GenericParam, Generics, Ident,
+	ItemEnum, ItemStruct, ItemType, Result, Variant,
 };
 
 mod attribute;
@@ -39,21 +41,113 @@ pub use item::{DefineVersionedTypeInput, DefineVersionedTypeItem};
 /// request cannot be satisfied by the immediately previous version.
 pub fn handle_define_versioned_type(
 	input: DefineVersionedTypeInput,
-) -> Result<Vec<DefineVersionedTypeItem>> {
-	let DefineVersionedTypeInput { name, definitions } = input;
-	let _ = name;
-	let mut output = Vec::<DefineVersionedTypeItem>::with_capacity(definitions.len());
+) -> Result<DefineVersionedTypeOutput> {
+	let DefineVersionedTypeInput { name, highest_version, definitions } = input;
+	let latest_alias = latest_type_alias(name.as_deref(), highest_version, &definitions);
+	let mut items = Vec::<DefineVersionedTypeItem>::with_capacity(definitions.len());
 
 	for mut item in definitions.into_values() {
 		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(item.take_attributes())?;
 		let type_attribute = attribute_split.versioned_type;
 		item.set_attributes(attribute_split.other_attributes);
 
-		handle_item_extensions(&mut item, type_attribute, output.last())?;
-		output.push(item);
+		handle_item_extensions(&mut item, type_attribute, items.last())?;
+		items.push(item);
 	}
 
-	Ok(output)
+	Ok(DefineVersionedTypeOutput { items, latest_alias })
+}
+
+/// Builds the latest-version alias if the invocation contains at least one item.
+fn latest_type_alias(
+	name: Option<&str>,
+	highest_version: Option<item::Version>,
+	definitions: &std::collections::BTreeMap<item::Version, DefineVersionedTypeItem>,
+) -> Option<LatestTypeAlias> {
+	let name = name?;
+	let latest_item = definitions.get(&highest_version?)?;
+	Some(LatestTypeAlias::new(name, latest_item))
+}
+
+/// The fully processed output emitted by `define_versioned_type!`.
+pub struct DefineVersionedTypeOutput {
+	/// The processed versioned item definitions in ascending version order.
+	items: Vec<DefineVersionedTypeItem>,
+
+	/// The alias pointing at the highest version in this invocation.
+	latest_alias: Option<LatestTypeAlias>,
+}
+
+impl ToTokens for DefineVersionedTypeOutput {
+	/// Writes the processed items followed by the latest-version alias.
+	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+		let items = &self.items;
+		let latest_alias = &self.latest_alias;
+		tokens.extend(quote::quote! {
+			#( #items )*
+			#latest_alias
+		});
+	}
+}
+
+impl std::ops::Deref for DefineVersionedTypeOutput {
+	type Target = [DefineVersionedTypeItem];
+
+	fn deref(&self) -> &Self::Target {
+		&self.items
+	}
+}
+
+/// A generated type alias that points at the highest known version.
+struct LatestTypeAlias {
+	/// The underlying Rust type alias item.
+	item: ItemType,
+}
+
+impl LatestTypeAlias {
+	/// Builds the alias for the given base name and latest versioned item.
+	fn new(name: &str, latest_item: &DefineVersionedTypeItem) -> Self {
+		let alias_ident = Ident::new(&format!("Latest{name}"), latest_item.ident().span());
+		let target_ident = latest_item.ident();
+		let visibility = latest_item.visibility();
+		let mut alias_generics = latest_item.generics().clone();
+		strip_type_alias_bounds(&mut alias_generics);
+		let (_, type_generics, _) = alias_generics.split_for_impl();
+		let doc = format!("The latest version of `{name}`.");
+
+		let item = syn::parse_quote! {
+			#[doc = #doc]
+			#visibility type #alias_ident #alias_generics = #target_ident #type_generics;
+		};
+
+		Self { item }
+	}
+}
+
+impl ToTokens for LatestTypeAlias {
+	/// Writes the wrapped type alias into the output stream.
+	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+		self.item.to_tokens(tokens);
+	}
+}
+
+/// Removes bounds from alias generics to avoid unenforced type-alias bounds.
+fn strip_type_alias_bounds(generics: &mut Generics) {
+	generics.where_clause = None;
+
+	for param in &mut generics.params {
+		match param {
+			GenericParam::Type(param) => {
+				param.colon_token = None;
+				param.bounds.clear();
+			},
+			GenericParam::Lifetime(param) => {
+				param.colon_token = None;
+				param.bounds.clear();
+			},
+			GenericParam::Const(_) => {},
+		}
+	}
 }
 
 /// Applies the extension rules that are shared by all supported item kinds.
@@ -3166,6 +3260,7 @@ mod tests {
 		// Assert
 		assert_eq!(input.definitions.len(), 2);
 		assert_eq!(input.name, Some("CallLog".to_string()));
+		assert_eq!(input.highest_version.map(|version| version.value()), Some(4));
 	}
 
 	#[test]
@@ -3195,6 +3290,7 @@ mod tests {
 
 		// Assert
 		assert_eq!(input.name, Some("CallLog".to_string()));
+		assert_eq!(input.highest_version.map(|version| version.value()), Some(9));
 		assert_eq!(input.definitions.len(), 1);
 		assert!(input.definitions.keys().any(|version| version.value() == 9));
 	}
@@ -3217,7 +3313,57 @@ mod tests {
 
 		// Assert
 		let versions = input.definitions.keys().map(|version| version.value()).collect::<Vec<_>>();
+		assert_eq!(input.highest_version.map(|version| version.value()), Some(4));
 		assert_eq!(versions, vec![3, 4]);
+	}
+
+	#[test]
+	fn output_emits_latest_alias_for_highest_version() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub struct CallLogV1 {
+				pub item1: u8,
+			}
+
+			#[versioned_type(extend)]
+			pub struct CallLogV2 {
+				pub item2: u16,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+		let output_tokens = quote::quote!(#output).to_string();
+
+		// Assert
+		assert!(output_tokens.contains("pub type LatestCallLog = CallLogV2 ;"));
+	}
+
+	#[test]
+	fn latest_alias_does_not_emit_unenforced_generic_bounds() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub struct CallLogV1<T: Clone>
+			where
+				T: Default,
+			{
+				pub item: T,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+		let latest_alias = output.latest_alias.as_ref().unwrap();
+
+		// Assert
+		assert!(latest_alias.item.generics.where_clause.is_none());
+		assert!(latest_alias.item.generics.params.iter().all(|param| match param {
+			GenericParam::Type(param) => param.bounds.is_empty(),
+			GenericParam::Lifetime(param) => param.bounds.is_empty(),
+			GenericParam::Const(_) => true,
+		}));
 	}
 
 	#[test]
