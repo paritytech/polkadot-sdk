@@ -784,16 +784,22 @@ async fn statement_store_subscription_reconnect() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Verifies that concurrent submits are not lost while `enforce_limits` cleans
-/// up a large batch of expired statements
+/// Verifies that concurrent `submit_statement` calls are not lost while
+/// `enforce_limits` evicts a large batch of expired entries from the index
+/// and DB.
 ///
 /// Scenario:
-/// 1. Fill the store with 10000 ephemeral statements (20 accounts × 500) under a short TTL
-/// 2. Just before the TTL boundary, submit 500 persistent statements at uniform intervals across
-///    the overlap window — an `enforce_limits` cleanup of the 10000 expired entries fires inside
-///    this window, racing the concurrent submits
-/// 3. Fresh subscription must return exactly the 500 persistent statements: proves no submit was
-///    lost and all expired entries were removed from index and DB
+/// 1. Insert 10000 ephemeral statements (20 accounts × 500, `ttl = 360s`)
+///    and wait until a subscription confirms all are indexed.
+/// 2. Starting 5s before TTL expiry, stream 500 persistent statements
+///    (5 accounts × 100) over a 95s window. `enforce_limits` runs every
+///    62s, so the window is guaranteed to overlap a cleanup pass — inserts
+///    and bulk eviction of the 10000 expired ephemerals hit the index and
+///    DB at the same time.
+/// 3. After a 90s drain, a fresh subscription (which replays from the DB)
+///    must yield exactly the 500 persistent statements — proving no insert
+///    was dropped and every expired ephemeral was removed from index and
+///    DB.
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
