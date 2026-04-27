@@ -14,4 +14,4 @@ doc:
     signature has no `AssetId` parameter and can't be dispatched via `Criterion`.
 crates:
 - name: frame-support
-  bump: patch
+  bump: minor
