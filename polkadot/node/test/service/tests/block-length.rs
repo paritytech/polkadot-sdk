@@ -22,7 +22,7 @@
 //! 1. Submit a ~7.9 MiB `System::remark_with_event` and assert it is rejected with
 //!    `InvalidTransaction::ExhaustsResources` (above the Normal-class cap).
 //! 2. Submit a 7 MiB `System::remark_with_event` and assert it is accepted, included in
-//!    a block, and that the block exceeds the legacy 5 MiB `BlockLength` cap.
+//!    a block.
 
 use polkadot_test_service::*;
 use sc_client_api::BlockBackend;
