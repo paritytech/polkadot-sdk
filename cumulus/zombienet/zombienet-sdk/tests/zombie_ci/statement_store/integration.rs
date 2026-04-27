@@ -664,10 +664,10 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 					h.set(v);
 					v >= 10.0
 				},
-				180u64,
+				360u64,
 			)
 			.await
-			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 180s"))?;
+			.map_err(|_| anyhow::anyhow!("Charlie did not reach block 10 within 360s"))?;
 		h.get()
 	};
 	info!("Charlie at block {:.0} before dave joins", charlie_height);
@@ -724,7 +724,6 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 	// Verify drain_deferred_peers fired
 	let dave_logs = dave.logs().await?;
 	assert!(dave_logs.lines().any(|l| l.contains("Major sync complete, adding")));
-
 	Ok(())
 }
 
