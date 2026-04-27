@@ -21,26 +21,26 @@
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
 use crate::{
-	BalanceOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, evm::fees::InfoT as FeeInfo,
+	evm::fees::InfoT as FeeInfo, BalanceOf, Config, HoldReason, NativeDepositOf, LOG_TARGET,
 };
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
 	traits::{
-		Get,
 		fungible::{
 			Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
 			Unbalanced as _,
 		},
 		tokens::{
-			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
-			fungibles,
+			fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
+			Restriction,
 		},
+		Get,
 	},
 };
 use sp_runtime::{
-	DispatchError, DispatchResult, Perbill, TokenError,
 	traits::{Saturating, Zero},
+	DispatchError, DispatchResult, Perbill, TokenError,
 };
 
 mod sealed {
@@ -75,15 +75,15 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	///
 	/// # Parameters
 	/// - `to`: account to bring into existence.
-	fn init_account(to: &T::AccountId) -> DispatchResult;
+	fn on_contract_created(to: &T::AccountId) -> DispatchResult;
 
-	/// Inverse of [`Self::init_account`]: tear down the state it set up.
+	/// Inverse of [`Self::on_contract_created`]: tear down the state it set up.
 	///
 	/// Called when a contract is destroyed.
 	///
 	/// # Parameters
 	/// - `contract`: account being torn down.
-	fn deinit_account(contract: &T::AccountId) -> DispatchResult;
+	fn on_contract_destroyed(contract: &T::AccountId) -> DispatchResult;
 
 	/// Charge `amount` from `src` to `to` and place it on hold under `reason`.
 	///
@@ -138,46 +138,9 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	) -> DispatchResult;
 }
 
-/// Release `amount` of `from`'s held native funds and route them to `dst`.
-/// Returns the actual amount released.
-fn refund_native_on_hold<T: Config>(
-	reason: HoldReason,
-	from: &T::AccountId,
-	dst: Funds<T::AccountId>,
-	amount: BalanceOf<T>,
-	precision: Precision,
-) -> Result<BalanceOf<T>, DispatchError> {
-	let refunded = match dst {
-		Funds::Balance(to) => T::Currency::transfer_on_hold(
-			&reason.into(),
-			from,
-			to,
-			amount,
-			precision,
-			Restriction::Free,
-			Fortitude::Polite,
-		)?,
-		Funds::TxFee(_) => {
-			let released = T::Currency::release(&reason.into(), from, amount, precision)?;
-			if !released.is_zero() {
-				let credit = T::Currency::withdraw(
-					from,
-					released,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				)?;
-				T::FeeInfo::deposit_txfee(credit);
-			}
-			released
-		},
-	};
-	Ok(refunded)
-}
-
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
-	fn init_account(to: &T::AccountId) -> DispatchResult {
+	fn on_contract_created(to: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::mint_into(to, ed)?;
 		// The minted ED is not a user claim and should not inflate the active issuance
@@ -186,7 +149,7 @@ impl<T: Config> Deposit<T> for () {
 		Ok(())
 	}
 
-	fn deinit_account(contract: &T::AccountId) -> DispatchResult {
+	fn on_contract_destroyed(contract: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::burn_from(
 			contract,
@@ -195,7 +158,7 @@ impl<T: Config> Deposit<T> for () {
 			Precision::BestEffort,
 			Fortitude::Polite,
 		)?;
-		// Pair with [`Self::init_account`]: shrink the inactive pool first so the burn only
+		// Pair with [`Self::on_contract_created`]: shrink the inactive pool first so the burn only
 		// nets out the mint, rather than also taking an ED off the active issuance.
 		T::Currency::reactivate(ed);
 		Ok(())
@@ -236,7 +199,31 @@ impl<T: Config> Deposit<T> for () {
 		dst: Funds<T::AccountId>,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
-		refund_native_on_hold::<T>(reason, from, dst, amount, Precision::Exact)?;
+		match dst {
+			Funds::Balance(to) => {
+				T::Currency::transfer_on_hold(
+					&reason.into(),
+					from,
+					to,
+					amount,
+					Precision::Exact,
+					Restriction::Free,
+					Fortitude::Polite,
+				)?;
+			},
+			Funds::TxFee(_) => {
+				let released =
+					T::Currency::release(&reason.into(), from, amount, Precision::Exact)?;
+				let credit = T::Currency::withdraw(
+					from,
+					released,
+					Precision::Exact,
+					Preservation::Preserve,
+					Fortitude::Polite,
+				)?;
+				T::FeeInfo::deposit_txfee(credit);
+			},
+		}
 		Ok(())
 	}
 
@@ -294,10 +281,10 @@ where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 	Holder: fungibles::MutateHold<
-			T::AccountId,
-			Balance = BalanceOf<T>,
-			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-		>,
+		T::AccountId,
+		Balance = BalanceOf<T>,
+		AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+	>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
@@ -306,8 +293,8 @@ where
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
 	/// ED is [`deactivated`](fungible::Unbalanced::deactivate) so it stays outside active
 	/// issuance.
-	fn init_account(to: &T::AccountId) -> DispatchResult {
-		<() as Deposit<T>>::init_account(to)?;
+	fn on_contract_created(to: &T::AccountId) -> DispatchResult {
+		<() as Deposit<T>>::on_contract_created(to)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
 			Id::get(),
 			to,
@@ -316,12 +303,12 @@ where
 		Ok(())
 	}
 
-	/// Burns the native and PGAS ED minted by [`Self::init_account`], reactivating the native
-	/// ED first so the burn doesn't also eat into active issuance. Best-effort on the PGAS
+	/// Burns the native and PGAS ED minted by [`Self::on_contract_created`], reactivating the
+	/// native ED first so the burn doesn't also eat into active issuance. Best-effort on the PGAS
 	/// side: contracts that predate the mint-based init may be missing the PGAS ED, in which
 	/// case nothing is burned for that asset.
-	fn deinit_account(contract: &T::AccountId) -> DispatchResult {
-		<() as Deposit<T>>::deinit_account(contract)?;
+	fn on_contract_destroyed(contract: &T::AccountId) -> DispatchResult {
+		<() as Deposit<T>>::on_contract_destroyed(contract)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
 			Id::get(),
 			contract,
@@ -386,17 +373,11 @@ where
 			let native_requested = amount.min(contribution);
 
 			let native_refunded = if !native_requested.is_zero() {
-				let refunded = refund_native_on_hold::<T>(
-					reason,
-					from,
-					dst,
-					native_requested,
-					Precision::BestEffort,
-				)?;
+				<() as Deposit<T>>::refund_on_hold(reason, from, dst, native_requested)?;
 				NativeDepositOf::<T>::mutate(from, to, |entitlement| {
-					*entitlement = entitlement.saturating_sub(refunded);
+					*entitlement = entitlement.saturating_sub(native_requested);
 				});
-				refunded
+				native_requested
 			} else {
 				BalanceOf::<T>::zero()
 			};
@@ -418,14 +399,14 @@ where
 		native_held.saturating_add(pgas_held)
 	}
 
-	/// Bring a pre-existing contract up to the post-[`Self::init_account`] invariant:
+	/// Bring a pre-existing contract up to the post-[`Self::on_contract_created`] invariant:
 	/// mint the PGAS ED into `contract`'s free balance if it is missing, then burn the native
 	/// hold under `reason` and replace it with the same amount of PGAS held on `contract`.
 	///
 	/// The hold is written directly via the holder pallet storage (no `pallet_assets::Account`
 	/// is created for it); the free PGAS ED provides that account entry instead. The PGAS
 	/// supply is bumped by exactly `amount + pgas_ed`; `burn_held` on refund/termination and
-	/// `deinit_account` on destruction decrement it back.
+	/// `on_contract_destroyed` on destruction decrement it back.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
@@ -489,10 +470,10 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 	where
 		T: Config,
 		Holder: fungibles::MutateHold<
-				T::AccountId,
-				Balance = BalanceOf<T>,
-				AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-			>,
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
 		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 		Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,

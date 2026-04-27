@@ -365,7 +365,7 @@ mod tests {
 				1_300,
 			);
 			// Each migrated contract also gets the PGAS ED minted into its free balance to
-			// match the post-`init_account` invariant.
+			// match the post-`on_contract_created` invariant.
 			assert_eq!(Assets::balance(PGasAssetId::get(), &c1_acc), pgas_ed);
 			assert_eq!(Assets::balance(PGasAssetId::get(), &c2_acc), pgas_ed);
 		});

@@ -1317,7 +1317,7 @@ where
 				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					T::Deposit::init_account(account_id)
+					T::Deposit::on_contract_created(account_id)
 						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
 				}
 
@@ -1741,7 +1741,7 @@ where
 			System::<T>::dec_consumers(&contract_account);
 
 			// ED was minted when the account was brought into existence; burn it now.
-			T::Deposit::deinit_account(contract_account)?;
+			T::Deposit::on_contract_destroyed(contract_account)?;
 
 			// this is needed to:
 			// 1) Send any balance that was send to the contract after termination.

@@ -106,9 +106,9 @@ fn run(case: TestCase) {
 	}
 	builder.build().execute_with(|| {
 		Balances::set_balance(&ALICE, case.initial_native);
-		// Mint the native and PGAS ED onto BOB, mirroring what `init_account` does at
+		// Mint the native and PGAS ED onto BOB, mirroring what `on_contract_created` does at
 		// contract creation time.
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_account(&BOB));
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::on_contract_created(&BOB));
 
 		for (i, charge) in case.charges.iter().enumerate() {
 			assert_ok!(charge_and_hold(&ALICE, &BOB, charge.amount));
@@ -196,12 +196,6 @@ fn pay_mixed_refund_mixed() {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// Sub-ED hold: `init_account` mints the PGAS ED into the contract's free balance, so a
-// charge of `amount < ED` puts a sub-ED hold on top. The refund path's `settle_pgas_refund`
-// calls `burn_held` on the hold, and we want to confirm that's safe.
-// ---------------------------------------------------------------------------
-
 /// Sub-ED hold: charge 50 PGAS with PGAS ED = 100, then refund — the 10% refund (5) credits
 /// ALICE and the rest (45) is burned. `burn_held` should not reject the sub-ED hold.
 #[test]
@@ -212,9 +206,9 @@ fn burn_held_on_sub_ed_hold_works() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_account(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::on_contract_created(&BOB));
 
-			// PGAS branch: 50 transferred on top of the ED minted by `init_account`.
+			// PGAS branch: 50 transferred on top of the ED minted by `on_contract_created`.
 			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
 			assert_eq!(
 				snapshot(&ALICE, &BOB),
@@ -247,7 +241,7 @@ fn burn_held_on_sub_ed_hold_partial_refund() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_account(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::on_contract_created(&BOB));
 
 			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
 			assert_ok!(refund_on_hold(&BOB, &ALICE, 20));
