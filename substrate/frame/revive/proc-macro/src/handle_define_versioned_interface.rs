@@ -32,12 +32,16 @@ pub fn handle_define_versioned_interface(
 ) -> Result<TokenStream2> {
 	let input_enum = generate_versioned_enum(&input, PayloadSide::Input)?;
 	let output_enum = generate_versioned_enum(&input, PayloadSide::Output)?;
+	let input_latest_alias = generate_latest_payload_alias(&input, PayloadSide::Input)?;
+	let output_latest_alias = generate_latest_payload_alias(&input, PayloadSide::Output)?;
 	let payload_structs = input.items.iter().map(VersionedInterfaceItem::item);
 
 	Ok(quote! {
 		#(#payload_structs)*
 		#input_enum
 		#output_enum
+		#input_latest_alias
+		#output_latest_alias
 	})
 }
 
@@ -87,6 +91,35 @@ fn generate_versioned_enum(
 		#(#from_impls)*
 
 		#(#try_from_impls)*
+	})
+}
+
+/// Generates the latest-version type alias for one side of an interface.
+fn generate_latest_payload_alias(
+	input: &DefineVersionedInterfaceInput,
+	side: PayloadSide,
+) -> Result<TokenStream2> {
+	let Some(item) = side_items(input, side).last().copied() else {
+		return Err(syn::Error::new(
+			Span::call_site(),
+			format!(
+				"internal error while generating latest {} payload alias",
+				side.diagnostic_name()
+			),
+		));
+	};
+
+	let alias_ident =
+		Ident::new(&format!("Latest{}{}", input.name, side.name_suffix()), input.name_span);
+	let payload_ident = &item.item().ident;
+	let visibility = &item.item().vis;
+	let alias_generics = type_alias_generics(&item.item().generics);
+	let payload_generics = payload_type_generics(&alias_generics);
+	let doc = format!("The latest version of `{}`{}.", input.name, side.name_suffix());
+
+	Ok(quote! {
+		#[doc = #doc]
+		#visibility type #alias_ident #alias_generics = #payload_ident #payload_generics;
 	})
 }
 
@@ -297,6 +330,32 @@ fn generic_argument(param: &GenericParam) -> TokenStream2 {
 		GenericParam::Type(param) => param.ident.to_token_stream(),
 		GenericParam::Const(param) => param.ident.to_token_stream(),
 	}
+}
+
+/// Builds the generic declaration used by latest type aliases.
+///
+/// Rust currently accepts bounds on type aliases but does not enforce them, so preserving payload
+/// bounds there only produces `type_alias_bounds` warnings for downstream crates. The target
+/// payload type still carries the real bounds.
+fn type_alias_generics(generics: &Generics) -> Generics {
+	let mut generics = generics.clone();
+	generics.where_clause = None;
+
+	for param in &mut generics.params {
+		match param {
+			GenericParam::Lifetime(param) => {
+				param.colon_token = None;
+				param.bounds.clear();
+			},
+			GenericParam::Type(param) => {
+				param.colon_token = None;
+				param.bounds.clear();
+			},
+			GenericParam::Const(_) => {},
+		}
+	}
+
+	generics
 }
 
 /// Merges payload generics for a generated side enum.
@@ -1162,7 +1221,84 @@ mod tests {
 				"VersionedEthTransactOutputPayload",
 			]
 		);
+		let type_aliases = file
+			.items
+			.iter()
+			.filter_map(|item| match item {
+				Item::Type(item) => {
+					Some((item.ident.to_string(), item.ty.to_token_stream().to_string()))
+				},
+				_ => None,
+			})
+			.collect::<Vec<_>>();
+		assert_eq!(
+			type_aliases,
+			vec![
+				(
+					"LatestEthTransactInputPayload".to_owned(),
+					"EthTransactInputPayloadV2".to_owned()
+				),
+				(
+					"LatestEthTransactOutputPayload".to_owned(),
+					"EthTransactOutputPayloadV2".to_owned(),
+				),
+			]
+		);
 		assert!(output.to_string().contains(expected_box_path()));
+	}
+
+	#[test]
+	fn generated_latest_aliases_omit_unenforced_generic_bounds() {
+		// Arrange
+		let tokens = quote! {
+			pub struct EthTransactInputPayloadV1<T: Clone>
+			where
+				T: Default,
+			{
+				pub tx: T,
+			}
+
+			pub struct EthTransactOutputPayloadV1<R: Clone>
+			where
+				R: Default,
+			{
+				pub result: R,
+			}
+		};
+
+		// Act
+		let output = expand(tokens);
+
+		// Assert
+		let file = parse2::<syn::File>(output).unwrap();
+		let aliases = file
+			.items
+			.iter()
+			.filter_map(|item| match item {
+				Item::Type(item) => Some(item),
+				_ => None,
+			})
+			.collect::<Vec<_>>();
+		assert_eq!(aliases.len(), 2);
+
+		let input_alias = aliases
+			.iter()
+			.find(|item| item.ident == "LatestEthTransactInputPayload")
+			.unwrap();
+		assert_eq!(input_alias.generics.to_token_stream().to_string(), "< T >");
+		assert!(input_alias.generics.where_clause.is_none());
+		assert_eq!(input_alias.ty.to_token_stream().to_string(), "EthTransactInputPayloadV1 < T >");
+
+		let output_alias = aliases
+			.iter()
+			.find(|item| item.ident == "LatestEthTransactOutputPayload")
+			.unwrap();
+		assert_eq!(output_alias.generics.to_token_stream().to_string(), "< R >");
+		assert!(output_alias.generics.where_clause.is_none());
+		assert_eq!(
+			output_alias.ty.to_token_stream().to_string(),
+			"EthTransactOutputPayloadV1 < R >"
+		);
 	}
 
 	#[test]
@@ -1191,10 +1327,34 @@ mod tests {
 		let output = expand(tokens);
 
 		// Assert
-		let output = output.to_string();
-		assert!(output.contains("V3"));
-		assert!(output.contains("V4"));
-		assert!(!output.contains("V1"));
+		let output_string = output.to_string();
+		let file = parse2::<syn::File>(output).unwrap();
+		let type_aliases = file
+			.items
+			.iter()
+			.filter_map(|item| match item {
+				Item::Type(item) => {
+					Some((item.ident.to_string(), item.ty.to_token_stream().to_string()))
+				},
+				_ => None,
+			})
+			.collect::<Vec<_>>();
+		assert!(output_string.contains("V3"));
+		assert!(output_string.contains("V4"));
+		assert!(!output_string.contains("V1"));
+		assert_eq!(
+			type_aliases,
+			vec![
+				(
+					"LatestEthTransactInputPayload".to_owned(),
+					"EthTransactInputPayloadV4".to_owned()
+				),
+				(
+					"LatestEthTransactOutputPayload".to_owned(),
+					"EthTransactOutputPayloadV4".to_owned(),
+				),
+			]
+		);
 	}
 
 	#[test]

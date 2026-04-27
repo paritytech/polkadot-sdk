@@ -294,6 +294,24 @@ fn function_like_macro_accepts_a_single_payload_version_starting_after_v1() {
 }
 
 #[test]
+fn function_like_macro_exposes_latest_payload_aliases() {
+	// Arrange
+	let input: LatestEthTransactInputPayload<u8> =
+		EthTransactInputPayloadV2 { tx: 1, marker: 2u8, timestamp: 3 };
+	let output: LatestEthTransactOutputPayload = EthTransactOutputPayloadV2 { result: 4 };
+
+	// Act
+	let versioned_input: VersionedEthTransactInputPayload<u8> = input.clone().into();
+	let versioned_output = VersionedEthTransactOutputPayload::from(output.clone());
+
+	// Assert
+	assert_eq!(versioned_input.version(), 2);
+	assert_eq!(versioned_input.unwrap_v2(), input);
+	assert_eq!(versioned_output.version(), 2);
+	assert_eq!(versioned_output.unwrap_v2(), output);
+}
+
+#[test]
 fn from_payload_wraps_into_matching_versioned_variant() {
 	// Arrange
 	let payload_v1 = EthTransactInputPayloadV1 { tx: 1, marker: 2u8 };

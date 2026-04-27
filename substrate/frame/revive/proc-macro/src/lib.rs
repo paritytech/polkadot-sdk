@@ -866,6 +866,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// }
 /// // …and identically `VersionedEthTransactOutputPayload` with V1/V2 boxed variants.
 ///
+/// pub type LatestEthTransactInputPayload = EthTransactInputPayloadV2;
+/// pub type LatestEthTransactOutputPayload = EthTransactOutputPayloadV2;
+///
 /// // An inherent impl with constructors, version inspection, and per-version accessors.
 /// impl VersionedEthTransactInputPayload {
 ///     pub fn new_v1(payload: EthTransactInputPayloadV1) -> Self { /* … */ }
@@ -954,7 +957,11 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///    version. Each variant wraps the payload in `Box<…>` so that every variant is the same size
 ///    and the enum's footprint stays bounded as new versions are added.
 /// 3. **`Versioned{Name}OutputPayload`** — same shape as the input enum, listed independently.
-/// 4. For each enum, an inherent `impl` block exposing:
+/// 4. **`Latest{Name}InputPayload`** and **`Latest{Name}OutputPayload`** — aliases to the
+///    highest-numbered input and output payload structs. The aliases use the latest payload
+///    struct's visibility and generic parameters, but omit generic bounds and where-clauses because
+///    Rust accepts those on type aliases without enforcing them.
+/// 5. For each enum, an inherent `impl` block exposing:
 ///    - `pub fn new_v{n}(payload: PayloadVn) -> Self` — builds the corresponding variant.
 ///    - `pub fn version(&self) -> usize` — returns the integer version of the held variant (`1`,
 ///      `2`, `3`, …).
@@ -965,9 +972,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///    - `pub fn unwrap_v{n}(self) -> PayloadVn` — consuming accessor that panics with a message
 ///      identifying the actual version (`Expected this to be a v3 variant, but it is a v2 variant`)
 ///      on a mismatched variant.
-/// 5. For each variant, an `impl ::core::convert::From<PayloadVn> for Versioned…Payload` that boxes
+/// 6. For each variant, an `impl ::core::convert::From<PayloadVn> for Versioned…Payload` that boxes
 ///    the payload into the matching variant.
-/// 6. For each variant, an `impl ::core::convert::TryFrom<Versioned…Payload> for PayloadVn` with
+/// 7. For each variant, an `impl ::core::convert::TryFrom<Versioned…Payload> for PayloadVn` with
 ///    `type Error = ()` that returns `Ok(payload)` on the matching variant and `Err(())` on every
 ///    other variant. The `match` lists every variant explicitly — there is no wildcard arm — so
 ///    single-variant enums compile cleanly without unreachable-pattern warnings.
@@ -1395,6 +1402,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///   full generic signature even when the payload alone has fewer parameters. Calls that cannot
 ///   infer the missing parameters (e.g. an output-side type parameter that only appears in V2)
 ///   require explicit turbofish at the call site.
+/// * **Latest aliases intentionally omit bounds.** Bounds and where-clauses remain on the payload
+///   structs that enforce them. Emitting them again on the alias would only trigger Rust's
+///   `type_alias_bounds` warning because those bounds are not checked at the alias site.
 /// * **Non-derive attributes are not propagated to the enum.** `#[doc(...)]`, `#[cfg(...)]`,
 ///   `#[serde(...)]`, and other attributes stay on the payload structs. If you need them on the
 ///   enum, write them on the wrapping module that contains the invocation.
