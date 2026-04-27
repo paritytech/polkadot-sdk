@@ -14,14 +14,12 @@ use attribute::{
 use fields::{extend_fields, strip_field_attributes, FieldOwner};
 pub use item::{DefineVersionedTypeInput, DefineVersionedTypeItem};
 
-/// Expands every parsed versioned type item according to its extension
-/// attributes.
+/// Expands every parsed versioned type item according to its extension attributes.
 ///
-/// The input parser has already grouped the definitions by version and checked
-/// that those versions are contiguous. This handler is responsible for the
-/// context-sensitive work: stripping helper attributes, merging fields, merging
-/// enum variants, and producing diagnostics when an extension request cannot be
-/// satisfied by the immediately previous version.
+/// The input parser has already grouped the definitions by version and checked that those versions
+/// are contiguous. This handler is responsible for the context-sensitive work: stripping helper
+/// attributes, merging fields, merging enum variants, and producing diagnostics when an extension
+/// request cannot be satisfied by the immediately previous version.
 pub fn handle_define_versioned_type(
 	input: DefineVersionedTypeInput,
 ) -> Result<Vec<DefineVersionedTypeItem>> {

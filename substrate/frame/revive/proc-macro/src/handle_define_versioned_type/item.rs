@@ -8,9 +8,9 @@ use syn::{
 
 /// The parsed input accepted by `define_versioned_type!`.
 ///
-/// The macro accepts zero or more struct or enum items. Each item name must end
-/// in `V` followed by a positive integer version. All items in one invocation
-/// must share the same base name and their versions must be contiguous.
+/// The macro accepts zero or more struct or enum items. Each item name must end in `V` followed by
+/// a positive integer version. All items in one invocation must share the same base name and their
+/// versions must be contiguous.
 pub struct DefineVersionedTypeInput {
 	/// The shared base name for all parsed definitions.
 	pub(super) name: Option<String>,

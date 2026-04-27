@@ -174,11 +174,11 @@ fn accessor_methods(item: &VersionedInterfaceItem) -> TokenStream2 {
 	}
 }
 
-/// Generates the `From<PayloadVn>` impl that wraps a payload struct in the
-/// matching versioned variant.
+/// Generates the `From<PayloadVn>` impl that wraps a payload struct in the matching versioned
+/// variant.
 ///
-/// The impl uses the merged enum generics so a single payload's narrower
-/// bounds are still satisfied by the union the enum carries.
+/// The impl uses the merged enum generics so a single payload's narrower bounds are still satisfied
+/// by the union the enum carries.
 fn from_impl(
 	item: &VersionedInterfaceItem,
 	enum_ident: &Ident,
@@ -202,11 +202,11 @@ fn from_impl(
 	}
 }
 
-/// Generates the `TryFrom<VersionedPayload>` impl that extracts a single
-/// concrete payload version, returning `Err(())` when the variant differs.
+/// Generates the `TryFrom<VersionedPayload>` impl that extracts a single concrete payload version,
+/// returning `Err(())` when the variant differs.
 ///
-/// All variants are matched explicitly so that single-variant enums do not
-/// produce unreachable wildcard arms.
+/// All variants are matched explicitly so that single-variant enums do not produce unreachable
+/// wildcard arms.
 fn try_from_impl(
 	item: &VersionedInterfaceItem,
 	side_items: &[&VersionedInterfaceItem],
@@ -498,9 +498,9 @@ fn derive_paths(item: &ItemStruct) -> Result<Vec<Path>> {
 
 /// The parsed input accepted by `define_versioned_interface!`.
 ///
-/// The macro accepts one family of named input and output payload structs. Every
-/// payload must follow the `{Name}(Input|Output)PayloadVn` naming scheme, and
-/// every version must define both sides.
+/// The macro accepts one family of named input and output payload structs. Every payload must
+/// follow the `{Name}(Input|Output)PayloadVn` naming scheme, and every version must define both
+/// sides.
 pub struct DefineVersionedInterfaceInput {
 	/// The shared interface name before `InputPayload` or `OutputPayload`.
 	name: String,
@@ -508,8 +508,7 @@ pub struct DefineVersionedInterfaceInput {
 	/// The source span of the payload that established the shared interface name.
 	name_span: Span,
 
-	/// Payload structs in source order so user-authored items are emitted
-	/// without reordering.
+	/// Payload structs in source order so user-authored items are emitted without reordering.
 	items: Vec<VersionedInterfaceItem>,
 
 	/// Input payload indexes keyed by version.

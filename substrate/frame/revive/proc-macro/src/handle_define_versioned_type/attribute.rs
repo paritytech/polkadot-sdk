@@ -6,9 +6,9 @@ use syn::{
 
 /// The result of removing `versioned_type` attributes from an item.
 ///
-/// Attribute parsing always has two products: the typed helper attribute used
-/// by the macro implementation and every unrelated attribute that should be
-/// preserved on the generated Rust item.
+/// Attribute parsing always has two products: the typed helper attribute used by the macro
+/// implementation and every unrelated attribute that should be preserved on the generated Rust
+/// item.
 pub(super) struct AttributeSplit<T> {
 	/// The parsed macro helper attribute for the current syntax context.
 	pub(super) versioned_type: T,
@@ -19,9 +19,9 @@ pub(super) struct AttributeSplit<T> {
 
 /// The raw parsed shape of a `versioned_type` helper attribute.
 ///
-/// This type intentionally does not decide whether `extend` or `override` is
-/// valid in a given location. It only records which options were present so the
-/// context-specific attribute type can perform the final validation step.
+/// This type intentionally does not decide whether `extend` or `override` is valid in a given
+/// location. It only records which options were present so the context-specific attribute type can
+/// perform the final validation step.
 #[derive(Default)]
 struct RawVersionedTypeAttribute {
 	/// The span of the `extend` option when it was supplied.
@@ -131,8 +131,8 @@ impl RawVersionedTypeAttribute {
 
 /// The parsed helper attribute for struct and enum items.
 ///
-/// Types only support `extend`. The absence of the attribute is represented as
-/// `Standalone`, which makes the item independent from the previous version.
+/// Types only support `extend`. The absence of the attribute is represented as `Standalone`, which
+/// makes the item independent from the previous version.
 pub(super) struct TypeVersionedTypeAttribute {
 	/// The validated type-level mode requested by the user.
 	mode: TypeVersionedTypeMode,
@@ -182,8 +182,8 @@ pub(super) enum TypeVersionedTypeMode {
 
 /// The parsed helper attribute for enum variants.
 ///
-/// Variants support both `extend` and `override`. Supplying both means that the
-/// variant replaces the previous variant while also extending its fields.
+/// Variants support both `extend` and `override`. Supplying both means that the variant replaces
+/// the previous variant while also extending its fields.
 pub(super) struct VariantVersionedTypeAttribute {
 	/// The validated variant-level mode requested by the user.
 	mode: VariantVersionedTypeMode,
@@ -269,8 +269,8 @@ impl VariantWithVersionedTypeAttribute {
 
 /// The parsed helper attribute for struct fields and variant fields.
 ///
-/// Fields only support `override`. Field extension is controlled by the item or
-/// variant that owns the fields, not by each field independently.
+/// Fields only support `override`. Field extension is controlled by the item or variant that owns
+/// the fields, not by each field independently.
 pub(super) struct FieldVersionedTypeAttribute {
 	/// The validated field-level mode requested by the user.
 	mode: FieldVersionedTypeMode,

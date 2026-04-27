@@ -808,9 +808,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// and `estimate_gas`) live in separate invocations.
 ///
 /// `define_versioned_interface!` is the *interface* counterpart to `define_versioned_type!`: the
-/// type macro expresses each version of one struct as a delta from the previous version, while
-/// this macro pairs the input and output types of one runtime API and emits the wire-level enums
-/// and conversions that connect them.
+/// type macro expresses each version of one struct as a delta from the previous version, while this
+/// macro pairs the input and output types of one runtime API and emits the wire-level enums and
+/// conversions that connect them.
 ///
 /// # At a glance
 ///
@@ -982,8 +982,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// # Generics across versions
 ///
 /// Each payload struct may declare its own generic parameters and where-clauses. The generated
-/// versioned enum carries the *union* of the parameters and the *union* of the bounds on each
-/// side, computed independently per side:
+/// versioned enum carries the *union* of the parameters and the *union* of the bounds on each side,
+/// computed independently per side:
 ///
 /// * Lifetime, type, and const parameters with the same name across versions are merged into a
 ///   single declaration on the enum.
@@ -1002,11 +1002,11 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// enum sees only the output payloads' generics. A type parameter that appears only on the input
 /// side does not bleed into the output enum.
 ///
-/// Because the enum carries the union, every conversion impl uses the *enum's* generic signature
-/// — even when the payload alone needs fewer bounds. A `From<PayloadV1>` impl is callable only
-/// when the *enum-level* bounds are satisfied, not just `V1`'s narrower bounds. In practice this
-/// is a non-issue because constructing the enum already requires the union, but it explains why
-/// later versions' bounds appear together with `V1`'s at the conversion site.
+/// Because the enum carries the union, every conversion impl uses the *enum's* generic signature —
+/// even when the payload alone needs fewer bounds. A `From<PayloadV1>` impl is callable only when
+/// the *enum-level* bounds are satisfied, not just `V1`'s narrower bounds. In practice this is a
+/// non-issue because constructing the enum already requires the union, but it explains why later
+/// versions' bounds appear together with `V1`'s at the conversion site.
 ///
 /// # Derive forwarding
 ///
@@ -1020,9 +1020,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// If `EthTransactInputPayloadV1` derives `Clone, Debug` and `EthTransactInputPayloadV2` derives
 /// only `Clone`, the input enum derives `Clone` (the intersection). The output side is computed
-/// independently — it does not see the input side's derives. Non-derive attributes
-/// (`#[doc = "…"]`, `#[cfg(...)]`, `#[serde(...)]`, `#[encode(...)]`, …) are *not* propagated;
-/// they remain on each payload struct only.
+/// independently — it does not see the input side's derives. Non-derive attributes (`#[doc = "…"]`,
+/// `#[cfg(...)]`, `#[serde(...)]`, `#[encode(...)]`, …) are *not* propagated; they remain on each
+/// payload struct only.
 ///
 /// Multiple `#[derive(...)]` attributes on a single payload are flattened together. Malformed
 /// derive arguments inside a payload produce a diagnostic that names the offending payload.
@@ -1070,10 +1070,10 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// ## A single version, starting after V1
 ///
-/// Versions need not start at 1 — a family that begins at V7 is valid. Such an invocation
-/// generates exactly one `V7` variant and the matching helper trio, plus the `From`/`TryFrom`
-/// pair. The `TryFrom` impl emits an exhaustive `match` with no wildcard arm, so it compiles
-/// without unreachable-pattern warnings.
+/// Versions need not start at 1 — a family that begins at V7 is valid. Such an invocation generates
+/// exactly one `V7` variant and the matching helper trio, plus the `From`/`TryFrom` pair. The
+/// `TryFrom` impl emits an exhaustive `match` with no wildcard arm, so it compiles without
+/// unreachable-pattern warnings.
 ///
 /// ```ignore
 /// define_versioned_interface! {
@@ -1095,9 +1095,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// ## Out-of-order definitions
 ///
-/// The macro does not require source order to follow version order. The generated enum variants
-/// are always emitted in ascending version order regardless of how the structs are written, and
-/// input and output payloads can be freely interleaved.
+/// The macro does not require source order to follow version order. The generated enum variants are
+/// always emitted in ascending version order regardless of how the structs are written, and input
+/// and output payloads can be freely interleaved.
 ///
 /// ```ignore
 /// define_versioned_interface! {
@@ -1228,9 +1228,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// ## Asymmetric derives between input and output
 ///
-/// Input and output payloads do not need to derive the same set of traits. The macro intersects
-/// the derives on each side independently — an enum receives only the derives shared by every
-/// payload on its side.
+/// Input and output payloads do not need to derive the same set of traits. The macro intersects the
+/// derives on each side independently — an enum receives only the derives shared by every payload
+/// on its side.
 ///
 /// ```ignore
 /// define_versioned_interface! {
@@ -1267,9 +1267,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// Each payload struct keeps the visibility, doc comments, and any unrelated attributes it was
 /// written with. The generated enum is always `pub`; the macro does not propagate `#[cfg(...)]`,
-/// `#[doc(...)]`, or any other attribute from the payload structs to the enum. If you need to
-/// gate the entire interface, wrap the invocation in a private module or apply the attribute at
-/// the use site.
+/// `#[doc(...)]`, or any other attribute from the payload structs to the enum. If you need to gate
+/// the entire interface, wrap the invocation in a private module or apply the attribute at the use
+/// site.
 ///
 /// ```ignore
 /// define_versioned_interface! {

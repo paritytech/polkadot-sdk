@@ -10,9 +10,8 @@ use super::attribute::FieldWithVersionedTypeAttribute;
 
 /// Describes the syntax node that owns a field list.
 ///
-/// Struct fields can carry visibility, while enum variant fields cannot. The
-/// owner decides which visibility is assigned to fields copied from a previous
-/// version.
+/// Struct fields can carry visibility, while enum variant fields cannot. The owner decides which
+/// visibility is assigned to fields copied from a previous version.
 #[derive(Clone, Copy)]
 pub(super) enum FieldOwner {
 	/// The fields belong to a struct item.
@@ -35,10 +34,9 @@ impl FieldOwner {
 
 /// Extends a field list with fields from the immediately previous version.
 ///
-/// This function preserves the current field shape whenever possible. Named
-/// current fields stay named, tuple current fields stay tuple fields, and unit
-/// current fields become the previous non-unit shape when there are fields to
-/// inherit.
+/// This function preserves the current field shape whenever possible. Named current fields stay
+/// named, tuple current fields stay tuple fields, and unit current fields become the previous
+/// non-unit shape when there are fields to inherit.
 pub(super) fn extend_fields(
 	current: &mut Fields,
 	previous: &Fields,
@@ -73,9 +71,9 @@ pub(super) fn extend_fields(
 
 /// Strips field-level helper attributes when no field extension is active.
 ///
-/// Field-level override only has meaning inside a type or variant that is
-/// extending previous fields. Without that context, keeping the helper
-/// attribute would leak an implementation detail into the generated Rust item.
+/// Field-level override only has meaning inside a type or variant that is extending previous
+/// fields. Without that context, keeping the helper attribute would leak an implementation detail
+/// into the generated Rust item.
 pub(super) fn strip_field_attributes(fields: &mut Fields) -> Result<()> {
 	match fields {
 		Fields::Named(fields) => strip_named_fields_without_extension(fields),
