@@ -18,18 +18,22 @@
 //! Tests for the [`PGasDeposit`] storage-deposit backend.
 
 use crate::{
-	Config, HoldReason, NativeDepositOf,
+	Code, Config, HoldReason, NativeDepositOf,
 	deposit_payment::{Deposit, Funds},
-	test_utils::{ALICE, BOB},
-	tests::{Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, Test},
+	test_utils::{ALICE, BOB, builder::Contract},
+	tests::{Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, Test, builder},
 };
 use frame_support::{
 	assert_ok,
 	traits::{
-		fungible::{InspectHold, Mutate as _},
-		tokens::fungibles::InspectHold as _,
+		fungible::{Inspect as _, InspectHold, Mutate as _},
+		tokens::{
+			Fortitude, Precision, Preservation,
+			fungibles::{Inspect as FungiblesInspect, InspectHold as _, Mutate as FungiblesMutate},
+		},
 	},
 };
+use pallet_revive_fixtures::compile_module;
 use pretty_assertions::assert_eq;
 use sp_runtime::{AccountId32, DispatchResult};
 
@@ -256,4 +260,112 @@ fn burn_held_on_sub_ed_hold_partial_refund() {
 				"after partial refund (2 refunded, 18 burned, 30 still held)",
 			);
 		});
+}
+
+/// `mint_contract_eds` mints the native ED (deactivated) and the PGAS ED into the contract.
+/// `burn_contract_eds` is its exact inverse: total_issuance, inactive_issuance, and active
+/// issuance all return to their starting values.
+#[test]
+fn mint_and_burn_contract_eds_round_trip() {
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		let native_total_before = Balances::total_issuance();
+		let native_inactive_before = Balances::inactive_issuance();
+		let native_active_before = Balances::active_issuance();
+		let pgas_total_before = Assets::total_issuance(PGAS_ASSET_ID);
+
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+
+		// BOB has the native ED in free balance, deactivated.
+		assert_eq!(Balances::balance(&BOB), 50, "BOB should have native ED minted");
+		assert_eq!(Balances::total_issuance(), native_total_before + 50);
+		assert_eq!(Balances::inactive_issuance(), native_inactive_before + 50);
+		assert_eq!(
+			Balances::active_issuance(),
+			native_active_before,
+			"deactivate keeps active issuance pinned"
+		);
+
+		let pgas_ed = Assets::minimum_balance(PGAS_ASSET_ID);
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), pgas_ed);
+		assert_eq!(Assets::total_issuance(PGAS_ASSET_ID), pgas_total_before + pgas_ed);
+
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::burn_contract_eds(&BOB));
+
+		assert_eq!(Balances::balance(&BOB), 0, "native ED has been burned out of BOB");
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), 0);
+		assert_eq!(Balances::total_issuance(), native_total_before);
+		assert_eq!(Balances::inactive_issuance(), native_inactive_before);
+		assert_eq!(Balances::active_issuance(), native_active_before);
+		assert_eq!(Assets::total_issuance(PGAS_ASSET_ID), pgas_total_before);
+	});
+}
+
+/// After `mint_contract_eds`, the contract has a PGAS asset account with at least the PGAS ED,
+/// so a sub-ED PGAS transfer into it succeeds (would normally fail because transfers below the
+/// asset's ED to a fresh account get rejected).
+#[test]
+fn minted_contract_can_receive_sub_ed_pgas() {
+	ExtBuilder::default()
+		.with_pgas_min_balance(100)
+		.with_pgas_balances(vec![(ALICE, 1_000)])
+		.build()
+		.execute_with(|| {
+			Balances::set_balance(&ALICE, 1_000);
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), 100);
+
+			assert_ok!(<Assets as FungiblesMutate<_>>::transfer(
+				PGAS_ASSET_ID,
+				&ALICE,
+				&BOB,
+				30,
+				Preservation::Preserve,
+			));
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), 130);
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, &ALICE), 970);
+		});
+}
+
+/// After `mint_contract_eds`, the contract has a native account too, so a sub-ED native
+/// transfer into it also succeeds.
+#[test]
+fn minted_contract_can_receive_sub_ed_native() {
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		Balances::set_balance(&ALICE, 1_000);
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+
+		assert_eq!(Balances::balance(&BOB), 50);
+
+		assert_ok!(Balances::transfer(&ALICE, &BOB, 10, Preservation::Preserve));
+		assert_eq!(Balances::balance(&BOB), 60);
+		assert_eq!(Balances::balance(&ALICE), 990);
+	});
+}
+
+/// The native ED minted by `mint_contract_eds` is NOT extractable while the contract has a
+/// system consumer. Burning the ED directly is rejected by the underlying balance pallet
+/// because `can_dec_provider` is false (consumer pinned).
+#[test]
+fn minted_contract_native_ed_not_extractable_with_consumer() {
+	let (binary, _) = compile_module("dummy").unwrap();
+	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
+		Balances::set_balance(&ALICE, 1_000_000);
+		let Contract { account_id, .. } =
+			builder::bare_instantiate(Code::Upload(binary)).build_and_unwrap_contract();
+
+		let before = Balances::balance(&account_id);
+		let result = Balances::burn_from(
+			&account_id,
+			50,
+			Preservation::Expendable,
+			Precision::Exact,
+			Fortitude::Force,
+		);
+		assert!(
+			result.is_err(),
+			"the consumer pin must keep the native ED non-extractable; got {result:?}"
+		);
+		assert_eq!(Balances::balance(&account_id), before, "balance unchanged");
+	});
 }

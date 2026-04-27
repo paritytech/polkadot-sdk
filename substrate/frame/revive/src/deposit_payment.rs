@@ -21,26 +21,26 @@
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
 use crate::{
-	evm::fees::InfoT as FeeInfo, BalanceOf, Config, HoldReason, NativeDepositOf, LOG_TARGET,
+	BalanceOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, evm::fees::InfoT as FeeInfo,
 };
 use core::marker::PhantomData;
 use frame_support::{
 	storage::with_storage_layer,
 	traits::{
+		Get,
 		fungible::{
 			Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
 			Unbalanced as _,
 		},
 		tokens::{
-			fungibles, DepositConsequence, Fortitude, Precision, Preservation, Provenance,
-			Restriction,
+			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
+			fungibles,
 		},
-		Get,
 	},
 };
 use sp_runtime::{
-	traits::{Saturating, Zero},
 	DispatchError, DispatchResult, Perbill, TokenError,
+	traits::{Saturating, Zero},
 };
 
 mod sealed {
@@ -76,8 +76,7 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
 	/// exists, so this minted ED is not extractable: the account cannot be reaped.
 	///
-	/// Idempotent: if the contract already has the asset account, the corresponding mint is
-	/// skipped. Used by [`crate::exec`] when bringing a new contract account into existence.
+	/// Used by [`crate::exec`] when bringing a new contract account into existence.
 	fn mint_contract_eds(contract: &T::AccountId) -> DispatchResult;
 
 	/// Burn the existential deposits that [`Self::mint_contract_eds`] minted into `contract`.
@@ -283,10 +282,10 @@ where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 	Holder: fungibles::MutateHold<
-		T::AccountId,
-		Balance = BalanceOf<T>,
-		AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-	>,
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
@@ -472,10 +471,10 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 	where
 		T: Config,
 		Holder: fungibles::MutateHold<
-			T::AccountId,
-			Balance = BalanceOf<T>,
-			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-		>,
+				T::AccountId,
+				Balance = BalanceOf<T>,
+				AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+			>,
 		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
 		Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
 		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,

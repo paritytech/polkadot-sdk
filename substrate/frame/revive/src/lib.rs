@@ -692,10 +692,10 @@ pub mod pallet {
 	/// storage deposit.
 	///
 	/// Keys: `(holder, contributor) -> amount`
-	/// - `holder`: account on which the deposit is held (a contract, or the pallet's own
-	///   account for code-upload deposits).
-	/// - `contributor`: user that funded the deposit. Receives the native portion on refund,
-	///   capped at this entry's `amount`.
+	/// - `holder`: account on which the deposit is held (a contract, or the pallet's own account
+	///   for code-upload deposits).
+	/// - `contributor`: user that funded the deposit. Receives the native portion on refund, capped
+	///   at this entry's `amount`.
 	#[pallet::storage]
 	pub(crate) type NativeDepositOf<T: Config> = StorageDoubleMap<
 		_,
