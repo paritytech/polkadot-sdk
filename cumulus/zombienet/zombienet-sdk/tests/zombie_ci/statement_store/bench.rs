@@ -43,8 +43,7 @@ async fn statement_store_memory_stress_bench() -> Result<(), anyhow::Error> {
 	let statements_per_task = submit_capacity / total_tasks as u64;
 
 	let collator_names = ["alice", "bob", "charlie", "dave", "eve", "ferdie"];
-	let network =
-		spawn_network_with_injected_allowances(&collator_names, total_tasks).await?;
+	let network = spawn_network_with_injected_allowances(&collator_names, total_tasks).await?;
 
 	let target_node = collator_names[0];
 	let node = network.get_node(target_node)?;

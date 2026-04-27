@@ -784,46 +784,42 @@ async fn statement_store_subscription_reconnect() -> Result<(), anyhow::Error> {
 	Ok(())
 }
 
-/// Verifies store consistency when many statements expire concurrently
+/// Verifies that concurrent submits are not lost while `enforce_limits` cleans
+/// up a large batch of expired statements
 ///
-/// 1. 3000 ephemeral + 240 persistent statements are submitted concurrently and propagate
-/// 2. After enforce_limits cleans up the 3000 expired statements across 12 accounts, all nodes
-///    converge on the 240 surviving persistent statements
-///
-/// Test uses genesis-injected allowances
+/// Scenario:
+/// 1. Fill the store with 10000 ephemeral statements (20 accounts × 500) under a short TTL
+/// 2. Just before the TTL boundary, submit 500 persistent statements at uniform intervals across
+///    the overlap window — an `enforce_limits` cleanup of the 10000 expired entries fires inside
+///    this window, racing the concurrent submits
+/// 3. Fresh subscription must return exactly the 500 persistent statements: proves no submit was
+///    lost and all expired entries were removed from index and DB
 #[tokio::test(flavor = "multi_thread")]
 async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 	let _ = env_logger::try_init_from_env(
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network_with_injected_allowances(&["alice", "bob", "charlie", "dave"], 20)
-	.await?;
-
+	let network = spawn_network_with_injected_allowances(&["alice"], 25).await?;
 	let alice = network.get_node("alice")?;
-	let bob = network.get_node("bob")?;
-	let charlie = network.get_node("charlie")?;
-	let dave = network.get_node("dave")?;
-
 	let alice_rpc = alice.rpc().await?;
-	let bob_rpc = bob.rpc().await?;
-	let charlie_rpc = charlie.rpc().await?;
-	let dave_rpc = dave.rpc().await?;
 
+	let topic_a: Topic = [30u8; 32].into();
 	let now_secs = SystemTime::now()
 		.duration_since(UNIX_EPOCH)
 		.expect("Time went backwards")
 		.as_secs() as u32;
 
-	let topic_a: Topic = [30u8; 32].into();
-
-	let ephemeral_ttl: u32 = 600;
-	let enforce_limits_buffer: u64 = 65;
-
-	// 3000 ephemeral statements across 12 accounts (250 per account)
-	let num_ephemeral_accounts: u32 = 12;
-	let stmts_per_ephemeral: u32 = 250;
+	// Sized to bracket `ENFORCE_LIMITS_PERIOD = 31s` (eviction tick every 62s)
+	let ephemeral_ttl: u32 = 360;
+	let pre_expiry_lead: u64 = 5;
+	let overlap_window: u64 = 95;
+	let post_window_grace: u64 = 90;
 	let ephemeral_expiry = now_secs + ephemeral_ttl;
+
+	// 10_000 ephemeral statements across 20 accounts (500 per account)
+	let num_ephemeral_accounts: u32 = 20;
+	let stmts_per_ephemeral: u32 = 500;
 	let ephemeral_stmts: Vec<_> = (0..num_ephemeral_accounts)
 		.flat_map(|kp| {
 			(0..stmts_per_ephemeral).map(move |seq| {
@@ -842,9 +838,28 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		})
 		.collect();
 
-	// 240 persistent statements across 8 accounts (30 per account), never expire
-	let num_persistent_accounts: u32 = 8;
-	let stmts_per_persistent: u32 = 30;
+	let alice_rpc_arc = Arc::new(alice.rpc().await?);
+	let mut handles = Vec::new();
+	for stmt in ephemeral_stmts.iter().cloned() {
+		let rpc = Arc::clone(&alice_rpc_arc);
+		handles.push(tokio::spawn(async move {
+			let result = submit_statement(&rpc, &stmt).await?;
+			assert_eq!(result, SubmitResult::New);
+			Ok::<_, anyhow::Error>(())
+		}));
+	}
+	for handle in handles {
+		handle.await??;
+	}
+
+	let eph_encoded: Vec<Vec<u8>> = ephemeral_stmts.iter().map(|s| s.encode()).collect();
+	let mut fill_sub = subscribe_topic(&alice_rpc, topic_a).await?;
+	assert_statements_match(&mut fill_sub, &eph_encoded, 180, "alice").await?;
+	drop(fill_sub);
+
+	// 500 persistent statements across 5 accounts (100 per account)
+	let num_persistent_accounts: u32 = 5;
+	let stmts_per_persistent: u32 = 100;
 	let persistent_base = num_ephemeral_accounts;
 	let persistent_stmts: Vec<_> = (persistent_base..persistent_base + num_persistent_accounts)
 		.flat_map(|kp| {
@@ -857,23 +872,25 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		})
 		.collect();
 
-	// Submit all 3240 statements round-robin across nodes
-	let all_stmts: Vec<_> =
-		ephemeral_stmts.iter().chain(persistent_stmts.iter()).cloned().collect();
-	let rpcs = [
-		Arc::new(alice.rpc().await?),
-		Arc::new(bob.rpc().await?),
-		Arc::new(charlie.rpc().await?),
-		Arc::new(dave.rpc().await?),
-	];
-	let semaphore = Arc::new(tokio::sync::Semaphore::new(200));
+	let elapsed = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("Time went backwards")
+		.as_secs() as u32 -
+		now_secs;
+	let wait_until_overlap = (ephemeral_ttl as u64)
+		.saturating_sub(elapsed as u64)
+		.saturating_sub(pre_expiry_lead);
+	info!("Waiting {}s before opening overlap window", wait_until_overlap);
+	tokio::time::sleep(Duration::from_secs(wait_until_overlap)).await;
+
+	// Submit persistents at uniform intervals across the overlap window
+	let interval_ms = (overlap_window * 1000) / persistent_stmts.len() as u64;
 	let mut handles = Vec::new();
-	for (i, stmt) in all_stmts.iter().enumerate() {
-		let rpc = Arc::clone(&rpcs[i % rpcs.len()]);
-		let sem = Arc::clone(&semaphore);
-		let stmt = stmt.clone();
+	for (i, stmt) in persistent_stmts.iter().cloned().enumerate() {
+		let rpc = Arc::clone(&alice_rpc_arc);
+		let delay = Duration::from_millis(interval_ms * i as u64);
 		handles.push(tokio::spawn(async move {
-			let _permit = sem.acquire().await.expect("Semaphore is never closed");
+			tokio::time::sleep(delay).await;
 			let result = submit_statement(&rpc, &stmt).await?;
 			assert_eq!(result, SubmitResult::New);
 			Ok::<_, anyhow::Error>(())
@@ -883,49 +900,13 @@ async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
 		handle.await??;
 	}
 
-	let mut alice_sub = subscribe_topic(&alice_rpc, topic_a).await?;
-	let mut bob_sub = subscribe_topic(&bob_rpc, topic_a).await?;
-	let mut charlie_sub = subscribe_topic(&charlie_rpc, topic_a).await?;
-	let mut dave_sub = subscribe_topic(&dave_rpc, topic_a).await?;
+	tokio::time::sleep(Duration::from_secs(post_window_grace)).await;
 
-	// Verify all 3240 statements propagate to every node
-	let expected_encoded: Vec<Vec<u8>> = all_stmts.iter().map(|s| s.encode()).collect();
-	for (name, sub) in [
-		("alice", &mut alice_sub),
-		("bob", &mut bob_sub),
-		("charlie", &mut charlie_sub),
-		("dave", &mut dave_sub),
-	] {
-		assert_statements_match(sub, &expected_encoded, 600, name).await?;
-		assert_no_more_statements(sub, 10).await?;
-	}
-	let elapsed = SystemTime::now()
-		.duration_since(UNIX_EPOCH)
-		.expect("Time went backwards")
-		.as_secs() as u32 -
-		now_secs;
-	let wait_secs = ephemeral_ttl.saturating_sub(elapsed) as u64 + enforce_limits_buffer;
-	info!("Waiting {}s for expiration + enforce_limits cleanup", wait_secs);
-	tokio::time::sleep(Duration::from_secs(wait_secs)).await;
-
-	// Fresh subscriptions verify that enforce_limits actually removed the 3000 ephemeral
-	// statements from the store – only the 240 persistent ones should remain
-	let mut alice_fresh = subscribe_topic(&alice_rpc, topic_a).await?;
-	let mut bob_fresh = subscribe_topic(&bob_rpc, topic_a).await?;
-	let mut charlie_fresh = subscribe_topic(&charlie_rpc, topic_a).await?;
-	let mut dave_fresh = subscribe_topic(&dave_rpc, topic_a).await?;
-
+	// Fresh subscription must see exactly the 500 persistent statements
 	let persistent_encoded: Vec<Vec<u8>> = persistent_stmts.iter().map(|s| s.encode()).collect();
-
-	for (name, sub) in [
-		("alice", &mut alice_fresh),
-		("bob", &mut bob_fresh),
-		("charlie", &mut charlie_fresh),
-		("dave", &mut dave_fresh),
-	] {
-		assert_statements_match(sub, &persistent_encoded, 120, name).await?;
-		assert_no_more_statements(sub, 10).await?;
-	}
+	let mut verify_sub = subscribe_topic(&alice_rpc, topic_a).await?;
+	assert_statements_match(&mut verify_sub, &persistent_encoded, 120, "alice").await?;
+	assert_no_more_statements(&mut verify_sub, 10).await?;
 
 	Ok(())
 }
