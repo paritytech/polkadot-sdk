@@ -51,6 +51,17 @@ fn generate_versioned_enum(
 	side: PayloadSide,
 ) -> Result<TokenStream2> {
 	let side_items = side_items(input, side);
+	let Some(latest_item) = side_items.last().copied() else {
+		return Err(syn::Error::new(
+			Span::call_site(),
+			format!(
+				"internal error while generating latest {} payload version",
+				side.diagnostic_name()
+			),
+		));
+	};
+	let latest_version =
+		version_value_u32(latest_item.payload_name().version(), latest_item.item())?;
 	let generated_name = generated_interface_name(&input.name);
 	let enum_ident =
 		Ident::new(&format!("Versioned{}{}", generated_name, side.name_suffix()), input.name_span);
@@ -78,6 +89,8 @@ fn generate_versioned_enum(
 		}
 
 		impl #impl_generics #enum_ident #type_generics #where_clause {
+			pub const LATEST_VERSION: u32 = #latest_version;
+
 			#(#constructors)*
 
 			pub fn version(&self) -> usize {
@@ -139,6 +152,16 @@ fn side_items(
 /// Returns the public generated family name for an interface payload family.
 fn generated_interface_name(payload_family_name: &str) -> &str {
 	payload_family_name.strip_suffix("Versioned").unwrap_or(payload_family_name)
+}
+
+/// Returns a public version value for generated interface APIs.
+fn version_value_u32(version: Version, item: &ItemStruct) -> Result<u32> {
+	u32::try_from(version.value()).map_err(|_| {
+		syn::Error::new_spanned(
+			&item.ident,
+			"versioned interface payload versions must fit in a u32",
+		)
+	})
 }
 
 /// Returns the payload map for the provided side.
@@ -1949,6 +1972,7 @@ mod tests {
 
 		// Assert
 		for method in [
+			"LATEST_VERSION",
 			"new_v1",
 			"new_v2",
 			"version",

@@ -163,6 +163,8 @@ fn function_like_macro_expands_versioned_interface_input_helpers() {
 	let versioned = VersionedEthTransactInputPayload::new_v1(payload.clone());
 
 	// Assert
+	let latest_version: u32 = VersionedEthTransactInputPayload::<u8>::LATEST_VERSION;
+	assert_eq!(latest_version, 2);
 	assert_eq!(versioned.version(), 1);
 	assert_eq!(versioned.as_v1(), Some(&payload));
 	assert_eq!(versioned.clone().into_v1(), Some(payload.clone()));
@@ -178,6 +180,7 @@ fn function_like_macro_expands_versioned_interface_output_helpers() {
 	let versioned = VersionedEthTransactOutputPayload::new_v2(payload.clone());
 
 	// Assert
+	assert_eq!(VersionedEthTransactOutputPayload::LATEST_VERSION, 2);
 	assert_eq!(versioned.version(), 2);
 	assert_eq!(versioned.as_v2(), Some(&payload));
 	assert_eq!(versioned.clone().into_v2(), Some(payload.clone()));
@@ -195,6 +198,8 @@ fn function_like_macro_supports_out_of_order_non_one_versions_and_mismatch_acces
 	let versioned_v4 = VersionedTransferInputPayload::new_v4(payload_v4.clone());
 
 	// Assert
+	assert_eq!(VersionedTransferInputPayload::LATEST_VERSION, 4);
+	assert_eq!(VersionedTransferOutputPayload::LATEST_VERSION, 4);
 	assert_eq!(versioned_v3.version(), 3);
 	assert_eq!(versioned_v4.version(), 4);
 	assert_eq!(versioned_v3.as_v3(), Some(&payload_v3));

@@ -871,6 +871,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///
 /// // An inherent impl with constructors, version inspection, and per-version accessors.
 /// impl VersionedEthTransactInputPayload {
+///     pub const LATEST_VERSION: u32 = 2;
+///
 ///     pub fn new_v1(payload: EthTransactInputPayloadV1) -> Self { /* … */ }
 ///     pub fn new_v2(payload: EthTransactInputPayloadV2) -> Self { /* … */ }
 ///
