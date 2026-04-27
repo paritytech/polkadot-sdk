@@ -1,0 +1,49 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Refactor `VerifySignature` transaction extension for signer compatibility
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Refactor the `pallet_verify_signature::VerifySignature` transaction extension from an enum
+      with `Signed { .. }` / `Disabled` variants into a tuple struct
+      `VerifySignature<T>(pub Option<VerifySignatureData<T>>)`, where `None` is the
+      passthrough/disabled state and `Some(VerifySignatureData { signature, account })` carries
+      the signature to verify.
+
+      The motivation is signer compatibility. Generic signers can default extensions whose data
+      is wrapped in an obvious "no-op" type such as `bool` or `Option<_>`, but cannot default an
+      arbitrary enum without knowing its variants. Wrapping the extension data in an `Option`
+      lets a signer that does not understand this extension simply encode `None` (a single
+      `0x00` byte) to disable it.
+
+      The public constructors `VerifySignature::new_with_signature(signature, account)` and
+      `VerifySignature::new_disabled()` are preserved, so call sites that only use those
+      constructors compile unchanged. Code that pattern-matched on the old `Signed { .. }` /
+      `Disabled` variants directly must be updated to match on the wrapped `Option`.
+
+      **On-chain encoding change.** This is a breaking change to the SCALE encoding of the
+      extension. Under the old enum, `Disabled` encoded as variant tag `0x01` and `Signed` as
+      `0x00`. With `Option<VerifySignatureData<T>>`, `None` encodes as `0x00` and `Some` as `0x01` —
+      the tags for "disabled" and "signed" are flipped. To my knowledge, there is no production
+      runtime using this extension right now, but this breaking change is reflected in the major
+      bump of the pallet.
+
+crates:
+  - name: pallet-verify-signature
+    bump: major
+  - name: pallet-meta-tx
+    bump: patch
+  - name: pallet-example-authorization-tx-extension
+    bump: patch
+  - name: kitchensink-runtime
+    bump: major
+  - name: asset-hub-westend-runtime
+    bump: major
+  - name: collectives-westend-runtime
+    bump: major
+  - name: coretime-westend-runtime
+    bump: major
+  - name: people-westend-runtime
+    bump: major

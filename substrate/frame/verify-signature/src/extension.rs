@@ -20,7 +20,10 @@
 
 use crate::{Config, WeightInfo};
 use codec::{Decode, DecodeWithMemTracking, Encode};
-use frame_support::{pallet_prelude::TransactionSource, traits::OriginTrait};
+use frame_support::{
+	pallet_prelude::TransactionSource, traits::OriginTrait, CloneNoBound, DefaultNoBound,
+	EqNoBound, PartialEqNoBound,
+};
 use scale_info::TypeInfo;
 use sp_io::hashing::blake2_256;
 use sp_runtime::{
@@ -33,28 +36,40 @@ use sp_runtime::{
 };
 use sp_weights::Weight;
 
+/// Information required by [`VerifySignature`] to authorize a traditionally signed transaction.
+#[derive(
+	Encode, Decode, DecodeWithMemTracking, TypeInfo, CloneNoBound, EqNoBound, PartialEqNoBound,
+)]
+#[scale_info(skip_type_params(T))]
+pub struct VerifySignatureData<T: Config + Send + Sync> {
+	/// The signature provided by the transaction submitter.
+	pub signature: T::Signature,
+	/// The account that signed the payload.
+	pub account: T::AccountId,
+}
+
 /// Extension that, if enabled, validates a signature type against the payload constructed from the
 /// call and the rest of the transaction extension pipeline. This extension provides the
 /// functionality that traditionally signed transactions had with the implicit signature checking
 /// implemented in [`Checkable`](sp_runtime::traits::Checkable). It is meant to be placed ahead of
 /// any other extensions that do authorization work in the [`TransactionExtension`] pipeline.
-#[derive(Encode, Decode, DecodeWithMemTracking, Clone, Eq, PartialEq, TypeInfo)]
+///
+/// The wrapped [`Option`] is `None` when the extension is disabled (passthrough), and
+/// `Some(VerifySignatureData { .. })` when a signature must be verified. Wrapping the data in an
+/// [`Option`] allows generic signers to default the extension to disabled without knowing about
+/// its inner shape.
+#[derive(
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	CloneNoBound,
+	DefaultNoBound,
+	EqNoBound,
+	PartialEqNoBound,
+)]
 #[scale_info(skip_type_params(T))]
-pub enum VerifySignature<T>
-where
-	T: Config + Send + Sync,
-{
-	/// The extension will verify the signature and, if successful, authorize a traditionally
-	/// signed transaction.
-	Signed {
-		/// The signature provided by the transaction submitter.
-		signature: T::Signature,
-		/// The account that signed the payload.
-		account: T::AccountId,
-	},
-	/// The extension is disabled and will be passthrough.
-	Disabled,
-}
+pub struct VerifySignature<T: Config + Send + Sync>(pub Option<VerifySignatureData<T>>);
 
 impl<T> core::fmt::Debug for VerifySignature<T>
 where
@@ -77,12 +92,12 @@ where
 {
 	/// Create a new extension instance that will validate the provided signature.
 	pub fn new_with_signature(signature: T::Signature, account: T::AccountId) -> Self {
-		Self::Signed { signature, account }
+		Self(Some(VerifySignatureData { signature, account }))
 	}
 
 	/// Create a new passthrough extension instance.
 	pub fn new_disabled() -> Self {
-		Self::Disabled
+		Self(None)
 	}
 }
 
@@ -97,11 +112,11 @@ where
 	type Pre = ();
 
 	fn weight(&self, _call: &T::RuntimeCall) -> Weight {
-		match &self {
+		match &self.0 {
 			// The benchmarked weight of the payload construction and signature checking.
-			Self::Signed { .. } => T::WeightInfo::verify_signature(),
+			Some(_) => T::WeightInfo::verify_signature(),
 			// When the extension is passthrough, it consumes no weight.
-			Self::Disabled => Weight::zero(),
+			None => Weight::zero(),
 		}
 	}
 
@@ -119,9 +134,8 @@ where
 		TransactionValidityError,
 	> {
 		// If the extension is disabled, return early.
-		let (signature, account) = match &self {
-			Self::Signed { signature, account } => (signature, account),
-			Self::Disabled => return Ok((Default::default(), (), origin)),
+		let Some(VerifySignatureData { signature, account }) = &self.0 else {
+			return Ok((Default::default(), (), origin));
 		};
 
 		// This extension must receive an unauthorized origin as it is meant to headline the
