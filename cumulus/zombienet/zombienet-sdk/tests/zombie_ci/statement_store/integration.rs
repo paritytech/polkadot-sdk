@@ -837,16 +837,15 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		)
 		.await?;
 	let bob_sent_after = Cell::new(0.0f64);
-	bob
-		.wait_metric_with_timeout(
-			"substrate_sync_initial_sync_statements_sent",
-			|v| {
-				bob_sent_after.set(v);
-				true
-			},
-			10u64,
-		)
-		.await?;
+	bob.wait_metric_with_timeout(
+		"substrate_sync_initial_sync_statements_sent",
+		|v| {
+			bob_sent_after.set(v);
+			true
+		},
+		10u64,
+	)
+	.await?;
 	let total_sent = alice_sent_after.get() + bob_sent_after.get();
 	assert!(
 		total_sent >= TOTAL_STMTS as f64,
