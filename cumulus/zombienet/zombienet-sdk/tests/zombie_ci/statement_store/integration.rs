@@ -81,7 +81,9 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	}
 	let items = create_allowance_items(&entries);
 
-	let network = spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items).await?;
+	let network =
+		spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items, CollatorLogLevel::Info)
+			.await?;
 
 	let alice = network.get_node("alice")?;
 	let bob = network.get_node("bob")?;
@@ -635,7 +637,7 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network(&["alice", "bob"]).await?;
+	let network = spawn_network(&["alice", "bob"], CollatorLogLevel::Info).await?;
 
 	let alice_node = network.get_node("alice")?;
 	let bob_node = network.get_node("bob")?;
@@ -730,7 +732,8 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 		0,
 		StatementAllowance { max_count: TOTAL as u32, max_size: 1_000_000 },
 	)]);
-	let mut network = spawn_network_sudo(&["charlie", "alice"], items).await?;
+	let mut network =
+		spawn_network_sudo(&["charlie", "alice"], items, CollatorLogLevel::Trace).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;

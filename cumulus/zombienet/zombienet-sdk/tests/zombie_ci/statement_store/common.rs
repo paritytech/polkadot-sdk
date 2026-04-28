@@ -296,8 +296,9 @@ async fn launch_network(
 pub(super) async fn spawn_network_sudo(
 	collators: &[&str],
 	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
+	log: CollatorLogLevel,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let network = spawn_network_inner(collators, allowance_items.len()).await?;
+	let network = spawn_network_inner(collators, allowance_items.len(), log).await?;
 	let node = network.get_node(collators[0])?;
 	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
 		.await?;
@@ -321,6 +322,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 async fn spawn_network_inner(
 	collators: &[&str],
 	participant_count: usize,
+	log: CollatorLogLevel,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let base_dir = base_dir()?;
 	let chain_spec_template = include_str!("people-westend-local-spec.json");
@@ -330,7 +332,7 @@ async fn spawn_network_inner(
 
 	let participant_count_u32 = u32::try_from(participant_count)
 		.expect("participant_count must fit in u32 for collator args");
-	let args = collator_args(participant_count_u32, CollatorLogLevel::Info);
+	let args = collator_args(participant_count_u32, log);
 	let network = launch_network(collators, &chain_spec_path, args).await?;
 
 	info!("Waiting for parachain to produce blocks...");
@@ -345,8 +347,9 @@ async fn spawn_network_inner(
 /// Spawns a network without pre-injected allowances
 pub(super) async fn spawn_network(
 	collators: &[&str],
+	log: CollatorLogLevel,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	spawn_network_inner(collators, 0).await
+	spawn_network_inner(collators, 0, log).await
 }
 
 pub(super) async fn online_client_from_node(
