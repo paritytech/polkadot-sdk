@@ -114,7 +114,7 @@ pub mod pallet {
 	};
 	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
-		traits::{AccountIdConversion, Saturating, Zero},
+		traits::{AccountIdConversion, CheckedDiv, CheckedMul, Saturating, Zero},
 		Perbill, Permill,
 	};
 
@@ -224,6 +224,11 @@ pub mod pallet {
 		}
 	}
 
+	/// Maximum absolute difference between an external asset's decimals and the stable
+	/// asset's decimals. Bounds the scaling factor `10^diff` well below `u128::MAX`
+	/// so realistic balances cannot overflow during conversion.
+	pub const MAX_DECIMALS_DIFF: u32 = 24;
+
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
 		/// Fungibles implementation for both pUSD and external stablecoins.
@@ -277,7 +282,7 @@ pub mod pallet {
 	}
 
 	/// The in-code storage version.
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -295,7 +300,7 @@ pub mod pallet {
 		}
 	}
 
-	/// pUSD minted through PSM per external asset.
+	/// pUSD minted through PSM per external asset, denominated in pUSD units.
 	#[pallet::storage]
 	pub type PsmDebt<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, BalanceOf<T>, ValueQuery>;
@@ -326,6 +331,17 @@ pub mod pallet {
 	pub(crate) type ExternalAssets<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, T::AssetId, CircuitBreakerLevel, OptionQuery>;
 
+	/// Snapshot of each approved external asset's decimals at registration.
+	/// Used to detect runtime drift from the registered precision.
+	#[pallet::storage]
+	pub(crate) type AssetDecimals<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AssetId, u8, OptionQuery>;
+
+	/// Snapshot of the stable asset's decimals taken at genesis.
+	/// Set once during genesis build; present for the lifetime of the pallet.
+	#[pallet::storage]
+	pub(crate) type StableDecimals<T: Config> = StorageValue<_, u8, OptionQuery>;
+
 	/// Genesis configuration for the PSM pallet.
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]
@@ -350,13 +366,19 @@ pub mod pallet {
 			);
 			MaxPsmDebtOfTotal::<T>::put(self.max_psm_debt_of_total);
 			let stable_decimals = T::StableAsset::decimals();
+			StableDecimals::<T>::put(stable_decimals);
 			for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in &self.asset_configs {
+				let asset_decimals = T::Fungibles::decimals(*asset_id);
+				let diff = asset_decimals.abs_diff(stable_decimals) as u32;
 				assert!(
-					T::Fungibles::decimals(*asset_id) == stable_decimals,
-					"PSM genesis: asset {:?} decimals do not match stable asset decimals",
+					diff <= MAX_DECIMALS_DIFF,
+					"PSM genesis: asset {:?} decimals diff ({}) exceeds MAX_DECIMALS_DIFF ({})",
 					asset_id,
+					diff,
+					MAX_DECIMALS_DIFF,
 				);
 				ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
+				AssetDecimals::<T>::insert(asset_id, asset_decimals);
 				MintingFee::<T>::insert(asset_id, minting_fee);
 				RedemptionFee::<T>::insert(asset_id, redemption_fee);
 				AssetCeilingWeight::<T>::insert(asset_id, ceiling_weight);
@@ -419,6 +441,8 @@ pub mod pallet {
 		ExceedsMaxIssuance,
 		/// Asset is already in the approved list.
 		AssetAlreadyApproved,
+		/// Asset does not exist.
+		AssetDoesNotExist,
 		/// Cannot remove asset: not in approved list.
 		AssetNotApproved,
 		/// Cannot remove asset: has non-zero PSM debt.
@@ -427,8 +451,14 @@ pub mod pallet {
 		InsufficientPrivilege,
 		/// Maximum number of approved external assets reached.
 		TooManyAssets,
-		/// External asset decimals do not match the stable asset decimals.
+		/// Live decimals diverged from the snapshot taken at registration or genesis.
 		DecimalsMismatch,
+		/// The asset's decimal precision is outside the supported range.
+		DecimalsRangeExceeded,
+		/// Decimal scaling produced an arithmetic overflow.
+		ConversionOverflow,
+		/// Conversion to the counter-asset rounds to zero; swap would transfer nothing.
+		AmountTooSmallAfterConversion,
 		/// An unexpected invariant violation occurred. This should be reported.
 		Unexpected,
 	}
@@ -461,6 +491,10 @@ pub mod pallet {
 		/// - [`Error::ExceedsMaxIssuance`]: If minting would exceed system-wide pUSD issuance cap
 		/// - [`Error::ExceedsMaxPsmDebt`]: If minting would exceed PSM debt ceiling (aggregate or
 		///   per-asset)
+		/// - [`Error::DecimalsMismatch`]: If the asset's decimals do not match the stable asset's
+		///   decimals
+		/// - [`Error::AmountTooSmallAfterConversion`]: if the conversion to the counter-asset
+		///   rounds to zero; swap would transfer nothing
 		///
 		/// ## Events
 		///
@@ -479,31 +513,43 @@ pub mod pallet {
 				ExternalAssets::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(asset_status.allows_minting(), Error::<T>::MintingStopped);
 
-			ensure!(external_amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
+			// Guard against runtime drift in live decimals.
+			let (ext_decimals, pusd_decimals) = Self::ensure_decimals_match(asset_id)?;
 
-			let fee = MintingFee::<T>::get(asset_id).mul_ceil(external_amount);
-			let pusd_to_user = external_amount.saturating_sub(fee);
+			// Normalize to pUSD units for all internal accounting.
+			let pusd_equivalent =
+				Self::external_to_pusd(external_amount, ext_decimals, pusd_decimals)?;
+			ensure!(!pusd_equivalent.is_zero(), Error::<T>::AmountTooSmallAfterConversion);
+			ensure!(pusd_equivalent >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
-			// Total new issuance = pusd_to_user + fee = external_amount.
+			// Round-trip back to external units. Truncation dust stays in the user's wallet — only
+			// `effective_external` enters the reserve.
+			let effective_external =
+				Self::pusd_to_external(pusd_equivalent, ext_decimals, pusd_decimals)?;
+
+			let fee = MintingFee::<T>::get(asset_id).mul_ceil(pusd_equivalent);
+			let pusd_to_user = pusd_equivalent.saturating_sub(fee);
+
+			// Total new issuance = pusd_to_user + fee = pusd_equivalent.
 			let current_total_issuance = T::StableAsset::total_issuance();
 			let max_issuance = T::MaximumIssuance::get();
 			ensure!(
-				current_total_issuance.saturating_add(external_amount) <= max_issuance,
+				current_total_issuance.saturating_add(pusd_equivalent) <= max_issuance,
 				Error::<T>::ExceedsMaxIssuance
 			);
 
-			// Check aggregate PSM ceiling across all assets
+			// Check aggregate PSM ceiling across all assets (pUSD units).
 			let current_total_psm_debt = Self::total_psm_debt();
 			let max_psm = Self::max_psm_debt();
 			ensure!(
-				current_total_psm_debt.saturating_add(external_amount) <= max_psm,
+				current_total_psm_debt.saturating_add(pusd_equivalent) <= max_psm,
 				Error::<T>::ExceedsMaxPsmDebt
 			);
 
-			// Check per-asset ceiling (redistributes from disabled assets)
+			// Check per-asset ceiling (redistributes from disabled assets).
 			let current_debt = PsmDebt::<T>::get(asset_id);
 			let max_debt = Self::max_asset_debt(asset_id);
-			let new_debt = current_debt.saturating_add(external_amount);
+			let new_debt = current_debt.saturating_add(pusd_equivalent);
 			ensure!(new_debt <= max_debt, Error::<T>::ExceedsMaxPsmDebt);
 
 			let psm_account = Self::account_id();
@@ -512,7 +558,7 @@ pub mod pallet {
 				asset_id,
 				&who,
 				&psm_account,
-				external_amount,
+				effective_external,
 				Preservation::Expendable,
 			)?;
 			T::StableAsset::mint_into(&who, pusd_to_user)?;
@@ -525,7 +571,7 @@ pub mod pallet {
 			Self::deposit_event(Event::Minted {
 				who,
 				asset_id,
-				external_amount,
+				external_amount: effective_external,
 				pusd_received: pusd_to_user,
 				fee,
 			});
@@ -557,6 +603,10 @@ pub mod pallet {
 		/// - [`Error::AllSwapsStopped`]: If circuit breaker is at `AllDisabled`
 		/// - [`Error::BelowMinimumSwap`]: If `pusd_amount` is below [`Config::MinSwapAmount`]
 		/// - [`Error::InsufficientReserve`]: If PSM has insufficient external stablecoin
+		/// - [`Error::DecimalsMismatch`]: If the asset's decimals do not match the stable asset's
+		///   decimals
+		/// - [`Error::AmountTooSmallAfterConversion`]: if the conversion to the counter-asset
+		///   rounds to zero; swap would transfer nothing
 		///
 		/// ## Events
 		///
@@ -575,30 +625,42 @@ pub mod pallet {
 				ExternalAssets::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
 			ensure!(asset_status.allows_redemption(), Error::<T>::AllSwapsStopped);
 
+			// Guard against runtime drift in live decimals.
+			let (ext_decimals, pusd_decimals) = Self::ensure_decimals_match(asset_id)?;
+
 			ensure!(pusd_amount >= T::MinSwapAmount::get(), Error::<T>::BelowMinimumSwap);
 
 			let fee = RedemptionFee::<T>::get(asset_id).mul_ceil(pusd_amount);
-			let external_to_user = pusd_amount.saturating_sub(fee);
+			let pusd_net = pusd_amount.saturating_sub(fee);
+
+			// Convert pUSD-net to external units (floor) and round-trip back. The round-tripped
+			// amount (`effective_pusd_net`) is what is actually burned and what the tracked debt
+			// decreases by. Any truncation dust stays in the caller's pUSD balance — symmetric with
+			// `mint`, which only takes the round-tripped share of the external amount from the
+			// caller.
+			let external_out = Self::pusd_to_external(pusd_net, ext_decimals, pusd_decimals)?;
+			// Reject only when truncation wipes a non-zero net amount; a legitimately zero net
+			// (e.g., 100% fee) continues without an external transfer.
+			ensure!(
+				pusd_net.is_zero() || !external_out.is_zero(),
+				Error::<T>::AmountTooSmallAfterConversion
+			);
+			let effective_pusd_net =
+				Self::external_to_pusd(external_out, ext_decimals, pusd_decimals)?;
 
 			// Check debt first - redemptions are limited by tracked debt, not raw reserve.
 			// This prevents redemption of "donated" reserves that aren't backed by debt.
 			let current_debt = PsmDebt::<T>::get(asset_id);
-			ensure!(current_debt >= external_to_user, Error::<T>::InsufficientReserve);
+			ensure!(current_debt >= effective_pusd_net, Error::<T>::InsufficientReserve);
 
 			let reserve = Self::get_reserve(asset_id);
-			if reserve < external_to_user {
+			if reserve < external_out {
 				defensive!("PSM reserve is less than expected output amount");
 				return Err(Error::<T>::Unexpected.into());
 			}
 
-			// Burn the redeemed portion, then transfer fee to destination.
-			T::StableAsset::burn_from(
-				&who,
-				external_to_user,
-				Preservation::Expendable,
-				Precision::Exact,
-				Fortitude::Polite,
-			)?;
+			// Transfer the nominal fee to the destination, then burn the redeemed portion.
+			// Round-trip dust is not charged.
 			if !fee.is_zero() {
 				T::StableAsset::transfer(
 					&who,
@@ -608,24 +670,36 @@ pub mod pallet {
 				)?;
 			}
 
+			if !effective_pusd_net.is_zero() {
+				T::StableAsset::burn_from(
+					&who,
+					effective_pusd_net,
+					Preservation::Expendable,
+					Precision::Exact,
+					Fortitude::Polite,
+				)?;
+			}
+
 			let psm_account = Self::account_id();
-			T::Fungibles::transfer(
-				asset_id,
-				&psm_account,
-				&who,
-				external_to_user,
-				Preservation::Expendable,
-			)?;
+			if !external_out.is_zero() {
+				T::Fungibles::transfer(
+					asset_id,
+					&psm_account,
+					&who,
+					external_out,
+					Preservation::Expendable,
+				)?;
+			}
 
 			PsmDebt::<T>::mutate(asset_id, |debt| {
-				*debt = debt.saturating_sub(external_to_user);
+				*debt = debt.saturating_sub(effective_pusd_net);
 			});
 
 			Self::deposit_event(Event::Redeemed {
 				who,
 				asset_id,
-				pusd_paid: pusd_amount,
-				external_received: external_to_user,
+				pusd_paid: effective_pusd_net.saturating_add(fee),
+				external_received: external_out,
 				fee,
 			});
 
@@ -821,13 +895,20 @@ pub mod pallet {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
 			ensure!(!ExternalAssets::<T>::contains_key(asset_id), Error::<T>::AssetAlreadyApproved);
+			ensure!(T::Fungibles::asset_exists(asset_id), Error::<T>::AssetDoesNotExist);
 			let count = ExternalAssets::<T>::count();
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);
+
+			let asset_decimals = T::Fungibles::decimals(asset_id);
+			let stable_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
+			ensure!(T::StableAsset::decimals() == stable_decimals, Error::<T>::DecimalsMismatch);
 			ensure!(
-				T::Fungibles::decimals(asset_id) == T::StableAsset::decimals(),
-				Error::<T>::DecimalsMismatch
+				(asset_decimals.abs_diff(stable_decimals) as u32) <= MAX_DECIMALS_DIFF,
+				Error::<T>::DecimalsRangeExceeded
 			);
+
 			ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllEnabled);
+			AssetDecimals::<T>::insert(asset_id, asset_decimals);
 			Self::deposit_event(Event::ExternalAssetAdded { asset_id });
 			Ok(())
 		}
@@ -873,6 +954,7 @@ pub mod pallet {
 			MintingFee::<T>::remove(asset_id);
 			RedemptionFee::<T>::remove(asset_id);
 			AssetCeilingWeight::<T>::remove(asset_id);
+			AssetDecimals::<T>::remove(asset_id);
 			PsmDebt::<T>::remove(asset_id);
 			Self::deposit_event(Event::ExternalAssetRemoved { asset_id });
 			Ok(())
@@ -936,6 +1018,80 @@ pub mod pallet {
 			T::Fungibles::balance(asset_id, &Self::account_id())
 		}
 
+		/// Convert an amount denominated in external-asset units into pUSD units.
+		///
+		/// Scales by `10^(ext_decimals - pusd_decimals)` — multiplies up when pUSD has more
+		/// decimals, floor-divides when it has fewer. Returns [`Error::ConversionOverflow`] if
+		/// the scaling factor or the product does not fit in the balance type.
+		pub(crate) fn external_to_pusd(
+			amount: BalanceOf<T>,
+			ext_decimals: u8,
+			pusd_decimals: u8,
+		) -> Result<BalanceOf<T>, Error<T>> {
+			use core::cmp::Ordering::*;
+			match ext_decimals.cmp(&pusd_decimals) {
+				Equal => Ok(amount),
+				Less => {
+					let diff = (pusd_decimals - ext_decimals) as u32;
+					let factor = Self::pow10(diff)?;
+					amount.checked_mul(&factor).ok_or(Error::<T>::ConversionOverflow)
+				},
+				Greater => {
+					let diff = (ext_decimals - pusd_decimals) as u32;
+					let factor = Self::pow10(diff)?;
+					Ok(amount.checked_div(&factor).unwrap_or_else(BalanceOf::<T>::zero))
+				},
+			}
+		}
+
+		/// Convert an amount denominated in pUSD units into external-asset units.
+		///
+		/// Inverse of [`Self::external_to_pusd`]. Floor-divides when pUSD has more decimals,
+		/// multiplies up when it has fewer.
+		pub(crate) fn pusd_to_external(
+			amount: BalanceOf<T>,
+			ext_decimals: u8,
+			pusd_decimals: u8,
+		) -> Result<BalanceOf<T>, Error<T>> {
+			use core::cmp::Ordering::*;
+			match ext_decimals.cmp(&pusd_decimals) {
+				Equal => Ok(amount),
+				Less => {
+					let diff = (pusd_decimals - ext_decimals) as u32;
+					let factor = Self::pow10(diff)?;
+					Ok(amount.checked_div(&factor).unwrap_or_else(BalanceOf::<T>::zero))
+				},
+				Greater => {
+					let diff = (ext_decimals - pusd_decimals) as u32;
+					let factor = Self::pow10(diff)?;
+					amount.checked_mul(&factor).ok_or(Error::<T>::ConversionOverflow)
+				},
+			}
+		}
+
+		/// Compute `10^exp` as a [`BalanceOf`]. Returns [`Error::ConversionOverflow`] if the result
+		/// does not fit in `u128` or in `BalanceOf<T>`.
+		fn pow10(exp: u32) -> Result<BalanceOf<T>, Error<T>> {
+			let factor_u128 = 10u128.checked_pow(exp).ok_or(Error::<T>::ConversionOverflow)?;
+			factor_u128.try_into().map_err(|_| Error::<T>::ConversionOverflow)
+		}
+
+		/// Verify the live decimals for an external asset still match the snapshot taken at
+		/// registration, and that the stable asset's live decimals still match the genesis
+		/// snapshot.
+		pub(crate) fn ensure_decimals_match(
+			asset_id: T::AssetId,
+		) -> Result<(u8, u8), DispatchError> {
+			let ext_decimals =
+				AssetDecimals::<T>::get(asset_id).ok_or(Error::<T>::UnsupportedAsset)?;
+			ensure!(T::Fungibles::decimals(asset_id) == ext_decimals, Error::<T>::DecimalsMismatch);
+
+			let pusd_decimals = StableDecimals::<T>::get().ok_or(Error::<T>::Unexpected)?;
+			ensure!(T::StableAsset::decimals() == pusd_decimals, Error::<T>::DecimalsMismatch);
+
+			Ok((ext_decimals, pusd_decimals))
+		}
+
 		/// Ensure an account exists by incrementing its provider count if needed.
 		pub(crate) fn ensure_account_exists(account: &T::AccountId) {
 			if !frame_system::Pallet::<T>::account_exists(account) {
@@ -947,22 +1103,37 @@ pub mod pallet {
 		pub(crate) fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
 			use sp_runtime::traits::CheckedAdd;
 
-			let stable_decimals = T::StableAsset::decimals();
-
-			// Check 1: All approved assets must have matching decimals.
+			// Check 1: Live decimals must still match the snapshots taken at registration/genesis —
+			// both for the stable asset and every approved external asset.
+			let stable_decimals_snapshot =
+				StableDecimals::<T>::get().ok_or("StableDecimals not initialized")?;
+			ensure!(
+				T::StableAsset::decimals() == stable_decimals_snapshot,
+				"Stable asset live decimals differ from the genesis snapshot"
+			);
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
+				let snapshot = AssetDecimals::<T>::get(asset_id)
+					.ok_or("Approved external asset missing decimals snapshot")?;
 				ensure!(
-					T::Fungibles::decimals(asset_id) == stable_decimals,
-					"External asset decimals do not match stable asset decimals"
+					T::Fungibles::decimals(asset_id) == snapshot,
+					"External asset live decimals differ from the registration snapshot"
 				);
 			}
 
-			// Check 2: Per-asset reserve must be >= per-asset debt.
-			// The PSM holds 1:1 backing; donated reserves may cause reserve > debt.
+			// Check 2: Per-asset reserve (in external units) must be >= the external equivalent of
+			// the tracked pUSD debt. Donated reserves may make it strictly greater.
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
 				let debt = PsmDebt::<T>::get(asset_id);
 				let reserve = Self::get_reserve(asset_id);
-				ensure!(reserve >= debt, "PSM reserve is less than tracked debt for an asset");
+				let ext_decimals = AssetDecimals::<T>::get(asset_id)
+					.ok_or("Approved external asset missing decimals snapshot")?;
+				let debt_as_external =
+					Self::pusd_to_external(debt, ext_decimals, stable_decimals_snapshot)
+						.map_err(|_| "Failed to convert tracked debt to external units")?;
+				ensure!(
+					reserve >= debt_as_external,
+					"PSM reserve is less than tracked debt for an asset"
+				);
 			}
 
 			// Check 3: Computed total PSM debt must equal sum of per-asset debts.

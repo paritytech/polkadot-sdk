@@ -20,15 +20,12 @@
 use super::*;
 use crate::Pallet as Psm;
 use frame_benchmarking::v2::*;
-use frame_support::{
-	assert_ok,
-	traits::{
-		fungible::{metadata::Inspect, Create as FungibleCreate, Inspect as FungibleInspect},
-		fungibles::{
-			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
-		},
-		Get,
+use frame_support::traits::{
+	fungible::{metadata::Inspect, Create as FungibleCreate, Inspect as FungibleInspect},
+	fungibles::{
+		Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
 	},
+	Get,
 };
 use frame_system::RawOrigin;
 use pallet::BalanceOf;
@@ -37,6 +34,26 @@ use sp_runtime::{traits::Zero, Permill, Saturating};
 /// Offset for benchmark asset IDs, chosen to avoid collision with typical
 /// genesis asset IDs (e.g. stable asset ID = 1).
 const ASSET_ID_OFFSET: u32 = 100;
+
+/// Ensure the stable asset exists and its decimals snapshot is written.
+/// The snapshot is consulted by mint/redeem via `ensure_decimals_match` and by
+/// `add_external_asset`; without it those paths fail closed. Returns the live
+/// stable decimals so callers can align external-asset metadata with it.
+fn ensure_stable_setup<T: Config>() -> u8
+where
+	T::StableAsset: FungibleCreate<T::AccountId>,
+{
+	let admin: T::AccountId = whitelisted_caller();
+	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
+	if T::StableAsset::minimum_balance().is_zero() {
+		let _ = T::StableAsset::create(admin, true, 1u32.into());
+	}
+	let stable_decimals = T::StableAsset::decimals();
+	if !crate::StableDecimals::<T>::exists() {
+		crate::StableDecimals::<T>::put(stable_decimals);
+	}
+	stable_decimals
+}
 
 /// Set up `n` external assets ready for PSM benchmarks.
 ///
@@ -55,23 +72,32 @@ where
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
+
+	let stable_decimals = ensure_stable_setup::<T>();
+
+	// Target asset: create + set metadata via the runtime-provided benchmark
+	// helper. Setting metadata requires reserving a native deposit, which the
+	// helper handles by funding `admin` first — something the fungibles traits
+	// alone cannot express.
 	let target_id: T::AssetId = ASSET_ID_OFFSET.into();
 	if !T::Fungibles::asset_exists(target_id) {
-		assert_ok!(T::Fungibles::create(target_id, admin.clone(), true, 1u32.into()));
-	}
-	if T::StableAsset::minimum_balance().is_zero() {
-		let _ = T::StableAsset::create(admin, true, 1u32.into());
+		T::BenchmarkHelper::create_asset(target_id, &admin, stable_decimals);
 	}
 
 	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
+	// Filler assets only populate PSM storage so mint()'s iterators touch `n`
+	// entries. They are never swapped against, so their underlying fungibles
+	// asset does not need to exist and no AssetDecimals snapshot is required.
 	for i in 0..n {
 		let id: T::AssetId = (ASSET_ID_OFFSET + i).into();
 		crate::ExternalAssets::<T>::insert(id, CircuitBreakerLevel::AllEnabled);
 		crate::AssetCeilingWeight::<T>::insert(id, Permill::from_percent(1));
 		crate::PsmDebt::<T>::insert(id, BalanceOf::<T>::from(1u32));
 	}
-	// Give the target a dominant weight so it can absorb the full mint amount.
+	// Target-specific: dominant weight so it can absorb the full mint amount,
+	// and a decimals snapshot so `ensure_decimals_match` passes.
 	crate::AssetCeilingWeight::<T>::insert(target_id, Permill::from_percent(100));
+	crate::AssetDecimals::<T>::insert(target_id, stable_decimals);
 
 	target_id
 }
@@ -184,10 +210,13 @@ mod benchmarks {
 	}
 	#[benchmark]
 	fn add_external_asset() -> Result<(), BenchmarkError> {
+		// Seed StableDecimals and ensure the stable asset exists; the extrinsic
+		// reads the snapshot and compares it against live metadata.
+		let stable_decimals = ensure_stable_setup::<T>();
 		let caller: T::AccountId = whitelisted_caller();
 		let new_asset_id: T::AssetId = ASSET_ID_OFFSET.into();
 
-		T::BenchmarkHelper::create_asset(new_asset_id, &caller, T::StableAsset::decimals());
+		T::BenchmarkHelper::create_asset(new_asset_id, &caller, stable_decimals);
 
 		#[extrinsic_call]
 		_(RawOrigin::Root, new_asset_id);
