@@ -9,7 +9,7 @@ crates:
 - name: sp-runtime-interface
   bump: minor
 - name: sp-externalities
-  bump: minor
+  bump: major
 - name: polkadot-node-core-pvf-common
   bump: patch
 - name: sc-executor-polkavm
