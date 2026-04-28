@@ -260,8 +260,10 @@ enum ParachainWorkResult {
         para_id: ParaId,
         /// Hash of the validation code that Refine actually used.
         validation_code_hash: ValidationCodeHash,
+        /// Hash of the parent head data this candidate was built on top of.
+        parent_head_hash: Hash,
         /// New head data produced by the parachain block.
-        head_data: Vec<u8>,
+        head_data: HeadData,
         /// Upward messages emitted through host functions during Refine.
         /// Accumulate replays these in order.
         upward_messages: Vec<UpwardMessage>,
@@ -339,8 +341,8 @@ Refine is invoked **per work item** by JAM. For each work item at
 index `item_index` the Parachain Service performs:
 
 1. Reads the authorizer config via `auth_config()` and decodes the `authorized_paras`
-   prefix; enforces `len(authorized_paras) == len(workitems)` and rejects the package
-   otherwise (see §7.1).
+   prefix; if `len(authorized_paras) != len(workitems)` this Refine invocation aborts
+   with an `Err`.
 2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
 3. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
 4. Instantiates a child PVM with the PVF.
@@ -366,6 +368,9 @@ Service's Refine wrapper from the accumulated host-function side effects.
 If the PVF exits abnormally (panic, trap, or other failed execution), Refine treats this as
 `Err` and records the opaque error payload previously supplied through `report_error(data)` if
 one was provided.
+
+The Refine wrapper also fails the invocation as `Err` if the PVF exits without calling
+`set_parent_head_hash` exactly once — the parent-head declaration is mandatory.
 
 ### 4.3 Host Functions & PVM Imports
 
@@ -400,6 +405,7 @@ These produce effects carried in the work result and applied by Accumulate:
 | Host function | Returns | Purpose |
 |---|---|---|
 | `export(data: Vec<u8>)` | `u32` | Write a segment to the JAM Data Lake (e.g. outbound XCMP payloads). Returns segment index. |
+| `set_parent_head_hash(hash: Hash)` | `()` | Declare the parent head hash this candidate was built on. **Mandatory**: every Refine invocation must call this exactly once or the invocation is invalid (treated as `Err`). The hash is forwarded to Accumulate. |
 | `request_code_upgrade(hash: ValidationCodeHash)` | `()` | Signal a PVF code upgrade request (see §5.2) |
 | `transfer_out(dest: ServiceId, amount: Balance, memo: Vec<u8>)` | `()` | Transfer balance to another JAM service (Asset Hub only) |
 | `set_authorizer_queue(core: CoreIndex, queue: Vec<AuthorizerHash>, mode: QueueUpdateMode, new_assigner: Option<ServiceId>)` | `()` | Update the authorizer queue for a core (Coretime chain only). `mode` determines whether the queue is applied immediately or cached in service state until the current 80-slot queue is exhausted. `new_assigner`, when `Some`, hands off `assigners[core]` to another service so that service can manage its own core queue going forward; when `None`, the current assigner (Parachain Service) is retained. |
@@ -431,18 +437,22 @@ by JAM natively (see §2). The work splits into two categories:
 
 Performed once for each work package that is being accumulated in this block, in order:
 
-1. **Validation code check**: Verify the work result's `validation_code_hash` matches
+1. **Parent head check**: Verify the work result's `parent_head_hash` equals
+   `hash(ParaInfo[para_id].head_data)`. If not, the candidate is rejected. This prevents
+   a collator from including a candidate that was built on top of a stale, skipped, or
+   non-canonical parent head.
+2. **Validation code check**: Verify the work result's `validation_code_hash` matches
    either `ParaInfo.validation_code_hash` or the pending upgrade's code hash. If it
    matches neither, the candidate is rejected and an `ErrorEntry` with
    `ParachainError::InvalidCodeHash` is appended to `error_log[para_id]`.
-2. **Head data update + code upgrade check**: Writes the new `head_data` from the work
+3. **Head data update + code upgrade check**: Writes the new `head_data` from the work
    result into `ParaInfo` for the parachain and immediately checks whether the candidate
    was validated with the pending new PVF code. If so, it activates the new code, calls
    `forget()` on the old code hash, and clears `pending_upgrade`. This must happen here
    because later candidates from the same parachain in the same block may already use
    the new code. Any entries in `error_log[para_id]` whose key (timeslot) is strictly
    less than the current candidate's lookup-anchor timeslot are also pruned here.
-3. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
+4. **Process host-function calls from Refine**: Replay the `UpwardMessage`s carried in
    the work result, applying the effects of each side-effect host function the PVF
    invoked during Refine (code upgrades, transfers, authorizer queue updates, validator
    key updates, etc.). See the side-effect host function table in §4.3 for the full list.
