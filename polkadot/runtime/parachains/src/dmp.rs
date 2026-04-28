@@ -195,11 +195,11 @@ pub mod pallet {
 				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_iter())
 				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_msg());
 
-			// Should be at most 30% of max block weight
-			let max = T::BlockWeights::get().max_block.saturating_div(2);
+			// Should be at most 1/3 of max block weight
+			let max = T::BlockWeights::get().max_block.saturating_div(3);
 			assert!(
 				max.all_gte(min_mbm_weight),
-				"DMP queue migration uses more than 30% block weight"
+				"DMP queue migration uses more than 1/3 of max block weight"
 			);
 
 			// Also lazy_delete_some weight should be at most 50% of max block weight

@@ -1623,7 +1623,10 @@ fn migrate_v0_to_v1_step_empty_v0_entry_produces_no_meta() {
 	new_test_ext_integrity(default_genesis_config(), || {
 		let empty = ParaId::from(1000);
 		let full = ParaId::from(2);
-		migration::v0::DownwardMessageQueues::<Test>::insert(empty, Vec::<InboundDownwardMessage<_>>::new());
+		migration::v0::DownwardMessageQueues::<Test>::insert(
+			empty,
+			Vec::<InboundDownwardMessage<_>>::new(),
+		);
 		let msgs: Vec<_> =
 			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
 		migration::v0::DownwardMessageQueues::<Test>::insert(full, &msgs);
@@ -1653,7 +1656,10 @@ fn migrate_v0_to_v1_step_empty_v0_entry_produces_no_meta() {
 fn migrate_v0_to_v1_post_upgrade_accepts_empty_v0_entry() {
 	new_test_ext_integrity(default_genesis_config(), || {
 		let empty = ParaId::from(1000);
-		migration::v0::DownwardMessageQueues::<Test>::insert(empty, Vec::<InboundDownwardMessage<_>>::new());
+		migration::v0::DownwardMessageQueues::<Test>::insert(
+			empty,
+			Vec::<InboundDownwardMessage<_>>::new(),
+		);
 
 		let snapshot = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
 
