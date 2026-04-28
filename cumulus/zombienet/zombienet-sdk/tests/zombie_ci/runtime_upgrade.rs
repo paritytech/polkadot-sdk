@@ -5,6 +5,8 @@ use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY as WASM_RUNTIME_UPGRADE;
 use cumulus_zombienet_sdk_helpers::{submit_sudo_runtime_upgrade, wait_for_runtime_upgrade};
+use polkadot_primitives::MAX_CODE_SIZE;
+use serde_json::json;
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -12,6 +14,24 @@ use zombienet_sdk::{
 };
 
 const PARA_ID: u32 = 2000;
+
+/// Pad a zstd-compressed wasm blob up to `target` bytes by appending a zstd skippable frame.
+///
+/// The skippable frame is part of the zstd specification: any spec-compliant decoder skips it,
+/// so the padded blob still decompresses to the original wasm.
+fn pad_compressed_to(mut blob: Vec<u8>, target: usize) -> Vec<u8> {
+	assert!(blob.len() <= target, "compressed blob already exceeds target");
+	let need = target - blob.len();
+	if need == 0 {
+		return blob;
+	}
+	assert!(need >= 8, "cannot pad fewer than 8 bytes with a skippable frame");
+	let payload = (need - 8) as u32;
+	blob.extend_from_slice(&0x184D_2A50_u32.to_le_bytes());
+	blob.extend_from_slice(&payload.to_le_bytes());
+	blob.resize(blob.len() + payload as usize, 0);
+	blob
+}
 
 // This tests makes sure that it is possible to upgrade parachain's runtime
 // and parachain produces blocks after such upgrade.
@@ -32,13 +52,19 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 		charlie_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version {current_spec_version}");
 
-	log::info!("Performing runtime upgrade");
-	submit_sudo_runtime_upgrade(
-		&charlie_client,
-		WASM_RUNTIME_UPGRADE.expect("Wasm runtime not built"),
-		&dev::alice(),
-	)
-	.await?;
+	// IMPORTANT: `MAX_CODE_SIZE` + overhead must always stay strictly below the 
+	// `AttestedCandidateV2` request/response transport cap defined in
+	// `polkadot/node/network/protocol/src/request_response/mod.rs` (currently 8 MiB).
+	// If the compressed code exceeds the response cap, the response is rejected
+	// at the transport layer and the candidate cannot be backed. Whenever `MAX_CODE_SIZE` is
+	// raised, raise the transport cap first and ship the node update before Gov config change..
+	let wasm = pad_compressed_to(
+		WASM_RUNTIME_UPGRADE.expect("Wasm runtime not built").to_vec(),
+		MAX_CODE_SIZE as usize,
+	);
+	assert_eq!(wasm.len(), MAX_CODE_SIZE as usize);
+	log::info!("Performing runtime upgrade with padded wasm of {} bytes", wasm.len());
+	submit_sudo_runtime_upgrade(&charlie_client, &wasm, &dev::alice()).await?;
 
 	let dave = network.get_node("dave")?;
 	let dave_client: OnlineClient<PolkadotConfig> = dave.wait_client().await?;
@@ -72,6 +98,13 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot")
 				.with_default_image(images.polkadot.as_str())
 				.with_default_args(vec![("-lparachain=debug").into()])
+				.with_genesis_overrides(json!({
+					"configuration": {
+						"config": {
+							"max_code_size": MAX_CODE_SIZE,
+						}
+					}
+				}))
 				.with_validator(|node| node.with_name("alice"))
 				.with_validator(|node| node.with_name("bob"))
 		})
