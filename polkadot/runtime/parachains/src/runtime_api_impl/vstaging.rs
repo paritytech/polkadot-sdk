@@ -69,3 +69,93 @@ pub fn session_executor_params_for_next_session<T: configuration::Config + share
 		.unwrap_or_else(|| configuration::ActiveConfig::<T>::get().executor_params);
 	Some(params)
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::{
+		configuration::HostConfiguration,
+		mock::{new_test_ext, MockGenesisConfig, ParasShared, Test},
+	};
+	use polkadot_primitives::ExecutorParam;
+
+	fn params_with_max_memory_pages(pages: u32) -> ExecutorParams {
+		ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(pages)][..])
+	}
+
+	#[test]
+	fn returns_pending_executor_params_when_scheduled_for_next_session() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			ParasShared::set_session_index(10);
+
+			let next_session_params = params_with_max_memory_pages(2048);
+			let mut pending_config = configuration::ActiveConfig::<Test>::get();
+			pending_config.executor_params = next_session_params.clone();
+			configuration::PendingConfigs::<Test>::put(vec![(11, pending_config)]);
+
+			assert_eq!(
+				session_executor_params_for_next_session::<Test>(),
+				Some(next_session_params)
+			);
+		});
+	}
+
+	#[test]
+	fn falls_back_to_active_config_when_no_pending_for_next_session() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			ParasShared::set_session_index(10);
+
+			// `PendingConfigs` defaults to empty; no need to put anything.
+			let active_params = params_with_max_memory_pages(1024);
+			let mut active = configuration::ActiveConfig::<Test>::get();
+			active.executor_params = active_params.clone();
+			configuration::ActiveConfig::<Test>::put(active);
+
+			assert_eq!(session_executor_params_for_next_session::<Test>(), Some(active_params));
+		});
+	}
+
+	#[test]
+	fn ignores_pending_scheduled_two_sessions_ahead() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			ParasShared::set_session_index(10);
+
+			let active_params = params_with_max_memory_pages(1024);
+			let scheduled_only_params = params_with_max_memory_pages(4096);
+
+			let mut active = HostConfiguration::default();
+			active.executor_params = active_params.clone();
+			configuration::ActiveConfig::<Test>::put(active);
+
+			let mut scheduled_config = configuration::ActiveConfig::<Test>::get();
+			scheduled_config.executor_params = scheduled_only_params;
+			// Pending only at current + 2 (scheduled_session); next session
+			// (current + 1) inherits ActiveConfig.
+			configuration::PendingConfigs::<Test>::put(vec![(12, scheduled_config)]);
+
+			assert_eq!(session_executor_params_for_next_session::<Test>(), Some(active_params));
+		});
+	}
+
+	#[test]
+	fn picks_next_session_entry_when_both_next_and_scheduled_pending() {
+		new_test_ext(MockGenesisConfig::default()).execute_with(|| {
+			ParasShared::set_session_index(10);
+
+			let next_params = params_with_max_memory_pages(2048);
+			let scheduled_params = params_with_max_memory_pages(4096);
+
+			let mut next_config = configuration::ActiveConfig::<Test>::get();
+			next_config.executor_params = next_params.clone();
+			let mut scheduled_config = configuration::ActiveConfig::<Test>::get();
+			scheduled_config.executor_params = scheduled_params;
+
+			configuration::PendingConfigs::<Test>::put(vec![
+				(11, next_config),
+				(12, scheduled_config),
+			]);
+
+			assert_eq!(session_executor_params_for_next_session::<Test>(), Some(next_params));
+		});
+	}
+}
