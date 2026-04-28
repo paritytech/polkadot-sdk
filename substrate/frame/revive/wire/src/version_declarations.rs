@@ -137,6 +137,14 @@ macro_rules! declare_api_versions {
 					self.versions.len()
 				}
 			}
+
+			impl core::ops::Deref for PalletReviveRuntimeApiPayloadVersions {
+				type Target = BTreeMap<Vec<u8>, u32>;
+
+				fn deref(&self) -> &Self::Target {
+					&self.versions
+				}
+			}
 		}
 	};
 }
@@ -203,6 +211,8 @@ declare_api_versions![
 
 #[cfg(test)]
 mod tests {
+	use alloc::{collections::BTreeMap, vec::Vec};
+
 	use super::PalletReviveRuntimeApiPayloadVersions;
 
 	#[test]
@@ -248,5 +258,18 @@ mod tests {
 		// Assert
 		assert_eq!(runtime_api_name, None);
 		assert_eq!(versioned_name, Some(1));
+	}
+
+	#[test]
+	fn declaration_derefs_to_function_version_map() {
+		// Arrange
+		let versions = unsafe { PalletReviveRuntimeApiPayloadVersions::current() };
+
+		// Act
+		let map: &BTreeMap<Vec<u8>, u32> = &versions;
+
+		// Assert
+		assert_eq!(map.get(b"eth_transact_versioned".as_slice()), Some(&1));
+		assert_eq!(map.get(b"eth_transact".as_slice()), None);
 	}
 }
