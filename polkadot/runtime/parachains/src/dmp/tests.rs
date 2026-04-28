@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{
-	migration::{self, MigrateV0ToV1},
+	migration::{self, MigrateV0ToV1, MigrationCursor},
 	mock::{
 		default_genesis_config, execute_with_try_state, new_test_ext_integrity, pages_in_storage,
 		queue_downward_message, register_paras, run_to_block, EXPECTED_LAZY_DELETE_PAGES,
@@ -28,7 +28,11 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::Encode;
-use frame_support::{assert_ok, migrations::SteppedMigration, weights::WeightMeter};
+use frame_support::{
+	assert_ok,
+	migrations::{SteppedMigration, SteppedMigrationError},
+	weights::WeightMeter,
+};
 use hex_literal::hex;
 use sp_arithmetic::traits::Saturating;
 
@@ -1440,10 +1444,7 @@ fn inbound_downward_queue_meta_codec_roundtrip() {
 
 #[test]
 fn migrate_v0_to_v1_step_drains_multiple_paras_across_many_steps() {
-	// Drive `step` repeatedly with a tight meter: multiple paras, multiple
-	// messages each, budget that forces partial progress within paras and
-	// across paras. Loop until `Ok(None)`, then verify v0 is fully drained
-	// and every old message is present in the new layout in order.
+	// Tight meter, 4 paras × 7 msgs: forces partial steps within and across paras.
 	new_test_ext_integrity(default_genesis_config(), || {
 		let paras: Vec<ParaId> = (1..=4).map(ParaId::from).collect();
 		let msgs_per_para: u8 = 7;
@@ -1467,55 +1468,33 @@ fn migrate_v0_to_v1_step_drains_multiple_paras_across_many_steps() {
 		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
 		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
 
-		// Per step: base + per_iter + at most 2 per_msg, so each step migrates
-		// at most ~2 messages. Total work = 4 * 7 = 28 messages → many steps.
 		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
 
 		let mut cursor: Option<<MigrateV0ToV1<Test> as SteppedMigration>::Cursor> = None;
 		let mut steps = 0u32;
-		let mut completed_in_one_step = false;
 		loop {
 			let mut meter = WeightMeter::with_limit(budget);
-			let ret = MigrateV0ToV1::<Test>::step(cursor.clone(), &mut meter)
-				.expect("step has enough headroom for the configured budget");
+			let ret = MigrateV0ToV1::<Test>::step(cursor.clone(), &mut meter).unwrap();
 			steps += 1;
-
-			if steps == 1 && ret.is_none() {
-				completed_in_one_step = true;
-			}
-
 			match ret {
 				None => break,
 				Some(c) => cursor = Some(c),
 			}
 			assert!(steps < 1000, "migration not making progress");
 		}
-
-		// Sanity: with this budget the migration must take more than one step.
-		assert!(
-			!completed_in_one_step,
-			"test budget too generous — migration finished in one step"
-		);
 		assert!(steps > 1, "expected multiple steps, got {}", steps);
 
-		// v0 fully drained.
-		assert_eq!(
-			migration::v0::DownwardMessageQueues::<Test>::iter().count(),
-			0,
-			"v0 still has entries after migration loop completed",
-		);
+		assert_eq!(migration::v0::DownwardMessageQueues::<Test>::iter().count(), 0);
 
-		// Each para's old messages appear as ordered pages with matching meta.
 		for (para, msgs) in expected {
 			let total = msgs.len() as u64;
-			let meta = DownwardMessageQueueMeta::<Test>::get(para)
-				.unwrap_or_else(|| panic!("meta missing for {:?}", para));
-			assert_eq!(meta.first_full, 0, "first_full for {:?}", para);
-			assert_eq!(meta.first_free, total, "first_free for {:?}", para);
+			let meta = DownwardMessageQueueMeta::<Test>::get(para).unwrap();
+			assert_eq!(meta.first_full, 0);
+			assert_eq!(meta.first_free, total);
 			for (i, msg) in msgs.into_iter().enumerate() {
-				let page = DownwardMessageQueuePages::<Test>::get(para, i as PageIndex)
-					.unwrap_or_else(|| panic!("page {} missing for {:?}", i, para));
-				assert_eq!(page, msg, "page {} content mismatch for {:?}", i, para);
+				let page =
+					DownwardMessageQueuePages::<Test>::get(para, i as PageIndex).unwrap();
+				assert_eq!(page, msg);
 			}
 		}
 	});
@@ -1523,16 +1502,12 @@ fn migrate_v0_to_v1_step_drains_multiple_paras_across_many_steps() {
 
 #[test]
 fn migrate_v0_to_v1_step_returns_some_cursor_on_partial_first_step() {
-	// Bug repro: when `step` is invoked with `cursor = None` and the meter only
-	// allows partial migration of the first para, the partial-migration branch
-	// re-stores the remainder back into v0 and breaks out without ever assigning
-	// `cursor = Some(para)`. The function then returns `Ok(None)`, which the
-	// `pallet-migrations` runner interprets as "migration finished" — orphaning
-	// the v0 tail.
+	// Regression: with `cursor = None` and a meter too tight to finish the first
+	// para, `step` must return `Ok(Some(_))` — `Ok(None)` would tell the runner
+	// the migration is done and orphan the v0 tail.
 	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(1234);
 
-		// 10 messages so a tight meter cannot finish the para in one step.
 		let msgs: Vec<InboundDownwardMessage<polkadot_primitives::BlockNumber>> =
 			(0..10u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
 		migration::v0::DownwardMessageQueues::<Test>::insert(a, &msgs);
@@ -1541,17 +1516,131 @@ fn migrate_v0_to_v1_step_returns_some_cursor_on_partial_first_step() {
 		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
 		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
 
-		// Enough for base + one outer iter + ~2 messages, but not all 10. This
-		// guarantees we hit the partial-migration branch.
 		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
 		let mut meter = WeightMeter::with_limit(budget);
 
 		let result = MigrateV0ToV1::<Test>::step(None, &mut meter);
+		assert!(matches!(result, Ok(Some(_))), "got {:?}", result);
+	});
+}
 
-		assert!(
-			matches!(result, Ok(Some(_))),
-			"MigrateV0ToV1 returned {:?} before v0 was drained — runner will mark migration as finished and orphan remaining data",
-			result,
+#[test]
+fn migrate_v0_to_v1_step_returns_err_on_insufficient_weight() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		migration::v0::DownwardMessageQueues::<Test>::insert(
+			para,
+			&vec![InboundDownwardMessage { sent_at: 1, msg: vec![0] }],
 		);
+
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+		let required = base.saturating_add(per_iter).saturating_add(per_msg);
+
+		let mut meter = WeightMeter::with_limit(required.saturating_sub(per_msg));
+		match MigrateV0ToV1::<Test>::step(None, &mut meter) {
+			Err(SteppedMigrationError::InsufficientWeight { required: r }) =>
+				assert_eq!(r, required),
+			other => panic!("expected InsufficientWeight, got {:?}", other),
+		}
+		// Untouched: no base consumed, no pages written, v0 entry intact.
+		assert!(migration::v0::DownwardMessageQueues::<Test>::contains_key(para));
+		assert!(DownwardMessageQueueMeta::<Test>::get(para).is_none());
+	});
+}
+
+#[test]
+fn migrate_v0_to_v1_step_short_circuits_when_storage_version_already_bumped() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		// Simulate "already migrated" by bumping the on-chain version.
+		frame_support::traits::StorageVersion::new(1).put::<crate::dmp::Pallet<Test>>();
+
+		// Stale v0 data must remain untouched.
+		let para = ParaId::from(1);
+		migration::v0::DownwardMessageQueues::<Test>::insert(
+			para,
+			&vec![InboundDownwardMessage { sent_at: 1, msg: vec![0] }],
+		);
+
+		let mut meter = WeightMeter::new();
+		assert_eq!(MigrateV0ToV1::<Test>::step(None, &mut meter), Ok(None));
+		assert!(migration::v0::DownwardMessageQueues::<Test>::contains_key(para));
+	});
+}
+
+#[test]
+fn migrate_v0_to_v1_storage_version_not_bumped_on_partial_step() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let msgs: Vec<_> =
+			(0..10u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &msgs);
+
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
+
+		let mut meter = WeightMeter::with_limit(budget);
+		assert!(matches!(
+			MigrateV0ToV1::<Test>::step(None, &mut meter),
+			Ok(Some(MigrationCursor::InProgress { .. })),
+		));
+
+		// If the version got bumped here, the next step would short-circuit.
+		assert_eq!(
+			crate::dmp::Pallet::<Test>::on_chain_storage_version(),
+			frame_support::traits::StorageVersion::new(0),
+		);
+	});
+}
+
+#[test]
+fn migrate_v0_to_v1_step_skips_in_progress_cursor_with_vanished_v0_entry() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let live = ParaId::from(1);
+		let vanished = ParaId::from(999);
+		let msgs: Vec<_> =
+			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(live, &msgs);
+
+		let cursor = Some(MigrationCursor::InProgress { para: vanished, next: 5 });
+		let mut meter = WeightMeter::new();
+		assert_eq!(MigrateV0ToV1::<Test>::step(cursor, &mut meter), Ok(None));
+
+		// `live` was migrated; the vanished cursor left no trace.
+		let meta = DownwardMessageQueueMeta::<Test>::get(live).unwrap();
+		assert_eq!(meta.first_full, 0);
+		assert_eq!(meta.first_free, msgs.len() as u64);
+		assert!(!migration::v0::DownwardMessageQueues::<Test>::contains_key(live));
+		assert!(DownwardMessageQueueMeta::<Test>::get(vanished).is_none());
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migrate_v0_to_v1_pre_post_upgrade_idempotent() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		let msgs: Vec<_> =
+			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &msgs);
+
+		let snapshot = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+
+		let mut cursor = None;
+		loop {
+			let mut meter = WeightMeter::new();
+			match MigrateV0ToV1::<Test>::step(cursor, &mut meter).unwrap() {
+				None => break,
+				Some(c) => cursor = Some(c),
+			}
+		}
+		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
+
+		// Re-running the hooks against an already-migrated state must not panic.
+		let snapshot_after = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+		MigrateV0ToV1::<Test>::post_upgrade(snapshot_after).unwrap();
 	});
 }

@@ -16,15 +16,14 @@
 
 //! Storage migrations for the dmp pallet.
 //!
-//! [`MigrateV0ToV1`] translates the old single-`Vec<msg>`-per-para layout
-//! ([`v0::DownwardMessageQueues`]) into the new
-//! [`DownwardMessageQueueMeta`] + [`DownwardMessageQueuePages`] layout. It is
-//! a [`SteppedMigration`] driven by `pallet-migrations`: one full para per
-//! step, the cursor stores the last fully-migrated `ParaId`.
+//! [`MigrateV0ToV1`] translates the old `Vec`-per-para layout
+//! ([`v0::DownwardMessageQueues`]) into the paged layout
+//! ([`DownwardMessageQueueMeta`] + [`DownwardMessageQueuePages`]).
 
 use super::*;
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
@@ -66,21 +65,14 @@ pub mod v0 {
 		crate::dmp::Pallet<T>,
 		Twox64Concat,
 		ParaId,
-		alloc::vec::Vec<InboundDownwardMessage<BlockNumberFor<T>>>,
+		Vec<InboundDownwardMessage<BlockNumberFor<T>>>,
 		ValueQuery,
 	>;
 }
 
 /// Migrate `v0::DownwardMessageQueues` into the paged layout.
 ///
-/// On each call, the step processes paras from `v0::DownwardMessageQueues` in
-/// iteration order, writing each message of the old `Vec` as a separate page
-/// in `DownwardMessageQueuePages`. When a para is fully migrated, its meta is
-/// written and the old entry is removed.
-///
-/// Two weights are charged: `migrate_v0_to_v1_step_base` once per call, plus
-/// `migrate_v0_to_v1_step_iter` per outer iteration and `migrate_v0_to_v1_step_msg`
-/// per page write.
+/// Must be configured to at least 30% of max block weight.
 pub struct MigrateV0ToV1<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
@@ -180,36 +172,22 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-		use codec::Encode;
-
-		let snapshot: BTreeMap<ParaId, alloc::vec::Vec<InboundDownwardMessage<BlockNumberFor<T>>>> =
+	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
+		// Idempotent: snapshot whatever is currently in v0. If the migration has
+		// already been (partially) applied, `post_upgrade` will simply have less
+		// to verify.
+		let snapshot: BTreeMap<ParaId, Vec<InboundDownwardMessage<BlockNumberFor<T>>>> =
 			v0::DownwardMessageQueues::<T>::iter().collect();
-
-		// New storage must be empty before the migration kicks in.
-		assert_eq!(
-			DownwardMessageQueueMeta::<T>::iter().count(),
-			0,
-			"DownwardMessageQueueMeta is non-empty before MigrateV0ToV1",
-		);
-		assert_eq!(
-			DownwardMessageQueuePages::<T>::iter_keys().count(),
-			0,
-			"DownwardMessageQueuePages is non-empty before MigrateV0ToV1",
-		);
 
 		Ok(snapshot.encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(prev: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use codec::Decode;
-
-		let prev =
-			BTreeMap::<ParaId, alloc::vec::Vec<InboundDownwardMessage<BlockNumberFor<T>>>>::decode(
-				&mut &prev[..],
-			)
-			.expect("pre_upgrade snapshot decodes");
+	fn post_upgrade(prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		let prev = BTreeMap::<ParaId, Vec<InboundDownwardMessage<BlockNumberFor<T>>>>::decode(
+			&mut &prev[..],
+		)
+		.expect("pre_upgrade snapshot decodes");
 
 		// Old storage must be empty.
 		assert_eq!(
@@ -232,12 +210,14 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			}
 			let meta = DownwardMessageQueueMeta::<T>::get(para)
 				.expect("para with non-empty queue must have a meta after migration");
+
 			assert_eq!(meta.first_full, 0, "para {:?}: first_full must be 0", para);
 			assert_eq!(
 				meta.first_free, total,
 				"para {:?}: first_free must equal old Vec length",
 				para,
 			);
+
 			for (i, msg) in msgs.into_iter().enumerate() {
 				let page = DownwardMessageQueuePages::<T>::get(para, i as PageIndex)
 					.expect("each page must be present after migration");

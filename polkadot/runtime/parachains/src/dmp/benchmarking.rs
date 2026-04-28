@@ -19,6 +19,7 @@
 #![cfg(feature = "runtime-benchmarks")]
 
 use super::{inbound_downward_queue::LAZY_DELETE_MAX_PAGES, migration, *};
+use alloc::{vec, vec::Vec};
 use frame_benchmarking::v2::*;
 use frame_support::{migrations::SteppedMigration, weights::WeightMeter};
 use polkadot_primitives::Id as ParaId;
@@ -32,7 +33,7 @@ mod benchmarks {
 		let para = ParaId::from(1);
 		let pages: u64 = LAZY_DELETE_MAX_PAGES as u64;
 		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size as usize;
-		let payload = alloc::vec![0u8; max_size];
+		let payload = vec![0u8; max_size];
 
 		for i in 0..pages {
 			DownwardMessageQueuePages::<T>::insert(
@@ -73,10 +74,10 @@ mod benchmarks {
 	fn migrate_v0_to_v1_step_iter() {
 		let para = ParaId::from(1);
 		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size;
-		let payload = alloc::vec![0u8; max_size as usize];
-		let max_msgs = 1 as usize;
+		let payload = vec![0u8; max_size as usize];
+		let max_msgs = 1usize;
 
-		let messages: alloc::vec::Vec<InboundDownwardMessage<BlockNumberFor<T>>> = (0..max_msgs)
+		let messages: Vec<InboundDownwardMessage<BlockNumberFor<T>>> = (0..max_msgs)
 			.map(|_| InboundDownwardMessage {
 				sent_at: frame_system::Pallet::<T>::block_number(),
 				msg: payload.clone(),
@@ -106,7 +107,7 @@ mod benchmarks {
 		let max_size = configuration::ActiveConfig::<T>::get().max_downward_message_size as usize;
 		let msg = InboundDownwardMessage {
 			sent_at: frame_system::Pallet::<T>::block_number(),
-			msg: alloc::vec![0u8; max_size],
+			msg: vec![0u8; max_size],
 		};
 
 		#[block]
