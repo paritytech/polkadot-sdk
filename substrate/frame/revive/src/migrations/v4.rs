@@ -29,7 +29,7 @@
 //! contract and held under the same reason.
 //!
 //! Phase 3 rewrites the [`crate::DeletionQueue`] entries from their old `TrieId` value into the
-//! new [`DeletionQueueItem`] format.
+//! new [`crate::storage::DeletionQueueItem`] format.
 
 use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]

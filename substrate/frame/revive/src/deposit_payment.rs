@@ -318,8 +318,8 @@ where
 {
 	/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
-	/// ED is [`deactivated`](fungible::Unbalanced::deactivate) so it stays outside active
-	/// issuance.
+	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays
+	/// outside active issuance.
 	fn mint_contract_eds(to: &T::AccountId) -> DispatchResult {
 		<() as Deposit<T>>::mint_contract_eds(to)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
