@@ -107,7 +107,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 		// Per-asset snapshots. Walk every approved external asset.
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
 			reads += 3; // ExternalAssets iter item + AssetDecimals + Fungibles::decimals reads below
-			if AssetDecimals::<T>::contains_key(asset_id) {
+			if AssetDecimals::<T>::contains_key(&asset_id) {
 				log::info!(
 					target: LOG_TARGET,
 					"Asset {:?} already has a decimals snapshot, skipping",
@@ -116,8 +116,8 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 				continue;
 			}
 
-			let asset_decimals = T::Fungibles::decimals(asset_id);
-			AssetDecimals::<T>::insert(asset_id, asset_decimals);
+			let asset_decimals = T::Fungibles::decimals(asset_id.clone());
+			AssetDecimals::<T>::insert(&asset_id, asset_decimals);
 			writes += 1;
 
 			let diff = asset_decimals.abs_diff(stable_decimals) as u32;
@@ -127,7 +127,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 				// snapshot is still written — it preserves the observed state
 				// and lets the runtime guard surface the divergence clearly.
 				if status != CircuitBreakerLevel::AllDisabled {
-					ExternalAssets::<T>::insert(asset_id, CircuitBreakerLevel::AllDisabled);
+					ExternalAssets::<T>::insert(&asset_id, CircuitBreakerLevel::AllDisabled);
 					writes += 1;
 				}
 				log::warn!(
@@ -170,7 +170,7 @@ impl<T: Config> UncheckedOnRuntimeUpgrade for InnerPopulateDecimals<T> {
 
 		let stable_decimals = T::StableAsset::decimals();
 		for (asset_id, status) in ExternalAssets::<T>::iter() {
-			let snapshot = AssetDecimals::<T>::get(asset_id)
+			let snapshot = AssetDecimals::<T>::get(&asset_id)
 				.ok_or("Approved external asset missing decimals snapshot after migration")?;
 			ensure!(
 				snapshot == T::Fungibles::decimals(asset_id),
