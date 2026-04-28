@@ -42,18 +42,26 @@ impl<T: Config> InboundDownwardQueue<T> {
 		para: ParaId,
 		msg: DownwardMessage,
 	) -> Result<InboundDownwardMessage<BlockNumberFor<T>>, ()> {
-		let mut meta = Self::meta(para).unwrap_or_else(|| Self::new_meta(para));
-
 		let inbound =
 			InboundDownwardMessage { sent_at: frame_system::Pallet::<T>::block_number(), msg };
+		Self::push_back_inbound(para, &inbound)?;
+		Ok(inbound)
+	}
+
+	/// Append a fully-formed [`InboundDownwardMessage`], preserving its `sent_at`.
+	pub fn push_back_inbound(
+		para: ParaId,
+		inbound: &InboundDownwardMessage<BlockNumberFor<T>>,
+	) -> Result<(), ()> {
+		let mut meta = Self::meta(para).unwrap_or_else(|| Self::new_meta(para));
 
 		let insert_location = meta.first_free;
 		meta.first_free = meta.first_free.checked_add(1).ok_or(())?;
-		DownwardMessageQueuePages::<T>::insert(para, insert_location, &inbound);
+		DownwardMessageQueuePages::<T>::insert(para, insert_location, inbound);
 
 		DownwardMessageQueueMeta::<T>::insert(para, meta);
 
-		Ok(inbound)
+		Ok(())
 	}
 
 	/// Create a new metadata for a new queue.

@@ -311,15 +311,6 @@ fn verify_fee_factor_reaches_high_value() {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// `InboundDownwardQueue` low-level tests.
-//
-// These exercise the queue interface directly, bypassing the higher-level
-// `Dmp::queue_downward_message` flow so that we can also reason about storage
-// invariants. Tests assert the *intended* contract — if the implementation has
-// a bug, the test is expected to fail.
-// ---------------------------------------------------------------------------
-
 #[test]
 fn iq_meta_returns_none_for_unknown_para() {
 	new_test_ext_integrity(default_genesis_config(), || {
@@ -628,15 +619,6 @@ fn iq_delete_all_clears_meta_and_pages_for_small_queue() {
 	});
 }
 
-// NOTE on lazy-delete tests:
-//
-// `Ext::clear_prefix` only applies the `limit` to *backend* deletions; the
-// overlay is always cleared in a single shot. Writes during `execute_with` live
-// in the overlay, so we must call `TestExternalities::commit_all()` between
-// inserts and the deletion under test to push the data into the backend. Once
-// it's in the backend, `clear_prefix` honours the limit and the lazy-delete
-// spill branch becomes reachable.
-
 #[test]
 fn iq_delete_all_uses_lazy_delete_for_large_queue() {
 	let a = ParaId::from(31);
@@ -715,10 +697,6 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	});
 	ext.commit_all().unwrap();
 
-	// Drive lazy delete until done, committing between calls so each iteration
-	// works against a real backend. The loop bound is generous on purpose: it
-	// only protects against an infinite loop, not against a slow lazy-delete
-	// rate (the implementation may legitimately remove only one page per call).
 	let mut iterations = 0u32;
 	loop {
 		let still_pending = execute_with_try_state(&mut ext, || {
@@ -877,11 +855,6 @@ fn iq_push_back_at_first_free_max_returns_err_without_orphaning_page() {
 
 #[test]
 fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
-	// If `delete_all` had to schedule a lazy delete for a para and that same
-	// para subsequently receives new messages (e.g. on re-onboarding with the
-	// same id), running `lazy_delete_some` must NOT silently destroy the new
-	// messages. This guards against the storage layout sharing the para prefix
-	// across the "old" and "new" lifetime of the queue.
 	let a = ParaId::from(62);
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
@@ -938,11 +911,6 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 
 #[test]
 fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
-	// After `delete_all` spills and the para is reused, *all* old pages in the
-	// recorded `[first, last)` range must eventually be removed by
-	// `lazy_delete_some`. The implementation iterates by hash order, so a new
-	// page may be visited before all old pages are cleaned — the cycle must not
-	// abort prematurely and orphan old pages.
 	let a = ParaId::from(63);
 	let total: u64 = EXPECTED_LAZY_DELETE_PAGES + 20;
 
@@ -1009,20 +977,8 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 
 #[test]
 fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
-	// Sequence:
-	//   1. delete_all(A) spills, leaves pages in [0, R1) and sets LazyDelete[A] = (0, R1).
-	//   2. Re-onboard A and push enough messages that pages span [R1, R2).
-	//   3. delete_all(A) again — this also spills, and the implementation overwrites LazyDelete[A]
-	//      with (R1, R2).
-	//
-	// If the second `delete_all` blindly overwrites the first range, every
-	// surviving page in [0, R1) is permanently orphaned because the
-	// numeric-scan in `lazy_delete_some` only walks the recorded range.
 	let a = ParaId::from(64);
 
-	// Pick numbers large enough that both delete_all calls are guaranteed to
-	// spill: first batch leaves a healthy population of old pages, second batch
-	// adds more than what `clear_prefix` can wipe in one go.
 	let first_batch: u64 = EXPECTED_LAZY_DELETE_PAGES * 3;
 	let second_batch: u64 = EXPECTED_LAZY_DELETE_PAGES * 2;
 
@@ -1088,13 +1044,6 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 
 #[test]
 fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
-	// First spill on a para with `meta.first_full > 0` (achieved by dropping
-	// some messages before offboarding) must store a `LazyDelete` lower bound
-	// equal to `meta.first_full`, not 0.
-	//
-	// A buggy `unwrap_or((0, 0))` default combined with a
-	// `meta.first_full.min(old_first)` merge would lower the bound to 0 and
-	// have `lazy_delete_some` walk already-popped indices unnecessarily.
 	let a = ParaId::from(65);
 	// Need `total - popped > LAZY_DELETE_MAX_PAGES` so the spill branch fires
 	// and `popped > 0` so `meta.first_full` differs from 0.
@@ -1132,10 +1081,6 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 
 #[test]
 fn iq_integrity_test_passes_after_full_drain() {
-	// `try_state` runs `integrity_test` in try-runtime. Asserting that meta is
-	// always backed by at least one page is too strong: a meta legitimately
-	// exists with `first_full == first_free` after the queue has been drained
-	// by `pop_front` / `drop_front_n`, with no pages in storage.
 	let a = ParaId::from(66);
 	new_test_ext_integrity(default_genesis_config(), || {
 		InboundDownwardQueue::<Test>::push_back(a, vec![1]).unwrap();
@@ -1149,9 +1094,6 @@ fn iq_integrity_test_passes_after_full_drain() {
 
 #[test]
 fn iq_integrity_test_passes_during_reonboard_with_pending_lazy_delete() {
-	// After delete_all spills and the same para is re-used (push_back creates
-	// a fresh meta), `LazyDelete[para]` and `DownwardMessageQueuePages[para,*]`
-	// legitimately coexist. `integrity_test` must not assert otherwise.
 	let a = ParaId::from(67);
 	let total: u64 = EXPECTED_LAZY_DELETE_PAGES + 5;
 
@@ -1179,10 +1121,6 @@ fn iq_integrity_test_passes_during_reonboard_with_pending_lazy_delete() {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// High-level `Dmp` API tests for the new storage layout.
-// ---------------------------------------------------------------------------
-
 #[test]
 fn dmp_dmq_contents_returns_in_fifo_order() {
 	let a = ParaId::from(70);
@@ -1204,10 +1142,6 @@ fn dmp_dmq_contents_returns_in_fifo_order() {
 
 #[test]
 fn dmp_prune_dmq_keeps_correct_messages() {
-	// The existing `dmq_pruning` test only checks `dmq_length`. This one
-	// additionally verifies that the messages remaining in storage are the
-	// expected ones — catches bugs where pruning shifts the meta correctly but
-	// removes the wrong storage pages.
 	let a = ParaId::from(71);
 	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
@@ -1268,8 +1202,6 @@ fn dmp_dmq_length_zero_when_unknown() {
 
 #[test]
 fn dmp_check_processed_downward_messages_uses_first_message_block() {
-	// The advancement-rule check now uses `peek_front` instead of indexing into
-	// a Vec. Make sure it correctly treats the front message's `sent_at`.
 	let a = ParaId::from(75);
 	new_test_ext_integrity(default_genesis_config(), || {
 		register_paras(&[a]);
@@ -1421,10 +1353,6 @@ fn dmp_on_poll_drives_lazy_delete() {
 	});
 }
 
-// ---------------------------------------------------------------------------
-// `InboundDownwardQueueMeta` codec round-trip.
-// ---------------------------------------------------------------------------
-
 #[test]
 fn inbound_downward_queue_meta_codec_roundtrip() {
 	use codec::{Decode, Encode};
@@ -1501,9 +1429,6 @@ fn migrate_v0_to_v1_step_drains_multiple_paras_across_many_steps() {
 
 #[test]
 fn migrate_v0_to_v1_step_returns_some_cursor_on_partial_first_step() {
-	// Regression: with `cursor = None` and a meter too tight to finish the first
-	// para, `step` must return `Ok(Some(_))` — `Ok(None)` would tell the runner
-	// the migration is done and orphan the v0 tail.
 	new_test_ext_integrity(default_genesis_config(), || {
 		let a = ParaId::from(1234);
 
@@ -1605,7 +1530,7 @@ fn migrate_v0_to_v1_step_skips_in_progress_cursor_with_vanished_v0_entry() {
 			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
 		migration::v0::DownwardMessageQueues::<Test>::insert(live, &msgs);
 
-		let cursor = Some(MigrationCursor::InProgress { para: vanished, next: 5 });
+		let cursor = Some(MigrationCursor::InProgress { para: vanished, next_v0_idx: 5 });
 		let mut meter = WeightMeter::new();
 		assert_eq!(MigrateV0ToV1::<Test>::step(cursor, &mut meter), Ok(None));
 
@@ -1671,6 +1596,107 @@ fn migrate_v0_to_v1_post_upgrade_accepts_empty_v0_entry() {
 				Some(c) => cursor = Some(c),
 			}
 		}
+
+		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migrate_v0_to_v1_post_upgrade_accepts_concurrent_v1_writes_for_empty_v0() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1000);
+		migration::v0::DownwardMessageQueues::<Test>::insert(
+			para,
+			Vec::<InboundDownwardMessage<_>>::new(),
+		);
+
+		let snapshot = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+
+		// Simulate live `push_back` between pre/post_upgrade.
+		DownwardMessageQueueMeta::<Test>::insert(
+			para,
+			InboundDownwardQueueMeta { first_full: 0, first_free: 1 },
+		);
+		DownwardMessageQueuePages::<Test>::insert(
+			para,
+			0u64,
+			InboundDownwardMessage { sent_at: 7, msg: vec![42] },
+		);
+
+		let mut cursor = None;
+		loop {
+			let mut meter = WeightMeter::new();
+			match MigrateV0ToV1::<Test>::step(cursor, &mut meter).unwrap() {
+				None => break,
+				Some(c) => cursor = Some(c),
+			}
+		}
+
+		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migrate_v0_to_v1_concurrent_v1_pushes_lose_no_messages() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let para = ParaId::from(1);
+		register_paras(&[para]);
+
+		// Pre-populate v0 with 5 legacy messages (distinguishable by `sent_at = 0`).
+		let v0_msgs: Vec<InboundDownwardMessage<polkadot_primitives::BlockNumber>> = (0..5u8)
+			.map(|i| InboundDownwardMessage { sent_at: 0, msg: vec![0xA0, i] })
+			.collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(para, &v0_msgs);
+
+		let snapshot = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+		// Tight budget — at most 2 messages per step — so the migration is
+		// forced to span multiple "blocks".
+		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
+
+		let mut cursor: Option<<MigrateV0ToV1<Test> as SteppedMigration>::Cursor> = None;
+		let mut live_count = 0u32;
+		let mut steps = 0u32;
+		loop {
+			let mut meter = WeightMeter::with_limit(budget);
+			let ret = MigrateV0ToV1::<Test>::step(cursor.clone(), &mut meter).unwrap();
+			steps += 1;
+			assert!(steps < 100, "migration not making progress");
+
+			match ret {
+				None => break,
+				Some(c) => cursor = Some(c),
+			}
+
+			// Simulate a block boundary plus a live `push_back` between MBM
+			// steps. New `sent_at` is the current block number, which is > 0
+			// and so distinguishable from the seeded v0 messages.
+			run_to_block(System::block_number() + 1, None);
+			assert_ok!(queue_downward_message(para, vec![0xB0, live_count as u8]));
+			live_count += 1;
+		}
+		assert!(steps > 1, "expected migration to span multiple steps, got {}", steps);
+		assert!(live_count > 0, "expected concurrent live pushes between steps");
+
+		// v0 must be fully drained.
+		assert_eq!(migration::v0::DownwardMessageQueues::<Test>::iter().count(), 0);
+
+		// Every v0 and every live message must be present in v1 — no losses.
+		let pages = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(para);
+		assert_eq!(
+			pages.len() as u64,
+			v0_msgs.len() as u64 + live_count as u64,
+			"page count must equal v0 + live messages",
+		);
+		let v0_in_v1 = pages.iter().filter(|m| m.sent_at == 0).count();
+		assert_eq!(v0_in_v1, v0_msgs.len(), "every v0 message must appear in v1");
+		let live_in_v1 = pages.iter().filter(|m| m.sent_at != 0).count();
+		assert_eq!(live_in_v1, live_count as usize, "every live message must appear in v1");
 
 		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
 	});

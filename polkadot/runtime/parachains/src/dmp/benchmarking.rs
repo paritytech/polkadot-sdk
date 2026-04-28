@@ -100,7 +100,7 @@ mod benchmarks {
 		assert!(!migration::v0::DownwardMessageQueues::<T>::contains_key(para));
 	}
 
-	/// One page insert from the inner loop of [`migration::MigrateV0ToV1::step`].
+	/// One re-enqueue from the inner loop of [`migration::MigrateV0ToV1::step`].
 	#[benchmark]
 	fn migrate_v0_to_v1_step_msg() {
 		let para = ParaId::from(1);
@@ -112,7 +112,8 @@ mod benchmarks {
 
 		#[block]
 		{
-			DownwardMessageQueuePages::<T>::insert(para, 0u64, msg);
+			InboundDownwardQueue::<T>::push_back_inbound(para, &msg)
+				.expect("push_back_inbound on empty queue cannot overflow");
 		}
 
 		assert!(DownwardMessageQueuePages::<T>::contains_key(para, 0u64));

@@ -20,7 +20,7 @@
 //! ([`v0::DownwardMessageQueues`]) into the paged layout
 //! ([`DownwardMessageQueueMeta`] + [`DownwardMessageQueuePages`]).
 
-use super::*;
+use super::{inbound_downward_queue::InboundDownwardQueue, *};
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
@@ -34,19 +34,14 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 
-/// Resume position for [`MigrateV0ToV1`].
-///
-/// Returning `Ok(None)` from [`SteppedMigration::step`] tells `pallet-migrations`
-/// the migration is finished. Whenever there is still data left in
-/// `v0::DownwardMessageQueues` we must therefore return `Some(_)`.
+/// Resume position for [`MigrateV0ToV1`]. Returning `Ok(None)` ends the migration; while
+/// `v0::DownwardMessageQueues` has data, return `Some(_)`.
 #[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Clone, Debug)]
 pub enum MigrationCursor {
 	/// Resume by taking the next entry from `v0::DownwardMessageQueues::iter()`.
 	Iterate,
-	/// Resume mid-para: pages `[0, next)` have already been written for `para`;
-	/// `v0[para]` still holds the original `Vec` and the remainder from index
-	/// `next` onward still needs writing.
-	InProgress { para: ParaId, next: PageIndex },
+	/// Resume mid-para: `v0[para][..next_v0_idx]` has already been re-enqueued into v1.
+	InProgress { para: ParaId, next_v0_idx: u64 },
 }
 
 /// The in-code storage version.
@@ -55,8 +50,8 @@ pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 /// Identifier for migrations of this pallet.
 const PALLET_MIGRATIONS_ID: &[u8; 21] = b"cumulus-dmp-queue-mbm";
 
-/// The OLD (pre-paged) storage layout. Reachable via the `storage_alias` even
-/// though the live pallet no longer declares this type.
+/// The OLD (pre-paged) storage layout. Reachable via the `storage_alias` even though the live
+/// pallet no longer declares this type.
 pub mod v0 {
 	use super::*;
 
@@ -94,8 +89,7 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 		let per_iter = <T as Config>::WeightInfo::migrate_v0_to_v1_step_iter();
 		let per_msg = <T as Config>::WeightInfo::migrate_v0_to_v1_step_msg();
 
-		// Need headroom for the base plus at least one per-iter and one per-msg,
-		// otherwise this call would make no forward progress.
+		// Headroom for at least one full iteration; otherwise this call makes no progress.
 		let minimum = base.saturating_add(per_iter).saturating_add(per_msg);
 		if meter.remaining().any_lt(minimum) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: minimum });
@@ -108,11 +102,11 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			}
 
 			let (para, msgs, start) = match cursor.take() {
-				Some(MigrationCursor::InProgress { para: p, next: k }) => {
+				Some(MigrationCursor::InProgress { para: p, next_v0_idx: k }) => {
 					match v0::DownwardMessageQueues::<T>::try_get(p) {
 						Ok(msgs) => (p, msgs, k),
-						// v0 entry vanished between steps — skip and pick up
-						// the next entry on the following outer iteration.
+						// v0 entry vanished between steps — skip and pick up the next entry on the
+						// following outer iteration.
 						Err(_) => {
 							cursor = Some(MigrationCursor::Iterate);
 							continue;
@@ -128,13 +122,19 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 				},
 			};
 
-			let mut next = start;
 			let mut idx = start as usize;
 			let mut interrupted = false;
 
+			// Use the live API so concurrent `push_back` calls between MBM steps are not clobbered.
+			// May interleave v0 messages with new v1 messages for the duration of the migration.
 			while let Some(msg) = msgs.get(idx) {
-				DownwardMessageQueuePages::<T>::insert(para, next as PageIndex, msg);
-				next = next.saturating_add(1);
+				if InboundDownwardQueue::<T>::push_back_inbound(para, msg).is_err() {
+					// `first_free` overflowed `u64` — unreachable in practice. Bail without
+					// advancing so a future step retries with the same cursor.
+					cursor =
+						Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
+					return Ok(cursor);
+				}
 				idx = idx.saturating_add(1);
 
 				if msgs.get(idx).is_some() && meter.try_consume(per_msg).is_err() {
@@ -143,32 +143,18 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 				}
 			}
 
-			// Update meta after every step (partial or full) so the pages
-			// already written are not "orphaned" relative to the meta range.
-			// Skip when no pages were ever written for this para (empty v0 Vec),
-			// matching the live invariant: no queue == no meta key.
-			if next > 0 {
-				DownwardMessageQueueMeta::<T>::insert(
-					para,
-					InboundDownwardQueueMeta { first_full: 0, first_free: next },
-				);
-			}
-
 			if interrupted {
-				cursor = Some(MigrationCursor::InProgress { para, next });
+				cursor =
+					Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
 				break;
 			}
 
 			v0::DownwardMessageQueues::<T>::remove(para);
-			// Mark "more work pending" so that an immediate `per_iter` exhaustion
-			// on the next outer iteration still returns `Some(_)`. Becomes `None`
-			// only via the `iter().next() == None` branch above.
+			// Keep cursor `Some(_)` so a `per_iter`-exhausted next call still signals "more work".
 			cursor = Some(MigrationCursor::Iterate);
 		}
 
-		// Only bump the storage version once the migration has fully finished —
-		// otherwise the `on_chain_storage_version` guard at the top of `step`
-		// would short-circuit subsequent calls and orphan unmigrated data.
+		// Only bump once fully drained — otherwise the version guard above would orphan v0.
 		if cursor.is_none() {
 			StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
 		}
@@ -177,9 +163,7 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, sp_runtime::TryRuntimeError> {
-		// Idempotent: snapshot whatever is currently in v0. If the migration has
-		// already been (partially) applied, `post_upgrade` will simply have less
-		// to verify.
+		// Idempotent: snapshot whatever v0 holds now.
 		let snapshot: BTreeMap<ParaId, Vec<InboundDownwardMessage<BlockNumberFor<T>>>> =
 			v0::DownwardMessageQueues::<T>::iter().collect();
 
@@ -200,37 +184,24 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			"v0::DownwardMessageQueues still has entries after MigrateV0ToV1",
 		);
 
-		// Each para's old `Vec` must equal the new sequence of pages, with a
-		// matching meta range.
+		// MBM steps interleave with block production, so we can only check that
+		// `first_free` advanced by at least the v0 length, not exact page contents.
 		for (para, msgs) in prev {
 			let total = msgs.len() as u64;
 			if total == 0 {
-				assert!(
-					DownwardMessageQueueMeta::<T>::get(para).is_none(),
-					"para {:?}: empty queue must not produce a meta entry",
-					para,
-				);
 				continue;
 			}
-			let meta = DownwardMessageQueueMeta::<T>::get(para)
-				.expect("para with non-empty queue must have a meta after migration");
 
-			assert_eq!(meta.first_full, 0, "para {:?}: first_full must be 0", para);
-			assert_eq!(
-				meta.first_free, total,
-				"para {:?}: first_free must equal old Vec length",
+			let meta = DownwardMessageQueueMeta::<T>::get(para).unwrap_or_else(|| {
+				panic!("para {:?}: meta must exist after migrating {} messages", para, total)
+			});
+			assert!(
+				meta.first_free >= total,
+				"para {:?}: first_free ({}) < migrated messages ({})",
 				para,
+				meta.first_free,
+				total,
 			);
-
-			for (i, msg) in msgs.into_iter().enumerate() {
-				let page = DownwardMessageQueuePages::<T>::get(para, i as PageIndex)
-					.expect("each page must be present after migration");
-				assert_eq!(
-					page, msg,
-					"para {:?} page {}: content differs from pre-migration",
-					para, i,
-				);
-			}
 		}
 
 		Ok(())
