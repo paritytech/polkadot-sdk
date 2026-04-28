@@ -42,24 +42,16 @@ pub trait Config: frame_system::Config {
 	/// Adds ability to the Runtime to do custom validation after benchmark.
 	///
 	/// Default is checking for `CodeUpdated` event .
-	fn verify_set_code()
-	where
-		<Self as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<Self>>,
-	{
-		let last = System::<Self>::events().last().map(|e| e.event.clone());
-		if let Some(Ok(frame_system::Event::<Self>::CodeUpdated { .. })) =
-			last.map(TryInto::try_into)
-		{
-			return;
-		}
-		panic!("CodeUpdated event not found");
+	fn verify_set_code() {
+		let code = Self::prepare_set_code_data();
+		let hash = Self::Hashing::hash(&code);
+		let want: Self::RuntimeEvent = frame_system::Event::<Self>::CodeUpdated { hash }.into();
+
+		System::<Self>::assert_last_event(want);
 	}
 }
 
-#[benchmarks(
-	where
-		<T as frame_system::Config>::RuntimeEvent: TryInto<frame_system::Event<T>>,
-)]
+#[benchmarks]
 mod benchmarks {
 	use super::*;
 
