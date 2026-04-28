@@ -729,7 +729,7 @@ where
 		}
 
 		let revalidated_invalid_hashes_len = invalid_hashes.len();
-		let now = Instant::now();
+		let removed_at = Instant::now();
 		let invalid_hashes = invalid_hashes
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
