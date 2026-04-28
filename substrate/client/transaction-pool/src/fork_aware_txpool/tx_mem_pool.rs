@@ -609,10 +609,7 @@ where
 	/// Removes transactions with given hashes from the memory pool.
 	///
 	/// Returns the list of transactions that were actually removed (a hash that was not present
-	/// in the pool yields no entry in the returned vector). Callers that know the cause of the
-	/// removal should pass the returned slice to
-	/// [`TxAgeAtRemovalHistogram::observe_batch`] so the residence time of each removed
-	/// transaction is recorded on the `tx_age_at_removal_seconds` histogram.
+	/// in the pool yields no entry in the returned vector).
 	pub(super) async fn remove_transactions(
 		&self,
 		tx_hashes: &[ExtrinsicHash<ChainApi>],
