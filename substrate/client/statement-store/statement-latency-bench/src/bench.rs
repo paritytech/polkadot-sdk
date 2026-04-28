@@ -44,7 +44,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
-	collections::{HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -408,14 +408,12 @@ async fn run_client(
 		match round_result {
 			Ok(stats) => successes.push(stats),
 			Err(failure) => {
-				if failure.detail.is_empty() {
-					warn!("Client {client_id}: Round {round}/{num_rounds}: {}", failure.error);
+				let detail = if failure.detail.is_empty() {
+					String::new()
 				} else {
-					warn!(
-						"Client {client_id}: Round {round}/{num_rounds}: {} ({})",
-						failure.error, failure.detail
-					);
-				}
+					format!(" ({})", failure.detail)
+				};
+				warn!("Client {client_id}: Round {round}/{num_rounds}: {}{detail}", failure.error);
 				failures.push(failure);
 				peer_failed.store(true, Ordering::Relaxed);
 				if fail_fast {
@@ -647,7 +645,7 @@ fn report_results(
 	// `round == 0` is reserved for task-level failures (panics, startup-sync
 	// timeouts) that are not tied to a specific round; partition them out so the
 	// "Round Failed:" report stays clean.
-	let mut failures_by_round: HashMap<usize, Vec<&str>> = HashMap::new();
+	let mut failures_by_round: BTreeMap<usize, Vec<&str>> = BTreeMap::new();
 	let mut task_failures: Vec<&str> = Vec::new();
 	for f in failures {
 		if f.round == 0 {
@@ -656,8 +654,6 @@ fn report_results(
 			failures_by_round.entry(f.round).or_default().push(&f.error);
 		}
 	}
-	let mut failed_rounds: Vec<_> = failures_by_round.keys().copied().collect();
-	failed_rounds.sort();
 
 	let group_errors = |errors: &[&str]| -> String {
 		let mut counts: HashMap<&str, u32> = HashMap::new();
@@ -673,8 +669,7 @@ fn report_results(
 			.join("; ")
 	};
 
-	for round in &failed_rounds {
-		let errors = &failures_by_round[round];
+	for (round, errors) in &failures_by_round {
 		let failed_clients = errors.len();
 		let errors_str = group_errors(errors);
 
@@ -699,9 +694,8 @@ fn report_results(
 	// `rounds_with_any_success` counts distinct round numbers in which at least one
 	// client succeeded — not "rounds where every client succeeded". A round shows up
 	// here even if only one of N clients made it through.
-	let rounds_with_any_success: HashSet<usize> = successes.iter().map(|s| s.round).collect();
-	let rounds_with_any_success = rounds_with_any_success.len();
-	let rounds_with_failures = failed_rounds.len();
+	let rounds_with_any_success = successes.iter().map(|s| s.round).collect::<HashSet<_>>().len();
+	let rounds_with_failures = failures_by_round.len();
 
 	info!(
 		"Benchmark Finished: rounds_with_any_success={rounds_with_any_success} \
