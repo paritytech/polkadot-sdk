@@ -107,12 +107,12 @@ async fn coretime_shared_core_test() -> Result<(), anyhow::Error> {
 	wait_for_first_session_change(&mut blocks_sub).await?;
 	log::info!("Session boundaries passed");
 
-	// Check that all parachains produce at least 5..15 blocks within 40 RC blocks
-	// (since core 0 is shared between all paras)
-	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
-	//  time=6s. 4 paras share 1 core → slot every 24s, ~2 para blocks/slot (async backing).
+	// Check that all parachains produce at least 6..12 blocks within 40 RC blocks
+	// (since core 0 is shared between all paras, ideally it should be 10 blocks each but leave some
+	// buffer).  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
+	//  time=6s. 4 paras share 1 core → slot every 24s.
 	log::info!("Checking parachain block production");
-	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 5..15));
+	let para_throughput: [(ParaId, Range<u32>); 4] = PARAS.map(|id| (ParaId::from(id), 5..12));
 	assert_para_throughput(&relay_client, 40, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
@@ -138,7 +138,14 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
                         "needed_approvals": 3,
                         "scheduler_params": {
                             "max_validators_per_core": 1,
-                            "num_cores": 4
+                            "num_cores": 4,
+                            // With N paras sharing a core, the validator's
+                            // `is_slot_available` check requires
+                            // `lookahead >= N + relay_parent_offset + 1` for the worst-case
+                            // round-robin alignment to fit in the claim queue window. Here
+                            // N=4 and glutton-westend uses relay_parent_offset=1, so the
+                            // default lookahead=5 is too small, making the test flaky; bump to 6.
+                            "lookahead": 6,
                         }
                     }
                 }
@@ -177,7 +184,8 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("polkadot-parachain")
 				.with_default_args(vec![
 					"--authoring=slot-based".into(),
-					"-lparachain=debug".into(),
+					"-lparachain=debug,aura::cumulus=trace,parachain::collator-protocol=trace,parachain::collation-generation=trace"
+						.into(),
 				])
 				.with_collator(|n| n.with_name(&format!("collator-{para_id}")))
 		})
