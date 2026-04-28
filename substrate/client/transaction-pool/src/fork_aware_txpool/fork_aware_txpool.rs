@@ -387,9 +387,8 @@ where
 			for tx in &removed {
 				let tx_source = tx.source();
 				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
-				metrics.report(|m| {
-					m.tx_age_at_removal.observe(removal_reason, tx_source.source, age)
-				});
+				metrics
+					.report(|m| m.tx_age_at_removal.observe(removal_reason, tx_source.source, age));
 			}
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
