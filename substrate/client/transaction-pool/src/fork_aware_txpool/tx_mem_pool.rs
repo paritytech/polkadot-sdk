@@ -619,7 +619,7 @@ where
 	) -> Vec<Arc<TxInMemPool<ChainApi, Block>>> {
 		log_xt_trace!(target: LOG_TARGET, tx_hashes, "mempool::remove_transaction");
 		let mut transactions = self.transactions.write().await;
-		let mut removed = Vec::with_capacity(tx_hashes.len());
+		let mut removed = Vec::new();
 		for tx_hash in tx_hashes {
 			if let Some(tx) = transactions.remove(tx_hash) {
 				removed.push(tx);
