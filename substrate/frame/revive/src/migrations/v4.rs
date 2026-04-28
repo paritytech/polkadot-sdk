@@ -169,10 +169,15 @@ impl<T: Config> SteppedMigration for Migration<T> {
 	}
 }
 
-/// Pre-v4 layout of [`DeletionQueue`]: a single [`TrieId`] per slot, no associated contract
-/// account. We only iterate it; new entries are written via the live [`DeletionQueue`].
-#[storage_alias]
-pub(crate) type OldDeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
+/// Pre-v4 storage layouts.
+pub(crate) mod old {
+	use super::*;
+
+	/// Pre-v4 layout: a single [`TrieId`] per slot, no associated contract account. We only
+	/// iterate it; new entries are written via the live [`crate::DeletionQueue`].
+	#[storage_alias]
+	pub(crate) type DeletionQueue<T: Config> = StorageMap<Pallet<T>, Twox64Concat, u32, TrieId>;
+}
 
 impl<T: Config> Migration<T> {
 	/// Run a single iteration of the migration's inner loop, returning the next cursor or
@@ -247,13 +252,13 @@ impl<T: Config> Migration<T> {
 	fn step_3_deletion_queue(last: Option<u32>) -> Option<u32> {
 		let mut iter = match last {
 			Some(last) => {
-				OldDeletionQueue::<T>::iter_from(OldDeletionQueue::<T>::hashed_key_for(last))
+				old::DeletionQueue::<T>::iter_from(old::DeletionQueue::<T>::hashed_key_for(last))
 			},
-			None => OldDeletionQueue::<T>::iter(),
+			None => old::DeletionQueue::<T>::iter(),
 		};
 
 		let (key, trie_id) = iter.next()?;
-		// Same physical slot as `OldDeletionQueue`; the insert overwrites the legacy value
+		// Same physical slot as `old::DeletionQueue`; the insert overwrites the legacy value
 		// with the new encoding.
 		let zero_bytes = alloc::vec![0u8; <T::AccountId as MaxEncodedLen>::max_encoded_len()];
 		let zero_account = T::AccountId::decode(&mut &zero_bytes[..])
@@ -430,8 +435,8 @@ mod tests {
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
 			let trie_a: TrieId = vec![0xAA; 16].try_into().unwrap();
 			let trie_b: TrieId = vec![0xBB; 24].try_into().unwrap();
-			OldDeletionQueue::<Test>::insert(0u32, trie_a.clone());
-			OldDeletionQueue::<Test>::insert(1u32, trie_b.clone());
+			old::DeletionQueue::<Test>::insert(0u32, trie_a.clone());
+			old::DeletionQueue::<Test>::insert(1u32, trie_b.clone());
 			let mut q = DeletionQueueManager::<Test>::from_test_values(2, 0);
 			DeletionQueueCounter::<Test>::set(q.clone());
 			let _ = &mut q;

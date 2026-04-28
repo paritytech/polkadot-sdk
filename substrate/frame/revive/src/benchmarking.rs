@@ -2836,8 +2836,8 @@ mod benchmarks {
 		}
 	}
 
-	/// One iteration of v4 phase 3: rewrite a legacy [`OldDeletionQueue`] entry into the new
-	/// [`DeletionQueue`] format.
+	/// One iteration of v4 phase 3: rewrite a legacy [`v4::old::DeletionQueue`] entry into the
+	/// new [`DeletionQueue`] format.
 	///
 	/// Seeds two legacy entries and primes the cursor with the first stored entry so the benched
 	/// iteration exercises the `iter_from` path.
@@ -2845,12 +2845,12 @@ mod benchmarks {
 	fn v4_deletion_queue_step() {
 		use crate::migrations::v4;
 
-		let _ = v4::OldDeletionQueue::<T>::clear(u32::MAX, None);
+		let _ = v4::old::DeletionQueue::<T>::clear(u32::MAX, None);
 
 		let trie_a: TrieId = vec![0xAAu8; 16].try_into().unwrap();
 		let trie_b: TrieId = vec![0xBBu8; 24].try_into().unwrap();
-		v4::OldDeletionQueue::<T>::insert(0u32, trie_a);
-		v4::OldDeletionQueue::<T>::insert(1u32, trie_b);
+		v4::old::DeletionQueue::<T>::insert(0u32, trie_a);
+		v4::old::DeletionQueue::<T>::insert(1u32, trie_b);
 
 		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::DeletionQueue(None))) {
 			Some(v4::Cursor::DeletionQueue(Some(key))) => key,
