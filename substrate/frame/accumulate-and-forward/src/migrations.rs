@@ -35,9 +35,6 @@ use sp_runtime::traits::AccountIdConversion;
 /// Legacy treasury `PalletId` (`py/trsry`).
 const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 
-/// Old DAP satellite `PalletId` (`dap/satl`).
-const LEGACY_DAP_SATELLITE_PALLET_ID: PalletId = PalletId(*b"dap/satl");
-
 /// Drain the reducible balance of the legacy `py/trsry`-derived account into the accumulation
 /// account.
 ///
@@ -142,111 +139,6 @@ where
 			target: LOG_TARGET,
 			"DrainLegacyTreasuryToAccumulationAccount: post-upgrade OK. \
 			 Legacy treasury reducible: {post_balance:?}, accumulation total: {accumulation_balance:?}"
-		);
-		Ok(())
-	}
-}
-
-/// Drain the reducible balance of the old `dap/satl`-derived account into the new accumulation
-/// account (derived from the new `acf/dott` PalletId).
-///
-/// Required when migrating from `pallet-dap-satellite` to `pallet-accumulate-and-forward`
-/// because the PalletId byte value changed from `*b"dap/satl"` to `*b"acf/dott"`, which changes
-/// the derived account address.
-///
-/// Idempotent: early-returns with 1 read if the old account's reducible balance is zero.
-pub struct DrainLegacyDapSatelliteToAccumulationAccount<T>(PhantomData<T>);
-
-impl<T> OnRuntimeUpgrade for DrainLegacyDapSatelliteToAccumulationAccount<T>
-where
-	T: Config,
-	T::Currency: Balanced<T::AccountId>,
-{
-	fn on_runtime_upgrade() -> Weight {
-		let source: T::AccountId = LEGACY_DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		let amount = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
-			&source,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		if amount.is_zero() {
-			log::info!(
-				target: LOG_TARGET,
-				"DrainLegacyDapSatelliteToAccumulationAccount: nothing to withdraw (reducible balance is zero)."
-			);
-			return T::DbWeight::get().reads(1);
-		}
-
-		match <T::Currency as Balanced<T::AccountId>>::withdraw(
-			&source,
-			amount,
-			Precision::Exact,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		) {
-			Ok(credit) => {
-				<Pallet<T> as OnUnbalanced<_>>::on_unbalanced(credit);
-				log::info!(
-					target: LOG_TARGET,
-					"DrainLegacyDapSatelliteToAccumulationAccount: swept {amount:?} to accumulation account."
-				);
-			},
-			Err(_) => {
-				frame_support::defensive!(
-					"DrainLegacyDapSatelliteToAccumulationAccount: failed to withdraw from old dap/satl account"
-				);
-			},
-		}
-
-		// Distinct storage keys: source Account (balances + system),
-		// accumulation Account (balances + system) = 4 reads and 4 writes.
-		T::DbWeight::get().reads_writes(4, 4)
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-		let source: T::AccountId = LEGACY_DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		let balance = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
-			&source,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		log::info!(
-			target: LOG_TARGET,
-			"DrainLegacyDapSatelliteToAccumulationAccount: pre-upgrade old dap/satl reducible balance = {balance:?}"
-		);
-		Ok(balance.encode())
-	}
-
-	#[cfg(feature = "try-runtime")]
-	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use codec::Decode;
-
-		let pre_balance: <T::Currency as Inspect<T::AccountId>>::Balance =
-			Decode::decode(&mut &state[..]).expect("pre_upgrade encoded the reducible balance");
-		let source: T::AccountId = LEGACY_DAP_SATELLITE_PALLET_ID.into_account_truncating();
-		let post_balance = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
-			&source,
-			Preservation::Preserve,
-			Fortitude::Polite,
-		);
-		frame_support::ensure!(
-			post_balance.is_zero(),
-			"Old dap/satl reducible balance should be zero after migration"
-		);
-
-		let accumulation_account = Pallet::<T>::accumulation_account();
-		let accumulation_balance =
-			<T::Currency as Inspect<T::AccountId>>::total_balance(&accumulation_account);
-		frame_support::ensure!(
-			accumulation_balance >= pre_balance,
-			"Accumulation account balance should have increased by at least the drained amount"
-		);
-
-		log::info!(
-			target: LOG_TARGET,
-			"DrainLegacyDapSatelliteToAccumulationAccount: post-upgrade OK. \
-			 Old dap/satl reducible: {post_balance:?}, accumulation total: {accumulation_balance:?}"
 		);
 		Ok(())
 	}

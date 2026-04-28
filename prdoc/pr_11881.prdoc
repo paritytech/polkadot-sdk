@@ -13,12 +13,7 @@ doc:
       - The pallet IDs value changes from `*b"dap/satl"` to `*b"acf/dott"` (at this point we
         are only forwarding DOT tokens, but new IDs should be added for other future tokens)
       - Multiple other events and constants get renamed accordingly
-
-      Migration: Two one-shot migrations are included per runtime:
-      - `DrainLegacyTreasuryToAccumulationAccount`: pre-existing migration to drain old treasury
-        (renaming of `DrainLegacyTreasuryToDapSatellite`)
-      - `DrainLegacyDapSatelliteToAccumulationAccount`: new migration to drain funds from the old
-        DAP satellite account into the new accumulation account.
+      - The old treasury is now drained via `DrainLegacyTreasuryToAccumulationAccount`
 
 crates:
   - name: pallet-accumulate-and-forward

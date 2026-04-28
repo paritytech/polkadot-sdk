@@ -2034,10 +2034,6 @@ pub mod migrations {
 		pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<
 			Runtime,
 		>,
-		// Drain any balance from the old DAP satellite account into the new accumulation account.
-		pallet_accumulate_and_forward::migrations::DrainLegacyDapSatelliteToAccumulationAccount<
-			Runtime,
-		>,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,

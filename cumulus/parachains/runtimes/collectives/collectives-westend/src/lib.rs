@@ -863,10 +863,6 @@ type Migrations = (
 	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
 	// Safe to remove once confirmed.
 	pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<Runtime>,
-	// Drain any balance from the old DAP satellite account into the new accumulation account.
-	pallet_accumulate_and_forward::migrations::DrainLegacyDapSatelliteToAccumulationAccount<
-		Runtime,
-	>,
 );
 
 /// Executive: handles dispatch to the various modules.
