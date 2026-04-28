@@ -525,8 +525,6 @@ fn destroy_contract_reaps_account_and_clears_native_deposit_map(fixture_type: Fi
 			"deletion queue drained to completion",
 		);
 		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
-		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), 0);
-		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE), 0);
 	});
 }
 
