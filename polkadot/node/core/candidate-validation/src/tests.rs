@@ -1849,15 +1849,7 @@ fn maybe_prepare_validation_golden_path() {
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
@@ -2031,15 +2023,7 @@ fn maybe_prepare_validation_does_not_prepare_pvfs_if_no_new_session_but_a_valida
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
@@ -2228,15 +2212,7 @@ fn maybe_prepare_validation_prepares_a_limited_number_of_pvfs() {
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
@@ -2318,15 +2294,7 @@ fn maybe_prepare_validation_does_not_prepare_already_prepared_pvfs() {
 
 		assert_matches!(
 			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
-				let _ = tx.send(Ok(1));
-			}
-		);
-
-		assert_matches!(
-			ctx_handle.recv().await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
-				assert_eq!(index, 1);
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
 				let _ = tx.send(Ok(Some(ExecutorParams::default())));
 			}
 		);
