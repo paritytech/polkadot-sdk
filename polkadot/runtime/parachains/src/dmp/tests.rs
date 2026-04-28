@@ -16,7 +16,7 @@
 
 use super::{
 	mock::{
-		default_genesis_config, execute_with_integrity, new_test_ext_integrity, pages_in_storage,
+		default_genesis_config, execute_with_try_state, new_test_ext_integrity, pages_in_storage,
 		queue_downward_message, register_paras, run_to_block, EXPECTED_LAZY_DELETE_PAGES,
 	},
 	*,
@@ -51,7 +51,6 @@ fn clean_dmp_works() {
 		assert!(InboundDownwardQueue::<Test>::len(a).is_none());
 		assert!(InboundDownwardQueue::<Test>::len(b).is_none());
 		assert!(!InboundDownwardQueue::<Test>::len(c).is_none());
-		InboundDownwardQueue::<Test>::integrity_test();
 	});
 }
 
@@ -345,7 +344,7 @@ fn iq_len_tracks_pushes() {
 #[test]
 fn iq_push_back_returns_inbound_with_current_block_and_msg() {
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		let a = ParaId::from(8);
 		System::set_block_number(42);
 		let msg: DownwardMessage = vec![9, 8, 7];
@@ -638,7 +637,7 @@ fn iq_delete_all_uses_lazy_delete_for_large_queue() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
@@ -647,7 +646,7 @@ fn iq_delete_all_uses_lazy_delete_for_large_queue() {
 	// Push pages into the backend so `clear_prefix` respects its limit.
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 
 		// Meta is gone immediately.
@@ -665,14 +664,14 @@ fn iq_delete_all_clears_immediately_when_under_limit() {
 	let total = EXPECTED_LAZY_DELETE_PAGES - 1;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_none());
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
@@ -697,14 +696,14 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	let total = EXPECTED_LAZY_DELETE_PAGES * 2 + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 	});
@@ -716,13 +715,13 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 	// rate (the implementation may legitimately remove only one page per call).
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = execute_with_integrity(&mut ext, || {
+		let still_pending = execute_with_try_state(&mut ext, || {
 			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
 		});
 		if !still_pending {
 			break;
 		}
-		execute_with_integrity(&mut ext, || {
+		execute_with_try_state(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -736,7 +735,7 @@ fn iq_lazy_delete_some_clears_remaining_pages_eventually() {
 		);
 	}
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_none());
 	});
@@ -881,21 +880,21 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 	});
 	ext.commit_all().unwrap();
 
 	// Re-use the same ParaId: push a fresh message.
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		assert_eq!(InboundDownwardQueue::<Test>::len(a), Some(1));
 	});
@@ -904,13 +903,13 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	// Now drain the lazy-delete queue to completion.
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = execute_with_integrity(&mut ext, || {
+		let still_pending = execute_with_try_state(&mut ext, || {
 			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
 		});
 		if !still_pending {
 			break;
 		}
-		execute_with_integrity(&mut ext, || {
+		execute_with_try_state(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -920,7 +919,7 @@ fn iq_pending_lazy_delete_does_not_wipe_new_messages_on_reuse() {
 	}
 
 	// The freshly-pushed message must still be readable.
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		let front = InboundDownwardQueue::<Test>::peek_front(a);
 		assert_eq!(
 			front.map(|m| m.msg),
@@ -942,14 +941,14 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	let total: u64 = EXPECTED_LAZY_DELETE_PAGES + 20;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		// At this point some old pages (in [0, total)) survived clear_prefix.
@@ -961,7 +960,7 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	// (from `new_meta` consulting the lazy-delete range) — outside the old
 	// `[0, total)` range.
 	let new_msgs: u64 = 5;
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for _ in 0..new_msgs {
 			InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		}
@@ -972,13 +971,13 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	// Run lazy delete to completion.
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = execute_with_integrity(&mut ext, || {
+		let still_pending = execute_with_try_state(&mut ext, || {
 			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
 		});
 		if !still_pending {
 			break;
 		}
-		execute_with_integrity(&mut ext, || {
+		execute_with_try_state(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -988,7 +987,7 @@ fn iq_lazy_delete_finishes_cleaning_old_pages_after_reuse() {
 	}
 
 	// Check that no old pages remain. New pages must still be there.
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		let pages = pages_in_storage(a);
 		for &p in &pages {
 			assert!(
@@ -1024,14 +1023,14 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	let mut ext = new_test_ext(default_genesis_config());
 
 	// Round 1: fill, delete_all (spill).
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..first_batch {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		// Many old pages survived the first spill.
@@ -1040,14 +1039,14 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	ext.commit_all().unwrap();
 
 	// Round 2: re-onboard the same para and queue more.
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for _ in 0..second_batch {
 			InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 	});
@@ -1058,13 +1057,13 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 	let bound = (first_batch + second_batch) * 2;
 	let mut iterations = 0u64;
 	loop {
-		let pending = execute_with_integrity(&mut ext, || {
+		let pending = execute_with_try_state(&mut ext, || {
 			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
 		});
 		if !pending {
 			break;
 		}
-		execute_with_integrity(&mut ext, || {
+		execute_with_try_state(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			InboundDownwardQueue::<Test>::lazy_delete_some(&mut wm);
 		});
@@ -1075,7 +1074,7 @@ fn iq_second_delete_all_does_not_drop_first_lazy_delete_range() {
 
 	// No pages — old or new — must remain. Anything left here is orphaned
 	// because the second delete_all's range overwrote the first one's.
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		let pages = pages_in_storage(a);
 		assert!(pages.is_empty(), "orphan pages remain after both delete_all cycles: {:?}", pages,);
 	});
@@ -1097,7 +1096,7 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 	let popped: u64 = 2;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
@@ -1111,7 +1110,7 @@ fn iq_delete_all_lazy_range_starts_at_meta_first_full_when_no_prior_entry() {
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 
 		let (first, last) = DownwardMessageQueueLazyDelete::<Test>::get(a)
@@ -1139,9 +1138,6 @@ fn iq_integrity_test_passes_after_full_drain() {
 		// meta is still present, no pages exist.
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_some());
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
-
-		// Should not panic.
-		InboundDownwardQueue::<Test>::integrity_test();
 	});
 }
 
@@ -1154,30 +1150,26 @@ fn iq_integrity_test_passes_during_reonboard_with_pending_lazy_delete() {
 	let total: u64 = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		for i in 0..total {
 			InboundDownwardQueue::<Test>::push_back(a, vec![i as u8]).unwrap();
 		}
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		InboundDownwardQueue::<Test>::delete_all(a);
 		// At this point: lazy delete pending, no meta. integrity_test must hold.
-		InboundDownwardQueue::<Test>::integrity_test();
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		// Re-onboard: now meta exists AND lazy delete still pending AND pages
 		// exist for the para.
 		InboundDownwardQueue::<Test>::push_back(a, vec![0xAA]).unwrap();
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
 		assert!(InboundDownwardQueue::<Test>::meta(a).is_some());
 		assert!(!pages_in_storage(a).is_empty());
-
-		// Should not panic.
-		InboundDownwardQueue::<Test>::integrity_test();
 	});
 }
 
@@ -1322,7 +1314,7 @@ fn dmp_clean_dmp_large_queue_uses_lazy_delete() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 5;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		register_paras(&[a]);
 		for i in 0..total {
 			queue_downward_message(a, vec![i as u8]).unwrap();
@@ -1330,7 +1322,7 @@ fn dmp_clean_dmp_large_queue_uses_lazy_delete() {
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		let notification = crate::initializer::SessionChangeNotification::default();
 		Dmp::initializer_on_new_session(&notification, &vec![a]);
 
@@ -1384,7 +1376,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 	let total = EXPECTED_LAZY_DELETE_PAGES + 3;
 
 	let mut ext = new_test_ext(default_genesis_config());
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		register_paras(&[a]);
 		for i in 0..total {
 			queue_downward_message(a, vec![i as u8]).unwrap();
@@ -1392,7 +1384,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 	});
 	ext.commit_all().unwrap();
 
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		let notification = crate::initializer::SessionChangeNotification::default();
 		Dmp::initializer_on_new_session(&notification, &vec![a]);
 		assert!(DownwardMessageQueueLazyDelete::<Test>::contains_key(a));
@@ -1401,13 +1393,13 @@ fn dmp_on_poll_drives_lazy_delete() {
 
 	let mut iterations = 0u32;
 	loop {
-		let still_pending = execute_with_integrity(&mut ext, || {
+		let still_pending = execute_with_try_state(&mut ext, || {
 			DownwardMessageQueueLazyDelete::<Test>::contains_key(a)
 		});
 		if !still_pending {
 			break;
 		}
-		execute_with_integrity(&mut ext, || {
+		execute_with_try_state(&mut ext, || {
 			let mut wm = WeightMeter::new();
 			<Dmp as frame_support::traits::Hooks<BlockNumberFor<Test>>>::on_poll(
 				System::block_number(),
@@ -1418,7 +1410,7 @@ fn dmp_on_poll_drives_lazy_delete() {
 		iterations += 1;
 		assert!((iterations as u64) < total + 10, "on_poll lazy delete should make progress",);
 	}
-	execute_with_integrity(&mut ext, || {
+	execute_with_try_state(&mut ext, || {
 		assert_eq!(pages_in_storage(a), Vec::<PageIndex>::new());
 	});
 }

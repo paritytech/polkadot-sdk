@@ -188,7 +188,8 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-		#[cfg(feature = "std")]
+		// NOTE: We disable for our `mock` runtime since that only has 4M ps weight per block :(
+		#[cfg(all(feature = "std", not(test)))]
 		fn integrity_test() {
 			let min_on_idle_weight = <T as Config>::WeightInfo::migrate_v0_to_v1_step_base()
 				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_iter())

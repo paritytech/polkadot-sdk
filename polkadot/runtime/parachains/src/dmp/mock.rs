@@ -85,11 +85,11 @@ pub(crate) fn pages_in_storage(para: ParaId) -> Vec<PageIndex> {
 /// Run `f` against `ext`, asserting the dmp queue invariants both before and
 /// after — same shape as `TestExternalities::execute_with` but with always-on
 /// `integrity_test` checks.
-pub(crate) fn execute_with_integrity<R>(ext: &mut TestExternalities, f: impl FnOnce() -> R) -> R {
+pub(crate) fn execute_with_try_state<R>(ext: &mut TestExternalities, f: impl FnOnce() -> R) -> R {
 	ext.execute_with(|| {
-		InboundDownwardQueue::<Test>::integrity_test();
+		InboundDownwardQueue::<Test>::try_state();
 		let r = f();
-		InboundDownwardQueue::<Test>::integrity_test();
+		InboundDownwardQueue::<Test>::try_state();
 		r
 	})
 }
@@ -99,5 +99,5 @@ pub(crate) fn execute_with_integrity<R>(ext: &mut TestExternalities, f: impl FnO
 /// `new_test_ext(state).execute_with(...)`.
 pub(crate) fn new_test_ext_integrity<R>(state: MockGenesisConfig, f: impl FnOnce() -> R) -> R {
 	let mut ext = new_test_ext(state);
-	execute_with_integrity(&mut ext, f)
+	execute_with_try_state(&mut ext, f)
 }
