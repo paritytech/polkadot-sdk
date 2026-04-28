@@ -894,7 +894,10 @@ pub mod pallet {
 		pub fn add_external_asset(origin: OriginFor<T>, asset_id: T::AssetId) -> DispatchResult {
 			let level = T::ManagerOrigin::ensure_origin(origin)?;
 			ensure!(level.can_manage_assets(), Error::<T>::InsufficientPrivilege);
-			ensure!(!ExternalAssets::<T>::contains_key(&asset_id), Error::<T>::AssetAlreadyApproved);
+			ensure!(
+				!ExternalAssets::<T>::contains_key(&asset_id),
+				Error::<T>::AssetAlreadyApproved
+			);
 			ensure!(T::Fungibles::asset_exists(asset_id.clone()), Error::<T>::AssetDoesNotExist);
 			let count = ExternalAssets::<T>::count();
 			ensure!(count < T::MaxExternalAssets::get(), Error::<T>::TooManyAssets);

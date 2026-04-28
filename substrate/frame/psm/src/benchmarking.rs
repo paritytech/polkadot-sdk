@@ -135,8 +135,12 @@ mod benchmarks {
 		let setup_amount = T::MinSwapAmount::get().saturating_mul(10u32.into());
 		let redeem_amount = T::MinSwapAmount::get();
 
-		T::Fungibles::mint_into(asset_id.clone(), &caller, setup_amount.saturating_mul(2u32.into()))
-			.map_err(|_| BenchmarkError::Stop("Failed to fund caller"))?;
+		T::Fungibles::mint_into(
+			asset_id.clone(),
+			&caller,
+			setup_amount.saturating_mul(2u32.into()),
+		)
+		.map_err(|_| BenchmarkError::Stop("Failed to fund caller"))?;
 		Psm::<T>::mint(RawOrigin::Signed(caller.clone()).into(), asset_id.clone(), setup_amount)
 			.map_err(|_| BenchmarkError::Stop("Failed to setup reserve via mint"))?;
 
