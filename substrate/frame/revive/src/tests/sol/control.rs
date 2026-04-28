@@ -16,10 +16,10 @@
 // limitations under the License.
 
 use crate::{
-	metering::TransactionLimits,
-	test_utils::{builder::Contract, ALICE},
-	tests::{builder, sol::make_initcode_from_runtime_code, ExtBuilder, Test},
 	Code, Config, Error, U256,
+	metering::TransactionLimits,
+	test_utils::{ALICE, builder::Contract},
+	tests::{ExtBuilder, Test, builder, sol::make_initcode_from_runtime_code},
 };
 use frame_support::{assert_err, traits::fungible::Mutate};
 use pallet_revive_uapi::ReturnFlags;

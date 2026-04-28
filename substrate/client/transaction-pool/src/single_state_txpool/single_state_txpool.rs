@@ -198,8 +198,9 @@ where
 			pool_api.clone(),
 		));
 		let (revalidation_queue, background_task) = match revalidation_type {
-			RevalidationType::Light =>
-				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None),
+			RevalidationType::Light => {
+				(revalidation::RevalidationQueue::new(pool_api.clone(), pool.clone()), None)
+			},
 			RevalidationType::Full => {
 				let (queue, background) = revalidation::RevalidationQueue::new_background(
 					pool_api.clone(),
@@ -219,8 +220,9 @@ where
 			pool,
 			revalidation_queue: Arc::new(revalidation_queue),
 			revalidation_strategy: Arc::new(Mutex::new(match revalidation_type {
-				RevalidationType::Light =>
-					RevalidationStrategy::Light(RevalidationStatus::NotScheduled),
+				RevalidationType::Light => {
+					RevalidationStrategy::Light(RevalidationStatus::NotScheduled)
+				},
 				RevalidationType::Full => RevalidationStrategy::Always,
 			})),
 			ready_poll: Arc::new(Mutex::new(ReadyPoll::new(best_block_number))),
@@ -777,10 +779,11 @@ where
 		let compute_tree_route = |from, to| -> Result<TreeRoute<Block>, String> {
 			match self.api.tree_route(from, to) {
 				Ok(tree_route) => Ok(tree_route),
-				Err(e) =>
+				Err(e) => {
 					return Err(format!(
 						"Error occurred while computing tree_route from {from:?} to {to:?}: {e}"
-					)),
+					))
+				},
 			}
 		};
 		let block_id_to_number =

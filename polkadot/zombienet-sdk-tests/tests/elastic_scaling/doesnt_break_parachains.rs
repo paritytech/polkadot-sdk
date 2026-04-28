@@ -40,11 +40,13 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..4).fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..4).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			// Use default, which has 6 second slot time. Also, don't use slot-based collator.
@@ -73,7 +75,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	let para_id = ParaId::from(2000);
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
 	// Lowering to 12 to make sure CI passes.
-	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)]).await?;
+	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)], []).await?;
 
 	let para_client = para_node.wait_client().await?;
 	// Assert the parachain finalized block height is also on par with the number of backed
@@ -91,11 +93,21 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 			.await?[..],
 	)?;
 
+	// Get looakahead config
+	let lookahead = u32::decode(
+		&mut &relay_client
+			.runtime_api()
+			.at_latest()
+			.await?
+			.call_raw("ParachainHost_scheduling_lookahead", None)
+			.await?[..],
+	)?;
+
 	assert_eq!(
 		cq,
 		[
-			(CoreIndex(0), std::iter::repeat_n(para_id, 3).collect()),
-			(CoreIndex(1), std::iter::repeat_n(para_id, 3).collect()),
+			(CoreIndex(0), std::iter::repeat_n(para_id, lookahead as usize).collect()),
+			(CoreIndex(1), std::iter::repeat_n(para_id, lookahead as usize).collect()),
 		]
 		.into_iter()
 		.collect()

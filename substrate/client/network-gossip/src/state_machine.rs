@@ -116,12 +116,13 @@ where
 	for (id, ref mut peer) in peers.iter_mut() {
 		for (message_hash, topic, message) in messages.clone() {
 			let intent = match intent {
-				MessageIntent::Broadcast { .. } =>
+				MessageIntent::Broadcast { .. } => {
 					if peer.known_messages.contains(message_hash) {
 						continue;
 					} else {
 						MessageIntent::Broadcast
-					},
+					}
+				},
 				MessageIntent::PeriodicRebroadcast => {
 					if peer.known_messages.contains(message_hash) {
 						MessageIntent::PeriodicRebroadcast

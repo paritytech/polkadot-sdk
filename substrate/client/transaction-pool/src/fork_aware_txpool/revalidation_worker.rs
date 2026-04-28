@@ -79,8 +79,9 @@ where
 				break;
 			};
 			match payload {
-				WorkerPayload::RevalidateView(view, worker_channels) =>
-					view.revalidate(worker_channels).await,
+				WorkerPayload::RevalidateView(view, worker_channels) => {
+					view.revalidate(worker_channels).await
+				},
 				WorkerPayload::RevalidateMempool(
 					mempool,
 					view_store,

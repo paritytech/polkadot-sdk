@@ -30,7 +30,7 @@ pub use block_builder::{EthereumBlockBuilder, EthereumBlockBuilderIR};
 use crate::evm::Block;
 
 use alloc::vec::Vec;
-use alloy_core::primitives::{bytes::BufMut, B256};
+use alloy_core::primitives::{B256, bytes::BufMut};
 
 use codec::{Decode, Encode};
 use scale_info::TypeInfo;

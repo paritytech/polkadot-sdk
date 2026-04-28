@@ -22,9 +22,9 @@
 //!
 //! This pallet provides a `TransactionExtension` with an optional `AssetId` that specifies the
 //! asset to be used for payment (defaulting to the native token on `None`). It expects an
-//! [`OnChargeAssetTransaction`] implementation analogous to [`pallet-transaction-payment`]. The
+//! [`OnChargeAssetTransaction`] implementation analogous to `pallet-transaction-payment`. The
 //! included [`SwapAssetAdapter`] (implementing [`OnChargeAssetTransaction`]) determines the
-//! fee amount by converting the fee calculated by [`pallet-transaction-payment`] in the native
+//! fee amount by converting the fee calculated by `pallet-transaction-payment` in the native
 //! asset into the amount required of the specified asset.
 //!
 //! ## Pallet API
@@ -350,8 +350,9 @@ where
 		_result: &DispatchResult,
 	) -> Result<Weight, TransactionValidityError> {
 		let (tip, who, initial_payment, extension_weight) = match pre {
-			Pre::Charge { tip, who, initial_payment, weight } =>
-				(tip, who, initial_payment, weight),
+			Pre::Charge { tip, who, initial_payment, weight } => {
+				(tip, who, initial_payment, weight)
+			},
 			Pre::NoCharge { refund } => {
 				// No-op: Refund everything
 				return Ok(refund);

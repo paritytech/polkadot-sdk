@@ -16,14 +16,14 @@
 // limitations under the License.
 
 use crate::{
+	ClientError, LOG_TARGET,
 	client::{SubscriptionType, SubstrateBlock, SubstrateBlockNumber},
 	subxt_client::SrcChainConfig,
-	ClientError,
 };
 use jsonrpsee::core::async_trait;
 use sp_core::H256;
 use std::sync::Arc;
-use subxt::{backend::legacy::LegacyRpcMethods, OnlineClient};
+use subxt::{OnlineClient, backend::legacy::LegacyRpcMethods};
 use tokio::sync::RwLock;
 
 /// BlockInfoProvider cache and retrieves information about blocks.
@@ -140,8 +140,14 @@ impl BlockInfoProvider for SubxtBlockInfoProvider {
 
 		match self.api.blocks().at(*hash).await {
 			Ok(block) => Ok(Some(Arc::new(block))),
-			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => Ok(None),
-			Err(err) => Err(err.into()),
+			Err(subxt::Error::Block(subxt::error::BlockError::NotFound(_))) => {
+				log::trace!(target: LOG_TARGET, "block_by_hash: block {hash:?} not found");
+				Ok(None)
+			},
+			Err(err) => {
+				log::trace!(target: LOG_TARGET, "block_by_hash: failed to fetch block {hash:?}: {err:?}");
+				Err(err.into())
+			},
 		}
 	}
 }

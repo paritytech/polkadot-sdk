@@ -117,7 +117,7 @@ fn function_no_std_impl(
 			#[cfg(target_family = "wasm")]
 			{ core::arch::wasm32::unreachable(); }
 
-			#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+			#[cfg(target_arch = "riscv64")]
 			unsafe { core::arch::asm!("unimp", options(noreturn)); }
 		}
 	} else {

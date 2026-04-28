@@ -184,12 +184,15 @@ impl RuntimeMetricsProvider {
 	// Parse end execute the update operation.
 	fn parse_metric_update(&self, update: RuntimeMetricUpdate) {
 		match update.op {
-			RuntimeMetricOp::IncrementCounterVec(value, ref labels) =>
-				self.inc_counter_vec_by(update.metric_name(), value, labels),
-			RuntimeMetricOp::IncrementCounter(value) =>
-				self.inc_counter_by(update.metric_name(), value),
-			RuntimeMetricOp::ObserveHistogram(value) =>
-				self.observe_histogram(update.metric_name(), value),
+			RuntimeMetricOp::IncrementCounterVec(value, ref labels) => {
+				self.inc_counter_vec_by(update.metric_name(), value, labels)
+			},
+			RuntimeMetricOp::IncrementCounter(value) => {
+				self.inc_counter_by(update.metric_name(), value)
+			},
+			RuntimeMetricOp::ObserveHistogram(value) => {
+				self.observe_histogram(update.metric_name(), value)
+			},
 		}
 	}
 

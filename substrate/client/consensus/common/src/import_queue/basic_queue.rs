@@ -310,8 +310,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 				// Make sure to first process all justifications
 				while let Poll::Ready(justification) = futures::poll!(justification_port.next()) {
 					match justification {
-						Some(ImportJustification(who, hash, number, justification)) =>
-							worker.import_justification(who, hash, number, justification).await,
+						Some(ImportJustification(who, hash, number, justification)) => {
+							worker.import_justification(who, hash, number, justification).await
+						},
 						None => {
 							log::debug!(
 								target: LOG_TARGET,
@@ -361,8 +362,9 @@ impl<B: BlockT> BlockImportWorker<B> {
 				});
 				match result {
 					Ok(()) => JustificationImportResult::Success,
-					Err(sp_consensus::Error::OutdatedJustification) =>
-						JustificationImportResult::OutdatedJustification,
+					Err(sp_consensus::Error::OutdatedJustification) => {
+						JustificationImportResult::OutdatedJustification
+					},
 					Err(_) => JustificationImportResult::Failure,
 				}
 			},
@@ -409,7 +411,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 		_ => Default::default(),
 	};
 
-	trace!(target: LOG_TARGET, "Starting import of {} blocks {}", count, blocks_range);
+	debug!(target: LOG_TARGET, "Starting import of {count} blocks {blocks_range} (origin: {blocks_origin:?})");
 
 	let mut imported = 0;
 	let mut results = vec![];
@@ -423,6 +425,7 @@ async fn import_many_blocks<B: BlockT, V: Verifier<B>>(
 			Some(b) => b,
 			None => {
 				// No block left to import, success!
+				debug!(target: LOG_TARGET, "Imported {imported} out of {count} blocks (origin: {blocks_origin:?})");
 				return ImportManyBlocksResult { block_count: count, imported, results };
 			},
 		};

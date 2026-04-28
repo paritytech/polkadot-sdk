@@ -663,10 +663,12 @@ where
 				}
 				self.event_streams.push(tx);
 			},
-			ToServiceCommand::RequestJustification(hash, number) =>
-				self.strategy.request_justification(&hash, number),
-			ToServiceCommand::ClearJustificationRequests =>
-				self.strategy.clear_justification_requests(),
+			ToServiceCommand::RequestJustification(hash, number) => {
+				self.strategy.request_justification(&hash, number)
+			},
+			ToServiceCommand::ClearJustificationRequests => {
+				self.strategy.clear_justification_requests()
+			},
 			ToServiceCommand::BlocksProcessed(imported, count, results) => {
 				self.strategy.on_blocks_processed(imported, count, results);
 			},
@@ -734,8 +736,9 @@ where
 					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
-			ToServiceCommand::OnBlockFinalized(hash, header) =>
-				self.strategy.on_block_finalized(&hash, *header.number()),
+			ToServiceCommand::OnBlockFinalized(hash, header) => {
+				self.strategy.on_block_finalized(&hash, *header.number())
+			},
 		}
 	}
 

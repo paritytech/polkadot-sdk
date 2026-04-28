@@ -296,8 +296,9 @@ where
 					return Some(DroppedTransaction::new_enforced_by_limts(tx_hash));
 				}
 			},
-			TransactionStatus::Usurped(by) =>
-				return Some(DroppedTransaction::new_usurped(tx_hash, by)),
+			TransactionStatus::Usurped(by) => {
+				return Some(DroppedTransaction::new_usurped(tx_hash, by))
+			},
 			TransactionStatus::Invalid => {
 				if let Some(mut views_keeping_tx_valid) = self.transaction_views(tx_hash) {
 					views_keeping_tx_valid.get_mut().remove(&block_hash);

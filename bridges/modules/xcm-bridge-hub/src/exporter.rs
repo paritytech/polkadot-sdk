@@ -159,12 +159,15 @@ where
 		let bridge_message = MessagesPallet::<T, I>::validate_message(bridge.lane_id, &blob)
 			.map_err(|e| {
 				match e {
-					Error::LanesManager(ref ei) =>
-						tracing::error!(target: LOG_TARGET, error=?ei, "LanesManager"),
-					Error::MessageRejectedByPallet(ref ei) =>
-						tracing::error!(target: LOG_TARGET, error=?ei, "MessageRejectedByPallet"),
-					Error::ReceptionConfirmation(ref ei) =>
-						tracing::error!(target: LOG_TARGET, error=?ei, "ReceptionConfirmation"),
+					Error::LanesManager(ref ei) => {
+						tracing::error!(target: LOG_TARGET, error=?ei, "LanesManager")
+					},
+					Error::MessageRejectedByPallet(ref ei) => {
+						tracing::error!(target: LOG_TARGET, error=?ei, "MessageRejectedByPallet")
+					},
+					Error::ReceptionConfirmation(ref ei) => {
+						tracing::error!(target: LOG_TARGET, error=?ei, "ReceptionConfirmation")
+					},
 					_ => (),
 				};
 

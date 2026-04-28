@@ -64,8 +64,8 @@ mod smoke {
 				r = r.with_default_args(args.into_iter().map(|arg| arg.into()).collect());
 			}
 
-			r.with_node(|node| node.with_name("alice"))
-				.with_node(|node| node.with_name("bob"))
+			r.with_validator(|node| node.with_name("alice"))
+				.with_validator(|node| node.with_name("bob"))
 		});
 
 		let config = if let Some(para_cmd) = network_spec.para_cmd {

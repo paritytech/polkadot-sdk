@@ -1,0 +1,11 @@
+title: 'statement-store: do not populate recent on restart'
+doc:
+- audience: Node Dev
+  description: |-
+    Previously, on node restart all statements loaded from the database were added to the
+    `recent` set in the statement-store index. This caused unnecessary network traffic as
+    the node would attempt to re-propagate all persisted statements to peers. Now, only
+    newly submitted statements are marked as recent, avoiding redundant gossip after restart.
+crates:
+- name: sc-statement-store
+  bump: patch

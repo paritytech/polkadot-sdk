@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use crate::{
+	Config,
 	evm::{CallTrace, ExecutionTrace, Trace},
 	tracing::Tracing,
-	Config,
 };
 
 mod call_tracing;

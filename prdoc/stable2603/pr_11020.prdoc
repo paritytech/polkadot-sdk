@@ -1,0 +1,7 @@
+title: 'Block Response Handler: Take protocol overhead better into account'
+doc:
+- audience: Node Dev
+  description: We now take the protobuf overhead into account.
+crates:
+- name: sc-network-sync
+  bump: patch

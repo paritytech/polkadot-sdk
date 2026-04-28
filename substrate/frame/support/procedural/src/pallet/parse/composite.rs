@@ -111,11 +111,12 @@ impl CompositeDef {
 			// a fixed variant count.
 			for variant in &item.variants {
 				match variant.fields {
-					syn::Fields::Named(_) | syn::Fields::Unnamed(_) =>
+					syn::Fields::Named(_) | syn::Fields::Unnamed(_) => {
 						return Err(syn::Error::new(
 							variant.ident.span(),
 							"The composite enum does not support variants with fields!",
-						)),
+						))
+					},
 					syn::Fields::Unit => (),
 				}
 			}

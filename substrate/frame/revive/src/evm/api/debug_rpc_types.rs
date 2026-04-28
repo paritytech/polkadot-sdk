@@ -15,15 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{evm::Bytes, Weight};
+use crate::{Weight, evm::Bytes};
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use derive_more::From;
 use scale_info::TypeInfo;
 use serde::{
+	Deserialize, Serialize,
 	de::{Deserializer, Error, MapAccess, Visitor},
 	ser::{SerializeMap, Serializer},
-	Deserialize, Serialize,
 };
 use sp_core::{H160, H256, U256};
 
@@ -110,14 +110,33 @@ impl<'de> Deserialize<'de> for TracerConfig {
 		}
 
 		match TracerConfigHelper::deserialize(deserializer)? {
-			TracerConfigHelper::WithType(cfg) =>
-				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout }),
+			TracerConfigHelper::WithType(cfg) => {
+				Ok(TracerConfig { config: cfg.config, timeout: cfg.timeout })
+			},
 			TracerConfigHelper::Inline(cfg) => Ok(TracerConfig {
 				config: TracerType::ExecutionTracer(Some(cfg.execution_tracer_config)),
 				timeout: cfg.timeout,
 			}),
 		}
 	}
+}
+
+/// Configuration for `debug_traceCall`, extending [`TracerConfig`] with state overrides.
+///
+/// Per the [Geth specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall),
+/// `debug_traceCall` accepts a config object that is a superset of the base tracer config,
+/// adding `stateOverrides` (and optionally `blockOverrides` and `txIndex`, which are not yet
+/// supported).
+#[derive(Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize), serde(rename_all = "camelCase"))]
+pub struct TraceCallConfig {
+	/// The base tracer configuration (tracer type, timeout, etc.).
+	#[cfg_attr(feature = "std", serde(flatten))]
+	pub tracer_config: TracerConfig,
+
+	/// Optional state overrides to apply before executing the traced call.
+	#[cfg_attr(feature = "std", serde(default, skip_serializing_if = "Option::is_none"))]
+	pub state_overrides: Option<super::StateOverrideSet>,
 }
 
 /// The configuration for the call tracer.
@@ -482,7 +501,7 @@ where
 #[derive(
 	Default, TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq,
 )]
-#[serde(rename_all = "camelCase")]
+#[serde(default, rename_all = "camelCase")]
 pub struct ExecutionTrace {
 	/// Total gas used by the transaction.
 	pub gas: u64,
@@ -499,8 +518,10 @@ pub struct ExecutionTrace {
 }
 
 /// An execution step which can be either an EVM opcode or a PVM syscall.
-#[derive(TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
-#[serde(rename_all = "camelCase")]
+#[derive(
+	TypeInfo, Encode, Decode, Serialize, Deserialize, Clone, Debug, Eq, PartialEq, Default,
+)]
+#[serde(default, rename_all = "camelCase")]
 pub struct ExecutionStep {
 	/// Remaining gas before executing this step.
 	#[codec(compact)]
@@ -536,16 +557,22 @@ pub enum ExecutionStepKind {
 		#[serde(serialize_with = "serialize_opcode", deserialize_with = "deserialize_opcode")]
 		op: u8,
 		/// EVM stack contents.
-		#[serde(serialize_with = "serialize_stack_minimal")]
+		#[serde(
+			default,
+			serialize_with = "serialize_stack_minimal",
+			deserialize_with = "deserialize_stack_minimal"
+		)]
 		stack: Vec<Bytes>,
 		/// EVM memory contents.
 		#[serde(
+			default,
 			skip_serializing_if = "Vec::is_empty",
 			serialize_with = "serialize_memory_no_prefix"
 		)]
 		memory: Vec<Bytes>,
 		/// Contract storage changes.
 		#[serde(
+			default,
 			skip_serializing_if = "Option::is_none",
 			serialize_with = "serialize_storage_no_prefix"
 		)]
@@ -554,17 +581,30 @@ pub enum ExecutionStepKind {
 	/// A PVM syscall execution.
 	PVMSyscall {
 		/// The executed syscall.
-		#[serde(serialize_with = "serialize_syscall_op")]
+		#[serde(
+			serialize_with = "serialize_syscall_op",
+			deserialize_with = "deserialize_syscall_op"
+		)]
 		op: u8,
 		/// The syscall arguments (register values a0-a5).
 		/// Omitted when `disable_syscall_details` is true in ExecutionTracerConfig.
-		#[serde(skip_serializing_if = "Vec::is_empty", with = "super::hex_serde::vec")]
+		#[serde(default, skip_serializing_if = "Vec::is_empty", with = "super::hex_serde::vec")]
 		args: Vec<u64>,
 		/// The syscall return value.
 		/// Omitted when `disable_syscall_details` is true in ExecutionTracerConfig.
-		#[serde(skip_serializing_if = "Option::is_none", with = "super::hex_serde::option")]
+		#[serde(
+			default,
+			skip_serializing_if = "Option::is_none",
+			with = "super::hex_serde::option"
+		)]
 		returned: Option<u64>,
 	},
+}
+
+impl Default for ExecutionStepKind {
+	fn default() -> Self {
+		Self::EVMOpcode { pc: 0, op: 0, stack: Vec::new(), memory: Vec::new(), storage: None }
+	}
 }
 
 macro_rules! define_opcode_functions {
@@ -759,11 +799,11 @@ fn serialize_syscall_op<S>(idx: &u8, serializer: S) -> Result<S::Ok, S::Error>
 where
 	S: serde::Serializer,
 {
-	use crate::vm::pvm::env::list_syscalls;
-	let Some(syscall_name_bytes) = list_syscalls().get(*idx as usize) else {
-		return Err(serde::ser::Error::custom(alloc::format!("Unknown syscall: {idx}")));
+	use crate::vm::pvm::env::list_trace_ops;
+	let Some(name_bytes) = list_trace_ops().get(*idx as usize) else {
+		return Err(serde::ser::Error::custom(alloc::format!("Unknown trace op: {idx}")));
 	};
-	let name = core::str::from_utf8(syscall_name_bytes).unwrap_or_default();
+	let name = core::str::from_utf8(name_bytes).unwrap_or_default();
 	serializer.serialize_str(name)
 }
 
@@ -775,6 +815,20 @@ where
 	let s = String::deserialize(deserializer)?;
 	get_opcode_byte(&s)
 		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown opcode: {}", s)))
+}
+
+/// Deserialize syscall from string name to index
+fn deserialize_syscall_op<'de, D>(deserializer: D) -> Result<u8, D::Error>
+where
+	D: serde::Deserializer<'de>,
+{
+	use crate::vm::pvm::env::list_trace_ops;
+	let s = String::deserialize(deserializer)?;
+	let ops = list_trace_ops();
+	ops.iter()
+		.position(|name| core::str::from_utf8(name).unwrap_or_default() == s)
+		.map(|i| i as u8)
+		.ok_or_else(|| serde::de::Error::custom(alloc::format!("Unknown trace op: {}", s)))
 }
 
 /// A smart contract execution call trace.
@@ -857,6 +911,31 @@ where
 {
 	let minimal_values: Vec<String> = stack.iter().map(|bytes| bytes.to_short_hex()).collect();
 	minimal_values.serialize(serializer)
+}
+
+/// Deserialize stack values from minimal hex format
+fn deserialize_stack_minimal<'de, D>(deserializer: D) -> Result<Vec<Bytes>, D::Error>
+where
+	D: serde::Deserializer<'de>,
+{
+	let strings = Vec::<String>::deserialize(deserializer)?;
+	strings
+		.into_iter()
+		.map(|s| {
+			// Parse as U256 to handle minimal hex like "0x0" or "0x4"
+			let s = s.trim_start_matches("0x");
+			let value = sp_core::U256::from_str_radix(s, 16)
+				.map_err(|e| serde::de::Error::custom(alloc::format!("{:?}", e)))?;
+			// Convert to bytes, trimming leading zeros to match serialization
+			let bytes = value.to_big_endian();
+			let trimmed = bytes
+				.iter()
+				.position(|&b| b != 0)
+				.map(|pos| bytes[pos..].to_vec())
+				.unwrap_or_else(|| alloc::vec![0u8]);
+			Ok(Bytes::from(trimmed))
+		})
+		.collect()
 }
 
 /// Serialize memory values without "0x" prefix (like Geth)

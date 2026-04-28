@@ -51,6 +51,7 @@ criterion = { workspace = true, default-features = true }
 kitchensink-runtime = { workspace = true }
 kvdb-rocksdb = { workspace = true }
 rand = { workspace = true, default-features = true }
+sp-database = { workspace = true, default-features = true, features = ["rocksdb"] }
 sp-tracing = { workspace = true, default-features = true }
 substrate-test-runtime-client = { workspace = true }
 tempfile = { workspace = true }

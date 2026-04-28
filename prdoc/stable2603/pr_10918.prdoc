@@ -1,0 +1,16 @@
+title: Fix delegatecall callTracer addresses
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Summary
+    - Fix address tracking in delegatecall operations for callTracer
+
+    ## Changes
+    - Update callTracer to correctly track addresses during delegatecall operations
+
+    ## Test plan
+    - Existing tests should pass
+    - Verify callTracer correctly reports addresses for delegatecall operations
+crates:
+- name: pallet-revive
+  bump: patch

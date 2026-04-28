@@ -18,6 +18,10 @@
 
 #![warn(missing_docs)]
 
+// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
+#[cfg(target_os = "linux")]
+extern crate polkadot_jemalloc_shim;
+
 use color_eyre::eyre;
 
 fn main() -> eyre::Result<()> {

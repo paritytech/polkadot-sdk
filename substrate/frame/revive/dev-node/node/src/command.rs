@@ -50,8 +50,9 @@ impl SubstrateCli for Cli {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn sc_service::ChainSpec>, String> {
 		Ok(match id {
 			"dev" | "" => Box::new(chain_spec::development_chain_spec()?),
-			path =>
-				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?),
+			path => {
+				Box::new(chain_spec::ChainSpec::from_json_file(std::path::PathBuf::from(path))?)
+			},
 		})
 	}
 }
@@ -145,9 +146,10 @@ pub fn run_with_args(args: Vec<String>) -> sc_cli::Result<()> {
 
 			runner.run_node_until_exit(|config| async move {
 				match config.network.network_backend {
-					sc_network::config::NetworkBackendType::Libp2p =>
+					sc_network::config::NetworkBackendType::Libp2p => {
 						service::new_full::<sc_network::NetworkWorker<_, _>>(config, cli.consensus)
-							.map_err(sc_cli::Error::Service),
+							.map_err(sc_cli::Error::Service)
+					},
 					sc_network::config::NetworkBackendType::Litep2p => service::new_full::<
 						sc_network::Litep2pNetworkBackend,
 					>(config, cli.consensus)

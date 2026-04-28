@@ -44,7 +44,7 @@ fn generalized_index_bit(index: usize, position: usize) -> bool {
 	index & (1 << position) > 0
 }
 
-/// Spec: <https://github.com/ethereum/consensus-specs/blob/fe9c1a8cbf0c2da8a4f349efdcd77dd7ac8445c4/specs/altair/light-client/sync-protocol.md#get_subtree_index>
+/// Spec: <https://github.com/ethereum/consensus-specs/blob/ec42646/specs/altair/light-client/sync-protocol.md#get_subtree_index>
 pub const fn subtree_index(generalized_index: usize) -> usize {
 	generalized_index % (1 << generalized_index_length(generalized_index))
 }

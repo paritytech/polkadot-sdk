@@ -17,12 +17,12 @@
 use clap::Parser;
 use jsonrpsee::http_client::HttpClientBuilder;
 use pallet_revive::evm::{Account, BlockTag, ReceiptInfo};
-use pallet_revive_eth_rpc::{example::TransactionBuilder, EthRpcClient};
+use pallet_revive_eth_rpc::{EthRpcClient, example::TransactionBuilder};
 use std::sync::Arc;
 use tokio::{
 	io::{AsyncBufReadExt, BufReader},
 	process::{Child, ChildStderr, Command},
-	signal::unix::{signal, SignalKind},
+	signal::unix::{SignalKind, signal},
 };
 
 const DOCKER_CONTAINER_NAME: &str = "eth-rpc-test";

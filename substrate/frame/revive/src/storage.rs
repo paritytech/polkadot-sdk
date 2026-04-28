@@ -18,32 +18,32 @@
 //! This module contains routines for accessing and altering a contract related state.
 
 use crate::{
+	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
+	SENTINEL, TrieId,
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
 	metering::FrameMeter,
 	tracing::if_tracing,
 	weights::WeightInfo,
-	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
-	TrieId, SENTINEL,
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
+	CloneNoBound, DebugNoBound, DefaultNoBound,
 	storage::child::{self, ChildInfo},
 	traits::{
 		fungible::Inspect,
 		tokens::{Fortitude, Preservation},
 	},
 	weights::{Weight, WeightMeter},
-	CloneNoBound, DebugNoBound, DefaultNoBound,
 };
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
 use sp_runtime::{
-	traits::{Hash, Saturating, Zero},
 	Debug, DispatchError,
+	traits::{Hash, Saturating, Zero},
 };
 
 use crate::metering::Diff;
@@ -118,8 +118,9 @@ impl<T: Config> From<H160> for AccountIdOrAddress<T> {
 impl<T: Config> AccountIdOrAddress<T> {
 	pub fn address(&self) -> H160 {
 		match self {
-			AccountIdOrAddress::AccountId(id) =>
-				<T::AddressMapper as AddressMapper<T>>::to_address(id),
+			AccountIdOrAddress::AccountId(id) => {
+				<T::AddressMapper as AddressMapper<T>>::to_address(id)
+			},
 			AccountIdOrAddress::Address(address) => *address,
 		}
 	}
@@ -319,12 +320,13 @@ impl<T: Config> ContractInfo<T> {
 			let mut diff = Diff::default();
 			let key_len = key.len() as u32;
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) =>
+				(Some(old_len), Some(new_len)) => {
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					},
+					}
+				},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len.saturating_add(key_len);
 					diff.items_added = 1;

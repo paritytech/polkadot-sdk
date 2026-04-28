@@ -16,33 +16,33 @@
 // limitations under the License.
 //! Runtime types for integrating `pallet-revive` with the EVM.
 use crate::{
+	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, LOG_TARGET, Pallet, Zero,
 	evm::{
+		CreateCallMode,
 		api::{GenericTransaction, TransactionSigned},
 		fees::InfoT,
-		CreateCallMode,
 	},
-	AccountIdOf, AddressMapper, BalanceOf, CallOf, Config, Pallet, Zero, LOG_TARGET,
 };
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	dispatch::{DispatchInfo, GetDispatchInfo},
 	traits::{
+		InherentBuilder, IsSubType, SignedTransactionBuilder,
 		fungible::Balanced,
 		tokens::{Fortitude, Precision, Preservation},
-		InherentBuilder, IsSubType, SignedTransactionBuilder,
 	},
 };
 use pallet_transaction_payment::Config as TxConfig;
 use scale_info::{StaticTypeInfo, TypeInfo};
 use sp_core::U256;
 use sp_runtime::{
+	Debug, OpaqueExtrinsic, Weight,
 	generic::{self, CheckedExtrinsic, ExtrinsicFormat},
 	traits::{
-		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic,
+		Checkable, ExtrinsicCall, ExtrinsicLike, ExtrinsicMetadata, LazyExtrinsic, Pipeline,
 		TransactionExtension,
 	},
 	transaction_validity::{InvalidTransaction, TransactionValidityError},
-	Debug, OpaqueExtrinsic, Weight,
 };
 
 /// Used to set the weight limit argument of a `eth_call` or `eth_instantiate_with_code` call.
@@ -57,28 +57,58 @@ pub trait SetWeightLimit {
 /// [`crate::Call::eth_transact`] extrinsic.
 #[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug)]
 pub struct UncheckedExtrinsic<Address, Signature, E: EthExtra>(
-	pub generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
+	pub  generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>,
 );
 
 impl<Address, Signature, E: EthExtra> TypeInfo for UncheckedExtrinsic<Address, Signature, E>
 where
 	Address: StaticTypeInfo,
 	Signature: StaticTypeInfo,
-	E::Extension: StaticTypeInfo,
+	E::ExtensionV0: StaticTypeInfo,
 {
-	type Identity =
-		generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>;
+	type Identity = generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>;
 	fn type_info() -> scale_info::Type {
-		generic::UncheckedExtrinsic::<Address, CallOf<E::Config>, Signature, E::Extension>::type_info()
+		generic::UncheckedExtrinsic::<
+			Address,
+			CallOf<E::Config>,
+			Signature,
+			E::ExtensionV0,
+			E::ExtensionOtherVersions,
+		>::type_info()
 	}
 }
 
 impl<Address, Signature, E: EthExtra>
-	From<generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>>
-	for UncheckedExtrinsic<Address, Signature, E>
+	From<
+		generic::UncheckedExtrinsic<
+			Address,
+			CallOf<E::Config>,
+			Signature,
+			E::ExtensionV0,
+			E::ExtensionOtherVersions,
+		>,
+	> for UncheckedExtrinsic<Address, Signature, E>
 {
 	fn from(
-		utx: generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>,
+		utx: generic::UncheckedExtrinsic<
+			Address,
+			CallOf<E::Config>,
+			Signature,
+			E::ExtensionV0,
+			E::ExtensionOtherVersions,
+		>,
 	) -> Self {
 		Self(utx)
 	}
@@ -99,9 +129,16 @@ impl<Address, Signature, E: EthExtra> ExtrinsicMetadata
 		Address,
 		CallOf<E::Config>,
 		Signature,
-		E::Extension,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
 	>::VERSIONS;
-	type TransactionExtensions = E::Extension;
+	type TransactionExtensionPipelines = <generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	> as ExtrinsicMetadata>::TransactionExtensionPipelines;
 }
 
 impl<Address: TypeInfo, Signature: TypeInfo, E: EthExtra> ExtrinsicCall
@@ -126,17 +163,37 @@ where
 	<E::Config as frame_system::Config>::Nonce: TryFrom<U256>,
 	CallOf<E::Config>: SetWeightLimit,
 	// required by Checkable for `generic::UncheckedExtrinsic`
-	generic::UncheckedExtrinsic<LookupSource, CallOf<E::Config>, Signature, E::Extension>:
-		Checkable<
+	generic::UncheckedExtrinsic<
+		LookupSource,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>: Checkable<
 			Lookup,
-			Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>,
+			Checked = CheckedExtrinsic<
+				AccountIdOf<E::Config>,
+				CallOf<E::Config>,
+				E::ExtensionV0,
+				E::ExtensionOtherVersions,
+			>,
 		>,
 {
-	type Checked = CheckedExtrinsic<AccountIdOf<E::Config>, CallOf<E::Config>, E::Extension>;
+	type Checked = CheckedExtrinsic<
+		AccountIdOf<E::Config>,
+		CallOf<E::Config>,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>;
 
 	fn check(self, lookup: &Lookup) -> Result<Self::Checked, TransactionValidityError> {
 		if !self.0.is_signed() {
 			if let Some(crate::Call::eth_transact { payload }) = self.0.function.is_sub_type() {
+				log::trace!(
+					target: LOG_TARGET,
+					"eth_transact substrate tx hash: 0x{}",
+					sp_core::hexdisplay::HexDisplay::from(&sp_core::hashing::blake2_256(&self.encode())),
+				);
 				let checked = E::try_into_checked_extrinsic(payload, self.encoded_size())?;
 				return Ok(checked);
 			};
@@ -190,17 +247,17 @@ impl<Address, Signature, E: EthExtra> SignedTransactionBuilder
 where
 	Address: TypeInfo,
 	Signature: TypeInfo,
-	E::Extension: TypeInfo,
+	E::ExtensionV0: TypeInfo,
 {
 	type Address = Address;
 	type Signature = Signature;
-	type Extension = E::Extension;
+	type Extension = E::ExtensionV0;
 
 	fn new_signed_transaction(
 		call: Self::Call,
 		signed: Address,
 		signature: Signature,
-		tx_ext: E::Extension,
+		tx_ext: E::ExtensionV0,
 	) -> Self {
 		generic::UncheckedExtrinsic::new_signed(call, signed, signature, tx_ext).into()
 	}
@@ -210,7 +267,7 @@ impl<Address, Signature, E: EthExtra> InherentBuilder for UncheckedExtrinsic<Add
 where
 	Address: TypeInfo,
 	Signature: TypeInfo,
-	E::Extension: TypeInfo,
+	E::ExtensionV0: TypeInfo,
 {
 	fn new_inherent(call: Self::Call) -> Self {
 		generic::UncheckedExtrinsic::new_bare(call).into()
@@ -222,7 +279,7 @@ impl<Address, Signature, E: EthExtra> From<UncheckedExtrinsic<Address, Signature
 where
 	Address: Encode,
 	Signature: Encode,
-	E::Extension: Encode,
+	E::ExtensionV0: Encode,
 {
 	fn from(extrinsic: UncheckedExtrinsic<Address, Signature, E>) -> Self {
 		extrinsic.0.into()
@@ -231,7 +288,13 @@ where
 
 impl<Address, Signature, E: EthExtra> LazyExtrinsic for UncheckedExtrinsic<Address, Signature, E>
 where
-	generic::UncheckedExtrinsic<Address, CallOf<E::Config>, Signature, E::Extension>: LazyExtrinsic,
+	generic::UncheckedExtrinsic<
+		Address,
+		CallOf<E::Config>,
+		Signature,
+		E::ExtensionV0,
+		E::ExtensionOtherVersions,
+	>: LazyExtrinsic,
 {
 	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Ok(Self(LazyExtrinsic::decode_unprefixed(data)?))
@@ -243,11 +306,16 @@ pub trait EthExtra {
 	/// The Runtime configuration.
 	type Config: Config + TxConfig;
 
-	/// The Runtime's transaction extension.
+	/// The Runtime's transaction extension version 0.
 	/// It should include at least:
 	/// - [`frame_system::CheckNonce`] to ensure that the nonce from the Ethereum transaction is
 	///   correct.
-	type Extension: TransactionExtension<CallOf<Self::Config>>;
+	type ExtensionV0: TransactionExtension<CallOf<Self::Config>>;
+
+	/// The Runtime's transaction extension versions other than 0.
+	///
+	/// Use [`sp_runtime::traits::InvalidVersion`] if no other versions should be supported.
+	type ExtensionOtherVersions: Pipeline<CallOf<Self::Config>>;
 
 	/// Get the transaction extension to apply to an unsigned [`crate::Call::eth_transact`]
 	/// extrinsic.
@@ -258,7 +326,7 @@ pub trait EthExtra {
 	fn get_eth_extension(
 		nonce: <Self::Config as frame_system::Config>::Nonce,
 		tip: BalanceOf<Self::Config>,
-	) -> Self::Extension;
+	) -> Self::ExtensionV0;
 
 	/// Convert the unsigned [`crate::Call::eth_transact`] into a [`CheckedExtrinsic`].
 	/// and ensure that the fees from the Ethereum transaction correspond to the fees computed from
@@ -271,7 +339,12 @@ pub trait EthExtra {
 		payload: &[u8],
 		encoded_len: usize,
 	) -> Result<
-		CheckedExtrinsic<AccountIdOf<Self::Config>, CallOf<Self::Config>, Self::Extension>,
+		CheckedExtrinsic<
+			AccountIdOf<Self::Config>,
+			CallOf<Self::Config>,
+			Self::ExtensionV0,
+			Self::ExtensionOtherVersions,
+		>,
 		InvalidTransaction,
 	>
 	where
@@ -314,6 +387,7 @@ pub trait EthExtra {
 		})?;
 
 		log::debug!(target: LOG_TARGET, "Decoded Ethereum transaction with signer: {signer_addr:?} nonce: {nonce:?}");
+		log::trace!(target: LOG_TARGET, "Decoded Ethereum transaction was: {tx:?}");
 		let call_info = tx.into_call::<Self::Config>(CreateCallMode::ExtrinsicExecution(
 			encoded_len as u32,
 			payload.to_vec(),
@@ -367,12 +441,12 @@ pub trait EthExtra {
 mod test {
 	use super::*;
 	use crate::{
+		EthTransactInfo, RUNTIME_PALLETS_ADDR, Weight,
 		evm::*,
 		test_utils::*,
 		tests::{
 			Address, ExtBuilder, RuntimeCall, RuntimeOrigin, SignedExtra, Test, UncheckedExtrinsic,
 		},
-		EthTransactInfo, Weight, RUNTIME_PALLETS_ADDR,
 	};
 	use frame_support::{error::LookupError, traits::fungible::Mutate};
 	use pallet_revive_fixtures::compile_module;
@@ -676,6 +750,26 @@ mod test {
 	}
 
 	#[test]
+	fn eth_pre_dispatch_weight_matches_check_weight_booking() {
+		let builder = UncheckedExtrinsicBuilder::call_with(H160::from([1u8; 20]));
+		let (encoded_len, call, _, _, _, signed_transaction) = builder.check().unwrap();
+
+		ExtBuilder::default().build().execute_with(|| {
+			let reported =
+				Pallet::<Test>::eth_pre_dispatch_weight(signed_transaction.signed_payload())
+					.unwrap();
+			let info = <Test as Config>::FeeInfo::dispatch_info(&call);
+			let expected = frame_system::calculate_consumed_extrinsic_weight::<CallOf<Test>>(
+				&<Test as frame_system::Config>::BlockWeights::get(),
+				&info,
+				encoded_len as usize,
+			);
+
+			assert_eq!(reported, expected);
+		});
+	}
+
+	#[test]
 	fn check_transaction_tip() {
 		let (code, _) = compile_module("dummy").unwrap();
 		// create some dummy data to increase the gas fee
@@ -722,7 +816,9 @@ mod test {
 	#[test]
 	fn contract_deployment_with_nick_method_works() {
 		// Arrange
-		let raw_transaction_bytes = alloy_core::hex!("0xf9016c8085174876e8008303c4d88080b90154608060405234801561001057600080fd5b50610134806100206000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c634300060200331b83247000822470");
+		let raw_transaction_bytes = alloy_core::hex!(
+			"0xf9016c8085174876e8008303c4d88080b90154608060405234801561001057600080fd5b50610134806100206000396000f3fe6080604052348015600f57600080fd5b506004361060285760003560e01c80634af63f0214602d575b600080fd5b60cf60048036036040811015604157600080fd5b810190602081018135640100000000811115605b57600080fd5b820183602082011115606c57600080fd5b80359060200191846001830284011164010000000083111715608d57600080fd5b91908080601f016020809104026020016040519081016040528093929190818152602001838380828437600092019190915250929550509135925060eb915050565b604080516001600160a01b039092168252519081900360200190f35b6000818351602085016000f5939250505056fea26469706673582212206b44f8a82cb6b156bfcc3dc6aadd6df4eefd204bc928a4397fd15dacf6d5320564736f6c634300060200331b83247000822470"
+		);
 
 		let mut signed_transaction = TransactionSigned::decode(raw_transaction_bytes.as_slice())
 			.expect("Invalid raw transaction bytes");

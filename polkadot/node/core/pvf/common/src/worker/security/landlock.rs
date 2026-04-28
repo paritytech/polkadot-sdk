@@ -95,8 +95,9 @@ pub fn enable_for_worker(worker_info: &WorkerInfo) -> Result<()> {
 		WorkerKind::Execute => {
 			vec![(worker_info.worker_dir_path.to_owned(), AccessFs::ReadFile.into())]
 		},
-		WorkerKind::CheckPivotRoot =>
-			panic!("this should only be passed for checking pivot_root; qed"),
+		WorkerKind::CheckPivotRoot => {
+			panic!("this should only be passed for checking pivot_root; qed")
+		},
 	};
 
 	gum::trace!(

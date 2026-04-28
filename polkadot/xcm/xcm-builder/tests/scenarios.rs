@@ -388,7 +388,6 @@ fn recursive_xcm_execution_fail() {
 		type AssetTrap = XcmPallet;
 		type AssetLocker = ();
 		type AssetExchanger = ();
-		type AssetClaims = XcmPallet;
 		type SubscriptionService = XcmPallet;
 		type PalletInstancesInfo = AllPalletsWithSystem;
 		type MaxAssetsIntoHolding = MaxAssetsIntoHolding;

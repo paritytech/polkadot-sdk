@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{vm::evm::Halt, Config, Error};
+use crate::{Config, Error, vm::evm::Halt};
 use alloc::vec::Vec;
 use core::ops::{ControlFlow, Range};
 

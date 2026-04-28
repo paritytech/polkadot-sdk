@@ -60,6 +60,9 @@ pub type HostFunctions =
 pub type HostFunctions = (
 	sp_io::SubstrateHostFunctions,
 	sp_statement_store::runtime_api::HostFunctions,
+	// Unstable: Only needed here for benchmarking. Do not use in production runtimes.
+	// These host functions are not available on Polkadot and subject to breaking changes.
+	sp_virtualization::host_fn::HostFunctions,
 	frame_benchmarking::benchmarking::HostFunctions,
 );
 
@@ -178,6 +181,7 @@ pub fn create_extrinsic(
 pub fn new_partial(
 	config: &Configuration,
 	mixnet_config: Option<&sc_mixnet::Config>,
+	statement_store_config: sc_statement_store::Config,
 ) -> Result<
 	sc_service::PartialComponents<
 		FullClient,
@@ -227,6 +231,7 @@ pub fn new_partial(
 			config,
 			telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
 			executor,
+			vec![Arc::new(grandpa::GrandpaPruningFilter)],
 		)?;
 	let client = Arc::new(client);
 
@@ -300,11 +305,11 @@ pub fn new_partial(
 
 	let statement_store = sc_statement_store::Store::new_shared(
 		&config.data_path,
-		Default::default(),
+		statement_store_config,
 		client.clone(),
 		keystore_container.local_keystore(),
 		config.prometheus_registry(),
-		&task_manager.spawn_handle(),
+		Box::new(task_manager.spawn_handle()),
 	)
 	.map_err(|e| ServiceError::Other(format!("Statement store error: {:?}", e)))?;
 
@@ -356,9 +361,12 @@ pub fn new_partial(
 						beefy_best_block_stream: beefy_rpc_links
 							.from_voter_best_beefy_stream
 							.clone(),
+						subscription_executor: subscription_executor.clone(),
+					},
+					statement_store_deps: node_rpc::StatementStoreDeps {
+						statement_store: rpc_statement_store.clone(),
 						subscription_executor,
 					},
-					statement_store: rpc_statement_store.clone(),
 					backend: rpc_backend.clone(),
 					mixnet_api: mixnet_api.as_ref().cloned(),
 				};
@@ -409,7 +417,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	config: Configuration,
 	mixnet_config: Option<sc_mixnet::Config>,
 	disable_hardware_benchmarks: bool,
-	statement_network_workers: usize,
+	statement_store_config: sc_statement_store::Config,
 	with_startup_data: impl FnOnce(
 		&sc_consensus_babe::BabeBlockImport<
 			Block,
@@ -450,7 +458,7 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		transaction_pool,
 		other:
 			(rpc_builder, import_setup, rpc_setup, mut telemetry, statement_store, mixnet_api_backend),
-	} = new_partial(&config, mixnet_config.as_ref())?;
+	} = new_partial(&config, mixnet_config.as_ref(), statement_store_config)?;
 
 	let metrics = N::register_notification_metrics(
 		config.prometheus_config.as_ref().map(|cfg| &cfg.registry),
@@ -498,14 +506,14 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 	net_config.add_notification_protocol(beefy_notification_config);
 	net_config.add_request_response_protocol(beefy_req_resp_cfg);
 
-	let (statement_handler_proto, statement_config) =
+	let (statement_handler_proto, statement_notification_config) =
 		sc_network_statement::StatementHandlerPrototype::new::<_, _, N>(
 			genesis_hash,
 			config.chain_spec.fork_id(),
 			metrics.clone(),
 			Arc::clone(&peer_store_handle),
 		);
-	net_config.add_notification_protocol(statement_config);
+	net_config.add_notification_protocol(statement_notification_config);
 
 	let mixnet_protocol_name =
 		sc_mixnet::protocol_name(genesis_hash.as_ref(), config.chain_spec.fork_id());
@@ -791,7 +799,8 @@ pub fn new_full_base<N: NetworkBackend<Block, <Block as BlockT>::Hash>>(
 		statement_store.clone(),
 		prometheus_registry.as_ref(),
 		statement_protocol_executor,
-		statement_network_workers,
+		statement_store_config.network_workers,
+		statement_store_config.rate_limit,
 	)?;
 	task_manager.spawn_handle().spawn(
 		"network-statement-handler",
@@ -837,13 +846,21 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 	let mixnet_config = cli.mixnet_params.config(config.role.is_authority());
 	let database_path = config.database.path().map(Path::to_path_buf);
 
+	let statement_store_config = sc_statement_store::Config {
+		max_total_statements: cli.statement_store_max_total_statements,
+		max_total_size: cli.statement_store_max_total_size,
+		purge_after_sec: cli.statement_store_purge_after_sec,
+		network_workers: cli.statement_network_workers,
+		rate_limit: cli.statement_rate_limit,
+	};
+
 	let task_manager = match config.network.network_backend {
 		sc_network::config::NetworkBackendType::Libp2p => {
 			let task_manager = new_full_base::<sc_network::NetworkWorker<_, _>>(
 				config,
 				mixnet_config,
 				cli.no_hardware_benchmarks,
-				cli.statement_network_workers,
+				statement_store_config,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -854,7 +871,7 @@ pub fn new_full(config: Configuration, cli: Cli) -> Result<TaskManager, ServiceE
 				config,
 				mixnet_config,
 				cli.no_hardware_benchmarks,
-				cli.statement_network_workers,
+				statement_store_config,
 				|_, _| (),
 			)
 			.map(|NewFullBase { task_manager, .. }| task_manager)?;
@@ -892,7 +909,7 @@ mod tests {
 	use sc_service_test::TestNetNode;
 	use sc_transaction_pool_api::ChainEvent;
 	use sp_consensus::{BlockOrigin, Environment, Proposer};
-	use sp_core::crypto::Pair;
+	use sp_core::{crypto::Pair, traits::CallContext};
 	use sp_inherents::InherentDataProvider;
 	use sp_keyring::Sr25519Keyring;
 	use sp_keystore::KeystorePtr;
@@ -942,7 +959,7 @@ mod tests {
 						config,
 						None,
 						false,
-						1,
+						Default::default(),
 						|block_import: &sc_consensus_babe::BabeBlockImport<Block, _, _, _, _>,
 						 babe_link: &sc_consensus_babe::BabeLink<Block>| {
 							setup_handles = Some((block_import.clone(), babe_link.clone()));
@@ -1072,7 +1089,10 @@ mod tests {
 				let genesis_hash = service.client().block_hash(0).unwrap().unwrap();
 				let best_hash = service.client().chain_info().best_hash;
 				let (spec_version, transaction_version) = {
-					let version = service.client().runtime_version_at(best_hash).unwrap();
+					let version = service
+						.client()
+						.runtime_version_at(best_hash, CallContext::Offchain)
+						.unwrap();
 					(version.spec_version, version.transaction_version)
 				};
 				let signer = charlie.clone();
@@ -1158,7 +1178,7 @@ mod tests {
 						config,
 						None,
 						false,
-						1,
+						Default::default(),
 						|_, _| (),
 					)?;
 				Ok(sc_service_test::TestNetComponents::new(

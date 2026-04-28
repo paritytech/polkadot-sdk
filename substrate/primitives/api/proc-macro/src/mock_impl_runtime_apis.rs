@@ -381,7 +381,7 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 		let block_type = extract_block_type_from_trait_path(impl_trait_path)?;
 
 		self_ty = match self_ty.take() {
-			Some(self_ty) =>
+			Some(self_ty) => {
 				if self_ty == impl_.self_ty {
 					Some(self_ty)
 				} else {
@@ -393,12 +393,13 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 					error.combine(Error::new(self_ty.span(), "First self type found here"));
 
 					return Err(error);
-				},
+				}
+			},
 			None => Some(impl_.self_ty.clone()),
 		};
 
 		global_block_type = match global_block_type.take() {
-			Some(global_block_type) =>
+			Some(global_block_type) => {
 				if global_block_type == *block_type {
 					Some(global_block_type)
 				} else {
@@ -413,7 +414,8 @@ fn generate_runtime_api_impls(impls: &[ItemImpl]) -> Result<GeneratedRuntimeApiI
 					));
 
 					return Err(error);
-				},
+				}
+			},
 			None => Some(block_type.clone()),
 		};
 

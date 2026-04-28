@@ -262,12 +262,13 @@ impl<B: BlockT> BlockAnnounceValidator<B> {
 				);
 			},
 			Entry::Occupied(mut entry) => match entry.get().checked_sub(1) {
-				Some(value) =>
+				Some(value) => {
 					if value == 0 {
 						entry.remove();
 					} else {
 						*entry.get_mut() = value;
-					},
+					}
+				},
 				None => {
 					entry.remove();
 

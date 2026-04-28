@@ -113,8 +113,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 
 							reencode_rx.await.map_err(|_| RecoveryError::ChannelClosed)?
 						},
-						PostRecoveryCheck::PovHash =>
-							(data.pov.hash() == common_params.pov_hash).then_some(data),
+						PostRecoveryCheck::PovHash => {
+							(data.pov.hash() == common_params.pov_hash).then_some(data)
+						},
 					};
 
 					match maybe_data {
@@ -150,8 +151,9 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 				Err(e) => {
 					match &e {
 						RequestError::Canceled(_) => common_params.metrics.on_full_request_error(),
-						RequestError::InvalidResponse(_) =>
-							common_params.metrics.on_full_request_invalid(),
+						RequestError::InvalidResponse(_) => {
+							common_params.metrics.on_full_request_invalid()
+						},
 						RequestError::NetworkError(req_failure) => {
 							if let RequestFailure::Network(OutboundFailure::Timeout) = req_failure {
 								common_params.metrics.on_full_request_timeout();

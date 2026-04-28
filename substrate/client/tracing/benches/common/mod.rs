@@ -71,13 +71,14 @@ fn parse_interest_cache_config() -> Option<tracing_log::InterestCacheConfig> {
 		let value = parts[1].trim();
 
 		match key {
-			"lru_cache_size" =>
+			"lru_cache_size" => {
 				if let Ok(size) = value.parse::<usize>() {
 					config = config.with_lru_cache_size(size);
 					eprintln!("Interest cache: lru_cache_size = {}", size);
 				} else {
 					eprintln!("Invalid lru_cache_size value '{}'", value);
-				},
+				}
+			},
 			"min_verbosity" => {
 				let level = match value.to_lowercase().as_str() {
 					"error" => Some(Level::Error),

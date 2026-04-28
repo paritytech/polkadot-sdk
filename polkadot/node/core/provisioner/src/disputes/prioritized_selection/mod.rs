@@ -347,7 +347,7 @@ fn partition_recent_disputes(
 		let key = (session_index, candidate_hash);
 		if dispute_is_inactive(&dispute_state, time_now) {
 			match onchain.get(&key) {
-				Some(onchain_state) =>
+				Some(onchain_state) => {
 					if concluded_onchain(onchain_state) {
 						partitioned
 							.inactive_concluded_onchain
@@ -356,16 +356,19 @@ fn partition_recent_disputes(
 						partitioned
 							.inactive_unconcluded_onchain
 							.push((session_index, candidate_hash));
-					},
+					}
+				},
 				None => partitioned.inactive_unknown_onchain.push((session_index, candidate_hash)),
 			}
 		} else {
 			match onchain.get(&(session_index, candidate_hash)) {
 				Some(d) => match concluded_onchain(d) {
-					true =>
-						partitioned.active_concluded_onchain.push((session_index, candidate_hash)),
-					false =>
-						partitioned.active_unconcluded_onchain.push((session_index, candidate_hash)),
+					true => {
+						partitioned.active_concluded_onchain.push((session_index, candidate_hash))
+					},
+					false => {
+						partitioned.active_unconcluded_onchain.push((session_index, candidate_hash))
+					},
 				},
 				None => partitioned.active_unknown_onchain.push((session_index, candidate_hash)),
 			}
@@ -491,10 +494,12 @@ where
 		.map_err(|_| GetOnchainDisputesError::Channel)
 		.and_then(|res| {
 			res.map_err(|e| match e {
-				RuntimeApiError::Execution { .. } =>
-					GetOnchainDisputesError::Execution(e, relay_parent),
-				RuntimeApiError::NotSupported { .. } =>
-					GetOnchainDisputesError::NotSupported(e, relay_parent),
+				RuntimeApiError::Execution { .. } => {
+					GetOnchainDisputesError::Execution(e, relay_parent)
+				},
+				RuntimeApiError::NotSupported { .. } => {
+					GetOnchainDisputesError::NotSupported(e, relay_parent)
+				},
 			})
 		})
 		.map(|v| v.into_iter().map(|e| ((e.0, e.1), e.2)).collect())

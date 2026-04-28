@@ -16,12 +16,12 @@
 // limitations under the License.
 
 use crate::{
+	Pallet, RuntimeCosts,
 	precompiles::{All as AllPrecompiles, Precompiles},
 	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, Interpreter},
 		Ext,
+		evm::{Interpreter, interpreter::Halt, util::as_usize_or_halt},
 	},
-	Pallet, RuntimeCosts,
 };
 use core::ops::{ControlFlow, Range};
 use revm::interpreter::interpreter_action::CallScheme;

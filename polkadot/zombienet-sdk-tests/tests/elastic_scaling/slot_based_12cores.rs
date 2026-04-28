@@ -46,12 +46,13 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 						}
 					}
 				}))
-				// Have to set a `with_node` outside of the loop below, so that `r` has the right
-				// type.
-				.with_node(|node| node.with_name("validator-0"));
+				// Have to set a `with_validator` outside of the loop below, so that `r` has the
+				// right type.
+				.with_validator(|node| node.with_name("validator-0"));
 
-			(1..12)
-				.fold(r, |acc, i| acc.with_node(|node| node.with_name(&format!("validator-{i}"))))
+			(1..12).fold(r, |acc, i| {
+				acc.with_validator(|node| node.with_name(&format!("validator-{i}")))
+			})
 		})
 		.with_parachain(|p| {
 			p.with_id(2300)
@@ -92,7 +93,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// change will be counted.
 	// Since the calculated backed candidate count is theoretical and the CI tests are observed to
 	// occasionally fail, let's apply 15% tolerance to the expected range: 170 - 15% = 144
-	assert_para_throughput(&relay_client, 15, [(ParaId::from(2300), 153..181)]).await?;
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(2300), 144..181)], []).await?;
 
 	// Expect that `collator-5` claims at least 3 slots during this run.
 	let result = para_node

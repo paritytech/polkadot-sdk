@@ -49,6 +49,7 @@ pub type ThisChainHash = H256;
 /// Hasher at `ThisChain`.
 pub type ThisChainHasher = BlakeTwo256;
 /// Runtime call at `ThisChain`.
+#[allow(dead_code)]
 pub type ThisChainRuntimeCall = RuntimeCall;
 /// Header of `ThisChain`.
 pub type ThisChainHeader = sp_runtime::generic::Header<ThisChainBlockNumber, ThisChainHasher>;

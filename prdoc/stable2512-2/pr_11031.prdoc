@@ -1,0 +1,20 @@
+title: 'xcm-emulator: fix emulated integration tests for non-6s parachains'
+doc:
+- audience: Runtime Dev
+  description: |-
+    After `AuraDigestProvider` was introduced, emulated integration tests for parachains with
+    `slot_duration != relay_slot_duration` (e.g. 12s Polkadot/Kusama chains) panic because
+    `FixedVelocityConsensusHook` derives a parachain slot that doesn't match `CurrentSlot`.
+
+    Fix by advancing the relay block number by `slot_duration / RELAY_CHAIN_SLOT_DURATION_MILLIS`
+    per parachain block (instead of always +1), and computing the aura digest slot inline using
+    both durations. This removes the `DigestProvider` associated type from the `Parachain` trait
+    and the `AuraDigestProvider` struct — the emulator now handles the digest automatically.
+
+    Downstream users must remove `DigestProvider: AuraDigestProvider,` from their
+    `decl_test_parachains!` invocations.
+crates:
+- name: xcm-emulator
+  bump: major
+- name: emulated-integration-tests-common
+  bump: major

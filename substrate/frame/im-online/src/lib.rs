@@ -447,6 +447,7 @@ pub mod pallet {
 	/// incorrect.
 	pub(crate) const INVALID_VALIDATORS_LEN: u8 = 10;
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -694,8 +695,9 @@ impl<T: Config> Pallet<T> {
 				// we will re-send it.
 				match status {
 					// we are still waiting for inclusion.
-					Ok(Some(status)) if status.is_recent(session_index, now) =>
-						Err(OffchainErr::WaitingForInclusion(status.sent_at)),
+					Ok(Some(status)) if status.is_recent(session_index, now) => {
+						Err(OffchainErr::WaitingForInclusion(status.sent_at))
+					},
 					// attempt to set new status
 					_ => Ok(HeartbeatStatus { session_index, sent_at: now }),
 				}

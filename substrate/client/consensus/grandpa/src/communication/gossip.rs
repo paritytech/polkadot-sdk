@@ -199,12 +199,13 @@ impl<N: Ord> View<N> {
 		// the one we're aware of.
 		match self.last_commit {
 			None => Consider::Accept,
-			Some(ref num) =>
+			Some(ref num) => {
 				if num < &number {
 					Consider::Accept
 				} else {
 					Consider::RejectPast
-				},
+				}
+			},
 		}
 	}
 }
@@ -902,10 +903,12 @@ impl<Block: BlockT> Inner<Block> {
 	) -> Action<Block::Hash> {
 		match self.consider_vote(full.round, full.set_id) {
 			Consider::RejectFuture => return Action::Discard(Misbehavior::FutureMessage.cost()),
-			Consider::RejectOutOfScope =>
-				return Action::Discard(Misbehavior::OutOfScopeMessage.cost()),
-			Consider::RejectPast =>
-				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id)),
+			Consider::RejectOutOfScope => {
+				return Action::Discard(Misbehavior::OutOfScopeMessage.cost())
+			},
+			Consider::RejectPast => {
+				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id))
+			},
 			Consider::Accept => {},
 		}
 
@@ -955,10 +958,12 @@ impl<Block: BlockT> Inner<Block> {
 
 		match self.consider_global(full.set_id, full.message.target_number) {
 			Consider::RejectFuture => return Action::Discard(Misbehavior::FutureMessage.cost()),
-			Consider::RejectPast =>
-				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id)),
-			Consider::RejectOutOfScope =>
-				return Action::Discard(Misbehavior::OutOfScopeMessage.cost()),
+			Consider::RejectPast => {
+				return Action::Discard(self.cost_past_rejection(who, full.round, full.set_id))
+			},
+			Consider::RejectOutOfScope => {
+				return Action::Discard(Misbehavior::OutOfScopeMessage.cost())
+			},
 			Consider::Accept => {},
 		}
 
@@ -1057,8 +1062,9 @@ impl<Block: BlockT> Inner<Block> {
 
 		match self.peers.peer(who) {
 			None => return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost())),
-			Some(peer) if peer.view.round >= request.round =>
-				return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost())),
+			Some(peer) if peer.view.round >= request.round => {
+				return (None, Action::Discard(Misbehavior::OutOfScopeMessage.cost()))
+			},
 			_ => {},
 		}
 
@@ -1166,8 +1172,9 @@ impl<Block: BlockT> Inner<Block> {
 		let update_res = self.peers.update_peer_state(who, update);
 
 		let (cost_benefit, topics) = match update_res {
-			Ok(view) =>
-				(benefit::NEIGHBOR_MESSAGE, view.map(|view| neighbor_topics::<Block>(view))),
+			Ok(view) => {
+				(benefit::NEIGHBOR_MESSAGE, view.map(|view| neighbor_topics::<Block>(view)))
+			},
 			Err(misbehavior) => (misbehavior.cost(), None),
 		};
 
@@ -1646,8 +1653,10 @@ impl<Block: BlockT> sc_network_gossip::Validator<Block> for GossipValidator<Bloc
 					Some((number, round, set_id)) =>
 					// we expire any commit message that doesn't target the same block
 					// as our best commit or isn't from the same round and set id
+					{
 						!(full.message.target_number == number &&
-							full.round == round && full.set_id == set_id),
+							full.round == round && full.set_id == set_id)
+					},
 					None => true,
 				},
 				Ok(_) => true,

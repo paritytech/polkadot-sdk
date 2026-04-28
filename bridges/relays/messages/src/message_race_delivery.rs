@@ -814,7 +814,7 @@ mod tests {
 		assert_eq!(map.greater_than(30), None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_selects_messages_to_deliver() {
 		let (state, strategy) = prepare_strategy();
 
@@ -825,7 +825,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_includes_outbound_state_proof_when_new_nonces_are_available()
 	{
 		let (state, mut strategy) = prepare_strategy();
@@ -842,7 +842,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_selects_nothing_if_there_are_too_many_unrewarded_relayers() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -858,7 +858,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_selects_nothing_if_proved_rewards_is_not_enough_to_remove_oldest_unrewarded_entry(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -878,7 +878,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_includes_outbound_state_proof_if_proved_rewards_is_enough() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -900,7 +900,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_weight() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -912,7 +912,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_weight(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -927,7 +927,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_size() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -939,7 +939,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_size(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -953,7 +953,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_is_upper_limit() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -966,7 +966,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_are_unconfirmed_nonces(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -985,7 +985,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_waits_for_confirmed_nonce_header_to_appear_on_target() {
 		// 1 delivery confirmation from target to source is still missing, so we may deliver
 		// reward confirmation with our message delivery transaction. But the problem is that
@@ -1030,7 +1030,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn source_header_is_required_when_confirmations_are_required() {
 		// let's prepare situation when:
 		// - all messages [20; 23] have been generated at source block#1;
@@ -1101,7 +1101,7 @@ mod tests {
 		assert_eq!(strategy.required_source_header_at_target(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn relayer_uses_flattened_view_of_the_source_queue_to_select_nonces() {
 		// Real scenario that has happened on test deployments:
 		// 1) relayer witnessed M1 at block 1 => it has separate entry in the `source_queue`
@@ -1127,7 +1127,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	#[allow(clippy::reversed_empty_ranges)]
 	async fn no_source_headers_required_at_target_if_lanes_are_empty() {
 		let (state, _) = prepare_strategy();
@@ -1159,7 +1159,7 @@ mod tests {
 		assert_eq!(strategy.required_source_header_at_target(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn previous_nonces_are_selected_if_reorg_happens_at_target_chain() {
 		// this is the copy of the similar test in the `mesage_race_strategy.rs`, but it also tests
 		// that the `MessageDeliveryStrategy` acts properly in the similar scenario
@@ -1243,7 +1243,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	#[allow(clippy::reversed_empty_ranges)]
 	async fn delivery_race_is_able_to_unblock_lane() {
 		// step 1: messages 20..=23 are delivered from source to target at target block 2
@@ -1401,7 +1401,7 @@ mod tests {
 		assert_eq!(at_target_block_3_select_nonces_to_deliver(&strategy, state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn outbound_state_proof_is_not_required_when_we_have_no_new_confirmations() {
 		let (mut state, mut strategy) = prepare_strategy();
 

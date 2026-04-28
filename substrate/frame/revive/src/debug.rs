@@ -16,11 +16,11 @@
 // limitations under the License.
 
 use crate::{Config, DebugSettingsOf};
+use Debug;
 use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
-use Debug;
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
 #[derive(
@@ -48,15 +48,18 @@ pub struct DebugSettings {
 }
 
 impl DebugSettings {
-	#[cfg(test)]
 	pub fn set_bypass_eip_3607(mut self, value: bool) -> Self {
 		self.bypass_eip_3607 = value;
 		self
 	}
 
-	#[cfg(test)]
 	pub fn set_allow_unlimited_contract_size(mut self, value: bool) -> Self {
 		self.allow_unlimited_contract_size = value;
+		self
+	}
+
+	pub fn set_enable_pvm_logs(mut self, value: bool) -> Self {
+		self.pvm_logs = value;
 		self
 	}
 

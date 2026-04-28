@@ -1,0 +1,10 @@
+title: 'revive-eth-rpc: Use pending block for estimate_gas in dev mode'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Use Pending as the default block for eth_estimateGas in dev mode, matching Anvil/EDR behavior. Non-dev mode continues to use Latest (go-ethereum behavior).
+
+    Refs https://github.com/paritytech/contract-issues/issues/261
+crates:
+- name: pallet-revive-eth-rpc
+  bump: patch

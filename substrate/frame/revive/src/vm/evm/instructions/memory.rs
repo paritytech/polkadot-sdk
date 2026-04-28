@@ -16,14 +16,14 @@
 // limitations under the License.
 
 use crate::{
-	vm::{
-		evm::{interpreter::Halt, util::as_usize_or_halt, EVMGas, Interpreter},
-		Ext,
-	},
 	Error, U256,
+	vm::{
+		Ext,
+		evm::{EVMGas, Interpreter, interpreter::Halt, util::as_usize_or_halt},
+	},
 };
 use core::{cmp::max, ops::ControlFlow};
-use revm::interpreter::gas::{copy_cost_verylow, BASE, VERYLOW};
+use revm::interpreter::gas::{BASE, VERYLOW, copy_cost_verylow};
 
 /// Implements the MLOAD instruction.
 ///

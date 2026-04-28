@@ -192,6 +192,13 @@ pub mod well_known_keys {
 	/// Encodes to `0x3A636F6465`.
 	pub const CODE: &[u8] = b":code";
 
+	/// New wasm code of the runtime.
+	///
+	/// To be applied in the next block.
+	///
+	/// Stored as a raw byte vector. Required by substrate.
+	pub const PENDING_CODE: &[u8] = b":pending_code";
+
 	/// Number of wasm linear memory pages required for execution of the runtime.
 	///
 	/// The type of this value is encoded `u64`.
@@ -297,8 +304,9 @@ impl ChildInfo {
 	/// this trie.
 	pub fn prefixed_storage_key(&self) -> PrefixedStorageKey {
 		match self {
-			ChildInfo::ParentKeyId(ChildTrieParentKeyId { data }) =>
-				ChildType::ParentKeyId.new_prefixed_key(data.as_slice()),
+			ChildInfo::ParentKeyId(ChildTrieParentKeyId { data }) => {
+				ChildType::ParentKeyId.new_prefixed_key(data.as_slice())
+			},
 		}
 	}
 

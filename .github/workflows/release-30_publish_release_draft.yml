@@ -58,6 +58,8 @@ on:
 jobs:
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    with:
+      concurrency_suffix: publish-release-draft
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
@@ -70,14 +72,16 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Validate inputs
         id: validate_inputs
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          RELEASE_TAG=$(validate_stable_tag ${{ inputs.release_tag }})
+          RELEASE_TAG=$(validate_stable_tag "$INPUT_RELEASE_TAG")
           echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
 
 
@@ -91,11 +95,11 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
@@ -106,10 +110,11 @@ jobs:
         if: ${{ inputs.no_runtimes == false && inputs.crates_only == false }}
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
         run: |
-          mkdir -p ${{ github.workspace}}/runtimes/
-          gh run download ${{ inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
-          ls -la ${{ github.workspace}}/runtimes
+          mkdir -p "${GITHUB_WORKSPACE}/runtimes/"
+          gh run download "$BUILD_RUN_ID" --dir "${GITHUB_WORKSPACE}/runtimes"
+          ls -la "${GITHUB_WORKSPACE}/runtimes"
 
       - name: Prepare tooling
         run: |
@@ -131,6 +136,7 @@ jobs:
           RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
           NO_RUNTIMES: ${{ inputs.no_runtimes }}
           CRATES_ONLY: ${{ inputs.crates_only }}
+          GH_REF_NAME: ${{ github.ref_name }}
         shell: bash
         run: |
           . ./.github/scripts/common/lib.sh
@@ -139,7 +145,7 @@ jobs:
 
           export REF1=$(get_latest_release_tag)
           if [[ -z "$RELEASE_TAG" ]]; then
-            export REF2="${{ github.ref_name }}"
+            export REF2="${GH_REF_NAME}"
             echo "REF2: ${REF2}"
           else
             export REF2="$RELEASE_TAG"
@@ -149,15 +155,13 @@ jobs:
           export VERSION=$(echo "$REF2" | sed -E 's/.*(stable[0-9]{4}(-[0-9]+)?).*$/\1/')
           echo "Version: $VERSION"
 
-          if [[ ${NO_RUNTIMES} == "true"  || ${CRATES_ONLY} == "true" ]]; then
-            export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
-            export NODE_VERSION=v$(get_polkadot_node_version_from_code)
-          fi
+          export STABLE_VERSION=$(sed -E 's/.*(stable[0-9]{4}).*$/\1/' <<< "$VERSION")
+          export NODE_VERSION=v$(get_polkadot_node_version_from_code)
 
           ./scripts/release/build-changelogs.sh
 
       - name: Archive artifact context.json
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-notes-context
           path: |
@@ -186,14 +190,14 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Download artifacts
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
@@ -203,28 +207,32 @@ jobs:
       - name: Download runtimes
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          BUILD_RUN_ID: ${{ inputs.build_run_id }}
         run: |
-          mkdir -p ${{ github.workspace}}/runtimes/
-          gh run download ${{ inputs.build_run_id }} --dir ${{ github.workspace}}/runtimes
-          ls -la ${{ github.workspace}}/runtimes
+          mkdir -p "${GITHUB_WORKSPACE}/runtimes/"
+          gh run download "$BUILD_RUN_ID" --dir "${GITHUB_WORKSPACE}/runtimes"
+          ls -la "${GITHUB_WORKSPACE}/runtimes"
 
       - name: Get runtime info
         env:
+          CHAIN: ${{ matrix.chain }}
           JSON: ${{ github.workspace}}/release-notes-context/runtimes/${{ matrix.chain }}-runtime/${{ matrix.chain }}-srtool-digest.json
         run: |
-          cd ${{ github.workspace}}/runtimes
-          >>$GITHUB_ENV echo ASSET=$(find ${{ matrix.chain }}-runtime -name '*.compact.compressed.wasm')
+          cd "${GITHUB_WORKSPACE}/runtimes"
+          >>$GITHUB_ENV echo ASSET=$(find "${CHAIN}-runtime" -name '*.compact.compressed.wasm')
           >>$GITHUB_ENV echo SPEC=$(<${JSON} jq -r .runtimes.compact.subwasm.core_version.specVersion)
 
       - name: Upload compressed ${{ matrix.chain }} v${{ env.SPEC }} wasm
         working-directory: ${{ github.workspace}}/runtimes
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          CHAIN: ${{ matrix.chain }}
+          VALIDATED_RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
         run: |
-          VERSIONED_ASSET="${{ matrix.chain }}_runtime-v${{ env.SPEC }}.compact.compressed.wasm"
+          VERSIONED_ASSET="${CHAIN}_runtime-v${{ env.SPEC }}.compact.compressed.wasm"
           mv "${{ env.ASSET }}" "$VERSIONED_ASSET"
 
-          gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
+          gh release upload "$VALIDATED_RELEASE_TAG" \
             --repo paritytech/polkadot-sdk "$VERSIONED_ASSET"
 
   publish-release-artifacts:
@@ -240,30 +248,35 @@ jobs:
 
     steps:
       - name: Checkout sources
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Fetch binaries from s3 based on version
+        env:
+          VERSION: ${{ needs.validate-inputs.outputs.release_tag }}
+          BINARY: ${{ matrix.binary }}
+          TARGET: ${{ matrix.target }}
         run: |
           . ./.github/scripts/common/lib.sh
 
-          VERSION="${{ needs.validate-inputs.outputs.release_tag }}"
-          fetch_release_artifacts_from_s3 ${{ matrix.binary }} ${{ matrix.target }}
+          fetch_release_artifacts_from_s3 "$BINARY" "$TARGET"
 
       - name: Rename aarch64-apple-darwin binaries
         if: ${{ matrix.target == 'aarch64-apple-darwin' }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
+        env:
+          BINARY: ${{ matrix.binary }}
         run: |
           . ../../../.github/scripts/common/lib.sh
 
-          mv ${{ matrix.binary }} ${{ matrix.binary }}-aarch64-apple-darwin
-          mv ${{ matrix.binary }}.asc ${{ matrix.binary }}-aarch64-apple-darwin.asc
+          mv "$BINARY" "${BINARY}-aarch64-apple-darwin"
+          mv "${BINARY}.asc" "${BINARY}-aarch64-apple-darwin.asc"
 
-          sha256sum "${{ matrix.binary }}-aarch64-apple-darwin" | tee "${{ matrix.binary }}-aarch64-apple-darwin.sha256"
-          check_sha256 "${{ matrix.binary }}-aarch64-apple-darwin" && echo "OK" || echo "ERR"
+          sha256sum "${BINARY}-aarch64-apple-darwin" | tee "${BINARY}-aarch64-apple-darwin.sha256"
+          check_sha256 "${BINARY}-aarch64-apple-darwin" && echo "OK" || echo "ERR"
 
       - name: Generate content write token for the release automation
         id: generate_write_token
-        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
         with:
             app-id: ${{ vars.POLKADOT_SDK_RELEASE_RW_APP_ID }}
             private-key: ${{ secrets.POLKADOT_SDK_RELEASE_RW_APP_KEY }}
@@ -273,20 +286,23 @@ jobs:
       - name: Upload ${{ matrix.binary }} binary to release draft
         env:
           GITHUB_TOKEN: ${{ steps.generate_write_token.outputs.token }}
+          BINARY: ${{ matrix.binary }}
+          TARGET: ${{ matrix.target }}
+          VALIDATED_RELEASE_TAG: ${{ needs.validate-inputs.outputs.release_tag }}
         working-directory: ${{ github.workspace}}/release-artifacts/${{ matrix.target }}/${{ matrix.binary }}
         run: |
-          if [[ ${{ matrix.target }} == "aarch64-apple-darwin" ]]; then
-            gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
+          if [[ "$TARGET" == "aarch64-apple-darwin" ]]; then
+            gh release upload "$VALIDATED_RELEASE_TAG" \
               --repo paritytech/polkadot-sdk \
-              ${{ matrix.binary }}-aarch64-apple-darwin \
-              ${{ matrix.binary }}-aarch64-apple-darwin.asc \
-              ${{ matrix.binary }}-aarch64-apple-darwin.sha256
+              "${BINARY}-aarch64-apple-darwin" \
+              "${BINARY}-aarch64-apple-darwin.asc" \
+              "${BINARY}-aarch64-apple-darwin.sha256"
           else
-            gh release upload ${{ needs.validate-inputs.outputs.release_tag }} \
+            gh release upload "$VALIDATED_RELEASE_TAG" \
               --repo paritytech/polkadot-sdk \
-              ${{ matrix.binary }} \
-              ${{ matrix.binary }}.asc \
-              ${{ matrix.binary }}.sha256
+              "$BINARY" \
+              "${BINARY}.asc" \
+              "${BINARY}.sha256"
           fi
 
   post_to_matrix:

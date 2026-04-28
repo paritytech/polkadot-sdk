@@ -626,8 +626,9 @@ mod execution {
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
 					Some(match ChildType::from_prefixed_key(storage_key) {
-						Some((ChildType::ParentKeyId, storage_key)) =>
-							ChildInfo::new_default(storage_key),
+						Some((ChildType::ParentKeyId, storage_key)) => {
+							ChildInfo::new_default(storage_key)
+						},
 						None => return Err(Box::new("Invalid range start child trie key.")),
 					}),
 					2,
@@ -1025,8 +1026,9 @@ mod execution {
 				let storage_key = PrefixedStorageKey::new_ref(storage_key);
 				(
 					Some(match ChildType::from_prefixed_key(storage_key) {
-						Some((ChildType::ParentKeyId, storage_key)) =>
-							ChildInfo::new_default(storage_key),
+						Some((ChildType::ParentKeyId, storage_key)) => {
+							ChildInfo::new_default(storage_key)
+						},
 						None => return Err(Box::new("Invalid range start child trie key.")),
 					}),
 					2,
