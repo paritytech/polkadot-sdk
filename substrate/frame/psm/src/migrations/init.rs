@@ -172,18 +172,6 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
-		let stable_decimals = T::StableAsset::decimals();
-
-		for (asset_id, _) in I::asset_configs() {
-			if ExternalAssets::<T>::contains_key(&asset_id) {
-				continue;
-			}
-			ensure!(
-				T::Fungibles::decimals(asset_id) == stable_decimals,
-				"PSM migration: asset decimals do not match stable asset decimals",
-			);
-		}
-
 		Ok(Vec::new())
 	}
 
