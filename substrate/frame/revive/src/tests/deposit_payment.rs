@@ -48,7 +48,7 @@ use sp_runtime::{AccountId32, DispatchResult};
 use test_case::test_case;
 
 /// Full observable state snapshot for a (payer, contract) pair.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 struct State {
 	/// Payer's free native currency balance.
 	payer_native: u128,
@@ -89,9 +89,11 @@ struct TestCase {
 	initial_pgas: u128,
 	/// Sequential charges applied to BOB.
 	charges: Vec<Charge>,
-	/// Amount released back to ALICE.
+	/// Refund recipient.
+	refund_to: AccountId32,
+	/// Amount released to `refund_to`.
 	refund: u128,
-	/// Expected `State` snapshot after the refund.
+	/// Expected `State` snapshot (still keyed by `(ALICE, BOB)`) after the refund.
 	expected_after_refund: State,
 }
 
@@ -129,7 +131,7 @@ fn run(case: TestCase) {
 			assert_eq!(snapshot(&ALICE, &BOB), charge.expected, "after charge {i}");
 		}
 
-		assert_ok!(refund_on_hold(&BOB, &ALICE, case.refund));
+		assert_ok!(refund_on_hold(&BOB, &case.refund_to, case.refund));
 		assert_eq!(snapshot(&ALICE, &BOB), case.expected_after_refund, "after refund");
 	});
 }
@@ -150,6 +152,7 @@ fn pay_native_refund_native() {
 				..State::default()
 			},
 		}],
+		refund_to: ALICE,
 		refund: 100,
 		expected_after_refund: State { payer_native: 1_000, ..State::default() },
 	});
@@ -171,6 +174,7 @@ fn pay_pgas_refund_pgas() {
 				..State::default()
 			},
 		}],
+		refund_to: ALICE,
 		refund: 100,
 		expected_after_refund: State { payer_native: 1_000, payer_pgas: 910, ..State::default() },
 	});
@@ -205,6 +209,7 @@ fn pay_mixed_refund_mixed() {
 				},
 			},
 		],
+		refund_to: ALICE,
 		refund: 120,
 		expected_after_refund: State { payer_native: 1_000, payer_pgas: 64, ..State::default() },
 	});
@@ -450,5 +455,26 @@ fn release_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 			native_held,
 			alice_after.saturating_sub(alice_before),
 		);
+	});
+}
+
+/// Refunding a recipient with no [`NativeDepositOf`] credit on a contract whose deposit was
+/// paid in native must not revert: the PGAS settlement path is capped at the (empty) PGAS hold
+/// and is a no-op, leaving the original payer's native hold intact.
+#[test]
+fn refund_to_user_without_entitlement_does_not_revert() {
+	let after_charge = State {
+		payer_native: 900,
+		contract_native_held: 100,
+		native_entitlement: 100,
+		..State::default()
+	};
+	run(TestCase {
+		initial_native: 1_000,
+		initial_pgas: 0,
+		charges: vec![Charge { amount: 100, expected: after_charge }],
+		refund_to: CHARLIE,
+		refund: 80,
+		expected_after_refund: after_charge,
 	});
 }

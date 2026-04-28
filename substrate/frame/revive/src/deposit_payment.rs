@@ -522,6 +522,10 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
 	/// account and the refund would create one below ED), the refund portion is folded into
 	/// the burn rather than aborting the whole refund.
+	///
+	/// `amount` is capped at the PGAS actually held by `from`: when a recipient with no
+	/// [`NativeDepositOf`] credit triggers a refund on a contract whose deposit was paid in
+	/// native, the call settles whatever PGAS is actually held instead of reverting.
 	fn settle_pgas_refund<T>(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -540,6 +544,18 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 		RefundPercent: Get<Perbill>,
 	{
+		if amount.is_zero() {
+			return Ok(());
+		}
+		// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
+		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
+		// otherwise route the full amount through PGAS and revert on `Precision::Exact`.
+		let pgas_held = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
+			Id::get(),
+			&reason.into(),
+			from,
+		);
+		let amount = amount.min(pgas_held);
 		if amount.is_zero() {
 			return Ok(());
 		}
@@ -563,7 +579,7 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 					from,
 					to,
 					refund,
-					Precision::Exact,
+					Precision::BestEffort,
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
