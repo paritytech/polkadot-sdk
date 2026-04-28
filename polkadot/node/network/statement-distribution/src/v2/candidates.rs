@@ -88,7 +88,7 @@ impl Candidates {
 		&mut self,
 		peer: PeerId,
 		candidate_hash: CandidateHash,
-		claimed_relay_parent: Hash,
+		claimed_scheduling_parent: Hash,
 		claimed_group_index: GroupIndex,
 		claimed_parent_hash_and_id: Option<(Hash, ParaId)>,
 	) -> Result<(), BadAdvertisement> {
@@ -102,7 +102,7 @@ impl Candidates {
 
 		match entry {
 			CandidateState::Confirmed(ref c) => {
-				if c.relay_parent() != claimed_relay_parent {
+				if c.scheduling_parent() != claimed_scheduling_parent {
 					return Err(BadAdvertisement);
 				}
 
@@ -124,7 +124,7 @@ impl Candidates {
 				c.add_claims(
 					peer,
 					CandidateClaims {
-						relay_parent: claimed_relay_parent,
+						scheduling_parent: claimed_scheduling_parent,
 						group_index: claimed_group_index,
 						parent_hash_and_id: claimed_parent_hash_and_id,
 					},
@@ -154,7 +154,7 @@ impl Candidates {
 		assigned_group: GroupIndex,
 	) -> Option<PostConfirmation> {
 		let parent_hash = persisted_validation_data.parent_head.hash();
-		let relay_parent = candidate_receipt.descriptor.relay_parent();
+		let scheduling_parent = candidate_receipt.descriptor.scheduling_parent();
 		let para_id = candidate_receipt.descriptor.para_id();
 
 		let prev_state = self.candidates.insert(
@@ -185,7 +185,7 @@ impl Candidates {
 				let mut reckoning = PostConfirmationReckoning::default();
 
 				for (leaf_hash, x) in u.unconfirmed_importable_under {
-					if x.relay_parent == relay_parent &&
+					if x.scheduling_parent == scheduling_parent &&
 						x.parent_hash == parent_hash &&
 						x.para_id == para_id
 					{
@@ -209,7 +209,7 @@ impl Candidates {
 						}
 					}
 
-					if claims.check(relay_parent, assigned_group, parent_hash, para_id) {
+					if claims.check(scheduling_parent, assigned_group, parent_hash, para_id) {
 						reckoning.correct.insert(peer);
 					} else {
 						reckoning.incorrect.insert(peer);
@@ -256,10 +256,10 @@ impl Candidates {
 				candidate_hash,
 				candidate_para,
 				parent_head_data_hash,
-				candidate_relay_parent,
+				candidate_scheduling_parent,
 			} => {
 				let u = UnconfirmedImportable {
-					relay_parent: *candidate_relay_parent,
+					scheduling_parent: *candidate_scheduling_parent,
 					parent_hash: *parent_head_data_hash,
 					para_id: *candidate_para,
 				};
@@ -337,7 +337,7 @@ impl Candidates {
 		};
 		self.candidates.retain(|c_hash, state| match state {
 			CandidateState::Confirmed(ref mut c) => {
-				if !relay_parent_live(&c.relay_parent()) {
+				if !relay_parent_live(&c.scheduling_parent()) {
 					remove_parent_claims(*c_hash, c.parent_head_data_hash(), c.para_id());
 					false
 				} else {
@@ -378,8 +378,8 @@ enum CandidateState {
 /// Claims made alongside the advertisement of a candidate.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct CandidateClaims {
-	/// The relay-parent committed to by the candidate.
-	relay_parent: Hash,
+	/// The scheduling-parent committed to by the candidate.
+	scheduling_parent: Hash,
 	/// The group index assigned to this candidate.
 	group_index: GroupIndex,
 	/// The hash of the parent head-data and the ParaId. This is optional,
@@ -390,12 +390,12 @@ struct CandidateClaims {
 impl CandidateClaims {
 	fn check(
 		&self,
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		group_index: GroupIndex,
 		parent_hash: Hash,
 		para_id: ParaId,
 	) -> bool {
-		self.relay_parent == relay_parent &&
+		self.scheduling_parent == scheduling_parent &&
 			self.group_index == group_index &&
 			self.parent_hash_and_id.map_or(true, |p| p == (parent_hash, para_id))
 	}
@@ -404,7 +404,7 @@ impl CandidateClaims {
 // properties of an unconfirmed but hypothetically importable candidate.
 #[derive(Debug, Hash, PartialEq, Eq)]
 struct UnconfirmedImportable {
-	relay_parent: Hash,
+	scheduling_parent: Hash,
 	parent_hash: Hash,
 	para_id: ParaId,
 }
@@ -429,9 +429,9 @@ impl UnconfirmedCandidate {
 		// memory consumption is bounded in the same way.
 		if let Some(parent_claims) = claims.parent_hash_and_id {
 			let sub_claims = self.parent_claims.entry(parent_claims).or_default();
-			match sub_claims.iter().position(|x| x.0 == claims.relay_parent) {
+			match sub_claims.iter().position(|x| x.0 == claims.scheduling_parent) {
 				Some(p) => sub_claims[p].1 += 1,
-				None => sub_claims.push((claims.relay_parent, 1)),
+				None => sub_claims.push((claims.scheduling_parent, 1)),
 			}
 		}
 		self.claims.push((peer, claims));
@@ -452,12 +452,12 @@ impl UnconfirmedCandidate {
 		relay_parent_live: impl Fn(&Hash) -> bool,
 	) {
 		self.claims.retain(|c| {
-			if relay_parent_live(&c.1.relay_parent) {
+			if relay_parent_live(&c.1.scheduling_parent) {
 				true
 			} else {
 				if let Some(parent_claims) = c.1.parent_hash_and_id {
 					if let Entry::Occupied(mut e) = self.parent_claims.entry(parent_claims) {
-						if let Some(p) = e.get().iter().position(|x| x.0 == c.1.relay_parent) {
+						if let Some(p) = e.get().iter().position(|x| x.0 == c.1.scheduling_parent) {
 							let sub_claims = e.get_mut();
 							sub_claims[p].1 -= 1;
 							if sub_claims[p].1 == 0 {
@@ -477,7 +477,7 @@ impl UnconfirmedCandidate {
 		});
 
 		self.unconfirmed_importable_under
-			.retain(|(l, props)| leaves.contains(l) && relay_parent_live(&props.relay_parent));
+			.retain(|(l, props)| leaves.contains(l) && relay_parent_live(&props.scheduling_parent));
 	}
 
 	fn extend_hypotheticals(
@@ -491,13 +491,13 @@ impl UnconfirmedCandidate {
 			v: &mut Vec<HypotheticalCandidate>,
 			i: impl IntoIterator<Item = (&'a (Hash, ParaId), &'a Vec<(Hash, usize)>)>,
 		) {
-			for ((parent_head_hash, para_id), possible_relay_parents) in i {
-				for (relay_parent, _rc) in possible_relay_parents {
+			for ((parent_head_hash, para_id), possible_scheduling_parents) in i {
+				for (scheduling_parent, _rc) in possible_scheduling_parents {
 					v.push(HypotheticalCandidate::Incomplete {
 						candidate_hash,
 						candidate_para: *para_id,
 						parent_head_data_hash: *parent_head_hash,
-						candidate_relay_parent: *relay_parent,
+						candidate_scheduling_parent: *scheduling_parent,
 					});
 				}
 			}
@@ -531,8 +531,8 @@ pub struct ConfirmedCandidate {
 
 impl ConfirmedCandidate {
 	/// Get the relay-parent of the candidate.
-	pub fn relay_parent(&self) -> Hash {
-		self.receipt.descriptor.relay_parent()
+	pub fn scheduling_parent(&self) -> Hash {
+		self.receipt.descriptor.scheduling_parent()
 	}
 
 	/// Get the para-id of the candidate.
@@ -564,7 +564,7 @@ impl ConfirmedCandidate {
 	}
 
 	/// Get the group index of the assigned group. Note that this is in the context
-	/// of the state of the chain at the candidate's relay parent and its para-id.
+	/// of the state of the chain at the candidate's scheduling parent and its para-id.
 	pub fn group_index(&self) -> GroupIndex {
 		self.assigned_group
 	}
@@ -1263,19 +1263,19 @@ mod tests {
 			candidate_hash: candidate_hash_b,
 			candidate_para: 1.into(),
 			parent_head_data_hash: candidate_head_data_hash_a,
-			candidate_relay_parent: relay_hash,
+			candidate_scheduling_parent: relay_hash,
 		};
 		let hypothetical_c = HypotheticalCandidate::Incomplete {
 			candidate_hash: candidate_hash_c,
 			candidate_para: 1.into(),
 			parent_head_data_hash: candidate_head_data_hash_a,
-			candidate_relay_parent: relay_hash,
+			candidate_scheduling_parent: relay_hash,
 		};
 		let hypothetical_d = HypotheticalCandidate::Incomplete {
 			candidate_hash: candidate_hash_d,
 			candidate_para: 1.into(),
 			parent_head_data_hash: candidate_head_data_hash_b,
-			candidate_relay_parent: relay_hash,
+			candidate_scheduling_parent: relay_hash,
 		};
 
 		let hypotheticals = candidates.frontier_hypotheticals(Some((relay_hash, 1.into())));

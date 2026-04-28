@@ -51,7 +51,7 @@ pub struct CandidateEnvironment<'a> {
 	executor_params: &'a ExecutorParams,
 	/// Validator indices controlled by this node.
 	controlled_indices: HashSet<ValidatorIndex>,
-	/// Indices of on-chain disabled validators at the `relay_parent` combined
+	/// Indices of on-chain disabled validators at the `scheduling_parent` combined
 	/// with the off-chain state.
 	disabled_indices: HashSet<ValidatorIndex>,
 }
@@ -65,20 +65,26 @@ impl<'a> CandidateEnvironment<'a> {
 		ctx: &mut Context,
 		runtime_info: &'a mut RuntimeInfo,
 		session_index: SessionIndex,
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		disabled_offchain: impl IntoIterator<Item = ValidatorIndex>,
 		controlled_indices: &mut ControlledValidatorIndices,
 	) -> Option<CandidateEnvironment<'a>> {
+		// We use the scheduling parent here to have consensus on disabled state among validators.
+		// If this fetch fails because e.g. we have never seen the fork of the candidate, we are
+		// still fine, because we have spam protection for these cases in place anyways.
 		let disabled_onchain = runtime_info
-			.get_disabled_validators(ctx.sender(), relay_parent)
+			.get_disabled_validators(ctx.sender(), scheduling_parent)
 			.await
 			.unwrap_or_else(|err| {
 				gum::info!(target: LOG_TARGET, ?err, "Failed to get disabled validators");
 				Vec::new()
 			});
 
+		// Using the scheduling parent here is fine, because we warm the cache on active leaves
+		// update, thus this call will succeed even if the scheduling parent's state is not
+		// available.
 		let (session, executor_params) = match runtime_info
-			.get_session_info_by_index(ctx.sender(), relay_parent, session_index)
+			.get_session_info_by_index(ctx.sender(), scheduling_parent, session_index)
 			.await
 		{
 			Ok(extended_session_info) => {

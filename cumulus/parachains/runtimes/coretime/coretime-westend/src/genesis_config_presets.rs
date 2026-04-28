@@ -27,6 +27,7 @@ use testnet_parachains_constants::westend::{
 };
 
 const CORETIME_WESTEND_ED: Balance = ExistentialDeposit::get();
+
 pub const CORETIME_PARA_ID: ParaId = ParaId::new(1005);
 
 fn coretime_westend_genesis(
@@ -37,7 +38,12 @@ fn coretime_westend_genesis(
 ) -> serde_json::Value {
 	build_struct_json_patch!(RuntimeGenesisConfig {
 		balances: BalancesConfig {
-			balances: endowed_accounts.iter().cloned().map(|k| (k, endowment)).collect(),
+			balances: endowed_accounts
+				.iter()
+				.cloned()
+				.map(|k| (k, endowment))
+				.chain(core::iter::once((DapSatellite::satellite_account(), CORETIME_WESTEND_ED)))
+				.collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },
 		collator_selection: CollatorSelectionConfig {

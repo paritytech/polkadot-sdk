@@ -197,8 +197,10 @@ impl Queues {
 		sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
 		priority: ParticipationPriority,
 		req: ParticipationRequest,
+		v3_ever_seen: bool,
 	) -> Result<()> {
-		let comparator = CandidateComparator::new(sender, &req.candidate_receipt).await?;
+		let comparator =
+			CandidateComparator::new(sender, &req.candidate_receipt, v3_ever_seen).await?;
 
 		self.queue_with_comparator(comparator, priority, req)?;
 		Ok(())
@@ -224,8 +226,9 @@ impl Queues {
 		&mut self,
 		sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
 		receipt: &CandidateReceipt,
+		v3_ever_seen: bool,
 	) -> Result<()> {
-		let comparator = CandidateComparator::new(sender, receipt).await?;
+		let comparator = CandidateComparator::new(sender, receipt, v3_ever_seen).await?;
 		self.prioritize_with_comparator(comparator)?;
 		Ok(())
 	}
@@ -376,7 +379,7 @@ struct CandidateComparator {
 	/// just using the lowest `BlockNumber` of all available including blocks - the problem is,
 	/// that is not stable. If a new fork appears after the fact, we would start ordering the same
 	/// candidate differently, which would result in the same candidate getting queued twice.
-	relay_parent_block_number: Option<BlockNumber>,
+	scheduling_parent_block_number: Option<BlockNumber>,
 	/// By adding the `CandidateHash`, we can guarantee a unique ordering across candidates with
 	/// the same relay parent block number. Candidates without `relay_parent_block_number` are
 	/// ordered by the `candidate_hash` (and treated with the lowest priority, as already
@@ -390,7 +393,7 @@ impl CandidateComparator {
 	/// Useful for testing.
 	#[cfg(test)]
 	pub fn new_dummy(block_number: Option<BlockNumber>, candidate_hash: CandidateHash) -> Self {
-		Self { relay_parent_block_number: block_number, candidate_hash }
+		Self { scheduling_parent_block_number: block_number, candidate_hash }
 	}
 
 	/// Create a candidate comparator for a given candidate.
@@ -404,20 +407,23 @@ impl CandidateComparator {
 	pub async fn new(
 		sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
 		candidate: &CandidateReceipt,
+		v3_ever_seen: bool,
 	) -> FatalResult<Self> {
 		let candidate_hash = candidate.hash();
-		let n = get_block_number(sender, candidate.descriptor().relay_parent()).await?;
+		let scheduling_parent =
+			candidate.descriptor().scheduling_parent_for_candidate_validation(v3_ever_seen);
+		let n = get_block_number(sender, scheduling_parent).await?;
 
 		if n.is_none() {
 			gum::warn!(
 				target: LOG_TARGET,
 				candidate_hash = ?candidate_hash,
-				"Candidate's relay_parent could not be found via chain API - `CandidateComparator` \
+				"Candidate's scheduling_parent could not be found via chain API - `CandidateComparator` \
 				with an empty relay parent block number will be provided!"
 			);
 		}
 
-		Ok(CandidateComparator { relay_parent_block_number: n, candidate_hash })
+		Ok(CandidateComparator { scheduling_parent_block_number: n, candidate_hash })
 	}
 }
 
@@ -437,13 +443,13 @@ impl PartialOrd for CandidateComparator {
 
 impl Ord for CandidateComparator {
 	fn cmp(&self, other: &Self) -> Ordering {
-		return match (self.relay_parent_block_number, other.relay_parent_block_number) {
+		return match (self.scheduling_parent_block_number, other.scheduling_parent_block_number) {
 			(None, None) => {
 				// No relay parents for both -> compare hashes
 				self.candidate_hash.cmp(&other.candidate_hash)
 			},
-			(Some(self_relay_parent_block_num), Some(other_relay_parent_block_num)) => {
-				match self_relay_parent_block_num.cmp(&other_relay_parent_block_num) {
+			(Some(self_scheduling_parent_block_num), Some(other_scheduling_parent_block_num)) => {
+				match self_scheduling_parent_block_num.cmp(&other_scheduling_parent_block_num) {
 					// if the relay parent is the same for both -> compare hashes
 					Ordering::Equal => self.candidate_hash.cmp(&other.candidate_hash),
 					// if not - return the result from comparing the relay parent block numbers
@@ -451,7 +457,7 @@ impl Ord for CandidateComparator {
 				}
 			},
 			(Some(_), None) => {
-				// Candidates with known relay parents are always with priority
+				// Candidates with known scheduling parents are always with priority
 				Ordering::Less
 			},
 			(None, Some(_)) => {
@@ -464,10 +470,10 @@ impl Ord for CandidateComparator {
 
 async fn get_block_number(
 	sender: &mut impl overseer::DisputeCoordinatorSenderTrait,
-	relay_parent: Hash,
+	block_hash: Hash,
 ) -> FatalResult<Option<BlockNumber>> {
 	let (tx, rx) = oneshot::channel();
-	sender.send_message(ChainApiMessage::BlockNumber(relay_parent, tx)).await;
+	sender.send_message(ChainApiMessage::BlockNumber(block_hash, tx)).await;
 	rx.await
 		.map_err(|_| FatalError::ChainApiSenderDropped)?
 		.map_err(FatalError::ChainApiAncestors)

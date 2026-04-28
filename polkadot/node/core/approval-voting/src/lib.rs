@@ -847,46 +847,22 @@ impl CurrentlyCheckingSet {
 	}
 }
 
-async fn get_extended_session_info<'a, Sender>(
-	runtime_info: &'a mut RuntimeInfo,
-	sender: &mut Sender,
-	relay_parent: Hash,
-) -> Option<&'a ExtendedSessionInfo>
-where
-	Sender: SubsystemSender<RuntimeApiMessage>,
-{
-	match runtime_info.get_session_info(sender, relay_parent).await {
-		Ok(extended_info) => Some(&extended_info),
-		Err(_) => {
-			gum::debug!(
-				target: LOG_TARGET,
-				?relay_parent,
-				"Can't obtain SessionInfo or ExecutorParams"
-			);
-			None
-		},
-	}
-}
-
 async fn get_extended_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a ExtendedSessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	match runtime_info
-		.get_session_info_by_index(sender, relay_parent, session_index)
-		.await
-	{
+	match runtime_info.get_session_info_by_index(sender, block_hash, session_index).await {
 		Ok(extended_info) => Some(&extended_info),
 		Err(_) => {
 			gum::debug!(
 				target: LOG_TARGET,
 				session = session_index,
-				?relay_parent,
+				?block_hash,
 				"Can't obtain SessionInfo or ExecutorParams"
 			);
 			None
@@ -897,13 +873,13 @@ where
 async fn get_session_info_by_index<'a, Sender>(
 	runtime_info: &'a mut RuntimeInfo,
 	sender: &mut Sender,
-	relay_parent: Hash,
+	block_hash: Hash,
 	session_index: SessionIndex,
 ) -> Option<&'a SessionInfo>
 where
 	Sender: SubsystemSender<RuntimeApiMessage>,
 {
-	get_extended_session_info_by_index(runtime_info, sender, relay_parent, session_index)
+	get_extended_session_info_by_index(runtime_info, sender, block_hash, session_index)
 		.await
 		.map(|extended_info| &extended_info.session_info)
 }
@@ -1923,14 +1899,24 @@ async fn distribution_messages_for_activation<Sender: SubsystemSender<RuntimeApi
 
 									if !block_entry.candidate_is_pending_signature(*candidate_hash)
 									{
+										// Executor params are session-buffered, so we use
+										// block_hash (the including relay block) for the runtime
+										// API query — its state is guaranteed available. The
+										// session index comes from the candidate descriptor
+										// (relay_parent's session), falling back to the including
+										// block's session for V1 descriptors where relay_parent
+										// == scheduling_parent.
+										let session = candidate_entry
+											.candidate_receipt()
+											.descriptor()
+											.session_index()
+											.unwrap_or(block_entry.session());
 										let ExtendedSessionInfo { ref executor_params, .. } =
-											match get_extended_session_info(
+											match get_extended_session_info_by_index(
 												session_info_provider,
 												sender,
-												candidate_entry
-													.candidate_receipt()
-													.descriptor()
-													.relay_parent(),
+												block_hash,
+												session,
 											)
 											.await
 											{
@@ -3388,16 +3374,23 @@ async fn process_wakeup<Sender: SubsystemSender<RuntimeApiMessage>>(
 	};
 
 	if let Some((cert, val_index, tranche)) = maybe_cert {
-		let ExtendedSessionInfo { ref executor_params, .. } = match get_extended_session_info(
-			session_info_provider,
-			sender,
-			candidate_entry.candidate_receipt().descriptor().relay_parent(),
-		)
-		.await
-		{
-			Some(i) => i,
-			None => return Ok(actions),
-		};
+		// Executor params are session-buffered, so we use relay_block (the including relay
+		// block) for the runtime API query — its state is guaranteed available. The session
+		// index comes from the candidate descriptor (relay_parent's session), falling back
+		// to the including block's session for V1 descriptors.
+		let session = candidate_receipt.descriptor.session_index().unwrap_or(block_entry.session());
+		let ExtendedSessionInfo { ref executor_params, .. } =
+			match get_extended_session_info_by_index(
+				session_info_provider,
+				sender,
+				relay_block,
+				session,
+			)
+			.await
+			{
+				Some(i) => i,
+				None => return Ok(actions),
+			};
 		let indirect_cert =
 			IndirectAssignmentCertV2 { block_hash: relay_block, validator: val_index, cert };
 

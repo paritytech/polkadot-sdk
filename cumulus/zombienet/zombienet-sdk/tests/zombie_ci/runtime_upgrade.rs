@@ -3,11 +3,8 @@
 
 use crate::utils::initialize_network;
 use anyhow::anyhow;
-use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY_BLOATY as WASM_RUNTIME_UPGRADE;
-use cumulus_zombienet_sdk_helpers::{
-	create_runtime_upgrade_call, submit_extrinsic_and_wait_for_finalization_success,
-	wait_for_runtime_upgrade,
-};
+use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY as WASM_RUNTIME_UPGRADE;
+use cumulus_zombienet_sdk_helpers::{submit_sudo_runtime_upgrade, wait_for_runtime_upgrade};
 use zombienet_sdk::{
 	subxt::{OnlineClient, PolkadotConfig},
 	subxt_signer::sr25519::dev,
@@ -36,10 +33,12 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("Current runtime spec version {current_spec_version}");
 
 	log::info!("Performing runtime upgrade");
-
-	let call = create_runtime_upgrade_call(WASM_RUNTIME_UPGRADE.expect("Wasm runtime not build"));
-	submit_extrinsic_and_wait_for_finalization_success(&charlie_client, &call, &dev::alice())
-		.await?;
+	submit_sudo_runtime_upgrade(
+		&charlie_client,
+		WASM_RUNTIME_UPGRADE.expect("Wasm runtime not built"),
+		&dev::alice(),
+	)
+	.await?;
 
 	let dave = network.get_node("dave")?;
 	let dave_client: OnlineClient<PolkadotConfig> = dave.wait_client().await?;

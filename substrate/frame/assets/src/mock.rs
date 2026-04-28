@@ -173,7 +173,11 @@ pub(crate) fn set_balance_on_hold(asset: u32, who: u64, amount: u64) {
 
 pub(crate) fn clear_balance_on_hold(asset: u32, who: u64) {
 	OnHold::mutate(|v| {
-		v.remove(&(asset, who));
+		if let Some(amount) = v.remove(&(asset, who)) {
+			if amount > 0 {
+				assert_ok!(Assets::increase_balance(asset, &who, amount, |_| Ok(())));
+			}
+		}
 	});
 }
 pub struct TestFreezer;

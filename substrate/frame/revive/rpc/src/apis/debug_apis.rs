@@ -46,6 +46,9 @@ pub trait DebugRpc {
 
 	/// Dry run a call and returns the transaction's traces.
 	///
+	/// Accepts an optional [`TraceCallConfig`] that extends the base tracer config with state
+	/// overrides, matching the [Geth specification](https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall).
+	///
 	/// ## References
 	///
 	/// - <https://geth.ethereum.org/docs/interacting-with-geth/rpc/ns-debug#debugtracecall>
@@ -54,7 +57,7 @@ pub trait DebugRpc {
 		&self,
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-		tracer_config: Option<TracerConfig>,
+		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<Trace>;
 
 	#[method(name = "debug_getAutomine")]
@@ -113,10 +116,13 @@ impl DebugRpcServer for DebugRpcServerImpl {
 		&self,
 		transaction: GenericTransaction,
 		block: BlockNumberOrTagOrHash,
-		tracer_config: Option<TracerConfig>,
+		trace_call_config: Option<TraceCallConfig>,
 	) -> RpcResult<Trace> {
-		let TracerConfig { config, timeout } = tracer_config.unwrap_or_default();
-		with_timeout(timeout, self.client.trace_call(transaction, block, config)).await
+		let TraceCallConfig { tracer_config, state_overrides } =
+			trace_call_config.unwrap_or_default();
+		let TracerConfig { config, timeout } = tracer_config;
+		with_timeout(timeout, self.client.trace_call(transaction, block, config, state_overrides))
+			.await
 	}
 
 	async fn get_automine(&self) -> RpcResult<bool> {
