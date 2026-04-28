@@ -34,8 +34,8 @@ use polkadot_node_subsystem_util::reexports::SubsystemContext;
 use polkadot_overseer::ActivatedLeaf;
 use polkadot_primitives::{
 	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset,
-	CommittedCandidateReceiptError, CoreIndex, CoreSelector, GroupIndex, HeadData, Id as ParaId,
-	MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption, SessionInfo, UMPSignal,
+	CommittedCandidateReceiptError, CoreIndex, CoreSelector, ExecutorParam, GroupIndex, HeadData,
+	Id as ParaId, MutateDescriptorV2, NodeFeatures, OccupiedCoreAssumption, SessionInfo, UMPSignal,
 	UpwardMessage, ValidatorId, DEFAULT_SCHEDULING_LOOKAHEAD, UMP_SEPARATOR,
 };
 use polkadot_primitives_test_helpers::{
@@ -1659,6 +1659,7 @@ fn precheck_properly_classifies_outcomes() {
 #[derive(Default, Clone)]
 struct MockHeadsUp {
 	heads_up_call_count: Arc<AtomicUsize>,
+	heads_up_calls: Arc<std::sync::Mutex<Vec<Vec<PvfPrepData>>>>,
 }
 
 #[async_trait]
@@ -1676,8 +1677,9 @@ impl ValidationBackend for MockHeadsUp {
 		unreachable!()
 	}
 
-	async fn heads_up(&mut self, _active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
+	async fn heads_up(&mut self, active_pvfs: Vec<PvfPrepData>) -> Result<(), String> {
 		let _ = self.heads_up_call_count.fetch_add(1, Ordering::SeqCst);
+		self.heads_up_calls.lock().unwrap().push(active_pvfs);
 		Ok(())
 	}
 
@@ -1812,6 +1814,11 @@ fn maybe_prepare_validation_golden_path() {
 	let update = dummy_active_leaves_update(activated_hash);
 	let mut state = State::default();
 
+	// Distinguishable executor params so we can verify they reach `PvfPrepData`,
+	// and not the default ones that the fallback path would surface.
+	let next_session_params = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(2048)][..]);
+	let expected_params = next_session_params.clone();
+
 	let check_fut =
 		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
 
@@ -1850,7 +1857,7 @@ fn maybe_prepare_validation_golden_path() {
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
-				let _ = tx.send(Ok(Some(ExecutorParams::default())));
+				let _ = tx.send(Ok(Some(next_session_params)));
 			}
 		);
 
@@ -1884,6 +1891,13 @@ fn maybe_prepare_validation_golden_path() {
 	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
 	assert!(state.session_index.is_some());
 	assert!(state.pvf_prep.is_next_session_authority);
+
+	// Regression check for #5505: the precompiled PVF must be built with the
+	// next-session executor params returned by the runtime, not the defaults.
+	let calls = backend.heads_up_calls.lock().unwrap();
+	let prepared = calls.first().expect("heads_up was invoked once");
+	let pvf = prepared.first().expect("one PVF was queued for preparation");
+	assert_eq!(*pvf.executor_params(), expected_params);
 }
 
 #[test]
