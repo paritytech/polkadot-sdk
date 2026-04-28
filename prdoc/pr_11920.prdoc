@@ -42,3 +42,7 @@ crates:
     bump: minor
   - name: polkadot-node-core-candidate-validation
     bump: patch
+  - name: cumulus-relay-chain-rpc-interface
+    bump: minor
+  - name: cumulus-relay-chain-minimal-node
+    bump: minor
