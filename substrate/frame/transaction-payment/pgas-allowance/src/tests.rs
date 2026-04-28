@@ -171,13 +171,14 @@ fn pgas_refund_on_unused_weight() {
 		});
 }
 
-/// PGAS balance that would leave the account below the asset's existential deposit must fall
-/// through to the inner extension, preserving the account rather than reaping it.
+/// PGAS is `Expendable`: paying a fee that drops the balance below ED dusts the account
+/// rather than falling back to native. PGAS is meant to be minted across many accounts per
+/// user, so reaping a dusted PGAS account is acceptable.
 #[test]
-fn pgas_below_ed_falls_back_to_native() {
+fn pgas_below_ed_dusts_account() {
 	let native_initial = 1_000;
-	// Asset ED is 1 (see `ExtBuilder::build`). Give Alice just enough PGAS to cover the fee
-	// but not the fee plus ED, forcing the extension to fall through.
+	// Asset ED is 1 (see `ExtBuilder::build`). Give Alice exactly the fee in PGAS so paying it
+	// drains the balance to zero.
 	ExtBuilder::default()
 		.with_native(vec![(ALICE, native_initial)])
 		.build()
@@ -194,7 +195,6 @@ fn pgas_below_ed_falls_back_to_native() {
 			assert!(fee > 0);
 
 			let pgas_initial = fee;
-			// Set up PGAS balance after computing the fee.
 			assert_ok!(<pallet_assets::Pallet<Runtime> as frame_support::traits::tokens::fungibles::Mutate<AccountId>>::mint_into(
 				PGAS_ASSET_ID,
 				&ALICE,
@@ -206,10 +206,9 @@ fn pgas_below_ed_falls_back_to_native() {
 				.validate_and_prepare(Some(ALICE).into(), &call, &info, len, 0)
 				.unwrap();
 
-			// PGAS untouched: the PGAS path was skipped because paying would have reaped the
-			// account. Native covered the fee instead.
-			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), pgas_initial);
-			assert_eq!(Balances::free_balance(ALICE), native_initial - fee);
+			// PGAS drained to 0 (account dusted), native untouched.
+			assert_eq!(Assets::balance(PGAS_ASSET_ID, ALICE), 0);
+			assert_eq!(Balances::free_balance(ALICE), native_initial);
 		});
 }
 
