@@ -131,8 +131,7 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 				if InboundDownwardQueue::<T>::push_back_inbound(para, msg).is_err() {
 					// `first_free` overflowed `u64` — unreachable in practice. Bail without
 					// advancing so a future step retries with the same cursor.
-					cursor =
-						Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
+					cursor = Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
 					return Ok(cursor);
 				}
 				idx = idx.saturating_add(1);
@@ -144,8 +143,7 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			}
 
 			if interrupted {
-				cursor =
-					Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
+				cursor = Some(MigrationCursor::InProgress { para, next_v0_idx: idx as u64 });
 				break;
 			}
 

@@ -1613,24 +1613,15 @@ fn migrate_v0_to_v1_post_upgrade_accepts_concurrent_v1_writes_for_empty_v0() {
 
 		let snapshot = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
 
-		// Simulate live `push_back` between pre/post_upgrade.
-		DownwardMessageQueueMeta::<Test>::insert(
+		InboundDownwardQueue::<Test>::push_back_inbound(
 			para,
-			InboundDownwardQueueMeta { first_full: 0, first_free: 1 },
-		);
-		DownwardMessageQueuePages::<Test>::insert(
-			para,
-			0u64,
-			InboundDownwardMessage { sent_at: 7, msg: vec![42] },
-		);
+			&InboundDownwardMessage { sent_at: 7, msg: vec![42] },
+		)
+		.unwrap();
 
 		let mut cursor = None;
-		loop {
-			let mut meter = WeightMeter::new();
-			match MigrateV0ToV1::<Test>::step(cursor, &mut meter).unwrap() {
-				None => break,
-				Some(c) => cursor = Some(c),
-			}
+		while let Some(c) = MigrateV0ToV1::<Test>::step(cursor, &mut WeightMeter::new()).unwrap() {
+			cursor = Some(c);
 		}
 
 		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
@@ -1644,8 +1635,8 @@ fn migrate_v0_to_v1_concurrent_v1_pushes_lose_no_messages() {
 		let para = ParaId::from(1);
 		register_paras(&[para]);
 
-		// Pre-populate v0 with 5 legacy messages (distinguishable by `sent_at = 0`).
-		let v0_msgs: Vec<InboundDownwardMessage<polkadot_primitives::BlockNumber>> = (0..5u8)
+		// `sent_at = 0` marks v0 messages; live pushes get the current block number.
+		let v0_msgs: Vec<_> = (0..5u8)
 			.map(|i| InboundDownwardMessage { sent_at: 0, msg: vec![0xA0, i] })
 			.collect();
 		migration::v0::DownwardMessageQueues::<Test>::insert(para, &v0_msgs);
@@ -1655,48 +1646,29 @@ fn migrate_v0_to_v1_concurrent_v1_pushes_lose_no_messages() {
 		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
 		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
 		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
-		// Tight budget — at most 2 messages per step — so the migration is
-		// forced to span multiple "blocks".
 		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
 
-		let mut cursor: Option<<MigrateV0ToV1<Test> as SteppedMigration>::Cursor> = None;
+		let mut cursor = None;
 		let mut live_count = 0u32;
 		let mut steps = 0u32;
-		loop {
-			let mut meter = WeightMeter::with_limit(budget);
-			let ret = MigrateV0ToV1::<Test>::step(cursor.clone(), &mut meter).unwrap();
+		while let Some(c) =
+			MigrateV0ToV1::<Test>::step(cursor, &mut WeightMeter::with_limit(budget)).unwrap()
+		{
+			cursor = Some(c);
 			steps += 1;
-			assert!(steps < 100, "migration not making progress");
+			assert!(steps < 100);
 
-			match ret {
-				None => break,
-				Some(c) => cursor = Some(c),
-			}
-
-			// Simulate a block boundary plus a live `push_back` between MBM
-			// steps. New `sent_at` is the current block number, which is > 0
-			// and so distinguishable from the seeded v0 messages.
 			run_to_block(System::block_number() + 1, None);
 			assert_ok!(queue_downward_message(para, vec![0xB0, live_count as u8]));
 			live_count += 1;
 		}
-		assert!(steps > 1, "expected migration to span multiple steps, got {}", steps);
-		assert!(live_count > 0, "expected concurrent live pushes between steps");
+		assert!(steps > 1);
 
-		// v0 must be fully drained.
 		assert_eq!(migration::v0::DownwardMessageQueues::<Test>::iter().count(), 0);
 
-		// Every v0 and every live message must be present in v1 — no losses.
 		let pages = InboundDownwardQueue::<Test>::peek_all_do_not_call_in_consensus(para);
-		assert_eq!(
-			pages.len() as u64,
-			v0_msgs.len() as u64 + live_count as u64,
-			"page count must equal v0 + live messages",
-		);
-		let v0_in_v1 = pages.iter().filter(|m| m.sent_at == 0).count();
-		assert_eq!(v0_in_v1, v0_msgs.len(), "every v0 message must appear in v1");
-		let live_in_v1 = pages.iter().filter(|m| m.sent_at != 0).count();
-		assert_eq!(live_in_v1, live_count as usize, "every live message must appear in v1");
+		assert_eq!(pages.len() as u64, v0_msgs.len() as u64 + live_count as u64);
+		assert_eq!(pages.iter().filter(|m| m.sent_at == 0).count(), v0_msgs.len());
 
 		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
 	});
