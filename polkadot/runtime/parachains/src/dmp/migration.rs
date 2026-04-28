@@ -23,6 +23,8 @@
 //! step, the cursor stores the last fully-migrated `ParaId`.
 
 use super::*;
+#[cfg(feature = "try-runtime")]
+use alloc::collections::btree_map::BTreeMap;
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::ValueQuery,
@@ -31,11 +33,11 @@ use frame_support::{
 	Twox64Concat,
 };
 
-#[cfg(feature = "try-runtime")]
-use alloc::collections::btree_map::BTreeMap;
+/// The in-code storage version.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 /// Identifier for migrations of this pallet.
-const PALLET_MIGRATIONS_ID: &[u8; 14] = b"polkadot-dmp-m";
+const PALLET_MIGRATIONS_ID: &[u8; 21] = b"cumulus-dmp-queue-mbm";
 
 /// The OLD (pre-paged) storage layout. Reachable via the `storage_alias` even
 /// though the live pallet no longer declares this type.
@@ -67,7 +69,7 @@ pub struct MigrateV0ToV1<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 	type Cursor = ParaId;
-	type Identifier = MigrationId<14>;
+	type Identifier = MigrationId<21>;
 
 	fn id() -> Self::Identifier {
 		MigrationId { pallet_id: *PALLET_MIGRATIONS_ID, version_from: 0, version_to: 1 }
@@ -106,9 +108,8 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			};
 
 			let mut msgs: alloc::collections::VecDeque<_> = msgs.into();
-			let mut first_free = DownwardMessageQueueMeta::<T>::get(para)
-				.map(|m| m.first_free)
-				.unwrap_or(0);
+			let mut first_free =
+				DownwardMessageQueueMeta::<T>::get(para).map(|m| m.first_free).unwrap_or(0);
 
 			while let Some(msg) = msgs.pop_front() {
 				DownwardMessageQueuePages::<T>::insert(para, first_free as PageIndex, msg);

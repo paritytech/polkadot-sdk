@@ -126,6 +126,7 @@ pub mod pallet {
 	use super::*;
 
 	#[pallet::pallet]
+	#[pallet::storage_version(migration::STORAGE_VERSION)]
 	#[pallet::without_storage_info]
 	pub struct Pallet<T>(_);
 
@@ -195,11 +196,17 @@ pub mod pallet {
 
 			// Should be at most 50% of max block weight
 			let max = T::BlockWeights::get().max_block.saturating_div(2);
-			assert!(max.all_gte(min_on_idle_weight), "DMP queue migration uses more than 50% block weight");
+			assert!(
+				max.all_gte(min_on_idle_weight),
+				"DMP queue migration uses more than 50% block weight"
+			);
 
 			// Also lazy_delete_some weight should be at most 50% of max block weight
 			let lazy_delete_some_weight = <T as Config>::WeightInfo::lazy_delete_some();
-			assert!(max.all_gte(lazy_delete_some_weight), "DMP queue lazy delete uses more than 50% block weight");
+			assert!(
+				max.all_gte(lazy_delete_some_weight),
+				"DMP queue lazy delete uses more than 50% block weight"
+			);
 		}
 
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
