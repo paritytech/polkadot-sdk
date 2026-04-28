@@ -386,12 +386,10 @@ where
 			let removed_at = Instant::now();
 			for tx in &removed {
 				let tx_source = tx.source();
-				if let Some(submitted_at) = tx_source.timestamp {
-					let age = removed_at.saturating_duration_since(submitted_at);
-					metrics.report(|m| {
-						m.tx_age_at_removal.observe(removal_reason, tx_source.source, age)
-					});
-				}
+				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
+				metrics.report(|m| {
+					m.tx_age_at_removal.observe(removal_reason, tx_source.source, age)
+				});
 			}
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
@@ -1076,13 +1074,12 @@ where
 		self.metrics.report(|metrics| {
 			metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _);
 			for tx in &removed {
-				if let Some(submitted_at) = tx.source.timestamp {
-					metrics.tx_age_at_removal.observe(
-						RemovalReason::InvalidReported,
-						tx.source.source,
-						removed_at.saturating_duration_since(submitted_at),
-					);
-				}
+				let age = tx.source.timestamp.map(|t| removed_at.saturating_duration_since(t));
+				metrics.tx_age_at_removal.observe(
+					RemovalReason::InvalidReported,
+					tx.source.source,
+					age,
+				);
 			}
 		});
 
@@ -1350,16 +1347,14 @@ where
 			let removed_at = Instant::now();
 			for tx in &removed {
 				let tx_source = tx.source();
-				if let Some(submitted_at) = tx_source.timestamp {
-					let age = removed_at.saturating_duration_since(submitted_at);
-					self.metrics.report(|m| {
-						m.tx_age_at_removal.observe(
-							RemovalReason::FinalityTimeout,
-							tx_source.source,
-							age,
-						)
-					});
-				}
+				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
+				self.metrics.report(|m| {
+					m.tx_age_at_removal.observe(
+						RemovalReason::FinalityTimeout,
+						tx_source.source,
+						age,
+					)
+				});
 			}
 			self.import_notification_sink.clean_notified_items(&tx_hashes);
 			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());

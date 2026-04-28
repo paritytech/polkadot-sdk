@@ -731,15 +731,14 @@ where
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
 			.map(|(tx, tx_source, reason)| {
+				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
 				self.metrics.report(|metrics| {
 					metrics.mempool_revalidation_invalid_txs.observe(&reason, 1);
-					if let Some(submitted_at) = tx_source.timestamp {
-						metrics.tx_age_at_removal.observe(
-							RemovalReason::InvalidRevalidationMempool,
-							tx_source.source,
-							removed_at.saturating_duration_since(submitted_at),
-						);
-					}
+					metrics.tx_age_at_removal.observe(
+						RemovalReason::InvalidRevalidationMempool,
+						tx_source.source,
+						age,
+					);
 				});
 				tx
 			})
@@ -774,13 +773,11 @@ where
 		let removed_at = Instant::now();
 		for tx_hash in finalized_xts {
 			if let Some(tx) = transactions.remove(tx_hash) {
-				if let Some(submitted_at) = tx.source.timestamp {
-					let age = removed_at.saturating_duration_since(submitted_at);
-					let source = tx.source.source;
-					self.metrics.report(|metrics| {
-						metrics.tx_age_at_removal.observe(RemovalReason::Finalized, source, age);
-					});
-				}
+				let age = tx.source.timestamp.map(|t| removed_at.saturating_duration_since(t));
+				let source = tx.source.source;
+				self.metrics.report(|metrics| {
+					metrics.tx_age_at_removal.observe(RemovalReason::Finalized, source, age);
+				});
 			}
 		}
 	}

@@ -408,16 +408,22 @@ impl TxAgeAtRemovalHistogram {
 		})
 	}
 
-	/// Records the given residence `age` for a transaction leaving the pool.
+	/// Records the residence time of a transaction leaving the pool.
+	///
+	/// `age` is `None` when the original submission timestamp is unavailable, which
+	/// in production should never happen (timestamps are always set in the fork-aware
+	/// pool). Such observations are routed to the highest bucket so they remain
+	/// visible in dashboards rather than being silently dropped.
 	pub fn observe(
 		&self,
 		reason: RemovalReason,
 		source: sp_runtime::transaction_validity::TransactionSource,
-		age: Duration,
+		age: Option<Duration>,
 	) {
+		let value = age.map(|a| a.as_secs_f64()).unwrap_or(f64::INFINITY);
 		self.inner
 			.with_label_values(&[reason.as_str(), source_label(source)])
-			.observe(age.as_secs_f64())
+			.observe(value)
 	}
 }
 
@@ -824,7 +830,7 @@ mod tests {
 		histogram.observe(
 			RemovalReason::Finalized,
 			TransactionSource::External,
-			Duration::from_secs(42),
+			Some(Duration::from_secs(42)),
 		);
 
 		assert_eq!(sample_count(&registry, "finalized", "external"), Some(1));
@@ -841,20 +847,32 @@ mod tests {
 		histogram.observe(
 			RemovalReason::DroppedUsurped,
 			TransactionSource::Local,
-			Duration::from_millis(100),
+			Some(Duration::from_millis(100)),
 		);
 		histogram.observe(
 			RemovalReason::DroppedUsurped,
 			TransactionSource::Local,
-			Duration::from_secs(3600),
+			Some(Duration::from_secs(3600)),
 		);
 		histogram.observe(
 			RemovalReason::DroppedUsurped,
 			TransactionSource::External,
-			Duration::from_secs(5),
+			Some(Duration::from_secs(5)),
 		);
 
 		assert_eq!(sample_count(&registry, "dropped_usurped", "local"), Some(2));
 		assert_eq!(sample_count(&registry, "dropped_usurped", "external"), Some(1));
+	}
+
+	#[test]
+	fn observe_with_none_age_records_in_highest_bucket() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+
+		histogram.observe(RemovalReason::Finalized, TransactionSource::External, None);
+
+		// Sample is recorded (count = 1) but it lands above all finite buckets,
+		// so it's only counted in the implicit `+Inf` bucket.
+		assert_eq!(sample_count(&registry, "finalized", "external"), Some(1));
 	}
 }

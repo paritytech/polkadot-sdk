@@ -653,13 +653,12 @@ where
 				);
 
 				for tx in &removed_invalid {
-					if let Some(submitted_at) = tx.source.timestamp {
-						metrics.tx_age_at_removal.observe(
-							RemovalReason::InvalidRevalidationView,
-							tx.source.source,
-							removed_at.saturating_duration_since(submitted_at),
-						);
-					}
+					let age = tx.source.timestamp.map(|t| removed_at.saturating_duration_since(t));
+					metrics.tx_age_at_removal.observe(
+						RemovalReason::InvalidRevalidationView,
+						tx.source.source,
+						age,
+					);
 				}
 			});
 
