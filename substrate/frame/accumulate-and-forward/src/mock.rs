@@ -107,10 +107,10 @@ impl Config for Test {
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext(fund_satellite: bool) -> sp_io::TestExternalities {
+pub fn new_test_ext(fund_accumulation: bool) -> sp_io::TestExternalities {
 	let mut balances = vec![(1, 100), (2, 200), (3, 300)];
 
-	if fund_satellite {
+	if fund_accumulation {
 		let accumulation_account: u64 = AccumulateForwardPalletId::get().into_account_truncating();
 		balances.push((accumulation_account, ExistentialDeposit::get()));
 	}

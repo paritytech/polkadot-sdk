@@ -84,7 +84,7 @@ fn on_unbalanced_deposits_to_accumulation_account() {
 		// And: total issuance unchanged (funds moved, not created/destroyed)
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_total);
 
-		// And: active issuance unchanged (satellite chains don't deactivate)
+		// And: active issuance unchanged (accumulate-and-forward chains don't deactivate)
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active);
 	});
 }
