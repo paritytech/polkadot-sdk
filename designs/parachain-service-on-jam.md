@@ -45,8 +45,9 @@ The key conceptual mapping from today's Polkadot to JAM:
 | Polkadot 1.x | JAM | Role |
 |---|---|---|
 | Collation (collator builds candidate + PoV) | **Collect** | Gather inputs off-chain |
-| Backing (validator group checks PoV) | **Refine** | Stateless off-chain validation |
-| Availability + Approval | **Guarantees + Assurances** | Attest correctness, ensure data available |
+| Backing (validator group checks PoV) | **Guaranteeing** (Refine is one part) | Stateless off-chain validation + attestation |
+| Availability | **Availability** | Confirm data is retrievable across the validator set |
+| Approval | **Auditing** | Independent re-checks by other validators |
 | Inclusion + on-chain parachain consensus | **Accumulate** | Integrate results into shared state |
 
 ### Scope
@@ -216,21 +217,19 @@ struct ParaInfo {
 
 ### 3.2 Work Items
 
-Each work package submitted to the Parachain Service contains one or more **work items**. For the
-Parachain Service, a work item corresponds to one parachain candidate:
+Each work package submitted to the Parachain Service contains one or more **work items**.
+For the Parachain Service, a work item represents one parachain candidate. The candidate
+itself — validation code hash and PoV — is carried as the work item's **extrinsic data**.
+
+The shape of that extrinsic is:
 
 ```rust
-/// A work item for the Parachain Service encodes a single parachain candidate.
-struct ParachainWorkItem {
+struct ParachainCandidate {
     /// The hash of the currently active validation code. Used by Refine to
     /// look up the PVF bytecode from the preimage store.
     validation_code_hash: ValidationCodeHash,
 
     /// The Proof-of-Validity (PoV) — the actual block data + witness.
-    /// This is the large input to Refine. Its upper bound is set by JAM's
-    /// work-bundle budget (~13.6 MB, shared with authtoken, authconfig,
-    /// extrinsics, and imports) minus whatever the package uses for
-    /// everything else.
     pov: Vec<u8>,
 }
 ```
@@ -241,9 +240,9 @@ Support for multiple items per package may be added later.
 The `ParaId` for each work item is **not** stored in the work item itself. Instead, it is
 sourced from the authorizer config, which is pinned by the Coretime chain (see §7.1). The
 Parachain Service enforces that every authorizer config begins with a `Vec<ParaId>` whose
-length matches the number of work items in the package, so that work item `i` is
-authoritatively bound to `authorized_paras[i]`. Refine reads this prefix via `auth_config()`
-and uses it to populate `ParachainWorkResult.para_id`.
+length matches the number of work items in the package, so that work item `item_index` is
+authoritatively bound to `authorized_paras[item_index]`. Refine reads this prefix via
+`auth_config()` and uses it to populate `ParachainWorkResult.para_id`.
 
 ### 3.3 Refine Result
 
@@ -336,15 +335,13 @@ to **48 KiB** by the Gray Paper.
 
 ### 4.1 What Refine Does
 
-The Refine entry point of the Parachain Service executes the **Parachain Validation Function
-(PVF)** for each work item. This is a stateless, in-core computation performed by guarantors
-(validators assigned to the relevant JAM core).
+Refine is invoked **per work item** by JAM. For each work item at
+index `item_index` the Parachain Service performs:
 
-Refine:
 1. Reads the authorizer config via `auth_config()` and decodes the `authorized_paras`
    prefix; enforces `len(authorized_paras) == len(workitems)` and rejects the package
    otherwise (see §7.1).
-2. For each work item `i`, takes `para_id = authorized_paras[i]` as authoritative.
+2. Takes `para_id = authorized_paras[item_index]` as authoritative for this item.
 3. Fetches the PVF bytecode via `historical_lookup` (using `validation_code_hash`).
 4. Instantiates a child PVM with the PVF.
 5. Executes the PVF against the PoV (the `jam_validate_block` call).
@@ -427,8 +424,8 @@ Once a work report has been guaranteed and its data is available, JAM invokes th
 service storage.
 
 Accumulate for the Parachain Service covers the parachain-specific parts of what the
-relay chain's `enact_candidate` does today; availability, approvals, disputes, and
-rewards are handled by JAM natively (see §2). The work splits into two categories:
+relay chain's `enact_candidate` does today; availability, approvals, and disputes are handled
+by JAM natively (see §2). The work splits into two categories:
 
 #### Per-work-package work
 
