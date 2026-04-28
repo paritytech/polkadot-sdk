@@ -215,7 +215,7 @@ pub mod pallet {
 
 		#[cfg(feature = "try-runtime")]
 		fn try_state(_now: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
-			InboundDownwardQueue::<T>::integrity_test();
+			InboundDownwardQueue::<T>::try_state();
 
 			Ok(())
 		}
@@ -351,17 +351,6 @@ impl<T: Config> Pallet<T> {
 
 	/// Prunes the specified number of messages from the downward message queue of the given para.
 	pub(crate) fn prune_dmq(para: ParaId, processed_downward_messages: u32) {
-		// let q_len = DownwardMessageQueues::<T>::mutate(para, |q| {
-		// let processed_downward_messages = processed_downward_messages as usize;
-		// if processed_downward_messages > q.len() {
-		// reaching this branch is unexpected due to the constraint established by
-		// `check_processed_downward_messages`. But better be safe than sorry.
-		// q.clear();
-		// } else {
-		// q = q.split_off(processed_downward_messages);
-		// }
-		// q.len()
-		// });
 		let _dropped =
 			InboundDownwardQueue::<T>::drop_front_n(para, processed_downward_messages as u64);
 		let q_len = InboundDownwardQueue::<T>::len(para).unwrap_or(0);
@@ -385,9 +374,6 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns 0 if the para doesn't have an associated downward message queue.
 	pub(crate) fn dmq_length(para: ParaId) -> u32 {
-		// DownwardMessageQueues::<T>::decode_len(&para)
-		// .unwrap_or(0)
-		// .saturated_into::<u32>()
 		InboundDownwardQueue::<T>::len(para)
 			.unwrap_or(0)
 			.try_into()

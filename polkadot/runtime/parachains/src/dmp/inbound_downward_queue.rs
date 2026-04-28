@@ -7,6 +7,7 @@ pub const LAZY_DELETE_MAX_PAGES: u32 = 3;
 /// Interface to modify
 pub struct InboundDownwardQueue<T>(pub core::marker::PhantomData<T>);
 impl<T: Config> InboundDownwardQueue<T> {
+	/// Metadata of the given para message queue.
 	pub fn meta(para: ParaId) -> Option<InboundDownwardQueueMeta> {
 		DownwardMessageQueueMeta::<T>::get(para)
 	}
@@ -18,7 +19,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Some(meta.first_free.defensive_saturating_sub(meta.first_full))
 	}
 
-	/// Append the message at the end of the queue and return the new message.
+	/// Append the message at the end of the queue and return the appended message.
 	pub fn push_back(
 		para: ParaId,
 		msg: DownwardMessage,
@@ -37,6 +38,9 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Ok(inbound)
 	}
 
+	/// Create a new metadata for a new queue.
+	///
+	/// This must be used over plain construction since a lazy deletion could still be ongoing.
 	fn new_meta(para: ParaId) -> InboundDownwardQueueMeta {
 		let Some((_, last)) = DownwardMessageQueueLazyDelete::<T>::get(para) else {
 			return InboundDownwardQueueMeta { first_full: 0, first_free: 0 };
@@ -56,6 +60,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Some(inbound)
 	}
 
+	/// Peek at the first message in the queue without removing it.
 	pub fn peek_front(para: ParaId) -> Option<InboundDownwardMessage<BlockNumberFor<T>>> {
 		let meta = Self::meta(para)?;
 		DownwardMessageQueuePages::<T>::get(para, meta.first_full)
@@ -79,6 +84,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		Some(to_drop)
 	}
 
+	/// Try to delete all messages at once and schedule lazy deletion if not possible.
 	pub fn delete_all(para: ParaId) {
 		let Some(meta) = DownwardMessageQueueMeta::<T>::take(para) else {
 			return;
@@ -103,6 +109,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 		DownwardMessageQueueLazyDelete::<T>::insert(para, (lo, hi));
 	}
 
+	/// Progressive lazy deletion tick of old messages.
 	pub fn lazy_delete_some(weight_meter: &mut WeightMeter) {
 		if weight_meter.try_consume(<T as Config>::WeightInfo::lazy_delete_some()).is_err() {
 			return;
@@ -152,7 +159,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 	///   `[first_full, first_free)` *or* its lazy-delete range `[first, last)`. Anything else is an
 	///   orphan.
 	#[cfg(feature = "std")]
-	pub fn integrity_test() {
+	pub fn try_state() {
 		for (para, meta) in DownwardMessageQueueMeta::<T>::iter() {
 			assert!(
 				meta.first_full <= meta.first_free,

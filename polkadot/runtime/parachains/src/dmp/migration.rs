@@ -79,6 +79,9 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 		mut cursor: Option<Self::Cursor>,
 		meter: &mut WeightMeter,
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
+		if Pallet::<T>::on_chain_storage_version() != Self::id().version_from as u16 {
+			return Ok(None);
+		}
 		let base = <T as Config>::WeightInfo::migrate_v0_to_v1_step_base();
 		let per_iter = <T as Config>::WeightInfo::migrate_v0_to_v1_step_iter();
 		let per_msg = <T as Config>::WeightInfo::migrate_v0_to_v1_step_msg();
@@ -137,6 +140,7 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			}
 		}
 
+		StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
 		Ok(cursor)
 	}
 
