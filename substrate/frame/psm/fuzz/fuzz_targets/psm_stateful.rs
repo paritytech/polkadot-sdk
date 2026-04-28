@@ -573,39 +573,62 @@ fn gen_command(rng: &mut StdRng, state: &FuzzState) -> Command {
 // Command execution (dispatches via Psm::*, ignores expected errors)
 // ---------------------------------------------------------------------------
 
-fn execute_command(cmd: &Command) {
+fn execute_command(cmd: &Command) -> &'static str {
 	match cmd {
 		Command::Mint { account, asset_id, amount } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				let _ = Psm::mint(RuntimeOrigin::signed(*account), *asset_id, *amount);
+				match Psm::mint(RuntimeOrigin::signed(*account), *asset_id, *amount) {
+					Ok(()) => "OK",
+					Err(_) => "ERR",
+				}
+			} else {
+				"SKIP"
 			}
 		},
 		Command::Redeem { account, asset_id, amount } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
-				let _ = Psm::redeem(RuntimeOrigin::signed(*account), *asset_id, *amount);
+				match Psm::redeem(RuntimeOrigin::signed(*account), *asset_id, *amount) {
+					Ok(()) => "OK",
+					Err(_) => "ERR",
+				}
+			} else {
+				"SKIP"
 			}
 		},
 		Command::SetMaxPsmDebt { ratio } => {
 			let _ = Psm::set_max_psm_debt(RuntimeOrigin::root(), *ratio);
+			"OK"
 		},
 		Command::SetAssetCeilingWeight { asset_id, weight } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), *asset_id, *weight);
+				"OK"
+			} else {
+				"SKIP"
 			}
 		},
 		Command::SetMintingFee { asset_id, fee } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_minting_fee(RuntimeOrigin::root(), *asset_id, *fee);
+				"OK"
+			} else {
+				"SKIP"
 			}
 		},
 		Command::SetRedemptionFee { asset_id, fee } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_redemption_fee(RuntimeOrigin::root(), *asset_id, *fee);
+				"OK"
+			} else {
+				"SKIP"
 			}
 		},
 		Command::SetAssetStatus { asset_id, status } => {
 			if fuzz_helpers::is_approved_asset(*asset_id) {
 				let _ = Psm::set_asset_status(RuntimeOrigin::root(), *asset_id, *status);
+				"OK"
+			} else {
+				"SKIP"
 			}
 		},
 		// Paired add+weight: mirrors the libFuzzer target's approach. Without setting
@@ -614,10 +637,14 @@ fn execute_command(cmd: &Command) {
 		Command::AddExternalAsset { asset_id, weight } => {
 			if Psm::add_external_asset(RuntimeOrigin::root(), *asset_id).is_ok() {
 				let _ = Psm::set_asset_ceiling_weight(RuntimeOrigin::root(), *asset_id, *weight);
+				"OK"
+			} else {
+				"ERR"
 			}
 		},
 		Command::RemoveExternalAsset { asset_id } => {
 			let _ = Psm::remove_external_asset(RuntimeOrigin::root(), *asset_id);
+			"OK"
 		},
 	}
 }
@@ -640,11 +667,11 @@ fn asset_name(id: u32) -> &'static str {
 fn format_amount(raw: u128) -> String {
 	let tokens = raw / PUSD_UNIT;
 	if tokens >= 1_000_000 {
-		format!("{:.1}M", tokens as f64 / 1_000_000.0)
+		format!("{:>6.1}M", tokens as f64 / 1_000_000.0)
 	} else if tokens >= 1_000 {
-		format!("{:.1}K", tokens as f64 / 1_000.0)
+		format!("{:>6.1}K", tokens as f64 / 1_000.0)
 	} else {
-		format!("{}", tokens)
+		format!("{:>6}", tokens)
 	}
 }
 
@@ -688,18 +715,69 @@ fn format_command(cmd: &Command) -> String {
 	}
 }
 
-fn log_command(step: usize, cmd: &Command, state: &FuzzState) {
-	let total_reserve: u128 = state.assets.iter().map(|a| a.reserve).sum();
-	eprintln!(
-		"[{:>4}] {} | debt={}/{} issuance={}/{} reserve={}",
-		step,
-		format_command(cmd),
-		format_amount(state.total_psm_debt),
-		format_amount(state.max_psm_debt),
-		format_amount(state.total_pusd_issuance),
-		format_amount(state.max_issuance),
-		format_amount(total_reserve),
-	);
+// ANSI colour constants. Background colours with explicit foreground ensure
+// readability regardless of the terminal's own background colour.
+// Blue background + white text for PRE, yellow background + black text for POST.
+// These background/foreground pairs are distinguishable under the most common
+// forms of colour-blindness (deuteranopia, protanopia).
+const BLUE: &str = "\x1b[44;97m"; // blue background, bright white text
+const YELLOW: &str = "\x1b[43;30m"; // yellow background, black text
+const RED: &str = "\x1b[41;97m"; // red background, bright white text
+const BOLD: &str = "\x1b[1m";
+const RESET: &str = "\x1b[0m";
+
+fn log_command(
+	step: usize,
+	cmd: &Command,
+	pre: &FuzzState,
+	result: &'static str,
+	post: &FuzzState,
+	check: &Result<(), sp_runtime::TryRuntimeError>,
+	verbose: bool,
+) {
+	let pre_reserve: u128 = pre.assets.iter().map(|a| a.reserve).sum();
+	let post_reserve: u128 = post.assets.iter().map(|a| a.reserve).sum();
+	let invariant_str = match check {
+		Ok(()) => "OK".to_string(),
+		Err(e) => format!("{RED}{BOLD}VIOLATED: {:?}{RESET}", e),
+	};
+	if verbose {
+		eprintln!(
+			"[{:>4}] {:<36} dispatch={:<4} invariant={} {BLUE}PRE  debt={}/{} issuance={}/{} reserve={}{RESET} {YELLOW}POST debt={}/{} issuance={}/{} reserve={}{RESET}",
+			step,
+			format_command(cmd),
+			result,
+			invariant_str,
+			format_amount(pre.total_psm_debt),
+			format_amount(pre.max_psm_debt),
+			format_amount(pre.total_pusd_issuance),
+			format_amount(pre.max_issuance),
+			format_amount(pre_reserve),
+			format_amount(post.total_psm_debt),
+			format_amount(post.max_psm_debt),
+			format_amount(post.total_pusd_issuance),
+			format_amount(post.max_issuance),
+			format_amount(post_reserve),
+		);
+	} else if check.is_err() {
+		eprintln!(
+			"[{:>4}] {} dispatch={} invariant={}\n       {BLUE}PRE  debt={}/{} issuance={}/{} reserve={}{RESET}\n       {YELLOW}POST debt={}/{} issuance={}/{} reserve={}{RESET}",
+			step,
+			format_command(cmd),
+			result,
+			invariant_str,
+			format_amount(pre.total_psm_debt),
+			format_amount(pre.max_psm_debt),
+			format_amount(pre.total_pusd_issuance),
+			format_amount(pre.max_issuance),
+			format_amount(pre_reserve),
+			format_amount(post.total_psm_debt),
+			format_amount(post.max_psm_debt),
+			format_amount(post.total_pusd_issuance),
+			format_amount(post.max_issuance),
+			format_amount(post_reserve),
+		);
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -710,16 +788,22 @@ fn log_command(step: usize, cmd: &Command, state: &FuzzState) {
 // this tester generates semantically aware commands (not raw fuzz bytes), it can assert
 // invariants after every single call. A violation here means a specific command sequence
 // broke a pallet invariant, and the deterministic seed makes it reproducible.
-fn run_campaign(seed: u64, max_commands: usize) {
+fn run_campaign(seed: u64, max_commands: usize, verbose: bool) {
 	let mut ext = build_fuzzer_genesis();
 	let mut rng = StdRng::seed_from_u64(seed);
 	let mut block_number: u32 = 1;
+	let infinite = max_commands == 0;
 
 	// Random block advancement interval
 	let mut next_block_at: usize = rng.gen_range(10..50);
 
 	ext.execute_with(|| {
-		for i in 0..max_commands {
+		let mut i = 0usize;
+		loop {
+			if !infinite && i >= max_commands {
+				break;
+			}
+
 			// Multi-block: advance block number periodically
 			if i > 0 && i == next_block_at {
 				block_number += 1;
@@ -727,11 +811,17 @@ fn run_campaign(seed: u64, max_commands: usize) {
 				next_block_at = i + rng.gen_range(10..50);
 			}
 
-			let state = snapshot_state();
-			let cmd = gen_command(&mut rng, &state);
-			log_command(i, &cmd, &state);
-			execute_command(&cmd);
-			fuzz_helpers::do_try_state().expect("PSM invariant violated — see command log above");
+			let pre_state = snapshot_state();
+			let cmd = gen_command(&mut rng, &pre_state);
+			let result = execute_command(&cmd);
+			let post_state = snapshot_state();
+			let check = fuzz_helpers::do_try_state();
+			log_command(i, &cmd, &pre_state, result, &post_state, &check, verbose);
+			if let Err(e) = check {
+				panic!("PSM invariant violated at command {}: {:?}", i, e);
+			}
+
+			i += 1;
 		}
 	});
 }
@@ -741,10 +831,27 @@ fn run_campaign(seed: u64, max_commands: usize) {
 // ---------------------------------------------------------------------------
 
 fn main() {
-	let seed: u64 = env::args().nth(1).and_then(|s| s.parse().ok()).unwrap_or_else(rand::random);
-	let max_commands: usize = env::args().nth(2).and_then(|s| s.parse().ok()).unwrap_or(10_000);
+	let args: Vec<String> = env::args().collect();
+	let verbose = args.iter().any(|a| a == "--verbose");
+	let positional: Vec<&str> = args
+		.iter()
+		.skip(1)
+		.filter(|a| !a.starts_with('-'))
+		.map(|s| s.as_str())
+		.collect();
 
-	eprintln!("PSM stateful tester: seed={}, max_commands={}", seed, max_commands);
-	run_campaign(seed, max_commands);
-	eprintln!("Campaign complete: {} commands, 0 invariant violations", max_commands);
+	let seed: u64 = positional.first().and_then(|s| s.parse().ok()).unwrap_or_else(rand::random);
+	let max_commands: usize = positional.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+	if max_commands == 0 {
+		eprintln!("PSM stateful tester: seed={}, running indefinitely (Ctrl+C to stop)", seed);
+	} else {
+		eprintln!("PSM stateful tester: seed={}, max_commands={}", seed, max_commands);
+	}
+
+	run_campaign(seed, max_commands, verbose);
+
+	if max_commands > 0 {
+		eprintln!("Campaign complete: {} commands, 0 invariant violations", max_commands);
+	}
 }

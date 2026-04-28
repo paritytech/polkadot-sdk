@@ -1763,14 +1763,16 @@ mod try_state {
 		});
 	}
 
-	// Checks 3 and 6: orphan PsmDebt fires check 3 (sum mismatch) first; check 6 would follow.
+	// Checks 3 and 7: orphan PsmDebt fires check 3 (sum mismatch) first; check 7 would follow.
 	#[test]
 	fn detects_orphan_debt() {
 		new_test_ext().execute_with(|| {
+			use frame_support::traits::fungibles::Mutate;
+
 			// Register the asset fully so all earlier checks pass, then remove it from
 			// ExternalAssets to leave an orphan PsmDebt entry. Check 3 (sum mismatch) fires
 			// first because total_psm_debt() includes the orphan while the approved-asset
-			// sum does not; check 6 (orphan debt) would fire if check 3 did not. Both checks
+			// sum does not; check 7 (orphan debt) would fire if check 3 did not. Both checks
 			// cover the same underlying invariant violation from different angles.
 			create_asset_with_metadata(UNSUPPORTED_ASSET_ID);
 			ExternalAssets::<Test>::insert(UNSUPPORTED_ASSET_ID, CircuitBreakerLevel::AllEnabled);
@@ -1778,6 +1780,8 @@ mod try_state {
 			let debt = 1_000 * PUSD_UNIT;
 			PsmDebt::<Test>::insert(UNSUPPORTED_ASSET_ID, debt);
 			fund_external_asset(UNSUPPORTED_ASSET_ID, psm_account(), debt);
+			// Mint pUSD so Check 4 (issuance >= debt) is satisfied.
+			let _ = Assets::mint_into(PUSD_ASSET_ID, &ALICE, debt);
 			assert_ok!(crate::Pallet::<Test>::do_try_state());
 			ExternalAssets::<Test>::remove(UNSUPPORTED_ASSET_ID);
 
@@ -1788,7 +1792,44 @@ mod try_state {
 		});
 	}
 
-	// Check 4: total debt exceeding global ceiling is a warning, not an error.
+	// Check 4: total pUSD issuance must cover total PSM debt.
+	#[test]
+	fn detects_issuance_below_psm_debt() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{
+				fungibles::Mutate,
+				tokens::{Fortitude, Precision, Preservation},
+			};
+
+			// 1. Mint to create PSM debt.
+			let amount = 1_000 * PUSD_UNIT;
+			fund_external_asset(USDC_ASSET_ID, ALICE, amount);
+			assert_ok!(Psm::mint(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, amount));
+
+			// 2. After minting, issuance covers debt.
+			assert_ok!(crate::Pallet::<Test>::do_try_state());
+
+			// 3. Burn pUSD from Alice to make total_issuance < total_psm_debt.
+			let _ = Assets::burn_from(
+				PUSD_ASSET_ID,
+				&ALICE,
+				1,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+
+			// 4. do_try_state must detect the imbalance.
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other(
+					"Total pUSD issuance is less than total PSM debt — balance sheet does not close"
+				)
+			);
+		});
+	}
+
+	// Check 5: total debt exceeding global ceiling is a warning, not an error.
 	// Governance may transiently create this state; it is logged, not rejected.
 	#[test]
 	fn warns_on_total_debt_exceeds_global_ceiling() {
@@ -1800,7 +1841,7 @@ mod try_state {
 		});
 	}
 
-	/// Check 5: per-asset debt exceeds its ceiling.
+	/// Check 6: per-asset debt exceeds its ceiling.
 	///
 	/// Per-asset debt exceeding ceiling is a warning, not an error.
 	/// Governance may change weights or MaxPsmDebtOfTotal, transiently causing this.
@@ -1818,7 +1859,7 @@ mod try_state {
 		});
 	}
 
-	// Check 6: zero debt for a non-approved asset is not a violation.
+	// Check 7: zero debt for a non-approved asset is not a violation.
 	#[test]
 	fn zero_orphan_debt_does_not_error() {
 		new_test_ext().execute_with(|| {
@@ -1827,7 +1868,7 @@ mod try_state {
 		});
 	}
 
-	// Check 7: orphan fee/ceiling entries; warn only, so do_try_state still returns Ok.
+	// Check 8: orphan fee/ceiling entries; warn only, so do_try_state still returns Ok.
 	#[test]
 	fn orphan_fee_entries_do_not_error() {
 		new_test_ext().execute_with(|| {
@@ -1841,7 +1882,7 @@ mod try_state {
 		});
 	}
 
-	// Check 8: PSM account missing.
+	// Check 9: PSM account missing.
 	#[test]
 	fn detects_missing_psm_account() {
 		new_test_ext().execute_with(|| {
@@ -1855,13 +1896,13 @@ mod try_state {
 		});
 	}
 
-	// Check 9: ExternalAssets count exceeds MaxExternalAssets.
+	// Check 10: ExternalAssets count exceeds MaxExternalAssets.
 	#[test]
 	fn detects_asset_count_exceeds_bound() {
 		new_test_ext().execute_with(|| {
 			// Check 1 verifies decimals of all approved assets. Create assets with matching
-			// decimals before inserting them into ExternalAssets, so checks 1-4 pass and
-			// check 9 fires.
+			// decimals before inserting them into ExternalAssets, so checks 1-5 pass and
+			// check 10 fires.
 			for id in 10u32..20u32 {
 				create_asset_with_metadata(id);
 				ExternalAssets::<Test>::insert(id, CircuitBreakerLevel::AllEnabled);
@@ -1874,7 +1915,7 @@ mod try_state {
 		});
 	}
 
-	// Check 10 (warn only): zero ceiling + zero debt + non-zero reserve.
+	// Check 11 (warn only): zero ceiling + zero debt + non-zero reserve.
 	#[test]
 	fn zero_ceiling_zero_debt_nonzero_reserve_does_not_error() {
 		new_test_ext().execute_with(|| {
@@ -1886,7 +1927,7 @@ mod try_state {
 		});
 	}
 
-	// Check 11: fee destination account missing.
+	// Check 12: fee destination account missing.
 	#[test]
 	fn detects_missing_fee_destination() {
 		new_test_ext().execute_with(|| {

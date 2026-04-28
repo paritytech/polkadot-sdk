@@ -977,7 +977,22 @@ pub mod pallet {
 				"total_psm_debt() does not match sum of per-asset debts"
 			);
 
-			// Check 4: Total PSM debt must not exceed the global ceiling.
+			// Check 4: Total pUSD issuance must cover total PSM debt.
+			// PSM mints new pUSD on every successful mint and burns on every redeem.
+			// If total pUSD in circulation is less than what the debt ledger claims,
+			// either pUSD was destroyed outside PSM or the debt accounting is corrupted.
+			// Note: Liquity-style vault bad debt can legitimately violate this during bank
+			// runs. The check is kept as a hard error because that scenario is high-value
+			// signal — the fuzzer triggering it indicates a real accounting bug, not an
+			// expected operational state.
+			let total_issuance = T::StableAsset::total_issuance();
+			let total_debt = Self::total_psm_debt();
+			ensure!(
+				total_issuance >= total_debt,
+				"Total pUSD issuance is less than total PSM debt — balance sheet does not close"
+			);
+
+			// Check 5: Total PSM debt must not exceed the global ceiling.
 			// This is a warning, not a hard invariant: governance may lower MaxPsmDebtOfTotal
 			// below current debt, creating a transient state that redemptions or further
 			// governance action can resolve.
@@ -989,7 +1004,7 @@ pub mod pallet {
 				);
 			}
 
-			// Check 5: Per-asset debt exceeding its ceiling is a warning.
+			// Check 6: Per-asset debt exceeding its ceiling is a warning.
 			// Governance may change weights or MaxPsmDebtOfTotal, transiently causing
 			// per-asset debt to exceed the newly computed ceiling.
 			for (asset_id, status) in ExternalAssets::<T>::iter() {
@@ -1007,7 +1022,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 6: No non-zero PsmDebt entry for a non-approved asset.
+			// Check 7: No non-zero PsmDebt entry for a non-approved asset.
 			// Note: if this is violated, check 3 will also fail because total_psm_debt()
 			// iterates all PsmDebt entries while the sum above only covers ExternalAssets.
 			// Both checks are retained since they report distinct invariant violations.
@@ -1020,7 +1035,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 7: Orphan fee/ceiling storage entries (warn only; may be intentional
+			// Check 8: Orphan fee/ceiling storage entries (warn only; may be intentional
 			// pre-configuration via setMintingFee before addExternalAsset).
 			for asset_id in MintingFee::<T>::iter_keys() {
 				if !ExternalAssets::<T>::contains_key(asset_id) {
@@ -1050,21 +1065,21 @@ pub mod pallet {
 				}
 			}
 
-			// Check 8: PSM account must exist.
+			// Check 9: PSM account must exist.
 			let psm_account = Self::account_id();
 			ensure!(
 				frame_system::Pallet::<T>::account_exists(&psm_account),
 				"PSM account does not exist"
 			);
 
-			// Check 9: ExternalAssets count within bound.
+			// Check 10: ExternalAssets count within bound.
 			let count = ExternalAssets::<T>::iter_keys().count() as u32;
 			ensure!(
 				count <= T::MaxExternalAssets::get(),
 				"ExternalAssets count exceeds MaxExternalAssets"
 			);
 
-			// Check 10: Zero ceiling weight + zero debt implies zero reserve.
+			// Check 11: Zero ceiling weight + zero debt implies zero reserve.
 			// Non-zero reserve under these conditions is likely a donation or bug.
 			for (asset_id, _) in ExternalAssets::<T>::iter() {
 				if AssetCeilingWeight::<T>::get(asset_id).is_zero()
@@ -1081,7 +1096,7 @@ pub mod pallet {
 				}
 			}
 
-			// Check 11: Fee destination account must exist.
+			// Check 12: Fee destination account must exist.
 			ensure!(
 				frame_system::Pallet::<T>::account_exists(&T::FeeDestination::get()),
 				"Fee destination account does not exist"

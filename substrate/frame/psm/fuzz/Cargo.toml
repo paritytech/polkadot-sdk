@@ -31,3 +31,10 @@ bench = false
 [[bin]]
 name = "psm_stateful"
 path = "fuzz_targets/psm_stateful.rs"
+
+[[bin]]
+name = "psm_replay"
+path = "fuzz_targets/psm_replay.rs"
+test = false
+doc = false
+bench = false
