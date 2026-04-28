@@ -38,7 +38,7 @@ jobs:
         network:
           [
             westend,
-            asset-hub-westend,
+            # asset-hub-westend,
             bridge-hub-westend,
             collectives-westend,
             coretime-westend,
@@ -46,8 +46,8 @@ jobs:
         include:
           - network: westend
             uri: "wss://try-runtime-westend.polkadot.io:443"
-          - network: asset-hub-westend
-            uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
+          # - network: asset-hub-westend
+          #   uri: "wss://westend-asset-hub-rpc.polkadot.io:443"
           - network: bridge-hub-westend
             uri: "wss://westend-bridge-hub-rpc.polkadot.io:443"
           - network: collectives-westend
@@ -120,7 +120,7 @@ jobs:
         network:
           [
             westend,
-            asset-hub-westend,
+            # asset-hub-westend,
             bridge-hub-westend,
             collectives-westend,
             coretime-westend,
@@ -131,11 +131,11 @@ jobs:
             wasm: westend_runtime.compact.compressed.wasm
             subcommand_extra_args: "--no-weight-warnings --blocktime 6000"
             command_extra_args: ""
-          - network: asset-hub-westend
-            package: asset-hub-westend-runtime
-            wasm: asset_hub_westend_runtime.compact.compressed.wasm
-            subcommand_extra_args: " --blocktime 6000"
-            command_extra_args: ""
+          # - network: asset-hub-westend
+          #   package: asset-hub-westend-runtime
+          #   wasm: asset_hub_westend_runtime.compact.compressed.wasm
+          #   subcommand_extra_args: " --blocktime 6000"
+          #   command_extra_args: ""
           - network: bridge-hub-westend
             package: bridge-hub-westend-runtime
             wasm: bridge_hub_westend_runtime.compact.compressed.wasm
