@@ -338,6 +338,17 @@ pub trait Benchmarking {
 		self.set_whitelist(whitelist);
 	}
 
+	/// Add a storage key prefix to the whitelist. All keys starting with this prefix
+	/// will be treated as whitelisted.
+	fn add_prefix_to_whitelist(&mut self, prefix: PassFatPointerAndRead<Vec<u8>>) {
+		let mut whitelist = self.get_whitelist();
+		let key: TrackedStorageKey = prefix.to_vec().into();
+		if !whitelist.iter().any(|x| x.key == key.key) {
+			whitelist.push(key);
+		}
+		self.set_whitelist(whitelist);
+	}
+
 	fn get_read_and_written_keys(
 		&self,
 	) -> AllocateAndReturnByCodec<Vec<(Vec<u8>, u32, u32, bool)>> {

@@ -69,6 +69,9 @@ struct KeyTracker {
 	/// We track the total number of reads and writes to these keys,
 	/// not de-duplicated for repeats.
 	child_keys: LinkedHashMap<Vec<u8>, LinkedHashMap<Vec<u8>, TrackedStorageKey>>,
+	/// Whitelisted key prefixes. Any tracked key starting with one of these prefixes
+	/// will be marked as whitelisted.
+	whitelisted_prefixes: Vec<Vec<u8>>,
 }
 
 /// State that manages the backend database reference. Allows runtime to control the database.
@@ -149,6 +152,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 				main_keys: Default::default(),
 				child_keys: Default::default(),
 				enable_tracking,
+				whitelisted_prefixes: Vec::new(),
 			})),
 			whitelist: Default::default(),
 			proof_recorder: record_proof.then(Default::default),
@@ -213,6 +217,7 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 		let mut key_tracker = self.key_tracker.lock();
 		key_tracker.main_keys = LinkedHashMap::new();
 		key_tracker.child_keys = LinkedHashMap::new();
+		key_tracker.whitelisted_prefixes = Vec::new();
 		key_tracker.add_whitelist(&self.whitelist.borrow());
 	}
 
@@ -232,10 +237,31 @@ impl<Hasher: Hash> BenchmarkingState<Hasher> {
 impl KeyTracker {
 	fn add_whitelist(&mut self, whitelist: &[TrackedStorageKey]) {
 		whitelist.iter().for_each(|key| {
+			// Store the whitelist key as a prefix for prefix-based matching.
+			let prefix = key.key.clone();
+			if !self.whitelisted_prefixes.iter().any(|p| *p == prefix) {
+				self.whitelisted_prefixes.push(prefix);
+			}
+
+			// Insert as exact whitelisted entry (existing behavior).
 			let mut whitelisted = TrackedStorageKey::new(key.key.clone());
 			whitelisted.whitelist();
 			self.main_keys.insert(key.key.clone(), whitelisted);
+
+			// Mark any existing tracked keys that start with this whitelist key as
+			// whitelisted.
+			let whitelist_key = &key.key;
+			for (tracked_key, tracker) in self.main_keys.iter_mut() {
+				if tracked_key.starts_with(whitelist_key) && !tracker.whitelisted {
+					tracker.whitelist();
+				}
+			}
 		});
+	}
+
+	/// Check if a key falls under any whitelisted prefix.
+	fn is_prefix_whitelisted(&self, key: &[u8]) -> bool {
+		self.whitelisted_prefixes.iter().any(|prefix| key.starts_with(prefix))
 	}
 
 	// Childtrie is identified by its storage key (i.e. `ChildInfo::storage_key`)
@@ -243,6 +269,10 @@ impl KeyTracker {
 		if !self.enable_tracking {
 			return;
 		}
+
+		// Pre-compute prefix whitelist check for new keys (main trie only).
+		let prefix_whitelisted =
+			childtrie.is_none() && self.is_prefix_whitelisted(key);
 
 		let child_key_tracker = &mut self.child_keys;
 		let main_key_tracker = &mut self.main_keys;
@@ -257,6 +287,9 @@ impl KeyTracker {
 			None => {
 				let mut has_been_read = TrackedStorageKey::new(key.to_vec());
 				has_been_read.add_read();
+				if prefix_whitelisted {
+					has_been_read.whitelist();
+				}
 				key_tracker.insert(key.to_vec(), has_been_read);
 				true
 			},
@@ -285,6 +318,10 @@ impl KeyTracker {
 			return;
 		}
 
+		// Pre-compute prefix whitelist check for new keys (main trie only).
+		let prefix_whitelisted =
+			childtrie.is_none() && self.is_prefix_whitelisted(key);
+
 		let child_key_tracker = &mut self.child_keys;
 		let main_key_tracker = &mut self.main_keys;
 
@@ -299,6 +336,9 @@ impl KeyTracker {
 			None => {
 				let mut has_been_written = TrackedStorageKey::new(key.to_vec());
 				has_been_written.add_write();
+				if prefix_whitelisted {
+					has_been_written.whitelist();
+				}
 				key_tracker.insert(key.to_vec(), has_been_written);
 				true
 			},

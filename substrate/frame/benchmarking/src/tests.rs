@@ -45,6 +45,11 @@ mod pallet_test {
 	#[pallet::storage]
 	pub(crate) type Value<T: Config> = StorageValue<_, u32, OptionQuery>;
 
+	/// A storage map with whitelist_storage to test prefix-based whitelisting.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub(crate) type Map<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32, OptionQuery>;
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		pub fn set_value(origin: OriginFor<T>, n: u32) -> DispatchResult {
@@ -420,4 +425,33 @@ mod benchmarks {
 			assert_eq!(got, output);
 		});
 	}
+}
+
+#[test]
+fn whitelist_storage_maps_includes_prefix() {
+	use frame_support::traits::WhitelistedStorageKeys;
+	use sp_core::hexdisplay::HexDisplay;
+	use std::collections::BTreeSet;
+
+	// Get all whitelisted keys from the test pallet.
+	let whitelist: BTreeSet<String> = AllPalletsWithSystem::whitelisted_storage_keys()
+		.iter()
+		.map(|s| HexDisplay::from(&s.key).to_string())
+		.collect();
+
+	// The Map storage in pallet_test should be whitelisted.
+	// Its prefix is twox_128("TestPallet") ++ twox_128("Map").
+	let pallet_prefix = sp_io::hashing::twox_128(b"TestPallet");
+	let storage_prefix = sp_io::hashing::twox_128(b"Map");
+	let mut expected_prefix = Vec::new();
+	expected_prefix.extend_from_slice(&pallet_prefix);
+	expected_prefix.extend_from_slice(&storage_prefix);
+	let expected_hex = HexDisplay::from(&expected_prefix).to_string();
+
+	assert!(
+		whitelist.contains(&expected_hex),
+		"Map prefix {} should be in whitelist, but whitelist is: {:?}",
+		expected_hex,
+		whitelist,
+	);
 }

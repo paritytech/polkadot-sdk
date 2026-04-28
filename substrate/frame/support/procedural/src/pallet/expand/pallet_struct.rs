@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::pallet::{expand::merge_where_clauses, Def};
+use crate::pallet::{expand::merge_where_clauses, parse::storage::Metadata, Def};
 use frame_support_procedural_tools::get_doc_literals;
 
 /// * Add derive trait on Pallet
@@ -179,10 +179,41 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 			)
 		};
 
-	let whitelisted_storage_idents: Vec<syn::Ident> = def
+	// Separate whitelisted storages into values (exact key) and maps (prefix key).
+	let whitelisted_value_idents: Vec<syn::Ident> = def
 		.storages
 		.iter()
-		.filter_map(|s| s.whitelisted.then(|| s.ident.clone()))
+		.filter_map(|s| {
+			s.whitelisted
+				.then(|| matches!(s.metadata, Metadata::Value { .. }).then(|| s.ident.clone()))
+				.flatten()
+		})
+		.collect();
+
+	let whitelisted_map_key_tokens: Vec<proc_macro2::TokenStream> = def
+		.storages
+		.iter()
+		.filter_map(|s| {
+			if !s.whitelisted {
+				return None;
+			}
+			match &s.metadata {
+				Metadata::Value { .. } => None,
+				Metadata::Map { .. } |
+				Metadata::CountedMap { .. } |
+				Metadata::DoubleMap { .. } |
+				Metadata::NMap { .. } |
+				Metadata::CountedNMap { .. } => {
+					let prefix_struct = syn::Ident::new(
+						&format!("_GeneratedPrefixForStorage{}", s.ident),
+						s.ident.span(),
+					);
+					Some(quote::quote! {
+						<#prefix_struct<#type_use_gen> as #frame_support::traits::StorageInstance>::prefix_hash().to_vec()
+					})
+				},
+			}
+		})
 		.collect();
 
 	let whitelisted_storage_keys_impl = quote::quote![
@@ -190,9 +221,20 @@ pub fn expand_pallet_struct(def: &mut Def) -> proc_macro2::TokenStream {
 		impl<#type_impl_gen> WhitelistedStorageKeys for #pallet_ident<#type_use_gen> #storages_where_clauses {
 			fn whitelisted_storage_keys() -> #frame_support::__private::Vec<TrackedStorageKey> {
 				use #frame_support::__private::vec;
-				vec![#(
-					TrackedStorageKey::new(#whitelisted_storage_idents::<#type_use_gen>::hashed_key().to_vec())
-				),*]
+				let mut keys = #frame_support::__private::Vec::new();
+				// Whitelist storage values by exact key.
+				#(
+					keys.push(TrackedStorageKey::new(
+						#whitelisted_value_idents::<#type_use_gen>::hashed_key().to_vec()
+					));
+				)*
+				// Whitelist storage maps by prefix key.
+				#(
+					keys.push(TrackedStorageKey::new(
+						#whitelisted_map_key_tokens
+					));
+				)*
+				keys
 			}
 		}
 	];
