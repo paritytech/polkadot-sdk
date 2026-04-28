@@ -1293,15 +1293,14 @@ pub mod pallet {
 			let amount_in_with_fee = amount_in
 				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
-			let amount_in_net =
-				amount_in.checked_mul(&amount_net_ratio).ok_or(Error::<T>::Overflow)?;
 
-			let numerator = amount_in_net.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
+			let numerator =
+				amount_in_with_fee.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
 				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?
-				.checked_add(&amount_in_net)
+				.checked_add(&amount_in_with_fee)
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator.checked_div(&denominator).ok_or(Error::<T>::Overflow)?;

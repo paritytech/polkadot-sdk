@@ -1036,7 +1036,9 @@ fn event_from_runtime_upgrade_is_included() {
 		System::set_block_number(1);
 
 		Executive::initialize_block(&Header::new_from_number(2));
-		System::assert_last_event(frame_system::Event::<Runtime>::CodeUpdated { hash: H256::repeat_byte(123) }.into());
+		System::assert_last_event(
+			frame_system::Event::<Runtime>::CodeUpdated { hash: H256::repeat_byte(123) }.into(),
+		);
 	});
 }
 
