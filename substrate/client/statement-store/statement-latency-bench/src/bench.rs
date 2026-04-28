@@ -179,7 +179,7 @@ struct ClientConfig {
 	fail_fast: bool,
 }
 
-#[allow(clippy::too_many_arguments)] // TODO: collapse into `&ClientConfig` in a follow-up.
+#[allow(clippy::too_many_arguments)]
 async fn execute_round(
 	client_id: u32,
 	round: usize,
@@ -285,13 +285,18 @@ async fn execute_round(
 					),
 				});
 			},
-			other => {
+			Ok(None) => {
 				return Err(RoundFailure {
 					round,
-					error: "RPC connection lost while receiving statements".into(),
-					detail: format!(
-						"received {received_count}/{expected_count}, result: {other:?}"
-					),
+					error: "Subscription closed by server".into(),
+					detail: format!("received {received_count}/{expected_count}"),
+				});
+			},
+			Ok(Some(Err(e))) => {
+				return Err(RoundFailure {
+					round,
+					error: "Subscription stream error".into(),
+					detail: format!("received {received_count}/{expected_count}, error: {e}"),
 				});
 			},
 		}
@@ -345,7 +350,26 @@ async fn run_client(
 	let keyring = get_keypair(client_id);
 	let expected_count = messages_per_client(&messages_pattern) as u32;
 
-	barrier.wait().await;
+	// Same cancel-safety caveat as the inter-round barrier: if any peer never reaches
+	// this point, the rest would block forever without a timeout.
+	if timeout(Duration::from_millis(receive_timeout_ms), barrier.wait())
+		.await
+		.is_err()
+	{
+		warn!(
+			"Client {client_id}: Startup sync timed out \
+			 (another client likely failed before reaching the barrier)"
+		);
+		peer_failed.store(true, Ordering::Relaxed);
+		return ClientResult {
+			successes: Vec::new(),
+			failures: vec![RoundFailure {
+				round: 0,
+				error: "Startup sync timed out".into(),
+				detail: String::new(),
+			}],
+		};
+	}
 
 	if is_leader(client_id) {
 		info!(
@@ -362,6 +386,7 @@ async fn run_client(
 	let mut successes = Vec::with_capacity(num_rounds);
 	let mut failures = Vec::new();
 
+	// Use human 1-based round numbering for logging
 	for round in 1..(num_rounds + 1) {
 		let round_start = std::time::Instant::now();
 
@@ -615,13 +640,18 @@ fn report_results(
 	num_clients: u32,
 	num_rounds: usize,
 ) {
-	// `round == 0` is reserved for task-level failures (panics) that are not tied to
-	// a specific round; partition them out so the "Round Failed:" report stays clean.
+	// Aggregate report only retains the `error` discriminant — per-instance `detail`
+	// is emitted at failure time via `warn!` and not summarised here. If a future
+	// run needs richer aggregation, fold detail into the per-round group below.
+	//
+	// `round == 0` is reserved for task-level failures (panics, startup-sync
+	// timeouts) that are not tied to a specific round; partition them out so the
+	// "Round Failed:" report stays clean.
 	let mut failures_by_round: HashMap<usize, Vec<&str>> = HashMap::new();
-	let mut panic_failures: Vec<&str> = Vec::new();
+	let mut task_failures: Vec<&str> = Vec::new();
 	for f in failures {
 		if f.round == 0 {
-			panic_failures.push(&f.error);
+			task_failures.push(&f.error);
 		} else {
 			failures_by_round.entry(f.round).or_default().push(&f.error);
 		}
@@ -629,22 +659,24 @@ fn report_results(
 	let mut failed_rounds: Vec<_> = failures_by_round.keys().copied().collect();
 	failed_rounds.sort();
 
-	for round in &failed_rounds {
-		let errors = &failures_by_round[round];
-		let failed_clients = errors.len();
-
-		let mut error_counts: HashMap<&str, u32> = HashMap::new();
+	let group_errors = |errors: &[&str]| -> String {
+		let mut counts: HashMap<&str, u32> = HashMap::new();
 		for error in errors {
-			*error_counts.entry(error).or_default() += 1;
+			*counts.entry(error).or_default() += 1;
 		}
-		let mut counts: Vec<_> = error_counts.into_iter().collect();
+		let mut counts: Vec<_> = counts.into_iter().collect();
 		counts.sort_by(|a, b| b.1.cmp(&a.1));
-
-		let errors_str: String = counts
+		counts
 			.iter()
 			.map(|(msg, count)| format!("{msg} ({count})"))
 			.collect::<Vec<_>>()
-			.join("; ");
+			.join("; ")
+	};
+
+	for round in &failed_rounds {
+		let errors = &failures_by_round[round];
+		let failed_clients = errors.len();
+		let errors_str = group_errors(errors);
 
 		warn!(
 			"Round Failed: round={round} failed_clients={failed_clients} \
@@ -652,21 +684,28 @@ fn report_results(
 		);
 	}
 
-	if !panic_failures.is_empty() {
-		warn!("Task panicked: count={} total_clients={num_clients}", panic_failures.len());
+	if !task_failures.is_empty() {
+		let errors_str = group_errors(&task_failures);
+		warn!(
+			"Task Failed: failed_clients={} total_clients={num_clients} errors=[{errors_str}]",
+			task_failures.len()
+		);
 	}
 
 	if !successes.is_empty() {
 		print_statistics(successes);
 	}
 
-	let successful_rounds: HashSet<usize> = successes.iter().map(|s| s.round).collect();
-	let successful_rounds = successful_rounds.len();
-	let failed_round_count = failed_rounds.len();
+	// `rounds_with_any_success` counts distinct round numbers in which at least one
+	// client succeeded — not "rounds where every client succeeded". A round shows up
+	// here even if only one of N clients made it through.
+	let rounds_with_any_success: HashSet<usize> = successes.iter().map(|s| s.round).collect();
+	let rounds_with_any_success = rounds_with_any_success.len();
+	let rounds_with_failures = failed_rounds.len();
 
 	info!(
-		"Benchmark Finished: successful_rounds={successful_rounds} \
-		 failed_rounds={failed_round_count} total_rounds={num_rounds} \
+		"Benchmark Finished: rounds_with_any_success={rounds_with_any_success} \
+		 rounds_with_failures={rounds_with_failures} total_rounds={num_rounds} \
 		 total_clients={num_clients}"
 	);
 }
