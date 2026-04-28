@@ -30,7 +30,7 @@ crates:
 - name: pallet-psm-remote-tests
   bump: major
 - name: asset-hub-westend-runtime
-  bump: patch
+  bump: minor
 - name: remote-ext-tests-psm
   bump: patch
 - name: frame-support
