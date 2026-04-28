@@ -9,16 +9,18 @@ doc:
     Closes https://github.com/paritytech/polkadot-sdk/issues/9442
 crates:
 - name: pallet-staking
-  bump: major
+  bump: patch
 - name: westend-runtime
   bump: major
 - name: pallet-root-offences
-  bump: major
+  bump: patch
 - name: frame-support
-  bump: major
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: patch
 - name: generate-bags
-  bump: major
+  bump: minor
 - name: polkadot-voter-bags
-  bump: major
+  bump: patch
+- name: polkadot-sdk
+  bump: minor
