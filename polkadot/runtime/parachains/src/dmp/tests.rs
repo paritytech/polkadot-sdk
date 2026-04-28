@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{
+	migration::{self, MigrateV0ToV1},
 	mock::{
 		default_genesis_config, execute_with_try_state, new_test_ext_integrity, pages_in_storage,
 		queue_downward_message, register_paras, run_to_block, EXPECTED_LAZY_DELETE_PAGES,
@@ -25,8 +26,9 @@ use crate::{
 	configuration::ActiveConfig,
 	mock::{new_test_ext, Dmp, System, Test},
 };
+use alloc::collections::BTreeMap;
 use codec::Encode;
-use frame_support::{assert_ok, weights::WeightMeter};
+use frame_support::{assert_ok, migrations::SteppedMigration, weights::WeightMeter};
 use hex_literal::hex;
 use sp_arithmetic::traits::Saturating;
 
@@ -1434,4 +1436,122 @@ fn inbound_downward_queue_meta_codec_roundtrip() {
 	let bytes = original.encode();
 	let decoded: InboundDownwardQueueMeta = Decode::decode(&mut &bytes[..]).unwrap();
 	assert_eq!(decoded, original);
+}
+
+#[test]
+fn migrate_v0_to_v1_step_drains_multiple_paras_across_many_steps() {
+	// Drive `step` repeatedly with a tight meter: multiple paras, multiple
+	// messages each, budget that forces partial progress within paras and
+	// across paras. Loop until `Ok(None)`, then verify v0 is fully drained
+	// and every old message is present in the new layout in order.
+	new_test_ext_integrity(default_genesis_config(), || {
+		let paras: Vec<ParaId> = (1..=4).map(ParaId::from).collect();
+		let msgs_per_para: u8 = 7;
+
+		let mut expected: BTreeMap<
+			ParaId,
+			Vec<InboundDownwardMessage<polkadot_primitives::BlockNumber>>,
+		> = BTreeMap::new();
+		for &p in &paras {
+			let v: Vec<_> = (0..msgs_per_para)
+				.map(|i| InboundDownwardMessage {
+					sent_at: u32::from(p) as polkadot_primitives::BlockNumber,
+					msg: vec![u32::from(p) as u8, i],
+				})
+				.collect();
+			migration::v0::DownwardMessageQueues::<Test>::insert(p, &v);
+			expected.insert(p, v);
+		}
+
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+
+		// Per step: base + per_iter + at most 2 per_msg, so each step migrates
+		// at most ~2 messages. Total work = 4 * 7 = 28 messages → many steps.
+		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
+
+		let mut cursor: Option<<MigrateV0ToV1<Test> as SteppedMigration>::Cursor> = None;
+		let mut steps = 0u32;
+		let mut completed_in_one_step = false;
+		loop {
+			let mut meter = WeightMeter::with_limit(budget);
+			let ret = MigrateV0ToV1::<Test>::step(cursor.clone(), &mut meter)
+				.expect("step has enough headroom for the configured budget");
+			steps += 1;
+
+			if steps == 1 && ret.is_none() {
+				completed_in_one_step = true;
+			}
+
+			match ret {
+				None => break,
+				Some(c) => cursor = Some(c),
+			}
+			assert!(steps < 1000, "migration not making progress");
+		}
+
+		// Sanity: with this budget the migration must take more than one step.
+		assert!(
+			!completed_in_one_step,
+			"test budget too generous — migration finished in one step"
+		);
+		assert!(steps > 1, "expected multiple steps, got {}", steps);
+
+		// v0 fully drained.
+		assert_eq!(
+			migration::v0::DownwardMessageQueues::<Test>::iter().count(),
+			0,
+			"v0 still has entries after migration loop completed",
+		);
+
+		// Each para's old messages appear as ordered pages with matching meta.
+		for (para, msgs) in expected {
+			let total = msgs.len() as u64;
+			let meta = DownwardMessageQueueMeta::<Test>::get(para)
+				.unwrap_or_else(|| panic!("meta missing for {:?}", para));
+			assert_eq!(meta.first_full, 0, "first_full for {:?}", para);
+			assert_eq!(meta.first_free, total, "first_free for {:?}", para);
+			for (i, msg) in msgs.into_iter().enumerate() {
+				let page = DownwardMessageQueuePages::<Test>::get(para, i as PageIndex)
+					.unwrap_or_else(|| panic!("page {} missing for {:?}", i, para));
+				assert_eq!(page, msg, "page {} content mismatch for {:?}", i, para);
+			}
+		}
+	});
+}
+
+#[test]
+fn migrate_v0_to_v1_step_returns_some_cursor_on_partial_first_step() {
+	// Bug repro: when `step` is invoked with `cursor = None` and the meter only
+	// allows partial migration of the first para, the partial-migration branch
+	// re-stores the remainder back into v0 and breaks out without ever assigning
+	// `cursor = Some(para)`. The function then returns `Ok(None)`, which the
+	// `pallet-migrations` runner interprets as "migration finished" — orphaning
+	// the v0 tail.
+	new_test_ext_integrity(default_genesis_config(), || {
+		let a = ParaId::from(1234);
+
+		// 10 messages so a tight meter cannot finish the para in one step.
+		let msgs: Vec<InboundDownwardMessage<polkadot_primitives::BlockNumber>> =
+			(0..10u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(a, &msgs);
+
+		let base = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_base();
+		let per_iter = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <Test as crate::dmp::Config>::WeightInfo::migrate_v0_to_v1_step_msg();
+
+		// Enough for base + one outer iter + ~2 messages, but not all 10. This
+		// guarantees we hit the partial-migration branch.
+		let budget = base.saturating_add(per_iter).saturating_add(per_msg.saturating_mul(2));
+		let mut meter = WeightMeter::with_limit(budget);
+
+		let result = MigrateV0ToV1::<Test>::step(None, &mut meter);
+
+		assert!(
+			matches!(result, Ok(Some(_))),
+			"MigrateV0ToV1 returned {:?} before v0 was drained — runner will mark migration as finished and orphan remaining data",
+			result,
+		);
+	});
 }

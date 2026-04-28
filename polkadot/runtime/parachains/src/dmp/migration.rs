@@ -25,6 +25,7 @@
 use super::*;
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::ValueQuery,
@@ -32,6 +33,22 @@ use frame_support::{
 	weights::WeightMeter,
 	Twox64Concat,
 };
+use scale_info::TypeInfo;
+
+/// Resume position for [`MigrateV0ToV1`].
+///
+/// Returning `Ok(None)` from [`SteppedMigration::step`] tells `pallet-migrations`
+/// the migration is finished. Whenever there is still data left in
+/// `v0::DownwardMessageQueues` we must therefore return `Some(_)`.
+#[derive(Encode, Decode, MaxEncodedLen, TypeInfo, PartialEq, Eq, Clone, Debug)]
+pub enum MigrationCursor {
+	/// Resume by taking the next entry from `v0::DownwardMessageQueues::iter()`.
+	Iterate,
+	/// Resume mid-para: pages `[0, next)` have already been written for `para`;
+	/// `v0[para]` still holds the original `Vec` and the remainder from index
+	/// `next` onward still needs writing.
+	InProgress { para: ParaId, next: PageIndex },
+}
 
 /// The in-code storage version.
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
@@ -56,19 +73,18 @@ pub mod v0 {
 
 /// Migrate `v0::DownwardMessageQueues` into the paged layout.
 ///
-/// One full para is migrated per loop iteration (read the old `Vec`, write the
-/// meta, write each page, delete the old entry). The cursor stores the last
-/// fully-migrated `ParaId`; `None` means "start at the first remaining entry".
+/// On each call, the step processes paras from `v0::DownwardMessageQueues` in
+/// iteration order, writing each message of the old `Vec` as a separate page
+/// in `DownwardMessageQueuePages`. When a para is fully migrated, its meta is
+/// written and the old entry is removed.
 ///
-/// Two weights are charged: a fixed `migrate_v0_to_v1_step_base` per call, plus
-/// `migrate_v0_to_v1_step_iter` per iteration. The per-iteration weight is
-/// benchmarked against the worst-case para (max-sized messages, the maximum
-/// number that fit under [`MAX_POSSIBLE_ALLOCATION`]) so the meter naturally
-/// caps the number of paras migrated per step.
+/// Two weights are charged: `migrate_v0_to_v1_step_base` once per call, plus
+/// `migrate_v0_to_v1_step_iter` per outer iteration and `migrate_v0_to_v1_step_msg`
+/// per page write.
 pub struct MigrateV0ToV1<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
-	type Cursor = ParaId;
+	type Cursor = MigrationCursor;
 	type Identifier = MigrationId<21>;
 
 	fn id() -> Self::Identifier {
@@ -86,8 +102,8 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 		let per_iter = <T as Config>::WeightInfo::migrate_v0_to_v1_step_iter();
 		let per_msg = <T as Config>::WeightInfo::migrate_v0_to_v1_step_msg();
 
-		// Need headroom for the base plus at least one per-iter, otherwise
-		// this call would make no forward progress.
+		// Need headroom for the base plus at least one per-iter and one per-msg,
+		// otherwise this call would make no forward progress.
 		let minimum = base.saturating_add(per_iter).saturating_add(per_msg);
 		if meter.remaining().any_lt(minimum) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: minimum });
@@ -98,49 +114,68 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			if meter.try_consume(per_iter).is_err() {
 				break;
 			}
-			let mut iter = match cursor {
-				Some(last) => v0::DownwardMessageQueues::<T>::iter_from(
-					v0::DownwardMessageQueues::<T>::hashed_key_for(last),
-				),
-				None => v0::DownwardMessageQueues::<T>::iter(),
+
+			let (para, msgs, start) = match cursor.take() {
+				Some(MigrationCursor::InProgress { para: p, next: k }) => {
+					match v0::DownwardMessageQueues::<T>::try_get(p) {
+						Ok(msgs) => (p, msgs, k),
+						// v0 entry vanished between steps — skip and pick up
+						// the next entry on the following outer iteration.
+						Err(_) => {
+							cursor = Some(MigrationCursor::Iterate);
+							continue;
+						},
+					}
+				},
+				Some(MigrationCursor::Iterate) | None => {
+					let Some((p, msgs)) = v0::DownwardMessageQueues::<T>::iter().next() else {
+						// v0 truly drained — leave cursor as None.
+						break;
+					};
+					(p, msgs, 0u64)
+				},
 			};
 
-			let Some((para, msgs)) = iter.next() else {
-				cursor = None;
-				break;
-			};
+			let mut next = start;
+			let mut idx = start as usize;
+			let mut interrupted = false;
 
-			let mut msgs: alloc::collections::VecDeque<_> = msgs.into();
-			let mut first_free =
-				DownwardMessageQueueMeta::<T>::get(para).map(|m| m.first_free).unwrap_or(0);
+			while let Some(msg) = msgs.get(idx) {
+				DownwardMessageQueuePages::<T>::insert(para, next as PageIndex, msg);
+				next = next.saturating_add(1);
+				idx = idx.saturating_add(1);
 
-			while let Some(msg) = msgs.pop_front() {
-				DownwardMessageQueuePages::<T>::insert(para, first_free as PageIndex, msg);
-				first_free = first_free.saturating_add(1);
-
-				if meter.try_consume(per_msg).is_err() {
+				if msgs.get(idx).is_some() && meter.try_consume(per_msg).is_err() {
+					interrupted = true;
 					break;
 				}
 			}
 
-			if first_free > 0 {
-				DownwardMessageQueueMeta::<T>::insert(
-					para,
-					InboundDownwardQueueMeta { first_full: 0, first_free },
-				);
-			}
+			// Update meta after every step (partial or full) so the pages
+			// already written are not "orphaned" relative to the meta range.
+			DownwardMessageQueueMeta::<T>::insert(
+				para,
+				InboundDownwardQueueMeta { first_full: 0, first_free: next },
+			);
 
-			if msgs.is_empty() {
-				v0::DownwardMessageQueues::<T>::remove(para);
-				cursor = Some(para);
-			} else {
-				let remaining: alloc::vec::Vec<_> = msgs.into();
-				v0::DownwardMessageQueues::<T>::insert(para, &remaining);
+			if interrupted {
+				cursor = Some(MigrationCursor::InProgress { para, next });
 				break;
 			}
+
+			v0::DownwardMessageQueues::<T>::remove(para);
+			// Mark "more work pending" so that an immediate `per_iter` exhaustion
+			// on the next outer iteration still returns `Some(_)`. Becomes `None`
+			// only via the `iter().next() == None` branch above.
+			cursor = Some(MigrationCursor::Iterate);
 		}
 
-		StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+		// Only bump the storage version once the migration has fully finished —
+		// otherwise the `on_chain_storage_version` guard at the top of `step`
+		// would short-circuit subsequent calls and orphan unmigrated data.
+		if cursor.is_none() {
+			StorageVersion::new(Self::id().version_to as u16).put::<Pallet<T>>();
+		}
 		Ok(cursor)
 	}
 
