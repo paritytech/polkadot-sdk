@@ -204,21 +204,27 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 						continue;
 					};
 
-					if <T as pallet::Config>::Currency::hold(
+					let held_deposit = if <T as pallet::Config>::Currency::hold(
 						&crate::HoldReason::SecurityDeposit.into(),
 						&rescuer,
 						security_deposit,
 					)
 					.is_ok()
 					{
-						pallet::Attempt::<T>::insert(
-							&lost,
-							0u32, // group index 0
-							(attempt, ticket, security_deposit),
-						);
+						security_deposit
 					} else {
-						frame_support::defensive!("MigrateV0ToV1: Failed to hold security deposit");
-					}
+						log::warn!(
+							"MigrateV0ToV1: Failed to hold security deposit for rescuer; \
+							 inserting Attempt with zero deposit"
+						);
+						Default::default()
+					};
+
+					pallet::Attempt::<T>::insert(
+						&lost,
+						0u32, // group index 0
+						(attempt, ticket, held_deposit),
+					);
 				},
 				MigrationCursor::Proxy(last_key) => {
 					let mut iter = if let Some(ref key) = last_key {
@@ -491,9 +497,9 @@ mod tests {
 			let rescuer: u64 = 99;
 			let lost = ALICE;
 
-			// Give rescuer a small balance: old_recovery_deposit (reserved) + a bit of free balance.
-			// After unreserve they'll have ~60 free, which covers the attempt ticket but not
-			// SECURITY_DEPOSIT (100).
+			// Give rescuer a small balance: old_recovery_deposit (reserved) + a bit of free
+			// balance. After unreserve they'll have ~60 free, which covers the attempt ticket
+			// but not SECURITY_DEPOSIT (100).
 			let rescuer_free = 50u128;
 			pallet_balances::Pallet::<Test>::force_set_balance(
 				frame_system::RawOrigin::Root.into(),

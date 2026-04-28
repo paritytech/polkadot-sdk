@@ -20,7 +20,7 @@ codec = { features = ["derive"], workspace = true }
 frame = { workspace = true, features = ["runtime"] }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
-log = { workspace = true, optional = true }
+log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 
 [dev-dependencies]
@@ -43,14 +43,13 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame/std",
-	"log?/std",
+	"log/std",
 	"pallet-balances/std",
 	"scale-info/std",
 	"sp-io/std",
 	"sp-runtime/std",
 ]
 try-runtime = [
-	"dep:log",
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"frame/try-runtime",
