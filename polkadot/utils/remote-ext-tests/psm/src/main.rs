@@ -36,11 +36,11 @@ struct Cli {
 }
 
 fn asset_hub_westend_config(asset_id: u32) -> pallet_psm_remote_tests::PsmTestConfig {
-	let stable_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
+	let internal_asset_id = asset_hub_westend_runtime::PsmStablecoinAssetId::get();
 	pallet_psm_remote_tests::PsmTestConfig {
 		external_asset_id: asset_id,
-		stable_asset_id,
-		stable_asset_decimals: 6,
+		internal_asset_id,
+		internal_asset_decimals: 6,
 		assets_pallet_name: "Assets".to_string(),
 		pre_create_hook: None,
 	}
