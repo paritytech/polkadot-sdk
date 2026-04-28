@@ -740,7 +740,7 @@ where
 						metrics.tx_age_at_removal.observe(
 							RemovalReason::InvalidRevalidationMempool,
 							tx_source.source,
-							now.saturating_duration_since(submitted_at),
+							removed_at.saturating_duration_since(submitted_at),
 						);
 					}
 				});
