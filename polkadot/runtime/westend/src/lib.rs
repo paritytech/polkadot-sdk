@@ -94,7 +94,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstU128, ConstU8, ConstUint, OpaqueMetadata, H256};
+use sp_core::{ConstBool, ConstU128, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
@@ -1229,16 +1229,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Grandpa(..) |
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
-				RuntimeCall::ConvictionVoting(..) |
-				RuntimeCall::Referenda(..) |
-				RuntimeCall::Whitelist(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::close_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..}) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
@@ -2029,13 +2019,13 @@ pub mod migrations {
 			WhitelistPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
-		// permanent
-		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 		// Remove the Recovery pallet.
 		frame_support::migrations::RemovePallet<
 			RecoveryPalletName,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		// permanent
+		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
 }
 
@@ -2097,8 +2087,6 @@ mod benches {
 		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
-		[pallet_referenda, Referenda]
-		[pallet_recovery, Recovery]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
