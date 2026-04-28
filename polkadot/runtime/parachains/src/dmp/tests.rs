@@ -1492,8 +1492,7 @@ fn migrate_v0_to_v1_step_drains_multiple_paras_across_many_steps() {
 			assert_eq!(meta.first_full, 0);
 			assert_eq!(meta.first_free, total);
 			for (i, msg) in msgs.into_iter().enumerate() {
-				let page =
-					DownwardMessageQueuePages::<Test>::get(para, i as PageIndex).unwrap();
+				let page = DownwardMessageQueuePages::<Test>::get(para, i as PageIndex).unwrap();
 				assert_eq!(page, msg);
 			}
 		}
@@ -1540,8 +1539,9 @@ fn migrate_v0_to_v1_step_returns_err_on_insufficient_weight() {
 
 		let mut meter = WeightMeter::with_limit(required.saturating_sub(per_msg));
 		match MigrateV0ToV1::<Test>::step(None, &mut meter) {
-			Err(SteppedMigrationError::InsufficientWeight { required: r }) =>
-				assert_eq!(r, required),
+			Err(SteppedMigrationError::InsufficientWeight { required: r }) => {
+				assert_eq!(r, required)
+			},
 			other => panic!("expected InsufficientWeight, got {:?}", other),
 		}
 		// Untouched: no base consumed, no pages written, v0 entry intact.
