@@ -176,7 +176,7 @@ impl<T: Config> InboundDownwardQueue<T> {
 	/// - Every page `(para, idx)` in storage is covered by *either* the para's meta range
 	///   `[first_full, first_free)` *or* its lazy-delete range `[first, last)`. Anything else is an
 	///   orphan.
-	#[cfg(feature = "std")]
+	#[cfg(any(feature = "std", feature = "try-runtime"))]
 	pub fn try_state() {
 		for (para, meta) in DownwardMessageQueueMeta::<T>::iter() {
 			assert!(
