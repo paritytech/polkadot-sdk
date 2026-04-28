@@ -1165,12 +1165,45 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn process_tick_action_renew_region() {
+	fn process_tick_action_renew_region() -> Result<(), BenchmarkError> {
+		setup_and_start_sale::<T>()?;
+		let region_len = Configuration::<T>::get().unwrap().region_length;
+
+		advance_to::<T>(2);
+
+		let caller: T::AccountId = whitelisted_caller();
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance()
+				.saturating_add(REGION_RENEWAL_PRICE.into())
+				.saturating_add(REGION_PRICE.into()),
+		);
+
+		let region = purchase_and_get_region_id::<T>(caller.clone())
+			.expect("Offer not high enough for configuration.");
+
+		Broker::<T>::do_assign(region, None, 1001, Final)
+			.map_err(|_| BenchmarkError::Weightless)?;
+
+		advance_to::<T>((T::TimeslicePeriod::get() * region_len.into()).try_into().ok().unwrap());
+
+		let renewal_id =
+			PotentialRenewalId { core: region.core, when: region.begin + region_len * 2 };
+		let action = TickAction::RenewRegion { owner: caller.clone(), renewal_id };
+
+		let mut meter = WeightMeter::new();
+
 		#[block]
 		{
-			// TODO #10900. This benchmark is useless for the current implementation of the market
-			// logic but will be useful with RFC-17 implementation.
+			Broker::<T>::process_tick_action(action, &mut meter);
 		}
+
+		let was_renewed = get_pallet_events::<T>()
+			.into_iter()
+			.any(|event| matches!(event, Event::<T>::Renewed { who, .. } if who == caller));
+		assert!(was_renewed, "`Renewed` event wasn't detected");
+
+		Ok(())
 	}
 
 	#[benchmark]
@@ -1201,14 +1234,37 @@ mod benches {
 	}
 
 	#[benchmark]
-	fn process_tick_action_refund() {
+	fn process_tick_action_refund() -> Result<(), BenchmarkError> {
+		let caller: T::AccountId = whitelisted_caller();
+
+		const DEPOSIT: u32 = 100;
+
+		T::Currency::set_balance(
+			&caller.clone(),
+			T::Currency::minimum_balance().saturating_add(DEPOSIT.into()),
+		);
+
+		Broker::<T>::lock_funds(&caller, DEPOSIT.into()).map_err(|_| BenchmarkError::Weightless)?;
+
+		assert_eq!(T::Currency::total_balance(&caller), T::Currency::minimum_balance());
+
+		let action = TickAction::Refund { amount: DEPOSIT.into(), who: caller.clone() };
+		let mut meter = WeightMeter::new();
+
 		#[block]
 		{
-			// TODO #10900. This benchmark is useless for the current implementation of the market
-			// logic but will be useful with RFC-17 implementation.
+			Broker::<T>::process_tick_action(action, &mut meter);
 		}
+
+		assert_eq!(
+			T::Currency::total_balance(&caller),
+			T::Currency::minimum_balance().saturating_add(DEPOSIT.into())
+		);
+
+		Ok(())
 	}
 
+	// TODO
 	// #[benchmark]
 	// fn process_tick_action_sale_rotated(
 	// 	n: Linear<0, { MAX_CORE_COUNT.into() }>,
