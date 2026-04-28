@@ -44,7 +44,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	sync::{
 		atomic::{AtomicBool, Ordering},
 		Arc,
@@ -111,17 +111,64 @@ struct Stats {
 	max: f64,
 }
 
-struct RoundFailure {
-	round: usize,
-	/// Groupable error description (same for all clients hitting the same issue)
-	error: String,
-	/// Per-client detail (e.g., how many statements were received)
-	detail: String,
+/// Closed set of failure categories. Used as the grouping discriminant in the
+/// aggregate report; per-instance diagnostic detail is logged at failure time
+/// and not retained.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+enum FailureKind {
+	TooManyTopics,
+	SubscribeFailed,
+	SubmitFailed,
+	PropagationTimeout,
+	SubscriptionClosed,
+	SubscriptionStreamError,
+	PeerFailed,
+	InterRoundSyncTimeout,
+	StartupSyncTimeout,
+	TaskPanicked,
+}
+
+impl FailureKind {
+	fn is_task_level(&self) -> bool {
+		matches!(self, Self::StartupSyncTimeout | Self::TaskPanicked)
+	}
+}
+
+impl std::fmt::Display for FailureKind {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(match self {
+			Self::TooManyTopics => "Too many topics",
+			Self::SubscribeFailed => "Failed to open RPC subscription",
+			Self::SubmitFailed => "Failed to submit statement via RPC",
+			Self::PropagationTimeout => "Statement propagation timeout",
+			Self::SubscriptionClosed => "Subscription closed by server",
+			Self::SubscriptionStreamError => "Subscription stream error",
+			Self::PeerFailed => "Peer failed; stopping early",
+			Self::InterRoundSyncTimeout => "Inter-round sync timed out",
+			Self::StartupSyncTimeout => "Startup sync timed out",
+			Self::TaskPanicked => "Task panicked",
+		})
+	}
+}
+
+fn fail(
+	client_id: impl std::fmt::Display,
+	round_info: Option<(usize, usize)>,
+	error: FailureKind,
+	detail: impl std::fmt::Display,
+) -> FailureKind {
+	let round_info = match round_info {
+		Some((round, num_rounds)) => format!("Round {round}/{num_rounds}: "),
+		None => String::new(),
+	};
+	warn!("Client {client_id}: {round_info}{error} ({detail})");
+
+	error
 }
 
 struct ClientResult {
 	successes: Vec<RoundStats>,
-	failures: Vec<RoundFailure>,
+	failures: Vec<FailureKind>,
 }
 
 fn parse_messages_pattern(pattern: &str) -> Result<Vec<(usize, usize)>, anyhow::Error> {
@@ -179,20 +226,24 @@ struct ClientConfig {
 	fail_fast: bool,
 }
 
-#[allow(clippy::too_many_arguments)]
 async fn execute_round(
-	client_id: u32,
 	round: usize,
-	num_rounds: usize,
-	test_run_id: u64,
-	neighbour_id: u32,
-	expected_count: u32,
-	messages_pattern: &[(usize, usize)],
+	config: &ClientConfig,
 	rpc_client: &WsClient,
 	keyring: &sp_core::sr25519::Pair,
-	receive_timeout_ms: u64,
-	statement_expiry_ms: u64,
-) -> Result<RoundStats, RoundFailure> {
+) -> Result<RoundStats, FailureKind> {
+	let &ClientConfig {
+		client_id,
+		neighbour_id,
+		num_rounds,
+		test_run_id,
+		ref messages_pattern,
+		receive_timeout_ms,
+		statement_expiry_ms,
+		..
+	} = config;
+
+	let expected_count = messages_per_client(messages_pattern) as u32;
 	let round_start = std::time::Instant::now();
 	let mut sent_count: u32 = 0;
 
@@ -201,10 +252,13 @@ async fn execute_round(
 		.collect();
 
 	let bounded_topics: BoundedVec<Topic, ConstU32<128>> =
-		expected_topics.try_into().map_err(|_| RoundFailure {
-			round,
-			error: "Too many topics".into(),
-			detail: format!("max 128, got {expected_count}"),
+		expected_topics.try_into().map_err(|_| {
+			fail(
+				client_id,
+				Some((round, num_rounds)),
+				FailureKind::TooManyTopics,
+				format!("max 128, got {expected_count}"),
+			)
 		})?;
 
 	let mut subscription: Subscription<StatementEvent> = rpc_client
@@ -214,11 +268,7 @@ async fn execute_round(
 			"statement_unsubscribeStatement",
 		)
 		.await
-		.map_err(|e| RoundFailure {
-			round,
-			error: "Failed to open RPC subscription".into(),
-			detail: format!("{e}"),
-		})?;
+		.map_err(|e| fail(client_id, Some((round, num_rounds)), FailureKind::SubscribeFailed, e))?;
 
 	for &(count, size) in messages_pattern {
 		for _ in 0..count {
@@ -239,14 +289,10 @@ async fn execute_round(
 			statement.sign_sr25519_private(keyring);
 
 			let encoded: Bytes = statement.encode().into();
-			let result: SubmitResult = rpc_client
-				.request("statement_submit", rpc_params![encoded])
-				.await
-				.map_err(|e| RoundFailure {
-					round,
-					error: "Failed to submit statement via RPC".into(),
-					detail: format!("{e}"),
-				})?;
+			let result: SubmitResult =
+				rpc_client.request("statement_submit", rpc_params![encoded]).await.map_err(
+					|e| fail(client_id, Some((round, num_rounds)), FailureKind::SubmitFailed, e),
+				)?;
 
 			sent_count += 1;
 			if is_leader(client_id) {
@@ -277,27 +323,30 @@ async fn execute_round(
 				}
 			},
 			Err(_) => {
-				return Err(RoundFailure {
-					round,
-					error: "Statement propagation timeout".into(),
-					detail: format!(
+				return Err(fail(
+					client_id,
+					Some((round, num_rounds)),
+					FailureKind::PropagationTimeout,
+					format!(
 						"received {received_count}/{expected_count} after {receive_timeout_ms}ms"
 					),
-				});
+				));
 			},
 			Ok(None) => {
-				return Err(RoundFailure {
-					round,
-					error: "Subscription closed by server".into(),
-					detail: format!("received {received_count}/{expected_count}"),
-				});
+				return Err(fail(
+					client_id,
+					Some((round, num_rounds)),
+					FailureKind::SubscriptionClosed,
+					format!("received {received_count}/{expected_count}"),
+				));
 			},
 			Ok(Some(Err(e))) => {
-				return Err(RoundFailure {
-					round,
-					error: "Subscription stream error".into(),
-					detail: format!("received {received_count}/{expected_count}, error: {e}"),
-				});
+				return Err(fail(
+					client_id,
+					Some((round, num_rounds)),
+					FailureKind::SubscriptionStreamError,
+					format!("received {received_count}/{expected_count}, error: {e}"),
+				));
 			},
 		}
 	}
@@ -334,21 +383,17 @@ async fn run_client(
 	peer_failed: Arc<AtomicBool>,
 	sync_start: std::time::Instant,
 ) -> ClientResult {
-	let ClientConfig {
+	let &ClientConfig {
 		client_id,
-		neighbour_id,
 		num_clients,
 		num_rounds,
-		test_run_id,
-		messages_pattern,
 		receive_timeout_ms,
 		interval_ms,
-		statement_expiry_ms,
 		fail_fast,
-	} = config;
+		..
+	} = &config;
 
 	let keyring = get_keypair(client_id);
-	let expected_count = messages_per_client(&messages_pattern) as u32;
 
 	// Same cancel-safety caveat as the inter-round barrier: if any peer never reaches
 	// this point, the rest would block forever without a timeout.
@@ -356,18 +401,15 @@ async fn run_client(
 		.await
 		.is_err()
 	{
-		warn!(
-			"Client {client_id}: Startup sync timed out \
-			 (another client likely failed before reaching the barrier)"
-		);
 		peer_failed.store(true, Ordering::Relaxed);
 		return ClientResult {
 			successes: Vec::new(),
-			failures: vec![RoundFailure {
-				round: 0,
-				error: "Startup sync timed out".into(),
-				detail: String::new(),
-			}],
+			failures: vec![fail(
+				client_id,
+				None,
+				FailureKind::StartupSyncTimeout,
+				"another client likely failed before reaching the barrier",
+			)],
 		};
 	}
 
@@ -390,30 +432,12 @@ async fn run_client(
 	for round in 1..(num_rounds + 1) {
 		let round_start = std::time::Instant::now();
 
-		let round_result = execute_round(
-			client_id,
-			round,
-			num_rounds,
-			test_run_id,
-			neighbour_id,
-			expected_count,
-			&messages_pattern,
-			&rpc_client,
-			&keyring,
-			receive_timeout_ms,
-			statement_expiry_ms,
-		)
-		.await;
+		let round_result = execute_round(round, &config, &rpc_client, &keyring).await;
 
 		match round_result {
 			Ok(stats) => successes.push(stats),
 			Err(failure) => {
-				let detail = if failure.detail.is_empty() {
-					String::new()
-				} else {
-					format!(" ({})", failure.detail)
-				};
-				warn!("Client {client_id}: Round {round}/{num_rounds}: {}{detail}", failure.error);
+				// `fail` already emitted the per-client warn; just record and decide.
 				failures.push(failure);
 				peer_failed.store(true, Ordering::Relaxed);
 				if fail_fast {
@@ -439,11 +463,7 @@ async fn run_client(
 				);
 			}
 			if peer_failed.load(Ordering::Relaxed) {
-				failures.push(RoundFailure {
-					round,
-					error: "Peer failed; stopping early".into(),
-					detail: String::new(),
-				});
+				failures.push(FailureKind::PeerFailed);
 				break;
 			}
 			if timeout(Duration::from_millis(receive_timeout_ms), barrier.wait())
@@ -452,15 +472,12 @@ async fn run_client(
 			{
 				// tokio::sync::Barrier::wait is not cancel-safe: a timed-out waiter leaves
 				// `arrived` incremented, so remaining waiters block forever.
-				warn!(
-					"Client {client_id}: Round {round}/{num_rounds}: \
-					 Inter-round sync timed out (another client likely failed)"
-				);
-				failures.push(RoundFailure {
-					round,
-					error: "Inter-round sync timed out".into(),
-					detail: String::new(),
-				});
+				failures.push(fail(
+					client_id,
+					Some((round, num_rounds)),
+					FailureKind::InterRoundSyncTimeout,
+					"another client likely failed",
+				));
 				peer_failed.store(true, Ordering::Relaxed);
 				break;
 			}
@@ -608,7 +625,7 @@ async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>
 
 async fn collect_results(
 	handles: Vec<tokio::task::JoinHandle<ClientResult>>,
-) -> (Vec<RoundStats>, Vec<RoundFailure>) {
+) -> (Vec<RoundStats>, Vec<FailureKind>) {
 	let mut all_successes = Vec::new();
 	let mut all_failures = Vec::new();
 
@@ -619,12 +636,7 @@ async fn collect_results(
 				all_failures.extend(result.failures);
 			},
 			Err(e) => {
-				warn!("Client {i}: Task panicked: {e}");
-				all_failures.push(RoundFailure {
-					round: 0,
-					error: "Task panicked".into(),
-					detail: format!("{e}"),
-				});
+				all_failures.push(fail(i, None, FailureKind::TaskPanicked, e));
 			},
 		}
 	}
@@ -634,56 +646,44 @@ async fn collect_results(
 
 fn report_results(
 	successes: &[RoundStats],
-	failures: &[RoundFailure],
+	failures: &[FailureKind],
 	num_clients: u32,
 	num_rounds: usize,
 ) {
-	// Aggregate report only retains the `error` discriminant — per-instance `detail`
-	// is emitted at failure time via `warn!` and not summarised here. If a future
-	// run needs richer aggregation, fold detail into the per-round group below.
-	//
-	// `round == 0` is reserved for task-level failures (panics, startup-sync
-	// timeouts) that are not tied to a specific round; partition them out so the
-	// "Round Failed:" report stays clean.
-	let mut failures_by_round: BTreeMap<usize, Vec<&str>> = BTreeMap::new();
-	let mut task_failures: Vec<&str> = Vec::new();
-	for f in failures {
-		if f.round == 0 {
-			task_failures.push(&f.error);
-		} else {
-			failures_by_round.entry(f.round).or_default().push(&f.error);
-		}
-	}
+	// Aggregate report only retains the `FailureKind` discriminant — per-instance
+	// detail and the round number are logged at failure time via `warn!` and not
+	// summarised here. Task-level failures are partitioned out so the "Round
+	// Failed:" line counts only round-level ones.
+	let (task_failures, round_failures): (Vec<_>, Vec<_>) =
+		failures.iter().copied().partition(FailureKind::is_task_level);
 
-	let group_errors = |errors: &[&str]| -> String {
-		let mut counts: HashMap<&str, u32> = HashMap::new();
-		for error in errors {
-			*counts.entry(error).or_default() += 1;
+	let group_errors = |kinds: &[FailureKind]| -> String {
+		let mut counts: HashMap<FailureKind, u32> = HashMap::new();
+		for &kind in kinds {
+			*counts.entry(kind).or_default() += 1;
 		}
 		let mut counts: Vec<_> = counts.into_iter().collect();
 		counts.sort_by(|a, b| b.1.cmp(&a.1));
 		counts
 			.iter()
-			.map(|(msg, count)| format!("{msg} ({count})"))
+			.map(|(kind, count)| format!("{kind} ({count})"))
 			.collect::<Vec<_>>()
 			.join("; ")
 	};
 
-	for (round, errors) in &failures_by_round {
-		let failed_clients = errors.len();
-		let errors_str = group_errors(errors);
-
+	if !round_failures.is_empty() {
 		warn!(
-			"Round Failed: round={round} failed_clients={failed_clients} \
-			 total_clients={num_clients} errors=[{errors_str}]"
+			"Round Failed: failed_clients={} total_clients={num_clients} errors=[{}]",
+			round_failures.len(),
+			group_errors(&round_failures)
 		);
 	}
 
 	if !task_failures.is_empty() {
-		let errors_str = group_errors(&task_failures);
 		warn!(
-			"Task Failed: failed_clients={} total_clients={num_clients} errors=[{errors_str}]",
-			task_failures.len()
+			"Task Failed: failed_clients={} total_clients={num_clients} errors=[{}]",
+			task_failures.len(),
+			group_errors(&task_failures)
 		);
 	}
 
@@ -695,12 +695,10 @@ fn report_results(
 	// client succeeded — not "rounds where every client succeeded". A round shows up
 	// here even if only one of N clients made it through.
 	let rounds_with_any_success = successes.iter().map(|s| s.round).collect::<HashSet<_>>().len();
-	let rounds_with_failures = failures_by_round.len();
 
 	info!(
 		"Benchmark Finished: rounds_with_any_success={rounds_with_any_success} \
-		 rounds_with_failures={rounds_with_failures} total_rounds={num_rounds} \
-		 total_clients={num_clients}"
+		 total_rounds={num_rounds} total_clients={num_clients}"
 	);
 }
 
