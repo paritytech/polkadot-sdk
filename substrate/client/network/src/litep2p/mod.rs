@@ -760,6 +760,14 @@ impl<B: BlockT + 'static, H: ExHashT> NetworkBackend<B, H> for Litep2pNetworkBac
 								);
 							}
 						},
+						NetworkServiceCommand::AddPriorityAddresses { peer, addresses } => {
+							if self.litep2p.add_priority_address(peer.into(), addresses.into_iter().map(Into::into)) == 0 {
+								log::debug!(
+									target: LOG_TARGET,
+									"couldn't add priority addresses for {peer:?}, unsupported transport"
+								);
+							}
+						}
 						NetworkServiceCommand::SetReservedPeers { protocol, peers } => {
 							let peers = self.add_addresses(peers.into_iter().map(Into::into));
 
