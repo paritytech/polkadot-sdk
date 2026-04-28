@@ -363,12 +363,15 @@ impl pallet_dap::Config for Runtime {
 		pallet_staking_async::StakerRewardRecipient<
 			pallet_staking_async::Seed<StakingPotsPalletId>,
 		>,
+		pallet_staking_async::ValidatorIncentiveRecipient<
+			pallet_staking_async::Seed<StakingPotsPalletId>,
+		>,
 	);
 	type Time = pallet_timestamp::Pallet<Runtime>;
 	type IssuanceCadence = IssuanceCadence;
 	type MaxElapsedPerDrip = MaxElapsedPerDrip;
 	type BudgetOrigin = frame_system::EnsureRoot<AccountId>;
-	type WeightInfo = ();
+	type WeightInfo = weights::pallet_dap::WeightInfo<Runtime>;
 }
 
 #[derive(Encode, Decode)]
