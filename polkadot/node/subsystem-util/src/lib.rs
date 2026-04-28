@@ -533,9 +533,13 @@ pub async fn executor_params_for_next_session(
 			Err(Error::RuntimeApi(err))
 		},
 		Ok(Ok(None)) => {
-			// The runtime impl always returns Some (fallback to ActiveConfig);
-			// reaching None would indicate a runtime bug.
-			Err(Error::DataNotAvailable)
+			// The runtime impl always returns Some (fallback to ActiveConfig).
+			// Treating an unexpected None as a fallback rather than an error
+			// keeps the precompilation path useful if a future runtime
+			// regression broke that contract: one extra preparation pass at
+			// the next session change is strictly better than skipping
+			// precompilation altogether.
+			executor_params_at_relay_parent(relay_parent, sender).await
 		},
 		Ok(Ok(Some(executor_params))) => Ok(executor_params),
 	}
