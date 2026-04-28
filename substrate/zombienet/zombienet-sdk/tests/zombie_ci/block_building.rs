@@ -187,9 +187,8 @@ async fn submit_large_remark_and_wait_finalization(node: &NetworkNode) -> Result
 
 	log::info!("Submitting {} MiB remark transaction", LARGE_REMARK_SIZE / (1024 * 1024));
 
-	let block_number = tokio::time::timeout(
-		Duration::from_secs(LARGE_REMARK_FINALIZATION_TIMEOUT_SECS),
-		async {
+	let block_number =
+		tokio::time::timeout(Duration::from_secs(LARGE_REMARK_FINALIZATION_TIMEOUT_SECS), async {
 			let in_block = client
 				.tx()
 				.sign_and_submit_then_watch_default(&remark_call, &signer)
@@ -200,10 +199,9 @@ async fn submit_large_remark_and_wait_finalization(node: &NetworkNode) -> Result
 			in_block.wait_for_success().await?;
 			let block = client.blocks().at(block_hash).await?;
 			Ok::<u32, subxt::Error>(block.number())
-		},
-	)
-	.await
-	.map_err(|_| anyhow!("large remark transaction timed out"))??;
+		})
+		.await
+		.map_err(|_| anyhow!("large remark transaction timed out"))??;
 
 	log::info!("Large remark transaction finalized in block #{block_number}");
 
