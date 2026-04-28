@@ -308,6 +308,7 @@ specialize_requests! {
 		-> Option<ValidationCodeHash>; ValidationCodeHash;
 	fn request_on_chain_votes() -> Option<ScrapedOnChainVotes>; FetchOnChainVotes;
 	fn request_session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams>;SessionExecutorParams;
+	fn request_session_executor_params_for_next_session() -> Option<ExecutorParams>; SessionExecutorParamsForNextSession;
 	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>; UnappliedSlashes;
 	fn request_unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashesV2;
 	fn request_key_ownership_proof(validator_id: ValidatorId) -> Option<slashing::OpaqueKeyOwnershipProof>; KeyOwnershipProof;
@@ -496,6 +497,44 @@ pub async fn executor_params_at_relay_parent(
 				Ok(Ok(Some(executor_params))) => Ok(executor_params),
 			}
 		},
+	}
+}
+
+/// Requests the executor parameters that will be in effect at the next session.
+///
+/// Used by the candidate-validation subsystem to precompile PVFs with the
+/// parameters that will actually be active when the node becomes a validator
+/// next session, avoiding wasted preparation work when governance has
+/// scheduled an executor parameter change.
+///
+/// Falls back to [`executor_params_at_relay_parent`] (current-session params)
+/// when the runtime does not yet implement the v17 API. In that case the
+/// caller still gets useful executor params; the worst-case is one extra
+/// preparation pass at the next session change, which is strictly better
+/// than skipping precompilation altogether.
+pub async fn executor_params_for_next_session(
+	relay_parent: Hash,
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+) -> Result<ExecutorParams, Error> {
+	match request_session_executor_params_for_next_session(relay_parent, sender).await.await {
+		Err(err) => {
+			// Failed to communicate with the runtime
+			Err(Error::Oneshot(err))
+		},
+		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			// Older runtime: fall back to the current-session params.
+			executor_params_at_relay_parent(relay_parent, sender).await
+		},
+		Ok(Err(err)) => {
+			// Runtime failed to execute the request
+			Err(Error::RuntimeApi(err))
+		},
+		Ok(Ok(None)) => {
+			// The runtime impl always returns Some (fallback to ActiveConfig);
+			// reaching None would indicate a runtime bug.
+			Err(Error::DataNotAvailable)
+		},
+		Ok(Ok(Some(executor_params))) => Ok(executor_params),
 	}
 }
 
