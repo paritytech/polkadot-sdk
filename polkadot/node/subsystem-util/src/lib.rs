@@ -508,10 +508,17 @@ pub async fn executor_params_at_relay_parent(
 /// scheduled an executor parameter change.
 ///
 /// Falls back to [`executor_params_at_relay_parent`] (current-session params)
-/// when the runtime does not yet implement the v17 API. In that case the
-/// caller still gets useful executor params; the worst-case is one extra
-/// preparation pass at the next session change, which is strictly better
-/// than skipping precompilation altogether.
+/// in two cases:
+///
+/// - the runtime does not yet implement the v17 API (`NotSupported`);
+/// - the runtime returned `Ok(None)`. The runtime impl is contracted to
+///   always return `Some` (it falls back to `ActiveConfig` itself), so this
+///   is a defensive guard: a future runtime regression must not silently
+///   disable precompilation.
+///
+/// In both cases the caller still gets useful executor params; the worst
+/// case is one extra preparation pass at the next session change, which is
+/// strictly better than skipping precompilation altogether.
 pub async fn executor_params_for_next_session(
 	relay_parent: Hash,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
