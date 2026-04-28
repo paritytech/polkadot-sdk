@@ -140,6 +140,24 @@ pub(super) async fn expect_statements_unordered(
 	Ok(collected)
 }
 
+/// Collects `count` statements from a subscription, then asserts they match
+/// `expected` (order-independent, compared as sorted encoded bytes)
+pub(super) async fn assert_statements_match(
+	subscription: &mut RpcSubscription<StatementEvent>,
+	expected: &[Vec<u8>],
+	timeout_secs: u64,
+	node_name: &str,
+) -> Result<(), anyhow::Error> {
+	let received = expect_statements_unordered(subscription, expected.len(), timeout_secs).await?;
+	assert_eq!(received.len(), expected.len());
+	let mut received: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+	received.sort();
+	let mut expected = expected.to_vec();
+	expected.sort();
+	assert_eq!(received, expected, "Statement content mismatch on {}", node_name);
+	Ok(())
+}
+
 /// Creates a custom chain spec with uniform allowances for all participants
 pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
