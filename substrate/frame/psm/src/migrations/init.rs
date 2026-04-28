@@ -130,7 +130,7 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 				continue;
 			}
 
-			let asset_decimals = T::Fungibles::decimals(*asset_id);
+			let asset_decimals = T::Fungibles::decimals(asset_id.clone());
 			let diff = asset_decimals.abs_diff(stable_decimals) as u32;
 			if diff > MAX_DECIMALS_DIFF {
 				log::error!(
@@ -183,19 +183,19 @@ impl<T: Config, I: InitialPsmConfig<T>> frame_support::traits::OnRuntimeUpgrade
 
 		for (asset_id, (minting_fee, redemption_fee, ceiling_weight)) in I::asset_configs() {
 			ensure!(
-				ExternalAssets::<T>::get(asset_id) == Some(CircuitBreakerLevel::AllEnabled),
+				ExternalAssets::<T>::get(&asset_id) == Some(CircuitBreakerLevel::AllEnabled),
 				"External asset missing or not AllEnabled after migration"
 			);
 			ensure!(
-				MintingFee::<T>::get(asset_id) == minting_fee,
+				MintingFee::<T>::get(&asset_id) == minting_fee,
 				"MintingFee mismatch after migration"
 			);
 			ensure!(
-				RedemptionFee::<T>::get(asset_id) == redemption_fee,
+				RedemptionFee::<T>::get(&asset_id) == redemption_fee,
 				"RedemptionFee mismatch after migration"
 			);
 			ensure!(
-				AssetCeilingWeight::<T>::get(asset_id) == ceiling_weight,
+				AssetCeilingWeight::<T>::get(&asset_id) == ceiling_weight,
 				"AssetCeilingWeight mismatch after migration"
 			);
 		}
