@@ -31,7 +31,9 @@ use alloc::vec::Vec;
 use codec::Decode;
 use core::marker::PhantomData;
 use frame_support::traits::Get;
-use pallet_asset_conversion::weights::WeightInfo as _;
+use pallet_asset_conversion::{
+	weights::WeightInfo as _, AddLiquidityAsset, MutateLiquidity, QuotePrice, Swap,
+};
 use pallet_revive::precompiles::{
 	alloy::{
 		self,
@@ -107,6 +109,61 @@ alloy::sol! {
 			uint256 amount,
 			bool includeFee
 		) external view returns (uint256);
+
+		/// Create an empty liquidity pool for the given asset pair.
+		/// @param asset1 SCALE-encoded identifier of the first asset.
+		/// @param asset2 SCALE-encoded identifier of the second asset.
+		function createPool(
+			bytes calldata asset1,
+			bytes calldata asset2
+		) external;
+
+		/// Add liquidity to an existing pool.
+		/// @param asset1 SCALE-encoded identifier of the first asset.
+		/// @param asset2 SCALE-encoded identifier of the second asset.
+		/// @param amount1Desired Desired amount of the first asset to add.
+		/// @param amount2Desired Desired amount of the second asset to add.
+		/// @param amount1Min Minimum acceptable amount of the first asset.
+		/// @param amount2Min Minimum acceptable amount of the second asset.
+		/// @param mintTo Address to receive the LP tokens.
+		/// @return lpTokensMinted The amount of LP tokens minted.
+		function addLiquidity(
+			bytes calldata asset1,
+			bytes calldata asset2,
+			uint256 amount1Desired,
+			uint256 amount2Desired,
+			uint256 amount1Min,
+			uint256 amount2Min,
+			address mintTo
+		) external returns (uint256 lpTokensMinted);
+
+		/// Remove liquidity from a pool.
+		/// @param asset1 SCALE-encoded identifier of the first asset.
+		/// @param asset2 SCALE-encoded identifier of the second asset.
+		/// @param lpTokenBurn Amount of LP tokens to burn.
+		/// @param amount1MinReceive Minimum amount of the first asset to receive.
+		/// @param amount2MinReceive Minimum amount of the second asset to receive.
+		/// @param withdrawTo Address to receive the withdrawn assets.
+		/// @return amount1 The amount of the first asset withdrawn.
+		/// @return amount2 The amount of the second asset withdrawn.
+		function removeLiquidity(
+			bytes calldata asset1,
+			bytes calldata asset2,
+			uint256 lpTokenBurn,
+			uint256 amount1MinReceive,
+			uint256 amount2MinReceive,
+			address withdrawTo
+		) external returns (uint256 amount1, uint256 amount2);
+
+		/// Get the reserves (token balances) of a liquidity pool.
+		/// @param asset1 SCALE-encoded identifier of the first asset.
+		/// @param asset2 SCALE-encoded identifier of the second asset.
+		/// @return reserve1 The balance of asset1 in the pool.
+		/// @return reserve2 The balance of asset2 in the pool.
+		function getReserves(
+			bytes calldata asset1,
+			bytes calldata asset2
+		) external view returns (uint256 reserve1, uint256 reserve2);
 	}
 }
 
@@ -143,7 +200,10 @@ where
 
 		match input {
 			IAssetConversionCalls::swapExactTokensForTokens(_) |
-			IAssetConversionCalls::swapTokensForExactTokens(_)
+			IAssetConversionCalls::swapTokensForExactTokens(_) |
+			IAssetConversionCalls::createPool(_) |
+			IAssetConversionCalls::addLiquidity(_) |
+			IAssetConversionCalls::removeLiquidity(_)
 				if env.is_read_only() =>
 			{
 				Err(Error::Error(pallet_revive::Error::<Self::T>::StateChangeDenied.into()))
@@ -160,13 +220,20 @@ where
 			IAssetConversionCalls::quoteTokensForExactTokens(call) => {
 				Self::quote_tokens_for_exact_tokens(call, env)
 			},
+			IAssetConversionCalls::createPool(call) => Self::create_pool(call, env),
+			IAssetConversionCalls::addLiquidity(call) => Self::add_liquidity(call, env),
+			IAssetConversionCalls::removeLiquidity(call) => Self::remove_liquidity(call, env),
+			IAssetConversionCalls::getReserves(call) => Self::get_reserves(call, env),
 		}
 	}
 }
 
 const ERR_INVALID_CALLER: &str = "Invalid caller";
 const ERR_BALANCE_CONVERSION_FAILED: &str = "Balance conversion failed";
+const ERR_INVALID_ASSET_PAIR: &str = "Invalid asset pair";
 const ERR_POOL_NOT_FOUND: &str = "Pool does not exist or has no liquidity";
+const ERR_POOL_EMPTY: &str = "Pool exists but has no liquidity";
+const ERR_UNEXPECTED: &str = "Unexpected error";
 const ERR_PATH_TOO_LONG: &str = "Swap path exceeds MaxSwapPathLength";
 const ERR_INVALID_ASSET_ENCODING: &str = "Failed to SCALE-decode asset kind";
 
@@ -176,6 +243,16 @@ where
 	alloy::primitives::U256: TryInto<<Runtime as pallet_asset_conversion::Config>::Balance>,
 	alloy::primitives::U256: TryFrom<<Runtime as pallet_asset_conversion::Config>::Balance>,
 {
+	/// Returns the caller's account ID.
+	fn caller_account_id(
+		env: &impl Ext<T = Runtime>,
+	) -> Result<<Runtime as frame_system::Config>::AccountId, Error> {
+		env.caller()
+			.account_id()
+			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))
+			.cloned()
+	}
+
 	/// SCALE-decode a single asset kind from raw bytes.
 	fn decode_asset_kind(
 		data: &[u8],
@@ -213,23 +290,18 @@ where
 		call: &IAssetConversion::swapExactTokensForTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let path: Vec<_> =
-			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
-		let path_len = Self::validated_path_len(&path)?;
+		let path_len = Self::validated_path_len(&call.path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_exact_tokens_for_tokens(
 				path_len,
 			),
 		)?;
+		let path: Vec<_> =
+			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
-		use pallet_asset_conversion::Swap;
 		let amount_out = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_exact_tokens_for_tokens(
@@ -250,23 +322,18 @@ where
 		call: &IAssetConversion::swapTokensForExactTokensCall,
 		env: &mut impl Ext<T = Runtime>,
 	) -> Result<Vec<u8>, Error> {
-		let path: Vec<_> =
-			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
-		let path_len = Self::validated_path_len(&path)?;
+		let path_len = Self::validated_path_len(&call.path)?;
 		env.charge(
 			<Runtime as pallet_asset_conversion::Config>::WeightInfo::swap_tokens_for_exact_tokens(
 				path_len,
 			),
 		)?;
+		let path: Vec<_> =
+			call.path.iter().map(|e| Self::decode_asset_kind(e)).collect::<Result<_, _>>()?;
 
-		let sender = env
-			.caller()
-			.account_id()
-			.map_err(|_| Error::Revert(Revert { reason: ERR_INVALID_CALLER.into() }))?
-			.clone();
+		let sender = Self::caller_account_id(env)?;
 		let send_to = env.to_account_id(&H160(call.sendTo.0 .0));
 
-		use pallet_asset_conversion::Swap;
 		let amount_in = <pallet_asset_conversion::Pallet<Runtime> as Swap<
 			<Runtime as frame_system::Config>::AccountId,
 		>>::swap_tokens_for_exact_tokens(
@@ -300,7 +367,6 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		use pallet_asset_conversion::QuotePrice;
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_exact_tokens_for_tokens(
 				asset1,
@@ -329,7 +395,6 @@ where
 		let asset1 = Self::decode_asset_kind(&call.asset1)?;
 		let asset2 = Self::decode_asset_kind(&call.asset2)?;
 
-		use pallet_asset_conversion::QuotePrice;
 		let quoted =
 			<pallet_asset_conversion::Pallet<Runtime> as QuotePrice>::quote_price_tokens_for_exact_tokens(
 				asset1,
@@ -342,5 +407,143 @@ where
 		Ok(IAssetConversion::quoteTokensForExactTokensCall::abi_encode_returns(&Self::to_u256(
 			quoted,
 		)?))
+	}
+
+	fn create_pool(
+		call: &IAssetConversion::createPoolCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::create_pool())?;
+
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
+		let sender = Self::caller_account_id(env)?;
+
+		<pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
+			<Runtime as frame_system::Config>::AccountId,
+		>>::create_pool(&sender, asset1, asset2)?;
+
+		Ok(Vec::new())
+	}
+
+	fn add_liquidity(
+		call: &IAssetConversion::addLiquidityCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::add_liquidity())?;
+
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
+		let sender = Self::caller_account_id(env)?;
+		let mint_to = env.to_account_id(&H160(call.mintTo.0 .0));
+
+		let lp_tokens = <pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
+			<Runtime as frame_system::Config>::AccountId,
+		>>::add_liquidity(
+			&sender,
+			AddLiquidityAsset {
+				asset: asset1,
+				amount_desired: Self::to_balance(call.amount1Desired)?,
+				amount_min: Self::to_balance(call.amount1Min)?,
+			},
+			AddLiquidityAsset {
+				asset: asset2,
+				amount_desired: Self::to_balance(call.amount2Desired)?,
+				amount_min: Self::to_balance(call.amount2Min)?,
+			},
+			&mint_to,
+		)?;
+
+		Ok(IAssetConversion::addLiquidityCall::abi_encode_returns(&Self::to_u256(lp_tokens)?))
+	}
+
+	fn remove_liquidity(
+		call: &IAssetConversion::removeLiquidityCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::remove_liquidity())?;
+
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
+		let sender = Self::caller_account_id(env)?;
+		let withdraw_to = env.to_account_id(&H160(call.withdrawTo.0 .0));
+
+		let (amount1, amount2) = <pallet_asset_conversion::Pallet<Runtime> as MutateLiquidity<
+			<Runtime as frame_system::Config>::AccountId,
+		>>::remove_liquidity(
+			&sender,
+			asset1,
+			asset2,
+			Self::to_balance(call.lpTokenBurn)?,
+			Self::to_balance(call.amount1MinReceive)?,
+			Self::to_balance(call.amount2MinReceive)?,
+			&withdraw_to,
+		)?;
+
+		Ok(IAssetConversion::removeLiquidityCall::abi_encode_returns(
+			&IAssetConversion::removeLiquidityReturn {
+				amount1: Self::to_u256(amount1)?,
+				amount2: Self::to_u256(amount2)?,
+			},
+		))
+	}
+
+	fn get_reserves(
+		call: &IAssetConversion::getReservesCall,
+		env: &mut impl Ext<T = Runtime>,
+	) -> Result<Vec<u8>, Error> {
+		env.charge(<Runtime as pallet_asset_conversion::Config>::WeightInfo::get_reserves())?;
+
+		let asset1 = Self::decode_asset_kind(&call.asset1)?;
+		let asset2 = Self::decode_asset_kind(&call.asset2)?;
+
+		let (reserve1, reserve2) = pallet_asset_conversion::Pallet::<Runtime>::get_reserves(
+			asset1, asset2,
+		)
+		.map_err(|e| match e {
+			pallet_asset_conversion::Error::InvalidAssetPair => {
+				Error::Revert(Revert { reason: ERR_INVALID_ASSET_PAIR.into() })
+			},
+			pallet_asset_conversion::Error::PoolEmpty => {
+				Error::Revert(Revert { reason: ERR_POOL_EMPTY.into() })
+			},
+			// get_reserves only produces the two variants above; list the rest
+			// exhaustively so adding a new Error variant triggers a compile error.
+			pallet_asset_conversion::Error::PoolExists |
+			pallet_asset_conversion::Error::WrongDesiredAmount |
+			pallet_asset_conversion::Error::AmountOneLessThanMinimal |
+			pallet_asset_conversion::Error::AmountTwoLessThanMinimal |
+			pallet_asset_conversion::Error::ReserveLeftLessThanMinimal |
+			pallet_asset_conversion::Error::AmountOutTooHigh |
+			pallet_asset_conversion::Error::PoolNotFound |
+			pallet_asset_conversion::Error::Overflow |
+			pallet_asset_conversion::Error::AssetOneDepositDidNotMeetMinimum |
+			pallet_asset_conversion::Error::AssetTwoDepositDidNotMeetMinimum |
+			pallet_asset_conversion::Error::AssetOneWithdrawalDidNotMeetMinimum |
+			pallet_asset_conversion::Error::AssetTwoWithdrawalDidNotMeetMinimum |
+			pallet_asset_conversion::Error::OptimalAmountLessThanDesired |
+			pallet_asset_conversion::Error::InsufficientLiquidityMinted |
+			pallet_asset_conversion::Error::ZeroLiquidity |
+			pallet_asset_conversion::Error::ZeroAmount |
+			pallet_asset_conversion::Error::ProvidedMinimumNotSufficientForSwap |
+			pallet_asset_conversion::Error::ProvidedMaximumNotSufficientForSwap |
+			pallet_asset_conversion::Error::InvalidPath |
+			pallet_asset_conversion::Error::NonUniquePath |
+			pallet_asset_conversion::Error::IncorrectPoolAssetId |
+			pallet_asset_conversion::Error::BelowMinimum => {
+				frame_support::defensive!("get_reserves returned unexpected error");
+				Error::Revert(Revert { reason: ERR_UNEXPECTED.into() })
+			},
+		})?;
+
+		Ok(IAssetConversion::getReservesCall::abi_encode_returns(
+			&IAssetConversion::getReservesReturn {
+				reserve1: Self::to_u256(reserve1)?,
+				reserve2: Self::to_u256(reserve2)?,
+			},
+		))
 	}
 }

@@ -73,7 +73,7 @@ use sp_statement_store::{
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
 	sync::Arc,
 	time::{Duration, Instant},
 };
@@ -133,6 +133,13 @@ mod col {
 
 #[derive(Eq, PartialEq, Debug, Ord, PartialOrd, Clone, Copy)]
 struct Expiry(u64);
+
+impl Expiry {
+	/// Returns the expiration timestamp in seconds
+	fn get_expiration_timestamp_secs(self) -> u64 {
+		self.0 >> 32
+	}
+}
 
 #[derive(PartialEq, Eq)]
 struct PriorityKey {
@@ -235,6 +242,50 @@ impl Default for Config {
 	}
 }
 
+/// Tracks evicted statement hashes to suppress re-gossip until their purge deadline elapses
+#[derive(Default)]
+struct EvictedIndex {
+	hashes: HashSet<Hash>,
+	queue: BTreeSet<(u64, Hash)>,
+	pending_cleanup: Vec<Hash>,
+}
+
+impl EvictedIndex {
+	fn insert(&mut self, hash: Hash, purge_at: u64) {
+		if self.hashes.len() >= DEFAULT_MAX_TOTAL_STATEMENTS {
+			if let Some(&key) = self.queue.iter().next() {
+				self.queue.remove(&key);
+				self.hashes.remove(&key.1);
+				self.pending_cleanup.push(key.1);
+			}
+		}
+		self.hashes.insert(hash);
+		self.queue.insert((purge_at, hash));
+	}
+
+	fn contains(&self, hash: &Hash) -> bool {
+		self.hashes.contains(hash)
+	}
+
+	fn len(&self) -> usize {
+		self.hashes.len()
+	}
+
+	/// Removes and returns all hashes whose purge deadline is at or before `current_time`,
+	/// plus any hashes displaced by the capacity cap since the last call.
+	fn drain_due(&mut self, current_time: u64) -> Vec<Hash> {
+		let cutoff = (current_time.saturating_add(1), Hash::default());
+		let to_keep = self.queue.split_off(&cutoff);
+		let due = std::mem::replace(&mut self.queue, to_keep);
+		let mut result: Vec<Hash> = std::mem::take(&mut self.pending_cleanup);
+		result.extend(due.into_iter().map(|(_, hash)| {
+			self.hashes.remove(&hash);
+			hash
+		}));
+		result
+	}
+}
+
 #[derive(Default)]
 struct Index {
 	recent: HashSet<Hash>,
@@ -242,7 +293,7 @@ struct Index {
 	by_dec_key: HashMap<Option<DecryptionKey>, HashSet<Hash>>,
 	topics_and_keys: HashMap<Hash, ([Option<Topic>; MAX_TOPICS], Option<DecryptionKey>)>,
 	entries: HashMap<Hash, (AccountId, Expiry, usize)>,
-	expired: HashMap<Hash, u64>, // Value is expiration timestamp.
+	evicted: EvictedIndex,
 	accounts: HashMap<AccountId, StatementsForAccount>,
 	accounts_to_check_for_expiry_stmts: Vec<AccountId>,
 	config: Config,
@@ -350,14 +401,15 @@ impl Index {
 		if self.entries.contains_key(hash) {
 			return IndexQuery::Exists;
 		}
-		if self.expired.contains_key(hash) {
+		if self.evicted.contains(hash) {
 			return IndexQuery::Expired;
 		}
 		IndexQuery::Unknown
 	}
 
 	fn insert_expired(&mut self, hash: Hash, timestamp: u64) {
-		self.expired.insert(hash, timestamp);
+		let purge_at = timestamp.saturating_add(self.config.purge_after_sec);
+		self.evicted.insert(hash, purge_at);
 	}
 
 	fn iterate_with(
@@ -464,18 +516,7 @@ impl Index {
 	}
 
 	fn maintain(&mut self, current_time: u64) -> Vec<Hash> {
-		// Purge previously expired messages.
-		let mut purged = Vec::new();
-		self.expired.retain(|hash, timestamp| {
-			if *timestamp + self.config.purge_after_sec <= current_time {
-				purged.push(*hash);
-				log::trace!(target: LOG_TARGET, "Purged statement {:?}", HexDisplay::from(hash));
-				false
-			} else {
-				true
-			}
-		});
-		purged
+		self.evicted.drain_due(current_time)
 	}
 
 	fn take_recent(&mut self) -> HashSet<Hash> {
@@ -506,7 +547,12 @@ impl Index {
 				}
 			}
 			let _ = self.recent.remove(hash);
-			self.expired.insert(*hash, current_time);
+			if current_time < expiry.get_expiration_timestamp_secs() {
+				let purge_at = expiry
+					.get_expiration_timestamp_secs()
+					.min(current_time.saturating_add(self.config.purge_after_sec));
+				self.evicted.insert(*hash, purge_at);
+			}
 			if let std::collections::hash_map::Entry::Occupied(mut account_rec) =
 				self.accounts.entry(account)
 			{
@@ -1036,7 +1082,7 @@ impl Store {
 			(
 				deleted,
 				index.entries.len(),
-				index.expired.len(),
+				index.evicted.len(),
 				index.total_size,
 				index.accounts.len(),
 				index.config.max_total_statements,
@@ -1323,8 +1369,11 @@ impl StatementStore for Store {
 				"Statement is already expired: {:?}",
 				HexDisplay::from(&hash),
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::AlreadyExpired);
+			let reason = InvalidReason::AlreadyExpired;
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
 		}
 		let encoded_size = statement.encoded_size();
 		if encoded_size > MAX_STATEMENT_SIZE {
@@ -1335,21 +1384,30 @@ impl StatementStore for Store {
 				statement.encoded_size(),
 				MAX_STATEMENT_SIZE
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::EncodingTooLarge {
+			let reason = InvalidReason::EncodingTooLarge {
 				submitted_size: encoded_size,
 				max_size: MAX_STATEMENT_SIZE,
+			};
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
 			});
+			return SubmitResult::Invalid(reason);
 		}
 
 		match self.index.read().query(&hash) {
 			IndexQuery::Expired => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known_expired"]).inc();
+					});
 					return SubmitResult::KnownExpired;
 				}
 			},
 			IndexQuery::Exists => {
 				if !source.can_be_resubmitted() {
+					self.metrics.report(|metrics| {
+						metrics.known_statements.with_label_values(&["known"]).inc();
+					});
 					return SubmitResult::Known;
 				}
 			},
@@ -1362,8 +1420,11 @@ impl StatementStore for Store {
 				"Statement validation failed: Missing proof ({:?})",
 				HexDisplay::from(&hash),
 			);
-			self.metrics.report(|metrics| metrics.validations_invalid.inc());
-			return SubmitResult::Invalid(InvalidReason::NoProof);
+			let reason = InvalidReason::NoProof;
+			self.metrics.report(|metrics| {
+				metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+			});
+			return SubmitResult::Invalid(reason);
 		};
 
 		match statement.verify_signature() {
@@ -1374,8 +1435,11 @@ impl StatementStore for Store {
 					"Statement validation failed: BadProof, {:?}",
 					HexDisplay::from(&hash),
 				);
-				self.metrics.report(|metrics| metrics.validations_invalid.inc());
-				return SubmitResult::Invalid(InvalidReason::BadProof);
+				let reason = InvalidReason::BadProof;
+				self.metrics.report(|metrics| {
+					metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Invalid(reason);
 			},
 			SignatureVerificationResult::NoSignature => {
 				if let Some(Proof::OnChain { .. }) = statement.proof() {
@@ -1390,8 +1454,11 @@ impl StatementStore for Store {
 						"Statement validation failed: NoProof, {:?}",
 						HexDisplay::from(&hash),
 					);
-					self.metrics.report(|metrics| metrics.validations_invalid.inc());
-					return SubmitResult::Invalid(InvalidReason::NoProof);
+					let reason = InvalidReason::NoProof;
+					self.metrics.report(|metrics| {
+						metrics.validations_invalid.with_label_values(&[reason.label()]).inc();
+					});
+					return SubmitResult::Invalid(reason);
 				}
 			},
 		};
@@ -1416,7 +1483,11 @@ impl StatementStore for Store {
 					"Account {} has no statement allowance set",
 					HexDisplay::from(&account_id),
 				);
-				return SubmitResult::Rejected(RejectionReason::NoAllowance);
+				let reason = RejectionReason::NoAllowance;
+				self.metrics.report(|metrics| {
+					metrics.rejections.with_label_values(&[reason.label()]).inc();
+				});
+				return SubmitResult::Rejected(reason);
 			},
 			Err(e) => {
 				log::debug!(
@@ -1424,6 +1495,9 @@ impl StatementStore for Store {
 					"Reading statement allowance for account {} failed",
 					HexDisplay::from(&account_id),
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["read_allowance"]).inc();
+				});
 				return SubmitResult::InternalError(e);
 			},
 		};
@@ -1447,7 +1521,9 @@ impl StatementStore for Store {
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
 			for hash in evicted {
 				commit.push((col::STATEMENTS, hash.to_vec(), None));
-				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				if index.evicted.contains(&hash) {
+					commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				}
 			}
 			if let Err(e) = self.db.commit(commit) {
 				log::debug!(
@@ -1456,6 +1532,9 @@ impl StatementStore for Store {
 					e,
 					statement
 				);
+				self.metrics.report(|metrics| {
+					metrics.internal_errors.with_label_values(&["db_commit"]).inc();
+				});
 				return SubmitResult::InternalError(Error::Db(e.to_string()));
 			}
 			self.subscription_manager.notify(statement);
@@ -1471,10 +1550,10 @@ impl StatementStore for Store {
 		{
 			let mut index = self.index.write();
 			if index.make_expired(hash, current_time) {
-				let commit = [
-					(col::STATEMENTS, hash.to_vec(), None),
-					(col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())),
-				];
+				let mut commit = vec![(col::STATEMENTS, hash.to_vec(), None)];
+				if index.evicted.contains(hash) {
+					commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+				}
 				if let Err(e) = self.db.commit(commit) {
 					log::debug!(
 						target: LOG_TARGET,
@@ -1502,7 +1581,9 @@ impl StatementStore for Store {
 		for hash in evicted {
 			index.make_expired(&hash, current_time);
 			commit.push((col::STATEMENTS, hash.to_vec(), None));
-			commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+			if index.evicted.contains(&hash) {
+				commit.push((col::EXPIRED, hash.to_vec(), Some((hash, current_time).encode())));
+			}
 		}
 		self.db.commit(commit).map_err(|e| {
 			log::debug!(
@@ -1943,7 +2024,7 @@ mod tests {
 			store.submit(statement(1, 1, Some(2), 100), source),
 			SubmitResult::Rejected(_)
 		));
-		assert_eq!(store.index.read().expired.len(), 1);
+		assert_eq!(store.index.read().evicted.len(), 1);
 
 		// Account 2 (limit = 2 msg, 1000 bytes)
 
@@ -1959,14 +2040,14 @@ mod tests {
 		// Should evict priority 1
 		let s2_prio3 = statement(2, 3, None, 500);
 		assert_eq!(store.submit(s2_prio3.clone(), source), ok);
-		assert_eq!(store.index.read().expired.len(), 2);
-		assert!(store.index.read().expired.contains_key(&s2_prio1.hash()));
+		assert_eq!(store.index.read().evicted.len(), 2);
+		assert!(store.index.read().evicted.contains(&s2_prio1.hash()));
 		assert!(store.statement(&s2_prio1.hash()).unwrap().is_none());
 		// Should evict all
 		assert_eq!(store.submit(statement(2, 4, None, 1000), source), ok);
-		assert_eq!(store.index.read().expired.len(), 4);
-		assert!(store.index.read().expired.contains_key(&s2_prio2.hash()));
-		assert!(store.index.read().expired.contains_key(&s2_prio3.hash()));
+		assert_eq!(store.index.read().evicted.len(), 4);
+		assert!(store.index.read().evicted.contains(&s2_prio2.hash()));
+		assert!(store.index.read().evicted.contains(&s2_prio3.hash()));
 
 		// Account 3 (limit = 3 msg, 1000 bytes)
 
@@ -1977,9 +2058,9 @@ mod tests {
 		assert_eq!(store.submit(statement(3, 4, Some(3), 300), source), ok);
 		// Should evict 2 and 3
 		assert_eq!(store.submit(statement(3, 5, None, 500), source), ok);
-		assert_eq!(store.index.read().expired.len(), 6);
-		assert!(store.index.read().expired.contains_key(&s3_prio2.hash()));
-		assert!(store.index.read().expired.contains_key(&s3_prio3.hash()));
+		assert_eq!(store.index.read().evicted.len(), 6);
+		assert!(store.index.read().evicted.contains(&s3_prio2.hash()));
+		assert!(store.index.read().evicted.contains(&s3_prio3.hash()));
 
 		assert_eq!(store.index.read().total_size, 2400);
 		assert_eq!(store.index.read().entries.len(), 4);
@@ -2045,7 +2126,7 @@ mod tests {
 		assert_eq!(store.index.read().accounts.len(), 0);
 		store.set_time(DEFAULT_PURGE_AFTER_SEC + 1);
 		store.maintain();
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().evicted.len(), 0);
 		let keystore = store.keystore.clone();
 		drop(store);
 
@@ -2062,7 +2143,7 @@ mod tests {
 		)
 		.unwrap();
 		assert_eq!(store.statements().unwrap().len(), 0);
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().evicted.len(), 0);
 	}
 
 	#[test]
@@ -2361,10 +2442,10 @@ mod tests {
 			assert!(idx.accounts.contains_key(&account(3)), "Account B must remain");
 
 			// Removed statements are marked expired.
-			assert!(idx.expired.contains_key(&h_a1));
-			assert!(idx.expired.contains_key(&h_a2));
-			assert!(idx.expired.contains_key(&h_a3));
-			assert_eq!(idx.expired.len(), 3);
+			assert!(idx.evicted.contains(&h_a1));
+			assert!(idx.evicted.contains(&h_a2));
+			assert!(idx.evicted.contains(&h_a3));
+			assert_eq!(idx.evicted.len(), 3);
 
 			// Entry count & total_size reflect only B's data.
 			assert_eq!(idx.entries.len(), 2);
@@ -2388,7 +2469,7 @@ mod tests {
 		let purge_after = store.index.read().config.purge_after_sec;
 		store.set_time(purge_after + 1);
 		store.maintain();
-		assert_eq!(store.index.read().expired.len(), 0, "expired entries should be purged");
+		assert_eq!(store.index.read().evicted.len(), 0, "expired entries should be purged");
 
 		// --- Reuse: Account A can submit again after purge.
 		let s_new = statement(4, 40, None, 10);
@@ -2425,7 +2506,7 @@ mod tests {
 		assert!(accounts.contains(&account(3)));
 
 		// No statements should have been expired since they're all valid
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().evicted.len(), 0);
 		assert_eq!(store.index.read().entries.len(), 3);
 	}
 
@@ -2463,9 +2544,13 @@ mod tests {
 		// Second check_expiration should find and expire the statement
 		store.enforce_limits();
 
-		// Check the expired statement is now in the expired list
+		// Naturally-expired statements are not added to the expired map (AlreadyExpired check
+		// in submit rejects them without consulting the map)
 		let index = store.index.read();
-		assert!(index.expired.contains_key(&expired_hash), "Expired statement should be marked");
+		assert!(
+			!index.evicted.contains(&expired_hash),
+			"Naturally expired statement must not be added to the expired map"
+		);
 		assert!(
 			!index.entries.contains_key(&expired_hash),
 			"Expired statement should be removed from entries"
@@ -2476,7 +2561,7 @@ mod tests {
 			index.entries.contains_key(&valid_hash),
 			"Valid statement should still be in entries"
 		);
-		assert!(!index.expired.contains_key(&valid_hash), "Valid statement should not be expired");
+		assert!(!index.evicted.contains(&valid_hash), "Valid statement should not be expired");
 	}
 
 	#[test]
@@ -2517,8 +2602,9 @@ mod tests {
 			"All accounts should have been checked and removed after expiration"
 		);
 
-		// All statements should have been expired
-		assert_eq!(store.index.read().expired.len(), 3);
+		// All statements were naturally expired (past their own timestamp), so they are not
+		// added to the expired map AlreadyExpired check in submit handles re-gossip prevention
+		assert_eq!(store.index.read().evicted.len(), 0);
 		assert_eq!(store.index.read().entries.len(), 0);
 	}
 
@@ -2549,7 +2635,7 @@ mod tests {
 		);
 
 		// No statements should have been expired
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().evicted.len(), 0);
 		assert_eq!(store.index.read().entries.len(), 5);
 	}
 
@@ -2587,9 +2673,10 @@ mod tests {
 
 		{
 			let index = store.index.read();
-			assert!(index.expired.contains_key(&hash1), "stmt1 should be expired");
-			assert!(!index.expired.contains_key(&hash2), "stmt2 should not be expired yet");
-			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
+			// Naturally expired statements are not added to the expired map.
+			assert!(!index.evicted.contains(&hash1), "stmt1 naturally expired, not in map");
+			assert!(!index.evicted.contains(&hash2), "stmt2 should not be expired yet");
+			assert!(!index.evicted.contains(&hash3), "stmt3 should not be expired yet");
 			assert_eq!(index.entries.len(), 2);
 		}
 
@@ -2602,9 +2689,9 @@ mod tests {
 
 		{
 			let index = store.index.read();
-			assert!(index.expired.contains_key(&hash1));
-			assert!(index.expired.contains_key(&hash2), "stmt2 should be expired");
-			assert!(!index.expired.contains_key(&hash3), "stmt3 should not be expired yet");
+			assert!(!index.evicted.contains(&hash1));
+			assert!(!index.evicted.contains(&hash2), "stmt2 naturally expired, not in map");
+			assert!(!index.evicted.contains(&hash3), "stmt3 should not be expired yet");
 			assert_eq!(index.entries.len(), 1);
 		}
 
@@ -2615,9 +2702,9 @@ mod tests {
 
 		{
 			let index = store.index.read();
-			assert!(index.expired.contains_key(&hash1));
-			assert!(index.expired.contains_key(&hash2));
-			assert!(index.expired.contains_key(&hash3), "stmt3 should be expired");
+			assert!(!index.evicted.contains(&hash1));
+			assert!(!index.evicted.contains(&hash2));
+			assert!(!index.evicted.contains(&hash3), "stmt3 naturally expired, not in map");
 			assert_eq!(index.entries.len(), 0);
 		}
 	}
@@ -2642,9 +2729,9 @@ mod tests {
 		// Statement should still be there
 		let index = store.index.read();
 		assert!(index.entries.contains_key(&hash));
-		assert!(!index.expired.contains_key(&hash));
+		assert!(!index.evicted.contains(&hash));
 		assert_eq!(index.entries.len(), 1);
-		assert_eq!(index.expired.len(), 0);
+		assert_eq!(index.evicted.len(), 0);
 	}
 
 	#[test]
@@ -2678,7 +2765,7 @@ mod tests {
 				"Account should be removed when all its statements expire"
 			);
 			assert_eq!(index.total_size, 0, "Total size should be zero");
-			assert!(index.expired.contains_key(&hash));
+			assert!(!index.evicted.contains(&hash), "Naturally expired, not in map");
 		}
 	}
 
@@ -2720,7 +2807,7 @@ mod tests {
 				index.by_dec_key.get(&Some(dec_key(7))).map_or(true, |s| s.is_empty()),
 				"Decryption key index should be cleared"
 			);
-			assert!(index.expired.contains_key(&hash));
+			assert!(!index.evicted.contains(&hash), "Naturally expired, not in map");
 		}
 	}
 
@@ -2737,7 +2824,7 @@ mod tests {
 
 		assert!(store.index.read().accounts_to_check_for_expiry_stmts.is_empty());
 		assert_eq!(store.index.read().entries.len(), 0);
-		assert_eq!(store.index.read().expired.len(), 0);
+		assert_eq!(store.index.read().evicted.len(), 0);
 	}
 
 	#[test]
@@ -2771,7 +2858,8 @@ mod tests {
 			!index.entries.contains_key(&hash),
 			"Statement should be removed from entries after expiration"
 		);
-		assert!(index.expired.contains_key(&hash), "Statement should be in expired list");
+		// Naturally expired: timestamp 1001 < current_time 2000, not added to expired map.
+		assert!(!index.evicted.contains(&hash), "Naturally expired, not in map");
 	}
 
 	#[test]
@@ -2804,9 +2892,10 @@ mod tests {
 				!index.entries.contains_key(&hash),
 				"Statement should be removed from in-memory entries"
 			);
+			// Naturally expired: not added to expired map, no need for suppression.
 			assert!(
-				index.expired.contains_key(&hash),
-				"Statement should be in in-memory expired map"
+				!index.evicted.contains(&hash),
+				"Naturally expired statement must not be in the expired map"
 			);
 		}
 
@@ -2816,8 +2905,10 @@ mod tests {
 			"Statement should be removed from col::STATEMENTS after expiration"
 		);
 
+		// Naturally expired statements are not written to col::EXPIRED either, so that
+		// the optimization survives node restarts.
 		let expired_entry = store.db.get(col::EXPIRED, &hash).unwrap();
-		assert!(expired_entry.is_some(), "Expiration info should be written to col::EXPIRED");
+		assert!(expired_entry.is_none(), "Naturally expired: not written to col::EXPIRED");
 	}
 
 	#[test]
@@ -2865,7 +2956,7 @@ mod tests {
 		assert_eq!(index.total_size, 400);
 
 		// Evicted statement should be marked as expired
-		assert!(index.expired.contains_key(&h1));
+		assert!(index.evicted.contains(&h1));
 	}
 
 	#[test]
@@ -2897,8 +2988,8 @@ mod tests {
 		let index = store.index.read();
 		assert_eq!(index.entries.len(), 0, "All statements should be evicted");
 		assert!(!index.accounts.contains_key(&account(0)), "Account should be removed");
-		assert!(index.expired.contains_key(&h1));
-		assert!(index.expired.contains_key(&h2));
+		assert!(index.evicted.contains(&h1));
+		assert!(index.evicted.contains(&h2));
 	}
 
 	#[test]
@@ -2972,7 +3063,7 @@ mod tests {
 			assert_eq!(index.entries.len(), 1);
 			assert!(!index.entries.contains_key(&h1), "Old channel message should be gone");
 			assert!(index.entries.contains_key(&h2), "New channel message should exist");
-			assert!(index.expired.contains_key(&h1), "Old should be in expired");
+			assert!(index.evicted.contains(&h1), "Old should be in expired");
 			assert_eq!(index.total_size, 200);
 		}
 	}
@@ -3056,5 +3147,91 @@ mod tests {
 			assert!(index.entries.contains_key(&h_ch_big), "New channel message added");
 			assert_eq!(index.total_size, 900); // 300 (mid) + 600 (new channel)
 		}
+	}
+
+	#[test]
+	fn subscription_reconnect_receives_current_state() {
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+
+		// Submit 3 statements
+		for i in 0..3u8 {
+			let res = store.submit(signed_statement(i), source);
+			assert_eq!(res, SubmitResult::New);
+		}
+
+		// First subscribe → should get 3 existing statements
+		let (existing, sender, stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		assert_eq!(existing.len(), 3, "First subscribe should return 3 existing statements");
+
+		// Drop stream
+		drop(stream);
+		drop(sender);
+
+		// Submit 2 more while disconnected
+		for i in 3..5u8 {
+			assert_eq!(store.submit(signed_statement(i), source), SubmitResult::New);
+		}
+		let (existing, sender, stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		assert_eq!(existing.len(), 5, "Re-subscribe should return all 5 current statements");
+
+		// Drop and remove one statement
+		drop(stream);
+		drop(sender);
+		let hash_to_remove = signed_statement(0).hash();
+		store.remove(&hash_to_remove).unwrap();
+
+		// Re-subscribe → should get 4
+		let (existing, _sender, _stream) =
+			store.subscribe_statement(OptimizedTopicFilter::Any).unwrap();
+		assert_eq!(existing.len(), 4, "Re-subscribe after removal should return 4 statements");
+	}
+
+	#[test]
+	fn subscription_reconnect_with_topic_filter() {
+		use crate::StatementStoreSubscriptionApi;
+		use sp_statement_store::OptimizedTopicFilter;
+
+		let (store, _temp) = test_store();
+		let source = StatementSource::Local;
+		let topic_a = topic(1);
+		let topic_b = topic(2);
+
+		// s1: topic A only
+		let s1 = signed_statement_with_topics(1, &[topic_a], None);
+		// s2: topic B only
+		let s2 = signed_statement_with_topics(2, &[topic_b], None);
+		// s3: topics A + B
+		let s3 = signed_statement_with_topics(3, &[topic_a, topic_b], None);
+
+		assert_eq!(store.submit(s1, source), SubmitResult::New);
+		assert_eq!(store.submit(s2, source), SubmitResult::New);
+		assert_eq!(store.submit(s3, source), SubmitResult::New);
+
+		// Subscribe with MatchAll([A]) → s1, s3
+		let filter_a = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_a]));
+		let (existing, sender, stream) = store.subscribe_statement(filter_a.clone()).unwrap();
+		assert_eq!(existing.len(), 2, "MatchAll([A]) should match s1 and s3");
+
+		// Drop and add s4 with topic A
+		drop(sender);
+		drop(stream);
+		let s4 = signed_statement_with_topics(4, &[topic_a], None);
+		assert_eq!(store.submit(s4, source), SubmitResult::New);
+		// Re-subscribe with same filter → s1, s3, s4
+		let (existing, sender, stream) = store.subscribe_statement(filter_a).unwrap();
+		assert_eq!(existing.len(), 3, "Re-subscribe MatchAll([A]) should return s1, s3, s4");
+
+		// Drop and re-subscribe with different filter MatchAll([B]) → s2, s3
+		drop(sender);
+		drop(stream);
+		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
+		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
+		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
 	}
 }

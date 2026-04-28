@@ -43,10 +43,11 @@ async fn parachains_disputes_garbage_candidate_test() -> Result<(), anyhow::Erro
 	let relay_node = network.get_node(HONEST_VALIDATORS[0])?;
 	let relay_client = relay_node.wait_client().await?;
 
-	// Check that all parachains produce at least 5 blocks within 1 session and 5 blocks (RC)
+	// Parachains should be making progress even if we have up to 1/4 malicious validators.
+	// Check that all parachains produce at least 2 blocks within 1 session and 9 blocks (RC)
 	log::info!("Checking parachain block production (all paras registered at genesis)");
 	let para_throughput: [(ParaId, Range<u32>); 3] = PARAS.map(|id| (ParaId::from(id), 2..6));
-	assert_para_throughput(&relay_client, 5, para_throughput).await?;
+	assert_para_throughput(&relay_client, 9, para_throughput, []).await?;
 	log::info!("All parachains producing blocks");
 
 	log::info!("Check there is an offence report after dispute conclusion.");
@@ -161,8 +162,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	let malus_image = env_or_default(MALUS_IMAGE_ENV, images.malus.as_str());
 
 	let mut builder = NetworkConfigBuilder::new().with_relaychain(|r| {
-		let r = r
-			.with_chain("rococo-local")
+		r.with_chain("rococo-local")
 			.with_default_command("polkadot")
 			.with_default_image(polkadot_image.as_str())
 			.with_default_args(vec!["-lparachain=debug,runtime=debug".into()])
@@ -183,22 +183,18 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 					.with_limit_cpu("2")
 					.with_request_memory("2G")
 					.with_request_cpu("1")
-			});
-
-		// set the malus validators
-		let r = r.with_validator(|node| {
-			node.with_name(MALUS_VALIDATORS[0])
-				.with_image(malus_image.as_str())
-				.with_command("malus")
-				.with_subcommand("suggest-garbage-candidate")
-				.with_args(vec![
-					"-lMALUS=trace,parachain=debug".into(),
-					"--insecure-validator-i-know-what-i-do".into(),
-				])
-		});
-		HONEST_VALIDATORS
-			.into_iter()
-			.fold(r, |acc, name| acc.with_validator(|node| node.with_name(name)))
+			})
+			.with_node_group(|g| g.with_count(3).with_base_node(|node| node.with_name("honest")))
+			.with_validator(|node| {
+				node.with_name(MALUS_VALIDATORS[0])
+					.with_image(malus_image.as_str())
+					.with_command("malus")
+					.with_subcommand("suggest-garbage-candidate")
+					.with_args(vec![
+						"-lMALUS=trace,parachain=debug".into(),
+						"--insecure-validator-i-know-what-i-do".into(),
+					])
+			})
 	});
 
 	builder = PARAS.into_iter().fold(builder, |acc, para_id| {

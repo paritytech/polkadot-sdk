@@ -61,11 +61,10 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams,
-	GroupIndex, Hash, HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2,
-	NodeFeatures, ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext,
-	ValidDisputeStatementKind, ValidatorId, ValidatorIndex, ValidatorSignature,
-	ValidityAttestation,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash,
+	HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
 use polkadot_primitives_test_helpers::{
 	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
@@ -355,18 +354,6 @@ impl TestState {
 									let _ = tx.send(Ok(Some(self.session_info())));
 								}
 							);
-							assert_matches!(
-								overseer_recv(virtual_overseer).await,
-								AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-									h,
-									RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-								)) => {
-									assert_eq!(h, block_hash);
-									assert_eq!(session_index, i);
-									let _ = tx.send(Ok(Some(ExecutorParams::default())));
-								}
-							);
-
 							assert_matches!(
 								overseer_recv(virtual_overseer).await,
 								AllMessages::RuntimeApi(
@@ -4320,16 +4307,6 @@ fn session_info_is_requested_only_once() {
 			);
 			assert_matches!(
 				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-				)) => {
-					assert_eq!(session_index, 2);
-					let _ = tx.send(Ok(Some(ExecutorParams::default())));
-				}
-			);
-			assert_matches!(
-				virtual_overseer.recv().await,
 				AllMessages::RuntimeApi(
 					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 				) => {
@@ -4388,17 +4365,6 @@ fn session_info_big_jump_works() {
 				);
 				assert_matches!(
 					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
-						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-					)) => {
-						assert_eq!(session_index, expected_idx);
-						let _ = tx.send(Ok(Some(ExecutorParams::default())));
-					}
-				);
-
-				assert_matches!(
-					virtual_overseer.recv().await,
 					AllMessages::RuntimeApi(
 						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 					) => {
@@ -4453,16 +4419,6 @@ fn session_info_small_jump_works() {
 					)) => {
 						assert_eq!(session_index, expected_idx);
 						let _ = tx.send(Ok(Some(test_state.session_info())));
-					}
-				);
-				assert_matches!(
-					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
-						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-					)) => {
-						assert_eq!(session_index, expected_idx);
-						let _ = tx.send(Ok(Some(ExecutorParams::default())));
 					}
 				);
 				assert_matches!(
@@ -4942,16 +4898,6 @@ fn v3_candidate_on_subsequent_leaf_is_detected_correctly() {
 				)) => {
 					assert_eq!(session_index, new_session);
 					let _ = tx.send(Ok(Some(test_state.session_info())));
-				}
-			);
-			assert_matches!(
-				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-				)) => {
-					assert_eq!(session_index, new_session);
-					let _ = tx.send(Ok(Some(ExecutorParams::default())));
 				}
 			);
 			assert_matches!(

@@ -71,6 +71,11 @@ pub mod pallet {
 	use frame_election_provider_support::{ElectionDataProvider, PageIndex};
 	use frame_support::{traits::ConstBool, weights::WeightMeter, DefaultNoBound};
 
+	/// Dimensionless weight from the validator self-stake incentive curve. Same underlying type as
+	/// `BalanceOf<T>` for arithmetic compatibility, but represents the output of the sqrt weight
+	/// function.
+	type IncentiveWeight<T> = BalanceOf<T>;
+
 	/// Represents the current step in the era pruning process
 	#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	pub enum PruningStep {
@@ -86,10 +91,12 @@ pub mod pallet {
 		ErasValidatorReward,
 		/// Pruning ErasRewardPoints storage
 		ErasRewardPoints,
-		/// Pruning single-entry storages: ErasTotalStake and ErasNominatorsSlashable
+		/// Pruning single-entry storages
 		SingleEntryCleanups,
 		/// Pruning ValidatorSlashInEra storage
 		ValidatorSlashInEra,
+		/// Pruning ErasValidatorIncentiveWeight storage
+		ErasValidatorIncentiveWeight,
 	}
 
 	/// The in-code storage version.
@@ -525,6 +532,52 @@ pub mod pallet {
 	/// In legacy mode (Kusama), this is never set and the guard is inactive.
 	#[pallet::storage]
 	pub type DisableMintingGuard<T: Config> = StorageValue<_, EraIndex>;
+
+	/// Optimum self-stake threshold for validators.
+	///
+	/// Below this threshold, the incentive weight grows as `sqrt(self_stake)`.
+	/// Above it, growth is dampened by [`SelfStakeSlopeFactor`].
+	#[pallet::storage]
+	pub type OptimumSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Hard cap on effective validator self-stake.
+	///
+	/// Self-stake above this value receives no additional reward benefit (plateau).
+	#[pallet::storage]
+	pub type HardCapSelfStake<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+	/// Slope factor controlling the discouragement rate for self-stake between optimum and cap.
+	///
+	/// Value between 0 and 1: k=1 means no discouragement, k=0 means immediate plateau.
+	#[pallet::storage]
+	pub type SelfStakeSlopeFactor<T: Config> = StorageValue<_, Perbill, ValueQuery>;
+
+	/// The total validator incentive budget for the given era, snapshotted at era end.
+	///
+	/// This is the similar to [`ErasValidatorReward`] but for the self-stake incentive pot.
+	#[pallet::storage]
+	pub type ErasValidatorIncentiveBudget<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, BalanceOf<T>, ValueQuery>;
+
+	/// Sum of all validators' incentive weights for the era.
+	///
+	/// Directly linked to [`ErasValidatorIncentiveWeight`].
+	#[pallet::storage]
+	pub type ErasSumValidatorIncentiveWeight<T: Config> =
+		StorageMap<_, Twox64Concat, EraIndex, IncentiveWeight<T>, ValueQuery>;
+
+	/// Individual validator incentive weight per era.
+	/// Each validator's share of the incentive pot = `their_weight / sum_weight`.
+	#[pallet::storage]
+	pub type ErasValidatorIncentiveWeight<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		EraIndex,
+		Twox64Concat,
+		T::AccountId,
+		IncentiveWeight<T>,
+		OptionQuery,
+	>;
 
 	/// Whether nominators are slashable or not.
 	///
@@ -1341,6 +1394,19 @@ pub mod pallet {
 		EraPruned {
 			index: EraIndex,
 		},
+		/// The validator has been paid their self-stake incentive bonus.
+		ValidatorIncentivePaid {
+			era: EraIndex,
+			validator_stash: T::AccountId,
+			dest: RewardDestination<T::AccountId>,
+			amount: BalanceOf<T>,
+		},
+		/// Validator self-stake incentive configuration has been updated.
+		ValidatorIncentiveConfigSet {
+			optimum_self_stake: BalanceOf<T>,
+			hard_cap_self_stake: BalanceOf<T>,
+			slope_factor: Perbill,
+		},
 	}
 
 	/// Represents unexpected or invariant-breaking conditions encountered during execution.
@@ -1360,6 +1426,10 @@ pub mod pallet {
 		PagedElectionOutOfWeight { page: PageIndex, required: Weight, had: Weight },
 		/// Payee not set for a staker when paying rewards.
 		MissingPayee { era: EraIndex, stash: T::AccountId },
+		/// Total validator weight is zero but incentive allocation exists.
+		ValidatorIncentiveWeightMismatch { era: EraIndex },
+		/// Validator incentive transfer from era pot failed.
+		ValidatorIncentiveTransferFailed { era: EraIndex },
 	}
 
 	#[pallet::error]
@@ -1445,8 +1515,8 @@ pub mod pallet {
 		CancelledSlash,
 		/// Commission is higher than the allowed maximum `MaxCommission`.
 		CommissionTooHigh,
-		/// Era has no reward pot but legacy minting is disabled.
-		LegacyMintingDisabled,
+		/// Optimum self-stake cannot be greater than hard cap.
+		OptimumGreaterThanCap,
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -1550,22 +1620,33 @@ pub mod pallet {
 				},
 				PruningStep::SingleEntryCleanups => {
 					ErasTotalStake::<T>::remove(era);
-					// Also clean up ErasNominatorsSlashable
 					ErasNominatorsSlashable::<T>::remove(era);
+					ErasValidatorIncentiveBudget::<T>::remove(era);
+					ErasSumValidatorIncentiveWeight::<T>::remove(era);
 					EraPruningState::<T>::insert(era, PruningStep::ValidatorSlashInEra);
 					T::WeightInfo::prune_era_single_entry_cleanups()
 				},
 				PruningStep::ValidatorSlashInEra => {
-					// Clear ValidatorSlashInEra entries for this era
 					let result = ValidatorSlashInEra::<T>::clear_prefix(era, items_limit, None);
 					let items_deleted = result.backend as u32;
 
-					// This is the final step - remove the pruning state when done
 					if result.maybe_cursor.is_none() {
-						EraPruningState::<T>::remove(era);
+						EraPruningState::<T>::insert(
+							era,
+							PruningStep::ErasValidatorIncentiveWeight,
+						);
 					}
 
 					T::WeightInfo::prune_era_validator_slash_in_era(items_deleted)
+				},
+				PruningStep::ErasValidatorIncentiveWeight => {
+					let result =
+						ErasValidatorIncentiveWeight::<T>::clear_prefix(era, items_limit, None);
+					if result.maybe_cursor.is_none() {
+						// Final step — remove pruning state.
+						EraPruningState::<T>::remove(era);
+					}
+					T::WeightInfo::prune_era_validator_incentive_weight(result.backend as u32)
 				},
 			};
 
@@ -2926,6 +3007,7 @@ pub mod pallet {
 				.max(T::WeightInfo::prune_era_reward_points())
 				.max(T::WeightInfo::prune_era_single_entry_cleanups())
 				.max(T::WeightInfo::prune_era_validator_slash_in_era(v))
+				.max(T::WeightInfo::prune_era_validator_incentive_weight(v))
 		})]
 		pub fn prune_era_step(origin: OriginFor<T>, era: EraIndex) -> DispatchResultWithPostInfo {
 			let _ = ensure_signed(origin)?;
@@ -2954,6 +3036,94 @@ pub mod pallet {
 			ensure!(new >= MinCommission::<T>::get(), Error::<T>::CommissionTooLow);
 			MaxCommission::<T>::put(new);
 			Ok(())
+		}
+
+		/// Configure the validator self-stake incentive parameters.
+		///
+		/// The dispatch origin must be `T::AdminOrigin`.
+		///
+		/// Changes take effect in the next era when rewards are calculated.
+		#[pallet::call_index(34)]
+		#[pallet::weight(T::WeightInfo::set_validator_self_stake_incentive_config())]
+		pub fn set_validator_self_stake_incentive_config(
+			origin: OriginFor<T>,
+			optimum_self_stake: ConfigOp<BalanceOf<T>>,
+			hard_cap_self_stake: ConfigOp<BalanceOf<T>>,
+			self_stake_slope_factor: ConfigOp<Perbill>,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin(origin)?;
+
+			let new_optimum = match optimum_self_stake {
+				ConfigOp::Noop => OptimumSelfStake::<T>::get(),
+				ConfigOp::Set(v) => v,
+				ConfigOp::Remove => BalanceOf::<T>::zero(),
+			};
+
+			let new_cap = match hard_cap_self_stake {
+				ConfigOp::Noop => HardCapSelfStake::<T>::get(),
+				ConfigOp::Set(v) => v,
+				ConfigOp::Remove => BalanceOf::<T>::zero(),
+			};
+
+			ensure!(new_optimum <= new_cap, Error::<T>::OptimumGreaterThanCap);
+
+			let has_changes = !matches!(
+				(&optimum_self_stake, &hard_cap_self_stake, &self_stake_slope_factor),
+				(ConfigOp::Noop, ConfigOp::Noop, ConfigOp::Noop)
+			);
+
+			macro_rules! config_op_exp {
+				($storage:ty, $op:ident) => {
+					match $op {
+						ConfigOp::Noop => (),
+						ConfigOp::Set(v) => <$storage>::put(v),
+						ConfigOp::Remove => <$storage>::kill(),
+					}
+				};
+			}
+
+			config_op_exp!(OptimumSelfStake<T>, optimum_self_stake);
+			config_op_exp!(HardCapSelfStake<T>, hard_cap_self_stake);
+			config_op_exp!(SelfStakeSlopeFactor<T>, self_stake_slope_factor);
+
+			if has_changes {
+				Self::deposit_event(Event::<T>::ValidatorIncentiveConfigSet {
+					optimum_self_stake: OptimumSelfStake::<T>::get(),
+					hard_cap_self_stake: HardCapSelfStake::<T>::get(),
+					slope_factor: SelfStakeSlopeFactor::<T>::get(),
+				});
+			}
+
+			Ok(())
+		}
+	}
+
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// Resolve the account ID for a given reward pot.
+		pub fn pot_account(pot: crate::RewardPot) -> T::AccountId {
+			<T::RewardPots as crate::PotAccountProvider<T::AccountId>>::pot_account(pot)
+		}
+
+		/// Current balance held in a given reward pot.
+		pub fn pot_balance(pot: crate::RewardPot) -> BalanceOf<T> {
+			let account =
+				<T::RewardPots as crate::PotAccountProvider<T::AccountId>>::pot_account(pot);
+			<T::Currency as frame_support::traits::fungible::Inspect<T::AccountId>>::balance(
+				&account,
+			)
+		}
+
+		/// Per-era reward allocation (staker rewards + validator incentive budget).
+		///
+		/// Both fields are zero for eras created in legacy minting mode.
+		pub fn era_reward_allocation(
+			era: EraIndex,
+		) -> crate::reward::EraRewardAllocation<BalanceOf<T>> {
+			crate::reward::EraRewardAllocation {
+				staker_rewards: ErasValidatorReward::<T>::get(era).unwrap_or_else(Zero::zero),
+				validator_incentive: ErasValidatorIncentiveBudget::<T>::get(era),
+			}
 		}
 	}
 }
