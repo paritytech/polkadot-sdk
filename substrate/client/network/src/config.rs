@@ -680,8 +680,15 @@ pub struct NetworkConfiguration {
 	/// `kademlia_replication_factor` peers to consider record successfully put.
 	pub kademlia_replication_factor: NonZeroUsize,
 
-	/// Enable serving block data over IPFS bitswap.
+	/// Enable serving indexed transaction data using IPFS Bitswap protocol.
 	pub ipfs_server: bool,
+
+	/// List of IPFS bootstrap nodes to register in IPFS DHT as a provider of indexed transaction
+	/// data.
+	///
+	/// If IPFS bootstrap nodes are not provided, this node will only handle direct Bitswap
+	/// requests from peers that already know its address.
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
@@ -718,6 +725,7 @@ impl NetworkConfiguration {
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
 			ipfs_server: false,
+			ipfs_bootnodes: Vec::new(),
 			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
@@ -753,6 +761,16 @@ impl NetworkConfiguration {
 	}
 }
 
+/// IPFS server configuration.
+pub struct IpfsConfig<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
+	/// Network-backend-specific Bitswap configuration.
+	pub bitswap_config: N::BitswapConfig,
+	/// Indexed transactions provider.
+	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
+	/// IPFS bootstrap nodes.
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
 /// Network initialization parameters.
 pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	/// Assigned role for our node (full, light, ...).
@@ -781,7 +799,7 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub block_announce_config: N::NotificationProtocolConfig,
 
 	/// Bitswap configuration, if the server has been enabled.
-	pub bitswap_config: Option<N::BitswapConfig>,
+	pub ipfs_config: Option<IpfsConfig<Block, H, N>>,
 
 	/// Notification metrics.
 	pub notification_metrics: NotificationMetrics,

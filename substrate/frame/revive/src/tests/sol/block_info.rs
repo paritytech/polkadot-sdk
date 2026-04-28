@@ -70,7 +70,9 @@ fn block_number_dry_run_works(fixture_type: FixtureType) {
 				BlockInfo::BlockInfoCalls::blockNumber(BlockInfo::blockNumberCall {}).abi_encode(),
 			)
 			.exec_config(
-				ExecConfig::new_substrate_tx().with_dry_run(DryRunConfig::new(timestamp_override)),
+				ExecConfig::new_substrate_tx().with_dry_run(
+					DryRunConfig::default().with_timestamp_override(timestamp_override),
+				),
 			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::blockNumberCall::abi_decode_returns(&result.data).unwrap();
@@ -151,8 +153,9 @@ fn timestamp_dry_run_override_works(fixture_type: FixtureType) {
 		let result: crate::ExecReturnValue = builder::bare_call(addr)
 			.data(BlockInfo::BlockInfoCalls::timestamp(BlockInfo::timestampCall {}).abi_encode())
 			.exec_config(
-				ExecConfig::new_substrate_tx()
-					.with_dry_run(DryRunConfig::new(Some(timestamp_override))),
+				ExecConfig::new_substrate_tx().with_dry_run(
+					DryRunConfig::default().with_timestamp_override(timestamp_override),
+				),
 			)
 			.build_and_unwrap_result();
 		let decoded = BlockInfo::timestampCall::abi_decode_returns(&result.data).unwrap();

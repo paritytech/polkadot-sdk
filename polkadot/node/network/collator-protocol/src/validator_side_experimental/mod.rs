@@ -325,11 +325,11 @@ async fn process_msg<Sender: CollatorProtocolSenderTrait>(
 				);
 			}
 		},
-		Seconded(_parent, stmt) => {
-			state.handle_seconded_collation(sender, stmt).await;
+		Seconded(parent, stmt) => {
+			state.handle_seconded_collation(sender, stmt, parent).await;
 		},
-		Invalid(_parent, candidate_receipt) => {
-			state.handle_invalid_collation(candidate_receipt).await;
+		Invalid(parent, candidate_receipt) => {
+			state.handle_invalid_collation(candidate_receipt, parent).await;
 		},
 		ConnectToBackingGroups => {
 			gum::warn!(
@@ -425,15 +425,9 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 			);
 		},
 		CollationProtocols::V1(V1::AdvertiseCollation(relay_parent)) => {
-			state.handle_advertisement(sender, origin, relay_parent, None).await;
+			state.handle_advertisement(sender, origin, relay_parent, None, None).await;
 		},
 		CollationProtocols::V2(V2::AdvertiseCollation {
-			scheduling_parent,
-			candidate_hash,
-			parent_head_data_hash,
-			..
-		}) |
-		CollationProtocols::V3(V3::AdvertiseCollation {
 			scheduling_parent,
 			candidate_hash,
 			parent_head_data_hash,
@@ -445,6 +439,24 @@ async fn process_incoming_peer_message<Sender: CollatorProtocolSenderTrait>(
 					origin,
 					scheduling_parent,
 					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					None,
+				)
+				.await;
+		},
+		CollationProtocols::V3(V3::AdvertiseCollation {
+			scheduling_parent,
+			candidate_hash,
+			parent_head_data_hash,
+			candidate_descriptor_version,
+			..
+		}) => {
+			state
+				.handle_advertisement(
+					sender,
+					origin,
+					scheduling_parent,
+					Some(ProspectiveCandidate { candidate_hash, parent_head_data_hash }),
+					Some(candidate_descriptor_version),
 				)
 				.await;
 		},

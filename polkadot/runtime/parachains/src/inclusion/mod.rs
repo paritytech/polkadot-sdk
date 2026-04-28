@@ -616,13 +616,17 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Candidates of the same paraid should be sorted according to their dependency order (they
 	/// should form a chain). If this condition is not met, this function will return an error.
-	/// (This really should not happen here, if the candidates were properly sanitised in
+	/// (This really should not happen here, if the candidates were properly sanitized in
 	/// paras_inherent).
+	///
+	/// Precondition: all candidates must have passed `sanitize_backed_candidates` in
+	/// `paras_inherent`, which enforces version gating, relay/scheduling parent validity,
+	/// and session restrictions via `check_descriptor_version_and_signals`.
+	/// See the pipeline documentation on `sanitize_backed_candidates` for details.
 	pub(crate) fn process_candidates<GV>(
 		allowed_scheduling_parents: &AllowedSchedulingParentsTracker<T::Hash, BlockNumberFor<T>>,
 		candidates: &BTreeMap<ParaId, Vec<(BackedCandidate<T::Hash>, CoreIndex)>>,
 		group_validators: GV,
-		v3_enabled: bool,
 	) -> Result<
 		Vec<(CandidateReceipt<T::Hash>, Vec<(ValidatorIndex, ValidityAttestation)>)>,
 		DispatchError,
@@ -656,13 +660,10 @@ impl<T: Config> Pallet<T> {
 				// The previous context is None, as it's already checked during candidate
 				// sanitization.
 				let check_ctx = CandidateCheckContext::<T>::new(None);
-				let relay_parent_number = check_ctx.verify_backed_candidate(
-					candidate.candidate(),
-					latest_head_data.clone(),
-					v3_enabled,
-				)?;
+				let relay_parent_number = check_ctx
+					.verify_backed_candidate(candidate.candidate(), latest_head_data.clone())?;
 
-				let scheduling_parent = candidate.descriptor().scheduling_parent(v3_enabled);
+				let scheduling_parent = candidate.descriptor().scheduling_parent();
 
 				let (_, scheduling_parent_number) = allowed_scheduling_parents
 					.acquire_info(scheduling_parent)
@@ -688,12 +689,8 @@ impl<T: Config> Pallet<T> {
 					group_validators(group_idx).ok_or_else(|| Error::<T>::InvalidGroupIndex)?;
 
 				// Check backing vote count and validity.
-				let (backers, backer_idx_and_attestation) = Self::check_backing_votes(
-					candidate,
-					&scheduling_parent,
-					&validators,
-					group_vals,
-				)?;
+				let (backers, backer_idx_and_attestation) =
+					Self::check_backing_votes(candidate, &validators, group_vals)?;
 
 				// Found a valid candidate.
 				latest_head_data = candidate.candidate().commitments.head_data.clone();
@@ -758,7 +755,6 @@ impl<T: Config> Pallet<T> {
 
 	fn check_backing_votes(
 		backed_candidate: &BackedCandidate<T::Hash>,
-		scheduling_parent: &T::Hash,
 		validators: &[ValidatorId],
 		group_vals: Vec<ValidatorIndex>,
 	) -> Result<(BitVec<u8, BitOrderLsb0>, Vec<(ValidatorIndex, ValidityAttestation)>), Error<T>> {
@@ -766,7 +762,7 @@ impl<T: Config> Pallet<T> {
 
 		let mut backers = bitvec::bitvec![u8, BitOrderLsb0; 0; validators.len()];
 		let signing_context = SigningContext {
-			parent_hash: *scheduling_parent,
+			parent_hash: backed_candidate.candidate().descriptor.scheduling_parent(),
 			session_index: shared::CurrentSessionIndex::<T>::get(),
 		};
 
@@ -1226,22 +1222,33 @@ impl<T: Config> CandidateCheckContext<T> {
 	///
 	/// Assures:
 	///  * relay-parent in-bounds
+	///  * persisted validation data hash matches
 	///  * code hash of commitments matches current code hash
 	///  * para head in the descriptor and commitments match
+	///
+	/// Precondition: candidates must have passed `check_descriptor_version_and_signals`
+	/// (in `paras_inherent`) which enforces session restrictions:
+	///  * V1/V2: relay parent is in the current session
+	///  * V2: scheduling_session == current_session (so session_index() == current_session)
+	///  * V3: relay parent exists in the session indicated by session_index()
 	///
 	/// Returns the relay-parent block number.
 	pub(crate) fn verify_backed_candidate(
 		&self,
 		backed_candidate_receipt: &CommittedCandidateReceipt<<T as frame_system::Config>::Hash>,
 		parent_head_data: HeadData,
-		v3_enabled: bool,
 	) -> Result<BlockNumberFor<T>, Error<T>> {
 		let para_id = backed_candidate_receipt.descriptor.para_id();
 		let relay_parent = backed_candidate_receipt.descriptor.relay_parent();
 
+		// For V1: session_index() returns None, falls back to current session.
+		// For V2: session_index() returns the embedded value, which
+		//   check_descriptor_version_and_signals already verified == current session.
+		// For V3: session_index() returns the embedded value, which may differ from
+		//   current session (cross-session relay parents).
 		let session_index = backed_candidate_receipt
 			.descriptor
-			.session_index(v3_enabled)
+			.session_index()
 			.unwrap_or_else(|| shared::CurrentSessionIndex::<T>::get());
 
 		// Check that the relay-parent is one of the allowed relay-parents.
