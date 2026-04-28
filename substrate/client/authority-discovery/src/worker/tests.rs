@@ -200,6 +200,13 @@ impl NetworkDHTProvider for TestNetwork {
 		self.event_sender.clone().unbounded_send(TestNetworkEvent::GetCalled).unwrap();
 	}
 
+	fn add_priority_addresses(
+		&self,
+		peer: PeerId,
+		addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
+	) {
+	}
+
 	fn put_record_to(
 		&self,
 		record: Record,
