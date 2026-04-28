@@ -3146,6 +3146,9 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> u32 {
+		asset_index
+	}
 	fn create_asset(asset_id: u32, owner: &AccountId, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
 		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
