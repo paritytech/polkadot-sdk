@@ -45,8 +45,8 @@ macro_rules! declare_api_versions {
 			///
 			/// The structure is intentionally opaque so future runtimes can add support for new
 			/// functions without changing the public shape of this type. Each map key is the
-			/// runtime API function name, such as `eth_transact`, and each value is the latest
-			/// supported payload version for that function.
+			/// runtime API function name, such as `eth_transact_versioned`, and each value is the
+			/// latest supported payload version for that function.
 			#[derive(
 				Clone,
 				Debug,
@@ -84,7 +84,10 @@ macro_rules! declare_api_versions {
 							"the input and output versions of `{}` do not match",
 							stringify!($function_ident),
 						);
-						this = this.with_version(stringify!($function_ident), input_version);
+						this = this.with_version(
+							concat!(stringify!($function_ident), "_versioned"),
+							input_version
+						);
 					)*
 					this
 				}
@@ -111,7 +114,7 @@ macro_rules! declare_api_versions {
 					/// Returns the latest supported payload version for this runtime API function.
 					#[must_use]
 					pub fn [<$function_ident _version>](&self) -> Option<u32> {
-						self.get(stringify!($function_ident))
+						self.get(concat!(stringify!($function_ident), "_versioned"))
 					}
 				)*
 
@@ -234,7 +237,7 @@ mod tests {
 	}
 
 	#[test]
-	fn generic_lookup_uses_runtime_api_function_names_without_versioned_postfix() {
+	fn generic_lookup_uses_versioned_runtime_api_function_names() {
 		// Arrange
 		let versions = unsafe { PalletReviveRuntimeApiPayloadVersions::current() };
 
@@ -243,7 +246,7 @@ mod tests {
 		let versioned_name = versions.get("eth_transact_versioned");
 
 		// Assert
-		assert_eq!(runtime_api_name, Some(1));
-		assert_eq!(versioned_name, None);
+		assert_eq!(runtime_api_name, None);
+		assert_eq!(versioned_name, Some(1));
 	}
 }
