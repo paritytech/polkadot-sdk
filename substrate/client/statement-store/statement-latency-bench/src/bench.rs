@@ -45,7 +45,10 @@ use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
 	collections::{HashMap, HashSet},
-	sync::Arc,
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc,
+	},
 	time::Duration,
 };
 use tokio::{sync::Barrier, time::timeout};
@@ -176,6 +179,7 @@ struct ClientConfig {
 	fail_fast: bool,
 }
 
+#[allow(clippy::too_many_arguments)] // TODO: collapse into `&ClientConfig` in a follow-up.
 async fn execute_round(
 	client_id: u32,
 	round: usize,
@@ -199,8 +203,8 @@ async fn execute_round(
 	let bounded_topics: BoundedVec<Topic, ConstU32<128>> =
 		expected_topics.try_into().map_err(|_| RoundFailure {
 			round,
-			error: format!("Too many topics (max 128, got {expected_count})"),
-			detail: String::new(),
+			error: "Too many topics".into(),
+			detail: format!("max 128, got {expected_count}"),
 		})?;
 
 	let mut subscription: Subscription<StatementEvent> = rpc_client
@@ -223,7 +227,7 @@ async fn execute_round(
 
 			let expiry_timestamp = (std::time::SystemTime::now()
 				.duration_since(std::time::UNIX_EPOCH)
-				.unwrap_or_default() +
+				.expect("System clock before UNIX_EPOCH") +
 				Duration::from_millis(statement_expiry_ms))
 			.as_secs() as u32;
 
@@ -257,8 +261,7 @@ async fn execute_round(
 	let send_duration = round_start.elapsed();
 	let mut received_count: u32 = 0;
 	while received_count < expected_count {
-		let result =
-			timeout(Duration::from_millis(receive_timeout_ms), subscription.next()).await;
+		let result = timeout(Duration::from_millis(receive_timeout_ms), subscription.next()).await;
 
 		match result {
 			Ok(Some(Ok(StatementEvent::NewStatements { statements, .. }))) => {
@@ -276,10 +279,10 @@ async fn execute_round(
 			Err(_) => {
 				return Err(RoundFailure {
 					round,
-					error: format!(
-						"Statement propagation exceeded {receive_timeout_ms}ms timeout"
+					error: "Statement propagation timeout".into(),
+					detail: format!(
+						"received {received_count}/{expected_count} after {receive_timeout_ms}ms"
 					),
-					detail: format!("received {received_count}/{expected_count}"),
 				});
 			},
 			other => {
@@ -323,6 +326,7 @@ async fn run_client(
 	config: ClientConfig,
 	rpc_client: Arc<WsClient>,
 	barrier: Arc<Barrier>,
+	peer_failed: Arc<AtomicBool>,
 	sync_start: std::time::Instant,
 ) -> ClientResult {
 	let ClientConfig {
@@ -358,7 +362,6 @@ async fn run_client(
 	let mut successes = Vec::with_capacity(num_rounds);
 	let mut failures = Vec::new();
 
-	// Use human 1-based round numbering for logging
 	for round in 1..(num_rounds + 1) {
 		let round_start = std::time::Instant::now();
 
@@ -389,9 +392,13 @@ async fn run_client(
 					);
 				}
 				failures.push(failure);
+				peer_failed.store(true, Ordering::Relaxed);
 				if fail_fast {
 					break;
 				}
+				// Skip the inter-round barrier so this round isn't double-counted as a
+				// sync timeout in addition to its real failure.
+				continue;
 			},
 		}
 
@@ -408,14 +415,30 @@ async fn run_client(
 					interval.as_millis()
 				);
 			}
-			if timeout(Duration::from_millis(interval_ms), barrier.wait()).await.is_err() {
-				// Barrier is permanently broken once a waiter drops — no point continuing.
-				warn!("Client {client_id}: Round {round}/{num_rounds}: Inter-round sync timed out (another client likely failed)");
+			if peer_failed.load(Ordering::Relaxed) {
 				failures.push(RoundFailure {
 					round,
-					error: "Inter-round sync timed out (another client likely failed)".into(),
+					error: "Peer failed; stopping early".into(),
 					detail: String::new(),
 				});
+				break;
+			}
+			if timeout(Duration::from_millis(receive_timeout_ms), barrier.wait())
+				.await
+				.is_err()
+			{
+				// tokio::sync::Barrier::wait is not cancel-safe: a timed-out waiter leaves
+				// `arrived` incremented, so remaining waiters block forever.
+				warn!(
+					"Client {client_id}: Round {round}/{num_rounds}: \
+					 Inter-round sync timed out (another client likely failed)"
+				);
+				failures.push(RoundFailure {
+					round,
+					error: "Inter-round sync timed out".into(),
+					detail: String::new(),
+				});
+				peer_failed.store(true, Ordering::Relaxed);
 				break;
 			}
 		}
@@ -493,6 +516,7 @@ async fn main() -> Result<(), anyhow::Error> {
 	info!("Spawning {} client tasks... {}", args.num_clients, test_run_id);
 	let sync_start = std::time::Instant::now();
 	let barrier = Arc::new(Barrier::new(args.num_clients as usize));
+	let peer_failed = Arc::new(AtomicBool::new(false));
 
 	let handles: Vec<_> = (0..args.num_clients)
 		.map(|client_id| {
@@ -511,8 +535,9 @@ async fn main() -> Result<(), anyhow::Error> {
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);
 			let barrier = Arc::clone(&barrier);
+			let peer_failed = Arc::clone(&peer_failed);
 
-			tokio::spawn(run_client(config, rpc_client, barrier, sync_start))
+			tokio::spawn(run_client(config, rpc_client, barrier, peer_failed, sync_start))
 		})
 		.collect();
 
@@ -535,7 +560,11 @@ fn log_configuration(args: &Args, messages_pattern: &[(usize, usize)]) {
 		.map(|(count, size)| format!("{count}x{size}B"))
 		.collect::<Vec<_>>()
 		.join(", ");
-	info!("Starting Statement Store Latency Benchmark: endpoints=[{endpoints}] clients={} rounds={} interval={}ms pattern=[{pattern_str}]", args.num_clients, args.num_rounds, args.interval_ms);
+	info!(
+		"Starting Statement Store Latency Benchmark: \
+		 endpoints=[{endpoints}] clients={} rounds={} interval={}ms pattern=[{pattern_str}]",
+		args.num_clients, args.num_rounds, args.interval_ms
+	);
 }
 
 async fn connect_to_endpoints(endpoints: &[String]) -> Result<Vec<Arc<WsClient>>, anyhow::Error> {
@@ -586,10 +615,16 @@ fn report_results(
 	num_clients: u32,
 	num_rounds: usize,
 ) {
-	// Emit "Round Failed:" for each round that had failures
+	// `round == 0` is reserved for task-level failures (panics) that are not tied to
+	// a specific round; partition them out so the "Round Failed:" report stays clean.
 	let mut failures_by_round: HashMap<usize, Vec<&str>> = HashMap::new();
+	let mut panic_failures: Vec<&str> = Vec::new();
 	for f in failures {
-		failures_by_round.entry(f.round).or_default().push(&f.error);
+		if f.round == 0 {
+			panic_failures.push(&f.error);
+		} else {
+			failures_by_round.entry(f.round).or_default().push(&f.error);
+		}
 	}
 	let mut failed_rounds: Vec<_> = failures_by_round.keys().copied().collect();
 	failed_rounds.sort();
@@ -598,7 +633,6 @@ fn report_results(
 		let errors = &failures_by_round[round];
 		let failed_clients = errors.len();
 
-		// Count occurrences of each distinct error message
 		let mut error_counts: HashMap<&str, u32> = HashMap::new();
 		for error in errors {
 			*error_counts.entry(error).or_default() += 1;
@@ -613,22 +647,27 @@ fn report_results(
 			.join("; ");
 
 		warn!(
-			"Round Failed: round={round} failed_clients={failed_clients} total_clients={num_clients} errors=[{errors_str}]"
+			"Round Failed: round={round} failed_clients={failed_clients} \
+			 total_clients={num_clients} errors=[{errors_str}]"
 		);
 	}
 
-	// Emit "Benchmark Results:" from successful rounds (unchanged format)
+	if !panic_failures.is_empty() {
+		warn!("Task panicked: count={} total_clients={num_clients}", panic_failures.len());
+	}
+
 	if !successes.is_empty() {
 		print_statistics(successes);
 	}
 
-	// Always emit "Benchmark Finished:"
 	let successful_rounds: HashSet<usize> = successes.iter().map(|s| s.round).collect();
 	let successful_rounds = successful_rounds.len();
-	let failed_round_count = failed_rounds.iter().filter(|&&r| r > 0).count();
+	let failed_round_count = failed_rounds.len();
 
 	info!(
-		"Benchmark Finished: successful_rounds={successful_rounds} failed_rounds={failed_round_count} total_rounds={num_rounds} total_clients={num_clients}"
+		"Benchmark Finished: successful_rounds={successful_rounds} \
+		 failed_rounds={failed_round_count} total_rounds={num_rounds} \
+		 total_clients={num_clients}"
 	);
 }
 
@@ -637,9 +676,19 @@ fn print_statistics(stats: &[RoundStats]) {
 	let receive_stats = calc_stats(stats.iter().map(|s| s.receive_duration_secs));
 	let latency_stats = calc_stats(stats.iter().map(|s| s.full_latency_secs));
 
-	info!("Benchmark Results: send_min={:.3}s send_avg={:.3}s send_max={:.3}s receive_min={:.3}s receive_avg={:.3}s receive_max={:.3}s latency_min={:.3}s latency_avg={:.3}s latency_max={:.3}s",
-		send_stats.min, send_stats.avg, send_stats.max,
-		receive_stats.min, receive_stats.avg, receive_stats.max,
-		latency_stats.min, latency_stats.avg, latency_stats.max
+	info!(
+		"Benchmark Results: \
+		 send_min={:.3}s send_avg={:.3}s send_max={:.3}s \
+		 receive_min={:.3}s receive_avg={:.3}s receive_max={:.3}s \
+		 latency_min={:.3}s latency_avg={:.3}s latency_max={:.3}s",
+		send_stats.min,
+		send_stats.avg,
+		send_stats.max,
+		receive_stats.min,
+		receive_stats.avg,
+		receive_stats.max,
+		latency_stats.min,
+		latency_stats.avg,
+		latency_stats.max
 	);
 }
