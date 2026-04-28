@@ -61,6 +61,8 @@ pub fn ancestor_relay_parent_info<T: shared::Config>(
 pub fn session_executor_params_for_next_session<T: configuration::Config + shared::Config>(
 ) -> Option<ExecutorParams> {
 	let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(1);
+	// `PendingConfigs` is bounded to at most two entries, sorted ascending by
+	// `apply_at_session`, so a linear scan is fine.
 	let pending = configuration::PendingConfigs::<T>::get();
 	let params = pending
 		.into_iter()
