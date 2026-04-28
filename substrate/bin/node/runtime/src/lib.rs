@@ -3115,7 +3115,7 @@ parameter_types! {
 		);
 }
 
-type PsmStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+type PsmInternalAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 parameter_types! {
 	/// No debt ceiling: maximum possible issuance.
@@ -3174,7 +3174,7 @@ impl pallet_psm::Config for Runtime {
 	type MaximumIssuance = NoVaultsCeiling;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	type StableAsset = PsmStableAsset;
+	type InternalAsset = PsmInternalAsset;
 	type FeeDestination = PsmInsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
