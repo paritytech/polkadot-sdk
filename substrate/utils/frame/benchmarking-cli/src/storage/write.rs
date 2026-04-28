@@ -15,13 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "runtime-benchmarks")]
 use codec::Encode;
-#[cfg(feature = "runtime-benchmarks")]
 use frame_storage_access_test_runtime::StorageAccessParams;
-#[cfg(feature = "runtime-benchmarks")]
-use log::debug;
-use log::{info, trace, warn};
+use log::{debug, info, trace, warn};
 use rand::prelude::*;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -38,10 +34,9 @@ use std::{
 	time::{Duration, Instant},
 };
 
-#[cfg(feature = "runtime-benchmarks")]
-use super::get_wasm_module;
 use super::{
 	cmd::StorageCmd,
+	get_wasm_module,
 	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
 	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 };
@@ -169,19 +164,15 @@ impl StorageCmd {
 						continue;
 					}
 
+					// Write each value in one commit.
 					let (size, duration) = if self.params.is_validate_block_mode() {
-						#[cfg(feature = "runtime-benchmarks")]
-						{
-							self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
-								original_root,
-								&storage,
-								shared_trie_cache.as_ref(),
-								batched_keys.clone(),
-								None,
-							)?
-						}
-						#[cfg(not(feature = "runtime-benchmarks"))]
-						return Err("Block validation is only supported when the `runtime-benchmarks` feature is enabled.".into());
+						self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
+							original_root,
+							&storage,
+							shared_trie_cache.as_ref(),
+							batched_keys.clone(),
+							None,
+						)?
 					} else {
 						self.measure_per_key_amortised_import_block_write_cost::<Block, H>(
 							original_root,
@@ -240,18 +231,13 @@ impl StorageCmd {
 						}
 
 						let (size, duration) = if self.params.is_validate_block_mode() {
-							#[cfg(feature = "runtime-benchmarks")]
-							{
-								self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
-									original_root,
-									&storage,
-									shared_trie_cache.as_ref(),
-									batched_keys.clone(),
-									None,
-								)?
-							}
-							#[cfg(not(feature = "runtime-benchmarks"))]
-							return Err("Block validation is only supported when the `runtime-benchmarks` feature is enabled.".into());
+							self.measure_per_key_amortised_validate_block_write_cost::<Block, H>(
+								original_root,
+								&storage,
+								shared_trie_cache.as_ref(),
+								batched_keys.clone(),
+								None,
+							)?
 						} else {
 							self.measure_per_key_amortised_import_block_write_cost::<Block, H>(
 								original_root,
@@ -284,13 +270,13 @@ impl StorageCmd {
 		Block: BlockT<Header = H, Hash = DbHash> + Debug,
 		H: HeaderT<Hash = DbHash>,
 	{
-		let _recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
+		let recorder = (!self.params.disable_pov_recorder).then(|| Default::default());
 		let trie = DbStateBuilder::<HashingFor<Block>>::new(storage.clone(), original_root)
 			.with_optional_cache(shared_trie_cache.map(|c| c.local_cache_trusted()))
-			.with_optional_recorder(_recorder.clone())
+			.with_optional_recorder(recorder.clone())
 			.build();
 
-		(trie, _recorder)
+		(trie, recorder)
 	}
 
 	/// Measures write benchmark
@@ -314,7 +300,7 @@ impl StorageCmd {
 		let average_len = changes.iter().map(|(_, v)| v.len()).sum::<usize>() / batch_size;
 		// For every batched write use a different trie instance and recorder, so we
 		// don't benefit from past runs.
-		let (trie, __recorder) =
+		let (trie, _recorder) =
 			self.create_trie_backend::<Block, H>(original_root, storage, shared_trie_cache);
 
 		let start = Instant::now();
@@ -342,7 +328,6 @@ impl StorageCmd {
 
 	/// Measures write benchmark on block validation
 	/// if `child_info` exist then it means this is a child tree key
-	#[cfg(feature = "runtime-benchmarks")]
 	fn measure_per_key_amortised_validate_block_write_cost<Block, H>(
 		&self,
 		original_root: Block::Hash,

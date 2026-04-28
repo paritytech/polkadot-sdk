@@ -27,7 +27,6 @@ pub use cmd::StorageCmd;
 /// Bigger sizes may cause problems with runtime memory allocation.
 pub(crate) const MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION: usize = 10_000;
 
-#[cfg(feature = "runtime-benchmarks")]
 pub(crate) fn get_wasm_module() -> Box<dyn sc_executor_common::wasm_runtime::WasmModule> {
 	let blob = sc_executor_common::runtime_blob::RuntimeBlob::uncompress_if_needed(
 		frame_storage_access_test_runtime::WASM_BINARY

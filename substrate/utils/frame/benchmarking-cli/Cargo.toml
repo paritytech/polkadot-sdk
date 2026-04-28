@@ -27,7 +27,7 @@ cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
 env_filter = { workspace = true }
 frame-benchmarking = { workspace = true, default-features = true }
-frame-storage-access-test-runtime = { workspace = true, default-features = true, optional = true }
+frame-storage-access-test-runtime = { workspace = true, default-features = true }
 frame-support = { workspace = true, default-features = true }
 frame-system = { workspace = true, default-features = true }
 gethostname = { workspace = true }
@@ -85,7 +85,6 @@ westend-runtime = { workspace = true, default-features = true }
 default = []
 runtime-benchmarks = [
 	"cumulus-primitives-core/runtime-benchmarks",
-	"dep:frame-storage-access-test-runtime",
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-storage-access-test-runtime/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
@@ -95,7 +94,6 @@ runtime-benchmarks = [
 	"sc-client-db/runtime-benchmarks",
 	"sc-service/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
-	"substrate-test-runtime/runtime-benchmarks",
 	"westend-runtime/runtime-benchmarks",
 ]
 rocksdb = ["sc-cli/rocksdb", "sc-client-db/rocksdb"]

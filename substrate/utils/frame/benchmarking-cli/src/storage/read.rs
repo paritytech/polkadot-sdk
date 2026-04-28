@@ -15,13 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#[cfg(feature = "runtime-benchmarks")]
 use codec::Encode;
-#[cfg(feature = "runtime-benchmarks")]
 use frame_storage_access_test_runtime::StorageAccessParams;
-#[cfg(feature = "runtime-benchmarks")]
-use log::debug;
-use log::info;
+use log::{debug, info};
 use rand::prelude::*;
 use sc_cli::{Error, Result};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -29,14 +25,12 @@ use sp_api::CallApiAt;
 use sp_runtime::traits::{Block as BlockT, HashingFor, Header as HeaderT};
 use sp_state_machine::{backend::AsTrieBackend, Backend};
 use sp_storage::ChildInfo;
-#[cfg(feature = "runtime-benchmarks")]
 use sp_trie::StorageProof;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
-#[cfg(feature = "runtime-benchmarks")]
-use super::get_wasm_module;
 use super::{
 	cmd::StorageCmd,
+	get_wasm_module,
 	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
 	MAX_BATCH_SIZE_FOR_BLOCK_VALIDATION,
 };
@@ -96,11 +90,10 @@ impl StorageCmd {
 		// single recorder per block, simulate the same behavior by creating a new
 		// recorder every batch size, so that the amortized cost of reading a key is
 		// measured in conditions closer to the real world.
-		let (mut backend, mut _recorder) = self.create_backend::<B, C>(&state);
+		let (mut backend, mut recorder) = self.create_backend::<B, C>(&state);
 
 		let mut read_in_batch = 0;
 		let mut on_validation_batch = vec![];
-		#[cfg(feature = "runtime-benchmarks")]
 		let mut on_validation_size = 0;
 
 		let last_key = keys.last().expect("Checked above to be non-empty");
@@ -137,10 +130,7 @@ impl StorageCmd {
 						.storage(key.0.as_ref())
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty")?;
-					#[cfg(feature = "runtime-benchmarks")]
-					{
-						on_validation_size += v.len();
-					}
+					on_validation_size += v.len();
 					if self.params.is_import_block_mode() {
 						record.append(v.len(), start.elapsed())?;
 					}
@@ -151,31 +141,26 @@ impl StorageCmd {
 
 			// Read keys on block validation
 			if is_batch_full && self.params.is_validate_block_mode() {
-				#[cfg(feature = "runtime-benchmarks")]
-				{
-					let root = backend.root();
-					let storage_proof = _recorder
-						.clone()
-						.map(|r| r.drain_storage_proof())
-						.expect("Storage proof must exist for block validation");
-					let elapsed = measure_block_validation::<B>(
-						*root,
-						storage_proof,
-						on_validation_batch.clone(),
-						self.params.validate_block_rounds,
-					);
-					record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
+				let root = backend.root();
+				let storage_proof = recorder
+					.clone()
+					.map(|r| r.drain_storage_proof())
+					.expect("Storage proof must exist for block validation");
+				let elapsed = measure_block_validation::<B>(
+					*root,
+					storage_proof,
+					on_validation_batch.clone(),
+					self.params.validate_block_rounds,
+				);
+				record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
-					on_validation_batch = vec![];
-					on_validation_size = 0;
-				}
-				#[cfg(not(feature = "runtime-benchmarks"))]
-				return Err("Block validation is only supported when the `runtime-benchmarks` feature is enabled.".into());
+				on_validation_batch = vec![];
+				on_validation_size = 0;
 			}
 
 			// Reload recorder
 			if is_batch_full {
-				(backend, _recorder) = self.create_backend::<B, C>(&state);
+				(backend, recorder) = self.create_backend::<B, C>(&state);
 				read_in_batch = 0;
 			}
 		}
@@ -193,10 +178,7 @@ impl StorageCmd {
 					.child_storage(info, key.0.as_ref())
 					.expect("Checked above to exist")
 					.ok_or("Value unexpectedly empty")?;
-				#[cfg(feature = "runtime-benchmarks")]
-				{
-					on_validation_size += v.len();
-				}
+				on_validation_size += v.len();
 				if self.params.is_import_block_mode() {
 					record.append(v.len(), start.elapsed())?;
 				}
@@ -206,31 +188,26 @@ impl StorageCmd {
 
 				// Read child keys on block validation
 				if is_batch_full && self.params.is_validate_block_mode() {
-					#[cfg(feature = "runtime-benchmarks")]
-					{
-						let root = backend.root();
-						let storage_proof = _recorder
-							.clone()
-							.map(|r| r.drain_storage_proof())
-							.expect("Storage proof must exist for block validation");
-						let elapsed = measure_block_validation::<B>(
-							*root,
-							storage_proof,
-							on_validation_batch.clone(),
-							self.params.validate_block_rounds,
-						);
-						record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
+					let root = backend.root();
+					let storage_proof = recorder
+						.clone()
+						.map(|r| r.drain_storage_proof())
+						.expect("Storage proof must exist for block validation");
+					let elapsed = measure_block_validation::<B>(
+						*root,
+						storage_proof,
+						on_validation_batch.clone(),
+						self.params.validate_block_rounds,
+					);
+					record.append(on_validation_size / on_validation_batch.len(), elapsed)?;
 
-						on_validation_batch = vec![];
-						on_validation_size = 0;
-					}
-					#[cfg(not(feature = "runtime-benchmarks"))]
-					return Err("Block validation is only supported when the `runtime-benchmarks` feature is enabled.".into());
+					on_validation_batch = vec![];
+					on_validation_size = 0;
 				}
 
 				// Reload recorder
 				if is_batch_full {
-					(backend, _recorder) = self.create_backend::<B, C>(&state);
+					(backend, recorder) = self.create_backend::<B, C>(&state);
 					read_in_batch = 0;
 				}
 			}
@@ -263,7 +240,6 @@ impl StorageCmd {
 	}
 }
 
-#[cfg(feature = "runtime-benchmarks")]
 fn measure_block_validation<B: BlockT + Debug>(
 	root: B::Hash,
 	storage_proof: StorageProof,
