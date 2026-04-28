@@ -358,7 +358,7 @@ pub mod vrf {
 /// Bandersnatch Ring-VRF types and operations.
 pub mod ring_vrf {
 	use super::{vrf::*, *};
-	use bandersnatch::{RingProofParams, RingVerifierKey as RingVerifierKeyImpl};
+	use bandersnatch::{RingSetup, RingVerifierKey as RingVerifierKeyImpl};
 	pub use bandersnatch::{RingProver, RingVerifier};
 
 	// Max size of serialized ring-vrf context given `domain_len`.
@@ -423,12 +423,12 @@ pub mod ring_vrf {
 	///
 	/// Generic parameter `R` represents the ring size.
 	#[derive(Clone)]
-	pub struct RingContext<const R: usize>(RingProofParams);
+	pub struct RingContext<const R: usize>(RingSetup);
 
 	impl<const R: usize> RingContext<R> {
 		/// Build an dummy instance for testing purposes.
 		pub fn new_testing() -> Self {
-			Self(RingProofParams::from_seed(R, [0; 32]))
+			Self(RingSetup::from_seed(R, [0; 32]))
 		}
 
 		/// Get the keyset max size.
@@ -440,13 +440,13 @@ pub mod ring_vrf {
 		pub fn prover(&self, public_keys: &[Public], public_idx: usize) -> RingProver {
 			let pks = Self::make_ring_vector(public_keys);
 			let prover_key = self.0.prover_key(&pks).expect("ring size within bounds; qed");
-			self.0.prover(prover_key, public_idx)
+			self.0.ring_prover(prover_key, public_idx)
 		}
 
 		/// Get ring verifier for the `public_keys` set.
 		pub fn verifier(&self, public_keys: &[Public]) -> RingVerifier {
 			let vk = self.verifier_key(public_keys);
-			self.0.verifier(vk.0)
+			self.0.ring_verifier(vk.0)
 		}
 
 		/// Build `RingVerifierKey` for lazy `RingVerifier` construction.
@@ -463,7 +463,8 @@ pub mod ring_vrf {
 		/// retain the full `RingContext` for ring signature verification. Instead, the
 		/// `VerifierKey` contains only the essential information needed to verify ring proofs.
 		pub fn verifier_no_context(verifier_key: RingVerifierKey) -> RingVerifier {
-			RingProofParams::verifier_no_context(verifier_key.0, R)
+			ark_vrf::ring::RingContext::<BandersnatchSuite>::new(R)
+				.into_ring_verifier(verifier_key.0)
 		}
 
 		fn make_ring_vector(public_keys: &[Public]) -> Vec<bandersnatch::AffinePoint> {
@@ -472,7 +473,7 @@ pub mod ring_vrf {
 				.iter()
 				.map(|pk| {
 					AffinePoint::deserialize_compressed_unchecked(pk.as_slice())
-						.unwrap_or(RingProofParams::padding_point())
+						.unwrap_or(RingSetup::padding_point())
 				})
 				.collect()
 		}
@@ -492,7 +493,7 @@ pub mod ring_vrf {
 		fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
 			let mut buf = vec![0; ring_context_serialized_size(R)];
 			input.read(&mut buf[..])?;
-			let ctx = RingProofParams::deserialize_uncompressed_unchecked(buf.as_slice())
+			let ctx = RingSetup::deserialize_uncompressed_unchecked(buf.as_slice())
 				.map_err(|_| "RingContext decode error")?;
 			Ok(RingContext(ctx))
 		}
@@ -592,12 +593,12 @@ mod tests {
 
 	#[test]
 	fn backend_assumptions_sanity_check() {
-		use bandersnatch::{Input, RingProofParams};
+		use bandersnatch::{Input, RingSetup};
 
-		let ctx = RingProofParams::from_seed(TEST_RING_SIZE, [0_u8; 32]);
+		let ctx = RingSetup::from_seed(TEST_RING_SIZE, [0_u8; 32]);
 
 		let domain_size = ark_vrf::ring::pcs_domain_size::<BandersnatchSuite>(TEST_RING_SIZE);
-		assert_eq!(domain_size, ctx.pcs.powers_in_g1.len());
+		assert_eq!(domain_size, ctx.pcs_params.powers_in_g1.len());
 		let domain_size2 = ark_vrf::ring::pcs_domain_size::<BandersnatchSuite>(ctx.max_ring_size());
 		assert_eq!(domain_size, domain_size2);
 		assert_eq!(
@@ -624,7 +625,7 @@ mod tests {
 		assert_eq!(verifier_key.compressed_size(), RING_VERIFIER_KEY_SERIALIZED_SIZE);
 
 		let prover_key = ctx.prover_key(&ring_keys).expect("valid ring; qed");
-		let ring_prover = ctx.prover(prover_key, prover_key_index);
+		let ring_prover = ctx.ring_prover(prover_key, prover_key_index);
 
 		{
 			use ark_vrf::thin::Prover;
@@ -644,7 +645,7 @@ mod tests {
 	#[test]
 	fn derive_works() {
 		let pair = Pair::from_string(&format!("{}//Alice//Hard", DEV_PHRASE), None).unwrap();
-		let known = h2b("ea449384e0ffb5227a1940da8b84717a8abb36e0db35d41ffe75a855f03855dd");
+		let known = h2b("915626c7d4363856277e3dc0729c11df1f5a1caa1d3d0ec4986f0ae9226c5c45");
 		assert_eq!(pair.public().as_ref(), known);
 
 		// Soft derivation not supported
