@@ -140,6 +140,24 @@ pub(super) async fn expect_statements_unordered(
 	Ok(collected)
 }
 
+/// Collects `count` statements from a subscription, then asserts they match
+/// `expected` (order-independent, compared as sorted encoded bytes)
+pub(super) async fn assert_statements_match(
+	subscription: &mut RpcSubscription<StatementEvent>,
+	expected: &[Vec<u8>],
+	timeout_secs: u64,
+	node_name: &str,
+) -> Result<(), anyhow::Error> {
+	let received = expect_statements_unordered(subscription, expected.len(), timeout_secs).await?;
+	assert_eq!(received.len(), expected.len());
+	let mut received: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
+	received.sort();
+	let mut expected = expected.to_vec();
+	expected.sort();
+	assert_eq!(received, expected, "Statement content mismatch on {}", node_name);
+	Ok(())
+}
+
 /// Creates a custom chain spec with uniform allowances for all participants
 pub(super) fn create_chain_spec_with_allowances(
 	participant_count: u32,
@@ -182,6 +200,7 @@ pub(super) fn collator_default_args(participant_count: u32) -> Vec<zombienet_sdk
 	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
 	[
 		"--force-authoring".to_string(),
+		"--authoring=slot-based".to_string(),
 		"--max-runtime-instances=32".to_string(),
 		// TODO: we need trace only for statement_store_crash_mid_sync
 		"-linfo,statement-store=trace,statement-gossip=trace".to_string(),

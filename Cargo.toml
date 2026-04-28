@@ -473,6 +473,7 @@ members = [
 	"substrate/frame/transaction-payment",
 	"substrate/frame/transaction-payment/asset-conversion-tx-payment",
 	"substrate/frame/transaction-payment/asset-tx-payment",
+	"substrate/frame/transaction-payment/pgas-allowance",
 	"substrate/frame/transaction-payment/rpc",
 	"substrate/frame/transaction-payment/rpc/runtime-api",
 	"substrate/frame/transaction-payment/skip-feeless-payment",
@@ -1037,6 +1038,7 @@ pallet-paged-list = { path = "substrate/frame/paged-list", default-features = fa
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
+pallet-pgas-allowance = { path = "substrate/frame/transaction-payment/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }

@@ -27,6 +27,7 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 	},
 	tracing::trace,
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
@@ -574,7 +575,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 
 		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
-		let transaction_encoded = vec![];
+		let transaction_encoded = vec![0u8; 200];
 		let transaction_encoded_len = transaction_encoded.len() as u32;
 
 		let result = Pallet::<Test>::eth_substrate_call(
@@ -586,7 +587,10 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		assert_ok!(result);
 		let post_info = result.unwrap();
 
-		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len)
+			.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
+				transaction_encoded_len,
+			));
 		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
 		assert!(
 			expected_weight == post_info.actual_weight.unwrap(),
