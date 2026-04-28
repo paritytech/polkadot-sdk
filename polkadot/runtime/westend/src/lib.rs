@@ -485,7 +485,7 @@ parameter_types! {
 }
 
 /// Fee handler that splits fees between the accumulation account and block author.
-type DealWithFeesSatellite = pallet_accumulate_and_forward::DealWithFeesSplit<
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
 	Runtime,
 	AccumulateForwardFeePercent,
 	ToAuthor<Runtime>,
@@ -493,7 +493,7 @@ type DealWithFeesSatellite = pallet_accumulate_and_forward::DealWithFeesSplit<
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;

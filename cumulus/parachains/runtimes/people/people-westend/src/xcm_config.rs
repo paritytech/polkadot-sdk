@@ -243,7 +243,8 @@ impl xcm_executor::Config for XcmConfig {
 		MaxInstructions,
 	>;
 	// TODO: once DAP allocates collator budgets, redirect XCM execution fees to the accumulation
-	// account instead of StakingPot (use crate::DealWithFeesAccumulate as the OnUnbalanced handler).
+	// account instead of StakingPot (use crate::DealWithFeesAccumulate as the OnUnbalanced
+	// handler).
 	type Trader = UsingComponents<
 		WeightToFee,
 		RelayLocation,

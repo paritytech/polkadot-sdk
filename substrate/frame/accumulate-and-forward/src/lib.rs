@@ -239,14 +239,14 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 ///     pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(0); // 0% accumulated
 /// }
 ///
-/// type DealWithFeesSatellite = pallet_accumulate_and_forward::DealWithFeesSplit<
+/// type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
 ///     Runtime,
 ///     AccumulateForwardFeePercent,
 ///     DealWithFees<Runtime>, // Or ToAuthor<Runtime> for relay chain
 /// >;
 ///
 /// impl pallet_transaction_payment::Config for Runtime {
-///     type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
+///     type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesAccumulate>;
 /// }
 /// ```
 pub struct DealWithFeesSplit<T, AccumulatedPercent, OtherHandler>(

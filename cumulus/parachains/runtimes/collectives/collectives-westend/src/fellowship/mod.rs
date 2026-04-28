@@ -297,8 +297,9 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type Burn = Burn;
 	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
 	// `BurnDestination` to `pallet_accumulate_and_forward::LegacyAdapter` so burned funds
-	// flow to the accumulation account instead of being destroyed. Note: `Pallet<T>` only implements
-	// `OnUnbalanced<Credit>`; use `LegacyAdapter` for the legacy `NegativeImbalance` path.
+	// flow to the accumulation account instead of being destroyed. Note: `Pallet<T>` only
+	// implements `OnUnbalanced<Credit>`; use `LegacyAdapter` for the legacy `NegativeImbalance`
+	// path.
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;

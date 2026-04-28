@@ -861,7 +861,8 @@ fn tx_fees_go_to_accumulation_account() {
 		vec![(alice.clone(), 100 * ed), (accumulation_account.clone(), ed)],
 		|| {
 			let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
-			let satellite_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 			let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
 
 			let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
@@ -872,10 +873,11 @@ fn tx_fees_go_to_accumulation_account() {
 			let fee_paid = alice_before - alice_after;
 			assert!(fee_paid > 0, "a fee should have been paid");
 
-			let satellite_after = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 			let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
 
-			assert_eq!(satellite_after, satellite_before + fee_paid);
+			assert_eq!(accumulation_after, accumulation_before + fee_paid);
 			assert_eq!(issuance_before, issuance_after);
 		},
 	);
@@ -899,7 +901,8 @@ fn dust_removal_goes_to_accumulation_account() {
 			(accumulation_account.clone(), ed),
 		],
 		|| {
-			let satellite_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 
 			assert_ok!(Balances::transfer_allow_death(
 				RuntimeOrigin::signed(bob.clone()),
@@ -907,8 +910,9 @@ fn dust_removal_goes_to_accumulation_account() {
 				ed,
 			));
 
-			let satellite_after = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
-			assert_eq!(satellite_after, satellite_before + dust);
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			assert_eq!(accumulation_after, accumulation_before + dust);
 			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 		},
 	);

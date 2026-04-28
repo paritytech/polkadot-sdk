@@ -218,7 +218,7 @@ fn fees_go_to_accumulation_account() {
 	use frame_support::traits::{fungible::Balanced, tokens::imbalance::OnUnbalanced};
 
 	// Collectives has no ChargeTransactionPayment in its TxExtension, so extrinsics don't pay fees.
-	// Test the DealWithFeesSatellite wiring via OnUnbalanced.
+	// Test the DealWithFeesAccumulate wiring via OnUnbalanced.
 	let accumulation_account =
 		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 	let ed = ExistentialDeposit::get();
@@ -231,15 +231,17 @@ fn fees_go_to_accumulation_account() {
 		.with_para_id(1001.into())
 		.build()
 		.execute_with(|| {
-			let satellite_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 
 			let credit = <Balances as Balanced<AccountId>>::issue(fee_amount);
 			<collectives_westend_runtime::AccumulateForward as OnUnbalanced<_>>::on_unbalanced(
 				credit,
 			);
 
-			let satellite_after = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
-			assert_eq!(satellite_after, satellite_before + fee_amount);
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			assert_eq!(accumulation_after, accumulation_before + fee_amount);
 		});
 }
 
@@ -263,7 +265,8 @@ fn dust_removal_goes_to_accumulation_account() {
 		.with_para_id(1001.into())
 		.build()
 		.execute_with(|| {
-			let satellite_before = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			let accumulation_before =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 
 			assert_ok!(Balances::transfer_allow_death(
 				RuntimeOrigin::signed(bob.clone()),
@@ -271,8 +274,9 @@ fn dust_removal_goes_to_accumulation_account() {
 				ed,
 			));
 
-			let satellite_after = <Balances as Inspect<AccountId>>::balance(&accumulation_account);
-			assert_eq!(satellite_after, satellite_before + dust);
+			let accumulation_after =
+				<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+			assert_eq!(accumulation_after, accumulation_before + dust);
 			assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 		});
 }
