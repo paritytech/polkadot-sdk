@@ -312,7 +312,10 @@ fn invalid_signature_alone_returns_error() {
 		let bad_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 0);
 
 		assert_noop!(
-			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![(0u8, vec![bad_nudge])]),
+			PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![bad_nudge])]
+			),
 			Error::<Test>::InvalidSignature
 		);
 	});
@@ -686,10 +689,13 @@ fn invalid_inherent_panics_converts_error_to_panic() {
 		.build_and_execute(|| {
 			let pairs = generate_test_pairs(2);
 			let stale_nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
-			assert_noop!(PriceOracle::submit_nudges(
-				frame_system::RawOrigin::None.into(),
-				vec![(0u8, vec![stale_nudge])],
-			), Error::<Test>::StaleNudge);
+			assert_noop!(
+				PriceOracle::submit_nudges(
+					frame_system::RawOrigin::None.into(),
+					vec![(0u8, vec![stale_nudge])],
+				),
+				Error::<Test>::StaleNudge
+			);
 		});
 }
 

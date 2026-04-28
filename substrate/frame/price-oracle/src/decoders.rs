@@ -138,7 +138,16 @@ pub fn decode_coingecko(body: &[u8]) -> Option<FixedU128> {
 /// CoinMarketCap: `{"data":[{"quote":[{"price":4.20}]}]}`
 pub fn decode_coinmarketcap(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let n = v.get("data")?.as_array()?.first()?.get("quote")?.as_array()?.first()?.get("price")?.as_number()?.as_str();
+	let n = v
+		.get("data")?
+		.as_array()?
+		.first()?
+		.get("quote")?
+		.as_array()?
+		.first()?
+		.get("price")?
+		.as_number()?
+		.as_str();
 	FixedU128::from_str(n).ok()
 }
 
@@ -187,13 +196,7 @@ pub fn decode_okx(body: &[u8]) -> Option<FixedU128> {
 /// Bybit: `{"result":{"list":[{"lastPrice":"4.20"}]}}`
 pub fn decode_bybit(body: &[u8]) -> Option<FixedU128> {
 	let v: serde_json::Value = serde_json::from_slice(body).ok()?;
-	let s = v
-		.get("result")?
-		.get("list")?
-		.as_array()?
-		.first()?
-		.get("lastPrice")?
-		.as_str()?;
+	let s = v.get("result")?.get("list")?.as_array()?.first()?.get("lastPrice")?.as_str()?;
 	FixedU128::from_str(s).ok()
 }
 

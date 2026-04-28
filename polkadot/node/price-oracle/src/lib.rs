@@ -1,4 +1,3 @@
-
 use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use codec::{Decode, Encode};
@@ -485,7 +484,10 @@ where
 			continue;
 		};
 
-		let all_nudges = nudge_store.get_all_valid(pair_id, slot, cfg.nudge_validity);
+		// `slot` is the parent's, but apply runs at `parent + 1` (pallet-babe bumps
+		// `CurrentSlot` first), so shrink the window by 1 to keep boundary nudges out.
+		let effective_validity = cfg.nudge_validity.saturating_sub(1);
+		let all_nudges = nudge_store.get_all_valid(pair_id, slot, effective_validity);
 
 		if cfg.epsilon.is_zero() || all_nudges.is_empty() {
 			out.push((pair_id, Vec::new()));

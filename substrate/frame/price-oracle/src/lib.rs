@@ -62,7 +62,6 @@ pub mod pallet {
 		/// Origin allowed to manage pairs and their endpoints.
 		type PriceOracleOrigin: EnsureOrigin<Self::RuntimeOrigin>;
 
-
 		/// Maximum number of endpoints per pair.
 		#[pallet::constant]
 		type MaxEndpoints: Get<u32>;
@@ -135,7 +134,6 @@ pub mod pallet {
 		PairAlreadyExists,
 		/// The same pair appeared more than once in a single inherent.
 		DuplicatePairInInherent,
-
 	}
 
 	#[pallet::event]
