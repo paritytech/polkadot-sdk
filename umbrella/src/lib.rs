@@ -623,6 +623,10 @@ pub use pallet_parameters;
 #[cfg(feature = "pallet-people")]
 pub use pallet_people;
 
+/// Transaction extension that pays transaction fees with a gas allowance asset.
+#[cfg(feature = "pallet-pgas-allowance")]
+pub use pallet_pgas_allowance;
+
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
