@@ -69,8 +69,7 @@ use polkadot_primitives::{
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
-	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -149,6 +148,15 @@ sp_api::decl_runtime_apis! {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
+	/// Maximum length of a relay-chain block is up to 10 MiB.
+	pub BlockLength: frame_system::limits::BlockLength =
+		frame_system::limits::BlockLength::builder()
+			.max_length(10 * 1024 * 1024)
+			.modify_max_length_for_class(
+				frame_support::dispatch::DispatchClass::Normal,
+				|m| { *m = polkadot_runtime_common::NORMAL_DISPATCH_RATIO * *m },
+			)
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
