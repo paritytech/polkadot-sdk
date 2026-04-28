@@ -585,11 +585,9 @@ impl<H: Hasher> OverlayedChanges<H> {
 		H::Out: Ord + Encode + 'static,
 	{
 		let (transaction, transaction_storage_root) = match self.storage_transaction_cache.take() {
-			// Reuse the cache only when it was computed with the same state version.
-			Some(cache) if cache.state_version == state_version => cache.into_inner(),
-			// Either the cache is empty, or it was built for a different state version and
-			// would yield a wrong root/transaction (V0 vs V1 can differ for identical state).
-			_ => {
+			Some(cache) => cache.into_inner(),
+			// If the transaction does not exist, we generate it.
+			None => {
 				self.storage_root(backend, state_version);
 				self.storage_transaction_cache
 					.take()
@@ -698,13 +696,7 @@ impl<H: Hasher> OverlayedChanges<H> {
 		let storage_key = child_info.storage_key();
 		let prefixed_storage_key = child_info.prefixed_storage_key();
 
-		// Only honor the cache when it was built for the same state version. Otherwise the cached
-		// child root would not match what `state_version` would produce.
-		if self
-			.storage_transaction_cache
-			.as_ref()
-			.is_some_and(|cache| cache.state_version == state_version)
-		{
+		if self.storage_transaction_cache.is_some() {
 			let root = self
 				.storage(prefixed_storage_key.as_slice())
 				.map(|v| Ok(v.map(|v| v.to_vec())))
@@ -717,9 +709,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 
 			return Ok((root, true));
 		}
-
-		// Drop a stale cache built with a different state version so the storage_root recomputes.
-		self.storage_transaction_cache = None;
 
 		let root = if let Some((changes, info)) = self.child_changes_mut(storage_key) {
 			let delta = changes.map(|(k, v)| (k.as_ref(), v.value().map(AsRef::as_ref)));
