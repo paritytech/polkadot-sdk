@@ -1025,7 +1025,6 @@ fn set_code_version_3_schedules_and_applies_pending_code() {
 		let updated =
 			storage::unhashed::get_raw(well_known_keys::CODE).expect("Code should be updated");
 		assert_eq!(updated, code);
-		let new_hash = BlakeTwo256::hash(&updated);
 		// Pending code should be cleaned up
 		assert!(storage::unhashed::get_raw(well_known_keys::PENDING_CODE).is_none());
 		// BlocksTillUpgrade should be killed
