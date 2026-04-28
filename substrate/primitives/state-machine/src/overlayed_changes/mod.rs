@@ -657,9 +657,6 @@ impl<H: Hasher> OverlayedChanges<H> {
 			if cache.state_version == state_version {
 				return (cache.transaction_storage_root, true);
 			}
-			// The cached root was computed with a different state version and would be wrong
-			// for the requested one (V0 and V1 can yield different roots for the same state).
-			self.storage_transaction_cache = None;
 		}
 
 		let delta = self.top.changes_mut().map(|(k, v)| (&k[..], v.value().map(|v| &v[..])));
