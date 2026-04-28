@@ -410,6 +410,11 @@ impl<T: Config> ContractInfo<T> {
 	/// ([`WeightInfo::deletion_queue_per_trie_key`]). The entry is removed once both phases
 	/// finish; if the budget is exhausted mid-batch the entry stays in the queue and the
 	/// next batch picks it up from the start of phase 1 (one extra empty-prefix lookup).
+	///
+	/// Tracking phase-1 completion per entry would avoid that lookup but require widening
+	/// [`DeletionQueueItem`] (a stored, `MaxEncodedLen` type) and migrating existing queue
+	/// entries; the per-batch overhead is a single `weight_per_native_key` charge, so the
+	/// trade-off is intentional.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::deletion_queue_batch()).is_err() {
 			return;
