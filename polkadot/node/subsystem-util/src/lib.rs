@@ -516,7 +516,10 @@ pub async fn executor_params_for_next_session(
 	relay_parent: Hash,
 	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
 ) -> Result<ExecutorParams, Error> {
-	match request_session_executor_params_for_next_session(relay_parent, sender).await.await {
+	match request_session_executor_params_for_next_session(relay_parent, sender)
+		.await
+		.await
+	{
 		Err(err) => {
 			// Failed to communicate with the runtime
 			Err(Error::Oneshot(err))
