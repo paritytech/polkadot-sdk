@@ -13,8 +13,6 @@ doc:
     detect stuck transactions in the field. Operators can graph the high-age
     buckets per `reason` to determine empirically whether stuck transactions
     are happening, before any heuristic-based detection logic is introduced.
-
-    No breaking changes to existing metrics or APIs.
 crates:
 - name: sc-transaction-pool
   bump: minor
