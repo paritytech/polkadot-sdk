@@ -20,10 +20,9 @@ use codec::{Decode, Encode};
 use ethereum_types::H160;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
-use sp_runtime::DispatchError;
 use sp_weights::Weight;
 
-use crate::{ExecReturnValueV1, StorageDepositV1};
+use crate::{DispatchErrorV1, ExecReturnValueV1, StorageDepositV1};
 
 define_versioned_interface! {
 	/// Version 1 of the input payload that dry-runs a contract call. The runtime executes the call
@@ -63,8 +62,8 @@ define_versioned_interface! {
 		/// Gas consumed by the call, expressed in the runtime's `Balance` type so it can be folded
 		/// directly into fee maths.
 		pub gas_consumed: Balance,
-		/// Either the exec return value produced by the contract, or the `DispatchError` that
+		/// Either the exec return value produced by the contract, or the dispatch error that
 		/// aborted execution before a return value could be produced.
-		pub result: Result<ExecReturnValueV1, DispatchError>
+		pub result: Result<ExecReturnValueV1, DispatchErrorV1>
 	}
 }

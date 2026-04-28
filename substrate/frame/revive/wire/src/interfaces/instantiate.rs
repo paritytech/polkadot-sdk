@@ -19,10 +19,9 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
-use sp_runtime::DispatchError;
 use sp_weights::Weight;
 
-use crate::{CodeV1, InstantiateReturnValueV1, StorageDepositV1};
+use crate::{CodeV1, DispatchErrorV1, InstantiateReturnValueV1, StorageDepositV1};
 
 define_versioned_interface! {
 	/// Version 1 of the input payload that dry-runs a contract instantiation. The runtime simulates
@@ -68,7 +67,7 @@ define_versioned_interface! {
 		/// be folded directly into fee maths.
 		pub gas_consumed: Balance,
 		/// Either the instantiation's return value (containing the new contract's address and the
-		/// constructor output) or the `DispatchError` that aborted the instantiation.
-		pub result: Result<InstantiateReturnValueV1, DispatchError>
+		/// constructor output) or the dispatch error that aborted the instantiation.
+		pub result: Result<InstantiateReturnValueV1, DispatchErrorV1>
 	}
 }
