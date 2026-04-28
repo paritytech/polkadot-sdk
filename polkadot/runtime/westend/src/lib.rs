@@ -509,9 +509,6 @@ impl pallet_timestamp::Config for Runtime {
 }
 
 parameter_types! {
-	pub const OracleEpsilon: sp_runtime::FixedU128 = sp_runtime::FixedU128::from_rational(1, 1000);
-	pub const OracleMinNudges: u32 = 0;
-	pub const OracleNudgeValidity: u64 = 2;
 	pub const OracleMaxEndpoints: u32 = 20;
 	pub const OracleMaxUrlLength: u32 = 256;
 }
@@ -530,9 +527,6 @@ impl pallet_price_oracle::pallet::AuthorityProvider for BabeAuthorityProvider {
 }
 
 impl pallet_price_oracle::Config for Runtime {
-	type Epsilon = OracleEpsilon;
-	type MinNudges = OracleMinNudges;
-	type NudgeValidity = OracleNudgeValidity;
 	type AuthorityProvider = BabeAuthorityProvider;
 	type TimeProvider = Timestamp;
 	// Note: Later we wire this to pallet-xcm to send the price to AH and anywhere else interested.
@@ -3197,16 +3191,16 @@ sp_api::impl_runtime_apis! {
 	}
 
 	impl sp_price_oracle::PriceOracleApi<Block> for Runtime {
-		fn current_price() -> sp_runtime::FixedU128 {
-			PriceOracle::current_price()
+		fn list_pairs() -> alloc::vec::Vec<sp_price_oracle::PairId> {
+			PriceOracle::list_pairs()
 		}
 
-		fn epsilon() -> sp_runtime::FixedU128 {
-			OracleEpsilon::get()
+		fn pair_config(pair_id: sp_price_oracle::PairId) -> Option<sp_price_oracle::PairConfig> {
+			PriceOracle::pair_config(pair_id)
 		}
 
-		fn nudge_validity() -> u64 {
-			OracleNudgeValidity::get()
+		fn current_price(pair_id: sp_price_oracle::PairId) -> sp_runtime::FixedU128 {
+			PriceOracle::current_price(pair_id)
 		}
 
 		fn authorities() -> alloc::vec::Vec<sp_consensus_babe::AuthorityId> {
@@ -3214,22 +3208,44 @@ sp_api::impl_runtime_apis! {
 			BabeAuthorityProvider::authorities()
 		}
 
-		fn minimum_nudges_required() -> u32 {
-			OracleMinNudges::get()
-		}
-
-		fn endpoint_list() -> alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)> {
-			pallet_price_oracle::ActiveEndpoints::<Runtime>::get()
-				.into_iter()
-				.map(|(method, url)| (method.into(), url.into_inner()))
+		fn endpoint_list() -> alloc::vec::Vec<(
+			sp_price_oracle::PairId,
+			alloc::vec::Vec<(sp_price_oracle::EndpointId, alloc::vec::Vec<u8>)>,
+		)> {
+			pallet_price_oracle::ActiveEndpoints::<Runtime>::iter()
+				.map(|(pair_id, endpoints)| {
+					(
+						pair_id,
+						endpoints
+							.into_iter()
+							.map(|(method, url)| (method.into(), url.into_inner()))
+							.collect(),
+					)
+				})
 				.collect()
 		}
 
 		fn decode_results(
-			data: alloc::vec::Vec<(u8, alloc::vec::Vec<u8>)>,
-		) -> alloc::vec::Vec<(u8, Option<sp_runtime::FixedU128>)> {
+			data: alloc::vec::Vec<(
+				sp_price_oracle::PairId,
+				alloc::vec::Vec<(sp_price_oracle::EndpointId, alloc::vec::Vec<u8>)>,
+			)>,
+		) -> alloc::vec::Vec<(
+			sp_price_oracle::PairId,
+			alloc::vec::Vec<Option<sp_runtime::FixedU128>>,
+		)> {
 			data.into_iter()
-				.map(|(id, bytes)| (id, pallet_price_oracle::decoders::decode_by_id(id, &bytes)))
+				.map(|(pair_id, inner)| {
+					(
+						pair_id,
+						inner
+							.into_iter()
+							.map(|(id, bytes)| {
+								pallet_price_oracle::decoders::decode_by_id(id, &bytes)
+							})
+							.collect(),
+					)
+				})
 				.collect()
 		}
 	}

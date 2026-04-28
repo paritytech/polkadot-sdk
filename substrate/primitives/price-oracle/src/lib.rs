@@ -18,16 +18,24 @@
 //! Substrate primitives for the price oracle system.
 //!
 //! This crate defines the types and runtime API for the price oracle, which allows relay chain
-//! validators to collaboratively determine the on-chain price of DOT/USD through a nudge-based
-//! gossip protocol.
+//! validators to collaboratively determine on-chain prices for one or more asset pairs through a
+//! nudge-based gossip protocol.
 //!
 //! # Overview
 //!
-//! Validators periodically query external price APIs, compare the result to the current on-chain
-//! price, and sign a [`Nudge`] (Up or Down). These signed nudges are gossipped among validators.
-//! When a validator authors a block, it selects a subset of collected nudges and includes them as
-//! an inherent. The runtime applies the net nudge direction multiplied by an epsilon to update the
-//! on-chain price.
+//! Validators periodically query external price APIs for each registered asset pair, compare the
+//! result to the current on-chain price for that pair, and sign a [`Nudge`] (Up or Down). These
+//! signed nudges are gossipped among validators, tagged with the [`PairId`] they refer to. When a
+//! validator authors a block, it selects a subset of collected nudges per pair and includes them
+//! as an inherent. The runtime applies the net nudge direction multiplied by the per-pair epsilon
+//! to update each on-chain price.
+//!
+//! # Signature scope
+//!
+//! The signed payload is intentionally `(nudge, slot)` — it does **not** bind to a [`PairId`].
+//! This means a signature valid for one pair is also cryptographically valid for another; the
+//! routing is the block author's responsibility. Per-pair authority de-duplication and
+//! `min_nudges` bounding contain cross-pair replay to at most one epsilon per block per pair.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -43,6 +51,43 @@ use sp_runtime::FixedU128;
 
 /// The identifier for the price oracle inherent.
 pub const INHERENT_IDENTIFIER: InherentIdentifier = *b"prcorcl0";
+
+/// Identifier for an asset pair (e.g. DOT/USD, BTC/USD). Scoped per-runtime.
+pub type PairId = u8;
+
+/// Identifier for a price-feed endpoint within a pair's endpoint list. Keeps the runtime
+/// and node in sync between `endpoint_list` and `decode_results`.
+pub type EndpointId = u8;
+
+/// Per-pair runtime configuration, stored on-chain and editable via root extrinsics.
+#[derive(
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	MaxEncodedLen,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct PairConfig {
+	/// Minimum valid nudges required per block for this pair; below this, the inherent entry
+	/// for the pair is rejected.
+	pub min_nudges: u32,
+	/// Number of slots a nudge remains valid: `[slot, slot + nudge_validity)`.
+	pub nudge_validity: u64,
+	/// If `true`, `on_finalize` panics when no inherent entry for this pair was included.
+	pub inherent_mandatory: bool,
+	/// If `true`, an error while applying this pair's nudges causes the runtime to panic
+	/// instead of returning an error. An errored inherent entry still counts towards
+	/// `inherent_mandatory`.
+	pub invalid_inherent_panics: bool,
+	/// Absolute price change per net nudge for this pair.
+	pub epsilon: FixedU128,
+}
 
 /// A nudge direction indicating whether the on-chain price should go up or down.
 #[derive(
@@ -102,8 +147,9 @@ impl SignedNudge {
 	}
 }
 
-/// The inherent data for the price oracle: a list of signed nudges selected by the block author.
-pub type PriceOracleInherentData = Vec<SignedNudge>;
+/// The inherent data for the price oracle: per-pair groups of signed nudges selected by the
+/// block author. One entry per pair; duplicate pair ids are rejected by the runtime.
+pub type PriceOracleInherentData = Vec<(PairId, Vec<SignedNudge>)>;
 
 /// Errors that can occur while checking the price oracle inherent.
 #[derive(Encode, Debug)]
@@ -115,9 +161,15 @@ pub enum InherentError {
 	/// A nudge in the inherent is too old (slot is beyond the validity window).
 	#[cfg_attr(feature = "std", error("Nudge from slot {0:?} is too old"))]
 	StaleNudge(Slot),
-	/// Too few nudges were provided (below the runtime minimum).
-	#[cfg_attr(feature = "std", error("Too few nudges: got {0}, need {1}"))]
-	TooFewNudges(u32, u32),
+	/// Too few nudges were provided for a pair (below the per-pair minimum).
+	#[cfg_attr(feature = "std", error("Too few nudges for pair {0}: got {1}, need {2}"))]
+	TooFewNudges(PairId, u32, u32),
+	/// The inherent referenced a pair that is not registered on-chain.
+	#[cfg_attr(feature = "std", error("Unknown pair in inherent: {0}"))]
+	UnknownPair(PairId),
+	/// The same pair appeared more than once in the inherent.
+	#[cfg_attr(feature = "std", error("Duplicate pair in inherent: {0}"))]
+	DuplicatePairInInherent(PairId),
 }
 
 impl IsFatalError for InherentError {
@@ -155,32 +207,32 @@ impl PriceOracleInherentDataExt for InherentData {
 }
 
 sp_api::decl_runtime_apis! {
-	/// Runtime API for the price oracle.
+	/// Runtime API for the multi-pair price oracle.
 	pub trait PriceOracleApi {
-		/// Get the current on-chain price (0 if not yet set).
-		fn current_price() -> FixedU128;
+		/// List all currently registered pair ids.
+		fn list_pairs() -> Vec<PairId>;
 
-		/// Get the epsilon value (absolute price change per net nudge).
-		fn epsilon() -> FixedU128;
+		/// Get the per-pair config (epsilon, min_nudges, nudge_validity, flags). Returns
+		/// `None` if the pair is not registered.
+		fn pair_config(pair_id: PairId) -> Option<PairConfig>;
 
-		/// Get the nudge validity window in slots.
-		fn nudge_validity() -> u64;
+		/// Get the current on-chain price for a pair (0 if not registered or unset).
+		fn current_price(pair_id: PairId) -> FixedU128;
 
 		/// Get the current set of BABE authorities (used for signature verification).
+		/// Shared across all pairs.
 		fn authorities() -> Vec<AuthorityId>;
 
-		/// Get the minimum number of nudges required to update the price.
-		fn minimum_nudges_required() -> u32;
+		/// Get the endpoint lists for every registered pair, in one runtime call.
+		fn endpoint_list() -> Vec<(PairId, Vec<(EndpointId, Vec<u8>)>)>;
 
-		/// Get the list of price feed endpoints as `(endpoint_id, url_bytes)` pairs.
-		/// The node fetches these URLs and passes raw response bytes to `decode_results`.
-		fn endpoint_list() -> Vec<(u8, Vec<u8>)>;
-
-		/// Batch-decode raw HTTP response bodies into prices.
-		/// Takes `(endpoint_id, raw_response_bytes)` pairs and returns
-		/// `(endpoint_id, Option<price>)` — `None` means the response could not be parsed.
-		/// Batched to minimize Wasm boundary crossings.
-		fn decode_results(data: Vec<(u8, Vec<u8>)>) -> Vec<(u8, Option<FixedU128>)>;
+		/// Batch-decode raw HTTP response bodies into prices, grouped by pair.
+		/// Takes `(pair_id, Vec<(endpoint_id, raw_bytes)>)` and returns the same shape with
+		/// each inner `raw_bytes` replaced by `Option<price>` (`None` if unparseable).
+		/// Batched across pairs to minimise Wasm boundary crossings.
+		fn decode_results(
+			data: Vec<(PairId, Vec<(EndpointId, Vec<u8>)>)>,
+		) -> Vec<(PairId, Vec<Option<FixedU128>>)>;
 	}
 }
 

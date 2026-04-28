@@ -3,17 +3,16 @@ use crate as pallet_price_oracle;
 
 use alloc::vec;
 use frame_support::{assert_noop, assert_ok, derive_impl, parameter_types};
+use pallet_price_oracle::ParsingMethod;
 use sp_consensus_babe::{AuthorityId, AuthoritySignature};
 use sp_consensus_slots::Slot;
 use sp_core::{crypto::Pair as PairT, sr25519};
 use sp_inherents::InherentData;
 use sp_io::TestExternalities;
-use pallet_price_oracle::ParsingMethod;
-use sp_price_oracle::{Nudge, PriceOracleInherentData, SignedNudge, INHERENT_IDENTIFIER};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup, BadOrigin},
-	BuildStorage, FixedU128,
+use sp_price_oracle::{
+	Nudge, PairConfig, PairId, PriceOracleInherentData, SignedNudge, INHERENT_IDENTIFIER,
 };
+use sp_runtime::{traits::BadOrigin, BuildStorage, FixedU128};
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -38,9 +37,6 @@ impl frame_support::traits::Time for MockTime {
 }
 
 parameter_types! {
-	pub const Epsilon: FixedU128 = FixedU128::from_rational(1, 100); // 0.01
-	pub const NudgeValidity: u64 = 10;
-	pub static MinNudges: u32 = 0;
 	pub const MaxEndpoints: u32 = 20;
 	pub const MaxUrlLength: u32 = 64;
 }
@@ -71,9 +67,6 @@ fn set_current_slot(slot: u64) {
 }
 
 impl Config for Test {
-	type Epsilon = Epsilon;
-	type MinNudges = MinNudges;
-	type NudgeValidity = NudgeValidity;
 	type AuthorityProvider = MockAuthorityProvider;
 	type TimeProvider = MockTime;
 	type OnPriceUpdate = ();
@@ -82,12 +75,36 @@ impl Config for Test {
 	type PriceOracleOrigin = frame_system::EnsureRoot<u64>;
 }
 
+/// Default config values used by the builder when no explicit pair setup is provided.
+fn default_pair_config() -> PairConfig {
+	PairConfig {
+		min_nudges: 0,
+		nudge_validity: 10,
+		inherent_mandatory: false,
+		invalid_inherent_panics: false,
+		epsilon: FixedU128::from_rational(1, 100),
+	}
+}
+
+fn cfg_with(
+	min_nudges: u32,
+	nudge_validity: u64,
+	inherent_mandatory: bool,
+	invalid_inherent_panics: bool,
+) -> PairConfig {
+	PairConfig {
+		min_nudges,
+		nudge_validity,
+		inherent_mandatory,
+		invalid_inherent_panics,
+		epsilon: FixedU128::from_rational(1, 100),
+	}
+}
+
 struct ExtBuilder {
 	num_authorities: usize,
 	current_slot: u64,
-	min_nudges: u32,
-	initial_price: Option<FixedU128>,
-	panic_switch: bool,
+	pairs: Vec<(PairId, PairConfig, FixedU128)>, // (id, config, initial_price)
 }
 
 impl Default for ExtBuilder {
@@ -96,9 +113,7 @@ impl Default for ExtBuilder {
 		Self {
 			num_authorities: 3,
 			current_slot: 5,
-			min_nudges: 0,
-			initial_price: None,
-			panic_switch: false,
+			pairs: vec![(0u8, default_pair_config(), FixedU128::zero())],
 		}
 	}
 }
@@ -114,18 +129,21 @@ impl ExtBuilder {
 		self
 	}
 
-	fn min_nudges(mut self, min: u32) -> Self {
-		self.min_nudges = min;
+	fn pair(mut self, id: PairId, config: PairConfig) -> Self {
+		// Replace the default pair 0 with the provided config.
+		self.pairs.retain(|(pid, _, _)| *pid != id);
+		self.pairs.push((id, config, FixedU128::zero()));
 		self
 	}
 
-	fn initial_price(mut self, price: FixedU128) -> Self {
-		self.initial_price = Some(price);
+	fn pair_with_price(mut self, id: PairId, config: PairConfig, price: FixedU128) -> Self {
+		self.pairs.retain(|(pid, _, _)| *pid != id);
+		self.pairs.push((id, config, price));
 		self
 	}
 
-	fn panic_switch(mut self, panic_switch: bool) -> Self {
-		self.panic_switch = panic_switch;
+	fn no_pairs(mut self) -> Self {
+		self.pairs.clear();
 		self
 	}
 
@@ -133,17 +151,16 @@ impl ExtBuilder {
 		let pairs = generate_test_pairs(self.num_authorities);
 		set_authorities(&pairs);
 		set_current_slot(self.current_slot);
-		MinNudges::set(self.min_nudges);
 
 		let t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 		let mut ext = TestExternalities::new(t);
 
 		ext.execute_with(|| {
-			if let Some(price) = self.initial_price {
-				pallet::CurrentPrice::<Test>::put(price);
-			}
-			if self.panic_switch {
-				pallet::PanicSwitch::<Test>::put(true);
+			for (pair_id, cfg, initial_price) in &self.pairs {
+				pallet::Pairs::<Test>::insert(pair_id, cfg.clone());
+				if !initial_price.is_zero() {
+					pallet::CurrentPrice::<Test>::insert(pair_id, *initial_price);
+				}
 			}
 		});
 
@@ -177,7 +194,7 @@ fn generate_test_pairs(count: usize) -> Vec<sr25519::Pair> {
 #[test]
 fn price_starts_at_zero() {
 	ExtBuilder::default().build_and_execute(|| {
-		assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+		assert_eq!(PriceOracle::current_price(0), FixedU128::zero());
 	});
 }
 
@@ -186,10 +203,13 @@ fn single_up_nudge_increases_price_by_epsilon() {
 	ExtBuilder::default().build_and_execute(|| {
 		let pairs = generate_test_pairs(3);
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![(0u8, vec![nudge])],
+		));
 
 		let expected = FixedU128::from_rational(1, 100);
-		assert_eq!(PriceOracle::current_price(), expected);
+		assert_eq!(PriceOracle::current_price(0), expected);
 	});
 }
 
@@ -202,11 +222,13 @@ fn multiple_ups_compound() {
 			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
 			make_signed_nudge(&pairs[2], Nudge::Up, 4, 2),
 		];
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![(0u8, nudges)],
+		));
 
 		// 3 ups, 0 downs → net 3 → price = 3 * 0.01 = 0.03
-		let expected = FixedU128::from_rational(3, 100);
-		assert_eq!(PriceOracle::current_price(), expected);
+		assert_eq!(PriceOracle::current_price(0), FixedU128::from_rational(3, 100));
 	});
 }
 
@@ -220,29 +242,33 @@ fn ups_and_downs_cancel_out() {
 			make_signed_nudge(&pairs[2], Nudge::Down, 4, 2),
 			make_signed_nudge(&pairs[3], Nudge::Up, 4, 3),
 		];
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![(0u8, nudges)],
+		));
 
 		// 3 ups, 1 down → net 2 up → price = 2 * 0.01 = 0.02
-		let expected = FixedU128::from_rational(2, 100);
-		assert_eq!(PriceOracle::current_price(), expected);
+		assert_eq!(PriceOracle::current_price(0), FixedU128::from_rational(2, 100));
 	});
 }
 
 #[test]
 fn down_nudges_decrease_price() {
 	ExtBuilder::default()
-		.initial_price(FixedU128::from_u32(1))
+		.pair_with_price(0, default_pair_config(), FixedU128::from_u32(1))
 		.build_and_execute(|| {
 			let pairs = generate_test_pairs(3);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Down, 5, 0),
 				make_signed_nudge(&pairs[1], Nudge::Down, 5, 1),
 			];
-			assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+			assert_ok!(PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, nudges)],
+			));
 
-			// 0 ups, 2 downs → net 2 down → price = 1.0 - 0.02 = 0.98
-			let expected = FixedU128::from_rational(98, 100);
-			assert_eq!(PriceOracle::current_price(), expected);
+			// 0 ups, 2 downs → net 2 down → 1.0 - 0.02 = 0.98
+			assert_eq!(PriceOracle::current_price(0), FixedU128::from_rational(98, 100));
 		});
 }
 
@@ -255,7 +281,7 @@ fn stale_nudge_returns_error() {
 			make_signed_nudge(&pairs[1], Nudge::Up, 4, 1),  // stale (15 - 4 = 11 >= 10)
 		];
 		assert_noop!(
-			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges),
+			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![(0u8, nudges)],),
 			Error::<Test>::StaleNudge
 		);
 	});
@@ -272,13 +298,12 @@ fn invalid_signature_returns_error() {
 		assert_noop!(
 			PriceOracle::submit_nudges(
 				frame_system::RawOrigin::None.into(),
-				vec![bad_nudge, good_nudge],
+				vec![(0u8, vec![bad_nudge, good_nudge])],
 			),
 			Error::<Test>::InvalidSignature
 		);
 	});
 }
-
 #[test]
 fn invalid_signature_alone_returns_error() {
 	ExtBuilder::default().authorities(2).build_and_execute(|| {
@@ -287,28 +312,37 @@ fn invalid_signature_alone_returns_error() {
 		let bad_nudge = make_signed_nudge(&pairs[1], Nudge::Up, 5, 0);
 
 		assert_noop!(
-			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![bad_nudge]),
+			PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![bad_nudge])]
+			),
 			Error::<Test>::InvalidSignature
 		);
 	});
 }
-
 #[test]
 fn price_cannot_go_below_zero() {
 	ExtBuilder::default().authorities(1).current_slot(5).build_and_execute(|| {
 		let pairs = generate_test_pairs(1);
-		// Price starts at 0, pushing down should stay at 0
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Down, 5, 0);
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![(0u8, vec![nudge])],
+		));
+		assert_eq!(PriceOracle::current_price(0), FixedU128::zero());
 	});
 }
 
 #[test]
 fn empty_nudges_does_not_change_price() {
 	ExtBuilder::default()
-		.initial_price(FixedU128::from_u32(5))
+		.pair_with_price(0, default_pair_config(), FixedU128::from_u32(5))
 		.build_and_execute(|| {
-			assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![],));
+			assert_ok!(PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![])],
+			));
+			assert_eq!(PriceOracle::current_price(0), FixedU128::from_u32(5));
 		});
 }
 
@@ -316,13 +350,15 @@ fn empty_nudges_does_not_change_price() {
 fn submit_nudges_only_once_per_block() {
 	ExtBuilder::default().authorities(2).build_and_execute(|| {
 		let pairs = generate_test_pairs(2);
-		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge],));
+		let n1 = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+		assert_ok!(PriceOracle::submit_nudges(
+			frame_system::RawOrigin::None.into(),
+			vec![(0u8, vec![n1])],
+		));
 
-		// Second submission in the same block should return error
-		let nudge2 = make_signed_nudge(&pairs[1], Nudge::Up, 5, 1);
+		let n2 = make_signed_nudge(&pairs[1], Nudge::Up, 5, 1);
 		assert_noop!(
-			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge2]),
+			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![(0u8, vec![n2])],),
 			Error::<Test>::DuplicateInherent
 		);
 	});
@@ -334,96 +370,433 @@ fn duplicate_authority_nudges_return_error() {
 		let pairs = generate_test_pairs(2);
 		let nudges = vec![
 			make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
-			make_signed_nudge(&pairs[0], Nudge::Up, 4, 0), // same authority_index=0
+			make_signed_nudge(&pairs[0], Nudge::Up, 4, 0),
 			make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
 		];
 		assert_noop!(
-			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges),
+			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![(0u8, nudges)],),
 			Error::<Test>::DuplicateNudge
 		);
 	});
 }
 
 #[test]
-fn nudge_count_tracks_valid_nudges() {
-	ExtBuilder::default().current_slot(15).build_and_execute(|| {
-		let pairs = generate_test_pairs(3);
-		let nudges = vec![
-			make_signed_nudge(&pairs[0], Nudge::Up, 15, 0),
-			make_signed_nudge(&pairs[1], Nudge::Up, 14, 1),
-			make_signed_nudge(&pairs[2], Nudge::Up, 6, 2), // valid: 6+10=16 > 15
-		];
-		assert_ok!(PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), nudges,));
+fn too_few_nudges_returns_error() {
+	ExtBuilder::default()
+		.pair(0, cfg_with(2, 10, false, false))
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(3);
+			let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_noop!(
+				PriceOracle::submit_nudges(
+					frame_system::RawOrigin::None.into(),
+					vec![(0u8, vec![nudge])],
+				),
+				Error::<Test>::TooFewNudges,
+			);
+		});
+}
 
-		assert_eq!(pallet::NudgeCount::<Test>::get(), Some(3));
+#[test]
+fn register_pair_works() {
+	ExtBuilder::default().no_pairs().build_and_execute(|| {
+		let cfg = cfg_with(1, 5, true, false);
+		let initial_price = FixedU128::from_rational(123, 100);
+		assert_ok!(PriceOracle::register_pair(
+			frame_system::RawOrigin::Root.into(),
+			7,
+			cfg.clone(),
+			initial_price,
+		));
+		assert_eq!(pallet::Pairs::<Test>::get(7), Some(cfg));
+		assert_eq!(pallet::CurrentPrice::<Test>::get(7), initial_price);
 	});
 }
 
 #[test]
-fn too_few_nudges_returns_error() {
-	ExtBuilder::default().min_nudges(2).build_and_execute(|| {
-		let pairs = generate_test_pairs(3);
+fn register_pair_duplicate_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_noop!(
+			PriceOracle::register_pair(
+				frame_system::RawOrigin::Root.into(),
+				0,
+				default_pair_config(),
+				FixedU128::zero(),
+			),
+			Error::<Test>::PairAlreadyExists,
+		);
+	});
+}
+
+#[test]
+fn register_pair_requires_custom_origin() {
+	ExtBuilder::default().no_pairs().build_and_execute(|| {
+		assert_noop!(
+			PriceOracle::register_pair(
+				frame_system::RawOrigin::Signed(1).into(),
+				0,
+				default_pair_config(),
+				FixedU128::zero(),
+			),
+			BadOrigin,
+		);
+	});
+}
+
+#[test]
+fn update_pair_config_works() {
+	ExtBuilder::default().build_and_execute(|| {
+		let new_cfg = cfg_with(3, 20, true, true);
+		assert_ok!(PriceOracle::update_pair_config(
+			frame_system::RawOrigin::Root.into(),
+			0,
+			new_cfg.clone(),
+		));
+		assert_eq!(pallet::Pairs::<Test>::get(0), Some(new_cfg));
+	});
+}
+
+#[test]
+fn update_pair_config_unknown_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_noop!(
+			PriceOracle::update_pair_config(
+				frame_system::RawOrigin::Root.into(),
+				5,
+				default_pair_config(),
+			),
+			Error::<Test>::UnknownPair,
+		);
+	});
+}
+
+#[test]
+fn remove_pair_clears_storage() {
+	ExtBuilder::default().build_and_execute(|| {
+		// Default builder registers pair 0; seed per-pair state expected to be cleared.
+		pallet::CurrentPrice::<Test>::insert(0u8, FixedU128::from_u32(42));
+		pallet::InherentSeen::<Test>::insert(0u8, true);
+
+		assert_ok!(PriceOracle::remove_pair(frame_system::RawOrigin::Root.into(), 0));
+		assert!(!pallet::Pairs::<Test>::contains_key(0u8));
+		assert_eq!(pallet::CurrentPrice::<Test>::get(0u8), FixedU128::zero());
+		assert!(!pallet::ActiveEndpoints::<Test>::contains_key(0u8));
+		assert!(!pallet::InherentSeen::<Test>::contains_key(0u8));
+	});
+}
+
+#[test]
+fn remove_pair_unknown_rejected() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_noop!(
+			PriceOracle::remove_pair(frame_system::RawOrigin::Root.into(), 5),
+			Error::<Test>::UnknownPair,
+		);
+	});
+}
+
+#[test]
+fn set_active_endpoints_requires_pair() {
+	ExtBuilder::default().build_and_execute(|| {
+		let endpoints = vec![(u8::from(ParsingMethod::Binance), b"https://x".to_vec())];
+		assert_noop!(
+			PriceOracle::set_active_endpoints(frame_system::RawOrigin::Root.into(), 5, endpoints,),
+			Error::<Test>::UnknownPair,
+		);
+	});
+}
+
+#[test]
+fn set_active_endpoints_stores_per_pair() {
+	ExtBuilder::default().build_and_execute(|| {
+		let endpoints = vec![
+			(u8::from(ParsingMethod::Binance), b"https://binance.example/price".to_vec()),
+			(u8::from(ParsingMethod::CoinGecko), b"https://coingecko.example/price".to_vec()),
+		];
+		assert_ok!(PriceOracle::set_active_endpoints(
+			frame_system::RawOrigin::Root.into(),
+			0,
+			endpoints,
+		));
+		let stored: Vec<(u8, Vec<u8>)> = pallet::ActiveEndpoints::<Test>::get(0u8)
+			.into_iter()
+			.map(|(m, url)| (m.into(), url.into_inner()))
+			.collect();
+		assert_eq!(stored.len(), 2);
+	});
+}
+
+#[test]
+fn set_active_endpoints_rejects_too_many() {
+	ExtBuilder::default().build_and_execute(|| {
+		let endpoints: Vec<_> =
+			(0..21).map(|_| (u8::from(ParsingMethod::Binance), b"x".to_vec())).collect();
+		assert_noop!(
+			PriceOracle::set_active_endpoints(frame_system::RawOrigin::Root.into(), 0, endpoints,),
+			Error::<Test>::TooManyEndpoints,
+		);
+	});
+}
+
+#[test]
+fn set_active_endpoints_rejects_url_too_long() {
+	ExtBuilder::default().build_and_execute(|| {
+		let long_url = vec![b'x'; 65];
+		assert_noop!(
+			PriceOracle::set_active_endpoints(
+				frame_system::RawOrigin::Root.into(),
+				0,
+				vec![(u8::from(ParsingMethod::Binance), long_url)],
+			),
+			Error::<Test>::UrlTooLong,
+		);
+	});
+}
+
+#[test]
+fn set_active_endpoints_rejects_unknown_method() {
+	ExtBuilder::default().build_and_execute(|| {
+		assert_noop!(
+			PriceOracle::set_active_endpoints(
+				frame_system::RawOrigin::Root.into(),
+				0,
+				vec![(99u8, b"https://x".to_vec())],
+			),
+			Error::<Test>::UnknownParsingMethod,
+		);
+	});
+}
+
+// ----- Multi-pair inherent behaviour ----------------------------------------
+
+#[test]
+fn multi_pair_inherent_updates_both_prices() {
+	ExtBuilder::default()
+		.authorities(3)
+		.pair(0, default_pair_config())
+		.pair(1, default_pair_config())
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(3);
+			let nudges_a = vec![
+				make_signed_nudge(&pairs[0], Nudge::Up, 5, 0),
+				make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
+			];
+			let nudges_b = vec![
+				make_signed_nudge(&pairs[0], Nudge::Down, 5, 0),
+				make_signed_nudge(&pairs[2], Nudge::Down, 5, 2),
+			];
+
+			// Seed prices so Down can move.
+			pallet::CurrentPrice::<Test>::insert(1u8, FixedU128::from_u32(1));
+
+			assert_ok!(PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, nudges_a), (1u8, nudges_b)],
+			));
+
+			// Pair 0: 2 ups → +0.02
+			assert_eq!(PriceOracle::current_price(0), FixedU128::from_rational(2, 100));
+			// Pair 1: 2 downs → 1.0 - 0.02 = 0.98
+			assert_eq!(PriceOracle::current_price(1), FixedU128::from_rational(98, 100));
+		});
+}
+
+#[test]
+fn duplicate_pair_in_inherent_rejected() {
+	ExtBuilder::default().authorities(2).build_and_execute(|| {
+		let pairs = generate_test_pairs(2);
 		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
 		assert_noop!(
-			PriceOracle::submit_nudges(frame_system::RawOrigin::None.into(), vec![nudge]),
-			Error::<Test>::TooFewNudges,
+			PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![nudge.clone()]), (0u8, vec![nudge])],
+			),
+			Error::<Test>::DuplicatePairInInherent,
 		);
 	});
 }
 
 #[test]
-#[should_panic]
-fn panic_switch_on_without_inherent_panics() {
-	ExtBuilder::default().panic_switch(true).current_slot(1).build_and_execute(|| {
-		NudgeCount::<Test>::set(None);
-		PriceOracle::on_finalize(1);
-	});
-}
-
-#[test]
-fn bad_origin_set_panic_switch_returns_error() {
-	ExtBuilder::default().panic_switch(true).build_and_execute(|| {
+fn unknown_pair_in_inherent_rejected() {
+	ExtBuilder::default().authorities(2).build_and_execute(|| {
+		let pairs = generate_test_pairs(2);
+		let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
 		assert_noop!(
-			PriceOracle::set_panic_switch(frame_system::RawOrigin::Signed(1).into(), true),
-			BadOrigin
+			PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(9u8, vec![nudge])],
+			),
+			Error::<Test>::UnknownPair,
 		);
 	});
 }
 
-/// Tests for the full inherent pipeline: node-side data → runtime processing.
-///
-/// In production, the pipeline is:
-///
-/// 1. **Node gossip service** collects signed nudges from peers into `NudgeStore`
-/// 2. **Node inherent provider** (`create_inherent_data`) selects a subset from the store and packs
-///    them into `sp_inherents::InherentData` via `sp_price_oracle::INHERENT_IDENTIFIER`
-/// 3. **Runtime `create_inherent`** deserializes the `InherentData` into `Call::submit_nudges`
-/// 4. **Runtime `check_inherent`** validates signatures and freshness (import-time rejection)
-/// 5. **Runtime `submit_nudges`** executes: verifies sigs, filters stale/duplicate/invalid, counts
-///    ups vs downs, applies epsilon to update `CurrentPrice`
-///
-/// These tests cover steps 3–5 by constructing `InherentData` directly and running it through
-/// `create_inherent` → dispatch. This catches mismatches between what the node side produces
-/// and what the runtime accepts (e.g. the duplicate-authority bug where the node could pass
-/// two nudges from the same validator, which would have caused the runtime to count them twice).
+#[test]
+fn unknown_pair_never_panics_even_when_other_pair_panics() {
+	// Pair 0 has invalid_inherent_panics=true, but an unknown pair should always return an
+	// error, never panic. To assert no panic, run in a normal (non-should_panic) test.
+	ExtBuilder::default()
+		.authorities(2)
+		.pair(0, cfg_with(0, 10, false, true))
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
+			let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_noop!(
+				PriceOracle::submit_nudges(
+					frame_system::RawOrigin::None.into(),
+					vec![(9u8, vec![nudge])],
+				),
+				Error::<Test>::UnknownPair,
+			);
+		});
+}
+
+#[test]
+#[should_panic(expected = "inherent_mandatory")]
+fn per_pair_inherent_mandatory_panics_in_finalize() {
+	ExtBuilder::default()
+		.pair(0, cfg_with(0, 10, true, false))
+		.build_and_execute(|| {
+			PriceOracle::on_finalize(1);
+		});
+}
+
+#[test]
+fn per_pair_inherent_mandatory_not_set_does_not_panic() {
+	ExtBuilder::default()
+		.pair(0, cfg_with(0, 10, false, false))
+		.build_and_execute(|| {
+			PriceOracle::on_finalize(1);
+		});
+}
+
+#[test]
+fn mandatory_pair_with_inherent_seen_does_not_panic() {
+	ExtBuilder::default()
+		.pair(0, cfg_with(0, 10, true, false))
+		.build_and_execute(|| {
+			pallet::InherentSeen::<Test>::insert(0u8, true);
+			PriceOracle::on_finalize(1);
+		});
+}
+
+#[test]
+fn invalid_inherent_panics_converts_error_to_panic() {
+	ExtBuilder::default()
+		.authorities(2)
+		.current_slot(20)
+		.pair(0, cfg_with(0, 10, false, true)) // invalid_inherent_panics = true
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
+			let stale_nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_noop!(
+				PriceOracle::submit_nudges(
+					frame_system::RawOrigin::None.into(),
+					vec![(0u8, vec![stale_nudge])],
+				),
+				Error::<Test>::StaleNudge
+			);
+		});
+}
+
+#[test]
+fn invalid_inherent_panics_false_returns_error() {
+	ExtBuilder::default()
+		.authorities(2)
+		.current_slot(20)
+		.pair(0, cfg_with(0, 10, false, false))
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(2);
+			let stale_nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_noop!(
+				PriceOracle::submit_nudges(
+					frame_system::RawOrigin::None.into(),
+					vec![(0u8, vec![stale_nudge])],
+				),
+				Error::<Test>::StaleNudge,
+			);
+		});
+}
+
+#[test]
+fn partial_inherent_with_mandatory_mix_ok() {
+	// Pair 0 mandatory, pair 1 not. Inherent includes only pair 0 → OK.
+	ExtBuilder::default()
+		.authorities(1)
+		.pair(0, cfg_with(0, 10, true, false))
+		.pair(1, cfg_with(0, 10, false, false))
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(1);
+			let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_ok!(PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![nudge])],
+			));
+			PriceOracle::on_finalize(1);
+		});
+}
+
+#[test]
+#[should_panic(expected = "inherent_mandatory")]
+fn partial_inherent_missing_mandatory_panics() {
+	// Pair 1 mandatory, inherent only contains pair 0 → on_finalize panics.
+	ExtBuilder::default()
+		.authorities(1)
+		.pair(0, cfg_with(0, 10, false, false))
+		.pair(1, cfg_with(0, 10, true, false))
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(1);
+			let nudge = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_ok!(PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![nudge])],
+			));
+			PriceOracle::on_finalize(1);
+		});
+}
+
+#[test]
+fn nudges_are_isolated_per_pair() {
+	// Same authority can submit a nudge for pair 0 AND pair 1 in the same inherent.
+	ExtBuilder::default()
+		.authorities(1)
+		.pair(0, default_pair_config())
+		.pair(1, default_pair_config())
+		.build_and_execute(|| {
+			let pairs = generate_test_pairs(1);
+			let n0 = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			let n1 = make_signed_nudge(&pairs[0], Nudge::Up, 5, 0);
+			assert_ok!(PriceOracle::submit_nudges(
+				frame_system::RawOrigin::None.into(),
+				vec![(0u8, vec![n0]), (1u8, vec![n1])],
+			));
+			assert_eq!(PriceOracle::current_price(0), FixedU128::from_rational(1, 100));
+			assert_eq!(PriceOracle::current_price(1), FixedU128::from_rational(1, 100));
+		});
+}
+
 mod inherent_pipeline {
 	use super::*;
 	use frame_support::{pallet_prelude::ProvideInherent, traits::UnfilteredDispatchable};
 
-	fn build_inherent_data(nudges: Vec<SignedNudge>) -> InherentData {
+	fn build_inherent_data(pair_nudges: Vec<(PairId, Vec<SignedNudge>)>) -> InherentData {
 		let mut data = InherentData::new();
-		data.put_data(INHERENT_IDENTIFIER, &nudges).expect("puts inherent data");
+		let payload: PriceOracleInherentData = pair_nudges;
+		data.put_data(INHERENT_IDENTIFIER, &payload).expect("puts inherent data");
 		data
 	}
 
-	fn run_inherent(nudges: Vec<SignedNudge>) {
-		let data = build_inherent_data(nudges);
+	fn run_inherent(pair_nudges: Vec<(PairId, Vec<SignedNudge>)>) {
+		let data = build_inherent_data(pair_nudges);
 		let call = PriceOracle::create_inherent(&data).expect("create_inherent returns Some");
 		assert_ok!(call.dispatch_bypass_filter(frame_system::RawOrigin::None.into()));
 	}
 
-	fn run_inherent_expect_err(nudges: Vec<SignedNudge>, expected: Error<Test>) {
-		let data = build_inherent_data(nudges);
+	fn run_inherent_expect_err(
+		pair_nudges: Vec<(PairId, Vec<SignedNudge>)>,
+		expected: Error<Test>,
+	) {
+		let data = build_inherent_data(pair_nudges);
 		let call = PriceOracle::create_inherent(&data).expect("create_inherent returns Some");
 		let result = call.dispatch_bypass_filter(frame_system::RawOrigin::None.into());
 		assert!(result.is_err());
@@ -439,11 +812,9 @@ mod inherent_pipeline {
 				make_signed_nudge(&pairs[1], Nudge::Up, 9, 1),
 				make_signed_nudge(&pairs[2], Nudge::Down, 10, 2),
 			];
-			run_inherent(nudges);
+			run_inherent(vec![(0u8, nudges)]);
 
-			// 2 ups, 1 down → net 1 up → price = 0.01
-			assert_eq!(PriceOracle::current_price(), FixedU128::from_rational(1, 100));
-			assert_eq!(pallet::NudgeCount::<Test>::get(), Some(3));
+			assert_eq!(PriceOracle::current_price(0), FixedU128::from_rational(1, 100));
 		});
 	}
 
@@ -453,12 +824,11 @@ mod inherent_pipeline {
 			let pairs = generate_test_pairs(2);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Up, 10, 0),
-				make_signed_nudge(&pairs[0], Nudge::Up, 9, 0), // duplicate authority
+				make_signed_nudge(&pairs[0], Nudge::Up, 9, 0),
 				make_signed_nudge(&pairs[1], Nudge::Up, 10, 1),
 			];
-			run_inherent_expect_err(nudges, Error::<Test>::DuplicateNudge);
-
-			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+			run_inherent_expect_err(vec![(0u8, nudges)], Error::<Test>::DuplicateNudge);
+			assert_eq!(PriceOracle::current_price(0), FixedU128::zero());
 		});
 	}
 
@@ -468,11 +838,9 @@ mod inherent_pipeline {
 			let pairs = generate_test_pairs(2);
 			let nudges = vec![
 				make_signed_nudge(&pairs[0], Nudge::Up, 20, 0),
-				make_signed_nudge(&pairs[1], Nudge::Up, 5, 1), // 5+10=15 <= 20 → stale
+				make_signed_nudge(&pairs[1], Nudge::Up, 5, 1),
 			];
-			run_inherent_expect_err(nudges, Error::<Test>::StaleNudge);
-
-			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+			run_inherent_expect_err(vec![(0u8, nudges)], Error::<Test>::StaleNudge);
 		});
 	}
 
@@ -481,51 +849,29 @@ mod inherent_pipeline {
 		ExtBuilder::default().authorities(2).current_slot(10).build_and_execute(|| {
 			let pairs = generate_test_pairs(2);
 			let nudges = vec![
-				make_signed_nudge(&pairs[1], Nudge::Up, 10, 0), // wrong key for auth 0
+				make_signed_nudge(&pairs[1], Nudge::Up, 10, 0),
 				make_signed_nudge(&pairs[1], Nudge::Up, 10, 1),
 			];
-			run_inherent_expect_err(nudges, Error::<Test>::InvalidSignature);
-
-			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
+			run_inherent_expect_err(vec![(0u8, nudges)], Error::<Test>::InvalidSignature);
 		});
 	}
 
 	#[test]
 	fn empty_inherent() {
 		ExtBuilder::default()
-			.initial_price(FixedU128::from_u32(5))
+			.pair_with_price(0, default_pair_config(), FixedU128::from_u32(5))
 			.build_and_execute(|| {
 				run_inherent(vec![]);
-
-				assert_eq!(PriceOracle::current_price(), FixedU128::from_u32(5));
-				assert_eq!(pallet::NudgeCount::<Test>::get(), Some(0));
+				assert_eq!(PriceOracle::current_price(0), FixedU128::from_u32(5));
 			});
-	}
-
-	#[test]
-	fn stale_nudge_is_rejected() {
-		ExtBuilder::default().authorities(1).current_slot(100).build_and_execute(|| {
-			let pairs = generate_test_pairs(1);
-			let nudges = vec![
-				make_signed_nudge(&pairs[0], Nudge::Up, 1, 0), // stale
-			];
-			run_inherent_expect_err(nudges, Error::<Test>::StaleNudge);
-
-			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
-		});
 	}
 
 	#[test]
 	fn invalid_authority_is_rejected() {
 		ExtBuilder::default().authorities(2).current_slot(10).build_and_execute(|| {
 			let pairs = generate_test_pairs(2);
-			let nudges = vec![
-				make_signed_nudge(&pairs[1], Nudge::Up, 10, 3), // authority index out of range
-			];
-			run_inherent_expect_err(nudges, Error::<Test>::InvalidAuthority);
-
-			assert_eq!(PriceOracle::current_price(), FixedU128::zero());
-		
+			let nudges = vec![make_signed_nudge(&pairs[1], Nudge::Up, 10, 3)];
+			run_inherent_expect_err(vec![(0u8, nudges)], Error::<Test>::InvalidAuthority);
 		});
 	}
 }
@@ -534,8 +880,8 @@ mod active_endpoints {
 	use super::*;
 	use sp_runtime::DispatchError;
 
-	fn stored_ids() -> Vec<(u8, Vec<u8>)> {
-		pallet::ActiveEndpoints::<Test>::get()
+	fn stored_ids(pair_id: PairId) -> Vec<(u8, Vec<u8>)> {
+		pallet::ActiveEndpoints::<Test>::get(pair_id)
 			.into_iter()
 			.map(|(m, url)| (m.into(), url.into_inner()))
 			.collect()
@@ -544,7 +890,8 @@ mod active_endpoints {
 	#[test]
 	fn starts_empty() {
 		ExtBuilder::default().build_and_execute(|| {
-			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
+			assert!(pallet::ActiveEndpoints::<Test>::get(0u8).is_empty());
+			assert!(pallet::ActiveEndpoints::<Test>::get(1u8).is_empty());
 		});
 	}
 
@@ -557,9 +904,10 @@ mod active_endpoints {
 			];
 			assert_ok!(PriceOracle::set_active_endpoints(
 				frame_system::RawOrigin::Root.into(),
+				0u8,
 				endpoints.clone(),
 			));
-			assert_eq!(stored_ids(), endpoints);
+			assert_eq!(stored_ids(0u8), endpoints);
 		});
 	}
 
@@ -571,6 +919,7 @@ mod active_endpoints {
 			assert_noop!(
 				PriceOracle::set_active_endpoints(
 					frame_system::RawOrigin::Signed(1).into(),
+					0u8,
 					endpoints.clone(),
 				),
 				DispatchError::BadOrigin,
@@ -578,11 +927,12 @@ mod active_endpoints {
 			assert_noop!(
 				PriceOracle::set_active_endpoints(
 					frame_system::RawOrigin::None.into(),
+					0u8,
 					endpoints,
 				),
 				DispatchError::BadOrigin,
 			);
-			assert!(pallet::ActiveEndpoints::<Test>::get().is_empty());
+			assert!(stored_ids(0u8).is_empty());
 		});
 	}
 
@@ -596,13 +946,15 @@ mod active_endpoints {
 			];
 			assert_ok!(PriceOracle::set_active_endpoints(
 				frame_system::RawOrigin::Root.into(),
+				0u8,
 				first,
 			));
 			assert_ok!(PriceOracle::set_active_endpoints(
 				frame_system::RawOrigin::Root.into(),
+				0u8,
 				second.clone(),
 			));
-			assert_eq!(stored_ids(), second);
+			assert_eq!(stored_ids(0u8), second);
 		});
 	}
 
@@ -615,6 +967,7 @@ mod active_endpoints {
 			assert_noop!(
 				PriceOracle::set_active_endpoints(
 					frame_system::RawOrigin::Root.into(),
+					0u8,
 					endpoints,
 				),
 				pallet::Error::<Test>::TooManyEndpoints,
@@ -630,6 +983,7 @@ mod active_endpoints {
 			assert_noop!(
 				PriceOracle::set_active_endpoints(
 					frame_system::RawOrigin::Root.into(),
+					0u8,
 					vec![(u8::from(ParsingMethod::Binance), long_url)],
 				),
 				pallet::Error::<Test>::UrlTooLong,
@@ -643,6 +997,7 @@ mod active_endpoints {
 			assert_noop!(
 				PriceOracle::set_active_endpoints(
 					frame_system::RawOrigin::Root.into(),
+					0u8,
 					vec![(99u8, b"https://example/price".to_vec())],
 				),
 				pallet::Error::<Test>::UnknownParsingMethod,

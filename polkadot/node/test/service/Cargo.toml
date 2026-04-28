@@ -47,6 +47,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
+sp-price-oracle = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-state-machine = { workspace = true, default-features = true }
 substrate-test-client = { workspace = true }

@@ -8,8 +8,8 @@
 //! slot the node signs nudges with and the slot the runtime checks against.
 
 use polkadot_test_client::{
-	construct_extrinsic, BlockBuilderExt, Client, ClientBlockImportExt,
-	DefaultTestClientBuilderExt, InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
+	construct_extrinsic, BlockBuilderExt, ClientBlockImportExt, DefaultTestClientBuilderExt,
+	InitPolkadotBlockBuilder, TestClientBuilder, TestClientBuilderExt,
 };
 use sp_api::ProvideRuntimeApi;
 use sp_consensus::BlockOrigin;
@@ -47,7 +47,7 @@ fn block_with_oracle_inherent_builds_and_imports() {
 	let client = TestClientBuilder::new().build();
 	let price_before = client
 		.runtime_api()
-		.current_price(client.chain_info().best_hash)
+		.current_price(client.chain_info().best_hash, 0u8)
 		.expect("price before");
 	let now_ms = std::time::SystemTime::now()
 		.duration_since(std::time::UNIX_EPOCH)
@@ -66,7 +66,7 @@ fn block_with_oracle_inherent_builds_and_imports() {
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
 	let price_after = client
 		.runtime_api()
-		.current_price(client.chain_info().best_hash)
+		.current_price(client.chain_info().best_hash, 0u8)
 		.expect("price after");
 	assert_eq!(price_after, price_before + FixedU128::from_rational(1, 100));
 }
@@ -78,7 +78,7 @@ fn block_with_nudges_updates_price() {
 	let best = client.chain_info().best_hash;
 	let slot: u64 = client
 		.runtime_api()
-		.current_price(best)
+		.current_price(best, 0u8)
 		.map(|_| {
 			// Get the slot that the next block will have — use a large enough value
 			// that won't be stale. The test runtime's first block will have slot derived
@@ -106,7 +106,7 @@ fn block_with_nudges_updates_price() {
 
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("Imports the block");
 
-	let price = client.runtime_api().current_price(block_hash).expect("queries price");
+	let price = client.runtime_api().current_price(block_hash, 0u8).expect("queries price");
 	// 2 Up nudges × epsilon(0.01) = 0.02
 	assert_eq!(price, FixedU128::from_rational(2, 100));
 }
@@ -137,7 +137,7 @@ fn multiple_blocks_accumulate_price() {
 	let hash1 = block.hash();
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("import block 1");
 
-	let price1 = client.runtime_api().current_price(hash1).expect("price after block 1");
+	let price1 = client.runtime_api().current_price(hash1, 0u8).expect("price after block 1");
 	assert_eq!(price1, FixedU128::from_rational(2, 100));
 
 	// Block 2: 1 Up, 1 Down → net 0, price stays at 0.02
@@ -154,7 +154,7 @@ fn multiple_blocks_accumulate_price() {
 	let hash2 = block2.hash();
 	futures::executor::block_on(client.import(BlockOrigin::Own, block2)).expect("import block 2");
 
-	let price2 = client.runtime_api().current_price(hash2).expect("price after block 2");
+	let price2 = client.runtime_api().current_price(hash2, 0u8).expect("price after block 2");
 	assert_eq!(price2, FixedU128::from_rational(2, 100));
 }
 
@@ -226,55 +226,84 @@ fn single_nudge_updates_price() {
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("import");
 
 	// 1 Up nudge × epsilon(0.01) = 0.01
-	let price = client.runtime_api().current_price(hash).expect("price");
+	let price = client.runtime_api().current_price(hash, 0u8).expect("price");
 	assert_eq!(price, FixedU128::from_rational(1, 100));
 }
 
-/// Helper: build and import a block that enables the panic switch via sudo.
-fn enable_panic_switch(client: &polkadot_test_client::Client) {
+/// Helper: build and import a block that toggles `inherent_mandatory=true` on pair 0 via sudo.
+///
+/// The block must include a valid nudge so that `InherentSeen[0] = true` — otherwise
+/// `on_finalize` would read the freshly-updated `inherent_mandatory=true` and panic. The node
+/// author is responsible for coupling config changes with an inherent entry.
+fn make_pair_mandatory(client: &polkadot_test_client::Client) {
 	use polkadot_test_client::runtime::RuntimeCall;
+	use sp_price_oracle::PairConfig;
 
-	let inner =
-		RuntimeCall::PriceOracle(pallet_price_oracle::Call::set_panic_switch { enabled: true });
+	let cfg = PairConfig {
+		min_nudges: 1,
+		nudge_validity: 10,
+		inherent_mandatory: true,
+		invalid_inherent_panics: false,
+		epsilon: FixedU128::from_rational(1, 100),
+	};
+
+	let inner = RuntimeCall::PriceOracle(pallet_price_oracle::Call::update_pair_config {
+		pair_id: 0u8,
+		config: cfg,
+	});
 	let sudo = RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(inner) });
 	let ext = construct_extrinsic(client, sudo, sp_keyring::Sr25519Keyring::Alice, 0);
 
-	let mut block_builder = client.init_polkadot_block_builder();
+	let now_ms = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as u64;
+	let slot = now_ms / 6000;
+	let alice = alice_babe_pair();
+	let nudges = vec![make_signed_nudge(&alice, Nudge::Up, slot, 0)];
+
+	let mut block_builder = client.init_polkadot_block_builder_with_nudges(nudges);
 	block_builder.push_polkadot_extrinsic(ext).expect("pushes sudo extrinsic");
 
 	let block = block_builder.build().expect("builds block").block;
 	futures::executor::block_on(client.import(BlockOrigin::Own, block))
-		.expect("imports block with panic switch enabled");
+		.expect("imports block that sets mandatory flag");
 }
 
 #[test]
-fn panic_switch_on_with_inherent_does_not_panic() {
+fn mandatory_pair_with_inherent_does_not_panic() {
 	let client = TestClientBuilder::new().build();
+	make_pair_mandatory(&client);
 
-	// Block 1: enable the panic switch.
-	enable_panic_switch(&client);
+	let now_ms = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as u64;
+	let slot = now_ms / 6000;
+	let alice = alice_babe_pair();
 
-	// Block 2: includes the oracle inherent (empty nudges) — should succeed.
 	let block = client
-		.init_polkadot_block_builder()
+		.init_polkadot_block_builder_with_nudges(vec![make_signed_nudge(
+			&alice,
+			Nudge::Up,
+			slot,
+			0,
+		)])
 		.build()
-		.expect("block with inherent builds despite panic switch")
+		.expect("block with inherent builds despite mandatory flag")
 		.block;
 
 	futures::executor::block_on(client.import(BlockOrigin::Own, block))
-		.expect("block with inherent imports despite panic switch");
+		.expect("block with inherent imports despite mandatory flag");
 }
 
 #[test]
-fn panic_switch_on_without_inherent_panics() {
+fn mandatory_pair_without_inherent_panics() {
 	let client = TestClientBuilder::new().build();
+	make_pair_mandatory(&client);
 
-	// Block 1: enable the panic switch.
-	enable_panic_switch(&client);
-
-	// Block 2: NO oracle inherent — on_finalize should panic.
 	let result = client.init_polkadot_build_block_without_price_oracle_inherent().build();
-	assert!(result.is_err(), "block without oracle inherent must fail when panic switch is on");
+	assert!(result.is_err(), "block without oracle inherent must fail when the pair is mandatory",);
 }
 
 #[test]
@@ -303,7 +332,7 @@ fn down_nudges_decrease_price() {
 	let hash1 = block.hash();
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("import block 1");
 
-	let price1 = client.runtime_api().current_price(hash1).expect("price after block 1");
+	let price1 = client.runtime_api().current_price(hash1, 0u8).expect("price after block 1");
 	assert_eq!(price1, FixedU128::from_rational(2, 100));
 
 	// Block 2: 2 Down nudges → price = 0.00
@@ -321,7 +350,7 @@ fn down_nudges_decrease_price() {
 	futures::executor::block_on(client.import(BlockOrigin::Own, block2)).expect("import block 2");
 
 	// 0 ups, 2 downs → net 2 down → price = 0.02 - 0.02 = 0.00
-	let price2 = client.runtime_api().current_price(hash2).expect("price after block 2");
+	let price2 = client.runtime_api().current_price(hash2, 0u8).expect("price after block 2");
 	assert_eq!(price2, FixedU128::zero());
 }
 
@@ -351,7 +380,7 @@ fn price_floor_at_zero_with_down_nudges() {
 	let hash = block.hash();
 	futures::executor::block_on(client.import(BlockOrigin::Own, block)).expect("import");
 
-	let price = client.runtime_api().current_price(hash).expect("price");
+	let price = client.runtime_api().current_price(hash, 0u8).expect("price");
 	assert_eq!(price, FixedU128::zero());
 }
 
@@ -398,14 +427,17 @@ fn runtime_api_returns_correct_values() {
 	let client = TestClientBuilder::new().build();
 	let best = client.chain_info().best_hash;
 
-	let epsilon = client.runtime_api().epsilon(best).expect("epsilon");
-	assert_eq!(epsilon, FixedU128::from_rational(1, 100));
+	let pairs = client.runtime_api().list_pairs(best).expect("list_pairs");
+	assert_eq!(pairs, vec![0u8]);
 
-	let validity = client.runtime_api().nudge_validity(best).expect("nudge_validity");
-	assert_eq!(validity, 10u64);
-
-	let min = client.runtime_api().minimum_nudges_required(best).expect("min nudges");
-	assert_eq!(min, 1u32);
+	let cfg = client
+		.runtime_api()
+		.pair_config(best, 0u8)
+		.expect("pair_config call")
+		.expect("pair 0 exists");
+	assert_eq!(cfg.epsilon, FixedU128::from_rational(1, 100));
+	assert_eq!(cfg.nudge_validity, 10u64);
+	assert_eq!(cfg.min_nudges, 1u32);
 
 	let authorities = client.runtime_api().authorities(best).expect("authorities");
 	assert_eq!(authorities.len(), 2);
@@ -458,7 +490,7 @@ fn three_consecutive_up_blocks_accumulate() {
 	let hash3 = block3.hash();
 	futures::executor::block_on(client.import(BlockOrigin::Own, block3)).expect("import block 3");
 
-	let price = client.runtime_api().current_price(hash3).expect("price after block 3");
+	let price = client.runtime_api().current_price(hash3, 0u8).expect("price after block 3");
 	assert_eq!(price, FixedU128::from_rational(6, 100));
 }
 
@@ -509,6 +541,87 @@ fn price_increases_then_decreases_across_blocks() {
 	let hash3 = block3.hash();
 	futures::executor::block_on(client.import(BlockOrigin::Own, block3)).expect("import block 3");
 
-	let price = client.runtime_api().current_price(hash3).expect("price after block 3");
+	let price = client.runtime_api().current_price(hash3, 0u8).expect("price after block 3");
 	assert_eq!(price, FixedU128::from_rational(2, 100));
+}
+
+/// Helper: register a second pair (id 1) with the same config as pair 0 via sudo.
+fn register_pair_one(client: &polkadot_test_client::Client) {
+	use polkadot_test_client::runtime::RuntimeCall;
+	use sp_price_oracle::PairConfig;
+
+	let cfg = PairConfig {
+		min_nudges: 1,
+		nudge_validity: 10,
+		inherent_mandatory: false,
+		invalid_inherent_panics: false,
+		epsilon: FixedU128::from_rational(1, 100),
+	};
+	let inner = RuntimeCall::PriceOracle(pallet_price_oracle::Call::register_pair {
+		pair_id: 1u8,
+		config: cfg,
+		initial_price: FixedU128::zero(),
+	});
+	let sudo = RuntimeCall::Sudo(pallet_sudo::Call::sudo { call: Box::new(inner) });
+	let ext = construct_extrinsic(client, sudo, sp_keyring::Sr25519Keyring::Alice, 0);
+
+	let mut block_builder = client.init_polkadot_block_builder();
+	block_builder
+		.push_polkadot_extrinsic(ext)
+		.expect("pushes register_pair extrinsic");
+	let block = block_builder.build().expect("builds block").block;
+	futures::executor::block_on(client.import(BlockOrigin::Own, block))
+		.expect("imports register_pair block");
+}
+
+#[test]
+fn block_with_two_pair_groups_updates_both_prices() {
+	let client = TestClientBuilder::new().build();
+	register_pair_one(&client);
+
+	let now_ms = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as u64;
+	let slot = now_ms / 6000;
+	let alice = alice_babe_pair();
+	let bob = bob_babe_pair();
+
+	let pair_nudges = vec![
+		(0u8, vec![make_signed_nudge(&alice, Nudge::Up, slot, 0)]),
+		(1u8, vec![make_signed_nudge(&bob, Nudge::Up, slot, 1)]),
+	];
+
+	let block = client
+		.init_polkadot_block_builder_with_pair_nudges(pair_nudges)
+		.build()
+		.expect("multi-pair block builds")
+		.block;
+	let hash = block.hash();
+	futures::executor::block_on(client.import(BlockOrigin::Own, block))
+		.expect("import multi-pair block");
+
+	let p0 = client.runtime_api().current_price(hash, 0u8).expect("pair 0 price");
+	let p1 = client.runtime_api().current_price(hash, 1u8).expect("pair 1 price");
+	assert_eq!(p0, FixedU128::from_rational(1, 100));
+	assert_eq!(p1, FixedU128::from_rational(1, 100));
+}
+
+#[test]
+#[should_panic(expected = "BadMandatory")]
+fn unknown_pair_in_inherent_rejected() {
+	let client = TestClientBuilder::new().build();
+
+	let now_ms = std::time::SystemTime::now()
+		.duration_since(std::time::UNIX_EPOCH)
+		.unwrap()
+		.as_millis() as u64;
+	let slot = now_ms / 6000;
+	let alice = alice_babe_pair();
+
+	// Pair id 9 is not registered — block authoring must fail.
+	let _b = client.init_polkadot_block_builder_with_pair_nudges(vec![(
+		9u8,
+		vec![make_signed_nudge(&alice, Nudge::Up, slot, 0)],
+	)]);
 }

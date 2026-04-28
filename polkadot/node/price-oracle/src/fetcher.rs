@@ -72,8 +72,8 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_binance(&body)
 			.expect("Binance response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -84,8 +84,8 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_coinlore(&body)
 			.expect("CoinLore response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -96,21 +96,20 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_cryptocompare(&body)
 			.expect("CryptoCompare response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
 	#[test]
 	fn live_coingecko() {
-		let url =
-			"https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd";
+		let url = "https://api.coingecko.com/api/v3/simple/price?ids=polkadot&vs_currencies=usd";
 		let body = curl_get(url);
 		let price = pallet_price_oracle::decoders::decode_coingecko(&body)
 			.expect("CoinGecko response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -121,8 +120,8 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_coinpaprika(&body)
 			.expect("CoinPaprika response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -130,11 +129,11 @@ mod live_tests {
 	fn live_dia() {
 		let url = "https://api.diadata.org/v1/assetQuotation/Polkadot/0x0000000000000000000000000000000000000000";
 		let body = curl_get(url);
-		let price = pallet_price_oracle::decoders::decode_dia(&body)
-			.expect("Dia response format changed");
+		let price =
+			pallet_price_oracle::decoders::decode_dia(&body).expect("Dia response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -145,8 +144,8 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_coinbase(&body)
 			.expect("Coinbase response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -157,8 +156,8 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_kraken(&body)
 			.expect("Kraken response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -166,37 +165,35 @@ mod live_tests {
 	fn live_okx() {
 		let url = "https://www.okx.com/api/v5/market/ticker?instId=DOT-USDT";
 		let body = curl_get(url);
-		let price = pallet_price_oracle::decoders::decode_okx(&body)
-			.expect("OKX response format changed");
+		let price =
+			pallet_price_oracle::decoders::decode_okx(&body).expect("OKX response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
 	#[test]
 	fn live_bybit() {
-		let url =
-			"https://api.bybit.com/v5/market/tickers?category=spot&symbol=DOTUSDT";
+		let url = "https://api.bybit.com/v5/market/tickers?category=spot&symbol=DOTUSDT";
 		let body = curl_get(url);
 		let price = pallet_price_oracle::decoders::decode_bybit(&body)
 			.expect("Bybit response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
 	#[test]
 	fn live_kucoin() {
-		let url =
-			"https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=DOT-USDT";
+		let url = "https://api.kucoin.com/api/v1/market/orderbook/level1?symbol=DOT-USDT";
 		let body = curl_get(url);
 		let price = pallet_price_oracle::decoders::decode_kucoin(&body)
 			.expect("KuCoin response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
@@ -207,21 +204,20 @@ mod live_tests {
 		let price = pallet_price_oracle::decoders::decode_cryptocom(&body)
 			.expect("Crypto.com response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
 	#[test]
 	fn live_gateio() {
-		let url =
-			"https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOT_USDT";
+		let url = "https://api.gateio.ws/api/v4/spot/tickers?currency_pair=DOT_USDT";
 		let body = curl_get(url);
 		let price = pallet_price_oracle::decoders::decode_gateio(&body)
 			.expect("Gate.io response format changed");
 		assert!(
-			price > sp_runtime::FixedU128::from_rational(1, 100)
-				&& price < sp_runtime::FixedU128::from_rational(10_000, 1)
+			price > sp_runtime::FixedU128::from_rational(1, 100) &&
+				price < sp_runtime::FixedU128::from_rational(10_000, 1)
 		);
 	}
 
