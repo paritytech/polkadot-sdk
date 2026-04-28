@@ -1900,6 +1900,127 @@ fn maybe_prepare_validation_golden_path() {
 	assert_eq!(*pvf.executor_params(), expected_params);
 }
 
+// Verifies the graceful fallback for nodes running against a runtime that does not
+// yet implement v17: when `SessionExecutorParamsForNextSession` returns
+// `NotSupported`, the helper falls back to the v13 `SessionExecutorParams` path
+// and the PVF is still queued for preparation with the params returned there.
+#[test]
+fn maybe_prepare_validation_falls_back_when_runtime_does_not_support_v17() {
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool);
+
+	let keystore = alice_keystore();
+	let mut backend = MockHeadsUp::default();
+	let activated_hash = Hash::random();
+	let update = dummy_active_leaves_update(activated_hash);
+	let mut state = State::default();
+
+	// Distinguishable params returned by the v13 fallback path; we'll assert
+	// they reach `PvfPrepData` exactly.
+	let fallback_params = ExecutorParams::from(&[ExecutorParam::MaxMemoryPages(1024)][..]);
+	let expected_params = fallback_params.clone();
+
+	let check_fut =
+		handle_active_leaves_update(ctx.sender(), keystore, &mut backend, update, &mut state);
+
+	let test_fut = async move {
+		assert_new_active_leaf_messages(&mut ctx_handle, 1).await;
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, tx))) => {
+				let _ = tx.send(Ok(NodeFeatures::new()));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::Authorities(tx))) => {
+				let _ = tx.send(Ok(vec![Sr25519Keyring::Alice.public().into()]));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionInfo(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(dummy_session_info(vec![Sr25519Keyring::Bob.public()]))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::CandidateEvents(tx))) => {
+				let _ = tx.send(Ok(vec![dummy_candidate_backed(activated_hash, dummy_hash().into())]));
+			}
+		);
+
+		// New v17 API: pretend the runtime does not implement it.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParamsForNextSession(tx))) => {
+				let _ = tx.send(Err(RuntimeApiError::NotSupported {
+					runtime_api_name: "session_executor_params_for_next_session",
+				}));
+			}
+		);
+
+		// Helper falls back through executor_params_at_relay_parent: first
+		// SessionIndexForChild, then SessionExecutorParams keyed by that session.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionExecutorParams(index, tx))) => {
+				assert_eq!(index, 1);
+				let _ = tx.send(Ok(Some(fallback_params)));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeByHash(hash, tx))) => {
+				assert_eq!(hash, dummy_hash().into());
+				let _ = tx.send(Ok(Some(ValidationCode(Vec::new()))));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::SessionIndexForChild(tx))) => {
+				let _ = tx.send(Ok(1));
+			}
+		);
+
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(_, RuntimeApiRequest::ValidationCodeBombLimit(session, tx))) => {
+				assert_eq!(session, 1);
+				let _ = tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT));
+			}
+		);
+	};
+
+	let test_fut = future::join(test_fut, check_fut);
+	executor::block_on(test_fut);
+
+	assert_eq!(backend.heads_up_call_count.load(Ordering::SeqCst), 1);
+	assert!(state.session_index.is_some());
+	assert!(state.pvf_prep.is_next_session_authority);
+
+	// The fallback path must still feed the precompiled PVF with the params it
+	// received from the v13 API — not defaults, not nothing.
+	let calls = backend.heads_up_calls.lock().unwrap();
+	let prepared = calls.first().expect("heads_up was invoked once");
+	let pvf = prepared.first().expect("one PVF was queued for preparation");
+	assert_eq!(*pvf.executor_params(), expected_params);
+}
+
 #[test]
 fn maybe_prepare_validation_checkes_authority_once_per_session() {
 	let pool = TaskExecutor::new();
