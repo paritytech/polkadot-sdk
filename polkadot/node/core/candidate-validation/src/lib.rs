@@ -900,12 +900,12 @@ where
 		.take(per_block_limit)
 		.collect::<Vec<_>>();
 
-	let Ok(executor_params) = util::executor_params_at_relay_parent(relay_parent, sender).await
+	let Ok(executor_params) = util::executor_params_for_next_session(relay_parent, sender).await
 	else {
 		gum::warn!(
 			target: LOG_TARGET,
 			?relay_parent,
-			"cannot fetch executor params for the session",
+			"cannot fetch executor params for the next session",
 		);
 		return None;
 	};
