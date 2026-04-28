@@ -247,9 +247,6 @@ pub use frame_executive;
 #[cfg(feature = "frame-metadata-hash-extension")]
 pub use frame_metadata_hash_extension;
 
-/// Freestanding benchmark runner for any Polkadot runtime.
-#[cfg(feature = "frame-omni-bencher")]
-pub use frame_omni_bencher;
 
 /// An externalities provided environment that can load itself from remote nodes or cached
 /// files.

@@ -888,7 +888,7 @@ node = [
 	"emulated-integration-tests-common",
 	"fork-tree",
 	"frame-benchmarking-cli",
-	"frame-omni-bencher",
+
 	"frame-remote-externalities",
 	"frame-support-procedural-tools",
 	"generate-bags",
@@ -2321,10 +2321,7 @@ default-features = false
 optional = true
 path = "../substrate/utils/frame/benchmarking-cli"
 
-[dependencies.frame-omni-bencher]
-default-features = false
-optional = true
-path = "../substrate/utils/frame/omni-bencher"
+
 
 [dependencies.frame-remote-externalities]
 default-features = false
