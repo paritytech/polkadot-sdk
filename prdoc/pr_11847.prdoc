@@ -97,7 +97,9 @@ doc:
 crates:
   - name: pallet-revive
     bump: major
-  - name: pallet-pgas-allowance
-    bump: major
+  - name: pallet-revive-fixtures
+    bump: minor
   - name: asset-hub-westend-runtime
     bump: major
+  - name: penpal-runtime
+    bump: minor
