@@ -2805,8 +2805,8 @@ mod benchmarks {
 		for byte in [0x41u8, 0x42u8] {
 			let addr = H160::from([byte; 20]);
 			let contract_account = T::AddressMapper::to_account_id(&addr);
-			let info = ContractInfo::<T>::new(&addr, 1u32.into(), code_hash)
-				.expect("fresh contract info");
+			let info =
+				ContractInfo::<T>::new(&addr, 1u32.into(), code_hash).expect("fresh contract info");
 			AccountInfoOf::<T>::insert(
 				addr,
 				crate::storage::AccountInfo::<T> {
@@ -2816,8 +2816,12 @@ mod benchmarks {
 			);
 			T::Currency::mint_into(&contract_account, Pallet::<T>::min_balance()).unwrap();
 			T::Currency::mint_into(&contract_account, deposit).unwrap();
-			T::Currency::hold(&HoldReason::StorageDepositReserve.into(), &contract_account, deposit)
-				.unwrap();
+			T::Currency::hold(
+				&HoldReason::StorageDepositReserve.into(),
+				&contract_account,
+				deposit,
+			)
+			.unwrap();
 		}
 
 		let first = match v4::Migration::<T>::step_once(Some(v4::Cursor::Contract(None))) {

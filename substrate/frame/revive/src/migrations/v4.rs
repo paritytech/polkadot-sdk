@@ -35,20 +35,20 @@ use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
 use crate::BalanceOf;
 use crate::{
+	AccountInfoOf, CodeInfoOf, Config, DeletionQueue, HoldReason, LOG_TARGET, NativeDepositOf,
+	Pallet, TrieId,
 	address::AddressMapper,
 	deposit_payment::Deposit,
 	storage::{AccountType, DeletionQueueItem},
 	weights::WeightInfo,
-	AccountInfoOf, CodeInfoOf, Config, DeletionQueue, HoldReason, NativeDepositOf, Pallet, TrieId,
-	LOG_TARGET,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::marker::PhantomData;
 use frame_support::{
+	Twox64Concat,
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	storage_alias,
 	weights::WeightMeter,
-	Twox64Concat,
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
@@ -279,9 +279,9 @@ impl<T: Config> Migration<T> {
 mod tests {
 	use super::*;
 	use crate::{
+		CodeInfo,
 		storage::{AccountInfo, ContractInfo},
 		tests::{Assets, AssetsHolder, ExtBuilder, PGasAssetId, Test},
-		CodeInfo,
 	};
 	use frame_support::traits::fungible::{
 		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
@@ -423,8 +423,8 @@ mod tests {
 	#[test]
 	fn phase_three_rewrites_legacy_deletion_queue_entries() {
 		use crate::{
-			storage::{DeletionQueueItem, DeletionQueueManager},
 			DeletionQueueCounter,
+			storage::{DeletionQueueItem, DeletionQueueManager},
 		};
 
 		ExtBuilder::default().genesis_config(None).build().execute_with(|| {
