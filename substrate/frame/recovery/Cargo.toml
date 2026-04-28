@@ -36,6 +36,7 @@ runtime-benchmarks = [
 	"frame-system/runtime-benchmarks",
 	"frame/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
+	"pallet-utility/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 std = [
@@ -54,5 +55,6 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame/try-runtime",
 	"pallet-balances/try-runtime",
+	"pallet-utility/try-runtime",
 	"sp-runtime/try-runtime",
 ]

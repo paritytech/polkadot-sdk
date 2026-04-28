@@ -61,8 +61,8 @@ pallet-parameters = { workspace = true }
 pallet-pgas-allowance = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
-pallet-recovery = { workspace = true }
 pallet-psm = { workspace = true }
+pallet-recovery = { workspace = true }
 pallet-referenda = { workspace = true }
 pallet-revive = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -212,8 +212,8 @@ runtime-benchmarks = [
 	"pallet-pgas-allowance/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
-	"pallet-recovery/runtime-benchmarks",
 	"pallet-psm/runtime-benchmarks",
+	"pallet-recovery/runtime-benchmarks",
 	"pallet-referenda/runtime-benchmarks",
 	"pallet-revive/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
@@ -297,8 +297,8 @@ try-runtime = [
 	"pallet-pgas-allowance/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
-	"pallet-recovery/try-runtime",
 	"pallet-psm/try-runtime",
+	"pallet-recovery/try-runtime",
 	"pallet-referenda/try-runtime",
 	"pallet-revive/try-runtime",
 	"pallet-scheduler/try-runtime",
@@ -390,8 +390,8 @@ std = [
 	"pallet-pgas-allowance/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
-	"pallet-recovery/std",
 	"pallet-psm/std",
+	"pallet-recovery/std",
 	"pallet-referenda/std",
 	"pallet-revive/std",
 	"pallet-scheduler/std",
