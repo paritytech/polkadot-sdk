@@ -358,8 +358,8 @@ pub mod vrf {
 /// Bandersnatch Ring-VRF types and operations.
 pub mod ring_vrf {
 	use super::{vrf::*, *};
-	use bandersnatch::{RingSetup, RingVerifierKey as RingVerifierKeyImpl};
 	pub use bandersnatch::{RingProver, RingVerifier};
+	use bandersnatch::{RingSetup, RingVerifierKey as RingVerifierKeyImpl};
 
 	// Max size of serialized ring-vrf context given `domain_len`.
 	pub(crate) fn ring_context_serialized_size(ring_size: usize) -> usize {
