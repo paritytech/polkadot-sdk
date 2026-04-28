@@ -517,10 +517,15 @@ where
 			return None;
 		}
 
-		// The node is continuing a known fork if either the block itself is known, the
-		// parent is known or the block references the previously announced `best_hash`.
-		let continues_known_fork =
-			known || known_parent || announce.header.parent_hash() == &peer.best_hash;
+		// The node is continuing a known fork if either the block itself is know or the
+		// parent is known.
+		//
+		// We cannot follow the fork any longer when the parent of the announcement is
+		// the peer's current best, because the peer's current best is updated from the announcement
+		// itself and not from the block import. This means that if the parent is the peer's current
+		// best, the peer might be announcing a new fork that we haven't seen before, and we
+		// cannot be sure that it continues a known fork.
+		let continues_known_fork = known || known_parent;
 
 		let peer_info = is_best.then(|| {
 			// update their best block
