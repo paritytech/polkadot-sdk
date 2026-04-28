@@ -888,7 +888,6 @@ node = [
 	"emulated-integration-tests-common",
 	"fork-tree",
 	"frame-benchmarking-cli",
-
 	"frame-remote-externalities",
 	"frame-support-procedural-tools",
 	"generate-bags",
@@ -2320,8 +2319,6 @@ path = "../substrate/utils/fork-tree"
 default-features = false
 optional = true
 path = "../substrate/utils/frame/benchmarking-cli"
-
-
 
 [dependencies.frame-remote-externalities]
 default-features = false

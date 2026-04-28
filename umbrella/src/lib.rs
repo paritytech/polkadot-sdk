@@ -247,7 +247,6 @@ pub use frame_executive;
 #[cfg(feature = "frame-metadata-hash-extension")]
 pub use frame_metadata_hash_extension;
 
-
 /// An externalities provided environment that can load itself from remote nodes or cached
 /// files.
 #[cfg(feature = "frame-remote-externalities")]
