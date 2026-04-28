@@ -17,7 +17,7 @@ doc:
 
 crates:
   - name: pallet-accumulate-and-forward
-    bump: major
+    bump: patch
   - name: sp-dap
     bump: major
   - name: staging-xcm-builder
@@ -37,4 +37,8 @@ crates:
   - name: westend-runtime-constants
     bump: major
   - name: testnet-parachains-constants
+    bump: patch
+  - name: polkadot-sdk
+    bump: minor
+  - name: emulated-integration-tests-common
     bump: minor
