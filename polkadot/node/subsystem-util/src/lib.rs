@@ -511,10 +511,9 @@ pub async fn executor_params_at_relay_parent(
 /// in two cases:
 ///
 /// - the runtime does not yet implement the v17 API (`NotSupported`);
-/// - the runtime returned `Ok(None)`. The runtime impl is contracted to
-///   always return `Some` (it falls back to `ActiveConfig` itself), so this
-///   is a defensive guard: a future runtime regression must not silently
-///   disable precompilation.
+/// - the runtime returned `Ok(None)`. The runtime impl is contracted to always return `Some` (it
+///   falls back to `ActiveConfig` itself), so this is a defensive guard: a future runtime
+///   regression must not silently disable precompilation.
 ///
 /// In both cases the caller still gets useful executor params; the worst
 /// case is one extra preparation pass at the next session change, which is

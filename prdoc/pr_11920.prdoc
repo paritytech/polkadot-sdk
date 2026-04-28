@@ -46,3 +46,7 @@ crates:
     bump: minor
   - name: cumulus-relay-chain-minimal-node
     bump: minor
+  - name: westend-emulated-chain
+    bump: patch
+  - name: rococo-emulated-chain
+    bump: patch
