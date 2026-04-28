@@ -24,9 +24,27 @@ doc:
     - Adds a regression test for the `NoActiveTippers` close-path.
 crates:
 - name: pallet-asset-conversion
-  bump: major
+  bump: patch
+- name: pallet-asset-conversion-ops
+  bump: patch
+- name: pallet-asset-conversion-precompiles
+  bump: patch
+- name: pallet-asset-conversion-tx-payment
+  bump: patch
 - name: frame-system
   bump: major
+- name: frame-executive
+  bump: patch
+- name: frame-system-benchmarking
+  bump: patch
+- name: staging-xcm-builder
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: penpal-runtime
+  bump: patch
 - name: pallet-psm
   bump: patch
 - name: pallet-balances
