@@ -957,6 +957,10 @@ where
 		);
 
 		if !remote_addresses.is_empty() && addr_cache_needs_update {
+			// Network backend is informed about the new authority address
+			// and will use the address with priority for dialing.
+			self.network.add_priority_addresses(remote_peer_id, remote_addresses.clone());
+
 			self.addr_cache.insert(authority_id, remote_addresses);
 			if let Some(metrics) = &self.metrics {
 				metrics
