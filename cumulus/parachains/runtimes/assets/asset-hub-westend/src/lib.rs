@@ -36,9 +36,7 @@ pub mod governance;
 mod migrations;
 pub mod staking;
 
-use governance::{
-	pallet_custom_origins, FellowshipAdmin, GeneralAdmin, StakingAdmin, Treasurer, TreasuryAccount,
-};
+use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin, TreasuryAccount};
 
 extern crate alloc;
 
