@@ -19,7 +19,7 @@ doc:
 crates:
   - name: snowbridge-verification-primitives
     bump: major
-  - snowbridge-pallet-outbound-queue-v2
+  - name: snowbridge-pallet-outbound-queue-v2
     bump: major
   - name: snowbridge-pallet-ethereum-client
     bump: patch
