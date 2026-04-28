@@ -76,11 +76,13 @@ serde_json = { workspace = true }
 test-case = { workspace = true }
 
 # Polkadot SDK Dependencies
-pallet-balances = { default-features = true, workspace = true }
-pallet-proxy = { default-features = true, workspace = true }
-pallet-revive-fixtures = { default-features = true, workspace = true }
-pallet-timestamp = { default-features = true, workspace = true }
-pallet-utility = { default-features = true, workspace = true }
+pallet-assets = { workspace = true, default-features = true }
+pallet-assets-holder = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+pallet-proxy = { workspace = true, default-features = true }
+pallet-revive-fixtures = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
+pallet-utility = { workspace = true, default-features = true }
 proptest = { workspace = true }
 sp-keystore = { default-features = true, workspace = true }
 sp-state-machine = { workspace = true, default-features = false }
@@ -134,6 +136,8 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"k256",
+	"pallet-assets-holder/runtime-benchmarks",
+	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
 	"pallet-revive-fixtures",
@@ -150,6 +154,8 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets-holder/try-runtime",
+	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
 	"pallet-proxy/try-runtime",
 	"pallet-timestamp/try-runtime",
