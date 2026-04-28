@@ -1618,6 +1618,58 @@ fn migrate_v0_to_v1_step_skips_in_progress_cursor_with_vanished_v0_entry() {
 	});
 }
 
+#[test]
+fn migrate_v0_to_v1_step_empty_v0_entry_produces_no_meta() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let empty = ParaId::from(1000);
+		let full = ParaId::from(2);
+		migration::v0::DownwardMessageQueues::<Test>::insert(empty, Vec::<InboundDownwardMessage<_>>::new());
+		let msgs: Vec<_> =
+			(0..3u8).map(|i| InboundDownwardMessage { sent_at: 1, msg: vec![i] }).collect();
+		migration::v0::DownwardMessageQueues::<Test>::insert(full, &msgs);
+
+		let mut cursor = None;
+		loop {
+			let mut meter = WeightMeter::new();
+			match MigrateV0ToV1::<Test>::step(cursor, &mut meter).unwrap() {
+				None => break,
+				Some(c) => cursor = Some(c),
+			}
+		}
+
+		assert_eq!(migration::v0::DownwardMessageQueues::<Test>::iter().count(), 0);
+		assert!(
+			DownwardMessageQueueMeta::<Test>::get(empty).is_none(),
+			"empty v0 entry must not produce a meta entry",
+		);
+		let meta = DownwardMessageQueueMeta::<Test>::get(full).unwrap();
+		assert_eq!(meta.first_full, 0);
+		assert_eq!(meta.first_free, msgs.len() as u64);
+	});
+}
+
+#[cfg(feature = "try-runtime")]
+#[test]
+fn migrate_v0_to_v1_post_upgrade_accepts_empty_v0_entry() {
+	new_test_ext_integrity(default_genesis_config(), || {
+		let empty = ParaId::from(1000);
+		migration::v0::DownwardMessageQueues::<Test>::insert(empty, Vec::<InboundDownwardMessage<_>>::new());
+
+		let snapshot = MigrateV0ToV1::<Test>::pre_upgrade().unwrap();
+
+		let mut cursor = None;
+		loop {
+			let mut meter = WeightMeter::new();
+			match MigrateV0ToV1::<Test>::step(cursor, &mut meter).unwrap() {
+				None => break,
+				Some(c) => cursor = Some(c),
+			}
+		}
+
+		MigrateV0ToV1::<Test>::post_upgrade(snapshot).unwrap();
+	});
+}
+
 #[cfg(feature = "try-runtime")]
 #[test]
 fn migrate_v0_to_v1_pre_post_upgrade_idempotent() {

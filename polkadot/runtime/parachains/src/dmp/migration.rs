@@ -145,10 +145,14 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 
 			// Update meta after every step (partial or full) so the pages
 			// already written are not "orphaned" relative to the meta range.
-			DownwardMessageQueueMeta::<T>::insert(
-				para,
-				InboundDownwardQueueMeta { first_full: 0, first_free: next },
-			);
+			// Skip when no pages were ever written for this para (empty v0 Vec),
+			// matching the live invariant: no queue == no meta key.
+			if next > 0 {
+				DownwardMessageQueueMeta::<T>::insert(
+					para,
+					InboundDownwardQueueMeta { first_full: 0, first_free: next },
+				);
+			}
 
 			if interrupted {
 				cursor = Some(MigrationCursor::InProgress { para, next });
