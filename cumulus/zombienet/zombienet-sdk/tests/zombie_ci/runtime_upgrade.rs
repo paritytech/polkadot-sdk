@@ -113,9 +113,13 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				.with_default_command("test-parachain")
 				.with_default_image(images.cumulus.as_str())
 				.with_collator(|n| {
-					n.with_name("charlie")
-						.validator(true)
-						.with_args(vec![("-lparachain=debug").into()])
+					n.with_name("charlie").validator(true).with_args(vec![
+						("-lparachain=debug").into(),
+						// Default JSON-RPC payload cap is 15 MiB; submitting a `MAX_CODE_SIZE`
+						// runtime upgrade goes over that once hex-encoded and JSON-wrapped.
+						("--rpc-max-request-size", "25").into(),
+						("--rpc-max-response-size", "25").into(),
+					])
 				})
 				.with_collator(|n| n.with_name("dave").validator(false))
 		})
