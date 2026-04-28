@@ -21,7 +21,7 @@ use alloc::vec::Vec;
 use frame_system::pallet_prelude::BlockNumberFor;
 
 use polkadot_primitives::{
-	slashing, vstaging::RelayParentInfo, CandidateHash, Id as ParaId, SessionIndex,
+	slashing, vstaging::RelayParentInfo, CandidateHash, ExecutorParams, Id as ParaId, SessionIndex,
 };
 
 /// Implementation of `para_ids` runtime API
@@ -49,4 +49,23 @@ pub fn ancestor_relay_parent_info<T: shared::Config>(
 	relay_parent: T::Hash,
 ) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {
 	shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent)
+}
+
+/// Implementation of `session_executor_params_for_next_session` runtime API.
+///
+/// Returns the executor params that will be in effect at `current_session + 1`.
+/// `PendingConfigs` may hold entries for `current + 1` and/or `current + 2`
+/// (the `scheduled_session`); only an entry matching `current + 1` exactly
+/// will be applied at the next session change. When no such entry exists
+/// the next session inherits the active configuration.
+pub fn session_executor_params_for_next_session<T: configuration::Config + shared::Config>(
+) -> Option<ExecutorParams> {
+	let next_session = shared::CurrentSessionIndex::<T>::get().saturating_add(1);
+	let pending = configuration::PendingConfigs::<T>::get();
+	let params = pending
+		.into_iter()
+		.find(|(apply_at_session, _)| *apply_at_session == next_session)
+		.map(|(_, config)| config.executor_params)
+		.unwrap_or_else(|| configuration::ActiveConfig::<T>::get().executor_params);
+	Some(params)
 }
