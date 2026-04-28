@@ -480,10 +480,6 @@ mod tests {
 		});
 	}
 
-	/// Reproduces a migration bug where, if the rescuer cannot afford the new security deposit,
-	/// the old deposit is already unreserved and the attempt ticket is orphaned — but the
-	/// `Attempt` entry is never inserted. This test asserts that the `Attempt` IS inserted
-	/// (i.e., it will FAIL under the current buggy code).
 	#[test]
 	fn migration_inserts_attempt_when_security_deposit_hold_fails() {
 		new_test_ext().execute_with(|| {
@@ -541,9 +537,6 @@ mod tests {
 			// The old storage should be cleared
 			assert_eq!(v0::ActiveRecoveries::<T>::iter().count(), 0);
 
-			// BUG: The Attempt entry should exist for the migrated active recovery.
-			// Under the current code, the security deposit hold fails (rescuer can't afford 100),
-			// so Attempt is never inserted — this assertion FAILS, proving the bug.
 			assert_eq!(
 				pallet::Attempt::<T>::iter().count(),
 				1,
