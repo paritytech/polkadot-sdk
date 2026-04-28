@@ -129,6 +129,7 @@ std = [
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
 	"pallet-people?/std",
+	"pallet-pgas-allowance?/std",
 	"pallet-preimage?/std",
 	"pallet-proxy?/std",
 	"pallet-psm?/std",
@@ -325,6 +326,7 @@ runtime-benchmarks = [
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
 	"pallet-people?/runtime-benchmarks",
+	"pallet-pgas-allowance?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
 	"pallet-psm?/runtime-benchmarks",
@@ -472,6 +474,7 @@ try-runtime = [
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
 	"pallet-people?/try-runtime",
+	"pallet-pgas-allowance?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-proxy?/try-runtime",
 	"pallet-psm?/try-runtime",
@@ -696,6 +699,7 @@ runtime-full = [
 	"pallet-paged-list",
 	"pallet-parameters",
 	"pallet-people",
+	"pallet-pgas-allowance",
 	"pallet-preimage",
 	"pallet-proxy",
 	"pallet-psm",
@@ -1660,6 +1664,11 @@ path = "../substrate/frame/parameters"
 default-features = false
 optional = true
 path = "../substrate/frame/people"
+
+[dependencies.pallet-pgas-allowance]
+default-features = false
+optional = true
+path = "../substrate/frame/transaction-payment/pgas-allowance"
 
 [dependencies.pallet-preimage]
 default-features = false
