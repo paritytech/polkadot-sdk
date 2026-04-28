@@ -401,9 +401,12 @@ where
 
 			let native_refunded = if !native_requested.is_zero() {
 				<() as Deposit<T>>::refund_on_hold(reason, from, dst, native_requested)?;
-				NativeDepositOf::<T>::mutate(from, to, |entitlement| {
-					*entitlement = entitlement.saturating_sub(native_requested);
-				});
+				let new_val = contribution.saturating_sub(native_requested);
+				if new_val.is_zero() {
+					NativeDepositOf::<T>::remove(from, to);
+				} else {
+					NativeDepositOf::<T>::insert(from, to, new_val);
+				}
 				native_requested
 			} else {
 				BalanceOf::<T>::zero()
