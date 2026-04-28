@@ -128,12 +128,6 @@ enum FailureKind {
 	TaskPanicked,
 }
 
-impl FailureKind {
-	fn is_task_level(&self) -> bool {
-		matches!(self, Self::StartupSyncTimeout | Self::TaskPanicked)
-	}
-}
-
 impl std::fmt::Display for FailureKind {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str(match self {
@@ -431,9 +425,7 @@ async fn run_client(
 	// Use human 1-based round numbering for logging
 	for round in 1..(num_rounds + 1) {
 		let round_start = std::time::Instant::now();
-
 		let round_result = execute_round(round, &config, &rpc_client, &keyring).await;
-
 		match round_result {
 			Ok(stats) => successes.push(stats),
 			Err(failure) => {
@@ -650,40 +642,22 @@ fn report_results(
 	num_clients: u32,
 	num_rounds: usize,
 ) {
-	// Aggregate report only retains the `FailureKind` discriminant — per-instance
-	// detail and the round number are logged at failure time via `warn!` and not
-	// summarised here. Task-level failures are partitioned out so the "Round
-	// Failed:" line counts only round-level ones.
-	let (task_failures, round_failures): (Vec<_>, Vec<_>) =
-		failures.iter().copied().partition(FailureKind::is_task_level);
-
-	let group_errors = |kinds: &[FailureKind]| -> String {
+	if !failures.is_empty() {
 		let mut counts: HashMap<FailureKind, u32> = HashMap::new();
-		for &kind in kinds {
+		for &kind in failures {
 			*counts.entry(kind).or_default() += 1;
 		}
 		let mut counts: Vec<_> = counts.into_iter().collect();
 		counts.sort_by(|a, b| b.1.cmp(&a.1));
-		counts
+		let errors_str = counts
 			.iter()
 			.map(|(kind, count)| format!("{kind} ({count})"))
 			.collect::<Vec<_>>()
-			.join("; ")
-	};
+			.join("; ");
 
-	if !round_failures.is_empty() {
 		warn!(
-			"Round Failed: failed_clients={} total_clients={num_clients} errors=[{}]",
-			round_failures.len(),
-			group_errors(&round_failures)
-		);
-	}
-
-	if !task_failures.is_empty() {
-		warn!(
-			"Task Failed: failed_clients={} total_clients={num_clients} errors=[{}]",
-			task_failures.len(),
-			group_errors(&task_failures)
+			"Benchmark Failed: failed_clients={} total_clients={num_clients} errors=[{errors_str}]",
+			failures.len()
 		);
 	}
 
@@ -691,9 +665,6 @@ fn report_results(
 		print_statistics(successes);
 	}
 
-	// `rounds_with_any_success` counts distinct round numbers in which at least one
-	// client succeeded — not "rounds where every client succeeded". A round shows up
-	// here even if only one of N clients made it through.
 	let rounds_with_any_success = successes.iter().map(|s| s.round).collect::<HashSet<_>>().len();
 
 	info!(
