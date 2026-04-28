@@ -41,6 +41,7 @@ use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
 pub struct BasicExternalities {
 	overlay: OverlayedChanges<Blake2Hasher>,
 	extensions: Extensions,
+	state_version: StateVersion,
 	last_cursor: Option<Vec<u8>>,
 }
 
@@ -50,6 +51,7 @@ impl BasicExternalities {
 		BasicExternalities {
 			overlay: inner.into(),
 			extensions: Default::default(),
+			state_version: StateVersion::default(),
 			last_cursor: None,
 		}
 	}
@@ -273,8 +275,11 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
+	fn set_runtime_state_version(&mut self, state_version: StateVersion) {
+		self.state_version = state_version;
+	}
+
 	fn storage_root(&mut self) -> Vec<u8> {
-		let state_version = sp_core::traits::runtime_state_version(self);
 		let mut top = self
 			.overlay
 			.changes_mut()
@@ -293,19 +298,18 @@ impl Externalities for BasicExternalities {
 			}
 		}
 
-		match state_version {
+		match self.state_version {
 			StateVersion::V0 => LayoutV0::<Blake2Hasher>::trie_root(top).as_ref().into(),
 			StateVersion::V1 => LayoutV1::<Blake2Hasher>::trie_root(top).as_ref().into(),
 		}
 	}
 
 	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
-		let state_version = sp_core::traits::runtime_state_version(self);
 		if let Some((data, child_info)) = self.overlay.child_changes_mut(child_info.storage_key()) {
 			let delta =
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
 			crate::in_memory_backend::new_in_mem::<Blake2Hasher>()
-				.child_storage_root(&child_info, delta, state_version)
+				.child_storage_root(&child_info, delta, self.state_version)
 				.0
 		} else {
 			empty_child_trie_root::<LayoutV1<Blake2Hasher>>()

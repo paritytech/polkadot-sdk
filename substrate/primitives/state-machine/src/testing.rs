@@ -63,6 +63,7 @@ where
 	/// Get externalities implementation.
 	pub fn ext(&mut self) -> Ext<'_, H, InMemoryBackend<H>> {
 		Ext::new(&mut self.overlay, &self.backend, Some(&mut self.extensions))
+			.with_state_version(self.state_version)
 	}
 
 	/// Create a new instance of `TestExternalities` with storage.
@@ -258,7 +259,8 @@ where
 			.with_recorder(Default::default())
 			.build();
 		let mut proving_ext =
-			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions))
+				.with_state_version(self.state_version);
 
 		let outcome = sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute);
 		let proof = proving_backend.extract_proof().expect("Failed to extract storage proof");
@@ -276,7 +278,8 @@ where
 		let proving_backend =
 			TrieBackendBuilder::wrap(&self.backend).with_recorder(proof_recorder).build();
 		let mut proving_ext =
-			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions));
+			Ext::new(&mut self.overlay, &proving_backend, Some(&mut self.extensions))
+				.with_state_version(self.state_version);
 
 		sp_externalities::set_and_run_with_externalities(&mut proving_ext, execute)
 	}

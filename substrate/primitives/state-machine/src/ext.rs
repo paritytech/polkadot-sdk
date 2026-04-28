@@ -29,8 +29,6 @@ use sp_core::hexdisplay::HexDisplay;
 use sp_core::storage::{
 	well_known_keys::is_child_storage_key, ChildInfo, StateVersion, TrackedStorageKey,
 };
-#[cfg(not(substrate_runtime))]
-use sp_core::traits::RuntimeStateVersionExt;
 #[cfg(feature = "std")]
 use sp_externalities::TransactionType;
 use sp_externalities::{Extension, ExtensionStore, Externalities, MultiRemovalResults};
@@ -108,33 +106,11 @@ where
 		}
 	}
 
-	/// Override the fallback state version used by `storage_root`.
+	/// Override the state version used by `storage_root`. Chained-call equivalent of
+	/// [`Externalities::set_runtime_state_version`].
 	pub fn with_state_version(mut self, state_version: StateVersion) -> Self {
 		self.state_version = state_version;
 		self
-	}
-}
-
-impl<'a, H, B> Ext<'a, H, B>
-where
-	H: Hasher,
-	H::Out: Ord + 'static + codec::Codec,
-	B: Backend<H>,
-{
-	/// Resolve the state version: prefer the value carried by the
-	/// [`RuntimeStateVersionExt`] extension, otherwise fall back to
-	/// `self.state_version`.
-	fn resolve_state_version(&mut self) -> StateVersion {
-		#[cfg(not(substrate_runtime))]
-		{
-			if let Some(ext) =
-				ExtensionStore::extension_by_type_id(self, TypeId::of::<RuntimeStateVersionExt>())
-					.and_then(<dyn Any>::downcast_mut::<RuntimeStateVersionExt>)
-			{
-				return ext.0;
-			}
-		}
-		self.state_version
 	}
 }
 
@@ -513,11 +489,14 @@ where
 		});
 	}
 
+	fn set_runtime_state_version(&mut self, state_version: StateVersion) {
+		self.state_version = state_version;
+	}
+
 	fn storage_root(&mut self) -> Vec<u8> {
 		let _guard = guard();
 
-		let state_version = self.resolve_state_version();
-		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
+		let (root, _cached) = self.overlay.storage_root(self.backend, self.state_version);
 
 		trace!(
 			target: "state",
@@ -533,10 +512,9 @@ where
 	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		let _guard = guard();
 
-		let state_version = self.resolve_state_version();
 		let (root, _cached) = self
 			.overlay
-			.child_storage_root(child_info, self.backend, state_version)
+			.child_storage_root(child_info, self.backend, self.state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 
 		trace!(

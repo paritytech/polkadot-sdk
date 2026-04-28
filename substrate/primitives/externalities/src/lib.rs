@@ -30,7 +30,7 @@ extern crate alloc;
 use alloc::{boxed::Box, vec::Vec};
 use core::any::{Any, TypeId};
 
-use sp_storage::{ChildInfo, TrackedStorageKey};
+use sp_storage::{ChildInfo, StateVersion, TrackedStorageKey};
 
 pub use extensions::{Extension, ExtensionStore, Extensions, TransactionType};
 pub use scope_limited::{set_and_run_with_externalities, with_externalities};
@@ -189,6 +189,11 @@ pub trait Externalities: ExtensionStore {
 
 	/// Set or clear a child storage entry.
 	fn place_child_storage(&mut self, child_info: &ChildInfo, key: Vec<u8>, value: Option<Vec<u8>>);
+
+	/// Set the runtime's state version that subsequent calls to `storage_root` and
+	/// `child_storage_root` will use to compute the trie layout. The default implementation is a
+	/// no-op for externalities that don't compute roots.
+	fn set_runtime_state_version(&mut self, _state_version: StateVersion) {}
 
 	/// Get the trie root of the current storage map.
 	///
