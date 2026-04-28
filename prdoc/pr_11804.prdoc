@@ -40,14 +40,16 @@ crates:
 - name: staging-xcm-builder
   bump: patch
 - name: asset-hub-rococo-runtime
-  bump: major
+  bump: minor
 - name: asset-hub-westend-runtime
-  bump: major
+  bump: minor
 - name: penpal-runtime
-  bump: major
+  bump: minor
 - name: pallet-psm
   bump: patch
 - name: pallet-balances
   bump: patch
 - name: pallet-tips
   bump: major
+- name: cumulus-pallet-parachain-system
+  bump: patch
