@@ -1890,7 +1890,7 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
-	// PSM v1 -> v2: backfill AssetDecimals/StableDecimals snapshots for assets
+	// PSM v1 -> v2: backfill ExternalDecimals/InternalDecimals snapshots for assets
 	// that were approved under v1 (no per-asset decimals). One-shot; only runs
 	// when the on-chain pallet storage version is 1, then bumps it to 2.
 	pallet_psm::migrations::decimals::PopulateDecimals<Runtime>,
