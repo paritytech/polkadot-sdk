@@ -35,9 +35,9 @@ use frame_support::{
 	genesis_builder_helper::{build_state, get_preset},
 	parameter_types,
 	traits::{
-		fungible::HoldConsideration, AsEnsureOriginWithArg, ConstU32, Contains, EitherOfDiverse,
-		EnsureOriginWithArg, InstanceFilter, KeyOwnerProofSystem, LinearStoragePrice, Nothing,
-		ProcessMessage, ProcessMessageError, VariantCountOf, WithdrawReasons,
+		fungible::HoldConsideration, ConstU32, Contains, EnsureOriginWithArg, InstanceFilter,
+		KeyOwnerProofSystem, LinearStoragePrice, Nothing, ProcessMessage, ProcessMessageError,
+		VariantCountOf, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, WeightMeter},
 	PalletId,
@@ -53,7 +53,6 @@ use pallet_staking::UseValidatorsMap;
 use pallet_staking_async_ah_client as ah_client;
 use pallet_staking_async_rc_client as rc_client;
 use pallet_transaction_payment::{FeeDetails, FungibleAdapter, RuntimeDispatchInfo};
-use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
 use polkadot_primitives::{
 	async_backing::Constraints, slashing, AccountId, AccountIndex, ApprovalVotingParams, Balance,
 	BlockNumber, CandidateEvent, CandidateHash,
@@ -71,7 +70,7 @@ use polkadot_runtime_common::{
 	impls::{ToAuthor, VersionedLocatableAsset},
 	paras_registrar, paras_sudo_wrapper, prod_or_fast, slots,
 	traits::OnSwap,
-	BalanceToU256, BlockHashCount, BlockLength, SlowAdjustingFeeUpdate, U256ToBalance,
+	BalanceToU256, BlockHashCount, SlowAdjustingFeeUpdate, U256ToBalance,
 };
 use polkadot_runtime_parachains::{
 	configuration as parachains_configuration,
@@ -199,6 +198,15 @@ impl Contains<RuntimeCall> for IsIdentityCall {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
+	/// Maximum length of a relay-chain block is up to 10 MiB.
+	pub BlockLength: frame_system::limits::BlockLength =
+		frame_system::limits::BlockLength::builder()
+			.max_length(10 * 1024 * 1024)
+			.modify_max_length_for_class(
+				frame_support::dispatch::DispatchClass::Normal,
+				|m| { *m = polkadot_runtime_common::NORMAL_DISPATCH_RATIO * *m },
+			)
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
@@ -1379,14 +1387,7 @@ impl parachains_paras::Config for Runtime {
 	type Fungible = Balances;
 	// Per day the cooldown is removed earlier, it should cost 1000.
 	type CooldownRemovalMultiplier = ConstUint<{ 1000 * UNITS / DAYS as u128 }>;
-	type AuthorizeCurrentCodeOrigin = EitherOfDiverse<
-		EnsureRoot<AccountId>,
-		// TODO: is DDay plurality still used / needed post-governance removal?
-		// Collectives DDay plurality mapping.
-		AsEnsureOriginWithArg<
-			EnsureXcm<IsVoiceOfBody<xcm_config::Collectives, xcm_config::DDayBodyId>>,
-		>,
-	>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<AccountId>;
 }
 
 parameter_types! {
