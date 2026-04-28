@@ -187,6 +187,21 @@ pub mod pallet {
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "std")]
+		fn integrity_test() {
+			let min_on_idle_weight = <T as Config>::WeightInfo::migrate_v0_to_v1_step_base()
+				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_iter())
+				.saturating_add(<T as Config>::WeightInfo::migrate_v0_to_v1_step_msg());
+
+			// Should be at most 50% of max block weight
+			let max = T::BlockWeights::get().max_block.saturating_div(2);
+			assert!(max.all_gte(min_on_idle_weight), "DMP queue migration uses more than 50% block weight");
+
+			// Also lazy_delete_some weight should be at most 50% of max block weight
+			let lazy_delete_some_weight = <T as Config>::WeightInfo::lazy_delete_some();
+			assert!(max.all_gte(lazy_delete_some_weight), "DMP queue lazy delete uses more than 50% block weight");
+		}
+
 		fn on_poll(_now: BlockNumberFor<T>, weight_meter: &mut WeightMeter) {
 			InboundDownwardQueue::<T>::lazy_delete_some(weight_meter);
 		}

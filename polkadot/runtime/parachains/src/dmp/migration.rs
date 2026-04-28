@@ -79,10 +79,11 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 	) -> Result<Option<Self::Cursor>, SteppedMigrationError> {
 		let base = <T as Config>::WeightInfo::migrate_v0_to_v1_step_base();
 		let per_iter = <T as Config>::WeightInfo::migrate_v0_to_v1_step_iter();
+		let per_msg = <T as Config>::WeightInfo::migrate_v0_to_v1_step_msg();
 
-		// Need enough headroom for the base plus at least one iteration,
-		// otherwise this call would make no forward progress.
-		let minimum = base.saturating_add(per_iter);
+		// Need headroom for the base plus at least one per-iter, otherwise
+		// this call would make no forward progress.
+		let minimum = base.saturating_add(per_iter).saturating_add(per_msg);
 		if meter.remaining().any_lt(minimum) {
 			return Err(SteppedMigrationError::InsufficientWeight { required: minimum });
 		}
@@ -92,7 +93,6 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 			if meter.try_consume(per_iter).is_err() {
 				break;
 			}
-
 			let mut iter = match cursor {
 				Some(last) => v0::DownwardMessageQueues::<T>::iter_from(
 					v0::DownwardMessageQueues::<T>::hashed_key_for(last),
@@ -105,19 +105,35 @@ impl<T: Config> SteppedMigration for MigrateV0ToV1<T> {
 				break;
 			};
 
-			let total = msgs.len() as u64;
-			if total > 0 {
-				DownwardMessageQueueMeta::<T>::insert(
-					para,
-					InboundDownwardQueueMeta { first_full: 0, first_free: total },
-				);
-				for (i, msg) in msgs.into_iter().enumerate() {
-					DownwardMessageQueuePages::<T>::insert(para, i as PageIndex, msg);
+			let mut msgs: alloc::collections::VecDeque<_> = msgs.into();
+			let mut first_free = DownwardMessageQueueMeta::<T>::get(para)
+				.map(|m| m.first_free)
+				.unwrap_or(0);
+
+			while let Some(msg) = msgs.pop_front() {
+				DownwardMessageQueuePages::<T>::insert(para, first_free as PageIndex, msg);
+				first_free = first_free.saturating_add(1);
+
+				if meter.try_consume(per_msg).is_err() {
+					break;
 				}
 			}
-			v0::DownwardMessageQueues::<T>::remove(para);
 
-			cursor = Some(para);
+			if first_free > 0 {
+				DownwardMessageQueueMeta::<T>::insert(
+					para,
+					InboundDownwardQueueMeta { first_full: 0, first_free },
+				);
+			}
+
+			if msgs.is_empty() {
+				v0::DownwardMessageQueues::<T>::remove(para);
+				cursor = Some(para);
+			} else {
+				let remaining: alloc::vec::Vec<_> = msgs.into();
+				v0::DownwardMessageQueues::<T>::insert(para, &remaining);
+				break;
+			}
 		}
 
 		Ok(cursor)
