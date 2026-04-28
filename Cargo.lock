@@ -17026,7 +17026,6 @@ dependencies = [
  "frame-election-provider-support",
  "frame-executive",
  "frame-metadata-hash-extension",
- "frame-omni-bencher",
  "frame-remote-externalities",
  "frame-support",
  "frame-support-procedural",

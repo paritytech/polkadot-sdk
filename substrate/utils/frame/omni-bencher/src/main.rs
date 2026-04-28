@@ -31,6 +31,7 @@ mod command;
 
 use clap::Parser;
 use sc_cli::Result;
+use tracing_subscriber::EnvFilter;
 
 fn main() -> Result<()> {
 	setup_logger();
