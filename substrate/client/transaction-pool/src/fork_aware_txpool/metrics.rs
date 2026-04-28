@@ -85,12 +85,8 @@ pub struct Metrics {
 	pub non_cloned_views: Counter<U64>,
 	/// Histograms to track the timing distribution of individual transaction pool events.
 	pub events_histograms: EventsHistograms,
-	/// Histogram of transaction age (residence time in the pool) at the moment a
-	/// transaction is removed, broken down by `reason` and `source`.
-	///
-	/// This metric is the main observability tool for detecting stuck transactions
-	/// in the fork-aware pool: spikes in the high-age buckets per `reason` indicate
-	/// transactions that lingered in the pool before leaving (see issue #7791).
+	/// Histogram of transaction age in the pool at the moment of removal, labeled by
+	/// `reason` and `source`.
 	pub tx_age_at_removal: TxAgeAtRemovalHistogram,
 }
 
