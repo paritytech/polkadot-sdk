@@ -202,8 +202,8 @@ impl NetworkDHTProvider for TestNetwork {
 
 	fn add_priority_addresses(
 		&self,
-		peer: PeerId,
-		addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
+		_peer: PeerId,
+		_addrs: Vec<sc_network_types::multiaddr::Multiaddr>,
 	) {
 	}
 
