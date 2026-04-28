@@ -77,14 +77,12 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// exists, so this minted ED is not extractable: the account cannot be reaped.
 	///
 	/// Used by [`crate::exec`] when bringing a new contract account into existence.
-	fn mint_contract_eds(contract: &T::AccountId) -> DispatchResult;
+	fn init_contract(contract: &T::AccountId) -> DispatchResult;
 
-	/// Burn the existential deposits that [`Self::mint_contract_eds`] minted into `contract`.
-	/// The native ED is reactivated before being burned so that inactive issuance does not get
-	/// stuck above total issuance.
+	/// Tear down the per-backend balance state that [`Self::init_contract`] set up.
 	///
 	/// Used by [`crate::exec::Stack::do_terminate`] when destroying a contract.
-	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult;
+	fn destroy_contract(contract: &T::AccountId) -> DispatchResult;
 
 	/// Charge `amount` from `src` to `to` and place it on hold under `reason`.
 	///
@@ -155,7 +153,7 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
-	fn mint_contract_eds(to: &T::AccountId) -> DispatchResult {
+	fn init_contract(to: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::mint_into(to, ed)?;
 		// The minted ED is not a user claim and should not inflate the active issuance
@@ -164,7 +162,7 @@ impl<T: Config> Deposit<T> for () {
 		Ok(())
 	}
 
-	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult {
+	fn destroy_contract(contract: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::burn_from(
 			contract,
@@ -173,7 +171,7 @@ impl<T: Config> Deposit<T> for () {
 			Precision::BestEffort,
 			Fortitude::Polite,
 		)?;
-		// Pair with [`Self::mint_contract_eds`]: shrink the inactive pool first so the burn only
+		// Pair with [`Self::init_contract`]: shrink the inactive pool first so the burn only
 		// nets out the mint, rather than also taking an ED off the active issuance.
 		T::Currency::reactivate(ed);
 		Ok(())
@@ -320,8 +318,8 @@ where
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
 	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays
 	/// outside active issuance.
-	fn mint_contract_eds(to: &T::AccountId) -> DispatchResult {
-		<() as Deposit<T>>::mint_contract_eds(to)?;
+	fn init_contract(to: &T::AccountId) -> DispatchResult {
+		<() as Deposit<T>>::init_contract(to)?;
 		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
 			Id::get(),
 			to,
@@ -330,20 +328,24 @@ where
 		Ok(())
 	}
 
-	/// Burns the native and PGAS ED minted by [`Self::mint_contract_eds`], reactivating the
-	/// native ED first so the burn doesn't also eat into active issuance. Best-effort on the PGAS
-	/// side: contracts that predate the mint-based init may be missing the PGAS ED, in which
-	/// case nothing is burned for that asset.
-	fn burn_contract_eds(contract: &T::AccountId) -> DispatchResult {
-		<() as Deposit<T>>::burn_contract_eds(contract)?;
-		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
-			Id::get(),
-			contract,
-			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get()),
-			Preservation::Expendable,
-			Precision::BestEffort,
-			Fortitude::Polite,
-		)?;
+	/// Burns the native ED minted by [`Self::init_contract`] (reactivating it first so the burn
+	/// doesn't also eat into active issuance) and burns the contract's full PGAS free balance.
+	/// Burning everything (rather than just the PGAS ED) ensures no PGAS lingers on a destroyed
+	/// contract: any free PGAS sent to it directly, or left over from accounting, is removed.
+	fn destroy_contract(contract: &T::AccountId) -> DispatchResult {
+		<() as Deposit<T>>::destroy_contract(contract)?;
+		let pgas_balance =
+			<Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
+		if !pgas_balance.is_zero() {
+			<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
+				Id::get(),
+				contract,
+				pgas_balance,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Polite,
+			)?;
+		}
 		Ok(())
 	}
 
@@ -463,7 +465,7 @@ where
 		})
 	}
 
-	/// Bring a pre-existing contract up to the post-[`Self::mint_contract_eds`] invariant:
+	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
 	/// mint the PGAS ED into `contract`'s free balance if it is missing, then burn the native
 	/// hold under `reason` and replace it with the same amount of PGAS held on `contract`.
 	fn migrate_native_to_pgas(

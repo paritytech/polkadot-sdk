@@ -21,6 +21,11 @@ doc:
 
       The trait is wired into `Config::Deposit` and called from `charge_deposit` /
       `refund_deposit` in place of the direct `T::Currency` calls that used to live there.
+      It also exposes `init_contract` / `destroy_contract` hooks that `exec` calls when a
+      contract account is brought into existence and torn down: `init_contract` mints the
+      native (and, for the PGAS backend, the PGAS) ED into the new account; `destroy_contract`
+      burns the native ED, and on the PGAS backend additionally burns the contract's full PGAS
+      free balance so no PGAS lingers on a destroyed contract.
 
       ### New storage: `NativeDepositOf`
 

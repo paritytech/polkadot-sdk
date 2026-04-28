@@ -18,27 +18,29 @@
 //! Tests for the [`PGasDeposit`] storage-deposit backend.
 
 use crate::{
-	Code, Config, HoldReason, NativeDepositOf,
+	Code, Config, DeletionQueue, HoldReason, NativeDepositOf,
 	deposit_payment::{Deposit, Funds},
 	test_utils::{
 		ALICE, BOB, CHARLIE, DJANGO_ADDR,
 		builder::{BareCallBuilder, Contract},
 	},
 	tests::{
-		Assets, AssetsHolder, Balances, ExtBuilder, PGAS_ASSET_ID, RuntimeOrigin, Test, builder,
-		test_utils::get_contract_checked,
+		Assets, AssetsHolder, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID, RuntimeOrigin,
+		System, Test, builder, test_utils::get_contract_checked,
 	},
 };
 use alloy_core::sol_types::SolCall;
 use frame_support::{
 	assert_ok,
 	traits::{
+		OnIdle,
 		fungible::{Inspect as _, InspectHold, Mutate as _},
 		tokens::{
 			Fortitude, Precision, Preservation,
 			fungibles::{Inspect as FungiblesInspect, InspectHold as _, Mutate as FungiblesMutate},
 		},
 	},
+	weights::Weight,
 };
 use pallet_revive_fixtures::{
 	FixtureType, MultiContributorStorage, compile_module, compile_module_with_type,
@@ -122,9 +124,9 @@ fn run(case: TestCase) {
 	}
 	builder.build().execute_with(|| {
 		Balances::set_balance(&ALICE, case.initial_native);
-		// Mint the native and PGAS ED onto BOB, mirroring what `mint_contract_eds` does at
+		// Mint the native and PGAS ED onto BOB, mirroring what `init_contract` does at
 		// contract creation time.
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
 		for (i, charge) in case.charges.iter().enumerate() {
 			assert_ok!(charge_and_hold(&ALICE, &BOB, charge.amount));
@@ -225,9 +227,9 @@ fn burn_held_on_sub_ed_hold_works() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
-			// PGAS branch: 50 transferred on top of the ED minted by `mint_contract_eds`.
+			// PGAS branch: 50 transferred on top of the ED minted by `init_contract`.
 			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
 			assert_eq!(
 				snapshot(&ALICE, &BOB),
@@ -260,7 +262,7 @@ fn burn_held_on_sub_ed_hold_partial_refund() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
 			assert_ok!(charge_and_hold(&ALICE, &BOB, 50));
 			assert_ok!(refund_on_hold(&BOB, &ALICE, 20));
@@ -277,18 +279,18 @@ fn burn_held_on_sub_ed_hold_partial_refund() {
 		});
 }
 
-/// `mint_contract_eds` mints the native ED (deactivated) and the PGAS ED into the contract.
-/// `burn_contract_eds` is its exact inverse: total_issuance, inactive_issuance, and active
+/// `init_contract` mints the native ED (deactivated) and the PGAS ED into the contract.
+/// `destroy_contract` is its exact inverse: total_issuance, inactive_issuance, and active
 /// issuance all return to their starting values.
 #[test]
-fn mint_and_burn_contract_eds_round_trip() {
+fn init_and_destroy_contract_round_trip() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let native_total_before = Balances::total_issuance();
 		let native_inactive_before = Balances::inactive_issuance();
 		let native_active_before = Balances::active_issuance();
 		let pgas_total_before = Assets::total_issuance(PGAS_ASSET_ID);
 
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
 		// BOB has the native ED in free balance, deactivated.
 		assert_eq!(Balances::balance(&BOB), 50, "BOB should have native ED minted");
@@ -304,7 +306,7 @@ fn mint_and_burn_contract_eds_round_trip() {
 		assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), pgas_ed);
 		assert_eq!(Assets::total_issuance(PGAS_ASSET_ID), pgas_total_before + pgas_ed);
 
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::burn_contract_eds(&BOB));
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::destroy_contract(&BOB));
 
 		assert_eq!(Balances::balance(&BOB), 0, "native ED has been burned out of BOB");
 		assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), 0);
@@ -315,7 +317,7 @@ fn mint_and_burn_contract_eds_round_trip() {
 	});
 }
 
-/// After `mint_contract_eds`, the contract has a PGAS asset account with at least the PGAS ED,
+/// After `init_contract`, the contract has a PGAS asset account with at least the PGAS ED,
 /// so a sub-ED PGAS transfer into it succeeds (would normally fail because transfers below the
 /// asset's ED to a fresh account get rejected).
 #[test]
@@ -326,7 +328,7 @@ fn minted_contract_can_receive_sub_ed_pgas() {
 		.build()
 		.execute_with(|| {
 			Balances::set_balance(&ALICE, 1_000);
-			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
 			assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), 100);
 
@@ -342,13 +344,13 @@ fn minted_contract_can_receive_sub_ed_pgas() {
 		});
 }
 
-/// After `mint_contract_eds`, the contract has a native account too, so a sub-ED native
+/// After `init_contract`, the contract has a native account too, so a sub-ED native
 /// transfer into it also succeeds.
 #[test]
 fn minted_contract_can_receive_sub_ed_native() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		Balances::set_balance(&ALICE, 1_000);
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::mint_contract_eds(&BOB));
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
 		assert_eq!(Balances::balance(&BOB), 50);
 
@@ -358,7 +360,7 @@ fn minted_contract_can_receive_sub_ed_native() {
 	});
 }
 
-/// The native ED minted by `mint_contract_eds` is NOT extractable while the contract has a
+/// The native ED minted by `init_contract` is NOT extractable while the contract has a
 /// system consumer. Burning the ED directly is rejected by the underlying balance pallet
 /// because `can_dec_provider` is false (consumer pinned).
 #[test]
@@ -455,6 +457,76 @@ fn release_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 			native_held,
 			alice_after.saturating_sub(alice_before),
 		);
+	});
+}
+
+/// Terminating a contract reaps its system account (native and PGAS EDs are burned by
+/// `destroy_contract`, the manual consumer is decremented), and the `on_idle` deletion-queue
+/// drain clears its [`NativeDepositOf`] rows. We charge a multi-contributor native deposit
+/// first so the double map is genuinely populated and we can observe both rows disappear.
+#[test_case(FixtureType::Solc)]
+#[test_case(FixtureType::Resolc)]
+fn destroy_contract_reaps_account_and_clears_native_deposit_map(fixture_type: FixtureType) {
+	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
+	ExtBuilder::default().build().execute_with(|| {
+		Balances::set_balance(&ALICE, 100_000_000_000);
+		Balances::set_balance(&CHARLIE, 100_000_000_000);
+
+		let Contract { addr, account_id } =
+			builder::bare_instantiate(Code::Upload(code)).build_and_unwrap_contract();
+
+		// Two distinct payers grow distinct slots so that `NativeDepositOf[contract][_]` has
+		// two rows once the deletion queue starts draining.
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+		assert_ok!(
+			BareCallBuilder::<Test>::bare_call(RuntimeOrigin::signed(CHARLIE), addr)
+				.data(MultiContributorStorage::growStorageCall {}.abi_encode())
+				.build()
+				.result,
+		);
+
+		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
+		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
+		assert!(System::account_exists(&account_id), "contract account is alive pre-terminate");
+
+		assert_ok!(
+			builder::bare_call(addr)
+				.data(
+					MultiContributorStorage::terminateCall { beneficiary: DJANGO_ADDR.0.into() }
+						.abi_encode(),
+				)
+				.build()
+				.result,
+		);
+
+		assert!(get_contract_checked(&addr).is_none(), "contract info should be gone");
+		assert!(
+			!System::account_exists(&account_id),
+			"system account should be reaped once destroy_contract burns the EDs",
+		);
+		assert_eq!(Balances::balance(&account_id), 0);
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, &account_id), 0);
+
+		// `NativeDepositOf` rows survive termination; they're cleared lazily by `on_idle`.
+		assert!(NativeDepositOf::<Test>::get(&account_id, &ALICE) > 0);
+		assert!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE) > 0);
+		assert_eq!(DeletionQueue::<Test>::iter().count(), 1, "contract is queued for deletion");
+
+		Contracts::on_idle(System::block_number(), Weight::MAX);
+
+		assert_eq!(
+			DeletionQueue::<Test>::iter().count(),
+			0,
+			"deletion queue drained to completion",
+		);
+		assert_eq!(NativeDepositOf::<Test>::iter_prefix(&account_id).count(), 0);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &ALICE), 0);
+		assert_eq!(NativeDepositOf::<Test>::get(&account_id, &CHARLIE), 0);
 	});
 }
 
