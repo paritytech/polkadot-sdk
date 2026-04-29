@@ -30,21 +30,21 @@
 //!
 //! `pallet-revive` maintains two distinct sets of types:
 //!
-//! * **Wire types** (this crate): stable, SCALE-encoded types exposed through the
-//!   `ReviveApi` runtime API. They must remain backward-compatible across API versions.
-//! * **Execution types** (inside `pallet-revive`): runtime-internal types used during
-//!   contract execution. These may carry additional context not suitable for serialisation
-//!   and are free to evolve independently.
+//! * **Wire types** (this crate): stable, SCALE-encoded types exposed through the `ReviveApi`
+//!   runtime API. They must remain backward-compatible across API versions.
+//! * **Execution types** (inside `pallet-revive`): runtime-internal types used during contract
+//!   execution. These may carry additional context not suitable for serialisation and are free to
+//!   evolve independently.
 //!
 //! ## Versioning convention
 //!
 //! * Concrete versioned structs are named with a `VN` suffix: `ContractResultV1`,
 //!   `ContractResultV2`, etc.
-//! * The un-suffixed name (e.g. `ContractResult`) is always a type alias for the
-//!   **latest** version.
-//! * When a breaking change is needed, a new versioned struct is introduced and the
-//!   alias is updated. The old version is kept so it can be referenced with
-//!   `#[changed_in(N)]` in the `ReviveApi` runtime API trait.
+//! * The un-suffixed name (e.g. `ContractResult`) is always a type alias for the **latest**
+//!   version.
+//! * When a breaking change is needed, a new versioned struct is introduced and the alias is
+//!   updated. The old version is kept so it can be referenced with `#[changed_in(N)]` in the
+//!   `ReviveApi` runtime API trait.
 //!
 //! ## `define_versioned_type!` macro
 //!
@@ -64,8 +64,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{
-	DispatchError,
 	traits::{CheckedSub, One, Saturating, Zero},
+	DispatchError,
 };
 use sp_weights::Weight;
 
@@ -75,11 +75,11 @@ pub use pallet_revive_uapi::ReturnFlags;
 ///
 /// This macro generates:
 ///
-/// 1. A concrete struct named `<Name>V<N>` (e.g. `ContractResultV1`) that carries all
-///    of the specified fields together with the requested `#[derive(…)]` attributes.
-/// 2. A public type alias `<Name> = <Name>V<N>` that always points to the *latest*
-///    defined version. When you introduce `V2`, re-run the macro with `version = 2` and
-///    the alias will update automatically.
+/// 1. A concrete struct named `<Name>V<N>` (e.g. `ContractResultV1`) that carries all of the
+///    specified fields together with the requested `#[derive(…)]` attributes.
+/// 2. A public type alias `<Name> = <Name>V<N>` that always points to the *latest* defined version.
+///    When you introduce `V2`, re-run the macro with `version = 2` and the alias will update
+///    automatically.
 ///
 /// # Syntax
 ///
@@ -148,9 +148,7 @@ macro_rules! define_versioned_type {
 }
 
 /// The amount of balance that was either charged or refunded in order to pay for storage.
-#[derive(
-	Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo,
-)]
+#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Encode, Decode, MaxEncodedLen, Debug, TypeInfo)]
 pub enum StorageDeposit<Balance> {
 	/// The transaction reduced storage consumption.
 	///

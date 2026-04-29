@@ -2795,27 +2795,6 @@ environmental!(executing_contract: bool);
 
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
-	///
-	/// # Versioning
-	///
-	/// This trait follows Substrate's runtime API versioning convention:
-	///
-	/// * The `#[api_version(N)]` attribute declares the **current** version of the
-	///   entire trait.
-	/// * Methods whose signatures changed between versions carry a `#[changed_in(N)]`
-	///   annotation on the *old* overload. The *new* (current) overload has no such
-	///   annotation.
-	/// * Wire types used as parameters or return values are defined in
-	///   [`pallet_revive_types`] and follow the `TypeVN` naming convention. The
-	///   unversioned alias (e.g. `ContractResult`) always refers to the latest version.
-	///
-	/// ## Version history
-	///
-	/// | Version | Summary of changes |
-	/// |---------|-------------------|
-	/// | 1       | Initial API. |
-	/// | 2       | `eth_transact` replaced by `eth_transact_with_config` (added `DryRunConfig` |
-	/// |         | parameter). Wire types extracted to `pallet-revive-types`. |
 	#[api_version(2)]
 	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, Moment> where
 		AccountId: Codec,
@@ -3085,7 +3064,7 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					<Self as $crate::Config>::AddressMapper::to_address(&account_id)
 				}
 
-				// ── eth_transact (deprecated, retained for API v1 compatibility) ──────
+				// eth_transact (deprecated, retained for API v1 compatibility)
 				// Clients built against API v1 call this method. We forward it to
 				// `dry_run_eth_transact` with a default config, matching v1 behaviour.
 				fn eth_transact(

@@ -213,10 +213,6 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 	}
 }
 
-// `From<&ExecReturnValue> for ReturnErrorCode` is defined in `pallet-revive-types`
-// (the crate that owns both types) and re-exported here via the `pallet_revive_types`
-// import in `primitives.rs`.
-
 /// The data passed through when a contract uses `seal_return`.
 #[derive(Debug)]
 pub struct ReturnData {

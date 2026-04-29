@@ -50,8 +50,8 @@
 //! * [`SetStorageResult`]
 
 use crate::{
-	BalanceOf, Config, Time, U256, evm::DryRunConfig, mock::MockHandler,
-	storage::WriteOutcome, transient_storage::TransientStorage,
+	BalanceOf, Config, Time, U256, evm::DryRunConfig, mock::MockHandler, storage::WriteOutcome,
+	transient_storage::TransientStorage,
 };
 use alloc::{boxed::Box, fmt::Debug};
 use core::cell::RefCell;
@@ -59,29 +59,25 @@ use frame_support::{DefaultNoBound, weights::Weight};
 use sp_core::Get;
 use sp_runtime::traits::{One, Saturating, Zero};
 
-// ─── Wire types (re-exported from pallet-revive-types) ───────────────────────
-
 pub use pallet_revive_types::{
-	// versioned concrete types
-	CodeUploadReturnValueV1,
-	ContractResultV1,
-	EthTransactInfoV1,
-	ExecReturnValueV1,
-	InstantiateReturnValueV1,
 	// unversioned aliases (always point to the latest version)
 	CodeUploadResult,
 	CodeUploadReturnValue,
+	// versioned concrete types
+	CodeUploadReturnValueV1,
 	ContractAccessError,
 	ContractResult,
+	ContractResultV1,
 	EthTransactError,
 	EthTransactInfo,
+	EthTransactInfoV1,
 	ExecReturnValue,
+	ExecReturnValueV1,
 	GetStorageResult,
 	InstantiateReturnValue,
+	InstantiateReturnValueV1,
 	StorageDeposit,
 };
-
-// ─── Execution types (pallet-internal) ───────────────────────────────────────
 
 /// Result type of a `set_storage` call.
 pub type SetStorageResult = Result<WriteOutcome, ContractAccessError>;
