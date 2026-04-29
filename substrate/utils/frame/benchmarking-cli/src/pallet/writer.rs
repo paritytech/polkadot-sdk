@@ -32,14 +32,20 @@ use crate::{
 	pallet::{
 		command::{PovEstimationMode, PovModesMap},
 		types::{ComponentRange, ComponentRangeMap},
+		LOG_TARGET,
 	},
 	shared::UnderscoreHelper,
 	PalletCmd,
 };
 use frame_benchmarking::{
 	Analysis, AnalysisChoice, BenchmarkBatchSplitResults, BenchmarkResult, BenchmarkSelector,
+	RuntimeBlockLimits,
 };
-use frame_support::traits::StorageInfo;
+use frame_support::{
+	traits::StorageInfo,
+	weights::{RuntimeDbWeight, Weight},
+};
+use sc_cli::SanityWeightCheck;
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Zero;
 
@@ -174,6 +180,169 @@ fn map_results(
 		pallet_benchmarks.push(benchmark_data);
 	}
 	Ok(all_benchmarks)
+}
+
+// Returns the maximum value in `component_ranges` for the given component name, or 0 if the
+// component is not part of the ranges.
+fn max_component_value(name: &str, component_ranges: &[ComponentRange]) -> u64 {
+	component_ranges
+		.iter()
+		.find(|c| c.name == name)
+		.map(|c| c.max as u64)
+		.unwrap_or(0)
+}
+
+// Computes the worst-case [`Weight`] of a single benchmark function by evaluating its base cost
+// plus every component slope at the maximum component value.
+fn worst_case_weight(data: &BenchmarkData, db_weight: &RuntimeDbWeight) -> Weight {
+	let mut total = Weight::from_parts(
+		data.base_weight.saturating_cast_u64(),
+		data.base_calculated_proof_size.saturating_cast_u64(),
+	);
+
+	for slope in &data.component_weight {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total
+			.saturating_add(Weight::from_parts(slope.slope.saturating_cast_u64(), 0).saturating_mul(max));
+	}
+
+	total =
+		total.saturating_add(db_weight.reads(data.base_reads.saturating_cast_u64()));
+	for slope in &data.component_reads {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total
+			.saturating_add(db_weight.reads(slope.slope.saturating_cast_u64()).saturating_mul(max));
+	}
+
+	total =
+		total.saturating_add(db_weight.writes(data.base_writes.saturating_cast_u64()));
+	for slope in &data.component_writes {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total
+			.saturating_add(db_weight.writes(slope.slope.saturating_cast_u64()).saturating_mul(max));
+	}
+
+	for slope in &data.component_calculated_proof_size {
+		let max = max_component_value(&slope.name, &data.component_ranges);
+		total = total
+			.saturating_add(Weight::from_parts(0, slope.slope.saturating_cast_u64()).saturating_mul(max));
+	}
+
+	total
+}
+
+// Helper trait to silently saturate u128 -> u64 for benchmark slopes that are stored as u128 in
+// `BenchmarkData` but always fit in u64 in practice.
+trait SaturatingCastU64 {
+	fn saturating_cast_u64(self) -> u64;
+}
+
+impl SaturatingCastU64 for u128 {
+	fn saturating_cast_u64(self) -> u64 {
+		u64::try_from(self).unwrap_or(u64::MAX)
+	}
+}
+
+/// Compares each benchmark's worst-case weight against the runtime's max extrinsic weight.
+///
+/// Behaviour is controlled by `mode`:
+/// * `Error`   — print results and return `Err` if any extrinsic exceeds the limit.
+/// * `Warning` — print results and a warning, but always return `Ok`.
+/// * `Ignore`  — skip the check entirely.
+pub(crate) fn sanity_weight_check(
+	batches: &[BenchmarkBatchSplitResults],
+	storage_info: &[StorageInfo],
+	component_ranges: &ComponentRangeMap,
+	pov_modes: PovModesMap,
+	cmd: &PalletCmd,
+	limits: &RuntimeBlockLimits,
+	mode: SanityWeightCheck,
+) -> Result<(), sc_cli::Error> {
+	if mode == SanityWeightCheck::Ignore {
+		return Ok(());
+	}
+
+	// `RuntimeBlockLimits::default()` means we could not fetch real limits from the runtime — for
+	// example the runtime is on `Benchmark` API v2, or we are re-analysing a JSON dump. Skip the
+	// check rather than producing false positives.
+	if limits == &RuntimeBlockLimits::default() {
+		log::warn!(
+			target: LOG_TARGET,
+			"Skipping sanity weight check: runtime did not expose `runtime_block_limits` (Benchmark API v2 or re-analysis input).",
+		);
+		return Ok(());
+	}
+
+	let analysis_choice: AnalysisChoice =
+		cmd.output_analysis.clone().try_into().map_err(io_error)?;
+	let pov_analysis_choice: AnalysisChoice =
+		cmd.output_pov_analysis.clone().try_into().map_err(io_error)?;
+
+	let all_results = map_results(
+		batches,
+		storage_info,
+		component_ranges,
+		pov_modes,
+		cmd.default_pov_mode,
+		&analysis_choice,
+		&pov_analysis_choice,
+		cmd.worst_case_map_values,
+		cmd.additional_trie_layers,
+	)?;
+
+	color_print::cprintln!(
+		"\n<s>Sanity Weight Check 🧐:</> each extrinsic's weight function is evaluated in the \
+		worst-case scenario (every complexity component at its max value) and compared with the \
+		runtime's max extrinsic weight for `DispatchClass::Normal`.\n\n<u>Results:</>\n"
+	);
+
+	let mut failed = false;
+	for ((pallet, instance), results) in all_results.iter() {
+		println!("Pallet: {pallet}\nInstance: {instance}\n");
+		for data in results {
+			let total = worst_case_weight(data, &limits.db_weight);
+			let exceeds_ref_time = total.ref_time() > limits.max_extrinsic_weight.ref_time();
+			let exceeds_proof_size = total.proof_size() > limits.max_extrinsic_weight.proof_size();
+			if exceeds_ref_time || exceeds_proof_size {
+				failed = true;
+				color_print::cprintln!(
+					"<s,r>EXCEEDS MAX EXTRINSIC WEIGHT:</> the worst-case weight of `{}` does not \
+					fit in a single block.",
+					data.name,
+				);
+			}
+			let ref_time_pct = (total.ref_time() as f64
+				/ limits.max_extrinsic_weight.ref_time().max(1) as f64)
+				* 100.0;
+			let proof_size_pct = (total.proof_size() as f64
+				/ limits.max_extrinsic_weight.proof_size().max(1) as f64)
+				* 100.0;
+			color_print::cprintln!(
+				"- <s>{}</>: {:?}\n  ref_time {:.2}% / proof_size {:.2}% of max extrinsic weight\n",
+				data.name,
+				total,
+				ref_time_pct,
+				proof_size_pct,
+			);
+		}
+	}
+
+	if failed {
+		color_print::cprintln!(
+			"<r>One or more extrinsics exceed the runtime's max extrinsic weight. Review the \
+			extrinsic logic and/or its benchmark function.</>\n"
+		);
+		if mode == SanityWeightCheck::Error {
+			return Err(io_error(
+				"sanity weight check failed: one or more extrinsics exceed the max extrinsic weight",
+			)
+			.into());
+		}
+	} else {
+		color_print::cprintln!("<g>All extrinsics passed the sanity weight check 😃!</>\n");
+	}
+
+	Ok(())
 }
 
 // Get an iterator of errors.

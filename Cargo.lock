@@ -7289,6 +7289,7 @@ dependencies = [
  "array-bytes 6.2.2",
  "chrono",
  "clap",
+ "color-print",
  "comfy-table",
  "cumulus-client-parachain-inherent",
  "cumulus-primitives-core",
