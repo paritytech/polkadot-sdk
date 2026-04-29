@@ -64,6 +64,12 @@ pub enum Funds<'a, AccountId> {
 
 /// Payment backend used to charge storage deposits.
 pub trait Deposit<T: Config>: sealed::Sealed {
+	/// Whether this backend supports PGAS.
+	///
+	/// When `false`, the v4 multi-block migration's PGAS-related phases (steps 1 and 2)
+	/// are no-ops, since there is no PGAS asset to migrate native deposits over to.
+	const SUPPORTS_PGAS: bool;
+
 	/// Mint each backend's existential deposit into `contract`.
 	///
 	/// Used by [`crate::exec`] when bringing a new contract account into existence.
@@ -144,6 +150,8 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
+	const SUPPORTS_PGAS: bool = false;
+
 	/// The native ED is freshly minted and immediately
 	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
 	/// active issuance, and therefore opengov conviction, inflation accounting, etc., is
@@ -308,6 +316,8 @@ where
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
 {
+	const SUPPORTS_PGAS: bool = true;
+
 	/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
 	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays

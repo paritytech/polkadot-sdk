@@ -30,6 +30,9 @@
 //!
 //! Phase 3 rewrites the [`crate::DeletionQueue`] entries from their old `TrieId` value into the
 //! new [`crate::storage::DeletionQueueItem`] format.
+//!
+//! Phases 1 and 2 are skipped when [`Config::Deposit`] does not support PGAS (i.e. the default
+//! `()` backend); only phase 3 runs in that case.
 
 use super::PALLET_MIGRATIONS_ID;
 #[cfg(feature = "try-runtime")]
@@ -119,9 +122,11 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		use crate::deposit_payment::Deposit;
 
 		let mut per_owner: BTreeMap<T::AccountId, BalanceOf<T>> = BTreeMap::new();
-		for (_hash, info) in CodeInfoOf::<T>::iter() {
-			let entry = per_owner.entry(info.owner().clone()).or_default();
-			*entry = entry.saturating_add(info.deposit());
+		if T::Deposit::SUPPORTS_PGAS {
+			for (_hash, info) in CodeInfoOf::<T>::iter() {
+				let entry = per_owner.entry(info.owner().clone()).or_default();
+				*entry = entry.saturating_add(info.deposit());
+			}
 		}
 
 		let mut per_contract: BTreeMap<H160, BalanceOf<T>> = BTreeMap::new();
@@ -198,6 +203,21 @@ impl<T: Config> Migration<T> {
 	/// Run a single iteration of the migration's inner loop, returning the next cursor or
 	/// `None` if the migration is complete.
 	pub(crate) fn step_once(cursor: Option<Cursor>) -> Option<Cursor> {
+		// When the deposit backend has no PGAS support, phases 1 and 2 have nothing to do:
+		// there is no `NativeDepositOf` to populate and no native -> PGAS swap to perform.
+		// Skip straight to phase 3, which is independent of the deposit backend.
+		if !T::Deposit::SUPPORTS_PGAS {
+			return match cursor {
+				None | Some(Cursor::CodeUpload(_)) | Some(Cursor::Contract(_)) => {
+					Some(Cursor::DeletionQueue(None))
+				},
+				Some(Cursor::DeletionQueue(last)) => match Self::step_3_deletion_queue(last) {
+					Some(next) => Some(Cursor::DeletionQueue(Some(next))),
+					None => None,
+				},
+			};
+		}
+
 		match cursor {
 			None | Some(Cursor::CodeUpload(_)) => {
 				let last = if let Some(Cursor::CodeUpload(h)) = cursor { Some(h) } else { None };
