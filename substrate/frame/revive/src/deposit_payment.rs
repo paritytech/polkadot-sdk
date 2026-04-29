@@ -24,18 +24,14 @@ use crate::{
 	BalanceOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, evm::fees::InfoT as FeeInfo,
 };
 use core::marker::PhantomData;
-use frame_support::{
-	storage::with_storage_layer,
-	traits::{
-		Get,
-		fungible::{
-			Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
-			Unbalanced as _,
-		},
-		tokens::{
-			DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction,
-			fungibles,
-		},
+use frame_support::traits::{
+	Get,
+	fungible::{
+		Balanced as _, Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
+		Unbalanced as _,
+	},
+	tokens::{
+		DepositConsequence, Fortitude, Precision, Preservation, Provenance, Restriction, fungibles,
 	},
 };
 use sp_runtime::{
@@ -387,6 +383,8 @@ where
 	/// the native portion is routed into the tx fee pool instead of the embedded account's
 	/// free balance. The PGAS portion (if any) is always settled to the account embedded in
 	/// `dst`.
+	///
+	/// Note: callers must run inside a storage layer so partial state rolls back on error.
 	fn refund_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -396,27 +394,25 @@ where
 		let to = match &dst {
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
-		with_storage_layer(|| {
-			let contribution = NativeDepositOf::<T>::get(from, to);
-			let native_requested = amount.min(contribution);
+		let contribution = NativeDepositOf::<T>::get(from, to);
+		let native_requested = amount.min(contribution);
 
-			let native_refunded = if !native_requested.is_zero() {
-				<() as Deposit<T>>::refund_on_hold(reason, from, dst, native_requested)?;
-				let new_val = contribution.saturating_sub(native_requested);
-				if new_val.is_zero() {
-					NativeDepositOf::<T>::remove(from, to);
-				} else {
-					NativeDepositOf::<T>::insert(from, to, new_val);
-				}
-				native_requested
+		let native_refunded = if !native_requested.is_zero() {
+			<() as Deposit<T>>::refund_on_hold(reason, from, dst, native_requested)?;
+			let new_val = contribution.saturating_sub(native_requested);
+			if new_val.is_zero() {
+				NativeDepositOf::<T>::remove(from, to);
 			} else {
-				BalanceOf::<T>::zero()
-			};
+				NativeDepositOf::<T>::insert(from, to, new_val);
+			}
+			native_requested
+		} else {
+			BalanceOf::<T>::zero()
+		};
 
-			let pgas_needed = amount.saturating_sub(native_refunded);
-			Self::settle_pgas_refund::<T>(reason, from, to, pgas_needed)?;
-			Ok(())
-		})
+		let pgas_needed = amount.saturating_sub(native_refunded);
+		Self::settle_pgas_refund::<T>(reason, from, to, pgas_needed)?;
+		Ok(())
 	}
 
 	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
@@ -434,6 +430,8 @@ where
 	/// PGAS hold via [`Self::settle_pgas_refund`] (refunding `RefundPercent` to `dst` and burning
 	/// the rest). The native cap only makes sense for partial refunds on a live contract; at
 	/// termination there is one recipient and the contract is gone.
+	///
+	/// Note: callers must run inside a storage layer so partial state rolls back on error.
 	fn refund_all(
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
@@ -442,22 +440,20 @@ where
 		let to = match &dst {
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
-		with_storage_layer(|| {
-			let native = <() as Deposit<T>>::refund_all(from, dst)?;
+		let native = <() as Deposit<T>>::refund_all(from, dst)?;
 
-			let pgas = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
-				Id::get(),
-				&reason.into(),
-				from,
-			);
-			let pgas_refunded = if !pgas.is_zero() {
-				Self::settle_pgas_refund::<T>(reason, from, to, pgas)?
-			} else {
-				BalanceOf::<T>::zero()
-			};
+		let pgas = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
+			Id::get(),
+			&reason.into(),
+			from,
+		);
+		let pgas_refunded = if !pgas.is_zero() {
+			Self::settle_pgas_refund::<T>(reason, from, to, pgas)?
+		} else {
+			BalanceOf::<T>::zero()
+		};
 
-			Ok(native.saturating_add(pgas_refunded))
-		})
+		Ok(native.saturating_add(pgas_refunded))
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:

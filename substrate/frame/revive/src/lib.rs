@@ -76,7 +76,8 @@ use frame_support::{
 	pallet_prelude::DispatchClass,
 	storage::with_transaction,
 	traits::{
-		ConstU32, ConstU64, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced, OriginTrait,
+		ConstU32, ConstU64, DefensiveResult, EnsureOrigin, Get, IsSubType, IsType, OnUnbalanced,
+		OriginTrait,
 		fungible::{Balanced, Credit, Inspect, Mutate, MutateHold},
 		tokens::Balance,
 	},
@@ -2675,7 +2676,7 @@ impl<T: Config> Pallet<T> {
 		};
 		let result = T::Deposit::refund_on_hold(hold_reason, from, dst, amount);
 
-		result.map_err(|err| {
+		result.defensive_map_err(|err| {
 			let available = T::Deposit::total_on_hold(hold_reason, from);
 			if available < amount {
 				// The storage deposit accounting got out of sync with the balance: This would be a

@@ -1317,8 +1317,7 @@ where
 				ensure!(matches!(self.origin, Origin::Signed(_)), DispatchError::RootNotAllowed);
 
 				if !frame_system::Pallet::<T>::account_exists(&account_id) {
-					T::Deposit::init_contract(account_id)
-						.map_err(|_| Error::<T>::StorageDepositNotEnoughFunds)?;
+					T::Deposit::init_contract(account_id)?;
 				}
 
 				// A consumer is added at account creation and removed it on termination, otherwise
