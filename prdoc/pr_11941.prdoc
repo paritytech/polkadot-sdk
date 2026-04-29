@@ -1,0 +1,75 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Automatic weight sanity checker for the benchmarking CLI"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Adds an automatic sanity check that runs after `frame-omni-bencher v1 benchmark pallet`
+      (or `polkadot benchmark pallet`). For every benchmarked extrinsic the check evaluates
+      the worst-case weight (every complexity component at its maximum value) and compares it
+      against the runtime's max extrinsic weight for `DispatchClass::Normal`. Misconfigured
+      runtimes whose extrinsics cannot fit in a single block are caught immediately instead
+      of silently producing unusable weight files.
+
+      Behaviour is controlled by the new `--sanity-weight-check <error|warning|ignore>` flag.
+      Default is `error`, so a real benchmark run fails loudly on misconfiguration. The check
+      always runs after weight files are written, so the failing weights are still persisted
+      on disk for inspection.
+
+      The check is silently skipped when:
+      - the runtime exposes only Benchmark runtime API v2 (no `runtime_block_limits`), or
+      - the CLI is re-analysing a JSON input (no live runtime metadata).
+
+      Closes #152.
+
+  - audience: Node Dev
+    description: |
+      The `Benchmark` runtime API is bumped from v2 to v3 and gains a new method
+      `runtime_block_limits()` returning a `RuntimeBlockLimits { max_extrinsic_weight,
+      db_weight }` struct. Existing methods (`benchmark_metadata`, `dispatch_benchmark`)
+      are unchanged, so v2 runtimes continue to work — the CLI falls back gracefully and
+      simply skips the new sanity check on those runtimes.
+
+crates:
+  - name: frame-benchmarking
+    bump: major
+  - name: frame-benchmarking-cli
+    bump: minor
+  - name: sc-cli
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: glutton-westend-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: penpal-runtime
+    bump: minor
+  - name: pallet-staking-async-rc-runtime
+    bump: minor
+  - name: pallet-staking-async-parachain-runtime
+    bump: minor
+  - name: parachain-template-runtime
+    bump: minor
+  - name: solochain-template-runtime
+    bump: minor
+  - name: polkadot-omni-node-lib
+    bump: minor
