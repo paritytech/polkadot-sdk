@@ -1348,6 +1348,12 @@ parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 	pub FastUnstakeName: &'static str = "FastUnstake";
 	pub PsmName: &'static str = "Psm";
+	pub PsmDebtStorage: &'static str = "PsmDebt";
+	pub PsmMintingFeeStorage: &'static str = "MintingFee";
+	pub PsmRedemptionFeeStorage: &'static str = "RedemptionFee";
+	pub PsmMaxPsmDebtOfTotalStorage: &'static str = "MaxPsmDebtOfTotal";
+	pub PsmAssetCeilingWeightStorage: &'static str = "AssetCeilingWeight";
+	pub PsmExternalAssetsStorage: &'static str = "ExternalAssets";
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -1903,7 +1909,36 @@ pub type Migrations = (
 	// unreleased
 
 	// start: PSM reset
-	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
+	frame_support::migrations::RemoveStorage<
+		PsmName,
+		PsmDebtStorage,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		PsmName,
+		PsmMintingFeeStorage,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		PsmName,
+		PsmRedemptionFeeStorage,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		PsmName,
+		PsmMaxPsmDebtOfTotalStorage,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		PsmName,
+		PsmAssetCeilingWeightStorage,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
+	frame_support::migrations::RemoveStorage<
+		PsmName,
+		PsmExternalAssetsStorage,
+		<Runtime as frame_system::Config>::DbWeight,
+	>,
 	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
 	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
