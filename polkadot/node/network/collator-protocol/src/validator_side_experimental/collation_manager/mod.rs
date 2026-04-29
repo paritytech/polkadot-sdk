@@ -521,11 +521,13 @@ impl CollationManager {
 					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
 				}
 
+				let scheduling_session = per_sp.session_index;
+
 				// Sanity check of the candidate receipt version.
 				if let Err(err) = descriptor_version_sanity_check_with_params(
 					fetched_collation.candidate_receipt.descriptor(),
 					per_sp.core_index,
-					per_sp.session_index,
+					scheduling_session,
 					collation_version,
 				) {
 					gum::warn!(
@@ -622,6 +624,9 @@ impl CollationManager {
 				),
 				maybe_candidate_hash: Some(fetched_collation.candidate_receipt.hash()),
 			};
+			if !self.per_scheduling_parent.contains_key(&fetched_collation.scheduling_parent()) {
+				continue;
+			}
 			let can_second =
 				self.can_begin_seconding(sender, fetched_collation, false, reject_info).await;
 			unblocked_can_second.push(can_second)

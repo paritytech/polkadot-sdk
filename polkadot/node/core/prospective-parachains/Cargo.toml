@@ -18,6 +18,7 @@ gum = { default-features = true, workspace = true }
 polkadot-node-subsystem = { default-features = true, workspace = true }
 polkadot-node-subsystem-util = { default-features = true, workspace = true }
 polkadot-primitives = { default-features = true, workspace = true }
+schnellru = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
