@@ -20,6 +20,12 @@ use crate::{
 	tests::session_mock::{CurrentIndex, Timestamp},
 };
 use frame_support::traits::fungible::Inspect;
+use crate::{reward::EraRewardManager, POT_POOL_SIZE};
+use frame_support::traits::fungible::Mutate;
+use crate::{Seed, POT_POOL_SIZE};
+use codec::Encode;
+use frame_support::PalletId;
+
 
 use super::*;
 
@@ -520,7 +526,7 @@ mod inflation {
 }
 
 #[test]
-fn era_pot_cleanup_after_history_depth() {
+fn era_pot_drained_after_history_depth() {
 	ExtBuilder::default().build_and_execute(|| {
 		// GIVEN: Start at era 2
 		Session::roll_until_active_era(2);
@@ -532,26 +538,108 @@ fn era_pot_cleanup_after_history_depth() {
 		let expected_per_era = validator_payout_for(time_per_era());
 		assert_eq!(Balances::balance(&staker_pot_1), expected_per_era);
 
-		// era we expect to be cleaned up
-		let cleanup_era = 1;
+		// era we expect to be drained
+		let drained_era = 1;
 
-		// WHEN: Advance past HistoryDepth
-		// At era (1 + HistoryDepth + 1), era 1 should be cleaned up
-		// For HistoryDepth = 80: cleanup happens at era 82
-		let target_era = cleanup_era + HistoryDepth::get() + 1;
+		// WHEN: Advance past HistoryDepth so era 1 falls out of the active window.
+		let target_era = drained_era + HistoryDepth::get() + 1;
 		Session::roll_until_active_era(target_era);
 		let _ = staking_events_since_last_call();
-		// Verify rewards were allocated for the eras we advanced through.
 
-		// THEN: Verify era-1 staker pot has been cleaned up
+		// THEN: era-1's pot account holds zero balance but is kept alive (provider
+		// retained) so a future era reusing the same slot can snapshot into it.
 		let staker_pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
-			cleanup_era,
+			drained_era,
 			RewardKind::StakerRewards,
 		));
 
 		assert_eq!(Balances::balance(&staker_pot), 0, "Staker pot should have zero balance");
-		assert_eq!(System::providers(&staker_pot), 0, "Staker pot should have no providers");
+		assert_eq!(
+			System::providers(&staker_pot),
+			1,
+			"Staker pot is kept alive for slot reuse; provider must be retained"
+		);
 	});
+}
+
+#[test]
+fn pot_slot_reuse_drain_then_recreate_is_idempotent() {
+	// Drain must keep the slot alive, and a subsequent `create()` on a future
+	// era sharing the same slot must not double-increment the provider.
+	ExtBuilder::default().build_and_execute(|| {
+		let era_a = 5;
+		let era_b = era_a + POT_POOL_SIZE;
+
+		// GIVEN: era_a's pot is created and funded.
+		let pot = EraRewardManager::<Test>::create(era_a, RewardKind::StakerRewards);
+		assert_eq!(System::providers(&pot), 1);
+		let funded: Balance = 1_000;
+		Balances::set_balance(&pot, funded);
+		assert_eq!(Balances::balance(&pot), funded);
+
+		// WHEN: era_a's pot is cleaned up past HistoryDepth.
+		EraRewardManager::<Test>::cleanup_era(era_a);
+
+		// THEN: balance drained, provider retained (slot kept alive).
+		assert_eq!(Balances::balance(&pot), 0);
+		assert_eq!(System::providers(&pot), 1, "drain must not release the provider");
+
+		// WHEN: era_b reuses the same slot.
+		EraRewardManager::<Test>::create(era_b, RewardKind::StakerRewards);
+
+		// THEN: provider count unchanged (idempotent create).
+		assert_eq!(
+			System::providers(&pot),
+			1,
+			"create must not double-increment provider on slot reuse"
+		);
+
+		// AND: a fresh snapshot into the reused slot works as if it were new.
+		Balances::set_balance(&pot, 2_000);
+		assert_eq!(Balances::balance(&pot), 2_000);
+	});
+}
+
+#[test]
+fn era_pot_slots_collide_every_pool_size_eras() {
+	// Verifies the production `Seed` provider derives era pots from
+	// `(slot, kind)` rather than `(era, kind)`. Asserted on the encoded seed
+	// rather than the resulting `AccountId` because the mock's `AccountId = u64`
+	// is too narrow to fit the seed and `into_sub_account_truncating` truncates
+	// it down to a constant.
+	type ProdProvider = Seed<DapPalletId>;
+
+	let era_a = 7;
+	let era_b = era_a + POT_POOL_SIZE; // shares slot with era_a
+	let era_c = era_a + 1;
+
+	// Encoded sub-account seeds (PalletId TYPE_ID + pallet id + sub-seed bytes).
+	// `into_sub_account_truncating` decodes these into AccountId; identical
+	// seeds always yield identical accounts.
+	let seed_for = |era: u32, kind: RewardKind| -> Vec<u8> {
+		(
+			<PalletId as sp_runtime::TypeId>::TYPE_ID,
+			DapPalletId::get(),
+			(b"era", crate::pot_slot(era), kind),
+		)
+			.encode()
+	};
+
+	assert_eq!(
+		seed_for(era_a, RewardKind::StakerRewards),
+		seed_for(era_b, RewardKind::StakerRewards),
+		"eras `POT_POOL_SIZE` apart must share a slot seed",
+	);
+	assert_ne!(
+		seed_for(era_a, RewardKind::StakerRewards),
+		seed_for(era_c, RewardKind::StakerRewards),
+		"adjacent eras must occupy different slots",
+	);
+	assert_ne!(
+		seed_for(era_a, RewardKind::StakerRewards),
+		seed_for(era_a, RewardKind::ValidatorSelfStake),
+		"staker-rewards and incentive pots within the same slot must be distinct",
+	);
 }
 
 #[test]
