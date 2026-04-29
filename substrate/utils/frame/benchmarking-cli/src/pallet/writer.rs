@@ -202,30 +202,31 @@ fn worst_case_weight(data: &BenchmarkData, db_weight: &RuntimeDbWeight) -> Weigh
 
 	for slope in &data.component_weight {
 		let max = max_component_value(&slope.name, &data.component_ranges);
-		total = total
-			.saturating_add(Weight::from_parts(slope.slope.saturating_cast_u64(), 0).saturating_mul(max));
+		total = total.saturating_add(
+			Weight::from_parts(slope.slope.saturating_cast_u64(), 0).saturating_mul(max),
+		);
 	}
 
-	total =
-		total.saturating_add(db_weight.reads(data.base_reads.saturating_cast_u64()));
+	total = total.saturating_add(db_weight.reads(data.base_reads.saturating_cast_u64()));
 	for slope in &data.component_reads {
 		let max = max_component_value(&slope.name, &data.component_ranges);
 		total = total
 			.saturating_add(db_weight.reads(slope.slope.saturating_cast_u64()).saturating_mul(max));
 	}
 
-	total =
-		total.saturating_add(db_weight.writes(data.base_writes.saturating_cast_u64()));
+	total = total.saturating_add(db_weight.writes(data.base_writes.saturating_cast_u64()));
 	for slope in &data.component_writes {
 		let max = max_component_value(&slope.name, &data.component_ranges);
-		total = total
-			.saturating_add(db_weight.writes(slope.slope.saturating_cast_u64()).saturating_mul(max));
+		total = total.saturating_add(
+			db_weight.writes(slope.slope.saturating_cast_u64()).saturating_mul(max),
+		);
 	}
 
 	for slope in &data.component_calculated_proof_size {
 		let max = max_component_value(&slope.name, &data.component_ranges);
-		total = total
-			.saturating_add(Weight::from_parts(0, slope.slope.saturating_cast_u64()).saturating_mul(max));
+		total = total.saturating_add(
+			Weight::from_parts(0, slope.slope.saturating_cast_u64()).saturating_mul(max),
+		);
 	}
 
 	total
@@ -311,12 +312,12 @@ pub(crate) fn sanity_weight_check(
 					data.name,
 				);
 			}
-			let ref_time_pct = (total.ref_time() as f64
-				/ limits.max_extrinsic_weight.ref_time().max(1) as f64)
-				* 100.0;
-			let proof_size_pct = (total.proof_size() as f64
-				/ limits.max_extrinsic_weight.proof_size().max(1) as f64)
-				* 100.0;
+			let ref_time_pct = (total.ref_time() as f64 /
+				limits.max_extrinsic_weight.ref_time().max(1) as f64) *
+				100.0;
+			let proof_size_pct = (total.proof_size() as f64 /
+				limits.max_extrinsic_weight.proof_size().max(1) as f64) *
+				100.0;
 			color_print::cprintln!(
 				"- <s>{}</>: {:?}\n  ref_time {:.2}% / proof_size {:.2}% of max extrinsic weight\n",
 				data.name,
@@ -1572,7 +1573,11 @@ mod test {
 					error: 0,
 				}],
 				component_recorded_proof_size: vec![],
-				component_ranges: vec![ComponentRange { name: component, min: 0, max: component_max }],
+				component_ranges: vec![ComponentRange {
+					name: component,
+					min: 0,
+					max: component_max,
+				}],
 				comments: vec![],
 				min_execution_time: 0,
 			}
