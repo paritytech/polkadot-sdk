@@ -1,17 +1,12 @@
-title: 'state-machine: invalidate storage transaction cache on state version change'
+title: 'Invalidate storage transaction cache on state version change'
 doc:
 - audience: Node Dev
   description: |-
-    Fix a cache-bleed bug in `OverlayedChanges::storage_transaction_cache`. The cache stored the
-    pre-computed storage root and transaction without recording which `StateVersion` was used to
-    build them. After calling `storage_root(V0)`, a subsequent `storage_root(V1)` (or
-    `child_storage_root` / `drain_storage_changes` with a different version) would return the
-    cached V0 result, even though V0 and V1 produce different roots for state containing values
-    that exceed `TRIE_VALUE_NODE_THRESHOLD`.
+    Fix a cache-bleed bug. The cache stored the pre-computed storage root and transaction without
+    recording which `StateVersion` was used to build them.
 
     The cache now stores the `state_version` it was built with and is invalidated and recomputed
-    whenever a different version is requested. A regression test exercises the V0 → V1 → V0
-    transition with a value larger than the inline threshold.
+    whenever a different version is requested.
 
 crates:
 - name: sp-state-machine
