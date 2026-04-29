@@ -113,7 +113,11 @@ pub enum SanityWeightCheck {
 }
 
 /// The default [`SanityWeightCheck`].
-pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck = SanityWeightCheck::Error;
+///
+/// Starts as `Warning` for the first release that ships the check so existing benchmark
+/// pipelines do not start failing on configurations that historically passed. Tightening
+/// this to `Error` is planned for a follow-up release once teams have had a cycle to react.
+pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck = SanityWeightCheck::Warning;
 
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
