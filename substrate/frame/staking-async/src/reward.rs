@@ -20,7 +20,7 @@
 //! Manages the lifecycle of era reward pot accounts: creation, funding
 //! via snapshot from the general DAP pot, and draining of expired eras.
 //!
-//! Era pots are backed by a rotating pool of [`crate::POT_POOL_SIZE`] accounts
+//! Era pots are backed by a rotating pool of `POT_POOL_SIZE` accounts
 //! addressed by `era % POT_POOL_SIZE`. Once created, a slot's account is kept
 //! alive forever — at the end of each era's history window, its remaining
 //! balance is drained to [`crate::Config::UnclaimedRewardHandler`] but the

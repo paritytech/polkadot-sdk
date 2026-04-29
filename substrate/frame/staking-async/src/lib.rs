@@ -607,7 +607,7 @@ pub enum RewardPot {
 	#[codec(index = 0)]
 	General(RewardKind),
 	/// Era-specific pot: snapshotted from the general pot at era boundaries.
-	/// See [`POT_POOL_SIZE`] for the slot rotation scheme.
+	/// See `POT_POOL_SIZE` for the slot rotation scheme.
 	#[codec(index = 1)]
 	Era(EraIndex, RewardKind),
 }
@@ -643,7 +643,7 @@ where
 
 /// Sequential pot account provider for testing.
 ///
-/// Mirrors the production rotation: era pots collide every [`POT_POOL_SIZE`]
+/// Mirrors the production rotation: era pots collide every `POT_POOL_SIZE`
 /// eras so tests exercise the same pool reuse path.
 #[cfg(feature = "std")]
 pub struct SequentialTest;
