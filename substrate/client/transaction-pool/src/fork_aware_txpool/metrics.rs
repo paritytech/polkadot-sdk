@@ -20,21 +20,21 @@
 
 use super::tx_mem_pool::{InsertionInfo, InvalidTxReason};
 use crate::{
+	LOG_TARGET,
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{self, BlockHash, ExtrinsicHash},
-	LOG_TARGET,
 };
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
-	exponential_buckets, histogram_opts, linear_buckets, register, Counter, CounterVec, Gauge,
-	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
+	Counter, CounterVec, Gauge, Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError,
+	Registry, U64, exponential_buckets, histogram_opts, linear_buckets, register,
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
 use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use std::{
-	collections::{hash_map::Entry, HashMap},
+	collections::{HashMap, hash_map::Entry},
 	future::Future,
 	pin::Pin,
 	time::{Duration, Instant},
@@ -330,9 +330,10 @@ impl MempoolInvalidTxReasonCounter {
 
 /// Reason why a transaction was removed from the pool.
 ///
-/// Used as a Prometheus label on the [`TxAgeAtRemovalHistogram`] metric, so the
-/// variants are mapped to short snake_case strings via [`Self::as_str`].
-#[derive(Clone, Copy, Debug)]
+/// Used as a Prometheus label on the [`TxAgeAtRemovalHistogram`] metric. The
+/// variants are mapped to short snake_case strings via `strum::AsRefStr`.
+#[derive(Clone, Copy, Debug, strum::AsRefStr)]
+#[strum(serialize_all = "snake_case")]
 pub enum RemovalReason {
 	/// Transaction was finalized in a block.
 	Finalized,
@@ -350,22 +351,6 @@ pub enum RemovalReason {
 	DroppedInvalid,
 	/// Transaction reached the configured finality timeout without being finalized.
 	FinalityTimeout,
-}
-
-impl RemovalReason {
-	/// Returns the snake_case label used as the Prometheus `reason` label value.
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			Self::Finalized => "finalized",
-			Self::InvalidRevalidationMempool => "invalid_revalidation_mempool",
-			Self::InvalidRevalidationView => "invalid_revalidation_view",
-			Self::InvalidReported => "invalid_reported",
-			Self::DroppedUsurped => "dropped_usurped",
-			Self::DroppedLimits => "dropped_limits",
-			Self::DroppedInvalid => "dropped_invalid",
-			Self::FinalityTimeout => "finality_timeout",
-		}
-	}
 }
 
 /// Maps a [`sp_runtime::transaction_validity::TransactionSource`] to the
@@ -422,7 +407,7 @@ impl TxAgeAtRemovalHistogram {
 	) {
 		let value = age.map(|a| a.as_secs_f64()).unwrap_or(f64::INFINITY);
 		self.inner
-			.with_label_values(&[reason.as_str(), source_label(source)])
+			.with_label_values(&[reason.as_ref(), source_label(source)])
 			.observe(value)
 	}
 }
@@ -785,17 +770,17 @@ mod tests {
 		// The metric labels are part of the public observability surface
 		// and dashboards depend on them — keep this test in sync if you
 		// rename a variant.
-		assert_eq!(RemovalReason::Finalized.as_str(), "finalized");
+		assert_eq!(RemovalReason::Finalized.as_ref(), "finalized");
 		assert_eq!(
-			RemovalReason::InvalidRevalidationMempool.as_str(),
+			RemovalReason::InvalidRevalidationMempool.as_ref(),
 			"invalid_revalidation_mempool",
 		);
-		assert_eq!(RemovalReason::InvalidRevalidationView.as_str(), "invalid_revalidation_view",);
-		assert_eq!(RemovalReason::InvalidReported.as_str(), "invalid_reported");
-		assert_eq!(RemovalReason::DroppedUsurped.as_str(), "dropped_usurped");
-		assert_eq!(RemovalReason::DroppedLimits.as_str(), "dropped_limits");
-		assert_eq!(RemovalReason::DroppedInvalid.as_str(), "dropped_invalid");
-		assert_eq!(RemovalReason::FinalityTimeout.as_str(), "finality_timeout");
+		assert_eq!(RemovalReason::InvalidRevalidationView.as_ref(), "invalid_revalidation_view");
+		assert_eq!(RemovalReason::InvalidReported.as_ref(), "invalid_reported");
+		assert_eq!(RemovalReason::DroppedUsurped.as_ref(), "dropped_usurped");
+		assert_eq!(RemovalReason::DroppedLimits.as_ref(), "dropped_limits");
+		assert_eq!(RemovalReason::DroppedInvalid.as_ref(), "dropped_invalid");
+		assert_eq!(RemovalReason::FinalityTimeout.as_ref(), "finality_timeout");
 	}
 
 	#[test]
