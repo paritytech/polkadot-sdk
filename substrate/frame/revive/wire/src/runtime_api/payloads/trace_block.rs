@@ -20,22 +20,27 @@ use codec::{Decode, Encode};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
-use crate::ReceiptGasInfoV1;
+use crate::runtime_api::{BlockV1, IndexedTraceV1, TracerTypeV1};
 
 define_versioned_interface! {
-	/// Version 1 of the input payload that asks the runtime for the per-transaction gas data needed
-	/// to assemble Ethereum-style receipts for the current block. Off-chain clients combine this
-	/// data with their own transaction list to build receipts that match what an Ethereum execution
-	/// client would emit.
+	/// Version 1 of the input payload that asks the runtime to trace every transaction in a block
+	/// under a chosen tracer configuration. The block is supplied as its Ethereum-format wire shape
+	/// so that the runtime can replay each transaction inside it under the tracer.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
-	pub struct EthReceiptDataVersionedInputPayloadV1 {}
+	pub struct TraceBlockVersionedInputPayloadV1 {
+		/// Block whose transactions should be traced.
+		pub block: BlockV1,
+		/// Tracer configuration controlling which kind of trace is produced for each transaction in
+		/// the block.
+		pub config: TracerTypeV1
+	}
 
-	/// Version 1 of the output payload returned for an [`EthReceiptDataVersionedInputPayloadV1`]
-	/// request, carrying the gas data for every transaction in the current block.
+	/// Version 1 of the output payload returned for a [`TraceBlockVersionedInputPayloadV1`]
+	/// request, carrying one trace per transaction in the block.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
-	pub struct EthReceiptDataVersionedOutputPayloadV1 {
-		/// One [`ReceiptGasInfoV1`] entry for each transaction in the current block, in
-		/// transaction-index order.
-		pub receipt_data: Vec<ReceiptGasInfoV1>
+	pub struct TraceBlockVersionedOutputPayloadV1 {
+		/// Traces produced by replaying the block, paired with the transaction index they
+		/// correspond to.
+		pub traces: Vec<IndexedTraceV1>
 	}
 }

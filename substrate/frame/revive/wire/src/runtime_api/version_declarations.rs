@@ -150,62 +150,62 @@ macro_rules! declare_api_versions {
 }
 
 declare_api_versions![
-	account_id => (crate::VersionedAccountIdInputPayload, crate::VersionedAccountIdOutputPayload<()>),
-	address => (crate::VersionedAddressInputPayload<()>, crate::VersionedAddressOutputPayload),
-	balance => (crate::VersionedBalanceInputPayload, crate::VersionedBalanceOutputPayload),
-	block_author => (crate::VersionedBlockAuthorInputPayload, crate::VersionedBlockAuthorOutputPayload),
+	account_id => (crate::runtime_api::VersionedAccountIdInputPayload, crate::runtime_api::VersionedAccountIdOutputPayload<()>),
+	address => (crate::runtime_api::VersionedAddressInputPayload<()>, crate::runtime_api::VersionedAddressOutputPayload),
+	balance => (crate::runtime_api::VersionedBalanceInputPayload, crate::runtime_api::VersionedBalanceOutputPayload),
+	block_author => (crate::runtime_api::VersionedBlockAuthorInputPayload, crate::runtime_api::VersionedBlockAuthorOutputPayload),
 	block_gas_limit => (
-		crate::VersionedBlockGasLimitInputPayload,
-		crate::VersionedBlockGasLimitOutputPayload
+		crate::runtime_api::VersionedBlockGasLimitInputPayload,
+		crate::runtime_api::VersionedBlockGasLimitOutputPayload
 	),
-	call => (crate::VersionedCallInputPayload<(), ()>, crate::VersionedCallOutputPayload<()>),
-	code => (crate::VersionedCodeInputPayload, crate::VersionedCodeOutputPayload),
-	eth_block => (crate::VersionedEthBlockInputPayload, crate::VersionedEthBlockOutputPayload),
+	call => (crate::runtime_api::VersionedCallInputPayload<(), ()>, crate::runtime_api::VersionedCallOutputPayload<()>),
+	code => (crate::runtime_api::VersionedCodeInputPayload, crate::runtime_api::VersionedCodeOutputPayload),
+	eth_block => (crate::runtime_api::VersionedEthBlockInputPayload, crate::runtime_api::VersionedEthBlockOutputPayload),
 	eth_block_hash => (
-		crate::VersionedEthBlockHashInputPayload,
-		crate::VersionedEthBlockHashOutputPayload
+		crate::runtime_api::VersionedEthBlockHashInputPayload,
+		crate::runtime_api::VersionedEthBlockHashOutputPayload
 	),
 	eth_estimate_gas => (
-		crate::VersionedEthEstimateGasInputPayload<()>,
-		crate::VersionedEthEstimateGasOutputPayload
+		crate::runtime_api::VersionedEthEstimateGasInputPayload<()>,
+		crate::runtime_api::VersionedEthEstimateGasOutputPayload
 	),
 	eth_pre_dispatch_weight => (
-		crate::VersionedEthPreDispatchWeightInputPayload,
-		crate::VersionedEthPreDispatchWeightOutputPayload
+		crate::runtime_api::VersionedEthPreDispatchWeightInputPayload,
+		crate::runtime_api::VersionedEthPreDispatchWeightOutputPayload
 	),
 	eth_receipt_data => (
-		crate::VersionedEthReceiptDataInputPayload,
-		crate::VersionedEthReceiptDataOutputPayload
+		crate::runtime_api::VersionedEthReceiptDataInputPayload,
+		crate::runtime_api::VersionedEthReceiptDataOutputPayload
 	),
 	eth_transact => (
-		crate::VersionedEthTransactInputPayload<()>,
-		crate::VersionedEthTransactOutputPayload<()>
+		crate::runtime_api::VersionedEthTransactInputPayload<()>,
+		crate::runtime_api::VersionedEthTransactOutputPayload<()>
 	),
-	gas_price => (crate::VersionedGasPriceInputPayload, crate::VersionedGasPriceOutputPayload),
-	get_storage => (crate::VersionedGetStorageInputPayload, crate::VersionedGetStorageOutputPayload),
+	gas_price => (crate::runtime_api::VersionedGasPriceInputPayload, crate::runtime_api::VersionedGasPriceOutputPayload),
+	get_storage => (crate::runtime_api::VersionedGetStorageInputPayload, crate::runtime_api::VersionedGetStorageOutputPayload),
 	instantiate => (
-		crate::VersionedInstantiateInputPayload<(), ()>,
-		crate::VersionedInstantiateOutputPayload<()>
+		crate::runtime_api::VersionedInstantiateInputPayload<(), ()>,
+		crate::runtime_api::VersionedInstantiateOutputPayload<()>
 	),
 	max_extrinsic_weight_in_gas => (
-		crate::VersionedMaxExtrinsicWeightInGasInputPayload,
-		crate::VersionedMaxExtrinsicWeightInGasOutputPayload
+		crate::runtime_api::VersionedMaxExtrinsicWeightInGasInputPayload,
+		crate::runtime_api::VersionedMaxExtrinsicWeightInGasOutputPayload
 	),
 	new_balance_with_dust => (
-		crate::VersionedNewBalanceWithDustInputPayload,
-		crate::VersionedNewBalanceWithDustOutputPayload<()>
+		crate::runtime_api::VersionedNewBalanceWithDustInputPayload,
+		crate::runtime_api::VersionedNewBalanceWithDustOutputPayload<()>
 	),
-	nonce => (crate::VersionedNonceInputPayload, crate::VersionedNonceOutputPayload<()>),
+	nonce => (crate::runtime_api::VersionedNonceInputPayload, crate::runtime_api::VersionedNonceOutputPayload<()>),
 	runtime_pallets_address => (
-		crate::VersionedRuntimePalletsAddressInputPayload,
-		crate::VersionedRuntimePalletsAddressOutputPayload
+		crate::runtime_api::VersionedRuntimePalletsAddressInputPayload,
+		crate::runtime_api::VersionedRuntimePalletsAddressOutputPayload
 	),
-	trace_block => (crate::VersionedTraceBlockInputPayload, crate::VersionedTraceBlockOutputPayload),
-	trace_call => (crate::VersionedTraceCallInputPayload, crate::VersionedTraceCallOutputPayload),
-	trace_tx => (crate::VersionedTraceTxInputPayload, crate::VersionedTraceTxOutputPayload),
+	trace_block => (crate::runtime_api::VersionedTraceBlockInputPayload, crate::runtime_api::VersionedTraceBlockOutputPayload),
+	trace_call => (crate::runtime_api::VersionedTraceCallInputPayload, crate::runtime_api::VersionedTraceCallOutputPayload),
+	trace_tx => (crate::runtime_api::VersionedTraceTxInputPayload, crate::runtime_api::VersionedTraceTxOutputPayload),
 	upload_code => (
-		crate::VersionedUploadCodeInputPayload<(), ()>,
-		crate::VersionedUploadCodeOutputPayload<()>
+		crate::runtime_api::VersionedUploadCodeInputPayload<(), ()>,
+		crate::runtime_api::VersionedUploadCodeOutputPayload<()>
 	),
 ];
 

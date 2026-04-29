@@ -6,7 +6,7 @@ edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "Wire types and versioned interfaces for pallet-revive."
+description = "Wire types and versioned payloads for pallet-revive."
 
 [lints]
 workspace = true

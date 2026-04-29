@@ -22,7 +22,7 @@ use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 use sp_weights::Weight;
 
-use crate::{DispatchErrorV1, ExecReturnValueV1, StorageDepositV1};
+use crate::runtime_api::{DispatchErrorV1, ExecReturnValueV1, StorageDepositV1};
 
 define_versioned_interface! {
 	/// Version 1 of the input payload that dry-runs a contract call. The runtime executes the call

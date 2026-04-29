@@ -19,7 +19,7 @@ use codec::{Decode, Encode};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
-use crate::BlockV1;
+use crate::runtime_api::BlockV1;
 
 define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime to render the current substrate block

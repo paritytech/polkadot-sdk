@@ -20,7 +20,7 @@ use codec::{Decode, Encode};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
-use crate::CodeUploadReturnValueV1;
+use crate::runtime_api::CodeUploadReturnValueV1;
 
 define_versioned_interface! {
 	/// Version 1 of the input payload that uploads contract code so that future instantiations can

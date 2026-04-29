@@ -15,26 +15,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use ethereum_types::H160;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
-define_versioned_interface! {
-	/// Version 1 of the input payload that asks the runtime for the Ethereum H160 address
-	/// associated with a given substrate `AccountId`. This is the inverse of
-	/// [`AccountIdVersionedInputPayloadV1`](crate::AccountIdVersionedInputPayloadV1).
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
-	pub struct AddressVersionedInputPayloadV1<AccountId> {
-		/// `AccountId` whose Ethereum H160 address should be returned.
-		pub account_id: AccountId
-	}
+use crate::runtime_api::ReceiptGasInfoV1;
 
-	/// Version 1 of the output payload returned for an [`AddressVersionedInputPayloadV1`] request,
-	/// carrying the Ethereum address derived from the supplied `AccountId`.
+define_versioned_interface! {
+	/// Version 1 of the input payload that asks the runtime for the per-transaction gas data needed
+	/// to assemble Ethereum-style receipts for the current block. Off-chain clients combine this
+	/// data with their own transaction list to build receipts that match what an Ethereum execution
+	/// client would emit.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
-	pub struct AddressVersionedOutputPayloadV1 {
-		/// Ethereum address that the runtime associates with the requested `AccountId`.
-		pub address: H160
+	pub struct EthReceiptDataVersionedInputPayloadV1 {}
+
+	/// Version 1 of the output payload returned for an [`EthReceiptDataVersionedInputPayloadV1`]
+	/// request, carrying the gas data for every transaction in the current block.
+	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	pub struct EthReceiptDataVersionedOutputPayloadV1 {
+		/// One [`ReceiptGasInfoV1`] entry for each transaction in the current block, in
+		/// transaction-index order.
+		pub receipt_data: Vec<ReceiptGasInfoV1>
 	}
 }

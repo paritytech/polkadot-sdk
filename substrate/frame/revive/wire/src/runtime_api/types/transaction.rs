@@ -256,7 +256,7 @@ mod tests {
 	use alloc::{string::ToString, vec};
 
 	use super::*;
-	use crate::types::{TransactionSignedV1, TypeEip1559V1};
+	use crate::runtime_api::types::{TransactionSignedV1, TypeEip1559V1};
 
 	#[test]
 	fn generic_transaction_deserializes_input_and_data_aliases() {

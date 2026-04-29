@@ -20,7 +20,7 @@ use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::StateOverrideSetV1;
+use crate::runtime_api::StateOverrideSetV1;
 
 define_versioned_type! {
 	/// Version 1 of the tracer selection used by tracing runtime APIs.

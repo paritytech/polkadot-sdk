@@ -20,7 +20,7 @@ use ethereum_types::U256;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
-use crate::{GenericTransactionV1, StateOverrideSetV1};
+use crate::runtime_api::{GenericTransactionV1, StateOverrideSetV1};
 
 define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime to estimate the gas required for an

@@ -15,31 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use ethereum_types::H160;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
-use crate::StorageKeyV1;
-
 define_versioned_interface! {
-	/// Version 1 of the input payload that asks the runtime for the value stored at a given storage
-	/// key inside a contract.
+	/// Version 1 of the input payload that asks the runtime for the Ethereum H160 address
+	/// associated with a given substrate `AccountId`. This is the inverse of
+	/// [`AccountIdVersionedInputPayloadV1`](crate::runtime_api::AccountIdVersionedInputPayloadV1).
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
-	pub struct GetStorageVersionedInputPayloadV1 {
-		/// Ethereum address of the contract whose storage is being queried.
-		pub address: H160,
-		/// Storage key inside the contract whose value should be returned.
-		pub key: StorageKeyV1
+	pub struct AddressVersionedInputPayloadV1<AccountId> {
+		/// `AccountId` whose Ethereum H160 address should be returned.
+		pub account_id: AccountId
 	}
 
-	/// Version 1 of the output payload returned for a [`GetStorageVersionedInputPayloadV1`]
-	/// request, carrying the value at the requested storage key.
+	/// Version 1 of the output payload returned for an [`AddressVersionedInputPayloadV1`] request,
+	/// carrying the Ethereum address derived from the supplied `AccountId`.
 	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
-	pub struct GetStorageVersionedOutputPayloadV1 {
-		/// Raw bytes stored at the requested key, or `None` if the slot is empty (which is distinct
-		/// from a slot that explicitly stores an empty byte sequence).
-		pub value: Option<Vec<u8>>
+	pub struct AddressVersionedOutputPayloadV1 {
+		/// Ethereum address that the runtime associates with the requested `AccountId`.
+		pub address: H160
 	}
 }

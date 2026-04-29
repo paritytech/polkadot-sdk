@@ -138,7 +138,7 @@
 //!
 //! This section is the policy a contributor must follow when changing anything in this crate. Every
 //! rule here exists to preserve the guarantees in the *Compatibility Guarantees* section above.
-//! Read every rule before editing any wire type or interface; the rules look small individually,
+//! Read every rule before editing any wire type or payload; the rules look small individually,
 //! but each one was paid for in past breakage and ignoring any one of them risks the whole chain.
 //!
 //! ## Core Rule
@@ -309,10 +309,5 @@
 
 extern crate alloc;
 
-pub mod interfaces;
-pub mod types;
-pub mod version_declarations;
-
-pub use interfaces::*;
-pub use types::*;
-pub use version_declarations::*;
+pub mod runtime_api;
+pub mod storage;
