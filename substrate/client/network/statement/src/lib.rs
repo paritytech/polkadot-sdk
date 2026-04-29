@@ -155,7 +155,7 @@ const STATEMENT_PROTOCOL_V1: &str = "statement/1";
 /// Maximum time we wait for sending a notification to a peer.
 const SEND_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
 /// Interval for sending statement batches during initial sync to new peers.
-const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
+const INITIAL_SYNC_BURST_INTERVAL: std::time::Duration = std::time::Duration::from_millis(10);
 /// Interval for processing pending topic affinity changes from peers.
 const PENDING_AFFINITIES_INTERVAL: std::time::Duration = std::time::Duration::from_secs(1);
 /// Delay before re-adding a peer to the reserved set after a forced disconnect for sync recovery.

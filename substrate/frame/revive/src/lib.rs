@@ -1600,14 +1600,16 @@ pub mod pallet {
 			)
 		})]
 		pub fn dispatch_as_fallback_account(
-			origin: OriginFor<T>,
+			mut origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
 		) -> DispatchResultWithPostInfo {
 			Self::ensure_non_contract_if_signed(&origin)?;
-			let origin = ensure_signed(origin)?;
-			let unmapped_account =
-				T::AddressMapper::to_fallback_account_id(&T::AddressMapper::to_address(&origin));
-			call.dispatch(RawOrigin::Signed(unmapped_account).into())
+			let account_id = origin.as_signer().ok_or(DispatchError::BadOrigin)?;
+			let unmapped_account = T::AddressMapper::to_fallback_account_id(
+				&T::AddressMapper::to_address(&account_id),
+			);
+			origin.set_caller_from(RawOrigin::Signed(unmapped_account));
+			call.dispatch(origin)
 		}
 	}
 }
