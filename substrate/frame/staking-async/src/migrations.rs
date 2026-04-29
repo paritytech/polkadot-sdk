@@ -78,9 +78,7 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 
 		// Anything older than `HistoryDepth` was already cleaned up via the
 		// normal payout flow.
-		let oldest = active_era_idx
-			.saturating_sub(T::HistoryDepth::get())
-			.max(guard_era);
+		let oldest = active_era_idx.saturating_sub(T::HistoryDepth::get()).max(guard_era);
 
 		let kind = K::get();
 		let mut migrated = 0u32;
@@ -98,16 +96,8 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 			let new = EraRewardManager::<T>::create(era, kind);
 			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-			if let Err(e) =
-				T::Currency::transfer(&old, &new, balance, Preservation::Expendable)
-			{
-				log!(
-					error,
-					"EraPotsToPool: era {} kind {:?}: transfer failed: {:?}",
-					era,
-					kind,
-					e,
-				);
+			if let Err(e) = T::Currency::transfer(&old, &new, balance, Preservation::Expendable) {
+				log!(error, "EraPotsToPool: era {} kind {:?}: transfer failed: {:?}", era, kind, e,);
 				// Keep providers on the old account; balance is still there
 				// and the account remains queryable for manual recovery.
 				continue;
