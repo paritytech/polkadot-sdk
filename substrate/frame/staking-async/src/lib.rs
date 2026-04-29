@@ -211,6 +211,7 @@ mod tests;
 pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
+pub mod migrations;
 mod pallet;
 pub mod reward;
 pub mod session_rotation;
