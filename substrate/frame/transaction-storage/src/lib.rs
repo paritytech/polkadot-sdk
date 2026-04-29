@@ -542,6 +542,7 @@ pub mod pallet {
 						size: tx.size,
 						hashing: sp_transaction_storage_proof::runtime_api::HashingAlgorithm::Blake2b256,
 						cid_codec: sp_transaction_storage_proof::runtime_api::RAW_CID_CODEC,
+						extrinsic_index: u32::MAX,
 					})
 					.collect()
 			})

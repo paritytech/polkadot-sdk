@@ -42,6 +42,12 @@ pub struct IndexedTransactionInfo {
 	pub size: u32,
 	pub hashing: HashingAlgorithm,
 	pub cid_codec: CidCodec,
+	/// Extrinsic index within the block that originally indexed this data
+	/// (via `sp_io::transaction_index::index` / `renew`). For renewed entries
+	/// this holds the renewer's extrinsic index, not the original. Downstream
+	/// pallets that did not previously persist this value may emit `u32::MAX`
+	/// as a sentinel for entries that pre-date the field.
+	pub extrinsic_index: u32,
 }
 
 sp_api::decl_runtime_apis! {
