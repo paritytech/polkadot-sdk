@@ -484,7 +484,7 @@ impl_runtime_apis! {
 				.per_class
 				.get(DispatchClass::Normal)
 				.max_extrinsic
-				.unwrap_or_else(Weight::max_value);
+				.unwrap_or(Weight::MAX);
 			let db_weight = <Self as frame_system::Config>::DbWeight::get();
 			frame_benchmarking::RuntimeBlockLimits::new(max_extrinsic_weight, db_weight)
 		}
