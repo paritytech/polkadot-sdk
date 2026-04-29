@@ -1525,4 +1525,130 @@ mod test {
 		assert_eq!(easy_log_16(16u32.pow(7) + 1), 8);
 		assert_eq!(easy_log_16(u32::MAX), 8);
 	}
+
+	mod sanity_weight_check {
+		use super::*;
+
+		// Build a `BenchmarkData` with a single component slope plus base values.
+		fn benchmark_data(
+			name: &str,
+			base_weight: u128,
+			weight_slope: u128,
+			base_reads: u128,
+			read_slope: u128,
+			base_writes: u128,
+			write_slope: u128,
+			base_proof_size: u128,
+			proof_size_slope: u128,
+			component_max: u32,
+		) -> BenchmarkData {
+			let component = "n".to_string();
+			BenchmarkData {
+				name: name.to_string(),
+				components: vec![Component { name: component.clone(), is_used: true }],
+				base_weight,
+				base_reads,
+				base_writes,
+				base_calculated_proof_size: base_proof_size,
+				base_recorded_proof_size: 0,
+				component_weight: vec![ComponentSlope {
+					name: component.clone(),
+					slope: weight_slope,
+					error: 0,
+				}],
+				component_reads: vec![ComponentSlope {
+					name: component.clone(),
+					slope: read_slope,
+					error: 0,
+				}],
+				component_writes: vec![ComponentSlope {
+					name: component.clone(),
+					slope: write_slope,
+					error: 0,
+				}],
+				component_calculated_proof_size: vec![ComponentSlope {
+					name: component.clone(),
+					slope: proof_size_slope,
+					error: 0,
+				}],
+				component_recorded_proof_size: vec![],
+				component_ranges: vec![ComponentRange { name: component, min: 0, max: component_max }],
+				comments: vec![],
+				min_execution_time: 0,
+			}
+		}
+
+		fn rocksdb() -> RuntimeDbWeight {
+			RuntimeDbWeight { read: 25_000, write: 100_000 }
+		}
+
+		#[test]
+		fn worst_case_weight_combines_base_and_slopes() {
+			let data = benchmark_data("dummy", 1_000, 100, 2, 1, 3, 2, 4_096, 16, 10);
+			let total = worst_case_weight(&data, &rocksdb());
+
+			let expected_ref_time = 1_000 // base
+				+ 100 * 10 // weight slope * max
+				+ 25_000 * 2 // base reads
+				+ 25_000 * 1 * 10 // read slope * max
+				+ 100_000 * 3 // base writes
+				+ 100_000 * 2 * 10; // write slope * max
+			let expected_proof_size = 4_096 + 16 * 10;
+			assert_eq!(total.ref_time(), expected_ref_time);
+			assert_eq!(total.proof_size(), expected_proof_size);
+		}
+
+		#[test]
+		fn empty_runtime_block_limits_is_default() {
+			let limits = RuntimeBlockLimits::default();
+			assert_eq!(limits.max_extrinsic_weight.ref_time(), 0);
+			assert_eq!(limits.max_extrinsic_weight.proof_size(), 0);
+			assert_eq!(limits.db_weight.read, 0);
+			assert_eq!(limits.db_weight.write, 0);
+		}
+
+		#[test]
+		fn worst_case_weight_with_no_slope_uses_base_only() {
+			let data = benchmark_data("flat", 5_000, 0, 1, 0, 1, 0, 2_048, 0, 100);
+			let total = worst_case_weight(&data, &rocksdb());
+			assert_eq!(total.ref_time(), 5_000 + 25_000 + 100_000);
+			assert_eq!(total.proof_size(), 2_048);
+		}
+
+		#[test]
+		fn worst_case_weight_saturates_on_overflow() {
+			let data = benchmark_data(
+				"overflow",
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u128::MAX,
+				u32::MAX,
+			);
+			let total = worst_case_weight(&data, &rocksdb());
+			// Overflow saturates at Weight::MAX.
+			assert_eq!(total.ref_time(), u64::MAX);
+			assert_eq!(total.proof_size(), u64::MAX);
+		}
+
+		#[test]
+		fn saturating_cast_u128_to_u64() {
+			assert_eq!(0u128.saturating_cast_u64(), 0);
+			assert_eq!(42u128.saturating_cast_u64(), 42);
+			assert_eq!((u64::MAX as u128).saturating_cast_u64(), u64::MAX);
+			assert_eq!((u64::MAX as u128 + 1).saturating_cast_u64(), u64::MAX);
+			assert_eq!(u128::MAX.saturating_cast_u64(), u64::MAX);
+		}
+
+		#[test]
+		fn max_component_value_returns_zero_for_unknown_component() {
+			let ranges = vec![ComponentRange { name: "n".into(), min: 0, max: 100 }];
+			assert_eq!(max_component_value("n", &ranges), 100);
+			assert_eq!(max_component_value("missing", &ranges), 0);
+		}
+	}
 }
