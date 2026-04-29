@@ -25,9 +25,9 @@ use parachains_common::{AccountId, Balance};
 
 use xcm_emulator::{Chain, TestExt};
 
-/// Tests that the accumulate-forward pallet accumulates native tokens, teleports them to the
-/// staging account on AssetHub, and that `pallet-dap`'s `on_idle` subsequently drains and
-/// deactivates those funds into the main DAP buffer account.
+/// Tests that the accumulate-and-forward pallet accumulates native tokens, teleports them to
+/// the staging account of `pallet-dap` on AssetHub, and that `pallet-dap`'s `on_idle`
+/// subsequently drains and deactivates those funds into the main DAP buffer account.
 pub fn test_accumulate_forward_transfers_to_asset_hub<Sender, AH>(
 	fund_sender: fn(AccountId, Balance),
 	get_relay_block: fn() -> u32,
