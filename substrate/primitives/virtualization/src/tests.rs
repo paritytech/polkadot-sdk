@@ -17,7 +17,8 @@
 
 use crate::{ExecError, ExecResult, Execution, Instance, Module, ModuleError};
 
-const GAS_MAX: i64 = i64::MAX;
+/// Default gas budget used by every test driver.
+pub const GAS_MAX: i64 = i64::MAX;
 
 /// Run all tests.
 ///
@@ -47,7 +48,7 @@ pub fn run(program: &[u8]) {
 }
 
 /// The result of running a program to completion.
-enum RunResult {
+pub enum RunResult {
 	/// Execution finished normally. The idle instance is returned for reuse.
 	Ok(Instance),
 	/// A syscall handler signalled exit.
@@ -60,7 +61,7 @@ enum RunResult {
 ///
 /// The closure receives `(execution, syscall_symbol, a0, a1, a2, a3, a4, a5)` and returns
 /// `Ok(return_value)` to resume or `Err(())` to signal exit (trap).
-fn run_loop(
+pub fn run_loop(
 	mut execution: Execution,
 	gas_left: &mut i64,
 	mut handler: impl FnMut(&mut Execution, &[u8], u64, u64, u64, u64, u64, u64) -> Result<u64, ()>,
@@ -103,7 +104,7 @@ fn run_loop(
 ///
 /// Captures `counter` from the caller; memory access goes through the `&mut Execution` passed
 /// on each invocation.
-fn make_handler<'a>(
+pub fn make_handler<'a>(
 	counter: &'a mut u64,
 ) -> impl FnMut(&mut Execution, &[u8], u64, u64, u64, u64, u64, u64) -> Result<u64, ()> + 'a {
 	move |execution, syscall_symbol, a0, _a1, _a2, _a3, _a4, _a5| match syscall_symbol {
@@ -294,189 +295,4 @@ fn counter_in_subcall(program: &[u8]) {
 fn from_hash_not_found(_program: &[u8]) {
 	let hash = [0u8; 32];
 	assert!(matches!(Module::from_hash(&hash, b"prefix", b""), Err(ModuleError::NotFound)));
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::ModuleError;
-
-	fn setup() -> sp_io::TestExternalities {
-		sp_tracing::try_init_simple();
-		let mut ext = sp_io::TestExternalities::default();
-		ext.register_extension(crate::VirtManagerExt::default());
-		ext
-	}
-
-	fn binary() -> &'static [u8] {
-		sp_virtualization_test_fixture::binary()
-	}
-
-	#[test]
-	fn counter_start_at_0() {
-		setup().execute_with(|| super::counter_start_at_0(binary()));
-	}
-
-	#[test]
-	fn counter_start_at_7() {
-		setup().execute_with(|| super::counter_start_at_7(binary()));
-	}
-
-	#[test]
-	fn counter_multiple_calls() {
-		setup().execute_with(|| super::counter_multiple_calls(binary()));
-	}
-
-	#[test]
-	fn panic_works() {
-		setup().execute_with(|| super::panic_works(binary()));
-	}
-
-	#[test]
-	fn exit_works() {
-		setup().execute_with(|| super::exit_works(binary()));
-	}
-
-	#[test]
-	fn run_out_of_gas_works() {
-		setup().execute_with(|| super::run_out_of_gas_works(binary()));
-	}
-
-	#[test]
-	fn gas_consumption_works() {
-		setup().execute_with(|| super::gas_consumption_works(binary()));
-	}
-
-	#[test]
-	fn memory_reset_on_instantiate() {
-		setup().execute_with(|| super::memory_reset_on_instantiate(binary()));
-	}
-
-	#[test]
-	fn memory_persistent() {
-		setup().execute_with(|| super::memory_persistent(binary()));
-	}
-
-	#[test]
-	fn counter_in_subcall() {
-		setup().execute_with(|| super::counter_in_subcall(binary()));
-	}
-
-	#[test]
-	fn from_hash_not_found() {
-		setup().execute_with(|| super::from_hash_not_found(binary()));
-	}
-
-	/// Compile from bytes, then from_hash should hit the in-memory cache.
-	#[test]
-	fn from_hash_cache_hit() {
-		let program = binary();
-		setup().execute_with(|| {
-			let _module = Module::from_bytes(program).unwrap();
-			let hash = sp_crypto_hashing::keccak_256(program);
-			let module = Module::from_hash(&hash, b"", b"").unwrap();
-			let instance = module.instantiate().unwrap();
-			let execution = instance.prepare(b"counter").unwrap();
-			let mut gas_left = GAS_MAX;
-			let mut counter: u64 = 0;
-			let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
-			assert!(matches!(result, RunResult::Ok(_)));
-			assert_eq!(counter, 8);
-		});
-	}
-
-	/// Load code from main trie storage on cache miss.
-	#[test]
-	fn from_hash_storage_main_trie() {
-		let program = binary();
-		let hash = sp_crypto_hashing::keccak_256(program);
-		let prefix = b"code:";
-		let mut key = prefix.to_vec();
-		key.extend_from_slice(&hash);
-
-		let mut ext = setup();
-		ext.insert(key, program.to_vec());
-		ext.execute_with(|| {
-			let module = Module::from_hash(&hash, prefix, b"").unwrap();
-			let instance = module.instantiate().unwrap();
-			let execution = instance.prepare(b"counter").unwrap();
-			let mut gas_left = GAS_MAX;
-			let mut counter: u64 = 0;
-			let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
-			assert!(matches!(result, RunResult::Ok(_)));
-			assert_eq!(counter, 8);
-
-			// Second call should hit the cache now.
-			let module = Module::from_hash(&hash, prefix, b"").unwrap();
-			let instance = module.instantiate().unwrap();
-			let execution = instance.prepare(b"counter").unwrap();
-			let mut counter: u64 = 0;
-			let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
-			assert!(matches!(result, RunResult::Ok(_)));
-			assert_eq!(counter, 8);
-		});
-	}
-
-	/// Load code from child trie storage on cache miss.
-	#[test]
-	fn from_hash_storage_child_trie() {
-		let program = binary();
-		let hash = sp_crypto_hashing::keccak_256(program);
-		let prefix = b"code:";
-		let child_trie = b"contracts";
-		let mut key = prefix.to_vec();
-		key.extend_from_slice(&hash);
-		let child_info = sp_storage::ChildInfo::new_default(child_trie);
-
-		let mut ext = setup();
-		ext.insert_child(child_info, key, program.to_vec());
-		ext.execute_with(|| {
-			let module = Module::from_hash(&hash, prefix, child_trie).unwrap();
-			let instance = module.instantiate().unwrap();
-			let execution = instance.prepare(b"counter").unwrap();
-			let mut gas_left = GAS_MAX;
-			let mut counter: u64 = 0;
-			let result = run_loop(execution, &mut gas_left, make_handler(&mut counter));
-			assert!(matches!(result, RunResult::Ok(_)));
-			assert_eq!(counter, 8);
-		});
-	}
-
-	/// Code at the storage key does not match the requested hash.
-	#[test]
-	fn from_hash_hash_mismatch() {
-		let program = binary();
-		let hash = sp_crypto_hashing::keccak_256(program);
-		let prefix = b"code:";
-		let mut key = prefix.to_vec();
-		key.extend_from_slice(&hash);
-
-		let mut ext = setup();
-		ext.insert(key, b"not the real program".to_vec());
-		ext.execute_with(|| {
-			assert!(matches!(
-				Module::from_hash(&hash, prefix, b""),
-				Err(ModuleError::HashMismatch)
-			));
-		});
-	}
-
-	/// Code at the storage key has the correct hash but is not valid PolkaVM.
-	#[test]
-	fn from_hash_invalid_image() {
-		let garbage = b"this is not a valid polkavm program";
-		let hash = sp_crypto_hashing::keccak_256(garbage);
-		let prefix = b"code:";
-		let mut key = prefix.to_vec();
-		key.extend_from_slice(&hash);
-
-		let mut ext = setup();
-		ext.insert(key, garbage.to_vec());
-		ext.execute_with(|| {
-			assert!(matches!(
-				Module::from_hash(&hash, prefix, b""),
-				Err(ModuleError::InvalidImage)
-			));
-		});
-	}
 }

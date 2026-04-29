@@ -1,30 +1,34 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-//! Manages virtualization instances. It is used by the host function **implementation**.
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
 
-use crate::{
-	host_functions::{ExecBuffer, ExecStatus},
-	DestroyError, ExecError, InstanceId, InstantiateError, MemoryError, ModuleError, ModuleId,
-	SyscallSymbol, LOG_TARGET, MAX_SYSCALL_SYMBOL_LEN,
-};
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+//! Host-side PolkaVM backend for the [`sp_virtualization`] host functions.
+//!
+//! Provides the concrete [`VirtManager`] that drives `polkavm` to compile, instantiate
+//! and execute programs on behalf of the runtime. Register it with the externalities via
+//! [`sp_virtualization::VirtManagerExt::new`].
+
 use polkavm::{
 	CacheModel, CompileError, Config, CostModelKind, Engine, GasMeteringKind, InterruptKind,
 	MemoryAccessError, Module, ModuleConfig, ProgramCounter, RawInstance, Reg,
+};
+use sp_virtualization::{
+	DestroyError, ExecBuffer, ExecError, ExecStatus, InstanceId, InstantiateError, MemoryError,
+	ModuleError, ModuleId, SyscallSymbol, VirtManagerBackend, LOG_TARGET,
 };
 use std::{
 	collections::HashMap,
@@ -88,13 +92,7 @@ impl CompiledModule {
 			.into_iter()
 			.map(|symbol| {
 				let symbol = symbol.ok_or(ModuleError::InvalidImage)?;
-				let bytes_slice = symbol.as_bytes();
-				if bytes_slice.len() > MAX_SYSCALL_SYMBOL_LEN {
-					return Err(ModuleError::InvalidImage);
-				}
-				let mut bytes = [0u8; MAX_SYSCALL_SYMBOL_LEN];
-				bytes[..bytes_slice.len()].copy_from_slice(bytes_slice);
-				Ok(SyscallSymbol { bytes, len: bytes_slice.len() as u64 })
+				SyscallSymbol::new(symbol.as_bytes()).ok_or(ModuleError::InvalidImage)
 			})
 			.collect::<Result<_, _>>()?;
 
@@ -145,78 +143,16 @@ impl Default for VirtManager {
 }
 
 impl VirtManager {
-	pub fn compile_from_bytes(&mut self, program: &[u8]) -> Result<ModuleId, ModuleError> {
-		let mut module_config = ModuleConfig::new();
-		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
-		let module =
-			Module::new(&ENGINE, &module_config, program.into()).map_err(|err| match err {
-				CompileError::ValidationFailed(err) => {
-					log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
-					ModuleError::InvalidImage
-				},
-				CompileError::Error(err) => {
-					panic!("Polkavm failed during compilation: {err}. This is a bug.");
-				},
-			})?;
-		let compiled = Arc::new(CompiledModule::new(module)?);
-
-		let module_id = ModuleId({
-			let old = self.module_counter;
-			self.module_counter = old + 1;
-			old
-		});
-
-		// Populate the process-global cache so subsequent `compile_from_hash` calls — possibly
-		// from a different `VirtManager` instance in a later runtime call — can skip recompiling.
-		// NOTE: keccak256 is chosen because pallet-revive uses it to identify code.
-		// Eventually the hash function needs to be agreed upon with the PVM caching system.
-		let hash = sp_crypto_hashing::keccak_256(program);
-		MODULE_CACHE.write().unwrap().insert(hash, compiled.clone());
-		self.modules.insert(module_id, compiled);
-
-		Ok(module_id)
+	fn next_module_id(&mut self) -> ModuleId {
+		let old = self.module_counter;
+		self.module_counter = old + 1;
+		ModuleId::from(old)
 	}
 
-	pub fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError> {
-		let hash: [u8; 32] = hash.try_into().map_err(|_| ModuleError::NotCached)?;
-		let compiled =
-			MODULE_CACHE.read().unwrap().get(&hash).cloned().ok_or(ModuleError::NotCached)?;
-		let module_id = ModuleId({
-			let old = self.module_counter;
-			self.module_counter = old + 1;
-			old
-		});
-		self.modules.insert(module_id, compiled);
-		Ok(module_id)
-	}
-
-	pub fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
-		let compiled = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?.clone();
-
-		let instance = compiled.module.instantiate().map_err(|err| {
-			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
-			InstantiateError::InvalidImage
-		})?;
-
-		let instance_id = InstanceId({
-			let old = self.instance_counter;
-			self.instance_counter = old + 1;
-			old
-		});
-
-		self.instances.insert(
-			instance_id,
-			ManagedInstance { state: InstanceState::Idle(instance), module: compiled },
-		);
-
-		Ok(instance_id)
-	}
-
-	pub fn prepare(&mut self, instance_id: InstanceId, function: &[u8]) -> Result<(), ExecError> {
-		let managed = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
-		let (managed, result) = Self::prepare_impl(managed, function);
-		self.instances.insert(instance_id, managed);
-		result
+	fn next_instance_id(&mut self) -> InstanceId {
+		let old = self.instance_counter;
+		self.instance_counter = old + 1;
+		InstanceId::from(old)
 	}
 
 	fn prepare_impl(
@@ -247,18 +183,6 @@ impl VirtManager {
 				)
 			},
 		}
-	}
-
-	pub fn run(
-		&mut self,
-		instance_id: InstanceId,
-		gas_left: i64,
-		a0: u64,
-	) -> Result<(ExecStatus, ExecBuffer), ExecError> {
-		let managed = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
-		let (managed, result) = Self::run_impl(managed, gas_left, a0);
-		self.instances.insert(instance_id, managed);
-		result
 	}
 
 	fn run_impl(
@@ -326,8 +250,84 @@ impl VirtManager {
 			},
 		}
 	}
+}
 
-	pub fn destroy(&mut self, instance_id: InstanceId) -> Result<(), DestroyError> {
+impl VirtManagerBackend for VirtManager {
+	fn compile_from_bytes(&mut self, program: &[u8]) -> Result<ModuleId, ModuleError> {
+		let mut module_config = ModuleConfig::new();
+		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
+		let module =
+			Module::new(&ENGINE, &module_config, program.into()).map_err(|err| match err {
+				CompileError::ValidationFailed(err) => {
+					log::debug!(target: LOG_TARGET, "Failed to compile program: {}", err);
+					ModuleError::InvalidImage
+				},
+				CompileError::Error(err) => {
+					panic!("Polkavm failed during compilation: {err}. This is a bug.");
+				},
+			})?;
+		let compiled = Arc::new(CompiledModule::new(module)?);
+
+		let module_id = self.next_module_id();
+
+		// Populate the process-global cache so subsequent `compile_from_hash` calls — possibly
+		// from a different `VirtManager` instance in a later runtime call — can skip recompiling.
+		// NOTE: keccak256 is chosen because pallet-revive uses it to identify code.
+		// Eventually the hash function needs to be agreed upon with the PVM caching system.
+		let hash = sp_crypto_hashing::keccak_256(program);
+		MODULE_CACHE.write().unwrap().insert(hash, compiled.clone());
+		self.modules.insert(module_id, compiled);
+
+		Ok(module_id)
+	}
+
+	fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError> {
+		let hash: [u8; 32] = hash.try_into().map_err(|_| ModuleError::NotCached)?;
+		let compiled =
+			MODULE_CACHE.read().unwrap().get(&hash).cloned().ok_or(ModuleError::NotCached)?;
+		let module_id = self.next_module_id();
+		self.modules.insert(module_id, compiled);
+		Ok(module_id)
+	}
+
+	fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError> {
+		let compiled = self.modules.get(&module_id).ok_or(InstantiateError::InvalidModule)?.clone();
+
+		let instance = compiled.module.instantiate().map_err(|err| {
+			log::debug!(target: LOG_TARGET, "Failed to instantiate program: {err}");
+			InstantiateError::InvalidImage
+		})?;
+
+		let instance_id = self.next_instance_id();
+
+		self.instances.insert(
+			instance_id,
+			ManagedInstance { state: InstanceState::Idle(instance), module: compiled },
+		);
+
+		Ok(instance_id)
+	}
+
+	fn prepare(&mut self, instance_id: InstanceId, function: &[u8]) -> Result<(), ExecError> {
+		let managed = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let (managed, result) = Self::prepare_impl(managed, function);
+		self.instances.insert(instance_id, managed);
+		result
+	}
+
+	fn run(
+		&mut self,
+		instance_id: InstanceId,
+		gas_left: i64,
+		a0: u64,
+	) -> Result<(ExecStatus, ExecBuffer), ExecError> {
+		let managed = self.instances.remove(&instance_id).ok_or(ExecError::InvalidInstance)?;
+		let (managed, result) = Self::run_impl(managed, gas_left, a0);
+		self.instances.insert(instance_id, managed);
+		result
+	}
+
+	fn destroy(&mut self, instance_id: InstanceId) -> Result<(), DestroyError> {
 		if self.instances.remove(&instance_id).is_some() {
 			Ok(())
 		} else {
@@ -335,7 +335,7 @@ impl VirtManager {
 		}
 	}
 
-	pub fn read_memory(
+	fn read_memory(
 		&mut self,
 		instance_id: InstanceId,
 		offset: u32,
@@ -349,7 +349,7 @@ impl VirtManager {
 		instance.read_memory_into(offset, dest).map(|_| ()).map_err(map_memory_error)
 	}
 
-	pub fn write_memory(
+	fn write_memory(
 		&mut self,
 		instance_id: InstanceId,
 		offset: u32,
@@ -361,17 +361,5 @@ impl VirtManager {
 			return Err(MemoryError::InvalidInstance);
 		};
 		instance.write_memory(offset, src).map_err(map_memory_error)
-	}
-}
-
-sp_externalities::decl_extension! {
-	/// Extension wrapping [`VirtManager`] so it can be accessed through
-	/// the externalities by the virtualization host functions.
-	pub struct VirtManagerExt(VirtManager);
-}
-
-impl Default for VirtManagerExt {
-	fn default() -> Self {
-		Self(VirtManager::default())
 	}
 }

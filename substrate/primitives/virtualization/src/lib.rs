@@ -43,21 +43,21 @@
 //! **Do not** ship runtimes that depend on this crate to any chain you care about. There is no
 //! stability guarantee and no deprecation period — the interface may change at any time.
 
-#![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(substrate_runtime, no_std)]
 
 extern crate alloc;
 
 mod forwarder;
-#[cfg(feature = "std")]
-mod manager;
-
 mod host_functions;
-mod tests;
+pub mod tests;
 
-pub use crate::{host_functions::virtualization as host_fn, tests::run as run_tests};
+pub use crate::{
+	host_functions::{virtualization as host_fn, ExecBuffer, ExecStatus},
+	tests::run as run_tests,
+};
 pub use forwarder::{Execution, Instance, Module};
-#[cfg(feature = "std")]
-pub use manager::VirtManagerExt;
+#[cfg(not(substrate_runtime))]
+pub use host_functions::{VirtManagerBackend, VirtManagerExt};
 
 use codec::{Decode, Encode};
 use num_enum::{IntoPrimitive, TryFromPrimitive};
@@ -147,6 +147,20 @@ pub enum ExecResult<V, I> {
 pub struct SyscallSymbol {
 	bytes: [u8; MAX_SYSCALL_SYMBOL_LEN],
 	len: u64,
+}
+
+impl SyscallSymbol {
+	/// Build a [`SyscallSymbol`] from a byte slice.
+	///
+	/// Returns `None` if `bytes` exceeds [`MAX_SYSCALL_SYMBOL_LEN`].
+	pub fn new(bytes: &[u8]) -> Option<Self> {
+		if bytes.len() > MAX_SYSCALL_SYMBOL_LEN {
+			return None;
+		}
+		let mut buf = [0u8; MAX_SYSCALL_SYMBOL_LEN];
+		buf[..bytes.len()].copy_from_slice(bytes);
+		Some(Self { bytes: buf, len: bytes.len() as u64 })
+	}
 }
 
 impl AsRef<[u8]> for SyscallSymbol {

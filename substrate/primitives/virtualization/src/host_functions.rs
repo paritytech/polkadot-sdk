@@ -447,3 +447,56 @@ pub trait Virtualization {
 			.write_memory(instance_id, offset, src)
 	}
 }
+
+/// The host-side operations driven by the virtualization host functions.
+///
+/// The concrete implementation lives outside this crate (see `sc-virtualization`) so that
+/// `sp-virtualization` itself does not depend on a specific virtual machine backend.
+#[cfg(not(substrate_runtime))]
+pub trait VirtManagerBackend: Send + 'static {
+	fn compile_from_bytes(&mut self, program: &[u8]) -> Result<ModuleId, ModuleError>;
+
+	fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError>;
+
+	fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError>;
+
+	fn prepare(&mut self, instance_id: InstanceId, function: &[u8]) -> Result<(), ExecError>;
+
+	fn run(
+		&mut self,
+		instance_id: InstanceId,
+		gas_left: i64,
+		a0: u64,
+	) -> Result<(ExecStatus, ExecBuffer), ExecError>;
+
+	fn destroy(&mut self, instance_id: InstanceId) -> Result<(), DestroyError>;
+
+	fn read_memory(
+		&mut self,
+		instance_id: InstanceId,
+		offset: u32,
+		dest: &mut [u8],
+	) -> Result<(), MemoryError>;
+
+	fn write_memory(
+		&mut self,
+		instance_id: InstanceId,
+		offset: u32,
+		src: &[u8],
+	) -> Result<(), MemoryError>;
+}
+
+#[cfg(not(substrate_runtime))]
+sp_externalities::decl_extension! {
+	/// Extension wrapping a [`VirtManagerBackend`] so it can be accessed through
+	/// the externalities by the virtualization host functions.
+	pub struct VirtManagerExt(Box<dyn VirtManagerBackend>);
+}
+
+#[cfg(not(substrate_runtime))]
+impl VirtManagerExt {
+	/// Wrap the given backend so it can be registered as an externalities extension.
+	pub fn new<B: VirtManagerBackend>(backend: B) -> Self {
+		Self(Box::new(backend))
+	}
+}
