@@ -3862,6 +3862,47 @@ fn recovery_works() {
 }
 
 #[test]
+fn recovery_preserves_origin_call_filter() {
+	use frame_support::traits::OriginTrait;
+
+	let (code, _) = compile_module("terminate_and_send_to_argument").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		<Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+
+		let initial_contract_balance = 100_000;
+		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+			.native_value(initial_contract_balance)
+			.build_and_unwrap_contract();
+		builder::bare_call(addr).data(EVE_ADDR.encode()).build_and_unwrap_result();
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&EVE_FALLBACK),
+			initial_contract_balance + 100,
+		);
+
+		let mut origin = RuntimeOrigin::signed(EVE);
+		origin.add_filter(|c: &RuntimeCall| !matches!(c, RuntimeCall::Balances(_)));
+
+		let call = RuntimeCall::Balances(pallet_balances::Call::transfer_all {
+			dest: EVE,
+			keep_alive: false,
+		});
+
+		let result = <Pallet<Test>>::dispatch_as_fallback_account(origin, Box::new(call));
+		assert_err!(
+			result.map(|_| ()).map_err(|e| e.error),
+			frame_system::Error::<Test>::CallFiltered,
+		);
+
+		assert_eq!(<Test as Config>::Currency::total_balance(&EVE), 0);
+		assert_eq!(
+			<Test as Config>::Currency::total_balance(&EVE_FALLBACK),
+			initial_contract_balance + 100,
+		);
+	});
+}
+
+#[test]
 fn gas_limit_api_works() {
 	let (code, _) = compile_module("gas_limit").unwrap();
 
