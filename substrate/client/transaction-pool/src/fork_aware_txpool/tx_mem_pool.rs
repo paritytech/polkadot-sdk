@@ -724,11 +724,11 @@ where
 
 		let mut invalid_hashes_subtrees = Vec::new();
 		// Include also subtree txs.
-		for (tx, _, reason) in &invalid_hashes {
+		for (tx, _, invalid_reason) in &invalid_hashes {
 			let txs_in_subtree =
 				view_store.remove_transaction_subtree(*tx, |_, _| {}).into_iter().map(|tx| {
 					let subtree_source = tx.source.clone();
-					(tx.hash, subtree_source, InvalidTxReason::Subtree(reason.to_string()))
+					(tx.hash, subtree_source, InvalidTxReason::Subtree(invalid_reason.to_string()))
 				});
 			invalid_hashes_subtrees.extend(txs_in_subtree);
 		}
@@ -742,10 +742,10 @@ where
 		let invalid_hashes = invalid_hashes
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
-			.map(|(tx, tx_source, reason)| {
+			.map(|(tx, tx_source, invalid_reason)| {
 				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
 				self.metrics.report(|metrics| {
-					metrics.mempool_revalidation_invalid_txs.observe(&reason, 1);
+					metrics.mempool_revalidation_invalid_txs.observe(&invalid_reason, 1);
 					metrics.tx_age_at_removal.observe(
 						RemovalReason::InvalidRevalidationMempool,
 						tx_source.source,
