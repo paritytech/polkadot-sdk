@@ -98,6 +98,23 @@ pub fn execution_method_from_cli(
 /// The default [`WasmExecutionMethod`].
 pub const DEFAULT_WASM_EXECUTION_METHOD: WasmExecutionMethod = WasmExecutionMethod::Compiled;
 
+/// How the benchmarking CLI should react when an extrinsic's worst-case weight exceeds the
+/// runtime's max extrinsic weight.
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum SanityWeightCheck {
+	/// Print the results and return an error if any extrinsic exceeds the limit.
+	Error,
+	/// Print the results and a warning, but do not return an error.
+	Warning,
+	/// Skip the sanity weight check.
+	Ignore,
+}
+
+/// The default [`SanityWeightCheck`].
+pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck = SanityWeightCheck::Error;
+
 #[allow(missing_docs)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum)]
 #[value(rename_all = "kebab-case")]
