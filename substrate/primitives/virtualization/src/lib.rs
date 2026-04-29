@@ -15,14 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This crate is intended for use by runtime code (e.g pallet-contracts) to spawn PolkaVM instances
-//! and execute calls into them. Its purpose is to add one layer of abstraction to that it works
-//! transparently from the actual runtime (via the host functions defined in this crate) but also
-//! from tests (which run natively).
+//! This crate is intended for use by runtime code (e.g. pallet-contracts) to spawn PolkaVM
+//! instances and execute calls into them. Its purpose is to add one layer of abstraction so that
+//! it works transparently from the actual runtime (via the host functions defined in this crate)
+//! but also from tests (which run natively).
 //!
-//! Additionally, this crate is also used (by the executor) to implement the host functions that are
-//! defined in this crate. This allows us to encapsulate all the logic regarding PolkaVM setup in
-//! one place.
+//! The crate exposes the runtime-side forwarder API and the [`#[runtime_interface]`] declaration
+//! plus the [`VirtManagerBackend`] trait that backs it. The concrete polkavm-driven backend lives
+//! in the `sc-virtualization` client crate, which registers a `VirtManager` via [`VirtManagerExt`]
+//! before dispatching runtime calls.
 //!
 //! Please keep in mind that the interface is kept simple because it has to match the interface
 //! of the host function so that the abstraction works. It will never expose the whole PolkaVM
@@ -44,8 +45,6 @@
 //! stability guarantee and no deprecation period — the interface may change at any time.
 
 #![cfg_attr(substrate_runtime, no_std)]
-
-extern crate alloc;
 
 mod forwarder;
 mod host_functions;

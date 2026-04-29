@@ -20,15 +20,15 @@ use crate::{ExecError, ExecResult, Execution, Instance, Module, ModuleError};
 /// Default gas budget used by every test driver.
 pub const GAS_MAX: i64 = i64::MAX;
 
-/// Run all tests.
+/// Run every test that uses only the public forwarder API.
 ///
-/// This is exported even without a test build in order to make it callable from the
-/// `sc-runtime-test`. This is necessary in order to compile these tests into a runtime so that
-/// the forwarder implementation is used. Otherwise only the native implementation is tested through
-/// cargos test framework.
+/// Exported as a regular function so it can be invoked from both:
+/// - the runtime (compiled into `sc-runtime-test`) — exercises the wasm/forwarder path end-to-end,
+///   including the host-function FFI;
+/// - native host tests (in `sc-virtualization`) — exercises the host-side dispatch directly.
 ///
-/// Each test also has a standalone `#[test]` wrapper in the `tests` submodule below. Tests that
-/// need `std`-only dependencies or pre-populated storage are only available as standalone tests.
+/// Tests that need pre-populated externalities (storage fallback for `compile_from_hash`)
+/// can't run from a runtime context and live as standalone `#[test]`s in `sc-virtualization`.
 ///
 /// The `program` needs to be set to `sp_virtualization_test_fixture::binary()`. It can't be
 /// hard coded because when this crate is compiled into a runtime the binary is not available.
