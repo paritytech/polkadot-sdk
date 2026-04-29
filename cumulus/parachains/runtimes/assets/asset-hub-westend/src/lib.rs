@@ -1940,6 +1940,7 @@ pub type Migrations = (
 		<Runtime as frame_system::Config>::DbWeight,
 	>,
 	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
+	pallet_psm::migrations::PopulateDecimals<Runtime>,
 	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
