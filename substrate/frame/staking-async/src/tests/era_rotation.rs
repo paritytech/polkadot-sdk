@@ -611,7 +611,7 @@ fn era_pot_slots_collide_every_pool_size_eras() {
 		(
 			<PalletId as sp_runtime::TypeId>::TYPE_ID,
 			DapPalletId::get(),
-			(b"era", crate::pot_slot(era), kind),
+			RewardPot::Era(crate::pot_slot(era), kind),
 		)
 			.encode()
 	};

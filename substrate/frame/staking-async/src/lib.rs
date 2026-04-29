@@ -626,12 +626,14 @@ where
 {
 	fn pot_account(pot: RewardPot) -> AccountId {
 		use sp_runtime::traits::AccountIdConversion;
-		match pot {
-			RewardPot::General(kind) => S::get().into_sub_account_truncating((b"gen", kind)),
-			RewardPot::Era(era, kind) => {
-				S::get().into_sub_account_truncating((b"era", pot_slot(era), kind))
-			},
-		}
+		// Era pots are addressed by slot (`era % POT_POOL_SIZE`), not by the
+		// raw era index, so a fixed pool of accounts rotates instead of
+		// growing per era.
+		let normalized = match pot {
+			RewardPot::Era(era, kind) => RewardPot::Era(pot_slot(era), kind),
+			other => other,
+		};
+		S::get().into_sub_account_truncating(normalized)
 	}
 }
 
