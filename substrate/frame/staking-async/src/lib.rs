@@ -590,8 +590,10 @@ pub(crate) fn pot_slot(era: EraIndex) -> u32 {
 )]
 pub enum RewardKind {
 	/// Staker rewards (nominators + validators).
+	#[codec(index = 0)]
 	StakerRewards,
 	/// Pot for validator self-stake incentive.
+	#[codec(index = 1)]
 	ValidatorSelfStake,
 }
 
@@ -602,9 +604,11 @@ pub enum RewardKind {
 pub enum RewardPot {
 	/// General pot: funded by an external source (e.g. pallet-dap).
 	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+	#[codec(index = 0)]
 	General(RewardKind),
 	/// Era-specific pot: snapshotted from the general pot at era boundaries.
 	/// See [`POT_POOL_SIZE`] for the slot rotation scheme.
+	#[codec(index = 1)]
 	Era(EraIndex, RewardKind),
 }
 
