@@ -1,5 +1,4 @@
 {
-  "fixtures/solidity/complex/create/create2_many/test.json::0::Y M0 S+": "Failed",
   "fixtures/solidity/complex/create/create2_many/test.json::1::E M3 S+": "Failed",
   "fixtures/solidity/complex/create/create2_many/test.json::1::Y M3 S+": "Failed",
   "fixtures/solidity/complex/create/create_many/test.json::1::E M3 S+": "Failed",
