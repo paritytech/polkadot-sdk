@@ -81,10 +81,8 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 		let mut migrated = 0u32;
 		for era in oldest..active_era_idx {
 			let old = Self::old_pot_account(era);
-			let balance = T::Currency::balance(&old);
 			weight.saturating_accrue(T::DbWeight::get().reads(1));
-
-			if balance.is_zero() {
+			if frame_system::Pallet::<T>::providers(&old) == 0 {
 				continue;
 			}
 
@@ -93,13 +91,25 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 			let new = EraRewardManager::<T>::create(era, kind);
 			weight.saturating_accrue(T::DbWeight::get().reads_writes(1, 1));
 
-			if let Err(e) = T::Currency::transfer(&old, &new, balance, Preservation::Expendable) {
-				log!(error, "EraPotsToPool: era {} kind {:?}: transfer failed: {:?}", era, kind, e,);
-				// Keep providers on the old account; balance is still there
-				// and the account remains queryable for manual recovery.
-				continue;
+			let balance = T::Currency::balance(&old);
+			weight.saturating_accrue(T::DbWeight::get().reads(1));
+			if !balance.is_zero() {
+				if let Err(e) =
+					T::Currency::transfer(&old, &new, balance, Preservation::Expendable)
+				{
+					log!(
+						error,
+						"EraPotsToPool: era {} kind {:?}: transfer failed: {:?}",
+						era,
+						kind,
+						e,
+					);
+					// Keep providers on the old account; balance is still there
+					// and the account remains queryable for manual recovery.
+					continue;
+				}
+				weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 			}
-			weight.saturating_accrue(T::DbWeight::get().reads_writes(2, 2));
 
 			// Try to release the old drained account so it can be reaped.
 			let _ = frame_system::Pallet::<T>::dec_providers(&old);
