@@ -353,17 +353,6 @@ pub enum RemovalReason {
 	FinalityTimeout,
 }
 
-/// Maps a [`sp_runtime::transaction_validity::TransactionSource`] to the
-/// snake_case label used as the Prometheus `source` label value.
-fn source_label(source: sp_runtime::transaction_validity::TransactionSource) -> &'static str {
-	use sp_runtime::transaction_validity::TransactionSource;
-	match source {
-		TransactionSource::InBlock => "in_block",
-		TransactionSource::Local => "local",
-		TransactionSource::External => "external",
-	}
-}
-
 /// Histogram of transaction age in the pool at the moment of removal,
 /// labeled by `reason` and `source`.
 pub struct TxAgeAtRemovalHistogram {
@@ -406,9 +395,7 @@ impl TxAgeAtRemovalHistogram {
 		age: Option<Duration>,
 	) {
 		let value = age.map(|a| a.as_secs_f64()).unwrap_or(f64::INFINITY);
-		self.inner
-			.with_label_values(&[reason.as_ref(), source_label(source)])
-			.observe(value)
+		self.inner.with_label_values(&[reason.as_ref(), source.as_ref()]).observe(value)
 	}
 }
 
@@ -785,9 +772,9 @@ mod tests {
 
 	#[test]
 	fn source_label_maps_each_variant() {
-		assert_eq!(source_label(TransactionSource::Local), "local");
-		assert_eq!(source_label(TransactionSource::External), "external");
-		assert_eq!(source_label(TransactionSource::InBlock), "in_block");
+		assert_eq!(TransactionSource::Local.as_ref(), "local");
+		assert_eq!(TransactionSource::External.as_ref(), "external");
+		assert_eq!(TransactionSource::InBlock.as_ref(), "in_block");
 	}
 
 	/// Returns the sample count of the histogram for the given (reason, source) pair,
