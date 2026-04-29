@@ -57,7 +57,10 @@ sp_api::decl_runtime_apis! {
 		/// Get the actual value of a retention period in blocks.
 		fn retention_period() -> NumberFor<Block>;
 
-		/// Get indexed-transaction metadata for a block.
-		fn indexed_transactions(block: u32) -> Option<Vec<IndexedTransactionInfo>>;
+		/// Get indexed-transaction metadata for `block`.
+		///
+		/// Returns an empty vector if the block has no indexed transactions or
+		/// is outside the retention window.
+		fn indexed_transactions(block: NumberFor<Block>) -> Vec<IndexedTransactionInfo>;
 	}
 }

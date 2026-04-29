@@ -3920,9 +3920,9 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		}
 
 		fn indexed_transactions(
-			block: u32,
-		) -> Option<Vec<sp_transaction_storage_proof::runtime_api::IndexedTransactionInfo>> {
-			TransactionStorage::indexed_transactions(block.into())
+			block: NumberFor<Block>,
+		) -> Vec<sp_transaction_storage_proof::runtime_api::IndexedTransactionInfo> {
+			TransactionStorage::indexed_transactions(block)
 		}
 	}
 
