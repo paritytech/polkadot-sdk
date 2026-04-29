@@ -41,4 +41,4 @@ crates:
   - name: polkadot-sdk
     bump: minor
   - name: emulated-integration-tests-common
-    bump: minor
+    bump: major
