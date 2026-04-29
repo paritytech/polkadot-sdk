@@ -120,7 +120,7 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn pre_upgrade() -> Result<alloc::vec::Vec<u8>, sp_runtime::TryRuntimeError> {
-		use crate::BalanceOf;
+		use crate::{BalanceOf, PotAccountProvider};
 		use codec::Encode;
 		use sp_runtime::traits::Zero;
 
@@ -138,7 +138,7 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(state: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
-		use crate::BalanceOf;
+		use crate::{BalanceOf, PotAccountProvider};
 		use codec::Decode;
 		use sp_runtime::traits::Zero;
 
