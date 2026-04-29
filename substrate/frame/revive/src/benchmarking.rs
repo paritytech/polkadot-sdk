@@ -2841,17 +2841,21 @@ mod benchmarks {
 			let _ = v4::Migration::<T>::step_once(cursor);
 		}
 
-		for byte in [0x41u8, 0x42u8] {
-			let addr = H160::from([byte; 20]);
-			let contract_account = T::AddressMapper::to_account_id(&addr);
-			assert_eq!(
-				T::Currency::balance_on_hold(
-					&HoldReason::StorageDepositReserve.into(),
-					&contract_account,
-				),
-				0u32.into(),
-				"native storage deposit burned for {addr:?}",
-			);
+		// `migrate_native_to_pgas` is a no-op for `Deposit = ()`, so the hold only clears on
+		// PGAS-backed runtimes. On non-PGAS runtimes the benchmark still measures the iter cost.
+		if T::Deposit::SUPPORTS_PGAS {
+			for byte in [0x41u8, 0x42u8] {
+				let addr = H160::from([byte; 20]);
+				let contract_account = T::AddressMapper::to_account_id(&addr);
+				assert_eq!(
+					T::Currency::balance_on_hold(
+						&HoldReason::StorageDepositReserve.into(),
+						&contract_account,
+					),
+					0u32.into(),
+					"native storage deposit burned for {addr:?}",
+				);
+			}
 		}
 	}
 
