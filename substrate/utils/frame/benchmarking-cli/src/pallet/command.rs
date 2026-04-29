@@ -831,19 +831,24 @@ impl PalletCmd {
 			)?;
 		}
 
+		// The sanity weight check is intended as a guardrail when generating weight files. If no
+		// `--output` was provided the user is doing exploratory work (e.g. inspecting JSON), so
+		// running the check would produce a hard error on a config they did not intend to ship.
 		// Suppress the sanity check's stdout output when JSON has already been written there or
 		// `--quiet` is set; the check still runs and still returns `Err` on `Error` mode, just
 		// without polluting machine-readable output.
-		writer::sanity_weight_check(
-			&batches,
-			&storage_info,
-			&component_ranges,
-			pov_modes,
-			self,
-			runtime_block_limits,
-			self.sanity_weight_check,
-			json_to_stdout || self.quiet,
-		)?;
+		if self.output.is_some() {
+			writer::sanity_weight_check(
+				&batches,
+				&storage_info,
+				&component_ranges,
+				pov_modes,
+				self,
+				runtime_block_limits,
+				self.sanity_weight_check,
+				json_to_stdout || self.quiet,
+			)?;
+		}
 
 		Ok(())
 	}
