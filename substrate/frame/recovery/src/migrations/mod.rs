@@ -26,4 +26,4 @@ pub mod v1;
 pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
 /// A unique identifier for the migrations of this pallet.
-pub const PALLET_MIGRATIONS_ID: &[u8; 16] = b"pallet-recovery\0";
+pub const PALLET_MIGRATIONS_ID: &[u8; 18] = b"pallet-recover-mbm";

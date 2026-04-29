@@ -342,7 +342,7 @@ pub mod pallet {
 
 	/// The friend groups of an account that can conduct recovery attempts.
 	///
-	/// Modifying this storage does not impact ongoing recovery attempts.
+	/// Modifying this storage is not possible while an account has ongoing recovery attempts.
 	#[pallet::storage]
 	pub type FriendGroups<T: Config> = StorageMap<
 		_,
@@ -1008,10 +1008,10 @@ impl<T: Config> Pallet<T> {
 			ensure!(!friend_group.cancel_delay.is_zero(), Error::<T>::NoCancelDelay);
 		}
 
-		for i in 0..friend_groups.len() {
-			for j in (i + 1)..friend_groups.len() {
+		for (i, group_a) in friend_groups.iter().enumerate() {
+			for group_b in friend_groups.iter().skip(i + 1) {
 				ensure!(
-					friend_groups[i].friends != friend_groups[j].friends,
+					group_a.friends != group_b.friends,
 					Error::<T>::DuplicateFriendGroups
 				);
 			}
