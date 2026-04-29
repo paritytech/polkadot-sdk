@@ -253,6 +253,13 @@ pub struct RuntimeBlockLimits {
 	pub db_weight: RuntimeDbWeight,
 }
 
+impl RuntimeBlockLimits {
+	/// Construct a new `RuntimeBlockLimits`.
+	pub fn new(max_extrinsic_weight: Weight, db_weight: RuntimeDbWeight) -> Self {
+		Self { max_extrinsic_weight, db_weight }
+	}
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
 	#[api_version(3)]
