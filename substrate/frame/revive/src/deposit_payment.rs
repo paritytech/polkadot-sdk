@@ -170,7 +170,7 @@ impl<T: Config> Deposit<T> for () {
 			contract,
 			ed,
 			Preservation::Expendable,
-			Precision::BestEffort,
+			Precision::Exact,
 			Fortitude::Polite,
 		)?;
 		// Pair with [`Self::init_contract`]: shrink the inactive pool first so the burn only
