@@ -274,6 +274,17 @@ pub(crate) fn sanity_weight_check(
 		return Ok(());
 	}
 
+	// Runtime explicitly returned `Weight::MAX` for `max_extrinsic`, meaning the runtime did not
+	// configure a per-extrinsic cap for `DispatchClass::Normal`. There is nothing to compare
+	// against, so skip with a warning rather than producing a vacuous pass.
+	if limits.max_extrinsic_weight == Weight::MAX {
+		log::warn!(
+			target: LOG_TARGET,
+			"Skipping sanity weight check: runtime has no `max_extrinsic` configured for `DispatchClass::Normal`.",
+		);
+		return Ok(());
+	}
+
 	let analysis_choice: AnalysisChoice =
 		cmd.output_analysis.clone().try_into().map_err(io_error)?;
 	let pov_analysis_choice: AnalysisChoice =
