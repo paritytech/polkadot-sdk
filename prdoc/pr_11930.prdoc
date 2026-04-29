@@ -11,4 +11,4 @@ doc:
     reused after its previous era has been pruned.
 crates:
 - name: pallet-staking-async
-  bump: patch
+  bump: minor

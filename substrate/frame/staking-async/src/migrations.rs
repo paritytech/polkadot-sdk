@@ -17,10 +17,7 @@
 
 //! Storage migrations for the staking-async pallet.
 
-use crate::{
-	log, reward::EraRewardManager, Config, DisableMintingGuard, PotAccountProvider, RewardKind,
-	RewardPot,
-};
+use crate::{log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
