@@ -245,6 +245,10 @@ pub struct BenchmarkMetadata {
 }
 
 /// Runtime-level weight limits exposed to the benchmarking CLI for the sanity check.
+///
+/// The `Default` impl produces all-zero values which the CLI treats as the "skip" sentinel
+/// (used both for `Benchmark` API v2 runtimes and for re-analysis paths that lack live
+/// runtime metadata). Tests and stubs can rely on this without manually wiring the fields.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct RuntimeBlockLimits {
 	/// Maximum weight an extrinsic of `DispatchClass::Normal` can have in a block.
