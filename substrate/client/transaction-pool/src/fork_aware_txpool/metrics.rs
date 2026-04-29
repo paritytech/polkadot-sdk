@@ -18,11 +18,14 @@
 
 //! Prometheus's metrics for a fork-aware transaction pool.
 
-use super::tx_mem_pool::{InsertionInfo, InvalidTxReason};
+use super::tx_mem_pool::{InsertionInfo, InvalidTxReason, TxInMemPool};
 use crate::{
 	LOG_TARGET,
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
-	graph::{self, BlockHash, ExtrinsicHash},
+	graph::{
+		self, BlockHash, ExtrinsicHash,
+		base_pool::{TimedTransactionSource, Transaction},
+	},
 };
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
@@ -33,10 +36,12 @@ use prometheus_endpoint::{
 use sc_transaction_pool_api::TransactionPool;
 use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
+use sp_runtime::traits::Block as BlockT;
 use std::{
 	collections::{HashMap, hash_map::Entry},
 	future::Future,
 	pin::Pin,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 use tracing::trace;
@@ -353,6 +358,51 @@ pub enum RemovalReason {
 	FinalityTimeout,
 }
 
+/// Provides access to the [`TimedTransactionSource`] of an object held in the
+/// fork-aware transaction pool.
+///
+/// Used by [`TxAgeAtRemovalHistogram::observe_batch`] to record the residence
+/// time of a batch of removed transactions without forcing each call site to
+/// thread `source` and `timestamp` manually.
+// Call sites are wired in a follow-up commit; allow dead_code so the API can
+// land independently from its consumers.
+#[allow(dead_code)]
+pub(super) trait HasSource {
+	/// Returns a reference to the source of the transaction.
+	fn timed_source(&self) -> &TimedTransactionSource;
+}
+
+/// Auto-impl so any `Arc<T: HasSource>` works without boilerplate.
+impl<T: HasSource + ?Sized> HasSource for Arc<T> {
+	fn timed_source(&self) -> &TimedTransactionSource {
+		(**self).timed_source()
+	}
+}
+
+/// Auto-impl so iterators over references (`(&items).into_iter()`) work
+/// without forcing call sites to clone or move ownership.
+impl<T: HasSource + ?Sized> HasSource for &T {
+	fn timed_source(&self) -> &TimedTransactionSource {
+		(**self).timed_source()
+	}
+}
+
+impl<ChainApi, Block> HasSource for TxInMemPool<ChainApi, Block>
+where
+	Block: BlockT,
+	ChainApi: graph::ChainApi<Block = Block> + 'static,
+{
+	fn timed_source(&self) -> &TimedTransactionSource {
+		self.source_ref()
+	}
+}
+
+impl<Hash, Extrinsic> HasSource for Transaction<Hash, Extrinsic> {
+	fn timed_source(&self) -> &TimedTransactionSource {
+		&self.source
+	}
+}
+
 /// Histogram of transaction age in the pool at the moment of removal,
 /// labeled by `reason` and `source`.
 pub struct TxAgeAtRemovalHistogram {
@@ -396,6 +446,26 @@ impl TxAgeAtRemovalHistogram {
 	) {
 		let value = age.map(|a| a.as_secs_f64()).unwrap_or(f64::INFINITY);
 		self.inner.with_label_values(&[reason.as_ref(), source.as_ref()]).observe(value)
+	}
+
+	/// Records one observation per item, computing each transaction's age as
+	/// `removed_at - timestamp`.
+	///
+	/// `removed_at` is taken once at the call site so every item in the batch
+	/// is anchored against the same instant — this matches the existing manual
+	/// loops the helper replaces.
+	// Call sites are wired in a follow-up commit.
+	#[allow(dead_code)]
+	pub(super) fn observe_batch<I>(&self, reason: RemovalReason, removed_at: Instant, items: I)
+	where
+		I: IntoIterator,
+		I::Item: HasSource,
+	{
+		for item in items {
+			let ts = item.timed_source();
+			let age = ts.timestamp.map(|t| removed_at.saturating_duration_since(t));
+			self.observe(reason, ts.source, age);
+		}
 	}
 }
 
@@ -846,5 +916,87 @@ mod tests {
 		// Sample is recorded (count = 1) but it lands above all finite buckets,
 		// so it's only counted in the implicit `+Inf` bucket.
 		assert_eq!(sample_count(&registry, "finalized", "external"), Some(1));
+	}
+
+	/// Test fixture implementing [`HasSource`] without depending on the full
+	/// `TxInMemPool` / `Transaction` machinery.
+	struct MockTimedSource(TimedTransactionSource);
+
+	impl HasSource for MockTimedSource {
+		fn timed_source(&self) -> &TimedTransactionSource {
+			&self.0
+		}
+	}
+
+	fn mock_item(source: TransactionSource, timestamp: Option<Instant>) -> MockTimedSource {
+		MockTimedSource(TimedTransactionSource { source, timestamp })
+	}
+
+	#[test]
+	fn observe_batch_records_one_sample_per_item() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+		let removed_at = Instant::now();
+		let now = Some(removed_at);
+
+		let items = vec![
+			mock_item(TransactionSource::External, now),
+			mock_item(TransactionSource::External, now),
+			mock_item(TransactionSource::External, now),
+		];
+
+		histogram.observe_batch(RemovalReason::Finalized, removed_at, &items);
+
+		assert_eq!(sample_count(&registry, "finalized", "external"), Some(3));
+	}
+
+	#[test]
+	fn observe_batch_with_empty_iterator_is_noop() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+
+		let items: Vec<MockTimedSource> = Vec::new();
+		histogram.observe_batch(RemovalReason::Finalized, Instant::now(), &items);
+
+		assert_eq!(sample_count(&registry, "finalized", "external"), None);
+		assert_eq!(sample_count(&registry, "finalized", "local"), None);
+	}
+
+	#[test]
+	fn observe_batch_routes_per_source_label() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+		let removed_at = Instant::now();
+		let now = Some(removed_at);
+
+		let items = vec![
+			mock_item(TransactionSource::Local, now),
+			mock_item(TransactionSource::External, now),
+			mock_item(TransactionSource::External, now),
+			mock_item(TransactionSource::InBlock, now),
+		];
+
+		histogram.observe_batch(RemovalReason::DroppedUsurped, removed_at, &items);
+
+		assert_eq!(sample_count(&registry, "dropped_usurped", "local"), Some(1));
+		assert_eq!(sample_count(&registry, "dropped_usurped", "external"), Some(2));
+		assert_eq!(sample_count(&registry, "dropped_usurped", "in_block"), Some(1));
+	}
+
+	#[test]
+	fn observe_batch_routes_missing_timestamp_to_infinity_bucket() {
+		let registry = Registry::new();
+		let histogram = TxAgeAtRemovalHistogram::register(&registry).unwrap();
+
+		let items = vec![
+			mock_item(TransactionSource::External, None),
+			mock_item(TransactionSource::External, None),
+		];
+
+		histogram.observe_batch(RemovalReason::FinalityTimeout, Instant::now(), &items);
+
+		// Both samples are recorded; lacking a timestamp they land in the
+		// implicit `+Inf` bucket per the same contract as `observe`.
+		assert_eq!(sample_count(&registry, "finality_timeout", "external"), Some(2));
 	}
 }
