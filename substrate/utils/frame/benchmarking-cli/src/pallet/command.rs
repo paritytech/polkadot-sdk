@@ -17,7 +17,7 @@
 
 use super::{
 	types::{ComponentRange, ComponentRangeMap},
-	writer, ListOutput, PalletCmd, LOG_TARGET,
+	writer, ListOutput, PalletCmd, SanityWeightCheck, LOG_TARGET,
 };
 use crate::{
 	pallet::{types::FetchedCode, GenesisBuilderPolicy},
@@ -889,8 +889,17 @@ impl PalletCmd {
 			.collect();
 
 		// Re-analysis from a JSON file has no access to runtime metadata, so the sanity weight
-		// check uses an empty `RuntimeBlockLimits` (max_extrinsic_weight = 0). With those limits
-		// the check would always fail, so it is effectively skipped here.
+		// check cannot run — there are no real `RuntimeBlockLimits` to compare against. Emit a
+		// distinct warning so users see why the check did not fire (separate from the API v2
+		// fallback path) and proceed with default limits which `sanity_weight_check` skips.
+		if self.sanity_weight_check != SanityWeightCheck::Ignore {
+			log::warn!(
+				target: LOG_TARGET,
+				"Skipping sanity weight check: re-analysing benchmark results from JSON has no \
+				access to live runtime metadata. Re-run against the runtime directly to enable \
+				the check.",
+			);
+		}
 		self.output(batches, &[], &component_ranges, Default::default(), &Default::default())
 	}
 
