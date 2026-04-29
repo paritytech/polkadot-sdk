@@ -258,6 +258,7 @@ pub(crate) fn sanity_weight_check(
 	cmd: &PalletCmd,
 	limits: &RuntimeBlockLimits,
 	mode: SanityWeightCheck,
+	quiet: bool,
 ) -> Result<(), sc_cli::Error> {
 	if mode == SanityWeightCheck::Ignore {
 		return Ok(());
@@ -302,56 +303,66 @@ pub(crate) fn sanity_weight_check(
 		cmd.additional_trie_layers,
 	)?;
 
-	color_print::cprintln!(
-		"\n<s>Sanity Weight Check 🧐:</> each extrinsic's weight function is evaluated in the \
-		worst-case scenario (every complexity component at its max value) and compared with the \
-		runtime's max extrinsic weight for `DispatchClass::Normal`.\n\n<u>Results:</>\n"
-	);
+	if !quiet {
+		color_print::cprintln!(
+			"\n<s>Sanity Weight Check:</> each extrinsic's weight function is evaluated in the \
+			worst-case scenario (every complexity component at its max value) and compared with \
+			the runtime's max extrinsic weight for `DispatchClass::Normal`.\n\n<u>Results:</>\n"
+		);
+	}
 
 	let mut failed = false;
 	for ((pallet, instance), results) in all_results.iter() {
-		println!("Pallet: {pallet}\nInstance: {instance}\n");
+		if !quiet {
+			println!("Pallet: {pallet}\nInstance: {instance}\n");
+		}
 		for data in results {
 			let total = worst_case_weight(data, &limits.db_weight);
 			let exceeds_ref_time = total.ref_time() > limits.max_extrinsic_weight.ref_time();
 			let exceeds_proof_size = total.proof_size() > limits.max_extrinsic_weight.proof_size();
 			if exceeds_ref_time || exceeds_proof_size {
 				failed = true;
+				if !quiet {
+					color_print::cprintln!(
+						"<s,r>EXCEEDS MAX EXTRINSIC WEIGHT:</> the worst-case weight of `{}` does \
+						not fit in a single block.",
+						data.name,
+					);
+				}
+			}
+			if !quiet {
+				let ref_time_pct = (total.ref_time() as f64 /
+					limits.max_extrinsic_weight.ref_time().max(1) as f64) *
+					100.0;
+				let proof_size_pct = (total.proof_size() as f64 /
+					limits.max_extrinsic_weight.proof_size().max(1) as f64) *
+					100.0;
 				color_print::cprintln!(
-					"<s,r>EXCEEDS MAX EXTRINSIC WEIGHT:</> the worst-case weight of `{}` does not \
-					fit in a single block.",
+					"- <s>{}</>: {:?}\n  ref_time {:.2}% / proof_size {:.2}% of max extrinsic weight\n",
 					data.name,
+					total,
+					ref_time_pct,
+					proof_size_pct,
 				);
 			}
-			let ref_time_pct = (total.ref_time() as f64 /
-				limits.max_extrinsic_weight.ref_time().max(1) as f64) *
-				100.0;
-			let proof_size_pct = (total.proof_size() as f64 /
-				limits.max_extrinsic_weight.proof_size().max(1) as f64) *
-				100.0;
-			color_print::cprintln!(
-				"- <s>{}</>: {:?}\n  ref_time {:.2}% / proof_size {:.2}% of max extrinsic weight\n",
-				data.name,
-				total,
-				ref_time_pct,
-				proof_size_pct,
-			);
 		}
 	}
 
 	if failed {
-		color_print::cprintln!(
-			"<r>One or more extrinsics exceed the runtime's max extrinsic weight. Review the \
-			extrinsic logic and/or its benchmark function.</>\n"
-		);
+		if !quiet {
+			color_print::cprintln!(
+				"<r>One or more extrinsics exceed the runtime's max extrinsic weight. Review the \
+				extrinsic logic and/or its benchmark function.</>\n"
+			);
+		}
 		if mode == SanityWeightCheck::Error {
 			return Err(io_error(
 				"sanity weight check failed: one or more extrinsics exceed the max extrinsic weight",
 			)
 			.into());
 		}
-	} else {
-		color_print::cprintln!("<g>All extrinsics passed the sanity weight check 😃!</>\n");
+	} else if !quiet {
+		color_print::cprintln!("<g>All extrinsics passed the sanity weight check.</>\n");
 	}
 
 	Ok(())

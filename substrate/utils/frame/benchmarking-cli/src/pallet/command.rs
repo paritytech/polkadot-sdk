@@ -805,7 +805,8 @@ impl PalletCmd {
 		runtime_block_limits: &RuntimeBlockLimits,
 	) -> Result<()> {
 		// Jsonify the result and write it to a file or stdout if desired.
-		if !self.jsonify(&batches)? && !self.quiet {
+		let json_to_stdout = self.jsonify(&batches)?;
+		if !json_to_stdout && !self.quiet {
 			// Print the summary only if `jsonify` did not write to stdout.
 			self.print_summary(&batches, &storage_info, pov_modes.clone())
 		}
@@ -824,6 +825,9 @@ impl PalletCmd {
 			)?;
 		}
 
+		// Suppress the sanity check's stdout output when JSON has already been written there or
+		// `--quiet` is set; the check still runs and still returns `Err` on `Error` mode, just
+		// without polluting machine-readable output.
 		writer::sanity_weight_check(
 			&batches,
 			&storage_info,
@@ -832,6 +836,7 @@ impl PalletCmd {
 			self,
 			runtime_block_limits,
 			self.shared_params.sanity_weight_check,
+			json_to_stdout || self.quiet,
 		)?;
 
 		Ok(())
