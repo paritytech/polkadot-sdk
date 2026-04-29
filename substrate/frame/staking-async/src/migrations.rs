@@ -94,8 +94,7 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> OnRuntimeUpgrade
 			let balance = T::Currency::balance(&old);
 			weight.saturating_accrue(T::DbWeight::get().reads(1));
 			if !balance.is_zero() {
-				if let Err(e) =
-					T::Currency::transfer(&old, &new, balance, Preservation::Expendable)
+				if let Err(e) = T::Currency::transfer(&old, &new, balance, Preservation::Expendable)
 				{
 					log!(
 						error,
