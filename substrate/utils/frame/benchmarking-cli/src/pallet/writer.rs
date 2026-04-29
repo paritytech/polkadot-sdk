@@ -327,8 +327,7 @@ pub(crate) fn sanity_weight_check(
 			// Saturated arithmetic clamps to `Weight::MAX` on overflow. Surface that case
 			// explicitly: the check still flags it as a fail (via `>=` below), but the user
 			// deserves to know the displayed `total` is a clamp, not a real measurement.
-			let saturated =
-				total.ref_time() == u64::MAX || total.proof_size() == u64::MAX;
+			let saturated = total.ref_time() == u64::MAX || total.proof_size() == u64::MAX;
 			// Use `>=` instead of `>` so an extrinsic whose worst-case exactly fills the block is
 			// flagged. Combined with saturating arithmetic this also catches overflow cases where
 			// `total` saturates to `Weight::MAX`.
@@ -1845,10 +1844,8 @@ mod test {
 			)
 			.unwrap();
 			let data = mapped.values().next().unwrap()[0].clone();
-			let exact_total = worst_case_weight(
-				&data,
-				&RuntimeDbWeight { read: 25_000, write: 100_000 },
-			);
+			let exact_total =
+				worst_case_weight(&data, &RuntimeDbWeight { read: 25_000, write: 100_000 });
 			all.insert(("p".to_string(), "i".to_string()), vec![data]);
 			drop(all); // we just needed `mapped` to compute `exact_total`.
 
