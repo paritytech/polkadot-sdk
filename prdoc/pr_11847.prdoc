@@ -82,23 +82,18 @@ doc:
 
       `substrate/frame/revive/src/migrations/v4.rs`
 
-      Existing chains have storage deposits already held in DOT. The migration moves
-      existing deposits over to the new accounting in two phases:
+      Three phases:
 
-      **Phase 1** iterates `CodeInfoOf` and for each uploaded code credits the uploader's
-      existing `CodeUploadDepositReserve` DOT hold into
-      `NativeDepositOf[pallet_account][owner]`. This is needed so code-upload deposits can
-      still be refunded in DOT once the PGAS path is live.
-
-      **Phase 2** iterates `AccountInfoOf` and for each contract calls
-      `Deposit::migrate_native_to_pgas`, which:
-
-      1. Burns the native `StorageDepositReserve` hold from the contract.
-      2. Mints the same amount of PGAS into the contract.
-      3. Places the minted PGAS on hold under the same reason.
-
-      Pre-PR DOT deposits weren't tracked per-contributor, so leaving them as DOT would
-      let users harvest free DOT by refunding against deposits they never paid.
+      1. `CodeInfoOf` -> credit each uploader's existing `CodeUploadDepositReserve` DOT
+         hold into `NativeDepositOf[pallet_account][owner]` so code-upload deposits remain
+         refundable in DOT.
+      2. `AccountInfoOf` -> burn each contract's native `StorageDepositReserve` hold and
+         re-mint the same amount as PGAS held under the same reason. Without this,
+         per-contributor accounting wouldn't exist for legacy holds and users could
+         harvest free DOT by refunding deposits they never paid.
+      3. `DeletionQueue` -> rewrite each legacy `TrieId`-only entry into the new
+         `DeletionQueueItem { trie_id, account_id }` format (zero-account placeholder; the
+         on_idle drainer clears an empty `NativeDepositOf` prefix on it).
 crates:
   - name: pallet-revive
     bump: major
