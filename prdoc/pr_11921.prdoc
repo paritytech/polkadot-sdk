@@ -26,3 +26,9 @@ crates:
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
+- name: kitchensink-runtime
+  bump: patch
+- name: pallet-psm-remote-tests
+  bump: major
+- name: remote-ext-tests-psm
+  bump: patch
