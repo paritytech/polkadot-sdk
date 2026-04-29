@@ -248,14 +248,18 @@ pub struct BenchmarkMetadata {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct RuntimeBlockLimits {
 	/// Maximum weight an extrinsic of `DispatchClass::Normal` can have in a block.
-	pub max_extrinsic_weight: Weight,
+	///
+	/// `None` when the runtime has no per-extrinsic cap configured for this class — the CLI
+	/// skips the sanity check in that case rather than producing a vacuous pass against
+	/// `Weight::MAX`.
+	pub max_extrinsic_weight: Option<Weight>,
 	/// Per-operation database read/write weight cost configured by the runtime.
 	pub db_weight: RuntimeDbWeight,
 }
 
 impl RuntimeBlockLimits {
 	/// Construct a new `RuntimeBlockLimits`.
-	pub fn new(max_extrinsic_weight: Weight, db_weight: RuntimeDbWeight) -> Self {
+	pub fn new(max_extrinsic_weight: Option<Weight>, db_weight: RuntimeDbWeight) -> Self {
 		Self { max_extrinsic_weight, db_weight }
 	}
 }

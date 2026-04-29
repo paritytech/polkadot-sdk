@@ -2741,8 +2741,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 			let max_extrinsic_weight = RuntimeBlockWeights::get()
 				.per_class
 				.get(DispatchClass::Normal)
-				.max_extrinsic
-				.unwrap_or(Weight::MAX);
+				.max_extrinsic;
 			let db_weight = <Self as frame_system::Config>::DbWeight::get();
 			frame_benchmarking::RuntimeBlockLimits::new(max_extrinsic_weight, db_weight)
 		}

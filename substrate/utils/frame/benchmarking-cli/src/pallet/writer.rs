@@ -274,16 +274,19 @@ pub(crate) fn sanity_weight_check(
 		return Ok(());
 	}
 
-	// Runtime explicitly returned `Weight::MAX` for `max_extrinsic`, meaning the runtime did not
-	// configure a per-extrinsic cap for `DispatchClass::Normal`. There is nothing to compare
-	// against, so skip with a warning rather than producing a vacuous pass.
-	if limits.max_extrinsic_weight == Weight::MAX {
-		log::warn!(
-			target: LOG_TARGET,
-			"Skipping sanity weight check: runtime has no `max_extrinsic` configured for `DispatchClass::Normal`.",
-		);
-		return Ok(());
-	}
+	// Runtime returned `None` for `max_extrinsic`, meaning it has no per-extrinsic cap configured
+	// for `DispatchClass::Normal`. There is nothing to compare against, so skip with a warning
+	// rather than producing a vacuous pass.
+	let max_extrinsic_weight = match limits.max_extrinsic_weight {
+		Some(w) => w,
+		None => {
+			log::warn!(
+				target: LOG_TARGET,
+				"Skipping sanity weight check: runtime has no `max_extrinsic` configured for `DispatchClass::Normal`.",
+			);
+			return Ok(());
+		},
+	};
 
 	let analysis_choice: AnalysisChoice =
 		cmd.output_analysis.clone().try_into().map_err(io_error)?;
@@ -320,8 +323,8 @@ pub(crate) fn sanity_weight_check(
 			// Use `>=` instead of `>` so an extrinsic whose worst-case exactly fills the block is
 			// flagged. Combined with saturating arithmetic this also catches overflow cases where
 			// `total` saturates to `Weight::MAX`.
-			let exceeds_ref_time = total.ref_time() >= limits.max_extrinsic_weight.ref_time();
-			let exceeds_proof_size = total.proof_size() >= limits.max_extrinsic_weight.proof_size();
+			let exceeds_ref_time = total.ref_time() >= max_extrinsic_weight.ref_time();
+			let exceeds_proof_size = total.proof_size() >= max_extrinsic_weight.proof_size();
 			if exceeds_ref_time || exceeds_proof_size {
 				failed = true;
 				if !quiet {
@@ -334,10 +337,10 @@ pub(crate) fn sanity_weight_check(
 			}
 			if !quiet {
 				let ref_time_pct = (total.ref_time() as f64 /
-					limits.max_extrinsic_weight.ref_time().max(1) as f64) *
+					max_extrinsic_weight.ref_time().max(1) as f64) *
 					100.0;
 				let proof_size_pct = (total.proof_size() as f64 /
-					limits.max_extrinsic_weight.proof_size().max(1) as f64) *
+					max_extrinsic_weight.proof_size().max(1) as f64) *
 					100.0;
 				color_print::cprintln!(
 					"- <s>{}</>: {:?}\n  ref_time {:.2}% / proof_size {:.2}% of max extrinsic weight\n",
@@ -1630,8 +1633,7 @@ mod test {
 		#[test]
 		fn empty_runtime_block_limits_is_default() {
 			let limits = RuntimeBlockLimits::default();
-			assert_eq!(limits.max_extrinsic_weight.ref_time(), 0);
-			assert_eq!(limits.max_extrinsic_weight.proof_size(), 0);
+			assert_eq!(limits.max_extrinsic_weight, None);
 			assert_eq!(limits.db_weight.read, 0);
 			assert_eq!(limits.db_weight.write, 0);
 		}
