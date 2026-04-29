@@ -69,12 +69,7 @@ pub enum Funds<'a, AccountId> {
 
 /// Payment backend used to charge storage deposits.
 pub trait Deposit<T: Config>: sealed::Sealed {
-	/// Mint each backend's existential deposit into `contract` so its native (and, for the PGAS
-	/// backend, its PGAS) asset account is alive. The native ED is freshly minted and immediately
-	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
-	/// active issuance, and therefore opengov conviction, inflation accounting, etc., is
-	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
-	/// exists, so this minted ED is not extractable: the account cannot be reaped.
+	/// Mint each backend's existential deposit into `contract`.
 	///
 	/// Used by [`crate::exec`] when bringing a new contract account into existence.
 	fn init_contract(contract: &T::AccountId) -> DispatchResult;
@@ -100,9 +95,6 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 	/// Refund `amount` of held funds from contract `from`.
 	///
-	/// The PGAS portion (if any) is always settled to the account embedded in `dst` under
-	/// `PGasDeposit`'s `RefundPercent`.
-	///
 	/// # Parameters
 	/// - `reason`: hold reason the funds were placed under.
 	/// - `from`: contract whose hold is being released.
@@ -123,7 +115,7 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// - `who`: account whose held balance is returned.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T>;
 
-	/// Release every storage-deposit fund held on `from` to `dst`, ignoring the per-contributor
+	/// Refund every storage-deposit fund held on `from` to `dst`, ignoring the per-contributor
 	/// caps that govern partial refunds. Used at contract termination.
 	///
 	/// Returns the total amount released, so the storage meter can finalise its deposit
@@ -132,13 +124,17 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 	/// # Parameters
 	/// - `from`: contract whose hold is being released.
 	/// - `dst`: destination of the refund. See [`Funds`].
-	fn release_all(
+	fn refund_all(
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 	) -> Result<BalanceOf<T>, DispatchError>;
 
 	/// Burn the native currency held on `contract` under `reason` and replace it with the same
 	/// amount of PGAS, minted into `contract` and placed on hold under the same reason.
+	///
+	/// Only used by the v4 multi-block migration (see [`crate::migrations::v4`]) to move
+	/// pre-existing native storage deposits over to PGAS. Not part of the regular charge/refund
+	/// flow.
 	///
 	/// # Parameters
 	/// - `reason`: hold reason whose balance is being migrated.
@@ -153,11 +149,14 @@ pub trait Deposit<T: Config>: sealed::Sealed {
 
 /// Default backend: every storage deposit charge goes through the native currency.
 impl<T: Config> Deposit<T> for () {
+	/// The native ED is freshly minted and immediately
+	/// [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so that
+	/// active issuance, and therefore opengov conviction, inflation accounting, etc., is
+	/// undisturbed by contract creation. The contract holds a system consumer for as long as it
+	/// exists, so this minted ED is not extractable: the account cannot be reaped.
 	fn init_contract(to: &T::AccountId) -> DispatchResult {
 		let ed = T::Currency::minimum_balance();
 		T::Currency::mint_into(to, ed)?;
-		// The minted ED is not a user claim and should not inflate the active issuance
-		// that opengov uses for quorum/turnout maths.
 		T::Currency::deactivate(ed);
 		Ok(())
 	}
@@ -244,7 +243,7 @@ impl<T: Config> Deposit<T> for () {
 		T::Currency::balance_on_hold(&reason.into(), who)
 	}
 
-	fn release_all(
+	fn refund_all(
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 	) -> Result<BalanceOf<T>, DispatchError> {
@@ -387,7 +386,8 @@ where
 	/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from
 	/// PGAS with `RefundPercent` refunded and the rest burned. When `dst` is [`Funds::TxFee`],
 	/// the native portion is routed into the tx fee pool instead of the embedded account's
-	/// free balance.
+	/// free balance. The PGAS portion (if any) is always settled to the account embedded in
+	/// `dst`.
 	fn refund_on_hold(
 		reason: HoldReason,
 		from: &T::AccountId,
@@ -431,14 +431,18 @@ where
 		native_held.saturating_add(pgas_held)
 	}
 
-	/// Refunds the full native hold to `dst` ignoring the per-contributor cap, then burns the
-	/// full PGAS hold. The cap and the `RefundPercent` only make sense for partial refunds on
-	/// a live contract; at termination there is one recipient and the contract is gone.
-	fn release_all(
+	/// Refunds the full native hold to `dst` ignoring the per-contributor cap, then settles the
+	/// PGAS hold via [`Self::settle_pgas_refund`] (refunding `RefundPercent` to `dst` and burning
+	/// the rest). The native cap only makes sense for partial refunds on a live contract; at
+	/// termination there is one recipient and the contract is gone.
+	fn refund_all(
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 	) -> Result<BalanceOf<T>, DispatchError> {
 		let reason = HoldReason::StorageDepositReserve;
+		let to = match &dst {
+			Funds::Balance(to) | Funds::TxFee(to) => *to,
+		};
 		with_storage_layer(|| {
 			let native = <() as Deposit<T>>::total_on_hold(reason, from);
 			if !native.is_zero() {
@@ -451,14 +455,7 @@ where
 				from,
 			);
 			if !pgas.is_zero() {
-				<Holder as fungibles::MutateHold<T::AccountId>>::burn_held(
-					Id::get(),
-					&reason.into(),
-					from,
-					pgas,
-					Precision::Exact,
-					Fortitude::Polite,
-				)?;
+				Self::settle_pgas_refund::<T>(reason, from, to, pgas)?;
 			}
 
 			Ok(native.saturating_add(pgas))

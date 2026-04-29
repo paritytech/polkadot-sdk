@@ -388,16 +388,12 @@ fn minted_contract_native_ed_not_extractable_with_consumer() {
 }
 
 /// A contract whose storage was paid for by two different signers, both via the native
-/// fallback path, can still be terminated. Before [`Deposit::release_all`] was introduced this
-/// scenario silently failed: `do_terminate` asked `refund_on_hold` to refund the FULL
-/// `total_on_hold` to the terminator alone, the per-payer [`NativeDepositOf`] cap forced the
-/// remainder onto the PGAS settlement path, and `Precision::Exact` against a zero PGAS hold
-/// rolled the whole termination back. `release_all` removes the cap (one recipient at
-/// termination) and bypasses the PGAS-refund accounting (the contract is gone), so the full
-/// native hold goes to the terminator and any PGAS hold is burned.
+/// fallback path, can still be terminated. [`Deposit::refund_all`] bypasses the per-payer
+/// [`NativeDepositOf`] cap (one recipient at termination, contract gone), so the full native
+/// hold goes to the terminator and any PGAS hold is settled via `settle_pgas_refund`.
 #[test_case(FixtureType::Solc)]
 #[test_case(FixtureType::Resolc)]
-fn release_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
+fn refund_all_drains_multi_contributor_native_hold(fixture_type: FixtureType) {
 	let (code, _) = compile_module_with_type("MultiContributorStorage", fixture_type).unwrap();
 	ExtBuilder::default().build().execute_with(|| {
 		Balances::set_balance(&ALICE, 100_000_000_000);
@@ -547,4 +543,65 @@ fn refund_to_user_without_entitlement_does_not_revert() {
 		refund: 80,
 		expected_after_refund: after_charge,
 	});
+}
+
+/// Code upload and removal with the uploader holding only PGAS.
+/// Exercises [`crate::vm::ContractBlob::store_code`] / [`crate::vm::ContractBlob::remove`]
+/// against the [`PGasDeposit`] backend. Surfaces any issue from the pallet account not
+/// having a pre-existing PGAS asset account.
+#[test]
+fn code_upload_and_remove_with_pgas() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+	ExtBuilder::default()
+		.with_pgas_balances(vec![(ALICE, 10_000_000)])
+		.build()
+		.execute_with(|| {
+			Balances::set_balance(&ALICE, 0);
+			let pallet_account = crate::Pallet::<Test>::account_id();
+
+			assert_ok!(Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				binary,
+				crate::test_utils::deposit_limit::<Test>(),
+			));
+
+			let info = crate::CodeInfoOf::<Test>::get(&code_hash).unwrap();
+			let deposit = info.deposit();
+
+			assert_eq!(
+				AssetsHolder::balance_on_hold(
+					PGAS_ASSET_ID,
+					&HoldReason::CodeUploadDepositReserve.into(),
+					&pallet_account,
+				),
+				deposit,
+				"deposit held in PGAS on the pallet account",
+			);
+			assert_eq!(
+				NativeDepositOf::<Test>::get(&pallet_account, &ALICE),
+				0,
+				"PGAS path does not record a native entitlement",
+			);
+
+			let pgas_before_remove = Assets::balance(PGAS_ASSET_ID, &ALICE);
+			assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+			let pgas_after_remove = Assets::balance(PGAS_ASSET_ID, &ALICE);
+
+			let refund_pct = crate::tests::PGasRefundPercent::get();
+			let expected_refund = refund_pct.mul_floor(deposit);
+			assert_eq!(
+				pgas_after_remove - pgas_before_remove,
+				expected_refund,
+				"PGAS partial refund credited to uploader",
+			);
+			assert_eq!(
+				AssetsHolder::balance_on_hold(
+					PGAS_ASSET_ID,
+					&HoldReason::CodeUploadDepositReserve.into(),
+					&pallet_account,
+				),
+				0,
+				"hold released",
+			);
+		});
 }

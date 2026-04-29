@@ -2787,6 +2787,12 @@ mod benchmarks {
 		{
 			let _ = v4::Migration::<T>::step_once(cursor);
 		}
+
+		assert_eq!(
+			NativeDepositOf::<T>::get(&pallet_account, &owner),
+			deposit + deposit,
+			"both code uploads credited to owner",
+		);
 	}
 
 	/// One iteration of v4 phase 2: burn native hold, mint and hold PGAS for a single contract.
@@ -2834,6 +2840,19 @@ mod benchmarks {
 		{
 			let _ = v4::Migration::<T>::step_once(cursor);
 		}
+
+		for byte in [0x41u8, 0x42u8] {
+			let addr = H160::from([byte; 20]);
+			let contract_account = T::AddressMapper::to_account_id(&addr);
+			assert_eq!(
+				T::Currency::balance_on_hold(
+					&HoldReason::StorageDepositReserve.into(),
+					&contract_account,
+				),
+				0u32.into(),
+				"native storage deposit burned for {addr:?}",
+			);
+		}
 	}
 
 	/// One iteration of v4 phase 3: rewrite a legacy [`v4::old::DeletionQueue`] entry into the
@@ -2862,6 +2881,11 @@ mod benchmarks {
 		{
 			let _ = v4::Migration::<T>::step_once(cursor);
 		}
+
+		assert!(
+			DeletionQueue::<T>::get(0u32).is_some() && DeletionQueue::<T>::get(1u32).is_some(),
+			"both legacy entries rewritten into the new format",
+		);
 	}
 
 	/// Helper function to create a test signer for finalize_block benchmark

@@ -1724,10 +1724,8 @@ where
 
 		let mut delete_contract = |trie_id: &TrieId, code_hash: &H256| {
 			// deposit needs to be removed as it adds a consumer
-			let refund = T::Deposit::release_all(
-				&contract_account,
-				exec_config.funds(origin.account_id()?),
-			)?;
+			let refund =
+				T::Deposit::refund_all(&contract_account, exec_config.funds(origin.account_id()?))?;
 
 			// we added this consumer manually when instantiating
 			System::<T>::dec_consumers(&contract_account);

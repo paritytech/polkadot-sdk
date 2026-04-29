@@ -52,7 +52,7 @@ use frame_support::{
 };
 use scale_info::TypeInfo;
 use sp_core::{H160, H256};
-use sp_runtime::traits::Saturating;
+use sp_runtime::traits::{Saturating, TrailingZeroInput};
 
 extern crate alloc;
 
@@ -134,16 +134,19 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			per_contract.insert(addr, total);
 		}
 
-		Ok((per_owner, per_contract).encode())
+		let deletion_queue: BTreeMap<u32, TrieId> = old::DeletionQueue::<T>::iter().collect();
+
+		Ok((per_owner, per_contract, deletion_queue).encode())
 	}
 
 	#[cfg(feature = "try-runtime")]
 	fn post_upgrade(prev: Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
 		use crate::deposit_payment::Deposit;
 
-		let (per_owner, per_contract) = <(
+		let (per_owner, per_contract, deletion_queue) = <(
 			BTreeMap<T::AccountId, BalanceOf<T>>,
 			BTreeMap<H160, BalanceOf<T>>,
+			BTreeMap<u32, TrieId>,
 		)>::decode(&mut &prev[..])
 		.expect("Failed to decode pre_upgrade state");
 
@@ -163,6 +166,18 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			assert_eq!(
 				total, expected,
 				"v4: contract {addr:?} total_on_hold changed: {total:?} != pre-migration {expected:?}",
+			);
+		}
+
+		let zero_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+			.expect("zero input decodes to a valid AccountId; qed");
+		for (key, trie_id) in deletion_queue {
+			let got = DeletionQueue::<T>::get(key);
+			let expected = DeletionQueueItem::<T>::new(trie_id, zero_account.clone());
+			assert_eq!(
+				got,
+				Some(expected),
+				"v4: DeletionQueue[{key}] not rewritten into the new format",
 			);
 		}
 		Ok(())
@@ -260,9 +275,8 @@ impl<T: Config> Migration<T> {
 		let (key, trie_id) = iter.next()?;
 		// Same physical slot as `old::DeletionQueue`; the insert overwrites the legacy value
 		// with the new encoding.
-		let zero_bytes = alloc::vec![0u8; <T::AccountId as MaxEncodedLen>::max_encoded_len()];
-		let zero_account = T::AccountId::decode(&mut &zero_bytes[..])
-			.expect("zero bytes decode to a valid AccountId; qed");
+		let zero_account = T::AccountId::decode(&mut TrailingZeroInput::zeroes())
+			.expect("zero input decodes to a valid AccountId; qed");
 		DeletionQueue::<T>::insert(key, DeletionQueueItem::<T>::new(trie_id, zero_account));
 		Some(key)
 	}
