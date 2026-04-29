@@ -18,7 +18,10 @@
 //! Interfaces, types and utils for benchmarking a FRAME runtime.
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use frame_support::{dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo};
+use frame_support::{
+	dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, traits::StorageInfo,
+	weights::RuntimeDbWeight,
+};
 use scale_info::TypeInfo;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
@@ -241,9 +244,18 @@ pub struct BenchmarkMetadata {
 	pub pov_modes: Vec<(Vec<u8>, Vec<u8>)>,
 }
 
+/// Runtime-level weight limits exposed to the benchmarking CLI for the sanity check.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub struct RuntimeBlockLimits {
+	/// Maximum weight an extrinsic of `DispatchClass::Normal` can have in a block.
+	pub max_extrinsic_weight: Weight,
+	/// Per-operation database read/write weight cost configured by the runtime.
+	pub db_weight: RuntimeDbWeight,
+}
+
 sp_api::decl_runtime_apis! {
 	/// Runtime api for benchmarking a FRAME runtime.
-	#[api_version(2)]
+	#[api_version(3)]
 	pub trait Benchmark {
 		/// Get the benchmark metadata available for this runtime.
 		///
@@ -254,6 +266,9 @@ sp_api::decl_runtime_apis! {
 
 		/// Dispatch the given benchmark.
 		fn dispatch_benchmark(config: BenchmarkConfig) -> Result<Vec<BenchmarkBatch>, alloc::string::String>;
+
+		/// Runtime block-level weight limits used by the CLI's sanity weight check.
+		fn runtime_block_limits() -> RuntimeBlockLimits;
 	}
 }
 
