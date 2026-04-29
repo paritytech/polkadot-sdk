@@ -46,8 +46,8 @@ mod sealed {
 
 	impl Sealed for () {}
 
-	impl<Mutator, Holder, Id, RefundPercent> Sealed
-		for PGasDeposit<Mutator, Holder, Id, RefundPercent>
+	impl<T, Mutator, Holder, Id, RefundPercent> Sealed
+		for PGasDeposit<T, Mutator, Holder, Id, RefundPercent>
 	{
 	}
 }
@@ -270,40 +270,12 @@ impl<T: Config> Deposit<T> for () {
 /// PGAS-backed payment backend. Charges prefer PGAS and fall back to the native currency;
 /// refunds return native first (capped by [`NativeDepositOf`]) then `RefundPercent` of the
 /// PGAS portion, burning the rest.
-pub struct PGasDeposit<Mutator, Holder, Id, RefundPercent>(
-	PhantomData<(Mutator, Holder, Id, RefundPercent)>,
+pub struct PGasDeposit<T, Mutator, Holder, Id, RefundPercent>(
+	PhantomData<(T, Mutator, Holder, Id, RefundPercent)>,
 );
 
-impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, RefundPercent> {
-	fn pgas_reducible_balance<T>(who: &T::AccountId) -> BalanceOf<T>
-	where
-		T: Config,
-		Mutator: fungibles::Inspect<T::AccountId, Balance = BalanceOf<T>>,
-		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
-	{
-		<Mutator as fungibles::Inspect<T::AccountId>>::reducible_balance(
-			Id::get(),
-			who,
-			Preservation::Expendable,
-			Fortitude::Polite,
-		)
-	}
-
-	/// Record that user `from` contributed `amount` in native balance to contract `to`.
-	/// Read by [`Self::refund_on_hold`] to cap the native portion of refunds.
-	fn record_native_deposit<T: Config>(
-		from: &T::AccountId,
-		to: &T::AccountId,
-		amount: BalanceOf<T>,
-	) {
-		NativeDepositOf::<T>::mutate(to, from, |entitlement| {
-			*entitlement = entitlement.saturating_add(amount);
-		});
-	}
-}
-
 impl<T, Mutator, Holder, Id, RefundPercent> Deposit<T>
-	for PGasDeposit<Mutator, Holder, Id, RefundPercent>
+	for PGasDeposit<T, Mutator, Holder, Id, RefundPercent>
 where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
@@ -365,7 +337,7 @@ where
 			Funds::Balance(from) | Funds::TxFee(from) => *from,
 		};
 
-		if Self::pgas_reducible_balance::<T>(from) >= amount {
+		if Self::pgas_reducible_balance(from) >= amount {
 			<Holder as fungibles::MutateHold<T::AccountId>>::transfer_and_hold(
 				Id::get(),
 				&reason.into(),
@@ -378,7 +350,7 @@ where
 			)?;
 		} else {
 			<() as Deposit<T>>::charge_and_hold(reason, src, to, amount)?;
-			Self::record_native_deposit::<T>(from, to, amount);
+			Self::record_native_deposit(from, to, amount);
 		}
 
 		Ok(())
@@ -417,18 +389,14 @@ where
 		};
 
 		let pgas_needed = amount.saturating_sub(native_refunded);
-		Self::settle_pgas_refund::<T>(reason, from, to, pgas_needed)?;
+		Self::settle_pgas_refund(reason, from, to, pgas_needed)?;
 		Ok(())
 	}
 
 	/// Sum of `who`'s native and PGAS balances on hold for `reason`.
 	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
 		let native_held = <() as Deposit<T>>::total_on_hold(reason, who);
-		let pgas_held = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
-			Id::get(),
-			&reason.into(),
-			who,
-		);
+		let pgas_held = Self::pgas_on_hold(reason, who);
 		native_held.saturating_add(pgas_held)
 	}
 
@@ -446,19 +414,11 @@ where
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
 		let native = <() as Deposit<T>>::refund_all(from, dst)?;
+		let reason = HoldReason::StorageDepositReserve;
 
-		let pgas = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
-			Id::get(),
-			&HoldReason::StorageDepositReserve.into(),
-			from,
-		);
-		let pgas_refunded = if !pgas.is_zero() {
-			Self::settle_pgas_refund::<T>(HoldReason::StorageDepositReserve, from, to, pgas)?
-		} else {
-			BalanceOf::<T>::zero()
-		};
-
-		Ok(native.saturating_add(pgas_refunded))
+		let pgas = Self::pgas_on_hold(reason, from);
+		let pgas = Self::settle_pgas_refund(reason, from, to, pgas)?;
+		Ok(native.saturating_add(pgas))
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
@@ -513,7 +473,44 @@ where
 	}
 }
 
-impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, RefundPercent> {
+impl<T, Mutator, Holder, Id, RefundPercent> PGasDeposit<T, Mutator, Holder, Id, RefundPercent>
+where
+	T: Config,
+	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
+	Holder: fungibles::MutateHold<
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
+	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
+	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
+	RefundPercent: Get<Perbill>,
+{
+	fn pgas_reducible_balance(who: &T::AccountId) -> BalanceOf<T> {
+		<Mutator as fungibles::Inspect<T::AccountId>>::reducible_balance(
+			Id::get(),
+			who,
+			Preservation::Expendable,
+			Fortitude::Polite,
+		)
+	}
+
+	fn pgas_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
+		<Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
+			Id::get(),
+			&reason.into(),
+			who,
+		)
+	}
+
+	/// Record that user `from` contributed `amount` in native balance to contract `to`.
+	/// Read by [`Self::refund_on_hold`] to cap the native portion of refunds.
+	fn record_native_deposit(from: &T::AccountId, to: &T::AccountId, amount: BalanceOf<T>) {
+		NativeDepositOf::<T>::mutate(to, from, |entitlement| {
+			*entitlement = entitlement.saturating_add(amount);
+		});
+	}
+
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
 	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
 	/// portion).
@@ -525,35 +522,19 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 	/// `amount` is capped at the PGAS actually held by `from`: when a recipient with no
 	/// [`NativeDepositOf`] credit triggers a refund on a contract whose deposit was paid in
 	/// native, the call settles whatever PGAS is actually held instead of reverting.
-	fn settle_pgas_refund<T>(
+	fn settle_pgas_refund(
 		reason: HoldReason,
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> Result<BalanceOf<T>, DispatchError>
-	where
-		T: Config,
-		Holder: fungibles::MutateHold<
-				T::AccountId,
-				Balance = BalanceOf<T>,
-				AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
-			>,
-		<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
-		Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
-		Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
-		RefundPercent: Get<Perbill>,
-	{
+	) -> Result<BalanceOf<T>, DispatchError> {
 		if amount.is_zero() {
 			return Ok(BalanceOf::<T>::zero());
 		}
 		// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
 		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
 		// otherwise route the full amount through PGAS and revert on `Precision::Exact`.
-		let pgas_held = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
-			Id::get(),
-			&reason.into(),
-			from,
-		);
+		let pgas_held = Self::pgas_on_hold(reason, from);
 		let amount = amount.min(pgas_held);
 		if amount.is_zero() {
 			return Ok(BalanceOf::<T>::zero());

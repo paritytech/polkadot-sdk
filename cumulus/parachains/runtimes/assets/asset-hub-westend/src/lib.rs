@@ -1347,7 +1347,8 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
-	type Deposit = pallet_revive::PGasDeposit<Assets, AssetsHolder, PGASAssetId, PGasRefundPercent>;
+	type Deposit =
+		pallet_revive::PGasDeposit<Runtime, Assets, AssetsHolder, PGASAssetId, PGasRefundPercent>;
 }
 
 impl pallet_vesting_precompiles::pallet::Config for Runtime {

@@ -436,7 +436,7 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
-	type Deposit = PGasDeposit<Assets, AssetsHolder, PGasAssetId, PGasRefundPercent>;
+	type Deposit = PGasDeposit<Test, Assets, AssetsHolder, PGasAssetId, PGasRefundPercent>;
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;
