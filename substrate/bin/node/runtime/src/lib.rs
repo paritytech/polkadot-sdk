@@ -3918,6 +3918,12 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 		fn retention_period() -> NumberFor<Block> {
 			TransactionStorage::retention_period()
 		}
+
+		fn indexed_transactions(
+			block: u32,
+		) -> Option<Vec<sp_transaction_storage_proof::runtime_api::IndexedTransactionInfo>> {
+			TransactionStorage::indexed_transactions(block.into())
+		}
 	}
 
 	#[cfg(feature = "try-runtime")]

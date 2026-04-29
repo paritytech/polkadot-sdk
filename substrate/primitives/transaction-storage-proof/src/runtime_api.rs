@@ -17,12 +17,41 @@
 
 //! Runtime API definition for the transaction storage proof processing.
 
+use alloc::vec::Vec;
+use codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use sp_runtime::traits::NumberFor;
+
+pub type ContentHash = [u8; 32];
+
+pub type CidCodec = u64;
+
+pub const RAW_CID_CODEC: CidCodec = 0x55;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[non_exhaustive]
+pub enum HashingAlgorithm {
+	Blake2b256,
+	Sha2_256,
+	Keccak256,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub struct IndexedTransactionInfo {
+	pub content_hash: ContentHash,
+	pub size: u32,
+	pub hashing: HashingAlgorithm,
+	pub cid_codec: CidCodec,
+}
 
 sp_api::decl_runtime_apis! {
 	/// Runtime API trait for transaction storage support.
+	#[api_version(2)]
 	pub trait TransactionStorageApi {
 		/// Get the actual value of a retention period in blocks.
 		fn retention_period() -> NumberFor<Block>;
+
+		/// Get indexed-transaction metadata for a block.
+		fn indexed_transactions(block: u32) -> Option<Vec<IndexedTransactionInfo>>;
 	}
 }
