@@ -1348,12 +1348,30 @@ parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 	pub FastUnstakeName: &'static str = "FastUnstake";
 	pub PsmName: &'static str = "Psm";
-	pub PsmDebtStorage: &'static str = "PsmDebt";
-	pub PsmMintingFeeStorage: &'static str = "MintingFee";
-	pub PsmRedemptionFeeStorage: &'static str = "RedemptionFee";
-	pub PsmMaxPsmDebtOfTotalStorage: &'static str = "MaxPsmDebtOfTotal";
-	pub PsmAssetCeilingWeightStorage: &'static str = "AssetCeilingWeight";
-	pub PsmExternalAssetsStorage: &'static str = "ExternalAssets";
+}
+
+/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v2.
+/// Required because `RemovePallet<PsmName>` (above in the migration tuple)
+/// wipes the pallet's `:__STORAGE_VERSION__:` key, and `InitializePsm` doesn't
+/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 2,
+/// on-chain = 0 and panics.
+pub struct SetPsmStorageVersionV2;
+impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV2 {
+	fn on_runtime_upgrade() -> Weight {
+		frame_support::traits::StorageVersion::new(2).put::<pallet_psm::Pallet<Runtime>>();
+		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::{ensure, traits::GetStorageVersion};
+		ensure!(
+			pallet_psm::Pallet::<Runtime>::on_chain_storage_version() ==
+				frame_support::traits::StorageVersion::new(2),
+			"PSM on-chain storage version was not set to 2"
+		);
+		Ok(())
+	}
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -1909,38 +1927,14 @@ pub type Migrations = (
 	// unreleased
 
 	// start: PSM reset
-	frame_support::migrations::RemoveStorage<
-		PsmName,
-		PsmDebtStorage,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
-	frame_support::migrations::RemoveStorage<
-		PsmName,
-		PsmMintingFeeStorage,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
-	frame_support::migrations::RemoveStorage<
-		PsmName,
-		PsmRedemptionFeeStorage,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
-	frame_support::migrations::RemoveStorage<
-		PsmName,
-		PsmMaxPsmDebtOfTotalStorage,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
-	frame_support::migrations::RemoveStorage<
-		PsmName,
-		PsmAssetCeilingWeightStorage,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
-	frame_support::migrations::RemoveStorage<
-		PsmName,
-		PsmExternalAssetsStorage,
-		<Runtime as frame_system::Config>::DbWeight,
-	>,
+
+	// `RemovePallet` wipes ALL of PSM's storage (entries + CountedStorageMap
+	// counters + the storage version key). `InitializePsm` then re-seeds data
+	// under the new `Location` AssetId, and `SetPsmStorageVersionV2` writes
+	// the on-chain storage version that `RemovePallet` cleared.
+	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
 	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
-	pallet_psm::migrations::PopulateDecimals<Runtime>,
+	SetPsmStorageVersionV2,
 	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
