@@ -8,10 +8,24 @@ use cumulus_zombienet_sdk_helpers::{submit_sudo_runtime_upgrade, wait_for_runtim
 use polkadot_primitives::MAX_CODE_SIZE;
 use serde_json::json;
 use zombienet_sdk::{
-	subxt::{OnlineClient, PolkadotConfig},
+	subxt::{
+		backend::rpc::reconnecting_rpc_client::RpcClient as ReconnectingRpcClient, OnlineClient,
+		PolkadotConfig,
+	},
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder,
 };
+
+/// Subxt's default JSON-RPC websocket message cap is 10 MiB. Submitting a `MAX_CODE_SIZE`
+/// runtime upgrade hex-encodes to over that. Build an `OnlineClient` with raised caps.
+async fn big_message_client(ws_uri: &str) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
+	let rpc = ReconnectingRpcClient::builder()
+		.max_request_size(25 * 1024 * 1024)
+		.max_response_size(25 * 1024 * 1024)
+		.build(ws_uri.to_string())
+		.await?;
+	Ok(OnlineClient::<PolkadotConfig>::from_rpc_client(rpc).await?)
+}
 
 const PARA_ID: u32 = 2000;
 
@@ -46,7 +60,10 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let network = initialize_network(config).await?;
 
 	let charlie = network.get_node("charlie")?;
-	let charlie_client: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
+	// Wait until the WS endpoint is reachable, then build a client with bumped message caps so
+	// a `MAX_CODE_SIZE` upgrade fits in the JSON-RPC payload.
+	let _: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
+	let charlie_client = big_message_client(charlie.ws_uri()).await?;
 
 	let current_spec_version =
 		charlie_client.backend().current_runtime_version().await?.spec_version;
