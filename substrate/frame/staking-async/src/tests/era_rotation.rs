@@ -617,28 +617,32 @@ fn era_pot_slots_collide_every_pool_size_eras() {
 	};
 
 	let base_era = 7u32;
-	let base_seed = seed_for(base_era, RewardKind::StakerRewards);
 
-	// All eras within one pool window must produce distinct seeds.
-	for offset in 1..POT_POOL_SIZE {
-		assert_ne!(
-			seed_for(base_era + offset, RewardKind::StakerRewards),
+	//distinct seeds within a pool window, collision exactly at distance `POT_POOL_SIZE`.
+	for kind in [RewardKind::StakerRewards, RewardKind::ValidatorSelfStake] {
+		let base_seed = seed_for(base_era, kind);
+
+		for offset in 1..POT_POOL_SIZE {
+			assert_ne!(
+				seed_for(base_era + offset, kind),
+				base_seed,
+				"{:?} pot at era +{} must not collide within the pool window",
+				kind,
+				offset,
+			);
+		}
+
+		assert_eq!(
+			seed_for(base_era + POT_POOL_SIZE, kind),
 			base_seed,
-			"era +{} should not collide with the base era within the pool window",
-			offset,
+			"{:?} pot at era +POT_POOL_SIZE must reuse the base era's slot",
+			kind,
 		);
 	}
 
-	// The era exactly `POT_POOL_SIZE` away wraps around to the same slot.
-	assert_eq!(
-		seed_for(base_era + POT_POOL_SIZE, RewardKind::StakerRewards),
-		base_seed,
-		"era +POT_POOL_SIZE must reuse the base era's slot",
-	);
-
 	// Within a single slot, different reward kinds must remain distinct.
 	assert_ne!(
-		base_seed,
+		seed_for(base_era, RewardKind::StakerRewards),
 		seed_for(base_era, RewardKind::ValidatorSelfStake),
 		"staker-rewards and incentive pots within the same slot must be distinct",
 	);
