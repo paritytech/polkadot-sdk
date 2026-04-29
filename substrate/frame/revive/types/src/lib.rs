@@ -22,8 +22,8 @@
 //!
 //! This crate hosts the stable client-facing types that `pallet-revive` shares with off-chain
 //! clients. [`crate::runtime_api`] contains the versioned input/output payload pairs and reusable
-//! nested types that flow across the runtime API boundary. [`crate::storage`] contains client-facing
-//! storage types.
+//! nested types that flow across the runtime API boundary. [`crate::storage`] contains
+//! client-facing storage types.
 //!
 //! Off-chain clients depend on this crate to build payloads, decode responses, and reason about
 //! which runtime API versions are supported by a given runtime; the pallet itself depends on it to
@@ -321,5 +321,6 @@
 
 extern crate alloc;
 
+pub mod common;
 pub mod runtime_api;
 pub mod storage;

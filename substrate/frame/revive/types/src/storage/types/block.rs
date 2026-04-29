@@ -25,12 +25,12 @@ use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
 define_versioned_type! {
-	/// Version 1 of the Ethereum block wire type returned by `pallet-revive`.
+	/// Version 1 of the pallet's stored Ethereum block payload.
 	#[derive(
 		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
-	pub struct BlockV1 {
+	pub struct EthBlockV1 {
 		/// Base fee per gas.
 		pub base_fee_per_gas: U256,
 		/// Blob gas used.
@@ -107,4 +107,78 @@ define_versioned_type! {
 		/// Validator index that generated the withdrawal.
 		pub validator_index: U256,
 	}
+}
+
+define_versioned_type! {
+	/// Version 1 of the `EthereumBlock` storage value.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(transparent)]
+	pub struct EthereumBlockV1(
+		/// Stored Ethereum block payload.
+		pub EthBlockV1,
+	);
+}
+
+define_versioned_type! {
+	/// Version 1 of the `BlockHash` storage value.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(transparent)]
+	pub struct BlockHashV1(
+		/// Block hash stored for one block number.
+		pub H256,
+	);
+}
+
+define_versioned_type! {
+	/// Version 1 of the gas data needed to reconstruct an Ethereum receipt.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	pub struct ReceiptGasInfoV1 {
+		/// The amount of gas used by one transaction.
+		pub gas_used: U256,
+		/// The effective gas price paid by one transaction.
+		pub effective_gas_price: U256,
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of the `ReceiptInfoData` storage value.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(transparent)]
+	pub struct ReceiptInfoDataV1(
+		/// Gas metadata for each receipt in the stored Ethereum block.
+		pub Vec<ReceiptGasInfoV1>,
+	);
+}
+
+define_versioned_type! {
+	/// Version 1 of the first encoded transaction and receipt cached by the block builder.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	pub struct BlockBuilderFirstValuesV1 {
+		/// SCALE-encoded first transaction inserted into the block builder.
+		pub first_transaction: Bytes,
+		/// SCALE-encoded first receipt inserted into the block builder.
+		pub first_receipt: Bytes,
+	}
+}
+
+define_versioned_type! {
+	/// Version 1 of the `EthBlockBuilderFirstValues` storage value.
+	#[derive(
+		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+	)]
+	#[serde(transparent)]
+	pub struct EthBlockBuilderFirstValuesV1(
+		/// Optional first transaction and receipt pair cached outside the builder IR.
+		pub Option<BlockBuilderFirstValuesV1>,
+	);
 }

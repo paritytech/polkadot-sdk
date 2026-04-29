@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::bytes::Bytes;
+use crate::common::Bytes;
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
 use ethereum_types::{Address, H256, U256};

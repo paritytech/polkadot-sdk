@@ -27,7 +27,6 @@
 //! [`define_versioned_type!`]: pallet_revive_proc_macro::define_versioned_type
 
 mod block;
-mod bytes;
 mod code;
 mod contract;
 mod errors;
@@ -42,7 +41,6 @@ mod transaction_signed;
 mod transaction_unsigned;
 
 pub use block::*;
-pub use bytes::*;
 pub use code::*;
 pub use contract::*;
 pub use errors::*;

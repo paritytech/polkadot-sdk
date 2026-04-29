@@ -15,8 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage-related client-facing types shared by `pallet-revive` and its off-chain clients.
+//! Stable types shared by the runtime API and storage client-facing surfaces.
 
-pub mod types;
+pub mod bytes;
 
-pub use types::*;
+pub use bytes::*;

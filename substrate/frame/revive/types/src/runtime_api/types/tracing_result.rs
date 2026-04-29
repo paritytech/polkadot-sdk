@@ -15,7 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{bytes::Bytes, tracing_common::CallTypeV1};
+use super::tracing_common::CallTypeV1;
+use crate::common::Bytes;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use codec::{Decode, Encode};
 use ethereum_types::{H160, H256, U256};

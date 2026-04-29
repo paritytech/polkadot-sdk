@@ -15,10 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use super::{
-	bytes::{Byte, Bytes},
-	transaction_signed::TransactionSignedV1,
-};
+use super::transaction_signed::TransactionSignedV1;
+use crate::common::{Byte, Bytes};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use ethereum_types::{Address, H256, U256};

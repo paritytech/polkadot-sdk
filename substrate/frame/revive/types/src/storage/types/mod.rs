@@ -15,8 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage-related client-facing types shared by `pallet-revive` and its off-chain clients.
+//! Client-facing models of pallet storage values shared by `pallet-revive` and off-chain clients.
+//!
+//! These types are owned by the storage surface even when a runtime API type currently has the
+//! same fields, so clients can evolve their storage decoding independently of the runtime API
+//! payload layer.
 
-pub mod types;
+mod block;
+mod bytes;
+mod code;
+mod contract;
+mod debug;
+mod queue;
+mod transaction;
 
-pub use types::*;
+pub use block::*;
+pub use bytes::*;
+pub use code::*;
+pub use contract::*;
+pub use debug::*;
+pub use queue::*;
+pub use transaction::*;
