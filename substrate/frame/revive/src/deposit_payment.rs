@@ -332,24 +332,20 @@ where
 		Ok(())
 	}
 
-	/// Burns the native ED minted by [`Self::init_contract`] (reactivating it first so the burn
-	/// doesn't also eat into active issuance) and burns the contract's full PGAS free balance.
-	/// Burning everything (rather than just the PGAS ED) ensures no PGAS lingers on a destroyed
-	/// contract: any free PGAS sent to it directly, or left over from accounting, is removed.
+	/// Burns the native ED minted by [`Self::init_contract`].
 	fn destroy_contract(contract: &T::AccountId) -> DispatchResult {
 		<() as Deposit<T>>::destroy_contract(contract)?;
-		let pgas_balance =
-			<Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
-		if !pgas_balance.is_zero() {
-			<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
-				Id::get(),
-				contract,
-				pgas_balance,
-				Preservation::Expendable,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)?;
-		}
+
+		let ed = <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
+		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
+			Id::get(),
+			contract,
+			ed,
+			Preservation::Expendable,
+			Precision::BestEffort,
+			Fortitude::Polite,
+		)?;
+
 		Ok(())
 	}
 
@@ -380,12 +376,12 @@ where
 				Preservation::Expendable,
 				Fortitude::Polite,
 			)?;
-			Ok(())
 		} else {
 			<() as Deposit<T>>::charge_and_hold(reason, src, to, amount)?;
 			Self::record_native_deposit::<T>(from, to, amount);
-			Ok(())
 		}
+
+		Ok(())
 	}
 
 	/// Refunds native currency first (capped by [`NativeDepositOf`]); any shortfall is taken from
@@ -446,7 +442,6 @@ where
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 	) -> Result<BalanceOf<T>, DispatchError> {
-		let reason = HoldReason::StorageDepositReserve;
 		let to = match &dst {
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
@@ -454,11 +449,11 @@ where
 
 		let pgas = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
 			Id::get(),
-			&reason.into(),
+			&HoldReason::StorageDepositReserve.into(),
 			from,
 		);
 		let pgas_refunded = if !pgas.is_zero() {
-			Self::settle_pgas_refund::<T>(reason, from, to, pgas)?
+			Self::settle_pgas_refund::<T>(HoldReason::StorageDepositReserve, from, to, pgas)?
 		} else {
 			BalanceOf::<T>::zero()
 		};
