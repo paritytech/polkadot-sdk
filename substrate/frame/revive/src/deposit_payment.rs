@@ -280,7 +280,7 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 		<Mutator as fungibles::Inspect<T::AccountId>>::reducible_balance(
 			Id::get(),
 			who,
-			Preservation::Preserve,
+			Preservation::Expendable,
 			Fortitude::Polite,
 		)
 	}
@@ -371,7 +371,7 @@ where
 				to,
 				amount,
 				Precision::Exact,
-				Preservation::Preserve,
+				Preservation::Expendable,
 				Fortitude::Polite,
 			)?;
 			Ok(())
@@ -443,21 +443,20 @@ where
 			Funds::Balance(to) | Funds::TxFee(to) => *to,
 		};
 		with_storage_layer(|| {
-			let native = <() as Deposit<T>>::total_on_hold(reason, from);
-			if !native.is_zero() {
-				<() as Deposit<T>>::refund_on_hold(reason, from, dst, native)?;
-			}
+			let native = <() as Deposit<T>>::refund_all(from, dst)?;
 
 			let pgas = <Holder as fungibles::InspectHold<T::AccountId>>::balance_on_hold(
 				Id::get(),
 				&reason.into(),
 				from,
 			);
-			if !pgas.is_zero() {
-				Self::settle_pgas_refund::<T>(reason, from, to, pgas)?;
-			}
+			let pgas_refunded = if !pgas.is_zero() {
+				Self::settle_pgas_refund::<T>(reason, from, to, pgas)?
+			} else {
+				BalanceOf::<T>::zero()
+			};
 
-			Ok(native.saturating_add(pgas))
+			Ok(native.saturating_add(pgas_refunded))
 		})
 	}
 
@@ -515,7 +514,8 @@ where
 
 impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, RefundPercent> {
 	/// Refund `RefundPercent` of `amount` from `from`'s PGAS hold to `to`'s free balance and
-	/// burn the rest.
+	/// burn the rest. Returns the amount actually transferred to `to` (excludes the burned
+	/// portion).
 	///
 	/// If crediting `to` would violate its existential deposit (e.g. `to` has no asset
 	/// account and the refund would create one below ED), the refund portion is folded into
@@ -529,7 +529,7 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 		from: &T::AccountId,
 		to: &T::AccountId,
 		amount: BalanceOf<T>,
-	) -> DispatchResult
+	) -> Result<BalanceOf<T>, DispatchError>
 	where
 		T: Config,
 		Holder: fungibles::MutateHold<
@@ -543,7 +543,7 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 		RefundPercent: Get<Perbill>,
 	{
 		if amount.is_zero() {
-			return Ok(());
+			return Ok(BalanceOf::<T>::zero());
 		}
 		// Cap the amount we settle at what's actually held in PGAS. A refund recipient with
 		// no `NativeDepositOf` credit on a contract whose deposit was paid in native would
@@ -555,10 +555,11 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 		);
 		let amount = amount.min(pgas_held);
 		if amount.is_zero() {
-			return Ok(());
+			return Ok(BalanceOf::<T>::zero());
 		}
 		let refund = RefundPercent::get().mul_floor(amount);
 		let mut burn = amount.saturating_sub(refund);
+		let mut refunded = BalanceOf::<T>::zero();
 
 		if !refund.is_zero() {
 			let can_credit = matches!(
@@ -571,7 +572,7 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 				DepositConsequence::Success
 			);
 			if can_credit {
-				<Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
+				refunded = <Holder as fungibles::MutateHold<T::AccountId>>::transfer_on_hold(
 					Id::get(),
 					&reason.into(),
 					from,
@@ -596,6 +597,6 @@ impl<Mutator, Holder, Id, RefundPercent> PGasDeposit<Mutator, Holder, Id, Refund
 				Fortitude::Polite,
 			)?;
 		}
-		Ok(())
+		Ok(refunded)
 	}
 }
