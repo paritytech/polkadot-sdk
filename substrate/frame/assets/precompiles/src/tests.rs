@@ -687,4 +687,3 @@ fn delegatecall_is_rejected() {
 		assert!(!ret.success, "DELEGATECALL to asset precompile must be rejected");
 	});
 }
-

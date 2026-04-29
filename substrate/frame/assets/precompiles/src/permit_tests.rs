@@ -857,17 +857,8 @@ mod precompile {
 		deadline: AlloyU256,
 	) {
 		let (v, r, s) = sign_permit(asset_addr, spender, value, deadline);
-		let result = raw_permit(
-			submitter,
-			asset_addr,
-			HARDHAT_ACCOUNT_0,
-			spender,
-			value,
-			deadline,
-			v,
-			r,
-			s,
-		);
+		let result =
+			raw_permit(submitter, asset_addr, HARDHAT_ACCOUNT_0, spender, value, deadline, v, r, s);
 		assert!(result.result.is_ok(), "permit precompile call failed: {:?}", result);
 		assert!(!result.result.unwrap().did_revert(), "permit call reverted");
 	}
@@ -956,10 +947,19 @@ mod precompile {
 			let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
 
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::zero());
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero()
+			);
 
 			// 0 → 100: fresh approval.
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(100), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(100),
+				deadline,
+			);
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
 			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::one());
@@ -976,7 +976,10 @@ mod precompile {
 			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(0), deadline);
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 0);
 			assert_eq!(Balances::reserved_balance(&owner_account), 0);
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::from(2));
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::from(2)
+			);
 			assert_contract_event(
 				asset_addr,
 				IERC20Events::Approval(IERC20::Approval {
@@ -987,10 +990,19 @@ mod precompile {
 			);
 
 			// 0 → 50: fresh approval again.
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(50), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(50),
+				deadline,
+			);
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 50);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::from(3));
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::from(3)
+			);
 			assert_contract_event(
 				asset_addr,
 				IERC20Events::Approval(IERC20::Approval {
@@ -1062,17 +1074,35 @@ mod precompile {
 			let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
 			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
 
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(100), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(100),
+				deadline,
+			);
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
 
 			// 100 → 50, no zeroing in between.
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(50), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(50),
+				deadline,
+			);
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 50);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
 
 			// 50 → 200: confirm both directions.
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(200), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(200),
+				deadline,
+			);
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 200);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
 		});
@@ -1185,7 +1215,10 @@ mod precompile {
 
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::zero());
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero()
+			);
 		});
 	}
 
@@ -1385,7 +1418,10 @@ mod precompile {
 				s,
 			);
 			assert_permit_reverted_with(result, "Signer does not match owner");
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::zero());
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero()
+			);
 		});
 	}
 
@@ -1474,7 +1510,13 @@ mod precompile {
 			pallet_timestamp::Pallet::<Test>::set_timestamp(now_seconds * 1_000);
 
 			let deadline = AlloyU256::from(now_seconds);
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(100), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(100),
+				deadline,
+			);
 
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
 			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::one());
@@ -1518,7 +1560,10 @@ mod precompile {
 				[0u8; 32],
 			);
 			assert_permit_reverted_with(result, "Invalid signature");
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::zero());
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero()
+			);
 			assert_no_contract_event_from(asset_addr);
 		});
 	}
@@ -1536,13 +1581,7 @@ mod precompile {
 			let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
 			let deployer = 555u64;
 			Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
-			assert_ok!(Assets::force_create(
-				RuntimeOrigin::root(),
-				asset_id,
-				deployer,
-				true,
-				1
-			));
+			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, deployer, true, 1));
 
 			let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
 				"Caller",
@@ -1623,8 +1662,7 @@ mod precompile {
 			fund_submitter(submitter);
 
 			let read_nonce = |asset_addr: H160| -> AlloyU256 {
-				let data =
-					IERC20::noncesCall { owner: HARDHAT_ACCOUNT_0.0.into() }.abi_encode();
+				let data = IERC20::noncesCall { owner: HARDHAT_ACCOUNT_0.0.into() }.abi_encode();
 				let bytes = pallet_revive::Pallet::<Test>::bare_call(
 					RuntimeOrigin::signed(submitter),
 					asset_addr,
@@ -1645,7 +1683,13 @@ mod precompile {
 			assert_eq!(read_nonce(asset_addr), AlloyU256::from(0));
 
 			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(50), deadline);
+			permit_sign_and_call(
+				submitter,
+				asset_addr,
+				spender_addr,
+				AlloyU256::from(50),
+				deadline,
+			);
 
 			assert_eq!(read_nonce(asset_addr), AlloyU256::from(1));
 		});
