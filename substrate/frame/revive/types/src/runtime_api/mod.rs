@@ -15,12 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Runtime API wire types and versioned payloads shared by `pallet-revive` and its off-chain
-//! clients.
+//! Runtime API client-facing types and versioned payloads shared by `pallet-revive` and its
+//! off-chain clients.
 //!
-//! This module groups the reusable wire types nested inside runtime API payloads, the top-level
-//! payloads themselves, and the payload-version discovery value clients use to negotiate the newest
-//! mutually supported payload version.
+//! This module groups the reusable client-facing types nested inside runtime API payloads, the
+//! top-level payloads themselves, and the payload-version discovery value clients use to negotiate
+//! the newest mutually supported payload version.
 
 pub mod payloads;
 pub mod types;

@@ -15,4 +15,4 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Storage-related wire types shared by `pallet-revive` and its off-chain clients.
+//! Storage-related client-facing types shared by `pallet-revive` and its off-chain clients.

@@ -15,13 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Versioned wire types that appear inside one or more runtime API payloads but are not themselves
-//! a top-level input or output payload. Top-level payloads live in [`crate::runtime_api::payloads`].
+//! Versioned client-facing types that appear inside one or more runtime API payloads but are not
+//! themselves a top-level input or output payload. Top-level payloads live in
+//! [`crate::runtime_api::payloads`].
 //!
 //! Each type in this module is declared with the [`define_versioned_type!`] macro from
-//! `pallet-revive-proc-macro`, so adding a new wire version is a matter of writing the delta from
-//! the previous version. See the crate-level documentation for the rules that govern when a new
-//! version is allowed and what stays frozen once a version is released.
+//! `pallet-revive-proc-macro`, so adding a new version is a matter of writing the delta from the
+//! previous version. See the crate-level documentation for the rules that govern when a new version
+//! is allowed and what stays frozen once a version is released.
 //!
 //! [`define_versioned_type!`]: pallet_revive_proc_macro::define_versioned_type
 

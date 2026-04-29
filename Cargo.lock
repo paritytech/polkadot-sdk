@@ -14144,6 +14144,7 @@ dependencies = [
  "pallet-proxy",
  "pallet-revive-fixtures",
  "pallet-revive-proc-macro",
+ "pallet-revive-types",
  "pallet-revive-uapi",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -14258,6 +14259,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-revive-types"
+version = "0.1.0"
+dependencies = [
+ "alloy-core",
+ "ethereum-types",
+ "pallet-revive-proc-macro",
+ "parity-scale-codec",
+ "paste",
+ "scale-info",
+ "serde",
+ "serde_json",
+ "sp-weights 27.0.0",
+]
+
+[[package]]
 name = "pallet-revive-uapi"
 version = "0.1.0"
 dependencies = [
@@ -14283,21 +14299,6 @@ dependencies = [
  "parity-scale-codec",
  "scale-info",
  "trybuild",
-]
-
-[[package]]
-name = "pallet-revive-wire"
-version = "0.1.0"
-dependencies = [
- "alloy-core",
- "ethereum-types",
- "pallet-revive-proc-macro",
- "parity-scale-codec",
- "paste",
- "scale-info",
- "serde",
- "serde_json",
- "sp-weights 27.0.0",
 ]
 
 [[package]]

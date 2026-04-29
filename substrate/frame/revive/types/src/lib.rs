@@ -15,28 +15,35 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Wire types and versioned runtime API payloads shared by `pallet-revive` and its off-chain
-//! clients.
+//! Client-facing types and versioned runtime API payloads shared by `pallet-revive` and its
+//! off-chain clients.
 //!
 //! # Overview
 //!
-//! This crate hosts the stable client-facing types and the versioned input/output payload pairs
-//! that flow across `pallet-revive`'s runtime API boundary. Off-chain clients depend on this crate
-//! alone to build payloads, decode responses, and reason about which versions are supported by a
-//! given runtime; the pallet itself depends on it to declare the wire format and to convert each
-//! version into the internal execution types that drive its logic.
+//! This crate hosts the stable client-facing types that `pallet-revive` shares with off-chain
+//! clients. [`crate::runtime_api`] contains the versioned input/output payload pairs and reusable
+//! nested types that flow across the runtime API boundary. [`crate::storage`] contains client-facing
+//! storage types.
 //!
-//! The wire types defined here are the *only* shape that ever crosses the runtime API boundary as
-//! SCALE-encoded bytes. Every type in this crate is therefore subject to a hard
-//! release-immutability rule: once a wire type has shipped as part of a published runtime, its
-//! on-wire encoding is frozen forever. The complementary execution types live inside
+//! Off-chain clients depend on this crate to build payloads, decode responses, and reason about
+//! which runtime API versions are supported by a given runtime; the pallet itself depends on it to
+//! declare the client-facing format and to convert each version into the internal execution types
+//! that drive its logic.
+//!
+//! The runtime API types defined here are the *only* shape that ever crosses the runtime API
+//! boundary as SCALE-encoded bytes. Every released runtime API type in this crate is therefore
+//! subject to a hard release-immutability rule: once it has shipped as part of a published runtime,
+//! its on-wire encoding is frozen forever. The complementary execution types live inside
 //! `pallet-revive` proper, are deliberately not SCALE-encodable, and are freely refactorable as the
 //! runtime's internal needs evolve.
 //!
 //! # Compatibility Guarantees
 //!
-//! The wire types in this crate carry a hard contract. Once a payload version has been released,
-//! its SCALE encoding is fixed for the lifetime of the codebase. From that moment on:
+//! Unless otherwise noted, the remaining sections describe the guarantees and versioning policy for
+//! [`crate::runtime_api`], which is where the current versioned payload surface lives.
+//!
+//! The runtime API wire types in this crate carry a hard contract. Once a payload version has been
+//! released, its SCALE encoding is fixed for the lifetime of the codebase. From that moment on:
 //!
 //! * *Backwards compatibility* — a client written against version `N` of any runtime API function
 //!   continues to work when the runtime is upgraded to support newer versions, without any changes
@@ -85,9 +92,10 @@
 //!
 //! # Wire Types vs. Execution Types
 //!
-//! The contents of this crate are *wire types* only. They cross the runtime API boundary as
-//! SCALE-encoded bytes and exist purely to define the stable contract clients depend on. They never
-//! appear inside any internal execution function.
+//! This crate contains broader client-facing types split across [`crate::runtime_api`] and
+//! [`crate::storage`]. Within [`crate::runtime_api`], the versioned payload surface is expressed as
+//! wire types that cross the runtime API boundary as SCALE-encoded bytes and define the stable
+//! contract clients depend on. They never appear inside any internal execution function.
 //!
 //! The complementary *execution types* live inside `pallet-revive` proper. They are deliberately
 //! not SCALE-encodable so that they cannot accidentally cross the boundary. They exist to give the
@@ -106,14 +114,15 @@
 //! internal restructuring, performance improvements, and correctness fixes that touch only the
 //! execution side are ordinary refactors with no wire-format consequence.
 //!
-//! It is this separation that justifies the existence of this crate as its own package: wire types
-//! live here precisely so clients can depend on them without pulling in `pallet-revive`'s execution
-//! internals, and so the boundary between "stable, frozen forever" and "freely refactorable" is
-//! enforced by the compilation graph rather than by convention.
+//! It is this separation that justifies the existence of this crate as its own package: client-
+//! facing types live here so clients can depend on shared runtime API and storage models without
+//! pulling in `pallet-revive`'s execution internals. Within that shared surface, the runtime API
+//! wire boundary between "stable, frozen forever" and "freely refactorable" is enforced by the
+//! compilation graph rather than by convention.
 //!
 //! # Provided Macros
 //!
-//! The wire types in this crate are declared with two procedural macros from
+//! The runtime API wire types in this crate are declared with two procedural macros from
 //! `pallet-revive-proc-macro`:
 //!
 //! * [`define_versioned_type!`] declares a family of versioned wire structs or enums (e.g.
@@ -127,19 +136,21 @@
 //!   helper accessors, `From`, and `TryFrom` impls that connect each version to its enclosing enum.
 //!   Refer to the macro's own documentation for the exact syntax.
 //!
-//! These two macros are the only mechanism this crate uses to declare wire types. New types should
-//! reuse them rather than hand-write the version variants and conversion impls — the macros exist
-//! to keep the wire-format invariants enforceable in one place.
+//! These two macros are the only mechanism this crate uses to declare versioned runtime API wire
+//! types. New runtime API wire types should reuse them rather than hand-write the version variants
+//! and conversion impls — the macros exist to keep the wire-format invariants enforceable in one
+//! place.
 //!
 //! [`define_versioned_type!`]: pallet_revive_proc_macro::define_versioned_type
 //! [`define_versioned_interface!`]: pallet_revive_proc_macro::define_versioned_interface
 //!
 //! # Versioning Policy
 //!
-//! This section is the policy a contributor must follow when changing anything in this crate. Every
-//! rule here exists to preserve the guarantees in the *Compatibility Guarantees* section above.
-//! Read every rule before editing any wire type or payload; the rules look small individually,
-//! but each one was paid for in past breakage and ignoring any one of them risks the whole chain.
+//! This section is the policy a contributor must follow when changing the versioned runtime API
+//! surface in this crate. Every rule here exists to preserve the guarantees in the *Compatibility
+//! Guarantees* section above. Read every rule before editing any runtime API wire type or payload;
+//! the rules look small individually, but each one was paid for in past breakage and ignoring any
+//! one of them risks the whole chain.
 //!
 //! ## Core Rule
 //!
@@ -297,12 +308,13 @@
 //!
 //! # Note
 //!
-//! The owner and core consumer of this crate is the runtime API. This is very important for us to
-//! define in order to make it clear when this crate evolves and when it doesn't. If other consumers
-//! of this crate (e.g., the eth-rpc) end up needing to make changes or update this crate in any way
-//! which doesn't directly involve the runtime API then the changes will be rejected. Models have a
-//! serde implementation purely for convince, not because we're building this crate to be have a
-//! canonical serde implementation.
+//! This crate exists to hold the stable client-facing types that `pallet-revive` shares with
+//! off-chain consumers, split across [`crate::runtime_api`] and [`crate::storage`]. The runtime API
+//! remains the primary versioned surface here, and changes to those types must continue to follow
+//! the runtime API compatibility rules documented above. Storage types live here for the same
+//! reason: they are part of the shared client-facing contract. Models have a serde implementation
+//! purely for convenience, not because this crate is intended to provide a canonical serde model
+//! layer.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
