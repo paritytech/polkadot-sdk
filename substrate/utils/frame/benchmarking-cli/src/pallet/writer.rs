@@ -318,8 +318,11 @@ pub(crate) fn sanity_weight_check(
 		}
 		for data in results {
 			let total = worst_case_weight(data, &limits.db_weight);
-			let exceeds_ref_time = total.ref_time() > limits.max_extrinsic_weight.ref_time();
-			let exceeds_proof_size = total.proof_size() > limits.max_extrinsic_weight.proof_size();
+			// Use `>=` instead of `>` so an extrinsic whose worst-case exactly fills the block is
+			// flagged. Combined with saturating arithmetic this also catches overflow cases where
+			// `total` saturates to `Weight::MAX`.
+			let exceeds_ref_time = total.ref_time() >= limits.max_extrinsic_weight.ref_time();
+			let exceeds_proof_size = total.proof_size() >= limits.max_extrinsic_weight.proof_size();
 			if exceeds_ref_time || exceeds_proof_size {
 				failed = true;
 				if !quiet {
