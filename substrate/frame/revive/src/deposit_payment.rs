@@ -62,8 +62,7 @@ mod sealed {
 pub enum Funds<'a, AccountId> {
 	/// The free balance of the given account.
 	Balance(&'a AccountId),
-	/// The tx fee pool. The embedded account is the origin, used for deposit attribution
-	/// and, on refund, as the destination of any PGAS portion.
+	/// The tx fee hold.
 	TxFee(&'a AccountId),
 }
 
@@ -222,28 +221,6 @@ impl<T: Config> Deposit<T> for () {
 					Restriction::Free,
 					Fortitude::Polite,
 				)?;
-			},
-			Funds::TxFee(_) => {
-				let released =
-					T::Currency::release(&reason.into(), from, amount, Precision::Exact)?;
-				let credit = T::Currency::withdraw(
-					from,
-					released,
-					Precision::Exact,
-					Preservation::Preserve,
-					Fortitude::Polite,
-				)?;
-				T::FeeInfo::deposit_txfee(credit);
-			},
-		}
-		Ok(())
-	}
-
-	fn total_on_hold(reason: HoldReason, who: &T::AccountId) -> BalanceOf<T> {
-		T::Currency::balance_on_hold(&reason.into(), who)
-	}
-
-	fn refund_all(
 		from: &T::AccountId,
 		dst: Funds<T::AccountId>,
 	) -> Result<BalanceOf<T>, DispatchError> {
