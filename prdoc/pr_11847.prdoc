@@ -1,6 +1,6 @@
 title: '[revive] pgas as storage deposit'
 doc:
-  - audience: Runtime Dev
+  - audience: [Runtime Dev, Runtime User]
     description: |
       ## Storage deposits backed by PGAS
 
