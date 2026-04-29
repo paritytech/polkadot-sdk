@@ -31,16 +31,17 @@ use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
 
-const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
-const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
+// Shared helpers — also used by `permit_tests::precompile`.
+pub(crate) const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
+pub(crate) const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
 
-fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
+pub(crate) fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
 	let mut addr = hex::const_decode_to_array(b"0000000000000000000000000000000000000000").unwrap();
 	addr[16..18].copy_from_slice(&prefix.to_be_bytes());
 	addr
 }
 
-fn assert_contract_event(contract: H160, event: IERC20Events) {
+pub(crate) fn assert_contract_event(contract: H160, event: IERC20Events) {
 	let (topics, data) = event.into_log_data().split();
 	let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
 	System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
@@ -50,7 +51,7 @@ fn assert_contract_event(contract: H160, event: IERC20Events) {
 	}));
 }
 
-fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
+pub(crate) fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
 	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
 		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
 			.expect("Failed to insert asset mapping");
@@ -686,3 +687,4 @@ fn delegatecall_is_rejected() {
 		assert!(!ret.success, "DELEGATECALL to asset precompile must be rejected");
 	});
 }
+
