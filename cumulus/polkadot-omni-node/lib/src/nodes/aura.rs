@@ -50,7 +50,7 @@ use cumulus_client_parachain_inherent::MockValidationDataInherentDataProvider;
 use cumulus_client_service::CollatorSybilResistance;
 use cumulus_primitives_core::{
 	relay_chain::ValidationCode, CollectCollationInfo, GetParachainInfo, ParaId,
-	RelayParentOffsetApi,
+	RelayParentOffsetApi, TargetBlockRate,
 };
 use cumulus_relay_chain_interface::{OverseerHandle, RelayChainInterface};
 use futures::{prelude::*, FutureExt};
@@ -216,7 +216,31 @@ where
 	fn start_dev_node(
 		mut config: Configuration,
 		mode: DevSealMode,
+		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
+		// Destructure all fields so the compiler enforces handling new args.
+		let NodeExtraArgs {
+			authoring_policy,
+			export_pov,
+			max_pov_percentage,
+			statement_store_config,
+			storage_monitor,
+		} = node_extra_args;
+
+		// Warn about args that have no effect in dev mode (collation-specific).
+		if authoring_policy != AuthoringPolicy::Lookahead {
+			log::warn!(
+				"Authoring policy `{}` has no effect in dev mode (manual/instant seal is used).",
+				authoring_policy,
+			);
+		}
+		if export_pov.is_some() {
+			log::warn!("`--export-pov` has no effect in dev mode (no PoVs are produced).");
+		}
+		if max_pov_percentage.is_some() {
+			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
+		}
+
 		let PartialComponents {
 			client,
 			backend,
@@ -231,10 +255,23 @@ where
 		// Since this is a dev node, prevent it from connecting to peers.
 		config.network.default_peers_set.in_peers = 0;
 		config.network.default_peers_set.out_peers = 0;
-		let net_config = FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
-			&config.network,
-			None,
-		);
+		let mut net_config =
+			FullNetworkConfiguration::<_, _, sc_network::Litep2pNetworkBackend>::new(
+				&config.network,
+				None,
+			);
+
+		let metrics = NotificationMetrics::new(None);
+
+		let statement_handler_proto = statement_store_config.map(|ss_config| {
+			let proto = crate::common::statement_store::new_statement_handler_proto(
+				&*client,
+				&config,
+				&metrics,
+				&mut net_config,
+			);
+			(proto, ss_config)
+		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
 			sc_service::build_network(sc_service::BuildNetworkParams {
@@ -248,10 +285,36 @@ where
 				block_announce_validator_builder: None,
 				warp_sync_config: None,
 				block_relay: None,
-				metrics: NotificationMetrics::new(None),
+				metrics,
 			})?;
 
+		let statement_store = statement_handler_proto
+			.map(|(statement_handler_proto, ss_config)| {
+				crate::common::statement_store::build_statement_store(
+					&config,
+					&mut task_manager,
+					client.clone(),
+					network.clone(),
+					sync_service.clone(),
+					keystore_container.local_keystore(),
+					statement_handler_proto,
+					ss_config,
+				)
+			})
+			.transpose()?;
+
 		if config.offchain_worker.enabled {
+			let custom_extensions = {
+				let statement_store = statement_store.clone();
+				move |_| {
+					if let Some(statement_store) = &statement_store {
+						vec![Box::new(statement_store.clone().as_statement_store_ext()) as Box<_>]
+					} else {
+						vec![]
+					}
+				}
+			};
+
 			let offchain_workers =
 				sc_offchain::OffchainWorkers::new(sc_offchain::OffchainWorkerOptions {
 					runtime_api_provider: client.clone(),
@@ -263,7 +326,7 @@ where
 					network_provider: Arc::new(network.clone()),
 					is_validator: config.role.is_authority(),
 					enable_http_requests: true,
-					custom_extensions: move |_| vec![],
+					custom_extensions,
 				})?;
 			task_manager.spawn_handle().spawn(
 				"offchain-workers-runner",
@@ -357,18 +420,21 @@ where
 			let client = client.clone();
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
+			let statement_store = statement_store.clone();
 
 			Box::new(move |_| {
 				let module = Self::BuildRpcExtensions::build_rpc_extensions(
 					client.clone(),
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
-					None,
+					statement_store.clone(),
 					spawn_handle.clone(),
 				)?;
 				Ok(module)
 			})
 		};
+
+		let database_path = config.database.path().map(|p| p.to_path_buf());
 
 		let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 			network,
@@ -385,6 +451,16 @@ where
 			telemetry: telemetry.as_mut(),
 			tracing_execute_block: None,
 		})?;
+
+		// Spawn the storage monitor.
+		if let Some(database_path) = database_path {
+			sc_storage_monitor::StorageMonitorService::try_spawn(
+				storage_monitor,
+				database_path,
+				&task_manager.spawn_essential_handle(),
+			)
+			.map_err(|e| sc_service::Error::Application(Box::new(e) as Box<_>))?;
+		}
 
 		Ok(task_manager)
 	}
@@ -491,6 +567,7 @@ where
 	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>
 		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>
 		+ substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>
+		+ TargetBlockRate<Block>
 		+ GetParachainInfo<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
@@ -523,7 +600,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -551,7 +628,10 @@ where
 	) where
 		CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 		CIDP::InherentDataProviders: Send,
-		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash> + Send + 'static,
+		CHP: cumulus_client_consensus_common::ValidationCodeHashProvider<Hash>
+			+ Send
+			+ Sync
+			+ 'static,
 		Proposer: Environment<Block> + Send + Sync + 'static,
 		CS: CollatorServiceInterface<Block> + Send + Sync + Clone + 'static,
 		Spawner: SpawnEssentialNamed + Clone + 'static,
@@ -575,7 +655,7 @@ impl<Block: BlockT<Hash = DbHash>, RuntimeApi, AuraId>
 	> for StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId>,
+	RuntimeApi::RuntimeApi: AuraRuntimeApi<Block, AuraId> + TargetBlockRate<Block>,
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
@@ -657,7 +737,6 @@ where
 			para_id,
 			proposer,
 			collator_service,
-			authoring_duration: Duration::from_millis(2000),
 			reinitialize: false,
 			slot_offset: Duration::from_secs(1),
 			block_import_handle,
@@ -666,9 +745,14 @@ where
 			max_pov_percentage: node_extra_args.max_pov_percentage,
 		};
 
-		// We have a separate function only to be able to use `docify::export` on this piece of
-		// code.
-		Self::launch_slot_based_collator(params);
+		let wait_client = client.clone();
+		let fut = async move {
+			wait_for_aura::<Block, RuntimeApi, AuraId>(wait_client).await;
+			// We have a separate function only to be able to use `docify::export` on this
+			// piece of code.
+			Self::launch_slot_based_collator(params);
+		};
+		task_manager.spawn_handle().spawn("slot-based-collator-init", None, fut);
 
 		Ok(())
 	}

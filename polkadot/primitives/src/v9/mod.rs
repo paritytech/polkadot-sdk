@@ -77,7 +77,8 @@ pub mod slashing;
 
 pub use async_backing::AsyncBackingParams;
 pub use executor_params::{
-	ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash, ExecutorParamsPrepHash,
+	ExecutorHostFunction, ExecutorParam, ExecutorParamError, ExecutorParams, ExecutorParamsHash,
+	ExecutorParamsPrepHash,
 };
 
 mod metrics;
@@ -1836,7 +1837,7 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 }
 
 /// A type representing the version of the candidate descriptor.
-#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug)]
+#[derive(PartialEq, Eq, Copy, Clone, Encode, Decode, TypeInfo, Debug, PartialOrd, Ord, Hash)]
 pub enum CandidateDescriptorVersion {
 	/// with deprecated collator id and collator signature.
 	V1,
@@ -2387,6 +2388,7 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 		relay_parent: H,
 		core_index: CoreIndex,
 		session_index: SessionIndex,
+		scheduling_session_index: SessionIndex,
 		persisted_validation_data_hash: Hash,
 		pov_hash: Hash,
 		erasure_root: Hash,
@@ -2400,13 +2402,48 @@ impl<H: Copy + AsRef<[u8]>> CandidateDescriptorV2<H> {
 			version: 1,
 			core_index: core_index.0 as u16,
 			session_index,
-			scheduling_session_offset: 0,
+			scheduling_session_offset: scheduling_session_index
+				.saturating_sub(session_index)
+				.try_into()
+				.expect("scheduling session offset should fit in u8"),
 			reserved1: [0; 24],
 			persisted_validation_data_hash,
 			pov_hash,
 			erasure_root,
 			scheduling_parent,
 			reserved2: [0; 32],
+			para_head,
+			validation_code_hash,
+		}
+	}
+
+	/// Constructor for a V1-like candidate descriptor with non-zero collator
+	/// fields so that `version()` returns [`CandidateDescriptorVersion::V1`].
+	pub fn new_v1(
+		para_id: Id,
+		relay_parent: H,
+		persisted_validation_data_hash: Hash,
+		pov_hash: Hash,
+		erasure_root: Hash,
+		para_head: Hash,
+		validation_code_hash: ValidationCodeHash,
+	) -> Self
+	where
+		H: Default,
+	{
+		Self {
+			para_id,
+			relay_parent,
+			version: 0,
+			core_index: 0,
+			session_index: 0,
+			scheduling_session_offset: 0,
+			reserved1: [1u8; 24],
+			persisted_validation_data_hash,
+			pov_hash,
+			erasure_root,
+			scheduling_parent: H::default(),
+			reserved2: [1u8; 32],
 			para_head,
 			validation_code_hash,
 		}
@@ -3309,7 +3346,8 @@ pub mod tests {
 			Id::from(1u32),
 			Hash::repeat_byte(1),
 			CoreIndex(0),
-			1,
+			1, // session_index
+			1, // scheduling_session_index
 			Hash::repeat_byte(2),
 			Hash::repeat_byte(3),
 			Hash::repeat_byte(4),

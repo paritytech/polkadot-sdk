@@ -17,14 +17,14 @@
 //! Genesis configs presets for the Westend runtime
 
 use crate::{
-	BabeConfig, BalancesConfig, ConfigurationConfig, DapSatellitePalletId, ExistentialDeposit,
-	RegistrarConfig, RuntimeGenesisConfig, SessionConfig, SessionKeys, StakingConfig, SudoConfig,
+	BabeConfig, BalancesConfig, ConfigurationConfig, ExistentialDeposit, RegistrarConfig, Runtime,
+	RuntimeGenesisConfig, SessionConfig, SessionKeys, StakingConfig, SudoConfig,
 	BABE_GENESIS_EPOCH_CONFIG,
 };
 #[cfg(not(feature = "std"))]
 use alloc::format;
 use alloc::{vec, vec::Vec};
-use frame_support::{build_struct_json_patch, sp_runtime::traits::AccountIdConversion};
+use frame_support::build_struct_json_patch;
 use pallet_staking::{Forcing, StakerStatus};
 use polkadot_primitives::{vstaging::SchedulerParams, AccountId, AssignmentId, ValidatorId};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -38,7 +38,7 @@ use sp_runtime::Perbill;
 use westend_runtime_constants::currency::UNITS as WND;
 
 fn dap_satellite_account() -> AccountId {
-	DapSatellitePalletId::get().into_account_truncating()
+	pallet_dap_satellite::Pallet::<Runtime>::satellite_account()
 }
 
 /// Helper function to generate stash, controller and session key from seed

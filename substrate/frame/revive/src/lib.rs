@@ -32,6 +32,8 @@ mod impl_fungibles;
 mod limits;
 mod metering;
 mod primitives;
+#[doc(hidden)]
+pub mod state_overrides;
 mod storage;
 #[cfg(test)]
 mod tests;
@@ -93,12 +95,10 @@ use sp_runtime::{
 };
 
 pub use crate::{
-	address::{
-		AccountId32Mapper, AddressMapper, TestAccountMapper, create1, create2, is_eth_derived,
-	},
+	address::{AccountId32Mapper, AddressMapper, AutoMapper, TestAccountMapper, create1, create2},
 	debug::DebugSettings,
 	evm::{
-		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo,
+		Address as EthAddress, Block as EthBlock, DryRunConfig, ReceiptInfo, TracingConfig,
 		block_hash::ReceiptGasInfo,
 	},
 	exec::{CallResources, DelegateInfo, Executable, Key, MomentOf, Origin as ExecOrigin},
@@ -350,6 +350,15 @@ pub mod pallet {
 		#[pallet::constant]
 		type DebugEnabled: Get<bool>;
 
+		/// When enabled, accounts are automatically mapped on creation and unmapped on
+		/// kill via [`AutoMapper`]. This removes the need for explicit `map_account` calls.
+		///
+		/// Requires `frame_system::Config::OnNewAccount` and `OnKilledAccount` to be set
+		/// to [`AutoMapper`]. When enabled, the `map_account` and `unmap_account`
+		/// dispatchables are disabled.
+		#[pallet::constant]
+		type AutoMap: Get<bool>;
+
 		/// This determines the relative scale of our gas price and gas estimates.
 		///
 		/// By default, the gas price (in wei) is `FeeInfo::next_fee_multiplier()` multiplied by
@@ -452,6 +461,7 @@ pub mod pallet {
 			type FeeInfo = ();
 			type MaxEthExtrinsicWeight = MaxEthExtrinsicWeight;
 			type DebugEnabled = ConstBool<false>;
+			type AutoMap = ConstBool<false>;
 			type GasScale = GasScale;
 			type OnBurn = ();
 		}
@@ -627,6 +637,8 @@ pub mod pallet {
 		PrecompileDelegateDenied = 0x40,
 		/// ECDSA public key recovery failed. Most probably wrong recovery id or signature.
 		EcdsaRecoveryFailed = 0x41,
+		/// Manual mapping is disabled when auto-mapping is enabled.
+		AutoMappingEnabled = 0x42,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1272,6 +1284,7 @@ pub mod pallet {
 		#[pallet::weight(
 			<T as Config>::WeightInfo::eth_instantiate_with_code(code.len() as u32, data.len() as u32, Pallet::<T>::has_dust(*value).into())
 			.saturating_add(*weight_limit)
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
 		)]
 		pub fn eth_instantiate_with_code(
 			origin: OriginFor<T>,
@@ -1418,7 +1431,11 @@ pub mod pallet {
 		/// * `call`: The Substrate runtime call to execute.
 		/// * `transaction_encoded`: The RLP encoding of the Ethereum transaction,
 		#[pallet::call_index(12)]
-		#[pallet::weight(T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32).saturating_add(call.get_dispatch_info().call_weight))]
+		#[pallet::weight(
+			T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32)
+			.saturating_add(call.get_dispatch_info().call_weight)
+			.saturating_add(T::WeightInfo::on_finalize_block_per_tx(transaction_encoded.len() as u32))
+		)]
 		pub fn eth_substrate_call(
 			origin: OriginFor<T>,
 			call: Box<<T as Config>::RuntimeCall>,
@@ -1427,8 +1444,10 @@ pub mod pallet {
 			// Note that the inner dispatch uses `RawOrigin::Signed`, which cannot
 			// re-enter `eth_substrate_call` (which requires `Origin::EthTransaction`).
 			let signer = Self::ensure_eth_signed(origin)?;
-			let weight_overhead =
-				T::WeightInfo::eth_substrate_call(transaction_encoded.len() as u32);
+			Self::ensure_non_contract_if_signed(&OriginFor::<T>::signed(signer.clone()))?;
+			let tx_len = transaction_encoded.len() as u32;
+			let weight_overhead = T::WeightInfo::eth_substrate_call(tx_len)
+				.saturating_add(T::WeightInfo::on_finalize_block_per_tx(tx_len));
 
 			block_storage::with_ethereum_context::<T>(transaction_encoded, || {
 				let call_weight = call.get_dispatch_info().call_weight;
@@ -1535,9 +1554,17 @@ pub mod pallet {
 		///
 		/// This will error if the origin is already mapped or is a eth native `Address20`. It will
 		/// take a deposit that can be released by calling [`Self::unmap_account`].
+		///
+		/// Noop when [`Config::AutoMap`] is enabled, as accounts are automatically mapped
+		/// on creation via [`AutoMapper`].
 		#[pallet::call_index(7)]
 		#[pallet::weight(<T as Config>::WeightInfo::map_account())]
 		pub fn map_account(origin: OriginFor<T>) -> DispatchResult {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			if T::AutoMap::get() {
+				return Ok(());
+			}
+
 			Self::ensure_non_contract_if_signed(&origin)?;
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::map(&origin)
@@ -1547,9 +1574,14 @@ pub mod pallet {
 		///
 		/// There is no reason to ever call this function other than freeing up the deposit.
 		/// This is only useful when the account should no longer be used.
+		///
+		/// Disabled when [`Config::AutoMap`] is enabled, as accounts are automatically unmapped
+		/// on kill via [`AutoMapper`].
 		#[pallet::call_index(8)]
 		#[pallet::weight(<T as Config>::WeightInfo::unmap_account())]
 		pub fn unmap_account(origin: OriginFor<T>) -> DispatchResult {
+			#[cfg(not(feature = "runtime-benchmarks"))]
+			ensure!(!T::AutoMap::get(), <Error<T>>::AutoMappingEnabled);
 			let origin = ensure_signed(origin)?;
 			T::AddressMapper::unmap(&origin)
 		}
@@ -1786,7 +1818,7 @@ impl<T: Config> Pallet<T> {
 		config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<U256, EthTransactError>
 	where
-		T::Nonce: Into<U256>,
+		T::Nonce: Into<U256> + TryFrom<U256>,
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "eth_estimate_gas: {tx:?}");
@@ -1834,10 +1866,11 @@ impl<T: Config> Pallet<T> {
 		let dry_run_results = [high, Self::evm_max_extrinsic_weight_in_gas()].map(|gas_limit| {
 			let mut transaction = tx.clone();
 			transaction.gas = Some(gas_limit);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			let eth_transact_result = with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					config.with_perform_balance_checks(perform_balance_checks),
+					dry_run_config,
 				)))
 			})
 			.expect("Rollback shouldn't error out");
@@ -1902,10 +1935,11 @@ impl<T: Config> Pallet<T> {
 
 			let mut transaction = tx.clone();
 			transaction.gas = Some(midpoint);
+			let dry_run_config = config.clone().with_perform_balance_checks(perform_balance_checks);
 			let dry_run_result = with_transaction(|| {
 				TransactionOutcome::Rollback(Ok::<_, DispatchError>(Self::dry_run_eth_transact(
 					transaction,
-					config.with_perform_balance_checks(perform_balance_checks),
+					dry_run_config,
 				)))
 			})
 			.expect("Rollback shouldn't error out");
@@ -1926,6 +1960,41 @@ impl<T: Config> Pallet<T> {
 		Ok(high)
 	}
 
+	/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
+	///
+	/// This matches the weight contribution that `frame_system::CheckWeight` would add for the
+	/// transaction on an otherwise empty block:
+	/// - the revive call's total dispatch weight, including extension weight,
+	/// - the dispatch class base extrinsic weight,
+	/// - and the extrinsic-length proof-size charge.
+	pub fn eth_pre_dispatch_weight(transaction_encoded: Vec<u8>) -> Result<Weight, EthTransactError>
+	where
+		CallOf<T>: SetWeightLimit,
+	{
+		let signed_tx =
+			crate::evm::TransactionSigned::decode(&transaction_encoded).map_err(|err| {
+				EthTransactError::Message(format!("Failed to decode transaction: {err:?}"))
+			})?;
+		let signer_addr = signed_tx.recover_eth_address().map_err(|err| {
+			EthTransactError::Message(format!("Failed to recover signer: {err:?}"))
+		})?;
+		let tx =
+			GenericTransaction::from_signed(signed_tx, Self::evm_base_fee(), Some(signer_addr));
+		let encoded_len = T::FeeInfo::encoded_len(
+			crate::Call::<T>::eth_transact { payload: transaction_encoded.clone() }.into(),
+		);
+		let call_info = tx
+			.into_call::<T>(CreateCallMode::ExtrinsicExecution(encoded_len, transaction_encoded))
+			.map_err(|err| EthTransactError::Message(format!("Invalid call: {err:?}")))?;
+		let info = T::FeeInfo::dispatch_info(&call_info.call);
+
+		Ok(frame_system::calculate_consumed_extrinsic_weight::<CallOf<T>>(
+			&T::BlockWeights::get(),
+			&info,
+			call_info.encoded_len as usize,
+		))
+	}
+
 	/// Dry-run Ethereum calls.
 	///
 	/// # Parameters
@@ -1933,16 +2002,20 @@ impl<T: Config> Pallet<T> {
 	/// - `tx`: The Ethereum transaction to simulate.
 	pub fn dry_run_eth_transact(
 		mut tx: GenericTransaction,
-		dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
+		mut dry_run_config: DryRunConfig<<<T as Config>::Time as Time>::Moment>,
 	) -> Result<EthTransactInfo<BalanceOf<T>>, EthTransactError>
 	where
-		T::Nonce: Into<U256>,
+		T::Nonce: Into<U256> + TryFrom<U256>,
 		CallOf<T>: SetWeightLimit,
 	{
 		log::debug!(target: LOG_TARGET, "dry_run_eth_transact: {tx:?}");
 
 		let origin = T::AddressMapper::to_account_id(&tx.from.unwrap_or_default());
 		Self::prepare_dry_run(&origin);
+
+		if let Some(overrides) = dry_run_config.state_overrides.take() {
+			state_overrides::apply_state_overrides::<T>(overrides)?;
+		}
 
 		let base_fee = Self::evm_base_fee();
 		let effective_gas_price = tx.effective_gas_price(base_fee).unwrap_or(base_fee);
@@ -1994,6 +2067,7 @@ impl<T: Config> Pallet<T> {
 		// to pay for the fees
 		let base_info = T::FeeInfo::base_dispatch_info(&mut call_info.call);
 		let base_weight = base_info.total_weight();
+		let perform_balance_checks = dry_run_config.perform_balance_checks;
 		let exec_config =
 			ExecConfig::new_eth_tx(effective_gas_price, call_info.encoded_len, base_weight)
 				.with_dry_run(dry_run_config);
@@ -2001,12 +2075,11 @@ impl<T: Config> Pallet<T> {
 		// emulate transaction behavior
 		let fees = call_info.tx_fee.saturating_add(call_info.storage_deposit);
 		if let Some(from) = &from {
-			let fees =
-				if gas.is_some() && matches!(dry_run_config.perform_balance_checks, Some(true)) {
-					fees
-				} else {
-					Zero::zero()
-				};
+			let fees = if gas.is_some() && matches!(perform_balance_checks, Some(true)) {
+				fees
+			} else {
+				Zero::zero()
+			};
 			let balance = Self::evm_balance(from);
 			if balance < Pallet::<T>::convert_native_to_evm(fees).saturating_add(value) {
 				return Err(EthTransactError::Message(format!(
@@ -2810,6 +2883,9 @@ sp_api::decl_runtime_apis! {
 			config: DryRunConfig<Moment>
 		) -> Result<U256, EthTransactError>;
 
+		/// Return the pre-dispatch weight booked for the signed Ethereum transaction payload.
+		fn eth_pre_dispatch_weight(tx: Vec<u8>) -> Result<Weight, EthTransactError>;
+
 		/// Upload new code without instantiating a contract from it.
 		///
 		/// See [`crate::Pallet::bare_upload_code`].
@@ -2866,6 +2942,17 @@ sp_api::decl_runtime_apis! {
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
+
+		/// Dry run and return the trace of the given call with additional configuration.
+		///
+		/// Like [`Self::trace_call`], but accepts a [`TracingConfig`] that can carry state
+		/// overrides and future extensibility. The config must be the **last argument** for
+		/// backwards compatibility — see [`TracingConfig`] documentation.
+		fn trace_call_with_config(
+			tx: GenericTransaction,
+			tracer_type: TracerType,
+			config: TracingConfig,
+		) -> Result<Trace, EthTransactError>;
 
 		/// The address of the validator that produced the current block.
 		fn block_author() -> H160;
@@ -3005,6 +3092,12 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 						sp_runtime::traits::Block as BlockT
 					};
 					$crate::Pallet::<Self>::eth_estimate_gas(tx, config)
+				}
+
+				fn eth_pre_dispatch_weight(
+					tx: Vec<u8>,
+				) -> Result<$crate::Weight, $crate::EthTransactError> {
+					$crate::Pallet::<Self>::eth_pre_dispatch_weight(tx)
 				}
 
 				fn call(
@@ -3170,6 +3263,20 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					} else {
 						Ok($crate::Pallet::<Self>::evm_tracer(tracer_type).empty_trace())
 					}
+				}
+
+				fn trace_call_with_config(
+					tx: $crate::evm::GenericTransaction,
+					tracer_type: $crate::evm::TracerType,
+					config: $crate::evm::TracingConfig,
+				) -> Result<$crate::evm::Trace, $crate::EthTransactError> {
+					let $crate::evm::TracingConfig { state_overrides } = config;
+
+					if let Some(overrides) = state_overrides {
+						$crate::state_overrides::apply_state_overrides::<Runtime>(overrides)?;
+					}
+
+					Self::trace_call(tx, tracer_type)
 				}
 
 				fn runtime_pallets_address() -> $crate::H160 {

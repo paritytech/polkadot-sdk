@@ -22,6 +22,8 @@ frame-system = { workspace = true, default-features = true }
 pallet-asset-conversion = { workspace = true, default-features = true }
 pallet-assets = { workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
+pallet-dap = { workspace = true, default-features = true }
+pallet-dap-satellite = { workspace = true, default-features = true }
 pallet-message-queue = { workspace = true, default-features = true }
 pallet-whitelist = { workspace = true, default-features = true }
 sc-consensus-grandpa = { workspace = true, default-features = true }
@@ -29,6 +31,7 @@ sp-authority-discovery = { workspace = true, default-features = true }
 sp-consensus-babe = { workspace = true, default-features = true }
 sp-consensus-beefy = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
+sp-dap = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 

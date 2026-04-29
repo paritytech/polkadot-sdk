@@ -6,8 +6,8 @@
 //! verify that the block production respect the proportion.
 
 use crate::utils::{
-	create_force_register_call, env_or_default, fetch_header_and_validation_code,
-	initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV, NODE_ROLES_METRIC,
+	assert_nodes_are_validators, create_force_register_call, env_or_default,
+	fetch_header_and_validation_code, initialize_network, COL_IMAGE_ENV, INTEGRATION_IMAGE_ENV,
 };
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
@@ -43,12 +43,7 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 
 	// Check authority status
 	log::info!("Checking validator node roles");
-	for validator in &validator_nodes {
-		validator
-			.wait_metric_with_timeout(NODE_ROLES_METRIC, |v| v == 4.0, 60u64)
-			.await
-			.map_err(|e| anyhow!("Validator {} role check failed: {e}", validator.name()))?;
-	}
+	assert_nodes_are_validators(&validator_nodes).await?;
 	log::info!("All validators confirmed as authorities");
 
 	log::info!("Register paras");
@@ -125,6 +120,7 @@ async fn coretime_collation_fetching_fairness_test() -> Result<(), anyhow::Error
 		&relay_client,
 		12,
 		[(ParaId::from(2000), 6..10), (ParaId::from(2001), 2..5)],
+		[],
 	)
 	.await?;
 
@@ -171,10 +167,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 	});
 
 	builder = PARAS.into_iter().fold(builder, |acc, (para_id, debug_args)| {
-		let mut args: Vec<Arg> = vec![debug_args.into()];
-		if para_id == 2000 {
-			args.push("--authoring=slot-based".into());
-		}
+		let args: Vec<Arg> = vec![debug_args.into(), "--authoring=slot-based".into()];
 
 		acc.with_parachain(|p| {
 			p.with_id(para_id)
