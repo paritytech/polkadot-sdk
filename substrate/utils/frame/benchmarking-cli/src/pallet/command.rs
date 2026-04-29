@@ -359,11 +359,20 @@ impl PalletCmd {
 				ERROR_API_NOT_FOUND,
 			)?;
 
-		// Fetch the runtime block limits used by the sanity weight check. Older runtimes on
-		// `Benchmark` API v2 do not expose `runtime_block_limits`; in that case the CLI uses a
-		// default which `sanity_weight_check` interprets as "skip with a warning". Genuine
-		// failures (panic, codec error, OOM) when calling the v3 method are surfaced rather
-		// than swallowed.
+		// Use the benchmark list and the user input to determine the set of benchmarks to run.
+		let benchmarks_to_run = self.select_benchmarks_to_run(list)?;
+
+		if let Some(list_output) = self.list {
+			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
+			return Ok(());
+		}
+
+		// Fetch the runtime block limits used by the sanity weight check. Done after the `--list`
+		// short-circuit so that listing benchmarks does not pay for an extra runtime API call on
+		// v2 runtimes. Older runtimes on `Benchmark` API v2 do not expose `runtime_block_limits`;
+		// in that case the CLI uses a default which `sanity_weight_check` interprets as "skip
+		// with a warning". Genuine failures (panic, codec error, OOM) when calling the v3 method
+		// are surfaced rather than swallowed.
 		let runtime_block_limits: RuntimeBlockLimits = if benchmark_api_version >= 3 {
 			Self::exec_state_machine(
 				StateMachine::new(
@@ -381,14 +390,6 @@ impl PalletCmd {
 		} else {
 			RuntimeBlockLimits::default()
 		};
-
-		// Use the benchmark list and the user input to determine the set of benchmarks to run.
-		let benchmarks_to_run = self.select_benchmarks_to_run(list)?;
-
-		if let Some(list_output) = self.list {
-			list_benchmark(benchmarks_to_run, list_output, self.no_csv_header);
-			return Ok(());
-		}
 
 		// Run the benchmarks
 		let mut batches = Vec::new();
