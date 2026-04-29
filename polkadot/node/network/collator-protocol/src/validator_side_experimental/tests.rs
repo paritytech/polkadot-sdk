@@ -119,7 +119,6 @@ fn dummy_candidate(
 			scheduling_parent: relay_parent,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: core,
 		},
 	)
 }
@@ -154,7 +153,6 @@ fn dummy_candidate_v3(
 			scheduling_parent,
 			prospective_candidate,
 			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
-			core_index: core,
 		},
 	)
 }
@@ -1953,7 +1951,6 @@ async fn test_advertisement_rejections() {
 		scheduling_parent: active_leaf,
 		prospective_candidate,
 		advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	assert_eq!(state.advertisements(), [adv].into());
@@ -2074,7 +2071,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2106,7 +2102,6 @@ async fn test_collation_fetch_failure() {
 				None
 			},
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2137,7 +2132,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2175,7 +2169,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2211,7 +2204,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2241,7 +2233,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate: None,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
@@ -2282,7 +2273,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2327,7 +2317,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2367,7 +2356,6 @@ async fn test_collation_fetch_failure() {
 			scheduling_parent: active_leaf,
 			prospective_candidate,
 			advertised_descriptor_version: None,
-			core_index: CoreIndex(0),
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2510,7 +2498,6 @@ async fn v1_descriptor_compatibility() {
 		scheduling_parent: active_leaf,
 		prospective_candidate,
 		advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
 	};
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2674,7 +2661,6 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2715,7 +2701,6 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2847,22 +2832,26 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 async fn test_outdated_blocked_collations_are_pruned() {
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
-	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 	let para_id = ParaId::from(100);
 
-	let db = MockDb::default();
-	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
-	let mut sender = test_state.sender.clone();
-
+	// Use a uniform CQ entirely for para 100 so capacity reasoning is straightforward — the
+	// purpose of this test is pruning of outdated blocked collations, not multi-para CQs.
+	// Override before `make_state` so the leaf's stored CQ matches.
+	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
+	let same_cq: BTreeMap<CoreIndex, Vec<ParaId>> =
+		[(leaf_info.assigned_core, vec![para_id, para_id, para_id])].into_iter().collect();
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.expect("inserted by TestState::default")
+		.claim_queue = same_cq.clone();
 	test_state.rp_info.insert(
 		get_hash(11),
 		RelayParentInfo {
 			number: 11,
 			parent: get_parent_hash(11),
 			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![200.into(), 100.into(), 200.into()])]
-				.into_iter()
-				.collect(),
+			claim_queue: same_cq.clone(),
 			assigned_core: leaf_info.assigned_core,
 		},
 	);
@@ -2872,9 +2861,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			number: 12,
 			parent: get_parent_hash(12),
 			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![100.into(), 200.into(), 100.into()])]
-				.into_iter()
-				.collect(),
+			claim_queue: same_cq.clone(),
 			assigned_core: leaf_info.assigned_core,
 		},
 	);
@@ -2884,17 +2871,22 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			number: 13,
 			parent: get_parent_hash(13),
 			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![200.into(), 100.into(), 200.into()])]
-				.into_iter()
-				.collect(),
+			claim_queue: same_cq,
 			assigned_core: leaf_info.assigned_core,
 		},
 	);
 
-	let first_peer = peer_id(1);
-	let second_peer = peer_id(2);
+	let db = MockDb::default();
+	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
 
-	let (first_pvd, first_ccr, first_adv) = {
+	let first_peer = peer_id(1);
+
+	// `blocked_adv` lives at sp=10. It will get fetched, blocked-on-parent (we never give the
+	// validator the parent's PVD), and stay parked until activate_leaf(13) takes sp=10 out of
+	// view — at which point it must be dropped. With the slot freed, a previously pending ad
+	// at the leaf can finally fetch.
+	let (_, blocked_ccr, blocked_adv) = {
 		let pvd = PersistedValidationData {
 			parent_head: HeadData(vec![0]),
 			relay_parent_number: 10,
@@ -2930,48 +2922,6 @@ async fn test_outdated_blocked_collations_are_pruned() {
 				scheduling_parent: active_leaf,
 				prospective_candidate,
 				advertised_descriptor_version: None,
-				core_index: CoreIndex(0),
-			},
-		)
-	};
-
-	let (_, second_ccr, second_adv) = {
-		let pvd = PersistedValidationData {
-			parent_head: HeadData(vec![1]),
-			relay_parent_number: 10,
-			..dummy_pvd()
-		};
-		let ccr = CommittedCandidateReceipt {
-			descriptor: make_valid_candidate_descriptor_v2(
-				para_id,
-				active_leaf,
-				leaf_info.assigned_core,
-				leaf_info.session_index,
-				pvd.hash(),
-				dummy_pov().hash(),
-				Hash::zero(),
-				HeadData(vec![2]).hash(),
-				Hash::zero(),
-			),
-			commitments: dummy_candidate_commitments(HeadData(vec![2])),
-		};
-
-		let receipt = ccr.to_plain();
-		let prospective_candidate = Some(ProspectiveCandidate {
-			candidate_hash: receipt.hash(),
-			parent_head_data_hash: pvd.parent_head.hash(),
-		});
-
-		(
-			pvd,
-			ccr,
-			Advertisement {
-				peer_id: second_peer,
-				para_id,
-				scheduling_parent: active_leaf,
-				prospective_candidate,
-				advertised_descriptor_version: None,
-				core_index: CoreIndex(0),
 			},
 		)
 	};
@@ -2980,86 +2930,74 @@ async fn test_outdated_blocked_collations_are_pruned() {
 	test_state.activate_leaf(&mut state, 12).await;
 
 	state.handle_peer_connected(&mut sender, first_peer, CollationVersion::V2).await;
-	state
-		.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2)
-		.await;
 	state.handle_declare(&mut sender, first_peer, para_id).await;
-	state.handle_declare(&mut sender, second_peer, para_id).await;
 
-	test_state.handle_advertisement(&mut state, first_adv).await;
-	test_state.handle_advertisement(&mut state, second_adv).await;
+	test_state.handle_advertisement(&mut state, blocked_adv).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_collation_requests([first_adv, second_adv].into()).await;
+	test_state.assert_collation_request(blocked_adv).await;
 
 	test_state.assert_no_messages().await;
 
-	// First collation is fetched and seconding kicks off.
-	test_state
-		.handle_fetched_collation(
-			&mut state,
-			first_adv,
-			first_ccr.to_plain(),
-			Some(first_pvd),
-			first_adv.scheduling_parent,
-		)
-		.await;
-
-	// Then, second collation is fetched and seconding kicks off (but the parent header is unknown
-	// so it get's blocked)
-	let res = Ok(CollationFetchingResponse::Collation(second_ccr.to_plain(), dummy_pov()));
+	// Fetch the blocked candidate. We don't know its PVD so it gets blocked from seconding.
+	let res = Ok(CollationFetchingResponse::Collation(blocked_ccr.to_plain(), dummy_pov()));
 	futures::join!(
-		state.handle_fetched_collation(&mut sender, (second_adv, res)),
-		// We don't know it's pvd so it gets blocked from seconding
-		test_state.assert_pvd_request(second_adv, None, second_adv.scheduling_parent)
+		state.handle_fetched_collation(&mut sender, (blocked_adv, res)),
+		test_state.assert_pvd_request(blocked_adv, None, blocked_adv.scheduling_parent),
 	);
 	test_state.assert_no_messages().await;
 
-	// Add two new advertisements. One won't be fetched because claims will become exhausted.
-	let third_peer = peer_id(3);
-	state.handle_peer_connected(&mut sender, third_peer, CollationVersion::V2).await;
-	state.handle_declare(&mut sender, third_peer, para_id).await;
-	let (_, pending_adv_1) = dummy_candidate(
+	// Fill the leaf's window with two more fetches at sp=12 (lookahead=3, blocked_adv occupies
+	// 1 slot via sp=10's same-core path → 2 free). Then pending_adv at sp=12 makes it 4 ads
+	// for 3 slots, the last one parked.
+	let second_peer = peer_id(2);
+	state.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, second_peer, para_id).await;
+	let (_, fill_adv_1) = dummy_candidate(
 		get_hash(12),
 		para_id,
-		third_peer,
+		second_peer,
 		leaf_info.assigned_core,
 		leaf_info.session_index,
-		Hash::from_low_u64_be(0),
+		Hash::from_low_u64_be(2),
 	);
-	let (_, pending_adv_2) = dummy_candidate(
+	let (_, fill_adv_2) = dummy_candidate(
 		get_hash(12),
 		para_id,
-		third_peer,
+		second_peer,
 		leaf_info.assigned_core,
 		leaf_info.session_index,
-		Hash::from_low_u64_be(1),
+		Hash::from_low_u64_be(3),
 	);
-
-	test_state.handle_advertisement(&mut state, pending_adv_1).await;
-
+	let (_, pending_adv) = dummy_candidate(
+		get_hash(12),
+		para_id,
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(4),
+	);
+	test_state.handle_advertisement(&mut state, fill_adv_1).await;
+	test_state.handle_advertisement(&mut state, fill_adv_2).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
-
-	test_state.assert_collation_request(pending_adv_1).await;
-
-	test_state.handle_advertisement(&mut state, pending_adv_2).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-
+	test_state.assert_collation_requests([fill_adv_1, fill_adv_2].into()).await;
 	test_state.assert_no_messages().await;
 
-	// Activating leaf 13 will remove the second collation (even though it's blocked). The claim
-	// will be freed so we can launch the second pending advertisement.
+	test_state.handle_advertisement(&mut state, pending_adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+
+	// Activating leaf 13 takes sp=10 out of view; the blocked collation is dropped and the
+	// freed slot lets `pending_adv` fetch.
 	test_state.activate_leaf(&mut state, 13).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_collation_request(pending_adv_2).await;
+	test_state.assert_collation_request(pending_adv).await;
 
 	// Even if we do end up getting a valid statement for the collation that would unblock the
-	// second collation, it's already been dropped.
-
-	let parent = first_ccr.descriptor.relay_parent();
-	let statement = make_seconded_statement(&test_state.keystore, first_ccr);
-
+	// blocked collation, it's already been dropped.
+	let parent = blocked_ccr.descriptor.relay_parent();
+	let statement = make_seconded_statement(&test_state.keystore, blocked_ccr);
 	state.handle_seconded_collation(&mut sender, statement, parent).await;
 
 	test_state.assert_no_messages().await;
@@ -3073,15 +3011,22 @@ async fn test_outdated_fetching_collations_are_pruned() {
 	let active_leaf = get_hash(10);
 	let leaf_info = test_state.rp_info.get(&active_leaf).unwrap().clone();
 
+	// Use a uniform CQ entirely for para 100 so capacity reasoning is straightforward — the
+	// purpose of this test is pruning of outdated fetches, not multi-para or rotating CQs.
+	let same_cq: BTreeMap<CoreIndex, Vec<ParaId>> =
+		[(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()])].into_iter().collect();
+	test_state
+		.rp_info
+		.get_mut(&get_hash(10))
+		.expect("inserted by TestState::default")
+		.claim_queue = same_cq.clone();
 	test_state.rp_info.insert(
 		get_hash(11),
 		RelayParentInfo {
 			number: 11,
 			parent: get_parent_hash(11),
 			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![200.into(), 100.into(), 200.into()])]
-				.into_iter()
-				.collect(),
+			claim_queue: same_cq.clone(),
 			assigned_core: leaf_info.assigned_core,
 		},
 	);
@@ -3091,9 +3036,7 @@ async fn test_outdated_fetching_collations_are_pruned() {
 			number: 12,
 			parent: get_parent_hash(12),
 			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![100.into(), 200.into(), 100.into()])]
-				.into_iter()
-				.collect(),
+			claim_queue: same_cq.clone(),
 			assigned_core: leaf_info.assigned_core,
 		},
 	);
@@ -3103,9 +3046,7 @@ async fn test_outdated_fetching_collations_are_pruned() {
 			number: 13,
 			parent: get_parent_hash(13),
 			session_index: leaf_info.session_index,
-			claim_queue: [(leaf_info.assigned_core, vec![200.into(), 100.into(), 200.into()])]
-				.into_iter()
-				.collect(),
+			claim_queue: same_cq,
 			assigned_core: leaf_info.assigned_core,
 		},
 	);
@@ -3115,9 +3056,10 @@ async fn test_outdated_fetching_collations_are_pruned() {
 	let mut sender = test_state.sender.clone();
 
 	let peer_id = PeerId::random();
-	let second_peer_id = PeerId::random();
 
-	// First and second advertisements are on block 10, the first RP that will go out of scope.
+	// `first_adv` is at sp=10, the relay parent that will go out of scope when leaf 13
+	// activates. We launch its fetch and then move the leaf forward; once sp=10 falls out of
+	// view the fetch must get cancelled.
 	let (_, first_adv) = dummy_candidate(
 		get_hash(10),
 		100.into(),
@@ -3127,39 +3069,8 @@ async fn test_outdated_fetching_collations_are_pruned() {
 		Hash::from_low_u64_be(0),
 	);
 
-	let (_, second_adv) = dummy_candidate(
-		get_hash(10),
-		100.into(),
-		peer_id,
-		leaf_info.assigned_core,
-		leaf_info.session_index,
-		Hash::from_low_u64_be(1),
-	);
-
-	let (_, third_adv) = dummy_candidate(
-		get_hash(12),
-		100.into(),
-		peer_id,
-		leaf_info.assigned_core,
-		leaf_info.session_index,
-		Hash::from_low_u64_be(2),
-	);
-
-	let (_, fourth_adv) = dummy_candidate(
-		get_hash(12),
-		100.into(),
-		second_peer_id,
-		leaf_info.assigned_core,
-		leaf_info.session_index,
-		Hash::from_low_u64_be(3),
-	);
-
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
-	state
-		.handle_peer_connected(&mut sender, second_peer_id, CollationVersion::V2)
-		.await;
 	state.handle_declare(&mut sender, peer_id, 100.into()).await;
-	state.handle_declare(&mut sender, second_peer_id, 100.into()).await;
 
 	test_state.handle_advertisement(&mut state, first_adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -3176,47 +3087,26 @@ async fn test_outdated_fetching_collations_are_pruned() {
 
 	test_state.activate_leaf(&mut state, 12).await;
 
-	test_state.handle_advertisement(&mut state, second_adv).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	let _pending_second = test_state.assert_collation_request(second_adv).await;
-
-	test_state.handle_advertisement(&mut state, third_adv).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	let _pending_third = test_state.assert_collation_request(third_adv).await;
-	test_state.assert_no_messages().await;
-
-	test_state.handle_advertisement(&mut state, fourth_adv).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_no_messages().await;
-
-	// When we activate leaf 13, we'll drop the first and second advertisements, as they're out
-	// of view.
-	test_state.activate_leaf(&mut state, 13).await;
-	let mut cancelled = BTreeSet::new();
-
-	// Check that the collation fetches were cancelled and forward the results to the subsystem.
-	while let Some(resp) =
-		state.collation_response_stream().select_next_some().timeout(TIMEOUT).await
-	{
-		assert_matches!(resp.1, Err(CollationFetchError::Cancelled));
-		cancelled.insert(resp.0);
-		state.handle_fetched_collation(&mut sender, resp).await;
-	}
-
-	assert_eq!(cancelled, [first_adv, second_adv].into());
-
-	// Now we got one more spot for the fourth advertisement, since the second one was dropped.
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	let _pending_fourth = test_state.assert_collation_request(fourth_adv).await;
-
-	test_state.assert_no_messages().await;
-
 	assert!(state
 		.collation_response_stream()
 		.select_next_some()
 		.timeout(TIMEOUT)
 		.await
 		.is_none());
+
+	// Activating leaf 13 takes sp=10 out of view; the in-flight fetch must get cancelled.
+	test_state.activate_leaf(&mut state, 13).await;
+	let resp = state
+		.collation_response_stream()
+		.select_next_some()
+		.timeout(TIMEOUT)
+		.await
+		.expect("cancellation response should arrive");
+	assert_eq!(resp.0, first_adv);
+	assert_matches!(resp.1, Err(CollationFetchError::Cancelled));
+	state.handle_fetched_collation(&mut sender, resp).await;
+
+	test_state.assert_no_messages().await;
 }
 
 #[tokio::test]
@@ -3614,7 +3504,6 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
 		advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3684,7 +3573,6 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
 		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
-		core_index: CoreIndex(0),
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3712,7 +3600,7 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 		get_hash(10),
 		RelayParentInfo {
 			number: 10,
-			parent: get_parent_hash(9),
+			parent: active_leaf,
 			session_index: leaf_info.session_index,
 			claim_queue: leaf_info.claim_queue.clone(),
 			assigned_core: leaf_info.assigned_core,
@@ -3741,7 +3629,6 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 			parent_head_data_hash: dummy_pvd().parent_head.hash(),
 		}),
 		advertised_descriptor_version: None,
-		core_index: CoreIndex(0),
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -3965,7 +3852,6 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 			parent_head_data_hash: pvd_a2.parent_head.hash(),
 		}),
 		advertised_descriptor_version: None,
-		core_index: core_at_9,
 	};
 
 	test_state.handle_advertisement(&mut state, adv_a2).await;

@@ -22,8 +22,8 @@ use polkadot_node_network_protocol::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, CoreIndex,
-	Hash, Id as ParaId, PersistedValidationData,
+	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
+	Id as ParaId, PersistedValidationData,
 };
 use std::{collections::HashSet, num::NonZeroU16, time::Duration};
 
@@ -223,8 +223,6 @@ pub struct Advertisement {
 	/// Advertised candidate descriptor version (for V3 protocol).
 	/// None for V1/V2 protocols.
 	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
-	/// The core index assigned to the validator group at `scheduling_parent`.
-	pub core_index: CoreIndex,
 }
 
 impl Advertisement {

@@ -400,6 +400,13 @@ impl<B: Backend> State<B> {
 			"Invalid collation",
 		);
 
+		// Look the peer up before releasing the slot, since releasing removes the entry that
+		// holds the peer id.
+		let maybe_peer_id = self
+			.collation_manager
+			.get_fetched_collation_peer_id(&scheduling_parent, &candidate_hash)
+			.copied();
+
 		self.collation_manager.release_slot(
 			&scheduling_parent,
 			receipt.descriptor.para_id(),
@@ -407,10 +414,7 @@ impl<B: Backend> State<B> {
 			Some(receipt.descriptor.para_head()),
 		);
 
-		let Some(peer_id) = self
-			.collation_manager
-			.get_fetched_collation_peer_id(&scheduling_parent, &candidate_hash)
-		else {
+		let Some(peer_id) = maybe_peer_id else {
 			gum::warn!(
 				target: LOG_TARGET,
 				para_id = ?receipt.descriptor.para_id(),
@@ -430,7 +434,7 @@ impl<B: Backend> State<B> {
 		);
 
 		self.peer_manager
-			.slash_reputation(peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
+			.slash_reputation(&peer_id, &receipt.descriptor.para_id(), INVALID_COLLATION_SLASH)
 			.await;
 	}
 
@@ -454,7 +458,6 @@ impl<B: Backend> State<B> {
 
 		let candidate_hash = receipt.hash();
 		let para_id = receipt.descriptor.para_id();
-		let core_id = receipt.descriptor.core_index();
 
 		gum::debug!(
 			target: LOG_TARGET,
@@ -472,7 +475,6 @@ impl<B: Backend> State<B> {
 				&para_id,
 				&candidate_hash,
 				receipt.descriptor.para_head(),
-				core_id,
 			)
 			.await;
 
