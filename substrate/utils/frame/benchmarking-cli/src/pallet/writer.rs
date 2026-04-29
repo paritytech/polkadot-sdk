@@ -307,9 +307,13 @@ pub(crate) fn sanity_weight_check(
 
 	if !quiet {
 		color_print::cprintln!(
-			"\n<s>Sanity Weight Check:</> each extrinsic's weight function is evaluated in the \
+			"\n<s>Sanity Weight Check:</> each benchmark's weight function is evaluated in the \
 			worst-case scenario (every complexity component at its max value) and compared with \
-			the runtime's max extrinsic weight for `DispatchClass::Normal`.\n\n<u>Results:</>\n"
+			the runtime's max extrinsic weight for `DispatchClass::Normal`.\n\n<s>Note:</> the \
+			check currently treats every benchmark as if it were a `Normal`-class extrinsic. \
+			Hooks (`on_initialize`/`on_finalize`) and `Operational`/`Mandatory` extrinsics may \
+			produce false positives or false negatives — see issue #152 for follow-up work to \
+			distinguish dispatch classes.\n\n<u>Results:</>\n"
 		);
 	}
 
