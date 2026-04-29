@@ -16,7 +16,7 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-use crate::arg_enums::{SanityWeightCheck, TracingReceiver, DEFAULT_SANITY_WEIGHT_CHECK};
+use crate::arg_enums::TracingReceiver;
 use clap::Args;
 use sc_service::config::BasePath;
 use std::path::PathBuf;
@@ -89,16 +89,6 @@ pub struct SharedParams {
 	/// Receiver to process tracing messages.
 	#[arg(long, value_name = "RECEIVER", value_enum, ignore_case = true, default_value_t = TracingReceiver::Log)]
 	pub tracing_receiver: TracingReceiver,
-
-	/// How to react when an extrinsic exceeds the runtime's max extrinsic weight during a
-	/// benchmark run.
-	#[arg(
-		long,
-		value_name = "ERROR_LEVEL",
-		value_enum,
-		default_value_t = DEFAULT_SANITY_WEIGHT_CHECK,
-	)]
-	pub sanity_weight_check: SanityWeightCheck,
 }
 
 impl SharedParams {

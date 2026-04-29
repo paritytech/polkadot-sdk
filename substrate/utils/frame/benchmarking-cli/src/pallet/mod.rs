@@ -47,6 +47,27 @@ pub enum ListOutput {
 	Pallets,
 }
 
+/// How the benchmarking CLI should react when an extrinsic's worst-case weight exceeds the
+/// runtime's max extrinsic weight.
+#[allow(missing_docs)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+#[value(rename_all = "kebab-case")]
+pub enum SanityWeightCheck {
+	/// Print the results and return an error if any extrinsic exceeds the limit.
+	Error,
+	/// Print the results and a warning, but do not return an error.
+	Warning,
+	/// Skip the sanity weight check.
+	Ignore,
+}
+
+/// The default [`SanityWeightCheck`].
+///
+/// Starts as `Warning` for the first release that ships the check so existing benchmark
+/// pipelines do not start failing on configurations that historically passed. Tightening
+/// this to `Error` is planned for a follow-up release once teams have had a cycle to react.
+pub const DEFAULT_SANITY_WEIGHT_CHECK: SanityWeightCheck = SanityWeightCheck::Warning;
+
 /// Benchmark the extrinsic weight of FRAME Pallets.
 #[derive(Debug, clap::Parser)]
 pub struct PalletCmd {
@@ -167,6 +188,16 @@ pub struct PalletCmd {
 	/// construction.
 	#[arg(long)]
 	pub extra: bool,
+
+	/// How to react when an extrinsic's worst-case weight exceeds the runtime's max extrinsic
+	/// weight for `DispatchClass::Normal`.
+	#[arg(
+		long,
+		value_name = "ERROR_LEVEL",
+		value_enum,
+		default_value_t = DEFAULT_SANITY_WEIGHT_CHECK,
+	)]
+	pub sanity_weight_check: SanityWeightCheck,
 
 	#[allow(missing_docs)]
 	#[clap(flatten)]

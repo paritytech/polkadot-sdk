@@ -840,7 +840,7 @@ impl PalletCmd {
 			pov_modes,
 			self,
 			runtime_block_limits,
-			self.shared_params.sanity_weight_check,
+			self.sanity_weight_check,
 			json_to_stdout || self.quiet,
 		)?;
 

@@ -32,7 +32,7 @@ use crate::{
 	pallet::{
 		command::{PovEstimationMode, PovModesMap},
 		types::{ComponentRange, ComponentRangeMap},
-		LOG_TARGET,
+		SanityWeightCheck, LOG_TARGET,
 	},
 	shared::UnderscoreHelper,
 	PalletCmd,
@@ -45,7 +45,6 @@ use frame_support::{
 	traits::StorageInfo,
 	weights::{RuntimeDbWeight, Weight},
 };
-use sc_cli::SanityWeightCheck;
 use sp_core::hexdisplay::HexDisplay;
 use sp_runtime::traits::Zero;
 
