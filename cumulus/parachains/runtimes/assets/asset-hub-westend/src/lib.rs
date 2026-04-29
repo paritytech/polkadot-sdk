@@ -351,6 +351,7 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -491,7 +492,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = WestendLocation;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -1540,7 +1541,7 @@ parameter_types! {
 }
 
 /// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
-type PsmStableAsset =
+type PsmInternalAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
@@ -1598,7 +1599,7 @@ impl pallet_psm::Config for Runtime {
 	type MaximumIssuance = dynamic_params::pusd::MaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
-	type StableAsset = PsmStableAsset;
+	type InternalAsset = PsmInternalAsset;
 	type FeeDestination = PsmFeeDestination;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
@@ -1890,7 +1891,7 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
-	// PSM v1 -> v2: backfill AssetDecimals/StableDecimals snapshots for assets
+	// PSM v1 -> v2: backfill ExternalDecimals/InternalDecimals snapshots for assets
 	// that were approved under v1 (no per-asset decimals). One-shot; only runs
 	// when the on-chain pallet storage version is 1, then bumps it to 2.
 	pallet_psm::migrations::decimals::PopulateDecimals<Runtime>,
