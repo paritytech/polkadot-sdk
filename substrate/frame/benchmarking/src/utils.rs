@@ -245,7 +245,7 @@ pub struct BenchmarkMetadata {
 }
 
 /// Runtime-level weight limits exposed to the benchmarking CLI for the sanity check.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default, TypeInfo)]
 pub struct RuntimeBlockLimits {
 	/// Maximum weight an extrinsic of `DispatchClass::Normal` can have in a block.
 	pub max_extrinsic_weight: Weight,
