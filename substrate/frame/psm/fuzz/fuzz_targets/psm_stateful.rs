@@ -11,8 +11,8 @@ use frame_support::traits::fungibles::Inspect;
 use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
 	set_mock_maximum_issuance, Assets, MockMaximumIssuance, Psm, RuntimeOrigin, System, Test,
-	ALL_EXTERNAL_ASSETS, DAI_ASSET_ID, FRAX_ASSET_ID, INSURANCE_FUND, PUSD_ASSET_ID, PUSD_UNIT,
-	USDC_ASSET_ID, USDP_ASSET_ID, USDT_ASSET_ID,
+	ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID, INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT,
+	USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
 use pallet_psm::PsmDebt;
@@ -30,10 +30,10 @@ use std::env;
 // with no shared state. The values have the same rationale: finite balances to allow
 // the fuzzer to discover rejection paths, and a 20M issuance cap for ceiling headroom.
 const N_ACCOUNTS: u8 = 10;
-const MIN_SWAP: u128 = 100 * PUSD_UNIT;
-const INITIAL_EXTERNAL_BALANCE: u128 = 500_000 * PUSD_UNIT;
-const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * PUSD_UNIT;
-const MAX_PSM_ISSUANCE: u128 = 20_000_000 * PUSD_UNIT;
+const MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
+const INITIAL_EXTERNAL_BALANCE: u128 = 500_000 * INTERNAL_UNIT;
+const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT;
+const MAX_PSM_ISSUANCE: u128 = 20_000_000 * INTERNAL_UNIT;
 
 // ---------------------------------------------------------------------------
 // Command enum
@@ -140,25 +140,29 @@ fn build_fuzzer_genesis() -> TestExternalities {
 	let asset_owner: u64 = 1;
 	pallet_assets::GenesisConfig::<Test> {
 		assets: vec![
-			(PUSD_ASSET_ID, asset_owner, true, 1),
+			(INTERNAL_ASSET_ID, asset_owner, true, 1),
 			(USDC_ASSET_ID, asset_owner, true, 1),
 			(USDT_ASSET_ID, asset_owner, true, 1),
-			(DAI_ASSET_ID, asset_owner, true, 1),
-			(USDP_ASSET_ID, asset_owner, true, 1),
-			(FRAX_ASSET_ID, asset_owner, true, 1),
+			(USDX_ASSET_ID, asset_owner, true, 1),
+			(DAI_MOCK_ASSET_ID, asset_owner, true, 1),
 		],
 		metadata: vec![
-			(PUSD_ASSET_ID, b"pUSD Stablecoin".to_vec(), b"pUSD".to_vec(), 6),
+			(INTERNAL_ASSET_ID, b"Internal Asset".to_vec(), b"INTERNAL".to_vec(), 6),
 			(USDC_ASSET_ID, b"USD Coin".to_vec(), b"USDC".to_vec(), 6),
 			(USDT_ASSET_ID, b"Tether USD".to_vec(), b"USDT".to_vec(), 6),
-			(DAI_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 6),
-			(USDP_ASSET_ID, b"Pax Dollar".to_vec(), b"USDP".to_vec(), 6),
-			(FRAX_ASSET_ID, b"Frax".to_vec(), b"FRAX".to_vec(), 6),
+			(USDX_ASSET_ID, b"Low-Decimal Coin".to_vec(), b"USDX".to_vec(), 2),
+			(DAI_MOCK_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 18),
 		],
 		accounts: accounts
 			.iter()
 			.flat_map(|&a| {
-				ALL_EXTERNAL_ASSETS.iter().map(move |&id| (id, a, INITIAL_EXTERNAL_BALANCE))
+				[
+					(USDC_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
+					(USDT_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
+					(USDX_ASSET_ID, a, 500_000 * pallet_psm::mock::USDX_UNIT),
+					(DAI_MOCK_ASSET_ID, a, 500_000 * pallet_psm::mock::DAI_UNIT),
+				]
+				.into_iter()
 			})
 			.collect(),
 		..Default::default()
@@ -200,7 +204,7 @@ fn build_fuzzer_genesis() -> TestExternalities {
 fn snapshot_state() -> FuzzState {
 	let approved = fuzz_helpers::approved_assets();
 	let max_issuance = MockMaximumIssuance::get();
-	let total_pusd_issuance = Assets::total_issuance(PUSD_ASSET_ID);
+	let total_pusd_issuance = Assets::total_issuance(INTERNAL_ASSET_ID);
 
 	let mut assets = Vec::with_capacity(approved.len());
 	for &asset_id in &approved {
@@ -216,7 +220,7 @@ fn snapshot_state() -> FuzzState {
 		let mut account_pusd = Vec::with_capacity(N_ACCOUNTS as usize);
 		for account in 1..=N_ACCOUNTS as u64 {
 			account_external.push(Assets::balance(asset_id, account));
-			account_pusd.push(Assets::balance(PUSD_ASSET_ID, account));
+			account_pusd.push(Assets::balance(INTERNAL_ASSET_ID, account));
 		}
 
 		assets.push(AssetState {
@@ -657,15 +661,14 @@ fn asset_name(id: u32) -> &'static str {
 	match id {
 		USDC_ASSET_ID => "USDC",
 		USDT_ASSET_ID => "USDT",
-		DAI_ASSET_ID => "DAI",
-		USDP_ASSET_ID => "USDP",
-		FRAX_ASSET_ID => "FRAX",
+		USDX_ASSET_ID => "USDX",
+		DAI_MOCK_ASSET_ID => "DAI",
 		_ => "???",
 	}
 }
 
 fn format_amount(raw: u128) -> String {
-	let tokens = raw / PUSD_UNIT;
+	let tokens = raw / INTERNAL_UNIT;
 	if tokens >= 1_000_000 {
 		format!("{:>6.1}M", tokens as f64 / 1_000_000.0)
 	} else if tokens >= 1_000 {

@@ -1,8 +1,8 @@
 use frame_support::traits::fungibles::Inspect;
 use pallet_psm::mock::fuzz_helpers;
 use pallet_psm::mock::{
-	Assets, Psm, RuntimeOrigin, System, Test, ALL_EXTERNAL_ASSETS, DAI_ASSET_ID, FRAX_ASSET_ID,
-	INSURANCE_FUND, PUSD_ASSET_ID, PUSD_UNIT, USDC_ASSET_ID, USDP_ASSET_ID, USDT_ASSET_ID,
+	Assets, Psm, RuntimeOrigin, System, Test, ALL_EXTERNAL_ASSETS, DAI_MOCK_ASSET_ID,
+	INSURANCE_FUND, INTERNAL_ASSET_ID, INTERNAL_UNIT, USDC_ASSET_ID, USDT_ASSET_ID, USDX_ASSET_ID,
 };
 use pallet_psm::CircuitBreakerLevel;
 use pallet_psm::PsmDebt;
@@ -16,16 +16,16 @@ use sp_runtime::{BuildStorage, Permill};
 // mints, a different one redeems) while keeping the fuzzer input compact — each account
 // index fits in a u8 nibble.
 const N_ACCOUNTS: u8 = 10;
-const MIN_SWAP: u128 = 100 * PUSD_UNIT;
+const MIN_SWAP: u128 = 100 * INTERNAL_UNIT;
 // Deliberately finite: if every account started with u128::MAX, the fuzzer could never
 // discover "insufficient balance" rejection paths. 500K units is large enough to permit
 // multi-transaction sequences but small enough that sustained minting can exhaust it.
-const INITIAL_EXTERNAL_BALANCE: u128 = 500_000 * PUSD_UNIT;
-const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * PUSD_UNIT;
+const INITIAL_EXTERNAL_BALANCE: u128 = 500_000 * INTERNAL_UNIT;
+const INITIAL_NATIVE_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT;
 // 20M units leaves headroom for ceiling exploration: with 50% MaxPsmDebtOfTotal the
 // global debt cap starts at 10M, so the fuzzer can mint well past any single-asset
 // ceiling without immediately hitting the issuance limit.
-const MAX_PSM_ISSUANCE: u128 = 20_000_000 * PUSD_UNIT;
+const MAX_PSM_ISSUANCE: u128 = 20_000_000 * INTERNAL_UNIT;
 
 // ---------------------------------------------------------------------------
 // Hint enums (produced by Arbitrary, no storage access)
@@ -255,13 +255,13 @@ fn resolve_amount(tier: &AmountTier, effective_cap: u128) -> u128 {
 }
 
 // ---------------------------------------------------------------------------
-// Genesis setup (10 accounts, 5 external assets, PSM with USDC/USDT)
+// Genesis setup (10 accounts, 4 external assets, PSM with USDC/USDT)
 // ---------------------------------------------------------------------------
 
-// Genesis creates 6 assets but only USDC and USDT are PSM-approved. The remaining
-// three (DAI, USDP, FRAX) are pre-funded so the fuzzer can exercise AddExternalAsset
-// without first needing to create the asset. All 5 external assets are funded across
-// all 10 accounts so that newly-approved assets can be minted immediately by any account.
+// Genesis creates 5 assets: USDC and USDT (6 decimals, PSM-approved), USDX (2 decimals),
+// and DAI_MOCK (18 decimals). USDX and DAI_MOCK are pre-funded so the fuzzer can exercise
+// AddExternalAsset without first needing to create the asset, and can test decimal
+// conversion paths once approved. All 4 external assets are funded across all 10 accounts.
 //
 // PSM genesis: USDC gets 60% ceiling weight, USDT gets 40%, both with 1% minting and
 // redemption fees. MaxPsmDebtOfTotal is 50%, meaning the total PSM debt cannot exceed
@@ -288,25 +288,30 @@ fn build_fuzzer_genesis() -> sp_io::TestExternalities {
 	let asset_owner: u64 = 1;
 	pallet_assets::GenesisConfig::<Test> {
 		assets: vec![
-			(PUSD_ASSET_ID, asset_owner, true, 1),
+			(INTERNAL_ASSET_ID, asset_owner, true, 1),
 			(USDC_ASSET_ID, asset_owner, true, 1),
 			(USDT_ASSET_ID, asset_owner, true, 1),
-			(DAI_ASSET_ID, asset_owner, true, 1),
-			(USDP_ASSET_ID, asset_owner, true, 1),
-			(FRAX_ASSET_ID, asset_owner, true, 1),
+			(USDX_ASSET_ID, asset_owner, true, 1),
+			(DAI_MOCK_ASSET_ID, asset_owner, true, 1),
 		],
 		metadata: vec![
-			(PUSD_ASSET_ID, b"pUSD Stablecoin".to_vec(), b"pUSD".to_vec(), 6),
+			(INTERNAL_ASSET_ID, b"Internal Asset".to_vec(), b"INTERNAL".to_vec(), 6),
 			(USDC_ASSET_ID, b"USD Coin".to_vec(), b"USDC".to_vec(), 6),
 			(USDT_ASSET_ID, b"Tether USD".to_vec(), b"USDT".to_vec(), 6),
-			(DAI_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 6),
-			(USDP_ASSET_ID, b"Pax Dollar".to_vec(), b"USDP".to_vec(), 6),
-			(FRAX_ASSET_ID, b"Frax".to_vec(), b"FRAX".to_vec(), 6),
+			(USDX_ASSET_ID, b"Low-Decimal Coin".to_vec(), b"USDX".to_vec(), 2),
+			(DAI_MOCK_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 18),
 		],
 		accounts: accounts
 			.iter()
 			.flat_map(|&a| {
-				ALL_EXTERNAL_ASSETS.iter().map(move |&id| (id, a, INITIAL_EXTERNAL_BALANCE))
+				// Fund each account with 500K tokens expressed in each asset's own unit.
+				[
+					(USDC_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
+					(USDT_ASSET_ID, a, INITIAL_EXTERNAL_BALANCE),
+					(USDX_ASSET_ID, a, 500_000 * pallet_psm::mock::USDX_UNIT),
+					(DAI_MOCK_ASSET_ID, a, 500_000 * pallet_psm::mock::DAI_UNIT),
+				]
+				.into_iter()
 			})
 			.collect(),
 		..Default::default()
@@ -367,7 +372,7 @@ fn dispatch_op(op: &Op) {
 				fuzz_helpers::max_psm_debt().saturating_sub(fuzz_helpers::total_psm_debt());
 			let balance = Assets::balance(asset_id, account);
 			let issuance_remaining = pallet_psm::mock::MockMaximumIssuance::get()
-				.saturating_sub(Assets::total_issuance(PUSD_ASSET_ID));
+				.saturating_sub(Assets::total_issuance(INTERNAL_ASSET_ID));
 			let effective_cap =
 				remaining.min(global_remaining).min(issuance_remaining).min(balance);
 			let amount = resolve_amount(tier, effective_cap);
@@ -383,7 +388,7 @@ fn dispatch_op(op: &Op) {
 				return;
 			}
 			let debt = PsmDebt::<Test>::get(asset_id);
-			let user_pusd = Assets::balance(PUSD_ASSET_ID, account);
+			let user_pusd = Assets::balance(INTERNAL_ASSET_ID, account);
 			let effective_cap = debt.min(user_pusd);
 			let amount = resolve_amount(tier, effective_cap);
 			if amount >= MIN_SWAP {

@@ -21,6 +21,7 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
+sp-dap = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
@@ -39,6 +40,7 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"sp-core/std",
+	"sp-dap/std",
 	"sp-io/std",
 	"sp-runtime/std",
 ]
