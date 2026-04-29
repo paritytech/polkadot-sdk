@@ -1513,21 +1513,17 @@ impl StatementStore for Store {
 		let evicted = {
 			let mut submit_index = self.submit_index.write();
 
-			let evicted = match submit_index.insert(
-				hash,
-				&statement,
-				&account_id,
-				&validation,
-				current_time,
-			) {
-				Ok(evicted) => evicted,
-				Err(reason) => {
-					self.metrics.report(|metrics| {
-						metrics.rejections.with_label_values(&[reason.label()]).inc();
-					});
-					return SubmitResult::Rejected(reason);
-				},
-			};
+			let evicted =
+				match submit_index.insert(hash, &statement, &account_id, &validation, current_time)
+				{
+					Ok(evicted) => evicted,
+					Err(reason) => {
+						self.metrics.report(|metrics| {
+							metrics.rejections.with_label_values(&[reason.label()]).inc();
+						});
+						return SubmitResult::Rejected(reason);
+					},
+				};
 
 			let mut commit = Vec::new();
 			commit.push((col::STATEMENTS, hash.to_vec(), Some(statement.encode())));
