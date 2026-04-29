@@ -16,16 +16,16 @@
 // limitations under the License.
 
 use crate::{
+	reward::EraRewardManager,
 	session_rotation::{Eras, Rotator},
 	tests::session_mock::{CurrentIndex, Timestamp},
+	POT_POOL_SIZE,
 };
-use frame_support::traits::fungible::Inspect;
-use crate::{reward::EraRewardManager, POT_POOL_SIZE};
-use frame_support::traits::fungible::Mutate;
-use crate::{Seed, POT_POOL_SIZE};
 use codec::Encode;
-use frame_support::PalletId;
-
+use frame_support::{
+	traits::fungible::{Inspect, Mutate},
+	PalletId,
+};
 
 use super::*;
 
@@ -602,20 +602,11 @@ fn pot_slot_reuse_drain_then_recreate_is_idempotent() {
 
 #[test]
 fn era_pot_slots_collide_every_pool_size_eras() {
-	// Verifies the production `Seed` provider derives era pots from
-	// `(slot, kind)` rather than `(era, kind)`. Asserted on the encoded seed
-	// rather than the resulting `AccountId` because the mock's `AccountId = u64`
-	// is too narrow to fit the seed and `into_sub_account_truncating` truncates
-	// it down to a constant.
-	type ProdProvider = Seed<DapPalletId>;
-
-	let era_a = 7;
-	let era_b = era_a + POT_POOL_SIZE; // shares slot with era_a
-	let era_c = era_a + 1;
-
-	// Encoded sub-account seeds (PalletId TYPE_ID + pallet id + sub-seed bytes).
-	// `into_sub_account_truncating` decodes these into AccountId; identical
-	// seeds always yield identical accounts.
+	// Verifies the production `Seed` provider derives era pots from `(slot, kind)`
+	// rather than `(era, kind)`. Asserted on the encoded seed rather than the
+	// resulting `AccountId` because the mock's `AccountId = u64` is too narrow
+	// to fit the seed and `into_sub_account_truncating` truncates it down to a
+	// constant.
 	let seed_for = |era: u32, kind: RewardKind| -> Vec<u8> {
 		(
 			<PalletId as sp_runtime::TypeId>::TYPE_ID,
@@ -625,19 +616,30 @@ fn era_pot_slots_collide_every_pool_size_eras() {
 			.encode()
 	};
 
+	let base_era = 7u32;
+	let base_seed = seed_for(base_era, RewardKind::StakerRewards);
+
+	// All eras within one pool window must produce distinct seeds.
+	for offset in 1..POT_POOL_SIZE {
+		assert_ne!(
+			seed_for(base_era + offset, RewardKind::StakerRewards),
+			base_seed,
+			"era +{} should not collide with the base era within the pool window",
+			offset,
+		);
+	}
+
+	// The era exactly `POT_POOL_SIZE` away wraps around to the same slot.
 	assert_eq!(
-		seed_for(era_a, RewardKind::StakerRewards),
-		seed_for(era_b, RewardKind::StakerRewards),
-		"eras `POT_POOL_SIZE` apart must share a slot seed",
+		seed_for(base_era + POT_POOL_SIZE, RewardKind::StakerRewards),
+		base_seed,
+		"era +POT_POOL_SIZE must reuse the base era's slot",
 	);
+
+	// Within a single slot, different reward kinds must remain distinct.
 	assert_ne!(
-		seed_for(era_a, RewardKind::StakerRewards),
-		seed_for(era_c, RewardKind::StakerRewards),
-		"adjacent eras must occupy different slots",
-	);
-	assert_ne!(
-		seed_for(era_a, RewardKind::StakerRewards),
-		seed_for(era_a, RewardKind::ValidatorSelfStake),
+		base_seed,
+		seed_for(base_era, RewardKind::ValidatorSelfStake),
 		"staker-rewards and incentive pots within the same slot must be distinct",
 	);
 }
