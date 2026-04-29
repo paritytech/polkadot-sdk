@@ -25,25 +25,25 @@
 
 use super::metrics::{MetricsLink as PrometheusMetrics, RemovalReason};
 use crate::{
+	LOG_TARGET,
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
-		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
-		IsValidator, TransactionFor, ValidateTransactionPriority, ValidatedPoolSubmitOutcome,
-		ValidatedTransaction, ValidatedTransactionFor,
+		self, BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, TransactionFor,
+		ValidateTransactionPriority, ValidatedPoolSubmitOutcome, ValidatedTransaction,
+		ValidatedTransactionFor, base_pool::TimedTransactionSource,
 	},
-	LOG_TARGET,
 };
 use indexmap::IndexMap;
 use parking_lot::Mutex;
-use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, TransactionStatus};
-use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
+use sc_transaction_pool_api::{PoolStatus, TransactionStatus, error::Error as TxPoolError};
+use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender, tracing_unbounded};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
-	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
-	SaturatedConversion,
+	SaturatedConversion, generic::BlockId, traits::Block as BlockT,
+	transaction_validity::TransactionValidityError,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{debug, instrument, trace, Level};
+use tracing::{Level, debug, instrument, trace};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,
@@ -652,14 +652,11 @@ where
 						.map(|v| metrics.view_revalidation_resubmitted_txs.inc_by(v)),
 				);
 
-				for tx in &removed_invalid {
-					let age = tx.source.timestamp.map(|t| removed_at.saturating_duration_since(t));
-					metrics.tx_age_at_removal.observe(
-						RemovalReason::InvalidRevalidationView,
-						tx.source.source,
-						age,
-					);
-				}
+				metrics.tx_age_at_removal.observe_batch(
+					RemovalReason::InvalidRevalidationView,
+					removed_at,
+					&removed_invalid,
+				);
 			});
 
 			debug!(

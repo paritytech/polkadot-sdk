@@ -28,11 +28,12 @@ use super::{
 	view_store::ViewStore,
 };
 use crate::{
+	LOG_TARGET, LOG_TARGET_STAT, ReadyIteratorFor, ValidateTransactionPriority,
 	api::FullChainApi,
 	common::{
+		STAT_SLIDING_WINDOW,
 		sliding_stat::DurationSlidingStats,
 		tracing_log_xt::{log_xt_debug, log_xt_trace},
-		STAT_SLIDING_WINDOW,
 	},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
@@ -40,34 +41,32 @@ use crate::{
 		revalidation_worker,
 	},
 	graph::{
-		self,
+		self, BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 		base_pool::{TimedTransactionSource, Transaction},
-		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
-	insert_and_log_throttled, ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
-	LOG_TARGET_STAT,
+	insert_and_log_throttled,
 };
 use async_trait::async_trait;
 use futures::{
+	FutureExt,
 	channel::oneshot,
 	future::{self},
 	prelude::*,
-	FutureExt,
 };
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
-	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
-	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
+	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
+	error::Error as TxPoolApiError,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
+	Saturating,
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
-	Saturating,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -76,7 +75,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use tokio::select;
-use tracing::{debug, instrument, trace, warn, Level};
+use tracing::{Level, debug, instrument, trace, warn};
 
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
@@ -384,12 +383,9 @@ where
 
 			let removed = mempool.remove_transactions(&[tx_hash]).await;
 			let removed_at = Instant::now();
-			for tx in &removed {
-				let tx_source = tx.source();
-				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
-				metrics
-					.report(|m| m.tx_age_at_removal.observe(removal_reason, tx_source.source, age));
-			}
+			metrics.report(|m| {
+				m.tx_age_at_removal.observe_batch(removal_reason, removed_at, &removed)
+			});
 			import_notification_sink.clean_notified_items(&[tx_hash]);
 			view_store.listener.transaction_dropped(dropped);
 			insert_and_log_throttled!(
@@ -867,8 +863,7 @@ where
 		//
 		// Finally, it collects the hashes of updated transactions or submission errors (either
 		// from the mempool or view_store) into a returned vector (final_results).
-		const RESULTS_ASSUMPTION : &str =
-			"The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
+		const RESULTS_ASSUMPTION: &str = "The number of Ok results in mempool is exactly the same as the size of view_store submission result. qed.";
 		let merged_results = mempool_results.into_iter().map(|result| {
 			result.map_err(Into::into).and_then(|insertion| {
 				Ok((insertion.hash, submission_results.next().expect(RESULTS_ASSUMPTION)))
@@ -1072,14 +1067,11 @@ where
 
 		self.metrics.report(|metrics| {
 			metrics.removed_invalid_txs.inc_by(removed_hashes.len() as _);
-			for tx in &removed {
-				let age = tx.source.timestamp.map(|t| removed_at.saturating_duration_since(t));
-				metrics.tx_age_at_removal.observe(
-					RemovalReason::InvalidReported,
-					tx.source.source,
-					age,
-				);
-			}
+			metrics.tx_age_at_removal.observe_batch(
+				RemovalReason::InvalidReported,
+				removed_at,
+				&removed,
+			);
 		});
 
 		removed
@@ -1344,17 +1336,13 @@ where
 
 			let removed = self.mempool.remove_transactions(&tx_hashes).await;
 			let removed_at = Instant::now();
-			for tx in &removed {
-				let tx_source = tx.source();
-				let age = tx_source.timestamp.map(|t| removed_at.saturating_duration_since(t));
-				self.metrics.report(|m| {
-					m.tx_age_at_removal.observe(
-						RemovalReason::FinalityTimeout,
-						tx_source.source,
-						age,
-					)
-				});
-			}
+			self.metrics.report(|m| {
+				m.tx_age_at_removal.observe_batch(
+					RemovalReason::FinalityTimeout,
+					removed_at,
+					&removed,
+				)
+			});
 			self.import_notification_sink.clean_notified_items(&tx_hashes);
 			self.view_store.dropped_stream_controller.remove_transactions(tx_hashes.clone());
 		}
@@ -2028,7 +2016,7 @@ where
 				Err(e) => {
 					return Err(format!(
 						"Error occurred while computing tree_route from {from:?} to {to:?}: {e}"
-					))
+					));
 				},
 			}
 		};

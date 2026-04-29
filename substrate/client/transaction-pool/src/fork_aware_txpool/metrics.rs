@@ -364,9 +364,6 @@ pub enum RemovalReason {
 /// Used by [`TxAgeAtRemovalHistogram::observe_batch`] to record the residence
 /// time of a batch of removed transactions without forcing each call site to
 /// thread `source` and `timestamp` manually.
-// Call sites are wired in a follow-up commit; allow dead_code so the API can
-// land independently from its consumers.
-#[allow(dead_code)]
 pub(super) trait HasSource {
 	/// Returns a reference to the source of the transaction.
 	fn timed_source(&self) -> &TimedTransactionSource;
@@ -454,8 +451,6 @@ impl TxAgeAtRemovalHistogram {
 	/// `removed_at` is taken once at the call site so every item in the batch
 	/// is anchored against the same instant — this matches the existing manual
 	/// loops the helper replaces.
-	// Call sites are wired in a follow-up commit.
-	#[allow(dead_code)]
 	pub(super) fn observe_batch<I>(&self, reason: RemovalReason, removed_at: Instant, items: I)
 	where
 		I: IntoIterator,

@@ -225,8 +225,6 @@ where
 	///
 	/// Cheaper than [`Self::source`] when the caller only needs to read the
 	/// source (e.g. metric labels) without taking ownership.
-	// Used by `HasSource` impl in metrics.rs; call sites are wired in a follow-up commit.
-	#[allow(dead_code)]
 	pub(super) fn source_ref(&self) -> &TimedTransactionSource {
 		&self.source
 	}
@@ -737,6 +735,10 @@ where
 
 		let revalidated_invalid_hashes_len = invalid_hashes.len();
 		let removed_at = Instant::now();
+		// `observe_batch` doesn't fit here: each element carries a distinct
+		// `InvalidTxReason` that feeds a second metric
+		// (`mempool_revalidation_invalid_txs`), so the per-element observation
+		// can't be hoisted out of this fused iterator without a second pass.
 		let invalid_hashes = invalid_hashes
 			.into_iter()
 			.chain(invalid_hashes_subtrees)
@@ -780,16 +782,16 @@ where
 		);
 		log_xt_trace!(target: LOG_TARGET, finalized_xts, "purged finalized transactions");
 		let mut transactions = self.transactions.write().await;
+		let removed: Vec<_> = finalized_xts
+			.iter()
+			.filter_map(|tx_hash| transactions.remove(tx_hash))
+			.collect();
 		let removed_at = Instant::now();
-		for tx_hash in finalized_xts {
-			if let Some(tx) = transactions.remove(tx_hash) {
-				let age = tx.source.timestamp.map(|t| removed_at.saturating_duration_since(t));
-				let source = tx.source.source;
-				self.metrics.report(|metrics| {
-					metrics.tx_age_at_removal.observe(RemovalReason::Finalized, source, age);
-				});
-			}
-		}
+		self.metrics.report(|metrics| {
+			metrics
+				.tx_age_at_removal
+				.observe_batch(RemovalReason::Finalized, removed_at, &removed);
+		});
 	}
 
 	/// Revalidates transactions in the memory pool against a given finalized block and removes
