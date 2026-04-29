@@ -359,23 +359,28 @@ impl PalletCmd {
 				ERROR_API_NOT_FOUND,
 			)?;
 
-		// Fetch the runtime block limits used by the sanity weight check. Older runtimes that do
-		// not implement `Benchmark_runtime_block_limits` (API v2) fall back to defaults; in that
-		// case `--sanity-weight-check` should be set to `ignore`.
-		let runtime_block_limits: RuntimeBlockLimits = Self::exec_state_machine(
-			StateMachine::new(
-				state,
-				&mut Default::default(),
-				&executor,
-				"Benchmark_runtime_block_limits",
-				&[],
-				&mut Self::build_extensions(executor.clone(), state.recorder()),
-				&runtime_code,
-				CallContext::Offchain,
-			),
-			ERROR_API_NOT_FOUND,
-		)
-		.unwrap_or_default();
+		// Fetch the runtime block limits used by the sanity weight check. Older runtimes on
+		// `Benchmark` API v2 do not expose `runtime_block_limits`; in that case the CLI uses a
+		// default which `sanity_weight_check` interprets as "skip with a warning". Genuine
+		// failures (panic, codec error, OOM) when calling the v3 method are surfaced rather
+		// than swallowed.
+		let runtime_block_limits: RuntimeBlockLimits = if benchmark_api_version >= 3 {
+			Self::exec_state_machine(
+				StateMachine::new(
+					state,
+					&mut Default::default(),
+					&executor,
+					"Benchmark_runtime_block_limits",
+					&[],
+					&mut Self::build_extensions(executor.clone(), state.recorder()),
+					&runtime_code,
+					CallContext::Offchain,
+				),
+				"Could not call `Benchmark_runtime_block_limits` runtime api.",
+			)?
+		} else {
+			RuntimeBlockLimits::default()
+		};
 
 		// Use the benchmark list and the user input to determine the set of benchmarks to run.
 		let benchmarks_to_run = self.select_benchmarks_to_run(list)?;
