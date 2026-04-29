@@ -897,7 +897,10 @@ fn runtime_upgrade_events() {
 
 				// system_version 1: update_code_in_storage writes :code directly,
 				// emitting both the digest and CodeUpdated event in the same block.
-				assert_eq!(events[0].event, RuntimeEvent::System(frame_system::Event::CodeUpdated));
+				assert!(matches!(
+					events[0].event,
+					RuntimeEvent::System(frame_system::Event::CodeUpdated { .. })
+				));
 				assert_eq!(
 					events[1].event,
 					RuntimeEvent::ParachainSystem(crate::Event::ValidationFunctionApplied {
