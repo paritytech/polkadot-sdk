@@ -577,7 +577,7 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 /// Must be strictly greater than [`Config::HistoryDepth`] so that a slot is only
 /// reused after its previous era has been pruned and drained. The
 /// [`integrity_test`] enforces this invariant at runtime startup.
-pub const POT_POOL_SIZE: u32 = 200;
+pub(crate) const POT_POOL_SIZE: u32 = 200;
 
 /// Maps an era index to its slot in the rotating pot pool.
 pub(crate) fn pot_slot(era: EraIndex) -> u32 {
