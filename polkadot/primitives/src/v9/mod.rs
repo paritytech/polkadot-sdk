@@ -3310,7 +3310,7 @@ pub mod tests {
 			Id::from(1u32),
 			Hash::repeat_byte(1),
 			CoreIndex(0),
-			1,
+			1, // session_index
 			Hash::repeat_byte(2),
 			Hash::repeat_byte(3),
 			Hash::repeat_byte(4),

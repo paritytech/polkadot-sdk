@@ -769,7 +769,7 @@ impl TestState {
 					ProspectiveParachainsMessage::GetProspectiveValidationData(ProspectiveValidationDataRequest {
 						para_id,
 						candidate_relay_parent,
-						parent_head_data
+						parent_head_data,
 					}, tx)
 				) => {
 					assert_eq!(para_id, adv.para_id);
