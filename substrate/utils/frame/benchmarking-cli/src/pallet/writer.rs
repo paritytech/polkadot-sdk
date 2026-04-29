@@ -1697,5 +1697,175 @@ mod test {
 			assert_eq!(max_component_value("n", &ranges), 100);
 			assert_eq!(max_component_value("missing", &ranges), 0);
 		}
+
+		// Build a minimal `PalletCmd` for end-to-end tests of `sanity_weight_check`.
+		fn cmd() -> PalletCmd {
+			use clap::Parser;
+			PalletCmd::try_parse_from([
+				"test",
+				"--pallet",
+				"",
+				"--extrinsic",
+				"",
+				"--runtime",
+				"path/to/runtime",
+			])
+			.unwrap()
+		}
+
+		// `BenchmarkBatchSplitResults` whose worst-case ref_time is well above the test limits but
+		// stays small enough that the storage-results pipeline does not itself overflow.
+		fn fat_batch() -> BenchmarkBatchSplitResults {
+			test_data(b"fat", b"fat", BenchmarkParameter::a, 100, 10)
+		}
+
+		// `BenchmarkBatchSplitResults` whose worst-case stays well under the test limits.
+		fn lean_batch() -> BenchmarkBatchSplitResults {
+			test_data(b"lean", b"lean", BenchmarkParameter::a, 1, 0)
+		}
+
+		fn limits(max_ref_time: u64, max_proof_size: u64) -> RuntimeBlockLimits {
+			RuntimeBlockLimits {
+				max_extrinsic_weight: Some(Weight::from_parts(max_ref_time, max_proof_size)),
+				db_weight: RuntimeDbWeight { read: 25_000, write: 100_000 },
+			}
+		}
+
+		#[test]
+		fn sanity_check_ignore_mode_short_circuits() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(10, 10),
+				SanityWeightCheck::Ignore,
+				true,
+			);
+			// Even with limits that an extrinsic would clearly exceed, Ignore returns Ok.
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_default_limits_skip() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&RuntimeBlockLimits::default(),
+				SanityWeightCheck::Error,
+				true,
+			);
+			// `Default::default()` is the v2-runtime / re-analysis sentinel — must skip.
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_no_max_extrinsic_skip() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&RuntimeBlockLimits {
+					max_extrinsic_weight: None,
+					db_weight: RuntimeDbWeight { read: 25_000, write: 100_000 },
+				},
+				SanityWeightCheck::Error,
+				true,
+			);
+			// Runtime configured no per-extrinsic cap → cannot evaluate, skip.
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_error_mode_fails_when_exceeding() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(10, 10),
+				SanityWeightCheck::Error,
+				true,
+			);
+			assert!(r.is_err());
+		}
+
+		#[test]
+		fn sanity_check_warning_mode_returns_ok_even_when_exceeding() {
+			let r = sanity_weight_check(
+				&[fat_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(10, 10),
+				SanityWeightCheck::Warning,
+				true,
+			);
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_passes_when_within_limits() {
+			let r = sanity_weight_check(
+				&[lean_batch()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&limits(u64::MAX / 2, u64::MAX / 2),
+				SanityWeightCheck::Error,
+				true,
+			);
+			assert!(r.is_ok());
+		}
+
+		#[test]
+		fn sanity_check_flags_exact_limit_match() {
+			// `>=` semantics: a benchmark whose total exactly matches the cap is flagged.
+			let lean = lean_batch();
+			let mut all = HashMap::new();
+			let mapped = map_results(
+				&[lean.clone()],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				PovEstimationMode::MaxEncodedLen,
+				&AnalysisChoice::default(),
+				&AnalysisChoice::MedianSlopes,
+				1_000_000,
+				0,
+			)
+			.unwrap();
+			let data = mapped.values().next().unwrap()[0].clone();
+			let exact_total = worst_case_weight(
+				&data,
+				&RuntimeDbWeight { read: 25_000, write: 100_000 },
+			);
+			all.insert(("p".to_string(), "i".to_string()), vec![data]);
+			drop(all); // we just needed `mapped` to compute `exact_total`.
+
+			let r = sanity_weight_check(
+				&[lean],
+				&test_storage_info(),
+				&Default::default(),
+				Default::default(),
+				&cmd(),
+				&RuntimeBlockLimits {
+					max_extrinsic_weight: Some(exact_total),
+					db_weight: RuntimeDbWeight { read: 25_000, write: 100_000 },
+				},
+				SanityWeightCheck::Error,
+				true,
+			);
+			assert!(r.is_err(), "exact match must fail (>= semantics)");
+		}
 	}
 }
