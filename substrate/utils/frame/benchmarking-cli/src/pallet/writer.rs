@@ -324,6 +324,11 @@ pub(crate) fn sanity_weight_check(
 		}
 		for data in results {
 			let total = worst_case_weight(data, &limits.db_weight);
+			// Saturated arithmetic clamps to `Weight::MAX` on overflow. Surface that case
+			// explicitly: the check still flags it as a fail (via `>=` below), but the user
+			// deserves to know the displayed `total` is a clamp, not a real measurement.
+			let saturated =
+				total.ref_time() == u64::MAX || total.proof_size() == u64::MAX;
 			// Use `>=` instead of `>` so an extrinsic whose worst-case exactly fills the block is
 			// flagged. Combined with saturating arithmetic this also catches overflow cases where
 			// `total` saturates to `Weight::MAX`.
@@ -337,6 +342,13 @@ pub(crate) fn sanity_weight_check(
 						not fit in a single block.",
 						data.name,
 					);
+					if saturated {
+						color_print::cprintln!(
+							"<s,y>NOTE:</> the worst-case computation saturated. The reported \
+							total may be lower than the true unbounded value — review the \
+							benchmark's component slopes for unrealistic magnitudes."
+						);
+					}
 				}
 			}
 			if !quiet {
