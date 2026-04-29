@@ -18,8 +18,8 @@
 //! Transaction validity interface.
 
 use crate::{
-	codec::{Decode, Encode},
 	Debug,
+	codec::{Decode, Encode},
 };
 use alloc::{vec, vec::Vec};
 use scale_info::TypeInfo;
@@ -64,8 +64,7 @@ pub enum InvalidTransaction {
 	/// # Possible causes
 	///
 	/// For `FRAME`-based runtimes this would be caused by `current block number
-	/// - Era::birth block number > BlockHashCount`. (e.g. in Polkadot `BlockHashCount` = 2400, so
-	///   a
+	/// - Era::birth block number > BlockHashCount`. (e.g. in Polkadot `BlockHashCount` = 2400, so a
 	/// transaction with birth block number 1337 would be valid up until block number 1337 + 2400,
 	/// after which point the transaction would be considered to have an ancient birth block.)
 	AncientBirthBlock,
@@ -252,6 +251,8 @@ impl From<UnknownTransaction> for TransactionValidity {
 /// For instance we can disallow specific kinds of transactions if they were not produced
 /// by our local node (for instance off-chain workers).
 #[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, Debug, TypeInfo, Hash)]
+#[cfg_attr(feature = "std", derive(strum::AsRefStr))]
+#[cfg_attr(feature = "std", strum(serialize_all = "snake_case"))]
 pub enum TransactionSource {
 	/// Transaction is already included in block.
 	///
