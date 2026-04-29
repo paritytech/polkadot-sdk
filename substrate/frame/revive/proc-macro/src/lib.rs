@@ -19,11 +19,17 @@
 //!
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a polkavm module.
+//!
+//! Also exposes [`#[versioned_type]`][`macro@versioned_type`] for defining versioned wire types
+//! used at the `ReviveApi` runtime API boundary.
 
 use proc_macro::TokenStream;
 use proc_macro2::{Literal, Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
-use syn::{parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma, FnArg, Ident};
+use quote::{format_ident, quote, ToTokens};
+use syn::{
+	parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
+	DeriveInput, FnArg, GenericParam, Ident, LitInt,
+};
 
 /// Defines a host functions set that can be imported by contract polkavm code.
 ///
@@ -616,4 +622,86 @@ fn expand_trace_op_lookup(def: &EnvDef) -> TokenStream2 {
 			_ => None,
 		}
 	}
+}
+
+/// Attribute macro for defining a versioned wire type used at the `ReviveApi` boundary.
+#[proc_macro_attribute]
+pub fn versioned_type(attr: TokenStream, item: TokenStream) -> TokenStream {
+	let version: LitInt = match syn::parse(attr) {
+		Ok(v) => v,
+		Err(e) => return e.to_compile_error().into(),
+	};
+	let ver_value: u32 = match version.base10_parse() {
+		Ok(v) => v,
+		Err(e) => return e.to_compile_error().into(),
+	};
+
+	let input = parse_macro_input!(item as DeriveInput);
+	let original_ident = &input.ident;
+	let attrs = &input.attrs;
+	let vis = &input.vis;
+	let generics = &input.generics;
+
+	// Build `StructVN` identifier
+	let versioned_ident = format_ident!("{}V{}", original_ident, ver_value);
+
+	// Extract struct fields; only supports named-field structs.
+	let fields = match &input.data {
+		syn::Data::Struct(s) => &s.fields,
+		_ => {
+			return syn::Error::new_spanned(
+				&input.ident,
+				"`#[versioned_type]` can only be applied to `struct` items",
+			)
+			.to_compile_error()
+			.into()
+		},
+	};
+
+	// Collect generic parameter *names only* for the type alias (no bounds).
+	let generic_params_for_alias: Vec<TokenStream2> = generics
+		.params
+		.iter()
+		.map(|p| match p {
+			GenericParam::Type(t) => {
+				let id = &t.ident;
+				quote! { #id }
+			},
+			GenericParam::Lifetime(l) => {
+				let lt = &l.lifetime;
+				quote! { #lt }
+			},
+			GenericParam::Const(c) => {
+				let id = &c.ident;
+				quote! { #id }
+			},
+		})
+		.collect();
+
+	let where_clause = &generics.where_clause;
+
+	let output = if generic_params_for_alias.is_empty() {
+		quote! {
+			#( #attrs )*
+			#vis struct #versioned_ident #generics
+			#where_clause
+			#fields
+
+			/// Type alias pointing to the latest version of this wire type.
+			#vis type #original_ident = #versioned_ident;
+		}
+	} else {
+		quote! {
+			#( #attrs )*
+			#vis struct #versioned_ident #generics
+			#where_clause
+			#fields
+
+			/// Type alias pointing to the latest version of this wire type.
+			#vis type #original_ident<#(#generic_params_for_alias),*> =
+				#versioned_ident<#(#generic_params_for_alias),*>;
+		}
+	};
+
+	output.into()
 }

@@ -429,6 +429,7 @@ members = [
 	"substrate/frame/revive/fixtures",
 	"substrate/frame/revive/proc-macro",
 	"substrate/frame/revive/rpc",
+	"substrate/frame/revive/types",
 	"substrate/frame/revive/uapi",
 	"substrate/frame/revive/ui-tests",
 	"substrate/frame/root-offences",
@@ -1049,6 +1050,7 @@ pallet-referenda = { path = "substrate/frame/referenda", default-features = fals
 pallet-revive = { path = "substrate/frame/revive", default-features = false }
 pallet-revive-fixtures = { path = "substrate/frame/revive/fixtures", default-features = false }
 pallet-revive-proc-macro = { path = "substrate/frame/revive/proc-macro", default-features = false }
+pallet-revive-types = { path = "substrate/frame/revive/types", default-features = false }
 pallet-revive-uapi = { path = "substrate/frame/revive/uapi", default-features = false }
 pallet-root-offences = { default-features = false, path = "substrate/frame/root-offences" }
 pallet-root-testing = { path = "substrate/frame/root-testing", default-features = false }

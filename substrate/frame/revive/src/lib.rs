@@ -2795,7 +2795,28 @@ environmental!(executing_contract: bool);
 
 sp_api::decl_runtime_apis! {
 	/// The API used to dry-run contract interactions.
-	#[api_version(1)]
+	///
+	/// # Versioning
+	///
+	/// This trait follows Substrate's runtime API versioning convention:
+	///
+	/// * The `#[api_version(N)]` attribute declares the **current** version of the
+	///   entire trait.
+	/// * Methods whose signatures changed between versions carry a `#[changed_in(N)]`
+	///   annotation on the *old* overload. The *new* (current) overload has no such
+	///   annotation.
+	/// * Wire types used as parameters or return values are defined in
+	///   [`pallet_revive_types`] and follow the `TypeVN` naming convention. The
+	///   unversioned alias (e.g. `ContractResult`) always refers to the latest version.
+	///
+	/// ## Version history
+	///
+	/// | Version | Summary of changes |
+	/// |---------|-------------------|
+	/// | 1       | Initial API. |
+	/// | 2       | `eth_transact` replaced by `eth_transact_with_config` (added `DryRunConfig` |
+	/// |         | parameter). Wire types extracted to `pallet-revive-types`. |
+	#[api_version(2)]
 	pub trait ReviveApi<AccountId, Balance, Nonce, BlockNumber, Moment> where
 		AccountId: Codec,
 		Balance: Codec,
@@ -2858,26 +2879,33 @@ sp_api::decl_runtime_apis! {
 			salt: Option<[u8; 32]>,
 		) -> ContractResult<InstantiateReturnValue, Balance>;
 
-
 		/// Perform an Ethereum call.
 		///
-		/// Deprecated use `v2` version instead.
-		/// See [`crate::Pallet::dry_run_eth_transact`]
+		/// **Deprecated** — use [`Self::eth_transact_with_config`] instead, which accepts
+		/// an explicit [`DryRunConfig`] and is the preferred interface from API version 2
+		/// onwards. This method is retained so that clients built against API version 1
+		/// continue to function; it internally delegates to
+		/// `dry_run_eth_transact` with a default config.
+		///
+		/// See [`crate::Pallet::dry_run_eth_transact`].
 		fn eth_transact(tx: GenericTransaction) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
-		/// Perform an Ethereum call.
+		/// Perform an Ethereum call with additional dry-run configuration.
 		///
-		/// See [`crate::Pallet::dry_run_eth_transact`]
+		/// This is the v2 replacement for the deprecated `eth_transact` method.  It accepts
+		/// an explicit [`DryRunConfig`] that controls simulation parameters such as the block
+		/// timestamp used during the dry-run.
+		///
+		/// See [`crate::Pallet::dry_run_eth_transact`].
 		fn eth_transact_with_config(
 			tx: GenericTransaction,
 			config: DryRunConfig<Moment>,
 		) -> Result<EthTransactInfo<Balance>, EthTransactError>;
 
-		/// Estimates the amount of gas that a transactions requires.
+		/// Estimates the amount of gas that a transaction requires.
 		///
-		/// This function estimates the gas of the transaction according to the same binary search
-		/// algorithm that's implemented in Geth. It stops when with an acceptable error ratio of
-		/// 1.5% so that the algorithm terminates early.
+		/// Uses the same binary-search algorithm as Geth with an acceptable error ratio of
+		/// 1.5% to terminate early.
 		fn eth_estimate_gas(
 			tx: GenericTransaction,
 			config: DryRunConfig<Moment>
@@ -2895,11 +2923,10 @@ sp_api::decl_runtime_apis! {
 			storage_deposit_limit: Option<Balance>,
 		) -> CodeUploadResult<Balance>;
 
-		/// Query a given storage key in a given contract.
+		/// Query a given fixed-size (32-byte) storage key in a given contract.
 		///
-		/// Returns `Ok(Some(Vec<u8>))` if the storage value exists under the given key in the
-		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
-		/// doesn't exist, or doesn't have a contract then `Err` is returned.
+		/// Returns `Ok(Some(Vec<u8>))` if the value exists, `Ok(None)` if not.
+		/// Returns `Err` if the address does not point to a contract.
 		fn get_storage(
 			address: H160,
 			key: [u8; 32],
@@ -2907,9 +2934,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Query a given variable-sized storage key in a given contract.
 		///
-		/// Returns `Ok(Some(Vec<u8>))` if the storage value exists under the given key in the
-		/// specified account and `Ok(None)` if it doesn't. If the account specified by the address
-		/// doesn't exist, or doesn't have a contract then `Err` is returned.
+		/// Returns `Ok(Some(Vec<u8>))` if the value exists, `Ok(None)` if not.
+		/// Returns `Err` if the address does not point to a contract.
 		fn get_storage_var_key(
 			address: H160,
 			key: Vec<u8>,
@@ -2917,8 +2943,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Traces the execution of an entire block and returns call traces.
 		///
-		/// This is intended to be called through `state_call` to replay the block from the
-		/// parent block.
+		/// Intended to be called via `state_call` to replay the block from its parent.
 		///
 		/// See eth-rpc `debug_traceBlockByNumber` for usage.
 		fn trace_block(
@@ -2928,8 +2953,8 @@ sp_api::decl_runtime_apis! {
 
 		/// Traces the execution of a specific transaction within a block.
 		///
-		/// This is intended to be called through `state_call` to replay the block from the
-		/// parent hash up to the transaction.
+		/// Intended to be called via `state_call` to replay the block from the
+		/// parent hash up to and including the indexed transaction.
 		///
 		/// See eth-rpc `debug_traceTransaction` for usage.
 		fn trace_tx(
@@ -2938,16 +2963,17 @@ sp_api::decl_runtime_apis! {
 			config: TracerType
 		) -> Option<Trace>;
 
-		/// Dry run and return the trace of the given call.
+		/// Dry-run and return the execution trace of the given call.
 		///
 		/// See eth-rpc `debug_traceCall` for usage.
 		fn trace_call(tx: GenericTransaction, config: TracerType) -> Result<Trace, EthTransactError>;
 
-		/// Dry run and return the trace of the given call with additional configuration.
+		/// Dry-run and return the execution trace of the given call with additional
+		/// configuration.
 		///
-		/// Like [`Self::trace_call`], but accepts a [`TracingConfig`] that can carry state
-		/// overrides and future extensibility. The config must be the **last argument** for
-		/// backwards compatibility — see [`TracingConfig`] documentation.
+		/// Like [`Self::trace_call`] but accepts a [`TracingConfig`] that carries state
+		/// overrides and provides a forward-compatible extension point.  The config **must**
+		/// remain the last argument to preserve backward compatibility.
 		fn trace_call_with_config(
 			tx: GenericTransaction,
 			tracer_type: TracerType,
@@ -2957,19 +2983,19 @@ sp_api::decl_runtime_apis! {
 		/// The address of the validator that produced the current block.
 		fn block_author() -> H160;
 
-		/// Get the H160 address associated to this account id
+		/// Get the H160 address associated with this `AccountId`.
 		fn address(account_id: AccountId) -> H160;
 
-		/// Get the account id associated to this H160 address.
+		/// Get the `AccountId` associated with this H160 address.
 		fn account_id(address: H160) -> AccountId;
 
-		/// The address used to call the runtime's pallets dispatchables
+		/// The address used to dispatch calls to runtime pallets from contracts.
 		fn runtime_pallets_address() -> H160;
 
-		/// The code at the specified address taking pre-compiles into account.
+		/// The bytecode at the specified address, taking precompiles into account.
 		fn code(address: H160) -> Vec<u8>;
 
-		/// Construct the new balance and dust components of this EVM balance.
+		/// Decompose an EVM `U256` balance into its native `Balance` and dust components.
 		fn new_balance_with_dust(balance: U256) -> Result<(Balance, u32), BalanceConversionError>;
 	}
 }
@@ -3059,14 +3085,12 @@ macro_rules! impl_runtime_apis_plus_revive_traits {
 					<Self as $crate::Config>::AddressMapper::to_address(&account_id)
 				}
 
+				// ── eth_transact (deprecated, retained for API v1 compatibility) ──────
+				// Clients built against API v1 call this method. We forward it to
+				// `dry_run_eth_transact` with a default config, matching v1 behaviour.
 				fn eth_transact(
 					tx: $crate::evm::GenericTransaction,
 				) -> Result<$crate::EthTransactInfo<Balance>, $crate::EthTransactError> {
-					use $crate::{
-						codec::Encode, evm::runtime::EthExtra, frame_support::traits::Get,
-						sp_runtime::traits::TransactionExtension,
-						sp_runtime::traits::Block as BlockT
-					};
 					$crate::Pallet::<Self>::dry_run_eth_transact(tx, Default::default())
 				}
 

@@ -25,7 +25,6 @@ use crate::{
 	limits,
 	metering::ChargedAmount,
 	precompiles::{All as AllPrecompiles, Precompiles},
-	primitives::ExecReturnValue,
 	tracing::FrameTraceInfo,
 };
 use alloc::{vec, vec::Vec};
@@ -214,11 +213,9 @@ impl<T: Config> PolkaVmInstance<T> for polkavm::RawInstance {
 	}
 }
 
-impl From<&ExecReturnValue> for ReturnErrorCode {
-	fn from(from: &ExecReturnValue) -> Self {
-		if from.flags.contains(ReturnFlags::REVERT) { Self::CalleeReverted } else { Self::Success }
-	}
-}
+// `From<&ExecReturnValue> for ReturnErrorCode` is defined in `pallet-revive-types`
+// (the crate that owns both types) and re-exported here via the `pallet_revive_types`
+// import in `primitives.rs`.
 
 /// The data passed through when a contract uses `seal_return`.
 #[derive(Debug)]
