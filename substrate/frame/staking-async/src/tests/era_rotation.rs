@@ -618,7 +618,7 @@ fn era_pot_slots_collide_every_pool_size_eras() {
 
 	let base_era = 7u32;
 
-	//distinct seeds within a pool window, collision exactly at distance `POT_POOL_SIZE`.
+	// distinct seeds within a pool window, collision exactly at distance `POT_POOL_SIZE`.
 	for kind in [RewardKind::StakerRewards, RewardKind::ValidatorSelfStake] {
 		let base_seed = seed_for(base_era, kind);
 

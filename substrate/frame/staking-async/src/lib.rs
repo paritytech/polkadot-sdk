@@ -628,8 +628,9 @@ where
 		use sp_runtime::traits::AccountIdConversion;
 		match pot {
 			RewardPot::General(kind) => S::get().into_sub_account_truncating((b"gen", kind)),
-			RewardPot::Era(era, kind) =>
-				S::get().into_sub_account_truncating((b"era", pot_slot(era), kind)),
+			RewardPot::Era(era, kind) => {
+				S::get().into_sub_account_truncating((b"era", pot_slot(era), kind))
+			},
 		}
 	}
 }
