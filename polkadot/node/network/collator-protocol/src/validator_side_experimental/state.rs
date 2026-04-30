@@ -351,39 +351,28 @@ impl<B: Backend> State<B> {
 					"Started seconding"
 				);
 			},
-			CanSecond::No(maybe_slash, reject_info) => {
+			CanSecond::No { slash, reject_info, keep_slot } => {
 				gum::debug!(
 					target: LOG_TARGET,
-					?maybe_slash,
+					?slash,
 					?reject_info,
+					?keep_slot,
 					"Cannot second collation",
 				);
 
-				if let Some(slash) = maybe_slash {
+				if let Some(slash) = slash {
 					self.peer_manager
 						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 						.await;
 				}
 
-				self.collation_manager.release_slot(
-					&reject_info.relay_parent,
-					reject_info.para_id,
-					reject_info.maybe_candidate_hash.as_ref(),
-					reject_info.maybe_output_head_hash,
-				);
-			},
-			CanSecond::NoKeepSlot(maybe_slash, reject_info) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					?maybe_slash,
-					?reject_info,
-					"Cannot second collation, keeping slot for parallel fetch",
-				);
-
-				if let Some(slash) = maybe_slash {
-					self.peer_manager
-						.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
-						.await;
+				if !keep_slot {
+					self.collation_manager.release_slot(
+						&reject_info.relay_parent,
+						reject_info.para_id,
+						reject_info.maybe_candidate_hash.as_ref(),
+						reject_info.maybe_output_head_hash,
+					);
 				}
 			},
 			CanSecond::BlockedOnParent(parent_hash, reject_info) => {
@@ -583,41 +572,29 @@ impl<B: Backend> State<B> {
 						"Started seconding unblocked collation"
 					);
 				},
-				CanSecond::No(maybe_slash, reject_info) => {
+				CanSecond::No { slash, reject_info, keep_slot } => {
 					gum::debug!(
 						target: LOG_TARGET,
 						relay_parent = ?reject_info.relay_parent,
 						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
 						para_id = ?reject_info.para_id,
+						?keep_slot,
 						"Cannot second unblocked collation"
 					);
 
-					if let Some(slash) = maybe_slash {
+					if let Some(slash) = slash {
 						self.peer_manager
 							.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
 							.await;
 					}
 
-					self.collation_manager.release_slot(
-						&reject_info.relay_parent,
-						reject_info.para_id,
-						reject_info.maybe_candidate_hash.as_ref(),
-						reject_info.maybe_output_head_hash,
-					);
-				},
-				CanSecond::NoKeepSlot(maybe_slash, reject_info) => {
-					gum::debug!(
-						target: LOG_TARGET,
-						relay_parent = ?reject_info.relay_parent,
-						maybe_candidate_hash = ?reject_info.maybe_candidate_hash,
-						para_id = ?reject_info.para_id,
-						"Cannot second unblocked collation, keeping slot for parallel fetch"
-					);
-
-					if let Some(slash) = maybe_slash {
-						self.peer_manager
-							.slash_reputation(&reject_info.peer_id, &reject_info.para_id, slash)
-							.await;
+					if !keep_slot {
+						self.collation_manager.release_slot(
+							&reject_info.relay_parent,
+							reject_info.para_id,
+							reject_info.maybe_candidate_hash.as_ref(),
+							reject_info.maybe_output_head_hash,
+						);
 					}
 				},
 				CanSecond::BlockedOnParent(parent, reject_info) => {

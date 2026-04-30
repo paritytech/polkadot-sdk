@@ -245,13 +245,13 @@ pub enum CollationFetchError {
 
 /// Whether we can start seconding a fetched candidate or not.
 pub enum CanSecond {
-	/// Seconding is not possible. Returns an optional reputation slash, together with the rejected
-	/// collation info.
-	No(Option<Score>, SecondingRejectionInfo),
-	/// Seconding is not possible but the claim queue slot should NOT be released because another
+	/// Seconding is not possible. Returns an optional reputation slash, the rejected collation
+	/// info, and a `keep_slot` flag.
+	///
+	/// When `keep_slot` is `true`, the claim queue slot must NOT be released because another
 	/// parallel fetch for the same `(relay_parent, para_id)` is still active (or already
 	/// succeeded). An optional reputation slash may still be applied.
-	NoKeepSlot(Option<Score>, SecondingRejectionInfo),
+	No { slash: Option<Score>, reject_info: SecondingRejectionInfo, keep_slot: bool },
 	/// Seconding can begin. Returns all the needed data for seconding.
 	Yes(CandidateReceipt, PoV, PersistedValidationData),
 	/// Seconding is blocked because we are waiting for the parent to be seconded.

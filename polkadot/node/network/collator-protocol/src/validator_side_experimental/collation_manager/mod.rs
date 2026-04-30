@@ -27,7 +27,7 @@ use crate::{
 			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
-		parallel_fetch::{self, ParallelFetchState, ESCALATION_TIMEOUT},
+		parallel_fetch::{ParallelFetchState, ESCALATION_TIMEOUT},
 	},
 	LOG_TARGET,
 };
@@ -56,7 +56,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeSet, HashMap, HashSet, VecDeque},
+	collections::{BTreeSet, HashMap, VecDeque},
 	time::{Duration, Instant},
 };
 
@@ -104,7 +104,7 @@ pub struct CollationManager {
 	fetching: PendingRequests,
 
 	// Tracks parallel fetch escalation state for active (relay_parent, para_id) pairs.
-	parallel_state: ParallelFetchState,
+	parallel_fetching_state: ParallelFetchState,
 
 	// Key store.
 	keystore: KeystorePtr,
@@ -123,7 +123,7 @@ impl CollationManager {
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
-			parallel_state: ParallelFetchState::default(),
+			parallel_fetching_state: ParallelFetchState::default(),
 			keystore,
 		};
 
@@ -189,7 +189,7 @@ impl CollationManager {
 						self.fetching.cancel(&advertisement);
 					}
 				}
-				self.parallel_state.remove_relay_parent(deactivated);
+				self.parallel_fetching_state.remove_relay_parent(deactivated);
 			}
 
 			self.claim_queue_state
@@ -355,9 +355,6 @@ impl CollationManager {
 
 		let leaves: Vec<_> = self.claim_queue_state.leaves().copied().collect();
 
-		// Track which keys we've already escalated to avoid duplicates across leaves.
-		let mut escalated_keys = HashSet::<parallel_fetch::FetchKey>::new();
-
 		for leaf in &leaves {
 			let free_slots = self.claim_queue_state.free_slots(leaf);
 			let Some(allowed_parents) = self.implicit_view.known_allowed_relay_parents_under(leaf)
@@ -412,7 +409,7 @@ impl CollationManager {
 					requests.push(req);
 
 					// Track this fetch for future escalation.
-					self.parallel_state
+					self.parallel_fetching_state
 						.note_launched((advertisement.scheduling_parent, para_id), now);
 					continue;
 				} else {
@@ -426,11 +423,8 @@ impl CollationManager {
 				}
 			}
 
-			let ready_keys = self.parallel_state.ready_for_escalation(now);
+			let ready_keys = self.parallel_fetching_state.ready_for_escalation(now);
 			for key @ (rp, para_id) in ready_keys {
-				if escalated_keys.contains(&key) {
-					continue;
-				}
 				// Only process if the relay parent is in this leaf's allowed ancestry.
 				if !allowed_parents.contains(&rp) {
 					continue;
@@ -444,9 +438,7 @@ impl CollationManager {
 				);
 
 				match candidate {
-					Some((adv, _score)) => {
-						// A fetch is already in-flight, so launch the escalation
-						// candidate.
+					Some(adv) => {
 						gum::debug!(
 							target: LOG_TARGET,
 							?leaf,
@@ -458,31 +450,22 @@ impl CollationManager {
 
 						let req = self.fetching.launch(&adv, create_timer_fn());
 						requests.push(req);
-						// Schedule the next escalation.
-						let next = now + ESCALATION_TIMEOUT;
-						self.parallel_state.note_escalated(&key, next);
-						escalated_keys.insert(key);
+						self.parallel_fetching_state.note_escalated(&key, now + ESCALATION_TIMEOUT);
 					},
 					None => {
-						// No escalation candidates right now (the only advertised collation
-						// is already in-flight). Keep tracking so that:
-						// 1. If the in-flight fetch fails, note_fetched can correctly release the
-						//    claim queue slot (has_active_fetch = true → No path).
-						// 2. If a new advertisement arrives before then, we will escalate to it on
-						//    the next timer tick.
-						self.parallel_state.note_escalated(&key, now + ESCALATION_TIMEOUT);
-						escalated_keys.insert(key);
+						// No escalation candidates right now. Re-arm the deadline so a future
+						// advertisement (or a failed in-flight fetch) is handled on the next tick.
+						self.parallel_fetching_state.note_escalated(&key, now + ESCALATION_TIMEOUT);
 					},
 				}
 			}
 		}
 
 		// Include parallel fetch deadlines in the combined delay.
-		if let Some(deadline) = self.parallel_state.next_deadline() {
+		if let Some(deadline) = self.parallel_fetching_state.next_deadline() {
 			if deadline > now {
 				let delay = deadline - now;
-				let min_delay = maybe_min_delay.get_or_insert(delay);
-				maybe_min_delay = Some(std::cmp::min(*min_delay, delay));
+				maybe_min_delay = Some(maybe_min_delay.map_or(delay, |d| d.min(delay)));
 			}
 		}
 
@@ -525,7 +508,7 @@ impl CollationManager {
 				peer_id = ?advertisement.peer_id,
 				"Collation fetch concluded for relay parent out of view"
 			);
-			return CanSecond::No(None, reject_info);
+			return CanSecond::No { slash: None, reject_info, keep_slot: false };
 		};
 
 		per_rp.remove_advertisement(&advertisement);
@@ -549,7 +532,11 @@ impl CollationManager {
 						"Invalid fetched collation: {}",
 						err
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
+					return CanSecond::No {
+						slash: Some(FAILED_FETCH_SLASH),
+						reject_info,
+						keep_slot: false,
+					};
 				}
 
 				// Sanity check of the candidate receipt version.
@@ -565,15 +552,33 @@ impl CollationManager {
 						"Failed descriptor version sanity check for fetched collation: {}",
 						err
 					);
-					return CanSecond::No(Some(FAILED_FETCH_SLASH), reject_info);
+					return CanSecond::No {
+						slash: Some(FAILED_FETCH_SLASH),
+						reject_info,
+						keep_slot: false,
+					};
 				}
 
-				// Sanity checks passed: mark the parallel fetch as completed.
-				// Note: we don't cancel other in-flight fetches for this (relay_parent,
-				// para_id) because they may belong to different claim queue slots.
-				// Parallel siblings will naturally resolve when they complete and find
-				// the key already removed.
-				self.parallel_state.note_completed(&fetch_key);
+				// Sanity checks passed: mark the parallel fetch as completed and stop racing
+				// siblings. Releasing each sibling's claim up-front ensures the claim queue
+				// frees promptly even when the eventual `Cancelled` response arrives via the
+				// `keep_slot: true` branch (which intentionally does no release).
+				self.parallel_fetching_state.note_completed(&fetch_key);
+				let siblings = self.fetching.siblings_of(
+					&advertisement.scheduling_parent,
+					&advertisement.para_id,
+					&advertisement,
+				);
+				for sibling in siblings {
+					if let Some(candidate_hash) = sibling.candidate_hash() {
+						self.claim_queue_state.release_claims_for_candidate(&candidate_hash);
+					}
+					self.fetching.cancel(&sibling);
+					if let Some(per_rp) = self.per_relay_parent.get_mut(&sibling.scheduling_parent)
+					{
+						per_rp.remove_advertisement(&sibling);
+					}
+				}
 
 				self.can_begin_seconding(sender, fetched_collation, true, reject_info).await
 			},
@@ -581,13 +586,13 @@ impl CollationManager {
 				// Check if this parallel fetch was already completed by a prior
 				// successful sibling. If so, the slot is already in use by the
 				// successful fetch, don't release it.
-				if !self.parallel_state.has_active_fetch(&fetch_key) {
+				if !self.parallel_fetching_state.has_active_fetch(&fetch_key) {
 					gum::trace!(
 						target: LOG_TARGET,
 						?advertisement,
 						"Parallel fetch failed/cancelled but already completed by a sibling",
 					);
-					CanSecond::NoKeepSlot(rep_change, reject_info)
+					CanSecond::No { slash: rep_change, reject_info, keep_slot: true }
 				} else {
 					// The fetch is still active. Check if there are other in-flight
 					// fetches for this (relay_parent, para_id).
@@ -598,12 +603,12 @@ impl CollationManager {
 
 					if !others_active {
 						// No other fetches are running. Clean up.
-						self.parallel_state.note_completed(&fetch_key);
+						self.parallel_fetching_state.note_completed(&fetch_key);
 					}
 					// Release the claim queue slot. For escalation fetches (which
 					// don't claim their own slot), this is a no-op since
 					// `release_claims_for_candidate` won't find a matching claim.
-					CanSecond::No(rep_change, reject_info)
+					CanSecond::No { slash: rep_change, reject_info, keep_slot: false }
 				}
 			},
 		}
@@ -780,14 +785,14 @@ impl CollationManager {
 	///
 	/// Similar to [`pick_best_advertisement`] but without applying the reputation-based delay
 	/// (escalation timing is handled by [`ParallelFetchState`] instead). Returns the
-	/// advertisement and its score for zero-rep detection.
+	/// highest-reputation eligible advertisement.
 	fn pick_escalation_candidate<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		leaf: Hash,
 		allowed_rps: &[Hash],
 		para_id: ParaId,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Option<(Advertisement, Score)> {
+	) -> Option<Advertisement> {
 		self.per_relay_parent
 			.iter()
 			.filter_map(|(rp, per_rp)| allowed_rps.contains(rp).then_some(per_rp))
@@ -800,6 +805,7 @@ impl CollationManager {
 				Some((*adv, score))
 			})
 			.max_by_key(|(_, score)| *score)
+			.map(|(adv, _)| adv)
 	}
 
 	async fn get_our_core<Sender: CollatorProtocolSenderTrait>(
@@ -928,7 +934,7 @@ impl CollationManager {
 					if err.is_malicious() {
 						slash = Some(FAILED_FETCH_SLASH);
 					}
-					CanSecond::No(slash, reject_info)
+					CanSecond::No { slash, reject_info, keep_slot: false }
 				},
 			},
 		};
@@ -1578,7 +1584,7 @@ mod tests {
 			per_session: LruMap::new(ByLength::new(2)),
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
-			parallel_state: ParallelFetchState::default(),
+			parallel_fetching_state: ParallelFetchState::default(),
 		};
 
 		// No advertisements - returns Left(None).
