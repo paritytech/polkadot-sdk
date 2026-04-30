@@ -309,7 +309,7 @@ pub async fn start_node_impl<RB, Net: NetworkBackend<Block, Hash>>(
 	collator_options: CollatorOptions,
 	proof_recording_during_import: bool,
 	use_slot_based_collator: bool,
-	collator_reserved_slots: Option<usize>,
+	collator_reserved_slots: usize,
 ) -> sc_service::error::Result<(
 	TaskManager,
 	Arc<Client>,
@@ -748,7 +748,7 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
-						None,
+						0,
 					)
 					.await
 					.expect("could not create Cumulus test service")
@@ -764,7 +764,7 @@ impl TestNodeBuilder {
 						collator_options,
 						self.record_proof_during_import,
 						false,
-						None,
+						0,
 					)
 					.await
 					.expect("could not create Cumulus test service")

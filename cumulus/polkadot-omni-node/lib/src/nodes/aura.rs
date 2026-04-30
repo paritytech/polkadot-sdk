@@ -225,7 +225,7 @@ where
 			max_pov_percentage,
 			statement_store_config,
 			storage_monitor,
-			collator_reserved_slots,
+			collator_reserved_slots: _,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -240,12 +240,6 @@ where
 		}
 		if max_pov_percentage.is_some() {
 			log::warn!("`--max-pov-percentage` has no effect in dev mode (no PoVs are produced).");
-		}
-		if collator_reserved_slots.is_some() {
-			log::warn!(
-				"--collator-reserved-slots has no effect in dev mode (no relay chain, no \
-				 authority discovery)."
-			);
 		}
 
 		let PartialComponents {

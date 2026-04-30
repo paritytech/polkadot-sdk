@@ -69,8 +69,8 @@ pub struct CollatorMeshConfig {
 /// Parameters for [`maybe_start_collator_mesh`].
 pub struct StartCollatorMeshParams<Block: BlockT, Client, AD, NetEventStream> {
 	pub is_validator: bool,
-	/// `None` disables the mesh.
-	pub max_reserved: Option<usize>,
+	/// `0` disables the mesh.
+	pub max_reserved: usize,
 	pub client: Arc<Client>,
 	/// Usually the same `Arc` as `client`.
 	pub authority_discovery: Arc<AD>,
@@ -121,16 +121,9 @@ where
 		spawn_handle,
 	} = params;
 
-	if !is_validator && max_reserved.is_some() {
-		log::warn!(
-			target: LOG_TARGET,
-			"--collator-reserved-slots was set but this node is not running as a collator \
-			 (missing `--validator`); the collator mesh will not start.",
-		);
-	}
-	let Some(max_reserved) = max_reserved.filter(|_| is_validator) else {
+	if !is_validator || max_reserved == 0 {
 		return Ok(());
-	};
+	}
 
 	let genesis_hex = array_bytes::bytes2hex("", genesis_hash.as_ref());
 	let protocol: ProtocolName = match fork_id.as_deref() {

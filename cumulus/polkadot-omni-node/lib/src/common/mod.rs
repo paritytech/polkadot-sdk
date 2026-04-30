@@ -135,6 +135,6 @@ pub struct NodeExtraArgs {
 	/// Parameters for storage monitoring.
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 
-	/// If `Some`, enable the collator reserved-peer mesh with this upper bound on reserved slots.
-	pub collator_reserved_slots: Option<usize>,
+	/// Upper bound on collator reserved-peer slots.
+	pub collator_reserved_slots: usize,
 }

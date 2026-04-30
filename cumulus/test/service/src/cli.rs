@@ -55,13 +55,9 @@ pub struct TestCollatorCli {
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
 
-	/// Enable the collator reserved-peer mesh and set the upper bound on reserved slots.
-	///
-	/// When set, a parachain-side authority-discovery worker is started and a background task
-	/// keeps the block-announce protocol's reserved-peer set populated with up to this many
-	/// other parachain authorities, read from the parachain's aura session keys.
-	#[arg(long, value_name = "N")]
-	pub collator_reserved_slots: Option<usize>,
+	/// Upper bound on collator reserved-peer mesh slots. `0` disables the mesh.
+	#[arg(long, value_name = "N", default_value_t = 32)]
+	pub collator_reserved_slots: usize,
 }
 
 /// Collator implementation to use.
