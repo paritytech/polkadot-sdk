@@ -4871,6 +4871,31 @@ pub(crate) mod tests {
 		let x1 = UncheckedXt::new_transaction(0.into(), ()).encode();
 		let x1_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x1[1..]);
 
+		// Variant-shape assertion: this is the realistic shape produced by
+		// `utility.batch(renew[X], renew[X], ...)`. Confirm directly that N >= 2 Renews
+		// of the same hash collapse to `Indexed` (not `MultiRenew`) after BTreeSet dedup,
+		// independent of the lifecycle test below. Tested at N = 3 to make the dedup
+		// non-trivial.
+		{
+			let mut tx: Transaction<DbHash> = Transaction::new();
+			let dummy_body = vec![UncheckedXt::new_transaction(10.into(), ())];
+			let dup_ops = vec![
+				IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() },
+				IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() },
+				IndexOperation::Renew { extrinsic: 0, hash: x1_hash.as_ref().to_vec() },
+			];
+			let encoded = apply_index_ops::<Block>(&mut tx, dummy_body, dup_ops);
+			let decoded: Vec<DbExtrinsic<Block>> =
+				Decode::decode(&mut &encoded[..]).expect("apply_index_ops output must decode");
+			assert_eq!(decoded.len(), 1);
+			assert!(
+				matches!(decoded[0], DbExtrinsic::Indexed { .. }),
+				"N duplicate Renews of the same hash must dedup to Indexed (not MultiRenew); \
+				 got {:?}",
+				decoded[0],
+			);
+		}
+
 		for i in 0..6 {
 			let mut index = Vec::new();
 			let body = if i == 0 {
@@ -4919,21 +4944,24 @@ pub(crate) mod tests {
 
 	#[test]
 	fn multi_renew_mixed_duplicates_and_uniques() {
-		// `[Renew{0, X}, Renew{0, Y}, Renew{0, X}, Renew{0, Z}]` — the realistic shape if
-		// PendingAutoRenewals ever contained duplicate content_hashes alongside other items.
+		// `[Renew{0, W}, Renew{0, X}, Renew{0, Y}, Renew{0, W}, Renew{0, Z}]` — the realistic
+		// shape of a `utility.batch(renew[..])` call where one content_hash appears twice
+		// alongside several uniques. 5 ops, 4 distinct hashes, 1 duplicate.
 		// Locks in three things at once:
-		// (1) Stored hashes are deduplicated (the duplicate X collapses to a single entry).
+		// (1) Stored hashes are deduplicated (the duplicate W collapses to a single entry).
 		// (2) block_indexed_body returns one blob per distinct hash; lookup is by membership,
 		//     not position (BTreeSet iteration order is by hash bytes, not insertion order).
-		// (3) Refcount lifecycle is correct after dedup: each of X/Y/Z gets +1 from the
-		//     multi-renew block (not +2 for X), and all are released when the block is pruned.
+		// (3) Refcount lifecycle is correct after dedup: each of W/X/Y/Z gets +1 from the
+		//     multi-renew block (not +2 for W), and all are released when the block is pruned.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
 
-		let x = UncheckedXt::new_transaction(0.into(), ()).encode();
-		let y = UncheckedXt::new_transaction(1.into(), ()).encode();
-		let z = UncheckedXt::new_transaction(2.into(), ()).encode();
+		let w = UncheckedXt::new_transaction(0.into(), ()).encode();
+		let x = UncheckedXt::new_transaction(1.into(), ()).encode();
+		let y = UncheckedXt::new_transaction(2.into(), ()).encode();
+		let z = UncheckedXt::new_transaction(3.into(), ()).encode();
+		let w_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&w[1..]);
 		let x_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&x[1..]);
 		let y_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&y[1..]);
 		let z_hash = <HashingFor<Block> as sp_core::Hasher>::hash(&z[1..]);
@@ -4943,16 +4971,21 @@ pub(crate) mod tests {
 			let body = if i == 0 {
 				index.push(IndexOperation::Insert {
 					extrinsic: 0,
+					hash: w_hash.as_ref().to_vec(),
+					size: (w.len() - 1) as u32,
+				});
+				index.push(IndexOperation::Insert {
+					extrinsic: 1,
 					hash: x_hash.as_ref().to_vec(),
 					size: (x.len() - 1) as u32,
 				});
 				index.push(IndexOperation::Insert {
-					extrinsic: 1,
+					extrinsic: 2,
 					hash: y_hash.as_ref().to_vec(),
 					size: (y.len() - 1) as u32,
 				});
 				index.push(IndexOperation::Insert {
-					extrinsic: 2,
+					extrinsic: 3,
 					hash: z_hash.as_ref().to_vec(),
 					size: (z.len() - 1) as u32,
 				});
@@ -4960,11 +4993,14 @@ pub(crate) mod tests {
 					UncheckedXt::new_transaction(0.into(), ()),
 					UncheckedXt::new_transaction(1.into(), ()),
 					UncheckedXt::new_transaction(2.into(), ()),
+					UncheckedXt::new_transaction(3.into(), ()),
 				]
 			} else if i == 1 {
+				// 5 ops: W appears twice (positions 0 and 3), X/Y/Z once each.
+				index.push(IndexOperation::Renew { extrinsic: 0, hash: w_hash.as_ref().to_vec() });
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: y_hash.as_ref().to_vec() });
-				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
+				index.push(IndexOperation::Renew { extrinsic: 0, hash: w_hash.as_ref().to_vec() });
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: z_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(10.into(), ())]
 			} else {
@@ -4983,8 +5019,9 @@ pub(crate) mod tests {
 		// of how many times that hash appeared in the input ops. Order is by hash bytes
 		// (BTreeSet iteration), so we check membership rather than positions.
 		let indexed_body = bc.block_indexed_body(blocks[1]).unwrap().unwrap();
-		assert_eq!(indexed_body.len(), 3, "duplicate X collapsed; 3 distinct blobs remain");
+		assert_eq!(indexed_body.len(), 4, "duplicate W collapsed; 4 distinct blobs remain");
 		let blobs: BTreeSet<&[u8]> = indexed_body.iter().map(|b| b.as_slice()).collect();
+		assert!(blobs.contains(&&w[1..]), "W blob must be present");
 		assert!(blobs.contains(&&x[1..]), "X blob must be present");
 		assert!(blobs.contains(&&y[1..]), "Y blob must be present");
 		assert!(blobs.contains(&&z[1..]), "Z blob must be present");
@@ -5000,9 +5037,11 @@ pub(crate) mod tests {
 		// After all blocks pruned: refcounts zero out. With BTreeSet dedup the multi-renew
 		// block contributed exactly +1 per distinct hash, so each is released cleanly when
 		// that block is pruned.
+		// W: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
 		// X: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
 		// Y: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
 		// Z: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
+		assert!(bc.indexed_transaction(w_hash).unwrap().is_none(), "W deleted");
 		assert!(bc.indexed_transaction(x_hash).unwrap().is_none(), "X deleted");
 		assert!(bc.indexed_transaction(y_hash).unwrap().is_none(), "Y deleted");
 		assert!(bc.indexed_transaction(z_hash).unwrap().is_none(), "Z deleted");
