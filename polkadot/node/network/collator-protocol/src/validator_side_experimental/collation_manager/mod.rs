@@ -310,20 +310,29 @@ impl CollationManager {
 		&self,
 		scheduling_parent: &Hash,
 	) -> impl Iterator<Item = ParaId> {
-		let window = if let Some(per_sp) = self.per_scheduling_parent.get(scheduling_parent) else {
-			self.our_window(scheduling_parent, per_sp.core_index)
-		} else {
-			Vec::new()
+		let window = match self.per_scheduling_parent.get(scheduling_parent) {
+			Some(per_sp) => self.our_window(scheduling_parent, per_sp.core_index),
+			None => Vec::new(),
 		};
 
-		let mut remaining: IndexMap<ParaId, usize> = IndexMap::new();
+		let mut remaining: HashMap<ParaId, usize> = HashMap::new();
 		for para in &window {
 			*remaining.entry(*para).or_default() += 1;
 		}
 		for (para, n) in remaining.iter_mut() {
 			*n = n.saturating_sub(self.consumed_for_para(scheduling_parent, *para));
 		}
-		remaining.into_iter().filter(|(_, n)| *n > 0).map(|(para, _)| para)
+
+		// Walk the CQ in order, emitting one entry per still-unfulfilled position.
+		window.into_iter().filter(move |para| {
+			let n = remaining.get_mut(para).expect("inserted above; qed");
+			if *n > 0 {
+				*n -= 1;
+				true
+			} else {
+				false
+			}
+		})
 	}
 
 	/// Candidates of `para_id` consuming a slot at `scheduling_parent`: in-flight fetches plus
@@ -479,7 +488,7 @@ impl CollationManager {
 		// parent surfaces both cores' free slots.
 		let scheduling_parents: Vec<_> = self.per_scheduling_parent.keys().copied().collect();
 		for sp in scheduling_parents {
-			for para_id in self.unfulfilled_claim_queue_entries(sp) {
+			for para_id in self.unfulfilled_claim_queue_entries(&sp) {
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
 				let advertisement = match self.pick_best_advertisement(
