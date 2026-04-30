@@ -1,0 +1,27 @@
+title: 'pallet-psm-remote-tests: support multi-instance fungibles and Location selector'
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    `pallet-psm-remote-tests`: snapshot now fetches storage from a configurable
+    list of pallet names (`assets_pallet_names: Vec<String>`), enabling tests
+    against runtimes whose `Fungibles` is a union over multiple `pallet_assets`
+    instances.
+
+    `remote-ext-tests-psm` CLI: `--asset-id <u32>` is replaced with
+    `--asset-location <JSON>` accepting any `xcm::v5::Location`. Default
+    behaviour is unchanged (USDT, trust-backed asset `1984`).
+
+    The Asset Hub Westend wiring fetches both `Assets` and `ForeignAssets`
+    storage, so foreign-registered external stablecoins can be exercised
+    directly.
+
+    Breaking changes:
+    - `PsmTestConfig::assets_pallet_name: String` -> `assets_pallet_names: Vec<String>`
+    - `build_ext`'s second parameter changes from `String` to `Vec<String>`
+
+crates:
+- name: pallet-psm-remote-tests
+  bump: major
+- name: remote-ext-tests-psm
+  bump: patch

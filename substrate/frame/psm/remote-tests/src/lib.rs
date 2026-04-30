@@ -256,11 +256,20 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 			asset_id.clone(),
 			&caller,
 		);
+		// The PSM-derived account may already hold the external asset on the
+		// live chain (residual from prior deployments / direct transfers), so
+		// we compare deltas rather than absolute balances.
+		let psm_external_before =
+			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
+				asset_id.clone(),
+				&psm_account,
+			);
 
 		log::info!(
 			target: LOG_TARGET,
-			"Test account external stablecoin balance: {:?}",
+			"Test account external stablecoin balance: {:?} / pre-existing PSM balance: {:?}",
 			balance_before,
+			psm_external_before,
 		);
 
 		// Test mint
@@ -285,12 +294,16 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
 
-		// The PSM account should hold the external stablecoin.
+		// The PSM account's external balance should grow by exactly the swap amount.
 		let psm_external = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 			asset_id.clone(),
 			&psm_account,
 		);
-		assert_eq!(psm_external, swap_amount, "PSM should hold the external stablecoin");
+		assert_eq!(
+			psm_external,
+			psm_external_before + swap_amount,
+			"PSM external balance should increase by exactly swap_amount"
+		);
 
 		log::info!(
 			target: LOG_TARGET,
