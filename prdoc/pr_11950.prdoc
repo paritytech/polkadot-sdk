@@ -25,3 +25,5 @@ crates:
   bump: major
 - name: remote-ext-tests-psm
   bump: patch
+- name: pallet-psm
+  bump: none
