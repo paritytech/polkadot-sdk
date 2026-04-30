@@ -28,7 +28,8 @@
 //! - `recovered`: An account that has been successfully recovered.
 //! - `inheritor`: An account that is inheriting access to a lost account after recovery.
 //! - `attempt`: An attempt to recover a lost account by an initiator.
-//! - `order`: The priority of a friend group. Lower values have higher priority in conflicts.
+//! - `priority`: The priority of a friend group in inheritance conflicts. See
+//!   [`InheritancePriority`].
 //! - `deposit`: An amount of currency that needs to be held for allocating on-chain storage.
 //! - `friends_needed`: The number of friends that need to approve an attempt.
 //! - `inheritance delay`: How long an attempt will be delayed before it can succeed.
@@ -60,24 +61,26 @@
 //! Alice may have configured multiple friend groups that all try to recover her account at the same
 //! time. This can lead to a conflict of which friend group should eventually inherit the access.
 //!
-//! 1. Alice configures groups *Family* (delay 10d, order 0) and *Friends* (delay 20d, order 1).
+//! 1. Alice configures groups *Family* (delay 10d, priority 0) and *Friends* (delay 20d, priority
+//!    1). Since numerical lower values denote higher priority, *Family* therefore has higher
+//!    priority than *Friends*.
 //! 1. Day 0: Alice loses access to her account.
 //! 1. Day 6: *Friends* initiate a recovery attempt for Alice.
 //! 1. Day 15: *Family* finally understands Polkadot and initiates an attempt as well.
 //! 1. Day 25: *Family* inherits access to Alice account.
-//! 1. Day 26: *Friends* group gets nothing since inheritance order is higher the one from *Family*.
+//! 1. Day 26: *Friends* group gets nothing since they have lower priority than *Family*.
 //!
 //! In the case above you see how the *Friends* group is now unable to recover Alice account since
-//! the *Family* group already did it and has a higher inheritance order.  
+//! the *Family* group already did it and has higher priority.
 //! Now, imagine the case that the *Friends* group would have started on day 4 and would have
 //! already recovered the account on day 24. Two days later, the *Family* group can take access back
 //! and will replace the inheritor account with their own. The *Friends* group had access for two
-//! days since they were faster.  
+//! days since they were faster.
 //! If Alice account has most balance locked in 28 day staking this would not make a big difference,
 //! since only the free balance would be immediately transferable.
 //!
-//! After a recovery attempt was completed, friend groups with a higher inheritance order cannot
-//! open a new attempt to recover the account.
+//! After a recovery attempt was completed, lower-priority friend groups cannot open a new attempt
+//! to recover the account.
 //!
 //! ## Data Structures
 //!
@@ -166,11 +169,12 @@ pub struct FriendGroup<ProvidedBlockNumber, AccountId, Friends> {
 
 	/// Used to resolve inheritance conflicts when multiple friend groups finish a recovery.
 	///
-	/// Lower order friend groups can replace the inheritor of a higher order group. For example:
-	/// You can set your family group as order 0, your friends group as order 1 and co-workers as
-	/// group 2. This in combination with the `inheritance_delay` enables you to ensure that the
-	/// correct group receives the inheritance.
-	pub inheritance_order: InheritanceOrder,
+	/// Higher-priority friend groups can replace the inheritor of a lower-priority group. For
+	/// example: you can set your family group as priority 0, your friends group as priority 1 and
+	/// co-workers as priority 2. This in combination with the `inheritance_delay` enables you to
+	/// ensure that the correct group receives the inheritance. See [`InheritancePriority`] for the
+	/// numeric convention.
+	pub inheritance_priority: InheritancePriority,
 
 	/// The delay since the last approval of an attempt before the attempt can be canceled.
 	///
@@ -184,10 +188,10 @@ pub struct FriendGroup<ProvidedBlockNumber, AccountId, Friends> {
 /// Index of a friend group of a lost account.
 pub type FriendGroupIndex = u32;
 
-/// Order in that friend groups have priority over account inheritance.
+/// Priority of a friend group in account inheritance conflicts.
 ///
-/// Lower is more powerful.
-pub type InheritanceOrder = u32;
+/// Lower numerical values denote higher priority (so `0` is the strongest priority).
+pub type InheritancePriority = u32;
 
 /// A `FriendGroup` for a specific `Config`.
 pub type FriendGroupOf<T> = FriendGroup<ProvidedBlockNumberOf<T>, AccountIdFor<T>, FriendsOf<T>>;
@@ -372,7 +376,7 @@ pub mod pallet {
 		_,
 		Blake2_128Concat,
 		T::AccountId,
-		(InheritanceOrder, T::AccountId, InheritorTicketOf<T>),
+		(InheritancePriority, T::AccountId, InheritorTicketOf<T>),
 	>;
 
 	#[pallet::composite_enum]
@@ -423,7 +427,7 @@ pub mod pallet {
 			previous_inheritor: Option<T::AccountId>,
 		},
 		/// A recovery attempt was discarded because the account was already recovered by a
-		/// friend group with equal or lower inheritance order.
+		/// friend group of equal or higher priority.
 		///
 		/// The attempt is consumed (removed from storage) and its deposits are released, but
 		/// the existing inheritor remains unchanged.
@@ -463,8 +467,8 @@ pub mod pallet {
 		HasOngoingAttempts,
 		/// The lost account cannot be a friend of itself.
 		LostAccountInFriendGroup,
-		/// The account was already recovered by a group with lower or equal inheritance order.
-		LowerOrderRecovered,
+		/// The account was already recovered by a group of equal or higher priority.
+		HigherPriorityRecovered,
 		/// Cancel delay must be at least 1.
 		NoCancelDelay,
 		/// This account does not have any friend groups.
@@ -557,7 +561,7 @@ pub mod pallet {
 		///
 		/// The controller is not allowed to dispatch calls of the recovery pallet. Otherwise they
 		/// could mess with the recovery configuration and possibly cancel or slash attempts from
-		/// lower-order friend groups.
+		/// higher-priority friend groups.
 		#[pallet::call_index(0)]
 		#[pallet::weight({
 			let di = call.get_dispatch_info();
@@ -608,7 +612,7 @@ pub mod pallet {
 		pub fn revoke_inheritor(origin: OriginFor<T>) -> DispatchResult {
 			let lost = ensure_signed(origin)?;
 
-			let (_order, _inheritor, ticket) =
+			let (_priority, _inheritor, ticket) =
 				Inheritor::<T>::take(&lost).ok_or(Error::<T>::NoInheritor)?;
 
 			let _: Result<(), DispatchError> = ticket.try_drop().defensive();
@@ -693,10 +697,10 @@ pub mod pallet {
 			let friend_group = Self::friend_group_of(&lost, friend_group_index)?;
 			ensure!(friend_group.friends.contains(&initiator), Error::<T>::NotFriend);
 
-			if let Some((inheritance_order, _, _)) = Inheritor::<T>::get(&lost) {
+			if let Some((inheritance_priority, _, _)) = Inheritor::<T>::get(&lost) {
 				ensure!(
-					friend_group.inheritance_order < inheritance_order,
-					Error::<T>::LowerOrderRecovered
+					friend_group.inheritance_priority < inheritance_priority,
+					Error::<T>::HigherPriorityRecovered
 				);
 			}
 
@@ -814,12 +818,12 @@ pub mod pallet {
 			// assume fully malicious behavior.
 
 			let inheritor = friend_group.inheritor;
-			let inheritance_order = friend_group.inheritance_order;
+			let inheritance_priority = friend_group.inheritance_priority;
 
 			match Inheritor::<T>::get(&lost) {
 				None => {
 					let ticket = Self::inheritor_ticket(&caller)?;
-					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
+					Inheritor::<T>::insert(&lost, (inheritance_priority, &inheritor, ticket));
 					Self::deposit_event(Event::<T>::AttemptFinished {
 						lost,
 						friend_group_index: attempt_index,
@@ -827,10 +831,12 @@ pub mod pallet {
 						previous_inheritor: None,
 					});
 				},
-				// new recovery has a lower inheritance order, we replace the existing inheritor
-				Some((old_order, old_inheritor, ticket)) if inheritance_order < old_order => {
+				// new recovery has a higher priority, we replace the existing inheritor
+				Some((old_priority, old_inheritor, ticket))
+					if inheritance_priority < old_priority =>
+				{
 					let ticket = ticket.update(&caller, Self::inheritor_footprint())?;
-					Inheritor::<T>::insert(&lost, (inheritance_order, &inheritor, ticket));
+					Inheritor::<T>::insert(&lost, (inheritance_priority, &inheritor, ticket));
 					Self::deposit_event(Event::<T>::AttemptFinished {
 						lost,
 						friend_group_index: attempt_index,
@@ -839,7 +845,7 @@ pub mod pallet {
 					});
 				},
 				Some((_, existing_inheritor, _)) => {
-					// The existing inheritor stays since an equal or lower order inheritor
+					// The existing inheritor stays since an equal or higher priority group
 					// already recovered the account.
 					Self::deposit_event(Event::<T>::AttemptDiscarded {
 						lost,
@@ -958,7 +964,7 @@ impl<T: Config> Pallet<T> {
 	}
 
 	pub fn inheritor_footprint() -> Footprint {
-		Footprint::from_mel::<(InheritanceOrder, T::AccountId)>()
+		Footprint::from_mel::<(InheritancePriority, T::AccountId)>()
 	}
 
 	pub fn inheritor_ticket(who: &T::AccountId) -> Result<InheritorTicketOf<T>, DispatchError> {
@@ -1010,10 +1016,7 @@ impl<T: Config> Pallet<T> {
 
 		for (i, group_a) in friend_groups.iter().enumerate() {
 			for group_b in friend_groups.iter().skip(i + 1) {
-				ensure!(
-					group_a.friends != group_b.friends,
-					Error::<T>::DuplicateFriendGroups
-				);
+				ensure!(group_a.friends != group_b.friends, Error::<T>::DuplicateFriendGroups);
 			}
 		}
 

@@ -55,12 +55,12 @@ fn create_friend_group<T: Config>(
 	seed: u32,
 	num_friends: u32,
 	threshold: u32,
-	inheritance_order: InheritanceOrder,
+	inheritance_priority: InheritancePriority,
 	inheritance_delay: ProvidedBlockNumberOf<T>,
 	cancel_delay: ProvidedBlockNumberOf<T>,
 ) -> FriendGroupOf<T> {
 	let friends = generate_friends::<T>(num_friends * seed + 1, num_friends);
-	let inheritor: T::AccountId = account("inheritor", inheritance_order, SEED);
+	let inheritor: T::AccountId = account("inheritor", inheritance_priority, SEED);
 	fund_account::<T>(&inheritor);
 
 	FriendGroupOf::<T> {
@@ -68,7 +68,7 @@ fn create_friend_group<T: Config>(
 		friends_needed: threshold,
 		inheritor,
 		inheritance_delay,
-		inheritance_order,
+		inheritance_priority,
 		cancel_delay,
 	}
 }

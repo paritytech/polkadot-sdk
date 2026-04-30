@@ -33,7 +33,7 @@ fn basic_flow_works() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -86,7 +86,7 @@ fn set_friend_groups_multiple_works() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		let fg2 = FriendGroupOf::<T> {
@@ -94,7 +94,7 @@ fn set_friend_groups_multiple_works() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg1, fg2];
@@ -115,7 +115,7 @@ fn set_friend_groups_too_many_friends_needed_fails() {
 			friends_needed: 4,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		let friend_groups = vec![fg];
@@ -136,7 +136,7 @@ fn set_friend_groups_no_friends_fails() {
 			friends_needed: 0,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -153,7 +153,7 @@ fn set_friend_groups_zero_friends_needed_fails() {
 			friends_needed: 0,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -173,7 +173,7 @@ fn set_friend_groups_zero_cancel_delay_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 0,
 		};
 
@@ -193,7 +193,7 @@ fn set_friend_groups_unsorted_friends_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -213,7 +213,7 @@ fn set_friend_groups_duplicate_friends_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -233,7 +233,7 @@ fn set_friend_groups_duplicate_groups_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		let fg2 = FriendGroupOf::<T> {
@@ -241,7 +241,7 @@ fn set_friend_groups_duplicate_groups_fails() {
 			friends_needed: 1,
 			inheritor: EVE,
 			inheritance_delay: 5,
-			inheritance_order: 1,
+			inheritance_priority: 1,
 			cancel_delay: 5,
 		};
 
@@ -261,7 +261,7 @@ fn set_friend_groups_remove_works() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -294,7 +294,7 @@ fn set_friend_groups_ongoing_attempt_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -316,7 +316,7 @@ fn set_friend_groups_lost_account_in_group_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 
@@ -337,7 +337,7 @@ fn set_friend_groups_max_groups_works() {
 				friends_needed: 1,
 				inheritor: FERDIE,
 				inheritance_delay: 10,
-				inheritance_order: i as u32,
+				inheritance_priority: i as u32,
 				cancel_delay: 10,
 			})
 			.collect();
@@ -356,7 +356,7 @@ fn initiate_attempt_multiple_fails() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
@@ -617,15 +617,15 @@ fn finish_attempt_at_exact_boundary_works() {
 	});
 }
 
-/// Lower inheritance order overwrites higher order inheritor
+/// Higher priority overwrites lower priority inheritor.
 #[test]
-fn inheritance_order_conflict_overwrite() {
+fn inheritance_priority_conflict_overwrite() {
 	new_test_ext().execute_with(|| {
-		// EVE is inheritor with order 1
+		// EVE is inheritor with priority 1
 		let ticket = Recovery::inheritor_ticket(&EVE).unwrap();
 		Inheritor::<T>::insert(ALICE, (1, &EVE, ticket));
 
-		// Add friend group with order 0
+		// Add friend group with priority 0
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
@@ -651,13 +651,13 @@ fn inheritance_order_conflict_overwrite() {
 	});
 }
 
-/// Friend group with same or higher inheritance order gets prevented from initiating an attempt.
+/// Friend group with equal or lower priority gets prevented from initiating an attempt.
 #[test]
-fn higher_inheritance_order_gets_rejected() {
+fn lower_priority_gets_rejected() {
 	new_test_ext().execute_with(|| {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
-		// A friend group with inheritance order 0 got it
+		// A friend group with priority 0 got it
 		let ticket = Recovery::inheritor_ticket(&FERDIE).unwrap();
 		Inheritor::<T>::insert(ALICE, (0, &FERDIE, ticket));
 
@@ -667,7 +667,7 @@ fn higher_inheritance_order_gets_rejected() {
 		// Group 1 cannot initiate an attempt
 		assert_noop!(
 			Recovery::initiate_attempt(signed(BOB), ALICE, 0),
-			Error::<T>::LowerOrderRecovered
+			Error::<T>::HigherPriorityRecovered
 		);
 	});
 }
@@ -1160,7 +1160,7 @@ fn set_friend_groups_too_many_groups_fails() {
 				friends_needed: 1,
 				inheritor: FERDIE,
 				inheritance_delay: 10,
-				inheritance_order: i as u32,
+				inheritance_priority: i as u32,
 				cancel_delay: 10,
 			})
 			.collect();
@@ -1182,7 +1182,7 @@ fn finish_attempt_same_caller_does_not_leak_inheritor_deposit() {
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 1,
+			inheritance_priority: 1,
 			cancel_delay: 10,
 		};
 		let fg1 = FriendGroupOf::<T> {
@@ -1190,7 +1190,7 @@ fn finish_attempt_same_caller_does_not_leak_inheritor_deposit() {
 			friends_needed: 2,
 			inheritor: DAVE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg0, fg1]));
@@ -1206,12 +1206,12 @@ fn finish_attempt_same_caller_does_not_leak_inheritor_deposit() {
 
 		frame_system::Pallet::<T>::set_block_number(11);
 
-		// BOB finishes group 0 (order 1)
+		// BOB finishes group 0 (priority 1)
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 0));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 		assert_inheritor_deposit(BOB, 14);
 
-		// BOB finishes group 1 (order 0) — replaces inheritor, same depositor
+		// BOB finishes group 1 (priority 0) — replaces inheritor, same depositor
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 1));
 		assert_eq!(Recovery::inheritor(ALICE), Some(DAVE));
 		assert_inheritor_deposit(BOB, 14);
@@ -1265,20 +1265,21 @@ fn revoke_inheritor_not_lost_account_fails() {
 	});
 }
 
-/// Finishing an attempt when an equal-or-higher order inheritor already exists does not replace it.
+/// Finishing an attempt when an equal-or-higher priority inheritor already exists does not
+/// replace it.
 ///
-/// Both groups initiate before any inheritor exists. The lower-order group finishes first,
-/// then the higher-order group finishes but does not replace the inheritor.
+/// Both groups initiate before any inheritor exists. The higher-priority group finishes first,
+/// then the lower-priority group finishes but does not replace the inheritor.
 #[test]
-fn finish_attempt_higher_order_does_not_replace() {
+fn finish_attempt_lower_priority_does_not_replace() {
 	new_test_ext().execute_with(|| {
-		// Two friend groups: group 0 (order 0) and group 1 (order 1)
+		// Two friend groups: group 0 (priority 0) and group 1 (priority 1)
 		let fg0 = FriendGroupOf::<T> {
 			friends: friends([BOB, CHARLIE, DAVE]),
 			friends_needed: 2,
 			inheritor: FERDIE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 10,
 		};
 		let fg1 = FriendGroupOf::<T> {
@@ -1286,7 +1287,7 @@ fn finish_attempt_higher_order_does_not_replace() {
 			friends_needed: 1,
 			inheritor: DAVE,
 			inheritance_delay: 10,
-			inheritance_order: 1,
+			inheritance_priority: 1,
 			cancel_delay: 10,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg0, fg1]));
@@ -1295,10 +1296,10 @@ fn finish_attempt_higher_order_does_not_replace() {
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 1));
 
-		// Group 1 (order 1) gets fully approved
+		// Group 1 (priority 1) gets fully approved
 		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
 
-		// Group 0 (order 0) gets fully approved
+		// Group 0 (priority 0) gets fully approved
 		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 
@@ -1308,7 +1309,7 @@ fn finish_attempt_higher_order_does_not_replace() {
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 0));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 
-		// Group 1 finishes — DAVE does NOT replace FERDIE since order 1 >= order 0
+		// Group 1 finishes — DAVE does NOT replace FERDIE since priority 1 < priority 0
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 1));
 		assert_last_event(Event::<T>::AttemptDiscarded {
 			lost: ALICE,
@@ -1321,19 +1322,19 @@ fn finish_attempt_higher_order_does_not_replace() {
 	});
 }
 
-/// Regression test to ensure a malicious controller cannot dismiss lower-order attempts.
+/// Regression test to ensure a malicious controller cannot dismiss higher-priority attempts.
 #[test]
 fn inheritor_can_slash_higher_priority_attempts_and_remove_friend_groups() {
 	new_test_ext().execute_with(|| {
 		// Alice configures two friend groups:
-		//   Group 0 (order 0, "Family"): BOB, CHARLIE — higher priority
-		//   Group 1 (order 1, "Friends"): DAVE, EVE — lower priority, inheritor = FERDIE
+		//   Group 0 (priority 0, "Family"): BOB, CHARLIE — higher priority
+		//   Group 1 (priority 1, "Friends"): DAVE, EVE — lower priority, inheritor = FERDIE
 		let family = FriendGroupOf::<T> {
 			friends: friends([BOB, CHARLIE]),
 			friends_needed: 1,
 			inheritor: DAVE, // Family's chosen inheritor
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 5,
 		};
 		let friends_group = FriendGroupOf::<T> {
@@ -1341,19 +1342,19 @@ fn inheritor_can_slash_higher_priority_attempts_and_remove_friend_groups() {
 			friends_needed: 1,
 			inheritor: FERDIE, // Friends' chosen inheritor
 			inheritance_delay: 1,
-			inheritance_order: 1,
+			inheritance_priority: 1,
 			cancel_delay: 5,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![family, friends_group]));
 
-		// --- Friends group (order 1) recovers first due to shorter delay ---
+		// --- Friends group (priority 1) recovers first due to shorter delay ---
 		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
 		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
 		inc_block_number(2);
 		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 1));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
 
-		// --- Family group (order 0) initiates a higher-priority attempt ---
+		// --- Family group (priority 0) initiates a higher-priority attempt ---
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		let bob_balance_before = <Test as Config>::Currency::total_balance(&BOB);
 
@@ -1400,7 +1401,7 @@ fn inheritor_cannot_bypass_filter_via_utility_batch() {
 			friends_needed: 1,
 			inheritor: DAVE,
 			inheritance_delay: 10,
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			cancel_delay: 5,
 		};
 		let friends_group = FriendGroupOf::<T> {
@@ -1408,7 +1409,7 @@ fn inheritor_cannot_bypass_filter_via_utility_batch() {
 			friends_needed: 1,
 			inheritor: FERDIE,
 			inheritance_delay: 1,
-			inheritance_order: 1,
+			inheritance_priority: 1,
 			cancel_delay: 5,
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![family, friends_group]));

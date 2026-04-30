@@ -97,7 +97,7 @@ impl<BlockNumber: Clone + Ord + One, Balance, Friends>
 			friends_needed: self.threshold as u32,
 			inheritor,
 			inheritance_delay: self.delay_period.clone(),
-			inheritance_order: 0,
+			inheritance_priority: 0,
 			// At least one block delay to prevent mempool frontrunning
 			cancel_delay: self.delay_period.max(One::one()),
 		}

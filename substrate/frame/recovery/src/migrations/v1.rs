@@ -241,13 +241,13 @@ impl<T: v0::MigrationConfig> SteppedMigration for MigrateV0ToV1<T> {
 					let _ = frame_system::Pallet::<T>::dec_consumers(&rescuer);
 
 					let inheritor = rescuer.clone();
-					let inheritance_order = 0u32;
+					let inheritance_priority = 0u32;
 
 					// Create inheritor ticket
 					if let Ok(ticket) = Pallet::<T>::inheritor_ticket(&inheritor) {
 						pallet::Inheritor::<T>::insert(
 							&lost,
-							(inheritance_order, inheritor, ticket),
+							(inheritance_priority, inheritor, ticket),
 						);
 					} else {
 						frame_support::defensive!(
@@ -448,7 +448,7 @@ mod tests {
 			// Inheritor should be the multisig account derived from friends + threshold
 			let expected_inheritor = v0::multi_account_id::<u64>(&[BOB, CHARLIE], 2);
 			assert_eq!(alice_fg.inheritor, expected_inheritor);
-			assert_eq!(alice_fg.inheritance_order, 0);
+			assert_eq!(alice_fg.inheritance_priority, 0);
 
 			// Check BOB's migrated FriendGroups
 			let (bob_groups, _ticket) = pallet::FriendGroups::<T>::get(BOB).unwrap();

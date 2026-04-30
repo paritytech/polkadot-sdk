@@ -149,7 +149,7 @@ pub fn fg(fs: impl IntoIterator<Item = u64>) -> FriendGroupOf<Test> {
 		friends_needed: 2,
 		inheritor: FERDIE,
 		inheritance_delay: 10,
-		inheritance_order: 0,
+		inheritance_priority: 0,
 		cancel_delay: ABORT_DELAY,
 	}
 }
