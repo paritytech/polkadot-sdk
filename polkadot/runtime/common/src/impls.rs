@@ -44,6 +44,32 @@ where
 	}
 }
 
+/// Like [`ToAuthor`], but falls back to treasury if the author account cannot receive the credit.
+///
+/// Post-AHM, validator relay-chain accounts may have near-zero balances, causing
+/// `pallet_balances::resolve` to reject the deposit (below ED) and silently drop the credit,
+/// shrinking total issuance. Discovered via a PET regression; see paritytech/polkadot-sdk#9986.
+pub struct ToAuthorOrTreasury<R>(core::marker::PhantomData<R>);
+impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthorOrTreasury<R>
+where
+	R: pallet_balances::Config + pallet_authorship::Config + pallet_treasury::Config,
+	<R as frame_system::Config>::AccountId: From<polkadot_primitives::AccountId>,
+	<R as frame_system::Config>::AccountId: Into<polkadot_primitives::AccountId>,
+{
+	fn on_nonzero_unbalanced(
+		amount: Credit<<R as frame_system::Config>::AccountId, pallet_balances::Pallet<R>>,
+	) {
+		let amount = match <pallet_authorship::Pallet<R>>::author() {
+			Some(author) => match <pallet_balances::Pallet<R>>::resolve(&author, amount) {
+				Ok(()) => return,
+				Err(credit) => credit,
+			},
+			None => amount,
+		};
+		ResolveTo::<TreasuryAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(amount);
+	}
+}
+
 pub struct DealWithFees<R>(core::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for DealWithFees<R>
 where
@@ -62,7 +88,7 @@ where
 				tips.merge_into(&mut split.1);
 			}
 			ResolveTo::<TreasuryAccountId<R>, pallet_balances::Pallet<R>>::on_unbalanced(split.0);
-			<ToAuthor<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
+			<ToAuthorOrTreasury<R> as OnUnbalanced<_>>::on_unbalanced(split.1);
 		}
 	}
 }
@@ -373,6 +399,9 @@ mod tests {
 	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
 	impl pallet_balances::Config for Test {
 		type AccountStore = System;
+		// High enough that small fee splits (e.g. ration(80,20) of 4 → 3 and 1) fall below it,
+		// letting us test the "both routes fail → burned" path.
+		type ExistentialDeposit = ConstU64<5>;
 	}
 
 	parameter_types! {
@@ -404,13 +433,18 @@ mod tests {
 		type BenchmarkHelper = ();
 	}
 
+	thread_local! {
+		static MOCK_AUTHOR: core::cell::Cell<Option<[u8; 32]>> =
+			core::cell::Cell::new(Some([1u8; 32]));
+	}
+
 	pub struct OneAuthor;
 	impl FindAuthor<AccountId> for OneAuthor {
 		fn find_author<'a, I>(_: I) -> Option<AccountId>
 		where
 			I: 'a,
 		{
-			Some(TEST_ACCOUNT)
+			MOCK_AUTHOR.with(|c| c.get().map(AccountId::new))
 		}
 	}
 	impl pallet_authorship::Config for Test {
@@ -488,6 +522,56 @@ mod tests {
 			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 22);
 			// Treasury gets 80% of fee
 			assert_eq!(Balances::free_balance(Treasury::account_id()), 8);
+		});
+	}
+
+	// Regression for paritytech/polkadot-sdk#9986: the 20% author share must reach treasury
+	// rather than being silently dropped when there is no block author.
+	#[test]
+	fn fees_go_to_treasury_when_author_is_absent() {
+		new_test_ext().execute_with(|| {
+			MOCK_AUTHOR.with(|c| c.set(None));
+
+			let fee =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(10);
+
+			assert_eq!(Balances::free_balance(Treasury::account_id()), 0);
+			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
+
+			DealWithFees::on_unbalanceds(vec![fee].into_iter());
+
+			// 80% direct + 20% fallback = 100% to treasury; nothing burned.
+			assert_eq!(Balances::free_balance(Treasury::account_id()), 10);
+			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
+
+			MOCK_AUTHOR.with(|c| c.set(Some([1u8; 32])));
+		});
+	}
+
+	// Degenerate case: fee so small that both the 80% treasury split and the 20% author
+	// fallback are below ED — both credits are dropped and the fee is burned. This is
+	// unavoidable; we document it as expected behaviour rather than trying to handle it.
+	#[test]
+	fn fees_burned_when_author_and_treasury_both_below_ed() {
+		new_test_ext().execute_with(|| {
+			MOCK_AUTHOR.with(|c| c.set(None));
+
+			// fee=4 → ration(80,20) → (3,1); both below ED=5, so both credits are dropped.
+			let ti_before = pallet_balances::Pallet::<Test>::total_issuance();
+			let fee =
+				<pallet_balances::Pallet<Test> as frame_support::traits::fungible::Balanced<
+					AccountId,
+				>>::issue(4);
+
+			DealWithFees::on_unbalanceds(vec![fee].into_iter());
+
+			assert_eq!(Balances::free_balance(Treasury::account_id()), 0);
+			assert_eq!(Balances::free_balance(TEST_ACCOUNT), 0);
+			assert_eq!(pallet_balances::Pallet::<Test>::total_issuance(), ti_before); // all burned
+
+			MOCK_AUTHOR.with(|c| c.set(Some([1u8; 32])));
 		});
 	}
 
