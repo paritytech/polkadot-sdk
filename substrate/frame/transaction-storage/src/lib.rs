@@ -535,7 +535,6 @@ pub mod pallet {
 		pub fn indexed_transactions(
 			block: BlockNumberFor<T>,
 		) -> alloc::vec::Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
-
 			const RAW_CID_CODEC: sp_transaction_storage_proof::CidCodec = 0x55;
 
 			Transactions::<T>::get(block)
