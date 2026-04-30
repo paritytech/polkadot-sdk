@@ -55,6 +55,8 @@ mod mock;
 #[cfg(test)]
 mod permit_tests;
 #[cfg(test)]
+mod test_helpers;
+#[cfg(test)]
 mod tests;
 
 pub use foreign_assets::{pallet, pallet::Config as ForeignAssetsConfig, ForeignAssetId};

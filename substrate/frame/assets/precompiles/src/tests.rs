@@ -18,8 +18,12 @@
 use super::*;
 use crate::{
 	alloy::hex,
-	mock::{new_test_ext, Assets, Balances, RuntimeEvent, RuntimeOrigin, System, Test},
+	mock::{new_test_ext, Assets, Balances, RuntimeOrigin, Test},
 	permit,
+	test_helpers::{
+		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix,
+		PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
+	},
 };
 use alloy::primitives::U256;
 use frame_support::{
@@ -30,33 +34,6 @@ use pallet_revive::{precompiles::TransactionLimits, Code, ExecConfig};
 use sp_core::H160;
 use sp_runtime::Weight;
 use test_case::test_case;
-
-// Shared helpers — also used by `permit_tests::precompile`.
-pub(crate) const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
-pub(crate) const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;
-
-pub(crate) fn set_prefix_in_address(prefix: u16) -> [u8; 20] {
-	let mut addr = hex::const_decode_to_array(b"0000000000000000000000000000000000000000").unwrap();
-	addr[16..18].copy_from_slice(&prefix.to_be_bytes());
-	addr
-}
-
-pub(crate) fn assert_contract_event(contract: H160, event: IERC20Events) {
-	let (topics, data) = event.into_log_data().split();
-	let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
-	System::assert_has_event(RuntimeEvent::Revive(pallet_revive::Event::ContractEmitted {
-		contract,
-		data: data.to_vec(),
-		topics,
-	}));
-}
-
-pub(crate) fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
-	if prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN {
-		pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
-			.expect("Failed to insert asset mapping");
-	}
-}
 
 #[test]
 fn asset_id_extractor_works() {

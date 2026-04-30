@@ -704,7 +704,7 @@ mod precompile {
 	use crate::{
 		alloy::hex,
 		mock::{Assets, Balances, RuntimeEvent, RuntimeOrigin, System},
-		tests::{
+		test_helpers::{
 			assert_contract_event, set_prefix_in_address, setup_asset_for_prefix,
 			PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 		},
