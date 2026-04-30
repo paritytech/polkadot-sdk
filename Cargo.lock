@@ -14137,6 +14137,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "pallet-assets",
+ "pallet-assets-freezer",
  "pallet-assets-holder",
  "pallet-balances",
  "pallet-proxy",

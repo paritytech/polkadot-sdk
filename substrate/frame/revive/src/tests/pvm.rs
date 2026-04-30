@@ -250,6 +250,15 @@ fn instantiate_and_call_and_deposit_event() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::AssetsFreezer(pallet_assets_freezer::Event::Frozen {
+						who: account_id.clone(),
+						asset_id: PGAS_ASSET_ID,
+						amount: pgas_ed,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: ALICE,
 						to: account_id.clone(),
@@ -690,6 +699,15 @@ fn deploy_and_call_other_contract() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::AssetsFreezer(pallet_assets_freezer::Event::Frozen {
+						who: callee_account.clone(),
+						asset_id: PGAS_ASSET_ID,
+						amount: pgas_ed,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Balances(pallet_balances::Event::Transfer {
 						from: caller_account.clone(),
 						to: callee_account.clone(),
@@ -1062,6 +1080,15 @@ fn self_destruct_by_precompile_works() {
 					event: RuntimeEvent::Balances(pallet_balances::Event::Burned {
 						who: contract.account_id.clone(),
 						amount: min_balance,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::AssetsFreezer(pallet_assets_freezer::Event::Thawed {
+						who: contract.account_id.clone(),
+						asset_id: PGAS_ASSET_ID,
+						amount: pgas_ed,
 					}),
 					topics: vec![],
 				},
@@ -2227,6 +2254,15 @@ fn instantiate_with_zero_balance_works() {
 				},
 				EventRecord {
 					phase: Phase::Initialization,
+					event: RuntimeEvent::AssetsFreezer(pallet_assets_freezer::Event::Frozen {
+						who: account_id.clone(),
+						asset_id: PGAS_ASSET_ID,
+						amount: pgas_ed,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
 					event: RuntimeEvent::Contracts(crate::Event::Instantiated {
 						deployer: ALICE_ADDR,
 						contract: addr,
@@ -2322,6 +2358,15 @@ fn instantiate_with_below_existential_deposit_works() {
 					event: RuntimeEvent::Assets(pallet_assets::Event::Issued {
 						asset_id: PGAS_ASSET_ID,
 						owner: account_id.clone(),
+						amount: pgas_ed,
+					}),
+					topics: vec![],
+				},
+				EventRecord {
+					phase: Phase::Initialization,
+					event: RuntimeEvent::AssetsFreezer(pallet_assets_freezer::Event::Frozen {
+						who: account_id.clone(),
+						asset_id: PGAS_ASSET_ID,
 						amount: pgas_ed,
 					}),
 					topics: vec![],

@@ -18,15 +18,15 @@
 //! Tests for the [`PGasDeposit`] storage-deposit backend.
 
 use crate::{
-	Code, Config, DeletionQueue, HoldReason, NativeDepositOf,
+	Code, Config, DeletionQueue, FreezeReason, HoldReason, NativeDepositOf,
 	deposit_payment::{Deposit, Funds},
 	test_utils::{
 		ALICE, BOB, CHARLIE, DJANGO_ADDR,
 		builder::{BareCallBuilder, Contract},
 	},
 	tests::{
-		Assets, AssetsHolder, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID, RuntimeOrigin,
-		System, Test, builder, test_utils::get_contract_checked,
+		Assets, AssetsFreezer, AssetsHolder, Balances, Contracts, ExtBuilder, PGAS_ASSET_ID,
+		RuntimeOrigin, System, Test, builder, test_utils::get_contract_checked,
 	},
 };
 use alloy_core::sol_types::SolCall;
@@ -37,7 +37,10 @@ use frame_support::{
 		fungible::{Inspect as _, InspectHold, Mutate as _},
 		tokens::{
 			Fortitude, Precision, Preservation,
-			fungibles::{Inspect as FungiblesInspect, InspectHold as _, Mutate as FungiblesMutate},
+			fungibles::{
+				Inspect as FungiblesInspect, InspectFreeze as FungiblesInspectFreeze,
+				InspectHold as _, Mutate as FungiblesMutate,
+			},
 		},
 	},
 	weights::Weight,
@@ -402,6 +405,55 @@ fn minted_contract_native_ed_not_extractable_with_consumer() {
 			"the consumer pin must keep the native ED non-extractable; got {result:?}"
 		);
 		assert_eq!(Balances::balance(&account_id), before, "balance unchanged");
+	});
+}
+
+/// The PGAS ED minted by `init_contract` is NOT extractable: it is frozen under
+/// [`FreezeReason::PGasMinBalance`]. Pallet-assets' `reducible_balance` returns
+/// 0 even with the most permissive flags (`Preservation::Expendable`, `Fortitude::Force`),
+/// because `untouchable = max(frozen - held, min_balance) = ED` whenever any freeze exists.
+/// A direct transfer of even 1 unit is therefore rejected.
+#[test]
+fn minted_contract_pgas_ed_not_extractable_due_to_freeze() {
+	let pgas_ed = 100u128;
+	ExtBuilder::default().with_pgas_min_balance(pgas_ed).build().execute_with(|| {
+		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
+
+		// The ED sits in BOB's free balance and is fully frozen.
+		assert_eq!(Assets::balance(PGAS_ASSET_ID, &BOB), pgas_ed);
+		assert_eq!(
+			<AssetsFreezer as FungiblesInspectFreeze<_>>::balance_frozen(
+				PGAS_ASSET_ID,
+				&FreezeReason::PGasMinBalance.into(),
+				&BOB,
+			),
+			pgas_ed,
+		);
+
+		// Nothing is reducible, even under Expendable + Force.
+		assert_eq!(
+			<Assets as FungiblesInspect<_>>::reducible_balance(
+				PGAS_ASSET_ID,
+				&BOB,
+				Preservation::Expendable,
+				Fortitude::Force,
+			),
+			0,
+			"the freeze pins the ED — Expendable/Force don't override it",
+		);
+
+		// A direct transfer of even 1 unit out of BOB is rejected.
+		assert!(
+			<Assets as FungiblesMutate<_>>::transfer(
+				PGAS_ASSET_ID,
+				&BOB,
+				&ALICE,
+				1,
+				Preservation::Expendable,
+			)
+			.is_err(),
+			"transfer of 1 unit must fail while the ED is frozen",
+		);
 	});
 }
 

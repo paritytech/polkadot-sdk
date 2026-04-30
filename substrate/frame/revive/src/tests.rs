@@ -98,6 +98,7 @@ frame_support::construct_runtime!(
 		TransactionPayment: pallet_transaction_payment,
 		Assets: pallet_assets,
 		AssetsHolder: pallet_assets_holder,
+		AssetsFreezer: pallet_assets_freezer,
 		Dummy: pallet_dummy
 	}
 );
@@ -296,6 +297,9 @@ impl pallet_balances::Config for Test {
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
@@ -343,10 +347,16 @@ impl pallet_assets::Config for Test {
 	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId32>>;
 	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
 	type Holder = AssetsHolder;
+	type Freezer = AssetsFreezer;
 }
 
 impl pallet_assets_holder::Config for Test {
 	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+impl pallet_assets_freezer::Config for Test {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
 	type RuntimeEvent = RuntimeEvent;
 }
 
@@ -436,7 +446,8 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
-	type Deposit = PGasDeposit<Test, Assets, AssetsHolder, PGasAssetId, PGasRefundPercent>;
+	type Deposit =
+		PGasDeposit<Test, Assets, AssetsHolder, AssetsFreezer, PGasAssetId, PGasRefundPercent>;
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;

@@ -21,7 +21,8 @@
 //! Runtimes without PGAS leave the default `()` binding,
 //! which always uses the native currency.
 use crate::{
-	BalanceOf, Config, HoldReason, LOG_TARGET, NativeDepositOf, evm::fees::InfoT as FeeInfo,
+	BalanceOf, Config, FreezeReason, HoldReason, LOG_TARGET, NativeDepositOf,
+	evm::fees::InfoT as FeeInfo,
 };
 use core::marker::PhantomData;
 use frame_support::traits::{
@@ -46,8 +47,8 @@ mod sealed {
 
 	impl Sealed for () {}
 
-	impl<T, Mutator, Holder, Id, RefundPercent> Sealed
-		for PGasDeposit<T, Mutator, Holder, Id, RefundPercent>
+	impl<T, Mutator, Holder, Freezer, Id, RefundPercent> Sealed
+		for PGasDeposit<T, Mutator, Holder, Freezer, Id, RefundPercent>
 	{
 	}
 }
@@ -270,12 +271,12 @@ impl<T: Config> Deposit<T> for () {
 /// PGAS-backed payment backend. Charges prefer PGAS and fall back to the native currency;
 /// refunds return native first (capped by [`NativeDepositOf`]) then `RefundPercent` of the
 /// PGAS portion, burning the rest.
-pub struct PGasDeposit<T, Mutator, Holder, Id, RefundPercent>(
-	PhantomData<(T, Mutator, Holder, Id, RefundPercent)>,
+pub struct PGasDeposit<T, Mutator, Holder, Freezer, Id, RefundPercent>(
+	PhantomData<(T, Mutator, Holder, Freezer, Id, RefundPercent)>,
 );
 
-impl<T, Mutator, Holder, Id, RefundPercent> Deposit<T>
-	for PGasDeposit<T, Mutator, Holder, Id, RefundPercent>
+impl<T, Mutator, Holder, Freezer, Id, RefundPercent> Deposit<T>
+	for PGasDeposit<T, Mutator, Holder, Freezer, Id, RefundPercent>
 where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
@@ -285,6 +286,12 @@ where
 			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
 		>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
+	Freezer: fungibles::freeze::Mutate<
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
+	<Freezer as fungibles::freeze::Inspect<T::AccountId>>::Id: From<FreezeReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
 {
@@ -293,21 +300,33 @@ where
 	/// Mints one native ED and one PGAS ED into `to`, so the account can subsequently receive
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
 	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays
-	/// outside active issuance.
+	/// outside active issuance. The minted PGAS ED is frozen under
+	/// [`FreezeReason::PGasMinBalance`] so the contract cannot transfer or burn
+	/// it: pallet-assets'
+	/// [`reducible_balance`](pallet_assets::Pallet::reducible_balance) treats any frozen amount
+	/// as untouchable, regardless of `Preservation` / `Fortitude`.
 	fn init_contract(to: &T::AccountId) -> DispatchResult {
 		<() as Deposit<T>>::init_contract(to)?;
-		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
+		<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), to, pgas_ed)?;
+		<Freezer as fungibles::freeze::Mutate<T::AccountId>>::set_freeze(
 			Id::get(),
+			&FreezeReason::PGasMinBalance.into(),
 			to,
-			<Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get()),
+			pgas_ed,
 		)?;
 		Ok(())
 	}
 
-	/// Burns the native ED minted by [`Self::init_contract`].
+	/// Thaws and burns the PGAS ED frozen by [`Self::init_contract`], plus the native ED.
 	fn destroy_contract(contract: &T::AccountId) -> DispatchResult {
 		<() as Deposit<T>>::destroy_contract(contract)?;
 
+		<Freezer as fungibles::freeze::Mutate<T::AccountId>>::thaw(
+			Id::get(),
+			&FreezeReason::PGasMinBalance.into(),
+			contract,
+		)?;
 		let ed = <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract);
 		<Mutator as fungibles::Mutate<T::AccountId>>::burn_from(
 			Id::get(),
@@ -422,20 +441,45 @@ where
 	}
 
 	/// Bring a pre-existing contract up to the post-[`Self::init_contract`] invariant:
-	/// mint the PGAS ED into `contract`'s free balance if it is missing, then burn the native
-	/// hold under `reason` and replace it with the same amount of PGAS held on `contract`.
+	/// mint and freeze the PGAS ED if missing, then burn the native hold under `reason` and
+	/// replace it with the same amount of PGAS held on `contract`.
 	fn migrate_native_to_pgas(
 		reason: HoldReason,
 		contract: &T::AccountId,
 		amount: BalanceOf<T>,
 	) -> DispatchResult {
 		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
-		if <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract).is_zero() {
-			<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(Id::get(), contract, pgas_ed)
+		let freeze_id = FreezeReason::PGasMinBalance.into();
+		if <Freezer as fungibles::freeze::Inspect<T::AccountId>>::balance_frozen(
+			Id::get(),
+			&freeze_id,
+			contract,
+		) < pgas_ed
+		{
+			if <Mutator as fungibles::Inspect<T::AccountId>>::balance(Id::get(), contract) < pgas_ed
+			{
+				<Mutator as fungibles::Mutate<T::AccountId>>::mint_into(
+					Id::get(),
+					contract,
+					pgas_ed,
+				)
 				.inspect_err(|err| {
+					log::debug!(
+						target: LOG_TARGET,
+						"Failed to mint PGAS ED for contract: {err:?}",
+					)
+				})?;
+			}
+			<Freezer as fungibles::freeze::Mutate<T::AccountId>>::set_freeze(
+				Id::get(),
+				&freeze_id,
+				contract,
+				pgas_ed,
+			)
+			.inspect_err(|err| {
 				log::debug!(
 					target: LOG_TARGET,
-					"Failed to mint PGAS ED for contract: {err:?}",
+					"Failed to freeze PGAS ED for contract: {err:?}",
 				)
 			})?;
 		}
@@ -473,7 +517,8 @@ where
 	}
 }
 
-impl<T, Mutator, Holder, Id, RefundPercent> PGasDeposit<T, Mutator, Holder, Id, RefundPercent>
+impl<T, Mutator, Holder, Freezer, Id, RefundPercent>
+	PGasDeposit<T, Mutator, Holder, Freezer, Id, RefundPercent>
 where
 	T: Config,
 	Mutator: fungibles::Mutate<T::AccountId, Balance = BalanceOf<T>>,
@@ -483,6 +528,12 @@ where
 			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
 		>,
 	<Holder as fungibles::InspectHold<T::AccountId>>::Reason: From<HoldReason>,
+	Freezer: fungibles::freeze::Mutate<
+			T::AccountId,
+			Balance = BalanceOf<T>,
+			AssetId = <Mutator as fungibles::Inspect<T::AccountId>>::AssetId,
+		>,
+	<Freezer as fungibles::freeze::Inspect<T::AccountId>>::Id: From<FreezeReason>,
 	Id: Get<<Mutator as fungibles::Inspect<T::AccountId>>::AssetId>,
 	RefundPercent: Get<Perbill>,
 {

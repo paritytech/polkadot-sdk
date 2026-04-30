@@ -668,6 +668,16 @@ pub mod pallet {
 		AddressMapping,
 	}
 
+	/// A reason for the pallet revive placing a freeze on PGAS funds.
+	#[pallet::composite_enum]
+	pub enum FreezeReason {
+		/// Pins the PGAS existential deposit minted into a contract account so it cannot be
+		/// transferred or burned by the contract while it is alive. Without this freeze, a
+		/// contract could call the PGAS ERC20 precompile with `Preservation::Expendable` and
+		/// drain its own ED.
+		PGasMinBalance,
+	}
+
 	#[derive(
 		PartialEq, Eq, Clone, MaxEncodedLen, Encode, Decode, DecodeWithMemTracking, TypeInfo, Debug,
 	)]
