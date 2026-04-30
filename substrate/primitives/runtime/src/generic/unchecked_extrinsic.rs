@@ -514,7 +514,8 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 
 		// Decode the preamble using the same memory limit as we will use for the `call`.
 		// The preamble is not that big, but we play it safe.
-		let preamble = DecodeWithMemLimit::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
+		let preamble =
+			DecodeWithMemLimit::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
 
 		struct CloneBytes<'a, I>(&'a mut I, Vec<u8>);
 		impl<I: Input> Input for CloneBytes<'_, I> {
