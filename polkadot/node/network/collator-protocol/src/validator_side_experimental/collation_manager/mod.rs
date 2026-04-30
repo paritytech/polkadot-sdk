@@ -300,109 +300,6 @@ impl CollationManager {
 		}
 	}
 
-	/// Returns the paras with unfulfilled CQ entries at `scheduling_parent`, in claim queue
-	/// order. One entry per available position (so a para with three free slots appears three
-	/// times).
-	///
-	/// All candidates whose SP lies on the same path compete for the same per-core CQ pool:
-	/// a candidate built on an older SP will fill the same eventual on-chain CQ position as
-	/// one built on a younger SP on the same path, so they must share a budget.
-	///
-	/// We solve the matching problem greedily. For each path through `scheduling_parent`:
-	/// 1. Build a per-para bitvec over the full leaf CQ; bit set iff that position is the para's.
-	/// 2. Walk existing consumers (in-flight + fetched candidates on the path) **narrowest window
-	///    first** (= oldest SP first). Assign each to the **latest** still-set bit in its window —
-	///    leaving earlier positions, which are scarcer, free for older SPs.
-	/// 3. After all consumers are assigned, the still-set bits in `[0..query_valid_len]` are the
-	///    query SP's unfulfilled positions.
-	///
-	/// We pick the path yielding the longest unfulfilled list — sibling forks have
-	/// independent backing futures, so a slot still open on one fork is a real fetch
-	/// opportunity even if the other fork has consumed it.
-	fn unfulfilled_claim_queue_entries(&self, scheduling_parent: &Hash) -> VecDeque<ParaId> {
-		let our_core = match self.per_scheduling_parent.get(scheduling_parent) {
-			Some(per_sp) => per_sp.core_index,
-			None => return VecDeque::new(),
-		};
-
-		let mut best: VecDeque<ParaId> = VecDeque::new();
-		for path in self.implicit_view.paths_via_relay_parent(scheduling_parent) {
-			let Some(leaf) = path.last() else { continue };
-			let Some(leaf_cq) = self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&our_core))
-			else {
-				continue;
-			};
-			let lookahead = leaf_cq.len();
-
-			// Query SP's window: how many positions of leaf_cq it can reach.
-			let query_offset = path
-				.iter()
-				.rev()
-				.position(|h| h == scheduling_parent)
-				.expect("paths_via_relay_parent only returns paths containing the SP; qed");
-			let query_valid_len = lookahead.saturating_sub(query_offset);
-
-			// Per-para schedule over the **full** leaf CQ — consumers from younger SPs may
-			// reach positions outside the query SP's window.
-			let mut schedules: HashMap<ParaId, Vec<bool>> = HashMap::new();
-			for (idx, para) in leaf_cq.iter().enumerate() {
-				let entry = schedules.entry(*para).or_insert_with(|| vec![false; lookahead]);
-				entry[idx] = true;
-			}
-
-			// Collect consumers as (para, valid_len) — `valid_len` is the consumer SP's
-			// window length on this path.
-			let mut consumers: Vec<(ParaId, usize)> = Vec::new();
-			for (sp_idx, sp_hash) in path.iter().enumerate() {
-				let Some(per_sp) = self.per_scheduling_parent.get(sp_hash) else { continue };
-				if per_sp.core_index != our_core {
-					continue;
-				}
-				let sp_offset = path.len() - 1 - sp_idx;
-				let sp_valid_len = lookahead.saturating_sub(sp_offset);
-				let in_flight = self
-					.fetching
-					.iter()
-					.filter(|adv| adv.scheduling_parent == *sp_hash)
-					.map(|adv| adv.para_id);
-				let fetched = per_sp.fetched_collations.values().map(|info| info.para_id);
-				for para in in_flight.chain(fetched) {
-					consumers.push((para, sp_valid_len));
-				}
-			}
-
-			// Sort narrowest-window first (most-constrained-first matching). Each consumer
-			// gets the *latest* still-set bit in its window so wide-window consumers don't
-			// steal positions reachable only from narrower ones.
-			consumers.sort_by_key(|(_, valid_len)| *valid_len);
-			for (para, valid_len) in consumers {
-				let Some(schedule) = schedules.get_mut(&para) else { continue };
-				let limit = valid_len.min(schedule.len());
-				if let Some(latest_set) = schedule[..limit].iter().rposition(|set| *set) {
-					schedule[latest_set] = false;
-				}
-				// If no bit is set in the consumer's window, it's an overflow (e.g. stale
-				// claims at older ancestors after a CQ change). Tolerated — drop quietly.
-			}
-
-			// Emit unfulfilled positions in CQ order, restricted to the query SP's window.
-			let mut unfulfilled: Vec<Option<ParaId>> = vec![None; query_valid_len];
-			for (para, schedule) in schedules {
-				for (idx, set) in schedule.into_iter().take(query_valid_len).enumerate() {
-					if set {
-						unfulfilled[idx] = Some(para);
-					}
-				}
-			}
-			let path_unfulfilled: VecDeque<ParaId> = unfulfilled.into_iter().flatten().collect();
-
-			if path_unfulfilled.len() > best.len() {
-				best = path_unfulfilled;
-			}
-		}
-		best.into_iter()
-	}
-
 	pub async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
@@ -495,6 +392,10 @@ impl CollationManager {
 	/// We assume CQ entries on shared positions across descending forks agree (the runtime's
 	/// scheduling is a per-SP prediction over `lookahead` blocks). Adversarial divergence is
 	/// possible only across runtime upgrades and is left to recover on the next view update.
+	fn cq(&self, leaf: &Hash, core: CoreIndex) -> Option<&VecDeque<ParaId>> {
+		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
+	}
+
 	fn our_window(&self, scheduling_parent: &Hash, core: CoreIndex) -> Vec<ParaId> {
 		self.implicit_view
 			.paths_via_relay_parent(scheduling_parent)
@@ -527,13 +428,35 @@ impl CollationManager {
 		let mut requests = vec![];
 		let mut maybe_min_delay = None;
 
+		// Build per-(leaf, core) capacity views once, with all current consumers already
+		// allocated. Each `PathState` is a self-contained answer to "what's still free on
+		// this core's CQ at this leaf?".
+		let mut path_states = self.build_path_states();
+
 		// Iterate scheduling parents — not leaves — so that pre-rotation ancestors get their
 		// own pass with their own core's claim queue. After a group rotation, the leaf's
 		// `our_core` differs from the ancestor's `our_core`, and only iterating per scheduling
 		// parent surfaces both cores' free slots.
 		let scheduling_parents: Vec<_> = self.per_scheduling_parent.keys().copied().collect();
 		for sp in scheduling_parents {
-			for para_id in self.unfulfilled_claim_queue_entries(&sp) {
+			let sp_core = self.per_scheduling_parent[&sp].core_index;
+
+			// Pick the path-state under `sp_core` through `sp` that yields the most
+			// still-free positions in `sp`'s window. Sibling forks have independent
+			// backing futures, so the most-permissive view is the right one. PathStates
+			// whose chain doesn't contain `sp` return an empty list and lose the max.
+			let unfulfilled = path_states
+				.get(&sp_core)
+				.into_iter()
+				.flatten()
+				.map(|ps| ps.unfulfilled_in_window(&sp))
+				.max_by_key(VecDeque::len);
+			let Some(unfulfilled) = unfulfilled else { continue };
+			if unfulfilled.is_empty() {
+				continue;
+			}
+
+			for para_id in unfulfilled {
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
 				let advertisement = match self.pick_best_advertisement(
@@ -560,15 +483,90 @@ impl CollationManager {
 					maybe_candidate_hash = ?advertisement.candidate_hash(),
 					"Requesting collation",
 				);
-				// Adding to `self.fetching` is what reserves the slot — the consumer walk
-				// in `unfulfilled_claim_queue_entries` counts in-flight requests, so
-				// subsequent capacity checks see this slot taken without an explicit claim.
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
+
+				// Reserve the slot in every path-state under `sp_core` so subsequent SP
+				// decisions see it consumed. `reserve_slot` is a no-op for path-states
+				// whose chain doesn't contain `sp`.
+				if let Some(states) = path_states.get_mut(&sp_core) {
+					for ps in states {
+						ps.reserve_slot(&sp, para_id);
+					}
+				}
 			}
 		}
 
 		(requests, maybe_min_delay)
+	}
+
+	/// PathStates grouped by core: one entry per (leaf, core) pair we need to reason about.
+	/// After rotation a single chain may yield PathStates under two different cores.
+	///
+	/// Each PathState comes back with all current consumers (in-flight + fetched candidates
+	/// whose SP lies on its chain *and* uses the grouping core) already allocated into the
+	/// per-para schedules via greedy matching: narrowest window first, latest still-set
+	/// bit in window — pushing wide-window consumers to later positions so narrower SPs
+	/// keep access to their (only) reachable positions.
+	fn build_path_states(&self) -> BTreeMap<CoreIndex, Vec<PathState>> {
+		// (leaf, core) pairs we care about:
+		let mut wanted: BTreeSet<(Hash, CoreIndex)> = BTreeSet::new();
+		for (sp_hash, per_sp) in &self.per_scheduling_parent {
+			for path in self.implicit_view.paths_via_relay_parent(sp_hash) {
+				if let Some(leaf) = path.last().copied() {
+					wanted.insert((leaf, per_sp.core_index));
+				}
+			}
+		}
+
+		let mut out: BTreeMap<CoreIndex, Vec<PathState>> = BTreeMap::new();
+		for (leaf, core) in wanted {
+			let Some(cq) = self.cq(&leaf, core).cloned() else { continue };
+			let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
+				continue;
+			};
+			let path = path.to_vec();
+
+			// Initial schedule: bit set at every CQ position for that para.
+			let mut schedules: HashMap<ParaId, Vec<bool>> = HashMap::new();
+			for (idx, para) in cq.iter().enumerate() {
+				schedules.entry(*para).or_insert_with(|| vec![false; cq.len()])[idx] = true;
+			}
+
+			// Collect consumers as `(para, valid_len)` for every SP on the path with
+			// matching core.
+			let mut consumers: Vec<(ParaId, usize)> = Vec::new();
+			for (offset, sp_hash) in path.iter().enumerate() {
+				let Some(per_sp) = self.per_scheduling_parent.get(sp_hash) else { continue };
+				if per_sp.core_index != core {
+					continue;
+				}
+				let valid_len = cq.len() - offset;
+				let in_flight = self
+					.fetching
+					.iter()
+					.filter(|adv| adv.scheduling_parent == *sp_hash)
+					.map(|adv| adv.para_id);
+				let fetched = per_sp.fetched_collations.values().map(|info| info.para_id);
+				for para in in_flight.chain(fetched) {
+					consumers.push((para, valid_len));
+				}
+			}
+
+			// Allocate narrowest-first, latest-bit-in-window. Overflow (no bit in window —
+			// typically a stale claim from a CQ change at an older ancestor) is tolerated
+			// quietly.
+			consumers.sort_by_key(|(_, valid_len)| *valid_len);
+			for (para, valid_len) in consumers {
+				let Some(schedule) = schedules.get_mut(&para) else { continue };
+				if let Some(latest) = schedule[..valid_len].iter().rposition(|set| *set) {
+					schedule[latest] = false;
+				}
+			}
+
+			out.entry(core).or_default().push(PathState { path, cq, schedules });
+		}
+		out
 	}
 
 	pub fn remove_peer(&mut self, peer: &PeerId) {
@@ -1101,6 +1099,56 @@ struct FetchedCollationInfo {
 	para_id: ParaId,
 }
 
+/// Per-leaf capacity view used by the fetch planner. Always grouped under a `CoreIndex` —
+/// see `build_path_states`'s return type.
+///
+/// Each para's `schedule` is a bitvec over the leaf CQ: bit set ⇒ that position is still
+/// free for that para. The build pass allocates every current consumer (in-flight or
+/// fetched) into the schedules; what remains set is the residual capacity SPs can fetch
+/// into.
+///
+/// `path` is the chain ordered leaf → oldest stored ancestor, so iteration index equals SP
+/// offset (leaf at 0). Built from manager state once and frozen for the lifetime of one
+/// `try_make_new_fetch_requests` call.
+struct PathState {
+	path: Vec<Hash>,
+	cq: VecDeque<ParaId>,
+	schedules: HashMap<ParaId, Vec<bool>>,
+}
+
+impl PathState {
+	/// Window length visible from `sp` on this path: the leaf-CQ prefix `[..valid_len]` is
+	/// the set of CQ positions an SP-rooted candidate can land at. `None` if `sp` isn't
+	/// on this chain.
+	fn window_len(&self, sp: &Hash) -> Option<usize> {
+		self.path.iter().position(|h| h == sp).map(|off| self.cq.len() - off)
+	}
+
+	/// Paras with still-free CQ positions reachable from `sp`, in CQ order. One entry per
+	/// position (a para with three free slots in `sp`'s window appears three times).
+	fn unfulfilled_in_window(&self, sp: &Hash) -> VecDeque<ParaId> {
+		let Some(valid_len) = self.window_len(sp) else { return VecDeque::new() };
+		(0..valid_len)
+			.filter_map(|idx| {
+				let para = self.cq[idx];
+				self.schedules.get(&para)?.get(idx).copied().filter(|&b| b).map(|_| para)
+			})
+			.collect()
+	}
+
+	/// Mark one CQ position as consumed for `para` reachable from `sp`. Clears the latest
+	/// still-set bit in `sp`'s window — same rule the build pass uses for existing
+	/// consumers, so newly-launched fetches and prior consumers stay consistently
+	/// allocated.
+	fn reserve_slot(&mut self, sp: &Hash, para: ParaId) {
+		let Some(valid_len) = self.window_len(sp) else { return };
+		let Some(schedule) = self.schedules.get_mut(&para) else { return };
+		if let Some(latest) = schedule[..valid_len].iter().rposition(|set| *set) {
+			schedule[latest] = false;
+		}
+	}
+}
+
 struct PerSchedulingParent {
 	peer_advertisements: HashMap<PeerId, PeerAdvertisements>,
 	// Candidates we have successfully fetched at this scheduling parent. Kept until the
@@ -1108,8 +1156,7 @@ struct PerSchedulingParent {
 	// - duplicate advertisements are rejected (`try_accept_advertisement`),
 	// - we know who to punish for supplying an invalid collation
 	//   (`get_fetched_collation_peer_id`),
-	// - and capacity tracking knows which slots are consumed (see
-	//   `unfulfilled_claim_queue_entries`).
+	// - and capacity tracking knows which slots are consumed (`PathState::allocate_consumers`).
 	// On rejection (validation failure, blocked-on-parent timeout, etc.) entries are removed.
 	fetched_collations: HashMap<CandidateHash, FetchedCollationInfo>,
 	session_index: SessionIndex,
