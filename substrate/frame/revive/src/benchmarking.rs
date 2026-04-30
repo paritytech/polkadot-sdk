@@ -117,13 +117,32 @@ fn whitelisted_pallet_account<T: Config>() -> T::AccountId {
 mod benchmarks {
 	use super::*;
 
-	// The base weight consumed on processing contracts deletion queue.
+	/// The base weight consumed on processing contracts deletion queue.
 	#[benchmark(pov_mode = Measured)]
 	fn deletion_queue_batch() {
 		#[block]
 		{
 			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
 		}
+	}
+
+	/// Measures the per-entry cost of `process_deletion_queue_batch`: one `DeletionQueue` read
+	/// plus the `DeletionQueue` + `DeletionQueueCounter` writes done by `entry.remove()`.
+	#[benchmark(pov_mode = Measured)]
+	fn deletion_queue_per_entry() -> Result<(), BenchmarkError> {
+		let instance = Contract::<T>::with_storage(VmBinaryModule::dummy(), 0, 0)?;
+		ContractInfo::<T>::queue_for_deletion(
+			instance.info()?.trie_id,
+			instance.account_id.clone(),
+		);
+
+		#[block]
+		{
+			ContractInfo::<T>::process_deletion_queue_batch(&mut WeightMeter::new())
+		}
+
+		assert!(<DeletionQueue<T>>::iter().next().is_none(), "deletion queue should be drained",);
+		Ok(())
 	}
 
 	#[benchmark(skip_meta, pov_mode = Measured)]

@@ -1578,9 +1578,12 @@ fn lazy_removal_partial_remove_works() {
 					0,
 				),
 			);
+	let weight_per_entry = <<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_entry()
+		.saturating_sub(<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch());
 	// Phase 1 of the deletion will consume one `NativeDepositOf` row (created by ALICE's
 	// native-fallback storage charge at instantiation); whatever remains feeds phase 2.
 	let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
+		.saturating_sub(weight_per_entry)
 		.saturating_sub(weight_per_native_key)
 		.checked_div_per_component(&weight_per_key)
 		.unwrap_or(0) as u32;
@@ -1708,61 +1711,70 @@ fn lazy_removal_does_not_use_all_weight() {
 	let mut meter = WeightMeter::with_limit(Weight::from_parts(5_000_000_000, 100 * 1024));
 	let mut ext = ExtBuilder::default().existential_deposit(50).build();
 
-	let (trie, vals, weight_per_key, weight_per_native_key) = ext.execute_with(|| {
-		let min_balance = Contracts::min_balance();
-		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
+	let (trie, vals, weight_per_key, weight_per_native_key, weight_per_entry) =
+		ext.execute_with(|| {
+			let min_balance = Contracts::min_balance();
+			let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000 * min_balance);
 
-		let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
-			.native_value(min_balance * 100)
-			.build_and_unwrap_contract();
+			let Contract { addr, .. } = builder::bare_instantiate(Code::Upload(code))
+				.native_value(min_balance * 100)
+				.build_and_unwrap_contract();
 
-		let info = get_contract(&addr);
-		let weight_per_key =
-			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(1)
-				.saturating_sub(
-					<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(0),
+			let info = get_contract(&addr);
+			let weight_per_key =
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(1)
+					.saturating_sub(
+						<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_trie_key(
+							0,
+						),
+					);
+			let weight_per_native_key =
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
+					.saturating_sub(
+					<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(
+						0,
+					),
 				);
-		let weight_per_native_key =
-			<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(1)
-				.saturating_sub(
-				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_native_deposit_key(
-					0,
-				),
-			);
-		// Phase 1 will consume one `NativeDepositOf` row (created by ALICE's native-fallback
-		// storage charge at instantiation); the rest feeds the trie phase.
-		let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
-			.saturating_sub(weight_per_native_key)
-			.checked_div_per_component(&weight_per_key)
-			.unwrap_or(0) as u32;
-		assert!(max_keys > 0);
+			let weight_per_entry =
+				<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_per_entry()
+					.saturating_sub(
+						<<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch(),
+					);
+			// Phase 1 will consume one `NativeDepositOf` row (created by ALICE's native-fallback
+			// storage charge at instantiation); the rest feeds the trie phase.
+			let max_keys = ContractInfo::<Test>::deletion_budget(&meter)
+				.saturating_sub(weight_per_entry)
+				.saturating_sub(weight_per_native_key)
+				.checked_div_per_component(&weight_per_key)
+				.unwrap_or(0) as u32;
+			assert!(max_keys > 0);
 
-		// We create a contract with one less storage item than we can remove within the limit
-		let vals: Vec<_> = (0..max_keys - 1)
-			.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
-			.collect();
+			// We create a contract with one less storage item than we can remove within the limit
+			let vals: Vec<_> = (0..max_keys - 1)
+				.map(|i| (blake2_256(&i.encode()), (i as u32), (i as u32).encode()))
+				.collect();
 
-		// Put value into the contracts child trie
-		for val in &vals {
-			info.write(&Key::Fix(val.0), Some(val.2.clone()), None, false).unwrap();
-		}
-		AccountInfo::<Test>::insert_contract(&addr, info.clone());
+			// Put value into the contracts child trie
+			for val in &vals {
+				info.write(&Key::Fix(val.0), Some(val.2.clone()), None, false).unwrap();
+			}
+			AccountInfo::<Test>::insert_contract(&addr, info.clone());
 
-		// Terminate the contract
-		assert_ok!(builder::call(addr).build());
+			// Terminate the contract
+			assert_ok!(builder::call(addr).build());
 
-		// Contract info should be gone
-		assert!(!<AccountInfoOf::<Test>>::contains_key(&addr));
+			// Contract info should be gone
+			assert!(!<AccountInfoOf::<Test>>::contains_key(&addr));
 
-		let trie = info.child_trie_info();
+			let trie = info.child_trie_info();
 
-		// But value should be still there as the lazy removal did not run, yet.
-		for val in &vals {
-			assert_eq!(child::get::<u32>(&trie, &blake2_256(&val.0)), Some(val.1));
-		}
+			// But value should be still there as the lazy removal did not run, yet.
+			for val in &vals {
+				assert_eq!(child::get::<u32>(&trie, &blake2_256(&val.0)), Some(val.1));
+			}
 
-		(trie, vals, weight_per_key, weight_per_native_key)
-	});
+			(trie, vals, weight_per_key, weight_per_native_key, weight_per_entry)
+		});
 
 	// The lazy removal limit only applies to the backend but not to the overlay.
 	// This commits all keys from the overlay to the backend.
@@ -1774,7 +1786,10 @@ fn lazy_removal_does_not_use_all_weight() {
 		let base_weight = <<Test as Config>::WeightInfo as WeightInfo>::deletion_queue_batch();
 		// `vals.len()` trie keys + 1 `NativeDepositOf` row that the native fallback created
 		// when ALICE instantiated the contract without any PGAS.
-		let expected = weight_per_native_key + weight_per_key.mul(vals.len() as _) + base_weight;
+		let expected = base_weight +
+			weight_per_entry +
+			weight_per_native_key +
+			weight_per_key.mul(vals.len() as _);
 		assert_eq!(meter.consumed(), expected);
 
 		// All the keys are removed

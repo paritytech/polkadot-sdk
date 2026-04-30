@@ -404,17 +404,6 @@ impl<T: Config> ContractInfo<T> {
 
 	/// Delete as many items from the deletion queue as possible within the supplied weight
 	/// limit.
-	///
-	/// Each iteration drains the head entry's [`NativeDepositOf`] rows first
-	/// ([`WeightInfo::deletion_queue_per_native_deposit_key`]) then kills its child trie
-	/// ([`WeightInfo::deletion_queue_per_trie_key`]). The entry is removed once both phases
-	/// finish; if the budget is exhausted mid-batch the entry stays in the queue and the
-	/// next batch picks it up from the start of phase 1 (one extra empty-prefix lookup).
-	///
-	/// Tracking phase-1 completion per entry would avoid that lookup but require widening
-	/// [`DeletionQueueItem`] (a stored, `MaxEncodedLen` type) and migrating existing queue
-	/// entries; the per-batch overhead is a single `weight_per_native_key` charge, so the
-	/// trade-off is intentional.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::deletion_queue_batch()).is_err() {
 			return;
@@ -425,6 +414,8 @@ impl<T: Config> ContractInfo<T> {
 			return;
 		}
 
+		let weight_per_entry = T::WeightInfo::deletion_queue_per_entry()
+			.saturating_sub(T::WeightInfo::deletion_queue_batch());
 		let weight_per_native_key = T::WeightInfo::deletion_queue_per_native_deposit_key(1)
 			.saturating_sub(T::WeightInfo::deletion_queue_per_native_deposit_key(0));
 		let weight_per_trie_key = T::WeightInfo::deletion_queue_per_trie_key(1)
@@ -442,6 +433,10 @@ impl<T: Config> ContractInfo<T> {
 		loop {
 			let Some(entry) = queue.next() else { break };
 
+			// Charge the per-entry overhead.
+			let Some(after_entry) = remaining.checked_sub(&weight_per_entry) else { break };
+			remaining = after_entry;
+
 			// Phase 1: drain `NativeDepositOf` rows for this contract.
 			let key_budget = key_budget_for(remaining, weight_per_native_key);
 			if key_budget == 0 {
@@ -449,13 +444,8 @@ impl<T: Config> ContractInfo<T> {
 			}
 			let result =
 				NativeDepositOf::<T>::clear_prefix(&entry.value.account_id, key_budget, None);
-			// charge at least one key even if none were removed.
-			let charged = if result.maybe_cursor.is_none() {
-				u64::from(result.unique.max(1))
-			} else {
-				u64::from(result.unique)
-			};
-			remaining = remaining.saturating_sub(weight_per_native_key.saturating_mul(charged));
+			remaining = remaining
+				.saturating_sub(weight_per_native_key.saturating_mul(u64::from(result.unique)));
 			if result.maybe_cursor.is_some() {
 				break;
 			}
@@ -477,9 +467,8 @@ impl<T: Config> ContractInfo<T> {
 					break;
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
-					// charge at least one key even if none were removed.
 					remaining = remaining.saturating_sub(
-						weight_per_trie_key.saturating_mul(u64::from(keys_removed.max(1))),
+						weight_per_trie_key.saturating_mul(u64::from(keys_removed)),
 					);
 					entry.remove();
 				},
