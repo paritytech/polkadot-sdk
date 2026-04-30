@@ -1,0 +1,21 @@
+title: Additional improvements to making the DAP satellite pallet more generic
+doc:
+- audience: Runtime Dev
+  description: |-
+    Additional fixes / improvements for https://github.com/paritytech/polkadot-sdk/pull/11881:
+    - Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since it only works on `AccountId32`-type accounts (used in all system parachains), but future users with different account types will need different trait implementations
+crates:
+- name: pallet-accumulate-and-forward
+  bump: minor
+- name: bridge-hub-westend-runtime
+  bump: minor
+- name: collectives-westend-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor
+- name: people-westend-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor
+- name: staging-xcm-builder
+  bump: minor
