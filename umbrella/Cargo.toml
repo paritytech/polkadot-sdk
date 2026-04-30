@@ -53,6 +53,7 @@ std = [
 	"frame-try-runtime?/std",
 	"pallet-alliance?/std",
 	"pallet-asset-conversion-ops?/std",
+	"pallet-asset-conversion-precompiles?/std",
 	"pallet-asset-conversion-tx-payment?/std",
 	"pallet-asset-conversion?/std",
 	"pallet-asset-rate?/std",
@@ -85,6 +86,7 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
+	"pallet-dap-satellite?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -127,8 +129,10 @@ std = [
 	"pallet-paged-list?/std",
 	"pallet-parameters?/std",
 	"pallet-people?/std",
+	"pallet-pgas-allowance?/std",
 	"pallet-preimage?/std",
 	"pallet-proxy?/std",
+	"pallet-psm?/std",
 	"pallet-ranked-collective?/std",
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
@@ -164,6 +168,7 @@ std = [
 	"pallet-uniques?/std",
 	"pallet-utility?/std",
 	"pallet-verify-signature?/std",
+	"pallet-vesting-precompiles?/std",
 	"pallet-vesting?/std",
 	"pallet-whitelist?/std",
 	"pallet-xcm-benchmarks?/std",
@@ -199,6 +204,7 @@ std = [
 	"sp-core?/std",
 	"sp-crypto-ec-utils?/std",
 	"sp-crypto-hashing?/std",
+	"sp-dap?/std",
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
 	"sp-genesis-builder?/std",
@@ -225,6 +231,7 @@ std = [
 	"sp-transaction-storage-proof?/std",
 	"sp-trie?/std",
 	"sp-version?/std",
+	"sp-virtualization?/std",
 	"sp-wasm-interface?/std",
 	"sp-weights?/std",
 	"staging-parachain-info?/std",
@@ -255,6 +262,7 @@ runtime-benchmarks = [
 	"frame-system?/runtime-benchmarks",
 	"pallet-alliance?/runtime-benchmarks",
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
+	"pallet-asset-conversion-precompiles?/runtime-benchmarks",
 	"pallet-asset-conversion-tx-payment?/runtime-benchmarks",
 	"pallet-asset-conversion?/runtime-benchmarks",
 	"pallet-asset-rate?/runtime-benchmarks",
@@ -282,6 +290,7 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
+	"pallet-dap-satellite?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -317,8 +326,10 @@ runtime-benchmarks = [
 	"pallet-paged-list?/runtime-benchmarks",
 	"pallet-parameters?/runtime-benchmarks",
 	"pallet-people?/runtime-benchmarks",
+	"pallet-pgas-allowance?/runtime-benchmarks",
 	"pallet-preimage?/runtime-benchmarks",
 	"pallet-proxy?/runtime-benchmarks",
+	"pallet-psm?/runtime-benchmarks",
 	"pallet-ranked-collective?/runtime-benchmarks",
 	"pallet-recovery?/runtime-benchmarks",
 	"pallet-referenda?/runtime-benchmarks",
@@ -347,6 +358,7 @@ runtime-benchmarks = [
 	"pallet-uniques?/runtime-benchmarks",
 	"pallet-utility?/runtime-benchmarks",
 	"pallet-verify-signature?/runtime-benchmarks",
+	"pallet-vesting-precompiles?/runtime-benchmarks",
 	"pallet-vesting?/runtime-benchmarks",
 	"pallet-whitelist?/runtime-benchmarks",
 	"pallet-xcm-benchmarks?/runtime-benchmarks",
@@ -393,6 +405,7 @@ try-runtime = [
 	"frame-try-runtime/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
+	"pallet-asset-conversion-precompiles?/try-runtime",
 	"pallet-asset-conversion-tx-payment?/try-runtime",
 	"pallet-asset-conversion?/try-runtime",
 	"pallet-asset-rate?/try-runtime",
@@ -424,6 +437,7 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
+	"pallet-dap-satellite?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -460,8 +474,10 @@ try-runtime = [
 	"pallet-paged-list?/try-runtime",
 	"pallet-parameters?/try-runtime",
 	"pallet-people?/try-runtime",
+	"pallet-pgas-allowance?/try-runtime",
 	"pallet-preimage?/try-runtime",
 	"pallet-proxy?/try-runtime",
+	"pallet-psm?/try-runtime",
 	"pallet-ranked-collective?/try-runtime",
 	"pallet-recovery?/try-runtime",
 	"pallet-referenda?/try-runtime",
@@ -492,6 +508,7 @@ try-runtime = [
 	"pallet-uniques?/try-runtime",
 	"pallet-utility?/try-runtime",
 	"pallet-verify-signature?/try-runtime",
+	"pallet-vesting-precompiles?/try-runtime",
 	"pallet-vesting?/try-runtime",
 	"pallet-whitelist?/try-runtime",
 	"pallet-xcm-bridge-hub-router?/try-runtime",
@@ -606,6 +623,7 @@ runtime-full = [
 	"pallet-alliance",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-ops",
+	"pallet-asset-conversion-precompiles",
 	"pallet-asset-conversion-tx-payment",
 	"pallet-asset-rate",
 	"pallet-asset-rewards",
@@ -639,6 +657,7 @@ runtime-full = [
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
 	"pallet-dap",
+	"pallet-dap-satellite",
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-derivatives",
@@ -680,8 +699,10 @@ runtime-full = [
 	"pallet-paged-list",
 	"pallet-parameters",
 	"pallet-people",
+	"pallet-pgas-allowance",
 	"pallet-preimage",
 	"pallet-proxy",
+	"pallet-psm",
 	"pallet-ranked-collective",
 	"pallet-recovery",
 	"pallet-referenda",
@@ -721,6 +742,7 @@ runtime-full = [
 	"pallet-utility",
 	"pallet-verify-signature",
 	"pallet-vesting",
+	"pallet-vesting-precompiles",
 	"pallet-whitelist",
 	"pallet-xcm",
 	"pallet-xcm-benchmarks",
@@ -755,6 +777,7 @@ runtime-full = [
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
+	"sp-dap",
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
@@ -783,6 +806,7 @@ runtime-full = [
 	"sp-trie",
 	"sp-version",
 	"sp-version-proc-macro",
+	"sp-virtualization",
 	"sp-wasm-interface",
 	"sp-weights",
 	"staging-parachain-info",
@@ -827,6 +851,7 @@ runtime = [
 	"sp-crypto-ec-utils",
 	"sp-crypto-hashing",
 	"sp-crypto-hashing-proc-macro",
+	"sp-dap",
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
@@ -855,6 +880,7 @@ runtime = [
 	"sp-trie",
 	"sp-version",
 	"sp-version-proc-macro",
+	"sp-virtualization",
 	"sp-wasm-interface",
 	"sp-weights",
 ]
@@ -870,6 +896,7 @@ node = [
 	"cumulus-client-network",
 	"cumulus-client-parachain-inherent",
 	"cumulus-client-pov-recovery",
+	"cumulus-client-proof-size-recording",
 	"cumulus-client-service",
 	"cumulus-relay-chain-inprocess-interface",
 	"cumulus-relay-chain-interface",
@@ -989,6 +1016,7 @@ node = [
 	"sp-maybe-compressed-blob",
 	"sp-panic-handler",
 	"sp-rpc",
+	"sp-virtualization-test-fixture",
 	"staging-chain-spec-builder",
 	"staging-node-inspect",
 	"staging-tracking-allocator",
@@ -1257,6 +1285,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/asset-conversion/ops"
 
+[dependencies.pallet-asset-conversion-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/asset-conversion/precompiles"
+
 [dependencies.pallet-asset-conversion-tx-payment]
 default-features = false
 optional = true
@@ -1421,6 +1454,11 @@ path = "../substrate/frame/core-fellowship"
 default-features = false
 optional = true
 path = "../substrate/frame/dap"
+
+[dependencies.pallet-dap-satellite]
+default-features = false
+optional = true
+path = "../substrate/frame/dap-satellite"
 
 [dependencies.pallet-delegated-staking]
 default-features = false
@@ -1627,6 +1665,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/people"
 
+[dependencies.pallet-pgas-allowance]
+default-features = false
+optional = true
+path = "../substrate/frame/transaction-payment/pgas-allowance"
+
 [dependencies.pallet-preimage]
 default-features = false
 optional = true
@@ -1636,6 +1679,11 @@ path = "../substrate/frame/preimage"
 default-features = false
 optional = true
 path = "../substrate/frame/proxy"
+
+[dependencies.pallet-psm]
+default-features = false
+optional = true
+path = "../substrate/frame/psm"
 
 [dependencies.pallet-ranked-collective]
 default-features = false
@@ -1832,6 +1880,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/vesting"
 
+[dependencies.pallet-vesting-precompiles]
+default-features = false
+optional = true
+path = "../substrate/frame/vesting/precompiles"
+
 [dependencies.pallet-whitelist]
 default-features = false
 optional = true
@@ -2002,6 +2055,11 @@ default-features = false
 optional = true
 path = "../substrate/primitives/crypto/hashing/proc-macro"
 
+[dependencies.sp-dap]
+default-features = false
+optional = true
+path = "../substrate/primitives/dap"
+
 [dependencies.sp-debug-derive]
 default-features = false
 optional = true
@@ -2142,6 +2200,11 @@ default-features = false
 optional = true
 path = "../substrate/primitives/version/proc-macro"
 
+[dependencies.sp-virtualization]
+default-features = false
+optional = true
+path = "../substrate/primitives/virtualization"
+
 [dependencies.sp-wasm-interface]
 default-features = false
 optional = true
@@ -2251,6 +2314,11 @@ path = "../cumulus/client/parachain-inherent"
 default-features = false
 optional = true
 path = "../cumulus/client/pov-recovery"
+
+[dependencies.cumulus-client-proof-size-recording]
+default-features = false
+optional = true
+path = "../cumulus/client/proof-size-recording"
 
 [dependencies.cumulus-client-service]
 default-features = false
@@ -2846,6 +2914,11 @@ path = "../substrate/primitives/panic-handler"
 default-features = false
 optional = true
 path = "../substrate/primitives/rpc"
+
+[dependencies.sp-virtualization-test-fixture]
+default-features = false
+optional = true
+path = "../substrate/primitives/virtualization/test-fixture"
 
 [dependencies.staging-chain-spec-builder]
 default-features = false

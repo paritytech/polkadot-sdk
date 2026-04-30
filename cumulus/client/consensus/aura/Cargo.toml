@@ -49,6 +49,7 @@ sp-trie = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
+cumulus-client-proof-size-recording = { workspace = true, default-features = true }
 cumulus-primitives-aura = { workspace = true, default-features = true }
 cumulus-primitives-core = { workspace = true, default-features = true }
 cumulus-relay-chain-interface = { workspace = true, default-features = true }

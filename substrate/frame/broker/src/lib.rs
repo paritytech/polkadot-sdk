@@ -25,6 +25,8 @@ mod benchmarking;
 mod core_mask;
 mod coretime_interface;
 mod dispatchable_impls;
+pub mod market;
+
 #[cfg(test)]
 mod mock;
 mod nonfungible_impl;
@@ -1056,6 +1058,25 @@ pub mod pallet {
 		) -> DispatchResult {
 			T::AdminOrigin::ensure_origin_or_root(origin)?;
 			Self::do_remove_potential_renewal(core, when)
+		}
+
+		/// Transfer a Bulk Coretime Region to a new owner, ignoring the previous owner.
+		///
+		/// This can also be used to recover regions that have been "burned" (e.g., from an
+		/// XCM reserve transfer).
+		///
+		/// - `origin`: Must be Root or pass `AdminOrigin`.
+		/// - `region_id`: The Region whose ownership should change.
+		/// - `new_owner`: The new owner for the Region.
+		#[pallet::call_index(28)]
+		pub fn force_transfer(
+			origin: OriginFor<T>,
+			region_id: RegionId,
+			new_owner: T::AccountId,
+		) -> DispatchResult {
+			T::AdminOrigin::ensure_origin_or_root(origin)?;
+			Self::do_transfer(region_id, None, new_owner)?;
+			Ok(())
 		}
 
 		#[pallet::call_index(99)]

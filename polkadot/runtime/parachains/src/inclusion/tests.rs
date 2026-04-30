@@ -23,12 +23,13 @@ use crate::{
 	},
 	paras::{ParaGenesisArgs, ParaKind},
 	paras_inherent::DisputedBitfield,
-	shared::AllowedRelayParentsTracker,
+	shared::AllowedSchedulingParentsTracker,
 };
 use polkadot_primitives::{
-	effective_minimum_backing_votes, AvailabilityBitfield, CandidateDescriptorV2,
-	CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector, SignedAvailabilityBitfields,
-	UMPSignal, UncheckedSignedAvailabilityBitfields, UMP_SEPARATOR,
+	effective_minimum_backing_votes, vstaging::RelayParentInfo, AvailabilityBitfield,
+	CandidateDescriptorV2, CandidateDescriptorVersion, ClaimQueueOffset, CoreSelector,
+	SessionIndex, SignedAvailabilityBitfields, UMPSignal, UncheckedSignedAvailabilityBitfields,
+	UMP_SEPARATOR,
 };
 
 use assert_matches::assert_matches;
@@ -78,13 +79,24 @@ pub(crate) fn genesis_config(paras: Vec<(ParaId, ParaKind)>) -> MockGenesisConfi
 	}
 }
 
-fn default_allowed_relay_parent_tracker() -> AllowedRelayParentsTracker<Hash, BlockNumber> {
-	let mut allowed = AllowedRelayParentsTracker::default();
+fn default_allowed_scheduling_parent_tracker() -> AllowedSchedulingParentsTracker<Hash, BlockNumber>
+{
+	let mut allowed = AllowedSchedulingParentsTracker::default();
 
 	let relay_parent = System::parent_hash();
 	let parent_number = System::block_number().saturating_sub(1);
 
-	allowed.update(relay_parent, Hash::zero(), Default::default(), parent_number, 1);
+	allowed.update(relay_parent, Default::default(), parent_number, 1);
+
+	// Also populate the AllowedRelayParents DoubleMap so that
+	// verify_backed_candidate can look up the relay parent info.
+	let session_index = shared::CurrentSessionIndex::<Test>::get();
+	shared::AllowedRelayParents::<Test>::insert(
+		session_index,
+		relay_parent,
+		RelayParentInfo { number: parent_number, state_root: Default::default() },
+	);
+
 	allowed
 }
 
@@ -267,6 +279,14 @@ pub(crate) struct TestCandidateBuilder {
 	pub(crate) core_index: Option<CoreIndex>,
 	/// The core selector to use.
 	pub(crate) core_selector: Option<u8>,
+	/// Creates a v3 descriptor if set (requires core_index to also be set).
+	/// The scheduling_parent is the relay chain block that determines scheduling.
+	pub(crate) scheduling_parent: Option<Hash>,
+	/// Session index to embed in the V2/V3 descriptor.
+	pub(crate) descriptor_session_index: Option<SessionIndex>,
+	/// Scheduling session offset for V3 descriptors.
+	/// scheduling_session = descriptor_session_index + scheduling_session_offset.
+	pub(crate) scheduling_session_offset: Option<u8>,
 }
 
 impl std::default::Default for TestCandidateBuilder {
@@ -284,18 +304,38 @@ impl std::default::Default for TestCandidateBuilder {
 			hrmp_watermark: 0u32.into(),
 			core_index: None,
 			core_selector: None,
+			scheduling_parent: None,
+			descriptor_session_index: None,
+			scheduling_session_offset: None,
 		}
 	}
 }
 
 impl TestCandidateBuilder {
 	pub(crate) fn build(self) -> CommittedCandidateReceipt {
-		let descriptor = if let Some(core_index) = self.core_index {
+		let descriptor = if let (Some(core_index), Some(scheduling_parent)) =
+			(self.core_index, self.scheduling_parent)
+		{
+			// V3 descriptor with explicit scheduling_parent.
+			CandidateDescriptorV2::new_v3(
+				self.para_id,
+				self.relay_parent,
+				core_index,
+				self.descriptor_session_index.unwrap_or(0),
+				self.descriptor_session_index.unwrap_or(0), // scheduling_session_index
+				self.persisted_validation_data_hash,
+				self.pov_hash,
+				Default::default(),
+				self.para_head_hash.unwrap_or_else(|| self.head_data.hash()),
+				self.validation_code.hash(),
+				scheduling_parent,
+			)
+		} else if let Some(core_index) = self.core_index {
 			CandidateDescriptorV2::new(
 				self.para_id,
 				self.relay_parent,
 				core_index,
-				0,
+				self.descriptor_session_index.unwrap_or(0),
 				self.persisted_validation_data_hash,
 				self.pov_hash,
 				Default::default(),
@@ -332,7 +372,13 @@ impl TestCandidateBuilder {
 			},
 		};
 
-		if ccr.descriptor.version(false) == CandidateDescriptorVersion::V2 {
+		// Apply scheduling_session_offset for V3 descriptors if specified.
+		if let Some(offset) = self.scheduling_session_offset {
+			ccr.descriptor.set_scheduling_session_offset(offset);
+		}
+
+		let version = ccr.descriptor.version();
+		if version == CandidateDescriptorVersion::V2 || version == CandidateDescriptorVersion::V3 {
 			ccr.commitments.upward_messages.force_push(UMP_SEPARATOR);
 
 			ccr.commitments.upward_messages.force_push(
@@ -1253,12 +1299,12 @@ fn candidate_checks() {
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
 
 		let thread_a_assignment = (thread_a, CoreIndex::from(2));
-		let allowed_relay_parents = default_allowed_relay_parent_tracker();
+		let allowed_scheduling_parents = default_allowed_scheduling_parent_tracker();
 
 		// no candidates.
 		assert_eq!(
 			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
+				&allowed_scheduling_parents,
 				&BTreeMap::new(),
 				&group_validators,
 			),
@@ -1337,7 +1383,7 @@ fn candidate_checks() {
 			// candidates are required to be sorted in dependency order.
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(
 						chain_b,
 						vec![
@@ -1354,7 +1400,7 @@ fn candidate_checks() {
 
 			// candidates are no longer required to be sorted by core index.
 			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
+				&allowed_scheduling_parents,
 				&vec![
 					(
 						chain_b,
@@ -1401,7 +1447,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_b, vec![(backed_b_3, CoreIndex(3))])].into_iter().collect(),
 					&group_validators,
 				),
@@ -1434,7 +1480,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1456,7 +1502,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1512,7 +1558,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![
 						(chain_b_assignment.0, vec![(backed_b, chain_b_assignment.1)]),
 						(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])
@@ -1554,7 +1600,7 @@ fn candidate_checks() {
 
 			let candidate_receipt_with_backing_validator_indices =
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(thread_a_assignment.0, vec![(backed.clone(), thread_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1636,7 +1682,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1670,7 +1716,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1705,7 +1751,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1740,7 +1786,7 @@ fn candidate_checks() {
 
 			assert_noop!(
 				ParaInclusion::process_candidates(
-					&allowed_relay_parents,
+					&allowed_scheduling_parents,
 					&vec![(chain_a_assignment.0, vec![(backed, chain_a_assignment.1)])]
 						.into_iter()
 						.collect(),
@@ -1811,7 +1857,7 @@ fn backing_works() {
 		];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let allowed_relay_parents = default_allowed_relay_parent_tracker();
+		let allowed_scheduling_parents = default_allowed_scheduling_parent_tracker();
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 		let chain_b_assignment = (chain_b, CoreIndex::from(1));
@@ -1907,7 +1953,7 @@ fn backing_works() {
 		};
 
 		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
-			&allowed_relay_parents,
+			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
 		)
@@ -2094,7 +2140,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 		];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let allowed_relay_parents = default_allowed_relay_parent_tracker();
+		let allowed_scheduling_parents = default_allowed_scheduling_parent_tracker();
 
 		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
@@ -2194,7 +2240,7 @@ fn backing_works_with_elastic_scaling_mvp() {
 		};
 
 		let candidate_receipt_with_backing_validator_indices = ParaInclusion::process_candidates(
-			&allowed_relay_parents,
+			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
 		)
@@ -2355,7 +2401,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		]];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let allowed_relay_parents = default_allowed_relay_parent_tracker();
+		let allowed_scheduling_parents = default_allowed_scheduling_parent_tracker();
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 		let candidate_a = TestCandidateBuilder {
 			para_id: chain_a,
@@ -2379,7 +2425,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 		);
 
 		let _ = ParaInclusion::process_candidates(
-			&allowed_relay_parents,
+			&allowed_scheduling_parents,
 			&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
 				.into_iter()
 				.collect::<BTreeMap<_, _>>(),
@@ -2416,7 +2462,7 @@ fn can_include_candidate_with_ok_code_upgrade() {
 }
 
 #[test]
-fn check_allowed_relay_parents() {
+fn check_allowed_scheduling_parents() {
 	let chain_a = ParaId::from(1);
 	let chain_b = ParaId::from(2);
 	let thread_a = ParaId::from(3);
@@ -2486,29 +2532,35 @@ fn check_allowed_relay_parents() {
 		let relay_parent_b = (2, Hash::repeat_byte(0x2));
 		let relay_parent_c = (3, Hash::repeat_byte(0x3));
 
-		let mut allowed_relay_parents = AllowedRelayParentsTracker::default();
+		let mut allowed_scheduling_parents = AllowedSchedulingParentsTracker::default();
 		let max_ancestry_len = 3;
-		allowed_relay_parents.update(
+		allowed_scheduling_parents.update(
 			relay_parent_a.1,
-			Hash::zero(),
 			Default::default(),
 			relay_parent_a.0,
 			max_ancestry_len,
 		);
-		allowed_relay_parents.update(
+		allowed_scheduling_parents.update(
 			relay_parent_b.1,
-			Hash::zero(),
 			Default::default(),
 			relay_parent_b.0,
 			max_ancestry_len,
 		);
-		allowed_relay_parents.update(
+		allowed_scheduling_parents.update(
 			relay_parent_c.1,
-			Hash::zero(),
 			Default::default(),
 			relay_parent_c.0,
 			max_ancestry_len,
 		);
+
+		// Also populate the AllowedRelayParents DoubleMap for relay parent lookups.
+		for (number, hash) in [relay_parent_a, relay_parent_b, relay_parent_c] {
+			shared::AllowedRelayParents::<Test>::insert(
+				5,
+				hash,
+				RelayParentInfo { number, state_root: Default::default() },
+			);
+		}
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 
@@ -2599,7 +2651,7 @@ fn check_allowed_relay_parents() {
 		.collect::<BTreeMap<_, _>>();
 
 		ParaInclusion::process_candidates(
-			&allowed_relay_parents,
+			&allowed_scheduling_parents,
 			&backed_candidates,
 			&group_validators,
 		)
@@ -2775,7 +2827,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		]];
 		Scheduler::set_validator_groups(validator_groups);
 
-		let allowed_relay_parents = default_allowed_relay_parent_tracker();
+		let allowed_scheduling_parents = default_allowed_scheduling_parent_tracker();
 
 		let chain_a_assignment = (chain_a, CoreIndex::from(0));
 		let candidate_a = TestCandidateBuilder {
@@ -2801,7 +2853,7 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 
 		let _ =
 			ParaInclusion::process_candidates(
-				&allowed_relay_parents,
+				&allowed_scheduling_parents,
 				&vec![(chain_a_assignment.0, vec![(backed_a, chain_a_assignment.1)])]
 					.into_iter()
 					.collect::<BTreeMap<_, _>>(),
@@ -2849,6 +2901,253 @@ fn para_upgrade_delay_scheduled_from_inclusion() {
 		assert_matches!(cause,
 			paras::PvfCheckCause::Upgrade { id, included_at, upgrade_strategy: UpgradeStrategy::SetGoAheadSignal }
 				if id == &chain_a && included_at == &7
+		);
+	});
+}
+
+/// Test that verify_backed_candidate succeeds for a V3 candidate whose relay_parent
+/// is from a previous session.
+/// Note: rejection of V3 candidates when the feature is disabled is handled by
+/// `check_version_acceptance` in the sanitization pipeline, not by `verify_backed_candidate`.
+#[test]
+fn cross_session_relay_parent_v3() {
+	let chain_a = ParaId::from(1_u32);
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+
+	new_test_ext(genesis_config(paras)).execute_with(|| {
+		shared::Pallet::<Test>::set_session_index(5);
+		run_to_block(5, |_| None);
+
+		// Relay parent from the PREVIOUS session (session 4).
+		let old_relay_parent = Hash::repeat_byte(0xAA);
+		let old_relay_parent_number: BlockNumber = 1;
+
+		// Insert this old relay parent into the DoubleMap under session 4.
+		shared::AllowedRelayParents::<Test>::insert(
+			4u32, // session 4
+			old_relay_parent,
+			RelayParentInfo { number: old_relay_parent_number, state_root: Default::default() },
+		);
+
+		// Compute PVD hash matching the old relay parent's block number.
+		let pvd_hash = make_vdata_hash_with_block_number(chain_a, old_relay_parent_number).unwrap();
+
+		// Build a V3 candidate: relay_parent from session 4, scheduling_parent from
+		// current session 5 (the System::parent_hash()).
+		let scheduling_parent = System::parent_hash();
+		let candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: old_relay_parent,
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: pvd_hash,
+			hrmp_watermark: old_relay_parent_number,
+			core_index: Some(CoreIndex(0)),
+			scheduling_parent: Some(scheduling_parent),
+			descriptor_session_index: Some(4), // points to session 4
+			..Default::default()
+		}
+		.build();
+
+		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
+
+		// verify_backed_candidate uses version() which correctly identifies this as V3
+		// and looks up the relay parent in session 4's DoubleMap via session_index().
+		let check_ctx = CandidateCheckContext::<Test>::new(None);
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
+		assert!(result.is_ok(), "V3 cross-session relay parent should succeed");
+		assert_eq!(result.unwrap(), old_relay_parent_number);
+	});
+}
+
+/// Test that verify_backed_candidate fails when the relay parent's session has been pruned.
+#[test]
+fn cross_session_relay_parent_pruned_session_fails() {
+	let chain_a = ParaId::from(1_u32);
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+
+	new_test_ext(genesis_config(paras)).execute_with(|| {
+		shared::Pallet::<Test>::set_session_index(5);
+		run_to_block(5, |_| None);
+
+		// Relay parent claims to be from session 2, but we DON'T insert it in the DoubleMap.
+		// (Simulates the session having been pruned.)
+		let old_relay_parent = Hash::repeat_byte(0xBB);
+		let old_relay_parent_number: BlockNumber = 2;
+		let pvd_hash = make_vdata_hash_with_block_number(chain_a, old_relay_parent_number).unwrap();
+
+		let candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: old_relay_parent,
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: pvd_hash,
+			hrmp_watermark: old_relay_parent_number,
+			core_index: Some(CoreIndex(0)),
+			scheduling_parent: Some(System::parent_hash()),
+			descriptor_session_index: Some(2), // session 2, which is pruned
+			..Default::default()
+		}
+		.build();
+
+		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
+
+		let check_ctx = CandidateCheckContext::<Test>::new(None);
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
+		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
+	});
+}
+
+/// Test that verify_backed_candidate fails if the V3 descriptor has the wrong session_index
+/// (e.g., session 5 but relay parent is only in session 4).
+#[test]
+fn cross_session_relay_parent_wrong_session_index_fails() {
+	let chain_a = ParaId::from(1_u32);
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+
+	new_test_ext(genesis_config(paras)).execute_with(|| {
+		shared::Pallet::<Test>::set_session_index(5);
+		run_to_block(5, |_| None);
+
+		let old_relay_parent = Hash::repeat_byte(0xCC);
+		let old_relay_parent_number: BlockNumber = 2;
+
+		// Insert relay parent in session 4 only.
+		shared::AllowedRelayParents::<Test>::insert(
+			4u32,
+			old_relay_parent,
+			RelayParentInfo { number: old_relay_parent_number, state_root: Default::default() },
+		);
+
+		let pvd_hash = make_vdata_hash_with_block_number(chain_a, old_relay_parent_number).unwrap();
+
+		// V3 descriptor with session_index=5 (wrong — relay parent is in session 4).
+		let candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: old_relay_parent,
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: pvd_hash,
+			hrmp_watermark: old_relay_parent_number,
+			core_index: Some(CoreIndex(0)),
+			scheduling_parent: Some(System::parent_hash()),
+			descriptor_session_index: Some(5), // wrong session
+			..Default::default()
+		}
+		.build();
+
+		let parent_head = paras::Heads::<Test>::get(chain_a).unwrap_or_default();
+
+		// Should fail: relay parent is in session 4 but descriptor says session 5.
+		let check_ctx = CandidateCheckContext::<Test>::new(None);
+		let result = check_ctx.verify_backed_candidate(&candidate, parent_head);
+		assert_matches!(result, Err(Error::<Test>::DisallowedRelayParent));
+	});
+}
+
+/// Process_candidates with a V3 candidate built on a relay parent
+/// from a previous session, while the scheduling parent is in the current session.
+#[test]
+fn cross_session_process_candidates_v3() {
+	let chain_a = ParaId::from(1_u32);
+	let paras = vec![(chain_a, ParaKind::Parachain)];
+
+	let validators = vec![Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
+	let keystore: KeystorePtr = Arc::new(LocalKeystore::in_memory());
+	for validator in validators.iter() {
+		Keystore::sr25519_generate_new(
+			&*keystore,
+			PARACHAIN_KEY_TYPE_ID,
+			Some(&validator.to_seed()),
+		)
+		.unwrap();
+	}
+	let validator_public = validator_pubkeys(&validators);
+
+	new_test_ext(genesis_config(paras)).execute_with(|| {
+		shared::Pallet::<Test>::set_active_validators_ascending(validator_public.clone());
+		shared::Pallet::<Test>::set_session_index(5);
+
+		run_to_block(5, |_| None);
+
+		let group_validators = |group_index: GroupIndex| {
+			match group_index {
+				group_index if group_index == GroupIndex::from(0) => Some(vec![0, 1, 2]),
+				_ => None,
+			}
+			.map(|vs| vs.into_iter().map(ValidatorIndex).collect::<Vec<_>>())
+		};
+
+		Scheduler::set_validator_groups(vec![vec![
+			ValidatorIndex(0),
+			ValidatorIndex(1),
+			ValidatorIndex(2),
+		]]);
+
+		// The scheduling parent is in the current session's scheduling tracker.
+		let scheduling_parent = System::parent_hash();
+		let scheduling_parent_number: BlockNumber = 4;
+
+		let mut allowed_scheduling_parents = AllowedSchedulingParentsTracker::default();
+		allowed_scheduling_parents.update(
+			scheduling_parent,
+			Default::default(),
+			scheduling_parent_number,
+			10,
+		);
+
+		// The relay parent is from the PREVIOUS session (4).
+		let old_relay_parent = Hash::repeat_byte(0xDD);
+		let old_relay_parent_number: BlockNumber = 2;
+
+		// Insert relay parent in session 4 DoubleMap.
+		shared::AllowedRelayParents::<Test>::insert(
+			4u32,
+			old_relay_parent,
+			RelayParentInfo { number: old_relay_parent_number, state_root: Default::default() },
+		);
+
+		let pvd_hash = make_vdata_hash_with_block_number(chain_a, old_relay_parent_number).unwrap();
+
+		// Build a V3 candidate with cross-session relay parent.
+		let candidate = TestCandidateBuilder {
+			para_id: chain_a,
+			relay_parent: old_relay_parent,
+			pov_hash: Hash::repeat_byte(1),
+			persisted_validation_data_hash: pvd_hash,
+			hrmp_watermark: old_relay_parent_number,
+			core_index: Some(CoreIndex(0)),
+			scheduling_parent: Some(scheduling_parent),
+			descriptor_session_index: Some(4), // relay parent's session
+			..Default::default()
+		}
+		.build();
+
+		// Sign with the scheduling_parent as context (V3 signing uses scheduling parent).
+		let signing_context = SigningContext { parent_hash: scheduling_parent, session_index: 5 };
+
+		let backed = back_candidate(
+			candidate.clone(),
+			&validators,
+			group_validators(GroupIndex::from(0)).unwrap().as_ref(),
+			&keystore,
+			&signing_context,
+			BackingKind::Threshold,
+			CoreIndex(0),
+		);
+
+		let backed_candidates = vec![(chain_a, vec![(backed, CoreIndex(0))])]
+			.into_iter()
+			.collect::<BTreeMap<_, _>>();
+
+		// process_candidates should succeed with v3_enabled=true.
+		let result = ParaInclusion::process_candidates(
+			&allowed_scheduling_parents,
+			&backed_candidates,
+			&group_validators,
+		);
+
+		assert!(
+			result.is_ok(),
+			"V3 cross-session process_candidates should succeed, got: {:?}",
+			result.err()
 		);
 	});
 }

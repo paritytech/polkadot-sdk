@@ -109,6 +109,10 @@ pub use cumulus_client_parachain_inherent;
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
+/// Storage proof size recording utilities.
+#[cfg(feature = "cumulus-client-proof-size-recording")]
+pub use cumulus_client_proof_size_recording;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
@@ -308,6 +312,10 @@ pub use pallet_asset_conversion;
 #[cfg(feature = "pallet-asset-conversion-ops")]
 pub use pallet_asset_conversion_ops;
 
+/// Provides precompiles for `pallet-asset-conversion`.
+#[cfg(feature = "pallet-asset-conversion-precompiles")]
+pub use pallet_asset_conversion_precompiles;
+
 /// Pallet to manage transaction payments in assets by converting them to native assets.
 #[cfg(feature = "pallet-asset-conversion-tx-payment")]
 pub use pallet_asset_conversion_tx_payment;
@@ -446,6 +454,10 @@ pub use pallet_core_fellowship;
 /// FRAME pallet for Dynamic Allocation Pool (DAP).
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;
+
+/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
+#[cfg(feature = "pallet-dap-satellite")]
+pub use pallet_dap_satellite;
 
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
@@ -611,6 +623,10 @@ pub use pallet_parameters;
 #[cfg(feature = "pallet-people")]
 pub use pallet_people;
 
+/// Transaction extension that pays transaction fees with a gas allowance asset.
+#[cfg(feature = "pallet-pgas-allowance")]
+pub use pallet_pgas_allowance;
+
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
 pub use pallet_preimage;
@@ -618,6 +634,10 @@ pub use pallet_preimage;
 /// FRAME proxying pallet.
 #[cfg(feature = "pallet-proxy")]
 pub use pallet_proxy;
+
+/// FRAME pallet for the Peg Stability Module.
+#[cfg(feature = "pallet-psm")]
+pub use pallet_psm;
 
 /// Ranked collective system: Members of a set of account IDs can make their collective
 /// feelings known through dispatched calls from one of two specialized origins.
@@ -782,6 +802,10 @@ pub use pallet_verify_signature;
 /// FRAME pallet for manage vesting.
 #[cfg(feature = "pallet-vesting")]
 pub use pallet_vesting;
+
+/// Vesting precompile exposing pallet-vesting to EVM contracts via pallet-revive.
+#[cfg(feature = "pallet-vesting-precompiles")]
+pub use pallet_vesting_precompiles;
 
 /// FRAME pallet for whitelisting calls, and dispatching from a specific origin.
 #[cfg(feature = "pallet-whitelist")]
@@ -1328,6 +1352,10 @@ pub use sp_crypto_hashing;
 #[cfg(feature = "sp-crypto-hashing-proc-macro")]
 pub use sp_crypto_hashing_proc_macro;
 
+/// Primitives for the Dynamic Allocation Pool (DAP).
+#[cfg(feature = "sp-dap")]
+pub use sp_dap;
+
 /// Substrate database trait.
 #[cfg(feature = "sp-database")]
 pub use sp_database;
@@ -1459,6 +1487,14 @@ pub use sp_version;
 /// Macro for defining a runtime version.
 #[cfg(feature = "sp-version-proc-macro")]
 pub use sp_version_proc_macro;
+
+/// Spawn a new polkavm instance from within the runtime/pvf.
+#[cfg(feature = "sp-virtualization")]
+pub use sp_virtualization;
+
+/// A PolkaVM program that is used by the `sp-virtualization` tests.
+#[cfg(feature = "sp-virtualization-test-fixture")]
+pub use sp_virtualization_test_fixture;
 
 /// Types and traits for interfacing between the host and the wasm runtime.
 #[cfg(feature = "sp-wasm-interface")]

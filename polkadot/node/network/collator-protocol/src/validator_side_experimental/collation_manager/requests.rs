@@ -113,23 +113,6 @@ impl PendingRequests {
 			.any(|adv| adv.scheduling_parent == *relay_parent && adv.para_id == *para_id)
 	}
 
-	/// In-flight fetches matching `(relay_parent, para_id)` other than `exclude`.
-	pub fn siblings_of(
-		&self,
-		relay_parent: &Hash,
-		para_id: &ParaId,
-		exclude: &Advertisement,
-	) -> Vec<Advertisement> {
-		self.cancellation_tokens
-			.keys()
-			.filter(|adv| {
-				adv.scheduling_parent == *relay_parent &&
-					adv.para_id == *para_id &&
-					*adv != exclude
-			})
-			.copied()
-			.collect()
-	}
 
 	pub fn response_stream(&mut self) -> &mut impl FusedStream<Item = CollationFetchResponse> {
 		&mut self.futures
