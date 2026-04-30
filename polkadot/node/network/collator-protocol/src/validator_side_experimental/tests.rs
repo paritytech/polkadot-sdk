@@ -499,6 +499,16 @@ impl TestState {
 		});
 	}
 
+	async fn activate_leaves<B: Backend>(&mut self, state: &mut State<B>, leaves: Vec<Hash>) {
+		let mut sender = self.sender.clone();
+		futures::join!(self.handle_view_update(leaves.clone()), async {
+			state
+				.handle_our_view_change(&mut sender, OurView::new(leaves, 0))
+				.await
+				.unwrap()
+		});
+	}
+
 	async fn handle_finalized_block(&mut self, finalized: BlockNumber) {
 		let old_finalized = self.finalized_block;
 		self.finalized_block = finalized;
@@ -1607,22 +1617,19 @@ async fn test_peer_connections_across_schedule_change() {
 		);
 	}
 
-	// Send an active leaf update which preserves one last claim for para 200.
-	// Send the same active leaf update twice, should be idempotent.
+	// Activating leaf 11 keeps 200 in the visible window: the leaf's CQ for our core is
+	// [200, 100, 100], so position 0 is still 200 and every SP in view can see it.
+	// Repeating the update is a no-op.
 	for _ in 0..2 {
 		test_state.activate_leaf(&mut state, 11).await;
 		test_state.assert_no_messages().await;
 		assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
 	}
 
-	// Send active leaf updates which drop all assignments for para 200. The declared peers for
-	// 200 will be dropped.
-	for height in 12..=13 {
-		test_state.activate_leaf(&mut state, height).await;
-		test_state.assert_no_messages().await;
-		assert_eq!(state.connected_peers(), peer_ids.clone().into_iter().collect());
-	}
-	test_state.activate_leaf(&mut state, 14).await;
+	// Activating leaf 12 makes the leaf's CQ [100, 100, 100] — no SP in view can see 200
+	// anymore (offset windows are slices of the leaf's CQ, all of which is now para 100).
+	// Peers declared for 200 are disconnected.
+	test_state.activate_leaf(&mut state, 12).await;
 	test_state.assert_peers_disconnected((&peer_ids[5..10]).to_vec()).await;
 	let expected_connected_peers = (&peer_ids[..5])
 		.into_iter()
@@ -1632,23 +1639,32 @@ async fn test_peer_connections_across_schedule_change() {
 	assert_eq!(state.connected_peers(), expected_connected_peers);
 	test_state.assert_no_messages().await;
 
-	// Send active leaf updates which drop all assignments for para 100 as well. Only undeclared
-	// peers will remain
-	for height in 15..=16 {
+	// Activating leaves 13 and 14 keeps the assignment set (still all-100). No churn.
+	for height in 13..=14 {
 		test_state.activate_leaf(&mut state, height).await;
 		test_state.assert_no_messages().await;
 		assert_eq!(state.connected_peers(), expected_connected_peers);
 	}
 
-	test_state.activate_leaf(&mut state, 17).await;
+	// Activating leaf 15 makes the leaf's CQ [600, 600, 600] — para 100 is gone from every
+	// SP's visible window. Peers declared for 100 are disconnected.
+	test_state.activate_leaf(&mut state, 15).await;
 
 	test_state.assert_peers_disconnected((&peer_ids[0..5]).to_vec()).await;
 	let expected_connected_peers = (&peer_ids[10..]).into_iter().cloned().collect();
 	assert_eq!(state.connected_peers(), expected_connected_peers);
 	test_state.assert_no_messages().await;
 
-	// Add a fork which brings back assignment for para 200. Test that assignments are considered
-	// across forks.
+	// Subsequent same-CQ leaves don't disconnect anyone else.
+	for height in 16..=17 {
+		test_state.activate_leaf(&mut state, height).await;
+		test_state.assert_no_messages().await;
+		assert_eq!(state.connected_peers(), expected_connected_peers);
+	}
+
+	// Add a parallel fork at block 17 which schedules para 200, alongside the existing
+	// 600-only leaf. Test that assignments are the union across forks: peers can declare for
+	// either para and both should be accepted.
 	let mut cq = prev_leaf_info.claim_queue.clone();
 	cq.insert(prev_leaf_info.assigned_core, vec![200.into()]);
 
@@ -1663,9 +1679,9 @@ async fn test_peer_connections_across_schedule_change() {
 			assigned_core: prev_leaf_info.assigned_core,
 		},
 	);
-	futures::join!(test_state.handle_view_update(vec![fork_hash]), async {
+	futures::join!(test_state.handle_view_update(vec![get_hash(17), fork_hash]), async {
 		state
-			.handle_our_view_change(&mut sender, OurView::new([fork_hash], 0))
+			.handle_our_view_change(&mut sender, OurView::new([get_hash(17), fork_hash], 0))
 			.await
 			.unwrap()
 	});
@@ -1673,7 +1689,8 @@ async fn test_peer_connections_across_schedule_change() {
 	assert_eq!(state.connected_peers(), expected_connected_peers);
 	test_state.assert_no_messages().await;
 
-	// Declare a peer for para 600 and a peer for para 200. They should both be kept.
+	// With both leaves in view, assignments = {600, 200}. Declarations for either para are
+	// accepted.
 	let peer_200 = peer_ids[10];
 	let peer_600 = peer_ids[11];
 	state.handle_declare(&mut sender, peer_200, 200.into()).await;
@@ -2947,9 +2964,9 @@ async fn test_outdated_blocked_collations_are_pruned() {
 	);
 	test_state.assert_no_messages().await;
 
-	// Fill the leaf's window with two more fetches at sp=12 (lookahead=3, blocked_adv occupies
-	// 1 slot via sp=10's same-core path → 2 free). Then pending_adv at sp=12 makes it 4 ads
-	// for 3 slots, the last one parked.
+	// Fill sp=12's window so a `pending_adv` arriving next can't fetch. With lookahead=3 and
+	// a uniform all-100 CQ, sp=12 sees a 3-slot window; `blocked_adv` at sp=10 already
+	// consumes 1 slot (same-core path), so two `fill_adv`s at sp=12 fill the remaining 2.
 	let second_peer = peer_id(2);
 	state.handle_peer_connected(&mut sender, second_peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, second_peer, para_id).await;
@@ -2969,33 +2986,31 @@ async fn test_outdated_blocked_collations_are_pruned() {
 		leaf_info.session_index,
 		Hash::from_low_u64_be(3),
 	);
-	let (_, pending_adv) = dummy_candidate(
-		get_hash(12),
-		para_id,
-		second_peer,
-		leaf_info.assigned_core,
-		leaf_info.session_index,
-		Hash::from_low_u64_be(4),
-	);
 	test_state.handle_advertisement(&mut state, fill_adv_1).await;
 	test_state.handle_advertisement(&mut state, fill_adv_2).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_requests([fill_adv_1, fill_adv_2].into()).await;
 	test_state.assert_no_messages().await;
 
-	test_state.handle_advertisement(&mut state, pending_adv).await;
-	state.try_launch_new_fetch_requests(&mut sender).await;
-	test_state.assert_no_messages().await;
-
-	// Activating leaf 13 takes sp=10 out of view; the blocked collation is dropped and the
-	// freed slot lets `pending_adv` fetch.
+	// Activate leaf 13. sp=10 falls out of the retained range (retain >= leaf - 2), so
+	// `blocked_adv` is dropped and `blocked_from_seconding` is cleared. The freed slot lets
+	// a new advertisement at the new leaf fetch.
 	test_state.activate_leaf(&mut state, 13).await;
 
+	let (_, pending_adv) = dummy_candidate(
+		get_hash(13),
+		para_id,
+		second_peer,
+		leaf_info.assigned_core,
+		leaf_info.session_index,
+		Hash::from_low_u64_be(4),
+	);
+	test_state.handle_advertisement(&mut state, pending_adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	test_state.assert_collation_request(pending_adv).await;
 
-	// Even if we do end up getting a valid statement for the collation that would unblock the
-	// blocked collation, it's already been dropped.
+	// Even if we do end up getting a valid statement for the collation that would unblock
+	// the blocked collation, it's already been dropped.
 	let parent = blocked_ccr.descriptor.relay_parent();
 	let statement = make_seconded_statement(&test_state.keystore, blocked_ccr);
 	state.handle_seconded_collation(&mut sender, statement, parent).await;
@@ -3886,3 +3901,268 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 // LATER:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
+
+// =============================================================================================
+// Active-fork tests.
+//
+// Default topology — two sibling leaves at block 10, both children of a common ancestor at
+// block 9. Tests that diverge from this topology say so in their own diagram.
+//
+//                 fork_a  (block 10)
+//                /
+//   block 9 (common ancestor)
+//                \
+//                 fork_b  (block 10)
+//
+// Each test varies the leaves' CQs to exercise a specific property of the fork-aware logic.
+// =============================================================================================
+
+const FORK_HEIGHT: u32 = 10;
+
+fn fork_a_hash() -> Hash {
+	Hash::from_low_u64_be(0xa10)
+}
+fn fork_b_hash() -> Hash {
+	Hash::from_low_u64_be(0xb10)
+}
+
+/// Set up two sibling leaves at block 10 with the given CQs for our core, both children of
+/// block 9 (the default leaf 9 in `TestState`). The shared core is the test_state's default
+/// `assigned_core`.
+fn setup_fork(
+	test_state: &mut TestState,
+	leaf_a_cq: Vec<ParaId>,
+	leaf_b_cq: Vec<ParaId>,
+) -> (Hash, Hash) {
+	let common = get_hash(9);
+	let common_info = test_state.rp_info.get(&common).unwrap().clone();
+	let core = common_info.assigned_core;
+	let session = common_info.session_index;
+
+	for (hash, cq) in [(fork_a_hash(), leaf_a_cq), (fork_b_hash(), leaf_b_cq)] {
+		let mut cqs = common_info.claim_queue.clone();
+		cqs.insert(core, cq);
+		test_state.rp_info.insert(
+			hash,
+			RelayParentInfo {
+				number: FORK_HEIGHT,
+				parent: common,
+				session_index: session,
+				claim_queue: cqs,
+				assigned_core: core,
+			},
+		);
+	}
+
+	(fork_a_hash(), fork_b_hash())
+}
+
+// Fork test (1): peer connections — assignments are the union across leaves.
+//
+// Leaf A schedules para 100; leaf B schedules para 200. While both are active, peers may
+// declare for either. Dropping leaf B disconnects the 200-peers (no leaf schedules 200
+// anymore); dropping the rest disconnects the 100-peers.
+#[tokio::test]
+async fn fork_assignments_are_union_of_leaves() {
+	let mut test_state = TestState::default();
+	let (fork_a, fork_b) =
+		setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
+	let mut sender = test_state.sender.clone();
+
+	// Activate both forks. Assignments now = {100, 200}.
+	test_state.activate_leaves(&mut state, vec![fork_a, fork_b]).await;
+
+	let peer_100 = peer_id(0);
+	let peer_200 = peer_id(1);
+	state.handle_peer_connected(&mut sender, peer_100, CollationVersion::V2).await;
+	state.handle_peer_connected(&mut sender, peer_200, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_100, 100.into()).await;
+	state.handle_declare(&mut sender, peer_200, 200.into()).await;
+	test_state.assert_no_messages().await;
+	assert_eq!(state.connected_peers(), [peer_100, peer_200].into_iter().collect());
+
+	// Drop leaf B → 200-peers disconnect.
+	test_state.activate_leaves(&mut state, vec![fork_a]).await;
+	test_state.assert_peers_disconnected(vec![peer_200]).await;
+	assert_eq!(state.connected_peers(), [peer_100].into_iter().collect());
+}
+
+// Fork test (2): different-length forks — the longest visible window from a common SP
+// determines capacity.
+//
+// Diverges from the default topology: block 9 itself is a leaf alongside fork_a. From sp=9,
+// the leaf-is-self path has offset 0 (full lookahead window), the path through fork_a has
+// offset 1 (window one shorter). Capacity at sp=9 must reflect the longer window.
+//
+//   block 9  (leaf, also itself the SP)  ─────────►  fork_a  (block 10, leaf)
+//
+//      offset 0: 3-slot window                          offset 1: 2-slot window
+//      ── this one wins for capacity ──
+#[tokio::test]
+async fn fork_capacity_uses_longest_window_across_paths() {
+	let mut test_state = TestState::default();
+	// fork_a at block 10 with all-100 CQ.
+	let (fork_a, _fork_b) = setup_fork(
+		&mut test_state,
+		vec![100.into(), 100.into(), 100.into()],
+		vec![100.into(), 100.into(), 100.into()],
+	);
+	// Make sp=9 schedule three 100s for our core too.
+	let core = test_state.rp_info[&get_hash(9)].assigned_core;
+	test_state
+		.rp_info
+		.get_mut(&get_hash(9))
+		.unwrap()
+		.claim_queue
+		.insert(core, vec![100.into(), 100.into(), 100.into()]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
+	let mut sender = test_state.sender.clone();
+	// Both sp=9 (as a leaf) and fork_a are active. From sp=9, the leaf=sp=9 path gives a
+	// full 3-slot window; the leaf=fork_a path gives 2 (offset 1). The longer wins.
+	test_state.activate_leaves(&mut state, vec![get_hash(9), fork_a]).await;
+
+	// 3 peers, advertise 3 distinct candidates of para 100 at sp=9. All three should fit
+	// (long window) — if we used the shorter window we'd cap at 2.
+	let peers: Vec<_> = (0..3).map(peer_id).collect();
+	for &p in &peers {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+	let mut advs = Vec::new();
+	for (i, &p) in peers.iter().enumerate() {
+		let (_, adv) = dummy_candidate(
+			get_hash(9),
+			100.into(),
+			p,
+			core,
+			1,
+			Hash::from_low_u64_be(i as u64 + 200),
+		);
+		test_state.handle_advertisement(&mut state, adv).await;
+		advs.push(adv);
+	}
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(reqs.len(), 3);
+		}
+	);
+}
+
+// Fork test (3): an in-flight candidate at a shared SP is counted once, not per leaf.
+//
+// Both leaves share sp=9 in their path. With CQ for our core having two slots for para 100
+// at sp=9's window, we should be able to fetch *two* candidates for para 100 at sp=9 — not
+// four (which would be the case if each leaf got its own bucket).
+#[tokio::test]
+async fn fork_shared_sp_capacity_not_double_counted() {
+	let mut test_state = TestState::default();
+	// Both leaves use the same CQ — sp=9 sees 2 slots for para 100 (window len = lookahead - 1).
+	let (fork_a, fork_b) = setup_fork(
+		&mut test_state,
+		vec![100.into(), 100.into(), 100.into()],
+		vec![100.into(), 100.into(), 100.into()],
+	);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
+	let mut sender = test_state.sender.clone();
+	test_state.activate_leaves(&mut state, vec![fork_a, fork_b]).await;
+
+	let core = test_state.rp_info[&get_hash(9)].assigned_core;
+
+	// Connect 4 peers, declare for 100, advertise 4 distinct candidates at sp=9.
+	let peers: Vec<_> = (0..4).map(peer_id).collect();
+	for &p in &peers {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+	let mut advs = Vec::new();
+	for (i, &p) in peers.iter().enumerate() {
+		let (_, adv) = dummy_candidate(
+			get_hash(9),
+			100.into(),
+			p,
+			core,
+			1,
+			Hash::from_low_u64_be(i as u64 + 100),
+		);
+		test_state.handle_advertisement(&mut state, adv).await;
+		advs.push(adv);
+	}
+
+	// Capacity at sp=9: window len 2, all 4 ads compete for 2 slots → only 2 fetches.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let mut launched: BTreeSet<Advertisement> = BTreeSet::new();
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(reqs.len(), 2);
+			for r in reqs {
+				if let Requests::CollationFetchingV2(req) = r {
+					launched.insert(*advs.iter().find(|a| {
+						a.candidate_hash() == Some(req.payload.candidate_hash)
+					}).unwrap());
+				}
+			}
+		}
+	);
+	test_state.assert_no_messages().await;
+	assert_eq!(launched.len(), 2);
+}
+
+// Fork test (4): dropping a leaf reclaims its unique-fork capacity / assignments.
+//
+// Leaf A schedules 100 at every slot; leaf B schedules 200 at every slot. We exhaust leaf B's
+// capacity by advertising 200s at fork_b. Then we drop leaf B — the 200 advertisements'
+// fetches must be cancelled, and 200 must leave the assignment set so peers for 200
+// disconnect.
+#[tokio::test]
+async fn fork_drop_reclaims_capacity_and_disconnects_peers() {
+	let mut test_state = TestState::default();
+	let (fork_a, fork_b) = setup_fork(
+		&mut test_state,
+		vec![100.into(); 3],
+		vec![200.into(); 3],
+	);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
+	let mut sender = test_state.sender.clone();
+	test_state.activate_leaves(&mut state, vec![fork_a, fork_b]).await;
+
+	let peer_200 = peer_id(0);
+	state.handle_peer_connected(&mut sender, peer_200, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_200, 200.into()).await;
+
+	let core = test_state.rp_info[&get_hash(9)].assigned_core;
+	let (_, adv) = dummy_candidate(fork_b, 200.into(), peer_200, core, 1, dummy_pvd().hash());
+	test_state.handle_advertisement(&mut state, adv).await;
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	// Keep the response sender alive so cancellation (not "sender dropped") is what completes
+	// the fetch future.
+	let _response_sender = test_state.assert_collation_request(adv).await;
+
+	// Drop leaf B. The fetch at fork_b must be cancelled and the 200-peer disconnected
+	// (no remaining leaf schedules 200).
+	test_state.activate_leaves(&mut state, vec![fork_a]).await;
+	let resp = state
+		.collation_response_stream()
+		.select_next_some()
+		.timeout(TIMEOUT)
+		.await
+		.expect("cancellation should arrive");
+	assert_matches::assert_matches!(resp.1, Err(CollationFetchError::Cancelled));
+	state.handle_fetched_collation(&mut sender, resp).await;
+
+	test_state.assert_peers_disconnected(vec![peer_200]).await;
+	assert!(state.connected_peers().is_empty());
+}
+
+// Note: rotation + forks isn't a separate test here. `core_rotation_accepts_candidates_for_both_cores`
+// already exercises group rotation, and forks (1)-(4) above exercise fork logic with our group's
+// core; the combination doesn't add a new property worth the test setup.

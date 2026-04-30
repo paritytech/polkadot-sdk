@@ -199,7 +199,6 @@ impl CollationManager {
 			);
 
 			for deactivated in deactivated_ancestry.iter() {
-				// Remove the fetching collations and advertisements for the deactivated RPs.
 				if let Some(deactivated_sp) = self.per_scheduling_parent.remove(deactivated) {
 					for advertisement in deactivated_sp.all_advertisements() {
 						gum::trace!(
@@ -209,6 +208,30 @@ impl CollationManager {
 						);
 						self.fetching.cancel(&advertisement);
 					}
+				}
+			}
+		}
+
+		// A removed leaf may still be retained in `implicit_view`'s storage for the lookahead
+		// window. If it's no longer reachable from any current leaf (e.g. an abandoned sibling
+		// fork), drop its `per_scheduling_parent` entry and cancel its in-flight fetches.
+		// Common-chain cases — a leaf becoming an ancestor of its successor — keep their
+		// entries because they're still on a current leaf's path.
+		let unreachable: Vec<Hash> = self
+			.per_scheduling_parent
+			.keys()
+			.copied()
+			.filter(|sp| self.implicit_view.paths_via_relay_parent(sp).is_empty())
+			.collect();
+		for sp in unreachable {
+			if let Some(removed_sp) = self.per_scheduling_parent.remove(&sp) {
+				for advertisement in removed_sp.all_advertisements() {
+					gum::trace!(
+						target: LOG_TARGET,
+						?advertisement,
+						"Cancelling advertisement because scheduling parent left the view"
+					);
+					self.fetching.cancel(&advertisement);
 				}
 			}
 		}
@@ -275,8 +298,8 @@ impl CollationManager {
 
 	/// All paras our group will back at *some* scheduling parent in our view. Used to decide
 	/// which collators we should be willing to talk to. We take the union across all
-	/// scheduling parents of "the slice of the leaf's CQ visible from this SP for our core".
-	/// Older ancestors see only the early CQ positions; the leaf sees all.
+	/// scheduling parents and all paths of "the slice of the leaf's CQ visible from this SP
+	/// for our core". Older ancestors see only the early CQ positions; the leaf sees all.
 	pub fn assignments(&self) -> BTreeSet<ParaId> {
 		self.per_scheduling_parent
 			.iter()
@@ -296,8 +319,8 @@ impl CollationManager {
 			.collect()
 	}
 
-	/// Returns `Ok(())` if `para_id` is assignable to our core somewhere in this SP's view of
-	/// the leaf's CQ.
+	/// Returns `Ok(())` if `para_id` is reachable at `scheduling_parent` via *any* leaf's CQ
+	/// for our core.
 	///
 	/// This is just an "is this advertisement valid at this scheduling parent" gate; capacity
 	/// is enforced separately in `try_make_new_fetch_requests` via
@@ -504,7 +527,7 @@ impl CollationManager {
 	}
 
 	// Per-peer rate limit on advertisements at `scheduling_parent` for `para_id`: the number
-	// of CQ positions assigned to that para in this SP's window of the leaf's CQ.
+	// of CQ positions assigned to that para in this SP's visible window.
 	fn cq_slot_count(&self, scheduling_parent: &Hash, para_id: ParaId) -> usize {
 		let Some(per_sp) = self.per_scheduling_parent.get(scheduling_parent) else {
 			return 0;
@@ -515,31 +538,37 @@ impl CollationManager {
 			.count()
 	}
 
-	/// The slice of the leaf's CQ for `core` that's visible from `scheduling_parent`.
+	/// The widest slice of `core`'s claim queue visible from `scheduling_parent`, taken via
+	/// the path with the smallest offset (= the shortest descending fork from `sp`, which has
+	/// produced the fewest blocks and thus consumed the fewest predicted slots).
 	///
-	/// At the leaf itself this is the full CQ (lookahead positions). At an ancestor `n`
-	/// blocks back, the first `n` positions have already been "consumed" by the chain, so the
-	/// visible window is `cq[..lookahead - n]`. Returns the longest such window across all
-	/// paths through `scheduling_parent` — empty if the SP isn't reachable from any leaf.
+	/// At `sp`'s own leaf the window is the full lookahead. At an ancestor `n` blocks back on
+	/// some fork, that fork has already produced `n` blocks; their slots are filled and the
+	/// remaining window is `cq[..lookahead - n]`. With multiple descending forks we pick the
+	/// one with the most slots still in play — different forks have independent backing
+	/// futures, so a slot still open on any of them is a real fetch opportunity.
+	///
+	/// Returns an empty `Vec` if `sp` isn't reachable from any leaf with a CQ for `core`.
+	///
+	/// We assume CQ entries on shared positions across descending forks agree (the runtime's
+	/// scheduling is a per-SP prediction over `lookahead` blocks). Adversarial divergence is
+	/// possible only across runtime upgrades and is left to recover on the next view update.
 	fn our_window(&self, scheduling_parent: &Hash, core: CoreIndex) -> Vec<ParaId> {
-		let mut best: Vec<ParaId> = Vec::new();
-		for path in self.implicit_view.paths_via_relay_parent(scheduling_parent) {
-			let Some(leaf) = path.last() else { continue };
-			let Some(cq) =
-				self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
-			else {
-				continue;
-			};
-			let offset = path
-				.iter()
-				.position(|h| h == scheduling_parent)
-				.map_or(0, |idx| path.len().saturating_sub(1 + idx));
-			let valid_len = cq.len().saturating_sub(offset);
-			if valid_len > best.len() {
-				best = cq.iter().take(valid_len).copied().collect();
-			}
-		}
-		best
+		self.implicit_view
+			.paths_via_relay_parent(scheduling_parent)
+			.into_iter()
+			.filter_map(|path| {
+				let leaf = path.last()?;
+				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
+				let offset = path
+					.iter()
+					.position(|h| h == scheduling_parent)
+					.map_or(0, |idx| path.len().saturating_sub(1 + idx));
+				let valid_len = cq.len().saturating_sub(offset);
+				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
+			})
+			.max_by_key(Vec::len)
+			.unwrap_or_default()
 	}
 
 	pub fn try_make_new_fetch_requests<
