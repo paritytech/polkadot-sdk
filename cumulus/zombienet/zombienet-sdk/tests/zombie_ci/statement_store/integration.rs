@@ -16,7 +16,12 @@ use sp_core::Bytes;
 use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
-use std::{cell::Cell, collections::HashSet, sync::Arc, time::Duration};
+use std::{
+	cell::Cell,
+	collections::HashSet,
+	sync::Arc,
+	time::{Duration, SystemTime, UNIX_EPOCH},
+};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
 /// Verifies basic statement propagation and data integrity across two nodes
@@ -120,8 +125,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	info!("All 8 concurrent submissions accepted");
 
 	// Verify content identity: every node must receive exactly the 8 submitted statements
-	let mut expected_encoded: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
-	expected_encoded.sort();
+	let expected_encoded: Vec<Vec<u8>> = statements.iter().map(|s| s.encode()).collect();
 
 	for (name, sub) in [
 		("alice", &mut alice_sub),
@@ -129,12 +133,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 		("charlie", &mut charlie_sub),
 		("dave", &mut dave_sub),
 	] {
-		let received = expect_statements_unordered(sub, 8, 60).await?;
-		assert_eq!(received.len(), 8, "Expected 8 statements on {}", name);
-		let mut received_bytes: Vec<Vec<u8>> = received.into_iter().map(|b| b.to_vec()).collect();
-		received_bytes.sort();
-		assert_eq!(received_bytes, expected_encoded, "Statement content mismatch on {}", name);
-		info!("{} received all 8 statements with correct content", name);
+		assert_statements_match(sub, &expected_encoded, 60, name).await?;
 	}
 
 	for (name, sub) in [
@@ -912,6 +911,144 @@ async fn statement_store_initial_sync() -> Result<(), anyhow::Error> {
 		bob_sent_after.get(),
 		TOTAL_STMTS,
 	);
+
+	Ok(())
+}
+
+/// Verifies that concurrent `submit_statement` calls are not lost while
+/// `enforce_limits` evicts a large batch of expired entries from the index
+/// and DB.
+///
+/// Scenario:
+/// 1. Insert 10000 ephemeral statements (20 accounts × 500, `ttl = 360s`) and wait until a
+///    subscription confirms all are indexed.
+/// 2. Starting 5s before TTL expiry, stream 500 persistent statements (5 accounts × 100) over a 95s
+///    window. `enforce_limits` runs every 62s, so the window is guaranteed to overlap a cleanup
+///    pass — inserts and bulk eviction of the 10000 expired ephemerals hit the index and DB at the
+///    same time.
+/// 3. Immediately after the window closes, a fresh subscription (which replays from the DB) must
+///    yield exactly the 500 persistent statements — proving no insert was dropped and every expired
+///    ephemeral was removed from index and DB within the overlap window itself.
+#[tokio::test(flavor = "multi_thread")]
+async fn statement_store_mass_expiration() -> Result<(), anyhow::Error> {
+	let _ = env_logger::try_init_from_env(
+		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
+	);
+
+	let network = spawn_network_with_injected_allowances(&["alice", "bob"], 25).await?;
+	let alice = network.get_node("alice")?;
+	let alice_rpc = alice.rpc().await?;
+
+	let topic_a: Topic = [30u8; 32].into();
+	let now_secs = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("Time went backwards")
+		.as_secs() as u32;
+
+	// `enforce_limits` runs every `ENFORCE_LIMITS_PERIOD = 31s` with a two-phase
+	// design: the 1st tick only snapshots accounts and returns, the 2nd actually
+	// evicts — so a full eviction pass takes 2 × 31s = 62s.
+	//
+	// - pre_expiry_lead (5s):  start persistents before TTL expiry so inserts cross the expiry
+	//   boundary mid-stream.
+	// - overlap_window  (95s): > 62s guarantees a full eviction pass (snapshot tick + work tick)
+	//   lands inside the window regardless of phase. A single work tick can remove up to 10k
+	//   entries (`MAX_EXPIRY_STATEMENTS_PER_ITERATION`), so all 10k expired ephemerals must be
+	//   drained before the window closes.
+	let ephemeral_ttl: u32 = 360;
+	let pre_expiry_lead: u64 = 5;
+	let overlap_window: u64 = 95;
+	let ephemeral_expiry = now_secs + ephemeral_ttl;
+
+	// 10_000 ephemeral statements across 20 accounts (500 per account)
+	let num_ephemeral_accounts: u32 = 20;
+	let stmts_per_ephemeral: u32 = 500;
+	let ephemeral_stmts: Vec<_> = (0..num_ephemeral_accounts)
+		.flat_map(|kp| {
+			let keypair = get_keypair(kp);
+			(0..stmts_per_ephemeral).map(move |seq| {
+				let mut data = kp.to_le_bytes().to_vec();
+				data.extend_from_slice(&seq.to_le_bytes());
+				create_test_statement(
+					&keypair,
+					&[topic_a],
+					None,
+					data,
+					ephemeral_expiry,
+					kp * 1000 + seq,
+				)
+			})
+		})
+		.collect();
+
+	let alice_rpc_arc = Arc::new(alice.rpc().await?);
+	let mut handles = Vec::new();
+	for stmt in &ephemeral_stmts {
+		let stmt = stmt.clone();
+		let rpc = Arc::clone(&alice_rpc_arc);
+		handles.push(tokio::spawn(async move {
+			let result = submit_statement(&rpc, &stmt).await?;
+			assert_eq!(result, SubmitResult::New);
+			Ok::<_, anyhow::Error>(())
+		}));
+	}
+	for handle in handles {
+		handle.await??;
+	}
+
+	let eph_encoded: Vec<Vec<u8>> = ephemeral_stmts.iter().map(|s| s.encode()).collect();
+	let mut fill_sub = subscribe_topic(&alice_rpc, topic_a).await?;
+	assert_statements_match(&mut fill_sub, &eph_encoded, 180, "alice").await?;
+	drop(fill_sub);
+
+	// 500 persistent statements across 5 accounts (100 per account)
+	let num_persistent_accounts: u32 = 5;
+	let stmts_per_persistent: u32 = 100;
+	let persistent_base = num_ephemeral_accounts;
+	let persistent_stmts: Vec<_> = (persistent_base..persistent_base + num_persistent_accounts)
+		.flat_map(|kp| {
+			let keypair = get_keypair(kp);
+			(0..stmts_per_persistent).map(move |seq| {
+				let mut data = kp.to_le_bytes().to_vec();
+				data.extend_from_slice(&seq.to_le_bytes());
+				create_test_statement(&keypair, &[topic_a], None, data, u32::MAX, kp * 1000 + seq)
+			})
+		})
+		.collect();
+
+	let elapsed = SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.expect("Time went backwards")
+		.as_secs() as u32 -
+		now_secs;
+	let wait_until_overlap = (ephemeral_ttl as u64)
+		.saturating_sub(elapsed as u64)
+		.saturating_sub(pre_expiry_lead);
+	info!("Waiting {}s before opening overlap window", wait_until_overlap);
+	tokio::time::sleep(Duration::from_secs(wait_until_overlap)).await;
+
+	// Submit persistents at uniform intervals across the overlap window
+	let interval_ms = (overlap_window * 1000) / persistent_stmts.len() as u64;
+	let mut handles = Vec::new();
+	for (i, stmt) in persistent_stmts.iter().cloned().enumerate() {
+		let rpc = Arc::clone(&alice_rpc_arc);
+		let delay = Duration::from_millis(interval_ms * i as u64);
+		handles.push(tokio::spawn(async move {
+			tokio::time::sleep(delay).await;
+			let result = submit_statement(&rpc, &stmt).await?;
+			assert_eq!(result, SubmitResult::New);
+			Ok::<_, anyhow::Error>(())
+		}));
+	}
+	for handle in handles {
+		handle.await??;
+	}
+
+	// Fresh subscription must see exactly the 500 persistent statements
+	let persistent_encoded: Vec<Vec<u8>> = persistent_stmts.iter().map(|s| s.encode()).collect();
+	let mut verify_sub = subscribe_topic(&alice_rpc, topic_a).await?;
+	assert_statements_match(&mut verify_sub, &persistent_encoded, 120, "alice").await?;
+	assert_no_more_statements(&mut verify_sub, 10).await?;
 
 	Ok(())
 }

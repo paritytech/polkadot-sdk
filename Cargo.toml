@@ -473,6 +473,7 @@ members = [
 	"substrate/frame/transaction-payment",
 	"substrate/frame/transaction-payment/asset-conversion-tx-payment",
 	"substrate/frame/transaction-payment/asset-tx-payment",
+	"substrate/frame/transaction-payment/pgas-allowance",
 	"substrate/frame/transaction-payment/rpc",
 	"substrate/frame/transaction-payment/rpc/runtime-api",
 	"substrate/frame/transaction-payment/skip-feeless-payment",
@@ -676,7 +677,7 @@ ark-scale = { version = "0.0.13", default-features = false }
 ark-std = { version = "0.5.0", default-features = false }
 ark-vesta = { version = "0.5.0", default-features = false }
 ark-vesta-ext = { version = "0.5.2", default-features = false }
-ark-vrf = { version = "0.2.2", default-features = false }
+ark-vrf = { version = "0.5.0", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -929,7 +930,7 @@ milagro-bls = { version = "1.5.4", default-features = false, package = "snowbrid
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
+mmr-lib = { version = "0.8.2", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
@@ -1037,6 +1038,7 @@ pallet-paged-list = { path = "substrate/frame/paged-list", default-features = fa
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
+pallet-pgas-allowance = { path = "substrate/frame/transaction-payment/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }
