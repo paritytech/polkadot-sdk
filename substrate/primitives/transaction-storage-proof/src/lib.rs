@@ -51,7 +51,6 @@ pub type CidCodec = u64;
 
 /// Hashing algorithm used to compute a [`ContentHash`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
-#[non_exhaustive]
 pub enum HashingAlgorithm {
 	/// BLAKE2b-256.
 	Blake2b256,
