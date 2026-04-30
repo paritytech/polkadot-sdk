@@ -29,6 +29,7 @@ use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedSender};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
 use std::{
+	collections::HashSet,
 	pin::Pin,
 	sync::{
 		atomic::{AtomicBool, AtomicUsize, Ordering},
@@ -56,6 +57,9 @@ pub enum ToServiceCommand<B: BlockT> {
 	NumSyncRequests(oneshot::Sender<usize>),
 	PeersInfo(oneshot::Sender<Vec<(PeerId, ExtendedPeerInfo<B>)>>),
 	OnBlockFinalized(B::Hash, B::Header),
+	/// Replace the runtime-managed no-slot peer set. Same semantics as
+	/// `--reserved-nodes` but updateable at runtime.
+	SetNoSlotPeers(HashSet<PeerId>),
 	// Status {
 	// 	pending_response: oneshot::Sender<SyncStatus<B>>,
 	// },
@@ -123,6 +127,13 @@ impl<B: BlockT> SyncingService<B> {
 	/// Notify the `SyncingEngine` that a block has been finalized.
 	pub fn on_block_finalized(&self, hash: B::Hash, header: B::Header) {
 		let _ = self.tx.unbounded_send(ToServiceCommand::OnBlockFinalized(hash, header));
+	}
+
+	/// Replace the dynamic no-slot peer set. Peers bypass `--in-peers` accounting;
+	/// call this alongside [`NetworkService::set_reserved_peers`] to keep reserved
+	/// peers off the inbound slot budget.
+	pub fn set_no_slot_peers(&self, peers: HashSet<PeerId>) {
+		let _ = self.tx.unbounded_send(ToServiceCommand::SetNoSlotPeers(peers));
 	}
 
 	/// Get sync status

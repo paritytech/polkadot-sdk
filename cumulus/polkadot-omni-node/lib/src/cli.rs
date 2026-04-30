@@ -266,7 +266,7 @@ pub struct Cli<Config: CliConfig> {
 	///
 	/// When set, a parachain-side authority-discovery worker is started and a background task
 	/// keeps the block-announce protocol's reserved-peer set populated with up to this many
-	/// other parachain authorities, read from the parachain's aura session keys.
+	/// other parachain authorities.
 	#[arg(long, value_name = "N")]
 	pub collator_reserved_slots: Option<usize>,
 

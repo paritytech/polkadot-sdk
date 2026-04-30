@@ -24,12 +24,14 @@ pallet-authorship = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-glutton = { workspace = true }
 pallet-message-queue = { workspace = true }
+pallet-authority-discovery = { workspace = true }
 pallet-session = { workspace = true }
 pallet-sudo = { workspace = true }
 pallet-timestamp = { workspace = true }
 pallet-transaction-payment = { workspace = true }
 pallet-utility = { workspace = true }
 sp-api = { workspace = true }
+sp-authority-discovery = { workspace = true }
 sp-block-builder = { workspace = true }
 sp-consensus-aura = { workspace = true }
 sp-core = { workspace = true }
@@ -77,6 +79,7 @@ std = [
 	"pallet-balances/std",
 	"pallet-glutton/std",
 	"pallet-message-queue/std",
+	"pallet-authority-discovery/std",
 	"pallet-session/std",
 	"pallet-sudo/std",
 	"pallet-timestamp/std",
@@ -87,6 +90,7 @@ std = [
 	"scale-info/std",
 	"serde_json/std",
 	"sp-api/std",
+	"sp-authority-discovery/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
 	"sp-core/std",
@@ -121,3 +125,6 @@ async-backing = []
 elastic-scaling-12s-slot = []
 # A runtime with 18s slot duration with increased spec version for runtime upgrade testing.
 slot-duration-18s = ["increment-spec-version"]
+# A runtime variant that enables pallet_session + pallet_authority_discovery and bumps
+# spec_version so that a set_code upgrade from the default runtime triggers migrations.
+with-authority-discovery = []

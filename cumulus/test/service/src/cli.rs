@@ -54,6 +54,14 @@ pub struct TestCollatorCli {
 	/// Authoring style to use.
 	#[arg(long, default_value_t = AuthoringPolicy::Lookahead)]
 	pub authoring: AuthoringPolicy,
+
+	/// Enable the collator reserved-peer mesh and set the upper bound on reserved slots.
+	///
+	/// When set, a parachain-side authority-discovery worker is started and a background task
+	/// keeps the block-announce protocol's reserved-peer set populated with up to this many
+	/// other parachain authorities, read from the parachain's aura session keys.
+	#[arg(long, value_name = "N")]
+	pub collator_reserved_slots: Option<usize>,
 }
 
 /// Collator implementation to use.
@@ -327,6 +335,16 @@ impl SubstrateCli for TestCollatorCli {
 			"relay-parent-offset" => Box::new(
 				cumulus_test_service::get_relay_parent_offset_chain_spec(Some(ParaId::from(2600))),
 			) as Box<_>,
+			"default-test" => {
+				tracing::info!("Using default test chain spec (no authority-discovery).");
+				Box::new(cumulus_test_service::get_chain_spec(Some(ParaId::from(1000)))) as Box<_>
+			},
+			"with-authority-discovery" => {
+				tracing::info!("Using with-authority-discovery chain spec.");
+				Box::new(cumulus_test_service::get_with_authority_discovery_chain_spec(Some(
+					ParaId::from(1000),
+				))) as Box<_>
+			},
 			path => {
 				let chain_spec: sc_chain_spec::GenericChainSpec =
 					sc_chain_spec::GenericChainSpec::from_json_file(path.into())?;

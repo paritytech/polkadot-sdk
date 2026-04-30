@@ -15,8 +15,7 @@
 // along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{
-	AccountId, AuraConfig, AuraId, BalancesConfig, ParachainInfoConfig, RuntimeGenesisConfig,
-	SudoConfig,
+	AccountId, AuraId, BalancesConfig, ParachainInfoConfig, RuntimeGenesisConfig, SudoConfig,
 };
 use alloc::{vec, vec::Vec};
 
@@ -25,6 +24,20 @@ use frame_support::build_struct_json_patch;
 use sp_genesis_builder::PresetId;
 use sp_keyring::Sr25519Keyring;
 
+#[cfg(not(feature = "with-authority-discovery"))]
+use super::AuraConfig;
+#[cfg(feature = "with-authority-discovery")]
+use super::SessionConfig;
+
+// ---------------------------------------------------------------------------
+// Default (no pallet_session / no authority-discovery) genesis preset
+// ---------------------------------------------------------------------------
+
+/// Build the genesis config seeding `pallet_aura::authorities` directly.
+///
+/// This is the pre-upgrade path: no `pallet_session`, no `pallet_authority_discovery`.
+/// Authority discovery keys are absent until a runtime upgrade installs them.
+#[cfg(not(feature = "with-authority-discovery"))]
 fn cumulus_test_runtime(
 	invulnerables: Vec<AuraId>,
 	endowed_accounts: Vec<AccountId>,
@@ -39,6 +52,56 @@ fn cumulus_test_runtime(
 		aura: AuraConfig { authorities: invulnerables },
 	})
 }
+
+// ---------------------------------------------------------------------------
+// with-authority-discovery genesis preset
+// ---------------------------------------------------------------------------
+
+/// Build the genesis config seeding `pallet_session::keys` for the given invulnerables.
+///
+/// Session initialises Aura and AuthorityDiscovery from those keys, so each collator's AD
+/// key is its well-known sr25519 key.  `aura::authorities` is NOT seeded directly —
+/// Session populates it via `on_genesis_session`.
+///
+/// Both `aura` and `authority_discovery` share the same sr25519 bytes as the account key.
+#[cfg(feature = "with-authority-discovery")]
+fn cumulus_test_runtime(
+	invulnerables: Vec<AuraId>,
+	endowed_accounts: Vec<AccountId>,
+	id: ParaId,
+) -> serde_json::Value {
+	use super::SessionKeys;
+	use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+
+	let session_keys: Vec<(AccountId, AccountId, SessionKeys)> = invulnerables
+		.iter()
+		.map(|aura| {
+			// AuraId wraps sr25519::Public; convert to the inner type first.
+			let inner: sp_core::sr25519::Public = aura.clone().into();
+			let raw: [u8; 32] = inner.0;
+			let account: AccountId = AccountId::from(raw);
+			let aura_key: AuraId = aura.clone();
+			let ad_key: AuthorityDiscoveryId = inner.into();
+			(account.clone(), account, SessionKeys { aura: aura_key, authority_discovery: ad_key })
+		})
+		.collect();
+
+	build_struct_json_patch!(RuntimeGenesisConfig {
+		balances: BalancesConfig {
+			balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
+		},
+		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
+		parachain_info: ParachainInfoConfig { parachain_id: id },
+		session: SessionConfig {
+			keys: session_keys,
+			non_authority_keys: vec![],
+		},
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
 fn testnet_genesis_with_default_endowed(self_para_id: ParaId) -> serde_json::Value {
 	let endowed = Sr25519Keyring::well_known().map(|x| x.to_account_id()).collect::<Vec<_>>();
@@ -60,9 +123,8 @@ pub fn preset_names() -> Vec<PresetId> {
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET |
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
-			testnet_genesis_with_default_endowed(100.into())
-		},
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
+			testnet_genesis_with_default_endowed(100.into()),
 		_ => return None,
 	};
 	Some(

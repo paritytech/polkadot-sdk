@@ -444,11 +444,12 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 					cumulus_client_collator_mesh::StartCollatorMeshParams {
 						config: cumulus_client_collator_mesh::CollatorMeshConfig {
 							max_reserved,
-							block_announce_protocol,
+							protocol: block_announce_protocol,
 						},
 						client: client.clone(),
 						authority_discovery: client.clone(),
 						network: network.clone(),
+						sync_service: sync_service.clone(),
 						dht_event_stream: Box::pin(dht_event_stream),
 						keystore: params.keystore_container.keystore(),
 						prometheus_registry: prometheus_registry.clone(),

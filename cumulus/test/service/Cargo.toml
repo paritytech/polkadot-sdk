@@ -13,8 +13,10 @@ name = "test-parachain"
 path = "src/main.rs"
 
 [dependencies]
+array-bytes = { workspace = true }
 async-trait = { workspace = true }
 clap = { features = ["derive"], workspace = true }
+futures = { workspace = true }
 codec = { workspace = true, default-features = true }
 criterion = { features = ["async_tokio"], workspace = true, default-features = true }
 jsonrpsee = { features = ["server"], workspace = true }
@@ -72,6 +74,7 @@ polkadot-test-service = { workspace = true }
 # Cumulus
 cumulus-client-cli = { workspace = true, default-features = true }
 cumulus-client-collator = { workspace = true, default-features = true }
+cumulus-client-collator-mesh = { workspace = true, default-features = true }
 cumulus-client-consensus-aura = { workspace = true, default-features = true }
 cumulus-client-consensus-common = { workspace = true, default-features = true }
 cumulus-client-parachain-inherent = { workspace = true, default-features = true }
@@ -89,7 +92,6 @@ pallet-timestamp = { workspace = true, default-features = true }
 
 [dev-dependencies]
 cumulus-test-client = { workspace = true }
-futures = { workspace = true }
 
 [features]
 runtime-benchmarks = [

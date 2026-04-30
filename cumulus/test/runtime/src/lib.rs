@@ -71,6 +71,11 @@ pub mod slot_duration_18s {
 	include!(concat!(env!("OUT_DIR"), "/wasm_binary_slot_duration_18s.rs"));
 }
 
+pub mod with_authority_discovery {
+	#[cfg(feature = "std")]
+	include!(concat!(env!("OUT_DIR"), "/wasm_binary_with_authority_discovery.rs"));
+}
+
 mod genesis_config_presets;
 pub mod test_pallet;
 
@@ -80,6 +85,7 @@ use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+pub use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
@@ -125,9 +131,18 @@ pub use test_pallet::{Call as TestPalletCall, TestTransactionExtension};
 
 pub type SessionHandlers = ();
 
+#[cfg(not(feature = "with-authority-discovery"))]
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
+	}
+}
+
+#[cfg(feature = "with-authority-discovery")]
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub aura: Aura,
+		pub authority_discovery: AuthorityDiscovery,
 	}
 }
 
@@ -202,7 +217,21 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 // details. Since macro kicks in early, it operates on AST. Thus you cannot use constants.
 // Macros are expanded top to bottom, meaning we also cannot use `cfg` here.
 
-#[cfg(all(not(feature = "increment-spec-version"), not(feature = "elastic-scaling")))]
+// The only difference between the declarations below is `spec_version`. Three
+// compile-time variants exist; each is active under exactly one feature combination:
+//
+//   default (no increment-spec-version, no elastic-scaling, no with-authority-discovery)
+//     → spec_version 2
+//   increment-spec-version or elastic-scaling (but NOT with-authority-discovery)
+//     → spec_version 3
+//   with-authority-discovery
+//     → spec_version 4  (must be > 2 so a set_code upgrade from default triggers migrations)
+
+#[cfg(all(
+	not(feature = "increment-spec-version"),
+	not(feature = "elastic-scaling"),
+	not(feature = "with-authority-discovery"),
+))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -216,7 +245,10 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	system_version: 3,
 };
 
-#[cfg(any(feature = "increment-spec-version", feature = "elastic-scaling"))]
+#[cfg(all(
+	any(feature = "increment-spec-version", feature = "elastic-scaling"),
+	not(feature = "with-authority-discovery"),
+))]
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
@@ -224,6 +256,20 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	authoring_version: 1,
 	// Read the note above.
 	spec_version: 3,
+	impl_version: 1,
+	apis: RUNTIME_API_VERSIONS,
+	transaction_version: 1,
+	system_version: 3,
+};
+
+#[cfg(feature = "with-authority-discovery")]
+#[sp_version::runtime_version]
+pub const VERSION: RuntimeVersion = RuntimeVersion {
+	spec_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	impl_name: alloc::borrow::Cow::Borrowed("cumulus-test-parachain"),
+	authoring_version: 1,
+	// Read the note above.
+	spec_version: 4,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
@@ -438,6 +484,31 @@ impl pallet_aura::Config for Runtime {
 
 impl test_pallet::Config for Runtime {}
 
+parameter_types! {
+	pub const Period: u32 = 10;
+}
+
+#[cfg(feature = "with-authority-discovery")]
+impl pallet_session::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = sp_runtime::traits::ConvertInto;
+	type ShouldEndSession = pallet_session::PeriodicSessions<Period, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+	type SessionManager = ();
+	type SessionHandler = <SessionKeys as sp_runtime::traits::OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
+	type DisablingStrategy = ();
+	type WeightInfo = ();
+	type Currency = Balances;
+	type KeyDeposit = ();
+}
+
+#[cfg(feature = "with-authority-discovery")]
+impl pallet_authority_discovery::Config for Runtime {
+	type MaxAuthorities = ConstU32<32>;
+}
+
 construct_runtime! {
 	pub enum Runtime
 	{
@@ -452,6 +523,12 @@ construct_runtime! {
 		TestPallet: test_pallet,
 		Glutton: pallet_glutton,
 		Aura: pallet_aura,
+		// Session must come BEFORE AuraExt so its on_genesis_session populates
+		// pallet_aura::Authorities before AuraExt's genesis_build snapshots it.
+		#[cfg(feature = "with-authority-discovery")]
+		Session: pallet_session,
+		#[cfg(feature = "with-authority-discovery")]
+		AuthorityDiscovery: pallet_authority_discovery,
 		AuraExt: cumulus_pallet_aura_ext,
 		WeightReclaim: cumulus_pallet_weight_reclaim,
 	}
@@ -506,6 +583,12 @@ pub type TxExtension = cumulus_pallet_parachain_system::block_weight::DynamicMax
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic =
 	generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
+/// Migrations applied on runtime upgrade.
+#[cfg(feature = "with-authority-discovery")]
+pub type Migrations = (migrations::EnableAuthorityDiscovery,);
+#[cfg(not(feature = "with-authority-discovery"))]
+pub type Migrations = ();
+
 /// Executive: handles dispatch to the various modules.
 pub type Executive = frame_executive::Executive<
 	Runtime,
@@ -513,6 +596,7 @@ pub type Executive = frame_executive::Executive<
 	frame_system::ChainContext<Runtime>,
 	Runtime,
 	AllPalletsWithSystem,
+	Migrations,
 >;
 
 /// The payload being signed in transactions.
@@ -541,6 +625,104 @@ pub type SingleBlockMigrations = (
 	// Verify that runtime upgrade hooks are working correctly.
 	VerifyRuntimeUpgrade,
 );
+
+/// One-shot migration that seeds `pallet_session` from `pallet_aura::Authorities` when a
+/// default (no-AD) chain upgrades to the `with-authority-discovery` variant.
+///
+/// Idempotent: only runs when `pallet_session::Validators` is empty, which is the case
+/// on a chain that never had `pallet_session` in its runtime.
+#[cfg(feature = "with-authority-discovery")]
+pub mod migrations {
+	use super::*;
+	use sp_core::crypto::KeyTypeId;
+
+	/// Key-type id for `pallet_authority_discovery` (ASCII "audi").
+	const AUTHORITY_DISCOVERY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"audi");
+	/// Key-type id for `pallet_aura` (ASCII "aura").
+	const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
+
+	pub struct EnableAuthorityDiscovery;
+
+	impl OnRuntimeUpgrade for EnableAuthorityDiscovery {
+		fn on_runtime_upgrade() -> Weight {
+			let db: frame_support::weights::RuntimeDbWeight =
+				<Runtime as frame_system::Config>::DbWeight::get();
+
+			// Idempotent guard: skip if Validators is already populated.
+			if !pallet_session::Validators::<Runtime>::get().is_empty() {
+				return db.reads(1);
+			}
+
+			let aura_authorities = pallet_aura::Authorities::<Runtime>::get();
+			let n = aura_authorities.len() as u64;
+
+			let mut validators: Vec<AccountId> = Vec::with_capacity(aura_authorities.len());
+			let mut queued_keys: Vec<(AccountId, SessionKeys)> =
+				Vec::with_capacity(aura_authorities.len());
+
+			for aura_pub in aura_authorities.iter() {
+				// `AuraId` is app-crypto over `sr25519::Public`; `.into()` gives the inner.
+				let inner: sp_core::sr25519::Public = aura_pub.clone().into();
+				let raw: [u8; 32] = inner.0;
+				let account: AccountId = sp_core::sr25519::Public::from_raw(raw).into();
+				let aura_key = AuraId::from(sp_core::sr25519::Public::from_raw(raw));
+				let audi_key = AuthorityDiscoveryId::from(
+					sp_core::sr25519::Public::from_raw(raw),
+				);
+				let session_keys = SessionKeys { aura: aura_key, authority_discovery: audi_key };
+
+				// Populate NextKeys and KeyOwner (mirrors pallet_session genesis logic).
+				pallet_session::NextKeys::<Runtime>::insert(&account, &session_keys);
+				// KeyOwner maps (KeyTypeId, key_bytes: Vec<u8>) → ValidatorId.
+				// We use <[u8]>::to_vec() to get an owned Vec<u8> that EncodeLike<Vec<u8>>.
+				let aura_bytes: alloc::vec::Vec<u8> =
+					<AuraId as sp_runtime::RuntimeAppPublic>::to_raw_vec(&session_keys.aura);
+				let audi_bytes: alloc::vec::Vec<u8> =
+					<AuthorityDiscoveryId as sp_runtime::RuntimeAppPublic>::to_raw_vec(
+						&session_keys.authority_discovery,
+					);
+				pallet_session::KeyOwner::<Runtime>::insert(
+					(AURA_KEY_TYPE, aura_bytes),
+					&account,
+				);
+				pallet_session::KeyOwner::<Runtime>::insert(
+					(AUTHORITY_DISCOVERY_KEY_TYPE, audi_bytes),
+					&account,
+				);
+
+				validators.push(account.clone());
+				queued_keys.push((account, session_keys));
+			}
+
+			// Write Validators and QueuedKeys so the session pallet has a coherent state.
+			pallet_session::Validators::<Runtime>::put(&validators);
+			pallet_session::QueuedKeys::<Runtime>::put(&queued_keys);
+
+			// Populate pallet_authority_discovery::Keys directly. Normally session pallet's
+			// genesis_build calls SessionHandler::on_genesis_session which would populate
+			// this — but we're injecting state mid-chain, not at genesis, so we have to
+			// seed it ourselves. Without this, AD.Keys stays empty until the next session
+			// rotation actually fires (which depends on pallet_session being fully
+			// initialised first).
+			let ad_authorities: Vec<AuthorityDiscoveryId> = aura_authorities
+				.iter()
+				.map(|aura_pub| {
+					let inner: sp_core::sr25519::Public = aura_pub.clone().into();
+					AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(inner.0))
+				})
+				.collect();
+			if let Ok(bounded) = frame_support::WeakBoundedVec::try_from(ad_authorities) {
+				pallet_authority_discovery::Keys::<Runtime>::put(bounded);
+			}
+
+			// Reads: 1 (Validators empty check) + 1 (aura authorities).
+			// Writes per validator: NextKeys + 2×KeyOwner = 3.
+			// Plus Validators write + QueuedKeys write = 2.
+			let writes = n.saturating_mul(3).saturating_add(2);
+			db.reads(2).saturating_add(db.writes(writes))
+		}
+	}
+}
 
 decl_runtime_apis! {
 	pub trait GetLastTimestamp {
@@ -708,6 +890,15 @@ impl_runtime_apis! {
 					RelayStorageKey::Top(test_pallet::relay_alice_account_key()),
 				],
 			}
+		}
+	}
+
+	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
+		fn authorities() -> Vec<AuthorityDiscoveryId> {
+			#[cfg(feature = "with-authority-discovery")]
+			{ AuthorityDiscovery::authorities() }
+			#[cfg(not(feature = "with-authority-discovery"))]
+			{ Vec::new() }
 		}
 	}
 }

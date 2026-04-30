@@ -40,7 +40,6 @@ pallet-assets = { workspace = true }
 pallet-assets-freezer = { workspace = true }
 pallet-assets-precompiles = { workspace = true }
 pallet-aura = { workspace = true }
-pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
 pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
@@ -272,7 +271,6 @@ try-runtime = [
 	"pallet-assets-precompiles/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-aura/try-runtime",
-	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
 	"pallet-bags-list/try-runtime",
 	"pallet-balances/try-runtime",
@@ -362,7 +360,6 @@ std = [
 	"pallet-assets-precompiles/std",
 	"pallet-assets/std",
 	"pallet-aura/std",
-	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
 	"pallet-bags-list/std",
 	"pallet-balances/std",

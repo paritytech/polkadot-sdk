@@ -154,7 +154,6 @@ const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 impl_opaque_keys! {
 	pub struct SessionKeys {
 		pub aura: Aura,
-		pub authority_discovery: AuthorityDiscovery,
 	}
 }
 
@@ -1086,11 +1085,6 @@ impl pallet_aura::Config for Runtime {
 	type SlotDuration = ConstU64<SLOT_DURATION>;
 }
 
-impl pallet_authority_discovery::Config for Runtime {
-	// Sized to the effective collator-selection bound (MaxCandidates + MaxInvulnerables).
-	type MaxAuthorities = ConstU32<200>;
-}
-
 parameter_types! {
 	pub const PotId: PalletId = PalletId(*b"PotStake");
 	pub const SessionLength: BlockNumber = 6 * HOURS;
@@ -1629,7 +1623,6 @@ construct_runtime!(
 		Session: pallet_session = 22,
 		Aura: pallet_aura = 23,
 		AuraExt: cumulus_pallet_aura_ext = 24,
-		AuthorityDiscovery: pallet_authority_discovery = 25,
 
 		// XCM helpers.
 		XcmpQueue: cumulus_pallet_xcmp_queue = 30,
@@ -1850,16 +1843,11 @@ pub type Migrations = (
 	// that were approved under v1 (no per-asset decimals). One-shot; only runs
 	// when the on-chain pallet storage version is 1, then bumps it to 2.
 	pallet_psm::migrations::decimals::PopulateDecimals<Runtime>,
-	// PSM: initialize first external asset (USDT) with fees and ceiling weight.
-	// Idempotent — skips assets that are already configured.
-	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
-	pallet_dap::migrations::MigrateV1ToV2<Runtime, DapLastIssuanceTimestamp, DefaultDapBudget>,
-	// unreleased
-	// Extend SessionKeys with an `authority_discovery` slot. Seeds the new key from the
-	// existing aura bytes so session rotation survives the upgrade; collators are expected
-	// to rotate the audi key independently via `session.setKeys` afterwards.
-	migrations::authority_discovery_session_key::MigrateToSessionKeysWithAuthorityDiscovery<
+	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
+		DapLastIssuanceTimestamp,
+		DefaultDapBudget,
+		staking::MaxEraDuration,
 	>,
 );
 
@@ -2120,12 +2108,6 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn authorities() -> Vec<AuraId> {
 			pallet_aura::Authorities::<Runtime>::get().into_inner()
-		}
-	}
-
-	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
-		fn authorities() -> Vec<sp_authority_discovery::AuthorityId> {
-			pallet_authority_discovery::Pallet::<Runtime>::authorities()
 		}
 	}
 

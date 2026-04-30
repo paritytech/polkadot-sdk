@@ -3,6 +3,7 @@
 
 mod block_bundling;
 mod bootnodes;
+mod collator_mesh;
 mod elastic_scaling;
 mod full_node_catching_up;
 mod full_node_warp_sync;

@@ -234,6 +234,10 @@ pub struct SyncingEngine<B: BlockT, Client> {
 	/// Number of inbound peers accepted so far.
 	num_in_peers: usize,
 
+	/// Runtime-managed no-slot peer set (see [`SyncingService::set_no_slot_peers`]).
+	/// Treated identically to `default_peers_set_no_slot_peers` for inbound slot accounting.
+	dynamic_no_slot_peers: HashSet<PeerId>,
+
 	/// Async processor of block announce validations.
 	block_announce_validator: BlockAnnounceValidatorStream<B>,
 
@@ -389,6 +393,7 @@ where
 				default_peers_set_num_light,
 				num_in_peers: 0usize,
 				max_in_peers,
+				dynamic_no_slot_peers: HashSet::new(),
 				event_streams: Vec::new(),
 				notification_service,
 				tick_timeout,
@@ -736,6 +741,15 @@ where
 					self.peers.iter().map(|(peer_id, peer)| (*peer_id, peer.info)).collect();
 				let _ = tx.send(peers_info);
 			},
+			ToServiceCommand::SetNoSlotPeers(peers) => {
+				log::debug!(
+					target: LOG_TARGET,
+					"Dynamic no-slot peer set updated: {} peers: {:?}",
+					peers.len(),
+					peers,
+				);
+				self.dynamic_no_slot_peers = peers;
+			},
 			ToServiceCommand::OnBlockFinalized(hash, header) => {
 				self.strategy.on_block_finalized(&hash, *header.number())
 			},
@@ -918,8 +932,16 @@ where
 			return Err(false);
 		}
 
-		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id);
+		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id) ||
+			self.dynamic_no_slot_peers.contains(&peer_id);
 		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
+
+		log::trace!(
+			target: LOG_TARGET,
+			"validate_connection peer={peer_id} direction={direction:?} no_slot={no_slot_peer} dynamic_size={} default_size={}",
+			self.dynamic_no_slot_peers.len(),
+			self.default_peers_set_no_slot_peers.len(),
+		);
 
 		if handshake.roles.is_full() &&
 			self.strategy.num_peers() >=
@@ -927,7 +949,14 @@ where
 					self.default_peers_set_no_slot_connected_peers.len() +
 					this_peer_reserved_slot
 		{
-			log::debug!(target: LOG_TARGET, "Too many full nodes, rejecting {peer_id}");
+			log::debug!(
+				target: LOG_TARGET,
+				"Too many full nodes, rejecting {peer_id} (no_slot_peer={no_slot_peer}, num_peers={}, full_cap={}, no_slot_connected={}, this_reserved={})",
+				self.strategy.num_peers(),
+				self.default_peers_set_num_full,
+				self.default_peers_set_no_slot_connected_peers.len(),
+				this_peer_reserved_slot,
+			);
 			return Err(false);
 		}
 
@@ -937,7 +966,12 @@ where
 			direction.is_inbound() &&
 			self.num_in_peers == self.max_in_peers
 		{
-			log::debug!(target: LOG_TARGET, "All inbound slots have been consumed, rejecting {peer_id}");
+			log::debug!(
+				target: LOG_TARGET,
+				"All inbound slots have been consumed, rejecting {peer_id} (no_slot_peer={no_slot_peer}, num_in_peers={}, max_in_peers={})",
+				self.num_in_peers,
+				self.max_in_peers,
+			);
 			return Err(false);
 		}
 
@@ -995,7 +1029,9 @@ where
 		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
-		if self.default_peers_set_no_slot_peers.contains(&peer_id) {
+		if self.default_peers_set_no_slot_peers.contains(&peer_id) ||
+			self.dynamic_no_slot_peers.contains(&peer_id)
+		{
 			self.default_peers_set_no_slot_connected_peers.insert(peer_id);
 		} else if direction.is_inbound() && status.roles.is_full() {
 			self.num_in_peers += 1;
