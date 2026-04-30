@@ -3992,46 +3992,80 @@ async fn fork_assignments_are_union_of_leaves() {
 // Fork test (2): different-length forks — the longest visible window from a common SP
 // determines capacity.
 //
-// Diverges from the default topology: block 9 itself is a leaf alongside fork_a. From sp=9,
-// the leaf-is-self path has offset 0 (full lookahead window), the path through fork_a has
-// offset 1 (window one shorter). Capacity at sp=9 must reflect the longer window.
+// Two sibling forks branch at block 9. fork_a is a one-block leaf at block 10. fork_b
+// extends two blocks: fork_b_10 (block 10) → fork_b_11 (block 11, leaf). From sp=9, path
+// via fork_a has offset 1 (window 2); path via fork_b_11 has offset 2 (window 1). Both
+// paths are real (each ends at an actual leaf with no descendants). Capacity at sp=9 must
+// reflect the longer window.
 //
-//   block 9  (leaf, also itself the SP)  ─────────►  fork_a  (block 10, leaf)
+//                    ┌──► fork_a (block 10, leaf)
+//   block 9 (sp) ────┤
+//                    └──► fork_b_10 (block 10) ──► fork_b_11 (block 11, leaf)
 //
-//      offset 0: 3-slot window                          offset 1: 2-slot window
-//      ── this one wins for capacity ──
+//                offset 1: 2-slot window         offset 2: 1-slot window
+//                ── this one wins for capacity ──
 #[tokio::test]
 async fn fork_capacity_uses_longest_window_across_paths() {
 	let mut test_state = TestState::default();
-	// fork_a at block 10 with all-100 CQ.
-	let (fork_a, _fork_b) = setup_fork(
-		&mut test_state,
-		vec![100.into(), 100.into(), 100.into()],
-		vec![100.into(), 100.into(), 100.into()],
-	);
-	// Make sp=9 schedule three 100s for our core too.
 	let core = test_state.rp_info[&get_hash(9)].assigned_core;
-	test_state
-		.rp_info
-		.get_mut(&get_hash(9))
-		.unwrap()
-		.claim_queue
-		.insert(core, vec![100.into(), 100.into(), 100.into()]);
+	let session = test_state.rp_info[&get_hash(9)].session_index;
+	let common_cq = test_state.rp_info[&get_hash(9)].claim_queue.clone();
+
+	// Build a CQ with three 100s for our core, used by both forks.
+	let make_cq = |entry: ParaId| {
+		let mut cq = common_cq.clone();
+		cq.insert(core, vec![entry, entry, entry]);
+		cq
+	};
+
+	let fork_a = Hash::from_low_u64_be(0xa10);
+	let fork_b_10 = Hash::from_low_u64_be(0xb10);
+	let fork_b_11 = Hash::from_low_u64_be(0xb11);
+
+	test_state.rp_info.insert(
+		fork_a,
+		RelayParentInfo {
+			number: 10,
+			parent: get_hash(9),
+			session_index: session,
+			claim_queue: make_cq(100.into()),
+			assigned_core: core,
+		},
+	);
+	test_state.rp_info.insert(
+		fork_b_10,
+		RelayParentInfo {
+			number: 10,
+			parent: get_hash(9),
+			session_index: session,
+			claim_queue: make_cq(100.into()),
+			assigned_core: core,
+		},
+	);
+	test_state.rp_info.insert(
+		fork_b_11,
+		RelayParentInfo {
+			number: 11,
+			parent: fork_b_10,
+			session_index: session,
+			claim_queue: make_cq(100.into()),
+			assigned_core: core,
+		},
+	);
 
 	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
 	let mut sender = test_state.sender.clone();
-	// Both sp=9 (as a leaf) and fork_a are active. From sp=9, the leaf=sp=9 path gives a
-	// full 3-slot window; the leaf=fork_a path gives 2 (offset 1). The longer wins.
-	test_state.activate_leaves(&mut state, vec![get_hash(9), fork_a]).await;
+	// Activate fork_a (length 1 from sp=9) and fork_b_11 (length 2 from sp=9).
+	test_state.activate_leaves(&mut state, vec![fork_a, fork_b_11]).await;
 
-	// 3 peers, advertise 3 distinct candidates of para 100 at sp=9. All three should fit
-	// (long window) — if we used the shorter window we'd cap at 2.
-	let peers: Vec<_> = (0..3).map(peer_id).collect();
+	// 2 peers, advertise 2 distinct candidates of para 100 at sp=9. Both should fit
+	// (window 2 via fork_a) — if we used the shorter window (1 via fork_b_11) we'd cap
+	// at 1.
+	let peers: Vec<_> = (0..2).map(peer_id).collect();
 	for &p in &peers {
 		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
 		state.handle_declare(&mut sender, p, 100.into()).await;
 	}
-	let mut advs = Vec::new();
 	for (i, &p) in peers.iter().enumerate() {
 		let (_, adv) = dummy_candidate(
 			get_hash(9),
@@ -4042,14 +4076,13 @@ async fn fork_capacity_uses_longest_window_across_paths() {
 			Hash::from_low_u64_be(i as u64 + 200),
 		);
 		test_state.handle_advertisement(&mut state, adv).await;
-		advs.push(adv);
 	}
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	let msg = test_state.timeout_recv().await;
 	assert_matches::assert_matches!(
 		msg,
 		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
-			assert_eq!(reqs.len(), 3);
+			assert_eq!(reqs.len(), 2);
 		}
 	);
 }
