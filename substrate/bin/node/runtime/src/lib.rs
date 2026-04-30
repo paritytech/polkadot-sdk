@@ -1977,6 +1977,7 @@ parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const PoolSetupFee: Balance = 1 * DOLLARS; // should be more or equal to the existential deposit
 	pub const MintMinLiquidity: Balance = 100;  // 100 is good enough when the main currency has 10-12 decimals.
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
 }
@@ -2010,7 +2011,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = Native;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
-	type LPFee = ConstU32<3>; // means 0.3%
+	type LPFee = LpFee;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type WeightInfo = pallet_asset_conversion::weights::SubstrateWeight<Runtime>;
 	type MaxSwapPathLength = ConstU32<4>;
@@ -3115,7 +3116,7 @@ parameter_types! {
 		);
 }
 
-type PsmStableAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
+type PsmInternalAsset = ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 parameter_types! {
 	/// No debt ceiling: maximum possible issuance.
@@ -3146,6 +3147,9 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl pallet_psm::BenchmarkHelper<u32, AccountId> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> u32 {
+		asset_index
+	}
 	fn create_asset(asset_id: u32, owner: &AccountId, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
 		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
@@ -3174,7 +3178,7 @@ impl pallet_psm::Config for Runtime {
 	type MaximumIssuance = NoVaultsCeiling;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = pallet_psm::weights::SubstrateWeight<Runtime>;
-	type StableAsset = PsmStableAsset;
+	type InternalAsset = PsmInternalAsset;
 	type FeeDestination = PsmInsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;

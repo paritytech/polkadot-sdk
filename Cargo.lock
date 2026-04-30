@@ -1428,9 +1428,9 @@ dependencies = [
 
 [[package]]
 name = "ark-vrf"
-version = "0.2.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d815a2faa9e0fe6c342cc7f25f1f30016774cfbc966f56ea1967377a7ac2066"
+checksum = "f69f34cb5a7d5d4627792c7a6343508becc19deab59a87ef73367cc112dfd02c"
 dependencies = [
  "ark-bls12-381 0.5.0",
  "ark-ec 0.5.0",
@@ -1439,9 +1439,9 @@ dependencies = [
  "ark-serialize 0.5.0",
  "ark-std 0.5.0",
  "digest 0.10.7",
- "rand_chacha 0.3.1",
+ "generic-array 0.14.7",
  "sha2 0.10.9",
- "w3f-ring-proof 0.0.6",
+ "w3f-ring-proof 0.0.8",
  "zeroize",
 ]
 
@@ -1786,6 +1786,7 @@ dependencies = [
  "pallet-nomination-pools",
  "pallet-nomination-pools-runtime-api",
  "pallet-parameters",
+ "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
@@ -13975,6 +13976,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-pgas-allowance"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-assets",
+ "pallet-balances",
+ "pallet-transaction-payment",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-preimage"
 version = "28.0.0"
 dependencies = [
@@ -16075,9 +16093,9 @@ dependencies = [
 
 [[package]]
 name = "polkadot-ckb-merkle-mountain-range"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "221c71b432b38e494a0fdedb5f720e4cb974edf03a0af09e5b2238dbac7e6947"
+checksum = "f70a16374b7a26b74bfb4788254f8fd64c3406034e81694142cf93f1dd59368f"
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",
@@ -17440,6 +17458,7 @@ dependencies = [
  "pallet-paged-list",
  "pallet-parameters",
  "pallet-people",
+ "pallet-pgas-allowance",
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
@@ -19661,6 +19680,7 @@ dependencies = [
  "pallet-psm-remote-tests",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
+ "staging-xcm",
  "tokio",
 ]
 
@@ -23925,6 +23945,7 @@ dependencies = [
  "snowbridge-pallet-ethereum-client-fixtures",
  "snowbridge-pallet-inbound-queue-v2-fixtures",
  "snowbridge-test-utils",
+ "sp-api 26.0.0",
  "sp-core 28.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -24662,7 +24683,7 @@ dependencies = [
 name = "sp-core"
 version = "28.0.0"
 dependencies = [
- "ark-vrf 0.2.2",
+ "ark-vrf 0.5.0",
  "array-bytes 6.2.2",
  "bip39",
  "bitflags 1.3.2",
@@ -28927,9 +28948,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-plonk-common"
-version = "0.0.6"
+version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "077db25196f87773d7f0784c0ea5b11f18f38d336fa25c24bc67d7936af05d7a"
+checksum = "30408cda37b81bd7257319942584c794c5784d00d749757bc664656749a1472a"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -28960,9 +28981,9 @@ dependencies = [
 
 [[package]]
 name = "w3f-ring-proof"
-version = "0.0.6"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a3afac5d485a6eed7c1762be4b7b70a6f9b346bd6eebe485f48b7d909a6773f5"
+checksum = "0cbfc4cb881a934e6f33c25927bf955d0cb18e52b94528bbc5fa28dddedb4cd1"
 dependencies = [
  "ark-ec 0.5.0",
  "ark-ff 0.5.0",
@@ -28971,7 +28992,7 @@ dependencies = [
  "ark-std 0.5.0",
  "ark-transcript",
  "w3f-pcs 0.0.5",
- "w3f-plonk-common 0.0.6",
+ "w3f-plonk-common 0.0.7",
 ]
 
 [[package]]

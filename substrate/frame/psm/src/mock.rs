@@ -32,25 +32,25 @@ pub const CHARLIE: u64 = 3;
 pub const INSURANCE_FUND: u64 = 100;
 
 // Asset IDs
-pub const PUSD_ASSET_ID: u32 = 1;
+pub const INTERNAL_ASSET_ID: u32 = 1;
 pub const USDC_ASSET_ID: u32 = 2;
 pub const USDT_ASSET_ID: u32 = 3;
 pub const USDX_ASSET_ID: u32 = 10;
 pub const DAI_MOCK_ASSET_ID: u32 = 11;
 pub const UNSUPPORTED_ASSET_ID: u32 = 99;
 
-// pUSD unit (6 decimals)
-pub const PUSD_UNIT: u128 = 1_000_000;
-/// USDX has 2 decimals — fewer than pUSD.
+// internal unit (6 decimals)
+pub const INTERNAL_UNIT: u128 = 1_000_000;
+/// USDX has 2 decimals — fewer than internal.
 pub const USDX_UNIT: u128 = 100;
-/// DAI_MOCK has 18 decimals — more than pUSD.
+/// DAI_MOCK has 18 decimals — more than internal.
 pub const DAI_UNIT: u128 = 1_000_000_000_000_000_000;
 
 // Initial balances for testing
-pub const INITIAL_BALANCE: u128 = 1_000_000 * PUSD_UNIT; // 1M units
+pub const INITIAL_BALANCE: u128 = 1_000_000 * INTERNAL_UNIT; // 1M units
 
 parameter_types! {
-	pub static MockMaximumIssuance: u128 = 10_000_000 * PUSD_UNIT;
+	pub static MockMaximumIssuance: u128 = 10_000_000 * INTERNAL_UNIT;
 }
 
 pub fn set_mock_maximum_issuance(value: u128) {
@@ -112,9 +112,9 @@ impl pallet_assets::Config for Test {
 }
 
 parameter_types! {
-	pub const StablecoinAssetId: u32 = PUSD_ASSET_ID;
+	pub const InternalAssetId: u32 = INTERNAL_ASSET_ID;
 	pub const InsuranceFundAccount: u64 = INSURANCE_FUND;
-	pub const MinSwapAmount: u128 = 100 * PUSD_UNIT;
+	pub const MinSwapAmount: u128 = 100 * INTERNAL_UNIT;
 	pub const PsmPalletId: PalletId = PalletId(*b"py/psm!!");
 }
 
@@ -147,6 +147,9 @@ impl EnsureOrigin<RuntimeOrigin> for MockManagerOrigin {
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
 impl crate::BenchmarkHelper<u32, u64> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> u32 {
+		asset_index
+	}
 	fn create_asset(asset_id: u32, owner: &u64, decimals: u8) {
 		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
 		if !<Assets as frame_support::traits::fungibles::Inspect<u64>>::asset_exists(asset_id) {
@@ -170,7 +173,7 @@ impl crate::Config for Test {
 	type MaximumIssuance = MockMaximumIssuance;
 	type ManagerOrigin = MockManagerOrigin;
 	type WeightInfo = ();
-	type StableAsset = frame_support::traits::fungible::ItemOf<Assets, StablecoinAssetId, u64>;
+	type InternalAsset = frame_support::traits::fungible::ItemOf<Assets, InternalAssetId, u64>;
 	type FeeDestination = InsuranceFundAccount;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = MinSwapAmount;
@@ -196,24 +199,24 @@ pub fn new_test_ext() -> TestState {
 
 	pallet_assets::GenesisConfig::<Test> {
 		assets: vec![
-			(PUSD_ASSET_ID, ALICE, true, 1),
+			(INTERNAL_ASSET_ID, ALICE, true, 1),
 			(USDC_ASSET_ID, ALICE, true, 1),
 			(USDT_ASSET_ID, ALICE, true, 1),
 			(USDX_ASSET_ID, ALICE, true, 1),
 			(DAI_MOCK_ASSET_ID, ALICE, true, 1),
 		],
 		metadata: vec![
-			(PUSD_ASSET_ID, b"pUSD Stablecoin".to_vec(), b"pUSD".to_vec(), 6),
+			(INTERNAL_ASSET_ID, b"Internal Asset".to_vec(), b"INTERNAL".to_vec(), 6),
 			(USDC_ASSET_ID, b"USD Coin".to_vec(), b"USDC".to_vec(), 6),
 			(USDT_ASSET_ID, b"Tether USD".to_vec(), b"USDT".to_vec(), 6),
 			(USDX_ASSET_ID, b"Low-Decimal Coin".to_vec(), b"USDX".to_vec(), 2),
 			(DAI_MOCK_ASSET_ID, b"Dai Stablecoin".to_vec(), b"DAI".to_vec(), 18),
 		],
 		accounts: vec![
-			(USDC_ASSET_ID, ALICE, 10_000 * PUSD_UNIT),
-			(USDC_ASSET_ID, BOB, 10_000 * PUSD_UNIT),
-			(USDT_ASSET_ID, ALICE, 10_000 * PUSD_UNIT),
-			(USDT_ASSET_ID, BOB, 10_000 * PUSD_UNIT),
+			(USDC_ASSET_ID, ALICE, 10_000 * INTERNAL_UNIT),
+			(USDC_ASSET_ID, BOB, 10_000 * INTERNAL_UNIT),
+			(USDT_ASSET_ID, ALICE, 10_000 * INTERNAL_UNIT),
+			(USDT_ASSET_ID, BOB, 10_000 * INTERNAL_UNIT),
 			(USDX_ASSET_ID, ALICE, 10_000 * USDX_UNIT),
 			(USDX_ASSET_ID, BOB, 10_000 * USDX_UNIT),
 			(DAI_MOCK_ASSET_ID, ALICE, 10_000 * DAI_UNIT),
@@ -247,7 +250,7 @@ pub fn new_test_ext() -> TestState {
 
 	ext.execute_with(|| {
 		System::set_block_number(1);
-		set_mock_maximum_issuance(20_000_000 * PUSD_UNIT);
+		set_mock_maximum_issuance(20_000_000 * INTERNAL_UNIT);
 	});
 
 	ext
@@ -327,9 +330,9 @@ pub fn fund_external_asset(asset_id: u32, account: u64, amount: u128) {
 	let _ = Assets::mint_into(asset_id, &account, amount);
 }
 
-pub fn fund_pusd(account: u64, amount: u128) {
+pub fn fund_internal(account: u64, amount: u128) {
 	use frame_support::traits::fungibles::Mutate;
-	let _ = Assets::mint_into(PUSD_ASSET_ID, &account, amount);
+	let _ = Assets::mint_into(INTERNAL_ASSET_ID, &account, amount);
 }
 
 pub fn create_asset_with_metadata(asset_id: u32) {

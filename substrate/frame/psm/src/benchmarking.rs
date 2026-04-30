@@ -32,32 +32,32 @@ use pallet::BalanceOf;
 use sp_runtime::{traits::Zero, Permill, Saturating};
 
 /// Offset for benchmark asset IDs, chosen to avoid collision with typical
-/// genesis asset IDs (e.g. stable asset ID = 1).
+/// genesis asset IDs (e.g. internal asset ID = 1).
 const ASSET_ID_OFFSET: u32 = 100;
 
-/// Ensure the stable asset exists and its decimals snapshot is written.
+/// Ensure the internal asset exists and its decimals snapshot is written.
 /// The snapshot is consulted by mint/redeem via `ensure_decimals_match` and by
 /// `add_external_asset`; without it those paths fail closed. Returns the live
-/// stable decimals so callers can align external-asset metadata with it.
-fn ensure_stable_setup<T: Config>() -> u8
+/// internal decimals so callers can align external-asset metadata with it.
+fn ensure_internal_setup<T: Config>() -> u8
 where
-	T::StableAsset: FungibleCreate<T::AccountId>,
+	T::InternalAsset: FungibleCreate<T::AccountId>,
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
-	if T::StableAsset::minimum_balance().is_zero() {
-		let _ = T::StableAsset::create(admin, true, 1u32.into());
+	if T::InternalAsset::minimum_balance().is_zero() {
+		let _ = T::InternalAsset::create(admin, true, 1u32.into());
 	}
-	let stable_decimals = T::StableAsset::decimals();
-	if !crate::StableDecimals::<T>::exists() {
-		crate::StableDecimals::<T>::put(stable_decimals);
+	let internal_decimals = T::InternalAsset::decimals();
+	if !crate::InternalDecimals::<T>::exists() {
+		crate::InternalDecimals::<T>::put(internal_decimals);
 	}
-	stable_decimals
+	internal_decimals
 }
 
 /// Set up `n` external assets ready for PSM benchmarks.
 ///
-/// Creates the target asset (`ASSET_ID_OFFSET`) and the stable asset,
+/// Creates the target asset (`ASSET_ID_OFFSET`) and the internal asset,
 /// registers `n` external assets (`ASSET_ID_OFFSET..+n`), and
 /// configures ceiling weights so the target can absorb the full mint amount.
 ///
@@ -67,42 +67,45 @@ where
 fn setup_assets<T: Config>(n: u32) -> T::AssetId
 where
 	T::Fungibles: FungiblesCreate<T::AccountId>,
-	T::StableAsset: FungibleCreate<T::AccountId>,
-	T::AssetId: From<u32>,
+	T::InternalAsset: FungibleCreate<T::AccountId>,
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
 
-	let stable_decimals = ensure_stable_setup::<T>();
+	let internal_decimals = ensure_internal_setup::<T>();
 
 	// Target asset: create + set metadata via the runtime-provided benchmark
 	// helper. Setting metadata requires reserving a native deposit, which the
 	// helper handles by funding `admin` first — something the fungibles traits
 	// alone cannot express.
-	let target_id: T::AssetId = ASSET_ID_OFFSET.into();
-	if !T::Fungibles::asset_exists(target_id) {
-		T::BenchmarkHelper::create_asset(target_id, &admin, stable_decimals);
+	let target_id: T::AssetId = T::BenchmarkHelper::get_asset_id(ASSET_ID_OFFSET);
+	if !T::Fungibles::asset_exists(target_id.clone()) {
+		T::BenchmarkHelper::create_asset(target_id.clone(), &admin, internal_decimals);
 	}
 
 	crate::MaxPsmDebtOfTotal::<T>::put(Permill::from_percent(100));
 	// Filler assets only populate PSM storage so mint()'s iterators touch `n`
 	// entries. They are never swapped against, so their underlying fungibles
-	// asset does not need to exist and no AssetDecimals snapshot is required.
+	// asset does not need to exist and no ExternalDecimals snapshot is required.
 	for i in 0..n {
-		let id: T::AssetId = (ASSET_ID_OFFSET + i).into();
-		crate::ExternalAssets::<T>::insert(id, CircuitBreakerLevel::AllEnabled);
-		crate::AssetCeilingWeight::<T>::insert(id, Permill::from_percent(1));
-		crate::PsmDebt::<T>::insert(id, BalanceOf::<T>::from(1u32));
+		let id: T::AssetId = T::BenchmarkHelper::get_asset_id(ASSET_ID_OFFSET + i);
+		crate::ExternalAssets::<T>::insert(&id, CircuitBreakerLevel::AllEnabled);
+		crate::AssetCeilingWeight::<T>::insert(&id, Permill::from_percent(1));
+		crate::PsmDebt::<T>::insert(&id, BalanceOf::<T>::from(1u32));
 	}
 	// Target-specific: dominant weight so it can absorb the full mint amount,
 	// and a decimals snapshot so `ensure_decimals_match` passes.
-	crate::AssetCeilingWeight::<T>::insert(target_id, Permill::from_percent(100));
-	crate::AssetDecimals::<T>::insert(target_id, stable_decimals);
+	crate::AssetCeilingWeight::<T>::insert(&target_id, Permill::from_percent(100));
+	crate::ExternalDecimals::<T>::insert(&target_id, internal_decimals);
 
 	target_id
 }
 
-#[benchmarks(where T::Fungibles: FungiblesCreate<T::AccountId>, T::StableAsset: FungibleCreate<T::AccountId>, T::AssetId: From<u32>)]
+#[benchmarks(
+	where
+		T::Fungibles: FungiblesCreate<T::AccountId>,
+		T::InternalAsset: FungibleCreate<T::AccountId>,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -115,14 +118,14 @@ mod benchmarks {
 		let asset_id = setup_assets::<T>(n);
 		let mint_amount = T::MinSwapAmount::get().saturating_mul(10u32.into());
 
-		T::Fungibles::mint_into(asset_id, &caller, mint_amount.saturating_mul(2u32.into()))
+		T::Fungibles::mint_into(asset_id.clone(), &caller, mint_amount.saturating_mul(2u32.into()))
 			.map_err(|_| BenchmarkError::Stop("Failed to fund caller"))?;
 
 		let psm_account = Psm::<T>::account_id();
-		let reserve_before = T::Fungibles::balance(asset_id, &psm_account);
+		let reserve_before = T::Fungibles::balance(asset_id.clone(), &psm_account);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), asset_id, mint_amount);
+		_(RawOrigin::Signed(caller.clone()), asset_id.clone(), mint_amount);
 
 		assert!(T::Fungibles::balance(asset_id, &psm_account) > reserve_before);
 		Ok(())
@@ -135,16 +138,20 @@ mod benchmarks {
 		let setup_amount = T::MinSwapAmount::get().saturating_mul(10u32.into());
 		let redeem_amount = T::MinSwapAmount::get();
 
-		T::Fungibles::mint_into(asset_id, &caller, setup_amount.saturating_mul(2u32.into()))
-			.map_err(|_| BenchmarkError::Stop("Failed to fund caller"))?;
-		Psm::<T>::mint(RawOrigin::Signed(caller.clone()).into(), asset_id, setup_amount)
+		T::Fungibles::mint_into(
+			asset_id.clone(),
+			&caller,
+			setup_amount.saturating_mul(2u32.into()),
+		)
+		.map_err(|_| BenchmarkError::Stop("Failed to fund caller"))?;
+		Psm::<T>::mint(RawOrigin::Signed(caller.clone()).into(), asset_id.clone(), setup_amount)
 			.map_err(|_| BenchmarkError::Stop("Failed to setup reserve via mint"))?;
 
 		let psm_account = Psm::<T>::account_id();
-		let reserve_before = T::Fungibles::balance(asset_id, &psm_account);
+		let reserve_before = T::Fungibles::balance(asset_id.clone(), &psm_account);
 
 		#[extrinsic_call]
-		_(RawOrigin::Signed(caller.clone()), asset_id, redeem_amount);
+		_(RawOrigin::Signed(caller.clone()), asset_id.clone(), redeem_amount);
 
 		assert!(T::Fungibles::balance(asset_id, &psm_account) < reserve_before);
 		Ok(())
@@ -156,9 +163,9 @@ mod benchmarks {
 		let new_fee = Permill::from_percent(2);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_id, new_fee);
+		_(RawOrigin::Root, asset_id.clone(), new_fee);
 
-		assert_eq!(crate::MintingFee::<T>::get(asset_id), new_fee);
+		assert_eq!(crate::MintingFee::<T>::get(&asset_id), new_fee);
 		Ok(())
 	}
 
@@ -168,9 +175,9 @@ mod benchmarks {
 		let new_fee = Permill::from_percent(2);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_id, new_fee);
+		_(RawOrigin::Root, asset_id.clone(), new_fee);
 
-		assert_eq!(crate::RedemptionFee::<T>::get(asset_id), new_fee);
+		assert_eq!(crate::RedemptionFee::<T>::get(&asset_id), new_fee);
 		Ok(())
 	}
 
@@ -191,9 +198,9 @@ mod benchmarks {
 		let new_status = CircuitBreakerLevel::MintingDisabled;
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_id, new_status);
+		_(RawOrigin::Root, asset_id.clone(), new_status);
 
-		assert_eq!(crate::ExternalAssets::<T>::get(asset_id), Some(new_status));
+		assert_eq!(crate::ExternalAssets::<T>::get(&asset_id), Some(new_status));
 		Ok(())
 	}
 
@@ -203,37 +210,37 @@ mod benchmarks {
 		let new_weight = Permill::from_percent(50);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_id, new_weight);
+		_(RawOrigin::Root, asset_id.clone(), new_weight);
 
-		assert_eq!(crate::AssetCeilingWeight::<T>::get(asset_id), new_weight);
+		assert_eq!(crate::AssetCeilingWeight::<T>::get(&asset_id), new_weight);
 		Ok(())
 	}
 	#[benchmark]
 	fn add_external_asset() -> Result<(), BenchmarkError> {
-		// Seed StableDecimals and ensure the stable asset exists; the extrinsic
+		// Seed InternalDecimals and ensure the internal asset exists; the extrinsic
 		// reads the snapshot and compares it against live metadata.
-		let stable_decimals = ensure_stable_setup::<T>();
+		let internal_decimals = ensure_internal_setup::<T>();
 		let caller: T::AccountId = whitelisted_caller();
-		let new_asset_id: T::AssetId = ASSET_ID_OFFSET.into();
+		let new_asset_id: T::AssetId = T::BenchmarkHelper::get_asset_id(ASSET_ID_OFFSET);
 
-		T::BenchmarkHelper::create_asset(new_asset_id, &caller, stable_decimals);
+		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, new_asset_id);
+		_(RawOrigin::Root, new_asset_id.clone());
 
-		assert!(crate::ExternalAssets::<T>::contains_key(new_asset_id));
+		assert!(crate::ExternalAssets::<T>::contains_key(&new_asset_id));
 		Ok(())
 	}
 
 	#[benchmark]
 	fn remove_external_asset() -> Result<(), BenchmarkError> {
 		let asset_id = setup_assets::<T>(1);
-		crate::PsmDebt::<T>::remove(asset_id);
+		crate::PsmDebt::<T>::remove(&asset_id);
 
 		#[extrinsic_call]
-		_(RawOrigin::Root, asset_id);
+		_(RawOrigin::Root, asset_id.clone());
 
-		assert!(!crate::ExternalAssets::<T>::contains_key(asset_id));
+		assert!(!crate::ExternalAssets::<T>::contains_key(&asset_id));
 		Ok(())
 	}
 

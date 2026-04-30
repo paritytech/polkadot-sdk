@@ -61,8 +61,8 @@ use frame_support::{
 		fungibles,
 		tokens::{imbalance::ResolveAssetTo, nonfungibles_v2::Inspect},
 		AsEnsureOriginWithArg, ConstBool, ConstU128, ConstU32, ConstU64, ConstU8,
-		ConstantStoragePrice, EitherOfDiverse, Equals, InstanceFilter, LinearStoragePrice, Nothing,
-		TransformOrigin, WithdrawReasons,
+		ConstantStoragePrice, Contains, EitherOfDiverse, Equals, InstanceFilter,
+		LinearStoragePrice, Nothing, TransformOrigin, WithdrawReasons,
 	},
 	weights::{ConstantMultiplier, Weight},
 	BoundedVec, PalletId,
@@ -351,6 +351,7 @@ impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 
 parameter_types! {
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub const LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -491,7 +492,7 @@ impl pallet_asset_conversion::Config for Runtime {
 	type PoolSetupFeeAsset = WestendLocation;
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
 	type PalletId = AssetConversionPalletId;
 	type MaxSwapPathLength = ConstU32<3>;
 	type MintMinLiquidity = ConstU128<100>;
@@ -1127,6 +1128,46 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 }
 
 parameter_types! {
+	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
+	pub const PGASAssetId: AssetIdForTrustBackedAssets = 80_716_583;
+}
+
+/// Calls eligible to be paid for with PGAS.
+pub struct PGASCallFilter;
+impl Contains<RuntimeCall> for PGASCallFilter {
+	fn contains(call: &RuntimeCall) -> bool {
+		matches!(call, RuntimeCall::Revive(..))
+	}
+}
+
+impl pallet_pgas_allowance::Config for Runtime {
+	type Assets = Assets;
+	type PGASAssetId = PGASAssetId;
+
+	#[cfg(not(feature = "runtime-benchmarks"))]
+	type CallFilter = PGASCallFilter;
+	#[cfg(feature = "runtime-benchmarks")]
+	type CallFilter = frame_support::traits::Everything;
+
+	type WeightInfo = weights::pallet_pgas_allowance::WeightInfo<Runtime>;
+
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = PGASBenchmarkHelper;
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+pub struct PGASBenchmarkHelper;
+#[cfg(feature = "runtime-benchmarks")]
+impl pallet_pgas_allowance::BenchmarkHelperTrait<AccountId, AssetIdForTrustBackedAssets, Balance>
+	for PGASBenchmarkHelper
+{
+	fn mint_pgas(who: &AccountId, asset_id: AssetIdForTrustBackedAssets, amount: Balance) {
+		use frame_support::traits::tokens::fungibles::Mutate;
+		<Assets as Mutate<AccountId>>::mint_into(asset_id, who, amount).unwrap();
+	}
+}
+
+parameter_types! {
 	pub const UniquesCollectionDeposit: Balance = UNITS / 10; // 1 / 10 UNIT deposit to create a collection
 	pub const UniquesItemDeposit: Balance = UNITS / 1_000; // 1 / 1000 UNIT deposit to mint an item
 	pub const UniquesMetadataDepositBase: Balance = deposit(1, 129);
@@ -1306,6 +1347,31 @@ impl pallet_vesting_precompiles::pallet::Config for Runtime {
 parameter_types! {
 	pub MbmServiceWeight: Weight = Perbill::from_percent(80) * RuntimeBlockWeights::get().max_block;
 	pub FastUnstakeName: &'static str = "FastUnstake";
+	pub PsmName: &'static str = "Psm";
+}
+
+/// One-shot migration: writes `pallet_psm`'s on-chain storage version to v2.
+/// Required because `RemovePallet<PsmName>` (above in the migration tuple)
+/// wipes the pallet's `:__STORAGE_VERSION__:` key, and `InitializePsm` doesn't
+/// re-seed it. Without this, try-runtime's post-upgrade check sees in-code = 2,
+/// on-chain = 0 and panics.
+pub struct SetPsmStorageVersionV2;
+impl frame_support::traits::OnRuntimeUpgrade for SetPsmStorageVersionV2 {
+	fn on_runtime_upgrade() -> Weight {
+		frame_support::traits::StorageVersion::new(2).put::<pallet_psm::Pallet<Runtime>>();
+		<Runtime as frame_system::Config>::DbWeight::get().writes(1)
+	}
+
+	#[cfg(feature = "try-runtime")]
+	fn post_upgrade(_: alloc::vec::Vec<u8>) -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::{ensure, traits::GetStorageVersion};
+		ensure!(
+			pallet_psm::Pallet::<Runtime>::on_chain_storage_version() ==
+				frame_support::traits::StorageVersion::new(2),
+			"PSM on-chain storage version was not set to 2"
+		);
+		Ok(())
+	}
 }
 
 impl pallet_migrations::Config for Runtime {
@@ -1500,7 +1566,7 @@ parameter_types! {
 }
 
 /// pUSD as a single-asset fungible, backed by trust-backed assets (Instance1).
-type PsmStableAsset =
+type PsmInternalAsset =
 	frame_support::traits::fungible::ItemOf<Assets, PsmStablecoinAssetId, AccountId>;
 
 /// EnsureOrigin for PSM management with privilege levels.
@@ -1530,19 +1596,28 @@ impl frame_support::traits::EnsureOrigin<RuntimeOrigin> for EnsurePsmManager {
 #[cfg(feature = "runtime-benchmarks")]
 pub struct PsmBenchmarkHelper;
 #[cfg(feature = "runtime-benchmarks")]
-impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for PsmBenchmarkHelper {
-	fn create_asset(asset_id: AssetIdForTrustBackedAssets, owner: &AccountId, decimals: u8) {
-		use frame_support::traits::fungibles::{metadata::Mutate as MetadataMutate, Create};
-		if !<Assets as frame_support::traits::fungibles::Inspect<AccountId>>::asset_exists(asset_id)
-		{
-			let _ = <Assets as Create<AccountId>>::create(asset_id, owner.clone(), true, 1);
+impl pallet_psm::BenchmarkHelper<xcm::v5::Location, AccountId> for PsmBenchmarkHelper {
+	fn get_asset_id(asset_index: u32) -> xcm::v5::Location {
+		Location::new(0, [PalletInstance(50), GeneralIndex(asset_index.into())])
+	}
+	fn create_asset(asset_id: xcm::v5::Location, owner: &AccountId, decimals: u8) {
+		use frame_support::traits::fungibles::{
+			metadata::Mutate as MetadataMutate, Create, Inspect,
+		};
+		if !<LocalAndForeignAssets as Inspect<AccountId>>::asset_exists(asset_id.clone()) {
+			let _ = <LocalAndForeignAssets as Create<AccountId>>::create(
+				asset_id.clone(),
+				owner.clone(),
+				true,
+				1,
+			);
 		}
 		let _ = Balances::force_set_balance(
 			RuntimeOrigin::root(),
 			owner.clone().into(),
 			10u128.pow(18),
 		);
-		let _ = <Assets as MetadataMutate<AccountId>>::set(
+		let _ = <LocalAndForeignAssets as MetadataMutate<AccountId>>::set(
 			asset_id,
 			owner,
 			b"Benchmark".to_vec(),
@@ -1553,12 +1628,12 @@ impl pallet_psm::BenchmarkHelper<AssetIdForTrustBackedAssets, AccountId> for Psm
 }
 
 impl pallet_psm::Config for Runtime {
-	type Fungibles = Assets;
-	type AssetId = AssetIdForTrustBackedAssets;
+	type Fungibles = LocalAndForeignAssets;
+	type AssetId = xcm::v5::Location;
 	type MaximumIssuance = dynamic_params::pusd::MaximumIssuance;
 	type ManagerOrigin = EnsurePsmManager;
 	type WeightInfo = weights::pallet_psm::WeightInfo<Runtime>;
-	type StableAsset = PsmStableAsset;
+	type InternalAsset = PsmInternalAsset;
 	type FeeDestination = PsmFeeDestination;
 	type PalletId = PsmPalletId;
 	type MinSwapAmount = PsmMinSwapAmount;
@@ -1567,22 +1642,22 @@ impl pallet_psm::Config for Runtime {
 	type BenchmarkHelper = PsmBenchmarkHelper;
 }
 
-/// Initial PSM configuration applied via the V1 migration.
+/// Initial PSM configuration applied via the init migration.
 ///
-/// Sets up USDT (1984) as the first external asset.
+/// Sets up USDT (trust-backed asset `1984`, addressed by its `Location`) as the
+/// first external asset.
 pub struct PsmInitialConfig;
 impl pallet_psm::migrations::init::InitialPsmConfig<Runtime> for PsmInitialConfig {
 	fn max_psm_debt_of_total() -> Permill {
 		// USDT PSM cap is 5M out of 50M total issuance = 10%.
 		Permill::from_percent(10)
 	}
-
-	fn asset_configs() -> alloc::collections::btree_map::BTreeMap<
-		AssetIdForTrustBackedAssets,
-		(Permill, Permill, Permill),
-	> {
+	fn asset_configs(
+	) -> alloc::collections::btree_map::BTreeMap<xcm::v5::Location, (Permill, Permill, Permill)> {
+		use xcm::latest::prelude::*;
+		let usdt_location = xcm::v5::Location::new(0, [PalletInstance(50), GeneralIndex(1984)]);
 		[(
-			1984u32, // USDT
+			usdt_location,
 			(
 				Permill::zero(),                         // 0% minting fee
 				Permill::from_rational(1u32, 10_000u32), // 0.01% redemption fee
@@ -1616,6 +1691,7 @@ construct_runtime!(
 		// AssetTxPayment: pallet_asset_tx_payment = 12,
 		AssetTxPayment: pallet_asset_conversion_tx_payment = 13,
 		Vesting: pallet_vesting = 14,
+		PgasAllowance: pallet_pgas_allowance = 15,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -1723,7 +1799,10 @@ pub type TxExtension = cumulus_pallet_weight_reclaim::StorageWeightReclaim<
 		frame_system::CheckEra<Runtime>,
 		frame_system::CheckNonce<Runtime>,
 		frame_system::CheckWeight<Runtime>,
-		pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		pallet_pgas_allowance::ChargePGAS<
+			Runtime,
+			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+		>,
 		frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
 		pallet_revive::evm::tx_extension::SetOrigin<Runtime>,
 	),
@@ -1748,7 +1827,14 @@ impl EthExtra for EthExtraImpl {
 			frame_system::CheckMortality::from(generic::Era::Immortal),
 			frame_system::CheckNonce::<Runtime>::from(nonce),
 			frame_system::CheckWeight::<Runtime>::new(),
-			pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(tip, None),
+			pallet_pgas_allowance::ChargePGAS::<
+				Runtime,
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment<Runtime>,
+			>::new_skip_pgas(
+				pallet_asset_conversion_tx_payment::ChargeAssetTxPayment::<Runtime>::from(
+					tip, None,
+				),
+			),
 			frame_metadata_hash_extension::CheckMetadataHash::<Runtime>::new(false),
 			pallet_revive::evm::tx_extension::SetOrigin::<Runtime>::new_from_eth_transaction(),
 		)
@@ -1839,15 +1925,29 @@ pub type Migrations = (
 	pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	cumulus_pallet_aura_ext::migration::MigrateV0ToV1<Runtime>,
 	// unreleased
-	// PSM v1 -> v2: backfill AssetDecimals/StableDecimals snapshots for assets
-	// that were approved under v1 (no per-asset decimals). One-shot; only runs
-	// when the on-chain pallet storage version is 1, then bumps it to 2.
-	pallet_psm::migrations::decimals::PopulateDecimals<Runtime>,
+
+	// start: PSM reset
+
+	// `RemovePallet` wipes ALL of PSM's storage (entries + CountedStorageMap
+	// counters + the storage version key). `InitializePsm` then re-seeds data
+	// under the new `Location` AssetId, and `SetPsmStorageVersionV2` writes
+	// the on-chain storage version that `RemovePallet` cleared.
+	frame_support::migrations::RemovePallet<PsmName, <Runtime as frame_system::Config>::DbWeight>,
+	pallet_psm::migrations::init::InitializePsm<Runtime, PsmInitialConfig>,
+	SetPsmStorageVersionV2,
+	// end: PSM reset
 	pallet_dap::migrations::MigrateV1ToV2<
 		Runtime,
 		DapLastIssuanceTimestamp,
 		DefaultDapBudget,
 		staking::MaxEraDuration,
+	>,
+	// Only needed on WAH.
+	// Relocates funded era pots from per-era to slot-based pot addresses.
+	pallet_staking_async::migrations::MigrateEraPotsToPool<
+		Runtime,
+		staking::StakingPotsPalletId,
+		staking::StakingStakerRewardKind,
 	>,
 );
 
@@ -2049,6 +2149,7 @@ mod benches {
 		[pallet_asset_conversion, AssetConversion]
 		[pallet_asset_rewards, AssetRewards]
 		[pallet_asset_conversion_tx_payment, AssetTxPayment]
+		[pallet_pgas_allowance, PgasAllowance]
 		[pallet_bags_list, VoterList]
 		[pallet_balances, Balances]
 		[pallet_conviction_voting, ConvictionVoting]
