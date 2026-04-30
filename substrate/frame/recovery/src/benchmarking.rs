@@ -176,7 +176,7 @@ mod benchmarks {
 	fn initiate_attempt() {
 		let lost: T::AccountId = whitelisted_caller();
 		let lost_lookup = T::Lookup::unlookup(lost.clone());
-		// Use last friend for worst case O(n) lookup in friends.contains()
+		// Use last friend for worst case O(n) lookup in friends.iter().position().
 		let initiator: T::AccountId = last_friend::<T>(1, T::MaxFriendsPerConfig::get());
 
 		fund_account::<T>(&lost);
@@ -194,7 +194,7 @@ mod benchmarks {
 		_(RawOrigin::Signed(initiator.clone()), lost_lookup, 0);
 
 		assert_last_event::<T>(
-			Event::<T>::AttemptInitiated { lost, friend_group_index: 0, initiator }.into(),
+			Event::<T>::AttemptApproved { lost, friend_group_index: 0, friend: initiator }.into(),
 		);
 	}
 
@@ -220,6 +220,13 @@ mod benchmarks {
 			0,
 		)
 		.unwrap();
+
+		// Initiation auto-approves the initiator. Reset approvals so this benchmark can still
+		// measure a successful `approve_attempt` call.
+		crate::pallet::Attempt::<T>::mutate(&lost, 0, |maybe_attempt| {
+			let (attempt, _, _) = maybe_attempt.as_mut().expect("attempt exists after initiation");
+			attempt.approvals = ApprovalBitfieldOf::<T>::default();
+		});
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(friend.clone()), lost_lookup, 0);
@@ -254,12 +261,6 @@ mod benchmarks {
 		)
 		.unwrap();
 		crate::pallet::Pallet::<T>::initiate_attempt(
-			RawOrigin::Signed(initiator.clone()).into(),
-			lost_lookup.clone(),
-			0,
-		)
-		.unwrap();
-		crate::pallet::Pallet::<T>::approve_attempt(
 			RawOrigin::Signed(initiator.clone()).into(),
 			lost_lookup.clone(),
 			0,
