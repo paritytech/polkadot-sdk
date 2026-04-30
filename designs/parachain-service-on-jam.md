@@ -78,33 +78,43 @@ two execution domains:
   logic.
 
 ```
- ┌──────────────────────────────────────────────────────────────────────┐
- │                         JAM Chain                                    │
- │                                                                      │
- │  On-Chain    ┌────────────────────────────────────────────────────┐  │
- │              │              Services Layer                        │  │
- │              │  ┌──────────────────────┐   ┌──────────────────┐  │  │
- │              │  │  Parachain Service   │   │  Other Services  │  │  │
- │              │  │  ┌────────────────┐ │   │                  │  │  │
- │              │  │  │  accumulate()  │ │   │  accumulate()    │  │  │
- │              │  │  └────────────────┘ │   │                  │  │  │
- │              │  └──────────┬───────────┘   └──────────────────┘  │  │
- │              └─────────────┼────────────────────────────────────┘  │
- │  ·····················│····│····································   │
- │  In-Core              │    │                                      │
- │              ┌─────────────┴───────────┐                          │
- │              │  Parachain Service       │                          │
- │              │  ┌────────────────┐     │                          │
- │              │  │   refine()     │     │                          │
- │              │  └────────────────┘     │                          │
- │              └─────────────────────────┘                          │
- │              ▲                                                     │
- │              │ Guarantors execute Refine on assigned cores         │
- │                                                                      │
- │  ┌────────────────────────────────────────────────────────────────┐  │
- │  │    Data Availability (erasure-coded)                           │  │
- │  └────────────────────────────────────────────────────────────────┘  │
- └──────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│                                 JAM Chain                                  │
+│                                                                            │
+│  ON-CHAIN                                                                  │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                            Services Layer                            │  │
+│  │                                                                      │  │
+│  │  ┌────────────────────────────┐      ┌────────────────────────────┐  │  │
+│  │  │     Parachain Service      │      │       Other Services       │  │  │
+│  │  │                            │      │                            │  │  │
+│  │  │     ┌────────────────┐     │      │     ┌────────────────┐     │  │  │
+│  │  │     │  accumulate()  │     │      │     │  accumulate()  │     │  │  │
+│  │  │     └────────────────┘     │      │     └────────────────┘     │  │  │
+│  │  │                            │      │                            │  │  │
+│  │  └────────────────────────────┘      └────────────────────────────┘  │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+│  ········································································  │
+│                                                                            │
+│  IN-CORE                                                                   │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                          Parachain Service                           │  │
+│  │                                                                      │  │
+│  │                          ┌────────────────┐                          │  │
+│  │                          │    refine()    │                          │  │
+│  │                          └────────────────┘                          │  │
+│  │                                                                      │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ▲                                                                         │
+│  │ Guarantors execute Refine on assigned cores                             │
+│                                                                            │
+│  ┌──────────────────────────────────────────────────────────────────────┐  │
+│  │                  Data Availability (erasure-coded)                   │  │
+│  └──────────────────────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 The CRJA pipeline for a parachain block:
@@ -487,43 +497,43 @@ store (`solicit`/`provide`/`forget`) and the `xtpreimages` block extrinsic.
 
 ```
 Phase 1: Request
-  Parachain calls request_code_upgrade(new_code_hash) during Refine.
-      │
-      ▼
+    Parachain calls request_code_upgrade(new_code_hash) during Refine.
+    │
+    ▼
 Phase 2: Request Preimage
-  Accumulate calls solicit(new_code_hash, code_len).
-  Sets pending_upgrade with a deadline (current timeslot + UPGRADE_TIMEOUT).
-  The parachain now pays for TWO PVF codes in the preimage store.
-      │
-      ▼
+    Accumulate calls solicit(new_code_hash, code_len).
+    Sets pending_upgrade with a deadline (current timeslot + UPGRADE_TIMEOUT).
+    The parachain now pays for TWO PVF codes in the preimage store.
+    │
+    ▼
 Phase 3: Preimage Submission
-  Anyone (collator, block author, third party) can submit the PVM code directly to JAM.
-      │
-      ▼
+    Anyone (collator, block author, third party) can submit the PVM code directly to JAM.
+    │
+    ▼
 Phase 4: Transition Period
-  Once the preimage is available, collators MAY build blocks using either
-  the old or the new PVF code. Refine accepts both validation_code_hash
-  and pending_upgrade.new_code_hash during this window.
-  The parachain runtime itself can check preimage availability (via the
-  Parachain Service state exposed through the validation inputs) and
-  trigger the switch from within its own block execution — no
-  service-side polling is needed.
-      │
-      ▼
+    Once the preimage is available, collators MAY build blocks using either
+    the old or the new PVF code. Refine accepts both validation_code_hash
+    and pending_upgrade.new_code_hash during this window.
+    The parachain runtime itself can check preimage availability (via the
+    Parachain Service state exposed through the validation inputs) and
+    trigger the switch from within its own block execution — no
+    service-side polling is needed.
+    │
+    ▼
 Phase 5: Activation or Rejection
-  (a) First block using new code: Accumulate detects the candidate was
-      validated with new_code_hash. It:
-      - Sets validation_code_hash = new_code_hash
-      - Calls forget(old_code_hash, old_code_len) to release the old code
-      - Clears pending_upgrade
-      The transition is complete. Only the new code is accepted from now on.
+    (a) First block using new code: Accumulate detects the candidate was
+        validated with new_code_hash. It:
+        - Sets validation_code_hash = new_code_hash
+        - Calls forget(old_code_hash, old_code_len) to release the old code
+        - Clears pending_upgrade
+        The transition is complete. Only the new code is accepted from now on.
 
-  (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
-      the preimage becoming available or without any block using the new
-      code, Accumulate rejects the upgrade:
-      - Calls forget(new_code_hash, code_len) to release the new code
-      - Clears pending_upgrade
-      The parachain continues with the old code.
+    (b) Deadline exceeded: If the deadline (set in Phase 2) passes without
+        the preimage becoming available or without any block using the new
+        code, Accumulate rejects the upgrade:
+        - Calls forget(new_code_hash, code_len) to release the new code
+        - Clears pending_upgrade
+        The parachain continues with the old code.
 ```
 
 **Key properties:**
