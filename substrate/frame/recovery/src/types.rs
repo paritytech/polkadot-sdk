@@ -83,13 +83,14 @@ impl<MaxEntries: Get<u32>> Bitfield<MaxEntries> {
 		}
 	}
 
-	#[cfg(test)]
-	pub fn with_bits(self, indices: impl IntoIterator<Item = usize>) -> Self {
-		let mut bitfield = self;
+	/// A new bitfield with the given bit indices set.
+	///
+	/// Errors if there are duplicate or our of bounds indices.
+	pub fn with_bits(mut self, indices: impl IntoIterator<Item = usize>) -> Result<Self, ()> {
 		for index in indices {
-			bitfield.set_if_not_set(index).unwrap();
+			self.set_if_not_set(index)?;
 		}
-		bitfield
+		Ok(self)
 	}
 
 	/// Count the total number of set bits (total votes).

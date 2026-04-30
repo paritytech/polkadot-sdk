@@ -39,10 +39,9 @@ fn basic_flow_works() {
 
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![fg]));
 
-		// Bob initiates the attempt
+		// Bob initiates the attempt (auto-approves himself).
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		// Bob and Charlie vote
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+		// Charlie approves to reach the threshold.
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 
 		// Eve finishes the attempt too early (10 inheritance delay)
@@ -410,7 +409,7 @@ fn initiate_attempt_different_friend_groups_works() {
 						initiator: BOB.into(),
 						init_block: 10,
 						last_approval_block: 10,
-						approvals: ApprovalBitfield::default(),
+						approvals: ApprovalBitfield::default().with_bits([0]).unwrap(),
 					}
 				),
 				(
@@ -420,7 +419,7 @@ fn initiate_attempt_different_friend_groups_works() {
 						initiator: CHARLIE.into(),
 						init_block: 10,
 						last_approval_block: 10,
-						approvals: ApprovalBitfield::default(),
+						approvals: ApprovalBitfield::default().with_bits([1]).unwrap(),
 					}
 				)
 			]
@@ -448,13 +447,36 @@ fn initiate_attempt_not_friend_group_fails() {
 	});
 }
 
-/// Approving an attempt works as expected.
+/// Initiating an attempt emits both `AttemptInitiated` and `AttemptApproved` for the initiator,
+/// since the initiator is auto-approved.
 #[test]
-fn approve_attempt_works() {
+fn initiate_attempt_emits_approved_for_initiator() {
 	new_test_ext().execute_with(|| {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+
+		// The last two events should be `AttemptInitiated` followed by `AttemptApproved`.
+		let events = frame_system::Pallet::<T>::events();
+		let tail = &events[events.len() - 2..];
+		assert_eq!(
+			tail[0].event,
+			RuntimeEvent::Recovery(Event::<T>::AttemptInitiated {
+				lost: ALICE.into(),
+				friend_group_index: 0,
+				initiator: BOB.into(),
+			}),
+		);
+		assert_eq!(
+			tail[1].event,
+			RuntimeEvent::Recovery(Event::<T>::AttemptApproved {
+				lost: ALICE.into(),
+				friend_group_index: 0,
+				friend: BOB.into(),
+			}),
+		);
+
+		// The bitfield reflects Bob's auto-approval (Bob is index 0).
 		assert_eq!(
 			Recovery::attempts(ALICE),
 			vec![(
@@ -464,15 +486,21 @@ fn approve_attempt_works() {
 					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 1,
-					approvals: ApprovalBitfield::default(),
+					approvals: ApprovalBitfield::default().with_bits([0]).unwrap(),
 				}
 			)]
 		);
+	});
+}
 
-		// Bob votes at block 2
-		frame_system::Pallet::<T>::set_block_number(2);
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
-		assert_noop!(Recovery::approve_attempt(signed(BOB), ALICE, 0), Error::<T>::AlreadyVoted);
+/// Approving an attempt works as expected.
+#[test]
+fn approve_attempt_works() {
+	new_test_ext().execute_with(|| {
+		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
+
+		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
+		// Bob is auto-approved as the initiator (index 0).
 		assert_eq!(
 			Recovery::attempts(ALICE),
 			vec![(
@@ -481,11 +509,13 @@ fn approve_attempt_works() {
 					friend_group_index: 0,
 					initiator: BOB.into(),
 					init_block: 1,
-					last_approval_block: 2,
-					approvals: ApprovalBitfield::default().with_bits([0]), // Bob is index 0
+					last_approval_block: 1,
+					approvals: ApprovalBitfield::default().with_bits([0]).unwrap(),
 				}
 			)]
 		);
+		// Bob cannot approve again.
+		assert_noop!(Recovery::approve_attempt(signed(BOB), ALICE, 0), Error::<T>::AlreadyVoted);
 
 		// Dave votes at block 3
 		frame_system::Pallet::<T>::set_block_number(3);
@@ -503,8 +533,9 @@ fn approve_attempt_works() {
 					initiator: BOB.into(),
 					init_block: 1,
 					last_approval_block: 3,
-					approvals: ApprovalBitfield::default().with_bits([0, 2]), /* Bob is index 0,
-					                                                           * Dave is 2 */
+					approvals: ApprovalBitfield::default().with_bits([0, 2]).unwrap(), /* Bob is index 0,
+					                                                                    * Dave is
+					                                                                    * 2 */
 				}
 			)]
 		);
@@ -551,13 +582,11 @@ fn inherit_multiple_accounts_works() {
 		assert_ok!(Recovery::set_friend_groups(signed(BOB), fgs));
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 		frame_system::Pallet::<T>::set_block_number(11);
 		assert_ok!(Recovery::finish_attempt(signed(BOB), ALICE, 0));
 
 		assert_ok!(Recovery::initiate_attempt(signed(ALICE), BOB, 0));
-		assert_ok!(Recovery::approve_attempt(signed(ALICE), BOB, 0));
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), BOB, 0));
 		frame_system::Pallet::<T>::set_block_number(21);
 		assert_ok!(Recovery::finish_attempt(signed(ALICE), BOB, 0));
@@ -578,9 +607,7 @@ fn finish_attempt_works() {
 		assert_err!(Recovery::finish_attempt(signed(BOB), ALICE, 0), Error::<T>::NotAttempt);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_err!(Recovery::finish_attempt(signed(BOB), ALICE, 0), Error::<T>::NotApproved);
-
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+		// Bob is auto-approved as initiator, but threshold (2) is not yet reached.
 		assert_err!(Recovery::finish_attempt(signed(BOB), ALICE, 0), Error::<T>::NotApproved);
 
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
@@ -602,7 +629,6 @@ fn finish_attempt_at_exact_boundary_works() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 
 		// inheritance_delay is 10, init at block 1, so exactly block 11 should work
@@ -629,7 +655,6 @@ fn inheritance_priority_conflict_overwrite() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 		frame_system::Pallet::<T>::set_block_number(11);
 
@@ -731,7 +756,6 @@ fn cancel_attempt_works() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
 		assert_attempt_deposit(BOB, 48);
 
@@ -791,7 +815,6 @@ fn cancel_attempt_extends_delay_after_new_approval() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
 		// Let's go just before the DELAY expires
 		inc_block_number(ABORT_DELAY - 1);
@@ -824,7 +847,6 @@ fn cancel_attempt_works_when_initiator_account_is_broken() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
 		assert_attempt_deposit(BOB, 48);
 
@@ -866,7 +888,6 @@ fn cancel_attempt_at_exact_boundary_works() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
 		// cancel_delay is ABORT_DELAY (5), last_approval at block 1
 		System::set_block_number(5);
@@ -884,7 +905,6 @@ fn slash_attempt_works() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
 		assert_security_deposit(BOB, SECURITY_DEPOSIT);
 
@@ -908,7 +928,6 @@ fn slash_attempt_fails_when_initiator_is_missing_deposit() {
 		setup_alice_fgs([[BOB, CHARLIE, DAVE]]);
 
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
 
 		assert_attempt_deposit(BOB, 48);
 
@@ -997,7 +1016,8 @@ fn bitfield_count_ones_works() {
 
 #[test]
 fn bitfield_with_bits_helper_works() {
-	let bitfield: Bitfield<ConstU32<32>> = Bitfield::default().with_bits([0, 5, 10, 15, 20, 25]);
+	let bitfield: Bitfield<ConstU32<32>> =
+		Bitfield::default().with_bits([0, 5, 10, 15, 20, 25]).unwrap();
 	assert_eq!(bitfield.count_ones(), 6);
 
 	// Verify individual bits are set
@@ -1010,6 +1030,19 @@ fn bitfield_with_bits_helper_works() {
 	assert_ok!(test_bitfield.set_if_not_set(25));
 
 	assert_eq!(bitfield, test_bitfield);
+}
+
+#[test]
+fn bitfield_with_bits_rejects_duplicate_index() {
+	let result = Bitfield::<ConstU32<32>>::default().with_bits([3, 3]);
+	assert_eq!(result, Err(()));
+}
+
+#[test]
+fn bitfield_with_bits_rejects_out_of_bounds() {
+	// Capacity is 32 bits → index 32 is out of bounds.
+	let result = Bitfield::<ConstU32<32>>::default().with_bits([32]);
+	assert_eq!(result, Err(()));
 }
 
 #[test]
@@ -1198,10 +1231,8 @@ fn finish_attempt_same_caller_does_not_leak_inheritor_deposit() {
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 1));
 
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+		// BOB is auto-approved as initiator in both groups; one extra vote each suffices.
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
-
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 1));
 		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
 
 		frame_system::Pallet::<T>::set_block_number(11);
@@ -1296,11 +1327,8 @@ fn finish_attempt_lower_priority_does_not_replace() {
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 0));
 		assert_ok!(Recovery::initiate_attempt(signed(BOB), ALICE, 1));
 
-		// Group 1 (priority 1) gets fully approved
-		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
-
-		// Group 0 (priority 0) gets fully approved
-		assert_ok!(Recovery::approve_attempt(signed(BOB), ALICE, 0));
+		// Group 1 (priority 1, friends_needed=1) is fully approved by BOB's auto-approval.
+		// Group 0 (priority 0) needs CHARLIE on top of BOB's auto-approval.
 		assert_ok!(Recovery::approve_attempt(signed(CHARLIE), ALICE, 0));
 
 		frame_system::Pallet::<T>::set_block_number(11);
@@ -1348,8 +1376,8 @@ fn inheritor_can_slash_higher_priority_attempts_and_remove_friend_groups() {
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![family, friends_group]));
 
 		// --- Friends group (priority 1) recovers first due to shorter delay ---
+		// friends_needed=1, so CHARLIE's auto-approval as initiator suffices.
 		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
-		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
 		inc_block_number(2);
 		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 1));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));
@@ -1414,9 +1442,8 @@ fn inheritor_cannot_bypass_filter_via_utility_batch() {
 		};
 		assert_ok!(Recovery::set_friend_groups(signed(ALICE), vec![family, friends_group]));
 
-		// Friends group recovers first
+		// Friends group recovers first (CHARLIE's auto-approval reaches the threshold).
 		assert_ok!(Recovery::initiate_attempt(signed(CHARLIE), ALICE, 1));
-		assert_ok!(Recovery::approve_attempt(signed(EVE), ALICE, 1));
 		inc_block_number(2);
 		assert_ok!(Recovery::finish_attempt(signed(EVE), ALICE, 1));
 		assert_eq!(Recovery::inheritor(ALICE), Some(FERDIE));

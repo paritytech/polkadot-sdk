@@ -674,6 +674,9 @@ pub mod pallet {
 		}
 
 		/// Attempt to recover a lost account by a friend within the given friend group.
+		///
+		/// The initiator's approval is recorded automatically, so they do not need to call
+		/// `approve_attempt` themselves.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::initiate_attempt())]
 		pub fn initiate_attempt(
@@ -689,7 +692,11 @@ pub mod pallet {
 			}
 
 			let friend_group = Self::friend_group_of(&lost, friend_group_index)?;
-			ensure!(friend_group.friends.contains(&initiator), Error::<T>::NotFriend);
+			let initiator_index = friend_group
+				.friends
+				.iter()
+				.position(|f| f == &initiator)
+				.ok_or(Error::<T>::NotFriend)?;
 
 			if let Some((inheritance_priority, _, _)) = Inheritor::<T>::get(&lost) {
 				ensure!(
@@ -698,14 +705,19 @@ pub mod pallet {
 				);
 			}
 
-			// Construct the attempt
+			// The initiator counts as the first approval, so they don't have to sign twice.
+			let approvals = ApprovalBitfield::default()
+				.with_bits([initiator_index])
+				.defensive_proof("initiator_index < friends.len() <= MaxFriendsPerConfig; qed")
+				.unwrap_or_default();
+
 			let now = T::BlockNumberProvider::current_block_number();
 			let attempt = AttemptOf::<T> {
 				friend_group_index,
 				initiator: initiator.clone(),
 				init_block: now,
 				last_approval_block: now,
-				approvals: ApprovalBitfield::default(),
+				approvals,
 			};
 
 			let deposit = T::SecurityDeposit::get();
@@ -715,9 +727,14 @@ pub mod pallet {
 			Attempt::<T>::insert(&lost, friend_group_index, (&attempt, &ticket, &deposit));
 
 			Self::deposit_event(Event::<T>::AttemptInitiated {
+				lost: lost.clone(),
+				friend_group_index,
+				initiator: initiator.clone(),
+			});
+			Self::deposit_event(Event::<T>::AttemptApproved {
 				lost,
 				friend_group_index,
-				initiator,
+				friend: initiator,
 			});
 
 			Ok(())
