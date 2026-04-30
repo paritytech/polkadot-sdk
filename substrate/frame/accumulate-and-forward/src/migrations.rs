@@ -31,8 +31,6 @@ use frame_support::{
 	PalletId,
 };
 use sp_runtime::traits::AccountIdConversion;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::Saturating;
 
 /// Legacy treasury `PalletId` (`py/trsry`).
 const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
@@ -105,13 +103,15 @@ where
 			Preservation::Preserve,
 			Fortitude::Polite,
 		);
-		let accum_pre = <T::Currency as Inspect<T::AccountId>>::total_balance(
+		let accum_pre = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
 			&Pallet::<T>::accumulation_account(),
+			Preservation::Preserve,
+			Fortitude::Polite,
 		);
 		log::info!(
 			target: LOG_TARGET,
 			"DrainLegacyTreasuryToAccumulationAccount: pre-upgrade legacy reducible = {legacy_pre:?}, \
-			 accumulation total = {accum_pre:?}"
+			 accumulation reducible = {accum_pre:?}"
 		);
 		Ok((legacy_pre, accum_pre).encode())
 	}
@@ -137,17 +137,20 @@ where
 		);
 
 		let accumulation_account = Pallet::<T>::accumulation_account();
-		let accum_post =
-			<T::Currency as Inspect<T::AccountId>>::total_balance(&accumulation_account);
+		let accum_post = <T::Currency as Inspect<T::AccountId>>::reducible_balance(
+			&accumulation_account,
+			Preservation::Preserve,
+			Fortitude::Polite,
+		);
 		frame_support::ensure!(
-			accum_post == accum_pre.saturating_add(legacy_pre),
+			Some(accum_post) == accum_pre.checked_add(&legacy_pre),
 			"Accumulation account balance should have increased by exactly the drained amount"
 		);
 
 		log::info!(
 			target: LOG_TARGET,
 			"DrainLegacyTreasuryToAccumulationAccount: post-upgrade OK. \
-			 Legacy treasury reducible: {legacy_post:?}, accumulation total: {accum_post:?}"
+			 Legacy treasury reducible: {legacy_post:?}, accumulation reducible: {accum_post:?}"
 		);
 		Ok(())
 	}

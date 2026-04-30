@@ -32,7 +32,7 @@ use xcm_executor::XcmExecutor;
 const LOG_TARGET: &str = "xcm::accumulate-forward";
 
 /// XCM adapter that implements [`pallet_accumulate_and_forward::Forwarder`] for AccountId32-type
-/// source accounts by teleporting native tokens to a staging account on a destination chain.
+/// source accounts by teleporting native tokens to a target account on a destination chain.
 /// Local-execution failures roll back all local state changes. Once the local executor reports
 /// success, the message is queued and any destination-side rejection results in trapped assets
 /// at the destination with no automatic recovery path.
