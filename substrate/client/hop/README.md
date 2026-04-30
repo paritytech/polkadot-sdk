@@ -117,14 +117,14 @@ cleanup-only if the runtime doesn't implement it.
 |---|---|---|
 | `--enable-hop` | off | Enable HOP |
 | `--hop-max-pool-size <MiB>` | 10240 (10 GiB) | Total pool size cap |
-| `--hop-max-user-size <MiB>` | 1024 (1 GiB) | Per-user hard cap (not scaled by active users) |
+| `--hop-max-user-size <MiB>` | 256 | Per-user hard cap (not scaled by active users) |
 | `--hop-retention-blocks <n>` | 14400 (24 h @ 6 s) | How long entries are kept before expiry |
-| `--hop-check-interval <s>` | 3600 | Maintenance cycle period |
-| `--hop-promotion-buffer-blocks <n>` | 600 (~1 h) | Blocks before expiry to start promoting |
+| `--hop-check-interval <s>` | 300 | Maintenance cycle period |
+| `--hop-promotion-buffer-blocks <n>` | 1200 (~2 h) | Blocks before expiry to start promoting |
 | `--hop-submit-rate-per-min <n>` | 60 | Sustained per-account submit rate |
 | `--hop-submit-burst <n>` | 120 | Per-account submit burst size |
-| `--hop-bandwidth-per-min-mib <MiB>` | 256 | Sustained per-account bandwidth |
-| `--hop-bandwidth-burst-mib <MiB>` | 512 | Per-account bandwidth burst |
+| `--hop-bandwidth-per-min-mib <MiB>` | 128 | Sustained per-account bandwidth |
+| `--hop-bandwidth-burst-mib <MiB>` | 256 | Per-account bandwidth burst |
 | `--hop-disable-rate-limit` | off | Disable per-account rate limiting (dev/tests only) |
 | `--hop-data-dir <path>` | `<chain-data-dir>/hop` | Directory for persistent blob and metadata storage |
 

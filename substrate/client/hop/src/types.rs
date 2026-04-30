@@ -128,7 +128,9 @@ impl HopEntryMeta {
 /// Maximum number of promotion attempts per entry before the maintenance
 /// task gives up and lets the entry expire naturally. With the back-off
 /// schedule below this caps wasted work at 1+2+4+8+16 = 31 check
-/// intervals (~31 hours at the default 1 h cadence) per stuck entry.
+/// intervals (~2.6 h at the default 5 min cadence) per stuck entry. The
+/// first 5 attempts fit inside the default 2 h promotion buffer; the 6th
+/// is an upper bound that may land past expiry on a stuck entry.
 pub const MAX_PROMOTION_ATTEMPTS: u8 = 6;
 
 /// Compute the back-off in blocks to wait before the next promotion attempt
@@ -267,8 +269,8 @@ pub const DEFAULT_MAX_POOL_SIZE: u64 = 10 * 1024 * 1024 * 1024;
 /// Default maximum pool size in MiB (10 GiB = 10240 MiB)
 pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024);
 
-/// Default maintenance interval in seconds (1 hour)
-pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 3600;
+/// Default maintenance interval in seconds (5 minutes)
+pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 300;
 
 /// Block-time assumption used when translating the wall-clock maintenance
 /// interval into block deltas for the promotion back-off scheduler. Matches
@@ -286,12 +288,12 @@ pub const MAX_RECIPIENTS: u32 = 256;
 /// enforcing the fan-out cap at the type level instead of via scattered runtime checks.
 pub type RecipientVec = BoundedVec<Recipient, ConstU32<MAX_RECIPIENTS>>;
 
-/// Default per-user quota in MiB (1 GiB). Hard cap, not scaled by active users.
-pub const DEFAULT_MAX_USER_SIZE_MIB: u64 = 1024;
+/// Default per-user quota in MiB (256 MiB). Hard cap, not scaled by active users.
+pub const DEFAULT_MAX_USER_SIZE_MIB: u64 = 256;
 
 /// Default buffer before expiry at which to start promoting entries on-chain
-/// (600 blocks ≈ 1 h at 6 s per block).
-pub const DEFAULT_PROMOTION_BUFFER_BLOCKS: u32 = 600;
+/// (1200 blocks ≈ 2 h at 6 s per block).
+pub const DEFAULT_PROMOTION_BUFFER_BLOCKS: u32 = 1200;
 
 /// Default sustained submit rate per account (requests per minute).
 pub const DEFAULT_SUBMIT_RATE_PER_MIN: u32 = 60;
@@ -300,10 +302,10 @@ pub const DEFAULT_SUBMIT_RATE_PER_MIN: u32 = 60;
 pub const DEFAULT_SUBMIT_BURST: u32 = 120;
 
 /// Default sustained bandwidth per account in MiB per minute.
-pub const DEFAULT_BANDWIDTH_PER_MIN_MIB: u64 = 256;
+pub const DEFAULT_BANDWIDTH_PER_MIN_MIB: u64 = 128;
 
 /// Default bandwidth burst per account in MiB.
-pub const DEFAULT_BANDWIDTH_BURST_MIB: u64 = 512;
+pub const DEFAULT_BANDWIDTH_BURST_MIB: u64 = 256;
 
 /// Domain-separator prefix for `hop_submit` signatures.
 pub const HOP_SUBMIT_CONTEXT: &[u8] = b"hop-submit-v1:";

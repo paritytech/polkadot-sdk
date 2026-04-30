@@ -65,15 +65,15 @@ doc:
       New `--enable-hop` flag activates the HOP data pool for ephemeral
       peer-to-peer data exchange. Related flags:
       - `--hop-max-pool-size <MiB>` — pool capacity (default: 10240 MiB / 10 GiB)
-      - `--hop-max-user-size <MiB>` — per-user hard cap (default: 1024 MiB / 1 GiB)
+      - `--hop-max-user-size <MiB>` — per-user hard cap (default: 256 MiB)
       - `--hop-retention-blocks <blocks>` — data lifetime (default: 14400, ~24h at 6s blocks)
-      - `--hop-check-interval <seconds>` — maintenance cycle (default: 3600, 1 hour)
+      - `--hop-check-interval <seconds>` — maintenance cycle (default: 300, 5 minutes)
       - `--hop-promotion-buffer-blocks <blocks>` — start promoting this many blocks
-        before expiry (default: 600, ~1h at 6s blocks)
+        before expiry (default: 1200, ~2h at 6s blocks)
       - `--hop-submit-rate-per-min <requests>` — sustained submit rate (default: 60)
       - `--hop-submit-burst <requests>` — submit burst (default: 120)
-      - `--hop-bandwidth-per-min-mib <MiB>` — sustained bandwidth (default: 256)
-      - `--hop-bandwidth-burst-mib <MiB>` — bandwidth burst (default: 512)
+      - `--hop-bandwidth-per-min-mib <MiB>` — sustained bandwidth (default: 128)
+      - `--hop-bandwidth-burst-mib <MiB>` — bandwidth burst (default: 256)
       - `--hop-disable-rate-limit` — turn off rate limiting (dev / tests)
       - `--hop-data-dir <path>` — storage directory (default: `<chain-data>/hop`)
 
