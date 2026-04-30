@@ -11,6 +11,6 @@ crates:
 - name: polkadot-omni-node-lib
   bump: patch
 - name: pallet-transaction-storage
-  bump: patch
+  bump: minor
 - name: sp-transaction-storage-proof
-  bump: patch
+  bump: minor
