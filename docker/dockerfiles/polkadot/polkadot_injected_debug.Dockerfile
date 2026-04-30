@@ -33,7 +33,7 @@ RUN apt-get update && \
 	ln -s /data /polkadot/.local/share/polkadot
 
 # add polkadot binaries to docker image
-COPY ./artifacts/polkadot ./artifacts/polkadot-execute-worker ./artifacts/polkadot-prepare-worker /usr/local/bin
+COPY ./artifacts/polkadot ./artifacts/polkadot-execute-worker ./artifacts/polkadot-prepare-worker ./artifacts/statement-latency-bench /usr/local/bin
 
 # add runtime binaries to docker image
 COPY ./artifacts/runtimes /polkadot/runtimes/
