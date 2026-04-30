@@ -44,17 +44,16 @@ pub struct Recipient {
 	pub claimed: bool,
 }
 
-/// On-disk format version for `HopEntryMeta` records. The startup recovery
-/// path rejects `.meta` files whose first byte does not match this constant,
-/// so format changes can be made without silently mis-decoding old entries.
+/// On-disk format version for `HopEntryMeta` records. Startup recovery rejects
+/// `.meta` files whose `version` field doesn't match, so same-shape schema
+/// changes (e.g. semantic reinterpretation of an existing field) can be rolled
+/// out by bumping this constant; shape changes are caught by SCALE decode failure.
 pub const HOP_META_VERSION: u8 = 1;
 
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
-	/// On-disk format version. Always equals `HOP_META_VERSION` for fresh
-	/// entries. Kept as the first field so a single-byte read is enough to
-	/// gate decoding.
+	/// On-disk format version; see `HOP_META_VERSION`.
 	pub version: u8,
 	/// Block number when this was added
 	pub added_at: HopBlockNumber,

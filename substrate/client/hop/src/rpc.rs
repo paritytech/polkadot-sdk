@@ -61,8 +61,8 @@ pub trait HopApi<BlockHash> {
 	///
 	/// # Returns
 	/// The current pool status
-	#[method(name = "hop_submit")]
-	async fn submit(
+	#[method(name = "hop_submit", blocking)]
+	fn submit(
 		&self,
 		data: Bytes,
 		recipients: Vec<Bytes>,
@@ -89,8 +89,8 @@ pub trait HopApi<BlockHash> {
 	///
 	/// # Returns
 	/// The data if the signature matches a recipient that hasn't yet acked
-	#[method(name = "hop_claim")]
-	async fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
+	#[method(name = "hop_claim", blocking)]
+	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
 
 	/// Acknowledge receipt of claimed data.
 	///
@@ -103,8 +103,8 @@ pub trait HopApi<BlockHash> {
 	/// # Arguments
 	/// * `hash`: The hash of the data, in bytes (32 bytes)
 	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
-	#[method(name = "hop_ack")]
-	async fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()>;
+	#[method(name = "hop_ack", blocking)]
+	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()>;
 
 	/// Get data pool status
 	///
@@ -127,8 +127,7 @@ impl<C, Block> HopRpcServer<C, Block> {
 		Self { pool, client, _phantom: Default::default() }
 	}
 
-	/// Decode an RPC `hash` argument: 32 raw bytes (not hex), as produced by the
-	/// client computing `blake2_256(data)` and SCALE-encoding the resulting `H256`.
+	/// Decode an RPC `hash` argument: 32 raw bytes (not hex).
 	fn decode_hash(bytes: Bytes) -> RpcResult<HopHash> {
 		let hash_bytes: [u8; 32] = bytes
 			.0
@@ -146,7 +145,7 @@ where
 	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
 {
-	async fn submit(
+	fn submit(
 		&self,
 		data: Bytes,
 		recipients: Vec<Bytes>,
@@ -205,48 +204,28 @@ where
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
-		// Pool inserts hit disk (sharded blob + atomic .meta write); push them off
-		// the JSON-RPC executor so a slow disk doesn't block other handlers.
-		let pool = self.pool.clone();
-		let payload = data.0;
-		tokio::task::spawn_blocking(move || -> RpcResult<SubmitResult> {
-			pool.insert(
-				payload,
-				current_block,
-				recipient_keys,
-				sender_id,
-				signer,
-				multi_sig,
-				submit_timestamp,
-			)?;
-			Ok(SubmitResult { pool_status: pool.status() })
-		})
-		.await
-		.map_err(|e| HopError::IoError(std::io::Error::other(e.to_string())))?
+		self.pool.insert(
+			data.0,
+			current_block,
+			recipient_keys,
+			sender_id,
+			signer,
+			multi_sig,
+			submit_timestamp,
+		)?;
+		Ok(SubmitResult { pool_status: self.pool.status() })
 	}
 
-	async fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
+	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
 		let hash = Self::decode_hash(hash)?;
-		let pool = self.pool.clone();
-		let sig = signature.0;
-		tokio::task::spawn_blocking(move || -> RpcResult<Bytes> {
-			let data = pool.claim(&hash, &sig)?;
-			Ok(Bytes(data))
-		})
-		.await
-		.map_err(|e| HopError::IoError(std::io::Error::other(e.to_string())))?
+		let data = self.pool.claim(&hash, &signature.0)?;
+		Ok(Bytes(data))
 	}
 
-	async fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()> {
+	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()> {
 		let hash = Self::decode_hash(hash)?;
-		let pool = self.pool.clone();
-		let sig = signature.0;
-		tokio::task::spawn_blocking(move || -> RpcResult<()> {
-			pool.ack(&hash, &sig)?;
-			Ok(())
-		})
-		.await
-		.map_err(|e| HopError::IoError(std::io::Error::other(e.to_string())))?
+		self.pool.ack(&hash, &signature.0)?;
+		Ok(())
 	}
 
 	fn pool_status(&self) -> RpcResult<PoolStatus> {
@@ -398,46 +377,42 @@ mod tests {
 		Bytes(MultiSignature::Ed25519(pair.sign(&payload)).encode())
 	}
 
-	#[tokio::test]
-	async fn submit_invalid_scale_signer_returns_error() {
+	#[test]
+	fn submit_invalid_scale_signer_returns_error() {
 		let (rpc, _, _dir) = setup(true);
 		// One valid recipient so the RecipientVec step passes; then the SCALE-invalid
 		// signer bytes trigger `InvalidSigner`.
 		let (_, valid_signer) = make_keypair();
-		let result = rpc
-			.submit(
-				Bytes(vec![1, 2, 3]),
-				vec![Bytes(valid_signer.encode())],
-				Bytes(vec![0u8; 3]),
-				Bytes(vec![0u8; 3]),
-				TEST_SUBMIT_TS,
-			)
-			.await;
+		let result = rpc.submit(
+			Bytes(vec![1, 2, 3]),
+			vec![Bytes(valid_signer.encode())],
+			Bytes(vec![0u8; 3]),
+			Bytes(vec![0u8; 3]),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("SCALE-decode MultiSigner"), "got: {}", err.message());
 	}
 
-	#[tokio::test]
-	async fn submit_invalid_scale_signature_returns_error() {
+	#[test]
+	fn submit_invalid_scale_signature_returns_error() {
 		let (rpc, _, _dir) = setup(true);
 		let (_, signer) = make_keypair();
-		let result = rpc
-			.submit(
-				Bytes(vec![1, 2, 3]),
-				vec![Bytes(signer.encode())],
-				Bytes(vec![0u8; 3]),
-				Bytes(signer.encode()),
-				TEST_SUBMIT_TS,
-			)
-			.await;
+		let result = rpc.submit(
+			Bytes(vec![1, 2, 3]),
+			vec![Bytes(signer.encode())],
+			Bytes(vec![0u8; 3]),
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("Invalid signature"), "got: {}", err.message());
 	}
 
-	#[tokio::test]
-	async fn submit_bad_signature_returns_error() {
+	#[test]
+	fn submit_bad_signature_returns_error() {
 		let (rpc, _, _dir) = setup(true);
 		let (_, signer) = make_keypair();
 		// Sign with a different key.
@@ -445,57 +420,51 @@ mod tests {
 		let data = vec![1, 2, 3];
 		let sig = submit_sig(&wrong_pair, &data, TEST_SUBMIT_TS);
 
-		let result = rpc
-			.submit(
-				Bytes(data),
-				vec![Bytes(signer.encode())],
-				sig,
-				Bytes(signer.encode()),
-				TEST_SUBMIT_TS,
-			)
-			.await;
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("Invalid signature"), "got: {}", err.message());
 	}
 
-	#[tokio::test]
-	async fn submit_unauthorized_account_returns_error() {
+	#[test]
+	fn submit_unauthorized_account_returns_error() {
 		let (rpc, _, _dir) = setup(false);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3];
 		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
 
-		let result = rpc
-			.submit(
-				Bytes(data),
-				vec![Bytes(signer.encode())],
-				sig,
-				Bytes(signer.encode()),
-				TEST_SUBMIT_TS,
-			)
-			.await;
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("authorization"), "got: {}", err.message());
 	}
 
-	#[tokio::test]
-	async fn submit_success() {
+	#[test]
+	fn submit_success() {
 		let (rpc, pool, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3, 4, 5];
 		let sig = submit_sig(&pair, &data, TEST_SUBMIT_TS);
 
-		let result = rpc
-			.submit(
-				Bytes(data),
-				vec![Bytes(signer.encode())],
-				sig,
-				Bytes(signer.encode()),
-				TEST_SUBMIT_TS,
-			)
-			.await;
+		let result = rpc.submit(
+			Bytes(data),
+			vec![Bytes(signer.encode())],
+			sig,
+			Bytes(signer.encode()),
+			TEST_SUBMIT_TS,
+		);
 		assert!(result.is_ok(), "submit failed: {:?}", result.err());
 		let submit_result = result.unwrap();
 		assert_eq!(submit_result.pool_status.entry_count, 1);
@@ -504,8 +473,8 @@ mod tests {
 		assert_eq!(pool.status().entry_count, 1);
 	}
 
-	#[tokio::test]
-	async fn submit_rejects_oversized_recipient_list() {
+	#[test]
+	fn submit_rejects_oversized_recipient_list() {
 		let (rpc, _, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![1, 2, 3];
@@ -515,25 +484,24 @@ mod tests {
 			.take(MAX_RECIPIENTS as usize + 1)
 			.collect();
 
-		let result = rpc
-			.submit(Bytes(data), oversized, sig, Bytes(signer.encode()), TEST_SUBMIT_TS)
-			.await;
+		let result =
+			rpc.submit(Bytes(data), oversized, sig, Bytes(signer.encode()), TEST_SUBMIT_TS);
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("Too many recipients"), "got: {}", err.message());
 	}
 
-	#[tokio::test]
-	async fn claim_invalid_hash_length() {
+	#[test]
+	fn claim_invalid_hash_length() {
 		let (rpc, _, _dir) = setup(true);
-		let result = rpc.claim(Bytes(vec![0u8; 31]), Bytes(vec![0u8; 64])).await;
+		let result = rpc.claim(Bytes(vec![0u8; 31]), Bytes(vec![0u8; 64]));
 		assert!(result.is_err());
 		let err = result.unwrap_err();
 		assert!(err.message().contains("expected 32 bytes"), "got: {}", err.message());
 	}
 
-	#[tokio::test]
-	async fn claim_and_ack_through_rpc() {
+	#[test]
+	fn claim_and_ack_through_rpc() {
 		let (rpc, _, _dir) = setup(true);
 		let (pair, signer) = make_keypair();
 		let data = vec![10, 20, 30];
@@ -546,14 +514,13 @@ mod tests {
 			Bytes(signer.encode()),
 			TEST_SUBMIT_TS,
 		)
-		.await
 		.unwrap();
 
 		let hash = H256(blake2_256(&data));
-		let claimed = rpc.claim(Bytes(hash.0.to_vec()), claim_sig(&pair, &hash)).await.unwrap();
+		let claimed = rpc.claim(Bytes(hash.0.to_vec()), claim_sig(&pair, &hash)).unwrap();
 		assert_eq!(claimed.0, data);
 
-		rpc.ack(Bytes(hash.0.to_vec()), ack_sig(&pair, &hash)).await.unwrap();
+		rpc.ack(Bytes(hash.0.to_vec()), ack_sig(&pair, &hash)).unwrap();
 
 		let status = rpc.pool_status().unwrap();
 		assert_eq!(status.entry_count, 0);

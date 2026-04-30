@@ -254,11 +254,7 @@ macro_rules! impl_node_runtime_apis {
 
 			}
 
-			// HOP stub: see `sp_hop::HopRuntimeApi`'s docs for the same shape and
-			// rationale. Runtimes that don't enable HOP can copy this block as-is;
-			// `can_account_promote` returning `false` is the runtime telling the
-			// node "no submissions allowed", and the panic arm of
-			// `create_promotion_extrinsic` is unreachable for such runtimes.
+			// HOP no-op stub. See `sp_hop::HopRuntimeApi` docs for rationale.
 			impl sp_hop::HopRuntimeApi<$block, AccountId> for $runtime {
 				fn can_account_promote(_who: AccountId, _data_len: u32) -> bool {
 					false

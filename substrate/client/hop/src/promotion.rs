@@ -181,6 +181,7 @@ pub struct HopMaintenanceTask {
 	promoter: Option<Arc<dyn HopPromoter>>,
 	buffer_blocks: u32,
 	check_interval_secs: u64,
+	check_interval_blocks: u32,
 	best_block: Arc<dyn Fn() -> u32 + Send + Sync>,
 }
 
@@ -198,7 +199,17 @@ impl HopMaintenanceTask {
 		buffer_blocks: u32,
 		check_interval_secs: u64,
 	) -> Self {
-		Self { hop_pool, promoter, buffer_blocks, check_interval_secs, best_block }
+		let check_interval_blocks = (check_interval_secs.max(1) /
+			crate::types::HOP_BLOCK_TIME_SECS.max(1))
+		.max(1) as u32;
+		Self {
+			hop_pool,
+			promoter,
+			buffer_blocks,
+			check_interval_secs,
+			check_interval_blocks,
+			best_block,
+		}
 	}
 
 	/// Run the maintenance loop.
@@ -239,13 +250,10 @@ impl HopMaintenanceTask {
 						);
 					},
 					Err(e) => {
-						let check_interval_blocks = (self.check_interval_secs.max(1) /
-							crate::types::HOP_BLOCK_TIME_SECS.max(1))
-						.max(1) as u32;
 						self.hop_pool.record_promotion_failure(
 							&hash,
 							current_block,
-							check_interval_blocks,
+							self.check_interval_blocks,
 						);
 						tracing::warn!(
 							target: "hop",
