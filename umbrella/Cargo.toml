@@ -1804,7 +1804,7 @@ version = "0.13.0"
 default-features = false
 optional = true
 path = "../substrate/frame/revive/proc-macro"
-version = "0.7.4"
+version = "0.7.2"
 
 [dependencies.pallet-revive-uapi]
 default-features = false
