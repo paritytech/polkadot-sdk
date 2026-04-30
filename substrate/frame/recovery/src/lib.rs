@@ -790,14 +790,14 @@ pub mod pallet {
 		pub fn finish_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
-			attempt_index: FriendGroupIndex,
+			friend_group_index: FriendGroupIndex,
 		) -> DispatchResult {
 			let caller = ensure_signed(origin)?;
 			let lost = T::Lookup::lookup(lost)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
 			let (attempt, attempts_ticket, deposit) =
-				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+				Attempt::<T>::take(&lost, &friend_group_index).ok_or(Error::<T>::NotAttempt)?;
 
 			// We NEVER block a recovery on a buggy initiator account.
 			let _: Result<(), DispatchError> = attempts_ticket.try_drop().defensive();
@@ -809,8 +809,7 @@ pub mod pallet {
 			)
 			.defensive();
 
-			// AUDIT: attempt_index == friend_group_index
-			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
+			let friend_group = Self::friend_group_of(&lost, friend_group_index).defensive()?;
 
 			// Check if the attempt is now complete
 			let approvals = attempt.approvals.count_ones();
@@ -837,7 +836,7 @@ pub mod pallet {
 					Inheritor::<T>::insert(&lost, (inheritance_priority, &inheritor, ticket));
 					Self::deposit_event(Event::<T>::AttemptFinished {
 						lost,
-						friend_group_index: attempt_index,
+						friend_group_index,
 						inheritor,
 						previous_inheritor: None,
 					});
@@ -850,7 +849,7 @@ pub mod pallet {
 					Inheritor::<T>::insert(&lost, (inheritance_priority, &inheritor, ticket));
 					Self::deposit_event(Event::<T>::AttemptFinished {
 						lost,
-						friend_group_index: attempt_index,
+						friend_group_index,
 						inheritor,
 						previous_inheritor: Some(old_inheritor),
 					});
@@ -860,7 +859,7 @@ pub mod pallet {
 					// already recovered the account.
 					Self::deposit_event(Event::<T>::AttemptDiscarded {
 						lost,
-						friend_group_index: attempt_index,
+						friend_group_index,
 						existing_inheritor,
 					});
 				},
@@ -879,14 +878,14 @@ pub mod pallet {
 		pub fn cancel_attempt(
 			origin: OriginFor<T>,
 			lost: AccountIdLookupOf<T>,
-			attempt_index: FriendGroupIndex,
+			friend_group_index: FriendGroupIndex,
 		) -> DispatchResult {
 			let canceler = ensure_signed(origin)?;
 			let lost = T::Lookup::lookup(lost)?;
 			let now = T::BlockNumberProvider::current_block_number();
 
 			let (attempt, ticket, deposit) =
-				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+				Attempt::<T>::take(&lost, &friend_group_index).ok_or(Error::<T>::NotAttempt)?;
 
 			ensure!(canceler == attempt.initiator || canceler == lost, Error::<T>::NotCanceller);
 
@@ -900,8 +899,7 @@ pub mod pallet {
 			)
 			.defensive();
 
-			// AUDIT: attempt_index == friend_group_index
-			let friend_group = Self::friend_group_of(&lost, attempt_index).defensive()?;
+			let friend_group = Self::friend_group_of(&lost, friend_group_index).defensive()?;
 
 			if canceler != lost {
 				let cancelable_at = attempt
@@ -914,11 +912,7 @@ pub mod pallet {
 			// cancel delay, we ensure that every friend had enough time to call
 			// `finish_attempt`.
 
-			Self::deposit_event(Event::<T>::AttemptCanceled {
-				lost,
-				friend_group_index: attempt_index,
-				canceler,
-			});
+			Self::deposit_event(Event::<T>::AttemptCanceled { lost, friend_group_index, canceler });
 
 			Ok(())
 		}
@@ -928,20 +922,17 @@ pub mod pallet {
 		#[pallet::weight(T::WeightInfo::slash_attempt())]
 		pub fn slash_attempt(
 			origin: OriginFor<T>,
-			attempt_index: FriendGroupIndex,
+			friend_group_index: FriendGroupIndex,
 		) -> DispatchResult {
 			let lost = ensure_signed(origin)?;
 
 			let (attempt, ticket, deposit) =
-				Attempt::<T>::take(&lost, &attempt_index).ok_or(Error::<T>::NotAttempt)?;
+				Attempt::<T>::take(&lost, &friend_group_index).ok_or(Error::<T>::NotAttempt)?;
 
 			let _: Result<(), DispatchError> = ticket.try_drop().defensive();
 			let _ = Self::handle_slash(&attempt.initiator, deposit).defensive();
 
-			Self::deposit_event(Event::<T>::AttemptSlashed {
-				lost,
-				friend_group_index: attempt_index,
-			});
+			Self::deposit_event(Event::<T>::AttemptSlashed { lost, friend_group_index });
 
 			Ok(())
 		}
@@ -984,7 +975,7 @@ impl<T: Config> Pallet<T> {
 
 	pub fn friend_group_of(
 		lost: &T::AccountId,
-		friend_group_index: u32,
+		friend_group_index: FriendGroupIndex,
 	) -> Result<FriendGroupOf<T>, Error<T>> {
 		let friend_groups = match FriendGroups::<T>::get(lost) {
 			Some((g, _t)) => g,
@@ -998,7 +989,7 @@ impl<T: Config> Pallet<T> {
 
 	pub fn attempt_of(
 		lost: &T::AccountId,
-		friend_group_index: u32,
+		friend_group_index: FriendGroupIndex,
 	) -> Result<(AttemptOf<T>, AttemptTicketOf<T>, SecurityDepositOf<T>), Error<T>> {
 		pallet::Attempt::<T>::get(lost, friend_group_index).ok_or(Error::<T>::NotAttempt)
 	}

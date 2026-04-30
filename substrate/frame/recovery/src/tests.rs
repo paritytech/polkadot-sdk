@@ -1390,7 +1390,7 @@ fn inheritor_can_slash_higher_priority_attempts_and_remove_friend_groups() {
 		assert_ok!(Recovery::control_inherited_account(
 			signed(FERDIE),
 			ALICE,
-			Box::new(RecoveryCall::slash_attempt { attempt_index: 0 }.into())
+			Box::new(RecoveryCall::slash_attempt { friend_group_index: 0 }.into())
 		));
 
 		// BOB's security deposit must NOT have been slashed
@@ -1453,7 +1453,7 @@ fn inheritor_cannot_bypass_filter_via_utility_batch() {
 		let bob_balance_before = <Test as Config>::Currency::total_balance(&BOB);
 
 		// FERDIE wraps the slash inside a utility::batch call to try to bypass the filter
-		let slash_call: RuntimeCall = RecoveryCall::slash_attempt { attempt_index: 0 }.into();
+		let slash_call: RuntimeCall = RecoveryCall::slash_attempt { friend_group_index: 0 }.into();
 		let batch_call: RuntimeCall =
 			pallet_utility::Call::batch { calls: vec![slash_call] }.into();
 		assert_ok!(Recovery::control_inherited_account(
