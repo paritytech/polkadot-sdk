@@ -257,19 +257,23 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 			&caller,
 		);
 		// The PSM-derived account may already hold the external asset on the
-		// live chain (residual from prior deployments / direct transfers), so
-		// we compare deltas rather than absolute balances.
+		// live chain (residual from prior deployments / direct transfers), and
+		// `PsmDebt` may be non-empty if the pallet has already been used. We
+		// compare deltas rather than absolute balances.
 		let psm_external_before =
 			<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
 				asset_id.clone(),
 				&psm_account,
 			);
+		let total_debt_before = pallet_psm::PsmDebt::<Runtime>::iter_values()
+			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
 
 		log::info!(
 			target: LOG_TARGET,
-			"Test account external stablecoin balance: {:?} / pre-existing PSM balance: {:?}",
+			"Caller external balance: {:?} / pre-existing PSM external: {:?} / pre-existing debt: {:?}",
 			balance_before,
 			psm_external_before,
+			total_debt_before,
 		);
 
 		// Test mint
@@ -292,7 +296,11 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 
 		let total_debt = pallet_psm::PsmDebt::<Runtime>::iter_values()
 			.fold(BalanceOf::<Runtime>::zero(), |acc, debt| acc.saturating_add(debt));
-		assert_eq!(total_debt, swap_amount, "PSM total debt should equal the swap amount");
+		assert_eq!(
+			total_debt,
+			total_debt_before + swap_amount,
+			"PSM total debt should increase by exactly swap_amount"
+		);
 
 		// The PSM account's external balance should grow by exactly the swap amount.
 		let psm_external = <Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::balance(
