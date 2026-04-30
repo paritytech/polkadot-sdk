@@ -44,9 +44,18 @@ pub struct Recipient {
 	pub claimed: bool,
 }
 
+/// On-disk format version for `HopEntryMeta` records. The startup recovery
+/// path rejects `.meta` files whose first byte does not match this constant,
+/// so format changes can be made without silently mis-decoding old entries.
+pub const HOP_META_VERSION: u8 = 1;
+
 /// Metadata for a pool entry (stored in-memory index and on-disk .meta files).
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct HopEntryMeta {
+	/// On-disk format version. Always equals `HOP_META_VERSION` for fresh
+	/// entries. Kept as the first field so a single-byte read is enough to
+	/// gate decoding.
+	pub version: u8,
 	/// Block number when this was added
 	pub added_at: HopBlockNumber,
 	/// Block number when this expires (added_at + retention_period)
@@ -76,6 +85,15 @@ pub struct HopEntryMeta {
 	/// from on-chain time, so old `(data, signer, signature)` tuples cannot be
 	/// replayed indefinitely.
 	pub submit_timestamp: u64,
+	/// Number of times the maintenance task has tried (and failed) to promote
+	/// this entry. Used together with `next_promotion_attempt_at` for
+	/// exponential back-off. Reset behavior: never reset — once an entry hits
+	/// `MAX_PROMOTION_ATTEMPTS` it is left to expire normally.
+	pub promotion_attempts: u8,
+	/// Block height at which the next promotion attempt becomes eligible.
+	/// `0` means "any tick"; non-zero means the maintenance task should skip
+	/// this entry until the chain reaches this block.
+	pub next_promotion_attempt_at: HopBlockNumber,
 }
 
 impl HopEntryMeta {
@@ -92,6 +110,7 @@ impl HopEntryMeta {
 	) -> Self {
 		let expires_at = added_at.saturating_add(retention_blocks);
 		Self {
+			version: HOP_META_VERSION,
 			added_at,
 			expires_at,
 			size,
@@ -101,8 +120,25 @@ impl HopEntryMeta {
 			signer,
 			signature,
 			submit_timestamp,
+			promotion_attempts: 0,
+			next_promotion_attempt_at: 0,
 		}
 	}
+}
+
+/// Maximum number of promotion attempts per entry before the maintenance
+/// task gives up and lets the entry expire naturally. With the back-off
+/// schedule below this caps wasted work at 1+2+4+8+16 = 31 check
+/// intervals (~31 hours at the default 1 h cadence) per stuck entry.
+pub const MAX_PROMOTION_ATTEMPTS: u8 = 6;
+
+/// Compute the back-off in blocks to wait before the next promotion attempt
+/// after `attempts` consecutive failures. The first failure triggers a 1×
+/// wait, doubling each subsequent failure: `1×, 2×, 4×, 8×, 16×, 32×` the
+/// check interval, with the shift saturated to keep multiplication safe.
+pub fn promotion_backoff_blocks(attempts: u8, check_interval_blocks: u32) -> u32 {
+	let shift = attempts.saturating_sub(1).min(5) as u32;
+	check_interval_blocks.saturating_mul(1u32 << shift)
 }
 
 /// Pool statistics
@@ -234,6 +270,12 @@ pub const DEFAULT_MAX_POOL_SIZE_MIB: u64 = DEFAULT_MAX_POOL_SIZE / (1024 * 1024)
 
 /// Default maintenance interval in seconds (1 hour)
 pub const DEFAULT_CHECK_INTERVAL_SECS: u64 = 3600;
+
+/// Block-time assumption used when translating the wall-clock maintenance
+/// interval into block deltas for the promotion back-off scheduler. Matches
+/// the 6 s/block assumption baked into `DEFAULT_RETENTION_BLOCKS` and the
+/// other block-denominated defaults.
+pub const HOP_BLOCK_TIME_SECS: u64 = 6;
 
 /// Maximum number of recipients allowed per submission.
 ///

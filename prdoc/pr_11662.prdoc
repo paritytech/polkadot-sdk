@@ -51,6 +51,36 @@ doc:
       `HopDataPool`, and merging `HopRpcServer` into the RPC module. See `sc-hop`
       crate docs for a step-by-step guide.
 
+      **Breaking change for `polkadot-omni-node` parachain runtimes.** `HopRuntimeApi`
+      is now a supertrait bound on `NodeRuntimeApi`, so every runtime built against
+      `polkadot-omni-node-lib` must implement it (same convention as
+      `TransactionStorageApi`). Runtimes that **do not** want HOP must add a no-op
+      stub inside their `impl_runtime_apis!` block:
+
+      ```rust
+      impl sp_hop::HopRuntimeApi<Block, AccountId> for Runtime {
+          fn can_account_promote(_: AccountId, _: u32) -> bool { false }
+          fn create_promotion_extrinsic(
+              _: alloc::vec::Vec<u8>,
+              _: sp_runtime::MultiSigner,
+              _: sp_runtime::MultiSignature,
+              _: u64,
+          ) -> <Block as sp_runtime::traits::Block>::Extrinsic {
+              panic!("HOP not supported by this runtime")
+          }
+          fn max_promotion_size() -> u32 { 0 }
+      }
+      ```
+
+      `can_account_promote` returning `false` tells the node "no submissions
+      allowed", so the panic arm of `create_promotion_extrinsic` is unreachable
+      for stub runtimes. `sc-hop`'s maintenance task additionally probes
+      `ApiExt::has_api()` at startup and degrades to cleanup-only when the API
+      isn't present, so a forgotten upgrade fails fast and visibly rather than
+      silently mis-promoting. The same stub is shipped in
+      `cumulus/polkadot-omni-node/lib/src/fake_runtime_api/utils.rs` for runtimes
+      using the omni-node fake-runtime helper.
+
   - audience: Node Operator
     description: |
       New `--enable-hop` flag activates the HOP data pool for ephemeral
@@ -82,4 +112,4 @@ crates:
   - name: polkadot-omni-node-lib
     bump: major
   - name: polkadot-sdk
-    bump: minor
+    bump: patch

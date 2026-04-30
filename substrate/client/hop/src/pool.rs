@@ -19,9 +19,10 @@
 use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
 	types::{
-		entry_accounted_size, signing_payload, HopBlockNumber, HopEntryMeta, HopError, HopHash,
-		PoolStatus, Recipient, RecipientVec, SenderId, HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT,
-		MAX_DATA_SIZE,
+		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
+		HopEntryMeta, HopError, HopHash, PoolStatus, Recipient, RecipientVec, SenderId,
+		HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE,
+		MAX_PROMOTION_ATTEMPTS,
 	},
 };
 use codec::{Decode, Encode};
@@ -139,6 +140,22 @@ impl HopDataPool {
 							continue;
 						},
 					};
+					if meta.version != HOP_META_VERSION {
+						tracing::warn!(
+							target: "hop",
+							path = ?path,
+							version = meta.version,
+							expected = HOP_META_VERSION,
+							"Removing .meta with unsupported on-disk version",
+						);
+						let _ = fs::remove_file(&path);
+						let blob_path = data_dir
+							.join(BLOBS_DIR)
+							.join(&shard)
+							.join(format!("{}.{}", stem, BLOB_EXT));
+						let _ = fs::remove_file(&blob_path);
+						continue;
+					}
 
 					let blob_path = data_dir
 						.join(BLOBS_DIR)
@@ -655,7 +672,10 @@ impl HopDataPool {
 		index
 			.iter()
 			.filter(|(_, meta)| {
-				!meta.promoted && current_block.saturating_add(buffer_blocks) >= meta.expires_at
+				!meta.promoted &&
+					current_block.saturating_add(buffer_blocks) >= meta.expires_at &&
+					meta.promotion_attempts < MAX_PROMOTION_ATTEMPTS &&
+					current_block >= meta.next_promotion_attempt_at
 			})
 			.map(|(h, _)| *h)
 			.take(limit)
@@ -678,6 +698,36 @@ impl HopDataPool {
 					hash = ?hex::encode(hash),
 					error = %e,
 					"Failed to persist promoted state"
+				);
+			}
+		}
+	}
+
+	/// Record a failed promotion attempt: bumps the per-entry attempt counter
+	/// and schedules the next eligible block via exponential back-off. The
+	/// maintenance task will skip the entry until then. Once
+	/// `MAX_PROMOTION_ATTEMPTS` is reached the entry is left to expire.
+	pub fn record_promotion_failure(
+		&self,
+		hash: &HopHash,
+		current_block: HopBlockNumber,
+		check_interval_blocks: u32,
+	) {
+		let mut index = self.index.write();
+		if let Some(meta) = index.get_mut(hash) {
+			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
+			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
+			meta.next_promotion_attempt_at = current_block.saturating_add(backoff);
+			let meta_bytes = meta.encode();
+			let meta_path = self.meta_path(hash);
+			drop(index);
+
+			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
+				tracing::error!(
+					target: "hop",
+					hash = ?hex::encode(hash),
+					error = %e,
+					"Failed to persist promotion-failure state"
 				);
 			}
 		}
@@ -1723,5 +1773,89 @@ mod tests {
 			),
 			Err(HopError::RateLimited { .. })
 		));
+	}
+
+	#[test]
+	fn test_meta_version_mismatch_rejected() {
+		// Persist a HopEntryMeta with version 0 (an older / future schema), then
+		// boot a fresh pool over the same dir and assert the .meta is wiped and
+		// not surfaced in the in-memory index.
+		let dir = TempDir::new().unwrap();
+		let (_, signer) = test_recipient();
+		let recipients = bv(vec![signer.clone()]);
+		let mut meta =
+			HopEntryMeta::new(100, 0, 100, recipients, SENDER_A, dummy_auth().0, dummy_auth().1, 0);
+		meta.version = 0;
+
+		let fake_hash = "ee".to_string() + &"ff".repeat(15);
+		let meta_dir = dir.path().join("meta").join("ee");
+		let blob_dir = dir.path().join("blobs").join("ee");
+		fs::create_dir_all(&meta_dir).unwrap();
+		fs::create_dir_all(&blob_dir).unwrap();
+		let meta_path = meta_dir.join(format!("{}.meta", fake_hash));
+		let blob_path = blob_dir.join(format!("{}.blob", fake_hash));
+		fs::write(&meta_path, meta.encode()).unwrap();
+		fs::write(&blob_path, b"x").unwrap();
+
+		let pool = HopDataPool::new(
+			1024 * 1024,
+			1024 * 1024,
+			100,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+		assert!(!meta_path.exists(), "stale-version .meta should be removed");
+		assert!(!blob_path.exists(), "matching .blob should also be removed");
+		assert_eq!(pool.status().entry_count, 0);
+	}
+
+	#[test]
+	fn test_promotion_backoff_skips_until_due_then_gives_up() {
+		use crate::types::MAX_PROMOTION_ATTEMPTS;
+
+		let (pool, _dir) = make_pool(1024 * 1024, /* retention = */ 100);
+		let (_, signer) = test_recipient();
+		let hash = pool
+			.insert(
+				vec![1u8; 100],
+				// added_at =
+				0,
+				bv(vec![signer]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
+
+		// Inside the buffer window so the entry is promotable in principle.
+		let buffer = 50;
+		let current = 60;
+		assert_eq!(pool.get_promotable(current, buffer, 10), vec![hash]);
+
+		// First failure schedules next attempt at current + 1× check_interval_blocks.
+		let check_interval_blocks: u32 = 10;
+		pool.record_promotion_failure(&hash, current, check_interval_blocks);
+		assert!(
+			pool.get_promotable(current, buffer, 10).is_empty(),
+			"entry should be skipped until back-off elapses"
+		);
+		assert_eq!(pool.get_promotable(current + 10, buffer, 10), vec![hash]);
+
+		// Burn through the remaining attempts; once at MAX, the entry stays out
+		// of the promotable set forever (regardless of how far we advance time).
+		// Schedule after first failure: 1×, 2×, 4×, 8×, 16× check_interval.
+		let mut now = current + 10;
+		for next_attempt in 2..=MAX_PROMOTION_ATTEMPTS {
+			pool.record_promotion_failure(&hash, now, check_interval_blocks);
+			let shift = (next_attempt - 1).min(5);
+			let backoff = check_interval_blocks << shift;
+			now += backoff;
+		}
+		assert!(
+			pool.get_promotable(now + 10_000, buffer, 10).is_empty(),
+			"entry should give up after MAX_PROMOTION_ATTEMPTS"
+		);
 	}
 }

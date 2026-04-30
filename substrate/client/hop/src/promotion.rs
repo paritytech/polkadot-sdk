@@ -239,11 +239,19 @@ impl HopMaintenanceTask {
 						);
 					},
 					Err(e) => {
+						let check_interval_blocks = (self.check_interval_secs.max(1) /
+							crate::types::HOP_BLOCK_TIME_SECS.max(1))
+						.max(1) as u32;
+						self.hop_pool.record_promotion_failure(
+							&hash,
+							current_block,
+							check_interval_blocks,
+						);
 						tracing::warn!(
 							target: "hop",
 							hash = ?hex::encode(hash),
 							error = %e,
-							"Failed to promote HOP entry, will retry"
+							"Failed to promote HOP entry; will back off"
 						);
 					},
 				}
@@ -443,9 +451,12 @@ mod tests {
 		// Promoter was called but failed.
 		assert_eq!(promoter.call_count(), 1);
 
-		// Entry should still be promotable (not marked as promoted).
-		let promotable = pool.get_promotable(80, 30, usize::MAX);
-		assert_eq!(promotable.len(), 1);
+		// Failure schedules a back-off rather than re-marking immediately. The
+		// entry isn't promotable at the failure block, but becomes promotable
+		// again once the back-off (1× check_interval = 10 blocks at 6 s/block)
+		// elapses — and crucially, never gets `mark_promoted`.
+		assert!(pool.get_promotable(80, 30, usize::MAX).is_empty());
+		assert_eq!(pool.get_promotable(95, 30, usize::MAX).len(), 1);
 	}
 
 	#[test]

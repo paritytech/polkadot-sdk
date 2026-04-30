@@ -21,6 +21,7 @@ tracing = { workspace = true }
 
 # Async
 futures-timer = { workspace = true }
+tokio = { workspace = true, features = ["rt"] }
 
 # CLI
 clap = { workspace = true, features = ["derive"] }
