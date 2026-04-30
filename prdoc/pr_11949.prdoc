@@ -10,16 +10,16 @@ doc:
 
 crates:
 - name: pallet-accumulate-and-forward
-  bump: minor
+  bump: patch
 - name: bridge-hub-westend-runtime
-  bump: minor
+  bump: patch
 - name: collectives-westend-runtime
-  bump: minor
+  bump: patch
 - name: coretime-westend-runtime
-  bump: minor
+  bump: patch
 - name: people-westend-runtime
-  bump: minor
+  bump: patch
 - name: westend-runtime
-  bump: minor
+  bump: patch
 - name: staging-xcm-builder
-  bump: minor
+  bump: major
