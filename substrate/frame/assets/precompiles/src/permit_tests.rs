@@ -651,8 +651,6 @@ fn use_permit_rejects_multiple_replay_attempts() {
 
 #[test]
 fn permit_typehash_is_correct() {
-	// This test is also in the permit module itself, but we include it here
-	// for completeness in the test suite
 	let computed = sp_io::hashing::keccak_256(
 		b"Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)",
 	);
@@ -691,7 +689,8 @@ fn encoded_length_constants_are_correct() {
 // account #0's private key. They cover precompile-level concerns the pallet
 // tests cannot:
 //
-//   * the four-branch allowance update inside `permit()`
+//   * the allowance-update branches in `permit()` (fresh-approve, revoke, noop,
+//     cancel-then-approve), each pinned by a dedicated test
 //   * `with_transaction` rollback (nonce, allowance, deposit, contract events)
 //   * Approval event emission
 //   * the dispatcher's revert-reason mapping
@@ -732,12 +731,7 @@ mod precompile {
 		}
 	}
 
-	/// Hardhat account #0 — well-known test address with a publicly known
-	/// private key. DO NOT use in production.
-	const HARDHAT_ACCOUNT_0: H160 = H160([
-		0xf3, 0x9F, 0xd6, 0xe5, 0x1a, 0xad, 0x88, 0xF6, 0xF4, 0xce, 0x6a, 0xB8, 0x82, 0x72, 0x79,
-		0xcf, 0xfF, 0xb9, 0x22, 0x66,
-	]);
+	// HARDHAT_ACCOUNT_0 is brought in via `use super::*;` above.
 
 	const HARDHAT_ACCOUNT_0_SEED: &[u8] =
 		b"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
@@ -922,11 +916,12 @@ mod precompile {
 		Balances::make_free_balance_be(&account, 1_000_000_000_000u64);
 	}
 
-	/// Drives `permit()` through the four-branch allowance update: 0→100
-	/// (fresh), 100→0 (revoke), 0→50 (fresh again). Verifies allowance,
-	/// deposit, nonce, and the Approval event at each step. The headline
-	/// permit integration test — kept parametrized over both prefixes for
-	/// confidence on the cross-prefix asset_id extraction path.
+	/// Drives `permit()` through the fresh-approve and revoke branches:
+	/// 0→100 (fresh), 100→0 (revoke), 0→50 (fresh again). Verifies
+	/// allowance, deposit, nonce, and the Approval event at each step. The
+	/// headline permit integration test — kept parametrized over both
+	/// prefixes for confidence on the cross-prefix asset_id extraction path.
+	/// The non-zero→non-zero branch is covered by `permit_nonzero_to_nonzero`.
 	#[test_case(PRECOMPILE_ADDRESS_PREFIX)]
 	#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 	fn permit_set_and_revoke(asset_index: u16) {
@@ -1017,7 +1012,7 @@ mod precompile {
 	/// `permit(value=0)` against a non-existent allowance succeeds silently —
 	/// no allowance entry, no deposit, but the nonce IS consumed and an
 	/// `Approval(_, _, 0)` event IS emitted (matches ERC-20 set semantics).
-	/// Pins the noop branch at lib.rs:553-557.
+	/// Pins the noop branch at lib.rs:555-559.
 	#[test]
 	fn permit_zero_on_nonexistent_is_noop() {
 		use frame_support::traits::fungibles::approvals::Inspect;
@@ -1054,7 +1049,7 @@ mod precompile {
 	/// Overwriting a non-zero allowance via permit must use set semantics:
 	/// the allowance equals the new value (not the sum), and only one
 	/// deposit is held throughout. Pins the cancel-then-approve branch at
-	/// lib.rs:559-566.
+	/// lib.rs:561-567.
 	#[test]
 	fn permit_nonzero_to_nonzero() {
 		use frame_support::traits::fungibles::approvals::Inspect;
@@ -1524,7 +1519,7 @@ mod precompile {
 	}
 
 	/// Exercises the `secp256k1_ecdsa_recover` failure path — the only
-	/// revert reason in the dispatcher's error map (lib.rs:507-518) without
+	/// revert reason in the dispatcher's error map (lib.rs:509-520) without
 	/// dedicated coverage. `r = 0` is not a valid signature component
 	/// (the implied curve point would have x = 0, but `0³ + 7` has no
 	/// square root mod p on secp256k1), so recovery returns `Err`.
@@ -1569,7 +1564,7 @@ mod precompile {
 	}
 
 	/// `permit()` is a state-changing call and must be rejected inside a
-	/// STATICCALL context. The dispatcher's read-only check at lib.rs:171-180
+	/// STATICCALL context. The dispatcher's read-only check at lib.rs:173-182
 	/// guards this — a regression that drops `IERC20Calls::permit(_)` from
 	/// the match arm would silently allow state-changing permits in a
 	/// static context. Mirrors the `delegatecall_is_rejected` test in
@@ -1645,7 +1640,7 @@ mod precompile {
 	}
 
 	/// Drives `nonces(owner)` through `bare_call` to pin the dispatch arm
-	/// at lib.rs:192. A regression that mis-routes the selector would not
+	/// at lib.rs:194. A regression that mis-routes the selector would not
 	/// be caught by tests that read `permit::Pallet::nonce` storage
 	/// directly.
 	#[test]
