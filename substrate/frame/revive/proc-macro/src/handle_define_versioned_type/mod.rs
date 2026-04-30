@@ -15,16 +15,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+mod attribute;
+mod fields;
+mod item;
+
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
 	punctuated::Punctuated, spanned::Spanned, token::Comma, GenericParam, Generics, Ident,
 	ItemEnum, ItemStruct, ItemType, Result, Variant,
 };
-
-mod attribute;
-mod fields;
-mod item;
 
 use attribute::{
 	TypeVersionedTypeAttribute, TypeVersionedTypeMode, VariantVersionedTypeMode,
