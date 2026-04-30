@@ -4213,15 +4213,80 @@ async fn linear_multi_sp_same_para_capacity_not_double_counted() {
 		advs.push(adv);
 	}
 
-	// At most two fetches: leaf 10's CQ has only two slots for para 100.
+	// Exactly two fetches: leaf 10's CQ has two slots for para 100, and the matching is
+	// optimal regardless of which SP the implementation walks first. >2 = over-fetch
+	// (third candidate has nowhere to land on-chain). <2 = under-fetch (a wide-window
+	// candidate stole a slot reachable only from a narrower-window SP).
 	state.try_launch_new_fetch_requests(&mut sender).await;
 	let msg = test_state.timeout_recv().await;
 	assert_matches::assert_matches!(
 		msg,
 		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
-			assert!(
-				reqs.len() <= 2,
-				"expected at most 2 fetches, got {} (over-fetch — third candidate has nowhere to land on-chain)",
+			assert_eq!(
+				reqs.len(), 2,
+				"expected exactly 2 fetches, got {}",
+				reqs.len()
+			);
+		}
+	);
+	test_state.assert_no_messages().await;
+}
+
+// Under-fetch regression: a wide-window SP must not "steal" a CQ position reachable only
+// from a narrower-window SP. With leaf 10's CQ for our core = [100, 200, 100], SP=8 (window
+// [100], offset 2) can only fill position 0; SP=10 (window [100, 200, 100], offset 0) can
+// fill positions 0 or 2. If consumption from a fetch at SP=10 is greedily charged to
+// position 0, SP=8's only reachable slot is gone and its ad gets wrongly parked.
+//
+// Both ads must be fetched regardless of which SP `try_launch_new_fetch_requests` visits
+// first.
+#[tokio::test]
+async fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	assert_eq!(
+		test_state.rp_info[&active_leaf].claim_queue[&core],
+		vec![100.into(), 200.into(), 100.into()]
+	);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_narrow = peer_id(0); // ad at SP=8 (window len 1)
+	let peer_wide = peer_id(1); // ad at SP=10 (window len 3)
+	for &p in &[peer_narrow, peer_wide] {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+
+	let (_, adv_narrow) = dummy_candidate(
+		get_hash(8),
+		100.into(),
+		peer_narrow,
+		core,
+		1,
+		Hash::from_low_u64_be(100),
+	);
+	let (_, adv_wide) = dummy_candidate(
+		get_hash(10),
+		100.into(),
+		peer_wide,
+		core,
+		1,
+		Hash::from_low_u64_be(101),
+	);
+	test_state.handle_advertisement(&mut state, adv_narrow).await;
+	test_state.handle_advertisement(&mut state, adv_wide).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(
+				reqs.len(), 2,
+				"expected both narrow- and wide-window ads to fetch, got {}",
 				reqs.len()
 			);
 		}
