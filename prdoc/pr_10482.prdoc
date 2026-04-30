@@ -7,10 +7,12 @@ crates:
 - name: pallet-recovery
   bump: major
 - name: frame-support
-  bump: major
+  bump: minor
 - name: westend-runtime
   bump: major
 - name: asset-hub-westend-runtime
   bump: major
 - name: rococo-runtime
   bump: major
+- name: substrate-build-script-utils
+  bump: patch
