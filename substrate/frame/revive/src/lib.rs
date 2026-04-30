@@ -706,7 +706,7 @@ pub mod pallet {
 		_,
 		Identity,
 		T::AccountId,
-		Blake2_128Concat,
+		Identity,
 		T::AccountId,
 		BalanceOf<T>,
 		ValueQuery,
