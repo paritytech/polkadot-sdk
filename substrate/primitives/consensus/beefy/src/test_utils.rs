@@ -16,9 +16,8 @@
 // limitations under the License.
 
 use crate::{
-	ecdsa_bls_crypto, ecdsa_crypto, AuthorityIdBound, BeefySignatureHasher, Commitment,
-	DoubleVotingProof, ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId,
-	VoteMessage,
+	ecdsa_bls_crypto, ecdsa_crypto, AuthorityIdBound, Commitment, DoubleVotingProof,
+	ForkVotingProof, FutureBlockVotingProof, Payload, ValidatorSetId, VoteMessage,
 };
 use sp_application_crypto::{AppCrypto, AppPair, RuntimeAppPublic, Wraps};
 use sp_core::{ecdsa, Pair};
@@ -60,13 +59,9 @@ impl BeefySignerAuthority for <ecdsa_crypto::AuthorityId as AppCrypto>::Pair {
 	}
 }
 
-impl<MsgHash> BeefySignerAuthority<MsgHash> for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair
-where
-	MsgHash: Hash,
-	<MsgHash as Hash>::Output: Into<[u8; 32]>,
-{
-	fn sign_with_hasher(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
-		self.as_inner_ref().sign_with_hasher::<MsgHash>(&message).into()
+impl BeefySignerAuthority for <ecdsa_bls_crypto::AuthorityId as AppCrypto>::Pair {
+	fn sign(&self, message: &[u8]) -> <Self as AppCrypto>::Signature {
+		self.as_inner_ref().sign_with_hasher::<sp_core::KeccakHasher>(&message).into()
 	}
 }
 

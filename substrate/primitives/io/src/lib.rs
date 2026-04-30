@@ -2923,42 +2923,33 @@ pub trait Crypto {
 		Some(pop)
 	}
 
-	/// Returns the number of `bls12-381` public keys for the given key type in the keystore.
-	fn bls381_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.bls381_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `bls12-381` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn bls381_public_key(
+	/// Stores all `bls12-381` public keys for the given key id from the keystore into the output
+	/// buffer, if it is large enough. Returns the number of bytes occupied by the keys, regardless
+	/// of whether the buffer was written or not.
+	#[wrapped]
+	fn bls381_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut bls381::Public, 144>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.bls381_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
+		out: PassFatPointerAndWrite<&mut [bls381::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.bls381_public_keys(id);
+		if out.len() >= keys.len() {
+			out[..keys.len()].copy_from_slice(&keys[..]);
+		}
+		(keys.len() * core::mem::size_of::<bls381::Public>()) as u32
 	}
 
-	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
-	/// `bls381_public_keys` host function
+	/// A convenience wrapper providing a developer-friendly interface for the
+	/// `bls381_public_keys` host function.
 	#[wrapper]
 	fn bls381_public_keys(id: KeyTypeId) -> Vec<bls381::Public> {
-		let num_keys = bls381_num_public_keys(id);
-		let mut keys = Vec::new();
-		for i in 0..num_keys {
-			let mut key = bls381::Public::default();
-			bls381_public_key(id, i, &mut key);
-			keys.push(key);
-		}
+		let num_bytes = bls381_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<bls381::Public>();
+		let mut keys = vec![bls381::Public::default(); num_keys];
+		bls381_public_keys__wrapped(id, &mut keys);
 		keys
 	}
 
@@ -2967,6 +2958,7 @@ pub trait Crypto {
 	///
 	/// Stores the signature in the provided output buffer.
 	/// Returns 0 on success, -1 on error.
+	// ERRATA: The RFC erroneously declares `out` to be `i64`. Applies to all *_sign_* functions.
 	#[wrapped]
 	fn bls381_sign(
 		&mut self,
@@ -3031,118 +3023,34 @@ pub trait Crypto {
 		public
 	}
 
-	/// Returns the number of `ecdsa & bls12-381` public keys for the given key type in the
-	/// keystore.
-	fn ecdsa_bls381_num_public_keys(&mut self, id: PassPointerAndReadCopy<KeyTypeId, 4>) -> u32 {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls381_public_keys(id)
-			.len() as u32
-	}
-
-	/// Returns the `ecdsa & bls12-381` public key for the given key type and index in the keystore.
-	/// Panics if the key index is out of bounds.
-	fn ecdsa_bls381_public_key(
+	/// Stores all `ecdsa & bls12-381` public keys for the given key id from the keystore into the
+	/// output buffer, if it is large enough. Returns the number of bytes occupied by the keys,
+	/// regardless of whether the buffer was written or not.
+	#[wrapped]
+	fn ecdsa_bls381_public_keys(
 		&mut self,
 		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		index: u32,
-		out: PassPointerAndWrite<&mut ecdsa_bls381::Public, 177>,
-	) {
-		out.0.copy_from_slice(
-			self.extension::<KeystoreExt>()
-				.expect("No `keystore` associated for the current context!")
-				.ecdsa_bls381_public_keys(id)
-				.get(index as usize)
-				.expect("Key index out of bounds!"),
-		);
-	}
-
-	/// A convenience wrapper providing a developer-friendly interface for the obsoleted
-	/// `ecdsa_bls381_public_keys` host function
-	#[wrapper]
-	fn ecdsa_bls381_public_keys(id: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
-		let num_keys = ecdsa_bls381_num_public_keys(id);
-		let mut keys = Vec::new();
-		for i in 0..num_keys {
-			let mut key = ecdsa_bls381::Public::default();
-			ecdsa_bls381_public_key(id, i, &mut key);
-			keys.push(key);
+		out: PassFatPointerAndWrite<&mut [ecdsa_bls381::Public]>,
+	) -> u32 {
+		let keys = self
+			.extension::<KeystoreExt>()
+			.expect("No `keystore` associated for the current context!")
+			.ecdsa_bls381_public_keys(id);
+		if out.len() >= keys.len() {
+			out[..keys.len()].copy_from_slice(&keys[..]);
 		}
-		keys
-	}
-
-	/// Sign the given `msg` with the `ecdsa & bls12-381` key that corresponds to the given public
-	/// key and key type in the keystore.
-	///
-	/// Stores the signature in the provided output buffer.
-	/// Returns 0 on success, -1 on error.
-	#[wrapped]
-	fn ecdsa_bls381_sign(
-		&mut self,
-		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		pub_key: PassPointerAndRead<&ecdsa_bls381::Public, 177>,
-		msg: PassFatPointerAndRead<&[u8]>,
-		out: PassPointerAndWrite<&mut ecdsa_bls381::Signature, 177>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls381_sign(id, pub_key, msg)
-			.ok()
-			.flatten()
-			.map(|sig| {
-				out.0.copy_from_slice(&sig);
-			})
-			.ok_or(())
-	}
-
-	/// A convenience wrapper providing a developer-friendly interface for the `ecdsa_bls381_sign`
-	/// host function.
-	#[wrapper]
-	fn ecdsa_bls381_sign(
-		id: KeyTypeId,
-		pub_key: &ecdsa_bls381::Public,
-		message: &[u8],
-	) -> Option<ecdsa_bls381::Signature> {
-		let mut signature = ecdsa_bls381::Signature::default();
-		ecdsa_bls381_sign__wrapped(id, pub_key, message, &mut signature).ok()?;
-		Some(signature)
-	}
-
-	/// Sign the given `msg` with the `ecdsa & bls12-381` key that corresponds to the given public
-	/// key and key type in the keystore using keccak256 hash for the ECDSA component.
-	///
-	/// Stores the signature in the provided output buffer.
-	/// Returns 0 on success, -1 on error.
-	#[wrapped]
-	fn ecdsa_bls381_sign_with_keccak256(
-		&mut self,
-		id: PassPointerAndReadCopy<KeyTypeId, 4>,
-		pub_key: PassPointerAndRead<&ecdsa_bls381::Public, 177>,
-		msg: PassFatPointerAndRead<&[u8]>,
-		out: PassPointerAndWrite<&mut ecdsa_bls381::Signature, 177>,
-	) -> ConvertAndReturnAs<Result<(), ()>, RIIntResult<VoidResult, VoidError>, i64> {
-		self.extension::<KeystoreExt>()
-			.expect("No `keystore` associated for the current context!")
-			.ecdsa_bls381_sign_with_keccak256(id, pub_key, msg)
-			.ok()
-			.flatten()
-			.map(|sig| {
-				out.0.copy_from_slice(&sig);
-			})
-			.ok_or(())
+		(keys.len() * core::mem::size_of::<ecdsa_bls381::Public>()) as u32
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the
-	/// `ecdsa_bls381_sign_with_keccak256` host function.
+	/// `ecdsa_bls381_public_keys` host function.
 	#[wrapper]
-	fn ecdsa_bls381_sign_with_keccak256(
-		id: KeyTypeId,
-		pub_key: &ecdsa_bls381::Public,
-		message: &[u8],
-	) -> Option<ecdsa_bls381::Signature> {
-		let mut signature = ecdsa_bls381::Signature::default();
-		ecdsa_bls381_sign_with_keccak256__wrapped(id, pub_key, message, &mut signature).ok()?;
-		Some(signature)
+	fn ecdsa_bls381_public_keys(id: KeyTypeId) -> Vec<ecdsa_bls381::Public> {
+		let num_bytes = ecdsa_bls381_public_keys__wrapped(id, &mut []) as usize;
+		let num_keys = num_bytes / core::mem::size_of::<ecdsa_bls381::Public>();
+		let mut keys = vec![ecdsa_bls381::Public::default(); num_keys];
+		ecdsa_bls381_public_keys__wrapped(id, &mut keys);
+		keys
 	}
 
 	/// Generate a `bandersnatch` key pair for the given key type using an optional
