@@ -15,9 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Test mock for the DAP Satellite pallet.
+//! Test mock for the accumulate-and-forward pallet.
 
-use crate::{self as pallet_dap_satellite, Config};
+use crate::{self as pallet_accumulate_and_forward, Config};
 use frame_support::{
 	derive_impl, parameter_types,
 	sp_runtime::traits::AccountIdConversion,
@@ -37,7 +37,7 @@ frame_support::construct_runtime!(
 	pub enum Test {
 		System: frame_system,
 		Balances: pallet_balances,
-		DapSatellite: pallet_dap_satellite,
+		AccumulateForward: pallet_accumulate_and_forward,
 	}
 );
 
@@ -53,23 +53,23 @@ impl frame_system::Config for Test {
 impl pallet_balances::Config for Test {
 	type AccountStore = System;
 	type ExistentialDeposit = ExistentialDeposit;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 }
 
 thread_local! {
-	/// Counts successful `MockSendToDap::send_native` calls.
+	/// Counts successful `MockForwarder::forward` calls.
 	pub static SEND_COUNT: RefCell<u32> = RefCell::new(0);
-	/// Set to `true` to make `MockSendToDap::send_native` return an error.
+	/// Set to `true` to make `MockForwarder::forward` return an error.
 	pub static SEND_FAIL: RefCell<bool> = RefCell::new(false);
-	/// Records the amount from the most recent successful `MockSendToDap::send_native` call.
+	/// Records the amount from the most recent successful `MockForwarder::forward` call.
 	pub static LAST_SENT_AMOUNT: RefCell<Option<u64>> = RefCell::new(None);
 }
 
-/// Mock implementation of [`pallet_dap_satellite::SendToDap`].
-pub struct MockSendToDap;
+/// Mock implementation of [`pallet_accumulate_and_forward::Forwarder`].
+pub struct MockForwarder;
 
-impl sp_dap::SendToDap<u64, u64> for MockSendToDap {
-	fn send_native(source: u64, amount: u64) -> Result<(), ()> {
+impl crate::Forwarder<u64, u64> for MockForwarder {
+	fn forward(source: u64, amount: u64) -> Result<(), ()> {
 		if SEND_FAIL.with(|f| *f.borrow()) {
 			return Err(());
 		}
@@ -89,7 +89,7 @@ impl sp_dap::SendToDap<u64, u64> for MockSendToDap {
 }
 
 parameter_types! {
-	pub const DapSatellitePalletId: PalletId = sp_dap::DAP_SATELLITE_PALLET_ID;
+	pub const AccumulateForwardPalletId: PalletId = PalletId(*b"acf/dott");
 	pub const ExistentialDeposit: u64 = 10;
 	/// The transfer period in blocks.
 	pub const TransferPeriod: u64 = 5;
@@ -99,20 +99,20 @@ parameter_types! {
 
 impl Config for Test {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
-	type SendToDap = MockSendToDap;
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = MockForwarder;
 	type TransferPeriod = TransferPeriod;
 	type MinTransferAmount = MinTransferAmount;
 	type BlockNumberProvider = System;
 	type WeightInfo = ();
 }
 
-pub fn new_test_ext(fund_satellite: bool) -> sp_io::TestExternalities {
+pub fn new_test_ext(fund_accumulation: bool) -> sp_io::TestExternalities {
 	let mut balances = vec![(1, 100), (2, 200), (3, 300)];
 
-	if fund_satellite {
-		let satellite: u64 = DapSatellitePalletId::get().into_account_truncating();
-		balances.push((satellite, ExistentialDeposit::get()));
+	if fund_accumulation {
+		let accumulation_account: u64 = AccumulateForwardPalletId::get().into_account_truncating();
+		balances.push((accumulation_account, ExistentialDeposit::get()));
 	}
 
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();

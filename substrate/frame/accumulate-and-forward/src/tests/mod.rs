@@ -15,26 +15,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Placeholder weights for `pallet_dap_satellite`.
-//!
-//! These weights are not benchmarked. Replace with actual benchmarked weights
-//! via `frame-omni-bencher` before deploying to production.
+//! Tests for the accumulate-and-forward pallet.
 
-#![cfg_attr(rustfmt, rustfmt_skip)]
-#![allow(unused_parens)]
-#![allow(unused_imports)]
-#![allow(missing_docs)]
-
-use frame_support::weights::Weight;
-
-/// Weight functions needed for `pallet_dap_satellite`.
-pub trait WeightInfo {
-	fn send_native() -> Weight;
-}
-
-/// Default weights (not benchmarked).
-impl WeightInfo for () {
-	fn send_native() -> Weight {
-		Weight::zero()
-	}
-}
+mod deal_with_fees_split;
+mod genesis;
+mod on_unbalanced;
+mod xcm_transfer;
