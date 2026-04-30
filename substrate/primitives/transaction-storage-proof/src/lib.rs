@@ -49,9 +49,6 @@ pub type ContentHash = [u8; 32];
 /// identifier for an indexed payload.
 pub type CidCodec = u64;
 
-/// Multicodec identifier for opaque, raw bytes.
-pub const RAW_CID_CODEC: CidCodec = 0x55;
-
 /// Hashing algorithm used to compute a [`ContentHash`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
 #[non_exhaustive]

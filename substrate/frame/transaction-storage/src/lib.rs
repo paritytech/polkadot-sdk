@@ -535,6 +535,9 @@ pub mod pallet {
 		pub fn indexed_transactions(
 			block: BlockNumberFor<T>,
 		) -> alloc::vec::Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
+
+			const RAW_CID_CODEC: sp_transaction_storage_proof::CidCodec = 0x55;
+
 			Transactions::<T>::get(block)
 				.map(|txs| {
 					txs.into_iter()
@@ -542,7 +545,7 @@ pub mod pallet {
 							content_hash: tx.content_hash.into(),
 							size: tx.size,
 							hashing: sp_transaction_storage_proof::HashingAlgorithm::Blake2b256,
-							cid_codec: sp_transaction_storage_proof::RAW_CID_CODEC,
+							cid_codec: RAW_CID_CODEC,
 							extrinsic_index: u32::MAX,
 						})
 						.collect()
