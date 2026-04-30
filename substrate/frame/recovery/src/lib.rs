@@ -677,6 +677,11 @@ pub mod pallet {
 		///
 		/// The initiator's approval is recorded automatically, so they do not need to call
 		/// `approve_attempt` themselves.
+		///
+		/// Once an account has been recovered by a friend group, no friend group of equal or lower
+		/// priority can open a new attempt: it will fail with [`Error::HigherPriorityRecovered`].
+		/// Only a strictly higher-priority group (lower numerical
+		/// [`FriendGroup::inheritance_priority`]) can take over the inheritor.
 		#[pallet::call_index(3)]
 		#[pallet::weight(T::WeightInfo::initiate_attempt())]
 		pub fn initiate_attempt(
