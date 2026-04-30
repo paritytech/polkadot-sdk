@@ -868,7 +868,7 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// The lost account can cancel an attempt at any moment but the initiator after a delay.
+		/// The lost account can cancel an attempt at any moment; the initiator, only after a delay.
 		///
 		/// This will release the security deposit back to the initiator. The cancel delay must be
 		/// respected if the initiator calls it to prevent it from front-running the lost account
