@@ -63,8 +63,8 @@ async fn main() {
 	let options = Cli::parse();
 	sp_tracing::try_init_simple();
 
-	let asset_location: Location = serde_json::from_str(&options.asset_location)
-		.expect("invalid --asset-location JSON");
+	let asset_location: Location =
+		serde_json::from_str(&options.asset_location).expect("invalid --asset-location JSON");
 
 	log::info!(
 		target: "remote-ext-tests",
