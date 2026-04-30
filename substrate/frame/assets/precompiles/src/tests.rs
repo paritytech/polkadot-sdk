@@ -57,6 +57,62 @@ fn setup_asset_for_prefix(asset_id: u32, prefix: u16) {
 	}
 }
 
+// Regression test: `deposit_event` in lib.rs must pass `data.len()` (32 bytes for
+// every ERC-20 event emitted by this precompile) — not `topics.len()` (always 3) —
+// to the `len` field of `RuntimeCosts::DepositEvent`. The two are independent
+// arguments with different per-unit weights, so swapping them silently undercharges
+// the per-byte event cost on every Transfer/Approval.
+//
+// A bare-call `transfer` charges exactly `WeightInfo::transfer() + DepositEvent`,
+// so we can assert the consumed weight against that sum. With the bug, the actual
+// consumed weight is lower by `DepositEvent{len:32} - DepositEvent{len:3}` and the
+// equality fails.
+#[test]
+fn deposit_event_charges_data_byte_length() {
+	use pallet_revive::precompiles::Token;
+
+	new_test_ext().execute_with(|| {
+		let asset_id = 0u32;
+		let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+		let from = 123456789;
+		let to = 987654321;
+		Balances::make_free_balance_be(&from, 100);
+		Balances::make_free_balance_be(&to, 100);
+		let to_addr = <Test as pallet_revive::Config>::AddressMapper::to_address(&to);
+		assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, from, true, 1));
+		assert_ok!(Assets::mint(RuntimeOrigin::signed(from), asset_id, from, 100));
+
+		let data =
+			IERC20::transferCall { to: to_addr.0.into(), value: U256::from(10) }.abi_encode();
+
+		let result = pallet_revive::Pallet::<Test>::bare_call(
+			RuntimeOrigin::signed(from),
+			asset_addr,
+			0u32.into(),
+			TransactionLimits::WeightAndDeposit {
+				weight_limit: Weight::MAX,
+				deposit_limit: u64::MAX,
+			},
+			data,
+			&ExecConfig::new_substrate_tx(),
+		);
+		assert!(result.result.is_ok(), "transfer call failed: {:?}", result.result);
+
+		let expected =
+			<() as pallet_assets::WeightInfo>::transfer().saturating_add(<RuntimeCosts as Token<
+				Test,
+			>>::weight(
+				&RuntimeCosts::DepositEvent { num_topic: 3, len: 32 },
+			));
+		assert_eq!(
+			result.weight_consumed, expected,
+			"transfer weight does not match WeightInfo::transfer() + \
+			 DepositEvent{{num_topic: 3, len: 32}} — deposit_event has likely \
+			 regressed to charging len=topics.len() instead of len=data.len()",
+		);
+	});
+}
+
 #[test]
 fn asset_id_extractor_works() {
 	let address: [u8; 20] =

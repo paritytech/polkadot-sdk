@@ -390,8 +390,7 @@ async fn run_client(
 	} = &config;
 
 	let keyring = match &config.seed {
-		Some(suri) =>
-			sr25519::Pair::from_string(suri, None).expect("--seed validated at startup"),
+		Some(suri) => sr25519::Pair::from_string(suri, None).expect("--seed validated at startup"),
 		None => get_keypair(client_id),
 	};
 

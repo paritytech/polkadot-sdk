@@ -1901,6 +1901,13 @@ pub type Migrations = (
 		DefaultDapBudget,
 		staking::MaxEraDuration,
 	>,
+	// Only needed on WAH.
+	// Relocates funded era pots from per-era to slot-based pot addresses.
+	pallet_staking_async::migrations::MigrateEraPotsToPool<
+		Runtime,
+		staking::StakingPotsPalletId,
+		staking::StakingStakerRewardKind,
+	>,
 );
 
 /// Asset Hub Westend has some undecodable storage, delete it.

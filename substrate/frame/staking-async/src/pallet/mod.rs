@@ -1730,6 +1730,14 @@ pub mod pallet {
 				T::MaxPruningItems::get()
 			);
 
+			assert!(
+				crate::POT_POOL_SIZE > T::HistoryDepth::get(),
+				"POT_POOL_SIZE ({}) must be strictly greater than HistoryDepth ({}) \
+				 to avoid reusing a pot slot whose era is still in the active history.",
+				crate::POT_POOL_SIZE,
+				T::HistoryDepth::get(),
+			);
+
 			// If minting is disabled, EraPayout must be a noop to prevent double-minting.
 			if T::DisableMinting::get() {
 				let (v, r) = T::EraPayout::era_payout(
