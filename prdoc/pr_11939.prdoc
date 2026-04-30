@@ -2,9 +2,7 @@ title: Add TransactionStorageApi v2 with `indexed_transactions` function
 doc:
 - audience: Runtime Dev
   description: |-
-    As discussed yesterday, this bumps TransactionStorageApi to v2 and offers the option to query data referenced in the blocks.
-
-    In an ideal world we would have extrinsic index to return per item too, but this is currently not stored in the runtime and I think we can get away without it.
+    This bumps `TransactionStorageApi` to v2 and offers the option to query data referenced in the blocks via `indexed_transactions`.
 crates:
 - name: polkadot-omni-node-lib
   bump: patch
