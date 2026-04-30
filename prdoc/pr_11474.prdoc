@@ -2,41 +2,15 @@ title: Support multiple `IndexOperation::Renew` calls within a single extrinsic 
   in `sc-client-db`
 doc:
 - audience: Node Dev
-  description: "# Description\n\nCurrently, `apply_index_ops` uses `renewed_map: HashMap<u32,\
-    \ DbHash>` which means if multiple `Renew` operations target the same extrinsic\
-    \ index, only the last hash survives \u2014 earlier ones are silently overwritten.\
-    \ This blocks batch-renewal use cases where a single mandatory inherent renews\
-    \ multiple previously-stored data items (e.g. the Bulletin chain's `process_auto_renewals`\
-    \ inherent which calls `sp_io::transaction_index::renew()` N times within one\
-    \ extrinsic).\n\nThis PR changes `renewed_map` to `HashMap<u32, Vec<DbHash>>`\
-    \ and introduces a new `DbExtrinsic::MultiRenew` variant to correctly store, reconstruct,\
-    \ retrieve, and prune blocks containing multi-renewal extrinsics.\n\n\n## Integration\n\
-    \nDownstream projects using `sc-client-db` that read `BODY_INDEX` data directly\
-    \ (rather than through the `BlockchainDb` API) will need to handle the new `DbExtrinsic::MultiRenew`\
-    \ variant. Projects using the standard `blockchain.body()`, `blockchain.block_indexed_body()`,\
-    \ or `blockchain.indexed_transaction()` APIs require no changes.\n\nSingle-renewal\
-    \ extrinsics continue to produce `DbExtrinsic::Indexed` (backwards-compatible).\
-    \ The `MultiRenew` variant is only emitted when 2+ `Renew` operations share the\
-    \ same extrinsic index.\n\n\n## Review Notes\n\nAll changes are in `substrate/client/db/src/lib.rs`.\
-    \ There are five logical changes:\n\n### 1. New `DbExtrinsic::MultiRenew` variant\n\
-    \n```rust\nMultiRenew {\n    hashes: Vec<DbHash>,  // all renewed data hashes\n\
-    \    header: Vec<u8>,       // full encoded extrinsic for body reconstruction\n\
-    }\n```\n\n### 2. `apply_index_ops` \u2014 core fix\n\n```diff\n- let mut renewed_map\
-    \ = HashMap::new();\n+ let mut renewed_map: HashMap<u32, Vec<DbHash>> = HashMap::new();\n\
-    \n  IndexOperation::Renew { extrinsic, hash } => {\n-     renewed_map.insert(extrinsic,\
-    \ DbHash::from_slice(hash.as_ref()));\n+     renewed_map.entry(extrinsic).or_default().push(DbHash::from_slice(hash.as_ref()));\n\
-    \  }\n```\n\nWhen building extrinsic entries:\n- **1 hash** \u2192 `DbExtrinsic::Indexed`\
-    \ (backwards-compatible, same as before)\n- **2+ hashes** \u2192 `DbExtrinsic::MultiRenew`\
-    \ with ref count bumped for each hash\n\n### 3. `body_uncached` \u2014 body reconstruction\n\
-    \n`MultiRenew`'s `header` contains the full encoded extrinsic (unlike `Indexed`\
-    \ where header is partial and joined with indexed data). Decoded directly via\
-    \ `Block::Extrinsic::decode(&mut &header[..])`.\n\n### 4. `block_indexed_body`\
-    \ \u2014 indexed data retrieval\n\nReturns transaction data for **all** hashes\
-    \ in `MultiRenew`, not just a single hash.\n\n### 5. `prune_block` \u2014 ref\
-    \ count release\n\nReleases all hashes in `MultiRenew` when pruning, instead of\
-    \ just the single hash from `Indexed`."
+  description: |-
+    Previously `apply_index_ops` used `HashMap<u32, DbHash>` so multiple `Renew`
+    operations at the same extrinsic index silently overwrote each other, blocking
+    batch-renewal inherents (e.g. the Bulletin chain's `process_auto_renewals`).
+
+    A new `DbExtrinsic::MultiRenew` variant carries all renewed hashes for an
+    extrinsic; single-renewal extrinsics still produce `DbExtrinsic::Indexed`
+    (backwards-compatible). Downstream consumers reading `BODY_INDEX` directly
+    must handle the new variant; users of the standard `BlockchainDb` APIs do not.
 crates:
 - name: sc-client-db
-  bump: patch
-- name: bp-runtime
   bump: patch
