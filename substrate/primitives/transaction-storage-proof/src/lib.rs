@@ -46,7 +46,7 @@ pub type ChunkIndex = u32;
 pub type ContentHash = [u8; 32];
 
 /// IPFS [multicodec](https://github.com/multiformats/multicodec) content-type
-/// identifier for an indexed payload.
+/// identifier for an indexed payload. Full list of values [here](https://github.com/multiformats/multicodec/blob/master/table.csv).
 pub type CidCodec = u64;
 
 /// Hashing algorithm used to compute a [`ContentHash`].
