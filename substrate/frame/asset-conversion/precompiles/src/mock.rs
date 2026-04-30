@@ -51,6 +51,7 @@ parameter_types! {
 	pub const ExistentialDeposit: u64 = 100;
 	pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
 	pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+	pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
 	pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -114,7 +115,7 @@ impl pallet_asset_conversion::Config for Test {
 	>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
-	type LPFee = ConstU32<3>; // 0.3%
+	type LPFee = LpFee;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = ConstU64<100>;
