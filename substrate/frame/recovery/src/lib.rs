@@ -519,18 +519,12 @@ pub mod pallet {
 
 		/// Ongoing recovery attempts for a lost account.
 		pub fn attempts(lost: T::AccountId) -> Vec<(FriendGroupOf<T>, AttemptOf<T>)> {
-			let mut attempts = Vec::new();
-
-			for (friend_group_index, (attempt, _ticket, _deposit)) in
-				Attempt::<T>::iter_prefix(&lost)
-			{
-				let Ok(friend_group) = Self::friend_group_of(&lost, friend_group_index) else {
-					continue;
-				};
-				attempts.push((friend_group, attempt));
-			}
-
-			attempts
+			Attempt::<T>::iter_prefix(&lost)
+				.filter_map(|(friend_group_index, (attempt, _ticket, _deposit))| {
+					let friend_group = Self::friend_group_of(&lost, friend_group_index).ok()?;
+					Some((friend_group, attempt))
+				})
+				.collect()
 		}
 
 		/// The account that inherited full access to the lost account.
