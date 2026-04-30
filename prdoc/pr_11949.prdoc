@@ -1,9 +1,13 @@
-title: Additional improvements to making the DAP satellite pallet more generic
+title: Additional improvements for the DAP satellite pallet generalization
 doc:
 - audience: Runtime Dev
   description: |-
-    Additional fixes / improvements for https://github.com/paritytech/polkadot-sdk/pull/11881:
-    - Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since it only works on `AccountId32`-type accounts (used in all system parachains), but future users with different account types will need different trait implementations
+    Additional fixes / improvements for the DAP satellite pallet generalization (https://github.com/paritytech/polkadot-sdk/pull/11881):
+    - Rename `TeleportForwarder` to `TeleportForwarderForAccountId32` since it only works on `AccountId32`-type accounts
+      (used in all system parachains), but future users with different account types will need different trait implementations
+    - Improved account migration testing
+    - Additional comments to clarify important corner-cases
+
 crates:
 - name: pallet-accumulate-and-forward
   bump: minor
