@@ -3921,7 +3921,7 @@ pallet_revive::impl_runtime_apis_plus_revive_traits!(
 
 		fn indexed_transactions(
 			block: NumberFor<Block>,
-		) -> Vec<sp_transaction_storage_proof::runtime_api::IndexedTransactionInfo> {
+		) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
 			TransactionStorage::indexed_transactions(block)
 		}
 	}

@@ -254,7 +254,7 @@ macro_rules! impl_node_runtime_apis {
 
 				fn indexed_transactions(
 					_block: sp_runtime::traits::NumberFor<$block>,
-				) -> Vec<sp_transaction_storage_proof::runtime_api::IndexedTransactionInfo> {
+				) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
 					unimplemented!()
 				}
 			}
