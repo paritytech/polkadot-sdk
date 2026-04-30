@@ -77,26 +77,31 @@ fn snapshot(payer: &AccountId32, contract: &AccountId32) -> State {
 
 /// One charge with the state expected immediately afterwards.
 struct Charge {
+	/// Payer account.
+	payer: AccountId32,
 	/// Amount to charge.
 	amount: u128,
-	/// Expected `State` right after the charge lands.
+	/// Expected state for the payer and contract right after the charge lands.
 	expected: State,
+}
+
+/// Initial balances for one account.
+struct AccountSetup {
+	account: AccountId32,
+	native: u128,
+	pgas: u128,
 }
 
 /// A full scenario: initial balances, a sequence of charges, then one refund.
 struct TestCase {
-	/// ALICE's starting free native currency balance.
-	initial_native: u128,
-	/// ALICE's starting PGAS balance.
-	initial_pgas: u128,
-	/// Sequential charges applied to BOB.
+	/// Starting balances.
+	accounts: Vec<AccountSetup>,
+	/// Sequential charges applied to the contract account.
 	charges: Vec<Charge>,
-	/// Refund recipient.
-	refund_to: AccountId32,
-	/// Amount released to `refund_to`.
-	refund: u128,
-	/// Expected `State` snapshot (still keyed by `(ALICE, BOB)`) after the refund.
-	expected_after_refund: State,
+	/// Refund recipient and amount.
+	refund: (AccountId32, u128),
+	/// Expected states keyed by account after the refund.
+	expected_after_refund: Vec<(AccountId32, State)>,
 }
 
 fn charge_and_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> DispatchResult {
@@ -117,25 +122,34 @@ fn refund_on_hold(from: &AccountId32, to: &AccountId32, amount: u128) -> Dispatc
 	)
 }
 
-fn run(case: TestCase) {
-	let mut builder = ExtBuilder::default();
-	if case.initial_pgas > 0 {
-		builder = builder.with_pgas_balances(vec![(ALICE, case.initial_pgas)]);
-	}
-	builder.build().execute_with(|| {
-		Balances::set_balance(&ALICE, case.initial_native);
-		// Mint the native and PGAS ED onto BOB, mirroring what `init_contract` does at
-		// contract creation time.
-		assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
+fn run(TestCase { accounts, charges, refund, expected_after_refund }: TestCase) {
+	let pgas_balances = accounts
+		.iter()
+		.filter(|account| account.pgas > 0)
+		.map(|account| (account.account.clone(), account.pgas))
+		.collect();
 
-		for (i, charge) in case.charges.iter().enumerate() {
-			assert_ok!(charge_and_hold(&ALICE, &BOB, charge.amount));
-			assert_eq!(snapshot(&ALICE, &BOB), charge.expected, "after charge {i}");
-		}
+	ExtBuilder::default()
+		.with_pgas_balances(pgas_balances)
+		.build()
+		.execute_with(|| {
+			for AccountSetup { account, native, .. } in accounts {
+				Balances::set_balance(&account, native);
+			}
+			// Mint the native and PGAS ED onto the contract account, mirroring what
+			// `init_contract` does at contract creation time.
+			assert_ok!(<<Test as Config>::Deposit as Deposit<Test>>::init_contract(&BOB));
 
-		assert_ok!(refund_on_hold(&BOB, &case.refund_to, case.refund));
-		assert_eq!(snapshot(&ALICE, &BOB), case.expected_after_refund, "after refund");
-	});
+			for (i, charge) in charges.iter().enumerate() {
+				assert_ok!(charge_and_hold(&charge.payer, &BOB, charge.amount));
+				assert_eq!(snapshot(&charge.payer, &BOB), charge.expected, "after charge {i}");
+			}
+
+			assert_ok!(refund_on_hold(&BOB, &refund.0, refund.1));
+			for (payer, expected) in expected_after_refund {
+				assert_eq!(snapshot(&payer, &BOB), expected, "after refund for {payer:?}");
+			}
+		});
 }
 
 /// Native-only: ALICE has no PGAS, so the 100-unit hold is fully backed by native currency
@@ -143,9 +157,9 @@ fn run(case: TestCase) {
 #[test]
 fn pay_native_refund_native() {
 	run(TestCase {
-		initial_native: 1_000,
-		initial_pgas: 0,
+		accounts: vec![AccountSetup { account: ALICE, native: 1_000, pgas: 0 }],
 		charges: vec![Charge {
+			payer: ALICE,
 			amount: 100,
 			expected: State {
 				payer_native: 900,
@@ -154,9 +168,8 @@ fn pay_native_refund_native() {
 				..State::default()
 			},
 		}],
-		refund_to: ALICE,
-		refund: 100,
-		expected_after_refund: State { payer_native: 1_000, ..State::default() },
+		refund: (ALICE, 100),
+		expected_after_refund: vec![(ALICE, State { payer_native: 1_000, ..State::default() })],
 	});
 }
 
@@ -165,9 +178,9 @@ fn pay_native_refund_native() {
 #[test]
 fn pay_pgas_refund_pgas() {
 	run(TestCase {
-		initial_native: 1_000,
-		initial_pgas: 1_000,
+		accounts: vec![AccountSetup { account: ALICE, native: 1_000, pgas: 1_000 }],
 		charges: vec![Charge {
+			payer: ALICE,
 			amount: 100,
 			expected: State {
 				payer_native: 1_000,
@@ -176,9 +189,11 @@ fn pay_pgas_refund_pgas() {
 				..State::default()
 			},
 		}],
-		refund_to: ALICE,
-		refund: 100,
-		expected_after_refund: State { payer_native: 1_000, payer_pgas: 910, ..State::default() },
+		refund: (ALICE, 100),
+		expected_after_refund: vec![(
+			ALICE,
+			State { payer_native: 1_000, payer_pgas: 910, ..State::default() },
+		)],
 	});
 }
 
@@ -188,10 +203,10 @@ fn pay_pgas_refund_pgas() {
 #[test]
 fn pay_mixed_refund_mixed() {
 	run(TestCase {
-		initial_native: 1_000,
-		initial_pgas: 100,
+		accounts: vec![AccountSetup { account: ALICE, native: 1_000, pgas: 100 }],
 		charges: vec![
 			Charge {
+				payer: ALICE,
 				amount: 40,
 				expected: State {
 					payer_native: 1_000,
@@ -201,6 +216,7 @@ fn pay_mixed_refund_mixed() {
 				},
 			},
 			Charge {
+				payer: ALICE,
 				amount: 80,
 				expected: State {
 					payer_native: 920,
@@ -211,9 +227,11 @@ fn pay_mixed_refund_mixed() {
 				},
 			},
 		],
-		refund_to: ALICE,
-		refund: 120,
-		expected_after_refund: State { payer_native: 1_000, payer_pgas: 64, ..State::default() },
+		refund: (ALICE, 120),
+		expected_after_refund: vec![(
+			ALICE,
+			State { payer_native: 1_000, payer_pgas: 64, ..State::default() },
+		)],
 	});
 }
 
@@ -536,12 +554,69 @@ fn refund_to_user_without_entitlement_does_not_revert() {
 		..State::default()
 	};
 	run(TestCase {
-		initial_native: 1_000,
-		initial_pgas: 0,
-		charges: vec![Charge { amount: 100, expected: after_charge }],
-		refund_to: CHARLIE,
-		refund: 80,
-		expected_after_refund: after_charge,
+		accounts: vec![AccountSetup { account: ALICE, native: 1_000, pgas: 0 }],
+		charges: vec![Charge { payer: ALICE, amount: 100, expected: after_charge }],
+		refund: (CHARLIE, 80),
+		expected_after_refund: vec![(ALICE, after_charge)],
+	});
+}
+
+/// Mixed native/PGAS holds must not revert when a PGAS-routed refund request exceeds the
+/// contract's PGAS hold. PGAS settlement is capped to the PGAS actually held, and unrelated
+/// native entitlements stay with their original contributor.
+#[test]
+fn mixed_native_pgas_refund_caps_pgas_without_reverting() {
+	run(TestCase {
+		accounts: vec![
+			AccountSetup { account: ALICE, native: 1_000, pgas: 0 },
+			AccountSetup { account: CHARLIE, native: 1_000, pgas: 1_000 },
+		],
+		charges: vec![
+			Charge {
+				payer: ALICE,
+				amount: 100,
+				expected: State {
+					payer_native: 900,
+					contract_native_held: 100,
+					native_entitlement: 100,
+					..State::default()
+				},
+			},
+			Charge {
+				payer: CHARLIE,
+				amount: 40,
+				expected: State {
+					payer_native: 1_000,
+					payer_pgas: 960,
+					contract_native_held: 100,
+					contract_pgas_held: 40,
+					..State::default()
+				},
+			},
+		],
+		refund: (CHARLIE, 80),
+		expected_after_refund: vec![
+			(
+				ALICE,
+				State {
+					payer_native: 900,
+					contract_native_held: 100,
+					native_entitlement: 100,
+					..State::default()
+				},
+			),
+			(
+				CHARLIE,
+				State {
+					payer_native: 1_000,
+					// CHARLIE pays 40 PGAS, then receives a 10% refund on the capped 40 PGAS
+					// settlement: 1_000 - 40 + 4.
+					payer_pgas: 964,
+					contract_native_held: 100,
+					..State::default()
+				},
+			),
+		],
 	});
 }
 
