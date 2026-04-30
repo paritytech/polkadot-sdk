@@ -188,35 +188,21 @@ impl CollationManager {
 		}
 
 		for leaf in removed {
-			let deactivated_ancestry = self.implicit_view.deactivate_leaf(leaf);
+			self.implicit_view.deactivate_leaf(leaf);
 			self.leaf_scheduling_info.remove(&leaf);
 			self.leaf_claim_queues.remove(&leaf);
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?deactivated_ancestry,
-				"CollationManager: Removing scheduling parents from implicit view"
-			);
-
-			for deactivated in deactivated_ancestry.iter() {
-				if let Some(deactivated_sp) = self.per_scheduling_parent.remove(deactivated) {
-					for advertisement in deactivated_sp.all_advertisements() {
-						gum::trace!(
-							target: LOG_TARGET,
-							?advertisement,
-							"Cancelling advertisement because scheduling parent got out of view"
-						);
-						self.fetching.cancel(&advertisement);
-					}
-				}
-			}
 		}
 
-		// A removed leaf may still be retained in `implicit_view`'s storage for the lookahead
-		// window. If it's no longer reachable from any current leaf (e.g. an abandoned sibling
-		// fork), drop its `per_scheduling_parent` entry and cancel its in-flight fetches.
+		// Drop `per_scheduling_parent` entries for SPs no longer reachable from any current
+		// leaf. This covers two cases at once:
+		//
+		// * blocks pruned from `implicit_view`'s storage (chain advance has moved past the
+		//   retention window),
+		// * removed sibling-fork leaves that stay in storage but have no descending path from
+		//   any current leaf.
+		//
 		// Common-chain cases — a leaf becoming an ancestor of its successor — keep their
-		// entries because they're still on a current leaf's path.
+		// entries because the successor's path still goes through them.
 		let unreachable: Vec<Hash> = self
 			.per_scheduling_parent
 			.keys()
@@ -298,8 +284,8 @@ impl CollationManager {
 
 	/// All paras our group will back at *some* scheduling parent in our view. Used to decide
 	/// which collators we should be willing to talk to. We take the union across all
-	/// scheduling parents and all paths of "the slice of the leaf's CQ visible from this SP
-	/// for our core". Older ancestors see only the early CQ positions; the leaf sees all.
+	/// scheduling parents of `our_window(sp)` — the slice of the leaf's CQ visible from that
+	/// SP for our core. Older ancestors see only the early CQ positions; the leaf sees all.
 	pub fn assignments(&self) -> BTreeSet<ParaId> {
 		self.per_scheduling_parent
 			.iter()
@@ -319,8 +305,8 @@ impl CollationManager {
 			.collect()
 	}
 
-	/// Returns `Ok(())` if `para_id` is reachable at `scheduling_parent` via *any* leaf's CQ
-	/// for our core.
+	/// Returns `Ok(())` if `para_id` is reachable at `scheduling_parent` — i.e. it's in the SP's
+	/// visible window of the leaf's CQ for our core (see `our_window`).
 	///
 	/// This is just an "is this advertisement valid at this scheduling parent" gate; capacity
 	/// is enforced separately in `try_make_new_fetch_requests` via
@@ -484,8 +470,8 @@ impl CollationManager {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 
-		// Para must be on at least one CQ visible from this scheduling parent, and there must
-		// be room for one more candidate.
+		// Para must be schedulable from this scheduling parent — i.e. it appears in our
+		// core's CQ within the SP's visible window.
 		self.is_slot_available(&scheduling_parent, para_id)?;
 
 		// Per-peer rate limit: we cap a peer at one advertisement per CQ slot allocated to
