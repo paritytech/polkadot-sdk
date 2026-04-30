@@ -1,5 +1,8 @@
 The following crates were updated to the corresponding versions:
 
+<details>
+<summary>Crates list</summary>
+
 - frame-support@46.0.1
 - polkadot-primitives-test-helpers@0.3.1
 - pallet-conviction-voting@46.0.1
@@ -23,3 +26,5 @@ The following crates were updated to the corresponding versions:
 - cumulus-relay-chain-minimal-node@0.32.1
 - polkadot-cli@32.0.1
 - pallet-revive-proc-macro@0.7.4
+
+</details>
