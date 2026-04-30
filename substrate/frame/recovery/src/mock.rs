@@ -22,7 +22,10 @@ use super::*;
 use crate as recovery;
 use crate::HoldReason;
 use frame::{
-	deps::sp_io, testing_prelude::*, token::fungible::HoldConsideration, traits::LinearStoragePrice,
+	deps::sp_io,
+	testing_prelude::*,
+	token::fungible::{Balanced as _, HoldConsideration},
+	traits::{LinearStoragePrice, OnUnbalanced},
 };
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -68,6 +71,20 @@ parameter_types! {
 	pub storage SlashReceiverAccount: Option<u64> = None;
 }
 
+/// Test-only `OnUnbalanced` adapter that picks burn-vs-resolve at runtime based on
+/// `SlashReceiverAccount`. Lets one test exercise both behaviors.
+pub struct DynamicSlash;
+impl OnUnbalanced<crate::CreditOf<Test>> for DynamicSlash {
+	fn on_nonzero_unbalanced(amount: crate::CreditOf<Test>) {
+		match SlashReceiverAccount::get() {
+			None => drop(amount),
+			Some(receiver) => {
+				let _ = Balances::resolve(&receiver, amount);
+			},
+		}
+	}
+}
+
 impl pallet_utility::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
@@ -100,7 +117,7 @@ impl Config for Test {
 		LinearStoragePrice<ConstU128<2>, ConstU128<1>, u128>, // 2 + n
 	>;
 	type SecurityDeposit = ConstU128<SECURITY_DEPOSIT>;
-	type SlashReceiver = SlashReceiverAccount;
+	type Slash = DynamicSlash;
 	type WeightInfo = ();
 }
 

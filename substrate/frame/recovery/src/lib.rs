@@ -106,8 +106,8 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use frame::{
 	prelude::*,
 	traits::{
-		fungible::{Inspect, MutateHold},
-		Consideration, Footprint, OriginTrait,
+		fungible::{hold::Balanced, Credit, Inspect, MutateHold},
+		Consideration, Footprint, OnUnbalanced, OriginTrait,
 	},
 };
 use types::{Bitfield, IdentifiedConsideration};
@@ -130,6 +130,7 @@ pub const MAX_GROUPS_PER_ACCOUNT: u32 = 10;
 
 pub type AccountIdLookupOf<T> = <<T as frame_system::Config>::Lookup as StaticLookup>::Source;
 pub type BalanceOf<T> = <<T as Config>::Currency as Inspect<AccountIdFor<T>>>::Balance;
+pub type CreditOf<T> = Credit<AccountIdFor<T>, <T as Config>::Currency>;
 /// The block number type that will be used to measure time.
 pub type ProvidedBlockNumberOf<T> =
 	<<T as Config>::BlockNumberProvider as BlockNumberProvider>::BlockNumber;
@@ -310,9 +311,11 @@ pub mod pallet {
 
 		/// The currency mechanism.
 		#[cfg(not(feature = "runtime-benchmarks"))]
-		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>;
+		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>;
 		#[cfg(feature = "runtime-benchmarks")]
 		type Currency: MutateHold<Self::AccountId, Reason = Self::RuntimeHoldReason>
+			+ Balanced<Self::AccountId>
 			+ frame::traits::fungible::Mutate<Self::AccountId>;
 
 		/// Storage consideration for holding friend group configs.
@@ -328,11 +331,11 @@ pub mod pallet {
 		#[pallet::constant]
 		type SecurityDeposit: Get<BalanceOf<Self>>;
 
-		/// Receiver of slashed security deposits.
+		/// Handler for the `Credit` produced when a security deposit is slashed.
 		///
-		/// Set to `None` to burn the slashed security deposit.
-		#[pallet::constant]
-		type SlashReceiver: Get<Option<Self::AccountId>>;
+		/// Use `()` to drop the credit and decrease total issuance (i.e. burn). Other common
+		/// choices are a treasury sink or `pallet-dap`.
+		type Slash: OnUnbalanced<CreditOf<Self>>;
 
 		/// DO NOT REDUCE THIS VALUE. Maximum number of friends per account config.
 		///
@@ -927,7 +930,7 @@ pub mod pallet {
 				Attempt::<T>::take(&lost, &friend_group_index).ok_or(Error::<T>::NotAttempt)?;
 
 			let _: Result<(), DispatchError> = ticket.try_drop().defensive();
-			let _ = Self::handle_slash(&attempt.initiator, deposit).defensive();
+			Self::handle_slash(&attempt.initiator, deposit);
 
 			Self::deposit_event(Event::<T>::AttemptSlashed { lost, friend_group_index });
 
@@ -1022,27 +1025,13 @@ impl<T: Config> Pallet<T> {
 		friend_groups.try_into().map_err(|_| Error::<T>::TooManyFriendGroups)
 	}
 
-	/// Slash a security deposit by either burning or transferring to the slash receiver.
-	fn handle_slash(who: &T::AccountId, amount: SecurityDepositOf<T>) -> DispatchResult {
-		match T::SlashReceiver::get() {
-			Some(receiver) => T::Currency::transfer_on_hold(
-				&HoldReason::SecurityDeposit.into(),
-				who,
-				&receiver,
-				amount,
-				Precision::BestEffort,
-				frame::token::tokens::Restriction::Free,
-				Fortitude::Polite,
-			)
-			.map(|_| ()),
-			None => T::Currency::burn_held(
-				&HoldReason::SecurityDeposit.into(),
-				who,
-				amount,
-				Precision::BestEffort,
-				Fortitude::Polite,
-			)
-			.map(|_| ()),
+	/// Slash a security deposit and hand the resulting `Credit` to `T::Slash`.
+	fn handle_slash(who: &T::AccountId, amount: SecurityDepositOf<T>) {
+		let (credit, missing) =
+			T::Currency::slash(&HoldReason::SecurityDeposit.into(), who, amount);
+		if !missing.is_zero() {
+			defensive!("could not slash full security deposit");
 		}
+		T::Slash::on_unbalanced(credit);
 	}
 }

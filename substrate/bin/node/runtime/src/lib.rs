@@ -1811,7 +1811,7 @@ impl pallet_recovery::Config for Runtime {
 	type SecurityDeposit = ();
 	type MaxFriendsPerConfig = ConstU32<100>;
 	type WeightInfo = ();
-	type SlashReceiver = (); // burn
+	type Slash = (); // burn
 }
 
 parameter_types! {

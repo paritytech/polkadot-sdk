@@ -36,7 +36,7 @@ pub mod governance;
 mod migrations;
 pub mod staking;
 
-use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin, TreasuryAccount};
+use governance::{pallet_custom_origins, GeneralAdmin, StakingAdmin};
 
 extern crate alloc;
 
@@ -719,7 +719,7 @@ impl pallet_recovery::Config for Runtime {
 	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
 	type MaxFriendsPerConfig = ConstU32<100>;
 	type WeightInfo = ();
-	type SlashReceiver = TreasuryAccount;
+	type Slash = Dap;
 }
 
 parameter_types! {

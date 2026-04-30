@@ -1244,7 +1244,6 @@ parameter_types! {
 	pub const FriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroupsStorage);
 	pub const AttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::AttemptStorage);
 	pub const InheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::InheritorStorage);
-	pub const SlashReceiverAccount: Option<AccountId> = None;
 }
 
 pub const SECURITY_DEPOSIT: u32 = 100;
@@ -1259,7 +1258,7 @@ impl pallet_recovery::Config for Runtime {
 	type InheritorConsideration = ();
 	type SecurityDeposit = ();
 	type MaxFriendsPerConfig = MaxFriendsPerConfig;
-	type SlashReceiver = SlashReceiverAccount;
+	type Slash = (); // burn
 	type WeightInfo = ();
 }
 
