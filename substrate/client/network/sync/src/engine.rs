@@ -742,11 +742,49 @@ where
 				let _ = tx.send(peers_info);
 			},
 			ToServiceCommand::SetNoSlotPeers(peers) => {
+				let mut moved_into_no_slot = 0;
+				let mut moved_out_of_no_slot = 0;
+
+				for (peer_id, peer) in self.peers.iter() {
+					let static_no_slot = self.default_peers_set_no_slot_peers.contains(peer_id);
+					let was_no_slot = static_no_slot || self.dynamic_no_slot_peers.contains(peer_id);
+					let is_no_slot = static_no_slot || peers.contains(peer_id);
+					let affects_slots = peer.inbound && peer.info.roles.is_full();
+
+					match reconcile_no_slot(was_no_slot, is_no_slot) {
+						NoSlotReconcile::Promote => {
+							self.default_peers_set_no_slot_connected_peers.insert(*peer_id);
+							if affects_slots {
+								match self.num_in_peers.checked_sub(1) {
+									Some(n) => self.num_in_peers = n,
+									None => {
+										log::error!(
+											target: LOG_TARGET,
+											"num_in_peers underflow promoting {peer_id} to no-slot",
+										);
+										debug_assert!(false);
+									},
+								}
+								moved_into_no_slot += 1;
+							}
+						},
+						NoSlotReconcile::Demote =>
+							if self.default_peers_set_no_slot_connected_peers.remove(peer_id) &&
+								affects_slots
+							{
+								self.num_in_peers += 1;
+								moved_out_of_no_slot += 1;
+							},
+						NoSlotReconcile::Unchanged => {},
+					}
+				}
+
 				log::debug!(
 					target: LOG_TARGET,
-					"Dynamic no-slot peer set updated: {} peers: {:?}",
+					"Dynamic no-slot peer set updated: {} peers: +{} in, -{} out",
 					peers.len(),
-					peers,
+					moved_into_no_slot,
+					moved_out_of_no_slot,
 				);
 				self.dynamic_no_slot_peers = peers;
 			},
@@ -811,6 +849,11 @@ where
 				self.push_block_announce_validation(peer, announce);
 			},
 		}
+	}
+
+	fn is_no_slot_peer(&self, peer_id: &PeerId) -> bool {
+		self.default_peers_set_no_slot_peers.contains(peer_id) ||
+			self.dynamic_no_slot_peers.contains(peer_id)
 	}
 
 	/// Called by peer when it is disconnecting.
@@ -932,16 +975,8 @@ where
 			return Err(false);
 		}
 
-		let no_slot_peer = self.default_peers_set_no_slot_peers.contains(&peer_id) ||
-			self.dynamic_no_slot_peers.contains(&peer_id);
+		let no_slot_peer = self.is_no_slot_peer(&peer_id);
 		let this_peer_reserved_slot: usize = if no_slot_peer { 1 } else { 0 };
-
-		log::trace!(
-			target: LOG_TARGET,
-			"validate_connection peer={peer_id} direction={direction:?} no_slot={no_slot_peer} dynamic_size={} default_size={}",
-			self.dynamic_no_slot_peers.len(),
-			self.default_peers_set_no_slot_peers.len(),
-		);
 
 		if handshake.roles.is_full() &&
 			self.strategy.num_peers() >=
@@ -1029,9 +1064,7 @@ where
 		}
 		self.peer_store_handle.set_peer_role(&peer_id, status.roles.into());
 
-		if self.default_peers_set_no_slot_peers.contains(&peer_id) ||
-			self.dynamic_no_slot_peers.contains(&peer_id)
-		{
+		if self.is_no_slot_peer(&peer_id) {
 			self.default_peers_set_no_slot_connected_peers.insert(peer_id);
 		} else if direction.is_inbound() && status.roles.is_full() {
 			self.num_in_peers += 1;
@@ -1174,5 +1207,44 @@ where
 		}
 
 		self.import_queue.import_justifications(peer_id, hash, number, justifications);
+	}
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum NoSlotReconcile {
+	/// Peer enters the no-slot set.
+	Promote,
+	/// Peer leaves the dynamic no-slot set (only possible when not also in the static set).
+	Demote,
+	/// Membership unchanged.
+	Unchanged,
+}
+
+fn reconcile_no_slot(was_no_slot: bool, is_no_slot: bool) -> NoSlotReconcile {
+	match (was_no_slot, is_no_slot) {
+		(false, true) => NoSlotReconcile::Promote,
+		(true, false) => NoSlotReconcile::Demote,
+		_ => NoSlotReconcile::Unchanged,
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn reconcile_promote_on_gain() {
+		assert_eq!(reconcile_no_slot(false, true), NoSlotReconcile::Promote);
+	}
+
+	#[test]
+	fn reconcile_demote_on_loss() {
+		assert_eq!(reconcile_no_slot(true, false), NoSlotReconcile::Demote);
+	}
+
+	#[test]
+	fn reconcile_unchanged_when_stable() {
+		assert_eq!(reconcile_no_slot(false, false), NoSlotReconcile::Unchanged);
+		assert_eq!(reconcile_no_slot(true, true), NoSlotReconcile::Unchanged);
 	}
 }

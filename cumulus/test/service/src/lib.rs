@@ -376,57 +376,26 @@ where
 
 	let keystore = params.keystore_container.keystore();
 
-	// Collator mesh wiring — mirrors polkadot-omni-node's spec.rs.
-	{
-		let validator = collator_key.is_some();
-		if !validator && collator_reserved_slots.is_some() {
-			tracing::warn!(
-				"--collator-reserved-slots was set but this node is not running as a collator \
-				 (missing `--validator`); the collator mesh will not start.",
-			);
-		}
-		if let Some(max_reserved) = collator_reserved_slots.filter(|_| validator) {
-			use futures::StreamExt;
-			let genesis_hash = client.chain_info().genesis_hash;
-			let genesis_hex = array_bytes::bytes2hex("", genesis_hash.as_ref());
-			let parachain_fork_id = parachain_config.chain_spec.fork_id().map(ToString::to_string);
-			let block_announce_protocol: sc_network::ProtocolName =
-				match parachain_fork_id.as_deref() {
-					Some(fork_id) =>
-						format!("/{}/{}/block-announces/1", genesis_hex, fork_id).into(),
-					None => format!("/{}/block-announces/1", genesis_hex).into(),
-				};
-			let dht_event_stream = network
-				.event_stream("para-authority-discovery")
-				.filter_map(|e| async move {
-					match e {
-						sc_network::Event::Dht(e) => Some(e),
-						_ => None,
-					}
-				});
-			cumulus_client_collator_mesh::start_collator_mesh(
-				cumulus_client_collator_mesh::StartCollatorMeshParams {
-					config: cumulus_client_collator_mesh::CollatorMeshConfig {
-						max_reserved,
-						protocol: block_announce_protocol,
-					},
-					client: client.clone(),
-					authority_discovery: client.clone(),
-					network: network.clone(),
-					sync_service: sync_service.clone(),
-					dht_event_stream: Box::pin(dht_event_stream),
-					keystore: keystore.clone(),
-					prometheus_registry: prometheus_registry.clone(),
-					spawn_handle: task_manager.spawn_handle(),
-					publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
-					public_addresses: parachain_config.network.public_addresses.clone(),
-					persisted_cache_directory: parachain_config.network.net_config_path.clone(),
-					_marker: std::marker::PhantomData,
-				},
-			)
-			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-		}
-	}
+	cumulus_client_collator_mesh::maybe_start_collator_mesh(
+		cumulus_client_collator_mesh::StartCollatorMeshParams {
+			is_validator: collator_key.is_some(),
+			max_reserved: collator_reserved_slots,
+			client: client.clone(),
+			authority_discovery: client.clone(),
+			network: network.clone(),
+			sync_service: sync_service.clone(),
+			network_event_stream: network.event_stream("para-authority-discovery"),
+			keystore: keystore.clone(),
+			genesis_hash: client.chain_info().genesis_hash,
+			fork_id: parachain_config.chain_spec.fork_id().map(ToString::to_string),
+			publish_non_global_ips: parachain_config.network.allow_non_globals_in_dht,
+			public_addresses: parachain_config.network.public_addresses.clone(),
+			persisted_cache_directory: parachain_config.network.net_config_path.clone(),
+			prometheus_registry: prometheus_registry.clone(),
+			spawn_handle: task_manager.spawn_handle(),
+		},
+	)
+	.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
 
 	let rpc_builder = {
 		let client = client.clone();

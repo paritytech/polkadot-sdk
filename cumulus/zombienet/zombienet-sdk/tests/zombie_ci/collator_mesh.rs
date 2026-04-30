@@ -59,8 +59,8 @@ const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(180);
 /// Polling cadence for the full-mesh check.
 const FULL_MESH_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
-/// Session-change wait timeout.  The `with-authority-discovery` runtime uses `Period = 30`
-/// blocks at ~6 s each ≈ 3 min per session.  8 minutes is a comfortable ceiling.
+/// Session-change wait timeout. `Period = 10` blocks × ~6 s ≈ 60 s per session;
+/// 8 minutes is a comfortable ceiling for multiple rotations plus mesh convergence.
 const SESSION_CHANGE_TIMEOUT: Duration = Duration::from_secs(480);
 
 /// Tight non-reserved budget. With 4 full nodes in this network, the 1/1 slots allow

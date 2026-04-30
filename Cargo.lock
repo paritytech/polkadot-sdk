@@ -4863,6 +4863,7 @@ dependencies = [
 name = "cumulus-client-collator-mesh"
 version = "0.1.0"
 dependencies = [
+ "array-bytes 6.2.2",
  "futures",
  "futures-timer",
  "log",

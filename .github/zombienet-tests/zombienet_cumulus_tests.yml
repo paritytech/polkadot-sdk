@@ -155,3 +155,8 @@
   test-filter: "zombie_ci::statement_store::integration::statement_store_initial_sync"
   runner-type: "default"
   cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0032-collator_mesh_full_mesh"
+  test-filter: "zombie_ci::collator_mesh::collator_mesh_full_mesh_with_tight_non_reserved_budget"
+  runner-type: "large"
+  cumulus-image: "test-parachain"

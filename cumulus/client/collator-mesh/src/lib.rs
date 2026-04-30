@@ -15,36 +15,24 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-//! Reserved-peer mesh for parachain collators on the canonical block-announce protocol.
+//! Reserved-peer mesh for parachain collators on the block-announce protocol.
 //!
-//! Each collator publishes its multiaddrs via the parachain DHT and resolves the rest into
-//! a reserved set via [`NetworkService::set_reserved_peers`]. The same peer ids are also
-//! registered with [`SyncingService::set_no_slot_peers`] so they don't consume `--in-peers`
-//! budget — same semantics as `--reserved-nodes` but updateable at runtime.
-//!
-//! Requires [`sp_authority_discovery::AuthorityDiscoveryApi`] on the parachain runtime and
-//! an `AUTHORITY_DISCOVERY` key in the collator's keystore.
-//!
-//! Spawns a parachain-side [`sc_authority_discovery`] worker and a refresh task driven by
-//! block-import notifications and a periodic [`TRY_RERESOLVE_AUTHORITIES`] timer.
-//!
-//! When `collator_count <= max_reserved` every collator reserves every other (full mesh).
-//! When over the limit, the set is sorted by raw pubkey bytes and truncated — deterministic
-//! across all nodes.
+//! Requires [`sp_authority_discovery::AuthorityDiscoveryApi`] on the parachain runtime
+//! and an `AUTHORITY_DISCOVERY` key in the collator's keystore. API detection is
+//! monotonic — once observed, assumed to stay. When over `max_reserved`, the authority
+//! set is sorted by raw pubkey bytes and truncated, so every node converges to the same
+//! subset without coordination.
 
 use std::{
 	collections::HashSet,
-	marker::PhantomData,
 	path::PathBuf,
 	sync::Arc,
 	time::{Duration, Instant},
 };
 
-use futures::{future::FutureExt, StreamExt};
 use futures_timer::Delay;
 
 use sc_authority_discovery::AuthorityDiscovery;
-use sc_client_api::BlockchainEvents;
 use sc_network::{
 	service::traits::NetworkService,
 	DhtEvent, Multiaddr, PeerId, ProtocolName,
@@ -61,89 +49,142 @@ use sc_network_sync::SyncingService;
 
 const LOG_TARGET: &str = "collator-mesh";
 
-/// Re-resolve authority addresses even when the authority set is unchanged. Catches
-/// peer-id rotations within a session; block-import notifications are the fast path.
+/// Re-resolve authority addresses periodically.
 const TRY_RERESOLVE_AUTHORITIES: Duration = Duration::from_secs(30);
+
+/// Maximum number of multiaddrs accepted per authority. Bounds dial-attempt amplification
+/// from a single authority publishing many multiaddrs.
+const MAX_ADDRS_PER_AUTHORITY: usize = 4;
 
 /// Warn when resolved connectivity stays below this percentage for [`LOW_CONNECTIVITY_WARN_DELAY`].
 const LOW_CONNECTIVITY_WARN_THRESHOLD_PCT: usize = 85;
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
 
 
-/// Configuration knobs for the collator reserved-peer mesh.
 pub struct CollatorMeshConfig {
-	/// Maximum number of reserved peer slots. Typical: 32.
 	pub max_reserved: usize,
-	/// The block-announce protocol name to set reserved peers on.
 	pub protocol: ProtocolName,
 }
 
-/// Parameters for [`start_collator_mesh`].
-pub struct StartCollatorMeshParams<Block: BlockT, Client, AD, DhtStream> {
-	/// Mesh configuration.
-	pub config: CollatorMeshConfig,
-	/// Parachain client — used for block import notifications and runtime API calls.
+/// Parameters for [`maybe_start_collator_mesh`].
+pub struct StartCollatorMeshParams<Block: BlockT, Client, AD, NetEventStream> {
+	pub is_validator: bool,
+	/// `None` disables the mesh.
+	pub max_reserved: Option<usize>,
 	pub client: Arc<Client>,
-	/// Authority-discovery source. Typically the same `Arc<ParachainClient>` as `client`.
+	/// Usually the same `Arc` as `client`.
 	pub authority_discovery: Arc<AD>,
-	/// Parachain network handle. Reserved peers are set on this.
 	pub network: Arc<dyn NetworkService>,
-	/// Syncing engine handle.
 	pub sync_service: Arc<SyncingService<Block>>,
-	/// Pre-filtered DHT event stream (caller maps `Event::Dht`).
-	pub dht_event_stream: DhtStream,
-	/// Keystore with the local authority-discovery keys. Used to sign DHT records and to
-	/// exclude this node from the peer set.
+	/// Raw network event stream; the mesh filters for `Event::Dht`.
+	pub network_event_stream: NetEventStream,
+	/// Keystore with the local AD keys; used to sign DHT records and exclude this node
+	/// from the reserved peer set.
 	pub keystore: KeystorePtr,
-	/// Prometheus registry for mesh + worker metrics.
-	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
-	/// Spawn handle for the worker and mesh refresh tasks.
-	pub spawn_handle: SpawnTaskHandle,
-	/// Allow publishing non-global IPs (local/testing only).
+	pub genesis_hash: Block::Hash,
+	pub fork_id: Option<String>,
+	/// Local/testing only.
 	pub publish_non_global_ips: bool,
-	/// Public addresses advertised by the operator.
 	pub public_addresses: Vec<Multiaddr>,
-	/// Directory for persisting the worker's address cache.
 	pub persisted_cache_directory: Option<PathBuf>,
-	pub _marker: PhantomData<Block>,
+	pub prometheus_registry: Option<prometheus_endpoint::Registry>,
+	pub spawn_handle: SpawnTaskHandle,
 }
 
-/// Start the collator mesh. Returns immediately once the tasks are spawned.
-pub fn start_collator_mesh<Block, Client, AD, DhtStream>(
-	params: StartCollatorMeshParams<Block, Client, AD, DhtStream>,
+/// Start the collator mesh if `is_validator` and `max_reserved` are both set; otherwise
+/// log a warning when the flag is set on a non-collator node and return `Ok(())`.
+pub fn maybe_start_collator_mesh<Block, Client, AD, NetEventStream>(
+	params: StartCollatorMeshParams<Block, Client, AD, NetEventStream>,
 ) -> Result<(), prometheus_endpoint::PrometheusError>
 where
 	Block: BlockT + Unpin + 'static,
-	Client: BlockchainEvents<Block>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	Client::Api: ApiExt<Block>,
 	AD: AuthorityDiscovery<Block> + Send + Sync + 'static,
-	DhtStream: futures::Stream<Item = DhtEvent> + Send + Unpin + 'static,
+	NetEventStream: futures::Stream<Item = sc_network::Event> + Send + Unpin + 'static,
 {
 	let StartCollatorMeshParams {
-		config,
+		is_validator,
+		max_reserved,
 		client,
 		authority_discovery,
 		network,
 		sync_service,
-		dht_event_stream,
+		network_event_stream,
 		keystore,
-		prometheus_registry,
-		spawn_handle,
+		genesis_hash,
+		fork_id,
 		publish_non_global_ips,
 		public_addresses,
 		persisted_cache_directory,
-		_marker,
+		prometheus_registry,
+		spawn_handle,
 	} = params;
 
-	let metrics = prometheus_registry
-		.as_ref()
-		.map(Metrics::register)
-		.transpose()?;
+	if !is_validator && max_reserved.is_some() {
+		log::warn!(
+			target: LOG_TARGET,
+			"--collator-reserved-slots was set but this node is not running as a collator \
+			 (missing `--validator`); the collator mesh will not start.",
+		);
+	}
+	let Some(max_reserved) = max_reserved.filter(|_| is_validator) else {
+		return Ok(());
+	};
+
+	let genesis_hex = array_bytes::bytes2hex("", genesis_hash.as_ref());
+	let protocol: ProtocolName = match fork_id.as_deref() {
+		Some(f) => format!("/{}/{}/block-announces/1", genesis_hex, f).into(),
+		None => format!("/{}/block-announces/1", genesis_hex).into(),
+	};
+
+	use futures::StreamExt;
+	let dht_event_stream = network_event_stream.filter_map(|e| async move {
+		match e {
+			sc_network::Event::Dht(e) => Some(e),
+			_ => None,
+		}
+	});
+
+	start_collator_mesh::<Block, _, _, _>(
+		CollatorMeshConfig { max_reserved, protocol },
+		client,
+		authority_discovery,
+		network,
+		sync_service,
+		Box::pin(dht_event_stream),
+		keystore,
+		publish_non_global_ips,
+		public_addresses,
+		persisted_cache_directory,
+		prometheus_registry,
+		spawn_handle,
+	)
+}
+
+/// Spawn the authority-discovery worker and mesh-refresh task; returns immediately.
+fn start_collator_mesh<Block, Client, AD, DhtStream>(
+	config: CollatorMeshConfig,
+	client: Arc<Client>,
+	authority_discovery: Arc<AD>,
+	network: Arc<dyn NetworkService>,
+	sync_service: Arc<SyncingService<Block>>,
+	dht_event_stream: DhtStream,
+	keystore: KeystorePtr,
+	publish_non_global_ips: bool,
+	public_addresses: Vec<Multiaddr>,
+	persisted_cache_directory: Option<PathBuf>,
+	prometheus_registry: Option<prometheus_endpoint::Registry>,
+	spawn_handle: SpawnTaskHandle,
+) -> Result<(), prometheus_endpoint::PrometheusError>
+where
+	Block: BlockT + Unpin + 'static,
+	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
+	Client::Api: ApiExt<Block>,
+	AD: AuthorityDiscovery<Block> + Send + Sync + 'static,
+	DhtStream: futures::Stream<Item = DhtEvent> + Send + Unpin + 'static,
+{
+	let metrics = prometheus_registry.as_ref().map(Metrics::register).transpose()?;
 
 	let (worker, authority_discovery_service) =
 		sc_authority_discovery::new_worker_and_service_with_config(
@@ -176,23 +217,25 @@ where
 		TRY_RERESOLVE_AUTHORITIES,
 	);
 
-	let task = mesh_refresh_loop::<Block, Client, AD>(
-		config,
-		client,
-		authority_discovery,
-		network,
-		sync_service,
-		authority_discovery_service,
-		keystore,
-		metrics,
+	spawn_handle.spawn(
+		"collator-mesh",
+		Some("collator-mesh"),
+		mesh_refresh_loop::<Block, Client, AD>(
+			config,
+			client,
+			authority_discovery,
+			network,
+			sync_service,
+			authority_discovery_service,
+			keystore,
+			metrics,
+		),
 	);
-	spawn_handle.spawn("collator-mesh", Some("collator-mesh"), task);
 
 	Ok(())
 }
 
-/// Refreshes the reserved/no-slot peer sets on each new best block and every
-/// [`TRY_RERESOLVE_AUTHORITIES`] tick.
+/// Refresh the reserved/no-slot peer sets every [`TRY_RERESOLVE_AUTHORITIES`].
 async fn mesh_refresh_loop<Block, Client, AD>(
 	config: CollatorMeshConfig,
 	client: Arc<Client>,
@@ -204,12 +247,7 @@ async fn mesh_refresh_loop<Block, Client, AD>(
 	metrics: Option<Metrics>,
 ) where
 	Block: BlockT,
-	Client: BlockchainEvents<Block>
-		+ HeaderBackend<Block>
-		+ ProvideRuntimeApi<Block>
-		+ Send
-		+ Sync
-		+ 'static,
+	Client: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
 	Client::Api: ApiExt<Block>,
 	AD: AuthorityDiscovery<Block> + Send + Sync + 'static,
 {
@@ -222,90 +260,32 @@ async fn mesh_refresh_loop<Block, Client, AD>(
 		.collect();
 
 	let mut state = LoopState::new();
-
-	// Initial refresh at startup.
-	let at = client.info().best_hash;
-	log::debug!(
-		target: LOG_TARGET,
-		"Performing initial collator mesh refresh at {:?}",
-		at,
-	);
-	apply_once(
-		&*client,
-		&*authority_discovery,
-		&*network,
-		&sync_service,
-		&mut authority_discovery_service,
-		&local_pub_keys,
-		max_reserved,
-		&protocol,
-		&mut state,
-		metrics.as_ref(),
-		at,
-	)
-	.await;
-
-	let mut import_stream = client.import_notification_stream().fuse();
-	let mut reresolve_timer = Delay::new(TRY_RERESOLVE_AUTHORITIES).fuse();
+	let mut ad_enabled = false;
 
 	loop {
-		futures::select! {
-			notification = import_stream.next() => {
-				let Some(notification) = notification else {
-					log::debug!(
-						target: LOG_TARGET,
-						"Block import stream ended; stopping collator mesh loop",
-					);
-					break;
-				};
-				if !notification.is_new_best {
-					continue;
-				}
-				log::trace!(
-					target: LOG_TARGET,
-					"New best block at {:?} — evaluating collator mesh",
-					notification.hash,
-				);
-				apply_once(
-					&*client,
-					&*authority_discovery,
-					&*network,
-					&sync_service,
-					&mut authority_discovery_service,
-					&local_pub_keys,
-					max_reserved,
-					&protocol,
-					&mut state,
-					metrics.as_ref(),
-					notification.hash,
-				).await;
-			}
-			_ = reresolve_timer => {
-				reresolve_timer = Delay::new(TRY_RERESOLVE_AUTHORITIES).fuse();
-				// Force a re-resolve to catch peer-id rotations even when the authority set
-				// hasn't changed.
-				state.force_resolve = true;
-				let at = client.info().best_hash;
-				log::debug!(
-					target: LOG_TARGET,
-					"Periodic timer fired — re-resolving authority addresses at {:?}",
-					at,
-				);
-				apply_once(
-					&*client,
-					&*authority_discovery,
-					&*network,
-					&sync_service,
-					&mut authority_discovery_service,
-					&local_pub_keys,
-					max_reserved,
-					&protocol,
-					&mut state,
-					metrics.as_ref(),
-					at,
-				).await;
-			}
+		let at = client.info().best_hash;
+		if !ad_enabled {
+			ad_enabled = client
+				.runtime_api()
+				.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
+				.unwrap_or(false);
 		}
+		if ad_enabled {
+			update_parachain_authorities(
+				&*authority_discovery,
+				&*network,
+				&sync_service,
+				&mut authority_discovery_service,
+				&local_pub_keys,
+				max_reserved,
+				&protocol,
+				&mut state,
+				metrics.as_ref(),
+				at,
+			)
+			.await;
+		}
+		Delay::new(TRY_RERESOLVE_AUTHORITIES).await;
 	}
 }
 
@@ -313,33 +293,17 @@ async fn mesh_refresh_loop<Block, Client, AD>(
 struct LoopState {
 	last_authorities: Option<Vec<AuthorityId>>,
 	last_addrs: Option<HashSet<Multiaddr>>,
-	/// Force re-resolve on the next `apply_once` even if the authority set hasn't changed.
-	/// Cleared after one pass.
-	force_resolve: bool,
 	/// When we first dropped below the connectivity warning threshold; `None` if above it.
 	low_connectivity_since: Option<Instant>,
-	/// Whether `AuthorityDiscoveryApi` was available on the last checked block. `None`
-	/// before the first check; used to log transitions once per flip.
-	ad_enabled: Option<bool>,
-	/// Unresolved-authority count from the previous pass.
-	last_unresolved: usize,
 }
 
 impl LoopState {
 	fn new() -> Self {
-		Self {
-			last_authorities: None,
-			last_addrs: None,
-			force_resolve: false,
-			low_connectivity_since: None,
-			ad_enabled: None,
-			last_unresolved: 0,
-		}
+		Self { last_authorities: None, last_addrs: None, low_connectivity_since: None }
 	}
 }
 
-/// Filter `local_pub_keys` out of `authorities`, sort by raw pubkey bytes, truncate to
-/// `max_reserved`.
+/// Drop `local_pub_keys`, sort by raw pubkey bytes, truncate to `max_reserved`.
 fn select_authorities(
 	authorities: Vec<AuthorityId>,
 	local_pub_keys: &HashSet<AuthorityId>,
@@ -356,10 +320,9 @@ fn select_authorities(
 	selected
 }
 
-/// Single refresh pass: fetch authorities at `at`, resolve multiaddrs, and update the
-/// reserved/no-slot peer sets if anything changed.
-async fn apply_once<Block, Client, AD>(
-	client: &Client,
+/// Resolve authority multiaddrs and push updated reserved/no-slot peer sets if anything
+/// changed since the last call.
+async fn update_parachain_authorities<Block, AD>(
 	authority_discovery: &AD,
 	network: &dyn NetworkService,
 	sync_service: &SyncingService<Block>,
@@ -372,41 +335,8 @@ async fn apply_once<Block, Client, AD>(
 	at: Block::Hash,
 ) where
 	Block: BlockT,
-	Client: ProvideRuntimeApi<Block>,
-	Client::Api: ApiExt<Block>,
 	AD: AuthorityDiscovery<Block> + Send + Sync + 'static,
 {
-	// Re-check API availability every pass so the task survives runtime upgrades that
-	// add or remove `pallet-authority-discovery`. Log only on transitions.
-	let ad_enabled = client
-		.runtime_api()
-		.has_api::<dyn AuthorityDiscoveryApi<Block>>(at)
-		.unwrap_or(false);
-	match (state.ad_enabled, ad_enabled) {
-		(None, false) => log::warn!(
-			target: LOG_TARGET,
-			"Parachain runtime does not implement `AuthorityDiscoveryApi`; the collator mesh \
-			 will stay idle until a runtime upgrade adds it.",
-		),
-		(Some(true), false) => log::warn!(
-			target: LOG_TARGET,
-			"Parachain runtime no longer implements `AuthorityDiscoveryApi` at {:?}; pausing \
-			 the collator mesh until a future upgrade restores it.",
-			at,
-		),
-		(Some(false), true) => log::info!(
-			target: LOG_TARGET,
-			"Parachain runtime started implementing `AuthorityDiscoveryApi` at {:?}; the \
-			 collator mesh is now active.",
-			at,
-		),
-		_ => {},
-	}
-	state.ad_enabled = Some(ad_enabled);
-	if !ad_enabled {
-		return;
-	}
-
 	let authorities = match authority_discovery.authorities(at).await {
 		Ok(a) => a,
 		Err(e) => {
@@ -422,21 +352,24 @@ async fn apply_once<Block, Client, AD>(
 
 	let selected = select_authorities(authorities, local_pub_keys, max_reserved);
 
-	// Skip the resolve pass only when the authority set is unchanged, no forced re-resolve,
-	// and the previous pass had no unresolved authorities. The third condition prevents an
-	// incomplete first refresh from stalling for a full timer period — import notifications
-	// retry until the DHT cache is populated.
-	let authorities_unchanged = state.last_authorities.as_ref() == Some(&selected);
-	if authorities_unchanged && !state.force_resolve && state.last_unresolved == 0 {
-		return;
-	}
-
 	let target_count = selected.len();
 	let mut addrs: HashSet<Multiaddr> = HashSet::new();
 	let mut unresolved = 0usize;
 	for id in &selected {
 		match authority_discovery_service.get_addresses_by_authority_id(id.clone()).await {
 			Some(a) => {
+				let original_len = a.len();
+				let a: Vec<Multiaddr> =
+					a.into_iter().take(MAX_ADDRS_PER_AUTHORITY).collect();
+				if original_len > MAX_ADDRS_PER_AUTHORITY {
+					log::debug!(
+						target: LOG_TARGET,
+						"Capped multiaddrs for authority {:?}: {} -> {}",
+						id,
+						original_len,
+						MAX_ADDRS_PER_AUTHORITY,
+					);
+				}
 				let peer_ids: Vec<PeerId> =
 					a.iter().filter_map(PeerId::try_from_multiaddr).collect();
 				log::debug!(
@@ -468,9 +401,8 @@ async fn apply_once<Block, Client, AD>(
 
 	log_low_connectivity_if_stuck(target_count, resolved, &mut state.low_connectivity_since);
 
-	state.force_resolve = false;
-
 	// Skip pushing when both the authority set and resolved multiaddrs are unchanged.
+	let authorities_unchanged = state.last_authorities.as_ref() == Some(&selected);
 	if authorities_unchanged && state.last_addrs.as_ref() == Some(&addrs) {
 		log::trace!(
 			target: LOG_TARGET,
@@ -480,7 +412,6 @@ async fn apply_once<Block, Client, AD>(
 		return;
 	}
 
-	let trigger = if !authorities_unchanged { "authority set changed" } else { "timer re-resolve" };
 	let previous_authority_count = state.last_authorities.as_ref().map(|a| a.len()).unwrap_or(0);
 	let previous_addr_count = state.last_addrs.as_ref().map(|a| a.len()).unwrap_or(0);
 
@@ -488,9 +419,8 @@ async fn apply_once<Block, Client, AD>(
 
 	log::debug!(
 		target: LOG_TARGET,
-		"Refreshing reserved peers at {:?} ({}): authorities {}->{} unresolved={} multiaddrs {}->{}, peer_ids={}",
+		"Refreshing reserved peers at {:?}: authorities {}->{} unresolved={} multiaddrs {}->{}, peer_ids={}",
 		at,
-		trigger,
 		previous_authority_count,
 		target_count,
 		unresolved,
@@ -505,7 +435,6 @@ async fn apply_once<Block, Client, AD>(
 		Ok(()) => {
 			state.last_authorities = Some(selected);
 			state.last_addrs = Some(addrs);
-			state.last_unresolved = unresolved;
 		},
 		Err(e) => {
 			log::warn!(

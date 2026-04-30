@@ -711,15 +711,91 @@ pub mod migrations {
 					AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(inner.0))
 				})
 				.collect();
-			if let Ok(bounded) = frame_support::WeakBoundedVec::try_from(ad_authorities) {
-				pallet_authority_discovery::Keys::<Runtime>::put(bounded);
-			}
+			let bounded = frame_support::WeakBoundedVec::<_, _>::force_from(
+				ad_authorities,
+				Some("EnableAuthorityDiscovery migration: authority count exceeds MaxAuthorities"),
+			);
+			pallet_authority_discovery::Keys::<Runtime>::put(bounded);
 
 			// Reads: 1 (Validators empty check) + 1 (aura authorities).
 			// Writes per validator: NextKeys + 2×KeyOwner = 3.
-			// Plus Validators write + QueuedKeys write = 2.
-			let writes = n.saturating_mul(3).saturating_add(2);
+			// Plus Validators + QueuedKeys + AuthorityDiscovery::Keys = 3 fixed writes.
+			let writes = n.saturating_mul(3).saturating_add(3);
 			db.reads(2).saturating_add(db.writes(writes))
+		}
+	}
+
+	#[cfg(test)]
+	mod tests {
+		use super::*;
+		use frame_support::traits::OnRuntimeUpgrade;
+		use sp_keyring::Sr25519Keyring;
+
+		fn ext_with_aura(keys: &[Sr25519Keyring]) -> sp_io::TestExternalities {
+			let mut ext = sp_io::TestExternalities::new_empty();
+			ext.execute_with(|| {
+				let aura_keys: alloc::vec::Vec<AuraId> = keys
+					.iter()
+					.map(|k| AuraId::from(sp_core::sr25519::Public::from_raw(k.public().0)))
+					.collect();
+				let bounded =
+					frame_support::BoundedVec::<_, _>::try_from(aura_keys).expect("fits");
+				pallet_aura::Authorities::<Runtime>::put(bounded);
+			});
+			ext
+		}
+
+		fn expected_weight(n: u64) -> Weight {
+			let db: frame_support::weights::RuntimeDbWeight =
+				<Runtime as frame_system::Config>::DbWeight::get();
+			db.reads(2).saturating_add(db.writes(n.saturating_mul(3).saturating_add(3)))
+		}
+
+		#[test]
+		fn populates_session_state() {
+			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob, Sr25519Keyring::Charlie];
+			ext_with_aura(&keys).execute_with(|| {
+				let w = EnableAuthorityDiscovery::on_runtime_upgrade();
+
+				let n = keys.len();
+				assert_eq!(pallet_session::Validators::<Runtime>::get().len(), n);
+				assert_eq!(pallet_session::QueuedKeys::<Runtime>::get().len(), n);
+				assert_eq!(pallet_session::NextKeys::<Runtime>::iter().count(), n);
+				// 2 KeyOwner entries per validator (aura + audi).
+				assert_eq!(pallet_session::KeyOwner::<Runtime>::iter().count(), 2 * n);
+				assert_eq!(pallet_authority_discovery::Keys::<Runtime>::get().len(), n);
+				assert_eq!(w, expected_weight(n as u64));
+			});
+		}
+
+		#[test]
+		fn is_idempotent() {
+			let keys = [Sr25519Keyring::Alice, Sr25519Keyring::Bob];
+			ext_with_aura(&keys).execute_with(|| {
+				EnableAuthorityDiscovery::on_runtime_upgrade();
+				let w2 = EnableAuthorityDiscovery::on_runtime_upgrade();
+
+				assert_eq!(pallet_session::Validators::<Runtime>::get().len(), 2);
+				assert_eq!(pallet_session::KeyOwner::<Runtime>::iter().count(), 4);
+				let db: frame_support::weights::RuntimeDbWeight =
+					<Runtime as frame_system::Config>::DbWeight::get();
+				assert_eq!(w2, db.reads(1));
+			});
+		}
+
+		#[test]
+		fn noop_when_validators_already_set() {
+			let keys = [Sr25519Keyring::Alice];
+			ext_with_aura(&keys).execute_with(|| {
+				pallet_session::Validators::<Runtime>::put(alloc::vec![
+					Sr25519Keyring::Alice.to_account_id(),
+				]);
+				let w = EnableAuthorityDiscovery::on_runtime_upgrade();
+				let db: frame_support::weights::RuntimeDbWeight =
+					<Runtime as frame_system::Config>::DbWeight::get();
+				assert_eq!(w, db.reads(1));
+				assert!(pallet_authority_discovery::Keys::<Runtime>::get().is_empty());
+			});
 		}
 	}
 }
