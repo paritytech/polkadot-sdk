@@ -4166,3 +4166,65 @@ async fn fork_drop_reclaims_capacity_and_disconnects_peers() {
 // Note: rotation + forks isn't a separate test here. `core_rotation_accepts_candidates_for_both_cores`
 // already exercises group rotation, and forks (1)-(4) above exercise fork logic with our group's
 // core; the combination doesn't add a new property worth the test setup.
+
+// Multi-SP-on-linear-path same-para capacity: candidates at different SPs on the same path
+// compete for the same per-core CQ pool. With leaf 10 active and ancestors 8, 9 in the
+// implicit view, leaf 10's CQ for our core is [100, 200, 100] — para 100 owns two positions
+// total across all SPs on this path. Advertising para 100 at three different SPs (one at each
+// of 8, 9, 10) must result in at most two fetches, regardless of which SP the implementation
+// walks first.
+//
+// Pre-fix bug: `consumed_for_para` filters by SP, so each SP independently sees zero
+// consumption and fetches for its own quota — producing three fetches total (overrun).
+#[tokio::test]
+async fn linear_multi_sp_same_para_capacity_not_double_counted() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	// Sanity: leaf-10 CQ for our core has para 100 twice.
+	assert_eq!(
+		test_state.rp_info[&active_leaf].claim_queue[&core],
+		vec![100.into(), 200.into(), 100.into()]
+	);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let peers: Vec<_> = (0..3).map(peer_id).collect();
+	for &p in &peers {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+
+	// One advertisement per SP for para 100. Each advertisement lives at a different SP on
+	// the same linear path: 8 (grandparent), 9 (parent), 10 (leaf).
+	let sps = [get_hash(8), get_hash(9), get_hash(10)];
+	let mut advs = Vec::new();
+	for (i, &sp) in sps.iter().enumerate() {
+		let (_, adv) = dummy_candidate(
+			sp,
+			100.into(),
+			peers[i],
+			core,
+			1,
+			Hash::from_low_u64_be(i as u64 + 100),
+		);
+		test_state.handle_advertisement(&mut state, adv).await;
+		advs.push(adv);
+	}
+
+	// At most two fetches: leaf 10's CQ has only two slots for para 100.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert!(
+				reqs.len() <= 2,
+				"expected at most 2 fetches, got {} (over-fetch — third candidate has nowhere to land on-chain)",
+				reqs.len()
+			);
+		}
+	);
+	test_state.assert_no_messages().await;
+}
