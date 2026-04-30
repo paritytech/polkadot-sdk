@@ -42,7 +42,10 @@ fn coretime_westend_genesis(
 				.iter()
 				.cloned()
 				.map(|k| (k, endowment))
-				.chain(core::iter::once((DapSatellite::satellite_account(), CORETIME_WESTEND_ED)))
+				.chain(core::iter::once((
+					AccumulateForward::accumulation_account(),
+					CORETIME_WESTEND_ED
+				)))
 				.collect(),
 		},
 		parachain_info: ParachainInfoConfig { parachain_id: id },

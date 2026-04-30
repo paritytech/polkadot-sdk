@@ -18,7 +18,15 @@
 //! Era reward management.
 //!
 //! Manages the lifecycle of era reward pot accounts: creation, funding
-//! via snapshot from the general DAP pot, and cleanup of expired eras.
+//! via snapshot from the general DAP pot, and draining of expired eras.
+//!
+//! Era pots are backed by a rotating pool of `POT_POOL_SIZE` accounts
+//! addressed by `era % POT_POOL_SIZE`. Once created, a slot's account is kept
+//! alive forever — at the end of each era's history window, its remaining
+//! balance is drained to [`crate::Config::UnclaimedRewardHandler`] but the
+//! provider reference is retained. A future era that reuses the same slot
+//! finds an existing zero-balance account and snapshots into it. This bounds
+//! the storage footprint contributed by era pots to a constant.
 
 use crate::*;
 use frame_support::{
@@ -56,7 +64,9 @@ pub struct EraRewardAllocation<Balance> {
 pub struct EraRewardManager<T: Config>(core::marker::PhantomData<T>);
 
 impl<T: Config> EraRewardManager<T> {
-	/// Creates an era pot account by adding a provider reference.
+	/// Ensures the era pot account for `(era, kind)` exists by holding a provider
+	/// reference. Idempotent: if the slot's account is already provided (because a
+	/// previous era reused it), this is a no-op.
 	///
 	/// Should only be called in non-minting mode (`DisableMinting = true`).
 	pub(crate) fn create(era: EraIndex, kind: RewardKind) -> T::AccountId {
@@ -65,7 +75,9 @@ impl<T: Config> EraRewardManager<T> {
 			"Era pots should only be created when DisableMinting is true"
 		);
 		let pot_account = T::RewardPots::pot_account(RewardPot::Era(era, kind));
-		frame_system::Pallet::<T>::inc_providers(&pot_account);
+		if frame_system::Pallet::<T>::providers(&pot_account) == 0 {
+			frame_system::Pallet::<T>::inc_providers(&pot_account);
+		}
 		pot_account
 	}
 
@@ -141,10 +153,12 @@ impl<T: Config> EraRewardManager<T> {
 		EraRewardAllocation { staker_rewards: actual_staker, validator_incentive: actual_incentive }
 	}
 
-	/// Destroys an era pot by withdrawing unclaimed rewards and removing the provider.
+	/// Drains an era pot's remaining balance to the unclaimed reward handler.
 	///
-	/// No-op if the pot was never created (e.g. in legacy minting mode).
-	pub(crate) fn destroy(era: EraIndex, kind: RewardKind) {
+	/// The pot account itself is kept alive (provider retained) so the same slot
+	/// can be reused by a future era. No-op if the pot was never created (e.g.
+	/// the era ran in legacy minting mode).
+	pub(crate) fn drain(era: EraIndex, kind: RewardKind) {
 		let pot_account = T::RewardPots::pot_account(RewardPot::Era(era, kind));
 
 		// Skip if pot was never created (legacy mode doesn't create pots).
@@ -154,52 +168,57 @@ impl<T: Config> EraRewardManager<T> {
 
 		let remaining = T::Currency::balance(&pot_account);
 
-		if !remaining.is_zero() {
-			match T::Currency::withdraw(
-				&pot_account,
-				remaining,
-				Precision::BestEffort,
-				Preservation::Expendable,
-				Fortitude::Force,
-			) {
-				Ok(credit) => {
-					T::UnclaimedRewardHandler::on_unbalanced(credit);
-					log!(
-						debug,
-						"Withdrew {:?} unclaimed rewards from era {:?} {:?} pot",
-						remaining,
-						era,
-						kind
-					);
-				},
-				Err(e) => {
-					defensive!("Failed to withdraw unclaimed rewards from era pot");
-					log!(
-						error,
-						"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
-						era,
-						kind,
-						e
-					);
-				},
-			}
+		if remaining.is_zero() {
+			return;
 		}
 
-		// try decrementing the provider we added at create.
-		let _ = frame_system::Pallet::<T>::dec_providers(&pot_account);
+		match T::Currency::withdraw(
+			&pot_account,
+			remaining,
+			Precision::BestEffort,
+			Preservation::Expendable,
+			Fortitude::Force,
+		) {
+			Ok(credit) => {
+				T::UnclaimedRewardHandler::on_unbalanced(credit);
+				log!(
+					debug,
+					"Drained {:?} unclaimed rewards from era {:?} {:?} pot",
+					remaining,
+					era,
+					kind
+				);
+			},
+			Err(e) => {
+				defensive!("Failed to withdraw unclaimed rewards from era pot");
+				log!(
+					error,
+					"Era {:?} {:?}: unclaimed reward withdrawal failed: {:?}",
+					era,
+					kind,
+					e
+				);
+			},
+		}
 	}
 
-	/// Checks if the pot account for an era's staker rewards exists.
+	/// Whether the slot backing this era's staker reward pot exists.
+	///
+	/// Because slots are reused across eras (rotating pool), this returns
+	/// `true` for an era as long as *some* era mapping to the same slot
+	/// has created the account.
 	#[cfg(any(test, feature = "try-runtime"))]
 	pub(crate) fn has_staker_rewards_pot(era: EraIndex) -> bool {
 		let pot = T::RewardPots::pot_account(RewardPot::Era(era, RewardKind::StakerRewards));
 		frame_system::Pallet::<T>::providers(&pot) > 0
 	}
 
-	/// Cleans up all pot accounts for a given era.
+	/// Cleans up all pot accounts for a given era by draining their balances.
+	///
+	/// Pot accounts are kept alive for reuse by a future era at the same slot.
 	pub(crate) fn cleanup_era(era: EraIndex) {
-		Self::destroy(era, RewardKind::StakerRewards);
-		Self::destroy(era, RewardKind::ValidatorSelfStake);
+		Self::drain(era, RewardKind::StakerRewards);
+		Self::drain(era, RewardKind::ValidatorSelfStake);
 	}
 }
 

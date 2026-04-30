@@ -145,7 +145,7 @@ impl pallet_referenda::Config<AmbassadorReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
 	type KillOrigin = EitherOf<EnsureRoot<AccountId>, EnsureHeadAmbassadorsVoice>;
-	type Slash = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
+	type Slash = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, AmbassadorCollectiveInstance>;
 	type SubmissionDeposit = SubmissionDeposit;

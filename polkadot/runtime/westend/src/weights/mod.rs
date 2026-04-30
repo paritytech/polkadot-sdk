@@ -18,11 +18,11 @@
 pub mod frame_election_provider_support;
 pub mod frame_system;
 pub mod frame_system_extensions;
+pub mod pallet_accumulate_and_forward;
 pub mod pallet_asset_rate;
 pub mod pallet_bags_list;
 pub mod pallet_balances;
 pub mod pallet_beefy_mmr;
-pub mod pallet_dap_satellite;
 pub mod pallet_election_provider_multi_phase;
 pub mod pallet_fast_unstake;
 pub mod pallet_identity;

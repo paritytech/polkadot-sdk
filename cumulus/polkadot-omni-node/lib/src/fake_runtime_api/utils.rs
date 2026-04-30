@@ -252,6 +252,11 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 
+				fn indexed_transactions(
+					_block: sp_runtime::traits::NumberFor<$block>,
+				) -> Vec<sp_transaction_storage_proof::IndexedTransactionInfo> {
+					unimplemented!()
+				}
 			}
 
 			// HOP no-op stub. See `sp_hop::HopRuntimeApi` docs for rationale.
