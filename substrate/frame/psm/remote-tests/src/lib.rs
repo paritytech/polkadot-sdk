@@ -61,9 +61,11 @@ pub struct PsmTestConfig<AssetId> {
 	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
 	pub internal_asset_decimals: u8,
-	/// The pallet name for the assets pallet on the target chain (e.g., "Assets").
-	/// Used to determine which storage prefixes to fetch from the live chain.
-	pub assets_pallet_name: String,
+	/// Pallet names on the target chain whose storage must be fetched in order to
+	/// resolve the external asset (e.g., `["Assets", "ForeignAssets"]` on a runtime
+	/// that exposes its PSM `Fungibles` as a union over multiple `pallet_assets`
+	/// instances).
+	pub assets_pallet_names: Vec<String>,
 	/// Optional setup callback invoked before creating the internal asset.
 	/// Use this to set `NextAssetId` so that the asset can be created with
 	/// the desired ID on chains that use `AutoIncAssetId`.
@@ -199,7 +201,7 @@ const SNAPSHOT_PATH: &str = "psm_remote_test.snap";
 /// Call [`clear_ext`] after all tests complete to remove the snapshot file.
 pub async fn build_ext<Block>(
 	ws_url: String,
-	assets_pallet_name: String,
+	assets_pallet_names: Vec<String>,
 ) -> remote_externalities::RemoteExternalities<Block>
 where
 	Block: BlockT + DeserializeOwned,
@@ -210,7 +212,7 @@ where
 			OfflineConfig { state_snapshot: SnapshotConfig::new(SNAPSHOT_PATH) },
 			OnlineConfig {
 				transport_uris: vec![ws_url],
-				pallets: vec![assets_pallet_name],
+				pallets: assets_pallet_names,
 				state_snapshot: Some(SnapshotConfig::new(SNAPSHOT_PATH)),
 				..Default::default()
 			},

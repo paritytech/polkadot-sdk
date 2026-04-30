@@ -18,6 +18,7 @@
 
 use clap::{Parser, ValueEnum};
 use pallet_psm_remote_tests::PsmTestConfigOf;
+use xcm::v5::Location;
 
 #[derive(Clone, Debug, ValueEnum)]
 #[value(rename_all = "PascalCase")]
@@ -25,23 +26,34 @@ enum Runtime {
 	AssetHubWestend,
 }
 
+/// Default `--asset-location`: USDT (`Assets` instance, general index 1984).
+const DEFAULT_ASSET_LOCATION: &str =
+	r#"{"parents":0,"interior":{"X2":[{"PalletInstance":50},{"GeneralIndex":1984}]}}"#;
+
 #[derive(Parser)]
 struct Cli {
 	#[arg(long, short, default_value = "wss://westend-asset-hub-rpc.polkadot.io:443")]
 	uri: String,
 	#[arg(long, short, ignore_case = true, value_enum, default_value_t = Runtime::AssetHubWestend)]
 	runtime: Runtime,
-	/// External stablecoin asset ID to use for testing (e.g., USDT = 1984).
-	#[arg(long, default_value_t = 1984)]
-	asset_id: u32,
+	/// External asset to test against, as a JSON-encoded XCM `Location`. Resolves
+	/// against the runtime's PSM `Fungibles` — on Asset Hub Westend that's a union
+	/// over `Assets` (Instance1) and `ForeignAssets` (Instance2), so any Location
+	/// either pallet recognises is valid. Defaults to USDT (Assets, general index 1984).
+	#[arg(long, default_value = DEFAULT_ASSET_LOCATION)]
+	asset_location: String,
 }
 
-fn asset_hub_westend_config(asset_id: u32) -> PsmTestConfigOf<asset_hub_westend_runtime::Runtime> {
-	use xcm::latest::prelude::*;
+fn asset_hub_westend_config(
+	asset_location: Location,
+) -> PsmTestConfigOf<asset_hub_westend_runtime::Runtime> {
 	PsmTestConfigOf::<asset_hub_westend_runtime::Runtime> {
-		external_asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(asset_id.into())]),
+		external_asset_id: asset_location,
 		internal_asset_decimals: 6,
-		assets_pallet_name: "Assets".to_string(),
+		// PSM's `Fungibles` is a union over `Assets` (Instance1) and `ForeignAssets`
+		// (Instance2); fetch storage for both so the test can resolve either kind
+		// of external asset Location.
+		assets_pallet_names: vec!["Assets".to_string(), "ForeignAssets".to_string()],
 		pre_create_hook: None,
 	}
 }
@@ -51,11 +63,14 @@ async fn main() {
 	let options = Cli::parse();
 	sp_tracing::try_init_simple();
 
+	let asset_location: Location = serde_json::from_str(&options.asset_location)
+		.expect("invalid --asset-location JSON");
+
 	log::info!(
 		target: "remote-ext-tests",
-		"using runtime {:?} / asset_id: {}",
+		"using runtime {:?} / asset_location: {:?}",
 		options.runtime,
-		options.asset_id,
+		asset_location,
 	);
 
 	match options.runtime {
@@ -63,13 +78,13 @@ async fn main() {
 			use asset_hub_westend_runtime::{Block, Runtime};
 			sp_core::defer!(pallet_psm_remote_tests::clear_ext());
 
-			let config = asset_hub_westend_config(options.asset_id);
+			let config = asset_hub_westend_config(asset_location);
 
 			// Fetch state once. The first call downloads from RPC and saves a
 			// snapshot; the second call loads from the snapshot instantly.
 			let mut ext = pallet_psm_remote_tests::build_ext::<Block>(
 				options.uri.clone(),
-				config.assets_pallet_name.clone(),
+				config.assets_pallet_names.clone(),
 			)
 			.await;
 
@@ -82,7 +97,7 @@ async fn main() {
 			// starts from clean state (loads from the snapshot, no RPC needed).
 			let mut ext = pallet_psm_remote_tests::build_ext::<Block>(
 				options.uri,
-				config.assets_pallet_name.clone(),
+				config.assets_pallet_names.clone(),
 			)
 			.await;
 

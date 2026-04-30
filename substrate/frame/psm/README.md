@@ -220,3 +220,14 @@ Run tests with:
 ```bash
 SKIP_WASM_BUILD=1 cargo test -p pallet-psm
 ```
+
+### Remote tests
+
+Run mint/redeem and circuit breaker against a snapshot of live Asset Hub
+Westend state. Pass any external asset as a JSON-encoded `xcm::v5::Location`
+via `--asset-location` (defaults to USDT):
+
+```bash
+cargo run -p remote-ext-tests-psm -- \
+  --asset-location '{"parents":0,"interior":{"X2":[{"PalletInstance":50},{"GeneralIndex":1984}]}}'
+```

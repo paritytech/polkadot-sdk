@@ -19676,6 +19676,7 @@ dependencies = [
  "pallet-assets",
  "pallet-psm",
  "pallet-psm-remote-tests",
+ "serde_json",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
  "staging-xcm",
