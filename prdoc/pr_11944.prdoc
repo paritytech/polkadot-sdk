@@ -1,0 +1,89 @@
+title: '[pallet-revive]: Add Versioning Macros'
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Part of https://github.com/paritytech/polkadot-sdk/issues/11923 and closes https://github.com/paritytech/polkadot-sdk/issues/11945
+
+    This PR introduces the procedural macro infrastructure needed for pallet-revive versioning work.
+
+    It adds two macros to `pallet-revive-proc-macro`:
+
+    - `define_versioned_type!`, for declaring versioned structs and enums while allowing later versions
+      to be expressed as deltas from earlier versions.
+    - `define_versioned_interface!`, for declaring paired versioned runtime API input/output payload
+      families and generating the boxed versioned payload enums around them.
+
+    This PR only adds the macro infrastructure. It does not introduce the new pallet-revive storage
+    models, runtime API payload crate, runtime API functions, migrations, or execution/wire conversion
+    logic. Those are intended to land in later PRs.
+
+    ## Integration
+
+    Downstream users do not need to change any existing pallet-revive code for this PR.
+
+    The only new public surface is in `pallet-revive-proc-macro`. Consumers may opt into the new macros
+    when they start defining versioned pallet-revive types or runtime API payloads.
+
+    The proc-macro crate now has a `std` feature enabled by default. Crates that depend on
+    `pallet-revive-proc-macro` from `no_std` contexts should disable default features and enable the
+    macro crate's `std` feature only from their own `std` feature.
+
+    This PR also updates `pallet-revive` and `pallet-revive-uapi` to depend on
+    `pallet-revive-proc-macro` with `default-features = false`, then wires the macro crate's `std`
+    feature through their own `std` feature lists.
+
+    ## Review Notes
+
+    > [!TIP]
+    > The doc-comments for the two new macros that we added describe their functionality in great details and might be the best place to understand what these macros do, what they don't, and how they work. Consider reviewing that when reviewing this PR.
+
+    `define_versioned_type!` accepts ordinary Rust struct and enum items whose names end in `V{N}`. It
+    parses the base name and version, rejects malformed or non-contiguous version families, and emits
+    full standalone Rust items for every version.
+
+    The macro supports:
+
+    - struct and enum versions;
+    - versions that do not start at `V1`, as long as the declared range is contiguous;
+    - type-level `#[versioned_type(extend)]`;
+    - variant-level `#[versioned_type(extend)]` and `#[versioned_type(override)]`;
+    - field-level `#[versioned_type(override)]`;
+    - generated `Latest{Name}` aliases for the highest version;
+    - diagnostics for duplicate versions, mixed base names, invalid helper attributes, unsupported
+      extension shapes, and accidental field/variant redefinitions.
+
+    `define_versioned_interface!` accepts only named-field structs following this naming scheme:
+
+    ```rust
+    {Name}InputPayloadV{N}
+    {Name}OutputPayloadV{N}
+    ```
+
+    It emits:
+
+    - the original payload structs unchanged;
+    - `Versioned{Name}InputPayload`;
+    - `Versioned{Name}OutputPayload`;
+    - boxed `V{N}` variants;
+    - constructors, accessors, consuming accessors, unwrap helpers, `From`, and `TryFrom` impls;
+    - `Latest{Name}InputPayload` and `Latest{Name}OutputPayload` aliases;
+    - `LATEST_VERSION` constants on generated versioned enums.
+
+    If the payload family name ends with `Versioned`, the generated enum and alias names strip that
+    marker. For example, `EthTransactVersionedInputPayloadV1` generates
+    `VersionedEthTransactInputPayload`, not `VersionedEthTransactVersionedInputPayload`.
+
+    The existing `define_env` macro implementation is also moved into its own handler module so the
+    proc-macro crate follows the same file layout as the new versioning macros.
+
+    Tests cover both normal expansion and compile-fail behavior, including trybuild UI tests for invalid
+    macro input.
+crates:
+- name: pallet-revive-proc-macro
+  bump: minor
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor
