@@ -57,7 +57,7 @@ use schnellru::{ByLength, LruMap};
 use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+	collections::{BTreeMap, BTreeSet, HashMap, VecDeque},
 	time::{Duration, Instant},
 };
 
@@ -193,39 +193,24 @@ impl CollationManager {
 			self.leaf_claim_queues.remove(&leaf);
 		}
 
-		// Drop `per_scheduling_parent` entries for SPs no longer reachable from any current
-		// leaf. This covers two cases at once:
-		//
-		// * blocks pruned from `implicit_view`'s storage (chain advance has moved past the
-		//   retention window),
-		// * removed sibling-fork leaves that stay in storage but have no descending path from
-		//   any current leaf.
-		//
-		// Common-chain cases — a leaf becoming an ancestor of its successor — keep their
-		// entries because the successor's path still goes through them.
-		let unreachable: Vec<Hash> = self
-			.per_scheduling_parent
-			.keys()
-			.copied()
-			.filter(|sp| self.implicit_view.paths_via_relay_parent(sp).is_empty())
-			.collect();
-		for sp in unreachable {
-			if let Some(removed_sp) = self.per_scheduling_parent.remove(&sp) {
-				for advertisement in removed_sp.all_advertisements() {
-					gum::trace!(
-						target: LOG_TARGET,
-						?advertisement,
-						"Cancelling advertisement because scheduling parent left the view"
-					);
-					self.fetching.cancel(&advertisement);
+		// Rebuild `per_scheduling_parent`, dropping entries no longer reachable from any
+		// current leaf and cancelling their in-flight fetches.
+		self.per_scheduling_parent = std::mem::take(&mut self.per_scheduling_parent)
+			.into_iter()
+			.filter_map(|(sp, per_sp)| {
+				if !self.implicit_view.paths_via_relay_parent(&sp).is_empty() {
+					return Some((sp, per_sp));
 				}
-			}
-		}
+				for advertisement in per_sp.all_advertisements() {
+					self.fetching.cancel(advertisement);
+				}
+				None
+			})
+			.collect();
 
 		// Remove blocked seconding requests whose scheduling parent is no longer tracked.
 		self.blocked_from_seconding.retain(|_, collations| {
-			collations
-				.retain(|c| self.per_scheduling_parent.contains_key(&c.scheduling_parent()));
+			collations.retain(|c| self.per_scheduling_parent.contains_key(&c.scheduling_parent()));
 			!collations.is_empty()
 		});
 
@@ -285,23 +270,11 @@ impl CollationManager {
 	/// All paras our group will back at *some* scheduling parent in our view. Used to decide
 	/// which collators we should be willing to talk to. We take the union across all
 	/// scheduling parents of `our_window(sp)` — the slice of the leaf's CQ visible from that
-	/// SP for our core. Older ancestors see only the early CQ positions; the leaf sees all.
+	/// SP for our core.
 	pub fn assignments(&self) -> BTreeSet<ParaId> {
 		self.per_scheduling_parent
 			.iter()
 			.flat_map(|(sp, per_sp)| self.our_window(sp, per_sp.core_index))
-			.collect()
-	}
-
-	/// All paras with at least one free slot at any scheduling parent in our view. Used by the
-	/// fetch loop to decide whether iterating advertisements is worthwhile.
-	pub fn all_free_slots(&self) -> BTreeSet<ParaId> {
-		self.per_scheduling_parent
-			.keys()
-			.copied()
-			.collect::<Vec<_>>()
-			.into_iter()
-			.flat_map(|sp| self.unfulfilled_claim_queue_entries(&sp))
 			.collect()
 	}
 
@@ -331,95 +304,26 @@ impl CollationManager {
 	/// order. One entry per available position (so a para with three free slots appears three
 	/// times).
 	///
-	/// Capacity at a scheduling parent has two bounds, both derived from the leaf's
-	/// authoritative CQ:
-	/// * leaf-wide: total candidates in flight on the path can't exceed this SP's window
-	///   length (= `lookahead - offset_from_leaf`).
-	/// * per-para: a para can't have more in-flight at this SP than CQ positions visible from
-	///   it.
-	///
-	/// After group rotation, pre- and post-rotation SPs use different cores' CQs at the leaf
-	/// and therefore get independent capacity buckets.
-	fn unfulfilled_claim_queue_entries(&self, scheduling_parent: &Hash) -> VecDeque<ParaId> {
-		let Some(per_sp) = self.per_scheduling_parent.get(scheduling_parent) else {
-			return VecDeque::new();
+	/// Each para's budget is its count of CQ positions visible at this SP minus its in-flight
+	/// count here.
+	fn unfulfilled_claim_queue_entries(
+		&self,
+		scheduling_parent: &Hash,
+	) -> impl Iterator<Item = ParaId> {
+		let window = if let Some(per_sp) = self.per_scheduling_parent.get(scheduling_parent) else {
+			self.our_window(scheduling_parent, per_sp.core_index)
+		} else {
+			Vec::new()
 		};
-		let window = self.our_window(scheduling_parent, per_sp.core_index);
-		let lookahead = window.len();
 
-		// Leaf-wide bound first.
-		let total_free = lookahead.saturating_sub(self.total_consumed(scheduling_parent));
-		if total_free == 0 {
-			return VecDeque::new();
-		}
-
-		// Per-para bound: each para's CQ-position count, minus its in-flight count at this SP.
-		let mut remaining: HashMap<ParaId, usize> = HashMap::new();
+		let mut remaining: IndexMap<ParaId, usize> = IndexMap::new();
 		for para in &window {
 			*remaining.entry(*para).or_default() += 1;
 		}
 		for (para, n) in remaining.iter_mut() {
 			*n = n.saturating_sub(self.consumed_for_para(scheduling_parent, *para));
 		}
-
-		// Walk the window in order, emitting each position whose para still has budget. Stop
-		// after `total_free` emissions — that's the leaf-wide cap.
-		let mut emitted = 0usize;
-		let mut result = VecDeque::with_capacity(total_free);
-		for para in &window {
-			if emitted == total_free {
-				break;
-			}
-			let n = remaining.get_mut(para).expect("inserted above; qed");
-			if *n > 0 {
-				*n -= 1;
-				result.push_back(*para);
-				emitted += 1;
-			}
-		}
-		result
-	}
-
-	/// Total candidates consuming a slot for `our_core` across all scheduling parents on a
-	/// path containing `scheduling_parent`. Used to bound the per-core CQ window length:
-	/// across a path's SPs that share `our_core`, total in-flight can't exceed the visible
-	/// window. Only same-core SPs count — after a group rotation the path includes SPs on
-	/// different cores and their candidates fill different CQ buckets.
-	///
-	/// `blocked_from_seconding` is *not* added on top of `fetched_collations`: once a fetch
-	/// completes the candidate is in `fetched_collations` regardless of whether seconding
-	/// proceeds or blocks, so adding the blocked count would double-count.
-	fn total_consumed(&self, scheduling_parent: &Hash) -> usize {
-		let Some(our_core) =
-			self.per_scheduling_parent.get(scheduling_parent).map(|per_sp| per_sp.core_index)
-		else {
-			return 0;
-		};
-		// SPs on the path that share our core — these are the ones whose in-flight candidates
-		// land in the same CQ bucket.
-		let same_core_sps: HashSet<Hash> = self
-			.implicit_view
-			.paths_via_relay_parent(scheduling_parent)
-			.into_iter()
-			.flatten()
-			.filter(|h| {
-				self.per_scheduling_parent
-					.get(h)
-					.map_or(false, |per_sp| per_sp.core_index == our_core)
-			})
-			.collect();
-
-		let fetching = self
-			.fetching
-			.iter()
-			.filter(|adv| same_core_sps.contains(&adv.scheduling_parent))
-			.count();
-		let fetched = same_core_sps
-			.iter()
-			.filter_map(|h| self.per_scheduling_parent.get(h))
-			.map(|per_sp| per_sp.fetched_collations.len())
-			.sum::<usize>();
-		fetching + fetched
+		remaining.into_iter().filter(|(_, n)| *n > 0).map(|(para, _)| para)
 	}
 
 	/// Candidates of `para_id` consuming a slot at `scheduling_parent`: in-flight fetches plus
@@ -433,9 +337,7 @@ impl CollationManager {
 		let fetching = self
 			.fetching
 			.iter()
-			.filter(|adv| {
-				adv.scheduling_parent == *scheduling_parent && adv.para_id == para_id
-			})
+			.filter(|adv| adv.scheduling_parent == *scheduling_parent && adv.para_id == para_id)
 			.count();
 
 		let fetched = per_sp
@@ -548,8 +450,9 @@ impl CollationManager {
 				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
 				let offset = path
 					.iter()
+					.rev()
 					.position(|h| h == scheduling_parent)
-					.map_or(0, |idx| path.len().saturating_sub(1 + idx));
+					.expect("paths_via_relay_parent only returns paths containing the SP; qed");
 				let valid_len = cq.len().saturating_sub(offset);
 				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
 			})
@@ -576,19 +479,7 @@ impl CollationManager {
 		// parent surfaces both cores' free slots.
 		let scheduling_parents: Vec<_> = self.per_scheduling_parent.keys().copied().collect();
 		for sp in scheduling_parents {
-			let free_slots = self.unfulfilled_claim_queue_entries(&sp);
-			if free_slots.is_empty() {
-				continue;
-			}
-
-			gum::trace!(
-				target: LOG_TARGET,
-				?sp,
-				"Attempting to make new fetch requests for the following empty slots: {:?}",
-				free_slots,
-			);
-
-			for para_id in free_slots {
+			for para_id in self.unfulfilled_claim_queue_entries(sp) {
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
 				let advertisement = match self.pick_best_advertisement(
@@ -835,8 +726,8 @@ impl CollationManager {
 	/// Returns:
 	/// - `Either::Left(Some(adv))` if a fetchable advertisement was found,
 	/// - `Either::Left(None)` if there are no eligible advertisements,
-	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay
-	///   relative to the scheduling parent's activation time.
+	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
+	///   to the scheduling parent's activation time.
 	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		now: Instant,
@@ -973,8 +864,9 @@ impl CollationManager {
 		)
 		.await
 		{
-			Ok(pvd) =>
-				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd),
+			Ok(pvd) => {
+				CanSecond::Yes(fetched_collation.candidate_receipt, fetched_collation.pov, pvd)
+			},
 			Err(SecondingError::BlockedOnParent(parent)) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1197,10 +1089,8 @@ impl PerSchedulingParent {
 		// V1 (no candidate hash) is single-shot per (sp, para): once any V1 collation has been
 		// fetched at this SP for `para_id`, we can't fetch another since V1 has no candidate
 		// identity to differentiate them.
-		let v1_already_fetched = self
-			.fetched_collations
-			.values()
-			.any(|info| info.para_id == para_id);
+		let v1_already_fetched =
+			self.fetched_collations.values().any(|info| info.para_id == para_id);
 		self.peer_advertisements.values().flat_map(|list| &list.advertisements).filter(
 			move |(adv, _)| {
 				if adv.para_id != para_id {

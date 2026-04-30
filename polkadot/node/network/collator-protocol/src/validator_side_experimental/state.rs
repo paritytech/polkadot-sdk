@@ -515,8 +515,8 @@ impl<B: Backend> State<B> {
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
 		};
-		let all_free_slots = self.collation_manager.all_free_slots();
-		let max_reps = self.peer_manager.max_scores_for_paras(all_free_slots).await;
+		let max_reps =
+			self.peer_manager.max_scores_for_paras(self.collation_manager.assignments()).await;
 
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
