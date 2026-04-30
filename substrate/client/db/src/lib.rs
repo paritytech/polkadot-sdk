@@ -5076,10 +5076,7 @@ pub(crate) mod tests {
 		// reordering or field reshape that would corrupt on-disk BODY_INDEX entries.
 		// DbExtrinsic doesn't derive PartialEq so we re-encode and compare bytes.
 		let entries: Vec<DbExtrinsic<Block>> = vec![
-			DbExtrinsic::Indexed {
-				hash: H256::repeat_byte(0xAA),
-				header: vec![0x01, 0x02, 0x03],
-			},
+			DbExtrinsic::Indexed { hash: H256::repeat_byte(0xAA), header: vec![0x01, 0x02, 0x03] },
 			DbExtrinsic::Full(UncheckedXt::new_transaction(42.into(), ())),
 			DbExtrinsic::MultiRenew {
 				hashes: vec![H256::repeat_byte(0xBB), H256::repeat_byte(0xCC)],
@@ -5088,8 +5085,8 @@ pub(crate) mod tests {
 		];
 
 		let encoded = entries.encode();
-		let decoded: Vec<DbExtrinsic<Block>> = Decode::decode(&mut &encoded[..])
-			.expect("encoded DbExtrinsic vec must decode");
+		let decoded: Vec<DbExtrinsic<Block>> =
+			Decode::decode(&mut &encoded[..]).expect("encoded DbExtrinsic vec must decode");
 		let re_encoded = decoded.encode();
 		assert_eq!(encoded, re_encoded, "encode -> decode -> encode must be byte-stable");
 
@@ -5139,8 +5136,8 @@ pub(crate) mod tests {
 
 		// Sanity: ensure we actually built a multi-renew variant (so the test exercises
 		// the new codepath, not just the trivial Indexed/Full branches).
-		let decoded: Vec<DbExtrinsic<Block>> = Decode::decode(&mut &bytes1[..])
-			.expect("apply_index_ops output must decode");
+		let decoded: Vec<DbExtrinsic<Block>> =
+			Decode::decode(&mut &bytes1[..]).expect("apply_index_ops output must decode");
 		assert_eq!(decoded.len(), 2);
 		assert!(
 			matches!(decoded[0], DbExtrinsic::MultiRenew { .. }),
@@ -5158,7 +5155,8 @@ pub(crate) mod tests {
 		// via three different DbExtrinsic shapes:
 		//   - Block 0 (Insert): produces `Indexed { hash: X, header: partial }`  → +1 ref
 		//   - Block 1 (single Renew): produces `Indexed { hash: X, header: full }` → +1 ref
-		//   - Block 2 (multi-Renew duplicate): produces `MultiRenew { hashes: [X, X], … }` → +2 refs
+		//   - Block 2 (multi-Renew duplicate): produces `MultiRenew { hashes: [X, X], … }` → +2
+		//     refs
 		// Total refcount peaks at 4. Each block's prune must release exactly its
 		// contribution; if the Indexed and MultiRenew arms ever drift in `prune_block`
 		// (e.g. one releases per-hash, the other per-entry), this test catches it.
