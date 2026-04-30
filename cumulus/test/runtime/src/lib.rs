@@ -84,8 +84,8 @@ extern crate alloc;
 use alloc::{vec, vec::Vec};
 use frame_support::{derive_impl, traits::OnRuntimeUpgrade, PalletId};
 use sp_api::{decl_runtime_apis, impl_runtime_apis};
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 pub use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{ConstBool, ConstU32, ConstU64, Get, OpaqueMetadata};
 
 use sp_runtime::{
@@ -666,9 +666,7 @@ pub mod migrations {
 				let raw: [u8; 32] = inner.0;
 				let account: AccountId = sp_core::sr25519::Public::from_raw(raw).into();
 				let aura_key = AuraId::from(sp_core::sr25519::Public::from_raw(raw));
-				let audi_key = AuthorityDiscoveryId::from(
-					sp_core::sr25519::Public::from_raw(raw),
-				);
+				let audi_key = AuthorityDiscoveryId::from(sp_core::sr25519::Public::from_raw(raw));
 				let session_keys = SessionKeys { aura: aura_key, authority_discovery: audi_key };
 
 				// Populate NextKeys and KeyOwner (mirrors pallet_session genesis logic).
@@ -681,10 +679,7 @@ pub mod migrations {
 					<AuthorityDiscoveryId as sp_runtime::RuntimeAppPublic>::to_raw_vec(
 						&session_keys.authority_discovery,
 					);
-				pallet_session::KeyOwner::<Runtime>::insert(
-					(AURA_KEY_TYPE, aura_bytes),
-					&account,
-				);
+				pallet_session::KeyOwner::<Runtime>::insert((AURA_KEY_TYPE, aura_bytes), &account);
 				pallet_session::KeyOwner::<Runtime>::insert(
 					(AUTHORITY_DISCOVERY_KEY_TYPE, audi_bytes),
 					&account,
@@ -738,8 +733,7 @@ pub mod migrations {
 					.iter()
 					.map(|k| AuraId::from(sp_core::sr25519::Public::from_raw(k.public().0)))
 					.collect();
-				let bounded =
-					frame_support::BoundedVec::<_, _>::try_from(aura_keys).expect("fits");
+				let bounded = frame_support::BoundedVec::<_, _>::try_from(aura_keys).expect("fits");
 				pallet_aura::Authorities::<Runtime>::put(bounded);
 			});
 			ext

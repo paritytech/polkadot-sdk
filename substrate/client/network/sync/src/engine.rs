@@ -747,7 +747,8 @@ where
 
 				for (peer_id, peer) in self.peers.iter() {
 					let static_no_slot = self.default_peers_set_no_slot_peers.contains(peer_id);
-					let was_no_slot = static_no_slot || self.dynamic_no_slot_peers.contains(peer_id);
+					let was_no_slot =
+						static_no_slot || self.dynamic_no_slot_peers.contains(peer_id);
 					let is_no_slot = static_no_slot || peers.contains(peer_id);
 					let affects_slots = peer.inbound && peer.info.roles.is_full();
 
@@ -768,13 +769,14 @@ where
 								moved_into_no_slot += 1;
 							}
 						},
-						NoSlotReconcile::Demote =>
+						NoSlotReconcile::Demote => {
 							if self.default_peers_set_no_slot_connected_peers.remove(peer_id) &&
 								affects_slots
 							{
 								self.num_in_peers += 1;
 								moved_out_of_no_slot += 1;
-							},
+							}
+						},
 						NoSlotReconcile::Unchanged => {},
 					}
 				}

@@ -92,10 +92,7 @@ fn cumulus_test_runtime(
 		},
 		sudo: SudoConfig { key: Some(Sr25519Keyring::Alice.public().into()) },
 		parachain_info: ParachainInfoConfig { parachain_id: id },
-		session: SessionConfig {
-			keys: session_keys,
-			non_authority_keys: vec![],
-		},
+		session: SessionConfig { keys: session_keys, non_authority_keys: vec![] },
 	})
 }
 
@@ -123,8 +120,9 @@ pub fn preset_names() -> Vec<PresetId> {
 pub fn get_preset(id: &PresetId) -> Option<Vec<u8>> {
 	let patch = match id.as_ref() {
 		sp_genesis_builder::DEV_RUNTIME_PRESET |
-		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET =>
-			testnet_genesis_with_default_endowed(100.into()),
+		sp_genesis_builder::LOCAL_TESTNET_RUNTIME_PRESET => {
+			testnet_genesis_with_default_endowed(100.into())
+		},
 		_ => return None,
 	};
 	Some(

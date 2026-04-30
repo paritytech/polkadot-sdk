@@ -33,10 +33,7 @@ use std::{
 use futures_timer::Delay;
 
 use sc_authority_discovery::AuthorityDiscovery;
-use sc_network::{
-	service::traits::NetworkService,
-	DhtEvent, Multiaddr, PeerId, ProtocolName,
-};
+use sc_network::{service::traits::NetworkService, DhtEvent, Multiaddr, PeerId, ProtocolName};
 use sc_service::SpawnTaskHandle;
 use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_authority_discovery::{AuthorityDiscoveryApi, AuthorityId};
@@ -59,7 +56,6 @@ const MAX_ADDRS_PER_AUTHORITY: usize = 4;
 /// Warn when resolved connectivity stays below this percentage for [`LOW_CONNECTIVITY_WARN_DELAY`].
 const LOW_CONNECTIVITY_WARN_THRESHOLD_PCT: usize = 85;
 const LOW_CONNECTIVITY_WARN_DELAY: Duration = Duration::from_secs(600);
-
 
 pub struct CollatorMeshConfig {
 	pub max_reserved: usize,
@@ -91,8 +87,7 @@ pub struct StartCollatorMeshParams<Block: BlockT, Client, AD, NetEventStream> {
 	pub spawn_handle: SpawnTaskHandle,
 }
 
-/// Start the collator mesh if `is_validator` and `max_reserved` are both set; otherwise
-/// log a warning when the flag is set on a non-collator node and return `Ok(())`.
+/// Start the collator mesh; no-op unless `is_validator` and `max_reserved > 0`.
 pub fn maybe_start_collator_mesh<Block, Client, AD, NetEventStream>(
 	params: StartCollatorMeshParams<Block, Client, AD, NetEventStream>,
 ) -> Result<(), prometheus_endpoint::PrometheusError>
@@ -352,8 +347,7 @@ async fn update_parachain_authorities<Block, AD>(
 		match authority_discovery_service.get_addresses_by_authority_id(id.clone()).await {
 			Some(a) => {
 				let original_len = a.len();
-				let a: Vec<Multiaddr> =
-					a.into_iter().take(MAX_ADDRS_PER_AUTHORITY).collect();
+				let a: Vec<Multiaddr> = a.into_iter().take(MAX_ADDRS_PER_AUTHORITY).collect();
 				if original_len > MAX_ADDRS_PER_AUTHORITY {
 					log::debug!(
 						target: LOG_TARGET,
@@ -440,11 +434,7 @@ async fn update_parachain_authorities<Block, AD>(
 	}
 }
 
-fn log_low_connectivity_if_stuck(
-	target: usize,
-	resolved: usize,
-	since: &mut Option<Instant>,
-) {
+fn log_low_connectivity_if_stuck(target: usize, resolved: usize, since: &mut Option<Instant>) {
 	if target == 0 {
 		*since = None;
 		return;
@@ -545,7 +535,13 @@ mod tests {
 
 	#[test]
 	fn select_authorities_truncate_preserves_sort_order() {
-		let inputs = vec![authority_id(9), authority_id(3), authority_id(6), authority_id(1), authority_id(4)];
+		let inputs = vec![
+			authority_id(9),
+			authority_id(3),
+			authority_id(6),
+			authority_id(1),
+			authority_id(4),
+		];
 		let selected = select_authorities(inputs, &HashSet::new(), 3);
 		assert_eq!(selected, vec![authority_id(1), authority_id(3), authority_id(4)]);
 	}

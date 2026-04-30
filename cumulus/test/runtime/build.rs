@@ -95,7 +95,6 @@ fn main() {
 		.enable_feature("with-authority-discovery")
 		.set_file_name("wasm_binary_with_authority_discovery.rs")
 		.build();
-
 }
 
 #[cfg(not(feature = "std"))]

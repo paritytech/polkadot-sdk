@@ -5,22 +5,21 @@
 //!
 //! Setup:
 //! * 4 relay-chain validators on `westend-local`,
-//! * 6 parachain collators running `test-parachain` with the `default-test` chain spec
-//!   (default WASM — no `pallet_session` / `pallet_authority_discovery`), each launched
-//!   with `--in-peers 1 --out-peers 1 --collator-reserved-slots 32`. Plus 4 full nodes.
+//! * 6 parachain collators running `test-parachain` with the `default-test` chain spec (default
+//!   WASM — no `pallet_session` / `pallet_authority_discovery`), each launched with `--in-peers 1
+//!   --out-peers 1 --collator-reserved-slots 32`. Plus 4 full nodes.
 //!
 //! Test flow:
 //! 1. Spawn network (default, no-AD runtime). Wait for parachain block production.
-//! 2. Perform `sudo set_code` upgrade to the `with-authority-discovery` variant WASM.
-//!    The variant carries `spec_version = 4` (default = 2), triggering the
-//!    `EnableAuthorityDiscovery` migration which seeds `pallet_session` from
-//!    `pallet_aura::Authorities`.
+//! 2. Perform `sudo set_code` upgrade to the `with-authority-discovery` variant WASM. The variant
+//!    carries `spec_version = 4` (default = 2), triggering the `EnableAuthorityDiscovery` migration
+//!    which seeds `pallet_session` from `pallet_aura::Authorities`.
 //! 3. Wait for the runtime upgrade digest to appear in a finalised block.
-//! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired, AD workers
-//!    now have keys to gossip).
+//! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired, AD workers now have
+//!    keys to gossip).
 //! 5. Assert the full collator-to-collator reserved-peer mesh forms.
-//! 6. Capture current AD authority set; rotate AD keys for every collator via
-//!    `author_insertKey` + `session.set_keys`.
+//! 6. Capture current AD authority set; rotate AD keys for every collator via `author_insertKey` +
+//!    `session.set_keys`.
 //! 7. Wait for `AuthorityDiscovery.Keys` to reflect the rotation.
 //! 8. Assert the mesh still converges after rotation.
 
@@ -32,15 +31,14 @@ use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_sudo_runtime_upgrade, wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
-use std::collections::{HashMap, HashSet};
-use std::time::{Duration, Instant};
-use std::str::FromStr;
+use std::{
+	collections::{HashMap, HashSet},
+	str::FromStr,
+	time::{Duration, Instant},
+};
 use zombienet_sdk::{
 	subxt::{
-		backend::rpc::RpcClient,
-		dynamic::Value,
-		ext::subxt_rpcs::rpc_params,
-		tx::TxStatus,
+		backend::rpc::RpcClient, dynamic::Value, ext::subxt_rpcs::rpc_params, tx::TxStatus,
 		OnlineClient, PolkadotConfig,
 	},
 	subxt_signer::{sr25519::dev, SecretUri},
@@ -50,8 +48,7 @@ use zombienet_sdk::{
 const PARA_ID: u32 = 1000;
 
 /// The variant WASM bytes — compiled with `with-authority-discovery` feature.
-const VARIANT_WASM: Option<&[u8]> =
-	cumulus_test_runtime::with_authority_discovery::WASM_BINARY;
+const VARIANT_WASM: Option<&[u8]> = cumulus_test_runtime::with_authority_discovery::WASM_BINARY;
 
 /// Mesh convergence timeout after session change.
 const FULL_MESH_TIMEOUT: Duration = Duration::from_secs(180);
@@ -200,21 +197,19 @@ async fn rotate_authority_discovery_keys(
 		// Derive the existing aura pubkey from `//<Name>` — keep it unchanged.
 		let aura_uri = SecretUri::from_str(&format!("//{cap}"))
 			.map_err(|e| anyhow!("bad aura URI for {name}: {e}"))?;
-		let aura_pub: [u8; 32] =
-			zombienet_sdk::subxt_signer::sr25519::Keypair::from_uri(&aura_uri)
-				.map_err(|e| anyhow!("aura keypair for {name}: {e}"))?
-				.public_key()
-				.0;
+		let aura_pub: [u8; 32] = zombienet_sdk::subxt_signer::sr25519::Keypair::from_uri(&aura_uri)
+			.map_err(|e| anyhow!("aura keypair for {name}: {e}"))?
+			.public_key()
+			.0;
 
 		// Derive the new AD pubkey from `//<Name>/rotated`.
 		let audi_uri_str = format!("//{cap}/rotated");
 		let audi_uri = SecretUri::from_str(&audi_uri_str)
 			.map_err(|e| anyhow!("bad audi URI for {name}: {e}"))?;
-		let audi_pub: [u8; 32] =
-			zombienet_sdk::subxt_signer::sr25519::Keypair::from_uri(&audi_uri)
-				.map_err(|e| anyhow!("audi keypair for {name}: {e}"))?
-				.public_key()
-				.0;
+		let audi_pub: [u8; 32] = zombienet_sdk::subxt_signer::sr25519::Keypair::from_uri(&audi_uri)
+			.map_err(|e| anyhow!("audi keypair for {name}: {e}"))?
+			.public_key()
+			.0;
 
 		// Insert the new AD private key into the node's keystore via author_insertKey.
 		let audi_pub_hex = sp_core::bytes::to_hex(&audi_pub, true);
@@ -234,10 +229,8 @@ async fn rotate_authority_discovery_keys(
 		// on-chain metadata shape.
 		let aura_value = Value::unnamed_composite([Value::from_bytes(aura_pub.as_slice())]);
 		let audi_value = Value::unnamed_composite([Value::from_bytes(audi_pub.as_slice())]);
-		let keys_value = Value::named_composite([
-			("aura", aura_value),
-			("authority_discovery", audi_value),
-		]);
+		let keys_value =
+			Value::named_composite([("aura", aura_value), ("authority_discovery", audi_value)]);
 
 		// Construct the ownership proof.
 		const POP_TAG: &[u8; 4] = b"POP_";
@@ -267,10 +260,8 @@ async fn rotate_authority_discovery_keys(
 		let signer = dev_pair(name)?;
 		let para_client: OnlineClient<PolkadotConfig> =
 			network.get_node(name)?.wait_client().await?;
-		let mut progress = para_client
-			.tx()
-			.sign_and_submit_then_watch_default(&call, &signer)
-			.await?;
+		let mut progress =
+			para_client.tx().sign_and_submit_then_watch_default(&call, &signer).await?;
 
 		loop {
 			match progress.next().await {
@@ -282,12 +273,15 @@ async fn rotate_authority_discovery_keys(
 					in_block.wait_for_success().await?;
 					break;
 				},
-				Some(Ok(TxStatus::Error { message })) =>
-					return Err(anyhow!("tx error for {name}: {message}")),
-				Some(Ok(TxStatus::Invalid { message })) =>
-					return Err(anyhow!("tx invalid for {name}: {message}")),
-				Some(Ok(TxStatus::Dropped { message })) =>
-					return Err(anyhow!("tx dropped for {name}: {message}")),
+				Some(Ok(TxStatus::Error { message })) => {
+					return Err(anyhow!("tx error for {name}: {message}"))
+				},
+				Some(Ok(TxStatus::Invalid { message })) => {
+					return Err(anyhow!("tx invalid for {name}: {message}"))
+				},
+				Some(Ok(TxStatus::Dropped { message })) => {
+					return Err(anyhow!("tx dropped for {name}: {message}"))
+				},
 				Some(Err(e)) => return Err(e.into()),
 				Some(Ok(_)) => continue,
 				None => return Err(anyhow!("tx progress stream ended for {name}")),
@@ -383,11 +377,7 @@ async fn assert_full_collator_mesh(
 		log::info!("Asserting `{name}` has >= 5 connected libp2p peers (the other 5 collators)");
 		assert!(
 			collator
-				.wait_metric_with_timeout(
-					"substrate_sub_libp2p_peers_count",
-					|c| c >= 5.0,
-					300u64,
-				)
+				.wait_metric_with_timeout("substrate_sub_libp2p_peers_count", |c| c >= 5.0, 300u64,)
 				.await
 				.is_ok(),
 			"`{name}` did not reach 5 connected peers — the reserved-mesh bypass of the \
@@ -520,14 +510,10 @@ async fn collator_mesh_full_mesh_with_tight_non_reserved_budget() -> Result<(), 
 		let candidate = OnlineClient::<PolkadotConfig>::from_url(&alice_ws).await?;
 		let metadata = candidate.metadata();
 		if metadata.pallet_by_name("AuthorityDiscovery").is_some() {
-			log::info!(
-				"Fresh subxt client now sees AuthorityDiscovery pallet in metadata"
-			);
+			log::info!("Fresh subxt client now sees AuthorityDiscovery pallet in metadata");
 			break candidate;
 		}
-		log::debug!(
-			"AuthorityDiscovery not in metadata yet, retrying"
-		);
+		log::debug!("AuthorityDiscovery not in metadata yet, retrying");
 	};
 
 	// Step 2: wait for AD keys to appear (migration seeded them from aura authorities).
