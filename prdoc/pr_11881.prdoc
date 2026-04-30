@@ -15,6 +15,9 @@ doc:
       - Multiple other events and constants get renamed accordingly
       - The old treasury is now drained via `DrainLegacyTreasuryToAccumulationAccount`
 
+      Note: for coretime, XCM execution fees continue to flow to `StakingPotAccountId` pending
+      DAP collator-budget allocation (see the inline TODO in `coretime-westend/src/xcm_config.rs`).
+
 crates:
   - name: pallet-accumulate-and-forward
     bump: patch

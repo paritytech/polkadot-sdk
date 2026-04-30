@@ -335,7 +335,18 @@ where
 	fn on_nonzero_unbalanced(amount: LegacyNegativeImbalance<T::AccountId, C>) {
 		let accumulation_account = Pallet::<T>::accumulation_account();
 		let numeric_amount = amount.peek();
-		// NOTE: resolve_creating is infallible.
+		// NOTE: `resolve_creating` is "infallible" because it returns `()`, but it silently burns
+		// the imbalance if it is less than ED and the destination is empty. We guard against this
+		// by making misconfigured runtimes clearly visible. See crate-level docs for the
+		// pre-funding requirement.
+		if C::total_balance(&accumulation_account).saturating_add(numeric_amount) <
+			C::minimum_balance()
+		{
+			frame_support::defensive!(
+				"🚨 LegacyAdapter: deposit to accumulation account will be silently burned — \
+				 ensure the accumulation account is pre-funded with at least ED!"
+			);
+		}
 		C::resolve_creating(&accumulation_account, amount);
 		log::debug!(
 			target: LOG_TARGET,
