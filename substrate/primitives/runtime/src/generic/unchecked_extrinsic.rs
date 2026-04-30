@@ -507,14 +507,14 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 
 	fn decode_with_len<I: Input>(input: &mut I, len: usize) -> Result<Self, codec::Error>
 	where
-		Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Decode,
+		Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: DecodeWithMemTracking,
 		Call: DecodeWithMemTracking,
 	{
 		let mut input = CountedInput::new(input);
 
 		// Decode the preamble using the same memory limit as we will use for the `call`.
 		// The preamble is not that big, but we play it safe.
-		let preamble = Call::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
+		let preamble = DecodeWithMemLimit::decode_with_mem_limit(&mut input, MAX_CALL_SIZE.saturating_add(1))?;
 
 		struct CloneBytes<'a, I>(&'a mut I, Vec<u8>);
 		impl<I: Input> Input for CloneBytes<'_, I> {
@@ -761,11 +761,11 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 		MAX_CALL_SIZE,
 	>
 where
-	Address: Decode,
-	Signature: Decode,
+	Address: DecodeWithMemTracking,
+	Signature: DecodeWithMemTracking,
 	Call: DecodeWithMemTracking,
-	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion,
+	ExtensionV0: DecodeWithMemTracking,
+	ExtensionOtherVersions: DecodeWithVersionWithMemTracking,
 {
 	fn decode<I: Input>(input: &mut I) -> Result<Self, codec::Error> {
 		// This is a little more complicated than usual since the binary format must be compatible
@@ -869,11 +869,11 @@ impl<
 		MAX_CALL_SIZE,
 	>
 where
-	Address: Decode,
-	Signature: Decode,
+	Address: DecodeWithMemTracking,
+	Signature: DecodeWithMemTracking,
 	Call: DecodeWithMemTracking,
-	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion,
+	ExtensionV0: DecodeWithMemTracking,
+	ExtensionOtherVersions: DecodeWithVersionWithMemTracking,
 {
 	fn deserialize<D>(de: D) -> Result<Self, D::Error>
 	where
@@ -1027,10 +1027,10 @@ impl<Address, Call, Signature, ExtensionV0, ExtensionOtherVersions, const MAX_CA
 		MAX_CALL_SIZE,
 	>
 where
-	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: Decode,
+	Preamble<Address, Signature, ExtensionV0, ExtensionOtherVersions>: DecodeWithMemTracking,
 	Call: DecodeWithMemTracking,
-	ExtensionV0: Decode,
-	ExtensionOtherVersions: DecodeWithVersion + PipelineVersion,
+	ExtensionV0: DecodeWithMemTracking,
+	ExtensionOtherVersions: DecodeWithVersionWithMemTracking + PipelineVersion,
 {
 	fn decode_unprefixed(data: &[u8]) -> Result<Self, codec::Error> {
 		Self::decode_with_len(&mut &data[..], data.len())
