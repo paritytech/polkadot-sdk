@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Benchmarks for pallet-dap-satellite.
+//! Benchmarks for pallet-accumulate-and-forward.
 
 use super::*;
 use frame_benchmarking::v2::*;
@@ -25,22 +25,22 @@ use frame_support::traits::fungible::Unbalanced;
 mod benchmarks {
 	use super::*;
 
-	/// Benchmark for [`SendToDap::send_native`].
+	/// Benchmark for [`Forwarder::forward`].
 	///
-	/// This measures the full cost of a satellite-to-DAP transfer.
+	/// This measures the full cost of an accumulation-account-to-destination transfer.
 	#[benchmark]
 	fn send_native() {
-		let satellite = Pallet::<T>::satellite_account();
+		let accumulation_account = Pallet::<T>::accumulation_account();
 		let ed = T::Currency::minimum_balance();
 		let amount = T::MinTransferAmount::get();
 
 		// Fund with ED (to keep account alive) plus the amount to be sent.
-		T::Currency::write_balance(&satellite, ed + amount)
+		T::Currency::write_balance(&accumulation_account, ed + amount)
 			.expect("benchmark setup should succeed");
 
 		#[block]
 		{
-			let _ = T::SendToDap::send_native(satellite, amount);
+			let _ = T::Forwarder::forward(accumulation_account, amount);
 		}
 	}
 
