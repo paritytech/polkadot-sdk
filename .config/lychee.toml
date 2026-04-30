@@ -35,6 +35,8 @@ exclude = [
 	"https://docs.substrate.io/rustdocs/latest/sp_api/macro.decl_runtime_apis.html",
 	"https://github.com/ipfs/js-ipfs-bitswap/blob/",
 	"https://github.com/paritytech/polkadot-sdk/substrate/frame/timestamp",
+	# Self-reference that resolves post-merge (PR #11662):
+	"https://github.com/paritytech/polkadot-sdk/blob/master/substrate/client/hop/README.md",
 	"https://github.com/paritytech/substrate/frame/fast-unstake",
 	"https://github.com/zkcrypto/bls12_381/blob/e224ad4ea1babfc582ccd751c2bf128611d10936/src/test-data/mod.rs",
 	"https://polkadot.network/the-path-of-a-parachain-block/",

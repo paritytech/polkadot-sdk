@@ -199,9 +199,8 @@ impl HopMaintenanceTask {
 		buffer_blocks: u32,
 		check_interval_secs: u64,
 	) -> Self {
-		let check_interval_blocks = (check_interval_secs.max(1) /
-			crate::types::HOP_BLOCK_TIME_SECS.max(1))
-		.max(1) as u32;
+		let check_interval_blocks =
+			(check_interval_secs.max(1) / crate::types::HOP_BLOCK_TIME_SECS.max(1)).max(1) as u32;
 		Self {
 			hop_pool,
 			promoter,
