@@ -162,14 +162,14 @@ mod benchmarks {
 		let lost: T::AccountId = whitelisted_caller();
 		fund_account::<T>(&lost);
 
-		let old_friend_groups = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0);
+		let _ = setup_friend_groups::<T>(&lost, T::MaxFriendsPerConfig::get(), 0);
 		let new_friend_groups =
 			create_friend_groups::<T>(T::MaxFriendsPerConfig::get(), 1).into_inner();
 
 		#[extrinsic_call]
 		_(RawOrigin::Signed(lost.clone()), new_friend_groups);
 
-		assert_last_event::<T>(Event::<T>::FriendGroupsChanged { lost, old_friend_groups }.into());
+		assert_last_event::<T>(Event::<T>::FriendGroupsChanged { lost }.into());
 	}
 
 	#[benchmark]

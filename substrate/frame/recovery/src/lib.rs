@@ -441,7 +441,7 @@ pub mod pallet {
 		/// The initiator will lose their security deposit.
 		AttemptSlashed { lost: T::AccountId, friend_group_index: FriendGroupIndex },
 		/// The friend groups of an account have been changed.
-		FriendGroupsChanged { lost: T::AccountId, old_friend_groups: FriendGroupsOf<T> },
+		FriendGroupsChanged { lost: T::AccountId },
 		/// The inheritor of a lost account was revoked by the lost account.
 		InheritorRevoked { lost: T::AccountId },
 		/// A recovered account was controlled by its inheritor.
@@ -650,10 +650,7 @@ pub mod pallet {
 				}
 				FriendGroups::<T>::remove(&lost);
 				if !old_friend_groups.is_empty() {
-					Self::deposit_event(Event::<T>::FriendGroupsChanged {
-						lost,
-						old_friend_groups,
-					});
+					Self::deposit_event(Event::<T>::FriendGroupsChanged { lost });
 				}
 				return Ok(());
 			}
@@ -667,7 +664,7 @@ pub mod pallet {
 			FriendGroups::<T>::insert(&lost, (&new_friend_groups, &new_ticket));
 
 			if new_friend_groups != old_friend_groups {
-				Self::deposit_event(Event::<T>::FriendGroupsChanged { lost, old_friend_groups });
+				Self::deposit_event(Event::<T>::FriendGroupsChanged { lost });
 			}
 
 			Ok(())
