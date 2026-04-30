@@ -234,8 +234,24 @@ where
 			// edge case, block building will fail and self-correct once the upgrade
 			// is included on the relay chain.
 			let para_best_hash = para_client.info().best_hash;
-			let v3_enabled =
+			let v3_enabled_on_para =
 				para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
+			let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
+				.wait_for_scheduling_parent(
+					&relay_client,
+					&mut relay_chain_data_cache,
+					v3_enabled_on_para,
+				)
+				.await
+			else {
+				tracing::warn!(
+					target: LOG_TARGET,
+					"Unable to fetch the scheduling parent hash."
+				);
+				continue;
+			};
+			let scheduling_parent_hash = scheduling_parent_header.hash();
+
 			if v3_enabled {
 				// Ignore the time offset when V3 scheduling is enabled,
 				// since `descendants_start` already handles relay-chain slot alignment.
@@ -243,14 +259,6 @@ where
 			} else {
 				slot_timer.set_time_offset(slot_offset);
 			}
-
-			let Some(scheduling_parent_header) = scheduling_info
-				.descendants_start(&relay_client, &mut relay_chain_data_cache, v3_enabled)
-				.await
-			else {
-				continue;
-			};
-			let scheduling_parent_hash = scheduling_parent_header.hash();
 
 			let Ok(para_slot_duration) = crate::slot_duration(&*para_client) else {
 				tracing::error!(target: LOG_TARGET, "Failed to fetch slot duration from runtime.");
@@ -311,10 +319,8 @@ where
 			let unincluded_segment_len =
 				initial_parent_header.number().saturating_sub(*included_header.number());
 
-			let Ok(max_pov_size) = relay_chain_data_cache
-				.get_mut_relay_chain_data(relay_parent_hash)
-				.await
-				.map(|d| d.max_pov_size)
+			let Ok(max_pov_size) =
+				relay_chain_data_cache.get_mut(relay_parent_hash).await.map(|d| d.max_pov_size)
 			else {
 				continue;
 			};
@@ -954,7 +960,7 @@ pub async fn offset_relay_parent_find_descendants<RelayClient>(
 	max_relay_parent_session_age: u32,
 ) -> Result<Option<RelayParentData>, ()>
 where
-	RelayClient: RelayChainInterface + Clone + 'static,
+	RelayClient: RelayChainInterface + 'static,
 {
 	let scheduling_parent_hash = scheduling_parent.hash();
 	let mut current_relay_header = scheduling_parent;
@@ -965,30 +971,32 @@ where
 		if current_relay_header.number == 0 {
 			return Ok(None);
 		}
-		if relay_parent_session_age > max_relay_parent_session_age {
-			tracing::debug!(target: LOG_TARGET,
-				?scheduling_parent_hash,
-				ancestor = %current_relay_header.hash(),
-				ancestor_block_number = current_relay_header.number(),
-				"max_relay_parent_session_age exceeded."
-			);
-			return Ok(None);
-		}
 
 		if relay_parent_descendants.len() == relay_parent_offset as usize {
 			break;
 		}
 		relay_parent_descendants.push_front(current_relay_header.clone());
 
-		// If the current header contains an epoch change log, it means that it's the last block of
-		// the current session. So the next block will be the first one of the following session.
-		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&current_relay_header) {
+		let next_relay_block =
+			relay_chain_data_cache.get_mut(*current_relay_header.parent_hash()).await?;
+		let next_relay_header = next_relay_block.relay_parent_header.clone();
+
+		// If the ancestor header contains an epoch change log, it means that it's the last block
+		// of that session. So, on the next iteration, we are at the previous session.
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_relay_header) {
 			relay_parent_session_age += 1;
 		}
-		let next_relay_block = relay_chain_data_cache
-			.get_mut_relay_chain_data(*current_relay_header.parent_hash())
-			.await?;
-		current_relay_header = next_relay_block.relay_parent_header.clone();
+		if relay_parent_session_age > max_relay_parent_session_age {
+			tracing::debug!(target: LOG_TARGET,
+				?scheduling_parent_hash,
+				ancestor = %next_relay_header.hash(),
+				ancestor_block_number = next_relay_header.number(),
+				"max_relay_parent_session_age exceeded."
+			);
+			return Ok(None);
+		}
+
+		current_relay_header = next_relay_header;
 	}
 
 	tracing::debug!(
@@ -1206,10 +1214,7 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	para_id: ParaId,
 	relay_parent_offset: u32,
 ) -> Result<Option<Cores>, ()> {
-	let claim_queue = &relay_chain_data_cache
-		.get_mut_relay_chain_data(scheduling_parent.hash())
-		.await?
-		.claim_queue;
+	let claim_queue = &relay_chain_data_cache.get_mut(scheduling_parent.hash()).await?.claim_queue;
 
 	let core_indices = claim_queue
 		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)

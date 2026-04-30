@@ -60,16 +60,13 @@ where
 	/// Fetch required [`RelayChainData`] from the relay chain.
 	/// If this data has been fetched in the past for the incoming hash, it will reuse
 	/// cached data.
-	pub async fn get_mut_relay_chain_data(
-		&mut self,
-		relay_parent: RelayHash,
-	) -> Result<&mut RelayChainData, ()> {
+	pub async fn get_mut(&mut self, relay_parent: RelayHash) -> Result<&mut RelayChainData, ()> {
 		let insert_data = if self.cached_data.peek(&relay_parent).is_some() {
 			tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Using cached data for relay parent.");
 			None
 		} else {
 			tracing::trace!(target: crate::LOG_TARGET, %relay_parent, "Relay chain best block changed, fetching new data from relay chain.");
-			Some(self.update_for_relay_parent(relay_parent).await?)
+			Some(self.fetch_data(relay_parent).await?)
 		};
 
 		Ok(self
@@ -80,8 +77,8 @@ where
 			.expect("There is space for at least one element; qed"))
 	}
 
-	/// Fetch fresh data from the relay chain for the given relay parent hash.
-	async fn update_for_relay_parent(&self, relay_parent: RelayHash) -> Result<RelayChainData, ()> {
+	/// Fetch fresh data from the relay chain for the given relay parent.
+	async fn fetch_data(&self, relay_parent: RelayHash) -> Result<RelayChainData, ()> {
 		let claim_queue = claim_queue_at(relay_parent, &self.relay_client).await;
 
 		let Ok(Some(relay_parent_header)) =

@@ -484,7 +484,7 @@ where
 	let authorities = runtime_api.authorities(parent_hash).map_err(Box::new)?;
 
 	// Determine the current slot and timestamp based on the relay-parent's.
-	let (slot_now, timestamp) = match consensus_common::relay_slot_and_timestamp(
+	let (slot_now, timestamp) = match consensus_common::get_relay_slot_and_timestamp(
 		relay_parent_header,
 		relay_chain_slot_duration,
 	) {
