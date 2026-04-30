@@ -16,14 +16,14 @@
 
 use crate::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, MintLocation, SendToDapViaTeleport,
+	FungibleAdapter, IsConcrete, MintLocation, TeleportForwarder,
 };
 use core::cell::Cell;
 use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{fungible::Inspect, ConstU32, Everything, Get, Nothing},
 };
-use sp_dap::SendToDap;
+use pallet_accumulate_and_forward::Forwarder;
 use sp_runtime::{traits::IdentityLookup, AccountId32, BuildStorage};
 use xcm::latest::prelude::*;
 
@@ -167,10 +167,10 @@ fn new_test_ext(source: AccountId, balance: u128) -> sp_io::TestExternalities {
 }
 
 /// Verify that when the XCM router fails (simulating a mid-program failure after `WithdrawAsset`
-/// has debited the source account), `send_native` rolls back all storage changes via
+/// has debited the source account), `forward` rolls back all storage changes via
 /// `with_transaction`. Both the source balance and total issuance must remain unchanged.
 #[test]
-fn send_native_rolls_back_balance_and_issuance_on_xcm_failure() {
+fn forward_rolls_back_balance_and_issuance_on_xcm_failure() {
 	let source: AccountId = AccountId32::from([1u8; 32]);
 	let initial_balance = 1_000u128;
 
@@ -178,15 +178,15 @@ fn send_native_rolls_back_balance_and_issuance_on_xcm_failure() {
 		let initial_issuance = Balances::total_issuance();
 
 		ROUTER_SHOULD_FAIL.with(|f| f.set(true));
-		let result = SendToDapViaTeleport::<
+		let result = TeleportForwarder::<
 			TestXcmConfig,
 			AssetHubLocation,
 			HereLocation,
 			AccumulationInterior,
-		>::send_native(source.clone(), 500u128);
+		>::forward(source.clone(), 500u128);
 		ROUTER_SHOULD_FAIL.with(|f| f.set(false));
 
-		assert!(result.is_err(), "expected send_native to fail when router fails");
+		assert!(result.is_err(), "expected forward to fail when router fails");
 		assert_eq!(
 			Balances::balance(&source),
 			initial_balance,

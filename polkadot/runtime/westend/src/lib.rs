@@ -128,7 +128,9 @@ pub use pallet_timestamp::Call as TimestampCall;
 use westend_runtime_constants::{
 	currency::*,
 	fee::*,
-	system_parachain::{coretime::TIMESLICE_PERIOD, dap::*, ASSET_HUB_ID, BROKER_ID},
+	system_parachain::{
+		accumulate_forward::*, coretime::TIMESLICE_PERIOD, dap::*, ASSET_HUB_ID, BROKER_ID,
+	},
 	time::*,
 };
 
@@ -393,7 +395,7 @@ parameter_types! {
 
 impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
@@ -477,18 +479,21 @@ parameter_types! {
 	/// This value increases the priority of `Operational` transactions by adding
 	/// a "virtual tip" that's equal to the `OperationalFeeMultiplier * final_fee`.
 	pub const OperationalFeeMultiplier: u8 = 5;
-	/// Percentage of fees that go to DAP satellite.
+	/// Percentage of fees that go to the accumulation account.
 	/// The remainder goes to block author. Tips always go 100% to author.
-	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 
-/// Fee handler that splits fees between DAP satellite and block author.
-type DealWithFeesSatellite =
-	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, ToAuthor<Runtime>>;
+/// Fee handler that splits fees between the accumulation account and block author.
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	ToAuthor<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
+	type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type OperationalFeeMultiplier = OperationalFeeMultiplier;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
@@ -1691,19 +1696,19 @@ impl pallet_root_offences::Config for Runtime {
 	type ReportOffence = Offences;
 }
 
-impl pallet_dap_satellite::Config for Runtime {
+impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
-	type SendToDap = xcm_builder::SendToDapViaTeleport<
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarder<
 		xcm_config::XcmConfig,
 		xcm_config::AssetHub,
 		xcm_config::TokenLocation,
 		DapStagingLocation,
 	>;
-	type TransferPeriod = DapSatelliteTransferPeriod;
-	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = frame_system::Pallet<Runtime>;
-	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
 parameter_types! {
@@ -1785,9 +1790,9 @@ mod runtime {
 	pub type Balances = pallet_balances;
 	#[runtime::pallet_index(26)]
 	pub type TransactionPayment = pallet_transaction_payment;
-	// DAP Satellite - collects funds for transfer to DAP on AssetHub
+	// AccumulateForward - collects funds for periodic forwarding to DAP on AssetHub
 	#[runtime::pallet_index(106)]
-	pub type DapSatellite = pallet_dap_satellite;
+	pub type AccumulateForward = pallet_accumulate_and_forward;
 
 	// Consensus support.
 	// Authorship must be before session in order to note author in the correct session and era.
@@ -2023,10 +2028,12 @@ pub mod migrations {
 		parachains_scheduler::migration::MigrateV3ToV4<Runtime>,
 		parachains_configuration::migration::v13::MigrateToV13<Runtime>,
 		parachains_shared::migration::MigrateToV2<Runtime>,
-		// #11705: drain residual relay-treasury balance into DAP satellite, then clear orphaned
-		// storage. Idempotent. No further activity on the legacy `py/trsry` account is expected.
-		// Safe to remove once confirmed.
-		pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
+		// #11705: drain residual relay-treasury balance into the accumulation account, then
+		// clear orphaned storage. Idempotent. No further activity on the legacy `py/trsry`
+		// account is expected. Safe to remove once confirmed.
+		pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<
+			Runtime,
+		>,
 		frame_support::migrations::RemovePallet<
 			TreasuryPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
@@ -2123,7 +2130,7 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_asset_rate, AssetRate]
-		[pallet_dap_satellite, DapSatellite]
+		[pallet_accumulate_and_forward, AccumulateForward]
 		// XCM
 		[pallet_xcm, PalletXcmExtrinsicsBenchmark::<Runtime>]
 		// NOTE: Make sure you point to the individual modules below.

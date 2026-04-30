@@ -1,12 +1,12 @@
 [package]
-name = "pallet-dap-satellite"
+name = "pallet-accumulate-and-forward"
 version = "0.1.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
 homepage.workspace = true
 repository.workspace = true
-description = "FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub"
+description = "FRAME pallet for periodic accumulation and forwarding of native token funds"
 
 [lints]
 workspace = true
@@ -21,12 +21,10 @@ frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
-sp-dap = { workspace = true }
 sp-runtime = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true, default-features = true }
-pallet-dap = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
@@ -40,7 +38,6 @@ std = [
 	"log/std",
 	"scale-info/std",
 	"sp-core/std",
-	"sp-dap/std",
 	"sp-io/std",
 	"sp-runtime/std",
 ]
@@ -49,13 +46,11 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
-	"pallet-dap/runtime-benchmarks",
 	"sp-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
 	"pallet-balances/try-runtime",
-	"pallet-dap/try-runtime",
 	"sp-runtime/try-runtime",
 ]
