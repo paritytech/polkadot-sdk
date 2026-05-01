@@ -16,10 +16,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 alloy-core = { workspace = true }
-paste = { workspace = true }
 codec = { features = ["derive"], workspace = true }
 ethereum-types = { features = ["codec", "serialize"], workspace = true }
 pallet-revive-proc-macro = { workspace = true, default-features = false }
+paste = { workspace = true }
 scale-info = { features = ["derive"], workspace = true }
 serde = { features = ["alloc", "derive"], workspace = true }
 sp-core = { features = ["serde"], workspace = true }
@@ -37,6 +37,7 @@ std = [
 	"pallet-revive-proc-macro/std",
 	"scale-info/std",
 	"serde/std",
+	"serde_json/std",
 	"sp-core/std",
 	"sp-weights/std",
 ]
