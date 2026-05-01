@@ -23,6 +23,9 @@
 pub(crate) mod traits;
 pub(crate) mod wrapper;
 
+pub(crate) use traits::*;
+pub(crate) use wrapper::*;
+
 use crate::{
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
 	SENTINEL, TrieId,

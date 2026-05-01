@@ -15,9 +15,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::{Config, DebugSettingsOf};
+use crate::{Config, DebugSettingsOf, storage::StorageValueOf};
 use Debug;
 use codec::{Decode, Encode, MaxEncodedLen};
+use pallet_revive_types::storage::DebugSettingsV1;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
@@ -85,12 +86,38 @@ impl DebugSettings {
 
 	/// Write the debug settings to storage.
 	pub fn write_to_storage<T: Config>(&self) {
-		DebugSettingsOf::<T>::put(self);
+		DebugSettingsOf::<T>::put(StorageValueOf::<DebugSettingsOf<T>>::new(self.clone()));
 		if !T::DebugEnabled::get() {
 			log::warn!(
 				target: crate::LOG_TARGET,
 				"Debug settings changed, but debug features are disabled in the runtime configuration."
 			);
 		}
+	}
+}
+
+impl From<DebugSettingsV1> for DebugSettings {
+	fn from(
+		DebugSettingsV1 {
+			allow_unlimited_contract_size,
+			bypass_eip_3607,
+			pvm_logs,
+			disable_execution_tracing,
+		}: DebugSettingsV1,
+	) -> Self {
+		Self { allow_unlimited_contract_size, bypass_eip_3607, pvm_logs, disable_execution_tracing }
+	}
+}
+
+impl From<DebugSettings> for DebugSettingsV1 {
+	fn from(
+		DebugSettings {
+			allow_unlimited_contract_size,
+			bypass_eip_3607,
+			pvm_logs,
+			disable_execution_tracing,
+		}: DebugSettings,
+	) -> Self {
+		Self { allow_unlimited_contract_size, bypass_eip_3607, pvm_logs, disable_execution_tracing }
 	}
 }

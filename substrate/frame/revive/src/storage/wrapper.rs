@@ -26,6 +26,14 @@
 //! not attempt to behave like a storage item. Its only job is to keep the execution value and
 //! storage value synchronized at the boundary where an execution type is encoded into or decoded
 //! from storage.
+//!
+//! # Note
+//!
+//! This module has `#[allow(unused)]` on some of the functionality that it offers. This is because
+//! we're providing this abstraction as something which will be used now in the storage versioning
+//! effort and also into the future. Therefore, some of the functions and methods available may not
+//! be used today but they're still provided in case they're needed in the future or found to be
+//! useful.
 
 use core::{
 	cmp::Ordering,
@@ -61,6 +69,7 @@ impl<ExecutionType, StorageType> StorageCodecWrapper<ExecutionType, StorageType>
 	///
 	/// The storage representation is derived immediately and cached. This makes the encoded form
 	/// independent from the execution type's own codec impls.
+	#[allow(unused)]
 	pub fn new(inner: ExecutionType) -> Self
 	where
 		ExecutionType: Clone + Into<StorageType>,
@@ -72,6 +81,7 @@ impl<ExecutionType, StorageType> StorageCodecWrapper<ExecutionType, StorageType>
 	///
 	/// The storage value is refreshed even when the mutator returns an error. This keeps the
 	/// wrapper internally consistent if the mutator made a partial change before reporting failure.
+	#[allow(unused)]
 	pub fn try_mutate<E>(
 		&mut self,
 		mut mutator: impl FnMut(&mut ExecutionType) -> Result<(), E>,
@@ -88,6 +98,7 @@ impl<ExecutionType, StorageType> StorageCodecWrapper<ExecutionType, StorageType>
 	///
 	/// Use this for infallible mutations. Fallible mutations should use [`Self::try_mutate`] so the
 	/// caller can handle the original error.
+	#[allow(unused)]
 	pub fn mutate(&mut self, mut mutator: impl FnMut(&mut ExecutionType))
 	where
 		ExecutionType: Clone + Into<StorageType>,
@@ -100,11 +111,13 @@ impl<ExecutionType, StorageType> StorageCodecWrapper<ExecutionType, StorageType>
 	}
 
 	/// Returns the execution value used by pallet code.
+	#[allow(unused)]
 	pub fn as_inner(&self) -> &ExecutionType {
 		&self.inner
 	}
 
 	/// Consumes the wrapper and returns the execution value.
+	#[allow(unused)]
 	pub fn into_inner(self) -> ExecutionType {
 		self.inner
 	}
@@ -113,6 +126,7 @@ impl<ExecutionType, StorageType> StorageCodecWrapper<ExecutionType, StorageType>
 	///
 	/// This is mainly useful at boundary points that need to inspect or test the exact storage
 	/// representation produced for an execution value.
+	#[allow(unused)]
 	pub fn destructure(self) -> (ExecutionType, StorageType) {
 		(self.inner, self.codable)
 	}

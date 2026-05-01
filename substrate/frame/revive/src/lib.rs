@@ -57,7 +57,7 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
-	storage::{AccountType, DeletionQueueManager},
+	storage::{AccountType, DeletionQueueManager, StorageCodecWrapper},
 	tracing::if_tracing,
 	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -85,6 +85,7 @@ use frame_system::{
 	Pallet as System, ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 };
+use pallet_revive_types::storage::*;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
@@ -751,7 +752,8 @@ pub mod pallet {
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
-	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
+	pub(crate) type DebugSettingsOf<T: Config> =
+		StorageValue<_, StorageCodecWrapper<DebugSettings, DebugSettingsV1>, ValueQuery>;
 
 	pub mod genesis {
 		use super::*;
