@@ -45,10 +45,6 @@ where
 }
 
 /// Like [`ToAuthor`], but falls back to treasury if the author account cannot receive the credit.
-///
-/// Post-AHM, validator relay-chain accounts may have near-zero balances, causing
-/// `pallet_balances::resolve` to reject the deposit (below ED) and silently drop the credit,
-/// shrinking total issuance. Discovered via a PET regression; see paritytech/polkadot-sdk#9986.
 pub struct ToAuthorOrTreasury<R>(core::marker::PhantomData<R>);
 impl<R> OnUnbalanced<Credit<R::AccountId, pallet_balances::Pallet<R>>> for ToAuthorOrTreasury<R>
 where
