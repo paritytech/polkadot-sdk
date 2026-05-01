@@ -165,7 +165,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: alloc::borrow::Cow::Borrowed("westmint"),
 	impl_name: alloc::borrow::Cow::Borrowed("westmint"),
 	authoring_version: 1,
-	spec_version: 1_022_004,
+	spec_version: 1_022_005,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 16,
@@ -331,7 +331,7 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 	type MetadataDepositPerByte = MetadataDepositPerByte;
 	type ApprovalDeposit = ApprovalDeposit;
 	type StringLimit = AssetsStringLimit;
-	type Holder = ();
+	type Holder = AssetsHolder;
 	type Freezer = AssetsFreezer;
 	type Extra = ();
 	type WeightInfo = weights::pallet_assets_local::WeightInfo<Runtime>;
@@ -346,6 +346,13 @@ impl pallet_assets::Config<TrustBackedAssetsInstance> for Runtime {
 pub type AssetsFreezerInstance = pallet_assets_freezer::Instance1;
 impl pallet_assets_freezer::Config<AssetsFreezerInstance> for Runtime {
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+// Allow Holds for the `Assets` pallet.
+pub type AssetsHolderInstance = pallet_assets_holder::Instance1;
+impl pallet_assets_holder::Config<AssetsHolderInstance> for Runtime {
+	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeEvent = RuntimeEvent;
 }
 
@@ -1168,6 +1175,9 @@ impl pallet_asset_conversion_tx_payment::Config for Runtime {
 parameter_types! {
 	/// Asset id of the PGAS gas-allowance asset, registered on AH as a trusted asset.
 	pub const PGASAssetId: AssetIdForTrustBackedAssets = 80_716_583;
+	/// Fraction of a PGAS-backed storage deposit refunded when the deposit is released.
+	/// The rest is burned, so contracts cannot mint free PGAS via storage churn.
+	pub const PGasRefundPercent: Perbill = Perbill::from_percent(10);
 }
 
 /// Calls eligible to be paid for with PGAS.
@@ -1376,6 +1386,14 @@ impl pallet_revive::Config for Runtime {
 	type AutoMap = ConstBool<true>;
 	type GasScale = ConstU32<1000>;
 	type OnBurn = Dap;
+	type Deposit = pallet_revive::PGasDeposit<
+		Runtime,
+		Assets,
+		AssetsHolder,
+		AssetsFreezer,
+		PGASAssetId,
+		PGasRefundPercent,
+	>;
 }
 
 impl pallet_vesting_precompiles::pallet::Config for Runtime {
@@ -1771,6 +1789,7 @@ construct_runtime!(
 		ForeignAssetsFreezer: pallet_assets_freezer::<Instance2> = 58,
 		PoolAssetsFreezer: pallet_assets_freezer::<Instance3> = 59,
 		Revive: pallet_revive = 60,
+		AssetsHolder: pallet_assets_holder::<Instance1> = 66,
 
 		AssetRewards: pallet_asset_rewards = 61,
 		AssetsPrecompiles: pallet_assets_precompiles::pallet = 62,
