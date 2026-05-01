@@ -15,7 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This module contains routines for accessing and altering a contract related state.
+//! This module contains routines for accessing and altering a contract related state as well as
+//! various different primitives introduced in order to ensure that there is appropriate separation
+//! between the types which are written to storage and the types which are used in pallet-revive in
+//! execution to strengthen the stability guarantees (and make them more explicit) around storage.
+
+mod wrapper;
 
 use crate::{
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
