@@ -20,9 +20,9 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a polkavm module.
 
-mod handle_define_env;
-mod handle_define_versioned_interface;
-mod handle_define_versioned_type;
+mod define_env;
+mod define_versioned_interface;
+mod define_versioned_type;
 
 use proc_macro::TokenStream;
 use quote::quote;
@@ -39,7 +39,7 @@ use quote::quote;
 /// corruption or unexpected results within the contract.
 #[proc_macro_attribute]
 pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
-	handle_define_env::handle_define_env(attr, item)
+	define_env::handle_define_env(attr, item)
 }
 
 /// Defines a family of versioned struct or enum types where each successive version is expressed as
@@ -772,8 +772,8 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 	let input =
-		syn::parse_macro_input!(input as handle_define_versioned_type::DefineVersionedTypeInput);
-	let output = match handle_define_versioned_type::handle_define_versioned_type(input) {
+		syn::parse_macro_input!(input as define_versioned_type::DefineVersionedTypeInput);
+	let output = match define_versioned_type::handle_define_versioned_type(input) {
 		Ok(output) => output,
 		Err(error) => return error.to_compile_error().into(),
 	};
@@ -1403,9 +1403,9 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn define_versioned_interface(input: TokenStream) -> TokenStream {
 	let input = syn::parse_macro_input!(
-		input as handle_define_versioned_interface::DefineVersionedInterfaceInput
+		input as define_versioned_interface::DefineVersionedInterfaceInput
 	);
-	let output = match handle_define_versioned_interface::handle_define_versioned_interface(input) {
+	let output = match define_versioned_interface::handle_define_versioned_interface(input) {
 		Ok(output) => output,
 		Err(error) => return error.to_compile_error().into(),
 	};
