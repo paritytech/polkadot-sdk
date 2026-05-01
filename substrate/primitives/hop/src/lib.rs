@@ -48,6 +48,7 @@ sp_api::decl_runtime_apis! {
 	///             panic!("HOP not supported by this runtime")
 	///         }
 	///         fn max_promotion_size() -> u32 { 0 }
+	///         fn is_promoted_on_chain(_: [u8; 32]) -> bool { false }
 	///     }
 	/// }
 	/// ```
@@ -79,5 +80,19 @@ sp_api::decl_runtime_apis! {
 		) -> Block::Extrinsic;
 		/// Maximum data size per promotion extrinsic.
 		fn max_promotion_size() -> u32;
+		/// Whether the content with `hash` is already stored on-chain.
+		///
+		/// Used by the maintenance task to confirm that a previously submitted
+		/// promotion extrinsic actually made it into a block. `submit_local`
+		/// returning `Ok` only confirms the extrinsic was accepted into the local
+		/// transaction pool; it does not guarantee on-chain inclusion. Without
+		/// this check, an entry would either be flagged promoted prematurely
+		/// (and lost if the extrinsic was later evicted) or be redundantly
+		/// resubmitted forever (burning fees and authorization budget).
+		///
+		/// Runtimes without HOP storage return `false`; the node treats that as
+		/// "not yet on chain" and continues retrying with backoff until the
+		/// entry expires.
+		fn is_promoted_on_chain(hash: [u8; 32]) -> bool;
 	}
 }

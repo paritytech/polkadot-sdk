@@ -33,14 +33,20 @@ use sp_runtime::{
 	MultiSignature, MultiSigner,
 };
 use std::{
-	collections::{BTreeSet, HashMap},
+	collections::{BTreeSet, HashMap, HashSet},
 	fs,
 	path::{Path, PathBuf},
+	process,
 	sync::{
 		atomic::{AtomicU64, Ordering},
 		Arc,
 	},
 };
+
+/// Per-process counter that disambiguates concurrent atomic writes targeting
+/// the same final path. Two threads computing the same content hash would
+/// otherwise share a `<path>.tmp` file and stomp each other's bytes.
+static TMP_SEQ: AtomicU64 = AtomicU64::new(0);
 
 const BLOBS_DIR: &str = "blobs";
 const META_DIR: &str = "meta";
@@ -50,11 +56,15 @@ const META_EXT: &str = "meta";
 /// HOP data pool with disk-backed blob storage and in-memory metadata index.
 pub struct HopDataPool {
 	/// In-memory metadata index (no blobs).
-	index: Arc<RwLock<HashMap<HopHash, HopEntryMeta>>>,
-	/// Per-user byte usage tracked by sender id. Counters are shared `Arc`s and
-	/// never removed from the map; this avoids a TOCTOU race where a concurrent
-	/// insert could increment an orphaned counter after a release removed it.
-	user_usage: Arc<RwLock<HashMap<SenderId, Arc<AtomicU64>>>>,
+	index: RwLock<HashMap<HopHash, HopEntryMeta>>,
+	/// Per-user byte usage tracked by sender id.
+	///
+	/// Counters live directly in the map and are charged via `charge_user`
+	/// inside the read guard, so the reclamation pass in `cleanup_expired`
+	/// (which holds `user_usage.write()` together with `index.read()`) cannot
+	/// interpose between a lookup and its `fetch_add`. Stale entries —
+	/// counter 0 and no live index entry — are reclaimed by the same pass.
+	user_usage: RwLock<HashMap<SenderId, AtomicU64>>,
 	/// Maximum pool size in bytes (counts both data and per-entry metadata overhead).
 	max_size: u64,
 	/// Fixed hard per-user quota in bytes.
@@ -89,7 +99,7 @@ impl HopDataPool {
 		}
 
 		let mut index = HashMap::new();
-		let mut user_usage: HashMap<SenderId, Arc<AtomicU64>> = HashMap::new();
+		let mut user_usage: HashMap<SenderId, AtomicU64> = HashMap::new();
 		let mut current_size = 0u64;
 
 		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
@@ -171,7 +181,7 @@ impl HopDataPool {
 					current_size += accounted;
 					user_usage
 						.entry(meta.sender_id)
-						.or_insert_with(|| Arc::new(AtomicU64::new(0)))
+						.or_default()
 						.fetch_add(accounted, Ordering::Relaxed);
 					index.insert(hash, meta);
 				}
@@ -209,8 +219,8 @@ impl HopDataPool {
 		}
 
 		Ok(Self {
-			index: Arc::new(RwLock::new(index)),
-			user_usage: Arc::new(RwLock::new(user_usage)),
+			index: RwLock::new(index),
+			user_usage: RwLock::new(user_usage),
 			max_size,
 			max_user_size,
 			current_size: AtomicU64::new(current_size),
@@ -220,24 +230,44 @@ impl HopDataPool {
 		})
 	}
 
-	/// Return the per-user shared counter, creating a zero-initialized one if absent.
-	fn user_counter(&self, sender_id: &SenderId) -> Arc<AtomicU64> {
-		if let Some(c) = self.user_usage.read().get(sender_id).cloned() {
-			return c;
+	/// Charge `accounted` bytes against `sender_id`'s per-user quota, creating
+	/// a zero-initialized counter if absent. The read guard held across the
+	/// `fetch_add` excludes the reclamation pass in `cleanup_expired` (which
+	/// takes `user_usage.write()`), so the counter cannot be reclaimed
+	/// between lookup and increment.
+	fn charge_user(&self, sender_id: &SenderId, accounted: u64) -> Result<(), HopError> {
+		// Fast path: sender already in map, a read guard is enough.
+		{
+			let usage = self.user_usage.read();
+			if let Some(counter) = usage.get(sender_id) {
+				return self.try_charge(counter, accounted);
+			}
 		}
-		self.user_usage
-			.write()
-			.entry(*sender_id)
-			.or_insert_with(|| Arc::new(AtomicU64::new(0)))
-			.clone()
+		// Cold path: first insert from this sender — take the write guard.
+		let mut usage = self.user_usage.write();
+		let counter = usage.entry(*sender_id).or_default();
+		self.try_charge(counter, accounted)
 	}
 
-	/// Decrement a user's usage counter. Counters are never removed from the map
-	/// to prevent a TOCTOU race with concurrent reservations.
+	/// Atomically increment `counter` by `accounted`, rolling back on cap
+	/// overflow. `saturating_add` clamps to `u64::MAX` if concurrent failing
+	/// charges briefly inflate the previous value past the wrap point,
+	/// ensuring overflow always falls into the "exceeds cap" branch.
+	fn try_charge(&self, counter: &AtomicU64, accounted: u64) -> Result<(), HopError> {
+		let previous = counter.fetch_add(accounted, Ordering::Relaxed);
+		if previous.saturating_add(accounted) > self.max_user_size {
+			counter.fetch_sub(accounted, Ordering::Relaxed);
+			return Err(HopError::UserQuotaExceeded { used: previous, limit: self.max_user_size });
+		}
+		Ok(())
+	}
+
+	/// Decrement a user's usage counter. Counters are never removed by this
+	/// path; reclamation happens only in the per-sender pass at the end of
+	/// `cleanup_expired`.
 	fn release_user_quota(&self, sender_id: &SenderId, accounted: u64) {
-		if let Some(c) = self.user_usage.read().get(sender_id) {
-			let prev = c.load(Ordering::Relaxed);
-			c.fetch_sub(accounted.min(prev), Ordering::Relaxed);
+		if let Some(counter) = self.user_usage.read().get(sender_id) {
+			saturating_release(counter, accounted);
 		}
 	}
 
@@ -257,11 +287,23 @@ impl HopDataPool {
 		self.entry_path(hash, META_DIR, META_EXT)
 	}
 
-	/// Atomically write data to a file (write to .tmp, then rename).
+	/// Atomically write data to a file (write to a unique .tmp path, then rename).
+	///
+	/// The tmp suffix encodes process id + a per-process atomic counter so two
+	/// threads writing the same final path (i.e. same content-addressed hash)
+	/// do not race on a shared tmp file. Removes the tmp file on failure so a
+	/// failed write never leaves an orphan.
 	fn write_atomic(path: &Path, data: &[u8]) -> Result<(), HopError> {
-		let tmp_path = path.with_extension("tmp");
-		fs::write(&tmp_path, data)?;
-		fs::rename(&tmp_path, path)?;
+		let suffix = format!("tmp.{}.{}", process::id(), TMP_SEQ.fetch_add(1, Ordering::Relaxed));
+		let tmp_path = path.with_extension(suffix);
+		if let Err(e) = fs::write(&tmp_path, data) {
+			let _ = fs::remove_file(&tmp_path);
+			return Err(e.into());
+		}
+		if let Err(e) = fs::rename(&tmp_path, path) {
+			let _ = fs::remove_file(&tmp_path);
+			return Err(e.into());
+		}
 		Ok(())
 	}
 
@@ -295,28 +337,29 @@ impl HopDataPool {
 			return Err(HopError::DataTooLarge(data.len(), MAX_DATA_SIZE));
 		}
 
+		// Total accounted size includes bounded per-recipient metadata overhead so
+		// a submitter cannot inflate memory via large recipient lists while the
+		// capacity counter only tracks `data.len()`. Charge the rate limiter the
+		// same accounted size, otherwise a 1-byte payload with 256 recipients
+		// would cost ~10 KiB of pool capacity while only spending 1 byte of
+		// bandwidth tokens — making the bandwidth dimension non-functional for
+		// fan-out-heavy entries.
+		let accounted = entry_accounted_size(data_len, recipients.len());
+
 		// Rejected requests never reserve capacity — check before any atomic bump.
-		if let Err(retry_after_secs) = self.rate_limiter.check(&sender_id, data_len) {
+		if let Err(retry_after_secs) = self.rate_limiter.check(&sender_id, accounted) {
 			return Err(HopError::RateLimited { retry_after_secs });
 		}
 
-		// Total accounted size includes bounded per-recipient metadata overhead so
-		// a submitter cannot inflate memory via large recipient lists while the
-		// capacity counter only tracks `data.len()`.
-		let accounted = entry_accounted_size(data_len, recipients.len());
-
-		let prev_size = self.current_size.fetch_add(accounted, Ordering::Relaxed);
-		if prev_size + accounted > self.max_size {
+		let previous_size = self.current_size.fetch_add(accounted, Ordering::Relaxed);
+		if previous_size.saturating_add(accounted) > self.max_size {
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(HopError::PoolFull(prev_size, self.max_size));
+			return Err(HopError::PoolFull(previous_size, self.max_size));
 		}
 
-		let user_counter = self.user_counter(&sender_id);
-		let prev_user = user_counter.fetch_add(accounted, Ordering::Relaxed);
-		if prev_user + accounted > self.max_user_size {
-			user_counter.fetch_sub(accounted, Ordering::Relaxed);
+		if let Err(e) = self.charge_user(&sender_id, accounted) {
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(HopError::UserQuotaExceeded { used: prev_user, limit: self.max_user_size });
+			return Err(e);
 		}
 
 		let hash = H256(blake2_256(&data));
@@ -325,7 +368,7 @@ impl HopDataPool {
 		{
 			let index = self.index.read();
 			if index.contains_key(&hash) {
-				user_counter.fetch_sub(accounted, Ordering::Relaxed);
+				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
 			}
@@ -346,17 +389,15 @@ impl HopDataPool {
 		let meta_bytes = meta.encode();
 
 		if let Err(e) = Self::write_atomic(&blob_path, &data) {
-			let _ = fs::remove_file(blob_path.with_extension("tmp"));
-			user_counter.fetch_sub(accounted, Ordering::Relaxed);
+			self.release_user_quota(&sender_id, accounted);
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 			return Err(e);
 		}
 
 		let meta_path = self.meta_path(&hash);
 		if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-			let _ = fs::remove_file(meta_path.with_extension("tmp"));
 			let _ = fs::remove_file(&blob_path);
-			user_counter.fetch_sub(accounted, Ordering::Relaxed);
+			self.release_user_quota(&sender_id, accounted);
 			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 			return Err(e);
 		}
@@ -365,10 +406,20 @@ impl HopDataPool {
 		{
 			let mut index = self.index.write();
 			if index.contains_key(&hash) {
-				// Race: another thread inserted the same data while we were writing.
-				let _ = fs::remove_file(&meta_path);
-				let _ = fs::remove_file(&blob_path);
-				user_counter.fetch_sub(accounted, Ordering::Relaxed);
+				// Race: another thread inserted the same data first. Files on
+				// disk are content-addressed and identical to ours — leave
+				// them in place; deleting them would orphan the winner's index
+				// entry.
+				tracing::debug!(
+					target: "hop",
+					hash = ?hex::encode(hash),
+					"Duplicate insert race lost; keeping winner's files"
+				);
+				// Release `index` before taking `user_usage.read()` — preserves
+				// the outer-to-inner lock order (index → user_usage) used by
+				// `cleanup_expired`.
+				drop(index);
+				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
 				return Err(HopError::DuplicateEntry);
 			}
@@ -387,21 +438,77 @@ impl HopDataPool {
 		Ok(hash)
 	}
 
-	/// Get data from the pool by content hash.
-	pub fn get(&self, hash: &HopHash) -> Option<Vec<u8>> {
-		let index = self.index.read();
-		if !index.contains_key(hash) {
-			return None;
+	/// Read a blob from disk and verify its content hash.
+	///
+	/// Content addressing means `blake2_256(data) == *hash` is an invariant
+	/// — corruption (bit rot, partial write, local tampering) violates it.
+	/// On integrity failure the caller-facing result is the same as a missing
+	/// blob and the broken entry is purged so subsequent reads converge.
+	fn read_and_verify_blob(&self, hash: &HopHash) -> Result<Vec<u8>, HopError> {
+		let blob_path = self.blob_path(hash);
+		let data = fs::read(&blob_path).map_err(|e| {
+			if e.kind() == std::io::ErrorKind::NotFound {
+				HopError::NotFound
+			} else {
+				HopError::IoError(e)
+			}
+		})?;
+		if H256(blake2_256(&data)) != *hash {
+			tracing::error!(
+				target: "hop",
+				hash = ?hex::encode(hash),
+				size = data.len(),
+				"Blob integrity check failed; purging entry"
+			);
+			self.purge_corrupt_entry(hash);
+			return Err(HopError::NotFound);
 		}
-		drop(index);
+		Ok(data)
+	}
 
-		match fs::read(self.blob_path(hash)) {
+	/// Remove a corrupt entry from the index and best-effort delete its files.
+	/// The accounted size is released back to the pool and the user quota.
+	fn purge_corrupt_entry(&self, hash: &HopHash) {
+		let removed = {
+			let mut index = self.index.write();
+			index.remove(hash)
+		};
+		if let Some(meta) = removed {
+			let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			self.release_user_quota(&meta.sender_id, accounted);
+		}
+		let _ = fs::remove_file(self.blob_path(hash));
+		let _ = fs::remove_file(self.meta_path(hash));
+	}
+
+	/// Read and verify a blob, returning `None` for missing entries and logging
+	/// any other failure. Shared by [`Self::get`] and [`Self::get_with_auth`].
+	fn read_or_log(&self, hash: &HopHash) -> Option<Vec<u8>> {
+		match self.read_and_verify_blob(hash) {
 			Ok(data) => Some(data),
+			Err(HopError::NotFound) => None,
 			Err(e) => {
-				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to read blob from disk");
+				tracing::error!(
+					target: "hop",
+					hash = ?hex::encode(hash),
+					error = ?e,
+					"Failed to read blob from disk"
+				);
 				None
 			},
 		}
+	}
+
+	/// Get data from the pool by content hash.
+	pub fn get(&self, hash: &HopHash) -> Option<Vec<u8>> {
+		{
+			let index = self.index.read();
+			if !index.contains_key(hash) {
+				return None;
+			}
+		}
+		self.read_or_log(hash)
 	}
 
 	/// Get data alongside the submitter's `MultiSigner`, `hop_submit` signature,
@@ -418,14 +525,8 @@ impl HopDataPool {
 			let meta = index.get(hash)?;
 			(meta.signer.clone(), meta.signature.clone(), meta.submit_timestamp)
 		};
-
-		match fs::read(self.blob_path(hash)) {
-			Ok(data) => Some((data, signer, signature, submit_timestamp)),
-			Err(e) => {
-				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to read blob from disk");
-				None
-			},
-		}
+		let data = self.read_or_log(hash)?;
+		Some((data, signer, signature, submit_timestamp))
 	}
 
 	/// Decode `signature` and return the matching recipient in `meta`. `context` is
@@ -471,28 +572,19 @@ impl HopDataPool {
 	///
 	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
-		let index = self.index.read();
-		let meta = index.get(hash).ok_or(HopError::NotFound)?;
-		let recipient = Self::find_recipient(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
+		{
+			let index = self.index.read();
+			let meta = index.get(hash).ok_or(HopError::NotFound)?;
+			let recipient = Self::find_recipient(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
 
-		// If this recipient already acked, the data may be gone.
-		if recipient.claimed {
-			return Err(HopError::AlreadyClaimed);
-		}
-
-		let blob_path = self.blob_path(hash);
-		drop(index);
-
-		// Read blob from disk (may be gone if concurrently acked and deleted).
-		let data = fs::read(&blob_path).map_err(|e| {
-			if e.kind() == std::io::ErrorKind::NotFound {
-				HopError::NotFound
-			} else {
-				HopError::IoError(e)
+			// If this recipient already acked, the data may be gone.
+			if recipient.claimed {
+				return Err(HopError::AlreadyClaimed);
 			}
-		})?;
-
-		Ok(data)
+		}
+		// Read blob from disk and verify its content hash. May be gone if
+		// concurrently acked and deleted, in which case we surface NotFound.
+		self.read_and_verify_blob(hash)
 	}
 
 	/// Acknowledge receipt of claimed data. Marks the recipient as claimed and triggers
@@ -608,55 +700,82 @@ impl HopDataPool {
 
 	/// Remove expired entries and release their user quotas.
 	/// Returns the total bytes freed.
+	///
+	/// Processes entries in bounded batches to keep the index write lock from
+	/// being held across the full HashMap on huge pools. After all batches the
+	/// per-sender `user_usage` map is GC'd in a single pass.
 	pub fn cleanup_expired(&self, current_block: HopBlockNumber) -> u64 {
-		// Phase 1: Under index write lock — collect and remove expired entries.
-		let expired: Vec<(HopHash, HopEntryMeta)> = {
-			let mut index = self.index.write();
-			let expired_keys: Vec<HopHash> = index
+		const CLEANUP_BATCH_SIZE: usize = 10_000;
+		let mut total_freed: u64 = 0;
+
+		loop {
+			// Phase 1: Under index write lock — collect and remove up to one
+			// batch of expired entries. Bounded so the lock hold scales with
+			// batch size, not pool size.
+			let expired: Vec<(HopHash, HopEntryMeta)> = {
+				let mut index = self.index.write();
+				let expired_keys: Vec<HopHash> = index
+					.iter()
+					.filter(|(_, m)| current_block >= m.expires_at)
+					.map(|(h, _)| *h)
+					.take(CLEANUP_BATCH_SIZE)
+					.collect();
+
+				expired_keys
+					.into_iter()
+					.filter_map(|hash| index.remove(&hash).map(|meta| (hash, meta)))
+					.collect()
+			};
+
+			if expired.is_empty() {
+				break;
+			}
+
+			// Phase 2: Update counters and batch user-quota release.
+			let freed: u64 = expired
 				.iter()
-				.filter(|(_, m)| current_block >= m.expires_at)
-				.map(|(h, _)| *h)
-				.collect();
+				.map(|(_, meta)| entry_accounted_size(meta.size, meta.recipients.len()))
+				.sum();
+			self.current_size.fetch_sub(freed, Ordering::Relaxed);
+			total_freed = total_freed.saturating_add(freed);
 
-			expired_keys
-				.into_iter()
-				.filter_map(|hash| index.remove(&hash).map(|meta| (hash, meta)))
-				.collect()
-		};
-		// index write lock released here.
-
-		if expired.is_empty() {
-			return 0;
-		}
-
-		// Phase 2: Update counters and batch user-quota release (single lock acquisition).
-		let freed: u64 = expired
-			.iter()
-			.map(|(_, meta)| entry_accounted_size(meta.size, meta.recipients.len()))
-			.sum();
-		self.current_size.fetch_sub(freed, Ordering::Relaxed);
-
-		{
-			let usage = self.user_usage.read();
-			for (_, meta) in &expired {
-				if let Some(c) = usage.get(&meta.sender_id) {
-					let accounted = entry_accounted_size(meta.size, meta.recipients.len());
-					let prev = c.load(Ordering::Relaxed);
-					c.fetch_sub(accounted.min(prev), Ordering::Relaxed);
+			{
+				let usage = self.user_usage.read();
+				for (_, meta) in &expired {
+					if let Some(counter) = usage.get(&meta.sender_id) {
+						let accounted = entry_accounted_size(meta.size, meta.recipients.len());
+						saturating_release(counter, accounted);
+					}
 				}
+			}
+
+			// Phase 3: Delete files from disk (best-effort, no locks held).
+			for (hash, _) in &expired {
+				let _ = fs::remove_file(self.blob_path(hash));
+				let _ = fs::remove_file(self.meta_path(hash));
 			}
 		}
 
-		// Phase 3: Delete files from disk (best-effort, no locks held).
-		for (hash, _) in &expired {
-			let _ = fs::remove_file(self.blob_path(hash));
-			let _ = fs::remove_file(self.meta_path(hash));
+		// Phase 4: Reclaim per-sender counters whose owners have no live
+		// entries. Holding `index.read()` and `user_usage.write()` together
+		// closes the dominant TOCTOU race (concurrent writers cannot create a
+		// new index entry under our held read lock; concurrent
+		// `release_user_quota` only takes `user_usage.read()` which is
+		// excluded). Build a live-sender set in one index pass so retain is
+		// O(senders + entries) instead of O(senders × entries).
+		{
+			let index = self.index.read();
+			let mut usage = self.user_usage.write();
+			let live: HashSet<&SenderId> = index.values().map(|m| &m.sender_id).collect();
+			usage.retain(|sender_id, counter| {
+				counter.load(Ordering::Relaxed) > 0 || live.contains(sender_id)
+			});
 		}
 
 		// Let the rate limiter shed stale per-sender state on the same cadence.
 		self.rate_limiter.evict_stale();
 
-		freed
+		total_freed
 	}
 
 	/// Return hashes of entries within `buffer_blocks` of expiry that have not yet been promoted.
@@ -703,11 +822,16 @@ impl HopDataPool {
 		}
 	}
 
-	/// Record a failed promotion attempt: bumps the per-entry attempt counter
-	/// and schedules the next eligible block via exponential back-off. The
+	/// Record a promotion attempt: bumps the per-entry attempt counter and
+	/// schedules the next eligible block via exponential back-off. The
 	/// maintenance task will skip the entry until then. Once
 	/// `MAX_PROMOTION_ATTEMPTS` is reached the entry is left to expire.
-	pub fn record_promotion_failure(
+	///
+	/// Called on **both** an `Err` from `submit_local` (the tx pool rejected
+	/// us) and an `Ok` followed by a runtime check that the data is not yet
+	/// on-chain (the tx was accepted into the pool but never included). The
+	/// backoff schedule is identical for both cases.
+	pub fn record_promotion_attempt(
 		&self,
 		hash: &HopHash,
 		current_block: HopBlockNumber,
@@ -727,11 +851,22 @@ impl HopDataPool {
 					target: "hop",
 					hash = ?hex::encode(hash),
 					error = %e,
-					"Failed to persist promotion-failure state"
+					"Failed to persist promotion-attempt state"
 				);
 			}
 		}
 	}
+}
+
+/// Atomically subtract `accounted` from `counter`, clamped so the counter
+/// cannot underflow. The CAS retry inside `fetch_update` keeps the clamp
+/// value fresh — a plain `counter.fetch_sub(accounted.min(counter.load()), …)`
+/// would race with concurrent releases on the same counter and could wrap
+/// to near `u64::MAX`.
+fn saturating_release(counter: &AtomicU64, accounted: u64) {
+	let _ = counter.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |previous| {
+		Some(previous - accounted.min(previous))
+	});
 }
 
 #[cfg(test)]
@@ -1247,9 +1382,10 @@ mod tests {
 	}
 
 	#[test]
-	fn test_user_counter_preserved_when_zero() {
-		// TOCTOU fix: counters are not removed from the map to avoid racing with
-		// in-flight inserts. The value must drop to zero but the entry may remain.
+	fn test_user_counter_preserved_until_cleanup() {
+		// release_user_quota does not remove the map entry — only cleanup_expired
+		// reclaims stale per-sender slots. Until then the slot remains at 0 so a
+		// concurrent insert would not orphan its `Arc`.
 		let (pool, _dir) = create_test_pool();
 		let (pair, signer) = test_recipient();
 
@@ -1264,6 +1400,103 @@ mod tests {
 		pool.ack(&hash, &ack).unwrap();
 
 		assert_eq!(user_usage(&pool, &SENDER_A), 0);
+		assert!(pool.user_usage.read().contains_key(&SENDER_A));
+	}
+
+	#[test]
+	fn test_cleanup_expired_evicts_idle_user_counters() {
+		// After cleanup_expired runs and a sender has no live entries with a
+		// non-zero counter, their map slot must be removed so the map cannot
+		// grow unbounded across the lifetime of a long-running node.
+		let (pool, _dir) = make_pool(10_000, 10);
+		let (pair, signer) = test_recipient();
+
+		let hash = pool
+			.insert(vec![0u8; 50], 0, bv(vec![signer]), SENDER_A, dummy_auth().0, dummy_auth().1, 0)
+			.unwrap();
+		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
+		let ack = sign_ed(&pair, HOP_ACK_CONTEXT, &hash);
+		pool.claim(&hash, &claim).unwrap();
+		pool.ack(&hash, &ack).unwrap();
+		assert!(pool.user_usage.read().contains_key(&SENDER_A));
+
+		pool.cleanup_expired(0);
+		assert!(!pool.user_usage.read().contains_key(&SENDER_A));
+	}
+
+	#[test]
+	fn test_cleanup_expired_keeps_active_user_counters() {
+		// A sender with live (non-expired) entries must keep their counter
+		// even when the counter dropped to 0 between submissions — otherwise
+		// concurrent in-flight inserts could orphan their `Arc`.
+		let (pool, _dir) = make_pool(10_000, 100);
+		let (_, signer) = test_recipient();
+
+		pool.insert(
+			vec![0u8; 50],
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
+		// Cleanup at a block where the entry is not yet expired must not
+		// reclaim the sender's slot — a concurrent insert would otherwise
+		// orphan its `Arc`.
+		pool.cleanup_expired(0);
+		assert!(pool.user_usage.read().contains_key(&SENDER_A));
+	}
+
+	#[test]
+	fn test_cleanup_expired_processes_more_than_one_batch() {
+		// Cleanup batch size is 10_000 — feed it 25_000 entries that all expire,
+		// confirm every entry is removed (proving the loop terminates rather
+		// than leaving leftovers from the first batch).
+		const BATCHES: u32 = 2;
+		const PER_BATCH: u32 = 10_000 + 1; // > one batch each
+		let total = BATCHES * PER_BATCH;
+
+		let dir = TempDir::new().unwrap();
+		// Pool sized for ~25k tiny entries (4 bytes each + recipient overhead).
+		let entry_bytes = std::mem::size_of::<u32>() as u64;
+		let pool = HopDataPool::new(
+			(acct(entry_bytes, 1) * total as u64) + 1024,
+			u64::MAX,
+			10,
+			dir.path().to_path_buf(),
+			RateLimitConfig::disabled(),
+		)
+		.unwrap();
+		let (_, signer) = test_recipient();
+
+		for i in 0..total {
+			let mut sender = SENDER_A;
+			sender[0] = (i & 0xff) as u8;
+			sender[1] = ((i >> 8) & 0xff) as u8;
+			sender[2] = ((i >> 16) & 0xff) as u8;
+			// Data must be unique per entry — content-addressing means equal
+			// bytes hash to the same key and the second insert hits
+			// DuplicateEntry. Embed `i` so each blob is distinct.
+			let data = i.to_le_bytes().to_vec();
+			pool.insert(
+				data,
+				0,
+				bv(vec![signer.clone()]),
+				sender,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
+		}
+		assert_eq!(pool.status().entry_count, total as usize);
+
+		pool.cleanup_expired(10);
+		assert_eq!(pool.status().entry_count, 0);
+		assert_eq!(pool.status().total_bytes, 0);
+		assert!(pool.user_usage.read().is_empty());
 	}
 
 	#[test]
@@ -1633,6 +1866,86 @@ mod tests {
 	}
 
 	#[test]
+	fn test_concurrent_duplicate_insert_preserves_files() {
+		use std::{sync::Barrier, thread};
+
+		// Two threads insert identical content concurrently. The race-loser must
+		// not delete the winner's blob/meta files; the winning hash must remain
+		// readable via claim().
+		let (kp, signer) = test_recipient();
+		let (pool, _dir) = make_pool(1024 * 1024, 100);
+		let pool = Arc::new(pool);
+		let data = vec![0xABu8; 4096];
+		let barrier = Arc::new(Barrier::new(2));
+
+		let handles: Vec<_> = (0..2)
+			.map(|_| {
+				let pool = pool.clone();
+				let barrier = barrier.clone();
+				let signer = signer.clone();
+				let data = data.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					pool.insert(
+						data,
+						0,
+						bv(vec![signer]),
+						SENDER_A,
+						dummy_auth().0,
+						dummy_auth().1,
+						0,
+					)
+				})
+			})
+			.collect();
+		let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+		let oks: Vec<_> = results.iter().filter_map(|r| r.as_ref().ok()).collect();
+		let dupes = results.iter().filter(|r| matches!(r, Err(HopError::DuplicateEntry))).count();
+		assert_eq!(oks.len(), 1, "exactly one insert must win the race");
+		assert_eq!(dupes, 1, "the other must report DuplicateEntry");
+
+		let hash = *oks[0];
+		let sig = sign_ed(&kp, HOP_CLAIM_CONTEXT, &hash);
+		let claimed = pool.claim(&hash, &sig).expect("claim must succeed");
+		assert_eq!(claimed, data);
+	}
+
+	#[test]
+	fn test_saturating_release_concurrent_no_underflow() {
+		use std::{sync::Barrier, thread};
+
+		// Many threads each release a fixed amount that sums to exactly the
+		// initial counter. With a non-atomic load-then-clamp-then-fetch_sub,
+		// stale clamps would let the counter wrap to ~u64::MAX.
+		// `saturating_release` must keep the result clamped at 0.
+		const THREADS: u64 = 32;
+		const RELEASE_PER_THREAD: u64 = 7;
+		let counter = Arc::new(AtomicU64::new(THREADS * RELEASE_PER_THREAD));
+		let barrier = Arc::new(Barrier::new(THREADS as usize));
+
+		let handles: Vec<_> = (0..THREADS)
+			.map(|_| {
+				let counter = counter.clone();
+				let barrier = barrier.clone();
+				thread::spawn(move || {
+					barrier.wait();
+					saturating_release(&counter, RELEASE_PER_THREAD);
+				})
+			})
+			.collect();
+		for h in handles {
+			h.join().unwrap();
+		}
+
+		assert_eq!(counter.load(Ordering::Relaxed), 0, "counter underflowed or did not reach zero");
+
+		// Releasing more than the remaining balance must clamp to 0, never wrap.
+		saturating_release(&counter, u64::MAX);
+		assert_eq!(counter.load(Ordering::Relaxed), 0);
+	}
+
+	#[test]
 	fn test_get_promotable_within_buffer() {
 		let (pool, _dir) = make_pool(1024 * 1024, 100);
 		let (_, signer) = test_recipient();
@@ -1836,7 +2149,7 @@ mod tests {
 
 		// First failure schedules next attempt at current + 1× check_interval_blocks.
 		let check_interval_blocks: u32 = 10;
-		pool.record_promotion_failure(&hash, current, check_interval_blocks);
+		pool.record_promotion_attempt(&hash, current, check_interval_blocks);
 		assert!(
 			pool.get_promotable(current, buffer, 10).is_empty(),
 			"entry should be skipped until back-off elapses"
@@ -1848,7 +2161,7 @@ mod tests {
 		// Schedule after first failure: 1×, 2×, 4×, 8×, 16× check_interval.
 		let mut now = current + 10;
 		for next_attempt in 2..=MAX_PROMOTION_ATTEMPTS {
-			pool.record_promotion_failure(&hash, now, check_interval_blocks);
+			pool.record_promotion_attempt(&hash, now, check_interval_blocks);
 			let shift = (next_attempt - 1).min(5);
 			let backoff = check_interval_blocks << shift;
 			now += backoff;

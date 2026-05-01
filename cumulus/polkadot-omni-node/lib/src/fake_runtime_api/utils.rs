@@ -277,6 +277,10 @@ macro_rules! impl_node_runtime_apis {
 				fn max_promotion_size() -> u32 {
 					0
 				}
+
+				fn is_promoted_on_chain(_hash: [u8; 32]) -> bool {
+					false
+				}
 			}
 		}
 	};

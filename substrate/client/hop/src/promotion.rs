@@ -54,6 +54,15 @@ pub trait HopPromoter: Send + Sync + 'static {
 		signature: MultiSignature,
 		submit_timestamp: u64,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>>;
+
+	/// Whether `hash` is already stored on-chain.
+	///
+	/// Used by the maintenance task to confirm that a previously submitted
+	/// promotion extrinsic was actually included in a block.
+	fn is_promoted_on_chain(
+		&self,
+		hash: &[u8; 32],
+	) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
 }
 
 /// Concrete [`HopPromoter`] that uses the [`sp_hop::HopRuntimeApi`] runtime
@@ -104,6 +113,14 @@ where
 			.submit_local(best_hash, ext)
 			.map_err(|e| format!("submit_local failed: {:?}", e))?;
 		Ok(())
+	}
+
+	fn is_promoted_on_chain(
+		&self,
+		hash: &[u8; 32],
+	) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+		let best_hash = self.client.info().best_hash;
+		Ok(self.client.runtime_api().is_promoted_on_chain(best_hash, *hash)?)
 	}
 }
 
@@ -232,35 +249,63 @@ impl HopMaintenanceTask {
 				PROMOTION_BATCH_SIZE,
 			);
 			for hash in hashes {
+				// First, ask the runtime whether this hash is already on-chain.
+				// If so, the previous attempt (or a third party) already
+				// landed it — flag locally and stop touching the chain.
+				match promoter.is_promoted_on_chain(hash.as_fixed_bytes()) {
+					Ok(true) => {
+						self.hop_pool.mark_promoted(&hash);
+						tracing::info!(
+							target: "hop",
+							hash = ?hex::encode(hash),
+							"HOP entry already on-chain — flagged locally"
+						);
+						continue;
+					},
+					Ok(false) => {},
+					Err(e) => {
+						// Treat runtime-API failures as "unknown", which means
+						// proceed with submission. Worst case we resubmit a
+						// duplicate; the on-chain check will catch it next cycle.
+						tracing::warn!(
+							target: "hop",
+							hash = ?hex::encode(hash),
+							error = %e,
+							"is_promoted_on_chain failed; assuming not on-chain"
+						);
+					},
+				}
+
 				let (data, signer, signature, submit_timestamp) =
 					match self.hop_pool.get_with_auth(&hash) {
 						Some(t) => t,
 						None => continue,
 					};
 				let size = data.len();
-				match promoter.promote(data, signer, signature, submit_timestamp) {
-					Ok(()) => {
-						self.hop_pool.mark_promoted(&hash);
-						tracing::info!(
-							target: "hop",
-							hash = ?hex::encode(hash),
-							size,
-							"Promoted HOP entry to on-chain storage"
-						);
-					},
-					Err(e) => {
-						self.hop_pool.record_promotion_failure(
-							&hash,
-							current_block,
-							self.check_interval_blocks,
-						);
-						tracing::warn!(
-							target: "hop",
-							hash = ?hex::encode(hash),
-							error = %e,
-							"Failed to promote HOP entry; will back off"
-						);
-					},
+				let result = promoter.promote(data, signer, signature, submit_timestamp);
+				// Backoff on every attempt — both Ok (submitted to local pool, may
+				// or may not get included) and Err (pool rejected). Without this,
+				// every cycle would resubmit the same extrinsic for the entry's
+				// lifetime, wasting fees and authorization budget per the
+				// transaction-storage pallet's no-dedup behavior.
+				self.hop_pool.record_promotion_attempt(
+					&hash,
+					current_block,
+					self.check_interval_blocks,
+				);
+				match result {
+					Ok(()) => tracing::info!(
+						target: "hop",
+						hash = ?hex::encode(hash),
+						size,
+						"Submitted HOP promotion extrinsic; awaiting on-chain confirmation"
+					),
+					Err(e) => tracing::warn!(
+						target: "hop",
+						hash = ?hex::encode(hash),
+						error = %e,
+						"Failed to submit HOP promotion extrinsic; will back off"
+					),
 				}
 			}
 		}
@@ -327,11 +372,17 @@ mod tests {
 	struct MockPromoter {
 		calls: Mutex<Vec<Vec<u8>>>,
 		should_fail: bool,
+		/// Hashes that the mock claims are already stored on-chain.
+		on_chain: Mutex<std::collections::HashSet<[u8; 32]>>,
 	}
 
 	impl MockPromoter {
 		fn new(should_fail: bool) -> Self {
-			Self { calls: Mutex::new(Vec::new()), should_fail }
+			Self {
+				calls: Mutex::new(Vec::new()),
+				should_fail,
+				on_chain: Mutex::new(std::collections::HashSet::new()),
+			}
 		}
 
 		fn call_count(&self) -> usize {
@@ -340,6 +391,11 @@ mod tests {
 
 		fn calls(&self) -> Vec<Vec<u8>> {
 			self.calls.lock().unwrap().clone()
+		}
+
+		/// Mark a hash as on-chain (subsequent `is_promoted_on_chain` returns `true`).
+		fn set_on_chain(&self, hash: [u8; 32]) {
+			self.on_chain.lock().unwrap().insert(hash);
 		}
 	}
 
@@ -357,6 +413,13 @@ mod tests {
 			} else {
 				Ok(())
 			}
+		}
+
+		fn is_promoted_on_chain(
+			&self,
+			hash: &[u8; 32],
+		) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+			Ok(self.on_chain.lock().unwrap().contains(hash))
 		}
 	}
 
@@ -394,10 +457,11 @@ mod tests {
 		assert_eq!(promoter.call_count(), 1);
 		assert_eq!(promoter.calls()[0], vec![42u8; 10]);
 
-		// Entry should be marked as promoted (not removed, just flagged).
+		// Entry stays in the pool (not yet confirmed on-chain) and is excluded
+		// from the next promotable batch by the post-attempt backoff window.
 		assert!(pool.has(&hash));
 		let promotable = pool.get_promotable(80, 30, usize::MAX);
-		assert!(promotable.is_empty(), "promoted entry should not be re-promoted");
+		assert!(promotable.is_empty(), "back-off should suppress immediate re-promotion");
 	}
 
 	#[test]
@@ -506,28 +570,23 @@ mod tests {
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		// Entry A: inserted at block 0, expires at 100 — near expiry at block 80 with buffer 30.
-		pool.insert(
-			vec![1u8; 10],
-			0,
-			bv(vec![signer.clone()]),
-			SENDER_A,
-			dummy_auth().0,
-			dummy_auth().1,
-			0,
-		)
-		.unwrap();
-		// Entry B: inserted at block 0 with retention 100 but we'll test at block 100 where it's
-		// expired. Actually both entries have the same retention. Let's use a different pool.
-
-		// Simpler: one entry near expiry (promotable), one entry expired.
-		// We need different retention for different entries, but pool has one retention value.
-		// Instead: insert entry at block 0 (expires at 100). At block 80, it's promotable.
-		// After promotion, advance to block 100 — it's now expired and should be cleaned.
+		// Entry inserted at block 0, expires at 100 — near expiry at block 80 with buffer 30.
+		let hash = pool
+			.insert(
+				vec![1u8; 10],
+				0,
+				bv(vec![signer.clone()]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
 
 		let promoter = Arc::new(MockPromoter::new(false));
 
-		// First tick at block 80: promote.
+		// First tick at block 80: promote (submit_local Ok). Entry is NOT marked
+		// promoted yet because we have not confirmed inclusion on-chain.
 		let block = Arc::new(Mutex::new(80u32));
 		let block_clone = block.clone();
 		let task = HopMaintenanceTask::new(
@@ -540,14 +599,100 @@ mod tests {
 
 		task.tick();
 		assert_eq!(promoter.call_count(), 1);
-		assert_eq!(pool.status().entry_count, 1); // still in pool
+		assert_eq!(pool.status().entry_count, 1);
 
-		// Second tick at block 100: cleanup expired.
+		// Simulate the runtime confirming inclusion: from now on, the on-chain
+		// check returns true.
+		promoter.set_on_chain(*hash.as_fixed_bytes());
+
+		// Second tick at block 100: cleanup runs. The entry is at expiry (added=0,
+		// retention=100). cleanup_expired removes it; promote is not called again
+		// because the on-chain check short-circuits to mark_promoted.
 		*block.lock().unwrap() = 100;
 		task.tick();
-		// cleaned up
 		assert_eq!(pool.status().entry_count, 0);
-		// Promoter not called again (already promoted).
+		assert_eq!(promoter.call_count(), 1, "promoter not invoked once on-chain confirmed");
+	}
+
+	#[test]
+	fn tick_skips_promotion_when_already_on_chain() {
+		let dir = TempDir::new().unwrap();
+		let pool = test_pool(1024 * 1024, 100, &dir);
+		let (_, signer) = test_recipient();
+
+		let hash = pool
+			.insert(
+				vec![42u8; 10],
+				0,
+				bv(vec![signer]),
+				SENDER_A,
+				dummy_auth().0,
+				dummy_auth().1,
+				0,
+			)
+			.unwrap();
+
+		let promoter = Arc::new(MockPromoter::new(false));
+		// The entry is "already on-chain" before any tick runs.
+		promoter.set_on_chain(*hash.as_fixed_bytes());
+
+		let task =
+			HopMaintenanceTask::new(pool.clone(), Some(promoter.clone()), Arc::new(|| 80), 30, 60);
+
+		task.tick();
+
+		assert_eq!(promoter.call_count(), 0, "promote must not be called when already on-chain");
+		assert!(pool.get_promotable(80, 30, usize::MAX).is_empty());
+	}
+
+	#[test]
+	fn tick_retries_unconfirmed_with_backoff() {
+		let dir = TempDir::new().unwrap();
+		let pool = test_pool(1024 * 1024, 100, &dir);
+		let (_, signer) = test_recipient();
+
+		pool.insert(
+			vec![42u8; 10],
+			0,
+			bv(vec![signer]),
+			SENDER_A,
+			dummy_auth().0,
+			dummy_auth().1,
+			0,
+		)
+		.unwrap();
+
+		let promoter = Arc::new(MockPromoter::new(false));
+		let block = Arc::new(Mutex::new(80u32));
+		let block_clone = block.clone();
+		// check_interval_secs=60 → check_interval_blocks = 60/HOP_BLOCK_TIME_SECS.
+		// With the default HOP_BLOCK_TIME_SECS=6 → check_interval_blocks = 10.
+		let task = HopMaintenanceTask::new(
+			pool.clone(),
+			Some(promoter.clone()),
+			Arc::new(move || *block_clone.lock().unwrap()),
+			30,
+			60,
+		);
+
+		// Tick 1 at block 80: promote (submit_local Ok). Backoff: next attempt at 80 + 10 = 90.
+		task.tick();
 		assert_eq!(promoter.call_count(), 1);
+
+		// Still inside the backoff window: nothing happens.
+		*block.lock().unwrap() = 85;
+		task.tick();
+		assert_eq!(promoter.call_count(), 1);
+
+		// Past the first backoff: tick fires again. Backoff after attempt 2 is 2× = 20 blocks,
+		// so next attempt at 90 + 20 = 110.
+		*block.lock().unwrap() = 90;
+		task.tick();
+		assert_eq!(promoter.call_count(), 2);
+
+		// Inside the new backoff window.
+		*block.lock().unwrap() = 109;
+		task.tick();
+		assert_eq!(promoter.call_count(), 2);
 	}
 }

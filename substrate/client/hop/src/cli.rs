@@ -52,40 +52,81 @@ pub struct HopParams {
 	#[arg(long)]
 	pub enable_hop: bool,
 
-	/// HOP maximum data pool size in MiB
-	#[arg(long = "hop-max-pool-size", default_value_t = DEFAULT_MAX_POOL_SIZE_MIB)]
+	/// HOP maximum data pool size in MiB. Must be at least 1.
+	#[arg(
+		long = "hop-max-pool-size",
+		default_value_t = DEFAULT_MAX_POOL_SIZE_MIB,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
 	pub max_pool_size: u64,
 
-	/// HOP maximum per-user pool size in MiB (hard cap, not scaled by active users)
-	#[arg(long = "hop-max-user-size", default_value_t = DEFAULT_MAX_USER_SIZE_MIB)]
+	/// HOP maximum per-user pool size in MiB (hard cap, not scaled by active users). Must be at
+	/// least 1.
+	#[arg(
+		long = "hop-max-user-size",
+		default_value_t = DEFAULT_MAX_USER_SIZE_MIB,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
 	pub max_user_size: u64,
 
-	/// HOP data retention period in blocks (24h = 14400 blocks at 6s per block)
-	#[arg(long = "hop-retention-blocks", default_value_t = DEFAULT_RETENTION_BLOCKS)]
+	/// HOP data retention period in blocks (24h = 14400 blocks at 6s per block). Must be at least
+	/// 1.
+	#[arg(
+		long = "hop-retention-blocks",
+		default_value_t = DEFAULT_RETENTION_BLOCKS,
+		value_parser = clap::value_parser!(u32).range(1..),
+	)]
 	pub retention_blocks: u32,
 
-	/// HOP expiry cleanup interval in seconds
-	#[arg(long = "hop-check-interval", default_value_t = DEFAULT_CHECK_INTERVAL_SECS)]
+	/// HOP expiry cleanup interval in seconds. Must be at least 1 (a value of 0
+	/// would turn the maintenance loop into a CPU-burning busy loop).
+	#[arg(
+		long = "hop-check-interval",
+		default_value_t = DEFAULT_CHECK_INTERVAL_SECS,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
 	pub check_interval: u64,
 
-	/// Blocks before expiry at which to start promoting entries on-chain
-	#[arg(long = "hop-promotion-buffer-blocks", default_value_t = DEFAULT_PROMOTION_BUFFER_BLOCKS)]
+	/// Blocks before expiry at which to start promoting entries on-chain. Must be at least 1.
+	#[arg(
+		long = "hop-promotion-buffer-blocks",
+		default_value_t = DEFAULT_PROMOTION_BUFFER_BLOCKS,
+		value_parser = clap::value_parser!(u32).range(1..),
+	)]
 	pub promotion_buffer_blocks: u32,
 
-	/// Sustained per-account submit rate (requests per minute)
-	#[arg(long = "hop-submit-rate-per-min", default_value_t = DEFAULT_SUBMIT_RATE_PER_MIN)]
+	/// Sustained per-account submit rate (requests per minute). Must be at least 1
+	/// when rate limiting is enabled — use `--hop-disable-rate-limit` to turn it off.
+	#[arg(
+		long = "hop-submit-rate-per-min",
+		default_value_t = DEFAULT_SUBMIT_RATE_PER_MIN,
+		value_parser = clap::value_parser!(u32).range(1..),
+	)]
 	pub submit_rate_per_min: u32,
 
-	/// Per-account submit burst size (requests)
-	#[arg(long = "hop-submit-burst", default_value_t = DEFAULT_SUBMIT_BURST)]
+	/// Per-account submit burst size (requests). Must be at least 1.
+	#[arg(
+		long = "hop-submit-burst",
+		default_value_t = DEFAULT_SUBMIT_BURST,
+		value_parser = clap::value_parser!(u32).range(1..),
+	)]
 	pub submit_burst: u32,
 
-	/// Sustained per-account bandwidth (MiB per minute)
-	#[arg(long = "hop-bandwidth-per-min-mib", default_value_t = DEFAULT_BANDWIDTH_PER_MIN_MIB)]
+	/// Sustained per-account bandwidth (MiB per minute). Must be at least 1
+	/// when rate limiting is enabled — use `--hop-disable-rate-limit` to turn it off.
+	#[arg(
+		long = "hop-bandwidth-per-min-mib",
+		default_value_t = DEFAULT_BANDWIDTH_PER_MIN_MIB,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
 	pub bandwidth_per_min_mib: u64,
 
-	/// Per-account bandwidth burst size (MiB)
-	#[arg(long = "hop-bandwidth-burst-mib", default_value_t = DEFAULT_BANDWIDTH_BURST_MIB)]
+	/// Per-account bandwidth burst size (MiB). Must be at least 1.
+	#[arg(
+		long = "hop-bandwidth-burst-mib",
+		default_value_t = DEFAULT_BANDWIDTH_BURST_MIB,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
 	pub bandwidth_burst_mib: u64,
 
 	/// Disable per-account submit rate limiting (intended for tests and dev nodes).
@@ -172,6 +213,14 @@ impl HopParams {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use clap::Parser;
+
+	/// Wrap `HopParams` so we can drive `clap`'s parser with a synthetic argv.
+	#[derive(Parser)]
+	struct TestCli {
+		#[clap(flatten)]
+		hop: HopParams,
+	}
 
 	#[test]
 	fn build_pool_without_any_dir_returns_missing_data_dir() {
@@ -179,6 +228,41 @@ mod tests {
 			Err(HopError::MissingDataDir) => (),
 			Err(other) => panic!("expected MissingDataDir, got: {other:?}"),
 			Ok(_) => panic!("expected MissingDataDir, got Ok"),
+		}
+	}
+
+	#[test]
+	fn cli_rejects_zero_for_critical_numeric_parameters() {
+		// Each of these parameters would, at zero, either lock the maintenance
+		// loop into a busy spin, expire entries the same block they're created,
+		// or break rate-limit math. clap must reject them at parse time.
+		let zero_flags = [
+			"--hop-max-pool-size",
+			"--hop-max-user-size",
+			"--hop-retention-blocks",
+			"--hop-check-interval",
+			"--hop-promotion-buffer-blocks",
+			"--hop-submit-rate-per-min",
+			"--hop-submit-burst",
+			"--hop-bandwidth-per-min-mib",
+			"--hop-bandwidth-burst-mib",
+		];
+		for flag in zero_flags {
+			let argv = ["test-bin", flag, "0"];
+			let result = TestCli::try_parse_from(argv);
+			assert!(
+				result.is_err(),
+				"clap accepted zero for {flag} but it should have been rejected",
+			);
+		}
+	}
+
+	#[test]
+	fn cli_accepts_one_for_critical_numeric_parameters() {
+		let one_flags = ["--hop-max-pool-size", "--hop-retention-blocks", "--hop-check-interval"];
+		for flag in one_flags {
+			let argv = ["test-bin", flag, "1"];
+			TestCli::try_parse_from(argv).expect("parse should succeed");
 		}
 	}
 }
