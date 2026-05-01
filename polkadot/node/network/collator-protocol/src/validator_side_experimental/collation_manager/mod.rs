@@ -706,9 +706,6 @@ impl CollationManager {
 		let peer_id =
 			self.get_fetched_collation_peer_id(scheduling_parent, candidate_hash).copied();
 
-		// The slot stays consumed by virtue of the candidate remaining in `fetched_collations`
-		// — no separate per-slot bookkeeping is needed. We just check whether seconding this
-		// candidate has unblocked others that were waiting on it.
 		let Some(unblocked) = self.blocked_from_seconding.remove(&BlockedCollationId {
 			para_id: *para_id,
 			parent_head_data_hash: output_head_hash,
