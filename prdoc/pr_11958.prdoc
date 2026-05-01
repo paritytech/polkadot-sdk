@@ -1,0 +1,14 @@
+title: 'pallet-revive:  delete trie row on variable-key set_storage(key, &[])'
+doc:
+- audience: Runtime Dev
+  description: "Fix #11946 : route an empty value buffer in the variable-key `api::set_storage`\
+    \ syscall to `Ext::set_storage(.., None)` so the entry is deleted via `child::kill`,\
+    \ matching the documented `Ext` contract and the fixed-key `set_storage_or_clear(key,\
+    \ ZEROS)` path.\r\n"
+crates:
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-uapi
+  bump: patch
