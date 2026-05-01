@@ -46,7 +46,7 @@ use log::{debug, trace, warn};
 use parking_lot::{Mutex, RwLock};
 use prometheus_endpoint::Registry;
 use std::{
-	collections::{BTreeSet, HashMap, HashSet},
+	collections::{HashMap, HashSet},
 	io,
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -151,9 +151,19 @@ enum DbExtrinsic<B: BlockT> {
 	/// Extrinsic that renews multiple indexed data items within a single call.
 	/// Used by bulk-renewal inherents (e.g. `process_auto_renewals`) where one extrinsic
 	/// references multiple previously-stored data blobs.
+	///
+	/// `hashes` is stored as a `Vec<DbHash>` rather than a set: the proof-of-storage
+	/// inherent provider walks `block_indexed_body` in this order to compute total
+	/// chunks and pick a chunk by index, and the runtime's `verify_chunk_proof`
+	/// indexes its own `Vec<TransactionInfo>` by the same position. Sorting the hashes
+	/// (e.g. via `BTreeSet`) would put the off-chain provider's iteration order out of
+	/// sync with the runtime's storage order, so the proof would be built against one
+	/// entry's `chunk_root` and verified against another's, causing `InvalidProof`.
+	/// Insertion order is the contract — preserve it.
 	MultiRenew {
-		/// Hashes of all renewed indexed data items.
-		hashes: BTreeSet<DbHash>,
+		/// Hashes of all renewed indexed data items, in the order their `Renew`
+		/// IndexOperations were submitted.
+		hashes: Vec<DbHash>,
 		/// The full encoded extrinsic (used to reconstruct the block body).
 		extrinsic: Vec<u8>,
 	},
@@ -2235,7 +2245,12 @@ fn apply_index_ops<Block: BlockT>(
 ) -> Vec<u8> {
 	let mut extrinsic_index: Vec<DbExtrinsic<Block>> = Vec::with_capacity(body.len());
 	let mut index_map = HashMap::new();
-	let mut renewed_map: HashMap<u32, BTreeSet<DbHash>> = HashMap::new();
+	// Insertion order is part of the contract with the proof-of-storage inherent — see
+	// the docstring on `DbExtrinsic::MultiRenew::hashes`. We append every `Renew`
+	// operation as it arrives; duplicates (if the runtime emits the same hash twice for
+	// the same extrinsic) are intentionally preserved so column refcount inc/dec stays
+	// symmetric with what `reset_index` releases on prune.
+	let mut renewed_map: HashMap<u32, Vec<DbHash>> = HashMap::new();
 	for op in ops {
 		match op {
 			IndexOperation::Insert { extrinsic, hash, size } => {
@@ -2245,7 +2260,7 @@ fn apply_index_ops<Block: BlockT>(
 				renewed_map
 					.entry(extrinsic)
 					.or_default()
-					.insert(DbHash::from_slice(hash.as_ref()));
+					.push(DbHash::from_slice(hash.as_ref()));
 			},
 		}
 	}
@@ -2260,7 +2275,7 @@ fn apply_index_ops<Block: BlockT>(
 			let encoded = extrinsic.encode();
 			if hashes.len() == 1 {
 				// Single renewal: backwards-compatible Indexed variant
-				let hash = *hashes.iter().next().expect("len == 1; qed");
+				let hash = hashes[0];
 				transaction.reference(columns::TRANSACTION, hash);
 				DbExtrinsic::Indexed { hash, header: encoded }
 			} else {
@@ -4858,12 +4873,13 @@ pub(crate) mod tests {
 
 	#[test]
 	fn multi_renew_duplicate_hash_balanced_lifecycle() {
-		// A block emitting `[Renew{0, X}, Renew{0, X}]` for the same hash twice gets
-		// dedup'd by `renewed_map`'s BTreeSet to a single entry, so the slot is stored
-		// as `Indexed { hash: X, .. }` (not MultiRenew) and contributes +1 ref. The
-		// block must release that +1 cleanly when it is pruned. Asymmetric +/- (e.g.
-		// if dedup was skipped on the +1 side but kept on -1, or vice versa) would
-		// either leak X forever or panic at parity-db level.
+		// A block emitting `[Renew{0, X}, Renew{0, X}]` for the same hash twice produces
+		// `MultiRenew { hashes: [X, X], .. }` (Vec preserves duplicates — see the
+		// docstring on `DbExtrinsic::MultiRenew::hashes`). Each occurrence in the Vec
+		// bumps the column refcount by +1; on prune each occurrence releases -1.
+		// Symmetry of inc/dec is what this test pins — asymmetric +/- (e.g. if dedup
+		// was applied on one side but not the other) would either leak X forever or
+		// over-release.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
@@ -4873,9 +4889,8 @@ pub(crate) mod tests {
 
 		// Variant-shape assertion: this is the realistic shape produced by
 		// `utility.batch(renew[X], renew[X], ...)`. Confirm directly that N >= 2 Renews
-		// of the same hash collapse to `Indexed` (not `MultiRenew`) after BTreeSet dedup,
-		// independent of the lifecycle test below. Tested at N = 3 to make the dedup
-		// non-trivial.
+		// of the same hash produce `MultiRenew` with the duplicate preserved (Vec keeps
+		// every occurrence). Tested at N = 3.
 		{
 			let mut tx: Transaction<DbHash> = Transaction::new();
 			let dummy_body = vec![UncheckedXt::new_transaction(10.into(), ())];
@@ -4888,12 +4903,17 @@ pub(crate) mod tests {
 			let decoded: Vec<DbExtrinsic<Block>> =
 				Decode::decode(&mut &encoded[..]).expect("apply_index_ops output must decode");
 			assert_eq!(decoded.len(), 1);
-			assert!(
-				matches!(decoded[0], DbExtrinsic::Indexed { .. }),
-				"N duplicate Renews of the same hash must dedup to Indexed (not MultiRenew); \
-				 got {:?}",
-				decoded[0],
-			);
+			match &decoded[0] {
+				DbExtrinsic::MultiRenew { hashes, .. } => {
+					assert_eq!(hashes.len(), 3, "all 3 duplicate Renews preserved in Vec");
+					for h in hashes {
+						assert_eq!(h.as_ref(), x1_hash.as_ref());
+					}
+				},
+				other => {
+					panic!("3 duplicate Renews must produce MultiRenew with len=3; got {other:?}",)
+				},
+			}
 		}
 
 		for i in 0..6 {
@@ -4921,7 +4941,8 @@ pub(crate) mod tests {
 		}
 
 		let bc = backend.blockchain();
-		// Pre-finalization: X is alive (refcount = 1 from insert + 1 from dedup'd renew = 2)
+		// Pre-finalization: X is alive. Refcount = 1 (insert) + 2 (duplicate renew block,
+		// MultiRenew with len=2 → +1 per Vec entry) = 3.
 		assert!(bc.indexed_transaction(x1_hash).unwrap().is_some());
 
 		// Finalize step-by-step. With BlocksPruning::Some(2), after finalizing block N
@@ -4933,12 +4954,11 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		// After all finalization, blocks 0 and 1 are both pruned. If dedup was applied
-		// asymmetrically (e.g. on the +1 side but not the -1 side), X would either leak
-		// or over-release; the assertion below catches both cases.
+		// After all finalization, blocks 0 and 1 are both pruned. The duplicate-Renew
+		// block contributed 2 references and releases 2 on prune; symmetry holds.
 		assert!(
 			bc.indexed_transaction(x1_hash).unwrap().is_none(),
-			"X should be deleted: insert (+1) + dedup'd renew block (+1) all pruned",
+			"X should be deleted: insert (+1) + duplicate-renew block (+2) all released",
 		);
 	}
 
@@ -4948,11 +4968,15 @@ pub(crate) mod tests {
 		// shape of a `utility.batch(renew[..])` call where one content_hash appears twice
 		// alongside several uniques. 5 ops, 4 distinct hashes, 1 duplicate.
 		// Locks in three things at once:
-		// (1) Stored hashes are deduplicated (the duplicate W collapses to a single entry).
-		// (2) block_indexed_body returns one blob per distinct hash; lookup is by membership,
-		//     not position (BTreeSet iteration order is by hash bytes, not insertion order).
-		// (3) Refcount lifecycle is correct after dedup: each of W/X/Y/Z gets +1 from the
-		//     multi-renew block (not +2 for W), and all are released when the block is pruned.
+		// (1) Stored hashes preserve insertion order (Vec, not BTreeSet) — required by the
+		//     proof-of-storage inherent provider, which builds proofs by iterating
+		//     `block_indexed_body` and indexing into the resulting Vec by chunk position.
+		//     Sorting (e.g. via BTreeSet) would diverge from the runtime's
+		//     `Vec<TransactionInfo>` ordering and break verification.
+		// (2) Duplicates are kept (W appears twice in the stored hashes), so each
+		//     occurrence carries its own column refcount inc/dec — symmetric on prune.
+		// (3) Refcount lifecycle: W gets +2 from this block (one per Vec entry); X, Y, Z
+		//     each get +1; all are released when the block is pruned.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
 		let mut prev_hash = Default::default();
@@ -5015,16 +5039,16 @@ pub(crate) mod tests {
 
 		let bc = backend.blockchain();
 
-		// (1) and (2): block_indexed_body returns one blob per distinct hash, regardless
-		// of how many times that hash appeared in the input ops. Order is by hash bytes
-		// (BTreeSet iteration), so we check membership rather than positions.
+		// (1) and (2): `block_indexed_body` returns one blob per stored hash entry (in
+		// insertion order, with duplicates preserved). For input ops [W, X, Y, W, Z] we
+		// expect 5 blobs in exactly that order.
 		let indexed_body = bc.block_indexed_body(blocks[1]).unwrap().unwrap();
-		assert_eq!(indexed_body.len(), 4, "duplicate W collapsed; 4 distinct blobs remain");
-		let blobs: BTreeSet<&[u8]> = indexed_body.iter().map(|b| b.as_slice()).collect();
-		assert!(blobs.contains(&&w[1..]), "W blob must be present");
-		assert!(blobs.contains(&&x[1..]), "X blob must be present");
-		assert!(blobs.contains(&&y[1..]), "Y blob must be present");
-		assert!(blobs.contains(&&z[1..]), "Z blob must be present");
+		assert_eq!(indexed_body.len(), 5, "5 input ops → 5 entries (W appears twice)");
+		assert_eq!(&indexed_body[0][..], &w[1..], "position 0: W");
+		assert_eq!(&indexed_body[1][..], &x[1..], "position 1: X");
+		assert_eq!(&indexed_body[2][..], &y[1..], "position 2: Y");
+		assert_eq!(&indexed_body[3][..], &w[1..], "position 3: W (duplicate preserved)");
+		assert_eq!(&indexed_body[4][..], &z[1..], "position 4: Z");
 
 		// (3) Lifecycle: finalize through pruning.
 		for i in 1..6 {
@@ -5034,17 +5058,132 @@ pub(crate) mod tests {
 			backend.commit_operation(op).unwrap();
 		}
 
-		// After all blocks pruned: refcounts zero out. With BTreeSet dedup the multi-renew
-		// block contributed exactly +1 per distinct hash, so each is released cleanly when
-		// that block is pruned.
-		// W: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
-		// X: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
-		// Y: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
-		// Z: insert(+1) + multi-renew(+1) = 2, all pruned = -2 ✓
+		// After all blocks pruned: refcounts zero out. The multi-renew block keeps every
+		// occurrence in its Vec<DbHash>, so refcount inc/dec is symmetric per occurrence:
+		// W: insert(+1) + multi-renew(+2 — appears twice) = 3, all released on prune = -3 ✓
+		// X: insert(+1) + multi-renew(+1) = 2, all released = -2 ✓
+		// Y: insert(+1) + multi-renew(+1) = 2, all released = -2 ✓
+		// Z: insert(+1) + multi-renew(+1) = 2, all released = -2 ✓
 		assert!(bc.indexed_transaction(w_hash).unwrap().is_none(), "W deleted");
 		assert!(bc.indexed_transaction(x_hash).unwrap().is_none(), "X deleted");
 		assert!(bc.indexed_transaction(y_hash).unwrap().is_none(), "Y deleted");
 		assert!(bc.indexed_transaction(z_hash).unwrap().is_none(), "Z deleted");
+	}
+
+	#[test]
+	fn block_indexed_body_preserves_renew_op_submission_order() {
+		// The contract `MultiRenew::hashes` upholds: blobs are returned by
+		// `block_indexed_body(N)` in the SAME order their `IndexOperation::Renew` ops
+		// were submitted to `apply_index_ops`. This is the contract that the
+		// `sp_transaction_storage_proof` inherent provider relies on — it walks
+		// `block_indexed_body(N)` linearly to compute total chunks and to pick the
+		// chunk corresponding to a chosen index. A FRAME pallet that stores parallel
+		// `TransactionInfo` data in submission order indexes into its Vec by the same
+		// position. Sorting (e.g. wrapping `MultiRenew.hashes` in a `BTreeSet`) would
+		// silently desynchronize off-chain proof construction from on-chain
+		// verification; this test fails immediately if any such reordering is
+		// introduced.
+		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::KeepAll, 10);
+
+		// Five distinct extrinsic payloads whose blake2 hashes do not coincide with
+		// their submission order. Build them with deliberate `nonce` values that
+		// produce a non-monotonic hash sequence — any sort would visibly disturb the
+		// expected positions.
+		//
+		// We don't know the exact byte ordering of these hashes a priori; we only need
+		// that they're distinct AND we use this fixed list as our "submission order
+		// ground truth". The test then asserts the returned blobs come back in this
+		// exact ordering, regardless of whatever sort key one might apply.
+		let payloads: Vec<Vec<u8>> = (0..5)
+			.map(|i: u64| UncheckedXt::new_transaction(i.into(), ()).encode())
+			.collect();
+		let hashes: Vec<<HashingFor<Block> as sp_core::Hasher>::Out> = payloads
+			.iter()
+			.map(|p| <HashingFor<Block> as sp_core::Hasher>::hash(&p[1..]))
+			.collect();
+
+		// Block 0 inserts each payload separately so col11 has one entry per hash.
+		let mut prev_hash = Default::default();
+		let insert_ops: Vec<IndexOperation> = (0..5)
+			.map(|i| IndexOperation::Insert {
+				extrinsic: i as u32,
+				hash: hashes[i].as_ref().to_vec(),
+				size: (payloads[i].len() - 1) as u32,
+			})
+			.collect();
+		let body0: Vec<UncheckedXt> =
+			(0..5).map(|i| UncheckedXt::new_transaction((i as u64).into(), ())).collect();
+		prev_hash =
+			insert_block(&backend, 0, prev_hash, None, Default::default(), body0, Some(insert_ops))
+				.unwrap();
+
+		// Block 1: a single extrinsic emits 5 IndexOperation::Renew ops, intentionally
+		// in a NON-sorted submission order so that any sort would visibly reorder the
+		// result. We pick submission order [4, 1, 0, 3, 2] — neither ascending nor
+		// descending, so neither directional sort happens to match.
+		let submission_order = [4usize, 1, 0, 3, 2];
+		let renew_ops: Vec<IndexOperation> = submission_order
+			.iter()
+			.map(|&i| IndexOperation::Renew { extrinsic: 0, hash: hashes[i].as_ref().to_vec() })
+			.collect();
+		let block1 = insert_block(
+			&backend,
+			1,
+			prev_hash,
+			None,
+			Default::default(),
+			vec![UncheckedXt::new_transaction(100.into(), ())],
+			Some(renew_ops),
+		)
+		.unwrap();
+
+		// Sanity: Block 1's body index must be MultiRenew (not Indexed), confirming
+		// we exercised the >=2 hashes path.
+		// (The KeepAll pruning means the body is still on disk.)
+		let bc = backend.blockchain();
+		let body_index_bytes = read_db(
+			&*backend.storage.db,
+			columns::KEY_LOOKUP,
+			columns::BODY_INDEX,
+			BlockId::<Block>::Hash(block1),
+		)
+		.unwrap()
+		.expect("block 1 must have a BODY_INDEX entry");
+		let decoded: Vec<DbExtrinsic<Block>> =
+			Decode::decode(&mut &body_index_bytes[..]).expect("must decode");
+		assert_eq!(decoded.len(), 1, "block 1 has one extrinsic");
+		match &decoded[0] {
+			DbExtrinsic::MultiRenew { hashes: stored_hashes, .. } => {
+				// Position-by-position: stored hash at position i must equal the i-th
+				// submission-order hash.
+				assert_eq!(stored_hashes.len(), 5, "all 5 ops preserved");
+				for (i, &order_idx) in submission_order.iter().enumerate() {
+					assert_eq!(
+						stored_hashes[i].as_ref(),
+						hashes[order_idx].as_ref(),
+						"DbExtrinsic::MultiRenew.hashes[{i}] must equal submission_order[{i}] \
+						 (= hashes[{order_idx}]); got out-of-order — submission order has been \
+						 violated, off-chain proof verification will diverge from on-chain",
+					);
+				}
+			},
+			other => panic!("expected MultiRenew (5 distinct renews); got {other:?}"),
+		}
+
+		// The end-to-end contract: `block_indexed_body(N)` returns blobs in the same
+		// order. This is what `build_proof` consumes.
+		let blobs = bc.block_indexed_body(block1).unwrap().unwrap();
+		assert_eq!(blobs.len(), 5, "5 blobs returned (one per Renew op)");
+		for (i, &order_idx) in submission_order.iter().enumerate() {
+			let expected = &payloads[order_idx][1..];
+			assert_eq!(
+				blobs[i].as_slice(),
+				expected,
+				"block_indexed_body[{i}] must equal payload at submission_order[{i}] \
+				 (= payloads[{order_idx}]); the proof-of-storage inherent provider \
+				 relies on this position-by-position contract",
+			);
+		}
 	}
 
 	#[test]
@@ -5126,7 +5265,7 @@ pub(crate) mod tests {
 			DbExtrinsic::Indexed { hash: H256::repeat_byte(0xAA), header: vec![0x01, 0x02, 0x03] },
 			DbExtrinsic::Full(UncheckedXt::new_transaction(42.into(), ())),
 			DbExtrinsic::MultiRenew {
-				hashes: BTreeSet::from([H256::repeat_byte(0xBB), H256::repeat_byte(0xCC)]),
+				hashes: vec![H256::repeat_byte(0xBB), H256::repeat_byte(0xCC)],
 				extrinsic: vec![0x04, 0x05, 0x06, 0x07],
 			},
 		];
@@ -5154,10 +5293,11 @@ pub(crate) mod tests {
 
 	#[test]
 	fn apply_index_ops_deterministic() {
-		// `renewed_map` uses BTreeSet<DbHash> so encoded bytes are deterministic across
-		// nodes (sorted by hash, dedup'd). The BODY_INDEX entry is part of the on-disk
-		// representation that must match across replicas. Pin determinism with a test
-		// instead of relying on convention.
+		// `renewed_map` uses `Vec<DbHash>` and appends in IndexOperation order, so the
+		// encoded BODY_INDEX bytes are deterministic across calls when the input ops are
+		// in the same order. (Insertion-order preservation is required by the
+		// proof-of-storage inherent provider — see DbExtrinsic::MultiRenew docs.) Pin
+		// determinism with a test instead of relying on convention.
 		let body = vec![
 			UncheckedXt::new_transaction(0.into(), ()),
 			UncheckedXt::new_transaction(1.into(), ()),
@@ -5169,7 +5309,7 @@ pub(crate) mod tests {
 		let ops = vec![
 			IndexOperation::Renew { extrinsic: 0, hash: h1.clone() },
 			IndexOperation::Renew { extrinsic: 0, hash: h2.clone() },
-			IndexOperation::Renew { extrinsic: 0, hash: h1.clone() }, // duplicate
+			IndexOperation::Renew { extrinsic: 0, hash: h1.clone() }, // duplicate (preserved)
 			IndexOperation::Renew { extrinsic: 1, hash: h3.clone() },
 		];
 
@@ -5186,10 +5326,15 @@ pub(crate) mod tests {
 		let decoded: Vec<DbExtrinsic<Block>> =
 			Decode::decode(&mut &bytes1[..]).expect("apply_index_ops output must decode");
 		assert_eq!(decoded.len(), 2);
-		assert!(
-			matches!(decoded[0], DbExtrinsic::MultiRenew { .. }),
-			"index 0 (3 renew ops including duplicate) must be MultiRenew",
-		);
+		match &decoded[0] {
+			DbExtrinsic::MultiRenew { hashes, .. } => {
+				assert_eq!(hashes.len(), 3, "duplicates are preserved in insertion order");
+				assert_eq!(hashes[0].as_ref(), h1.as_slice());
+				assert_eq!(hashes[1].as_ref(), h2.as_slice());
+				assert_eq!(hashes[2].as_ref(), h1.as_slice(), "duplicate of h1 at position 2");
+			},
+			other => panic!("index 0 (3 renew ops) must be MultiRenew, got {other:?}"),
+		}
 		assert!(
 			matches!(decoded[1], DbExtrinsic::Indexed { .. }),
 			"index 1 (single renew op) must be Indexed",
@@ -5199,13 +5344,14 @@ pub(crate) mod tests {
 	#[test]
 	fn multi_renew_in_one_block_indexed_in_another() {
 		// Cross-block lifecycle: same content hash X is referenced by three blocks
-		// via two different DbExtrinsic shapes (the duplicate-renew block dedups to
-		// a single hash and so also takes the Indexed shape):
+		// via two different DbExtrinsic shapes:
 		//   - Block 0 (Insert):                 `Indexed { hash: X, header: partial }`  → +1 ref
 		//   - Block 1 (single Renew):           `Indexed { hash: X, header: full }`     → +1 ref
-		//   - Block 2 (Renew{X}, Renew{X}):     `Indexed { hash: X, header: full }`     → +1 ref
-		//     (BTreeSet collapses the duplicate; len == 1, so it's not MultiRenew)
-		// Total refcount peaks at 3. Each block's prune must release exactly its
+		//   - Block 2 (Renew{X}, Renew{X}):     `MultiRenew { hashes: [X, X], ... }`    → +2 refs
+		//     (Vec preserves duplicates; len == 2, so it IS MultiRenew. The substrate-host bumps
+		//     the column refcount once per occurrence and releases once per occurrence on prune,
+		//     keeping inc/dec symmetric.)
+		// Total refcount peaks at 4. Each block's prune must release exactly its
 		// contribution. Realistic auto-renewal pattern on Bulletin chain.
 		let backend = Backend::<Block>::new_test_with_tx_storage(BlocksPruning::Some(2), 10);
 		let mut blocks = Vec::new();
@@ -5229,8 +5375,9 @@ pub(crate) mod tests {
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(10.into(), ())]
 			} else if i == 2 {
-				// Two Renew ops with the same hash; BTreeSet dedups to one, so this
-				// produces Indexed { hash: X, header: full } (not MultiRenew).
+				// Two Renew ops with the same hash. Vec preserves both, so this produces
+				// MultiRenew { hashes: [X, X], ... } and bumps the column refcount by 2.
+				// Two prune-time releases bring it back down by 2 — symmetric.
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				index.push(IndexOperation::Renew { extrinsic: 0, hash: x_hash.as_ref().to_vec() });
 				vec![UncheckedXt::new_transaction(20.into(), ())]
@@ -5246,7 +5393,8 @@ pub(crate) mod tests {
 		}
 
 		let bc = backend.blockchain();
-		// Pre-finalization: refcount = 1 + 1 + 1 = 3 (block 2's duplicate dedup'd). X is alive.
+		// Pre-finalization: refcount = 1 (insert) + 1 (single-renew) + 2 (duplicate-renew
+		// preserved by Vec) = 4. X is alive.
 		assert!(bc.indexed_transaction(x_hash).unwrap().is_some());
 
 		// Finalize step-by-step. With BlocksPruning::Some(2), after finalizing block N,
@@ -5262,11 +5410,11 @@ pub(crate) mod tests {
 		// Each block's prune released its own contribution:
 		//   block 0 (Indexed insert):                  -1
 		//   block 1 (Indexed single-renew):            -1
-		//   block 2 (Indexed dedup'd duplicate-renew): -1
-		// Total releases = 3. Refcount = 3 - 3 = 0. X should be deleted.
+		//   block 2 (MultiRenew with duplicate hash):  -2  (one release per Vec entry)
+		// Total releases = 4. Refcount = 4 - 4 = 0. X should be deleted.
 		assert!(
 			bc.indexed_transaction(x_hash).unwrap().is_none(),
-			"X must be deleted: insert + single-renew + dedup'd-renew all pruned",
+			"X must be deleted: all references (insert + single-renew + duplicate-renew) released",
 		);
 	}
 

@@ -301,4 +301,203 @@ pub mod registration {
 		assert!(build_proof(&random, vec![]).unwrap().is_none());
 		assert!(build_proof(&random, vec![vec![]]).unwrap().is_none());
 	}
+
+	/// End-to-end proof round-trip across the substrate-host ↔ runtime boundary, with
+	/// multiple distinct transactions in the indexed body.
+	///
+	/// Models the verification contract that any FRAME pallet consuming
+	/// transaction-storage proofs must hold:
+	///
+	/// 1. The off-chain proof provider walks `block_indexed_body(N)` linearly, counting chunks, and
+	///    builds a Merkle proof for the chunk at `random_chunk(parent_hash, total_chunks)`.
+	/// 2. The runtime (e.g. `pallet_transaction_storage::verify_chunk_proof`) walks a parallel
+	///    `Vec<TransactionInfo>` in the SAME order, picks the entry containing the same global
+	///    chunk index via binary search on cumulative `block_chunks`, and verifies the proof
+	///    against that entry's `chunk_root`.
+	///
+	/// If the two sides disagree on what's at position N (e.g. because one side sorts
+	/// the indexed body and the other doesn't), the runtime verifies the proof
+	/// against a different entry's `chunk_root` than the proof was built for, and
+	/// `verify_trie_proof` returns an `Err`. This test exercises both halves
+	/// against the same input order and asserts they agree.
+	#[test]
+	fn proof_round_trip_against_parallel_runtime_view() {
+		// 4 distinct payloads, each spanning multiple chunks. Distinct payloads
+		// produce distinct `chunk_root`s — that's the property that catches
+		// position-mismatch bugs (sorting one side of the iteration would route the
+		// proof to a different entry, whose `chunk_root` is different).
+		let payloads: Vec<Vec<u8>> = (0..4)
+			.map(|i: u8| {
+				// Each payload is 2 * CHUNK_SIZE bytes filled with a unique pattern,
+				// so each yields exactly 2 chunks with payload-specific content.
+				let mut p = vec![0u8; 2 * CHUNK_SIZE];
+				for (j, byte) in p.iter_mut().enumerate() {
+					*byte = i.wrapping_mul(7).wrapping_add(j as u8);
+				}
+				p
+			})
+			.collect();
+
+		// Pick an order that's neither sorted ascending nor descending by content,
+		// so any directional sort would visibly disturb it. Submission order:
+		// [3, 0, 2, 1].
+		let submission_order = [3usize, 0, 2, 1];
+
+		// What `block_indexed_body(N)` would return for a block whose substrate-host
+		// `MultiRenew::hashes` was populated in this submission order. (The
+		// substrate-host fetches col11 by hash — the order of the returned data
+		// blobs mirrors the order of hashes in `MultiRenew::hashes`.)
+		let from_indexed_body: Vec<Vec<u8>> =
+			submission_order.iter().map(|&i| payloads[i].clone()).collect();
+
+		// What a runtime pallet would parallel-store as `Vec<TransactionInfo>`.
+		// We compute each entry's `chunk_root` from its actual chunks, with cumulative
+		// `block_chunks` matching the submission order.
+		struct TxInfo {
+			chunk_root: sp_core::H256,
+			size: u32,
+			block_chunks: ChunkIndex,
+		}
+		let mut runtime_view: Vec<TxInfo> = Vec::with_capacity(submission_order.len());
+		let mut cumulative: ChunkIndex = 0;
+		for &i in submission_order.iter() {
+			let payload = &payloads[i];
+			// Build the same per-tx trie that `build_proof` builds, to capture the
+			// chunk_root the runtime will trust.
+			let mut db = sp_trie::MemoryDB::<Hasher>::default();
+			let mut transaction_root = sp_trie::empty_trie_root::<TrieLayout>();
+			{
+				let mut trie =
+					sp_trie::TrieDBMutBuilder::<TrieLayout>::new(&mut db, &mut transaction_root)
+						.build();
+				for (idx, chunk) in payload.chunks(CHUNK_SIZE).enumerate() {
+					trie.insert(&encode_index(idx as u32), chunk).unwrap();
+				}
+				trie.commit();
+			}
+			cumulative += num_chunks(payload.len() as u32);
+			runtime_view.push(TxInfo {
+				chunk_root: transaction_root,
+				size: payload.len() as u32,
+				block_chunks: cumulative,
+			});
+		}
+
+		// We sweep `parent_hash` through several values to make sure the round-trip
+		// holds for many different `random_chunk` outputs (each parent_hash picks a
+		// different global chunk index). Without this loop, a position bug that only
+		// manifests for some chunks could pass by chance.
+		for seed in 0u8..16 {
+			let parent_hash = [seed; 32];
+
+			// Off-chain side: build the proof exactly the way the inherent provider does.
+			let proof = build_proof(&parent_hash, from_indexed_body.clone())
+				.unwrap()
+				.expect("proof must be built (non-empty input)");
+
+			// On-chain side: pick the entry the runtime would pick.
+			let total_chunks = runtime_view.last().unwrap().block_chunks;
+			assert_eq!(
+				total_chunks,
+				submission_order
+					.iter()
+					.map(|&i| num_chunks(payloads[i].len() as u32))
+					.sum::<u32>(),
+				"runtime_view's cumulative block_chunks must equal sum of per-tx chunks",
+			);
+			let selected_chunk_index = random_chunk(&parent_hash, total_chunks);
+			// Same binary-search logic that pallet_transaction_storage::verify_chunk_proof uses.
+			let tx_index = runtime_view
+				.binary_search_by_key(&selected_chunk_index, |info| {
+					info.block_chunks.saturating_sub(1)
+				})
+				.unwrap_or_else(|i| i);
+			let tx_info = &runtime_view[tx_index];
+			let tx_chunks = num_chunks(tx_info.size);
+			let prev_chunks = tx_info.block_chunks - tx_chunks;
+			let tx_chunk_index = selected_chunk_index - prev_chunks;
+
+			// Verify the proof against the runtime-side chunk_root, just like the
+			// runtime would. If the two sides disagree on what's at position
+			// `tx_index`, the proof was built using a DIFFERENT entry's chunks (and
+			// thus is rooted at a different chunk_root), and verification fails.
+			sp_trie::verify_trie_proof::<TrieLayout, _, _, _>(
+				&tx_info.chunk_root,
+				&proof.proof,
+				&[(encode_index(tx_chunk_index), Some(proof.chunk.clone()))],
+			)
+			.unwrap_or_else(|e| {
+				panic!(
+					"proof verification failed for parent_hash seed={seed}: \n\
+					 selected_chunk_index = {selected_chunk_index} \n\
+					 runtime tx_index     = {tx_index} (within submission order [3, 0, 2, 1]) \n\
+					 tx_chunk_index       = {tx_chunk_index} \n\
+					 If this fails, build_proof and the runtime's parallel view disagree \
+					 on what's at position {tx_index} — this is the cross-side ordering bug \
+					 that DbExtrinsic::MultiRenew::hashes guards against. \n\
+					 Underlying trie error: {e:?}",
+				)
+			});
+
+			// Sanity: `proof.chunk` must also equal the actual chunk in the payload at
+			// the resolved (tx_index, tx_chunk_index). Catches the case where
+			// verification arithmetic happens to succeed for the wrong reason.
+			let expected_chunk = {
+				let payload_idx = submission_order[tx_index];
+				let payload = &payloads[payload_idx];
+				payload
+					.chunks(CHUNK_SIZE)
+					.nth(tx_chunk_index as usize)
+					.expect("tx_chunk_index in range")
+					.to_vec()
+			};
+			assert_eq!(
+				proof.chunk, expected_chunk,
+				"proof.chunk must equal the actual chunk at submission_order[{tx_index}] \
+				 chunk #{tx_chunk_index}",
+			);
+		}
+	}
+}
+
+#[cfg(all(test, feature = "std"))]
+mod position_invariant_tests {
+	//! Standalone tests pinning the order-preservation invariant that the
+	//! cross-process proof contract depends on, independent of the trie/proof
+	//! machinery. These complement [`registration::proof_round_trip_against_parallel_runtime_view`]
+	//! by failing fast and with a clearer error if the more fundamental ordering
+	//! contract is violated.
+	use super::*;
+
+	#[test]
+	fn random_chunk_is_deterministic_for_same_inputs() {
+		// `random_chunk(random_hash, total_chunks)` is the agreement point between
+		// substrate-host's proof builder and the runtime's verifier — both must
+		// compute the same chunk index for the same inputs. This pins it.
+		for seed in 0u8..16 {
+			let h = [seed; 32];
+			for n in [1u32, 4, 16, 4096, u32::MAX / 2, u32::MAX - 1] {
+				let a = random_chunk(&h, n);
+				let b = random_chunk(&h, n);
+				assert_eq!(a, b, "random_chunk must be deterministic for seed={seed}, n={n}");
+				assert!(a < n, "random_chunk output {a} must be in [0, {n})");
+			}
+		}
+	}
+
+	#[test]
+	fn encode_index_round_trip_is_compact() {
+		// `encode_index` produces the same bytes both sides use to insert/look up
+		// the chunk into/from the per-transaction trie. Drift here (e.g. switching
+		// from Compact to fixed-width or big-endian encoding) silently breaks every
+		// proof verification.
+		use codec::{Compact, Decode, Encode};
+		for index in [0u32, 1, 63, 64, 16383, 16384, 1_000_000, u32::MAX] {
+			let encoded = encode_index(index);
+			assert_eq!(encoded, Compact(index).encode(), "encode_index must use Compact<u32>");
+			let decoded =
+				Compact::<u32>::decode(&mut &encoded[..]).expect("compact-encoded index decodes");
+			assert_eq!(decoded.0, index);
+		}
+	}
 }
