@@ -465,9 +465,8 @@ impl<T: Config> ContractInfo<T> {
 					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
 				break;
 			} else {
-				remaining = remaining.saturating_sub(
-					weight_per_trie_key.saturating_mul(outcome.backend.into()),
-				);
+				remaining = remaining
+					.saturating_sub(weight_per_trie_key.saturating_mul(outcome.backend.into()));
 				entry.remove();
 			}
 		}
