@@ -182,6 +182,10 @@ struct TestState {
 	session_info: HashMap<SessionIndex, SessionInfo>,
 	buffered_msg: Option<AllMessages>,
 	finalized_block: BlockNumber,
+	// Mirrors the peer manager's `latest_finalized_session`. We use it to predict
+	// whether a `handle_finalized_block` call will trigger a `ParaIds` runtime
+	// request: the peer manager only queries it on session change.
+	last_seen_finalized_session: Option<SessionIndex>,
 	// The key is the block at which it is included.
 	candidates_pending_availability: HashMap<Hash, Vec<CommittedCandidateReceipt>>,
 	candidate_nonce: u64,
@@ -292,6 +296,7 @@ impl Default for TestState {
 			sender,
 			recv,
 			finalized_block: 0,
+			last_seen_finalized_session: None,
 			candidates_pending_availability: HashMap::new(),
 			candidate_nonce: 0,
 			keystore,
@@ -509,6 +514,10 @@ impl TestState {
 		});
 	}
 
+	/// Counter-based dispatch for the messages produced by
+	/// `state.handle_finalized_block`. Each `recv` blocks long enough that CPU
+	/// contention can't truncate the loop early; we know exactly how many of each
+	/// message type to expect, so dispatch is by type with no timeout-based exit.
 	async fn handle_finalized_block(&mut self, finalized: BlockNumber) {
 		let old_finalized = self.finalized_block;
 		self.finalized_block = finalized;
@@ -521,49 +530,58 @@ impl TestState {
 			return;
 		}
 
-		let msg = match self.buffered_msg.take() {
-			Some(msg) => msg,
-			None => self.timeout_recv().await,
-		};
+		// `ancestors` as seen by peer-manager: oldest → newest. The reputation-bump
+		// loop iterates `ancestors[1..]`, issuing one `CandidateEvents` per rp.
+		let ancestors_oldest_to_newest: Vec<Hash> = (0..=diff)
+			.rev()
+			.map(|i| get_hash(finalized.saturating_sub(i)))
+			.collect();
+		let candidate_events_rps: BTreeSet<Hash> =
+			ancestors_oldest_to_newest.iter().skip(1).copied().collect();
 
-		let ancestors =
-			((finalized - diff)..finalized).map(|n| get_hash(n)).rev().collect::<Vec<_>>();
+		// `CandidatesPendingAvailability` is issued per (parent_rp, para_id) pair
+		// where the child rp's `CandidateEvents` reported a v2+ included candidate
+		// for that para. Pre-compute the set from `candidates_pending_availability`.
+		let mut candidates_pending_calls: BTreeSet<(Hash, ParaId)> = BTreeSet::new();
+		for window in ancestors_oldest_to_newest.windows(2) {
+			let parent_rp = window[0];
+			let child_rp = window[1];
+			if let Some(included) = self.candidates_pending_availability.get(&child_rp) {
+				for ccr in included {
+					// All test candidates use v2+ receipts (UMP signals encoded), so
+					// every included candidate triggers a CandidatesPendingAvailability.
+					candidates_pending_calls.insert((parent_rp, ccr.descriptor.para_id()));
+				}
+			}
+		}
 
+		// 1. Ancestors request.
+		let msg = self.next_message().await;
 		assert_matches!(
 			msg,
 			AllMessages::ChainApi(
-				ChainApiMessage::Ancestors {
-					hash,
-					k,
-					response_channel
-				}
+				ChainApiMessage::Ancestors { hash, k, response_channel }
 			) => {
 				assert_eq!(hash, get_hash(finalized));
 				assert_eq!(k as u32, diff);
-				assert_eq!(ancestors.len() as u32, diff);
-				response_channel.send(Ok(ancestors.clone())).unwrap();
+				let ancestors_newest_to_oldest: Vec<Hash> =
+					ancestors_oldest_to_newest.iter().rev().skip(1).copied().collect();
+				response_channel.send(Ok(ancestors_newest_to_oldest)).unwrap();
 			}
 		);
 
-		let mut extra_msg = loop {
-			let had_buffered_msg = self.buffered_msg.is_some();
-			let msg = match self.buffered_msg.take() {
-				Some(msg) => msg,
-				None => {
-					if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
-						msg
-					} else {
-						break None;
-					}
-				},
-			};
-
-			match msg {
+		// 2-3. Dispatch CandidateEvents and CandidatesPendingAvailability by type.
+		// We expect exactly `candidate_events_rps.len()` of the former and
+		// `candidates_pending_calls.len()` of the latter, in any order.
+		let mut remaining_events = candidate_events_rps.clone();
+		let mut remaining_pending = candidates_pending_calls;
+		while !remaining_events.is_empty() || !remaining_pending.is_empty() {
+			match self.next_message().await {
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
 					RuntimeApiRequest::CandidateEvents(tx),
 				)) => {
-					assert!(ancestors.contains(&rp) || rp == get_hash(finalized));
+					assert!(remaining_events.remove(&rp), "unexpected CandidateEvents at {:?}", rp);
 					let events = self
 						.candidates_pending_availability
 						.get(&rp)
@@ -579,13 +597,18 @@ impl TestState {
 							)
 						})
 						.collect();
-					tx.send(Ok(events)).unwrap()
+					tx.send(Ok(events)).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					rp,
 					RuntimeApiRequest::CandidatesPendingAvailability(para_id, tx),
 				)) => {
-					assert!(ancestors.contains(&rp));
+					assert!(
+						remaining_pending.remove(&(rp, para_id)),
+						"unexpected CandidatesPendingAvailability at {:?} for {:?}",
+						rp,
+						para_id,
+					);
 					let included_at = (rp.to_low_u64_be() as u32) + 1;
 					let candidates = self
 						.candidates_pending_availability
@@ -597,22 +620,12 @@ impl TestState {
 						.collect();
 					tx.send(Ok(candidates)).unwrap();
 				},
-				other => {
-					if had_buffered_msg {
-						panic!("Unexpected message: {:?}", other);
-					} else {
-						break Some(other);
-					}
-				},
-			};
-		};
+				other => panic!("Unexpected message during reputation bump dispatch: {:?}", other),
+			}
+		}
 
-		let msg = match extra_msg.take() {
-			Some(msg) => msg,
-			None => self.timeout_recv().await,
-		};
-
-		let session_index = match msg {
+		// 4. SessionIndexForChild from `state.handle_finalized_block`.
+		let session_index = match self.next_message().await {
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 				rp,
 				RuntimeApiRequest::SessionIndexForChild(tx),
@@ -621,26 +634,36 @@ impl TestState {
 				tx.send(Ok(index)).unwrap();
 				index
 			},
-			other => panic!("Unexpected message: {:?}", other),
+			other => panic!("Unexpected message (expected SessionIndexForChild): {:?}", other),
 		};
 
-		let msg = if let Some(Some(msg)) = self.recv.next().timeout(TIMEOUT).await {
-			msg
-		} else {
-			return;
-		};
+		// 5. ParaIds, fired only on session change. The peer manager queries it the
+		// first time it sees a new session.
+		let needs_para_ids = self
+			.last_seen_finalized_session
+			.map_or(true, |prev| prev < session_index);
+		if needs_para_ids {
+			assert_matches!(
+				self.next_message().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_rp,
+					RuntimeApiRequest::ParaIds(index, tx),
+				)) => {
+					assert_eq!(index, session_index);
+					let session_info = self.session_info.get(&index).unwrap();
+					tx.send(Ok(session_info.paras.clone())).unwrap();
+				}
+			);
+		}
+		self.last_seen_finalized_session = Some(session_index);
+	}
 
-		assert_matches!(
-			msg,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				_rp,
-				RuntimeApiRequest::ParaIds(index, tx),
-			)) => {
-				assert_eq!(index, session_index);
-				let session_info = self.session_info.get(&index).unwrap();
-				tx.send(Ok(session_info.paras.clone())).unwrap();
-			}
-		);
+	/// Receive the next message, taking from the buffer first if present.
+	async fn next_message(&mut self) -> AllMessages {
+		match self.buffered_msg.take() {
+			Some(msg) => msg,
+			None => self.timeout_recv().await,
+		}
 	}
 
 	async fn handle_advertisement<B: Backend>(&mut self, state: &mut State<B>, adv: Advertisement) {
