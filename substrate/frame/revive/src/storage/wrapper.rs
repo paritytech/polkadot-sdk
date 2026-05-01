@@ -146,6 +146,9 @@ where
 		<ExecutionType as PartialEq<OtherExecutionType>>::eq(&self.inner, &other.inner)
 	}
 
+	// We skip the clippy `partialeq_ne_impl` lint here as we want to forward everything from this
+	// trait to the inner type.
+	#[allow(clippy::partialeq_ne_impl)]
 	fn ne(&self, other: &StorageCodecWrapper<OtherExecutionType, OtherStorageType>) -> bool {
 		<ExecutionType as PartialEq<OtherExecutionType>>::ne(&self.inner, &other.inner)
 	}
@@ -271,10 +274,8 @@ where
 	}
 }
 
-impl<ExecutionType, StorageType> EncodeLike
-	for StorageCodecWrapper<ExecutionType, StorageType>
-where
-	Self: Encode,
+impl<ExecutionType, StorageType> EncodeLike for StorageCodecWrapper<ExecutionType, StorageType> where
+	Self: Encode
 {
 }
 
