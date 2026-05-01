@@ -1175,6 +1175,86 @@ mod precompile {
 		});
 	}
 
+	/// Replay of a consumed permit must fail through the precompile path.
+	/// EIP-2612's headline guarantee — `permit()` atomically verifies and
+	/// consumes a signature — is realized by `use_permit` incrementing the
+	/// nonce. A regression that swapped `use_permit` for `verify_permit`
+	/// (which does NOT bump the nonce) would pass every other test in this
+	/// submodule. Pinning the invariant at the precompile layer.
+	///
+	/// First submission consumes the permit (nonce 0 → 1). The same
+	/// `(v, r, s)` is then re-submitted; the precompile re-derives the
+	/// digest using the new on-chain nonce, recovery yields a different
+	/// signer, and `recovered != owner` fires "Signer does not match
+	/// owner".
+	#[test]
+	fn permit_replay_through_precompile_is_rejected() {
+		use frame_support::traits::fungibles::approvals::Inspect;
+
+		new_test_ext().execute_with(|| {
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
+
+			let (v, r, s) = sign_permit(
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+			);
+
+			let first = raw_permit(
+				setup.submitter,
+				setup.asset_addr,
+				HARDHAT_ACCOUNT_0,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+				v,
+				r,
+				s,
+			);
+			assert!(first.result.is_ok(), "first permit must succeed: {:?}", first);
+			assert!(
+				!first.result.expect("checked above").did_revert(),
+				"first permit must not revert",
+			);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::one(),
+				"first permit must advance the nonce",
+			);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100,
+			);
+
+			// Replay the exact same (v, r, s).
+			let replay = raw_permit(
+				setup.submitter,
+				setup.asset_addr,
+				HARDHAT_ACCOUNT_0,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+				v,
+				r,
+				s,
+			);
+			assert_permit_reverted_with(replay, "Signer does not match owner");
+			// Nonce must stay at 1 — the failure path must surface before
+			// any further increment, and any half-applied state rolls back.
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::one(),
+				"failed replay must not advance the nonce past 1",
+			);
+			// Allowance must still reflect only the first submission.
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100,
+			);
+		});
+	}
+
 	/// If the inner allowance update fails after `use_permit` succeeded, the
 	/// whole storage transaction must roll back — nonce, allowance, deposit,
 	/// and (importantly) any contract event from the closure body. We
