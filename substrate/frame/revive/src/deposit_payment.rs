@@ -301,10 +301,9 @@ where
 	/// deposits in either asset without tripping existential-deposit checks. The minted native
 	/// ED is [`deactivated`](frame_support::traits::fungible::Unbalanced::deactivate) so it stays
 	/// outside active issuance. The minted PGAS ED is frozen under
-	/// [`FreezeReason::PGasMinBalance`] so the contract cannot transfer or burn
-	/// it: pallet-assets'
-	/// [`reducible_balance`](pallet_assets::Pallet::reducible_balance) treats any frozen amount
-	/// as untouchable, regardless of `Preservation` / `Fortitude`.
+	/// [`FreezeReason::PGasMinBalance`] so the contract cannot transfer or burn it:
+	/// pallet-assets' `reducible_balance` treats any frozen amount as untouchable, regardless
+	/// of `Preservation` / `Fortitude`.
 	fn init_contract(to: &T::AccountId) -> DispatchResult {
 		<() as Deposit<T>>::init_contract(to)?;
 		let pgas_ed = <Mutator as fungibles::Inspect<T::AccountId>>::minimum_balance(Id::get());
