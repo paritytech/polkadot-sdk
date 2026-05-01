@@ -17,7 +17,7 @@
 use crate::{
 	bridge_common_config::BridgeReward,
 	xcm_config,
-	xcm_config::{DapSatelliteAccount, RelayNetwork, RootLocation, UniversalLocation, XcmConfig},
+	xcm_config::{AccumulateAccount, RelayNetwork, RootLocation, UniversalLocation, XcmConfig},
 	Balances, BridgeRelayers, EthereumBeaconClient, EthereumInboundQueue, EthereumInboundQueueV2,
 	EthereumOutboundQueue, EthereumOutboundQueueV2, EthereumSystem, EthereumSystemV2, MessageQueue,
 	Runtime, RuntimeEvent, TransactionByteFee,
@@ -293,7 +293,7 @@ impl snowbridge_pallet_system::Config for Runtime {
 	type OutboundQueue = EthereumOutboundQueue;
 	type SiblingOrigin = EnsureXcm<AllowSiblingsOnly>;
 	type AgentIdOf = snowbridge_core::AgentIdOf;
-	type TreasuryAccount = DapSatelliteAccount;
+	type TreasuryAccount = AccumulateAccount;
 	type Token = Balances;
 	type WeightInfo = crate::weights::snowbridge_pallet_system::WeightInfo<Runtime>;
 	#[cfg(feature = "runtime-benchmarks")]

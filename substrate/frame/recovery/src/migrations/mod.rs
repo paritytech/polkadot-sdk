@@ -15,26 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Placeholder weights for `pallet_dap_satellite`.
-//!
-//! These weights are not benchmarked. Replace with actual benchmarked weights
-//! via `frame-omni-bencher` before deploying to production.
+//! Multi-block migrations for the recovery pallet.
 
-#![cfg_attr(rustfmt, rustfmt_skip)]
-#![allow(unused_parens)]
-#![allow(unused_imports)]
-#![allow(missing_docs)]
+use frame_support::traits::StorageVersion;
 
-use frame_support::weights::Weight;
+pub mod v0;
+pub mod v1;
 
-/// Weight functions needed for `pallet_dap_satellite`.
-pub trait WeightInfo {
-	fn send_native() -> Weight;
-}
+/// Storage layout version of the pallet.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
-/// Default weights (not benchmarked).
-impl WeightInfo for () {
-	fn send_native() -> Weight {
-		Weight::zero()
-	}
-}
+/// A unique identifier for the migrations of this pallet.
+pub const PALLET_MIGRATIONS_ID: &[u8; 18] = b"pallet-recover-mbm";
