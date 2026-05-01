@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 use sp_weights::Weight;
@@ -25,7 +25,15 @@ define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime for the weight an already-encoded
 	/// Ethereum transaction will consume before it is dispatched. Used by the inclusion fee
 	/// machinery to charge the right amount before execution.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct EthPreDispatchWeightVersionedInputPayloadV1 {
 		/// Encoded Ethereum transaction whose pre-dispatch weight should be computed.
 		pub tx: Vec<u8>
@@ -33,7 +41,16 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for an
 	/// [`EthPreDispatchWeightVersionedInputPayloadV1`] request, carrying the computed weight.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct EthPreDispatchWeightVersionedOutputPayloadV1 {
 		/// Weight the transaction would consume to be dispatched.
 		pub weight: Weight

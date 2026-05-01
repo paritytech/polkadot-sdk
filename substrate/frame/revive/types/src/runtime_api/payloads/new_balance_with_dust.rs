@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::U256;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
@@ -25,7 +25,16 @@ define_versioned_interface! {
 	/// 18-decimal Ethereum units into the runtime's native `Balance` type plus the leftover dust
 	/// that does not fit in it. Used when crossing between Ethereum's 18-decimal world and the
 	/// runtime's chosen smaller-precision `Balance` type.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct NewBalanceWithDustVersionedInputPayloadV1 {
 		/// Balance to split, expressed in 18-decimal Ethereum units.
 		pub balance: U256
@@ -33,7 +42,16 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for a [`NewBalanceWithDustVersionedInputPayloadV1`]
 	/// request, carrying both halves of the split.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct NewBalanceWithDustVersionedOutputPayloadV1<Balance> {
 		/// Portion of the input that fits cleanly into the runtime's native `Balance` type.
 		pub balance: Balance,

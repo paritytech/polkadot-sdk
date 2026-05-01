@@ -18,7 +18,7 @@
 use super::transaction::HashesOrTransactionInfosV1;
 use crate::common::{Bytes, Bytes256, Bytes8};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::{Address, H256, U256};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
@@ -27,7 +27,16 @@ use serde::{Deserialize, Serialize};
 define_versioned_type! {
 	/// Version 1 of the pallet's stored Ethereum block payload.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct EthBlockV1 {
@@ -94,7 +103,17 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of a validator withdrawal included in a block.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct WithdrawalV1 {
@@ -112,7 +131,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the `EthereumBlock` storage value.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(transparent)]
 	pub struct EthereumBlockV1(
@@ -124,7 +152,17 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the `BlockHash` storage value.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	#[serde(transparent)]
 	pub struct BlockHashV1(
@@ -136,7 +174,17 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the gas data needed to reconstruct an Ethereum receipt.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	pub struct ReceiptGasInfoV1 {
 		/// The amount of gas used by one transaction.
@@ -149,7 +197,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the `ReceiptInfoData` storage value.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(transparent)]
 	pub struct ReceiptInfoDataV1(
@@ -161,7 +218,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the first encoded transaction and receipt cached by the block builder.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	pub struct BlockBuilderFirstValuesV1 {
 		/// SCALE-encoded first transaction inserted into the block builder.
@@ -174,7 +240,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the `EthBlockBuilderFirstValues` storage value.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(transparent)]
 	pub struct EthBlockBuilderFirstValuesV1(

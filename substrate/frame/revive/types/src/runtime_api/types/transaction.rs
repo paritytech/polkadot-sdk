@@ -18,7 +18,7 @@
 use super::transaction_signed::TransactionSignedV1;
 use crate::common::{Byte, Bytes};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::{Address, H256, U256};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
@@ -26,7 +26,18 @@ use serde::{Deserialize, Deserializer, Serialize};
 
 define_versioned_type! {
 	/// Version 1 of transaction input data accepted under either `input` or `data`.
-	#[derive(Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct InputOrDataV1 {
 		/// Transaction call data encoded under the preferred `input` key.
 		#[serde(skip_serializing_if = "Option::is_none")]
@@ -85,7 +96,16 @@ where
 define_versioned_type! {
 	/// Version 1 of a transaction object generic to all Ethereum transaction types.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct GenericTransactionV1 {
@@ -141,7 +161,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of block transactions represented as hashes or full transaction objects.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(untagged)]
 	pub enum HashesOrTransactionInfosV1 {
 		/// Transaction hashes.
@@ -193,7 +223,16 @@ impl HashesOrTransactionInfosV1 {
 define_versioned_type! {
 	/// Version 1 of transaction information embedded in full transaction block responses.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct TransactionInfoV1 {
@@ -216,7 +255,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an access list entry.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct AccessListEntryV1 {
@@ -230,7 +278,17 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an authorization list entry for EIP-7702.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct AuthorizationListEntryV1 {

@@ -28,7 +28,15 @@ define_versioned_interface! {
 	/// Version 1 of the input payload that dry-runs a contract call. The runtime executes the call
 	/// against the current state, reports back the resources it would have consumed, and returns
 	/// either the contract's exec output or the dispatch error that aborted execution.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct CallVersionedInputPayloadV1<AccountId, Balance> {
 		/// `AccountId` that should be treated as the caller of the contract.
 		pub origin: AccountId,
@@ -47,7 +55,15 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for a [`CallVersionedInputPayloadV1`] request,
 	/// carrying both the resource consumption of the dry run and the contract's exec result.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct CallVersionedOutputPayloadV1<Balance> {
 		/// Weight actually consumed by the call, after the runtime applied refunds.
 		pub weight_consumed: Weight,

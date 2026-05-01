@@ -16,14 +16,22 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::H256;
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 
 define_versioned_type! {
 	/// Version 1 of a contract code reference.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub enum CodeV1 {
 		/// A new contract module as raw bytes.
 		Upload(Vec<u8>),
@@ -34,7 +42,16 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the successful return value produced by uploading contract code.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct CodeUploadReturnValueV1<Balance> {
 		/// The key under which the uploaded code is stored.
 		pub code_hash: H256,

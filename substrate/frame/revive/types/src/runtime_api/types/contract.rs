@@ -16,14 +16,25 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::H160;
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 
 define_versioned_type! {
 	/// Version 1 of contract execution return flags.
-	#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Default,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct ReturnFlagsV1(
 		/// Raw return flag bits.
 		pub u32
@@ -32,7 +43,16 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the value returned by contract execution.
-	#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct ExecReturnValueV1 {
 		/// Flags returned by the executed contract.
 		pub flags: ReturnFlagsV1,
@@ -43,7 +63,16 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the value returned by successful contract instantiation.
-	#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct InstantiateReturnValueV1 {
 		/// The output produced by the contract constructor.
 		pub result: ExecReturnValueV1,
@@ -54,7 +83,16 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of a storage deposit delta.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub enum StorageDepositV1<Balance> {
 		/// The transaction reduced storage consumption.
 		Refund(Balance),

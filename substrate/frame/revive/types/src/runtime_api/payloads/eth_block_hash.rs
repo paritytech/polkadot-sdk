@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::{H256, U256};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
@@ -23,7 +23,16 @@ use scale_info::TypeInfo;
 define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime for the Ethereum hash of a block,
 	/// identified by its block number.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct EthBlockHashVersionedInputPayloadV1 {
 		/// Block number whose Ethereum hash should be returned.
 		pub number: U256
@@ -31,7 +40,16 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for an [`EthBlockHashVersionedInputPayloadV1`]
 	/// request, carrying the requested block hash if it is known to the runtime.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct EthBlockHashVersionedOutputPayloadV1 {
 		/// Ethereum hash of the requested block, or `None` if the block number does not exist on
 		/// the current chain (e.g. it is in the future or has been pruned).

@@ -30,7 +30,15 @@ define_versioned_interface! {
 	/// the resources it would have consumed plus the encoded inner-call output, so that the ETH-RPC
 	/// layer can charge the right fee and return data the same way an Ethereum execution client
 	/// would.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct EthTransactVersionedInputPayloadV1<Moment> {
 		/// Ethereum transaction to dry-run.
 		pub tx: GenericTransactionV1,
@@ -42,7 +50,15 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for an [`EthTransactVersionedInputPayloadV1`]
 	/// request, carrying the simulated resource consumption and the encoded inner-call output.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct EthTransactVersionedOutputPayloadV1<Balance> {
 		/// Weight the transaction would require to dispatch.
 		pub weight_required: Weight,

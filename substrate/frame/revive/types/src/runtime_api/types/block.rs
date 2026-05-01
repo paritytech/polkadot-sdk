@@ -18,7 +18,7 @@
 use super::transaction::HashesOrTransactionInfosV1;
 use crate::common::{Bytes, Bytes256, Bytes8};
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::{Address, H256, U256};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
@@ -27,7 +27,16 @@ use serde::{Deserialize, Serialize};
 define_versioned_type! {
 	/// Version 1 of the Ethereum block wire type returned by `pallet-revive`.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct BlockV1 {
@@ -94,7 +103,17 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of a validator withdrawal included in a block.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct WithdrawalV1 {

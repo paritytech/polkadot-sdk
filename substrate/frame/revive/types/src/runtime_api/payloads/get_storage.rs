@@ -26,7 +26,15 @@ use crate::runtime_api::StorageKeyV1;
 define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime for the value stored at a given storage
 	/// key inside a contract.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct GetStorageVersionedInputPayloadV1 {
 		/// Ethereum address of the contract whose storage is being queried.
 		pub address: H160,
@@ -36,7 +44,15 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for a [`GetStorageVersionedInputPayloadV1`]
 	/// request, carrying the value at the requested storage key.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct GetStorageVersionedOutputPayloadV1 {
 		/// Raw bytes stored at the requested key, or `None` if the slot is empty (which is distinct
 		/// from a slot that explicitly stores an empty byte sequence).

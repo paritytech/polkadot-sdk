@@ -28,7 +28,15 @@ define_versioned_interface! {
 	/// the instantiation against the current state and reports back the resources it would have
 	/// consumed plus the result of the constructor, including the deterministic address of the
 	/// would-be contract.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct InstantiateVersionedInputPayloadV1<AccountId, Balance> {
 		/// `AccountId` that should be treated as the caller initiating the instantiation.
 		pub origin: AccountId,
@@ -52,7 +60,15 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for an [`InstantiateVersionedInputPayloadV1`]
 	/// request, carrying the simulated resource consumption and the constructor's result.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct InstantiateVersionedOutputPayloadV1<Balance> {
 		/// Weight actually consumed by the instantiation, after refunds.
 		pub weight_consumed: Weight,

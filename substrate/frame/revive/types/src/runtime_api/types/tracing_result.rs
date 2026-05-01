@@ -27,7 +27,17 @@ use sp_weights::Weight;
 
 define_versioned_type! {
 	/// Version 1 of an indexed trace returned while tracing a block.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct IndexedTraceV1 {
 		/// Index of the traced transaction inside the block.
@@ -39,7 +49,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of a trace result.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(untagged)]
 	pub enum TraceV1 {
 		/// A nested call trace.
@@ -53,7 +73,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of a prestate trace.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(untagged)]
 	pub enum PrestateTraceV1 {
 		/// Accounts required to execute a transaction.
@@ -71,7 +101,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of account data returned by prestate tracing.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	pub struct PrestateTraceInfoV1 {
 		/// Account balance.
@@ -92,7 +131,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an opcode and syscall execution trace.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct ExecutionTraceV1 {
@@ -114,7 +162,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of one opcode or syscall execution step.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct ExecutionStepV1 {
@@ -142,7 +199,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of opcode or syscall step details.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(untagged)]
 	pub enum ExecutionStepKindV1 {
 		/// An EVM opcode execution.
@@ -185,7 +252,16 @@ impl Default for ExecutionStepKindV1 {
 define_versioned_type! {
 	/// Version 1 of a smart contract execution call trace.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct CallTraceV1 {
@@ -226,7 +302,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of a log emitted during a call trace.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	pub struct CallLogV1 {
 		/// Address of the contract that emitted the log.

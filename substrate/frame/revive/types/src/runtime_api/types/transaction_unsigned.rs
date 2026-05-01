@@ -18,7 +18,7 @@
 use super::transaction::{AccessListEntryV1, AuthorizationListEntryV1};
 use crate::common::Bytes;
 use alloc::{string::String, vec::Vec};
-use codec::{Decode, Encode, Input};
+use codec::{Decode, Encode, Input, MaxEncodedLen};
 use ethereum_types::{Address, H256, U256};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
@@ -27,7 +27,16 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 define_versioned_type! {
 	/// Version 1 of an EIP-7702 unsigned transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction7702UnsignedV1 {
@@ -59,7 +68,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an EIP-4844 unsigned transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction4844UnsignedV1 {
@@ -93,7 +111,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an EIP-1559 unsigned transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction1559UnsignedV1 {
@@ -125,7 +152,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an EIP-2930 unsigned transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction2930UnsignedV1 {
@@ -153,7 +189,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of a legacy unsigned transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct TransactionLegacyUnsignedV1 {
@@ -206,6 +251,12 @@ macro_rules! transaction_type {
 
 			fn type_info() -> scale_info::Type {
 				<u8 as TypeInfo>::type_info()
+			}
+		}
+
+		impl MaxEncodedLen for $name {
+			fn max_encoded_len() -> usize {
+				1
 			}
 		}
 

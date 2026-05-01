@@ -17,13 +17,23 @@
 
 //! Stable wire-owned error types returned by versioned runtime API payloads.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 
 define_versioned_type! {
 	/// Version 1 of a dispatch failure returned by dry-run contract execution.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub enum DispatchErrorV1 {
 		/// An unspecified dispatch error.
 		Other,
@@ -60,7 +70,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of a pallet-specific dispatch failure.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct ModuleErrorV1 {
 		/// Pallet index matching the runtime metadata pallet index.
 		pub index: u8,
@@ -71,7 +91,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of token-related dispatch failures.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub enum TokenErrorV1 {
 		/// Funds are unavailable.
 		FundsUnavailable,
@@ -98,7 +128,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of arithmetic dispatch failures.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub enum ArithmeticErrorV1 {
 		/// Arithmetic underflow.
 		Underflow,
@@ -111,7 +151,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of transactional-storage dispatch failures.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub enum TransactionalErrorV1 {
 		/// Too many transactional layers have been spawned.
 		LimitReached,
@@ -122,7 +172,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of trie-related dispatch failures.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub enum TrieErrorV1 {
 		/// The state root is not in the database.
 		InvalidStateRoot,

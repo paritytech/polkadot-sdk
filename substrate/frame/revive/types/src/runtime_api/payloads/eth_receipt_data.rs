@@ -16,7 +16,7 @@
 // limitations under the License.
 
 use alloc::vec::Vec;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
 
@@ -27,12 +27,29 @@ define_versioned_interface! {
 	/// to assemble Ethereum-style receipts for the current block. Off-chain clients combine this
 	/// data with their own transaction list to build receipts that match what an Ethereum execution
 	/// client would emit.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct EthReceiptDataVersionedInputPayloadV1 {}
 
 	/// Version 1 of the output payload returned for an [`EthReceiptDataVersionedInputPayloadV1`]
 	/// request, carrying the gas data for every transaction in the current block.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct EthReceiptDataVersionedOutputPayloadV1 {
 		/// One [`ReceiptGasInfoV1`] entry for each transaction in the current block, in
 		/// transaction-index order.

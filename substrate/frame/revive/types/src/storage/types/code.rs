@@ -15,14 +15,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 
 define_versioned_type! {
 	/// Version 1 of the bytecode format recorded for a code hash.
-	#[derive(Debug, Clone, Copy, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	#[derive(
+		Debug,
+		Clone,
+		Copy,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
+	)]
 	pub enum BytecodeTypeV1 {
 		/// The stored code is a PolkaVM program.
 		Pvm,
@@ -33,7 +45,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `CodeInfoOf` storage value keyed by code hash.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+	)]
 	pub struct CodeInfoV1<Owner, Balance> {
 		/// The account that uploaded the code and may remove it when it is no longer used.
 		pub owner: Owner,
@@ -50,7 +72,17 @@ define_versioned_type! {
 	}
 
 	/// Version 2 of the `CodeInfoOf` storage value keyed by code hash.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+	)]
 	pub struct CodeInfoV2<Owner, Balance> {
 		/// The account that uploaded the code and may remove it when it is no longer used.
 		pub owner: Owner,

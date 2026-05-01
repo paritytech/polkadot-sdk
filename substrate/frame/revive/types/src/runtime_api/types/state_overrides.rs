@@ -26,7 +26,16 @@ use serde::{Deserialize, Serialize};
 define_versioned_type! {
 	/// Version 1 of a mapping from account addresses to state overrides.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	pub struct StateOverrideSetV1(
 		/// Overrides keyed by account address.
@@ -50,7 +59,17 @@ impl core::ops::DerefMut for StateOverrideSetV1 {
 
 define_versioned_type! {
 	/// Version 1 of a storage override for one account.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(rename_all = "camelCase")]
 	pub enum StorageOverrideV1 {
 		/// Completely replaces the account storage with the provided slots.
@@ -63,7 +82,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the per-account overrides applied during dry-run simulation.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct StateOverrideV1 {

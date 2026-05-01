@@ -17,7 +17,7 @@
 
 use alloc::{format, string::String, vec::Vec};
 use alloy_core::hex;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use core::{
 	fmt::{Debug, Display, Formatter, Result as FmtResult},
 	str::FromStr,
@@ -28,7 +28,7 @@ use serde::{Deserialize, Serialize};
 use sp_core::{bounded::BoundedVec, ConstU32};
 
 macro_rules! impl_hex {
-	($type:ident, $inner:ty, $default:expr) => {
+	($type:ident, $inner:ty, $default:expr $(, $max_encoded_len:path)? ) => {
 		#[doc = concat!("`", stringify!($inner), "` wrapper for JSON hex encoding.")]
 		#[derive(
 			Encode,
@@ -42,6 +42,9 @@ macro_rules! impl_hex {
 			Serialize,
 			Deserialize,
 			Hash,
+			$(
+				$max_encoded_len,
+			)?
 		)]
 		pub struct $type(
 			/// The wrapped value encoded as a JSON hex string.
@@ -79,10 +82,10 @@ macro_rules! impl_hex {
 }
 
 impl_hex!(Bytes, Vec<u8>, Vec::new());
-impl_hex!(Byte, u8, 0u8);
-impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
-impl_hex!(Bytes32, [u8; 32], [0u8; 32]);
-impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
+impl_hex!(Byte, u8, 0u8, MaxEncodedLen);
+impl_hex!(Bytes8, [u8; 8], [0u8; 8], MaxEncodedLen);
+impl_hex!(Bytes32, [u8; 32], [0u8; 32], MaxEncodedLen);
+impl_hex!(Bytes256, [u8; 256], [0u8; 256], MaxEncodedLen);
 
 impl FromStr for Bytes {
 	type Err = hex::FromHexError;
@@ -126,6 +129,7 @@ impl Bytes {
 	Decode,
 	Serialize,
 	Deserialize,
+	MaxEncodedLen,
 )]
 #[serde(transparent)]
 pub struct BoundedBytes<const LIMIT: u32>(

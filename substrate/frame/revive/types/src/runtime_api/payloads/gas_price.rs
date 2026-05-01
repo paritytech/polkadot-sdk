@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::U256;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
@@ -23,12 +23,30 @@ use scale_info::TypeInfo;
 define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime for the current gas price used to
 	/// charge inclusion fees on Ethereum-style transactions.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct GasPriceVersionedInputPayloadV1 {}
 
 	/// Version 1 of the output payload returned for a [`GasPriceVersionedInputPayloadV1`] request,
 	/// carrying the current gas price.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct GasPriceVersionedOutputPayloadV1 {
 		/// Current gas price, in Ethereum gas-price units.
 		pub gas_price: U256

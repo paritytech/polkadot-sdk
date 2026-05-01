@@ -15,14 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::U256;
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 
 define_versioned_type! {
 	/// Version 1 of the gas data needed to reconstruct an Ethereum receipt.
-	#[derive(Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct ReceiptGasInfoV1 {
 		/// The amount of gas used by one transaction.
 		pub gas_used: U256,

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,17 @@ define_versioned_type! {
 	/// The runtime type carries a `PhantomData<T>` marker, but that marker contributes no SCALE
 	/// bytes and is therefore omitted from the client-facing representation.
 	#[derive(
-		Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize,
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
 	)]
 	pub struct DeletionQueueManagerV1 {
 		/// Counter used when inserting the next trie ID into the deletion queue.

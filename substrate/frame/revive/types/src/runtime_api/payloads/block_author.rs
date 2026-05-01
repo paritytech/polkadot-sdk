@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::H160;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
@@ -24,12 +24,30 @@ define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime for the author of the current block,
 	/// formatted as the H160 address that Ethereum tooling expects to see in the `coinbase` /
 	/// `miner` field of a block.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct BlockAuthorVersionedInputPayloadV1 {}
 
 	/// Version 1 of the output payload returned for a [`BlockAuthorVersionedInputPayloadV1`]
 	/// request, carrying the block author's Ethereum address.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct BlockAuthorVersionedOutputPayloadV1 {
 		/// Ethereum address of the author of the current block.
 		pub block_author: H160

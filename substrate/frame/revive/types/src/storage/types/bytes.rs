@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -62,6 +62,7 @@ define_versioned_type! {
 		Decode,
 		Serialize,
 		Deserialize,
+		MaxEncodedLen,
 	)]
 	#[serde(transparent)]
 	pub struct TrieIdV1<const LIMIT: u32>(
@@ -86,6 +87,7 @@ define_versioned_type! {
 		Decode,
 		Serialize,
 		Deserialize,
+		MaxEncodedLen,
 	)]
 	#[serde(transparent)]
 	pub struct ImmutableDataV1<const LIMIT: u32>(
@@ -110,6 +112,7 @@ define_versioned_type! {
 		Decode,
 		Serialize,
 		Deserialize,
+		MaxEncodedLen,
 	)]
 	#[serde(transparent)]
 	pub struct DeletionQueueV1<const LIMIT: u32>(

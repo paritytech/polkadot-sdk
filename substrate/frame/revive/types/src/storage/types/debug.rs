@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,17 @@ use serde::{Deserialize, Serialize};
 define_versioned_type! {
 	/// Version 1 of the `DebugSettingsOf` storage value.
 	#[derive(
-		Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize,
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
 	)]
 	pub struct DebugSettingsV1 {
 		/// Whether unlimited contract size is allowed.

@@ -25,7 +25,15 @@ define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime to trace a single transaction inside a
 	/// block, identified by its index in the block's transaction list. The block is supplied in
 	/// Ethereum-format wire shape so the runtime can replay it deterministically.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct TraceTxVersionedInputPayloadV1 {
 		/// Block containing the transaction to trace.
 		pub block: BlockV1,
@@ -37,7 +45,15 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for a [`TraceTxVersionedInputPayloadV1`] request,
 	/// carrying the trace if the transaction at the requested index exists.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct TraceTxVersionedOutputPayloadV1 {
 		/// Trace produced by replaying the transaction, or `None` if the requested transaction
 		/// index does not exist in the supplied block.

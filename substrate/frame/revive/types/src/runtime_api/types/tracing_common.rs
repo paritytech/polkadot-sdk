@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -23,7 +23,18 @@ use serde::{Deserialize, Serialize};
 define_versioned_type! {
 	/// Version 1 of the call kind reported by call tracing.
 	#[derive(
-		Debug, Default, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Copy,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	#[serde(rename_all = "UPPERCASE")]
 	pub enum CallTypeV1 {

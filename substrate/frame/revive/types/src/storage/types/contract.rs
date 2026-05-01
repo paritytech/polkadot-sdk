@@ -17,7 +17,7 @@
 
 use super::bytes::TrieIdV1;
 use crate::common::Bytes;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::H256;
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
@@ -26,7 +26,17 @@ use serde::{Deserialize, Serialize};
 define_versioned_type! {
 	/// Version 1 of the `AccountInfoOf` storage value keyed by account address.
 	#[derive(
-		Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize,
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
 	)]
 	pub struct AccountInfoV1<Balance, const TRIE_ID_LIMIT: u32> {
 		/// Whether the account is a contract or an externally owned account.
@@ -39,7 +49,17 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of the account kind stored inside `AccountInfoOf`.
 	#[derive(
-		Debug, Default, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize,
+		Debug,
+		Default,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
 	)]
 	pub enum AccountTypeV1<Balance, const TRIE_ID_LIMIT: u32> {
 		/// Contract state together with its child-trie accounting data.
@@ -52,7 +72,18 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the contract metadata nested inside `AccountInfoOf`.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
+	)]
 	pub struct ContractInfoV1<Balance, const TRIE_ID_LIMIT: u32> {
 		/// Unique identifier of the contract's child trie.
 		pub trie_id: TrieIdV1<TRIE_ID_LIMIT>,
@@ -75,7 +106,18 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `OriginalAccount` storage value keyed by Ethereum address.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+		MaxEncodedLen,
+	)]
 	#[serde(transparent)]
 	pub struct OriginalAccountV1<AccountId>(
 		/// Original `AccountId32` mapped from one Ethereum address.
@@ -85,7 +127,17 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the previous-value outcome returned by storage writes.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode, Serialize, Deserialize)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		Serialize,
+		Deserialize,
+	)]
 	pub enum WriteOutcomeV1 {
 		/// No value existed at the written key.
 		New,

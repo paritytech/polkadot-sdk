@@ -27,7 +27,17 @@ use serde::{Deserialize, Serialize};
 
 define_versioned_type! {
 	/// Version 1 of a signed transaction payload.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	#[serde(untagged)]
 	pub enum TransactionSignedV1 {
 		/// EIP-7702 signed transaction.
@@ -52,7 +62,16 @@ impl Default for TransactionSignedV1 {
 define_versioned_type! {
 	/// Version 1 of an EIP-7702 signed transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction7702SignedV1 {
@@ -74,7 +93,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an EIP-4844 signed transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction4844SignedV1 {
@@ -93,7 +121,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an EIP-1559 signed transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction1559SignedV1 {
@@ -115,7 +152,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of an EIP-2930 signed transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct Transaction2930SignedV1 {
@@ -137,7 +183,16 @@ define_versioned_type! {
 define_versioned_type! {
 	/// Version 1 of a legacy signed transaction.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(rename_all = "camelCase")]
 	pub struct TransactionLegacySignedV1 {

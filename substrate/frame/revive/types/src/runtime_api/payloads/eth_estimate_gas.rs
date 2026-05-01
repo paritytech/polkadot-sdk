@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::U256;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
@@ -27,7 +27,15 @@ define_versioned_interface! {
 	/// Ethereum transaction. The runtime performs an internal binary search to find the minimum gas
 	/// value that still allows the transaction to succeed under the supplied (and optionally
 	/// overridden) state.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct EthEstimateGasVersionedInputPayloadV1<Moment> {
 		/// Transaction to estimate gas for.
 		pub tx: GenericTransactionV1,
@@ -43,7 +51,16 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for an [`EthEstimateGasVersionedInputPayloadV1`]
 	/// request, carrying the estimated gas value.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct EthEstimateGasVersionedOutputPayloadV1 {
 		/// Minimum gas amount, in Ethereum gas units, that the transaction needs in order to
 		/// succeed under the requested simulation parameters.

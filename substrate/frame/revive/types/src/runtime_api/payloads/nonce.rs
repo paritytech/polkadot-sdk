@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::H160;
 use pallet_revive_proc_macro::define_versioned_interface;
 use scale_info::TypeInfo;
@@ -23,7 +23,16 @@ use scale_info::TypeInfo;
 define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime for the current nonce of an account
 	/// identified by its Ethereum H160 address.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct NonceVersionedInputPayloadV1 {
 		/// Ethereum address whose nonce should be returned.
 		pub address: H160
@@ -31,7 +40,16 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for a [`NonceVersionedInputPayloadV1`] request,
 	/// carrying the current nonce of the requested account.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	pub struct NonceVersionedOutputPayloadV1<Nonce> {
 		/// Current nonce of the requested account, in the runtime's native `Nonce` type.
 		pub nonce: Nonce

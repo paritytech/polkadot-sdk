@@ -25,7 +25,15 @@ define_versioned_interface! {
 	/// Version 1 of the input payload that asks the runtime to trace a single Ethereum call without
 	/// committing it. The runtime simulates the transaction against the current state (with
 	/// optional overrides) and returns the trace shape selected by the tracer config.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct TraceCallVersionedInputPayloadV1 {
 		/// Transaction to trace.
 		pub tx: GenericTransactionV1,
@@ -37,7 +45,15 @@ define_versioned_interface! {
 
 	/// Version 1 of the output payload returned for a [`TraceCallVersionedInputPayloadV1`] request,
 	/// carrying the trace produced by replaying the transaction.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub struct TraceCallVersionedOutputPayloadV1 {
 		/// Trace produced by executing the transaction under the requested tracer.
 		pub trace: TraceV1

@@ -22,7 +22,15 @@ use scale_info::TypeInfo;
 
 define_versioned_type! {
 	/// Version 1 of a contract storage key.
-	#[derive(Debug, Clone, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+	)]
 	pub enum StorageKeyV1 {
 		/// A fixed-size contract storage key.
 		Fixed([u8; 32]),

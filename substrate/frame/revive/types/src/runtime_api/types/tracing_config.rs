@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -24,7 +24,18 @@ use crate::runtime_api::StateOverrideSetV1;
 
 define_versioned_type! {
 	/// Version 1 of the tracer selection used by tracing runtime APIs.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	#[serde(tag = "tracer", content = "tracerConfig", rename_all = "camelCase")]
 	pub enum TracerTypeV1 {
 		/// Collects nested call traces.
@@ -44,7 +55,18 @@ impl Default for TracerTypeV1 {
 
 define_versioned_type! {
 	/// Version 1 of call tracer configuration.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct CallTracerConfigV1 {
 		/// Whether emitted logs are included in call traces.
@@ -63,7 +85,17 @@ impl Default for CallTracerConfigV1 {
 define_versioned_type! {
 	/// Version 1 of prestate tracer configuration.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
 	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct PrestateTracerConfigV1 {
@@ -78,7 +110,18 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of execution tracer configuration.
-	#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode)]
+	#[derive(
+		Debug,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
+		MaxEncodedLen,
+	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct ExecutionTracerConfigV1 {
 		/// Whether EVM memory capture is enabled.
@@ -116,7 +159,16 @@ impl Default for ExecutionTracerConfigV1 {
 define_versioned_type! {
 	/// Version 1 of tracing execution configuration.
 	#[derive(
-		Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
+		Debug,
+		Default,
+		Clone,
+		Serialize,
+		Deserialize,
+		Eq,
+		PartialEq,
+		TypeInfo,
+		Encode,
+		Decode,
 	)]
 	#[serde(default, rename_all = "camelCase")]
 	pub struct TracingConfigV1 {
