@@ -377,21 +377,7 @@ impl CollationManager {
 			.count()
 	}
 
-	/// The widest slice of `core`'s claim queue visible from `scheduling_parent`, taken via
-	/// the path with the smallest offset (= the shortest descending fork from `sp`, which has
-	/// produced the fewest blocks and thus consumed the fewest predicted slots).
-	///
-	/// At `sp`'s own leaf the window is the full lookahead. At an ancestor `n` blocks back on
-	/// some fork, that fork has already produced `n` blocks; their slots are filled and the
-	/// remaining window is `cq[..lookahead - n]`. With multiple descending forks we pick the
-	/// one with the most slots still in play — different forks have independent backing
-	/// futures, so a slot still open on any of them is a real fetch opportunity.
-	///
-	/// Returns an empty `Vec` if `sp` isn't reachable from any leaf with a CQ for `core`.
-	///
-	/// We assume CQ entries on shared positions across descending forks agree (the runtime's
-	/// scheduling is a per-SP prediction over `lookahead` blocks). Adversarial divergence is
-	/// possible only across runtime upgrades and is left to recover on the next view update.
+	/// Claim queue for `core` at `leaf`.
 	fn cq(&self, leaf: &Hash, core: CoreIndex) -> Option<&VecDeque<ParaId>> {
 		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
 	}
@@ -442,9 +428,7 @@ impl CollationManager {
 			let sp_core = self.per_scheduling_parent[&sp].core_index;
 
 			// Pick the path-state under `sp_core` through `sp` that yields the most
-			// still-free positions in `sp`'s window. Sibling forks have independent
-			// backing futures, so the most-permissive view is the right one. PathStates
-			// whose chain doesn't contain `sp` return an empty list and lose the max.
+			// still-free positions in `sp`'s window.
 			let unfulfilled = path_states
 				.get(&sp_core)
 				.into_iter()
