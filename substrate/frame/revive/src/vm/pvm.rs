@@ -504,9 +504,13 @@ impl<'a, E: Ext, M: ?Sized + Memory<E::T>> Runtime<'a, E, M> {
 
 		let key = self.decode_key(memory, key_ptr, key_len)?;
 
-		let value = match value {
-			StorageValue::Memory { ptr, len } => Some(memory.read(ptr, len)?),
-			StorageValue::Value(data) => Some(data),
+		let value = if value_len == 0 {
+			None
+		} else {
+			Some(match value {
+				StorageValue::Memory { ptr, len } => memory.read(ptr, len)?,
+				StorageValue::Value(data) => data,
+			})
 		};
 
 		let write_outcome = if transient {

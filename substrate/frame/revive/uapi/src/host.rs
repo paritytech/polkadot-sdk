@@ -382,10 +382,14 @@ pub trait HostFn: private::Sealed {
 	/// The key and value lengths must not exceed the maximums defined by the `pallet-revive`
 	/// parameters.
 	///
+	/// Passing an empty `value` deletes the entry under `key`, mirroring the
+	/// fixed-key [`HostFn::set_storage_or_clear`] which clears on an all-zero
+	/// 32-byte value.
+	///
 	/// # Parameters
 	///
 	/// - `key`: The storage key.
-	/// - `encoded_value`: The storage value.
+	/// - `encoded_value`: The storage value. An empty slice deletes the entry.
 	///
 	/// # Return
 	///
