@@ -66,13 +66,11 @@ mod requests;
 /// Reason for rejecting an advertisement.
 #[derive(Debug, thiserror::Error)]
 pub enum AdvertisementError {
-	#[error("Validator is not assigned to this paraid")]
-	InvalidAssignment,
 	#[error("Duplicate advertisement")]
 	Duplicate,
 	#[error("Advertised scheduling parent is out of our view")]
 	OutOfOurView,
-	#[error("Peer reached the candidate limit")]
+	#[error("Peer reached the candidate limit (or para is not schedulable from this SP)")]
 	PeerLimitReached,
 	#[error("Seconding not allowed by backing subsystem")]
 	BlockedByBacking,
@@ -91,7 +89,7 @@ pub struct CollationManager {
 	// `request_claim_queue`. This is the authoritative CQ — it's what the runtime will see
 	// when candidates get backed on-chain — so all capacity reasoning routes through it.
 	// Per-scheduling-parent capacity is derived via offset arithmetic from the leaf's CQ
-	// (`unfulfilled_claim_queue_entries`, `is_slot_available`).
+	// (`unfulfilled_claim_queue_entries`, `slots_available`).
 	leaf_claim_queues: HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 
 	// Collations which we haven't been able to second due to their parent not being known by
@@ -278,37 +276,37 @@ impl CollationManager {
 			.collect()
 	}
 
-	/// Returns `Ok(())` if `para_id` is reachable at `scheduling_parent` — i.e. it's in the SP's
-	/// visible window of the leaf's CQ for our core (see `our_window`).
+	/// Number of CQ positions assigned to `para_id` in the SP's visible window of our core.
 	///
-	/// This is just an "is this advertisement valid at this scheduling parent" gate; capacity
-	/// is enforced separately in `try_make_new_fetch_requests` via
+	/// Returns `0` if the SP isn't in view.
+	///
+	/// Note: this is *not* a capacity check. Capacity (which slots are still unfulfilled) is
+	/// enforced separately in `try_make_new_fetch_requests` via
 	/// `unfulfilled_claim_queue_entries`. Accepting an advertisement that won't be fetchable
 	/// right away is fine — it stays parked in `peer_advertisements` until a slot opens up.
-	fn is_slot_available(
-		&self,
-		scheduling_parent: &Hash,
-		para_id: ParaId,
-	) -> std::result::Result<(), AdvertisementError> {
+	fn slots_available(&self, scheduling_parent: &Hash, para_id: ParaId) -> usize {
 		let Some(per_sp) = self.per_scheduling_parent.get(scheduling_parent) else {
-			return Err(AdvertisementError::OutOfOurView);
+			return 0;
 		};
-		if self.our_window(scheduling_parent, per_sp.core_index).contains(&para_id) {
-			Ok(())
-		} else {
-			Err(AdvertisementError::InvalidAssignment)
-		}
+		self.our_window(scheduling_parent, per_sp.core_index)
+			.iter()
+			.filter(|p| **p == para_id)
+			.count()
 	}
 
 	pub async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		scheduling_parent: Hash,
-		para_id: ParaId,
-		peer_id: PeerId,
-		prospective_candidate: Option<ProspectiveCandidate>,
-		advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+		advertisement: Advertisement,
 	) -> std::result::Result<(), AdvertisementError> {
+		let Advertisement {
+			scheduling_parent,
+			para_id,
+			prospective_candidate,
+			advertised_descriptor_version,
+			..
+		} = advertisement;
+
 		// V1 advertisements are only allowed on active leaves.
 		if prospective_candidate.is_none() && !self.implicit_view.contains_leaf(&scheduling_parent)
 		{
@@ -323,14 +321,7 @@ impl CollationManager {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 
-		// Para must be schedulable from this scheduling parent — i.e. it appears in our
-		// core's CQ within the SP's visible window.
-		self.is_slot_available(&scheduling_parent, para_id)?;
-
-		// Per-peer rate limit: we cap a peer at one advertisement per CQ slot allocated to
-		// `para_id` in our view of `scheduling_parent`. A peer can't fulfil more slots than
-		// exist for its para anyway, so anything beyond that is spam.
-		let spam_limit = self.cq_slot_count(&scheduling_parent, para_id);
+		let available_slots = self.slots_available(&scheduling_parent, para_id);
 
 		let Some(per_sp) = self.per_scheduling_parent.get_mut(&scheduling_parent) else {
 			return Err(AdvertisementError::OutOfOurView);
@@ -342,19 +333,11 @@ impl CollationManager {
 			}
 		}
 
-		let advertisement = Advertisement {
-			peer_id,
-			para_id,
-			scheduling_parent,
-			prospective_candidate,
-			advertised_descriptor_version,
-		};
-
 		if self.fetching.contains(&advertisement) {
 			return Err(AdvertisementError::Duplicate);
 		}
 
-		per_sp.can_keep_advertisement(advertisement, spam_limit)?;
+		per_sp.can_keep_advertisement(advertisement, available_slots)?;
 
 		if !backing_allows_seconding(sender, &advertisement).await {
 			return Err(AdvertisementError::BlockedByBacking);
@@ -363,18 +346,6 @@ impl CollationManager {
 		per_sp.add_advertisement(advertisement, Instant::now());
 
 		Ok(())
-	}
-
-	// Per-peer rate limit on advertisements at `scheduling_parent` for `para_id`: the number
-	// of CQ positions assigned to that para in this SP's visible window.
-	fn cq_slot_count(&self, scheduling_parent: &Hash, para_id: ParaId) -> usize {
-		let Some(per_sp) = self.per_scheduling_parent.get(scheduling_parent) else {
-			return 0;
-		};
-		self.our_window(scheduling_parent, per_sp.core_index)
-			.iter()
-			.filter(|p| **p == para_id)
-			.count()
 	}
 
 	/// Claim queue for `core` at `leaf`.

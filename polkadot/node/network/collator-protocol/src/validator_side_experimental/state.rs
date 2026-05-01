@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
-			CanSecond, CollationFetchResponse, PeerInfo, PeerState, ProspectiveCandidate,
-			TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
+			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -258,22 +258,19 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
+		let advertisement = Advertisement {
+			peer_id,
+			para_id: *para_id,
+			scheduling_parent,
+			prospective_candidate: maybe_prospective_candidate,
+			advertised_descriptor_version,
+		};
+
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self
-			.collation_manager
-			.try_accept_advertisement(
-				sender,
-				scheduling_parent,
-				*para_id,
-				peer_id,
-				maybe_prospective_candidate,
-				advertised_descriptor_version,
-			)
-			.await
-		{
+		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
