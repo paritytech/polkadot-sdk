@@ -141,6 +141,7 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 	"k256",
+	"pallet-assets-freezer/runtime-benchmarks",
 	"pallet-assets-holder/runtime-benchmarks",
 	"pallet-assets/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
@@ -159,6 +160,7 @@ runtime-benchmarks = [
 try-runtime = [
 	"frame-support/try-runtime",
 	"frame-system/try-runtime",
+	"pallet-assets-freezer/try-runtime",
 	"pallet-assets-holder/try-runtime",
 	"pallet-assets/try-runtime",
 	"pallet-balances/try-runtime",
