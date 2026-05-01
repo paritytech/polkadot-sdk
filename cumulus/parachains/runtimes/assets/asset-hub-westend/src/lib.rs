@@ -685,6 +685,44 @@ impl pallet_utility::Config for Runtime {
 }
 
 parameter_types! {
+	pub const RecoveryFriendGroupsHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::FriendGroupsStorage);
+	pub const RecoveryAttemptHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::AttemptStorage);
+	pub const RecoveryInheritorHoldReason: RuntimeHoldReason = RuntimeHoldReason::Recovery(pallet_recovery::HoldReason::InheritorStorage);
+	// Simplified deposits
+	pub const RecoveryDepositBase: Balance = deposit(1, 64);
+	pub const RecoveryDepositFactor: Balance = deposit(0, 32);
+}
+
+impl pallet_recovery::Config for Runtime {
+	type RuntimeCall = RuntimeCall;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
+	type Currency = Balances;
+	type FriendGroupsConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryFriendGroupsHoldReason,
+		LinearStoragePrice<RecoveryDepositBase, RecoveryDepositFactor, Balance>,
+	>;
+	type AttemptConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryAttemptHoldReason,
+		LinearStoragePrice<RecoveryDepositBase, RecoveryDepositFactor, Balance>,
+	>;
+	type InheritorConsideration = HoldConsideration<
+		AccountId,
+		Balances,
+		RecoveryInheritorHoldReason,
+		LinearStoragePrice<RecoveryDepositBase, RecoveryDepositFactor, Balance>,
+	>;
+	type SecurityDeposit = ConstU128<{ 10 * UNITS }>;
+	type MaxFriendsPerConfig = ConstU32<100>;
+	type WeightInfo = ();
+	type Slash = Dap;
+}
+
+parameter_types! {
 	// One storage item; key size 32, value size 8; .
 	pub const ProxyDepositBase: Balance = deposit(1, 40);
 	// Additional storage item size of 33 bytes.
@@ -1718,6 +1756,7 @@ construct_runtime!(
 		MetaTx: pallet_meta_tx = 44,
 		VerifySignature: pallet_verify_signature = 45,
 		Parameters: pallet_parameters = 46,
+		Recovery: pallet_recovery = 47,
 
 		// The main stage.
 		Assets: pallet_assets::<Instance1> = 50,

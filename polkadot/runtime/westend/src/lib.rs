@@ -94,7 +94,7 @@ use sp_consensus_beefy::{
 	ecdsa_crypto::{AuthorityId as BeefyId, Signature as BeefySignature},
 	mmr::{BeefyDataProvider, MmrLeafVersion},
 };
-use sp_core::{ConstBool, ConstUint, OpaqueMetadata, H256};
+use sp_core::{ConstBool, ConstU128, ConstUint, OpaqueMetadata, H256};
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 use sp_runtime::{
@@ -930,8 +930,8 @@ impl ah_client::Config for Runtime {
 impl pallet_fast_unstake::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type Currency = Balances;
-	type BatchSize = frame_support::traits::ConstU32<64>;
-	type Deposit = frame_support::traits::ConstU128<{ UNITS }>;
+	type BatchSize = ConstU32<64>;
+	type Deposit = ConstU128<{ UNITS }>;
 	// TODO: drop once pallet is removed from Westend RC (post-AHM cleanup).
 	#[cfg(not(feature = "runtime-benchmarks"))]
 	type ControlOrigin = EnsureNever<AccountId>;
@@ -1150,25 +1150,6 @@ impl pallet_multisig::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ConfigDepositBase: Balance = 500 * CENTS;
-	pub const FriendDepositFactor: Balance = 50 * CENTS;
-	pub const MaxFriends: u16 = 9;
-	pub const RecoveryDeposit: Balance = 500 * CENTS;
-}
-
-impl pallet_recovery::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type WeightInfo = ();
-	type RuntimeCall = RuntimeCall;
-	type BlockNumberProvider = System;
-	type Currency = Balances;
-	type ConfigDepositBase = ConfigDepositBase;
-	type FriendDepositFactor = FriendDepositFactor;
-	type MaxFriends = MaxFriends;
-	type RecoveryDeposit = RecoveryDeposit;
-}
-
-parameter_types! {
 	pub const MinVestedTransfer: Balance = 100 * CENTS;
 	pub UnvestedFundsAllowedWithdrawReasons: WithdrawReasons =
 		WithdrawReasons::except(WithdrawReasons::TRANSFER | WithdrawReasons::RESERVE);
@@ -1253,13 +1234,6 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				RuntimeCall::Grandpa(..) |
 				RuntimeCall::Utility(..) |
 				RuntimeCall::Identity(..) |
-				RuntimeCall::Recovery(pallet_recovery::Call::as_recovered{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::vouch_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::claim_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::close_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::remove_recovery{..}) |
-				RuntimeCall::Recovery(pallet_recovery::Call::cancel_recovered{..}) |
-				// Specifically omitting Recovery `create_recovery`, `initiate_recovery`
 				RuntimeCall::Vesting(pallet_vesting::Call::vest{..}) |
 				RuntimeCall::Vesting(pallet_vesting::Call::vest_other{..}) |
 				// Specifically omitting Vesting `vested_transfer`, and `force_vested_transfer`
@@ -1822,10 +1796,6 @@ mod runtime {
 	#[runtime::pallet_index(17)]
 	pub type Identity = pallet_identity;
 
-	// Social recovery module.
-	#[runtime::pallet_index(18)]
-	pub type Recovery = pallet_recovery;
-
 	// Vesting. Usable initially, but removed once all vesting is finished.
 	#[runtime::pallet_index(19)]
 	pub type Vesting = pallet_vesting;
@@ -1990,6 +1960,7 @@ pub type TxExtension = (
 parameter_types! {
 	/// Bounding number of agent pot accounts to be migrated in a single block.
 	pub const MaxAgentsToMigrate: u32 = 300;
+	pub const RecoveryPalletName: &'static str = "Recovery";
 }
 
 /// All migrations that will run on the next runtime upgrade.
@@ -2055,6 +2026,11 @@ pub mod migrations {
 			WhitelistPalletStr,
 			<Runtime as frame_system::Config>::DbWeight,
 		>,
+		// Remove the Recovery pallet.
+		frame_support::migrations::RemovePallet<
+			RecoveryPalletName,
+			<Runtime as frame_system::Config>::DbWeight,
+		>,
 		// permanent
 		pallet_xcm::migration::MigrateToLatestXcmVersion<Runtime>,
 	);
@@ -2118,7 +2094,6 @@ mod benches {
 		[pallet_parameters, Parameters]
 		[pallet_preimage, Preimage]
 		[pallet_proxy, Proxy]
-		[pallet_recovery, Recovery]
 		[pallet_scheduler, Scheduler]
 		[pallet_session, SessionBench::<Runtime>]
 		[pallet_staking, Staking]
