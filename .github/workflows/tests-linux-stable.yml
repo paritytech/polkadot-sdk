@@ -147,6 +147,8 @@ jobs:
       - name: script
         id: required
         run: |
+          # Fixes "detected dubious ownership" error in the ci
+          git config --global --add safe.directory '*'
           forklift cargo nextest run --workspace \
                    --locked \
                    --release \
