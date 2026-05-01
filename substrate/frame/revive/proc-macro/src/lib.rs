@@ -771,8 +771,7 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///   synthetic `field_N` name produced from previous tuple fields, duplicate current fields.
 #[proc_macro]
 pub fn define_versioned_type(input: TokenStream) -> TokenStream {
-	let input =
-		syn::parse_macro_input!(input as define_versioned_type::DefineVersionedTypeInput);
+	let input = syn::parse_macro_input!(input as define_versioned_type::DefineVersionedTypeInput);
 	let output = match define_versioned_type::handle_define_versioned_type(input) {
 		Ok(output) => output,
 		Err(error) => return error.to_compile_error().into(),
@@ -1402,9 +1401,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 ///   enum, write them on the wrapping module that contains the invocation.
 #[proc_macro]
 pub fn define_versioned_interface(input: TokenStream) -> TokenStream {
-	let input = syn::parse_macro_input!(
-		input as define_versioned_interface::DefineVersionedInterfaceInput
-	);
+	let input =
+		syn::parse_macro_input!(input as define_versioned_interface::DefineVersionedInterfaceInput);
 	let output = match define_versioned_interface::handle_define_versioned_interface(input) {
 		Ok(output) => output,
 		Err(error) => return error.to_compile_error().into(),
