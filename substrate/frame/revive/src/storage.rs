@@ -20,7 +20,8 @@
 //! between the types which are written to storage and the types which are used in pallet-revive in
 //! execution to strengthen the stability guarantees (and make them more explicit) around storage.
 
-mod wrapper;
+pub(crate) mod traits;
+pub(crate) mod wrapper;
 
 use crate::{
 	AccountInfoOf, BalanceOf, BalanceWithDust, Config, DeletionQueue, DeletionQueueCounter, Error,
