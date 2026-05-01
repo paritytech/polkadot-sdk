@@ -857,15 +857,34 @@ mod precompile {
 		assert!(!result.result.unwrap().did_revert(), "permit call reverted");
 	}
 
-	/// Asserts a permit submission was rejected (either as a Rust `Err` or
-	/// an EVM revert). Use only for paths going through
-	/// `Error::Error(DispatchError)`. For permit-pallet errors with known
-	/// reason strings, prefer `assert_permit_reverted_with`.
-	fn assert_permit_reverted(
+	/// Asserts a permit submission trapped with `Err(DispatchError::Module(_))`
+	/// matching the given pallet error variant. Use for the
+	/// `Error::Error(DispatchError)` trap path; for clean reverts use
+	/// `assert_permit_reverted_with`.
+	///
+	/// Strict equality against the lifted `DispatchError` ensures unrelated
+	/// failure modes (out-of-gas, panics, weight exhaustion, a different
+	/// pallet error) cannot silently keep the test green if the failure
+	/// surface changes.
+	fn assert_permit_dispatch_err<E>(
 		result: pallet_revive::ContractResult<pallet_revive::ExecReturnValue, u64>,
-	) {
-		let reverted = result.result.as_ref().map_or(true, |v| v.did_revert());
-		assert!(reverted, "permit should be rejected: {:?}", result);
+		expected: E,
+	) where
+		E: Into<sp_runtime::DispatchError>,
+	{
+		use sp_runtime::DispatchError;
+		let expected: DispatchError = expected.into();
+		let actual = match result.result {
+			Err(e) => e,
+			Ok(v) =>
+				panic!("permit expected to trap with {:?}; call returned Ok({:?})", expected, v),
+		};
+		assert!(
+			matches!(actual, DispatchError::Module(_)),
+			"expected DispatchError::Module(...), got {:?}",
+			actual,
+		);
+		assert_eq!(actual, expected);
 	}
 
 	/// Asserts the call cleanly reverted (not trapped) and that the revert
@@ -1143,7 +1162,7 @@ mod precompile {
 				r,
 				s,
 			);
-			assert_permit_reverted(result);
+			assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
 
 			assert_eq!(
 				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
@@ -1206,7 +1225,7 @@ mod precompile {
 				r,
 				s,
 			);
-			assert_permit_reverted(result);
+			assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
 
 			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
 			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
@@ -1297,14 +1316,9 @@ mod precompile {
 				r,
 				s,
 			);
-			// Pin the current behaviour: the dispatch-error path returns
-			// `Err`, not a clean revert. If a future change routes this
-			// through `Error::Revert` instead, this assertion will fail and
-			// the test can be tightened to `assert_permit_reverted_with`.
-			assert!(
-				result.result.is_err(),
-				"deposit-reserve failure is expected to surface as Err; got {:?}",
-				result
+			assert_permit_dispatch_err(
+				result,
+				pallet_balances::Error::<Test>::InsufficientBalance,
 			);
 			assert_eq!(
 				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
