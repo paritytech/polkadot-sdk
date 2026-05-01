@@ -15,19 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// # Multi-Block Migrations Module
+//! Multi-block migrations for the recovery pallet.
 
-/// Migrations from the old `ContractInfoOf` to the new `AccountInfoOf` storage
+use frame_support::traits::StorageVersion;
+
+pub mod v0;
 pub mod v1;
 
-/// Migrations from the old `CodeInfoOf` to the new `CodeInfoOf` storage
-pub mod v2;
+/// Storage layout version of the pallet.
+pub const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 
-/// Auto-map all existing accounts
-pub mod v3;
-
-/// Switch storage deposits from native currency to PGAS.
-pub mod v4;
-
-/// A unique identifier across all pallets.
-const PALLET_MIGRATIONS_ID: &[u8; 17] = b"pallet-revive-mbm";
+/// A unique identifier for the migrations of this pallet.
+pub const PALLET_MIGRATIONS_ID: &[u8; 18] = b"pallet-recover-mbm";
