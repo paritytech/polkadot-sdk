@@ -376,7 +376,7 @@ pub mod pallet {
 	///
 	/// This is used to calculate average price, should have bounded size.
 	#[pallet::storage]
-	pub(super) type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
+	pub type Prices<T: Config> = StorageValue<_, BoundedVec<u32, T::MaxPrices>, ValueQuery>;
 
 	/// Defines the block when next authorized transaction will be accepted.
 	///
@@ -384,7 +384,7 @@ pub mod pallet {
 	/// we only allow one transaction every `T::AuthorizedTxInterval` blocks.
 	/// This storage entry defines when new transaction is going to be accepted.
 	#[pallet::storage]
-	pub(super) type NextAuthorizedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type NextAuthorizedAt<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 }
 
 /// Payload used by this example crate to hold price

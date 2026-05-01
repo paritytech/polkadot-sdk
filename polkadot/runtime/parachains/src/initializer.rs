@@ -87,7 +87,7 @@ impl<BlockNumber: Default + From<u32>> Default for SessionChangeNotification<Blo
 }
 
 #[derive(Encode, Decode, TypeInfo)]
-pub(crate) struct BufferedSessionChange {
+pub struct BufferedSessionChange {
 	pub validators: Vec<ValidatorId>,
 	pub queued: Vec<ValidatorId>,
 	pub session_index: SessionIndex,
@@ -147,7 +147,7 @@ pub mod pallet {
 	/// of them writes to the trie and one does not. This confusion makes `Option<()>` more suitable
 	/// for the semantics of this variable.
 	#[pallet::storage]
-	pub(super) type HasInitialized<T: Config> = StorageValue<_, ()>;
+	pub type HasInitialized<T: Config> = StorageValue<_, ()>;
 
 	/// Buffered session changes.
 	///
@@ -157,7 +157,7 @@ pub mod pallet {
 	/// However this is a `Vec` regardless to handle various edge cases that may occur at runtime
 	/// upgrade boundaries or if governance intervenes.
 	#[pallet::storage]
-	pub(crate) type BufferedSessionChanges<T: Config> =
+	pub type BufferedSessionChanges<T: Config> =
 		StorageValue<_, Vec<BufferedSessionChange>, ValueQuery>;
 
 	#[pallet::hooks]

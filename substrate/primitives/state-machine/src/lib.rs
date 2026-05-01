@@ -175,7 +175,8 @@ mod execution {
 	use sp_trie::PrefixedMemoryDB;
 	use std::collections::{HashMap, HashSet};
 
-	pub(crate) type CallResult<E> = Result<Vec<u8>, E>;
+	/// The result of a function call.
+	pub type CallResult<E> = Result<Vec<u8>, E>;
 
 	/// Default handler of the execution manager.
 	pub type DefaultHandler<E> = fn(CallResult<E>, CallResult<E>) -> CallResult<E>;

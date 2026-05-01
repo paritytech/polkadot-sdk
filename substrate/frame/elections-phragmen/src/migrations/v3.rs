@@ -54,21 +54,21 @@ type Candidates<V, T: Config> =
 	StorageValue<Pallet<T>, Vec<(<V as V2ToV3>::AccountId, <V as V2ToV3>::Balance)>, ValueQuery>;
 
 #[frame_support::storage_alias]
-type Members<V, T: Config> = StorageValue<
+pub type Members<V, T: Config> = StorageValue<
 	Pallet<T>,
 	Vec<SeatHolder<<V as V2ToV3>::AccountId, <V as V2ToV3>::Balance>>,
 	ValueQuery,
 >;
 
 #[frame_support::storage_alias]
-type RunnersUp<V, T: Config> = StorageValue<
+pub type RunnersUp<V, T: Config> = StorageValue<
 	Pallet<T>,
 	Vec<SeatHolder<<V as V2ToV3>::AccountId, <V as V2ToV3>::Balance>>,
 	ValueQuery,
 >;
 
 #[frame_support::storage_alias]
-type Voting<V, T: Config> = StorageMap<
+pub type Voting<V, T: Config> = StorageMap<
 	Pallet<T>,
 	Twox64Concat,
 	<V as V2ToV3>::AccountId,

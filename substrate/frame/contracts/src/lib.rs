@@ -1324,11 +1324,11 @@ pub mod pallet {
 
 	/// A mapping from a contract's code hash to its code.
 	#[pallet::storage]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, CodeHash<T>, CodeVec<T>>;
+	pub type PristineCode<T: Config> = StorageMap<_, Identity, CodeHash<T>, CodeVec<T>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
-	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, CodeHash<T>, CodeInfo<T>>;
+	pub type CodeInfoOf<T: Config> = StorageMap<_, Identity, CodeHash<T>, CodeInfo<T>>;
 
 	/// This is a **monotonic** counter incremented on contract instantiation.
 	///
@@ -1353,33 +1353,30 @@ pub mod pallet {
 	/// Do not use it to determine the number of contracts. It won't be decremented if
 	/// a contract is destroyed.
 	#[pallet::storage]
-	pub(crate) type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
+	pub type Nonce<T: Config> = StorageValue<_, u64, ValueQuery>;
 
 	/// The code associated with a given account.
 	///
 	/// TWOX-NOTE: SAFE since `AccountId` is a secure hash.
 	#[pallet::storage]
-	pub(crate) type ContractInfoOf<T: Config> =
-		StorageMap<_, Twox64Concat, T::AccountId, ContractInfo<T>>;
+	pub type ContractInfoOf<T: Config> = StorageMap<_, Twox64Concat, T::AccountId, ContractInfo<T>>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
 	/// Child trie deletion is a heavy operation depending on the amount of storage items
 	/// stored in said trie. Therefore this operation is performed lazily in `on_idle`.
 	#[pallet::storage]
-	pub(crate) type DeletionQueue<T: Config> = StorageMap<_, Twox64Concat, u32, TrieId>;
+	pub type DeletionQueue<T: Config> = StorageMap<_, Twox64Concat, u32, TrieId>;
 
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
 	#[pallet::storage]
-	pub(crate) type DeletionQueueCounter<T: Config> =
-		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
+	pub type DeletionQueueCounter<T: Config> = StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
 
 	/// A migration can span across multiple blocks. This storage defines a cursor to track the
 	/// progress of the migration, enabling us to resume from the last completed position.
 	#[pallet::storage]
-	pub(crate) type MigrationInProgress<T: Config> =
-		StorageValue<_, migration::Cursor, OptionQuery>;
+	pub type MigrationInProgress<T: Config> = StorageValue<_, migration::Cursor, OptionQuery>;
 }
 
 /// The type of origins supported by the contracts pallet.

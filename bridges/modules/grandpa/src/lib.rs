@@ -414,7 +414,7 @@ pub mod pallet {
 
 	/// Hash of the header used to bootstrap the pallet.
 	#[pallet::storage]
-	pub(super) type InitialHash<T: Config<I>, I: 'static = ()> =
+	pub type InitialHash<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BridgedBlockHash<T, I>, ValueQuery>;
 
 	/// Hash of the best finalized header.
@@ -424,7 +424,7 @@ pub mod pallet {
 
 	/// A ring buffer of imported hashes. Ordered by the insertion time.
 	#[pallet::storage]
-	pub(super) type ImportedHashes<T: Config<I>, I: 'static = ()> = StorageMap<
+	pub type ImportedHashes<T: Config<I>, I: 'static = ()> = StorageMap<
 		Hasher = Identity,
 		Key = u32,
 		Value = BridgedBlockHash<T, I>,
@@ -435,7 +435,7 @@ pub mod pallet {
 
 	/// Current ring buffer position.
 	#[pallet::storage]
-	pub(super) type ImportedHashesPointer<T: Config<I>, I: 'static = ()> =
+	pub type ImportedHashesPointer<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, u32, ValueQuery>;
 
 	/// Relevant fields of imported headers.

@@ -206,7 +206,7 @@ pub mod pallet {
 
 	/// Pending swap operations.
 	#[pallet::storage]
-	pub(super) type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
+	pub type PendingSwap<T> = StorageMap<_, Twox64Concat, ParaId, ParaId>;
 
 	/// Amount held on deposit for each para and the original depositor.
 	///

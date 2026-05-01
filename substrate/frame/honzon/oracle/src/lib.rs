@@ -131,8 +131,8 @@ impl<OracleKey, OracleValue, L: Get<u32>> BenchmarkHelper<OracleKey, OracleValue
 pub mod pallet {
 	use super::*;
 
-	pub(crate) type MomentOf<T, I = ()> = <<T as Config<I>>::Time as Time>::Moment;
-	pub(crate) type TimestampedValueOf<T, I = ()> =
+	pub type MomentOf<T, I = ()> = <<T as Config<I>>::Time as Time>::Moment;
+	pub type TimestampedValueOf<T, I = ()> =
 		TimestampedValue<<T as Config<I>>::OracleValue, MomentOf<T, I>>;
 
 	/// A wrapper for a value with a timestamp.
@@ -291,7 +291,7 @@ pub mod pallet {
 	/// The storage is cleared at the end of each block in the `on_finalize` hook, resetting
 	/// the state for the next block.
 	#[pallet::storage]
-	pub(crate) type HasDispatched<T: Config<I>, I: 'static = ()> =
+	pub type HasDispatched<T: Config<I>, I: 'static = ()> =
 		StorageValue<_, BoundedBTreeSet<T::AccountId, T::MaxHasDispatchedSize>, ValueQuery>;
 
 	#[pallet::pallet]

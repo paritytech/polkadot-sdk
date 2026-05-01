@@ -76,18 +76,17 @@ pub use payment::*;
 pub use weights::WeightInfo;
 
 /// Balance type alias for balances of the chain's native asset.
-pub(crate) type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
+pub type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
-pub(crate) type OnChargeTransactionOf<T> =
-	<T as pallet_transaction_payment::Config>::OnChargeTransaction;
+pub type OnChargeTransactionOf<T> = <T as pallet_transaction_payment::Config>::OnChargeTransaction;
 
 /// Liquidity info type alias for the chain's native asset.
-pub(crate) type NativeLiquidityInfoOf<T> =
+pub type NativeLiquidityInfoOf<T> =
 	<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::LiquidityInfo;
 
 /// Liquidity info type alias for the chain's assets.
-pub(crate) type AssetLiquidityInfoOf<T> =
+pub type AssetLiquidityInfoOf<T> =
 	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::LiquidityInfo;
 
 /// Used to pass the initial payment info from pre- to post-dispatch.

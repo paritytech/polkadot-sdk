@@ -55,12 +55,11 @@ pub mod pallet {
 
 	/// Validators that should be retired, because their Parachain was deregistered.
 	#[pallet::storage]
-	pub(crate) type ValidatorsToRetire<T: Config> =
-		StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
+	pub type ValidatorsToRetire<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	/// Validators that should be added.
 	#[pallet::storage]
-	pub(crate) type ValidatorsToAdd<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
+	pub type ValidatorsToAdd<T: Config> = StorageValue<_, Vec<T::ValidatorId>, ValueQuery>;
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {

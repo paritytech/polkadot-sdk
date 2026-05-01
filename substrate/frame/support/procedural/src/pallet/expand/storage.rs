@@ -386,6 +386,14 @@ fn augment_final_docs(def: &mut Def) {
 /// * Add `#[allow(type_alias_bounds)]` on storages type alias
 /// * generate metadatas
 pub fn expand_storages(def: &mut Def) -> proc_macro2::TokenStream {
+	if !def.dev_mode {
+		for storage in &def.storages {
+			if !matches!(storage.vis, syn::Visibility::Public(_)) {
+				super::warnings::private_storage_warning(&storage.ident, &mut def.config.warnings);
+			}
+		}
+	}
+
 	let on_empty_struct_metadata = match process_generics(def) {
 		Ok(idents) => idents,
 		Err(e) => return e.into_compile_error(),

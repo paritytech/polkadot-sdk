@@ -96,3 +96,16 @@ fn contains_ident(mut expr: syn::Expr, ident: &syn::Ident) -> bool {
 	visit::visit_expr(&mut visitor, &mut expr);
 	visitor.found
 }
+
+/// Warn if the storage item has private visibility.
+pub(crate) fn private_storage_warning(ident: &syn::Ident, warnings: &mut Vec<Warning>) {
+	let warning = Warning::new_deprecated("PrivatePalletStorage")
+		.index(warnings.len())
+		.old("use private visibility for pallet storage")
+		.new("use `pub` visibility for all pallet storage items (private storage is deprecated)")
+		.help_link("https://github.com/paritytech/polkadot-sdk/issues/8321")
+		.span(ident.span())
+		.build_or_panic();
+
+	warnings.push(warning);
+}

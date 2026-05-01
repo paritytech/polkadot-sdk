@@ -1,0 +1,33 @@
+error: unused import: `frame_system::pallet_prelude::*`
+  --> tests/pallet_ui/private_storage.rs:21:6
+   |
+21 |     use frame_system::pallet_prelude::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   |
+   = note: `-D unused-imports` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(unused_imports)]`
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/private_storage.rs:30:7
+   |
+30 |     type PrivateValue<T> = StorageValue<Value = u32>;
+   |          ^^^^^^^^^^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
+
+error: use of deprecated constant `pallet::PrivatePalletStorage_1::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/private_storage.rs:33:18
+   |
+33 |     pub(crate) type PubCrateValue<T> = StorageValue<Value = u32>;
+   |                     ^^^^^^^^^^^^^

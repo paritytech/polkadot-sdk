@@ -48,7 +48,7 @@ mod v5 {
 	}
 
 	#[frame_support::storage_alias]
-	pub(super) type OutboundXcmpStatus<T: Config> = StorageValue<
+	pub type OutboundXcmpStatus<T: Config> = StorageValue<
 		Pallet<T>,
 		BoundedVec<OutboundChannelDetails, <T as Config>::MaxActiveOutboundChannels>,
 		ValueQuery,

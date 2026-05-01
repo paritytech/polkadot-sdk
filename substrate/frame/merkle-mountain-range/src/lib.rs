@@ -140,9 +140,9 @@ type ModuleMmr<StorageType, T, I> = mmr::Mmr<StorageType, T, I, LeafOf<T, I>>;
 type LeafOf<T, I> = <<T as Config<I>>::LeafData as LeafDataProvider>::LeafData;
 
 /// Hashing used for the pallet.
-pub(crate) type HashingOf<T, I> = <T as Config<I>>::Hashing;
+pub type HashingOf<T, I> = <T as Config<I>>::Hashing;
 /// Hash type used for the pallet.
-pub(crate) type HashOf<T, I> = <<T as Config<I>>::Hashing as Hash>::Output;
+pub type HashOf<T, I> = <<T as Config<I>>::Hashing as Hash>::Output;
 
 #[frame::pallet]
 pub mod pallet {

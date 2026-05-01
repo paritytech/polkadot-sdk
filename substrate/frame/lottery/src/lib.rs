@@ -204,16 +204,15 @@ pub mod pallet {
 	}
 
 	#[pallet::storage]
-	pub(crate) type LotteryIndex<T> = StorageValue<_, u32, ValueQuery>;
+	pub type LotteryIndex<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// The configuration for the current lottery.
 	#[pallet::storage]
-	pub(crate) type Lottery<T: Config> =
-		StorageValue<_, LotteryConfig<BlockNumberFor<T>, BalanceOf<T>>>;
+	pub type Lottery<T: Config> = StorageValue<_, LotteryConfig<BlockNumberFor<T>, BalanceOf<T>>>;
 
 	/// Users who have purchased a ticket. (Lottery Index, Tickets Purchased)
 	#[pallet::storage]
-	pub(crate) type Participants<T: Config> = StorageMap<
+	pub type Participants<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		T::AccountId,
@@ -223,19 +222,19 @@ pub mod pallet {
 
 	/// Total number of tickets sold.
 	#[pallet::storage]
-	pub(crate) type TicketsCount<T> = StorageValue<_, u32, ValueQuery>;
+	pub type TicketsCount<T> = StorageValue<_, u32, ValueQuery>;
 
 	/// Each ticket's owner.
 	///
 	/// May have residual storage from previous lotteries. Use `TicketsCount` to see which ones
 	/// are actually valid ticket mappings.
 	#[pallet::storage]
-	pub(crate) type Tickets<T: Config> = StorageMap<_, Twox64Concat, u32, T::AccountId>;
+	pub type Tickets<T: Config> = StorageMap<_, Twox64Concat, u32, T::AccountId>;
 
 	/// The calls stored in this pallet to be used in an active lottery if configured
 	/// by `Config::ValidateCall`.
 	#[pallet::storage]
-	pub(crate) type CallIndices<T: Config> =
+	pub type CallIndices<T: Config> =
 		StorageValue<_, BoundedVec<CallIndex, T::MaxCalls>, ValueQuery>;
 
 	#[pallet::hooks]

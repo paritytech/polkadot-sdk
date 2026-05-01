@@ -234,15 +234,15 @@ pub mod pallet {
 	/// Index of the current session. This may be offset relative to the session index tracked by
 	/// eg `pallet_session`; mixnet session indices are independent.
 	#[pallet::storage]
-	pub(crate) type CurrentSessionIndex<T> = StorageValue<_, SessionIndex, ValueQuery>;
+	pub type CurrentSessionIndex<T> = StorageValue<_, SessionIndex, ValueQuery>;
 
 	/// Block in which the current session started.
 	#[pallet::storage]
-	pub(crate) type CurrentSessionStartBlock<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type CurrentSessionStartBlock<T> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// Authority list for the next session.
 	#[pallet::storage]
-	pub(crate) type NextAuthorityIds<T> = StorageMap<_, Identity, AuthorityIndex, AuthorityId>;
+	pub type NextAuthorityIds<T> = StorageMap<_, Identity, AuthorityIndex, AuthorityId>;
 
 	/// Mixnode sets by session index. Only the mixnode sets for the previous, current, and next
 	/// sessions are kept; older sets are discarded.
@@ -251,7 +251,7 @@ pub mod pallet {
 	/// authority has registered a mixnode. The authority indices should only be used during
 	/// registration; the authority indices for the very first session are made up.
 	#[pallet::storage]
-	pub(crate) type Mixnodes<T> =
+	pub type Mixnodes<T> =
 		StorageDoubleMap<_, Identity, SessionIndex, Identity, AuthorityIndex, BoundedMixnodeFor<T>>;
 
 	#[pallet::genesis_config]

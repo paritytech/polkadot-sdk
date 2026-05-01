@@ -171,20 +171,20 @@ pub mod pallet {
 
 	// A map of all participants in the DOT purchase process.
 	#[pallet::storage]
-	pub(super) type Accounts<T: Config> =
+	pub type Accounts<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AccountId, AccountStatus<BalanceOf<T>>, ValueQuery>;
 
 	// The account that will be used to payout participants of the DOT purchase process.
 	#[pallet::storage]
-	pub(super) type PaymentAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
+	pub type PaymentAccount<T: Config> = StorageValue<_, T::AccountId, OptionQuery>;
 
 	// The statement purchasers will need to sign to participate.
 	#[pallet::storage]
-	pub(super) type Statement<T> = StorageValue<_, Vec<u8>, ValueQuery>;
+	pub type Statement<T> = StorageValue<_, Vec<u8>, ValueQuery>;
 
 	// The block where all locked dots will unlock.
 	#[pallet::storage]
-	pub(super) type UnlockBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type UnlockBlock<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}

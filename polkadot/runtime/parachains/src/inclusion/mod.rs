@@ -352,7 +352,7 @@ pub mod pallet {
 	/// the migration.
 	#[pallet::storage]
 	#[pallet::storage_prefix = "V1"]
-	pub(crate) type PendingAvailability<T: Config> = StorageMap<
+	pub type PendingAvailability<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ParaId,

@@ -668,32 +668,31 @@ pub mod pallet {
 	/// [`revm::primitives::eip170::MAX_CODE_SIZE`] for EVM bytecode.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
+	pub type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
-	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
+	pub type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
 
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
-	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
+	pub type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
 
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
-	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
+	pub type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
 	/// Child trie deletion is a heavy operation depending on the amount of storage items
 	/// stored in said trie. Therefore this operation is performed lazily in `on_idle`.
 	#[pallet::storage]
-	pub(crate) type DeletionQueue<T: Config> = StorageMap<_, Twox64Concat, u32, TrieId>;
+	pub type DeletionQueue<T: Config> = StorageMap<_, Twox64Concat, u32, TrieId>;
 
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
 	#[pallet::storage]
-	pub(crate) type DeletionQueueCounter<T: Config> =
-		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
+	pub type DeletionQueueCounter<T: Config> = StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
 
 	/// Map a Ethereum address to its original `AccountId32`.
 	///
@@ -702,7 +701,7 @@ pub mod pallet {
 	/// Register your `AccountId32` using [`Pallet::map_account`] in order to
 	/// use it with this pallet.
 	#[pallet::storage]
-	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
+	pub type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
@@ -715,14 +714,13 @@ pub mod pallet {
 	/// by a few hashes and the vector of transaction hashes, we store the block here.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+	pub type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
 
 	/// Mapping for block number and hashes.
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> =
-		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
+	pub type BlockHash<T: Config> = StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -732,13 +730,12 @@ pub mod pallet {
 	/// It could otherwise inflate the PoV size of a block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+	pub type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
 
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthBlockBuilderIR<T: Config> =
-		StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
+	pub type EthBlockBuilderIR<T: Config> = StorageValue<_, EthereumBlockBuilderIR<T>, ValueQuery>;
 
 	/// The first transaction and receipt of the ethereum block.
 	///
@@ -746,12 +743,12 @@ pub mod pallet {
 	/// deserializing them on every transaction. Instead, they are loaded when needed.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
+	pub type EthBlockBuilderFirstValues<T: Config> =
 		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
-	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
+	pub type DebugSettingsOf<T: Config> = StorageValue<_, DebugSettings, ValueQuery>;
 
 	pub mod genesis {
 		use super::*;

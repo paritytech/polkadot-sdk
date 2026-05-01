@@ -31,7 +31,7 @@ use frame_support::migrations::VersionedMigration;
 
 /// This is the storage getting migrated.
 #[frame_support::storage_alias]
-type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
+pub type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
 pub trait MigrateDisabledValidators {
 	/// Peek the list of disabled validators and their offence severity.

@@ -235,7 +235,7 @@ pub mod pallet {
 	>>::Balance;
 
 	/// Suggested fee of 0.5% for minting and redemption.
-	pub(crate) struct DefaultFee;
+	pub struct DefaultFee;
 	impl Get<Permill> for DefaultFee {
 		fn get() -> Permill {
 			Permill::from_parts(5_000)
@@ -325,28 +325,28 @@ pub mod pallet {
 
 	/// Fee for external → internal swaps (minting) per asset. Suggested value is 0.5%.
 	#[pallet::storage]
-	pub(crate) type MintingFee<T: Config> =
+	pub type MintingFee<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, Permill, ValueQuery, DefaultFee>;
 
 	/// Fee for internal → external swaps (redemption) per asset. Suggested value is 0.5%.
 	#[pallet::storage]
-	pub(crate) type RedemptionFee<T: Config> =
+	pub type RedemptionFee<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, Permill, ValueQuery, DefaultFee>;
 
 	/// Max PSM debt as percentage of MaximumIssuance (global ceiling).
 	#[pallet::storage]
-	pub(crate) type MaxPsmDebtOfTotal<T: Config> = StorageValue<_, Permill, ValueQuery>;
+	pub type MaxPsmDebtOfTotal<T: Config> = StorageValue<_, Permill, ValueQuery>;
 
 	/// Per-asset ceiling weight. Weights are normalized against the sum of all weights.
 	/// Zero means minting is disabled for this asset.
 	#[pallet::storage]
-	pub(crate) type AssetCeilingWeight<T: Config> =
+	pub type AssetCeilingWeight<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::AssetId, Permill, ValueQuery>;
 
 	/// Set of approved external stablecoin asset IDs with their operational status.
 	/// Key existence indicates the asset is approved; the value is the circuit breaker level.
 	#[pallet::storage]
-	pub(crate) type ExternalAssets<T: Config> =
+	pub type ExternalAssets<T: Config> =
 		CountedStorageMap<_, Blake2_128Concat, T::AssetId, CircuitBreakerLevel, OptionQuery>;
 
 	/// Snapshot of each approved external asset's decimals at registration.

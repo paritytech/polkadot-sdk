@@ -98,7 +98,7 @@ pub mod pallet {
 		traits::{Saturating, Zero},
 	};
 
-	pub(crate) type BalanceOf<T> =
+	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 
 	/// The progress of either the top or child keys.

@@ -985,7 +985,7 @@ pub mod pallet {
 	/// Total extrinsics count for the current block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(super) type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
+	pub type ExtrinsicCount<T: Config> = StorageValue<_, u32>;
 
 	/// Whether all inherents have been applied.
 	#[pallet::storage]
@@ -1015,26 +1015,25 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn extrinsic_data)]
 	#[pallet::unbounded]
-	pub(super) type ExtrinsicData<T: Config> =
-		StorageMap<_, Twox64Concat, u32, Vec<u8>, ValueQuery>;
+	pub type ExtrinsicData<T: Config> = StorageMap<_, Twox64Concat, u32, Vec<u8>, ValueQuery>;
 
 	/// The current block number being processed. Set by `execute_block`.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn block_number)]
-	pub(super) type Number<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
+	pub type Number<T: Config> = StorageValue<_, BlockNumberFor<T>, ValueQuery>;
 
 	/// Hash of the previous block.
 	#[pallet::storage]
 	#[pallet::getter(fn parent_hash)]
-	pub(super) type ParentHash<T: Config> = StorageValue<_, T::Hash, ValueQuery>;
+	pub type ParentHash<T: Config> = StorageValue<_, T::Hash, ValueQuery>;
 
 	/// Digest of the current block, also part of the block header.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn digest)]
-	pub(super) type Digest<T: Config> = StorageValue<_, generic::Digest, ValueQuery>;
+	pub type Digest<T: Config> = StorageValue<_, generic::Digest, ValueQuery>;
 
 	/// Events deposited for the current block.
 	///
@@ -1047,14 +1046,14 @@ pub mod pallet {
 	#[pallet::whitelist_storage]
 	#[pallet::disable_try_decode_storage]
 	#[pallet::unbounded]
-	pub(super) type Events<T: Config> =
+	pub type Events<T: Config> =
 		StorageValue<_, Vec<Box<EventRecord<T::RuntimeEvent, T::Hash>>>, ValueQuery>;
 
 	/// The number of events in the `Events<T>` list.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
 	#[pallet::getter(fn event_count)]
-	pub(super) type EventCount<T: Config> = StorageValue<_, EventIndex, ValueQuery>;
+	pub type EventCount<T: Config> = StorageValue<_, EventIndex, ValueQuery>;
 
 	/// Mapping between a topic (represented by T::Hash) and a vector of indexes
 	/// of events in the `<Events<T>>` list.
@@ -1069,7 +1068,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn event_topics)]
-	pub(super) type EventTopics<T: Config> =
+	pub type EventTopics<T: Config> =
 		StorageMap<_, Blake2_128Concat, T::Hash, Vec<(BlockNumberFor<T>, EventIndex)>, ValueQuery>;
 
 	/// Stores the `spec_version` and `spec_name` of when the last runtime upgrade happened.
@@ -1079,26 +1078,26 @@ pub mod pallet {
 
 	/// Number of blocks till the pending code upgrade is applied.
 	#[pallet::storage]
-	pub(super) type BlocksTillUpgrade<T: Config> = StorageValue<_, u8>;
+	pub type BlocksTillUpgrade<T: Config> = StorageValue<_, u8>;
 
 	/// True if we have upgraded so that `type RefCount` is `u32`. False (default) if not.
 	#[pallet::storage]
-	pub(super) type UpgradedToU32RefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type UpgradedToU32RefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// True if we have upgraded so that AccountInfo contains three types of `RefCount`. False
 	/// (default) if not.
 	#[pallet::storage]
-	pub(super) type UpgradedToTripleRefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type UpgradedToTripleRefCount<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// The execution phase of the block.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(super) type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
+	pub type ExecutionPhase<T: Config> = StorageValue<_, Phase>;
 
 	/// `Some` if a code upgrade has been authorized.
 	#[pallet::storage]
 	#[pallet::getter(fn authorized_upgrade)]
-	pub(super) type AuthorizedUpgrade<T: Config> =
+	pub type AuthorizedUpgrade<T: Config> =
 		StorageValue<_, CodeUpgradeAuthorization<T>, OptionQuery>;
 
 	/// The weight reclaimed for the extrinsic.

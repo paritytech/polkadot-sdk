@@ -1340,7 +1340,7 @@ pub mod pallet_macros {
 	/// 	pub struct Pallet<T>(_);
 	///
 	/// 	#[pallet::storage]
-	/// 	pub(super) type SomeStorage<T: Config> =
+	/// 	pub type SomeStorage<T: Config> =
 	/// 		StorageValue<_, FixedU128, ValueQuery, DefaultForSomeValue>;
 	///
 	/// 	// Define default for ParachainId

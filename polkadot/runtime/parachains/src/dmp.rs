@@ -137,12 +137,12 @@ pub mod pallet {
 	/// - `B`: is the relay-chain block number in which a message was appended.
 	/// - `H(M)`: is the hash of the message being appended.
 	#[pallet::storage]
-	pub(crate) type DownwardMessageQueueHeads<T: Config> =
+	pub type DownwardMessageQueueHeads<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, Hash, ValueQuery>;
 
 	/// The factor to multiply the base delivery fee by.
 	#[pallet::storage]
-	pub(crate) type DeliveryFeeFactor<T: Config> =
+	pub type DeliveryFeeFactor<T: Config> =
 		StorageMap<_, Twox64Concat, ParaId, FixedU128, ValueQuery, GetMinFeeFactor<Pallet<T>>>;
 }
 /// Routines and getters related to downward message passing.

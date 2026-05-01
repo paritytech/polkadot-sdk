@@ -40,13 +40,13 @@ use pallet::*;
 use sp_npos_elections::{evaluate_support, ElectionScore};
 use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
-pub(crate) type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
+pub type SupportsOfVerifier<V> = frame_election_provider_support::BoundedSupports<
 	<V as Verifier>::AccountId,
 	<V as Verifier>::MaxWinnersPerPage,
 	<V as Verifier>::MaxBackersPerWinner,
 >;
 
-pub(crate) type VerifierWeightsOf<T> = <T as super::Config>::WeightInfo;
+pub type VerifierWeightsOf<T> = <T as super::Config>::WeightInfo;
 
 /// The status of this pallet.
 #[derive(
@@ -68,7 +68,7 @@ impl Default for Status {
 
 /// Enum to point to the valid variant of the [`QueuedSolution`].
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Copy, MaxEncodedLen)]
-enum ValidSolution {
+pub enum ValidSolution {
 	X,
 	Y,
 }
@@ -512,7 +512,7 @@ pub(crate) mod pallet {
 	/// Writing them to a bugger and copying at the ned is slightly better, but expensive. This flag
 	/// system is best of both worlds.
 	#[pallet::storage]
-	type QueuedSolutionX<T: Config> = StorageDoubleMap<
+	pub type QueuedSolutionX<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -523,7 +523,7 @@ pub(crate) mod pallet {
 
 	/// The `Y` variant of the current queued solution. Might be the valid one or not.
 	#[pallet::storage]
-	type QueuedSolutionY<T: Config> = StorageDoubleMap<
+	pub type QueuedSolutionY<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -535,7 +535,7 @@ pub(crate) mod pallet {
 	/// valid.
 
 	#[pallet::storage]
-	type QueuedValidVariant<T: Config> =
+	pub type QueuedValidVariant<T: Config> =
 		StorageMap<_, Twox64Concat, u32, ValidSolution, ValueQuery>;
 
 	/// The `(amount, count)` of backings, divided per page.
@@ -547,7 +547,7 @@ pub(crate) mod pallet {
 	/// need this information anymore; the score is already computed once in
 	/// [`QueuedSolutionScore`], and the backing counts are checked.
 	#[pallet::storage]
-	type QueuedSolutionBackings<T: Config> = StorageDoubleMap<
+	pub type QueuedSolutionBackings<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		u32,
@@ -560,19 +560,19 @@ pub(crate) mod pallet {
 	///
 	/// This only ever lives for the `valid` variant.
 	#[pallet::storage]
-	type QueuedSolutionScore<T: Config> = StorageMap<_, Twox64Concat, u32, ElectionScore>;
+	pub type QueuedSolutionScore<T: Config> = StorageMap<_, Twox64Concat, u32, ElectionScore>;
 
 	// -- ^^ private storage items, managed by `QueuedSolution`.
 
 	/// The minimum score that each solution must attain in order to be considered feasible.
 	#[pallet::storage]
 	#[pallet::getter(fn minimum_score)]
-	pub(crate) type MinimumScore<T: Config> = StorageValue<_, ElectionScore>;
+	pub type MinimumScore<T: Config> = StorageValue<_, ElectionScore>;
 
 	/// Storage item for [`Status`].
 	#[pallet::storage]
 	#[pallet::getter(fn status_storage)]
-	pub(crate) type StatusStorage<T: Config> = StorageValue<_, Status, ValueQuery>;
+	pub type StatusStorage<T: Config> = StorageValue<_, Status, ValueQuery>;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(PhantomData<T>);

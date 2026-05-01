@@ -422,7 +422,7 @@ pub mod pallet {
 	/// Use `withdraw_txfee` and `remaining_txfee` to access from outside the crate.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(crate) type TxPaymentCredit<T: Config> = StorageValue<_, StoredCreditOf<T>>;
+	pub type TxPaymentCredit<T: Config> = StorageValue<_, StoredCreditOf<T>>;
 
 	#[pallet::genesis_config]
 	pub struct GenesisConfig<T: Config> {

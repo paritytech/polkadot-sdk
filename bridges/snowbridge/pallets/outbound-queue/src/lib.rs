@@ -220,7 +220,7 @@ pub mod pallet {
 	/// Inspired by the `frame_system::Pallet::Events` storage value
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(super) type Messages<T: Config> = StorageValue<_, Vec<CommittedMessage>, ValueQuery>;
+	pub type Messages<T: Config> = StorageValue<_, Vec<CommittedMessage>, ValueQuery>;
 
 	/// Hashes of the ABI-encoded messages in the [`Messages`] storage value. Used to generate a
 	/// merkle root during `on_finalize`. This storage value is killed in
@@ -228,7 +228,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	#[pallet::getter(fn message_leaves)]
-	pub(super) type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
+	pub type MessageLeaves<T: Config> = StorageValue<_, Vec<H256>, ValueQuery>;
 
 	/// The current nonce for each message origin
 	#[pallet::storage]

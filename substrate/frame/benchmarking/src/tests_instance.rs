@@ -48,7 +48,7 @@ mod pallet_test {
 	}
 
 	#[pallet::storage]
-	pub(crate) type Value<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, OptionQuery>;
+	pub type Value<T: Config<I>, I: 'static = ()> = StorageValue<_, u32, OptionQuery>;
 
 	#[pallet::event]
 	pub enum Event<T: Config<I>, I: 'static = ()> {}

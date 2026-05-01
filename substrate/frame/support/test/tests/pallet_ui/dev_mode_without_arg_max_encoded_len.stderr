@@ -1,3 +1,17 @@
+error: use of deprecated constant `pallet::PrivatePalletStorage_0::_w`:
+               It is deprecated to use private visibility for pallet storage.
+               Please instead use `pub` visibility for all pallet storage items (private storage is deprecated).
+
+               For more info see:
+                   <https://github.com/paritytech/polkadot-sdk/issues/8321>
+  --> tests/pallet_ui/dev_mode_without_arg_max_encoded_len.rs:36:7
+   |
+36 |     type MyStorage<T: Config> = StorageValue<_, Vec<u8>>;
+   |          ^^^^^^^^^
+   |
+   = note: `-D deprecated` implied by `-D warnings`
+   = help: to override `-D warnings` add `#[allow(deprecated)]`
+
 error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_0::_w`:
                It is deprecated to use implicit call indices.
                Please instead ensure that all calls have a `pallet::call_index` attribute or put the pallet into `dev` mode.
@@ -9,9 +23,6 @@ error: use of deprecated constant `pallet::warnings::ImplicitCallIndex_0::_w`:
    |
 42 |         pub fn my_call(_origin: OriginFor<T>) -> DispatchResult {
    |                ^^^^^^^
-   |
-   = note: `-D deprecated` implied by `-D warnings`
-   = help: to override `-D warnings` add `#[allow(deprecated)]`
 
 error: use of deprecated constant `pallet::warnings::ConstantWeight_0::_w`:
                It is deprecated to use hard-coded constant as call weight.

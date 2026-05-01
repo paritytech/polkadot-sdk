@@ -795,11 +795,11 @@ pub mod pallet {
 
 	/// The latest available query index.
 	#[pallet::storage]
-	pub(super) type QueryCounter<T: Config> = StorageValue<_, QueryId, ValueQuery>;
+	pub type QueryCounter<T: Config> = StorageValue<_, QueryId, ValueQuery>;
 
 	/// The ongoing queries.
 	#[pallet::storage]
-	pub(super) type Queries<T: Config> =
+	pub type Queries<T: Config> =
 		StorageMap<_, Blake2_128Concat, QueryId, QueryStatus<BlockNumberFor<T>>, OptionQuery>;
 
 	/// The existing asset traps.
@@ -807,17 +807,17 @@ pub mod pallet {
 	/// Key is the blake2 256 hash of (origin, versioned `Assets`) pair. Value is the number of
 	/// times this pair has been trapped (usually just 1 if it exists at all).
 	#[pallet::storage]
-	pub(super) type AssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
+	pub type AssetTraps<T: Config> = StorageMap<_, Identity, H256, u32, ValueQuery>;
 
 	/// Default version to encode XCM when latest version of destination is unknown. If `None`,
 	/// then the destinations whose XCM version is unknown are considered unreachable.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(super) type SafeXcmVersion<T: Config> = StorageValue<_, XcmVersion, OptionQuery>;
+	pub type SafeXcmVersion<T: Config> = StorageValue<_, XcmVersion, OptionQuery>;
 
 	/// The Latest versions that we know various locations support.
 	#[pallet::storage]
-	pub(super) type SupportedVersion<T: Config> = StorageDoubleMap<
+	pub type SupportedVersion<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		XcmVersion,
@@ -829,7 +829,7 @@ pub mod pallet {
 
 	/// All locations that we have requested version notifications from.
 	#[pallet::storage]
-	pub(super) type VersionNotifiers<T: Config> = StorageDoubleMap<
+	pub type VersionNotifiers<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		XcmVersion,
@@ -842,7 +842,7 @@ pub mod pallet {
 	/// The target locations that are subscribed to our version changes, as well as the most recent
 	/// of our versions we informed them of.
 	#[pallet::storage]
-	pub(super) type VersionNotifyTargets<T: Config> = StorageDoubleMap<
+	pub type VersionNotifyTargets<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
 		XcmVersion,
@@ -864,7 +864,7 @@ pub mod pallet {
 	/// which is used as a prioritization.
 	#[pallet::storage]
 	#[pallet::whitelist_storage]
-	pub(super) type VersionDiscoveryQueue<T: Config> = StorageValue<
+	pub type VersionDiscoveryQueue<T: Config> = StorageValue<
 		_,
 		BoundedVec<(VersionedLocation, u32), VersionDiscoveryQueueSize<T>>,
 		ValueQuery,
@@ -872,8 +872,7 @@ pub mod pallet {
 
 	/// The current migration's stage, if any.
 	#[pallet::storage]
-	pub(super) type CurrentMigration<T: Config> =
-		StorageValue<_, VersionMigrationStage, OptionQuery>;
+	pub type CurrentMigration<T: Config> = StorageValue<_, VersionMigrationStage, OptionQuery>;
 
 	#[derive(Clone, Encode, Decode, Eq, PartialEq, Ord, PartialOrd, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(MaxConsumers))]
@@ -900,7 +899,7 @@ pub mod pallet {
 
 	/// Fungible assets which we know are locked on a remote chain.
 	#[pallet::storage]
-	pub(super) type RemoteLockedFungibles<T: Config> = StorageNMap<
+	pub type RemoteLockedFungibles<T: Config> = StorageNMap<
 		_,
 		(
 			NMapKey<Twox64Concat, XcmVersion>,
@@ -913,7 +912,7 @@ pub mod pallet {
 
 	/// Fungible assets which we know are locked on this chain.
 	#[pallet::storage]
-	pub(super) type LockedFungibles<T: Config> = StorageMap<
+	pub type LockedFungibles<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId,
@@ -923,7 +922,7 @@ pub mod pallet {
 
 	/// Global suspension state of the XCM executor.
 	#[pallet::storage]
-	pub(super) type XcmExecutionSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type XcmExecutionSuspended<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// Whether or not incoming XCMs (both executed locally and received) should be recorded.
 	/// Only one XCM program will be recorded at a time.
@@ -933,7 +932,7 @@ pub mod pallet {
 	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
 	/// implementation in the XCM executor configuration.
 	#[pallet::storage]
-	pub(crate) type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
+	pub type ShouldRecordXcm<T: Config> = StorageValue<_, bool, ValueQuery>;
 
 	/// If [`ShouldRecordXcm`] is set to true, then the last XCM program executed locally
 	/// will be stored here.
@@ -942,13 +941,13 @@ pub mod pallet {
 	/// Only relevant if this pallet is being used as the [`xcm_executor::traits::RecordXcm`]
 	/// implementation in the XCM executor configuration.
 	#[pallet::storage]
-	pub(crate) type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
+	pub type RecordedXcm<T: Config> = StorageValue<_, Xcm<()>>;
 
 	/// Map of authorized aliasers of local origins. Each local location can authorize a list of
 	/// other locations to alias into it. Each aliaser is only valid until its inner `expiry`
 	/// block number.
 	#[pallet::storage]
-	pub(super) type AuthorizedAliases<T: Config> = StorageMap<
+	pub type AuthorizedAliases<T: Config> = StorageMap<
 		_,
 		Blake2_128Concat,
 		VersionedLocation,

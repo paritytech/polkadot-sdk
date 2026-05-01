@@ -31,8 +31,8 @@ use xcm::latest::prelude::*;
 pub use pallet::*;
 
 parameter_types! {
-	const MaxParachains: u32 = 100;
-	const MaxPayloadSize: u32 = 1024;
+	pub const MaxParachains: u32 = 100;
+	pub const MaxPayloadSize: u32 = 1024;
 }
 
 #[frame_support::pallet]
@@ -62,7 +62,7 @@ pub mod pallet {
 
 	/// The target parachains to ping.
 	#[pallet::storage]
-	pub(super) type Targets<T: Config> = StorageValue<
+	pub type Targets<T: Config> = StorageValue<
 		_,
 		BoundedVec<(ParaId, BoundedVec<u8, MaxPayloadSize>), MaxParachains>,
 		ValueQuery,
@@ -70,11 +70,11 @@ pub mod pallet {
 
 	/// The total number of pings sent.
 	#[pallet::storage]
-	pub(super) type PingCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type PingCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	/// The sent pings.
 	#[pallet::storage]
-	pub(super) type Pings<T: Config> =
+	pub type Pings<T: Config> =
 		StorageMap<_, Blake2_128Concat, u32, BlockNumberFor<T>, OptionQuery>;
 
 	#[pallet::event]

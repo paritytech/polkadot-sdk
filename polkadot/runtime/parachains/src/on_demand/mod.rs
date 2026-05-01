@@ -86,7 +86,7 @@ impl WeightInfo for TestWeightInfo {
 
 /// Defines how the account wants to pay for on-demand.
 #[derive(Encode, Decode, TypeInfo, Debug, PartialEq, Clone, Eq)]
-enum PaymentType {
+pub enum PaymentType {
 	/// Use credits to purchase on-demand coretime.
 	Credits,
 	/// Use account's free balance to purchase on-demand coretime.
@@ -150,21 +150,21 @@ impl<N> OrderQueue<N> {
 
 /// Data about a placed on-demand order.
 #[derive(Encode, Decode, TypeInfo)]
-struct EnqueuedOrder<N> {
+pub struct EnqueuedOrder<N> {
 	/// The parachain the order was placed for.
-	para_id: ParaId,
+	pub para_id: ParaId,
 	/// The block number the order came in.
-	ordered_at: N,
+	pub ordered_at: N,
 }
 
 /// Queue data for on-demand.
 #[derive(Encode, Decode, TypeInfo)]
-struct OrderStatus<N> {
+pub struct OrderStatus<N> {
 	/// Last calculated traffic value.
-	traffic: FixedU128,
+	pub traffic: FixedU128,
 
 	/// Enqueued orders.
-	queue: OrderQueue<N>,
+	pub queue: OrderQueue<N>,
 }
 
 impl<N> Default for OrderStatus<N> {
@@ -225,12 +225,12 @@ pub mod pallet {
 
 	/// Priority queue for all orders which don't yet (or not any more) have any core affinity.
 	#[pallet::storage]
-	pub(super) type OrderStatus<T: Config> =
+	pub type OrderStatus<T: Config> =
 		StorageValue<_, super::OrderStatus<BlockNumberFor<T>>, ValueQuery>;
 
 	/// Keeps track of accumulated revenue from on demand order sales.
 	#[pallet::storage]
-	pub(super) type Revenue<T: Config> =
+	pub type Revenue<T: Config> =
 		StorageValue<_, BoundedVec<BalanceOf<T>, T::MaxHistoricalRevenue>, ValueQuery>;
 
 	/// Keeps track of credits owned by each account.

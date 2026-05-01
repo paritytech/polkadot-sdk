@@ -44,11 +44,11 @@ mod v4 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(super) type OutboundXcmpStatus<T: Config> =
+	pub type OutboundXcmpStatus<T: Config> =
 		StorageValue<Pallet<T>, Vec<OutboundChannelDetails>, ValueQuery>;
 
 	#[frame_support::storage_alias]
-	pub(super) type OutboundXcmpMessages<T: Config> = StorageDoubleMap<
+	pub type OutboundXcmpMessages<T: Config> = StorageDoubleMap<
 		Pallet<T>,
 		Blake2_128Concat,
 		ParaId,
@@ -59,7 +59,7 @@ mod v4 {
 	>;
 
 	#[frame_support::storage_alias]
-	pub(super) type SignalMessages<T: Config> =
+	pub type SignalMessages<T: Config> =
 		StorageMap<Pallet<T>, Blake2_128Concat, ParaId, Vec<u8>, ValueQuery>;
 }
 

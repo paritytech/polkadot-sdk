@@ -383,7 +383,7 @@ impl TypeInfo for ParaKind {
 /// This enum describes a reason why a particular PVF pre-checking vote was initiated. When the
 /// PVF vote in question is concluded, this enum indicates what changes should be performed.
 #[derive(Debug, Encode, Decode, TypeInfo)]
-pub(crate) enum PvfCheckCause<BlockNumber> {
+pub enum PvfCheckCause<BlockNumber> {
 	/// PVF vote was initiated by the initial onboarding process of the given para.
 	Onboarding(ParaId),
 	/// PVF vote was initiated by signalling of an upgrade by the given para.
@@ -398,7 +398,7 @@ pub(crate) enum PvfCheckCause<BlockNumber> {
 		/// instead of its relay parent -- in order to keep PVF available in case of chain
 		/// reversions.
 		///
-		/// See https://github.com/paritytech/polkadot/issues/4601 for detailed explanation.
+		/// See <https://github.com/paritytech/polkadot/issues/4601> for detailed explanation.
 		included_at: BlockNumber,
 		/// Whether or not the upgrade should be enacted directly.
 		///
@@ -440,29 +440,29 @@ impl<BlockNumber> PvfCheckCause<BlockNumber> {
 
 /// Specifies what was the outcome of a PVF pre-checking vote.
 #[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
-enum PvfCheckOutcome {
+pub enum PvfCheckOutcome {
 	Accepted,
 	Rejected,
 }
 
 /// This struct describes the current state of an in-progress PVF pre-checking vote.
 #[derive(Encode, Decode, TypeInfo)]
-pub(crate) struct PvfCheckActiveVoteState<BlockNumber> {
+pub struct PvfCheckActiveVoteState<BlockNumber> {
 	// The two following vectors have their length equal to the number of validators in the active
 	// set. They start with all zeroes. A 1 is set at an index when the validator at the that index
 	// makes a vote. Once a 1 is set for either of the vectors, that validator cannot vote anymore.
 	// Since the active validator set changes each session, the bit vectors are reinitialized as
 	// well: zeroed and resized so that each validator gets its own bit.
-	votes_accept: BitVec<u8, BitOrderLsb0>,
-	votes_reject: BitVec<u8, BitOrderLsb0>,
+	pub votes_accept: BitVec<u8, BitOrderLsb0>,
+	pub votes_reject: BitVec<u8, BitOrderLsb0>,
 
 	/// The number of session changes this PVF vote has observed. Therefore, this number is
 	/// increased at each session boundary. When created, it is initialized with 0.
-	age: SessionIndex,
+	pub age: SessionIndex,
 	/// The block number at which this PVF vote was created.
-	created_at: BlockNumber,
+	pub created_at: BlockNumber,
 	/// A list of causes for this PVF pre-checking. Has at least one.
-	causes: Vec<PvfCheckCause<BlockNumber>>,
+	pub causes: Vec<PvfCheckCause<BlockNumber>>,
 }
 
 impl<BlockNumber> PvfCheckActiveVoteState<BlockNumber> {
@@ -555,8 +555,8 @@ impl AssignCoretime for () {
 #[derive(Debug, Encode, Decode, DecodeWithMemTracking, TypeInfo)]
 #[cfg_attr(test, derive(PartialEq))]
 pub struct AuthorizedCodeHashAndExpiry<T> {
-	code_hash: ValidationCodeHash,
-	expire_at: T,
+	pub code_hash: ValidationCodeHash,
+	pub expire_at: T,
 }
 impl<T> From<(ValidationCodeHash, T)> for AuthorizedCodeHashAndExpiry<T> {
 	fn from(value: (ValidationCodeHash, T)) -> Self {
@@ -790,7 +790,7 @@ pub mod pallet {
 	/// Invariant:
 	/// - There are no PVF pre-checking votes that exists in list but not in the set and vice versa.
 	#[pallet::storage]
-	pub(super) type PvfActiveVoteMap<T: Config> = StorageMap<
+	pub type PvfActiveVoteMap<T: Config> = StorageMap<
 		_,
 		Twox64Concat,
 		ValidationCodeHash,
@@ -800,8 +800,7 @@ pub mod pallet {
 
 	/// The list of all currently active PVF votes. Auxiliary to `PvfActiveVoteMap`.
 	#[pallet::storage]
-	pub(super) type PvfActiveVoteList<T: Config> =
-		StorageValue<_, Vec<ValidationCodeHash>, ValueQuery>;
+	pub type PvfActiveVoteList<T: Config> = StorageValue<_, Vec<ValidationCodeHash>, ValueQuery>;
 
 	/// All lease holding parachains. Ordered ascending by `ParaId`. On demand parachains are not
 	/// included.
@@ -812,7 +811,7 @@ pub mod pallet {
 
 	/// The current lifecycle of a all known Para IDs.
 	#[pallet::storage]
-	pub(super) type ParaLifecycles<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaLifecycle>;
+	pub type ParaLifecycles<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaLifecycle>;
 
 	/// The head-data of every registered para.
 	#[pallet::storage]
@@ -833,7 +832,7 @@ pub mod pallet {
 	///
 	/// Corresponding code can be retrieved with [`CodeByHash`].
 	#[pallet::storage]
-	pub(super) type PastCodeHash<T: Config> =
+	pub type PastCodeHash<T: Config> =
 		StorageMap<_, Twox64Concat, (ParaId, BlockNumberFor<T>), ValidationCodeHash>;
 
 	/// Past code of parachains. The parachains themselves may not be registered anymore,
@@ -850,7 +849,7 @@ pub mod pallet {
 	/// starting from the time at which the parachain perceives a code upgrade as having occurred.
 	/// Multiple entries for a single para are permitted. Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type PastCodePruning<T: Config> =
+	pub type PastCodePruning<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The block number at which the planned code change is expected for a parachain.
@@ -869,7 +868,7 @@ pub mod pallet {
 	///
 	/// Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type FutureCodeUpgradesAt<T: Config> =
+	pub type FutureCodeUpgradesAt<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The actual future code hash of a para.
@@ -894,8 +893,7 @@ pub mod pallet {
 	/// NOTE that this field is used by parachains via merkle storage proofs, therefore changing
 	/// the format will require migration of parachains.
 	#[pallet::storage]
-	pub(super) type UpgradeGoAheadSignal<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, UpgradeGoAhead>;
+	pub type UpgradeGoAheadSignal<T: Config> = StorageMap<_, Twox64Concat, ParaId, UpgradeGoAhead>;
 
 	/// This is used by the relay-chain to communicate that there are restrictions for performing
 	/// an upgrade for this parachain.
@@ -914,7 +912,7 @@ pub mod pallet {
 	///
 	/// Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type UpgradeCooldowns<T: Config> =
+	pub type UpgradeCooldowns<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The list of upcoming code upgrades.
@@ -924,7 +922,7 @@ pub mod pallet {
 	///
 	/// Ordered ascending by block number.
 	#[pallet::storage]
-	pub(super) type UpcomingUpgrades<T: Config> =
+	pub type UpcomingUpgrades<T: Config> =
 		StorageValue<_, Vec<(ParaId, BlockNumberFor<T>)>, ValueQuery>;
 
 	/// The actions to perform during the start of a specific session index.
@@ -937,12 +935,11 @@ pub mod pallet {
 	/// NOTE that after PVF pre-checking is enabled the para genesis arg will have it's code set
 	/// to empty. Instead, the code will be saved into the storage right away via `CodeByHash`.
 	#[pallet::storage]
-	pub(super) type UpcomingParasGenesis<T: Config> =
-		StorageMap<_, Twox64Concat, ParaId, ParaGenesisArgs>;
+	pub type UpcomingParasGenesis<T: Config> = StorageMap<_, Twox64Concat, ParaId, ParaGenesisArgs>;
 
 	/// The number of reference on the validation code in [`CodeByHash`] storage.
 	#[pallet::storage]
-	pub(super) type CodeByHashRefs<T: Config> =
+	pub type CodeByHashRefs<T: Config> =
 		StorageMap<_, Identity, ValidationCodeHash, u32, ValueQuery>;
 
 	/// Validation code stored by its hash.

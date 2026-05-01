@@ -91,7 +91,7 @@ type ContentHash = [u8; 32];
 
 /// The scope of an authorization.
 #[derive(Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
-enum AuthorizationScope<AccountId> {
+pub enum AuthorizationScope<AccountId> {
 	/// Authorization for the given account to store arbitrary data.
 	Account(AccountId),
 	/// Authorization for anyone to store data with a specific hash.
@@ -102,11 +102,11 @@ type AuthorizationScopeFor<T> = AuthorizationScope<<T as frame_system::Config>::
 
 /// An authorization to store data.
 #[derive(Encode, Decode, scale_info::TypeInfo, MaxEncodedLen)]
-struct Authorization<BlockNumber> {
+pub struct Authorization<BlockNumber> {
 	/// Extent of the authorization (number of transactions/bytes).
-	extent: AuthorizationExtent,
+	pub extent: AuthorizationExtent,
 	/// The block at which this authorization expires.
-	expiration: BlockNumber,
+	pub expiration: BlockNumber,
 }
 
 type AuthorizationFor<T> = Authorization<BlockNumberFor<T>>;
@@ -438,7 +438,7 @@ pub mod pallet {
 
 	/// Authorizations, keyed by scope.
 	#[pallet::storage]
-	pub(super) type Authorizations<T: Config> =
+	pub type Authorizations<T: Config> =
 		StorageMap<_, Blake2_128Concat, AuthorizationScopeFor<T>, AuthorizationFor<T>, OptionQuery>;
 
 	/// Collection of transaction metadata by block number.

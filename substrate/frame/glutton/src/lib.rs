@@ -117,21 +117,21 @@ pub mod pallet {
 	/// `1.0` is mapped to `100%`. Must be at most [`crate::RESOURCE_HARD_LIMIT`]. Setting this to
 	/// over `1.0` could stall the chain.
 	#[pallet::storage]
-	pub(crate) type Compute<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
+	pub type Compute<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
 
 	/// The proportion of the remaining `proof_size` to consume during `on_idle`.
 	///
 	/// `1.0` is mapped to `100%`. Must be at most [`crate::RESOURCE_HARD_LIMIT`]. Setting this to
 	/// over `1.0` could stall the chain.
 	#[pallet::storage]
-	pub(crate) type Storage<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
+	pub type Storage<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
 
 	/// The proportion of the `block length` to consume on each block.
 	///
 	/// `1.0` is mapped to `100%`. Must be at most [`crate::RESOURCE_HARD_LIMIT`]. Setting this to
 	/// over `1.0` could stall the chain.
 	#[pallet::storage]
-	pub(crate) type Length<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
+	pub type Length<T: Config> = StorageValue<_, FixedU64, ValueQuery>;
 
 	/// Storage map used for wasting proof size.
 	///
@@ -142,7 +142,7 @@ pub mod pallet {
 	/// pallet would also work out of the box with more entries, but its benchmarked proof weight
 	/// would possibly be underestimated in that case.
 	#[pallet::storage]
-	pub(super) type TrashData<T: Config> = StorageMap<
+	pub type TrashData<T: Config> = StorageMap<
 		Hasher = Twox64Concat,
 		Key = u32,
 		Value = [u8; VALUE_SIZE],
@@ -152,7 +152,7 @@ pub mod pallet {
 
 	/// The current number of entries in `TrashData`.
 	#[pallet::storage]
-	pub(crate) type TrashDataCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+	pub type TrashDataCount<T: Config> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(DefaultNoBound)]

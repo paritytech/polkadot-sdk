@@ -231,7 +231,7 @@ pub mod pallet {
 	/// (ordered descending by score, `None` last, highest first).
 	#[pallet::storage]
 	#[pallet::getter(fn pool)]
-	pub(crate) type Pool<T: Config<I>, I: 'static = ()> = StorageValue<_, PoolT<T, I>, ValueQuery>;
+	pub type Pool<T: Config<I>, I: 'static = ()> = StorageValue<_, PoolT<T, I>, ValueQuery>;
 
 	/// A Map of the candidates. The information in this Map is redundant
 	/// to the information in the `Pool`. But the Map enables us to easily
@@ -240,19 +240,18 @@ pub mod pallet {
 	/// `T::AccountId`, but by `T::Score` instead).
 	#[pallet::storage]
 	#[pallet::getter(fn candidate_exists)]
-	pub(crate) type CandidateExists<T: Config<I>, I: 'static = ()> =
+	pub type CandidateExists<T: Config<I>, I: 'static = ()> =
 		StorageMap<_, Twox64Concat, T::AccountId, bool, ValueQuery>;
 
 	/// The current membership, stored as an ordered Vec.
 	#[pallet::storage]
 	#[pallet::getter(fn members)]
-	pub(crate) type Members<T: Config<I>, I: 'static = ()> =
-		StorageValue<_, MembersT<T, I>, ValueQuery>;
+	pub type Members<T: Config<I>, I: 'static = ()> = StorageValue<_, MembersT<T, I>, ValueQuery>;
 
 	/// Size of the `Members` set.
 	#[pallet::storage]
 	#[pallet::getter(fn member_count)]
-	pub(crate) type MemberCount<T, I = ()> = StorageValue<_, u32, ValueQuery>;
+	pub type MemberCount<T, I = ()> = StorageValue<_, u32, ValueQuery>;
 
 	#[pallet::genesis_config]
 	#[derive(frame_support::DefaultNoBound)]

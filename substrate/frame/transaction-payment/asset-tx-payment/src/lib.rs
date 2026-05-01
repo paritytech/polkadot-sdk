@@ -73,31 +73,29 @@ pub use payment::*;
 pub use weights::WeightInfo;
 
 /// Type aliases used for interaction with `OnChargeTransaction`.
-pub(crate) type OnChargeTransactionOf<T> =
-	<T as pallet_transaction_payment::Config>::OnChargeTransaction;
+pub type OnChargeTransactionOf<T> = <T as pallet_transaction_payment::Config>::OnChargeTransaction;
 /// Balance type alias.
-pub(crate) type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
+pub type BalanceOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::Balance;
 /// Liquidity info type alias.
-pub(crate) type LiquidityInfoOf<T> =
-	<OnChargeTransactionOf<T> as OnChargeTransaction<T>>::LiquidityInfo;
+pub type LiquidityInfoOf<T> = <OnChargeTransactionOf<T> as OnChargeTransaction<T>>::LiquidityInfo;
 
 /// Type alias used for interaction with fungibles (assets).
 /// Balance type alias.
-pub(crate) type AssetBalanceOf<T> =
+pub type AssetBalanceOf<T> =
 	<<T as Config>::Fungibles as Inspect<<T as frame_system::Config>::AccountId>>::Balance;
 /// Asset id type alias.
-pub(crate) type AssetIdOf<T> =
+pub type AssetIdOf<T> =
 	<<T as Config>::Fungibles as Inspect<<T as frame_system::Config>::AccountId>>::AssetId;
 
 // Type aliases used for interaction with `OnChargeAssetTransaction`.
 /// Balance type alias.
-pub(crate) type ChargeAssetBalanceOf<T> =
+pub type ChargeAssetBalanceOf<T> =
 	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::Balance;
 /// Asset id type alias.
-pub(crate) type ChargeAssetIdOf<T> =
+pub type ChargeAssetIdOf<T> =
 	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::AssetId;
 /// Liquidity info type alias.
-pub(crate) type ChargeAssetLiquidityOf<T> =
+pub type ChargeAssetLiquidityOf<T> =
 	<<T as Config>::OnChargeAssetTransaction as OnChargeAssetTransaction<T>>::LiquidityInfo;
 
 /// Used to pass the initial payment info from pre- to post-dispatch.

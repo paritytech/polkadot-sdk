@@ -51,7 +51,7 @@ impl Default for ObsoleteReleases {
 
 /// Alias to the old storage item used for release versioning. Obsolete since v13.
 #[storage_alias]
-type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
+pub type StorageVersion<T: Config> = StorageValue<Pallet<T>, ObsoleteReleases, ValueQuery>;
 
 /// Supports the migration of Validator Disabling from pallet-staking to pallet-session
 pub mod v17 {
@@ -83,7 +83,7 @@ pub mod v16 {
 	use sp_staking::offence::OffenceSeverity;
 
 	#[frame_support::storage_alias]
-	pub(crate) type DisabledValidators<T: Config> =
+	pub type DisabledValidators<T: Config> =
 		StorageValue<Pallet<T>, Vec<(u32, OffenceSeverity)>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV15ToV16<T>(core::marker::PhantomData<T>);
@@ -161,7 +161,7 @@ pub mod v15 {
 	type DefaultDisablingStrategy = pallet_session::disabling::UpToLimitDisablingStrategy;
 
 	#[storage_alias]
-	pub(crate) type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
+	pub type DisabledValidators<T: Config> = StorageValue<Pallet<T>, Vec<u32>, ValueQuery>;
 
 	pub struct VersionUncheckedMigrateV14ToV15<T>(core::marker::PhantomData<T>);
 	impl<T: Config> UncheckedOnRuntimeUpgrade for VersionUncheckedMigrateV14ToV15<T> {
@@ -208,8 +208,7 @@ pub mod v14 {
 	use super::*;
 
 	#[frame_support::storage_alias]
-	pub(crate) type OffendingValidators<T: Config> =
-		StorageValue<Pallet<T>, Vec<(u32, bool)>, ValueQuery>;
+	pub type OffendingValidators<T: Config> = StorageValue<Pallet<T>, Vec<(u32, bool)>, ValueQuery>;
 
 	pub struct MigrateToV14<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV14<T> {
@@ -292,7 +291,7 @@ pub mod v12 {
 	use frame_support::{pallet_prelude::ValueQuery, storage_alias};
 
 	#[storage_alias]
-	type HistoryDepth<T: Config> = StorageValue<Pallet<T>, u32, ValueQuery>;
+	pub type HistoryDepth<T: Config> = StorageValue<Pallet<T>, u32, ValueQuery>;
 
 	/// Clean up `T::HistoryDepth` from storage.
 	///
