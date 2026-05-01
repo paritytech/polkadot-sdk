@@ -137,6 +137,7 @@ std = [
 	"pallet-recovery?/std",
 	"pallet-referenda?/std",
 	"pallet-remark?/std",
+	"pallet-revive-proc-macro?/std",
 	"pallet-revive?/std",
 	"pallet-root-offences?/std",
 	"pallet-root-testing?/std",
