@@ -83,11 +83,11 @@ fn teleport_via_transfer_assets_from_and_to_relay() {
 }
 
 #[test]
-fn dap_satellite_bridge_hub_transfers_native_to_asset_hub_dap() {
+fn accumulate_forward_bridge_hub_transfers_native_to_asset_hub() {
 	type RelayDataProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<
 		bridge_hub_westend_runtime::Runtime,
 	>;
-	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
+	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
 		BridgeHubWestend,
 		AssetHubWestend,
 	>(

@@ -103,7 +103,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{pallet_prelude::*, traits::fungibles::Refund};
 	use frame_system::pallet_prelude::*;
-	use sp_arithmetic::{traits::Unsigned, Permill};
+	use sp_arithmetic::{traits::Unsigned, PerThing, Permill};
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -157,9 +157,9 @@ pub mod pallet {
 			+ AccountTouch<Self::PoolAssetId, Self::AccountId, Balance = Self::Balance>
 			+ Refund<Self::AccountId, AssetId = Self::PoolAssetId>;
 
-		/// A % the liquidity providers will take of every swap. Represents 10ths of a percent.
+		/// The fraction of every swap that the liquidity providers take as a fee.
 		#[pallet::constant]
-		type LPFee: Get<u32>;
+		type LPFee: Get<Permill>;
 
 		/// A one-time fee to setup the pool.
 		#[pallet::constant]
@@ -1289,15 +1289,16 @@ pub mod pallet {
 				return Err(Error::<T>::ZeroLiquidity);
 			}
 
+			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
 			let amount_in_with_fee = amount_in
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - (T::LPFee::get().into())))
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let numerator =
 				amount_in_with_fee.checked_mul(&reserve_out).ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_in
-				.checked_mul(&1000u32.into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?
 				.checked_add(&amount_in_with_fee)
 				.ok_or(Error::<T>::Overflow)?;
@@ -1328,16 +1329,17 @@ pub mod pallet {
 				Err(Error::<T>::AmountOutTooHigh)?
 			}
 
+			let fee_complement = T::LPFee::get().left_from_one().deconstruct();
 			let numerator = reserve_in
 				.checked_mul(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&1000u32.into())
+				.checked_mul(&T::HigherPrecisionBalance::from(Permill::ACCURACY))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let denominator = reserve_out
 				.checked_sub(&amount_out)
 				.ok_or(Error::<T>::Overflow)?
-				.checked_mul(&(T::HigherPrecisionBalance::from(1000u32) - T::LPFee::get().into()))
+				.checked_mul(&T::HigherPrecisionBalance::from(fee_complement))
 				.ok_or(Error::<T>::Overflow)?;
 
 			let result = numerator
