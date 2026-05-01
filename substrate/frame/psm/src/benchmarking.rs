@@ -68,7 +68,6 @@ fn setup_assets<T: Config>(n: u32) -> T::AssetId
 where
 	T::Fungibles: FungiblesCreate<T::AccountId>,
 	T::InternalAsset: FungibleCreate<T::AccountId>,
-	T::AssetId: From<u32>,
 {
 	let admin: T::AccountId = whitelisted_caller();
 	let _ = frame_system::Pallet::<T>::inc_providers(&admin);
@@ -79,7 +78,7 @@ where
 	// helper. Setting metadata requires reserving a native deposit, which the
 	// helper handles by funding `admin` first — something the fungibles traits
 	// alone cannot express.
-	let target_id: T::AssetId = ASSET_ID_OFFSET.into();
+	let target_id: T::AssetId = T::BenchmarkHelper::get_asset_id(ASSET_ID_OFFSET);
 	if !T::Fungibles::asset_exists(target_id.clone()) {
 		T::BenchmarkHelper::create_asset(target_id.clone(), &admin, internal_decimals);
 	}
@@ -89,7 +88,7 @@ where
 	// entries. They are never swapped against, so their underlying fungibles
 	// asset does not need to exist and no ExternalDecimals snapshot is required.
 	for i in 0..n {
-		let id: T::AssetId = (ASSET_ID_OFFSET + i).into();
+		let id: T::AssetId = T::BenchmarkHelper::get_asset_id(ASSET_ID_OFFSET + i);
 		crate::ExternalAssets::<T>::insert(&id, CircuitBreakerLevel::AllEnabled);
 		crate::AssetCeilingWeight::<T>::insert(&id, Permill::from_percent(1));
 		crate::PsmDebt::<T>::insert(&id, BalanceOf::<T>::from(1u32));
@@ -102,7 +101,11 @@ where
 	target_id
 }
 
-#[benchmarks(where T::Fungibles: FungiblesCreate<T::AccountId>, T::InternalAsset: FungibleCreate<T::AccountId>, T::AssetId: From<u32>)]
+#[benchmarks(
+	where
+		T::Fungibles: FungiblesCreate<T::AccountId>,
+		T::InternalAsset: FungibleCreate<T::AccountId>,
+)]
 mod benchmarks {
 	use super::*;
 
@@ -218,7 +221,7 @@ mod benchmarks {
 		// reads the snapshot and compares it against live metadata.
 		let internal_decimals = ensure_internal_setup::<T>();
 		let caller: T::AccountId = whitelisted_caller();
-		let new_asset_id: T::AssetId = ASSET_ID_OFFSET.into();
+		let new_asset_id: T::AssetId = T::BenchmarkHelper::get_asset_id(ASSET_ID_OFFSET);
 
 		T::BenchmarkHelper::create_asset(new_asset_id.clone(), &caller, internal_decimals);
 

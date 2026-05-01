@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! OnUnbalanced tests for the DAP Satellite pallet.
+//! OnUnbalanced tests for the accumulate-and-forward pallet.
 
 use crate::mock::*;
 use frame_support::{
@@ -27,17 +27,17 @@ use frame_support::{
 	},
 };
 
-type DapSatellitePallet = crate::Pallet<Test>;
-type DapSatelliteLegacy = crate::DapSatelliteLegacyAdapter<Test, Balances>;
+type AccumulateForwardPallet = crate::Pallet<Test>;
+type LegacyAdapterPallet = crate::LegacyAdapter<Test, Balances>;
 
 #[test]
-fn on_unbalanced_deposits_to_satellite() {
+fn on_unbalanced_deposits_to_accumulation_account() {
 	new_test_ext(true).execute_with(|| {
-		let satellite = DapSatellitePallet::satellite_account();
+		let accumulation_account = AccumulateForwardPallet::accumulation_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite has ED, users have balances (1: 100, 2: 200, 3: 300)
-		assert_eq!(Balances::free_balance(satellite), ed);
+		// Given: accumulation account has ED, users have balances (1: 100, 2: 200, 3: 300)
+		assert_eq!(Balances::free_balance(accumulation_account), ed);
 		let initial_total = <Balances as Inspect<_>>::total_issuance();
 		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
@@ -51,7 +51,7 @@ fn on_unbalanced_deposits_to_satellite() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapSatellitePallet::on_unbalanced(credit1);
+		AccumulateForwardPallet::on_unbalanced(credit1);
 
 		let credit2 = <Balances as Balanced<u64>>::withdraw(
 			&2,
@@ -61,7 +61,7 @@ fn on_unbalanced_deposits_to_satellite() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapSatellitePallet::on_unbalanced(credit2);
+		AccumulateForwardPallet::on_unbalanced(credit2);
 
 		let credit3 = <Balances as Balanced<u64>>::withdraw(
 			&3,
@@ -71,10 +71,10 @@ fn on_unbalanced_deposits_to_satellite() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapSatellitePallet::on_unbalanced(credit3);
+		AccumulateForwardPallet::on_unbalanced(credit3);
 
-		// Then: satellite has accumulated all credits
-		assert_eq!(Balances::free_balance(satellite), ed + 100);
+		// Then: accumulation account has accumulated all credits
+		assert_eq!(Balances::free_balance(accumulation_account), ed + 100);
 
 		// And: users lost their amounts
 		assert_eq!(Balances::free_balance(1), 100 - 30);
@@ -84,7 +84,7 @@ fn on_unbalanced_deposits_to_satellite() {
 		// And: total issuance unchanged (funds moved, not created/destroyed)
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), initial_total);
 
-		// And: active issuance unchanged (satellite chains don't deactivate)
+		// And: active issuance unchanged (accumulate-and-forward chains don't deactivate)
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active);
 	});
 }
@@ -92,33 +92,33 @@ fn on_unbalanced_deposits_to_satellite() {
 #[test]
 fn on_unbalanced_handles_zero_amount() {
 	new_test_ext(true).execute_with(|| {
-		let satellite = DapSatellitePallet::satellite_account();
+		let accumulation_account = AccumulateForwardPallet::accumulation_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 		let initial_active = <Balances as Inspect<_>>::active_issuance();
 
-		// Given: satellite has ED
-		assert_eq!(Balances::free_balance(satellite), ed);
+		// Given: accumulation account has ED
+		assert_eq!(Balances::free_balance(accumulation_account), ed);
 
 		// When: imbalance with zero amount
 		let credit = <Balances as Balanced<u64>>::issue(0);
-		DapSatellitePallet::on_unbalanced(credit);
+		AccumulateForwardPallet::on_unbalanced(credit);
 
-		// Then: satellite still has just ED (no-op)
-		assert_eq!(Balances::free_balance(satellite), ed);
+		// Then: accumulation account still has just ED (no-op)
+		assert_eq!(Balances::free_balance(accumulation_account), ed);
 		// And: active issuance unchanged
 		assert_eq!(<Balances as Inspect<_>>::active_issuance(), initial_active);
 	});
 }
 
 #[test]
-#[should_panic(expected = "Failed to deposit to DAP satellite")]
-fn on_unbalanced_panics_when_satellite_not_funded_and_deposit_below_ed() {
+#[should_panic(expected = "Failed to deposit to accumulation account")]
+fn on_unbalanced_panics_when_accumulation_account_not_funded_and_deposit_below_ed() {
 	new_test_ext(false).execute_with(|| {
-		let satellite = DapSatellitePallet::satellite_account();
+		let accumulation_account = AccumulateForwardPallet::accumulation_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite is not funded
-		assert_eq!(Balances::free_balance(satellite), 0);
+		// Given: accumulation account is not funded
+		assert_eq!(Balances::free_balance(accumulation_account), 0);
 
 		// When: deposit < ED -> triggers defensive panic
 		let credit = <Balances as Balanced<u64>>::withdraw(
@@ -129,18 +129,18 @@ fn on_unbalanced_panics_when_satellite_not_funded_and_deposit_below_ed() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapSatellitePallet::on_unbalanced(credit);
+		AccumulateForwardPallet::on_unbalanced(credit);
 	});
 }
 
 #[test]
-fn on_unbalanced_creates_satellite_when_not_funded_and_deposit_at_least_ed() {
+fn on_unbalanced_creates_accumulation_account_when_not_funded_and_deposit_at_least_ed() {
 	new_test_ext(false).execute_with(|| {
-		let satellite = DapSatellitePallet::satellite_account();
+		let accumulation_account = AccumulateForwardPallet::accumulation_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite is not funded
-		assert_eq!(Balances::free_balance(satellite), 0);
+		// Given: accumulation account is not funded
+		assert_eq!(Balances::free_balance(accumulation_account), 0);
 
 		// When: deposit >= ED
 		let credit = <Balances as Balanced<u64>>::withdraw(
@@ -151,29 +151,29 @@ fn on_unbalanced_creates_satellite_when_not_funded_and_deposit_at_least_ed() {
 			Fortitude::Force,
 		)
 		.unwrap();
-		DapSatellitePallet::on_unbalanced(credit);
+		AccumulateForwardPallet::on_unbalanced(credit);
 
-		// Then: satellite is created and funded
-		assert_eq!(Balances::free_balance(satellite), ed);
+		// Then: accumulation account is created and funded
+		assert_eq!(Balances::free_balance(accumulation_account), ed);
 	});
 }
 
 #[test]
-fn on_unbalanced_multiple_dust_removals_accumulate_to_satellite() {
+fn on_unbalanced_multiple_dust_removals_accumulate() {
 	new_test_ext(true).execute_with(|| {
-		let satellite = DapSatellitePallet::satellite_account();
+		let accumulation_account = AccumulateForwardPallet::accumulation_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 		let dust = ed / 2;
 
-		// Given: satellite has ED. Create 3 accounts with ED + dust each.
+		// Given: accumulation account has ED. Create 3 accounts with ED + dust each.
 		for acct in 10..=12u64 {
 			assert_ok!(<Balances as Mutate<_>>::mint_into(&acct, ed + dust));
 		}
-		let satellite_before = Balances::free_balance(satellite);
+		let account_before = Balances::free_balance(accumulation_account);
 		let issuance_before = <Balances as Inspect<_>>::total_issuance();
 
 		// When: each account transfers ED away, leaving dust < ED → reaped.
-		// DustRemoval = DapSatellite → dust goes to satellite.
+		// DustRemoval = AccumulateForward → dust goes to accumulation account.
 		for acct in 10..=12u64 {
 			assert_ok!(Balances::transfer_allow_death(
 				frame_system::RawOrigin::Signed(acct).into(),
@@ -183,8 +183,8 @@ fn on_unbalanced_multiple_dust_removals_accumulate_to_satellite() {
 			assert_eq!(Balances::free_balance(acct), 0);
 		}
 
-		// Then: satellite accumulated dust from all 3 reaps.
-		assert_eq!(Balances::free_balance(satellite), satellite_before + 3 * dust);
+		// Then: accumulation account collected dust from all 3 reaps.
+		assert_eq!(Balances::free_balance(accumulation_account), account_before + 3 * dust);
 
 		// And: total issuance unchanged (dust moved, not destroyed).
 		assert_eq!(<Balances as Inspect<_>>::total_issuance(), issuance_before);
@@ -192,21 +192,21 @@ fn on_unbalanced_multiple_dust_removals_accumulate_to_satellite() {
 }
 
 #[test]
-fn legacy_adapter_redirects_slash_to_satellite() {
+fn legacy_adapter_redirects_slash_to_accumulation_account() {
 	new_test_ext(true).execute_with(|| {
-		let satellite = DapSatellitePallet::satellite_account();
+		let accumulation_account = AccumulateForwardPallet::accumulation_account();
 		let ed = <Balances as Inspect<_>>::minimum_balance();
 
-		// Given: satellite has ED, user 1 has 100
-		assert_eq!(Balances::free_balance(satellite), ed);
+		// Given: accumulation account has ED, user 1 has 100
+		assert_eq!(Balances::free_balance(accumulation_account), ed);
 		let initial_total = <Balances as Inspect<_>>::total_issuance();
 
-		// When: legacy slash via Currency::slash -> DapSatelliteLegacyAdapter
+		// When: legacy slash via Currency::slash -> LegacyAdapter
 		let (imbalance, _) = <Balances as Currency<_>>::slash(&1, 30);
-		DapSatelliteLegacy::on_unbalanced(imbalance);
+		LegacyAdapterPallet::on_unbalanced(imbalance);
 
-		// Then: satellite accumulated the slash
-		assert_eq!(Balances::free_balance(satellite), ed + 30);
+		// Then: accumulation account accumulated the slash
+		assert_eq!(Balances::free_balance(accumulation_account), ed + 30);
 
 		// And: user lost the slashed amount
 		assert_eq!(Balances::free_balance(1), 100 - 30);

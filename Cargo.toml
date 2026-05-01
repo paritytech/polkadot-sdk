@@ -317,6 +317,7 @@ members = [
 	"substrate/deprecated/hashing",
 	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
+	"substrate/frame/accumulate-and-forward",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
 	"substrate/frame/asset-conversion/ops",
@@ -352,7 +353,6 @@ members = [
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
 	"substrate/frame/dap",
-	"substrate/frame/dap-satellite",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/derivatives",
@@ -953,6 +953,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
+pallet-accumulate-and-forward = { path = "substrate/frame/accumulate-and-forward", default-features = false }
 pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
@@ -991,7 +992,6 @@ pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-featu
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
 pallet-dap = { path = "substrate/frame/dap", default-features = false }
-pallet-dap-satellite = { path = "substrate/frame/dap-satellite", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }

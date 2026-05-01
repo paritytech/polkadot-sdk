@@ -90,9 +90,10 @@ struct Args {
 	#[arg(long, default_value = "false")]
 	fail_fast: bool,
 
-	/// Optional SURI / seed phrase for single-account mode
-	#[arg(long)]
-	seed: Option<String>,
+	/// Optional comma-separated SURIs / seed phrases. Clients pick a seed
+	/// round-robin (`seeds[client_id % seeds.len()]`)
+	#[arg(long, value_delimiter = ',')]
+	seed: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -268,7 +269,7 @@ async fn execute_round(
 	for &(count, size) in messages_pattern {
 		for _ in 0..count {
 			let topic = generate_topic(test_run_id, client_id, round, sent_count);
-			let channel = blake2_256(sent_count.to_le_bytes().as_ref());
+			let channel = blake2_256(format!("{client_id}-{sent_count}").as_bytes());
 
 			let expiry_timestamp = (std::time::SystemTime::now()
 				.duration_since(std::time::UNIX_EPOCH)
@@ -501,15 +502,9 @@ async fn main() -> Result<(), anyhow::Error> {
 		));
 	}
 
-	if let Some(seed) = &args.seed {
-		if args.num_clients != 1 {
-			return Err(anyhow!(
-				"--seed requires --num-clients=1 (single-account quota model); got num_clients={}",
-				args.num_clients
-			));
-		}
+	for seed in &args.seed {
 		sr25519::Pair::from_string(seed, None)
-			.map_err(|e| anyhow!("Invalid --seed SURI: {e:?}"))?;
+			.map_err(|e| anyhow!("Invalid SURI in --seed: {e:?}"))?;
 	}
 
 	log_configuration(&args, &messages_pattern);
@@ -534,7 +529,11 @@ async fn main() -> Result<(), anyhow::Error> {
 				interval_ms: args.interval_ms,
 				statement_expiry_ms: args.statement_expiry_ms,
 				fail_fast: args.fail_fast,
-				seed: args.seed.clone(),
+				seed: if args.seed.is_empty() {
+					None
+				} else {
+					Some(args.seed[client_id as usize % args.seed.len()].clone())
+				},
 			};
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);
