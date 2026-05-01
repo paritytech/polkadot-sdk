@@ -639,6 +639,12 @@ pub mod pallet {
 		EcdsaRecoveryFailed = 0x41,
 		/// Manual mapping is disabled when auto-mapping is enabled.
 		AutoMappingEnabled = 0x42,
+		/// The supplied code is already uploaded under the same code hash.
+		///
+		/// Returned by [`Pallet::upload_code`] so that a dry-run reveals whether an upload
+		/// is required. Contract deployment paths treat an existing blob as a no-op and
+		/// therefore never surface this error.
+		CodeAlreadyExists = 0x43,
 		/// Benchmarking only error.
 		#[cfg(feature = "runtime-benchmarks")]
 		BenchmarkingError = 0xFF,
@@ -1476,8 +1482,13 @@ pub mod pallet {
 
 		/// Upload new `code` without instantiating a contract from it.
 		///
-		/// If the code does not already exist a deposit is reserved from the caller
-		/// The size of the reserve depends on the size of the supplied `code`.
+		/// A deposit proportional to the size of `code` is reserved from the caller.
+		///
+		/// Fails with [`Error::CodeAlreadyExists`] if a blob with the same code hash is
+		/// already stored. This makes a dry-run of the extrinsic a reliable way to check
+		/// whether an upload is required before submitting it on-chain. Callers that only
+		/// want to ensure the code is available should dry-run first and skip the upload
+		/// on that error.
 		///
 		/// # Note
 		///
@@ -2422,13 +2433,17 @@ impl<T: Config> Pallet<T> {
 			deposit_limit: storage_deposit_limit,
 		})?;
 
-		let module = Self::try_upload_code(
-			origin,
-			code,
-			bytecode_type,
-			&mut meter,
-			&ExecConfig::new_substrate_tx(),
-		)?;
+		let exec_config = ExecConfig::<T>::new_substrate_tx();
+		let mut module = match bytecode_type {
+			BytecodeType::Pvm => ContractBlob::from_pvm_code(code, origin)?,
+			BytecodeType::Evm => ContractBlob::from_evm_runtime_code(code, origin)?,
+		};
+
+		// Reject duplicate uploads so that a dry-run lets the caller discover whether the
+		// upload is needed. The deploy-time path keeps its no-op semantics via `store_code`.
+		ensure!(!<CodeInfoOf<T>>::contains_key(module.code_hash()), <Error<T>>::CodeAlreadyExists,);
+
+		module.store_code(&exec_config, &mut meter)?;
 		Ok(CodeUploadReturnValue {
 			code_hash: *module.code_hash(),
 			deposit: meter.deposit_consumed().charge_or_zero(),

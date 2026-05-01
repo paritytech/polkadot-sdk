@@ -1950,6 +1950,47 @@ fn upload_code_works() {
 }
 
 #[test]
+fn upload_code_fails_when_already_uploaded() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let _ = <Test as Config>::Currency::set_balance(&BOB, 1_000_000);
+
+		assert_ok!(Contracts::upload_code(
+			RuntimeOrigin::signed(ALICE),
+			binary.clone(),
+			deposit_limit::<Test>(),
+		));
+		let alice_deposit_after_first = expected_deposit(ensure_stored(code_hash));
+
+		// Drop previous events so we can assert nothing further happens on the failed upload.
+		initialize_block(2);
+
+		// Re-uploading by the same origin must fail so that a dry-run reveals the upload
+		// is unnecessary, instead of silently succeeding as a no-op.
+		assert_noop!(
+			Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				binary.clone(),
+				deposit_limit::<Test>(),
+			),
+			<Error<Test>>::CodeAlreadyExists,
+		);
+
+		// A different origin must not be able to "take over" or duplicate the upload either.
+		assert_noop!(
+			Contracts::upload_code(RuntimeOrigin::signed(BOB), binary, deposit_limit::<Test>(),),
+			<Error<Test>>::CodeAlreadyExists,
+		);
+
+		// Storage and the reserved deposit are unchanged.
+		assert_eq!(expected_deposit(ensure_stored(code_hash)), alice_deposit_after_first);
+		assert_eq!(System::events(), vec![]);
+	});
+}
+
+#[test]
 fn upload_code_limit_too_low() {
 	let (binary, _code_hash) = compile_module("dummy").unwrap();
 	let deposit_expected = expected_deposit(binary.len());
@@ -5015,6 +5056,11 @@ fn eip3607_reject_tx_from_contract_or_precompile() {
 #[test]
 fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 	let (binary, code_hash) = compile_module("dummy").unwrap();
+	let upload_binaries = [
+		compile_module("noop").unwrap().0,
+		compile_module("drain").unwrap().0,
+		compile_module("balance").unwrap().0,
+	];
 
 	let genesis_config = GenesisConfig::<Test> {
 		debug_settings: Some(DebugSettings::default().set_bypass_eip_3607(true)),
@@ -5040,7 +5086,8 @@ fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 			let system_addr = H160::from_low_u64_be(0x900);
 			let addresses = [contract_addr, blake2_addr, system_addr];
 
-			for address in addresses {
+			for (i, address) in addresses.iter().enumerate() {
+				let address = *address;
 				let origin = <Test as Config>::AddressMapper::to_fallback_account_id(&address);
 
 				let _ = <Test as Config>::Currency::set_balance(&origin, 10_000_000_000_000);
@@ -5064,19 +5111,19 @@ fn eip3607_allow_tx_from_contract_or_precompile_if_debug_setting_configured() {
 					.build();
 				assert_ok!(result);
 
+				let result = <Pallet<Test>>::upload_code(
+					RuntimeOrigin::signed(origin.clone()),
+					upload_binaries[i].clone(),
+					<BalanceOf<Test>>::MAX,
+				);
+				assert_ok!(result);
+
 				let result = <Pallet<Test>>::dispatch_as_fallback_account(
 					RuntimeOrigin::signed(origin.clone()),
 					Box::new(RuntimeCall::Balances(pallet_balances::Call::transfer_all {
 						dest: EVE,
 						keep_alive: false,
 					})),
-				);
-				assert_ok!(result);
-
-				let result = <Pallet<Test>>::upload_code(
-					RuntimeOrigin::signed(origin.clone()),
-					binary.clone(),
-					<BalanceOf<Test>>::MAX,
 				);
 				assert_ok!(result);
 

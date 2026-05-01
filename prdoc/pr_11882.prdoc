@@ -1,0 +1,10 @@
+title: '[pallet-revive] Fail upload_code when code is already uploaded'
+doc:
+- audience: Runtime Dev
+  description: |-
+    resolves https://github.com/paritytech/polkadot-sdk/issues/9248
+
+    Make `pallet_revive::Pallet::upload_code` fail with a new `CodeAlreadyExists` error when the same code hash is already stored, so callers can dry-run the extrinsic to learn whether the upload is required, while leaving `instantiate_with_code` and EVM constructor deploy paths unchanged (they still treat an existing blob as a no-op).
+crates:
+- name: pallet-revive
+  bump: patch

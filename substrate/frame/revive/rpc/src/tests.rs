@@ -1073,7 +1073,7 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	let node_client = SharedResources::node_client().await;
 	let node_rpc_client = RpcClient::from_url(SharedResources::node_rpc_url()).await?;
 
-	let (bytecode, _) = pallet_revive_fixtures::compile_module("dummy")?;
+	let (bytecode, _) = pallet_revive_fixtures::compile_module("noop")?;
 	let signer = Account::default();
 
 	// Helper function to get substrate block hash from EVM block number
