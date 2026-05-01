@@ -931,11 +931,8 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 		assert_ok!(builder::call(contract.addr).data(100u32.to_le_bytes().to_vec()).build());
 		assert_eq!(get_contract(&contract.addr).total_deposit(), info_deposit + 100 + 16 + 32 + 2);
 
-		// Increase the byte price and trigger a refund. This should not have any influence
-		// because the removal is pro rata and exactly those 100 bytes should have been
-		// removed as we didn't delete the key.
 		DEPOSIT_PER_BYTE.with(|c| *c.borrow_mut() = 500);
-		assert_ok!(builder::call(contract.addr).data(0u32.to_le_bytes().to_vec()).build());
+		assert_ok!(builder::call(contract.addr).data(1u32.to_le_bytes().to_vec()).build());
 
 		// Make sure the account wasn't removed by the refund
 		assert_eq!(
@@ -944,7 +941,7 @@ fn cannot_self_destruct_through_storage_refund_after_price_change() {
 		);
 		// + 1 because due to fixed point arithmetic we can sometimes refund
 		// one unit to little
-		assert_eq!(get_contract(&contract.addr).extra_deposit(), 16 + 32 + 2 + 1);
+		assert_eq!(get_contract(&contract.addr).extra_deposit(), 1 + 16 + 32 + 2 + 1);
 	});
 }
 

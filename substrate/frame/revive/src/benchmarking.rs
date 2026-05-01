@@ -1460,7 +1460,11 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(info.read(&key).unwrap(), value);
+		if n == 0 {
+			assert!(info.read(&key).is_none());
+		} else {
+			assert_eq!(info.read(&key).unwrap(), value);
+		}
 		Ok(())
 	}
 
@@ -1751,7 +1755,11 @@ mod benchmarks {
 		}
 
 		assert_ok!(result);
-		assert_eq!(runtime.ext().get_transient_storage(&key).unwrap(), value);
+		if n == 0 {
+			assert!(runtime.ext().get_transient_storage(&key).is_none());
+		} else {
+			assert_eq!(runtime.ext().get_transient_storage(&key).unwrap(), value);
+		}
 		Ok(())
 	}
 
