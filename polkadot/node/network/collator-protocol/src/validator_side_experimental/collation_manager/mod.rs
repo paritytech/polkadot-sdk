@@ -353,6 +353,24 @@ impl CollationManager {
 		self.leaf_claim_queues.get(leaf).and_then(|cqs| cqs.get(&core))
 	}
 
+	/// CQ positions at `core` schedulable by an advertisement made at `scheduling_parent`.
+	///
+	/// We use the *leaf's* CQ rather than the SP's: the SP's original CQ predicted slots
+	/// SP+1…SP+L, but `d` of those have already been filled by the blocks from SP up to
+	/// and including the leaf. The leaf's CQ is what remains unconsumed.
+	///
+	/// Example: leaf-CQ = [A, B, C, D] (L=4), SP at depth d=2:
+	///
+	///   blocks:   SP ──── b₁ ──── leaf ──── s₁ ──── s₂ ──── s₃ ──── s₄
+	///                  ╰─ 2 of SP's ─╯       ▲       ▲       ▲       ▲
+	///                  ╰─ CQ filled  ─╯      A       B       C       D
+	///                                        ╰── usable ──╯╰── trimmed ──╯
+	///
+	/// `s₃, s₄` would land after SP exits view (its lifetime is bounded by L), so we
+	/// keep [A, B] = leaf-CQ[0 .. L-d).
+	///
+	/// Across forks the same SP sits under multiple leaves with different `d` and
+	/// prefix-nested windows, so longest = union.
 	fn our_window(&self, scheduling_parent: &Hash, core: CoreIndex) -> Vec<ParaId> {
 		self.implicit_view
 			.paths_via_relay_parent(scheduling_parent)
@@ -464,7 +482,7 @@ impl CollationManager {
 	/// bit in window — pushing wide-window consumers to later positions so narrower SPs
 	/// keep access to their (only) reachable positions.
 	fn build_path_states(&self) -> BTreeMap<CoreIndex, Vec<PathState>> {
-		// (leaf, core) pairs we care about:
+		// Restrict to cores some tracked SP lives on; per such core, every leaf reachable from it.
 		let mut wanted: BTreeSet<(Hash, CoreIndex)> = BTreeSet::new();
 		for (sp_hash, per_sp) in &self.per_scheduling_parent {
 			for path in self.implicit_view.paths_via_relay_parent(sp_hash) {
