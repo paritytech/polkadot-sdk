@@ -704,7 +704,7 @@ mod precompile {
 		alloy::hex,
 		mock::{Assets, Balances, RuntimeEvent, RuntimeOrigin, System},
 		test_helpers::{
-			assert_contract_event, set_prefix_in_address, setup_asset_for_prefix,
+			assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, ICaller,
 			PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 		},
 		IERC20::{self, IERC20Events},
@@ -721,23 +721,30 @@ mod precompile {
 	use sp_runtime::Weight;
 	use test_case::test_case;
 
-	// Local copy of the `Caller` fixture's interface — only the
-	// `staticCall` arm is needed here. Declared inside this submodule to
-	// keep `tests.rs` and `permit_tests.rs` independently compilable.
-	alloy::sol! {
-		interface ICaller {
-			function staticCall(address callee, bytes data, uint64 gas)
-				external view returns (bool success, bytes output);
-		}
-	}
-
 	// HARDHAT_ACCOUNT_0 is brought in via `use super::*;` above.
 
 	const HARDHAT_ACCOUNT_0_SEED: &[u8] =
 		b"0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
 
 	const PERMIT_TOKEN_NAME: &[u8] = b"Test Token";
+	/// 2100-01-01 00:00 UTC in seconds — used as a deadline that will not
+	/// expire during the lifetime of the test runtime.
 	const FAR_FUTURE_DEADLINE: u64 = 4_102_444_800;
+	/// Account id used as the EIP-2612 spender across permit tests. Arbitrary
+	/// non-zero u64 — the value is irrelevant as long as it differs from the
+	/// signer (Hardhat #0) and the relayer.
+	const SPENDER_ACCOUNT: u64 = 987_654_321;
+	/// Account id used as the relayer that submits the permit on behalf of
+	/// the signer. Arbitrary non-zero u64.
+	const SUBMITTER_ACCOUNT: u64 = 555;
+	/// Free balance given to a funded account — large enough to cover the
+	/// permit-call storage deposits and the `Caller` fixture's contract
+	/// deposit in the STATICCALL test.
+	const SUBMITTER_FUNDING: u64 = 1_000_000_000_000;
+	/// Account id used to deploy the `Caller` fixture contract in the
+	/// STATICCALL test. Distinct from the relayer / signer / spender so a
+	/// regression that crosses roles is visible.
+	const DEPLOYER_ACCOUNT: u64 = 1234;
 
 	/// The `u64` AccountId that the runtime's `AddressMapper` derives from
 	/// `HARDHAT_ACCOUNT_0`. Derived via the trait so this stays correct if
@@ -876,8 +883,9 @@ mod precompile {
 		let expected: DispatchError = expected.into();
 		let actual = match result.result {
 			Err(e) => e,
-			Ok(v) =>
-				panic!("permit expected to trap with {:?}; call returned Ok({:?})", expected, v),
+			Ok(v) => {
+				panic!("permit expected to trap with {:?}; call returned Ok({:?})", expected, v)
+			},
 		};
 		assert!(
 			matches!(actual, DispatchError::Module(_)),
@@ -932,7 +940,44 @@ mod precompile {
 	}
 
 	fn fund_submitter(account: u64) {
-		Balances::make_free_balance_be(&account, 1_000_000_000_000u64);
+		Balances::make_free_balance_be(&account, SUBMITTER_FUNDING);
+	}
+
+	/// Common setup shared by most permit tests: an asset registered behind
+	/// the given precompile prefix, the signer (Hardhat #0) as owner, a
+	/// fixed spender account/address, a funded relayer (`submitter`), and a
+	/// far-future deadline. Tests that need a different shape (e.g.
+	/// zero-address callers, or cross-prefix signing) build their state
+	/// directly.
+	struct PermitSetup {
+		asset_id: u32,
+		asset_addr: H160,
+		owner_account: u64,
+		spender_account: u64,
+		spender_addr: H160,
+		submitter: u64,
+		deadline: AlloyU256,
+	}
+
+	fn permit_setup(prefix: u16) -> PermitSetup {
+		let asset_id = 0u32;
+		let asset_addr = setup_permit_asset(asset_id, prefix);
+		let owner_account = hardhat_account_id();
+		let spender_account = SPENDER_ACCOUNT;
+		let spender_addr =
+			<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
+		let submitter = SUBMITTER_ACCOUNT;
+		fund_submitter(submitter);
+		let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
+		PermitSetup {
+			asset_id,
+			asset_addr,
+			owner_account,
+			spender_account,
+			spender_addr,
+			submitter,
+			deadline,
+		}
 	}
 
 	/// Drives `permit()` through the fresh-approve and revoke branches:
@@ -947,81 +992,88 @@ mod precompile {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, asset_index);
-
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
+			let setup = permit_setup(asset_index);
 			let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
 
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero()
 			);
 
 			// 0 → 100: fresh approval.
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				deadline,
+				setup.deadline,
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::one());
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::one()
+			);
 			assert_contract_event(
-				asset_addr,
+				setup.asset_addr,
 				IERC20Events::Approval(IERC20::Approval {
 					owner: HARDHAT_ACCOUNT_0.0.into(),
-					spender: spender_addr.0.into(),
+					spender: setup.spender_addr.0.into(),
 					value: AlloyU256::from(100),
 				}),
 			);
 
 			// 100 → 0: revoke. ERC-20 conformance: must fire Approval(_, _, 0).
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(0), deadline);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 0);
-			assert_eq!(Balances::reserved_balance(&owner_account), 0);
+			permit_sign_and_call(
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(0),
+				setup.deadline,
+			);
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				0
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), 0);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::from(2)
 			);
 			assert_contract_event(
-				asset_addr,
+				setup.asset_addr,
 				IERC20Events::Approval(IERC20::Approval {
 					owner: HARDHAT_ACCOUNT_0.0.into(),
-					spender: spender_addr.0.into(),
+					spender: setup.spender_addr.0.into(),
 					value: AlloyU256::from(0),
 				}),
 			);
 
 			// 0 → 50: fresh approval again.
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(50),
-				deadline,
+				setup.deadline,
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 50);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				50
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::from(3)
 			);
 			assert_contract_event(
-				asset_addr,
+				setup.asset_addr,
 				IERC20Events::Approval(IERC20::Approval {
 					owner: HARDHAT_ACCOUNT_0.0.into(),
-					spender: spender_addr.0.into(),
+					spender: setup.spender_addr.0.into(),
 					value: AlloyU256::from(50),
 				}),
 			);
@@ -1031,34 +1083,37 @@ mod precompile {
 	/// `permit(value=0)` against a non-existent allowance succeeds silently —
 	/// no allowance entry, no deposit, but the nonce IS consumed and an
 	/// `Approval(_, _, 0)` event IS emitted (matches ERC-20 set semantics).
-	/// Pins the noop branch at lib.rs:555-559.
+	/// Pins the `new_amount.is_zero() && current.is_zero()` noop branch in
+	/// the `permit` dispatcher.
 	#[test]
 	fn permit_zero_on_nonexistent_is_noop() {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
+			permit_sign_and_call(
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(0),
+				setup.deadline,
+			);
 
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			permit_sign_and_call(submitter, asset_addr, spender_addr, AlloyU256::from(0), deadline);
-
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 0);
-			assert_eq!(Balances::reserved_balance(&owner_account), 0);
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::one());
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				0
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), 0);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::one()
+			);
 			assert_contract_event(
-				asset_addr,
+				setup.asset_addr,
 				IERC20Events::Approval(IERC20::Approval {
 					owner: HARDHAT_ACCOUNT_0.0.into(),
-					spender: spender_addr.0.into(),
+					spender: setup.spender_addr.0.into(),
 					value: AlloyU256::from(0),
 				}),
 			);
@@ -1067,58 +1122,56 @@ mod precompile {
 
 	/// Overwriting a non-zero allowance via permit must use set semantics:
 	/// the allowance equals the new value (not the sum), and only one
-	/// deposit is held throughout. Pins the cancel-then-approve branch at
-	/// lib.rs:561-567.
+	/// deposit is held throughout. Pins the cancel-then-approve branch in
+	/// the `permit` dispatcher (the `!new_amount.is_zero() && !current.is_zero()` arm).
 	#[test]
 	fn permit_nonzero_to_nonzero() {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 			let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
 
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				deadline,
+				setup.deadline,
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
 
 			// 100 → 50, no zeroing in between.
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(50),
-				deadline,
+				setup.deadline,
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 50);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				50
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
 
 			// 50 → 200: confirm both directions.
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(200),
-				deadline,
+				setup.deadline,
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 200);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				200
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
 		});
 	}
 
@@ -1135,29 +1188,27 @@ mod precompile {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
+			let (v, r, s) = sign_permit(
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+			);
 
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			let (v, r, s) = sign_permit(asset_addr, spender_addr, AlloyU256::from(100), deadline);
-
-			assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(owner_account), asset_id));
+			assert_ok!(Assets::freeze_asset(
+				RuntimeOrigin::signed(setup.owner_account),
+				setup.asset_id
+			));
 
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				HARDHAT_ACCOUNT_0,
-				spender_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				deadline,
+				setup.deadline,
 				v,
 				r,
 				s,
@@ -1165,13 +1216,16 @@ mod precompile {
 			assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
 
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero(),
 				"nonce must remain 0 when the storage transaction rolls back"
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 0);
-			assert_eq!(Balances::reserved_balance(&owner_account), 0);
-			assert_no_contract_event_from(asset_addr);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				0
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), 0);
+			assert_no_contract_event_from(setup.asset_addr);
 		});
 	}
 
@@ -1189,48 +1243,52 @@ mod precompile {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 			let deposit: u64 = <Test as pallet_assets::Config>::ApprovalDeposit::get();
+
 			assert_ok!(Assets::approve_transfer(
-				RuntimeOrigin::signed(owner_account),
-				asset_id,
-				spender_account,
+				RuntimeOrigin::signed(setup.owner_account),
+				setup.asset_id,
+				setup.spender_account,
 				100,
 			));
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
 
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			let (v, r, s) = sign_permit(asset_addr, spender_addr, AlloyU256::from(200), deadline);
-			assert_ok!(Assets::freeze_asset(RuntimeOrigin::signed(owner_account), asset_id));
+			let (v, r, s) = sign_permit(
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(200),
+				setup.deadline,
+			);
+			assert_ok!(Assets::freeze_asset(
+				RuntimeOrigin::signed(setup.owner_account),
+				setup.asset_id
+			));
 
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				HARDHAT_ACCOUNT_0,
-				spender_addr,
+				setup.spender_addr,
 				AlloyU256::from(200),
-				deadline,
+				setup.deadline,
 				v,
 				r,
 				s,
 			);
 			assert_permit_dispatch_err(result, pallet_assets::Error::<Test>::AssetNotLive);
 
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
-			assert_eq!(Balances::reserved_balance(&owner_account), deposit);
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100
+			);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), deposit);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero()
 			);
 		});
@@ -1241,44 +1299,40 @@ mod precompile {
 	/// has incremented the nonce. The `with_transaction` wrapper must roll
 	/// the nonce back. Distinct failure surface from the frozen-asset test
 	/// (revert vs DispatchError trap).
+	///
+	/// Note: this test depends on the mock's `Balance = u64`. On a runtime
+	/// with `Balance = u128` the same input would not overflow `to_balance`.
 	#[test]
 	fn permit_value_overflow_rolls_back() {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
 			let huge = AlloyU256::from(1u128 << 64);
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			let (v, r, s) = sign_permit(asset_addr, spender_addr, huge, deadline);
+			let (v, r, s) = sign_permit(setup.asset_addr, setup.spender_addr, huge, setup.deadline);
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				HARDHAT_ACCOUNT_0,
-				spender_addr,
+				setup.spender_addr,
 				huge,
-				deadline,
+				setup.deadline,
 				v,
 				r,
 				s,
 			);
 			assert_permit_reverted_with(result, "Balance conversion failed");
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero(),
 				"nonce must roll back when to_balance fails after use_permit"
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 0);
-			assert_no_contract_event_from(asset_addr);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				0
+			);
+			assert_no_contract_event_from(setup.asset_addr);
 		});
 	}
 
@@ -1290,43 +1344,38 @@ mod precompile {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
+			Balances::make_free_balance_be(&setup.owner_account, 0);
 
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
-			Balances::make_free_balance_be(&owner_account, 0);
-
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			let (v, r, s) = sign_permit(asset_addr, spender_addr, AlloyU256::from(100), deadline);
-			let result = raw_permit(
-				submitter,
-				asset_addr,
-				HARDHAT_ACCOUNT_0,
-				spender_addr,
+			let (v, r, s) = sign_permit(
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				deadline,
+				setup.deadline,
+			);
+			let result = raw_permit(
+				setup.submitter,
+				setup.asset_addr,
+				HARDHAT_ACCOUNT_0,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
 				v,
 				r,
 				s,
 			);
-			assert_permit_dispatch_err(
-				result,
-				pallet_balances::Error::<Test>::InsufficientBalance,
-			);
+			assert_permit_dispatch_err(result, pallet_balances::Error::<Test>::InsufficientBalance);
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero(),
 				"nonce must not advance when the deposit reserve fails"
 			);
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 0);
-			assert_no_contract_event_from(asset_addr);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				0
+			);
+			assert_no_contract_event_from(setup.asset_addr);
 		});
 	}
 
@@ -1338,37 +1387,32 @@ mod precompile {
 	#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN, PRECOMPILE_ADDRESS_PREFIX)]
 	fn permit_signature_bound_to_verifying_contract(sign_prefix: u16, submit_prefix: u16) {
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let _ = setup_permit_asset(asset_id, sign_prefix);
+			let setup = permit_setup(sign_prefix);
 			if sign_prefix != PRECOMPILE_ADDRESS_PREFIX_FOREIGN &&
 				submit_prefix == PRECOMPILE_ADDRESS_PREFIX_FOREIGN
 			{
-				crate::pallet::Pallet::<Test>::insert_asset_mapping(&asset_id)
+				crate::pallet::Pallet::<Test>::insert_asset_mapping(&setup.asset_id)
 					.expect("foreign asset mapping must insert");
 			}
 
-			let asset_addr_signed = H160::from(set_prefix_in_address(sign_prefix));
+			let asset_addr_signed = setup.asset_addr;
 			let asset_addr_submitted = H160::from(set_prefix_in_address(submit_prefix));
 			assert_ne!(asset_addr_signed, asset_addr_submitted);
 
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			let (v, r, s) =
-				sign_permit(asset_addr_signed, spender_addr, AlloyU256::from(100), deadline);
+			let (v, r, s) = sign_permit(
+				asset_addr_signed,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+			);
 
 			let result = raw_permit(
-				submitter,
+				setup.submitter,
 				asset_addr_submitted,
 				HARDHAT_ACCOUNT_0,
-				spender_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				deadline,
+				setup.deadline,
 				v,
 				r,
 				s,
@@ -1393,22 +1437,18 @@ mod precompile {
 	#[test_case(PRECOMPILE_ADDRESS_PREFIX_FOREIGN)]
 	fn permit_rejects_after_token_name_change(asset_index: u16) {
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, asset_index);
+			let setup = permit_setup(asset_index);
 
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
-
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
-			let (v, r, s) = sign_permit(asset_addr, spender_addr, AlloyU256::from(100), deadline);
+			let (v, r, s) = sign_permit(
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+			);
 
 			assert_ok!(Assets::force_set_metadata(
 				RuntimeOrigin::root(),
-				asset_id,
+				setup.asset_id,
 				b"Renamed Token".to_vec(),
 				b"RNM".to_vec(),
 				18,
@@ -1416,127 +1456,129 @@ mod precompile {
 			));
 
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				HARDHAT_ACCOUNT_0,
-				spender_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				deadline,
+				setup.deadline,
 				v,
 				r,
 				s,
 			);
 			assert_permit_reverted_with(result, "Signer does not match owner");
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero()
 			);
 		});
 	}
 
-	/// EIP-2612 forbids the zero address as `owner`. The zero-address check
-	/// at permit.rs:323 runs before signature verification, so dummy
-	/// `(v, r, s)` is fine.
+	/// EIP-2612 forbids the zero address as `owner`. The early
+	/// `owner.is_zero()` check inside `do_verify_permit` runs before signature
+	/// verification, so dummy `(v, r, s)` is fine.
 	#[test]
 	fn permit_rejects_zero_owner() {
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				H160::zero(),
-				spender_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				AlloyU256::from(FAR_FUTURE_DEADLINE),
+				setup.deadline,
 				27,
 				[0u8; 32],
 				[0u8; 32],
 			);
 			assert_permit_reverted_with(result, "Invalid owner address");
-			assert_eq!(Balances::reserved_balance(&hardhat_account_id()), 0);
-			assert_no_contract_event_from(asset_addr);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), 0);
+			// Nonce on the (zero) owner the call would have advanced, plus
+			// nonce on the real signer for good measure — both must stay 0
+			// to pin the early-reject ordering.
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &H160::zero()),
+				U256::zero(),
+			);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero(),
+			);
+			assert_no_contract_event_from(setup.asset_addr);
 		});
 	}
 
 	/// EIP-2612 forbids the zero address as `spender`. Same rationale as
-	/// `permit_rejects_zero_owner` — the check at permit.rs:326 runs first.
+	/// `permit_rejects_zero_owner` — the spender zero-check runs before
+	/// signature verification.
 	#[test]
 	fn permit_rejects_zero_spender() {
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				HARDHAT_ACCOUNT_0,
 				H160::zero(),
 				AlloyU256::from(100),
-				AlloyU256::from(FAR_FUTURE_DEADLINE),
+				setup.deadline,
 				27,
 				[0u8; 32],
 				[0u8; 32],
 			);
 			assert_permit_reverted_with(result, "Invalid spender address");
-			assert_eq!(Balances::reserved_balance(&hardhat_account_id()), 0);
-			assert_no_contract_event_from(asset_addr);
+			assert_eq!(Balances::reserved_balance(&setup.owner_account), 0);
+			// Nonce on the declared owner must stay 0; the early-reject
+			// ordering would be broken if it advanced.
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero(),
+			);
+			assert_no_contract_event_from(setup.asset_addr);
 		});
 	}
 
-	/// The deadline check is `deadline < now` (strict less-than) at
-	/// permit.rs:340. A permit with `deadline == now` must be accepted.
-	/// Pins this boundary against an inadvertent flip to `<=`. Not covered
-	/// at the pallet level.
+	/// The deadline check uses strict `deadline < now` — a permit with
+	/// `deadline == now` must be accepted. Pins this boundary against an
+	/// inadvertent flip to `<=`. Not covered at the pallet level.
 	#[test]
 	fn permit_accepts_deadline_at_current_timestamp() {
 		use frame_support::traits::fungibles::approvals::Inspect;
 
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let owner_account = hardhat_account_id();
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
 			let now_seconds: u64 = 2_000_000_000;
 			pallet_timestamp::Pallet::<Test>::set_timestamp(now_seconds * 1_000);
 
 			let deadline = AlloyU256::from(now_seconds);
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
 				deadline,
 			);
 
-			assert_eq!(Assets::allowance(asset_id, &owner_account, &spender_account), 100);
-			assert_eq!(permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0), U256::one());
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				100
+			);
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::one()
+			);
 		});
 	}
 
-	/// Exercises the `secp256k1_ecdsa_recover` failure path — the only
-	/// revert reason in the dispatcher's error map (lib.rs:509-520) without
-	/// dedicated coverage. `r = 0` is not a valid signature component
-	/// (the implied curve point would have x = 0, but `0³ + 7` has no
-	/// square root mod p on secp256k1), so recovery returns `Err`.
+	/// Exercises the `secp256k1_ecdsa_recover` failure path — one of the
+	/// permit-pallet error variants the dispatcher maps to a revert string.
+	/// `r = 0` is not a valid signature component (the implied curve point
+	/// would have x = 0, but `0³ + 7` has no square root mod p on
+	/// secp256k1), so recovery returns `Err`.
 	///
 	/// Caveat: `"Invalid signature"` is a prefix of `"Invalid signature v
 	/// value"`, so the substring matcher cannot, on its own, distinguish
@@ -1547,49 +1589,42 @@ mod precompile {
 	#[test]
 	fn permit_rejects_recovery_failure() {
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
 			let result = raw_permit(
-				submitter,
-				asset_addr,
+				setup.submitter,
+				setup.asset_addr,
 				HARDHAT_ACCOUNT_0,
-				spender_addr,
+				setup.spender_addr,
 				AlloyU256::from(100),
-				AlloyU256::from(FAR_FUTURE_DEADLINE),
+				setup.deadline,
 				27,
 				[0u8; 32],
 				[0u8; 32],
 			);
 			assert_permit_reverted_with(result, "Invalid signature");
 			assert_eq!(
-				permit::Pallet::<Test>::nonce(&asset_addr, &HARDHAT_ACCOUNT_0),
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
 				U256::zero()
 			);
-			assert_no_contract_event_from(asset_addr);
+			assert_no_contract_event_from(setup.asset_addr);
 		});
 	}
 
 	/// `permit()` is a state-changing call and must be rejected inside a
-	/// STATICCALL context. The dispatcher's read-only check at lib.rs:173-182
-	/// guards this — a regression that drops `IERC20Calls::permit(_)` from
-	/// the match arm would silently allow state-changing permits in a
-	/// static context. Mirrors the `delegatecall_is_rejected` test in
-	/// tests.rs.
+	/// STATICCALL context. The dispatcher's read-only check (the match arm
+	/// guarding `transfer | approve | transferFrom | permit` against
+	/// `env.is_read_only()`) is what guards this — a regression that drops
+	/// `IERC20Calls::permit(_)` from that arm would silently allow
+	/// state-changing permits in a static context. Mirrors the
+	/// `delegatecall_is_rejected` test in `tests.rs`.
 	#[test]
 	fn permit_staticcall_is_rejected() {
 		new_test_ext().execute_with(|| {
 			let asset_id = 0u32;
 			let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
-			let deployer = 555u64;
-			Balances::make_free_balance_be(&deployer, 1_000_000_000_000_000u64);
+			let deployer = DEPLOYER_ACCOUNT;
+			Balances::make_free_balance_be(&deployer, SUBMITTER_FUNDING);
 			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, deployer, true, 1));
 
 			let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
@@ -1654,26 +1689,18 @@ mod precompile {
 	}
 
 	/// Drives `nonces(owner)` through `bare_call` to pin the dispatch arm
-	/// at lib.rs:194. A regression that mis-routes the selector would not
-	/// be caught by tests that read `permit::Pallet::nonce` storage
-	/// directly.
+	/// for the `nonces` selector. A regression that mis-routes the selector
+	/// would not be caught by tests that read `permit::Pallet::nonce`
+	/// storage directly.
 	#[test]
 	fn nonces_via_precompile() {
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = setup_permit_asset(asset_id, PRECOMPILE_ADDRESS_PREFIX);
-
-			let spender_account = 987654321u64;
-			let spender_addr =
-				<Test as pallet_revive::Config>::AddressMapper::to_address(&spender_account);
-
-			let submitter = 555u64;
-			fund_submitter(submitter);
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
 
 			let read_nonce = |asset_addr: H160| -> AlloyU256 {
 				let data = IERC20::noncesCall { owner: HARDHAT_ACCOUNT_0.0.into() }.abi_encode();
 				let bytes = pallet_revive::Pallet::<Test>::bare_call(
-					RuntimeOrigin::signed(submitter),
+					RuntimeOrigin::signed(setup.submitter),
 					asset_addr,
 					0u32.into(),
 					TransactionLimits::WeightAndDeposit {
@@ -1689,18 +1716,17 @@ mod precompile {
 				IERC20::noncesCall::abi_decode_returns(&bytes).expect("decode nonces return")
 			};
 
-			assert_eq!(read_nonce(asset_addr), AlloyU256::from(0));
+			assert_eq!(read_nonce(setup.asset_addr), AlloyU256::from(0));
 
-			let deadline = AlloyU256::from(FAR_FUTURE_DEADLINE);
 			permit_sign_and_call(
-				submitter,
-				asset_addr,
-				spender_addr,
+				setup.submitter,
+				setup.asset_addr,
+				setup.spender_addr,
 				AlloyU256::from(50),
-				deadline,
+				setup.deadline,
 			);
 
-			assert_eq!(read_nonce(asset_addr), AlloyU256::from(1));
+			assert_eq!(read_nonce(setup.asset_addr), AlloyU256::from(1));
 		});
 	}
 }
