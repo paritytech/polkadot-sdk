@@ -24,9 +24,10 @@ use substrate_test_runtime_client::runtime::{Block, Hash};
 
 /// The declaration of the `Runtime` type is done by the `construct_runtime!` macro in a real
 /// runtime.
-pub enum Runtime {}
+pub struct Runtime {}
 
 decl_runtime_apis! {
+	#[deprecated]
 	pub trait Api {
 		fn test(data: u64);
 		fn something_with_block(block: Block) -> Block;
@@ -76,12 +77,14 @@ decl_runtime_apis! {
 }
 
 impl_runtime_apis! {
+	#[allow(deprecated)]
 	impl self::Api<Block> for Runtime {
 		fn test(_: u64) {
 			unimplemented!()
 		}
 
-		fn something_with_block(_: Block) -> Block {
+		// Ensure that we accept `mut`
+		fn something_with_block(mut _block: Block) -> Block {
 			unimplemented!()
 		}
 
@@ -136,7 +139,7 @@ impl_runtime_apis! {
 		fn version() -> sp_version::RuntimeVersion {
 			unimplemented!()
 		}
-		fn execute_block(_: Block) {
+		fn execute_block(_: <Block as BlockT>::LazyBlock) {
 			unimplemented!()
 		}
 		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {
@@ -150,6 +153,7 @@ struct MockApi {
 }
 
 mock_impl_runtime_apis! {
+	#[allow(deprecated)]
 	impl Api<Block> for MockApi {
 		fn test(_: u64) {
 			unimplemented!()
@@ -192,6 +196,7 @@ type TestClient = substrate_test_runtime_client::client::Client<
 >;
 
 #[test]
+#[allow(deprecated)]
 fn test_client_side_function_signature() {
 	let _test: fn(
 		&RuntimeApiImpl<Block, TestClient>,
@@ -212,6 +217,7 @@ fn test_client_side_function_signature() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn check_runtime_api_info() {
 	assert_eq!(&<dyn Api::<Block>>::ID, &runtime_decl_for_api::ID);
 	assert_eq!(<dyn Api::<Block>>::VERSION, runtime_decl_for_api::VERSION);
@@ -262,6 +268,7 @@ fn check_staging_multiver_runtime_api_versions<T: RuntimeApiInfo + ?Sized>(
 }
 
 #[test]
+#[allow(deprecated)]
 fn check_runtime_api_versions() {
 	check_runtime_api_versions_contains::<dyn Api<Block>>();
 	check_runtime_api_versions_contains::<dyn ApiWithCustomVersion<Block>>();
@@ -279,6 +286,7 @@ fn check_runtime_api_versions() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn mock_runtime_api_has_api() {
 	let mock = MockApi { block: None };
 
@@ -296,6 +304,7 @@ fn mock_runtime_api_panics_on_calling_old_version() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn mock_runtime_api_works_with_advanced() {
 	let mock = MockApi { block: None };
 
@@ -304,5 +313,66 @@ fn mock_runtime_api_works_with_advanced() {
 	assert_eq!(
 		"Test error".to_string(),
 		mock.wild_card(Hash::repeat_byte(0x01), 1).unwrap_err().to_string(),
+	);
+}
+
+#[test]
+fn runtime_api_metadata_matches_version_implemented() {
+	use sp_metadata_ir::InternalImplRuntimeApis;
+
+	let rt = Runtime {};
+	let runtime_metadata = rt.runtime_metadata();
+
+	// Check that the metadata for some runtime API matches expectation.
+	let assert_has_api_with_methods = |api_name: &str, api_methods: &[&str]| {
+		let Some(api) = runtime_metadata.iter().find(|api| api.name == api_name) else {
+			panic!("Can't find runtime API '{api_name}'");
+		};
+		if api.methods.len() != api_methods.len() {
+			panic!(
+				"Wrong number of methods in '{api_name}'; expected {} methods but got {}: {:?}",
+				api_methods.len(),
+				api.methods.len(),
+				api.methods
+			);
+		}
+		for expected_name in api_methods {
+			if !api.methods.iter().any(|method| &method.name == expected_name) {
+				panic!("Can't find API method '{expected_name}' in '{api_name}'");
+			}
+		}
+	};
+
+	assert_has_api_with_methods("ApiWithCustomVersion", &["same_name"]);
+
+	assert_has_api_with_methods("ApiWithMultipleVersions", &["stable_one", "new_one"]);
+
+	assert_has_api_with_methods(
+		"ApiWithStagingMethod",
+		&[
+			"stable_one",
+			#[cfg(feature = "enable-staging-api")]
+			"staging_one",
+		],
+	);
+
+	assert_has_api_with_methods(
+		"ApiWithStagingAndVersionedMethods",
+		&[
+			"stable_one",
+			"new_one",
+			#[cfg(feature = "enable-staging-api")]
+			"staging_one",
+		],
+	);
+
+	assert_has_api_with_methods(
+		"ApiWithStagingAndChangedBase",
+		&[
+			"stable_one",
+			"new_one",
+			#[cfg(feature = "enable-staging-api")]
+			"staging_one",
+		],
 	);
 }

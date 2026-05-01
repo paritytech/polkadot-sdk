@@ -244,6 +244,7 @@
 
 mod behaviour;
 mod bitswap;
+mod ipfs_block_provider;
 mod litep2p;
 mod protocol;
 
@@ -266,6 +267,9 @@ pub mod utils;
 
 pub use crate::litep2p::Litep2pNetworkBackend;
 pub use event::{DhtEvent, Event};
+pub use ipfs_block_provider::{
+	BlockProvider as IpfsBlockProvider, IndexedTransactions as IpfsIndexedTransactions,
+};
 #[doc(inline)]
 pub use request_responses::{Config, IfDisconnected, RequestFailure};
 pub use sc_network_common::{
@@ -291,6 +295,9 @@ pub use service::{
 };
 pub use types::ProtocolName;
 
+/// Log target for `sc-network`.
+const LOG_TARGET: &str = "sub-libp2p";
+
 /// The maximum allowed number of established connections per peer.
 ///
 /// Typically, and by design of the network behaviours in this crate,
@@ -302,3 +309,6 @@ const MAX_CONNECTIONS_PER_PEER: usize = 2;
 
 /// The maximum number of concurrent established connections that were incoming.
 const MAX_CONNECTIONS_ESTABLISHED_INCOMING: u32 = 10_000;
+
+/// Maximum response size limit.
+pub const MAX_RESPONSE_SIZE: u64 = 16 * 1024 * 1024;

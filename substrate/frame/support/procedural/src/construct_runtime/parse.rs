@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use core::str::FromStr;
 use frame_support_procedural_tools::syn_ext as ext;
 use proc_macro2::{Span, TokenStream};
 use quote::ToTokens;
@@ -95,22 +96,25 @@ impl Parse for RuntimeDeclaration {
 		let pallets_token = pallets.token;
 
 		match convert_pallets(pallets.content.inner.into_iter().collect())? {
-			PalletsConversion::Implicit(pallets) =>
-				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets })),
-			PalletsConversion::Explicit(pallets) =>
+			PalletsConversion::Implicit(pallets) => {
+				Ok(RuntimeDeclaration::Implicit(ImplicitRuntimeDeclaration { pallets }))
+			},
+			PalletsConversion::Explicit(pallets) => {
 				Ok(RuntimeDeclaration::Explicit(ExplicitRuntimeDeclaration {
 					name,
 					where_section,
 					pallets,
 					pallets_token,
-				})),
-			PalletsConversion::ExplicitExpanded(pallets) =>
+				}))
+			},
+			PalletsConversion::ExplicitExpanded(pallets) => {
 				Ok(RuntimeDeclaration::ExplicitExpanded(ExplicitRuntimeDeclaration {
 					name,
 					where_section,
 					pallets,
 					pallets_token,
-				})),
+				}))
+			},
 		}
 	}
 }
@@ -130,9 +134,9 @@ impl Parse for WhereSection {
 			definitions.push(definition);
 			if !input.peek(Token![,]) {
 				if !input.peek(token::Brace) {
-					return Err(input.error("Expected `,` or `{`"))
+					return Err(input.error("Expected `,` or `{`"));
 				}
-				break
+				break;
 			}
 			input.parse::<Token![,]>()?;
 		}
@@ -144,7 +148,7 @@ impl Parse for WhereSection {
 				"`{:?}` was declared above. Please use exactly one declaration for `{:?}`.",
 				kind, kind
 			);
-			return Err(Error::new(*kind_span, msg))
+			return Err(Error::new(*kind_span, msg));
 		}
 		Ok(Self { span: input.span() })
 	}
@@ -173,7 +177,7 @@ impl Parse for WhereDefinition {
 		} else if lookahead.peek(keyword::UncheckedExtrinsic) {
 			(input.parse::<keyword::UncheckedExtrinsic>()?.span(), WhereKind::UncheckedExtrinsic)
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		};
 
 		let _: Token![=] = input.parse()?;
@@ -270,7 +274,7 @@ impl Parse for PalletDeclaration {
 		{
 			return Err(input.error(
 				"Unexpected tokens, expected one of `::{`, `exclude_parts`, `use_parts`, `=`, `,`",
-			))
+			));
 		} else {
 			is_expanded.then_some(extra_parts)
 		};
@@ -283,7 +287,7 @@ impl Parse for PalletDeclaration {
 			let _: keyword::use_parts = input.parse()?;
 			SpecifiedParts::Use(parse_pallet_parts_no_generic(input)?)
 		} else if !input.peek(Token![=]) && !input.peek(Token![,]) && !input.is_empty() {
-			return Err(input.error("Unexpected tokens, expected one of `exclude_parts`, `=`, `,`"))
+			return Err(input.error("Unexpected tokens, expected one of `exclude_parts`, `=`, `,`"));
 		} else {
 			SpecifiedParts::All
 		};
@@ -295,7 +299,7 @@ impl Parse for PalletDeclaration {
 			let index = index.base10_parse::<u8>()?;
 			Some(index)
 		} else if !input.peek(Token![,]) && !input.is_empty() {
-			return Err(input.error("Unexpected tokens, expected one of `=`, `,`"))
+			return Err(input.error("Unexpected tokens, expected one of `=`, `,`"));
 		} else {
 			None
 		};
@@ -339,7 +343,7 @@ impl Parse for PalletPath {
 			let ident = input.call(Ident::parse_any)?;
 			res.inner.segments.push(ident.into());
 		} else {
-			return Err(lookahead.error())
+			return Err(lookahead.error());
 		}
 
 		while input.peek(Token![::]) && input.peek3(Ident) {
@@ -370,7 +374,7 @@ fn parse_pallet_parts(input: ParseStream) -> Result<Vec<PalletPart>> {
 				"`{}` was already declared before. Please remove the duplicate declaration",
 				part.name(),
 			);
-			return Err(Error::new(part.keyword.span(), msg))
+			return Err(Error::new(part.keyword.span(), msg));
 		}
 	}
 
@@ -505,7 +509,7 @@ impl Parse for PalletPart {
 				keyword.name(),
 				valid_generics,
 			);
-			return Err(syn::Error::new(keyword.span(), msg))
+			return Err(syn::Error::new(keyword.span(), msg));
 		}
 
 		Ok(Self { keyword, generics })
@@ -566,7 +570,7 @@ fn parse_pallet_parts_no_generic(input: ParseStream) -> Result<Vec<PalletPartNoG
 				"`{}` was already declared before. Please remove the duplicate declaration",
 				part.keyword.name(),
 			);
-			return Err(Error::new(part.keyword.span(), msg))
+			return Err(Error::new(part.keyword.span(), msg));
 		}
 	}
 
@@ -609,6 +613,18 @@ impl Pallet {
 	pub fn exists_part(&self, name: &str) -> bool {
 		self.find_part(name).is_some()
 	}
+
+	// Get runtime attributes for the pallet, mostly used for macros
+	pub fn get_attributes(&self) -> TokenStream {
+		self.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
+			let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
+				.expect("was successfully parsed before; qed");
+			quote::quote! {
+				#acc
+				#attr
+			}
+		})
+	}
 }
 
 /// Result of a conversion of a declaration of pallets.
@@ -650,7 +666,7 @@ enum PalletsConversion {
 /// incrementally from last explicit or 0.
 fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConversion> {
 	if pallets.iter().any(|pallet| pallet.pallet_parts.is_none()) {
-		return Ok(PalletsConversion::Implicit(pallets))
+		return Ok(PalletsConversion::Implicit(pallets));
 	}
 
 	let mut indices = HashMap::new();
@@ -678,7 +694,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 				);
 				let mut err = syn::Error::new(used_pallet.span(), &msg);
 				err.combine(syn::Error::new(pallet.name.span(), msg));
-				return Err(err)
+				return Err(err);
 			}
 
 			if let Some(used_pallet) = names.insert(pallet.name.clone(), pallet.name.span()) {
@@ -686,7 +702,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 
 				let mut err = syn::Error::new(used_pallet, &msg);
 				err.combine(syn::Error::new(pallet.name.span(), &msg));
-				return Err(err)
+				return Err(err);
 			}
 
 			let mut pallet_parts = pallet.pallet_parts.expect("Checked above");
@@ -696,7 +712,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 
 			// Check parts are correctly specified
 			match &pallet.specified_parts {
-				SpecifiedParts::Exclude(parts) | SpecifiedParts::Use(parts) =>
+				SpecifiedParts::Exclude(parts) | SpecifiedParts::Use(parts) => {
 					for part in parts {
 						if !available_parts.contains(part.keyword.name()) {
 							let msg = format!(
@@ -712,9 +728,10 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 									}
 								})
 							);
-							return Err(syn::Error::new(part.keyword.span(), msg))
+							return Err(syn::Error::new(part.keyword.span(), msg));
 						}
-					},
+					}
+				},
 				SpecifiedParts::All => (),
 			}
 
@@ -738,7 +755,7 @@ fn convert_pallets(pallets: Vec<PalletDeclaration>) -> syn::Result<PalletsConver
 					if attr.path().segments.first().map_or(false, |s| s.ident != "cfg") {
 						let msg = "Unsupported attribute, only #[cfg] is supported on pallet \
 						declarations in `construct_runtime`";
-						return Err(syn::Error::new(attr.span(), msg))
+						return Err(syn::Error::new(attr.span(), msg));
 					}
 
 					attr.parse_args_with(|input: syn::parse::ParseStream| {

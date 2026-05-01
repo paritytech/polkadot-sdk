@@ -49,7 +49,7 @@ pub(crate) mod metrics;
 mod tests;
 
 /// Logging target for the file.
-const LOG_TARGET: &str = "sub-libp2p";
+const LOG_TARGET: &str = "sub-libp2p::notification::service";
 
 /// Default command queue size.
 const COMMAND_QUEUE_SIZE: usize = 64;
@@ -89,9 +89,8 @@ impl MessageSink for NotificationSink {
 			.await
 			.map_err(|_| error::Error::ConnectionClosed)?;
 
-		permit.send(notification).map_err(|_| error::Error::ChannelClosed).map(|res| {
+		permit.send(notification).map_err(|_| error::Error::ChannelClosed).inspect(|_| {
 			metrics::register_notification_sent(sink.0.metrics(), &sink.1, notification_len);
-			res
 		})
 	}
 }
@@ -263,13 +262,12 @@ impl NotificationService for NotificationHandle {
 			.map_err(|_| error::Error::ConnectionClosed)?
 			.send(notification)
 			.map_err(|_| error::Error::ChannelClosed)
-			.map(|res| {
+			.inspect(|_| {
 				metrics::register_notification_sent(
 					sink.metrics(),
 					&self.protocol,
 					notification_len,
 				);
-				res
 			})
 	}
 
@@ -293,12 +291,13 @@ impl NotificationService for NotificationHandle {
 	async fn next_event(&mut self) -> Option<NotificationEvent> {
 		loop {
 			match self.rx.next().await? {
-				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } =>
+				InnerNotificationEvent::ValidateInboundSubstream { peer, handshake, result_tx } => {
 					return Some(NotificationEvent::ValidateInboundSubstream {
 						peer: peer.into(),
 						handshake,
 						result_tx,
-					}),
+					})
+				},
 				InnerNotificationEvent::NotificationStreamOpened {
 					peer,
 					handshake,
@@ -318,17 +317,18 @@ impl NotificationService for NotificationHandle {
 						handshake,
 						direction,
 						negotiated_fallback,
-					})
+					});
 				},
 				InnerNotificationEvent::NotificationStreamClosed { peer } => {
 					self.peers.remove(&peer);
-					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() })
+					return Some(NotificationEvent::NotificationStreamClosed { peer: peer.into() });
 				},
-				InnerNotificationEvent::NotificationReceived { peer, notification } =>
+				InnerNotificationEvent::NotificationReceived { peer, notification } => {
 					return Some(NotificationEvent::NotificationReceived {
 						peer: peer.into(),
 						notification,
-					}),
+					})
+				},
 				InnerNotificationEvent::NotificationSinkReplaced { peer, sink } => {
 					match self.peers.get_mut(&peer) {
 						None => log::error!(
@@ -474,7 +474,7 @@ impl ProtocolHandle {
 		);
 
 		if self.delegate_to_peerset {
-			return Ok(ValidationCallResult::Delegated)
+			return Ok(ValidationCallResult::Delegated);
 		}
 
 		// if there is only one subscriber, `Notifications` can wait directly on the
@@ -488,7 +488,7 @@ impl ProtocolHandle {
 					result_tx,
 				})
 				.map(|_| ValidationCallResult::WaitForValidation(rx))
-				.map_err(|_| ())
+				.map_err(|_| ());
 		}
 
 		// if there are multiple subscribers, create a task which waits for all of the
@@ -513,13 +513,14 @@ impl ProtocolHandle {
 		tokio::spawn(async move {
 			while let Some(event) = results.next().await {
 				match event {
-					Err(_) | Ok(ValidationResult::Reject) =>
-						return tx.send(ValidationResult::Reject),
+					Err(_) | Ok(ValidationResult::Reject) => {
+						return tx.send(ValidationResult::Reject)
+					},
 					Ok(ValidationResult::Accept) => {},
 				}
 			}
 
-			return tx.send(ValidationResult::Accept)
+			return tx.send(ValidationResult::Accept);
 		});
 
 		Ok(ValidationCallResult::WaitForValidation(rx))

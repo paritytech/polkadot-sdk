@@ -69,7 +69,7 @@ impl RuntimeInterfaceFunction {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"Methods marked as #[trap_on_return] cannot return anything",
-			))
+			));
 		}
 
 		Ok(Self { item, should_trap_on_return })
@@ -123,7 +123,7 @@ impl RuntimeInterfaceFunctionSet {
 				"Previous version with the same number defined here",
 			));
 
-			return Err(err)
+			return Err(err);
 		}
 
 		self.versions
@@ -237,37 +237,11 @@ pub fn get_function_argument_types(sig: &Signature) -> impl Iterator<Item = Box<
 	get_function_arguments(sig).map(|pt| pt.ty)
 }
 
-/// Returns the function argument types, minus any `Self` type. If any of the arguments
-/// is a reference, the underlying type without the ref is returned.
-pub fn get_function_argument_types_without_ref(
-	sig: &Signature,
-) -> impl Iterator<Item = Box<Type>> + '_ {
-	get_function_arguments(sig).map(|pt| pt.ty).map(|ty| match *ty {
-		Type::Reference(type_ref) => type_ref.elem,
-		_ => ty,
-	})
-}
-
-/// Returns the function argument names and types, minus any `self`. If any of the arguments
-/// is a reference, the underlying type without the ref is returned.
-pub fn get_function_argument_names_and_types_without_ref(
+/// Returns the function argument names and types, minus any `self`.
+pub fn get_function_argument_names_and_types(
 	sig: &Signature,
 ) -> impl Iterator<Item = (Box<Pat>, Box<Type>)> + '_ {
-	get_function_arguments(sig).map(|pt| match *pt.ty {
-		Type::Reference(type_ref) => (pt.pat, type_ref.elem),
-		_ => (pt.pat, pt.ty),
-	})
-}
-
-/// Returns the `&`/`&mut` for all function argument types, minus the `self` arg. If a function
-/// argument is not a reference, `None` is returned.
-pub fn get_function_argument_types_ref_and_mut(
-	sig: &Signature,
-) -> impl Iterator<Item = Option<(token::And, Option<token::Mut>)>> + '_ {
-	get_function_arguments(sig).map(|pt| pt.ty).map(|ty| match *ty {
-		Type::Reference(type_ref) => Some((type_ref.and_token, type_ref.mutability)),
-		_ => None,
-	})
+	get_function_arguments(sig).map(|pt| (pt.pat, pt.ty))
 }
 
 /// Returns an iterator over all trait methods for the given trait definition.
@@ -311,7 +285,7 @@ impl Parse for VersionAttribute {
 			Some(input.parse()?)
 		} else {
 			if !input.is_empty() {
-				return Err(Error::new(input.span(), "Unexpected token, expected `,`."))
+				return Err(Error::new(input.span(), "Unexpected token, expected `,`."));
 			}
 
 			None
@@ -339,7 +313,7 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 		let version = get_item_version(item)?.unwrap_or_default();
 
 		if version.version < 1 {
-			return Err(Error::new(item.span(), "Version needs to be at least `1`."))
+			return Err(Error::new(item.span(), "Version needs to be at least `1`."));
 		}
 
 		match functions.entry(name.clone()) {
@@ -362,11 +336,45 @@ pub fn get_runtime_interface(trait_def: &ItemTrait) -> Result<RuntimeInterface> 
 						"Unexpected version attribute: missing version '{}' for this function",
 						next_expected
 					),
-				))
+				));
 			}
 			next_expected += 1;
 		}
 	}
 
 	Ok(RuntimeInterface { items: functions })
+}
+
+pub fn host_inner_arg_ty(ty: &syn::Type) -> syn::Type {
+	let crate_ = generate_crate_access();
+	syn::parse2::<syn::Type>(quote! { <#ty as #crate_::RIType>::Inner })
+		.expect("parsing doesn't fail")
+}
+
+pub fn pat_ty_to_host_inner(mut pat: syn::PatType) -> syn::PatType {
+	pat.ty = Box::new(host_inner_arg_ty(&pat.ty));
+	pat
+}
+
+pub fn host_inner_return_ty(ty: &syn::ReturnType) -> syn::ReturnType {
+	let crate_ = generate_crate_access();
+	match ty {
+		syn::ReturnType::Default => syn::ReturnType::Default,
+		syn::ReturnType::Type(ref arrow, ref ty) => {
+			syn::parse2::<syn::ReturnType>(quote! { #arrow <#ty as #crate_::RIType>::Inner })
+				.expect("parsing doesn't fail")
+		},
+	}
+}
+
+pub fn unpack_inner_types_in_signature(sig: &mut syn::Signature) {
+	sig.output = crate::utils::host_inner_return_ty(&sig.output);
+	for arg in sig.inputs.iter_mut() {
+		match arg {
+			syn::FnArg::Typed(ref mut pat_ty) => {
+				*pat_ty = crate::utils::pat_ty_to_host_inner(pat_ty.clone());
+			},
+			syn::FnArg::Receiver(..) => {},
+		}
+	}
 }

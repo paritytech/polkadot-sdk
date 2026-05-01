@@ -17,6 +17,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use crate::{error::WasmError, wasm_runtime::HeapAllocStrategy};
+use polkavm::ArcBytes;
 use wasm_instrument::parity_wasm::elements::{
 	deserialize_buffer, serialize, ExportEntry, External, Internal, MemorySection, MemoryType,
 	Module, Section,
@@ -29,7 +30,7 @@ pub struct RuntimeBlob(BlobKind);
 #[derive(Clone)]
 enum BlobKind {
 	WebAssembly(Module),
-	PolkaVM(polkavm::ProgramBlob<'static>),
+	PolkaVM((polkavm::ProgramBlob, ArcBytes)),
 }
 
 impl RuntimeBlob {
@@ -52,9 +53,9 @@ impl RuntimeBlob {
 	pub fn new(raw_blob: &[u8]) -> Result<Self, WasmError> {
 		if raw_blob.starts_with(b"PVM\0") {
 			if crate::is_polkavm_enabled() {
-				return Ok(Self(BlobKind::PolkaVM(
-					polkavm::ProgramBlob::parse(raw_blob)?.into_owned(),
-				)));
+				let raw = ArcBytes::from(raw_blob);
+				let blob = polkavm::ProgramBlob::parse(raw.clone())?;
+				return Ok(Self(BlobKind::PolkaVM((blob, raw))));
 			} else {
 				return Err(WasmError::Other("expected a WASM runtime blob, found a PolkaVM runtime blob; set the 'SUBSTRATE_ENABLE_POLKAVM' environment variable to enable the experimental PolkaVM-based executor".to_string()));
 			}
@@ -134,9 +135,24 @@ impl RuntimeBlob {
 				.entries_mut()
 				.push(ExportEntry::new(memory_name, Internal::Memory(0)));
 
-			break
+			break;
 		}
 
+		Ok(())
+	}
+
+	/// Removes the maximum page limit from the memory section.
+	///
+	/// Only valid for WASM programs; will return an error if the blob is a PolkaVM program.
+	pub fn clear_memory_max_limit(&mut self) -> Result<(), WasmError> {
+		let raw_module = self.as_webassembly_blob_mut()?;
+		let memory_section = match raw_module.memory_section_mut() {
+			Some(section) => section,
+			None => return Ok(()),
+		};
+		for memory_ty in memory_section.entries_mut() {
+			*memory_ty = MemoryType::new(memory_ty.limits().initial(), None);
+		}
 		Ok(())
 	}
 
@@ -146,6 +162,7 @@ impl RuntimeBlob {
 	/// or if the memory section is empty.
 	///
 	/// Only valid for WASM programs; will return an error if the blob is a PolkaVM program.
+	#[deprecated]
 	pub fn setup_memory_according_to_heap_alloc_strategy(
 		&mut self,
 		heap_alloc_strategy: HeapAllocStrategy,
@@ -156,7 +173,7 @@ impl RuntimeBlob {
 			.ok_or_else(|| WasmError::Other("no memory section found".into()))?;
 
 		if memory_section.entries().is_empty() {
-			return Err(WasmError::Other("memory section is empty".into()))
+			return Err(WasmError::Other("memory section is empty".into()));
 		}
 		for memory_ty in memory_section.entries_mut() {
 			let initial = memory_ty.limits().initial();
@@ -190,9 +207,10 @@ impl RuntimeBlob {
 	/// Consumes this runtime blob and serializes it.
 	pub fn serialize(self) -> Vec<u8> {
 		match self.0 {
-			BlobKind::WebAssembly(raw_module) =>
-				serialize(raw_module).expect("serializing into a vec should succeed; qed"),
-			BlobKind::PolkaVM(ref blob) => blob.as_bytes().to_vec(),
+			BlobKind::WebAssembly(raw_module) => {
+				serialize(raw_module).expect("serializing into a vec should succeed; qed")
+			},
+			BlobKind::PolkaVM(ref blob) => blob.1.to_vec(),
 		}
 	}
 
@@ -227,7 +245,7 @@ impl RuntimeBlob {
 	pub fn as_polkavm_blob(&self) -> Option<&polkavm::ProgramBlob> {
 		match self.0 {
 			BlobKind::WebAssembly(..) => None,
-			BlobKind::PolkaVM(ref blob) => Some(blob),
+			BlobKind::PolkaVM((ref blob, _)) => Some(blob),
 		}
 	}
 }

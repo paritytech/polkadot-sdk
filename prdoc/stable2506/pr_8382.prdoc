@@ -1,0 +1,9 @@
+title: add poke_deposit extrinsic to pallet-bounties
+doc:
+- audience: Runtime Dev
+  description: This PR adds a new extrinsic `poke_deposit` to `pallet-bounties`. This extrinsic will be used to re-adjust the deposits made in the pallet to create a new bounty.
+crates:
+- name: rococo-runtime
+  bump: major
+- name: pallet-bounties
+  bump: major

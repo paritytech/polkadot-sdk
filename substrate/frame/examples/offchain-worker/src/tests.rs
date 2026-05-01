@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 use crate as example_offchain_worker;
 use crate::*;
@@ -31,11 +37,20 @@ use sp_core::{
 use sp_keystore::{testing::MemoryKeystore, Keystore, KeystoreExt};
 use sp_runtime::{
 	testing::TestXt,
-	traits::{BlakeTwo256, Extrinsic as ExtrinsicT, IdentifyAccount, IdentityLookup, Verify},
+	traits::{BlakeTwo256, IdentifyAccount, IdentityLookup, Verify},
 	RuntimeAppPublic,
 };
 
-type Block = frame_system::mocking::MockBlock<Test>;
+// Use AuthorizeCall as the transaction extension to properly test the #[pallet::authorize]
+// validation
+type TxExtension = frame_system::AuthorizeCall<Test>;
+type Extrinsic = TestXt<RuntimeCall, TxExtension>;
+
+// Define a custom Block that uses our Extrinsic with AuthorizeCall extension
+type Block = sp_runtime::generic::Block<
+	sp_runtime::generic::Header<u64, sp_runtime::traits::BlakeTwo256>,
+	Extrinsic,
+>;
 
 // For testing the module, we construct a mock runtime.
 frame_support::construct_runtime!(
@@ -72,7 +87,6 @@ impl frame_system::Config for Test {
 	type MaxConsumers = ConstU32<16>;
 }
 
-type Extrinsic = TestXt<RuntimeCall, ()>;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 impl frame_system::offchain::SigningTypes for Test {
@@ -80,38 +94,62 @@ impl frame_system::offchain::SigningTypes for Test {
 	type Signature = Signature;
 }
 
-impl<LocalCall> frame_system::offchain::SendTransactionTypes<LocalCall> for Test
+impl<LocalCall> frame_system::offchain::CreateTransactionBase<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
 	type Extrinsic = Extrinsic;
+}
+
+impl<LocalCall> frame_system::offchain::CreateTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	type Extension = TxExtension;
+
+	fn create_transaction(call: RuntimeCall, extension: Self::Extension) -> Extrinsic {
+		Extrinsic::new_transaction(call, extension)
+	}
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Test
 where
 	RuntimeCall: From<LocalCall>,
 {
-	fn create_transaction<C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>>(
+	fn create_signed_transaction<
+		C: frame_system::offchain::AppCrypto<Self::Public, Self::Signature>,
+	>(
 		call: RuntimeCall,
 		_public: <Signature as Verify>::Signer,
 		_account: AccountId,
 		nonce: u64,
-	) -> Option<(RuntimeCall, <Extrinsic as ExtrinsicT>::SignaturePayload)> {
-		Some((call, (nonce, ())))
+	) -> Option<Extrinsic> {
+		// For signed transactions, AuthorizeCall will detect that the origin is already
+		// authorized by the signature and will pass through without calling authorize()
+		Some(Extrinsic::new_signed(call, nonce, (), TxExtension::new()))
+	}
+}
+
+impl<LocalCall> frame_system::offchain::CreateAuthorizedTransaction<LocalCall> for Test
+where
+	RuntimeCall: From<LocalCall>,
+{
+	fn create_extension() -> Self::Extension {
+		// This will trigger the #[pallet::authorize] validation
+		TxExtension::new()
 	}
 }
 
 parameter_types! {
-	pub const UnsignedPriority: u64 = 1 << 20;
+	pub const AuthorizedTxPriority: u64 = 1 << 20;
 }
 
 impl Config for Test {
-	type RuntimeEvent = RuntimeEvent;
 	type AuthorityId = crypto::TestAuthId;
 	type GracePeriod = ConstU64<5>;
-	type UnsignedInterval = ConstU64<128>;
-	type UnsignedPriority = UnsignedPriority;
+	type AuthorizedTxInterval = ConstU64<128>;
+	type AuthorizedTxPriority = AuthorizedTxPriority;
 	type MaxPrices = ConstU32<64>;
 }
 
@@ -218,13 +256,14 @@ fn should_submit_signed_transaction_on_chain() {
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature.unwrap().0, 0);
-		assert_eq!(tx.call, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
+		// For signed transactions, the preamble includes the signature and bypass AuthorizeCall
+		assert!(matches!(tx.preamble, sp_runtime::generic::Preamble::Signed(0, (), _)));
+		assert_eq!(tx.function, RuntimeCall::Example(crate::Call::submit_price { price: 15523 }));
 	});
 }
 
 #[test]
-fn should_submit_unsigned_transaction_on_chain_for_any_account() {
+fn should_submit_authorized_transaction_on_chain_for_any_account() {
 	const PHRASE: &str =
 		"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
@@ -251,26 +290,45 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 		public: <Test as SigningTypes>::Public::from(public_key),
 	};
 
-	// let signature = price_payload.sign::<crypto::TestAuthId>().unwrap();
 	t.execute_with(|| {
+		// Set up the block number to match the transaction
+		System::set_block_number(1);
+
 		// when
-		Example::fetch_price_and_send_unsigned_for_any_account(1).unwrap();
+		assert_ok!(Example::fetch_price_and_send_authorized_tx_for_any_account(1));
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
-		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
+		// General transactions are neither inherent nor signed
+		assert!(!tx.is_inherent() && !tx.is_signed());
+
+		// Actually validate the transaction through the authorize logic
+		use frame_support::traits::Authorize;
+		use sp_runtime::transaction_validity::TransactionSource;
+
+		let authorize_result = tx.function.authorize(TransactionSource::External);
+		assert!(
+			authorize_result.is_some(),
+			"Transaction should have authorization logic from #[pallet::authorize]"
+		);
+		assert!(
+			authorize_result.unwrap().is_ok(),
+			"Transaction should pass #[pallet::authorize] validation"
+		);
+
+		if let RuntimeCall::Example(crate::Call::submit_price_authorized_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.call
+		}) = tx.function
 		{
 			assert_eq!(body, price_payload);
 
-			let signature_valid =
-				<PricePayload<
-					<Test as SigningTypes>::Public,
-					frame_system::pallet_prelude::BlockNumberFor<Test>,
-				> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(&price_payload, signature);
+			let signature_valid = <PricePayload<
+				<Test as SigningTypes>::Public,
+				frame_system::pallet_prelude::BlockNumberFor<Test>,
+			> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(
+				&price_payload, signature
+			);
 
 			assert!(signature_valid);
 		}
@@ -278,7 +336,7 @@ fn should_submit_unsigned_transaction_on_chain_for_any_account() {
 }
 
 #[test]
-fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
+fn should_submit_authorized_transaction_on_chain_for_all_accounts() {
 	const PHRASE: &str =
 		"news slush supreme milk chapter athlete soap sausage put clutch what kitten";
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
@@ -305,26 +363,45 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 		public: <Test as SigningTypes>::Public::from(public_key),
 	};
 
-	// let signature = price_payload.sign::<crypto::TestAuthId>().unwrap();
 	t.execute_with(|| {
+		// Set up the block number to match the transaction
+		System::set_block_number(1);
+
 		// when
-		Example::fetch_price_and_send_unsigned_for_all_accounts(1).unwrap();
+		Example::fetch_price_and_send_authorized_tx_for_all_accounts(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
-		if let RuntimeCall::Example(crate::Call::submit_price_unsigned_with_signed_payload {
+		// General transactions are neither inherent nor signed
+		assert!(!tx.is_inherent() && !tx.is_signed());
+
+		// Actually validate the transaction through the authorize logic
+		use frame_support::traits::Authorize;
+		use sp_runtime::transaction_validity::TransactionSource;
+
+		let authorize_result = tx.function.authorize(TransactionSource::External);
+		assert!(
+			authorize_result.is_some(),
+			"Transaction should have authorization logic from #[pallet::authorize]"
+		);
+		assert!(
+			authorize_result.unwrap().is_ok(),
+			"Transaction should pass #[pallet::authorize] validation"
+		);
+
+		if let RuntimeCall::Example(crate::Call::submit_price_authorized_with_signed_payload {
 			price_payload: body,
 			signature,
-		}) = tx.call
+		}) = tx.function
 		{
 			assert_eq!(body, price_payload);
 
-			let signature_valid =
-				<PricePayload<
-					<Test as SigningTypes>::Public,
-					frame_system::pallet_prelude::BlockNumberFor<Test>,
-				> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(&price_payload, signature);
+			let signature_valid = <PricePayload<
+				<Test as SigningTypes>::Public,
+				frame_system::pallet_prelude::BlockNumberFor<Test>,
+			> as SignedPayload<Test>>::verify::<crypto::TestAuthId>(
+				&price_payload, signature
+			);
 
 			assert!(signature_valid);
 		}
@@ -332,7 +409,7 @@ fn should_submit_unsigned_transaction_on_chain_for_all_accounts() {
 }
 
 #[test]
-fn should_submit_raw_unsigned_transaction_on_chain() {
+fn should_submit_raw_authorized_transaction_on_chain() {
 	let (offchain, offchain_state) = testing::TestOffchainExt::new();
 	let (pool, pool_state) = testing::TestTransactionPoolExt::new();
 
@@ -346,19 +423,71 @@ fn should_submit_raw_unsigned_transaction_on_chain() {
 	price_oracle_response(&mut offchain_state.write());
 
 	t.execute_with(|| {
+		// Set up the block number to match the transaction
+		System::set_block_number(1);
+
 		// when
-		Example::fetch_price_and_send_raw_unsigned(1).unwrap();
+		Example::fetch_price_and_send_raw_authorized(1).unwrap();
 		// then
 		let tx = pool_state.write().transactions.pop().unwrap();
 		assert!(pool_state.read().transactions.is_empty());
 		let tx = Extrinsic::decode(&mut &*tx).unwrap();
-		assert_eq!(tx.signature, None);
+		// General transactions are neither inherent nor signed
+		assert!(!tx.is_inherent() && !tx.is_signed());
+
+		// Actually validate the transaction through the authorize logic
+		use frame_support::traits::Authorize;
+		use sp_runtime::transaction_validity::TransactionSource;
+
+		let authorize_result = tx.function.authorize(TransactionSource::External);
+		assert!(
+			authorize_result.is_some(),
+			"Transaction should have authorization logic from #[pallet::authorize]"
+		);
+		assert!(
+			authorize_result.unwrap().is_ok(),
+			"Transaction should pass #[pallet::authorize] validation"
+		);
+
 		assert_eq!(
-			tx.call,
-			RuntimeCall::Example(crate::Call::submit_price_unsigned {
+			tx.function,
+			RuntimeCall::Example(crate::Call::submit_price_authorized {
 				block_number: 1,
 				price: 15523
 			})
+		);
+	});
+}
+
+#[test]
+fn should_reject_invalid_authorized_transaction() {
+	let mut t = sp_io::TestExternalities::default();
+
+	t.execute_with(|| {
+		// Set NextAuthorizedAt to block 100, so any transaction at block 1 should be stale
+		crate::NextAuthorizedAt::<Test>::put(100u64);
+
+		// Try to create a general transaction with an old block number (should be rejected)
+		let call = RuntimeCall::Example(crate::Call::submit_price_authorized {
+			block_number: 1,
+			price: 100,
+		});
+
+		// Try to validate the call's authorization - this should FAIL because the block number is
+		// too old
+		use frame_support::traits::Authorize;
+		use sp_runtime::transaction_validity::TransactionSource;
+
+		let authorize_result = call.authorize(TransactionSource::External);
+		assert!(
+			authorize_result.is_some(),
+			"Transaction should have authorization logic from #[pallet::authorize]"
+		);
+
+		// Verify that validation failed due to stale block number
+		assert!(
+			authorize_result.unwrap().is_err(),
+			"Transaction with stale block number should be rejected by #[pallet::authorize] validation"
 		);
 	});
 }
@@ -375,7 +504,7 @@ fn price_oracle_response(state: &mut testing::OffchainState) {
 
 #[test]
 fn parse_price_works() {
-	let test_data = vec![
+	let test_data = alloc::vec![
 		("{\"USD\":6536.92}", Some(653692)),
 		("{\"USD\":65.92}", Some(6592)),
 		("{\"USD\":6536.924565}", Some(653692)),

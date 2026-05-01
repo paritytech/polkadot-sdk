@@ -26,36 +26,40 @@
 //!
 //! This subsystem also handles concerns such as the relay-chain being forkful and session changes.
 
-use std::collections::{HashMap, HashSet};
+#![deny(unused_crate_dependencies)]
 
-use fragment_chain::{FragmentChain, PotentialAddition};
+use std::collections::{BTreeSet, HashMap, HashSet};
+
+use fragment_chain::CandidateStorage;
 use futures::{channel::oneshot, prelude::*};
 
 use polkadot_node_subsystem::{
 	messages::{
-		Ancestors, ChainApiMessage, HypotheticalCandidate, HypotheticalMembership,
-		HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest, ParentHeadData,
-		ProspectiveParachainsMessage, ProspectiveValidationDataRequest, RuntimeApiMessage,
-		RuntimeApiRequest,
+		Ancestors, BackableCandidateRef, ChainApiMessage, HypotheticalCandidate,
+		HypotheticalMembership, HypotheticalMembershipRequest, IntroduceSecondedCandidateRequest,
+		ParentHeadData, ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
+		RuntimeApiMessage,
 	},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem, SubsystemError,
 };
 use polkadot_node_subsystem_util::{
-	inclusion_emulator::{Constraints, RelayChainBlockInfo},
+	fetch_relay_parent_info,
+	inclusion_emulator::{Constraints, RelayChainBlockInfo as RelayParentInfo},
+	request_backing_constraints, request_candidates_pending_availability,
 	request_session_index_for_child,
-	runtime::{prospective_parachains_mode, ProspectiveParachainsMode},
-	vstaging::fetch_claim_queue,
+	runtime::{fetch_claim_queue, fetch_scheduling_lookahead},
 };
 use polkadot_primitives::{
-	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash,
-	CommittedCandidateReceipt, CoreState, Hash, HeadData, Header, Id as ParaId,
-	PersistedValidationData,
+	transpose_claim_queue, vstaging::RelayParentInfo as RuntimeRelayParentInfo, BlockNumber,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, Hash, Id as ParaId,
+	PersistedValidationData, SessionIndex,
 };
+use schnellru::{ByLength, LruMap};
 
 use crate::{
 	error::{FatalError, FatalResult, JfyiError, JfyiErrorResult, Result},
 	fragment_chain::{
-		CandidateState, CandidateStorage, CandidateStorageInsertionError,
+		CandidateEntry, Error as FragmentChainError, FragmentChain, SchedulingScope,
 		Scope as FragmentChainScope,
 	},
 };
@@ -70,21 +74,61 @@ use self::metrics::Metrics;
 
 const LOG_TARGET: &str = "parachain::prospective-parachains";
 
-struct RelayBlockViewData {
-	// Scheduling info for paras and upcoming paras.
+/// Capacity of the relay-parent-info LRU cache. Bound: at most
+/// `max_relay_parent_session_age * session_length` entries per session tracked.
+/// However, we don't actually expect candidates with relay parents this old.
+/// 2400 relay parents correspond to a session duration of 4 hours and should take around 190Kb if
+/// full.
+const RELAY_PARENT_INFO_CACHE_CAPACITY: u32 = 2400;
+
+/// LRU cache mapping `(leaf_session, relay_parent)` to runtime-reported relay parent info.
+type RelayParentInfoCache = LruMap<(SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
+
+struct PerSchedulingParent {
+	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
-	pending_availability: HashSet<CandidateHash>,
+	// The relay chain scope containing the scheduling parent and its allowed ancestors.
+	// This is shared across all paras for this scheduling parent.
+	scheduling_scope: SchedulingScope,
+	// The session index at this scheduling parent. Used as a fallback when a V1 descriptor
+	// doesn't carry a session index field, since V1 has `relay_parent == scheduling_parent`.
+	session_index: SessionIndex,
 }
 
 struct View {
-	// Active or recent relay-chain blocks by block hash.
-	active_leaves: HashMap<Hash, RelayBlockViewData>,
-	candidate_storage: HashMap<ParaId, CandidateStorage>,
+	/// Per scheduling parent fragment chains.
+	///
+	/// The keys include every currently active leaf plus the scheduling ancestors of each leaf
+	/// (up to `scheduling_lookahead - 1` blocks deep). Entries may be retained for
+	/// blocks that were active leaves at some point and are now in the ancestry of an active leaf.
+	/// This is what preserves fragment-chain state across relay-chain
+	/// reorgs. A candidate introduced under a former leaf remains available after the reorg as
+	/// long as that former leaf is still referenced by a current leaf's ancestor set.
+	///
+	/// Entries are pruned in `handle_active_leaves_update` when no active leaf's ancestor set
+	/// references them anymore.
+	per_scheduling_parent: HashMap<Hash, PerSchedulingParent>,
+	/// The hashes of the currently active leaves. Always a subset of the keys in
+	/// `per_scheduling_parent`.
+	active_leaves: HashSet<Hash>,
+	/// LRU cache of relay-parent-info answers keyed by `(leaf_session, relay_parent)`.
+	///
+	/// Semantically this caches "under a leaf in this session, the runtime returned this info
+	/// for this relay parent hash". Session-keying means entries from older sessions are
+	/// naturally invalidated (miss + repopulate) when we move forward, matching the runtime's
+	/// `max_relay_parent_session_age` pruning behavior. Only positive results are cached;
+	/// `None`/`Err` results force a fresh query on the next call.
+	relay_parent_info_cache: RelayParentInfoCache,
 }
 
 impl View {
+	// Initialize with empty values.
 	fn new() -> Self {
-		View { active_leaves: HashMap::new(), candidate_storage: HashMap::new() }
+		View {
+			per_scheduling_parent: HashMap::new(),
+			active_leaves: HashSet::new(),
+			relay_parent_info_cache: LruMap::new(ByLength::new(RELAY_PARENT_INFO_CACHE_CAPACITY)),
+		}
 	}
 }
 
@@ -137,27 +181,29 @@ async fn run_iteration<Context>(
 		match ctx.recv().await.map_err(FatalError::SubsystemReceive)? {
 			FromOrchestra::Signal(OverseerSignal::Conclude) => return Ok(()),
 			FromOrchestra::Signal(OverseerSignal::ActiveLeaves(update)) => {
-				handle_active_leaves_update(&mut *ctx, view, update, metrics).await?;
+				handle_active_leaves_update(ctx, view, update, metrics).await?;
 			},
 			FromOrchestra::Signal(OverseerSignal::BlockFinalized(..)) => {},
 			FromOrchestra::Communication { msg } => match msg {
-				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) =>
-					handle_introduce_seconded_candidate(&mut *ctx, view, request, tx, metrics).await,
-				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) =>
-					handle_candidate_backed(&mut *ctx, view, para, candidate_hash).await,
-				ProspectiveParachainsMessage::GetBackableCandidates(
-					relay_parent,
-					para,
+				ProspectiveParachainsMessage::IntroduceSecondedCandidate(request, tx) => {
+					handle_introduce_seconded_candidate(ctx, view, request, tx, metrics).await
+				},
+				ProspectiveParachainsMessage::CandidateBacked(para, candidate_hash) => {
+					handle_candidate_backed(view, para, candidate_hash, metrics).await
+				},
+				ProspectiveParachainsMessage::GetBackableCandidates {
+					leaf,
+					para_id,
 					count,
 					ancestors,
-					tx,
-				) => answer_get_backable_candidates(&view, relay_parent, para, count, ancestors, tx),
-				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) =>
-					answer_hypothetical_membership_request(&view, request, tx, metrics),
-				ProspectiveParachainsMessage::GetMinimumRelayParents(relay_parent, tx) =>
-					answer_minimum_relay_parents_request(&view, relay_parent, tx),
-				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) =>
-					answer_prospective_validation_data_request(&view, request, tx),
+					sender,
+				} => answer_get_backable_candidates(&view, leaf, para_id, count, ancestors, sender),
+				ProspectiveParachainsMessage::GetHypotheticalMembership(request, tx) => {
+					answer_hypothetical_membership_request(ctx, view, request, tx, metrics).await
+				},
+				ProspectiveParachainsMessage::GetProspectiveValidationData(request, tx) => {
+					answer_prospective_validation_data_request(ctx, view, request, tx).await
+				},
 			},
 		}
 	}
@@ -170,68 +216,83 @@ async fn handle_active_leaves_update<Context>(
 	update: ActiveLeavesUpdate,
 	metrics: &Metrics,
 ) -> JfyiErrorResult<()> {
-	// 1. clean up inactive leaves
-	// 2. determine all scheduled paras at the new block
-	// 3. construct new fragment chain for each para for each new leaf
-	// 4. prune candidate storage.
+	// For any new active leaf:
+	// - determine the scheduled paras
+	// - pre-populate the candidate storage with pending availability candidates and candidates from
+	//   the parent leaf
+	// - populate the fragment chain
+	// - add it to the active leaves
+	//
+	// Then mark the newly-deactivated leaves as deactivated.
+	// Finally, remove any scheduling parents that are no longer part of an active leaf's ancestry.
 
-	for deactivated in &update.deactivated {
-		view.active_leaves.remove(deactivated);
-	}
+	let _timer = metrics.time_handle_active_leaves_update();
 
-	let mut temp_header_cache = HashMap::new();
+	gum::trace!(
+		target: LOG_TARGET,
+		activated = ?update.activated,
+		deactivated = ?update.deactivated,
+		"Handle ActiveLeavesUpdate"
+	);
+
+	// There can only be one newly activated leaf, `update.activated` is an `Option`.
 	for activated in update.activated.into_iter() {
+		if update.deactivated.contains(&activated.hash) {
+			continue;
+		}
+
 		let hash = activated.hash;
+		let leaf_number = activated.number;
 
-		let mode = prospective_parachains_mode(ctx.sender(), hash)
+		let transposed_claim_queue =
+			transpose_claim_queue(fetch_claim_queue(ctx.sender(), hash).await?.0);
+
+		let session_index = request_session_index_for_child(hash, ctx.sender())
 			.await
-			.map_err(JfyiError::Runtime)?;
+			.await
+			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
-		let ProspectiveParachainsMode::Enabled { max_candidate_depth, allowed_ancestry_len } = mode
-		else {
-			gum::trace!(
-				target: LOG_TARGET,
-				block_hash = ?hash,
-				"Skipping leaf activation since async backing is disabled"
-			);
+		let ancestry_len = fetch_scheduling_lookahead(hash, session_index, ctx.sender())
+			.await?
+			.saturating_sub(1);
 
-			// Not a part of any allowed ancestry.
-			return Ok(())
+		let ancestors = fetch_scheduling_parent_ancestors(
+			ctx,
+			hash,
+			leaf_number,
+			ancestry_len as usize,
+			session_index,
+		)
+		.await?;
+
+		let prev_fragment_chains = ancestors
+			.first()
+			.and_then(|(prev_leaf, _)| view.per_scheduling_parent.get(prev_leaf))
+			.map(|d| &d.fragment_chains);
+
+		// Create the relay chain scope once for this scheduling parent.
+		// All paras share the same relay chain ancestry.
+		// The ancestry is already limited by session boundaries and scheduling lookahead.
+		let scheduling_scope = match SchedulingScope::new((hash, leaf_number), ancestors.clone()) {
+			Ok(scope) => scope,
+			Err(unexpected_ancestors) => {
+				gum::warn!(
+					target: LOG_TARGET,
+					?ancestors,
+					leaf = ?hash,
+					"Relay chain ancestors have wrong order: {:?}",
+					unexpected_ancestors
+				);
+				continue;
+			},
 		};
 
-		let scheduled_paras = fetch_upcoming_paras(&mut *ctx, hash).await?;
-
-		let block_info: RelayChainBlockInfo =
-			match fetch_block_info(&mut *ctx, &mut temp_header_cache, hash).await? {
-				None => {
-					gum::warn!(
-						target: LOG_TARGET,
-						block_hash = ?hash,
-						"Failed to get block info for newly activated leaf block."
-					);
-
-					// `update.activated` is an option, but we can use this
-					// to exit the 'loop' and skip this block without skipping
-					// pruning logic.
-					continue
-				},
-				Some(info) => info,
-			};
-
-		let ancestry =
-			fetch_ancestry(&mut *ctx, &mut temp_header_cache, hash, allowed_ancestry_len).await?;
-
-		let mut all_pending_availability = HashSet::new();
-
-		// Find constraints.
 		let mut fragment_chains = HashMap::new();
-		for para in scheduled_paras {
-			let candidate_storage =
-				view.candidate_storage.entry(para).or_insert_with(CandidateStorage::default);
-
-			let backing_state = fetch_backing_state(&mut *ctx, hash, para).await?;
-
-			let Some((constraints, pending_availability)) = backing_state else {
+		for (para, claims_by_depth) in transposed_claim_queue.iter() {
+			// Find constraints and pending availability candidates.
+			let Some((constraints, pending_availability)) =
+				fetch_backing_constraints_and_candidates(ctx, hash, *para).await?
+			else {
 				// This indicates a runtime conflict of some kind.
 				gum::debug!(
 					target: LOG_TARGET,
@@ -240,30 +301,32 @@ async fn handle_active_leaves_update<Context>(
 					"Failed to get inclusion backing state."
 				);
 
-				continue
+				continue;
 			};
-
-			all_pending_availability.extend(pending_availability.iter().map(|c| c.candidate_hash));
 
 			let pending_availability = preprocess_candidates_pending_availability(
 				ctx,
-				&mut temp_header_cache,
-				constraints.required_parent.clone(),
+				&mut view.relay_parent_info_cache,
+				hash,
+				session_index,
+				&constraints,
 				pending_availability,
 			)
 			.await?;
 			let mut compact_pending = Vec::with_capacity(pending_availability.len());
 
+			let mut pending_availability_storage = CandidateStorage::default();
+
 			for c in pending_availability {
-				let res = candidate_storage.add_candidate(
+				let candidate_hash = c.compact.candidate_hash;
+				let res = pending_availability_storage.add_pending_availability_candidate(
+					candidate_hash,
 					c.candidate,
 					c.persisted_validation_data,
-					CandidateState::Backed,
 				);
-				let candidate_hash = c.compact.candidate_hash;
 
 				match res {
-					Ok(_) | Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {},
+					Ok(_) | Err(FragmentChainError::CandidateAlreadyKnown) => {},
 					Err(err) => {
 						gum::warn!(
 							target: LOG_TARGET,
@@ -273,154 +336,205 @@ async fn handle_active_leaves_update<Context>(
 							"Scraped invalid candidate pending availability",
 						);
 
-						break
+						break;
 					},
 				}
 
 				compact_pending.push(c.compact);
 			}
 
-			let scope = FragmentChainScope::with_ancestors(
-				para,
-				block_info.clone(),
-				constraints,
-				compact_pending,
-				max_candidate_depth,
-				ancestry.iter().cloned(),
-			)
-			.expect("ancestors are provided in reverse order and correctly; qed");
+			let max_backable_chain_len =
+				claims_by_depth.values().flatten().collect::<BTreeSet<_>>().len();
+
+			let min_relay_parent_number = constraints.min_relay_parent_number;
+
+			let scope =
+				FragmentChainScope::new(constraints, compact_pending, max_backable_chain_len);
 
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
-				min_relay_parent = scope.earliest_relay_parent().number,
+				min_relay_parent = min_relay_parent_number,
+				max_backable_chain_len,
 				para_id = ?para,
+				ancestors = ?ancestors,
 				"Creating fragment chain"
 			);
 
-			let chain = FragmentChain::populate(scope, &*candidate_storage);
+			let number_of_pending_candidates = pending_availability_storage.len();
+
+			// Init the fragment chain with the pending availability candidates.
+			let mut chain =
+				FragmentChain::init(&scheduling_scope, scope, pending_availability_storage);
+
+			if chain.len() < number_of_pending_candidates {
+				gum::warn!(
+					target: LOG_TARGET,
+					relay_parent = ?hash,
+					para_id = ?para,
+					"Not all pending availability candidates could be introduced. Actual vs expected count: {}, {}",
+					chain.len(),
+					number_of_pending_candidates
+				)
+			}
+
+			// If we know the previous fragment chain, use that for further populating the fragment
+			// chain.
+			if let Some(prev_fragment_chain) =
+				prev_fragment_chains.and_then(|chains| chains.get(para))
+			{
+				chain.populate_from_previous(&scheduling_scope, prev_fragment_chain);
+			}
 
 			gum::trace!(
 				target: LOG_TARGET,
 				relay_parent = ?hash,
 				para_id = ?para,
-				"Populated fragment chain with {} candidates",
-				chain.len()
+				"Populated fragment chain with {} candidates: {:?}",
+				chain.len(),
+				chain.candidate_hashes()
 			);
 
-			fragment_chains.insert(para, chain);
+			gum::trace!(
+				target: LOG_TARGET,
+				relay_parent = ?hash,
+				para_id = ?para,
+				"Potential candidate storage for para: {:?}",
+				chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+			);
+
+			fragment_chains.insert(*para, chain);
 		}
 
-		view.active_leaves.insert(
-			hash,
-			RelayBlockViewData { fragment_chains, pending_availability: all_pending_availability },
-		);
+		view.per_scheduling_parent
+			.insert(hash, PerSchedulingParent { fragment_chains, scheduling_scope, session_index });
+
+		view.active_leaves.insert(hash);
+	}
+	for deactivated in update.deactivated {
+		view.active_leaves.remove(&deactivated);
 	}
 
-	if !update.deactivated.is_empty() {
-		// This has potential to be a hotspot.
-		prune_view_candidate_storage(view, metrics);
+	// Prune scheduling parents that are no longer referenced by any active leaf.
+	// Collect scheduling parents to keep: each active leaf plus all ancestors in its relay chain
+	// scope.
+	{
+		let scheduling_parents_to_keep: HashSet<Hash> = view
+			.active_leaves
+			.iter()
+			.filter_map(|leaf| {
+				view.per_scheduling_parent.get(leaf).map(|data| {
+					// Include the leaf itself and all its allowed ancestors:
+					data.scheduling_scope.scheduling_parent_hashes()
+				})
+			})
+			.flatten()
+			.collect();
+
+		view.per_scheduling_parent.retain(|h, _| scheduling_parents_to_keep.contains(h));
 	}
 
-	Ok(())
-}
+	if metrics.0.is_some() {
+		let mut active_connected = 0;
+		let mut active_unconnected = 0;
+		let mut candidates_in_implicit_view = 0;
 
-fn prune_view_candidate_storage(view: &mut View, metrics: &Metrics) {
-	let _timer = metrics.time_prune_view_candidate_storage();
-
-	let active_leaves = &view.active_leaves;
-	let mut live_candidates = HashSet::new();
-	let mut live_paras = HashSet::new();
-	for sub_view in active_leaves.values() {
-		live_candidates.extend(sub_view.pending_availability.iter().cloned());
-
-		for (para_id, fragment_chain) in &sub_view.fragment_chains {
-			live_candidates.extend(fragment_chain.to_vec());
-			live_paras.insert(*para_id);
-		}
-	}
-
-	let connected_candidates_count = live_candidates.len();
-	for (leaf, sub_view) in active_leaves.iter() {
-		for (para_id, fragment_chain) in &sub_view.fragment_chains {
-			if let Some(storage) = view.candidate_storage.get(para_id) {
-				let unconnected_potential =
-					fragment_chain.find_unconnected_potential_candidates(storage, None);
-				if !unconnected_potential.is_empty() {
-					gum::trace!(
-						target: LOG_TARGET,
-						?leaf,
-						"Keeping {} unconnected candidates for paraid {} in storage: {:?}",
-						unconnected_potential.len(),
-						para_id,
-						unconnected_potential
-					);
+		for (hash, PerSchedulingParent { fragment_chains, .. }) in view.per_scheduling_parent.iter()
+		{
+			if view.active_leaves.contains(hash) {
+				for chain in fragment_chains.values() {
+					active_connected += chain.len();
+					active_unconnected += chain.unconnected_len();
 				}
-				live_candidates.extend(unconnected_potential);
+			} else {
+				for chain in fragment_chains.values() {
+					candidates_in_implicit_view += chain.len();
+					candidates_in_implicit_view += chain.unconnected_len();
+				}
 			}
 		}
+
+		metrics.record_candidate_count(active_connected as u64, active_unconnected as u64);
+		metrics.record_candidate_count_in_implicit_view(candidates_in_implicit_view as u64);
 	}
 
-	view.candidate_storage.retain(|para_id, storage| {
-		if !live_paras.contains(&para_id) {
-			return false
-		}
+	let num_active_leaves = view.active_leaves.len() as u64;
+	let num_inactive_leaves =
+		(view.per_scheduling_parent.len() as u64).saturating_sub(num_active_leaves);
+	metrics.record_leaves_count(num_active_leaves, num_inactive_leaves);
 
-		storage.retain(|h| live_candidates.contains(&h));
-
-		// Even if `storage` is now empty, we retain.
-		// This maintains a convenient invariant that para-id storage exists
-		// as long as there's an active head which schedules the para.
-		true
-	});
-
-	for (para_id, storage) in view.candidate_storage.iter() {
-		gum::trace!(
-			target: LOG_TARGET,
-			"Keeping a total of {} connected candidates for paraid {} in storage",
-			storage.candidates().count(),
-			para_id,
-		);
-	}
-
-	metrics.record_candidate_storage_size(
-		connected_candidates_count as u64,
-		live_candidates.len().saturating_sub(connected_candidates_count) as u64,
-	);
+	Ok(())
 }
 
 struct ImportablePendingAvailability {
 	candidate: CommittedCandidateReceipt,
 	persisted_validation_data: PersistedValidationData,
-	compact: crate::fragment_chain::PendingAvailability,
+	compact: fragment_chain::PendingAvailability,
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+/// Preprocesses candidates pending availability into a format suitable for fragment chain storage.
+///
+/// This function transforms candidates that are pending availability (already on-chain but not
+/// yet included) into the `ImportablePendingAvailability` format needed by fragment chains.
+///
+/// # Arguments
+/// * `ctx` - Subsystem context for fetching block information
+/// * `leaf` - Active leaf hash, used as the `query_at` for `fetch_relay_parent_info`
+/// * `leaf_session_index` - Session index at the leaf; used as a fallback when a V1 descriptor
+///   doesn't carry a session index
+/// * `constraints` - Base constraints from the latest included candidate
+/// * `pending_availability` - List of candidates pending availability, expected to form a chain
+///
+/// # Returns
+/// A vector of importable pending availability candidates, potentially truncated if any
+/// candidate's relay parent information cannot be fetched.
+///
+/// # Behavior
+/// - Fetches relay parent info for each candidate via the runtime (or chain API fallback).
+/// - Stops early if any relay parent info is unavailable (logs and returns partial list).
+/// - Constructs `PersistedValidationData` for each candidate using constraints and the fetched
+///   relay parent info.
 async fn preprocess_candidates_pending_availability<Context>(
 	ctx: &mut Context,
-	cache: &mut HashMap<Hash, Header>,
-	required_parent: HeadData,
-	pending_availability: Vec<CandidatePendingAvailability>,
+	rp_info_cache: &mut RelayParentInfoCache,
+	leaf: Hash,
+	leaf_session_index: SessionIndex,
+	constraints: &Constraints,
+	pending_availability: Vec<CommittedCandidateReceipt>,
 ) -> JfyiErrorResult<Vec<ImportablePendingAvailability>> {
-	let mut required_parent = required_parent;
+	let mut required_parent = constraints.required_parent.clone();
 
 	let mut importable = Vec::new();
 	let expected_count = pending_availability.len();
 
 	for (i, pending) in pending_availability.into_iter().enumerate() {
-		let Some(relay_parent) =
-			fetch_block_info(ctx, cache, pending.descriptor.relay_parent).await?
+		let candidate_hash = pending.hash();
+
+		let fetch_session = pending.descriptor.session_index().unwrap_or(leaf_session_index);
+		let relay_parent = pending.descriptor.relay_parent();
+
+		let Some(relay_parent_info) = fetch_relay_parent_info_cached(
+			ctx.sender(),
+			rp_info_cache,
+			leaf_session_index,
+			leaf,
+			fetch_session,
+			relay_parent,
+		)
+		.await?
 		else {
+			let para_id = pending.descriptor.para_id();
 			gum::debug!(
 				target: LOG_TARGET,
-				?pending.candidate_hash,
-				?pending.descriptor.para_id,
+				?candidate_hash,
+				?para_id,
 				index = ?i,
 				?expected_count,
 				"Had to stop processing pending candidates early due to missing info.",
 			);
 
-			break
+			break;
 		};
 
 		let next_required_parent = pending.commitments.head_data.clone();
@@ -431,13 +545,17 @@ async fn preprocess_candidates_pending_availability<Context>(
 			},
 			persisted_validation_data: PersistedValidationData {
 				parent_head: required_parent,
-				max_pov_size: pending.max_pov_size,
-				relay_parent_number: relay_parent.number,
-				relay_parent_storage_root: relay_parent.storage_root,
+				max_pov_size: constraints.max_pov_size as _,
+				relay_parent_number: relay_parent_info.number,
+				relay_parent_storage_root: relay_parent_info.state_root,
 			},
-			compact: crate::fragment_chain::PendingAvailability {
-				candidate_hash: pending.candidate_hash,
-				relay_parent,
+			compact: fragment_chain::PendingAvailability {
+				candidate_hash,
+				relay_parent: RelayParentInfo {
+					hash: relay_parent,
+					number: relay_parent_info.number,
+					storage_root: relay_parent_info.state_root,
+				},
 			},
 		});
 
@@ -447,9 +565,49 @@ async fn preprocess_candidates_pending_availability<Context>(
 	Ok(importable)
 }
 
+/// Verifies that the candidate's relay parent is within the leaf's
+/// scope.
+async fn verify_relay_parent_within_scope<Sender>(
+	sender: &mut Sender,
+	rp_info_cache: &mut RelayParentInfoCache,
+	query_at: Hash,
+	leaf_session_index: SessionIndex,
+	candidate: &CommittedCandidateReceipt,
+	relay_parent_number: BlockNumber,
+	relay_parent_storage_root: Hash,
+) -> JfyiErrorResult<()>
+where
+	Sender: polkadot_node_subsystem::SubsystemSender<RuntimeApiMessage>
+		+ polkadot_node_subsystem::SubsystemSender<ChainApiMessage>,
+{
+	// For V1 descriptors `session_index()` is None; relay_parent == scheduling_parent for V1, so
+	// the leaf's session applies. For V2/V3 the descriptor carries the session of its relay parent.
+	let fetch_session = candidate.descriptor.session_index().unwrap_or(leaf_session_index);
+	let relay_parent = candidate.descriptor.relay_parent();
+
+	match fetch_relay_parent_info_cached(
+		sender,
+		rp_info_cache,
+		leaf_session_index,
+		query_at,
+		fetch_session,
+		relay_parent,
+	)
+	.await?
+	{
+		Some(info)
+			if info.number == relay_parent_number &&
+				info.state_root == relay_parent_storage_root =>
+		{
+			Ok(())
+		},
+		_ => Err(JfyiError::RelayParentOutOfScope),
+	}
+}
+
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn handle_introduce_seconded_candidate<Context>(
-	_ctx: &mut Context,
+	ctx: &mut Context,
 	view: &mut View,
 	request: IntroduceSecondedCandidateRequest,
 	tx: oneshot::Sender<bool>,
@@ -463,262 +621,265 @@ async fn handle_introduce_seconded_candidate<Context>(
 		persisted_validation_data: pvd,
 	} = request;
 
-	let Some(storage) = view.candidate_storage.get_mut(&para) else {
-		gum::warn!(
-			target: LOG_TARGET,
-			para_id = ?para,
-			candidate_hash = ?candidate.hash(),
-			"Received seconded candidate for inactive para",
-		);
+	let candidate_hash = candidate.hash();
+	let relay_parent = candidate.descriptor.relay_parent();
 
-		let _ = tx.send(false);
-		return
-	};
-
-	let parent_head_hash = pvd.parent_head.hash();
-	let output_head_hash = Some(candidate.commitments.head_data.hash());
-
-	// We first introduce the candidate in the storage and then try to extend the chain.
-	// If the candidate gets included in the chain, we can keep it in storage.
-	// If it doesn't, check that it's still a potential candidate in at least one fragment chain.
-	// If it's not, we can remove it.
-
-	let candidate_hash =
-		match storage.add_candidate(candidate.clone(), pvd, CandidateState::Seconded) {
-			Ok(c) => c,
-			Err(CandidateStorageInsertionError::CandidateAlreadyKnown(_)) => {
-				gum::debug!(
-					target: LOG_TARGET,
-					para = ?para,
-					"Attempting to introduce an already known candidate: {:?}",
-					candidate.hash()
-				);
-				// Candidate already known.
-				let _ = tx.send(true);
-				return
-			},
-			Err(CandidateStorageInsertionError::PersistedValidationDataMismatch) => {
-				// We can't log the candidate hash without either doing more ~expensive
-				// hashing but this branch indicates something is seriously wrong elsewhere
-				// so it's doubtful that it would affect debugging.
-
+	let candidate_entry =
+		match CandidateEntry::new_seconded(candidate_hash, candidate.clone(), pvd.clone()) {
+			Ok(candidate) => candidate,
+			Err(err) => {
 				gum::warn!(
 					target: LOG_TARGET,
-					para = ?para,
-					"Received seconded candidate had mismatching validation data",
+					para_id = ?para,
+					"Cannot add seconded candidate: {}",
+					err
 				);
 
 				let _ = tx.send(false);
-				return
+				return;
 			},
 		};
 
-	let mut keep_in_storage = false;
-	for (relay_parent, leaf_data) in view.active_leaves.iter_mut() {
-		if let Some(chain) = leaf_data.fragment_chains.get_mut(&para) {
+	let mut added = Vec::with_capacity(view.per_scheduling_parent.len());
+	let mut para_scheduled = false;
+	// We don't iterate only through the active leaves. We also update any ancestor scheduling
+	// parents that are still retained, so that their upcoming children may see these candidates.
+	for (scheduling_parent, sp_data) in view.per_scheduling_parent.iter_mut() {
+		let Some(chain) = sp_data.fragment_chains.get_mut(&para) else { continue };
+		let is_active_leaf = view.active_leaves.contains(scheduling_parent);
+
+		para_scheduled = true;
+
+		if let Err(err) = verify_relay_parent_within_scope(
+			ctx.sender(),
+			&mut view.relay_parent_info_cache,
+			*scheduling_parent,
+			sp_data.session_index,
+			&candidate,
+			pvd.relay_parent_number,
+			pvd.relay_parent_storage_root,
+		)
+		.await
+		{
 			gum::trace!(
 				target: LOG_TARGET,
-				para = ?para,
+				?para,
+				?candidate_hash,
+				?scheduling_parent,
 				?relay_parent,
-				"Candidates in chain before trying to introduce a new one: {:?}",
-				chain.to_vec()
+				"Cannot introduce seconded candidate: {}",
+				err
 			);
-			chain.extend_from_storage(&*storage);
-			if chain.contains_candidate(&candidate_hash) {
-				keep_in_storage = true;
+			continue;
+		}
 
+		match chain.try_adding_seconded_candidate(&sp_data.scheduling_scope, &candidate_entry) {
+			Ok(()) => {
+				added.push(*scheduling_parent);
+			},
+			Err(FragmentChainError::CandidateAlreadyKnown) => {
 				gum::trace!(
 					target: LOG_TARGET,
-					?relay_parent,
-					para = ?para,
-					?candidate_hash,
-					"Added candidate to chain.",
+					?para,
+					?scheduling_parent,
+					?is_active_leaf,
+					"Attempting to introduce an already known candidate: {:?}",
+					candidate_hash
 				);
-			} else {
-				match chain.can_add_candidate_as_potential(
-					&storage,
-					&candidate_hash,
-					&candidate.descriptor.relay_parent,
-					parent_head_hash,
-					output_head_hash,
-				) {
-					PotentialAddition::Anyhow => {
-						gum::trace!(
-							target: LOG_TARGET,
-							para = ?para,
-							?relay_parent,
-							?candidate_hash,
-							"Kept candidate as unconnected potential.",
-						);
-
-						keep_in_storage = true;
-					},
-					_ => {
-						gum::trace!(
-							target: LOG_TARGET,
-							para = ?para,
-							?relay_parent,
-							"Not introducing a new candidate: {:?}",
-							candidate_hash
-						);
-					},
-				}
-			}
+				added.push(*scheduling_parent);
+			},
+			Err(err) => {
+				gum::trace!(
+					target: LOG_TARGET,
+					?para,
+					?scheduling_parent,
+					?candidate_hash,
+					?is_active_leaf,
+					"Cannot introduce seconded candidate: {}",
+					err
+				)
+			},
 		}
 	}
 
-	// If there is at least one leaf where this candidate can be added or potentially added in the
-	// future, keep it in storage.
-	if !keep_in_storage {
-		storage.remove_candidate(&candidate_hash);
-
-		gum::debug!(
-			target: LOG_TARGET,
-			para = ?para,
-			candidate = ?candidate_hash,
-			"Newly-seconded candidate cannot be kept under any active leaf",
-		);
-	}
-
-	let _ = tx.send(keep_in_storage);
-}
-
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn handle_candidate_backed<Context>(
-	_ctx: &mut Context,
-	view: &mut View,
-	para: ParaId,
-	candidate_hash: CandidateHash,
-) {
-	let Some(storage) = view.candidate_storage.get_mut(&para) else {
+	if !para_scheduled {
 		gum::warn!(
 			target: LOG_TARGET,
 			para_id = ?para,
+			?candidate_hash,
+			"Received seconded candidate for inactive para",
+		);
+	}
+
+	if added.is_empty() {
+		gum::debug!(
+			target: LOG_TARGET,
+			para_id = ?para,
+			candidate = ?candidate_hash,
+			"Newly-seconded candidate cannot be kept under any scheduling parent",
+		);
+	} else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?para,
+			"Added/Kept seconded candidate {:?} on scheduling parents: {:?}",
+			candidate_hash,
+			added
+		);
+	}
+
+	let _ = tx.send(!added.is_empty());
+}
+
+async fn handle_candidate_backed(
+	view: &mut View,
+	para: ParaId,
+	candidate_hash: CandidateHash,
+	metrics: &Metrics,
+) {
+	let _timer = metrics.time_candidate_backed();
+
+	let mut found_candidate = false;
+	let mut found_para = false;
+
+	// We don't iterate only through the active leaves. We also update any ancestor scheduling
+	// parents that are still retained, so that their upcoming children may see these candidates.
+	for (scheduling_parent, sp_data) in view.per_scheduling_parent.iter_mut() {
+		let Some(chain) = sp_data.fragment_chains.get_mut(&para) else { continue };
+		let is_active_leaf = view.active_leaves.contains(scheduling_parent);
+
+		found_para = true;
+		if chain.is_candidate_backed(&candidate_hash) {
+			gum::debug!(
+				target: LOG_TARGET,
+				?para,
+				?candidate_hash,
+				?is_active_leaf,
+				"Received redundant instruction to mark as backed an already backed candidate",
+			);
+			found_candidate = true;
+		} else if chain.contains_unconnected_candidate(&candidate_hash) {
+			found_candidate = true;
+			// Mark the candidate as backed. This can recreate the fragment chain.
+			chain.candidate_backed(&sp_data.scheduling_scope, &candidate_hash);
+
+			gum::trace!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				?para,
+				?is_active_leaf,
+				?candidate_hash,
+				"Candidate backed. Candidate chain for para: {:?}",
+				chain.candidate_hashes()
+			);
+
+			gum::trace!(
+				target: LOG_TARGET,
+				?scheduling_parent,
+				?para,
+				?is_active_leaf,
+				"Potential candidate storage for para: {:?}",
+				chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+			);
+		}
+	}
+
+	if !found_para {
+		gum::warn!(
+			target: LOG_TARGET,
+			?para,
 			?candidate_hash,
 			"Received instruction to back a candidate for unscheduled para",
 		);
 
-		return
-	};
+		return;
+	}
 
-	if !storage.contains(&candidate_hash) {
-		gum::warn!(
+	if !found_candidate {
+		// This can be harmless. It can happen if we received a better backed candidate before and
+		// dropped this other candidate already.
+		gum::debug!(
 			target: LOG_TARGET,
-			para_id = ?para,
+			?para,
 			?candidate_hash,
 			"Received instruction to back unknown candidate",
 		);
-
-		return
 	}
-
-	if storage.is_backed(&candidate_hash) {
-		gum::debug!(
-			target: LOG_TARGET,
-			para_id = ?para,
-			?candidate_hash,
-			"Received redundant instruction to mark candidate as backed",
-		);
-
-		return
-	}
-
-	storage.mark_backed(&candidate_hash);
 }
 
 fn answer_get_backable_candidates(
 	view: &View,
-	relay_parent: Hash,
+	leaf: Hash,
 	para: ParaId,
 	count: u32,
 	ancestors: Ancestors,
-	tx: oneshot::Sender<Vec<(CandidateHash, Hash)>>,
+	tx: oneshot::Sender<Vec<BackableCandidateRef>>,
 ) {
-	let Some(data) = view.active_leaves.get(&relay_parent) else {
+	if !view.active_leaves.contains(&leaf) {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
-			"Requested backable candidate for inactive relay-parent."
+			"Requested backable candidate for inactive leaf."
 		);
 
 		let _ = tx.send(vec![]);
-		return
+		return;
+	}
+	let Some(data) = view.per_scheduling_parent.get(&leaf) else {
+		gum::debug!(
+			target: LOG_TARGET,
+			?leaf,
+			para_id = ?para,
+			"Requested backable candidate for inexistent leaf."
+		);
+
+		let _ = tx.send(vec![]);
+		return;
 	};
 
 	let Some(chain) = data.fragment_chains.get(&para) else {
 		gum::debug!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			para_id = ?para,
 			"Requested backable candidate for inactive para."
 		);
 
 		let _ = tx.send(vec![]);
-		return
-	};
-
-	let Some(storage) = view.candidate_storage.get(&para) else {
-		gum::warn!(
-			target: LOG_TARGET,
-			?relay_parent,
-			para_id = ?para,
-			"No candidate storage for active para",
-		);
-
-		let _ = tx.send(vec![]);
-		return
+		return;
 	};
 
 	gum::trace!(
 		target: LOG_TARGET,
-		?relay_parent,
-		para_id = ?para,
-		"Candidate storage for para: {:?}",
-		storage.candidates().map(|candidate| candidate.hash()).collect::<Vec<_>>()
-	);
-
-	gum::trace!(
-		target: LOG_TARGET,
-		?relay_parent,
+		?leaf,
 		para_id = ?para,
 		"Candidate chain for para: {:?}",
-		chain.to_vec()
+		chain.candidate_hashes()
 	);
 
-	let backable_candidates: Vec<_> = chain
-		.find_backable_chain(ancestors.clone(), count, |candidate| storage.is_backed(candidate))
-		.into_iter()
-		.filter_map(|child_hash| {
-			storage.relay_parent_of_candidate(&child_hash).map_or_else(
-				|| {
-					// Here, we'd actually need to trim all of the candidates that follow. Or
-					// not, the runtime will do this. Impossible scenario anyway.
-					gum::error!(
-						target: LOG_TARGET,
-						?child_hash,
-						para_id = ?para,
-						"Candidate is present in fragment chain but not in candidate's storage!",
-					);
-					None
-				},
-				|parent_hash| Some((child_hash, parent_hash)),
-			)
-		})
-		.collect();
+	gum::trace!(
+		target: LOG_TARGET,
+		?leaf,
+		para_id = ?para,
+		"Potential candidate storage for para: {:?}",
+		chain.unconnected().map(|candidate| candidate.hash()).collect::<Vec<_>>()
+	);
+
+	let backable_candidates = chain.find_backable_chain(ancestors.clone(), count);
 
 	if backable_candidates.is_empty() {
 		gum::trace!(
 			target: LOG_TARGET,
 			?ancestors,
 			para_id = ?para,
-			%relay_parent,
+			%leaf,
 			"Could not find any backable candidate",
 		);
 	} else {
 		gum::trace!(
 			target: LOG_TARGET,
-			?relay_parent,
+			?leaf,
 			?backable_candidates,
 			?ancestors,
 			"Found backable candidates",
@@ -728,8 +889,10 @@ fn answer_get_backable_candidates(
 	let _ = tx.send(backable_candidates);
 }
 
-fn answer_hypothetical_membership_request(
-	view: &View,
+#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+async fn answer_hypothetical_membership_request<Context>(
+	ctx: &mut Context,
+	view: &mut View,
 	request: HypotheticalMembershipRequest,
 	tx: oneshot::Sender<Vec<(HypotheticalCandidate, HypotheticalMembership)>>,
 	metrics: &Metrics,
@@ -742,98 +905,171 @@ fn answer_hypothetical_membership_request(
 	}
 
 	let required_active_leaf = request.fragment_chain_relay_parent;
-	for (active_leaf, leaf_view) in view
+	for active_leaf in view
 		.active_leaves
 		.iter()
-		.filter(|(h, _)| required_active_leaf.as_ref().map_or(true, |x| h == &x))
+		.filter(|h| required_active_leaf.as_ref().map_or(true, |x| h == &x))
 	{
-		for &mut (ref candidate, ref mut membership) in &mut response {
+		let Some(leaf_view) = view.per_scheduling_parent.get(active_leaf) else { continue };
+		for (candidate, membership) in &mut response {
 			let para_id = &candidate.candidate_para();
 			let Some(fragment_chain) = leaf_view.fragment_chains.get(para_id) else { continue };
-			let Some(candidate_storage) = view.candidate_storage.get(para_id) else { continue };
 
-			if fragment_chain.hypothetical_membership(candidate.clone(), candidate_storage) {
-				membership.push(*active_leaf);
-			}
+			let res = match candidate {
+				HypotheticalCandidate::Complete {
+					candidate_hash,
+					ref receipt,
+					ref persisted_validation_data,
+				} => {
+					// For Complete candidates, verify the relay parent against this leaf before
+					// running the membership check. Incomplete candidates carry no PVD —
+					// nothing to verify.
+					if let Err(err) = verify_relay_parent_within_scope(
+						ctx.sender(),
+						&mut view.relay_parent_info_cache,
+						*active_leaf,
+						leaf_view.session_index,
+						receipt.as_ref(),
+						persisted_validation_data.relay_parent_number,
+						persisted_validation_data.relay_parent_storage_root,
+					)
+					.await
+					{
+						gum::trace!(
+							target: LOG_TARGET,
+							para_id = ?para_id,
+							candidate = ?candidate.candidate_hash(),
+							relay_parent = ?receipt.descriptor.relay_parent(),
+							"Candidate is not a hypothetical member on {:?}: {}",
+							active_leaf,
+							err,
+						);
+						continue;
+					}
+
+					// For complete candidates, build a CandidateEntry and run the full
+					// potential check including constraint validation.
+					let entry = fragment_chain::CandidateEntry::new_seconded(
+						*candidate_hash,
+						(**receipt).clone(),
+						persisted_validation_data.clone(),
+					);
+					match entry {
+						Ok(entry) => fragment_chain
+							.can_add_candidate_as_potential(&leaf_view.scheduling_scope, &entry),
+						Err(_) => continue,
+					}
+				},
+				HypotheticalCandidate::Incomplete { .. } => {
+					fragment_chain.can_add_candidate_as_potential_hypothetical(
+						&leaf_view.scheduling_scope,
+						candidate.scheduling_parent(),
+						// This could be Some(..), but we need to fetch the relay parent info and
+						// we don't have the session index in the advertisement..
+						None,
+						candidate.candidate_hash(),
+						candidate.parent_head_data_hash(),
+						candidate.output_head_data_hash(),
+					)
+				},
+			};
+			match res {
+				Err(FragmentChainError::CandidateAlreadyKnown) | Ok(()) => {
+					membership.push(*active_leaf);
+				},
+				Err(err) => {
+					gum::trace!(
+						target: LOG_TARGET,
+						para_id = ?para_id,
+						leaf = ?active_leaf,
+						candidate = ?candidate.candidate_hash(),
+						"Candidate is not a hypothetical member on: {}",
+						err
+					)
+				},
+			};
+		}
+	}
+
+	for (candidate, membership) in &response {
+		if membership.is_empty() {
+			gum::debug!(
+				target: LOG_TARGET,
+				para_id = ?candidate.candidate_para(),
+				active_leaves = ?view.active_leaves,
+				?required_active_leaf,
+				candidate = ?candidate.candidate_hash(),
+				"Candidate is not a hypothetical member on any of the active leaves",
+			)
 		}
 	}
 
 	let _ = tx.send(response);
 }
 
-fn answer_minimum_relay_parents_request(
-	view: &View,
-	relay_parent: Hash,
-	tx: oneshot::Sender<Vec<(ParaId, BlockNumber)>>,
-) {
-	let mut v = Vec::new();
-	if let Some(leaf_data) = view.active_leaves.get(&relay_parent) {
-		for (para_id, fragment_chain) in &leaf_data.fragment_chains {
-			v.push((*para_id, fragment_chain.scope().earliest_relay_parent().number));
-		}
-	}
-
-	let _ = tx.send(v);
-}
-
-fn answer_prospective_validation_data_request(
-	view: &View,
+#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+async fn answer_prospective_validation_data_request<Context>(
+	ctx: &mut Context,
+	view: &mut View,
 	request: ProspectiveValidationDataRequest,
 	tx: oneshot::Sender<Option<PersistedValidationData>>,
 ) {
-	// 1. Try to get the head-data from the candidate store if known.
-	// 2. Otherwise, it might exist as the base in some relay-parent and we can find it by iterating
-	//    fragment chains.
-	// 3. Otherwise, it is unknown.
-	// 4. Also try to find the relay parent block info by scanning fragment chains.
-	// 5. If head data and relay parent block info are found - success. Otherwise, failure.
-
-	let storage = match view.candidate_storage.get(&request.para_id) {
-		None => {
-			let _ = tx.send(None);
-			return
-		},
-		Some(s) => s,
-	};
+	// Try getting the needed data from any fragment chain.
 
 	let (mut head_data, parent_head_data_hash) = match request.parent_head_data {
-		ParentHeadData::OnlyHash(parent_head_data_hash) => (
-			storage.head_data_by_hash(&parent_head_data_hash).map(|x| x.clone()),
-			parent_head_data_hash,
-		),
+		ParentHeadData::OnlyHash(parent_head_data_hash) => (None, parent_head_data_hash),
 		ParentHeadData::WithData { head_data, hash } => (Some(head_data), hash),
 	};
 
+	// Search fragment chains across active leaves to find the head_data, relay_parent_info, and
+	// max_pov_size needed to construct the PersistedValidationData for this candidate:
 	let mut relay_parent_info = None;
 	let mut max_pov_size = None;
-
-	for fragment_chain in view
-		.active_leaves
-		.values()
-		.filter_map(|x| x.fragment_chains.get(&request.para_id))
-	{
+	for (leaf, leaf_session_index, fragment_chain) in
+		view.active_leaves.iter().filter_map(|active_leaf| {
+			view.per_scheduling_parent.get(active_leaf).and_then(|data| {
+				data.fragment_chains
+					.get(&request.para_id)
+					.map(|chain| (*active_leaf, data.session_index, chain))
+			})
+		}) {
 		if head_data.is_some() && relay_parent_info.is_some() && max_pov_size.is_some() {
-			break
+			break;
 		}
+
 		if relay_parent_info.is_none() {
-			relay_parent_info = fragment_chain.scope().ancestor(&request.candidate_relay_parent);
+			relay_parent_info = if let Some(info) = fetch_relay_parent_info_cached(
+				ctx.sender(),
+				&mut view.relay_parent_info_cache,
+				leaf_session_index,
+				leaf,
+				request.session_index,
+				request.candidate_relay_parent,
+			)
+			.await
+			.ok()
+			.flatten()
+			{
+				if max_pov_size.is_none() {
+					// TODO(https://github.com/paritytech/polkadot-sdk/issues/11256): serve
+					// `max_pov_size` from the candidate's relay-parent session rather than the
+					// scheduling session. We are leaning hard on two assumptions here:
+					// 1. Collators need to use the max_pov_size of the scheduling session, not of
+					//    the relay parent session.
+					// 2. The max_pov_size is only configurable per session and is expected to
+					//    change extremely rarely. It is acceptable if the collators will have to
+					//    rebuild the block if there was a change in the max_pov_size.
+					max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
+				}
+
+				Some(info)
+			} else {
+				None
+			}
 		}
+
 		if head_data.is_none() {
-			let required_parent = &fragment_chain.scope().base_constraints().required_parent;
-			if required_parent.hash() == parent_head_data_hash {
-				head_data = Some(required_parent.clone());
-			}
-		}
-		if max_pov_size.is_none() {
-			let contains_ancestor =
-				fragment_chain.scope().ancestor(&request.candidate_relay_parent).is_some();
-			if contains_ancestor {
-				// We are leaning hard on two assumptions here.
-				// 1. That the fragment chain never contains allowed relay-parents whose session for
-				//    children is different from that of the base block's.
-				// 2. That the max_pov_size is only configurable per session.
-				max_pov_size = Some(fragment_chain.scope().base_constraints().max_pov_size);
-			}
+			head_data = fragment_chain.get_head_data_by_hash(&parent_head_data_hash);
 		}
 	}
 
@@ -841,7 +1077,7 @@ fn answer_prospective_validation_data_request(
 		(Some(h), Some(i), Some(m)) => Some(PersistedValidationData {
 			parent_head: h,
 			relay_parent_number: i.number,
-			relay_parent_storage_root: i.storage_root,
+			relay_parent_storage_root: i.state_root,
 			max_pov_size: m as _,
 		}),
 		_ => None,
@@ -849,85 +1085,47 @@ fn answer_prospective_validation_data_request(
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_backing_state<Context>(
+async fn fetch_backing_constraints_and_candidates<Context>(
 	ctx: &mut Context,
 	relay_parent: Hash,
 	para_id: ParaId,
-) -> JfyiErrorResult<Option<(Constraints, Vec<CandidatePendingAvailability>)>> {
-	let (tx, rx) = oneshot::channel();
-	ctx.send_message(RuntimeApiMessage::Request(
-		relay_parent,
-		RuntimeApiRequest::ParaBackingState(para_id, tx),
-	))
-	.await;
-
-	Ok(rx
+) -> JfyiErrorResult<Option<(Constraints, Vec<CommittedCandidateReceipt>)>> {
+	let maybe_constraints = request_backing_constraints(relay_parent, para_id, ctx.sender())
 		.await
-		.map_err(JfyiError::RuntimeApiRequestCanceled)??
-		.map(|s| (From::from(s.constraints), s.pending_availability)))
+		.await
+		.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+	let Some(constraints) = maybe_constraints else { return Ok(None) };
+
+	let pending_availability =
+		request_candidates_pending_availability(relay_parent, para_id, ctx.sender())
+			.await
+			.await
+			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
+
+	Ok(Some((From::from(constraints), pending_availability)))
 }
 
+/// Fetches block information for ancestors of a given relay chain block.
+///
+/// Returns up to `ancestors` ancestor blocks in descending order (from most recent to oldest),
+/// stopping early if an ancestor is from a different session than `required_session`, if block
+/// info cannot be fetched, or if genesis is reached.
+///
+/// # Returns
+///
+/// A vector of `BlockInfo` containing block hashes, numbers, and storage roots for all
+/// ancestors within `required_session`, in descending order by block number.
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_upcoming_paras<Context>(
+async fn fetch_scheduling_parent_ancestors<Context>(
 	ctx: &mut Context,
-	relay_parent: Hash,
-) -> JfyiErrorResult<HashSet<ParaId>> {
-	Ok(match fetch_claim_queue(ctx.sender(), relay_parent).await? {
-		Some(claim_queue) => {
-			// Runtime supports claim queue - use it
-			claim_queue
-				.iter_all_claims()
-				.flat_map(|(_, paras)| paras.into_iter())
-				.copied()
-				.collect()
-		},
-		None => {
-			// fallback to availability cores - remove this branch once claim queue is released
-			// everywhere
-			let (tx, rx) = oneshot::channel();
-			ctx.send_message(RuntimeApiMessage::Request(
-				relay_parent,
-				RuntimeApiRequest::AvailabilityCores(tx),
-			))
-			.await;
-
-			let cores = rx.await.map_err(JfyiError::RuntimeApiRequestCanceled)??;
-
-			let mut upcoming = HashSet::with_capacity(cores.len());
-			for core in cores {
-				match core {
-					CoreState::Occupied(occupied) => {
-						// core sharing won't work optimally with this branch because the collations
-						// can't be prepared in advance.
-						if let Some(next_up_on_available) = occupied.next_up_on_available {
-							upcoming.insert(next_up_on_available.para_id);
-						}
-						if let Some(next_up_on_time_out) = occupied.next_up_on_time_out {
-							upcoming.insert(next_up_on_time_out.para_id);
-						}
-					},
-					CoreState::Scheduled(scheduled) => {
-						upcoming.insert(scheduled.para_id);
-					},
-					CoreState::Free => {},
-				}
-			}
-
-			upcoming
-		},
-	})
-}
-
-// Fetch ancestors in descending order, up to the amount requested.
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_ancestry<Context>(
-	ctx: &mut Context,
-	cache: &mut HashMap<Hash, Header>,
 	relay_hash: Hash,
+	mut number: BlockNumber,
 	ancestors: usize,
-) -> JfyiErrorResult<Vec<RelayChainBlockInfo>> {
+	required_session: u32,
+) -> JfyiErrorResult<Vec<(Hash, BlockNumber)>> {
 	if ancestors == 0 {
-		return Ok(Vec::new())
+		return Ok(Vec::new());
 	}
 
 	let (tx, rx) = oneshot::channel();
@@ -939,27 +1137,10 @@ async fn fetch_ancestry<Context>(
 	.await;
 
 	let hashes = rx.map_err(JfyiError::ChainApiRequestCanceled).await??;
-	let required_session = request_session_index_for_child(relay_hash, ctx.sender())
-		.await
-		.await
-		.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
-	let mut block_info = Vec::with_capacity(hashes.len());
+	let mut ancestors = Vec::with_capacity(hashes.len());
+
 	for hash in hashes {
-		let info = match fetch_block_info(ctx, cache, hash).await? {
-			None => {
-				gum::warn!(
-					target: LOG_TARGET,
-					relay_hash = ?hash,
-					"Failed to fetch info for hash returned from ancestry.",
-				);
-
-				// Return, however far we got.
-				break
-			},
-			Some(info) => info,
-		};
-
 		// The relay chain cannot accept blocks backed from previous sessions, with
 		// potentially previous validators. This is a technical limitation we need to
 		// respect here.
@@ -969,47 +1150,43 @@ async fn fetch_ancestry<Context>(
 			.await
 			.map_err(JfyiError::RuntimeApiRequestCanceled)??;
 
-		if session == required_session {
-			block_info.push(info);
-		} else {
-			break
+		if session != required_session {
+			break;
 		}
+
+		number = number.saturating_sub(1);
+		ancestors.push((hash, number));
 	}
 
-	Ok(block_info)
+	Ok(ancestors)
 }
 
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_block_header_with_cache<Context>(
-	ctx: &mut Context,
-	cache: &mut HashMap<Hash, Header>,
-	relay_hash: Hash,
-) -> JfyiErrorResult<Option<Header>> {
-	if let Some(h) = cache.get(&relay_hash) {
-		return Ok(Some(h.clone()))
+/// Caching wrapper over `fetch_relay_parent_info`.
+///
+/// On hit: returns the cached info without any runtime/chain calls.
+/// On miss: calls `fetch_relay_parent_info`; on `Ok(Some(info))` inserts into the cache before
+/// returning. `None`/`Err` are passed through without caching (a future query with different
+/// inputs may succeed).
+async fn fetch_relay_parent_info_cached<Sender>(
+	sender: &mut Sender,
+	cache: &mut RelayParentInfoCache,
+	leaf_session: SessionIndex,
+	query_at: Hash,
+	fetch_session: SessionIndex,
+	relay_parent: Hash,
+) -> JfyiErrorResult<Option<RuntimeRelayParentInfo<Hash, BlockNumber>>>
+where
+	Sender: polkadot_node_subsystem::SubsystemSender<RuntimeApiMessage>
+		+ polkadot_node_subsystem::SubsystemSender<ChainApiMessage>,
+{
+	if let Some(info) = cache.get(&(leaf_session, relay_parent)) {
+		return Ok(Some(info.clone()));
 	}
-
-	let (tx, rx) = oneshot::channel();
-
-	ctx.send_message(ChainApiMessage::BlockHeader(relay_hash, tx)).await;
-	let header = rx.map_err(JfyiError::ChainApiRequestCanceled).await??;
-	if let Some(ref h) = header {
-		cache.insert(relay_hash, h.clone());
+	match fetch_relay_parent_info(sender, query_at, fetch_session, relay_parent).await? {
+		Some(info) => {
+			cache.insert((leaf_session, relay_parent), info.clone());
+			Ok(Some(info))
+		},
+		None => Ok(None),
 	}
-	Ok(header)
-}
-
-#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
-async fn fetch_block_info<Context>(
-	ctx: &mut Context,
-	cache: &mut HashMap<Hash, Header>,
-	relay_hash: Hash,
-) -> JfyiErrorResult<Option<RelayChainBlockInfo>> {
-	let header = fetch_block_header_with_cache(ctx, cache, relay_hash).await?;
-
-	Ok(header.map(|header| RelayChainBlockInfo {
-		hash: relay_hash,
-		number: header.number,
-		storage_root: header.state_root,
-	}))
 }

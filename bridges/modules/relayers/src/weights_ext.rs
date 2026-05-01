@@ -23,13 +23,13 @@ use frame_support::pallet_prelude::Weight;
 /// Extended weight info.
 pub trait WeightInfoExt: WeightInfo {
 	/// Returns weight, that needs to be added to the pre-dispatch weight of message delivery call,
-	/// if `RefundBridgedParachainMessages` signed extension is deployed at runtime level.
+	/// if `BridgeRelayersTransactionExtension` signed extension is deployed at runtime level.
 	fn receive_messages_proof_overhead_from_runtime() -> Weight {
 		Self::slash_and_deregister().max(Self::register_relayer_reward())
 	}
 
 	/// Returns weight, that needs to be added to the pre-dispatch weight of message delivery
-	/// confirmation call, if `RefundBridgedParachainMessages` signed extension is deployed at
+	/// confirmation call, if `BridgeRelayersTransactionExtension` signed extension is deployed at
 	/// runtime level.
 	fn receive_messages_delivery_proof_overhead_from_runtime() -> Weight {
 		Self::register_relayer_reward()

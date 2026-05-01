@@ -41,6 +41,8 @@ mod integration_tests;
 #[cfg(test)]
 mod mock;
 
+extern crate alloc;
+
 use frame_support::{
 	parameter_types,
 	traits::{ConstU32, Currency, OneSessionHandler},
@@ -99,8 +101,12 @@ parameter_types! {
 	/// The maximum amount of the multiplier.
 	pub MaximumMultiplier: Multiplier = Bounded::max_value();
 	/// Maximum length of block. Up to 5MB.
-	pub BlockLength: limits::BlockLength =
-	limits::BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(frame_support::dispatch::DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 }
 
 /// Parameterized slow adjusting fee updated based on
@@ -169,7 +175,7 @@ static_assertions::assert_eq_size!(polkadot_primitives::Balance, u128);
 
 /// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
-pub struct ParachainSessionKeyPlaceholder<T>(sp_std::marker::PhantomData<T>);
+pub struct ParachainSessionKeyPlaceholder<T>(core::marker::PhantomData<T>);
 impl<T> sp_runtime::BoundToRuntimeAppPublic for ParachainSessionKeyPlaceholder<T> {
 	type Public = ValidatorId;
 }
@@ -198,7 +204,7 @@ impl<T: pallet_session::Config> OneSessionHandler<T::AccountId>
 
 /// A placeholder since there is currently no provided session key handler for parachain validator
 /// keys.
-pub struct AssignmentSessionKeyPlaceholder<T>(sp_std::marker::PhantomData<T>);
+pub struct AssignmentSessionKeyPlaceholder<T>(core::marker::PhantomData<T>);
 impl<T> sp_runtime::BoundToRuntimeAppPublic for AssignmentSessionKeyPlaceholder<T> {
 	type Public = AssignmentId;
 }

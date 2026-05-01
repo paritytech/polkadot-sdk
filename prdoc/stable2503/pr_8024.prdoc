@@ -1,0 +1,9 @@
+title: Change the hash of `PendingOrders` storage item
+doc:
+- audience: [Runtime Dev, Node Dev]
+  description: |-
+    Change the hash to `Twox64Concat`, which is more secure than `Identity`.
+crates:
+- name: snowbridge-pallet-outbound-queue-v2
+  bump: patch
+

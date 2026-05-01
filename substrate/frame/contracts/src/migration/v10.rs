@@ -40,13 +40,15 @@ use frame_support::{
 	DefaultNoBound,
 };
 use sp_core::hexdisplay::HexDisplay;
-#[cfg(feature = "try-runtime")]
-use sp_runtime::TryRuntimeError;
 use sp_runtime::{
 	traits::{Hash, TrailingZeroInput, Zero},
 	Perbill, Saturating,
 };
-use sp_std::prelude::*;
+
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
 mod v9 {
 	use super::*;
@@ -55,7 +57,7 @@ mod v9 {
 		<T as frame_system::Config>::AccountId,
 	>>::Balance;
 
-	#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+	#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T, OldCurrency))]
 	pub struct ContractInfo<T: Config, OldCurrency>
 	where
@@ -98,7 +100,7 @@ pub fn store_old_contract_info<T: Config, OldCurrency>(
 	v9::ContractInfoOf::<T, OldCurrency>::insert(account, info);
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebugNoBound, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct DepositAccount<T: Config>(AccountIdOf<T>);
 
@@ -110,7 +112,7 @@ impl<T: Config> Deref for DepositAccount<T> {
 	}
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T, OldCurrency))]
 pub struct ContractInfo<T: Config, OldCurrency>
 where

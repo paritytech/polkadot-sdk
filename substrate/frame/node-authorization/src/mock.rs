@@ -20,13 +20,11 @@
 use super::*;
 use crate as pallet_node_authorization;
 
-use frame_support::{derive_impl, ord_parameter_types, traits::ConstU32};
-use frame_system::EnsureSignedBy;
-use sp_runtime::BuildStorage;
+use frame::testing_prelude::*;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 
-frame_support::construct_runtime!(
+construct_runtime!(
 	pub enum Test
 	{
 		System: frame_system,
@@ -61,7 +59,7 @@ pub fn test_node(id: u8) -> PeerId {
 	PeerId(vec![id])
 }
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_node_authorization::GenesisConfig::<Test> {
 		nodes: vec![(test_node(10), 10), (test_node(20), 20), (test_node(30), 30)],

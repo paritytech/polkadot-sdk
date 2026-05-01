@@ -14,8 +14,11 @@
 // limitations under the License.
 #![cfg_attr(not(feature = "std"), no_std)]
 
-pub mod digest_item;
+pub mod barriers;
 pub mod message_queue;
+pub mod xcm_version;
 
-pub use digest_item::CustomDigestItem;
-pub use message_queue::{AggregateMessageOrigin, BridgeHubMessageRouter};
+pub use barriers::DenyExportMessageFrom;
+pub use message_queue::{
+	AggregateMessageOrigin, BridgeHubDualMessageRouter, BridgeHubMessageRouter,
+};

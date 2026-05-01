@@ -1,0 +1,8 @@
+title: 'fix: skip verifying imported blocks'
+doc:
+- audience: Node Operator
+  description: Closes https://github.com/paritytech/polkadot-sdk/issues/9277. Still
+    WIP testing
+crates:
+- name: sc-consensus-babe
+  bump: patch

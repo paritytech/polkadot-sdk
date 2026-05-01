@@ -1,0 +1,7 @@
+title: adding warning when using default substrateWeight in production
+doc:
+- audience: Runtime Dev
+  description: |-
+    PR for #3581
+    Added a cfg to show a deprecated warning message when using std
+crates: []

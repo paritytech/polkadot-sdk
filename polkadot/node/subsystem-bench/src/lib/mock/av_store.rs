@@ -61,7 +61,7 @@ impl HandleNetworkMessage for NetworkAvailabilityState {
 		_node_sender: &mut futures::channel::mpsc::UnboundedSender<NetworkMessage>,
 	) -> Option<NetworkMessage> {
 		match message {
-			NetworkMessage::RequestFromNode(peer, request) => match request {
+			NetworkMessage::RequestFromNode(peer, request) => match *request {
 				Requests::ChunkFetching(outgoing_request) => {
 					gum::debug!(target: LOG_TARGET, request = ?outgoing_request, "Received `RequestFromNode`");
 					let validator_index: usize = outgoing_request.payload.index.0 as usize;
@@ -204,10 +204,11 @@ impl MockAvailabilityStore {
 			let msg = ctx.recv().await.expect("Overseer never fails us");
 
 			match msg {
-				orchestra::FromOrchestra::Signal(signal) =>
+				orchestra::FromOrchestra::Signal(signal) => {
 					if signal == OverseerSignal::Conclude {
-						return
-					},
+						return;
+					}
+				},
 				orchestra::FromOrchestra::Communication { msg } => match msg {
 					AvailabilityStoreMessage::QueryAvailableData(candidate_hash, tx) => {
 						gum::debug!(target: LOG_TARGET, candidate_hash = ?candidate_hash, "Responding to QueryAvailableData");

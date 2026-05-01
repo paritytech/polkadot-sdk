@@ -22,6 +22,7 @@
 pub use polkadot_node_core_pvf_common::{
 	error::ExecuteError, executor_interface::execute_artifact,
 };
+use polkadot_parachain_primitives::primitives::ValidationParams;
 
 // NOTE: Initializing logging in e.g. tests will not have an effect in the workers, as they are
 //       separate spawned processes. Run with e.g. `RUST_LOG=parachain::pvf-execute-worker=trace`.
@@ -38,8 +39,11 @@ use nix::{
 	unistd::{ForkResult, Pid},
 };
 use polkadot_node_core_pvf_common::{
+	compute_checksum,
 	error::InternalValidationError,
-	execute::{Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse},
+	execute::{
+		ExecuteRequest, Handshake, JobError, JobResponse, JobResult, WorkerError, WorkerResponse,
+	},
 	executor_interface::params_to_wasmtime_semantics,
 	framed_recv_blocking, framed_send_blocking,
 	worker::{
@@ -50,8 +54,11 @@ use polkadot_node_core_pvf_common::{
 	},
 	worker_dir,
 };
-use polkadot_parachain_primitives::primitives::ValidationResult;
-use polkadot_primitives::ExecutorParams;
+use polkadot_node_primitives::{BlockData, POV_BOMB_LIMIT};
+use polkadot_parachain_primitives::primitives::{
+	TrailingOption, ValidationParamsExtension, ValidationResult,
+};
+use polkadot_primitives::{CandidateDescriptorVersion, ExecutorParams};
 use std::{
 	io::{self, Read},
 	os::{
@@ -85,16 +92,16 @@ fn recv_execute_handshake(stream: &mut UnixStream) -> io::Result<Handshake> {
 	Ok(handshake)
 }
 
-fn recv_request(stream: &mut UnixStream) -> io::Result<(Vec<u8>, Duration)> {
-	let params = framed_recv_blocking(stream)?;
-	let execution_timeout = framed_recv_blocking(stream)?;
-	let execution_timeout = Duration::decode(&mut &execution_timeout[..]).map_err(|_| {
+fn recv_request(stream: &mut UnixStream) -> io::Result<ExecuteRequest> {
+	let request_bytes = framed_recv_blocking(stream)?;
+	let request = ExecuteRequest::decode(&mut &request_bytes[..]).map_err(|_| {
 		io::Error::new(
 			io::ErrorKind::Other,
-			"execute pvf recv_request: failed to decode duration".to_string(),
+			"execute pvf recv_request: failed to decode ExecuteRequest".to_string(),
 		)
 	})?;
-	Ok((params, execution_timeout))
+
+	Ok(request)
 }
 
 /// Sends an error to the host and returns the original error wrapped in `io::Error`.
@@ -149,7 +156,7 @@ pub fn worker_entrypoint(
 			let execute_thread_stack_size = max_stack_size(&executor_params);
 
 			loop {
-				let (params, execution_timeout) = recv_request(&mut stream).map_err(|e| {
+				let request = recv_request(&mut stream).map_err(|e| {
 					map_and_send_err!(
 						e,
 						InternalValidationError::HostCommunication,
@@ -157,6 +164,11 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
+
+				let pvd = request.pvd;
+				let pov = request.pov;
+				let execution_timeout = request.execution_timeout;
+				let artifact_checksum = request.artifact_checksum;
 				gum::debug!(
 					target: LOG_TARGET,
 					?worker_info,
@@ -174,6 +186,19 @@ pub fn worker_entrypoint(
 						worker_info
 					)
 				})?;
+
+				if artifact_checksum != compute_checksum(&compiled_artifact_blob) {
+					send_result::<WorkerResponse, WorkerError>(
+						&mut stream,
+						Ok(WorkerResponse {
+							job_response: JobResponse::CorruptedArtifact,
+							duration: Duration::ZERO,
+							pov_size: 0,
+						}),
+						worker_info,
+					)?;
+					continue;
+				}
 
 				let (pipe_read_fd, pipe_write_fd) = pipe2_cloexec().map_err(|e| {
 					map_and_send_err!(
@@ -197,7 +222,59 @@ pub fn worker_entrypoint(
 				let stream_fd = stream.as_raw_fd();
 
 				let compiled_artifact_blob = Arc::new(compiled_artifact_blob);
-				let params = Arc::new(params);
+
+				let raw_block_data =
+					match sp_maybe_compressed_blob::decompress(&pov.block_data.0, POV_BOMB_LIMIT) {
+						Ok(data) => data,
+						Err(_) => {
+							send_result::<WorkerResponse, WorkerError>(
+								&mut stream,
+								Ok(WorkerResponse {
+									job_response: JobResponse::PoVDecompressionFailure,
+									duration: Duration::ZERO,
+									pov_size: 0,
+								}),
+								worker_info,
+							)?;
+							continue;
+						},
+					};
+
+				let pov_size = raw_block_data.len() as u32;
+
+				let params = ValidationParams {
+					parent_head: pvd.parent_head.clone(),
+					block_data: BlockData(raw_block_data.to_vec()),
+					relay_parent_number: pvd.relay_parent_number,
+					relay_parent_storage_root: pvd.relay_parent_storage_root,
+				};
+				let mut encoded_params = params.encode();
+
+				// Append V3+ extension based on descriptor version.
+				// SAFETY: ValidationParams is the complete message passed to the PVF.
+				// TrailingOption is safe here because:
+				// 1. ValidationParams is not embedded in any larger struct
+				// 2. The extension bytes are the ONLY thing after ValidationParams
+				// 3. The PVF will decode ValidationParams + optional extension as the entire input
+				let extension: TrailingOption<ValidationParamsExtension> =
+					match request.descriptor_version {
+						CandidateDescriptorVersion::V3 => {
+							// V3 candidate - append extension with both parent hashes
+							TrailingOption(Some(ValidationParamsExtension::V3 {
+								relay_parent: request.relay_parent,
+								scheduling_parent: request.scheduling_parent,
+							}))
+						},
+						CandidateDescriptorVersion::V1 |
+						CandidateDescriptorVersion::V2 |
+						CandidateDescriptorVersion::Unknown => {
+							// V1/V2/Unknown - no extension appended
+							TrailingOption(None)
+						},
+					};
+				encoded_params.extend(extension.encode());
+
+				let params = Arc::new(encoded_params);
 
 				cfg_if::cfg_if! {
 					if #[cfg(target_os = "linux")] {
@@ -214,6 +291,7 @@ pub fn worker_entrypoint(
 								worker_info,
 								security_status.can_unshare_user_namespace_and_change_root,
 								usage_before,
+								pov_size,
 							)?
 						} else {
 							// Fall back to using fork.
@@ -228,6 +306,7 @@ pub fn worker_entrypoint(
 								execute_thread_stack_size,
 								worker_info,
 								usage_before,
+								pov_size,
 							)?
 						};
 					} else {
@@ -242,6 +321,7 @@ pub fn worker_entrypoint(
 							execute_thread_stack_size,
 							worker_info,
 							usage_before,
+							pov_size,
 						)?;
 					}
 				}
@@ -269,18 +349,20 @@ fn validate_using_artifact(
 		//         [`executor_interface::prepare`].
 		execute_artifact(compiled_artifact_blob, executor_params, params)
 	} {
-		Err(ExecuteError::RuntimeConstruction(wasmerr)) =>
-			return JobResponse::runtime_construction("execute", &wasmerr.to_string()),
+		Err(ExecuteError::RuntimeConstruction(wasmerr)) => {
+			return JobResponse::runtime_construction("execute", &wasmerr.to_string())
+		},
 		Err(err) => return JobResponse::format_invalid("execute", &err.to_string()),
 		Ok(d) => d,
 	};
 
 	let result_descriptor = match ValidationResult::decode(&mut &descriptor_bytes[..]) {
-		Err(err) =>
+		Err(err) => {
 			return JobResponse::format_invalid(
 				"validation result decoding failed",
 				&err.to_string(),
-			),
+			)
+		},
 		Ok(r) => r,
 	};
 
@@ -300,6 +382,7 @@ fn handle_clone(
 	worker_info: &WorkerInfo,
 	have_unshare_newuser: bool,
 	usage_before: Usage,
+	pov_size: u32,
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	use polkadot_node_core_pvf_common::worker::security;
 
@@ -329,10 +412,12 @@ fn handle_clone(
 			worker_info,
 			child,
 			usage_before,
+			pov_size,
 			execution_timeout,
 		),
-		Err(security::clone::Error::Clone(errno)) =>
-			Ok(Err(internal_error_from_errno("clone", errno))),
+		Err(security::clone::Error::Clone(errno)) => {
+			Ok(Err(internal_error_from_errno("clone", errno)))
+		},
 	}
 }
 
@@ -347,6 +432,7 @@ fn handle_fork(
 	execute_worker_stack_size: usize,
 	worker_info: &WorkerInfo,
 	usage_before: Usage,
+	pov_size: u32,
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	// SAFETY: new process is spawned within a single threaded process. This invariant
 	// is enforced by tests.
@@ -367,6 +453,7 @@ fn handle_fork(
 			worker_info,
 			child,
 			usage_before,
+			pov_size,
 			execution_timeout,
 		),
 		Err(errno) => Ok(Err(internal_error_from_errno("fork", errno))),
@@ -454,8 +541,9 @@ fn handle_child_process(
 			)),
 			Err(e) => Err(JobError::CpuTimeMonitorThread(stringify_panic_payload(e))),
 		},
-		WaitOutcome::Pending =>
-			unreachable!("we run wait_while until the outcome is no longer pending; qed"),
+		WaitOutcome::Pending => {
+			unreachable!("we run wait_while until the outcome is no longer pending; qed")
+		},
 	};
 
 	send_child_response(&mut pipe_write, response);
@@ -513,6 +601,7 @@ fn handle_parent_process(
 	worker_info: &WorkerInfo,
 	job_pid: Pid,
 	usage_before: Usage,
+	pov_size: u32,
 	timeout: Duration,
 ) -> io::Result<Result<WorkerResponse, WorkerError>> {
 	// the read end will wait until all write ends have been closed,
@@ -561,7 +650,7 @@ fn handle_parent_process(
 			cpu_tv.as_millis(),
 			timeout.as_millis(),
 		);
-		return Ok(Err(WorkerError::JobTimedOut))
+		return Ok(Err(WorkerError::JobTimedOut));
 	}
 
 	match status {
@@ -578,7 +667,7 @@ fn handle_parent_process(
 						))));
 					}
 
-					Ok(Ok(WorkerResponse { job_response, duration: cpu_tv }))
+					Ok(Ok(WorkerResponse { job_response, pov_size, duration: cpu_tv }))
 				},
 				Err(job_error) => {
 					gum::warn!(

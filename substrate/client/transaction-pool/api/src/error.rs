@@ -26,7 +26,7 @@ use sp_runtime::transaction_validity::{
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Transaction pool error type.
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, strum::AsRefStr)]
 #[allow(missing_docs)]
 pub enum Error {
 	#[error("Unknown transaction validity: {0:?}")]
@@ -38,7 +38,7 @@ pub enum Error {
 	/// The transaction validity returned no "provides" tag.
 	///
 	/// Such transactions are not accepted to the pool, since we use those tags
-	/// to define identity of transactions (occupance of the same "slot").
+	/// to define identity of transactions (occupancy of the same "slot").
 	#[error("Transaction does not provide any tags, so the pool can't identify it")]
 	NoTagsProvided,
 
@@ -110,5 +110,21 @@ pub trait IntoPoolError: std::error::Error + Send + Sized + Sync {
 impl IntoPoolError for Error {
 	fn into_pool_error(self) -> std::result::Result<Error, Self> {
 		Ok(self)
+	}
+}
+
+/// Provide a representation of the underlying instance as a prometheus metric label.
+pub trait IntoMetricsLabel {
+	/// Short string representation of the underlying instance.
+	///
+	/// This is intended to be used for a prometheus metric that tracks this instance
+	/// with the goal of distributing the observations over multiple groups, where an unique
+	/// label represents a group of same instance, observed many times.
+	fn label(&self) -> String;
+}
+
+impl IntoMetricsLabel for Error {
+	fn label(&self) -> String {
+		self.as_ref().to_string()
 	}
 }

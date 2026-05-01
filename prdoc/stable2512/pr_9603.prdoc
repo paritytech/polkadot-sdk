@@ -1,0 +1,12 @@
+title: '[pallet-revive] Migrate unstable storage host functions to `Storage` pre-compile'
+doc:
+- audience: Runtime Dev
+  description: Migrates the unstable host functions `contains_storage`, `take_storage`,
+    and `clear_storage` to a new `Storage` pre-compile.
+crates:
+- name: pallet-revive
+  bump: patch
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

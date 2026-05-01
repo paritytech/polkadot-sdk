@@ -1,0 +1,30 @@
+# The setup bellow allows only one node to produce
+# blocks and the rest will follow.
+
+[relaychain]
+chain = "dev"
+default_command = "minimal-template-node"
+
+[[relaychain.nodes]]
+name = "alice"
+args = ["--consensus manual-seal-3000"]
+validator = true
+ws_port = 9944
+
+[[relaychain.nodes]]
+name = "bob"
+args = ["--consensus None"]
+validator = true
+ws_port = 9955
+
+[[relaychain.nodes]]
+name = "charlie"
+args = ["--consensus None"]
+validator = true
+ws_port = 9966
+
+[[relaychain.nodes]]
+name = "dave"
+args = ["--consensus None"]
+validator = true
+ws_port = 9977

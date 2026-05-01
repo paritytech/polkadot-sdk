@@ -77,7 +77,7 @@ fn genesis_config() -> MockGenesisConfig {
 }
 
 fn session_changes(n: BlockNumber) -> Option<SessionChangeNotification<BlockNumber>> {
-	if n % 10 == 0 {
+	if n.is_multiple_of(10) {
 		Some(SessionChangeNotification { session_index: n / 10, ..Default::default() })
 	} else {
 		None

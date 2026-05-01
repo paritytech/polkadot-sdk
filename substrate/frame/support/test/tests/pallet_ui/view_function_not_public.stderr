@@ -1,0 +1,5 @@
+error: Invalid pallet::view_functions, view function must be public: `pub fn`
+  --> tests/pallet_ui/view_function_not_public.rs:33:3
+   |
+33 |         fn get_value() -> Option<u32> {
+   |         ^^

@@ -22,10 +22,15 @@ use crate::traits::misc::{SameOrOther, TryDrop};
 use core::ops::Div;
 use sp_runtime::traits::Saturating;
 
+mod imbalance_accounting;
 mod on_unbalanced;
 mod signed_imbalance;
 mod split_two_ways;
-pub use on_unbalanced::{OnUnbalanced, ResolveAssetTo, ResolveTo};
+
+pub use imbalance_accounting::{
+	ImbalanceAccounting, UnsafeConstructorDestructor, UnsafeManualAccounting,
+};
+pub use on_unbalanced::{MaybeResolveAssetTo, OnUnbalanced, ResolveAssetTo, ResolveTo};
 pub use signed_imbalance::SignedImbalance;
 pub use split_two_ways::SplitTwoWays;
 
@@ -58,7 +63,7 @@ pub use split_two_ways::SplitTwoWays;
 ///
 /// You can always retrieve the raw balance value using `peek`.
 #[must_use]
-pub trait Imbalance<Balance>: Sized + TryDrop + Default {
+pub trait Imbalance<Balance>: Sized + TryDrop + Default + TryMerge {
 	/// The oppositely imbalanced type. They come in pairs.
 	type Opposite: Imbalance<Balance>;
 
@@ -87,7 +92,7 @@ pub trait Imbalance<Balance>: Sized + TryDrop + Default {
 	{
 		let total: u32 = first.saturating_add(second);
 		if total == 0 {
-			return (Self::zero(), Self::zero())
+			return (Self::zero(), Self::zero());
 		}
 		let amount1 = self.peek().saturating_mul(first.into()) / total.into();
 		self.split(amount1)
@@ -182,6 +187,13 @@ pub trait Imbalance<Balance>: Sized + TryDrop + Default {
 	fn peek(&self) -> Balance;
 }
 
+/// Try to merge two imbalances.
+pub trait TryMerge: Sized {
+	/// Consume `self` and an `other` to return a new instance that combines both. Errors with
+	/// Err(self, other) if the imbalances cannot be merged (e.g. imbalances of different assets).
+	fn try_merge(self, other: Self) -> Result<Self, (Self, Self)>;
+}
+
 #[cfg(feature = "std")]
 impl<Balance: Default> Imbalance<Balance> for () {
 	type Opposite = ();
@@ -234,5 +246,12 @@ impl<Balance: Default> Imbalance<Balance> for () {
 	}
 	fn peek(&self) -> Balance {
 		Default::default()
+	}
+}
+
+#[cfg(feature = "std")]
+impl TryMerge for () {
+	fn try_merge(self, _: Self) -> Result<Self, (Self, Self)> {
+		Ok(())
 	}
 }

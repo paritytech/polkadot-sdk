@@ -107,9 +107,10 @@ impl FetchChunks {
 		state: &mut State,
 		common_params: &RecoveryParams,
 	) -> Result<AvailableData, RecoveryError> {
-		let recovery_duration = common_params
-			.metrics
-			.time_erasure_recovery(RecoveryStrategy::<Sender>::strategy_type(self));
+		let recovery_duration =
+			common_params
+				.metrics
+				.time_erasure_recovery(RecoveryStrategy::<Sender>::strategy_type(self));
 
 		// Send request to reconstruct available data from chunks.
 		let (avilable_data_tx, available_data_rx) = oneshot::channel();
@@ -136,18 +137,16 @@ impl FetchChunks {
 			// Attempt post-recovery check.
 			Ok(data) => do_post_recovery_check(common_params, data)
 				.await
-				.map_err(|e| {
+				.inspect_err(|_| {
 					recovery_duration.map(|rd| rd.stop_and_discard());
-					e
 				})
-				.map(|data| {
+				.inspect(|_| {
 					gum::trace!(
 						target: LOG_TARGET,
 						candidate_hash = ?common_params.candidate_hash,
 						erasure_root = ?common_params.erasure_root,
 						"Data recovery from chunks complete",
 					);
-					data
 				}),
 			Err(err) => {
 				recovery_duration.map(|rd| rd.stop_and_discard());
@@ -218,7 +217,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// Do this before requesting any chunks because we may have enough of them coming from
 			// past RecoveryStrategies.
 			if state.chunk_count() >= common_params.threshold {
-				return self.attempt_recovery::<Sender>(state, common_params).await
+				return self.attempt_recovery::<Sender>(state, common_params).await;
 			}
 
 			if Self::is_unavailable(
@@ -238,7 +237,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					"Data recovery from chunks is not possible",
 				);
 
-				return Err(RecoveryError::Unavailable)
+				return Err(RecoveryError::Unavailable);
 			}
 
 			let desired_requests_count =

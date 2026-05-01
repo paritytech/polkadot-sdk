@@ -22,7 +22,7 @@ use cumulus_primitives_core::{
 	relay_chain::AccountId, ParaId, PersistedValidationData, ValidationParams,
 };
 use cumulus_test_client::{
-	generate_extrinsic_with_pair, BuildParachainBlockData, InitBlockBuilder, TestClientBuilder,
+	generate_extrinsic_with_pair, BuildBlockBuilder, BuildParachainBlockData, TestClientBuilder,
 	ValidationResult,
 };
 use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -31,7 +31,7 @@ use cumulus_test_service::bench_utils as utils;
 use polkadot_primitives::HeadData;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::UsageProvider;
-use sc_executor_common::wasm_runtime::WasmModule;
+use sc_executor_common::wasm_runtime::{WasmModule, DEFAULT_HEAP_ALLOC_STRATEGY};
 
 use sp_blockchain::{ApplyExtrinsicFailed::Validity, Error::ApplyExtrinsicFailed};
 
@@ -60,7 +60,10 @@ fn create_extrinsics(
 		let extrinsic: UncheckedExtrinsic = generate_extrinsic_with_pair(
 			client,
 			src.clone(),
-			BalancesCall::transfer_keep_alive { dest: AccountId::from(dst.public()), value: 10000 },
+			BalancesCall::transfer_keep_alive {
+				dest: AccountId::from(dst.public()).into(),
+				value: 10000,
+			},
 			None,
 		);
 
@@ -88,7 +91,8 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	let para_id = ParaId::from(cumulus_test_runtime::PARACHAIN_ID);
 	let mut test_client_builder = TestClientBuilder::with_default_backend();
 	let genesis_init = test_client_builder.genesis_init_mut();
-	*genesis_init = cumulus_test_client::GenesisParameters { endowed_accounts: account_ids };
+	*genesis_init =
+		cumulus_test_client::GenesisParameters { endowed_accounts: account_ids, wasm: None };
 	let client = test_client_builder.build_with_native_executor(None).0;
 
 	let (max_transfer_count, extrinsics) = create_extrinsics(&client, &src_accounts, &dst_accounts);
@@ -107,8 +111,11 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		..Default::default()
 	};
 
-	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } =
-		client.init_block_builder(Some(validation_data), sproof_builder.clone());
+	let cumulus_test_client::BlockBuilderAndSupportData { mut block_builder, .. } = client
+		.init_block_builder_builder()
+		.with_validation_data(validation_data)
+		.with_relay_sproof_builder(sproof_builder.clone())
+		.build();
 
 	for extrinsic in extrinsics {
 		block_builder.push(extrinsic).unwrap();
@@ -116,7 +123,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 
 	let parachain_block = block_builder.build_parachain_block(*parent_header.state_root());
 
-	let proof_size_in_kb = parachain_block.storage_proof().encode().len() as f64 / 1024f64;
+	let proof_size_in_kb = parachain_block.proof().encoded_size() as f64 / 1024f64;
 	let runtime = utils::get_wasm_module();
 
 	let (relay_parent_storage_root, _) = sproof_builder.into_state_root_and_proof();
@@ -131,7 +138,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 	// This is not strictly necessary for this benchmark, but
 	// let us make sure that the result of `validate_block` is what
 	// we expect.
-	verify_expected_result(&runtime, &encoded_params, parachain_block.into_block());
+	verify_expected_result(&runtime, &encoded_params, parachain_block.blocks()[0].clone());
 
 	let mut group = c.benchmark_group("Block validation");
 	group.sample_size(20);
@@ -145,7 +152,7 @@ fn benchmark_block_validation(c: &mut Criterion) {
 		),
 		|b| {
 			b.iter_batched(
-				|| runtime.new_instance().unwrap(),
+				|| runtime.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY).unwrap(),
 				|mut instance| {
 					instance.call_export("validate_block", &encoded_params).unwrap();
 				},
@@ -161,7 +168,7 @@ fn verify_expected_result(
 	parachain_block: Block,
 ) {
 	let res = runtime
-		.new_instance()
+		.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY)
 		.unwrap()
 		.call_export("validate_block", encoded_params)
 		.expect("Call `validate_block`.");

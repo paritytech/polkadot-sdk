@@ -103,8 +103,14 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use polkadot_primitives::Id;
+	use frame_support::parameter_types;
+	use polkadot_primitives::Id as ParaId;
 	use xcm_builder::IsChildSystemParachain;
+
+	parameter_types! {
+		pub AssetHubParaId: ParaId = ASSET_HUB_ID.into();
+		pub PeopleParaId: ParaId = PEOPLE_ID.into();
+	}
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -120,7 +126,7 @@ pub mod system_parachain {
 	pub const BROKER_ID: u32 = 1005;
 
 	/// All system parachains of Rococo.
-	pub type SystemParachains = IsChildSystemParachain<Id>;
+	pub type SystemParachains = IsChildSystemParachain<ParaId>;
 
 	/// Coretime constants
 	pub mod coretime {

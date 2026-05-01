@@ -14,15 +14,17 @@
 // limitations under the License.
 
 use crate::imports::*;
-use emulated_integration_tests_common::accounts::{ALICE, BOB};
-use frame_support::traits::fungibles::{Create, Inspect, Mutate};
+use emulated_integration_tests_common::{
+	accounts::{ALICE, BOB},
+	USDT_ID,
+};
+use frame_support::traits::fungibles::{Inspect, Mutate};
 use polkadot_runtime_common::impls::VersionedLocatableAsset;
 use xcm_executor::traits::ConvertLocation;
 
 #[test]
 fn create_and_claim_treasury_spend() {
-	const ASSET_ID: u32 = 1984;
-	const SPEND_AMOUNT: u128 = 1_000_000;
+	const SPEND_AMOUNT: u128 = 1_000_000_000;
 	// treasury location from a sibling parachain.
 	let treasury_location: Location =
 		Location::new(1, [Parachain(CollectivesWestend::para_id().into()), PalletInstance(65)]);
@@ -32,28 +34,23 @@ fn create_and_claim_treasury_spend() {
 	let asset_hub_location = Location::new(1, [Parachain(AssetHubWestend::para_id().into())]);
 	let root = <CollectivesWestend as Chain>::RuntimeOrigin::root();
 	// asset kind to be spent from the treasury.
-	let asset_kind = VersionedLocatableAsset::V4 {
-		location: asset_hub_location,
-		asset_id: AssetId((PalletInstance(50), GeneralIndex(ASSET_ID.into())).into()),
-	};
+	let asset_kind: VersionedLocatableAsset =
+		(asset_hub_location, AssetId((PalletInstance(50), GeneralIndex(USDT_ID.into())).into()))
+			.into();
 	// treasury spend beneficiary.
 	let alice: AccountId = Westend::account_id_of(ALICE);
 	let bob: AccountId = CollectivesWestend::account_id_of(BOB);
 	let bob_signed = <CollectivesWestend as Chain>::RuntimeOrigin::signed(bob.clone());
 
-	AssetHubWestend::execute_with(|| {
+	let ah_usdt_issuance_before = AssetHubWestend::execute_with(|| {
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 
-		// create an asset class and mint some assets to the treasury account.
-		assert_ok!(<Assets as Create<_>>::create(
-			ASSET_ID,
-			treasury_account.clone(),
-			true,
-			SPEND_AMOUNT / 2
-		));
-		assert_ok!(<Assets as Mutate<_>>::mint_into(ASSET_ID, &treasury_account, SPEND_AMOUNT * 4));
+		// USDT created at genesis, mint some assets to the fellowship treasury account.
+		assert_ok!(<Assets as Mutate<_>>::mint_into(USDT_ID, &treasury_account, SPEND_AMOUNT * 4));
 		// beneficiary has zero balance.
-		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), 0u128,);
+		assert_eq!(<Assets as Inspect<_>>::balance(USDT_ID, &alice), 0u128);
+
+		<Assets as Inspect<_>>::total_issuance(USDT_ID)
 	});
 
 	CollectivesWestend::execute_with(|| {
@@ -84,7 +81,7 @@ fn create_and_claim_treasury_spend() {
 		);
 	});
 
-	AssetHubWestend::execute_with(|| {
+	let ah_usdt_issuance_after = AssetHubWestend::execute_with(|| {
 		type RuntimeEvent = <AssetHubWestend as Chain>::RuntimeEvent;
 		type Assets = <AssetHubWestend as AssetHubWestendPallet>::Assets;
 
@@ -96,7 +93,7 @@ fn create_and_claim_treasury_spend() {
 			AssetHubWestend,
 			vec![
 				RuntimeEvent::Assets(pallet_assets::Event::Transferred { asset_id: id, from, to, amount }) => {
-					id: id == &ASSET_ID,
+					id: id == &USDT_ID,
 					from: from == &treasury_account,
 					to: to == &alice,
 					amount: amount == &SPEND_AMOUNT,
@@ -106,8 +103,16 @@ fn create_and_claim_treasury_spend() {
 			]
 		);
 		// beneficiary received the assets from the treasury.
-		assert_eq!(<Assets as Inspect<_>>::balance(ASSET_ID, &alice,), SPEND_AMOUNT,);
+		assert_eq!(<Assets as Inspect<_>>::balance(USDT_ID, &alice), SPEND_AMOUNT);
+
+		<Assets as Inspect<_>>::total_issuance(USDT_ID)
 	});
+
+	assert_eq!(
+		ah_usdt_issuance_before, ah_usdt_issuance_after,
+		"Unexpected USDT total issuance change on AH"
+	);
+	assert!(ah_usdt_issuance_after > 0);
 
 	CollectivesWestend::execute_with(|| {
 		type RuntimeEvent = <CollectivesWestend as Chain>::RuntimeEvent;

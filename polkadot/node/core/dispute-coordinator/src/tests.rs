@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::{
-	collections::HashMap,
+	collections::{BTreeMap, HashMap},
 	sync::{
 		atomic::{AtomicU64, Ordering as AtomicOrdering},
 		Arc,
@@ -37,8 +37,8 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, ChainApiMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
-		DisputeDistributionMessage, ImportStatementsResult,
+		ApprovalVotingParallelMessage, ChainApiMessage, ChainSelectionMessage,
+		DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer::FromOrchestra,
 	OverseerSignal,
@@ -61,12 +61,14 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_primitives::{
 	ApprovalVote, BlockNumber, CandidateCommitments, CandidateEvent, CandidateHash,
-	CandidateReceipt, CoreIndex, DisputeStatement, ExecutorParams, GroupIndex, Hash, HeadData,
-	Header, IndexedVec, MultiDisputeStatementSet, NodeFeatures, ScrapedOnChainVotes, SessionIndex,
-	SessionInfo, SigningContext, ValidDisputeStatementKind, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	CandidateReceiptV2 as CandidateReceipt, CoreIndex, DisputeStatement, GroupIndex, Hash,
+	HeadData, Header, IndexedVec, MultiDisputeStatementSet, MutateDescriptorV2, NodeFeatures,
+	ScrapedOnChainVotes, SessionIndex, SessionInfo, SigningContext, ValidDisputeStatementKind,
+	ValidatorId, ValidatorIndex, ValidatorSignature, ValidityAttestation,
 };
-use polkadot_primitives_test_helpers::{dummy_candidate_receipt_bad_sig, dummy_digest, dummy_hash};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_v2_bad_sig, dummy_digest, dummy_hash,
+};
 
 use crate::{
 	backend::Backend,
@@ -121,8 +123,9 @@ async fn generate_opposing_votes_pair(
 	valid_vote_type: VoteType,
 ) -> (SignedDisputeStatement, SignedDisputeStatement) {
 	let valid_vote = match valid_vote_type {
-		VoteType::Backing =>
-			test_state.issue_backing_statement_with_index(valid_voter_idx, candidate_hash, session),
+		VoteType::Backing => {
+			test_state.issue_backing_statement_with_index(valid_voter_idx, candidate_hash, session)
+		},
 		VoteType::Explicit => test_state.issue_explicit_statement_with_index(
 			valid_voter_idx,
 			candidate_hash,
@@ -177,6 +180,11 @@ struct TestState {
 	last_block: Hash,
 	// last session the subsystem knows about.
 	known_session: Option<SessionIndex>,
+	/// When true, node features will include `CandidateReceiptV3` during session caching.
+	v3_node_features: bool,
+	/// Optional on-chain votes to return from `FetchOnChainVotes` on the first leaf.
+	/// When `Some`, the backing_validators_per_candidate from this will be used instead of empty.
+	initial_on_chain_votes: Option<ScrapedOnChainVotes>,
 }
 
 impl Default for TestState {
@@ -246,6 +254,8 @@ impl Default for TestState {
 			block_num_to_header,
 			last_block,
 			known_session: None,
+			v3_node_features: false,
+			initial_on_chain_votes: None,
 		}
 	}
 }
@@ -346,22 +356,19 @@ impl TestState {
 							);
 							assert_matches!(
 								overseer_recv(virtual_overseer).await,
-								AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-									h,
-									RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-								)) => {
-									assert_eq!(h, block_hash);
-									assert_eq!(session_index, i);
-									let _ = tx.send(Ok(Some(ExecutorParams::default())));
-								}
-							);
-
-							assert_matches!(
-								overseer_recv(virtual_overseer).await,
 								AllMessages::RuntimeApi(
 									RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 								) => {
-									si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
+									let features = if self.v3_node_features {
+										use polkadot_primitives::node_features::FeatureIndex;
+										let mut f = NodeFeatures::new();
+										f.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+										f.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+										f
+									} else {
+										NodeFeatures::EMPTY
+									};
+									si_tx.send(Ok(features)).unwrap();
 								}
 							);
 						}
@@ -394,26 +401,18 @@ impl TestState {
 					_new_leaf,
 					RuntimeApiRequest::FetchOnChainVotes(tx),
 				)) => {
-					//add some `BackedCandidates` or resolved disputes here as needed
-					tx.send(Ok(Some(ScrapedOnChainVotes {
+					let votes = self.initial_on_chain_votes.take().unwrap_or(ScrapedOnChainVotes {
 						session,
 						backing_validators_per_candidate: Vec::default(),
 						disputes: MultiDisputeStatementSet::default(),
-					})))
-					.unwrap();
+					});
+					tx.send(Ok(Some(votes))).unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
-					RuntimeApiRequest::UnappliedSlashes(tx),
+					RuntimeApiRequest::UnappliedSlashesV2(tx),
 				)) => {
 					tx.send(Ok(Vec::new())).unwrap();
-				},
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_new_leaf,
-					RuntimeApiRequest::Version(tx),
-				)) => {
-					tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT))
-						.unwrap();
 				},
 				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_new_leaf,
@@ -442,7 +441,7 @@ impl TestState {
 				},
 			}
 		}
-		return sent_disputes
+		return sent_disputes;
 	}
 
 	async fn handle_resume_sync(
@@ -646,14 +645,105 @@ fn make_valid_candidate_receipt() -> CandidateReceipt {
 	make_another_valid_candidate_receipt(dummy_hash())
 }
 
+/// Create a V3 candidate receipt with a distinct scheduling_parent.
+///
+/// V3 candidates have `version=1`, `reserved1[0..16]` all zeros, and `scheduling_parent`
+/// different from `relay_parent`. Built from raw to avoid dummy collator bytes polluting
+/// the reserved1 field (which would cause version detection to return V1).
+fn make_v3_candidate_receipt(
+	relay_parent: Hash,
+	scheduling_parent: Hash,
+	session_index: SessionIndex,
+) -> CandidateReceipt {
+	use polkadot_primitives::CandidateDescriptorV2;
+	let descriptor = CandidateDescriptorV2::new_from_raw(
+		0.into(),                                                         // para_id
+		relay_parent,                                                     // relay_parent
+		1,                                                                // version = V3
+		0,                                                                // core_index
+		session_index,                                                    // session_index
+		0,                                                                /* scheduling_session_offset */
+		[0u8; 24],                                                        // reserved1
+		dummy_hash(),      // persisted_validation_data_hash
+		dummy_hash(),      // pov_hash
+		dummy_hash(),      // erasure_root
+		scheduling_parent, // scheduling_parent
+		[0u8; 32],         // reserved2
+		dummy_hash(),      // para_head
+		polkadot_primitives_test_helpers::dummy_validation_code().hash(), // validation_code_hash
+	);
+	CandidateReceipt { descriptor, commitments_hash: CandidateCommitments::default().hash() }
+}
+
 fn make_invalid_candidate_receipt() -> CandidateReceipt {
-	dummy_candidate_receipt_bad_sig(Default::default(), Some(Default::default()))
+	dummy_candidate_receipt_v2_bad_sig(Default::default(), Some(Default::default()))
 }
 
 fn make_another_valid_candidate_receipt(relay_parent: Hash) -> CandidateReceipt {
-	let mut candidate_receipt = dummy_candidate_receipt_bad_sig(relay_parent, dummy_hash());
+	let mut candidate_receipt = dummy_candidate_receipt_v2_bad_sig(relay_parent, dummy_hash());
 	candidate_receipt.commitments_hash = CandidateCommitments::default().hash();
 	candidate_receipt
+}
+
+impl TestState {
+	/// Create a backing `ValidityAttestation` for a candidate, signed with the given
+	/// `scheduling_parent` as the signing context's parent hash.
+	///
+	/// This mirrors how real backers sign: they use the scheduling parent (not relay
+	/// parent) in the signing context.
+	fn make_backing_attestation(
+		&self,
+		candidate_hash: CandidateHash,
+		validator_index: ValidatorIndex,
+		session: SessionIndex,
+		scheduling_parent: Hash,
+	) -> ValidityAttestation {
+		let keystore = self.master_keystore.clone() as KeystorePtr;
+		let validator_id = self.validators[validator_index.0 as usize].public().into();
+		let context = SigningContext { session_index: session, parent_hash: scheduling_parent };
+
+		let statement = SignedFullStatement::sign(
+			&keystore,
+			Statement::Valid(candidate_hash),
+			&context,
+			validator_index,
+			&validator_id,
+		)
+		.unwrap()
+		.unwrap();
+
+		let sig = statement.signature().clone();
+		ValidityAttestation::Explicit(sig)
+	}
+}
+
+/// Create on-chain votes with a V3 candidate that has backing attestations signed
+/// with the real scheduling_parent.
+fn make_v3_on_chain_votes(
+	test_state: &TestState,
+	session: SessionIndex,
+	relay_parent: Hash,
+	scheduling_parent: Hash,
+) -> ScrapedOnChainVotes {
+	let candidate_receipt = make_v3_candidate_receipt(relay_parent, scheduling_parent, session);
+	let candidate_hash = candidate_receipt.hash();
+
+	// Create a valid backing attestation signed with scheduling_parent
+	let attestation = test_state.make_backing_attestation(
+		candidate_hash,
+		ValidatorIndex(0), // Alice
+		session,
+		scheduling_parent,
+	);
+
+	ScrapedOnChainVotes {
+		session,
+		backing_validators_per_candidate: vec![(
+			candidate_receipt,
+			vec![(ValidatorIndex(0), attestation)],
+		)],
+		disputes: MultiDisputeStatementSet::default(),
+	}
 }
 
 // Generate a `CandidateBacked` event from a `CandidateReceipt`. The rest is dummy data.
@@ -684,8 +774,8 @@ pub async fn handle_approval_vote_request(
 ) {
 	assert_matches!(
 		ctx_handle.recv().await,
-		AllMessages::ApprovalVoting(
-			ApprovalVotingMessage::GetApprovalSignaturesForCandidate(hash, tx)
+		AllMessages::ApprovalVotingParallel(
+			ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(hash, tx)
 		) => {
 			assert_eq!(&hash, expected_hash);
 			tx.send(votes_to_send).unwrap();
@@ -775,10 +865,9 @@ fn too_many_unconfirmed_statements_are_considered_spam() {
 						msg: DisputeCoordinatorMessage::ActiveDisputes(tx),
 					})
 					.await;
-
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -912,7 +1001,7 @@ fn approval_vote_import_works() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1025,7 +1114,7 @@ fn dispute_gets_confirmed_via_participation() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1170,7 +1259,7 @@ fn dispute_gets_confirmed_at_byzantine_threshold() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash1, DisputeStatus::Confirmed)]
+					BTreeMap::from([((session, candidate_hash1), DisputeStatus::Confirmed)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -1432,7 +1521,7 @@ fn conflicting_votes_lead_to_dispute_participation() {
 
 				assert_eq!(
 					rx.await.unwrap(),
-					vec![(session, candidate_hash, DisputeStatus::Active)]
+					BTreeMap::from([((session, candidate_hash), DisputeStatus::Active)])
 				);
 
 				let (tx, rx) = oneshot::channel();
@@ -2796,7 +2885,7 @@ fn participation_with_onchain_disabling_confirmed() {
 				})
 				.await;
 
-			handle_disabled_validators_queries(&mut virtual_overseer, vec![]).await;
+			handle_disabled_validators_queries(&mut virtual_overseer, vec![disabled_index]).await;
 			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash, HashMap::new())
 				.await;
 			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
@@ -3857,14 +3946,15 @@ fn participation_requests_reprioritized_for_newly_included() {
 			for repetition in 1..=3u8 {
 				// Building candidate receipts
 				let mut candidate_receipt = make_valid_candidate_receipt();
-				candidate_receipt.descriptor.pov_hash = Hash::from(
+				candidate_receipt.descriptor.set_pov_hash(Hash::from(
 					[repetition; 32], // Altering this receipt so its hash will be changed
-				);
+				));
 				// Set consecutive parents (starting from zero). They will order the candidates for
 				// participation.
 				let parent_block_num: BlockNumber = repetition as BlockNumber - 1;
-				candidate_receipt.descriptor.relay_parent =
-					*test_state.block_num_to_header.get(&parent_block_num).unwrap();
+				candidate_receipt.descriptor.set_relay_parent(
+					*test_state.block_num_to_header.get(&parent_block_num).unwrap(),
+				);
 				receipts.push(candidate_receipt.clone());
 			}
 
@@ -3910,8 +4000,8 @@ fn participation_requests_reprioritized_for_newly_included() {
 
 				handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
 				// Handle corresponding messages to unblock import
-				// we need to handle `ApprovalVotingMessage::GetApprovalSignaturesForCandidate` for
-				// import
+				// we need to handle
+				// `ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate` for import
 				handle_approval_vote_request(
 					&mut virtual_overseer,
 					&candidate_hash,
@@ -4217,16 +4307,6 @@ fn session_info_is_requested_only_once() {
 			);
 			assert_matches!(
 				virtual_overseer.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					_,
-					RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-				)) => {
-					assert_eq!(session_index, 2);
-					let _ = tx.send(Ok(Some(ExecutorParams::default())));
-				}
-			);
-			assert_matches!(
-				virtual_overseer.recv().await,
 				AllMessages::RuntimeApi(
 					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 				) => {
@@ -4283,17 +4363,6 @@ fn session_info_big_jump_works() {
 						let _ = tx.send(Ok(Some(test_state.session_info())));
 					}
 				);
-				assert_matches!(
-					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
-						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-					)) => {
-						assert_eq!(session_index, expected_idx);
-						let _ = tx.send(Ok(Some(ExecutorParams::default())));
-					}
-				);
-
 				assert_matches!(
 					virtual_overseer.recv().await,
 					AllMessages::RuntimeApi(
@@ -4354,16 +4423,6 @@ fn session_info_small_jump_works() {
 				);
 				assert_matches!(
 					virtual_overseer.recv().await,
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
-						RuntimeApiRequest::SessionExecutorParams(session_index, tx),
-					)) => {
-						assert_eq!(session_index, expected_idx);
-						let _ = tx.send(Ok(Some(ExecutorParams::default())));
-					}
-				);
-				assert_matches!(
-					virtual_overseer.recv().await,
 					AllMessages::RuntimeApi(
 						RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
 					) => {
@@ -4384,18 +4443,498 @@ async fn handle_disabled_validators_queries(
 		virtual_overseer.recv().await,
 		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 			_new_leaf,
-			RuntimeApiRequest::Version(tx),
-		)) => {
-			tx.send(Ok(RuntimeApiRequest::DISABLED_VALIDATORS_RUNTIME_REQUIREMENT)).unwrap();
-		}
-	);
-	assert_matches!(
-		virtual_overseer.recv().await,
-		AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-			_new_leaf,
 			RuntimeApiRequest::DisabledValidators(tx),
 		)) => {
 			tx.send(Ok(disabled_validators)).unwrap();
 		}
 	);
+}
+
+/// Test for the functionality that unactivates disputes when all raising parties are disabled.
+///
+/// This test verifies the implementation where:
+/// 1. Multiple disputes are raised by the same validator: candidate C is raised by 2 and 5
+///    candidate A and B are raised by 2
+/// 2. When one dispute (A) concludes against that validator, it gets disabled.
+/// 3. All other active disputes in that session where this validator was the sole raising party
+///    should be unactivated (B).
+/// 4. Disputes can become active again if non-disabled validators vote against them or if the
+///    dispute gets confirmed.
+#[test]
+fn disputes_unactivated_when_all_raising_parties_disabled() {
+	test_harness(|mut test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			let session = 1;
+
+			test_state.handle_resume_sync(&mut virtual_overseer, session).await;
+
+			let candidate_receipt_c = make_valid_candidate_receipt();
+			let candidate_hash_c = candidate_receipt_c.hash();
+
+			let block_hash = test_state
+				.activate_leaf_at_session(
+					&mut virtual_overseer,
+					session,
+					1,
+					vec![make_candidate_included_event(candidate_receipt_c.clone())],
+				)
+				.await;
+
+			let candidate_receipt_a = make_another_valid_candidate_receipt(block_hash);
+			let candidate_hash_a = candidate_receipt_a.hash();
+
+			let mut candidate_receipt_b = make_another_valid_candidate_receipt(block_hash);
+			candidate_receipt_b.descriptor.set_pov_hash(Hash::from(
+				[0xFF; 32], // Altering this receipt so its hash will be changed
+			));
+			let candidate_hash_b = candidate_receipt_b.hash();
+
+			// activate leaf - with both candidates included
+			test_state
+				.activate_leaf_at_session(
+					&mut virtual_overseer,
+					session,
+					2,
+					vec![
+						make_candidate_included_event(candidate_receipt_a.clone()),
+						make_candidate_included_event(candidate_receipt_b.clone()),
+					],
+				)
+				.await;
+
+			// Import first dispute with validator 2 as the sole invalid voter
+			let (valid_vote, invalid_vote) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(1),
+				ValidatorIndex(2),
+				candidate_hash_a,
+				session,
+				VoteType::Explicit,
+			)
+			.await;
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			let pending_confirmation = Some(pending_confirmation);
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt_a.clone(),
+						session,
+						statements: vec![
+							(valid_vote, ValidatorIndex(1)),
+							(invalid_vote, ValidatorIndex(2)),
+						],
+						pending_confirmation,
+					},
+				})
+				.await;
+
+			handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash_a, HashMap::new())
+				.await;
+
+			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			participation_with_distribution(
+				&mut virtual_overseer,
+				&candidate_hash_a,
+				candidate_receipt_a.commitments_hash,
+			)
+			.await;
+
+			// Import second dispute with same validator 2 as invalid voter
+			let (valid_vote, invalid_vote) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(3),
+				ValidatorIndex(2),
+				candidate_hash_b,
+				session,
+				VoteType::Explicit,
+			)
+			.await;
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			let pending_confirmation = Some(pending_confirmation);
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt_b.clone(),
+						session,
+						statements: vec![
+							(valid_vote.clone(), ValidatorIndex(3)),
+							(invalid_vote, ValidatorIndex(2)),
+						],
+						pending_confirmation,
+					},
+				})
+				.await;
+
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash_b, HashMap::new())
+				.await;
+
+			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			participation_with_distribution(
+				&mut virtual_overseer,
+				&candidate_hash_b,
+				candidate_receipt_b.commitments_hash,
+			)
+			.await;
+
+			// Import third dispute with multiple validators as invalid voters
+
+			let (valid_vote_1, invalid_vote_1) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(3),
+				ValidatorIndex(2),
+				candidate_hash_c,
+				session,
+				VoteType::Explicit,
+			)
+			.await;
+			let (valid_vote_2, invalid_vote_2) = generate_opposing_votes_pair(
+				&test_state,
+				ValidatorIndex(4),
+				ValidatorIndex(5),
+				candidate_hash_c,
+				session,
+				VoteType::Explicit,
+			)
+			.await;
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			let pending_confirmation = Some(pending_confirmation);
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt_c.clone(),
+						session,
+						statements: vec![
+							(valid_vote_1, ValidatorIndex(3)),
+							(invalid_vote_1, ValidatorIndex(2)),
+							(valid_vote_2, ValidatorIndex(4)),
+							(invalid_vote_2, ValidatorIndex(5)),
+						],
+						pending_confirmation,
+					},
+				})
+				.await;
+
+			handle_disabled_validators_queries(&mut virtual_overseer, Vec::new()).await;
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash_c, HashMap::new())
+				.await;
+			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			participation_with_distribution(
+				&mut virtual_overseer,
+				&candidate_hash_c,
+				candidate_receipt_c.commitments_hash,
+			)
+			.await;
+
+			// Verify we have 3 active/recent disputes
+			{
+				let (tx, rx) = oneshot::channel();
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::RecentDisputes(tx),
+					})
+					.await;
+				assert_eq!(rx.await.unwrap().len(), 3);
+			}
+
+			// Import enough valid votes to conclude dispute A as valid (disabling validator 2)
+			let mut additional_votes = vec![];
+			for i in 3..8 {
+				let vote = test_state.issue_explicit_statement_with_index(
+					ValidatorIndex(i),
+					candidate_hash_a,
+					session,
+					true,
+				);
+				additional_votes.push((vote, ValidatorIndex(i)));
+			}
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			let pending_confirmation = Some(pending_confirmation);
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt_a.clone(),
+						session,
+						statements: additional_votes,
+						pending_confirmation,
+					},
+				})
+				.await;
+
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash_a, HashMap::new())
+				.await;
+			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			// Verify one dispute got deactivated
+			{
+				let (tx, rx) = oneshot::channel();
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::RecentDisputes(tx),
+					})
+					.await;
+				assert_eq!(rx.await.unwrap().len(), 2);
+			}
+			// and we can finalize the chain with A and B
+			{
+				let (tx, rx) = oneshot::channel();
+
+				let base_hash = Hash::repeat_byte(0x0f);
+				let block_hash_a = Hash::repeat_byte(0x0a);
+				let block_hash_c = Hash::repeat_byte(0x0c);
+
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::DetermineUndisputedChain {
+							base: (10, base_hash),
+							block_descriptions: vec![
+								BlockDescription {
+									block_hash: block_hash_a,
+									session,
+									candidates: vec![candidate_hash_a, candidate_hash_b],
+								},
+								BlockDescription {
+									block_hash: block_hash_c,
+									session,
+									candidates: vec![candidate_hash_c],
+								},
+							],
+							tx,
+						},
+					})
+					.await;
+
+				assert_eq!(rx.await.unwrap(), (11, block_hash_a));
+			}
+
+			// Now let's import a vote against B from non-disabled validator 5
+			let invalid_vote_from_5 = test_state.issue_explicit_statement_with_index(
+				ValidatorIndex(5),
+				candidate_hash_b,
+				session,
+				false,
+			);
+
+			let (pending_confirmation, confirmation_rx) = oneshot::channel();
+			let pending_confirmation = Some(pending_confirmation);
+
+			virtual_overseer
+				.send(FromOrchestra::Communication {
+					msg: DisputeCoordinatorMessage::ImportStatements {
+						candidate_receipt: candidate_receipt_b.clone(),
+						session,
+						statements: vec![
+							(valid_vote, ValidatorIndex(3)),
+							(invalid_vote_from_5, ValidatorIndex(5)),
+						],
+						pending_confirmation,
+					},
+				})
+				.await;
+
+			handle_approval_vote_request(&mut virtual_overseer, &candidate_hash_b, HashMap::new())
+				.await;
+			assert_eq!(confirmation_rx.await, Ok(ImportStatementsResult::ValidImport));
+
+			// Verify dispute B is now active again
+			{
+				let (tx, rx) = oneshot::channel();
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::RecentDisputes(tx),
+					})
+					.await;
+				assert_eq!(rx.await.unwrap().len(), 3);
+			}
+			// and we can't finalize the chain with A and B anymore
+			{
+				let (tx, rx) = oneshot::channel();
+
+				let base_hash = Hash::repeat_byte(0x0f);
+				let block_hash_a = Hash::repeat_byte(0x0a);
+
+				virtual_overseer
+					.send(FromOrchestra::Communication {
+						msg: DisputeCoordinatorMessage::DetermineUndisputedChain {
+							base: (10, base_hash),
+							block_descriptions: vec![BlockDescription {
+								block_hash: block_hash_a,
+								session,
+								candidates: vec![candidate_hash_a, candidate_hash_b],
+							}],
+							tx,
+						},
+					})
+					.await;
+
+				assert_eq!(rx.await.unwrap(), (10, base_hash));
+			}
+
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			test_state
+		})
+	});
+}
+
+/// Set up a `TestState` with two extra blocks (h1, h2) and V3 on-chain votes ready.
+/// Returns `(test_state, relay_parent, scheduling_parent)`.
+fn setup_v3_test_state() -> (TestState, Hash, Hash) {
+	let mut test_state = TestState::default();
+
+	// Add two blocks after genesis (which is created in `default()`)
+	let h1 = Header {
+		parent_hash: test_state.last_block,
+		number: 1,
+		digest: dummy_digest(),
+		state_root: dummy_hash(),
+		extrinsics_root: dummy_hash(),
+	};
+	let h1_hash = h1.hash();
+	test_state.headers.insert(h1_hash, h1);
+	test_state.block_num_to_header.insert(1, h1_hash);
+	test_state.last_block = h1_hash;
+
+	let h2 = Header {
+		parent_hash: test_state.last_block,
+		number: 2,
+		digest: dummy_digest(),
+		state_root: dummy_hash(),
+		extrinsics_root: dummy_hash(),
+	};
+	let h2_hash = h2.hash();
+	test_state.headers.insert(h2_hash, h2);
+	test_state.block_num_to_header.insert(2, h2_hash);
+	test_state.last_block = h2_hash;
+
+	let relay_parent = h1_hash;
+	let scheduling_parent = Hash::repeat_byte(0xBB);
+
+	(test_state, relay_parent, scheduling_parent)
+}
+
+/// V3 candidate on the very first leaf must be handled correctly.
+#[test]
+fn v3_candidate_on_first_leaf_is_detected_correctly() {
+	let (mut test_state, relay_parent, scheduling_parent) = setup_v3_test_state();
+	test_state.v3_node_features = true;
+
+	let session = 1;
+	test_state.initial_on_chain_votes =
+		Some(make_v3_on_chain_votes(&test_state, session, relay_parent, scheduling_parent));
+
+	test_state.resume(|mut test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			// Process all initial leaves — this will feed the V3 on-chain votes
+			// through process_chain_import_backlog on the first leaf.
+			// With the fix, v3_ever_seen is set before processing on-chain votes,
+			// so scheduling_parent is used correctly in signature verification.
+			test_state.handle_resume_sync(&mut virtual_overseer, session).await;
+
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			test_state
+		})
+	});
+}
+
+/// Test: V3 node feature activated on a subsequent leaf (not the first) is detected
+/// correctly via `process_active_leaves_update`.
+///
+/// Starts with V3 OFF (session 1), then activates a new leaf at session 2 with V3 ON.
+/// The V3 on-chain votes on that subsequent leaf must be processed with the correct
+/// signing context (scheduling_parent, not relay_parent).
+#[test]
+fn v3_candidate_on_subsequent_leaf_is_detected_correctly() {
+	let (test_state, relay_parent, scheduling_parent) = setup_v3_test_state();
+	// V3 is OFF on startup — the first leaf uses session 1 without V3.
+	assert!(!test_state.v3_node_features);
+
+	let startup_session = 1;
+
+	test_state.resume(|mut test_state, mut virtual_overseer| {
+		Box::pin(async move {
+			test_state.handle_resume_sync(&mut virtual_overseer, startup_session).await;
+
+			// Now enable V3 node features for session 2.
+			test_state.v3_node_features = true;
+			let new_session = 2;
+
+			// Prepare V3 on-chain votes that will be returned on the next leaf's
+			// FetchOnChainVotes query (via handle_sync_queries' FetchOnChainVotes arm).
+			test_state.initial_on_chain_votes = Some(make_v3_on_chain_votes(
+				&test_state,
+				new_session,
+				relay_parent,
+				scheduling_parent,
+			));
+
+			// Activate a leaf at session 2. handle_sync_queries will handle the
+			// scraper messages and SessionIndexForChild, but NOT the session caching
+			// for the new session (since known_session is already Some).
+			test_state
+				.activate_leaf_at_session(&mut virtual_overseer, new_session, 3, Vec::new())
+				.await;
+
+			// Manually handle session caching messages for the new session.
+			// The production code's process_active_leaves_update caches sessions
+			// [highest_session_seen+1 ..= new_session], which is just session 2.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::SessionInfo(session_index, tx),
+				)) => {
+					assert_eq!(session_index, new_session);
+					let _ = tx.send(Ok(Some(test_state.session_info())));
+				}
+			);
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(
+					RuntimeApiMessage::Request(_, RuntimeApiRequest::NodeFeatures(_, si_tx), )
+				) => {
+					// Return V3-enabled features — this is what triggers v3_ever_seen
+					// in the production code's subsequent-leaf check.
+					use polkadot_primitives::node_features::FeatureIndex;
+					let mut f = NodeFeatures::new();
+					f.resize(FeatureIndex::CandidateReceiptV3 as usize + 1, false);
+					f.set(FeatureIndex::CandidateReceiptV3 as usize, true);
+					si_tx.send(Ok(f)).unwrap();
+				}
+			);
+
+			// Handle DisabledValidators request from CandidateEnvironment::new
+			// during process_chain_import_backlog's vote import.
+			assert_matches!(
+				virtual_overseer.recv().await,
+				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+					_,
+					RuntimeApiRequest::DisabledValidators(tx),
+				)) => {
+					tx.send(Ok(Vec::new())).unwrap();
+				}
+			);
+
+			// If v3_ever_seen was NOT set, process_chain_import_backlog would use
+			// relay_parent instead of scheduling_parent for signature verification,
+			// causing a debug_assert failure. The test passing means the subsequent-
+			// leaf V3 detection works correctly.
+
+			virtual_overseer.send(FromOrchestra::Signal(OverseerSignal::Conclude)).await;
+
+			test_state
+		})
+	});
 }

@@ -30,13 +30,17 @@ use crate::{
 		request_response::{on_demand_justifications_protocol_config, BeefyJustifsRequestHandler},
 	},
 	error::Error,
-	gossip_protocol_name,
+	finality_notification_transformer_future, gossip_protocol_name,
 	justification::*,
 	wait_for_runtime_pallet,
 	worker::PersistedState,
-	BeefyRPCLinks, BeefyVoterLinks, BeefyWorkerBuilder, KnownPeers,
+	BeefyRPCLinks, BeefyVoterLinks, BeefyWorkerBuilder, KnownPeers, UnpinnedFinalityNotification,
 };
-use futures::{future, stream::FuturesUnordered, Future, FutureExt, StreamExt};
+use futures::{
+	future,
+	stream::{Fuse, FuturesUnordered},
+	Future, FutureExt, StreamExt,
+};
 use parking_lot::Mutex;
 use sc_block_builder::BlockBuilderBuilder;
 use sc_client_api::{Backend as BackendT, BlockchainEvents, FinalityNotifications, HeaderBackend};
@@ -49,8 +53,7 @@ use sc_network_test::{
 	Block, BlockImportAdapter, FullPeerConfig, PassThroughVerifier, Peer, PeersClient,
 	PeersFullClient, TestNetFactory,
 };
-use sc_utils::notification::NotificationReceiver;
-use serde::{Deserialize, Serialize};
+use sc_utils::{mpsc::TracingUnboundedReceiver, notification::NotificationReceiver};
 use sp_api::{ApiRef, ProvideRuntimeApi};
 use sp_application_crypto::key_types::BEEFY as BEEFY_KEY_TYPE;
 use sp_consensus::BlockOrigin;
@@ -70,7 +73,7 @@ use sp_mmr_primitives::{Error as MmrError, MmrApi};
 use sp_runtime::{
 	codec::{Decode, Encode},
 	traits::{Header as HeaderT, NumberFor},
-	BuildStorage, DigestItem, EncodedJustification, Justifications, Storage,
+	DigestItem, EncodedJustification, Justifications,
 };
 use std::{marker::PhantomData, sync::Arc, task::Poll};
 use substrate_test_runtime_client::{BlockBuilderExt, ClientExt};
@@ -95,17 +98,6 @@ type BeefyBlockImport = crate::BeefyBlockImport<
 
 pub(crate) type BeefyValidatorSet = ValidatorSet<AuthorityId>;
 pub(crate) type BeefyPeer = Peer<PeerData, BeefyBlockImport>;
-
-#[derive(Debug, Serialize, Deserialize)]
-struct Genesis(std::collections::BTreeMap<String, String>);
-impl BuildStorage for Genesis {
-	fn assimilate_storage(&self, storage: &mut Storage) -> Result<(), String> {
-		storage
-			.top
-			.extend(self.0.iter().map(|(a, b)| (a.clone().into_bytes(), b.clone().into_bytes())));
-		Ok(())
-	}
-}
 
 #[derive(Default)]
 pub(crate) struct PeerData {
@@ -186,7 +178,7 @@ impl BeefyTestNet {
 				add_mmr_digest(&mut builder, mmr_root);
 			}
 
-			if block_num % session_length == 0 {
+			if block_num.is_multiple_of(session_length) {
 				add_auth_change_digest(&mut builder, validator_set.clone());
 			}
 
@@ -300,7 +292,7 @@ pub(crate) struct RuntimeApi {
 
 impl ProvideRuntimeApi<Block> for TestApi {
 	type Api = RuntimeApi;
-	fn runtime_api(&self) -> ApiRef<Self::Api> {
+	fn runtime_api(&self) -> ApiRef<'_, Self::Api> {
 		RuntimeApi { inner: self.clone() }.into()
 	}
 }
@@ -371,7 +363,7 @@ pub(crate) fn create_beefy_keystore(authority: &BeefyKeyring<AuthorityId>) -> Ke
 
 async fn voter_init_setup(
 	net: &mut BeefyTestNet,
-	finality: &mut futures::stream::Fuse<FinalityNotifications<Block>>,
+	finality: &mut futures::stream::Fuse<crate::FinalityNotifications<Block>>,
 	api: &TestApi,
 ) -> Result<PersistedState<Block, ecdsa_crypto::AuthorityId>, Error> {
 	let backend = net.peer(0).client().as_backend();
@@ -389,6 +381,15 @@ async fn voter_init_setup(
 		true,
 	)
 	.await
+}
+
+fn start_finality_worker(
+	finality: FinalityNotifications<Block>,
+) -> Fuse<TracingUnboundedReceiver<UnpinnedFinalityNotification<Block>>> {
+	let (transformer, finality_notifications) = finality_notification_transformer_future(finality);
+	let tokio_handle = tokio::runtime::Handle::current();
+	tokio_handle.spawn(transformer);
+	finality_notifications
 }
 
 // Spawns beefy voters. Returns a future to spawn on the runtime.
@@ -777,7 +778,7 @@ async fn beefy_importing_justifications() {
 
 	let client = net.peer(0).client().clone();
 	let full_client = client.as_client();
-	let (mut block_import, _, peer_data) = net.make_block_import(client.clone());
+	let (block_import, _, peer_data) = net.make_block_import(client.clone());
 	let PeerData { beefy_voter_links, .. } = peer_data;
 	let justif_stream = beefy_voter_links.lock().take().unwrap().from_block_import_justif_stream;
 	let mut justif_recv = justif_stream.subscribe(100_000);
@@ -1020,13 +1021,17 @@ async fn should_initialize_voter_at_genesis() {
 
 	// push 15 blocks with `AuthorityChange` digests every 10 blocks
 	let hashes = net.generate_blocks_and_sync(15, 10, &validator_set, false).await;
-	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	let finality = net.peer(0).client().as_client().finality_notification_stream();
+
+	let mut finality_notifications = start_finality_worker(finality);
+
 	// finalize 13 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[13], None).unwrap();
 
 	let api = TestApi::with_validator_set(&validator_set);
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with two sessions starting at blocks 1 and 10
@@ -1061,14 +1066,18 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	// push 15 blocks with `AuthorityChange` digests every 15 blocks
 	let hashes = net.generate_blocks_and_sync(15, 15, &validator_set, false).await;
-	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	let finality = net.peer(0).client().as_client().finality_notification_stream();
+
+	let mut finality_notifications = start_finality_worker(finality);
+
 	// finalize 3, 5, 8 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[3], None).unwrap();
 	net.peer(0).client().as_client().finalize_block(hashes[5], None).unwrap();
 	net.peer(0).client().as_client().finalize_block(hashes[8], None).unwrap();
 
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with single session starting at block `custom_pallet_genesis` (7)
@@ -1098,7 +1107,8 @@ async fn should_initialize_voter_at_custom_genesis() {
 
 	net.peer(0).client().as_client().finalize_block(hashes[10], None).unwrap();
 	// load persistent state - state preset in DB, but with different pallet genesis
-	let new_persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let new_persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block `new_pallet_genesis` (10)
 	let sessions = new_persisted_state.voting_oracle().sessions();
@@ -1129,7 +1139,9 @@ async fn should_initialize_voter_when_last_final_is_session_boundary() {
 	// push 15 blocks with `AuthorityChange` digests every 10 blocks
 	let hashes = net.generate_blocks_and_sync(15, 10, &validator_set, false).await;
 
-	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	let finality = net.peer(0).client().as_client().finality_notification_stream();
+
+	let mut finality_notifications = start_finality_worker(finality);
 
 	// finalize 13 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[13], None).unwrap();
@@ -1153,7 +1165,8 @@ async fn should_initialize_voter_when_last_final_is_session_boundary() {
 
 	let api = TestApi::with_validator_set(&validator_set);
 	// load persistent state - nothing in DB, should init at session boundary
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block 10
 	assert_eq!(persisted_state.voting_oracle().sessions().len(), 1);
@@ -1183,7 +1196,9 @@ async fn should_initialize_voter_at_latest_finalized() {
 	// push 15 blocks with `AuthorityChange` digests every 10 blocks
 	let hashes = net.generate_blocks_and_sync(15, 10, &validator_set, false).await;
 
-	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	let finality = net.peer(0).client().as_client().finality_notification_stream();
+
+	let mut finality_notifications = start_finality_worker(finality);
 
 	// finalize 13 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[13], None).unwrap();
@@ -1206,7 +1221,8 @@ async fn should_initialize_voter_at_latest_finalized() {
 
 	let api = TestApi::with_validator_set(&validator_set);
 	// load persistent state - nothing in DB, should init at last BEEFY finalized
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// verify voter initialized with single session starting at block 12
 	assert_eq!(persisted_state.voting_oracle().sessions().len(), 1);
@@ -1239,12 +1255,15 @@ async fn should_initialize_voter_at_custom_genesis_when_state_unavailable() {
 
 	// push 30 blocks with `AuthorityChange` digests every 5 blocks
 	let hashes = net.generate_blocks_and_sync(30, 5, &validator_set, false).await;
-	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	let finality = net.peer(0).client().as_client().finality_notification_stream();
+
+	let mut finality_notifications = start_finality_worker(finality);
 	// finalize 30 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[30], None).unwrap();
 
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with all sessions pending, first one starting at block 5 (start of
@@ -1282,14 +1301,18 @@ async fn should_catch_up_when_loading_saved_voter_state() {
 
 	// push 30 blocks with `AuthorityChange` digests every 10 blocks
 	let hashes = net.generate_blocks_and_sync(30, 10, &validator_set, false).await;
-	let mut finality = net.peer(0).client().as_client().finality_notification_stream().fuse();
+	let finality = net.peer(0).client().as_client().finality_notification_stream();
+
+	let mut finality_notifications = start_finality_worker(finality);
+
 	// finalize 13 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[13], None).unwrap();
 
 	let api = TestApi::with_validator_set(&validator_set);
 
 	// load persistent state - nothing in DB, should init at genesis
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// Test initialization at session boundary.
 	// verify voter initialized with two sessions starting at blocks 1 and 10
@@ -1316,7 +1339,8 @@ async fn should_catch_up_when_loading_saved_voter_state() {
 	// finalize 25 without justifications
 	net.peer(0).client().as_client().finalize_block(hashes[25], None).unwrap();
 	// load persistent state - state preset in DB
-	let persisted_state = voter_init_setup(&mut net, &mut finality, &api).await.unwrap();
+	let persisted_state =
+		voter_init_setup(&mut net, &mut finality_notifications, &api).await.unwrap();
 
 	// Verify voter initialized with old sessions plus a new one starting at block 20.
 	// There shouldn't be any duplicates.
@@ -1549,8 +1573,9 @@ async fn gossipped_finality_proofs() {
 				.ok()
 				.and_then(|message| match message {
 					GossipMessage::<Block, ecdsa_crypto::AuthorityId>::Vote(_) => unreachable!(),
-					GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof) =>
-						Some(proof),
+					GossipMessage::<Block, ecdsa_crypto::AuthorityId>::FinalityProof(proof) => {
+						Some(proof)
+					},
 				})
 			})
 			.fuse(),

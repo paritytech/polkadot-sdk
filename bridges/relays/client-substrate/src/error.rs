@@ -213,9 +213,6 @@ pub enum Error {
 	/// The bridge pallet is not yet initialized and all transactions will be rejected.
 	#[error("Bridge pallet is not initialized.")]
 	BridgePalletIsNotInitialized,
-	/// An error has happened when we have tried to parse storage proof.
-	#[error("Error when parsing storage proof: {0:?}.")]
-	StorageProofError(bp_runtime::StorageProofError),
 	/// The Substrate transaction is invalid.
 	#[error("Substrate transaction is invalid: {0:?}")]
 	TransactionInvalid(#[from] TransactionValidityError),
@@ -247,14 +244,14 @@ impl From<tokio::task::JoinError> for Error {
 	}
 }
 
-impl<T> From<async_std::channel::TrySendError<T>> for Error {
-	fn from(error: async_std::channel::TrySendError<T>) -> Self {
+impl<T> From<async_channel::TrySendError<T>> for Error {
+	fn from(error: async_channel::TrySendError<T>) -> Self {
 		Error::ChannelError(format!("`try_send` has failed: {error:?}"))
 	}
 }
 
-impl From<async_std::channel::RecvError> for Error {
-	fn from(error: async_std::channel::RecvError) -> Self {
+impl From<async_channel::RecvError> for Error {
+	fn from(error: async_channel::RecvError) -> Self {
 		Error::ChannelError(format!("`recv` has failed: {error:?}"))
 	}
 }
@@ -423,8 +420,9 @@ impl MaybeConnectionError for Error {
 	fn is_connection_error(&self) -> bool {
 		match *self {
 			Error::ChannelError(_) => true,
-			Error::RpcError(ref e) =>
-				matches!(*e, RpcError::Transport(_) | RpcError::RestartNeeded(_),),
+			Error::RpcError(ref e) => {
+				matches!(*e, RpcError::Transport(_) | RpcError::RestartNeeded(_),)
+			},
 			Error::ClientNotSynced(_) => true,
 			Error::UnorderedFinalizedHeaders { .. } => true,
 			_ => self.nested().map(|e| e.is_connection_error()).unwrap_or(false),

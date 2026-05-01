@@ -17,6 +17,8 @@
 
 //! The crate's tests.
 
+#![allow(deprecated)]
+
 use std::collections::BTreeMap;
 
 use core::cell::RefCell;
@@ -24,7 +26,7 @@ use frame_support::{
 	assert_noop, assert_ok, derive_impl, hypothetically, ord_parameter_types,
 	pallet_prelude::Weight,
 	parameter_types,
-	traits::{tokens::GetSalary, ConstU32, IsInVec, TryMapSuccess},
+	traits::{tokens::GetSalary, ConstU16, ConstU32, IsInVec, TryMapSuccess},
 };
 use frame_system::EnsureSignedBy;
 use sp_runtime::{bounded_vec, traits::TryMorphInto, BuildStorage, DispatchError, DispatchResult};
@@ -117,7 +119,7 @@ impl Config for Test {
 	type PromoteOrigin = TryMapSuccess<EnsureSignedBy<IsInVec<ZeroToNine>, u64>, TryMorphInto<u16>>;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<1024>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -219,6 +221,66 @@ fn set_partial_params_works() {
 		System::assert_last_event(
 			Event::<Test, _>::ParamsChanged { params: updated_params }.into(),
 		);
+	});
+}
+
+#[test]
+fn import_member_works() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(CoreFellowship::import_member(signed(0), 0), Error::<Test>::Unranked);
+		assert_noop!(CoreFellowship::import(signed(0)), Error::<Test>::Unranked);
+
+		// Make induction work:
+		set_rank(0, 1);
+		assert!(!Member::<Test>::contains_key(0), "not yet imported");
+
+		// `import_member` can be used to induct ourselves:
+		hypothetically!({
+			assert_ok!(CoreFellowship::import_member(signed(0), 0));
+			assert!(Member::<Test>::contains_key(0), "got imported");
+
+			// Twice does not work:
+			assert_noop!(
+				CoreFellowship::import_member(signed(0), 0),
+				Error::<Test>::AlreadyInducted
+			);
+			assert_noop!(CoreFellowship::import(signed(0)), Error::<Test>::AlreadyInducted);
+		});
+
+		// But we could have also used `import`:
+		hypothetically!({
+			assert_ok!(CoreFellowship::import(signed(0)));
+			assert!(Member::<Test>::contains_key(0), "got imported");
+
+			// Twice does not work:
+			assert_noop!(
+				CoreFellowship::import_member(signed(0), 0),
+				Error::<Test>::AlreadyInducted
+			);
+			assert_noop!(CoreFellowship::import(signed(0)), Error::<Test>::AlreadyInducted);
+		});
+	});
+}
+
+#[test]
+fn import_member_same_as_import() {
+	new_test_ext().execute_with(|| {
+		for rank in 0..=9 {
+			set_rank(0, rank);
+
+			let import_root = hypothetically!({
+				assert_ok!(CoreFellowship::import(signed(0)));
+				sp_io::storage::root(sp_runtime::StateVersion::V1)
+			});
+
+			let import_member_root = hypothetically!({
+				assert_ok!(CoreFellowship::import_member(signed(1), 0));
+				sp_io::storage::root(sp_runtime::StateVersion::V1)
+			});
+
+			// `import` and `import_member` do exactly the same thing.
+			assert_eq!(import_root, import_member_root);
+		}
 	});
 }
 

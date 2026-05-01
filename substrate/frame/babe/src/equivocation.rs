@@ -33,6 +33,7 @@
 //! that the `ValidateUnsigned` for the BABE pallet is used in the runtime
 //! definition.
 
+use alloc::{boxed::Box, vec, vec::Vec};
 use frame_support::traits::{Get, KeyOwnerProofSystem};
 use frame_system::pallet_prelude::HeaderFor;
 use log::{error, info};
@@ -50,7 +51,6 @@ use sp_staking::{
 	offence::{Kind, Offence, OffenceReportSystem, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 
 use crate::{Call, Config, Error, Pallet, LOG_TARGET};
 
@@ -100,17 +100,17 @@ impl<Offender: Clone> Offence<Offender> for EquivocationOffence<Offender> {
 ///
 /// This type implements `OffenceReportSystem` such that:
 /// - Equivocation reports are published on-chain as unsigned extrinsic via
-///   `offchain::SendTransactionTypes`.
+///   `offchain::CreateTransactionBase`.
 /// - On-chain validity checks and processing are mostly delegated to the user provided generic
 ///   types implementing `KeyOwnerProofSystem` and `ReportOffence` traits.
 /// - Offence reporter for unsigned transactions is fetched via the the authorship pallet.
-pub struct EquivocationReportSystem<T, R, P, L>(sp_std::marker::PhantomData<(T, R, P, L)>);
+pub struct EquivocationReportSystem<T, R, P, L>(core::marker::PhantomData<(T, R, P, L)>);
 
 impl<T, R, P, L>
 	OffenceReportSystem<Option<T::AccountId>, (EquivocationProof<HeaderFor<T>>, T::KeyOwnerProof)>
 	for EquivocationReportSystem<T, R, P, L>
 where
-	T: Config + pallet_authorship::Config + frame_system::offchain::SendTransactionTypes<Call<T>>,
+	T: Config + pallet_authorship::Config + frame_system::offchain::CreateBare<Call<T>>,
 	R: ReportOffence<
 		T::AccountId,
 		P::IdentificationTuple,
@@ -132,7 +132,8 @@ where
 			equivocation_proof: Box::new(equivocation_proof),
 			key_owner_proof,
 		};
-		let res = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+		let xt = T::create_bare(call.into());
+		let res = SubmitTransaction::<T, Call<T>>::submit_transaction(xt);
 		match res {
 			Ok(_) => info!(target: LOG_TARGET, "Submitted equivocation report"),
 			Err(e) => error!(target: LOG_TARGET, "Error submitting equivocation report: {:?}", e),
@@ -169,7 +170,7 @@ where
 
 		// Validate the equivocation proof (check votes are different and signatures are valid)
 		if !sp_consensus_babe::check_equivocation_proof(equivocation_proof) {
-			return Err(Error::<T>::InvalidEquivocationProof.into())
+			return Err(Error::<T>::InvalidEquivocationProof.into());
 		}
 
 		let validator_set_count = key_owner_proof.validator_count();
@@ -181,7 +182,7 @@ where
 		// Check that the slot number is consistent with the session index
 		// in the key ownership proof (i.e. slot is for that epoch)
 		if Pallet::<T>::session_index_for_epoch(epoch_index) != session_index {
-			return Err(Error::<T>::InvalidKeyOwnershipProof.into())
+			return Err(Error::<T>::InvalidKeyOwnershipProof.into());
 		}
 
 		// Check the membership proof and extract the offender's id
@@ -213,7 +214,7 @@ impl<T: Config> Pallet<T> {
 						"rejecting unsigned report equivocation transaction because it is not local/in-block.",
 					);
 
-					return InvalidTransaction::Call.into()
+					return InvalidTransaction::Call.into();
 				},
 			}
 

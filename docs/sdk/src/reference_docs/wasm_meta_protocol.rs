@@ -29,13 +29,12 @@
 //! Rust to different hardware targets.
 //!
 //! This design enables all Substrate-based chains to be fork-less-ly upgradeable, because the
-//! Runtime can be updates on the fly, within the execution of a block, and the node is (for the
+//! Runtime can be updated on the fly, within the execution of a block, and the node is (for the
 //! most part) oblivious to the change that is happening.
 //!
 //! Therefore, the high-level architecture of a any Substrate-based chain can be demonstrated as
 //! follows:
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_simple.mmd")]
-//!
 //! The node and the runtime need to communicate. This is done through two concepts:
 //!
 //! 1. **Host functions**: a way for the (WASM) runtime to talk to the node. All host functions are
@@ -46,7 +45,6 @@
 //!    fundamental runtime API that any blockchain must implement in order to be able to (re)
 //!    execute blocks.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_client_runtime.mmd")]
-//!
 //! A runtime must have a set of runtime APIs in order to have any meaningful blockchain
 //! functionality, but it can also expose more APIs. See
 //! [`crate::reference_docs::custom_runtime_api_rpc`] as an example of how to add custom runtime
@@ -79,10 +77,9 @@
 //! > engine that enables trustless execution of the runtime in a distributed manner whilst
 //! > maintaining a canonical outcome of that execution.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/substrate_with_frame.mmd")]
-//!
 //! ## State
 //!
-//! From the previous sections, we know that the a database component is part of the node, not the
+//! From the previous sections, we know that the database component is part of the node, not the
 //! runtime. We also hinted that a set of host functions ([`sp_io::storage`]) are how the runtime
 //! issues commands to the node to read/write to the state. Let's dive deeper into this.
 //!
@@ -96,7 +93,6 @@
 //! aware of. The rest of the state, including what logic the runtime has, what balance each user
 //! has and such, are all only comprehensible to the runtime.
 #![doc = simple_mermaid::mermaid!("../../../mermaid/state.mmd")]
-//!
 //! In the above diagram, all of the state keys and values are opaque bytes to the node. The node
 //! does not know what they mean, and it does not know what is the type of the corresponding value
 //! (e.g. if it is a number of a vector). Contrary, the runtime knows both the meaning of their
@@ -143,16 +139,16 @@
 //! At some point, based on the consensus algorithm's rules, the node decides to import (aka.
 //! *validate*) a block.
 //!
-//! * First, the node will then fetch the state of the parent hash of the block that wishes to be
+//! * First, the node will fetch the state of the parent hash of the block that wishes to be
 //! imported.
 //! * The runtime is fetched from this state, and placed into a WASM execution environment.
-//! * The [`sp_api::Core::execute_block`] runtime API is called and the blocked is passed in as an
+//! * The [`sp_api::Core::execute_block`] runtime API is called and the block is passed in as an
 //! argument.
 //! * The runtime will then execute the block, and update the state accordingly. Any state update is
-//!   issues via the [`sp_io::storage`] host functions.
+//!   issued via the [`sp_io::storage`] host functions.
 //! * Both the runtime and node will check the state-root of the state after the block execution to
 //!   match the one claimed in the block header.
 //!
 //! > Example taken from [this
-//! > lecture](https://polkadot-blockchain-academy.github.io/pba-book/substrate/wasm/page.html#example-2-block-import-9)
+//! > lecture](https://www.youtube.com/watch?v=v0cKuddbF_Q&list=PL-w_i5kwVqbkRmfDn5nzeuU1S_FFW8dDg&index=4)
 //! > of the Polkadot Blockchain Academy.

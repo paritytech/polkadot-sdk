@@ -1,0 +1,9 @@
+title: Remove pallet::getter from pallet-offences
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes pallet::getter from pallet-offences from type Reports. It also adds a test to verify that retrieval of Reports still works with storage::getter.
+
+crates:
+  - name: pallet-offences
+    bump: patch

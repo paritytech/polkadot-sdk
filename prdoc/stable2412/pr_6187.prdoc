@@ -1,0 +1,16 @@
+title: '[pallet-revive] rework balance transfers'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR removes the `transfer` syscall and changes balance transfers to make the existential deposit (ED) fully transparent for contracts.
+
+    The `transfer` API is removed since there is no corresponding EVM opcode and transferring via a call introduces barely any overhead.
+
+    We make the ED transparent to contracts by transferring the ED from the call origin to nonexistent accounts. Without this change, transfers to nonexistant accounts will transfer the supplied value minus the ED from the contracts viewpoint, and consequentially fail if the supplied value lies below the ED. Changing this behavior removes the need for contract code to handle this rather annoying corner case and aligns better with the EVM. The EVM charges a similar deposit from the gas meter, so transferring the ED from the call origin is practically the same as the call origin pays for gas.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: patch
+- name: pallet-revive-uapi
+  bump: major

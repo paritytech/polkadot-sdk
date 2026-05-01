@@ -1,0 +1,18 @@
+title: 'Snowbridge: Refactor with Alloy primitives and clean up code'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Refactor with Alloy primitives and clean up code.
+crates:
+- name: snowbridge-beacon-primitives
+  bump: patch
+  validate: false
+- name: snowbridge-ethereum
+  bump: minor
+  validate: false
+- name: snowbridge-verification-primitives
+  bump: patch
+  validate: false
+- name: bridge-hub-westend-runtime
+  bump: minor
+  validate: false

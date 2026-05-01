@@ -24,14 +24,15 @@ extern crate alloc;
 
 use crate::currency_to_vote::CurrencyToVote;
 use alloc::{collections::btree_map::BTreeMap, vec, vec::Vec};
-use codec::{Decode, Encode, FullCodec, HasCompact, MaxEncodedLen};
-use core::ops::Sub;
+use codec::{Decode, DecodeWithMemTracking, Encode, FullCodec, HasCompact, MaxEncodedLen};
+use core::ops::{Add, AddAssign, Sub, SubAssign};
 use scale_info::TypeInfo;
 use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, Zero},
-	DispatchError, DispatchResult, Perbill, RuntimeDebug, Saturating,
+	Debug, DispatchError, DispatchResult, Perbill, Saturating,
 };
 
+pub mod budget;
 pub mod offence;
 
 pub mod currency_to_vote;
@@ -62,7 +63,7 @@ impl<AccountId> From<AccountId> for StakingAccount<AccountId> {
 }
 
 /// Representation of the status of a staker.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize, PartialEq, Eq, Clone))]
 pub enum StakerStatus<AccountId> {
 	/// Chilling.
@@ -75,7 +76,7 @@ pub enum StakerStatus<AccountId> {
 
 /// A struct that reflects stake that an account has in the staking system. Provides a set of
 /// methods to operate on it's properties. Aimed at making `StakingInterface` more concise.
-#[derive(RuntimeDebug, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub struct Stake<Balance> {
 	/// The total stake that `stash` has in the staking system. This includes the
 	/// `active` stake, and any funds currently in the process of unbonding via
@@ -198,7 +199,23 @@ pub trait StakingInterface {
 	fn stash_by_ctrl(controller: &Self::AccountId) -> Result<Self::AccountId, DispatchError>;
 
 	/// Number of eras that staked funds must remain bonded for.
+	///
+	/// This is the full bonding duration used by validators and recent ex-validators.
 	fn bonding_duration() -> EraIndex;
+
+	/// Number of eras that staked funds of a pure nominator must remain bonded for.
+	///
+	/// Same as [`Self::bonding_duration`] by default, but can be lower for pure nominators
+	/// (who have not been validators in recent eras) when nominators are not slashable.
+	///
+	/// Note: The actual unbonding duration for a specific account may vary:
+	/// - Validators always use [`Self::bonding_duration`]
+	/// - Nominators who were recently validators use [`Self::bonding_duration`]
+	/// - Pure nominators (never validators, or not validators in recent eras) may use a shorter
+	///   duration when not slashable
+	fn nominator_bonding_duration() -> EraIndex {
+		Self::bonding_duration()
+	}
 
 	/// The current era index.
 	///
@@ -254,8 +271,8 @@ pub trait StakingInterface {
 	/// schedules have reached their unlocking era should allow more calls to this function.
 	fn unbond(stash: &Self::AccountId, value: Self::Balance) -> DispatchResult;
 
-	/// Update the reward destination for the ledger associated with the stash.
-	fn update_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
+	/// Set the reward destination for the ledger associated with the stash.
+	fn set_payee(stash: &Self::AccountId, reward_acc: &Self::AccountId) -> DispatchResult;
 
 	/// Unlock any funds schedule to unlock before or at the current era.
 	///
@@ -313,8 +330,9 @@ pub trait StakingInterface {
 		exposures: Vec<(Self::AccountId, Self::Balance)>,
 	);
 
-	#[cfg(feature = "runtime-benchmarks")]
-	fn set_current_era(era: EraIndex);
+	/// Benchmark and test helper to set both active and current era.
+	#[cfg(any(feature = "std", feature = "runtime-benchmarks"))]
+	fn set_era(era: EraIndex);
 }
 
 /// Set of low level apis to manipulate staking ledger.
@@ -325,7 +343,7 @@ pub trait StakingUnchecked: StakingInterface {
 	/// Migrate an existing staker to a virtual staker.
 	///
 	/// It would release all funds held by the implementation pallet.
-	fn migrate_to_virtual_staker(who: &Self::AccountId);
+	fn migrate_to_virtual_staker(who: &Self::AccountId) -> DispatchResult;
 
 	/// Book-keep a new bond for `keyless_who` without applying any locks (hence virtual).
 	///
@@ -346,7 +364,19 @@ pub trait StakingUnchecked: StakingInterface {
 }
 
 /// The amount of exposure for an era that an individual nominator has (susceptible to slashing).
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	PartialEq,
+	Eq,
+	PartialOrd,
+	Ord,
+	Clone,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	Copy,
+)]
 pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 	/// The stash account of the nominator in question.
 	pub who: AccountId,
@@ -356,7 +386,9 @@ pub struct IndividualExposure<AccountId, Balance: HasCompact> {
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(
+	PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo,
+)]
 pub struct Exposure<AccountId, Balance: HasCompact> {
 	/// The total balance backing this validator.
 	#[codec(compact)]
@@ -379,7 +411,31 @@ impl<
 		Balance: HasCompact + AtLeast32BitUnsigned + Copy + codec::MaxEncodedLen,
 	> Exposure<AccountId, Balance>
 {
-	/// Splits an `Exposure` into `PagedExposureMetadata` and multiple chunks of
+	/// Splits self into two instances of exposures.
+	///
+	/// `n_others` individual exposures are consumed from self and returned as part of the new
+	/// exposure.
+	///
+	/// Since this method splits `others` of a single exposure, `total.own` will be the same for
+	/// both `self` and the returned exposure.
+	pub fn split_others(&mut self, n_others: u32) -> Self {
+		let head_others: Vec<_> =
+			self.others.drain(..(n_others as usize).min(self.others.len())).collect();
+
+		let total_others_head: Balance = head_others
+			.iter()
+			.fold(Zero::zero(), |acc: Balance, o| acc.saturating_add(o.value));
+
+		self.total = self.total.saturating_sub(total_others_head);
+
+		Self {
+			total: total_others_head.saturating_add(self.own),
+			own: self.own,
+			others: head_others,
+		}
+	}
+
+	/// Converts an `Exposure` into `PagedExposureMetadata` and multiple chunks of
 	/// `IndividualExposure` with each chunk having maximum of `page_size` elements.
 	pub fn into_pages(
 		self,
@@ -400,7 +456,6 @@ impl<
 					value: individual.value,
 				})
 			}
-
 			exposure_pages.push(ExposurePage { page_total, others });
 		}
 
@@ -417,7 +472,7 @@ impl<
 }
 
 /// A snapshot of the stake backing a single validator in the system.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Encode, Decode, Debug, TypeInfo)]
 pub struct ExposurePage<AccountId, Balance: HasCompact> {
 	/// The total balance of this chunk/page.
 	#[codec(compact)]
@@ -429,6 +484,19 @@ pub struct ExposurePage<AccountId, Balance: HasCompact> {
 impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	fn default() -> Self {
 		ExposurePage { page_total: Default::default(), others: vec![] }
+	}
+}
+
+/// Returns an exposure page from a set of individual exposures.
+impl<A, B: HasCompact + Default + AddAssign + SubAssign + Clone> From<Vec<IndividualExposure<A, B>>>
+	for ExposurePage<A, B>
+{
+	fn from(exposures: Vec<IndividualExposure<A, B>>) -> Self {
+		exposures.into_iter().fold(ExposurePage::default(), |mut page, e| {
+			page.page_total += e.value.clone();
+			page.others.push(e);
+			page
+		})
 	}
 }
 
@@ -445,10 +513,11 @@ impl<A, B: Default + HasCompact> Default for ExposurePage<A, B> {
 	Clone,
 	Encode,
 	Decode,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 	Default,
 	MaxEncodedLen,
+	Copy,
 )]
 pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	/// The total balance backing this validator.
@@ -461,6 +530,42 @@ pub struct PagedExposureMetadata<Balance: HasCompact + codec::MaxEncodedLen> {
 	pub nominator_count: u32,
 	/// Number of pages of nominators.
 	pub page_count: Page,
+}
+
+impl<Balance> PagedExposureMetadata<Balance>
+where
+	Balance: HasCompact
+		+ codec::MaxEncodedLen
+		+ Add<Output = Balance>
+		+ Sub<Output = Balance>
+		+ sp_runtime::Saturating
+		+ PartialEq
+		+ Copy
+		+ sp_runtime::traits::Debug,
+{
+	/// Consumes self and returns the result of the metadata updated with `other_balances` and
+	/// of adding `other_num` nominators to the metadata.
+	///
+	/// `Max` is a getter of the maximum number of nominators per page.
+	pub fn update_with<Max: sp_core::Get<u32>>(
+		self,
+		others_balance: Balance,
+		others_num: u32,
+	) -> Self {
+		let page_limit = Max::get().max(1);
+		let new_nominator_count = self.nominator_count.saturating_add(others_num);
+		let new_page_count = new_nominator_count
+			.saturating_add(page_limit)
+			.saturating_sub(1)
+			.saturating_div(page_limit);
+
+		Self {
+			total: self.total.saturating_add(others_balance),
+			own: self.own,
+			nominator_count: new_nominator_count,
+			page_count: new_page_count,
+		}
+	}
 }
 
 /// A type that belongs only in the context of an `Agent`.
@@ -525,23 +630,26 @@ pub trait DelegationInterface {
 	/// This takes into account any pending slashes to `Agent` against the delegated balance.
 	fn agent_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
 
+	/// Returns the total amount of funds that is unbonded and can be withdrawn from the `Agent`
+	/// account. `None` if not an `Agent`.
+	fn agent_transferable_balance(agent: Agent<Self::AccountId>) -> Option<Self::Balance>;
+
 	/// Returns the total amount of funds delegated. `None` if not a `Delegator`.
 	fn delegator_balance(delegator: Delegator<Self::AccountId>) -> Option<Self::Balance>;
 
-	/// Delegate funds to `Agent`.
-	///
-	/// Only used for the initial delegation. Use [`Self::delegate_extra`] to add more delegation.
-	fn delegate(
-		delegator: Delegator<Self::AccountId>,
+	/// Register `Agent` such that it can accept delegation.
+	fn register_agent(
 		agent: Agent<Self::AccountId>,
 		reward_account: &Self::AccountId,
-		amount: Self::Balance,
 	) -> DispatchResult;
 
-	/// Add more delegation to the `Agent`.
+	/// Removes `Agent` registration.
 	///
-	/// If this is the first delegation, use [`Self::delegate`] instead.
-	fn delegate_extra(
+	/// This should only be allowed if the agent has no staked funds.
+	fn remove_agent(agent: Agent<Self::AccountId>) -> DispatchResult;
+
+	/// Add delegation to the `Agent`.
+	fn delegate(
 		delegator: Delegator<Self::AccountId>,
 		agent: Agent<Self::AccountId>,
 		amount: Self::Balance,
@@ -616,7 +724,198 @@ pub trait DelegationMigrator {
 	///
 	/// Also removed from [`StakingUnchecked`] as a Virtual Staker. Useful for testing.
 	#[cfg(feature = "runtime-benchmarks")]
-	fn drop_agent(agent: Agent<Self::AccountId>);
+	fn force_kill_agent(agent: Agent<Self::AccountId>);
+}
+
+/// Handler for determining how much of a balance should be paid out on the current era.
+///
+/// [`budget::IssuanceCurve`] is the successor to this trait, decoupling issuance computation
+/// from staking state.
+pub trait EraPayout<Balance> {
+	/// Determine the payout for this era.
+	///
+	/// Returns the amount to be paid to stakers in this era, as well as whatever else should be
+	/// paid out ("the rest").
+	fn era_payout(
+		total_staked: Balance,
+		total_issuance: Balance,
+		era_duration_millis: u64,
+	) -> (Balance, Balance);
+}
+
+impl<Balance: Default> EraPayout<Balance> for () {
+	fn era_payout(
+		_total_staked: Balance,
+		_total_issuance: Balance,
+		_era_duration_millis: u64,
+	) -> (Balance, Balance) {
+		(Default::default(), Default::default())
+	}
+}
+
+/// Result of splitting a validator's staking reward between the validator and their nominators.
+///
+/// Produced by [`StakerRewardCalculator::calculate_staker_reward`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct StakerRewardResult<Balance> {
+	/// Total payout for the validator (commission + proportional stake reward).
+	pub validator_payout: Balance,
+	/// Total payout for all nominators, to be split proportionally by the caller.
+	pub nominator_payout: Balance,
+}
+
+/// Handles two independent reward calculations:
+///
+/// 1. **Staker reward split** ([`Self::calculate_staker_reward`]) — determines how a validator's
+///    staking reward is divided between the validator and their nominators.
+///
+/// 2. **Validator incentive weight** ([`Self::calculate_validator_incentive_weight`]) — determines
+///    a validator's relative share of a separate validator incentive pot, based on self-stake. This
+///    incentive pot is validator-only; nominators do not receive from it.
+pub trait StakerRewardCalculator<Balance> {
+	/// Compute a weight for this validator's share of the validator incentive pot.
+	///
+	/// Called once per validator during era planning. All validators' weights are summed, and
+	/// each validator's incentive payout is proportional to `their_weight / total_weight`.
+	fn calculate_validator_incentive_weight(self_stake: Balance) -> Balance;
+
+	/// Split a validator's staking reward into validator and nominator portions.
+	fn calculate_staker_reward(
+		validator_total_reward: Balance,
+		validator_commission: Perbill,
+		validator_own_stake: Balance,
+		total_exposure: Balance,
+	) -> StakerRewardResult<Balance>;
+}
+
+impl<Balance: Default> StakerRewardCalculator<Balance> for () {
+	fn calculate_validator_incentive_weight(_self_stake: Balance) -> Balance {
+		Default::default()
+	}
+
+	fn calculate_staker_reward(
+		_validator_total_reward: Balance,
+		_validator_commission: Perbill,
+		_validator_own_stake: Balance,
+		_total_exposure: Balance,
+	) -> StakerRewardResult<Balance> {
+		StakerRewardResult {
+			validator_payout: Default::default(),
+			nominator_payout: Default::default(),
+		}
+	}
 }
 
 sp_core::generate_feature_enabled_macro!(runtime_benchmarks_enabled, feature = "runtime-benchmarks", $);
+sp_core::generate_feature_enabled_macro!(std_or_benchmarks_enabled, any(feature = "std", feature = "runtime-benchmarks"), $);
+
+#[cfg(test)]
+mod tests {
+	use sp_core::ConstU32;
+
+	use super::*;
+
+	#[test]
+	fn update_with_works() {
+		let metadata = PagedExposureMetadata::<u32> {
+			total: 1000,
+			own: 0, // don't care
+			nominator_count: 10,
+			page_count: 1,
+		};
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<10>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 2 },
+		);
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<5>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
+		);
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<4>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 3 },
+		);
+
+		assert_eq!(
+			metadata.update_with::<ConstU32<1>>(1, 1),
+			PagedExposureMetadata { total: 1001, own: 0, nominator_count: 11, page_count: 11 },
+		);
+	}
+
+	#[test]
+	fn individual_exposures_to_exposure_works() {
+		let exposure_1 = IndividualExposure { who: 1, value: 10u32 };
+		let exposure_2 = IndividualExposure { who: 2, value: 20 };
+		let exposure_3 = IndividualExposure { who: 3, value: 30 };
+
+		let exposure_page: ExposurePage<u32, u32> = vec![exposure_1, exposure_2, exposure_3].into();
+
+		assert_eq!(
+			exposure_page,
+			ExposurePage { page_total: 60, others: vec![exposure_1, exposure_2, exposure_3] },
+		);
+	}
+
+	#[test]
+	fn empty_individual_exposures_to_exposure_works() {
+		let empty_exposures: Vec<IndividualExposure<u32, u32>> = vec![];
+
+		let exposure_page: ExposurePage<u32, u32> = empty_exposures.into();
+		assert_eq!(exposure_page, ExposurePage { page_total: 0, others: vec![] });
+	}
+
+	#[test]
+	fn exposure_split_others_works() {
+		let exposure = Exposure {
+			total: 100,
+			own: 20,
+			others: vec![
+				IndividualExposure { who: 1, value: 20u32 },
+				IndividualExposure { who: 2, value: 20 },
+				IndividualExposure { who: 3, value: 20 },
+				IndividualExposure { who: 4, value: 20 },
+			],
+		};
+
+		let mut exposure_0 = exposure.clone();
+		// split others with with 0 `n_others` is a noop and returns an empty exposure (with `own`
+		// only).
+		let split_exposure = exposure_0.split_others(0);
+		assert_eq!(exposure_0, exposure);
+		assert_eq!(split_exposure, Exposure { total: 20, own: 20, others: vec![] });
+
+		let mut exposure_1 = exposure.clone();
+		// split individual exposures so that the returned exposure has 1 individual exposure.
+		let split_exposure = exposure_1.split_others(1);
+		assert_eq!(exposure_1.own, 20);
+		assert_eq!(exposure_1.total, 20 + 3 * 20);
+		assert_eq!(exposure_1.others.len(), 3);
+
+		assert_eq!(split_exposure.own, 20);
+		assert_eq!(split_exposure.total, 20 + 1 * 20);
+		assert_eq!(split_exposure.others.len(), 1);
+
+		let mut exposure_3 = exposure.clone();
+		// split individual exposures so that the returned exposure has 3 individual exposures,
+		// which are consumed from the original exposure.
+		let split_exposure = exposure_3.split_others(3);
+		assert_eq!(exposure_3.own, 20);
+		assert_eq!(exposure_3.total, 20 + 1 * 20);
+		assert_eq!(exposure_3.others.len(), 1);
+
+		assert_eq!(split_exposure.own, 20);
+		assert_eq!(split_exposure.total, 20 + 3 * 20);
+		assert_eq!(split_exposure.others.len(), 3);
+
+		let mut exposure_max = exposure.clone();
+		// split others with with more `n_others` than the number of others in the exposure
+		// consumes all the individual exposures of the original Exposure and returns them in the
+		// new exposure.
+		let split_exposure = exposure_max.split_others(u32::MAX);
+		assert_eq!(split_exposure, exposure);
+		assert_eq!(exposure_max, Exposure { total: 20, own: 20, others: vec![] });
+	}
+}

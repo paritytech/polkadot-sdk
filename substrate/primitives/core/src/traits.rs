@@ -17,10 +17,8 @@
 
 //! Shareable Substrate traits.
 
-use std::{
-	borrow::Cow,
-	fmt::{Debug, Display},
-};
+use alloc::{borrow::Cow, boxed::Box, string::String, vec::Vec};
+use core::fmt::{Debug, Display};
 
 pub use sp_externalities::{Externalities, ExternalitiesExt};
 
@@ -33,7 +31,10 @@ pub enum CallContext {
 	/// The call is happening in some offchain context.
 	Offchain,
 	/// The call is happening in some on-chain context like building or importing a block.
-	Onchain,
+	Onchain {
+		/// `true` when the call is part of block import pipeline.
+		import: bool,
+	},
 }
 
 /// Code execution engine.
@@ -55,19 +56,19 @@ pub trait CodeExecutor: Sized + Send + Sync + ReadRuntimeVersion + Clone + 'stat
 	) -> (Result<Vec<u8>, Self::Error>, bool);
 }
 
-/// Something that can fetch the runtime `:code`.
+/// Something that can fetch the runtime code.
 pub trait FetchRuntimeCode {
-	/// Fetch the runtime `:code`.
+	/// Fetch the current runtime code.
 	///
-	/// If the `:code` could not be found/not available, `None` should be returned.
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>>;
+	/// If the code could not be found/not available, `None` should be returned.
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>>;
 }
 
 /// Wrapper to use a `u8` slice or `Vec` as [`FetchRuntimeCode`].
-pub struct WrappedRuntimeCode<'a>(pub std::borrow::Cow<'a, [u8]>);
+pub struct WrappedRuntimeCode<'a>(pub Cow<'a, [u8]>);
 
 impl<'a> FetchRuntimeCode for WrappedRuntimeCode<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		Some(self.0.as_ref().into())
 	}
 }
@@ -76,7 +77,7 @@ impl<'a> FetchRuntimeCode for WrappedRuntimeCode<'a> {
 pub struct NoneFetchRuntimeCode;
 
 impl FetchRuntimeCode for NoneFetchRuntimeCode {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		None
 	}
 }
@@ -113,7 +114,7 @@ impl<'a> RuntimeCode<'a> {
 }
 
 impl<'a> FetchRuntimeCode for RuntimeCode<'a> {
-	fn fetch_runtime_code(&self) -> Option<Cow<[u8]>> {
+	fn fetch_runtime_code(&self) -> Option<Cow<'_, [u8]>> {
 		self.code_fetcher.fetch_runtime_code()
 	}
 }
@@ -122,8 +123,8 @@ impl<'a> FetchRuntimeCode for RuntimeCode<'a> {
 #[derive(Debug)]
 pub struct CodeNotFound;
 
-impl std::fmt::Display for CodeNotFound {
-	fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+impl core::fmt::Display for CodeNotFound {
+	fn fmt(&self, f: &mut core::fmt::Formatter) -> Result<(), core::fmt::Error> {
 		write!(f, "the storage entry `:code` doesn't have any code")
 	}
 }
@@ -156,7 +157,7 @@ pub trait ReadRuntimeVersion: Send + Sync {
 	) -> Result<Vec<u8>, String>;
 }
 
-impl ReadRuntimeVersion for std::sync::Arc<dyn ReadRuntimeVersion> {
+impl ReadRuntimeVersion for alloc::sync::Arc<dyn ReadRuntimeVersion> {
 	fn read_runtime_version(
 		&self,
 		wasm_code: &[u8],
@@ -180,8 +181,7 @@ impl ReadRuntimeVersionExt {
 
 /// Something that can spawn tasks (blocking and non-blocking) with an assigned name
 /// and optional group.
-#[dyn_clonable::clonable]
-pub trait SpawnNamed: Clone + Send + Sync {
+pub trait SpawnNamed: dyn_clone::DynClone + Send + Sync {
 	/// Spawn the given blocking future.
 	///
 	/// The given `group` and `name` is used to identify the future in tracing.
@@ -201,6 +201,8 @@ pub trait SpawnNamed: Clone + Send + Sync {
 		future: futures::future::BoxFuture<'static, ()>,
 	);
 }
+
+dyn_clone::clone_trait_object!(SpawnNamed);
 
 impl SpawnNamed for Box<dyn SpawnNamed> {
 	fn spawn_blocking(
@@ -225,8 +227,7 @@ impl SpawnNamed for Box<dyn SpawnNamed> {
 /// and optional group.
 ///
 /// Essential tasks are special tasks that should take down the node when they end.
-#[dyn_clonable::clonable]
-pub trait SpawnEssentialNamed: Clone + Send + Sync {
+pub trait SpawnEssentialNamed: dyn_clone::DynClone + Send + Sync {
 	/// Spawn the given blocking future.
 	///
 	/// The given `group` and `name` is used to identify the future in tracing.
@@ -246,6 +247,8 @@ pub trait SpawnEssentialNamed: Clone + Send + Sync {
 		future: futures::future::BoxFuture<'static, ()>,
 	);
 }
+
+dyn_clone::clone_trait_object!(SpawnEssentialNamed);
 
 impl SpawnEssentialNamed for Box<dyn SpawnEssentialNamed> {
 	fn spawn_essential_blocking(

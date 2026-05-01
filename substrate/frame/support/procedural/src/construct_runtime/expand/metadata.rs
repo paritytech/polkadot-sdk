@@ -18,7 +18,6 @@
 use crate::construct_runtime::{parse::PalletPath, Pallet};
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_runtime_metadata(
@@ -46,19 +45,14 @@ pub fn expand_runtime_metadata(
 			let index = &decl.index;
 			let storage = expand_pallet_metadata_storage(&filtered_names, runtime, decl);
 			let calls = expand_pallet_metadata_calls(&filtered_names, runtime, decl);
-			let event = expand_pallet_metadata_events(&filtered_names, runtime, scrate, decl);
+			let view_functions = expand_pallet_metadata_view_functions(runtime, decl);
+			let event = expand_pallet_metadata_events(&filtered_names, runtime, decl);
 			let constants = expand_pallet_metadata_constants(runtime, decl);
 			let errors = expand_pallet_metadata_errors(runtime, decl);
+			let associated_types = expand_pallet_metadata_associated_types(runtime, decl);
 			let docs = expand_pallet_metadata_docs(runtime, decl);
-			let attr = decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
-
+			let attr = decl.get_attributes();
+			let deprecation_info = expand_pallet_metadata_deprecation(runtime, decl);
 			quote! {
 				#attr
 				#scrate::__private::metadata_ir::PalletMetadataIR {
@@ -66,10 +60,13 @@ pub fn expand_runtime_metadata(
 					index: #index,
 					storage: #storage,
 					calls: #calls,
+					view_functions: #view_functions,
 					event: #event,
 					constants: #constants,
 					error: #errors,
 					docs: #docs,
+					associated_types: #associated_types,
+					deprecation_info: #deprecation_info,
 				}
 			}
 		})
@@ -77,6 +74,7 @@ pub fn expand_runtime_metadata(
 
 	quote! {
 		impl #runtime {
+			#[allow(deprecated)]
 			fn metadata_ir() -> #scrate::__private::metadata_ir::MetadataIR {
 				// Each runtime must expose the `runtime_metadata()` to fetch the runtime API metadata.
 				// The function is implemented by calling `impl_runtime_apis!`.
@@ -98,37 +96,50 @@ pub fn expand_runtime_metadata(
 
 				let ty = #scrate::__private::scale_info::meta_type::<#extrinsic>();
 				let address_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::SignatureAddress
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Address
 					>();
 				let call_ty = #scrate::__private::scale_info::meta_type::<
-					<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::Call
+						<#extrinsic as #scrate::sp_runtime::traits::ExtrinsicCall>::Call
 					>();
 				let signature_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::Signature
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Signature
 					>();
 				let extra_ty = #scrate::__private::scale_info::meta_type::<
-						<<#extrinsic as #scrate::sp_runtime::traits::Extrinsic>::SignaturePayload as #scrate::sp_runtime::traits::SignaturePayload>::SignatureExtra
+						<#extrinsic as #scrate::traits::SignedTransactionBuilder>::Extension
 					>();
 
+				use #scrate::__private::metadata_ir::InternalImplRuntimeApis;
+
+
+				let mut versioned_extensions_metadata =
+					#scrate::sp_runtime::traits::PipelineMetadataBuilder::new();
+
+				<
+					<
+						#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
+					>::TransactionExtensionPipelines
+					as
+					#scrate::sp_runtime::traits::Pipeline::<
+						<#runtime as #system_path::Config>::RuntimeCall
+					>
+				>::build_metadata(&mut versioned_extensions_metadata);
+
 				#scrate::__private::metadata_ir::MetadataIR {
-					pallets: #scrate::__private::sp_std::vec![ #(#pallets),* ],
+					pallets: #scrate::__private::vec![ #(#pallets),* ],
 					extrinsic: #scrate::__private::metadata_ir::ExtrinsicMetadataIR {
 						ty,
-						version: <#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata>::VERSION,
+						versions: <#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata>::VERSIONS.into_iter().map(|ref_version| *ref_version).collect(),
 						address_ty,
 						call_ty,
 						signature_ty,
 						extra_ty,
-						signed_extensions: <
-								<
-									#extrinsic as #scrate::sp_runtime::traits::ExtrinsicMetadata
-								>::SignedExtensions as #scrate::sp_runtime::traits::SignedExtension
-							>::metadata()
+						extensions_by_version: versioned_extensions_metadata.by_version,
+						extensions_in_versions: versioned_extensions_metadata.in_versions
 								.into_iter()
-								.map(|meta| #scrate::__private::metadata_ir::SignedExtensionMetadataIR {
+								.map(|meta| #scrate::__private::metadata_ir::TransactionExtensionMetadataIR {
 									identifier: meta.identifier,
 									ty: meta.ty,
-									additional_signed: meta.additional_signed,
+									implicit: meta.implicit,
 								})
 								.collect(),
 					},
@@ -140,7 +151,7 @@ pub fn expand_runtime_metadata(
 							>(),
 						event_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeEvent>(),
 						error_enum_ty: #scrate::__private::scale_info::meta_type::<RuntimeError>(),
-					}
+					},
 				}
 			}
 
@@ -156,7 +167,7 @@ pub fn expand_runtime_metadata(
 				})
 			}
 
-			pub fn metadata_versions() -> #scrate::__private::sp_std::vec::Vec<u32> {
+			pub fn metadata_versions() -> #scrate::__private::Vec<u32> {
 				#scrate::__private::metadata_ir::supported_versions()
 			}
 		}
@@ -197,10 +208,18 @@ fn expand_pallet_metadata_calls(
 	}
 }
 
+fn expand_pallet_metadata_view_functions(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! {
+		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_view_functions_metadata()
+	}
+}
+
 fn expand_pallet_metadata_events(
 	filtered_names: &[&'static str],
 	runtime: &Ident,
-	scrate: &TokenStream,
 	decl: &Pallet,
 ) -> TokenStream {
 	if filtered_names.contains(&"Event") {
@@ -220,14 +239,19 @@ fn expand_pallet_metadata_events(
 
 		quote! {
 			Some(
-				#scrate::__private::metadata_ir::PalletEventMetadataIR {
-					ty: #scrate::__private::scale_info::meta_type::<#pallet_event>()
-				}
+				#pallet_event::event_metadata::<#pallet_event>()
 			)
 		}
 	} else {
 		quote!(None)
 	}
+}
+
+fn expand_pallet_metadata_deprecation(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! { #path::Pallet::<#runtime #(, #path::#instance)*>::deprecation_info() }
 }
 
 fn expand_pallet_metadata_constants(runtime: &Ident, decl: &Pallet) -> TokenStream {
@@ -254,5 +278,14 @@ fn expand_pallet_metadata_docs(runtime: &Ident, decl: &Pallet) -> TokenStream {
 
 	quote! {
 		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_documentation_metadata()
+	}
+}
+
+fn expand_pallet_metadata_associated_types(runtime: &Ident, decl: &Pallet) -> TokenStream {
+	let path = &decl.path;
+	let instance = decl.instance.as_ref().into_iter();
+
+	quote! {
+		#path::Pallet::<#runtime #(, #path::#instance)*>::pallet_associated_types_metadata()
 	}
 }

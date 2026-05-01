@@ -119,6 +119,7 @@ impl pallet_treasury::Config for Test {
 	type Paymaster = PayFromAccount<Balances, TreasuryAccount>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -141,6 +142,7 @@ impl pallet_treasury::Config<Instance1> for Test {
 	type Paymaster = PayFromAccount<Balances, TreasuryInstance1Account>;
 	type BalanceConverter = UnityAssetBalanceConversion;
 	type PayoutPeriod = ConstU64<10>;
+	type BlockNumberProvider = System;
 	#[cfg(feature = "runtime-benchmarks")]
 	type BenchmarkHelper = ();
 }
@@ -178,7 +180,10 @@ impl Config<Instance1> for Test {
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut ext: sp_io::TestExternalities = RuntimeGenesisConfig {
 		system: frame_system::GenesisConfig::default(),
-		balances: pallet_balances::GenesisConfig { balances: vec![(0, 100), (1, 98), (2, 1)] },
+		balances: pallet_balances::GenesisConfig {
+			balances: vec![(0, 100), (1, 98), (2, 1)],
+			..Default::default()
+		},
 		treasury: Default::default(),
 		treasury_1: Default::default(),
 	}
@@ -207,6 +212,7 @@ fn last_event() -> TipEvent<Test> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn genesis_config_works() {
 	build_and_execute(|| {
 		assert_eq!(Treasury::pot(), 0);
@@ -310,6 +316,38 @@ fn close_tip_works() {
 			Tips::close_tip(RuntimeOrigin::signed(100), h.into()),
 			Error::<Test>::UnknownTip
 		);
+	});
+}
+
+#[test]
+fn close_tip_fails_when_all_tippers_are_inactive() {
+	build_and_execute(|| {
+		TenToFourteenTestValue::reset();
+		System::set_block_number(1);
+
+		Balances::make_free_balance_be(&Treasury::account_id(), 101);
+		assert_ok!(Tips::tip_new(RuntimeOrigin::signed(10), b"awesome.dot".to_vec(), 3, 10));
+
+		let h = tip_hash();
+		let reason_hash = BlakeTwo256::hash(b"awesome.dot");
+
+		assert_ok!(Tips::tip(RuntimeOrigin::signed(11), h, 10));
+		assert_ok!(Tips::tip(RuntimeOrigin::signed(12), h, 10));
+		System::set_block_number(2);
+
+		// All original tippers are now inactive.
+		TenToFourteenTestValue::set(Vec::new());
+
+		assert_noop!(
+			Tips::close_tip(RuntimeOrigin::signed(0), h.into()),
+			Error::<Test>::NoActiveTippers
+		);
+
+		// Calls are transactional: failed close must not remove tip state.
+		assert!(Tips::tips(h).is_some());
+		assert!(Tips::reasons(reason_hash).is_some());
+
+		TenToFourteenTestValue::reset();
 	});
 }
 
@@ -432,7 +470,7 @@ fn tip_changing_works() {
 fn test_last_reward_migration() {
 	let mut s = Storage::default();
 
-	#[derive(Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug)]
+	#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug)]
 	pub struct OldOpenTip<
 		AccountId: Parameter,
 		Balance: Parameter,
@@ -580,6 +618,7 @@ fn genesis_funding_works() {
 	pallet_balances::GenesisConfig::<Test> {
 		// Total issuance will be 200 with treasury account initialized with 100.
 		balances: vec![(0, 100), (Treasury::account_id(), initial_funding)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

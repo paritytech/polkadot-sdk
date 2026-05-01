@@ -1,0 +1,9 @@
+title: Rename QueueEvent::StartWork
+doc:
+- audience: Node Dev
+  description: |-
+    When we send `QueueEvent::StartWork`, we have already completed the execution. Therefore, `QueueEvent::FinishWork` is a better match.
+
+crates:
+- name: polkadot-node-core-pvf
+  bump: patch

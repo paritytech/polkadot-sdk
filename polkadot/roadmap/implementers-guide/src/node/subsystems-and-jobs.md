@@ -129,7 +129,6 @@ digraph {
 
     cand_sel    -> coll_prot    [arrowhead = "diamond", label = "FetchCollation"]
     cand_sel    -> cand_back    [arrowhead = "onormal", label = "Second"]
-    cand_sel    -> coll_prot    [arrowhead = "onormal", label = "ReportCollator"]
 
     cand_val    -> runt_api     [arrowhead = "diamond", label = "Request::PersistedValidationData"]
     cand_val    -> runt_api     [arrowhead = "diamond", label = "Request::ValidationCode"]
@@ -231,7 +230,7 @@ sequenceDiagram
 
     VS ->> CandidateSelection: Collation
 
-    Note over CandidateSelection: Lots of other machinery in play here,<br/>but there are only three outcomes from the<br/>perspective of the `CollatorProtocol`:
+    Note over CandidateSelection: Lots of other machinery in play here,<br/>but there are only two outcomes from the<br/>perspective of the `CollatorProtocol`:
 
     alt happy path
         CandidateSelection -->> VS: FetchCollation
@@ -241,10 +240,6 @@ sequenceDiagram
         CS ->> NB: Collation
         NB ->> VS: Collation
         Deactivate VS
-
-    else collation invalid or unexpected
-        CandidateSelection ->> VS: ReportCollator
-        VS ->> NB: ReportPeer
 
     else CandidateSelection already selected a different candidate
         Note over CandidateSelection: silently drop

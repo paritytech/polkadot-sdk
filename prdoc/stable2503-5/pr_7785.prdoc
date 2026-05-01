@@ -1,0 +1,22 @@
+title: 'pallet scheduler: fix weight and add safety checks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Changes:
+    - Add runtime integrity test for scheduler pallet to ensure that lookups use sensible weights
+    - Check all passed storage names in the omni bencher to be known by FRAME metadata
+    - Trim storage names in omni bencher to fix V1 bench syntax bug
+    - Fix V1 bench syntax storage name sanitization for specific Rust versions
+
+    I re-ran the benchmarks with the omni-bencher modifications and it did not change the [proof size](https://weights.tasty.limo/compare?repo=polkadot-sdk&threshold=1&path_pattern=substrate%2Fframe%2F**%2Fsrc%2Fweights.rs%2Cpolkadot%2Fruntime%2F*%2Fsrc%2Fweights%2F**%2F*.rs%2Cpolkadot%2Fbridges%2Fmodules%2F*%2Fsrc%2Fweights.rs%2Ccumulus%2F**%2Fweights%2F*.rs%2Ccumulus%2F**%2Fweights%2Fxcm%2F*.rs%2Ccumulus%2F**%2Fsrc%2Fweights.rs&method=asymptotic&ignore_errors=true&unit=proof&old=cc0142510b81dcf1c1a22f7dc164c453c25287e6&new=bb19d78821eaeaf2262f6a23ee45f83dd4f94d29). I reverted [the commit](https://github.com/paritytech/polkadot-sdk/pull/7785/commits/bb19d78821eaeaf2262f6a23ee45f83dd4f94d29) afterwards to reduce the noise for reviewers.
+crates:
+- name: frame-benchmarking-cli
+  bump: minor
+- name: frame-benchmarking
+  bump: minor
+- name: pallet-scheduler
+  bump: minor
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: westend-runtime
+  bump: minor

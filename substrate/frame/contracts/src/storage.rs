@@ -25,7 +25,9 @@ use crate::{
 	BalanceOf, CodeHash, CodeInfo, Config, ContractInfoOf, DeletionQueue, DeletionQueueCounter,
 	Error, TrieId, SENTINEL,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
+use core::marker::PhantomData;
 use frame_support::{
 	storage::child::{self, ChildInfo},
 	weights::{Weight, WeightMeter},
@@ -36,15 +38,14 @@ use sp_core::Get;
 use sp_io::KillStorageResult;
 use sp_runtime::{
 	traits::{Hash, Saturating, Zero},
-	BoundedBTreeMap, DispatchError, DispatchResult, RuntimeDebug,
+	BoundedBTreeMap, Debug, DispatchError, DispatchResult,
 };
-use sp_std::{marker::PhantomData, prelude::*};
 
 use self::meter::Diff;
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.
@@ -83,7 +84,7 @@ impl<T: Config> ContractInfo<T> {
 		code_hash: CodeHash<T>,
 	) -> Result<Self, DispatchError> {
 		if <ContractInfoOf<T>>::contains_key(account) {
-			return Err(Error::<T>::DuplicateContract.into())
+			return Err(Error::<T>::DuplicateContract.into());
 		}
 
 		let trie_id = {
@@ -163,24 +164,47 @@ impl<T: Config> ContractInfo<T> {
 		storage_meter: Option<&mut meter::NestedMeter<T>>,
 		take: bool,
 	) -> Result<WriteOutcome, DispatchError> {
-		let child_trie_info = &self.child_trie_info();
 		let hashed_key = key.hash();
+		self.write_raw(&hashed_key, new_value, storage_meter, take)
+	}
+
+	/// Update a storage entry into a contract's kv storage.
+	/// Function used in benchmarks, which can simulate prefix collision in keys.
+	#[cfg(feature = "runtime-benchmarks")]
+	pub fn bench_write_raw(
+		&self,
+		key: &[u8],
+		new_value: Option<Vec<u8>>,
+		take: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		self.write_raw(key, new_value, None, take)
+	}
+
+	fn write_raw(
+		&self,
+		key: &[u8],
+		new_value: Option<Vec<u8>>,
+		storage_meter: Option<&mut meter::NestedMeter<T>>,
+		take: bool,
+	) -> Result<WriteOutcome, DispatchError> {
+		let child_trie_info = &self.child_trie_info();
 		let (old_len, old_value) = if take {
-			let val = child::get_raw(child_trie_info, &hashed_key);
+			let val = child::get_raw(child_trie_info, key);
 			(val.as_ref().map(|v| v.len() as u32), val)
 		} else {
-			(child::len(child_trie_info, &hashed_key), None)
+			(child::len(child_trie_info, key), None)
 		};
 
 		if let Some(storage_meter) = storage_meter {
 			let mut diff = meter::Diff::default();
 			match (old_len, new_value.as_ref().map(|v| v.len() as u32)) {
-				(Some(old_len), Some(new_len)) =>
+				(Some(old_len), Some(new_len)) => {
 					if new_len > old_len {
 						diff.bytes_added = new_len - old_len;
 					} else {
 						diff.bytes_removed = old_len - new_len;
-					},
+					}
+				},
 				(None, Some(new_len)) => {
 					diff.bytes_added = new_len;
 					diff.items_added = 1;
@@ -195,8 +219,8 @@ impl<T: Config> ContractInfo<T> {
 		}
 
 		match &new_value {
-			Some(new_value) => child::put_raw(child_trie_info, &hashed_key, new_value),
-			None => child::kill(child_trie_info, &hashed_key),
+			Some(new_value) => child::put_raw(child_trie_info, key, new_value),
+			None => child::kill(child_trie_info, key),
 		}
 
 		Ok(match (old_len, old_value) {
@@ -291,7 +315,7 @@ impl<T: Config> ContractInfo<T> {
 	/// Delete as many items from the deletion queue possible within the supplied weight limit.
 	pub fn process_deletion_queue_batch(meter: &mut WeightMeter) {
 		if meter.try_consume(T::WeightInfo::on_process_deletion_queue_batch()).is_err() {
-			return
+			return;
 		};
 
 		let mut queue = <DeletionQueueManager<T>>::load();
@@ -314,7 +338,7 @@ impl<T: Config> ContractInfo<T> {
 				// This happens when our budget wasn't large enough to remove all keys.
 				KillStorageResult::SomeRemaining(keys_removed) => {
 					remaining_key_budget.saturating_reduce(keys_removed);
-					break
+					break;
 				},
 				KillStorageResult::AllRemoved(keys_removed) => {
 					entry.remove();
@@ -334,7 +358,7 @@ impl<T: Config> ContractInfo<T> {
 }
 
 /// Information about what happened to the pre-existing value when calling [`ContractInfo::write`].
-#[cfg_attr(test, derive(Debug, PartialEq))]
+#[cfg_attr(any(test, feature = "runtime-benchmarks"), derive(Debug, PartialEq))]
 pub enum WriteOutcome {
 	/// No value existed at the specified key.
 	New,
@@ -436,9 +460,9 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Note:
 	/// we use the delete counter to get the next value to read from the queue and thus don't pay
 	/// the cost of an extra call to `sp_io::storage::next_key` to lookup the next entry in the map
-	fn next(&mut self) -> Option<DeletionQueueEntry<T>> {
+	fn next(&mut self) -> Option<DeletionQueueEntry<'_, T>> {
 		if self.is_empty() {
-			return None
+			return None;
 		}
 
 		let entry = <DeletionQueue<T>>::get(self.delete_counter);

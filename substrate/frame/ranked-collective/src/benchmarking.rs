@@ -20,12 +20,14 @@
 use super::*;
 #[allow(unused_imports)]
 use crate::Pallet as RankedCollective;
-
-use frame_benchmarking::v1::{
-	account, benchmarks_instance_pallet, whitelisted_caller, BenchmarkError,
+use alloc::vec::Vec;
+use frame_benchmarking::{
+	v1::{account, BenchmarkError},
+	v2::*,
 };
-use frame_support::{assert_ok, traits::UnfilteredDispatchable};
-use frame_system::RawOrigin as SystemOrigin;
+
+use frame_support::{assert_err, assert_ok, traits::NoOpPoll};
+use frame_system::{pallet_prelude::BlockNumberFor, RawOrigin as SystemOrigin};
 
 const SEED: u32 = 0;
 
@@ -55,131 +57,288 @@ fn make_member<T: Config<I>, I: 'static>(rank: Rank) -> T::AccountId {
 	who
 }
 
-benchmarks_instance_pallet! {
-	add_member {
+#[instance_benchmarks(
+where
+	<<T as pallet::Config<I>>::Polls as frame_support::traits::Polling<Tally<T, I, pallet::Pallet<T, I>>>>::Index: From<u8>,
+	<T as frame_system::Config>::RuntimeEvent: TryInto<pallet::Event<T, I>>,
+)]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn add_member() -> Result<(), BenchmarkError> {
+		// Generate a test account for the new member.
 		let who = account::<T::AccountId>("member", 0, SEED);
 		let who_lookup = T::Lookup::unlookup(who.clone());
+
+		// Attempt to get the successful origin for adding a member.
 		let origin =
 			T::AddOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call = Call::<T, I>::add_member { who: who_lookup };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup);
+
+		// Ensure the member count has increased (or is 1 for rank 0).
 		assert_eq!(MemberCount::<T, I>::get(0), 1);
+
+		// Check that the correct event was emitted.
 		assert_last_event::<T, I>(Event::MemberAdded { who }.into());
+
+		Ok(())
 	}
 
-	remove_member {
-		let r in 0 .. 10;
+	#[benchmark]
+	fn remove_member(r: Linear<0, 10>) -> Result<(), BenchmarkError> {
+		// Convert `r` to a rank and create members.
 		let rank = r as u16;
-		let first = make_member::<T, I>(rank);
 		let who = make_member::<T, I>(rank);
 		let who_lookup = T::Lookup::unlookup(who.clone());
 		let last = make_member::<T, I>(rank);
-		let last_index = (0..=rank).map(|r| IdToIndex::<T, I>::get(r, &last).unwrap()).collect::<Vec<_>>();
+
+		// Collect the index of the `last` member for each rank.
+		let last_index: Vec<_> =
+			(0..=rank).map(|r| IdToIndex::<T, I>::get(r, &last).unwrap()).collect();
+
+		// Fetch the remove origin.
 		let origin =
 			T::RemoveOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call = Call::<T, I>::remove_member { who: who_lookup, min_rank: rank };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup, rank);
+
 		for r in 0..=rank {
-			assert_eq!(MemberCount::<T, I>::get(r), 2);
+			assert_eq!(MemberCount::<T, I>::get(r), 1);
 			assert_ne!(last_index[r as usize], IdToIndex::<T, I>::get(r, &last).unwrap());
 		}
+
+		// Ensure the correct event was emitted for the member removal.
 		assert_last_event::<T, I>(Event::MemberRemoved { who, rank }.into());
+
+		Ok(())
 	}
 
-	promote_member {
-		let r in 0 .. 10;
+	#[benchmark]
+	fn promote_member(r: Linear<0, 10>) -> Result<(), BenchmarkError> {
+		// Convert `r` to a rank and create the member.
 		let rank = r as u16;
 		let who = make_member::<T, I>(rank);
 		let who_lookup = T::Lookup::unlookup(who.clone());
+
+		// Try to fetch the promotion origin.
 		let origin =
 			T::PromoteOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call = Call::<T, I>::promote_member { who: who_lookup };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup);
+
+		// Ensure the member's rank has increased by 1.
 		assert_eq!(Members::<T, I>::get(&who).unwrap().rank, rank + 1);
+
+		// Ensure the correct event was emitted for the rank change.
 		assert_last_event::<T, I>(Event::RankChanged { who, rank: rank + 1 }.into());
+
+		Ok(())
 	}
 
-	demote_member {
-		let r in 0 .. 10;
+	#[benchmark]
+	fn demote_member(r: Linear<0, 10>) -> Result<(), BenchmarkError> {
+		// Convert `r` to a rank and create necessary members for the benchmark.
 		let rank = r as u16;
-		let first = make_member::<T, I>(rank);
 		let who = make_member::<T, I>(rank);
 		let who_lookup = T::Lookup::unlookup(who.clone());
 		let last = make_member::<T, I>(rank);
+
+		// Get the last index for the member.
 		let last_index = IdToIndex::<T, I>::get(rank, &last).unwrap();
+
+		// Try to fetch the demotion origin.
 		let origin =
 			T::DemoteOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call = Call::<T, I>::demote_member { who: who_lookup };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup);
+
+		// Ensure the member's rank has decreased by 1.
 		assert_eq!(Members::<T, I>::get(&who).map(|x| x.rank), rank.checked_sub(1));
-		assert_eq!(MemberCount::<T, I>::get(rank), 2);
+
+		// Ensure the member count remains as expected.
+		assert_eq!(MemberCount::<T, I>::get(rank), 1);
+
+		// Ensure the index of the last member has changed.
 		assert_ne!(last_index, IdToIndex::<T, I>::get(rank, &last).unwrap());
-		assert_last_event::<T, I>(match rank {
-			0 => Event::MemberRemoved { who, rank: 0 },
-			r => Event::RankChanged { who, rank: r - 1 },
-		}.into());
+
+		// Ensure the correct event was emitted depending on the member's rank.
+		assert_last_event::<T, I>(
+			match rank {
+				0 => Event::MemberRemoved { who, rank: 0 },
+				r => Event::RankChanged { who, rank: r - 1 },
+			}
+			.into(),
+		);
+
+		Ok(())
 	}
 
-	vote {
-		let class = T::Polls::classes().into_iter().next().unwrap();
-		let rank = T::MinRankOfClass::convert(class.clone());
+	#[benchmark]
+	fn vote() -> Result<(), BenchmarkError> {
+		// Get the first available class or set it to None if no class exists.
+		let class = T::Polls::classes().into_iter().next();
 
+		// Convert the class to a rank if it exists, otherwise use the default rank.
+		let rank = class.as_ref().map_or(
+			<Pallet<T, I> as frame_support::traits::RankedMembers>::Rank::default(),
+			|class| T::MinRankOfClass::convert(class.clone()),
+		);
+
+		// Create a caller based on the rank.
 		let caller = make_member::<T, I>(rank);
-		let caller_lookup = T::Lookup::unlookup(caller.clone());
 
-		let poll = T::Polls::create_ongoing(class).expect("Must always be able to create a poll for rank 0");
+		// Determine the poll to use: create an ongoing poll if class exists, or use an invalid
+		// poll.
+		let poll = if let Some(ref class) = class {
+			T::Polls::create_ongoing(class.clone())
+				.expect("Poll creation should succeed for rank 0")
+		} else {
+			<NoOpPoll<BlockNumberFor<T>> as Polling<T>>::Index::MAX.into()
+		};
 
-		// Vote once.
-		assert_ok!(Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, true));
-	}: _(SystemOrigin::Signed(caller.clone()), poll, false)
-	verify {
-		let tally = Tally::from_parts(0, 0, 1);
-		let ev = Event::Voted { who: caller, poll, vote: VoteRecord::Nay(1), tally };
-		assert_last_event::<T, I>(ev.into());
-	}
+		// Benchmark the vote logic for a positive vote (true).
+		#[block]
+		{
+			let vote_result =
+				Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, true);
 
-	cleanup_poll {
-		let n in 0 .. 100;
-
-		// Create a poll
-		let class = T::Polls::classes().into_iter().next().unwrap();
-		let rank = T::MinRankOfClass::convert(class.clone());
-		let poll = T::Polls::create_ongoing(class).expect("Must always be able to create a poll");
-
-		// Vote in the poll by each of `n` members
-		for i in 0..n {
-			let who = make_member::<T, I>(rank);
-			assert_ok!(Pallet::<T, I>::vote(SystemOrigin::Signed(who).into(), poll, true));
+			// If the class exists, expect success; otherwise expect a "NotPolling" error.
+			if class.is_some() {
+				assert_ok!(vote_result);
+			} else {
+				assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+			};
 		}
 
-		// End the poll.
-		T::Polls::end_ongoing(poll, false).expect("Must always be able to end a poll");
+		// Vote logic for a negative vote (false).
+		let vote_result =
+			Pallet::<T, I>::vote(SystemOrigin::Signed(caller.clone()).into(), poll, false);
 
-		assert_eq!(Voting::<T, I>::iter_prefix(poll).count(), n as usize);
-	}: _(SystemOrigin::Signed(whitelisted_caller()), poll, n)
-	verify {
-		assert_eq!(Voting::<T, I>::iter().count(), 0);
+		// Check the result of the negative vote.
+		if class.is_some() {
+			assert_ok!(vote_result);
+		} else {
+			assert_err!(vote_result, crate::Error::<T, I>::NotPolling);
+		};
+
+		// If the class exists, verify the vote event and tally.
+		if let Some(_) = class {
+			// Get the actual vote weight from the latest event's VoteRecord::Nay
+			let mut events = frame_system::Pallet::<T>::events();
+			let last_event = events.pop().expect("At least one event should exist");
+			let event: Event<T, I> = last_event
+				.event
+				.try_into()
+				.unwrap_or_else(|_| panic!("Event conversion failed"));
+
+			match event {
+				Event::Voted { vote: VoteRecord::Nay(vote_weight), who, poll: poll2, tally } => {
+					assert_eq!(tally, Tally::from_parts(0, 0, vote_weight));
+					assert_eq!(caller, who);
+					assert_eq!(poll, poll2);
+				},
+				_ => panic!("Invalid event"),
+			};
+		}
+
+		Ok(())
 	}
 
-	exchange_member {
+	#[benchmark]
+	fn cleanup_poll(n: Linear<0, 100>) -> Result<(), BenchmarkError> {
+		let alice: T::AccountId = whitelisted_caller();
+		let origin = SystemOrigin::Signed(alice.clone());
+
+		// Try to retrieve the first class if it exists.
+		let class = T::Polls::classes().into_iter().next();
+
+		// Convert the class to a rank, or use a default rank if no class exists.
+		let rank = class.as_ref().map_or(
+			<Pallet<T, I> as frame_support::traits::RankedMembers>::Rank::default(),
+			|class| T::MinRankOfClass::convert(class.clone()),
+		);
+
+		// Determine the poll to use: create an ongoing poll if class exists, or use an invalid
+		// poll.
+		let poll = if let Some(ref class) = class {
+			T::Polls::create_ongoing(class.clone())
+				.expect("Poll creation should succeed for rank 0")
+		} else {
+			<NoOpPoll<BlockNumberFor<T>> as Polling<T>>::Index::MAX.into()
+		};
+
+		// Simulate voting by `n` members.
+		for _ in 0..n {
+			let voter = make_member::<T, I>(rank);
+			let result = Pallet::<T, I>::vote(SystemOrigin::Signed(voter).into(), poll, true);
+
+			// Check voting results based on class existence.
+			if class.is_some() {
+				assert_ok!(result);
+			} else {
+				assert_err!(result, crate::Error::<T, I>::NotPolling);
+			}
+		}
+
+		// End the poll if the class exists.
+		if class.is_some() {
+			T::Polls::end_ongoing(poll, false)
+				.map_err(|_| BenchmarkError::Stop("Failed to end poll"))?;
+		}
+
+		// Verify the number of votes cast.
+		let expected_votes = if class.is_some() { n as usize } else { 0 };
+		assert_eq!(Voting::<T, I>::iter_prefix(poll).count(), expected_votes);
+
+		// Benchmark the cleanup function.
+		#[extrinsic_call]
+		_(origin, poll, n);
+
+		// Ensure all votes are cleaned up after the extrinsic call.
+		assert_eq!(Voting::<T, I>::iter().count(), 0);
+
+		Ok(())
+	}
+
+	#[benchmark]
+	fn exchange_member() -> Result<(), BenchmarkError> {
+		// Create an existing member.
 		let who = make_member::<T, I>(1);
 		T::BenchmarkSetup::ensure_member(&who);
 		let who_lookup = T::Lookup::unlookup(who.clone());
+
+		// Create a new account for the new member.
 		let new_who = account::<T::AccountId>("new-member", 0, SEED);
 		let new_who_lookup = T::Lookup::unlookup(new_who.clone());
+
+		// Attempt to get the successful origin for exchanging a member.
 		let origin =
 			T::ExchangeOrigin::try_successful_origin().map_err(|_| BenchmarkError::Weightless)?;
-		let call = Call::<T, I>::exchange_member { who: who_lookup, new_who: new_who_lookup };
-	}: { call.dispatch_bypass_filter(origin)? }
-	verify {
+
+		#[extrinsic_call]
+		_(origin as T::RuntimeOrigin, who_lookup, new_who_lookup);
+
+		// Check that the new member was successfully exchanged and holds the correct rank.
 		assert_eq!(Members::<T, I>::get(&new_who).unwrap().rank, 1);
+
+		// Ensure the old member no longer exists.
 		assert_eq!(Members::<T, I>::get(&who), None);
+
+		// Ensure the correct event was emitted.
 		assert_has_event::<T, I>(Event::MemberExchanged { who, new_who }.into());
+
+		Ok(())
 	}
 
-	impl_benchmark_test_suite!(RankedCollective, crate::tests::ExtBuilder::default().build(), crate::tests::Test);
+	impl_benchmark_test_suite!(
+		RankedCollective,
+		crate::tests::ExtBuilder::default().build(),
+		crate::tests::Test
+	);
 }

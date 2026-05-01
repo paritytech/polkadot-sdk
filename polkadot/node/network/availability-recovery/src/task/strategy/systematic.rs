@@ -125,18 +125,16 @@ impl FetchSystematicChunks {
 				// Attempt post-recovery check.
 				do_post_recovery_check(common_params, data)
 					.await
-					.map_err(|e| {
+					.inspect_err(|_| {
 						recovery_duration.map(|rd| rd.stop_and_discard());
-						e
 					})
-					.map(|data| {
+					.inspect(|_| {
 						gum::trace!(
 							target: LOG_TARGET,
 							candidate_hash = ?common_params.candidate_hash,
 							erasure_root = ?common_params.erasure_root,
 							"Data recovery from systematic chunks complete",
 						);
-						data
 					})
 			},
 			Err(err) => {
@@ -195,7 +193,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 						chunk_index = ?our_c_index,
 						"Systematic chunk recovery is not possible. We are among the systematic validators but hold an invalid chunk",
 					);
-					return Err(RecoveryError::Unavailable)
+					return Err(RecoveryError::Unavailable);
 				}
 			}
 		}
@@ -237,7 +235,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 			// If received_chunks has `systematic_chunk_threshold` entries, attempt to recover the
 			// data.
 			if systematic_chunk_count >= self.threshold {
-				return self.attempt_systematic_recovery::<Sender>(state, common_params).await
+				return self.attempt_systematic_recovery::<Sender>(state, common_params).await;
 			}
 
 			if Self::is_unavailable(
@@ -258,7 +256,7 @@ impl<Sender: overseer::AvailabilityRecoverySenderTrait> RecoveryStrategy<Sender>
 					"Data recovery from systematic chunks is not possible",
 				);
 
-				return Err(RecoveryError::Unavailable)
+				return Err(RecoveryError::Unavailable);
 			}
 
 			let desired_requests_count =

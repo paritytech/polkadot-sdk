@@ -17,22 +17,19 @@
 use super::*;
 
 use bitvec::order::Lsb0;
-use polkadot_node_network_protocol::v2::{BackedCandidateAcknowledgement, BackedCandidateManifest};
+use polkadot_node_network_protocol::v3::{BackedCandidateAcknowledgement, BackedCandidateManifest};
 use polkadot_node_subsystem::messages::CandidateBackingMessage;
 use polkadot_primitives_test_helpers::make_candidate;
 
-// Backed candidate leads to advertisement to relevant validators with relay-parent.
+// Backed candidate leads to advertisement to relevant validators with scheduling-parent.
 #[test]
 fn backed_candidate_leads_to_advertisement() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -65,10 +62,10 @@ fn backed_candidate_leads_to_advertisement() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -148,7 +145,7 @@ fn backed_candidate_leads_to_advertisement() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -173,7 +170,7 @@ fn backed_candidate_leads_to_advertisement() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -202,16 +199,16 @@ fn backed_candidate_leads_to_advertisement() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -235,13 +232,10 @@ fn backed_candidate_leads_to_advertisement() {
 fn received_advertisement_before_confirmation_leads_to_request() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -274,10 +268,10 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -320,7 +314,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 		// Receive an advertisement from C on an unconfirmed candidate.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -333,7 +327,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.await;
 
@@ -407,12 +401,7 @@ fn received_advertisement_before_confirmation_leads_to_request() {
 fn received_advertisement_after_backing_leads_to_acknowledgement() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -454,7 +443,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 		let candidate_hash = candidate.hash();
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -528,9 +517,9 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 							),
 						),
 					)
@@ -572,8 +561,8 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack)
 						)) if *ack == expected_ack
 					);
 				}
@@ -588,12 +577,7 @@ fn received_advertisement_after_backing_leads_to_acknowledgement() {
 fn receive_ack_for_unconfirmed_candidate() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -649,12 +633,7 @@ fn receive_ack_for_unconfirmed_candidate() {
 fn received_acknowledgements_for_locally_confirmed() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -741,7 +720,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -763,16 +742,16 @@ fn received_acknowledgements_for_locally_confirmed() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group,
 						para_id: local_para,
@@ -811,12 +790,7 @@ fn received_acknowledgements_for_locally_confirmed() {
 fn received_acknowledgements_for_externally_confirmed() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
 	test_harness(config, |state, mut overseer| async move {
 		let peers_to_connect = [
@@ -857,7 +831,7 @@ fn received_acknowledgements_for_externally_confirmed() {
 		let candidate_hash = candidate.hash();
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -946,13 +920,10 @@ fn received_acknowledgements_for_externally_confirmed() {
 fn received_advertisement_after_confirmation_before_backing() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
 	let peer_d = PeerId::random();
@@ -1016,7 +987,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -1049,7 +1020,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1109,7 +1080,7 @@ fn received_advertisement_after_confirmation_before_backing() {
 			send_peer_message(
 				&mut overseer,
 				peer_d.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1124,13 +1095,10 @@ fn received_advertisement_after_confirmation_before_backing() {
 fn additional_statements_are_shared_after_manifest_exchange() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
 	let peer_d = PeerId::random();
@@ -1196,7 +1164,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		// Receive an advertisement from C.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -1210,7 +1178,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1284,7 +1252,10 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::CandidateBacking(
-					CandidateBackingMessage::Statement(hash, statement)
+					CandidateBackingMessage::Statement {
+						scheduling_parent: hash,
+						statement,
+					}
 				) => {
 					assert_eq!(hash, relay_parent);
 					assert_matches!(
@@ -1297,7 +1268,10 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::CandidateBacking(
-					CandidateBackingMessage::Statement(hash, statement)
+					CandidateBackingMessage::Statement {
+						scheduling_parent: hash,
+						statement,
+					}
 				) => {
 					assert_eq!(hash, relay_parent);
 					assert_matches!(
@@ -1323,9 +1297,9 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack),
 							),
 						),
 					)
@@ -1347,7 +1321,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 		// Receive a manifest about the same candidate from peer D. Contains different statements.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -1361,7 +1335,7 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 			send_peer_message(
 				&mut overseer,
 				peer_d.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1387,15 +1361,15 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::BackedCandidateKnown(ack)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::BackedCandidateKnown(ack)
 						)) if *ack == expected_ack
 					);
 
 					assert_matches!(
 						&messages[1].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::Statement(r, s)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::Statement(r, s)
 						)) if *r == relay_parent && s.unchecked_payload() == &CompactStatement::Seconded(candidate_hash) && s.unchecked_validator_index() == v_e
 					);
 				}
@@ -1406,18 +1380,15 @@ fn additional_statements_are_shared_after_manifest_exchange() {
 	});
 }
 
-// Grid-sending validator view entering relay-parent leads to advertisement.
+// Grid-sending validator view entering scheduling-parent leads to advertisement.
 #[test]
 fn advertisement_sent_when_peer_enters_relay_parent_view() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -1448,10 +1419,10 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1529,7 +1500,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1554,7 +1525,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1584,7 +1555,7 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 			send_peer_view_change(&mut overseer, peer_c.clone(), view![relay_parent]).await;
 
 			let expected_manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: local_group_index,
 				para_id: local_para,
@@ -1605,8 +1576,8 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 
 					assert_matches!(
 						&messages[0].1,
-						Versioned::V2(protocol_v2::ValidationProtocol::StatementDistribution(
-							protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest)
+						ValidationProtocols::V3(protocol_v3::ValidationProtocol::StatementDistribution(
+							protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest)
 						)) => {
 							assert_eq!(*manifest, expected_manifest);
 						}
@@ -1624,13 +1595,10 @@ fn advertisement_sent_when_peer_enters_relay_parent_view() {
 fn advertisement_not_re_sent_when_peer_re_enters_view() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -1661,10 +1629,10 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -1743,7 +1711,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1768,7 +1736,7 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::Statement(relay_parent, statement),
+				protocol_v3::StatementDistributionMessage::Statement(relay_parent, statement),
 			)
 			.await;
 
@@ -1797,16 +1765,16 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 				AllMessages:: NetworkBridgeTx(
 					NetworkBridgeTxMessage::SendValidationMessage(
 						peers,
-						Versioned::V2(
-							protocol_v2::ValidationProtocol::StatementDistribution(
-								protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+						ValidationProtocols::V3(
+							protocol_v3::ValidationProtocol::StatementDistribution(
+								protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 							),
 						),
 					)
 				) => {
 					assert_eq!(peers, vec![peer_c]);
 					assert_eq!(manifest, BackedCandidateManifest {
-						relay_parent,
+						scheduling_parent: relay_parent,
 						candidate_hash,
 						group_index: local_group_index,
 						para_id: local_para,
@@ -1835,13 +1803,10 @@ fn advertisement_not_re_sent_when_peer_re_enters_view() {
 fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
 	let peer_d = PeerId::random();
@@ -1909,7 +1874,7 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 		// Receive an advertisement from C.
 		{
 			let manifest = BackedCandidateManifest {
-				relay_parent,
+				scheduling_parent: relay_parent,
 				candidate_hash,
 				group_index: other_group,
 				para_id: other_para,
@@ -1923,7 +1888,7 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -1997,7 +1962,10 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::CandidateBacking(
-					CandidateBackingMessage::Statement(hash, statement)
+					CandidateBackingMessage::Statement {
+						scheduling_parent: hash,
+						statement,
+					}
 				) => {
 					assert_eq!(hash, relay_parent);
 					assert_matches!(
@@ -2010,7 +1978,10 @@ fn inner_grid_statements_imported_to_backing(groups_for_first_para: usize) {
 			assert_matches!(
 				overseer.recv().await,
 				AllMessages::CandidateBacking(
-					CandidateBackingMessage::Statement(hash, statement)
+					CandidateBackingMessage::Statement {
+						scheduling_parent: hash,
+						statement,
+					}
 				) => {
 					assert_eq!(hash, relay_parent);
 					assert_matches!(
@@ -2043,13 +2014,10 @@ fn advertisements_rejected_from_incorrect_peers() {
 	sp_tracing::try_init_simple();
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 	let peer_b = PeerId::random();
@@ -2082,10 +2050,10 @@ fn advertisements_rejected_from_incorrect_peers() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer A is in group, has relay parent in view.
-		// peer B is in group, has no relay parent in view.
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer A is in group, has scheduling parent in view.
+		// peer B is in group, has no scheduling parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -2124,7 +2092,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2140,7 +2108,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			send_peer_message(
 				&mut overseer,
 				peer_a.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2159,7 +2127,7 @@ fn advertisements_rejected_from_incorrect_peers() {
 			send_peer_message(
 				&mut overseer,
 				peer_b.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.await;
 
@@ -2179,13 +2147,10 @@ fn advertisements_rejected_from_incorrect_peers() {
 fn manifest_rejected_with_unknown_relay_parent() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let unknown_parent = Hash::repeat_byte(2);
 	let peer_c = PeerId::random();
@@ -2214,8 +2179,8 @@ fn manifest_rejected_with_unknown_relay_parent() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -2239,7 +2204,7 @@ fn manifest_rejected_with_unknown_relay_parent() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent: unknown_parent,
+			scheduling_parent: unknown_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2255,7 +2220,7 @@ fn manifest_rejected_with_unknown_relay_parent() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2276,13 +2241,10 @@ fn manifest_rejected_with_unknown_relay_parent() {
 fn manifest_rejected_when_not_a_validator() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::None,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::None };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
 	let peer_d = PeerId::random();
@@ -2307,8 +2269,8 @@ fn manifest_rejected_when_not_a_validator() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -2332,7 +2294,7 @@ fn manifest_rejected_when_not_a_validator() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2348,7 +2310,7 @@ fn manifest_rejected_when_not_a_validator() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2369,13 +2331,10 @@ fn manifest_rejected_when_not_a_validator() {
 fn manifest_rejected_when_group_does_not_match_para() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
 	let peer_d = PeerId::random();
@@ -2405,8 +2364,8 @@ fn manifest_rejected_when_group_does_not_match_para() {
 		let v_c = other_group_validators[0];
 		let v_d = other_group_validators[1];
 
-		// peer C is not in group, has relay parent in view.
-		// peer D is not in group, has no relay parent in view.
+		// peer C is not in group, has scheduling parent in view.
+		// peer D is not in group, has no scheduling parent in view.
 		{
 			connect_peer(
 				&mut overseer,
@@ -2430,7 +2389,7 @@ fn manifest_rejected_when_group_does_not_match_para() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2446,7 +2405,7 @@ fn manifest_rejected_when_group_does_not_match_para() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2467,13 +2426,10 @@ fn manifest_rejected_when_group_does_not_match_para() {
 fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 	let validator_count = 6;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::Validator,
-		async_backing_params: None,
-	};
+	let config = TestConfig { validator_count, group_size, local_validator: LocalRole::Validator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_c = PeerId::random();
 	let peer_d = PeerId::random();
@@ -2536,7 +2492,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 		send_new_topology(&mut overseer, state.make_dummy_topology()).await;
 
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: other_group,
 			para_id: other_para,
@@ -2569,7 +2525,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(
 					manifest.clone(),
 				),
 			)
@@ -2638,7 +2594,7 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 			send_peer_message(
 				&mut overseer,
 				peer_c.clone(),
-				protocol_v2::StatementDistributionMessage::BackedCandidateManifest(manifest),
+				protocol_v3::StatementDistributionMessage::BackedCandidateManifest(manifest),
 			)
 			.await;
 
@@ -2657,13 +2613,11 @@ fn peer_reported_for_advertisement_conflicting_with_confirmed_candidate() {
 fn inactive_local_participates_in_grid() {
 	let validator_count = 11;
 	let group_size = 3;
-	let config = TestConfig {
-		validator_count,
-		group_size,
-		local_validator: LocalRole::InactiveValidator,
-		async_backing_params: None,
-	};
+	let config =
+		TestConfig { validator_count, group_size, local_validator: LocalRole::InactiveValidator };
 
+	// Note: For V1/V2 candidates, relay_parent serves as both the execution context (relay
+	// chain block) and the scheduling context. In V3, these would be separate.
 	let relay_parent = Hash::repeat_byte(1);
 	let peer_a = PeerId::random();
 
@@ -2710,7 +2664,7 @@ fn inactive_local_participates_in_grid() {
 
 		// Receive an advertisement from A.
 		let manifest = BackedCandidateManifest {
-			relay_parent,
+			scheduling_parent: relay_parent,
 			candidate_hash,
 			group_index: group_idx,
 			para_id: para,

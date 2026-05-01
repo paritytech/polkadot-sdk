@@ -21,7 +21,7 @@ use frame_support::{
 	Twox64Concat,
 };
 
-pub struct MigrateToTrackInactiveV2<T>(sp_std::marker::PhantomData<T>);
+pub struct MigrateToTrackInactiveV2<T>(core::marker::PhantomData<T>);
 impl<T: Config> OnRuntimeUpgrade for MigrateToTrackInactiveV2<T> {
 	fn on_runtime_upgrade() -> Weight {
 		let on_chain_version = Pallet::<T>::on_chain_storage_version();
@@ -118,7 +118,7 @@ pub mod crowdloan_index_migration {
 			for (who, _amount) in leases.iter().flatten() {
 				if *who == old_fund_account {
 					found_lease_deposit = true;
-					break
+					break;
 				}
 			}
 			if found_lease_deposit {

@@ -59,9 +59,7 @@ pub async fn run<P: MessageLane>(
 			_phantom: Default::default(),
 		},
 		target_state_updates,
-		MessageDeliveryStrategy::<P, _, _> {
-			lane_source_client: source_client,
-			lane_target_client: target_client,
+		MessageDeliveryStrategy::<P> {
 			max_unrewarded_relayer_entries_at_target: params
 				.max_unrewarded_relayer_entries_at_target,
 			max_unconfirmed_nonces_at_target: params.max_unconfirmed_nonces_at_target,
@@ -71,7 +69,6 @@ pub async fn run<P: MessageLane>(
 			latest_confirmed_nonces_at_source: VecDeque::new(),
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
-			metrics_msg,
 		},
 	)
 	.await
@@ -90,12 +87,12 @@ pub async fn relay_messages_range<P: MessageLane>(
 		.generated_message_details(at.clone(), range.clone())
 		.await
 		.map_err(|e| {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"Failed to get generated message details at {:?} for messages {:?}: {:?}",
-				at,
-				range,
-				e,
+				error=?e,
+				?at,
+				?range,
+				"Failed to get generated message details at for messages"
 			);
 		})?
 		.values()
@@ -109,12 +106,12 @@ pub async fn relay_messages_range<P: MessageLane>(
 		)
 		.await
 		.map_err(|e| {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"Failed to generate messages proof at {:?} for messages {:?}: {:?}",
-				at,
-				range,
-				e,
+				error=?e,
+				?at,
+				?range,
+				"Failed to generate messages proof at for messages"
 			);
 		})?;
 	// submit messages proof to the target node
@@ -122,11 +119,11 @@ pub async fn relay_messages_range<P: MessageLane>(
 		.submit_messages_proof(None, at, range.clone(), proof)
 		.await
 		.map_err(|e| {
-			log::error!(
+			tracing::error!(
 				target: "bridge",
-				"Failed to submit messages proof for messages {:?}: {:?}",
-				range,
-				e,
+				error=?e,
+				?range,
+				"Failed to submit messages proof for messages"
 			);
 		})?
 		.tx_tracker;
@@ -134,7 +131,7 @@ pub async fn relay_messages_range<P: MessageLane>(
 	match tx_tracker.wait().await {
 		TrackedTransactionStatus::Finalized(_) => Ok(()),
 		TrackedTransactionStatus::Lost => {
-			log::error!("Transaction with messages {:?} is considered lost", range,);
+			tracing::error!(target: "bridge", ?range, "Transaction with messages is considered lost");
 			Err(())
 		},
 	}
@@ -300,11 +297,7 @@ struct DeliveryRaceTargetNoncesData {
 }
 
 /// Messages delivery strategy.
-struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
-	/// The client that is connected to the message lane source node.
-	lane_source_client: SC,
-	/// The client that is connected to the message lane target node.
-	lane_target_client: TC,
+struct MessageDeliveryStrategy<P: MessageLane> {
 	/// Maximal unrewarded relayer entries at target client.
 	max_unrewarded_relayer_entries_at_target: MessageNonce,
 	/// Maximal unconfirmed nonces at target client.
@@ -322,8 +315,6 @@ struct MessageDeliveryStrategy<P: MessageLane, SC, TC> {
 	target_nonces: Option<TargetClientNonces<DeliveryRaceTargetNoncesData>>,
 	/// Basic delivery strategy.
 	strategy: MessageDeliveryStrategyBase<P>,
-	/// Message lane metrics.
-	metrics_msg: Option<MessageLaneLoopMetrics>,
 }
 
 type MessageDeliveryStrategyBase<P> = BasicStrategy<
@@ -335,7 +326,7 @@ type MessageDeliveryStrategyBase<P> = BasicStrategy<
 	<P as MessageLane>::MessagesProof,
 >;
 
-impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, TC> {
+impl<P: MessageLane> std::fmt::Debug for MessageDeliveryStrategy<P> {
 	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
 		fmt.debug_struct("MessageDeliveryStrategy")
 			.field(
@@ -353,11 +344,9 @@ impl<P: MessageLane, SC, TC> std::fmt::Debug for MessageDeliveryStrategy<P, SC, 
 	}
 }
 
-impl<P: MessageLane, SC, TC> MessageDeliveryStrategy<P, SC, TC>
+impl<P: MessageLane> MessageDeliveryStrategy<P>
 where
 	P: MessageLane,
-	SC: MessageLaneSourceClient<P>,
-	TC: MessageLaneTargetClient<P>,
 {
 	/// Returns true if some race action can be selected (with `select_race_action`) at given
 	/// `best_finalized_source_header_id_at_best_target` source header at target.
@@ -375,7 +364,7 @@ where
 				best_finalized_source_header_id_at_best_target,
 			);
 
-			return self.select_race_action(race_state).await.is_some()
+			return self.select_race_action(race_state).await.is_some();
 		}
 
 		false
@@ -387,12 +376,12 @@ where
 	) -> Option<(RangeInclusive<MessageNonce>, MessageProofParameters)> {
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit().is_some() {
-			return None
+			return None;
 		}
 
 		// if we already submitted some nonces, do nothing
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		let best_target_nonce = self.strategy.best_at_target()?;
@@ -436,7 +425,7 @@ where
 			let enough_rewards_being_proved = number_of_rewards_being_proved >=
 				target_nonces.nonces_data.unrewarded_relayers.messages_in_oldest_entry;
 			if !enough_rewards_being_proved {
-				return None
+				return None;
 			}
 		}
 
@@ -465,23 +454,18 @@ where
 		let max_nonces = std::cmp::min(max_nonces, self.max_messages_in_single_batch);
 		let max_messages_weight_in_single_batch = self.max_messages_weight_in_single_batch;
 		let max_messages_size_in_single_batch = self.max_messages_size_in_single_batch;
-		let lane_source_client = self.lane_source_client.clone();
-		let lane_target_client = self.lane_target_client.clone();
 
 		// select nonces from nonces, available for delivery
 		let selected_nonces = match self.strategy.available_source_queue_indices(race_state) {
 			Some(available_source_queue_indices) => {
 				let source_queue = self.strategy.source_queue();
-				let reference = RelayMessagesBatchReference {
+				let reference = RelayMessagesBatchReference::<P> {
 					max_messages_in_this_batch: max_nonces,
 					max_messages_weight_in_single_batch,
 					max_messages_size_in_single_batch,
-					lane_source_client: lane_source_client.clone(),
-					lane_target_client: lane_target_client.clone(),
 					best_target_nonce,
 					nonces_queue: source_queue.clone(),
 					nonces_queue_range: available_source_queue_indices,
-					metrics: self.metrics_msg.clone(),
 				};
 
 				MessageRaceLimits::decide(reference).await
@@ -534,20 +518,14 @@ where
 }
 
 #[async_trait]
-impl<P, SC, TC> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
-	for MessageDeliveryStrategy<P, SC, TC>
+impl<P> RaceStrategy<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>, P::MessagesProof>
+	for MessageDeliveryStrategy<P>
 where
 	P: MessageLane,
-	SC: MessageLaneSourceClient<P>,
-	TC: MessageLaneTargetClient<P>,
 {
 	type SourceNoncesRange = MessageDetailsMap<P::SourceChainBalance>;
 	type ProofParameters = MessageProofParameters;
 	type TargetNoncesData = DeliveryRaceTargetNoncesData;
-
-	fn is_empty(&self) -> bool {
-		self.strategy.is_empty()
-	}
 
 	async fn required_source_header_at_target<
 		RS: RaceState<SourceHeaderIdOf<P>, TargetHeaderIdOf<P>>,
@@ -557,13 +535,13 @@ where
 	) -> Option<SourceHeaderIdOf<P>> {
 		// we have already submitted something - let's wait until it is mined
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		// if we can deliver something using current race state, go on
 		let selected_nonces = self.select_race_action(race_state.clone()).await;
 		if selected_nonces.is_some() {
-			return None
+			return None;
 		}
 
 		// check if we may deliver some messages if we'll relay require source header
@@ -577,7 +555,7 @@ where
 			)
 			.await
 		{
-			return maybe_source_header_for_delivery
+			return maybe_source_header_for_delivery;
 		}
 
 		// ok, we can't delivery anything even if we relay some source blocks first. But maybe
@@ -591,7 +569,7 @@ where
 			)
 			.await
 		{
-			return maybe_source_header_for_reward_confirmation
+			return maybe_source_header_for_reward_confirmation;
 		}
 
 		None
@@ -707,8 +685,7 @@ mod tests {
 		message_lane_loop::{
 			tests::{
 				header_id, TestMessageLane, TestMessagesBatchTransaction, TestMessagesProof,
-				TestSourceChainBalance, TestSourceClient, TestSourceHeaderId, TestTargetClient,
-				TestTargetHeaderId,
+				TestSourceChainBalance, TestSourceHeaderId, TestTargetHeaderId,
 			},
 			MessageDetails,
 		},
@@ -726,8 +703,7 @@ mod tests {
 		TestMessagesProof,
 		TestMessagesBatchTransaction,
 	>;
-	type TestStrategy =
-		MessageDeliveryStrategy<TestMessageLane, TestSourceClient, TestTargetClient>;
+	type TestStrategy = MessageDeliveryStrategy<TestMessageLane>;
 
 	fn source_nonces(
 		new_nonces: RangeInclusive<MessageNonce>,
@@ -770,9 +746,6 @@ mod tests {
 			max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: vec![(header_id(1), 19)].into_iter().collect(),
-			lane_source_client: TestSourceClient::default(),
-			lane_target_client: TestTargetClient::default(),
-			metrics_msg: None,
 			target_nonces: Some(TargetClientNonces {
 				latest_nonce: 19,
 				nonces_data: DeliveryRaceTargetNoncesData {
@@ -841,7 +814,7 @@ mod tests {
 		assert_eq!(map.greater_than(30), None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_selects_messages_to_deliver() {
 		let (state, strategy) = prepare_strategy();
 
@@ -852,7 +825,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_includes_outbound_state_proof_when_new_nonces_are_available()
 	{
 		let (state, mut strategy) = prepare_strategy();
@@ -869,7 +842,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_selects_nothing_if_there_are_too_many_unrewarded_relayers() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -885,7 +858,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_selects_nothing_if_proved_rewards_is_not_enough_to_remove_oldest_unrewarded_entry(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -905,7 +878,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_includes_outbound_state_proof_if_proved_rewards_is_enough() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -927,7 +900,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_weight() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -939,7 +912,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_weight(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -954,7 +927,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_size() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -966,7 +939,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_accepts_single_message_even_if_its_weight_overflows_maximal_size(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -980,7 +953,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_is_upper_limit() {
 		let (state, mut strategy) = prepare_strategy();
 
@@ -993,7 +966,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_limits_batch_by_messages_count_when_there_are_unconfirmed_nonces(
 	) {
 		let (state, mut strategy) = prepare_strategy();
@@ -1012,7 +985,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn message_delivery_strategy_waits_for_confirmed_nonce_header_to_appear_on_target() {
 		// 1 delivery confirmation from target to source is still missing, so we may deliver
 		// reward confirmation with our message delivery transaction. But the problem is that
@@ -1057,12 +1030,11 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn source_header_is_required_when_confirmations_are_required() {
 		// let's prepare situation when:
 		// - all messages [20; 23] have been generated at source block#1;
 		let (mut state, mut strategy) = prepare_strategy();
-		//
 		// - messages [20; 23] have been delivered
 		assert_eq!(
 			strategy.select_nonces_to_deliver(state.clone()).await,
@@ -1095,7 +1067,6 @@ mod tests {
 
 		// now let's generate two more nonces [24; 25] at the source;
 		strategy.source_nonces_updated(header_id(2), source_nonces(24..=25, 19, 0));
-		//
 		// we don't need to relay more headers to target, because messages [20; 23] have
 		// not confirmed to source yet
 		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
@@ -1130,7 +1101,7 @@ mod tests {
 		assert_eq!(strategy.required_source_header_at_target(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn relayer_uses_flattened_view_of_the_source_queue_to_select_nonces() {
 		// Real scenario that has happened on test deployments:
 		// 1) relayer witnessed M1 at block 1 => it has separate entry in the `source_queue`
@@ -1156,7 +1127,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	#[allow(clippy::reversed_empty_ranges)]
 	async fn no_source_headers_required_at_target_if_lanes_are_empty() {
 		let (state, _) = prepare_strategy();
@@ -1167,9 +1138,6 @@ mod tests {
 			max_messages_weight_in_single_batch: Weight::from_parts(4, 0),
 			max_messages_size_in_single_batch: 4,
 			latest_confirmed_nonces_at_source: VecDeque::new(),
-			lane_source_client: TestSourceClient::default(),
-			lane_target_client: TestTargetClient::default(),
-			metrics_msg: None,
 			target_nonces: None,
 			strategy: BasicStrategy::new(),
 		};
@@ -1191,7 +1159,7 @@ mod tests {
 		assert_eq!(strategy.required_source_header_at_target(state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn previous_nonces_are_selected_if_reorg_happens_at_target_chain() {
 		// this is the copy of the similar test in the `mesage_race_strategy.rs`, but it also tests
 		// that the `MessageDeliveryStrategy` acts properly in the similar scenario
@@ -1275,7 +1243,7 @@ mod tests {
 		);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	#[allow(clippy::reversed_empty_ranges)]
 	async fn delivery_race_is_able_to_unblock_lane() {
 		// step 1: messages 20..=23 are delivered from source to target at target block 2
@@ -1433,7 +1401,7 @@ mod tests {
 		assert_eq!(at_target_block_3_select_nonces_to_deliver(&strategy, state).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn outbound_state_proof_is_not_required_when_we_have_no_new_confirmations() {
 		let (mut state, mut strategy) = prepare_strategy();
 

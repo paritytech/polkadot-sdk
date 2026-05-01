@@ -1,0 +1,12 @@
+title: Improve XCM Debugging by Capturing Logs in Unit Tests
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR introduces a lightweight log-capturing mechanism for XCM unit tests, making it easier to troubleshoot failures when needed.
+crates:
+- name: pallet-xcm
+  bump: patch
+- name: xcm-simulator-example
+  bump: patch
+- name: sp-tracing
+  bump: minor

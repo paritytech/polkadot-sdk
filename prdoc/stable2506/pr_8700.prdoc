@@ -1,0 +1,11 @@
+title: transfer_assets benchmarking and weights for people chains
+doc:
+- audience: Runtime Dev
+  description: |-
+    Introduces implementation of `set_up_complex_asset_transfer()` to correctly benchmark weights for `transfer_assets` extrinsics on Rococo People and Westend People
+
+crates:
+- name: people-rococo-runtime
+  bump: patch
+- name: people-westend-runtime
+  bump: patch

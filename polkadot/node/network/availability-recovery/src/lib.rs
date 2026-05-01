@@ -57,7 +57,6 @@ use polkadot_node_network_protocol::{
 use polkadot_node_primitives::AvailableData;
 use polkadot_node_subsystem::{
 	errors::RecoveryError,
-	jaeger,
 	messages::{AvailabilityRecoveryMessage, AvailabilityStoreMessage},
 	overseer, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, SpawnedSubsystem,
 	SubsystemContext, SubsystemError,
@@ -67,8 +66,8 @@ use polkadot_node_subsystem_util::{
 	runtime::{ExtendedSessionInfo, RuntimeInfo},
 };
 use polkadot_primitives::{
-	node_features, BlockNumber, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, GroupIndex,
-	Hash, SessionIndex, ValidatorIndex,
+	node_features, BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, GroupIndex, Hash, SessionIndex, ValidatorIndex,
 };
 
 mod error;
@@ -194,7 +193,7 @@ fn reconstructed_data_matches_root(
 				err = ?e,
 				"Failed to obtain chunks",
 			);
-			return false
+			return false;
 		},
 	};
 
@@ -239,7 +238,7 @@ impl Future for RecoveryHandle {
 				"All receivers for available data dropped.",
 			);
 
-			return Poll::Ready(None)
+			return Poll::Ready(None);
 		}
 
 		let remote = &mut self.remote;
@@ -387,29 +386,24 @@ async fn handle_recover<Context>(
 ) -> Result<()> {
 	let candidate_hash = receipt.hash();
 
-	let span = jaeger::Span::new(candidate_hash, "availability-recovery")
-		.with_stage(jaeger::Stage::AvailabilityRecovery);
-
 	if let Some(result) =
 		state.availability_lru.get(&candidate_hash).cloned().map(|v| v.into_result())
 	{
-		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender)
+		return response_sender.send(result).map_err(|_| Error::CanceledResponseSender);
 	}
 
 	if let Some(i) =
 		state.ongoing_recoveries.iter_mut().find(|i| i.candidate_hash == candidate_hash)
 	{
 		i.awaiting.push(response_sender);
-		return Ok(())
+		return Ok(());
 	}
 
-	let _span = span.child("not-cached");
 	let session_info_res = state
 		.runtime_info
 		.get_session_info_by_index(ctx.sender(), state.live_block.1, session_index)
 		.await;
 
-	let _span = span.child("session-info-ctx-received");
 	match session_info_res {
 		Ok(ExtendedSessionInfo { session_info, node_features, .. }) => {
 			let mut backer_group = None;
@@ -460,10 +454,11 @@ async fn handle_recover<Context>(
 							RecoveryStrategyKind::BackersFirstIfSizeLowerThenSystematicChunks(_),
 							true,
 						) |
-						(RecoveryStrategyKind::BackersThenSystematicChunks, _) =>
+						(RecoveryStrategyKind::BackersThenSystematicChunks, _) => {
 							recovery_strategies.push_back(Box::new(FetchFull::new(
 								FetchFullParams { validators: backing_validators.to_vec() },
-							))),
+							)))
+						},
 						_ => {},
 					};
 
@@ -491,7 +486,7 @@ async fn handle_recover<Context>(
 				) && chunk_mapping_enabled
 				{
 					let chunk_indices =
-						availability_chunk_indices(Some(node_features), n_validators, core_index)?;
+						availability_chunk_indices(node_features, n_validators, core_index)?;
 
 					let chunk_indices: VecDeque<_> = chunk_indices
 						.iter()
@@ -546,11 +541,11 @@ async fn handle_recover<Context>(
 					threshold: recovery_threshold(n_validators)?,
 					systematic_threshold,
 					candidate_hash,
-					erasure_root: receipt.descriptor.erasure_root,
+					erasure_root: receipt.descriptor.erasure_root(),
 					metrics: metrics.clone(),
 					bypass_availability_store,
 					post_recovery_check,
-					pov_hash: receipt.descriptor.pov_hash,
+					pov_hash: receipt.descriptor.pov_hash(),
 					req_v1_protocol_name,
 					req_v2_protocol_name,
 					chunk_mapping_enabled,
@@ -919,7 +914,7 @@ async fn erasure_task_thread(
 					target: LOG_TARGET,
 					"Erasure task channel closed. Node shutting down ?",
 				);
-				break
+				break;
 			},
 		}
 

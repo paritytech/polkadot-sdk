@@ -25,8 +25,8 @@ use crate::assert_parse_error_matches;
 #[cfg(test)]
 use crate::pallet::parse::tests::simulate_manifest_dir;
 
+use super::helper;
 use derive_syn_parse::Parse;
-use frame_support_procedural_tools::generate_access_from_frame_or_crate;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::{quote, ToTokens};
 use syn::{
@@ -34,8 +34,8 @@ use syn::{
 	parse2,
 	spanned::Spanned,
 	token::{Bracket, Paren, PathSep, Pound},
-	Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, Path, PathArguments,
-	Result, TypePath,
+	Error, Expr, Ident, ImplItem, ImplItemFn, ItemEnum, ItemImpl, LitInt, PathArguments, Result,
+	TypePath,
 };
 
 pub mod keywords {
@@ -57,8 +57,6 @@ pub struct TasksDef {
 	pub tasks_attr: Option<PalletTasksAttr>,
 	pub tasks: Vec<TaskDef>,
 	pub item_impl: ItemImpl,
-	/// Path to `frame_support`
-	pub scrate: Path,
 	pub enum_ident: Ident,
 	pub enum_arguments: PathArguments,
 }
@@ -75,7 +73,7 @@ impl syn::parse::Parse for TasksDef {
 			return Err(Error::new(
 				extra_tasks_attr.span(),
 				"unexpected extra `#[pallet::tasks_experimental]` attribute",
-			))
+			));
 		}
 		let tasks: Vec<TaskDef> = if tasks_attr.is_some() {
 			item_impl
@@ -95,7 +93,7 @@ impl syn::parse::Parse for TasksDef {
 				return Err(Error::new(
 					task_index.span(),
 					format!("duplicate task index `{}`", task_index),
-				))
+				));
 			}
 		}
 		let mut item_impl = item_impl;
@@ -109,16 +107,12 @@ impl syn::parse::Parse for TasksDef {
 				enum_path.span(),
 				"if specified manually, the task enum must be defined locally in this \
 				pallet and cannot be a re-export",
-			))
+			));
 		};
 		let enum_ident = last_seg.ident.clone();
 		let enum_arguments = last_seg.arguments.clone();
 
-		// We do this here because it would be improper to do something fallible like this at
-		// the expansion phase. Fallible stuff should happen during parsing.
-		let scrate = generate_access_from_frame_or_crate("frame-support")?;
-
-		Ok(TasksDef { tasks_attr, item_impl, tasks, scrate, enum_ident, enum_arguments })
+		Ok(TasksDef { tasks_attr, item_impl, tasks, enum_ident, enum_arguments })
 	}
 }
 
@@ -146,12 +140,11 @@ pub type PalletTaskEnumAttr = PalletTaskAttr<keywords::task_enum>;
 
 /// Parsing for a manually-specified (or auto-generated) task enum, optionally including the
 /// attached `#[pallet::task_enum]` attribute.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct TaskEnumDef {
 	pub attr: Option<PalletTaskEnumAttr>,
 	pub item_enum: ItemEnum,
-	pub scrate: Path,
-	pub type_use_generics: TokenStream2,
+	pub instance_usage: helper::InstanceUsage,
 }
 
 impl syn::parse::Parse for TaskEnumDef {
@@ -163,13 +156,10 @@ impl syn::parse::Parse for TaskEnumDef {
 			None => None,
 		};
 
-		// We do this here because it would be improper to do something fallible like this at
-		// the expansion phase. Fallible stuff should happen during parsing.
-		let scrate = generate_access_from_frame_or_crate("frame-support")?;
+		let instance_usage =
+			helper::check_type_def_gen(&item_enum.generics, item_enum.ident.span())?;
 
-		let type_use_generics = quote!(T);
-
-		Ok(TaskEnumDef { attr, item_enum, scrate, type_use_generics })
+		Ok(TaskEnumDef { attr, item_enum, instance_usage })
 	}
 }
 
@@ -204,7 +194,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_index(..)]` attribute",
-			))
+			));
 		};
 
 		let Some(condition_attr) = task_attrs
@@ -215,7 +205,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_condition(..)]` attribute",
-			))
+			));
 		};
 
 		let Some(list_attr) = task_attrs
@@ -226,7 +216,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_list(..)]` attribute",
-			))
+			));
 		};
 
 		let Some(weight_attr) = task_attrs
@@ -237,7 +227,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				item.sig.ident.span(),
 				"missing `#[pallet::task_weight(..)]` attribute",
-			))
+			));
 		};
 
 		if let Some(duplicate) = task_attrs
@@ -249,7 +239,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				duplicate.span(),
 				"unexpected extra `#[pallet::task_condition(..)]` attribute",
-			))
+			));
 		}
 
 		if let Some(duplicate) = task_attrs
@@ -261,7 +251,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				duplicate.span(),
 				"unexpected extra `#[pallet::task_list(..)]` attribute",
-			))
+			));
 		}
 
 		if let Some(duplicate) = task_attrs
@@ -273,7 +263,7 @@ impl syn::parse::Parse for TaskDef {
 			return Err(Error::new(
 				duplicate.span(),
 				"unexpected extra `#[pallet::task_index(..)]` attribute",
-			))
+			));
 		}
 
 		let mut arg_names = vec![];
@@ -425,11 +415,12 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskIndexAttr {
 		let colons = value.colons;
 		match value.meta {
 			TaskAttrMeta::TaskIndex(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
-			_ =>
+			_ => {
 				return Err(Error::new(
 					value.span(),
 					format!("`{:?}` cannot be converted to a `TaskIndexAttr`", value.meta),
-				)),
+				))
+			},
 		}
 	}
 }
@@ -443,11 +434,12 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskConditionAttr {
 		let colons = value.colons;
 		match value.meta {
 			TaskAttrMeta::TaskCondition(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
-			_ =>
+			_ => {
 				return Err(Error::new(
 					value.span(),
 					format!("`{:?}` cannot be converted to a `TaskConditionAttr`", value.meta),
-				)),
+				))
+			},
 		}
 	}
 }
@@ -461,11 +453,12 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskWeightAttr {
 		let colons = value.colons;
 		match value.meta {
 			TaskAttrMeta::TaskWeight(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
-			_ =>
+			_ => {
 				return Err(Error::new(
 					value.span(),
 					format!("`{:?}` cannot be converted to a `TaskWeightAttr`", value.meta),
-				)),
+				))
+			},
 		}
 	}
 }
@@ -479,11 +472,12 @@ impl TryFrom<PalletTaskAttr<TaskAttrMeta>> for TaskListAttr {
 		let colons = value.colons;
 		match value.meta {
 			TaskAttrMeta::TaskList(meta) => parse2(quote!(#pound[#pallet #colons #meta])),
-			_ =>
+			_ => {
 				return Err(Error::new(
 					value.span(),
 					format!("`{:?}` cannot be converted to a `TaskListAttr`", value.meta),
-				)),
+				))
+			},
 		}
 	}
 }
@@ -502,10 +496,10 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
 				.map(|seg| seg.ident.clone())
 				.collect::<Vec<_>>();
 			let (Some(seg1), Some(_), None) = (segs.get(0), segs.get(1), segs.get(2)) else {
-				return true
+				return true;
 			};
 			if seg1 != "pallet" {
-				return true
+				return true;
 			}
 			if attr.is_some() {
 				duplicate = Some(found_attr.span());
@@ -516,7 +510,10 @@ fn extract_pallet_attr(item_enum: &mut ItemEnum) -> Result<Option<TokenStream2>>
 		.cloned()
 		.collect();
 	if let Some(span) = duplicate {
-		return Err(Error::new(span, "only one `#[pallet::_]` attribute is supported on this item"))
+		return Err(Error::new(
+			span,
+			"only one `#[pallet::_]` attribute is supported on this item",
+		));
 	}
 	Ok(attr)
 }
@@ -527,7 +524,7 @@ fn partition_tasks_attrs(item_impl: &ItemImpl) -> (Vec<syn::Attribute>, Vec<syn:
 		let (Some(prefix), Some(suffix), None) =
 			(path_segs.next(), path_segs.next(), path_segs.next())
 		else {
-			return false
+			return false;
 		};
 		prefix.ident == "pallet" && suffix.ident == "tasks_experimental"
 	})
@@ -537,7 +534,7 @@ fn partition_task_attrs(item: &ImplItemFn) -> (Vec<syn::Attribute>, Vec<syn::Att
 	item.attrs.clone().into_iter().partition(|attr| {
 		let mut path_segs = attr.path().segments.iter();
 		let (Some(prefix), Some(suffix)) = (path_segs.next(), path_segs.next()) else {
-			return false
+			return false;
 		};
 		// N.B: the `PartialEq` impl between `Ident` and `&str` is more efficient than
 		// parsing and makes no stack or heap allocations
@@ -896,7 +893,7 @@ fn test_parse_task_enum_def_non_task_name() {
 	simulate_manifest_dir("../../examples/basic", || {
 		parse2::<TaskEnumDef>(quote! {
 			#[pallet::task_enum]
-			pub enum Something {
+			pub enum Something<T> {
 				Foo
 			}
 		})
@@ -921,7 +918,7 @@ fn test_parse_task_enum_def_missing_attr_allowed() {
 fn test_parse_task_enum_def_missing_attr_alternate_name_allowed() {
 	simulate_manifest_dir("../../examples/basic", || {
 		parse2::<TaskEnumDef>(quote! {
-			pub enum Foo {
+			pub enum Foo<T> {
 				Red,
 			}
 		})
@@ -951,7 +948,7 @@ fn test_parse_task_enum_def_wrong_item() {
 		assert_parse_error_matches!(
 			parse2::<TaskEnumDef>(quote! {
 				#[pallet::task_enum]
-				pub struct Something;
+				pub struct Something<T>;
 			}),
 			"expected `enum`"
 		);

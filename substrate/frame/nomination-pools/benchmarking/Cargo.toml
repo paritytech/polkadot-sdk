@@ -4,7 +4,7 @@ version = "26.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME nomination pools pallet benchmarking"
 readme = "README.md"
@@ -26,26 +26,24 @@ frame-election-provider-support = { workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 pallet-bags-list = { workspace = true }
-pallet-staking = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-nomination-pools = { workspace = true }
+pallet-staking = { workspace = true }
 
 # Substrate Primitives
 sp-runtime = { workspace = true }
 sp-runtime-interface = { workspace = true }
 sp-staking = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 pallet-balances = { workspace = true }
-pallet-timestamp = { workspace = true, default-features = true }
 pallet-staking-reward-curve = { workspace = true, default-features = true }
+pallet-timestamp = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-io = { workspace = true, default-features = true }
 
 [features]
 default = ["std"]
-
 std = [
 	"codec/std",
 	"frame-benchmarking/std",
@@ -64,9 +62,7 @@ std = [
 	"sp-runtime-interface/std",
 	"sp-runtime/std",
 	"sp-staking/std",
-	"sp-std/std",
 ]
-
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",
 	"frame-election-provider-support/runtime-benchmarks",

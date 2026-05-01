@@ -32,8 +32,9 @@ use sc_network_light::light_client_requests::handler::LightClientRequestHandler;
 use sc_network_sync::{
 	block_request_handler::BlockRequestHandler,
 	engine::SyncingEngine,
-	service::network::{NetworkServiceHandle, NetworkServiceProvider},
+	service::network::NetworkServiceProvider,
 	state_request_handler::StateRequestHandler,
+	strategy::polkadot::{PolkadotSyncingStrategy, PolkadotSyncingStrategyConfig},
 };
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{Block as BlockT, Zero};
@@ -60,7 +61,7 @@ impl TestNetwork {
 
 	pub fn start_network(
 		self,
-	) -> (Arc<TestNetworkService>, (impl Stream<Item = Event> + std::marker::Unpin)) {
+	) -> (Arc<TestNetworkService>, impl Stream<Item = Event> + std::marker::Unpin) {
 		let worker = self.network;
 		let service = worker.service().clone();
 		let event_stream = service.event_stream("test");
@@ -77,7 +78,7 @@ struct TestNetworkBuilder {
 	client: Option<Arc<substrate_test_runtime_client::TestClient>>,
 	listen_addresses: Vec<Multiaddr>,
 	set_config: Option<config::SetConfig>,
-	chain_sync_network: Option<(NetworkServiceProvider, NetworkServiceHandle)>,
+	chain_sync_network: Option<NetworkServiceProvider>,
 	notification_protocols: Vec<config::NonDefaultSetConfig>,
 	config: Option<config::NetworkConfiguration>,
 }
@@ -154,10 +155,11 @@ impl TestNetworkBuilder {
 
 		let protocol_id = ProtocolId::from("test-protocol-name");
 		let fork_id = Some(String::from("test-fork-id"));
-		let mut full_net_config = FullNetworkConfiguration::new(&network_config);
+		let mut full_net_config = FullNetworkConfiguration::new(&network_config, None);
 
-		let (chain_sync_network_provider, chain_sync_network_handle) =
+		let chain_sync_network_provider =
 			self.chain_sync_network.unwrap_or(NetworkServiceProvider::new());
+		let chain_sync_network_handle = chain_sync_network_provider.handle();
 		let mut block_relay_params =
 			BlockRequestHandler::new::<
 				NetworkWorker<
@@ -197,9 +199,25 @@ impl TestNetworkBuilder {
 				.iter()
 				.map(|bootnode| bootnode.peer_id.into())
 				.collect(),
+			None,
 		);
 		let peer_store_handle: Arc<dyn PeerStoreProvider> = Arc::new(peer_store.handle());
 		tokio::spawn(peer_store.run().boxed());
+
+		let syncing_config = PolkadotSyncingStrategyConfig {
+			mode: network_config.sync_mode,
+			max_parallel_downloads: network_config.max_parallel_downloads,
+			max_blocks_per_request: network_config.max_blocks_per_request,
+			metrics_registry: None,
+			state_request_protocol_name: state_request_protocol_config.name.clone(),
+			block_downloader: block_relay_params.downloader,
+			min_peers_to_start_warp_sync: None,
+			archive_blocks: false,
+		};
+		// Initialize syncing strategy.
+		let syncing_strategy = Box::new(
+			PolkadotSyncingStrategy::new(syncing_config, client.clone(), None, None).unwrap(),
+		);
 
 		let (engine, chain_sync_service, block_announce_config) = SyncingEngine::new(
 			Roles::from(&config::Role::Full),
@@ -208,14 +226,11 @@ impl TestNetworkBuilder {
 			NotificationMetrics::new(None),
 			&full_net_config,
 			protocol_id.clone(),
-			&None,
-			Box::new(sp_consensus::block_validation::DefaultBlockAnnounceValidator),
 			None,
+			Box::new(sp_consensus::block_validation::DefaultBlockAnnounceValidator),
+			syncing_strategy,
 			chain_sync_network_handle,
 			import_queue.service(),
-			block_relay_params.downloader,
-			state_request_protocol_config.name.clone(),
-			None,
 			Arc::clone(&peer_store_handle),
 		)
 		.unwrap();
@@ -266,7 +281,7 @@ impl TestNetworkBuilder {
 			protocol_id,
 			fork_id,
 			metrics_registry: None,
-			bitswap_config: None,
+			ipfs_config: None,
 			notification_metrics: NotificationMetrics::new(None),
 		})
 		.unwrap();
@@ -350,7 +365,7 @@ async fn notifications_state_consistent() {
 		iterations += 1;
 		if iterations >= 1_000 {
 			assert!(something_happened);
-			break
+			break;
 		}
 
 		// Start by sending a notification from node1 to node2 and vice-versa. Part of the
@@ -363,10 +378,10 @@ async fn notifications_state_consistent() {
 		}
 
 		// Also randomly disconnect the two nodes from time to time.
-		if rand::random::<u8>() % 20 == 0 {
+		if rand::random::<u8>().is_multiple_of(20) {
 			node1.disconnect_peer(node2.local_peer_id(), PROTOCOL_NAME.into());
 		}
-		if rand::random::<u8>() % 20 == 0 {
+		if rand::random::<u8>().is_multiple_of(20) {
 			node2.disconnect_peer(node1.local_peer_id(), PROTOCOL_NAME.into());
 		}
 
@@ -378,10 +393,12 @@ async fn notifications_state_consistent() {
 			// forever while nothing at all happens on the network.
 			let continue_test = futures_timer::Delay::new(Duration::from_millis(20));
 			match future::select(future::select(next1, next2), continue_test).await {
-				future::Either::Left((future::Either::Left((Some(ev), _)), _)) =>
-					future::Either::Left(ev),
-				future::Either::Left((future::Either::Right((Some(ev), _)), _)) =>
-					future::Either::Right(ev),
+				future::Either::Left((future::Either::Left((Some(ev), _)), _)) => {
+					future::Either::Left(ev)
+				},
+				future::Either::Left((future::Either::Right((Some(ev), _)), _)) => {
+					future::Either::Right(ev)
+				},
 				future::Either::Right(_) => continue,
 				_ => break,
 			}
@@ -616,7 +633,7 @@ async fn fallback_name_working() {
 				},
 				NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 					assert_eq!(negotiated_fallback, None);
-					break
+					break;
 				},
 				_ => {},
 			}
@@ -631,7 +648,7 @@ async fn fallback_name_working() {
 			},
 			NotificationEvent::NotificationStreamOpened { negotiated_fallback, .. } => {
 				assert_eq!(negotiated_fallback, Some(PROTOCOL_NAME.into()));
-				break
+				break;
 			},
 			_ => {},
 		}

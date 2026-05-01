@@ -15,10 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use crate::traits::{
-	AssetExchange, AssetLock, CallDispatcher, ClaimAssets, ConvertOrigin, DropAssets, ExportXcm,
-	FeeManager, HandleHrmpChannelAccepted, HandleHrmpChannelClosing,
-	HandleHrmpNewChannelOpenRequest, OnResponse, ProcessTransaction, RecordXcm, ShouldExecute,
-	TransactAsset, VersionChangeNotifier, WeightBounds, WeightTrader,
+	AssetExchange, AssetLock, CallDispatcher, ConvertOrigin, EventEmitter, ExportXcm, FeeManager,
+	HandleHrmpChannelAccepted, HandleHrmpChannelClosing, HandleHrmpNewChannelOpenRequest,
+	OnResponse, ProcessTransaction, RecordXcm, ShouldExecute, TransactAsset, TrapAndClaimAssets,
+	VersionChangeNotifier, WeightBounds, WeightTrader,
 };
 use frame_support::{
 	dispatch::{GetDispatchInfo, Parameter, PostDispatchInfo},
@@ -33,7 +33,14 @@ pub trait Config {
 	type RuntimeCall: Parameter + Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo;
 
 	/// How to send an onward XCM message.
+	///
+	/// The sender is tasked with returning the assets it needs to pay for delivery fees.
+	/// Only one asset should be returned as delivery fees, any other will be ignored by
+	/// the executor.
 	type XcmSender: SendXcm;
+
+	/// How to emit XCM events.
+	type XcmEventEmitter: EventEmitter;
 
 	/// How to withdraw and deposit an asset.
 	type AssetTransactor: TransactAsset;
@@ -66,18 +73,19 @@ pub trait Config {
 	/// What to do when a response of a query is found.
 	type ResponseHandler: OnResponse;
 
-	/// The general asset trap - handler for when assets are left in the Holding Register at the
-	/// end of execution.
-	type AssetTrap: DropAssets;
+	/// The general asset trap - handlers for:
+	/// 1. when assets are left in the Holding Register at the end of execution,
+	/// 2. when assets are claimed from the trap back into the Holding Register.
+	type AssetTrap: TrapAndClaimAssets;
 
 	/// Handler for asset locking.
 	type AssetLocker: AssetLock;
 
 	/// Handler for exchanging assets.
+	///
+	/// This is used in the executor to swap the asset wanted for fees with the asset needed for
+	/// delivery fees.
 	type AssetExchanger: AssetExchange;
-
-	/// The handler for when there is an instruction to claim assets.
-	type AssetClaims: ClaimAssets;
 
 	/// How we handle version subscription requests.
 	type SubscriptionService: VersionChangeNotifier;

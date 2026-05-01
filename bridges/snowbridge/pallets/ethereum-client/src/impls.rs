@@ -4,42 +4,30 @@ use super::*;
 use frame_support::ensure;
 use snowbridge_beacon_primitives::ExecutionProof;
 
-use snowbridge_core::inbound::{
+use alloy_primitives::Log as AlloyLog;
+use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
+use snowbridge_verification_primitives::{
+	receipt::verify_receipt_proof,
 	VerificationError::{self, *},
-	*,
+	Verifier, *,
 };
-use snowbridge_ethereum::Receipt;
 
 impl<T: Config> Verifier for Pallet<T> {
 	/// Verify a message by verifying the existence of the corresponding
 	/// Ethereum log in a block. Returns the log if successful. The execution header containing
-	/// the log should be in the beacon client storage, meaning it has been verified and is an
-	/// ancestor of a finalized beacon block.
+	/// the log is sent with the message. The beacon header containing the execution header
+	/// is also sent with the message, to check if the header is an ancestor of a finalized
+	/// header.
 	fn verify(event_log: &Log, proof: &Proof) -> Result<(), VerificationError> {
 		Self::verify_execution_proof(&proof.execution_proof)
 			.map_err(|e| InvalidExecutionProof(e.into()))?;
 
-		let receipt = Self::verify_receipt_inclusion(
+		Self::verify_receipt_inclusion(
 			proof.execution_proof.execution_header.receipts_root(),
-			&proof.receipt_proof.1,
+			event_log.tx_index,
+			&proof.receipt_proof,
+			event_log,
 		)?;
-
-		event_log.validate().map_err(|_| InvalidLog)?;
-
-		// Convert snowbridge_core::inbound::Log to snowbridge_ethereum::Log.
-		let event_log = snowbridge_ethereum::Log {
-			address: event_log.address,
-			topics: event_log.topics.clone(),
-			data: event_log.data.clone(),
-		};
-
-		if !receipt.contains_log(&event_log) {
-			log::error!(
-				target: "ethereum-client",
-				"💫 Event log not found in receipt for transaction",
-			);
-			return Err(LogNotFound)
-		}
 
 		Ok(())
 	}
@@ -50,21 +38,36 @@ impl<T: Config> Pallet<T> {
 	/// `proof.block_hash`.
 	pub fn verify_receipt_inclusion(
 		receipts_root: H256,
+		tx_index: u64,
 		receipt_proof: &[Vec<u8>],
-	) -> Result<Receipt, VerificationError> {
-		let result = verify_receipt_proof(receipts_root, receipt_proof).ok_or(InvalidProof)?;
-
-		match result {
-			Ok(receipt) => Ok(receipt),
-			Err(err) => {
-				log::trace!(
-					target: "ethereum-client",
-					"💫 Failed to decode transaction receipt: {}",
-					err
-				);
-				Err(InvalidProof)
-			},
+		log: &Log,
+	) -> Result<(), VerificationError> {
+		let receipt =
+			verify_receipt_proof(receipts_root, tx_index, receipt_proof).ok_or(InvalidProof)?;
+		if !receipt.logs().iter().any(|l| Self::check_log_match(log, l)) {
+			tracing::error!(
+				target: "ethereum-client",
+				"💫 Event log not found in receipt for transaction",
+			);
+			return Err(LogNotFound);
 		}
+		Ok(())
+	}
+
+	fn check_log_match(log: &Log, receipt_log: &AlloyLog) -> bool {
+		let equal = receipt_log.data.data.0 == log.data &&
+			receipt_log.address.0 == log.address.0 &&
+			receipt_log.topics().len() == log.topics.len();
+		if !equal {
+			return false;
+		}
+		for (_, (topic1, topic2)) in receipt_log.topics().iter().zip(log.topics.iter()).enumerate()
+		{
+			if topic1.0 != topic2.0 {
+				return false;
+			}
+		}
+		true
 	}
 
 	/// Validates an execution header with ancestry_proof against a finalized checkpoint on
@@ -78,25 +81,6 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			execution_proof.header.slot <= latest_finalized_state.slot,
 			Error::<T>::HeaderNotFinalized
-		);
-
-		// Gets the hash tree root of the execution header, in preparation for the execution
-		// header proof (used to check that the execution header is rooted in the beacon
-		// header body.
-		let execution_header_root: H256 = execution_proof
-			.execution_header
-			.hash_tree_root()
-			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
-
-		ensure!(
-			verify_merkle_branch(
-				execution_header_root,
-				&execution_proof.execution_branch,
-				config::EXECUTION_HEADER_SUBTREE_INDEX,
-				config::EXECUTION_HEADER_DEPTH,
-				execution_proof.header.body_root
-			),
-			Error::<T>::InvalidExecutionHeaderProof
 		);
 
 		let beacon_block_root: H256 = execution_proof
@@ -120,11 +104,30 @@ impl<T: Config> Pallet<T> {
 				let state = <FinalizedBeaconState<T>>::get(beacon_block_root)
 					.ok_or(Error::<T>::ExpectedFinalizedHeaderNotStored)?;
 				if execution_proof.header.slot != state.slot {
-					return Err(Error::<T>::ExpectedFinalizedHeaderNotStored.into())
+					return Err(Error::<T>::ExpectedFinalizedHeaderNotStored.into());
 				}
 			},
 		}
 
+		// Gets the hash tree root of the execution header, in preparation for the execution
+		// header proof (used to check that the execution header is rooted in the beacon
+		// header body.
+		let execution_header_root: H256 = execution_proof
+			.execution_header
+			.hash_tree_root()
+			.map_err(|_| Error::<T>::BlockBodyHashTreeRootFailed)?;
+
+		let execution_header_gindex = Self::execution_header_gindex();
+		ensure!(
+			verify_merkle_branch(
+				execution_header_root,
+				&execution_proof.execution_branch,
+				subtree_index(execution_header_gindex),
+				generalized_index_length(execution_header_gindex),
+				execution_proof.header.body_root
+			),
+			Error::<T>::InvalidExecutionHeaderProof
+		);
 		Ok(())
 	}
 

@@ -29,18 +29,8 @@ pub struct StorageQuery<Key> {
 	/// The type of the storage query.
 	#[serde(rename = "type")]
 	pub query_type: StorageQueryType,
-}
-
-/// The storage item to query with pagination.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PaginatedStorageQuery<Key> {
-	/// The provided key.
-	pub key: Key,
-	/// The type of the storage query.
-	#[serde(rename = "type")]
-	pub query_type: StorageQueryType,
-	/// The pagination key from which the iteration should resume.
+	/// The optional pagination start key for descendants queries.
+	/// Only valid for `DescendantsValues` and `DescendantsHashes` query types.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	#[serde(default)]
 	pub pagination_start_key: Option<Key>,
@@ -78,10 +68,14 @@ pub struct StorageResult {
 	/// The result of the query.
 	#[serde(flatten)]
 	pub result: StorageResultType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<String>,
 }
 
 /// The type of the storage query.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum StorageResultType {
 	/// Fetch the value of the provided key.
@@ -92,55 +86,141 @@ pub enum StorageResultType {
 	ClosestDescendantMerkleValue(String),
 }
 
-/// The error of a storage call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StorageResultErr {
-	/// The hex-encoded key of the result.
-	pub key: String,
-	/// The result of the query.
-	#[serde(flatten)]
-	pub error: StorageResultType,
-}
-
 /// The result of a storage call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ArchiveStorageResult {
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "event")]
+pub enum ArchiveStorageEvent {
 	/// Query generated a result.
-	Ok(ArchiveStorageMethodOk),
+	Storage(StorageResult),
 	/// Query encountered an error.
-	Err(ArchiveStorageMethodErr),
+	StorageError(ArchiveStorageMethodErr),
+	/// Operation storage is done.
+	StorageDone,
 }
 
-impl ArchiveStorageResult {
-	/// Create a new `ArchiveStorageResult::Ok` result.
-	pub fn ok(result: Vec<StorageResult>, discarded_items: usize) -> Self {
-		Self::Ok(ArchiveStorageMethodOk { result, discarded_items })
-	}
-
-	/// Create a new `ArchiveStorageResult::Err` result.
+impl ArchiveStorageEvent {
+	/// Create a new `ArchiveStorageEvent::StorageErr` event.
 	pub fn err(error: String) -> Self {
-		Self::Err(ArchiveStorageMethodErr { error })
+		Self::StorageError(ArchiveStorageMethodErr { error })
 	}
-}
 
-/// The result of a storage call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ArchiveStorageMethodOk {
-	/// Reported results.
-	pub result: Vec<StorageResult>,
-	/// Number of discarded items.
-	pub discarded_items: usize,
+	/// Create a new `ArchiveStorageEvent::StorageResult` event.
+	pub fn result(result: StorageResult) -> Self {
+		Self::Storage(result)
+	}
+
+	/// Checks if the event is a `StorageDone` event.
+	pub fn is_done(&self) -> bool {
+		matches!(self, Self::StorageDone)
+	}
+
+	/// Checks if the event is a `StorageErr` event.
+	pub fn is_err(&self) -> bool {
+		matches!(self, Self::StorageError(_))
+	}
+
+	/// Checks if the event is a `StorageResult` event.
+	pub fn is_result(&self) -> bool {
+		matches!(self, Self::Storage(_))
+	}
 }
 
 /// The error of a storage call.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ArchiveStorageMethodErr {
 	/// Reported error.
 	pub error: String,
+}
+
+/// The type of the archive storage difference query.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ArchiveStorageDiffType {
+	/// The result is provided as value of the key.
+	Value,
+	/// The result the hash of the value of the key.
+	Hash,
+}
+
+/// The storage item to query.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageDiffItem<Key> {
+	/// The provided key.
+	pub key: Key,
+	/// The type of the storage query.
+	pub return_type: ArchiveStorageDiffType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<Key>,
+}
+
+/// The result of a storage difference call operation type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ArchiveStorageDiffOperationType {
+	/// The key is added.
+	Added,
+	/// The key is modified.
+	Modified,
+	/// The key is removed.
+	Deleted,
+}
+
+/// The result of an individual storage difference key.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArchiveStorageDiffResult {
+	/// The hex-encoded key of the result.
+	pub key: String,
+	/// The result of the query.
+	#[serde(flatten)]
+	pub result: StorageResultType,
+	/// The operation type.
+	#[serde(rename = "type")]
+	pub operation_type: ArchiveStorageDiffOperationType,
+	/// The child trie key if provided.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	#[serde(default)]
+	pub child_trie_key: Option<String>,
+}
+
+/// The event generated by the `archive_storageDiff` method.
+///
+/// The `archive_storageDiff` can generate the following events:
+///  - `storageDiff` event - generated when a `ArchiveStorageDiffResult` is produced.
+///  - `storageDiffError` event - generated when an error is produced.
+///  - `storageDiffDone` event - generated when the `archive_storageDiff` method completed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "event")]
+pub enum ArchiveStorageDiffEvent {
+	/// The `storageDiff` event.
+	StorageDiff(ArchiveStorageDiffResult),
+	/// The `storageDiffError` event.
+	StorageDiffError(ArchiveStorageMethodErr),
+	/// The `storageDiffDone` event.
+	StorageDiffDone,
+}
+
+impl ArchiveStorageDiffEvent {
+	/// Create a new `ArchiveStorageDiffEvent::StorageDiffError` event.
+	pub fn err(error: String) -> Self {
+		Self::StorageDiffError(ArchiveStorageMethodErr { error })
+	}
+
+	/// Checks if the event is a `StorageDiffDone` event.
+	pub fn is_done(&self) -> bool {
+		matches!(self, Self::StorageDiffDone)
+	}
+
+	/// Checks if the event is a `StorageDiffError` event.
+	pub fn is_err(&self) -> bool {
+		matches!(self, Self::StorageDiffError(_))
+	}
 }
 
 #[cfg(test)]
@@ -148,10 +228,120 @@ mod tests {
 	use super::*;
 
 	#[test]
+	fn archive_diff_input() {
+		// Item with Value.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"value"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Hash,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"hash"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Value and child trie key.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Value,
+			child_trie_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"value","childTrieKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash and child trie key.
+		let item = ArchiveStorageDiffItem {
+			key: "0x1",
+			return_type: ArchiveStorageDiffType::Hash,
+			child_trie_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","returnType":"hash","childTrieKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffItem<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+	}
+
+	#[test]
+	fn archive_diff_output() {
+		// Item with Value.
+		let item = ArchiveStorageDiffResult {
+			key: "0x1".into(),
+			result: StorageResultType::Value("res".into()),
+			operation_type: ArchiveStorageDiffOperationType::Added,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","value":"res","type":"added"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash.
+		let item = ArchiveStorageDiffResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			operation_type: ArchiveStorageDiffOperationType::Modified,
+			child_trie_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","hash":"res","type":"modified"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Hash, child trie key and removed.
+		let item = ArchiveStorageDiffResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			operation_type: ArchiveStorageDiffOperationType::Deleted,
+			child_trie_key: Some("0x2".into()),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","hash":"res","type":"deleted","childTrieKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: ArchiveStorageDiffResult = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+	}
+
+	#[test]
 	fn storage_result() {
 		// Item with Value.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Value("res".into()) };
+		let item = StorageResult {
+			key: "0x1".into(),
+			result: StorageResultType::Value("res".into()),
+			child_trie_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","value":"res"}"#;
@@ -161,8 +351,11 @@ mod tests {
 		assert_eq!(dec, item);
 
 		// Item with Hash.
-		let item =
-			StorageResult { key: "0x1".into(), result: StorageResultType::Hash("res".into()) };
+		let item = StorageResult {
+			key: "0x1".into(),
+			result: StorageResultType::Hash("res".into()),
+			child_trie_key: None,
+		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
 		let exp = r#"{"key":"0x1","hash":"res"}"#;
@@ -175,6 +368,7 @@ mod tests {
 		let item = StorageResult {
 			key: "0x1".into(),
 			result: StorageResultType::ClosestDescendantMerkleValue("res".into()),
+			child_trie_key: None,
 		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
@@ -188,60 +382,7 @@ mod tests {
 	#[test]
 	fn storage_query() {
 		// Item with Value.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::Value };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"value"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with Hash.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::Hash };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"hash"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with DescendantsValues.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::DescendantsValues };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"descendantsValues"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with DescendantsHashes.
-		let item = StorageQuery { key: "0x1", query_type: StorageQueryType::DescendantsHashes };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"descendantsHashes"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-
-		// Item with Merkle.
-		let item =
-			StorageQuery { key: "0x1", query_type: StorageQueryType::ClosestDescendantMerkleValue };
-		// Encode
-		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"closestDescendantMerkleValue"}"#;
-		assert_eq!(ser, exp);
-		// Decode
-		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec, item);
-	}
-
-	#[test]
-	fn storage_query_paginated() {
-		let item = PaginatedStorageQuery {
+		let item = StorageQuery {
 			key: "0x1",
 			query_type: StorageQueryType::Value,
 			pagination_start_key: None,
@@ -252,22 +393,90 @@ mod tests {
 		assert_eq!(ser, exp);
 		// Decode
 		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
-		assert_eq!(dec.key, item.key);
-		assert_eq!(dec.query_type, item.query_type);
-		let dec: PaginatedStorageQuery<&str> = serde_json::from_str(exp).unwrap();
 		assert_eq!(dec, item);
 
-		let item = PaginatedStorageQuery {
+		// Item with Hash.
+		let item = StorageQuery {
 			key: "0x1",
-			query_type: StorageQueryType::Value,
+			query_type: StorageQueryType::Hash,
+			pagination_start_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"hash"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with DescendantsValues.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsValues,
+			pagination_start_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"descendantsValues"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with DescendantsHashes.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"descendantsHashes"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with Merkle.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::ClosestDescendantMerkleValue,
+			pagination_start_key: None,
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"closestDescendantMerkleValue"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with DescendantsValues and paginationStartKey.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsValues,
 			pagination_start_key: Some("0x2"),
 		};
 		// Encode
 		let ser = serde_json::to_string(&item).unwrap();
-		let exp = r#"{"key":"0x1","type":"value","paginationStartKey":"0x2"}"#;
+		let exp = r#"{"key":"0x1","type":"descendantsValues","paginationStartKey":"0x2"}"#;
 		assert_eq!(ser, exp);
 		// Decode
-		let dec: PaginatedStorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
+		assert_eq!(dec, item);
+
+		// Item with DescendantsHashes and paginationStartKey.
+		let item = StorageQuery {
+			key: "0x1",
+			query_type: StorageQueryType::DescendantsHashes,
+			pagination_start_key: Some("0x2"),
+		};
+		// Encode
+		let ser = serde_json::to_string(&item).unwrap();
+		let exp = r#"{"key":"0x1","type":"descendantsHashes","paginationStartKey":"0x2"}"#;
+		assert_eq!(ser, exp);
+		// Decode
+		let dec: StorageQuery<&str> = serde_json::from_str(exp).unwrap();
 		assert_eq!(dec, item);
 	}
 }

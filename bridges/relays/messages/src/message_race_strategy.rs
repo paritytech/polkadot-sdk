@@ -67,7 +67,8 @@ impl<
 		TargetHeaderHash,
 		SourceNoncesRange,
 		Proof,
-	> where
+	>
+where
 	SourceHeaderHash: Clone,
 	SourceHeaderNumber: Clone + Ord,
 	SourceNoncesRange: NoncesRange,
@@ -120,12 +121,12 @@ impl<
 
 		// if we have already selected nonces that we want to submit, do nothing
 		if race_state.nonces_to_submit().is_some() {
-			return None
+			return None;
 		}
 
 		// if we already submitted some nonces, do nothing
 		if race_state.nonces_submitted().is_some() {
-			return None
+			return None;
 		}
 
 		// find first entry that may be delivered to the target node
@@ -162,7 +163,7 @@ impl<
 		while let Some((queued_at, queued_range)) = self.source_queue.pop_front() {
 			if let Some(range_to_requeue) = queued_range.greater_than(nonce) {
 				self.source_queue.push_front((queued_at, range_to_requeue));
-				break
+				break;
 			}
 		}
 	}
@@ -189,7 +190,8 @@ impl<
 		TargetHeaderHash,
 		SourceNoncesRange,
 		Proof,
-	> where
+	>
+where
 	SourceHeaderHash: Clone + Debug + Send + Sync,
 	SourceHeaderNumber: Clone + Ord + Debug + Send + Sync,
 	SourceNoncesRange: NoncesRange + Debug + Send + Sync,
@@ -200,10 +202,6 @@ impl<
 	type SourceNoncesRange = SourceNoncesRange;
 	type ProofParameters = ();
 	type TargetNoncesData = ();
-
-	fn is_empty(&self) -> bool {
-		self.source_queue.is_empty()
-	}
 
 	async fn required_source_header_at_target<
 		RS: RaceState<
@@ -223,8 +221,9 @@ impl<
 	fn best_at_source(&self) -> Option<MessageNonce> {
 		let best_in_queue = self.source_queue.back().map(|(_, range)| range.end());
 		match (best_in_queue, self.best_target_nonce) {
-			(Some(best_in_queue), Some(best_target_nonce)) if best_in_queue > best_target_nonce =>
-				Some(best_in_queue),
+			(Some(best_in_queue), Some(best_target_nonce)) if best_in_queue > best_target_nonce => {
+				Some(best_in_queue)
+			},
 			(_, Some(best_target_nonce)) => Some(best_target_nonce),
 			(_, None) => None,
 		}
@@ -277,11 +276,11 @@ impl<
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_to_select_new_nonces {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing nonces to submit: {:?}",
-				nonce,
-				race_state.nonces_to_submit(),
+				%nonce,
+				nonces_to_submit=?race_state.nonces_to_submit(),
+				"Latest nonce at target. Clearing nonces to submit"
 			);
 
 			race_state.reset_nonces_to_submit();
@@ -294,11 +293,11 @@ impl<
 			.map(|nonces| nonce >= *nonces.start())
 			.unwrap_or(false);
 		if need_new_nonces_to_submit {
-			log::trace!(
+			tracing::trace!(
 				target: "bridge",
-				"Latest nonce at target is {}. Clearing submitted nonces: {:?}",
-				nonce,
-				race_state.nonces_submitted(),
+				%nonce,
+				nonces_submitted=?race_state.nonces_submitted(),
+				"Latest nonce at target. Clearing submitted nonces"
 			);
 
 			race_state.reset_nonces_submitted();
@@ -382,14 +381,6 @@ mod tests {
 	}
 
 	#[test]
-	fn strategy_is_empty_works() {
-		let mut strategy = BasicStrategy::<TestMessageLane>::new();
-		assert!(strategy.is_empty());
-		strategy.source_nonces_updated(header_id(1), source_nonces(1..=1));
-		assert!(!strategy.is_empty());
-	}
-
-	#[test]
 	fn best_at_source_is_never_lower_than_target_nonce() {
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
 		assert_eq!(strategy.best_at_source(), None);
@@ -464,7 +455,7 @@ mod tests {
 		}
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn nothing_is_selected_if_something_is_already_selected() {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
@@ -474,7 +465,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn nothing_is_selected_if_something_is_already_submitted() {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
@@ -484,7 +475,7 @@ mod tests {
 		assert_eq!(strategy.select_nonces_to_deliver(state.clone()).await, None);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn select_nonces_to_deliver_works() {
 		let mut state = TestRaceStateImpl::default();
 		let mut strategy = BasicStrategy::<TestMessageLane>::new();
@@ -562,7 +553,7 @@ mod tests {
 		assert_eq!(source_queue_nonces(&strategy.source_queue), Vec::<MessageNonce>::new(),);
 	}
 
-	#[async_std::test]
+	#[tokio::test]
 	async fn previous_nonces_are_selected_if_reorg_happens_at_target_chain() {
 		let source_header_1 = header_id(1);
 		let target_header_1 = header_id(1);

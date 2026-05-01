@@ -17,7 +17,7 @@
 
 //! # Shared JSON-RPC client related code and abstractions.
 //!
-//! It exposes a `WebSocket JSON-RPC` client that implements the RPC interface in [`sc-rpc-api`]
+//! It exposes a `WebSocket JSON-RPC` client that implements the RPC interface in `sc-rpc-api`
 //! along with some abstractions.
 //!
 //! ## Usage
@@ -199,11 +199,12 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use sp_runtime::testing::{Block as TBlock, ExtrinsicWrapper, Header, H256};
+	use sp_runtime::testing::{Block as TBlock, Header, MockCallU64, TestXt, H256};
 	use std::sync::Arc;
 	use tokio::sync::Mutex;
 
-	type Block = TBlock<ExtrinsicWrapper<()>>;
+	type UncheckedXt = TestXt<MockCallU64, ()>;
+	type Block = TBlock<UncheckedXt>;
 	type BlockNumber = u64;
 	type Hash = H256;
 

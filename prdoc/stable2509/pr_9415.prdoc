@@ -1,0 +1,9 @@
+title: Cleanup staking try states + fix min bonds
+doc:
+- audience: Runtime Dev
+  description: ensures staking try-state code passes, and fixes issues of having a mistakenly high min-bond for validators
+crates:
+- name: pallet-nomination-pools
+  bump: patch
+- name: pallet-staking-async
+  bump: patch

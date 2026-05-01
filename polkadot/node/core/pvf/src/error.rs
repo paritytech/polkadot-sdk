@@ -39,6 +39,11 @@ pub enum ValidationError {
 	/// Preparation or execution issue caused by an internal condition. Should not vote against.
 	#[error("candidate validation: internal: {0}")]
 	Internal(#[from] InternalValidationError),
+	/// The execution deadline of allowed_ancestry_len + 1 has been reached. Jobs like backing have
+	/// a limited time to execute. Once the deadline is reached, the current candidate cannot be
+	/// backed, regardless of its validity.
+	#[error("candidate validation: execution deadline has been reached.")]
+	ExecutionDeadline,
 }
 
 /// A description of an error raised during executing a PVF and can be attributed to the combination
@@ -52,6 +57,9 @@ pub enum InvalidCandidate {
 	/// PVF execution (compilation is not included) took more time than was allotted.
 	#[error("invalid: hard timeout")]
 	HardTimeout,
+	/// Proof-of-validity failed to decompress correctly
+	#[error("invalid: PoV failed to decompress")]
+	PoVDecompressionFailure,
 }
 
 /// Possibly transient issue that may resolve after retries.
@@ -90,6 +98,9 @@ pub enum PossiblyInvalidError {
 	/// Possibly related to local issues or dirty node update. May be retried with re-preparation.
 	#[error("possibly invalid: runtime construction: {0}")]
 	RuntimeConstruction(String),
+	/// The artifact is corrupted, re-prepare the artifact and try again.
+	#[error("possibly invalid: artifact is corrupted")]
+	CorruptedArtifact,
 }
 
 impl From<PrepareError> for ValidationError {

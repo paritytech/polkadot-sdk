@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -101,7 +102,6 @@
 //!
 //! The following diagram shows the uses of both protocols:
 #![doc = simple_mermaid::mermaid!("../mermaid/transport_protocols.mmd")]
-//!
 //! ## UMP (Upward Message Passing)
 //!
 //! Transport-layer protocol that allows parachains to send messages upwards to their relay chain.

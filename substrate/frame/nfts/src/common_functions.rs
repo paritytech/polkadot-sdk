@@ -18,6 +18,7 @@
 //! Various pieces of common functionality.
 
 use crate::*;
+use alloc::vec::Vec;
 use frame_support::pallet_prelude::*;
 
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
@@ -43,7 +44,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 		signer: &T::AccountId,
 	) -> DispatchResult {
 		if signature.verify(&**data, &signer) {
-			return Ok(())
+			return Ok(());
 		}
 
 		// NOTE: for security reasons modern UIs implicitly wrap the data requested to sign into

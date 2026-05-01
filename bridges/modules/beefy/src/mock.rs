@@ -17,8 +17,8 @@
 use crate as beefy;
 use crate::{
 	utils::get_authorities_mmr_root, BridgedBeefyAuthoritySet, BridgedBeefyAuthoritySetInfo,
-	BridgedBeefyCommitmentHasher, BridgedBeefyMmrLeafExtra, BridgedBeefySignedCommitment,
-	BridgedMmrHash, BridgedMmrHashing, BridgedMmrProof,
+	BridgedBeefyMmrLeafExtra, BridgedBeefySignedCommitment, BridgedMmrHash, BridgedMmrHashing,
+	BridgedMmrProof,
 };
 
 use bp_beefy::{BeefyValidatorSignatureOf, ChainWithBeefy, Commitment, MmrDataOrHash};
@@ -29,10 +29,11 @@ use sp_core::{sr25519::Signature, Pair};
 use sp_runtime::{
 	testing::{Header, H256},
 	traits::{BlakeTwo256, Hash},
+	StateVersion,
 };
 
 pub use sp_consensus_beefy::ecdsa_crypto::{AuthorityId as BeefyId, Pair as BeefyPair};
-use sp_core::crypto::Wraps;
+use sp_consensus_beefy::test_utils::BeefySignerAuthority;
 use sp_runtime::traits::Keccak256;
 
 pub type TestAccountId = u64;
@@ -43,7 +44,6 @@ pub type TestBridgedAuthoritySetInfo = BridgedBeefyAuthoritySetInfo<TestRuntime,
 pub type TestBridgedValidatorSet = BridgedBeefyAuthoritySet<TestRuntime, ()>;
 pub type TestBridgedCommitment = BridgedBeefySignedCommitment<TestRuntime, ()>;
 pub type TestBridgedValidatorSignature = BeefyValidatorSignatureOf<TestBridgedChain>;
-pub type TestBridgedCommitmentHasher = BridgedBeefyCommitmentHasher<TestRuntime, ()>;
 pub type TestBridgedMmrHashing = BridgedMmrHashing<TestRuntime, ()>;
 pub type TestBridgedMmrHash = BridgedMmrHash<TestRuntime, ()>;
 pub type TestBridgedBeefyMmrLeafExtra = BridgedBeefyMmrLeafExtra<TestRuntime, ()>;
@@ -93,6 +93,8 @@ impl Chain for TestBridgedChain {
 	type Nonce = u64;
 	type Signature = Signature;
 
+	const STATE_VERSION: StateVersion = StateVersion::V1;
+
 	fn max_extrinsic_size() -> u32 {
 		unreachable!()
 	}
@@ -102,7 +104,6 @@ impl Chain for TestBridgedChain {
 }
 
 impl ChainWithBeefy for TestBridgedChain {
-	type CommitmentHasher = Keccak256;
 	type MmrHashing = Keccak256;
 	type MmrHash = <Keccak256 as Hash>::Output;
 	type BeefyMmrLeafExtra = ();
@@ -181,12 +182,11 @@ pub fn sign_commitment(
 	let random_validators =
 		rand::seq::index::sample(&mut rand::thread_rng(), total_validators, signature_count);
 
-	let commitment_hash = TestBridgedCommitmentHasher::hash(&commitment.encode());
 	let mut signatures = vec![None; total_validators];
 	for validator_idx in random_validators.iter() {
 		let validator = &validator_pairs[validator_idx];
 		signatures[validator_idx] =
-			Some(validator.as_inner_ref().sign_prehashed(commitment_hash.as_fixed_bytes()).into());
+			Some(BeefySignerAuthority::sign(validator, &commitment.encode()));
 	}
 
 	TestBridgedCommitment { commitment, signatures }

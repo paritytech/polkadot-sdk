@@ -1,0 +1,8 @@
+title: 'rpc v2: move archive MethodResult to the archive mod'
+doc:
+- audience: Node Dev
+  description: |
+    MethodResult, MethodResultOk and MethodResultErr are archive specific types and are therefore moved the the archive mod.
+crates:
+- name: sc-rpc-spec-v2
+  bump: major

@@ -19,9 +19,16 @@
 
 use super::*;
 
+use core::array;
 use frame_benchmarking::{v2::*, BenchmarkError};
 use frame_system::{Pallet as System, RawOrigin};
+use sp_core::{twox_128, Get};
+use sp_io::{storage, KillStorageResult};
 use sp_runtime::traits::One;
+
+fn assert_has_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
+	frame_system::Pallet::<T>::assert_has_event(generic_event.into());
+}
 
 fn assert_last_event<T: Config>(generic_event: <T as Config>::RuntimeEvent) {
 	frame_system::Pallet::<T>::assert_last_event(generic_event.into());
@@ -149,7 +156,7 @@ mod benches {
 			Pallet::<T>::exec_migration(c, false, &mut meter);
 		}
 
-		assert_last_event::<T>(Event::UpgradeFailed {}.into());
+		assert_has_event::<T>(Event::UpgradeFailed {}.into());
 
 		Ok(())
 	}
@@ -158,7 +165,7 @@ mod benches {
 	fn on_init_loop() {
 		T::Migrations::set_fail_after(0); // Should not be called anyway.
 		System::<T>::set_block_number(1u32.into());
-		Pallet::<T>::on_runtime_upgrade();
+		<Pallet<T> as Hooks<BlockNumberFor<T>>>::on_runtime_upgrade();
 
 		#[block]
 		{
@@ -202,6 +209,40 @@ mod benches {
 			RawOrigin::Root,
 			HistoricCleanupSelector::Wildcard { limit: n.into(), previous_cursor: None },
 		);
+	}
+
+	#[benchmark(skip_meta, pov_mode = Measured)]
+	fn reset_pallet_migration(n: Linear<0, 2048>) -> Result<(), BenchmarkError> {
+		let prefix: [u8; 16] = twox_128(b"__ResetPalletBenchmarkPrefix__");
+
+		for i in 0..n {
+			// we need to avoid allocations here
+			let mut iter = prefix.into_iter().chain(i.to_le_bytes());
+			let key: [u8; 20] = array::from_fn(|_| iter.next().unwrap());
+			// 32 byte will trigger the worst case where the value is
+			// no longer stored inline
+			storage::set(&key, &[0u8; 32]);
+		}
+
+		let result;
+		#[block]
+		{
+			result = storage::clear_prefix(&prefix, None);
+		}
+
+		// It will always reports no keys removed because they are still in the overlay.
+		// However, the benchmarking PoV results are correctly dependent on the amount of
+		// keys removed.
+		match result {
+			KillStorageResult::AllRemoved(_i) => {
+				// during the test the storage is not comitted and `i` will always be 0
+				#[cfg(not(test))]
+				ensure!(_i == n, "Not all keys are removed");
+			},
+			_ => Err("Not all keys were removed")?,
+		}
+
+		Ok(())
 	}
 
 	fn cursor<T: Config>() -> CursorOf<T> {

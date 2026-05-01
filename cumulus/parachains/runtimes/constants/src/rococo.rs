@@ -112,10 +112,10 @@ pub mod consensus {
 
 	/// Maximum number of blocks simultaneously accepted by the Runtime, not yet included
 	/// into the relay chain.
-	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 3;
+	pub const UNINCLUDED_SEGMENT_CAPACITY: u32 = 36;
 	/// How many parachain blocks are processed by the relay chain per parent. Limits the
 	/// number of blocks authored per slot.
-	pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
+	pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 	/// Relay chain slot duration, in milliseconds.
 	pub const RELAY_CHAIN_SLOT_DURATION_MILLIS: u32 = 6000;
 
@@ -148,7 +148,7 @@ pub mod time {
 
 pub mod snowbridge {
 	use frame_support::parameter_types;
-	use xcm::opaque::lts::NetworkId;
+	use xcm::prelude::{Location, NetworkId};
 
 	/// The pallet index of the Ethereum inbound queue pallet in the bridge hub runtime.
 	pub const INBOUND_QUEUE_PALLET_INDEX: u8 = 80;
@@ -159,5 +159,22 @@ pub mod snowbridge {
 		/// <https://chainlist.org/chain/11155111>
 		/// <https://ethereum.org/en/developers/docs/apis/json-rpc/#net_version>
 		pub EthereumNetwork: NetworkId = NetworkId::Ethereum { chain_id: 11155111 };
+		pub EthereumLocation: Location = Location::new(2, EthereumNetwork::get());
+	}
+}
+
+pub mod xcm_version {
+	/// The default XCM version to set in genesis config.
+	pub const SAFE_XCM_VERSION: u32 = xcm::prelude::XCM_VERSION;
+}
+
+pub mod locations {
+	use frame_support::parameter_types;
+	pub use rococo_runtime_constants::system_parachain::{AssetHubParaId, PeopleParaId};
+	use xcm::latest::prelude::{Location, Parachain};
+
+	parameter_types! {
+		pub AssetHubLocation: Location = Location::new(1, Parachain(rococo_runtime_constants::system_parachain::ASSET_HUB_ID));
+		pub PeopleLocation: Location = Location::new(1, Parachain(rococo_runtime_constants::system_parachain::PEOPLE_ID));
 	}
 }

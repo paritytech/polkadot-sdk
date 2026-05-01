@@ -1,0 +1,7 @@
+title: '[pallet-revive] move exec tests'
+doc:
+- audience: Runtime Dev
+  description: Moving exec tests into a new file
+crates:
+- name: pallet-revive
+  bump: minor

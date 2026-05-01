@@ -32,7 +32,7 @@ use polkadot_cli::{
 };
 use polkadot_node_primitives::{AvailableData, BlockData, PoV};
 use polkadot_node_subsystem_types::{ChainApiBackend, RuntimeApiSubsystemClient};
-use polkadot_primitives::{CandidateDescriptor, CandidateReceipt};
+use polkadot_primitives::{CandidateDescriptorV2, CandidateReceiptV2, CoreIndex};
 
 use polkadot_node_subsystem_util::request_validators;
 use sp_core::traits::SpawnNamed;
@@ -78,12 +78,12 @@ where
 		match msg {
 			FromOrchestra::Communication {
 				msg:
-					CandidateBackingMessage::Second(
-						relay_parent,
+					CandidateBackingMessage::Second {
+						scheduling_parent: relay_parent,
 						ref candidate,
-						ref validation_data,
-						ref _pov,
-					),
+						pvd: ref validation_data,
+						pov: ref _pov,
+					},
 			} => {
 				gum::debug!(
 					target: MALUS,
@@ -127,7 +127,7 @@ where
 
 							let validation_code = {
 								let validation_code_hash =
-									_candidate.descriptor().validation_code_hash;
+									_candidate.descriptor().validation_code_hash();
 								let (tx, rx) = oneshot::channel();
 								new_sender
 									.send_message(RuntimeApiMessage::Request(
@@ -150,7 +150,7 @@ where
 										);
 
 										sender.send(None).expect("channel is still open");
-										return
+										return;
 									},
 									Ok(None) => {
 										gum::debug!(
@@ -160,7 +160,7 @@ where
 										);
 
 										sender.send(None).expect("channel is still open");
-										return
+										return;
 									},
 									Ok(Some(c)) => c,
 								}
@@ -207,49 +207,33 @@ where
 						branches.root()
 					};
 
-					let (collator_id, collator_signature) = {
-						use polkadot_primitives::CollatorPair;
-						use sp_core::crypto::Pair;
-
-						let collator_pair = CollatorPair::generate().0;
-						let signature_payload = polkadot_primitives::collator_signature_payload(
-							&relay_parent,
-							&candidate.descriptor().para_id,
-							&validation_data_hash,
-							&pov_hash,
-							&validation_code_hash,
-						);
-
-						(collator_pair.public(), collator_pair.sign(&signature_payload))
-					};
-
 					let malicious_commitments = create_fake_candidate_commitments(
 						&malicious_available_data.validation_data,
 					);
 
-					let malicious_candidate = CandidateReceipt {
-						descriptor: CandidateDescriptor {
-							para_id: candidate.descriptor().para_id,
+					let malicious_candidate = CandidateReceiptV2 {
+						descriptor: CandidateDescriptorV2::new(
+							candidate.descriptor.para_id(),
 							relay_parent,
-							collator: collator_id,
-							persisted_validation_data_hash: validation_data_hash,
+							candidate.descriptor.core_index().unwrap_or(CoreIndex(0)),
+							candidate.descriptor.session_index().unwrap_or(0),
+							validation_data_hash,
 							pov_hash,
 							erasure_root,
-							signature: collator_signature,
-							para_head: malicious_commitments.head_data.hash(),
+							malicious_commitments.head_data.hash(),
 							validation_code_hash,
-						},
+						),
 						commitments_hash: malicious_commitments.hash(),
 					};
 					let malicious_candidate_hash = malicious_candidate.hash();
 
 					let message = FromOrchestra::Communication {
-						msg: CandidateBackingMessage::Second(
-							relay_parent,
-							malicious_candidate,
-							validation_data,
+						msg: CandidateBackingMessage::Second {
+							scheduling_parent: relay_parent,
+							candidate: malicious_candidate,
+							pvd: validation_data,
 							pov,
-						),
+						},
 					};
 
 					gum::info!(
@@ -315,7 +299,6 @@ impl OverseerGen for SuggestGarbageCandidates {
 			FakeCandidateValidation::BackingAndApprovalValid,
 			FakeCandidateValidationError::InvalidOutputs,
 			fake_valid_probability,
-			SpawnGlue(args.spawner.clone()),
 		);
 
 		validator_overseer_builder(

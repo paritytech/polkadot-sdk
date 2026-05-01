@@ -1,0 +1,9 @@
+title: Stronger WASM compression
+doc:
+- audience: Runtime Dev
+  description: |-
+    Use strongest compression 22 instead of just 3. See [docs](https://docs.rs/zstd/0.13.3/zstd/stream/write/struct.Encoder.html#method.new).
+    Reduces our KAH compressed size by 25%.
+crates:
+- name: sp-maybe-compressed-blob
+  bump: patch

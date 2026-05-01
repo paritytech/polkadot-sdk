@@ -26,7 +26,8 @@ mod columns {
 	pub const NUM_COLUMNS: u32 = 2;
 }
 
-const TEST_CONFIG: Config = Config { col_data: columns::DATA, col_meta: columns::META };
+const TEST_CONFIG: Config =
+	Config { col_data: columns::DATA, col_meta: columns::META, keep_finalized_for: 1 };
 
 pub fn new_av_store(dependencies: &TestEnvironmentDependencies) -> AvailabilityStoreSubsystem {
 	let metrics = Metrics::try_register(&dependencies.registry).unwrap();

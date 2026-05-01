@@ -1,0 +1,10 @@
+title: "pallet_revive: use real storage for block number when building the eth genesis block"
+doc:
+- audience: Runtime Dev
+  description: |-
+    When building the eth genesis block, query the real storage item that stores the block number instead of using zero.
+    If the chainspec does not customise it, it will remain zeroed. Was previously fixed in https://github.com/paritytech/polkadot-sdk/pull/10225
+    and regression introduced in https://github.com/paritytech/polkadot-sdk/pull/10271. Adds a unit test and comment to prevent further regressions.
+crates: 
+- name: pallet-revive
+  bump: patch

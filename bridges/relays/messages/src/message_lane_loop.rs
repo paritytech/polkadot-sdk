@@ -29,7 +29,7 @@ use std::{collections::BTreeMap, fmt::Debug, future::Future, ops::RangeInclusive
 use async_trait::async_trait;
 use futures::{channel::mpsc::unbounded, future::FutureExt, stream::StreamExt};
 
-use bp_messages::{LaneId, MessageNonce, UnrewardedRelayersState, Weight};
+use bp_messages::{MessageNonce, UnrewardedRelayersState, Weight};
 use relay_utils::{
 	interval, metrics::MetricsParams, process_future_result, relay_loop::Client as RelayClient,
 	retry_backoff, FailedClient, TransactionTracker,
@@ -39,12 +39,12 @@ use crate::{
 	message_lane::{MessageLane, SourceHeaderIdOf, TargetHeaderIdOf},
 	message_race_delivery::run as run_message_delivery_race,
 	message_race_receiving::run as run_message_receiving_race,
-	metrics::MessageLaneLoopMetrics,
+	metrics::{Labeled, MessageLaneLoopMetrics},
 };
 
 /// Message lane loop configuration params.
 #[derive(Debug, Clone)]
-pub struct Params {
+pub struct Params<LaneId> {
 	/// Id of lane this loop is servicing.
 	pub lane: LaneId,
 	/// Interval at which we ask target node about its updates.
@@ -275,13 +275,13 @@ pub struct ClientsState<P: MessageLane> {
 
 /// Return prefix that will be used by default to expose Prometheus metrics of the finality proofs
 /// sync loop.
-pub fn metrics_prefix<P: MessageLane>(lane: &LaneId) -> String {
-	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, hex::encode(lane))
+pub fn metrics_prefix<P: MessageLane>(lane: &P::LaneId) -> String {
+	format!("{}_to_{}_MessageLane_{}", P::SOURCE_NAME, P::TARGET_NAME, lane.label())
 }
 
 /// Run message lane service loop.
 pub async fn run<P: MessageLane>(
-	params: Params,
+	params: Params<P::LaneId>,
 	source_client: impl SourceClient<P>,
 	target_client: impl TargetClient<P>,
 	metrics_params: MetricsParams,
@@ -309,7 +309,7 @@ pub async fn run<P: MessageLane>(
 /// Run one-way message delivery loop until connection with target or source node is lost, or exit
 /// signal is received.
 async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: TargetClient<P>>(
-	params: Params,
+	params: Params<P::LaneId>,
 	source_client: SC,
 	target_client: TC,
 	metrics_msg: Option<MessageLaneLoopMetrics>,
@@ -379,11 +379,11 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					new_source_state,
 					&mut source_retry_backoff,
 					|new_source_state| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Received state from {} node: {:?}",
-							P::SOURCE_NAME,
-							new_source_state,
+							source=%P::SOURCE_NAME,
+							?new_source_state,
+							"Received state"
 						);
 						let _ = delivery_source_state_sender.unbounded_send(new_source_state.clone());
 						let _ = receiving_source_state_sender.unbounded_send(new_source_state.clone());
@@ -393,7 +393,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut source_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving state from {} node", P::SOURCE_NAME),
 				).fail_if_connection_error(FailedClient::Source)?;
 			},
@@ -410,11 +410,11 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 					new_target_state,
 					&mut target_retry_backoff,
 					|new_target_state| {
-						log::debug!(
+						tracing::debug!(
 							target: "bridge",
-							"Received state from {} node: {:?}",
-							P::TARGET_NAME,
-							new_target_state,
+							target=%P::TARGET_NAME,
+							?new_target_state,
+							"Received state"
 						);
 						let _ = delivery_target_state_sender.unbounded_send(new_target_state.clone());
 						let _ = receiving_target_state_sender.unbounded_send(new_target_state.clone());
@@ -424,7 +424,7 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 						}
 					},
 					&mut target_go_offline_future,
-					async_std::task::sleep,
+					tokio::time::sleep,
 					|| format!("Error retrieving state from {} node", P::TARGET_NAME),
 				).fail_if_connection_error(FailedClient::Target)?;
 			},
@@ -454,13 +454,13 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 		}
 
 		if source_client_is_online && source_state_required {
-			log::debug!(target: "bridge", "Asking {} node about its state", P::SOURCE_NAME);
+			tracing::debug!(target: "bridge", source=%P::SOURCE_NAME, "Asking node about its state");
 			source_state.set(source_client.state().fuse());
 			source_client_is_online = false;
 		}
 
 		if target_client_is_online && target_state_required {
-			log::debug!(target: "bridge", "Asking {} node about its state", P::TARGET_NAME);
+			tracing::debug!(target: "bridge", target=%P::TARGET_NAME, "Asking node about its state");
 			target_state.set(target_client.state().fuse());
 			target_client_is_online = false;
 		}
@@ -471,9 +471,9 @@ async fn run_until_connection_lost<P: MessageLane, SC: SourceClient<P>, TC: Targ
 pub(crate) mod tests {
 	use std::sync::Arc;
 
+	use bp_messages::{HashedLaneId, LaneIdType, LegacyLaneId};
 	use futures::stream::StreamExt;
 	use parking_lot::Mutex;
-
 	use relay_utils::{HeaderId, MaybeConnectionError, TrackedTransactionStatus};
 
 	use super::*;
@@ -504,6 +504,9 @@ pub(crate) mod tests {
 		}
 	}
 
+	/// Lane identifier type used for tests.
+	pub type TestLaneIdType = HashedLaneId;
+
 	#[derive(Clone)]
 	pub struct TestMessageLane;
 
@@ -520,6 +523,8 @@ pub(crate) mod tests {
 
 		type TargetHeaderNumber = TestTargetHeaderNumber;
 		type TargetHeaderHash = TestTargetHeaderHash;
+
+		type LaneId = TestLaneIdType;
 	}
 
 	#[derive(Clone, Debug)]
@@ -700,7 +705,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_source_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok(data.source_state.clone())
@@ -713,7 +718,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_source_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.source_latest_generated_nonce))
@@ -845,7 +850,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok(data.target_state.clone())
@@ -858,7 +863,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_received_nonce))
@@ -886,7 +891,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			(self.post_tick)(&mut data);
 			Ok((id, data.target_latest_confirmed_received_nonce))
@@ -909,7 +914,7 @@ pub(crate) mod tests {
 			let mut data = self.data.lock();
 			(self.tick)(&mut data);
 			if data.is_target_fails {
-				return Err(TestError)
+				return Err(TestError);
 			}
 			data.receive_messages(maybe_batch_tx, proof);
 			(self.post_tick)(&mut data);
@@ -944,7 +949,7 @@ pub(crate) mod tests {
 		target_post_tick: Arc<dyn Fn(&mut TestClientData) + Send + Sync>,
 		exit_signal: impl Future<Output = ()> + 'static + Send,
 	) -> TestClientData {
-		async_std::task::block_on(async {
+		tokio::runtime::Runtime::new().unwrap().block_on(async {
 			let source_client = TestSourceClient {
 				data: data.clone(),
 				tick: source_tick,
@@ -957,7 +962,7 @@ pub(crate) mod tests {
 			};
 			let _ = run(
 				Params {
-					lane: LaneId([0, 0, 0, 0]),
+					lane: TestLaneIdType::try_new(1, 2).unwrap(),
 					source_tick: Duration::from_millis(100),
 					target_tick: Duration::from_millis(100),
 					reconnect_delay: Duration::from_millis(0),
@@ -1036,7 +1041,7 @@ pub(crate) mod tests {
 	#[test]
 	fn message_lane_loop_is_able_to_recover_from_unsuccessful_transaction() {
 		// with this configuration, both source and target clients will mine their transactions, but
-		// their corresponding nonce won't be udpated => reconnect will happen
+		// their corresponding nonce won't be updated => reconnect will happen
 		let (exit_sender, exit_receiver) = unbounded();
 		let result = run_loop_test(
 			Arc::new(Mutex::new(TestClientData {
@@ -1273,5 +1278,37 @@ pub(crate) mod tests {
 		// check that we have at least once required new source->target or target->source headers
 		assert!(!result.target_to_source_header_requirements.is_empty());
 		assert!(!result.source_to_target_header_requirements.is_empty());
+	}
+
+	#[test]
+	fn metrics_prefix_is_valid() {
+		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<TestMessageLane>(
+			&HashedLaneId::try_new(1, 2).unwrap()
+		)))
+		.is_ok());
+
+		// with LegacyLaneId
+		#[derive(Clone)]
+		pub struct LegacyTestMessageLane;
+		impl MessageLane for LegacyTestMessageLane {
+			const SOURCE_NAME: &'static str = "LegacyTestSource";
+			const TARGET_NAME: &'static str = "LegacyTestTarget";
+
+			type MessagesProof = TestMessagesProof;
+			type MessagesReceivingProof = TestMessagesReceivingProof;
+
+			type SourceChainBalance = TestSourceChainBalance;
+			type SourceHeaderNumber = TestSourceHeaderNumber;
+			type SourceHeaderHash = TestSourceHeaderHash;
+
+			type TargetHeaderNumber = TestTargetHeaderNumber;
+			type TargetHeaderHash = TestTargetHeaderHash;
+
+			type LaneId = LegacyLaneId;
+		}
+		assert!(MessageLaneLoopMetrics::new(Some(&metrics_prefix::<LegacyTestMessageLane>(
+			&LegacyLaneId([0, 0, 0, 1])
+		)))
+		.is_ok());
 	}
 }

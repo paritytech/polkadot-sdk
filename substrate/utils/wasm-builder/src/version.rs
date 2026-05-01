@@ -59,7 +59,7 @@ impl Version {
 			.collect::<Vec<u32>>();
 
 		if version_parts.len() != 3 {
-			return None
+			return None;
 		}
 
 		let date_parts = version
@@ -92,14 +92,14 @@ impl Version {
 impl Ord for Version {
 	fn cmp(&self, other: &Self) -> Ordering {
 		if self == other {
-			return Ordering::Equal
+			return Ordering::Equal;
 		}
 
 		// Ensure that `stable > nightly`
 		if self.is_stable() && other.is_nightly() {
-			return Ordering::Greater
+			return Ordering::Greater;
 		} else if self.is_nightly() && other.is_stable() {
-			return Ordering::Less
+			return Ordering::Less;
 		}
 
 		let to_compare = [

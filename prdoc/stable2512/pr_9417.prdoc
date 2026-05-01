@@ -1,0 +1,12 @@
+title: 'Measure backed in block count vs backable'
+doc:
+- audience: [Node Dev, Node Operator]
+  description: |-
+    Added a mechanism to measure the difference between the number of candidates
+    backed on chain versus offchain from the perspective of the node.
+crates:
+- name: polkadot-node-core-provisioner
+  bump: minor
+- name: polkadot-overseer
+  bump: major
+

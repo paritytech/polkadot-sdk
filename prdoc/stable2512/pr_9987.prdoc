@@ -1,0 +1,10 @@
+title: '[pallet-revive] turn on allowEvmByteCode'
+doc:
+- audience: Runtime Dev
+  description: |-
+    turn on AllowEVMBytecode for westend AH
+
+    We can probably get rid of this config as well now
+crates:
+- name: asset-hub-westend-runtime
+  bump: patch

@@ -34,23 +34,25 @@ use polkadot_node_primitives::{
 };
 use polkadot_node_subsystem::{
 	messages::{
-		ApprovalVotingMessage, BlockDescription, ChainSelectionMessage, DisputeCoordinatorMessage,
-		DisputeDistributionMessage, ImportStatementsResult,
+		ApprovalVotingParallelMessage, BlockDescription, ChainSelectionMessage,
+		DisputeCoordinatorMessage, DisputeDistributionMessage, ImportStatementsResult,
 	},
 	overseer, ActivatedLeaf, ActiveLeavesUpdate, FromOrchestra, OverseerSignal, RuntimeApiError,
 };
-use polkadot_node_subsystem_util::runtime::{
-	self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo,
+use polkadot_node_subsystem_util::{
+	runtime::{self, key_ownership_proof, submit_report_dispute_lost, RuntimeInfo},
+	ControlledValidatorIndices,
 };
 use polkadot_primitives::{
-	slashing, BlockNumber, CandidateHash, CandidateReceipt, CompactStatement, DisputeStatement,
+	node_features::FeatureIndex, slashing, BlockNumber, CandidateHash,
+	CandidateReceiptV2 as CandidateReceipt, CompactStatement, DisputeStatement,
 	DisputeStatementSet, Hash, ScrapedOnChainVotes, SessionIndex, ValidDisputeStatementKind,
 	ValidatorId, ValidatorIndex,
 };
 use schnellru::{LruMap, UnlimitedCompact};
 
 use crate::{
-	db,
+	db::{self, v1::RecentDisputes},
 	error::{log_error, FatalError, FatalResult, JfyiError, JfyiResult, Result},
 	import::{CandidateEnvironment, CandidateVoteState},
 	is_potential_spam,
@@ -96,6 +98,8 @@ pub(crate) struct Initialized {
 	/// We have the onchain state of disabled validators as well as the offchain
 	/// state that is based on the lost disputes.
 	offchain_disabled_validators: OffchainDisabledValidators,
+	/// The indices of the controlled validators, cached by session.
+	controlled_validator_indices: ControlledValidatorIndices,
 	/// This is the highest `SessionIndex` seen via `ActiveLeavesUpdate`. It doesn't matter if it
 	/// was cached successfully or not. It is used to detect ancient disputes.
 	highest_session_seen: SessionIndex,
@@ -117,6 +121,12 @@ pub(crate) struct Initialized {
 	/// `CHAIN_IMPORT_MAX_BATCH_SIZE` and put the rest here for later processing.
 	chain_import_backlog: VecDeque<ScrapedOnChainVotes>,
 	metrics: Metrics,
+	/// Monotonic flag: set to `true` once any activated leaf has the V3 candidate
+	/// descriptor node feature enabled. Once set, never unset.
+	/// Used to determine whether scraped on-chain votes should use V3 descriptor
+	/// semantics or fall back to old rules.
+	/// See `CandidateDescriptorV2::version_for_candidate_validation` for the safety argument.
+	v3_ever_seen: bool,
 }
 
 #[overseer::contextbounds(DisputeCoordinator, prefix = self::overseer)]
@@ -129,17 +139,19 @@ impl Initialized {
 		scraper: ChainScraper,
 		highest_session_seen: SessionIndex,
 		gaps_in_cache: bool,
+		offchain_disabled_validators: OffchainDisabledValidators,
+		controlled_validator_indices: ControlledValidatorIndices,
 	) -> Self {
 		let DisputeCoordinatorSubsystem { config: _, store: _, keystore, metrics } = subsystem;
 
 		let (participation_sender, participation_receiver) = mpsc::channel(1);
 		let participation = Participation::new(participation_sender, metrics.clone());
-		let offchain_disabled_validators = OffchainDisabledValidators::default();
 
 		Self {
 			keystore,
 			runtime_info,
 			offchain_disabled_validators,
+			controlled_validator_indices,
 			highest_session_seen,
 			gaps_in_cache,
 			spam_slots,
@@ -148,6 +160,7 @@ impl Initialized {
 			participation_receiver,
 			chain_import_backlog: VecDeque::new(),
 			metrics,
+			v3_ever_seen: false,
 		}
 	}
 
@@ -169,7 +182,7 @@ impl Initialized {
 				self.run_until_error(&mut ctx, &mut backend, &mut initial_data, &*clock).await;
 			if let Ok(()) = res {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				return Ok(())
+				return Ok(());
 			}
 			log_error(res)?;
 		}
@@ -193,8 +206,36 @@ impl Initialized {
 		if let Some(InitialData { participations, votes: on_chain_votes, leaf: first_leaf }) =
 			initial_data.take()
 		{
+			// Check V3 on the first leaf *before* processing on-chain votes.
+			// Session info is already cached from handle_startup, so this hits the LRU.
+			// Without this, v3_ever_seen would still be false when process_chain_import_backlog
+			// runs, causing V3 candidates to be misinterpreted as V1.
+			if !self.v3_ever_seen {
+				if let Ok(info) = self
+					.runtime_info
+					.get_session_info_by_index(
+						ctx.sender(),
+						first_leaf.hash,
+						self.highest_session_seen,
+					)
+					.await
+				{
+					if FeatureIndex::CandidateReceiptV3.is_set(&info.node_features) {
+						gum::info!(
+							target: LOG_TARGET,
+							session_idx = self.highest_session_seen,
+							"CandidateReceiptV3 node feature detected on first leaf in \
+							 dispute-coordinator",
+						);
+						self.v3_ever_seen = true;
+					}
+				}
+			}
+
 			for (priority, request) in participations {
-				self.participation.queue_participation(ctx, priority, request).await?;
+				self.participation
+					.queue_participation(ctx, priority, request, self.v3_ever_seen)
+					.await?;
 			}
 
 			let mut overlay_db = OverlayedBackend::new(backend);
@@ -274,8 +315,9 @@ impl Initialized {
 							self.scraper.process_finalized_block(&n);
 							default_confirm
 						},
-						FromOrchestra::Communication { msg } =>
-							self.handle_incoming(ctx, &mut overlay_db, msg, clock.now()).await?,
+						FromOrchestra::Communication { msg } => {
+							self.handle_incoming(ctx, &mut overlay_db, msg, clock.now()).await?
+						},
 					},
 				};
 
@@ -301,7 +343,11 @@ impl Initialized {
 			self.scraper.process_active_leaves_update(ctx.sender(), &update).await?;
 		log_error(
 			self.participation
-				.bump_to_priority_for_candidates(ctx, &scraped_updates.included_receipts)
+				.bump_to_priority_for_candidates(
+					ctx,
+					&scraped_updates.included_receipts,
+					self.v3_ever_seen,
+				)
 				.await,
 		)?;
 		self.participation.process_active_leaves_update(ctx, &update).await?;
@@ -358,13 +404,40 @@ impl Initialized {
 					self.offchain_disabled_validators.prune_old(prune_up_to);
 				},
 				Ok(_) => { /* no new session => nothing to cache */ },
-				Err(err) => {
+				Err(ref err) => {
 					gum::debug!(
 						target: LOG_TARGET,
 						?err,
 						"Failed to update session cache for disputes - can't fetch session index",
 					);
 				},
+			}
+
+			// Check for the V3 node feature after the session caching loop,
+			// so get_session_info_by_index hits the LRU cache (no extra runtime
+			// round-trip). This runs on every activated leaf while !v3_ever_seen,
+			// because on startup the session is already cached but v3_ever_seen
+			// starts as false.
+			// Note: The very first leaf is handled separately in run_until_error
+			// before process_chain_import_backlog.
+			if !self.v3_ever_seen {
+				if let Ok(idx) = session_idx {
+					if let Ok(info) = self
+						.runtime_info
+						.get_session_info_by_index(ctx.sender(), new_leaf.hash, idx)
+						.await
+					{
+						if FeatureIndex::CandidateReceiptV3.is_set(&info.node_features) {
+							gum::info!(
+								target: LOG_TARGET,
+								session_idx = idx,
+								"CandidateReceiptV3 node feature detected in \
+								 dispute-coordinator",
+							);
+							self.v3_ever_seen = true;
+						}
+					}
+				}
 			}
 
 			let ScrapedUpdates { unapplied_slashes, on_chain_votes, .. } = scraped_updates;
@@ -391,7 +464,7 @@ impl Initialized {
 	async fn process_unapplied_slashes<Context>(
 		&mut self,
 		ctx: &mut Context,
-		relay_parent: Hash,
+		leaf: Hash,
 		unapplied_slashes: Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>,
 	) {
 		for (session_index, candidate_hash, pending) in unapplied_slashes {
@@ -411,7 +484,7 @@ impl Initialized {
 					?session_index,
 					"Couldn't find blocks in the session for an unapplied slash",
 				);
-				return
+				return;
 			}
 
 			// Find a relay block that we can use
@@ -468,7 +541,7 @@ impl Initialized {
 					// If we found a parent that we can use, stop searching.
 					// If one key ownership was resolved successfully, all of them should be.
 					debug_assert_eq!(key_ownership_proofs.len(), pending.keys.len());
-					break
+					break;
 				}
 			}
 
@@ -500,7 +573,7 @@ impl Initialized {
 
 				let res = submit_report_dispute_lost(
 					ctx.sender(),
-					relay_parent,
+					leaf,
 					dispute_proof,
 					key_ownership_proof,
 				)
@@ -591,28 +664,40 @@ impl Initialized {
 		let ScrapedOnChainVotes { session, backing_validators_per_candidate, disputes } = votes;
 
 		if backing_validators_per_candidate.is_empty() && disputes.is_empty() {
-			return Ok(())
+			return Ok(());
 		}
 
 		// Scraped on-chain backing votes for the candidates with
 		// the new active leaf as if we received them via gossip.
 		for (candidate_receipt, backers) in backing_validators_per_candidate {
-			// Obtain the session info, for sake of `ValidatorId`s
-			let relay_parent = candidate_receipt.descriptor.relay_parent;
+			// Use transition-safe descriptor methods for scheduling context.
+			// Before the V3 node feature is seen, these fall back to old-rules
+			// behavior to match old backers and prevent slashing.
+			// See `CandidateDescriptorV2::version_for_candidate_validation`.
+			let scheduling_session = candidate_receipt
+				.descriptor
+				.scheduling_session_for_candidate_validation(self.v3_ever_seen)
+				.unwrap_or(session);
+			let scheduling_parent = candidate_receipt
+				.descriptor
+				.scheduling_parent_for_candidate_validation(self.v3_ever_seen);
+
+			// Backing validators are from the scheduling context
+			// Fetch session info using scheduling_parent as the runtime API context
 			let session_info = match self
 				.runtime_info
-				.get_session_info_by_index(ctx.sender(), relay_parent, session)
+				.get_session_info_by_index(ctx.sender(), scheduling_parent, scheduling_session)
 				.await
 			{
-				Ok(extended_session_info) => &extended_session_info.session_info,
+				Ok(info) => &info.session_info,
 				Err(err) => {
 					gum::warn!(
 						target: LOG_TARGET,
-						?session,
+						?scheduling_session,
 						?err,
-						"Could not retrieve session info from RuntimeInfo",
+						"Could not retrieve scheduling session info from RuntimeInfo",
 					);
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -620,7 +705,7 @@ impl Initialized {
 			gum::trace!(
 				target: LOG_TARGET,
 				?candidate_hash,
-				?relay_parent,
+				?scheduling_parent,
 				"Importing backing votes from chain for candidate"
 			);
 			let statements = backers
@@ -640,24 +725,26 @@ impl Initialized {
 						})
 						.cloned()?;
 					let validator_signature = attestation.signature().clone();
+					// Backing statements use scheduling_parent in the signing context
+					// because backing validators are selected based on scheduling context
 					let valid_statement_kind =
 						match attestation.to_compact_statement(candidate_hash) {
 							CompactStatement::Seconded(_) =>
-								ValidDisputeStatementKind::BackingSeconded(relay_parent),
+								ValidDisputeStatementKind::BackingSeconded(scheduling_parent),
 							CompactStatement::Valid(_) =>
-								ValidDisputeStatementKind::BackingValid(relay_parent),
+								ValidDisputeStatementKind::BackingValid(scheduling_parent),
 						};
 					debug_assert!(
 						SignedDisputeStatement::new_checked(
 							DisputeStatement::Valid(valid_statement_kind.clone()),
 							candidate_hash,
-							session,
+							scheduling_session,
 							validator_public.clone(),
 							validator_signature.clone(),
 						).is_ok(),
 						"Scraped backing votes had invalid signature! candidate: {:?}, session: {:?}, validator_public: {:?}, validator_index: {}",
 						candidate_hash,
-						session,
+						scheduling_session,
 						validator_public,
 						validator_index.0,
 					);
@@ -665,7 +752,7 @@ impl Initialized {
 						SignedDisputeStatement::new_unchecked_from_trusted_source(
 							DisputeStatement::Valid(valid_statement_kind.clone()),
 							candidate_hash,
-							session,
+							scheduling_session,
 							validator_public,
 							validator_signature,
 						);
@@ -680,7 +767,7 @@ impl Initialized {
 					ctx,
 					overlay_db,
 					MaybeCandidateReceipt::Provides(candidate_receipt),
-					session,
+					scheduling_session,
 					statements,
 					now,
 				)
@@ -688,13 +775,13 @@ impl Initialized {
 			match import_result {
 				ImportStatementsResult::ValidImport => gum::trace!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?session,
 					"Imported backing votes from chain"
 				),
 				ImportStatementsResult::InvalidImport => gum::warn!(
 					target: LOG_TARGET,
-					?relay_parent,
+					?scheduling_parent,
 					?session,
 					"Attempted import of on-chain backing votes failed"
 				),
@@ -724,7 +811,7 @@ impl Initialized {
 						?err,
 						"Could not retrieve session info for recently concluded dispute"
 					);
-					continue
+					continue;
 				},
 			};
 
@@ -760,7 +847,7 @@ impl Initialized {
 				.collect::<Vec<_>>();
 			if statements.is_empty() {
 				gum::debug!(target: LOG_TARGET, "Skipping empty from chain dispute import");
-				continue
+				continue;
 			}
 			let import_result = self
 				.handle_import_statements(
@@ -846,9 +933,7 @@ impl Initialized {
 				};
 				gum::trace!(target: LOG_TARGET, "Loaded recent disputes from db");
 
-				let _ = tx.send(
-					recent_disputes.into_iter().map(|(k, v)| (k.0, k.1, v)).collect::<Vec<_>>(),
-				);
+				let _ = tx.send(recent_disputes);
 			},
 			DisputeCoordinatorMessage::ActiveDisputes(tx) => {
 				gum::trace!(target: LOG_TARGET, "DisputeCoordinatorMessage::ActiveDisputes");
@@ -860,10 +945,7 @@ impl Initialized {
 
 				let _ = tx.send(
 					get_active_with_status(recent_disputes.into_iter(), now)
-						.map(|((session_idx, candidate_hash), dispute_status)| {
-							(session_idx, candidate_hash, dispute_status)
-						})
-						.collect(),
+						.collect::<BTreeMap<_, _>>(),
 				);
 			},
 			DisputeCoordinatorMessage::QueryCandidateVotes(query, tx) => {
@@ -942,35 +1024,39 @@ impl Initialized {
 		gum::trace!(target: LOG_TARGET, ?statements, "In handle import statements");
 		if self.session_is_ancient(session) {
 			// It is not valid to participate in an ancient dispute (spam?) or too new.
-			return Ok(ImportStatementsResult::InvalidImport)
+			return Ok(ImportStatementsResult::InvalidImport);
 		}
 
 		let candidate_hash = candidate_receipt.hash();
 		let votes_in_db = overlay_db.load_candidate_votes(session, &candidate_hash)?;
-		let relay_parent = match &candidate_receipt {
-			MaybeCandidateReceipt::Provides(candidate_receipt) =>
-				candidate_receipt.descriptor().relay_parent,
+		let scheduling_parent = match &candidate_receipt {
+			MaybeCandidateReceipt::Provides(candidate_receipt) => candidate_receipt
+				.descriptor()
+				.scheduling_parent_for_candidate_validation(self.v3_ever_seen),
 			MaybeCandidateReceipt::AssumeBackingVotePresent(candidate_hash) => match &votes_in_db {
-				Some(votes) => votes.candidate_receipt.descriptor().relay_parent,
+				Some(votes) => votes
+					.candidate_receipt
+					.descriptor()
+					.scheduling_parent_for_candidate_validation(self.v3_ever_seen),
 				None => {
 					gum::warn!(
 						target: LOG_TARGET,
 						session,
 						?candidate_hash,
-						"Cannot obtain relay parent without `CandidateReceipt` available!"
+						"Cannot obtain scheduling parent without `CandidateReceipt` available!"
 					);
-					return Ok(ImportStatementsResult::InvalidImport)
+					return Ok(ImportStatementsResult::InvalidImport);
 				},
 			},
 		};
 
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
-			relay_parent,
+			scheduling_parent,
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -981,7 +1067,7 @@ impl Initialized {
 					"We are lacking a `SessionInfo` for handling import of statements."
 				);
 
-				return Ok(ImportStatementsResult::InvalidImport)
+				return Ok(ImportStatementsResult::InvalidImport);
 			},
 			Some(env) => env,
 		};
@@ -1006,7 +1092,7 @@ impl Initialized {
 		// not have a `CandidateReceipt` available.
 		let old_state = match votes_in_db.map(CandidateVotes::from) {
 			Some(votes) => CandidateVoteState::new(votes, &env, now),
-			None =>
+			None => {
 				if let MaybeCandidateReceipt::Provides(candidate_receipt) = candidate_receipt {
 					CandidateVoteState::new_from_receipt(candidate_receipt)
 				} else {
@@ -1016,8 +1102,9 @@ impl Initialized {
 						?candidate_hash,
 						"Cannot import votes, without `CandidateReceipt` available!"
 					);
-					return Ok(ImportStatementsResult::InvalidImport)
-				},
+					return Ok(ImportStatementsResult::InvalidImport);
+				}
+			},
 		};
 
 		gum::trace!(target: LOG_TARGET, ?candidate_hash, ?session, "Loaded votes");
@@ -1060,8 +1147,12 @@ impl Initialized {
 				// therefore even with all else failing we will never have more than
 				// one message in flight at any given time.
 				ctx.send_unbounded_message(
-					ApprovalVotingMessage::GetApprovalSignaturesForCandidate(candidate_hash, tx),
+					ApprovalVotingParallelMessage::GetApprovalSignaturesForCandidate(
+						candidate_hash,
+						tx,
+					),
 				);
+
 				match rx.await {
 					Err(_) => {
 						gum::warn!(
@@ -1150,7 +1241,7 @@ impl Initialized {
 					invalid_voters = ?import_result.new_invalid_voters(),
 					"Rejecting import because of full spam slots."
 				);
-				return Ok(ImportStatementsResult::InvalidImport)
+				return Ok(ImportStatementsResult::InvalidImport);
 			}
 		}
 
@@ -1182,9 +1273,9 @@ impl Initialized {
 					ParticipationRequest::new(
 						new_state.candidate_receipt().clone(),
 						session,
-						env.executor_params().clone(),
 						request_timer,
 					),
+					self.v3_ever_seen,
 				)
 				.await;
 			log_error(r)?;
@@ -1218,7 +1309,7 @@ impl Initialized {
 							?session,
 							"Could not find pub key in `SessionInfo` for our own approval vote!"
 						);
-						continue
+						continue;
 					},
 					Some(k) => k,
 				};
@@ -1289,7 +1380,7 @@ impl Initialized {
 		}
 
 		// Notify ChainSelection if a dispute has concluded against a candidate. ChainSelection
-		// will need to mark the candidate's relay parent as reverted.
+		// will need to mark the candidate's scheduling parent as reverted.
 		if import_result.has_fresh_byzantine_threshold_against() {
 			let blocks_including = self.scraper.get_blocks_including_candidate(&candidate_hash);
 			for (parent_block_number, parent_block_hash) in &blocks_including {
@@ -1351,6 +1442,13 @@ impl Initialized {
 				}
 			}
 			for validator_index in new_state.votes().invalid.keys() {
+				gum::info!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?validator_index,
+					?session,
+					"Disabled offchain for voting invalid against a valid candidate",
+				);
 				self.offchain_disabled_validators
 					.insert_against_valid(session, *validator_index);
 			}
@@ -1375,6 +1473,14 @@ impl Initialized {
 			}
 			for (validator_index, (kind, _sig)) in new_state.votes().valid.raw() {
 				let is_backer = kind.is_backing();
+				gum::info!(
+					target: LOG_TARGET,
+					?candidate_hash,
+					?validator_index,
+					?session,
+					?is_backer,
+					"Disabled offchain for voting valid for an invalid candidate",
+				);
 				self.offchain_disabled_validators.insert_for_invalid(
 					session,
 					*validator_index,
@@ -1382,6 +1488,13 @@ impl Initialized {
 				);
 			}
 			self.metrics.on_concluded_invalid();
+		}
+
+		// After validators are disabled, revisit active disputes to unactivate those where all
+		// raising parties are now disabled
+		if import_result.is_freshly_concluded_for() || import_result.is_freshly_concluded_against()
+		{
+			self.revisit_active_disputes_after_disabling(overlay_db, session)?;
 		}
 
 		// Only write when votes have changed.
@@ -1413,12 +1526,14 @@ impl Initialized {
 
 		// Load environment:
 		let env = match CandidateEnvironment::new(
-			&self.keystore,
 			ctx,
 			&mut self.runtime_info,
 			session,
-			candidate_receipt.descriptor.relay_parent,
+			candidate_receipt
+				.descriptor
+				.scheduling_parent_for_candidate_validation(self.v3_ever_seen),
 			self.offchain_disabled_validators.iter(session),
+			&mut self.controlled_validator_indices,
 		)
 		.await
 		{
@@ -1429,7 +1544,7 @@ impl Initialized {
 					"Missing info for session which has an active dispute",
 				);
 
-				return Ok(())
+				return Ok(());
 			},
 			Some(env) => env,
 		};
@@ -1451,7 +1566,7 @@ impl Initialized {
 		let controlled_indices = env.controlled_indices();
 		for index in controlled_indices {
 			if voted_indices.contains(&index) {
-				continue
+				continue;
 			}
 
 			let keystore = self.keystore.clone() as Arc<_>;
@@ -1487,7 +1602,7 @@ impl Initialized {
 				match make_dispute_message(env.session_info(), &votes, statement.clone(), *index) {
 					Err(err) => {
 						gum::debug!(target: LOG_TARGET, ?err, "Creating dispute message failed.");
-						continue
+						continue;
 					},
 					Ok(dispute_message) => dispute_message,
 				};
@@ -1531,7 +1646,62 @@ impl Initialized {
 	}
 
 	fn session_is_ancient(&self, session_idx: SessionIndex) -> bool {
-		return session_idx < self.highest_session_seen.saturating_sub(DISPUTE_WINDOW.get() - 1)
+		return session_idx < self.highest_session_seen.saturating_sub(DISPUTE_WINDOW.get() - 1);
+	}
+
+	/// Revisit active non-confirmed disputes after validators have been disabled.
+	/// Unactivates disputes where all raising parties (invalid voters) are now disabled.
+	fn revisit_active_disputes_after_disabling(
+		&mut self,
+		overlay_db: &mut OverlayedBackend<'_, impl Backend>,
+		session: SessionIndex,
+	) -> FatalResult<()> {
+		let mut recent_disputes = overlay_db.load_recent_disputes()?.unwrap_or_default();
+		let mut disputes_to_remove = Vec::new();
+
+		// Create session bounds for efficient iteration
+		let session_start = (session, CandidateHash(Hash::zero()));
+		let session_end = (session + 1, CandidateHash(Hash::zero()));
+
+		for ((dispute_session, candidate_hash), status) in
+			recent_disputes.range(&session_start..&session_end)
+		{
+			debug_assert_eq!(session, *dispute_session);
+			// Only check unconfirmed
+			if status.is_confirmed_concluded() {
+				continue;
+			}
+			let Some(votes) = overlay_db.load_candidate_votes(*dispute_session, candidate_hash)?
+			else {
+				continue;
+			};
+			// Check if all invalid voters (raising parties) are disabled
+			if !votes.invalid.is_empty() &&
+				votes.invalid.iter().all(|(_, validator_index, _)| {
+					self.offchain_disabled_validators.is_disabled(session, *validator_index)
+				}) {
+				disputes_to_remove.push((*dispute_session, *candidate_hash));
+
+				gum::info!(
+					target: LOG_TARGET,
+					session = dispute_session,
+					?candidate_hash,
+					invalid_voters = ?votes.invalid.iter().map(|(_, idx, _)| *idx).collect::<Vec<_>>(),
+					"Unactivating dispute where all raising parties are now disabled"
+				);
+			}
+		}
+
+		// Remove them from RecentDisputes (setting status to inactive)
+		if !disputes_to_remove.is_empty() {
+			for key in disputes_to_remove {
+				recent_disputes.remove(&key);
+				self.metrics.on_unactivated_dispute();
+			}
+			overlay_db.write_recent_disputes(recent_disputes);
+		}
+
+		Ok(())
 	}
 }
 
@@ -1608,9 +1778,9 @@ fn determine_undisputed_chain(
 	for (i, BlockDescription { session, candidates, .. }) in block_descriptions.iter().enumerate() {
 		if candidates.iter().any(|c| is_possibly_invalid(*session, *c)) {
 			if i == 0 {
-				return Ok((base_number, base_hash))
+				return Ok((base_number, base_hash));
 			} else {
-				return Ok((base_number + i as BlockNumber, block_descriptions[i - 1].block_hash))
+				return Ok((base_number + i as BlockNumber, block_descriptions[i - 1].block_hash));
 			}
 		}
 	}
@@ -1618,13 +1788,13 @@ fn determine_undisputed_chain(
 	Ok(last)
 }
 
+/// Ideally, we want to use the top `byzantine_threshold` offenders here based on the amount of
+/// stake slashed. However, given that slashing might be applied with a delay, we want to have
+/// some list of offenders as soon as disputes conclude offchain. This list only approximates
+/// the top offenders and only accounts for lost disputes. But that should be good enough to
+/// prevent spam attacks.
 #[derive(Default)]
-struct OffchainDisabledValidators {
-	// Ideally, we want to use the top `byzantine_threshold` offenders here based on the amount of
-	// stake slashed. However, given that slashing might be applied with a delay, we want to have
-	// some list of offenders as soon as disputes conclude offchain. This list only approximates
-	// the top offenders and only accounts for lost disputes. But that should be good enough to
-	// prevent spam attacks.
+pub struct OffchainDisabledValidators {
 	per_session: BTreeMap<SessionIndex, LostSessionDisputes>,
 }
 
@@ -1650,13 +1820,59 @@ impl Default for LostSessionDisputes {
 }
 
 impl OffchainDisabledValidators {
-	fn prune_old(&mut self, up_to_excluding: SessionIndex) {
+	/// Creates a new instance populated from concluded disputes
+	pub fn new_from_state(
+		disputes: &RecentDisputes,
+		load_candidate_votes: impl Fn(SessionIndex, &CandidateHash) -> Option<CandidateVotes>,
+		earliest_session: SessionIndex,
+	) -> Self {
+		let mut disabled_validators = Self::default();
+
+		// Process concluded disputes to identify validators that should be disabled
+		for ((session, candidate_hash), dispute_status) in disputes {
+			let session = *session;
+			// Only process concluded disputes
+			if dispute_status.concluded_at().is_none() {
+				continue;
+			}
+			if session < earliest_session {
+				continue;
+			}
+
+			// Get votes for this dispute
+			let votes = match load_candidate_votes(session, candidate_hash) {
+				Some(votes) => votes,
+				None => continue,
+			};
+
+			// Process votes based on dispute outcome
+			if dispute_status.has_concluded_for() {
+				// Dispute concluded with candidate being valid - track validators that voted
+				// against
+				for (validator_index, _) in votes.invalid.iter() {
+					disabled_validators.insert_against_valid(session, *validator_index);
+				}
+			} else if dispute_status.has_concluded_against() {
+				// Dispute concluded with candidate being invalid - track validators that voted for
+				for (validator_index, (kind, _)) in votes.valid.raw().iter() {
+					let is_backer = kind.is_backing();
+					disabled_validators.insert_for_invalid(session, *validator_index, is_backer);
+				}
+			}
+		}
+
+		disabled_validators
+	}
+
+	/// Prune state for ancient disputes.
+	pub fn prune_old(&mut self, up_to_excluding: SessionIndex) {
 		// split_off returns everything after the given key, including the key.
 		let mut relevant = self.per_session.split_off(&up_to_excluding);
 		std::mem::swap(&mut relevant, &mut self.per_session);
 	}
 
-	fn insert_for_invalid(
+	/// Disable a validator who voted for an invalid candidate.
+	pub fn insert_for_invalid(
 		&mut self,
 		session_index: SessionIndex,
 		validator_index: ValidatorIndex,
@@ -1670,7 +1886,8 @@ impl OffchainDisabledValidators {
 		}
 	}
 
-	fn insert_against_valid(
+	/// Disable a validator who voted against a valid candidate.
+	pub fn insert_against_valid(
 		&mut self,
 		session_index: SessionIndex,
 		validator_index: ValidatorIndex,
@@ -1686,7 +1903,7 @@ impl OffchainDisabledValidators {
 	/// The order of iteration prioritizes `for_invalid` offenders (and backers among those) over
 	/// `against_valid` offenders. And most recently lost disputes over older ones.
 	/// NOTE: the iterator might contain duplicates.
-	fn iter(&self, session_index: SessionIndex) -> impl Iterator<Item = ValidatorIndex> + '_ {
+	pub fn iter(&self, session_index: SessionIndex) -> impl Iterator<Item = ValidatorIndex> + '_ {
 		self.per_session.get(&session_index).into_iter().flat_map(|e| {
 			e.backers_for_invalid
 				.iter()
@@ -1694,5 +1911,21 @@ impl OffchainDisabledValidators {
 				.chain(e.against_valid.iter())
 				.map(|(i, _)| *i)
 		})
+	}
+
+	/// Check if a validator is disabled for a given session.
+	pub fn is_disabled(
+		&self,
+		session_index: SessionIndex,
+		validator_index: ValidatorIndex,
+	) -> bool {
+		self.per_session
+			.get(&session_index)
+			.map(|session_disputes| {
+				session_disputes.backers_for_invalid.peek(&validator_index).is_some() ||
+					session_disputes.for_invalid.peek(&validator_index).is_some() ||
+					session_disputes.against_valid.peek(&validator_index).is_some()
+			})
+			.unwrap_or(false)
 	}
 }

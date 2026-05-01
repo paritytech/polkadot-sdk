@@ -1,0 +1,8 @@
+title: 'fix: parachain informant'
+doc:
+- audience: Node Operator
+  description: |-
+    The parachain informant was logging information for all parachains, not just ours. This PR fixes that by filtering the events by parachain ID.
+crates:
+- name: cumulus-client-service
+  bump: patch

@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use super::{Config, Kind, OffenceDetails, Pallet, Perbill, SessionIndex, LOG_TARGET};
+use alloc::vec::Vec;
 use frame_support::{
 	pallet_prelude::ValueQuery,
 	storage_alias,
@@ -24,7 +25,6 @@ use frame_support::{
 	Twox64Concat,
 };
 use sp_staking::offence::OnOffenceHandler;
-use sp_std::vec::Vec;
 
 #[cfg(feature = "try-runtime")]
 use frame_support::ensure;
@@ -49,7 +49,7 @@ pub mod v1 {
 
 	use super::*;
 
-	pub struct MigrateToV1<T>(sp_std::marker::PhantomData<T>);
+	pub struct MigrateToV1<T>(core::marker::PhantomData<T>);
 	impl<T: Config> OnRuntimeUpgrade for MigrateToV1<T> {
 		#[cfg(feature = "try-runtime")]
 		fn pre_upgrade() -> Result<Vec<u8>, TryRuntimeError> {
@@ -65,7 +65,7 @@ pub mod v1 {
 		fn on_runtime_upgrade() -> Weight {
 			if Pallet::<T>::on_chain_storage_version() > 0 {
 				log::info!(target: LOG_TARGET, "pallet_offences::MigrateToV1 should be removed");
-				return T::DbWeight::get().reads(1)
+				return T::DbWeight::get().reads(1);
 			}
 
 			let keys_removed = v0::ReportsByKindIndex::<T>::clear(u32::MAX, None).unique as u64;

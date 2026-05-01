@@ -77,7 +77,7 @@ pub fn expand(def: Def, legacy_ordering: bool) -> TokenStream2 {
 	};
 
 	let res = expander::Expander::new("construct_runtime")
-		.dry(std::env::var("FRAME_EXPAND").is_err())
+		.dry(std::env::var("EXPAND_MACROS").is_err())
 		.verbose(true)
 		.write_to_out_dir(res)
 		.expect("Does not fail because of IO in OUT_DIR; qed");
@@ -146,7 +146,7 @@ fn construct_runtime_final_expansion(
 		return Err(syn::Error::new(
 			system_pallet.name.span(),
 			"`System` pallet declaration is feature gated, please remove any `#[cfg]` attributes",
-		))
+		));
 	}
 
 	let features = pallets
@@ -182,6 +182,7 @@ fn construct_runtime_final_expansion(
 	let mut slash_reason = None;
 	let mut lock_id = None;
 	let mut task = None;
+	let mut query = None;
 
 	for runtime_type in runtime_types.iter() {
 		match runtime_type {
@@ -224,6 +225,9 @@ fn construct_runtime_final_expansion(
 			RuntimeType::RuntimeTask(_) => {
 				task = Some(expand::expand_outer_task(&name, &pallets, &scrate));
 			},
+			RuntimeType::RuntimeViewFunction(_) => {
+				query = Some(expand::expand_outer_query(&name, &pallets, &scrate));
+			},
 		}
 	}
 
@@ -237,7 +241,7 @@ fn construct_runtime_final_expansion(
 		&unchecked_extrinsic,
 		&system_pallet.path,
 	);
-	let outer_config = expand::expand_outer_config(&name, &pallets, &scrate);
+	let outer_config: TokenStream2 = expand::expand_outer_config(&name, &pallets, &scrate);
 	let inherent =
 		expand::expand_outer_inherent(&name, &block, &unchecked_extrinsic, &pallets, &scrate);
 	let validate_unsigned = expand::expand_outer_validate_unsigned(&name, &pallets, &scrate);
@@ -254,7 +258,7 @@ fn construct_runtime_final_expansion(
 		};
 
 		#[derive(
-			Clone, Copy, PartialEq, Eq, #scrate::sp_runtime::RuntimeDebug,
+			Clone, Copy, PartialEq, Eq, core::fmt::Debug,
 			#scrate::__private::scale_info::TypeInfo
 		)]
 		pub struct #name;
@@ -280,7 +284,7 @@ fn construct_runtime_final_expansion(
 		#[doc(hidden)]
 		trait InternalConstructRuntime {
 			#[inline(always)]
-			fn runtime_metadata(&self) -> #scrate::__private::sp_std::vec::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
+			fn runtime_metadata(&self) -> #scrate::__private::Vec<#scrate::__private::metadata_ir::RuntimeApiMetadataIR> {
 				Default::default()
 			}
 		}
@@ -300,6 +304,8 @@ fn construct_runtime_final_expansion(
 		#dispatch
 
 		#task
+
+		#query
 
 		#metadata
 

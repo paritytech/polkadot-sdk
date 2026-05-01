@@ -1,0 +1,7 @@
+title: Disable check-runtime-migration
+doc:
+- audience: Runtime Dev
+  description: |-
+    westend state is fully broken since we dropped some messages on latest upgrade
+    I am disabling this job for now until we can resolve the issue
+crates: []

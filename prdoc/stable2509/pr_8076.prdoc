@@ -1,0 +1,24 @@
+title: 'Enable statement store with new CLI arg in polkadot-omni-node and polkadot-parachain'
+doc:
+- audience: Node Operator
+  description: |-
+    In `polkadot-omni-node-lib`, a new cli arg `--enable-statement-store` is introduced, if set to true then the statement store is enabled in the node.
+
+    The statement store is an off-chain data-store for signed statements accessible via RPC and offchain worker.
+    It uses the runtime api to get the allowance associated to an account.
+
+    This takes effect in `polkadot-omni-node` and `polkadot-parachain` and any node depending on `polkadot-omni-node-lib`.
+
+    In `cumulus-client-service` the `BuildNetworkParams` now takes the metrics configuration explicitly, you can use the same configuration as before using the network backend used when calling `build_network`:
+    ```rust
+    let metrics = NetworkBackend::register_notification_metrics(
+        parachain_config.prometheus_config.as_ref().map(|config| &config.registry),
+    );
+    ```
+crates:
+- name: polkadot-omni-node-lib
+  bump: major
+- name: cumulus-client-service
+  bump: major
+- name: people-westend-runtime
+  bump: major

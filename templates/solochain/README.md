@@ -23,9 +23,17 @@ packages required to compile this template. Check the
 the most common dependencies. Alternatively, you can use one of the [alternative
 installation](#alternatives-installations) options.
 
+Fetch solochain template code:
+
+```sh
+git clone https://github.com/paritytech/polkadot-sdk-solochain-template.git solochain-template
+
+cd solochain-template
+```
+
 ### Build
 
-Use the following command to build the node without launching it:
+🔨 Use the following command to build the node without launching it:
 
 ```sh
 cargo build --release
@@ -37,7 +45,7 @@ After you build the project, you can use the following command to explore its
 parameters and subcommands:
 
 ```sh
-./target/release/node-template -h
+./target/release/solochain-template-node -h
 ```
 
 You can generate and view the [Rust
@@ -54,19 +62,19 @@ The following command starts a single-node development chain that doesn't
 persist state:
 
 ```sh
-./target/release/node-template --dev
+./target/release/solochain-template-node --dev
 ```
 
 To purge the development chain's state, run the following command:
 
 ```sh
-./target/release/node-template purge-chain --dev
+./target/release/solochain-template-node purge-chain --dev
 ```
 
 To start the development chain with detailed logging, run the following command:
 
 ```sh
-RUST_BACKTRACE=1 ./target/release/node-template -ldebug --dev
+RUST_BACKTRACE=1 ./target/release/solochain-template-node -ldebug --dev
 ```
 
 Development chains:
@@ -75,7 +83,7 @@ Development chains:
 - Use the **Alice** and **Bob** accounts as default validator authorities.
 - Use the **Alice** account as the default `sudo` account.
 - Are preconfigured with a genesis state (`/node/src/chain_spec.rs`) that
-  includes several prefunded development accounts.
+  includes several pre-funded development accounts.
 
 
 To persist chain state between runs, specify a base path by running a command
@@ -86,7 +94,7 @@ similar to the following:
 $ mkdir my-chain-state
 
 // Use of that folder to store the chain state
-$ ./target/release/node-template --dev --base-path ./my-chain-state/
+$ ./target/release/solochain-template-node --dev --base-path ./my-chain-state/
 
 // Check the folder structure created inside the base path after running the chain
 $ ls ./my-chain-state
@@ -142,7 +150,7 @@ following:
   file that defines a Substrate chain's initial (genesis) state. Chain
   specifications are useful for development and testing, and critical when
   architecting the launch of a production chain. Take note of the
-  `development_config` and `testnet_genesis` functions,. These functions are
+  `development_config` and `testnet_genesis` functions. These functions are
   used to define the genesis state for the local development chain
   configuration. These functions identify some [well-known
   accounts](https://docs.substrate.io/reference/command-line-tools/subkey/) and
@@ -177,7 +185,7 @@ template and note the following:
   configuration is defined by a code block that begins with `impl
   $PALLET_NAME::Config for Runtime`.
 - The pallets are composed into a single runtime by way of the
-  [`construct_runtime!`](https://paritytech.github.io/substrate/master/frame_support/macro.construct_runtime.html)
+  [#[runtime]](https://paritytech.github.io/polkadot-sdk/master/frame_support/attr.runtime.html)
   macro, which is part of the [core FRAME pallet
   library](https://docs.substrate.io/reference/frame-pallets/#system-pallets).
 

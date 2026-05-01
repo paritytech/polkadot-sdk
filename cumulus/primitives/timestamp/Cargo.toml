@@ -5,17 +5,15 @@ authors.workspace = true
 edition.workspace = true
 description = "Provides timestamp related functionality for parachains."
 license = "Apache-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
 
 [dependencies]
-codec = { features = ["derive"], workspace = true }
-futures = { workspace = true }
-
 # Substrate
 sp-inherents = { workspace = true }
-sp-std = { workspace = true }
 sp-timestamp = { workspace = true }
 
 # Cumulus
@@ -24,9 +22,7 @@ cumulus-primitives-core = { workspace = true }
 [features]
 default = ["std"]
 std = [
-	"codec/std",
 	"cumulus-primitives-core/std",
 	"sp-inherents/std",
-	"sp-std/std",
 	"sp-timestamp/std",
 ]

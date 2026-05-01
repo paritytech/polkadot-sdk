@@ -41,7 +41,7 @@ use polkadot_node_subsystem_test_helpers::{
 };
 use polkadot_node_subsystem_util::TimeoutExt;
 use polkadot_primitives::{
-	node_features, AuthorityDiscoveryId, Block, ExecutorParams, Hash, HeadData, IndexedVec,
+	node_features, AuthorityDiscoveryId, Block, Hash, HeadData, IndexedVec, MutateDescriptorV2,
 	NodeFeatures, PersistedValidationData, SessionInfo, ValidatorId,
 };
 use polkadot_primitives_test_helpers::{dummy_candidate_receipt, dummy_hash};
@@ -346,7 +346,7 @@ impl TestState {
 			)
 			.unwrap(),
 			current,
-			candidate,
+			candidate: candidate.into(),
 			session_index,
 			core_index,
 			node_features,
@@ -401,21 +401,6 @@ impl TestState {
 					dispute_period: 6,
 					random_seed: [0u8; 32],
 				}))).unwrap();
-			}
-		);
-		assert_matches!(
-			overseer_recv(virtual_overseer).await,
-			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-				relay_parent,
-				RuntimeApiRequest::SessionExecutorParams(
-					session_index,
-					tx,
-				)
-			)) => {
-				assert_eq!(relay_parent, self.current);
-				assert_eq!(session_index, self.session_index);
-
-				tx.send(Ok(Some(ExecutorParams::new()))).unwrap();
 			}
 		);
 	}
@@ -715,7 +700,7 @@ fn map_chunks(
 	core_index: CoreIndex,
 ) -> IndexedVec<ValidatorIndex, ErasureChunk> {
 	let chunk_indices =
-		availability_chunk_indices(Some(node_features), n_validators, core_index).unwrap();
+		availability_chunk_indices(node_features, n_validators, core_index).unwrap();
 
 	(0..n_validators)
 		.map(|val_idx| chunks[chunk_indices[val_idx].0 as usize].clone())
@@ -800,12 +785,12 @@ fn availability_is_recovered_from_chunks_if_no_group_provided(#[case] systematic
 		// Test another candidate, send no chunks.
 		let mut new_candidate = dummy_candidate_receipt(dummy_hash());
 
-		new_candidate.descriptor.relay_parent = test_state.candidate.descriptor.relay_parent;
+		new_candidate.descriptor.relay_parent = test_state.candidate.descriptor.relay_parent();
 
 		overseer_send(
 			&mut virtual_overseer,
 			AvailabilityRecoveryMessage::RecoverAvailableData(
-				new_candidate.clone(),
+				new_candidate.clone().into(),
 				test_state.session_index,
 				None,
 				Some(test_state.core_index),
@@ -929,12 +914,12 @@ fn availability_is_recovered_from_chunks_even_if_backing_group_supplied_if_chunk
 		// Test another candidate, send no chunks.
 		let mut new_candidate = dummy_candidate_receipt(dummy_hash());
 
-		new_candidate.descriptor.relay_parent = test_state.candidate.descriptor.relay_parent;
+		new_candidate.descriptor.relay_parent = test_state.candidate.descriptor.relay_parent();
 
 		overseer_send(
 			&mut virtual_overseer,
 			AvailabilityRecoveryMessage::RecoverAvailableData(
-				new_candidate.clone(),
+				new_candidate.clone().into(),
 				test_state.session_index,
 				Some(GroupIndex(1)),
 				Some(test_state.core_index),
@@ -1218,7 +1203,7 @@ fn invalid_erasure_coding_leads_to_invalid_error(#[case] systematic_recovery: bo
 			test_state.validators.len(),
 			test_state.core_index,
 		);
-		test_state.candidate.descriptor.erasure_root = bad_erasure_root;
+		test_state.candidate.descriptor.set_erasure_root(bad_erasure_root);
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1283,7 +1268,7 @@ fn invalid_pov_hash_leads_to_invalid_error() {
 	test_harness(subsystem, |mut virtual_overseer| async move {
 		let pov = PoV { block_data: BlockData(vec![69; 64]) };
 
-		test_state.candidate.descriptor.pov_hash = pov.hash();
+		test_state.candidate.descriptor.set_pov_hash(pov.hash());
 
 		let candidate_hash = test_state.candidate.hash();
 
@@ -1420,7 +1405,10 @@ fn recovers_from_only_chunks_if_pov_large(
 			test_state.threshold(),
 		),
 		(false, true) => {
-			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
+			test_state
+				.candidate
+				.descriptor
+				.set_pov_hash(test_state.available_data.pov.hash());
 			(
 				AvailabilityRecoverySubsystem::for_collator(
 					None,
@@ -1497,12 +1485,12 @@ fn recovers_from_only_chunks_if_pov_large(
 		// Test another candidate, send no chunks.
 		let mut new_candidate = dummy_candidate_receipt(dummy_hash());
 
-		new_candidate.descriptor.relay_parent = test_state.candidate.descriptor.relay_parent;
+		new_candidate.descriptor.relay_parent = test_state.candidate.descriptor.relay_parent();
 
 		overseer_send(
 			&mut virtual_overseer,
 			AvailabilityRecoveryMessage::RecoverAvailableData(
-				new_candidate.clone(),
+				new_candidate.clone().into(),
 				test_state.session_index,
 				Some(GroupIndex(1)),
 				Some(test_state.core_index),
@@ -1593,7 +1581,10 @@ fn fast_path_backing_group_recovers_if_pov_small(
 			Metrics::new_dummy(),
 		),
 		(false, true) => {
-			test_state.candidate.descriptor.pov_hash = test_state.available_data.pov.hash();
+			test_state
+				.candidate
+				.descriptor
+				.set_pov_hash(test_state.available_data.pov.hash());
 			AvailabilityRecoverySubsystem::for_collator(
 				None,
 				request_receiver(&req_protocol_names),
@@ -2635,7 +2626,7 @@ fn number_of_request_retries_is_bounded(
 	);
 	test_state.chunks =
 		map_chunks(chunks, &test_state.node_features, n_validators, test_state.core_index);
-	test_state.candidate.descriptor.erasure_root = erasure_root;
+	test_state.candidate.descriptor.set_erasure_root(erasure_root);
 
 	let (subsystem, retry_limit) = match systematic_recovery {
 		false => (

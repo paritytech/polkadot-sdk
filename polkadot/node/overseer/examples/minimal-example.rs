@@ -24,15 +24,17 @@ use orchestra::async_trait;
 use std::time::Duration;
 
 use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem_types::messages::CandidateValidationMessage;
+use polkadot_node_subsystem_types::messages::{CandidateValidationMessage, PvfExecKind};
 use polkadot_overseer::{
 	self as overseer,
 	dummy::dummy_overseer_builder,
 	gen::{FromOrchestra, SpawnedSubsystem},
 	HeadSupportsParachains, SubsystemError,
 };
-use polkadot_primitives::{CandidateReceipt, Hash, PvfExecKind};
-use polkadot_primitives_test_helpers::{dummy_candidate_descriptor, dummy_hash};
+use polkadot_primitives::{CandidateReceiptV2 as CandidateReceipt, Hash, PersistedValidationData};
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_descriptor_v2, dummy_hash, dummy_validation_code,
+};
 
 struct AlwaysSupportsParachains;
 
@@ -56,12 +58,12 @@ impl Subsystem1 {
 					if let FromOrchestra::Communication { msg } = msg {
 						gum::info!("msg {:?}", msg);
 					}
-					continue 'louy
+					continue 'louy;
 				},
 				Ok(None) => (),
 				Err(_) => {
 					gum::info!("exiting");
-					break 'louy
+					break 'louy;
 				},
 			}
 
@@ -69,15 +71,17 @@ impl Subsystem1 {
 			let (tx, _) = oneshot::channel();
 
 			let candidate_receipt = CandidateReceipt {
-				descriptor: dummy_candidate_descriptor(dummy_hash()),
+				descriptor: dummy_candidate_descriptor_v2(dummy_hash()),
 				commitments_hash: Hash::zero(),
 			};
 
-			let msg = CandidateValidationMessage::ValidateFromChainState {
+			let msg = CandidateValidationMessage::ValidateFromExhaustive {
+				validation_data: PersistedValidationData { ..Default::default() },
+				validation_code: dummy_validation_code(),
 				candidate_receipt,
 				pov: PoV { block_data: BlockData(Vec::new()) }.into(),
-				executor_params: Default::default(),
-				exec_kind: PvfExecKind::Backing,
+				scheduling_session_index: 1,
+				exec_kind: PvfExecKind::Backing(dummy_hash()),
 				response_sender: tx,
 			};
 			ctx.send_message(msg).await;
@@ -120,14 +124,14 @@ impl Subsystem2 {
 			match ctx.try_recv().await {
 				Ok(Some(msg)) => {
 					gum::info!("Subsystem2 received message {:?}", msg);
-					continue
+					continue;
 				},
 				Ok(None) => {
 					pending!();
 				},
 				Err(_) => {
 					gum::info!("exiting");
-					return
+					return;
 				},
 			}
 		}

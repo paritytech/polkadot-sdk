@@ -91,17 +91,22 @@ impl NodesUtils {
 		Self::leaf_node_index_to_leaf_index(rightmost_leaf_pos)
 	}
 
-	// Translate a _leaf_ `NodeIndex` to its `LeafIndex`.
+	/// Translate a _leaf_ `NodeIndex` to its `LeafIndex`.
 	fn leaf_node_index_to_leaf_index(pos: NodeIndex) -> LeafIndex {
 		if pos == 0 {
-			return 0
+			return 0;
 		}
 		let peaks = helper::get_peaks(pos);
 		(pos + peaks.len() as u64) >> 1
 	}
 
-	// Starting from any node position get position of rightmost leaf; this is the leaf
-	// responsible for the addition of node `pos`.
+	/// Translate a `LeafIndex` to its _leaf_ `NodeIndex`.
+	pub fn leaf_index_to_leaf_node_index(leaf_index: NodeIndex) -> LeafIndex {
+		helper::leaf_index_to_pos(leaf_index)
+	}
+
+	/// Starting from any node position get position of rightmost leaf; this is the leaf
+	/// responsible for the addition of node `pos`.
 	fn rightmost_leaf_node_index_from_pos(pos: NodeIndex) -> NodeIndex {
 		pos - (helper::pos_height_in_tree(pos) as u64)
 	}
@@ -112,7 +117,7 @@ impl NodesUtils {
 	pub fn right_branch_ending_in_leaf(leaf_index: LeafIndex) -> Vec<NodeIndex> {
 		let pos = helper::leaf_index_to_pos(leaf_index);
 		let num_parents = leaf_index.trailing_ones() as u64;
-		return (pos..=pos + num_parents).collect()
+		return (pos..=pos + num_parents).collect();
 	}
 
 	/// Build offchain key from `parent_hash` of block that originally added node `pos` to MMR.

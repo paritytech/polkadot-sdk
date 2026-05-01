@@ -1,0 +1,20 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add Polkadot Coretime Chain genesis chain-spec
+
+doc:
+  - audience: Node Operator
+    description: |
+      The Polkadot Coretime Chain can now be run as all other system parachains without specifying a
+      chain-spec. However this will soon be deprecated and `--chain ./chain-spec.json` should continue
+      to be used instead.
+
+  - audience: Runtime User
+    description: |
+      The Polkadot Coretime Chain chain-specs have been added to the polkadot-sdk repo and can now be
+      pulled from there along with all other system chains.
+
+crates:
+  - name: polkadot-parachain-bin
+    bump: minor

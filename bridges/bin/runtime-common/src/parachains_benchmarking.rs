@@ -18,17 +18,15 @@
 
 #![cfg(feature = "runtime-benchmarks")]
 
-use crate::{
-	messages_benchmarking::insert_header_to_grandpa_pallet,
-	messages_generation::grow_trie_leaf_value,
-};
+use crate::messages_benchmarking::insert_header_to_grandpa_pallet;
 
-use bp_parachains::parachain_head_storage_key_at_source;
+use bp_parachains::{
+	parachain_head_storage_key_at_source, RelayBlockHash, RelayBlockHasher, RelayBlockNumber,
+};
 use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId};
-use bp_runtime::{record_all_trie_keys, StorageProofSize};
+use bp_runtime::{grow_storage_value, record_all_trie_keys, Chain, UnverifiedStorageProofParams};
 use codec::Encode;
 use frame_support::traits::Get;
-use pallet_bridge_parachains::{RelayBlockHash, RelayBlockHasher, RelayBlockNumber};
 use sp_std::prelude::*;
 use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 
@@ -39,14 +37,14 @@ use sp_trie::{trie_types::TrieDBMutBuilderV1, LayoutV1, MemoryDB, TrieMut};
 pub fn prepare_parachain_heads_proof<R, PI>(
 	parachains: &[ParaId],
 	parachain_head_size: u32,
-	size: StorageProofSize,
+	proof_params: UnverifiedStorageProofParams,
 ) -> (RelayBlockNumber, RelayBlockHash, ParaHeadsProof, Vec<(ParaId, ParaHash)>)
 where
 	R: pallet_bridge_parachains::Config<PI>
 		+ pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>,
 	PI: 'static,
 	<R as pallet_bridge_grandpa::Config<R::BridgesGrandpaPalletInstance>>::BridgedChain:
-		bp_runtime::Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
+		Chain<BlockNumber = RelayBlockNumber, Hash = RelayBlockHash>,
 {
 	let parachain_head = ParaHead(vec![0u8; parachain_head_size as usize]);
 
@@ -64,7 +62,7 @@ where
 			let storage_key =
 				parachain_head_storage_key_at_source(R::ParasPalletName::get(), *parachain);
 			let leaf_data = if i == 0 {
-				grow_trie_leaf_value(parachain_head.encode(), size)
+				grow_storage_value(parachain_head.encode(), &proof_params)
 			} else {
 				parachain_head.encode()
 			};

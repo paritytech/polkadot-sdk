@@ -16,16 +16,17 @@
 
 use super::*;
 use futures::{channel::oneshot, executor};
-use overseer::jaeger;
 use polkadot_node_network_protocol::{self as net_protocol, OurView};
 use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use parking_lot::Mutex;
+use polkadot_overseer::TimeoutExt;
 use std::{
 	collections::HashSet,
 	sync::atomic::{AtomicBool, Ordering},
+	time::Duration,
 };
 
 use sc_network::{
@@ -37,11 +38,11 @@ use sc_network::{
 use polkadot_node_network_protocol::{
 	peer_set::PeerSetProtocolNames,
 	request_response::{outgoing::Requests, ReqProtocolNames},
-	view, ObservedRole, Versioned,
+	view, CollationProtocols, ObservedRole, ValidationProtocols,
 };
 use polkadot_node_subsystem::{
 	messages::{
-		AllMessages, ApprovalDistributionMessage, BitfieldDistributionMessage,
+		AllMessages, ApprovalVotingParallelMessage, BitfieldDistributionMessage,
 		GossipSupportMessage, StatementDistributionMessage,
 	},
 	ActiveLeavesUpdate, FromOrchestra, OverseerSignal,
@@ -117,6 +118,14 @@ fn new_test_network(
 #[async_trait]
 impl Network for TestNetwork {
 	async fn set_reserved_peers(
+		&mut self,
+		_protocol: ProtocolName,
+		_: HashSet<Multiaddr>,
+	) -> Result<(), String> {
+		Ok(())
+	}
+
+	async fn add_peers_to_reserved_set(
 		&mut self,
 		_protocol: ProtocolName,
 		_: HashSet<Multiaddr>,
@@ -201,7 +210,7 @@ impl TestNetworkHandle {
 	async fn connect_peer(
 		&mut self,
 		peer: PeerId,
-		protocol_version: ValidationVersion,
+		protocol_version: ProtocolVersion,
 		peer_set: PeerSet,
 		role: ObservedRole,
 	) {
@@ -213,21 +222,33 @@ impl TestNetworkHandle {
 			}
 		}
 
-		// because of how protocol negotiation works, if two peers support at least one common
-		// protocol, the protocol is negotiated over the main protocol (`ValidationVersion::V2`) but
-		// if either one of the peers used a fallback protocol for the negotiation (meaning they
-		// don't support the main protocol but some older version of it ), `negotiated_fallback` is
-		// set to that protocol.
-		let negotiated_fallback = match protocol_version {
-			ValidationVersion::V2 => None,
-			ValidationVersion::V1 => match peer_set {
-				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/1")),
-				PeerSet::Collation => Some(ProtocolName::from("/polkadot/collation/1")),
-			},
-			ValidationVersion::V3 => match peer_set {
-				PeerSet::Validation => Some(ProtocolName::from("/polkadot/validation/3")),
-				PeerSet::Collation => unreachable!(),
-			},
+		// Simulate protocol negotiation: if this version is the main version for the
+		// peer set, negotiated_fallback is None. Otherwise, look up the matching
+		// fallback name, just like real negotiation would produce.
+		let negotiated_fallback = if protocol_version == peer_set.get_main_version() {
+			None
+		} else {
+			let genesis_hash = Hash::repeat_byte(0xff);
+			let fallback_names =
+				PeerSetProtocolNames::get_fallback_names(peer_set, &genesis_hash, None);
+			let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+
+			Some(
+				fallback_names
+					.into_iter()
+					.find(|name| {
+						protocol_names
+							.try_get_protocol(name)
+							.map_or(false, |(_, v)| v == protocol_version)
+					})
+					.unwrap_or_else(|| {
+						panic!(
+							"No fallback name for {:?} version {}. \
+							 Add it to get_fallback_names().",
+							peer_set, protocol_version,
+						)
+					}),
+			)
 		};
 
 		match peer_set {
@@ -487,7 +508,7 @@ async fn await_peer_connections(
 			if shared.validation_peers.len() == num_validation_peers &&
 				shared.collation_peers.len() == num_collation_peers
 			{
-				break
+				break;
 			}
 		}
 
@@ -564,8 +585,8 @@ async fn assert_sends_validation_event_to_all(
 
 	assert_matches!(
 		virtual_overseer.recv().await,
-		AllMessages::ApprovalDistribution(
-			ApprovalDistributionMessage::NetworkBridgeUpdate(e)
+		AllMessages::ApprovalVotingParallel(
+			ApprovalVotingParallelMessage::NetworkBridgeUpdate(e)
 		) if e == event.focus().expect("could not focus message")
 	);
 
@@ -607,10 +628,15 @@ fn send_our_view_upon_connection() {
 		handle.await_mode_switch().await;
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -622,7 +648,7 @@ fn send_our_view_upon_connection() {
 			&NetworkAction::WriteNotification(
 				peer,
 				PeerSet::Validation,
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view.clone()).encode(),
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone()).encode(),
 			),
 		);
 		assert_network_actions_contains(
@@ -656,17 +682,27 @@ fn sends_view_updates_to_peers() {
 		handle.await_mode_switch().await;
 
 		network_handle
-			.connect_peer(peer_a, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_a,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer_b, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(
+				peer_b,
+				CollationVersion::V1.into(),
+				PeerSet::Collation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
 
 		let actions = network_handle.next_network_actions(2).await;
 		let wire_message =
-			WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(View::default()).encode();
+			WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(View::default()).encode();
 
 		assert_network_actions_contains(
 			&actions,
@@ -688,7 +724,7 @@ fn sends_view_updates_to_peers() {
 
 		let actions = network_handle.next_network_actions(2).await;
 		let wire_message =
-			WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view![hash_a]).encode();
+			WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view![hash_a]).encode();
 
 		assert_network_actions_contains(
 			&actions,
@@ -714,10 +750,20 @@ fn do_not_send_view_update_until_synced() {
 		assert_ne!(peer_a, peer_b);
 
 		network_handle
-			.connect_peer(peer_a, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_a,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer_b, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(
+				peer_b,
+				CollationVersion::V1.into(),
+				PeerSet::Collation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -725,7 +771,7 @@ fn do_not_send_view_update_until_synced() {
 		{
 			let actions = network_handle.next_network_actions(2).await;
 			let wire_message =
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(View::default())
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(View::default())
 					.encode();
 
 			assert_network_actions_contains(
@@ -769,7 +815,7 @@ fn do_not_send_view_update_until_synced() {
 		{
 			let actions = network_handle.next_network_actions(2).await;
 			let wire_message =
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view![hash_a, hash_b])
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view![hash_a, hash_b])
 					.encode();
 
 			assert_network_actions_contains(
@@ -799,10 +845,20 @@ fn do_not_send_view_update_when_only_finalized_block_changed() {
 		let peer_b = PeerId::random();
 
 		network_handle
-			.connect_peer(peer_a, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_a,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer_b, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_b,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 2, 0).await;
@@ -831,7 +887,7 @@ fn do_not_send_view_update_when_only_finalized_block_changed() {
 
 		let actions = network_handle.next_network_actions(4).await;
 		let wire_message =
-			WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(View::new(vec![hash_a], 5))
+			WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(View::new(vec![hash_a], 5))
 				.encode();
 
 		assert_network_actions_contains(
@@ -855,7 +911,12 @@ fn peer_view_updates_sent_via_overseer() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 0).await;
@@ -868,7 +929,7 @@ fn peer_view_updates_sent_via_overseer() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -880,13 +941,15 @@ fn peer_view_updates_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		network_handle
 			.peer_message(
 				peer,
 				PeerSet::Validation,
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view.clone()).encode(),
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone()).encode(),
 			)
 			.await;
 
@@ -895,6 +958,7 @@ fn peer_view_updates_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -907,7 +971,12 @@ fn peer_messages_sent_via_overseer() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 0).await;
@@ -918,7 +987,7 @@ fn peer_messages_sent_via_overseer() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -930,12 +999,14 @@ fn peer_messages_sent_via_overseer() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		let approval_distribution_message =
-			protocol_v1::ApprovalDistributionMessage::Approvals(Vec::new());
+			protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
 
-		let message_v1 = protocol_v1::ValidationProtocol::ApprovalDistribution(
+		let message_v1 = protocol_v3::ValidationProtocol::ApprovalDistribution(
 			approval_distribution_message.clone(),
 		);
 
@@ -955,9 +1026,9 @@ fn peer_messages_sent_via_overseer() {
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalDistribution(
-				ApprovalDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V1(m))
+			AllMessages::ApprovalVotingParallel(
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::PeerMessage(p, ValidationProtocols::V3(m))
 				)
 			) => {
 				assert_eq!(p, peer);
@@ -970,6 +1041,7 @@ fn peer_messages_sent_via_overseer() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 		virtual_overseer
 	});
 }
@@ -982,10 +1054,15 @@ fn peer_disconnect_from_just_one_peerset() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -996,7 +1073,7 @@ fn peer_disconnect_from_just_one_peerset() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1008,6 +1085,8 @@ fn peer_disconnect_from_just_one_peerset() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1015,7 +1094,7 @@ fn peer_disconnect_from_just_one_peerset() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					CollationVersion::V1.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1036,6 +1115,7 @@ fn peer_disconnect_from_just_one_peerset() {
 			&mut virtual_overseer,
 		)
 		.await;
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		// to show that we're still connected on the collation protocol, send a view update.
 
@@ -1049,7 +1129,7 @@ fn peer_disconnect_from_just_one_peerset() {
 
 		let actions = network_handle.next_network_actions(3).await;
 		let wire_message =
-			WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view![hash_a]).encode();
+			WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view![hash_a]).encode();
 
 		assert_network_actions_contains(
 			&actions,
@@ -1068,10 +1148,20 @@ fn relays_collation_protocol_messages() {
 		let peer_b = PeerId::random();
 
 		network_handle
-			.connect_peer(peer_a, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_a,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer_b, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(
+				peer_b,
+				CollationVersion::V1.into(),
+				PeerSet::Collation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -1082,7 +1172,7 @@ fn relays_collation_protocol_messages() {
 				NetworkBridgeEvent::PeerConnected(
 					peer_a,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1094,6 +1184,8 @@ fn relays_collation_protocol_messages() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1101,7 +1193,7 @@ fn relays_collation_protocol_messages() {
 				NetworkBridgeEvent::PeerConnected(
 					peer_b,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					CollationVersion::V1.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1156,7 +1248,7 @@ fn relays_collation_protocol_messages() {
 			virtual_overseer.recv().await,
 			AllMessages::CollatorProtocol(
 				CollatorProtocolMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V1(m))
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V1(m))
 				)
 			) => {
 				assert_eq!(p, peer_b);
@@ -1175,10 +1267,15 @@ fn different_views_on_different_peer_sets() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 		network_handle
-			.connect_peer(peer, ValidationVersion::V1, PeerSet::Collation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
 
 		await_peer_connections(&shared, 1, 1).await;
@@ -1189,7 +1286,7 @@ fn different_views_on_different_peer_sets() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					ValidationVersion::V3.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1201,6 +1298,8 @@ fn different_views_on_different_peer_sets() {
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 8);
 		}
 
 		{
@@ -1208,7 +1307,7 @@ fn different_views_on_different_peer_sets() {
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V1.into(),
+					CollationVersion::V1.into(),
 					None,
 				),
 				&mut virtual_overseer,
@@ -1229,7 +1328,7 @@ fn different_views_on_different_peer_sets() {
 			.peer_message(
 				peer,
 				PeerSet::Validation,
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view_a.clone()).encode(),
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view_a.clone()).encode(),
 			)
 			.await;
 
@@ -1246,6 +1345,8 @@ fn different_views_on_different_peer_sets() {
 			&mut virtual_overseer,
 		)
 		.await;
+
+		assert_eq!(virtual_overseer.message_counter.with_high_priority(), 12);
 
 		assert_sends_collation_event_to_all(
 			NetworkBridgeEvent::PeerViewChange(peer, view_b.clone()),
@@ -1264,7 +1365,12 @@ fn sent_views_include_finalized_number_update() {
 		let peer_a = PeerId::random();
 
 		network_handle
-			.connect_peer(peer_a, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_a,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 0).await;
@@ -1283,7 +1389,7 @@ fn sent_views_include_finalized_number_update() {
 
 		let actions = network_handle.next_network_actions(2).await;
 		let wire_message =
-			WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(View::new(vec![hash_b], 1))
+			WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(View::new(vec![hash_b], 1))
 				.encode();
 
 		assert_network_actions_contains(
@@ -1302,7 +1408,12 @@ fn view_finalized_number_can_not_go_down() {
 		let peer_a = PeerId::random();
 
 		network_handle
-			.connect_peer(peer_a, ValidationVersion::V1, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(
+				peer_a,
+				ValidationVersion::V3.into(),
+				PeerSet::Validation,
+				ObservedRole::Full,
+			)
 			.await;
 
 		await_peer_connections(&shared, 1, 0).await;
@@ -1311,7 +1422,7 @@ fn view_finalized_number_can_not_go_down() {
 			.peer_message(
 				peer_a,
 				PeerSet::Validation,
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(View::new(
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(View::new(
 					vec![Hash::repeat_byte(0x01)],
 					1,
 				))
@@ -1323,7 +1434,7 @@ fn view_finalized_number_can_not_go_down() {
 			.peer_message(
 				peer_a,
 				PeerSet::Validation,
-				WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(View::new(vec![], 0))
+				WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(View::new(vec![], 0))
 					.encode(),
 			)
 			.await;
@@ -1357,12 +1468,7 @@ fn our_view_updates_decreasing_order_and_limited_to_max() {
 		}
 
 		let our_views = (1..=MAX_VIEW_HEADS).rev().map(|start| {
-			OurView::new(
-				(start..=MAX_VIEW_HEADS)
-					.rev()
-					.map(|i| (Hash::repeat_byte(i as u8), Arc::new(jaeger::Span::Disabled))),
-				0,
-			)
+			OurView::new((start..=MAX_VIEW_HEADS).rev().map(|i| Hash::repeat_byte(i as u8)), 0)
 		});
 
 		for our_view in our_views {
@@ -1391,10 +1497,10 @@ fn network_protocol_versioning_view_update() {
 
 		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
 		let peers = [
-			(peer_ids[0], PeerSet::Validation, ValidationVersion::V2),
-			(peer_ids[1], PeerSet::Collation, ValidationVersion::V1),
-			(peer_ids[2], PeerSet::Validation, ValidationVersion::V1),
-			(peer_ids[3], PeerSet::Collation, ValidationVersion::V2),
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[1], PeerSet::Collation, CollationVersion::V1.into()),
+			(peer_ids[2], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[3], PeerSet::Collation, CollationVersion::V2.into()),
 		];
 
 		let head = Hash::repeat_byte(1);
@@ -1426,16 +1532,18 @@ fn network_protocol_versioning_view_update() {
 		let actions = network_handle.next_network_actions(4).await;
 
 		for &(peer_id, peer_set, version) in &peers {
-			let wire_msg = match version {
-				ValidationVersion::V1 =>
-					WireMessage::<protocol_v1::ValidationProtocol>::ViewUpdate(view.clone())
-						.encode(),
-				ValidationVersion::V2 =>
-					WireMessage::<protocol_v2::ValidationProtocol>::ViewUpdate(view.clone())
-						.encode(),
-				ValidationVersion::V3 =>
+			let wire_msg = match (version.into(), peer_set) {
+				(1, PeerSet::Collation) => {
+					WireMessage::<protocol_v1::CollationProtocol>::ViewUpdate(view.clone()).encode()
+				},
+				(2, PeerSet::Collation) => {
+					WireMessage::<protocol_v2::CollationProtocol>::ViewUpdate(view.clone()).encode()
+				},
+				(3, PeerSet::Validation) => {
 					WireMessage::<protocol_v3::ValidationProtocol>::ViewUpdate(view.clone())
-						.encode(),
+						.encode()
+				},
+				_ => unreachable!(),
 			};
 			assert_network_actions_contains(
 				&actions,
@@ -1447,9 +1555,124 @@ fn network_protocol_versioning_view_update() {
 	});
 }
 
+// Test rx bridge sends the newest gossip topology to all subsystems and old ones only to approval
+// distribution.
+#[test]
+fn network_new_topology_update() {
+	let (oracle, handle) = make_sync_oracle(false);
+	test_harness(Box::new(oracle), |test_harness| async move {
+		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
+
+		let peer_ids: Vec<_> = (0..4).map(|_| PeerId::random()).collect();
+		let peers = [
+			(peer_ids[0], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[1], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[2], PeerSet::Validation, ValidationVersion::V3.into()),
+			(peer_ids[3], PeerSet::Collation, CollationVersion::V1.into()),
+		];
+
+		let head = Hash::repeat_byte(1);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
+			)))
+			.await;
+
+		handle.await_mode_switch().await;
+
+		let mut total_validation_peers = 0;
+		let mut total_collation_peers = 0;
+
+		for &(peer_id, peer_set, version) in &peers {
+			network_handle
+				.connect_peer(peer_id, version, peer_set, ObservedRole::Full)
+				.await;
+
+			match peer_set {
+				PeerSet::Validation => total_validation_peers += 1,
+				PeerSet::Collation => total_collation_peers += 1,
+			}
+		}
+
+		await_peer_connections(&shared, total_validation_peers, total_collation_peers).await;
+
+		// Drain setup messages.
+		while let Some(_) = virtual_overseer.recv().timeout(Duration::from_secs(1)).await {}
+
+		// 1. Send new gossip topology and check is sent to all subsystems.
+		virtual_overseer
+			.send(polkadot_overseer::FromOrchestra::Communication {
+				msg: NetworkBridgeRxMessage::NewGossipTopology {
+					session: 2,
+					local_index: Some(ValidatorIndex(0)),
+					canonical_shuffling: Vec::new(),
+					shuffled_indices: Vec::new(),
+				},
+			})
+			.await;
+
+		assert_sends_validation_event_to_all(
+			NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+				session: 2,
+				topology: SessionGridTopology::new(Vec::new(), Vec::new()),
+				local_index: Some(ValidatorIndex(0)),
+			}),
+			&mut virtual_overseer,
+		)
+		.await;
+
+		// 2. Send old gossip topology and check is sent only to approval distribution.
+		virtual_overseer
+			.send(polkadot_overseer::FromOrchestra::Communication {
+				msg: NetworkBridgeRxMessage::NewGossipTopology {
+					session: 1,
+					local_index: Some(ValidatorIndex(0)),
+					canonical_shuffling: Vec::new(),
+					shuffled_indices: Vec::new(),
+				},
+			})
+			.await;
+
+		assert_matches!(
+			virtual_overseer.recv().await,
+			AllMessages::ApprovalVotingParallel(
+				ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+						session: 1,
+						topology: _,
+						local_index: _,
+					})
+				)
+			)
+		);
+
+		// 3. Send new gossip topology and check is sent to all subsystems.
+		virtual_overseer
+			.send(polkadot_overseer::FromOrchestra::Communication {
+				msg: NetworkBridgeRxMessage::NewGossipTopology {
+					session: 3,
+					local_index: Some(ValidatorIndex(0)),
+					canonical_shuffling: Vec::new(),
+					shuffled_indices: Vec::new(),
+				},
+			})
+			.await;
+
+		assert_sends_validation_event_to_all(
+			NetworkBridgeEvent::NewGossipTopology(NewGossipTopology {
+				session: 3,
+				topology: SessionGridTopology::new(Vec::new(), Vec::new()),
+				local_index: Some(ValidatorIndex(0)),
+			}),
+			&mut virtual_overseer,
+		)
+		.await;
+		virtual_overseer
+	});
+}
+
 #[test]
 fn network_protocol_versioning_subsystem_msg() {
-	use polkadot_primitives::CandidateHash;
 	use std::task::Poll;
 
 	let (oracle, _handle) = make_sync_oracle(false);
@@ -1459,93 +1682,155 @@ fn network_protocol_versioning_subsystem_msg() {
 		let peer = PeerId::random();
 
 		network_handle
-			.connect_peer(peer, ValidationVersion::V2, PeerSet::Validation, ObservedRole::Full)
+			.connect_peer(peer, CollationVersion::V1.into(), PeerSet::Collation, ObservedRole::Full)
 			.await;
-		await_peer_connections(&shared, 1, 0).await;
+		await_peer_connections(&shared, 0, 1).await;
 
 		// bridge will inform about all connected peers.
 		{
-			assert_sends_validation_event_to_all(
+			assert_sends_collation_event_to_all(
 				NetworkBridgeEvent::PeerConnected(
 					peer,
 					ObservedRole::Full,
-					ValidationVersion::V3.into(),
+					CollationVersion::V1.into(),
 					None,
 				),
 				&mut virtual_overseer,
 			)
 			.await;
 
-			assert_sends_validation_event_to_all(
+			assert_sends_collation_event_to_all(
 				NetworkBridgeEvent::PeerViewChange(peer, View::default()),
 				&mut virtual_overseer,
 			)
 			.await;
+
+			assert_eq!(virtual_overseer.message_counter.with_high_priority(), 0);
 		}
 
-		let approval_distribution_message =
-			protocol_v3::ApprovalDistributionMessage::Approvals(Vec::new());
-
-		let msg = protocol_v3::ValidationProtocol::ApprovalDistribution(
-			approval_distribution_message.clone(),
+		let collator_protocol_message = protocol_v1::CollatorProtocolMessage::Declare(
+			Sr25519Keyring::Alice.public().into(),
+			Default::default(),
+			sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
 		);
+
+		let msg =
+			protocol_v1::CollationProtocol::CollatorProtocol(collator_protocol_message.clone());
 
 		network_handle
 			.peer_message(
 				peer,
-				PeerSet::Validation,
+				PeerSet::Collation,
 				WireMessage::ProtocolMessage(msg.clone()).encode(),
 			)
 			.await;
 
 		assert_matches!(
 			virtual_overseer.recv().await,
-			AllMessages::ApprovalDistribution(
-				ApprovalDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
+			AllMessages::CollatorProtocol(
+				CollatorProtocolMessage::NetworkBridgeUpdate(
+					NetworkBridgeEvent::PeerMessage(p, CollationProtocols::V1(m))
 				)
 			) => {
 				assert_eq!(p, peer);
-				assert_eq!(m, approval_distribution_message);
-			}
-		);
-
-		let metadata = protocol_v1::StatementMetadata {
-			relay_parent: Hash::zero(),
-			candidate_hash: CandidateHash::default(),
-			signed_by: ValidatorIndex(0),
-			signature: sp_core::crypto::UncheckedFrom::unchecked_from([1u8; 64]),
-		};
-		let statement_distribution_message =
-			protocol_v2::StatementDistributionMessage::V1Compatibility(
-				protocol_v1::StatementDistributionMessage::LargeStatement(metadata),
-			);
-		let msg = protocol_v2::ValidationProtocol::StatementDistribution(
-			statement_distribution_message.clone(),
-		);
-
-		network_handle
-			.peer_message(
-				peer,
-				PeerSet::Validation,
-				WireMessage::ProtocolMessage(msg.clone()).encode(),
-			)
-			.await;
-
-		assert_matches!(
-			virtual_overseer.recv().await,
-			AllMessages::StatementDistribution(
-				StatementDistributionMessage::NetworkBridgeUpdate(
-					NetworkBridgeEvent::PeerMessage(p, Versioned::V3(m))
-				)
-			) => {
-				assert_eq!(p, peer);
-				assert_eq!(m, statement_distribution_message);
+				assert_eq!(m, collator_protocol_message);
 			}
 		);
 
 		// No more messages.
 		assert_matches!(futures::poll!(virtual_overseer.recv().boxed()), Poll::Pending);
+
+		virtual_overseer
+	});
+}
+
+/// Ensures that every `CollationVersion` gets view updates on new leaves.
+/// The on-connection path uses a match (compiler-enforced), but the view-update
+/// broadcast path uses separate calls per version which can silently miss one.
+#[test]
+fn all_collation_versions_receive_view_updates() {
+	use strum::IntoEnumIterator;
+
+	let versions: Vec<_> = CollationVersion::iter().map(|v| v.into()).collect();
+	assert_all_peer_set_versions_receive_view_updates(PeerSet::Collation, &versions);
+}
+
+/// Same as above but for `ValidationVersion`.
+#[test]
+fn all_validation_versions_receive_view_updates() {
+	use strum::IntoEnumIterator;
+
+	let versions: Vec<_> = ValidationVersion::iter().map(|v| v.into()).collect();
+	assert_all_peer_set_versions_receive_view_updates(PeerSet::Validation, &versions);
+}
+
+fn assert_all_peer_set_versions_receive_view_updates(
+	peer_set: PeerSet,
+	versions: &[ProtocolVersion],
+) {
+	let (oracle, handle) = make_sync_oracle(false);
+	test_harness(Box::new(oracle), |test_harness| async move {
+		let TestHarness { mut network_handle, mut virtual_overseer, shared } = test_harness;
+
+		let peers: Vec<_> = versions.iter().map(|v| (PeerId::random(), *v)).collect();
+
+		let (num_validation, num_collation) = match peer_set {
+			PeerSet::Validation => (peers.len(), 0),
+			PeerSet::Collation => (0, peers.len()),
+		};
+
+		// Activate an initial leaf so peers get a view on connection.
+		let head = Hash::repeat_byte(1);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head, 1)),
+			)))
+			.await;
+
+		handle.await_mode_switch().await;
+
+		for &(peer, version) in &peers {
+			network_handle.connect_peer(peer, version, peer_set, ObservedRole::Full).await;
+		}
+
+		await_peer_connections(&shared, num_validation, num_collation).await;
+
+		// Drain the initial on-connection view updates.
+		let _ = network_handle.next_network_actions(peers.len()).await;
+
+		// Activate a NEW leaf — this triggers the broadcast code path which is
+		// NOT compiler-enforced (separate send calls per version, easy to miss one).
+		let head2 = Hash::repeat_byte(2);
+		virtual_overseer
+			.send(FromOrchestra::Signal(OverseerSignal::ActiveLeaves(
+				ActiveLeavesUpdate::start_work(new_leaf(head2, 2)),
+			)))
+			.await;
+
+		// Collect actions with a timeout so the test fails fast instead of hanging
+		// if a version is missing its view update send.
+		let mut actions = Vec::with_capacity(peers.len());
+		for _ in 0..peers.len() {
+			match network_handle.next_network_action().timeout(Duration::from_secs(5)).await {
+				Some(action) => actions.push(action),
+				None => break,
+			}
+		}
+
+		for &(peer, version) in &peers {
+			assert!(
+				actions.iter().any(|action| matches!(
+					action,
+					NetworkAction::WriteNotification(p, ps, _)
+						if *p == peer && *ps == peer_set
+				)),
+				"Peer {:?} ({:?} version {}) did not receive a view update on new leaf. \
+				 Did you forget to send ViewUpdate for a new version in update_our_view()?",
+				peer,
+				peer_set,
+				version,
+			);
+		}
 
 		virtual_overseer
 	});

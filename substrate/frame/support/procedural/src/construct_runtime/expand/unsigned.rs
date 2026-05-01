@@ -18,7 +18,6 @@
 use crate::construct_runtime::Pallet;
 use proc_macro2::TokenStream;
 use quote::quote;
-use std::str::FromStr;
 use syn::Ident;
 
 pub fn expand_outer_validate_unsigned(
@@ -34,14 +33,7 @@ pub fn expand_outer_validate_unsigned(
 		if pallet_decl.exists_part("ValidateUnsigned") {
 			let name = &pallet_decl.name;
 			let path = &pallet_decl.path;
-			let attr = pallet_decl.cfg_pattern.iter().fold(TokenStream::new(), |acc, pattern| {
-				let attr = TokenStream::from_str(&format!("#[cfg({})]", pattern.original()))
-					.expect("was successfully parsed before; qed");
-				quote! {
-					#acc
-					#attr
-				}
-			});
+			let attr = pallet_decl.get_attributes();
 
 			pallet_names.push(name);
 			pallet_attrs.push(attr);
@@ -54,6 +46,7 @@ pub fn expand_outer_validate_unsigned(
 	quote! {
 		#( #query_validate_unsigned_part_macros )*
 
+		#[allow(deprecated)]
 		impl #scrate::unsigned::ValidateUnsigned for #runtime {
 			type Call = RuntimeCall;
 

@@ -103,13 +103,14 @@ pub fn derive_debug_no_bound(input: proc_macro::TokenStream) -> proc_macro::Toke
 		},
 		syn::Data::Union(_) => {
 			let msg = "Union type not supported by `derive(DebugNoBound)`";
-			return syn::Error::new(input.span(), msg).to_compile_error().into()
+			return syn::Error::new(input.span(), msg).to_compile_error().into();
 		},
 	};
 
 	quote::quote!(
 		const _: () = {
 			#[automatically_derived]
+			#[allow(deprecated)]
 			impl #impl_generics ::core::fmt::Debug for #input_ident #ty_generics #where_clause {
 				fn fmt(&self, fmt: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
 					#impl_

@@ -36,7 +36,7 @@
 //!
 //! Let's see a quick example:
 //!
-//! ```rust(ignore)
+//! ```nocompile
 //! sp_api::decl_runtime_apis! {
 //! 	#[api_version(2)]
 //! 	pub trait MyApi {
@@ -114,19 +114,22 @@
 //! separated from the stable primitives.
 
 use crate::{
-	async_backing, slashing, ApprovalVotingParams, AsyncBackingParams, BlockNumber,
-	CandidateCommitments, CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex,
-	CoreState, DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures,
-	OccupiedCoreAssumption, PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	async_backing::{BackingState, Constraints},
+	slashing,
+	vstaging::RelayParentInfo,
+	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
+	DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures, OccupiedCoreAssumption,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
+use alloc::{
+	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+	vec::Vec,
+};
 use polkadot_core_primitives as pcp;
 use polkadot_parachain_primitives::primitives as ppp;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	prelude::*,
-};
 
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.
@@ -231,8 +234,9 @@ sp_api::decl_runtime_apis! {
 		fn session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams>;
 
 		/// Returns a list of validators that lost a past session dispute and need to be slashed.
-		/// NOTE: This function is only available since parachain host version 5.
-		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
+		///
+		/// Deprecated. Use `unapplied_slashes_v2` instead.
+		fn unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>;
 
 		/// Returns a merkle proof of a validator session key.
 		/// NOTE: This function is only available since parachain host version 5.
@@ -260,7 +264,7 @@ sp_api::decl_runtime_apis! {
 
 		/// Returns the state of parachain backing for a given para.
 		#[api_version(7)]
-		fn para_backing_state(_: ppp::Id) -> Option<async_backing::BackingState<Hash, BlockNumber>>;
+		fn para_backing_state(_: ppp::Id) -> Option<BackingState<Hash, BlockNumber>>;
 
 		/// Returns candidate's acceptance limitations for asynchronous backing for a relay parent.
 		#[api_version(7)]
@@ -293,5 +297,51 @@ sp_api::decl_runtime_apis! {
 		/// Elastic scaling support
 		#[api_version(11)]
 		fn candidates_pending_availability(para_id: ppp::Id) -> Vec<CommittedCandidateReceipt<Hash>>;
+
+		/***** Added in v12 *****/
+		/// Retrieve the maximum uncompressed code size.
+		#[api_version(12)]
+		fn validation_code_bomb_limit() -> u32;
+
+		/***** Added in v13 *****/
+		/// Returns the constraints on the actions that can be taken by a new parachain
+		/// block.
+		#[api_version(13)]
+		fn backing_constraints(para_id: ppp::Id) -> Option<Constraints>;
+
+		/***** Added in v13 *****/
+		/// Retrieve the scheduling lookahead
+		#[api_version(13)]
+		fn scheduling_lookahead() -> u32;
+
+		/***** Added in v14 *****/
+		/// Retrieve paraids at relay parent
+		#[api_version(14)]
+		fn para_ids() -> Vec<ppp::Id>;
+
+		/***** Added in v15 *****/
+		/// Returns a list of validators that lost a past session dispute and need to be slashed.
+		#[api_version(15)]
+		fn unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>;
+
+		/***** Added in v16 *****/
+		/// Retrieve the maximum relay parent session age allowed for parachain blocks.
+		#[api_version(16)]
+		fn max_relay_parent_session_age() -> u32;
+
+		/// Look up relay parent info for a block that is an **ancestor** of the block
+		/// this API is called at. Returns `None` if the relay parent is not found
+		/// in the allowed relay parents for the given session.
+		///
+		/// NOTE: A block is not in its own `AllowedRelayParents` storage (it gets
+		/// added during the next block's inherent). Querying a block about itself
+		/// will always return `None`. Use the node-side `check_relay_parent_session`
+		/// utility for a general-purpose check that handles both the self and
+		/// ancestor cases.
+		#[api_version(16)]
+		fn ancestor_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<RelayParentInfo<Hash, BlockNumber>>;
 	}
 }

@@ -17,32 +17,38 @@
 
 //! Test environment for NIS pallet.
 
-use crate::{self as pallet_nis, Perquintill, WithMaximumOf};
+use frame::{runtime::prelude::*, testing_prelude::*, traits::StorageMapShim};
 
-use frame_support::{
-	derive_impl, ord_parameter_types, parameter_types,
-	traits::{fungible::Inspect, ConstU32, ConstU64, OnFinalize, OnInitialize, StorageMapShim},
-	weights::Weight,
-	PalletId,
-};
-use pallet_balances::{Instance1, Instance2};
-use sp_core::ConstU128;
-use sp_runtime::BuildStorage;
-
-type Block = frame_system::mocking::MockBlock<Test>;
+use crate::{self as pallet_nis, *};
 
 pub type Balance = u64;
 
+type Block = frame_system::mocking::MockBlock<Test>;
+
 // Configure a mock runtime to test the pallet.
-frame_support::construct_runtime!(
-	pub enum Test
-	{
-		System: frame_system,
-		Balances: pallet_balances::<Instance1>,
-		NisBalances: pallet_balances::<Instance2>,
-		Nis: pallet_nis,
-	}
-);
+#[frame_construct_runtime]
+mod runtime {
+	#[runtime::runtime]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeError,
+		RuntimeEvent,
+		RuntimeFreezeReason,
+		RuntimeHoldReason,
+		RuntimeOrigin,
+		RuntimeTask
+	)]
+	pub struct Test;
+
+	#[runtime::pallet_index(0)]
+	pub type System = frame_system;
+	#[runtime::pallet_index(1)]
+	pub type Balances = pallet_balances<Instance1>;
+	#[runtime::pallet_index(2)]
+	pub type NisBalances = pallet_balances<Instance2>;
+	#[runtime::pallet_index(3)]
+	pub type Nis = pallet_nis;
+}
 
 #[derive_impl(frame_system::config_preludes::TestDefaultConfig)]
 impl frame_system::Config for Test {
@@ -50,7 +56,7 @@ impl frame_system::Config for Test {
 	type AccountData = pallet_balances::AccountData<Balance>;
 }
 
-impl pallet_balances::Config<Instance1> for Test {
+impl pallet_balances::Config<pallet_balances::Instance1> for Test {
 	type Balance = Balance;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
@@ -64,15 +70,16 @@ impl pallet_balances::Config<Instance1> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
 }
 
-impl pallet_balances::Config<Instance2> for Test {
+impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 	type Balance = u128;
 	type DustRemoval = ();
 	type RuntimeEvent = RuntimeEvent;
 	type ExistentialDeposit = ConstU128<1>;
 	type AccountStore = StorageMapShim<
-		pallet_balances::Account<Test, Instance2>,
+		pallet_balances::Account<Test, pallet_balances::Instance2>,
 		u64,
 		pallet_balances::AccountData<u128>,
 	>;
@@ -84,6 +91,7 @@ impl pallet_balances::Config<Instance2> for Test {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = ();
 	type RuntimeFreezeReason = ();
+	type DoneSlashHandler = ();
 }
 
 parameter_types! {
@@ -104,7 +112,7 @@ impl pallet_nis::Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type PalletId = NisPalletId;
 	type Currency = Balances;
-	type CurrencyBalance = <Self as pallet_balances::Config<Instance1>>::Balance;
+	type CurrencyBalance = <Self as pallet_balances::Config<pallet_balances::Instance1>>::Balance;
 	type FundOrigin = frame_system::EnsureSigned<Self::AccountId>;
 	type Deficit = ();
 	type IgnoredIssuance = IgnoredIssuance;
@@ -129,8 +137,9 @@ impl pallet_nis::Config for Test {
 // our desired mockup.
 pub fn new_test_ext() -> sp_io::TestExternalities {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test, Instance1> {
+	pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
 		balances: vec![(1, 100), (2, 100), (3, 100), (4, 100)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
@@ -142,16 +151,4 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 #[cfg(feature = "runtime-benchmarks")]
 pub fn new_test_ext_empty() -> sp_io::TestExternalities {
 	frame_system::GenesisConfig::<Test>::default().build_storage().unwrap().into()
-}
-
-pub fn run_to_block(n: u64) {
-	while System::block_number() < n {
-		Nis::on_finalize(System::block_number());
-		Balances::on_finalize(System::block_number());
-		System::on_finalize(System::block_number());
-		System::set_block_number(System::block_number() + 1);
-		System::on_initialize(System::block_number());
-		Balances::on_initialize(System::block_number());
-		Nis::on_initialize(System::block_number());
-	}
 }

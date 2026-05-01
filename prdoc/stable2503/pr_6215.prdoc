@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Remove `ProspectiveParachainsMode` from backing subsystem
+doc:
+  - audience: "Node Dev"
+    description: |
+      Removes `ProspectiveParachainsMode` usage from the backing subsystem and assumes
+      `async_backing_params` runtime api is always available. Since the runtime api v7 is released on
+      all networks it should always be true.
+
+crates:
+  - name: polkadot-node-core-backing
+    bump: patch
+  - name: polkadot-statement-table
+    bump: major

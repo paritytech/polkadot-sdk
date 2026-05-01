@@ -18,7 +18,7 @@
 //! Implements tree backend, cached header metadata and algorithms
 //! to compute routes efficiently over the tree of headers.
 
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use schnellru::{ByLength, LruMap};
 use sp_core::U256;
 use sp_runtime::{
@@ -42,12 +42,12 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 ) -> Result<HashAndNumber<Block>, T::Error> {
 	let mut header_one = backend.header_metadata(id_one)?;
 	if header_one.parent == id_two {
-		return Ok(HashAndNumber { hash: id_two, number: header_one.number - One::one() })
+		return Ok(HashAndNumber { hash: id_two, number: header_one.number - One::one() });
 	}
 
 	let mut header_two = backend.header_metadata(id_two)?;
 	if header_two.parent == id_one {
-		return Ok(HashAndNumber { hash: id_one, number: header_one.number })
+		return Ok(HashAndNumber { hash: id_one, number: header_one.number });
 	}
 
 	let mut orig_header_one = header_one.clone();
@@ -61,7 +61,7 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 		if ancestor_one.number >= header_two.number {
 			header_one = ancestor_one;
 		} else {
-			break
+			break;
 		}
 	}
 
@@ -71,7 +71,7 @@ pub fn lowest_common_ancestor<Block: BlockT, T: HeaderMetadata<Block> + ?Sized>(
 		if ancestor_two.number >= header_one.number {
 			header_two = ancestor_two;
 		} else {
-			break
+			break;
 		}
 	}
 
@@ -151,6 +151,29 @@ pub struct HashAndNumber<Block: BlockT> {
 	pub number: NumberFor<Block>,
 	/// The hash of the block.
 	pub hash: Block::Hash,
+}
+
+impl<Block: BlockT> Eq for HashAndNumber<Block> {}
+
+impl<Block: BlockT> PartialEq for HashAndNumber<Block> {
+	fn eq(&self, other: &Self) -> bool {
+		self.number.eq(&other.number) && self.hash.eq(&other.hash)
+	}
+}
+
+impl<Block: BlockT> Ord for HashAndNumber<Block> {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		match self.number.cmp(&other.number) {
+			std::cmp::Ordering::Equal => self.hash.cmp(&other.hash),
+			result => result,
+		}
+	}
+}
+
+impl<Block: BlockT> PartialOrd for HashAndNumber<Block> {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(&other))
+	}
 }
 
 /// A tree-route from one block to another in the chain.
@@ -248,33 +271,33 @@ pub trait HeaderMetadata<Block: BlockT> {
 
 /// Caches header metadata in an in-memory LRU cache.
 pub struct HeaderMetadataCache<Block: BlockT> {
-	cache: RwLock<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
+	cache: Mutex<LruMap<Block::Hash, CachedHeaderMetadata<Block>>>,
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	/// Creates a new LRU header metadata cache with `capacity`.
 	pub fn new(capacity: u32) -> Self {
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(capacity))) }
+		HeaderMetadataCache { cache: Mutex::new(LruMap::new(ByLength::new(capacity))) }
 	}
 }
 
 impl<Block: BlockT> Default for HeaderMetadataCache<Block> {
 	fn default() -> Self {
-		HeaderMetadataCache { cache: RwLock::new(LruMap::new(ByLength::new(LRU_CACHE_SIZE))) }
+		Self::new(LRU_CACHE_SIZE)
 	}
 }
 
 impl<Block: BlockT> HeaderMetadataCache<Block> {
 	pub fn header_metadata(&self, hash: Block::Hash) -> Option<CachedHeaderMetadata<Block>> {
-		self.cache.write().get(&hash).cloned()
+		self.cache.lock().get(&hash).cloned()
 	}
 
 	pub fn insert_header_metadata(&self, hash: Block::Hash, metadata: CachedHeaderMetadata<Block>) {
-		self.cache.write().insert(hash, metadata);
+		self.cache.lock().insert(hash, metadata);
 	}
 
 	pub fn remove_header_metadata(&self, hash: Block::Hash) {
-		self.cache.write().remove(&hash);
+		self.cache.lock().remove(&hash);
 	}
 }
 

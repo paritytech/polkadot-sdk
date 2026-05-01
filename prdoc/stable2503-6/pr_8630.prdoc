@@ -1,0 +1,24 @@
+title: "Broker: Introduce min price and adjust renewals to lower market"
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    pallet-broker now provides an additional `AdaptPrice` implementation:
+    `MinimumPrice`. This price adapter works exactly the same as the
+    `CenterTargetPrice` adapter, except that it can be configured with a
+    minimum price. If set, it will never drop the returned `end_price` (nor the
+    `target_price`) below that minimum. 
+
+    Apart from having an adapter to ensure a minimum price, the behavior of
+    renewals was also adjusted: Renewals are now either bumped by renewal bump
+    or set to the `end_price` of the current sale - whatever number is higher.
+    This ensures some market coupling of renewal prices, while still
+    maintaining some predictability. 
+
+crates:
+- name: pallet-broker
+  bump: minor
+- name: coretime-rococo-runtime
+  bump: minor
+- name: coretime-westend-runtime
+  bump: minor

@@ -1,19 +1,20 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -120,7 +121,7 @@ fn run_benchmark(
 		let threads_running = Arc::new(AtomicUsize::new(0));
 		let aux_threads: Vec<_> = (0..thread_count - 1)
 			.map(|_| {
-				let mut instance = runtime.new_instance().unwrap();
+				let mut instance = runtime.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY).unwrap();
 				let is_benchmark_running = is_benchmark_running.clone();
 				let threads_running = threads_running.clone();
 				std::thread::spawn(move || {
@@ -136,7 +137,7 @@ fn run_benchmark(
 			std::thread::yield_now();
 		}
 
-		let mut instance = runtime.new_instance().unwrap();
+		let mut instance = runtime.new_instance(DEFAULT_HEAP_ALLOC_STRATEGY).unwrap();
 		b.iter(|| testcase(&mut instance));
 
 		is_benchmark_running.store(false, Ordering::SeqCst);
@@ -147,7 +148,7 @@ fn run_benchmark(
 }
 
 fn bench_call_instance(c: &mut Criterion) {
-	let _ = env_logger::try_init();
+	sp_tracing::try_init_simple();
 
 	let strategies = [
 		(
@@ -229,7 +230,7 @@ fn bench_call_instance(c: &mut Criterion) {
 				for thread_count in thread_counts {
 					if thread_count > num_cpus {
 						// If there are not enough cores available the benchmark is pointless.
-						continue
+						continue;
 					}
 
 					let benchmark_name = format!(

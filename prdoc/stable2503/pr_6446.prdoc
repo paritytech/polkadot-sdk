@@ -1,0 +1,16 @@
+title: Make pallet-recovery supports `BlockNumberProvider`
+doc:
+- audience: Runtime Dev
+  description: |-
+      pallet-recovery now allows configuring the block provider to be utilized within this pallet. This block is employed for the delay in the recovery process.
+
+      A new associated type has been introduced in the `Config` trait: `BlockNumberProvider`. This can be assigned to `System` to maintain the previous behavior, or it can be set to another block number provider, such as `RelayChain`.
+
+      If the block provider is configured with a value different from `System`, a migration will be necessary for the `Recoverable` and `ActiveRecoveries` storage items.
+crates:
+- name: rococo-runtime
+  bump: major
+- name: westend-runtime
+  bump: major
+- name: pallet-recovery
+  bump: major

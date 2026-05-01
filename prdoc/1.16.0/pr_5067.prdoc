@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Fix region nonfungible implementation
+
+doc:
+  - audience: Runtime User
+    description: |
+      PR fixes the issue with the current implementation where minting causes
+      the region coremask to be set to `Coremask::complete` regardless of the
+      actual coremask of the region.
+
+crates: 
+- name: pallet-broker
+  bump: major
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch

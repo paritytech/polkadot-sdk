@@ -24,7 +24,7 @@ use sp_runtime::{
 };
 
 use super::{Vesting as VestingStorage, *};
-use crate::mock::{Balances, ExtBuilder, System, Test, Vesting};
+use crate::mock::{vesting_events_since_last_call, Balances, ExtBuilder, System, Test, Vesting};
 
 /// A default existential deposit.
 const ED: u64 = 256;
@@ -182,7 +182,7 @@ fn unvested_balance_should_not_transfer() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
-									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
+									   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		// Account 1 cannot send more than vested amount...
 		assert_noop!(Balances::transfer_allow_death(Some(1).into(), 2, 56), TokenError::Frozen);
@@ -194,7 +194,7 @@ fn vested_balance_should_transfer() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
-									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
+									   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest(Some(1).into()));
 		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 55));
@@ -232,7 +232,7 @@ fn vested_balance_should_transfer_using_vest_other() {
 	ExtBuilder::default().existential_deposit(10).build().execute_with(|| {
 		let user1_free_balance = Balances::free_balance(&1);
 		assert_eq!(user1_free_balance, 100); // Account 1 has free balance
-									 // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
+									   // Account 1 has only 5 units vested at block 1 (plus 50 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest_other(Some(2).into(), 1));
 		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 2, 55));
@@ -280,13 +280,14 @@ fn extra_balance_should_transfer() {
 		// Account 1 has only 5 units vested at block 1 (plus 150 unvested)
 		assert_eq!(Vesting::vesting_balance(&1), Some(45));
 		assert_ok!(Vesting::vest(Some(1).into()));
-		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 3, 155)); // Account 1 can send extra units gained
+		// Account 1 can send extra units gained
+		assert_ok!(Balances::transfer_allow_death(Some(1).into(), 3, 155));
 
 		// Account 2 has no units vested at block 1, but gained 100
 		assert_eq!(Vesting::vesting_balance(&2), Some(200));
 		assert_ok!(Vesting::vest(Some(2).into()));
-		assert_ok!(Balances::transfer_allow_death(Some(2).into(), 3, 100)); // Account 2 can send extra
-		                                                            // units gained
+		// Account 2 can send extra units gained
+		assert_ok!(Balances::transfer_allow_death(Some(2).into(), 3, 100));
 	});
 }
 
@@ -295,14 +296,16 @@ fn liquid_funds_should_transfer_with_delayed_vesting() {
 	ExtBuilder::default().existential_deposit(256).build().execute_with(|| {
 		let user12_free_balance = Balances::free_balance(&12);
 
-		assert_eq!(user12_free_balance, 2560); // Account 12 has free balance
-									   // Account 12 has liquid funds
+		// Account 12 has free balance
+		assert_eq!(user12_free_balance, 2560);
+		// Account 12 has liquid funds
 		assert_eq!(Vesting::vesting_balance(&12), Some(user12_free_balance - 256 * 5));
 
 		// Account 12 has delayed vesting
 		let user12_vesting_schedule = VestingInfo::new(
 			256 * 5,
-			64, // Vesting over 20 blocks
+			// Vesting over 20 blocks
+			64,
 			10,
 		);
 		assert_eq!(VestingStorage::<Test>::get(&12).unwrap(), vec![user12_vesting_schedule]);
@@ -328,6 +331,14 @@ fn vested_transfer_works() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+		// Verify that the last events are `VestingCreated/VestingUpdated`.
+		assert_eq!(
+			vesting_events_since_last_call(),
+			vec![
+				Event::VestingCreated { account: 4, schedule_index: 0 },
+				Event::VestingUpdated { account: 4, unvested: 1280 },
+			]
+		);
 		// Now account 4 should have vesting.
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
 		// Ensure the transfer happened correctly.
@@ -468,6 +479,15 @@ fn force_vested_transfer_works() {
 			4,
 			new_vesting_schedule
 		));
+
+		// Verify that the last events are `VestingCreated/VestingUpdated`.
+		assert_eq!(
+			vesting_events_since_last_call(),
+			vec![
+				Event::VestingCreated { account: 4, schedule_index: 0 },
+				Event::VestingUpdated { account: 4, unvested: 1280 },
+			]
+		);
 		// Now account 4 should have vesting.
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap()[0], new_vesting_schedule);
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap().len(), 1);
@@ -630,8 +650,10 @@ fn merge_ongoing_schedules() {
 
 		let sched1 = VestingInfo::new(
 			ED * 10,
-			ED,                          // Vest over 10 blocks.
-			sched0.starting_block() + 5, // Start at block 15.
+			// Vest over 10 blocks.
+			ED,
+			// Start at block 15.
+			sched0.starting_block() + 5,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(4).into(), 2, sched1));
 		assert_eq!(VestingStorage::<Test>::get(&2).unwrap(), vec![sched0, sched1]);
@@ -1170,6 +1192,15 @@ fn remove_vesting_schedule() {
 			10,
 		);
 		assert_ok!(Vesting::vested_transfer(Some(3).into(), 4, new_vesting_schedule));
+		// Verify that the last events are `VestingCreated/VestingUpdated`.
+		assert_eq!(
+			vesting_events_since_last_call(),
+			vec![
+				Event::VestingCreated { account: 4, schedule_index: 0 },
+				Event::VestingUpdated { account: 4, unvested: 1280 },
+			]
+		);
+
 		// Now account 4 should have vesting.
 		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
 		// Account 4 has 5 * 256 locked.
@@ -1189,5 +1220,163 @@ fn remove_vesting_schedule() {
 			Vesting::force_remove_vesting_schedule(RawOrigin::Root.into(), 4, 0),
 			Error::<Test>::InvalidScheduleParams
 		);
+	});
+}
+
+#[test]
+fn vested_transfer_impl_works() {
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		assert_eq!(Balances::free_balance(&3), 256 * 30);
+		assert_eq!(Balances::free_balance(&4), 256 * 40);
+		// Account 4 should not have any vesting yet.
+		assert_eq!(VestingStorage::<Test>::get(&4), None);
+
+		// Basic working scenario
+		assert_ok!(<Vesting as VestedTransfer<_>>::vested_transfer(
+			&3,
+			&4,
+			ED * 5,
+			ED * 5 / 20,
+			10
+		));
+		// Now account 4 should have vesting.
+		let new_vesting_schedule = VestingInfo::new(
+			ED * 5,
+			(ED * 5) / 20, // Vesting over 20 blocks
+			10,
+		);
+		assert_eq!(VestingStorage::<Test>::get(&4).unwrap(), vec![new_vesting_schedule]);
+		// Account 4 has 5 * 256 locked.
+		assert_eq!(Vesting::vesting_balance(&4), Some(256 * 5));
+
+		// If the transfer fails (because they don't have enough balance), no storage is changed.
+		assert_noop!(
+			<Vesting as VestedTransfer<_>>::vested_transfer(&3, &4, ED * 9999, ED * 5 / 20, 10),
+			TokenError::FundsUnavailable
+		);
+
+		// If applying the vesting schedule fails (per block is 0), no storage is changed.
+		assert_noop!(
+			<Vesting as VestedTransfer<_>>::vested_transfer(&3, &4, ED * 5, 0, 10),
+			Error::<Test>::InvalidScheduleParams
+		);
+	});
+}
+
+#[test]
+fn vested_payout_edge_cases() {
+	use frame_support::{hypothetically, traits::tokens::VestedPayout};
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let alice = 3;
+		let bob = 4;
+
+		let alice_balance_before = Balances::free_balance(&alice);
+		let bob_balance_before = Balances::free_balance(&bob);
+
+		// WHEN: zero amount, THEN: no-op.
+		hypothetically!({
+			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(&alice, &bob, 0, 10, None));
+			assert_eq!(Balances::free_balance(&bob), bob_balance_before);
+			assert!(VestingStorage::<Test>::get(&bob).is_none());
+		});
+
+		// WHEN: zero duration, THEN: liquid transfer, no vesting schedule.
+		hypothetically!({
+			let amount = ED * 5;
+			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
+				&alice, &bob, amount, 0, None
+			));
+			assert_eq!(Balances::free_balance(&alice), alice_balance_before - amount);
+			assert_eq!(Balances::free_balance(&bob), bob_balance_before + amount);
+			assert!(VestingStorage::<Test>::get(&bob).is_none());
+		});
+
+		// WHEN: start_at is a future block, THEN: schedule starts at that block and
+		// nothing vests before it, but vesting kicks in once we reach that block.
+		hypothetically!({
+			let amount = ED * 4; // 1024
+			let duration = 10u64;
+			let future_block = 100u64;
+			assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
+				&alice,
+				&bob,
+				amount,
+				duration,
+				Some(future_block)
+			));
+			let schedule = VestingStorage::<Test>::get(&bob).unwrap();
+			assert_eq!(schedule.len(), 1);
+			assert_eq!(schedule[0].starting_block(), future_block);
+			assert_eq!(schedule[0].locked(), amount);
+
+			// Before start_at: nothing has vested yet, full amount is still locked.
+			System::set_block_number(future_block - 1);
+			assert_eq!(Vesting::vesting_balance(&bob), Some(amount));
+
+			// At start_at: vesting begins, per_block amount is unlocked.
+			System::set_block_number(future_block);
+			assert_eq!(Vesting::vesting_balance(&bob), Some(amount));
+
+			// A few blocks after start_at: partial vesting.
+			System::set_block_number(future_block + 5);
+			let per_block = schedule[0].per_block();
+			assert_eq!(Vesting::vesting_balance(&bob), Some(amount - per_block * 5));
+
+			// After start_at + duration: fully vested.
+			System::set_block_number(future_block + duration);
+			assert_eq!(Vesting::vesting_balance(&bob), Some(0));
+		});
+	});
+}
+
+#[test]
+fn vested_payout_creates_schedule() {
+	use frame_support::traits::tokens::VestedPayout;
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let alice = 3;
+		let bob = 4;
+
+		// Use amount that doesn't evenly divide by duration to test rounding.
+		// amount=1024, duration=30: floor division would give per_block=34, needing 31 blocks.
+		// Rounding up gives per_block=35, completing in 30 blocks (within duration).
+		let amount = ED * 4; // 1024
+		let duration = 30u64;
+
+		// WHEN
+		assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
+			&alice, &bob, amount, duration, None
+		));
+
+		// THEN: per_block is rounded up to 35, not floored to 34.
+		let schedule = VestingStorage::<Test>::get(&bob).unwrap();
+		assert_eq!(schedule.len(), 1);
+		assert_eq!(schedule[0].locked(), amount);
+		assert_eq!(schedule[0].per_block(), 35);
+
+		// Vesting completes within duration: ceil(1024/35) = 30 blocks <= 30.
+		let ending = schedule[0].ending_block_as_balance::<Identity>();
+		assert!(ending <= schedule[0].starting_block() + duration);
+	});
+}
+
+#[test]
+fn vested_payout_self_transfer_creates_schedule() {
+	use frame_support::traits::tokens::VestedPayout;
+	ExtBuilder::default().existential_deposit(ED).build().execute_with(|| {
+		let alice = 3;
+		let balance_before = Balances::free_balance(&alice);
+		let amount = ED * 5;
+		let duration = 10u64;
+
+		// WHEN: self-transfer (used by staking to convert holds to vesting).
+		assert_ok!(<Vesting as VestedPayout<_, _>>::vested_transfer(
+			&alice, &alice, amount, duration, None
+		));
+
+		// THEN: balance unchanged (self-transfer), but vesting schedule is created.
+		assert_eq!(Balances::free_balance(&alice), balance_before);
+		let schedule = VestingStorage::<Test>::get(&alice).unwrap();
+		assert_eq!(schedule.len(), 1);
+		assert_eq!(schedule[0].locked(), amount);
 	});
 }

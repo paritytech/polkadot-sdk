@@ -4,7 +4,7 @@ version = "27.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "Node-specific RPC methods for interaction with state trie migration."
 readme = "README.md"
@@ -30,6 +30,3 @@ jsonrpsee = { features = ["client-core", "macros", "server-core"], workspace = t
 sc-client-api = { workspace = true, default-features = true }
 sc-rpc-api = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-
-[dev-dependencies]
-serde_json = { workspace = true, default-features = true }

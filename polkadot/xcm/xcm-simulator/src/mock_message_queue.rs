@@ -1,4 +1,4 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -24,7 +24,6 @@ use polkadot_parachain_primitives::primitives::{
 use polkadot_primitives::BlockNumber as RelayBlockNumber;
 use sp_runtime::traits::{Get, Hash};
 
-use sp_std::prelude::*;
 use xcm::{latest::prelude::*, VersionedXcm};
 
 pub use pallet::*;
@@ -36,6 +35,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type XcmExecutor: ExecuteXcm<Self::RuntimeCall>;
 	}
@@ -107,14 +107,17 @@ pub mod pallet {
 						max_weight,
 						Weight::zero(),
 					) {
-						Outcome::Error { error } =>
-							(Err(error), Event::Fail { message_id: Some(hash), error }),
-						Outcome::Complete { used } =>
-							(Ok(used), Event::Success { message_id: Some(hash) }),
+						Outcome::Error(InstructionError { error, .. }) => {
+							(Err(error), Event::Fail { message_id: Some(hash), error })
+						},
+						Outcome::Complete { used } => {
+							(Ok(used), Event::Success { message_id: Some(hash) })
+						},
 						// As far as the caller is concerned, this was dispatched without error, so
 						// we just report the weight used.
-						Outcome::Incomplete { used, error } =>
-							(Ok(used), Event::Fail { message_id: Some(hash), error }),
+						Outcome::Incomplete {
+							used, error: InstructionError { error, .. }, ..
+						} => (Ok(used), Event::Fail { message_id: Some(hash), error }),
 					}
 				},
 				Err(()) => (
@@ -165,8 +168,9 @@ pub mod pallet {
 						Self::deposit_event(Event::InvalidFormat { message_id: id });
 					},
 					Ok(versioned) => match Xcm::try_from(versioned) {
-						Err(()) =>
-							Self::deposit_event(Event::UnsupportedVersion { message_id: id }),
+						Err(()) => {
+							Self::deposit_event(Event::UnsupportedVersion { message_id: id })
+						},
 						Ok(x) => {
 							let outcome = T::XcmExecutor::prepare_and_execute(
 								Parent,

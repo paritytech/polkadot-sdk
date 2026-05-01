@@ -1,0 +1,24 @@
+title: Remove pallet::getter from pallet-staking
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR removes all pallet::getter occurrences from pallet-staking and replaces them with explicit implementations.
+      It also adds tests to verify that retrieval of affected entities works as expected so via storage::getter.
+
+crates:
+  - name: pallet-babe
+    bump: patch
+  - name: pallet-beefy
+    bump: patch
+  - name: pallet-election-provider-multi-phase
+    bump: patch
+  - name: pallet-grandpa
+    bump: patch
+  - name: pallet-nomination-pools
+    bump: patch
+  - name: pallet-root-offences
+    bump: patch
+  - name: westend-runtime
+    bump: patch
+  - name: pallet-staking
+    bump: patch

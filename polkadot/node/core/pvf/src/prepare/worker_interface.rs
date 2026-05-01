@@ -81,7 +81,6 @@ pub enum Outcome {
 	/// final destination location.
 	RenameTmpFile {
 		worker: IdleWorker,
-		result: PrepareWorkerResult,
 		err: String,
 		// Unfortunately `PathBuf` doesn't implement `Encode`/`Decode`, so we do a fallible
 		// conversion to `Option<String>`.
@@ -141,7 +140,7 @@ pub async fn start_work(
 					"failed to send a prepare request: {:?}",
 					err,
 				);
-				return Outcome::Unreachable
+				return Outcome::Unreachable;
 			}
 
 			// Wait for the result from the worker, keeping in mind that there may be a timeout, the
@@ -158,7 +157,7 @@ pub async fn start_work(
 
 			match result {
 				// Received bytes from worker within the time limit.
-				Ok(Ok(prepare_worker_result)) =>
+				Ok(Ok(prepare_worker_result)) => {
 					handle_response(
 						metrics,
 						IdleWorker { stream, pid, worker_dir },
@@ -168,7 +167,8 @@ pub async fn start_work(
 						&cache_path,
 						preparation_timeout,
 					)
-					.await,
+					.await
+				},
 				Ok(Err(err)) => {
 					// Communication error within the time limit.
 					gum::warn!(
@@ -210,8 +210,8 @@ async fn handle_response(
 	// TODO: Add `checksum` to `ArtifactPathId`. See:
 	//       https://github.com/paritytech/polkadot-sdk/issues/2399
 	let PrepareWorkerSuccess {
-		checksum: _,
-		stats: PrepareStats { cpu_time_elapsed, memory_stats },
+		checksum,
+		stats: PrepareStats { cpu_time_elapsed, memory_stats, observed_wasm_code_len },
 	} = match result.clone() {
 		Ok(result) => result,
 		// Timed out on the child. This should already be logged by the child.
@@ -220,6 +220,8 @@ async fn handle_response(
 		Err(PrepareError::OutOfMemory) => return Outcome::OutOfMemory,
 		Err(err) => return Outcome::Concluded { worker, result: Err(err) },
 	};
+
+	metrics.observe_code_size(observed_wasm_code_len as usize);
 
 	if cpu_time_elapsed > preparation_timeout {
 		// The job didn't complete within the timeout.
@@ -231,7 +233,7 @@ async fn handle_response(
 			preparation_timeout.as_millis(),
 			tmp_file.display(),
 		);
-		return Outcome::TimedOut
+		return Outcome::TimedOut;
 	}
 
 	let size = match tokio::fs::metadata(cache_path).await {
@@ -243,7 +245,7 @@ async fn handle_response(
 				"failed to read size of the artifact: {}",
 				err,
 			);
-			return Outcome::IoErr(err.to_string())
+			return Outcome::IoErr(err.to_string());
 		},
 	};
 
@@ -265,9 +267,14 @@ async fn handle_response(
 		Ok(()) => Outcome::Concluded {
 			worker,
 			result: Ok(PrepareSuccess {
+				checksum,
 				path: artifact_path,
 				size,
-				stats: PrepareStats { cpu_time_elapsed, memory_stats: memory_stats.clone() },
+				stats: PrepareStats {
+					cpu_time_elapsed,
+					memory_stats: memory_stats.clone(),
+					observed_wasm_code_len,
+				},
 			}),
 		},
 		Err(err) => {
@@ -281,7 +288,6 @@ async fn handle_response(
 			);
 			Outcome::RenameTmpFile {
 				worker,
-				result,
 				err: format!("{:?}", err),
 				src: tmp_file.to_str().map(String::from),
 				dest: artifact_path.to_str().map(String::from),
@@ -325,7 +331,7 @@ where
 		return Outcome::CreateTmpFileErr {
 			worker: IdleWorker { stream, pid, worker_dir },
 			err: format!("{:?}", err),
-		}
+		};
 	};
 
 	let worker_dir_path = worker_dir.path().to_owned();
@@ -340,7 +346,7 @@ where
 			"failed to clear worker cache after the job: {:?}",
 			err,
 		);
-		return Outcome::ClearWorkerDir { err: format!("{:?}", err) }
+		return Outcome::ClearWorkerDir { err: format!("{:?}", err) };
 	}
 
 	outcome

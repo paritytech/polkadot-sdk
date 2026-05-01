@@ -1,0 +1,40 @@
+title: '[pallet-revive] Add genesis config'
+doc:
+- audience: Runtime Dev
+  description: |-
+    - Add genesis config
+    - Mapped dev accounts in kitchensink genesis
+
+    One can test a local westend with endowed and mapped accounts with the following approach
+
+    ```sh
+    cargo build -p asset-hub-westend-runtime
+    chain-spec-builder -c /tmp/ah-westend-spec.json \
+      create \
+      --para-id 1000 \
+      --relay-chain dontcare \
+      --runtime ./target/debug/wbuild/asset-hub-westend-runtime/asset_hub_westend_runtime.wasm \
+      named-preset development
+
+    # Endowed
+    # Alith:
+    # H160: 0xf24FF3a9CF04c71Dbc94D0b566f7A27B94566cac
+    # SS58: 5CfCLa2N85aH2tUKT48LmRSGNx27DnJUayMXyiwqvvcU97VN2sk
+    # Private key (ecdsa): 0x5fb92d6e98884f76de468fa3f6278f8807c48bebc13595d45af5bdc4da702133
+
+    # Alice:  (subkey inspect //Alice)
+    # SS58: 5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY
+    # Private key (sr2259): 0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a
+
+    jq '.genesis.runtimeGenesis.patch.balances.balances = [
+        ["5CfCLa2N85aH2tUKT48LmRSGNx27DnJUayMXqvvcU97VN2sk", 1000000001000000000],
+        ["5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY", 1000000001000000000]
+      ]
+    | .genesis.runtimeGenesis.patch.revive.mappedAccounts = [
+        "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+    ]
+    ' /tmp/ah-westend-spec.json >~/ah-westend-spec.json
+    ```
+crates:
+- name: pallet-revive
+  bump: patch

@@ -24,6 +24,7 @@ use clap::Args;
 use sc_network::{
 	config::{
 		NetworkConfiguration, NodeKeyConfig, NonReservedPeerMode, SetConfig, TransportConfig,
+		DEFAULT_IDLE_CONNECTION_TIMEOUT,
 	},
 	multiaddr::Protocol,
 };
@@ -152,6 +153,10 @@ pub struct NetworkParams {
 	#[arg(long)]
 	pub ipfs_server: bool,
 
+	/// Specify a list of IPFS bootstrap nodes.
+	#[arg(long, value_name = "ADDR", num_args = 1.., requires = "ipfs_server")]
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
+
 	/// Blockchain syncing mode.
 	#[arg(
 		long,
@@ -172,13 +177,17 @@ pub struct NetworkParams {
 
 	/// Network backend used for P2P networking.
 	///
-	/// litep2p network backend is considered experimental and isn't as stable as the libp2p
-	/// network backend.
+	/// Litep2p is a lightweight alternative to libp2p, that is designed to be more
+	/// efficient and easier to use. At the same time, litep2p brings performance
+	/// improvements and reduces the CPU usage significantly.
+	///
+	/// Libp2p is the old network backend, that may still be used for compatibility
+	/// reasons until the whole ecosystem is migrated to litep2p.
 	#[arg(
 		long,
 		value_enum,
 		value_name = "NETWORK_BACKEND",
-		default_value_t = NetworkBackendType::Libp2p,
+		default_value_t = NetworkBackendType::Litep2p,
 		ignore_case = true,
 		verbatim_doc_comment
 	)]
@@ -242,8 +251,9 @@ impl NetworkParams {
 			(true, true) => unreachable!("`*_private_ip` flags are mutually exclusive; qed"),
 			(true, false) => true,
 			(false, true) => false,
-			(false, false) =>
-				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development),
+			(false, false) => {
+				is_dev || matches!(chain_type, ChainType::Local | ChainType::Development)
+			},
 		};
 
 		NetworkConfiguration {
@@ -269,14 +279,16 @@ impl NetworkParams {
 				enable_mdns: !is_dev && !self.no_mdns,
 				allow_private_ip,
 			},
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: self.max_parallel_downloads,
 			max_blocks_per_request: self.max_blocks_per_request,
+			min_peers_to_start_warp_sync: None,
 			enable_dht_random_walk: !self.reserved_only,
 			allow_non_globals_in_dht,
 			kademlia_disjoint_query_paths: self.kademlia_disjoint_query_paths,
 			kademlia_replication_factor: self.kademlia_replication_factor,
-			yamux_window_size: None,
 			ipfs_server: self.ipfs_server,
+			ipfs_bootnodes: self.ipfs_bootnodes.clone(),
 			sync_mode: self.sync.into(),
 			network_backend: self.network_backend.into(),
 		}

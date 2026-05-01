@@ -40,9 +40,8 @@ use crate::{
 	},
 	Never,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
-#[cfg(not(feature = "std"))]
-use sp_std::prelude::*;
 
 /// Generator for `StorageNMap` used by `decl_storage` and storage types.
 ///
@@ -306,9 +305,8 @@ where
 
 			final_key
 		};
-		unhashed::take(old_key.as_ref()).map(|value| {
+		unhashed::take(old_key.as_ref()).inspect(|value| {
 			unhashed::put(Self::storage_n_map_final_key::<K, _>(key).as_ref(), &value);
-			value
 		})
 	}
 }
@@ -434,7 +432,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				Some(value) => value,
 				None => {
 					log::error!("Invalid translate: fail to decode old value");
-					continue
+					continue;
 				},
 			};
 
@@ -442,7 +440,7 @@ impl<K: ReversibleKeyGenerator, V: FullCodec, G: StorageNMap<K, V>>
 				Ok((final_key, _)) => final_key,
 				Err(_) => {
 					log::error!("Invalid translate: fail to decode key");
-					continue
+					continue;
 				},
 			};
 
@@ -464,6 +462,7 @@ mod test_iterators {
 			unhashed,
 		},
 	};
+	use alloc::vec;
 	use codec::Encode;
 
 	#[test]

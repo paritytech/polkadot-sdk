@@ -5,7 +5,7 @@ authors.workspace = true
 description = "Primitives for slots-based consensus"
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 readme = "README.md"
 
@@ -23,12 +23,7 @@ sp-timestamp = { workspace = true }
 
 [features]
 default = ["std"]
-std = [
-	"codec/std",
-	"scale-info/std",
-	"serde/std",
-	"sp-timestamp/std",
-]
+std = ["codec/std", "scale-info/std", "serde/std", "sp-timestamp/std"]
 
 # Serde support without relying on std features.
 serde = ["dep:serde", "scale-info/serde"]

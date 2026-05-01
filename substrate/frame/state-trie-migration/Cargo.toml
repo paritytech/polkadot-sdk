@@ -4,7 +4,7 @@ version = "29.0.0"
 authors.workspace = true
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository.workspace = true
 description = "FRAME pallet migration of trie"
 
@@ -16,26 +16,24 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { workspace = true }
-log = { workspace = true }
-scale-info = { features = ["derive"], workspace = true }
-serde = { optional = true, workspace = true, default-features = true }
-thousands = { optional = true, workspace = true }
-zstd = { optional = true, workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
+log = { workspace = true }
 remote-externalities = { optional = true, workspace = true, default-features = true }
+scale-info = { features = ["derive"], workspace = true }
+serde = { optional = true, workspace = true, default-features = true }
 sp-core = { workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 substrate-state-trie-migration-rpc = { optional = true, workspace = true, default-features = true }
+thousands = { optional = true, workspace = true }
+zstd = { optional = true, workspace = true }
 
 [dev-dependencies]
-parking_lot = { workspace = true, default-features = true }
-tokio = { features = ["macros"], workspace = true, default-features = true }
 pallet-balances = { workspace = true, default-features = true }
 sp-tracing = { workspace = true, default-features = true }
+tokio = { features = ["macros"], workspace = true, default-features = true }
 
 [features]
 default = ["std"]
@@ -50,7 +48,6 @@ std = [
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 	"sp-tracing/std",
 ]
 runtime-benchmarks = [

@@ -1,0 +1,12 @@
+title: Bridges small nits/improvements
+doc:
+- audience: Runtime Dev
+  description: 'This PR contains small fixes and backwards compatibility issues identified
+    during work on the larger PR: https://github.com/paritytech/polkadot-sdk/issues/6906.'
+crates:
+- name: cumulus-pallet-xcmp-queue
+  bump: patch
+- name: pallet-xcm-bridge-hub
+  bump: minor
+- name: bridge-hub-test-utils
+  bump: minor

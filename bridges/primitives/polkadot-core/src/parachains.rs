@@ -22,18 +22,15 @@
 //! parachains. Having pallets that are referencing polkadot, would mean that there may
 //! be two versions of polkadot crates included in the runtime. Which is bad.
 
-use bp_runtime::{RawStorageProof, Size};
-use codec::{CompactAs, Decode, Encode, MaxEncodedLen};
+use bp_runtime::{raw_storage_proof_size, RawStorageProof, Size};
+use codec::{CompactAs, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use scale_info::TypeInfo;
 use sp_core::Hasher;
-use sp_runtime::RuntimeDebug;
 use sp_std::vec::Vec;
+use Debug;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
-
-#[cfg(feature = "std")]
-use parity_util_mem::MallocSizeOf;
 
 /// Parachain id.
 ///
@@ -44,6 +41,7 @@ use parity_util_mem::MallocSizeOf;
 	CompactAs,
 	Copy,
 	Decode,
+	DecodeWithMemTracking,
 	Default,
 	Encode,
 	Eq,
@@ -52,7 +50,7 @@ use parity_util_mem::MallocSizeOf;
 	Ord,
 	PartialEq,
 	PartialOrd,
-	RuntimeDebug,
+	Debug,
 	TypeInfo,
 )]
 pub struct ParaId(pub u32);
@@ -69,9 +67,19 @@ impl From<u32> for ParaId {
 ///
 /// The parachain head means (at least in Cumulus) a SCALE-encoded parachain header.
 #[derive(
-	PartialEq, Eq, Clone, PartialOrd, Ord, Encode, Decode, RuntimeDebug, TypeInfo, Default,
+	PartialEq,
+	Eq,
+	Clone,
+	PartialOrd,
+	Ord,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Debug,
+	TypeInfo,
+	Default,
 )]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash, MallocSizeOf))]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize, Hash))]
 pub struct ParaHead(pub Vec<u8>);
 
 impl ParaHead {
@@ -88,7 +96,7 @@ pub type ParaHash = crate::Hash;
 pub type ParaHasher = crate::Hasher;
 
 /// Raw storage proof of parachain heads, stored in polkadot-like chain runtime.
-#[derive(Clone, Decode, Encode, Eq, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, DecodeWithMemTracking, Encode, Eq, PartialEq, Debug, TypeInfo)]
 pub struct ParaHeadsProof {
 	/// Unverified storage proof of finalized parachain heads.
 	pub storage_proof: RawStorageProof,
@@ -96,11 +104,7 @@ pub struct ParaHeadsProof {
 
 impl Size for ParaHeadsProof {
 	fn size(&self) -> u32 {
-		u32::try_from(
-			self.storage_proof
-				.iter()
-				.fold(0usize, |sum, node| sum.saturating_add(node.len())),
-		)
-		.unwrap_or(u32::MAX)
+		use frame_support::sp_runtime::SaturatedConversion;
+		raw_storage_proof_size(&self.storage_proof).saturated_into()
 	}
 }

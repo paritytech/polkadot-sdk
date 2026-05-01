@@ -1,0 +1,18 @@
+title: 'TransactionPool API uses async_trait'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR refactors `TransactionPool` API to use `async_trait`, replacing the` Pin<Box<...>>` pattern. This should improve readability and maintainability.
+
+    The change is not altering any functionality.
+crates:
+- name: sc-rpc-spec-v2
+  bump: minor
+- name: sc-service
+  bump: minor
+- name: sc-transaction-pool-api
+  bump: major
+- name: sc-transaction-pool
+  bump: major
+- name: sc-rpc
+  bump: minor

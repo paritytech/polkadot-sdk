@@ -1,0 +1,55 @@
+title: 'Replace Validator FullIdentification from `Exposure` to `Existence`'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This introduces a new type in `pallet-staking`, `ExistenceOf`, which replaces `ExposureOf`.
+    With this change, runtimes can be configured to identify a validator solely by their presence,
+    rather than using full exposure data.
+
+    This is particularly useful when configuring historical sessions, for example:
+
+    ```rust
+    impl pallet_session::historical::Config for Runtime {
+      type FullIdentification = pallet_staking::Existence;
+      type FullIdentificationOf = pallet_staking::ExistenceOf<Runtime>;
+    }
+    ```
+
+    However, for existing runtimes that depend on the `Exposure` type for `pallet-offences` - often configured like this:
+
+    ```rust
+    impl pallet_offences::Config for Runtime {
+      ...
+      type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
+    }
+    ```
+
+    Where `IdentificationTuple` is defined as:
+    ```rust
+    pub type IdentificationTuple<T> = (<T as pallet_session::Config>::ValidatorId, <T as Config>::FullIdentification);
+    ```
+
+    You should use `ExistenceOrLegacyExposureOf` instead. This type includes a custom encoder/decoder that supports both
+    the legacy `Exposure` type and the new `Existence` type.
+
+    This compatibility layer is necessary because `pallet-offences` stores the `FullIdentification` type in its storage.
+    If you replace `FullIdentification` with `Existence` directly, any previously stored items using `Exposure` will
+    fail to decode. `ExistenceOrLegacyExposureOf` ensures backward compatibility after this change.
+
+crates:
+- name: pallet-babe
+  bump: patch
+- name: pallet-beefy
+  bump: patch
+- name: pallet-grandpa
+  bump: patch
+- name: pallet-offences-benchmarking
+  bump: patch
+- name: pallet-root-offences
+  bump: patch
+- name: pallet-session-benchmarking
+  bump: patch
+- name: pallet-staking
+  bump: major
+- name: westend-runtime
+  bump: minor

@@ -1,0 +1,20 @@
+title: "runtime: remove ttl"
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Resolves https://github.com/paritytech/polkadot-sdk/issues/4776. Removes the scheduling ttl used in the relay chain
+      runtimes, as well as the availability timeout retries. The extrinsics for configuring these two values are also removed.
+      Deprecates the `ttl` and `max_availability_timeouts` fields of the `HostConfiguration` primitive.
+
+crates:
+  - name: polkadot-runtime-parachains
+    bump: major
+  - name: polkadot-primitives
+    bump: major
+  - name: rococo-runtime
+    bump: major
+  - name: westend-runtime
+    bump: major
+  - name: polkadot
+    bump: none

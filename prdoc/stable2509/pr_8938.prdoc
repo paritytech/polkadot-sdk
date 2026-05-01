@@ -1,0 +1,14 @@
+title: Make `NoOpPoll` generic over `Moment`
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR enhances the flexibility of the `NoOpPoll` implementation by introducing a generic `Moment` parameter. This change enables support for diverse clock configurations across different runtimes, allowing `NoOpPoll` to work seamlessly with various block number implementations (e.g., `u32`, `u64`, or custom block number types).
+crates:
+- name: pallet-ranked-collective
+  bump: patch
+- name: frame-support
+  bump: minor
+- name: pallet-core-fellowship
+  bump: patch
+- name: pallet-salary
+  bump: patch

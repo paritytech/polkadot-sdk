@@ -16,20 +16,23 @@
 
 use crate::configuration::TestAuthorities;
 use itertools::Itertools;
-use polkadot_node_core_approval_voting::time::{Clock, SystemClock, Tick};
 use polkadot_node_network_protocol::{
 	grid_topology::{SessionGridTopology, TopologyPeerInfo},
 	View,
 };
+use polkadot_node_primitives::approval::time::{Clock, SystemClock, Tick};
+use polkadot_node_subsystem::messages::{
+	ApprovalDistributionMessage, ApprovalVotingParallelMessage,
+};
 use polkadot_node_subsystem_types::messages::{
-	network_bridge_event::NewGossipTopology, ApprovalDistributionMessage, NetworkBridgeEvent,
+	network_bridge_event::NewGossipTopology, NetworkBridgeEvent,
 };
 use polkadot_overseer::AllMessages;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateReceipt, CoreIndex, GroupIndex, Hash, Header,
-	Id as ParaId, Slot, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateReceiptV2, CoreIndex, GroupIndex, Hash, Header,
+	Id as ParaId, MutateDescriptorV2, Slot, ValidatorIndex,
 };
-use polkadot_primitives_test_helpers::dummy_candidate_receipt_bad_sig;
+use polkadot_primitives_test_helpers::dummy_candidate_receipt_v2_bad_sig;
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 use sc_network_types::PeerId;
@@ -121,6 +124,7 @@ pub fn generate_topology(test_authorities: &TestAuthorities) -> SessionGridTopol
 pub fn generate_new_session_topology(
 	test_authorities: &TestAuthorities,
 	test_node: ValidatorIndex,
+	approval_voting_parallel_enabled: bool,
 ) -> Vec<AllMessages> {
 	let topology = generate_topology(test_authorities);
 
@@ -129,14 +133,29 @@ pub fn generate_new_session_topology(
 		topology,
 		local_index: Some(test_node),
 	});
-	vec![AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(event))]
+	vec![if approval_voting_parallel_enabled {
+		AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+			event,
+		))
+	} else {
+		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(event))
+	}]
 }
 
 /// Generates a peer view change for the passed `block_hash`
-pub fn generate_peer_view_change_for(block_hash: Hash, peer_id: PeerId) -> AllMessages {
+pub fn generate_peer_view_change_for(
+	block_hash: Hash,
+	peer_id: PeerId,
+	approval_voting_parallel_enabled: bool,
+) -> AllMessages {
 	let network = NetworkBridgeEvent::PeerViewChange(peer_id, View::new([block_hash], 0));
-
-	AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(network))
+	if approval_voting_parallel_enabled {
+		AllMessages::ApprovalVotingParallel(ApprovalVotingParallelMessage::NetworkBridgeUpdate(
+			network,
+		))
+	} else {
+		AllMessages::ApprovalDistribution(ApprovalDistributionMessage::NetworkBridgeUpdate(network))
+	}
 }
 
 /// Helper function to create a a signature for the block header.
@@ -167,9 +186,9 @@ pub fn make_header(parent_hash: Hash, slot: Slot, number: u32) -> Header {
 }
 
 /// Helper function to create a candidate receipt.
-fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceipt {
-	let mut r = dummy_candidate_receipt_bad_sig(*hash, Some(Default::default()));
-	r.descriptor.para_id = para_id;
+fn make_candidate(para_id: ParaId, hash: &Hash) -> CandidateReceiptV2 {
+	let mut r = dummy_candidate_receipt_v2_bad_sig(*hash, Some(Default::default()));
+	r.descriptor.set_para_id(para_id);
 	r
 }
 

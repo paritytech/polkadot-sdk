@@ -23,11 +23,10 @@ use sc_network_common::{role::Roles, types::ReputationChange};
 
 use crate::strategy::{state_sync::StateSyncProgress, warp::WarpSyncProgress};
 
-use sc_network_common::sync::message::BlockRequest;
 use sc_network_types::PeerId;
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
-use std::{any::Any, fmt, fmt::Formatter, pin::Pin, sync::Arc};
+use std::{fmt, pin::Pin, sync::Arc};
 
 /// The sync status of a peer we are trying to sync with
 #[derive(Debug)]
@@ -39,7 +38,7 @@ pub struct PeerInfo<Block: BlockT> {
 }
 
 /// Info about a peer's known state (both full and light).
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct ExtendedPeerInfo<B: BlockT> {
 	/// Roles
 	pub roles: Roles,
@@ -48,6 +47,17 @@ pub struct ExtendedPeerInfo<B: BlockT> {
 	/// Peer best block number
 	pub best_number: NumberFor<B>,
 }
+
+impl<B> Clone for ExtendedPeerInfo<B>
+where
+	B: BlockT,
+{
+	fn clone(&self) -> Self {
+		Self { roles: self.roles, best_hash: self.best_hash, best_number: self.best_number }
+	}
+}
+
+impl<B> Copy for ExtendedPeerInfo<B> where B: BlockT {}
 
 /// Reported sync state.
 #[derive(Clone, Eq, PartialEq, Debug)]
@@ -76,8 +86,6 @@ pub struct SyncStatus<Block: BlockT> {
 	pub best_seen_block: Option<NumberFor<Block>>,
 	/// Number of peers participating in syncing.
 	pub num_peers: u32,
-	/// Number of peers known to `SyncingEngine` (both full and light).
-	pub num_connected_peers: u32,
 	/// Number of blocks queued for import
 	pub queued_blocks: u32,
 	/// State sync status in progress, if any.
@@ -97,52 +105,6 @@ impl fmt::Display for BadPeer {
 }
 
 impl std::error::Error for BadPeer {}
-
-#[derive(Debug)]
-pub enum PeerRequest<B: BlockT> {
-	Block(BlockRequest<B>),
-	State,
-	WarpProof,
-}
-
-#[derive(Debug)]
-pub enum PeerRequestType {
-	Block,
-	State,
-	WarpProof,
-}
-
-impl<B: BlockT> PeerRequest<B> {
-	pub fn get_type(&self) -> PeerRequestType {
-		match self {
-			PeerRequest::Block(_) => PeerRequestType::Block,
-			PeerRequest::State => PeerRequestType::State,
-			PeerRequest::WarpProof => PeerRequestType::WarpProof,
-		}
-	}
-}
-
-/// Wrapper for implementation-specific state request.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueStateRequest(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueStateRequest {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueStateRequest").finish()
-	}
-}
-
-/// Wrapper for implementation-specific state response.
-///
-/// NOTE: Implementation must be able to encode and decode it for network purposes.
-pub struct OpaqueStateResponse(pub Box<dyn Any + Send>);
-
-impl fmt::Debug for OpaqueStateResponse {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		f.debug_struct("OpaqueStateResponse").finish()
-	}
-}
 
 /// Provides high-level status of syncing.
 #[async_trait::async_trait]

@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "Balances Pallet: Emit events when TI is updated in currency impl"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Previously, in the Currency impl, the implementation of pallet_balances was not emitting any instances of Issued and Rescinded events, even though the Fungible equivalent was. This PR adds the Issued and Rescinded events in appropriate places in impl_currency along with tests.
+
+crates:
+- name: pallet-balances
+  bump: patch

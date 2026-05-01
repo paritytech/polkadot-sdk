@@ -37,7 +37,7 @@ sp_api::impl_runtime_apis! {
 		fn version() -> sp_api::RuntimeVersion {
 			unimplemented!()
 		}
-		fn execute_block(_: Block) {
+		fn execute_block(_: <Block as BlockT>::LazyBlock) {
 			unimplemented!()
 		}
 		fn initialize_block(_: &<Block as BlockT>::Header) -> sp_runtime::ExtrinsicInclusionMode {

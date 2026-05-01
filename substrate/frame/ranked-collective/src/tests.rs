@@ -20,14 +20,12 @@
 use std::collections::BTreeMap;
 
 use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	error::BadOrigin,
-	parameter_types,
+	assert_noop, assert_ok, derive_impl, parameter_types,
 	traits::{ConstU16, EitherOf, MapSuccess, Polling},
 };
 use sp_core::Get;
 use sp_runtime::{
-	traits::{MaybeConvert, ReduceBy, ReplaceWithDefault},
+	traits::{BadOrigin, MaybeConvert, ReduceBy, ReplaceWithDefault},
 	BuildStorage,
 };
 
@@ -90,8 +88,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		};
@@ -107,8 +106,9 @@ impl Polling<TallyOf<Test>> for TestPolls {
 		let mut polls = Polls::get();
 		let entry = polls.get_mut(&index);
 		let r = match entry {
-			Some(Ongoing(ref mut tally_mut_ref, class)) =>
-				f(PollStatus::Ongoing(tally_mut_ref, *class)),
+			Some(Ongoing(ref mut tally_mut_ref, class)) => {
+				f(PollStatus::Ongoing(tally_mut_ref, *class))
+			},
 			Some(Completed(when, succeeded)) => f(PollStatus::Completed(*when, *succeeded)),
 			None => f(PollStatus::None),
 		}?;
@@ -455,7 +455,7 @@ fn cleanup_works() {
 		);
 		assert_ok!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10));
 		// NOTE: This will fail until #10016 is merged.
-		//		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
+		// 		assert_noop!(Club::cleanup_poll(RuntimeOrigin::signed(4), 3, 10),
 		// Error::<Test>::NoneRemaining);
 	});
 }

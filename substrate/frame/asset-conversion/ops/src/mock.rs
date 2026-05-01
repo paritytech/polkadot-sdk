@@ -17,7 +17,6 @@
 
 //! Test environment for Asset Conversion Ops pallet.
 
-use super::*;
 use crate as pallet_asset_conversion_ops;
 use core::default::Default;
 use frame_support::{
@@ -68,6 +67,7 @@ impl pallet_assets::Config<Instance1> for Test {
 	type Currency = Balances;
 	type CreateOrigin = AsEnsureOriginWithArg<EnsureSigned<Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Holder = ();
 	type Freezer = ();
 }
 
@@ -77,12 +77,14 @@ impl pallet_assets::Config<Instance2> for Test {
 	type CreateOrigin =
 		AsEnsureOriginWithArg<EnsureSignedBy<AssetConversionOrigin, Self::AccountId>>;
 	type ForceOrigin = frame_system::EnsureRoot<Self::AccountId>;
+	type Holder = ();
 	type Freezer = ();
 }
 
 parameter_types! {
   pub const AssetConversionPalletId: PalletId = PalletId(*b"py/ascon");
   pub const Native: NativeOrWithId<u32> = NativeOrWithId::Native;
+  pub LpFee: Permill = Permill::from_rational(3u32, 1_000u32); // 0.3%
   pub storage LiquidityWithdrawalFee: Permill = Permill::from_percent(0);
 }
 
@@ -110,7 +112,7 @@ impl pallet_asset_conversion::Config for Test {
 	type PoolSetupFeeTarget = ResolveAssetTo<AssetConversionOrigin, Self::Assets>;
 	type PalletId = AssetConversionPalletId;
 	type WeightInfo = ();
-	type LPFee = ConstU32<3>;
+	type LPFee = LpFee;
 	type LiquidityWithdrawalFee = LiquidityWithdrawalFee;
 	type MaxSwapPathLength = ConstU32<4>;
 	type MintMinLiquidity = ConstU64<100>;
@@ -136,6 +138,7 @@ pub(crate) fn new_test_ext() -> sp_io::TestExternalities {
 
 	pallet_balances::GenesisConfig::<Test> {
 		balances: vec![(1, 10000), (2, 20000), (3, 30000), (4, 40000)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();

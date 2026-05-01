@@ -39,11 +39,11 @@ use super::{HeaderProvider, HeaderProviderProvider};
 use futures::channel::oneshot;
 use polkadot_node_primitives::MAX_FINALITY_LAG as PRIMITIVES_MAX_FINALITY_LAG;
 use polkadot_node_subsystem::messages::{
-	ApprovalDistributionMessage, ApprovalVotingMessage, ChainSelectionMessage,
-	DisputeCoordinatorMessage, HighestApprovedAncestorBlock,
+	ApprovalVotingParallelMessage, ChainSelectionMessage, DisputeCoordinatorMessage,
+	HighestApprovedAncestorBlock,
 };
 use polkadot_node_subsystem_util::metrics::{self, prometheus};
-use polkadot_overseer::{AllMessages, Handle};
+use polkadot_overseer::{AllMessages, Handle, PriorityLevel};
 use polkadot_primitives::{Block as PolkadotBlock, BlockNumber, Hash, Header as PolkadotHeader};
 use sp_consensus::{Error as ConsensusError, SelectChain};
 use std::sync::Arc;
@@ -235,7 +235,7 @@ pub struct SelectRelayChainInner<B, OH> {
 impl<B, OH> SelectRelayChainInner<B, OH>
 where
 	B: HeaderProviderProvider<PolkadotBlock>,
-	OH: OverseerHandleT,
+	OH: OverseerHandleT + OverseerHandleWithPriorityT,
 {
 	/// Create a new [`SelectRelayChainInner`] wrapping the given chain backend
 	/// and a handle to the overseer.
@@ -251,8 +251,9 @@ where
 	fn block_header(&self, hash: Hash) -> Result<PolkadotHeader, ConsensusError> {
 		match HeaderProvider::header(self.backend.header_provider(), hash) {
 			Ok(Some(header)) => Ok(header),
-			Ok(None) =>
-				Err(ConsensusError::ChainLookup(format!("Missing header with hash {:?}", hash,))),
+			Ok(None) => {
+				Err(ConsensusError::ChainLookup(format!("Missing header with hash {:?}", hash,)))
+			},
 			Err(e) => Err(ConsensusError::ChainLookup(format!(
 				"Lookup failed for header with hash {:?}: {:?}",
 				hash, e,
@@ -263,8 +264,9 @@ where
 	fn block_number(&self, hash: Hash) -> Result<BlockNumber, ConsensusError> {
 		match HeaderProvider::number(self.backend.header_provider(), hash) {
 			Ok(Some(number)) => Ok(number),
-			Ok(None) =>
-				Err(ConsensusError::ChainLookup(format!("Missing number with hash {:?}", hash,))),
+			Ok(None) => {
+				Err(ConsensusError::ChainLookup(format!("Missing number with hash {:?}", hash,)))
+			},
 			Err(e) => Err(ConsensusError::ChainLookup(format!(
 				"Lookup failed for number with hash {:?}: {:?}",
 				hash, e,
@@ -276,7 +278,7 @@ where
 impl<B, OH> Clone for SelectRelayChainInner<B, OH>
 where
 	B: HeaderProviderProvider<PolkadotBlock> + Send + Sync,
-	OH: OverseerHandleT,
+	OH: OverseerHandleT + OverseerHandleWithPriorityT,
 {
 	fn clone(&self) -> Self {
 		SelectRelayChainInner {
@@ -314,6 +316,17 @@ pub trait OverseerHandleT: Clone + Send + Sync {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str);
 }
 
+/// Trait for the overseer handle that allows sending messages with the specified priority level.
+#[async_trait::async_trait]
+pub trait OverseerHandleWithPriorityT: Clone + Send + Sync {
+	async fn send_msg_with_priority<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		origin: &'static str,
+		priority: PriorityLevel,
+	);
+}
+
 #[async_trait::async_trait]
 impl OverseerHandleT for Handle {
 	async fn send_msg<M: Send + Into<AllMessages>>(&mut self, msg: M, origin: &'static str) {
@@ -321,10 +334,22 @@ impl OverseerHandleT for Handle {
 	}
 }
 
+#[async_trait::async_trait]
+impl OverseerHandleWithPriorityT for Handle {
+	async fn send_msg_with_priority<M: Send + Into<AllMessages>>(
+		&mut self,
+		msg: M,
+		origin: &'static str,
+		priority: PriorityLevel,
+	) {
+		Handle::send_msg_with_priority(self, msg, origin, priority).await
+	}
+}
+
 impl<B, OH> SelectRelayChainInner<B, OH>
 where
 	B: HeaderProviderProvider<PolkadotBlock>,
-	OH: OverseerHandleT + 'static,
+	OH: OverseerHandleT + OverseerHandleWithPriorityT + 'static,
 {
 	/// Get all leaves of the chain, i.e. block hashes that are suitable to
 	/// build upon and have no suitable children.
@@ -416,7 +441,7 @@ where
 							"`finality_target` max number is less than target number",
 						);
 					}
-					return Ok(target_hash)
+					return Ok(target_hash);
 				}
 				// find the current number.
 				let subchain_header = self.block_header(subchain_head)?;
@@ -449,9 +474,14 @@ where
 		let (subchain_head, subchain_number, subchain_block_descriptions) = {
 			let (tx, rx) = oneshot::channel();
 			overseer
-				.send_msg(
-					ApprovalVotingMessage::ApprovedAncestor(subchain_head, target_number, tx),
+				.send_msg_with_priority(
+					ApprovalVotingParallelMessage::ApprovedAncestor(
+						subchain_head,
+						target_number,
+						tx,
+					),
 					std::any::type_name::<Self>(),
+					PriorityLevel::High,
 				)
 				.await;
 
@@ -462,8 +492,9 @@ where
 			{
 				// No approved ancestors means target hash is maximal vote.
 				None => (target_hash, target_number, Vec::new()),
-				Some(HighestApprovedAncestorBlock { number, hash, descriptions }) =>
-					(hash, number, descriptions),
+				Some(HighestApprovedAncestorBlock { number, hash, descriptions }) => {
+					(hash, number, descriptions)
+				},
 			}
 		};
 
@@ -478,9 +509,10 @@ where
 			let mut overseer_handle = self.overseer.clone();
 			let lag_update_task = async move {
 				overseer_handle
-					.send_msg(
-						ApprovalDistributionMessage::ApprovalCheckingLagUpdate(lag),
+					.send_msg_with_priority(
+						ApprovalVotingParallelMessage::ApprovalCheckingLagUpdate(lag),
 						std::any::type_name::<Self>(),
+						PriorityLevel::High,
 					)
 					.await;
 			};
@@ -504,18 +536,19 @@ where
 					subchain_number,
 					"Mismatch of anticipated block descriptions and block number difference.",
 				);
-				return Ok(target_hash)
+				return Ok(target_hash);
 			}
 			// 3. Constrain according to disputes:
 			let (tx, rx) = oneshot::channel();
 			overseer
-				.send_msg(
+				.send_msg_with_priority(
 					DisputeCoordinatorMessage::DetermineUndisputedChain {
 						base: (target_number, target_hash),
 						block_descriptions: subchain_block_descriptions,
 						tx,
 					},
 					std::any::type_name::<Self>(),
+					PriorityLevel::High,
 				)
 				.await;
 
@@ -541,7 +574,7 @@ where
 						// are not finalizing something that is being disputed or has been concluded
 						// as invalid. We will be conservative here and not vote for finality above
 						// the ancestor passed in.
-						return Ok(target_hash)
+						return Ok(target_hash);
 					},
 				};
 			(lag, subchain_head)

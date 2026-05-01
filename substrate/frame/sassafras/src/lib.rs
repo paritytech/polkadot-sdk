@@ -47,10 +47,13 @@
 #![warn(unused_must_use, unsafe_code, unused_variables, unused_imports, missing_docs)]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use log::{debug, error, trace, warn};
 use scale_info::TypeInfo;
 
+use alloc::vec::Vec;
 use frame_support::{
 	dispatch::{DispatchResultWithPostInfo, Pays},
 	traits::{Defensive, Get},
@@ -58,7 +61,7 @@ use frame_support::{
 	BoundedVec, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateBare, SubmitTransaction},
 	pallet_prelude::BlockNumberFor,
 };
 use sp_consensus_sassafras::{
@@ -72,7 +75,6 @@ use sp_runtime::{
 	traits::{One, Zero},
 	BoundToRuntimeAppPublic,
 };
-use sp_std::prelude::Vec;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking;
@@ -87,9 +89,6 @@ pub use weights::WeightInfo;
 pub use pallet::*;
 
 const LOG_TARGET: &str = "sassafras::runtime";
-
-// Contextual string used by the VRF to generate per-block randomness.
-const RANDOMNESS_VRF_CONTEXT: &[u8] = b"SassafrasOnChainRandomness";
 
 // Max length for segments holding unsorted tickets.
 const SEGMENT_MAX_SIZE: u32 = 128;
@@ -129,7 +128,7 @@ pub mod pallet {
 
 	/// Configuration parameters.
 	#[pallet::config]
-	pub trait Config: frame_system::Config + SendTransactionTypes<Call<Self>> {
+	pub trait Config: frame_system::Config + CreateBare<Call<Self>> {
 		/// Amount of slots that each epoch should last.
 		#[pallet::constant]
 		type EpochLength: Get<u32>;
@@ -157,17 +156,14 @@ pub mod pallet {
 
 	/// Current epoch index.
 	#[pallet::storage]
-	#[pallet::getter(fn epoch_index)]
 	pub type EpochIndex<T> = StorageValue<_, u64, ValueQuery>;
 
 	/// Current epoch authorities.
 	#[pallet::storage]
-	#[pallet::getter(fn authorities)]
 	pub type Authorities<T: Config> = StorageValue<_, AuthoritiesVec<T>, ValueQuery>;
 
 	/// Next epoch authorities.
 	#[pallet::storage]
-	#[pallet::getter(fn next_authorities)]
 	pub type NextAuthorities<T: Config> = StorageValue<_, AuthoritiesVec<T>, ValueQuery>;
 
 	/// First block slot number.
@@ -175,39 +171,38 @@ pub mod pallet {
 	/// As the slots may not be zero-based, we record the slot value for the fist block.
 	/// This allows to always compute relative indices for epochs and slots.
 	#[pallet::storage]
-	#[pallet::getter(fn genesis_slot)]
 	pub type GenesisSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
 	/// Current block slot number.
 	#[pallet::storage]
-	#[pallet::getter(fn current_slot)]
 	pub type CurrentSlot<T> = StorageValue<_, Slot, ValueQuery>;
 
 	/// Current epoch randomness.
 	#[pallet::storage]
-	#[pallet::getter(fn randomness)]
 	pub type CurrentRandomness<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// Next epoch randomness.
 	#[pallet::storage]
-	#[pallet::getter(fn next_randomness)]
 	pub type NextRandomness<T> = StorageValue<_, Randomness, ValueQuery>;
 
 	/// Randomness accumulator.
 	///
 	/// Excluded the first imported block, its value is updated on block finalization.
 	#[pallet::storage]
-	#[pallet::getter(fn randomness_accumulator)]
 	pub(crate) type RandomnessAccumulator<T> = StorageValue<_, Randomness, ValueQuery>;
+
+	/// Per slot randomness used to feed the randomness accumulator.
+	///
+	/// The value is ephemeral and is cleared on block finalization.
+	#[pallet::storage]
+	pub(crate) type SlotRandomness<T> = StorageValue<_, Randomness>;
 
 	/// The configuration for the current epoch.
 	#[pallet::storage]
-	#[pallet::getter(fn config)]
 	pub type EpochConfig<T> = StorageValue<_, EpochConfiguration, ValueQuery>;
 
 	/// The configuration for the next epoch.
 	#[pallet::storage]
-	#[pallet::getter(fn next_config)]
 	pub type NextEpochConfig<T> = StorageValue<_, EpochConfiguration>;
 
 	/// Pending epoch configuration change that will be set as `NextEpochConfig` when the next
@@ -265,18 +260,11 @@ pub mod pallet {
 	///
 	/// In practice: Updatable Universal Reference String and the seed.
 	#[pallet::storage]
-	#[pallet::getter(fn ring_context)]
 	pub type RingContext<T: Config> = StorageValue<_, vrf::RingContext>;
 
 	/// Ring verifier data for the current epoch.
 	#[pallet::storage]
-	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierData>;
-
-	/// Slot claim VRF pre-output used to generate per-slot randomness.
-	///
-	/// The value is ephemeral and is cleared on block finalization.
-	#[pallet::storage]
-	pub(crate) type ClaimTemporaryData<T> = StorageValue<_, vrf::VrfPreOutput>;
+	pub type RingVerifierData<T: Config> = StorageValue<_, vrf::RingVerifierKey>;
 
 	/// Genesis configuration for Sassafras protocol.
 	#[pallet::genesis_config]
@@ -288,7 +276,7 @@ pub mod pallet {
 		pub epoch_config: EpochConfiguration,
 		/// Phantom config
 		#[serde(skip)]
-		pub _phantom: sp_std::marker::PhantomData<T>,
+		pub _phantom: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
@@ -324,12 +312,8 @@ pub mod pallet {
 				Self::post_genesis_initialize(claim.slot);
 			}
 
-			let randomness_pre_output = claim
-				.vrf_signature
-				.pre_outputs
-				.get(0)
-				.expect("Valid claim must have VRF signature; qed");
-			ClaimTemporaryData::<T>::put(randomness_pre_output);
+			let randomness = claim.vrf_signature.pre_output.make_bytes();
+			SlotRandomness::<T>::put(randomness);
 
 			let trigger_weight = T::EpochChangeTrigger::trigger::<T>(block_num);
 
@@ -341,15 +325,8 @@ pub mod pallet {
 			// to the accumulator. If we've determined that this block was the first in
 			// a new epoch, the changeover logic has already occurred at this point
 			// (i.e. `enact_epoch_change` has already been called).
-			let randomness_input = vrf::slot_claim_input(
-				&Self::randomness(),
-				CurrentSlot::<T>::get(),
-				EpochIndex::<T>::get(),
-			);
-			let randomness_pre_output = ClaimTemporaryData::<T>::take()
+			let randomness = SlotRandomness::<T>::take()
 				.expect("Unconditionally populated in `on_initialize`; `on_finalize` is always called after; qed");
-			let randomness = randomness_pre_output
-				.make_bytes::<RANDOMNESS_LENGTH>(RANDOMNESS_VRF_CONTEXT, &randomness_input);
 			Self::deposit_slot_randomness(&randomness);
 
 			// Check if we are in the epoch's second half.
@@ -394,18 +371,21 @@ pub mod pallet {
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx > epoch_length / 2 {
 				warn!(target: LOG_TARGET, "Tickets shall be submitted in the first epoch half",);
-				return Err("Tickets shall be submitted in the first epoch half".into())
+				return Err("Tickets shall be submitted in the first epoch half".into());
 			}
 
-			let Some(verifier) = RingVerifierData::<T>::get().map(|v| v.into()) else {
+			let Some(verifier) =
+				RingVerifierData::<T>::get().map(|vk| vrf::RingContext::verifier_no_context(vk))
+			else {
 				warn!(target: LOG_TARGET, "Ring verifier key not initialized");
-				return Err("Ring verifier key not initialized".into())
+				return Err("Ring verifier key not initialized".into());
 			};
 
-			let next_authorities = Self::next_authorities();
+			let next_authorities = NextAuthorities::<T>::get();
 
 			// Compute tickets threshold
-			let next_config = Self::next_config().unwrap_or_else(|| Self::config());
+			let next_config =
+				NextEpochConfig::<T>::get().unwrap_or_else(|| EpochConfig::<T>::get());
 			let ticket_threshold = sp_consensus_sassafras::ticket_id_threshold(
 				next_config.redundancy_factor,
 				epoch_length as u32,
@@ -422,31 +402,26 @@ pub mod pallet {
 			for ticket in tickets {
 				debug!(target: LOG_TARGET, "Checking ring proof");
 
-				let Some(ticket_id_pre_output) = ticket.signature.pre_outputs.get(0) else {
-					debug!(target: LOG_TARGET, "Missing ticket VRF pre-output from ring signature");
-					continue
-				};
-				let ticket_id_input =
-					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
-
 				// Check threshold constraint
-				let ticket_id = vrf::make_ticket_id(&ticket_id_input, &ticket_id_pre_output);
+				let ticket_id = vrf::make_ticket_id(&ticket.signature.pre_output);
 				if ticket_id >= ticket_threshold {
 					debug!(target: LOG_TARGET, "Ignoring ticket over threshold ({:032x} >= {:032x})", ticket_id, ticket_threshold);
-					continue
+					continue;
 				}
 
 				// Check for duplicates
 				if TicketsData::<T>::contains_key(ticket_id) {
 					debug!(target: LOG_TARGET, "Ignoring duplicate ticket ({:032x})", ticket_id);
-					continue
+					continue;
 				}
 
 				// Check ring signature
+				let ticket_id_input =
+					vrf::ticket_id_input(&randomness, ticket.body.attempt_idx, epoch_idx);
 				let sign_data = vrf::ticket_body_sign_data(&ticket.body, ticket_id_input);
 				if !ticket.signature.ring_vrf_verify(&sign_data, &verifier) {
 					debug!(target: LOG_TARGET, "Proof verification failure for ticket ({:032x})", ticket_id);
-					continue
+					continue;
 				}
 
 				if let Ok(_) = valid_tickets.try_push(ticket_id).defensive_proof(
@@ -488,13 +463,14 @@ pub mod pallet {
 		}
 	}
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
 
 		fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
 			let Call::submit_tickets { tickets } = call else {
-				return InvalidTransaction::Call.into()
+				return InvalidTransaction::Call.into();
 			};
 
 			// Discard tickets not coming from the local node or that are not included in a block
@@ -503,7 +479,7 @@ pub mod pallet {
 					target: LOG_TARGET,
 					"Rejecting unsigned `submit_tickets` transaction from external source",
 				);
-				return InvalidTransaction::BadSigner.into()
+				return InvalidTransaction::BadSigner.into();
 			}
 
 			// Current slot should be less than half of epoch length.
@@ -511,7 +487,7 @@ pub mod pallet {
 			let current_slot_idx = Self::current_slot_index();
 			if current_slot_idx > epoch_length / 2 {
 				warn!(target: LOG_TARGET, "Tickets shall be proposed in the first epoch half",);
-				return InvalidTransaction::Stale.into()
+				return InvalidTransaction::Stale.into();
 			}
 
 			// This should be set such that it is discarded after the first epoch half
@@ -577,15 +553,13 @@ impl<T: Config> Pallet<T> {
 		debug!(target: LOG_TARGET, "Loading ring context");
 		let Some(ring_ctx) = RingContext::<T>::get() else {
 			debug!(target: LOG_TARGET, "Ring context not initialized");
-			return
+			return;
 		};
 
 		let pks: Vec<_> = authorities.iter().map(|auth| *auth.as_ref()).collect();
 
 		debug!(target: LOG_TARGET, "Building ring verifier (ring size: {})", pks.len());
-		let verifier_data = ring_ctx
-			.verifier_data(&pks)
-			.expect("Failed to build ring verifier. This is a bug");
+		let verifier_data = ring_ctx.verifier_key(&pks);
 
 		RingVerifierData::<T>::put(verifier_data);
 	}
@@ -731,7 +705,7 @@ impl<T: Config> Pallet<T> {
 		if !prev_authorities.is_empty() {
 			// This function has already been called.
 			if prev_authorities.as_slice() == authorities {
-				return
+				return;
 			} else {
 				panic!("Authorities were already initialized");
 			}
@@ -763,7 +737,7 @@ impl<T: Config> Pallet<T> {
 		// Deposit a log as this is the first block in first epoch.
 		let next_epoch = NextEpochDescriptor {
 			randomness: next_randomness,
-			authorities: Self::next_authorities().into_inner(),
+			authorities: NextAuthorities::<T>::get().into_inner(),
 			config: None,
 		};
 		Self::deposit_next_epoch_descriptor_digest(next_epoch);
@@ -776,9 +750,9 @@ impl<T: Config> Pallet<T> {
 			index,
 			start: Self::epoch_start(index),
 			length: T::EpochLength::get(),
-			authorities: Self::authorities().into_inner(),
-			randomness: Self::randomness(),
-			config: Self::config(),
+			authorities: Authorities::<T>::get().into_inner(),
+			randomness: CurrentRandomness::<T>::get(),
+			config: EpochConfig::<T>::get(),
 		}
 	}
 
@@ -789,9 +763,9 @@ impl<T: Config> Pallet<T> {
 			index,
 			start: Self::epoch_start(index),
 			length: T::EpochLength::get(),
-			authorities: Self::next_authorities().into_inner(),
-			randomness: Self::next_randomness(),
-			config: Self::next_config().unwrap_or_else(|| Self::config()),
+			authorities: NextAuthorities::<T>::get().into_inner(),
+			randomness: NextRandomness::<T>::get(),
+			config: NextEpochConfig::<T>::get().unwrap_or_else(|| EpochConfig::<T>::get()),
 		}
 	}
 
@@ -821,7 +795,7 @@ impl<T: Config> Pallet<T> {
 	/// Before importing the first block this returns `None`.
 	pub fn slot_ticket_id(slot: Slot) -> Option<TicketId> {
 		if frame_system::Pallet::<T>::block_number().is_zero() {
-			return None
+			return None;
 		}
 		let epoch_idx = EpochIndex::<T>::get();
 		let epoch_len = T::EpochLength::get();
@@ -855,7 +829,7 @@ impl<T: Config> Pallet<T> {
 				TicketsMeta::<T>::set(metadata);
 			}
 		} else if slot_idx >= 2 * epoch_len {
-			return None
+			return None;
 		}
 
 		let ticket_idx = get_ticket_idx(slot_idx);
@@ -1018,7 +992,8 @@ impl<T: Config> Pallet<T> {
 	pub fn submit_tickets_unsigned_extrinsic(tickets: Vec<TicketEnvelope>) -> bool {
 		let tickets = BoundedVec::truncate_from(tickets);
 		let call = Call::submit_tickets { tickets };
-		match SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into()) {
+		let xt = T::create_bare(call.into());
+		match SubmitTransaction::<T, Call<T>>::submit_transaction(xt) {
 			Ok(_) => true,
 			Err(e) => {
 				error!(target: LOG_TARGET, "Error submitting tickets {:?}", e);
@@ -1030,6 +1005,61 @@ impl<T: Config> Pallet<T> {
 	/// Epoch length
 	pub fn epoch_length() -> u32 {
 		T::EpochLength::get()
+	}
+
+	/// Get current epoch index.
+	pub fn epoch_index() -> u64 {
+		EpochIndex::<T>::get()
+	}
+
+	/// Get current epoch authorities.
+	pub fn authorities() -> Vec<AuthorityId> {
+		Authorities::<T>::get().into_inner()
+	}
+
+	/// Get next epoch authorities.
+	pub fn next_authorities() -> Vec<AuthorityId> {
+		NextAuthorities::<T>::get().into_inner()
+	}
+
+	/// Get genesis slot.
+	pub fn genesis_slot() -> Slot {
+		GenesisSlot::<T>::get()
+	}
+
+	/// Get current slot.
+	pub fn current_slot() -> Slot {
+		CurrentSlot::<T>::get()
+	}
+
+	/// Get current epoch randomness.
+	pub fn randomness() -> Randomness {
+		CurrentRandomness::<T>::get()
+	}
+
+	/// Get next epoch randomness.
+	pub fn next_randomness() -> Randomness {
+		NextRandomness::<T>::get()
+	}
+
+	/// Get randomness accumulator.
+	pub fn randomness_accumulator() -> Randomness {
+		RandomnessAccumulator::<T>::get()
+	}
+
+	/// Get current epoch configuration.
+	pub fn config() -> EpochConfiguration {
+		EpochConfig::<T>::get()
+	}
+
+	/// Get next epoch configuration.
+	pub fn next_config() -> Option<EpochConfiguration> {
+		NextEpochConfig::<T>::get()
+	}
+
+	/// Get ring context.
+	pub fn ring_context() -> Option<vrf::RingContext> {
+		RingContext::<T>::get()
 	}
 }
 
@@ -1065,7 +1095,7 @@ pub struct EpochChangeInternalTrigger;
 impl EpochChangeTrigger for EpochChangeInternalTrigger {
 	fn trigger<T: Config>(block_num: BlockNumberFor<T>) -> Weight {
 		if Pallet::<T>::should_end_epoch(block_num) {
-			let authorities = Pallet::<T>::next_authorities();
+			let authorities = NextAuthorities::<T>::get();
 			let next_authorities = authorities.clone();
 			let len = next_authorities.len() as u32;
 			Pallet::<T>::enact_epoch_change(authorities, next_authorities);

@@ -29,7 +29,7 @@ use sp_runtime::traits::TryConvert;
 /// 1. `asset(asset1, amount_in)` take from `user` and move to the pool(asset1, asset2);
 /// 2. `asset(asset2, amount_out2)` transfer from pool(asset1, asset2) to pool(asset2, asset3);
 /// 3. `asset(asset3, amount_out3)` move from pool(asset2, asset3) to `user`.
-pub(super) type BalancePath<T> = Vec<(<T as Config>::AssetKind, <T as Config>::Balance)>;
+pub type BalancePath<T> = Vec<(<T as Config>::AssetKind, <T as Config>::Balance)>;
 
 /// Credit of [Config::Assets].
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Assets>;

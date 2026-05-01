@@ -1,0 +1,3 @@
+crates:
+  - name: sc-service
+    bump: none

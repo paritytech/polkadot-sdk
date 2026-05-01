@@ -1,0 +1,13 @@
+title: '[pallet-revive] EVM backend: Implement tx, block system and call stack instructions'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR is part of the road to EVM.
+    - Implement call and create frames, allowing to call and instantiate other contracts.
+    - Implement support for tx info, block info, system and contract opcodes.
+    - The `InstructionResult` <-> `ExecError` conversion functions.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: minor

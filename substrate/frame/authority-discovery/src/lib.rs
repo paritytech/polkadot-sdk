@@ -23,12 +23,14 @@
 // Ensure we're `no_std` when compiling for Wasm.
 #![cfg_attr(not(feature = "std"), no_std)]
 
+extern crate alloc;
+
+use alloc::vec::Vec;
 use frame_support::{
 	traits::{Get, OneSessionHandler},
 	WeakBoundedVec,
 };
 use sp_authority_discovery::AuthorityId;
-use sp_std::prelude::*;
 
 pub use pallet::*;
 
@@ -36,6 +38,7 @@ pub use pallet::*;
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
+	use frame_system::pallet_prelude::BlockNumberFor;
 
 	#[pallet::pallet]
 	pub struct Pallet<T>(_);
@@ -49,12 +52,12 @@ pub mod pallet {
 
 	#[pallet::storage]
 	/// Keys of the current authority set.
-	pub(super) type Keys<T: Config> =
+	pub type Keys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[pallet::storage]
 	/// Keys of the next authority set.
-	pub(super) type NextKeys<T: Config> =
+	pub type NextKeys<T: Config> =
 		StorageValue<_, WeakBoundedVec<AuthorityId, T::MaxAuthorities>, ValueQuery>;
 
 	#[derive(frame_support::DefaultNoBound)]
@@ -62,13 +65,21 @@ pub mod pallet {
 	pub struct GenesisConfig<T: Config> {
 		pub keys: Vec<AuthorityId>,
 		#[serde(skip)]
-		pub _config: sp_std::marker::PhantomData<T>,
+		pub _config: core::marker::PhantomData<T>,
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> BuildGenesisConfig for GenesisConfig<T> {
 		fn build(&self) {
 			Pallet::<T>::initialize_keys(&self.keys)
+		}
+	}
+
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		#[cfg(feature = "try-runtime")]
+		fn try_state(_n: BlockNumberFor<T>) -> Result<(), sp_runtime::TryRuntimeError> {
+			Self::do_try_state()
 		}
 	}
 }
@@ -164,10 +175,45 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 	}
 }
 
+#[cfg(any(feature = "try-runtime", test))]
+impl<T: Config> Pallet<T> {
+	/// Ensure the correctness of the state of this pallet.
+	///
+	/// # Invariants
+	///
+	/// * `Keys` must not exceed `MaxAuthorities`.
+	/// * `NextKeys` must not exceed `MaxAuthorities`.
+	/// * `Keys` should not contain duplicates.
+	/// * `NextKeys` should not contain duplicates.
+	pub fn do_try_state() -> Result<(), sp_runtime::TryRuntimeError> {
+		use frame_support::ensure;
+		let keys = Keys::<T>::get();
+		ensure!(keys.len() as u32 <= T::MaxAuthorities::get(), "Keys exceeds MaxAuthorities");
+		let mut sorted_keys = keys.to_vec();
+		sorted_keys.sort();
+		ensure!(sorted_keys.windows(2).all(|w| w[0] != w[1]), "Duplicate keys found in Keys");
+
+		let next_keys = NextKeys::<T>::get();
+		ensure!(
+			next_keys.len() as u32 <= T::MaxAuthorities::get(),
+			"NextKeys exceeds MaxAuthorities"
+		);
+		let mut sorted_next_keys = next_keys.to_vec();
+		sorted_next_keys.sort();
+		ensure!(
+			sorted_next_keys.windows(2).all(|w| w[0] != w[1]),
+			"Duplicate keys found in NextKeys"
+		);
+
+		Ok(())
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
 	use crate as pallet_authority_discovery;
+	use alloc::vec;
 	use frame_support::{derive_impl, parameter_types, traits::ConstU32};
 	use sp_application_crypto::Pair;
 	use sp_authority_discovery::AuthorityPair;
@@ -186,6 +232,7 @@ mod tests {
 		{
 			System: frame_system,
 			Session: pallet_session,
+			Balances: pallet_balances,
 			AuthorityDiscovery: pallet_authority_discovery,
 		}
 	);
@@ -207,12 +254,10 @@ mod tests {
 		type ValidatorId = AuthorityId;
 		type ValidatorIdOf = ConvertInto;
 		type NextSessionRotation = pallet_session::PeriodicSessions<Period, Offset>;
+		type DisablingStrategy = ();
 		type WeightInfo = ();
-	}
-
-	impl pallet_session::historical::Config for Test {
-		type FullIdentification = ();
-		type FullIdentificationOf = ();
+		type Currency = Balances;
+		type KeyDeposit = ();
 	}
 
 	pub type BlockNumber = u64;
@@ -227,6 +272,12 @@ mod tests {
 		type AccountId = AuthorityId;
 		type Lookup = IdentityLookup<Self::AccountId>;
 		type Block = Block;
+		type AccountData = pallet_balances::AccountData<u64>;
+	}
+
+	#[derive_impl(pallet_balances::config_preludes::TestDefaultConfig)]
+	impl pallet_balances::Config for Test {
+		type AccountStore = System;
 	}
 
 	pub struct TestSessionHandler;
@@ -315,6 +366,9 @@ mod tests {
 			authorities_returned.sort();
 			assert_eq!(first_authorities, authorities_returned);
 
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
+
 			// When `changed` set to false, the authority set should not be updated.
 			AuthorityDiscovery::on_new_session(
 				false,
@@ -333,6 +387,9 @@ mod tests {
 				first_and_third_authorities, authorities_returned,
 				"Expected authority set not to change as `changed` was set to false.",
 			);
+
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
 
 			// When `changed` set to true, the authority set should be updated.
 			AuthorityDiscovery::on_new_session(
@@ -354,6 +411,9 @@ mod tests {
 				 next session."
 			);
 
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
+
 			// With overlapping authority sets, `authorities()` should return a deduplicated set.
 			AuthorityDiscovery::on_new_session(
 				true,
@@ -366,6 +426,9 @@ mod tests {
 				AuthorityDiscovery::authorities(),
 				"Expected authority set to be deduplicated."
 			);
+
+			// Verify state
+			AuthorityDiscovery::do_try_state().unwrap();
 		});
 	}
 }

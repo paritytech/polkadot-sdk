@@ -89,6 +89,14 @@ pub struct Limits {
 	/// The maximum node runtime memory. This is for integrity checks only and does not affect the
 	/// real setting.
 	pub runtime_memory: u32,
+
+	/// The maximum validator node runtime memory. This is for integrity checks only and does not
+	/// affect the real setting.
+	pub validator_runtime_memory: u32,
+
+	/// The additional ref_time added to the `deposit_event` host function call per event data
+	/// byte.
+	pub event_ref_time: u64,
 }
 
 impl Limits {
@@ -106,7 +114,7 @@ impl Limits {
 #[scale_info(skip_type_params(T))]
 pub struct InstructionWeights<T: Config> {
 	/// Base instruction `ref_time` Weight.
-	/// Should match to wasmi's `1` fuel (see <https://github.com/paritytech/wasmi/issues/701>).
+	/// Should match to wasmi's `1` fuel (see <https://github.com/wasmi-labs/wasmi/issues/701>).
 	pub base: u32,
 	/// The type parameter is used in the default implementation.
 	#[codec(skip)]
@@ -121,6 +129,8 @@ impl Default for Limits {
 			subject_len: 32,
 			payload_len: 16 * 1024,
 			runtime_memory: 1024 * 1024 * 128,
+			validator_runtime_memory: 1024 * 1024 * 512,
+			event_ref_time: 60_000,
 		}
 	}
 }

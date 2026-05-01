@@ -28,16 +28,15 @@ use crate::{
 use codec::Encode;
 use futures::SinkExt;
 use itertools::Itertools;
-use polkadot_node_core_approval_voting::{
-	criteria::{compute_assignments, Config},
-	time::tranche_to_tick,
-};
+use polkadot_node_core_approval_voting::criteria::{compute_assignments, Config};
+
 use polkadot_node_network_protocol::{
 	grid_topology::{GridNeighbors, RandomRouting, RequiredRouting, SessionGridTopology},
 	v3 as protocol_v3,
 };
 use polkadot_node_primitives::approval::{
 	self,
+	time::tranche_to_tick,
 	v2::{CoreBitfield, IndirectAssignmentCertV2, IndirectSignedApprovalVoteV2},
 };
 use polkadot_primitives::{
@@ -211,7 +210,7 @@ impl PeerMessagesGenerator {
 		// Receive all messages and sort them by Tick they have to be sent.
 		loop {
 			match rx.try_next() {
-				Ok(Some((block_hash, messages))) =>
+				Ok(Some((block_hash, messages))) => {
 					for message in messages {
 						let block_info = blocks
 							.iter()
@@ -224,7 +223,8 @@ impl PeerMessagesGenerator {
 						);
 						let to_add = all_messages.entry(tick_to_send).or_default();
 						to_add.push(message);
-					},
+					}
+				},
 				Ok(None) => break,
 				Err(_) => {
 					std::thread::sleep(Duration::from_millis(50));
@@ -327,12 +327,15 @@ impl PeerMessagesGenerator {
 		let mut unique_assignments = HashSet::new();
 		for (core_index, assignment) in assignments {
 			let assigned_cores = match &assignment.cert().kind {
-				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } =>
-					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec(),
-				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } =>
-					vec![*core_index],
-				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } =>
-					vec![core_index],
+				approval::v2::AssignmentCertKindV2::RelayVRFModuloCompact { core_bitfield } => {
+					core_bitfield.iter_ones().map(|val| CoreIndex::from(val as u32)).collect_vec()
+				},
+				approval::v2::AssignmentCertKindV2::RelayVRFDelay { core_index } => {
+					vec![*core_index]
+				},
+				approval::v2::AssignmentCertKindV2::RelayVRFModulo { sample: _ } => {
+					vec![core_index]
+				},
 			};
 
 			let bitfiled: CoreBitfield = assigned_cores.clone().try_into().unwrap();
@@ -402,7 +405,7 @@ impl PeerMessagesGenerator {
 /// We can not sample every time for all the messages because that would be too expensive to
 /// perform, so pre-generate a list of samples for a given network size.
 /// - result[i] give us as a list of random nodes that would send a given message to the node under
-/// test.
+///   test.
 fn random_samplings_to_node(
 	node_under_test: ValidatorIndex,
 	num_validators: usize,
@@ -475,8 +478,7 @@ fn issue_approvals(
 		coalesce_approvals_len(options.coalesce_mean, options.coalesce_std_dev, rand_chacha);
 	let result = assignments
 		.iter()
-		.enumerate()
-		.map(|(_index, message)| match &message.msg {
+		.map(|message| match &message.msg {
 			protocol_v3::ApprovalDistributionMessage::Assignments(assignments) => {
 				let mut approvals_to_create = Vec::new();
 

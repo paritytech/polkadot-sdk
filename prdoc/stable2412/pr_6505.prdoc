@@ -1,0 +1,14 @@
+title: '[pallet-broker] Fix auto renew benchmarks'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Fix the broker pallet auto-renew benchmarks which have been broken since #4424, yielding `Weightless` due to some prices being set too low, as reported in #6474.
+
+    Upon further investigation it turned out that the auto-renew contribution to `rotate_sale` was always failing but the error was mapped. This is also fixed at the cost of a bit of setup overhead.
+crates:
+- name: pallet-broker
+  bump: patch
+- name: coretime-rococo-runtime
+  bump: patch
+- name: coretime-westend-runtime
+  bump: patch

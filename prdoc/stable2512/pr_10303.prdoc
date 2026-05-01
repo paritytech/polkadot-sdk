@@ -1,0 +1,9 @@
+title: pallet-revive fix prestate diff tracing
+doc:
+- audience: Runtime Dev
+  description: 'Fix prestate diff-tracing, add missing storage diff for created contracts
+
+    '
+crates:
+- name: pallet-revive
+  bump: patch

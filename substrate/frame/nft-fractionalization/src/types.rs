@@ -19,9 +19,9 @@
 
 use super::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::traits::{fungible::Inspect as FunInspect, fungibles::Inspect};
+use fungible::Inspect as FunInspect;
+use fungibles::Inspect;
 use scale_info::TypeInfo;
-use sp_runtime::traits::StaticLookup;
 
 pub type AssetIdOf<T> = <<T as Config>::Assets as Inspect<<T as SystemConfig>::AccountId>>::AssetId;
 pub type AssetBalanceOf<T> =

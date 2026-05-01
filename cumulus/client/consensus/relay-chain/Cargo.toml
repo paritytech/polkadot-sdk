@@ -5,6 +5,8 @@ version = "0.7.0"
 authors.workspace = true
 edition.workspace = true
 license = "GPL-3.0-or-later WITH Classpath-exception-2.0"
+homepage.workspace = true
+repository.workspace = true
 
 [lints]
 workspace = true
@@ -16,6 +18,7 @@ parking_lot = { workspace = true, default-features = true }
 tracing = { workspace = true, default-features = true }
 
 # Substrate
+prometheus-endpoint = { workspace = true, default-features = true }
 sc-consensus = { workspace = true, default-features = true }
 sp-api = { workspace = true, default-features = true }
 sp-block-builder = { workspace = true, default-features = true }
@@ -24,7 +27,6 @@ sp-consensus = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
-prometheus-endpoint = { workspace = true, default-features = true }
 
 # Cumulus
 cumulus-client-consensus-common = { workspace = true, default-features = true }

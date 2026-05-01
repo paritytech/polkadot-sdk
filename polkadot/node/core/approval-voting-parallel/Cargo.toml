@@ -1,0 +1,44 @@
+[package]
+name = "polkadot-node-core-approval-voting-parallel"
+version = "7.0.0"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Approval Voting Subsystem running approval work in parallel"
+homepage.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+async-trait = { workspace = true }
+futures = { workspace = true }
+gum = { workspace = true }
+itertools = { workspace = true }
+
+polkadot-approval-distribution = { workspace = true, default-features = true }
+polkadot-node-core-approval-voting = { workspace = true, default-features = true }
+polkadot-node-metrics = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
+polkadot-overseer = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+
+sc-keystore = { workspace = true, default-features = false }
+sp-consensus = { workspace = true, default-features = false }
+
+rand = { workspace = true }
+rand_core = { workspace = true }
+
+[dev-dependencies]
+assert_matches = { workspace = true }
+kvdb-memorydb = { workspace = true }
+polkadot-node-subsystem-test-helpers = { workspace = true, default-features = true }
+schnorrkel = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-keyring = { workspace = true, default-features = true }
+sp-tracing = { workspace = true }

@@ -1,0 +1,8 @@
+title: 'pallet-message-queue: Fix max message size calculation'
+doc:
+- audience: Runtime Dev
+  description: |-
+    The max size of a message should not depend on the weight left in a given execution context. Instead the max message size depends on the service weights configured for the pallet. A message that may does not fit into `on_idle` is not automatically overweight, because it may can be executed successfully in `on_initialize` or in another block in `on_idle` when there is more weight left.
+crates:
+- name: pallet-message-queue
+  bump: patch

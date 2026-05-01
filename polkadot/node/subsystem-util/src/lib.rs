@@ -31,7 +31,7 @@ pub use overseer::{
 };
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
-	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
+	messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
 
@@ -41,12 +41,15 @@ use codec::Encode;
 use futures::channel::{mpsc, oneshot};
 
 use polkadot_primitives::{
-	async_backing::BackingState, slashing, AsyncBackingParams, AuthorityDiscoveryId,
-	CandidateEvent, CandidateHash, CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
-	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, OccupiedCoreAssumption,
-	PersistedValidationData, ScrapedOnChainVotes, SessionIndex, SessionInfo, Signed,
-	SigningContext, ValidationCode, ValidationCodeHash, ValidatorId, ValidatorIndex,
-	ValidatorSignature,
+	async_backing::{BackingState, Constraints},
+	slashing,
+	vstaging::RelayParentInfo,
+	AsyncBackingParams, AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
+	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures,
+	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionIndex,
+	SessionInfo, Signed, SigningContext, ValidationCode, ValidationCodeHash, ValidatorId,
+	ValidatorIndex, ValidatorSignature,
 };
 pub use rand;
 use sp_application_crypto::AppCrypto;
@@ -57,7 +60,6 @@ use std::{
 	time::Duration,
 };
 use thiserror::Error;
-use vstaging::get_disabled_validators_with_fallback;
 
 pub use determine_new_blocks::determine_new_blocks;
 pub use metered;
@@ -95,6 +97,9 @@ pub mod nesting_sender;
 pub mod reputation;
 
 mod determine_new_blocks;
+
+mod controlled_validator_indices;
+pub use controlled_validator_indices::ControlledValidatorIndices;
 
 #[cfg(test)]
 mod tests;
@@ -153,7 +158,7 @@ impl TryFrom<crate::runtime::Error> for Error {
 		match e {
 			Error::RuntimeRequestCanceled(e) => Ok(Self::Oneshot(e)),
 			Error::RuntimeRequest(e) => Ok(Self::RuntimeApi(e)),
-			Error::NoSuchSession(_) | Error::NoExecutorParams(_) => Err(()),
+			Error::NoSuchSession(_) => Err(()),
 		}
 	}
 }
@@ -303,13 +308,147 @@ specialize_requests! {
 		-> Option<ValidationCodeHash>; ValidationCodeHash;
 	fn request_on_chain_votes() -> Option<ScrapedOnChainVotes>; FetchOnChainVotes;
 	fn request_session_executor_params(session_index: SessionIndex) -> Option<ExecutorParams>;SessionExecutorParams;
-	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashes;
+	fn request_unapplied_slashes() -> Vec<(SessionIndex, CandidateHash, slashing::LegacyPendingSlashes)>; UnappliedSlashes;
+	fn request_unapplied_slashes_v2() -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)>; UnappliedSlashesV2;
 	fn request_key_ownership_proof(validator_id: ValidatorId) -> Option<slashing::OpaqueKeyOwnershipProof>; KeyOwnershipProof;
 	fn request_submit_report_dispute_lost(dp: slashing::DisputeProof, okop: slashing::OpaqueKeyOwnershipProof) -> Option<()>; SubmitReportDisputeLost;
 	fn request_disabled_validators() -> Vec<ValidatorIndex>; DisabledValidators;
 	fn request_async_backing_params() -> AsyncBackingParams; AsyncBackingParams;
 	fn request_claim_queue() -> BTreeMap<CoreIndex, VecDeque<ParaId>>; ClaimQueue;
 	fn request_para_backing_state(para_id: ParaId) -> Option<BackingState>; ParaBackingState;
+	fn request_backing_constraints(para_id: ParaId) -> Option<Constraints>; BackingConstraints;
+	fn request_min_backing_votes(session_index: SessionIndex) -> u32; MinimumBackingVotes;
+	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
+	fn request_para_ids(session_index: SessionIndex) -> Vec<ParaId>; ParaIds;
+
+}
+
+/// Result of [`check_relay_parent_session`].
+pub enum CheckRelayParentSessionResult {
+	/// The relay parent is valid in the given session.
+	Valid,
+	/// The relay parent was not found in the given session (or session mismatch
+	/// in the self-query case).
+	NotFound,
+	/// The `ancestor_relay_parent_info` runtime API is not supported. Safe to
+	/// skip on old runtimes where cross-session relay parents don't exist.
+	NotSupported,
+	/// A runtime API or communication error occurred.
+	RuntimeError(String),
+}
+
+/// Check whether a relay parent is valid in a given session.
+///
+/// Works for all blocks within the `max_relay_parent_session_age` window,
+/// including the block being queried at (the "self" case where
+/// `query_at == relay_parent`). The `ancestor_relay_parent_info` runtime API
+/// only works for ancestors (a block is not in its own `AllowedRelayParents`).
+/// This utility handles the self case by verifying the session directly via
+/// `session_index_for_child`.
+pub async fn check_relay_parent_session(
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	query_at: Hash,
+	session_index: SessionIndex,
+	relay_parent: Hash,
+) -> CheckRelayParentSessionResult {
+	if query_at == relay_parent {
+		// Self-query: the runtime API can't answer (block not in its own
+		// AllowedRelayParents). Verify the session directly.
+		return match request_session_index_for_child(relay_parent, sender).await.await {
+			Ok(Ok(session)) if session == session_index => CheckRelayParentSessionResult::Valid,
+			Ok(Ok(_)) => CheckRelayParentSessionResult::NotFound,
+			Ok(Err(err)) => CheckRelayParentSessionResult::RuntimeError(format!(
+				"SessionIndexForChild error: {err}"
+			)),
+			Err(_) => CheckRelayParentSessionResult::RuntimeError(
+				"SessionIndexForChild request cancelled".into(),
+			),
+		};
+	}
+
+	// Ancestor query: use the runtime API.
+	match request_from_runtime(query_at, sender, |tx| {
+		RuntimeApiRequest::AncestorRelayParentInfo(session_index, relay_parent, tx)
+	})
+	.await
+	.await
+	{
+		Ok(Ok(Some(_))) => CheckRelayParentSessionResult::Valid,
+		Ok(Ok(None)) => CheckRelayParentSessionResult::NotFound,
+		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			CheckRelayParentSessionResult::NotSupported
+		},
+		Ok(Err(err)) => CheckRelayParentSessionResult::RuntimeError(format!(
+			"AncestorRelayParentInfo error: {err}"
+		)),
+		Err(_) => CheckRelayParentSessionResult::RuntimeError(
+			"AncestorRelayParentInfo request cancelled".into(),
+		),
+	}
+}
+
+/// Fetch relay parent info for a block, including the block being queried at.
+///
+/// Works for all blocks within the `max_relay_parent_session_age` window,
+/// including the self-query case (`query_at == relay_parent`). For ancestors,
+/// uses the `ancestor_relay_parent_info` runtime API. For self, constructs the
+/// answer from the block header and session check.
+///
+/// Requires both `RuntimeApiMessage` and `ChainApiMessage` senders.
+pub async fn fetch_relay_parent_info<Sender>(
+	sender: &mut Sender,
+	query_at: Hash,
+	session_index: SessionIndex,
+	relay_parent: Hash,
+) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, runtime::Error>
+where
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<ChainApiMessage>,
+{
+	if query_at == relay_parent {
+		// Self-query: the ancestor runtime API can't answer (a block is not in
+		// its own AllowedRelayParents). Verify session and construct from header.
+
+		return get_scheduling_parent_info(sender, session_index, relay_parent).await;
+	}
+
+	// Ancestor query: use the runtime API.
+	match request_from_runtime(query_at, sender, |tx| {
+		RuntimeApiRequest::AncestorRelayParentInfo(session_index, relay_parent, tx)
+	})
+	.await
+	.await?
+	{
+		Ok(info) => Ok(info),
+		Err(RuntimeApiError::NotSupported { .. }) => {
+			// The runtime API is not existent, this means the v3 descriptor node feature was not
+			// enabled. Fallback to querying the chain API.
+			get_scheduling_parent_info(sender, session_index, relay_parent).await
+		},
+		Err(err) => Err(runtime::Error::RuntimeRequest(err)),
+	}
+}
+
+async fn get_scheduling_parent_info<Sender>(
+	sender: &mut Sender,
+	session_index: SessionIndex,
+	hash: Hash,
+) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, runtime::Error>
+where
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<ChainApiMessage>,
+{
+	let session_ok = request_session_index_for_child(hash, sender).await.await?? == session_index;
+	if !session_ok {
+		return Ok(None);
+	}
+
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(hash, tx)).await;
+	match rx.await? {
+		Ok(Some(header)) => {
+			Ok(Some(RelayParentInfo { number: header.number, state_root: header.state_root }))
+		},
+		_ => Ok(None),
+	}
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains
@@ -376,7 +515,7 @@ pub fn signing_key_and_index<'a>(
 ) -> Option<(ValidatorId, ValidatorIndex)> {
 	for (i, v) in validators.into_iter().enumerate() {
 		if keystore.has_keys(&[(v.to_raw_vec(), ValidatorId::ID)]) {
-			return Some((v.clone(), ValidatorIndex(i as _)))
+			return Some((v.clone(), ValidatorIndex(i as _)));
 		}
 	}
 	None
@@ -433,7 +572,7 @@ pub fn choose_random_subset_with_rng<T, F: FnMut(&T) -> bool, R: rand::Rng>(
 
 	if i >= min || v.len() <= i {
 		v.truncate(i);
-		return
+		return;
 	}
 
 	v[i..].shuffle(rng);
@@ -470,11 +609,12 @@ impl Validator {
 	where
 		S: SubsystemSender<RuntimeApiMessage>,
 	{
-		// Note: request_validators and request_session_index_for_child do not and cannot
-		// run concurrently: they both have a mutable handle to the same sender.
+		// Note: request_validators, request_disabled_validators and request_session_index_for_child
+		// do not and cannot run concurrently: they both have a mutable handle to the same sender.
 		// However, each of them returns a oneshot::Receiver, and those are resolved concurrently.
-		let (validators, session_index) = futures::try_join!(
+		let (validators, disabled_validators, session_index) = futures::try_join!(
 			request_validators(parent, sender).await,
+			request_disabled_validators(parent, sender).await,
 			request_session_index_for_child(parent, sender).await,
 		)?;
 
@@ -482,12 +622,7 @@ impl Validator {
 
 		let validators = validators?;
 
-		// TODO: https://github.com/paritytech/polkadot-sdk/issues/1940
-		// When `DisabledValidators` is released remove this and add a
-		// `request_disabled_validators` call here
-		let disabled_validators = get_disabled_validators_with_fallback(sender, parent)
-			.await
-			.map_err(|e| Error::try_from(e).expect("the conversion is infallible; qed"))?;
+		let disabled_validators = disabled_validators?;
 
 		Self::construct(&validators, &disabled_validators, signing_context, keystore)
 	}

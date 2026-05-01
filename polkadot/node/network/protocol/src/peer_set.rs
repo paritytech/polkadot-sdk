@@ -30,15 +30,17 @@ use std::{
 };
 use strum::{EnumIter, IntoEnumIterator};
 
-/// The legacy protocol names. Only supported on version = 1.
-const LEGACY_VALIDATION_PROTOCOL_V1: &str = "/polkadot/validation/1";
+/// The legacy collation protocol name. Only supported on version = 1.
 const LEGACY_COLLATION_PROTOCOL_V1: &str = "/polkadot/collation/1";
 
-/// The legacy protocol version. Is always 1 for both validation & collation.
-const LEGACY_PROTOCOL_VERSION_V1: u32 = 1;
+/// The legacy protocol version. Is always 1 for collation.
+const LEGACY_COLLATION_PROTOCOL_VERSION_V1: u32 = 1;
 
 /// Max notification size is currently constant.
 pub const MAX_NOTIFICATION_SIZE: u64 = 100 * 1024;
+
+/// Maximum allowed incoming connection streams for validator nodes on the collation protocol.
+pub const MAX_AUTHORITY_INCOMING_STREAMS: u32 = 310;
 
 /// The peer-sets and thus the protocols which are used for the network.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
@@ -115,7 +117,11 @@ impl PeerSet {
 					SetConfig {
 						// Non-authority nodes don't need to accept incoming connections on this
 						// peer set:
-						in_peers: if is_authority == IsAuthority::Yes { 100 } else { 0 },
+						in_peers: if is_authority == IsAuthority::Yes {
+							MAX_AUTHORITY_INCOMING_STREAMS
+						} else {
+							0
+						},
 						out_peers: 0,
 						reserved_nodes: Vec::new(),
 						non_reserved_mode: if is_authority == IsAuthority::Yes {
@@ -140,7 +146,7 @@ impl PeerSet {
 	pub fn get_main_version(self) -> ProtocolVersion {
 		match self {
 			PeerSet::Validation => ValidationVersion::V3.into(),
-			PeerSet::Collation => CollationVersion::V2.into(),
+			PeerSet::Collation => CollationVersion::V3.into(),
 		}
 	}
 
@@ -162,24 +168,24 @@ impl PeerSet {
 		// Unfortunately, labels must be static strings, so we must manually cover them
 		// for all protocol versions here.
 		match self {
-			PeerSet::Validation =>
-				if version == ValidationVersion::V1.into() {
-					Some("validation/1")
-				} else if version == ValidationVersion::V2.into() {
-					Some("validation/2")
-				} else if version == ValidationVersion::V3.into() {
+			PeerSet::Validation => {
+				if version == ValidationVersion::V3.into() {
 					Some("validation/3")
 				} else {
 					None
-				},
-			PeerSet::Collation =>
+				}
+			},
+			PeerSet::Collation => {
 				if version == CollationVersion::V1.into() {
 					Some("collation/1")
 				} else if version == CollationVersion::V2.into() {
 					Some("collation/2")
+				} else if version == CollationVersion::V3.into() {
+					Some("collation/3")
 				} else {
 					None
-				},
+				}
+			},
 		}
 	}
 }
@@ -245,13 +251,7 @@ impl From<ProtocolVersion> for u32 {
 /// Supported validation protocol versions. Only versions defined here must be used in the codebase.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, EnumIter)]
 pub enum ValidationVersion {
-	/// The first version.
-	V1 = 1,
-	/// The second version.
-	V2 = 2,
-	/// The third version where changes to ApprovalDistributionMessage had been made.
-	/// The changes are translatable to V2 format until assignments v2 and approvals
-	/// coalescing is enabled through a runtime upgrade.
+	/// The third version.
 	V3 = 3,
 }
 
@@ -262,6 +262,8 @@ pub enum CollationVersion {
 	V1 = 1,
 	/// The second version.
 	V2 = 2,
+	/// The third version, adds explicit scheduling_parent field and candidate descriptor version.
+	V3 = 3,
 }
 
 /// Marker indicating the version is unknown.
@@ -274,7 +276,7 @@ impl TryFrom<ProtocolVersion> for ValidationVersion {
 	fn try_from(p: ProtocolVersion) -> Result<Self, UnknownVersion> {
 		for v in Self::iter() {
 			if v as u32 == p.0 {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 
@@ -288,7 +290,7 @@ impl TryFrom<ProtocolVersion> for CollationVersion {
 	fn try_from(p: ProtocolVersion) -> Result<Self, UnknownVersion> {
 		for v in Self::iter() {
 			if v as u32 == p.0 {
-				return Ok(v)
+				return Ok(v);
 			}
 		}
 
@@ -324,7 +326,7 @@ impl PeerSetProtocolNames {
 		let mut names = HashMap::new();
 		for protocol in PeerSet::iter() {
 			match protocol {
-				PeerSet::Validation =>
+				PeerSet::Validation => {
 					for version in ValidationVersion::iter() {
 						Self::register_main_protocol(
 							&mut protocols,
@@ -334,8 +336,9 @@ impl PeerSetProtocolNames {
 							&genesis_hash,
 							fork_id,
 						);
-					},
-				PeerSet::Collation =>
+					}
+				},
+				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						Self::register_main_protocol(
 							&mut protocols,
@@ -345,9 +348,10 @@ impl PeerSetProtocolNames {
 							&genesis_hash,
 							fork_id,
 						);
-					},
+					}
+					Self::register_legacy_collation_protocol(&mut protocols, protocol);
+				},
 			}
-			Self::register_legacy_protocol(&mut protocols, protocol);
 		}
 		Self { protocols, names, genesis_hash, fork_id: fork_id.map(|fork_id| fork_id.into()) }
 	}
@@ -366,16 +370,16 @@ impl PeerSetProtocolNames {
 		Self::insert_protocol_or_panic(protocols, protocol_name, protocol, version);
 	}
 
-	/// Helper function to register legacy protocol.
-	fn register_legacy_protocol(
+	/// Helper function to register legacy collation protocol.
+	fn register_legacy_collation_protocol(
 		protocols: &mut HashMap<ProtocolName, (PeerSet, ProtocolVersion)>,
 		protocol: PeerSet,
 	) {
 		Self::insert_protocol_or_panic(
 			protocols,
-			Self::get_legacy_name(protocol),
+			LEGACY_COLLATION_PROTOCOL_V1.into(),
 			protocol,
-			ProtocolVersion(LEGACY_PROTOCOL_VERSION_V1),
+			ProtocolVersion(LEGACY_COLLATION_PROTOCOL_VERSION_V1),
 		)
 	}
 
@@ -443,38 +447,29 @@ impl PeerSetProtocolNames {
 		format!("{}/{}/{}", prefix, short_name, version).into()
 	}
 
-	/// Get the legacy protocol name, only `LEGACY_PROTOCOL_VERSION` = 1 is supported.
-	fn get_legacy_name(protocol: PeerSet) -> ProtocolName {
-		match protocol {
-			PeerSet::Validation => LEGACY_VALIDATION_PROTOCOL_V1,
-			PeerSet::Collation => LEGACY_COLLATION_PROTOCOL_V1,
-		}
-		.into()
-	}
-
-	/// Get the protocol fallback names. Currently only holds the legacy name
-	/// for `LEGACY_PROTOCOL_VERSION` = 1 and v2 for validation.
-	fn get_fallback_names(
+	/// Get the protocol fallback names for negotiation with older peers.
+	pub fn get_fallback_names(
 		protocol: PeerSet,
 		genesis_hash: &Hash,
 		fork_id: Option<&str>,
 	) -> Vec<ProtocolName> {
-		let mut fallbacks = vec![Self::get_legacy_name(protocol)];
+		let mut fallbacks = vec![];
 		match protocol {
 			PeerSet::Validation => {
-				// Fallbacks are tried one by one, till one matches so push v2 at the top, so
-				// that it is used ahead of the legacy one(v1).
-				fallbacks.insert(
-					0,
-					Self::generate_name(
-						genesis_hash,
-						fork_id,
-						protocol,
-						ValidationVersion::V2.into(),
-					),
-				)
+				// The validation protocol no longer supports protocol versions 1 and 2,
+				// and only version 3 is used. Therefore, fallback protocols remain empty.
 			},
-			PeerSet::Collation => {},
+			PeerSet::Collation => {
+				// Collation V2 fallback so that V3 nodes can negotiate V2 with older peers
+				// instead of falling all the way back to the legacy V1 protocol.
+				fallbacks.push(Self::generate_name(
+					genesis_hash,
+					fork_id,
+					PeerSet::Collation,
+					CollationVersion::V2.into(),
+				));
+				fallbacks.push(LEGACY_COLLATION_PROTOCOL_V1.into());
+			},
 		};
 		fallbacks
 	}
@@ -552,17 +547,14 @@ mod tests {
 		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
 
 		let validation_main =
-			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/validation/1";
+			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/validation/3";
 		assert_eq!(
 			protocol_names.try_get_protocol(&validation_main.into()),
-			Some((PeerSet::Validation, TestVersion(1).into())),
+			Some((PeerSet::Validation, TestVersion(3).into())),
 		);
 
 		let validation_legacy = "/polkadot/validation/1";
-		assert_eq!(
-			protocol_names.try_get_protocol(&validation_legacy.into()),
-			Some((PeerSet::Validation, TestVersion(1).into())),
-		);
+		assert!(protocol_names.try_get_protocol(&validation_legacy.into()).is_none());
 
 		let collation_main =
 			"/7ac8741de8b7146d8a5617fd462914557fe63c265a7f1c10e7dae32858eebb80/collation/1";
@@ -588,7 +580,7 @@ mod tests {
 
 		for protocol in PeerSet::iter() {
 			match protocol {
-				PeerSet::Validation =>
+				PeerSet::Validation => {
 					for version in ValidationVersion::iter() {
 						assert_eq!(
 							protocol_names.get_name(protocol, version.into()),
@@ -599,8 +591,9 @@ mod tests {
 								version.into(),
 							),
 						);
-					},
-				PeerSet::Collation =>
+					}
+				},
+				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						assert_eq!(
 							protocol_names.get_name(protocol, version.into()),
@@ -611,27 +604,87 @@ mod tests {
 								version.into(),
 							),
 						);
-					},
+					}
+				},
 			}
 		}
+	}
+
+	/// Asserts that every version of a peer set is reachable via the main protocol name
+	/// or a fallback. Without this, bumping the main version without adding the old one
+	/// as a fallback causes peers to silently downgrade further than intended.
+	fn assert_all_versions_negotiable(
+		peer_set: PeerSet,
+		versions: impl Iterator<Item = ProtocolVersion>,
+	) {
+		let genesis_hash = Hash::from([
+			122, 200, 116, 29, 232, 183, 20, 109, 138, 86, 23, 253, 70, 41, 20, 85, 127, 230, 60,
+			38, 90, 127, 28, 16, 231, 218, 227, 40, 88, 238, 187, 128,
+		]);
+		let protocol_names = PeerSetProtocolNames::new(genesis_hash, None);
+		let main_version = peer_set.get_main_version();
+		let fallback_names =
+			PeerSetProtocolNames::get_fallback_names(peer_set, &genesis_hash, None);
+
+		// Collect versions reachable via main + fallbacks.
+		let mut negotiable_versions: std::collections::HashSet<ProtocolVersion> =
+			std::collections::HashSet::new();
+		negotiable_versions.insert(main_version);
+		for fallback in &fallback_names {
+			if let Some((ps, version)) = protocol_names.try_get_protocol(fallback) {
+				assert_eq!(ps, peer_set);
+				negotiable_versions.insert(version);
+			}
+		}
+
+		for version in versions {
+			assert!(
+				negotiable_versions.contains(&version),
+				"{:?} version {} is not negotiable: \
+				 not the main version ({}) and not reachable via any fallback name ({:?}). \
+				 Add it to get_fallback_names().",
+				peer_set,
+				version,
+				main_version,
+				fallback_names,
+			);
+		}
+	}
+
+	#[test]
+	fn all_collation_versions_are_negotiable() {
+		assert_all_versions_negotiable(
+			PeerSet::Collation,
+			CollationVersion::iter().map(Into::into),
+		);
+	}
+
+	#[test]
+	fn all_validation_versions_are_negotiable() {
+		assert_all_versions_negotiable(
+			PeerSet::Validation,
+			ValidationVersion::iter().map(Into::into),
+		);
 	}
 
 	#[test]
 	fn all_protocol_versions_have_labels() {
 		for protocol in PeerSet::iter() {
 			match protocol {
-				PeerSet::Validation =>
+				PeerSet::Validation => {
 					for version in ValidationVersion::iter() {
 						protocol
 							.get_protocol_label(version.into())
 							.expect("All validation protocol versions must have a label.");
-					},
-				PeerSet::Collation =>
+					}
+				},
+				PeerSet::Collation => {
 					for version in CollationVersion::iter() {
 						protocol
 							.get_protocol_label(version.into())
 							.expect("All collation protocol versions must have a label.");
-					},
+					}
+				},
 			}
 		}
 	}

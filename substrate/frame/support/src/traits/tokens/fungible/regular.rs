@@ -36,9 +36,9 @@ use crate::{
 		SameOrOther, TryDrop,
 	},
 };
+use core::marker::PhantomData;
 use sp_arithmetic::traits::{CheckedAdd, CheckedSub, One};
 use sp_runtime::{traits::Saturating, ArithmeticError, DispatchError, TokenError};
-use sp_std::marker::PhantomData;
 
 use super::{Credit, Debt, HandleImbalanceDrop, Imbalance};
 
@@ -327,7 +327,7 @@ where
 		let _extra = Self::can_withdraw(source, amount).into_result(preservation != Expendable)?;
 		Self::can_deposit(dest, amount, Extant).into_result()?;
 		if source == dest {
-			return Ok(amount)
+			return Ok(amount);
 		}
 
 		Self::decrease_balance(source, amount, BestEffort, preservation, Polite)?;

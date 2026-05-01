@@ -16,23 +16,44 @@
 
 //! Staging Primitives.
 
-// Put any primitives used by staging APIs functions here
-use crate::v7::*;
-use sp_std::prelude::*;
-
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use polkadot_core_primitives::Balance;
 use scale_info::TypeInfo;
 use sp_arithmetic::Perbill;
-use sp_core::RuntimeDebug;
+
+use crate::v9::ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE;
+
+/// Information about a relay parent.
+#[derive(
+	Debug,
+	Default,
+	Clone,
+	PartialEq,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	TypeInfo,
+	serde::Serialize,
+	serde::Deserialize,
+)]
+pub struct RelayParentInfo<Hash, BlockNumber> {
+	/// The block number of the relay parent.
+	pub number: BlockNumber,
+	/// The state root of the relay parent.
+	pub state_root: Hash,
+}
 
 /// Scheduler configuration parameters. All coretime/ondemand parameters are here.
+///
+/// Vstaging: removed `ttl` and `max_availability_timeouts` fields.
 #[derive(
-	RuntimeDebug,
+	Debug,
 	Copy,
 	Clone,
 	PartialEq,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	TypeInfo,
 	serde::Serialize,
 	serde::Deserialize,
@@ -65,8 +86,6 @@ pub struct SchedulerParams<BlockNumber> {
 	pub lookahead: u32,
 	/// How many cores are managed by the coretime chain.
 	pub num_cores: u32,
-	/// The max number of times a claim can time out in availability.
-	pub max_availability_timeouts: u32,
 	/// The maximum queue size of the pay as you go module.
 	pub on_demand_queue_max_size: u32,
 	/// The target utilization of the spot price queue in percentages.
@@ -76,13 +95,10 @@ pub struct SchedulerParams<BlockNumber> {
 	pub on_demand_fee_variability: Perbill,
 	/// The minimum amount needed to claim a slot in the spot pricing queue.
 	pub on_demand_base_fee: Balance,
-	/// The number of blocks a claim stays in the scheduler's claim queue before getting cleared.
-	/// This number should go reasonably higher than the number of blocks in the async backing
-	/// lookahead.
-	pub ttl: BlockNumber,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> {
+	#[allow(deprecated)]
 	fn default() -> Self {
 		Self {
 			group_rotation_frequency: 1u32.into(),
@@ -90,12 +106,10 @@ impl<BlockNumber: Default + From<u32>> Default for SchedulerParams<BlockNumber> 
 			max_validators_per_core: Default::default(),
 			lookahead: 1,
 			num_cores: Default::default(),
-			max_availability_timeouts: Default::default(),
 			on_demand_queue_max_size: ON_DEMAND_DEFAULT_QUEUE_MAX_SIZE,
 			on_demand_target_queue_utilization: Perbill::from_percent(25),
 			on_demand_fee_variability: Perbill::from_percent(3),
 			on_demand_base_fee: 10_000_000u128,
-			ttl: 5u32.into(),
 		}
 	}
 }

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Substrate.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Substrate is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Substrate is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
+// along with Substrate. If not, see <https://www.gnu.org/licenses/>.
 
 //! Bitswap server for Substrate.
 //!
@@ -23,10 +24,11 @@
 use crate::{
 	request_responses::{IncomingRequest, OutgoingResponse, ProtocolConfig},
 	types::ProtocolName,
+	MAX_RESPONSE_SIZE,
 };
 
-use cid::{self, Version};
 use futures::StreamExt;
+use litep2p::types::cid::{Cid, Error as CidError, Version as CidVersion};
 use log::{debug, error, trace};
 use prost::Message;
 use sc_client_api::BlockBackend;
@@ -35,6 +37,7 @@ use schema::bitswap::{
 	message::{wantlist::WantType, Block as MessageBlock, BlockPresence, BlockPresenceType},
 	Message as BitswapMessage,
 };
+use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::{io, sync::Arc, time::Duration};
 use unsigned_varint::encode as varint_encode;
@@ -47,7 +50,7 @@ const LOG_TARGET: &str = "bitswap";
 // https://github.com/ipfs/js-ipfs-bitswap/blob/
 // d8f80408aadab94c962f6b88f343eb9f39fa0fcc/src/decision-engine/index.js#L16
 // We set it to the same value as max substrate protocol message
-const MAX_PACKET_SIZE: u64 = 16 * 1024 * 1024;
+const MAX_PACKET_SIZE: u64 = MAX_RESPONSE_SIZE;
 
 /// Max number of queued responses before denying requests.
 const MAX_REQUEST_QUEUE: usize = 20;
@@ -58,11 +61,16 @@ const MAX_WANTED_BLOCKS: usize = 16;
 /// Bitswap protocol name
 const PROTOCOL_NAME: &'static str = "/ipfs/bitswap/1.2.0";
 
+/// Check if a CID is supported by the bitswap protocol.
+pub fn is_cid_supported(cid: &Cid) -> bool {
+	cid.version() != CidVersion::V0 && cid.hash().size() == 32
+}
+
 /// Prefix represents all metadata of a CID, without the actual content.
 #[derive(PartialEq, Eq, Clone, Debug)]
 struct Prefix {
 	/// The version of CID.
-	pub version: Version,
+	pub version: CidVersion,
 	/// The codec of CID.
 	pub codec: u64,
 	/// The multihash type of CID.
@@ -177,33 +185,30 @@ impl<B: BlockT> BitswapRequestHandler<B> {
 			Some(wantlist) => wantlist,
 			None => {
 				debug!(target: LOG_TARGET, "Unexpected bitswap message from {}", peer);
-				return Err(BitswapError::InvalidWantList)
+				return Err(BitswapError::InvalidWantList);
 			},
 		};
 
 		if wantlist.entries.len() > MAX_WANTED_BLOCKS {
 			trace!(target: LOG_TARGET, "Ignored request: too many entries");
-			return Err(BitswapError::TooManyEntries)
+			return Err(BitswapError::TooManyEntries);
 		}
 
 		for entry in wantlist.entries {
-			let cid = match cid::Cid::read_bytes(entry.block.as_slice()) {
+			let cid = match Cid::read_bytes(entry.block.as_slice()) {
 				Ok(cid) => cid,
 				Err(e) => {
 					trace!(target: LOG_TARGET, "Bad CID {:?}: {:?}", entry.block, e);
-					continue
+					continue;
 				},
 			};
 
-			if cid.version() != cid::Version::V1 ||
-				cid.hash().code() != u64::from(cid::multihash::Code::Blake2b256) ||
-				cid.hash().size() != 32
-			{
-				debug!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
-				continue
+			if !is_cid_supported(&cid) {
+				trace!(target: LOG_TARGET, "Ignoring unsupported CID {}: {}", peer, cid);
+				continue;
 			}
 
-			let mut hash = B::Hash::default();
+			let mut hash = H256::default();
 			hash.as_mut().copy_from_slice(&cid.hash().digest()[0..32]);
 			let transaction = match self.client.indexed_transaction(hash) {
 				Ok(ex) => ex,
@@ -268,7 +273,7 @@ pub enum BitswapError {
 
 	/// Error parsing CID
 	#[error(transparent)]
-	BadCid(#[from] cid::Error),
+	BadCid(#[from] CidError),
 
 	/// Packet read error.
 	#[error(transparent)]
@@ -291,6 +296,7 @@ pub enum BitswapError {
 mod tests {
 	use super::*;
 	use futures::channel::oneshot;
+	use litep2p::types::multihash::Code;
 	use sc_block_builder::BlockBuilderBuilder;
 	use schema::bitswap::{
 		message::{wantlist::Entry, Wantlist},
@@ -439,7 +445,7 @@ mod tests {
 							block: cid::Cid::new_v1(
 								0x70,
 								cid::multihash::Multihash::wrap(
-									u64::from(cid::multihash::Code::Blake2b256),
+									u64::from(Code::Blake2b256),
 									&[0u8; 32],
 								)
 								.unwrap(),
@@ -468,7 +474,7 @@ mod tests {
 
 	#[tokio::test]
 	async fn transaction_found() {
-		let mut client = TestClientBuilder::with_tx_storage(u32::MAX).build();
+		let client = TestClientBuilder::with_tx_storage(u32::MAX).build();
 		let mut block_builder = BlockBuilderBuilder::new(&client)
 			.on_parent_block(client.chain_info().genesis_hash)
 			.with_parent_block_number(0)
@@ -500,7 +506,7 @@ mod tests {
 							block: cid::Cid::new_v1(
 								0x70,
 								cid::multihash::Multihash::wrap(
-									u64::from(cid::multihash::Code::Blake2b256),
+									u64::from(Code::Blake2b256),
 									&sp_crypto_hashing::blake2_256(&ext.encode()[pattern_index..]),
 								)
 								.unwrap(),

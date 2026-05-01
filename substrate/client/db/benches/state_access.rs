@@ -18,16 +18,18 @@
 
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use rand::{distributions::Uniform, rngs::StdRng, Rng, SeedableRng};
-use sc_client_api::{Backend as _, BlockImportOperation, NewBlockState, StateBackend};
+use sc_client_api::{
+	Backend as _, BlockImportOperation, NewBlockState, StateBackend, TrieCacheContext,
+};
 use sc_client_db::{Backend, BlocksPruning, DatabaseSettings, DatabaseSource, PruningMode};
 use sp_core::H256;
 use sp_runtime::{
-	testing::{Block as RawBlock, ExtrinsicWrapper, Header},
+	testing::{Block as RawBlock, Header, MockCallU64, TestXt},
 	StateVersion, Storage,
 };
 use tempfile::TempDir;
 
-pub(crate) type Block = RawBlock<ExtrinsicWrapper<u64>>;
+pub(crate) type Block = RawBlock<TestXt<MockCallU64, ()>>;
 
 fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 {
 	let mut op = db.begin_operation().unwrap();
@@ -55,7 +57,7 @@ fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 
 		)
 		.unwrap();
 
-	op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+	op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
 		.unwrap();
 
 	db.commit_operation(op).unwrap();
@@ -83,16 +85,17 @@ fn insert_blocks(db: &Backend<Block>, storage: Vec<(Vec<u8>, Vec<u8>)>) -> H256 
 			.map(|(k, v)| (k.clone(), Some(v.clone())))
 			.collect::<Vec<_>>();
 
-		let (state_root, tx) = db.state_at(parent_hash).unwrap().storage_root(
-			changes.iter().map(|(k, v)| (k.as_slice(), v.as_deref())),
-			StateVersion::V1,
-		);
+		let (state_root, tx) =
+			db.state_at(parent_hash, TrieCacheContext::Trusted).unwrap().storage_root(
+				changes.iter().map(|(k, v)| (k.as_slice(), v.as_deref())),
+				StateVersion::V1,
+			);
 		header.state_root = state_root;
 
 		op.update_db_storage(tx).unwrap();
 		op.update_storage(changes.clone(), Default::default()).unwrap();
 
-		op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best)
+		op.set_block_data(header.clone(), Some(vec![]), None, None, NewBlockState::Best, true)
 			.unwrap();
 
 		db.commit_operation(op).unwrap();
@@ -122,6 +125,8 @@ fn create_backend(config: BenchmarkConfig, temp_dir: &TempDir) -> Backend<Block>
 		state_pruning: Some(PruningMode::ArchiveAll),
 		source: DatabaseSource::ParityDb { path },
 		blocks_pruning: BlocksPruning::KeepAll,
+		pruning_filters: Default::default(),
+		metrics_registry: None,
 	};
 
 	Backend::new(settings, 100).expect("Creates backend")
@@ -175,7 +180,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| backend.state_at(block_hash).expect("Creates state"),
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					for key in keys.iter().cycle().take(keys.len() * multiplier) {
 						let _ = state.storage(&key).expect("Doesn't fail").unwrap();
@@ -213,7 +218,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| backend.state_at(block_hash).expect("Creates state"),
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					for key in keys.iter().take(1).cycle().take(multiplier) {
 						let _ = state.storage(&key).expect("Doesn't fail").unwrap();
@@ -251,7 +256,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| backend.state_at(block_hash).expect("Creates state"),
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					for key in keys.iter().take(1).cycle().take(multiplier) {
 						let _ = state.storage_hash(&key).expect("Doesn't fail").unwrap();
@@ -289,7 +294,7 @@ fn state_access_benchmarks(c: &mut Criterion) {
 
 		group.bench_function(desc, |b| {
 			b.iter_batched(
-				|| backend.state_at(block_hash).expect("Creates state"),
+				|| backend.state_at(block_hash, TrieCacheContext::Trusted).expect("Creates state"),
 				|state| {
 					let _ = state
 						.storage_hash(sp_core::storage::well_known_keys::CODE)

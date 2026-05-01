@@ -16,14 +16,15 @@
 //! Auxiliary struct/enums for parachain runtimes.
 //! Taken from polkadot/runtime/common (at a21cd64) and adapted for parachains.
 
+use alloc::boxed::Box;
+use core::marker::PhantomData;
 use frame_support::traits::{
 	fungible, fungibles, tokens::imbalance::ResolveTo, Contains, ContainsPair, Currency, Defensive,
-	Get, Imbalance, OnUnbalanced, OriginTrait,
+	Get, Imbalance, OnUnbalanced, OriginTrait, TypedGet,
 };
 use pallet_asset_tx_payment::HandleCredit;
 use pallet_collator_selection::StakingPotAccountId;
 use sp_runtime::traits::Zero;
-use sp_std::{marker::PhantomData, prelude::*};
 use xcm::latest::{
 	Asset, AssetId, Fungibility, Fungibility::Fungible, Junction, Junctions::Here, Location,
 	Parent, WeightLimit,
@@ -66,7 +67,7 @@ where
 	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
 	<R as frame_system::Config>::RuntimeEvent: From<pallet_balances::Event<R>>,
 {
-	fn on_unbalanceds<B>(
+	fn on_unbalanceds(
 		mut fees_then_tips: impl Iterator<
 			Item = fungible::Credit<R::AccountId, pallet_balances::Pallet<R>>,
 		>,
@@ -82,7 +83,12 @@ where
 
 /// A `HandleCredit` implementation that naively transfers the fees to the block author.
 /// Will drop and burn the assets in case the transfer fails.
+#[deprecated(
+	note = "AssetsToBlockAuthor is deprecated and will be removed after June 2026. Please use frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor, ...> instead."
+)]
 pub struct AssetsToBlockAuthor<R, I>(PhantomData<(R, I)>);
+
+#[allow(deprecated)]
 impl<R, I> HandleCredit<AccountIdOf<R>, pallet_assets::Pallet<R, I>> for AssetsToBlockAuthor<R, I>
 where
 	I: 'static,
@@ -95,6 +101,22 @@ where
 			// In case of error: Will drop the result triggering the `OnDrop` of the imbalance.
 			let _ = pallet_assets::Pallet::<R, I>::resolve(&author, credit).defensive();
 		}
+	}
+}
+
+/// Implements `TypedGet` with an option return value to pass into
+/// frame_support::traits::tokens::imbalance::MaybeResolveTo<BlockAuthor, ...>.
+pub struct BlockAuthor<Runtime>(PhantomData<Runtime>);
+
+impl<R> TypedGet for BlockAuthor<R>
+where
+	R: pallet_authorship::Config,
+	AccountIdOf<R>: From<polkadot_primitives::AccountId> + Into<polkadot_primitives::AccountId>,
+{
+	type Type = Option<AccountIdOf<R>>;
+
+	fn get() -> Self::Type {
+		pallet_authorship::Pallet::<R>::author()
 	}
 }
 
@@ -164,8 +186,8 @@ where
 			match AccountIdConverter::convert_location(&root_location) {
 				Some(a) => a,
 				None => {
-					log::warn!("Failed to convert root origin into account id");
-					return
+					tracing::warn!(target: "xcm::on_unbalanced", "Failed to convert root origin into account id");
+					return;
 				},
 			};
 		let treasury_account: AccountIdOf<T> = TreasuryAccount::get();
@@ -186,7 +208,7 @@ where
 		);
 
 		if let Err(err) = result {
-			log::warn!("Failed to teleport slashed assets: {:?}", err);
+			tracing::warn!(target: "xcm::on_unbalanced", error=?err, "Failed to teleport slashed assets");
 		}
 	}
 }
@@ -222,7 +244,9 @@ mod tests {
 	);
 
 	parameter_types! {
-		pub BlockLength: limits::BlockLength = limits::BlockLength::max(2 * 1024);
+		pub BlockLength: limits::BlockLength = limits::BlockLength::builder()
+			.max_length(2 * 1024)
+			.build();
 		pub const AvailableBlockRatio: Perbill = Perbill::one();
 	}
 

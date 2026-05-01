@@ -42,7 +42,7 @@ impl OffchainOverlayedChanges {
 	}
 
 	/// Iterate over all key value pairs by reference.
-	pub fn iter(&mut self) -> impl Iterator<Item = OffchainOverlayedChangesItem> {
+	pub fn iter(&mut self) -> impl Iterator<Item = OffchainOverlayedChangesItem<'_>> {
 		self.0.changes().map(|kv| (kv.0, kv.1.value_ref()))
 	}
 

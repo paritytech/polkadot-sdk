@@ -1,0 +1,19 @@
+title: Add `export-chain-spec` substrate CLI command
+doc:
+- audience: Runtime Dev
+  description: |-
+    This release adds a new export-chain-spec command to export raw chain specs directly from the node.
+    The build-spec command is now on a deprecation path across all nodes and will display a warning,
+    encouraging the use of export-chain-spec for chain spec exports.
+
+crates:
+- name: sc-cli
+  bump: minor
+- name: polkadot-cli
+  bump: major
+- name: polkadot-parachain-bin
+  bump: patch
+- name: polkadot-omni-node-lib
+  bump: minor
+- name: polkadot-omni-node
+  bump: patch

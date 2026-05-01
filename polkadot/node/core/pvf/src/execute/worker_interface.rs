@@ -29,8 +29,8 @@ use futures::FutureExt;
 use futures_timer::Delay;
 use polkadot_node_core_pvf_common::{
 	error::InternalValidationError,
-	execute::{Handshake, WorkerError, WorkerResponse},
-	worker_dir, SecurityStatus,
+	execute::{Handshake, ValidationContext, WorkerError, WorkerResponse},
+	worker_dir, ArtifactChecksum, SecurityStatus,
 };
 use polkadot_primitives::ExecutorParams;
 use std::{path::Path, time::Duration};
@@ -122,8 +122,7 @@ pub enum Error {
 pub async fn start_work(
 	worker: IdleWorker,
 	artifact: ArtifactPathId,
-	execution_timeout: Duration,
-	validation_params: Vec<u8>,
+	validation_context: ValidationContext,
 ) -> Result<Response, Error> {
 	let IdleWorker { mut stream, pid, worker_dir } = worker;
 
@@ -136,8 +135,10 @@ pub async fn start_work(
 		artifact.path.display(),
 	);
 
+	let execution_timeout = validation_context.exec_timeout;
+
 	with_worker_dir_setup(worker_dir, pid, &artifact.path, |worker_dir| async move {
-		send_request(&mut stream, &validation_params, execution_timeout).await.map_err(
+		send_request(&mut stream, validation_context, artifact.checksum).await.map_err(
 			|error| {
 				gum::warn!(
 					target: LOG_TARGET,
@@ -222,7 +223,7 @@ async fn handle_result(
 			);
 
 			// Return a timeout error.
-			return Err(WorkerError::JobTimedOut)
+			return Err(WorkerError::JobTimedOut);
 		}
 	}
 
@@ -275,7 +276,7 @@ where
 			err: format!("{:?}", err),
 			path: worker_dir_path.to_str().map(String::from),
 		}
-		.into())
+		.into());
 	}
 
 	result
@@ -288,11 +289,11 @@ async fn send_execute_handshake(stream: &mut UnixStream, handshake: Handshake) -
 
 async fn send_request(
 	stream: &mut UnixStream,
-	validation_params: &[u8],
-	execution_timeout: Duration,
+	validation_context: polkadot_node_core_pvf_common::execute::ValidationContext,
+	artifact_checksum: ArtifactChecksum,
 ) -> io::Result<()> {
-	framed_send(stream, validation_params).await?;
-	framed_send(stream, &execution_timeout.encode()).await
+	let request = validation_context.into_execute_request(artifact_checksum);
+	framed_send(stream, &request.encode()).await
 }
 
 async fn recv_result(stream: &mut UnixStream) -> io::Result<Result<WorkerResponse, WorkerError>> {

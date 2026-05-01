@@ -25,10 +25,14 @@ use log::{debug, info};
 
 use crate::{Database, DatabaseSource, DbHash};
 use codec::Decode;
+use sc_client_api::blockchain::{BlockGap, BlockGapType};
 use sp_database::Transaction;
 use sp_runtime::{
 	generic::BlockId,
-	traits::{Block as BlockT, Header as HeaderT, UniqueSaturatedFrom, UniqueSaturatedInto, Zero},
+	traits::{
+		Block as BlockT, Header as HeaderT, NumberFor, UniqueSaturatedFrom, UniqueSaturatedInto,
+		Zero,
+	},
 };
 use sp_trie::DBValue;
 
@@ -37,6 +41,9 @@ use sp_trie::DBValue;
 pub const NUM_COLUMNS: u32 = 13;
 /// Meta column. The set of keys in the column is shared by full && light storages.
 pub const COLUMN_META: u32 = 0;
+
+/// Current block gap version.
+pub const BLOCK_GAP_CURRENT_VERSION: u32 = 1;
 
 /// Keys of entries in COLUMN_META.
 pub mod meta_keys {
@@ -50,6 +57,8 @@ pub mod meta_keys {
 	pub const FINALIZED_STATE: &[u8; 6] = b"fstate";
 	/// Block gap.
 	pub const BLOCK_GAP: &[u8; 3] = b"gap";
+	/// Block gap version.
+	pub const BLOCK_GAP_VERSION: &[u8; 7] = b"gap_ver";
 	/// Genesis block hash.
 	pub const GENESIS_HASH: &[u8; 3] = b"gen";
 	/// Leaves prefix list key.
@@ -73,8 +82,8 @@ pub struct Meta<N, H> {
 	pub genesis_hash: H,
 	/// Finalized state, if any
 	pub finalized_state: Option<(H, N)>,
-	/// Block gap, start and end inclusive, if any.
-	pub block_gap: Option<(N, N)>,
+	/// Block gap, if any.
+	pub block_gap: Option<BlockGap<N>>,
 }
 
 /// A block lookup key: used for canonical lookup from block number to hash
@@ -193,11 +202,12 @@ fn open_database_at<Block: BlockT>(
 	let db: Arc<dyn Database<DbHash>> = match &db_source {
 		DatabaseSource::ParityDb { path } => open_parity_db::<Block>(path, db_type, create)?,
 		#[cfg(feature = "rocksdb")]
-		DatabaseSource::RocksDb { path, cache_size } =>
-			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size)?,
+		DatabaseSource::RocksDb { path, cache_size } => {
+			open_kvdb_rocksdb::<Block>(path, db_type, create, *cache_size)?
+		},
 		DatabaseSource::Custom { db, require_create_flag } => {
 			if *require_create_flag && !create {
-				return Err(OpenDbError::DoesNotExist)
+				return Err(OpenDbError::DoesNotExist);
 			}
 			db.clone()
 		},
@@ -205,8 +215,9 @@ fn open_database_at<Block: BlockT>(
 			// check if rocksdb exists first, if not, open paritydb
 			match open_kvdb_rocksdb::<Block>(rocksdb_path, db_type, false, *cache_size) {
 				Ok(db) => db,
-				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) =>
-					open_parity_db::<Block>(paritydb_path, db_type, create)?,
+				Err(OpenDbError::NotEnabled(_)) | Err(OpenDbError::DoesNotExist) => {
+					open_parity_db::<Block>(paritydb_path, db_type, create)?
+				},
 				Err(as_is) => return Err(as_is),
 			}
 		},
@@ -340,7 +351,7 @@ fn open_kvdb_rocksdb<Block: BlockT>(
 	let db = kvdb_rocksdb::Database::open(&db_config, path)?;
 	// write database version only after the database is successfully opened
 	crate::upgrade::update_version(path)?;
-	Ok(sp_database::as_database(db))
+	Ok(sp_database::as_rocksdb_database(db))
 }
 
 #[cfg(not(any(feature = "rocksdb", test)))]
@@ -359,13 +370,14 @@ pub fn check_database_type(
 	db_type: DatabaseType,
 ) -> Result<(), OpenDbError> {
 	match db.get(COLUMN_META, meta_keys::TYPE) {
-		Some(stored_type) =>
+		Some(stored_type) => {
 			if db_type.as_str().as_bytes() != &*stored_type {
 				return Err(OpenDbError::UnexpectedDbType {
 					expected: db_type,
 					found: stored_type.to_owned(),
-				})
-			},
+				});
+			}
+		},
 		None => {
 			let mut transaction = Transaction::new();
 			transaction.set(COLUMN_META, meta_keys::TYPE, db_type.as_str().as_bytes());
@@ -475,7 +487,7 @@ where
 {
 	let genesis_hash: Block::Hash = match read_genesis_hash(db)? {
 		Some(genesis_hash) => genesis_hash,
-		None =>
+		None => {
 			return Ok(Meta {
 				best_hash: Default::default(),
 				best_number: Zero::zero(),
@@ -484,7 +496,8 @@ where
 				genesis_hash: Default::default(),
 				finalized_state: None,
 				block_gap: None,
-			}),
+			})
+		},
 	};
 
 	let load_meta_block = |desc, key| -> Result<_, sp_blockchain::Error> {
@@ -515,9 +528,32 @@ where
 	} else {
 		None
 	};
-	let block_gap = db
-		.get(COLUMN_META, meta_keys::BLOCK_GAP)
-		.and_then(|d| Decode::decode(&mut d.as_slice()).ok());
+	let block_gap = match db
+		.get(COLUMN_META, meta_keys::BLOCK_GAP_VERSION)
+		.and_then(|d| u32::decode(&mut d.as_slice()).ok())
+	{
+		None => {
+			let old_block_gap: Option<(NumberFor<Block>, NumberFor<Block>)> = db
+				.get(COLUMN_META, meta_keys::BLOCK_GAP)
+				.and_then(|d| Decode::decode(&mut d.as_slice()).ok());
+
+			old_block_gap.map(|(start, end)| BlockGap {
+				start,
+				end,
+				gap_type: BlockGapType::MissingHeaderAndBody,
+			})
+		},
+		Some(version) => match version {
+			BLOCK_GAP_CURRENT_VERSION => db
+				.get(COLUMN_META, meta_keys::BLOCK_GAP)
+				.and_then(|d| Decode::decode(&mut d.as_slice()).ok()),
+			v => {
+				return Err(sp_blockchain::Error::Backend(format!(
+					"Unsupported block gap DB version: {v}"
+				)))
+			},
+		},
+	};
 	debug!(target: "db", "block_gap={:?}", block_gap);
 
 	Ok(Meta {
@@ -538,8 +574,9 @@ pub fn read_genesis_hash<Hash: Decode>(
 	match db.get(COLUMN_META, meta_keys::GENESIS_HASH) {
 		Some(h) => match Decode::decode(&mut &h[..]) {
 			Ok(h) => Ok(Some(h)),
-			Err(err) =>
-				Err(sp_blockchain::Error::Backend(format!("Error decoding genesis hash: {}", err))),
+			Err(err) => {
+				Err(sp_blockchain::Error::Backend(format!("Error decoding genesis hash: {}", err)))
+			},
 		},
 		None => Ok(None),
 	}
@@ -582,14 +619,16 @@ impl<'a, 'b> codec::Input for JoinInput<'a, 'b> {
 mod tests {
 	use super::*;
 	use codec::Input;
-	use sp_runtime::testing::{Block as RawBlock, ExtrinsicWrapper};
-	type Block = RawBlock<ExtrinsicWrapper<u32>>;
+	use sp_runtime::testing::{Block as RawBlock, MockCallU64, TestXt};
+
+	pub type UncheckedXt = TestXt<MockCallU64, ()>;
+	type Block = RawBlock<UncheckedXt>;
 
 	#[cfg(feature = "rocksdb")]
 	#[test]
 	fn database_type_subdir_migration() {
 		use std::path::PathBuf;
-		type Block = RawBlock<ExtrinsicWrapper<u64>>;
+		type Block = RawBlock<UncheckedXt>;
 
 		fn check_dir_for_db_type(
 			db_type: DatabaseType,

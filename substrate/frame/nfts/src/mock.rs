@@ -92,6 +92,7 @@ impl Config for Test {
 	type WeightInfo = ();
 	#[cfg(feature = "runtime-benchmarks")]
 	type Helper = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
 pub(crate) fn new_test_ext() -> sp_io::TestExternalities {

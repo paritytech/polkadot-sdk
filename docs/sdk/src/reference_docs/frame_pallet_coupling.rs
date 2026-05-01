@@ -30,8 +30,8 @@
 //!
 //! There are generally two ways to achieve this:
 //!
-//! 1. Tight coupling pallets
-//! 2. Loose coupling pallets
+//! 1. Tight coupling pallets.
+//! 2. Loose coupling pallets.
 //!
 //! To explain the difference between the two, consider two pallets, `A` and `B`. In both cases, `A`
 //! wants to use some functionality exposed by `B`.
@@ -67,57 +67,46 @@
 //! author to it, and `pallet-author` which has access to this information.
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_foo)]
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author)]
-//!
 //! ### Tight Coupling Pallets
 //!
 //! To tightly couple `pallet-foo` and `pallet-author`, we use Rust's supertrait system. When a
 //! pallet makes its own `trait Config` be bounded by another pallet's `trait Config`, it is
 //! expressing two things:
 //!
-//! 1. that it can only exist in a runtime if the other pallet is also present.
-//! 2. that it can use the other pallet's functionality.
+//! 1. That it can only exist in a runtime if the other pallet is also present.
+//! 2. That it can use the other pallet's functionality.
 //!
 //! `pallet-foo`'s `Config` would then look like:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_config)]
-//!
 //! And `pallet-foo` can use the method exposed by `pallet_author::Pallet` directly:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", tight_usage)]
-//!
-//!
 //! ### Loosely  Coupling Pallets
 //!
 //! If `pallet-foo` wants to *not* rely on `pallet-author` directly, it can leverage its
 //! `Config`'s associated types. First, we need a trait to express the functionality that
 //! `pallet-foo` wants to obtain:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", AuthorProvider)]
-//!
 //! > We sometimes refer to such traits that help two pallets interact as "glue traits".
 //!
 //! Next, `pallet-foo` states that it needs this trait to be provided to it, at the runtime level,
 //! via an associated type:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_config)]
-//!
 //! Then, `pallet-foo` can use this trait to obtain the block author, without knowing where it comes
 //! from:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", loose_usage)]
-//!
 //! Then, if `pallet-author` implements this glue-trait:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", pallet_author_provider)]
-//!
 //! And upon the creation of the runtime, the two pallets are linked together as such:
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", runtime_author_provider)]
-//!
 //! Crucially, when using loose coupling, we gain the flexibility of providing different
 //! implementations of `AuthorProvider`, such that different users of a `pallet-foo` can use
 //! different ones, without any code change being needed. For example, in the code snippets of this
-//! module, you can fund [`OtherAuthorProvider`] which is an alternative implementation of
+//! module, you can find [`OtherAuthorProvider`], which is an alternative implementation of
 //! [`AuthorProvider`].
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", other_author_provider)]
-//!
 //! A common pattern in polkadot-sdk is to provide an implementation of such glu traits for the unit
 //! type as a "default/test behavior".
 #![doc = docify::embed!("./src/reference_docs/frame_pallet_coupling.rs", unit_author_provider)]
-//!
 //! ## Frame System
 //!
 //! With the above information in context, we can conclude that **`frame_system` is a special pallet
@@ -135,8 +124,8 @@
 //!   general, it is easier to argue about multiple pallet if they only communicate together via a
 //!   known trait, rather than having access to all of each others public items, such as storage and
 //!   dispatchables.
-//! * If a group of pallets are meant to work together, and but are not foreseen to be generalized,
-//!   or used by others, consider tightly coupling pallets, *if it simplifies the development*.
+//! * If a group of pallets is meant to work together, but is not foreseen to be generalized, or
+//!   used by others, consider tightly coupling pallets, *if it simplifies the development*.
 //! * If a pallet needs a functionality provided by another pallet, but multiple implementations can
 //!   be foreseen, consider loosely coupling pallets.
 //!

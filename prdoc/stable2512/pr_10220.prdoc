@@ -1,0 +1,13 @@
+title: Notify when there is a new best block
+doc:
+- audience: Runtime Dev
+  description: |-
+    # Description
+
+    Modify the tx_notifier to send the block hash to the subscribers instead of all transactions hashes.
+    Modify the send_raw_transaction to look for the transaction hash in the transactions field of the evm block.
+crates:
+- name: pallet-revive-eth-rpc
+  bump: major
+- name: pallet-revive
+  bump: minor

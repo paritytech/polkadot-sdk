@@ -1,0 +1,23 @@
+title: "net/discovery: File persistence for AddrCache"
+doc:
+  - audience: Node Dev
+    description: |-
+      Persisting the AddrCache periodically (every 10 minutes) and on worker 
+      shutdown. Read AddrCache from file upon launch of worker.
+
+      AddrCache is saved as authority_discovery_addr_cache.json in the 
+      folder configured by net_config_path of NetworkConfiguration.
+
+      This reduces the time it takes for a node to reconnect to peers after
+      restart.
+crates:
+  - name: sc-authority-discovery
+    bump: major
+  - name: sc-network-types
+    bump: major
+  - name: cumulus-relay-chain-minimal-node
+    bump: patch
+  - name: polkadot-service
+    bump: patch
+  - name: staging-node-cli
+    bump: patch

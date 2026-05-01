@@ -1,12 +1,12 @@
-# Substrate Documentation Guidelines
+# Documentation Guidelines
 
-This document is focused on documenting parts of Substrate that relate to its external API. The list of such crates can
-be found in [CODEOWNERS](./CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
+This document is focused on documenting parts of the Polkadot SDK that relate to its external API. The list of such
+crates can be found in [CODEOWNERS](/.github/CODEOWNERS). Search for the crates auto-assigned to the `docs-audit` team.
 
 These crates are used by external developers and need thorough documentation. They are the most concerned with FRAME
 development.
 
-- [Substrate Documentation Guidelines](#substrate-documentation-guidelines)
+- [Documentation Guidelines](#documentation-guidelines)
   - [General/Non-Pallet Crates](#generalnon-pallet-crates)
     - [What to Document?](#what-to-document)
       - [Rust Docs vs. Code Comments](#rust-docs-vs-code-comments)
@@ -33,7 +33,7 @@ First, consider the case for all such crates, except for those that are pallets.
 
 The first question is, what should you document? Use this filter:
 
-1. In the crates assigned to `docs-audit` in [CODEOWNERS](./CODEOWNERS),
+1. In the crates assigned to `docs-audit` in [CODEOWNERS](/.github/CODEOWNERS),
 2. All `pub` items need to be documented. If not `pub`, it doesn't appear in the rust-docs, and is not public facing.
 
    - Within `pub` items, sometimes they are only `pub` to be used by another internal crate, and you can foresee that
@@ -88,20 +88,19 @@ sections](https://web.mit.edu/rust-lang_v1.25/arch/amd64_ubuntu1404/share/doc/ru
 we will most likely not need to think about panic and safety in any runtime related code. Our code is never `unsafe`,
 and will (almost) never panic.
 
-Use `# Examples as much as possible. These are great ways to further demonstrate what your APIs are doing, and add free
-test coverage. As an additional benefit, any code in rust-docs is treated as an "integration tests", not unit tests,
+Use `# Examples` as much as possible. These are great ways to further demonstrate what your APIs are doing, and add free
+test coverage. As an additional benefit, any code in rust-docs is treated as an "integration test",
 which tests your crate in a different way than unit tests. So, it is both a win for "more documentation" and a win for
 "more test coverage".
 
 You can also consider having an `# Error` section optionally. Of course, this only applies if there is a `Result` being
 returned, and if the `Error` variants are overly complicated.
 
-Strive to include correct links to other items in your written docs as much as possible. In other words, avoid
-\`some_func\` and instead use \[\`some_fund\`\]. Read more about how to correctly use links in your rust-docs
+Strive to include correct links to other items in your written docs as much as possible.
+Read more about how to correctly use links in your rust-docs
 [here](https://doc.rust-lang.org/rustdoc/write-documentation/linking-to-items-by-name.html#valid-links) and
-[here](https://rust-lang.github.io/rfcs/1946-intra-rustdoc-links.html#additions-to-the-documentation-syntax). Strive to
-include correct links to other items in your written docs as much as possible. In other words, avoid `` `some_func` ``
-and instead use ``[`some_func`]``.
+[here](https://rust-lang.github.io/rfcs/1946-intra-rustdoc-links.html#additions-to-the-documentation-syntax).
+In other words, avoid `` `some_func` `` and instead use ``[`some_func`]``.
 
 > While you are linking, you might become conscious of the fact that you are in need of linking to (too many) foreign
 items in order to explain your API. This is leaning more towards API-Design rather than documentation, but it is a
@@ -137,7 +136,7 @@ the `macro@my_macro_name` syntax in your link. Read more about how to correctly 
 
 The above five guidelines must always be reasonably respected in the documentation.
 
-The following are a set of notes that may not necessarily hold in all circumstances:
+The following is a set of notes that may not necessarily hold in all circumstances:
 
 ---
 
@@ -145,7 +144,7 @@ The following are a set of notes that may not necessarily hold in all circumstan
 
 You should make sure that your code is properly-named and well-organized so that your code functions as a form of
 documentation. However, within the complexity of our projects in Polkadot/Substrate that is not enough. Particularly,
-things like examples, errors and panics cannot be documented only through properly- named and well-organized code.
+things like examples, errors and panics cannot be documented only through properly-named and well-organized code.
 
 > Our north star is self-documenting code that also happens to be well-documented and littered with examples.
 
@@ -195,7 +194,7 @@ Especially for traits and types that you can foresee will be seen and used a lot
 version.
 
 Similarly, make sure your comments are wrapped at 100 characters line-width (as defined by our
-[`rustfmt.toml`](../rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
+[`rustfmt.toml`](../../.rustfmt.toml)), no **more and no less**! The more is fixed by `rustfmt` and our CI, but if you (for
 some unknown reason) wrap your lines at 59 characters, it will pass the CI, and it will not look good 🫣. Consider using
 a plugin like [rewrap](https://marketplace.visualstudio.com/items?itemName=stkb.rewrap) (for Visual Studio Code) to
 properly do this.
@@ -206,11 +205,11 @@ properly do this.
 
 ## Pallet Crates
 
-The guidelines so far have been general in nature, and are applicable to crates that are pallets and crates that're not
+The guidelines so far have been general in nature, and are applicable to crates that are pallets and crates that are not
 pallets.
 
 The following is relevant to how to document parts of a crate that is a pallet. See
-[`pallet-fast-unstake`](../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
+[`pallet-fast-unstake`](../../substrate/frame/fast-unstake/src/lib.rs) as one example of adhering these guidelines.
 
 ---
 
@@ -272,7 +271,7 @@ For the top-level pallet docs, consider the following template:
 //! up>
 ```
 
-This template's details (heading 3s and beyond) are left flexible, and at the discretion of the developer to make the
+This template's details (Heading 3s and beyond) are left flexible, and at the discretion of the developer to make the
 best final choice about. For example, you might want to include `### Terminology` or not. Moreover, you might find it
 more useful to include it in `## Overview`.
 
@@ -292,7 +291,7 @@ Optionally, in order to demonstrate the relation between the two, you can start 
 //! > Made with *Substrate*, for *Polkadot*.
 //!
 //! [![github]](https://github.com/paritytech/polkadot-sdk/tree/master/substrate/frame/fast-unstake) -
-//! [![polkadot]](https://polkadot.network)
+//! [![polkadot]](https://polkadot.com)
 //!
 //! [polkadot]: https://img.shields.io/badge/polkadot-E6007A?style=for-the-badge&logo=polkadot&logoColor=white
 //! [github]: https://img.shields.io/badge/github-8da0cb?style=for-the-badge&labelColor=555555&logo=github

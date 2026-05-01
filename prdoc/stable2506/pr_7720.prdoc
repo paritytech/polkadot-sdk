@@ -1,0 +1,25 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Clamp Core Fellowship Benchmarks to Runtime MaxRank Configuration
+
+doc:
+  - audience: Runtime Dev
+    description: |      
+
+      This change modifies the `MaxRank` type in the Core Fellowship pallet configuration from
+      `u32` to `u16`. Runtime developers updating to this version must:
+        - Change any `ConstU32<N>` usages for `MaxRank` to `ConstU16<N>`
+
+      Enabling reliable benchmarking for constrained configurations like `MaxRank=1` while
+      maintaining compatibility with larger rank ranges.
+
+
+
+crates:
+  - name: pallet-core-fellowship
+    bump: major
+  - name: collectives-westend-runtime
+    bump: minor
+  - name: kitchensink-runtime
+    bump: minor

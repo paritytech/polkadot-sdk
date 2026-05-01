@@ -20,18 +20,13 @@
 #![cfg(test)]
 
 use super::*;
-
 use crate as pallet_multisig;
-use frame_support::{
-	assert_noop, assert_ok, derive_impl,
-	traits::{ConstU32, ConstU64, Contains},
-};
-use sp_runtime::{BuildStorage, TokenError};
+use frame::{prelude::*, runtime::prelude::*, testing_prelude::*};
 
 type Block = frame_system::mocking::MockBlockU32<Test>;
 
-frame_support::construct_runtime!(
-	pub enum Test {
+construct_runtime!(
+	pub struct Test {
 		System: frame_system,
 		Balances: pallet_balances,
 		Multisig: pallet_multisig,
@@ -63,26 +58,34 @@ impl Contains<RuntimeCall> for TestBaseCallFilter {
 		}
 	}
 }
+
+parameter_types! {
+	pub static MultisigDepositBase: u64 = 1;
+	pub static MultisigDepositFactor: u64 = 1;
+}
+
 impl Config for Test {
 	type RuntimeEvent = RuntimeEvent;
 	type RuntimeCall = RuntimeCall;
 	type Currency = Balances;
-	type DepositBase = ConstU64<1>;
-	type DepositFactor = ConstU64<1>;
+	type DepositBase = MultisigDepositBase;
+	type DepositFactor = MultisigDepositFactor;
 	type MaxSignatories = ConstU32<3>;
 	type WeightInfo = ();
+	type BlockNumberProvider = frame_system::Pallet<Test>;
 }
 
-use pallet_balances::Call as BalancesCall;
+use pallet_balances::{Call as BalancesCall, Error as BalancesError};
 
-pub fn new_test_ext() -> sp_io::TestExternalities {
+pub fn new_test_ext() -> TestState {
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
 	pallet_balances::GenesisConfig::<Test> {
-		balances: vec![(1, 10), (2, 10), (3, 10), (4, 10), (5, 2)],
+		balances: vec![(1, 10), (2, 10), (3, 10), (4, 5), (5, 2)],
+		..Default::default()
 	}
 	.assimilate_storage(&mut t)
 	.unwrap();
-	let mut ext = sp_io::TestExternalities::new(t);
+	let mut ext = TestState::new(t);
 	ext.execute_with(|| System::set_block_number(1));
 	ext
 }
@@ -104,7 +107,7 @@ fn multisig_deposit_is_taken_and_returned() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -217,6 +220,47 @@ fn timepoint_checking_works() {
 }
 
 #[test]
+fn approve_as_multi_requires_timepoint_after_first_approval() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+
+		// First approval creates the multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Second approval without timepoint should fail with NoTimepoint
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 3],
+				None, // Missing timepoint
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::NoTimepoint,
+		);
+
+		// With correct timepoint, it should succeed
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+	});
+}
+
+#[test]
 fn multisig_2_of_3_works() {
 	new_test_ext().execute_with(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
@@ -225,7 +269,7 @@ fn multisig_2_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -237,6 +281,18 @@ fn multisig_2_of_3_works() {
 		));
 		assert_eq!(Balances::free_balance(6), 0);
 
+		// Verify that approve_as_multi does not execute even when threshold is reached
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+		assert_eq!(Balances::free_balance(6), 0);
+
+		// as_multi is required to execute the call
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(2),
 			2,
@@ -258,7 +314,7 @@ fn multisig_3_of_3_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -320,6 +376,201 @@ fn cancel_multisig_works() {
 }
 
 #[test]
+fn cancel_as_multi_not_found_with_wrong_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig with signatories [1, 2, 3]
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to cancel with wrong signatories
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![2, 4], // Different signatories
+				now(),
+				hash
+			),
+			Error::<Test>::NotFound,
+		);
+
+		// Verify it would work with the correct signatories
+		hypothetically_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			now(),
+			hash
+		));
+	});
+}
+
+#[test]
+fn cancel_as_multi_not_found_with_wrong_call_hash() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to cancel with wrong call hash
+		let wrong_hash = [0u8; 32];
+		assert_noop!(
+			Multisig::cancel_as_multi(RuntimeOrigin::signed(1), 2, vec![2, 3], now(), wrong_hash),
+			Error::<Test>::NotFound,
+		);
+
+		// Verify it would work with the correct hash
+		hypothetically_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			now(),
+			hash
+		));
+	});
+}
+
+#[test]
+fn approve_as_multi_unexpected_timepoint_with_wrong_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig with signatories [1, 2, 3]
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to approve with wrong signatories [1, 3, 4] - will generate different multisig ID
+		// Since there's no multisig with this ID and we're passing a timepoint, we get
+		// `UnexpectedTimepoint`
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(3),
+				2,
+				vec![1, 4], // Different set of signatories
+				Some(now()),
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::UnexpectedTimepoint,
+		);
+
+		// Verify it would work with the correct signatories
+		hypothetically_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+	});
+}
+
+#[test]
+fn approve_as_multi_unexpected_timepoint_with_wrong_call_hash() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to approve with wrong call hash
+		// Since there's no multisig with this hash and we're passing a timepoint, we get
+		// `UnexpectedTimepoint`
+		let wrong_hash = [0u8; 32];
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 3],
+				Some(now()),
+				wrong_hash,
+				Weight::zero()
+			),
+			Error::<Test>::UnexpectedTimepoint,
+		);
+
+		// Verify it would work with the correct hash
+		hypothetically_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			hash,
+			Weight::zero()
+		));
+	});
+}
+
+#[test]
+fn as_multi_unexpected_timepoint_with_wrong_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		// Create a multisig
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Try to execute with non-existent multisig by using wrong signatories
+		// Since there's no multisig with this ID and we're passing a timepoint, we get
+		// `UnexpectedTimepoint`
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 4], // Different set - creates different multisig ID
+				Some(now()),
+				call,
+				Weight::zero()
+			),
+			Error::<Test>::UnexpectedTimepoint,
+		);
+
+		// Verify it would work with the correct signatories
+		let correct_call = call_transfer(6, 15);
+		let call_weight = correct_call.get_dispatch_info().call_weight;
+		hypothetically_ok!(Multisig::as_multi(
+			RuntimeOrigin::signed(2),
+			2,
+			vec![1, 3],
+			Some(now()),
+			correct_call,
+			call_weight
+		));
+	});
+}
+
+#[test]
 fn multisig_2_of_3_as_multi_works() {
 	new_test_ext().execute_with(|| {
 		let multi = Multisig::multi_account_id(&[1, 2, 3][..], 2);
@@ -328,7 +579,7 @@ fn multisig_2_of_3_as_multi_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -360,9 +611,9 @@ fn multisig_2_of_3_as_multi_with_many_calls_works() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call1 = call_transfer(6, 10);
-		let call1_weight = call1.get_dispatch_info().weight;
+		let call1_weight = call1.get_dispatch_info().call_weight;
 		let call2 = call_transfer(7, 5);
-		let call2_weight = call2.get_dispatch_info().weight;
+		let call2_weight = call2.get_dispatch_info().call_weight;
 
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
@@ -411,7 +662,7 @@ fn multisig_2_of_3_cannot_reissue_same_call() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 10);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::as_multi(
 			RuntimeOrigin::signed(1),
@@ -509,10 +760,161 @@ fn too_many_signatories_fails() {
 }
 
 #[test]
-fn duplicate_approvals_are_ignored() {
+fn as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				None,
+				call.clone(),
+				Weight::zero()
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_with_signatories_out_of_order_fails() {
 	new_test_ext().execute_with(|| {
 		let call = call_transfer(6, 15).encode();
 		let hash = blake2_256(&call);
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				None,
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+	});
+}
+
+#[test]
+fn cancel_as_multi_with_signatories_out_of_order_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+
+		// First create a multisig with proper ordering
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Try to cancel with signatories out of order
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![3, 2], // Out of order: should be [2, 3]
+				now(),
+				hash
+			),
+			Error::<Test>::SignatoriesOutOfOrder,
+		);
+
+		// Verify it would work with correctly ordered signatories
+		hypothetically_ok!(Multisig::cancel_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			now(),
+			hash
+		));
+	});
+}
+
+#[test]
+fn as_multi_with_sender_in_signatories_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![1, 2], // Sender (1) is in the signatories list
+				None,
+				call.clone(),
+				Weight::zero()
+			),
+			Error::<Test>::SenderInSignatories,
+		);
+	});
+}
+
+#[test]
+fn approve_as_multi_with_sender_in_signatories_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// First, create a valid multisig with account 1
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Now account 2 tries to approve but includes themselves in the signatories
+		assert_noop!(
+			Multisig::approve_as_multi(
+				RuntimeOrigin::signed(2),
+				2,
+				vec![1, 2], // Sender (2) is in the signatories list
+				Some(now()),
+				hash,
+				Weight::zero()
+			),
+			Error::<Test>::SenderInSignatories,
+		);
+	});
+}
+
+#[test]
+fn cancel_as_multi_with_sender_in_signatories_fails() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15).encode();
+		let hash = blake2_256(&call);
+		// Create a multisig with account 1
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			2,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+		// Account 1 tries to cancel but includes themselves in the signatories
+		assert_noop!(
+			Multisig::cancel_as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![1, 2], // Sender (1) is in the signatories list
+				now(),
+				hash
+			),
+			Error::<Test>::SenderInSignatories,
+		);
+	});
+}
+
+#[test]
+fn duplicate_approvals_are_ignored() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
 			2,
@@ -528,6 +930,18 @@ fn duplicate_approvals_are_ignored() {
 				vec![2, 3],
 				Some(now()),
 				hash,
+				Weight::zero()
+			),
+			Error::<Test>::AlreadyApproved,
+		);
+		// Duplicate approval with `as_multi` also noop.
+		assert_noop!(
+			Multisig::as_multi(
+				RuntimeOrigin::signed(1),
+				2,
+				vec![2, 3],
+				Some(now()),
+				call.clone(),
 				Weight::zero()
 			),
 			Error::<Test>::AlreadyApproved,
@@ -592,6 +1006,16 @@ fn multisig_1_of_3_works() {
 			call_transfer(6, 15)
 		));
 
+		System::assert_last_event(
+			pallet_multisig::Event::MultisigExecuted {
+				approving: 1,
+				timepoint: now(),
+				multisig: multi,
+				call_hash: hash,
+				result: Ok(()),
+			}
+			.into(),
+		);
 		assert_eq!(Balances::free_balance(6), 15);
 	});
 }
@@ -652,7 +1076,7 @@ fn multisig_handles_no_preimage_after_all_approve() {
 		assert_ok!(Balances::transfer_allow_death(RuntimeOrigin::signed(3), multi, 5));
 
 		let call = call_transfer(6, 15);
-		let call_weight = call.get_dispatch_info().weight;
+		let call_weight = call.get_dispatch_info().call_weight;
 		let hash = blake2_256(&call.encode());
 		assert_ok!(Multisig::approve_as_multi(
 			RuntimeOrigin::signed(1),
@@ -689,5 +1113,316 @@ fn multisig_handles_no_preimage_after_all_approve() {
 			call_weight
 		));
 		assert_eq!(Balances::free_balance(6), 15);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_threshold_less_than_two() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 0, vec![2], hash),
+			Error::<Test>::MinimumThreshold,
+		);
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 1, vec![2], hash),
+			Error::<Test>::MinimumThreshold,
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_too_incorrect_number_of_signatories() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![], hash),
+			Error::<Test>::TooFewSignatories,
+		);
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![2, 3, 4, 5], hash),
+			Error::<Test>::TooManySignatories,
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_signatories_out_of_order() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		assert_noop!(
+			Multisig::poke_deposit(
+				RuntimeOrigin::signed(1),
+				threshold,
+				vec![3, 2], // Unordered
+				hash
+			),
+			Error::<Test>::SignatoriesOutOfOrder
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_non_existent_multisig() {
+	new_test_ext().execute_with(|| {
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), 2, vec![2, 3], [0; 32]),
+			Error::<Test>::NotFound
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_fails_for_non_owner() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			vec![2, 3],
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Try to poke from non-owner (account 2)
+		assert_noop!(
+			Multisig::poke_deposit(
+				RuntimeOrigin::signed(2),
+				threshold,
+				vec![1, 3], // Note: signatories adjusted for different caller
+				hash
+			),
+			Error::<Test>::NotOwner
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_charges_fee_when_deposit_unchanged() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		let initial_deposit = Balances::reserved_balance(1);
+		let initial_free = Balances::free_balance(1);
+
+		// Poke without changing deposit requirements
+		let result =
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), threshold, other_signatories, hash);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap().pays_fee, Pays::Yes);
+
+		// Verify balances unchanged (except for fee)
+		assert_eq!(Balances::reserved_balance(1), initial_deposit);
+		assert!(Balances::free_balance(1) <= initial_free);
+
+		// Verify no event was emitted
+		assert!(!System::events().iter().any(|record| matches!(
+			record.event,
+			RuntimeEvent::Multisig(Event::DepositPoked { .. })
+		)));
+	});
+}
+
+#[test]
+fn poke_deposit_works_when_deposit_increases() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Record initial balances
+		let initial_deposit = Balances::reserved_balance(1);
+		let initial_free = Balances::free_balance(1);
+		let initial_base: u64 = MultisigDepositBase::get();
+		let initial_factor: u64 = MultisigDepositFactor::get();
+		let threshold_u64: u64 = threshold as u64;
+		let expected_initial_deposit = initial_base + (initial_factor * threshold_u64);
+		assert_eq!(
+			initial_deposit, expected_initial_deposit,
+			"Initial deposit should be 1 + (1 * 2)"
+		);
+
+		// Increase deposit requirements
+		MultisigDepositBase::set(3);
+		MultisigDepositFactor::set(2);
+
+		// Poke the deposit
+		let result =
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), threshold, other_signatories, hash);
+		assert_ok!(result.as_ref());
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+		// New deposit should be 7 (base 3 + factor 2 * threshold 2)
+		let new_base: u64 = MultisigDepositBase::get();
+		let new_factor: u64 = MultisigDepositFactor::get();
+		let expected_new_deposit = new_base + (new_factor * threshold_u64);
+		let deposit_increase = expected_new_deposit.saturating_sub(initial_deposit);
+
+		// Verify exact balance changes
+		assert_eq!(
+			Balances::reserved_balance(1),
+			expected_new_deposit,
+			"Reserved balance should be exactly base(3) + factor(2) * threshold(2) = 7"
+		);
+		assert_eq!(
+			Balances::free_balance(1),
+			initial_free.saturating_sub(deposit_increase),
+			"Free balance should decrease by exactly the deposit increase"
+		);
+
+		// Verify event
+		System::assert_has_event(
+			Event::DepositPoked {
+				who: 1,
+				call_hash: hash,
+				old_deposit: initial_deposit,
+				new_deposit: expected_new_deposit,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_works_when_deposit_decreases() {
+	new_test_ext().execute_with(|| {
+		// Start with higher deposit requirements
+		MultisigDepositBase::set(3);
+		MultisigDepositFactor::set(2);
+
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(1),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		let initial_deposit = Balances::reserved_balance(1);
+		let initial_free = Balances::free_balance(1);
+
+		// Verify initial deposit calculation (3 + 2 * 2 = 7)
+		let initial_base: u64 = MultisigDepositBase::get();
+		let initial_factor: u64 = MultisigDepositFactor::get();
+		let threshold_u64: u64 = threshold as u64;
+		let expected_initial_deposit = initial_base + (initial_factor * threshold_u64);
+		assert_eq!(
+			initial_deposit, expected_initial_deposit,
+			"Initial deposit should be exactly base(3) + factor(2) * threshold(2) = 7"
+		);
+
+		// Decrease deposit requirements
+		MultisigDepositBase::set(1);
+		MultisigDepositFactor::set(1);
+
+		// Poke the deposit
+		let result =
+			Multisig::poke_deposit(RuntimeOrigin::signed(1), threshold, other_signatories, hash);
+		assert_ok!(result.as_ref());
+		// Doesn't pay fee
+		assert_eq!(result.unwrap().pays_fee, Pays::No);
+
+		// Calculate expected new deposit (1 + 1 * 2 = 3)
+		let new_base: u64 = MultisigDepositBase::get();
+		let new_factor: u64 = MultisigDepositFactor::get();
+		let expected_new_deposit = new_base + (new_factor * threshold_u64);
+		let deposit_decrease = initial_deposit.saturating_sub(expected_new_deposit);
+
+		assert_eq!(
+			Balances::reserved_balance(1),
+			expected_new_deposit,
+			"Reserved balance should be exactly base(1) + factor(1) * threshold(2) = 3"
+		);
+		assert_eq!(
+			Balances::free_balance(1),
+			initial_free.saturating_add(deposit_decrease),
+			"Free balance should increase by exactly the deposit decrease"
+		);
+
+		System::assert_has_event(
+			Event::DepositPoked {
+				who: 1,
+				call_hash: hash,
+				old_deposit: initial_deposit,
+				new_deposit: expected_new_deposit,
+			}
+			.into(),
+		);
+	});
+}
+
+#[test]
+fn poke_deposit_handles_insufficient_balance() {
+	new_test_ext().execute_with(|| {
+		let call = call_transfer(6, 15);
+		let hash = blake2_256(&call.encode());
+		let threshold = 2;
+		let other_signatories = vec![2, 3];
+
+		// Use account 4 which has only 5 balance
+		assert_ok!(Multisig::approve_as_multi(
+			RuntimeOrigin::signed(4),
+			threshold,
+			other_signatories.clone(),
+			None,
+			hash,
+			Weight::zero()
+		));
+
+		// Increase deposit requirement beyond available balance
+		MultisigDepositBase::set(3);
+		MultisigDepositFactor::set(3);
+
+		// Should fail due to insufficient balance
+		assert_noop!(
+			Multisig::poke_deposit(RuntimeOrigin::signed(4), threshold, other_signatories, hash),
+			BalancesError::<Test, _>::InsufficientBalance
+		);
 	});
 }

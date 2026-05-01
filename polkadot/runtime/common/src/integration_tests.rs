@@ -24,10 +24,11 @@ use crate::{
 	slots,
 	traits::{AuctionStatus, Auctioneer, Leaser, Registrar as RegistrarT},
 };
+use alloc::sync::Arc;
 use codec::Encode;
 use frame_support::{
 	assert_noop, assert_ok, derive_impl, parameter_types,
-	traits::{ConstU32, Currency, OnFinalize, OnInitialize},
+	traits::{ConstU32, Currency},
 	weights::Weight,
 	PalletId,
 };
@@ -41,7 +42,7 @@ use polkadot_primitives::{
 use polkadot_runtime_parachains::{
 	configuration, dmp, origin, paras, shared, Origin as ParaOrigin, ParaLifecycle,
 };
-use sp_core::H256;
+use sp_core::{ConstUint, H256};
 use sp_io::TestExternalities;
 use sp_keyring::Sr25519Keyring;
 use sp_keystore::{testing::MemoryKeystore, KeystoreExt};
@@ -50,7 +51,6 @@ use sp_runtime::{
 	transaction_validity::TransactionPriority,
 	AccountId32, BuildStorage, MultiSignature,
 };
-use sp_std::sync::Arc;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlockU32<Test>;
@@ -98,12 +98,21 @@ frame_support::construct_runtime!(
 	}
 );
 
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+impl<C> frame_system::offchain::CreateTransactionBase<C> for Test
 where
 	RuntimeCall: From<C>,
 {
 	type Extrinsic = UncheckedExtrinsic;
-	type OverarchingCall = RuntimeCall;
+	type RuntimeCall = RuntimeCall;
+}
+
+impl<C> frame_system::offchain::CreateBare<C> for Test
+where
+	RuntimeCall: From<C>,
+{
+	fn create_bare(call: Self::RuntimeCall) -> Self::Extrinsic {
+		UncheckedExtrinsic::new_bare(call)
+	}
 }
 
 use crate::{auctions::Error as AuctionsError, crowdloan::Error as CrowdloanError};
@@ -205,6 +214,9 @@ impl paras::Config for Test {
 	type NextSessionRotation = crate::mock::TestNextSessionRotation;
 	type OnNewHead = ();
 	type AssignCoretime = ();
+	type Fungible = Balances;
+	type CooldownRemovalMultiplier = ConstUint<1>;
+	type AuthorizeCurrentCodeOrigin = EnsureRoot<Self::AccountId>;
 }
 
 parameter_types! {
@@ -279,6 +291,7 @@ impl pallet_identity::Config for Test {
 	type Slashed = ();
 	type BasicDeposit = ConstU32<100>;
 	type ByteDeposit = ConstU32<10>;
+	type UsernameDeposit = ConstU32<10>;
 	type SubAccountDeposit = ConstU32<100>;
 	type MaxSubAccounts = ConstU32<2>;
 	type IdentityInformation = IdentityInfo<ConstU32<2>>;
@@ -289,8 +302,11 @@ impl pallet_identity::Config for Test {
 	type SigningPublicKey = <MultiSignature as Verify>::Signer;
 	type UsernameAuthorityOrigin = EnsureRoot<AccountId>;
 	type PendingUsernameExpiration = ConstU32<100>;
+	type UsernameGracePeriod = ConstU32<10>;
 	type MaxSuffixLength = ConstU32<7>;
 	type MaxUsernameLength = ConstU32<32>;
+	#[cfg(feature = "runtime-benchmarks")]
+	type BenchmarkHelper = ();
 	type WeightInfo = ();
 }
 
@@ -337,7 +353,7 @@ const VALIDATORS: &[Sr25519Keyring] = &[
 ];
 
 fn maybe_new_session(n: u32) {
-	if n % BLOCKS_PER_SESSION == 0 {
+	if n.is_multiple_of(BLOCKS_PER_SESSION) {
 		let session_index = shared::CurrentSessionIndex::<Test>::get() + 1;
 		let validators_pub_keys = validators_public_keys(VALIDATORS);
 
@@ -366,14 +382,12 @@ fn add_blocks(n: u32) {
 }
 
 fn run_to_block(n: u32) {
-	assert!(System::block_number() < n);
-	while System::block_number() < n {
-		let block_number = System::block_number();
-		AllPalletsWithSystem::on_finalize(block_number);
-		System::set_block_number(block_number + 1);
-		maybe_new_session(block_number + 1);
-		AllPalletsWithSystem::on_initialize(block_number + 1);
-	}
+	System::run_to_block_with::<AllPalletsWithSystem>(
+		n,
+		frame_system::RunToBlockHooks::default().before_initialize(|bn| {
+			maybe_new_session(bn);
+		}),
+	);
 }
 
 fn run_to_session(n: u32) {
@@ -845,7 +859,7 @@ fn basic_swap_works() {
 	// This test will test a swap between a lease holding parachain and on-demand parachain works
 	// successfully.
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1017,7 +1031,7 @@ fn basic_swap_works() {
 fn parachain_swap_works() {
 	// This test will test a swap between two parachains works successfully.
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1197,7 +1211,7 @@ fn parachain_swap_works() {
 #[test]
 fn crowdloan_ending_period_bid() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1309,7 +1323,7 @@ fn crowdloan_ending_period_bid() {
 #[test]
 fn auction_bid_requires_registered_para() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1380,7 +1394,7 @@ fn auction_bid_requires_registered_para() {
 #[test]
 fn gap_bids_work() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);
@@ -1567,7 +1581,7 @@ fn gap_bids_work() {
 #[test]
 fn cant_bid_on_existing_lease_periods() {
 	new_test_ext().execute_with(|| {
-		assert!(System::block_number().is_one()); /* So events are emitted */
+		assert!(System::block_number().is_one()); // So events are emitted
 
 		const START_SESSION_INDEX: SessionIndex = 1;
 		run_to_session(START_SESSION_INDEX);

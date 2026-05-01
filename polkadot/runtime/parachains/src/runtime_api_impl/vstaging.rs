@@ -16,45 +16,37 @@
 
 //! Put implementations of functions from staging APIs here.
 
-use crate::{configuration, inclusion, initializer, scheduler};
-use polkadot_primitives::{CommittedCandidateReceipt, CoreIndex, Id as ParaId};
-use sp_runtime::traits::One;
-use sp_std::{
-	collections::{btree_map::BTreeMap, vec_deque::VecDeque},
-	vec::Vec,
+use crate::{configuration, disputes, initializer, paras, shared};
+use alloc::vec::Vec;
+use frame_system::pallet_prelude::BlockNumberFor;
+
+use polkadot_primitives::{
+	slashing, vstaging::RelayParentInfo, CandidateHash, Id as ParaId, SessionIndex,
 };
 
-/// Returns the claimqueue from the scheduler
-pub fn claim_queue<T: scheduler::Config>() -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
-	let now = <frame_system::Pallet<T>>::block_number() + One::one();
-
-	// This is needed so that the claim queue always has the right size (equal to
-	// scheduling_lookahead). Otherwise, if a candidate is backed in the same block where the
-	// previous candidate is included, the claim queue will have already pop()-ed the next item
-	// from the queue and the length would be `scheduling_lookahead - 1`.
-	<scheduler::Pallet<T>>::free_cores_and_fill_claim_queue(Vec::new(), now);
-	let config = configuration::ActiveConfig::<T>::get();
-	// Extra sanity, config should already never be smaller than 1:
-	let n_lookahead = config.scheduler_params.lookahead.max(1);
-
-	scheduler::ClaimQueue::<T>::get()
-		.into_iter()
-		.map(|(core_index, entries)| {
-			// on cores timing out internal claim queue size may be temporarily longer than it
-			// should be as the timed out assignment might got pushed back to an already full claim
-			// queue:
-			(
-				core_index,
-				entries.into_iter().map(|e| e.para_id()).take(n_lookahead as usize).collect(),
-			)
-		})
-		.collect()
+/// Implementation of `para_ids` runtime API
+pub fn para_ids<T: initializer::Config>() -> Vec<ParaId> {
+	paras::Heads::<T>::iter_keys().collect()
 }
 
-/// Returns all the candidates that are pending availability for a given `ParaId`.
-/// Deprecates `candidate_pending_availability` in favor of supporting elastic scaling.
-pub fn candidates_pending_availability<T: initializer::Config>(
-	para_id: ParaId,
-) -> Vec<CommittedCandidateReceipt<T::Hash>> {
-	<inclusion::Pallet<T>>::candidates_pending_availability(para_id)
+/// Implementation of `unapplied_slashes_v2` runtime API
+pub fn unapplied_slashes_v2<T: disputes::slashing::Config>(
+) -> Vec<(SessionIndex, CandidateHash, slashing::PendingSlashes)> {
+	disputes::slashing::Pallet::<T>::unapplied_slashes()
+}
+/// Implementation of `max_relay_parent_session_age` runtime API.
+pub fn max_relay_parent_session_age<T: initializer::Config>() -> u32 {
+	configuration::ActiveConfig::<T>::get().max_relay_parent_session_age
+}
+
+/// Implementation of `ancestor_relay_parent_info` runtime API.
+///
+/// Looks up relay parent info for an **ancestor** block. A block is not in its
+/// own `AllowedRelayParents` (it gets added during the next block's inherent),
+/// so querying a block about itself always returns `None`.
+pub fn ancestor_relay_parent_info<T: shared::Config>(
+	session_index: SessionIndex,
+	relay_parent: T::Hash,
+) -> Option<RelayParentInfo<T::Hash, BlockNumberFor<T>>> {
+	shared::Pallet::<T>::get_relay_parent_info(session_index, relay_parent)
 }

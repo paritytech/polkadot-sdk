@@ -15,14 +15,14 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use futures::FutureExt;
-use std::{collections::HashMap, future::Future};
+use std::future::Future;
 
-use polkadot_node_network_protocol::{jaeger, request_response::ReqProtocolNames};
+use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
-	ScheduledCore, SessionIndex, SessionInfo,
+	BlockNumber, ChunkIndex, CoreState, GroupIndex, Hash, Id as ParaId, ScheduledCore,
+	SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
@@ -83,7 +83,7 @@ fn spawn_virtual_overseer(
 			loop {
 				let msg = ctx_handle.try_recv().await;
 				if msg.is_none() {
-					break
+					break;
 				}
 				match msg.unwrap() {
 					AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(..)) => {},
@@ -117,10 +117,6 @@ fn spawn_virtual_overseer(
 							},
 							RuntimeApiRequest::SessionInfo(_, tx) => {
 								tx.send(Ok(Some(test_state.session_info.clone())))
-									.expect("Receiver should be alive.");
-							},
-							RuntimeApiRequest::SessionExecutorParams(_, tx) => {
-								tx.send(Ok(Some(ExecutorParams::default())))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::NodeFeatures(_, tx) => {
@@ -208,7 +204,6 @@ fn check_ancestry_lookup_in_same_session() {
 
 	test_harness(test_state.clone(), |mut ctx| async move {
 		let chain = &test_state.relay_chain;
-		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
 		let block_number = 1;
 		let update = ActiveLeavesUpdate {
 			activated: Some(new_leaf(chain[block_number], block_number as u32)),
@@ -216,7 +211,7 @@ fn check_ancestry_lookup_in_same_session() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -231,7 +226,7 @@ fn check_ancestry_lookup_in_same_session() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -252,7 +247,7 @@ fn check_ancestry_lookup_in_same_session() {
 			deactivated: vec![chain[1], chain[2]].into(),
 		};
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -281,7 +276,6 @@ fn check_ancestry_lookup_in_different_sessions() {
 
 	test_harness(test_state.clone(), |mut ctx| async move {
 		let chain = &test_state.relay_chain;
-		let spans: HashMap<Hash, jaeger::PerLeafSpan> = HashMap::new();
 		let block_number = 3;
 		let update = ActiveLeavesUpdate {
 			activated: Some(new_leaf(chain[block_number], block_number as u32)),
@@ -289,7 +283,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -302,7 +296,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;
@@ -315,7 +309,7 @@ fn check_ancestry_lookup_in_different_sessions() {
 		};
 
 		requester
-			.update_fetching_heads(&mut ctx, &mut runtime, update, &spans)
+			.update_fetching_heads(&mut ctx, &mut runtime, update)
 			.await
 			.expect("Leaf processing failed");
 		let fetch_tasks = &requester.fetches;

@@ -24,7 +24,6 @@ use serde::{Deserialize, Serialize};
 use scale_info::TypeInfo;
 
 use sp_runtime::traits::{AtLeast32BitUnsigned, Zero};
-use sp_std::prelude::*;
 
 use frame_support::dispatch::DispatchClass;
 
@@ -38,7 +37,6 @@ pub struct InclusionFee<Balance> {
 	pub base_fee: Balance,
 	/// The length fee, the amount paid for the encoded length (in bytes) of the transaction.
 	pub len_fee: Balance,
-	///
 	/// - `targeted_fee_adjustment`: This is a multiplier that can tune the final fee based on the
 	///   congestion of the network.
 	/// - `weight_fee`: This amount is computed based on the weight of the transaction. Weight
@@ -112,7 +110,7 @@ pub struct RuntimeDispatchInfo<Balance, Weight = frame_support::weights::Weight>
 	/// The inclusion fee of this dispatch.
 	///
 	/// This does not include a tip or anything else that
-	/// depends on the signature (i.e. depends on a `SignedExtension`).
+	/// depends on the signature (i.e. depends on a `TransactionExtension`).
 	#[cfg_attr(feature = "std", serde(with = "serde_balance"))]
 	pub partial_fee: Balance,
 }

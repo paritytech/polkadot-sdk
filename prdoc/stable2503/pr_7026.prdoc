@@ -1,0 +1,17 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-broker] add extrinsic to remove a lease"
+
+doc:
+  - audience: Runtime User
+    description: |
+      A new `remove_lease` extrinsic is introduced to the broker pallet to allow a lease to be removed by the root origin.
+
+crates:
+  - name: pallet-broker
+    bump: major
+  - name: coretime-rococo-runtime
+    bump: patch
+  - name: coretime-westend-runtime
+    bump: patch

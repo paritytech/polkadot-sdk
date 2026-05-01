@@ -82,7 +82,7 @@ where
 ///
 /// In the best case our vote is exactly N blocks
 /// behind the best block, but if there is a scenario where either
-/// >34% of validators run without this rule or the fork-choice rule
+/// \>34% of validators run without this rule or the fork-choice rule
 /// can prioritize shorter chains over longer ones, the vote may be
 /// closer to the best block than N.
 #[derive(Clone)]
@@ -102,13 +102,13 @@ where
 		use sp_arithmetic::traits::Saturating;
 
 		if current_target.number().is_zero() {
-			return Box::pin(async { None })
+			return Box::pin(async { None });
 		}
 
 		// Constrain to the base number, if that's the minimal
 		// vote that can be placed.
 		if *base.number() + self.0 > *best_target.number() {
-			return Box::pin(std::future::ready(Some((base.hash(), *base.number()))))
+			return Box::pin(std::future::ready(Some((base.hash(), *base.number()))));
 		}
 
 		// find the target number restricted by this rule
@@ -116,7 +116,7 @@ where
 
 		// our current target is already lower than this rule would restrict
 		if target_number >= *current_target.number() {
-			return Box::pin(async { None })
+			return Box::pin(async { None });
 		}
 
 		let current_target = current_target.clone();
@@ -158,7 +158,7 @@ where
 
 		// our current target is already lower than this rule would restrict
 		if target_number >= *current_target.number() {
-			return Box::pin(async { None })
+			return Box::pin(async { None });
 		}
 
 		// find the block at the given target height
@@ -189,7 +189,7 @@ where
 		}
 
 		if *target_header.number() == target_number {
-			return Some((target_hash, target_number))
+			return Some((target_hash, target_number));
 		}
 
 		target_hash = *target_header.parent_hash();
@@ -367,7 +367,7 @@ mod tests {
 		// where each subtracts 50 blocks from the current target
 		let rule = VotingRulesBuilder::new().add(Subtract(50)).add(Subtract(50)).build();
 
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 		let mut hashes = Vec::with_capacity(200);
 
 		for _ in 0..200 {
@@ -416,7 +416,7 @@ mod tests {
 	fn before_best_by_has_cutoff_at_base() {
 		let rule = BeforeBestBlockBy(2);
 
-		let mut client = Arc::new(TestClientBuilder::new().build());
+		let client = Arc::new(TestClientBuilder::new().build());
 
 		let n = 5;
 		let mut hashes = Vec::with_capacity(n);

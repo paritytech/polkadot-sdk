@@ -20,24 +20,31 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use bp_header_chain::StoredHeaderData;
+pub use call_info::{BridgeParachainCall, SubmitParachainHeadsInfo};
 
-use bp_polkadot_core::{
-	parachains::{ParaHash, ParaHead, ParaHeadsProof, ParaId},
-	BlockNumber as RelayBlockNumber, Hash as RelayBlockHash,
-};
+use bp_polkadot_core::parachains::{ParaHash, ParaHead, ParaId};
 use bp_runtime::{
 	BlockNumberOf, Chain, HashOf, HeaderOf, Parachain, StorageDoubleMapKeyProvider,
 	StorageMapKeyProvider,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{Blake2_128Concat, Twox64Concat};
+use frame_support::{weights::Weight, Blake2_128Concat, Twox64Concat};
 use scale_info::TypeInfo;
 use sp_core::storage::StorageKey;
-use sp_runtime::{traits::Header as HeaderT, RuntimeDebug};
+use sp_runtime::traits::Header as HeaderT;
 use sp_std::{marker::PhantomData, prelude::*};
 
+/// Block hash of the bridged relay chain.
+pub type RelayBlockHash = bp_polkadot_core::Hash;
+/// Block number of the bridged relay chain.
+pub type RelayBlockNumber = bp_polkadot_core::BlockNumber;
+/// Hasher of the bridged relay chain.
+pub type RelayBlockHasher = bp_polkadot_core::Hasher;
+
+mod call_info;
+
 /// Best known parachain head hash.
-#[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 pub struct BestParaHeadHash {
 	/// Number of relay block where this head has been read.
 	///
@@ -53,7 +60,7 @@ pub struct BestParaHeadHash {
 }
 
 /// Best known parachain head as it is stored in the runtime storage.
-#[derive(Decode, Encode, MaxEncodedLen, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Decode, Encode, MaxEncodedLen, PartialEq, Debug, TypeInfo)]
 pub struct ParaInfo {
 	/// Best known parachain head hash.
 	pub best_head_hash: BestParaHeadHash,
@@ -102,7 +109,7 @@ impl StorageDoubleMapKeyProvider for ImportedParaHeadsKeyProvider {
 ///
 /// We do not know exact structure of the parachain head, so we always store encoded version
 /// of the `bp_runtime::StoredHeaderData`. It is only decoded when we talk about specific parachain.
-#[derive(Clone, Decode, Encode, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Clone, Decode, Encode, PartialEq, Debug, TypeInfo)]
 pub struct ParaStoredHeaderData(pub Vec<u8>);
 
 impl ParaStoredHeaderData {
@@ -145,7 +152,7 @@ impl<C: Parachain> ParaStoredHeaderDataBuilder for SingleParaStoredHeaderDataBui
 			return Some(ParaStoredHeaderData(
 				StoredHeaderData { number: *header.number(), state_root: *header.state_root() }
 					.encode(),
-			))
+			));
 		}
 		None
 	}
@@ -186,18 +193,18 @@ impl ParaStoredHeaderDataBuilder for C {
 	}
 }
 
-/// A minimized version of `pallet-bridge-parachains::Call` that can be used without a runtime.
-#[derive(Encode, Decode, Debug, PartialEq, Eq, Clone, TypeInfo)]
-#[allow(non_camel_case_types)]
-pub enum BridgeParachainCall {
-	/// `pallet-bridge-parachains::Call::submit_parachain_heads`
-	#[codec(index = 0)]
-	submit_parachain_heads {
-		/// Relay chain block, for which we have submitted the `parachain_heads_proof`.
-		at_relay_block: (RelayBlockNumber, RelayBlockHash),
-		/// Parachain identifiers and their head hashes.
-		parachains: Vec<(ParaId, ParaHash)>,
-		/// Parachain heads proof.
-		parachain_heads_proof: ParaHeadsProof,
-	},
+/// Runtime hook for when a parachain head is updated.
+pub trait OnNewHead {
+	/// Called when a parachain head is updated.
+	/// Returns the weight consumed by this function.
+	fn on_new_head(id: ParaId, head: &ParaHead) -> Weight;
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(8)]
+impl OnNewHead for Tuple {
+	fn on_new_head(id: ParaId, head: &ParaHead) -> Weight {
+		let mut weight: Weight = Default::default();
+		for_tuples!( #( weight.saturating_accrue(Tuple::on_new_head(id, head)); )* );
+		weight
+	}
 }

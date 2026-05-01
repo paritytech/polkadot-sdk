@@ -26,7 +26,6 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{pallet_prelude::*, storage_alias, DefaultNoBound};
 use sp_runtime::{BoundedBTreeMap, Saturating};
-use sp_std::prelude::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 pub fn store_old_contract_info<T: Config>(
@@ -55,7 +54,7 @@ pub fn store_old_contract_info<T: Config>(
 pub type ContractInfoOf<T: Config> =
 	StorageMap<Pallet<T>, Twox64Concat, <T as frame_system::Config>::AccountId, ContractInfo<T>>;
 
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 pub struct ContractInfo<T: Config> {
 	trie_id: TrieId,

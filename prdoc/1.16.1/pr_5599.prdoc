@@ -1,0 +1,19 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Add assets in pool with native to query_acceptable_payment_assets
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      The `XcmPaymentApi::query_acceptable_payment_assets` API can be used to get a list of all
+      the assets that can be used for fee payment.
+      This is usually just the native asset, but the asset hubs have the asset conversion pallet.
+      In the case of the asset hubs, this list now includes all assets in a liquidity pool with
+      the native one.
+
+crates:
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor

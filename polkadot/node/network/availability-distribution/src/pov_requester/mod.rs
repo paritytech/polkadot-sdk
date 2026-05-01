@@ -25,7 +25,6 @@ use polkadot_node_network_protocol::request_response::{
 };
 use polkadot_node_primitives::PoV;
 use polkadot_node_subsystem::{
-	jaeger,
 	messages::{IfDisconnected, NetworkBridgeTxMessage},
 	overseer,
 };
@@ -52,18 +51,7 @@ pub async fn fetch_pov<Context>(
 	pov_hash: Hash,
 	tx: oneshot::Sender<PoV>,
 	metrics: Metrics,
-	span: &jaeger::Span,
 ) -> Result<()> {
-	let _span = span
-		.child("fetch-pov")
-		.with_trace_id(candidate_hash)
-		.with_validator_index(from_validator)
-		.with_candidate(candidate_hash)
-		.with_para_id(para_id)
-		.with_relay_parent(parent)
-		.with_string_tag("pov-hash", format!("{:?}", pov_hash))
-		.with_stage(jaeger::Stage::AvailabilityDistribution);
-
 	let info = &runtime.get_session_info(ctx.sender(), parent).await?.session_info;
 	let authority_id = info
 		.discovery_keys
@@ -117,11 +105,11 @@ async fn do_fetch_pov(
 		Ok(PoVFetchingResponse::PoV(pov)) => pov,
 		Ok(PoVFetchingResponse::NoSuchPoV) => {
 			metrics.on_fetched_pov(NOT_FOUND);
-			return Err(Error::NoSuchPoV)
+			return Err(Error::NoSuchPoV);
 		},
 		Err(err) => {
 			metrics.on_fetched_pov(FAILED);
-			return Err(err)
+			return Err(err);
 		},
 	};
 	if pov.hash() == pov_hash {
@@ -147,7 +135,7 @@ mod tests {
 		AllMessages, AvailabilityDistributionMessage, RuntimeApiMessage, RuntimeApiRequest,
 	};
 	use polkadot_node_subsystem_test_helpers as test_helpers;
-	use polkadot_primitives::{CandidateHash, ExecutorParams, Hash, NodeFeatures, ValidatorIndex};
+	use polkadot_primitives::{CandidateHash, Hash, NodeFeatures, ValidatorIndex};
 	use test_helpers::mock::make_ferdie_keystore;
 
 	use super::*;
@@ -189,7 +177,6 @@ mod tests {
 				pov_hash,
 				tx,
 				Metrics::new_dummy(),
-				&jaeger::Span::Disabled,
 			)
 			.await
 			.expect("Should succeed");
@@ -212,12 +199,6 @@ mod tests {
 					},
 					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 						_,
-						RuntimeApiRequest::SessionExecutorParams(_, tx),
-					)) => {
-						tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-					},
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
 						RuntimeApiRequest::NodeFeatures(_, si_tx),
 					)) => {
 						si_tx.send(Ok(NodeFeatures::EMPTY)).unwrap();
@@ -236,7 +217,7 @@ mod tests {
 								ProtocolName::from(""),
 							)))
 							.unwrap();
-						break
+						break;
 					},
 					msg => gum::debug!(target: LOG_TARGET, msg = ?msg, "Received msg"),
 				}

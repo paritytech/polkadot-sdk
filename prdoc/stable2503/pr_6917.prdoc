@@ -1,0 +1,14 @@
+title: Remove unused dependencies from pallet_revive
+doc:
+- audience: Runtime Dev
+  description: Removing apparently unused dependencies from `pallet_revive` and related
+    crates.
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-fixtures
+  bump: major
+- name: pallet-revive-mock-network
+  bump: major
+- name: pallet-revive-eth-rpc
+  bump: major

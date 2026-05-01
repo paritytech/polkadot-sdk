@@ -19,9 +19,7 @@ use polkadot_node_subsystem_util::metrics::{self, prometheus};
 #[derive(Clone)]
 pub(crate) struct MetricsInner {
 	pub(crate) collations_generated_total: prometheus::Counter<prometheus::U64>,
-	pub(crate) new_activations_overall: prometheus::Histogram,
-	pub(crate) new_activations_per_relay_parent: prometheus::Histogram,
-	pub(crate) new_activations_per_availability_core: prometheus::Histogram,
+	pub(crate) new_activation: prometheus::Histogram,
 	pub(crate) submit_collation: prometheus::Histogram,
 }
 
@@ -37,26 +35,8 @@ impl Metrics {
 	}
 
 	/// Provide a timer for new activations which updates on drop.
-	pub fn time_new_activations(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| metrics.new_activations_overall.start_timer())
-	}
-
-	/// Provide a timer per relay parents which updates on drop.
-	pub fn time_new_activations_relay_parent(
-		&self,
-	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0
-			.as_ref()
-			.map(|metrics| metrics.new_activations_per_relay_parent.start_timer())
-	}
-
-	/// Provide a timer per availability core which updates on drop.
-	pub fn time_new_activations_availability_core(
-		&self,
-	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0
-			.as_ref()
-			.map(|metrics| metrics.new_activations_per_availability_core.start_timer())
+	pub fn time_new_activation(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.new_activation.start_timer())
 	}
 
 	/// Provide a timer for submitting a collation which updates on drop.
@@ -71,44 +51,22 @@ impl metrics::Metrics for Metrics {
 			collations_generated_total: prometheus::register(
 				prometheus::Counter::new(
 					"polkadot_parachain_collations_generated_total",
-					"Number of collations generated."
+					"Number of collations generated.",
 				)?,
 				registry,
 			)?,
-			new_activations_overall: prometheus::register(
-				prometheus::Histogram::with_opts(
-					prometheus::HistogramOpts::new(
-						"polkadot_parachain_collation_generation_new_activations",
-						"Time spent within fn handle_new_activations",
-					)
-				)?,
-				registry,
-			)?,
-			new_activations_per_relay_parent: prometheus::register(
-				prometheus::Histogram::with_opts(
-					prometheus::HistogramOpts::new(
-						"polkadot_parachain_collation_generation_per_relay_parent",
-						"Time spent handling a particular relay parent within fn handle_new_activations"
-					)
-				)?,
-				registry,
-			)?,
-			new_activations_per_availability_core: prometheus::register(
-				prometheus::Histogram::with_opts(
-					prometheus::HistogramOpts::new(
-						"polkadot_parachain_collation_generation_per_availability_core",
-						"Time spent handling a particular availability core for a relay parent in fn handle_new_activations",
-					)
-				)?,
+			new_activation: prometheus::register(
+				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+					"polkadot_parachain_collation_generation_new_activations",
+					"Time spent within fn handle_new_activation",
+				))?,
 				registry,
 			)?,
 			submit_collation: prometheus::register(
-				prometheus::Histogram::with_opts(
-					prometheus::HistogramOpts::new(
-						"polkadot_parachain_collation_generation_submit_collation",
-						"Time spent preparing and submitting a collation to the network protocol",
-					)
-				)?,
+				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+					"polkadot_parachain_collation_generation_submit_collation",
+					"Time spent preparing and submitting a collation to the network protocol",
+				))?,
 				registry,
 			)?,
 		};

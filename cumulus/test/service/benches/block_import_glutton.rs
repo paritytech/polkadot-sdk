@@ -99,7 +99,7 @@ fn benchmark_block_import(c: &mut Criterion) {
 						benchmark_block.block.clone()
 					},
 					|block| {
-						client.runtime_api().execute_block(parent_hash, block).unwrap();
+						client.runtime_api().execute_block(parent_hash, block.into()).unwrap();
 					},
 					BatchSize::SmallInput,
 				)

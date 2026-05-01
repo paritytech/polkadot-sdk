@@ -98,7 +98,11 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::{Decode, Encode};
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode};
+use core::cmp::Ordering;
 use frame_support::{
 	traits::{
 		defensive_prelude::*, ChangeMembers, Contains, ContainsLengthBound, Currency, Get,
@@ -112,10 +116,9 @@ use scale_info::TypeInfo;
 use sp_npos_elections::{ElectionResult, ExtendedBalance};
 use sp_runtime::{
 	traits::{Saturating, StaticLookup, Zero},
-	DispatchError, Perbill, RuntimeDebug,
+	Debug, DispatchError, Perbill,
 };
 use sp_staking::currency_to_vote::CurrencyToVote;
-use sp_std::{cmp::Ordering, prelude::*};
 
 #[cfg(any(feature = "try-runtime", test))]
 use sp_runtime::TryRuntimeError;
@@ -136,7 +139,7 @@ type NegativeImbalanceOf<T> = <<T as Config>::Currency as Currency<
 >>::NegativeImbalance;
 
 /// An indication that the renouncing account currently has which of the below roles.
-#[derive(Encode, Decode, Clone, PartialEq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Debug, TypeInfo)]
 pub enum Renouncing {
 	/// A member is renouncing.
 	Member,
@@ -147,7 +150,7 @@ pub enum Renouncing {
 }
 
 /// An active voter.
-#[derive(Encode, Decode, Clone, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, TypeInfo)]
 pub struct Voter<AccountId, Balance> {
 	/// The members being backed.
 	pub votes: Vec<AccountId>,
@@ -166,7 +169,7 @@ impl<AccountId, Balance: Default> Default for Voter<AccountId, Balance> {
 }
 
 /// A holder of a seat as either a member or a runner-up.
-#[derive(Encode, Decode, Clone, Default, RuntimeDebug, PartialEq, TypeInfo)]
+#[derive(Encode, Decode, Clone, Default, Debug, PartialEq, TypeInfo)]
 pub struct SeatHolder<AccountId, Balance> {
 	/// The holder.
 	pub who: AccountId,
@@ -198,6 +201,7 @@ pub mod pallet {
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// Identifier for the elections-phragmen pallet's lock
@@ -504,7 +508,7 @@ pub mod pallet {
 			let who = ensure_signed(origin)?;
 			match renouncing {
 				Renouncing::Member => {
-					let _ = Self::remove_and_replace_member(&who, false)
+					Self::remove_and_replace_member(&who, false)
 						.map_err(|_| Error::<T>::InvalidRenouncing)?;
 					Self::deposit_event(Event::Renounced { candidate: who });
 				},
@@ -570,7 +574,7 @@ pub mod pallet {
 			ensure_root(origin)?;
 			let who = T::Lookup::lookup(who)?;
 
-			let _ = Self::remove_and_replace_member(&who, slash_bond)?;
+			Self::remove_and_replace_member(&who, slash_bond)?;
 			Self::deposit_event(Event::MemberKicked { member: who });
 
 			if rerun_election {
@@ -597,7 +601,7 @@ pub mod pallet {
 			num_voters: u32,
 			num_defunct: u32,
 		) -> DispatchResult {
-			let _ = ensure_root(origin)?;
+			ensure_root(origin)?;
 
 			Voting::<T>::iter()
 				.take(num_voters as usize)
@@ -613,7 +617,7 @@ pub mod pallet {
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		/// A new term with new_members. This indicates that enough candidates existed to run
-		/// the election, not that enough have has been elected. The inner value must be examined
+		/// the election, not that enough have been elected. The inner value must be examined
 		/// for this purpose. A `NewTerm(\[\])` indicates that some candidates got their bond
 		/// slashed and none were elected, whilst `EmptyTerm` means that no candidates existed to
 		/// begin with.
@@ -826,7 +830,7 @@ impl<T: Config> Pallet<T> {
 				T::Currency::unreserve(who, removed.deposit);
 			}
 
-			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).map(|next_best| {
+			let maybe_next_best = RunnersUp::<T>::mutate(|r| r.pop()).inspect(|next_best| {
 				// defensive-only: Members and runners-up are disjoint. This will always be err and
 				// give us an index to insert.
 				if let Err(index) = members.binary_search_by(|m| m.who.cmp(&next_best.who)) {
@@ -836,7 +840,6 @@ impl<T: Config> Pallet<T> {
 					// is already a member, so not much more to do.
 					log::error!(target: LOG_TARGET, "A member seems to also be a runner-up.");
 				}
-				next_best
 			});
 			Ok(maybe_next_best)
 		})?;
@@ -953,7 +956,7 @@ impl<T: Config> Pallet<T> {
 
 		if candidates_and_deposit.len().is_zero() {
 			Self::deposit_event(Event::EmptyTerm);
-			return T::DbWeight::get().reads(3)
+			return T::DbWeight::get().reads(3);
 		}
 
 		// All of the new winners that come out of phragmen will thus have a deposit recorded.
@@ -985,7 +988,7 @@ impl<T: Config> Pallet<T> {
 					"Failed to run election. Number of voters exceeded",
 				);
 				Self::deposit_event(Event::ElectionError);
-				return T::DbWeight::get().reads(3 + max_voters as u64)
+				return T::DbWeight::get().reads(3 + max_voters as u64);
 			},
 		}
 
@@ -1264,8 +1267,9 @@ impl<T: Config> Pallet<T> {
 		match Self::intersects(&Pallet::<T>::members_ids(), &Self::candidates_ids()) &&
 			Self::intersects(&Pallet::<T>::members_ids(), &Self::runners_up_ids())
 		{
-			true =>
-				Err("Members set should be disjoint from candidates and runners-up sets".into()),
+			true => {
+				Err("Members set should be disjoint from candidates and runners-up sets".into())
+			},
 			false => Ok(()),
 		}
 	}
@@ -1406,7 +1410,7 @@ mod tests {
 
 	pub type Block = sp_runtime::generic::Block<Header, UncheckedExtrinsic>;
 	pub type UncheckedExtrinsic =
-		sp_runtime::generic::UncheckedExtrinsic<u32, u64, RuntimeCall, ()>;
+		sp_runtime::generic::UncheckedExtrinsic<u32, RuntimeCall, u64, ()>;
 
 	frame_support::construct_runtime!(
 		pub enum Test
@@ -1474,6 +1478,7 @@ mod tests {
 						(5, 50 * self.balance_factor),
 						(6, 60 * self.balance_factor),
 					],
+					..Default::default()
 				},
 				elections: elections_phragmen::GenesisConfig::<Test> {
 					members: self.genesis_members,
@@ -2192,7 +2197,7 @@ mod tests {
 			assert_eq!(locked_stake_of(&2), 0);
 
 			assert_eq!(balances(&2), (20, 0));
-			assert_eq!(Balances::locks(&2).len(), 0);
+			assert_eq!(pallet_balances::Locks::<Test>::get(&2).len(), 0);
 		});
 	}
 

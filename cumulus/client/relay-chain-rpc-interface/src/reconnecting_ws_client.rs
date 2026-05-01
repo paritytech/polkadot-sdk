@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 use cumulus_primitives_core::relay_chain::{
 	Block as RelayBlock, BlockNumber as RelayNumber, Hash as RelayHash, Header as RelayHeader,
@@ -34,7 +35,7 @@ use jsonrpsee::{
 use sc_rpc_api::chain::ChainApiClient;
 use schnellru::{ByLength, LruMap};
 use sp_runtime::generic::SignedBlock;
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 use tokio::sync::mpsc::{
 	channel as tokio_channel, Receiver as TokioReceiver, Sender as TokioSender,
 };
@@ -43,6 +44,9 @@ use url::Url;
 use crate::rpc_client::{distribute_header, RpcDispatcherMessage};
 
 const LOG_TARGET: &str = "reconnecting-websocket-client";
+const DEFAULT_EXTERNAL_RPC_CONN_RETRIES: usize = 5;
+const DEFAULT_SLEEP_TIME_MS_BETWEEN_RETRIES: u64 = 1000;
+const DEFAULT_SLEEP_EXP_BACKOFF_BETWEEN_RETRIES: i32 = 2;
 
 /// Worker that should be used in combination with [`RelayChainRpcClient`].
 ///
@@ -63,7 +67,7 @@ fn url_to_string_with_port(url: Url) -> Option<String> {
 	// This is already validated on CLI side, just defensive here
 	if (url.scheme() != "ws" && url.scheme() != "wss") || url.host_str().is_none() {
 		tracing::warn!(target: LOG_TARGET, ?url, "Non-WebSocket URL or missing host.");
-		return None
+		return None;
 	}
 
 	// Either we have a user-supplied port or use the default for 'ws' or 'wss' here
@@ -93,16 +97,45 @@ struct RelayChainSubscriptions {
 	best_subscription: Subscription<RelayHeader>,
 }
 
-/// Try to find a new RPC server to connect to.
+/// Try to find a new RPC server to connect to. Uses a naive retry
+/// logic that does an exponential backoff in between iterations
+/// through all URLs from the list. It uses a constant to tell how
+/// many iterations of connection attempts to all URLs we allow. We
+/// return early when a connection is made.
 async fn connect_next_available_rpc_server(
 	urls: &Vec<String>,
 	starting_position: usize,
 ) -> Result<(usize, Arc<JsonRpcClient>), ()> {
 	tracing::debug!(target: LOG_TARGET, starting_position, "Connecting to RPC server.");
-	for (counter, url) in urls.iter().cycle().skip(starting_position).take(urls.len()).enumerate() {
+
+	let mut prev_iteration: u32 = 0;
+	for (counter, url) in urls
+		.iter()
+		.cycle()
+		.skip(starting_position)
+		.take(urls.len() * DEFAULT_EXTERNAL_RPC_CONN_RETRIES)
+		.enumerate()
+	{
+		// If we reached the end of the urls list, backoff before retrying
+		// connections to the entire list once more.
+		let Ok(current_iteration) = (counter / urls.len()).try_into() else {
+			tracing::error!(target: LOG_TARGET, "Too many connection attempts to the RPC servers, aborting...");
+			break;
+		};
+		if current_iteration > prev_iteration {
+			// Safe conversion given we convert positive i32s which are lower than u64::MAX.
+			tokio::time::sleep(Duration::from_millis(
+				DEFAULT_SLEEP_TIME_MS_BETWEEN_RETRIES *
+					DEFAULT_SLEEP_EXP_BACKOFF_BETWEEN_RETRIES.pow(prev_iteration) as u64,
+			))
+			.await;
+			prev_iteration = current_iteration;
+		}
+
 		let index = (starting_position + counter) % urls.len();
 		tracing::info!(
 			target: LOG_TARGET,
+			attempt = current_iteration,
 			index,
 			url,
 			"Trying to connect to next external relaychain node.",
@@ -112,13 +145,15 @@ async fn connect_next_available_rpc_server(
 			Err(err) => tracing::debug!(target: LOG_TARGET, url, ?err, "Unable to connect."),
 		};
 	}
+
+	tracing::error!(target: LOG_TARGET, "Retrying to connect to any external relaychain node failed.");
 	Err(())
 }
 
 impl ClientManager {
 	pub async fn new(urls: Vec<String>) -> Result<Self, ()> {
 		if urls.is_empty() {
-			return Err(())
+			return Err(());
 		}
 		let active_client = connect_next_available_rpc_server(&urls, 0).await?;
 		Ok(Self { urls, active_client: active_client.1, active_index: active_client.0 })
@@ -205,7 +240,7 @@ impl ClientManager {
 			// the websocket connection is dead and requires a restart.
 			// Other errors should be forwarded to the request caller.
 			if let Err(JsonRpseeError::RestartNeeded(_)) = resp {
-				return Err(RpcDispatcherMessage::Request(method, params, response_sender))
+				return Err(RpcDispatcherMessage::Request(method, params, response_sender));
 			}
 
 			if let Err(err) = response_sender.send(resp) {
@@ -267,7 +302,7 @@ impl ReconnectingWebsocketWorker {
 		}
 
 		if client_manager.connect_to_new_rpc_server().await.is_err() {
-			return Err("Unable to find valid external RPC server, shutting down.".to_string())
+			return Err("Unable to find valid external RPC server, shutting down.".to_string());
 		};
 
 		for item in requests_to_retry.into_iter() {
@@ -301,11 +336,11 @@ impl ReconnectingWebsocketWorker {
 		let urls = std::mem::take(&mut self.ws_urls);
 		let Ok(mut client_manager) = ClientManager::new(urls).await else {
 			tracing::error!(target: LOG_TARGET, "No valid RPC url found. Stopping RPC worker.");
-			return
+			return;
 		};
 		let Ok(mut subscriptions) = client_manager.get_subscriptions().await else {
 			tracing::error!(target: LOG_TARGET, "Unable to fetch subscriptions on initial connection.");
-			return
+			return;
 		};
 
 		let mut imported_blocks_cache = LruMap::new(ByLength::new(40));
@@ -331,7 +366,7 @@ impl ReconnectingWebsocketWorker {
 							message,
 							"Unable to reconnect, stopping worker."
 						);
-						return
+						return;
 					},
 				}
 				should_reconnect = ConnectionStatus::Connected;
@@ -431,8 +466,13 @@ impl ReconnectingWebsocketWorker {
 
 #[cfg(test)]
 mod test {
-	use super::url_to_string_with_port;
+	use std::time::Duration;
+
+	use super::{url_to_string_with_port, ClientManager};
+	use jsonrpsee::Methods;
 	use url::Url;
+
+	const SERVER_STARTUP_DELAY_SECONDS: u64 = 10;
 
 	#[test]
 	fn url_to_string_works() {
@@ -459,5 +499,30 @@ mod test {
 			Some("wss://something:9090/path?query=yes".to_string()),
 			url_to_string_with_port(url)
 		);
+	}
+
+	#[tokio::test]
+	// Testing the retry logic at full means increasing CI with half a minute according
+	// to the current logic, so lets test it best effort.
+	async fn client_manager_retry_logic() {
+		let port = portpicker::pick_unused_port().unwrap();
+		let server = jsonrpsee::server::Server::builder()
+			.build(format!("0.0.0.0:{}", port))
+			.await
+			.unwrap();
+
+		// Start the server.
+		let server = tokio::spawn(async {
+			tokio::time::sleep(Duration::from_secs(SERVER_STARTUP_DELAY_SECONDS)).await;
+			server.start(Methods::default())
+		});
+
+		// Start the client. Not exitting right away with an error means it
+		// is handling gracefully received connections refused while the server
+		// is starting.
+		let res = ClientManager::new(vec![format!("ws://127.0.0.1:{}", port)]).await;
+		assert!(res.is_ok());
+
+		server.await.unwrap();
 	}
 }

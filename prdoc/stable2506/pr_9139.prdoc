@@ -1,0 +1,10 @@
+title: Expose more constants for pallet-xcm
+doc:
+- audience:
+  - Runtime Dev
+  - Runtime User
+  description: |-
+    Exposes more constants (UniversalLocation, MaxLockers, MaxRemoteLockConsumers), similar as `AdvertisedXcmVersion`.
+crates:
+- name: pallet-xcm
+  bump: patch

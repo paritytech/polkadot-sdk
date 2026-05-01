@@ -19,21 +19,34 @@ use sc_cli::{CliConfiguration, DatabaseParams, PruningParams, Result, SharedPara
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::DbHash;
 use sc_service::Configuration;
+use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashingFor};
 use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
-use clap::{Args, Parser};
+use clap::{Args, Parser, ValueEnum};
 use log::info;
-use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
 use std::{fmt::Debug, path::PathBuf, sync::Arc};
 
-use super::template::TemplateData;
-use crate::shared::{new_rng, HostInfoParams, WeightParams};
+use super::{
+	keys_selection::{select_entries, EmptyStorage as SelectEntriesEmptyStorage},
+	template::TemplateData,
+};
+use crate::shared::{HostInfoParams, WeightParams};
+
+/// The mode in which to run the storage benchmark.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, ValueEnum)]
+pub enum StorageBenchmarkMode {
+	/// Run the benchmark for block import.
+	#[default]
+	ImportBlock,
+	/// Run the benchmark for block validation.
+	ValidateBlock,
+}
 
 /// Benchmark the storage speed of a chain snapshot.
 #[derive(Debug, Parser)]
@@ -116,6 +129,71 @@ pub struct StorageParams {
 	/// Include child trees in benchmark.
 	#[arg(long)]
 	pub include_child_trees: bool,
+
+	/// Disable PoV recorder.
+	///
+	/// The recorder has impact on performance when benchmarking with the TrieCache enabled.
+	/// If the chain is recording a proof while building/importing a block, the pov recorder
+	/// should be activated.
+	///
+	/// Hence, when generating weights for a parachain this should be activated and when generating
+	/// weights for a standalone chain this should be deactivated.
+	#[arg(long, default_value = "false")]
+	pub disable_pov_recorder: bool,
+
+	/// The batch size for the read/write benchmark.
+	///
+	/// Since the write size needs to also include the cost of computing the storage root, which is
+	/// done once at the end of the block, the batch size is used to simulate multiple writes in a
+	/// block.
+	#[arg(long, default_value_t = 100_000)]
+	pub batch_size: usize,
+
+	/// The mode in which to run the storage benchmark.
+	///
+	/// PoV recorder must be activated to provide a storage proof for block validation at runtime.
+	#[arg(long, value_enum, default_value_t = StorageBenchmarkMode::ImportBlock)]
+	pub mode: StorageBenchmarkMode,
+
+	/// Number of rounds to execute block validation during the benchmark.
+	///
+	/// We need to run the benchmark several times to avoid fluctuations during runtime setup.
+	/// This is only used when `mode` is `validate-block`.
+	#[arg(long, default_value_t = 20)]
+	pub validate_block_rounds: u32,
+
+	/// Maximum number of keys to read.
+	///
+	/// Declares the number of random keys to read. Note that this limits the count of keys,
+	/// not the total memory usage. Since key sizes can vary significantly (some keys can be
+	/// much longer than others), this does not guarantee worst-case performance in terms of
+	/// memory consumption.
+	///
+	/// Default: Read all keys.
+	#[arg(long)]
+	pub keys_limit: Option<usize>,
+
+	/// Maximum number of child storage keys to read per child tree.
+	///
+	/// When `--include-child-trees` is set, this limits how many keys are sampled from each
+	/// child tree (same semantics as `--keys-limit` for the main trie). Omitted means no limit.
+	#[arg(long)]
+	pub child_keys_limit: Option<usize>,
+
+	/// Seed to use for benchs randomness, the same seed allow to replay
+	/// benchmarks under the same conditions.
+	#[arg(long)]
+	pub random_seed: Option<u64>,
+}
+
+impl StorageParams {
+	pub fn is_import_block_mode(&self) -> bool {
+		matches!(self.mode, StorageBenchmarkMode::ImportBlock)
+	}
+
+	pub fn is_validate_block_mode(&self) -> bool {
+		matches!(self.mode, StorageBenchmarkMode::ValidateBlock)
+	}
 }
 
 impl StorageCmd {
@@ -127,11 +205,15 @@ impl StorageCmd {
 		client: Arc<C>,
 		db: (Arc<dyn Database<DbHash>>, ColumnId),
 		storage: Arc<dyn Storage<HashingFor<Block>>>,
+		shared_trie_cache: Option<sp_trie::cache::SharedTrieCache<HashingFor<Block>>>,
 	) -> Result<()>
 	where
 		BA: ClientBackend<Block>,
 		Block: BlockT<Hash = DbHash>,
-		C: UsageProvider<Block> + StorageProvider<Block, BA> + HeaderBackend<Block>,
+		C: UsageProvider<Block>
+			+ StorageProvider<Block, BA>
+			+ HeaderBackend<Block>
+			+ CallApiAt<Block>,
 	{
 		let mut template = TemplateData::new(&cfg, &self.params)?;
 
@@ -140,7 +222,7 @@ impl StorageCmd {
 
 		if !self.params.skip_read {
 			self.bench_warmup(&client)?;
-			let record = self.bench_read(client.clone())?;
+			let record = self.bench_read(client.clone(), shared_trie_cache.clone())?;
 			if let Some(path) = &self.params.json_read_path {
 				record.save_json(&cfg, path, "read")?;
 			}
@@ -151,7 +233,7 @@ impl StorageCmd {
 
 		if !self.params.skip_write {
 			self.bench_warmup(&client)?;
-			let record = self.bench_write(client, db, storage)?;
+			let record = self.bench_write(client, db, storage, shared_trie_cache)?;
 			if let Some(path) = &self.params.json_write_path {
 				record.save_json(&cfg, path, "write")?;
 			}
@@ -177,7 +259,7 @@ impl StorageCmd {
 		if let Some((ChildType::ParentKeyId, storage_key)) =
 			ChildType::from_prefixed_key(&PrefixedStorageKey::new(key))
 		{
-			return Some(ChildInfo::new_default(storage_key))
+			return Some(ChildInfo::new_default(storage_key));
 		}
 		None
 	}
@@ -191,17 +273,61 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 	{
 		let hash = client.usage_info().chain.best_hash;
-		let mut keys: Vec<_> = client.storage_keys(hash, None, None)?.collect();
-		let (mut rng, _) = new_rng(None);
-		keys.shuffle(&mut rng);
+		let (keys, _) = select_entries(
+			self.params.keys_limit,
+			self.params.random_seed,
+			|first_key_ref| {
+				let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+				Ok(client.storage_keys(hash, None, fk.as_ref())?)
+			},
+			|| Ok(client.storage_keys(hash, None, None)?),
+			|k: &sp_storage::StorageKey| k.0.as_slice(),
+		)?;
 
 		for i in 0..self.params.warmups {
 			info!("Warmup round {}/{}", i + 1, self.params.warmups);
+			let mut child_nodes = Vec::new();
+
 			for key in keys.as_slice() {
 				let _ = client
 					.storage(hash, &key)
 					.expect("Checked above to exist")
 					.ok_or("Value unexpectedly empty");
+
+				if let Some(info) = self
+					.params
+					.include_child_trees
+					.then(|| self.is_child_key(key.clone().0))
+					.flatten()
+				{
+					// child tree key: sample with select_entries when child_keys_limit is set
+					match select_entries(
+						self.params.child_keys_limit,
+						self.params.random_seed,
+						|first_key_ref| {
+							let fk = first_key_ref.map(|b| sp_storage::StorageKey(b.to_vec()));
+							Ok(client
+								.child_storage_keys(hash, info.clone(), None, fk.as_ref())?
+								.map(|ck| (ck, info.clone())))
+						},
+						|| {
+							Ok(client
+								.child_storage_keys(hash, info.clone(), None, None)?
+								.map(|ck| (ck, info.clone())))
+						},
+						|(k, _): &(sp_storage::StorageKey, sp_storage::ChildInfo)| k.0.as_slice(),
+					) {
+						Ok((entries, _)) => child_nodes.extend(entries),
+						Err(SelectEntriesEmptyStorage::Input(_)) => {},
+						Err(e) => return Err(e),
+					}
+				}
+			}
+			for (key, info) in child_nodes.as_slice() {
+				client
+					.child_storage(hash, info, key)
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty")?;
 			}
 		}
 

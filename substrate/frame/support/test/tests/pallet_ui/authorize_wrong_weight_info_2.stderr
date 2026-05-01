@@ -1,0 +1,5 @@
+error[E0220]: associated type `WeightIn` not found for `T`
+  --> tests/pallet_ui/authorize_wrong_weight_info_2.rs:34:29
+   |
+34 |     #[pallet::call(weight = T::WeightIn)]
+   |                                ^^^^^^^^ help: there is an associated type with a similar name: `WeightInfo`

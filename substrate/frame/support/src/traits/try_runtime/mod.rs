@@ -22,13 +22,13 @@ pub use decode_entire_state::{TryDecodeEntireStorage, TryDecodeEntireStorageErro
 
 use super::StorageInstance;
 
+use alloc::vec::Vec;
 use impl_trait_for_tuples::impl_for_tuples;
 use sp_arithmetic::traits::AtLeast32BitUnsigned;
 use sp_runtime::TryRuntimeError;
-use sp_std::prelude::*;
 
 /// Which state tests to execute.
-#[derive(codec::Encode, codec::Decode, Clone, scale_info::TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Clone, scale_info::TypeInfo, PartialEq)]
 pub enum Select {
 	/// None of them.
 	None,
@@ -40,6 +40,10 @@ pub enum Select {
 	///
 	/// Pallet names are obtained from [`super::PalletInfoAccess`].
 	Only(Vec<Vec<u8>>),
+	/// Run all pallets except those whose names match the given list.
+	///
+	/// Pallet names are obtained from [`super::PalletInfoAccess`].
+	AllExcept(Vec<Vec<u8>>),
 }
 
 impl Select {
@@ -55,15 +59,22 @@ impl Default for Select {
 	}
 }
 
-impl sp_std::fmt::Debug for Select {
-	fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
+impl core::fmt::Debug for Select {
+	fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
 		match self {
 			Select::RoundRobin(x) => write!(f, "RoundRobin({})", x),
 			Select::Only(x) => write!(
 				f,
 				"Only({:?})",
 				x.iter()
-					.map(|x| sp_std::str::from_utf8(x).unwrap_or("<invalid?>"))
+					.map(|x| alloc::str::from_utf8(x).unwrap_or("<invalid?>"))
+					.collect::<Vec<_>>(),
+			),
+			Select::AllExcept(x) => write!(
+				f,
+				"AllExcept({:?})",
+				x.iter()
+					.map(|x| alloc::str::from_utf8(x).unwrap_or("<invalid?>"))
 					.collect::<Vec<_>>(),
 			),
 			Select::All => write!(f, "All"),
@@ -73,29 +84,38 @@ impl sp_std::fmt::Debug for Select {
 }
 
 #[cfg(feature = "std")]
-impl sp_std::str::FromStr for Select {
+impl std::str::FromStr for Select {
 	type Err = &'static str;
 	fn from_str(s: &str) -> Result<Self, Self::Err> {
 		match s {
 			"all" | "All" => Ok(Select::All),
 			"none" | "None" => Ok(Select::None),
-			_ =>
+			_ => {
 				if s.starts_with("rr-") {
 					let count = s
 						.split_once('-')
 						.and_then(|(_, count)| count.parse::<u32>().ok())
 						.ok_or("failed to parse count")?;
 					Ok(Select::RoundRobin(count))
+				} else if s.starts_with("all-except-") {
+					let pallets = s
+						.strip_prefix("all-except-")
+						.ok_or("failed to parse all-except prefix")?
+						.split(',')
+						.map(|x| x.as_bytes().to_vec())
+						.collect::<Vec<_>>();
+					Ok(Select::AllExcept(pallets))
 				} else {
 					let pallets = s.split(',').map(|x| x.as_bytes().to_vec()).collect::<Vec<_>>();
 					Ok(Select::Only(pallets))
-				},
+				}
+			},
 		}
 	}
 }
 
 /// Select which checks should be run when trying a runtime upgrade upgrade.
-#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Clone, Debug, Copy, scale_info::TypeInfo, PartialEq)]
 pub enum UpgradeCheckSelect {
 	/// Run no checks.
 	None,
@@ -153,9 +173,7 @@ pub trait TryState<BlockNumber> {
 #[cfg_attr(all(not(feature = "tuples-96"), not(feature = "tuples-128")), impl_for_tuples(64))]
 #[cfg_attr(all(feature = "tuples-96", not(feature = "tuples-128")), impl_for_tuples(96))]
 #[cfg_attr(all(feature = "tuples-128"), impl_for_tuples(128))]
-impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber>
-	for Tuple
-{
+impl<BlockNumber: Clone + core::fmt::Debug + AtLeast32BitUnsigned> TryState<BlockNumber> for Tuple {
 	for_tuples!( where #( Tuple: crate::traits::PalletInfoAccess )* );
 	fn try_state(n: BlockNumber, targets: Select) -> Result<(), TryRuntimeError> {
 		match targets {
@@ -187,7 +205,7 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 						"Detected errors while executing `try_state` checks. See logs for more \
 						info."
 							.into(),
-					)
+					);
 				}
 
 				Ok(())
@@ -221,12 +239,69 @@ impl<BlockNumber: Clone + sp_std::fmt::Debug + AtLeast32BitUnsigned> TryState<Bl
 					} else {
 						log::warn!(
 							"Pallet {:?} not found",
-							sp_std::str::from_utf8(pallet_name).unwrap_or_default()
+							alloc::str::from_utf8(pallet_name).unwrap_or_default()
 						);
 					}
 				});
 
 				result
+			},
+			Select::AllExcept(ref excluded_pallet_names) => {
+				let try_state_fns: &[(
+					&'static str,
+					fn(BlockNumber, Select) -> Result<(), TryRuntimeError>,
+				)] = &[for_tuples!(
+					#( (<Tuple as crate::traits::PalletInfoAccess>::name(), Tuple::try_state) ),*
+				)];
+
+				excluded_pallet_names.iter().for_each(|excluded_name| {
+					if !try_state_fns.iter().any(|(name, _)| name.as_bytes() == excluded_name) {
+						log::warn!(
+							"Pallet {:?} not found while trying to filter it out in Select::AllExcept",
+							alloc::str::from_utf8(excluded_name).unwrap_or_default()
+						);
+					}
+				});
+
+				let try_state_fns: Vec<_> = try_state_fns
+					.iter()
+					.filter(|(name, _)| {
+						!excluded_pallet_names
+							.iter()
+							.any(|excluded_name| name.as_bytes() == excluded_name)
+					})
+					.collect();
+
+				let mut errors = Vec::<TryRuntimeError>::new();
+
+				try_state_fns.iter().for_each(|(name, try_state_fn)| {
+					if let Err(err) = try_state_fn(n.clone(), targets.clone()) {
+						errors.push(err);
+					}
+				});
+
+				if !errors.is_empty() {
+					log::error!(
+						target: "try-runtime",
+						"Detected errors while executing `try_state`:",
+					);
+
+					errors.iter().for_each(|err| {
+						log::error!(
+							target: "try-runtime",
+							"{:?}",
+							err
+						);
+					});
+
+					return Err(
+						"Detected errors while executing `try_state` checks. See logs for more \
+						info."
+							.into(),
+					);
+				}
+
+				Ok(())
 			},
 		}
 	}

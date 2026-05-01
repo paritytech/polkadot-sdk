@@ -1,0 +1,17 @@
+title: 'revive: Simplify the storage meter'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Historically, the collection of storage deposits was running in an infallible context. Meaning we needed to make sure that the caller was able to pay the deposits when the last contract execution returns. To achieve that, we capped the storage deposit limit to the maximum balance of the origin. This made the code more complex: It conflated the deposit **limit** with the amount of balance the origin has.
+
+     In the meantime, we changed code around to make the deposit collection fallible. But never changed this aspect.
+
+    This PR rectifies that by doing:
+    - The root storage meter and all its nested meter's limits are completely independent of the origin's balance. This makes it way easier to argue about the limit that a nested meter has at any point.
+    - Consistently use `StorageDepositNotEnoughFunds` (limit not reached) and `StorageDepositLimitExhausted` (limit reached).
+    - Origin not being able to pay the ed for a new account is now `StorageDepositNotEnoughFunds` and traps the caller rather then being a `TransferFailed` return code. Important since we are hiding the ed from contracts. So it should also not be an error code that must be handled.
+
+    Im preparation for: https://github.com/paritytech/contract-issues/issues/38
+crates:
+- name: pallet-revive
+  bump: patch

@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Introduce a Generic Proving Trie
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR introduces a Proving Trie object which can be used inside the runtime. This can allow
+      for things like airdrops where a single hash is stored on chain representing the whole airdrop
+      and individuals present a proof of their inclusion in the airdrop.
+
+crates:
+  - name: sp-runtime
+    bump: major

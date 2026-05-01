@@ -1,0 +1,15 @@
+title: Update `kvdb-rocksdb` to `v0.20.0`
+doc:
+- audience: Runtime Dev
+  description: Related to https://github.com/paritytech/parity-common/issues/932
+crates:
+- name: polkadot
+  bump: patch
+- name: sc-client-db
+  bump: minor
+- name: polkadot-overseer
+  bump: minor
+- name: polkadot-service
+  bump: minor
+- name: polkadot-node-core-pvf-prepare-worker
+  bump: minor

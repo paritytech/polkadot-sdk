@@ -1,0 +1,20 @@
+title: '[pallet-revive] do not trap the caller on instantiations with duplicate contracts'
+doc:
+- audience: Runtime Dev
+  description: |-
+    This PR changes the behavior of `instantiate` when the resulting contract address already exists (because the caller tried to instantiate the same contract with the same salt multiple times): Instead of trapping the caller, return an error code.
+
+    Solidity allows `catch`ing this, which doesn't work if we are trapping the caller. For example, the change makes the following snippet work:
+
+    ```Solidity
+    try new Foo{salt: hex"00"}() returns (Foo) {
+        // Instantiation was successful (contract address was free and constructor did not revert)
+    } catch {
+        // This branch is expected to be taken if the instantiation failed because of a duplicate salt
+    }
+    ```
+crates:
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-uapi
+  bump: major

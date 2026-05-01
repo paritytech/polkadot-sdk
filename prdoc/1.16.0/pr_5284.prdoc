@@ -1,0 +1,7 @@
+title: Minor clean up
+author: conr2d
+topic: runtime
+
+crates:
+  - name: sp-runtime
+    bump: none

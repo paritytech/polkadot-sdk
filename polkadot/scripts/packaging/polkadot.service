@@ -1,7 +1,7 @@
 [Unit]
 Description=Polkadot Node
 After=network.target
-Documentation=https://github.com/paritytech/polkadot
+Documentation=https://github.com/paritytech/polkadot-sdk
 
 [Service]
 EnvironmentFile=-/etc/default/polkadot

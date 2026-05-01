@@ -1,0 +1,13 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "rpc server: re-use server builder per rpc interface"
+
+doc:
+  - audience: Node Dev
+    description: |
+      This changes that the RPC server builder is re-used for each RPC interface which is more efficient than to build it for every connection.
+
+crates:
+  - name: sc-rpc-server
+    bump: patch

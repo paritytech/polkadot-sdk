@@ -98,8 +98,14 @@ pub mod fee {
 
 /// System Parachains.
 pub mod system_parachain {
-	use polkadot_primitives::Id;
+	use frame_support::parameter_types;
+	use polkadot_primitives::Id as ParaId;
 	use xcm_builder::IsChildSystemParachain;
+
+	parameter_types! {
+		pub AssetHubParaId: ParaId = ASSET_HUB_ID.into();
+		pub PeopleParaId: ParaId = PEOPLE_ID.into();
+	}
 
 	/// Network's Asset Hub parachain ID.
 	pub const ASSET_HUB_ID: u32 = 1000;
@@ -113,9 +119,43 @@ pub mod system_parachain {
 	pub const PEOPLE_ID: u32 = 1004;
 	/// Brokerage parachain ID.
 	pub const BROKER_ID: u32 = 1005;
+	/// AH-next - temporary AH clone.
+	pub const ASSET_HUB_NEXT_ID: u32 = 1100;
 
 	/// All system parachains of Westend.
-	pub type SystemParachains = IsChildSystemParachain<Id>;
+	pub type SystemParachains = IsChildSystemParachain<ParaId>;
+
+	/// DAP constants.
+	pub mod dap {
+		use frame_support::parameter_types;
+		use sp_runtime::traits::AccountIdConversion;
+		use xcm::latest::{InteriorLocation, Junction};
+
+		parameter_types! {
+			/// The interior location of the DAP staging account on AssetHub.
+			pub DapStagingLocation: InteriorLocation = Junction::AccountId32 {
+				network: None,
+				id: sp_dap::DAP_PALLET_ID
+				.into_sub_account_truncating(sp_dap::DAP_STAGING_ACCOUNT_ID),
+			}
+			.into();
+		}
+	}
+
+	/// Accumulate-and-forward constants.
+	pub mod accumulate_forward {
+		use frame_support::{parameter_types, PalletId};
+		use polkadot_primitives::{Balance, BlockNumber};
+
+		parameter_types! {
+			/// The pallet ID used to derive the accumulation account.
+			pub const AccumulateForwardPalletId: PalletId = PalletId(*b"acf/dott");
+			/// How often the accumulation account forwards to the destination.
+			pub const ForwardPeriod: BlockNumber = super::super::time::HOURS;
+			/// Minimum balance required to trigger a forward.
+			pub const MinForwardAmount: Balance = 10 * super::super::currency::UNITS;
+		}
+	}
 
 	/// Coretime constants
 	pub mod coretime {

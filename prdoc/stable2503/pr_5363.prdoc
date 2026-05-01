@@ -1,0 +1,14 @@
+title: "[pallet-xcm] waive transport fees based on XcmConfig"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      pallet-xcm::send() no longer implicitly waives transport fees for the local root location,
+      but instead relies on xcm_executor::Config::FeeManager to determine whether certain locations have free transport.
+
+      🚨 Warning: 🚨 If your chain relies on free transport for local root, please make
+      sure to add Location::here() to the waived-fee locations in your configured xcm_executor::Config::FeeManager.
+
+crates:
+  - name: pallet-xcm
+    bump: major

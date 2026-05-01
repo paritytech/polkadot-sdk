@@ -17,15 +17,18 @@
 use polkadot_node_subsystem::prometheus::Opts;
 use polkadot_node_subsystem_util::metrics::{
 	self,
-	prometheus::{self, GaugeVec, U64},
+	prometheus::{self, Gauge, GaugeVec, U64},
 };
 
 #[derive(Clone)]
 pub(crate) struct MetricsInner {
-	prune_view_candidate_storage: prometheus::Histogram,
-	introduce_seconded_candidate: prometheus::Histogram,
-	hypothetical_membership: prometheus::Histogram,
-	candidate_storage_count: prometheus::GaugeVec<U64>,
+	time_active_leaves_update: prometheus::Histogram,
+	time_introduce_seconded_candidate: prometheus::Histogram,
+	time_candidate_backed: prometheus::Histogram,
+	time_hypothetical_membership: prometheus::Histogram,
+	candidate_count: prometheus::GaugeVec<U64>,
+	active_leaves_count: prometheus::GaugeVec<U64>,
+	implicit_view_candidate_count: prometheus::Gauge<U64>,
 }
 
 /// Candidate backing metrics.
@@ -33,13 +36,11 @@ pub(crate) struct MetricsInner {
 pub struct Metrics(pub(crate) Option<MetricsInner>);
 
 impl Metrics {
-	/// Provide a timer for handling `prune_view_candidate_storage` which observes on drop.
-	pub fn time_prune_view_candidate_storage(
+	/// Provide a timer for handling `ActiveLeavesUpdate` which observes on drop.
+	pub fn time_handle_active_leaves_update(
 		&self,
 	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0
-			.as_ref()
-			.map(|metrics| metrics.prune_view_candidate_storage.start_timer())
+		self.0.as_ref().map(|metrics| metrics.time_active_leaves_update.start_timer())
 	}
 
 	/// Provide a timer for handling `IntroduceSecondedCandidate` which observes on drop.
@@ -48,31 +49,47 @@ impl Metrics {
 	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
 		self.0
 			.as_ref()
-			.map(|metrics| metrics.introduce_seconded_candidate.start_timer())
+			.map(|metrics| metrics.time_introduce_seconded_candidate.start_timer())
+	}
+
+	/// Provide a timer for handling `CandidateBacked` which observes on drop.
+	pub fn time_candidate_backed(&self) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
+		self.0.as_ref().map(|metrics| metrics.time_candidate_backed.start_timer())
 	}
 
 	/// Provide a timer for handling `GetHypotheticalMembership` which observes on drop.
 	pub fn time_hypothetical_membership_request(
 		&self,
 	) -> Option<metrics::prometheus::prometheus::HistogramTimer> {
-		self.0.as_ref().map(|metrics| metrics.hypothetical_membership.start_timer())
+		self.0
+			.as_ref()
+			.map(|metrics| metrics.time_hypothetical_membership.start_timer())
 	}
 
-	/// Record the size of the candidate storage. First param is the connected candidates count,
-	/// second param is the unconnected candidates count.
-	pub fn record_candidate_storage_size(&self, connected_count: u64, unconnected_count: u64) {
+	/// Record number of candidates across all fragment chains. First param is the connected
+	/// candidates count, second param is the unconnected candidates count.
+	pub fn record_candidate_count(&self, connected_count: u64, unconnected_count: u64) {
 		self.0.as_ref().map(|metrics| {
+			metrics.candidate_count.with_label_values(&["connected"]).set(connected_count);
 			metrics
-				.candidate_storage_count
-				.with_label_values(&["connected"])
-				.set(connected_count)
-		});
-
-		self.0.as_ref().map(|metrics| {
-			metrics
-				.candidate_storage_count
+				.candidate_count
 				.with_label_values(&["unconnected"])
-				.set(unconnected_count)
+				.set(unconnected_count);
+		});
+	}
+
+	/// Record the number of candidates present in the implicit view of the subsystem.
+	pub fn record_candidate_count_in_implicit_view(&self, count: u64) {
+		self.0.as_ref().map(|metrics| {
+			metrics.implicit_view_candidate_count.set(count);
+		});
+	}
+
+	/// Record the number of active/inactive leaves kept by the subsystem.
+	pub fn record_leaves_count(&self, active_count: u64, inactive_count: u64) {
+		self.0.as_ref().map(|metrics| {
+			metrics.active_leaves_count.with_label_values(&["active"]).set(active_count);
+			metrics.active_leaves_count.with_label_values(&["inactive"]).set(inactive_count);
 		});
 	}
 }
@@ -80,36 +97,60 @@ impl Metrics {
 impl metrics::Metrics for Metrics {
 	fn try_register(registry: &prometheus::Registry) -> Result<Self, prometheus::PrometheusError> {
 		let metrics = MetricsInner {
-			prune_view_candidate_storage: prometheus::register(
+			time_active_leaves_update: prometheus::register(
 				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					"polkadot_parachain_prospective_parachains_prune_view_candidate_storage",
-					"Time spent within `prospective_parachains::prune_view_candidate_storage`",
+					"polkadot_parachain_prospective_parachains_time_active_leaves_update",
+					"Time spent within `prospective_parachains::handle_active_leaves_update`",
 				))?,
 				registry,
 			)?,
-			introduce_seconded_candidate: prometheus::register(
+			time_introduce_seconded_candidate: prometheus::register(
 				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					"polkadot_parachain_prospective_parachains_introduce_seconded_candidate",
+					"polkadot_parachain_prospective_parachains_time_introduce_seconded_candidate",
 					"Time spent within `prospective_parachains::handle_introduce_seconded_candidate`",
 				))?,
 				registry,
 			)?,
-			hypothetical_membership: prometheus::register(
+			time_candidate_backed: prometheus::register(
 				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
-					"polkadot_parachain_prospective_parachains_hypothetical_membership",
+					"polkadot_parachain_prospective_parachains_time_candidate_backed",
+					"Time spent within `prospective_parachains::handle_candidate_backed`",
+				))?,
+				registry,
+			)?,
+			time_hypothetical_membership: prometheus::register(
+				prometheus::Histogram::with_opts(prometheus::HistogramOpts::new(
+					"polkadot_parachain_prospective_parachains_time_hypothetical_membership",
 					"Time spent responding to `GetHypotheticalMembership`",
 				))?,
 				registry,
 			)?,
-			candidate_storage_count: prometheus::register(
+			candidate_count: prometheus::register(
 				GaugeVec::new(
 					Opts::new(
-						"polkadot_parachain_prospective_parachains_candidate_storage_count",
-						"Number of candidates present in the candidate storage, split by connected and unconnected"
+						"polkadot_parachain_prospective_parachains_candidate_count",
+						"Number of candidates present across all fragment chains, split by connected and unconnected"
 					),
 					&["type"],
 				)?,
 				registry,
+			)?,
+			active_leaves_count: prometheus::register(
+				GaugeVec::new(
+					Opts::new(
+						"polkadot_parachain_prospective_parachains_active_leaves_count",
+						"Number of leaves kept by the subsystem, split by active/inactive"
+					),
+					&["type"],
+				)?,
+				registry,
+			)?,
+			implicit_view_candidate_count: prometheus::register(
+				Gauge::new(
+					"polkadot_parachain_prospective_parachains_implicit_view_candidate_count", 
+					"Number of candidates present in the implicit view"
+				)?,
+				registry
 			)?,
 		};
 		Ok(Metrics(Some(metrics)))

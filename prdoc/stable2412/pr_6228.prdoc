@@ -1,0 +1,50 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Transact without having to specify weight
+
+doc:
+  - audience: [Runtime User, Runtime Dev]
+    description: |
+      In XCMv5, it's no longer required to pass in the expected weight when using
+      `Transact`.
+      This was made to remove a whole class of bugs where the weight specified
+      was not enough.
+
+crates:
+  - name: staging-xcm
+    bump: major
+  - name: staging-xcm-executor
+    bump: major
+  - name: snowbridge-router-primitives
+    bump: minor
+  - name: emulated-integration-tests-common
+    bump: minor
+  - name: cumulus-ping
+    bump: minor
+  - name: asset-hub-westend-runtime
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: minor
+  - name: parachains-runtimes-test-utils
+    bump: minor
+  - name: bridge-hub-westend-runtime
+    bump: minor
+  - name: bridge-hub-rococo-runtime
+    bump: minor
+  - name: coretime-rococo-runtime
+    bump: minor
+  - name: coretime-westend-runtime
+    bump: minor
+  - name: people-westend-runtime
+    bump: minor
+  - name: people-rococo-runtime
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: westend-runtime
+    bump: minor
+  - name: pallet-xcm-benchmarks
+    bump: minor
+  - name: xcm-simulator-example
+    bump: minor

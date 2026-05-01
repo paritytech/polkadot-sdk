@@ -1,0 +1,10 @@
+title: "Expose rpc_rate_limit* cli options to parachains"
+
+doc:
+  - audience: Node Operator
+    description: |
+     Expose rpc_rate_limit* cli options to parachains
+
+crates:
+  - name: cumulus-client-cli
+    bump: patch

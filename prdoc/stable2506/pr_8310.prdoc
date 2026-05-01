@@ -1,0 +1,19 @@
+title: 'staking-async: add missing new_session_genesis'
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Fix issue #8302 as introduced by #8127 where the staking-async module could fail during genesis.
+      The issue was related to the staking-async module in the Polkadot SDK, specifically with the implementation of the `historical::SessionManager`
+      trait in the `ah-client` pallet with missing implementations of the new_session_genesis method in two different places:
+      - In the pallet_session::SessionManager<T::AccountId> implementation
+      - In the historical::SessionManager<T::AccountId, sp_staking::Exposure<T::AccountId, BalanceOf<T>>>
+      implementation
+
+      Note: the SessionManager trait requires the implementation of new_session_genesis for proper functioning, especially during chain initialization.
+      The pallet-staking-async/ah-client has different operating modes:
+      - Passive: Delegates operations to a fallback implementation
+      - Buffered: Buffers operations for later processing
+      - Active: Performs operations directly
+crates:
+- name: pallet-staking-async-ah-client
+  bump: patch

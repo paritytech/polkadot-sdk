@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! The Westend Technical Fellowship.
 
@@ -20,10 +20,9 @@ mod origins;
 mod tracks;
 use crate::{
 	weights,
-	xcm_config::{FellowshipAdminBodyId, LocationToAccountId, TreasurerBodyId, UsdtAssetHub},
+	xcm_config::{FellowshipAdminBodyId, TreasurerBodyId, UsdtAssetHub},
 	AccountId, AssetRate, Balance, Balances, FellowshipReferenda, GovernanceLocation,
-	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler,
-	WestendTreasuryAccount, DAYS,
+	ParachainInfo, Preimage, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, Scheduler, DAYS,
 };
 use cumulus_primitives_core::ParaId;
 use frame_support::{
@@ -41,14 +40,13 @@ pub use origins::{
 };
 use pallet_ranked_collective::EnsureOfRank;
 use pallet_xcm::{EnsureXcm, IsVoiceOfBody};
-use parachains_common::impls::ToParentTreasury;
 use polkadot_runtime_common::impls::{
 	ContainsParts, LocatableAssetConverter, VersionedLocatableAsset, VersionedLocationConverter,
 };
 use sp_arithmetic::Permill;
 use sp_core::{ConstU128, ConstU32, ConstU8};
 use sp_runtime::traits::{ConstU16, ConvertToValue, IdentityLookup, Replace, TakeFirst};
-use testnet_parachains_constants::westend::{account, currency::GRAND};
+use testnet_parachains_constants::westend::currency::GRAND;
 use westend_runtime_constants::time::HOURS;
 use xcm::prelude::*;
 use xcm_builder::{AliasesIntoAccountId32, PayOverXcm};
@@ -97,7 +95,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	>;
 	type CancelOrigin = Architects;
 	type KillOrigin = Masters;
-	type Slash = ToParentTreasury<WestendTreasuryAccount, LocationToAccountId, Runtime>;
+	type Slash = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 	type Votes = pallet_ranked_collective::Votes;
 	type Tally = pallet_ranked_collective::TallyOf<Runtime, FellowshipCollectiveInstance>;
 	type SubmissionDeposit = ConstU128<0>;
@@ -106,6 +104,7 @@ impl pallet_referenda::Config<FellowshipReferendaInstance> for Runtime {
 	type AlarmInterval = ConstU32<1>;
 	type Tracks = tracks::TracksInfo;
 	type Preimages = Preimage;
+	type BlockNumberProvider = crate::System;
 }
 
 pub type FellowshipCollectiveInstance = pallet_ranked_collective::Instance1;
@@ -210,7 +209,7 @@ impl pallet_core_fellowship::Config<FellowshipCoreInstance> for Runtime {
 	>;
 	type FastPromoteOrigin = Self::PromoteOrigin;
 	type EvidenceSize = ConstU32<65536>;
-	type MaxRank = ConstU32<9>;
+	type MaxRank = ConstU16<9>;
 }
 
 pub type FellowshipSalaryInstance = pallet_salary::Instance1;
@@ -226,7 +225,7 @@ const USDT_UNITS: u128 = 1_000_000;
 /// [`PayOverXcm`] setup to pay the Fellowship salary on the AssetHub in USDT.
 pub type FellowshipSalaryPaymaster = PayOverXcm<
 	Interior,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	AccountId,
@@ -260,7 +259,8 @@ impl pallet_salary::Config<FellowshipSalaryInstance> for Runtime {
 }
 
 parameter_types! {
-	pub const FellowshipTreasuryPalletId: PalletId = account::FELLOWSHIP_TREASURY_PALLET_ID;
+	pub const FellowshipTreasuryPalletId: PalletId =
+		testnet_parachains_constants::westend::account::FELLOWSHIP_TREASURY_PALLET_ID;
 	pub const HundredPercent: Permill = Permill::from_percent(100);
 	pub const Burn: Permill = Permill::from_percent(0);
 	pub const MaxBalance: Balance = Balance::max_value();
@@ -273,7 +273,7 @@ parameter_types! {
 /// [`PayOverXcm`] setup to pay the Fellowship Treasury.
 pub type FellowshipTreasuryPaymaster = PayOverXcm<
 	FellowshipTreasuryInteriorLocation,
-	crate::xcm_config::XcmRouter,
+	crate::xcm_config::XcmConfig,
 	crate::PolkadotXcm,
 	ConstU32<{ 6 * HOURS }>,
 	VersionedLocation,
@@ -295,6 +295,11 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type SpendPeriod = ConstU32<{ 7 * DAYS }>;
 	type Burn = Burn;
+	// NOTE: Treasury burn is currently disabled (`Burn = 0`). If ever enabled, wire
+	// `BurnDestination` to `pallet_accumulate_and_forward::LegacyAdapter` so burned funds
+	// flow to the accumulation account instead of being destroyed. Note: `Pallet<T>` only
+	// implements `OnUnbalanced<Credit>`; use `LegacyAdapter` for the legacy `NegativeImbalance`
+	// path.
 	type BurnDestination = ();
 	type SpendFunds = ();
 	type MaxApprovals = ConstU32<100>;
@@ -333,4 +338,5 @@ impl pallet_treasury::Config<FellowshipTreasuryInstance> for Runtime {
 		sp_core::ConstU8<1>,
 		ConstU32<1000>,
 	>;
+	type BlockNumberProvider = crate::System;
 }

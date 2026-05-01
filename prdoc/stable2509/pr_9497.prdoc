@@ -1,0 +1,12 @@
+title: 'Society pallet supports non-consecutive block provider'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Society pallet correctly handles situations where on_initialize is invoked with block numbers that:
+    - increase but are not strictly consecutive (e.g., jump from 5 → 10), or
+    - are repeated (e.g., multiple blocks are built at the same Relay Chain parent block, all reporting the same BlockNumberProvider value).
+    This situation may occur when the BlockNumberProvider is not local - for example, on a parachain using the Relay Chain block number provider.
+
+crates:
+- name: pallet-society
+  bump: major

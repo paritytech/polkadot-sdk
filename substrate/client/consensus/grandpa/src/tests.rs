@@ -906,7 +906,7 @@ async fn allows_reimporting_change_blocks() {
 	let mut net = GrandpaTestNet::new(api.clone(), 3, 0);
 
 	let client = net.peer(0).client().clone();
-	let (mut block_import, ..) = net.make_block_import(client.clone());
+	let (block_import, ..) = net.make_block_import(client.clone());
 
 	let full_client = client.as_client();
 	let mut builder = BlockBuilderBuilder::new(&*full_client)
@@ -954,7 +954,7 @@ async fn test_bad_justification() {
 	let mut net = GrandpaTestNet::new(api.clone(), 3, 0);
 
 	let client = net.peer(0).client().clone();
-	let (mut block_import, ..) = net.make_block_import(client.clone());
+	let (block_import, ..) = net.make_block_import(client.clone());
 
 	let full_client = client.as_client();
 	let mut builder = BlockBuilderBuilder::new(&*full_client)
@@ -1820,6 +1820,116 @@ async fn grandpa_environment_checks_if_best_block_is_descendent_of_finality_targ
 	);
 }
 
+// This is a regression test for an issue that was triggered by a reorg
+// - https://github.com/paritytech/polkadot-sdk/issues/3487
+// - https://github.com/humanode-network/humanode/issues/1104
+#[tokio::test]
+async fn grandpa_environment_uses_round_base_block_for_voting_if_finality_target_errors() {
+	use finality_grandpa::voter::Environment;
+	use sp_consensus::SelectChain;
+
+	let peers = &[Ed25519Keyring::Alice];
+	let voters = make_ids(peers);
+
+	let mut net = GrandpaTestNet::new(TestApi::new(voters), 1, 0);
+	let peer = net.peer(0);
+	let network_service = peer.network_service().clone();
+	let sync_service = peer.sync_service().clone();
+	let notification_service =
+		peer.take_notification_service(&grandpa_protocol_name::NAME.into()).unwrap();
+	let link = peer.data.lock().take().unwrap();
+	let client = peer.client().as_client().clone();
+	let select_chain = sc_consensus::LongestChain::new(peer.client().as_backend());
+
+	// create a chain that is 10 blocks long
+	peer.push_blocks(10, false);
+
+	let env = test_environment_with_select_chain(
+		&link,
+		None,
+		network_service.clone(),
+		sync_service,
+		notification_service,
+		select_chain.clone(),
+		VotingRulesBuilder::default().build(),
+	);
+
+	let hashof7 = client.expect_block_hash_from_id(&BlockId::Number(7)).unwrap();
+	let hashof8_a = client.expect_block_hash_from_id(&BlockId::Number(8)).unwrap();
+
+	// finalize the 7th block
+	peer.client().finalize_block(hashof7, None, false).unwrap();
+
+	assert_eq!(peer.client().info().finalized_hash, hashof7);
+
+	// simulate completed grandpa round
+	env.completed(
+		1,
+		finality_grandpa::round::State {
+			prevote_ghost: Some((hashof8_a, 8)),
+			finalized: Some((hashof7, 7)),
+			estimate: Some((hashof8_a, 8)),
+			completable: true,
+		},
+		Default::default(),
+		&finality_grandpa::HistoricalVotes::new(),
+	)
+	.unwrap();
+
+	// check simulated last completed round
+	assert_eq!(
+		env.voter_set_state.read().last_completed_round().state,
+		finality_grandpa::round::State {
+			prevote_ghost: Some((hashof8_a, 8)),
+			finalized: Some((hashof7, 7)),
+			estimate: Some((hashof8_a, 8)),
+			completable: true
+		}
+	);
+
+	// `hashof8_a` should be finalized next, `best_chain_containing` should return `hashof8_a`
+	assert_eq!(env.best_chain_containing(hashof8_a).await.unwrap().unwrap().0, hashof8_a);
+
+	// simulate reorg on block 8 by creating a fork starting at block 7 that is 10 blocks long
+	peer.generate_blocks_at(
+		BlockId::Number(7),
+		10,
+		BlockOrigin::File,
+		|mut builder| {
+			builder.push_deposit_log_digest_item(DigestItem::Other(vec![1])).unwrap();
+			builder.build().unwrap().block
+		},
+		false,
+		false,
+		true,
+		ForkChoiceStrategy::LongestChain,
+	);
+
+	// check that new best chain is on longest chain
+	assert_eq!(env.select_chain.best_chain().await.unwrap().number, 17);
+
+	// verify that last completed round has `prevote_ghost` and `estimate` blocks related to
+	// `hashof8_a`
+	assert_eq!(
+		env.voter_set_state.read().last_completed_round().state,
+		finality_grandpa::round::State {
+			prevote_ghost: Some((hashof8_a, 8)),
+			finalized: Some((hashof7, 7)),
+			estimate: Some((hashof8_a, 8)),
+			completable: true
+		}
+	);
+
+	// `hashof8_a` should be finalized next, `best_chain_containing` should still return `hashof8_a`
+	assert_eq!(env.best_chain_containing(hashof8_a).await.unwrap().unwrap().0, hashof8_a);
+
+	// simulate finalization of the `hashof8_a` block
+	peer.client().finalize_block(hashof8_a, None, false).unwrap();
+
+	// check that best chain is reorged back
+	assert_eq!(env.select_chain.best_chain().await.unwrap().number, 10);
+}
+
 #[tokio::test]
 async fn grandpa_environment_never_overwrites_round_voter_state() {
 	use finality_grandpa::voter::Environment;
@@ -1973,7 +2083,7 @@ async fn imports_justification_for_regular_blocks_on_import() {
 	let mut net = GrandpaTestNet::new(api.clone(), 1, 0);
 
 	let client = net.peer(0).client().clone();
-	let (mut block_import, ..) = net.make_block_import(client.clone());
+	let (block_import, ..) = net.make_block_import(client.clone());
 	let full_client = client.as_client();
 
 	// create a new block (without importing it)
@@ -2012,7 +2122,7 @@ async fn imports_justification_for_regular_blocks_on_import() {
 		GrandpaJustification::from_commit(&full_client, round, commit).unwrap()
 	};
 
-	let mut generate_and_import_block_with_justification = |parent| {
+	let generate_and_import_block_with_justification = |parent| {
 		// we import the block with justification attached
 		let block = generate_block(parent);
 		let block_hash = block.hash();
@@ -2240,4 +2350,83 @@ async fn revert_prunes_authority_changes() {
 		.map(|(_, n, _)| *n)
 		.collect();
 	assert_eq!(changes_num, [21, 27]);
+}
+
+#[tokio::test]
+async fn observer_finalizes_through_authority_set_change() {
+	sp_tracing::try_init_simple();
+	let peers_a = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+	let peers_b = &[Ed25519Keyring::Alice, Ed25519Keyring::Bob, Ed25519Keyring::Charlie];
+
+	let mut net = GrandpaTestNet::new(TestApi::new(make_ids(peers_a)), 3, 0);
+	let voters = initialize_grandpa(&mut net, peers_a);
+
+	// Add observer peer without justification import so it can only finalize
+	// via gossiped commit messages, not via justification sync.
+	net.add_full_peer_with_config(FullPeerConfig {
+		notifications_protocols: vec![grandpa_protocol_name::NAME.into()],
+		disable_justification_import: true,
+		..Default::default()
+	});
+
+	// Set up peer #3 as a light observer (no keystore, cannot vote).
+	let notification_service = net.peers[3]
+		.take_notification_service(&grandpa_protocol_name::NAME.into())
+		.unwrap();
+	let observer = observer::run_grandpa_observer(
+		Config {
+			gossip_duration: TEST_GOSSIP_DURATION,
+			justification_generation_period: 32,
+			keystore: None,
+			name: Some("observer".to_string()),
+			local_role: Role::Full,
+			observer_enabled: true,
+			telemetry: None,
+			protocol_name: grandpa_protocol_name::NAME.into(),
+		},
+		net.peers[3].data.lock().take().expect("link initialized at startup; qed"),
+		net.peers[3].network_service().clone(),
+		net.peers[3].sync_service().clone(),
+		notification_service,
+	)
+	.unwrap();
+
+	// Push blocks 1-14.
+	net.peer(0).push_blocks(14, false);
+	// Block 15: schedule authority set change with delay=4 (enacted at block 20).
+	net.peer(0).generate_blocks(1, BlockOrigin::File, |mut builder| {
+		add_scheduled_change(
+			&mut builder,
+			ScheduledChange { next_authorities: make_ids(peers_b), delay: 4 },
+		);
+		builder.build().unwrap().block
+	});
+	// Push blocks 16-30.
+	net.peer(0).push_blocks(15, false);
+	net.run_until_sync().await;
+
+	for i in 0..4 {
+		assert_eq!(net.peer(i).client().info().best_number, 30, "Peer #{} failed to sync", i);
+	}
+
+	let net = Arc::new(Mutex::new(net));
+
+	tokio::spawn(voters);
+	tokio::spawn(observer);
+
+	// Wait for all 4 peers (including the observer) to finalize block 30.
+	// If the commit for the authority-change block is not gossiped, the observer will
+	// get stuck and this will time out.
+	let mut finality_notifications = Vec::new();
+	for peer_id in 0..4 {
+		let client = net.lock().peers[peer_id].client().clone();
+		finality_notifications.push(
+			client
+				.finality_notification_stream()
+				.take_while(|n| future::ready(n.header.number() < &30))
+				.for_each(move |_| future::ready(())),
+		);
+	}
+	let wait_for = futures::future::join_all(finality_notifications);
+	run_until_complete(wait_for, &net).await;
 }

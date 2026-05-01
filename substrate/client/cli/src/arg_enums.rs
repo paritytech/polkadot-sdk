@@ -79,14 +79,18 @@ pub fn execution_method_from_cli(
 
 	sc_service::config::WasmExecutionMethod::Compiled {
 		instantiation_strategy: match instantiation_strategy {
-			WasmtimeInstantiationStrategy::PoolingCopyOnWrite =>
-				sc_service::config::WasmtimeInstantiationStrategy::PoolingCopyOnWrite,
-			WasmtimeInstantiationStrategy::RecreateInstanceCopyOnWrite =>
-				sc_service::config::WasmtimeInstantiationStrategy::RecreateInstanceCopyOnWrite,
-			WasmtimeInstantiationStrategy::Pooling =>
-				sc_service::config::WasmtimeInstantiationStrategy::Pooling,
-			WasmtimeInstantiationStrategy::RecreateInstance =>
-				sc_service::config::WasmtimeInstantiationStrategy::RecreateInstance,
+			WasmtimeInstantiationStrategy::PoolingCopyOnWrite => {
+				sc_service::config::WasmtimeInstantiationStrategy::PoolingCopyOnWrite
+			},
+			WasmtimeInstantiationStrategy::RecreateInstanceCopyOnWrite => {
+				sc_service::config::WasmtimeInstantiationStrategy::RecreateInstanceCopyOnWrite
+			},
+			WasmtimeInstantiationStrategy::Pooling => {
+				sc_service::config::WasmtimeInstantiationStrategy::Pooling
+			},
+			WasmtimeInstantiationStrategy::RecreateInstance => {
+				sc_service::config::WasmtimeInstantiationStrategy::RecreateInstance
+			},
 		},
 	}
 }
@@ -168,6 +172,19 @@ pub enum RpcMethods {
 	Unsafe,
 }
 
+impl FromStr for RpcMethods {
+	type Err = String;
+
+	fn from_str(s: &str) -> Result<Self, Self::Err> {
+		match s {
+			"safe" => Ok(RpcMethods::Safe),
+			"unsafe" => Ok(RpcMethods::Unsafe),
+			"auto" => Ok(RpcMethods::Auto),
+			invalid => Err(format!("Invalid rpc methods {invalid}")),
+		}
+	}
+}
+
 impl Into<sc_service::config::RpcMethods> for RpcMethods {
 	fn into(self) -> sc_service::config::RpcMethods {
 		match self {
@@ -208,7 +225,7 @@ impl FromStr for Cors {
 			match part {
 				"all" | "*" => {
 					is_all = true;
-					break
+					break;
 				},
 				other => origins.push(other.to_owned()),
 			}
@@ -277,6 +294,9 @@ pub enum SyncMode {
 	/// Download blocks without executing them. Download latest state without proofs.
 	FastUnsafe,
 	/// Prove finality and download the latest state.
+	/// After warp sync completes, the node will have block headers but not bodies for historical
+	/// blocks (unless `blocks-pruning` is set to archive mode). This saves bandwidth while still
+	/// allowing the node to serve as a warp sync source for other nodes.
 	Warp,
 }
 

@@ -1,0 +1,54 @@
+name: Upload to s3
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: Package to be built, for now is either polkadot or polkadot-parachain-bin
+        required: true
+        type: string
+
+      release_tag:
+        description: Tag matching the actual release candidate with the format polkadot-stableYYMM(-X)-rcX or polkadot-stableYYMM-rcX
+        required: true
+        type: string
+
+      target:
+        description: Target triple for which the artifacts are being uploaded (e.g aarch64-apple-darwin)
+        required: true
+        type: string
+
+jobs:
+  upload-artifacts-to-s3:
+      runs-on: ubuntu-latest
+      environment: release
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_RELEASE_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_RELEASE_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      steps:
+        - name: Checkout
+          uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+        - name: Download amd64 artifacts
+          uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+          with:
+            name: ${{ inputs.package }}_${{ inputs.target }}
+            path: release-artifacts/${{ inputs.target }}/${{ inputs.package }}
+
+        - name: Configure AWS Credentials
+          uses: aws-actions/configure-aws-credentials@ec61189d14ec14c8efccab744f656cffd0e33f37 # v6.1.0
+          with:
+            aws-access-key-id: ${{ env.AWS_ACCESS_KEY_ID }}
+            aws-secret-access-key: ${{ env.AWS_SECRET_ACCESS_KEY }}
+            aws-region: ${{ env.AWS_REGION }}
+
+        - name: Upload ${{ inputs.package }} artifacts to s3
+          env:
+            PACKAGE: ${{ inputs.package }}
+            RELEASE_TAG: ${{ inputs.release_tag }}
+            TARGET: ${{ inputs.target }}
+          run: |
+            . ./.github/scripts/release/release_lib.sh
+            upload_s3_release "$PACKAGE" "$RELEASE_TAG" "$TARGET"

@@ -1,4 +1,5 @@
-// Copyright Parity Technologies (UK) Ltd.
+// Copyright (C) Parity Technologies (UK) Ltd.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 // This file is part of Polkadot.
 
 // Polkadot is free software: you can redistribute it and/or modify
@@ -16,7 +17,7 @@
 
 //! # Runtime
 
-use frame::{deps::frame_system, prelude::*, runtime::prelude::*, traits::IdentityLookup};
+use frame::{deps::frame_system, runtime::prelude::*, traits::IdentityLookup};
 use xcm_executor::XcmExecutor;
 use xcm_simulator::mock_message_queue;
 

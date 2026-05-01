@@ -1,0 +1,14 @@
+title: Remove the deprecated `CheckInherents` logic
+doc:
+- audience: Runtime Dev
+  description: |-
+    This removes the `CheckInherents` logic from `register_validate_block`, instead the `ConsensusHook` should be used to verify certain data.
+
+    Besides that it also changes the how `validate_block` verifies the `ValidationData` passed by the collator. Instead of extracting the `ValidationData` before executing the block, the validation data is now checked as part of the pallet logic.
+crates:
+- name: cumulus-pallet-aura-ext
+  bump: major
+- name: cumulus-pallet-parachain-system-proc-macro
+  bump: major
+- name: cumulus-pallet-parachain-system
+  bump: major

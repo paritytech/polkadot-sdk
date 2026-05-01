@@ -1,9 +1,9 @@
 # Polkadot
 
-Implementation of a <https://polkadot.network> node in Rust based on the Substrate framework.
+Implementation of a <https://polkadot.com> node in Rust based on the Substrate framework.
 
 The README provides information about installing the `polkadot` binary and developing on the codebase. For more specific
-guides, like how to run a validator node, see the [Polkadot Wiki](https://wiki.polkadot.network/docs/getting-started).
+guides, like how to run a validator node, see the [Polkadot SDK docs website](https://docs.polkadot.com/).
 
 ## Installation
 
@@ -22,8 +22,8 @@ commands as the `root` user.
 
 ```bash
 # Import the security@parity.io GPG key
-gpg --recv-keys --keyserver hkps://keys.mailvelope.com 9D4B2B6EB8F97156D19669A9FF0812D491B96798
-gpg --export 9D4B2B6EB8F97156D19669A9FF0812D491B96798 > /usr/share/keyrings/parity.gpg
+gpg --recv-keys --keyserver hkps://keyserver.ubuntu.com 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE
+gpg --export 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE > /usr/share/keyrings/parity.gpg
 # Add the Parity repository and update the package index
 echo 'deb [signed-by=/usr/share/keyrings/parity.gpg] https://releases.parity.io/deb release main' > /etc/apt/sources.list.d/parity.list
 apt update
@@ -35,7 +35,22 @@ apt install polkadot
 
 ```
 
-Installation from the Debian repository will create a `systemd` service that can be used to run a
+### RPM-based
+Currently supports Rocky Linux 10 and Alma Linux 10, and derivatives.
+
+```bash
+# Install dnf-plugins-core (This might already be installed)
+dnf install dnf-plugins-core
+# Add the repository and enable it
+dnf config-manager --add-repo https://releases.parity.io/rpm/polkadot.repo
+dnf config-manager --set-enabled polkadot
+# Install polkadot (You may have to confirm the import of the GPG key, which
+# should have the following fingerprint: 90BD75EBBB8E95CB3DA6078F94A4029AB4B35DAE)
+dnf install polkadot
+
+```
+
+Installation from Debian or RPM repository will create a `systemd` service that can be used to run a
 Polkadot node. This is disabled by default, and can be started by running `systemctl start polkadot`
 on demand (use `systemctl enable polkadot` to make it auto-start after reboot). By default, it will
 run as the `polkadot` user.  Command-line flags passed to the binary can be customized by editing
@@ -103,9 +118,8 @@ Connect to the global Polkadot Mainnet network by running:
 ../target/release/polkadot --chain=polkadot
 ```
 
-You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
-
-[telemetry](https://telemetry.polkadot.io/#list/Polkadot): https://telemetry.polkadot.io/#list/Polkadot
+You can see your node on [Polkadot telemetry](https://telemetry.polkadot.io/#list/0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3)
+(set a custom name with `--name "my custom name"`).
 
 ### Connect to the "Kusama" Canary Network
 
@@ -115,9 +129,8 @@ Connect to the global Kusama canary network by running:
 ../target/release/polkadot --chain=kusama
 ```
 
-You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
-
-[telemetry](https://telemetry.polkadot.io/#list/Kusama): https://telemetry.polkadot.io/#list/Kusama
+You can see your node on [Kusama telemetry](https://telemetry.polkadot.io/#list/0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe)
+(set a custom name with `--name "my custom name"`).
 
 ### Connect to the Westend Testnet
 
@@ -127,9 +140,8 @@ Connect to the global Westend testnet by running:
 ../target/release/polkadot --chain=westend
 ```
 
-You can see your node on [telemetry] (set a custom name with `--name "my custom name"`).
-
-[telemetry](https://telemetry.polkadot.io/#list/Westend): https://telemetry.polkadot.io/#list/Westend
+You can see your node on [Westend telemetry](https://telemetry.polkadot.io/#list/0xe143f23803ac50e8f6f8e62695d1ce9e4e1d68aa36c1cd2cfd15340213f3423e)
+(set a custom name with `--name "my custom name"`).
 
 ### Obtaining DOTs
 
@@ -147,7 +159,7 @@ Then, grab the Polkadot source code:
 
 ```bash
 git clone https://github.com/paritytech/polkadot-sdk.git
-cd polkadot
+cd polkadot-sdk
 ```
 
 Then build the code. You will need to build in release mode (`--release`) to start a network. Only
@@ -174,7 +186,7 @@ cargo run --bin polkadot -- --dev
 Detailed logs may be shown by running the node with the following environment variables set:
 
 ```bash
-RUST_LOG=debug RUST_BACKTRACE=1 cargo run --bin polkadot -- --dev
+RUST_LOG=debug RUST_BACKTRACE=1 cargo run --bin polkadot -- --dev
 ```
 
 ### Development
@@ -185,7 +197,7 @@ You can run a simple single-node development "network" on your machine by runnin
 cargo run --bin polkadot --release -- --dev
 ```
 
-You can muck around by heading to <https://polkadot.js.org/apps> and choose "Local Node" from the
+You can muck around by heading to <https://polkadot.js.org/apps> and choosing "Local Node" from the
 Settings menu.
 
 ### Local Two-node Testnet
@@ -207,18 +219,18 @@ Ensure you replace `ALICE_BOOTNODE_ID_HERE` with the node ID from the output of 
 
 ### Monitoring
 
-[Setup Prometheus and Grafana](https://wiki.polkadot.network/docs/maintain-guides-how-to-monitor-your-node).
+[Setup Prometheus and Grafana](https://docs.polkadot.com/infrastructure/running-a-validator/operational-tasks/general-management/#monitor-your-node).
 
 Once you set this up you can take a look at the [Polkadot Grafana dashboards](grafana/README.md)
 that we currently maintain.
 
 ### Using Docker
 
-[Using Docker](../docs/contributor/docker.md)
+[Using Docker](https://github.com/paritytech/polkadot-sdk/blob/master/docs/contributor/docker.md)
 
 ### Shell Completion
 
-[Shell Completion](doc/shell-completion.md)
+[Shell Completion](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/doc/shell-completion.md)
 
 ## Contributing
 
@@ -232,4 +244,4 @@ that we currently maintain.
 
 ## License
 
-Polkadot is [GPL 3.0 licensed](LICENSE).
+Polkadot is [GPL 3.0 licensed](https://github.com/paritytech/polkadot-sdk/blob/master/polkadot/LICENSE).

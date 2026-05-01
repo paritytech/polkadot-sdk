@@ -8,9 +8,9 @@ edition = "2021"
 
 # All paths or versions are injected dynamically by the build script.
 [dependencies]
-uapi = { package = 'pallet-contracts-uapi', path = "", default-features = false }
 common = { package = 'pallet-contracts-fixtures-common', path = "" }
 polkavm-derive = { version = "" }
+uapi = { package = 'pallet-contracts-uapi', path = "", default-features = false }
 
 [profile.release]
 opt-level = 3

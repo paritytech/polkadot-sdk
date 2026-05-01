@@ -27,10 +27,9 @@ pub mod extrinsic;
 pub mod genesismap;
 pub mod substrate_test_pallet;
 
-use alloc::boxed::Box;
 #[cfg(not(feature = "std"))]
 use alloc::{vec, vec::Vec};
-use codec::{Decode, Encode};
+use codec::{Decode, DecodeWithMemTracking, Encode};
 use frame_support::{
 	construct_runtime, derive_impl,
 	dispatch::DispatchClass,
@@ -47,11 +46,13 @@ use frame_system::{
 	CheckNonce, CheckWeight,
 };
 use scale_info::TypeInfo;
-use sp_application_crypto::Ss58Codec;
-use sp_keyring::AccountKeyring;
+use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic, Ss58Codec};
+use sp_keyring::Sr25519Keyring;
 
-use sp_application_crypto::{ecdsa, ed25519, sr25519, RuntimeAppPublic};
-use sp_core::{OpaqueMetadata, RuntimeDebug};
+#[cfg(feature = "bls-experimental")]
+use sp_application_crypto::{bls381, ecdsa_bls381};
+
+use sp_core::OpaqueMetadata;
 use sp_trie::{
 	trie_types::{TrieDBBuilder, TrieDBMutBuilderV1},
 	PrefixedMemoryDB, StorageProof,
@@ -64,9 +65,11 @@ pub use sp_core::hash::H256;
 use sp_genesis_builder::PresetId;
 use sp_inherents::{CheckInherentsResult, InherentData};
 use sp_runtime::{
-	create_runtime_str, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, NumberFor, Verify},
-	transaction_validity::{TransactionSource, TransactionValidity, TransactionValidityError},
+	impl_opaque_keys, impl_tx_ext_default,
+	traits::{BlakeTwo256, Block as BlockT, DispatchInfoOf, Dispatchable, NumberFor, Verify},
+	transaction_validity::{
+		TransactionSource, TransactionValidity, TransactionValidityError, ValidTransaction,
+	},
 	ApplyExtrinsicResult, ExtrinsicInclusionMode, Perbill,
 };
 #[cfg(any(feature = "std", test))]
@@ -76,6 +79,7 @@ use sp_version::RuntimeVersion;
 pub use sp_consensus_babe::{AllowedSlots, BabeEpochConfiguration, Slot};
 
 pub use pallet_balances::Call as BalancesCall;
+pub use pallet_utility::Call as UtilityCall;
 
 pub type AuraId = sp_consensus_aura::sr25519::AuthorityId;
 #[cfg(feature = "std")]
@@ -113,14 +117,14 @@ pub fn wasm_binary_logging_disabled_unwrap() -> &'static [u8] {
 /// Test runtime version.
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("test"),
-	impl_name: create_runtime_str!("parity-test"),
+	spec_name: alloc::borrow::Cow::Borrowed("test"),
+	impl_name: alloc::borrow::Cow::Borrowed("parity-test"),
 	authoring_version: 1,
 	spec_version: 2,
 	impl_version: 2,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 fn version() -> RuntimeVersion {
@@ -134,7 +138,7 @@ pub fn native_version() -> NativeVersion {
 }
 
 /// Transfer data extracted from Extrinsic containing `Balances::transfer_allow_death`.
-#[derive(Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct TransferData {
 	pub from: AccountId,
 	pub to: AccountId,
@@ -148,18 +152,19 @@ pub type Signature = sr25519::Signature;
 #[cfg(feature = "std")]
 pub type Pair = sp_core::sr25519::Pair;
 
-/// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
-	CheckNonce<Runtime>,
-	CheckWeight<Runtime>,
+// TODO: Remove after the Checks are migrated to TxExtension.
+/// The extension to the basic transaction logic.
+pub type TxExtension = (
+	(CheckNonce<Runtime>, CheckWeight<Runtime>),
 	CheckSubstrateCall,
 	frame_metadata_hash_extension::CheckMetadataHash<Runtime>,
+	frame_system::WeightReclaim<Runtime>,
 );
 /// The payload being signed in transactions.
-pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, SignedExtra>;
+pub type SignedPayload = sp_runtime::generic::SignedPayload<RuntimeCall, TxExtension>;
 /// Unchecked extrinsic type as expected by this runtime.
 pub type Extrinsic =
-	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, SignedExtra>;
+	sp_runtime::generic::UncheckedExtrinsic<Address, RuntimeCall, Signature, TxExtension>;
 
 /// An identifier for an account on this system.
 pub type AccountId = <Signature as Verify>::Signer;
@@ -181,6 +186,23 @@ pub type Block = sp_runtime::generic::Block<Header, Extrinsic>;
 pub type Header = sp_runtime::generic::Header<BlockNumber, Hashing>;
 /// Balance of an account.
 pub type Balance = u64;
+
+#[cfg(feature = "bls-experimental")]
+mod bls {
+	use sp_application_crypto::{bls381, ecdsa_bls381};
+	pub type Bls381Public = bls381::AppPublic;
+	pub type Bls381Pop = bls381::AppProofOfPossession;
+	pub type EcdsaBls381Public = ecdsa_bls381::AppPublic;
+	pub type EcdsaBls381Pop = ecdsa_bls381::AppProofOfPossession;
+}
+#[cfg(not(feature = "bls-experimental"))]
+mod bls {
+	pub type Bls381Public = ();
+	pub type Bls381Pop = ();
+	pub type EcdsaBls381Public = ();
+	pub type EcdsaBls381Pop = ();
+}
+pub use bls::*;
 
 decl_runtime_apis! {
 	#[api_version(2)]
@@ -207,19 +229,26 @@ decl_runtime_apis! {
 		fn vec_with_capacity(size: u32) -> Vec<u8>;
 		/// Returns the initialized block number.
 		fn get_block_number() -> u64;
-
 		/// Test that `ed25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ed25519` and the public key.
-		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic);
+		/// Returns the signature generated for the message `ed25519` both the public key and proof of possession.
+		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession);
 		/// Test that `sr25519` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `sr25519`.
-		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic);
+		/// Returns the signature generated for the message `sr25519` both the public key and proof of possession.
+		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession);
 		/// Test that `ecdsa` crypto works in the runtime.
 		///
-		/// Returns the signature generated for the message `ecdsa`.
-		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic);
+		/// Returns the signature generated for the message `ecdsa` both the public key and proof of possession.
+		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession);
+		/// Test that `bls381` crypto works in the runtime
+		///
+		/// Returns both the proof of possession and public key.
+		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public);
+		/// Test that `ecdsa_bls381_crypto` works in the runtime
+		///
+		/// Returns both the proof of possession and public key.
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public);
 		/// Run various tests against storage.
 		fn test_storage();
 		/// Check a witness.
@@ -244,7 +273,7 @@ pub type Executive = frame_executive::Executive<
 	AllPalletsWithSystem,
 >;
 
-#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, RuntimeDebug, TypeInfo)]
+#[derive(Copy, Clone, PartialEq, Eq, Encode, Decode, DecodeWithMemTracking, Debug, TypeInfo)]
 pub struct CheckSubstrateCall;
 
 impl sp_runtime::traits::Printable for CheckSubstrateCall {
@@ -253,8 +282,17 @@ impl sp_runtime::traits::Printable for CheckSubstrateCall {
 	}
 }
 
+impl sp_runtime::traits::RefundWeight for CheckSubstrateCall {
+	fn refund(&mut self, _weight: frame_support::weights::Weight) {}
+}
+impl sp_runtime::traits::ExtensionPostDispatchWeightHandler<CheckSubstrateCall>
+	for CheckSubstrateCall
+{
+	fn set_extension_weight(&mut self, _info: &CheckSubstrateCall) {}
+}
+
 impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
-	type RuntimeOrigin = CheckSubstrateCall;
+	type RuntimeOrigin = RuntimeOrigin;
 	type Config = CheckSubstrateCall;
 	type Info = CheckSubstrateCall;
 	type PostInfo = CheckSubstrateCall;
@@ -267,42 +305,34 @@ impl sp_runtime::traits::Dispatchable for CheckSubstrateCall {
 	}
 }
 
-impl sp_runtime::traits::SignedExtension for CheckSubstrateCall {
-	type AccountId = AccountId;
-	type Call = RuntimeCall;
-	type AdditionalSigned = ();
-	type Pre = ();
+impl sp_runtime::traits::TransactionExtension<RuntimeCall> for CheckSubstrateCall {
 	const IDENTIFIER: &'static str = "CheckSubstrateCall";
-
-	fn additional_signed(
-		&self,
-	) -> core::result::Result<Self::AdditionalSigned, TransactionValidityError> {
-		Ok(())
-	}
+	type Implicit = ();
+	type Pre = ();
+	type Val = ();
+	impl_tx_ext_default!(RuntimeCall; weight prepare);
 
 	fn validate(
 		&self,
-		_who: &Self::AccountId,
-		call: &Self::Call,
-		_info: &DispatchInfoOf<Self::Call>,
+		origin: <RuntimeCall as Dispatchable>::RuntimeOrigin,
+		call: &RuntimeCall,
+		_info: &DispatchInfoOf<RuntimeCall>,
 		_len: usize,
-	) -> TransactionValidity {
+		_self_implicit: Self::Implicit,
+		_inherited_implication: &impl Encode,
+		_source: TransactionSource,
+	) -> Result<
+		(ValidTransaction, Self::Val, <RuntimeCall as Dispatchable>::RuntimeOrigin),
+		TransactionValidityError,
+	> {
 		log::trace!(target: LOG_TARGET, "validate");
-		match call {
-			RuntimeCall::SubstrateTest(ref substrate_test_call) =>
-				substrate_test_pallet::validate_runtime_call(substrate_test_call),
-			_ => Ok(Default::default()),
-		}
-	}
-
-	fn pre_dispatch(
-		self,
-		who: &Self::AccountId,
-		call: &Self::Call,
-		info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-		len: usize,
-	) -> Result<Self::Pre, TransactionValidityError> {
-		self.validate(who, call, info, len).map(drop)
+		let v = match call {
+			RuntimeCall::SubstrateTest(ref substrate_test_call) => {
+				substrate_test_pallet::validate_runtime_call(substrate_test_call)?
+			},
+			_ => Default::default(),
+		};
+		Ok((v, (), origin))
 	}
 }
 
@@ -312,6 +342,7 @@ construct_runtime!(
 		System: frame_system,
 		Babe: pallet_babe,
 		SubstrateTest: substrate_test_pallet::pallet,
+		Utility: pallet_utility,
 		Balances: pallet_balances,
 	}
 );
@@ -330,8 +361,12 @@ parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
 
-	pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+	pub RuntimeBlockLength: BlockLength = BlockLength::builder()
+		.max_length(5 * 1024 * 1024)
+		.modify_max_length_for_class(DispatchClass::Normal, |m| {
+			*m = NORMAL_DISPATCH_RATIO * *m
+		})
+		.build();
 
 	pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
 		.base_block(BlockExecutionWeight::get())
@@ -392,6 +427,14 @@ impl pallet_balances::Config for Runtime {
 	type MaxFreezes = ();
 	type RuntimeHoldReason = RuntimeHoldReason;
 	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type DoneSlashHandler = ();
+}
+
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PalletsOrigin = OriginCaller;
+	type RuntimeCall = RuntimeCall;
+	type WeightInfo = ();
 }
 
 impl substrate_test_pallet::Config for Runtime {}
@@ -439,7 +482,7 @@ fn code_using_trie() -> u64 {
 		let mut t = TrieDBMutBuilderV1::<Hashing>::new(&mut mdb, &mut root).build();
 		for (key, value) in &pairs {
 			if t.insert(key, value).is_err() {
-				return 101
+				return 101;
 			}
 		}
 	}
@@ -449,6 +492,9 @@ fn code_using_trie() -> u64 {
 
 	res
 }
+
+/// The test owner to test proof of possession generation and verification for the session keys
+pub const TEST_OWNER: &[u8; 5] = b"owner";
 
 impl_opaque_keys! {
 	pub struct SessionKeys {
@@ -469,7 +515,7 @@ impl_runtime_apis! {
 			version()
 		}
 
-		fn execute_block(block: Block) {
+		fn execute_block(block: <Block as BlockT>::LazyBlock) {
 			log::trace!(target: LOG_TARGET, "execute_block: {block:#?}");
 			Executive::execute_block(block);
 		}
@@ -519,7 +565,7 @@ impl_runtime_apis! {
 			vec![]
 		}
 
-		fn check_inherents(_block: Block, _data: InherentData) -> CheckInherentsResult {
+		fn check_inherents(_block: <Block as BlockT>::LazyBlock, _data: InherentData) -> CheckInherentsResult {
 			CheckInherentsResult::new()
 		}
 	}
@@ -569,16 +615,36 @@ impl_runtime_apis! {
 			System::block_number()
 		}
 
-		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic) {
+		fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
 			test_ed25519_crypto()
 		}
 
-		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic) {
+		fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
 			test_sr25519_crypto()
 		}
 
-		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
+		fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession) {
 			test_ecdsa_crypto()
+		}
+
+		#[cfg(feature = "bls-experimental")]
+		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+			test_bls381_crypto()
+		}
+
+		#[cfg(feature = "bls-experimental")]
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+			test_ecdsa_bls381_crypto()
+		}
+
+		#[cfg(not(feature = "bls-experimental"))]
+		fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+			((),())
+		}
+
+		#[cfg(not(feature = "bls-experimental"))]
+		fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+			((), ())
 		}
 
 		fn test_storage() {
@@ -596,7 +662,11 @@ impl_runtime_apis! {
 		}
 
 		fn do_trace_log() {
-			log::trace!("Hey I'm runtime");
+			log::trace!(target: "test", "Hey I'm runtime");
+
+			let data = "THIS IS TRACING";
+
+			tracing::trace!(target: "test", %data, "Hey, I'm tracing");
 		}
 
 		fn verify_ed25519(sig: ed25519::Signature, public: ed25519::Public, message: Vec<u8>) -> bool {
@@ -666,19 +736,20 @@ impl_runtime_apis! {
 
 	impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
 		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			let ext = Extrinsic::new_unsigned(
+			let ext = Extrinsic::new_bare(
 				substrate_test_pallet::pallet::Call::storage_change{
 					key:b"some_key".encode(),
 					value:Some(header.number.encode())
 				}.into(),
 			);
 			sp_io::offchain::submit_transaction(ext.encode()).unwrap();
+			Executive::offchain_worker(header);
 		}
 	}
 
 	impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(_: Option<Vec<u8>>) -> Vec<u8> {
-			SessionKeys::generate(None)
+		fn generate_session_keys(owner: Vec<u8>, _: Option<Vec<u8>>) -> sp_session::OpaqueGeneratedSessionKeys {
+			SessionKeys::generate(&owner, None).into()
 		}
 
 		fn decode_session_keys(
@@ -722,11 +793,11 @@ impl_runtime_apis! {
 
 		fn get_preset(name: &Option<PresetId>) -> Option<Vec<u8>> {
 			get_preset::<RuntimeGenesisConfig>(name, |name| {
-				let patch = match name.try_into() {
-					Ok("staging") => {
+				 let patch = match name.as_ref() {
+					"staging" => {
 						let endowed_accounts: Vec<AccountId> = vec![
-							AccountKeyring::Bob.public().into(),
-							AccountKeyring::Charlie.public().into(),
+							Sr25519Keyring::Bob.public().into(),
+							Sr25519Keyring::Charlie.public().into(),
 						];
 
 						json!({
@@ -735,13 +806,13 @@ impl_runtime_apis! {
 							},
 							"substrateTest": {
 								"authorities": [
-									AccountKeyring::Alice.public().to_ss58check(),
-									AccountKeyring::Ferdie.public().to_ss58check()
+									Sr25519Keyring::Alice.public().to_ss58check(),
+									Sr25519Keyring::Ferdie.public().to_ss58check()
 								],
 							}
 						})
 					},
-					Ok("foobar") => json!({"foo":"bar"}),
+					"foobar" => json!({"foo":"bar"}),
 					_ => return None,
 				};
 				Some(serde_json::to_string(&patch)
@@ -756,8 +827,9 @@ impl_runtime_apis! {
 	}
 }
 
-fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic) {
-	let public0 = ed25519::AppPublic::generate_pair(None);
+fn test_ed25519_crypto(
+) -> (ed25519::AppSignature, ed25519::AppPublic, ed25519::AppProofOfPossession) {
+	let mut public0 = ed25519::AppPublic::generate_pair(None);
 	let public1 = ed25519::AppPublic::generate_pair(None);
 	let public2 = ed25519::AppPublic::generate_pair(None);
 
@@ -766,13 +838,19 @@ fn test_ed25519_crypto() -> (ed25519::AppSignature, ed25519::AppPublic) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
+	let proof_of_possession = public0
+		.generate_proof_of_possession(b"owner")
+		.expect("Cant generate proof_of_possession for ed25519");
+	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+
 	let signature = public0.sign(&"ed25519").expect("Generates a valid `ed25519` signature.");
 	assert!(public0.verify(&"ed25519", &signature));
-	(signature, public0)
+	(signature, public0, proof_of_possession)
 }
 
-fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic) {
-	let public0 = sr25519::AppPublic::generate_pair(None);
+fn test_sr25519_crypto(
+) -> (sr25519::AppSignature, sr25519::AppPublic, sr25519::AppProofOfPossession) {
+	let mut public0 = sr25519::AppPublic::generate_pair(None);
 	let public1 = sr25519::AppPublic::generate_pair(None);
 	let public2 = sr25519::AppPublic::generate_pair(None);
 
@@ -781,13 +859,18 @@ fn test_sr25519_crypto() -> (sr25519::AppSignature, sr25519::AppPublic) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
+	let proof_of_possession = public0
+		.generate_proof_of_possession(b"owner")
+		.expect("Cant generate proof_of_possession for sr25519");
+	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+
 	let signature = public0.sign(&"sr25519").expect("Generates a valid `sr25519` signature.");
 	assert!(public0.verify(&"sr25519", &signature));
-	(signature, public0)
+	(signature, public0, proof_of_possession)
 }
 
-fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
-	let public0 = ecdsa::AppPublic::generate_pair(None);
+fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic, ecdsa::AppProofOfPossession) {
+	let mut public0 = ecdsa::AppPublic::generate_pair(None);
 	let public1 = ecdsa::AppPublic::generate_pair(None);
 	let public2 = ecdsa::AppPublic::generate_pair(None);
 
@@ -796,10 +879,39 @@ fn test_ecdsa_crypto() -> (ecdsa::AppSignature, ecdsa::AppPublic) {
 	assert!(all.contains(&public1));
 	assert!(all.contains(&public2));
 
+	let proof_of_possession = public0
+		.generate_proof_of_possession(b"owner")
+		.expect("Cant generate proof_of_possession for ecdsa");
+	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+
 	let signature = public0.sign(&"ecdsa").expect("Generates a valid `ecdsa` signature.");
 
 	assert!(public0.verify(&"ecdsa", &signature));
-	(signature, public0)
+	(signature, public0, proof_of_possession)
+}
+
+#[cfg(feature = "bls-experimental")]
+fn test_bls381_crypto() -> (Bls381Pop, Bls381Public) {
+	let mut public0 = bls381::AppPublic::generate_pair(None);
+
+	let proof_of_possession = public0
+		.generate_proof_of_possession(b"owner")
+		.expect("Cant generate proof_of_possession for bls381");
+	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+
+	(proof_of_possession, public0)
+}
+
+#[cfg(feature = "bls-experimental")]
+fn test_ecdsa_bls381_crypto() -> (EcdsaBls381Pop, EcdsaBls381Public) {
+	let mut public0 = ecdsa_bls381::AppPublic::generate_pair(None);
+
+	let proof_of_possession = public0
+		.generate_proof_of_possession(b"owner")
+		.expect("Cant Generate proof_of_possession for ecdsa_bls381");
+	assert!(public0.verify_proof_of_possession(b"owner", &proof_of_possession));
+
+	(proof_of_possession, public0)
 }
 
 fn test_read_storage() {
@@ -898,6 +1010,7 @@ pub mod storage_key_generator {
 			vec![b"System", b"ParentHash"],
 			vec![b"System", b"UpgradedToTripleRefCount"],
 			vec![b"System", b"UpgradedToU32RefCount"],
+			vec![b"Utility", b":__STORAGE_VERSION__:"],
 		];
 
 		let mut expected_keys = keys.iter().map(concat_hashes).collect::<Vec<String>>();
@@ -905,11 +1018,11 @@ pub mod storage_key_generator {
 
 		let balances_map_keys = (0..16_usize)
 			.into_iter()
-			.map(|i| AccountKeyring::numeric(i).public().to_vec())
+			.map(|i| Sr25519Keyring::numeric(i).public().to_vec())
 			.chain(vec![
-				AccountKeyring::Alice.public().to_vec(),
-				AccountKeyring::Bob.public().to_vec(),
-				AccountKeyring::Charlie.public().to_vec(),
+				Sr25519Keyring::Alice.public().to_vec(),
+				Sr25519Keyring::Bob.public().to_vec(),
+				Sr25519Keyring::Charlie.public().to_vec(),
 			])
 			.map(|pubkey| {
 				sp_crypto_hashing::blake2_128(&pubkey)
@@ -1018,6 +1131,8 @@ pub mod storage_key_generator {
 			"c2261276cc9d1f8598ea4b6a74b15c2f4e7b9012096b41c4eb3aaf947f6ea429",
 			// Balances|TotalIssuance
 			"c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80",
+			//Utility|:__STORAGE_VERSION__:
+			"d5e1a2fa16732ce6906189438c0a82c64e7b9012096b41c4eb3aaf947f6ea429",
 		];
 
 		if custom_heap_pages {
@@ -1027,6 +1142,25 @@ pub mod storage_key_generator {
 
 		res
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use codec::Encode;
+	use frame_support::dispatch::DispatchInfo;
+	use pretty_assertions::assert_eq;
+	use sc_block_builder::BlockBuilderBuilder;
+	use sp_api::{ApiExt, ProvideRuntimeApi};
+	use sp_consensus::BlockOrigin;
+	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
+	use sp_runtime::{
+		traits::{DispatchTransaction, Hash as _},
+		transaction_validity::{InvalidTransaction, TransactionSource::External, ValidTransaction},
+	};
+	use substrate_test_runtime_client::{
+		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
+	};
 
 	#[test]
 	fn expected_keys_vec_are_matching() {
@@ -1035,38 +1169,20 @@ pub mod storage_key_generator {
 			storage_key_generator::generate_expected_storage_hashed_keys(false),
 		);
 	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use codec::Encode;
-	use frame_support::dispatch::DispatchInfo;
-	use sc_block_builder::BlockBuilderBuilder;
-	use sp_api::{ApiExt, ProvideRuntimeApi};
-	use sp_consensus::BlockOrigin;
-	use sp_core::{storage::well_known_keys::HEAP_PAGES, traits::CallContext};
-	use sp_runtime::{
-		traits::{Hash as _, SignedExtension},
-		transaction_validity::{InvalidTransaction, ValidTransaction},
-	};
-	use substrate_test_runtime_client::{
-		prelude::*, runtime::TestAPI, DefaultTestClientBuilderExt, TestClientBuilder,
-	};
 
 	#[test]
 	fn heap_pages_is_respected() {
 		// This tests that the on-chain `HEAP_PAGES` parameter is respected.
 
 		// Create a client devoting only 8 pages of wasm memory. This gives us ~512k of heap memory.
-		let mut client = TestClientBuilder::new().set_heap_pages(8).build();
+		let client = TestClientBuilder::new().set_heap_pages(8).build();
 		let best_hash = client.chain_info().best_hash;
 
 		// Try to allocate 1024k of memory on heap. This is going to fail since it is twice larger
 		// than the heap.
 		let mut runtime_api = client.runtime_api();
 		// This is currently required to allocate the 1024k of memory as configured above.
-		runtime_api.set_call_context(CallContext::Onchain);
+		runtime_api.set_call_context(CallContext::Onchain { import: false });
 		let ret = runtime_api.vec_with_capacity(best_hash, 1048576);
 		assert!(ret.is_err());
 
@@ -1127,8 +1243,8 @@ mod tests {
 
 	pub fn new_test_ext() -> sp_io::TestExternalities {
 		genesismap::GenesisStorageBuilder::new(
-			vec![AccountKeyring::One.public().into(), AccountKeyring::Two.public().into()],
-			vec![AccountKeyring::One.into(), AccountKeyring::Two.into()],
+			vec![Sr25519Keyring::One.public().into(), Sr25519Keyring::Two.public().into()],
+			vec![Sr25519Keyring::One.into(), Sr25519Keyring::Two.into()],
 			1000 * currency::DOLLARS,
 		)
 		.build()
@@ -1150,6 +1266,7 @@ mod tests {
 	}
 
 	#[test]
+	#[allow(deprecated)]
 	fn validate_unsigned_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
@@ -1196,31 +1313,37 @@ mod tests {
 	fn check_substrate_check_signed_extension_works() {
 		sp_tracing::try_init_simple();
 		new_test_ext().execute_with(|| {
-			let x = AccountKeyring::Alice.into();
+			let x = Sr25519Keyring::Alice.into();
 			let info = DispatchInfo::default();
 			let len = 0_usize;
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
-						&x,
+					.validate_only(
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_with_priority(16).build().function,
 						&info,
-						len
+						len,
+						External,
+						0,
 					)
 					.unwrap()
+					.0
 					.priority,
 				16
 			);
 
 			assert_eq!(
 				CheckSubstrateCall {}
-					.validate(
-						&x,
+					.validate_only(
+						Some(x).into(),
 						&ExtrinsicBuilder::new_call_do_not_propagate().build().function,
 						&info,
-						len
+						len,
+						External,
+						0,
 					)
 					.unwrap()
+					.0
 					.propagate,
 				false
 			);
@@ -1230,6 +1353,7 @@ mod tests {
 	mod genesis_builder_tests {
 		use super::*;
 		use crate::genesismap::GenesisStorageBuilder;
+		use pretty_assertions::assert_eq;
 		use sc_executor::{error::Result, WasmExecutor};
 		use sc_executor_common::runtime_blob::RuntimeBlob;
 		use serde_json::json;
@@ -1299,10 +1423,12 @@ mod tests {
 				"1cb6f36e027abb2091cfb5110ab5087f4e7b9012096b41c4eb3aaf947f6ea429",
 				//SubstrateTest|:__STORAGE_VERSION__:
 				"00771836bebdd29870ff246d305c578c4e7b9012096b41c4eb3aaf947f6ea429",
+				//Utility|:__STORAGE_VERSION__:
+				"d5e1a2fa16732ce6906189438c0a82c64e7b9012096b41c4eb3aaf947f6ea429",
 				].into_iter().map(String::from).collect::<Vec<_>>();
 			expected.sort();
 
-			assert_eq!(keys, expected);
+			assert_eq!(expected, keys);
 		}
 
 		#[test]
@@ -1316,7 +1442,7 @@ mod tests {
 				.expect("default config is there");
 			let json = String::from_utf8(r.into()).expect("returned value is json. qed.");
 
-			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[]}}"#;
+			let expected = r#"{"system":{},"babe":{"authorities":[],"epochConfig":{"c":[1,4],"allowed_slots":"PrimaryAndSecondaryVRFSlots"}},"substrateTest":{"authorities":[]},"balances":{"balances":[],"devAccounts":null}}"#;
 			assert_eq!(expected.to_string(), json);
 		}
 
@@ -1385,10 +1511,8 @@ mod tests {
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			log::info!("result: {:#?}", r);
 			assert_eq!(r, Err(
-				sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25".to_string(),
-				))
-			);
+				"Invalid JSON blob: unknown field `renamed_authorities`, expected `authorities` or `epochConfig` at line 4 column 25".to_string(),
+			));
 		}
 
 		#[test]
@@ -1399,10 +1523,8 @@ mod tests {
 			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
 			let r = BuildResult::decode(&mut &r[..]).unwrap();
 			assert_eq!(r, Err(
-				sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9".to_string(),
-				))
-			);
+				"Invalid JSON blob: unknown field `babex`, expected one of `system`, `babe`, `substrateTest`, `balances` at line 3 column 9".to_string(),
+			));
 		}
 
 		#[test]
@@ -1412,14 +1534,11 @@ mod tests {
 
 			let mut t = BasicExternalities::new_empty();
 			let r = executor_call(&mut t, "GenesisBuilder_build_state", &j.encode()).unwrap();
-			let r =
-				core::result::Result::<(), sp_runtime::RuntimeString>::decode(&mut &r[..]).unwrap();
+			let r = core::result::Result::<(), String>::decode(&mut &r[..]).unwrap();
 			assert_eq!(
 				r,
-				Err(sp_runtime::RuntimeString::Owned(
-					"Invalid JSON blob: missing field `authorities` at line 11 column 3"
-						.to_string()
-				))
+				Err("Invalid JSON blob: missing field `authorities` at line 11 column 3"
+					.to_string())
 			);
 		}
 
@@ -1442,7 +1561,7 @@ mod tests {
 
 		#[test]
 		fn build_genesis_config_with_patch_json_works() {
-			//this tests shows how to do patching on native side
+			// this tests shows how to do patching on native side
 			sp_tracing::try_init_simple();
 
 			let mut t = BasicExternalities::new_empty();
@@ -1467,8 +1586,8 @@ mod tests {
 				},
 				"substrateTest": {
 					"authorities": [
-						AccountKeyring::Ferdie.public().to_ss58check(),
-						AccountKeyring::Alice.public().to_ss58check()
+						Sr25519Keyring::Ferdie.public().to_ss58check(),
+						Sr25519Keyring::Alice.public().to_ss58check()
 					],
 				}
 			});
@@ -1490,17 +1609,17 @@ mod tests {
 				storage.top.get(&array_bytes::hex2bytes(key).unwrap()).unwrap().clone()
 			};
 
-			//SubstrateTest|Authorities
+			// SubstrateTest|Authorities
 			let value: Vec<u8> = get_from_storage(
 				"00771836bebdd29870ff246d305c578c5e0621c4869aa60c02be9adcc98a0d1d",
 			);
 			let authority_key_vec =
 				Vec::<sp_core::sr25519::Public>::decode(&mut &value[..]).unwrap();
 			assert_eq!(authority_key_vec.len(), 2);
-			assert_eq!(authority_key_vec[0], AccountKeyring::Ferdie.public());
-			assert_eq!(authority_key_vec[1], AccountKeyring::Alice.public());
+			assert_eq!(authority_key_vec[0], Sr25519Keyring::Ferdie.public());
+			assert_eq!(authority_key_vec[1], Sr25519Keyring::Alice.public());
 
-			//Babe|Authorities
+			// Babe|Authorities
 			let value: Vec<u8> = get_from_storage(
 				"1cb6f36e027abb2091cfb5110ab5087fdc6b171b77304263c292cc3ea5ed31ef",
 			);
@@ -1519,7 +1638,7 @@ mod tests {
 			);
 			assert_eq!(u64::decode(&mut &value[..]).unwrap(), 0);
 
-			//System|ParentHash
+			// System|ParentHash
 			let value: Vec<u8> = get_from_storage(
 				"26aa394eea5630e07c48ae0c9558cef78a42f33323cb5ced3b44dd825fda9fcc",
 			);

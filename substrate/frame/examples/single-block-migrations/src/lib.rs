@@ -1,19 +1,25 @@
 // This file is part of Substrate.
 
 // Copyright (C) Parity Technologies (UK) Ltd.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: MIT-0
 
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// 	http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+// Permission is hereby granted, free of charge, to any person obtaining a copy of
+// this software and associated documentation files (the "Software"), to deal in
+// the Software without restriction, including without limitation the rights to
+// use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+// of the Software, and to permit persons to whom the Software is furnished to do
+// so, subject to the following conditions:
+
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
 
 //! # Single Block Migration Example Pallet
 //!
@@ -29,7 +35,8 @@
 //! If weight is a concern or you are not sure which type of migration to use, you should probably
 //! use a multi-block migration.
 //!
-//! TODO: Link above to multi-block migration example.
+//! See the [`pallet-example-mbm`](https://paritytech.github.io/polkadot-sdk/master/pallet_example_mbm/index.html)
+//! pallet for an example of a multi-block migration.
 //!
 //! ## Pallet Overview
 //!
@@ -49,12 +56,10 @@
 #![doc = docify::embed!("src/lib.rs", CurrentAndPreviousValue)]
 //! and [`Value`](pallet::Value) is updated to store this new struct instead of a `u32`:
 #![doc = docify::embed!("src/lib.rs", Value)]
-//!
 //! In StorageVersion V1 of the pallet when [`set_value`](crate::Call::set_value) is called, the
 //! new value is stored in the `current` field of [`CurrentAndPreviousValue`], and the previous
 //! value (if it exists) is stored in the `previous` field.
 #![doc = docify::embed!("src/lib.rs", pallet_calls)]
-//!
 //! ## Why a migration is necessary
 //!
 //! Without a migration, there will be a discrepancy between the on-chain storage for [`Value`] (in
@@ -156,16 +161,16 @@ pub use pallet::*;
 pub mod migrations;
 #[doc(hidden)]
 mod mock;
+
+extern crate alloc;
+
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::traits::StorageVersion;
-use sp_runtime::RuntimeDebug;
 
 /// Example struct holding the most recently set [`u32`] and the
 /// second most recently set [`u32`] (if one existed).
 #[docify::export]
-#[derive(
-	Clone, Eq, PartialEq, Encode, Decode, RuntimeDebug, scale_info::TypeInfo, MaxEncodedLen,
-)]
+#[derive(Clone, Eq, PartialEq, Encode, Decode, Debug, scale_info::TypeInfo, MaxEncodedLen)]
 pub struct CurrentAndPreviousValue {
 	/// The most recently set value.
 	pub current: u32,

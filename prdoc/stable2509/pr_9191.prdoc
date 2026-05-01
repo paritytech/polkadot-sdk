@@ -1,0 +1,8 @@
+title: Fixed westend asset hub ID
+doc:
+- audience: Runtime Dev
+  description: |-
+    Added cumulus_primitives_core::GetParachainInfo impl to the AHW runtime to get the parachain ID.
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor

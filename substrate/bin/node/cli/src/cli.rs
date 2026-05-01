@@ -43,6 +43,45 @@ pub struct Cli {
 	#[arg(long)]
 	pub no_hardware_benchmarks: bool,
 
+	/// Number of concurrent workers for statement validation from the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_NETWORK_WORKERS)]
+	pub statement_network_workers: usize,
+
+	/// Maximum statements per second per peer before rate limiting kicks in.
+	///
+	/// Uses a token bucket algorithm that allows short bursts up to this limit
+	/// while enforcing the average rate over time.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_RATE_LIMIT)]
+	pub statement_rate_limit: u32,
+
+	/// Maximum number of statements the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_STATEMENTS)]
+	pub statement_store_max_total_statements: usize,
+
+	/// Maximum total data size (in bytes) the statement store can hold.
+	///
+	/// Once this limit is reached, lower-priority statements may be evicted.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_MAX_TOTAL_SIZE)]
+	pub statement_store_max_total_size: usize,
+
+	/// Number of seconds for which removed statements won't be allowed to be added back.
+	///
+	/// This prevents old statements from being re-propagated on the network.
+	///
+	/// Only relevant when `--enable-statement-store` is used.
+	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
+	pub statement_store_purge_after_sec: u64,
+
 	#[allow(missing_docs)]
 	#[clap(flatten)]
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
@@ -59,6 +98,7 @@ pub enum Subcommand {
 	Inspect(node_inspect::cli::InspectCmd),
 
 	/// Sub-commands concerned with benchmarking.
+	///
 	/// The pallet benchmarking moved to the `pallet` sub-command.
 	#[command(subcommand)]
 	Benchmark(frame_benchmarking_cli::BenchmarkCmd),
@@ -77,7 +117,15 @@ pub enum Subcommand {
 	Sign(sc_cli::SignCmd),
 
 	/// Build a chain specification.
+	/// DEPRECATED: `build-spec` command will be removed after 1/04/2026. Use `export-chain-spec`
+	/// command instead.
+	#[deprecated(
+		note = "build-spec command will be removed after 1/04/2026. Use export-chain-spec command instead"
+	)]
 	BuildSpec(sc_cli::BuildSpecCmd),
+
+	/// Export the chain specification.
+	ExportChainSpec(sc_cli::ExportChainSpecCmd),
 
 	/// Validate blocks.
 	CheckBlock(sc_cli::CheckBlockCmd),

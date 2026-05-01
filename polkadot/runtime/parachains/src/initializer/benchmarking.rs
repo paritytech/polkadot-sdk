@@ -15,7 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::*;
-use frame_benchmarking::benchmarks;
+use frame_benchmarking::v2::*;
 use frame_system::RawOrigin;
 use polkadot_primitives::ConsensusLog;
 use sp_runtime::DigestItem;
@@ -23,18 +23,25 @@ use sp_runtime::DigestItem;
 // Random large number for the digest
 const DIGEST_MAX_LEN: u32 = 65536;
 
-benchmarks! {
-	force_approve {
-		let d in 0 .. DIGEST_MAX_LEN;
-		for _ in 0 .. d {
+#[benchmarks]
+mod benchmarks {
+	use super::*;
+
+	#[benchmark]
+	fn force_approve(d: Linear<0, DIGEST_MAX_LEN>) -> Result<(), BenchmarkError> {
+		for _ in 0..d {
 			frame_system::Pallet::<T>::deposit_log(ConsensusLog::ForceApprove(d).into());
 		}
-	}: _(RawOrigin::Root, d + 1)
-	verify {
+
+		#[extrinsic_call]
+		_(RawOrigin::Root, d + 1);
+
 		assert_eq!(
 			frame_system::Pallet::<T>::digest().logs.last().unwrap(),
 			&DigestItem::from(ConsensusLog::ForceApprove(d + 1)),
 		);
+
+		Ok(())
 	}
 
 	impl_benchmark_test_suite!(

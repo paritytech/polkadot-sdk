@@ -1,0 +1,21 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: introduce pallet-parameters to Westend to parameterize inflation
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR adds `pallet-parameters` to the Westend runtime, and makes the inflation formula be
+      adjustable based on this.
+
+      Moreover, the old `era_payout` function has been removed from `polkadot_runtime_common` and is
+      replaced by `relay_era_payout`. This function is only meant to be used in the Polkadot relay
+      chains, and other users are encouraged to provide their own implementation of `type
+      EraPayout`.
+
+crates:
+  - name: westend-runtime
+    bump: major
+  - name: polkadot-runtime-common
+    bump: major

@@ -1,0 +1,12 @@
+title: Increase `max_upward_message_size` in `RelayStateSproofBuilder`
+doc:
+- audience: Runtime Dev
+  description: |-
+    ## Description
+
+    While testing different XCM messages via xcm-emulator, I noticed that the limit of 256 for `max_upward_message_size` in `RelayStateSproofBuilder` can be reached very easily.
+
+    I suggest increasing it to `1024 * 1024` so that we can have a good range for testing.
+crates:
+- name: xcm-emulator
+  bump: patch

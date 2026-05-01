@@ -18,8 +18,11 @@ use polkadot_node_subsystem::HeadSupportsParachains;
 use polkadot_node_subsystem_types::Hash;
 use sp_consensus::SyncOracle;
 
+pub mod approval_voting_parallel;
 pub mod av_store;
+pub mod availability_recovery;
 pub mod candidate_backing;
+pub mod candidate_validation;
 pub mod chain_api;
 pub mod dummy;
 pub mod network_bridge;
@@ -45,6 +48,7 @@ macro_rules! dummy_builder {
 		// All subsystem except approval_voting and approval_distribution are mock subsystems.
 		Overseer::builder()
 			.approval_voting(MockApprovalVoting {})
+			.approval_voting_parallel(MockApprovalVotingParallel {})
 			.approval_distribution(MockApprovalDistribution {})
 			.availability_recovery(MockAvailabilityRecovery {})
 			.candidate_validation(MockCandidateValidation {})
@@ -68,7 +72,6 @@ macro_rules! dummy_builder {
 			.dispute_distribution(MockDisputeDistribution {})
 			.prospective_parachains(MockProspectiveParachains {})
 			.activation_external_listeners(Default::default())
-			.span_per_active_leaf(Default::default())
 			.active_leaves(Default::default())
 			.metrics($metrics)
 			.supports_parachains(AlwaysSupportsParachains {})

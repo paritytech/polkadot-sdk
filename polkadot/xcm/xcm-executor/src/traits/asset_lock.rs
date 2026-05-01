@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-use sp_std::convert::Infallible;
+use core::convert::Infallible;
 use xcm::prelude::*;
 
 #[derive(Debug)]
@@ -41,8 +41,9 @@ impl From<LockError> for XcmError {
 			NotApplicable => XcmError::AssetNotFound,
 			BadOrigin => XcmError::BadOrigin,
 			WouldClobber | NotLocked | NotEnoughLocked | Unimplemented | NotTrusted |
-			BadOwner | UnknownAsset | AssetNotOwned | NoResources | UnexpectedState | InUse =>
-				XcmError::LockError,
+			BadOwner | UnknownAsset | AssetNotOwned | NoResources | UnexpectedState | InUse => {
+				XcmError::LockError
+			},
 		}
 	}
 }

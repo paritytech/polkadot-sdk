@@ -75,4 +75,44 @@ impl RequestResponseMetrics {
 				.observe(duration.as_secs_f64());
 		}
 	}
+
+	/// Register inbound bytes (request payload received from peer) to Prometheus
+	pub fn register_inbound_request_bytes(&self, bytes: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.requests_response_bytes_total
+				.with_label_values(&["in", &self.protocol])
+				.inc_by(bytes as u64);
+		}
+	}
+
+	/// Register outbound bytes (response payload sent to peer) to Prometheus
+	pub fn register_outbound_response_bytes(&self, bytes: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.requests_response_bytes_total
+				.with_label_values(&["out", &self.protocol])
+				.inc_by(bytes as u64);
+		}
+	}
+
+	/// Register outbound bytes (request payload sent to peer) to Prometheus
+	pub fn register_outbound_request_bytes(&self, bytes: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.requests_response_bytes_total
+				.with_label_values(&["out", &self.protocol])
+				.inc_by(bytes as u64);
+		}
+	}
+
+	/// Register inbound bytes (response payload received from peer) to Prometheus
+	pub fn register_inbound_response_bytes(&self, bytes: usize) {
+		if let Some(metrics) = &self.metrics {
+			metrics
+				.requests_response_bytes_total
+				.with_label_values(&["in", &self.protocol])
+				.inc_by(bytes as u64);
+		}
+	}
 }

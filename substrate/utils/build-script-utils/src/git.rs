@@ -39,7 +39,7 @@ pub fn rerun_if_git_head_changed() {
 			Err(err) => {
 				eprintln!("cargo:warning=Unable to read the Git repository: {}", err);
 
-				return
+				return;
 			},
 			Ok(None) => {},
 			Ok(Some(paths)) => {
@@ -47,7 +47,7 @@ pub fn rerun_if_git_head_changed() {
 					println!("cargo:rerun-if-changed={}", p.display());
 				}
 
-				return
+				return;
 			},
 		}
 
@@ -72,7 +72,7 @@ fn get_git_paths(path: &Path) -> Result<Option<Vec<PathBuf>>, io::Error> {
 			// Determine where HEAD points and echo that path also.
 			let mut f = File::open(&git_head_path)?;
 			let mut git_head_contents = String::new();
-			let _ = f.read_to_string(&mut git_head_contents)?;
+			f.read_to_string(&mut git_head_contents)?;
 			let ref_vec: Vec<&str> = git_head_contents.split(": ").collect();
 
 			if ref_vec.len() == 2 {
@@ -90,7 +90,7 @@ fn get_git_paths(path: &Path) -> Result<Option<Vec<PathBuf>>, io::Error> {
 			// We are in a worktree, so find out where the actual worktrees/<name>/HEAD file is.
 			let mut git_file = File::open(&git_dir_or_file)?;
 			let mut git_contents = String::new();
-			let _ = git_file.read_to_string(&mut git_contents)?;
+			git_file.read_to_string(&mut git_contents)?;
 			let dir_vec: Vec<&str> = git_contents.split(": ").collect();
 			let git_path = dir_vec[1].trim();
 
@@ -105,7 +105,7 @@ fn get_git_paths(path: &Path) -> Result<Option<Vec<PathBuf>>, io::Error> {
 			// Determine where HEAD points and echo that path also.
 			let mut f = File::open(&git_head_path)?;
 			let mut git_head_contents = String::new();
-			let _ = f.read_to_string(&mut git_head_contents)?;
+			f.read_to_string(&mut git_head_contents)?;
 			let ref_vec: Vec<&str> = git_head_contents.split(": ").collect();
 
 			if ref_vec.len() == 2 {

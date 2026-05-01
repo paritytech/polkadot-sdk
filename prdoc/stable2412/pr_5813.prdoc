@@ -1,0 +1,18 @@
+title: "build_struct_json_patch macro added"
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This PR adds a macro that allows to construct a RuntimeGenesisConfig preset 
+      containing only provided fields, while performing the validation of the
+      entire struct.
+
+      Related issue: https://github.com/paritytech/polkadot-sdk/issues/5700
+
+crates:
+  - name: frame-support
+    bump: minor
+  - name: asset-hub-rococo-runtime
+    bump: patch
+  - name: westend-runtime
+    bump: patch

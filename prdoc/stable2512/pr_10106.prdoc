@@ -1,0 +1,8 @@
+title: Enforce single-state txpool for revive-dev-node
+doc:
+- audience: Runtime Dev
+  description: |-
+    Use single-state txpool for dev-node when instant-seal is selected
+
+    see https://github.com/paritytech/polkadot-sdk/issues/10104
+crates: []

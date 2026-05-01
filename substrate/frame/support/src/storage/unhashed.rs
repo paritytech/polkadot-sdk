@@ -17,8 +17,8 @@
 
 //! Operation on unhashed runtime storage.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode};
-use sp_std::prelude::*;
 
 /// Return the value of the item in storage under `key`, or `None` if there is no explicit entry.
 pub fn get<T: Decode + Sized>(key: &[u8]) -> Option<T> {
@@ -124,7 +124,7 @@ pub fn kill_prefix(prefix: &[u8], limit: Option<u32>) -> sp_io::KillStorageResul
 /// operating on the same prefix should pass `Some` and this value should be equal to the
 /// previous call result's `maybe_cursor` field. The only exception to this is when you can
 /// guarantee that the subsequent call is in a new block; in this case the previous call's result
-/// cursor need not be passed in an a `None` may be passed instead. This exception may be useful
+/// cursor need not be passed in and a `None` may be passed instead. This exception may be useful
 /// then making this call solely from a block-hook such as `on_initialize`.
 ///
 /// Returns [`MultiRemovalResults`](sp_io::MultiRemovalResults) to inform about the result. Once the
@@ -170,10 +170,6 @@ pub fn get_raw(key: &[u8]) -> Option<Vec<u8>> {
 }
 
 /// Put a raw byte slice into storage.
-///
-/// **WARNING**: If you set the storage of the Substrate Wasm (`well_known_keys::CODE`),
-/// you should also call `frame_system::RuntimeUpgraded::put(true)` to trigger the
-/// `on_runtime_upgrade` logic.
 pub fn put_raw(key: &[u8], value: &[u8]) {
 	sp_io::storage::set(key, value)
 }

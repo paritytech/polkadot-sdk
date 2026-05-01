@@ -4,11 +4,14 @@ version = "0.3.5-dev"
 authors = ["Parity Technologies <admin@parity.io>"]
 edition.workspace = true
 license = "Apache-2.0"
-homepage = "https://substrate.io"
+homepage.workspace = true
 repository = "https://github.com/paritytech/substrate/"
 description = "Consensus extension module for Sassafras consensus."
 readme = "README.md"
 publish = false
+
+[package.metadata.polkadot-sdk]
+exclude-from-umbrella = true
 
 [lints]
 workspace = true
@@ -18,15 +21,14 @@ targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 codec = { features = ["derive"], workspace = true }
-scale-info = { features = ["derive"], workspace = true }
 frame-benchmarking = { optional = true, workspace = true }
 frame-support = { workspace = true }
 frame-system = { workspace = true }
 log = { workspace = true }
+scale-info = { features = ["derive"], workspace = true }
 sp-consensus-sassafras = { features = ["serde"], workspace = true }
 sp-io = { workspace = true }
 sp-runtime = { workspace = true }
-sp-std = { workspace = true }
 
 [dev-dependencies]
 array-bytes = { workspace = true, default-features = true }
@@ -45,7 +47,6 @@ std = [
 	"sp-consensus-sassafras/std",
 	"sp-io/std",
 	"sp-runtime/std",
-	"sp-std/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

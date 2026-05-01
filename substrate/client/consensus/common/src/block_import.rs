@@ -153,6 +153,17 @@ pub enum StateAction<Block: BlockT> {
 	Skip,
 }
 
+impl<Block: BlockT> std::fmt::Debug for StateAction<Block> {
+	fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
+		match self {
+			Self::ApplyChanges(_) => fmt.write_str("ApplyChanges(..)"),
+			Self::Execute => fmt.write_str("Execute"),
+			Self::ExecuteIfPossible => fmt.write_str("ExecuteIfPossible"),
+			Self::Skip => fmt.write_str("Skip"),
+		}
+	}
+}
+
 impl<Block: BlockT> StateAction<Block> {
 	/// Check if execution checks that require runtime calls should be skipped.
 	pub fn skip_execution_checks(&self) -> bool {
@@ -162,6 +173,30 @@ impl<Block: BlockT> StateAction<Block> {
 			StateAction::ExecuteIfPossible => false,
 			StateAction::Skip => true,
 		}
+	}
+
+	/// Returns as storage changes.
+	pub fn as_storage_changes(
+		&self,
+	) -> Option<&sp_state_machine::StorageChanges<HashingFor<Block>>> {
+		match self {
+			StateAction::ApplyChanges(StorageChanges::Changes(changes)) => Some(&changes),
+			_ => None,
+		}
+	}
+}
+
+impl<Block: BlockT> From<StorageChanges<Block>> for StateAction<Block> {
+	fn from(value: StorageChanges<Block>) -> Self {
+		Self::ApplyChanges(value)
+	}
+}
+
+impl<Block: BlockT> From<sp_state_machine::StorageChanges<HashingFor<Block>>>
+	for StateAction<Block>
+{
+	fn from(value: sp_state_machine::StorageChanges<HashingFor<Block>>) -> Self {
+		Self::ApplyChanges(StorageChanges::Changes(value))
 	}
 }
 
@@ -214,6 +249,8 @@ pub struct BlockImportParams<Block: BlockT> {
 	pub fork_choice: Option<ForkChoiceStrategy>,
 	/// Re-validate existing block.
 	pub import_existing: bool,
+	/// Whether to create "block gap" in case this block doesn't have parent.
+	pub create_gap: bool,
 	/// Cached full header hash (with post-digests applied).
 	pub post_hash: Option<Block::Hash>,
 }
@@ -228,12 +265,24 @@ impl<Block: BlockT> BlockImportParams<Block> {
 			post_digests: Vec::new(),
 			body: None,
 			indexed_body: None,
-			state_action: StateAction::Execute,
+			// Warp sync blocks are already verified, skip execution.
+			state_action: if origin == BlockOrigin::WarpSync {
+				StateAction::Skip
+			} else {
+				StateAction::Execute
+			},
 			finalized: false,
 			intermediates: HashMap::new(),
 			auxiliary: Vec::new(),
 			fork_choice: None,
 			import_existing: false,
+			// Never create gaps for warp sync imported blocks.
+			// Warp sync downloads only session blocks. Gap sync to work needs one gap even if
+			// between gap start and gap end some blocks are existing. If each warp sync block
+			// created a gap, every new block import would override the previous gap, losing the
+			// real gap start. In case of warp sync a gap is created separately when the target
+			// block with state is imported.
+			create_gap: origin != BlockOrigin::WarpSync,
 			post_hash: None,
 		}
 	}
@@ -310,10 +359,7 @@ pub trait BlockImport<B: BlockT> {
 	async fn check_block(&self, block: BlockCheckParams<B>) -> Result<ImportResult, Self::Error>;
 
 	/// Import a block.
-	async fn import_block(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<ImportResult, Self::Error>;
+	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error>;
 }
 
 #[async_trait::async_trait]
@@ -326,10 +372,7 @@ impl<B: BlockT> BlockImport<B> for crate::import_queue::BoxBlockImport<B> {
 	}
 
 	/// Import a block.
-	async fn import_block(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(**self).import_block(block).await
 	}
 }
@@ -346,10 +389,7 @@ where
 		(&**self).check_block(block).await
 	}
 
-	async fn import_block(
-		&mut self,
-		block: BlockImportParams<B>,
-	) -> Result<ImportResult, Self::Error> {
+	async fn import_block(&self, block: BlockImportParams<B>) -> Result<ImportResult, Self::Error> {
 		(&**self).import_block(block).await
 	}
 }

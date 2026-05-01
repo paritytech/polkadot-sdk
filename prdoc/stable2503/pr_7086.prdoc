@@ -1,0 +1,11 @@
+title: '[pallet-revive] Fix `caller_is_root` return value'
+doc:
+- audience: Runtime Dev
+  description: The return type of the host function `caller_is_root` was denoted as `u32`
+    in `pallet_revive_uapi`. This PR fixes the return type to `bool`. As a drive-by, the
+    PR re-exports `pallet_revive::exec::Origin` to extend what can be tested externally.
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-uapi
+  bump: major

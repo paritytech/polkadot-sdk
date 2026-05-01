@@ -82,7 +82,10 @@ mod mock;
 mod tests;
 pub mod weights;
 
-use codec::{Decode, Encode, MaxEncodedLen};
+extern crate alloc;
+
+use alloc::{vec, vec::Vec};
+use codec::{Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -92,7 +95,7 @@ use frame_support::{
 	BoundedSlice, WeakBoundedVec,
 };
 use frame_system::{
-	offchain::{SendTransactionTypes, SubmitTransaction},
+	offchain::{CreateBare, SubmitTransaction},
 	pallet_prelude::*,
 };
 pub use pallet::*;
@@ -101,13 +104,12 @@ use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::{
 	offchain::storage::{MutateStorageError, StorageRetrievalError, StorageValueRef},
 	traits::{AtLeast32BitUnsigned, Convert, Saturating, TrailingZeroInput},
-	PerThing, Perbill, Permill, RuntimeDebug, SaturatedConversion,
+	Debug, PerThing, Perbill, Permill, SaturatedConversion,
 };
 use sp_staking::{
 	offence::{Kind, Offence, ReportOffence},
 	SessionIndex,
 };
-use sp_std::prelude::*;
 pub use weights::WeightInfo;
 
 pub mod sr25519 {
@@ -156,7 +158,7 @@ const INCLUDE_THRESHOLD: u32 = 3;
 /// This stores the block number at which heartbeat was requested and when the worker
 /// has actually managed to produce it.
 /// Note we store such status for every `authority_index` separately.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, TypeInfo)]
 struct HeartbeatStatus<BlockNumber> {
 	/// An index of the session that we are supposed to send heartbeat for.
 	pub session_index: SessionIndex,
@@ -196,8 +198,8 @@ enum OffchainErr<BlockNumber> {
 	SubmitTransaction,
 }
 
-impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNumber> {
-	fn fmt(&self, fmt: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
+impl<BlockNumber: core::fmt::Debug> core::fmt::Debug for OffchainErr<BlockNumber> {
+	fn fmt(&self, fmt: &mut core::fmt::Formatter) -> core::fmt::Result {
 		match *self {
 			OffchainErr::TooEarly => write!(fmt, "Too early to send heartbeat."),
 			OffchainErr::WaitingForInclusion(ref block) => {
@@ -216,7 +218,7 @@ impl<BlockNumber: sp_std::fmt::Debug> sp_std::fmt::Debug for OffchainErr<BlockNu
 pub type AuthIndex = u32;
 
 /// Heartbeat which is sent/received.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo)]
+#[derive(Encode, Decode, DecodeWithMemTracking, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub struct Heartbeat<BlockNumber>
 where
 	BlockNumber: PartialEq + Eq + Decode + Encode,
@@ -259,7 +261,7 @@ pub mod pallet {
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
-	pub trait Config: SendTransactionTypes<Call<Self>> + frame_system::Config {
+	pub trait Config: CreateBare<Call<Self>> + frame_system::Config {
 		/// The identifier type for an authority.
 		type AuthorityId: Member
 			+ Parameter
@@ -275,6 +277,7 @@ pub mod pallet {
 		type MaxPeerInHeartbeats: Get<u32>;
 
 		/// The overarching event type.
+		#[allow(deprecated)]
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 
 		/// A type for retrieving the validators supposed to be online in a session.
@@ -444,6 +447,7 @@ pub mod pallet {
 	/// incorrect.
 	pub(crate) const INVALID_VALIDATORS_LEN: u8 = 10;
 
+	#[allow(deprecated)]
 	#[pallet::validate_unsigned]
 	impl<T: Config> ValidateUnsigned for Pallet<T> {
 		type Call = Call<T>;
@@ -452,19 +456,19 @@ pub mod pallet {
 			if let Call::heartbeat { heartbeat, signature } = call {
 				if <Pallet<T>>::is_online(heartbeat.authority_index) {
 					// we already received a heartbeat for this authority
-					return InvalidTransaction::Stale.into()
+					return InvalidTransaction::Stale.into();
 				}
 
 				// check if session index from heartbeat is recent
 				let current_session = T::ValidatorSet::session_index();
 				if heartbeat.session_index != current_session {
-					return InvalidTransaction::Stale.into()
+					return InvalidTransaction::Stale.into();
 				}
 
 				// verify that the incoming (unverified) pubkey is actually an authority id
 				let keys = Keys::<T>::get();
 				if keys.len() as u32 != heartbeat.validators_len {
-					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into()
+					return InvalidTransaction::Custom(INVALID_VALIDATORS_LEN).into();
 				}
 				let authority_id = match keys.get(heartbeat.authority_index as usize) {
 					Some(id) => id,
@@ -477,7 +481,7 @@ pub mod pallet {
 				});
 
 				if !signature_valid {
-					return InvalidTransaction::BadProof.into()
+					return InvalidTransaction::BadProof.into();
 				}
 
 				ValidTransaction::with_tag_prefix("ImOnline")
@@ -517,7 +521,7 @@ impl<T: Config> Pallet<T> {
 		let current_validators = T::ValidatorSet::validators();
 
 		if authority_index >= current_validators.len() as u32 {
-			return false
+			return false;
 		}
 
 		let authority = &current_validators[authority_index as usize];
@@ -589,7 +593,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if !should_heartbeat {
-			return Err(OffchainErr::TooEarly)
+			return Err(OffchainErr::TooEarly);
 		}
 
 		let session_index = T::ValidatorSet::session_index();
@@ -624,7 +628,7 @@ impl<T: Config> Pallet<T> {
 		};
 
 		if Self::is_online(authority_index) {
-			return Err(OffchainErr::AlreadyOnline(authority_index))
+			return Err(OffchainErr::AlreadyOnline(authority_index));
 		}
 
 		// acquire lock for that authority at current heartbeat to make sure we don't
@@ -640,7 +644,8 @@ impl<T: Config> Pallet<T> {
 				call,
 			);
 
-			SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into())
+			let xt = T::create_bare(call.into());
+			SubmitTransaction::<T, Call<T>>::submit_transaction(xt)
 				.map_err(|_| OffchainErr::SubmitTransaction)?;
 
 			Ok(())
@@ -690,15 +695,16 @@ impl<T: Config> Pallet<T> {
 				// we will re-send it.
 				match status {
 					// we are still waiting for inclusion.
-					Ok(Some(status)) if status.is_recent(session_index, now) =>
-						Err(OffchainErr::WaitingForInclusion(status.sent_at)),
+					Ok(Some(status)) if status.is_recent(session_index, now) => {
+						Err(OffchainErr::WaitingForInclusion(status.sent_at))
+					},
 					// attempt to set new status
 					_ => Ok(HeartbeatStatus { session_index, sent_at: now }),
 				}
 			},
 		);
 		if let Err(MutateStorageError::ValueFunctionFailed(err)) = res {
-			return Err(err)
+			return Err(err);
 		}
 
 		let mut new_status = res.map_err(|_| OffchainErr::FailedToAcquireLock)?;
@@ -813,7 +819,7 @@ impl<T: Config> OneSessionHandler<T::AccountId> for Pallet<T> {
 }
 
 /// An offence that is filed if a validator didn't send a heartbeat message.
-#[derive(RuntimeDebug, TypeInfo)]
+#[derive(Debug, TypeInfo)]
 #[cfg_attr(feature = "std", derive(Clone, PartialEq, Eq))]
 pub struct UnresponsivenessOffence<Offender> {
 	/// The current session index in which we report the unresponsive validators.

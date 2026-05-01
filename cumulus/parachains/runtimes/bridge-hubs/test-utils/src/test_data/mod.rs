@@ -1,18 +1,18 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: Apache-2.0
 
-// Cumulus is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-
-// Cumulus is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-
-// You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// 	http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 //! Generating test data, used by all tests.
 
@@ -21,7 +21,7 @@ pub mod from_parachain;
 
 use bp_messages::{
 	target_chain::{DispatchMessage, DispatchMessageData},
-	LaneId, MessageKey,
+	MessageKey,
 };
 use codec::Encode;
 use frame_support::traits::Get;
@@ -32,20 +32,18 @@ use bp_messages::MessageNonce;
 use bp_runtime::BasicOperatingMode;
 use bp_test_utils::authority_list;
 use xcm::GetVersion;
-use xcm_builder::{HaulBlob, HaulBlobError, HaulBlobExporter};
+use xcm_builder::{BridgeMessage, HaulBlob, HaulBlobError, HaulBlobExporter};
 use xcm_executor::traits::{validate_export, ExportXcm};
 
-pub fn prepare_inbound_xcm<InnerXcmRuntimeCall>(
-	xcm_message: Xcm<InnerXcmRuntimeCall>,
-	destination: InteriorLocation,
-) -> Vec<u8> {
+pub(crate) type XcmAsPlainPayload = sp_std::vec::Vec<u8>;
+
+pub fn prepare_inbound_xcm(xcm_message: Xcm<()>, destination: InteriorLocation) -> Vec<u8> {
 	let location = xcm::VersionedInteriorLocation::from(destination);
-	let xcm = xcm::VersionedXcm::<InnerXcmRuntimeCall>::from(xcm_message);
-	// this is the `BridgeMessage` from polkadot xcm builder, but it has no constructor
-	// or public fields, so just tuple
-	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed
-	// to the storage)
-	(location, xcm).encode().encode()
+	let xcm = xcm::VersionedXcm::<()>::from(xcm_message);
+
+	// (double encoding, because `.encode()` is called on original Xcm BLOB when it is pushed to the
+	// storage)
+	BridgeMessage { universal_dest: location, message: xcm }.encode().encode()
 }
 
 /// Helper that creates InitializationData mock data, that can be used to initialize bridge
@@ -69,11 +67,11 @@ pub(crate) fn dummy_xcm() -> Xcm<()> {
 	vec![Trap(42)].into()
 }
 
-pub(crate) fn dispatch_message(
+pub(crate) fn dispatch_message<LaneId: Encode>(
 	lane_id: LaneId,
 	nonce: MessageNonce,
 	payload: Vec<u8>,
-) -> DispatchMessage<Vec<u8>> {
+) -> DispatchMessage<Vec<u8>, LaneId> {
 	DispatchMessage {
 		key: MessageKey { lane_id, nonce },
 		data: DispatchMessageData { payload: Ok(payload) },
@@ -124,20 +122,20 @@ pub(crate) fn simulate_message_exporter_on_bridged_chain<
 		dummy_xcm(),
 	)
 	.expect("validate_export to pass");
-	log::info!(
+	tracing::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
-		"HaulBlobExporter::validate fee: {:?}",
-		fee
+		?fee,
+		"HaulBlobExporter::validate"
 	);
 	let xcm_hash =
 		HaulBlobExporter::<GrabbingHaulBlob, DestinationNetwork, DestinationVersion, ()>::deliver(
 			ticket,
 		)
 		.expect("deliver to pass");
-	log::info!(
+	tracing::info!(
 		target: "simulate_message_exporter_on_bridged_chain",
-		"HaulBlobExporter::deliver xcm_hash: {:?}",
-		xcm_hash
+		?xcm_hash,
+		"HaulBlobExporter::deliver"
 	);
 
 	GRABBED_HAUL_BLOB_PAYLOAD.with(|r| r.take().expect("Encoded message should be here"))

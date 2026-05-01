@@ -1,0 +1,12 @@
+title: 'omni-node: Tolerate failing metadata check'
+doc:
+- audience: Node Operator
+  description: |-
+    #6450 introduced metadata checks. Supported are metadata v14 and higher.
+
+    However, of course old chain-specs have a genesis code blob that might be on older version. This needs to be tolerated. We should just skip the checks in that case.
+
+    Fixes #6921
+crates:
+- name: polkadot-omni-node-lib
+  bump: patch

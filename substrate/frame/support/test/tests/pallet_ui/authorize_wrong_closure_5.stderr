@@ -1,0 +1,8 @@
+error[E0593]: closure is expected to take 2 arguments, but it takes 1 argument
+  --> tests/pallet_ui/authorize_wrong_closure_5.rs:36:23
+   |
+36 |         #[pallet::authorize(|_a: &u32| -> TransactionValidityWithRefund {
+   |                             ^------------------------------------------
+   |                             |
+   |                             expected closure that takes 2 arguments
+   |                             takes 1 argument

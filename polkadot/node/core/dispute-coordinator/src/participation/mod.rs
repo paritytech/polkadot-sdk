@@ -27,12 +27,12 @@ use futures_timer::Delay;
 
 use polkadot_node_primitives::ValidationResult;
 use polkadot_node_subsystem::{
-	messages::{AvailabilityRecoveryMessage, CandidateValidationMessage},
+	messages::{AvailabilityRecoveryMessage, CandidateValidationMessage, PvfExecKind},
 	overseer, ActiveLeavesUpdate, RecoveryError,
 };
 use polkadot_node_subsystem_util::runtime::get_validation_code_by_hash;
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CandidateReceipt, Hash, PvfExecKind, SessionIndex,
+	BlockNumber, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash, SessionIndex,
 };
 
 use crate::LOG_TARGET;
@@ -161,21 +161,22 @@ impl Participation {
 		ctx: &mut Context,
 		priority: ParticipationPriority,
 		mut req: ParticipationRequest,
+		v3_ever_seen: bool,
 	) -> Result<()> {
 		// Participation already running - we can ignore that request, discarding its timer:
 		if self.running_participations.contains(req.candidate_hash()) {
 			req.discard_timer();
-			return Ok(())
+			return Ok(());
 		}
 		// Available capacity - participate right away (if we already have a recent block):
 		if let Some((_, h)) = self.recent_block {
 			if self.running_participations.len() < MAX_PARALLEL_PARTICIPATIONS {
 				self.fork_participation(ctx, req, h)?;
-				return Ok(())
+				return Ok(());
 			}
 		}
 		// Out of capacity/no recent block yet - queue:
-		self.queue.queue(ctx.sender(), priority, req).await
+		self.queue.queue(ctx.sender(), priority, req, v3_ever_seen).await
 	}
 
 	/// Message from a worker task was received - get the outcome.
@@ -230,9 +231,10 @@ impl Participation {
 		&mut self,
 		ctx: &mut Context,
 		included_receipts: &Vec<CandidateReceipt>,
+		v3_ever_seen: bool,
 	) -> Result<()> {
 		for receipt in included_receipts {
-			self.queue.prioritize_if_present(ctx.sender(), receipt).await?;
+			self.queue.prioritize_if_present(ctx.sender(), receipt, v3_ever_seen).await?;
 		}
 		Ok(())
 	}
@@ -247,7 +249,7 @@ impl Participation {
 			if let Some(req) = self.queue.dequeue() {
 				self.fork_participation(ctx, req, recent_head)?;
 			} else {
-				break
+				break;
 			}
 		}
 		Ok(())
@@ -318,7 +320,7 @@ async fn participate(
 				req.candidate_hash(),
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 		Ok(Ok(data)) => data,
 		Ok(Err(RecoveryError::Invalid)) => {
@@ -331,7 +333,7 @@ async fn participate(
 			// the available data was recovered but it is invalid, therefore we'll
 			// vote negatively for the candidate dispute
 			send_result(&mut result_sender, req, ParticipationOutcome::Invalid).await;
-			return
+			return;
 		},
 		Ok(Err(RecoveryError::Unavailable)) | Ok(Err(RecoveryError::ChannelClosed)) => {
 			gum::debug!(
@@ -341,7 +343,7 @@ async fn participate(
 				"Can't fetch availability data in participation"
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Unavailable).await;
-			return
+			return;
 		},
 	};
 
@@ -350,7 +352,7 @@ async fn participate(
 	let validation_code = match get_validation_code_by_hash(
 		&mut sender,
 		block_hash,
-		req.candidate_receipt().descriptor.validation_code_hash,
+		req.candidate_receipt().descriptor.validation_code_hash(),
 	)
 	.await
 	{
@@ -359,17 +361,17 @@ async fn participate(
 			gum::warn!(
 				target: LOG_TARGET,
 				"Validation code unavailable for code hash {:?} in the state of block {:?}",
-				req.candidate_receipt().descriptor.validation_code_hash,
+				req.candidate_receipt().descriptor.validation_code_hash(),
 				block_hash,
 			);
 
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 		Err(err) => {
 			gum::warn!(target: LOG_TARGET, ?err, "Error when fetching validation code.");
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 	};
 
@@ -386,8 +388,8 @@ async fn participate(
 			validation_code,
 			candidate_receipt: req.candidate_receipt().clone(),
 			pov: available_data.pov,
-			executor_params: req.executor_params(),
-			exec_kind: PvfExecKind::Approval,
+			scheduling_session_index: req.session(),
+			exec_kind: PvfExecKind::Dispute,
 			response_sender: validation_tx,
 		})
 		.await;
@@ -402,7 +404,7 @@ async fn participate(
 				req.candidate_hash(),
 			);
 			send_result(&mut result_sender, req, ParticipationOutcome::Error).await;
-			return
+			return;
 		},
 		Ok(Err(err)) => {
 			gum::warn!(

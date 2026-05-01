@@ -1,0 +1,12 @@
+title: 'pallet-revive: Fix dry run balance check logic'
+doc:
+- audience: Runtime User
+  description: |-
+    Fix fault balance check logic during dry-run:
+
+    We should not enforce that the sender has enough balance for the fees in case no `gas` is supplied.
+
+    cc @TorstenStueber
+crates:
+- name: pallet-revive
+  bump: major

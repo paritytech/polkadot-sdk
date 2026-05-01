@@ -1,0 +1,15 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Update Society Pallet to Support Block Number Provider
+
+doc:
+  - audience: Runtime Dev
+    description: |
+       This PR makes the block number provider in the Society pallet configurable so that runtimes can choose between using the system block number or an alternative source like the relay chain’s block number.
+       If you want to keep the existing behavior, simply set the provider to System. For scenarios that require a different notion of block number—such as using a relay chain number you can select another provider,
+       ensuring flexibility in how the Society pallet references the current block.
+
+crates:
+- name: pallet-society
+  bump: major

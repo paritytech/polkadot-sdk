@@ -1,0 +1,8 @@
+title: Fix reversed error message in DispatchInfo
+doc:
+- audience: Runtime Dev
+  description: "Fix error message in `DispatchInfo` where post-dispatch and pre-dispatch\
+    \ weight was reversed.\r\n"
+crates:
+- name: frame-support
+  bump: patch

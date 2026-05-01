@@ -1,0 +1,10 @@
+title: "sp-trie: correctly avoid panicking when decoding bad compact proofs"
+
+doc:
+  - audience: "Runtime Dev"
+    description: |
+      "Fixed the check introduced in [PR #6486](https://github.com/paritytech/polkadot-sdk/pull/6486). Now `sp-trie` correctly avoids panicking when decoding bad compact proofs."
+
+crates:
+- name: sp-trie
+  bump: patch

@@ -1,0 +1,10 @@
+title: "pallet-xcm: fix authorized_alias benchmarks"
+
+doc:
+  - audience: Runtime Dev
+    description: |-
+      Depending on runtime configuration of ED and storage deposits, the old benchmark code did not set up enough funds to cover authorized aliases storage deposits. Fix it by adding more funds as part of benchmark setup.
+
+crates:
+- name: pallet-xcm
+  bump: patch

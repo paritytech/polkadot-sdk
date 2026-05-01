@@ -1,0 +1,8 @@
+title: 'TxPool: Downgrade log from `info` to `debug`'
+doc:
+- audience: Node Operator
+  description: |-
+    There is no need to log information about `maintain` to the `info` log.
+crates:
+- name: sc-transaction-pool
+  bump: patch

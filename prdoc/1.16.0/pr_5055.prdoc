@@ -1,0 +1,11 @@
+title: Only log error in `UnixTime::now` call of the pallet-timestamp implementation if called at genesis
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      This minor patch re-introduces a check to ensure that the `UnixTime::now` implementation in the timestamp only
+      logs an error if called at the genesis block.
+
+crates:
+- name: pallet-timestamp
+  bump: minor

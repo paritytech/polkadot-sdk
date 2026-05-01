@@ -39,7 +39,6 @@ use polkadot_node_subsystem_util::database::{DBTransaction, Database};
 use sp_consensus::SyncOracle;
 
 use bitvec::{order::Lsb0 as BitOrderLsb0, vec::BitVec};
-use polkadot_node_jaeger as jaeger;
 use polkadot_node_primitives::{AvailableData, ErasureChunk};
 use polkadot_node_subsystem::{
 	errors::{ChainApiError, RuntimeApiError},
@@ -48,8 +47,8 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_util as util;
 use polkadot_primitives::{
-	BlockNumber, CandidateEvent, CandidateHash, CandidateReceipt, ChunkIndex, CoreIndex, Hash,
-	Header, NodeFeatures, ValidatorIndex,
+	BlockNumber, CandidateEvent, CandidateHash, CandidateReceiptV2 as CandidateReceipt, ChunkIndex,
+	CoreIndex, Hash, Header, NodeFeatures, ValidatorIndex,
 };
 use util::availability_chunks::availability_chunk_indices;
 
@@ -75,9 +74,6 @@ const TOMBSTONE_VALUE: &[u8] = b" ";
 
 /// Unavailable blocks are kept for 1 hour.
 const KEEP_UNAVAILABLE_FOR: Duration = Duration::from_secs(60 * 60);
-
-/// Finalized data is kept for 25 hours.
-const KEEP_FINALIZED_FOR: Duration = Duration::from_secs(25 * 60 * 60);
 
 /// The pruning interval.
 const PRUNING_INTERVAL: Duration = Duration::from_secs(60 * 5);
@@ -328,7 +324,7 @@ fn pruning_range(now: impl Into<BETimestamp>) -> (Vec<u8>, Vec<u8>) {
 
 fn decode_unfinalized_key(s: &[u8]) -> Result<(BlockNumber, Hash, CandidateHash), CodecError> {
 	if !s.starts_with(UNFINALIZED_PREFIX) {
-		return Err("missing magic string".into())
+		return Err("missing magic string".into());
 	}
 
 	<(BEBlockNumber, Hash, CandidateHash)>::decode(&mut &s[UNFINALIZED_PREFIX.len()..])
@@ -337,7 +333,7 @@ fn decode_unfinalized_key(s: &[u8]) -> Result<(BlockNumber, Hash, CandidateHash)
 
 fn decode_pruning_key(s: &[u8]) -> Result<(Duration, CandidateHash), CodecError> {
 	if !s.starts_with(PRUNE_BY_TIME_PREFIX) {
-		return Err("missing magic string".into())
+		return Err("missing magic string".into());
 	}
 
 	<(BETimestamp, CandidateHash)>::decode(&mut &s[PRUNE_BY_TIME_PREFIX.len()..])
@@ -424,16 +420,6 @@ struct PruningConfig {
 	pruning_interval: Duration,
 }
 
-impl Default for PruningConfig {
-	fn default() -> Self {
-		Self {
-			keep_unavailable_for: KEEP_UNAVAILABLE_FOR,
-			keep_finalized_for: KEEP_FINALIZED_FOR,
-			pruning_interval: PRUNING_INTERVAL,
-		}
-	}
-}
-
 /// Configuration for the availability store.
 #[derive(Debug, Clone, Copy)]
 pub struct Config {
@@ -441,6 +427,8 @@ pub struct Config {
 	pub col_data: u32,
 	/// The column family for availability store meta information.
 	pub col_meta: u32,
+	/// How long finalized data should be kept (in hours).
+	pub keep_finalized_for: u32,
 }
 
 trait Clock: Send + Sync {
@@ -476,10 +464,16 @@ impl AvailabilityStoreSubsystem {
 		sync_oracle: Box<dyn SyncOracle + Send + Sync>,
 		metrics: Metrics,
 	) -> Self {
+		let pruning_config = PruningConfig {
+			keep_unavailable_for: KEEP_UNAVAILABLE_FOR,
+			keep_finalized_for: Duration::from_secs(config.keep_finalized_for as u64 * 3600),
+			pruning_interval: PRUNING_INTERVAL,
+		};
+
 		Self::with_pruning_config_and_clock(
 			db,
 			config,
-			PruningConfig::default(),
+			pruning_config,
 			Box::new(SystemClock),
 			sync_oracle,
 			metrics,
@@ -568,12 +562,12 @@ async fn run<Context>(mut subsystem: AvailabilityStoreSubsystem, mut ctx: Contex
 			Err(e) => {
 				e.trace();
 				if e.is_fatal() {
-					break
+					break;
 				}
 			},
 			Ok(true) => {
 				gum::info!(target: LOG_TARGET, "received `Conclude` signal, exiting");
-				break
+				break;
 			},
 			Ok(false) => continue,
 		}
@@ -849,13 +843,13 @@ fn note_block_included(
 						within.insert(i, be_block);
 						State::Unfinalized(at, within)
 					} else {
-						return Ok(())
+						return Ok(());
 					}
 				},
 				State::Finalized(_at) => {
 					// This should never happen as a candidate would have to be included after
 					// finality.
-					return Ok(())
+					return Ok(());
 				},
 			};
 
@@ -914,7 +908,7 @@ async fn process_block_finalized<Context>(
 		};
 
 		if batch_num < next_possible_batch {
-			continue
+			continue;
 		} // sanity.
 		next_possible_batch = batch_num + 1;
 
@@ -933,7 +927,7 @@ async fn process_block_finalized<Context>(
 						"Failed to retrieve finalized block number.",
 					);
 
-					break
+					break;
 				},
 				Ok(None) => {
 					gum::warn!(
@@ -943,7 +937,7 @@ async fn process_block_finalized<Context>(
 						batch_num,
 					);
 
-					break
+					break;
 				},
 				Ok(Some(h)) => h,
 			}
@@ -1021,7 +1015,7 @@ fn update_blocks_at_finalized_height(
 					candidate_hash,
 				);
 
-				continue
+				continue;
 			},
 			Some(c) => c,
 		};
@@ -1193,7 +1187,7 @@ fn process_message(
 				},
 				Err(e) => {
 					let _ = tx.send(Err(()));
-					return Err(e)
+					return Err(e);
 				},
 			}
 		},
@@ -1226,7 +1220,7 @@ fn process_message(
 				},
 				Err(Error::InvalidErasureRoot) => {
 					let _ = tx.send(Err(StoreAvailableDataError::InvalidErasureRoot));
-					return Err(Error::InvalidErasureRoot)
+					return Err(Error::InvalidErasureRoot);
 				},
 				Err(e) => {
 					// We do not bubble up internal errors to caller subsystems, instead the
@@ -1234,7 +1228,7 @@ fn process_message(
 					//
 					// We bubble up the specific error here so `av-store` logs still tell what
 					// happened.
-					return Err(e.into())
+					return Err(e.into());
 				},
 			}
 		},
@@ -1295,7 +1289,7 @@ fn store_available_data(
 	let mut meta = match load_meta(&subsystem.db, &subsystem.config, &candidate_hash)? {
 		Some(m) => {
 			if m.data_available {
-				return Ok(()) // already stored.
+				return Ok(()); // already stored.
 			}
 
 			m
@@ -1315,20 +1309,14 @@ fn store_available_data(
 		},
 	};
 
-	let erasure_span = jaeger::Span::new(candidate_hash, "erasure-coding")
-		.with_candidate(candidate_hash)
-		.with_pov(&available_data.pov);
-
 	// Important note: This check below is critical for consensus and the `backing` subsystem relies
 	// on it to ensure candidate validity.
 	let chunks = polkadot_erasure_coding::obtain_chunks_v1(n_validators, &available_data)?;
 	let branches = polkadot_erasure_coding::branches(chunks.as_ref());
 
 	if branches.root() != expected_erasure_root {
-		return Err(Error::InvalidErasureRoot)
+		return Err(Error::InvalidErasureRoot);
 	}
-
-	drop(erasure_span);
 
 	let erasure_chunks: Vec<_> = chunks
 		.iter()
@@ -1341,7 +1329,7 @@ fn store_available_data(
 		})
 		.collect();
 
-	let chunk_indices = availability_chunk_indices(Some(&node_features), n_validators, core_index)?;
+	let chunk_indices = availability_chunk_indices(&node_features, n_validators, core_index)?;
 	for (validator_index, chunk_index) in chunk_indices.into_iter().enumerate() {
 		write_chunk(
 			&mut tx,

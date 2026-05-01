@@ -15,11 +15,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::Encode;
+use codec::{Compact, Decode, Encode};
+use derive_where::derive_where;
 use scale_info::{
 	form::{Form, MetaForm, PortableForm},
-	prelude::vec::Vec,
-	IntoPortable, MetaType, Registry,
+	prelude::{collections::BTreeMap, vec::Vec},
+	IntoPortable, Registry,
 };
 
 /// The intermediate representation for the runtime metadata.
@@ -44,7 +45,8 @@ pub struct MetadataIR<T: Form = MetaForm> {
 }
 
 /// Metadata of a runtime trait.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	/// Trait name.
 	pub name: T::String,
@@ -52,6 +54,10 @@ pub struct RuntimeApiMetadataIR<T: Form = MetaForm> {
 	pub methods: Vec<RuntimeApiMethodMetadataIR<T>>,
 	/// Trait documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info.
+	pub deprecation_info: ItemDeprecationInfoIR<T>,
+	/// Runtime API version.
+	pub version: Compact<u32>,
 }
 
 impl IntoPortable for RuntimeApiMetadataIR {
@@ -62,12 +68,15 @@ impl IntoPortable for RuntimeApiMetadataIR {
 			name: self.name.into_portable(registry),
 			methods: registry.map_into_portable(self.methods),
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+			version: self.version,
 		}
 	}
 }
 
 /// Metadata of a runtime method.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct RuntimeApiMethodMetadataIR<T: Form = MetaForm> {
 	/// Method name.
 	pub name: T::String,
@@ -77,6 +86,8 @@ pub struct RuntimeApiMethodMetadataIR<T: Form = MetaForm> {
 	pub output: T::Type,
 	/// Method documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: ItemDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for RuntimeApiMethodMetadataIR {
@@ -88,12 +99,14 @@ impl IntoPortable for RuntimeApiMethodMetadataIR {
 			inputs: registry.map_into_portable(self.inputs),
 			output: registry.register_type(&self.output),
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
 
 /// Metadata of a runtime method parameter.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct RuntimeApiMethodParamMetadataIR<T: Form = MetaForm> {
 	/// Parameter name.
 	pub name: T::String,
@@ -112,8 +125,63 @@ impl IntoPortable for RuntimeApiMethodParamMetadataIR {
 	}
 }
 
+/// Metadata of a pallet view function method.
+#[derive(Encode, Decode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub struct PalletViewFunctionMetadataIR<T: Form = MetaForm> {
+	/// Method name.
+	pub name: T::String,
+	/// Method id.
+	pub id: [u8; 32],
+	/// Method parameters.
+	pub inputs: Vec<PalletViewFunctionParamMetadataIR<T>>,
+	/// Method output.
+	pub output: T::Type,
+	/// Method documentation.
+	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: ItemDeprecationInfoIR<T>,
+}
+
+impl IntoPortable for PalletViewFunctionMetadataIR {
+	type Output = PalletViewFunctionMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletViewFunctionMetadataIR {
+			name: self.name.into_portable(registry),
+			id: self.id,
+			inputs: registry.map_into_portable(self.inputs),
+			output: registry.register_type(&self.output),
+			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
+	}
+}
+
+/// Metadata of a pallet view function method argument.
+#[derive(Encode, Decode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub struct PalletViewFunctionParamMetadataIR<T: Form = MetaForm> {
+	/// Parameter name.
+	pub name: T::String,
+	/// Parameter type.
+	pub ty: T::Type,
+}
+
+impl IntoPortable for PalletViewFunctionParamMetadataIR {
+	type Output = PalletViewFunctionParamMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletViewFunctionParamMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+		}
+	}
+}
+
 /// The intermediate representation for a pallet metadata.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletMetadataIR<T: Form = MetaForm> {
 	/// Pallet name.
 	pub name: T::String,
@@ -121,17 +189,23 @@ pub struct PalletMetadataIR<T: Form = MetaForm> {
 	pub storage: Option<PalletStorageMetadataIR<T>>,
 	/// Pallet calls metadata.
 	pub calls: Option<PalletCallMetadataIR<T>>,
+	/// Pallet view functions metadata.
+	pub view_functions: Vec<PalletViewFunctionMetadataIR<T>>,
 	/// Pallet event metadata.
 	pub event: Option<PalletEventMetadataIR<T>>,
 	/// Pallet constants metadata.
 	pub constants: Vec<PalletConstantMetadataIR<T>>,
 	/// Pallet error metadata.
 	pub error: Option<PalletErrorMetadataIR<T>>,
+	/// Config's trait associated types.
+	pub associated_types: Vec<PalletAssociatedTypeMetadataIR<T>>,
 	/// Define the index of the pallet, this index will be used for the encoding of pallet event,
 	/// call and origin variants.
 	pub index: u8,
 	/// Pallet documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: ItemDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletMetadataIR {
@@ -142,34 +216,59 @@ impl IntoPortable for PalletMetadataIR {
 			name: self.name.into_portable(registry),
 			storage: self.storage.map(|storage| storage.into_portable(registry)),
 			calls: self.calls.map(|calls| calls.into_portable(registry)),
+			view_functions: self
+				.view_functions
+				.into_iter()
+				.map(|view_functions| view_functions.into_portable(registry))
+				.collect(),
 			event: self.event.map(|event| event.into_portable(registry)),
 			constants: registry.map_into_portable(self.constants),
 			error: self.error.map(|error| error.into_portable(registry)),
+			associated_types: registry.map_into_portable(self.associated_types),
 			index: self.index,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
 
 /// Metadata of the extrinsic used by the runtime.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct ExtrinsicMetadataIR<T: Form = MetaForm> {
 	/// The type of the extrinsic.
 	///
 	/// Note: Field used for metadata V14 only.
 	pub ty: T::Type,
-	/// Extrinsic version.
-	pub version: u8,
+	/// Extrinsic versions.
+	pub versions: Vec<u8>,
 	/// The type of the address that signs the extrinsic
 	pub address_ty: T::Type,
 	/// The type of the outermost Call enum.
 	pub call_ty: T::Type,
 	/// The type of the extrinsic's signature.
 	pub signature_ty: T::Type,
-	/// The type of the outermost Extra enum.
+	/// The type of the outermost Extra/Extensions enum.
+	// TODO: metadata-v16: remove this, the `implicit` type can be found in `extensions::implicit`.
 	pub extra_ty: T::Type,
-	/// The signed extensions in the order they appear in the extrinsic.
-	pub signed_extensions: Vec<SignedExtensionMetadataIR<T>>,
+	/// The transaction extensions for each version as a list of index in reference to items in
+	/// `extensions_in_versions` field.
+	pub extensions_by_version: BTreeMap<u8, Vec<u32>>,
+	/// The list of all transaction extensions used in `extensions_by_version`.
+	pub extensions_in_versions: Vec<TransactionExtensionMetadataIR<T>>,
+}
+
+impl<T: Form> ExtrinsicMetadataIR<T> {
+	/// The transaction extensions in the order they appear in the extrinsic for the version 0 if
+	/// defined.
+	pub fn extensions_v0(&self) -> Option<Vec<TransactionExtensionMetadataIR<T>>> {
+		self.extensions_by_version.get(&0).map(|indices| {
+			indices
+				.iter()
+				.map(|i| self.extensions_in_versions[*i as usize].clone())
+				.collect()
+		})
+	}
 }
 
 impl IntoPortable for ExtrinsicMetadataIR {
@@ -178,42 +277,70 @@ impl IntoPortable for ExtrinsicMetadataIR {
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
 		ExtrinsicMetadataIR {
 			ty: registry.register_type(&self.ty),
-			version: self.version,
+			versions: self.versions,
 			address_ty: registry.register_type(&self.address_ty),
 			call_ty: registry.register_type(&self.call_ty),
 			signature_ty: registry.register_type(&self.signature_ty),
 			extra_ty: registry.register_type(&self.extra_ty),
-			signed_extensions: registry.map_into_portable(self.signed_extensions),
+			extensions_by_version: self.extensions_by_version,
+			extensions_in_versions: registry.map_into_portable(self.extensions_in_versions),
+		}
+	}
+}
+
+/// Metadata of a pallet's associated type.
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub struct PalletAssociatedTypeMetadataIR<T: Form = MetaForm> {
+	/// The name of the associated type.
+	pub name: T::String,
+	/// The type of the associated type.
+	pub ty: T::Type,
+	/// The documentation of the associated type.
+	pub docs: Vec<T::String>,
+}
+
+impl IntoPortable for PalletAssociatedTypeMetadataIR {
+	type Output = PalletAssociatedTypeMetadataIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		PalletAssociatedTypeMetadataIR {
+			name: self.name.into_portable(registry),
+			ty: registry.register_type(&self.ty),
+			docs: registry.map_into_portable(self.docs),
 		}
 	}
 }
 
 /// Metadata of an extrinsic's signed extension.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
-pub struct SignedExtensionMetadataIR<T: Form = MetaForm> {
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub struct TransactionExtensionMetadataIR<T: Form = MetaForm> {
 	/// The unique signed extension identifier, which may be different from the type name.
 	pub identifier: T::String,
 	/// The type of the signed extension, with the data to be included in the extrinsic.
 	pub ty: T::Type,
-	/// The type of the additional signed data, with the data to be included in the signed payload
-	pub additional_signed: T::Type,
+	/// The type of the implicit data, with the data to be included in the signed payload.
+	pub implicit: T::Type,
 }
 
-impl IntoPortable for SignedExtensionMetadataIR {
-	type Output = SignedExtensionMetadataIR<PortableForm>;
+impl IntoPortable for TransactionExtensionMetadataIR {
+	type Output = TransactionExtensionMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		SignedExtensionMetadataIR {
+		TransactionExtensionMetadataIR {
 			identifier: self.identifier.into_portable(registry),
 			ty: registry.register_type(&self.ty),
-			additional_signed: registry.register_type(&self.additional_signed),
+			implicit: registry.register_type(&self.implicit),
 		}
 	}
 }
 
 /// All metadata of the pallet's storage.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+///
 /// The common prefix used by all storage entries.
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletStorageMetadataIR<T: Form = MetaForm> {
 	/// The common prefix used by all storage entries.
 	pub prefix: T::String,
@@ -233,7 +360,8 @@ impl IntoPortable for PalletStorageMetadataIR {
 }
 
 /// Metadata about one storage entry.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct StorageEntryMetadataIR<T: Form = MetaForm> {
 	/// Variable name of the storage entry.
 	pub name: T::String,
@@ -245,6 +373,8 @@ pub struct StorageEntryMetadataIR<T: Form = MetaForm> {
 	pub default: Vec<u8>,
 	/// Storage entry documentation.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: ItemDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for StorageEntryMetadataIR {
@@ -257,6 +387,7 @@ impl IntoPortable for StorageEntryMetadataIR {
 			ty: self.ty.into_portable(registry),
 			default: self.default,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
@@ -296,7 +427,8 @@ pub enum StorageHasherIR {
 }
 
 /// A type of storage value.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub enum StorageEntryTypeIR<T: Form = MetaForm> {
 	/// Plain storage entry (just the value).
 	Plain(T::Type),
@@ -327,49 +459,50 @@ impl IntoPortable for StorageEntryTypeIR {
 }
 
 /// Metadata for all calls in a pallet
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletCallMetadataIR<T: Form = MetaForm> {
 	/// The corresponding enum type for the pallet call.
 	pub ty: T::Type,
+	/// Deprecation status of the pallet call
+	pub deprecation_info: EnumDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletCallMetadataIR {
 	type Output = PalletCallMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletCallMetadataIR { ty: registry.register_type(&self.ty) }
-	}
-}
-
-impl From<MetaType> for PalletCallMetadataIR {
-	fn from(ty: MetaType) -> Self {
-		Self { ty }
+		PalletCallMetadataIR {
+			ty: registry.register_type(&self.ty),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
 	}
 }
 
 /// Metadata about the pallet Event type.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletEventMetadataIR<T: Form = MetaForm> {
 	/// The Event type.
 	pub ty: T::Type,
+	/// Deprecation info of the event
+	pub deprecation_info: EnumDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletEventMetadataIR {
 	type Output = PalletEventMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletEventMetadataIR { ty: registry.register_type(&self.ty) }
-	}
-}
-
-impl From<MetaType> for PalletEventMetadataIR {
-	fn from(ty: MetaType) -> Self {
-		Self { ty }
+		PalletEventMetadataIR {
+			ty: registry.register_type(&self.ty),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
 	}
 }
 
 /// Metadata about one pallet constant.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletConstantMetadataIR<T: Form = MetaForm> {
 	/// Name of the pallet constant.
 	pub name: T::String,
@@ -379,6 +512,8 @@ pub struct PalletConstantMetadataIR<T: Form = MetaForm> {
 	pub value: Vec<u8>,
 	/// Documentation of the constant.
 	pub docs: Vec<T::String>,
+	/// Deprecation info
+	pub deprecation_info: ItemDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletConstantMetadataIR {
@@ -390,33 +525,35 @@ impl IntoPortable for PalletConstantMetadataIR {
 			ty: registry.register_type(&self.ty),
 			value: self.value,
 			docs: registry.map_into_portable(self.docs),
+			deprecation_info: self.deprecation_info.into_portable(registry),
 		}
 	}
 }
 
 /// Metadata about a pallet error.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct PalletErrorMetadataIR<T: Form = MetaForm> {
 	/// The error type information.
 	pub ty: T::Type,
+	/// Deprecation info
+	pub deprecation_info: EnumDeprecationInfoIR<T>,
 }
 
 impl IntoPortable for PalletErrorMetadataIR {
 	type Output = PalletErrorMetadataIR<PortableForm>;
 
 	fn into_portable(self, registry: &mut Registry) -> Self::Output {
-		PalletErrorMetadataIR { ty: registry.register_type(&self.ty) }
-	}
-}
-
-impl From<MetaType> for PalletErrorMetadataIR {
-	fn from(ty: MetaType) -> Self {
-		Self { ty }
+		PalletErrorMetadataIR {
+			ty: registry.register_type(&self.ty),
+			deprecation_info: self.deprecation_info.into_portable(registry),
+		}
 	}
 }
 
 /// The type of the outer enums.
-#[derive(Clone, PartialEq, Eq, Encode, Debug)]
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
 pub struct OuterEnumsIR<T: Form = MetaForm> {
 	/// The type of the outer `RuntimeCall` enum.
 	pub call_enum_ty: T::Type,
@@ -448,6 +585,110 @@ impl IntoPortable for OuterEnumsIR {
 			call_enum_ty: registry.register_type(&self.call_enum_ty),
 			event_enum_ty: registry.register_type(&self.event_enum_ty),
 			error_enum_ty: registry.register_type(&self.error_enum_ty),
+		}
+	}
+}
+
+/// Deprecation information for generic items.
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub enum ItemDeprecationInfoIR<T: Form = MetaForm> {
+	/// Item is not deprecated.
+	NotDeprecated,
+	/// Item is fully deprecated without a note.
+	DeprecatedWithoutNote,
+	/// Item is fully deprecated with a note and an optional `since` field.
+	Deprecated {
+		/// Note explaining the deprecation
+		note: T::String,
+		/// Optional value for noting the version when the deprecation occurred.
+		since: Option<T::String>,
+	},
+}
+
+impl IntoPortable for ItemDeprecationInfoIR {
+	type Output = ItemDeprecationInfoIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		match self {
+			Self::NotDeprecated => ItemDeprecationInfoIR::NotDeprecated,
+			Self::DeprecatedWithoutNote => ItemDeprecationInfoIR::DeprecatedWithoutNote,
+			Self::Deprecated { note, since } => {
+				let note = note.into_portable(registry);
+				let since = since.map(|x| x.into_portable(registry));
+				ItemDeprecationInfoIR::Deprecated { note, since }
+			},
+		}
+	}
+}
+
+/// Deprecation information for enums in which specific variants can be deprecated.
+/// If the map is empty, then nothing is deprecated.
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub struct EnumDeprecationInfoIR<T: Form = MetaForm>(pub BTreeMap<u8, VariantDeprecationInfoIR<T>>);
+
+impl<T: Form> EnumDeprecationInfoIR<T> {
+	/// Construct an instance in which nothing is marked for deprecation.
+	pub fn nothing_deprecated() -> Self {
+		Self(BTreeMap::new())
+	}
+
+	/// Are any variants deprecated?
+	pub fn has_deprecated_variants(&self) -> bool {
+		!self.0.is_empty()
+	}
+
+	/// Is a specific variant deprecated?
+	pub fn is_variant_deprecated(&self, variant_index: u8) -> bool {
+		self.0.contains_key(&variant_index)
+	}
+}
+
+impl IntoPortable for EnumDeprecationInfoIR {
+	type Output = EnumDeprecationInfoIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		let entries = self.0.into_iter().map(|(k, entry)| (k, entry.into_portable(registry)));
+		EnumDeprecationInfoIR(entries.collect())
+	}
+}
+
+/// Deprecation information for an item or variant in the metadata.
+#[derive(Encode)]
+#[derive_where(Clone, PartialEq, Eq, Debug;)]
+pub enum VariantDeprecationInfoIR<T: Form = MetaForm> {
+	/// Variant is deprecated without a note.
+	DeprecatedWithoutNote,
+	/// Variant is deprecated with a note and an optional `since` field.
+	Deprecated {
+		/// Note explaining the deprecation
+		note: T::String,
+		/// Optional value for noting the version when the deprecation occurred.
+		since: Option<T::String>,
+	},
+}
+
+impl<T: Form> Into<ItemDeprecationInfoIR<T>> for VariantDeprecationInfoIR<T> {
+	fn into(self) -> ItemDeprecationInfoIR<T> {
+		match self {
+			Self::Deprecated { note, since } => ItemDeprecationInfoIR::Deprecated { note, since },
+			Self::DeprecatedWithoutNote => ItemDeprecationInfoIR::DeprecatedWithoutNote,
+		}
+	}
+}
+
+impl IntoPortable for VariantDeprecationInfoIR {
+	type Output = VariantDeprecationInfoIR<PortableForm>;
+
+	fn into_portable(self, registry: &mut Registry) -> Self::Output {
+		match self {
+			Self::Deprecated { note, since } => {
+				let note = note.into_portable(registry);
+				let since = since.map(|x| x.into_portable(registry));
+				VariantDeprecationInfoIR::Deprecated { note, since }
+			},
+			Self::DeprecatedWithoutNote => VariantDeprecationInfoIR::DeprecatedWithoutNote,
 		}
 	}
 }

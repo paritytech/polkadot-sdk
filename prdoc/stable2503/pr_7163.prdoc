@@ -1,0 +1,13 @@
+title: '[pallet-revive] Remove debug buffer'
+doc:
+- audience: Runtime Dev
+  description: Remove the `debug_buffer` feature
+crates:
+- name: asset-hub-westend-runtime
+  bump: minor
+- name: pallet-revive
+  bump: major
+- name: pallet-revive-proc-macro
+  bump: minor
+- name: pallet-revive-uapi
+  bump: minor

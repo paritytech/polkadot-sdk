@@ -1,0 +1,16 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: "[pallet-broker] Force-unpool provisionally pooled regions before redispatching them"
+
+doc:
+  - audience: Runtime User
+    description: |
+      This PR force removes regions from the pool before allowing them to be redispatched (through
+      `partition`/`interlace`/`assign`) for regions pooled with `Provisional` finality. To claim
+      any revenue from before this point, `claim_revenue` should be called before
+      partitioning/interleaving/reassigning as it cannot be claimed afterwards.
+
+crates:
+- name: pallet-broker
+  bump: major

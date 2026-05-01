@@ -23,7 +23,7 @@ pub trait WeightInfo {
 }
 
 #[frame_support::pallet(dev_mode)]
-mod pallet {
+pub mod pallet {
 	use super::*;
 
 	#[pallet::config]

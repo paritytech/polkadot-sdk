@@ -1,0 +1,28 @@
+# Schema: Polkadot SDK PRDoc Schema (prdoc) v1.0.0
+# See doc at https://raw.githubusercontent.com/paritytech/polkadot-sdk/master/prdoc/schema_user.json
+
+title: Enable report_fork_voting()
+
+doc:
+  - audience:
+    - Runtime Dev
+    - Runtime User
+    description: |
+      This PR enables calling `report_fork_voting`.
+      In order to do this we needed to also check that the ancestry proof is optimal.
+
+crates:
+  - name: pallet-mmr
+    bump: minor
+  - name: sp-mmr-primitives
+    bump: minor
+  - name: sp-consensus-beefy
+    bump: minor
+  - name: rococo-runtime
+    bump: minor
+  - name: pallet-beefy
+    bump: minor
+  - name: pallet-beefy-mmr
+    bump: minor
+  - name: westend-runtime
+    bump: minor

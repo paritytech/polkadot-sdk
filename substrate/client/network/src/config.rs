@@ -66,7 +66,28 @@ use std::{
 	pin::Pin,
 	str::{self, FromStr},
 	sync::Arc,
+	time::Duration,
 };
+
+/// Default timeout for idle connections of 10 seconds is good enough for most networks.
+/// It doesn't make sense to expose it as a CLI parameter on individual nodes, but customizations
+/// are possible in custom nodes through [`NetworkConfiguration`].
+pub const DEFAULT_IDLE_CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// Maximum number of locally kept Kademlia provider keys.
+///
+/// 10000 keys is enough for a testnet with fast runtime (1-minute epoch) and 13 parachains.
+pub const KADEMLIA_MAX_PROVIDER_KEYS: usize = 10000;
+
+/// Time to keep Kademlia content provider records.
+///
+/// 10 h is enough time to keep the parachain bootnode record for two 4-hour epochs.
+pub const KADEMLIA_PROVIDER_RECORD_TTL: Duration = Duration::from_secs(10 * 3600);
+
+/// Interval of republishing Kademlia provider records.
+///
+/// 3.5 h means we refresh next epoch provider record 30 minutes before next 4-hour epoch comes.
+pub const KADEMLIA_PROVIDER_REPUBLISH_INTERVAL: Duration = Duration::from_secs(12600);
 
 /// Protocol name prefix, transmitted on the wire for legacy protocol names.
 /// I.e., `dot` in `/dot/sync/2`. Should be unique for each chain. Always UTF-8.
@@ -149,8 +170,12 @@ pub struct MultiaddrWithPeerId {
 impl MultiaddrWithPeerId {
 	/// Concatenates the multiaddress and peer ID into one multiaddress containing both.
 	pub fn concat(&self) -> Multiaddr {
-		let proto = multiaddr::Protocol::P2p(From::from(self.peer_id));
-		self.multiaddr.clone().with(proto)
+		let mut addr = self.multiaddr.clone();
+		// Ensure that the address not already contains the `p2p` protocol.
+		if matches!(addr.iter().last(), Some(multiaddr::Protocol::P2p(_))) {
+			addr.pop();
+		}
+		addr.with(multiaddr::Protocol::P2p(From::from(self.peer_id)))
 	}
 }
 
@@ -620,11 +645,19 @@ pub struct NetworkConfiguration {
 	/// Configuration for the transport layer.
 	pub transport: TransportConfig,
 
+	/// Idle connection timeout.
+	///
+	/// Set by default to [`DEFAULT_IDLE_CONNECTION_TIMEOUT`].
+	pub idle_connection_timeout: Duration,
+
 	/// Maximum number of peers to ask the same blocks in parallel.
 	pub max_parallel_downloads: u32,
 
 	/// Maximum number of blocks per request.
 	pub max_blocks_per_request: u32,
+
+	/// Number of peers that need to be connected before warp sync is started.
+	pub min_peers_to_start_warp_sync: Option<usize>,
 
 	/// Initial syncing mode.
 	pub sync_mode: SyncMode,
@@ -647,29 +680,15 @@ pub struct NetworkConfiguration {
 	/// `kademlia_replication_factor` peers to consider record successfully put.
 	pub kademlia_replication_factor: NonZeroUsize,
 
-	/// Enable serving block data over IPFS bitswap.
+	/// Enable serving indexed transaction data using IPFS Bitswap protocol.
 	pub ipfs_server: bool,
 
-	/// Size of Yamux receive window of all substreams. `None` for the default (256kiB).
-	/// Any value less than 256kiB is invalid.
+	/// List of IPFS bootstrap nodes to register in IPFS DHT as a provider of indexed transaction
+	/// data.
 	///
-	/// # Context
-	///
-	/// By design, notifications substreams on top of Yamux connections only allow up to `N` bytes
-	/// to be transferred at a time, where `N` is the Yamux receive window size configurable here.
-	/// This means, in practice, that every `N` bytes must be acknowledged by the receiver before
-	/// the sender can send more data. The maximum bandwidth of each notifications substream is
-	/// therefore `N / round_trip_time`.
-	///
-	/// It is recommended to leave this to `None`, and use a request-response protocol instead if
-	/// a large amount of data must be transferred. The reason why the value is configurable is
-	/// that some Substrate users mis-use notification protocols to send large amounts of data.
-	/// As such, this option isn't designed to stay and will likely get removed in the future.
-	///
-	/// Note that configuring a value here isn't a modification of the Yamux protocol, but rather
-	/// a modification of the way the implementation works. Different nodes with different
-	/// configured values remain compatible with each other.
-	pub yamux_window_size: Option<u32>,
+	/// If IPFS bootstrap nodes are not provided, this node will only handle direct Bitswap
+	/// requests from peers that already know its address.
+	pub ipfs_bootnodes: Vec<MultiaddrWithPeerId>,
 
 	/// Networking backend used for P2P communication.
 	pub network_backend: NetworkBackendType,
@@ -695,17 +714,19 @@ impl NetworkConfiguration {
 			client_version: client_version.into(),
 			node_name: node_name.into(),
 			transport: TransportConfig::Normal { enable_mdns: false, allow_private_ip: true },
+			idle_connection_timeout: DEFAULT_IDLE_CONNECTION_TIMEOUT,
 			max_parallel_downloads: 5,
 			max_blocks_per_request: 64,
+			min_peers_to_start_warp_sync: None,
 			sync_mode: SyncMode::Full,
 			enable_dht_random_walk: true,
 			allow_non_globals_in_dht: false,
 			kademlia_disjoint_query_paths: false,
 			kademlia_replication_factor: NonZeroUsize::new(DEFAULT_KADEMLIA_REPLICATION_FACTOR)
 				.expect("value is a constant; constant is non-zero; qed."),
-			yamux_window_size: None,
 			ipfs_server: false,
-			network_backend: NetworkBackendType::Libp2p,
+			ipfs_bootnodes: Vec::new(),
+			network_backend: NetworkBackendType::Litep2p,
 		}
 	}
 
@@ -740,6 +761,16 @@ impl NetworkConfiguration {
 	}
 }
 
+/// IPFS server configuration.
+pub struct IpfsConfig<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
+	/// Network-backend-specific Bitswap configuration.
+	pub bitswap_config: N::BitswapConfig,
+	/// Indexed transactions provider.
+	pub block_provider: Box<dyn crate::IpfsBlockProvider>,
+	/// IPFS bootstrap nodes.
+	pub bootnodes: Vec<MultiaddrWithPeerId>,
+}
+
 /// Network initialization parameters.
 pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	/// Assigned role for our node (full, light, ...).
@@ -768,7 +799,7 @@ pub struct Params<Block: BlockT, H: ExHashT, N: NetworkBackend<Block, H>> {
 	pub block_announce_config: N::NotificationProtocolConfig,
 
 	/// Bitswap configuration, if the server has been enabled.
-	pub bitswap_config: Option<N::BitswapConfig>,
+	pub ipfs_config: Option<IpfsConfig<Block, H, N>>,
 
 	/// Notification metrics.
 	pub notification_metrics: NotificationMetrics,
@@ -790,13 +821,16 @@ pub struct FullNetworkConfiguration<B: BlockT + 'static, H: ExHashT, N: NetworkB
 
 	/// Handle to [`PeerStore`](crate::peer_store::PeerStore).
 	peer_store_handle: Arc<dyn PeerStoreProvider>,
+
+	/// Registry for recording prometheus metrics to.
+	pub metrics_registry: Option<Registry>,
 }
 
 impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfiguration<B, H, N> {
 	/// Create new [`FullNetworkConfiguration`].
-	pub fn new(network_config: &NetworkConfiguration) -> Self {
+	pub fn new(network_config: &NetworkConfiguration, metrics_registry: Option<Registry>) -> Self {
 		let bootnodes = network_config.boot_nodes.iter().map(|bootnode| bootnode.peer_id).collect();
-		let peer_store = N::peer_store(bootnodes);
+		let peer_store = N::peer_store(bootnodes, metrics_registry.clone());
 		let peer_store_handle = peer_store.handle();
 
 		Self {
@@ -805,6 +839,7 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 			notification_protocols: Vec::new(),
 			request_response_protocols: Vec::new(),
 			network_config: network_config.clone(),
+			metrics_registry,
 		}
 	}
 
@@ -927,13 +962,21 @@ impl<B: BlockT + 'static, H: ExHashT, N: NetworkBackend<B, H>> FullNetworkConfig
 }
 
 /// Network backend type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, Copy)]
 pub enum NetworkBackendType {
-	/// Use libp2p for P2P networking.
-	Libp2p,
-
 	/// Use litep2p for P2P networking.
+	///
+	/// This is the preferred option for Substrate-based chains.
+	#[default]
 	Litep2p,
+
+	/// Use libp2p for P2P networking.
+	///
+	/// The libp2p is still used for compatibility reasons until the
+	/// ecosystem switches entirely to litep2p. The backend will enter
+	/// a "best-effort" maintenance mode, where only critical issues will
+	/// get fixed. If you are unsure, please use `NetworkBackendType::Litep2p`.
+	Libp2p,
 }
 
 #[cfg(test)]

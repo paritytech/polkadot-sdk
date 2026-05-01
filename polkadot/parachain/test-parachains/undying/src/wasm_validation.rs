@@ -31,14 +31,14 @@ pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
 
 	let parent_hash = crate::keccak256(&params.parent_head.0[..]);
 
-	let (new_head, _) =
+	let (new_head, _, upward_messages) =
 		crate::execute(parent_hash, parent_head, block_data).expect("Executes block");
 
 	polkadot_parachain_primitives::write_result(&ValidationResult {
 		head_data: GenericHeadData(new_head.encode()),
 		new_validation_code: None,
-		upward_messages: sp_std::vec::Vec::new().try_into().expect("empty vec fits within bounds"),
-		horizontal_messages: sp_std::vec::Vec::new()
+		upward_messages,
+		horizontal_messages: alloc::vec::Vec::new()
 			.try_into()
 			.expect("empty vec fits within bounds"),
 		processed_downward_messages: 0,

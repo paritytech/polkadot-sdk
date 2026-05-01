@@ -21,7 +21,8 @@ use sp_arithmetic::Percent;
 use sp_runtime::codec::{Encode, Error};
 
 fn main() {
-	generate_solution_type!(#[compact] pub struct InnerTestSolutionCompact::<
+	generate_solution_type!(
+		#[compact] pub struct InnerTestSolutionCompact::<
 		VoterIndex = u32,
 		TargetIndex = u32,
 		Accuracy = Percent,

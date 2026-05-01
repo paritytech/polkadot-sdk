@@ -1,0 +1,28 @@
+title: Bridges - revert-back congestion mechanism
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    With [permissionless lanes PR#4949](https://github.com/paritytech/polkadot-sdk/pull/4949), the congestion mechanism based on sending `Transact(report_bridge_status(is_congested))` from `pallet-xcm-bridge-hub` to `pallet-xcm-bridge-hub-router` was replaced with a congestion mechanism that relied on monitoring XCMP queues. However, this approach could cause issues, such as suspending the entire XCMP queue instead of isolating the affected bridge. This PR reverts back to using `report_bridge_status` as before.
+
+crates:
+- name: pallet-xcm-bridge-hub-router
+  bump: patch
+- name: pallet-xcm-bridge-hub
+  bump: patch
+- name: bp-xcm-bridge-hub
+  bump: patch
+- name: bp-asset-hub-rococo
+  bump: patch
+- name: bp-asset-hub-westend
+  bump: patch
+- name: asset-hub-rococo-runtime
+  bump: patch
+- name: asset-hub-westend-runtime
+  bump: patch
+- name: asset-test-utils
+  bump: patch
+- name: bridge-hub-rococo-runtime
+  bump: patch
+- name: bridge-hub-westend-runtime
+  bump: patch

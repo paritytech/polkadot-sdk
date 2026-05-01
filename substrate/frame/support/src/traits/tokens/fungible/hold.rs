@@ -406,7 +406,7 @@ pub trait Mutate<AccountId>:
 		ensure!(Self::can_deposit(dest, amount, Extant) == Success, TokenError::CannotCreate);
 		let actual = Self::decrease_balance(source, amount, precision, expendability, force)?;
 		Self::increase_balance_on_hold(reason, dest, actual, precision)?;
-		Self::done_transfer_on_hold(reason, source, dest, actual);
+		Self::done_transfer_and_hold(reason, source, dest, actual);
 		Ok(actual)
 	}
 
@@ -430,7 +430,11 @@ pub trait Mutate<AccountId>:
 }
 
 /// Trait for slashing a fungible asset which can be place on hold.
-pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId> {
+pub trait Balanced<AccountId>:
+	super::Balanced<AccountId>
+	+ Unbalanced<AccountId>
+	+ DoneSlash<Self::Reason, AccountId, Self::Balance>
+{
 	/// Reduce the balance of some funds on hold in an account.
 	///
 	/// The resulting imbalance is the first item of the tuple returned.
@@ -449,6 +453,16 @@ pub trait Balanced<AccountId>: super::Balanced<AccountId> + Unbalanced<AccountId
 		Self::done_slash(reason, who, decrease);
 		(credit, amount.saturating_sub(decrease))
 	}
+}
 
-	fn done_slash(_reason: &Self::Reason, _who: &AccountId, _amount: Self::Balance) {}
+/// Trait for optional bookkeeping callbacks after a slash.
+pub trait DoneSlash<Reason, AccountId, Balance> {
+	fn done_slash(_reason: &Reason, _who: &AccountId, _amount: Balance) {}
+}
+
+#[impl_trait_for_tuples::impl_for_tuples(30)]
+impl<Reason, AccountId, Balance: Copy> DoneSlash<Reason, AccountId, Balance> for Tuple {
+	fn done_slash(reason: &Reason, who: &AccountId, amount: Balance) {
+		for_tuples!( #( Tuple::done_slash(reason, who, amount); )* );
+	}
 }

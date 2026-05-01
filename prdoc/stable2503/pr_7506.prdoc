@@ -1,0 +1,9 @@
+title: '[pallet-revive] Add eth_get_logs'
+doc:
+- audience: Runtime Dev
+  description: "Add support for eth_get_logs rpc method"
+crates:
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: pallet-revive
+  bump: minor

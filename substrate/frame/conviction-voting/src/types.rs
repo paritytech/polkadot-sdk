@@ -17,16 +17,11 @@
 
 //! Miscellaneous additional datatypes.
 
-use codec::{Codec, Decode, Encode, MaxEncodedLen};
-use frame_support::{
-	traits::VoteTally, CloneNoBound, EqNoBound, PartialEqNoBound, RuntimeDebugNoBound,
-};
+use codec::{Codec, Decode, DecodeWithMemTracking, Encode, MaxEncodedLen};
+use core::{fmt::Debug, marker::PhantomData};
+use frame_support::{traits::VoteTally, CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use scale_info::TypeInfo;
-use sp_runtime::{
-	traits::{Saturating, Zero},
-	RuntimeDebug,
-};
-use sp_std::{fmt::Debug, marker::PhantomData};
+use sp_runtime::traits::{Saturating, Zero};
 
 use super::*;
 use crate::{AccountVote, Conviction, Vote};
@@ -36,10 +31,11 @@ use crate::{AccountVote, Conviction, Vote};
 	CloneNoBound,
 	PartialEqNoBound,
 	EqNoBound,
-	RuntimeDebugNoBound,
+	DebugNoBound,
 	TypeInfo,
 	Encode,
 	Decode,
+	DecodeWithMemTracking,
 	MaxEncodedLen,
 )]
 #[scale_info(skip_type_params(Total))]
@@ -74,7 +70,12 @@ impl<
 	}
 
 	fn approval(&self, _: Class) -> Perbill {
-		Perbill::from_rational(self.ayes, self.ayes.saturating_add(self.nays))
+		let total = self.ayes.saturating_add(self.nays);
+		if total.is_zero() {
+			Perbill::zero()
+		} else {
+			Perbill::from_rational(self.ayes, total)
+		}
 	}
 
 	#[cfg(feature = "runtime-benchmarks")]
@@ -117,14 +118,9 @@ impl<
 	pub fn from_parts(
 		ayes_with_conviction: Votes,
 		nays_with_conviction: Votes,
-		ayes: Votes,
+		support: Votes,
 	) -> Self {
-		Self {
-			ayes: ayes_with_conviction,
-			nays: nays_with_conviction,
-			support: ayes,
-			dummy: PhantomData,
-		}
+		Self { ayes: ayes_with_conviction, nays: nays_with_conviction, support, dummy: PhantomData }
 	}
 
 	/// Add an account's vote into the tally.
@@ -218,7 +214,17 @@ impl<
 
 /// Amount of votes and capital placed in delegation for an account.
 #[derive(
-	Encode, Decode, Default, Copy, Clone, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
+	Encode,
+	Decode,
+	DecodeWithMemTracking,
+	Default,
+	Copy,
+	Clone,
+	PartialEq,
+	Eq,
+	Debug,
+	TypeInfo,
+	MaxEncodedLen,
 )]
 pub struct Delegations<Balance> {
 	/// The number of votes (this is post-conviction).

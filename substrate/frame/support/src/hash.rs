@@ -17,10 +17,10 @@
 
 //! Hash utilities.
 
+use alloc::vec::Vec;
 use codec::{Codec, MaxEncodedLen};
 use sp_io::hashing::{blake2_128, blake2_256, twox_128, twox_256, twox_64};
 use sp_metadata_ir as metadata_ir;
-use sp_std::prelude::Vec;
 
 // This trait must be kept coherent with frame-support-procedural HasherKind usage
 pub trait Hashable: Sized {
@@ -111,7 +111,7 @@ impl ReversibleStorageHasher for Twox64Concat {
 	fn reverse(x: &[u8]) -> &[u8] {
 		if x.len() < 8 {
 			log::error!("Invalid reverse: hash length too short");
-			return &[]
+			return &[];
 		}
 		&x[8..]
 	}
@@ -133,7 +133,7 @@ impl ReversibleStorageHasher for Blake2_128Concat {
 	fn reverse(x: &[u8]) -> &[u8] {
 		if x.len() < 16 {
 			log::error!("Invalid reverse: hash length too short");
-			return &[]
+			return &[];
 		}
 		&x[16..]
 	}

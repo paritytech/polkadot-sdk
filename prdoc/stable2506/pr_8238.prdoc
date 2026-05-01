@@ -1,0 +1,12 @@
+title: Add `checked_sqrt` to the `FixedPointNumber` trait
+
+doc:
+- audience: Runtime Dev
+  description: |-
+    Adds the function `checked_sqrt` to the `FixedPointNumber` trait, and deprecates `const fn try_sqrt` inside
+    of the `implement_fixed` macro in favor of a `const fn checked_sqrt` which does the same thing. This affects 
+    [`FixedI64`, `FixedU64`, `FixedI128`, `FixedU128`].
+
+crates:
+- name: sp-arithmetic
+  bump: major

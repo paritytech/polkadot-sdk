@@ -15,6 +15,7 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 use super::{test_utils::*, *};
+use alloc::{vec, vec::Vec};
 use frame_support::{
 	assert_err,
 	traits::{ConstU32, ContainsPair, ProcessMessageError},
@@ -22,7 +23,7 @@ use frame_support::{
 };
 use xcm_executor::{traits::prelude::*, Config, XcmExecutor};
 
-mod mock;
+pub mod mock;
 use mock::*;
 
 mod aliases;
@@ -31,6 +32,7 @@ mod barriers;
 mod basic;
 mod bridging;
 mod expecting;
+mod forwarder;
 mod locking;
 mod origins;
 mod pay;

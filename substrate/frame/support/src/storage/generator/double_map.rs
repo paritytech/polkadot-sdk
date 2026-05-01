@@ -20,8 +20,8 @@ use crate::{
 	storage::{self, storage_prefix, unhashed, KeyPrefixIterator, PrefixIterator, StorageAppend},
 	Never,
 };
+use alloc::vec::Vec;
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
-use sp_std::prelude::*;
 
 /// Generator for `StorageDoubleMap` used by `decl_storage`.
 ///
@@ -346,9 +346,8 @@ where
 
 			final_key
 		};
-		unhashed::take(old_key.as_ref()).map(|value| {
+		unhashed::take(old_key.as_ref()).inspect(|value| {
 			unhashed::put(Self::storage_double_map_final_key(key1, key2).as_ref(), &value);
-			value
 		})
 	}
 }
@@ -477,7 +476,7 @@ where
 				Some(value) => value,
 				None => {
 					log::error!("Invalid translate: fail to decode old value");
-					continue
+					continue;
 				},
 			};
 			let mut key_material = G::Hasher1::reverse(&previous_key[prefix.len()..]);
@@ -485,7 +484,7 @@ where
 				Ok(key1) => key1,
 				Err(_) => {
 					log::error!("Invalid translate: fail to decode key1");
-					continue
+					continue;
 				},
 			};
 
@@ -494,7 +493,7 @@ where
 				Ok(key2) => key2,
 				Err(_) => {
 					log::error!("Invalid translate: fail to decode key2");
-					continue
+					continue;
 				},
 			};
 
@@ -516,6 +515,7 @@ mod test_iterators {
 			unhashed,
 		},
 	};
+	use alloc::vec;
 	use codec::Encode;
 
 	#[test]

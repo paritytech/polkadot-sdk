@@ -1,0 +1,25 @@
+title: Populate authority DHT records with public listen addresses
+
+doc:
+  - audience: [ Node Dev, Node Operator ]
+    description: |
+      This PR populates the authority DHT records with public listen addresses if any.
+      The change effectively ensures that addresses are added to the DHT record in the
+      following order:
+        1. Public addresses provided by CLI `--public-addresses`
+        2. Maximum of 4 public (global) listen addresses (if any)
+        3. Any external addresses discovered from the network (ie from `/identify` protocol)
+      
+      While at it, this PR adds the following constraints on the number of addresses:
+       - Total number of addresses cached is bounded at 16 (increased from 10).
+       - A maximum number of 32 addresses are published to DHT records (previously unbounded).
+       - A maximum of 4 global listen addresses are utilized.
+      
+      This PR replaces the following warning:
+      `WARNING: No public address specified, validator node may not be reachable.`
+      with a more descriptive one originated from the authority-discovery
+      mechanism itself: `No public addresses configured and no global listen addresses found`.
+
+crates:
+  - name: sc-authority-discovery
+    bump: patch

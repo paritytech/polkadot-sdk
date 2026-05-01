@@ -58,7 +58,7 @@ impl From<Roles> for ObservedRole {
 }
 
 /// Role of the local node.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Role {
 	/// Regular full node.
 	Full,

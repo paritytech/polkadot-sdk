@@ -1,0 +1,20 @@
+title: Add Runtime Api version to metadata
+doc:
+- audience: Runtime Dev
+  description: |-
+    The runtime API implemented version is not explicitly shown in metadata, so here we add it to improve developer experience.
+
+    This closes #7352 .
+crates:
+- name: sp-api-proc-macro
+  bump: patch
+- name: sp-metadata-ir
+  bump: major
+- name: frame-support
+  bump: minor
+- name: frame-support-procedural
+  bump: patch
+- name: substrate-wasm-builder
+  bump: minor
+- name: pallet-example-view-functions
+  bump: minor

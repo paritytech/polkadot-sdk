@@ -16,19 +16,23 @@
 
 //! A module that is responsible for migration of storage.
 
-use crate::configuration::{self, migration::v11::V11HostConfiguration, Config, Pallet};
+use crate::configuration::{
+	self,
+	migration::{
+		v11::V11HostConfiguration,
+		v13::{V12HostConfiguration, V12SchedulerParams},
+	},
+	Config, Pallet,
+};
+use alloc::vec::Vec;
 use frame_support::{
 	migrations::VersionedMigration,
 	pallet_prelude::*,
 	traits::{Defensive, UncheckedOnRuntimeUpgrade},
 };
 use frame_system::pallet_prelude::BlockNumberFor;
-use polkadot_primitives::vstaging::SchedulerParams;
 use sp_core::Get;
 use sp_staking::SessionIndex;
-use sp_std::vec::Vec;
-
-type V12HostConfiguration<BlockNumber> = configuration::HostConfiguration<BlockNumber>;
 
 mod v11 {
 	use super::*;
@@ -68,7 +72,7 @@ pub type MigrateToV12<T> = VersionedMigration<
 	<T as frame_system::Config>::DbWeight,
 >;
 
-pub struct UncheckedMigrateToV12<T>(sp_std::marker::PhantomData<T>);
+pub struct UncheckedMigrateToV12<T>(core::marker::PhantomData<T>);
 
 impl<T: Config> UncheckedOnRuntimeUpgrade for UncheckedMigrateToV12<T> {
 	#[cfg(feature = "try-runtime")]
@@ -143,7 +147,8 @@ fn migrate_to_v12<T: Config>() -> Weight {
 					minimum_backing_votes                    : pre.minimum_backing_votes,
 					node_features                            : pre.node_features,
 					approval_voting_params                   : pre.approval_voting_params,
-					scheduler_params: SchedulerParams {
+					#[allow(deprecated)]
+					scheduler_params: V12SchedulerParams {
 							group_rotation_frequency             : pre.group_rotation_frequency,
 							paras_availability_period            : pre.paras_availability_period,
 							max_validators_per_core              : pre.max_validators_per_core,
@@ -231,7 +236,10 @@ mod tests {
 		assert_eq!(v12.scheduler_params.paras_availability_period, 4);
 		assert_eq!(v12.scheduler_params.lookahead, 1);
 		assert_eq!(v12.scheduler_params.num_cores, 1);
-		assert_eq!(v12.scheduler_params.max_availability_timeouts, 0);
+		#[allow(deprecated)]
+		{
+			assert_eq!(v12.scheduler_params.max_availability_timeouts, 0);
+		}
 		assert_eq!(v12.scheduler_params.on_demand_queue_max_size, 10_000);
 		assert_eq!(
 			v12.scheduler_params.on_demand_target_queue_utilization,
@@ -239,7 +247,10 @@ mod tests {
 		);
 		assert_eq!(v12.scheduler_params.on_demand_fee_variability, Perbill::from_percent(3));
 		assert_eq!(v12.scheduler_params.on_demand_base_fee, 10_000_000);
-		assert_eq!(v12.scheduler_params.ttl, 5);
+		#[allow(deprecated)]
+		{
+			assert_eq!(v12.scheduler_params.ttl, 5);
+		}
 	}
 
 	#[test]
@@ -282,6 +293,7 @@ mod tests {
 
 			for (_, v12) in configs_to_check {
 				#[rustfmt::skip]
+				#[allow(deprecated)]
 				{
 					assert_eq!(v11.max_code_size                            , v12.max_code_size);
 					assert_eq!(v11.max_head_data_size                       , v12.max_head_data_size);

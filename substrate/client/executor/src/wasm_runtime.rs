@@ -64,8 +64,6 @@ struct VersionedRuntimeId {
 	code_hash: Vec<u8>,
 	/// Wasm runtime type.
 	wasm_method: WasmExecutionMethod,
-	/// The heap allocation strategy this runtime was created with.
-	heap_alloc_strategy: HeapAllocStrategy,
 }
 
 /// A Wasm runtime object along with its cached runtime version.
@@ -83,7 +81,12 @@ struct VersionedRuntime {
 
 impl VersionedRuntime {
 	/// Run the given closure `f` with an instance of this runtime.
-	fn with_instance<R, F>(&self, ext: &mut dyn Externalities, f: F) -> Result<R, Error>
+	fn with_instance<R, F>(
+		&self,
+		ext: &mut dyn Externalities,
+		heap_alloc_strategy: HeapAllocStrategy,
+		f: F,
+	) -> Result<R, Error>
 	where
 		F: FnOnce(
 			&dyn WasmModule,
@@ -101,10 +104,17 @@ impl VersionedRuntime {
 
 		match instance {
 			Some((index, mut locked)) => {
-				let (mut instance, new_inst) = locked
-					.take()
-					.map(|r| Ok((r, false)))
-					.unwrap_or_else(|| self.module.new_instance().map(|i| (i, true)))?;
+				let (mut instance, new_inst) =
+					locked.take().map(|r| Ok((r, false))).unwrap_or_else(|| {
+						self.module.new_instance(heap_alloc_strategy).map(|i| (i, true))
+					})?;
+
+				// Update the heap allocation strategy for pooled instances, since the
+				// caller may need different memory limits than what the instance was
+				// originally created with.
+				if !new_inst {
+					instance.set_heap_alloc_strategy(heap_alloc_strategy);
+				}
 
 				let result = f(&*self.module, &mut *instance, self.version.as_ref(), ext);
 				if let Err(e) = &result {
@@ -140,7 +150,7 @@ impl VersionedRuntime {
 				tracing::warn!(target: "wasm-runtime", "Ran out of free WASM instances");
 
 				// Allocate a new instance
-				let mut instance = self.module.new_instance()?;
+				let mut instance = self.module.new_instance(heap_alloc_strategy)?;
 
 				f(&*self.module, &mut *instance, self.version.as_ref(), ext)
 			},
@@ -235,8 +245,7 @@ impl RuntimeCache {
 	{
 		let code_hash = &runtime_code.hash;
 
-		let versioned_runtime_id =
-			VersionedRuntimeId { code_hash: code_hash.clone(), heap_alloc_strategy, wasm_method };
+		let versioned_runtime_id = VersionedRuntimeId { code_hash: code_hash.clone(), wasm_method };
 
 		let mut runtimes = self.runtimes.lock(); // this must be released prior to calling f
 		let versioned_runtime = if let Some(versioned_runtime) = runtimes.get(&versioned_runtime_id)
@@ -282,7 +291,7 @@ impl RuntimeCache {
 		// Lock must be released prior to calling f
 		drop(runtimes);
 
-		Ok(versioned_runtime.with_instance(ext, f))
+		Ok(versioned_runtime.with_instance(ext, heap_alloc_strategy, f))
 	}
 }
 
@@ -302,7 +311,7 @@ where
 	}
 
 	match wasm_method {
-		WasmExecutionMethod::Compiled { instantiation_strategy } =>
+		WasmExecutionMethod::Compiled { instantiation_strategy } => {
 			sc_executor_wasmtime::create_runtime::<H>(
 				blob,
 				sc_executor_wasmtime::Config {
@@ -321,7 +330,8 @@ where
 					},
 				},
 			)
-			.map(|runtime| -> Box<dyn WasmModule> { Box::new(runtime) }),
+			.map(|runtime| -> Box<dyn WasmModule> { Box::new(runtime) })
+		},
 	}
 }
 
@@ -423,7 +433,7 @@ where
 			// runtime will be dropped.
 			let runtime = AssertUnwindSafe(runtime.as_ref());
 			crate::executor::with_externalities_safe(&mut **ext, move || {
-				runtime.new_instance()?.call("Core_version".into(), &[])
+				runtime.new_instance(heap_alloc_strategy)?.call("Core_version".into(), &[])
 			})
 			.map_err(|_| WasmError::Instantiation("panic in call to get runtime version".into()))?
 		};
@@ -441,18 +451,20 @@ where
 
 #[cfg(test)]
 mod tests {
+	extern crate alloc;
+
 	use super::*;
+	use alloc::borrow::Cow;
 	use codec::Encode;
 	use sp_api::{Core, RuntimeApiInfo};
-	use sp_runtime::RuntimeString;
 	use sp_version::{create_apis_vec, RuntimeVersion};
 	use sp_wasm_interface::HostFunctions;
 	use substrate_test_runtime::Block;
 
 	#[derive(Encode)]
 	pub struct OldRuntimeVersion {
-		pub spec_name: RuntimeString,
-		pub impl_name: RuntimeString,
+		pub spec_name: Cow<'static, str>,
+		pub impl_name: Cow<'static, str>,
 		pub authoring_version: u32,
 		pub spec_version: u32,
 		pub impl_version: u32,
@@ -480,7 +492,7 @@ mod tests {
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
 		assert_eq!(1, version.transaction_version);
-		assert_eq!(0, version.state_version);
+		assert_eq!(0, version.system_version);
 	}
 
 	#[test]
@@ -507,12 +519,12 @@ mod tests {
 			impl_version: 1,
 			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 3)]),
 			transaction_version: 3,
-			state_version: 4,
+			system_version: 4,
 		};
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
 		assert_eq!(3, version.transaction_version);
-		assert_eq!(0, version.state_version);
+		assert_eq!(0, version.system_version);
 
 		let old_runtime_version = RuntimeVersion {
 			spec_name: "test".into(),
@@ -522,12 +534,12 @@ mod tests {
 			impl_version: 1,
 			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
 			transaction_version: 3,
-			state_version: 4,
+			system_version: 4,
 		};
 
 		let version = decode_version(&old_runtime_version.encode()).unwrap();
 		assert_eq!(3, version.transaction_version);
-		assert_eq!(4, version.state_version);
+		assert_eq!(4, version.system_version);
 	}
 
 	#[test]
@@ -545,7 +557,7 @@ mod tests {
 			impl_version: 100,
 			apis: create_apis_vec!([(<dyn Core::<Block>>::ID, 4)]),
 			transaction_version: 100,
-			state_version: 1,
+			system_version: 1,
 		};
 
 		let embedded = sp_version::embed::embed_runtime_version(&wasm, runtime_version.clone())

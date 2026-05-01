@@ -1,0 +1,8 @@
+title: '[stable2503] Backport #8546'
+doc:
+- audience: Runtime Dev
+  description: |-
+    Improve try-state for pallet-xcm-bridge-hub, it removes `try_as` and uses `try_into` implementation instead.
+crates:
+- name: pallet-xcm-bridge-hub
+  bump: patch

@@ -1,5 +1,6 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // This file is part of Cumulus.
+// SPDX-License-Identifier: GPL-3.0-or-later WITH Classpath-exception-2.0
 
 // Cumulus is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -8,11 +9,11 @@
 
 // Cumulus is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 // GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with Cumulus.  If not, see <http://www.gnu.org/licenses/>.
+// along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
 //! A collator for Aura that looks ahead of the most recently included parachain block
 //! when determining what to build upon.
@@ -34,33 +35,43 @@
 use codec::{Codec, Encode};
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
 use cumulus_client_consensus_common::{self as consensus_common, ParachainBlockImportMarker};
-use cumulus_client_consensus_proposer::ProposerInterface;
 use cumulus_primitives_aura::AuraUnincludedSegmentApi;
-use cumulus_primitives_core::{CollectCollationInfo, PersistedValidationData};
+use cumulus_primitives_core::{
+	CollectCollationInfo, KeyToIncludeInRelayProof, PersistedValidationData,
+};
 use cumulus_relay_chain_interface::RelayChainInterface;
+use sp_consensus::Environment;
 
 use polkadot_node_primitives::SubmitCollationParams;
 use polkadot_node_subsystem::messages::CollationGenerationMessage;
 use polkadot_overseer::Handle as OverseerHandle;
 use polkadot_primitives::{CollatorPair, Id as ParaId, OccupiedCoreAssumption};
 
+use crate::{
+	collator as collator_util,
+	collators::{claim_queue_at, BackingGroupConnectionHelper},
+	export_pov_to_path,
+};
 use futures::prelude::*;
 use sc_client_api::{backend::AuxStore, BlockBackend, BlockOf};
 use sc_consensus::BlockImport;
-use sp_api::ProvideRuntimeApi;
+use sc_network_types::PeerId;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_application_crypto::AppPublic;
 use sp_blockchain::HeaderBackend;
 use sp_consensus_aura::{AuraApi, Slot};
 use sp_core::crypto::Pair;
 use sp_inherents::CreateInherentDataProviders;
 use sp_keystore::KeystorePtr;
-use sp_runtime::traits::{Block as BlockT, Header as HeaderT, Member};
-use std::{sync::Arc, time::Duration};
-
-use crate::collator::{self as collator_util};
+use sp_runtime::{
+	traits::{Block as BlockT, Header as HeaderT, Member},
+	Saturating,
+};
+use sp_timestamp::Timestamp;
+use std::{path::PathBuf, sync::Arc, time::Duration};
 
 /// Parameters for [`run`].
-pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, ProposerFactory, CS> {
 	/// Inherent data providers. Only non-consensus inherent data should be provided, i.e.
 	/// the timestamp, slot, and paras inherents should be omitted, as they are set by this
 	/// collator.
@@ -79,25 +90,74 @@ pub struct Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
 	pub keystore: KeystorePtr,
 	/// The collator key used to sign collations before submitting to validators.
 	pub collator_key: CollatorPair,
+	/// The collator network peer id.
+	pub collator_peer_id: PeerId,
 	/// The para's ID.
 	pub para_id: ParaId,
 	/// A handle to the relay-chain client's "Overseer" or task orchestrator.
 	pub overseer_handle: OverseerHandle,
 	/// The length of slots in the relay chain.
 	pub relay_chain_slot_duration: Duration,
-	/// The underlying block proposer this should call into.
-	pub proposer: Proposer,
+	/// The proposer for building blocks.
+	pub proposer: ProposerFactory,
 	/// The generic collator service used to plug into this consensus engine.
 	pub collator_service: CS,
 	/// The amount of time to spend authoring each block.
 	pub authoring_duration: Duration,
 	/// Whether we should reinitialize the collator config (i.e. we are transitioning to aura).
 	pub reinitialize: bool,
+	/// The maximum percentage of the maximum PoV size that the collator can use.
+	/// It will be removed once <https://github.com/paritytech/polkadot-sdk/issues/6020> is fixed.
+	pub max_pov_percentage: Option<u32>,
+}
+
+/// Get the current parachain slot from a given block hash.
+///
+/// Returns the parachain slot, relay chain slot, and timestamp.
+fn get_parachain_slot<Block, Client, P>(
+	para_client: &Client,
+	block_hash: Block::Hash,
+	relay_parent_header: &polkadot_primitives::Header,
+	relay_chain_slot_duration: Duration,
+) -> Option<(Slot, Slot, Timestamp)>
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>,
+	Client::Api: AuraApi<Block, P>,
+	P: Codec,
+{
+	let slot_duration =
+		match sc_consensus_aura::standalone::slot_duration_at(para_client, block_hash) {
+			Ok(sd) => sd,
+			Err(err) => {
+				tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
+				return None;
+			},
+		};
+
+	tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
+
+	let (relay_slot, timestamp) =
+		consensus_common::relay_slot_and_timestamp(relay_parent_header, relay_chain_slot_duration)?;
+
+	let slot_now = Slot::from_timestamp(timestamp, slot_duration);
+
+	tracing::debug!(
+		target: crate::LOG_TARGET,
+		?relay_slot,
+		para_slot = ?slot_now,
+		?timestamp,
+		?slot_duration,
+		?relay_chain_slot_duration,
+		"Adjusted relay-chain slot to parachain slot"
+	);
+
+	Some((slot_now, relay_slot, timestamp))
 }
 
 /// Run async-backing-friendly Aura.
 pub fn run<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
-	mut params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+	params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
 ) -> impl Future<Output = ()> + Send + 'static
 where
 	Block: BlockT,
@@ -109,17 +169,73 @@ where
 		+ Send
 		+ Sync
 		+ 'static,
-	Client::Api:
-		AuraApi<Block, P::Public> + CollectCollationInfo<Block> + AuraUnincludedSegmentApi<Block>,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
 	Backend: sc_client_api::Backend<Block> + 'static,
 	RClient: RelayChainInterface + Clone + 'static,
 	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
 	CIDP::InherentDataProviders: Send,
 	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
-	Proposer: ProposerInterface<Block> + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
 	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
 	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
-	P: Pair,
+	P: Pair + Send + Sync + 'static,
+	P::Public: AppPublic + Member + Codec,
+	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
+{
+	run_with_export::<_, P, _, _, _, _, _, _, _, _>(ParamsWithExport { params, export_pov: None })
+}
+
+/// Parameters for [`run_with_export`].
+pub struct ParamsWithExport<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS> {
+	/// The parameters.
+	pub params: Params<BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>,
+
+	/// When set, the collator will export every produced `POV` to this folder.
+	pub export_pov: Option<PathBuf>,
+}
+
+/// Run async-backing-friendly Aura.
+///
+/// This is exactly the same as [`run`], but it supports the optional export of each produced `POV`
+/// to the file system.
+pub fn run_with_export<Block, P, BI, CIDP, Client, Backend, RClient, CHP, Proposer, CS>(
+	ParamsWithExport { mut params, export_pov }: ParamsWithExport<
+		BI,
+		CIDP,
+		Client,
+		Backend,
+		RClient,
+		CHP,
+		Proposer,
+		CS,
+	>,
+) -> impl Future<Output = ()> + Send + 'static
+where
+	Block: BlockT,
+	Client: ProvideRuntimeApi<Block>
+		+ BlockOf
+		+ AuxStore
+		+ HeaderBackend<Block>
+		+ BlockBackend<Block>
+		+ Send
+		+ Sync
+		+ 'static,
+	Client::Api: AuraApi<Block, P::Public>
+		+ CollectCollationInfo<Block>
+		+ AuraUnincludedSegmentApi<Block>
+		+ KeyToIncludeInRelayProof<Block>,
+	Backend: sc_client_api::Backend<Block> + 'static,
+	RClient: RelayChainInterface + Clone + 'static,
+	CIDP: CreateInherentDataProviders<Block, ()> + 'static,
+	CIDP::InherentDataProviders: Send,
+	BI: BlockImport<Block> + ParachainBlockImportMarker + Send + Sync + 'static,
+	Proposer: Environment<Block> + Clone + Send + Sync + 'static,
+	CS: CollatorServiceInterface<Block> + Send + Sync + 'static,
+	CHP: consensus_common::ValidationCodeHashProvider<Block::Hash> + Send + 'static,
+	P: Pair + Send + Sync + 'static,
 	P::Public: AppPublic + Member + Codec,
 	P::Signature: TryFrom<Vec<u8>> + Member + Codec,
 {
@@ -142,7 +258,7 @@ where
 					"Failed to initialize consensus: no relay chain import notification stream"
 				);
 
-				return
+				return;
 			},
 		};
 
@@ -152,6 +268,7 @@ where
 				block_import: params.block_import,
 				relay_client: params.relay_client.clone(),
 				keystore: params.keystore.clone(),
+				collator_peer_id: params.collator_peer_id,
 				para_id: params.para_id,
 				proposer: params.proposer,
 				collator_service: params.collator_service,
@@ -160,19 +277,19 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
+		let mut connection_helper = BackingGroupConnectionHelper::new(
+			params.keystore.clone(),
+			params.overseer_handle.clone(),
+		);
+
 		while let Some(relay_parent_header) = import_notifications.next().await {
 			let relay_parent = relay_parent_header.hash();
 
-			let core_index = if let Some(core_index) = super::cores_scheduled_for_para(
-				relay_parent,
-				params.para_id,
-				&mut params.relay_client,
-			)
-			.await
-			.get(0)
-			{
-				*core_index
-			} else {
+			let Some(core_index) = claim_queue_at(relay_parent, &mut params.relay_client)
+				.await
+				.iter_claims_at_depth_for_para(0, params.para_id)
+				.next()
+			else {
 				tracing::trace!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
@@ -180,7 +297,7 @@ where
 					"Para is not scheduled on any core, skipping import notification",
 				);
 
-				continue
+				continue;
 			};
 
 			let max_pov_size = match params
@@ -196,86 +313,111 @@ where
 				Ok(Some(pvd)) => pvd.max_pov_size,
 				Err(err) => {
 					tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to gather information from relay-client");
-					continue
+					continue;
 				},
 			};
 
-			let (included_block, initial_parent) = match crate::collators::find_parent(
+			let session_index =
+				match params.relay_client.session_index_for_child(relay_parent).await {
+					Ok(session_index) => session_index,
+					Err(err) => {
+						tracing::error!(
+							target: crate::LOG_TARGET,
+							?err,
+							?relay_parent,
+							"Failed to fetch session index."
+						);
+						continue;
+					},
+				};
+
+			let parent_search_result = match crate::collators::find_parent(
 				relay_parent,
 				params.para_id,
 				&*params.para_backend,
 				&params.relay_client,
+				|_| true,
 			)
 			.await
 			{
-				Some(value) => value,
+				Some(result) => result,
 				None => continue,
 			};
 
+			let included_header = &parent_search_result.included_header;
 			let para_client = &*params.para_client;
 			let keystore = &params.keystore;
-			let can_build_upon = |block_hash| {
-				let slot_duration = match sc_consensus_aura::standalone::slot_duration_at(
-					&*params.para_client,
-					block_hash,
-				) {
-					Ok(sd) => sd,
-					Err(err) => {
-						tracing::error!(target: crate::LOG_TARGET, ?err, "Failed to acquire parachain slot duration");
-						return None
-					},
-				};
-				tracing::debug!(target: crate::LOG_TARGET, ?slot_duration, ?block_hash, "Parachain slot duration acquired");
-				let (relay_slot, timestamp) = consensus_common::relay_slot_and_timestamp(
-					&relay_parent_header,
-					params.relay_chain_slot_duration,
-				)?;
-				let slot_now = Slot::from_timestamp(timestamp, slot_duration);
-				tracing::debug!(
-					target: crate::LOG_TARGET,
-					?relay_slot,
-					para_slot = ?slot_now,
-					?timestamp,
-					?slot_duration,
-					relay_chain_slot_duration = ?params.relay_chain_slot_duration,
-					"Adjusted relay-chain slot to parachain slot"
-				);
-				Some(super::can_build_upon::<_, _, P>(
-					slot_now,
-					timestamp,
-					block_hash,
-					included_block,
-					para_client,
-					&keystore,
-				))
-			};
+			let included_block_hash = included_header.hash();
 
 			// Build in a loop until not allowed. Note that the authorities can change
 			// at any block, so we need to re-claim our slot every time.
-			let mut parent_hash = initial_parent.hash;
-			let mut parent_header = initial_parent.header;
+			let mut parent_hash = parent_search_result.best_parent_header.hash();
+			let mut parent_header = parent_search_result.best_parent_header;
+			// Distance from included block to best parent.
+			let initial_parent_depth =
+				(*parent_header.number()).saturating_sub(*included_header.number());
 			let overseer_handle = &mut params.overseer_handle;
 
 			// Do not try to build upon an unknown, pruned or bad block
 			if !collator.collator_service().check_block_status(parent_hash, &parent_header) {
-				continue
+				continue;
+			}
+
+			// Trigger pre-connect to backing groups if necessary.
+			if let Some((slot_now, _relay_slot, _timestamp)) = get_parachain_slot::<_, _, P::Public>(
+				para_client,
+				parent_hash,
+				&relay_parent_header,
+				params.relay_chain_slot_duration,
+			) {
+				let mut runtime_api = para_client.runtime_api();
+				runtime_api
+					.set_call_context(sp_core::traits::CallContext::Onchain { import: false });
+				if let Ok(authorities) = runtime_api.authorities(parent_hash) {
+					connection_helper.update::<P>(slot_now, &authorities).await;
+				}
 			}
 
 			// This needs to change to support elastic scaling, but for continuously
 			// scheduled chains this ensures that the backlog will grow steadily.
-			for n_built in 0..2 {
-				let slot_claim = match can_build_upon(parent_hash) {
-					Some(fut) => match fut.await {
-						None => break,
-						Some(c) => c,
-					},
-					None => break,
+			for n_built in 0..2u32 {
+				let Some((slot_now, relay_slot, timestamp)) = get_parachain_slot::<_, _, P::Public>(
+					para_client,
+					parent_hash,
+					&relay_parent_header,
+					params.relay_chain_slot_duration,
+				) else {
+					break;
 				};
+
+				let Some(slot_claim) = super::claim_slot::<_, _, P>(
+					slot_now,
+					timestamp,
+					parent_hash,
+					para_client,
+					&keystore,
+				)
+				.await
+				else {
+					break;
+				};
+
+				if !super::can_build_upon::<_, _>(
+					parent_hash,
+					included_block_hash,
+					relay_slot,
+					slot_now,
+					para_client,
+				)
+				.await
+				{
+					break;
+				}
 
 				tracing::debug!(
 					target: crate::LOG_TARGET,
 					?relay_parent,
-					unincluded_segment_len = initial_parent.depth + n_built,
+					unincluded_segment_len = ?initial_parent_depth.saturating_add(n_built.into()),
 					"Slot claimed. Building"
 				);
 
@@ -288,18 +430,23 @@ where
 
 				// Build and announce collations recursively until
 				// `can_build_upon` fails or building a collation fails.
+				let relay_proof_request =
+					super::get_relay_proof_request(&*params.para_client, parent_hash);
+
 				let (parachain_inherent_data, other_inherent_data) = match collator
 					.create_inherent_data(
 						relay_parent,
 						&validation_data,
 						parent_hash,
 						slot_claim.timestamp(),
+						relay_proof_request,
+						params.collator_peer_id,
 					)
 					.await
 				{
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 					Ok(x) => x,
 				};
@@ -308,7 +455,7 @@ where
 					params.code_hash_provider.code_hash_at(parent_hash)
 				else {
 					tracing::error!(target: crate::LOG_TARGET, ?parent_hash, "Could not fetch validation code hash");
-					break
+					break;
 				};
 
 				super::check_validation_code_or_log(
@@ -319,6 +466,16 @@ where
 				)
 				.await;
 
+				let allowed_pov_size = if let Some(max_pov_percentage) = params.max_pov_percentage {
+					validation_data.max_pov_size * max_pov_percentage / 100
+				} else {
+					// Set the block limit to 85% of the maximum PoV size.
+					//
+					// Once https://github.com/paritytech/polkadot-sdk/issues/6020 issue is
+					// fixed, the reservation should be removed.
+					validation_data.max_pov_size * 85 / 100
+				} as usize;
+
 				match collator
 					.collate(
 						&parent_header,
@@ -326,18 +483,36 @@ where
 						None,
 						(parachain_inherent_data, other_inherent_data),
 						params.authoring_duration,
-						// Set the block limit to 50% of the maximum PoV size.
-						//
-						// TODO: If we got benchmarking that includes the proof size,
-						// we should be able to use the maximum pov size.
-						(validation_data.max_pov_size / 2) as usize,
+						allowed_pov_size,
 					)
 					.await
 				{
-					Ok(Some((collation, block_data, new_block_hash))) => {
+					Ok(Some((collation, block_data))) => {
+						let Some(new_block_header) =
+							block_data.blocks().first().map(|b| b.header().clone())
+						else {
+							tracing::error!(target: crate::LOG_TARGET,  "Produced PoV doesn't contain any blocks");
+							break;
+						};
+
+						let new_block_hash = new_block_header.hash();
+
 						// Here we are assuming that the import logic protects against equivocations
 						// and provides sybil-resistance, as it should.
 						collator.collator_service().announce_block(new_block_hash, None);
+
+						if let Some(ref export_pov) = export_pov {
+							export_pov_to_path::<Block>(
+								export_pov.clone(),
+								collation.proof_of_validity.clone().into_compressed(),
+								new_block_hash,
+								*new_block_header.number(),
+								parent_header.clone(),
+								*relay_parent_header.state_root(),
+								*relay_parent_header.number(),
+								validation_data.max_pov_size,
+							);
+						}
 
 						// Send a submit-collation message to the collation generation subsystem,
 						// which then distributes this to validators.
@@ -350,10 +525,12 @@ where
 									SubmitCollationParams {
 										relay_parent,
 										collation,
-										parent_head: parent_header.encode().into(),
 										validation_code_hash,
 										result_sender: None,
 										core_index,
+										scheduling_parent: None,
+										session_index,
+										validation_data,
 									},
 								),
 								"SubmitCollation",
@@ -361,15 +538,15 @@ where
 							.await;
 
 						parent_hash = new_block_hash;
-						parent_header = block_data.into_header();
+						parent_header = new_block_header;
 					},
 					Ok(None) => {
 						tracing::debug!(target: crate::LOG_TARGET, "No block proposal");
-						break
+						break;
 					},
 					Err(err) => {
 						tracing::error!(target: crate::LOG_TARGET, ?err);
-						break
+						break;
 					},
 				}
 			}

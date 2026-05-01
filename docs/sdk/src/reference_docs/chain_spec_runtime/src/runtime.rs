@@ -25,30 +25,28 @@ use crate::{
 	pallets::{pallet_bar, pallet_foo},
 	presets::*,
 };
+use alloc::{vec, vec::Vec};
 use frame::{
 	deps::frame_support::{
 		genesis_builder_helper::{build_state, get_preset},
 		runtime,
 	},
 	prelude::*,
-	runtime::{
-		apis::{self, impl_runtime_apis, ExtrinsicInclusionMode},
-		prelude::*,
-	},
+	runtime::{apis, prelude::*},
 };
 use sp_genesis_builder::PresetId;
 
 /// The runtime version.
 #[runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("minimal-template-runtime"),
-	impl_name: create_runtime_str!("minimal-template-runtime"),
+	spec_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
+	impl_name: alloc::borrow::Cow::Borrowed("minimal-template-runtime"),
 	authoring_version: 1,
 	spec_version: 0,
 	impl_version: 1,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 1,
-	state_version: 1,
+	system_version: 1,
 };
 
 /// The signed extensions that are added to the runtime.
@@ -59,7 +57,14 @@ type SignedExtra = ();
 mod runtime {
 	/// The main runtime type.
 	#[runtime::runtime]
-	#[runtime::derive(RuntimeCall, RuntimeEvent, RuntimeError, RuntimeOrigin, RuntimeTask)]
+	#[runtime::derive(
+		RuntimeCall,
+		RuntimeEvent,
+		RuntimeError,
+		RuntimeOrigin,
+		RuntimeTask,
+		RuntimeViewFunction
+	)]
 	pub struct Runtime;
 
 	/// Mandatory system pallet that should always be included in a FRAME runtime.
@@ -116,7 +121,7 @@ impl_runtime_apis! {
 
 	impl apis::Core<Block> for Runtime {
 		fn version() -> RuntimeVersion { VERSION }
-		fn execute_block(_: Block) { }
+		fn execute_block(_: <Block as frame::traits::Block>::LazyBlock) { }
 		fn initialize_block(_: &Header) -> ExtrinsicInclusionMode { ExtrinsicInclusionMode::default() }
 	}
 }

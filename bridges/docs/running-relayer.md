@@ -332,7 +332,7 @@ docker run \
 ```
 
 You can find more info on configuring Prometheus and Grafana in the
-[Monitor your node](https://wiki.polkadot.network/docs/maintain-guides-how-to-monitor-your-node)
+[Monitor your node](https://docs.polkadot.com/infrastructure/running-a-validator/operational-tasks/general-management/#monitor-your-node)
 guide from Polkadot wiki.
 
 We have our own set of Grafana dashboards and alerts. You may use them for inspiration.

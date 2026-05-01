@@ -28,6 +28,8 @@ use crate::{
 	AccountIdOf, BalanceOf, CodeHash, Config, HoldReason, Pallet, TrieId, Weight, LOG_TARGET,
 };
 #[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
 use frame_support::traits::fungible::InspectHold;
 use frame_support::{
 	pallet_prelude::*,
@@ -44,15 +46,11 @@ use sp_core::hexdisplay::HexDisplay;
 #[cfg(feature = "try-runtime")]
 use sp_runtime::TryRuntimeError;
 use sp_runtime::{traits::Zero, Saturating};
-#[cfg(feature = "try-runtime")]
-use sp_std::vec::Vec;
 
 mod v14 {
 	use super::*;
 
-	#[derive(
-		Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen,
-	)]
+	#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 	#[scale_info(skip_type_params(T))]
 	pub struct ContractInfo<T: Config> {
 		pub trie_id: TrieId,
@@ -96,7 +94,7 @@ pub fn store_old_contract_info<T: Config>(account: T::AccountId, info: crate::Co
 	v14::ContractInfoOf::<T>::insert(account, info);
 }
 
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen)]
 #[scale_info(skip_type_params(T))]
 struct ContractInfo<T: Config> {
 	pub trie_id: TrieId,
