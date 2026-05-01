@@ -23,8 +23,18 @@ use crate::{
 	pallet,
 	IERC20::IERC20Events,
 };
-use pallet_revive::precompiles::alloy::primitives::IntoLogData;
+use pallet_revive::precompiles::alloy::{self, primitives::IntoLogData};
 use sp_core::{H160, H256};
+
+alloy::sol! {
+	/// Solidity interface for the `Caller` fixture contract. Shared between
+	/// `tests.rs` and `permit_tests.rs` so the two suites drive STATICCALL /
+	/// DELEGATECALL through one canonical declaration.
+	interface ICaller {
+		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
+		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
+	}
+}
 
 pub(crate) const PRECOMPILE_ADDRESS_PREFIX: u16 = 0x0120;
 pub(crate) const PRECOMPILE_ADDRESS_PREFIX_FOREIGN: u16 = 0x0220;

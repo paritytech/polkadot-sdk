@@ -21,7 +21,7 @@ use crate::{
 	mock::{new_test_ext, Assets, Balances, RuntimeOrigin, Test},
 	permit,
 	test_helpers::{
-		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix,
+		assert_contract_event, set_prefix_in_address, setup_asset_for_prefix, ICaller,
 		PRECOMPILE_ADDRESS_PREFIX, PRECOMPILE_ADDRESS_PREFIX_FOREIGN,
 	},
 };
@@ -561,13 +561,6 @@ fn approve_zero_on_nonexistent_is_noop(asset_index: u16) {
 		assert_eq!(Assets::allowance(asset_id, &owner, &spender), 0);
 		assert_eq!(Balances::reserved_balance(&owner), 0);
 	});
-}
-
-alloy::sol! {
-	interface ICaller {
-		function staticCall(address callee, bytes data, uint64 gas) external view returns (bool success, bytes output);
-		function delegate(address callee, bytes data, uint64 gas) external returns (bool success, bytes output);
-	}
 }
 
 /// Tests that DOMAIN_SEPARATOR succeeds when invoked via STATICCALL (`is_read_only = true`).
