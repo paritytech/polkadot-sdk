@@ -1,0 +1,33 @@
+title: 'client/db, sp-transaction-storage-proof: preserve `MultiRenew` submit order'
+doc:
+- audience: Node Dev
+  description: "## Problem\n\n#11474 switched `DbExtrinsic::MultiRenew::hashes` from\
+    \ `Vec<DbHash>` to `BTreeSet<DbHash>` for dedup + canonical ordering. This silently\
+    \ broke proof-of-storage verification for any block produced by a multi-renew\
+    \ extrinsic.\n\n`build_proof` walks `block_indexed_body(N)` linearly to count\
+    \ chunks and pick the chunk at  `random_chunk(parent_hash, total_chunks)`. The\
+    \ consumer pallet (`pallet_transaction_storage`) stores a parallel `Vec<TransactionInfo>`\
+    \ in dispatch order. Both sides resolve `selected_chunk_index` to a position;\
+    \ with `BTreeSet`, the off-chain side iterates in hash-sorted order while the\
+    \ runtime indexes in dispatch order. Different positions point at different `chunk_root`s\
+    \ \u2192 `blake2_256_verify_proof` returns `false` \u2192 `Error::InvalidProof`\
+    \ \u2192 `BadMandatory` \u2192 chain halts at the first proof block after a multi-renew.\n\
+    \n## Fix\n\nRevert `MultiRenew.hashes` to `Vec<DbHash>`, append every `IndexOperation::Renew`\
+    \ op (no dedup). Insertion order is the cross-process contract; duplicates are\
+    \ preserved so column-refcount  inc/dec stays symmetric per occurrence.\n\n##\
+    \ Tests\n\n- `block_indexed_body_preserves_renew_op_submission_order` (sc-client-db)\
+    \ \u2014 submits 5 Renew ops in non-sorted order, asserts both `MultiRenew.hashes`\
+    \ and `block_indexed_body(N)` come back  position-by-position equal to the submission\
+    \ order. Fails immediately under any sort-applying container.\n- `proof_round_trip_against_parallel_runtime_view`\
+    \ (sp-transaction-storage-proof) \u2014 builds a proof from N transactions in\
+    \ submission order `[3, 0, 2, 1]`, then verifies it against a parallel runtime-side\
+    \ `Vec<TxInfo>` in the same order using the binary-search logic FRAME consumers\
+    \ use. Sweeps 16 parent_hash seeds. Under `BTreeSet`, would fail on the first\
+    \ seed.\n- `random_chunk_is_deterministic_for_same_inputs`, `encode_index_round_trip_is_compact`\
+    \ \u2014 pin the agreement primitives.\n- All 10 pre-existing multi-renew tests\
+    \ updated for Vec semantics (duplicates preserved, refcount math adjusted accordingly)."
+crates:
+- name: sc-client-db
+  bump: patch
+- name: sp-transaction-storage-proof
+  bump: patch
