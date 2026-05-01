@@ -317,9 +317,9 @@ impl<T: Config> Migration<T> {
 mod tests {
 	use super::*;
 	use crate::{
-		CodeInfo,
+		CodeInfo, FreezeReason,
 		storage::{AccountInfo, ContractInfo},
-		tests::{Assets, AssetsHolder, ExtBuilder, PGasAssetId, Test},
+		tests::{Assets, AssetsFreezer, AssetsHolder, ExtBuilder, PGasAssetId, Test},
 	};
 	use frame_support::traits::fungible::{
 		Inspect as _, InspectHold as _, Mutate as _, MutateHold as _,
@@ -451,10 +451,28 @@ mod tests {
 				),
 				1_300,
 			);
-			// Each migrated contract also gets the PGAS ED minted into its free balance to
-			// match the post-`init_contract` invariant.
+			// Each migrated contract also gets the PGAS ED minted into its free balance and
+			// frozen under `FreezeReason::PGasMinBalance`, matching the post-`init_contract`
+			// invariant.
 			assert_eq!(Assets::balance(PGasAssetId::get(), &c1_acc), pgas_ed);
 			assert_eq!(Assets::balance(PGasAssetId::get(), &c2_acc), pgas_ed);
+			use frame_support::traits::tokens::fungibles::InspectFreeze;
+			assert_eq!(
+				AssetsFreezer::balance_frozen(
+					PGasAssetId::get(),
+					&FreezeReason::PGasMinBalance.into(),
+					&c1_acc,
+				),
+				pgas_ed,
+			);
+			assert_eq!(
+				AssetsFreezer::balance_frozen(
+					PGasAssetId::get(),
+					&FreezeReason::PGasMinBalance.into(),
+					&c2_acc,
+				),
+				pgas_ed,
+			);
 		});
 	}
 
