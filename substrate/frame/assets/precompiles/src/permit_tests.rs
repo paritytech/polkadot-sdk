@@ -1694,18 +1694,28 @@ mod precompile {
 	/// `permit()` is a state-changing call and must be rejected inside a
 	/// STATICCALL context. The dispatcher's read-only check (the match arm
 	/// guarding `transfer | approve | transferFrom | permit` against
-	/// `env.is_read_only()`) is what guards this — a regression that drops
-	/// `IERC20Calls::permit(_)` from that arm would silently allow
-	/// state-changing permits in a static context. Mirrors the
-	/// `delegatecall_is_rejected` test in `tests.rs`.
+	/// `env.is_read_only()`) is what guards this.
+	///
+	/// The test passes a *valid* signature so the post-call state acts as
+	/// the regression pin: with the dispatcher check active, the call is
+	/// rejected via `StateChangeDenied`, the writes never run, and
+	/// nonce/allowance stay at 0. With the check removed, the precompile
+	/// would proceed past `use_permit` and `do_approve_transfer` (both go
+	/// through frame_support storage writes that bypass pallet-revive's
+	/// host-call read-only gating), and nonce would advance to 1. So a
+	/// regression that drops `IERC20Calls::permit(_)` from the read-only
+	/// match arm flips this test, even though the outer `success=false`
+	/// boolean alone would not (an empty trap and a clean revert both
+	/// surface as `success=false`).
 	#[test]
 	fn permit_staticcall_is_rejected() {
+		use frame_support::traits::fungibles::approvals::Inspect;
+
 		new_test_ext().execute_with(|| {
-			let asset_id = 0u32;
-			let asset_addr = H160::from(set_prefix_in_address(PRECOMPILE_ADDRESS_PREFIX));
+			let setup = permit_setup(PRECOMPILE_ADDRESS_PREFIX);
+
 			let deployer = DEPLOYER_ACCOUNT;
 			Balances::make_free_balance_be(&deployer, SUBMITTER_FUNDING);
-			assert_ok!(Assets::force_create(RuntimeOrigin::root(), asset_id, deployer, true, 1));
 
 			let (init_code, _) = pallet_revive_fixtures::compile_module_with_type(
 				"Caller",
@@ -1728,21 +1738,27 @@ mod precompile {
 			.expect("Caller deployment must succeed")
 			.addr;
 
-			// Signature contents are irrelevant — the read-only check fires
-			// before any of them are inspected.
+			// Valid permit at the current nonce — same digest the
+			// precompile would recompute.
+			let (v, r, s) = sign_permit(
+				setup.asset_addr,
+				setup.spender_addr,
+				AlloyU256::from(100),
+				setup.deadline,
+			);
 			let permit_calldata = IERC20::permitCall {
-				owner: [0u8; 20].into(),
-				spender: [0u8; 20].into(),
-				value: AlloyU256::from(0),
-				deadline: AlloyU256::from(0),
-				v: 27,
-				r: [0u8; 32].into(),
-				s: [0u8; 32].into(),
+				owner: HARDHAT_ACCOUNT_0.0.into(),
+				spender: setup.spender_addr.0.into(),
+				value: AlloyU256::from(100),
+				deadline: setup.deadline,
+				v,
+				r: r.into(),
+				s: s.into(),
 			}
 			.abi_encode();
 
 			let calldata = ICaller::staticCallCall {
-				callee: alloy::primitives::Address::from(asset_addr.0),
+				callee: alloy::primitives::Address::from(setup.asset_addr.0),
 				data: permit_calldata.into(),
 				gas: u64::MAX,
 			}
@@ -1765,6 +1781,18 @@ mod precompile {
 			let ret = ICaller::staticCallCall::abi_decode_returns(&result.data)
 				.expect("return must decode as (bool, bytes)");
 			assert!(!ret.success, "STATICCALL to permit() must be rejected");
+			// Regression pin: if the dispatcher's read-only check were
+			// dropped, these would both move (nonce → 1, allowance → 100).
+			assert_eq!(
+				permit::Pallet::<Test>::nonce(&setup.asset_addr, &HARDHAT_ACCOUNT_0),
+				U256::zero(),
+				"nonce must not advance under STATICCALL",
+			);
+			assert_eq!(
+				Assets::allowance(setup.asset_id, &setup.owner_account, &setup.spender_account),
+				0,
+				"allowance must not be set under STATICCALL",
+			);
 		});
 	}
 
