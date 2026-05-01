@@ -174,9 +174,10 @@ pub fn oom(_: core::alloc::Layout) -> ! {
 
 #[cfg(all(not(feature = "std"), feature = "runtime-benchmarks"))]
 #[no_mangle]
-pub extern "C" fn validate_block(params: *const u8, len: usize) -> u64 {
+pub extern "C" fn validate_block(arguments_len: usize) -> u64 {
 	type Block = generic::Block<generic::Header<u32, traits::BlakeTwo256>, OpaqueExtrinsic>;
-	let params = unsafe { alloc::slice::from_raw_parts(params, len) };
-	proceed_storage_access::<Block>(params);
+	let mut buf = alloc::vec![0u8; arguments_len];
+	sp_io::input::read(&mut buf[..]);
+	proceed_storage_access::<Block>(&buf);
 	1
 }

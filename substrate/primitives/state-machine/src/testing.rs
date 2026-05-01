@@ -420,7 +420,7 @@ mod tests {
 		let root = array_bytes::hex_n_into_unchecked::<_, H256, 32>(
 			"ed4d8c799d996add422395a6abd7545491d40bd838d738afafa1b8a4de625489",
 		);
-		assert_eq!(H256::from_slice(ext.storage_root(Default::default()).as_slice()), root);
+		assert_eq!(H256::from_slice(ext.storage_root().as_slice()), root);
 	}
 
 	#[test]

@@ -109,6 +109,10 @@ pub use cumulus_client_parachain_inherent;
 #[cfg(feature = "cumulus-client-pov-recovery")]
 pub use cumulus_client_pov_recovery;
 
+/// Storage proof size recording utilities.
+#[cfg(feature = "cumulus-client-proof-size-recording")]
+pub use cumulus_client_proof_size_recording;
+
 /// Common functions used to assemble the components of a parachain node.
 #[cfg(feature = "cumulus-client-service")]
 pub use cumulus_client_service;
@@ -296,6 +300,10 @@ pub use mmr_gadget;
 #[cfg(feature = "mmr-rpc")]
 pub use mmr_rpc;
 
+/// FRAME pallet for periodic accumulation and forwarding of native token funds.
+#[cfg(feature = "pallet-accumulate-and-forward")]
+pub use pallet_accumulate_and_forward;
+
 /// The Alliance pallet provides a collective for standard-setting industry collaboration.
 #[cfg(feature = "pallet-alliance")]
 pub use pallet_alliance;
@@ -450,10 +458,6 @@ pub use pallet_core_fellowship;
 /// FRAME pallet for Dynamic Allocation Pool (DAP).
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;
-
-/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
-#[cfg(feature = "pallet-dap-satellite")]
-pub use pallet_dap_satellite;
 
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
@@ -618,6 +622,10 @@ pub use pallet_parameters;
 /// Personhood-tracking pallet.
 #[cfg(feature = "pallet-people")]
 pub use pallet_people;
+
+/// Transaction extension that pays transaction fees with a gas allowance asset.
+#[cfg(feature = "pallet-pgas-allowance")]
+pub use pallet_pgas_allowance;
 
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
@@ -1343,6 +1351,10 @@ pub use sp_crypto_hashing;
 /// Procedural macros for calculating static hashes.
 #[cfg(feature = "sp-crypto-hashing-proc-macro")]
 pub use sp_crypto_hashing_proc_macro;
+
+/// Primitives for the Dynamic Allocation Pool (DAP).
+#[cfg(feature = "sp-dap")]
+pub use sp_dap;
 
 /// Substrate database trait.
 #[cfg(feature = "sp-database")]

@@ -16,6 +16,11 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 echo "::group::Clone try-runtime-cli ${VERSION}"
 git clone --depth 1 --branch "${VERSION}" \
     https://github.com/paritytech/try-runtime-cli.git "$WORK_DIR/try-runtime-cli"
+# try-runtime-cli ships a rust-toolchain.toml that pins `channel = "stable"`.
+# Building try-runtime-cli against polkadot-sdk only needs whatever stable is already
+# installed in the image, so drop the pin and use the preinstalled toolchain as-is.
+rm -f "$WORK_DIR/try-runtime-cli/rust-toolchain.toml" \
+      "$WORK_DIR/try-runtime-cli/rust-toolchain"
 echo "::endgroup::"
 
 echo "::group::Generate Cargo patches"
@@ -25,7 +30,7 @@ echo "::group::Generate Cargo patches"
 # since some workspace aliases differ from the published crate name
 # (e.g. workspace key "xcm" -> package name "staging-xcm").
 python3 - "$SDK_PATH" "$WORK_DIR/try-runtime-cli/Cargo.toml" <<'PYEOF'
-import re, sys, os, tomllib
+import re, sys, os
 
 sdk_path = sys.argv[1]
 target_cargo_toml = sys.argv[2]
@@ -36,17 +41,31 @@ with open(f"{sdk_path}/Cargo.toml") as f:
 pattern = r'^(\S+)\s*=\s*\{[^}]*path\s*=\s*"([^"]+)"[^}]*\}'
 matches = re.findall(pattern, content, re.MULTILINE)
 
+# Extract `name = "..."` from the [package] section of a crate's Cargo.toml.
+# Avoids the tomllib stdlib module (Python 3.11+) since older CI images may
+# ship an earlier interpreter. Cargo does not allow inheriting `name` from
+# the workspace, so the field is always a literal string.
+pkg_section_re = re.compile(r'^\[package\]\s*\n(.*?)(?=^\[|\Z)', re.MULTILINE | re.DOTALL)
+name_re = re.compile(r'^name\s*=\s*"([^"]+)"', re.MULTILINE)
+
+def read_pkg_name(path):
+    try:
+        with open(path) as f:
+            text = f.read()
+    except OSError:
+        return None
+    section = pkg_section_re.search(text)
+    if not section:
+        return None
+    m = name_re.search(section.group(1))
+    return m.group(1) if m else None
+
 patches = {}  # pkg_name -> abs_path (deduplicated by actual package name)
 for _, rel_path in matches:
     crate_toml = os.path.join(sdk_path, rel_path, "Cargo.toml")
     if not os.path.isfile(crate_toml):
         continue
-    with open(crate_toml, "rb") as f:
-        try:
-            meta = tomllib.load(f)
-        except Exception:
-            continue
-    pkg_name = meta.get("package", {}).get("name")
+    pkg_name = read_pkg_name(crate_toml)
     if not pkg_name:
         continue
     patches[pkg_name] = f"{sdk_path}/{rel_path}"
@@ -72,8 +91,9 @@ echo "::endgroup::"
 
 echo "::group::Build try-runtime"
 cd "$WORK_DIR/try-runtime-cli"
-# Remove the lock file since patched dependencies will have different versions.
-rm -f Cargo.lock
+# Seed the lockfile from polkadot-sdk so yanked-but-already-locked registry
+# versions in polkadot-sdk's transitive graph stay resolvable.
+cp "$SDK_PATH/Cargo.lock" Cargo.lock
 cargo build --release -p try-runtime-cli
 cp target/release/try-runtime "$OUTPUT"
 echo "::endgroup::"

@@ -41,6 +41,7 @@ use sp_trie::{empty_child_trie_root, LayoutV0, LayoutV1, TrieConfiguration};
 pub struct BasicExternalities {
 	overlay: OverlayedChanges<Blake2Hasher>,
 	extensions: Extensions,
+	state_version: StateVersion,
 	last_cursor: Option<Vec<u8>>,
 }
 
@@ -50,6 +51,7 @@ impl BasicExternalities {
 		BasicExternalities {
 			overlay: inner.into(),
 			extensions: Default::default(),
+			state_version: StateVersion::default(),
 			last_cursor: None,
 		}
 	}
@@ -273,7 +275,11 @@ impl Externalities for BasicExternalities {
 		self.overlay.append_storage(key, element, Default::default);
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn set_runtime_state_version(&mut self, state_version: StateVersion) {
+		self.state_version = state_version;
+	}
+
+	fn storage_root(&mut self) -> Vec<u8> {
 		let mut top = self
 			.overlay
 			.changes_mut()
@@ -284,7 +290,7 @@ impl Externalities for BasicExternalities {
 		// type of child trie support.
 		let empty_hash = empty_child_trie_root::<LayoutV1<Blake2Hasher>>();
 		for child_info in self.overlay.children().map(|d| d.1.clone()).collect::<Vec<_>>() {
-			let child_root = self.child_storage_root(&child_info, state_version);
+			let child_root = self.child_storage_root(&child_info);
 			if empty_hash[..] == child_root[..] {
 				top.remove(child_info.prefixed_storage_key().as_slice());
 			} else {
@@ -292,22 +298,18 @@ impl Externalities for BasicExternalities {
 			}
 		}
 
-		match state_version {
+		match self.state_version {
 			StateVersion::V0 => LayoutV0::<Blake2Hasher>::trie_root(top).as_ref().into(),
 			StateVersion::V1 => LayoutV1::<Blake2Hasher>::trie_root(top).as_ref().into(),
 		}
 	}
 
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-		state_version: StateVersion,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		if let Some((data, child_info)) = self.overlay.child_changes_mut(child_info.storage_key()) {
 			let delta =
 				data.into_iter().map(|(k, v)| (k.as_ref(), v.value().map(|v| v.as_slice())));
 			crate::in_memory_backend::new_in_mem::<Blake2Hasher>()
-				.child_storage_root(&child_info, delta, state_version)
+				.child_storage_root(&child_info, delta, self.state_version)
 				.0
 		} else {
 			empty_child_trie_root::<LayoutV1<Blake2Hasher>>()
@@ -403,7 +405,7 @@ mod tests {
 			"39245109cef3758c2eed2ccba8d9b370a917850af3824bc8348d505df2c298fa",
 		);
 
-		assert_eq!(&ext.storage_root(StateVersion::default())[..], &root);
+		assert_eq!(&ext.storage_root()[..], &root);
 	}
 
 	#[test]

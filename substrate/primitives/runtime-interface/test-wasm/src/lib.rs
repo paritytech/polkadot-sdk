@@ -171,7 +171,7 @@ pub trait TestApi {
 		out
 	}
 
-	/// Test ConvertAndReturnAs: return an Option<u32> as i64.
+	/// Test ConvertAndReturnAs: return an `Option<u32>` as `i64`.
 	fn return_option_value(
 		&self,
 		data: u32,
@@ -183,7 +183,7 @@ pub trait TestApi {
 		}
 	}
 
-	/// Test PassPointerAndWrite with #[wrapped]/#[wrapper].
+	/// Test PassPointerAndWrite with `#[wrapped]`/`#[wrapper]`.
 	#[wrapped]
 	fn get_and_return_array(
 		data: PassPointerAndReadCopy<[u8; 34], 34>,

@@ -211,6 +211,7 @@ mod tests;
 pub mod asset;
 pub mod election_size_tracker;
 pub mod ledger;
+pub mod migrations;
 mod pallet;
 pub mod reward;
 pub mod session_rotation;
@@ -567,20 +568,48 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 	}
 }
 
+/// Size of the rotating pool of era-specific pot accounts.
+///
+/// Era pots are addressed by `era % POT_POOL_SIZE`, so a pot account is reused
+/// every `POT_POOL_SIZE` eras instead of a fresh account being created per era.
+/// This bounds the total storage footprint contributed by era pot accounts to a
+/// constant rather than growing with chain age.
+///
+/// Must be strictly greater than [`Config::HistoryDepth`] so that a slot is only
+/// reused after its previous era has been pruned and drained. The
+/// [`integrity_test`] enforces this invariant at runtime startup.
+pub(crate) const POT_POOL_SIZE: u32 = 200;
+
+/// Maps an era index to its slot in the rotating pot pool.
+pub(crate) fn pot_slot(era: EraIndex) -> u32 {
+	era % POT_POOL_SIZE
+}
+
 /// Kind of reward managed by staking pots.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+)]
 pub enum RewardKind {
 	/// Staker rewards (nominators + validators).
+	#[codec(index = 0)]
 	StakerRewards,
+	/// Pot for validator self-stake incentive.
+	#[codec(index = 1)]
+	ValidatorSelfStake,
 }
 
 /// Identifies a reward pot account.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, TypeInfo)]
+#[derive(
+	Debug, Clone, Copy, PartialEq, Eq, Encode, Decode, codec::DecodeWithMemTracking, TypeInfo,
+)]
 pub enum RewardPot {
 	/// General pot: funded by an external source (e.g. pallet-dap).
 	/// At era boundaries, staking snapshots the balance into an era-specific pot.
+	#[codec(index = 0)]
 	General(RewardKind),
 	/// Era-specific pot: snapshotted from the general pot at era boundaries.
+	/// See `POT_POOL_SIZE` for the slot rotation scheme.
+	#[codec(index = 1)]
 	Era(EraIndex, RewardKind),
 }
 
@@ -590,6 +619,9 @@ pub trait PotAccountProvider<AccountId> {
 }
 
 /// Seed-based pot account provider for production use.
+///
+/// Era pots are derived from `(slot, kind)` where `slot = era % POT_POOL_SIZE`,
+/// so a fixed pool of accounts rotates instead of creating one per era.
 pub struct Seed<S>(core::marker::PhantomData<S>);
 
 impl<AccountId, S> PotAccountProvider<AccountId> for Seed<S>
@@ -599,11 +631,21 @@ where
 {
 	fn pot_account(pot: RewardPot) -> AccountId {
 		use sp_runtime::traits::AccountIdConversion;
-		S::get().into_sub_account_truncating(pot)
+		// Era pots are addressed by slot (`era % POT_POOL_SIZE`), not by the
+		// raw era index, so a fixed pool of accounts rotates instead of
+		// growing per era.
+		let normalized = match pot {
+			RewardPot::Era(era, kind) => RewardPot::Era(pot_slot(era), kind),
+			other => other,
+		};
+		S::get().into_sub_account_truncating(normalized)
 	}
 }
 
 /// Sequential pot account provider for testing.
+///
+/// Mirrors the production rotation: era pots collide every `POT_POOL_SIZE`
+/// eras so tests exercise the same pool reuse path.
 #[cfg(feature = "std")]
 pub struct SequentialTest;
 
@@ -615,8 +657,12 @@ where
 	fn pot_account(pot: RewardPot) -> AccountId {
 		match pot {
 			RewardPot::General(RewardKind::StakerRewards) => AccountId::from(200_000u64),
+			RewardPot::General(RewardKind::ValidatorSelfStake) => AccountId::from(200_001u64),
 			RewardPot::Era(era, RewardKind::StakerRewards) => {
-				AccountId::from(100_000 + (era as u64 * 10))
+				AccountId::from(100_000 + (pot_slot(era) as u64 * 10))
+			},
+			RewardPot::Era(era, RewardKind::ValidatorSelfStake) => {
+				AccountId::from(100_000 + (pot_slot(era) as u64 * 10) + 1)
 			},
 		}
 	}
@@ -637,6 +683,24 @@ where
 
 	fn pot_account() -> AccountId {
 		P::pot_account(RewardPot::General(RewardKind::StakerRewards))
+	}
+}
+
+/// Budget recipient for validator self-stake incentive.
+///
+/// Exposes the general validator incentive pot so DAP can drip inflation into it.
+pub struct ValidatorIncentiveRecipient<P>(core::marker::PhantomData<P>);
+
+impl<AccountId, P> sp_staking::budget::BudgetRecipient<AccountId> for ValidatorIncentiveRecipient<P>
+where
+	P: PotAccountProvider<AccountId>,
+{
+	fn budget_key() -> sp_staking::budget::BudgetKey {
+		sp_staking::budget::BudgetKey::truncate_from(b"validator_incentive".to_vec())
+	}
+
+	fn pot_account() -> AccountId {
+		P::pot_account(RewardPot::General(RewardKind::ValidatorSelfStake))
 	}
 }
 

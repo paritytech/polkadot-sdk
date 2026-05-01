@@ -101,19 +101,16 @@ fn migration_works() {
 		);
 	});
 	ext.commit_all().unwrap();
-	// Then it cleans up the remaining storage items:
+	// Then it cleans up the remaining storage items.
+	// With cursor-based iteration, the cleanup now completes in 2 blocks
+	// (2 keys per block, 4 total remaining keys).
 	ext.execute_with(|| {
 		run_to_block(21);
 		assert_only_event(Event::CleanedSome { keys_removed: 2 });
 	});
 	ext.commit_all().unwrap();
 	ext.execute_with(|| {
-		run_to_block(22);
-		assert_only_event(Event::CleanedSome { keys_removed: 2 });
-	});
-	ext.commit_all().unwrap();
-	ext.execute_with(|| {
-		run_to_block(24);
+		run_to_block(23);
 		assert_eq!(
 			System::events().into_iter().map(|e| e.event).collect::<Vec<_>>(),
 			vec![
@@ -141,7 +138,7 @@ fn migration_works() {
 			assert_eq!(MigrationStatus::<Runtime>::get(), MigrationState::Completed);
 			assert!(System::events().is_empty());
 			// ... besides the block number
-			System::set_block_number(24);
+			System::set_block_number(23);
 		}
 	});
 }

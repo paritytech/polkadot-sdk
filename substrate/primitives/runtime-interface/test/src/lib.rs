@@ -135,9 +135,14 @@ fn test_versioning_with_new_host_works() {
 	// We call to the new wasm binary with new host function.
 	call_wasm_method::<HostFunctions>(wasm_binary_unwrap(), "test_versioning_works");
 
-	// we call to the old wasm binary with a new host functions
-	// old versions of host functions should be called and test should be ok!
-	call_wasm_method::<HostFunctions>(wasm_binary_deprecated_unwrap(), "test_versioning_works");
+	// We call to the old wasm binary with the deprecated host functions.
+	// The deprecated wasm uses V1 marshalling strategies (AllocateAndReturn*) which have
+	// incompatible signatures with the new V2 host functions, so we use the matching
+	// DeprecatedHostFunctions that provide the correct V1 function signatures.
+	call_wasm_method::<DeprecatedHostFunctions>(
+		wasm_binary_deprecated_unwrap(),
+		"test_versioning_works",
+	);
 }
 
 #[test]

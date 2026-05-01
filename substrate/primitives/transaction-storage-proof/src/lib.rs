@@ -28,6 +28,7 @@ use core::result::Result;
 
 use alloc::vec::Vec;
 use codec::{Decode, DecodeWithMemTracking, Encode};
+use scale_info::TypeInfo;
 use sp_inherents::{InherentData, InherentIdentifier, IsFatalError};
 use sp_runtime::traits::{Block as BlockT, NumberFor};
 
@@ -40,6 +41,41 @@ pub const CHUNK_SIZE: usize = 256;
 
 /// Type used for counting/tracking chunks.
 pub type ChunkIndex = u32;
+
+/// Hash of indexed data; the algorithm is reported in [`HashingAlgorithm`].
+pub type ContentHash = [u8; 32];
+
+/// IPFS [multicodec](https://github.com/multiformats/multicodec) content-type
+/// identifier for an indexed payload. Full list of values [here](https://github.com/multiformats/multicodec/blob/master/table.csv).
+pub type CidCodec = u64;
+
+/// Hashing algorithm used to compute a [`ContentHash`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub enum HashingAlgorithm {
+	/// BLAKE2b-256.
+	Blake2b256,
+	/// SHA2-256.
+	Sha2_256,
+	/// Keccak-256.
+	Keccak256,
+}
+
+/// Metadata for a single indexed transaction.
+#[derive(Clone, Debug, PartialEq, Eq, Encode, Decode, TypeInfo)]
+pub struct IndexedTransactionInfo {
+	/// Hash of the indexed data.
+	pub content_hash: ContentHash,
+	/// Size of the indexed data, in bytes.
+	pub size: u32,
+	/// Algorithm used to compute `content_hash`.
+	pub hashing: HashingAlgorithm,
+	/// CID codec for constructing the IPFS CID for the indexed data.
+	pub cid_codec: CidCodec,
+	/// Extrinsic index that produced this entry via `store` or `renew`.
+	///
+	/// `u32::MAX` when the producing pallet does not record it.
+	pub extrinsic_index: u32,
+}
 
 /// Errors that can occur while checking the storage proof.
 #[derive(Encode, Debug)]

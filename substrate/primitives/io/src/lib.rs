@@ -884,7 +884,7 @@ pub trait Storage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	fn root(&mut self) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		self.storage_root(StateVersion::V0)
+		self.storage_root()
 	}
 
 	/// "Commit" all existing operations and compute the resulting storage root.
@@ -893,8 +893,8 @@ pub trait Storage {
 	///
 	/// Returns a `Vec<u8>` that holds the SCALE encoded hash.
 	#[version(2)]
-	fn root(&mut self, version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
-		self.storage_root(version)
+	fn root(&mut self, _version: PassAs<StateVersion, u8>) -> AllocateAndReturnFatPointer<Vec<u8>> {
+		self.storage_root()
 	}
 
 	/// "Commit" all existing operations and compute the resulting storage root.
@@ -907,12 +907,13 @@ pub trait Storage {
 	#[version(3)]
 	#[wrapped]
 	fn root(&mut self, out: PassFatPointerAndWrite<&mut [u8]>) {
-		let root = self.storage_root(StateVersion::V0);
+		let root = self.storage_root();
+		let encoded = codec::Encode::encode(&root);
 		assert!(
-			out.len() >= root.len(),
+			out.len() >= encoded.len(),
 			"Output buffer provided to store the storage root hash must be large enough"
 		);
-		out[..root.len()].copy_from_slice(&root[..]);
+		out[..encoded.len()].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -924,7 +925,8 @@ pub trait Storage {
 		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(&mut root_out[..]);
-		root_out
+		codec::Decode::decode(&mut &root_out[..])
+			.expect("storage root is always a valid SCALE-encoded Vec<u8>; qed")
 	}
 
 	/// Always returns `None`. This function exists for compatibility reasons.
@@ -1421,7 +1423,7 @@ pub trait DefaultChildStorage {
 		storage_key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage_root(&child_info, StateVersion::V0)
+		self.child_storage_root(&child_info)
 	}
 
 	/// Default child root calculation.
@@ -1434,10 +1436,10 @@ pub trait DefaultChildStorage {
 	fn root(
 		&mut self,
 		storage_key: PassFatPointerAndRead<&[u8]>,
-		version: PassAs<StateVersion, u8>,
+		_version: PassAs<StateVersion, u8>,
 	) -> AllocateAndReturnFatPointer<Vec<u8>> {
 		let child_info = ChildInfo::new_default(storage_key);
-		self.child_storage_root(&child_info, version)
+		self.child_storage_root(&child_info)
 	}
 
 	/// Default child root calculation.
@@ -1456,10 +1458,13 @@ pub trait DefaultChildStorage {
 		out: PassFatPointerAndWrite<&mut [u8]>,
 	) {
 		let child_info = ChildInfo::new_default(storage_key);
-		let root = self.child_storage_root(&child_info, StateVersion::V0);
-		if out.len() >= root.len() {
-			out[..root.len()].copy_from_slice(&root[..]);
-		}
+		let root = self.child_storage_root(&child_info);
+		let encoded = codec::Encode::encode(&root);
+		assert!(
+			out.len() >= encoded.len(),
+			"Output buffer provided to store the child storage root hash must be large enough"
+		);
+		out[..encoded.len()].copy_from_slice(&encoded[..]);
 	}
 
 	/// A convenience wrapper providing a developer-friendly interface for the `root` host
@@ -1471,7 +1476,8 @@ pub trait DefaultChildStorage {
 		// over the hasher type is a big refactoring and is not worth it.
 		let mut root_out = vec![0u8; 256];
 		root__wrapped(storage_key.as_ref(), &mut root_out[..]);
-		root_out
+		codec::Decode::decode(&mut &root_out[..])
+			.expect("child storage root is always a valid SCALE-encoded Vec<u8>; qed")
 	}
 
 	/// Child storage key iteration.
@@ -4154,9 +4160,17 @@ mod tests {
 		});
 
 		t.execute_with(|| {
+			// `read` with a buffer that is too small does NOT write data into the buffer (RFC-145).
 			let mut v = [0u8; 4];
 			assert_eq!(storage::read(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
+			assert_eq!(v, [0u8, 0, 0, 0]);
+
+			// `read_partial` with a buffer that is too small DOES write partial data.
+			let mut v = [0u8; 4];
+			assert_eq!(storage::read_partial(b":test", &mut v[..], 0).unwrap(), value.len() as u32);
 			assert_eq!(v, [11u8, 0, 0, 0]);
+
+			// `read` with an exact-sized buffer works.
 			let mut w = [0u8; 11];
 			assert_eq!(storage::read(b":test", &mut w[..], 4).unwrap(), value.len() as u32 - 4);
 			assert_eq!(&w, b"Hello world");

@@ -198,6 +198,12 @@ impl pallet_staking_async::WeightInfo for StakingAsyncWeightInfo {
 	fn set_max_commission() -> Weight {
 		unreachable!()
 	}
+	fn set_validator_self_stake_incentive_config() -> Weight {
+		unreachable!()
+	}
+	fn prune_era_validator_incentive_weight(_v: u32) -> Weight {
+		unreachable!()
+	}
 	fn restore_ledger() -> Weight {
 		unreachable!()
 	}

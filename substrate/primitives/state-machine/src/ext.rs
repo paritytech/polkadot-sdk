@@ -71,6 +71,9 @@ where
 	/// Extensions registered with this instance.
 	#[cfg(feature = "std")]
 	extensions: Option<OverlayedExtensions<'a>>,
+	/// Fallback state version used by `storage_root` when no `RuntimeStateVersionExt` is
+	/// registered. In no-std builds (where extensions are not supported) this is the only source.
+	state_version: StateVersion,
 	/// Last cursor of a storage operation.
 	last_cursor: Option<Vec<u8>>,
 }
@@ -83,7 +86,7 @@ where
 	/// Create a new `Ext`.
 	#[cfg(not(feature = "std"))]
 	pub fn new(overlay: &'a mut OverlayedChanges<H>, backend: &'a B) -> Self {
-		Ext { overlay, backend, id: 0, last_cursor: None }
+		Ext { overlay, backend, id: 0, state_version: StateVersion::default(), last_cursor: None }
 	}
 
 	/// Create a new `Ext` from overlayed changes and read-only backend
@@ -98,8 +101,16 @@ where
 			backend,
 			id: rand::random(),
 			extensions: extensions.map(OverlayedExtensions::new),
+			state_version: StateVersion::default(),
 			last_cursor: None,
 		}
+	}
+
+	/// Override the state version used by `storage_root`. Chained-call equivalent of
+	/// [`Externalities::set_runtime_state_version`].
+	pub fn with_state_version(mut self, state_version: StateVersion) -> Self {
+		self.state_version = state_version;
+		self
 	}
 }
 
@@ -478,10 +489,14 @@ where
 		});
 	}
 
-	fn storage_root(&mut self, state_version: StateVersion) -> Vec<u8> {
+	fn set_runtime_state_version(&mut self, state_version: StateVersion) {
+		self.state_version = state_version;
+	}
+
+	fn storage_root(&mut self) -> Vec<u8> {
 		let _guard = guard();
 
-		let (root, _cached) = self.overlay.storage_root(self.backend, state_version);
+		let (root, _cached) = self.overlay.storage_root(self.backend, self.state_version);
 
 		trace!(
 			target: "state",
@@ -494,16 +509,12 @@ where
 		root.encode()
 	}
 
-	fn child_storage_root(
-		&mut self,
-		child_info: &ChildInfo,
-		state_version: StateVersion,
-	) -> Vec<u8> {
+	fn child_storage_root(&mut self, child_info: &ChildInfo) -> Vec<u8> {
 		let _guard = guard();
 
 		let (root, _cached) = self
 			.overlay
-			.child_storage_root(child_info, self.backend, state_version)
+			.child_storage_root(child_info, self.backend, self.state_version)
 			.expect(EXT_NOT_ALLOWED_TO_FAIL);
 
 		trace!(
