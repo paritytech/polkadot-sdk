@@ -214,6 +214,13 @@ parameter_types! {
 	pub static MaxValidatorSet: u32 = 100;
 	pub static ElectionsBounds: ElectionBounds = ElectionBoundsBuilder::default().build();
 	pub static AbsoluteMaxNominations: u32 = 16;
+
+	// Staleness-curve parameters. Defaults are chosen so the curve is a no-op
+	// (`GracePeriod = u32::MAX`) and existing tests are unaffected. Tests that want
+	// to exercise the curve set these via `StalenessGracePeriod::set(...)` etc.
+	pub static StalenessGracePeriod: EraIndex = u32::MAX;
+	pub static StalenessDecayPeriod: EraIndex = 0;
+	pub static StalenessFloor: Perbill = Perbill::zero();
 }
 
 type VoterBagsListInstance = pallet_bags_list::Instance1;
@@ -305,6 +312,11 @@ impl crate::pallet::pallet::Config for Test {
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
+	type NominationStalenessCurve = crate::LinearStalenessCurve<
+		StalenessGracePeriod,
+		StalenessDecayPeriod,
+		StalenessFloor,
+	>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;

@@ -52,8 +52,9 @@ use sp_staking::{
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationsQuota, PositiveImbalanceOf,
-	RewardDestination, SessionInterface, StakingLedger, UnlockChunk, ValidatorPrefs, STAKING_ID,
+	MaxNominationsOf, MaxWinnersOf, Nominations, NominationStalenessCurve, NominationsQuota,
+	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnlockChunk,
+	ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 
@@ -931,34 +932,24 @@ impl<T: Config> Pallet<T> {
 					// voter at this point and accept all the current nominations. The nomination
 					// quota is only enforced at `nominate` time.
 
-					/* VOTER WEIGHT MULTIPLIER START */
-					//This logic adjusts the voter weight to linearly decrease when the vote is
-					// stale.
+					// Apply the configured staleness curve to the voter's weight. A nominator
+					// who has not re-affirmed their nomination recently sees their effective
+					// stake reduced (or zeroed) for this election. With the default
+					// `NoNominationStaleness` curve, the multiplier is always `1` and this is
+					// a no-op (`Perbill::one() * x == x`).
 					let eras_since_last_nomination = current_era.saturating_sub(submitted_in);
-					// This allows 10 eras to pass before the vote is considered stale.
-					const ERAS_UNTIL_WEIGHT_DECREASE: EraIndex = 10;
-					let eras_counting_against_weight =
-						eras_since_last_nomination.saturating_sub(ERAS_UNTIL_WEIGHT_DECREASE);
-					// This says that once a vote is stale, it takes 10 eras until
-					const ERAS_UNTIL_WEIGHT_ZERO: EraIndex = 10;
-
-					// The numerator of the voter weight multiplier.
-					let numerator =
-						ERAS_UNTIL_WEIGHT_ZERO.saturating_sub(eras_counting_against_weight);
-					if numerator < ERAS_UNTIL_WEIGHT_ZERO {
-						let voter_weight_multiplier =
-							Perbill::from_rational(numerator, ERAS_UNTIL_WEIGHT_ZERO);
-						voter_weight = voter_weight_multiplier * voter_weight;
-						// if voter weight is zero, do not consider this voter for the snapshot.
-						if voter_weight.is_zero() {
-							log!(
-								debug,
-								"voter's weight is 0 after voter weight multiplier. skip this voter."
-							);
-							continue
-						}
+					let multiplier =
+						T::NominationStalenessCurve::multiplier(eras_since_last_nomination);
+					voter_weight = multiplier * voter_weight;
+					if voter_weight.is_zero() {
+						log!(
+							debug,
+							"voter {:?} weight is 0 after staleness multiplier ({} eras since last nomination). skip this voter.",
+							voter,
+							eras_since_last_nomination,
+						);
+						continue
 					}
-					/* VOTER WEIGHT MULTIPLIER END */
 
 					let voter = (voter, voter_weight, targets);
 					if voters_size_tracker.try_register_voter(&voter, &bounds).is_err() {

@@ -926,6 +926,89 @@ impl<Balance, const MAX: u32> NominationsQuota<Balance> for FixedNominationsQuot
 	}
 }
 
+/// Computes the staleness multiplier applied to a nominator's voter weight when the
+/// election snapshot is built.
+///
+/// The implementation receives the number of eras since the nominator last (re)affirmed
+/// their nomination via the `nominate` extrinsic, and returns a `Perbill` in `[0, 1]`
+/// that scales the nominator's effective stake going into the election.
+///
+/// Returning `Perbill::one()` from every call disables the staleness mechanism (see
+/// [`NoNominationStaleness`]). Decreasing returns over time produce the "stale
+/// nomination decay" behaviour described in the corresponding RFC.
+pub trait NominationStalenessCurve {
+	/// Returns the staleness multiplier given the number of eras since the nominator
+	/// last (re)affirmed their nomination.
+	fn multiplier(eras_since_last_nomination: EraIndex) -> Perbill;
+}
+
+/// A no-op staleness curve: every nomination keeps full weight forever.
+///
+/// This preserves the pre-staleness behaviour of the staking pallet and is the right
+/// choice for runtimes that have not opted into the staleness mechanism.
+pub struct NoNominationStaleness;
+impl NominationStalenessCurve for NoNominationStaleness {
+	fn multiplier(_eras_since_last_nomination: EraIndex) -> Perbill {
+		Perbill::one()
+	}
+}
+
+/// A piecewise-linear staleness curve.
+///
+/// Behaviour, as a function of `s = eras_since_last_nomination`:
+///
+/// - For `s <= GracePeriod`, the multiplier is exactly `1`.
+/// - For `GracePeriod < s < GracePeriod + DecayPeriod`, the multiplier interpolates
+///   linearly from `1` down to `Floor`.
+/// - For `s >= GracePeriod + DecayPeriod`, the multiplier is `Floor`.
+///
+/// `Floor` may be set to `Perbill::zero()` to fully decay stale nominations, or to a
+/// positive value to leave a residual minimum weight regardless of staleness.
+///
+/// Setting `GracePeriod` to a very large value (e.g. `u32::MAX`) effectively disables
+/// the curve, since no nomination will ever be older than the grace period.
+pub struct LinearStalenessCurve<GracePeriod, DecayPeriod, Floor>(
+	core::marker::PhantomData<(GracePeriod, DecayPeriod, Floor)>,
+);
+
+impl<GracePeriod, DecayPeriod, Floor> NominationStalenessCurve
+	for LinearStalenessCurve<GracePeriod, DecayPeriod, Floor>
+where
+	GracePeriod: Get<EraIndex>,
+	DecayPeriod: Get<EraIndex>,
+	Floor: Get<Perbill>,
+{
+	fn multiplier(s: EraIndex) -> Perbill {
+		let grace = GracePeriod::get();
+		let decay = DecayPeriod::get();
+		let floor = Floor::get();
+
+		// Within the grace period: full weight.
+		if s <= grace {
+			return Perbill::one();
+		}
+
+		let into_decay = s.saturating_sub(grace);
+
+		// Past the decay period, or zero-length decay configured: clamp to floor.
+		if decay == 0 || into_decay >= decay {
+			return floor;
+		}
+
+		// Linearly interpolate between `Perbill::one()` (at into_decay = 0) and `floor`
+		// (at into_decay = decay).
+		//
+		//   multiplier = floor + (1 - floor) * (decay - into_decay) / decay
+		//
+		// All intermediate Perbill values are in `[0, 1]` so no saturation occurs in
+		// practice — the saturating ops are defensive against pathological `Get`
+		// implementations.
+		let active_share = Perbill::from_rational(decay - into_decay, decay);
+		let one_minus_floor = Perbill::one().saturating_sub(floor);
+		floor.saturating_add(active_share * one_minus_floor)
+	}
+}
+
 /// Means for interacting with a specialized version of the `session` trait.
 ///
 /// This is needed because `Staking` sets the `ValidatorIdOf` of the `pallet_session::Config`
