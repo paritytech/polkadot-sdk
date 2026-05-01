@@ -52,6 +52,7 @@ frame-metadata-hash-extension = { workspace = true }
 frame-support = { features = ["experimental", "tuples-96"], workspace = true }
 frame-system = { workspace = true }
 frame-system-rpc-runtime-api = { workspace = true }
+pallet-accumulate-and-forward = { workspace = true }
 pallet-asset-rate = { workspace = true }
 pallet-authority-discovery = { workspace = true }
 pallet-authorship = { workspace = true }
@@ -60,7 +61,6 @@ pallet-bags-list = { workspace = true }
 pallet-balances = { workspace = true }
 pallet-beefy = { workspace = true }
 pallet-beefy-mmr = { workspace = true }
-pallet-dap-satellite = { workspace = true }
 pallet-delegated-staking = { workspace = true }
 pallet-election-provider-multi-phase = { workspace = true }
 pallet-fast-unstake = { workspace = true }
@@ -77,7 +77,6 @@ pallet-offences = { workspace = true }
 pallet-parameters = { workspace = true }
 pallet-preimage = { workspace = true }
 pallet-proxy = { workspace = true }
-pallet-recovery = { workspace = true }
 pallet-root-offences = { workspace = true }
 pallet-root-testing = { workspace = true }
 pallet-scheduler = { workspace = true }
@@ -143,6 +142,7 @@ std = [
 	"frame-system/std",
 	"frame-try-runtime/std",
 	"log/std",
+	"pallet-accumulate-and-forward/std",
 	"pallet-asset-rate/std",
 	"pallet-authority-discovery/std",
 	"pallet-authorship/std",
@@ -151,7 +151,6 @@ std = [
 	"pallet-balances/std",
 	"pallet-beefy-mmr/std",
 	"pallet-beefy/std",
-	"pallet-dap-satellite/std",
 	"pallet-delegated-staking/std",
 	"pallet-election-provider-multi-phase/std",
 	"pallet-election-provider-support-benchmarking?/std",
@@ -171,7 +170,6 @@ std = [
 	"pallet-parameters/std",
 	"pallet-preimage/std",
 	"pallet-proxy/std",
-	"pallet-recovery/std",
 	"pallet-root-offences/std",
 	"pallet-root-testing/std",
 	"pallet-scheduler/std",
@@ -232,12 +230,12 @@ runtime-benchmarks = [
 	"frame-support/runtime-benchmarks",
 	"frame-system-benchmarking/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
+	"pallet-accumulate-and-forward/runtime-benchmarks",
 	"pallet-asset-rate/runtime-benchmarks",
 	"pallet-babe/runtime-benchmarks",
 	"pallet-bags-list/runtime-benchmarks",
 	"pallet-balances/runtime-benchmarks",
 	"pallet-beefy-mmr/runtime-benchmarks",
-	"pallet-dap-satellite/runtime-benchmarks",
 	"pallet-delegated-staking/runtime-benchmarks",
 	"pallet-election-provider-multi-phase/runtime-benchmarks",
 	"pallet-election-provider-support-benchmarking/runtime-benchmarks",
@@ -256,7 +254,6 @@ runtime-benchmarks = [
 	"pallet-parameters/runtime-benchmarks",
 	"pallet-preimage/runtime-benchmarks",
 	"pallet-proxy/runtime-benchmarks",
-	"pallet-recovery/runtime-benchmarks",
 	"pallet-root-offences/runtime-benchmarks",
 	"pallet-scheduler/runtime-benchmarks",
 	"pallet-session-benchmarking/runtime-benchmarks",
@@ -290,6 +287,7 @@ try-runtime = [
 	"frame-system/try-runtime",
 	"frame-try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-accumulate-and-forward/try-runtime",
 	"pallet-asset-rate/try-runtime",
 	"pallet-authority-discovery/try-runtime",
 	"pallet-authorship/try-runtime",
@@ -298,7 +296,6 @@ try-runtime = [
 	"pallet-balances/try-runtime",
 	"pallet-beefy-mmr/try-runtime",
 	"pallet-beefy/try-runtime",
-	"pallet-dap-satellite/try-runtime",
 	"pallet-delegated-staking/try-runtime",
 	"pallet-election-provider-multi-phase/try-runtime",
 	"pallet-fast-unstake/try-runtime",
@@ -314,7 +311,6 @@ try-runtime = [
 	"pallet-parameters/try-runtime",
 	"pallet-preimage/try-runtime",
 	"pallet-proxy/try-runtime",
-	"pallet-recovery/try-runtime",
 	"pallet-root-offences/try-runtime",
 	"pallet-root-testing/try-runtime",
 	"pallet-scheduler/try-runtime",

@@ -15,34 +15,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! # DAP Satellite Pallet
+//! # Accumulate-and-Forward Pallet
 //!
-//! Intercepts native token burns (transaction fees, dust removal, coretime revenue) on system
-//! parachains that do not have a central DAP and redirects them into a local buffer account for
-//! eventual transfer to the central DAP.
-//!
-//! Important: The system chain(s) that employ a central DAP must use `pallet-dap`instead!
+//! Intercepts configurable token inflows (transaction fees, dust removal, coretime revenue) on
+//! system parachains and gathers them in a local accumulation account for periodic forwarding
+//! to a configurable destination.
 //!
 //! ## Usage
 //!
-//! - **Fees**: Use [`DealWithFeesSplit`] to split fees between DAP satellite and other handlers
-//! - **Burns/Revenue**: Use `DapSatellite` as `OnUnbalanced<CreditOf>` handler (e.g., dust removal,
+//! - **Fees**: Use [`DealWithFeesSplit`] to split fees between accumulation and other handlers
+//! - **Burns/Revenue**: Use the pallet as `OnUnbalanced<CreditOf>` handler (e.g., dust removal,
 //!   coretime revenue)
 //! Note: Direct calls to `pallet_balances::Pallet::burn()` extrinsic are not redirected to
-//! the satellite buffer — they still reduce total issuance directly.
+//! the accumulation account — they still reduce total issuance directly.
 //!
 //! ## Setup
 //!
-//! The satellite account must be pre-funded with at least existential deposit.
-//! For new chains, include the satellite account in the balances genesis config.
+//! The accumulation account must be pre-funded with at least the existential deposit.
+//! For new chains, include the account in the balances genesis config.
 //! For existing chains, fund it via a manual transfer.
 //!
-//! If the satellite account is not pre-funded, deposits below ED will be silently burned.
+//! If the accumulation account is not pre-funded, deposits below ED will be silently burned.
 //!
 //! ## Total Issuance
 //!
-//! Satellite funds are burnt upon sending (reducing `total_issuance` here) and the same
-//! funds are minted in the central DAP when the sent message is received.
+//! Accumulated funds are burnt upon forwarding (reducing `total_issuance` here) and the same
+//! funds are minted at the destination when the sent message is received.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -74,11 +72,16 @@ use sp_runtime::{traits::BlockNumberProvider, Percent, Saturating};
 
 pub use pallet::*;
 
-pub use sp_dap::DAP_PALLET_ID;
+/// Trait for forwarding accumulated funds to a configured destination.
+///
+/// Implementations carry all message-construction and dispatch logic, keeping this pallet
+/// free of transport-specific dependencies.
+pub trait Forwarder<AccountId, Balance> {
+	/// Forward `amount` from `source` to the configured destination.
+	fn forward(source: AccountId, amount: Balance) -> Result<(), ()>;
+}
 
-pub use sp_dap::SendToDap;
-
-const LOG_TARGET: &str = "runtime::dap-satellite";
+const LOG_TARGET: &str = "runtime::accumulate-forward";
 
 /// Type alias for balance.
 pub type BalanceOf<T> =
@@ -109,22 +112,22 @@ pub mod pallet {
 			+ Unbalanced<Self::AccountId>
 			+ Balanced<Self::AccountId>;
 
-		/// The pallet ID used to derive the satellite account.
+		/// The pallet ID used to derive the accumulation account.
 		type PalletId: Get<PalletId>;
 
-		/// The implementation responsible for sending accumulated funds to the central DAP.
+		/// The implementation responsible for forwarding accumulated funds to the destination.
 		/// Message construction and dispatch logic lives here, keeping this pallet free of
 		/// message-related dependencies.
-		type SendToDap: super::SendToDap<Self::AccountId, BalanceOf<Self>>;
+		type Forwarder: super::Forwarder<Self::AccountId, BalanceOf<Self>>;
 
-		/// Minimum number of blocks between successive transfers to the central DAP.
+		/// Minimum number of blocks between successive forwards.
 		/// Acts as a rate limiter to avoid sending too many messages.
 		#[pallet::constant]
 		type TransferPeriod: Get<BlockNumberFor<Self>>;
 
-		/// Minimum transferable balance required to trigger a transfer.
-		/// This avoids the transfer of very small / negligible amounts.
-		/// The satellite account always retains its existential deposit on top of this.
+		/// Minimum transferable balance required to trigger a forward.
+		/// This avoids forwarding very small / negligible amounts.
+		/// The accumulation account always retains its existential deposit on top of this.
 		#[pallet::constant]
 		type MinTransferAmount: Get<BalanceOf<Self>>;
 
@@ -139,17 +142,17 @@ pub mod pallet {
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
-		/// Successfully sent funds to the central DAP.
-		SendSucceeded { amount: BalanceOf<T> },
-		/// Failed to send funds. They will remain in the satellite account
-		/// and sending will be retried after another `TransferPeriod` blocks.
-		SendFailed { amount: BalanceOf<T> },
+		/// Successfully forwarded accumulated funds to the destination.
+		ForwardSucceeded { amount: BalanceOf<T> },
+		/// Failed to forward funds. They will remain in the accumulation account
+		/// and forwarding will be retried after another `TransferPeriod` blocks.
+		ForwardFailed { amount: BalanceOf<T> },
 	}
 
 	#[pallet::hooks]
 	impl<T: Config> Hooks<SystemBlockNumberFor<T>> for Pallet<T> {
 		fn on_idle(_block: SystemBlockNumberFor<T>, remaining_weight: Weight) -> Weight {
-			// Only attempt transfers on blocks that are exact multiples of `TransferPeriod`.
+			// Only attempt forwarding on blocks that are exact multiples of `TransferPeriod`.
 			let block = T::BlockNumberProvider::current_block_number();
 			if (block % T::TransferPeriod::get()) != Zero::zero() {
 				return Weight::zero();
@@ -162,11 +165,11 @@ pub mod pallet {
 				return meter.consumed();
 			}
 
-			let satellite_account = Self::satellite_account();
+			let accumulation_account = Self::accumulation_account();
 			// We use `reducible_balance` with `Preservation::Preserve` to get the
 			// usable balance (excluding the ED).
 			let available_funds = T::Currency::reducible_balance(
-				&satellite_account,
+				&accumulation_account,
 				Preservation::Preserve,
 				Fortitude::Polite,
 			);
@@ -180,19 +183,19 @@ pub mod pallet {
 				return meter.consumed();
 			}
 
-			// Attempt the transfer to the central DAP.
-			match T::SendToDap::send_native(satellite_account, available_funds) {
+			// Attempt to forward accumulated funds.
+			match T::Forwarder::forward(accumulation_account, available_funds) {
 				Ok(()) => {
-					Self::deposit_event(Event::SendSucceeded { amount: available_funds });
+					Self::deposit_event(Event::ForwardSucceeded { amount: available_funds });
 				},
 				Err(()) => {
 					log::debug!(
 						target: LOG_TARGET,
-						"DAP satellite transfer of {:?} failed at block {:?}",
+						"accumulate-forward transfer of {:?} failed at block {:?}",
 						available_funds,
 						block,
 					);
-					Self::deposit_event(Event::SendFailed { amount: available_funds });
+					Self::deposit_event(Event::ForwardFailed { amount: available_funds });
 				},
 			}
 
@@ -204,18 +207,14 @@ pub mod pallet {
 				!T::TransferPeriod::get().is_zero(),
 				"TransferPeriod must not be zero (would cause division by zero in on_idle)"
 			);
-			assert!(
-				T::PalletId::get() == sp_dap::DAP_SATELLITE_PALLET_ID,
-				"PalletId must match sp_dap::DAP_SATELLITE_PALLET_ID"
-			);
 		}
 	}
 
 	impl<T: Config> Pallet<T> {
-		/// Get the satellite account derived from the pallet ID.
+		/// Get the accumulation account derived from the pallet ID.
 		///
-		/// This account accumulates funds locally before they are sent to the central DAP.
-		pub fn satellite_account() -> T::AccountId {
+		/// This account accumulates funds locally before they are forwarded to the destination.
+		pub fn accumulation_account() -> T::AccountId {
 			T::PalletId::get().into_account_truncating()
 		}
 	}
@@ -225,9 +224,10 @@ pub mod pallet {
 /// This is for the `fungible::Balanced` trait.
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
 
-/// A configurable fee handler that splits fees between DAP satellite and another destination.
+/// A configurable fee handler that splits fees between the accumulation account and another
+/// destination.
 ///
-/// - `DapPercent`: Percentage of fees to send to DAP satellite (e.g., `Percent::from_percent(0)`)
+/// - `AccumulatedPercent`: Percentage of fees to accumulate (e.g., `Percent::from_percent(0)`)
 /// - `OtherHandler`: Where to send the remaining fees (e.g., `ToAuthor`, `DealWithFees`)
 ///
 /// Tips always go 100% to `OtherHandler`.
@@ -236,41 +236,43 @@ pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Conf
 ///
 /// ```ignore
 /// parameter_types! {
-///     pub const DapSatelliteFeePercent: Percent = Percent::from_percent(0); // 0% to DAP
+///     pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(0); // 0% accumulated
 /// }
 ///
-/// type DealWithFeesSatellite = pallet_dap_satellite::DealWithFeesSplit<
+/// type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
 ///     Runtime,
-///     DapSatelliteFeePercent,
+///     AccumulateForwardFeePercent,
 ///     DealWithFees<Runtime>, // Or ToAuthor<Runtime> for relay chain
 /// >;
 ///
 /// impl pallet_transaction_payment::Config for Runtime {
-///     type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesSatellite>;
+///     type OnChargeTransaction = FungibleAdapter<Balances, DealWithFeesAccumulate>;
 /// }
 /// ```
-pub struct DealWithFeesSplit<T, DapPercent, OtherHandler>(
-	core::marker::PhantomData<(T, DapPercent, OtherHandler)>,
+pub struct DealWithFeesSplit<T, AccumulatedPercent, OtherHandler>(
+	core::marker::PhantomData<(T, AccumulatedPercent, OtherHandler)>,
 );
 
-impl<T, DapPercent, OtherHandler> OnUnbalanced<CreditOf<T>>
-	for DealWithFeesSplit<T, DapPercent, OtherHandler>
+impl<T, AccumulatedPercent, OtherHandler> OnUnbalanced<CreditOf<T>>
+	for DealWithFeesSplit<T, AccumulatedPercent, OtherHandler>
 where
 	T: Config,
-	DapPercent: Get<Percent>,
+	AccumulatedPercent: Get<Percent>,
 	OtherHandler: OnUnbalanced<CreditOf<T>>,
 {
 	fn on_unbalanceds(mut fees_then_tips: impl Iterator<Item = CreditOf<T>>) {
 		if let Some(fees) = fees_then_tips.next() {
-			let dap_percent = DapPercent::get();
-			let other_percent = Percent::one().saturating_sub(dap_percent);
-			let mut split =
-				fees.ration(dap_percent.deconstruct() as u32, other_percent.deconstruct() as u32);
+			let accumulated_percent = AccumulatedPercent::get();
+			let other_percent = Percent::one().saturating_sub(accumulated_percent);
+			let mut split = fees.ration(
+				accumulated_percent.deconstruct() as u32,
+				other_percent.deconstruct() as u32,
+			);
 			if let Some(tips) = fees_then_tips.next() {
 				// Tips go 100% to other handler.
 				tips.merge_into(&mut split.1);
 			}
-			if !dap_percent.is_zero() {
+			if !accumulated_percent.is_zero() {
 				<Pallet<T> as OnUnbalanced<_>>::on_unbalanced(split.0);
 			}
 			OtherHandler::on_unbalanced(split.1);
@@ -280,29 +282,30 @@ where
 
 /// Implementation of `OnUnbalanced` for the `fungible::Balanced` trait.
 ///
-/// Use this on system chains that don't have a central DAP along with the Relay Chain to collect
-/// imbalances (e.g. coretime revenue, tx fees, dust removal) that would otherwise be burned.
+/// Use this on system chains to collect imbalances (e.g. coretime revenue, tx fees, dust removal)
+/// that would otherwise be burned, redirecting them to the accumulation account for later
+/// forwarding.
 ///
 /// For pallets still using the legacy `Currency` trait (e.g. `pallet_identity`), use
-/// [`DapSatelliteLegacyAdapter`] instead.
+/// [`LegacyAdapter`] instead.
 impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 	fn on_nonzero_unbalanced(amount: CreditOf<T>) {
-		let satellite = Self::satellite_account();
+		let accumulation_account = Self::accumulation_account();
 		let numeric_amount = amount.peek();
 
 		// Resolve should never fail because:
-		// - can_deposit on destination succeeds assuming satellite is pre-funded with ED
+		// - can_deposit on destination succeeds assuming accumulation account is pre-funded with ED
 		// - amount is guaranteed non-zero by the trait method signature
-		// The only failure would be overflow on destination or unfunded satellite.
-		let _ = T::Currency::resolve(&satellite, amount).inspect_err(|_| {
+		// The only failure would be overflow on destination or unfunded account.
+		let _ = T::Currency::resolve(&accumulation_account, amount).inspect_err(|_| {
 			frame_support::defensive!(
-				"🚨 Failed to deposit to DAP satellite - funds burned, it should never happen!"
+				"🚨 Failed to deposit to accumulation account - funds burned, it should never happen!"
 			);
 		});
 
 		log::debug!(
 			target: LOG_TARGET,
-			"💸 Deposited {numeric_amount:?} to DAP satellite"
+			"💸 Deposited {numeric_amount:?} to accumulation account"
 		);
 	}
 }
@@ -310,8 +313,8 @@ impl<T: Config> OnUnbalanced<CreditOf<T>> for Pallet<T> {
 /// Type alias for legacy `NegativeImbalance` from the `Currency` trait.
 type LegacyNegativeImbalance<A, C> = <C as Currency<A>>::NegativeImbalance;
 
-/// Adapter that redirects `NegativeImbalance` from the legacy `Currency` trait to the DAP
-/// satellite.
+/// Adapter that redirects `NegativeImbalance` from the legacy `Currency` trait to the
+/// accumulation account.
 ///
 /// Cannot be implemented directly on `Pallet<T>` because the compiler cannot prove that
 /// `<C as Currency>::NegativeImbalance` and `fungible::Credit` are always distinct types,
@@ -321,23 +324,22 @@ type LegacyNegativeImbalance<A, C> = <C as Currency<A>>::NegativeImbalance;
 ///
 /// # Example
 /// ```ignore
-/// type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
+/// type Slashed = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 /// ```
-pub struct DapSatelliteLegacyAdapter<T, C>(core::marker::PhantomData<(T, C)>);
+pub struct LegacyAdapter<T, C>(core::marker::PhantomData<(T, C)>);
 
-impl<T: Config, C> OnUnbalanced<LegacyNegativeImbalance<T::AccountId, C>>
-	for DapSatelliteLegacyAdapter<T, C>
+impl<T: Config, C> OnUnbalanced<LegacyNegativeImbalance<T::AccountId, C>> for LegacyAdapter<T, C>
 where
 	C: Currency<T::AccountId>,
 {
 	fn on_nonzero_unbalanced(amount: LegacyNegativeImbalance<T::AccountId, C>) {
-		let satellite = Pallet::<T>::satellite_account();
+		let accumulation_account = Pallet::<T>::accumulation_account();
 		let numeric_amount = amount.peek();
 		// NOTE: resolve_creating is infallible.
-		C::resolve_creating(&satellite, amount);
+		C::resolve_creating(&accumulation_account, amount);
 		log::debug!(
 			target: LOG_TARGET,
-			"💸 Deposited (legacy) {numeric_amount:?} to DAP satellite"
+			"💸 Deposited (legacy) {numeric_amount:?} to accumulation account"
 		);
 	}
 }

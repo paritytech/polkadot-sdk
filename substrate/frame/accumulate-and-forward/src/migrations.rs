@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Runtime upgrade migrations for `pallet-dap-satellite`.
+//! Runtime upgrade migrations for `pallet-accumulate-and-forward`.
 
 extern crate alloc;
 
@@ -35,8 +35,8 @@ use sp_runtime::traits::AccountIdConversion;
 /// Legacy treasury `PalletId` (`py/trsry`).
 const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 
-/// Drain the reducible balance of the legacy `py/trsry`-derived account into related chain's DAP
-/// satellite buffer.
+/// Drain the reducible balance of the legacy `py/trsry`-derived account into the accumulation
+/// account.
 ///
 /// The PalletId is hardcoded so the migration cannot be misconfigured to drain the wrong
 /// account. Use this for chains where `pallet_treasury` has been removed or where a residual
@@ -44,9 +44,9 @@ const LEGACY_TREASURY_PALLET_ID: PalletId = PalletId(*b"py/trsry");
 ///
 /// Idempotent: early-returns with 1 read if the reducible balance is zero.
 /// Runs on every runtime upgrade until removed from the related migrations tuple.
-pub struct DrainLegacyTreasuryToDapSatellite<T>(PhantomData<T>);
+pub struct DrainLegacyTreasuryToAccumulationAccount<T>(PhantomData<T>);
 
-impl<T> OnRuntimeUpgrade for DrainLegacyTreasuryToDapSatellite<T>
+impl<T> OnRuntimeUpgrade for DrainLegacyTreasuryToAccumulationAccount<T>
 where
 	T: Config,
 	T::Currency: Balanced<T::AccountId>,
@@ -64,7 +64,7 @@ where
 		if amount.is_zero() {
 			log::info!(
 				target: LOG_TARGET,
-				"DrainLegacyTreasuryToDapSatellite: nothing to withdraw (reducible balance is zero)."
+				"DrainLegacyTreasuryToAccumulationAccount: nothing to withdraw (reducible balance is zero)."
 			);
 			return T::DbWeight::get().reads(1);
 		}
@@ -80,18 +80,18 @@ where
 				<Pallet<T> as OnUnbalanced<_>>::on_unbalanced(credit);
 				log::info!(
 					target: LOG_TARGET,
-					"DrainLegacyTreasuryToDapSatellite: swept {amount:?} to DAP satellite."
+					"DrainLegacyTreasuryToAccumulationAccount: swept {amount:?} to accumulation account."
 				);
 			},
 			Err(_) => {
 				frame_support::defensive!(
-					"DrainLegacyTreasuryToDapSatellite: failed to withdraw from legacy treasury account"
+					"DrainLegacyTreasuryToAccumulationAccount: failed to withdraw from legacy treasury account"
 				);
 			},
 		}
 
 		// Distinct storage keys touched: source Account (balances + system),
-		// satellite Account (balances + system) = 4 reads and 4 writes.
+		// accumulation Account (balances + system) = 4 reads and 4 writes.
 		T::DbWeight::get().reads_writes(4, 4)
 	}
 
@@ -105,7 +105,7 @@ where
 		);
 		log::info!(
 			target: LOG_TARGET,
-			"DrainLegacyTreasuryToDapSatellite: pre-upgrade reducible balance = {balance:?}"
+			"DrainLegacyTreasuryToAccumulationAccount: pre-upgrade reducible balance = {balance:?}"
 		);
 		Ok(balance.encode())
 	}
@@ -127,17 +127,18 @@ where
 			"Legacy treasury reducible balance should be zero after migration"
 		);
 
-		let satellite = Pallet::<T>::satellite_account();
-		let satellite_balance = <T::Currency as Inspect<T::AccountId>>::total_balance(&satellite);
+		let accumulation_account = Pallet::<T>::accumulation_account();
+		let accumulation_balance =
+			<T::Currency as Inspect<T::AccountId>>::total_balance(&accumulation_account);
 		frame_support::ensure!(
-			satellite_balance >= pre_balance,
-			"DAP satellite balance should have increased by at least the drained amount"
+			accumulation_balance >= pre_balance,
+			"Accumulation account balance should have increased by at least the drained amount"
 		);
 
 		log::info!(
 			target: LOG_TARGET,
-			"DrainLegacyTreasuryToDapSatellite: post-upgrade OK. \
-			 Legacy treasury reducible: {post_balance:?}, satellite total: {satellite_balance:?}"
+			"DrainLegacyTreasuryToAccumulationAccount: post-upgrade OK. \
+			 Legacy treasury reducible: {post_balance:?}, accumulation total: {accumulation_balance:?}"
 		);
 		Ok(())
 	}

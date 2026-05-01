@@ -1790,6 +1790,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
+ "pallet-recovery",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -3231,6 +3232,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -3239,7 +3241,6 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
@@ -3874,6 +3875,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-alliance",
  "pallet-asset-rate",
  "pallet-aura",
@@ -3883,7 +3885,6 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -4237,12 +4238,12 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -6550,12 +6551,12 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-dap",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-whitelist",
  "pallet-xcm",
@@ -12111,6 +12112,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-accumulate-and-forward"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-ah-ops"
 version = "0.1.0"
 dependencies = [
@@ -12970,24 +12987,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
-]
-
-[[package]]
-name = "pallet-dap-satellite"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "pallet-dap",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-dap",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14068,10 +14067,16 @@ dependencies = [
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -15697,11 +15702,11 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-meta-tx",
@@ -17378,6 +17383,7 @@ dependencies = [
  "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
+ "pallet-accumulate-and-forward",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -17416,7 +17422,6 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-dap",
- "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",
@@ -26160,6 +26165,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
+ "pallet-accumulate-and-forward",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -26175,7 +26181,6 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
- "sp-dap",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
@@ -29908,6 +29913,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
+ "pallet-accumulate-and-forward",
  "pallet-asset-rate",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -29916,7 +29922,6 @@ dependencies = [
  "pallet-balances",
  "pallet-beefy",
  "pallet-beefy-mmr",
- "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -29936,7 +29941,6 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
- "pallet-recovery",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
