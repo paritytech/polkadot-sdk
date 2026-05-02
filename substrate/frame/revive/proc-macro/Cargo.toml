@@ -23,6 +23,7 @@ quote = { workspace = true }
 syn = { features = ["full"], workspace = true }
 
 [dev-dependencies]
+codec = { workspace = true }
 trybuild = { workspace = true }
 
 [features]

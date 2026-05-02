@@ -130,6 +130,7 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `EthereumBlock` storage value.
+	#[versioned_type(encode_like = "EthBlockV1")]
 	#[derive(
 		Debug,
 		Default,
@@ -151,6 +152,7 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `BlockHash` storage value.
+	#[versioned_type(encode_like = "H256")]
 	#[derive(
 		Debug,
 		Default,
@@ -196,6 +198,7 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `ReceiptInfoData` storage value.
+	#[versioned_type(encode_like = "Vec<ReceiptGasInfoV1>")]
 	#[derive(
 		Debug,
 		Default,
@@ -239,6 +242,7 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `EthBlockBuilderFirstValues` storage value.
+	#[versioned_type(encode_like = "Option<BlockBuilderFirstValuesV1>")]
 	#[derive(
 		Debug,
 		Default,

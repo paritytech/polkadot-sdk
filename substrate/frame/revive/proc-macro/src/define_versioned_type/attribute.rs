@@ -17,8 +17,11 @@
 
 use proc_macro2::Span;
 use syn::{
-	punctuated::Punctuated, spanned::Spanned, token::Comma, Attribute, Field, Meta, Result, Token,
-	Variant,
+	parse::{Parse, ParseStream},
+	punctuated::Punctuated,
+	spanned::Spanned,
+	token::{Comma, Semi},
+	Attribute, Field, LitStr, Meta, Result, Token, TypePath, Variant,
 };
 
 /// The result of removing `versioned_type` attributes from an item.
@@ -46,6 +49,9 @@ struct RawVersionedTypeAttribute {
 
 	/// The span of the `override` option when it was supplied.
 	r#override: Option<Span>,
+
+	/// The types that should encode like the current versioned type.
+	encode_like: Option<EncodeLikeTypes>,
 }
 
 impl RawVersionedTypeAttribute {
@@ -76,10 +82,12 @@ impl RawVersionedTypeAttribute {
 				} else if meta.path.is_ident("override") {
 					Self::reject_option_arguments(&meta, "override")?;
 					self.set_override(meta.path.span())
+				} else if meta.path.is_ident("encode_like") {
+					self.set_encode_like(meta.path.span(), meta.value()?.parse()?)
 				} else {
 					Err(meta.error(
-						"unsupported versioned_type option; currently only `extend` and \
-                        `override` are supported",
+						"unsupported versioned_type option; currently only `extend`, \
+                        `override`, and `encode_like` are supported",
 					))
 				}
 			}),
@@ -130,6 +138,16 @@ impl RawVersionedTypeAttribute {
 		Ok(())
 	}
 
+	/// Records an `encode_like` option and rejects duplicate occurrences.
+	fn set_encode_like(&mut self, span: Span, literal: LitStr) -> Result<()> {
+		if let Some(first) = &self.encode_like {
+			return Err(Self::duplicate_option_error("encode_like", span, first.span));
+		}
+
+		self.encode_like = Some(EncodeLikeTypes::parse_literal(literal)?);
+		Ok(())
+	}
+
 	/// Builds a diagnostic for a repeated `versioned_type` option.
 	fn duplicate_option_error(
 		option_name: &str,
@@ -146,13 +164,62 @@ impl RawVersionedTypeAttribute {
 	}
 }
 
+/// The list of type paths passed to `versioned_type(encode_like = "...")`.
+pub(super) struct EncodeLikeTypes {
+	/// The span of the `encode_like` option used for diagnostics.
+	span: Span,
+
+	/// The semicolon-separated type paths parsed from the literal string.
+	types: Vec<TypePath>,
+}
+
+impl EncodeLikeTypes {
+	/// Parses the literal string value supplied to `encode_like`.
+	fn parse_literal(literal: LitStr) -> Result<Self> {
+		let span = literal.span();
+		let parsed = literal.parse::<EncodeLikeTypeList>()?;
+		Ok(Self { span, types: parsed.types.into_iter().collect() })
+	}
+
+	/// Returns the parsed type paths.
+	#[must_use]
+	pub(super) fn types(&self) -> &[TypePath] {
+		&self.types
+	}
+}
+
+/// Parser for semicolon-separated type paths inside an `encode_like` literal.
+struct EncodeLikeTypeList {
+	/// The parsed type paths.
+	types: Punctuated<TypePath, Semi>,
+}
+
+impl Parse for EncodeLikeTypeList {
+	/// Parses one or more type paths separated by semicolons.
+	fn parse(input: ParseStream) -> Result<Self> {
+		let types = Punctuated::<TypePath, Semi>::parse_separated_nonempty(input)?;
+
+		if !input.is_empty() {
+			return Err(input.error(
+				"`encode_like` expects a semicolon-separated list of type paths, for example \
+                `Bytes; Vec<u8>`",
+			));
+		}
+
+		Ok(Self { types })
+	}
+}
+
 /// The parsed helper attribute for struct and enum items.
 ///
-/// Types only support `extend`. The absence of the attribute is represented as `Standalone`, which
-/// makes the item independent from the previous version.
+/// Types support `extend` and optional `encode_like` declarations. The absence of `extend` is
+/// represented as `Standalone`, which makes the item independent from the previous version.
 pub(super) struct TypeVersionedTypeAttribute {
 	/// The validated type-level mode requested by the user.
 	mode: TypeVersionedTypeMode,
+
+	/// The types that should encode like this versioned type.
+	encode_like: Option<EncodeLikeTypes>,
 }
 
 impl TypeVersionedTypeAttribute {
@@ -174,13 +241,22 @@ impl TypeVersionedTypeAttribute {
 			None => TypeVersionedTypeMode::Standalone,
 		};
 
-		Ok(AttributeSplit { versioned_type: Self { mode }, other_attributes })
+		Ok(AttributeSplit {
+			versioned_type: Self { mode, encode_like: raw.encode_like },
+			other_attributes,
+		})
 	}
 
 	/// Returns the validated type-level mode.
 	#[must_use]
 	pub(super) fn mode(&self) -> TypeVersionedTypeMode {
 		self.mode
+	}
+
+	/// Returns the type paths that should encode like this versioned type.
+	#[must_use]
+	pub(super) fn encode_like(&self) -> Option<&EncodeLikeTypes> {
+		self.encode_like.as_ref()
 	}
 }
 
@@ -211,6 +287,13 @@ impl VariantVersionedTypeAttribute {
 	pub(super) fn parse_and_split(attributes: Vec<Attribute>) -> Result<AttributeSplit<Self>> {
 		let AttributeSplit { versioned_type: raw, other_attributes } =
 			RawVersionedTypeAttribute::parse_and_split(attributes)?;
+
+		if let Some(encode_like) = raw.encode_like {
+			return Err(syn::Error::new(
+				encode_like.span,
+				"`encode_like` is not supported on variants; use it on a struct or enum item",
+			));
+		}
 
 		let mode = match (raw.extend, raw.r#override) {
 			(None, None) => VariantVersionedTypeMode::Standalone,
@@ -298,6 +381,13 @@ impl FieldVersionedTypeAttribute {
 	pub(super) fn parse_and_split(attributes: Vec<Attribute>) -> Result<AttributeSplit<Self>> {
 		let AttributeSplit { versioned_type: raw, other_attributes } =
 			RawVersionedTypeAttribute::parse_and_split(attributes)?;
+
+		if let Some(encode_like) = raw.encode_like {
+			return Err(syn::Error::new(
+				encode_like.span,
+				"`encode_like` is not supported on fields; use it on a struct or enum item",
+			));
+		}
 
 		if let Some(extend_span) = raw.extend {
 			return Err(syn::Error::new(

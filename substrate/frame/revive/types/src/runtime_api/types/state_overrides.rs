@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 
 define_versioned_type! {
 	/// Version 1 of a mapping from account addresses to state overrides.
+	#[versioned_type(encode_like = "BTreeMap<Address, StateOverrideV1>")]
 	#[derive(
 		Debug,
 		Default,

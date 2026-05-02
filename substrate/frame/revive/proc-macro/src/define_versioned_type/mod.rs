@@ -20,13 +20,14 @@ mod fields;
 mod item;
 
 use proc_macro2::Span;
-use quote::ToTokens;
+use quote::{quote, ToTokens};
 use syn::{
 	punctuated::Punctuated, spanned::Spanned, token::Comma, GenericParam, Generics, Ident,
 	ItemEnum, ItemStruct, ItemType, Result, Variant,
 };
 
 use attribute::{
+	EncodeLikeTypes,
 	TypeVersionedTypeAttribute, TypeVersionedTypeMode, VariantVersionedTypeMode,
 	VariantWithVersionedTypeAttribute,
 };
@@ -45,17 +46,19 @@ pub fn handle_define_versioned_type(
 	let DefineVersionedTypeInput { name, highest_version, definitions } = input;
 	let latest_alias = latest_type_alias(name.as_deref(), highest_version, &definitions);
 	let mut items = Vec::<DefineVersionedTypeItem>::with_capacity(definitions.len());
+	let mut encode_like_impls = Vec::<EncodeLikeImpl>::new();
 
 	for mut item in definitions.into_values() {
 		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(item.take_attributes())?;
 		let type_attribute = attribute_split.versioned_type;
 		item.set_attributes(attribute_split.other_attributes);
+		encode_like_impls.extend(EncodeLikeImpl::for_item(&item, type_attribute.encode_like()));
 
 		handle_item_extensions(&mut item, type_attribute, items.last())?;
 		items.push(item);
 	}
 
-	Ok(DefineVersionedTypeOutput { items, latest_alias })
+	Ok(DefineVersionedTypeOutput { items, latest_alias, encode_like_impls })
 }
 
 /// Builds the latest-version alias if the invocation contains at least one item.
@@ -76,16 +79,21 @@ pub struct DefineVersionedTypeOutput {
 
 	/// The alias pointing at the highest version in this invocation.
 	latest_alias: Option<LatestTypeAlias>,
+
+	/// The generated `EncodeLike` impls requested by item-level attributes.
+	encode_like_impls: Vec<EncodeLikeImpl>,
 }
 
 impl ToTokens for DefineVersionedTypeOutput {
-	/// Writes the processed items followed by the latest-version alias.
+	/// Writes the processed items, latest-version alias, and requested `EncodeLike` impls.
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
 		let items = &self.items;
 		let latest_alias = &self.latest_alias;
-		tokens.extend(quote::quote! {
+		let encode_like_impls = &self.encode_like_impls;
+		tokens.extend(quote! {
 			#( #items )*
 			#latest_alias
+			#( #encode_like_impls )*
 		});
 	}
 }
@@ -128,6 +136,50 @@ impl ToTokens for LatestTypeAlias {
 	/// Writes the wrapped type alias into the output stream.
 	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
 		self.item.to_tokens(tokens);
+	}
+}
+
+/// A generated `EncodeLike` impl for a type that shares this version's SCALE representation.
+struct EncodeLikeImpl {
+	/// The generated impl tokens.
+	tokens: proc_macro2::TokenStream,
+}
+
+impl EncodeLikeImpl {
+	/// Builds all `EncodeLike` impls requested for one item.
+	fn for_item(
+		item: &DefineVersionedTypeItem,
+		encode_like: Option<&EncodeLikeTypes>,
+	) -> Vec<Self> {
+		let Some(encode_like) = encode_like else { return Vec::new() };
+
+		encode_like.types().iter().map(|source_type| Self::new(item, source_type)).collect()
+	}
+
+	/// Builds one `EncodeLike` impl from a source type to the current versioned item.
+	fn new(item: &DefineVersionedTypeItem, source_type: &syn::TypePath) -> Self {
+		let target_ident = item.ident();
+		let (_, target_generics, _) = item.generics().split_for_impl();
+		let target_type: syn::Type = syn::parse_quote!(#target_ident #target_generics);
+		let mut impl_generics = item.generics().clone();
+
+		let where_clause = impl_generics.make_where_clause();
+		where_clause.predicates.push(syn::parse_quote!(#source_type: ::codec::Encode));
+		where_clause.predicates.push(syn::parse_quote!(#target_type: ::codec::Encode));
+
+		let (impl_generics, _, where_clause) = impl_generics.split_for_impl();
+		let tokens = quote! {
+			impl #impl_generics ::codec::EncodeLike<#target_type> for #source_type #where_clause {}
+		};
+
+		Self { tokens }
+	}
+}
+
+impl ToTokens for EncodeLikeImpl {
+	/// Writes the generated impl into the output stream.
+	fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+		self.tokens.to_tokens(tokens);
 	}
 }
 
@@ -1340,6 +1392,31 @@ mod tests {
 	}
 
 	#[test]
+	fn type_versioned_type_attribute_parses_encode_like_type_paths() {
+		// Arrange
+		let attributes = vec![
+			syn::parse_quote!(#[derive(Clone)]),
+			syn::parse_quote!(#[versioned_type(extend, encode_like = "Bytes; Vec<u8>")]),
+		];
+
+		// Act
+		let attribute_split = TypeVersionedTypeAttribute::parse_and_split(attributes).unwrap();
+		let encode_like = attribute_split.versioned_type.encode_like().unwrap();
+		let type_paths =
+			encode_like.types().iter().map(ToTokens::to_token_stream).collect::<Vec<_>>();
+
+		// Assert
+		assert!(matches!(
+			attribute_split.versioned_type.mode(),
+			TypeVersionedTypeMode::Extend { .. }
+		));
+		assert_eq!(type_paths[0].to_string(), "Bytes");
+		assert_eq!(type_paths[1].to_string(), "Vec < u8 >");
+		assert_eq!(attribute_split.other_attributes.len(), 1);
+		assert!(attribute_split.other_attributes[0].path().is_ident("derive"));
+	}
+
+	#[test]
 	fn type_versioned_type_attribute_defaults_when_missing() {
 		// Arrange
 		let attributes = vec![syn::parse_quote!(#[derive(Clone)])];
@@ -1408,7 +1485,7 @@ mod tests {
 		};
 
 		// Assert
-		assert!(error.to_string().contains("currently only `extend` and `override`"));
+		assert!(error.to_string().contains("currently only `extend`, `override`, and"));
 	}
 
 	#[test]
@@ -1439,6 +1516,38 @@ mod tests {
 
 		// Assert
 		assert!(error.to_string().contains("`extend` is specified more than once"));
+	}
+
+	#[test]
+	fn type_versioned_type_attribute_rejects_duplicate_encode_like_option() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(
+			#[versioned_type(encode_like = "Bytes", encode_like = "Vec<u8>")]
+		)];
+
+		// Act
+		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected duplicate encode_like option to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`encode_like` is specified more than once"));
+	}
+
+	#[test]
+	fn type_versioned_type_attribute_rejects_malformed_encode_like_literal() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(encode_like = "Bytes; ^")])];
+
+		// Act
+		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected malformed encode_like literal to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("expected identifier"));
 	}
 
 	#[test]
@@ -1495,6 +1604,21 @@ mod tests {
 
 		// Assert
 		assert!(error.to_string().contains("`extend` is not supported on fields"));
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_rejects_encode_like() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(encode_like = "Bytes")])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected field encode_like to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`encode_like` is not supported on fields"));
 	}
 
 	#[test]
@@ -1557,6 +1681,21 @@ mod tests {
 			VariantVersionedTypeMode::Standalone
 		));
 		assert!(attribute_split.other_attributes.is_empty());
+	}
+
+	#[test]
+	fn variant_versioned_type_attribute_rejects_encode_like() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(encode_like = "Bytes")])];
+
+		// Act
+		let error = match VariantVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected variant encode_like to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`encode_like` is not supported on variants"));
 	}
 
 	#[test]
@@ -3338,6 +3477,71 @@ mod tests {
 
 		// Assert
 		assert!(output_tokens.contains("pub type LatestCallLog = CallLogV2 ;"));
+	}
+
+	#[test]
+	fn output_emits_encode_like_impls_for_struct_type_paths() {
+		// Arrange
+		let tokens = quote::quote! {
+			#[versioned_type(encode_like = "Bytes; Vec<u8>")]
+			pub struct PristineCodeV1(pub Bytes);
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+		let output_tokens = quote::quote!(#output).to_string();
+
+		// Assert
+		assert!(output_tokens.contains(
+			"impl :: codec :: EncodeLike < PristineCodeV1 > for Bytes"
+		));
+		assert!(output_tokens.contains(
+			"impl :: codec :: EncodeLike < PristineCodeV1 > for Vec < u8 >"
+		));
+		assert!(!output_tokens.contains("versioned_type"));
+	}
+
+	#[test]
+	fn output_emits_encode_like_impls_for_enum_type_paths() {
+		// Arrange
+		let tokens = quote::quote! {
+			#[versioned_type(encode_like = "u8")]
+			pub enum StatusV1 {
+				Enabled,
+				Disabled,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+		let output_tokens = quote::quote!(#output).to_string();
+
+		// Assert
+		assert!(output_tokens.contains("impl :: codec :: EncodeLike < StatusV1 > for u8"));
+		assert!(!output_tokens.contains("versioned_type"));
+	}
+
+	#[test]
+	fn output_emits_encode_like_impls_with_item_generics() {
+		// Arrange
+		let tokens = quote::quote! {
+			#[versioned_type(encode_like = "RawWrapped<T>")]
+			pub struct WrappedV1<T>(pub T);
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+		let output_tokens = quote::quote!(#output).to_string();
+
+		// Assert
+		assert!(output_tokens.contains(
+			"impl < T > :: codec :: EncodeLike < WrappedV1 < T > > for RawWrapped < T >"
+		));
+		assert!(output_tokens.contains("WrappedV1 < T > : :: codec :: Encode"));
+		assert!(output_tokens.contains("RawWrapped < T > : :: codec :: Encode"));
 	}
 
 	#[test]

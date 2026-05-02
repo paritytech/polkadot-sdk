@@ -23,6 +23,7 @@ use scale_info::TypeInfo;
 
 define_versioned_type! {
 	/// Version 1 of contract execution return flags.
+	#[versioned_type(encode_like = "u32")]
 	#[derive(
 		Debug,
 		Default,

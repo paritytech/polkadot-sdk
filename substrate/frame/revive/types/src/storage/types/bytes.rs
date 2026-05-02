@@ -15,15 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+use sp_core::{bounded::BoundedVec, ConstU32};
 
 use crate::common::{BoundedBytes, Bytes};
 
 define_versioned_type! {
 	/// Version 1 of the `PristineCode` storage value.
+	#[versioned_type(encode_like = "Bytes; Vec<u8>")]
 	#[derive(
 		Debug,
 		Default,
@@ -48,6 +51,9 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of a contract child-trie identifier stored on chain.
+	#[versioned_type(
+		encode_like = "BoundedBytes<LIMIT>; BoundedVec<u8, ConstU32<LIMIT>>"
+	)]
 	#[derive(
 		Debug,
 		Default,
@@ -73,6 +79,9 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of the `ImmutableDataOf` storage value.
+	#[versioned_type(
+		encode_like = "BoundedBytes<LIMIT>; BoundedVec<u8, ConstU32<LIMIT>>"
+	)]
 	#[derive(
 		Debug,
 		Default,
@@ -98,6 +107,9 @@ define_versioned_type! {
 
 define_versioned_type! {
 	/// Version 1 of one `DeletionQueue` storage entry.
+	#[versioned_type(
+		encode_like = "TrieIdV1<LIMIT>; BoundedBytes<LIMIT>; BoundedVec<u8, ConstU32<LIMIT>>"
+	)]
 	#[derive(
 		Debug,
 		Default,
