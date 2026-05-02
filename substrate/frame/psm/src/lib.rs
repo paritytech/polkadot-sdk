@@ -103,6 +103,8 @@ pub use weights::WeightInfo;
 /// asset pallet.
 #[cfg(feature = "runtime-benchmarks")]
 pub trait BenchmarkHelper<AssetId, AccountId> {
+	/// Get the asset ID for a given asset index.
+	fn get_asset_id(asset_index: u32) -> AssetId;
 	/// Create an asset with metadata matching the internal asset's decimals.
 	fn create_asset(asset_id: AssetId, owner: &AccountId, decimals: u8);
 }
