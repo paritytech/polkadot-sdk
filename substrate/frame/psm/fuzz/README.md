@@ -35,6 +35,22 @@ Deterministic: same seed produces the same sequence. Logs every command
 with the state snapshot that led to it. Panics on invariant violation
 with full reproduction trace.
 
+## Stateful fuzzer output format
+
+Each line printed by `psm_stateful` follows this format:
+
+```
+[N] Operation   dispatch=OK/ERR  invariant=OK  PRE  debt=X/Y issuance=X/Y reserve=X  POST debt=X/Y issuance=X/Y reserve=X
+```
+
+- `debt=X/Y`: X is total psmDebt across all assets (internal pUSD units, 6 decimals). Y is the
+  current debt ceiling, recomputed as `maxPsmDebtPermill * MaximumIssuance / 1_000_000`. Y changes
+  whenever `SetMaxPsmDebt` fires.
+- `issuance=X/Y`: X is total pUSD supply in circulation. Y is `MaximumIssuance`, fixed at genesis.
+- `reserve=X`: total external assets held by the PSM, in pUSD-equivalent internal units.
+- X in `debt` and X in `issuance` are always equal: every pUSD in existence was minted through
+  the PSM, so outstanding debt equals outstanding supply 1:1.
+
 ## When to use which
 
 - **libFuzzer**: long-running background campaigns, coverage tracking, corpus

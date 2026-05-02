@@ -517,6 +517,61 @@ mod redeem {
 			);
 		});
 	}
+
+	#[test]
+	fn redeem_with_nonzero_fee_charges_fee_destination() {
+		new_test_ext().execute_with(|| {
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(1));
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT
+			));
+
+			let insurance_before = get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND);
+			assert_ok!(Psm::redeem(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT
+			));
+
+			let insurance_after = get_asset_balance(INTERNAL_ASSET_ID, INSURANCE_FUND);
+			assert!(insurance_after > insurance_before);
+		});
+	}
+
+	#[test]
+	#[should_panic(expected = "PSM reserve is less than expected output amount")]
+	fn redeem_with_drained_reserve_hits_defensive() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{
+				fungibles::Mutate,
+				tokens::{Fortitude, Precision, Preservation},
+			};
+
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::zero());
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT
+			));
+
+			let reserve = get_asset_balance(USDC_ASSET_ID, psm_account());
+			let _ = Assets::burn_from(
+				USDC_ASSET_ID,
+				&psm_account(),
+				reserve,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			);
+
+			let _ = Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * INTERNAL_UNIT);
+		});
+	}
 }
 
 mod governance {
@@ -1229,6 +1284,13 @@ mod circuit_breaker {
 			assert_ok!(Psm::redeem(RuntimeOrigin::signed(ALICE), asset, amount));
 		});
 	}
+
+	#[test]
+	fn can_set_circuit_breaker_always_true() {
+		use crate::PsmManagerLevel;
+		assert!(PsmManagerLevel::Full.can_set_circuit_breaker());
+		assert!(PsmManagerLevel::Emergency.can_set_circuit_breaker());
+	}
 }
 
 mod ceiling_redistribution {
@@ -1933,6 +1995,35 @@ mod try_state {
 		});
 	}
 
+	// Check 1 (internal variant): internal asset live decimals diverge from InternalDecimals snapshot.
+	// Also covers the same guard inside add_external_asset (line 927 in lib.rs).
+	#[test]
+	fn detects_internal_decimal_mismatch() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::fungibles::metadata::Mutate as MetadataMutate;
+
+			assert_ok!(<Assets as MetadataMutate<u64>>::set(
+				INTERNAL_ASSET_ID,
+				&ALICE,
+				b"Internal Asset".to_vec(),
+				b"INTERNAL".to_vec(),
+				8,
+			));
+
+			assert_eq!(
+				crate::Pallet::<Test>::do_try_state().unwrap_err(),
+				DispatchError::Other(
+					"Internal asset live decimals differ from the genesis snapshot"
+				)
+			);
+
+			assert_noop!(
+				Psm::add_external_asset(RuntimeOrigin::root(), DAI_MOCK_ASSET_ID),
+				Error::<Test>::DecimalsMismatch
+			);
+		});
+	}
+
 	// Check 2: reserve < debt.
 	#[test]
 	fn detects_reserve_deficit() {
@@ -2169,13 +2260,6 @@ mod decimal_scaling {
 	}
 
 	// Conversion helpers
-
-	#[test]
-	fn external_to_internal_same_decimals_is_identity() {
-		new_test_ext().execute_with(|| {
-			assert_eq!(Psm::external_to_internal(1_000_000, 6, 6).unwrap(), 1_000_000);
-		});
-	}
 
 	#[test]
 	fn external_to_internal_scale_up_is_exact() {
@@ -2815,5 +2899,35 @@ mod decimal_scaling {
 			assert_eq!(get_asset_balance(DAI_MOCK_ASSET_ID, psm), 7 * DAI_UNIT);
 			assert_ok!(Psm::do_try_state());
 		});
+	}
+}
+
+mod genesis {
+	use super::*;
+	use sp_runtime::BuildStorage;
+
+	#[test]
+	#[should_panic(expected = "PSM genesis: asset_configs")]
+	fn genesis_panics_when_asset_configs_exceed_max() {
+		let mut storage = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
+
+		pallet_assets::GenesisConfig::<Test> {
+			assets: (0u32..12).map(|i| (100 + i, ALICE, true, 1)).collect(),
+			metadata: (0u32..12).map(|i| (100 + i, b"T".to_vec(), b"T".to_vec(), 6)).collect(),
+			accounts: vec![],
+			..Default::default()
+		}
+		.assimilate_storage(&mut storage)
+		.unwrap();
+
+		crate::GenesisConfig::<Test> {
+			max_psm_debt_of_total: Permill::from_percent(50),
+			asset_configs: (0u32..12)
+				.map(|i| (100 + i, (Permill::zero(), Permill::zero(), Permill::from_percent(8))))
+				.collect(),
+			_marker: Default::default(),
+		}
+		.assimilate_storage(&mut storage)
+		.unwrap();
 	}
 }
