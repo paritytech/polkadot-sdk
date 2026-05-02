@@ -18,7 +18,7 @@
 //!
 //! Node-level ephemeral disk-backed data pool for Substrate collators, with an
 //! RPC for submit/claim/ack, best-effort on-chain promotion, per-account rate
-//! limiting, and graceful degradation when the runtime lacks `HopApi`.
+//! limiting, and graceful degradation when the runtime lacks `HopRuntimeApi`.
 //!
 //! See the crate [`README`] for the design overview, integration guide, CLI
 //! flags, RPC reference, and error codes.

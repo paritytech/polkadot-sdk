@@ -16,9 +16,11 @@
 
 //! HOP (Hand-Off protocol) RPC interface implementation.
 //!
-//! All HOP RPC methods are subject to the node's global rate limit configured via
-//! `--rpc-rate-limit` (calls per minute per connection). No HOP-specific rate limiting
-//! is needed.
+//! Two layers of rate limiting apply:
+//! - The node's global per-connection limit configured via `--rpc-rate-limit`.
+//! - HOP-specific per-account token buckets (request rate + bandwidth) enforced
+//!   inside the pool; see [`crate::rate_limit`] and the `--hop-*-rate` /
+//!   `--hop-*-burst` CLI flags.
 
 use crate::{
 	pool::HopDataPool,
@@ -57,7 +59,7 @@ pub trait HopApi<BlockHash> {
 	///   payload. The runtime rejects promotions whose timestamp is too far from on-chain time.
 	///
 	/// The signer must be authorized by the runtime (checked via
-	/// `HopApi::can_account_promote`).
+	/// `HopRuntimeApi::can_account_promote`).
 	///
 	/// # Returns
 	/// The current pool status

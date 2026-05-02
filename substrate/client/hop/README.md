@@ -45,7 +45,6 @@ mean; both are delegated to the runtime via the `sp_hop::HopRuntimeApi`.
 | `promotion` | `HopPromoter`, `HopMaintenanceTask`, `build_maintenance_task` — background promotion + cleanup |
 | `rate_limit` | `RateLimitConfig`, `RateLimiter` — per-account token buckets |
 | `types` | Errors, `HopEntryMeta`, `PoolStatus`, `SubmitResult`, signing contexts, defaults |
-| `primitives` | `HopHash`, `HopBlockNumber` |
 
 Companion runtime crate: [`sp-hop`](../../primitives/hop/) — defines the
 `HopRuntimeApi` runtime API used for authorization checks and promotion.
@@ -93,7 +92,7 @@ let hop_pool = hop_params.enable_hop.then(|| {
 use sc_hop::{build_maintenance_task, HopApiServer, HopRpcServer};
 
 if let Some(pool) = hop_pool.clone() {
-    rpc_module.merge(HopRpcServer::new(pool, client.clone()).into_rpc())?;
+    rpc_module.merge(HopRpcServer::<_, Block>::new(pool, client.clone()).into_rpc())?;
 }
 
 if let Some(pool) = hop_pool {
@@ -148,8 +147,9 @@ Store a blob for the given list of recipients.
   `blake2_256(HOP_SUBMIT_CONTEXT || blake2_256(data))`.
 - `signer`: SCALE-encoded `MultiSigner` of the submitting account.
 
-Submit fails with `NotAuthorized` if `HopRuntimeApi::can_account_promote(signer, data_len)`
-returns `false`, and with `RateLimited` if the per-account buckets are exhausted.
+Submit fails with `NotAuthorized` if `HopRuntimeApi::can_account_promote(account_id, data_len)`
+returns `false` (where `account_id` is `signer.into_account()`), and with
+`RateLimited` if the per-account buckets are exhausted.
 The runtime sees `data_len` so it can express size-tiered policies (e.g. "up to
 1 MiB per submit"). Authorization is checked *before* signature verification so
 unauthorized floods don't force crypto work.
@@ -201,6 +201,7 @@ Returns `{ entryCount, totalBytes, maxBytes }` (camelCase on the wire).
 | 1018 | `TooManyRecipients` | Submit exceeded the 256-recipient cap |
 | 1019 | `DuplicateRecipient` | Recipient list contains duplicates |
 | 1020 | `RateLimited` | Per-account rate limit exceeded; response includes `retry_after_secs` |
+| 1021 | `MissingDataDir` | Neither `--hop-data-dir` nor a chain database path was available |
 
 ## Limits and fixed parameters
 

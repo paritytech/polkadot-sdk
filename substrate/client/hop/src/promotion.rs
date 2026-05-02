@@ -66,8 +66,8 @@ pub trait HopPromoter: Send + Sync + 'static {
 }
 
 /// Concrete [`HopPromoter`] that uses the [`sp_hop::HopRuntimeApi`] runtime
-/// API to construct general transaction extrinsics and submits them to the local
-/// transaction pool.
+/// API to build a promotion extrinsic via `create_promotion_extrinsic` and
+/// submits it to the local transaction pool.
 pub struct RuntimeApiPromoter<Block: BlockT, C, P> {
 	client: Arc<C>,
 	tx_pool: Arc<P>,
@@ -286,8 +286,8 @@ impl HopMaintenanceTask {
 				// Backoff on every attempt — both Ok (submitted to local pool, may
 				// or may not get included) and Err (pool rejected). Without this,
 				// every cycle would resubmit the same extrinsic for the entry's
-				// lifetime, wasting fees and authorization budget per the
-				// transaction-storage pallet's no-dedup behavior.
+				// lifetime, wasting fees and authorization budget if the runtime
+				// pallet does not deduplicate.
 				self.hop_pool.record_promotion_attempt(
 					&hash,
 					current_block,

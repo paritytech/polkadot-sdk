@@ -256,7 +256,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 }
 
 /// Crate-level upper bound on a HOP entry's data size (8 MiB). The effective
-/// cap is whatever `HopApi::max_promotion_size()` reports on the current
+/// cap is whatever `HopRuntimeApi::max_promotion_size()` reports on the current
 /// runtime; this constant just anchors the worst case.
 pub const MAX_DATA_SIZE: u64 = 8 * 1024 * 1024;
 
