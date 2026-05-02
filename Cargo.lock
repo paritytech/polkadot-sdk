@@ -1763,6 +1763,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
  "pallet-authorship",
@@ -1790,6 +1791,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
+ "pallet-recovery",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -14066,10 +14068,16 @@ dependencies = [
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14133,6 +14141,9 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",
@@ -17638,6 +17649,7 @@ dependencies = [
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
+ "sp-hop",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -24963,6 +24975,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-hop"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "sp-inherents"
 version = "26.0.0"
 dependencies = [
@@ -29935,7 +29956,6 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
- "pallet-recovery",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
