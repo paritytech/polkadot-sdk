@@ -35,9 +35,7 @@ pub mod types;
 // Convenience re-exports for common use cases
 pub use cli::HopParams;
 pub use pool::HopDataPool;
-pub use promotion::{
-	build_maintenance_task, try_build_promoter, HopMaintenanceTask, HopPromoter, RuntimeApiPromoter,
-};
+pub use promotion::{build_maintenance_task, HopMaintenanceTask};
 pub use rate_limit::{RateLimitConfig, RateLimiter};
 pub use rpc::{HopApiServer, HopRpcServer};
 pub use types::{

@@ -20,7 +20,7 @@ use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
-		HopEntryMeta, HopError, HopHash, PoolStatus, Recipient, RecipientVec, SenderId,
+		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId,
 		HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE,
 		MAX_PROMOTION_ATTEMPTS,
 	},
@@ -120,19 +120,11 @@ impl HopDataPool {
 						None => continue,
 					};
 
-					let hash_bytes = match hex::decode(&stem) {
-						Ok(b) if b.len() == 32 => {
-							let mut arr = [0u8; 32];
-							arr.copy_from_slice(&b);
-							arr
-						},
-						_ => {
-							tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
-							let _ = fs::remove_file(&path);
-							continue;
-						},
+					let Some(hash) = parse_hex_hash(&stem) else {
+						tracing::warn!(target: "hop", path = ?path, "Removing .meta with invalid name");
+						let _ = fs::remove_file(&path);
+						continue;
 					};
-					let hash = H256(hash_bytes);
 
 					let meta_bytes = match fs::read(&path) {
 						Ok(b) => b,
@@ -159,18 +151,13 @@ impl HopDataPool {
 							"Removing .meta with unsupported on-disk version",
 						);
 						let _ = fs::remove_file(&path);
-						let blob_path = data_dir
-							.join(BLOBS_DIR)
-							.join(&shard)
-							.join(format!("{}.{}", stem, BLOB_EXT));
-						let _ = fs::remove_file(&blob_path);
+						let _ = fs::remove_file(Self::entry_path(
+							&data_dir, &hash, BLOBS_DIR, BLOB_EXT,
+						));
 						continue;
 					}
 
-					let blob_path = data_dir
-						.join(BLOBS_DIR)
-						.join(&shard)
-						.join(format!("{}.{}", stem, BLOB_EXT));
+					let blob_path = Self::entry_path(&data_dir, &hash, BLOBS_DIR, BLOB_EXT);
 					if !blob_path.exists() {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .meta (no .blob)");
 						let _ = fs::remove_file(&path);
@@ -199,8 +186,14 @@ impl HopDataPool {
 						Some(s) => s.to_string(),
 						None => continue,
 					};
-					let meta_path =
-						data_dir.join(META_DIR).join(&shard).join(format!("{}.{}", stem, META_EXT));
+					// Any blob without a sibling .meta is an orphan; this includes
+					// blobs whose name doesn't parse as a valid hash (no meta can
+					// match them), so always check + remove rather than gating on
+					// the parse.
+					let meta_path = match parse_hex_hash(&stem) {
+						Some(hash) => Self::entry_path(&data_dir, &hash, META_DIR, META_EXT),
+						None => data_dir.join(META_DIR).join(&shard).join(format!("{stem}.{META_EXT}")),
+					};
 					if !meta_path.exists() {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
 						let _ = fs::remove_file(&path);
@@ -271,20 +264,20 @@ impl HopDataPool {
 		}
 	}
 
-	/// Path to a file within a shard subdirectory.
-	fn entry_path(&self, hash: &HopHash, subdir: &str, ext: &str) -> PathBuf {
+	/// Path to a file within a shard subdirectory rooted at `data_dir`.
+	fn entry_path(data_dir: &Path, hash: &HopHash, subdir: &str, ext: &str) -> PathBuf {
 		let hex = hex::encode(hash);
-		self.data_dir.join(subdir).join(&hex[..2]).join(format!("{}.{}", hex, ext))
+		data_dir.join(subdir).join(&hex[..2]).join(format!("{}.{}", hex, ext))
 	}
 
 	/// Path to the blob file for a given hash.
 	fn blob_path(&self, hash: &HopHash) -> PathBuf {
-		self.entry_path(hash, BLOBS_DIR, BLOB_EXT)
+		Self::entry_path(&self.data_dir, hash, BLOBS_DIR, BLOB_EXT)
 	}
 
 	/// Path to the meta file for a given hash.
 	fn meta_path(&self, hash: &HopHash) -> PathBuf {
-		self.entry_path(hash, META_DIR, META_EXT)
+		Self::entry_path(&self.data_dir, hash, META_DIR, META_EXT)
 	}
 
 	/// Atomically write data to a file (write to a unique .tmp path, then rename).
@@ -529,38 +522,24 @@ impl HopDataPool {
 		Some((data, signer, signature, submit_timestamp))
 	}
 
-	/// Decode `signature` and return the matching recipient in `meta`. `context` is
-	/// the operation's domain separator (claim / ack).
-	fn find_recipient<'a>(
-		meta: &'a HopEntryMeta,
+	/// Decode `signature` and return the index of the matching recipient in
+	/// `meta.recipients`. `context` is the operation's domain separator (claim
+	/// / ack). Returning an index keeps a single implementation for both
+	/// shared- and exclusive-borrow callers (`meta.recipients[idx]` works in
+	/// either case).
+	fn find_recipient_idx(
+		meta: &HopEntryMeta,
 		hash: &HopHash,
 		signature: &[u8],
 		context: &[u8],
-	) -> Result<&'a Recipient, HopError> {
+	) -> Result<usize, HopError> {
 		let multi_sig =
 			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
 		let payload = signing_payload(context, hash);
 
 		meta.recipients
 			.iter()
-			.find(|r| multi_sig.verify(&payload[..], &r.signer.clone().into_account()))
-			.ok_or(HopError::NotRecipient)
-	}
-
-	/// Mutable variant of [`Self::find_recipient`].
-	fn find_recipient_mut<'a>(
-		meta: &'a mut HopEntryMeta,
-		hash: &HopHash,
-		signature: &[u8],
-		context: &[u8],
-	) -> Result<&'a mut Recipient, HopError> {
-		let multi_sig =
-			MultiSignature::decode(&mut &signature[..]).map_err(|_| HopError::InvalidSignature)?;
-		let payload = signing_payload(context, hash);
-
-		meta.recipients
-			.iter_mut()
-			.find(|r| multi_sig.verify(&payload[..], &r.signer.clone().into_account()))
+			.position(|r| multi_sig.verify(&payload[..], &r.signer.clone().into_account()))
 			.ok_or(HopError::NotRecipient)
 	}
 
@@ -575,10 +554,10 @@ impl HopDataPool {
 		{
 			let index = self.index.read();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let recipient = Self::find_recipient(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
 
 			// If this recipient already acked, the data may be gone.
-			if recipient.claimed {
+			if meta.recipients[idx].claimed {
 				return Err(HopError::AlreadyClaimed);
 			}
 		}
@@ -596,23 +575,23 @@ impl HopDataPool {
 		{
 			let index = self.index.read();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let recipient = Self::find_recipient(meta, hash, signature, HOP_ACK_CONTEXT)?;
-			if recipient.claimed {
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+			if meta.recipients[idx].claimed {
 				return Ok(());
 			}
 		}
 
-		// Phase 2: re-run `find_recipient_mut` against the current meta — the entry could
+		// Phase 2: re-run the lookup against the current meta — the entry could
 		// have been removed and re-submitted with a different recipient list since Phase 1.
 		let mut index = self.index.write();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-		let recipient = Self::find_recipient_mut(meta, hash, signature, HOP_ACK_CONTEXT)?;
+		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
 
-		if recipient.claimed {
+		if meta.recipients[idx].claimed {
 			return Ok(());
 		}
 
-		recipient.claimed = true;
+		meta.recipients[idx].claimed = true;
 
 		// If all recipients have acked, remove the entry entirely.
 		if meta.recipients.iter().all(|r| r.claimed) {
@@ -858,6 +837,14 @@ impl HopDataPool {
 	}
 }
 
+/// Decode a 64-char hex stem into a `HopHash`. Returns `None` for any
+/// non-32-byte stem (corrupt name, wrong length, non-hex chars).
+fn parse_hex_hash(stem: &str) -> Option<HopHash> {
+	let bytes = hex::decode(stem).ok()?;
+	let arr: [u8; 32] = bytes.try_into().ok()?;
+	Some(H256(arr))
+}
+
 /// Atomically subtract `accounted` from `counter`, clamped so the counter
 /// cannot underflow. The CAS retry inside `fetch_update` keeps the clamp
 /// value fresh — a plain `counter.fetch_sub(accounted.min(counter.load()), …)`
@@ -872,7 +859,7 @@ fn saturating_release(counter: &AtomicU64, accounted: u64) {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::types::MAX_RECIPIENTS;
+	use crate::types::{Recipient, MAX_RECIPIENTS};
 	use sp_core::{crypto::Pair, ed25519, sr25519};
 	use sp_runtime::MultiSigner;
 	use tempfile::TempDir;
