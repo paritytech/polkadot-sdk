@@ -20,9 +20,8 @@ use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
 	types::{
 		entry_accounted_size, promotion_backoff_blocks, signing_payload, HopBlockNumber,
-		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId,
-		HOP_ACK_CONTEXT, HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE,
-		MAX_PROMOTION_ATTEMPTS,
+		HopEntryMeta, HopError, HopHash, PoolStatus, RecipientVec, SenderId, HOP_ACK_CONTEXT,
+		HOP_CLAIM_CONTEXT, HOP_META_VERSION, MAX_DATA_SIZE, MAX_PROMOTION_ATTEMPTS,
 	},
 };
 use codec::{Decode, Encode};
@@ -192,7 +191,9 @@ impl HopDataPool {
 					// the parse.
 					let meta_path = match parse_hex_hash(&stem) {
 						Some(hash) => Self::entry_path(&data_dir, &hash, META_DIR, META_EXT),
-						None => data_dir.join(META_DIR).join(&shard).join(format!("{stem}.{META_EXT}")),
+						None => {
+							data_dir.join(META_DIR).join(&shard).join(format!("{stem}.{META_EXT}"))
+						},
 					};
 					if !meta_path.exists() {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");

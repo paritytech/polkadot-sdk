@@ -18,9 +18,8 @@
 //!
 //! Two layers of rate limiting apply:
 //! - The node's global per-connection limit configured via `--rpc-rate-limit`.
-//! - HOP-specific per-account token buckets (request rate + bandwidth) enforced
-//!   inside the pool; see [`crate::rate_limit`] and the `--hop-*-rate` /
-//!   `--hop-*-burst` CLI flags.
+//! - HOP-specific per-account token buckets (request rate + bandwidth) enforced inside the pool;
+//!   see [`crate::rate_limit`] and the `--hop-*-rate` / `--hop-*-burst` CLI flags.
 
 use crate::{
 	pool::HopDataPool,
