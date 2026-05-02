@@ -4511,6 +4511,212 @@ async fn seconded_candidates_consume_capacity() {
 	test_state.assert_no_messages().await;
 }
 
+// Reputation-bypass regression: when two peers compete for the same physical CQ position from
+// different scheduling parents, the higher-rep peer must win, regardless of which SP the
+// implementation iterates first. Pre-fix, `pick_best_advertisement` only saw ads at one SP at
+// a time, so a low-rep ad at SP_A could "win" its own SP's iteration and consume the shared
+// slot, locking out a high-rep ad at SP_B.
+//
+// Setup: leaf 10's CQ for our core = [100, 200, 200] — para 100 has exactly one position
+// (idx 0), reachable from any SP on the path. peer_low advertises at SP=10 (leaf, offset 0);
+// peer_high (score above peer_low) advertises at SP=9 (ancestor, offset 1, window covers idx
+// 0 and idx 1). Both ads target idx 0 — the single para-100 position. peer_high must win.
+#[tokio::test]
+async fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+
+	// Override CQs along the path so para 100 has exactly one slot at idx 0 across all SPs.
+	// (Each SP's CQ must validate the ad's para_id against its own visible window; keeping
+	// the CQ uniform avoids `try_accept_advertisement` rejections.)
+	for hash in [get_hash(8), get_hash(9), active_leaf] {
+		test_state
+			.rp_info
+			.get_mut(&hash)
+			.unwrap()
+			.claim_queue
+			.insert(core, vec![100.into(), 200.into(), 200.into()]);
+	}
+
+	let peer_low = peer_id(0);
+	let peer_high = peer_id(1);
+
+	// Score 0 for peer_low, score above the threshold for peer_high. Connection scores are
+	// captured from this query_fn at peer-connect time and read back via
+	// `connected_peer_score`.
+	let db = MockDb::new(Arc::new(Mutex::new(move |peer: PeerId, _: ParaId| {
+		if peer == peer_low {
+			Some(Score::new(0))
+		} else if peer == peer_high {
+			Some(Score::new(VALID_INCLUDED_CANDIDATE_BUMP))
+		} else {
+			None
+		}
+	})));
+
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	for &p in &[peer_low, peer_high] {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+
+	let (_, adv_low) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		peer_low,
+		core,
+		1,
+		Hash::from_low_u64_be(100),
+	);
+	let (_, adv_high) = dummy_candidate(
+		get_hash(9),
+		100.into(),
+		peer_high,
+		core,
+		1,
+		Hash::from_low_u64_be(101),
+	);
+	test_state.handle_advertisement(&mut state, adv_low).await;
+	test_state.handle_advertisement(&mut state, adv_high).await;
+
+	// Only one slot for para 100 across the path. The high-rep ad must win it.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_request(adv_high).await;
+	test_state.assert_no_messages().await;
+}
+
+// Per-position arbitration: rep decides among reachable candidates for each free position,
+// while narrow-only positions still go to their only-reachable peer. With CQ
+// [100, 200, 100], idx 2 is reachable only from leaf, idx 0 from anywhere.
+//
+// Setup:
+// - peer_high_x advertises 100 at leaf (offset 0).
+// - peer_low_x advertises 100 at SP=8 (offset 2, window 1, can only reach idx 0).
+// - peer_high_y advertises 200 at leaf.
+// Expectations: all three ads fetched. Idx 2 (leaf-only) goes to peer_high_x; idx 1 (para
+// 200) goes to peer_high_y; idx 0 goes to peer_low_x (the only remaining para-100 ad).
+#[tokio::test]
+async fn high_rep_at_any_sp_wins_for_each_position() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	// Default leaf-10 CQ for core 0 is already [100, 200, 100]; sanity-check.
+	assert_eq!(
+		test_state.rp_info[&active_leaf].claim_queue[&core],
+		vec![100.into(), 200.into(), 100.into()]
+	);
+
+	let peer_high_x = peer_id(0);
+	let peer_low_x = peer_id(1);
+	let peer_high_y = peer_id(2);
+
+	let db = MockDb::new(Arc::new(Mutex::new(move |peer: PeerId, _: ParaId| {
+		if peer == peer_low_x {
+			Some(Score::new(0))
+		} else {
+			Some(Score::new(VALID_INCLUDED_CANDIDATE_BUMP))
+		}
+	})));
+
+	let mut state = make_state(db, &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	for &p in &[peer_high_x, peer_low_x] {
+		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
+		state.handle_declare(&mut sender, p, 100.into()).await;
+	}
+	state.handle_peer_connected(&mut sender, peer_high_y, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_high_y, 200.into()).await;
+
+	let (_, adv_high_x) = dummy_candidate(
+		active_leaf,
+		100.into(),
+		peer_high_x,
+		core,
+		1,
+		Hash::from_low_u64_be(200),
+	);
+	let (_, adv_low_x) = dummy_candidate(
+		get_hash(8),
+		100.into(),
+		peer_low_x,
+		core,
+		1,
+		Hash::from_low_u64_be(201),
+	);
+	let (_, adv_high_y) = dummy_candidate(
+		active_leaf,
+		200.into(),
+		peer_high_y,
+		core,
+		1,
+		Hash::from_low_u64_be(202),
+	);
+	test_state.handle_advertisement(&mut state, adv_high_x).await;
+	test_state.handle_advertisement(&mut state, adv_low_x).await;
+	test_state.handle_advertisement(&mut state, adv_high_y).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state
+		.assert_collation_requests([adv_high_x, adv_low_x, adv_high_y].into())
+		.await;
+	test_state.assert_no_messages().await;
+}
+
+// V1 single-shot: at most one V1 fetch per (sp, para) per `try_launch_new_fetch_requests`
+// round. `PendingRequests::launch` updates `self.fetching` synchronously, so a second V1 at
+// the same (sp, para) seen later in the same call is filtered out by the `v1_fetching` check.
+#[tokio::test]
+async fn v1_single_shot_per_sp_para_round() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	// Use a CQ with two slots for para 100 so capacity isn't the limiting factor.
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(core, vec![100.into(), 100.into(), 200.into()]);
+
+	let peer_a = peer_id(0);
+	let peer_b = peer_id(1);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	state.handle_peer_connected(&mut sender, peer_a, CollationVersion::V1).await;
+	state.handle_declare(&mut sender, peer_a, 100.into()).await;
+	state.handle_peer_connected(&mut sender, peer_b, CollationVersion::V1).await;
+	state.handle_declare(&mut sender, peer_b, 100.into()).await;
+
+	let (_, mut adv_a) =
+		dummy_candidate(active_leaf, 100.into(), peer_a, core, 1, Hash::from_low_u64_be(300));
+	let (_, mut adv_b) =
+		dummy_candidate(active_leaf, 100.into(), peer_b, core, 1, Hash::from_low_u64_be(301));
+	// Make them V1 ads.
+	adv_a.prospective_candidate = None;
+	adv_b.prospective_candidate = None;
+
+	test_state.handle_advertisement(&mut state, adv_a).await;
+	test_state.handle_advertisement(&mut state, adv_b).await;
+
+	// Even though the CQ has two slots for para 100, V1 single-shot rules out a second
+	// concurrent fetch at the same (sp, para). Exactly one V1 fetch this round.
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(reqs.len(), 1, "exactly one V1 fetch expected, got {}", reqs.len());
+		}
+	);
+	test_state.assert_no_messages().await;
+}
+
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
