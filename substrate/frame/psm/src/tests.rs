@@ -543,6 +543,41 @@ mod redeem {
 	}
 
 	#[test]
+	fn redeem_fee_transfer_fails_when_sender_has_no_pusd() {
+		new_test_ext().execute_with(|| {
+			use frame_support::traits::{
+				fungibles::Mutate,
+				tokens::{Fortitude, Precision, Preservation},
+			};
+
+			set_minting_fee(USDC_ASSET_ID, Permill::zero());
+			set_redemption_fee(USDC_ASSET_ID, Permill::from_percent(1));
+
+			assert_ok!(Psm::mint(
+				RuntimeOrigin::signed(ALICE),
+				USDC_ASSET_ID,
+				1_000 * INTERNAL_UNIT
+			));
+
+			let alice_pusd = get_asset_balance(INTERNAL_ASSET_ID, ALICE);
+			assert_ok!(Assets::burn_from(
+				INTERNAL_ASSET_ID,
+				&ALICE,
+				alice_pusd,
+				Preservation::Expendable,
+				Precision::BestEffort,
+				Fortitude::Force,
+			));
+			assert_eq!(get_asset_balance(INTERNAL_ASSET_ID, ALICE), 0);
+
+			assert_noop!(
+				Psm::redeem(RuntimeOrigin::signed(ALICE), USDC_ASSET_ID, 1_000 * INTERNAL_UNIT),
+				DispatchError::Arithmetic(sp_runtime::ArithmeticError::Underflow)
+			);
+		});
+	}
+
+	#[test]
 	#[should_panic(expected = "PSM reserve is less than expected output amount")]
 	fn redeem_with_drained_reserve_hits_defensive() {
 		new_test_ext().execute_with(|| {
