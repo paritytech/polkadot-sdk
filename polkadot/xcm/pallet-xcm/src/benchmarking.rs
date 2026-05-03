@@ -768,7 +768,7 @@ mod benchmarks {
 
 	#[benchmark]
 	fn weigh_message() -> Result<(), BenchmarkError> {
-		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE as usize]);
+		let msg = Xcm(vec![ClearOrigin; MAX_INSTRUCTIONS_TO_DECODE.into()]);
 		let versioned_msg = VersionedXcm::from(msg);
 
 		#[block]
