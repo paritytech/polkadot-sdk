@@ -34,7 +34,7 @@ pub fn decode_xcm_instructions<I: codec::Input, T: Decode>(
 		let vec_len: u32 = <Compact<u32>>::decode(input)?.into();
 		instructions_count::with(|count| {
 			*count = count.saturating_add(vec_len);
-			if *count > MAX_INSTRUCTIONS_TO_DECODE {
+			if *count > MAX_INSTRUCTIONS_TO_DECODE as u32 {
 				return Err(codec::Error::from("Max instructions exceeded"));
 			}
 			Ok(())

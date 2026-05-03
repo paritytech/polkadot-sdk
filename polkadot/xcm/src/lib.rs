@@ -56,7 +56,7 @@ pub const MAX_XCM_DECODE_DEPTH: u32 = 8;
 /// The maximal number of instructions in an XCM before decoding fails.
 ///
 /// This is a deliberate limit - not a technical one.
-pub const MAX_INSTRUCTIONS_TO_DECODE: u32 = 100;
+pub const MAX_INSTRUCTIONS_TO_DECODE: u8 = 100;
 
 /// A version of XCM.
 pub type Version = u32;
