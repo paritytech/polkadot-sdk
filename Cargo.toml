@@ -516,6 +516,7 @@ members = [
 	"substrate/primitives/ethereum-standards",
 	"substrate/primitives/externalities",
 	"substrate/primitives/genesis-builder",
+	"substrate/primitives/hop",
 	"substrate/primitives/inherents",
 	"substrate/primitives/io",
 	"substrate/primitives/keyring",
@@ -1350,6 +1351,7 @@ sp-database = { path = "substrate/primitives/database", default-features = false
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false }
+sp-hop = { path = "substrate/primitives/hop", default-features = false }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false }
 sp-io = { path = "substrate/primitives/io", default-features = false }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false }
