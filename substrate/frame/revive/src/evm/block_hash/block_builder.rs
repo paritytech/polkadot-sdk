@@ -26,6 +26,7 @@ use crate::{
 			LogsBloom, receipt::BLOOM_SIZE_BYTES,
 		},
 	},
+	storage::StorageValueOf,
 };
 
 use alloc::{vec, vec::Vec};
@@ -93,12 +94,14 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 
 	/// Store the first transaction and receipt in pallet storage.
 	fn pallet_put_first_values(&mut self, values: (Vec<u8>, Vec<u8>)) {
-		crate::EthBlockBuilderFirstValues::<T>::put(Some(values));
+		let first_values =
+			StorageValueOf::<crate::EthBlockBuilderFirstValues<T>>::new(Some(values));
+		crate::EthBlockBuilderFirstValues::<T>::put(first_values);
 	}
 
 	/// Take the first transaction and receipt from pallet storage.
 	fn pallet_take_first_values(&mut self) -> Option<(Vec<u8>, Vec<u8>)> {
-		crate::EthBlockBuilderFirstValues::<T>::take()
+		crate::EthBlockBuilderFirstValues::<T>::take().into_inner()
 	}
 
 	/// Process a single transaction at a time.

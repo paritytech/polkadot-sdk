@@ -122,7 +122,7 @@ fn transactions_are_captured() {
 		// Double check the trie root hash.
 		let mut builder = EthereumBlockBuilder::<Test>::from_ir(block_builder);
 
-		let first_values = EthBlockBuilderFirstValues::<Test>::get().unwrap();
+		let first_values = EthBlockBuilderFirstValues::<Test>::get().into_inner().unwrap();
 		builder.transaction_root_builder.set_first_value(first_values.0);
 
 		let tx_root = builder.transaction_root_builder.finish();

@@ -535,7 +535,7 @@ fn eth_substrate_call_dispatches_successfully() {
 				value: 50,
 			});
 
-		assert!(EthBlockBuilderFirstValues::<Test>::get().is_none());
+		assert!(EthBlockBuilderFirstValues::<Test>::get().into_inner().is_none());
 
 		assert_ok!(Pallet::<Test>::eth_substrate_call(
 			Origin::EthTransaction(ALICE).into(),
@@ -547,7 +547,7 @@ fn eth_substrate_call_dispatches_successfully() {
 		assert_eq!(<Test as Config>::Currency::balance(&ALICE), 950);
 		assert_eq!(<Test as Config>::Currency::balance(&BOB), 150);
 
-		assert!(EthBlockBuilderFirstValues::<Test>::get().is_some());
+		assert!(EthBlockBuilderFirstValues::<Test>::get().into_inner().is_some());
 	});
 }
 

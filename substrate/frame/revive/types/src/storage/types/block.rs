@@ -273,3 +273,18 @@ define_versioned_type! {
 		pub Option<BlockBuilderFirstValuesV1>,
 	);
 }
+
+impl From<Option<(Vec<u8>, Vec<u8>)>> for EthBlockBuilderFirstValuesV1 {
+	fn from(value: Option<(Vec<u8>, Vec<u8>)>) -> Self {
+		Self(value.map(|(first_transaction, first_receipt)| BlockBuilderFirstValuesV1 {
+			first_transaction: first_transaction.into(),
+			first_receipt: first_receipt.into(),
+		}))
+	}
+}
+
+impl From<EthBlockBuilderFirstValuesV1> for Option<(Vec<u8>, Vec<u8>)> {
+	fn from(value: EthBlockBuilderFirstValuesV1) -> Self {
+		value.0.map(|values| (values.first_transaction.0, values.first_receipt.0))
+	}
+}

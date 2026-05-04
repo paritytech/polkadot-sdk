@@ -786,8 +786,11 @@ pub mod pallet {
 	/// deserializing them on every transaction. Instead, they are loaded when needed.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthBlockBuilderFirstValues<T: Config> =
-		StorageValue<_, Option<(Vec<u8>, Vec<u8>)>, ValueQuery>;
+	pub(crate) type EthBlockBuilderFirstValues<T: Config> = StorageValue<
+		_,
+		StorageCodecWrapper<Option<(Vec<u8>, Vec<u8>)>, EthBlockBuilderFirstValuesV1>,
+		ValueQuery,
+	>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
