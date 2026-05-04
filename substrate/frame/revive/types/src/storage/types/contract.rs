@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use super::bytes::TrieIdV1;
-use crate::common::Bytes;
 use codec::{Decode, Encode, MaxEncodedLen};
 use ethereum_types::H256;
 use pallet_revive_proc_macro::define_versioned_type;
@@ -135,28 +134,5 @@ impl<AccountId> From<AccountId> for OriginalAccountV1<AccountId> {
 impl From<OriginalAccountV1<AccountId32>> for AccountId32 {
 	fn from(value: OriginalAccountV1<AccountId32>) -> Self {
 		value.0
-	}
-}
-
-define_versioned_type! {
-	/// Version 1 of the previous-value outcome returned by storage writes.
-	#[derive(
-		Debug,
-		Clone,
-		Eq,
-		PartialEq,
-		TypeInfo,
-		Encode,
-		Decode,
-		Serialize,
-		Deserialize,
-	)]
-	pub enum WriteOutcomeV1 {
-		/// No value existed at the written key.
-		New,
-		/// A value of the returned length was overwritten.
-		Overwritten(u32),
-		/// The previous value was taken out of storage before the write completed.
-		Taken(Bytes),
 	}
 }

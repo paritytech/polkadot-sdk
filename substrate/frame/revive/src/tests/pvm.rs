@@ -34,7 +34,7 @@ use crate::{
 		SolType,
 		sol_data::{Bool, FixedBytes},
 	},
-	storage::{DeletionQueueManager, WriteOutcome},
+	storage::{DeletionQueueManager, StorageMapValueOf, StorageValueOf, WriteOutcome},
 	test_utils::{WEIGHT_LIMIT, builder::Contract},
 	tests::{
 		Balances, Contracts, DEPOSIT_PER_BYTE, DepositPerByte, DepositPerItem, ExtBuilder,
@@ -1725,9 +1725,7 @@ fn deletion_queue_ring_buffer_overflow() {
 	// setup the deletion queue with custom counters
 	ext.execute_with(|| {
 		let queue = DeletionQueueManager::from_test_values(u32::MAX - 1, u32::MAX - 1);
-		<DeletionQueueCounter<Test>>::set(crate::storage::StorageValueOf::<
-			DeletionQueueCounter<Test>,
-		>::new(queue));
+		<DeletionQueueCounter<Test>>::set(StorageValueOf::<DeletionQueueCounter<Test>>::new(queue));
 	});
 
 	// commit the changes to the storage
@@ -2895,9 +2893,7 @@ fn block_hash_works() {
 		let block_hash = H256::from([1; 32]);
 		crate::BlockHash::<Test>::insert(
 			crate::BlockNumberFor::<Test>::from(0u32),
-			crate::storage::StorageMapValueOf::<crate::BlockHash<Test>>::new(H256::from(
-				block_hash,
-			)),
+			StorageMapValueOf::<crate::BlockHash<Test>>::new(H256::from(block_hash)),
 		);
 
 		assert_ok!(

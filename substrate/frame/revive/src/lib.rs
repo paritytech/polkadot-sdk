@@ -60,7 +60,7 @@ use crate::{
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
-	storage::{AccountType, DeletionQueueManager, StorageCodecWrapper},
+	storage::{AccountType, DeletionQueueManager, StorageCodecWrapper, StorageMapValueOf},
 	tracing::if_tracing,
 	vm::{CodeInfo, RuntimeCosts, pvm::extract_code_and_data},
 	weightinfo_extension::OnFinalizeBlockParts,
@@ -881,9 +881,10 @@ pub mod pallet {
 					None => {
 						AccountInfoOf::<T>::insert(
 							address,
-							crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(
-								AccountInfo { account_type: AccountType::EOA, dust: 0 },
-							),
+							StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+								account_type: AccountType::EOA,
+								dust: 0,
+							}),
 						);
 					},
 					Some(genesis::ContractData { code, storage }) => {
@@ -914,17 +915,16 @@ pub mod pallet {
 
 						AccountInfoOf::<T>::insert(
 							address,
-							crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(
-								AccountInfo { account_type: info.clone().into(), dust: 0 },
-							),
+							StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+								account_type: info.clone().into(),
+								dust: 0,
+							}),
 						);
 
 						<PristineCode<T>>::insert(blob.code_hash(), code.0.clone());
 						<CodeInfoOf<T>>::insert(
 							blob.code_hash(),
-							crate::storage::StorageMapValueOf::<CodeInfoOf<T>>::new(
-								blob.code_info().clone(),
-							),
+							StorageMapValueOf::<CodeInfoOf<T>>::new(blob.code_info().clone()),
 						);
 						for (k, v) in storage {
 							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {
@@ -2370,11 +2370,10 @@ impl<T: Config> Pallet<T> {
 					account.dust = dust;
 				});
 			} else {
-				*account =
-					Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
-						dust,
-						..Default::default()
-					}));
+				*account = Some(StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+					dust,
+					..Default::default()
+				}));
 			}
 		});
 
@@ -2522,10 +2521,7 @@ impl<T: Config> Pallet<T> {
 	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
-		<ImmutableDataOf<T>>::insert(
-			address,
-			crate::storage::StorageMapValueOf::<ImmutableDataOf<T>>::new(data),
-		);
+		<ImmutableDataOf<T>>::insert(address, StorageMapValueOf::<ImmutableDataOf<T>>::new(data));
 		Ok(())
 	}
 

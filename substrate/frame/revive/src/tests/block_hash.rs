@@ -21,6 +21,7 @@ use crate::{
 	BalanceWithDust, Code, Config, EthBlock, EthBlockBuilderFirstValues, EthBlockBuilderIR,
 	EthereumBlock, Pallet, ReceiptGasInfo, ReceiptInfoData,
 	evm::{Block, TransactionSigned, block_hash::EthereumBlockBuilder, fees::InfoT},
+	storage::StorageValueOf,
 	test_utils::{ALICE, builder::Contract, deposit_limit},
 	tests::{Contracts, ExtBuilder, RuntimeOrigin, System, Test, Timestamp, assert_ok, builder},
 };
@@ -38,7 +39,7 @@ fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let receipt_data =
 			vec![ReceiptGasInfo { gas_used: 1.into(), effective_gas_price: 1.into() }];
-		ReceiptInfoData::<Test>::put(crate::storage::StorageValueOf::<ReceiptInfoData<Test>>::new(
+		ReceiptInfoData::<Test>::put(StorageValueOf::<ReceiptInfoData<Test>>::new(
 			receipt_data.clone().into(),
 		));
 		assert_eq!(
@@ -47,9 +48,7 @@ fn on_initialize_clears_storage() {
 		);
 
 		let block = EthBlock { number: 1.into(), ..Default::default() };
-		EthereumBlock::<Test>::put(crate::storage::StorageValueOf::<EthereumBlock<Test>>::new(
-			block.clone(),
-		));
+		EthereumBlock::<Test>::put(StorageValueOf::<EthereumBlock<Test>>::new(block.clone()));
 		assert_eq!(EthereumBlock::<Test>::get().into_inner(), block);
 
 		Contracts::on_initialize(0);

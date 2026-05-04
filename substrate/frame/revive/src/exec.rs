@@ -26,7 +26,7 @@ use crate::{
 	precompiles::{All as AllPrecompiles, Instance as PrecompileInstance, Precompiles},
 	primitives::{ExecConfig, ExecReturnValue, StorageDeposit},
 	runtime_decl_for_revive_api::{Decode, Encode, TypeInfo},
-	storage::{AccountIdOrAddress, WriteOutcome},
+	storage::{AccountIdOrAddress, StorageMapValueOf, WriteOutcome},
 	tracing::if_tracing,
 	transient_storage::TransientStorage,
 };
@@ -2006,7 +2006,7 @@ where
 		frame.contract_info().set_immutable_data_len(data.len() as u32);
 		<ImmutableDataOf<T>>::insert(
 			T::AddressMapper::to_address(&frame.account_id),
-			crate::storage::StorageMapValueOf::<ImmutableDataOf<T>>::new(data),
+			StorageMapValueOf::<ImmutableDataOf<T>>::new(data),
 		);
 		Ok(())
 	}

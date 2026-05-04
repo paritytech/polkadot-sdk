@@ -38,7 +38,7 @@ use crate::{
 	address::AddressMapper,
 	evm::{StateOverride, StateOverrideSet, StorageOverride},
 	exec::{Executable, Key},
-	storage::{AccountInfo, ContractInfo},
+	storage::{AccountInfo, ContractInfo, StorageMapValueOf},
 	vm::ContractBlob,
 };
 use alloc::{format, vec::Vec};
@@ -178,7 +178,7 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 		<PristineCode<T>>::insert(code_hash, module.code());
 		<CodeInfoOf<T>>::insert(
 			code_hash,
-			crate::storage::StorageMapValueOf::<CodeInfoOf<T>>::new(module.code_info().clone()),
+			StorageMapValueOf::<CodeInfoOf<T>>::new(module.code_info().clone()),
 		);
 	}
 
@@ -201,7 +201,7 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 
 		let nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
 		let contract = ContractInfo::<T>::new(address, nonce, code_hash)?;
-		*account = Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+		*account = Some(StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
 			account_type: contract.into(),
 			dust,
 		}));

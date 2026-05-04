@@ -34,6 +34,7 @@ use crate::{
 	},
 	genesis::{Account, ContractData},
 	mock::MockHandler,
+	storage::StorageMapValueOf,
 	test_utils::*,
 };
 use frame_support::{
@@ -119,7 +120,7 @@ pub mod test_utils {
 	};
 	use crate::{
 		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
-		PristineCode, address::AddressMapper, exec::AccountIdOf,
+		PristineCode, address::AddressMapper, exec::AccountIdOf, storage::StorageMapValueOf,
 	};
 	use codec::{Encode, MaxEncodedLen};
 	use frame_support::traits::fungible::{InspectHold, Mutate};
@@ -129,9 +130,7 @@ pub mod test_utils {
 		set_balance(address, Contracts::min_balance() * 10);
 		<CodeInfoOf<Test>>::insert(
 			code_hash,
-			crate::storage::StorageMapValueOf::<CodeInfoOf<Test>>::new(CodeInfo::new(
-				address.clone(),
-			)),
+			StorageMapValueOf::<CodeInfoOf<Test>>::new(CodeInfo::new(address.clone())),
 		);
 		let address =
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(&address);
@@ -215,9 +214,10 @@ pub mod test_utils {
 						account.dust = dust;
 					});
 				} else {
-					*account = Some(crate::storage::StorageMapValueOf::<AccountInfoOf<Test>>::new(
-						AccountInfo { dust, ..Default::default() },
-					));
+					*account = Some(StorageMapValueOf::<AccountInfoOf<Test>>::new(AccountInfo {
+						dust,
+						..Default::default()
+					}));
 				}
 			});
 		}
@@ -536,9 +536,7 @@ impl ExtBuilder {
 			for code_hash in self.code_hashes {
 				CodeInfoOf::<Test>::insert(
 					code_hash,
-					crate::storage::StorageMapValueOf::<CodeInfoOf<Test>>::new(
-						crate::CodeInfo::new(ALICE),
-					),
+					StorageMapValueOf::<CodeInfoOf<Test>>::new(crate::CodeInfo::new(ALICE)),
 				);
 			}
 		});

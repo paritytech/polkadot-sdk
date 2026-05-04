@@ -18,8 +18,11 @@
 //! Transfer with dust functionality for pallet-revive.
 
 use crate::{
-	AccountInfoOf, BalanceOf, Config, Error, LOG_TARGET, address::AddressMapper, exec::AccountIdOf,
-	primitives::BalanceWithDust, storage::AccountInfo,
+	AccountInfoOf, BalanceOf, Config, Error, LOG_TARGET,
+	address::AddressMapper,
+	exec::AccountIdOf,
+	primitives::BalanceWithDust,
+	storage::{AccountInfo, StorageMapValueOf},
 };
 use frame_support::{
 	dispatch::DispatchResult,
@@ -130,12 +133,9 @@ pub(crate) fn transfer_with_dust<T: Config>(
 
 	AccountInfoOf::<T>::set(
 		&from_addr,
-		Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(from_info)),
+		Some(StorageMapValueOf::<AccountInfoOf<T>>::new(from_info)),
 	);
-	AccountInfoOf::<T>::set(
-		&to_addr,
-		Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(to_info)),
-	);
+	AccountInfoOf::<T>::set(&to_addr, Some(StorageMapValueOf::<AccountInfoOf<T>>::new(to_info)));
 
 	Ok(())
 }
@@ -192,7 +192,7 @@ pub(crate) fn burn_with_dust<T: Config>(
 	from_info.dust = from_info.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
 	AccountInfoOf::<T>::set(
 		&from_addr,
-		Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(from_info)),
+		Some(StorageMapValueOf::<AccountInfoOf<T>>::new(from_info)),
 	);
 	Ok(())
 }

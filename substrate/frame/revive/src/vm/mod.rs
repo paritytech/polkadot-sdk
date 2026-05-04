@@ -30,6 +30,7 @@ use crate::{
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
 	metering::{ResourceMeter, State, Token},
+	storage::StorageMapValueOf,
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -260,9 +261,7 @@ impl<T: Config> ContractBlob<T> {
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
 					*stored_code_info =
-						Some(crate::storage::StorageMapValueOf::<CodeInfoOf<T>>::new(
-							self.code_info.clone(),
-						));
+						Some(StorageMapValueOf::<CodeInfoOf<T>>::new(self.code_info.clone()));
 					Ok(deposit)
 				},
 			}

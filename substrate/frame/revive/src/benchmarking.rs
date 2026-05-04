@@ -35,7 +35,7 @@ use crate::{
 		},
 		run::builtin as run_builtin_precompile,
 	},
-	storage::WriteOutcome,
+	storage::{StorageMapValueOf, WriteOutcome},
 	vm::{
 		evm,
 		evm::{Interpreter, instructions, instructions::utility::IntoAddress},
@@ -872,7 +872,7 @@ mod benchmarks {
 		T::Currency::set_balance(&account, balance);
 		AccountInfoOf::<T>::insert(
 			&address,
-			crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+			StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
 				dust: 42,
 				..Default::default()
 			}),
@@ -905,7 +905,7 @@ mod benchmarks {
 
 		<ImmutableDataOf<T>>::insert(
 			contract.address,
-			crate::storage::StorageMapValueOf::<ImmutableDataOf<T>>::new(
+			StorageMapValueOf::<ImmutableDataOf<T>>::new(
 				immutable_data.clone().try_into().unwrap(),
 			),
 		);
@@ -1130,7 +1130,7 @@ mod benchmarks {
 		// Store block hash in pallet-revive BlockHash mapping
 		crate::BlockHash::<T>::insert(
 			crate::BlockNumberFor::<T>::from(0u32),
-			crate::storage::StorageMapValueOf::<crate::BlockHash<T>>::new(block_hash),
+			StorageMapValueOf::<crate::BlockHash<T>>::new(block_hash),
 		);
 
 		let result;

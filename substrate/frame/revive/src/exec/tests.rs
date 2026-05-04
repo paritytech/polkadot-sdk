@@ -26,6 +26,7 @@ use crate::{
 	AddressMapper, Error, Pallet, ReentrancyProtection,
 	exec::ExportedFunction::*,
 	metering::TransactionMeter,
+	storage::StorageMapValueOf,
 	test_utils::*,
 	tests::{
 		ExtBuilder, RuntimeEvent as MetaEvent, Test,
@@ -2727,15 +2728,11 @@ fn correct_immutable_data_in_delegate_call() {
 			// Place unique immutable data for each contract
 			<ImmutableDataOf<Test>>::insert(
 				BOB_ADDR,
-				crate::storage::StorageMapValueOf::<ImmutableDataOf<Test>>::new(
-					vec![1].try_into().unwrap(),
-				),
+				StorageMapValueOf::<ImmutableDataOf<Test>>::new(vec![1].try_into().unwrap()),
 			);
 			<ImmutableDataOf<Test>>::insert(
 				CHARLIE_ADDR,
-				crate::storage::StorageMapValueOf::<ImmutableDataOf<Test>>::new(
-					vec![2].try_into().unwrap(),
-				),
+				StorageMapValueOf::<ImmutableDataOf<Test>>::new(vec![2].try_into().unwrap()),
 			);
 
 			MockStack::run_call(

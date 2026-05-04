@@ -22,7 +22,9 @@
 extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
-use crate::{AccountInfo, AccountInfoOf, Config, H160, weights::WeightInfo};
+use crate::{
+	AccountInfo, AccountInfoOf, Config, H160, storage::StorageMapValueOf, weights::WeightInfo,
+};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -82,7 +84,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			if let Some((last_key, value)) = iter.drain().next() {
 				AccountInfoOf::<T>::insert(
 					last_key,
-					crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+					StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
 						account_type: value.into(),
 						..Default::default()
 					}),
