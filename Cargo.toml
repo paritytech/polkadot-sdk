@@ -317,6 +317,7 @@ members = [
 	"substrate/deprecated/hashing",
 	"substrate/deprecated/hashing/proc-macro",
 	"substrate/frame",
+	"substrate/frame/accumulate-and-forward",
 	"substrate/frame/alliance",
 	"substrate/frame/asset-conversion",
 	"substrate/frame/asset-conversion/ops",
@@ -352,7 +353,6 @@ members = [
 	"substrate/frame/conviction-voting",
 	"substrate/frame/core-fellowship",
 	"substrate/frame/dap",
-	"substrate/frame/dap-satellite",
 	"substrate/frame/delegated-staking",
 	"substrate/frame/democracy",
 	"substrate/frame/derivatives",
@@ -473,6 +473,7 @@ members = [
 	"substrate/frame/transaction-payment",
 	"substrate/frame/transaction-payment/asset-conversion-tx-payment",
 	"substrate/frame/transaction-payment/asset-tx-payment",
+	"substrate/frame/transaction-payment/pgas-allowance",
 	"substrate/frame/transaction-payment/rpc",
 	"substrate/frame/transaction-payment/rpc/runtime-api",
 	"substrate/frame/transaction-payment/skip-feeless-payment",
@@ -515,6 +516,7 @@ members = [
 	"substrate/primitives/ethereum-standards",
 	"substrate/primitives/externalities",
 	"substrate/primitives/genesis-builder",
+	"substrate/primitives/hop",
 	"substrate/primitives/inherents",
 	"substrate/primitives/io",
 	"substrate/primitives/keyring",
@@ -676,7 +678,7 @@ ark-scale = { version = "0.0.13", default-features = false }
 ark-std = { version = "0.5.0", default-features = false }
 ark-vesta = { version = "0.5.0", default-features = false }
 ark-vesta-ext = { version = "0.5.2", default-features = false }
-ark-vrf = { version = "0.2.2", default-features = false }
+ark-vrf = { version = "0.5.0", default-features = false }
 array-bytes = { version = "6.2.2", default-features = false }
 arrayvec = { version = "0.7.4" }
 assert_cmd = { version = "2.0.14" }
@@ -910,6 +912,7 @@ libp2p = { version = "0.54.1" }
 libp2p-identity = { version = "0.2.9" }
 libp2p-kad = { version = "0.46.2", default-features = false }
 libsecp256k1 = { version = "0.7.0", default-features = false }
+libsqlite3-sys = { version = "0.30", default-features = false }
 linked-hash-map = { version = "0.5.4" }
 linked_hash_set = { version = "0.1.4" }
 linregress = { version = "0.5.1" }
@@ -928,7 +931,7 @@ milagro-bls = { version = "1.5.4", default-features = false, package = "snowbrid
 minimal-template-runtime = { path = "templates/minimal/runtime" }
 mixnet = { version = "0.7.0" }
 mmr-gadget = { path = "substrate/client/merkle-mountain-range", default-features = false }
-mmr-lib = { version = "0.8.1", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
+mmr-lib = { version = "0.8.2", package = "polkadot-ckb-merkle-mountain-range", default-features = false }
 mmr-rpc = { path = "substrate/client/merkle-mountain-range/rpc", default-features = false }
 mockall = { version = "0.13.1" }
 multiaddr = { version = "0.18.1" }
@@ -951,6 +954,7 @@ num-traits = { version = "0.2.17", default-features = false }
 num_cpus = { version = "1.13.1" }
 once_cell = { version = "1.21.3" }
 orchestra = { version = "0.4.0", default-features = false }
+pallet-accumulate-and-forward = { path = "substrate/frame/accumulate-and-forward", default-features = false }
 pallet-ah-ops = { path = "cumulus/pallets/ah-ops", default-features = false }
 pallet-alliance = { path = "substrate/frame/alliance", default-features = false }
 pallet-asset-conversion = { path = "substrate/frame/asset-conversion", default-features = false }
@@ -962,6 +966,7 @@ pallet-asset-rewards = { path = "substrate/frame/asset-rewards", default-feature
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
+pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
 pallet-assets-precompiles = { path = "substrate/frame/assets/precompiles", default-features = false }
 pallet-aura = { path = "substrate/frame/aura", default-features = false }
 pallet-authority-discovery = { path = "substrate/frame/authority-discovery", default-features = false }
@@ -989,7 +994,6 @@ pallet-contracts-uapi = { path = "substrate/frame/contracts/uapi", default-featu
 pallet-conviction-voting = { path = "substrate/frame/conviction-voting", default-features = false }
 pallet-core-fellowship = { path = "substrate/frame/core-fellowship", default-features = false }
 pallet-dap = { path = "substrate/frame/dap", default-features = false }
-pallet-dap-satellite = { path = "substrate/frame/dap-satellite", default-features = false }
 pallet-default-config-example = { path = "substrate/frame/examples/default-config", default-features = false }
 pallet-delegated-staking = { path = "substrate/frame/delegated-staking", default-features = false }
 pallet-democracy = { path = "substrate/frame/democracy", default-features = false }
@@ -1036,6 +1040,7 @@ pallet-paged-list = { path = "substrate/frame/paged-list", default-features = fa
 pallet-parachain-template = { path = "templates/parachain/pallets/template", default-features = false }
 pallet-parameters = { path = "substrate/frame/parameters", default-features = false }
 pallet-people = { path = "substrate/frame/people", default-features = false }
+pallet-pgas-allowance = { path = "substrate/frame/transaction-payment/pgas-allowance", default-features = false }
 pallet-preimage = { path = "substrate/frame/preimage", default-features = false }
 pallet-proxy = { path = "substrate/frame/proxy", default-features = false }
 pallet-psm = { path = "substrate/frame/psm", default-features = false }
@@ -1346,6 +1351,7 @@ sp-database = { path = "substrate/primitives/database", default-features = false
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false }
+sp-hop = { path = "substrate/primitives/hop", default-features = false }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false }
 sp-io = { path = "substrate/primitives/io", default-features = false }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false }

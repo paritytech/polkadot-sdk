@@ -300,6 +300,10 @@ pub use mmr_gadget;
 #[cfg(feature = "mmr-rpc")]
 pub use mmr_rpc;
 
+/// FRAME pallet for periodic accumulation and forwarding of native token funds.
+#[cfg(feature = "pallet-accumulate-and-forward")]
+pub use pallet_accumulate_and_forward;
+
 /// The Alliance pallet provides a collective for standard-setting industry collaboration.
 #[cfg(feature = "pallet-alliance")]
 pub use pallet_alliance;
@@ -454,10 +458,6 @@ pub use pallet_core_fellowship;
 /// FRAME pallet for Dynamic Allocation Pool (DAP).
 #[cfg(feature = "pallet-dap")]
 pub use pallet_dap;
-
-/// FRAME pallet for DAP Satellite - collects funds for periodic transfer to DAP on AssetHub.
-#[cfg(feature = "pallet-dap-satellite")]
-pub use pallet_dap_satellite;
 
 /// FRAME delegated staking pallet.
 #[cfg(feature = "pallet-delegated-staking")]
@@ -622,6 +622,10 @@ pub use pallet_parameters;
 /// Personhood-tracking pallet.
 #[cfg(feature = "pallet-people")]
 pub use pallet_people;
+
+/// Transaction extension that pays transaction fees with a gas allowance asset.
+#[cfg(feature = "pallet-pgas-allowance")]
+pub use pallet_pgas_allowance;
 
 /// FRAME pallet for storing preimages of hashes.
 #[cfg(feature = "pallet-preimage")]
@@ -1367,6 +1371,10 @@ pub use sp_externalities;
 /// Substrate RuntimeGenesisConfig builder API.
 #[cfg(feature = "sp-genesis-builder")]
 pub use sp_genesis_builder;
+
+/// HOP (Hand-Off Protocol) primitives and runtime API.
+#[cfg(feature = "sp-hop")]
+pub use sp_hop;
 
 /// Provides types and traits for creating and checking inherents.
 #[cfg(feature = "sp-inherents")]
