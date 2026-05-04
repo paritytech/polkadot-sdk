@@ -116,12 +116,12 @@
 use crate::{
 	async_backing::{BackingState, Constraints},
 	slashing,
-	vstaging::RelayParentInfo,
+	vstaging::{RelayParentInfo, SessionExecutionConfig},
 	ApprovalVotingParams, AsyncBackingParams, BlockNumber, CandidateCommitments, CandidateEvent,
 	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState,
 	DisputeState, ExecutorParams, GroupRotationInfo, Hash, NodeFeatures, OccupiedCoreAssumption,
-	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionExecutionConfig,
-	SessionIndex, SessionInfo, ValidatorId, ValidatorIndex, ValidatorSignature,
+	PersistedValidationData, PvfCheckStatement, ScrapedOnChainVotes, SessionIndex, SessionInfo,
+	ValidatorId, ValidatorIndex, ValidatorSignature,
 };
 
 use alloc::{

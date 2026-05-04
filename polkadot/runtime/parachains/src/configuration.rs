@@ -27,9 +27,9 @@ use polkadot_parachain_primitives::primitives::{
 	MAX_HORIZONTAL_MESSAGE_NUM, MAX_UPWARD_MESSAGE_NUM,
 };
 use polkadot_primitives::{
-	ApprovalVotingParams, AsyncBackingParams, Balance, ExecutorParamError, ExecutorParams,
-	NodeFeatures, SessionExecutionConfig, SessionIndex, LEGACY_MIN_BACKING_VOTES, MAX_CODE_SIZE,
-	MAX_HEAD_DATA_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
+	vstaging::SessionExecutionConfig, ApprovalVotingParams, AsyncBackingParams, Balance,
+	ExecutorParamError, ExecutorParams, NodeFeatures, SessionIndex, LEGACY_MIN_BACKING_VOTES,
+	MAX_CODE_SIZE, MAX_HEAD_DATA_SIZE, ON_DEMAND_MAX_QUEUE_MAX_SIZE,
 };
 use sp_runtime::{traits::Zero, Perbill, Percent};
 

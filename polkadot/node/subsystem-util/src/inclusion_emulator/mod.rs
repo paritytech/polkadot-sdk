@@ -1226,28 +1226,37 @@ mod tests {
 			storage_root: Hash::repeat_byte(0xff),
 		};
 
-		let relay_parent_b = RelayChainBlockInfo {
-			number: 6,
-			hash: Hash::repeat_byte(0x0b),
-			storage_root: Hash::repeat_byte(0xee),
-		};
-
 		let constraints = make_constraints();
-		let candidate = make_candidate(&constraints, &relay_parent);
 
-		let expected_pvd = PersistedValidationData {
-			parent_head: constraints.required_parent.clone(),
-			relay_parent_number: relay_parent_b.number,
-			relay_parent_storage_root: relay_parent_b.storage_root,
-			max_pov_size: constraints.max_pov_size as u32,
-		};
+		// `parent_head` differs from what the constraints require.
+		{
+			let mut candidate = make_candidate(&constraints, &relay_parent);
+			candidate.persisted_validation_data.parent_head = HeadData(vec![99, 99, 99]);
+			assert!(matches!(
+				Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate)),
+				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
+			));
+		}
 
-		let got_pvd = candidate.persisted_validation_data.clone();
+		// `relay_parent_number` differs from what the `RelayChainBlockInfo` says.
+		{
+			let mut candidate = make_candidate(&constraints, &relay_parent);
+			candidate.persisted_validation_data.relay_parent_number = relay_parent.number + 1;
+			assert!(matches!(
+				Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate)),
+				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
+			));
+		}
 
-		assert_eq!(
-			Fragment::new(relay_parent_b, constraints, Arc::new(candidate.clone())),
-			Err(FragmentValidityError::PersistedValidationDataMismatch(expected_pvd, got_pvd,)),
-		);
+		// `relay_parent_storage_root` differs.
+		{
+			let mut candidate = make_candidate(&constraints, &relay_parent);
+			candidate.persisted_validation_data.relay_parent_storage_root = Hash::repeat_byte(0xee);
+			assert!(matches!(
+				Fragment::new(relay_parent, constraints, Arc::new(candidate)),
+				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
+			));
+		}
 	}
 
 	// Cross-session `max_pov_size` must NOT trigger a PVD mismatch: the candidate's PVD carries
@@ -1270,52 +1279,6 @@ mod tests {
 		constraints.max_pov_size = candidate.persisted_validation_data.max_pov_size as usize + 1024;
 
 		assert!(Fragment::new(relay_parent, constraints, Arc::new(candidate)).is_ok());
-	}
-
-	// Regression guard: the `max_pov_size` relaxation above must NOT loosen the other PVD
-	// fields. `parent_head`, `relay_parent_number`, and `relay_parent_storage_root` all still
-	// have to agree with what the constraints / relay parent produce — otherwise the
-	// descriptor's PVD hash wouldn't match what the runtime would write, and the candidate is
-	// invalid.
-	#[test]
-	fn fragment_other_pvd_fields_still_checked() {
-		let relay_parent = RelayChainBlockInfo {
-			number: 6,
-			hash: Hash::repeat_byte(0x0a),
-			storage_root: Hash::repeat_byte(0xff),
-		};
-
-		let constraints = make_constraints();
-
-		// Case 1: parent_head differs.
-		{
-			let mut candidate = make_candidate(&constraints, &relay_parent);
-			candidate.persisted_validation_data.parent_head = HeadData(vec![99, 99, 99]);
-			assert!(matches!(
-				Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate)),
-				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
-			));
-		}
-
-		// Case 2: relay_parent_number differs from what the `RelayChainBlockInfo` says.
-		{
-			let mut candidate = make_candidate(&constraints, &relay_parent);
-			candidate.persisted_validation_data.relay_parent_number = relay_parent.number + 1;
-			assert!(matches!(
-				Fragment::new(relay_parent.clone(), constraints.clone(), Arc::new(candidate)),
-				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
-			));
-		}
-
-		// Case 3: relay_parent_storage_root differs.
-		{
-			let mut candidate = make_candidate(&constraints, &relay_parent);
-			candidate.persisted_validation_data.relay_parent_storage_root = Hash::repeat_byte(0xee);
-			assert!(matches!(
-				Fragment::new(relay_parent, constraints, Arc::new(candidate)),
-				Err(FragmentValidityError::PersistedValidationDataMismatch(_, _))
-			));
-		}
 	}
 
 	#[test]

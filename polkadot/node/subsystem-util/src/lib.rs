@@ -320,7 +320,7 @@ specialize_requests! {
 	fn request_min_backing_votes(session_index: SessionIndex) -> u32; MinimumBackingVotes;
 	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
 	fn request_para_ids(session_index: SessionIndex) -> Vec<ParaId>; ParaIds;
-	fn request_session_execution_config(session_index: SessionIndex) -> Option<polkadot_primitives::SessionExecutionConfig>; SessionExecutionConfig;
+	fn request_session_execution_config(session_index: SessionIndex) -> Option<polkadot_primitives::vstaging::SessionExecutionConfig>; SessionExecutionConfig;
 
 }
 

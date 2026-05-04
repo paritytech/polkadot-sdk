@@ -2757,7 +2757,7 @@ fn fetch_params_uses_session_execution_config_when_supported() {
 
 	// Distinct from `VALIDATION_CODE_BOMB_LIMIT` so the assertion can tell
 	// apart a cfg-derived value from a legacy-fallback value.
-	let cfg = polkadot_primitives::SessionExecutionConfig {
+	let cfg = polkadot_primitives::vstaging::SessionExecutionConfig {
 		max_pov_size: 4096,
 		validation_code_bomb_limit: 123_456,
 	};

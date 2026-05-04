@@ -21,8 +21,9 @@ use alloc::vec::Vec;
 use frame_system::pallet_prelude::BlockNumberFor;
 
 use polkadot_primitives::{
-	slashing, vstaging::RelayParentInfo, CandidateHash, Id as ParaId, SessionExecutionConfig,
-	SessionIndex,
+	slashing,
+	vstaging::{RelayParentInfo, SessionExecutionConfig},
+	CandidateHash, Id as ParaId, SessionIndex,
 };
 
 /// Implementation of `para_ids` runtime API

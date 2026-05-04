@@ -31,8 +31,8 @@ use frame_support::{
 };
 use frame_system::pallet_prelude::BlockNumberFor;
 use polkadot_primitives::{
-	AssignmentId, AuthorityDiscoveryId, ExecutorParams, SessionExecutionConfig, SessionIndex,
-	SessionInfo,
+	vstaging::SessionExecutionConfig, AssignmentId, AuthorityDiscoveryId, ExecutorParams,
+	SessionIndex, SessionInfo,
 };
 
 pub use pallet::*;

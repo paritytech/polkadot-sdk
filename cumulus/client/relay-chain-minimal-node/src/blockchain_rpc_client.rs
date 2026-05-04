@@ -506,7 +506,7 @@ impl RuntimeApiSubsystemClient for BlockChainRpcClient {
 		&self,
 		at: Hash,
 		session_index: polkadot_primitives::SessionIndex,
-	) -> Result<Option<polkadot_primitives::SessionExecutionConfig>, sp_api::ApiError> {
+	) -> Result<Option<polkadot_primitives::vstaging::SessionExecutionConfig>, sp_api::ApiError> {
 		Ok(self
 			.rpc_client
 			.parachain_host_session_execution_config(at, session_index)

@@ -1153,7 +1153,7 @@ sp_api::impl_runtime_apis! {
 			staging_runtime_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 
-		fn session_execution_config(session_index: SessionIndex) -> Option<polkadot_primitives::SessionExecutionConfig> {
+		fn session_execution_config(session_index: SessionIndex) -> Option<polkadot_primitives::vstaging::SessionExecutionConfig> {
 			staging_runtime_impl::session_execution_config::<Runtime>(session_index)
 		}
 	}

@@ -3554,7 +3554,7 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 							idx, RELAY_PARENT_SESSION_INDEX,
 							"SessionExecutionConfig must be keyed on request.session_index, not the leaf's session",
 						);
-						tx.send(Ok(Some(polkadot_primitives::SessionExecutionConfig {
+						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
 							max_pov_size: RELAY_PARENT_SESSION_MAX_POV_SIZE,
 							validation_code_bomb_limit: 0,
 						})))

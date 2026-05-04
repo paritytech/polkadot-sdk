@@ -350,7 +350,7 @@ impl RuntimeApiSubsystemClient for MockSubsystemClient {
 		&self,
 		_: Hash,
 		_: SessionIndex,
-	) -> Result<Option<polkadot_primitives::SessionExecutionConfig>, ApiError> {
+	) -> Result<Option<polkadot_primitives::vstaging::SessionExecutionConfig>, ApiError> {
 		todo!("Not required for tests")
 	}
 }

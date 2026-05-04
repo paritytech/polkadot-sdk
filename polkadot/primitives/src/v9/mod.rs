@@ -978,22 +978,6 @@ pub struct AbridgedHostConfiguration {
 	pub async_backing_params: AsyncBackingParams,
 }
 
-/// Execution-relevant subset of `HostConfiguration` stored per session.
-///
-/// This captures the host configuration parameters that are relevant for
-/// candidate validation and PVF execution. Stored per session in the
-/// `session_info` pallet so that validators can look up the configuration
-/// that was active when a candidate was produced, rather than using the
-/// current configuration.
-#[derive(Copy, Clone, Encode, Decode, Debug, TypeInfo)]
-#[cfg_attr(feature = "std", derive(Default, PartialEq))]
-pub struct SessionExecutionConfig {
-	/// The maximum POV block size, in bytes.
-	pub max_pov_size: u32,
-	/// The maximum decompressed size of validation code, in bytes.
-	pub validation_code_bomb_limit: u32,
-}
-
 /// Abridged version of `HrmpChannel` (from the `Hrmp` parachains host runtime module) meant to be
 /// used by a parachain or PDK such as cumulus.
 #[derive(Clone, Encode, Decode, Debug, TypeInfo)]
