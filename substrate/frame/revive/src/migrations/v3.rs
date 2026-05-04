@@ -198,7 +198,12 @@ fn migrate_to_v3() {
 		for acc in unmapped_accounts.iter().chain(&mapped_accounts) {
 			assert!(AccountId32Mapper::<Test>::is_mapped(acc));
 			let addr = AccountId32Mapper::<Test>::to_address(acc);
-			assert_eq!(OriginalAccount::<Test>::get(addr).as_ref(), Some(acc));
+			assert_eq!(
+				OriginalAccount::<Test>::get(addr)
+					.map(|account_id| account_id.into_inner())
+					.as_ref(),
+				Some(acc),
+			);
 		}
 
 		// Verify deposits were released for previously-mapped accounts

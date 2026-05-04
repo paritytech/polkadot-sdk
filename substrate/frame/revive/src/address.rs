@@ -17,7 +17,7 @@
 
 //! Functions that deal contract addresses.
 
-use crate::{Config, Error, HoldReason, OriginalAccount, ensure};
+use crate::{Config, Error, HoldReason, OriginalAccount, ensure, storage::StorageMapValueOf};
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 use frame_support::traits::{
@@ -131,7 +131,9 @@ where
 	}
 
 	fn to_account_id(address: &H160) -> AccountId32 {
-		<OriginalAccount<T>>::get(address).unwrap_or_else(|| Self::to_fallback_account_id(address))
+		<OriginalAccount<T>>::get(address)
+			.map(|account_id| account_id.into_inner())
+			.unwrap_or_else(|| Self::to_fallback_account_id(address))
 	}
 
 	fn to_fallback_account_id(address: &H160) -> AccountId32 {
@@ -150,13 +152,19 @@ where
 			.saturating_add(T::DepositPerItem::get());
 		T::Currency::hold(&HoldReason::AddressMapping.into(), account_id, deposit)?;
 
-		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
+		<OriginalAccount<T>>::insert(
+			Self::to_address(account_id),
+			StorageMapValueOf::<OriginalAccount<T>>::new(account_id.clone()),
+		);
 		Ok(())
 	}
 
 	fn map_no_deposit(account_id: &T::AccountId) -> DispatchResult {
 		ensure!(!Self::is_mapped(account_id), <Error<T>>::AccountAlreadyMapped);
-		<OriginalAccount<T>>::insert(Self::to_address(account_id), account_id);
+		<OriginalAccount<T>>::insert(
+			Self::to_address(account_id),
+			StorageMapValueOf::<OriginalAccount<T>>::new(account_id.clone()),
+		);
 		Ok(())
 	}
 

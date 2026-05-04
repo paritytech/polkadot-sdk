@@ -22,6 +22,7 @@ use ethereum_types::H256;
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
+use sp_core::crypto::AccountId32;
 
 define_versioned_type! {
 	/// Version 1 of the `AccountInfoOf` storage value keyed by account address.
@@ -123,6 +124,18 @@ define_versioned_type! {
 		/// Original `AccountId32` mapped from one Ethereum address.
 		pub AccountId,
 	);
+}
+
+impl<AccountId> From<AccountId> for OriginalAccountV1<AccountId> {
+	fn from(value: AccountId) -> Self {
+		Self(value)
+	}
+}
+
+impl From<OriginalAccountV1<AccountId32>> for AccountId32 {
+	fn from(value: OriginalAccountV1<AccountId32>) -> Self {
+		value.0
+	}
 }
 
 define_versioned_type! {

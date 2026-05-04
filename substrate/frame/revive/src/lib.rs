@@ -728,7 +728,12 @@ pub mod pallet {
 	/// Register your `AccountId32` using [`Pallet::map_account`] in order to
 	/// use it with this pallet.
 	#[pallet::storage]
-	pub(crate) type OriginalAccount<T: Config> = StorageMap<_, Identity, H160, AccountId32>;
+	pub(crate) type OriginalAccount<T: Config> = StorageMap<
+		_,
+		Identity,
+		H160,
+		StorageCodecWrapper<AccountId32, OriginalAccountV1<AccountId32>>,
+	>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
 	///
