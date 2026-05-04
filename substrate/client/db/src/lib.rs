@@ -151,13 +151,6 @@ enum DbExtrinsic<B: BlockT> {
 	/// Extrinsic that renews multiple indexed data items within a single call.
 	/// Used by bulk-renewal inherents (e.g. `process_auto_renewals`) where one extrinsic
 	/// references multiple previously-stored data blobs.
-	///
-	/// `hashes` is stored as a `Vec<DbHash>` rather than a set: the proof-of-storage
-	/// inherent provider walks `block_indexed_body` in this order to compute total
-	/// chunks and pick a chunk by index, and the runtime's `verify_chunk_proof`
-	/// indexes its own `Vec<TransactionInfo>` by the same position. Sorting the hashes
-	/// (e.g. via `BTreeSet`) would put the off-chain provider's iteration order out of
-	/// sync with the runtime's storage order, so the proof would be built against one
 	/// entry's `chunk_root` and verified against another's, causing `InvalidProof`.
 	/// Insertion order is the contract — preserve it.
 	MultiRenew {
