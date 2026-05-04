@@ -8,19 +8,19 @@
 //! and the HOP discussion on
 //! [`paritytech/polkadot-sdk#11662`](https://github.com/paritytech/polkadot-sdk/pull/11662).
 //!
-//! The point of the PoC is to **answer one question**: can a Bulletin-specific node binary be
-//! built by composing `polkadot-omni-node-lib`, with the HOP wiring driven by the Bulletin
-//! binary instead of being baked into the generic `polkadot-omni-node` binary?
-//!
-//! See `README.md` next to this file for findings and the open questions on lib extensibility.
+//! After Pass 2 (this commit), HOP is wired entirely from the Bulletin side via the lib's
+//! [`polkadot_omni_node_lib::NodeExtensionFactory`] hook. The lib stays HOP-free.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
+
+mod hop_extension;
 
 // Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
 #[cfg(target_os = "linux")]
 extern crate polkadot_jemalloc_shim;
 
+use clap::Parser;
 use polkadot_omni_node_lib::{
 	chain_spec::DiskChainSpecLoader, extra_subcommand::NoExtraSubcommand, run_with_custom_cli,
 	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
@@ -49,6 +49,26 @@ impl CliConfigT for CliConfig {
 
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
-	let config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
+
+	// Pass 2 HOP wiring: construct `HopParams` and register the Bulletin-side
+	// extension factory on `RunConfig`. The lib will pull the extension out of
+	// the factory at the right point in startup and call its `on_start` /
+	// `build_rpc_extension` hooks.
+	//
+	// TODO(pass-3): expose HOP CLI flags via a Bulletin-owned `Cli` that
+	// flattens `sc_hop::HopParams` alongside `polkadot_omni_node_lib::Cli`.
+	// Until then the binary uses HOP defaults plus `--enable-hop=true` so the
+	// extension is exercised end-to-end on dev runs.
+	let hop_params = sc_hop::HopParams::parse_from([
+		"polkadot-bulletin-parachain",
+		"--enable-hop",
+	]);
+	let extension_factory = hop_extension::HopExtensionFactory::new(hop_params);
+
+	let config = RunConfig::with_extension_factory(
+		Box::new(DefaultRuntimeResolver),
+		Box::new(DiskChainSpecLoader),
+		Box::new(extension_factory),
+	);
 	Ok(run_with_custom_cli::<CliConfig, NoExtraSubcommand>(config)?)
 }

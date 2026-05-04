@@ -181,3 +181,73 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
 }
+
+/// Block type with a `u32` block number used by the lib's runtime resolver.
+pub type BlockU32 = crate::common::types::Block<u32>;
+
+/// Block type with a `u64` block number used by the lib's runtime resolver.
+pub type BlockU64 = crate::common::types::Block<u64>;
+
+/// Object-safe factory that yields a [`NodeExtension`] for whichever
+/// `(Block, RuntimeApi)` combination the runtime resolver picks. Each method
+/// returns `None` if no extension is wired for that combination, in which case
+/// the lib treats the slot as a no-op (same behaviour as if [`NoNodeExtension`]
+/// were used).
+///
+/// The lib enumerates the four combinations its `RuntimeResolver` produces
+/// today (`u32`/`u64` block number × Aura `sr25519`/`ed25519` consensus). Each
+/// factory method is called at most once during a single node startup. The
+/// methods take `&self`; impls that need to hand out a unique extension value
+/// should use interior mutability (e.g. `Mutex<Option<Box<dyn NodeExtension>>>`).
+pub trait NodeExtensionFactory: Send + Sync + 'static {
+	/// Extension for `(Block<u32>, aura_sr25519::RuntimeApi)`.
+	fn create_aura_sr25519_u32(
+		&self,
+	) -> Option<
+		Box<
+			dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_sr25519::RuntimeApi>,
+		>,
+	> {
+		None
+	}
+
+	/// Extension for `(Block<u32>, aura_ed25519::RuntimeApi)`.
+	fn create_aura_ed25519_u32(
+		&self,
+	) -> Option<
+		Box<
+			dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_ed25519::RuntimeApi>,
+		>,
+	> {
+		None
+	}
+
+	/// Extension for `(Block<u64>, aura_sr25519::RuntimeApi)`.
+	fn create_aura_sr25519_u64(
+		&self,
+	) -> Option<
+		Box<
+			dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_sr25519::RuntimeApi>,
+		>,
+	> {
+		None
+	}
+
+	/// Extension for `(Block<u64>, aura_ed25519::RuntimeApi)`.
+	fn create_aura_ed25519_u64(
+		&self,
+	) -> Option<
+		Box<
+			dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_ed25519::RuntimeApi>,
+		>,
+	> {
+		None
+	}
+}
+
+/// Default factory that produces no extension for any of the supported
+/// `(Block, RuntimeApi)` combinations. Used by `polkadot-omni-node`.
+#[derive(Default)]
+pub struct NoNodeExtensionFactory;
+
+impl NodeExtensionFactory for NoNodeExtensionFactory {}

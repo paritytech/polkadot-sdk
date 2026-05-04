@@ -73,6 +73,7 @@ sp-consensus = { workspace = true, default-features = true }
 sp-consensus-aura = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-genesis-builder = { workspace = true }
+sp-hop = { workspace = true, default-features = true }
 sp-inherents = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-offchain = { workspace = true, default-features = true }

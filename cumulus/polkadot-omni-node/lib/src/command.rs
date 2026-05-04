@@ -24,7 +24,7 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		NodeBlock, NodeExtraArgs,
+		NoNodeExtensionFactory, NodeBlock, NodeExtension, NodeExtensionFactory, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
@@ -46,36 +46,70 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
+	/// Optional factory that supplies a [`NodeExtension`] for the
+	/// `(Block, RuntimeApi)` combination the runtime resolver picks. The
+	/// default is [`NoNodeExtensionFactory`] which produces no extension.
+	pub extension_factory: Box<dyn NodeExtensionFactory>,
 }
 
 impl RunConfig {
-	/// Creates a new `RunConfig` instance.
+	/// Creates a new `RunConfig` instance with no extension factory.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig { runtime_resolver, chain_spec_loader }
+		RunConfig {
+			runtime_resolver,
+			chain_spec_loader,
+			extension_factory: Box::new(NoNodeExtensionFactory),
+		}
+	}
+
+	/// Creates a new `RunConfig` instance with the given extension factory.
+	pub fn with_extension_factory(
+		runtime_resolver: Box<dyn RuntimeResolver>,
+		chain_spec_loader: Box<dyn LoadSpec>,
+		extension_factory: Box<dyn NodeExtensionFactory>,
+	) -> Self {
+		RunConfig { runtime_resolver, chain_spec_loader, extension_factory }
 	}
 }
 
-pub fn new_aura_node_spec<Block>(
+fn new_aura_node_spec_u32(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-) -> Box<dyn DynNodeSpec>
-where
-	Block: NodeBlock,
-{
+	factory: &dyn NodeExtensionFactory,
+) -> Box<dyn DynNodeSpec> {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block,
+			Block<u32>,
 			fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args),
+		>(extra_args, factory.create_aura_sr25519_u32()),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block,
+			Block<u32>,
 			fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args),
+		>(extra_args, factory.create_aura_ed25519_u32()),
+	}
+}
+
+fn new_aura_node_spec_u64(
+	aura_id: AuraConsensusId,
+	extra_args: &NodeExtraArgs,
+	factory: &dyn NodeExtensionFactory,
+) -> Box<dyn DynNodeSpec> {
+	match aura_id {
+		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
+			Block<u64>,
+			fake_runtime_api::aura_sr25519::RuntimeApi,
+			sp_consensus_aura::sr25519::AuthorityId,
+		>(extra_args, factory.create_aura_sr25519_u64()),
+		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
+			Block<u64>,
+			fake_runtime_api::aura_ed25519::RuntimeApi,
+			sp_consensus_aura::ed25519::AuthorityId,
+		>(extra_args, factory.create_aura_ed25519_u64()),
 	}
 }
 
@@ -83,16 +117,17 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
+	factory: &dyn NodeExtensionFactory,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
 			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec::<Block<u32>>(aura_id, extra_args)
+				new_aura_node_spec_u32(aura_id, extra_args, factory)
 			},
 			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec::<Block<u64>>(aura_id, extra_args)
+				new_aura_node_spec_u64(aura_id, extra_args, factory)
 			},
 		},
 	})
@@ -102,6 +137,8 @@ fn new_node_spec(
 pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
 	run_with_custom_cli::<CliConfig, DefaultExtraSubcommands>(cmd_config)
 }
+
+#[allow(clippy::too_many_arguments)]
 
 /// Parse command‑line arguments into service configuration and inject an
 /// optional extra sub‑command.
@@ -154,7 +191,12 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&cli.node_extra_args(),
+					&*cmd_config.extension_factory,
+				)?;
 				node.prepare_check_block_cmd(config, cmd)
 			})
 		},
@@ -162,7 +204,12 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&cli.node_extra_args(),
+					&*cmd_config.extension_factory,
+				)?;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
 		},
@@ -170,7 +217,12 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&cli.node_extra_args(),
+					&*cmd_config.extension_factory,
+				)?;
 				node.prepare_export_state_cmd(config, cmd)
 			})
 		},
@@ -178,7 +230,12 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&cli.node_extra_args(),
+					&*cmd_config.extension_factory,
+				)?;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
 		},
@@ -186,7 +243,12 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&cli.node_extra_args(),
+					&*cmd_config.extension_factory,
+				)?;
 				node.prepare_revert_cmd(config, cmd)
 			})
 		},
@@ -214,7 +276,12 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
 				let node =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &cli.node_extra_args())?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&cli.node_extra_args(),
+					&*cmd_config.extension_factory,
+				)?;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
 		},
@@ -248,6 +315,7 @@ where
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
+							&*cmd_config.extension_factory,
 						)?;
 						node.run_benchmark_block_cmd(config, cmd)
 					})
@@ -263,6 +331,7 @@ where
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
+							&*cmd_config.extension_factory,
 						)?;
 						node.run_benchmark_storage_cmd(config, cmd)
 					})
@@ -303,7 +372,12 @@ where
 			runner.run_node_until_exit(|config| async move {
 				let node_extra_args = cli.node_extra_args();
 				let node_spec =
-					new_node_spec(&config, &cmd_config.runtime_resolver, &node_extra_args)?;
+					new_node_spec(
+					&config,
+					&cmd_config.runtime_resolver,
+					&node_extra_args,
+					&*cmd_config.extension_factory,
+				)?;
 
 				if let Some(dev_mode) = cli.dev_mode() {
 					return node_spec

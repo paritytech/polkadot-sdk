@@ -25,7 +25,7 @@ use crate::{
 			ParachainBackend, ParachainBlockImport, ParachainClient, ParachainHostFunctions,
 			ParachainService,
 		},
-		ConstructNodeRuntimeApi, NodeBlock, NodeExtraArgs,
+		ConstructNodeRuntimeApi, NodeBlock, NodeExtension, NodeExtraArgs,
 	},
 };
 use codec::Encode;
@@ -313,10 +313,21 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
+	/// Take ownership of the [`NodeExtension`] installed on this node spec, if
+	/// any. The lib invokes this once during dispatch, immediately before
+	/// calling [`Self::start_node`] / [`Self::start_dev_node`], to thread the
+	/// extension into the start path.
+	fn take_extension(
+		&mut self,
+	) -> Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>> {
+		None
+	}
+
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
 		_node_extra_args: NodeExtraArgs,
+		_extension: Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
@@ -330,6 +341,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		collator_options: CollatorOptions,
 		hwbench: Option<sc_sysinfo::HwBench>,
 		node_extra_args: NodeExtraArgs,
+		extension: Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
@@ -464,23 +476,42 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let spawn_handle = Arc::new(task_manager.spawn_handle());
 
+			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
+
+			// Invoke the `on_start` extension hook (if any) so downstream binaries can
+			// spawn additional service tasks tied to the typed client/pool.
+			if let Some(ext) = extension.as_ref() {
+				ext.on_start(
+					client.clone(),
+					transaction_pool.clone(),
+					&task_manager,
+					database_path.as_deref(),
+				)?;
+			}
+
 			let rpc_builder = {
 				let client = client.clone();
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
+				let extension = extension;
 				Box::new(move |_| {
-					Self::BuildRpcExtensions::build_rpc_extensions(
+					let mut module = Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),
 						backend_for_rpc.clone(),
 						transaction_pool.clone(),
 						statement_store.clone(),
 						spawn_handle.clone(),
-					)
+					)?;
+					if let Some(ext) = extension.as_ref() {
+						let extra = ext.build_rpc_extension(client.clone())?;
+						module
+							.merge(extra)
+							.map_err(|e| sc_service::Error::Other(e.to_string()))?;
+					}
+					Ok(module)
 				})
 			};
-
-			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
 			sc_service::spawn_tasks(sc_service::SpawnTasksParams {
 				rpc_builder,
@@ -631,22 +662,24 @@ where
 	T: NodeSpec + NodeCommandRunner,
 {
 	fn start_dev_node(
-		self: Box<Self>,
+		mut self: Box<Self>,
 		config: Configuration,
 		mode: DevSealMode,
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
-		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args)
+		let extension = self.take_extension();
+		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args, extension)
 	}
 
 	fn start_node(
-		self: Box<Self>,
+		mut self: Box<Self>,
 		parachain_config: Configuration,
 		polkadot_config: Configuration,
 		collator_options: CollatorOptions,
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
+		let extension = self.take_extension();
 		match parachain_config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p => {
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
@@ -655,6 +688,7 @@ where
 					collator_options,
 					hwbench,
 					node_extra_args,
+					extension,
 				)
 			},
 			sc_network::config::NetworkBackendType::Litep2p => {
@@ -664,6 +698,7 @@ where
 					collator_options,
 					hwbench,
 					node_extra_args,
+					extension,
 				)
 			},
 		}

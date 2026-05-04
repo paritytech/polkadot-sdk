@@ -258,6 +258,33 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
+
+			// HOP no-op stub. Required so downstream binaries (e.g. polkadot-bulletin-parachain)
+			// that wire HOP via `NodeExtension` can name `Self::RuntimeApi` types whose runtime
+			// API satisfies `sp_hop::HopRuntimeApi`. The fake cannot be called at runtime; this
+			// only satisfies trait bounds at compile time.
+			impl sp_hop::HopRuntimeApi<$block, AccountId> for $runtime {
+				fn can_account_promote(_who: AccountId, _data_len: u32) -> bool {
+					false
+				}
+
+				fn create_promotion_extrinsic(
+					_: Vec<u8>,
+					_: sp_runtime::MultiSigner,
+					_: sp_runtime::MultiSignature,
+					_: u64,
+				) -> <$block as BlockT>::Extrinsic {
+					panic!("HOP promotion is not supported by this runtime")
+				}
+
+				fn max_promotion_size() -> u32 {
+					0
+				}
+
+				fn is_promoted_on_chain(_hash: [u8; 32]) -> bool {
+					false
+				}
+			}
 		}
 	};
 }
