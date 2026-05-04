@@ -19,10 +19,10 @@
 //!
 //! Covers:
 //! - The pure decay curve (`LinearStalenessCurve`) at boundaries.
-//! - Which staking actions reset `submitted_in` (only `nominate`; not
-//!   `bond_extra`, `chill`, `payout_stakers`, etc.).
-//! - The election snapshot applying the multiplier to voter weight, and zero-weight
-//!   voters being excluded.
+//! - Which staking actions reset `submitted_in` (only `nominate`; not `bond_extra`, `chill`,
+//!   `payout_stakers`, etc.).
+//! - The election snapshot applying the multiplier to voter weight, and zero-weight voters being
+//!   excluded.
 //! - The migration helper that resets `submitted_in` on upgrade.
 
 use super::*;
@@ -85,10 +85,7 @@ fn linear_curve_decays_linearly_to_nonzero_floor() {
 
 	let m_halfway = Curve::multiplier(10 + 50);
 	// active_share = 50%, one_minus_floor = 75%, product = 37.5%, +floor (25%) = 62.5%
-	assert_eq!(
-		m_halfway,
-		floor + Perbill::from_rational(50u32, 100u32) * (Perbill::one() - floor)
-	);
+	assert_eq!(m_halfway, floor + Perbill::from_rational(50u32, 100u32) * (Perbill::one() - floor));
 
 	assert_eq!(Curve::multiplier(10 + 100), floor);
 	assert_eq!(Curve::multiplier(10 + 1_000), floor);
@@ -167,11 +164,9 @@ fn snapshot_voter_weight_is_unchanged_with_default_no_op_curve() {
 	ExtBuilder::default().has_stakers(true).nominate(true).build_and_execute(|| {
 		Session::roll_until_active_era(20);
 
-		let voters = <Staking as ElectionDataProvider>::electing_voters(
-			DataProviderBounds::default(),
-			0,
-		)
-		.unwrap();
+		let voters =
+			<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default(), 0)
+				.unwrap();
 
 		let entry = voters.iter().find(|(who, _, _)| who == &101).expect("101 in snapshot");
 		// Active stake of nominator 101 in the genesis mock setup.
@@ -191,11 +186,9 @@ fn snapshot_voter_weight_is_reduced_when_stale() {
 		Session::roll_until_active_era(4);
 		// 4 eras since `submitted_in = 0`. Past grace (2), 2 eras into decay.
 		// multiplier = (4 - 2) / 4 = 50%.
-		let voters = <Staking as ElectionDataProvider>::electing_voters(
-			DataProviderBounds::default(),
-			0,
-		)
-		.unwrap();
+		let voters =
+			<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default(), 0)
+				.unwrap();
 		let entry = voters.iter().find(|(who, _, _)| who == &101).expect("101 in snapshot");
 		assert_eq!(entry.1, 250);
 	});
@@ -211,11 +204,9 @@ fn fully_stale_voter_with_zero_floor_is_excluded_from_snapshot() {
 
 		Session::roll_until_active_era(6);
 		// 6 eras since `submitted_in = 0` >= grace + decay. multiplier = 0.
-		let voters = <Staking as ElectionDataProvider>::electing_voters(
-			DataProviderBounds::default(),
-			0,
-		)
-		.unwrap();
+		let voters =
+			<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default(), 0)
+				.unwrap();
 		assert!(voters.iter().all(|(who, _, _)| who != &101));
 	});
 }
@@ -232,11 +223,9 @@ fn re_nominating_restores_full_weight() {
 		// Re-affirm in era 4.
 		assert_ok!(Staking::nominate(RuntimeOrigin::signed(101), vec![11, 21]));
 
-		let voters = <Staking as ElectionDataProvider>::electing_voters(
-			DataProviderBounds::default(),
-			0,
-		)
-		.unwrap();
+		let voters =
+			<Staking as ElectionDataProvider>::electing_voters(DataProviderBounds::default(), 0)
+				.unwrap();
 		let entry = voters.iter().find(|(who, _, _)| who == &101).expect("101 in snapshot");
 		assert_eq!(entry.1, 500);
 	});

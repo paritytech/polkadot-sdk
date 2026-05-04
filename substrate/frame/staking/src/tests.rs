@@ -9403,16 +9403,16 @@ mod nomination_staleness {
 	//!
 	//! Covers:
 	//! - The pure decay curve (`LinearStalenessCurve`) at boundaries.
-	//! - Which staking actions reset `submitted_in` (only `nominate`; not
-	//!   `bond_extra`, `chill`, `payout_stakers`, etc.).
-	//! - The election snapshot applying the multiplier to voter weight, and zero-weight
-	//!   voters being excluded.
+	//! - Which staking actions reset `submitted_in` (only `nominate`; not `bond_extra`, `chill`,
+	//!   `payout_stakers`, etc.).
+	//! - The election snapshot applying the multiplier to voter weight, and zero-weight voters
+	//!   being excluded.
 	//! - The `v16 -> v17` migration that resets `submitted_in` on upgrade.
 
 	use super::*;
 	use crate::{
-		migrations::nomination_staleness::reset_all_nomination_submitted_in,
-		LinearStalenessCurve, NoNominationStaleness, NominationStalenessCurve,
+		migrations::nomination_staleness::reset_all_nomination_submitted_in, LinearStalenessCurve,
+		NoNominationStaleness, NominationStalenessCurve,
 	};
 	use frame_election_provider_support::ElectionDataProvider;
 
@@ -9423,8 +9423,7 @@ mod nomination_staleness {
 		StalenessFloor::set(floor);
 	}
 
-	type Curve =
-		LinearStalenessCurve<StalenessGracePeriod, StalenessDecayPeriod, StalenessFloor>;
+	type Curve = LinearStalenessCurve<StalenessGracePeriod, StalenessDecayPeriod, StalenessFloor>;
 
 	// ----- Pure curve tests (no ExtBuilder needed). -----
 
@@ -9439,12 +9438,7 @@ mod nomination_staleness {
 	fn linear_curve_full_weight_in_grace_period() {
 		set_curve(28, 140, Perbill::zero());
 		for s in 0..=28 {
-			assert_eq!(
-				Curve::multiplier(s),
-				Perbill::one(),
-				"multiplier should be 1 at s = {}",
-				s
-			);
+			assert_eq!(Curve::multiplier(s), Perbill::one(), "multiplier should be 1 at s = {}", s);
 		}
 	}
 
@@ -9484,7 +9478,10 @@ mod nomination_staleness {
 		// one_minus_floor = 75%
 		// active_share * one_minus_floor = 37.5%
 		// floor + that = 62.5%
-		assert_eq!(m_halfway, floor + Perbill::from_rational(50u32, 100u32) * (Perbill::one() - floor));
+		assert_eq!(
+			m_halfway,
+			floor + Perbill::from_rational(50u32, 100u32) * (Perbill::one() - floor)
+		);
 
 		// At and beyond end: exactly the floor.
 		assert_eq!(Curve::multiplier(10 + 100), floor);

@@ -838,8 +838,8 @@ impl NominationStalenessCurve for NoNominationStaleness {
 /// Behaviour, as a function of `s = eras_since_last_nomination`:
 ///
 /// - For `s <= GracePeriod`, the multiplier is exactly `1`.
-/// - For `GracePeriod < s < GracePeriod + DecayPeriod`, the multiplier interpolates
-///   linearly from `1` down to `Floor`.
+/// - For `GracePeriod < s < GracePeriod + DecayPeriod`, the multiplier interpolates linearly from
+///   `1` down to `Floor`.
 /// - For `s >= GracePeriod + DecayPeriod`, the multiplier is `Floor`.
 ///
 /// `Floor` may be set to `Perbill::zero()` to fully decay stale nominations, or to a

@@ -312,11 +312,8 @@ impl crate::pallet::pallet::Config for Test {
 	type VoterList = VoterBagsList;
 	type TargetList = UseValidatorsMap<Self>;
 	type NominationsQuota = WeightedNominationsQuota<16>;
-	type NominationStalenessCurve = crate::LinearStalenessCurve<
-		StalenessGracePeriod,
-		StalenessDecayPeriod,
-		StalenessFloor,
-	>;
+	type NominationStalenessCurve =
+		crate::LinearStalenessCurve<StalenessGracePeriod, StalenessDecayPeriod, StalenessFloor>;
 	type MaxUnlockingChunks = MaxUnlockingChunks;
 	type HistoryDepth = HistoryDepth;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;

@@ -52,7 +52,7 @@ use sp_staking::{
 use crate::{
 	asset, election_size_tracker::StaticTracker, log, slashing, weights::WeightInfo, ActiveEraInfo,
 	BalanceOf, EraInfo, Exposure, Forcing, IndividualExposure, LedgerIntegrityState,
-	MaxNominationsOf, MaxWinnersOf, Nominations, NominationStalenessCurve, NominationsQuota,
+	MaxNominationsOf, MaxWinnersOf, NominationStalenessCurve, Nominations, NominationsQuota,
 	PositiveImbalanceOf, RewardDestination, SessionInterface, StakingLedger, UnlockChunk,
 	ValidatorPrefs, STAKING_ID,
 };
@@ -948,7 +948,7 @@ impl<T: Config> Pallet<T> {
 							voter,
 							eras_since_last_nomination,
 						);
-						continue
+						continue;
 					}
 
 					let voter = (voter, voter_weight, targets);

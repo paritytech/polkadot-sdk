@@ -253,8 +253,7 @@ pub mod nomination_staleness {
 	/// 2. Every nominator's `submitted_in` was reset to the current era.
 	#[cfg(feature = "try-runtime")]
 	pub fn post_upgrade_check<T: Config>(pre_state: Vec<u8>) -> Result<(), TryRuntimeError> {
-		let pre_count =
-			u64::decode(&mut pre_state.as_slice()).expect("encoded pre-upgrade count");
+		let pre_count = u64::decode(&mut pre_state.as_slice()).expect("encoded pre-upgrade count");
 		let post_count = Nominators::<T>::iter().count() as u64;
 		frame_support::ensure!(
 			pre_count == post_count,

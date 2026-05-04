@@ -900,7 +900,7 @@ impl<T: Config> Pallet<T> {
 							voter,
 							eras_since_last_nomination,
 						);
-						continue
+						continue;
 					}
 
 					let voter = (voter, voter_weight, targets);
