@@ -16101,6 +16101,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-bulletin-parachain"
+version = "0.1.0"
+dependencies = [
+ "assert_cmd",
+ "color-eyre",
+ "polkadot-jemalloc-shim",
+ "polkadot-omni-node-lib",
+ "substrate-build-script-utils",
+]
+
+[[package]]
 name = "polkadot-ckb-merkle-mountain-range"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
