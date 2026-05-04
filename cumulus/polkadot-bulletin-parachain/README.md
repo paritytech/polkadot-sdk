@@ -6,37 +6,39 @@ Custom parachain node for the Polkadot Bulletin Chain, built by composing
 Tracking: [polkadot-bulletin-chain#479](https://github.com/paritytech/polkadot-bulletin-chain/issues/479).
 Discussion: [polkadot-sdk#11662](https://github.com/paritytech/polkadot-sdk/pull/11662).
 
-## Status: Pass 1 of 2
+## What this delivers (Pass 1 + Pass 2)
 
-This PR delivers Pass 1: HOP is fully reverted out of `polkadot-omni-node-lib`,
-addressing the structural objection from @alindima and @sandreim that the
-generic omni-node should not carry Bulletin-specific protocol code.
+The PR is two commits, layered:
 
-The Bulletin-side HOP wiring (Pass 2) is a follow-up commit on this same PR.
-It adds a `NodeExtension` trait to the lib (a generic plug-in point for extra
-service tasks and RPC modules) and a `HopExtension` impl in this crate that
-builds the data pool, spawns the maintenance task, and registers the HOP RPC.
-That trait was already added in Pass 1; the threading through `AuraNode`,
-`NodeSpec`, `RunConfig`, and `run_with_custom_cli` is what Pass 2 finishes.
+1. **Pass 1 (revert)**: HOP physically removed from `polkadot-omni-node-lib`. The
+   `sc-hop` dep, `sp_hop::HopRuntimeApi` supertrait, `HopParams` CLI fields,
+   pool building, maintenance task spawn, and `HopRpcServer` registration are
+   all gone from the lib.
 
-| | Pass 1 (this commit) | Pass 2 (follow-up) |
-|---|---|---|
-| HOP code in `polkadot-omni-node-lib` | removed | still removed |
-| `NodeExtension` trait | added (no consumers yet) | threaded through lib startup |
-| Bulletin binary builds | yes | yes |
-| Bulletin `--version` | works | works |
-| Bulletin `--help` lists HOP flags | no (they followed the lib) | yes (from a Bulletin-owned `Cli` that flattens `HopParams`) |
-| HOP runtime wired | no | yes |
-| Live `--dev` block production | yes (no HOP) | yes (with HOP) |
+2. **Pass 2 (replicate)**: HOP wiring lives entirely in
+   `cumulus/polkadot-bulletin-parachain/`. The lib gains a generic
+   `NodeExtension<Block, RuntimeApi>` trait plus an object-safe
+   `NodeExtensionFactory` plug-in point on `RunConfig`. The Bulletin crate
+   provides a `HopExtension` impl that owns the `HopParams`, builds the
+   `HopDataPool` in `on_start`, spawns `hop-maintenance`, and registers
+   `HopRpcServer` in `build_rpc_extension`. The `polkadot-omni-node` binary is
+   unaffected (its `RunConfig::new` defaults the factory to a no-op
+   `NoNodeExtensionFactory`).
+
+The lib retains a no-op `HopRuntimeApi` stub in `fake_runtime_api/utils.rs`,
+purely to satisfy compile-time trait bounds. The stub is unreachable at
+runtime; the actual runtime is loaded from the chain spec wasm.
 
 ## Layout
 
 ```text
 cumulus/polkadot-bulletin-parachain/
-├── Cargo.toml      # depends on polkadot-omni-node-lib
+├── Cargo.toml
 ├── build.rs
-├── src/main.rs     # ~50 LOC wrapper around run_with_custom_cli
-├── tests/cli.rs    # version smoke test
+├── src/
+│   ├── main.rs           # entry point: CliConfig + RunConfig wiring
+│   └── hop_extension.rs  # HopExtension + HopExtensionFactory impls
+├── tests/cli.rs          # version smoke test
 └── README.md
 ```
 
@@ -51,8 +53,7 @@ cargo build -p polkadot-bulletin-parachain --release
 ./target/release/polkadot-bulletin-parachain --version
 ```
 
-Live `--dev` smoke run (cumulus-test-runtime as the runtime fixture, no HOP
-since cumulus-test-runtime does not implement `HopRuntimeApi`):
+Live dev-node smoke run (cumulus-test-runtime as runtime fixture):
 
 ```bash
 cargo build -p cumulus-test-runtime --release
@@ -65,18 +66,41 @@ cargo build -p cumulus-test-runtime --release
     --chain /tmp/bulletin-spec.json --dev --tmp --rpc-port 9944 --no-hardware-benchmarks
 ```
 
-This was verified locally: genesis initialized, runtime metadata V15 detected,
-JSON-RPC up, blocks #1, #2, #3 produced at the 3-second manual-seal cadence.
+What you should see in the logs:
 
-## Pass 2 design preview
+```text
+🪪 Parachain id: 100
+hop: Initializing HOP data pool params=HopParams { enable_hop: true, ... }
+hop: HOP data pool initialized, RPC methods will be registered
+hop: HOP enabled but runtime does not support HopRuntimeApi — running cleanup only
+🎁 Prepared block #1 ... 🏆 Imported #1
+🎁 Prepared block #2 ... 🏆 Imported #2
+🎁 Prepared block #3 ... 🏆 Imported #3
+```
 
-The lib gains a `NodeExtension<Block, RuntimeApi>` trait (already present after
-Pass 1) with default no-op `on_start` and `build_rpc_extension` methods. Pass 2
-threads an `Ext` generic parameter through `AuraNode`, `NodeSpec` impls,
-`new_aura_node_spec`, `command::new_node_spec`, `RunConfig`, and
-`run_with_custom_cli`, defaulting to `NoNodeExtension` so `polkadot-omni-node`
-is unaffected. The Bulletin binary supplies a `HopExtension` that owns the
-`HopParams` (parsed via a Bulletin-owned `Cli` that flattens them) and uses
-interior mutability (`Arc<OnceLock<Arc<HopDataPool>>>`) to share state between
-`on_start` (builds pool, spawns maintenance task) and `build_rpc_extension`
-(registers `HopRpcServer`).
+The HOP cleanup-only path is expected: cumulus-test-runtime is the stub
+runtime fixture and does not implement `HopRuntimeApi`. With a real Bulletin
+parachain runtime that does implement it, the `hop-maintenance` task would run
+the full promotion flow.
+
+## Pass 3 (follow-up)
+
+The HOP CLI flags are not exposed through `--help` yet. The bulletin's
+`main.rs` constructs `HopParams` via `HopParams::parse_from(["bulletin",
+"--enable-hop"])`, which uses defaults. To expose `--enable-hop`,
+`--hop-max-pool-size`, etc. as user-controllable flags, the Bulletin crate
+needs a `BulletinCli` that flattens `polkadot_omni_node_lib::Cli<CliConfig>`
+together with `sc_hop::HopParams`, plus a thin fork of
+`run_with_custom_cli` that uses the bulletin's `BulletinCli` instead of the
+lib's `Cli<Config>`. That work is a follow-up commit; the Pass 2 wiring is
+otherwise complete.
+
+## Branch layout
+
+- Base branch: `origin/hop-base` (PR #11662)
+- This work: `ndk/bulletin-parachain-poc`
+- Per @bkontur: if this approach is accepted, the contents of
+  `cumulus/polkadot-bulletin-parachain/` move to
+  `paritytech/polkadot-bulletin-chain`. The lib-side `NodeExtension` trait
+  + `NodeExtensionFactory` plug-in points stay in `polkadot-sdk` so other
+  parachains can use the same hook.
