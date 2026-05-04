@@ -18,7 +18,10 @@
 
 //! Substrate bitswap RPC API.
 //!
-//! Provides the `bitswap_v1_get` method for retrieving indexed transaction data by CID.
+//! Provides three methods for retrieving indexed transaction data by CID:
+//! - `bitswap_v1_get` — single CID, returns the chunk or a top-level error.
+//! - `bitswap_v1_getMany` — batch of CIDs, returns a vec of per-CID outcomes.
+//! - `bitswap_v1_stream` — subscription that emits per-CID outcomes as they are looked up.
 
 #[cfg(test)]
 mod tests;

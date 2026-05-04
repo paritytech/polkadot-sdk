@@ -37,6 +37,14 @@ pub enum Error {
 	/// Do not render the wrapped error to not expose the internal state to the remote caller.
 	#[error("Internal error")]
 	Internal(#[from] sp_blockchain::Error),
+	/// Caller passed more CIDs than `bitswap_v1_getMany` / `bitswap_v1_stream` will accept.
+	#[error("Too many CIDs: max {max}, got {got}")]
+	TooManyCids {
+		/// Maximum number of CIDs accepted in a single request.
+		max: usize,
+		/// Number of CIDs the caller passed.
+		got: usize,
+	},
 }
 
 /// Bitswap JSON-RPC error categories, according to the spec.
@@ -46,8 +54,6 @@ enum ErrorCode {
 	InvalidParams = -32602,
 	/// Must not retry.
 	Fail = -32810,
-	/// Can retry immediately, but rate limiting is encouraged.
-	_FailRetry = -32811,
 	/// Can retry with a backoff of 1-5 seconds.
 	FailRetryBackoff = -32812,
 }
@@ -88,6 +94,11 @@ impl From<Error> for ErrorObject<'static> {
 					Some(ErrorData { variant: "Internal" }),
 				)
 			},
+			Error::TooManyCids { .. } => ErrorObject::owned(
+				ErrorCode::InvalidParams as i32,
+				msg,
+				Some(ErrorData { variant: "TooManyCids" }),
+			),
 		}
 	}
 }

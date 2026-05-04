@@ -16,14 +16,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Implementation of the `bitswap_v1_get` RPC method.
+//! Implementation of the bitswap RPC methods.
 //!
-//! See <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_get.md>
+//! See the JSON-RPC interface spec:
+//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_get.md>
+//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_getMany.md>
+//! - <https://github.com/paritytech/json-rpc-interface-spec/blob/main/src/api/bitswap_v1_stream.md>
 
-use crate::bitswap::{api::BitswapApiServer, error::Error};
+use crate::{
+	bitswap::{
+		api::{BitswapApiServer, BlockResult},
+		error::Error,
+	},
+	SubscriptionTaskExecutor,
+};
 use cid::Cid;
-use jsonrpsee::core::RpcResult;
+use jsonrpsee::{core::RpcResult, PendingSubscriptionSink};
 use sc_client_api::BlockBackend;
+use sc_rpc::utils::Subscription;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
 use std::sync::Arc;
@@ -36,10 +46,15 @@ const LOG_TARGET: &str = "rpc-spec-v2";
 const SHA2_256: u64 = 0x12;
 const BLAKE2B_256: u64 = 0xb220;
 
+/// Maximum number of CIDs accepted by `bitswap_v1_getMany` and `bitswap_v1_stream`
+/// in a single request. Bounds worst-case response at ≤128 MiB (64 × 2 MiB/chunk).
+pub const MAX_CIDS_PER_REQUEST: usize = 64;
+
 /// Bitswap RPC implementation.
 pub struct Bitswap<Block, Client> {
 	client: Arc<Client>,
 	sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
+	executor: SubscriptionTaskExecutor,
 	_phantom: std::marker::PhantomData<Block>,
 }
 
@@ -48,9 +63,37 @@ impl<Block, Client> Bitswap<Block, Client> {
 	pub fn new(
 		client: Arc<Client>,
 		sync_oracle: Arc<dyn sp_consensus::SyncOracle + Send + Sync>,
+		executor: SubscriptionTaskExecutor,
 	) -> Self {
-		Self { client, sync_oracle, _phantom: std::marker::PhantomData }
+		Self { client, sync_oracle, executor, _phantom: std::marker::PhantomData }
 	}
+}
+
+/// Parse a CID string and validate it (CIDv1, sha2-256 or blake2b-256, 32-byte digest).
+fn parse_and_validate_cid(cid_str: &str) -> Result<H256, Error> {
+	let cid = Cid::try_from(cid_str).map_err(|e| Error::InvalidCid(format!("{e}")))?;
+
+	// Only CIDv1 version is supported according to the spec.
+	if cid.version() != cid::Version::V1 {
+		return Err(Error::InvalidCid("Only CIDv1 is supported".into()));
+	}
+
+	let hash = cid.hash();
+
+	// Only sha2-256 & blake2b-256 hash functions are supported according to the spec.
+	if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 {
+		return Err(Error::InvalidCid(
+			"Only sha2-256 & blake2b-256 hash functions are supported".into(),
+		));
+	}
+
+	// `H256::from_slice` panics below if the size is incorrect, so double-check the size is
+	// correct, even though we checked the hash function type above.
+	if hash.size() != 32 {
+		return Err(Error::InvalidCid("Only 256-bit hash digests are supported".into()));
+	}
+
+	Ok(H256::from_slice(hash.digest()))
 }
 
 impl<Block, Client> BitswapApiServer for Bitswap<Block, Client>
@@ -59,30 +102,7 @@ where
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	fn bitswap_v1_get(&self, cid_str: String) -> RpcResult<String> {
-		let cid = Cid::try_from(cid_str.as_str()).map_err(|e| Error::InvalidCid(format!("{e}")))?;
-
-		// Only CIDv1 version is supported according to the spec.
-		if cid.version() != cid::Version::V1 {
-			return Err(Error::InvalidCid("Only CIDv1 is supported".into()).into());
-		}
-
-		let hash = cid.hash();
-
-		// Only sha2-256 & blake2b-256 hash functions are supported according to the spec.
-		if hash.code() != SHA2_256 && hash.code() != BLAKE2B_256 {
-			return Err(Error::InvalidCid(
-				"Only sha2-256 & blake2b-256 hash functions are supported".into(),
-			)
-			.into());
-		}
-
-		// `H256::from_slice` panics below if the size is incorrect, so double-check the size is
-		// correct, even though we checked the hash function type above.
-		if hash.size() != 32 {
-			return Err(Error::InvalidCid("Only 256-bit hash digests are supported".into()).into());
-		}
-
-		let digest = H256::from_slice(hash.digest());
+		let digest = parse_and_validate_cid(&cid_str)?;
 
 		match self.client.indexed_transaction(digest) {
 			Ok(Some(data)) => Ok(crate::hex_string(&data)),
@@ -102,5 +122,76 @@ where
 				Err(Error::Internal(err).into())
 			},
 		}
+	}
+
+	fn bitswap_v1_get_many(
+		&self,
+		cids: Vec<String>,
+	) -> RpcResult<Vec<(String, BlockResult)>> {
+		// TODO: when syncing, fall back per-CID to a peer-side Bitswap fetch and
+		// write the result back to the local DB. Needs a coherence story for
+		// concurrent writes during major sync.
+		if self.sync_oracle.is_major_syncing() {
+			return Err(Error::MajorSyncing.into());
+		}
+		if cids.len() > MAX_CIDS_PER_REQUEST {
+			return Err(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() }.into());
+		}
+
+		Ok(cids.into_iter().map(|cid_str| {
+			let result = lookup_one(&self.client, &cid_str);
+			(cid_str, result)
+		}).collect())
+	}
+
+	fn bitswap_v1_stream(&self, pending: PendingSubscriptionSink, cids: Vec<String>) {
+		let client = self.client.clone();
+		let sync_oracle = self.sync_oracle.clone();
+
+		let fut = async move {
+			// TODO: see `bitswap_v1_get_many`.
+			if sync_oracle.is_major_syncing() {
+				pending.reject(Error::MajorSyncing).await;
+				return;
+			}
+			if cids.len() > MAX_CIDS_PER_REQUEST {
+				pending
+					.reject(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() })
+					.await;
+				return;
+			}
+
+			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
+
+			for cid_str in cids {
+				let result = lookup_one(&client, &cid_str);
+				if sink.send(&(cid_str, result)).await.is_err() {
+					return;
+				}
+			}
+		};
+
+		sc_rpc::utils::spawn_subscription_task(&self.executor, fut);
+	}
+}
+
+/// Validate the CID and look up the chunk locally. `Err` only ever wraps
+/// `InvalidCid` or `NotFound` — top-level rejections are handled by the caller.
+fn lookup_one<Block, Client>(client: &Arc<Client>, cid_str: &str) -> BlockResult
+where
+	Block: BlockT,
+	Client: BlockBackend<Block> + Send + Sync + 'static,
+{
+	let digest = match parse_and_validate_cid(cid_str) {
+		Ok(d) => d,
+		Err(e) => return BlockResult::from(e),
+	};
+	match client.indexed_transaction(digest) {
+		Ok(Some(data)) => BlockResult::Ok(crate::hex_string(&data)),
+		Ok(None) => BlockResult::from(Error::NotFound),
+		Err(err) => {
+			log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
+			BlockResult::from(Error::NotFound)
+		},
 	}
 }

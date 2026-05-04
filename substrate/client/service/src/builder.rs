@@ -943,7 +943,9 @@ where
 	.into_rpc();
 
 	// Bitswap RPC-v2 (do not confuse with v1 from `bitswap_v1_get`).
-	let bitswap_v2 = sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle).into_rpc();
+	let bitswap_v2 =
+		sc_rpc_spec_v2::bitswap::Bitswap::new(client.clone(), sync_oracle, task_executor.clone())
+			.into_rpc();
 
 	let author = sc_rpc::author::Author::new(
 		client.clone(),
