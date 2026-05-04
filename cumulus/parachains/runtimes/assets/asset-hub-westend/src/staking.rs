@@ -296,6 +296,7 @@ impl pallet_staking_async::Config for Runtime {
 	type TargetList = UseValidatorsMap<Self>;
 	type MaxValidatorSet = MaxValidatorSet;
 	type NominationsQuota = pallet_staking_async::FixedNominationsQuota<{ MaxNominations::get() }>;
+	type NominationStalenessCurve = pallet_staking_async::NoNominationStaleness;
 	type MaxUnlockingChunks = frame_support::traits::ConstU32<32>;
 	type HistoryDepth = frame_support::traits::ConstU32<84>;
 	type MaxControllersInDeprecationBatch = MaxControllersInDeprecationBatch;
