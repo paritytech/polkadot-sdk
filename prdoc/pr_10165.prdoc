@@ -1,0 +1,19 @@
+title: 'YAP runtime: enable local dev mode and tune elastic scaling parameters'
+
+doc:
+  - audience: Runtime Dev
+    description: |
+      Updates the Yet Another Parachain (YAP) testing runtime to make local
+      development easier and to exercise higher elastic scaling throughput:
+
+      - Adds a `dev` cargo feature that sets `RELAY_PARENT_OFFSET = 0` so the
+        runtime can be run locally with `polkadot-omni-node --dev` without a
+        live relay chain.
+      - Bumps `BLOCK_PROCESSING_VELOCITY` from 3 to 12 and derives
+        `UNINCLUDED_SEGMENT_CAPACITY` from `(3 + RELAY_PARENT_OFFSET) * BLOCK_PROCESSING_VELOCITY`.
+      - Adds a README with build and run instructions for the dev setup.
+      - Bumps `spec_version` to `1_003_002`.
+
+crates:
+  - name: yet-another-parachain-runtime
+    bump: patch
