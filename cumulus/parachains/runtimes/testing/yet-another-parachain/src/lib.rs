@@ -100,7 +100,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	spec_name: Cow::Borrowed("yet-another-parachain"),
 	impl_name: Cow::Borrowed("yet-another-parachain"),
 	authoring_version: 1,
-	spec_version: 1_003_001,
+	spec_version: 1_003_002,
 	impl_version: 0,
 	apis: RUNTIME_API_VERSIONS,
 	transaction_version: 6,
@@ -484,12 +484,6 @@ impl pallet_verify_signature::Config for Runtime {
 	type BenchmarkHelper = VerifySignatureBenchmarkHelper;
 }
 
-impl cumulus_tic_tac_toe::Config for Runtime {
-	type RuntimeEvent = RuntimeEvent;
-	type Currency = Balances;
-	type RcBlockNumberProvider = cumulus_pallet_parachain_system::RelaychainDataProvider<Runtime>;
-}
-
 #[frame_support::runtime]
 mod runtime {
 	#[runtime::runtime]
@@ -517,9 +511,6 @@ mod runtime {
 	pub type TransactionPayment = pallet_transaction_payment;
 	#[runtime::pallet_index(4)]
 	pub type WeightReclaim = cumulus_pallet_weight_reclaim;
-
-	#[runtime::pallet_index(5)]
-	pub type TicTacToe = cumulus_tic_tac_toe;
 
 	#[runtime::pallet_index(20)]
 	pub type ParachainSystem = cumulus_pallet_parachain_system;
@@ -790,13 +781,6 @@ impl_runtime_apis! {
 	impl cumulus_primitives_core::GetParachainInfo<Block> for Runtime {
 		fn parachain_id() -> ParaId {
 			ParachainInfo::parachain_id()
-		}
-	}
-
-	impl cumulus_tic_tac_toe::TicTacToeApi<Block, AccountId> for Runtime {
-		fn get_player_game(player: AccountId) -> Option<(u32, cumulus_tic_tac_toe::Game<AccountId>)> {
-			TicTacToe::get_player_game(&player)
-				.map(|(game_id, game)| (game_id, cumulus_tic_tac_toe::Game::from_pallet_game(game)))
 		}
 	}
 }
