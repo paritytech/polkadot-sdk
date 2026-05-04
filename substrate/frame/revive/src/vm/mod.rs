@@ -36,7 +36,7 @@ use crate::{
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
-use pallet_revive_types::storage::{BytecodeTypeV1, CodeInfoV2};
+use pallet_revive_types::storage as storage_types;
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
 use sp_runtime::{DispatchError, Saturating};
@@ -101,7 +101,7 @@ pub struct CodeInfo<T: Config> {
 	behaviour_version: u32,
 }
 
-impl From<BytecodeType> for BytecodeTypeV1 {
+impl From<BytecodeType> for storage_types::BytecodeTypeV1 {
 	fn from(value: BytecodeType) -> Self {
 		match value {
 			BytecodeType::Pvm => Self::Pvm,
@@ -110,16 +110,16 @@ impl From<BytecodeType> for BytecodeTypeV1 {
 	}
 }
 
-impl From<BytecodeTypeV1> for BytecodeType {
-	fn from(value: BytecodeTypeV1) -> Self {
+impl From<storage_types::BytecodeTypeV1> for BytecodeType {
+	fn from(value: storage_types::BytecodeTypeV1) -> Self {
 		match value {
-			BytecodeTypeV1::Pvm => Self::Pvm,
-			BytecodeTypeV1::Evm => Self::Evm,
+			storage_types::BytecodeTypeV1::Pvm => Self::Pvm,
+			storage_types::BytecodeTypeV1::Evm => Self::Evm,
 		}
 	}
 }
 
-impl<T: Config> From<CodeInfo<T>> for CodeInfoV2<AccountIdOf<T>, BalanceOf<T>> {
+impl<T: Config> From<CodeInfo<T>> for storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>> {
 	fn from(value: CodeInfo<T>) -> Self {
 		Self {
 			owner: value.owner,
@@ -132,8 +132,8 @@ impl<T: Config> From<CodeInfo<T>> for CodeInfoV2<AccountIdOf<T>, BalanceOf<T>> {
 	}
 }
 
-impl<T: Config> From<CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>> for CodeInfo<T> {
-	fn from(value: CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>) -> Self {
+impl<T: Config> From<storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>> for CodeInfo<T> {
+	fn from(value: storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>) -> Self {
 		Self {
 			owner: value.owner,
 			deposit: value.deposit,

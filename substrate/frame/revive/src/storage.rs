@@ -48,9 +48,7 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use pallet_revive_types::storage::{
-	AccountInfoV1, AccountTypeV1, ContractInfoV1, DeletionQueueManagerV1, TrieIdV1,
-};
+use pallet_revive_types::storage as storage_types;
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
@@ -152,10 +150,12 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 	}
 }
 
-impl<T: Config> From<ContractInfo<T>> for ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }> {
+impl<T: Config> From<ContractInfo<T>>
+	for storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>
+{
 	fn from(value: ContractInfo<T>) -> Self {
 		Self {
-			trie_id: TrieIdV1(value.trie_id.into()),
+			trie_id: storage_types::TrieIdV1(value.trie_id.into()),
 			code_hash: value.code_hash,
 			storage_bytes: value.storage_bytes,
 			storage_items: value.storage_items,
@@ -167,8 +167,10 @@ impl<T: Config> From<ContractInfo<T>> for ContractInfoV1<BalanceOf<T>, { limits:
 	}
 }
 
-impl<T: Config> From<ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> for ContractInfo<T> {
-	fn from(value: ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
+impl<T: Config> From<storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>>
+	for ContractInfo<T>
+{
+	fn from(value: storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
 		Self {
 			trie_id: value.trie_id.0.0,
 			code_hash: value.code_hash,
@@ -182,7 +184,9 @@ impl<T: Config> From<ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> fo
 	}
 }
 
-impl<T: Config> From<AccountType<T>> for AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }> {
+impl<T: Config> From<AccountType<T>>
+	for storage_types::AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>
+{
 	fn from(value: AccountType<T>) -> Self {
 		match value {
 			AccountType::Contract(contract) => Self::Contract(contract.into()),
@@ -191,23 +195,29 @@ impl<T: Config> From<AccountType<T>> for AccountTypeV1<BalanceOf<T>, { limits::T
 	}
 }
 
-impl<T: Config> From<AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> for AccountType<T> {
-	fn from(value: AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
+impl<T: Config> From<storage_types::AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>>
+	for AccountType<T>
+{
+	fn from(value: storage_types::AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
 		match value {
-			AccountTypeV1::Contract(contract) => Self::Contract(contract.into()),
-			AccountTypeV1::EOA => Self::EOA,
+			storage_types::AccountTypeV1::Contract(contract) => Self::Contract(contract.into()),
+			storage_types::AccountTypeV1::EOA => Self::EOA,
 		}
 	}
 }
 
-impl<T: Config> From<AccountInfo<T>> for AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }> {
+impl<T: Config> From<AccountInfo<T>>
+	for storage_types::AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>
+{
 	fn from(value: AccountInfo<T>) -> Self {
 		Self { account_type: value.account_type.into(), dust: value.dust }
 	}
 }
 
-impl<T: Config> From<AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> for AccountInfo<T> {
-	fn from(value: AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
+impl<T: Config> From<storage_types::AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>>
+	for AccountInfo<T>
+{
+	fn from(value: storage_types::AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
 		Self { account_type: value.account_type.into(), dust: value.dust }
 	}
 }
@@ -598,14 +608,14 @@ pub struct DeletionQueueManager<T: Config> {
 	_phantom: PhantomData<T>,
 }
 
-impl<T: Config> From<DeletionQueueManager<T>> for DeletionQueueManagerV1 {
+impl<T: Config> From<DeletionQueueManager<T>> for storage_types::DeletionQueueManagerV1 {
 	fn from(value: DeletionQueueManager<T>) -> Self {
 		Self { insert_counter: value.insert_counter, delete_counter: value.delete_counter }
 	}
 }
 
-impl<T: Config> From<DeletionQueueManagerV1> for DeletionQueueManager<T> {
-	fn from(value: DeletionQueueManagerV1) -> Self {
+impl<T: Config> From<storage_types::DeletionQueueManagerV1> for DeletionQueueManager<T> {
+	fn from(value: storage_types::DeletionQueueManagerV1) -> Self {
 		Self {
 			insert_counter: value.insert_counter,
 			delete_counter: value.delete_counter,

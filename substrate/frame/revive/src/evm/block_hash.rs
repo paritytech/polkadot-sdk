@@ -33,7 +33,7 @@ use alloc::vec::Vec;
 use alloy_core::primitives::{B256, bytes::BufMut};
 
 use codec::{Decode, Encode};
-use pallet_revive_types::storage::{ReceiptGasInfoV1, ReceiptInfoDataV1};
+use pallet_revive_types::storage as storage_types;
 use scale_info::TypeInfo;
 use sp_core::{H256, U256};
 
@@ -48,14 +48,14 @@ pub struct ReceiptGasInfo {
 	pub effective_gas_price: U256,
 }
 
-impl From<ReceiptGasInfo> for ReceiptGasInfoV1 {
+impl From<ReceiptGasInfo> for storage_types::ReceiptGasInfoV1 {
 	fn from(value: ReceiptGasInfo) -> Self {
 		Self { gas_used: value.gas_used, effective_gas_price: value.effective_gas_price }
 	}
 }
 
-impl From<ReceiptGasInfoV1> for ReceiptGasInfo {
-	fn from(value: ReceiptGasInfoV1) -> Self {
+impl From<storage_types::ReceiptGasInfoV1> for ReceiptGasInfo {
+	fn from(value: storage_types::ReceiptGasInfoV1) -> Self {
 		Self { gas_used: value.gas_used, effective_gas_price: value.effective_gas_price }
 	}
 }
@@ -79,14 +79,14 @@ impl From<ReceiptInfoDataValue> for Vec<ReceiptGasInfo> {
 	}
 }
 
-impl From<ReceiptInfoDataValue> for ReceiptInfoDataV1 {
+impl From<ReceiptInfoDataValue> for storage_types::ReceiptInfoDataV1 {
 	fn from(value: ReceiptInfoDataValue) -> Self {
 		Self(value.receipt_data.into_iter().map(Into::into).collect())
 	}
 }
 
-impl From<ReceiptInfoDataV1> for ReceiptInfoDataValue {
-	fn from(value: ReceiptInfoDataV1) -> Self {
+impl From<storage_types::ReceiptInfoDataV1> for ReceiptInfoDataValue {
+	fn from(value: storage_types::ReceiptInfoDataV1) -> Self {
 		Self { receipt_data: value.0.into_iter().map(Into::into).collect() }
 	}
 }

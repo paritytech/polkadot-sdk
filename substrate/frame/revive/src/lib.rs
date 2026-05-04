@@ -88,7 +88,7 @@ use frame_system::{
 	Pallet as System, ensure_signed,
 	pallet_prelude::{BlockNumberFor, OriginFor},
 };
-use pallet_revive_types::storage::*;
+use pallet_revive_types::storage as storage_types;
 use scale_info::TypeInfo;
 use sp_runtime::{
 	AccountId32, DispatchError, FixedPointNumber, FixedU128, SaturatedConversion,
@@ -674,7 +674,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type PristineCode<T: Config> =
-		StorageMap<_, Identity, H256, StorageCodecWrapper<Vec<u8>, PristineCodeV1>>;
+		StorageMap<_, Identity, H256, StorageCodecWrapper<Vec<u8>, storage_types::PristineCodeV1>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
@@ -682,7 +682,7 @@ pub mod pallet {
 		_,
 		Identity,
 		H256,
-		StorageCodecWrapper<CodeInfo<T>, CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>>,
+		StorageCodecWrapper<CodeInfo<T>, storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>>,
 	>;
 
 	/// The data associated to a contract or externally owned account.
@@ -691,7 +691,10 @@ pub mod pallet {
 		_,
 		Identity,
 		H160,
-		StorageCodecWrapper<AccountInfo<T>, AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>>,
+		StorageCodecWrapper<
+			AccountInfo<T>,
+			storage_types::AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>,
+		>,
 	>;
 
 	/// The immutable data associated with a given account.
@@ -700,7 +703,10 @@ pub mod pallet {
 		_,
 		Identity,
 		H160,
-		StorageCodecWrapper<ImmutableData, ImmutableDataV1<{ limits::IMMUTABLE_BYTES }>>,
+		StorageCodecWrapper<
+			ImmutableData,
+			storage_types::ImmutableDataV1<{ limits::IMMUTABLE_BYTES }>,
+		>,
 	>;
 
 	/// Evicted contracts that await child trie deletion.
@@ -712,7 +718,7 @@ pub mod pallet {
 		_,
 		Twox64Concat,
 		u32,
-		StorageCodecWrapper<TrieId, DeletionQueueV1<{ limits::TRIE_ID_BYTES }>>,
+		StorageCodecWrapper<TrieId, storage_types::DeletionQueueV1<{ limits::TRIE_ID_BYTES }>>,
 	>;
 
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
@@ -720,7 +726,7 @@ pub mod pallet {
 	#[pallet::storage]
 	pub(crate) type DeletionQueueCounter<T: Config> = StorageValue<
 		_,
-		StorageCodecWrapper<DeletionQueueManager<T>, DeletionQueueManagerV1>,
+		StorageCodecWrapper<DeletionQueueManager<T>, storage_types::DeletionQueueManagerV1>,
 		ValueQuery,
 	>;
 
@@ -735,7 +741,7 @@ pub mod pallet {
 		_,
 		Identity,
 		H160,
-		StorageCodecWrapper<AccountId32, OriginalAccountV1<AccountId32>>,
+		StorageCodecWrapper<AccountId32, storage_types::OriginalAccountV1<AccountId32>>,
 	>;
 
 	/// The current Ethereum block that is stored in the `on_finalize` method.
@@ -750,7 +756,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::unbounded]
 	pub(crate) type EthereumBlock<T> =
-		StorageValue<_, StorageCodecWrapper<EthBlock, EthereumBlockV1>, ValueQuery>;
+		StorageValue<_, StorageCodecWrapper<EthBlock, storage_types::EthereumBlockV1>, ValueQuery>;
 
 	/// Mapping for block number and hashes.
 	///
@@ -760,7 +766,7 @@ pub mod pallet {
 		_,
 		Identity,
 		BlockNumberFor<T>,
-		StorageCodecWrapper<H256, BlockHashV1>,
+		StorageCodecWrapper<H256, storage_types::BlockHashV1>,
 		ValueQuery,
 	>;
 
@@ -772,8 +778,11 @@ pub mod pallet {
 	/// It could otherwise inflate the PoV size of a block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type ReceiptInfoData<T: Config> =
-		StorageValue<_, StorageCodecWrapper<ReceiptInfoDataValue, ReceiptInfoDataV1>, ValueQuery>;
+	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<
+		_,
+		StorageCodecWrapper<ReceiptInfoDataValue, storage_types::ReceiptInfoDataV1>,
+		ValueQuery,
+	>;
 
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
@@ -789,14 +798,20 @@ pub mod pallet {
 	#[pallet::unbounded]
 	pub(crate) type EthBlockBuilderFirstValues<T: Config> = StorageValue<
 		_,
-		StorageCodecWrapper<Option<(Vec<u8>, Vec<u8>)>, EthBlockBuilderFirstValuesV1>,
+		StorageCodecWrapper<
+			Option<(Vec<u8>, Vec<u8>)>,
+			storage_types::EthBlockBuilderFirstValuesV1,
+		>,
 		ValueQuery,
 	>;
 
 	/// Debugging settings that can be configured when DebugEnabled config is true.
 	#[pallet::storage]
-	pub(crate) type DebugSettingsOf<T: Config> =
-		StorageValue<_, StorageCodecWrapper<DebugSettings, DebugSettingsV1>, ValueQuery>;
+	pub(crate) type DebugSettingsOf<T: Config> = StorageValue<
+		_,
+		StorageCodecWrapper<DebugSettings, storage_types::DebugSettingsV1>,
+		ValueQuery,
+	>;
 
 	pub mod genesis {
 		use super::*;

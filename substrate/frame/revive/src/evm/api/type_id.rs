@@ -17,6 +17,7 @@
 //! Ethereum Typed Transaction types
 use super::Byte;
 use codec::{Decode, DecodeWithMemTracking, Encode};
+use pallet_revive_types::storage as storage_types;
 use paste::paste;
 use rlp::Decodable;
 use scale_info::TypeInfo;
@@ -109,14 +110,14 @@ macro_rules! transaction_type {
 		}
 
 		paste! {
-			impl From<$name> for pallet_revive_types::storage::[<$name V1>] {
+			impl From<$name> for storage_types::[<$name V1>] {
 				fn from(_: $name) -> Self {
 					Self
 				}
 			}
 
-			impl From<pallet_revive_types::storage::[<$name V1>]> for $name {
-				fn from(_: pallet_revive_types::storage::[<$name V1>]) -> Self {
+			impl From<storage_types::[<$name V1>]> for $name {
+				fn from(_: storage_types::[<$name V1>]) -> Self {
 					Self
 				}
 			}
