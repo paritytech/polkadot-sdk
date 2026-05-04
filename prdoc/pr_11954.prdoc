@@ -1,0 +1,21 @@
+title: "Cumulus: introduce authority discovery for parachains"
+
+doc:
+  - audience: Node Dev
+    description: |
+      Adds authority discovery support for parachains to keep all parachain
+      collators connected to each other as reserved peers on the block-announce
+      protocol. This makes block propagation between collators more reliable
+      under churn.
+
+      Enabling this on a parachain requires adding `pallet-authority-discovery`
+      (and `pallet-session` to feed it) to the runtime and exposing
+      `AuthorityDiscoveryApi` and setting up the authority discovery keys.
+
+crates:
+  - name: cumulus-client-collator-mesh
+    bump: major
+  - name: polkadot-omni-node-lib
+    bump: minor
+  - name: sc-network-sync
+    bump: minor
