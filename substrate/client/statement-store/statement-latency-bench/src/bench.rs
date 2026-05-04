@@ -41,7 +41,7 @@ use jsonrpsee::{
 use log::{debug, info, warn};
 use sc_statement_store::test_utils::get_keypair;
 use serde::{Deserialize, Serialize};
-use sp_core::{blake2_256, bounded_vec::BoundedVec, Bytes, ConstU32};
+use sp_core::{blake2_256, bounded_vec::BoundedVec, sr25519, Bytes, ConstU32, Pair};
 use sp_statement_store::{Statement, StatementEvent, SubmitResult, Topic, TopicFilter};
 use std::{
 	collections::{HashMap, HashSet},
@@ -89,6 +89,11 @@ struct Args {
 	/// Stop immediately on first round failure instead of continuing
 	#[arg(long, default_value = "false")]
 	fail_fast: bool,
+
+	/// Optional comma-separated SURIs / seed phrases. Clients pick a seed
+	/// round-robin (`seeds[client_id % seeds.len()]`)
+	#[arg(long, value_delimiter = ',')]
+	seed: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,6 +219,7 @@ struct ClientConfig {
 	interval_ms: u64,
 	statement_expiry_ms: u64,
 	fail_fast: bool,
+	seed: Option<String>,
 }
 
 async fn execute_round(
@@ -263,7 +269,7 @@ async fn execute_round(
 	for &(count, size) in messages_pattern {
 		for _ in 0..count {
 			let topic = generate_topic(test_run_id, client_id, round, sent_count);
-			let channel = blake2_256(sent_count.to_le_bytes().as_ref());
+			let channel = blake2_256(format!("{client_id}-{sent_count}").as_bytes());
 
 			let expiry_timestamp = (std::time::SystemTime::now()
 				.duration_since(std::time::UNIX_EPOCH)
@@ -383,7 +389,10 @@ async fn run_client(
 		..
 	} = &config;
 
-	let keyring = get_keypair(client_id);
+	let keyring = match &config.seed {
+		Some(suri) => sr25519::Pair::from_string(suri, None).expect("--seed validated at startup"),
+		None => get_keypair(client_id),
+	};
 
 	// Same cancel-safety caveat as the inter-round barrier: if any peer never reaches
 	// this point, the rest would block forever without a timeout.
@@ -493,6 +502,11 @@ async fn main() -> Result<(), anyhow::Error> {
 		));
 	}
 
+	for seed in &args.seed {
+		sr25519::Pair::from_string(seed, None)
+			.map_err(|e| anyhow!("Invalid SURI in --seed: {e:?}"))?;
+	}
+
 	log_configuration(&args, &messages_pattern);
 
 	let rpc_clients = connect_to_endpoints(&args.rpc_endpoints).await?;
@@ -515,6 +529,11 @@ async fn main() -> Result<(), anyhow::Error> {
 				interval_ms: args.interval_ms,
 				statement_expiry_ms: args.statement_expiry_ms,
 				fail_fast: args.fail_fast,
+				seed: if args.seed.is_empty() {
+					None
+				} else {
+					Some(args.seed[client_id as usize % args.seed.len()].clone())
+				},
 			};
 			let node_idx = (client_id as usize) % rpc_clients.len();
 			let rpc_client = Arc::clone(&rpc_clients[node_idx]);

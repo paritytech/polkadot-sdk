@@ -1763,6 +1763,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
  "pallet-authorship",
@@ -1790,6 +1791,7 @@ dependencies = [
  "pallet-preimage",
  "pallet-proxy",
  "pallet-psm",
+ "pallet-recovery",
  "pallet-referenda",
  "pallet-revive",
  "pallet-revive-fixtures",
@@ -3231,6 +3233,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
@@ -3239,7 +3242,6 @@ dependencies = [
  "pallet-bridge-parachains",
  "pallet-bridge-relayers",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-multisig",
  "pallet-session",
@@ -3874,6 +3876,7 @@ dependencies = [
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-alliance",
  "pallet-asset-rate",
  "pallet-aura",
@@ -3883,7 +3886,6 @@ dependencies = [
  "pallet-collective",
  "pallet-collective-content",
  "pallet-core-fellowship",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -4237,12 +4239,12 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-broker",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-meta-tx",
  "pallet-multisig",
@@ -6550,12 +6552,12 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex-literal",
+ "pallet-accumulate-and-forward",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
  "pallet-bridge-messages",
  "pallet-dap",
- "pallet-dap-satellite",
  "pallet-message-queue",
  "pallet-whitelist",
  "pallet-xcm",
@@ -12111,6 +12113,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-accumulate-and-forward"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core 28.0.0",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "pallet-ah-ops"
 version = "0.1.0"
 dependencies = [
@@ -12970,24 +12988,6 @@ dependencies = [
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-staking",
-]
-
-[[package]]
-name = "pallet-dap-satellite"
-version = "0.1.0"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "log",
- "pallet-balances",
- "pallet-dap",
- "parity-scale-codec",
- "scale-info",
- "sp-core 28.0.0",
- "sp-dap",
- "sp-io 30.0.0",
- "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14068,10 +14068,16 @@ dependencies = [
 name = "pallet-recovery"
 version = "28.0.0"
 dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
  "pallet-balances",
+ "pallet-utility",
  "parity-scale-codec",
  "polkadot-sdk-frame",
  "scale-info",
+ "sp-io 30.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
@@ -14135,6 +14141,9 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",
@@ -15697,11 +15706,11 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "frame-try-runtime",
+ "pallet-accumulate-and-forward",
  "pallet-aura",
  "pallet-authorship",
  "pallet-balances",
  "pallet-collator-selection",
- "pallet-dap-satellite",
  "pallet-identity",
  "pallet-message-queue",
  "pallet-meta-tx",
@@ -16093,9 +16102,9 @@ dependencies = [
 
 [[package]]
 name = "polkadot-ckb-merkle-mountain-range"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "221c71b432b38e494a0fdedb5f720e4cb974edf03a0af09e5b2238dbac7e6947"
+checksum = "f70a16374b7a26b74bfb4788254f8fd64c3406034e81694142cf93f1dd59368f"
 dependencies = [
  "cfg-if",
  "itertools 0.10.5",
@@ -17378,6 +17387,7 @@ dependencies = [
  "generate-bags",
  "mmr-gadget",
  "mmr-rpc",
+ "pallet-accumulate-and-forward",
  "pallet-alliance",
  "pallet-asset-conversion",
  "pallet-asset-conversion-ops",
@@ -17416,7 +17426,6 @@ dependencies = [
  "pallet-conviction-voting",
  "pallet-core-fellowship",
  "pallet-dap",
- "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-democracy",
  "pallet-derivatives",
@@ -17640,6 +17649,7 @@ dependencies = [
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
+ "sp-hop",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -19680,6 +19690,7 @@ dependencies = [
  "pallet-psm-remote-tests",
  "sp-core 28.0.0",
  "sp-tracing 16.0.0",
+ "staging-xcm",
  "tokio",
 ]
 
@@ -24963,6 +24974,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-hop"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
+]
+
+[[package]]
 name = "sp-inherents"
 version = "26.0.0"
 dependencies = [
@@ -26159,6 +26179,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "impl-trait-for-tuples",
+ "pallet-accumulate-and-forward",
  "pallet-asset-conversion",
  "pallet-assets",
  "pallet-balances",
@@ -26174,7 +26195,6 @@ dependencies = [
  "scale-info",
  "sp-arithmetic 23.0.0",
  "sp-core 28.0.0",
- "sp-dap",
  "sp-io 30.0.0",
  "sp-runtime 31.0.1",
  "sp-tracing 16.0.0",
@@ -29907,6 +29927,7 @@ dependencies = [
  "frame-try-runtime",
  "hex-literal",
  "log",
+ "pallet-accumulate-and-forward",
  "pallet-asset-rate",
  "pallet-authority-discovery",
  "pallet-authorship",
@@ -29915,7 +29936,6 @@ dependencies = [
  "pallet-balances",
  "pallet-beefy",
  "pallet-beefy-mmr",
- "pallet-dap-satellite",
  "pallet-delegated-staking",
  "pallet-election-provider-multi-phase",
  "pallet-election-provider-support-benchmarking",
@@ -29935,7 +29955,6 @@ dependencies = [
  "pallet-parameters",
  "pallet-preimage",
  "pallet-proxy",
- "pallet-recovery",
  "pallet-root-offences",
  "pallet-root-testing",
  "pallet-scheduler",
