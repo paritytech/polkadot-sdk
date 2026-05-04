@@ -693,7 +693,12 @@ pub mod pallet {
 
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
-	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<_, Identity, H160, ImmutableData>;
+	pub(crate) type ImmutableDataOf<T: Config> = StorageMap<
+		_,
+		Identity,
+		H160,
+		StorageCodecWrapper<ImmutableData, ImmutableDataV1<{ limits::IMMUTABLE_BYTES }>>,
+	>;
 
 	/// Evicted contracts that await child trie deletion.
 	///
@@ -2479,8 +2484,7 @@ impl<T: Config> Pallet<T> {
 	///
 	/// Returns `None` if the contract does not exist or has no immutable data.
 	pub fn get_immutables(address: H160) -> Option<ImmutableData> {
-		let immutable_data = <ImmutableDataOf<T>>::get(address);
-		immutable_data
+		<ImmutableDataOf<T>>::get(address).map(|data| data.into_inner())
 	}
 
 	/// Sets immutable data of a contract
@@ -2492,7 +2496,10 @@ impl<T: Config> Pallet<T> {
 	/// Does not collect any storage deposit. Not safe to be called by user controlled code.
 	pub fn set_immutables(address: H160, data: ImmutableData) -> Result<(), ContractAccessError> {
 		AccountInfo::<T>::load_contract(&address).ok_or(ContractAccessError::DoesntExist)?;
-		<ImmutableDataOf<T>>::insert(address, data);
+		<ImmutableDataOf<T>>::insert(
+			address,
+			crate::storage::StorageMapValueOf::<ImmutableDataOf<T>>::new(data),
+		);
 		Ok(())
 	}
 

@@ -1993,7 +1993,9 @@ where
 			.as_ref()
 			.map(|d| d.callee)
 			.unwrap_or(T::AddressMapper::to_address(self.account_id()));
-		Ok(<ImmutableDataOf<T>>::get(address).ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
+		Ok(<ImmutableDataOf<T>>::get(address)
+			.map(|data| data.into_inner())
+			.ok_or_else(|| Error::<T>::InvalidImmutableAccess)?)
 	}
 
 	fn set_immutable_data(&mut self, data: ImmutableData) -> Result<(), DispatchError> {
@@ -2002,7 +2004,10 @@ where
 			return Err(Error::<T>::InvalidImmutableAccess.into());
 		}
 		frame.contract_info().set_immutable_data_len(data.len() as u32);
-		<ImmutableDataOf<T>>::insert(T::AddressMapper::to_address(&frame.account_id), &data);
+		<ImmutableDataOf<T>>::insert(
+			T::AddressMapper::to_address(&frame.account_id),
+			crate::storage::StorageMapValueOf::<ImmutableDataOf<T>>::new(data),
+		);
 		Ok(())
 	}
 }

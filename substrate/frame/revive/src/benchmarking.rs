@@ -903,9 +903,11 @@ mod benchmarks {
 
 		build_runtime!(runtime, contract, memory: [(len as u32).encode(), vec![0u8; len],]);
 
-		<ImmutableDataOf<T>>::insert::<_, BoundedVec<_, _>>(
+		<ImmutableDataOf<T>>::insert(
 			contract.address,
-			immutable_data.clone().try_into().unwrap(),
+			crate::storage::StorageMapValueOf::<ImmutableDataOf<T>>::new(
+				immutable_data.clone().try_into().unwrap(),
+			),
 		);
 
 		let result;

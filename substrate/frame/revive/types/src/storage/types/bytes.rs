@@ -118,6 +118,18 @@ define_versioned_type! {
 	);
 }
 
+impl<const LIMIT: u32> From<BoundedVec<u8, ConstU32<LIMIT>>> for ImmutableDataV1<LIMIT> {
+	fn from(value: BoundedVec<u8, ConstU32<LIMIT>>) -> Self {
+		Self(value.into())
+	}
+}
+
+impl<const LIMIT: u32> From<ImmutableDataV1<LIMIT>> for BoundedVec<u8, ConstU32<LIMIT>> {
+	fn from(value: ImmutableDataV1<LIMIT>) -> Self {
+		(value.0).0
+	}
+}
+
 define_versioned_type! {
 	/// Version 1 of one `DeletionQueue` storage entry.
 	#[versioned_type(
