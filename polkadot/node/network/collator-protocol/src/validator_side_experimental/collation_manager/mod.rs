@@ -404,42 +404,24 @@ impl CollationManager {
 		let mut maybe_min_delay = None;
 
 		// Build per-(leaf, core) capacity views once, with all current consumers already
-		// allocated. Each `PathState` is a self-contained answer to "what's still free on
+		// allocated. Each `LeafCoreCq` is a self-contained answer to "what's still free on
 		// this core's CQ at this leaf?".
-		let mut path_states = self.build_path_states();
+		let mut leaf_core_cqs = self.build_leaf_core_cqs();
 
-		// For each PathState, walk free CQ positions back-to-front. Back-to-front matters: the
-		// last position is reachable only from the leaf, so wide-reach ads naturally land
-		// there, leaving early positions free for ads reachable only from narrow ancestor SPs.
-		// (Property exercised by `linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete`.)
-		//
-		// After each launch we broadcast the reservation across *all* PathStates: an SP can
-		// appear under multiple leaves (forks), and `reserve_slot` is a no-op for PathStates
-		// whose chain doesn't contain the SP, so this is safe and correct.
-		//
-		// Cost note: the candidate-collection step rescans SPs and their ads per position. With
-		// CQ lookahead `L` (typically 2–3) and `A` ads per (sp, para), per path-state work is
-		// O(L² · A) — small in practice, not accidentally quadratic in user-controlled inputs.
-		//
-		// Index-based inner loop: we read from `path_states[ps_idx]` to build candidates, then
-		// later mutate `path_states.iter_mut()` to broadcast the reservation. Holding
-		// `&path_states[ps_idx]` across the mutation would be a borrow conflict.
-		for ps_idx in 0..path_states.len() {
-			let cq_len = path_states[ps_idx].cq.len();
+		// Fill claim queue positions for each (leaf, core), starting at the back.
+		for lc_idx in 0..leaf_core_cqs.len() {
+			let cq_len = leaf_core_cqs[lc_idx].cq.len();
 			for idx in (0..cq_len).rev() {
-				let Some(para_id) = path_states[ps_idx].cq[idx] else { continue };
+				let Some(para_id) = leaf_core_cqs[lc_idx].cq[idx] else { continue };
 
-				// SPs reachable at position `idx`: an SP at offset `d` from the leaf can fill
-				// leaf-CQ positions `0..cq_len - d`. So position `idx` is reachable from SPs
-				// with `d < cq_len - idx`, i.e. the first `cq_len - idx` entries of `path`.
-				let candidate_sps: Vec<Hash> =
-					path_states[ps_idx].path.iter().take(cq_len - idx).copied().collect();
+				// All scheduling parents that can fill this position:
+				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
-				let outcome = self.select_best_for_position(
+				let outcome = self.select_best_advertisement(
 					now,
 					para_id,
-					candidate_sps.into_iter(),
+					candidate_sps.copied(),
 					highest_rep_of_para,
 					&connected_rep_query_fn,
 				);
@@ -467,8 +449,9 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				for ps in path_states.iter_mut() {
-					ps.reserve_slot(&advertisement.scheduling_parent, para_id);
+				// Reserve on all reachable leaves (no-op for those whose path doesn't contain the SP):
+				for lc in leaf_core_cqs.iter_mut() {
+					lc.reserve_slot(&advertisement.scheduling_parent, para_id);
 				}
 			}
 		}
@@ -476,21 +459,21 @@ impl CollationManager {
 		(requests, maybe_min_delay)
 	}
 
-	/// One PathState per (leaf, core) pair we need to reason about. After rotation a single
-	/// chain may yield PathStates under two different cores.
+	/// One LeafCoreCq per (leaf, core) pair we need to reason about. After rotation a single
+	/// chain may yield LeafCoreCqs under two different cores.
 	///
-	/// Each PathState comes back with all current consumers (in-flight + fetched candidates
+	/// Each LeafCoreCq comes back with all current consumers (in-flight + fetched candidates
 	/// whose SP lies on its chain *and* uses its core) already allocated into the CQ via
 	/// greedy matching: narrowest window first, latest still-free position in window —
 	/// pushing wide-window consumers to later positions so narrower SPs keep access to their
 	/// (only) reachable positions.
-	fn build_path_states(&self) -> Vec<PathState> {
-		// One PathState per (leaf, core) pair where some tracked SP lives on `core`.
+	fn build_leaf_core_cqs(&self) -> Vec<LeafCoreCq> {
+		// One LeafCoreCq per (leaf, core) pair where some tracked SP lives on `core`.
 		let cores: BTreeSet<CoreIndex> =
 			self.per_scheduling_parent.values().map(|p| p.core_index).collect();
 		let leaves: BTreeSet<Hash> = self.implicit_view.leaves().copied().collect();
 
-		let mut out: Vec<PathState> = Vec::new();
+		let mut out: Vec<LeafCoreCq> = Vec::new();
 		for leaf in leaves {
 			for &core in &cores {
 				let Some(cq) = self.cq(&leaf, core) else { continue };
@@ -533,7 +516,7 @@ impl CollationManager {
 					}
 				}
 
-				out.push(PathState { path, cq });
+				out.push(LeafCoreCq { path, cq });
 			}
 		}
 		out
@@ -739,16 +722,15 @@ impl CollationManager {
 		MAX_FETCH_DELAY
 	}
 
-	/// Picks the best (= highest-scored, earliest, in that order) advertisement that can fill
-	/// the current free CQ position. The candidate pool spans every SP from `candidate_sps`
-	/// (the SPs on this leaf's path that are within reach of this position).
+	/// Picks the best (= highest-scored, earliest, in that order) advertisement for `para_id`
+	/// among `candidate_sps`, with delay arithmetic relative to each SP's activation.
 	///
 	/// Returns:
 	/// - `Either::Left(Some(adv))` if a fetchable advertisement was found,
 	/// - `Either::Left(None)` if there are no eligible advertisements,
-	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
-	///   to its scheduling parent's activation time.
-	fn select_best_for_position<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay
+	///   relative to its scheduling parent's activation time.
+	fn select_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		now: Instant,
 		para_id: ParaId,
@@ -1081,12 +1063,21 @@ struct FetchedCollationInfo {
 /// `path` is the chain ordered leaf → oldest stored ancestor, so iteration index equals SP
 /// offset (leaf at 0). Built from manager state once and frozen for the lifetime of one
 /// `try_make_new_fetch_requests` call.
-struct PathState {
+struct LeafCoreCq {
 	path: Vec<Hash>,
 	cq: Vec<Option<ParaId>>,
 }
 
-impl PathState {
+impl LeafCoreCq {
+	/// SPs on this path whose window includes leaf-CQ position `idx`.
+	///
+	/// An SP at offset `d` from the leaf has a window covering leaf-CQ positions
+	/// `0..cq_len - d`, so position `idx` is reachable from SPs with `d < cq_len - idx` —
+	/// i.e. the first `cq_len - idx` entries of `path` (leaf-first).
+	fn sps_reaching(&self, idx: usize) -> impl Iterator<Item = &Hash> {
+		self.path.iter().take(self.cq.len() - idx)
+	}
+
 	/// Mark one CQ position as consumed for `para` reachable from `sp`. Clears the latest
 	/// still-free position for `para` in `sp`'s window — same rule the build pass uses for
 	/// existing consumers, so newly-launched fetches and prior consumers stay consistently
@@ -1107,7 +1098,7 @@ struct PerSchedulingParent {
 	// - duplicate advertisements are rejected (`try_accept_advertisement`),
 	// - we know who to punish for supplying an invalid collation
 	//   (`get_fetched_collation_peer_id`),
-	// - and capacity tracking knows which slots are consumed (`PathState::allocate_consumers`).
+	// - and capacity tracking knows which slots are consumed (`build_leaf_core_cqs`).
 	// On rejection (validation failure, blocked-on-parent timeout, etc.) entries are removed.
 	fetched_collations: HashMap<CandidateHash, FetchedCollationInfo>,
 	session_index: SessionIndex,
@@ -1588,7 +1579,7 @@ mod tests {
 	}
 
 	#[test]
-	fn select_best_for_position_works() {
+	fn select_best_advertisement_works() {
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 		let score = |val: u16| Score::new(val);
@@ -1637,7 +1628,7 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1660,7 +1651,7 @@ mod tests {
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1684,7 +1675,7 @@ mod tests {
 
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY
-			let result = collation_manager.select_best_for_position(
+			let result = collation_manager.select_best_advertisement(
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
@@ -1721,7 +1712,7 @@ mod tests {
 
 			// All have old timestamps, so delay has passed. Should pick peer_b (highest score).
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1747,7 +1738,7 @@ mod tests {
 
 			// Same score, peer_b has earlier timestamp.
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1770,7 +1761,7 @@ mod tests {
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1788,7 +1779,7 @@ mod tests {
 			let unknown_scheduling_parent = Hash::random();
 
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(unknown_scheduling_parent),
@@ -1819,7 +1810,7 @@ mod tests {
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY. But activated_at is 2*MAX_FETCH_DELAY ago, so remaining_delay = 0.
 			assert_eq!(
-				collation_manager.select_best_for_position(
+				collation_manager.select_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1844,7 +1835,7 @@ mod tests {
 
 			per_sp.add_advertisement(make_adv(peer_a), recent_timestamp);
 
-			let result = collation_manager.select_best_for_position(
+			let result = collation_manager.select_best_advertisement(
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
