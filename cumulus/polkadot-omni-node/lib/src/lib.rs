@@ -26,7 +26,7 @@ pub mod fake_runtime_api;
 mod nodes;
 
 pub use cli::CliConfig;
-pub use command::{run, run_with_custom_cli, RunConfig};
+pub use command::{run, run_with_custom_cli, run_with_matches, RunConfig};
 pub use common::{
 	chain_spec, runtime, types, ConstructNodeRuntimeApi, NoNodeExtension, NoNodeExtensionFactory,
 	NodeBlock, NodeExtension, NodeExtensionFactory,

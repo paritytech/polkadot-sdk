@@ -168,6 +168,27 @@ where
 	// Get matches for all CLI, including extra args.
 	let matches = cli_command.get_matches();
 
+	run_with_matches::<CliConfig, ExtraSubcommand>(cmd_config, matches)
+}
+
+/// Lower-level entry point that dispatches an already-parsed [`clap::ArgMatches`].
+///
+/// Use this when a downstream binary needs to augment the CLI parser with its
+/// own flags (e.g. `polkadot-bulletin-parachain` flattens `sc_hop::HopParams`).
+/// The binary is responsible for building the parser via
+/// `polkadot_omni_node_lib::cli::Cli::<CliConfig>::command()`, layering its
+/// own augmentation, and calling [`Self::get_matches`] before invoking this
+/// function. This function then handles `ExtraSubcommand` dispatch and the
+/// normal node-startup / utility sub-command match exactly as
+/// [`run_with_custom_cli`] does.
+pub fn run_with_matches<CliConfig, ExtraSubcommand>(
+	cmd_config: RunConfig,
+	matches: clap::ArgMatches,
+) -> Result<()>
+where
+	CliConfig: crate::cli::CliConfig,
+	ExtraSubcommand: crate::extra_subcommand::ExtraSubcommand,
+{
 	// Parse only the part corresponding to the extra args.
 	if let Ok(extra) = ExtraSubcommand::from_arg_matches(&matches) {
 		// Handle the extra, and return - subcommands are self contained,

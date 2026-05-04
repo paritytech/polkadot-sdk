@@ -20,11 +20,12 @@ mod hop_extension;
 #[cfg(target_os = "linux")]
 extern crate polkadot_jemalloc_shim;
 
-use clap::Parser;
+use clap::{Args, CommandFactory, FromArgMatches, Subcommand};
 use polkadot_omni_node_lib::{
-	chain_spec::DiskChainSpecLoader, extra_subcommand::NoExtraSubcommand, run_with_custom_cli,
+	chain_spec::DiskChainSpecLoader, extra_subcommand::NoExtraSubcommand,
 	runtime::DefaultRuntimeResolver, CliConfig as CliConfigT, RunConfig, NODE_VERSION,
 };
+use sc_cli::SubstrateCli;
 
 struct CliConfig;
 
@@ -50,19 +51,18 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	// Pass 2 HOP wiring: construct `HopParams` and register the Bulletin-side
-	// extension factory on `RunConfig`. The lib will pull the extension out of
-	// the factory at the right point in startup and call its `on_start` /
-	// `build_rpc_extension` hooks.
-	//
-	// TODO(pass-3): expose HOP CLI flags via a Bulletin-owned `Cli` that
-	// flattens `sc_hop::HopParams` alongside `polkadot_omni_node_lib::Cli`.
-	// Until then the binary uses HOP defaults plus `--enable-hop=true` so the
-	// extension is exercised end-to-end on dev runs.
-	let hop_params = sc_hop::HopParams::parse_from([
-		"polkadot-bulletin-parachain",
-		"--enable-hop",
-	]);
+	// Build the parser ourselves so we can flatten in `sc_hop::HopParams`
+	// alongside the lib's `Cli<CliConfig>`. Then dispatch via the lib's
+	// `run_with_matches`, which expects a pre-parsed `ArgMatches`.
+	let cli_command = polkadot_omni_node_lib::cli::Cli::<CliConfig>::command();
+	let cli_command = NoExtraSubcommand::augment_subcommands(cli_command);
+	let cli_command = polkadot_omni_node_lib::cli::Cli::<CliConfig>::setup_command(cli_command);
+	let cli_command = sc_hop::HopParams::augment_args(cli_command);
+
+	let matches = cli_command.get_matches();
+
+	let hop_params = sc_hop::HopParams::from_arg_matches(&matches)
+		.expect("HopParams::augment_args was applied to the parser; qed");
 	let extension_factory = hop_extension::HopExtensionFactory::new(hop_params);
 
 	let config = RunConfig::with_extension_factory(
@@ -70,5 +70,8 @@ fn main() -> color_eyre::eyre::Result<()> {
 		Box::new(DiskChainSpecLoader),
 		Box::new(extension_factory),
 	);
-	Ok(run_with_custom_cli::<CliConfig, NoExtraSubcommand>(config)?)
+
+	Ok(polkadot_omni_node_lib::run_with_matches::<CliConfig, NoExtraSubcommand>(
+		config, matches,
+	)?)
 }

@@ -16111,6 +16111,7 @@ dependencies = [
  "log",
  "polkadot-jemalloc-shim",
  "polkadot-omni-node-lib",
+ "sc-cli",
  "sc-hop",
  "sc-service",
  "sc-transaction-pool",

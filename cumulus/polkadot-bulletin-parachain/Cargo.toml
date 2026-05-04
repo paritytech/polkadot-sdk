@@ -22,6 +22,7 @@ log = { workspace = true, default-features = true }
 # Local
 polkadot-jemalloc-shim = { workspace = true }
 polkadot-omni-node-lib = { workspace = true, features = ["rococo-native", "westend-native"] }
+sc-cli = { workspace = true, default-features = false }
 sc-hop = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-transaction-pool = { workspace = true, default-features = true }
