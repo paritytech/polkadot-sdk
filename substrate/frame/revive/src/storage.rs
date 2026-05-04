@@ -629,7 +629,10 @@ impl<T: Config> DeletionQueueManager<T> {
 
 	/// Insert a contract in the deletion queue.
 	fn insert(&mut self, trie_id: TrieId) {
-		<DeletionQueue<T>>::insert(self.insert_counter, trie_id);
+		<DeletionQueue<T>>::insert(
+			self.insert_counter,
+			StorageMapValueOf::<DeletionQueue<T>>::new(trie_id),
+		);
 		self.insert_counter = self.insert_counter.wrapping_add(1);
 		<DeletionQueueCounter<T>>::set(self.clone());
 	}
@@ -644,7 +647,8 @@ impl<T: Config> DeletionQueueManager<T> {
 			return None;
 		}
 
-		let entry = <DeletionQueue<T>>::get(self.delete_counter);
+		let entry =
+			<DeletionQueue<T>>::get(self.delete_counter).map(|trie_id| trie_id.into_inner());
 		entry.map(|trie_id| DeletionQueueEntry { trie_id, queue: self })
 	}
 }

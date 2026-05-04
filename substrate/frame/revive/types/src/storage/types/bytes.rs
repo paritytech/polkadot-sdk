@@ -157,3 +157,16 @@ define_versioned_type! {
 		pub TrieIdV1<LIMIT>,
 	);
 }
+
+impl<const LIMIT: u32> From<BoundedVec<u8, ConstU32<LIMIT>>> for DeletionQueueV1<LIMIT> {
+	fn from(value: BoundedVec<u8, ConstU32<LIMIT>>) -> Self {
+		Self(TrieIdV1(value.into()))
+	}
+}
+
+impl<const LIMIT: u32> From<DeletionQueueV1<LIMIT>> for BoundedVec<u8, ConstU32<LIMIT>> {
+	fn from(value: DeletionQueueV1<LIMIT>) -> Self {
+		let DeletionQueueV1(trie_id) = value;
+		(trie_id.0).0
+	}
+}
