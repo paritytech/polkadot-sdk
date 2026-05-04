@@ -17,25 +17,12 @@
 
 use crate::{Config, DebugSettingsOf, storage::StorageValueOf};
 use Debug;
-use codec::{Decode, Encode, MaxEncodedLen};
 use pallet_revive_types::storage as storage_types;
-use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
 
 /// Debugging settings that can be configured when DebugEnabled config is true.
-#[derive(
-	Encode,
-	Decode,
-	Default,
-	Clone,
-	PartialEq,
-	Debug,
-	TypeInfo,
-	MaxEncodedLen,
-	Serialize,
-	Deserialize,
-)]
+#[derive(Default, Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct DebugSettings {
 	/// Whether to allow unlimited contract size.
 	allow_unlimited_contract_size: bool,

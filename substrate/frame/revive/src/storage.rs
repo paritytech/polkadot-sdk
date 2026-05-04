@@ -37,7 +37,7 @@ use crate::{
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Decode, Encode};
 use core::marker::PhantomData;
 use frame_support::{
 	CloneNoBound, DebugNoBound, DefaultNoBound,
@@ -67,10 +67,7 @@ pub enum AccountIdOrAddress<T: Config> {
 }
 
 /// Represents the account information for a contract or an externally owned account (EOA).
-#[derive(
-	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(T))]
+#[derive(DefaultNoBound, CloneNoBound, PartialEq, Eq, Debug)]
 pub struct AccountInfo<T: Config> {
 	/// The type of the account.
 	pub account_type: AccountType<T>,
@@ -81,10 +78,7 @@ pub struct AccountInfo<T: Config> {
 }
 
 /// The account type is used to distinguish between contracts and externally owned accounts.
-#[derive(
-	DefaultNoBound, Encode, Decode, CloneNoBound, PartialEq, Eq, Debug, TypeInfo, MaxEncodedLen,
-)]
-#[scale_info(skip_type_params(T))]
+#[derive(DefaultNoBound, CloneNoBound, PartialEq, Eq, Debug)]
 pub enum AccountType<T: Config> {
 	/// An account that is a contract.
 	Contract(ContractInfo<T>),
@@ -96,8 +90,7 @@ pub enum AccountType<T: Config> {
 
 /// Information for managing an account and its sub trie abstraction.
 /// This is the required info to cache for an account.
-#[derive(Encode, Decode, CloneNoBound, PartialEq, Eq, DebugNoBound, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(T))]
+#[derive(CloneNoBound, PartialEq, Eq, DebugNoBound)]
 pub struct ContractInfo<T: Config> {
 	/// Unique ID for the subtree encoded as a bytes vector.
 	pub trie_id: TrieId,
@@ -154,8 +147,36 @@ impl<T: Config> From<ContractInfo<T>>
 	for storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>
 {
 	fn from(value: ContractInfo<T>) -> Self {
+		let ContractInfo {
+			trie_id,
+			code_hash,
+			storage_bytes,
+			storage_items,
+			storage_byte_deposit,
+			storage_item_deposit,
+			storage_base_deposit,
+			immutable_data_len,
+		} = value;
+
 		Self {
-			trie_id: storage_types::TrieIdV1(value.trie_id.into()),
+			trie_id: storage_types::TrieIdV1(trie_id.into()),
+			code_hash,
+			storage_bytes,
+			storage_items,
+			storage_byte_deposit,
+			storage_item_deposit,
+			storage_base_deposit,
+			immutable_data_len,
+		}
+	}
+}
+
+impl<T: Config> From<&ContractInfo<T>>
+	for storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>
+{
+	fn from(value: &ContractInfo<T>) -> Self {
+		Self {
+			trie_id: storage_types::TrieIdV1(value.trie_id.clone().into()),
 			code_hash: value.code_hash,
 			storage_bytes: value.storage_bytes,
 			storage_items: value.storage_items,
@@ -279,6 +300,20 @@ impl<T: Config> AccountInfo<T> {
 }
 
 impl<T: Config> ContractInfo<T> {
+	/// Returns the encoded byte length of the stable storage representation.
+	pub(crate) fn storage_encoded_size(&self) -> u32 {
+		let storage_value = StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+			account_type: self.clone().into(),
+			dust: 0,
+		});
+		let (_, storage_value) = storage_value.destructure();
+		let storage_types::AccountTypeV1::Contract(contract_info) = storage_value.account_type
+		else {
+			unreachable!("storage value was constructed from a contract account");
+		};
+		u32::try_from(contract_info.encoded_size()).unwrap_or(u32::MAX)
+	}
+
 	/// Constructs a new contract info **without** writing it to storage.
 	///
 	/// This returns an `Err` if an contract with the supplied `account` already exists
@@ -450,7 +485,7 @@ impl<T: Config> ContractInfo<T> {
 	pub fn update_base_deposit(&mut self, code_deposit: BalanceOf<T>) -> BalanceOf<T> {
 		let contract_deposit = {
 			let bytes_added: u32 =
-				(self.encoded_size() as u32).saturating_add(self.immutable_data_len);
+				self.storage_encoded_size().saturating_add(self.immutable_data_len);
 			let items_added: u32 = if self.immutable_data_len == 0 { 1 } else { 2 };
 
 			T::DepositPerByte::get()
@@ -595,8 +630,7 @@ impl WriteOutcome {
 /// When a contract is deleted by calling `seal_terminate` it becomes inaccessible
 /// immediately, but the deletion of the storage items it has accumulated is performed
 /// later by pulling the contract from the queue in the `on_idle` hook.
-#[derive(Encode, Decode, TypeInfo, MaxEncodedLen, DefaultNoBound, Clone)]
-#[scale_info(skip_type_params(T))]
+#[derive(DefaultNoBound, Clone)]
 pub struct DeletionQueueManager<T: Config> {
 	/// Counter used as a key for inserting a new deleted contract in the queue.
 	/// The counter is incremented after each insertion.

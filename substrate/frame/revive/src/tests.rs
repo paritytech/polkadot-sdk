@@ -122,7 +122,7 @@ pub mod test_utils {
 		AccountInfo, AccountInfoOf, BalanceOf, CodeInfo, CodeInfoOf, Config, ContractInfo,
 		PristineCode, address::AddressMapper, exec::AccountIdOf, storage::StorageMapValueOf,
 	};
-	use codec::{Encode, MaxEncodedLen};
+	use codec::MaxEncodedLen;
 	use frame_support::traits::fungible::{InspectHold, Mutate};
 	use sp_core::H160;
 
@@ -163,7 +163,7 @@ pub mod test_utils {
 	}
 	pub fn contract_base_deposit(addr: &H160) -> BalanceOf<Test> {
 		let contract_info = self::get_contract(&addr);
-		let info_size = contract_info.encoded_size() as u128;
+		let info_size = contract_info.storage_encoded_size() as u128;
 		let code_deposit = CodeHashLockupDepositPercent::get()
 			.mul_ceil(get_code_deposit(&contract_info.code_hash));
 		let deposit = DepositPerByte::get()
@@ -182,7 +182,7 @@ pub mod test_utils {
 	}
 	pub fn expected_deposit(code_len: usize) -> u128 {
 		// For code_info, the deposit for max_encoded_len is taken.
-		let code_info_len = CodeInfo::<Test>::max_encoded_len() as u128;
+		let code_info_len = StorageMapValueOf::<CodeInfoOf<Test>>::max_encoded_len() as u128;
 		// Calculate deposit to be reserved.
 		// We add 2 storage items: one for code, other for code_info
 		DepositPerByte::get().saturating_mul(code_len as u128 + code_info_len) +

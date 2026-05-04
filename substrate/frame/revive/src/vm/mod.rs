@@ -34,7 +34,7 @@ use crate::{
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::MaxEncodedLen;
 use frame_support::dispatch::DispatchResult;
 use pallet_revive_types::storage as storage_types;
 use pallet_revive_uapi::ReturnErrorCode;
@@ -43,22 +43,15 @@ use sp_runtime::{DispatchError, Saturating};
 
 /// Validated Vm module ready for execution.
 /// This data structure is immutable once created and stored.
-#[derive(Encode, Decode, scale_info::TypeInfo)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
 pub struct ContractBlob<T: Config> {
 	code: Vec<u8>,
 	// This isn't needed for contract execution and is not stored alongside it.
-	#[codec(skip)]
 	code_info: CodeInfo<T>,
 	// This is for not calculating the hash every time we need it.
-	#[codec(skip)]
 	code_hash: H256,
 }
 
-#[derive(
-	PartialEq, Eq, Debug, Copy, Clone, Encode, Decode, MaxEncodedLen, scale_info::TypeInfo,
-)]
+#[derive(PartialEq, Eq, Debug, Copy, Clone)]
 pub enum BytecodeType {
 	/// The code is a PVM bytecode.
 	Pvm,
@@ -73,19 +66,13 @@ pub enum BytecodeType {
 /// - reference count,
 ///
 /// It is stored in a separate storage entry to avoid loading the code when not necessary.
-#[derive(
-	frame_support::DebugNoBound, Clone, Encode, Decode, scale_info::TypeInfo, MaxEncodedLen,
-)]
-#[codec(mel_bound())]
-#[scale_info(skip_type_params(T))]
+#[derive(frame_support::DebugNoBound, Clone)]
 pub struct CodeInfo<T: Config> {
 	/// The account that has uploaded the contract code and hence is allowed to remove it.
 	owner: AccountIdOf<T>,
 	/// The amount of balance that was deposited by the owner in order to store it on-chain.
-	#[codec(compact)]
 	deposit: BalanceOf<T>,
 	/// The number of instantiated contracts that use this as their code.
-	#[codec(compact)]
 	refcount: u64,
 	/// Length of the code in bytes.
 	code_len: u32,
@@ -147,7 +134,9 @@ impl<T: Config> From<storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>> fo
 
 /// Calculate the deposit required for storing code and its metadata.
 pub fn calculate_code_deposit<T: Config>(code_len: u32) -> BalanceOf<T> {
-	let bytes_added = code_len.saturating_add(<CodeInfo<T>>::max_encoded_len() as u32);
+	let code_info_len =
+		u32::try_from(StorageMapValueOf::<CodeInfoOf<T>>::max_encoded_len()).unwrap_or(u32::MAX);
+	let bytes_added = code_len.saturating_add(code_info_len);
 	T::DepositPerByte::get()
 		.saturating_mul(bytes_added.into())
 		.saturating_add(T::DepositPerItem::get().saturating_mul(2u32.into()))

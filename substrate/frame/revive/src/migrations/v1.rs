@@ -23,13 +23,15 @@ extern crate alloc;
 
 use super::PALLET_MIGRATIONS_ID;
 use crate::{
-	AccountInfo, AccountInfoOf, Config, H160, storage::StorageMapValueOf, weights::WeightInfo,
+	AccountInfo, AccountInfoOf, BalanceOf, Config, ContractInfo, H160, limits,
+	storage::StorageMapValueOf, weights::WeightInfo,
 };
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
+use pallet_revive_types::storage as storage_types;
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
@@ -37,15 +39,18 @@ use alloc::collections::btree_map::BTreeMap;
 #[cfg(feature = "try-runtime")]
 use alloc::vec::Vec;
 
+/// Storage value shape used by `ContractInfoOf` before the v1 migration.
+type OldContractInfo<T> = storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>;
+
 /// Module containing the old storage items.
 pub mod old {
-	use super::Config;
-	use crate::{ContractInfo, H160, pallet::Pallet};
+	use super::{Config, OldContractInfo};
+	use crate::{H160, pallet::Pallet};
 	use frame_support::{Identity, storage_alias};
 
 	#[storage_alias]
 	/// The storage item that is being migrated from.
-	pub type ContractInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H160, ContractInfo<T>>;
+	pub type ContractInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H160, OldContractInfo<T>>;
 }
 
 /// Migrates the items of the [`old::ContractInfoOf`] map into [`crate::AccountInfoOf`].
@@ -85,7 +90,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 				AccountInfoOf::<T>::insert(
 					last_key,
 					StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
-						account_type: value.into(),
+						account_type: ContractInfo::<T>::from(value).into(),
 						..Default::default()
 					}),
 				);
@@ -111,7 +116,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		use codec::Decode;
 
 		// Check the state of the storage after the migration.
-		let prev_map = BTreeMap::<H160, crate::ContractInfo<T>>::decode(&mut &prev[..])
+		let prev_map = BTreeMap::<H160, OldContractInfo<T>>::decode(&mut &prev[..])
 			.expect("Failed to decode the previous storage state");
 
 		// Check the len of prev and post are the same.
@@ -123,6 +128,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 		for (key, value) in prev_map {
 			let new_value = AccountInfo::<T>::load_contract(&key);
+			let value = ContractInfo::<T>::from(value);
 			assert_eq!(
 				Some(value),
 				new_value,
@@ -143,10 +149,11 @@ fn migrate_to_v1() {
 	ExtBuilder::default().build().execute_with(|| {
 		for i in 0..10u8 {
 			let addr = H160::from([i; 20]);
-			old::ContractInfoOf::<Test>::insert(
-				addr,
-				ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap(),
-			);
+			let old_info: OldContractInfo<Test> =
+				ContractInfo::<Test>::new(&addr, 1u32.into(), Default::default())
+					.unwrap()
+					.into();
+			old::ContractInfoOf::<Test>::insert(addr, old_info);
 		}
 
 		let mut cursor = None;

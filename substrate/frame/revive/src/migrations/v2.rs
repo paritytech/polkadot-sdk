@@ -23,7 +23,7 @@
 
 extern crate alloc;
 use super::PALLET_MIGRATIONS_ID;
-use crate::{Config, H256, LOG_TARGET, Pallet, vm::BytecodeType, weights::WeightInfo};
+use crate::{Config, H256, LOG_TARGET, Pallet, weights::WeightInfo};
 use frame_support::{
 	migrations::{MigrationId, SteppedMigration, SteppedMigrationError},
 	pallet_prelude::PhantomData,
@@ -33,6 +33,10 @@ use frame_support::{
 	},
 	weights::WeightMeter,
 };
+use pallet_revive_types::storage as storage_types;
+
+type CodeInfoV1Of<T> = storage_types::CodeInfoV1<crate::AccountIdOf<T>, crate::BalanceOf<T>>;
+type CodeInfoV2Of<T> = storage_types::CodeInfoV2<crate::AccountIdOf<T>, crate::BalanceOf<T>>;
 
 #[cfg(feature = "try-runtime")]
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
@@ -42,48 +46,23 @@ use frame_support::{sp_runtime::TryRuntimeError, traits::fungible::InspectHold};
 
 /// Module containing the old storage items.
 mod old {
-	use super::Config;
-	use crate::{AccountIdOf, BalanceOf, H256, pallet::Pallet};
-	use codec::{Decode, Encode};
+	use super::{CodeInfoV1Of, Config};
+	use crate::{H256, pallet::Pallet};
 	use frame_support::{Identity, storage_alias};
-
-	#[derive(Clone, Encode, Decode)]
-	pub struct CodeInfo<T: Config> {
-		pub owner: AccountIdOf<T>,
-		#[codec(compact)]
-		pub deposit: BalanceOf<T>,
-		#[codec(compact)]
-		pub refcount: u64,
-		pub code_len: u32,
-		pub behaviour_version: u32,
-	}
 
 	#[storage_alias]
 	/// The storage item that is being migrated from.
-	pub type CodeInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H256, CodeInfo<T>>;
+	pub type CodeInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H256, CodeInfoV1Of<T>>;
 }
 
 mod new {
-	use super::{BytecodeType, Config};
-	use crate::{AccountIdOf, BalanceOf, H256, pallet::Pallet};
-	use codec::{Decode, Encode};
-	use frame_support::{DebugNoBound, Identity, storage_alias};
-
-	#[derive(PartialEq, Eq, DebugNoBound, Encode, Decode)]
-	pub struct CodeInfo<T: Config> {
-		pub owner: AccountIdOf<T>,
-		#[codec(compact)]
-		pub deposit: BalanceOf<T>,
-		#[codec(compact)]
-		pub refcount: u64,
-		pub code_len: u32,
-		pub code_type: BytecodeType,
-		pub behaviour_version: u32,
-	}
+	use super::{CodeInfoV2Of, Config};
+	use crate::{H256, pallet::Pallet};
+	use frame_support::{Identity, storage_alias};
 
 	#[storage_alias]
 	/// The storage item that is being migrated to.
-	pub type CodeInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H256, CodeInfo<T>>;
+	pub type CodeInfoOf<T: Config> = StorageMap<Pallet<T>, Identity, H256, CodeInfoV2Of<T>>;
 }
 
 /// Migrates the items of the [`old::CodeInfoOf`] map into [`crate::CodeInfoOf`] by adding the
@@ -142,12 +121,12 @@ impl<T: Config> SteppedMigration for Migration<T> {
 
 				new::CodeInfoOf::<T>::insert(
 					last_key,
-					new::CodeInfo {
+					CodeInfoV2Of::<T> {
 						owner: value.owner,
 						deposit: value.deposit,
 						refcount: value.refcount,
 						code_len: value.code_len,
-						code_type: BytecodeType::Pvm,
+						code_type: storage_types::BytecodeTypeV1::Pvm,
 						behaviour_version: value.behaviour_version,
 					},
 				);
@@ -174,7 +153,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 		use sp_runtime::{Saturating, traits::Zero};
 
 		// Check the state of the storage after the migration.
-		let prev_map = BTreeMap::<H256, old::CodeInfo<T>>::decode(&mut &prev[..])
+		let prev_map = BTreeMap::<H256, CodeInfoV1Of<T>>::decode(&mut &prev[..])
 			.expect("Failed to decode the previous storage state");
 
 		// Check the len of prev and post are the same.
@@ -206,7 +185,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 #[cfg(any(feature = "runtime-benchmarks", feature = "try-runtime", test))]
 impl<T: Config> Migration<T> {
 	/// Insert an old CodeInfo for benchmarking purposes.
-	pub fn insert_old_code_info(code_hash: H256, code_info: old::CodeInfo<T>) {
+	pub fn insert_old_code_info(code_hash: H256, code_info: CodeInfoV1Of<T>) {
 		old::CodeInfoOf::<T>::insert(code_hash, code_info);
 	}
 
@@ -217,18 +196,18 @@ impl<T: Config> Migration<T> {
 		refcount: u64,
 		code_len: u32,
 		behaviour_version: u32,
-	) -> old::CodeInfo<T> {
+	) -> CodeInfoV1Of<T> {
 		use frame_support::traits::fungible::Mutate;
 		T::Currency::mint_into(&owner, Pallet::<T>::min_balance() + deposit)
 			.expect("Failed to mint into owner account");
 		T::Currency::hold(&crate::HoldReason::CodeUploadDepositReserve.into(), &owner, deposit)
 			.expect("Failed to hold the deposit on the owner account");
 
-		old::CodeInfo { owner, deposit, refcount, code_len, behaviour_version }
+		CodeInfoV1Of::<T> { owner, deposit, refcount, code_len, behaviour_version }
 	}
 
 	/// Assert that the migrated CodeInfo matches the expected values from the old CodeInfo.
-	pub fn assert_migrated_code_info(code_hash: H256, old_code_info: &old::CodeInfo<T>) {
+	pub fn assert_migrated_code_info(code_hash: H256, old_code_info: &CodeInfoV1Of<T>) {
 		use frame_support::traits::fungible::InspectHold;
 		use sp_runtime::traits::Zero;
 		let migrated =
@@ -244,13 +223,13 @@ impl<T: Config> Migration<T> {
 
 		assert_eq!(
 			migrated,
-			new::CodeInfo {
+			CodeInfoV2Of::<T> {
 				owner: old_code_info.owner.clone(),
 				deposit: old_code_info.deposit,
 				refcount: old_code_info.refcount,
 				code_len: old_code_info.code_len,
 				behaviour_version: old_code_info.behaviour_version,
-				code_type: BytecodeType::Pvm,
+				code_type: storage_types::BytecodeTypeV1::Pvm,
 			},
 			"Migration failed: CodeInfo mismatch for key {code_hash:?}",
 		);

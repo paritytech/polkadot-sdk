@@ -2725,7 +2725,7 @@ fn deposit_limit_in_nested_instantiate() {
 		// - 48 for the key
 		let callee_min_deposit = {
 			let callee_info_len =
-				AccountInfo::<Test>::load_contract(&addr).unwrap().encoded_size() as u128;
+				AccountInfo::<Test>::load_contract(&addr).unwrap().storage_encoded_size() as u128;
 			let code_deposit = lockup_deposit(&code_hash_callee);
 			callee_info_len + code_deposit + 2 + ED + 2 + 48
 		};
