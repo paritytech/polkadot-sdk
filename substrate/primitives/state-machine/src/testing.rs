@@ -199,7 +199,10 @@ where
 			.backend_storage_mut()
 			.drain()
 			.into_iter()
-			.filter(|(_, (_, r))| *r > 0)
+			.filter(|(k, (_, r))| {
+				println!("key to include: {k}, ref_count: {r}");
+				*r > 0
+			})
 			.collect::<Vec<(Vec<u8>, (Vec<u8>, i32))>>();
 
 		(raw_key_values, *self.backend.root())
