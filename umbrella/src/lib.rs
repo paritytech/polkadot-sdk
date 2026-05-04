@@ -1372,6 +1372,10 @@ pub use sp_externalities;
 #[cfg(feature = "sp-genesis-builder")]
 pub use sp_genesis_builder;
 
+/// HOP (Hand-Off Protocol) primitives and runtime API.
+#[cfg(feature = "sp-hop")]
+pub use sp_hop;
+
 /// Provides types and traits for creating and checking inherents.
 #[cfg(feature = "sp-inherents")]
 pub use sp_inherents;
