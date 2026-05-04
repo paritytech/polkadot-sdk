@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use codec::{Decode, Encode, MaxEncodedLen};
+use codec::{Compact, Decode, Encode, HasCompact, MaxEncodedLen};
 use pallet_revive_proc_macro::define_versioned_type;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
@@ -98,5 +98,28 @@ define_versioned_type! {
 		pub code_type: BytecodeTypeV1,
 		/// The behaviour version that fixes the observable contract semantics.
 		pub behaviour_version: u32,
+	}
+}
+
+// Do not replace this with `#[derive(MaxEncodedLen)]`. We verified that the derive macro does
+// not account for `#[codec(compact)]` fields when calculating the maximum encoded length. It
+// sums the raw Rust field types instead, which means a compact `u64` is counted as `u64` rather
+// than `Compact<u64>` and a compact balance is counted as `Balance` rather than its compact
+// representation. This manual implementation keeps storage metadata aligned with the actual SCALE
+// bytes encoded for `CodeInfoV2`.
+impl<Owner, Balance> MaxEncodedLen for CodeInfoV2<Owner, Balance>
+where
+	Owner: MaxEncodedLen,
+	Balance: HasCompact,
+	<Balance as HasCompact>::Type: MaxEncodedLen,
+	Self: Encode,
+{
+	fn max_encoded_len() -> usize {
+		Owner::max_encoded_len() +
+			<Balance as HasCompact>::Type::max_encoded_len() +
+			Compact::<u64>::max_encoded_len() +
+			u32::max_encoded_len() +
+			BytecodeTypeV1::max_encoded_len() +
+			u32::max_encoded_len()
 	}
 }

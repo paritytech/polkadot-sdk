@@ -176,7 +176,10 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 
 	if !<CodeInfoOf<T>>::contains_key(code_hash) {
 		<PristineCode<T>>::insert(code_hash, module.code());
-		<CodeInfoOf<T>>::insert(code_hash, module.code_info().clone());
+		<CodeInfoOf<T>>::insert(
+			code_hash,
+			crate::storage::StorageMapValueOf::<CodeInfoOf<T>>::new(module.code_info().clone()),
+		);
 	}
 
 	<AccountInfoOf<T>>::try_mutate(address, |account| -> Result<(), DispatchError> {

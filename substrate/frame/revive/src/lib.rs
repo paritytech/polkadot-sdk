@@ -63,7 +63,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode};
+use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
 use environmental::*;
 use frame_support::{
 	BoundedVec,
@@ -170,6 +170,7 @@ pub mod pallet {
 		/// Just added here to add additional trait bounds.
 		#[pallet::no_default]
 		type Balance: Balance
+			+ HasCompact<Type: MaxEncodedLen>
 			+ TryFrom<U256>
 			+ Into<U256>
 			+ Bounded
@@ -674,7 +675,12 @@ pub mod pallet {
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
-	pub(crate) type CodeInfoOf<T: Config> = StorageMap<_, Identity, H256, CodeInfo<T>>;
+	pub(crate) type CodeInfoOf<T: Config> = StorageMap<
+		_,
+		Identity,
+		H256,
+		StorageCodecWrapper<CodeInfo<T>, CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>>,
+	>;
 
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
@@ -874,7 +880,12 @@ pub mod pallet {
 						);
 
 						<PristineCode<T>>::insert(blob.code_hash(), code.0.clone());
-						<CodeInfoOf<T>>::insert(blob.code_hash(), blob.code_info().clone());
+						<CodeInfoOf<T>>::insert(
+							blob.code_hash(),
+							crate::storage::StorageMapValueOf::<CodeInfoOf<T>>::new(
+								blob.code_info().clone(),
+							),
+						);
 						for (k, v) in storage {
 							let _ = info.write(&Key::from_fixed(k.0), Some(v.0.to_vec()), None, false).inspect_err(|err| {
 								log::error!(target: LOG_TARGET, "Failed to write genesis storage for {address:?} at key {k:?}: {err:?}");

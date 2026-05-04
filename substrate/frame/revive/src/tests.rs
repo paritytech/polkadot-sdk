@@ -127,7 +127,12 @@ pub mod test_utils {
 
 	pub fn place_contract(address: &AccountIdOf<Test>, code_hash: sp_core::H256) {
 		set_balance(address, Contracts::min_balance() * 10);
-		<CodeInfoOf<Test>>::insert(code_hash, CodeInfo::new(address.clone()));
+		<CodeInfoOf<Test>>::insert(
+			code_hash,
+			crate::storage::StorageMapValueOf::<CodeInfoOf<Test>>::new(CodeInfo::new(
+				address.clone(),
+			)),
+		);
 		let address =
 			<<Test as Config>::AddressMapper as AddressMapper<Test>>::to_address(&address);
 		let contract = <ContractInfo<Test>>::new(&address, 0, code_hash).unwrap();
@@ -525,7 +530,12 @@ impl ExtBuilder {
 		});
 		ext.execute_with(|| {
 			for code_hash in self.code_hashes {
-				CodeInfoOf::<Test>::insert(code_hash, crate::CodeInfo::new(ALICE));
+				CodeInfoOf::<Test>::insert(
+					code_hash,
+					crate::storage::StorageMapValueOf::<CodeInfoOf<Test>>::new(
+						crate::CodeInfo::new(ALICE),
+					),
+				);
 			}
 		});
 		ext.execute_with(|| {

@@ -35,6 +35,7 @@ use crate::{
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::DispatchResult;
+use pallet_revive_types::storage::{BytecodeTypeV1, CodeInfoV2};
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
 use sp_runtime::{DispatchError, Saturating};
@@ -97,6 +98,50 @@ pub struct CodeInfo<T: Config> {
 	///
 	/// As of right now this is a reserved field that is always set to 0.
 	behaviour_version: u32,
+}
+
+impl From<BytecodeType> for BytecodeTypeV1 {
+	fn from(value: BytecodeType) -> Self {
+		match value {
+			BytecodeType::Pvm => Self::Pvm,
+			BytecodeType::Evm => Self::Evm,
+		}
+	}
+}
+
+impl From<BytecodeTypeV1> for BytecodeType {
+	fn from(value: BytecodeTypeV1) -> Self {
+		match value {
+			BytecodeTypeV1::Pvm => Self::Pvm,
+			BytecodeTypeV1::Evm => Self::Evm,
+		}
+	}
+}
+
+impl<T: Config> From<CodeInfo<T>> for CodeInfoV2<AccountIdOf<T>, BalanceOf<T>> {
+	fn from(value: CodeInfo<T>) -> Self {
+		Self {
+			owner: value.owner,
+			deposit: value.deposit,
+			refcount: value.refcount,
+			code_len: value.code_len,
+			code_type: value.code_type.into(),
+			behaviour_version: value.behaviour_version,
+		}
+	}
+}
+
+impl<T: Config> From<CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>> for CodeInfo<T> {
+	fn from(value: CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>) -> Self {
+		Self {
+			owner: value.owner,
+			deposit: value.deposit,
+			refcount: value.refcount,
+			code_len: value.code_len,
+			code_type: value.code_type.into(),
+			behaviour_version: value.behaviour_version,
+		}
+	}
 }
 
 /// Calculate the deposit required for storing code and its metadata.
@@ -214,7 +259,10 @@ impl<T: Config> ContractBlob<T> {
 					meter.charge_deposit(&StorageDeposit::Charge(deposit))?;
 
 					<PristineCode<T>>::insert(code_hash, &self.code.to_vec());
-					*stored_code_info = Some(self.code_info.clone());
+					*stored_code_info =
+						Some(crate::storage::StorageMapValueOf::<CodeInfoOf<T>>::new(
+							self.code_info.clone(),
+						));
 					Ok(deposit)
 				},
 			}
@@ -266,11 +314,13 @@ impl<T: Config> CodeInfo<T> {
 	pub fn increment_refcount(code_hash: H256) -> DispatchResult {
 		<CodeInfoOf<T>>::mutate(code_hash, |existing| -> Result<(), DispatchError> {
 			if let Some(info) = existing {
-				info.refcount = info
-					.refcount
-					.checked_add(1)
-					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
-				Ok(())
+				info.try_mutate(|info| -> Result<(), DispatchError> {
+					info.refcount = info
+						.refcount
+						.checked_add(1)
+						.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+					Ok(())
+				})
 			} else {
 				Err(Error::<T>::CodeNotFound.into())
 			}
@@ -297,10 +347,13 @@ impl<T: Config> CodeInfo<T> {
 
 				Ok(CodeRemoved::Yes)
 			} else {
-				code_info.refcount = code_info
-					.refcount
-					.checked_sub(1)
-					.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+				code_info.try_mutate(|code_info| -> Result<(), DispatchError> {
+					code_info.refcount = code_info
+						.refcount
+						.checked_sub(1)
+						.ok_or_else(|| <Error<T>>::RefcountOverOrUnderflow)?;
+					Ok(())
+				})?;
 				Ok(CodeRemoved::No)
 			}
 		})
@@ -315,7 +368,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		Ok(Self { code: code.into_inner(), code_info, code_hash })
+		Ok(Self { code: code.into_inner(), code_info: code_info.into_inner(), code_hash })
 	}
 
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {

@@ -27,8 +27,7 @@ use syn::{
 };
 
 use attribute::{
-	EncodeLikeTypes,
-	TypeVersionedTypeAttribute, TypeVersionedTypeMode, VariantVersionedTypeMode,
+	EncodeLikeTypes, TypeVersionedTypeAttribute, TypeVersionedTypeMode, VariantVersionedTypeMode,
 	VariantWithVersionedTypeAttribute,
 };
 use fields::{extend_fields, strip_field_attributes, FieldOwner};
@@ -153,7 +152,11 @@ impl EncodeLikeImpl {
 	) -> Vec<Self> {
 		let Some(encode_like) = encode_like else { return Vec::new() };
 
-		encode_like.types().iter().map(|source_type| Self::new(item, source_type)).collect()
+		encode_like
+			.types()
+			.iter()
+			.map(|source_type| Self::new(item, source_type))
+			.collect()
 	}
 
 	/// Builds one `EncodeLike` impl from a source type to the current versioned item.
@@ -3493,12 +3496,10 @@ mod tests {
 		let output_tokens = quote::quote!(#output).to_string();
 
 		// Assert
-		assert!(output_tokens.contains(
-			"impl :: codec :: EncodeLike < PristineCodeV1 > for Bytes"
-		));
-		assert!(output_tokens.contains(
-			"impl :: codec :: EncodeLike < PristineCodeV1 > for Vec < u8 >"
-		));
+		assert!(output_tokens.contains("impl :: codec :: EncodeLike < PristineCodeV1 > for Bytes"));
+		assert!(
+			output_tokens.contains("impl :: codec :: EncodeLike < PristineCodeV1 > for Vec < u8 >")
+		);
 		assert!(!output_tokens.contains("versioned_type"));
 	}
 
