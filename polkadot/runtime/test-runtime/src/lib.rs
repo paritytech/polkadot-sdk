@@ -31,7 +31,7 @@ use codec::Encode;
 use pallet_transaction_payment::FungibleAdapter;
 
 use polkadot_runtime_parachains::{
-	assigner_coretime as parachains_assigner_coretime, configuration as parachains_configuration,
+	configuration as parachains_configuration,
 	configuration::ActiveConfigHrmpChannelSizeAndCapacityRatio,
 	coretime, disputes as parachains_disputes,
 	disputes::slashing as parachains_slashing,
@@ -69,8 +69,7 @@ use polkadot_primitives::{
 	ValidatorIndex, PARACHAIN_KEY_TYPE_ID,
 };
 use polkadot_runtime_common::{
-	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, BlockLength,
-	SlowAdjustingFeeUpdate,
+	claims, impl_runtime_weights, paras_sudo_wrapper, BlockHashCount, SlowAdjustingFeeUpdate,
 };
 use polkadot_runtime_parachains::reward_points::RewardValidatorsWithEraPoints;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
@@ -149,6 +148,15 @@ sp_api::decl_runtime_apis! {
 parameter_types! {
 	pub const Version: RuntimeVersion = VERSION;
 	pub const SS58Prefix: u8 = 42;
+	/// Maximum length of a relay-chain block is up to 10 MiB.
+	pub BlockLength: frame_system::limits::BlockLength =
+		frame_system::limits::BlockLength::builder()
+			.max_length(10 * 1024 * 1024)
+			.modify_max_length_for_class(
+				frame_support::dispatch::DispatchClass::Normal,
+				|m| { *m = polkadot_runtime_common::NORMAL_DISPATCH_RATIO * *m },
+			)
+			.build();
 }
 
 #[derive_impl(frame_system::config_preludes::RelayChainDefaultConfig)]
@@ -608,7 +616,7 @@ impl parachains_paras::Config for Runtime {
 	type QueueFootprinter = ParaInclusion;
 	type NextSessionRotation = Babe;
 	type OnNewHead = ();
-	type AssignCoretime = CoretimeAssignmentProvider;
+	type AssignCoretime = Scheduler;
 	type Fungible = Balances;
 	type CooldownRemovalMultiplier = ConstUint<1>;
 	type AuthorizeCurrentCodeOrigin = frame_system::EnsureRoot<AccountId>;
@@ -661,11 +669,7 @@ impl parachains_on_demand::Config for Runtime {
 	type PalletId = OnDemandPalletId;
 }
 
-impl parachains_assigner_coretime::Config for Runtime {}
-
-impl parachains_scheduler::Config for Runtime {
-	type AssignmentProvider = CoretimeAssignmentProvider;
-}
+impl parachains_scheduler::Config for Runtime {}
 
 pub struct DummyXcmSender;
 impl SendXcm for DummyXcmSender {
@@ -836,8 +840,7 @@ construct_runtime! {
 		Xcm: pallet_xcm,
 		ParasDisputes: parachains_disputes,
 		ParasSlashing: parachains_slashing,
-		OnDemandAssignmentProvider: parachains_on_demand,
-		CoretimeAssignmentProvider: parachains_assigner_coretime,
+		OnDemand: parachains_on_demand,
 		Coretime: coretime,
 
 		Sudo: pallet_sudo,
@@ -962,7 +965,7 @@ sp_api::impl_runtime_apis! {
 		}
 	}
 
-	#[api_version(15)]
+	#[api_version(16)]
 	impl polkadot_primitives::runtime_api::ParachainHost<Block> for Runtime {
 		fn validators() -> Vec<ValidatorId> {
 			runtime_impl::validators::<Runtime>()
@@ -1145,6 +1148,17 @@ sp_api::impl_runtime_apis! {
 
 		fn para_ids() -> Vec<ParaId> {
 			staging_runtime_impl::para_ids::<Runtime>()
+		}
+
+		fn max_relay_parent_session_age() -> u32 {
+			staging_runtime_impl::max_relay_parent_session_age::<Runtime>()
+		}
+
+		fn ancestor_relay_parent_info(
+			session_index: SessionIndex,
+			relay_parent: Hash,
+		) -> Option<polkadot_primitives::vstaging::RelayParentInfo<Hash, BlockNumber>> {
+			staging_runtime_impl::ancestor_relay_parent_info::<Runtime>(session_index, relay_parent)
 		}
 	}
 

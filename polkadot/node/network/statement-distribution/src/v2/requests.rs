@@ -30,11 +30,10 @@
 //! (which requires state not owned by the request manager).
 
 use super::{
-	seconded_and_sufficient, CandidateDescriptorVersion, TransposedClaimQueue,
-	BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT, COST_IMPROPERLY_DECODED_RESPONSE,
-	COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX, COST_INVALID_SIGNATURE,
-	COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
-	COST_UNSUPPORTED_DESCRIPTOR_VERSION, REQUEST_RETRY_DELAY,
+	seconded_and_sufficient, TransposedClaimQueue, BENEFIT_VALID_RESPONSE, BENEFIT_VALID_STATEMENT,
+	COST_IMPROPERLY_DECODED_RESPONSE, COST_INVALID_RESPONSE, COST_INVALID_SESSION_INDEX,
+	COST_INVALID_SIGNATURE, COST_INVALID_UMP_SIGNALS, COST_UNREQUESTED_RESPONSE_STATEMENT,
+	REQUEST_RETRY_DELAY,
 };
 use crate::LOG_TARGET;
 
@@ -73,8 +72,8 @@ use std::{
 /// anything other than the candidate hash.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct CandidateIdentifier {
-	/// The relay-parent this candidate is ostensibly under.
-	pub relay_parent: Hash,
+	/// The scheduling-parent this candidate is ostensibly under.
+	pub scheduling_parent: Hash,
 	/// The hash of the candidate.
 	pub candidate_hash: CandidateHash,
 	/// The index of the group claiming to be assigned to the candidate's
@@ -181,11 +180,11 @@ impl RequestManager {
 	/// manager doesn't store this request already.
 	pub fn get_or_insert(
 		&mut self,
-		relay_parent: Hash,
+		scheduling_parent: Hash,
 		candidate_hash: CandidateHash,
 		group_index: GroupIndex,
 	) -> Entry<'_> {
-		let identifier = CandidateIdentifier { relay_parent, candidate_hash, group_index };
+		let identifier = CandidateIdentifier { scheduling_parent, candidate_hash, group_index };
 
 		let (candidate, fresh) = match self.requests.entry(identifier.clone()) {
 			HEntry::Occupied(e) => (e.into_mut(), false),
@@ -240,13 +239,13 @@ impl RequestManager {
 		}
 	}
 
-	/// Remove based on relay-parent.
-	pub fn remove_by_relay_parent(&mut self, relay_parent: Hash) {
+	/// Remove all requests associated with the given scheduling parent.
+	pub fn remove_by_scheduling_parent(&mut self, scheduling_parent: Hash) {
 		let mut candidate_hashes = HashSet::new();
 
 		// Remove from `by_priority` and `requests`.
 		self.by_priority.retain(|(_priority, id)| {
-			let retain = relay_parent != id.relay_parent;
+			let retain = scheduling_parent != id.scheduling_parent;
 			if !retain {
 				self.requests.remove(id);
 				candidate_hashes.insert(id.candidate_hash);
@@ -258,7 +257,7 @@ impl RequestManager {
 		for candidate_hash in candidate_hashes {
 			match self.unique_identifiers.entry(candidate_hash) {
 				HEntry::Occupied(mut entry) => {
-					entry.get_mut().retain(|id| relay_parent != id.relay_parent);
+					entry.get_mut().retain(|id| scheduling_parent != id.scheduling_parent);
 					if entry.get().is_empty() {
 						entry.remove();
 					}
@@ -285,6 +284,19 @@ impl RequestManager {
 		}
 
 		false
+	}
+
+	#[cfg(test)]
+	pub(super) fn requests_count_by_scheduling_parent(&self, scheduling_parent: Hash) -> usize {
+		self.requests
+			.keys()
+			.filter(|id| id.scheduling_parent == scheduling_parent)
+			.count()
+	}
+
+	#[cfg(test)]
+	pub(super) fn total_requests_count(&self) -> usize {
+		self.requests.len()
 	}
 
 	/// Returns an instant at which the next request to be retried will be ready.
@@ -569,7 +581,6 @@ impl UnhandledResponse {
 		allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 		disabled_mask: BitVec<u8, Lsb0>,
 		transposed_cq: &TransposedClaimQueue,
-		allow_v2_descriptors: bool,
 	) -> ResponseValidationOutput {
 		let UnhandledResponse {
 			response: TaggedResponse { identifier, requested_peer, props, response },
@@ -656,7 +667,6 @@ impl UnhandledResponse {
 			allowed_para_lookup,
 			disabled_mask,
 			transposed_cq,
-			allow_v2_descriptors,
 		);
 
 		if let CandidateRequestStatus::Complete { .. } = output.request_status {
@@ -678,7 +688,6 @@ fn validate_complete_response(
 	allowed_para_lookup: impl Fn(ParaId, GroupIndex) -> bool,
 	disabled_mask: BitVec<u8, Lsb0>,
 	transposed_cq: &TransposedClaimQueue,
-	allow_v2_descriptors: bool,
 ) -> ResponseValidationOutput {
 	let RequestProperties { backing_threshold, mut unwanted_mask } = props;
 
@@ -707,7 +716,8 @@ fn validate_complete_response(
 	// sanity-check candidate response.
 	// note: roughly ascending cost of operations
 	{
-		if response.candidate_receipt.descriptor.relay_parent() != identifier.relay_parent {
+		if response.candidate_receipt.descriptor.scheduling_parent() != identifier.scheduling_parent
+		{
 			return invalid_candidate_output(COST_INVALID_RESPONSE);
 		}
 
@@ -730,18 +740,6 @@ fn validate_complete_response(
 
 		let candidate_hash = response.candidate_receipt.hash();
 
-		// V2 descriptors are invalid if not enabled by runtime.
-		if !allow_v2_descriptors &&
-			response.candidate_receipt.descriptor.version() == CandidateDescriptorVersion::V2
-		{
-			gum::debug!(
-				target: LOG_TARGET,
-				?candidate_hash,
-				peer = ?requested_peer,
-				"Version 2 candidate receipts are not enabled by the runtime"
-			);
-			return invalid_candidate_output(COST_UNSUPPORTED_DESCRIPTOR_VERSION);
-		}
 		// Validate the ump signals.
 		if let Err(err) = response.candidate_receipt.parse_ump_signals(transposed_cq) {
 			gum::debug!(
@@ -754,18 +752,18 @@ fn validate_complete_response(
 			return invalid_candidate_output(COST_INVALID_UMP_SIGNALS);
 		}
 
-		// Check if `session_index` of relay parent matches candidate descriptor
-		// `session_index`.
-		if let Some(candidate_session_index) = response.candidate_receipt.descriptor.session_index()
+		// Check if `session_index` of scheduling parent matches candidate descriptor
+		// `scheduling_session`.
+		if let Some(scheduling_session) = response.candidate_receipt.descriptor.scheduling_session()
 		{
-			if candidate_session_index != session {
+			if scheduling_session != session {
 				gum::debug!(
 					target: LOG_TARGET,
 					?candidate_hash,
 					peer = ?requested_peer,
 					session_index = session,
-					candidate_session_index,
-					"Received candidate has invalid session index"
+					scheduling_session,
+					"Received candidate has invalid scheduling session index"
 				);
 				return invalid_candidate_output(COST_INVALID_SESSION_INDEX);
 			}
@@ -782,7 +780,7 @@ fn validate_complete_response(
 		let index_in_group = |v: ValidatorIndex| group.iter().position(|x| &v == x);
 
 		let signing_context =
-			SigningContext { parent_hash: identifier.relay_parent, session_index: session };
+			SigningContext { parent_hash: identifier.scheduling_parent, session_index: session };
 
 		for unchecked_statement in response.statements.into_iter().take(group.len() * 2) {
 			// ensure statement is from a validator in the group.
@@ -957,7 +955,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_remove_by_relay_parent() {
+	fn test_remove_by_scheduling_parent() {
 		let parent_a = Hash::from_low_u64_le(1);
 		let parent_b = Hash::from_low_u64_le(2);
 		let parent_c = Hash::from_low_u64_le(3);
@@ -981,7 +979,7 @@ mod tests {
 		assert_eq!(request_manager.by_priority.len(), 6);
 		assert_eq!(request_manager.unique_identifiers.len(), 5);
 
-		request_manager.remove_by_relay_parent(parent_a);
+		request_manager.remove_by_scheduling_parent(parent_a);
 
 		assert_eq!(request_manager.requests.len(), 3);
 		assert_eq!(request_manager.by_priority.len(), 3);
@@ -992,7 +990,7 @@ mod tests {
 		// Duplicate hash should still be there (under a different parent).
 		assert!(request_manager.unique_identifiers.contains_key(&duplicate_hash));
 
-		request_manager.remove_by_relay_parent(parent_b);
+		request_manager.remove_by_scheduling_parent(parent_b);
 
 		assert_eq!(request_manager.requests.len(), 1);
 		assert_eq!(request_manager.by_priority.len(), 1);
@@ -1001,7 +999,7 @@ mod tests {
 		assert!(!request_manager.unique_identifiers.contains_key(&candidate_b1));
 		assert!(!request_manager.unique_identifiers.contains_key(&candidate_b2));
 
-		request_manager.remove_by_relay_parent(parent_c);
+		request_manager.remove_by_scheduling_parent(parent_c);
 
 		assert!(request_manager.requests.is_empty());
 		assert!(request_manager.by_priority.is_empty());
@@ -1145,7 +1143,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask.clone(),
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1186,7 +1183,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1244,7 +1240,7 @@ mod tests {
 		}
 
 		// Garbage collect based on relay parent.
-		request_manager.remove_by_relay_parent(relay_parent);
+		request_manager.remove_by_scheduling_parent(relay_parent);
 
 		// Try to validate response.
 		{
@@ -1272,7 +1268,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1355,7 +1350,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask,
 				&Default::default(),
-				false,
 			);
 			assert_eq!(
 				output,
@@ -1495,7 +1489,6 @@ mod tests {
 				allowed_para_lookup,
 				disabled_mask.clone(),
 				&Default::default(),
-				false,
 			);
 
 			// First request served successfully

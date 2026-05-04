@@ -78,9 +78,9 @@ use initialized::{InitialData, Initialized};
 /// If we have seen a candidate included somewhere, we should treat it as priority and will be able
 /// to provide an ordering for participation. Thus a dispute for a candidate where we can get some
 /// ordering is high-priority (we know it is a valid dispute) and those can be ordered by
-/// `participation` based on `relay_parent` block number and other metrics, so each validator will
-/// participate in disputes in a similar order, which ensures we will be resolving disputes, even
-/// under heavy load.
+/// `participation` based on `scheduling_parent` block number and other metrics, so each validator
+/// will participate in disputes in a similar order, which ensures we will be resolving disputes,
+/// even under heavy load.
 mod scraping;
 use scraping::ChainScraper;
 
@@ -430,7 +430,6 @@ impl DisputeCoordinatorSubsystem {
 						ParticipationRequest::new(
 							vote_state.votes().candidate_receipt.clone(),
 							session,
-							env.executor_params().clone(),
 							request_timer,
 						),
 					));
@@ -540,7 +539,7 @@ async fn send_dispute_messages<Context>(
 			gum::error!(
 				target: LOG_TARGET,
 				?validator_index,
-				session_index = ?env.session_index(),
+				session_index = ?env.scheduling_session(),
 				"Could not find our own key in `SessionInfo`"
 			);
 			continue;
@@ -548,7 +547,7 @@ async fn send_dispute_messages<Context>(
 		let our_vote_signed = SignedDisputeStatement::new_checked(
 			kind.clone(),
 			vote_state.votes().candidate_receipt.hash(),
-			env.session_index(),
+			env.scheduling_session(),
 			public_key,
 			sig.clone(),
 		);

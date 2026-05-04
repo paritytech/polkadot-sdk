@@ -1,0 +1,21 @@
+title: 'collator-protocol: check v3 candidate against last finished slot block'
+doc:
+- audience: Node Dev
+  description: |-
+    This PR achieves the following:
+    1) removes the assumption that the scheduling parent sent with a candidate descriptor is an active leaf on the collator-side
+    2) removes the reputation penalty for collators sending a candidate with a scheduling parent that's corresponding to an in progress slot
+    3) checks on the validator_side that the candidate descriptor's scheduling parent is the rc block corresponding to the last finished rc slot's block.
+    4) improves the testing coverage for V3 candidates descriptor throughout collator-protocol and paras_inherent.
+
+crates:
+- name: polkadot-node-core-prospective-parachains
+  bump: patch 
+- name: polkadot-collator-protocol
+  bump: minor 
+- name: polkadot-runtime-parachains
+  bump: patch 
+- name: polkadot-primitives
+  bump: minor 
+- name: polkadot-primitives-test-helpers
+  bump: minor 

@@ -27,6 +27,7 @@ use crate::{
 		test_utils::{contract_base_deposit, ensure_stored, get_contract},
 	},
 	tracing::trace,
+	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloy_core::sol_types::{SolCall, SolInterface};
 use frame_support::{
@@ -175,10 +176,11 @@ fn basic_evm_flow_tracing_works() {
 
 #[test]
 fn eth_contract_too_large() {
-	// Generate EVM bytecode that is one byte larger than the EIP-3860 limit.
-	let contract_size = u32::try_from(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1)
-		.expect("usize value doesn't fit in u32");
-	let code = VmBinaryModule::evm_sized(contract_size).code;
+	// Create EVM init code that is one byte larger than the EIP-3860 limit.
+	// We take valid init code and pad it with STOP opcodes after the RETURN instruction
+	// (unreachable but makes the init code blob itself exceed MAX_INITCODE_SIZE).
+	let mut code = VmBinaryModule::evm_init_code_for_runtime_size(0).code;
+	code.resize(revm::primitives::eip3860::MAX_INITCODE_SIZE + 1, revm::bytecode::opcode::STOP);
 
 	for (allow_unlimited_contract_size, debug_flag) in
 		[(true, false), (true, true), (false, false), (false, true)]
@@ -269,7 +271,7 @@ fn upload_and_remove_code_works_for_evm() {
 		assert!(!PristineCode::<Test>::contains_key(&code_hash));
 
 		// Upload the code.
-		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64));
+		assert_ok!(Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128));
 
 		// Ensure the contract was stored.
 		ensure_stored(code_hash);
@@ -290,7 +292,7 @@ fn upload_fails_if_evm_bytecode_disabled() {
 	ExtBuilder::default().build().execute_with(|| {
 		// Upload should fail since support for EVM bytecode is disabled.
 		assert_err!(
-			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u64),
+			Pallet::<Test>::upload_code(RuntimeOrigin::signed(ALICE), code, 1000u128),
 			<Error<Test>>::CodeRejected
 		);
 	});
@@ -573,7 +575,7 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1000);
 
 		let inner_call = frame_system::Call::remark { remark: vec![0u8; 100] };
-		let transaction_encoded = vec![];
+		let transaction_encoded = vec![0u8; 200];
 		let transaction_encoded_len = transaction_encoded.len() as u32;
 
 		let result = Pallet::<Test>::eth_substrate_call(
@@ -585,7 +587,10 @@ fn eth_substrate_call_tracks_weight_correctly() {
 		assert_ok!(result);
 		let post_info = result.unwrap();
 
-		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len);
+		let overhead = <Test as Config>::WeightInfo::eth_substrate_call(transaction_encoded_len)
+			.saturating_add(<Test as Config>::WeightInfo::on_finalize_block_per_tx(
+				transaction_encoded_len,
+			));
 		let expected_weight = overhead.saturating_add(inner_call.get_dispatch_info().call_weight);
 		assert!(
 			expected_weight == post_info.actual_weight.unwrap(),

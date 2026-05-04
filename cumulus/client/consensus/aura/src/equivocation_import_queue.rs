@@ -32,7 +32,7 @@ use sc_consensus::{
 use sc_consensus_aura::{standalone as aura_internal, AuthoritiesTracker};
 use sc_telemetry::{telemetry, TelemetryHandle, CONSENSUS_DEBUG, CONSENSUS_TRACE};
 use schnellru::{ByLength, LruMap};
-use sp_api::ProvideRuntimeApi;
+use sp_api::{ApiExt, ProvideRuntimeApi};
 use sp_block_builder::BlockBuilder as BlockBuilderApi;
 use sp_blockchain::{HeaderBackend, HeaderMetadata};
 use sp_consensus::{error::Error as ConsensusError, BlockOrigin};
@@ -150,11 +150,10 @@ where
 				format!("Could not fetch authorities at {:?}: {}", parent_hash, e)
 			})?;
 
-			let slot_duration = self
-				.client
-				.runtime_api()
-				.slot_duration(parent_hash)
-				.map_err(|e| e.to_string())?;
+			let mut runtime_api = self.client.runtime_api();
+			runtime_api.set_call_context(sp_core::traits::CallContext::Onchain { import: true });
+			let slot_duration =
+				runtime_api.slot_duration(parent_hash).map_err(|e| e.to_string())?;
 
 			let slot_now = slot_now(slot_duration);
 			let res = aura_internal::check_header_slot_and_seal::<Block, P>(
@@ -307,7 +306,7 @@ mod test {
 	use super::*;
 	use codec::Encode;
 	use cumulus_test_client::{
-		runtime::Block, seal_block, Client, InitBlockBuilder, TestClientBuilder,
+		runtime::Block, seal_block, BuildBlockBuilder, Client, TestClientBuilder,
 		TestClientBuilderExt,
 	};
 	use cumulus_test_relay_sproof_builder::RelayStateSproofBuilder;
@@ -345,7 +344,11 @@ mod test {
 			..Default::default()
 		};
 
-		let block_builder = client.init_block_builder(Some(validation_data), sproof);
+		let block_builder = client
+			.init_block_builder_builder()
+			.with_validation_data(validation_data)
+			.with_relay_sproof_builder(sproof)
+			.build();
 		let block = block_builder.block_builder.build().unwrap();
 
 		let mut blocks = Vec::new();

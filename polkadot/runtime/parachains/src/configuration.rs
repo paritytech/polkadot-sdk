@@ -42,7 +42,7 @@ mod benchmarking;
 pub mod migration;
 
 pub use pallet::*;
-use polkadot_primitives::SchedulerParams;
+use polkadot_primitives::vstaging::SchedulerParams;
 
 const LOG_TARGET: &str = "runtime::configuration";
 
@@ -228,6 +228,8 @@ pub struct HostConfiguration<BlockNumber> {
 	pub approval_voting_params: ApprovalVotingParams,
 	/// Scheduler parameters
 	pub scheduler_params: SchedulerParams<BlockNumber>,
+	/// The maximum session age of a relay parent that a parachain block can build upon.
+	pub max_relay_parent_session_age: u32,
 }
 
 impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber> {
@@ -271,6 +273,7 @@ impl<BlockNumber: Default + From<u32>> Default for HostConfiguration<BlockNumber
 			minimum_backing_votes: LEGACY_MIN_BACKING_VOTES,
 			node_features: NodeFeatures::EMPTY,
 			scheduler_params: Default::default(),
+			max_relay_parent_session_age: 0,
 		};
 
 		#[cfg(feature = "runtime-benchmarks")]
@@ -521,7 +524,8 @@ pub mod pallet {
 	/// v9-v10: <https://github.com/paritytech/polkadot-sdk/pull/2177>
 	/// v10-11: <https://github.com/paritytech/polkadot-sdk/pull/1191>
 	/// v11-12: <https://github.com/paritytech/polkadot-sdk/pull/3181>
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(12);
+	/// v12-13: added max_relay_parent_session_age to SchedulerParams
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(13);
 
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
@@ -1237,6 +1241,19 @@ pub mod pallet {
 			ensure_root(origin)?;
 			Self::schedule_config_update(|config| {
 				config.scheduler_params = new;
+			})
+		}
+
+		/// Set the maximum relay parent session age.
+		#[pallet::call_index(56)]
+		#[pallet::weight((
+			T::WeightInfo::set_config_with_u32(),
+			DispatchClass::Operational,
+		))]
+		pub fn set_max_relay_parent_session_age(origin: OriginFor<T>, new: u32) -> DispatchResult {
+			ensure_root(origin)?;
+			Self::schedule_config_update(|config| {
+				config.max_relay_parent_session_age = new;
 			})
 		}
 	}

@@ -15,7 +15,6 @@
 // You should have received a copy of the GNU General Public License
 // along with Cumulus. If not, see <https://www.gnu.org/licenses/>.
 
-use codec::Encode;
 use std::path::PathBuf;
 
 use cumulus_client_collator::service::ServiceInterface as CollatorServiceInterface;
@@ -122,20 +121,19 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 ) {
 	let CollatorMessage {
 		parent_header,
-		parachain_candidate,
+		blocks,
+		proof,
 		validation_code_hash,
 		relay_parent,
 		core_index,
-		max_pov_size,
+		validation_data,
 	} = message;
 
-	let hash = parachain_candidate.block.header().hash();
-	let number = *parachain_candidate.block.header().number();
 	let (collation, block_data) =
-		match collator_service.build_collation(&parent_header, hash, parachain_candidate) {
+		match collator_service.build_multi_block_collation(&parent_header, blocks, proof) {
 			Some(collation) => collation,
 			None => {
-				tracing::warn!(target: LOG_TARGET, %hash, ?number, ?core_index, "Unable to build collation.");
+				tracing::warn!(target: LOG_TARGET, ?core_index, "Unable to build collation.");
 				return;
 			},
 		};
@@ -156,7 +154,7 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 						parent_header.clone(),
 						relay_parent_header.state_root,
 						relay_parent_header.number,
-						max_pov_size,
+						validation_data.max_pov_size,
 					);
 				}
 			} else {
@@ -166,22 +164,43 @@ async fn handle_collation_message<Block: BlockT, RClient: RelayChainInterface + 
 
 		tracing::info!(
 			target: LOG_TARGET,
+			block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
 			"Compressed PoV size: {}kb",
 			pov.block_data.0.len() as f64 / 1024f64,
 		);
 	}
 
-	tracing::debug!(target: LOG_TARGET, ?core_index, ?hash, %number, "Submitting collation for core.");
+	let session_index = match relay_client.session_index_for_child(relay_parent).await {
+		Ok(session_index) => session_index,
+		Err(err) => {
+			tracing::error!(
+				target: LOG_TARGET,
+				?err,
+				?relay_parent,
+				"Failed to fetch session index."
+			);
+			return;
+		},
+	};
+
+	tracing::debug!(
+		target: LOG_TARGET,
+		?core_index,
+		block_numbers = ?block_data.blocks().iter().map(|b| *b.header().number()).collect::<Vec<_>>(),
+		"Submitting collation for core.",
+	);
 
 	overseer_handle
 		.send_msg(
 			CollationGenerationMessage::SubmitCollation(SubmitCollationParams {
 				relay_parent,
 				collation,
-				parent_head: parent_header.encode().into(),
 				validation_code_hash,
 				core_index,
 				result_sender: None,
+				scheduling_parent: None,
+				session_index,
+				validation_data,
 			}),
 			"SubmitCollation",
 		)

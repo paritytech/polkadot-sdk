@@ -12,10 +12,14 @@ readme = "README.md"
 [lints]
 workspace = true
 
+[features]
+test-helpers = ["anyhow", "scale-info", "subxt", "subxt-signer"]
+
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
+anyhow = { workspace = true, optional = true }
 async-channel = { workspace = true }
 futures = { workspace = true }
 itertools = { workspace = true }
@@ -27,12 +31,15 @@ sc-client-api = { workspace = true, default-features = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network-statement = { workspace = true, default-features = true }
 sc-utils = { workspace = true }
+scale-info = { workspace = true, default-features = true, optional = true }
 sp-api = { workspace = true, default-features = true }
 sp-blockchain = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 sp-statement-store = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
+subxt = { version = "0.50", features = ["jsonrpsee", "native"], optional = true }
+subxt-signer = { version = "0.50", features = ["sr25519"], optional = true }
 tokio = { features = ["time"], workspace = true, default-features = true }
 
 [dev-dependencies]

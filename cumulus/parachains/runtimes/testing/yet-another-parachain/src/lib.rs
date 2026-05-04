@@ -109,7 +109,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 
 pub const MILLISECS_PER_BLOCK: u64 = 2000;
 
-pub const SLOT_DURATION: u64 = 3 * MILLISECS_PER_BLOCK;
+pub const SLOT_DURATION: u64 = 24_000;
 
 pub const EPOCH_DURATION_IN_BLOCKS: u32 = 10 * MINUTES;
 
