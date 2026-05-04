@@ -27,7 +27,6 @@ use crate::{
 use alloc::{collections::btree_set::BTreeSet, vec::Vec};
 use codec::{Decode, Encode, EncodeLike, FullCodec, FullEncode};
 use core::marker::PhantomData;
-pub use sp_core::storage::ChildInfo;
 use sp_runtime::generic::{Digest, DigestItem};
 
 pub use self::{
@@ -39,6 +38,7 @@ pub use self::{
 };
 pub use sp_runtime::TransactionOutcome;
 pub use types::Key;
+pub use sp_core::storage::ChildInfo;
 
 pub mod bounded_btree_map;
 pub mod bounded_btree_set;

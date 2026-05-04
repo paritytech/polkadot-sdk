@@ -237,7 +237,7 @@ impl KeyTracker {
 			if let Some(child_trie_key) = &key.child_trie_key {
 				self.child_keys
 					.entry(child_trie_key.clone())
-					.or_insert_with(LinkedHashMap::new)
+					.or_default()
 					.insert(key.key.clone(), whitelisted);
 			} else {
 				self.main_keys.insert(key.key.clone(), whitelisted);
