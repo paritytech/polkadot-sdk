@@ -66,7 +66,7 @@ use crate::{
 	weightinfo_extension::OnFinalizeBlockParts,
 };
 use alloc::{boxed::Box, format, vec};
-use codec::{Codec, Decode, Encode, HasCompact, MaxEncodedLen};
+use codec::{Codec, Decode, Encode};
 use environmental::*;
 use frame_support::{
 	BoundedVec,
@@ -173,7 +173,6 @@ pub mod pallet {
 		/// Just added here to add additional trait bounds.
 		#[pallet::no_default]
 		type Balance: Balance
-			+ HasCompact<Type: MaxEncodedLen>
 			+ TryFrom<U256>
 			+ Into<U256>
 			+ Bounded
