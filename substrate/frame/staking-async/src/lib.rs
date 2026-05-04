@@ -318,6 +318,23 @@ pub struct EraRewardPoints<T: Config> {
 	pub individual: BoundedBTreeMap<T::AccountId, RewardPoint, T::MaxValidatorSet>,
 }
 
+impl<T: Config> EraRewardPoints<T> {
+	/// Performance factor `p_i / max(p_j)` for a validator with `validator_points`.
+	///
+	/// Used to scale per-validator era payouts by relative performance (e.g. the
+	/// validator self-stake incentive, and any future per-validator payout such as
+	/// a fixed pUSD salary). Returns `Perbill::zero()` when no validator earned any
+	/// points — callers that already short-circuit on zero points (e.g. the staker
+	/// payout path) won't observe this case.
+	pub(crate) fn performance_factor(&self, validator_points: RewardPoint) -> Perbill {
+		let max_points = self.individual.values().copied().max().unwrap_or(0);
+		if max_points == 0 {
+			return Perbill::zero();
+		}
+		Perbill::from_rational(validator_points, max_points)
+	}
+}
+
 /// A destination account for payment.
 #[derive(
 	PartialEq,

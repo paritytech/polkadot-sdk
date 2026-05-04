@@ -397,6 +397,11 @@ impl<T: Config> Pallet<T> {
 			return Ok(Some(T::WeightInfo::payout_stakers_alive_staked(0)).into());
 		}
 
+		// Relative performance factor `p_i / max(p_j)` used to scale the validator
+		// self-stake incentive. The zero-points gate above guarantees `max > 0`
+		// here (this validator's points are already non-zero).
+		let performance_factor = era_reward_points.performance_factor(validator_reward_points);
+
 		// This is the fraction of the total reward that the validator and the
 		// nominators will get.
 		let validator_total_reward_part =
@@ -434,9 +439,12 @@ impl<T: Config> Pallet<T> {
 
 		// Pay validator incentive bonus from the separate incentive pot.
 		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
-		if let Some(incentive) =
-			Self::calculate_validator_incentive_for_page(era, &stash, page_stake_part)
-		{
+		if let Some(incentive) = Self::calculate_validator_incentive_for_page(
+			era,
+			&stash,
+			page_stake_part,
+			performance_factor,
+		) {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
 
@@ -669,14 +677,17 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the validator incentive amount for a single page.
 	///
-	/// Share = `(validator_weight / sum_weight) × budget × page_stake_part`, where
-	/// `sum_weight` covers ALL elected validators. A validator that earns no reward
-	/// points forfeits their share (stays in the pot, handled by `UnclaimedRewardHandler`
-	/// at pruning) rather than redistributing it.
+	/// Share = `(validator_weight / sum_weight) × (p_i / max(p_j)) × budget × page_stake_part`,
+	/// where `sum_weight` covers ALL elected validators and `performance_factor = p_i / max(p_j)`
+	/// scales the share by the validator's era points relative to the top performer. A validator
+	/// that earns no reward points (or fewer than the top performer) forfeits the corresponding
+	/// portion of their share — the unclaimed remainder stays in the era pot and is handled by
+	/// `UnclaimedRewardHandler` at pruning. Shares are not redistributed to peers.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
 		page_stake_part: Perbill,
+		performance_factor: Perbill,
 	) -> Option<BalanceOf<T>> {
 		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
 		if era_incentive_budget.is_zero() {
@@ -708,7 +719,10 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
-		let validator_total_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_total_incentive_unscaled =
+			validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_total_incentive =
+			performance_factor.mul_floor(validator_total_incentive_unscaled);
 		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
 
 		if validator_incentive_for_page.is_zero() {
