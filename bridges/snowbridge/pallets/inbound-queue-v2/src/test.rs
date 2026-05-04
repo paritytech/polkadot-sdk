@@ -537,8 +537,10 @@ fn poc_permissionless_forged_receipt_bypasses_verifier_and_injects_xcm() {
 	use alloy_primitives::{Address, Bytes, Log as AlloyLog, B256};
 	use frame_support::{assert_noop, assert_ok};
 	use snowbridge_inbound_queue_primitives::v2::IGatewayV2;
-		use snowbridge_verification_primitives::{receipt::verify_receipt_proof, try_receipt_proof_from_vec};
 	use snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture;
+	use snowbridge_verification_primitives::{
+		receipt::verify_receipt_proof, try_receipt_proof_from_vec,
+	};
 
 	exploit::new_tester().execute_with(|| {
 		let fixture = make_inbound_fixture();
@@ -631,8 +633,7 @@ fn poc_permissionless_forged_receipt_bypasses_verifier_and_injects_xcm() {
 		}
 
 		let mut forged_proof = fixture.event.proof;
-		forged_proof.receipt_proof =
-			try_receipt_proof_from_vec(exploit_proof_nodes).unwrap();
+		forged_proof.receipt_proof = try_receipt_proof_from_vec(exploit_proof_nodes).unwrap();
 
 		let forged_event = EventProof { event_log: forged_event_log, proof: forged_proof };
 		assert_noop!(
