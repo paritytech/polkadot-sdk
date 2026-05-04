@@ -36,9 +36,9 @@ pub use self::{
 	},
 	types::StorageEntryMetadataBuilder,
 };
+pub use sp_core::storage::ChildInfo;
 pub use sp_runtime::TransactionOutcome;
 pub use types::Key;
-pub use sp_core::storage::ChildInfo;
 
 pub mod bounded_btree_map;
 pub mod bounded_btree_set;
