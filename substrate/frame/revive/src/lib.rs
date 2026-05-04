@@ -715,8 +715,11 @@ pub mod pallet {
 	/// A pair of monotonic counters used to track the latest contract marked for deletion
 	/// and the latest deleted contract in queue.
 	#[pallet::storage]
-	pub(crate) type DeletionQueueCounter<T: Config> =
-		StorageValue<_, DeletionQueueManager<T>, ValueQuery>;
+	pub(crate) type DeletionQueueCounter<T: Config> = StorageValue<
+		_,
+		StorageCodecWrapper<DeletionQueueManager<T>, DeletionQueueManagerV1>,
+		ValueQuery,
+	>;
 
 	/// Map a Ethereum address to its original `AccountId32`.
 	///

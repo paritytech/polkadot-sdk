@@ -48,7 +48,9 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
-use pallet_revive_types::storage::{AccountInfoV1, AccountTypeV1, ContractInfoV1, TrieIdV1};
+use pallet_revive_types::storage::{
+	AccountInfoV1, AccountTypeV1, ContractInfoV1, DeletionQueueManagerV1, TrieIdV1,
+};
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
@@ -596,6 +598,22 @@ pub struct DeletionQueueManager<T: Config> {
 	_phantom: PhantomData<T>,
 }
 
+impl<T: Config> From<DeletionQueueManager<T>> for DeletionQueueManagerV1 {
+	fn from(value: DeletionQueueManager<T>) -> Self {
+		Self { insert_counter: value.insert_counter, delete_counter: value.delete_counter }
+	}
+}
+
+impl<T: Config> From<DeletionQueueManagerV1> for DeletionQueueManager<T> {
+	fn from(value: DeletionQueueManagerV1) -> Self {
+		Self {
+			insert_counter: value.insert_counter,
+			delete_counter: value.delete_counter,
+			_phantom: PhantomData,
+		}
+	}
+}
+
 /// View on a contract that is marked for deletion.
 struct DeletionQueueEntry<'a, T: Config> {
 	/// the trie id of the contract to delete.
@@ -611,7 +629,9 @@ impl<'a, T: Config> DeletionQueueEntry<'a, T> {
 	fn remove(self) {
 		<DeletionQueue<T>>::remove(self.queue.delete_counter);
 		self.queue.delete_counter = self.queue.delete_counter.wrapping_add(1);
-		<DeletionQueueCounter<T>>::set(self.queue.clone());
+		<DeletionQueueCounter<T>>::set(StorageValueOf::<DeletionQueueCounter<T>>::new(
+			self.queue.clone(),
+		));
 	}
 }
 
@@ -619,7 +639,7 @@ impl<T: Config> DeletionQueueManager<T> {
 	/// Load the `DeletionQueueCounter`, so we can perform read or write operations on the
 	/// DeletionQueue storage.
 	fn load() -> Self {
-		<DeletionQueueCounter<T>>::get()
+		<DeletionQueueCounter<T>>::get().into_inner()
 	}
 
 	/// Returns `true` if the queue contains no elements.
@@ -634,7 +654,9 @@ impl<T: Config> DeletionQueueManager<T> {
 			StorageMapValueOf::<DeletionQueue<T>>::new(trie_id),
 		);
 		self.insert_counter = self.insert_counter.wrapping_add(1);
-		<DeletionQueueCounter<T>>::set(self.clone());
+		<DeletionQueueCounter<T>>::set(StorageValueOf::<DeletionQueueCounter<T>>::new(
+			self.clone(),
+		));
 	}
 
 	/// Fetch the next contract to be deleted.

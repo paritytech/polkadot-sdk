@@ -1725,7 +1725,9 @@ fn deletion_queue_ring_buffer_overflow() {
 	// setup the deletion queue with custom counters
 	ext.execute_with(|| {
 		let queue = DeletionQueueManager::from_test_values(u32::MAX - 1, u32::MAX - 1);
-		<DeletionQueueCounter<Test>>::set(queue);
+		<DeletionQueueCounter<Test>>::set(crate::storage::StorageValueOf::<
+			DeletionQueueCounter<Test>,
+		>::new(queue));
 	});
 
 	// commit the changes to the storage
