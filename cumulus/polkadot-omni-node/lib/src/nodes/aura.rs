@@ -221,11 +221,10 @@ where
 		// Destructure all fields so the compiler enforces handling new args.
 		let NodeExtraArgs {
 			authoring_policy,
-			ref export_pov,
+			export_pov,
 			max_pov_percentage,
-			ref statement_store_config,
-			ref storage_monitor,
-			ref hop,
+			statement_store_config,
+			storage_monitor,
 		} = node_extra_args;
 
 		// Warn about args that have no effect in dev mode (collation-specific).
@@ -264,14 +263,14 @@ where
 
 		let metrics = NotificationMetrics::new(None);
 
-		let statement_handler_proto = statement_store_config.as_ref().map(|ss_config| {
+		let statement_handler_proto = statement_store_config.map(|ss_config| {
 			let proto = crate::common::statement_store::new_statement_handler_proto(
 				&*client,
 				&config,
 				&metrics,
 				&mut net_config,
 			);
-			(proto, *ss_config)
+			(proto, ss_config)
 		});
 
 		let (network, system_rpc_tx, tx_handler_controller, sync_service) =
@@ -416,21 +415,6 @@ where
 				);
 			},
 		}
-		let hop_pool = hop
-			.as_ref()
-			.map(|params| params.build_pool(config.database.path().map(|p| p.to_path_buf())))
-			.transpose()
-			.map_err(|e| sc_service::Error::Application(Box::new(e)))?;
-		if let (Some(pool), Some(hop)) = (hop_pool.as_ref(), hop.as_ref()) {
-			let task = sc_hop::build_maintenance_task::<Block, _, _>(
-				&client,
-				&transaction_pool,
-				pool.clone(),
-				hop.promotion_buffer_blocks,
-				hop.check_interval,
-			);
-			task_manager.spawn_handle().spawn("hop-maintenance", None, task.run());
-		}
 
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let rpc_extensions_builder = {
@@ -438,7 +422,6 @@ where
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
-			let hop_pool = hop_pool.clone();
 
 			Box::new(move |_| {
 				let module = Self::BuildRpcExtensions::build_rpc_extensions(
@@ -446,7 +429,6 @@ where
 					backend_for_rpc.clone(),
 					transaction_pool.clone(),
 					statement_store.clone(),
-					hop_pool.clone(),
 					spawn_handle.clone(),
 				)?;
 				Ok(module)
@@ -474,7 +456,7 @@ where
 		// Spawn the storage monitor.
 		if let Some(database_path) = database_path {
 			sc_storage_monitor::StorageMonitorService::try_spawn(
-				storage_monitor.clone(),
+				storage_monitor,
 				database_path,
 				&task_manager.spawn_essential_handle(),
 			)

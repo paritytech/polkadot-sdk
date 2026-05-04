@@ -3,11 +3,11 @@
 
 //! Smoke tests for the Bulletin parachain PoC binary.
 //!
-//! These confirm two PoC properties without spinning up a full node:
-//!   1. The CLI inherits HOP flags from `polkadot-omni-node-lib` via
-//!      `#[command(flatten)]`.
-//!   2. The binary identifies itself as `polkadot-bulletin-parachain` (not as
-//!      `polkadot-omni-node`).
+//! After Pass 1 (lib revert), the lib no longer exposes HOP CLI flags. The
+//! Pass 2 follow-up will reintroduce them via a Bulletin-owned `Cli` that
+//! flattens `sc_hop::HopParams` alongside `polkadot_omni_node_lib::Cli` and
+//! wires them through a `NodeExtension` trait. Until then we only assert the
+//! Bulletin identity surface.
 
 use assert_cmd::Command;
 
@@ -21,17 +21,6 @@ fn run(args: &[&str]) -> String {
 		.stdout
 		.clone();
 	String::from_utf8_lossy(&output).into_owned()
-}
-
-#[test]
-fn help_inherits_hop_cli_group() {
-	let help = run(&["--help"]);
-	for flag in ["--enable-hop", "--hop-max-pool-size", "--hop-retention-blocks"] {
-		assert!(
-			help.contains(flag),
-			"`--help` should list `{flag}` inherited from polkadot-omni-node-lib"
-		);
-	}
 }
 
 #[test]

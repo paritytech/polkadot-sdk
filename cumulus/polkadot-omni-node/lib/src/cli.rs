@@ -262,10 +262,6 @@ pub struct Cli<Config: CliConfig> {
 	#[arg(long, default_value_t = sc_statement_store::DEFAULT_PURGE_AFTER_SEC)]
 	pub statement_store_purge_after_sec: u64,
 
-	/// HOP (Hand-Off Protocol) configuration parameters.
-	#[command(flatten)]
-	pub hop: sc_hop::HopParams,
-
 	#[arg(skip)]
 	pub(crate) _phantom: PhantomData<Config>,
 }
@@ -320,7 +316,6 @@ impl<Config: CliConfig> Cli<Config> {
 				},
 			),
 			storage_monitor: self.storage_monitor.clone(),
-			hop: self.hop.enable_hop.then(|| self.hop.clone()),
 		}
 	}
 
