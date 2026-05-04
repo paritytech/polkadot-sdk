@@ -749,7 +749,8 @@ pub mod pallet {
 	/// by a few hashes and the vector of transaction hashes, we store the block here.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type EthereumBlock<T> = StorageValue<_, EthBlock, ValueQuery>;
+	pub(crate) type EthereumBlock<T> =
+		StorageValue<_, StorageCodecWrapper<EthBlock, EthereumBlockV1>, ValueQuery>;
 
 	/// Mapping for block number and hashes.
 	///
@@ -2333,7 +2334,7 @@ impl<T: Config> Pallet<T> {
 
 	/// Get the current Ethereum block from storage.
 	pub fn eth_block() -> EthBlock {
-		EthereumBlock::<T>::get()
+		EthereumBlock::<T>::get().into_inner()
 	}
 
 	/// Convert the Ethereum block number into the Ethereum block hash.

@@ -76,6 +76,10 @@ pub use subxt::config::PolkadotConfig as SrcChainConfig;
 		with = "::subxt::utils::Static<::pallet_revive::evm::Block>"
 	),
 	substitute_type(
+		path = "pallet_revive_types::storage::types::block::EthereumBlockV1",
+		with = "::subxt::utils::Static<::pallet_revive_types::storage::EthereumBlockV1>"
+	),
+	substitute_type(
 		path = "pallet_revive::evm::block_hash::ReceiptGasInfo",
 		with = "::subxt::utils::Static<::pallet_revive::evm::ReceiptGasInfo>"
 	),

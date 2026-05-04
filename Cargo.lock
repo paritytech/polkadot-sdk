@@ -14203,6 +14203,7 @@ dependencies = [
  "log",
  "pallet-revive",
  "pallet-revive-fixtures",
+ "pallet-revive-types",
  "parity-scale-codec",
  "pretty_assertions",
  "revive-dev-node",

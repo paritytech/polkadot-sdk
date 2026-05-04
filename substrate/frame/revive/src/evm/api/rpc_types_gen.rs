@@ -26,6 +26,7 @@ use alloc::{
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
+use pallet_revive_types::storage as storage_types;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, de::Error};
 use sp_core::ConstU32;
@@ -144,6 +145,86 @@ pub struct Block {
 	pub withdrawals: Vec<Withdrawal>,
 	/// Withdrawals root
 	pub withdrawals_root: H256,
+}
+
+impl From<Block> for storage_types::EthBlockV1 {
+	fn from(value: Block) -> Self {
+		Self {
+			base_fee_per_gas: value.base_fee_per_gas,
+			blob_gas_used: value.blob_gas_used,
+			difficulty: value.difficulty,
+			excess_blob_gas: value.excess_blob_gas,
+			extra_data: value.extra_data.into(),
+			gas_limit: value.gas_limit,
+			gas_used: value.gas_used,
+			hash: value.hash,
+			logs_bloom: value.logs_bloom.into(),
+			miner: value.miner,
+			mix_hash: value.mix_hash,
+			nonce: value.nonce.into(),
+			number: value.number,
+			parent_beacon_block_root: value.parent_beacon_block_root,
+			parent_hash: value.parent_hash,
+			receipts_root: value.receipts_root,
+			requests_hash: value.requests_hash,
+			sha_3_uncles: value.sha_3_uncles,
+			size: value.size,
+			state_root: value.state_root,
+			timestamp: value.timestamp,
+			total_difficulty: value.total_difficulty,
+			transactions: value.transactions.into(),
+			transactions_root: value.transactions_root,
+			uncles: value.uncles,
+			withdrawals: value.withdrawals.into_iter().map(Into::into).collect(),
+			withdrawals_root: value.withdrawals_root,
+		}
+	}
+}
+
+impl From<storage_types::EthBlockV1> for Block {
+	fn from(value: storage_types::EthBlockV1) -> Self {
+		Self {
+			base_fee_per_gas: value.base_fee_per_gas,
+			blob_gas_used: value.blob_gas_used,
+			difficulty: value.difficulty,
+			excess_blob_gas: value.excess_blob_gas,
+			extra_data: value.extra_data.into(),
+			gas_limit: value.gas_limit,
+			gas_used: value.gas_used,
+			hash: value.hash,
+			logs_bloom: value.logs_bloom.into(),
+			miner: value.miner,
+			mix_hash: value.mix_hash,
+			nonce: value.nonce.into(),
+			number: value.number,
+			parent_beacon_block_root: value.parent_beacon_block_root,
+			parent_hash: value.parent_hash,
+			receipts_root: value.receipts_root,
+			requests_hash: value.requests_hash,
+			sha_3_uncles: value.sha_3_uncles,
+			size: value.size,
+			state_root: value.state_root,
+			timestamp: value.timestamp,
+			total_difficulty: value.total_difficulty,
+			transactions: value.transactions.into(),
+			transactions_root: value.transactions_root,
+			uncles: value.uncles,
+			withdrawals: value.withdrawals.into_iter().map(Into::into).collect(),
+			withdrawals_root: value.withdrawals_root,
+		}
+	}
+}
+
+impl From<Block> for storage_types::EthereumBlockV1 {
+	fn from(value: Block) -> Self {
+		Self(value.into())
+	}
+}
+
+impl From<storage_types::EthereumBlockV1> for Block {
+	fn from(value: storage_types::EthereumBlockV1) -> Self {
+		value.0.into()
+	}
 }
 
 /// Block header object returned by `newHeads` subscriptions.
@@ -469,6 +550,32 @@ pub struct TransactionInfo {
 	pub transaction_signed: TransactionSigned,
 }
 
+impl From<TransactionInfo> for storage_types::TransactionInfoV1 {
+	fn from(value: TransactionInfo) -> Self {
+		Self {
+			block_hash: value.block_hash,
+			block_number: value.block_number,
+			from: value.from,
+			hash: value.hash,
+			transaction_index: value.transaction_index,
+			transaction_signed: value.transaction_signed.into(),
+		}
+	}
+}
+
+impl From<storage_types::TransactionInfoV1> for TransactionInfo {
+	fn from(value: storage_types::TransactionInfoV1) -> Self {
+		Self {
+			block_hash: value.block_hash,
+			block_number: value.block_number,
+			from: value.from,
+			hash: value.hash,
+			transaction_index: value.transaction_index,
+			transaction_signed: value.transaction_signed.into(),
+		}
+	}
+}
+
 // Custom deserializer to work around serde's limitation with flatten + untagged enums from Value
 // See: https://github.com/serde-rs/serde/issues/1183
 impl<'de> Deserialize<'de> for TransactionInfo {
@@ -588,6 +695,29 @@ impl Default for HashesOrTransactionInfos {
 		HashesOrTransactionInfos::Hashes(Default::default())
 	}
 }
+
+impl From<HashesOrTransactionInfos> for storage_types::HashesOrTransactionInfosV1 {
+	fn from(value: HashesOrTransactionInfos) -> Self {
+		match value {
+			HashesOrTransactionInfos::Hashes(value) => Self::Hashes(value),
+			HashesOrTransactionInfos::TransactionInfos(value) => {
+				Self::TransactionInfos(value.into_iter().map(Into::into).collect())
+			},
+		}
+	}
+}
+
+impl From<storage_types::HashesOrTransactionInfosV1> for HashesOrTransactionInfos {
+	fn from(value: storage_types::HashesOrTransactionInfosV1) -> Self {
+		match value {
+			storage_types::HashesOrTransactionInfosV1::Hashes(value) => Self::Hashes(value),
+			storage_types::HashesOrTransactionInfosV1::TransactionInfos(value) => {
+				Self::TransactionInfos(value.into_iter().map(Into::into).collect())
+			},
+		}
+	}
+}
+
 impl HashesOrTransactionInfos {
 	pub fn push_hash(&mut self, hash: H256) {
 		match self {
@@ -707,6 +837,42 @@ pub struct Transaction1559Unsigned {
 	pub value: U256,
 }
 
+impl From<Transaction1559Unsigned> for storage_types::Transaction1559UnsignedV1 {
+	fn from(value: Transaction1559Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
+impl From<storage_types::Transaction1559UnsignedV1> for Transaction1559Unsigned {
+	fn from(value: storage_types::Transaction1559UnsignedV1) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
 /// EIP-2930 transaction.
 #[derive(
 	Debug,
@@ -744,6 +910,38 @@ pub struct Transaction2930Unsigned {
 	pub r#type: TypeEip2930,
 	/// value
 	pub value: U256,
+}
+
+impl From<Transaction2930Unsigned> for storage_types::Transaction2930UnsignedV1 {
+	fn from(value: Transaction2930Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
+impl From<storage_types::Transaction2930UnsignedV1> for Transaction2930Unsigned {
+	fn from(value: storage_types::Transaction2930UnsignedV1) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
 }
 
 /// EIP-4844 transaction.
@@ -795,6 +993,44 @@ pub struct Transaction4844Unsigned {
 	pub value: U256,
 }
 
+impl From<Transaction4844Unsigned> for storage_types::Transaction4844UnsignedV1 {
+	fn from(value: Transaction4844Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			blob_versioned_hashes: value.blob_versioned_hashes,
+			chain_id: value.chain_id,
+			gas: value.gas,
+			input: value.input.into(),
+			max_fee_per_blob_gas: value.max_fee_per_blob_gas,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
+impl From<storage_types::Transaction4844UnsignedV1> for Transaction4844Unsigned {
+	fn from(value: storage_types::Transaction4844UnsignedV1) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			blob_versioned_hashes: value.blob_versioned_hashes,
+			chain_id: value.chain_id,
+			gas: value.gas,
+			input: value.input.into(),
+			max_fee_per_blob_gas: value.max_fee_per_blob_gas,
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
 /// Legacy transaction.
 #[derive(
 	Debug,
@@ -830,6 +1066,36 @@ pub struct TransactionLegacyUnsigned {
 	pub r#type: TypeLegacy,
 	/// value
 	pub value: U256,
+}
+
+impl From<TransactionLegacyUnsigned> for storage_types::TransactionLegacyUnsignedV1 {
+	fn from(value: TransactionLegacyUnsigned) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
+impl From<storage_types::TransactionLegacyUnsignedV1> for TransactionLegacyUnsigned {
+	fn from(value: storage_types::TransactionLegacyUnsignedV1) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			gas: value.gas,
+			gas_price: value.gas_price,
+			input: value.input.into(),
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
 }
 
 /// EIP-7702 transaction.
@@ -883,6 +1149,42 @@ pub struct Transaction7702Unsigned {
 	pub value: U256,
 }
 
+impl From<Transaction7702Unsigned> for storage_types::Transaction7702UnsignedV1 {
+	fn from(value: Transaction7702Unsigned) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			authorization_list: value.authorization_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			input: value.input.into(),
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
+impl From<storage_types::Transaction7702UnsignedV1> for Transaction7702Unsigned {
+	fn from(value: storage_types::Transaction7702UnsignedV1) -> Self {
+		Self {
+			access_list: value.access_list.into_iter().map(Into::into).collect(),
+			authorization_list: value.authorization_list.into_iter().map(Into::into).collect(),
+			chain_id: value.chain_id,
+			gas: value.gas,
+			input: value.input.into(),
+			max_fee_per_gas: value.max_fee_per_gas,
+			max_priority_fee_per_gas: value.max_priority_fee_per_gas,
+			nonce: value.nonce,
+			to: value.to,
+			r#type: value.r#type.into(),
+			value: value.value,
+		}
+	}
+}
+
 /// Authorization list entry for EIP-7702
 #[derive(
 	Debug,
@@ -911,6 +1213,32 @@ pub struct AuthorizationListEntry {
 	pub r: U256,
 	/// s component of signature
 	pub s: U256,
+}
+
+impl From<AuthorizationListEntry> for storage_types::AuthorizationListEntryV1 {
+	fn from(value: AuthorizationListEntry) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			address: value.address,
+			nonce: value.nonce,
+			y_parity: value.y_parity,
+			r: value.r,
+			s: value.s,
+		}
+	}
+}
+
+impl From<storage_types::AuthorizationListEntryV1> for AuthorizationListEntry {
+	fn from(value: storage_types::AuthorizationListEntryV1) -> Self {
+		Self {
+			chain_id: value.chain_id,
+			address: value.address,
+			nonce: value.nonce,
+			y_parity: value.y_parity,
+			r: value.r,
+			s: value.s,
+		}
+	}
 }
 
 #[derive(
@@ -942,6 +1270,50 @@ impl Default for TransactionSigned {
 	}
 }
 
+impl From<TransactionSigned> for storage_types::TransactionSignedV1 {
+	fn from(value: TransactionSigned) -> Self {
+		match value {
+			TransactionSigned::Transaction7702Signed(value) => {
+				Self::Transaction7702Signed(value.into())
+			},
+			TransactionSigned::Transaction4844Signed(value) => {
+				Self::Transaction4844Signed(value.into())
+			},
+			TransactionSigned::Transaction1559Signed(value) => {
+				Self::Transaction1559Signed(value.into())
+			},
+			TransactionSigned::Transaction2930Signed(value) => {
+				Self::Transaction2930Signed(value.into())
+			},
+			TransactionSigned::TransactionLegacySigned(value) => {
+				Self::TransactionLegacySigned(value.into())
+			},
+		}
+	}
+}
+
+impl From<storage_types::TransactionSignedV1> for TransactionSigned {
+	fn from(value: storage_types::TransactionSignedV1) -> Self {
+		match value {
+			storage_types::TransactionSignedV1::Transaction7702Signed(value) => {
+				Self::Transaction7702Signed(value.into())
+			},
+			storage_types::TransactionSignedV1::Transaction4844Signed(value) => {
+				Self::Transaction4844Signed(value.into())
+			},
+			storage_types::TransactionSignedV1::Transaction1559Signed(value) => {
+				Self::Transaction1559Signed(value.into())
+			},
+			storage_types::TransactionSignedV1::Transaction2930Signed(value) => {
+				Self::Transaction2930Signed(value.into())
+			},
+			storage_types::TransactionSignedV1::TransactionLegacySigned(value) => {
+				Self::TransactionLegacySigned(value.into())
+			},
+		}
+	}
+}
+
 /// Validator withdrawal
 #[derive(
 	Debug, Default, Clone, Serialize, Deserialize, Eq, PartialEq, TypeInfo, Encode, Decode,
@@ -956,6 +1328,28 @@ pub struct Withdrawal {
 	pub index: U256,
 	/// index of validator that generated withdrawal
 	pub validator_index: U256,
+}
+
+impl From<Withdrawal> for storage_types::WithdrawalV1 {
+	fn from(value: Withdrawal) -> Self {
+		Self {
+			address: value.address,
+			amount: value.amount,
+			index: value.index,
+			validator_index: value.validator_index,
+		}
+	}
+}
+
+impl From<storage_types::WithdrawalV1> for Withdrawal {
+	fn from(value: storage_types::WithdrawalV1) -> Self {
+		Self {
+			address: value.address,
+			amount: value.amount,
+			index: value.index,
+			validator_index: value.validator_index,
+		}
+	}
 }
 
 /// Access list entry
@@ -976,6 +1370,18 @@ pub struct Withdrawal {
 pub struct AccessListEntry {
 	pub address: Address,
 	pub storage_keys: Vec<H256>,
+}
+
+impl From<AccessListEntry> for storage_types::AccessListEntryV1 {
+	fn from(value: AccessListEntry) -> Self {
+		Self { address: value.address, storage_keys: value.storage_keys }
+	}
+}
+
+impl From<storage_types::AccessListEntryV1> for AccessListEntry {
+	fn from(value: storage_types::AccessListEntryV1) -> Self {
+		Self { address: value.address, storage_keys: value.storage_keys }
+	}
 }
 
 /// Filter Topic List Entry
@@ -1024,6 +1430,30 @@ pub struct Transaction7702Signed {
 	pub y_parity: U256,
 }
 
+impl From<Transaction7702Signed> for storage_types::Transaction7702SignedV1 {
+	fn from(value: Transaction7702Signed) -> Self {
+		Self {
+			transaction_7702_unsigned: value.transaction_7702_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
+impl From<storage_types::Transaction7702SignedV1> for Transaction7702Signed {
+	fn from(value: storage_types::Transaction7702SignedV1) -> Self {
+		Self {
+			transaction_7702_unsigned: value.transaction_7702_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed 1559 Transaction
 #[derive(
 	Debug,
@@ -1054,6 +1484,30 @@ pub struct Transaction1559Signed {
 	/// yParity
 	/// The parity (0 for even, 1 for odd) of the y-value of the secp256k1 signature.
 	pub y_parity: U256,
+}
+
+impl From<Transaction1559Signed> for storage_types::Transaction1559SignedV1 {
+	fn from(value: Transaction1559Signed) -> Self {
+		Self {
+			transaction_1559_unsigned: value.transaction_1559_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
+impl From<storage_types::Transaction1559SignedV1> for Transaction1559Signed {
+	fn from(value: storage_types::Transaction1559SignedV1) -> Self {
+		Self {
+			transaction_1559_unsigned: value.transaction_1559_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
 }
 
 /// Signed 2930 Transaction
@@ -1088,6 +1542,30 @@ pub struct Transaction2930Signed {
 	pub y_parity: U256,
 }
 
+impl From<Transaction2930Signed> for storage_types::Transaction2930SignedV1 {
+	fn from(value: Transaction2930Signed) -> Self {
+		Self {
+			transaction_2930_unsigned: value.transaction_2930_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
+impl From<storage_types::Transaction2930SignedV1> for Transaction2930Signed {
+	fn from(value: storage_types::Transaction2930SignedV1) -> Self {
+		Self {
+			transaction_2930_unsigned: value.transaction_2930_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed 4844 Transaction
 #[derive(
 	Debug,
@@ -1115,6 +1593,28 @@ pub struct Transaction4844Signed {
 	pub y_parity: U256,
 }
 
+impl From<Transaction4844Signed> for storage_types::Transaction4844SignedV1 {
+	fn from(value: Transaction4844Signed) -> Self {
+		Self {
+			transaction_4844_unsigned: value.transaction_4844_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
+impl From<storage_types::Transaction4844SignedV1> for Transaction4844Signed {
+	fn from(value: storage_types::Transaction4844SignedV1) -> Self {
+		Self {
+			transaction_4844_unsigned: value.transaction_4844_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			y_parity: value.y_parity,
+		}
+	}
+}
+
 /// Signed Legacy Transaction
 #[derive(
 	Debug,
@@ -1139,6 +1639,28 @@ pub struct TransactionLegacySigned {
 	pub s: U256,
 	/// v
 	pub v: U256,
+}
+
+impl From<TransactionLegacySigned> for storage_types::TransactionLegacySignedV1 {
+	fn from(value: TransactionLegacySigned) -> Self {
+		Self {
+			transaction_legacy_unsigned: value.transaction_legacy_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+		}
+	}
+}
+
+impl From<storage_types::TransactionLegacySignedV1> for TransactionLegacySigned {
+	fn from(value: storage_types::TransactionLegacySignedV1) -> Self {
+		Self {
+			transaction_legacy_unsigned: value.transaction_legacy_unsigned.into(),
+			r: value.r,
+			s: value.s,
+			v: value.v,
+		}
+	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

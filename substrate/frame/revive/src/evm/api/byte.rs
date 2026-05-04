@@ -94,6 +94,66 @@ impl_hex!(Bytes8, [u8; 8], [0u8; 8]);
 impl_hex!(Bytes32, [u8; 32], [0u8; 32]);
 impl_hex!(Bytes256, [u8; 256], [0u8; 256]);
 
+impl From<Byte> for pallet_revive_types::common::Byte {
+	fn from(value: Byte) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<pallet_revive_types::common::Byte> for Byte {
+	fn from(value: pallet_revive_types::common::Byte) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<Bytes> for pallet_revive_types::common::Bytes {
+	fn from(value: Bytes) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<pallet_revive_types::common::Bytes> for Bytes {
+	fn from(value: pallet_revive_types::common::Bytes) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<Bytes8> for pallet_revive_types::common::Bytes8 {
+	fn from(value: Bytes8) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<pallet_revive_types::common::Bytes8> for Bytes8 {
+	fn from(value: pallet_revive_types::common::Bytes8) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<Bytes32> for pallet_revive_types::common::Bytes32 {
+	fn from(value: Bytes32) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<pallet_revive_types::common::Bytes32> for Bytes32 {
+	fn from(value: pallet_revive_types::common::Bytes32) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<Bytes256> for pallet_revive_types::common::Bytes256 {
+	fn from(value: Bytes256) -> Self {
+		Self(value.0)
+	}
+}
+
+impl From<pallet_revive_types::common::Bytes256> for Bytes256 {
+	fn from(value: pallet_revive_types::common::Bytes256) -> Self {
+		Self(value.0)
+	}
+}
+
 #[test]
 fn test_to_short_hex() {
 	let bytes = Bytes(crate::U256::from(4).to_big_endian().to_vec());

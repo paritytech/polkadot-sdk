@@ -222,7 +222,7 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 		<BlockHash<T>>::remove(to_remove);
 	}
 	// Store the ETH block into the last block.
-	EthereumBlock::<T>::put(block);
+	EthereumBlock::<T>::put(StorageValueOf::<EthereumBlock<T>>::new(block));
 	// Store the receipt info data for offchain reconstruction.
 	ReceiptInfoData::<T>::put(StorageValueOf::<ReceiptInfoData<T>>::new(receipt_data.into()));
 }

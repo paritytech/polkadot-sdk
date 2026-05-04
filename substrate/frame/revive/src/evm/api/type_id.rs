@@ -107,6 +107,20 @@ macro_rules! transaction_type {
 				}
 			}
 		}
+
+		paste! {
+			impl From<$name> for pallet_revive_types::storage::[<$name V1>] {
+				fn from(_: $name) -> Self {
+					Self
+				}
+			}
+
+			impl From<pallet_revive_types::storage::[<$name V1>]> for $name {
+				fn from(_: pallet_revive_types::storage::[<$name V1>]) -> Self {
+					Self
+				}
+			}
+		}
 	};
 }
 

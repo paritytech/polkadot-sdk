@@ -725,7 +725,7 @@ async fn get_evm_block_from_storage(
 	let Some(block) = node_client.storage().at(block_hash).fetch(&query).await.unwrap() else {
 		return Err(anyhow!("EVM block {block_hash:?} not found"));
 	};
-	Ok(block.0)
+	Ok(block.0.into())
 }
 
 async fn test_evm_blocks_should_match() -> anyhow::Result<()> {

@@ -47,8 +47,10 @@ fn on_initialize_clears_storage() {
 		);
 
 		let block = EthBlock { number: 1.into(), ..Default::default() };
-		EthereumBlock::<Test>::put(block.clone());
-		assert_eq!(EthereumBlock::<Test>::get(), block);
+		EthereumBlock::<Test>::put(crate::storage::StorageValueOf::<EthereumBlock<Test>>::new(
+			block.clone(),
+		));
+		assert_eq!(EthereumBlock::<Test>::get().into_inner(), block);
 
 		Contracts::on_initialize(0);
 
@@ -57,7 +59,7 @@ fn on_initialize_clears_storage() {
 			Vec::<ReceiptGasInfo>::from(ReceiptInfoData::<Test>::get().into_inner()),
 			vec![],
 		);
-		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
+		assert_eq!(EthereumBlock::<Test>::get().into_inner(), Default::default());
 	});
 }
 
@@ -74,7 +76,7 @@ fn genesis_block_number_and_timestamp_fetched_from_storage() {
 		.with_genesis_state_overrides(storage)
 		.build()
 		.execute_with(|| {
-			let block = EthereumBlock::<Test>::get();
+			let block = EthereumBlock::<Test>::get().into_inner();
 			// The timestamp is divided by 1000 (converted to seconds)
 			assert_eq!(block.timestamp, 10000.into());
 			assert_eq!(block.number, 10.into());
@@ -129,7 +131,7 @@ fn transactions_are_captured() {
 		assert_eq!(tx_root, expected_tx_root.0.into());
 
 		Contracts::on_finalize(0);
-		assert_eq!(crate::EthereumBlock::<Test>::get().transactions.len(), 3);
+		assert_eq!(crate::EthereumBlock::<Test>::get().into_inner().transactions.len(), 3);
 
 		// Builder is killed on finalize.
 		let block_builder = EthBlockBuilderIR::<Test>::get();
