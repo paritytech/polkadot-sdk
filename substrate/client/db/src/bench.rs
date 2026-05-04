@@ -404,7 +404,7 @@ impl<Hasher: Hash> StateBackend<Hasher> for BenchmarkingState<Hasher> {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<Option<MerkleValue<Hasher::Output>>, Self::Error> {
-		self.add_read_key(None, key);
+		self.add_read_key(Some(child_info.storage_key()), key);
 		self.state
 			.borrow()
 			.as_ref()

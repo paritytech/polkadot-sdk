@@ -19,15 +19,15 @@ doc:
     2. The pre-read closure captured a local whitelist copy that missed keys added during benchmark setup
 crates:
 - name: frame-benchmarking
-  bump: patch
+  bump: minor
 - name: frame-support-procedural
   bump: patch
 - name: frame-support
-  bump: patch
+  bump: minor
 - name: pallet-timestamp
   bump: patch
 - name: sp-storage
-  bump: patch
+  bump: major
 - name: sc-client-db
   bump: patch
 - name: frame-benchmarking-pallet-pov
