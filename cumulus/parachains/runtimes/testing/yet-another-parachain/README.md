@@ -7,7 +7,7 @@ A parachain runtime used for testing purposes.
 - `fast-runtime` - Faster block times for testing
 - `runtime-benchmarks` - Enable runtime benchmarking
 
-## Running with polkadot-omni-node locally and 500ms blocks
+## Running with `polkadot-omni-node` locally and 500ms blocks
 
 ### Build
 
