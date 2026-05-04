@@ -415,14 +415,13 @@ impl CollationManager {
 			for idx in (0..cq_len).rev() {
 				let Some(para_id) = leaf_core_cqs[lc_idx].cq[idx] else { continue };
 
-				// All scheduling parents that can fill this position:
 				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
 				let outcome = self.select_best_advertisement(
 					now,
 					para_id,
-					candidate_sps.copied(),
+					candidate_sps,
 					highest_rep_of_para,
 					&connected_rep_query_fn,
 				);
@@ -450,8 +449,8 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				// Reserve on all reachable leaves (no-op for those whose path doesn't contain the
-				// SP):
+				// Reserve on every leaf-core view. `reserve_slot` is a no-op for views whose
+				// `path` doesn't contain this SP — including cross-core views.
 				for lc in leaf_core_cqs.iter_mut() {
 					lc.reserve_slot(&advertisement.scheduling_parent, para_id);
 				}
@@ -484,21 +483,29 @@ impl CollationManager {
 				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
 					continue;
 				};
-				let path = path.to_vec();
+				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
+				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
+				let sps_by_depth: Vec<Option<Hash>> = path
+					.iter()
+					.map(|sp_hash| {
+						self.per_scheduling_parent
+							.get(sp_hash)
+							.filter(|per_sp| per_sp.core_index == core)
+							.map(|_| *sp_hash)
+					})
+					.collect();
 
-				// Collect consumers as `(para, valid_len)` for every SP on the path with
-				// matching core.
+				// Collect consumers as `(para, valid_len)` for every same-core SP on the path.
 				let mut consumers: Vec<(ParaId, usize)> = Vec::new();
-				for (offset, sp_hash) in path.iter().enumerate() {
-					let Some(per_sp) = self.per_scheduling_parent.get(sp_hash) else { continue };
-					if per_sp.core_index != core {
-						continue;
-					}
-					let valid_len = cq.len() - offset;
+				for (depth, sp_hash) in
+					sps_by_depth.iter().enumerate().filter_map(|(i, x)| x.map(|h| (i, h)))
+				{
+					let Some(per_sp) = self.per_scheduling_parent.get(&sp_hash) else { continue };
+					let valid_len = cq.len() - depth;
 					let in_flight = self
 						.fetching
 						.iter()
-						.filter(|adv| adv.scheduling_parent == *sp_hash)
+						.filter(|adv| adv.scheduling_parent == sp_hash)
 						.map(|adv| adv.para_id);
 					let fetched = per_sp.fetched_collations.values().map(|info| info.para_id);
 					for para in in_flight.chain(fetched) {
@@ -518,7 +525,7 @@ impl CollationManager {
 					}
 				}
 
-				out.push(LeafCoreCq { path, cq });
+				out.push(LeafCoreCq { sps_by_depth, cq });
 			}
 		}
 		out
@@ -1055,38 +1062,42 @@ struct FetchedCollationInfo {
 	para_id: ParaId,
 }
 
-/// Per-leaf capacity view used by the fetch planner.
+/// Per-(leaf, core) capacity view used by the fetch planner.
 ///
 /// `cq[i]` is `Some(para)` if leaf-CQ position `i` is still free for `para`, or `None` if
 /// already consumed by a fetch (in-flight, fetched, or just-launched). The build pass
 /// allocates existing consumers into `cq` so what remains `Some` is residual capacity SPs
 /// can fetch into.
 ///
-/// `path` is the chain ordered leaf → oldest stored ancestor, so iteration index equals SP
-/// offset (leaf at 0). Built from manager state once and frozen for the lifetime of one
-/// `try_make_new_fetch_requests` call.
+/// `sps_by_depth[i]` is `Some(sp)` if the chain block at depth `i` from the leaf (leaf at 0)
+/// is a scheduling parent on *this* core; cross-core ancestors are `None`. This implicitly
+/// scopes both `sps_reaching` and `reserve_slot` to our core: cross-core SPs never appear as
+/// candidates for our slots, and cross-core reservations are no-ops because the SP isn't
+/// found in `sps_by_depth`.
 struct LeafCoreCq {
-	path: Vec<Hash>,
+	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
 }
 
 impl LeafCoreCq {
-	/// SPs on this path whose window includes leaf-CQ position `idx`.
+	/// Same-core SPs whose window includes leaf-CQ position `idx`.
 	///
-	/// An SP at offset `d` from the leaf has a window covering leaf-CQ positions
+	/// An SP at depth `d` from the leaf has a window covering leaf-CQ positions
 	/// `0..cq_len - d`, so position `idx` is reachable from SPs with `d < cq_len - idx` —
-	/// i.e. the first `cq_len - idx` entries of `path` (leaf-first).
-	fn sps_reaching(&self, idx: usize) -> impl Iterator<Item = &Hash> {
-		self.path.iter().take(self.cq.len() - idx)
+	/// i.e. the first `cq_len - idx` entries of `sps_by_depth`.
+	fn sps_reaching(&self, idx: usize) -> impl Iterator<Item = Hash> + '_ {
+		self.sps_by_depth.iter().take(self.cq.len() - idx).filter_map(|x| *x)
 	}
 
 	/// Mark one CQ position as consumed for `para` reachable from `sp`. Clears the latest
 	/// still-free position for `para` in `sp`'s window — same rule the build pass uses for
 	/// existing consumers, so newly-launched fetches and prior consumers stay consistently
-	/// allocated. No-op if `sp` isn't on this chain.
+	/// allocated. No-op if `sp` isn't on this chain *for this core*.
 	fn reserve_slot(&mut self, sp: &Hash, para: ParaId) {
-		let Some(offset) = self.path.iter().position(|h| h == sp) else { return };
-		let valid_len = self.cq.len() - offset;
+		let Some(depth) = self.sps_by_depth.iter().position(|x| x.as_ref() == Some(sp)) else {
+			return;
+		};
+		let valid_len = self.cq.len() - depth;
 		if let Some(latest) = self.cq[..valid_len].iter().rposition(|slot| *slot == Some(para)) {
 			self.cq[latest] = None;
 		}
