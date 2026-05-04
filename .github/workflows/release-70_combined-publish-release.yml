@@ -53,6 +53,8 @@ jobs:
 
   check-synchronization:
     uses: paritytech-release/sync-workflows/.github/workflows/check-synchronization.yml@main
+    with:
+      concurrency_suffix: combined-publish
     secrets:
       fork_writer_app_key: ${{ secrets.UPSTREAM_CONTENT_SYNC_APP_KEY }}
 
@@ -67,6 +69,7 @@ jobs:
     with:
       binary: ${{ inputs.binary }}
       release_tag: ${{ inputs.release_tag }}
+
     secrets: inherit
 
   # ==============================================
@@ -79,6 +82,7 @@ jobs:
     with:
       tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
       distribution: release
+
     secrets: inherit
 
   publish-rpm-package:
@@ -88,6 +92,7 @@ jobs:
     with:
       tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
       distribution: ${{ inputs.distribution }}
+
     secrets: inherit
 
   # ==============================================
@@ -105,6 +110,7 @@ jobs:
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+
     secrets: inherit
 
   publish-docker-polkadot-parachain:
@@ -120,6 +126,7 @@ jobs:
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+
     secrets: inherit
 
   publish-docker-polkadot-omni-node:
@@ -135,6 +142,7 @@ jobs:
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+
     secrets: inherit
 
   publish-docker-chain-spec-builder:
@@ -150,4 +158,5 @@ jobs:
       owner: ${{ inputs.owner }}
       version: ${{ inputs.version }}
       stable_tag: ${{ needs.promote-rc-to-final.outputs.final_tag }}
+
     secrets: inherit
