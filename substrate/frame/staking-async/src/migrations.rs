@@ -205,8 +205,9 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 ///
 /// These are not yet wired into a versioned migration. When a runtime opts into a
 /// non-trivial [`crate::Config::NominationStalenessCurve`], it should run
-/// [`reset_all_nomination_submitted_in`] in a versioned `OnRuntimeUpgrade` so that
-/// every existing nominator enters the new regime with a full grace period.
+/// [`nomination_staleness::reset_all_nomination_submitted_in`] in a versioned
+/// `OnRuntimeUpgrade` so that every existing nominator enters the new regime with a
+/// full grace period.
 ///
 /// Skipping this step would cause every existing nominator with an old `submitted_in`
 /// value to be immediately exposed to the curve, which is almost certainly not the

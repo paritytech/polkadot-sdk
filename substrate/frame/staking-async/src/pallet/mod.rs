@@ -182,8 +182,8 @@ pub mod pallet {
 		/// election snapshot is built.
 		///
 		/// See [`NominationStalenessCurve`] for the semantics. Set to
-		/// [`NoNominationStaleness`] to disable the staleness mechanism entirely (this
-		/// preserves the pre-staleness behaviour of the pallet).
+		/// [`crate::NoNominationStaleness`] to disable the staleness mechanism entirely
+		/// (this preserves the pre-staleness behaviour of the pallet).
 		#[pallet::no_default_bounds]
 		type NominationStalenessCurve: NominationStalenessCurve;
 
