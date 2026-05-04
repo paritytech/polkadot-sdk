@@ -171,7 +171,6 @@ impl<Block: NodeBlock, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	/// Construct an `AuraNode`, optionally with a [`NodeExtension`] plug-in.
 	pub fn new(
 		extension: Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
 	) -> Self {

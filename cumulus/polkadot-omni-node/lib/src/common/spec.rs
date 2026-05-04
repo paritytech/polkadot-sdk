@@ -313,8 +313,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	/// Take the [`NodeExtension`] installed on this spec, called once before
-	/// `start_node` / `start_dev_node`.
 	fn take_extension(
 		&mut self,
 	) -> Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>> {

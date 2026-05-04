@@ -52,13 +52,9 @@ fn main() -> color_eyre::eyre::Result<()> {
 
 	let hop_params = sc_hop::HopParams::from_arg_matches(&matches)
 		.expect("HopParams::augment_args was applied to the parser; qed");
-	let extension_factory = hop_extension::HopExtensionFactory::new(hop_params);
 
-	let config = RunConfig::with_extension_factory(
-		Box::new(DefaultRuntimeResolver),
-		Box::new(DiskChainSpecLoader),
-		Box::new(extension_factory),
-	);
+	let mut config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
+	config.extension_factory = Some(Box::new(hop_extension::HopExtensionFactory::new(hop_params)));
 
 	Ok(polkadot_omni_node_lib::run_with_matches::<CliConfig, NoExtraSubcommand>(
 		config, matches,

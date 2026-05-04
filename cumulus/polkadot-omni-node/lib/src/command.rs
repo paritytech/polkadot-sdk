@@ -24,7 +24,7 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		NoNodeExtensionFactory, NodeBlock, NodeExtension, NodeExtensionFactory, NodeExtraArgs,
+		NodeBlock, NodeExtension, NodeExtensionFactory, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
@@ -46,87 +46,41 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
-	/// Factory for [`NodeExtension`]; defaults to a no-op.
-	pub extension_factory: Box<dyn NodeExtensionFactory>,
+	/// Optional [`NodeExtension`] factory; `None` means no extensions are wired.
+	pub extension_factory: Option<Box<dyn NodeExtensionFactory>>,
 }
 
 impl RunConfig {
-	/// Construct with a no-op extension factory.
+	/// Creates a new `RunConfig` with no extension factory.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig {
-			runtime_resolver,
-			chain_spec_loader,
-			extension_factory: Box::new(NoNodeExtensionFactory),
-		}
-	}
-
-	/// Construct with the given extension factory.
-	pub fn with_extension_factory(
-		runtime_resolver: Box<dyn RuntimeResolver>,
-		chain_spec_loader: Box<dyn LoadSpec>,
-		extension_factory: Box<dyn NodeExtensionFactory>,
-	) -> Self {
-		RunConfig { runtime_resolver, chain_spec_loader, extension_factory }
+		RunConfig { runtime_resolver, chain_spec_loader, extension_factory: None }
 	}
 }
 
-/// Bridges the generic `Block` parameter of [`new_aura_node_spec`] to the
-/// concrete `_u32` / `_u64` factory methods. Implemented only for
-/// [`crate::common::BlockU32`] and [`crate::common::BlockU64`].
-trait AuraExtensionDispatch: NodeBlock {
-	fn aura_sr25519(
-		factory: &dyn NodeExtensionFactory,
-	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_sr25519::RuntimeApi>>>;
-	fn aura_ed25519(
-		factory: &dyn NodeExtensionFactory,
-	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_ed25519::RuntimeApi>>>;
-}
-
-impl AuraExtensionDispatch for Block<u32> {
-	fn aura_sr25519(
-		factory: &dyn NodeExtensionFactory,
-	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_sr25519::RuntimeApi>>> {
-		factory.create_aura_sr25519_u32()
-	}
-	fn aura_ed25519(
-		factory: &dyn NodeExtensionFactory,
-	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_ed25519::RuntimeApi>>> {
-		factory.create_aura_ed25519_u32()
-	}
-}
-
-impl AuraExtensionDispatch for Block<u64> {
-	fn aura_sr25519(
-		factory: &dyn NodeExtensionFactory,
-	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_sr25519::RuntimeApi>>> {
-		factory.create_aura_sr25519_u64()
-	}
-	fn aura_ed25519(
-		factory: &dyn NodeExtensionFactory,
-	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_ed25519::RuntimeApi>>> {
-		factory.create_aura_ed25519_u64()
-	}
-}
-
-fn new_aura_node_spec<Block: AuraExtensionDispatch>(
+fn new_aura_node_spec<Block: NodeBlock>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-	factory: &dyn NodeExtensionFactory,
+	extension_sr25519: Option<
+		Box<dyn NodeExtension<Block, fake_runtime_api::aura_sr25519::RuntimeApi>>,
+	>,
+	extension_ed25519: Option<
+		Box<dyn NodeExtension<Block, fake_runtime_api::aura_ed25519::RuntimeApi>>,
+	>,
 ) -> Box<dyn DynNodeSpec> {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, Block::aura_sr25519(factory)),
+		>(extra_args, extension_sr25519),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, Block::aura_ed25519(factory)),
+		>(extra_args, extension_ed25519),
 	}
 }
 
@@ -134,18 +88,24 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-	factory: &dyn NodeExtensionFactory,
+	factory: Option<&dyn NodeExtensionFactory>,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
-			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec::<Block<u32>>(aura_id, extra_args, factory)
-			},
-			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec::<Block<u64>>(aura_id, extra_args, factory)
-			},
+			(BlockNumber::U32, Consensus::Aura(aura_id)) => new_aura_node_spec::<Block<u32>>(
+				aura_id,
+				extra_args,
+				factory.and_then(|f| f.create_aura_sr25519_u32()),
+				factory.and_then(|f| f.create_aura_ed25519_u32()),
+			),
+			(BlockNumber::U64, Consensus::Aura(aura_id)) => new_aura_node_spec::<Block<u64>>(
+				aura_id,
+				extra_args,
+				factory.and_then(|f| f.create_aura_sr25519_u64()),
+				factory.and_then(|f| f.create_aura_ed25519_u64()),
+			),
 		},
 	})
 }
@@ -227,7 +187,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 				node.prepare_check_block_cmd(config, cmd)
 			})
@@ -240,7 +200,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
@@ -253,7 +213,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 				node.prepare_export_state_cmd(config, cmd)
 			})
@@ -266,7 +226,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
@@ -279,7 +239,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 				node.prepare_revert_cmd(config, cmd)
 			})
@@ -312,7 +272,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
@@ -347,7 +307,7 @@ where
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
-							&*cmd_config.extension_factory,
+							cmd_config.extension_factory.as_deref(),
 						)?;
 						node.run_benchmark_block_cmd(config, cmd)
 					})
@@ -363,7 +323,7 @@ where
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
-							&*cmd_config.extension_factory,
+							cmd_config.extension_factory.as_deref(),
 						)?;
 						node.run_benchmark_storage_cmd(config, cmd)
 					})
@@ -408,7 +368,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&node_extra_args,
-					&*cmd_config.extension_factory,
+					cmd_config.extension_factory.as_deref(),
 				)?;
 
 				if let Some(dev_mode) = cli.dev_mode() {

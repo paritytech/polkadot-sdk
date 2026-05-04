@@ -176,50 +176,32 @@ pub trait NodeExtensionFactory: Send + Sync + 'static {
 	/// Extension for `(Block<u32>, aura_sr25519::RuntimeApi)`.
 	fn create_aura_sr25519_u32(
 		&self,
-	) -> Option<
-		Box<
-			dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_sr25519::RuntimeApi>,
-		>,
-	> {
+	) -> Option<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>>
+	{
 		None
 	}
 
 	/// Extension for `(Block<u32>, aura_ed25519::RuntimeApi)`.
 	fn create_aura_ed25519_u32(
 		&self,
-	) -> Option<
-		Box<
-			dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_ed25519::RuntimeApi>,
-		>,
-	> {
+	) -> Option<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>>
+	{
 		None
 	}
 
 	/// Extension for `(Block<u64>, aura_sr25519::RuntimeApi)`.
 	fn create_aura_sr25519_u64(
 		&self,
-	) -> Option<
-		Box<
-			dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_sr25519::RuntimeApi>,
-		>,
-	> {
+	) -> Option<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>>
+	{
 		None
 	}
 
 	/// Extension for `(Block<u64>, aura_ed25519::RuntimeApi)`.
 	fn create_aura_ed25519_u64(
 		&self,
-	) -> Option<
-		Box<
-			dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_ed25519::RuntimeApi>,
-		>,
-	> {
+	) -> Option<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>>
+	{
 		None
 	}
 }
-
-/// Default no-op factory.
-#[derive(Default)]
-pub struct NoNodeExtensionFactory;
-
-impl NodeExtensionFactory for NoNodeExtensionFactory {}
