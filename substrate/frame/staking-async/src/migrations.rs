@@ -17,7 +17,10 @@
 
 //! Storage migrations for the staking-async pallet.
 
-use crate::{log, reward::EraRewardManager, Config, DisableMintingGuard, RewardKind, RewardPot};
+use crate::{
+	log, reward::EraRewardManager, Config, CurrentEra, DisableMintingGuard, Nominations,
+	Nominators, RewardKind, RewardPot,
+};
 use frame_support::{
 	pallet_prelude::*,
 	traits::{
@@ -29,6 +32,11 @@ use frame_support::{
 };
 use sp_runtime::{traits::AccountIdConversion, Saturating};
 use sp_staking::EraIndex;
+
+#[cfg(feature = "try-runtime")]
+use alloc::vec::Vec;
+#[cfg(feature = "try-runtime")]
+use sp_runtime::TryRuntimeError;
 
 /// One-shot migration relocating already-funded era pots after the seed-derivation
 /// change (#11930) so existing rewards stay claimable. For runtimes that activated
@@ -190,5 +198,76 @@ impl<T: Config, S: Get<PalletId>, K: Get<RewardKind>> MigrateEraPotsToPool<T, S,
 			},
 			_ => 0..0,
 		}
+	}
+}
+
+/// Migration helpers for the nomination-staleness mechanism.
+///
+/// These are not yet wired into a versioned migration. When a runtime opts into a
+/// non-trivial [`crate::Config::NominationStalenessCurve`], it should run
+/// [`reset_all_nomination_submitted_in`] in a versioned `OnRuntimeUpgrade` so that
+/// every existing nominator enters the new regime with a full grace period.
+///
+/// Skipping this step would cause every existing nominator with an old `submitted_in`
+/// value to be immediately exposed to the curve, which is almost certainly not the
+/// intended behaviour.
+pub mod nomination_staleness {
+	use super::*;
+
+	/// Reset every entry in `Nominators` to have `submitted_in` equal to the current
+	/// era. Returns the weight consumed.
+	///
+	/// Intended to be called from inside a versioned `on_runtime_upgrade` when the
+	/// nomination-staleness mechanism is first enabled on a runtime. See the module
+	/// docs for context.
+	pub fn reset_all_nomination_submitted_in<T: Config>() -> Weight {
+		let current_era = CurrentEra::<T>::get().unwrap_or(0);
+		let mut count: u64 = 0;
+
+		Nominators::<T>::translate::<Nominations<T>, _>(|_who, mut nomination| {
+			nomination.submitted_in = current_era;
+			count = count.saturating_add(1);
+			Some(nomination)
+		});
+
+		log!(
+			info,
+			"nomination-staleness init: reset submitted_in for {} nominators to era {}",
+			count,
+			current_era,
+		);
+
+		// One read for `CurrentEra`, plus one read+write per nominator.
+		T::DbWeight::get().reads_writes(count.saturating_add(1), count)
+	}
+
+	/// `try-runtime` helper for use in `pre_upgrade`. Encodes the current count of
+	/// nominators so that `post_upgrade` can verify nothing was added or dropped.
+	#[cfg(feature = "try-runtime")]
+	pub fn pre_upgrade_state<T: Config>() -> Vec<u8> {
+		(Nominators::<T>::iter().count() as u64).encode()
+	}
+
+	/// `try-runtime` helper for use in `post_upgrade`. Verifies that:
+	/// 1. The nominator count is unchanged across the migration.
+	/// 2. Every nominator's `submitted_in` was reset to the current era.
+	#[cfg(feature = "try-runtime")]
+	pub fn post_upgrade_check<T: Config>(pre_state: Vec<u8>) -> Result<(), TryRuntimeError> {
+		let pre_count =
+			u64::decode(&mut pre_state.as_slice()).expect("encoded pre-upgrade count");
+		let post_count = Nominators::<T>::iter().count() as u64;
+		frame_support::ensure!(
+			pre_count == post_count,
+			"nomination-staleness init: nominator count changed across migration",
+		);
+
+		let current_era = CurrentEra::<T>::get().unwrap_or(0);
+		for (_, n) in Nominators::<T>::iter() {
+			frame_support::ensure!(
+				n.submitted_in == current_era,
+				"nomination-staleness init: submitted_in was not reset to the current era",
+			);
+		}
+		Ok(())
 	}
 }

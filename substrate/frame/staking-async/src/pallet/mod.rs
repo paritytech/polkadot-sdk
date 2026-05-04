@@ -20,9 +20,9 @@
 use crate::{
 	asset, session_rotation::EraElectionPlanner, slashing, weights::WeightInfo, AccountIdLookupOf,
 	ActiveEraInfo, BalanceOf, EraPayout, EraRewardPoints, ExposurePage, Forcing,
-	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, Nominations, NominationsQuota,
-	PositiveImbalanceOf, RewardDestination, StakingLedger, UnappliedSlash, UnlockChunk,
-	ValidatorPrefs,
+	LedgerIntegrityState, MaxNominationsOf, NegativeImbalanceOf, NominationStalenessCurve,
+	Nominations, NominationsQuota, PositiveImbalanceOf, RewardDestination, StakingLedger,
+	UnappliedSlash, UnlockChunk, ValidatorPrefs,
 };
 use alloc::{format, vec::Vec};
 use codec::Codec;
@@ -177,6 +177,15 @@ pub mod pallet {
 		/// Something that defines the maximum number of nominations per nominator.
 		#[pallet::no_default_bounds]
 		type NominationsQuota: NominationsQuota<BalanceOf<Self>>;
+
+		/// Computes the staleness multiplier applied to a nominator's voter weight when the
+		/// election snapshot is built.
+		///
+		/// See [`NominationStalenessCurve`] for the semantics. Set to
+		/// [`NoNominationStaleness`] to disable the staleness mechanism entirely (this
+		/// preserves the pre-staleness behaviour of the pallet).
+		#[pallet::no_default_bounds]
+		type NominationStalenessCurve: NominationStalenessCurve;
 
 		/// Number of eras to keep in history.
 		///
@@ -457,6 +466,7 @@ pub mod pallet {
 			type CurrencyBalance = u128;
 			type CurrencyToVote = ();
 			type NominationsQuota = crate::FixedNominationsQuota<16>;
+			type NominationStalenessCurve = crate::NoNominationStaleness;
 			type HistoryDepth = ConstU32<84>;
 			type RewardRemainder = ();
 			type Slash = ();

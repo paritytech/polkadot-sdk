@@ -236,8 +236,12 @@ use sp_runtime::{
 	traits::{AtLeast32BitUnsigned, One, StaticLookup, UniqueSaturatedInto},
 	BoundedBTreeMap, Debug, Perbill, Saturating,
 };
-use sp_staking::{EraIndex, ExposurePage, PagedExposureMetadata, SessionIndex};
-pub use sp_staking::{Exposure, IndividualExposure, StakerStatus};
+use sp_staking::{
+	EraIndex, ExposurePage, NominationStalenessCurve, PagedExposureMetadata, SessionIndex,
+};
+pub use sp_staking::{
+	Exposure, IndividualExposure, LinearStalenessCurve, NoNominationStaleness, StakerStatus,
+};
 pub use weights::WeightInfo;
 
 // public exports

@@ -24,9 +24,9 @@ use crate::{
 	session_rotation::{self, Eras, Rotator},
 	slashing::OffenceRecord,
 	weights::WeightInfo,
-	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
-	NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination, RewardKind,
-	RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, NominationStalenessCurve,
+	Nominations, NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination,
+	RewardKind, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -843,6 +843,7 @@ impl<T: Config> Pallet<T> {
 
 		// cache a few things.
 		let weight_of = Self::weight_of_fn();
+		let current_era = CurrentEra::<T>::get().unwrap_or(0);
 
 		let mut voters_seen = 0u32;
 		let mut validators_taken = 0u32;
@@ -870,18 +871,37 @@ impl<T: Config> Pallet<T> {
 				None => break,
 			};
 
-			let voter_weight = weight_of(&voter);
+			let mut voter_weight = weight_of(&voter);
 			// if voter weight is zero, do not consider this voter for the snapshot.
 			if voter_weight.is_zero() {
 				log!(debug, "voter's active balance is 0. skip this voter.");
 				continue;
 			}
 
-			if let Some(Nominations { targets, .. }) = <Nominators<T>>::get(&voter) {
+			if let Some(Nominations { targets, submitted_in, .. }) = <Nominators<T>>::get(&voter) {
 				if !targets.is_empty() {
 					// Note on lazy nomination quota: we do not check the nomination quota of the
 					// voter at this point and accept all the current nominations. The nomination
 					// quota is only enforced at `nominate` time.
+
+					// Apply the configured staleness curve to the voter's weight. A nominator
+					// who has not re-affirmed their nomination recently sees their effective
+					// stake reduced (or zeroed) for this election. With the default
+					// `NoNominationStaleness` curve, the multiplier is always `1` and this is
+					// a no-op (`Perbill::one() * x == x`).
+					let eras_since_last_nomination = current_era.saturating_sub(submitted_in);
+					let multiplier =
+						T::NominationStalenessCurve::multiplier(eras_since_last_nomination);
+					voter_weight = multiplier * voter_weight;
+					if voter_weight.is_zero() {
+						log!(
+							debug,
+							"voter {:?} weight is 0 after staleness multiplier ({} eras since last nomination). skip this voter.",
+							voter,
+							eras_since_last_nomination,
+						);
+						continue
+					}
 
 					let voter = (voter, voter_weight, targets);
 					if voters_size_tracker.try_register_voter(&voter, &bounds).is_err() {
