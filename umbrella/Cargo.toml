@@ -51,6 +51,7 @@ std = [
 	"frame-system-rpc-runtime-api?/std",
 	"frame-system?/std",
 	"frame-try-runtime?/std",
+	"pallet-accumulate-and-forward?/std",
 	"pallet-alliance?/std",
 	"pallet-asset-conversion-ops?/std",
 	"pallet-asset-conversion-precompiles?/std",
@@ -86,7 +87,6 @@ std = [
 	"pallet-contracts?/std",
 	"pallet-conviction-voting?/std",
 	"pallet-core-fellowship?/std",
-	"pallet-dap-satellite?/std",
 	"pallet-dap?/std",
 	"pallet-delegated-staking?/std",
 	"pallet-democracy?/std",
@@ -208,6 +208,7 @@ std = [
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
 	"sp-genesis-builder?/std",
+	"sp-hop?/std",
 	"sp-inherents?/std",
 	"sp-io?/std",
 	"sp-keyring?/std",
@@ -260,6 +261,7 @@ runtime-benchmarks = [
 	"frame-support?/runtime-benchmarks",
 	"frame-system-benchmarking?/runtime-benchmarks",
 	"frame-system?/runtime-benchmarks",
+	"pallet-accumulate-and-forward?/runtime-benchmarks",
 	"pallet-alliance?/runtime-benchmarks",
 	"pallet-asset-conversion-ops?/runtime-benchmarks",
 	"pallet-asset-conversion-precompiles?/runtime-benchmarks",
@@ -290,7 +292,6 @@ runtime-benchmarks = [
 	"pallet-contracts?/runtime-benchmarks",
 	"pallet-conviction-voting?/runtime-benchmarks",
 	"pallet-core-fellowship?/runtime-benchmarks",
-	"pallet-dap-satellite?/runtime-benchmarks",
 	"pallet-dap?/runtime-benchmarks",
 	"pallet-delegated-staking?/runtime-benchmarks",
 	"pallet-democracy?/runtime-benchmarks",
@@ -404,6 +405,7 @@ try-runtime = [
 	"frame-support?/try-runtime",
 	"frame-system?/try-runtime",
 	"frame-try-runtime/try-runtime",
+	"pallet-accumulate-and-forward?/try-runtime",
 	"pallet-alliance?/try-runtime",
 	"pallet-asset-conversion-ops?/try-runtime",
 	"pallet-asset-conversion-precompiles?/try-runtime",
@@ -438,7 +440,6 @@ try-runtime = [
 	"pallet-contracts?/try-runtime",
 	"pallet-conviction-voting?/try-runtime",
 	"pallet-core-fellowship?/try-runtime",
-	"pallet-dap-satellite?/try-runtime",
 	"pallet-dap?/try-runtime",
 	"pallet-delegated-staking?/try-runtime",
 	"pallet-democracy?/try-runtime",
@@ -621,6 +622,7 @@ runtime-full = [
 	"frame-system-benchmarking",
 	"frame-system-rpc-runtime-api",
 	"frame-try-runtime",
+	"pallet-accumulate-and-forward",
 	"pallet-alliance",
 	"pallet-asset-conversion",
 	"pallet-asset-conversion-ops",
@@ -658,7 +660,6 @@ runtime-full = [
 	"pallet-conviction-voting",
 	"pallet-core-fellowship",
 	"pallet-dap",
-	"pallet-dap-satellite",
 	"pallet-delegated-staking",
 	"pallet-democracy",
 	"pallet-derivatives",
@@ -782,6 +783,7 @@ runtime-full = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -856,6 +858,7 @@ runtime = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -1271,6 +1274,11 @@ default-features = false
 optional = true
 path = "../substrate/frame/try-runtime"
 
+[dependencies.pallet-accumulate-and-forward]
+default-features = false
+optional = true
+path = "../substrate/frame/accumulate-and-forward"
+
 [dependencies.pallet-alliance]
 default-features = false
 optional = true
@@ -1455,11 +1463,6 @@ path = "../substrate/frame/core-fellowship"
 default-features = false
 optional = true
 path = "../substrate/frame/dap"
-
-[dependencies.pallet-dap-satellite]
-default-features = false
-optional = true
-path = "../substrate/frame/dap-satellite"
 
 [dependencies.pallet-delegated-staking]
 default-features = false
@@ -2075,6 +2078,11 @@ path = "../substrate/primitives/externalities"
 default-features = false
 optional = true
 path = "../substrate/primitives/genesis-builder"
+
+[dependencies.sp-hop]
+default-features = false
+optional = true
+path = "../substrate/primitives/hop"
 
 [dependencies.sp-inherents]
 default-features = false

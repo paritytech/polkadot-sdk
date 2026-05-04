@@ -24,7 +24,10 @@
 use frame_support::{
 	assert_noop, assert_ok,
 	traits::{
-		fungible::{metadata::Inspect as FungibleMetadataInspect, Inspect as FungibleInspect},
+		fungible::{
+			metadata::{Inspect as FungibleMetadataInspect, Mutate as FungibleMetadataMutate},
+			Create as FungibleCreate, Inspect as FungibleInspect,
+		},
 		fungibles::{
 			metadata::{Inspect as FungiblesMetadataInspect, Mutate as FungiblesMetadataMutate},
 			Create as FungiblesCreate, Inspect as FungiblesInspect, Mutate as FungiblesMutate,
@@ -46,12 +49,16 @@ type BalanceOf<Runtime> =
 		<Runtime as frame_system::Config>::AccountId,
 	>>::Balance;
 
+/// Balance type used by the PSM pallet's fungibles.
+pub type AssetIdOf<Runtime> = <Runtime as pallet_psm::Config>::AssetId;
+
+/// [`PsmTestConfig`] for a given runtime.
+pub type PsmTestConfigOf<Runtime> = PsmTestConfig<AssetIdOf<Runtime>>;
+
 /// Configuration for which asset to use as the external stablecoin in tests.
-pub struct PsmTestConfig {
-	/// The external stablecoin asset ID (e.g., USDT = 1984).
-	pub external_asset_id: u32,
-	/// The internal asset ID. Will be created if it doesn't exist.
-	pub internal_asset_id: u32,
+pub struct PsmTestConfig<AssetId> {
+	/// The external stablecoin asset ID.
+	pub external_asset_id: AssetId,
 	/// The expected decimal precision for the internal asset (e.g., 6).
 	pub internal_asset_decimals: u8,
 	/// The pallet name for the assets pallet on the target chain (e.g., "Assets").
@@ -80,17 +87,17 @@ struct TestEnv<Runtime: pallet_psm::Config + frame_system::Config> {
 
 /// Create internal asset if needed, configure PSM, and fund test accounts.
 /// Must be called inside `execute_with`.
-fn setup<Runtime, InitialPsmConfig>(config: &PsmTestConfig) -> TestEnv<Runtime>
+fn setup<Runtime, InitialPsmConfig>(config: &PsmTestConfigOf<Runtime>) -> TestEnv<Runtime>
 where
 	Runtime: pallet_psm::Config + frame_system::Config,
-	Runtime::AssetId: From<u32>,
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+	Runtime::InternalAsset:
+		FungibleCreate<Runtime::AccountId> + FungibleMetadataMutate<Runtime::AccountId>,
 	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
-	let asset_id: Runtime::AssetId = config.external_asset_id.into();
-	let internal_asset_id: Runtime::AssetId = config.internal_asset_id.into();
+	let asset_id = config.external_asset_id.clone();
 	let psm_account: Runtime::AccountId = Runtime::PalletId::get().into_account_truncating();
 
 	// Check that the external asset actually exists on-chain.
@@ -112,9 +119,8 @@ where
 	);
 
 	// Create the internal asset if it doesn't exist yet.
-	if !<Runtime::Fungibles as FungiblesInspect<Runtime::AccountId>>::asset_exists(
-		internal_asset_id.clone(),
-	) {
+	if <Runtime::InternalAsset as FungibleInspect<Runtime::AccountId>>::minimum_balance().is_zero()
+	{
 		// Run pre-create hook (e.g., set NextAssetId for AutoIncAssetId chains).
 		if let Some(hook) = &config.pre_create_hook {
 			hook();
@@ -122,16 +128,14 @@ where
 
 		let _ = frame_system::Pallet::<Runtime>::inc_providers(&psm_account);
 
-		assert_ok!(<Runtime::Fungibles as FungiblesCreate<Runtime::AccountId>>::create(
-			internal_asset_id.clone(),
+		assert_ok!(<Runtime::InternalAsset as FungibleCreate<Runtime::AccountId>>::create(
 			psm_account.clone(),
 			true,
 			10_000u128.try_into().unwrap_or_else(|_| panic!("balance conversion failed")),
 		));
 
 		// Set internal asset metadata using the configured decimals.
-		assert_ok!(<Runtime::Fungibles as FungiblesMetadataMutate<Runtime::AccountId>>::set(
-			internal_asset_id,
+		assert_ok!(<Runtime::InternalAsset as FungibleMetadataMutate<Runtime::AccountId>>::set(
 			&psm_account,
 			b"internal".to_vec(),
 			b"internal".to_vec(),
@@ -140,8 +144,7 @@ where
 
 		log::info!(
 			target: LOG_TARGET,
-			"Created internal asset (id={}) with {} decimals",
-			config.internal_asset_id,
+			"Created internal asset with {} decimals",
 			config.internal_asset_decimals,
 		);
 	}
@@ -232,14 +235,15 @@ pub fn clear_ext() {
 /// 4. Verifies balances, debt tracking, and fee accounting
 pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
-	config: &PsmTestConfig,
+	config: &PsmTestConfigOf<Runtime>,
 ) where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Block: BlockT,
-	Runtime::AssetId: From<u32>,
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+	Runtime::InternalAsset:
+		FungibleCreate<Runtime::AccountId> + FungibleMetadataMutate<Runtime::AccountId>,
 	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
@@ -338,14 +342,15 @@ pub fn mint_and_redeem<Runtime, Block, InitialPsmConfig>(
 /// 4. Deactivates circuit breaker — verifies both operations resume
 pub fn circuit_breaker<Runtime, Block, InitialPsmConfig>(
 	ext: &mut remote_externalities::RemoteExternalities<Block>,
-	config: &PsmTestConfig,
+	config: &PsmTestConfigOf<Runtime>,
 ) where
 	Runtime: pallet_psm::Config + frame_system::Config,
 	Block: BlockT,
-	Runtime::AssetId: From<u32>,
 	BalanceOf<Runtime>: TryFrom<u128> + core::fmt::Debug,
 	Runtime::Fungibles:
 		FungiblesCreate<Runtime::AccountId> + FungiblesMetadataMutate<Runtime::AccountId>,
+	Runtime::InternalAsset:
+		FungibleCreate<Runtime::AccountId> + FungibleMetadataMutate<Runtime::AccountId>,
 	InitialPsmConfig: pallet_psm::migrations::init::InitialPsmConfig<Runtime>,
 {
 	ext.execute_with(|| {
