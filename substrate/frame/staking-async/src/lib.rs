@@ -580,6 +580,15 @@ impl<T: Config> Contains<T::AccountId> for AllStakers<T> {
 /// [`integrity_test`] enforces this invariant at runtime startup.
 pub(crate) const POT_POOL_SIZE: u32 = 200;
 
+/// Upper bound (in multiples of 1.0) of the validator-incentive performance multiplier.
+///
+/// The performance multiplier scales a validator's share of the era incentive budget by
+/// their relative era reward points. A validator at the era-point average receives `1×`,
+/// underperformers receive `< 1×`, and overperformers up to this cap. Bounding the
+/// upside prevents one outlier from draining a disproportionate share of the pot,
+/// especially in small validator sets.
+pub(crate) const MAX_PERFORMANCE_MULTIPLIER: u8 = 2;
+
 /// Maps an era index to its slot in the rotating pot pool.
 pub(crate) fn pot_slot(era: EraIndex) -> u32 {
 	era % POT_POOL_SIZE

@@ -26,7 +26,8 @@ use crate::{
 	weights::WeightInfo,
 	BalanceOf, Exposure, Forcing, LedgerIntegrityState, MaxNominationsOf, Nominations,
 	NominationsQuota, PositiveImbalanceOf, PotAccountProvider, RewardDestination, RewardKind,
-	RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs, STAKING_ID,
+	RewardPoint, RewardPot, SnapshotStatus, StakingLedger, ValidatorPrefs,
+	MAX_PERFORMANCE_MULTIPLIER, STAKING_ID,
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use frame_election_provider_support::{
@@ -433,10 +434,21 @@ impl<T: Config> Pallet<T> {
 		});
 
 		// Pay validator incentive bonus from the separate incentive pot.
+		// Performance multiplier scales the validator's share by their relative era points
+		// so underperformers get less and overperformers get more. Capped to bound the
+		// upside of any single validator.
+		let performance_multiplier = Self::performance_multiplier(
+			validator_reward_points,
+			total_reward_points,
+			era_reward_points.individual.len() as u32,
+		);
 		// Emits `ValidatorIncentivePaid` event inside `transfer_validator_incentive`.
-		if let Some(incentive) =
-			Self::calculate_validator_incentive_for_page(era, &stash, page_stake_part)
-		{
+		if let Some(incentive) = Self::calculate_validator_incentive_for_page(
+			era,
+			&stash,
+			page_stake_part,
+			performance_multiplier,
+		) {
 			Self::transfer_validator_incentive(era, &stash, incentive);
 		}
 
@@ -669,14 +681,16 @@ impl<T: Config> Pallet<T> {
 
 	/// Calculate the validator incentive amount for a single page.
 	///
-	/// Share = `(validator_weight / sum_weight) × budget × page_stake_part`, where
-	/// `sum_weight` covers ALL elected validators. A validator that earns no reward
-	/// points forfeits their share (stays in the pot, handled by `UnclaimedRewardHandler`
-	/// at pruning) rather than redistributing it.
+	/// Share = `(validator_weight / sum_weight) × budget × performance_multiplier ×
+	/// page_stake_part`, where `sum_weight` covers ALL elected validators. The
+	/// `performance_multiplier` scales the share by the validator's relative era points
+	/// against the era average, so underperformers are penalized and overperformers earn
+	/// more. Validators with zero reward points already short-circuit before this is called.
 	fn calculate_validator_incentive_for_page(
 		era: EraIndex,
 		stash: &T::AccountId,
 		page_stake_part: Perbill,
+		performance_multiplier: Perbill,
 	) -> Option<BalanceOf<T>> {
 		let era_incentive_budget = Eras::<T>::get_validator_incentive_budget(era);
 		if era_incentive_budget.is_zero() {
@@ -708,7 +722,9 @@ impl<T: Config> Pallet<T> {
 		}
 
 		let validator_weight_part = Perbill::from_rational(validator_weight, total_weight);
-		let validator_total_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let base_incentive = validator_weight_part.mul_floor(era_incentive_budget);
+		let validator_total_incentive =
+			Self::apply_performance_multiplier(base_incentive, performance_multiplier);
 		let validator_incentive_for_page = page_stake_part.mul_floor(validator_total_incentive);
 
 		if validator_incentive_for_page.is_zero() {
@@ -716,6 +732,52 @@ impl<T: Config> Pallet<T> {
 		}
 
 		Some(validator_incentive_for_page)
+	}
+
+	/// Compute a performance multiplier from era reward points.
+	///
+	/// `multiplier = min(points × N / total_points, MAX_PERFORMANCE_MULTIPLIER)`.
+	///
+	/// At the era-point average the multiplier equals 1, so the validator receives their
+	/// full weight-share of the budget. Below average shrinks the share proportionally;
+	/// above average grows it, capped to bound the upside of any single validator.
+	///
+	/// The multiplier is encoded as a `Perbill` of `MAX_PERFORMANCE_MULTIPLIER`, i.e. the
+	/// returned value `p` represents the real multiplier `p × MAX_PERFORMANCE_MULTIPLIER`.
+	/// Callers must apply this scaling via [`Self::apply_performance_multiplier`].
+	pub(crate) fn performance_multiplier(
+		validator_points: RewardPoint,
+		total_points: RewardPoint,
+		validator_count: u32,
+	) -> Perbill {
+		if total_points.is_zero() || validator_count.is_zero() {
+			// Defensive: payout is gated on non-zero validator points already, but if we
+			// somehow get here with no era points, the share collapses to zero.
+			return Perbill::zero();
+		}
+
+		// raw = points * N / total_points (uncapped, can exceed 1).
+		// Use u128 to avoid overflow on multiplication.
+		let numerator = (validator_points as u128).saturating_mul(validator_count as u128);
+		let denominator = total_points as u128;
+
+		// Encode raw / MAX as a Perbill in [0, 1]:
+		//   p = (raw / MAX).min(1) = (numerator / (denominator * MAX)).min(1)
+		let scaled_denom = denominator.saturating_mul(MAX_PERFORMANCE_MULTIPLIER as u128);
+		Perbill::from_rational(numerator, scaled_denom)
+	}
+
+	/// Apply a performance multiplier (encoded against `MAX_PERFORMANCE_MULTIPLIER`) to a
+	/// base incentive amount.
+	fn apply_performance_multiplier(
+		base: BalanceOf<T>,
+		multiplier: Perbill,
+	) -> BalanceOf<T> {
+		// `base * MAX_PERFORMANCE_MULTIPLIER` is the upper bound; multiplier scales it back
+		// down by the encoded fraction. Saturating multiply guards against extreme cap
+		// values that could otherwise overflow on large budgets.
+		let scaled_base = base.saturating_mul((MAX_PERFORMANCE_MULTIPLIER as u32).into());
+		multiplier.mul_floor(scaled_base)
 	}
 
 	/// Transfer validator incentive from era pot to the validator's payout account.

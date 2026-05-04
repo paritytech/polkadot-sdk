@@ -21,6 +21,7 @@ use super::*;
 use crate::{
 	asset,
 	session_rotation::{EraElectionPlanner, Eras, Rotator},
+	MAX_PERFORMANCE_MULTIPLIER,
 };
 
 // ===== Config extrinsic tests =====
@@ -603,6 +604,184 @@ fn missing_payee_emits_unexpected_and_skips_payout() {
 
 		// Restore payee so post-test try_state passes.
 		Payee::<Test>::insert(alice, RewardDestination::Staked);
+	});
+}
+
+// ===== Performance multiplier =====
+//
+// Validator incentive is scaled by relative era reward points:
+//   multiplier = min(points * N / total_points, MAX_PERFORMANCE_MULTIPLIER)
+// At the era-point average the multiplier is exactly 1, so payouts match the previous
+// "weight share" behavior. Below average shrinks the share; above average grows it,
+// up to MAX_PERFORMANCE_MULTIPLIER (currently 2x). The leftover from underperformers
+// is not redistributed — it stays in the pot and drains via UnclaimedRewardHandler.
+
+#[test]
+fn equal_performance_pays_equal_weight_share() {
+	// GIVEN: two validators with equal era points → each multiplier = 1.0.
+	// THEN: both receive their full weight share of the budget (same as if no
+	// performance scaling existed). This is the backwards-compatible baseline.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator
+		let bob = 21; // validator
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		// Equal points (different absolute values, but ratio is 1).
+		Eras::<Test>::reward_active_era(vec![(alice, 50), (bob, 50)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		// Equal weights and equal multiplier (1.0) → equal payouts of half the budget.
+		let alice_paid = incentive_paid_for(alice, &events).expect("alice incentive");
+		let bob_paid = incentive_paid_for(bob, &events).expect("bob incentive");
+		assert_eq!(alice_paid, bob_paid);
+		assert_eq!(alice_paid, budget / 2);
+	});
+}
+
+#[test]
+fn underperformer_gets_proportionally_less() {
+	// GIVEN: alice earns 1 point, bob earns 3 points → average = 2.
+	// alice's multiplier = 1 * 2 / 4 = 0.5, bob's = 3 * 2 / 4 = 1.5 (no cap hit).
+	// Both validators have equal incentive weight.
+	// THEN: alice gets half of her base share, bob gets 1.5x of his.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator (underperformer)
+		let bob = 21; // validator (overperformer)
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 3)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+		// Equal weights: each validator's base share = budget / 2.
+		let base_share = budget / 2;
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		let alice_paid = incentive_paid_for(alice, &events).expect("alice incentive");
+		let bob_paid = incentive_paid_for(bob, &events).expect("bob incentive");
+
+		// alice: 0.5 * base_share, bob: 1.5 * base_share.
+		// Allow 1-unit rounding tolerance from Perbill multiplication.
+		assert_eq_error_rate!(alice_paid, base_share / 2, 1);
+		assert_eq_error_rate!(bob_paid, base_share + base_share / 2, 1);
+
+		// Hard invariant: underperformer gets strictly less than overperformer.
+		assert!(alice_paid < bob_paid);
+	});
+}
+
+#[test]
+fn skewed_performance_conserves_budget() {
+	// Reward conservation: paid_to_validators + remainder_in_pot == budget, regardless of
+	// how skewed the performance distribution is. Underperformer leftovers are not
+	// redistributed to overperformers — they stay in the pot and are later drained to
+	// UnclaimedRewardHandler at pruning.
+	ExtBuilder::default().build_and_execute(|| {
+		let alice = 11; // validator (low performance)
+		let bob = 21; // validator (high performance)
+
+		setup_incentive_with_budget(45, 5);
+		Session::roll_until_active_era(2);
+		// 1 vs 199 → alice multiplier ≈ 0.01×, bob ≈ 1.99× (just under 2× cap).
+		Eras::<Test>::reward_active_era(vec![(alice, 1), (bob, 199)]);
+		Session::roll_until_active_era(3);
+		let _ = staking_events_since_last_call();
+
+		let pot = <Test as Config>::RewardPots::pot_account(RewardPot::Era(
+			2,
+			RewardKind::ValidatorSelfStake,
+		));
+		let budget = ErasValidatorIncentiveBudget::<Test>::get(2);
+
+		make_all_reward_payment(2);
+		let events = staking_events_since_last_call();
+
+		let alice_paid = incentive_paid_for(alice, &events).unwrap_or(0);
+		let bob_paid = incentive_paid_for(bob, &events).expect("bob incentive");
+		let remaining = Balances::free_balance(&pot);
+
+		// Conservation invariant: nothing minted, nothing burnt at payout.
+		assert_eq_error_rate!(alice_paid + bob_paid + remaining, budget, 2);
+		// Overperformer's payout is bounded by the cap.
+		assert!(bob_paid <= (budget / 2) * MAX_PERFORMANCE_MULTIPLIER as Balance);
+	});
+}
+
+#[test]
+fn performance_multiplier_unit_at_average_point_count() {
+	// Pure-function check: at the average point count the multiplier is exactly 1.0
+	// (encoded as Perbill = 1 / MAX_PERFORMANCE_MULTIPLIER, since the encoding is
+	// "real_multiplier / MAX").
+	ExtBuilder::default().build_and_execute(|| {
+		// 4 validators, each with 10 points → avg = 10. validator_points / avg = 1.0.
+		let m = Pallet::<Test>::performance_multiplier(10, 40, 4);
+		assert_eq!(m, Perbill::from_rational(1u32, MAX_PERFORMANCE_MULTIPLIER as u32));
+
+		// 2 validators with equal points: same result.
+		let m = Pallet::<Test>::performance_multiplier(50, 100, 2);
+		assert_eq!(m, Perbill::from_rational(1u32, MAX_PERFORMANCE_MULTIPLIER as u32));
+	});
+}
+
+#[test]
+fn performance_multiplier_unit_below_average() {
+	// At half the average, multiplier = 0.5 → encoded as 0.5 / MAX.
+	ExtBuilder::default().build_and_execute(|| {
+		// 4 validators, this one has 5 points, total = 40 → 5*4/40 = 0.5.
+		let m = Pallet::<Test>::performance_multiplier(5, 40, 4);
+		assert_eq!(m, Perbill::from_rational(1u32, 2 * MAX_PERFORMANCE_MULTIPLIER as u32));
+	});
+}
+
+#[test]
+fn performance_multiplier_unit_above_average_uncapped() {
+	// 1.5× average is below the 2× cap, encoded as 1.5 / MAX.
+	ExtBuilder::default().build_and_execute(|| {
+		// validator points = 15, total = 40, N = 4 → 15*4/40 = 1.5.
+		let m = Pallet::<Test>::performance_multiplier(15, 40, 4);
+		assert_eq!(m, Perbill::from_rational(3u32, 2 * MAX_PERFORMANCE_MULTIPLIER as u32));
+	});
+}
+
+#[test]
+fn performance_multiplier_unit_capped_at_max() {
+	// 5× average → clamped to MAX (2.0), encoded as Perbill::one() (= MAX/MAX).
+	ExtBuilder::default().build_and_execute(|| {
+		// validator points = 50, total = 40, N = 4 → 50*4/40 = 5.0, clamped to 2.0.
+		let m = Pallet::<Test>::performance_multiplier(50, 40, 4);
+		assert_eq!(m, Perbill::one());
+
+		// Exactly at the cap: 2× average → also Perbill::one().
+		let m = Pallet::<Test>::performance_multiplier(20, 40, 4);
+		assert_eq!(m, Perbill::one());
+	});
+}
+
+#[test]
+fn performance_multiplier_unit_zero_total_points() {
+	// Defensive: total_points = 0 collapses the multiplier to zero rather than
+	// dividing by zero. (The payout flow short-circuits earlier on validator_points = 0,
+	// so this branch is only reachable via mis-state.)
+	ExtBuilder::default().build_and_execute(|| {
+		let m = Pallet::<Test>::performance_multiplier(0, 0, 4);
+		assert_eq!(m, Perbill::zero());
+
+		let m = Pallet::<Test>::performance_multiplier(10, 0, 4);
+		assert_eq!(m, Perbill::zero());
+
+		// Zero validator_count is similarly defensive.
+		let m = Pallet::<Test>::performance_multiplier(10, 40, 0);
+		assert_eq!(m, Perbill::zero());
 	});
 }
 
