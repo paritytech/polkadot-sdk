@@ -51,6 +51,9 @@ pub enum Error {
 
 	#[error("Relay parent of candidate outside the leaf's scope")]
 	RelayParentOutOfScope,
+
+	#[error("Candidate's PVD max_pov_size {got} does not match runtime value {expected}")]
+	MaxPovSizeMismatch { expected: u32, got: u32 },
 }
 
 /// General `Result` type.

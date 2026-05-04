@@ -567,27 +567,24 @@ async fn preprocess_candidates_pending_availability<Context>(
 }
 
 /// Verifies that the candidate's relay parent is within the leaf's
-/// scope.
-async fn verify_relay_parent_within_scope<Sender>(
-	sender: &mut Sender,
+/// scope and that the PVD's `max_pov_size` matches the runtime value
+/// for the candidate's relay-parent session.
+#[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
+async fn verify_relay_parent_within_scope<Context>(
+	ctx: &mut Context,
 	rp_info_cache: &mut RelayParentInfoCache,
 	query_at: Hash,
 	leaf_session_index: SessionIndex,
 	candidate: &CommittedCandidateReceipt,
-	relay_parent_number: BlockNumber,
-	relay_parent_storage_root: Hash,
-) -> JfyiErrorResult<()>
-where
-	Sender: polkadot_node_subsystem::SubsystemSender<RuntimeApiMessage>
-		+ polkadot_node_subsystem::SubsystemSender<ChainApiMessage>,
-{
+	pvd: &PersistedValidationData,
+) -> JfyiErrorResult<()> {
 	// For V1 descriptors `session_index()` is None; relay_parent == scheduling_parent for V1, so
 	// the leaf's session applies. For V2/V3 the descriptor carries the session of its relay parent.
 	let fetch_session = candidate.descriptor.session_index().unwrap_or(leaf_session_index);
 	let relay_parent = candidate.descriptor.relay_parent();
 
 	match fetch_relay_parent_info_cached(
-		sender,
+		ctx.sender(),
 		rp_info_cache,
 		leaf_session_index,
 		query_at,
@@ -597,13 +594,21 @@ where
 	.await?
 	{
 		Some(info)
-			if info.number == relay_parent_number &&
-				info.state_root == relay_parent_storage_root =>
-		{
-			Ok(())
-		},
-		_ => Err(JfyiError::RelayParentOutOfScope),
+			if info.number == pvd.relay_parent_number &&
+				info.state_root == pvd.relay_parent_storage_root => {},
+		_ => return Err(JfyiError::RelayParentOutOfScope),
 	}
+
+	if let Some(rt_max) =
+		fetch_session_execution_config_max_pov_size(ctx, query_at, fetch_session).await
+	{
+		let rt_max = rt_max as u32;
+		if rt_max != pvd.max_pov_size {
+			return Err(JfyiError::MaxPovSizeMismatch { expected: rt_max, got: pvd.max_pov_size });
+		}
+	}
+
+	Ok(())
 }
 
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
@@ -652,13 +657,12 @@ async fn handle_introduce_seconded_candidate<Context>(
 		para_scheduled = true;
 
 		if let Err(err) = verify_relay_parent_within_scope(
-			ctx.sender(),
+			ctx,
 			&mut view.relay_parent_info_cache,
 			*scheduling_parent,
 			sp_data.session_index,
 			&candidate,
-			pvd.relay_parent_number,
-			pvd.relay_parent_storage_root,
+			&pvd,
 		)
 		.await
 		{
@@ -926,13 +930,12 @@ async fn answer_hypothetical_membership_request<Context>(
 					// running the membership check. Incomplete candidates carry no PVD —
 					// nothing to verify.
 					if let Err(err) = verify_relay_parent_within_scope(
-						ctx.sender(),
+						ctx,
 						&mut view.relay_parent_info_cache,
 						*active_leaf,
 						leaf_view.session_index,
 						receipt.as_ref(),
-						persisted_validation_data.relay_parent_number,
-						persisted_validation_data.relay_parent_storage_root,
+						persisted_validation_data,
 					)
 					.await
 					{

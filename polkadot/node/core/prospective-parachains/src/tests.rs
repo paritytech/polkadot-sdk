@@ -3475,15 +3475,21 @@ fn get_pvd_for_candidate_with_older_relay_parent(#[case] runtime_api_version: u3
 	});
 }
 
-// v17+ path: `GetProspectiveValidationData` must take `max_pov_size` from
-// `SessionExecutionConfig` keyed on the **candidate's relay-parent session** (the value
-// in `request.session_index`), not the leaf's session. This is the session whose
-// `max_pov_size` the runtime wrote into the PVD at the relay parent, so the returned PVD
-// matches what the collator will produce when they hash the PVD into the descriptor.
+// v17+ paths:
 //
-// The test deliberately uses `request.session_index = 42` while the leaf's session is 1
-// (hardcoded by the test harness). The intercept asserts the runtime API is called with
-// 42 — locking in that the lookup is keyed on the request, not the leaf.
+// 1. `IntroduceSecondedCandidate` cross-checks `pvd.max_pov_size` against the runtime's
+//    `SessionExecutionConfig` for the candidate's relay-parent session. A mismatch — e.g. a
+//    malicious collator supplying a tampered `max_pov_size` to manipulate prospective-parachains
+//    state — must be rejected.
+// 2. `GetProspectiveValidationData` must take `max_pov_size` from `SessionExecutionConfig` keyed on
+//    the **candidate's relay-parent session** (the value in `request.session_index`), not the
+//    leaf's session. This is the session whose `max_pov_size` the runtime wrote into the PVD at the
+//    relay parent, so the returned PVD matches what the collator will produce when they hash the
+//    PVD into the descriptor.
+//
+// For (2) the test deliberately uses `request.session_index = 42` while the leaf's session is 1
+// (hardcoded by the test harness). The intercept asserts the runtime API is called with 42 —
+// locking in that the lookup is keyed on the request, not the leaf.
 #[test]
 fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 	const LEAF_NUMBER: BlockNumber = 100;
@@ -3524,6 +3530,75 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 		);
 		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
 
+		// (1) Tampered-PVD cross-check: introduce a second candidate (para 2) whose PVD
+		// declares `max_pov_size = 555_555` while the runtime returns `MAX_POV_SIZE`. The
+		// cross-check in `verify_relay_parent_within_scope` must reject it.
+		const TAMPERED_MAX_POV_SIZE: u32 = 555_555;
+		assert_ne!(TAMPERED_MAX_POV_SIZE, MAX_POV_SIZE, "test sentinel collision");
+		let (mut candidate_b, mut pvd_b) = make_candidate_v3(
+			older_relay_parent,
+			OLDER_RELAY_PARENT_NUMBER,
+			leaf_a.hash,
+			ParaId::from(2),
+			HeadData(vec![2, 3, 4]),
+			HeadData(vec![5]),
+			test_state.validation_code_hash,
+		);
+		pvd_b.max_pov_size = TAMPERED_MAX_POV_SIZE;
+		candidate_b.descriptor.set_persisted_validation_data_hash(pvd_b.hash());
+
+		let req_b = IntroduceSecondedCandidateRequest {
+			candidate_para: candidate_b.descriptor.para_id(),
+			candidate_receipt: candidate_b,
+			persisted_validation_data: pvd_b,
+		};
+		let (intro_tx, intro_rx) = oneshot::channel();
+		virtual_overseer
+			.send(overseer::FromOrchestra::Communication {
+				msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req_b, intro_tx),
+			})
+			.await;
+
+		// Custom intercept: respond `Some(cfg)` with `MAX_POV_SIZE` for the v3 descriptor's
+		// session (1). The previous `introduce_seconded_candidate` for candidate_a went through
+		// the helper which returns `NotSupported` (uncached), so this fresh runtime call fires.
+		// The cross-check then sees `pvd.max_pov_size (555_555) != cfg.max_pov_size (1_000_000)`.
+		let mut intro_rx = intro_rx.fuse();
+		let intro_response = loop {
+			futures::select! {
+				response = &mut intro_rx => break response.expect("oneshot sender dropped unexpectedly"),
+				msg = virtual_overseer.recv().fuse() => {
+					if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutionConfig(_, tx),
+					)) = msg
+					{
+						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
+							max_pov_size: MAX_POV_SIZE,
+							validation_code_bomb_limit: 0,
+						})))
+						.unwrap();
+						continue;
+					}
+					handle_fetch_relay_parent_info_message(
+						&mut virtual_overseer,
+						msg,
+						&test_state,
+						older_relay_parent,
+						OLDER_RELAY_PARENT_NUMBER,
+					)
+					.await;
+				}
+			}
+		};
+		assert!(
+			!intro_response,
+			"introduce must reject a candidate whose PVD max_pov_size disagrees with the runtime",
+		);
+
+		// (2) Relay-parent-session keying: GetProspectiveValidationData for candidate_a must
+		// fetch `SessionExecutionConfig` for `request.session_index` (42), not the leaf's
+		// session, and surface that `max_pov_size` in the returned PVD.
 		let request = ProspectiveValidationDataRequest {
 			para_id,
 			candidate_relay_parent: older_relay_parent,
