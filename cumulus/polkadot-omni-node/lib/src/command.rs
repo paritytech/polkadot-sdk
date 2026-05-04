@@ -73,41 +73,60 @@ impl RunConfig {
 	}
 }
 
-fn new_aura_node_spec_u32(
-	aura_id: AuraConsensusId,
-	extra_args: &NodeExtraArgs,
-	factory: &dyn NodeExtensionFactory,
-) -> Box<dyn DynNodeSpec> {
-	match aura_id {
-		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u32>,
-			fake_runtime_api::aura_sr25519::RuntimeApi,
-			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, factory.create_aura_sr25519_u32()),
-		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u32>,
-			fake_runtime_api::aura_ed25519::RuntimeApi,
-			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, factory.create_aura_ed25519_u32()),
+/// Bridges the generic `Block` parameter of [`new_aura_node_spec`] to the
+/// concrete `_u32` / `_u64` factory methods. Implemented only for
+/// [`crate::common::BlockU32`] and [`crate::common::BlockU64`].
+trait AuraExtensionDispatch: NodeBlock {
+	fn aura_sr25519(
+		factory: &dyn NodeExtensionFactory,
+	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_sr25519::RuntimeApi>>>;
+	fn aura_ed25519(
+		factory: &dyn NodeExtensionFactory,
+	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_ed25519::RuntimeApi>>>;
+}
+
+impl AuraExtensionDispatch for Block<u32> {
+	fn aura_sr25519(
+		factory: &dyn NodeExtensionFactory,
+	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_sr25519::RuntimeApi>>> {
+		factory.create_aura_sr25519_u32()
+	}
+	fn aura_ed25519(
+		factory: &dyn NodeExtensionFactory,
+	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_ed25519::RuntimeApi>>> {
+		factory.create_aura_ed25519_u32()
 	}
 }
 
-fn new_aura_node_spec_u64(
+impl AuraExtensionDispatch for Block<u64> {
+	fn aura_sr25519(
+		factory: &dyn NodeExtensionFactory,
+	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_sr25519::RuntimeApi>>> {
+		factory.create_aura_sr25519_u64()
+	}
+	fn aura_ed25519(
+		factory: &dyn NodeExtensionFactory,
+	) -> Option<Box<dyn NodeExtension<Self, fake_runtime_api::aura_ed25519::RuntimeApi>>> {
+		factory.create_aura_ed25519_u64()
+	}
+}
+
+fn new_aura_node_spec<Block: AuraExtensionDispatch>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
 	factory: &dyn NodeExtensionFactory,
 ) -> Box<dyn DynNodeSpec> {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u64>,
+			Block,
 			fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, factory.create_aura_sr25519_u64()),
+		>(extra_args, Block::aura_sr25519(factory)),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u64>,
+			Block,
 			fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, factory.create_aura_ed25519_u64()),
+		>(extra_args, Block::aura_ed25519(factory)),
 	}
 }
 
@@ -122,10 +141,10 @@ fn new_node_spec(
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
 			(BlockNumber::U32, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec_u32(aura_id, extra_args, factory)
+				new_aura_node_spec::<Block<u32>>(aura_id, extra_args, factory)
 			},
 			(BlockNumber::U64, Consensus::Aura(aura_id)) => {
-				new_aura_node_spec_u64(aura_id, extra_args, factory)
+				new_aura_node_spec::<Block<u64>>(aura_id, extra_args, factory)
 			},
 		},
 	})
