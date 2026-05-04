@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  TOOLCHAIN: nightly-2025-05-09
+  TOOLCHAIN: nightly
 
 jobs:
   isdraft:
@@ -70,7 +70,7 @@ jobs:
           echo "PRDOC_EXTRA_ARGS=--max-bump minor" >> $GITHUB_ENV
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@779680da715d629ac1d338a641029a2f4372abb5 # v2.8.2
+        uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           save-if: ${{ github.ref == 'refs/heads/master' }}
 
@@ -82,9 +82,9 @@ jobs:
 
       - name: Install parity-publish
         run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
+          apt-get update && apt-get install -y --no-install-recommends libcurl4-openssl-dev pkg-config
           # Set the target dir to cache the build.
-          CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.6 --locked -q
+          CARGO_TARGET_DIR=./target/ cargo install parity-publish@0.10.10 --locked -q
 
       - name: Get original PR number
         shell: bash

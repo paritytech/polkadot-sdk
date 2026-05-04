@@ -11,6 +11,11 @@ publish = false
 workspace = true
 
 [dependencies]
+alloy-consensus = { workspace = true }
+alloy-primitives = { workspace = true }
+alloy-rlp = { workspace = true }
+alloy-sol-types = { workspace = true }
+alloy-trie = { workspace = true }
 codec = { workspace = true }
 hex-literal = { workspace = true, default-features = true }
 scale-info = { workspace = true }
@@ -55,6 +60,7 @@ snowbridge-core = { workspace = true }
 snowbridge-inbound-queue-primitives = { workspace = true }
 snowbridge-outbound-queue-primitives = { workspace = true }
 snowbridge-pallet-ethereum-client = { workspace = true }
+snowbridge-pallet-ethereum-client-fixtures = { workspace = true }
 snowbridge-pallet-inbound-queue = { workspace = true }
 snowbridge-pallet-inbound-queue-fixtures = { workspace = true, default-features = true }
 snowbridge-pallet-inbound-queue-v2 = { workspace = true }

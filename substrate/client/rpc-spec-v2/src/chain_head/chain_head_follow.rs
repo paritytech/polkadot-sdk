@@ -249,7 +249,7 @@ where
 			return None;
 		}
 
-		let block_rt = match self.client.runtime_version_at(block) {
+		let block_rt = match self.client.runtime_version_at(block, sp_api::CallContext::Offchain) {
 			Ok(rt) => rt,
 			Err(err) => return Some(err.into()),
 		};
@@ -262,7 +262,8 @@ where
 			},
 		};
 
-		let parent_rt = match self.client.runtime_version_at(parent) {
+		let parent_rt = match self.client.runtime_version_at(parent, sp_api::CallContext::Offchain)
+		{
 			Ok(rt) => rt,
 			Err(err) => return Some(err.into()),
 		};

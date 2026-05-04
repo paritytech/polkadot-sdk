@@ -59,8 +59,8 @@ use snowbridge_core::{
 	sibling_sovereign_account, BasicOperatingMode, Channel, ChannelId, ParaId, PricingParameters,
 	StaticLookup,
 };
-use snowbridge_inbound_queue_primitives::{
-	v1::{ConvertMessage, ConvertMessageError, VersionedMessage}
+use snowbridge_inbound_queue_primitives::v1::{
+	ConvertMessage, ConvertMessageError, VersionedMessage,
 };
 use snowbridge_verification_primitives::{EventProof, VerificationError, Verifier};
 

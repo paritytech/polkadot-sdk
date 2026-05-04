@@ -31,7 +31,7 @@ pub use overseer::{
 };
 use polkadot_node_subsystem::{
 	errors::{RuntimeApiError, SubsystemError},
-	messages::{RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
+	messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest, RuntimeApiSender},
 	overseer, SubsystemSender,
 };
 
@@ -42,7 +42,9 @@ use futures::channel::{mpsc, oneshot};
 
 use polkadot_primitives::{
 	async_backing::{BackingState, Constraints},
-	slashing, AsyncBackingParams, AuthorityDiscoveryId, CandidateEvent, CandidateHash,
+	slashing,
+	vstaging::RelayParentInfo,
+	AsyncBackingParams, AuthorityDiscoveryId, BlockNumber, CandidateEvent, CandidateHash,
 	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, CoreState, EncodeAs,
 	ExecutorParams, GroupIndex, GroupRotationInfo, Hash, Id as ParaId, NodeFeatures,
 	OccupiedCoreAssumption, PersistedValidationData, ScrapedOnChainVotes, SessionIndex,
@@ -156,7 +158,7 @@ impl TryFrom<crate::runtime::Error> for Error {
 		match e {
 			Error::RuntimeRequestCanceled(e) => Ok(Self::Oneshot(e)),
 			Error::RuntimeRequest(e) => Ok(Self::RuntimeApi(e)),
-			Error::NoSuchSession(_) | Error::NoExecutorParams(_) => Err(()),
+			Error::NoSuchSession(_) => Err(()),
 		}
 	}
 }
@@ -319,6 +321,134 @@ specialize_requests! {
 	fn request_node_features(session_index: SessionIndex) -> NodeFeatures; NodeFeatures;
 	fn request_para_ids(session_index: SessionIndex) -> Vec<ParaId>; ParaIds;
 
+}
+
+/// Result of [`check_relay_parent_session`].
+pub enum CheckRelayParentSessionResult {
+	/// The relay parent is valid in the given session.
+	Valid,
+	/// The relay parent was not found in the given session (or session mismatch
+	/// in the self-query case).
+	NotFound,
+	/// The `ancestor_relay_parent_info` runtime API is not supported. Safe to
+	/// skip on old runtimes where cross-session relay parents don't exist.
+	NotSupported,
+	/// A runtime API or communication error occurred.
+	RuntimeError(String),
+}
+
+/// Check whether a relay parent is valid in a given session.
+///
+/// Works for all blocks within the `max_relay_parent_session_age` window,
+/// including the block being queried at (the "self" case where
+/// `query_at == relay_parent`). The `ancestor_relay_parent_info` runtime API
+/// only works for ancestors (a block is not in its own `AllowedRelayParents`).
+/// This utility handles the self case by verifying the session directly via
+/// `session_index_for_child`.
+pub async fn check_relay_parent_session(
+	sender: &mut impl overseer::SubsystemSender<RuntimeApiMessage>,
+	query_at: Hash,
+	session_index: SessionIndex,
+	relay_parent: Hash,
+) -> CheckRelayParentSessionResult {
+	if query_at == relay_parent {
+		// Self-query: the runtime API can't answer (block not in its own
+		// AllowedRelayParents). Verify the session directly.
+		return match request_session_index_for_child(relay_parent, sender).await.await {
+			Ok(Ok(session)) if session == session_index => CheckRelayParentSessionResult::Valid,
+			Ok(Ok(_)) => CheckRelayParentSessionResult::NotFound,
+			Ok(Err(err)) => CheckRelayParentSessionResult::RuntimeError(format!(
+				"SessionIndexForChild error: {err}"
+			)),
+			Err(_) => CheckRelayParentSessionResult::RuntimeError(
+				"SessionIndexForChild request cancelled".into(),
+			),
+		};
+	}
+
+	// Ancestor query: use the runtime API.
+	match request_from_runtime(query_at, sender, |tx| {
+		RuntimeApiRequest::AncestorRelayParentInfo(session_index, relay_parent, tx)
+	})
+	.await
+	.await
+	{
+		Ok(Ok(Some(_))) => CheckRelayParentSessionResult::Valid,
+		Ok(Ok(None)) => CheckRelayParentSessionResult::NotFound,
+		Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			CheckRelayParentSessionResult::NotSupported
+		},
+		Ok(Err(err)) => CheckRelayParentSessionResult::RuntimeError(format!(
+			"AncestorRelayParentInfo error: {err}"
+		)),
+		Err(_) => CheckRelayParentSessionResult::RuntimeError(
+			"AncestorRelayParentInfo request cancelled".into(),
+		),
+	}
+}
+
+/// Fetch relay parent info for a block, including the block being queried at.
+///
+/// Works for all blocks within the `max_relay_parent_session_age` window,
+/// including the self-query case (`query_at == relay_parent`). For ancestors,
+/// uses the `ancestor_relay_parent_info` runtime API. For self, constructs the
+/// answer from the block header and session check.
+///
+/// Requires both `RuntimeApiMessage` and `ChainApiMessage` senders.
+pub async fn fetch_relay_parent_info<Sender>(
+	sender: &mut Sender,
+	query_at: Hash,
+	session_index: SessionIndex,
+	relay_parent: Hash,
+) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, runtime::Error>
+where
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<ChainApiMessage>,
+{
+	if query_at == relay_parent {
+		// Self-query: the ancestor runtime API can't answer (a block is not in
+		// its own AllowedRelayParents). Verify session and construct from header.
+
+		return get_scheduling_parent_info(sender, session_index, relay_parent).await;
+	}
+
+	// Ancestor query: use the runtime API.
+	match request_from_runtime(query_at, sender, |tx| {
+		RuntimeApiRequest::AncestorRelayParentInfo(session_index, relay_parent, tx)
+	})
+	.await
+	.await?
+	{
+		Ok(info) => Ok(info),
+		Err(RuntimeApiError::NotSupported { .. }) => {
+			// The runtime API is not existent, this means the v3 descriptor node feature was not
+			// enabled. Fallback to querying the chain API.
+			get_scheduling_parent_info(sender, session_index, relay_parent).await
+		},
+		Err(err) => Err(runtime::Error::RuntimeRequest(err)),
+	}
+}
+
+async fn get_scheduling_parent_info<Sender>(
+	sender: &mut Sender,
+	session_index: SessionIndex,
+	hash: Hash,
+) -> Result<Option<RelayParentInfo<Hash, BlockNumber>>, runtime::Error>
+where
+	Sender: SubsystemSender<RuntimeApiMessage> + SubsystemSender<ChainApiMessage>,
+{
+	let session_ok = request_session_index_for_child(hash, sender).await.await?? == session_index;
+	if !session_ok {
+		return Ok(None);
+	}
+
+	let (tx, rx) = oneshot::channel();
+	sender.send_message(ChainApiMessage::BlockHeader(hash, tx)).await;
+	match rx.await? {
+		Ok(Some(header)) => {
+			Ok(Some(RelayParentInfo { number: header.number, state_root: header.state_root }))
+		},
+		_ => Ok(None),
+	}
 }
 
 /// Requests executor parameters from the runtime effective at given relay-parent. First obtains

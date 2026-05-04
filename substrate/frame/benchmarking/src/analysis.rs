@@ -197,10 +197,11 @@ fn linear_regression(
 impl Analysis {
 	// Useful for when there are no components, and we just need an median value of the benchmark
 	// results. Note: We choose the median value because it is more robust to outliers.
-	fn median_value(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
-		if r.is_empty() {
-			return None;
-		}
+	fn median_value(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+	) -> Result<Self, anyhow::Error> {
+		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
 
 		let mut values: Vec<u128> = r
 			.iter()
@@ -216,7 +217,7 @@ impl Analysis {
 		values.sort();
 		let mid = values.len() / 2;
 
-		Some(Self {
+		Ok(Self {
 			base: selector.scale_weight(values[mid]),
 			slopes: Vec::new(),
 			names: Vec::new(),
@@ -227,7 +228,12 @@ impl Analysis {
 		})
 	}
 
-	pub fn median_slopes(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	pub fn median_slopes(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+	) -> Result<Self, anyhow::Error> {
+		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
+
 		if r[0].components.is_empty() {
 			return Self::median_value(r, selector);
 		}
@@ -273,7 +279,7 @@ impl Analysis {
 
 		let models = results
 			.iter()
-			.map(|(_, _, _, ref values)| {
+			.map(|(param_name, _, _, ref values)| {
 				let mut slopes = vec![];
 				for (i, &(x1, y1)) in values.iter().enumerate() {
 					for &(x2, y2) in values.iter().skip(i + 1) {
@@ -281,6 +287,19 @@ impl Analysis {
 							slopes.push((y1 as f64 - y2 as f64) / (x1 as f64 - x2 as f64));
 						}
 					}
+				}
+				if slopes.is_empty() {
+					let unique_values = values
+						.iter()
+						.map(|(x, _)| x)
+						.collect::<std::collections::BTreeSet<_>>()
+						.len();
+					return Err(anyhow::anyhow!(
+						"Parameter `{param_name}` only has \
+						{unique_values} unique value(s) but needs at least 2 to compute a slope. \
+						This can happen when too many benchmark samples are skipped. \
+						Try increasing the number of steps for this parameter or fix the benchmark.",
+					));
 				}
 				slopes.sort_by(|a, b| a.partial_cmp(b).expect("values well defined; qed"));
 				let slope = slopes[slopes.len() / 2];
@@ -292,9 +311,9 @@ impl Analysis {
 				offsets.sort_by(|a, b| a.partial_cmp(b).expect("values well defined; qed"));
 				let offset = offsets[offsets.len() / 2];
 
-				(offset, slope)
+				Ok((offset, slope))
 			})
-			.collect::<Vec<_>>();
+			.collect::<Result<Vec<_>, anyhow::Error>>()?;
 
 		let models = models
 			.iter()
@@ -316,7 +335,7 @@ impl Analysis {
 			.map(|x| selector.scale_and_cast_weight(x.1.max(0f64), false))
 			.collect::<Vec<_>>();
 
-		Some(Self {
+		Ok(Self {
 			base,
 			slopes,
 			names: results.into_iter().map(|x| x.0).collect::<Vec<_>>(),
@@ -327,7 +346,12 @@ impl Analysis {
 		})
 	}
 
-	pub fn min_squares_iqr(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
+	pub fn min_squares_iqr(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+	) -> Result<Self, anyhow::Error> {
+		anyhow::ensure!(!r.is_empty(), "benchmark results cannot be empty");
+
 		if r[0].components.is_empty() || r.len() <= 2 {
 			return Self::median_value(r, selector);
 		}
@@ -379,9 +403,12 @@ impl Analysis {
 			}
 		}
 
-		let (intercept, slopes, errors) = linear_regression(xs, ys, r[0].components.len())?;
+		let (intercept, slopes, errors) = linear_regression(xs, ys, r[0].components.len())
+			.ok_or_else(|| {
+				anyhow::anyhow!("linear regression failed for min_squares_iqr analysis")
+			})?;
 
-		Some(Self {
+		Ok(Self {
 			base: selector.scale_and_cast_weight(intercept, true),
 			slopes: slopes
 				.into_iter()
@@ -400,16 +427,12 @@ impl Analysis {
 		})
 	}
 
-	pub fn max(r: &Vec<BenchmarkResult>, selector: BenchmarkSelector) -> Option<Self> {
-		let median_slopes = Self::median_slopes(r, selector);
-		let min_squares = Self::min_squares_iqr(r, selector);
-
-		if median_slopes.is_none() || min_squares.is_none() {
-			return None;
-		}
-
-		let median_slopes = median_slopes.unwrap();
-		let min_squares = min_squares.unwrap();
+	pub fn max(
+		r: &Vec<BenchmarkResult>,
+		selector: BenchmarkSelector,
+	) -> Result<Self, anyhow::Error> {
+		let median_slopes = Self::median_slopes(r, selector)?;
+		let min_squares = Self::min_squares_iqr(r, selector)?;
 
 		let base = median_slopes.base.max(min_squares.base);
 		let slopes = median_slopes
@@ -429,7 +452,7 @@ impl Analysis {
 		let errors = min_squares.errors;
 		let minimum = selector.get_minimum(&r);
 
-		Some(Self { base, slopes, names, value_dists, errors, selector, minimum })
+		Ok(Self { base, slopes, names, value_dists, errors, selector, minimum })
 	}
 }
 

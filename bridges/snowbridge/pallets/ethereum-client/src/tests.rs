@@ -760,7 +760,7 @@ fn verify_message() {
 
 	new_tester().execute_with(|| {
 		assert_ok!(initialize_storage());
-	assert_ok!(EthereumBeaconClient::verify(&event_log, &proof));
+		assert_ok!(EthereumBeaconClient::verify(&event_log, &proof));
 	});
 }
 

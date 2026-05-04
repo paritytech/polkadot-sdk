@@ -4,12 +4,10 @@ use super::*;
 use frame_support::ensure;
 use snowbridge_beacon_primitives::ExecutionProof;
 
-use snowbridge_beacon_primitives::{
-	merkle_proof::{generalized_index_length, subtree_index},
-	receipt::verify_receipt_proof,
-};
-use snowbridge_ethereum::Log as AlloyLog;
+use alloy_primitives::Log as AlloyLog;
+use snowbridge_beacon_primitives::merkle_proof::{generalized_index_length, subtree_index};
 use snowbridge_verification_primitives::{
+	receipt::verify_receipt_proof,
 	VerificationError::{self, *},
 	Verifier, *,
 };
@@ -44,8 +42,9 @@ impl<T: Config> Pallet<T> {
 		receipt_proof: &ReceiptProof<T::MaxMptNodeSize, T::MaxReceiptProofDepth>,
 		log: &Log,
 	) -> Result<(), VerificationError> {
+		let proof_nodes: Vec<Vec<u8>> = receipt_proof.iter().map(|n| n.to_vec()).collect();
 		let receipt =
-			verify_receipt_proof(receipts_root, receipt_proof.as_ref()).ok_or(InvalidProof)?;
+			verify_receipt_proof(receipts_root, log.tx_index, &proof_nodes).ok_or(InvalidProof)?;
 		if !receipt.logs().iter().any(|l| Self::check_log_match(log, l)) {
 			tracing::error!(
 				target: "ethereum-client",

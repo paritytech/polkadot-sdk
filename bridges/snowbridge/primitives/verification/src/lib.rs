@@ -35,6 +35,8 @@ pub type DefaultMaxNodeSize = ConstU32<{ DEFAULT_MAX_NODE_SIZE }>;
 /// Type alias for default max depth (for use in [`Proof`] / [`ReceiptProof`]).
 pub type DefaultMaxDepth = ConstU32<{ DEFAULT_MAX_DEPTH }>;
 
+pub mod receipt;
+
 /// A trait for verifying inbound messages from Ethereum.
 /// The concrete proof type is given by the associated type `Proof`.
 pub trait Verifier {
@@ -76,6 +78,7 @@ pub struct Log {
 	pub address: H160,
 	pub topics: Vec<H256>,
 	pub data: Vec<u8>,
+	pub tx_index: u64,
 }
 
 /// Inclusion proof for a transaction receipt.

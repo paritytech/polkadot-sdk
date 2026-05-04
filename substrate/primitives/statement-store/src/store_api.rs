@@ -33,6 +33,9 @@ pub enum Error {
 	/// Error reading from storage.
 	#[error("Storage error: {0:?}")]
 	Storage(String),
+	/// Invalid configuration.
+	#[error("Invalid configuration: {0}")]
+	InvalidConfig(String),
 }
 
 /// Filter for subscribing to statements with different topics.
@@ -165,6 +168,18 @@ pub enum InvalidReason {
 	},
 	/// Statement has already expired. The expiry field is in the past.
 	AlreadyExpired,
+}
+
+impl InvalidReason {
+	/// Returns a short string label suitable for use in metrics.
+	pub fn label(&self) -> &'static str {
+		match self {
+			InvalidReason::NoProof => "no_proof",
+			InvalidReason::BadProof => "bad_proof",
+			InvalidReason::EncodingTooLarge { .. } => "encoding_too_large",
+			InvalidReason::AlreadyExpired => "already_expired",
+		}
+	}
 }
 
 /// Statement submission outcome

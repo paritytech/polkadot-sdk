@@ -9,12 +9,55 @@ use sp_std::prelude::*;
 
 use crate::*;
 use frame_support::BoundedVec;
-use snowbridge_ethereum::mpt::ShortNode;
 use sp_std::vec;
 
 /// Error when building a receipt proof from raw bytes (length or node size out of bounds).
 #[derive(Clone, Debug)]
 pub struct ReceiptProofBoundsError;
+
+/// Trie node where `value` is either the RLP-encoded item we're
+/// proving or an intermediate hash (refers to node with same name in Geth)
+/// Proof verification should return `value`. `key` is an implementation
+/// detail of the trie.
+pub struct ShortNode {
+	pub key: Vec<u8>,
+	pub value: Vec<u8>,
+}
+
+impl rlp::Decodable for ShortNode {
+	fn decode(rlp: &rlp::Rlp) -> Result<Self, rlp::DecoderError> {
+		let mut iter = rlp.iter();
+
+		let key: Vec<u8> = match iter.next() {
+			Some(data) => data.as_val()?,
+			None => return Err(rlp::DecoderError::Custom("Expected key bytes")),
+		};
+
+		let value: Vec<u8> = match iter.next() {
+			Some(data) => data.as_val()?,
+			None => return Err(rlp::DecoderError::Custom("Expected value bytes")),
+		};
+
+		Ok(Self { key, value })
+	}
+}
+
+/// Fixture-only: RLP encoding for ShortNode. Not included in release; used when generating
+/// receipt proof fixtures (see snowbridge-verification-primitives fixtures).
+#[cfg(any(test, feature = "std", feature = "fixtures"))]
+impl rlp::Encodable for ShortNode {
+	fn rlp_append(&self, s: &mut rlp::RlpStream) {
+		s.begin_list(2);
+		s.append(&self.key);
+		s.append(&self.value);
+	}
+}
+
+// impl Node for ShortNode {
+// 	fn contains_hash(&self, hash: H256) -> bool {
+// 		self.value == hash.0
+// 	}
+// }
 
 /// Build a valid RLP-encoded MPT node: the RLP encoding of a `ShortNode` with `key = [0x00]`
 /// and `value` (padded with zeros). The returned byte length is **at most** `max_len`

@@ -94,7 +94,8 @@ pub mod pallet {
 		/// Maximum number of nodes in an Ethereum receipts MPT proof (path depth + leaf).
 		#[pallet::constant]
 		type MaxReceiptProofDepth: Get<u32>;
-		/// Maximum RLP-encoded size of a single MPT node (leaf = receipt, or branch/extension node).
+		/// Maximum RLP-encoded size of a single MPT node (leaf = receipt, or branch/extension
+		/// node).
 		#[pallet::constant]
 		type MaxMptNodeSize: Get<u32>;
 		type WeightInfo: WeightInfo;

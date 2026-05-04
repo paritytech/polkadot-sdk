@@ -1068,7 +1068,7 @@ fn build_bloaty_blob(
 
 				let program = match polkavm_linker::program_from_elf(
 					config,
-					TargetInstructionSet::Latest,
+					TargetInstructionSet::JamV1,
 					&blob_bytes,
 				) {
 					Ok(program) => program,

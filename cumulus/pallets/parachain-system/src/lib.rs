@@ -34,9 +34,9 @@ use codec::{Decode, DecodeLimit, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
-	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
-	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CoreInfo,
+	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
+	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
 	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
@@ -63,18 +63,15 @@ use xcm::{latest::XcmHash, VersionedLocation, VersionedXcm, MAX_XCM_DECODE_DEPTH
 use xcm_builder::InspectMessageQueues;
 
 mod benchmarking;
+pub mod block_weight;
+pub mod consensus_hook;
 pub mod migration;
 mod mock;
+pub mod relay_state_snapshot;
 #[cfg(test)]
 mod tests;
-pub mod weights;
-
-pub use weights::WeightInfo;
-
 mod unincluded_segment;
-
-pub mod consensus_hook;
-pub mod relay_state_snapshot;
+pub mod weights;
 #[macro_use]
 pub mod validate_block;
 mod descendant_validation;
@@ -108,11 +105,29 @@ pub use consensus_hook::{ConsensusHook, ExpectParentIncluded};
 pub use cumulus_pallet_parachain_system_proc_macro::register_validate_block;
 pub use relay_state_snapshot::{MessagingStateSnapshot, RelayChainStateProof};
 pub use unincluded_segment::{Ancestor, UsedBandwidth};
+pub use weights::WeightInfo;
 
 use crate::parachain_inherent::AbridgedInboundMessagesSizeInfo;
 pub use pallet::*;
 
-const LOG_TARGET: &str = "parachain-system";
+const LOG_TARGET: &str = "runtime::parachain-system";
+
+/// Tracks cumulative UMP and HRMP message counts sent across blocks within a single PoV.
+#[derive(Encode, Decode, Clone, Debug, TypeInfo, Default)]
+pub struct PoVMessages {
+	/// Relay parent storage root of the current PoV.
+	pub relay_storage_root_or_hash: relay_chain::Hash,
+	/// The core selector of the current Pov.
+	pub core_selector: u8,
+	/// The bundle index of the current PoV. `None` when `BundleInfo` digest is absent.
+	pub bundle_index: u8,
+	/// Cumulative count of UMP messages sent in this PoV.
+	pub ump_msg_count: u32,
+	/// Cumulative count of HRMP outbound messages sent in this PoV.
+	pub hrmp_outbound_count: u32,
+	/// Recipients already used for HRMP outbound messages in this PoV.
+	pub hrmp_outbound_recipients: Vec<ParaId>,
+}
 
 /// Something that can check the associated relay block number.
 ///
@@ -171,7 +186,9 @@ impl CheckAssociatedRelayNumber for RelayNumberMonotonicallyIncreases {
 		previous: RelayChainBlockNumber,
 	) {
 		if current < previous {
-			panic!("Relay chain block number needs to monotonically increase between Parachain blocks!")
+			panic!(
+				"Relay chain block number needs to monotonically increase between Parachain blocks!"
+			)
 		}
 	}
 }
@@ -189,8 +206,9 @@ pub mod ump_constants {
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
+	use codec::Compact;
 	use cumulus_primitives_core::CoreInfoExistsAtMaxOnce;
-	use frame_support::pallet_prelude::*;
+	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_system::pallet_prelude::*;
 
 	#[pallet::pallet]
@@ -316,6 +334,29 @@ pub mod pallet {
 			// unincluded segment.
 			Self::adjust_egress_bandwidth_limits();
 
+			let current_core_selector =
+				CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
+					.map_or(0, |ci| ci.selector.0);
+
+			let current_bundle_index =
+				CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
+					.map_or(0, |bi| bi.index);
+
+			let mut pov_tracker = PoVMessagesTracker::<T>::get()
+				.filter(|tracker| {
+					// If the relay parent changes, this is for sure a different `PoV`.
+					tracker.relay_storage_root_or_hash == vfp.relay_parent_storage_root &&
+					// A different core selector also means we are on a different `PoV`.
+					tracker.core_selector == current_core_selector &&
+					// The bundle index needs to increase, or we are in a different `PoV`.
+					current_bundle_index > tracker.bundle_index
+				})
+				.unwrap_or_default();
+
+			pov_tracker.bundle_index = current_bundle_index;
+			pov_tracker.core_selector = current_core_selector;
+			pov_tracker.relay_storage_root_or_hash = vfp.relay_parent_storage_root;
+
 			let (ump_msg_count, ump_total_bytes) = <PendingUpwardMessages<T>>::mutate(|up| {
 				let (available_capacity, available_size) = match RelevantMessagingState::<T>::get()
 				{
@@ -333,8 +374,12 @@ pub mod pallet {
 					},
 				};
 
-				let available_capacity =
-					cmp::min(available_capacity, host_config.max_upward_message_num_per_candidate);
+				let available_capacity = cmp::min(
+					available_capacity,
+					host_config
+						.max_upward_message_num_per_candidate
+						.saturating_sub(pov_tracker.ump_msg_count),
+				);
 
 				// Count the number of messages we can possibly fit in the given constraints, i.e.
 				// available_capacity and available_size.
@@ -363,17 +408,20 @@ pub mod pallet {
 				UpwardMessages::<T>::put(&up[..num as usize]);
 				*up = up.split_off(num as usize);
 
-				if let Some(core_info) =
-					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-				{
-					PendingUpwardSignals::<T>::append(
-						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-							.encode(),
-					);
-				}
+				pov_tracker.ump_msg_count = pov_tracker.ump_msg_count.saturating_add(num);
 
-				// Send the pending UMP signals.
-				Self::send_ump_signals();
+				let digest = frame_system::Pallet::<T>::digest();
+
+				let core_info = CumulusDigestItem::find_core_info(&digest);
+				PreviousCoreCount::<T>::put(
+					core_info.as_ref().map_or(Compact(1u16), |ci| ci.number_of_cores),
+				);
+
+				// Only send UMP signals on the last block of a PoV.
+				// For single-block PoVs (no BlockBundleInfo), always send signals.
+				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
+					Self::send_ump_signals(core_info);
+				}
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -403,14 +451,26 @@ pub mod pallet {
 				.min(<AnnouncedHrmpMessagesPerCandidate<T>>::take())
 				as usize;
 
+			let maximum_channels =
+				maximum_channels.saturating_sub(pov_tracker.hrmp_outbound_count as usize);
+
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
 			// been adjusted above to reflect the correct limits in all channels.
-			let outbound_messages =
-				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
-					.into_iter()
-					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
-					.collect::<Vec<_>>();
+			let outbound_messages = T::OutboundXcmpMessageSource::take_outbound_messages(
+				maximum_channels,
+				&pov_tracker.hrmp_outbound_recipients,
+			)
+			.into_iter()
+			.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
+			.collect::<Vec<_>>();
+
+			pov_tracker
+				.hrmp_outbound_recipients
+				.extend(outbound_messages.iter().map(|m| m.recipient));
+			pov_tracker.hrmp_outbound_count =
+				pov_tracker.hrmp_outbound_count.saturating_add(outbound_messages.len() as u32);
+			PoVMessagesTracker::<T>::put(pov_tracker);
 
 			// Update the unincluded segment length; capacity checks were done previously in
 			// `set_validation_data`, so this can be done unconditionally.
@@ -450,6 +510,7 @@ pub mod pallet {
 				// Check in `on_initialize` guarantees there's space for this block.
 				UnincludedSegment::<T>::append(ancestor);
 			}
+
 			HrmpOutboundMessages::<T>::put(outbound_messages);
 		}
 
@@ -482,6 +543,8 @@ pub mod pallet {
 				// Weight used during finalization.
 				weight += T::DbWeight::get().reads_writes(3, 2);
 			}
+
+			BlockWeightMode::<T>::kill();
 
 			// Remove the validation from the old block.
 			ValidationData::<T>::kill();
@@ -708,10 +771,9 @@ pub mod pallet {
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
-			if let Some(collator_peer_id) = collator_peer_id {
-				PendingUpwardSignals::<T>::append(
-					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
-				);
+			match collator_peer_id {
+				Some(peer_id) => PendingApprovedPeer::<T>::put(peer_id),
+				None => PendingApprovedPeer::<T>::kill(),
 			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
@@ -781,6 +843,24 @@ pub mod pallet {
 		NotScheduled,
 	}
 
+	/// The current block weight mode.
+	///
+	/// This is used to determine what is the maximum allowed block weight, for more information see
+	/// [`block_weight`].
+	///
+	/// Killed in [`Self::on_initialize`] and set by the [`block_weight`] logic.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type BlockWeightMode<T: Config> =
+		StorageValue<_, block_weight::BlockWeightMode<T>, OptionQuery>;
+
+	/// The core count available to the parachain in the previous block.
+	///
+	/// This is mainly used for offchain functionality to calculate the correct target block weight.
+	#[pallet::storage]
+	#[pallet::whitelist_storage]
+	pub type PreviousCoreCount<T: Config> = StorageValue<_, Compact<u16>, OptionQuery>;
+
 	/// Latest included block descendants the runtime accepted. In other words, these are
 	/// ancestors of the currently executing block which have not been included in the observed
 	/// relay-chain state.
@@ -801,8 +881,8 @@ pub mod pallet {
 	/// applied.
 	///
 	/// As soon as the relay chain gives us the go-ahead signal, we will overwrite the
-	/// [`:code`][sp_core::storage::well_known_keys::CODE] which will result the next block process
-	/// with the new validation code. This concludes the upgrade process.
+	/// [`:pending_code`][sp_core::storage::well_known_keys::PENDING_CODE] which will result the
+	/// next block to be processed with the new validation code. This concludes the upgrade process.
 	#[pallet::storage]
 	pub type PendingValidationCode<T: Config> = StorageValue<_, Vec<u8>, ValueQuery>;
 
@@ -940,6 +1020,11 @@ pub mod pallet {
 	#[pallet::storage]
 	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
 
+	/// The approved peer id to be sent as a UMP signal on the last block of the PoV.
+	#[pallet::storage]
+	pub type PendingApprovedPeer<T: Config> =
+		StorageValue<_, relay_chain::ApprovedPeerId, OptionQuery>;
+
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
 	pub type UpwardDeliveryFeeFactor<T: Config> =
@@ -965,6 +1050,12 @@ pub mod pallet {
 	/// See `Pallet::set_custom_validation_head_data` for more information.
 	#[pallet::storage]
 	pub type CustomValidationHeadData<T: Config> = StorageValue<_, Vec<u8>, OptionQuery>;
+
+	/// Tracks cumulative `UMP` and `HRMP` messages sent across blocks in the current `PoV`.
+	///
+	/// Across different candidates/PoVs the budgets are tracked by [`AggregatedUnincludedSegment`].
+	#[pallet::storage]
+	pub type PoVMessagesTracker<T: Config> = StorageValue<_, PoVMessages, OptionQuery>;
 
 	#[pallet::inherent]
 	impl<T: Config> ProvideInherent for Pallet<T> {
@@ -1456,7 +1547,11 @@ impl<T: Config> Pallet<T> {
 		//
 		// If this fails, the parachain needs to wait for ancestors to be included before
 		// a new block is allowed.
-		assert!(new_len < capacity.get(), "no space left for the block in the unincluded segment");
+		assert!(
+			new_len < capacity.get(),
+			"No space left for the block in the unincluded segment: new_len({new_len}) < capacity({})",
+			capacity.get()
+		);
 		weight_used
 	}
 
@@ -1465,24 +1560,17 @@ impl<T: Config> Pallet<T> {
 	// Reads: 2
 	// Writes: 1
 	fn adjust_egress_bandwidth_limits() {
-		let unincluded_segment = match AggregatedUnincludedSegment::<T>::get() {
-			None => return,
-			Some(s) => s,
-		};
+		let Some(unincluded_segment) = AggregatedUnincludedSegment::<T>::get() else { return };
 
 		<RelevantMessagingState<T>>::mutate(|messaging_state| {
-			let messaging_state = match messaging_state {
-				None => return,
-				Some(s) => s,
-			};
+			let Some(messaging_state) = messaging_state else { return };
 
 			let used_bandwidth = unincluded_segment.used_bandwidth();
 
 			let channels = &mut messaging_state.egress_channels;
 			for (para_id, used) in used_bandwidth.hrmp_outgoing.iter() {
-				let i = match channels.binary_search_by_key(para_id, |item| item.0) {
-					Ok(i) => i,
-					Err(_) => continue, // indicates channel closed.
+				let Ok(i) = channels.binary_search_by_key(para_id, |item| item.0) else {
+					continue; // indicates channel closed.
 				};
 
 				let c = &mut channels[i].1;
@@ -1519,7 +1607,7 @@ impl<T: Config> Pallet<T> {
 		// Ensure that `ValidationData` exists. We do not care about the validation data per se,
 		// but we do care about the [`UpgradeRestrictionSignal`] which arrives with the same
 		// inherent.
-		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable,);
+		ensure!(<ValidationData<T>>::exists(), Error::<T>::ValidationDataNotAvailable);
 		ensure!(<UpgradeRestrictionSignal<T>>::get().is_none(), Error::<T>::ProhibitedByPolkadot);
 
 		ensure!(!<PendingValidationCode<T>>::exists(), Error::<T>::OverlappingUpgrades);
@@ -1579,8 +1667,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send the pending ump signals
-	fn send_ump_signals() {
-		let ump_signals = PendingUpwardSignals::<T>::take();
+	fn send_ump_signals(core_info: Option<CoreInfo>) {
+		let mut ump_signals = PendingUpwardSignals::<T>::take();
+
+		if let Some(core_info) = core_info {
+			ump_signals.push(
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			);
+		}
+
+		if let Some(approved_peer) = PendingApprovedPeer::<T>::take() {
+			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
+		}
+
 		if !ump_signals.is_empty() {
 			UpwardMessages::<T>::append(UMP_SEPARATOR);
 			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));

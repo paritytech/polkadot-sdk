@@ -43,7 +43,11 @@ pub trait Config: frame_system::Config {
 	///
 	/// Default is checking for `CodeUpdated` event .
 	fn verify_set_code() {
-		System::<Self>::assert_last_event(frame_system::Event::<Self>::CodeUpdated.into());
+		let code = Self::prepare_set_code_data();
+		let hash = Self::Hashing::hash(&code);
+		let want: Self::RuntimeEvent = frame_system::Event::<Self>::CodeUpdated { hash }.into();
+
+		System::<Self>::assert_last_event(want);
 	}
 }
 
@@ -112,9 +116,8 @@ mod benchmarks {
 			System::<T>::set_code_without_checks(RawOrigin::Root.into(), code)?;
 		}
 
-		let current_code =
-			storage::unhashed::get_raw(well_known_keys::CODE).ok_or("Code not stored.")?;
-		assert_eq!(current_code.len(), 4_000_000 as usize);
+		let code = storage::unhashed::get_raw(well_known_keys::CODE).ok_or("Code not stored.")?;
+		assert_eq!(code.len(), 4_000_000 as usize);
 		Ok(())
 	}
 
