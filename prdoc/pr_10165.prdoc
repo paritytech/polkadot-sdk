@@ -1,15 +1,12 @@
-title: 'YAP runtime: enable local dev mode and tune elastic scaling parameters'
+title: 'YAP runtime: tune elastic scaling parameters and add local-run README'
 
 doc:
   - audience: Runtime Dev
     description: |
-      Update the YAP testing runtime to make local development easier.
+      Update the YAP testing runtime:
 
-      - Adds a `dev` cargo feature that sets `RELAY_PARENT_OFFSET = 0` so the
-        runtime can be run locally with `polkadot-omni-node --dev` without a
-        live relay chain.
-      - Support 12 cores / 500ms blocks.
-      - Add README
+      - Support 12 cores / 500ms blocks 
+      - Add README with build/run instructions for the local omni-node setup.
       - Bumps `spec_version` to `1_003_002`.
 
 crates:

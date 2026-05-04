@@ -4,7 +4,6 @@ A parachain runtime used for testing purposes.
 
 ## Features
 
-- `dev` - Development mode enables running without a relay chain
 - `fast-runtime` - Faster block times for testing
 - `runtime-benchmarks` - Enable runtime benchmarking
 
@@ -15,8 +14,8 @@ A parachain runtime used for testing purposes.
 ```bash
 # From the polkadot-sdk root directory
 
-# 1. Build the YAP runtime with the dev feature
-cargo build --release -p yet-another-parachain-runtime --features dev
+# 1. Build the YAP runtime
+cargo build --release -p yet-another-parachain-runtime
 
 # 2. Build polkadot-omni-node
 cargo build --release -p polkadot-omni-node
