@@ -25,6 +25,7 @@ use crate::{
 	},
 	limits,
 	sp_runtime::traits::{One, Zero},
+	storage::StorageMapValueOf,
 	weights::WeightInfo,
 };
 use alloc::vec::Vec;
@@ -212,7 +213,7 @@ pub fn on_finalize_build_eth_block<T: Config>(block_number: BlockNumberFor<T>) {
 		EthereumBlockBuilder::<T>::from_ir(block_builder_ir).build_block(block_number);
 
 	// Put the block hash into storage.
-	BlockHash::<T>::insert(block_number, block.hash);
+	BlockHash::<T>::insert(block_number, StorageMapValueOf::<BlockHash<T>>::new(block.hash));
 
 	// Prune older block hashes.
 	let block_hash_count = BLOCK_HASH_COUNT;

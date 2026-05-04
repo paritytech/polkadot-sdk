@@ -752,8 +752,13 @@ pub mod pallet {
 	///
 	/// The maximum number of elements stored is capped by the block hash count `BLOCK_HASH_COUNT`.
 	#[pallet::storage]
-	pub(crate) type BlockHash<T: Config> =
-		StorageMap<_, Identity, BlockNumberFor<T>, H256, ValueQuery>;
+	pub(crate) type BlockHash<T: Config> = StorageMap<
+		_,
+		Identity,
+		BlockNumberFor<T>,
+		StorageCodecWrapper<H256, BlockHashV1>,
+		ValueQuery,
+	>;
 
 	/// The details needed to reconstruct the receipt info offchain.
 	///
@@ -2332,7 +2337,7 @@ impl<T: Config> Pallet<T> {
 	/// If the provided block number is outside of the pruning None is returned.
 	pub fn eth_block_hash_from_number(number: U256) -> Option<H256> {
 		let number = BlockNumberFor::<T>::try_from(number).ok()?;
-		let hash = <BlockHash<T>>::get(number);
+		let hash = <BlockHash<T>>::get(number).into_inner();
 		if hash == H256::zero() { None } else { Some(hash) }
 	}
 

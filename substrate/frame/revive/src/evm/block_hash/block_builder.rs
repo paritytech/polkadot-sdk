@@ -160,7 +160,7 @@ impl<T: crate::Config> EthereumBlockBuilder<T> {
 	) -> (Block, Vec<ReceiptGasInfo>) {
 		let parent_hash = if !Zero::is_zero(&block_number) {
 			let prev_block_num = block_number.saturating_sub(One::one());
-			crate::BlockHash::<T>::get(prev_block_num)
+			crate::BlockHash::<T>::get(prev_block_num).into_inner()
 		} else {
 			H256::default()
 		};

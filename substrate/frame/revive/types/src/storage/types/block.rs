@@ -173,6 +173,18 @@ define_versioned_type! {
 	);
 }
 
+impl From<H256> for BlockHashV1 {
+	fn from(value: H256) -> Self {
+		Self(value)
+	}
+}
+
+impl From<BlockHashV1> for H256 {
+	fn from(value: BlockHashV1) -> Self {
+		value.0
+	}
+}
+
 define_versioned_type! {
 	/// Version 1 of the gas data needed to reconstruct an Ethereum receipt.
 	#[derive(
