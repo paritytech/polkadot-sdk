@@ -3331,11 +3331,8 @@ mod benches {
 		[pallet_asset_conversion_ops, AssetConversionMigration]
 		[pallet_verify_signature, VerifySignature]
 		[pallet_meta_tx, MetaTx]
-<<<<<<< romarq/migrate-pallet-mixnet-to-tx-extension
 		[pallet_mixnet, Mixnet]
-=======
 		[pallet_psm, Psm]
->>>>>>> master
 	);
 }
 
