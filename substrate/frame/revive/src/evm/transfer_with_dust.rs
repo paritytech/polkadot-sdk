@@ -97,7 +97,9 @@ pub(crate) fn transfer_with_dust<T: Config>(
 	preservation: Preservation,
 ) -> DispatchResult {
 	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+	let mut from_info = AccountInfoOf::<T>::get(&from_addr)
+		.map(|info| info.into_inner())
+		.unwrap_or_default();
 
 	if from_info.balance(from, preservation) < value {
 		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} to {to:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, preservation));
@@ -112,7 +114,9 @@ pub(crate) fn transfer_with_dust<T: Config>(
 	}
 
 	let to_addr = <T::AddressMapper as AddressMapper<T>>::to_address(to);
-	let mut to_info = AccountInfoOf::<T>::get(&to_addr).unwrap_or_default();
+	let mut to_info = AccountInfoOf::<T>::get(&to_addr)
+		.map(|info| info.into_inner())
+		.unwrap_or_default();
 
 	ensure_sufficient_dust::<T>(from, &mut from_info, dust)?;
 	transfer_balance::<T>(from, to, value, preservation)?;
@@ -124,8 +128,14 @@ pub(crate) fn transfer_with_dust<T: Config>(
 		to_info.dust = to_info.dust.checked_sub(plank).ok_or_else(|| Error::<T>::TransferFailed)?;
 	}
 
-	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
-	AccountInfoOf::<T>::set(&to_addr, Some(to_info));
+	AccountInfoOf::<T>::set(
+		&from_addr,
+		Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(from_info)),
+	);
+	AccountInfoOf::<T>::set(
+		&to_addr,
+		Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(to_info)),
+	);
 
 	Ok(())
 }
@@ -136,7 +146,9 @@ pub(crate) fn burn_with_dust<T: Config>(
 	value: BalanceWithDust<BalanceOf<T>>,
 ) -> DispatchResult {
 	let from_addr = <T::AddressMapper as AddressMapper<T>>::to_address(from);
-	let mut from_info = AccountInfoOf::<T>::get(&from_addr).unwrap_or_default();
+	let mut from_info = AccountInfoOf::<T>::get(&from_addr)
+		.map(|info| info.into_inner())
+		.unwrap_or_default();
 
 	if from_info.balance(from, Preservation::Preserve) < value {
 		log::debug!(target: LOG_TARGET, "Insufficient balance: from {from:?} (value: ${value:?}). Balance: ${:?}", from_info.balance(from, Preservation::Preserve));
@@ -178,7 +190,10 @@ pub(crate) fn burn_with_dust<T: Config>(
 	T::OnBurn::on_unbalanced(credit);
 
 	from_info.dust = from_info.dust.checked_sub(dust).ok_or_else(|| Error::<T>::TransferFailed)?;
-	AccountInfoOf::<T>::set(&from_addr, Some(from_info));
+	AccountInfoOf::<T>::set(
+		&from_addr,
+		Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(from_info)),
+	);
 	Ok(())
 }
 

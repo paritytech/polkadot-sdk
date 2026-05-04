@@ -870,7 +870,13 @@ mod benchmarks {
 		let address = T::AddressMapper::to_address(&account);
 		let balance = Pallet::<T>::min_balance() * 2u32.into();
 		T::Currency::set_balance(&account, balance);
-		AccountInfoOf::<T>::insert(&address, AccountInfo { dust: 42, ..Default::default() });
+		AccountInfoOf::<T>::insert(
+			&address,
+			crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+				dust: 42,
+				..Default::default()
+			}),
+		);
 
 		build_runtime!(runtime, memory: [vec![0u8; len], address.0, ]);
 

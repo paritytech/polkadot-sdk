@@ -19,10 +19,14 @@ use crate::{
 	ClientError, H160,
 	subxt_client::{
 		self, SrcChainConfig,
-		runtime_types::pallet_revive::storage::{AccountType, ContractInfo},
+		runtime_types::pallet_revive_types::storage::types::contract::{
+			AccountTypeV1, ContractInfoV1,
+		},
 	},
 };
 use subxt::{OnlineClient, storage::Storage};
+
+type ContractInfo = ContractInfoV1<u128>;
 
 /// A wrapper around the Substrate Storage API.
 #[derive(Clone)]
@@ -48,7 +52,7 @@ impl StorageApi {
 			return Err(ClientError::ContractNotFound);
 		};
 
-		let AccountType::Contract(contract_info) = info.account_type else {
+		let AccountTypeV1::Contract(contract_info) = info.account_type else {
 			return Err(ClientError::ContractNotFound);
 		};
 
@@ -58,6 +62,6 @@ impl StorageApi {
 	/// Get the contract trie id for the given contract address.
 	pub async fn get_contract_trie_id(&self, address: &H160) -> Result<Vec<u8>, ClientError> {
 		let ContractInfo { trie_id, .. } = self.get_contract_info(address).await?;
-		Ok(trie_id.0)
+		Ok(trie_id.0.0.0)
 	}
 }

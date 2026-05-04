@@ -78,6 +78,9 @@ pub const TRANSIENT_STORAGE_BYTES: u32 = 4 * 1024;
 /// The maximum allowable length in bytes for (transient) storage keys.
 pub const STORAGE_KEY_BYTES: u32 = 128;
 
+/// The maximum length in bytes for a contract child-trie identifier.
+pub const TRIE_ID_BYTES: u32 = 128;
+
 /// The page size in which PolkaVM should allocate memory chunks.
 pub const PAGE_SIZE: u32 = 4 * 1024;
 

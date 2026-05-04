@@ -82,7 +82,10 @@ impl<T: Config> SteppedMigration for Migration<T> {
 			if let Some((last_key, value)) = iter.drain().next() {
 				AccountInfoOf::<T>::insert(
 					last_key,
-					AccountInfo { account_type: value.into(), ..Default::default() },
+					crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+						account_type: value.into(),
+						..Default::default()
+					}),
 				);
 				cursor = Some(last_key)
 			} else {

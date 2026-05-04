@@ -211,9 +211,13 @@ pub mod test_utils {
 		if dust > 0 {
 			AccountInfoOf::<Test>::mutate(&address, |account| {
 				if let Some(account) = account {
-					account.dust = dust;
+					account.mutate(|account| {
+						account.dust = dust;
+					});
 				} else {
-					*account = Some(AccountInfo { dust, ..Default::default() });
+					*account = Some(crate::storage::StorageMapValueOf::<AccountInfoOf<Test>>::new(
+						AccountInfo { dust, ..Default::default() },
+					));
 				}
 			});
 		}

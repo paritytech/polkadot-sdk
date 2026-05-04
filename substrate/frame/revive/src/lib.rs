@@ -126,7 +126,7 @@ pub use crate::vm::pvm::SyscallDoc;
 
 pub type BalanceOf<T> = <T as Config>::Balance;
 pub type CreditOf<T> = Credit<<T as frame_system::Config>::AccountId, <T as Config>::Currency>;
-type TrieId = BoundedVec<u8, ConstU32<128>>;
+type TrieId = BoundedVec<u8, ConstU32<{ limits::TRIE_ID_BYTES }>>;
 type ImmutableData = BoundedVec<u8, ConstU32<{ limits::IMMUTABLE_BYTES }>>;
 type CallOf<T> = <T as Config>::RuntimeCall;
 
@@ -684,7 +684,12 @@ pub mod pallet {
 
 	/// The data associated to a contract or externally owned account.
 	#[pallet::storage]
-	pub(crate) type AccountInfoOf<T: Config> = StorageMap<_, Identity, H160, AccountInfo<T>>;
+	pub(crate) type AccountInfoOf<T: Config> = StorageMap<
+		_,
+		Identity,
+		H160,
+		StorageCodecWrapper<AccountInfo<T>, AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>>,
+	>;
 
 	/// The immutable data associated with a given account.
 	#[pallet::storage]
@@ -845,7 +850,9 @@ pub mod pallet {
 					None => {
 						AccountInfoOf::<T>::insert(
 							address,
-							AccountInfo { account_type: AccountType::EOA, dust: 0 },
+							crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(
+								AccountInfo { account_type: AccountType::EOA, dust: 0 },
+							),
 						);
 					},
 					Some(genesis::ContractData { code, storage }) => {
@@ -876,7 +883,9 @@ pub mod pallet {
 
 						AccountInfoOf::<T>::insert(
 							address,
-							AccountInfo { account_type: info.clone().into(), dust: 0 },
+							crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(
+								AccountInfo { account_type: info.clone().into(), dust: 0 },
+							),
 						);
 
 						<PristineCode<T>>::insert(blob.code_hash(), code.0.clone());
@@ -1552,15 +1561,17 @@ pub mod pallet {
 					return Err(<Error<T>>::ContractNotFound.into());
 				};
 
-				let AccountType::Contract(ref mut contract) = account.account_type else {
-					return Err(<Error<T>>::ContractNotFound.into());
-				};
+				account.try_mutate(|account| {
+					let AccountType::Contract(ref mut contract) = account.account_type else {
+						return Err(<Error<T>>::ContractNotFound.into());
+					};
 
-				<CodeInfo<T>>::increment_refcount(code_hash)?;
-				let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
-				contract.code_hash = code_hash;
+					<CodeInfo<T>>::increment_refcount(code_hash)?;
+					let _ = <CodeInfo<T>>::decrement_refcount(contract.code_hash)?;
+					contract.code_hash = code_hash;
 
-				Ok(())
+					Ok(())
+				})
 			})
 		}
 
@@ -2324,9 +2335,15 @@ impl<T: Config> Pallet<T> {
 		T::Currency::set_balance(&account_id, balance);
 		AccountInfoOf::<T>::mutate(&address, |account| {
 			if let Some(account) = account {
-				account.dust = dust;
+				account.mutate(|account| {
+					account.dust = dust;
+				});
 			} else {
-				*account = Some(AccountInfo { dust, ..Default::default() });
+				*account =
+					Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+						dust,
+						..Default::default()
+					}));
 			}
 		});
 

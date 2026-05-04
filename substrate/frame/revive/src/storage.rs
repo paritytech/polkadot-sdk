@@ -31,6 +31,7 @@ use crate::{
 	SENTINEL, TrieId,
 	address::AddressMapper,
 	exec::{AccountIdOf, Key},
+	limits,
 	metering::FrameMeter,
 	tracing::if_tracing,
 	weights::WeightInfo,
@@ -47,6 +48,7 @@ use frame_support::{
 	},
 	weights::{Weight, WeightMeter},
 };
+use pallet_revive_types::storage::{AccountInfoV1, AccountTypeV1, ContractInfoV1, TrieIdV1};
 use scale_info::TypeInfo;
 use sp_core::{Get, H160};
 use sp_io::KillStorageResult;
@@ -148,11 +150,71 @@ impl<T: Config> From<ContractInfo<T>> for AccountType<T> {
 	}
 }
 
+impl<T: Config> From<ContractInfo<T>> for ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }> {
+	fn from(value: ContractInfo<T>) -> Self {
+		Self {
+			trie_id: TrieIdV1(value.trie_id.into()),
+			code_hash: value.code_hash,
+			storage_bytes: value.storage_bytes,
+			storage_items: value.storage_items,
+			storage_byte_deposit: value.storage_byte_deposit,
+			storage_item_deposit: value.storage_item_deposit,
+			storage_base_deposit: value.storage_base_deposit,
+			immutable_data_len: value.immutable_data_len,
+		}
+	}
+}
+
+impl<T: Config> From<ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> for ContractInfo<T> {
+	fn from(value: ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
+		Self {
+			trie_id: value.trie_id.0.0,
+			code_hash: value.code_hash,
+			storage_bytes: value.storage_bytes,
+			storage_items: value.storage_items,
+			storage_byte_deposit: value.storage_byte_deposit,
+			storage_item_deposit: value.storage_item_deposit,
+			storage_base_deposit: value.storage_base_deposit,
+			immutable_data_len: value.immutable_data_len,
+		}
+	}
+}
+
+impl<T: Config> From<AccountType<T>> for AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }> {
+	fn from(value: AccountType<T>) -> Self {
+		match value {
+			AccountType::Contract(contract) => Self::Contract(contract.into()),
+			AccountType::EOA => Self::EOA,
+		}
+	}
+}
+
+impl<T: Config> From<AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> for AccountType<T> {
+	fn from(value: AccountTypeV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
+		match value {
+			AccountTypeV1::Contract(contract) => Self::Contract(contract.into()),
+			AccountTypeV1::EOA => Self::EOA,
+		}
+	}
+}
+
+impl<T: Config> From<AccountInfo<T>> for AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }> {
+	fn from(value: AccountInfo<T>) -> Self {
+		Self { account_type: value.account_type.into(), dust: value.dust }
+	}
+}
+
+impl<T: Config> From<AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>> for AccountInfo<T> {
+	fn from(value: AccountInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>) -> Self {
+		Self { account_type: value.account_type.into(), dust: value.dust }
+	}
+}
+
 impl<T: Config> AccountInfo<T> {
 	/// Returns true if the account is a contract.
 	pub fn is_contract(address: &H160) -> bool {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return false };
-		matches!(info.account_type, AccountType::Contract(_))
+		matches!(&info.as_inner().account_type, AccountType::Contract(_))
 	}
 
 	/// Returns the balance of the account at the given address.
@@ -181,7 +243,9 @@ impl<T: Config> AccountInfo<T> {
 	/// Loads the contract information for a given address.
 	pub fn load_contract(address: &H160) -> Option<ContractInfo<T>> {
 		let Some(info) = <AccountInfoOf<T>>::get(address) else { return None };
-		let AccountType::Contract(contract_info) = info.account_type else { return None };
+		let AccountType::Contract(contract_info) = info.into_inner().account_type else {
+			return None;
+		};
 		Some(contract_info)
 	}
 
@@ -189,9 +253,14 @@ impl<T: Config> AccountInfo<T> {
 	pub fn insert_contract(address: &H160, contract: ContractInfo<T>) {
 		AccountInfoOf::<T>::mutate(address, |account| {
 			if let Some(account) = account {
-				account.account_type = contract.clone().into();
+				account.mutate(|account| {
+					account.account_type = contract.clone().into();
+				});
 			} else {
-				*account = Some(AccountInfo { account_type: contract.clone().into(), dust: 0 });
+				*account = Some(StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+					account_type: contract.clone().into(),
+					dust: 0,
+				}));
 			}
 		});
 	}

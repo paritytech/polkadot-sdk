@@ -379,7 +379,11 @@ where
 		let (value, dust) = value.into().deconstruct();
 		T::Currency::set_balance(&self.account_id, value);
 		crate::AccountInfoOf::<T>::mutate(&self.address, |account| {
-			account.as_mut().map(|a| a.dust = dust);
+			if let Some(account) = account {
+				account.mutate(|account| {
+					account.dust = dust;
+				});
+			}
 		});
 	}
 

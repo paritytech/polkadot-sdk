@@ -183,19 +183,28 @@ fn apply_code_override<T: Config>(address: &H160, code: Vec<u8>) -> Result<(), E
 	}
 
 	<AccountInfoOf<T>>::try_mutate(address, |account| -> Result<(), DispatchError> {
-		match account {
-			Some(AccountInfo { account_type: AccountType::Contract(contract), .. }) => {
+		let dust = account.as_ref().map(|account| account.dust).unwrap_or(0);
+		if let Some(account) = account {
+			let mut updated_contract = false;
+			account.try_mutate(|account| -> Result<(), DispatchError> {
+				let AccountType::Contract(contract) = &mut account.account_type else {
+					return Ok(());
+				};
 				contract.code_hash = code_hash;
-			},
-			_ => {
-				let nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
-				let contract = ContractInfo::<T>::new(address, nonce, code_hash)?;
-				*account = Some(AccountInfo {
-					account_type: contract.into(),
-					dust: account.as_ref().map(|a| a.dust).unwrap_or(0),
-				});
-			},
+				updated_contract = true;
+				Ok(())
+			})?;
+			if updated_contract {
+				return Ok(());
+			}
 		}
+
+		let nonce = frame_system::Pallet::<T>::account_nonce(&account_id);
+		let contract = ContractInfo::<T>::new(address, nonce, code_hash)?;
+		*account = Some(crate::storage::StorageMapValueOf::<AccountInfoOf<T>>::new(AccountInfo {
+			account_type: contract.into(),
+			dust,
+		}));
 		Ok(())
 	})
 	.map_err(|err| {
