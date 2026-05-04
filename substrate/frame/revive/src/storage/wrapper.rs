@@ -301,6 +301,70 @@ where
 {
 }
 
+impl<ExecutionType, StorageType> EncodeLike<StorageCodecWrapper<ExecutionType, StorageType>>
+	for Vec<u8>
+where
+	Self: EncodeLike<StorageType>,
+	StorageType: Encode,
+{
+}
+
+impl<ExecutionType, StorageType> EncodeLike<StorageCodecWrapper<ExecutionType, StorageType>>
+	for &Vec<u8>
+where
+	Vec<u8>: EncodeLike<StorageType>,
+	StorageType: Encode,
+{
+}
+
+impl<ExecutionType, StorageType> EncodeLike<StorageCodecWrapper<ExecutionType, StorageType>>
+	for &[u8]
+where
+	Vec<u8>: EncodeLike<StorageType>,
+	StorageType: Encode,
+{
+}
+
+impl<ExecutionType, StorageType> EncodeLike<StorageCodecWrapper<ExecutionType, StorageType>>
+	for pallet_revive_types::common::Bytes
+where
+	Self: EncodeLike<StorageType>,
+	StorageType: Encode,
+{
+}
+
+impl<ExecutionType, StorageType> EncodeLike<StorageCodecWrapper<ExecutionType, StorageType>>
+	for &pallet_revive_types::common::Bytes
+where
+	pallet_revive_types::common::Bytes: EncodeLike<StorageType>,
+	StorageType: Encode,
+{
+}
+
+impl<StorageType> From<StorageCodecWrapper<Vec<u8>, StorageType>> for Vec<u8> {
+	fn from(value: StorageCodecWrapper<Vec<u8>, StorageType>) -> Self {
+		value.into_inner()
+	}
+}
+
+impl<StorageType> From<StorageCodecWrapper<Vec<u8>, StorageType>> for crate::evm::Bytes {
+	fn from(value: StorageCodecWrapper<Vec<u8>, StorageType>) -> Self {
+		Vec::<u8>::from(value).into()
+	}
+}
+
+impl<StorageType> PartialEq<Vec<u8>> for StorageCodecWrapper<Vec<u8>, StorageType> {
+	fn eq(&self, other: &Vec<u8>) -> bool {
+		self.as_inner() == other
+	}
+}
+
+impl<StorageType> PartialEq<StorageCodecWrapper<Vec<u8>, StorageType>> for Vec<u8> {
+	fn eq(&self, other: &StorageCodecWrapper<Vec<u8>, StorageType>) -> bool {
+		self == other.as_inner()
+	}
+}
+
 impl<ExecutionType, StorageType> Decode for StorageCodecWrapper<ExecutionType, StorageType>
 where
 	StorageType: Decode + Into<ExecutionType> + Clone,
@@ -344,5 +408,33 @@ where
 
 	fn type_info() -> scale_info::Type {
 		<StorageType as TypeInfo>::type_info()
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use pallet_revive_types::{common::Bytes, storage::PristineCodeV1};
+
+	fn assert_encodes_like_pristine_code_wrapper<T>()
+	where
+		T: EncodeLike<StorageCodecWrapper<Vec<u8>, PristineCodeV1>>,
+	{
+	}
+
+	#[test]
+	fn raw_byte_types_encode_like_pristine_code_storage_wrapper() {
+		// Arrange
+		type WrappedPristineCode = StorageCodecWrapper<Vec<u8>, PristineCodeV1>;
+
+		// Act
+		assert_encodes_like_pristine_code_wrapper::<Vec<u8>>();
+		assert_encodes_like_pristine_code_wrapper::<&Vec<u8>>();
+		assert_encodes_like_pristine_code_wrapper::<&[u8]>();
+		assert_encodes_like_pristine_code_wrapper::<Bytes>();
+		assert_encodes_like_pristine_code_wrapper::<&Bytes>();
+
+		// Assert
+		assert_encodes_like_pristine_code_wrapper::<WrappedPristineCode>();
 	}
 }

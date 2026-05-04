@@ -1120,8 +1120,9 @@ async fn test_runtime_pallets_address_upload_code() -> anyhow::Result<()> {
 	let query = subxt_client::storage().revive().pristine_code(code_hash);
 	let block_hash: sp_core::H256 = get_substrate_block_hash(receipt.block_number).await?;
 	let stored_code = node_client.storage().at(block_hash).fetch(&query).await?;
-	assert!(stored_code.is_some(), "Code with hash {code_hash:?} should exist in storage");
-	assert_eq!(stored_code.unwrap(), bytecode, "Stored code should match the uploaded bytecode");
+	let stored_code = stored_code
+		.ok_or_else(|| anyhow::anyhow!("Code with hash {code_hash:?} should exist in storage"))?;
+	assert_eq!(stored_code.0.0, bytecode, "Stored code should match the uploaded bytecode");
 
 	Ok(())
 }

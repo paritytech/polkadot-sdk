@@ -49,6 +49,19 @@ define_versioned_type! {
 	);
 }
 
+impl From<Vec<u8>> for PristineCodeV1 {
+	fn from(value: Vec<u8>) -> Self {
+		Self(value.into())
+	}
+}
+
+impl From<PristineCodeV1> for Vec<u8> {
+	fn from(value: PristineCodeV1) -> Self {
+		let PristineCodeV1(bytes) = value;
+		bytes.0
+	}
+}
+
 define_versioned_type! {
 	/// Version 1 of a contract child-trie identifier stored on chain.
 	#[versioned_type(

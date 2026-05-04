@@ -315,7 +315,7 @@ impl<T: Config> Executable<T> for ContractBlob<T> {
 		let code_info = <CodeInfoOf<T>>::get(code_hash).ok_or(Error::<T>::CodeNotFound)?;
 		meter.charge_weight_token(CodeLoadToken::from_code_info(&code_info))?;
 		let code = <PristineCode<T>>::get(&code_hash).ok_or(Error::<T>::CodeNotFound)?;
-		Ok(Self { code, code_info, code_hash })
+		Ok(Self { code: code.into_inner(), code_info, code_hash })
 	}
 
 	fn from_evm_init_code(code: Vec<u8>, owner: AccountIdOf<T>) -> Result<Self, DispatchError> {

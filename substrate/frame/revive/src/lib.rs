@@ -669,7 +669,8 @@ pub mod pallet {
 	/// [`revm::primitives::eip170::MAX_CODE_SIZE`] for EVM bytecode.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type PristineCode<T: Config> = StorageMap<_, Identity, H256, Vec<u8>>;
+	pub(crate) type PristineCode<T: Config> =
+		StorageMap<_, Identity, H256, StorageCodecWrapper<Vec<u8>, PristineCodeV1>>;
 
 	/// A mapping from a contract's code hash to its code info.
 	#[pallet::storage]
