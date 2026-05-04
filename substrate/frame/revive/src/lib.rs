@@ -52,8 +52,11 @@ pub mod weights;
 use crate::{
 	evm::{
 		CallTracer, CreateCallMode, ExecutionTracer, GenericTransaction, PrestateTracer,
-		TYPE_EIP1559, Trace, Tracer, TracerType, block_hash::EthereumBlockBuilderIR, block_storage,
-		fees::InfoT as FeeInfo, runtime::SetWeightLimit,
+		TYPE_EIP1559, Trace, Tracer, TracerType,
+		block_hash::{EthereumBlockBuilderIR, ReceiptInfoDataValue},
+		block_storage,
+		fees::InfoT as FeeInfo,
+		runtime::SetWeightLimit,
 	},
 	exec::{AccountIdOf, ExecError, ReentrancyProtection, Stack as ExecStack},
 	sp_runtime::TransactionOutcome,
@@ -768,7 +771,8 @@ pub mod pallet {
 	/// It could otherwise inflate the PoV size of a block.
 	#[pallet::storage]
 	#[pallet::unbounded]
-	pub(crate) type ReceiptInfoData<T: Config> = StorageValue<_, Vec<ReceiptGasInfo>, ValueQuery>;
+	pub(crate) type ReceiptInfoData<T: Config> =
+		StorageValue<_, StorageCodecWrapper<ReceiptInfoDataValue, ReceiptInfoDataV1>, ValueQuery>;
 
 	/// Incremental ethereum block builder.
 	#[pallet::storage]
@@ -2343,7 +2347,7 @@ impl<T: Config> Pallet<T> {
 
 	/// The details needed to reconstruct the receipt information offchain.
 	pub fn eth_receipt_data() -> Vec<ReceiptGasInfo> {
-		ReceiptInfoData::<T>::get()
+		ReceiptInfoData::<T>::get().into_inner().into()
 	}
 
 	/// Set the EVM balance of an account.

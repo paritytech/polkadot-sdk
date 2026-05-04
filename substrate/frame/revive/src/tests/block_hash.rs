@@ -38,8 +38,13 @@ fn on_initialize_clears_storage() {
 	ExtBuilder::default().existential_deposit(50).build().execute_with(|| {
 		let receipt_data =
 			vec![ReceiptGasInfo { gas_used: 1.into(), effective_gas_price: 1.into() }];
-		ReceiptInfoData::<Test>::put(receipt_data.clone());
-		assert_eq!(ReceiptInfoData::<Test>::get(), receipt_data);
+		ReceiptInfoData::<Test>::put(crate::storage::StorageValueOf::<ReceiptInfoData<Test>>::new(
+			receipt_data.clone().into(),
+		));
+		assert_eq!(
+			Vec::<ReceiptGasInfo>::from(ReceiptInfoData::<Test>::get().into_inner()),
+			receipt_data,
+		);
 
 		let block = EthBlock { number: 1.into(), ..Default::default() };
 		EthereumBlock::<Test>::put(block.clone());
@@ -48,7 +53,10 @@ fn on_initialize_clears_storage() {
 		Contracts::on_initialize(0);
 
 		// RPC queried storage is cleared out.
-		assert_eq!(ReceiptInfoData::<Test>::get(), vec![]);
+		assert_eq!(
+			Vec::<ReceiptGasInfo>::from(ReceiptInfoData::<Test>::get().into_inner()),
+			vec![],
+		);
 		assert_eq!(EthereumBlock::<Test>::get(), Default::default());
 	});
 }
