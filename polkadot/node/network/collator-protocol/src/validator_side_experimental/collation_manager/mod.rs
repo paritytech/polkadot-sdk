@@ -408,7 +408,8 @@ impl CollationManager {
 		// this core's CQ at this leaf?".
 		let mut leaf_core_cqs = self.build_leaf_core_cqs();
 
-		// Fill claim queue positions for each (leaf, core), starting at the back.
+		// Fill claim queue positions for each (leaf, core), starting at the back for best
+		// utilization.
 		for lc_idx in 0..leaf_core_cqs.len() {
 			let cq_len = leaf_core_cqs[lc_idx].cq.len();
 			for idx in (0..cq_len).rev() {
@@ -449,7 +450,8 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				// Reserve on all reachable leaves (no-op for those whose path doesn't contain the SP):
+				// Reserve on all reachable leaves (no-op for those whose path doesn't contain the
+				// SP):
 				for lc in leaf_core_cqs.iter_mut() {
 					lc.reserve_slot(&advertisement.scheduling_parent, para_id);
 				}
@@ -728,8 +730,8 @@ impl CollationManager {
 	/// Returns:
 	/// - `Either::Left(Some(adv))` if a fetchable advertisement was found,
 	/// - `Either::Left(None)` if there are no eligible advertisements,
-	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay
-	///   relative to its scheduling parent's activation time.
+	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
+	///   to its scheduling parent's activation time.
 	fn select_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		now: Instant,
