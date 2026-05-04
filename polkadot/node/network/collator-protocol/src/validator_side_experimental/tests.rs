@@ -532,10 +532,8 @@ impl TestState {
 
 		// `ancestors` as seen by peer-manager: oldest → newest. The reputation-bump
 		// loop iterates `ancestors[1..]`, issuing one `CandidateEvents` per rp.
-		let ancestors_oldest_to_newest: Vec<Hash> = (0..=diff)
-			.rev()
-			.map(|i| get_hash(finalized.saturating_sub(i)))
-			.collect();
+		let ancestors_oldest_to_newest: Vec<Hash> =
+			(0..=diff).rev().map(|i| get_hash(finalized.saturating_sub(i))).collect();
 		let candidate_events_rps: BTreeSet<Hash> =
 			ancestors_oldest_to_newest.iter().skip(1).copied().collect();
 
@@ -639,9 +637,8 @@ impl TestState {
 
 		// 5. ParaIds, fired only on session change. The peer manager queries it the
 		// first time it sees a new session.
-		let needs_para_ids = self
-			.last_seen_finalized_session
-			.map_or(true, |prev| prev < session_index);
+		let needs_para_ids =
+			self.last_seen_finalized_session.map_or(true, |prev| prev < session_index);
 		if needs_para_ids {
 			assert_matches!(
 				self.next_message().await,
@@ -2887,6 +2884,7 @@ async fn test_outdated_blocked_collations_are_pruned() {
 	let mut state = make_state(db.clone(), &mut test_state, active_leaf).await;
 	let mut sender = test_state.sender.clone();
 
+
 	test_state.rp_info.insert(
 		get_hash(11),
 		RelayParentInfo {
@@ -2999,7 +2997,9 @@ async fn test_outdated_fetching_collations_are_pruned() {
 	// Use a uniform CQ entirely for para 100 so capacity reasoning is straightforward — the
 	// purpose of this test is pruning of outdated fetches, not multi-para or rotating CQs.
 	let same_cq: BTreeMap<CoreIndex, Vec<ParaId>> =
-		[(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()])].into_iter().collect();
+		[(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()])]
+			.into_iter()
+			.collect();
 	test_state
 		.rp_info
 		.get_mut(&get_hash(10))
@@ -3861,6 +3861,102 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 	test_state.assert_no_messages().await;
 }
 
+// Cross-core slot reservation must not leak between LeafCoreCqs of different cores.
+//
+// After group rotation, our group transiently cares about two cores at the same active leaf:
+// the ancestor SP's core (`core_at_9`) and the leaf's core (`core_at_10`). When a parachain
+// is elastically scaled across both of those cores, the same `ParaId` legitimately appears in
+// each core's claim queue. Reserving a slot for a fetch on one core must NOT clear a slot
+// for the same para on the *other* core's LeafCoreCq — that would over-charge capacity and
+// can starve a legitimate fetch on the other core.
+//
+// Setup:
+// - Both `core_at_9 = CoreIndex(2)` and `core_at_10 = CoreIndex(1)` carry `[para_x, _, _]` in the
+//   leaf-10 CQ (one para_x slot per core). All other paras differ so para_x is the only contention.
+// - peer_old advertises para_x at SP=9 (core 2). peer_new advertises para_x at SP=10 (core 1).
+//
+// Both ads should fetch — each one targets a distinct core's slot - both should succeed.
+#[tokio::test]
+async fn cross_core_reservation_does_not_consume_other_cores_slots() {
+	let mut test_state = TestState::default();
+
+	// Same rotation math as `core_rotation_accepts_candidates_for_both_cores`: leaf 9 → core 2,
+	// leaf 10 → core 1.
+	let core_at_9 = CoreIndex(2);
+	let core_at_10 = CoreIndex(1);
+
+	let para_x: ParaId = 100.into();
+	let para_filler: ParaId = 600.into();
+
+	test_state
+		.session_info
+		.get_mut(&1)
+		.unwrap()
+		.group_rotation_info
+		.group_rotation_frequency = 1;
+
+	test_state.rp_info.clear();
+	for height in 8..=10 {
+		test_state.rp_info.insert(
+			get_hash(height),
+			RelayParentInfo {
+				number: height,
+				parent: get_parent_hash(height),
+				session_index: 1,
+				claim_queue: BTreeMap::from([
+					(CoreIndex(0), vec![para_filler, para_filler, para_filler]),
+					// Both cores 1 and 2 carry exactly one para_x slot at idx 0; the rest are
+					// para_filler so para_x has no other slot to fall back to.
+					(CoreIndex(1), vec![para_x, para_filler, para_filler]),
+					(CoreIndex(2), vec![para_x, para_filler, para_filler]),
+				]),
+				assigned_core: if height == 8 {
+					CoreIndex(0)
+				} else if height == 9 {
+					core_at_9
+				} else {
+					core_at_10
+				},
+			},
+		);
+	}
+
+	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer_old = peer_id(1);
+	state.handle_peer_connected(&mut sender, peer_old, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_old, para_x).await;
+
+	// peer_old's advertisement at SP=9 (core 2) for para_x.
+	let (_, adv_old) =
+		dummy_candidate(get_hash(9), para_x, peer_old, core_at_9, 1, dummy_pvd().hash());
+	test_state.handle_advertisement(&mut state, adv_old).await;
+
+	// Activate leaf 10 (rotation to core 1). After this, both SP=9 (core 2) and SP=10 (core 1)
+	// are tracked, so `cores = {1, 2}` and two LeafCoreCqs exist for leaf 10.
+	test_state.activate_leaf(&mut state, 10).await;
+
+	// peer_new's advertisement at SP=10 (core 1) for para_x.
+	let peer_new = peer_id(2);
+	state.handle_peer_connected(&mut sender, peer_new, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_new, para_x).await;
+	let (_, adv_new) = dummy_candidate(
+		get_hash(10),
+		para_x,
+		peer_new,
+		core_at_10,
+		1,
+		Hash::from_low_u64_be(0xdead),
+	);
+	test_state.handle_advertisement(&mut state, adv_new).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_collation_requests([adv_old, adv_new].into()).await;
+	test_state.assert_no_messages().await;
+}
+
+
 // =============================================================================================
 // Active-fork tests.
 //
@@ -3924,8 +4020,7 @@ fn setup_fork(
 #[tokio::test]
 async fn fork_assignments_are_union_of_leaves() {
 	let mut test_state = TestState::default();
-	let (fork_a, fork_b) =
-		setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
+	let (fork_a, fork_b) = setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
 
 	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
 	let mut sender = test_state.sender.clone();
@@ -4117,11 +4212,7 @@ async fn fork_shared_sp_capacity_not_double_counted() {
 #[tokio::test]
 async fn fork_drop_reclaims_capacity_and_disconnects_peers() {
 	let mut test_state = TestState::default();
-	let (fork_a, fork_b) = setup_fork(
-		&mut test_state,
-		vec![100.into(); 3],
-		vec![200.into(); 3],
-	);
+	let (fork_a, fork_b) = setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
 
 	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
 	let mut sender = test_state.sender.clone();
@@ -4155,9 +4246,10 @@ async fn fork_drop_reclaims_capacity_and_disconnects_peers() {
 	assert!(state.connected_peers().is_empty());
 }
 
-// Note: rotation + forks isn't a separate test here. `core_rotation_accepts_candidates_for_both_cores`
-// already exercises group rotation, and forks (1)-(4) above exercise fork logic with our group's
-// core; the combination doesn't add a new property worth the test setup.
+// Note: rotation + forks isn't a separate test here.
+// `core_rotation_accepts_candidates_for_both_cores` already exercises group rotation, and forks
+// (1)-(4) above exercise fork logic with our group's core; the combination doesn't add a new
+// property worth the test setup.
 
 // Multi-SP-on-linear-path same-para capacity: candidates at different SPs on the same path
 // compete for the same per-core CQ pool. With leaf 10 active and ancestors 8, 9 in the
@@ -4252,22 +4344,10 @@ async fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete() {
 		state.handle_declare(&mut sender, p, 100.into()).await;
 	}
 
-	let (_, adv_narrow) = dummy_candidate(
-		get_hash(8),
-		100.into(),
-		peer_narrow,
-		core,
-		1,
-		Hash::from_low_u64_be(100),
-	);
-	let (_, adv_wide) = dummy_candidate(
-		get_hash(10),
-		100.into(),
-		peer_wide,
-		core,
-		1,
-		Hash::from_low_u64_be(101),
-	);
+	let (_, adv_narrow) =
+		dummy_candidate(get_hash(8), 100.into(), peer_narrow, core, 1, Hash::from_low_u64_be(100));
+	let (_, adv_wide) =
+		dummy_candidate(get_hash(10), 100.into(), peer_wide, core, 1, Hash::from_low_u64_be(101));
 	test_state.handle_advertisement(&mut state, adv_narrow).await;
 	test_state.handle_advertisement(&mut state, adv_wide).await;
 
@@ -4319,8 +4399,7 @@ async fn obsolete_positions_rejected() {
 	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer, para_a).await;
 
-	let (_, adv) =
-		dummy_candidate(get_hash(9), para_a, peer, core, 1, Hash::from_low_u64_be(100));
+	let (_, adv) = dummy_candidate(get_hash(9), para_a, peer, core, 1, Hash::from_low_u64_be(100));
 	state
 		.handle_advertisement(
 			&mut sender,
@@ -4368,8 +4447,7 @@ async fn non_obsolete_position_accepted() {
 	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer, para_a).await;
 
-	let (_, adv) =
-		dummy_candidate(get_hash(9), para_a, peer, core, 1, Hash::from_low_u64_be(100));
+	let (_, adv) = dummy_candidate(get_hash(9), para_a, peer, core, 1, Hash::from_low_u64_be(100));
 	test_state.handle_advertisement(&mut state, adv).await;
 
 	// Accepted (passes the window check + reaches backing which approves).
@@ -4405,8 +4483,7 @@ async fn last_claim_queue_position_accepted_at_leaf() {
 	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, peer, para_a).await;
 
-	let (_, adv) =
-		dummy_candidate(active_leaf, para_a, peer, core, 1, Hash::from_low_u64_be(100));
+	let (_, adv) = dummy_candidate(active_leaf, para_a, peer, core, 1, Hash::from_low_u64_be(100));
 	test_state.handle_advertisement(&mut state, adv).await;
 
 	assert_eq!(state.advertisements(), [adv].into());
@@ -4437,8 +4514,7 @@ async fn seconded_candidates_consume_capacity() {
 
 	// Two candidates of `para` chained by parent_head so they're independently fetchable.
 	let make_candidate = |peer: PeerId, parent_head: HeadData, output_head: HeadData| {
-		let pvd =
-			PersistedValidationData { parent_head, relay_parent_number: 10, ..dummy_pvd() };
+		let pvd = PersistedValidationData { parent_head, relay_parent_number: 10, ..dummy_pvd() };
 		let ccr = CommittedCandidateReceipt {
 			descriptor: make_valid_candidate_descriptor_v2(
 				para,
@@ -4475,17 +4551,12 @@ async fn seconded_candidates_consume_capacity() {
 	state.handle_declare(&mut sender, peer_a, para).await;
 	state.handle_declare(&mut sender, peer_b, para).await;
 
-	let (pvd_a, ccr_a, adv_a) =
-		make_candidate(peer_a, HeadData(vec![0]), HeadData(vec![1]));
-	let (pvd_b, ccr_b, adv_b) =
-		make_candidate(peer_b, HeadData(vec![1]), HeadData(vec![2]));
+	let (pvd_a, ccr_a, adv_a) = make_candidate(peer_a, HeadData(vec![0]), HeadData(vec![1]));
+	let (pvd_b, ccr_b, adv_b) = make_candidate(peer_b, HeadData(vec![1]), HeadData(vec![2]));
 
 	// Advertise, fetch, second both. After this, capacity for `para` is exhausted via
 	// `fetched_collations` (no in-flight fetches remain).
-	for (adv, ccr, pvd, peer) in [
-		(adv_a, ccr_a, pvd_a, peer_a),
-		(adv_b, ccr_b, pvd_b, peer_b),
-	] {
+	for (adv, ccr, pvd, peer) in [(adv_a, ccr_a, pvd_a, peer_a), (adv_b, ccr_b, pvd_b, peer_b)] {
 		test_state.handle_advertisement(&mut state, adv).await;
 		state.try_launch_new_fetch_requests(&mut sender).await;
 		test_state.assert_collation_request(adv).await;
@@ -4503,8 +4574,7 @@ async fn seconded_candidates_consume_capacity() {
 	let third_peer = peer_id(3);
 	state.handle_peer_connected(&mut sender, third_peer, CollationVersion::V2).await;
 	state.handle_declare(&mut sender, third_peer, para).await;
-	let (_, _, adv_third) =
-		make_candidate(third_peer, HeadData(vec![2]), HeadData(vec![3]));
+	let (_, _, adv_third) = make_candidate(third_peer, HeadData(vec![2]), HeadData(vec![3]));
 	test_state.handle_advertisement(&mut state, adv_third).await;
 
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -4563,22 +4633,10 @@ async fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf() {
 		state.handle_declare(&mut sender, p, 100.into()).await;
 	}
 
-	let (_, adv_low) = dummy_candidate(
-		active_leaf,
-		100.into(),
-		peer_low,
-		core,
-		1,
-		Hash::from_low_u64_be(100),
-	);
-	let (_, adv_high) = dummy_candidate(
-		get_hash(9),
-		100.into(),
-		peer_high,
-		core,
-		1,
-		Hash::from_low_u64_be(101),
-	);
+	let (_, adv_low) =
+		dummy_candidate(active_leaf, 100.into(), peer_low, core, 1, Hash::from_low_u64_be(100));
+	let (_, adv_high) =
+		dummy_candidate(get_hash(9), 100.into(), peer_high, core, 1, Hash::from_low_u64_be(101));
 	test_state.handle_advertisement(&mut state, adv_low).await;
 	test_state.handle_advertisement(&mut state, adv_high).await;
 
@@ -4628,33 +4686,17 @@ async fn high_rep_at_any_sp_wins_for_each_position() {
 		state.handle_peer_connected(&mut sender, p, CollationVersion::V2).await;
 		state.handle_declare(&mut sender, p, 100.into()).await;
 	}
-	state.handle_peer_connected(&mut sender, peer_high_y, CollationVersion::V2).await;
+	state
+		.handle_peer_connected(&mut sender, peer_high_y, CollationVersion::V2)
+		.await;
 	state.handle_declare(&mut sender, peer_high_y, 200.into()).await;
 
-	let (_, adv_high_x) = dummy_candidate(
-		active_leaf,
-		100.into(),
-		peer_high_x,
-		core,
-		1,
-		Hash::from_low_u64_be(200),
-	);
-	let (_, adv_low_x) = dummy_candidate(
-		get_hash(8),
-		100.into(),
-		peer_low_x,
-		core,
-		1,
-		Hash::from_low_u64_be(201),
-	);
-	let (_, adv_high_y) = dummy_candidate(
-		active_leaf,
-		200.into(),
-		peer_high_y,
-		core,
-		1,
-		Hash::from_low_u64_be(202),
-	);
+	let (_, adv_high_x) =
+		dummy_candidate(active_leaf, 100.into(), peer_high_x, core, 1, Hash::from_low_u64_be(200));
+	let (_, adv_low_x) =
+		dummy_candidate(get_hash(8), 100.into(), peer_low_x, core, 1, Hash::from_low_u64_be(201));
+	let (_, adv_high_y) =
+		dummy_candidate(active_leaf, 200.into(), peer_high_y, core, 1, Hash::from_low_u64_be(202));
 	test_state.handle_advertisement(&mut state, adv_high_x).await;
 	test_state.handle_advertisement(&mut state, adv_low_x).await;
 	test_state.handle_advertisement(&mut state, adv_high_y).await;
