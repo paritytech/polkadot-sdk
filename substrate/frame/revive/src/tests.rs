@@ -16,6 +16,7 @@
 // limitations under the License.
 
 mod block_hash;
+mod deposit_payment;
 mod pallet_dummy;
 mod precompiles;
 mod pvm;
@@ -28,6 +29,7 @@ use crate::{
 	self as pallet_revive, AccountId32Mapper, AddressMapper, BalanceOf, BalanceWithDust, Call,
 	CodeInfoOf, Config, DelegateInfo, ExecOrigin as Origin, ExecReturnValue, GenesisConfig,
 	OriginFor, Pallet, PristineCode,
+	deposit_payment::PGasDeposit,
 	evm::{
 		fees::{BlockRatioFee, Info as FeeInfo},
 		runtime::{EthExtra, SetWeightLimit},
@@ -41,7 +43,8 @@ use frame_support::{
 	pallet_prelude::EnsureOrigin,
 	parameter_types,
 	traits::{
-		ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion, tokens::imbalance::ResolveTo,
+		AsEnsureOriginWithArg, ConstU32, ConstU128, FindAuthor, OriginTrait, StorageVersion,
+		tokens::imbalance::ResolveTo,
 	},
 	weights::{FixedFee, Weight, constants::WEIGHT_REF_TIME_PER_SECOND},
 };
@@ -93,6 +96,9 @@ frame_support::construct_runtime!(
 		Contracts: pallet_revive,
 		Proxy: pallet_proxy,
 		TransactionPayment: pallet_transaction_payment,
+		Assets: pallet_assets,
+		AssetsHolder: pallet_assets_holder,
+		AssetsFreezer: pallet_assets_freezer,
 		Dummy: pallet_dummy
 	}
 );
@@ -290,6 +296,10 @@ impl pallet_balances::Config for Test {
 	type ExistentialDeposit = ExistentialDeposit;
 	type ReserveIdentifier = [u8; 8];
 	type AccountStore = System;
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type FreezeIdentifier = RuntimeFreezeReason;
+	type MaxFreezes = frame_support::traits::VariantCountOf<RuntimeFreezeReason>;
 }
 
 #[derive_impl(pallet_timestamp::config_preludes::TestDefaultConfig)]
@@ -328,6 +338,36 @@ impl pallet_transaction_payment::Config for Test {
 	type WeightToFee = BlockRatioFee<2, 1, Self, u128>;
 	type LengthToFee = FixedFee<100, <Self as pallet_balances::Config>::Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+}
+
+#[derive_impl(pallet_assets::config_preludes::TestDefaultConfig)]
+impl pallet_assets::Config for Test {
+	type Balance = u128;
+	type Currency = Balances;
+	type CreateOrigin = AsEnsureOriginWithArg<frame_system::EnsureSigned<AccountId32>>;
+	type ForceOrigin = frame_system::EnsureRoot<AccountId32>;
+	type Holder = AssetsHolder;
+	type Freezer = AssetsFreezer;
+}
+
+impl pallet_assets_holder::Config for Test {
+	type RuntimeHoldReason = RuntimeHoldReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+impl pallet_assets_freezer::Config for Test {
+	type RuntimeFreezeReason = RuntimeFreezeReason;
+	type RuntimeEvent = RuntimeEvent;
+}
+
+/// The PGAS asset id used by the test runtime.
+pub const PGAS_ASSET_ID: u32 = 42;
+
+parameter_types! {
+	pub const PGasAssetId: u32 = PGAS_ASSET_ID;
+	/// 10% of PGAS storage deposits are refunded, the rest is burned so users can't harvest
+	/// free PGAS allowance from storage churn.
+	pub const PGasRefundPercent: Perbill = Perbill::from_percent(10);
 }
 
 impl pallet_dummy::Config for Test {}
@@ -406,6 +446,8 @@ impl Config for Test {
 	type FindAuthor = Test;
 	type Precompiles = (precompiles::WithInfo<Self>, precompiles::NoInfo<Self>);
 	type FeeInfo = FeeInfo<Address, Signature, EthExtraImpl>;
+	type Deposit =
+		PGasDeposit<Test, Assets, AssetsHolder, AssetsFreezer, PGasAssetId, PGasRefundPercent>;
 	type DebugEnabled = DebugFlag;
 	type AutoMap = AutoMapFlag;
 	type OnBurn = ResolveTo<BurnDestination, Balances>;
@@ -445,6 +487,8 @@ pub struct ExtBuilder {
 	genesis_config: Option<crate::GenesisConfig<Test>>,
 	genesis_state_overrides: Option<Storage>,
 	next_fee_multiplier: Option<FixedU128>,
+	pgas_balances: Vec<(AccountId32, u128)>,
+	pgas_min_balance: u128,
 }
 
 impl Default for ExtBuilder {
@@ -456,6 +500,8 @@ impl Default for ExtBuilder {
 			genesis_config: Some(crate::GenesisConfig::<Test>::default()),
 			genesis_state_overrides: None,
 			next_fee_multiplier: None,
+			pgas_balances: vec![],
+			pgas_min_balance: 1,
 		}
 	}
 }
@@ -478,6 +524,17 @@ impl ExtBuilder {
 		self.next_fee_multiplier = Some(next_fee_multiplier);
 		self
 	}
+	/// Endow the given accounts with PGAS at genesis. The PGAS asset is always
+	/// created; this just seeds initial balances.
+	pub fn with_pgas_balances(mut self, balances: Vec<(AccountId32, u128)>) -> Self {
+		self.pgas_balances = balances;
+		self
+	}
+	/// Override the PGAS asset's `min_balance` (existential deposit).
+	pub fn with_pgas_min_balance(mut self, min_balance: u128) -> Self {
+		self.pgas_min_balance = min_balance;
+		self
+	}
 	pub fn set_associated_consts(&self) {
 		EXISTENTIAL_DEPOSIT.with(|v| *v.borrow_mut() = self.existential_deposit);
 	}
@@ -498,6 +555,18 @@ impl ExtBuilder {
 
 		pallet_balances::GenesisConfig::<Test> {
 			balances: vec![(checking_account.clone(), 1_000_000_000_000)],
+			..Default::default()
+		}
+		.assimilate_storage(&mut t)
+		.unwrap();
+
+		pallet_assets::GenesisConfig::<Test> {
+			assets: vec![(PGAS_ASSET_ID, ALICE, true, self.pgas_min_balance)],
+			accounts: self
+				.pgas_balances
+				.iter()
+				.map(|(who, bal)| (PGAS_ASSET_ID, who.clone(), *bal))
+				.collect(),
 			..Default::default()
 		}
 		.assimilate_storage(&mut t)
