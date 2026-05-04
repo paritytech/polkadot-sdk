@@ -152,7 +152,6 @@ enum DbExtrinsic<B: BlockT> {
 	/// Used by bulk-renewal inherents (e.g. `process_auto_renewals`) where one extrinsic
 	/// references multiple previously-stored data blobs.
 	/// entry's `chunk_root` and verified against another's, causing `InvalidProof`.
-	/// Insertion order is the contract — preserve it.
 	MultiRenew {
 		/// Hashes of all renewed indexed data items, in the order their `Renew`
 		/// IndexOperations were submitted.
