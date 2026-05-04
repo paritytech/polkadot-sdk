@@ -313,10 +313,8 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	/// Take ownership of the [`NodeExtension`] installed on this node spec, if
-	/// any. The lib invokes this once during dispatch, immediately before
-	/// calling [`Self::start_node`] / [`Self::start_dev_node`], to thread the
-	/// extension into the start path.
+	/// Take the [`NodeExtension`] installed on this spec, called once before
+	/// `start_node` / `start_dev_node`.
 	fn take_extension(
 		&mut self,
 	) -> Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>> {
@@ -478,8 +476,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
-			// Invoke the `on_start` extension hook (if any) so downstream binaries can
-			// spawn additional service tasks tied to the typed client/pool.
 			if let Some(ext) = extension.as_ref() {
 				ext.on_start(
 					client.clone(),
@@ -494,7 +490,6 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 				let transaction_pool = transaction_pool.clone();
 				let backend_for_rpc = backend.clone();
 				let statement_store = statement_store.clone();
-				let extension = extension;
 				Box::new(move |_| {
 					let mut module = Self::BuildRpcExtensions::build_rpc_extensions(
 						client.clone(),

@@ -46,14 +46,12 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
-	/// Optional factory that supplies a [`NodeExtension`] for the
-	/// `(Block, RuntimeApi)` combination the runtime resolver picks. The
-	/// default is [`NoNodeExtensionFactory`] which produces no extension.
+	/// Factory for [`NodeExtension`]; defaults to a no-op.
 	pub extension_factory: Box<dyn NodeExtensionFactory>,
 }
 
 impl RunConfig {
-	/// Creates a new `RunConfig` instance with no extension factory.
+	/// Construct with a no-op extension factory.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
@@ -65,7 +63,7 @@ impl RunConfig {
 		}
 	}
 
-	/// Creates a new `RunConfig` instance with the given extension factory.
+	/// Construct with the given extension factory.
 	pub fn with_extension_factory(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
@@ -171,16 +169,10 @@ where
 	run_with_matches::<CliConfig, ExtraSubcommand>(cmd_config, matches)
 }
 
-/// Lower-level entry point that dispatches an already-parsed [`clap::ArgMatches`].
+/// Like [`run_with_custom_cli`], but takes already-parsed [`clap::ArgMatches`].
 ///
-/// Use this when a downstream binary needs to augment the CLI parser with its
-/// own flags (e.g. `polkadot-bulletin-parachain` flattens `sc_hop::HopParams`).
-/// The binary is responsible for building the parser via
-/// `polkadot_omni_node_lib::cli::Cli::<CliConfig>::command()`, layering its
-/// own augmentation, and calling [`Self::get_matches`] before invoking this
-/// function. This function then handles `ExtraSubcommand` dispatch and the
-/// normal node-startup / utility sub-command match exactly as
-/// [`run_with_custom_cli`] does.
+/// Use when the binary needs to augment the parser with its own flags before
+/// dispatch.
 pub fn run_with_matches<CliConfig, ExtraSubcommand>(
 	cmd_config: RunConfig,
 	matches: clap::ArgMatches,

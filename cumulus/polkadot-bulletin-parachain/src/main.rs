@@ -1,22 +1,14 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! PoC custom parachain node for the Polkadot Bulletin Chain.
-//!
-//! This binary is the proof-of-concept requested in
-//! [`paritytech/polkadot-bulletin-chain#479`](https://github.com/paritytech/polkadot-bulletin-chain/issues/479)
-//! and the HOP discussion on
-//! [`paritytech/polkadot-sdk#11662`](https://github.com/paritytech/polkadot-sdk/pull/11662).
-//!
-//! After Pass 2 (this commit), HOP is wired entirely from the Bulletin side via the lib's
-//! [`polkadot_omni_node_lib::NodeExtensionFactory`] hook. The lib stays HOP-free.
+//! Custom parachain node for the Polkadot Bulletin Chain.
 
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
 mod hop_extension;
 
-// Force the linker to keep the polkadot_jemalloc_shim crate (and its #[global_allocator]).
+// Keep the `#[global_allocator]` from being dropped by the linker.
 #[cfg(target_os = "linux")]
 extern crate polkadot_jemalloc_shim;
 
@@ -51,9 +43,6 @@ impl CliConfigT for CliConfig {
 fn main() -> color_eyre::eyre::Result<()> {
 	color_eyre::install()?;
 
-	// Build the parser ourselves so we can flatten in `sc_hop::HopParams`
-	// alongside the lib's `Cli<CliConfig>`. Then dispatch via the lib's
-	// `run_with_matches`, which expects a pre-parsed `ArgMatches`.
 	let cli_command = polkadot_omni_node_lib::cli::Cli::<CliConfig>::command();
 	let cli_command = NoExtraSubcommand::augment_subcommands(cli_command);
 	let cli_command = polkadot_omni_node_lib::cli::Cli::<CliConfig>::setup_command(cli_command);

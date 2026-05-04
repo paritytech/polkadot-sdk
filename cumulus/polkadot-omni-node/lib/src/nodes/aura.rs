@@ -166,26 +166,16 @@ where
 	_phantom: PhantomData<(AuraId, StartConsensus, InitBlockImport)>,
 }
 
-impl<Block: NodeBlock, RuntimeApi, AuraId, StartConsensus, InitBlockImport> Default
-	for AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
-where
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-{
-	fn default() -> Self {
-		Self { extension: None, _phantom: PhantomData }
-	}
-}
-
 impl<Block: NodeBlock, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
 	AuraNode<Block, RuntimeApi, AuraId, StartConsensus, InitBlockImport>
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	/// Construct an `AuraNode` with the given extension plugin.
-	pub fn with_extension(
-		extension: Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>,
+	/// Construct an `AuraNode`, optionally with a [`NodeExtension`] plug-in.
+	pub fn new(
+		extension: Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
 	) -> Self {
-		Self { extension: Some(extension), _phantom: PhantomData }
+		Self { extension, _phantom: PhantomData }
 	}
 }
 
@@ -445,8 +435,6 @@ where
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
-		// Invoke the `on_start` extension hook (if any) so downstream binaries can
-		// spawn additional service tasks tied to the typed client/pool.
 		if let Some(ext) = extension.as_ref() {
 			ext.on_start(
 				client.clone(),
@@ -461,7 +449,6 @@ where
 			let transaction_pool = transaction_pool.clone();
 			let backend_for_rpc = backend.clone();
 			let statement_store = statement_store.clone();
-			let extension = extension;
 
 			Box::new(move |_| {
 				let mut module = Self::BuildRpcExtensions::build_rpc_extensions(
@@ -618,45 +605,22 @@ where
 	AuraId: AuraIdT + Sync + Send,
 	<AuraId as AppCrypto>::Pair: Send + Sync,
 {
-	let make_node = |ext: Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
-	                 spec_factory: fn(
-		Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
-	) -> Box<dyn DynNodeSpec>| { spec_factory(ext) };
-
 	if extra_args.authoring_policy == AuthoringPolicy::SlotBased {
-		make_node(extension, |ext| match ext {
-			Some(e) => Box::new(AuraNode::<
-				Block,
-				RuntimeApi,
-				AuraId,
-				StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
-				StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
-			>::with_extension(e)),
-			None => Box::new(AuraNode::<
-				Block,
-				RuntimeApi,
-				AuraId,
-				StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
-				StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
-			>::default()),
-		})
+		Box::new(AuraNode::<
+			Block,
+			RuntimeApi,
+			AuraId,
+			StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
+			StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
+		>::new(extension))
 	} else {
-		make_node(extension, |ext| match ext {
-			Some(e) => Box::new(AuraNode::<
-				Block,
-				RuntimeApi,
-				AuraId,
-				StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
-				ClientBlockImport,
-			>::with_extension(e)),
-			None => Box::new(AuraNode::<
-				Block,
-				RuntimeApi,
-				AuraId,
-				StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
-				ClientBlockImport,
-			>::default()),
-		})
+		Box::new(AuraNode::<
+			Block,
+			RuntimeApi,
+			AuraId,
+			StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
+			ClientBlockImport,
+		>::new(extension))
 	}
 }
 

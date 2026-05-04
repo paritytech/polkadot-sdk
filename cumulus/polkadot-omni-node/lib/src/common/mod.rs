@@ -134,20 +134,13 @@ pub struct NodeExtraArgs {
 	pub storage_monitor: sc_storage_monitor::StorageMonitorParams,
 }
 
-/// Hook called by the node startup machinery to let downstream binaries plug
-/// in their own service tasks and RPC handlers without modifying this lib.
-///
-/// The default `polkadot-omni-node` binary uses [`NoNodeExtension`]. Custom
-/// binaries (e.g. `polkadot-bulletin-parachain`) provide their own impl that
-/// wires their protocol(s) into the node.
+/// Plug-in hook for downstream binaries to add service tasks and RPC handlers.
 pub trait NodeExtension<Block, RuntimeApi>: Send + Sync + 'static
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	/// Called once after the task manager is built and the network has started,
-	/// just before RPC server construction. Implementations can spawn extra
-	/// service tasks tied to the typed `client`/`transaction_pool`.
+	/// Called after the task manager is built, before RPC server construction.
 	fn on_start(
 		&self,
 		_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -160,8 +153,7 @@ where
 		Ok(())
 	}
 
-	/// Called once during RPC server construction. Returns a module to be
-	/// merged into the node's RPC server alongside the lib's defaults.
+	/// Returns an RPC module to be merged with the node's defaults.
 	fn build_rpc_extension(
 		&self,
 		_client: Arc<ParachainClient<Block, RuntimeApi>>,
@@ -170,35 +162,16 @@ where
 	}
 }
 
-/// No-op extension used by `polkadot-omni-node` and any other consumer that
-/// does not need to plug in additional service tasks or RPC modules.
-#[derive(Clone, Default)]
-pub struct NoNodeExtension;
-
-impl<Block, RuntimeApi> NodeExtension<Block, RuntimeApi> for NoNodeExtension
-where
-	Block: NodeBlock,
-	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-{
-}
-
-/// Block type with a `u32` block number used by the lib's runtime resolver.
+/// Block with `u32` block number.
 pub type BlockU32 = crate::common::types::Block<u32>;
 
-/// Block type with a `u64` block number used by the lib's runtime resolver.
+/// Block with `u64` block number.
 pub type BlockU64 = crate::common::types::Block<u64>;
 
-/// Object-safe factory that yields a [`NodeExtension`] for whichever
-/// `(Block, RuntimeApi)` combination the runtime resolver picks. Each method
-/// returns `None` if no extension is wired for that combination, in which case
-/// the lib treats the slot as a no-op (same behaviour as if [`NoNodeExtension`]
-/// were used).
-///
-/// The lib enumerates the four combinations its `RuntimeResolver` produces
-/// today (`u32`/`u64` block number × Aura `sr25519`/`ed25519` consensus). Each
-/// factory method is called at most once during a single node startup. The
-/// methods take `&self`; impls that need to hand out a unique extension value
-/// should use interior mutability (e.g. `Mutex<Option<Box<dyn NodeExtension>>>`).
+/// Object-safe factory for [`NodeExtension`]s, one method per
+/// `(Block, RuntimeApi)` combination the runtime resolver picks. Methods take
+/// `&self`; impls that need to hand out unique values should use interior
+/// mutability.
 pub trait NodeExtensionFactory: Send + Sync + 'static {
 	/// Extension for `(Block<u32>, aura_sr25519::RuntimeApi)`.
 	fn create_aura_sr25519_u32(
@@ -245,8 +218,7 @@ pub trait NodeExtensionFactory: Send + Sync + 'static {
 	}
 }
 
-/// Default factory that produces no extension for any of the supported
-/// `(Block, RuntimeApi)` combinations. Used by `polkadot-omni-node`.
+/// Default no-op factory.
 #[derive(Default)]
 pub struct NoNodeExtensionFactory;
 

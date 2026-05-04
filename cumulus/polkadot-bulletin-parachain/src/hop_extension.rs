@@ -1,12 +1,7 @@
 // Copyright (C) Parity Technologies (UK) Ltd.
 // SPDX-License-Identifier: Apache-2.0
 
-//! Bulletin-side HOP wiring.
-//!
-//! Implements [`polkadot_omni_node_lib::NodeExtension`] for the Hand-Off
-//! Protocol (HOP) so the data-pool construction, the `hop-maintenance` task
-//! spawn, and the `HopRpcServer` registration all live inside this crate
-//! rather than inside `polkadot-omni-node-lib`.
+//! HOP wiring as a [`polkadot_omni_node_lib::NodeExtension`].
 
 use std::{
 	marker::PhantomData,
@@ -24,13 +19,8 @@ use sc_service::TaskManager;
 use sc_transaction_pool::TransactionPoolHandle;
 use sp_runtime::AccountId32;
 
-/// Bulletin-specific HOP extension. Owns the parsed [`HopParams`] and, once
-/// the lib calls [`Self::on_start`], also the constructed [`HopDataPool`].
-///
-/// The same instance is consulted later in [`Self::build_rpc_extension`] to
-/// register the HOP RPC, which needs both the pool and the typed client. We
-/// share state across the two methods through an `Arc<OnceLock<...>>` since
-/// the trait methods take `&self`.
+/// `OnceLock` carries the pool from `on_start` to `build_rpc_extension`; both
+/// trait methods take `&self`.
 pub struct HopExtension<Block, RuntimeApi> {
 	params: HopParams,
 	pool: Arc<OnceLock<Arc<HopDataPool>>>,
@@ -88,10 +78,7 @@ where
 	}
 }
 
-/// Factory that constructs a [`HopExtension`] for the
-/// `(Block<u32>, aura_sr25519::RuntimeApi)` combination the Bulletin runtime
-/// uses. The other three lib-supported combinations return `None`, which the
-/// lib treats as "no extension" for that combo.
+/// Wires HOP for the Bulletin runtime's `(Block<u32>, aura_sr25519)` combo.
 pub struct HopExtensionFactory {
 	params: HopParams,
 }

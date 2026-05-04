@@ -259,10 +259,8 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			// HOP no-op stub. Required so downstream binaries (e.g. polkadot-bulletin-parachain)
-			// that wire HOP via `NodeExtension` can name `Self::RuntimeApi` types whose runtime
-			// API satisfies `sp_hop::HopRuntimeApi`. The fake cannot be called at runtime; this
-			// only satisfies trait bounds at compile time.
+			// Compile-time stub; lets downstream `NodeExtension` impls name a `RuntimeApi`
+			// satisfying `sp_hop::HopRuntimeApi`. Unreachable at runtime.
 			impl sp_hop::HopRuntimeApi<$block, AccountId> for $runtime {
 				fn can_account_promote(_who: AccountId, _data_len: u32) -> bool {
 					false
