@@ -19,6 +19,13 @@ doc:
       leaf still references them. Previously, sibling-fork retention in implicit-view storage
       could leave SPs orphaned with leaked in-flight fetches.
 
+    * **Free-slot accounting tightened to the current leaf.** Assignments and free CQ
+      positions now reflect only what the current leaf's CQ actually predicts. Previously,
+      claim-queue state for already-produced ancestor blocks lingered until those blocks were
+      pruned, so paras and slots that had already been backed on-chain were still reported as
+      open — keeping peers connected past their relevance and offering capacity for slots that
+      could no longer be filled.
+
     Internals: the previous `ClaimQueueState` / `PerLeafClaimQueueState` machinery is gone
     (~2200 LoC deleted). Capacity is now computed per-(leaf, core) by `build_leaf_core_cqs`
     as a `Vec<LeafCoreCq>`, where each `LeafCoreCq` holds the leaf's CQ as
