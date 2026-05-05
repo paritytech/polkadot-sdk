@@ -132,10 +132,10 @@ pub struct EventFixture<Proof> {
 	pub block_roots_root: H256,
 }
 
-#[cfg(any(test, feature = "runtime-benchmarks", feature = "std"))]
+#[cfg(any(test, feature = "runtime-benchmarks", feature = "std", feature = "fixtures"))]
 pub mod fixtures;
 
-#[cfg(any(test, feature = "runtime-benchmarks", feature = "std"))]
+#[cfg(any(test, feature = "runtime-benchmarks", feature = "std", feature = "fixtures"))]
 pub use fixtures::{
 	build_hash_chain_proof, short_node, try_receipt_proof_from_vec, ReceiptProofBoundsError,
 };

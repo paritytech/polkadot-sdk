@@ -26,12 +26,12 @@ type Block = frame_system::mocking::MockBlock<Test>;
 use snowbridge_test_utils::mock_rewards::{BridgeReward, MockRewardLedger};
 pub use snowbridge_test_utils::mock_xcm::{MockXcmExecutor, MockXcmSender};
 
-#[cfg(any(test, feature = "runtime-benchmarks"))]
+#[cfg(feature = "runtime-benchmarks")]
 use snowbridge_inbound_queue_primitives::EventFixture;
 #[cfg(any(test, feature = "runtime-benchmarks"))]
-use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::{
-	make_register_token_message, make_register_token_message_worst_case,
-};
+use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message;
+#[cfg(feature = "runtime-benchmarks")]
+use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message_worst_case;
 
 frame_support::construct_runtime!(
 	pub enum Test
@@ -280,6 +280,7 @@ pub fn new_tester() -> sp_io::TestExternalities {
 
 /// Full EventProof for register_token (matches finalized header from setup).
 #[cfg(any(test, feature = "runtime-benchmarks"))]
+#[allow(dead_code)]
 pub fn register_token_event_proof() -> snowbridge_inbound_queue_primitives::EventProof<Proof> {
 	let fixture = make_register_token_message::<
 		<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
