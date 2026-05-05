@@ -43,7 +43,9 @@ polkadot-sdk = { optional = true, workspace = true, features = [
 [features]
 default = ["std"]
 std = [
+	"anyhow/std",
 	"codec/std",
+	"frame-metadata/std",
 	"polkadot-sdk/std",
 	"scale-info/std",
 	"serde_json/std",
