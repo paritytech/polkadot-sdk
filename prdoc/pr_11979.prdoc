@@ -1,0 +1,9 @@
+title: Scale validator self-stake incentive by era-points performance
+doc:
+- audience: Runtime Dev
+  description: |-
+    Validator self-stake incentive payout is now scaled by `p_i / max(p_j)`, the validator's era points relative to the top performer.
+    Forfeited shares stay in the era pot (not redistributed).
+crates:
+- name: pallet-staking-async
+  bump: minor
