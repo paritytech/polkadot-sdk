@@ -199,7 +199,7 @@ impl CollationManager {
 				if !self.implicit_view.paths_via_relay_parent(&sp).is_empty() {
 					return Some((sp, per_sp));
 				}
-				for advertisement in per_sp.all_advertisements() {
+				for (advertisement, _) in per_sp.all_advertisements() {
 					self.fetching.cancel(advertisement);
 				}
 				None
@@ -449,8 +449,8 @@ impl CollationManager {
 				let req = self.fetching.launch(&advertisement, create_timer_fn());
 				requests.push(req);
 
-				// Reserve on every leaf-core view. `reserve_slot` is a no-op for views whose
-				// `path` doesn't contain this SP — including cross-core views.
+				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
+				// whose `path` doesn't contain this SP — including cross-core views.
 				for lc in leaf_core_cqs.iter_mut() {
 					lc.reserve_slot(&advertisement.scheduling_parent, para_id);
 				}
@@ -731,6 +731,49 @@ impl CollationManager {
 		MAX_FETCH_DELAY
 	}
 
+	/// Advertisements at `sp` for `para_id` that are *fetchable right now* — i.e. all dedup
+	/// checks (already-fetched, in-flight, V1 single-shot per `(sp, para)`) have been applied.
+	fn eligible_advertisements<'a>(
+		&'a self,
+		sp: Hash,
+		para_id: ParaId,
+	) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
+		// `Either` unifies the two iterator types into one `impl Iterator`: empty for an
+		// untracked SP, the filter chain otherwise.
+		let per_sp = match self.per_scheduling_parent.get(&sp) {
+			Some(p) => p,
+			None => return Either::Left(std::iter::empty()),
+		};
+
+		// V1 ads have no candidate hash and are only meaningful at the block they were
+		// advertised against — they require their SP to be an active leaf.
+		let is_active_leaf = self.implicit_view.contains_leaf(&sp);
+
+		// V1 has no candidate hash to dedup by, so at most one V1 fetch may be in-flight or
+		// already fetched per (sp, para). Multiple peers may hold V1 ads for the same
+		// (sp, para); we must filter out *all* V1 ads for that (sp, para) once one is taken.
+		let v1_blocked = per_sp.fetched_collations.values().any(|info| info.para_id == para_id) ||
+			self.fetching.iter().any(|adv| {
+				adv.scheduling_parent == sp &&
+					adv.para_id == para_id &&
+					adv.prospective_candidate.is_none()
+			});
+
+		let fetching = &self.fetching;
+		Either::Right(per_sp.all_advertisements().filter(move |(adv, _)| {
+			if adv.para_id != para_id {
+				return false;
+			}
+			if fetching.contains(adv) {
+				return false;
+			}
+			match adv.prospective_candidate {
+				None => is_active_leaf && !v1_blocked,
+				Some(p) => !per_sp.fetched_collations.contains_key(&p.candidate_hash),
+			}
+		}))
+	}
+
 	/// Picks the best (= highest-scored, earliest, in that order) advertisement for `para_id`
 	/// among `candidate_sps`, with delay arithmetic relative to each SP's activation.
 	///
@@ -749,31 +792,14 @@ impl CollationManager {
 	) -> Either<Option<Advertisement>, Duration> {
 		let advertisements: BTreeSet<AcceptedAdvertisement> = candidate_sps
 			.filter_map(|sp| {
-				let per_sp = self.per_scheduling_parent.get(&sp)?;
-				// V1 ads have no candidate hash and are only meaningful at the block they were
-				// advertised against — so they require their SP to be an active leaf.
-				let is_active_leaf = self.implicit_view.contains_leaf(&sp);
-				// V1 ads at the same (sp, para) are single-shot. `launch` updates
-				// `self.fetching` synchronously, so a V1 launched earlier in this same call
-				// is already visible here.
-				let v1_fetching = self.fetching.iter().any(|adv| {
-					adv.scheduling_parent == sp &&
-						adv.para_id == para_id &&
-						adv.prospective_candidate.is_none()
-				});
-				Some(per_sp.eligible_advertisements(para_id, is_active_leaf).filter_map(
+				let activated_at = self.per_scheduling_parent.get(&sp)?.activated_at;
+				Some(self.eligible_advertisements(sp, para_id).filter_map(
 					move |(adv, timestamp)| {
-						if self.fetching.contains(adv) {
-							return None;
-						}
-						if adv.prospective_candidate.is_none() && v1_fetching {
-							return None;
-						}
 						Some(AcceptedAdvertisement {
 							adv,
 							score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
 							timestamp,
-							activated_at: per_sp.activated_at,
+							activated_at,
 						})
 					},
 				))
@@ -781,6 +807,7 @@ impl CollationManager {
 			.flatten()
 			.collect();
 
+		// `Ord` is custom: descending by score, so first = best.
 		let Some(best) = advertisements.first() else { return Either::Left(None) };
 
 		let delay = Self::calculate_delay(best.score, highest_rep_of_para);
@@ -1134,33 +1161,14 @@ impl PerSchedulingParent {
 		}
 	}
 
-	fn all_advertisements(&self) -> impl Iterator<Item = &Advertisement> {
-		self.peer_advertisements.values().flat_map(|adv| adv.advertisements.keys())
+	/// Every advertisement at this scheduling parent paired with the time it arrived.
+	fn all_advertisements<'a>(&'a self) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
+		self.peer_advertisements.values().flat_map(|list| &list.advertisements)
 	}
 
-	fn eligible_advertisements<'a>(
-		&'a self,
-		para_id: ParaId,
-		is_active_leaf: bool,
-	) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
-		// V1 (no candidate hash) is single-shot per (sp, para): once any V1 collation has been
-		// fetched at this SP for `para_id`, we can't fetch another since V1 has no candidate
-		// identity to differentiate them.
-		let v1_already_fetched =
-			self.fetched_collations.values().any(|info| info.para_id == para_id);
-		self.peer_advertisements.values().flat_map(|list| &list.advertisements).filter(
-			move |(adv, _)| {
-				if adv.para_id != para_id {
-					return false;
-				}
-				match adv.prospective_candidate {
-					None => is_active_leaf && !v1_already_fetched,
-					Some(p) => !self.fetched_collations.contains_key(&p.candidate_hash),
-				}
-			},
-		)
-	}
-
+	/// Whether `advertisement` may be kept; pair with `add_advertisement` after the caller's
+	/// async backing check. Bumps the rate-limit counter (`PeerAdvertisements::total`) even
+	/// on rejection — by design, so a peer can't spam past their cap with bad advertisements.
 	fn can_keep_advertisement(
 		&mut self,
 		advertisement: Advertisement,
@@ -1169,7 +1177,6 @@ impl PerSchedulingParent {
 		let peer_advertisements =
 			self.peer_advertisements.entry(advertisement.peer_id).or_default();
 
-		// we count all advertisements, check [`PeerAdvertisements::total`]
 		peer_advertisements.total += 1;
 
 		if peer_advertisements.total > max_assignments {
