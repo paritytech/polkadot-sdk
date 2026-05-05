@@ -66,6 +66,8 @@ use sp_runtime::{
 	AccountId32, BoundedVec, DispatchError, SaturatedConversion, TokenError, testing::H256,
 };
 
+const CODE_INFO_V2_STORAGE_DEPOSIT_BYTES_IN_TEST_RUNTIME: u128 = 65;
+
 #[test]
 fn eth_call_transfer_with_dust_works() {
 	let (binary, _) = compile_module("dummy").unwrap();
@@ -1967,6 +1969,65 @@ fn upload_code_limit_too_low() {
 		);
 
 		assert_eq!(System::events(), vec![]);
+	});
+}
+
+#[test]
+fn upload_code_uses_code_info_v2_layout_for_storage_deposit() {
+	let (binary, code_hash) = compile_module("dummy").unwrap();
+
+	ExtBuilder::default().existential_deposit(100).build().execute_with(|| {
+		// Arrange
+		let _ = <Test as Config>::Currency::set_balance(&ALICE, 1_000_000);
+		let pallet_account = Pallet::<Test>::account_id();
+		initialize_block(2);
+
+		// Act
+		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary.clone(), 1_000,));
+		let stored_code_len = PristineCode::<Test>::try_get(&code_hash).unwrap().len();
+		let expected_deposit = DepositPerByte::get()
+			.saturating_mul(
+				stored_code_len as u128 + CODE_INFO_V2_STORAGE_DEPOSIT_BYTES_IN_TEST_RUNTIME,
+			)
+			.saturating_add(DepositPerItem::get().saturating_mul(2));
+		let first_uploaded_deposit = get_code_deposit(&code_hash);
+		let held_after_first_upload =
+			get_balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account);
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+		let held_after_first_remove =
+			get_balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account);
+		assert_noop!(
+			Contracts::upload_code(
+				RuntimeOrigin::signed(ALICE),
+				binary.clone(),
+				expected_deposit.saturating_sub(1),
+			),
+			<Error<Test>>::StorageDepositLimitExhausted,
+		);
+		let stored_after_insufficient = CodeInfoOf::<Test>::contains_key(&code_hash);
+		let held_after_insufficient =
+			get_balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account);
+		assert_ok!(Contracts::upload_code(RuntimeOrigin::signed(ALICE), binary, expected_deposit,));
+		let exact_uploaded_deposit = get_code_deposit(&code_hash);
+		let held_after_exact_upload =
+			get_balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account);
+		assert_ok!(Contracts::remove_code(RuntimeOrigin::signed(ALICE), code_hash));
+		let code_info_removed = !CodeInfoOf::<Test>::contains_key(&code_hash);
+		let code_removed = !PristineCode::<Test>::contains_key(&code_hash);
+		let held_after_remove =
+			get_balance_on_hold(&HoldReason::CodeUploadDepositReserve.into(), &pallet_account);
+
+		// Assert
+		assert_eq!(first_uploaded_deposit, expected_deposit);
+		assert_eq!(held_after_first_upload, expected_deposit);
+		assert_eq!(held_after_first_remove, 0);
+		assert!(!stored_after_insufficient);
+		assert_eq!(held_after_insufficient, 0);
+		assert_eq!(exact_uploaded_deposit, expected_deposit);
+		assert_eq!(held_after_exact_upload, expected_deposit);
+		assert!(code_info_removed);
+		assert!(code_removed);
+		assert_eq!(held_after_remove, 0);
 	});
 }
 
