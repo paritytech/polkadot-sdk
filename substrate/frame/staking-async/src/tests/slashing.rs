@@ -1702,6 +1702,75 @@ fn withdrawals_are_blocked_for_unprocessed_and_unapplied_slashes() {
 		});
 }
 
+#[test]
+fn apply_slash_extrinsic_burns_correct_total_when_slash_exceeds_window() {
+	ExtBuilder::default()
+		.slash_defer_duration(2)
+		.nominate(false)
+		.build_and_execute(|| {
+			let alice = 11; // validator with 1000 own-stake
+			let offence_era = 2;
+			let slash_era = offence_era + SlashDeferDuration::get();
+			let chunk_unlock_era = offence_era + BondingDuration::get();
+
+			// GIVEN: 100 active + 900 chunk at offence era; 50% offence (500 to slash) so
+			// active alone can't absorb it and the fallback chunk-walk must engage.
+			assert_eq!(BondingDuration::get(), 3);
+			Session::roll_until_active_era(offence_era);
+			assert_ok!(Staking::chill(RuntimeOrigin::signed(alice)));
+			assert_ok!(Staking::unbond(RuntimeOrigin::signed(alice), 900));
+			assert_eq!(
+				Staking::ledger(alice.into()).unwrap().unlocking.to_vec(),
+				vec![UnlockChunk { era: chunk_unlock_era, value: 900 }],
+			);
+			let stash_balance_pre = asset::stakeable_balance::<T>(&alice);
+
+			add_slash_in_era(alice, offence_era, Perbill::from_percent(50));
+			Session::roll_next();
+			assert_eq!(UnappliedSlashes::<T>::iter_prefix(&slash_era).count(), 1);
+
+			Session::roll_until_active_era(slash_era);
+
+			// WHEN: the public extrinsic applies the slash. Cutoff = slash_era +
+			// BondingDuration = 7, so the chunk at era 5 is out of window and the
+			// proportional branch is skipped — fallback drains active first, then the chunk.
+			hypothetically!({
+				let (slash_key, _) =
+					UnappliedSlashes::<T>::iter_prefix(&slash_era).next().expect("queued");
+				assert_ok!(Staking::apply_slash(
+					RuntimeOrigin::signed(1),
+					slash_era,
+					slash_key,
+				));
+
+				let ledger = Staking::ledger(alice.into()).unwrap();
+				assert_eq!(ledger.active, 0);
+				assert_eq!(
+					ledger.unlocking.to_vec(),
+					vec![UnlockChunk { era: chunk_unlock_era, value: 500 }],
+				);
+				assert_eq!(ledger.total, 500);
+				assert_eq!(asset::stakeable_balance::<T>(&alice), stash_balance_pre - 500);
+			});
+
+			// WHEN: the auto path applies the slash. Cutoff = offence_era + BondingDuration
+			// = 5, the chunk is in window, and the proportional branch splits 50/50.
+			hypothetically!({
+				Session::roll_next();
+				assert_eq!(UnappliedSlashes::<T>::iter_prefix(&slash_era).count(), 0);
+
+				let ledger = Staking::ledger(alice.into()).unwrap();
+				assert_eq!(ledger.active, 50);
+				assert_eq!(
+					ledger.unlocking.to_vec(),
+					vec![UnlockChunk { era: chunk_unlock_era, value: 450 }],
+				);
+				assert_eq!(ledger.total, 500);
+				assert_eq!(asset::stakeable_balance::<T>(&alice), stash_balance_pre - 500);
+			});
+		});
+}
+
 mod paged_slashing {
 	use super::*;
 	use crate::slashing::OffenceRecord;
