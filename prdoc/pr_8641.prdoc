@@ -52,6 +52,8 @@ crates:
   bump: patch
 - name: polkadot-primitives
   bump: patch
+- name: pallet-recovery
+  bump: patch
 - name: pallet-revive
   bump: patch
 - name: pallet-salary
