@@ -800,12 +800,12 @@ fn teleport_to_untrusted_chain_fails() {
 }
 
 #[test]
-fn dap_satellite_relay_transfers_native_to_asset_hub_dap() {
+fn accumulate_forward_relay_transfers_native_to_asset_hub() {
 	// Required so the relay's XCM router knows the version for the AssetHub parachain.
 	Westend::execute_with(|| {
 		Dmp::make_parachain_reachable(AssetHubWestend::para_id());
 	});
-	emulated_integration_tests_common::dap_helpers::test_dap_satellite_transfers_to_asset_hub::<
+	emulated_integration_tests_common::dap_helpers::test_accumulate_forward_transfers_to_asset_hub::<
 		Westend,
 		AssetHubWestend,
 	>(

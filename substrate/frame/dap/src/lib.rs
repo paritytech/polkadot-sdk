@@ -311,6 +311,33 @@ pub mod pallet {
 		}
 	}
 
+	#[pallet::view_functions]
+	impl<T: Config> Pallet<T> {
+		/// All registered budget recipients with their current allocation shares.
+		///
+		/// The `Perbill` is taken from `BudgetAllocation`; recipients absent from
+		/// the map appear with `Perbill::zero()`.
+		pub fn budget_recipients() -> Vec<(BudgetKey, T::AccountId, Perbill)> {
+			let allocation = BudgetAllocation::<T>::get();
+
+			T::BudgetRecipients::recipients()
+				.into_iter()
+				.map(|(key, account)| {
+					let share = allocation.get(&key).copied().unwrap_or(Perbill::zero());
+
+					(key, account, share)
+				})
+				.collect()
+		}
+
+		/// Account that holds burned/slashed funds before they are drained into
+		/// the DAP buffer by `on_idle`. Exposed to clients so they don't have to
+		/// re-derive the sub-account themselves.
+		pub fn staging() -> T::AccountId {
+			Self::staging_account()
+		}
+	}
+
 	impl<T: Config> Pallet<T> {
 		/// The DAP buffer account.
 		///
