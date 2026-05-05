@@ -30,7 +30,7 @@ use frame_support::{
 use pallet_staking::EraPayout;
 use sp_core::{crypto::Ss58Codec, hexdisplay::HexDisplay};
 use sp_keyring::Sr25519Keyring::{self, Alice};
-use sp_runtime::generic::Era;
+use sp_runtime::{generic::Era, traits::AccountIdConversion};
 use xcm_runtime_apis::conversions::LocationToAccountHelper;
 
 const MILLISECONDS_PER_HOUR: u64 = 60 * 60 * 1000;
@@ -103,14 +103,6 @@ fn check_whitelist() {
 	assert!(whitelist.contains("1405f2411d0af5a7ff397e7c9dc68d194a222ba0333561192e474c59ed8e30e1"));
 	// XcmPallet SafeXcmVersion
 	assert!(whitelist.contains("1405f2411d0af5a7ff397e7c9dc68d196323ae84c43568be0d1394d5d0d522c4"));
-}
-
-#[test]
-fn check_treasury_pallet_id() {
-	assert_eq!(
-		<Treasury as frame_support::traits::PalletInfoAccess>::index() as u8,
-		westend_runtime_constants::TREASURY_PALLET_ID
-	);
 }
 
 #[cfg(all(test, feature = "try-runtime"))]
@@ -545,17 +537,19 @@ fn construct_extrinsic(sender: Sr25519Keyring, call: RuntimeCall) -> UncheckedEx
 }
 
 #[test]
-fn tx_fees_go_to_dap_satellite() {
+fn tx_fees_go_to_accumulation_account() {
 	new_test_ext().execute_with(|| {
 		let alice = AccountId::from(Sr25519Keyring::Alice);
-		let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+		let accumulation_account =
+			pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 		let ed = ExistentialDeposit::get();
 
 		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
-		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&satellite, ed));
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&accumulation_account, ed));
 
 		let alice_before = <Balances as Inspect<AccountId>>::balance(&alice);
-		let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+		let accumulation_account_before =
+			<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 		let issuance_before = <Balances as Inspect<AccountId>>::total_issuance();
 
 		let call = RuntimeCall::System(frame_system::Call::remark { remark: vec![] });
@@ -566,28 +560,31 @@ fn tx_fees_go_to_dap_satellite() {
 		let fee_paid = alice_before - alice_after;
 		assert!(fee_paid > 0, "a fee should have been paid");
 
-		let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
+		let accumulation_account_after =
+			<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 		let issuance_after = <Balances as Inspect<AccountId>>::total_issuance();
 
-		assert_eq!(satellite_after, satellite_before + fee_paid);
+		assert_eq!(accumulation_account_after, accumulation_account_before + fee_paid);
 		assert_eq!(issuance_before, issuance_after);
 	});
 }
 
 #[test]
-fn dust_removal_goes_to_dap_satellite() {
+fn dust_removal_goes_to_accumulation_account() {
 	new_test_ext().execute_with(|| {
 		let alice: AccountId = Sr25519Keyring::Alice.into();
 		let bob: AccountId = Sr25519Keyring::Bob.into();
-		let satellite = pallet_dap_satellite::Pallet::<Runtime>::satellite_account();
+		let accumulation_account =
+			pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account();
 		let ed = ExistentialDeposit::get();
 		let dust = ed / 2;
 
 		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&bob, ed + dust));
 		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&alice, 100 * ed));
-		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&satellite, ed));
+		assert_ok!(<Balances as Mutate<AccountId>>::mint_into(&accumulation_account, ed));
 
-		let satellite_before = <Balances as Inspect<AccountId>>::balance(&satellite);
+		let accumulation_account_before =
+			<Balances as Inspect<AccountId>>::balance(&accumulation_account);
 
 		// Transfer ED away from bob, leaving dust < ED → account reaped.
 		assert_ok!(Balances::transfer_allow_death(
@@ -596,8 +593,17 @@ fn dust_removal_goes_to_dap_satellite() {
 			ed,
 		));
 
-		let satellite_after = <Balances as Inspect<AccountId>>::balance(&satellite);
-		assert_eq!(satellite_after, satellite_before + dust);
+		let accumulation_account_after =
+			<Balances as Inspect<AccountId>>::balance(&accumulation_account);
+		assert_eq!(accumulation_account_after, accumulation_account_before + dust);
 		assert_eq!(<Balances as Inspect<AccountId>>::balance(&bob), 0);
 	});
+}
+
+#[test]
+fn accumulate_forward_account_matches_constant() {
+	assert_eq!(
+		pallet_accumulate_and_forward::Pallet::<Runtime>::accumulation_account(),
+		AccumulateForwardPalletId::get().into_account_truncating()
+	);
 }

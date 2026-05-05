@@ -21,8 +21,8 @@ use polkadot_node_network_protocol::request_response::ReqProtocolNames;
 use polkadot_node_primitives::{BlockData, ErasureChunk, PoV};
 use polkadot_node_subsystem_util::runtime::RuntimeInfo;
 use polkadot_primitives::{
-	BlockNumber, ChunkIndex, CoreState, ExecutorParams, GroupIndex, Hash, Id as ParaId,
-	ScheduledCore, SessionIndex, SessionInfo,
+	BlockNumber, ChunkIndex, CoreState, GroupIndex, Hash, Id as ParaId, ScheduledCore,
+	SessionIndex, SessionInfo,
 };
 use sp_core::{testing::TaskExecutor, traits::SpawnNamed};
 
@@ -117,10 +117,6 @@ fn spawn_virtual_overseer(
 							},
 							RuntimeApiRequest::SessionInfo(_, tx) => {
 								tx.send(Ok(Some(test_state.session_info.clone())))
-									.expect("Receiver should be alive.");
-							},
-							RuntimeApiRequest::SessionExecutorParams(_, tx) => {
-								tx.send(Ok(Some(ExecutorParams::default())))
 									.expect("Receiver should be alive.");
 							},
 							RuntimeApiRequest::NodeFeatures(_, tx) => {

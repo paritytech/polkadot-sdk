@@ -83,7 +83,8 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 
 	// Wait for coretime chain to produce blocks
 	log::info!("Waiting for coretime chain to produce blocks");
-	assert_para_throughput(&alice_client, 30, [(ParaId::from(CORETIME_PARA_ID), 5..31)]).await?;
+	assert_para_throughput(&alice_client, 30, [(ParaId::from(CORETIME_PARA_ID), 5..31)], [])
+		.await?;
 	log::info!("Coretime chain is producing blocks");
 
 	// Configure broker chain
@@ -103,6 +104,7 @@ async fn coretime_smoke_test() -> Result<(), anyhow::Error> {
 		&alice_client,
 		30,
 		[(ParaId::from(CORETIME_PARA_ID), 5..31), (ParaId::from(TEST_PARA_ID), 5..31)],
+		[],
 	)
 	.await?;
 	log::info!("Parachain {} is producing blocks", TEST_PARA_ID);
@@ -152,7 +154,7 @@ fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 		.with_parachain(|p| {
 			p.with_id(TEST_PARA_ID)
 				.with_registration_strategy(RegistrationStrategy::Manual)
-				.with_default_command("polkadot-parachain")
+				.with_default_command("test-parachain")
 				.with_default_image(cumulus_image.as_str())
 				.with_collator(|n| {
 					n.with_name("collator-para-100").with_args(vec![
