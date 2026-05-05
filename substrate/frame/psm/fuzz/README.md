@@ -51,6 +51,18 @@ Each line printed by `psm_stateful` follows this format:
 - X in `debt` and X in `issuance` are always equal: every pUSD in existence was minted through
   the PSM, so outstanding debt equals outstanding supply 1:1.
 
+## `corpus_gen` — seed generator
+
+Generates hand-crafted corpus entries for the `psm` libFuzzer target and
+writes them to `corpus/psm/`. Targets error paths not reachable by random
+mutation: `AssetAlreadyApproved` and `AmountTooSmallAfterConversion`.
+
+Run:
+	cargo run --bin corpus_gen -- fuzz/corpus/psm
+
+The `Op` selector byte encoding and block framing layout are documented
+inline. Re-run after any change to the `Op` enum or `Arbitrary` impl.
+
 ## When to use which
 
 - **libFuzzer**: long-running background campaigns, coverage tracking, corpus
