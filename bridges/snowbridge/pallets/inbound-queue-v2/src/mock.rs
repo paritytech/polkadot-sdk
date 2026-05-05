@@ -278,17 +278,6 @@ pub fn new_tester() -> sp_io::TestExternalities {
 	ext
 }
 
-/// Full EventProof for register_token (matches finalized header from setup).
-#[cfg(any(test, feature = "runtime-benchmarks"))]
-#[allow(dead_code)]
-pub fn register_token_event_proof() -> snowbridge_inbound_queue_primitives::EventProof<Proof> {
-	let fixture = make_register_token_message::<
-		<Test as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
-		<Test as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
-	>();
-	fixture.event
-}
-
 // Generated from smoketests:
 //   cd smoketests
 //   ./make-bindings

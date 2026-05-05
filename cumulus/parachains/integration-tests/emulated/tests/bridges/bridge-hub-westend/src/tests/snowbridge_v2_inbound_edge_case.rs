@@ -51,14 +51,17 @@ fn forged_receipt_proof_is_rejected_after_path_check_fix() {
 	);
 	let forged_receipt_bytes = alloy_rlp::encode(&forged_receipt);
 
-	let fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture();
+	let fixture = snowbridge_pallet_ethereum_client_fixtures::make_inbound_fixture::<
+	snowbridge_verification_primitives::DefaultMaxNodeSize,
+	snowbridge_verification_primitives::DefaultMaxDepth,
+>();
 	let receipts_root = fixture.event.proof.execution_proof.execution_header.receipts_root();
 	let root_node = fixture.event.proof.receipt_proof[0].clone();
-	let exploit_proof_nodes = vec![root_node, forged_receipt_bytes];
+	let exploit_proof_nodes = vec![root_node.to_vec(), forged_receipt_bytes];
 
 	for tx_index in 0u64..10_000u64 {
 		assert!(
-			snowbridge_inbound_queue_primitives::receipt::verify_receipt_proof(
+			snowbridge_verification_primitives::receipt::verify_receipt_proof(
 				receipts_root,
 				tx_index,
 				&exploit_proof_nodes,
