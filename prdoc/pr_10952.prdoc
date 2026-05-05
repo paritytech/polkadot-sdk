@@ -7,5 +7,7 @@ doc:
     returns a valid beneficiary account, enabling Snowbridge relayers to claim rewards to AssetHub
     as intended.
 crates:
+- pallet-bridge-relayers
+  bump: minor
 - name: bridge-hub-westend-runtime
   bump: patch
