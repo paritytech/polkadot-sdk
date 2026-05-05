@@ -3838,17 +3838,6 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 	test_state.assert_no_messages().await;
 }
 
-// Launching new collations:
-// - multiple candidates per relay parent (including from implicit view and which occupy future
-//   claims, including which will make claims across different leaves)
-// - Test fairness according to claim queue and rate limiting according to the claim queue (we
-//   already do but test a more complex case maybe with multiple paras)
-// - test delay, test prioritisation
-
-// LATER:
-// - Test subsystem startup: make sure we are properly populating the db.
-// - Test a change in the registered paras on finalized block notification.
-
 // =============================================================================================
 // Active-fork tests.
 //
@@ -4273,3 +4262,7 @@ async fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete() {
 	);
 	test_state.assert_no_messages().await;
 }
+
+// TODO:
+// - Test subsystem startup: make sure we are properly populating the db.
+// - Test a change in the registered paras on finalized block notification.
