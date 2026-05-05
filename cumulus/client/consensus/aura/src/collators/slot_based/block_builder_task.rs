@@ -404,15 +404,16 @@ where
 			// V1/V2: look up at relay_parent which is relay_parent_offset blocks
 			// behind the tip, so the offset includes relay_parent_offset to
 			// compensate.
-			let max_claim_queue_offset =
-				para_client.runtime_api().max_claim_queue_offset(para_best_hash).unwrap_or(1)
-					as u32;
+			let maybe_max_claim_queue_offset = para_client
+				.runtime_api()
+				.max_claim_queue_offset(para_best_hash)
+				.map(|offset| offset as u32);
 			let (claim_queue_relay_block, claim_queue_offset) = if v3_enabled {
 				// V3: look up at scheduling_parent (fresh tip)
-				(&scheduling_parent_header, max_claim_queue_offset)
+				(&scheduling_parent_header, maybe_max_claim_queue_offset.unwrap_or(1))
 			} else {
 				// V1/V2: look up at relay_parent, add relay_parent_offset
-				let total_offset = relay_parent_offset + max_claim_queue_offset;
+				let total_offset = relay_parent_offset + maybe_max_claim_queue_offset.unwrap_or(0);
 				(&relay_parent_header, total_offset)
 			};
 			let mut cores = match determine_cores(
