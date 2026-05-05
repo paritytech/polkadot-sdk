@@ -397,14 +397,7 @@ impl<B: Backend> State<B> {
 			"Invalid collation",
 		);
 
-		// Look the peer up before releasing the slot, since releasing removes the entry that
-		// holds the peer id.
-		let maybe_peer_id = self
-			.collation_manager
-			.get_fetched_collation_peer_id(&scheduling_parent, &candidate_hash)
-			.copied();
-
-		self.collation_manager.release_slot(
+		let maybe_peer_id = self.collation_manager.release_slot(
 			&scheduling_parent,
 			receipt.descriptor.para_id(),
 			Some(&candidate_hash),

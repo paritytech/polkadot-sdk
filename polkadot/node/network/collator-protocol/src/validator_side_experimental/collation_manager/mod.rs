@@ -635,7 +635,8 @@ impl CollationManager {
 
 	/// Frees the slot consumed by a previously-fetched candidate. Called when seconding fails
 	/// (validation rejected, blocked-on-parent gave up, etc.). After this, capacity at
-	/// `scheduling_parent` for `para_id` increases by one.
+	/// `scheduling_parent` for `para_id` increases by one. Returns the peer id of the fetcher
+	/// if the slot was actually held.
 	///
 	/// `maybe_candidate_hash` is `None` only when called for an advertisement that never made
 	/// it past acceptance (V1, no descriptor available) — nothing was consumed yet, so
@@ -646,14 +647,14 @@ impl CollationManager {
 		para_id: ParaId,
 		maybe_candidate_hash: Option<&CandidateHash>,
 		maybe_output_head_hash: Option<Hash>,
-	) {
-		if let Some(candidate_hash) = maybe_candidate_hash {
-			let removed = self
+	) -> Option<PeerId> {
+		let released = maybe_candidate_hash.and_then(|candidate_hash| {
+			let info = self
 				.per_scheduling_parent
-				.get_mut(scheduling_parent)
-				.and_then(|per_sp| per_sp.fetched_collations.remove(candidate_hash))
-				.is_some();
-			if !removed {
+				.get_mut(scheduling_parent)?
+				.fetched_collations
+				.remove(candidate_hash);
+			if info.is_none() {
 				gum::debug!(
 					target: LOG_TARGET,
 					?scheduling_parent,
@@ -662,7 +663,8 @@ impl CollationManager {
 					"Could not release slot for candidate, it wasn't fetched",
 				);
 			}
-		}
+			info
+		});
 
 		if let Some(output_head_hash) = maybe_output_head_hash {
 			// Remove any collations that were blocked on this parent.
@@ -671,17 +673,8 @@ impl CollationManager {
 				parent_head_data_hash: output_head_hash,
 			});
 		}
-	}
 
-	pub fn get_fetched_collation_peer_id(
-		&self,
-		scheduling_parent: &Hash,
-		candidate_hash: &CandidateHash,
-	) -> Option<&PeerId> {
-		self.per_scheduling_parent
-			.get(scheduling_parent)
-			.and_then(|per_sp| per_sp.fetched_collations.get(candidate_hash))
-			.map(|info| &info.peer_id)
+		released.map(|info| info.peer_id)
 	}
 
 	pub async fn note_seconded<Sender: CollatorProtocolSenderTrait>(
@@ -692,8 +685,11 @@ impl CollationManager {
 		candidate_hash: &CandidateHash,
 		output_head_hash: Hash,
 	) -> (Option<PeerId>, Vec<CanSecond>) {
-		let peer_id =
-			self.get_fetched_collation_peer_id(scheduling_parent, candidate_hash).copied();
+		let peer_id = self
+			.per_scheduling_parent
+			.get(scheduling_parent)
+			.and_then(|per_sp| per_sp.fetched_collations.get(candidate_hash))
+			.map(|info| info.peer_id);
 
 		let Some(unblocked) = self.blocked_from_seconding.remove(&BlockedCollationId {
 			para_id: *para_id,
@@ -1136,8 +1132,7 @@ struct PerSchedulingParent {
 	// Candidates we have successfully fetched at this scheduling parent. Kept until the
 	// scheduling parent leaves view, so that:
 	// - duplicate advertisements are rejected (`try_accept_advertisement`),
-	// - we know who to punish for supplying an invalid collation
-	//   (`get_fetched_collation_peer_id`),
+	// - we know who to punish for supplying an invalid collation (returned by `release_slot`),
 	// - and capacity tracking knows which slots are consumed (`build_leaf_core_cqs`).
 	// On rejection (validation failure, blocked-on-parent timeout, etc.) entries are removed.
 	fetched_collations: HashMap<CandidateHash, FetchedCollationInfo>,
