@@ -20990,7 +20990,7 @@ dependencies = [
 
 [[package]]
 name = "sc-client-db"
-version = "0.53.0"
+version = "0.53.1"
 dependencies = [
  "array-bytes 6.2.2",
  "criterion",
@@ -25576,7 +25576,7 @@ dependencies = [
 
 [[package]]
 name = "sp-transaction-storage-proof"
-version = "42.0.0"
+version = "42.0.1"
 dependencies = [
  "async-trait",
  "parity-scale-codec",
