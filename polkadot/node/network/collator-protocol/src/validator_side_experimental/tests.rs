@@ -4250,6 +4250,41 @@ async fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete() {
 	test_state.assert_no_messages().await;
 }
 
+// Short claim queues (e.g. on-demand parachains where not every CQ position is filled) must
+// not cause valid advertisements at ancestor SPs to be rejected.
+//
+// The runtime's CQ length can be less than the scheduling lookahead. An ancestor SP at depth
+// `d` from the leaf can still validly host an advertisement whose slot lands at any leaf-CQ
+// position `i` where `i + d < lookahead`. The bound is the lookahead, NOT the CQ length —
+// using `cq.len() - d` underestimates the valid range when `cq.len() < lookahead` and rejects
+// otherwise-valid advertisements.
+//
+// Setup: lookahead=3 (default), override leaf-10's CQ to `[100]` (single slot, simulating a
+// parachain with only the next slot scheduled). Advertise para 100 at sp=8 (depth 2). Slot
+// leaf+1 lands at sp+3, just within sp's lookahead window — must be accepted.
+#[tokio::test]
+async fn short_claim_queue_does_not_reject_ancestor_advertisements() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+
+	// Shorten leaf-10's CQ for our core to a single para-100 position.
+	test_state.rp_info.get_mut(&active_leaf).unwrap().claim_queue.insert(core, vec![100.into()]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer = peer_id(0);
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer, 100.into()).await;
+
+	// Advertise at sp=8 (depth 2 from leaf=10). leaf-CQ position 0 maps to sp-position 3,
+	// which is within sp's lookahead-3 window — the ad must be accepted.
+	let (_, adv) = dummy_candidate(get_hash(8), 100.into(), peer, core, 1, dummy_pvd().hash());
+	test_state.handle_advertisement(&mut state, adv).await;
+	assert_eq!(state.advertisements(), [adv].into());
+}
+
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.

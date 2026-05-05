@@ -378,12 +378,20 @@ impl CollationManager {
 			.filter_map(|path| {
 				let leaf = path.last()?;
 				let cq = self.leaf_claim_queues.get(leaf)?.get(&core)?;
-				let offset = path
+				// SP at depth `d` from the leaf can host advertisements landing at leaf-CQ
+				// positions `i` where `i + d < lookahead`. The bound is the lookahead, NOT
+				// `cq.len()`, which may be shorter.
+				let lookahead = self
+					.implicit_view
+					.known_allowed_relay_parents_under(leaf)
+					.map(|p| p.len())
+					.unwrap_or(0);
+				let depth = path
 					.iter()
 					.rev()
 					.position(|h| h == scheduling_parent)
 					.expect("paths_via_relay_parent only returns paths containing the SP; qed");
-				let valid_len = cq.len().saturating_sub(offset);
+				let valid_len = lookahead.saturating_sub(depth).min(cq.len());
 				Some(cq.iter().take(valid_len).copied().collect::<Vec<_>>())
 			})
 			.max_by_key(Vec::len)
@@ -478,11 +486,19 @@ impl CollationManager {
 		for leaf in leaves {
 			for &core in &cores {
 				let Some(cq) = self.cq(&leaf, core) else { continue };
-				let mut cq: Vec<Option<ParaId>> = cq.iter().copied().map(Some).collect();
-
 				let Some(path) = self.implicit_view.known_allowed_relay_parents_under(&leaf) else {
 					continue;
 				};
+				// Pad the CQ up to the lookahead so `cq.len() == sps_by_depth.len()`. The
+				// runtime may return a CQ shorter than the lookahead.
+				let lookahead = path.len();
+				let mut cq: Vec<Option<ParaId>> = cq
+					.iter()
+					.copied()
+					.map(Some)
+					.chain(std::iter::repeat(None))
+					.take(lookahead)
+					.collect();
 				// SPs by depth from the leaf (leaf = 0). Cross-core ancestors are masked as
 				// `None` so `sps_reaching` and `reserve_slot` automatically skip them.
 				let sps_by_depth: Vec<Option<Hash>> = path
@@ -1111,15 +1127,20 @@ struct FetchedCollationInfo {
 /// Per-(leaf, core) capacity view used by the fetch planner.
 ///
 /// `cq[i]` is `Some(para)` if leaf-CQ position `i` is still free for `para`, or `None` if
-/// already consumed by a fetch (in-flight, fetched, or just-launched). The build pass
-/// allocates existing consumers into `cq` so what remains `Some` is residual capacity SPs
-/// can fetch into.
+/// already consumed (or if the runtime CQ didn't schedule a para there — see padding below).
+/// The build pass allocates existing consumers into `cq` so what remains `Some` is residual
+/// capacity SPs can fetch into.
 ///
 /// `sps_by_depth[i]` is `Some(sp)` if the chain block at depth `i` from the leaf (leaf at 0)
 /// is a scheduling parent on *this* core; cross-core ancestors are `None`. This implicitly
 /// scopes both `sps_reaching` and `reserve_slot` to our core: cross-core SPs never appear as
 /// candidates for our slots, and cross-core reservations are no-ops because the SP isn't
 /// found in `sps_by_depth`.
+///
+/// Invariant: `cq.len() == sps_by_depth.len() == scheduling_lookahead`. The runtime may
+/// return a CQ shorter than the lookahead (on-demand cores); `build_leaf_core_cqs` pads it
+/// with `None` so the SP-window arithmetic (`cq.len() - depth`) matches the lookahead, not
+/// the runtime CQ length.
 struct LeafCoreCq {
 	sps_by_depth: Vec<Option<Hash>>,
 	cq: Vec<Option<ParaId>>,
@@ -1128,9 +1149,9 @@ struct LeafCoreCq {
 impl LeafCoreCq {
 	/// Same-core SPs whose window includes leaf-CQ position `idx`.
 	///
-	/// An SP at depth `d` from the leaf has a window covering leaf-CQ positions
-	/// `0..cq_len - d`, so position `idx` is reachable from SPs with `d < cq_len - idx` —
-	/// i.e. the first `cq_len - idx` entries of `sps_by_depth`.
+	/// An SP at depth `d` has a lookahead window covering leaf-CQ positions `0..lookahead - d`,
+	/// so position `idx` is reachable from SPs with `d < lookahead - idx`. With `cq` padded to
+	/// the lookahead, that's the first `cq.len() - idx` entries of `sps_by_depth`.
 	fn sps_reaching(&self, idx: usize) -> impl Iterator<Item = Hash> + '_ {
 		self.sps_by_depth.iter().take(self.cq.len() - idx).filter_map(|x| *x)
 	}
