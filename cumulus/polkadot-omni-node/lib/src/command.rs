@@ -63,24 +63,20 @@ impl RunConfig {
 fn new_aura_node_spec<Block: NodeBlock>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-	extension_sr25519: Option<
-		Box<dyn NodeExtension<Block, fake_runtime_api::aura_sr25519::RuntimeApi>>,
-	>,
-	extension_ed25519: Option<
-		Box<dyn NodeExtension<Block, fake_runtime_api::aura_ed25519::RuntimeApi>>,
-	>,
+	extensions_sr25519: Vec<Box<dyn NodeExtension<Block, fake_runtime_api::aura_sr25519::RuntimeApi>>>,
+	extensions_ed25519: Vec<Box<dyn NodeExtension<Block, fake_runtime_api::aura_ed25519::RuntimeApi>>>,
 ) -> Box<dyn DynNodeSpec> {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, extension_sr25519),
+		>(extra_args, extensions_sr25519),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
 			Block,
 			fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, extension_ed25519),
+		>(extra_args, extensions_ed25519),
 	}
 }
 
@@ -97,14 +93,14 @@ fn new_node_spec(
 			(BlockNumber::U32, Consensus::Aura(aura_id)) => new_aura_node_spec::<Block<u32>>(
 				aura_id,
 				extra_args,
-				factory.and_then(|f| f.create_aura_sr25519_u32()),
-				factory.and_then(|f| f.create_aura_ed25519_u32()),
+				factory.map(|f| f.create_aura_sr25519_u32()).unwrap_or_default(),
+				factory.map(|f| f.create_aura_ed25519_u32()).unwrap_or_default(),
 			),
 			(BlockNumber::U64, Consensus::Aura(aura_id)) => new_aura_node_spec::<Block<u64>>(
 				aura_id,
 				extra_args,
-				factory.and_then(|f| f.create_aura_sr25519_u64()),
-				factory.and_then(|f| f.create_aura_ed25519_u64()),
+				factory.map(|f| f.create_aura_sr25519_u64()).unwrap_or_default(),
+				factory.map(|f| f.create_aura_ed25519_u64()).unwrap_or_default(),
 			),
 		},
 	})

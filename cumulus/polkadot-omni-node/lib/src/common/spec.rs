@@ -313,17 +313,17 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 	const SYBIL_RESISTANCE: CollatorSybilResistance;
 
-	fn take_extension(
+	fn take_extensions(
 		&mut self,
-	) -> Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>> {
-		None
+	) -> Vec<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>> {
+		Vec::new()
 	}
 
 	fn start_dev_node(
 		_config: Configuration,
 		_mode: DevSealMode,
 		_node_extra_args: NodeExtraArgs,
-		_extension: Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
+		_extensions: Vec<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
 	) -> sc_service::error::Result<TaskManager> {
 		Err(sc_service::Error::Other("Dev not supported for this node type".into()))
 	}
@@ -337,7 +337,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 		collator_options: CollatorOptions,
 		hwbench: Option<sc_sysinfo::HwBench>,
 		node_extra_args: NodeExtraArgs,
-		extension: Option<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
+		extensions: Vec<Box<dyn NodeExtension<Self::Block, Self::RuntimeApi>>>,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>>
 	where
 		Net: NetworkBackend<Self::Block, Hash>,
@@ -474,7 +474,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 
 			let database_path = parachain_config.database.path().map(|p| p.to_path_buf());
 
-			if let Some(ext) = extension.as_ref() {
+			for ext in &extensions {
 				ext.on_start(
 					client.clone(),
 					transaction_pool.clone(),
@@ -496,7 +496,7 @@ pub(crate) trait NodeSpec: BaseNodeSpec {
 						statement_store.clone(),
 						spawn_handle.clone(),
 					)?;
-					if let Some(ext) = extension.as_ref() {
+					for ext in &extensions {
 						let extra = ext.build_rpc_extension(client.clone())?;
 						module
 							.merge(extra)
@@ -660,8 +660,8 @@ where
 		mode: DevSealMode,
 		node_extra_args: NodeExtraArgs,
 	) -> sc_service::error::Result<TaskManager> {
-		let extension = self.take_extension();
-		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args, extension)
+		let extensions = self.take_extensions();
+		<Self as NodeSpec>::start_dev_node(config, mode, node_extra_args, extensions)
 	}
 
 	fn start_node(
@@ -672,7 +672,7 @@ where
 		hwbench: Option<HwBench>,
 		node_extra_args: NodeExtraArgs,
 	) -> Pin<Box<dyn Future<Output = sc_service::error::Result<TaskManager>>>> {
-		let extension = self.take_extension();
+		let extensions = self.take_extensions();
 		match parachain_config.network.network_backend {
 			sc_network::config::NetworkBackendType::Libp2p => {
 				<Self as NodeSpec>::start_node::<sc_network::NetworkWorker<_, _>>(
@@ -681,7 +681,7 @@ where
 					collator_options,
 					hwbench,
 					node_extra_args,
-					extension,
+					extensions,
 				)
 			},
 			sc_network::config::NetworkBackendType::Litep2p => {
@@ -691,7 +691,7 @@ where
 					collator_options,
 					hwbench,
 					node_extra_args,
-					extension,
+					extensions,
 				)
 			},
 		}

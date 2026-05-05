@@ -169,39 +169,36 @@ pub type BlockU32 = crate::common::types::Block<u32>;
 pub type BlockU64 = crate::common::types::Block<u64>;
 
 /// Object-safe factory for [`NodeExtension`]s, one method per
-/// `(Block, RuntimeApi)` combination the runtime resolver picks. Methods take
-/// `&self`; impls that need to hand out unique values should use interior
-/// mutability.
+/// `(Block, RuntimeApi)` combination the runtime resolver picks. Each method
+/// returns the (possibly empty) list of extensions to install for that combo;
+/// they run in iteration order. Methods take `&self`; impls that need to hand
+/// out unique values should use interior mutability.
 pub trait NodeExtensionFactory: Send + Sync + 'static {
-	/// Extension for `(Block<u32>, aura_sr25519::RuntimeApi)`.
+	/// Extensions for `(Block<u32>, aura_sr25519::RuntimeApi)`.
 	fn create_aura_sr25519_u32(
 		&self,
-	) -> Option<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>>
-	{
-		None
+	) -> Vec<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>> {
+		Vec::new()
 	}
 
-	/// Extension for `(Block<u32>, aura_ed25519::RuntimeApi)`.
+	/// Extensions for `(Block<u32>, aura_ed25519::RuntimeApi)`.
 	fn create_aura_ed25519_u32(
 		&self,
-	) -> Option<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>>
-	{
-		None
+	) -> Vec<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>> {
+		Vec::new()
 	}
 
-	/// Extension for `(Block<u64>, aura_sr25519::RuntimeApi)`.
+	/// Extensions for `(Block<u64>, aura_sr25519::RuntimeApi)`.
 	fn create_aura_sr25519_u64(
 		&self,
-	) -> Option<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>>
-	{
-		None
+	) -> Vec<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>> {
+		Vec::new()
 	}
 
-	/// Extension for `(Block<u64>, aura_ed25519::RuntimeApi)`.
+	/// Extensions for `(Block<u64>, aura_ed25519::RuntimeApi)`.
 	fn create_aura_ed25519_u64(
 		&self,
-	) -> Option<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>>
-	{
-		None
+	) -> Vec<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>> {
+		Vec::new()
 	}
 }

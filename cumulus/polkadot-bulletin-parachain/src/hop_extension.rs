@@ -92,7 +92,7 @@ impl HopExtensionFactory {
 impl NodeExtensionFactory for HopExtensionFactory {
 	fn create_aura_sr25519_u32(
 		&self,
-	) -> Option<
+	) -> Vec<
 		Box<
 			dyn NodeExtension<
 				polkadot_omni_node_lib::common::BlockU32,
@@ -100,9 +100,9 @@ impl NodeExtensionFactory for HopExtensionFactory {
 			>,
 		>,
 	> {
-		Some(Box::new(HopExtension::<
+		vec![Box::new(HopExtension::<
 			polkadot_omni_node_lib::common::BlockU32,
 			polkadot_omni_node_lib::fake_runtime_api::aura_sr25519::RuntimeApi,
-		>::new(self.params.clone())))
+		>::new(self.params.clone()))]
 	}
 }

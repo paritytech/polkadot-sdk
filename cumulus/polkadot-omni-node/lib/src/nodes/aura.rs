@@ -162,7 +162,7 @@ pub(crate) struct AuraNode<Block: NodeBlock, RuntimeApi, AuraId, StartConsensus,
 where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
-	pub extension: Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
+	pub extensions: Vec<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
 	_phantom: PhantomData<(AuraId, StartConsensus, InitBlockImport)>,
 }
 
@@ -172,9 +172,9 @@ where
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
 {
 	pub fn new(
-		extension: Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
+		extensions: Vec<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
 	) -> Self {
-		Self { extension, _phantom: PhantomData }
+		Self { extensions, _phantom: PhantomData }
 	}
 }
 
@@ -221,17 +221,17 @@ where
 	type StartConsensus = StartConsensus;
 	const SYBIL_RESISTANCE: CollatorSybilResistance = CollatorSybilResistance::Resistant;
 
-	fn take_extension(
+	fn take_extensions(
 		&mut self,
-	) -> Option<Box<dyn crate::common::NodeExtension<Self::Block, Self::RuntimeApi>>> {
-		self.extension.take()
+	) -> Vec<Box<dyn crate::common::NodeExtension<Self::Block, Self::RuntimeApi>>> {
+		std::mem::take(&mut self.extensions)
 	}
 
 	fn start_dev_node(
 		mut config: Configuration,
 		mode: DevSealMode,
 		node_extra_args: NodeExtraArgs,
-		extension: Option<Box<dyn crate::common::NodeExtension<Self::Block, Self::RuntimeApi>>>,
+		extensions: Vec<Box<dyn crate::common::NodeExtension<Self::Block, Self::RuntimeApi>>>,
 	) -> sc_service::error::Result<TaskManager> {
 		// Destructure all fields so the compiler enforces handling new args.
 		let NodeExtraArgs {
@@ -434,7 +434,7 @@ where
 		let spawn_handle = Arc::new(task_manager.spawn_handle());
 		let database_path = config.database.path().map(|p| p.to_path_buf());
 
-		if let Some(ext) = extension.as_ref() {
+		for ext in &extensions {
 			ext.on_start(
 				client.clone(),
 				transaction_pool.clone(),
@@ -457,7 +457,7 @@ where
 					statement_store.clone(),
 					spawn_handle.clone(),
 				)?;
-				if let Some(ext) = extension.as_ref() {
+				for ext in &extensions {
 					let extra = ext.build_rpc_extension(client.clone())?;
 					module
 						.merge(extra)
@@ -591,7 +591,7 @@ where
 
 pub fn new_aura_node_spec<Block, RuntimeApi, AuraId>(
 	extra_args: &NodeExtraArgs,
-	extension: Option<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
+	extensions: Vec<Box<dyn crate::common::NodeExtension<Block, RuntimeApi>>>,
 ) -> Box<dyn DynNodeSpec>
 where
 	Block: NodeBlock,
@@ -611,7 +611,7 @@ where
 			AuraId,
 			StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
 			StartSlotBasedAuraConsensus<Block, RuntimeApi, AuraId>,
-		>::new(extension))
+		>::new(extensions))
 	} else {
 		Box::new(AuraNode::<
 			Block,
@@ -619,7 +619,7 @@ where
 			AuraId,
 			StartLookaheadAuraConsensus<Block, RuntimeApi, AuraId>,
 			ClientBlockImport,
-		>::new(extension))
+		>::new(extensions))
 	}
 }
 
