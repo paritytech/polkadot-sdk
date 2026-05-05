@@ -973,6 +973,21 @@ where
 			return Ok(None);
 		}
 
+		if relay_parent_session_age > max_relay_parent_session_age {
+			tracing::debug!(target: LOG_TARGET,
+				?scheduling_parent_hash,
+				ancestor = %current_relay_header.hash(),
+				ancestor_block_number = current_relay_header.number(),
+				"max_relay_parent_session_age exceeded."
+			);
+			return Ok(None);
+		}
+		// If the header contains an epoch change log, it means that it's the first block
+		// of a new session. So, at the next iteration, we will be at the previous session.
+		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&current_relay_header) {
+			relay_parent_session_age += 1;
+		}
+
 		if relay_parent_descendants.len() == relay_parent_offset as usize {
 			break;
 		}
@@ -981,21 +996,6 @@ where
 		let next_relay_block =
 			relay_chain_data_cache.get_mut(*current_relay_header.parent_hash()).await?;
 		let next_relay_header = next_relay_block.relay_parent_header.clone();
-
-		// If the ancestor header contains an epoch change log, it means that it's the last block
-		// of that session. So, on the next iteration, we are at the previous session.
-		if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&next_relay_header) {
-			relay_parent_session_age += 1;
-		}
-		if relay_parent_session_age > max_relay_parent_session_age {
-			tracing::debug!(target: LOG_TARGET,
-				?scheduling_parent_hash,
-				ancestor = %next_relay_header.hash(),
-				ancestor_block_number = next_relay_header.number(),
-				"max_relay_parent_session_age exceeded."
-			);
-			return Ok(None);
-		}
 
 		current_relay_header = next_relay_header;
 	}

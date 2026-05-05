@@ -173,14 +173,17 @@ impl SchedulingInfo {
 				return Some((best_header, true));
 			}
 
-			let best_header_hash = *best_header.parent_hash();
-			let best_header =
-				Self::get_relay_header(relay_chain_data_cache, best_header_hash).await?;
 			// The scheduling parent should be part of the same session as the best
-			// relay block
+			// relay block.
+			// If the current header contains a session change log, then it will be
+			// part of a new session, while the scheduling parent will be part of the old one.
 			if sc_consensus_babe::contains_epoch_change::<RelayBlock>(&best_header) {
 				return None;
 			}
+			let best_header_hash = *best_header.parent_hash();
+			let best_header =
+				Self::get_relay_header(relay_chain_data_cache, best_header_hash).await?;
+
 			return Some((best_header, true));
 		}
 	}

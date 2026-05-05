@@ -120,11 +120,31 @@ async fn offset_with_session_change_at_rc_tip() {
 	let client = TestRelayClient::new(headers);
 	let mut cache = RelayChainDataCache::new(client, 1.into());
 
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header, 3, 0).await;
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 0, 0).await;
 	assert!(result.is_ok());
 	let data = result.unwrap().unwrap();
-	assert_eq!(*data.relay_parent().number(), 2);
-	assert_eq!(header_numbers(&data.descendants), vec![3, 4, 5]);
+	assert_eq!(*data.relay_parent().number(), 5);
+	assert!(data.descendants.is_empty());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 1, 0).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_none());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 1, 1).await;
+	assert!(result.is_ok());
+	let data = result.unwrap().unwrap();
+	assert_eq!(*data.relay_parent().number(), 4);
+	assert_eq!(header_numbers(&data.descendants), vec![5]);
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 2, 0).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_none());
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header, 2, 1).await;
+	assert!(result.is_ok());
+	let data = result.unwrap().unwrap();
+	assert_eq!(*data.relay_parent().number(), 3);
+	assert_eq!(header_numbers(&data.descendants), vec![4, 5]);
 }
 
 #[tokio::test]
@@ -149,12 +169,13 @@ async fn offset_with_1_session_change() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 1, 0).await;
 	assert!(result.is_ok());
-	assert!(result.unwrap().is_none());
-
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 1, 1).await;
 	let data = result.unwrap().unwrap();
 	assert_eq!(*data.relay_parent().number(), 4);
 	assert_eq!(header_numbers(&data.descendants), vec![5]);
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 2, 0).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_none());
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 2, 1).await;
 	let data = result.unwrap().unwrap();
@@ -191,12 +212,13 @@ async fn offset_with_2_session_changes() {
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 3, 1).await;
 	assert!(result.is_ok());
-	assert!(result.unwrap().is_none());
-
-	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 3, 2).await;
 	let data = result.unwrap().unwrap();
 	assert_eq!(*data.relay_parent().number(), 4);
 	assert_eq!(header_numbers(&data.descendants), vec![5, 6, 7]);
+
+	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 4, 1).await;
+	assert!(result.is_ok());
+	assert!(result.unwrap().is_none());
 
 	let result = offset_relay_parent_find_descendants(&mut cache, best_header.clone(), 4, 2).await;
 	let data = result.unwrap().unwrap();
