@@ -355,11 +355,14 @@ pub mod benchmark_helpers {
 		EventFixture as OutboundEventFixture, Verifier as OutboundVerifier,
 	};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
-	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message_worst_case;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::{
+		make_register_token_message, make_register_token_message_worst_case,
+	};
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
-	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
-	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message_worst_case as make_register_token_message_v2_worst_case;
+	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::{
+		make_register_token_message as make_register_token_message_v2,
+		make_register_token_message_worst_case as make_register_token_message_v2_worst_case,
+	};
 	use snowbridge_pallet_outbound_queue_v2::{
 		fixture::{
 			make_submit_delivery_receipt_message, make_submit_delivery_receipt_message_worst_case,
