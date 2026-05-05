@@ -1,0 +1,42 @@
+title: Bound Ethereum receipt proofs with configurable max node size and depth
+
+doc:
+  - audience: [Runtime Dev, Node Dev]
+    description: |
+      Replaces the unbounded `Vec<Vec<u8>>` receipt proof in Snowbridge's verification
+      primitives with bounded types `ReceiptProofNode<MaxNodeSize>` and
+      `ReceiptProof<MaxNodeSize, MaxDepth>` backed by `BoundedVec`. This prevents
+      attackers from submitting oversized receipt proofs that cause unbounded
+      verification work under fixed-weight dispatch calls.
+
+      Two new pallet constants `MaxMptNodeSize` and `MaxReceiptProofDepth` are added
+      to `snowbridge-pallet-ethereum-client::Config`, with defaults of 32 KiB per node
+      and 16 nodes per proof — matching Ethereum receipt trie depth bounds.
+
+      The `Verifier` trait and `Proof`/`EventProof` types are made generic over the
+      proof type to support runtime-configured bounds. Inbound and outbound queue
+      pallets now include worst-case invalid-proof weights in their submit extrinsics.
+
+      Bridge hub runtimes (westend, rococo) are configured with the default bounds.
+
+crates:
+  - name: snowbridge-verification-primitives
+    bump: minor
+  - name: snowbridge-beacon-primitives
+    bump: patch
+  - name: snowbridge-pallet-ethereum-client
+    bump: minor
+  - name: snowbridge-inbound-queue-primitives
+    bump: minor
+  - name: snowbridge-pallet-inbound-queue
+    bump: minor
+  - name: snowbridge-pallet-inbound-queue-v2
+    bump: minor
+  - name: snowbridge-pallet-outbound-queue-v2
+    bump: minor
+  - name: snowbridge-outbound-queue-primitives
+    bump: patch
+  - name: bridge-hub-westend-runtime
+    bump: patch
+  - name: bridge-hub-rococo-runtime
+    bump: patch
