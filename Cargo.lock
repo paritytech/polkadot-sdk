@@ -17128,6 +17128,7 @@ dependencies = [
  "sp-api 26.0.0",
  "sp-authority-discovery",
  "sp-block-builder",
+ "sp-blockchain 28.0.0",
  "sp-consensus 0.32.0",
  "sp-consensus-aura",
  "sp-core 28.0.0",
@@ -24735,9 +24736,12 @@ name = "sp-blockchain"
 version = "28.0.0"
 dependencies = [
  "futures",
+ "hex-literal",
  "parity-scale-codec",
  "parking_lot 0.12.3",
  "schnellru",
+ "serde",
+ "serde_json",
  "sp-api 26.0.0",
  "sp-consensus 0.32.0",
  "sp-core 28.0.0",
