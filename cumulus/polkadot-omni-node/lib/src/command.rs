@@ -104,7 +104,7 @@ fn new_node_spec<Bundle: RuntimeApiBundle>(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-	mut extensions: NodeExtensions<Bundle>,
+	extensions: NodeExtensions<Bundle>,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error>
 where
 	<Bundle::AuraSr25519U32 as sp_api::ConstructRuntimeApi<
@@ -144,16 +144,10 @@ where
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
-			(BlockNumber::U32, Consensus::Aura(aura_id)) => new_aura_node_spec(
-				aura_id,
-				extra_args,
-				std::mem::take(&mut extensions.aura_u32),
-			),
-			(BlockNumber::U64, Consensus::Aura(aura_id)) => new_aura_node_spec(
-				aura_id,
-				extra_args,
-				std::mem::take(&mut extensions.aura_u64),
-			),
+			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
+				new_aura_node_spec(aura_id, extra_args, extensions.aura_u32),
+			(BlockNumber::U64, Consensus::Aura(aura_id)) =>
+				new_aura_node_spec(aura_id, extra_args, extensions.aura_u64),
 		},
 	})
 }
