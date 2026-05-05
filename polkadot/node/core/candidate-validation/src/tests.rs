@@ -2541,113 +2541,94 @@ fn default_session_params() -> SessionParams {
 	}
 }
 
-/// V3 descriptor: executor_params and max_pov_size use the execution
-/// (relay-parent) session, bomb limit uses the scheduling session. Verify the
-/// correct session index is passed to each runtime API call.
+/// V3 descriptor: all session-keyed parameters (`executor_params`, `max_pov_size`,
+/// `validation_code_bomb_limit`) use the candidate's execution (relay-parent)
+/// session. Single `SessionExecutionConfig` fetch covers both PVD and bomb-limit;
+/// pre-v17 fallback for the bomb limit also uses execution session.
 ///
-/// Runs two sub-cases, both with relay parent != scheduling parent:
-/// - scheduling session == execution session
-/// - scheduling session != execution session
+/// Cross-session execution != scheduling case is covered by
+/// `fetch_params_v3_cross_session_uses_execution_session_for_bomb_limit`.
 #[test]
 fn fetch_params_uses_correct_sessions_for_v3() {
 	let relay_parent = Hash::repeat_byte(0xAA);
 	let scheduling_parent = Hash::repeat_byte(0xBB);
 	let recent_leaf = Hash::repeat_byte(0xCC);
+	let execution_session: SessionIndex = 5;
+	let scheduling_session: SessionIndex = 5;
 	// Caller fallback — must NOT be used for V3 descriptors.
 	let caller_session: SessionIndex = 99;
 
-	let cases: [(SessionIndex, SessionIndex); 2] = [(5, 5), (5, 7)];
-	for (execution_session, scheduling_session) in cases {
-		let pov = PoV { block_data: BlockData(vec![1]) };
-		let validation_code = ValidationCode(vec![2]);
-		let descriptor = make_valid_candidate_descriptor_v3(
-			ParaId::from(1_u32),
-			relay_parent,
-			CoreIndex(0),
-			execution_session,
-			scheduling_session,
-			dummy_hash(),
-			pov.hash(),
-			validation_code.hash(),
-			dummy_hash(),
-			dummy_hash(),
-			scheduling_parent,
+	let pov = PoV { block_data: BlockData(vec![1]) };
+	let validation_code = ValidationCode(vec![2]);
+	let descriptor = make_valid_candidate_descriptor_v3(
+		ParaId::from(1_u32),
+		relay_parent,
+		CoreIndex(0),
+		execution_session,
+		scheduling_session,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		dummy_hash(),
+		dummy_hash(),
+		scheduling_parent,
+	);
+
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+
+	let test_fut = async move {
+		// SessionExecutorParams — must use execution_session.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				leaf,
+				RuntimeApiRequest::SessionExecutorParams(session, tx),
+			)) => {
+				assert_eq!(leaf, recent_leaf);
+				assert_eq!(session, execution_session, "executor_params must use execution session");
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
 		);
 
-		let pool = TaskExecutor::new();
-		let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
-
-		let test_fut = async move {
-			// First call: SessionExecutorParams — must use execution_session.
-			assert_matches!(
-				ctx_handle.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					leaf,
-					RuntimeApiRequest::SessionExecutorParams(session, tx),
-				)) => {
-					assert_eq!(leaf, recent_leaf);
-					assert_eq!(session, execution_session, "executor_params must use execution session");
-					tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
-				}
-			);
-
-			// Second call: SessionExecutionConfig — must use execution_session,
-			// because `max_pov_size` is baked into the PVD at the candidate's
-			// relay parent. Return NotSupported to leave `max_pov_size` as `None`.
-			assert_matches!(
-				ctx_handle.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					leaf,
-					RuntimeApiRequest::SessionExecutionConfig(session, tx),
-				)) => {
-					assert_eq!(leaf, recent_leaf);
-					assert_eq!(session, execution_session, "session execution config must use execution session");
-					tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "SessionExecutionConfig" })).unwrap();
-				}
-			);
-
-			// Cross-session V3 case only: a second SessionExecutionConfig call keyed
-			// on the scheduling session for the bomb limit. When scheduling == execution
-			// `fetch_params` reuses the first fetch — no second call is issued.
-			if scheduling_session != execution_session {
-				assert_matches!(
-					ctx_handle.recv().await,
-					AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						leaf,
-						RuntimeApiRequest::SessionExecutionConfig(session, tx),
-					)) => {
-						assert_eq!(leaf, recent_leaf);
-						assert_eq!(session, scheduling_session, "scheduling-session config lookup must use scheduling session");
-						tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "SessionExecutionConfig" })).unwrap();
-					}
-				);
+		// SessionExecutionConfig — must use execution_session for both `max_pov_size` and
+		// `validation_code_bomb_limit`. Return NotSupported to exercise the pre-v17 fallback.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				leaf,
+				RuntimeApiRequest::SessionExecutionConfig(session, tx),
+			)) => {
+				assert_eq!(leaf, recent_leaf);
+				assert_eq!(session, execution_session, "session execution config must use execution session");
+				tx.send(Err(RuntimeApiError::NotSupported { runtime_api_name: "SessionExecutionConfig" })).unwrap();
 			}
+		);
 
-			// Pre-v17 fallback: ValidationCodeBombLimit — must use scheduling_session.
-			assert_matches!(
-				ctx_handle.recv().await,
-				AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-					leaf,
-					RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
-				)) => {
-					assert_eq!(leaf, recent_leaf);
-					assert_eq!(session, scheduling_session, "bomb limit must use scheduling session");
-					tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT)).unwrap();
-				}
-			);
-		};
+		// Pre-v17 fallback: ValidationCodeBombLimit — must use execution_session.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				leaf,
+				RuntimeApiRequest::ValidationCodeBombLimit(session, tx),
+			)) => {
+				assert_eq!(leaf, recent_leaf);
+				assert_eq!(session, execution_session, "bomb limit fallback must use execution session");
+				tx.send(Ok(VALIDATION_CODE_BOMB_LIMIT)).unwrap();
+			}
+		);
+	};
 
-		let fetch_fut = async move {
-			let params = fetch_params(recent_leaf, caller_session, &descriptor, true, ctx.sender())
-				.await
-				.expect("fetch_params should succeed");
+	let fetch_fut = async move {
+		let params = fetch_params(recent_leaf, caller_session, &descriptor, true, ctx.sender())
+			.await
+			.expect("fetch_params should succeed");
 
-			assert_eq!(params.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT);
-			assert_eq!(params.max_pov_size, None, "NotSupported must leave max_pov_size as None",);
-		};
+		assert_eq!(params.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT);
+		assert_eq!(params.max_pov_size, None, "NotSupported must leave max_pov_size as None",);
+	};
 
-		executor::block_on(future::join(test_fut, fetch_fut));
-	}
+	executor::block_on(future::join(test_fut, fetch_fut));
 }
 
 /// V1 descriptor: both executor_params and bomb limit fall back to the
@@ -2687,10 +2668,10 @@ fn fetch_params_uses_fallback_session_for_v1() {
 			}
 		);
 
-		// SessionExecutionConfig — must use caller_session (42). Return
-		// NotSupported so `max_pov_size` stays as `None`. V1 has scheduling
-		// session == execution session, so `fetch_params` reuses this result
-		// for the bomb-limit lookup — no second SessionExecutionConfig call.
+		// SessionExecutionConfig — must use caller_session (42), since V1 has no
+		// descriptor session field and `relay_parent == scheduling_parent`.
+		// Return NotSupported so `max_pov_size` stays as `None` and the legacy
+		// bomb-limit fallback below fires.
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -2780,11 +2761,10 @@ fn fetch_params_uses_session_execution_config_when_supported() {
 			}
 		);
 
-		// One SessionExecutionConfig call: for the execution session, used for
-		// `max_pov_size`. `fetch_params` reuses the result for the scheduling-session
-		// bomb-limit lookup because both equal `session` for a V1 descriptor.
-		// No legacy `ValidationCodeBombLimit` call is expected on this path —
-		// its value must come from `cfg.validation_code_bomb_limit`.
+		// One SessionExecutionConfig call at the execution session, supplying both
+		// `max_pov_size` and `validation_code_bomb_limit`. No legacy
+		// `ValidationCodeBombLimit` call is expected on this path — its value
+		// must come from `cfg.validation_code_bomb_limit`.
 		assert_matches!(
 			ctx_handle.recv().await,
 			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
@@ -2870,6 +2850,98 @@ fn fetch_params_propagates_runtime_api_error() {
 			.expect_err("fetch_params should propagate runtime error");
 
 		assert!(err.contains("runtime error"), "unexpected error: {err}");
+	};
+
+	executor::block_on(future::join(test_fut, fetch_fut));
+}
+
+/// V3 cross-session: when execution and scheduling sessions differ and v17 is
+/// supported, `validation_code_bomb_limit` must come from the **execution**
+/// session's config — not the scheduling session's. Locks in the choice
+/// against any future regression that reverts to scheduling-session keying.
+///
+/// Single `SessionExecutionConfig` call expected (at the execution session);
+/// any second call would be unanswered and the test would hang.
+#[test]
+fn fetch_params_v3_cross_session_uses_execution_session_for_bomb_limit() {
+	let relay_parent = Hash::repeat_byte(0xAA);
+	let scheduling_parent = Hash::repeat_byte(0xBB);
+	let recent_leaf = Hash::repeat_byte(0xCC);
+	let execution_session: SessionIndex = 5;
+	let scheduling_session: SessionIndex = 7;
+	// Caller fallback — must NOT be used for V3 descriptors.
+	let caller_session: SessionIndex = 99;
+
+	let pov = PoV { block_data: BlockData(vec![1]) };
+	let validation_code = ValidationCode(vec![2]);
+	let descriptor = make_valid_candidate_descriptor_v3(
+		ParaId::from(1_u32),
+		relay_parent,
+		CoreIndex(0),
+		execution_session,
+		scheduling_session,
+		dummy_hash(),
+		pov.hash(),
+		validation_code.hash(),
+		dummy_hash(),
+		dummy_hash(),
+		scheduling_parent,
+	);
+
+	// Distinct from `VALIDATION_CODE_BOMB_LIMIT` so the assertion can prove the
+	// value came from the execution-session config rather than a stray fallback.
+	let exec_cfg = polkadot_primitives::vstaging::SessionExecutionConfig {
+		max_pov_size: 4096,
+		validation_code_bomb_limit: 123_456,
+	};
+	assert_ne!(
+		exec_cfg.validation_code_bomb_limit, VALIDATION_CODE_BOMB_LIMIT,
+		"test sentinel collision: cfg value must differ from the legacy-path value",
+	);
+
+	let pool = TaskExecutor::new();
+	let (mut ctx, mut ctx_handle) = make_subsystem_context::<AllMessages, _>(pool.clone());
+
+	let test_fut = async move {
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutorParams(session, tx),
+			)) => {
+				assert_eq!(session, execution_session);
+				tx.send(Ok(Some(ExecutorParams::default()))).unwrap();
+			}
+		);
+
+		// Single SessionExecutionConfig call at the execution session, supplying both
+		// `max_pov_size` and `validation_code_bomb_limit`. No second call (at the
+		// scheduling session) and no legacy `ValidationCodeBombLimit` call expected.
+		assert_matches!(
+			ctx_handle.recv().await,
+			AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+				_,
+				RuntimeApiRequest::SessionExecutionConfig(idx, tx),
+			)) => {
+				assert_eq!(
+					idx, execution_session,
+					"bomb limit must be keyed on execution session, not scheduling session",
+				);
+				tx.send(Ok(Some(exec_cfg))).unwrap();
+			}
+		);
+	};
+
+	let fetch_fut = async move {
+		let params = fetch_params(recent_leaf, caller_session, &descriptor, true, ctx.sender())
+			.await
+			.expect("fetch_params should succeed");
+
+		assert_eq!(
+			params.validation_code_bomb_limit, exec_cfg.validation_code_bomb_limit,
+			"bomb limit must come from the execution-session config",
+		);
+		assert_eq!(params.max_pov_size, Some(exec_cfg.max_pov_size));
 	};
 
 	executor::block_on(future::join(test_fut, fetch_fut));

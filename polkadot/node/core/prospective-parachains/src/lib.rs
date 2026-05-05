@@ -85,6 +85,10 @@ const RELAY_PARENT_INFO_CACHE_CAPACITY: u32 = 2400;
 /// LRU cache mapping `(leaf_session, relay_parent)` to runtime-reported relay parent info.
 type RelayParentInfoCache = LruMap<(SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
 
+/// Per-session cache for `SessionExecutionConfig.max_pov_size`
+type SessionMaxPovSizeCache = LruMap<SessionIndex, Option<u32>>;
+const SESSION_MAX_POV_SIZE_CACHE_CAPACITY: u32 = 4;
+
 struct PerSchedulingParent {
 	// The fragment chains for current and upcoming scheduled paras.
 	fragment_chains: HashMap<ParaId, FragmentChain>,
@@ -120,6 +124,8 @@ struct View {
 	/// `max_relay_parent_session_age` pruning behavior. Only positive results are cached;
 	/// `None`/`Err` results force a fresh query on the next call.
 	relay_parent_info_cache: RelayParentInfoCache,
+	/// LRU cache of `SessionExecutionConfig.max_pov_size` per session.
+	session_max_pov_size_cache: SessionMaxPovSizeCache,
 }
 
 impl View {
@@ -129,6 +135,9 @@ impl View {
 			per_scheduling_parent: HashMap::new(),
 			active_leaves: HashSet::new(),
 			relay_parent_info_cache: LruMap::new(ByLength::new(RELAY_PARENT_INFO_CACHE_CAPACITY)),
+			session_max_pov_size_cache: LruMap::new(ByLength::new(
+				SESSION_MAX_POV_SIZE_CACHE_CAPACITY,
+			)),
 		}
 	}
 }
@@ -573,6 +582,7 @@ async fn preprocess_candidates_pending_availability<Context>(
 async fn verify_relay_parent_within_scope<Context>(
 	ctx: &mut Context,
 	rp_info_cache: &mut RelayParentInfoCache,
+	max_pov_size_cache: &mut SessionMaxPovSizeCache,
 	query_at: Hash,
 	leaf_session_index: SessionIndex,
 	candidate: &CommittedCandidateReceipt,
@@ -599,10 +609,14 @@ async fn verify_relay_parent_within_scope<Context>(
 		_ => return Err(JfyiError::RelayParentOutOfScope),
 	}
 
-	if let Some(rt_max) =
-		fetch_session_execution_config_max_pov_size(ctx, query_at, fetch_session).await
+	if let Some(rt_max) = fetch_session_execution_config_max_pov_size(
+		ctx,
+		max_pov_size_cache,
+		query_at,
+		fetch_session,
+	)
+	.await
 	{
-		let rt_max = rt_max as u32;
 		if rt_max != pvd.max_pov_size {
 			return Err(JfyiError::MaxPovSizeMismatch { expected: rt_max, got: pvd.max_pov_size });
 		}
@@ -659,6 +673,7 @@ async fn handle_introduce_seconded_candidate<Context>(
 		if let Err(err) = verify_relay_parent_within_scope(
 			ctx,
 			&mut view.relay_parent_info_cache,
+			&mut view.session_max_pov_size_cache,
 			*scheduling_parent,
 			sp_data.session_index,
 			&candidate,
@@ -932,6 +947,7 @@ async fn answer_hypothetical_membership_request<Context>(
 					if let Err(err) = verify_relay_parent_within_scope(
 						ctx,
 						&mut view.relay_parent_info_cache,
+						&mut view.session_max_pov_size_cache,
 						*active_leaf,
 						leaf_view.session_index,
 						receipt.as_ref(),
@@ -1064,13 +1080,14 @@ async fn answer_prospective_validation_data_request<Context>(
 				if max_pov_size.is_none() {
 					max_pov_size = fetch_session_execution_config_max_pov_size(
 						ctx,
+						&mut view.session_max_pov_size_cache,
 						leaf,
 						request.session_index,
 					)
 					.await
 					.or_else(|| {
 						// Pre-v17 fallback: scheduling session's `max_pov_size`.
-						Some(fragment_chain.scope().base_constraints().max_pov_size)
+						Some(fragment_chain.scope().base_constraints().max_pov_size as u32)
 					});
 				}
 
@@ -1102,8 +1119,8 @@ async fn answer_prospective_validation_data_request<Context>(
 /// so callers can fall back to the scheduling-session value from backing
 /// constraints.
 ///
-/// The `usize` return matches `Constraints::max_pov_size` in the
-/// `inclusion_emulator` module.
+/// Cached per-session in `SessionMaxPovSizeCache`; errors are NOT cached so
+/// a transient failure can recover on the next call.
 ///
 /// Unexpected runtime or channel errors are logged and treated as "no
 /// override"; the worst-case consequence is that the collator builds with the
@@ -1112,16 +1129,28 @@ async fn answer_prospective_validation_data_request<Context>(
 #[overseer::contextbounds(ProspectiveParachains, prefix = self::overseer)]
 async fn fetch_session_execution_config_max_pov_size<Context>(
 	ctx: &mut Context,
+	cache: &mut SessionMaxPovSizeCache,
 	query_at: Hash,
 	session_index: SessionIndex,
-) -> Option<usize> {
+) -> Option<u32> {
+	if let Some(cached) = cache.get(&session_index) {
+		return *cached;
+	}
+
 	match request_session_execution_config(query_at, session_index, ctx.sender())
 		.await
 		.await
 	{
-		Ok(Ok(Some(cfg))) => Some(cfg.max_pov_size as usize),
+		Ok(Ok(Some(cfg))) => {
+			cache.insert(session_index, Some(cfg.max_pov_size));
+			Some(cfg.max_pov_size)
+		},
 		// Expected fallback paths: pre-v17 runtime, or session's config not stored.
-		Ok(Ok(None)) | Ok(Err(RuntimeApiError::NotSupported { .. })) => None,
+		// Cache the negative so we don't re-query every call.
+		Ok(Ok(None)) | Ok(Err(RuntimeApiError::NotSupported { .. })) => {
+			cache.insert(session_index, None);
+			None
+		},
 		Ok(Err(e)) => {
 			gum::warn!(
 				target: LOG_TARGET,

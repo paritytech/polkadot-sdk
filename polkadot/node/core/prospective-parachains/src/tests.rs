@@ -3528,11 +3528,56 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 			HeadData(vec![1]),
 			test_state.validation_code_hash,
 		);
-		introduce_seconded_candidate(&mut virtual_overseer, &test_state, candidate_a, pvd_a).await;
+		// Introduce candidate_a with a custom intercept that responds `Some(cfg)` with
+		// `max_pov_size = MAX_POV_SIZE` — matches pvd_a, so the cross-check passes. This
+		// also primes the per-session `max_pov_size` cache; the next introduction in the
+		// same session reuses the cached value without re-querying the runtime.
+		let req_a = IntroduceSecondedCandidateRequest {
+			candidate_para: candidate_a.descriptor.para_id(),
+			candidate_receipt: candidate_a,
+			persisted_validation_data: pvd_a,
+		};
+		let (intro_tx_a, intro_rx_a) = oneshot::channel();
+		virtual_overseer
+			.send(overseer::FromOrchestra::Communication {
+				msg: ProspectiveParachainsMessage::IntroduceSecondedCandidate(req_a, intro_tx_a),
+			})
+			.await;
+		let mut intro_rx_a = intro_rx_a.fuse();
+		let intro_response_a = loop {
+			futures::select! {
+				response = &mut intro_rx_a => break response.expect("oneshot sender dropped unexpectedly"),
+				msg = virtual_overseer.recv().fuse() => {
+					if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+						_,
+						RuntimeApiRequest::SessionExecutionConfig(_, tx),
+					)) = msg
+					{
+						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
+							max_pov_size: MAX_POV_SIZE,
+							validation_code_bomb_limit: 0,
+						})))
+						.unwrap();
+						continue;
+					}
+					handle_fetch_relay_parent_info_message(
+						&mut virtual_overseer,
+						msg,
+						&test_state,
+						older_relay_parent,
+						OLDER_RELAY_PARENT_NUMBER,
+					)
+					.await;
+				}
+			}
+		};
+		assert!(intro_response_a, "candidate_a must be accepted");
 
 		// (1) Tampered-PVD cross-check: introduce a second candidate (para 2) whose PVD
-		// declares `max_pov_size = 555_555` while the runtime returns `MAX_POV_SIZE`. The
-		// cross-check in `verify_relay_parent_within_scope` must reject it.
+		// declares `max_pov_size = 555_555`. The runtime value cached from candidate_a's
+		// introduction is `MAX_POV_SIZE`; the cross-check in `verify_relay_parent_within_scope`
+		// fires against the cached value and must reject. No new SessionExecutionConfig
+		// runtime call is expected — the per-session cache absorbs it.
 		const TAMPERED_MAX_POV_SIZE: u32 = 555_555;
 		assert_ne!(TAMPERED_MAX_POV_SIZE, MAX_POV_SIZE, "test sentinel collision");
 		let (mut candidate_b, mut pvd_b) = make_candidate_v3(
@@ -3559,26 +3604,25 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 			})
 			.await;
 
-		// Custom intercept: respond `Some(cfg)` with `MAX_POV_SIZE` for the v3 descriptor's
-		// session (1). The previous `introduce_seconded_candidate` for candidate_a went through
-		// the helper which returns `NotSupported` (uncached), so this fresh runtime call fires.
-		// The cross-check then sees `pvd.max_pov_size (555_555) != cfg.max_pov_size (1_000_000)`.
 		let mut intro_rx = intro_rx.fuse();
 		let intro_response = loop {
 			futures::select! {
 				response = &mut intro_rx => break response.expect("oneshot sender dropped unexpectedly"),
 				msg = virtual_overseer.recv().fuse() => {
-					if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
-						_,
-						RuntimeApiRequest::SessionExecutionConfig(_, tx),
-					)) = msg
-					{
-						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
-							max_pov_size: MAX_POV_SIZE,
-							validation_code_bomb_limit: 0,
-						})))
-						.unwrap();
-						continue;
+					// SessionExecutionConfig should not appear here — it's served from the
+					// per-session cache primed by candidate_a's introduction. If a regression
+					// removes the cache, this match arm will catch it: respond `Some(cfg)` so
+					// the test still rejects, but the cache assertion below will fail.
+					if matches!(
+						msg,
+						AllMessages::RuntimeApi(RuntimeApiMessage::Request(
+							_,
+							RuntimeApiRequest::SessionExecutionConfig(_, _),
+						))
+					) {
+						panic!(
+							"candidate_b should not trigger SessionExecutionConfig — the per-session cache was primed by candidate_a"
+						);
 					}
 					handle_fetch_relay_parent_info_message(
 						&mut virtual_overseer,
