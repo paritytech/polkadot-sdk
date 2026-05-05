@@ -247,11 +247,14 @@ async fn mesh_refresh_loop<Block, Client, AD>(
 		.map(AuthorityId::from)
 		.collect();
 
+	let local_peer_id = network.local_peer_id();
 	let mut state = LoopState::new();
 	let mut ad_enabled = false;
 
 	loop {
-		let at = client.info().best_hash;
+		// Read the authority set from the latest *finalized* parachain block so all
+		// collators converge on the same subset across short-lived forks.
+		let at = client.info().finalized_hash;
 		if !ad_enabled {
 			ad_enabled = client
 				.runtime_api()
@@ -265,6 +268,7 @@ async fn mesh_refresh_loop<Block, Client, AD>(
 				&sync_service,
 				&mut authority_discovery_service,
 				&local_pub_keys,
+				local_peer_id,
 				max_reserved,
 				&protocol,
 				&mut state,
@@ -316,6 +320,7 @@ async fn update_parachain_authorities<Block, AD>(
 	sync_service: &SyncingService<Block>,
 	authority_discovery_service: &mut sc_authority_discovery::Service,
 	local_pub_keys: &HashSet<AuthorityId>,
+	local_peer_id: PeerId,
 	max_reserved: usize,
 	protocol: &ProtocolName,
 	state: &mut LoopState,
@@ -347,7 +352,17 @@ async fn update_parachain_authorities<Block, AD>(
 		match authority_discovery_service.get_addresses_by_authority_id(id.clone()).await {
 			Some(a) => {
 				let original_len = a.len();
-				let a: Vec<Multiaddr> = a.into_iter().take(MAX_ADDRS_PER_AUTHORITY).collect();
+				// Drop multiaddrs that resolve to our own libp2p PeerId. `set_reserved_peers`
+				// rejects the entire call if the input contains the local PeerId, which can
+				// happen if our own AD record (or a stale one keyed under another authority)
+				// reaches our DHT view.
+				let a: Vec<Multiaddr> = a
+					.into_iter()
+					.filter(|m| {
+						PeerId::try_from_multiaddr(m).map_or(true, |pid| pid != local_peer_id)
+					})
+					.take(MAX_ADDRS_PER_AUTHORITY)
+					.collect();
 				if original_len > MAX_ADDRS_PER_AUTHORITY {
 					log::debug!(
 						target: LOG_TARGET,
@@ -416,10 +431,11 @@ async fn update_parachain_authorities<Block, AD>(
 		peer_ids.len(),
 	);
 
-	sync_service.set_no_slot_peers(peer_ids.clone());
-
 	match network.set_reserved_peers(protocol.clone(), addrs.clone()) {
 		Ok(()) => {
+			// Only push the no-slot set after the reserved set is accepted so the two
+			// stay in sync. On Err, neither side advances and we retry on the next tick.
+			sync_service.set_no_slot_peers(peer_ids);
 			state.last_authorities = Some(selected);
 			state.last_addrs = Some(addrs);
 		},

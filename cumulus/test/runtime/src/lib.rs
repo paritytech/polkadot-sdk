@@ -634,12 +634,7 @@ pub type SingleBlockMigrations = (
 #[cfg(feature = "with-authority-discovery")]
 pub mod migrations {
 	use super::*;
-	use sp_core::crypto::KeyTypeId;
-
-	/// Key-type id for `pallet_authority_discovery` (ASCII "audi").
-	const AUTHORITY_DISCOVERY_KEY_TYPE: KeyTypeId = KeyTypeId(*b"audi");
-	/// Key-type id for `pallet_aura` (ASCII "aura").
-	const AURA_KEY_TYPE: KeyTypeId = KeyTypeId(*b"aura");
+	use sp_core::crypto::key_types;
 
 	pub struct EnableAuthorityDiscovery;
 
@@ -679,10 +674,19 @@ pub mod migrations {
 					<AuthorityDiscoveryId as sp_runtime::RuntimeAppPublic>::to_raw_vec(
 						&session_keys.authority_discovery,
 					);
-				pallet_session::KeyOwner::<Runtime>::insert((AURA_KEY_TYPE, aura_bytes), &account);
+				pallet_session::KeyOwner::<Runtime>::insert((key_types::AURA, aura_bytes), &account);
 				pallet_session::KeyOwner::<Runtime>::insert(
-					(AUTHORITY_DISCOVERY_KEY_TYPE, audi_bytes),
+					(key_types::AUTHORITY_DISCOVERY, audi_bytes),
 					&account,
+				);
+
+				// Mirror `pallet_session::do_set_keys`: increment the account's consumer
+				// count so a future `purge_keys` decrements it correctly.
+				let inc_ok =
+					frame_system::Pallet::<Runtime>::inc_consumers(&account).is_ok();
+				debug_assert!(
+					inc_ok,
+					"authority account has no providers; cannot inc_consumers in migration",
 				);
 
 				validators.push(account.clone());
@@ -712,11 +716,13 @@ pub mod migrations {
 			);
 			pallet_authority_discovery::Keys::<Runtime>::put(bounded);
 
-			// Reads: 1 (Validators empty check) + 1 (aura authorities).
-			// Writes per validator: NextKeys + 2×KeyOwner = 3.
+			// Reads: 1 (Validators empty check) + 1 (aura authorities) + n (system
+			// account ref count read by `inc_consumers`).
+			// Writes per validator: NextKeys + 2×KeyOwner + 1 (consumer count) = 4.
 			// Plus Validators + QueuedKeys + AuthorityDiscovery::Keys = 3 fixed writes.
-			let writes = n.saturating_mul(3).saturating_add(3);
-			db.reads(2).saturating_add(db.writes(writes))
+			let reads = n.saturating_add(2);
+			let writes = n.saturating_mul(4).saturating_add(3);
+			db.reads(reads).saturating_add(db.writes(writes))
 		}
 	}
 
@@ -735,6 +741,12 @@ pub mod migrations {
 					.collect();
 				let bounded = frame_support::BoundedVec::<_, _>::try_from(aura_keys).expect("fits");
 				pallet_aura::Authorities::<Runtime>::put(bounded);
+				// Provision providers so the migration's `inc_consumers` call can succeed —
+				// production parachains rely on every authority account being funded.
+				for k in keys {
+					let account: AccountId = k.to_account_id();
+					frame_system::Pallet::<Runtime>::inc_providers(&account);
+				}
 			});
 			ext
 		}
@@ -742,7 +754,9 @@ pub mod migrations {
 		fn expected_weight(n: u64) -> Weight {
 			let db: frame_support::weights::RuntimeDbWeight =
 				<Runtime as frame_system::Config>::DbWeight::get();
-			db.reads(2).saturating_add(db.writes(n.saturating_mul(3).saturating_add(3)))
+			let reads = n.saturating_add(2);
+			let writes = n.saturating_mul(4).saturating_add(3);
+			db.reads(reads).saturating_add(db.writes(writes))
 		}
 
 		#[test]
@@ -758,6 +772,12 @@ pub mod migrations {
 				// 2 KeyOwner entries per validator (aura + audi).
 				assert_eq!(pallet_session::KeyOwner::<Runtime>::iter().count(), 2 * n);
 				assert_eq!(pallet_authority_discovery::Keys::<Runtime>::get().len(), n);
+				// Each authority account had its system-account consumer count bumped,
+				// matching `pallet_session::do_set_keys` semantics.
+				for k in keys.iter() {
+					let account: AccountId = k.to_account_id();
+					assert_eq!(frame_system::Pallet::<Runtime>::consumers(&account), 1);
+				}
 				assert_eq!(w, expected_weight(n as u64));
 			});
 		}

@@ -16,6 +16,6 @@ crates:
   - name: cumulus-client-collator-mesh
     bump: major
   - name: polkadot-omni-node-lib
-    bump: minor
+    bump: major
   - name: sc-network-sync
     bump: minor

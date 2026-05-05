@@ -15,13 +15,14 @@
 //!    carries `spec_version = 4` (default = 2), triggering the `EnableAuthorityDiscovery` migration
 //!    which seeds `pallet_session` from `pallet_aura::Authorities`.
 //! 3. Wait for the runtime upgrade digest to appear in a finalised block.
-//! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired, AD workers now have
-//!    keys to gossip).
-//! 5. Assert the full collator-to-collator reserved-peer mesh forms.
-//! 6. Capture current AD authority set; rotate AD keys for every collator via `author_insertKey` +
-//!    `session.set_keys`.
-//! 7. Wait for `AuthorityDiscovery.Keys` to reflect the rotation.
-//! 8. Assert the mesh still converges after rotation.
+//! 4. Wait for `AuthorityDiscovery.Keys` to become non-empty (migration fired). The on-chain AD
+//!    set is populated, but no node yet has an `audi` keystore entry — the AD worker has nothing
+//!    to publish under that key until step 5.
+//! 5. Rotate AD keys for every collator via `author_insertKey` + `session.set_keys`. This puts a
+//!    real `audi` key into each collator's keystore, enabling the AD worker to publish signed
+//!    DHT records that the others can resolve.
+//! 6. Wait for `AuthorityDiscovery.Keys` to reflect the rotation.
+//! 7. Assert the full collator-to-collator reserved-peer mesh forms.
 
 use crate::utils::{initialize_network, BEST_BLOCK_METRIC};
 
@@ -523,21 +524,27 @@ async fn collator_mesh_full_mesh_with_tight_non_reserved_budget() -> Result<(), 
 	wait_for_authorities_change(&para_client, &pre_upgrade_authorities).await?;
 	log::info!("AuthorityDiscovery.Keys are now populated");
 
-	// Step 3: assert the full collator mesh forms after the upgrade.
-	log::info!("Asserting collator mesh forms post-upgrade");
-	assert_full_collator_mesh(&network, collator_names()).await?;
-
-	// Step 4: capture current AD authority set, then rotate keys.
+	// Step 3: capture the migration-seeded AD authority set, then rotate keys.
+	//
+	// The migration writes `AuthorityDiscovery::Keys` using each authority's aura sr25519
+	// pubkey as the on-chain AD pubkey, but no node has an `audi` keystore entry yet —
+	// so the AD worker has nothing to sign DHT records with, and the mesh cannot form
+	// before this rotation. `author_insertKey` + `session.set_keys` puts a real `audi`
+	// key into each collator's keystore, after which the worker publishes signed records
+	// that other collators can resolve.
 	let initial_authorities = read_authority_discovery_authorities(&para_client).await?;
-	log::info!("Captured {} post-upgrade AD authorities; rotating keys", initial_authorities.len());
+	log::info!(
+		"Captured {} migration-seeded AD authorities; rotating to real AD keys",
+		initial_authorities.len(),
+	);
 	rotate_authority_discovery_keys(&network, collator_names()).await?;
 
-	// Step 5: wait for AuthorityDiscovery.Keys to reflect the rotation.
+	// Step 4: wait for AuthorityDiscovery.Keys to reflect the rotation.
 	log::info!("Waiting for AuthorityDiscovery keys to reflect the rotation");
 	wait_for_authorities_change(&para_client, &initial_authorities).await?;
 
-	// Step 6: assert the mesh still converges with the new AD keys.
-	log::info!("Asserting full collator-to-collator mesh post-rotation");
+	// Step 5: assert the full collator-to-collator mesh forms with real AD keys in place.
+	log::info!("Asserting full collator-to-collator mesh");
 	assert_full_collator_mesh(&network, collator_names()).await?;
 
 	log::info!("Test finished successfully.");
