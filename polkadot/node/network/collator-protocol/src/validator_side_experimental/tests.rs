@@ -4286,6 +4286,231 @@ async fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete() {
 	test_state.assert_no_messages().await;
 }
 
+// =============================================================================================
+// Window-check tests at advertisement-acceptance time. `is_slot_available` (gate inside
+// `try_accept_advertisement`) checks that the advertised para is reachable from the SP's
+// visible window. These exercise that gate in isolation.
+// =============================================================================================
+
+// Older SP cannot sponsor an advertisement for a para whose only CQ position sits beyond its
+// visible window prefix.
+//
+// Leaf 10 CQ on our core: [other, other, A]. From SP=9 (offset 1) the window is [other, other]
+// — A is at position 2, outside the prefix. The advertisement is rejected pre-backing-check
+// (no `CanSecond` request).
+#[tokio::test]
+async fn obsolete_positions_rejected() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	let para_a: ParaId = 100.into();
+	let para_other: ParaId = 200.into();
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(core, vec![para_other, para_other, para_a]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer = peer_id(0);
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer, para_a).await;
+
+	let (_, adv) =
+		dummy_candidate(get_hash(9), para_a, peer, core, 1, Hash::from_low_u64_be(100));
+	state
+		.handle_advertisement(
+			&mut sender,
+			adv.peer_id,
+			adv.scheduling_parent,
+			adv.prospective_candidate,
+			adv.advertised_descriptor_version,
+		)
+		.await;
+
+	// Rejected before reaching the backing subsystem.
+	assert!(state.advertisements().is_empty());
+	test_state.assert_no_messages().await;
+}
+
+// Boundary test for `is_slot_available`'s positive branch — kept alongside the multi-SP and
+// fork tests because those exercise acceptance only indirectly (their assertions are on
+// fetch counts). If `is_slot_available` rejected too eagerly, the multi-SP tests would
+// fail at fetch-count time without telling us which layer broke. This test isolates the
+// contract: with capacity wide open, an in-window advertisement is accepted.
+//
+// Complement of `obsolete_positions_rejected`: when para A sits within the older SP's
+// visible prefix, the advertisement is accepted and proceeds to the backing-check.
+//
+// Leaf 10 CQ on our core: [A, other, A]. From SP=9 (offset 1) the window is [A, other] — A
+// is at position 0, inside the prefix.
+#[tokio::test]
+async fn non_obsolete_position_accepted() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	let para_a: ParaId = 100.into();
+	let para_other: ParaId = 200.into();
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(core, vec![para_a, para_other, para_a]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer = peer_id(0);
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer, para_a).await;
+
+	let (_, adv) =
+		dummy_candidate(get_hash(9), para_a, peer, core, 1, Hash::from_low_u64_be(100));
+	test_state.handle_advertisement(&mut state, adv).await;
+
+	// Accepted (passes the window check + reaches backing which approves).
+	assert_eq!(state.advertisements(), [adv].into());
+}
+
+// Off-by-one boundary test for the `valid_len = lookahead - offset` arithmetic at offset 0.
+// The fork and multi-SP tests use all-same-para CQs so their last position is trivially
+// in-window — they wouldn't catch a regression that made the leaf's window
+// `cq.len() - 1` instead of `cq.len()`. Here para A is only at the last position, so
+// acceptance proves the leaf's window reaches position 2 specifically.
+//
+// Leaf 10 CQ on our core: [other, other, A]. From SP=10 (offset 0) the window is the full
+// CQ; A at position 2 is reachable. The advertisement is accepted.
+#[tokio::test]
+async fn last_claim_queue_position_accepted_at_leaf() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+	let para_a: ParaId = 100.into();
+	let para_other: ParaId = 200.into();
+	test_state
+		.rp_info
+		.get_mut(&active_leaf)
+		.unwrap()
+		.claim_queue
+		.insert(core, vec![para_other, para_other, para_a]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	let peer = peer_id(0);
+	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer, para_a).await;
+
+	let (_, adv) =
+		dummy_candidate(active_leaf, para_a, peer, core, 1, Hash::from_low_u64_be(100));
+	test_state.handle_advertisement(&mut state, adv).await;
+
+	assert_eq!(state.advertisements(), [adv].into());
+}
+
+// Already-seconded candidates count as consumers in the per-core CQ pool — the same way
+// in-flight fetches do. After saturating the per-para slots at SP=10 by seconding two
+// candidates of para 100 (leaf 10's CQ has exactly two positions for it), a third
+// advertisement of the same para at the same SP must not be fetched.
+//
+// This exercises the `fetched_collations` consumer-collection path in
+// `build_path_states`, complementing the in-flight-only coverage in
+// `linear_multi_sp_same_para_capacity_not_double_counted`.
+#[tokio::test]
+async fn seconded_candidates_consume_capacity() {
+	let mut test_state = TestState::default();
+	let leaf = get_hash(10);
+	let leaf_info = test_state.rp_info[&leaf].clone();
+	let core = leaf_info.assigned_core;
+	let session = leaf_info.session_index;
+	let para: ParaId = 100.into();
+
+	// Sanity: leaf 10's CQ has para 100 twice — capacity for `para` is exactly 2.
+	assert_eq!(leaf_info.claim_queue[&core], vec![para, 200.into(), para]);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	// Two candidates of `para` chained by parent_head so they're independently fetchable.
+	let make_candidate = |peer: PeerId, parent_head: HeadData, output_head: HeadData| {
+		let pvd =
+			PersistedValidationData { parent_head, relay_parent_number: 10, ..dummy_pvd() };
+		let ccr = CommittedCandidateReceipt {
+			descriptor: make_valid_candidate_descriptor_v2(
+				para,
+				leaf,
+				core,
+				session,
+				pvd.hash(),
+				dummy_pov().hash(),
+				Hash::zero(),
+				output_head.hash(),
+				Hash::zero(),
+			),
+			commitments: dummy_candidate_commitments(output_head),
+		};
+		let receipt = ccr.to_plain();
+		let prospective_candidate = Some(ProspectiveCandidate {
+			candidate_hash: receipt.hash(),
+			parent_head_data_hash: pvd.parent_head.hash(),
+		});
+		let adv = Advertisement {
+			peer_id: peer,
+			para_id: para,
+			scheduling_parent: leaf,
+			prospective_candidate,
+			advertised_descriptor_version: None,
+		};
+		(pvd, ccr, adv)
+	};
+
+	let peer_a = peer_id(1);
+	let peer_b = peer_id(2);
+	state.handle_peer_connected(&mut sender, peer_a, CollationVersion::V2).await;
+	state.handle_peer_connected(&mut sender, peer_b, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_a, para).await;
+	state.handle_declare(&mut sender, peer_b, para).await;
+
+	let (pvd_a, ccr_a, adv_a) =
+		make_candidate(peer_a, HeadData(vec![0]), HeadData(vec![1]));
+	let (pvd_b, ccr_b, adv_b) =
+		make_candidate(peer_b, HeadData(vec![1]), HeadData(vec![2]));
+
+	// Advertise, fetch, second both. After this, capacity for `para` is exhausted via
+	// `fetched_collations` (no in-flight fetches remain).
+	for (adv, ccr, pvd, peer) in [
+		(adv_a, ccr_a, pvd_a, peer_a),
+		(adv_b, ccr_b, pvd_b, peer_b),
+	] {
+		test_state.handle_advertisement(&mut state, adv).await;
+		state.try_launch_new_fetch_requests(&mut sender).await;
+		test_state.assert_collation_request(adv).await;
+		test_state
+			.handle_fetched_collation(&mut state, adv, ccr.to_plain(), Some(pvd), leaf)
+			.await;
+		test_state
+			.second_collation(&mut state, peer, CollationVersion::V2, ccr, leaf)
+			.await;
+	}
+	test_state.assert_no_messages().await;
+
+	// A third advertisement of the same para at the same SP. Capacity is already taken by
+	// the two seconded candidates; nothing should be fetched.
+	let third_peer = peer_id(3);
+	state.handle_peer_connected(&mut sender, third_peer, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, third_peer, para).await;
+	let (_, _, adv_third) =
+		make_candidate(third_peer, HeadData(vec![2]), HeadData(vec![3]));
+	test_state.handle_advertisement(&mut state, adv_third).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	test_state.assert_no_messages().await;
+}
+
 // TODO:
 // - Test subsystem startup: make sure we are properly populating the db.
 // - Test a change in the registered paras on finalized block notification.
