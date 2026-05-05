@@ -33,7 +33,7 @@ pub mod imports {
 /// without duplicating the full body.
 #[macro_export]
 macro_rules! impl_node_runtime_apis {
-	($runtime: ty, $block: tt, $aura_id: ty $(, { $($extras:tt)* } )?) => {
+	($runtime: ty, $block: tt, $aura_id: ty) => {
 		sp_api::impl_runtime_apis! {
 			impl sp_api::Core<$block> for $runtime {
 				fn version() -> sp_version::RuntimeVersion {
@@ -264,8 +264,6 @@ macro_rules! impl_node_runtime_apis {
 					unimplemented!()
 				}
 			}
-
-			$( $($extras)* )?
 		}
 	};
 }
