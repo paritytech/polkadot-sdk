@@ -36,9 +36,7 @@ pub enum SubscribeEvent {
 		filter_id: String,
 	},
 	/// Statements admitted after matching filters were attached
-	NewStatements {
-		statements: Vec<NewStatementEntry>,
-	},
+	NewStatements { statements: Vec<NewStatementEntry> },
 	/// Terminal notification
 	Stop,
 }

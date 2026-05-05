@@ -60,7 +60,6 @@ sc-rpc = { workspace = true, default-features = true, features = ["test-helpers"
 sc-service = { workspace = true, default-features = true }
 sc-transaction-pool = { workspace = true, default-features = true }
 sc-utils = { workspace = true, default-features = true }
-tempfile = { workspace = true }
 serde_json = { workspace = true, default-features = true }
 sp-crypto-hashing = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
@@ -68,4 +67,5 @@ sp-maybe-compressed-blob = { workspace = true, default-features = true }
 substrate-test-runtime = { workspace = true }
 substrate-test-runtime-client = { workspace = true }
 substrate-test-runtime-transaction-pool = { workspace = true }
+tempfile = { workspace = true }
 tokio = { features = ["macros"], workspace = true, default-features = true }
