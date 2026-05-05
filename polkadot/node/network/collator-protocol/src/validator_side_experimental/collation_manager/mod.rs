@@ -418,7 +418,7 @@ impl CollationManager {
 				let candidate_sps = leaf_core_cqs[lc_idx].sps_reaching(idx);
 				let highest_rep_of_para = max_scores.get(&para_id).copied().unwrap_or_default();
 
-				let outcome = self.select_best_advertisement(
+				let outcome = self.pick_best_advertisement(
 					now,
 					para_id,
 					candidate_sps,
@@ -778,7 +778,7 @@ impl CollationManager {
 	/// - `Either::Left(None)` if there are no eligible advertisements,
 	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
 	///   to its scheduling parent's activation time.
-	fn select_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
+	fn pick_best_advertisement<RepQueryFn: Fn(&PeerId, &ParaId) -> Option<Score>>(
 		&self,
 		now: Instant,
 		para_id: ParaId,
@@ -1594,7 +1594,7 @@ mod tests {
 	}
 
 	#[test]
-	fn select_best_advertisement_works() {
+	fn pick_best_advertisement_works() {
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 		let score = |val: u16| Score::new(val);
@@ -1643,7 +1643,7 @@ mod tests {
 			let get_rep = |_: &PeerId, _: &ParaId| Some(score(100));
 
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1666,7 +1666,7 @@ mod tests {
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1690,7 +1690,7 @@ mod tests {
 
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY
-			let result = collation_manager.select_best_advertisement(
+			let result = collation_manager.pick_best_advertisement(
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
@@ -1727,7 +1727,7 @@ mod tests {
 
 			// All have old timestamps, so delay has passed. Should pick peer_b (highest score).
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1753,7 +1753,7 @@ mod tests {
 
 			// Same score, peer_b has earlier timestamp.
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1776,7 +1776,7 @@ mod tests {
 				.add_advertisement(make_adv(peer_a), old_timestamp);
 
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1794,7 +1794,7 @@ mod tests {
 			let unknown_scheduling_parent = Hash::random();
 
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(unknown_scheduling_parent),
@@ -1825,7 +1825,7 @@ mod tests {
 			// highest_rep = 100, peer's score = 0 (< INSTANT_FETCH_REP_THRESHOLD), so delay =
 			// MAX_FETCH_DELAY. But activated_at is 2*MAX_FETCH_DELAY ago, so remaining_delay = 0.
 			assert_eq!(
-				collation_manager.select_best_advertisement(
+				collation_manager.pick_best_advertisement(
 					now,
 					para_id,
 					std::iter::once(scheduling_parent),
@@ -1850,7 +1850,7 @@ mod tests {
 
 			per_sp.add_advertisement(make_adv(peer_a), recent_timestamp);
 
-			let result = collation_manager.select_best_advertisement(
+			let result = collation_manager.pick_best_advertisement(
 				now,
 				para_id,
 				std::iter::once(scheduling_parent),
