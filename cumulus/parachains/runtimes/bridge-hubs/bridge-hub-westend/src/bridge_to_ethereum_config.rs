@@ -356,8 +356,10 @@ pub mod benchmark_helpers {
 	};
 	use snowbridge_pallet_inbound_queue::BenchmarkHelper;
 	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message;
+	use snowbridge_pallet_inbound_queue_fixtures::register_token::make_register_token_message_worst_case;
 	use snowbridge_pallet_inbound_queue_v2::BenchmarkHelper as InboundQueueBenchmarkHelperV2;
 	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message as make_register_token_message_v2;
+	use snowbridge_pallet_inbound_queue_v2_fixtures::register_token::make_register_token_message_worst_case as make_register_token_message_v2_worst_case;
 	use snowbridge_pallet_outbound_queue_v2::{
 		fixture::{
 			make_submit_delivery_receipt_message, make_submit_delivery_receipt_message_worst_case,
@@ -394,7 +396,7 @@ pub mod benchmark_helpers {
 		fn initialize_storage_worst_case_invalid_proof() -> EventFixture<
 			<<Runtime as snowbridge_pallet_outbound_queue_v2::Config>::Verifier as Verifier>::Proof,
 		> {
-			let message = make_submit_delivery_receipt_message_worst_case::<
+			let message = make_register_token_message_worst_case::<
 				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
 				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
 			>();
@@ -425,7 +427,7 @@ pub mod benchmark_helpers {
 		fn initialize_storage_worst_case_invalid_proof() -> EventFixture<
 			<<Runtime as snowbridge_pallet_outbound_queue_v2::Config>::Verifier as Verifier>::Proof,
 		> {
-			let message = make_submit_delivery_receipt_message_worst_case::<
+			let message = make_register_token_message_v2_worst_case::<
 				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxMptNodeSize,
 				<Runtime as snowbridge_pallet_ethereum_client::Config>::MaxReceiptProofDepth,
 			>();
