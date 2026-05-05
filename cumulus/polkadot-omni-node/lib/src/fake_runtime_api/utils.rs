@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod imports {
+pub(crate) mod imports {
 	pub use cumulus_primitives_core::{ParaId, RelayProofRequest};
 	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -26,12 +26,6 @@ pub mod imports {
 	pub use sp_weights::Weight;
 }
 
-/// Generate the fake `impl_runtime_apis!` block used to satisfy the lib's
-/// compile-time `RuntimeApi` bounds. Optional `$($extras:tt)*` are appended
-/// inside the same `sp_api::impl_runtime_apis!` block so downstream crates
-/// (e.g. `polkadot-bulletin-parachain`) can layer in extra trait impls
-/// without duplicating the full body.
-#[macro_export]
 macro_rules! impl_node_runtime_apis {
 	($runtime: ty, $block: tt, $aura_id: ty) => {
 		sp_api::impl_runtime_apis! {
@@ -268,4 +262,4 @@ macro_rules! impl_node_runtime_apis {
 	};
 }
 
-pub use impl_node_runtime_apis;
+pub(crate) use impl_node_runtime_apis;

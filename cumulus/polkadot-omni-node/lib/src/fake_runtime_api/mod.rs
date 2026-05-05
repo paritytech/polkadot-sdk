@@ -17,14 +17,13 @@
 //! In an ideal world this would be one runtime which would simplify the code massively.
 //! This is not an ideal world - Polkadot Asset Hub has a different key type.
 
-pub mod utils;
+mod utils;
 
 use utils::{impl_node_runtime_apis, imports::*};
 
 #[allow(dead_code)]
 type CustomBlock = crate::common::types::Block<u32>;
 
-#[allow(missing_docs)]
 pub mod aura_sr25519 {
 	use super::*;
 	#[allow(dead_code)]
@@ -32,7 +31,6 @@ pub mod aura_sr25519 {
 	impl_node_runtime_apis!(FakeRuntime, CustomBlock, sp_consensus_aura::sr25519::AuthorityId);
 }
 
-#[allow(missing_docs)]
 pub mod aura_ed25519 {
 	use super::*;
 	#[allow(dead_code)]
