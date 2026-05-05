@@ -36,7 +36,7 @@ impl CliConfigT for CliConfig {
 	}
 
 	fn copyright_start_year() -> u16 {
-		2024
+		2026
 	}
 }
 
