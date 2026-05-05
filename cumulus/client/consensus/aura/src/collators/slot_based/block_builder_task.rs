@@ -269,10 +269,13 @@ where
 				.runtime_api()
 				.relay_parent_offset(para_best_hash)
 				.unwrap_or_default();
-			let max_relay_parent_session_age = relay_client
-				.max_relay_parent_session_age(scheduling_parent_hash)
-				.await
-				.unwrap_or(0);
+			let mut max_relay_parent_session_age = 0;
+			if v3_enabled {
+				max_relay_parent_session_age = relay_client
+					.max_relay_parent_session_age(scheduling_parent_hash)
+					.await
+					.unwrap_or(0);
+			}
 			let Ok(Some(relay_parent_data)) = offset_relay_parent_find_descendants(
 				&mut relay_chain_data_cache,
 				scheduling_parent_header.clone(),
