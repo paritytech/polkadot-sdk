@@ -501,7 +501,7 @@ impl CollationManager {
 					sps_by_depth.iter().enumerate().filter_map(|(i, x)| x.map(|h| (i, h)))
 				{
 					let Some(per_sp) = self.per_scheduling_parent.get(&sp_hash) else { continue };
-					let valid_len = cq.len() - depth;
+					let valid_len = cq.len().saturating_sub(depth);
 					let in_flight = self
 						.fetching
 						.iter()
@@ -1143,7 +1143,7 @@ impl LeafCoreCq {
 		let Some(depth) = self.sps_by_depth.iter().position(|x| x.as_ref() == Some(sp)) else {
 			return;
 		};
-		let valid_len = self.cq.len() - depth;
+		let valid_len = self.cq.len().saturating_sub(depth);
 		if let Some(latest) = self.cq[..valid_len].iter().rposition(|slot| *slot == Some(para)) {
 			self.cq[latest] = None;
 		}
