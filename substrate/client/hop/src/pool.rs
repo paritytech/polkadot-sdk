@@ -2037,6 +2037,8 @@ mod tests {
 			submit_burst: 2,
 			bandwidth_per_min: 1_000_000,
 			bandwidth_burst: 1_000_000,
+			global_bandwidth_per_min: 1_000_000_000,
+			global_bandwidth_burst: 1_000_000_000,
 		};
 		let pool =
 			HopDataPool::new(1024 * 1024, 1024 * 1024, 100, dir.path().to_path_buf(), cfg).unwrap();

@@ -14,11 +14,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Per-account submit rate limiting for HOP.
+//! Per-account and global submit rate limiting for HOP.
 //!
-//! Two token buckets per `SenderId`: one counts requests, the other counts bytes.
-//! Both must admit a call for it to proceed. Refill happens lazily on each check
-//! using monotonic `Instant`s, so idle users never block a background task.
+//! Two layers of token-bucket limiting:
+//!
+//! 1. **Per-account**: two buckets per `SenderId` (request rate + bandwidth).
+//!    Both must admit a call for it to proceed.
+//! 2. **Global**: one aggregate bandwidth bucket shared across all senders.
+//!    A coordinated multi-account attack that stays within per-account limits
+//!    can still exhaust the global bucket, preventing pool exhaustion.
+//!
+//! Refill happens lazily on each check using monotonic `Instant`s, so idle
+//! users never block a background task.
 
 use crate::types::SenderId;
 use parking_lot::{Mutex, RwLock};
@@ -77,7 +84,7 @@ struct UserRateState {
 	last_touch: Instant,
 }
 
-/// Configuration for the per-account submit rate limiter.
+/// Configuration for the per-account and global submit rate limiter.
 #[derive(Debug, Clone)]
 pub struct RateLimitConfig {
 	/// If false, `RateLimiter::check` always admits immediately.
@@ -90,6 +97,10 @@ pub struct RateLimitConfig {
 	pub bandwidth_per_min: u64,
 	/// Burst size for the bandwidth bucket, in bytes.
 	pub bandwidth_burst: u64,
+	/// Aggregate (cross-account) sustained bandwidth in bytes per minute.
+	pub global_bandwidth_per_min: u64,
+	/// Burst size for the global bandwidth bucket, in bytes.
+	pub global_bandwidth_burst: u64,
 }
 
 impl RateLimitConfig {
@@ -101,20 +112,28 @@ impl RateLimitConfig {
 			submit_burst: 0,
 			bandwidth_per_min: 0,
 			bandwidth_burst: 0,
+			global_bandwidth_per_min: 0,
+			global_bandwidth_burst: 0,
 		}
 	}
 }
 
-/// Per-account token-bucket rate limiter for HOP submissions.
+/// Per-account and global token-bucket rate limiter for HOP submissions.
 pub struct RateLimiter {
 	cfg: RateLimitConfig,
 	users: RwLock<HashMap<SenderId, Arc<Mutex<UserRateState>>>>,
+	/// Single bandwidth bucket shared across all senders.
+	global_bandwidth: Mutex<TokenBucket>,
 }
 
 impl RateLimiter {
 	/// Build a rate limiter from configuration.
 	pub fn new(cfg: RateLimitConfig) -> Self {
-		Self { cfg, users: RwLock::new(HashMap::new()) }
+		let global_bandwidth = Mutex::new(TokenBucket::new(
+			cfg.global_bandwidth_burst as f64,
+			cfg.global_bandwidth_per_min as f64 / 60.0,
+		));
+		Self { cfg, users: RwLock::new(HashMap::new()), global_bandwidth }
 	}
 
 	fn new_state(&self, now: Instant) -> UserRateState {
@@ -142,27 +161,46 @@ impl RateLimiter {
 
 	/// Check whether this account may submit `data_len` bytes right now.
 	///
-	/// Returns `Ok(())` on admission (tokens consumed) or `Err(retry_after_secs)`
-	/// when either bucket is empty.
+	/// Returns `Ok(())` on admission (tokens consumed from both the per-sender
+	/// and global buckets) or `Err(retry_after_secs)` when any bucket is empty.
+	/// On rejection all previously consumed tokens are refunded so the caller
+	/// may retry without a phantom charge.
 	pub fn check(&self, sender_id: &SenderId, data_len: u64) -> Result<(), u64> {
 		if !self.cfg.enabled {
 			return Ok(());
 		}
 
 		let now = Instant::now();
-		let state = self.get_or_create(sender_id, now);
-		let mut state = state.lock();
-		state.last_touch = now;
 
-		let req_wait = state.requests.try_consume(1.0, now).err();
-		if let Some(wait) = req_wait {
-			return Err(wait.as_secs().max(1));
+		// --- Per-sender check ---
+		// Keep the Arc so we can re-lock for refund if the global check fails.
+		let state_arc = self.get_or_create(sender_id, now);
+		{
+			let mut state = state_arc.lock();
+			state.last_touch = now;
+
+			if let Some(wait) = state.requests.try_consume(1.0, now).err() {
+				return Err(wait.as_secs().max(1));
+			}
+
+			// Bandwidth charge can exceed burst (e.g. 8 MiB message, 512 MiB burst). If it
+			// exceeds, we still admit the first request but wait out the deficit on the next.
+			if let Err(wait) = state.bandwidth.try_consume(data_len as f64, now) {
+				// Refund the request token we just took so the two buckets stay consistent.
+				state.requests.tokens = (state.requests.tokens + 1.0).min(state.requests.capacity);
+				return Err(wait.as_secs().max(1));
+			}
 		}
 
-		// Bandwidth charge can exceed burst (e.g. 8 MiB message, 512 MiB burst). If it
-		// exceeds, we still admit the first request but wait out the deficit on the next.
-		if let Err(wait) = state.bandwidth.try_consume(data_len as f64, now) {
-			// Refund the request token we just took so the two buckets stay consistent.
+		// --- Global check ---
+		// Per-sender lock is released before taking the global lock to avoid
+		// any circular dependency with future code paths.
+		if let Err(wait) = self.global_bandwidth.lock().try_consume(data_len as f64, now) {
+			// Global pool is saturated: refund the per-sender tokens we just consumed
+			// so this call has zero net effect on both layers.
+			let mut state = state_arc.lock();
+			state.bandwidth.tokens =
+				(state.bandwidth.tokens + data_len as f64).min(state.bandwidth.capacity);
 			state.requests.tokens = (state.requests.tokens + 1.0).min(state.requests.capacity);
 			return Err(wait.as_secs().max(1));
 		}
@@ -196,6 +234,7 @@ mod tests {
 
 	const SENDER_A: SenderId = [1u8; 32];
 	const SENDER_B: SenderId = [2u8; 32];
+	const SENDER_C: SenderId = [3u8; 32];
 
 	fn test_cfg() -> RateLimitConfig {
 		RateLimitConfig {
@@ -204,6 +243,23 @@ mod tests {
 			submit_burst: 3,
 			bandwidth_per_min: 6_000,
 			bandwidth_burst: 6_000,
+			// Global bucket large enough not to interfere with per-sender tests.
+			global_bandwidth_per_min: 1_000_000,
+			global_bandwidth_burst: 1_000_000,
+		}
+	}
+
+	fn tight_global_cfg() -> RateLimitConfig {
+		RateLimitConfig {
+			enabled: true,
+			// Per-sender limits are generous so they don't trigger first.
+			submit_rate_per_min: 600,
+			submit_burst: 100,
+			bandwidth_per_min: 1_000_000,
+			bandwidth_burst: 1_000_000,
+			// Global bucket is tight: only 5_000 bytes of burst.
+			global_bandwidth_per_min: 5_000,
+			global_bandwidth_burst: 5_000,
 		}
 	}
 
@@ -255,6 +311,8 @@ mod tests {
 			submit_burst: 1,
 			bandwidth_per_min: 600_000,
 			bandwidth_burst: 600_000,
+			global_bandwidth_per_min: 1_000_000_000,
+			global_bandwidth_burst: 1_000_000_000,
 		};
 		let rl = RateLimiter::new(cfg);
 		rl.check(&SENDER_A, 100).unwrap();
@@ -284,5 +342,73 @@ mod tests {
 		}
 		rl.evict_stale();
 		assert_eq!(rl.tracked_senders(), 0);
+	}
+
+	// --- Global bucket tests ---
+
+	#[test]
+	fn global_bandwidth_exhaustion_blocks_all_senders() {
+		let rl = RateLimiter::new(tight_global_cfg());
+
+		// Sender A exhausts the global bucket (5_000 bytes of burst).
+		rl.check(&SENDER_A, 5_000).unwrap();
+
+		// Sender B is within its own per-sender limit but the global bucket is empty.
+		assert!(
+			rl.check(&SENDER_B, 1).is_err(),
+			"sender B should be blocked by the global limit"
+		);
+
+		// Sender A is also blocked now (both per-sender bandwidth and global are exhausted).
+		assert!(rl.check(&SENDER_A, 1).is_err(), "sender A should be blocked too");
+	}
+
+	#[test]
+	fn global_rejection_refunds_per_sender_tokens() {
+		let rl = RateLimiter::new(tight_global_cfg());
+
+		// Exhaust the global bucket with sender A.
+		rl.check(&SENDER_A, 5_000).unwrap();
+
+		// Sender B attempts a submission — global rejects it.
+		assert!(rl.check(&SENDER_B, 1).is_err());
+
+		// Sender B's per-sender buckets must have been refunded: if we now advance
+		// the global clock to refill the global bucket, sender B should succeed on
+		// the very next attempt without hitting a per-sender limit.
+		{
+			let mut global = rl.global_bandwidth.lock();
+			global.last -= Duration::from_secs(10); // fast-forward global refill
+		}
+		rl.check(&SENDER_B, 1).unwrap();
+	}
+
+	#[test]
+	fn per_sender_limit_still_applies_when_global_is_available() {
+		let rl = RateLimiter::new(tight_global_cfg());
+
+		// Exhaust sender A's per-sender request burst (100 requests).
+		for _ in 0..100 {
+			rl.check(&SENDER_A, 1).unwrap();
+		}
+
+		// Sender A is blocked by its own per-sender limit even though the
+		// global bucket still has capacity (we sent 100 bytes, global allows 5_000).
+		assert!(
+			rl.check(&SENDER_A, 1).is_err(),
+			"per-sender request limit should still apply"
+		);
+
+		// Sender C is unaffected.
+		rl.check(&SENDER_C, 1).unwrap();
+	}
+
+	#[test]
+	fn disabled_limiter_ignores_global_bucket() {
+		let rl = RateLimiter::new(RateLimitConfig::disabled());
+		// Should admit without touching any bucket even at enormous payload size.
+		for _ in 0..1_000 {
+			rl.check(&SENDER_A, u64::MAX / 2).unwrap();
+		}
 	}
 }

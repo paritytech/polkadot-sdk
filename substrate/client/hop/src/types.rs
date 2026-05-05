@@ -307,6 +307,15 @@ pub const DEFAULT_BANDWIDTH_PER_MIN_MIB: u64 = 128;
 /// Default bandwidth burst per account in MiB.
 pub const DEFAULT_BANDWIDTH_BURST_MIB: u64 = 256;
 
+/// Default aggregate (cross-account) sustained bandwidth in MiB per minute.
+///
+/// Sized at 8× the per-account default — roughly the point at which
+/// coordinated multi-account ingest begins to crowd out legitimate traffic.
+pub const DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB: u64 = 1024;
+
+/// Default aggregate bandwidth burst in MiB.
+pub const DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB: u64 = 2048;
+
 /// Domain-separator prefix for `hop_submit` signatures.
 pub const HOP_SUBMIT_CONTEXT: &[u8] = b"hop-submit-v1:";
 
