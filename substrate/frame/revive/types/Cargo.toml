@@ -27,6 +27,7 @@ sp-weights = { features = ["serde"], workspace = true }
 
 [dev-dependencies]
 serde_json = { features = ["alloc"], workspace = true }
+subxt = { features = ["native"], workspace = true }
 
 [features]
 default = ["std"]

@@ -14274,6 +14274,7 @@ dependencies = [
  "serde_json",
  "sp-core 28.0.0",
  "sp-weights 27.0.0",
+ "subxt 0.44.2",
 ]
 
 [[package]]
