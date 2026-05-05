@@ -168,21 +168,75 @@ pub type BlockU32 = crate::common::types::Block<u32>;
 /// Block with `u64` block number.
 pub type BlockU64 = crate::common::types::Block<u64>;
 
+/// Names the four fake `RuntimeApi` types the lib's dispatch will use when
+/// instantiating `AuraNode<...>` and the matching `NodeExtensions` slots.
+///
+/// The lib provides [`DefaultRuntimeApiBundle`] which wires its own
+/// `fake_runtime_api` types into all four slots. Downstream binaries that
+/// need a different fake (e.g. one that implements an extra runtime API
+/// trait so the binary's `NodeExtension` impl can be parameterized over it)
+/// supply their own bundle and pass it through `RunConfig` / `run_with_matches`.
+pub trait RuntimeApiBundle: Send + Sync + 'static {
+	/// Fake `RuntimeApi` for `(Block<u32>, sr25519)`.
+	type AuraSr25519U32: ConstructNodeRuntimeApi<
+			BlockU32,
+			crate::common::types::ParachainClient<BlockU32, Self::AuraSr25519U32>,
+		>;
+	/// Fake `RuntimeApi` for `(Block<u32>, ed25519)`.
+	type AuraEd25519U32: ConstructNodeRuntimeApi<
+			BlockU32,
+			crate::common::types::ParachainClient<BlockU32, Self::AuraEd25519U32>,
+		>;
+	/// Fake `RuntimeApi` for `(Block<u64>, sr25519)`.
+	type AuraSr25519U64: ConstructNodeRuntimeApi<
+			BlockU64,
+			crate::common::types::ParachainClient<BlockU64, Self::AuraSr25519U64>,
+		>;
+	/// Fake `RuntimeApi` for `(Block<u64>, ed25519)`.
+	type AuraEd25519U64: ConstructNodeRuntimeApi<
+			BlockU64,
+			crate::common::types::ParachainClient<BlockU64, Self::AuraEd25519U64>,
+		>;
+}
+
+/// Default bundle used by `polkadot-omni-node`. Wires the lib's own
+/// `fake_runtime_api` types into all four slots.
+#[derive(Default)]
+pub struct DefaultRuntimeApiBundle;
+
+impl RuntimeApiBundle for DefaultRuntimeApiBundle {
+	type AuraSr25519U32 = crate::fake_runtime_api::aura_sr25519::RuntimeApi;
+	type AuraEd25519U32 = crate::fake_runtime_api::aura_ed25519::RuntimeApi;
+	type AuraSr25519U64 = crate::fake_runtime_api::aura_sr25519::RuntimeApi;
+	type AuraEd25519U64 = crate::fake_runtime_api::aura_ed25519::RuntimeApi;
+}
+
 /// Container for [`NodeExtension`]s installed on a node, keyed by the
 /// `(Block, RuntimeApi)` combinations the runtime resolver picks. Only the
 /// combo matching the resolved runtime is consumed; the others are ignored.
-#[derive(Default)]
-pub struct NodeExtensions {
-	/// Extensions for `(Block<u32>, aura_sr25519::RuntimeApi)`.
-	pub aura_sr25519_u32:
-		Vec<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>>,
-	/// Extensions for `(Block<u32>, aura_ed25519::RuntimeApi)`.
-	pub aura_ed25519_u32:
-		Vec<Box<dyn NodeExtension<BlockU32, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>>,
-	/// Extensions for `(Block<u64>, aura_sr25519::RuntimeApi)`.
-	pub aura_sr25519_u64:
-		Vec<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>>,
-	/// Extensions for `(Block<u64>, aura_ed25519::RuntimeApi)`.
-	pub aura_ed25519_u64:
-		Vec<Box<dyn NodeExtension<BlockU64, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>>,
+///
+/// Parameterized over a [`RuntimeApiBundle`] (default
+/// [`DefaultRuntimeApiBundle`]) which names the four fake `RuntimeApi` types
+/// the slots are typed against. Downstream binaries that need their fake to
+/// implement extra runtime API traits supply their own bundle.
+pub struct NodeExtensions<Bundle: RuntimeApiBundle = DefaultRuntimeApiBundle> {
+	/// Extensions for `(Block<u32>, sr25519)`.
+	pub aura_sr25519_u32: Vec<Box<dyn NodeExtension<BlockU32, Bundle::AuraSr25519U32>>>,
+	/// Extensions for `(Block<u32>, ed25519)`.
+	pub aura_ed25519_u32: Vec<Box<dyn NodeExtension<BlockU32, Bundle::AuraEd25519U32>>>,
+	/// Extensions for `(Block<u64>, sr25519)`.
+	pub aura_sr25519_u64: Vec<Box<dyn NodeExtension<BlockU64, Bundle::AuraSr25519U64>>>,
+	/// Extensions for `(Block<u64>, ed25519)`.
+	pub aura_ed25519_u64: Vec<Box<dyn NodeExtension<BlockU64, Bundle::AuraEd25519U64>>>,
+}
+
+impl<Bundle: RuntimeApiBundle> Default for NodeExtensions<Bundle> {
+	fn default() -> Self {
+		Self {
+			aura_sr25519_u32: Vec::new(),
+			aura_ed25519_u32: Vec::new(),
+			aura_sr25519_u64: Vec::new(),
+			aura_ed25519_u64: Vec::new(),
+		}
+	}
 }

@@ -6,7 +6,21 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+#[allow(missing_docs)]
+mod bulletin_fake_runtime_api;
 mod hop_extension;
+
+/// Bulletin-local [`polkadot_omni_node_lib::RuntimeApiBundle`] that uses the
+/// `bulletin_fake_runtime_api` types (which implement `sp_hop::HopRuntimeApi`)
+/// in all four slots, so the lib's own fake stays HOP-free.
+pub struct BulletinRuntimeApiBundle;
+
+impl polkadot_omni_node_lib::RuntimeApiBundle for BulletinRuntimeApiBundle {
+	type AuraSr25519U32 = bulletin_fake_runtime_api::aura_sr25519::RuntimeApi;
+	type AuraEd25519U32 = bulletin_fake_runtime_api::aura_ed25519::RuntimeApi;
+	type AuraSr25519U64 = bulletin_fake_runtime_api::aura_sr25519::RuntimeApi;
+	type AuraEd25519U64 = bulletin_fake_runtime_api::aura_ed25519::RuntimeApi;
+}
 
 // Keep the `#[global_allocator]` from being dropped by the linker.
 #[cfg(target_os = "linux")]
@@ -53,13 +67,16 @@ fn main() -> color_eyre::eyre::Result<()> {
 	let hop_params = sc_hop::HopParams::from_arg_matches(&matches)
 		.expect("HopParams::augment_args was applied to the parser; qed");
 
-	let mut config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
+	let mut config: RunConfig<BulletinRuntimeApiBundle> =
+		RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
 	config.extensions.aura_sr25519_u32 = vec![Box::new(hop_extension::HopExtension::<
-		polkadot_omni_node_lib::common::BlockU32,
-		polkadot_omni_node_lib::fake_runtime_api::aura_sr25519::RuntimeApi,
+		polkadot_omni_node_lib::BlockU32,
+		bulletin_fake_runtime_api::aura_sr25519::RuntimeApi,
 	>::new(hop_params))];
 
-	Ok(polkadot_omni_node_lib::run_with_matches::<CliConfig, NoExtraSubcommand>(
-		config, matches,
-	)?)
+	Ok(polkadot_omni_node_lib::run_with_matches::<
+		CliConfig,
+		NoExtraSubcommand,
+		BulletinRuntimeApiBundle,
+	>(config, matches)?)
 }

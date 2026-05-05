@@ -14,7 +14,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub(crate) mod imports {
+pub mod imports {
 	pub use cumulus_primitives_core::{ParaId, RelayProofRequest};
 	pub use parachains_common_types::{AccountId, Balance, Nonce};
 	pub use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -26,8 +26,14 @@ pub(crate) mod imports {
 	pub use sp_weights::Weight;
 }
 
+/// Generate the fake `impl_runtime_apis!` block used to satisfy the lib's
+/// compile-time `RuntimeApi` bounds. Optional `$($extras:tt)*` are appended
+/// inside the same `sp_api::impl_runtime_apis!` block so downstream crates
+/// (e.g. `polkadot-bulletin-parachain`) can layer in extra trait impls
+/// without duplicating the full body.
+#[macro_export]
 macro_rules! impl_node_runtime_apis {
-	($runtime: ty, $block: tt, $aura_id: ty) => {
+	($runtime: ty, $block: tt, $aura_id: ty $(, { $($extras:tt)* } )?) => {
 		sp_api::impl_runtime_apis! {
 			impl sp_api::Core<$block> for $runtime {
 				fn version() -> sp_version::RuntimeVersion {
@@ -259,32 +265,9 @@ macro_rules! impl_node_runtime_apis {
 				}
 			}
 
-			// Compile-time stub; lets downstream `NodeExtension` impls name a `RuntimeApi`
-			// satisfying `sp_hop::HopRuntimeApi`. Unreachable at runtime.
-			impl sp_hop::HopRuntimeApi<$block, AccountId> for $runtime {
-				fn can_account_promote(_who: AccountId, _data_len: u32) -> bool {
-					false
-				}
-
-				fn create_promotion_extrinsic(
-					_: Vec<u8>,
-					_: sp_runtime::MultiSigner,
-					_: sp_runtime::MultiSignature,
-					_: u64,
-				) -> <$block as BlockT>::Extrinsic {
-					panic!("HOP promotion is not supported by this runtime")
-				}
-
-				fn max_promotion_size() -> u32 {
-					0
-				}
-
-				fn is_promoted_on_chain(_hash: [u8; 32]) -> bool {
-					false
-				}
-			}
+			$( $($extras)* )?
 		}
 	};
 }
 
-pub(crate) use impl_node_runtime_apis;
+pub use impl_node_runtime_apis;
