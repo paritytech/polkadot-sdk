@@ -19824,12 +19824,15 @@ dependencies = [
 name = "revive-dev-runtime"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "array-bytes 6.2.2",
+ "frame-metadata 23.0.1",
  "parity-scale-codec",
  "polkadot-sdk",
  "scale-info",
  "serde_json",
  "sp-debug-derive 14.0.0",
+ "sp-io 30.0.0",
 ]
 
 [[package]]

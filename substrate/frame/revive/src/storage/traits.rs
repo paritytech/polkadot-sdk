@@ -36,14 +36,6 @@ use frame_support::pallet_prelude::{StorageMap, StorageValue};
 /// [`StorageValue`]: frame_support::pallet_prelude::StorageValue
 pub type StorageValueOf<T> = <T as ValueContainerOfStorageValue>::Value;
 
-/// The key type accepted by a concrete [`StorageMap`] definition.
-///
-/// This is useful when a helper is generic over a storage map and needs to name the map's key type
-/// independently from the value type stored under that key.
-///
-/// [`StorageMap`]: frame_support::pallet_prelude::StorageMap
-pub type StorageMapKeyOf<T> = <T as KeyValueContainerOfStorageMap>::Key;
-
 /// The value type exposed by a concrete [`StorageMap`] definition.
 ///
 /// Use this alias when code needs to name the value returned by a storage map while still deriving

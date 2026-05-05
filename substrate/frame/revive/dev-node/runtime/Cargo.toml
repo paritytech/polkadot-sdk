@@ -25,11 +25,20 @@ polkadot-sdk = { workspace = true, features = [
 	"with-tracing",
 ] }
 scale-info = { workspace = true }
-serde_json = { workspace = true, default-features = false, features = ["alloc"] }
+serde_json = { workspace = true, default-features = false, features = [
+	"alloc",
+] }
 sp-debug-derive = { workspace = true }
 
+[dev-dependencies]
+anyhow = { workspace = true }
+frame-metadata = { workspace = true, features = ["std"] }
+sp-io = { workspace = true, default-features = true }
+
 [build-dependencies]
-polkadot-sdk = { optional = true, workspace = true, features = ["substrate-wasm-builder"] }
+polkadot-sdk = { optional = true, workspace = true, features = [
+	"substrate-wasm-builder",
+] }
 
 [features]
 default = ["std"]
