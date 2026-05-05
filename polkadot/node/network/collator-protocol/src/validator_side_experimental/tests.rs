@@ -2977,7 +2977,9 @@ async fn test_outdated_fetching_collations_are_pruned() {
 	// Use a uniform CQ entirely for para 100 so capacity reasoning is straightforward — the
 	// purpose of this test is pruning of outdated fetches, not multi-para or rotating CQs.
 	let same_cq: BTreeMap<CoreIndex, Vec<ParaId>> =
-		[(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()])].into_iter().collect();
+		[(leaf_info.assigned_core, vec![100.into(), 100.into(), 100.into()])]
+			.into_iter()
+			.collect();
 	test_state
 		.rp_info
 		.get_mut(&get_hash(10))
@@ -3902,8 +3904,7 @@ fn setup_fork(
 #[tokio::test]
 async fn fork_assignments_are_union_of_leaves() {
 	let mut test_state = TestState::default();
-	let (fork_a, fork_b) =
-		setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
+	let (fork_a, fork_b) = setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
 
 	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
 	let mut sender = test_state.sender.clone();
@@ -4095,11 +4096,7 @@ async fn fork_shared_sp_capacity_not_double_counted() {
 #[tokio::test]
 async fn fork_drop_reclaims_capacity_and_disconnects_peers() {
 	let mut test_state = TestState::default();
-	let (fork_a, fork_b) = setup_fork(
-		&mut test_state,
-		vec![100.into(); 3],
-		vec![200.into(); 3],
-	);
+	let (fork_a, fork_b) = setup_fork(&mut test_state, vec![100.into(); 3], vec![200.into(); 3]);
 
 	let mut state = make_state(MockDb::default(), &mut test_state, get_hash(9)).await;
 	let mut sender = test_state.sender.clone();
@@ -4133,9 +4130,10 @@ async fn fork_drop_reclaims_capacity_and_disconnects_peers() {
 	assert!(state.connected_peers().is_empty());
 }
 
-// Note: rotation + forks isn't a separate test here. `core_rotation_accepts_candidates_for_both_cores`
-// already exercises group rotation, and forks (1)-(4) above exercise fork logic with our group's
-// core; the combination doesn't add a new property worth the test setup.
+// Note: rotation + forks isn't a separate test here.
+// `core_rotation_accepts_candidates_for_both_cores` already exercises group rotation, and forks
+// (1)-(4) above exercise fork logic with our group's core; the combination doesn't add a new
+// property worth the test setup.
 
 // Multi-SP-on-linear-path same-para capacity: candidates at different SPs on the same path
 // compete for the same per-core CQ pool. With leaf 10 active and ancestors 8, 9 in the
@@ -4230,22 +4228,10 @@ async fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete() {
 		state.handle_declare(&mut sender, p, 100.into()).await;
 	}
 
-	let (_, adv_narrow) = dummy_candidate(
-		get_hash(8),
-		100.into(),
-		peer_narrow,
-		core,
-		1,
-		Hash::from_low_u64_be(100),
-	);
-	let (_, adv_wide) = dummy_candidate(
-		get_hash(10),
-		100.into(),
-		peer_wide,
-		core,
-		1,
-		Hash::from_low_u64_be(101),
-	);
+	let (_, adv_narrow) =
+		dummy_candidate(get_hash(8), 100.into(), peer_narrow, core, 1, Hash::from_low_u64_be(100));
+	let (_, adv_wide) =
+		dummy_candidate(get_hash(10), 100.into(), peer_wide, core, 1, Hash::from_low_u64_be(101));
 	test_state.handle_advertisement(&mut state, adv_narrow).await;
 	test_state.handle_advertisement(&mut state, adv_wide).await;
 
