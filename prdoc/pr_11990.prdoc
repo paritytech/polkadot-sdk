@@ -1,0 +1,83 @@
+title: Version pallet-revive storage types
+doc:
+- audience: Runtime Dev
+  description: "# Description\n\nThis pull request is part of the pallet-revive versioning\
+    \ effort described in https://github.com/paritytech/polkadot-sdk/issues/11923\
+    \ and closes https://github.com/paritytech/polkadot-sdk/issues/11943.\n\nThis\
+    \ PR builds on top of the versioned-types work. It does not introduce the `pallet-revive-types`\
+    \ crate or the versioning proc macros. Instead, it starts using that infrastructure\
+    \ to separate pallet-revive execution types from the types encoded into storage.\n\
+    \nThe main change is the introduction and adoption of `StorageCodecWrapper<ExecutionType,\
+    \ StorageType>`. The wrapper lets pallet-revive continue operating on execution-facing\
+    \ types while delegating SCALE encoding, decoding, metadata, and encoded-size\
+    \ behavior to explicit storage-facing types.\n\nThis PR also:\n\n- adds type-system\
+    \ helpers for extracting FRAME storage value and map types.\n- adds the `#[versioned_type(encode_like\
+    \ = \"...\")]` helper to the existing versioned type macro.\n- moves pallet-revive\
+    \ storage declarations onto versioned storage models.\n- updates migrations, benchmarks,\
+    \ tests, RPC helpers, and EVM compatibility code to work with the wrapped storage\
+    \ values.\n- removes SCALE codec derives from execution-only types where possible.\n\
+    - adds compatibility tests against pre-storage-versioning metadata and old generated\
+    \ types.\n\nThe goal is to make the storage boundary explicit without changing\
+    \ the existing storage wire layout.\n\n## Integration\n\nDownstream projects should\
+    \ not need a storage migration for existing pallet-revive data as a result of\
+    \ this PR. The storage declarations now use wrapped versioned storage models,\
+    \ but the encoded bytes are intended to remain compatible with the pre-versioning\
+    \ layout.\n\nCode that directly imports pallet-revive internals may need to account\
+    \ for `StorageCodecWrapper` at storage boundaries. Most pallet execution code\
+    \ should continue to work with the execution-facing values exposed by the wrapper\
+    \ through `Deref`, `as_inner`, `into_inner`, conversions, and mutation helpers.\n\
+    \n> [!IMPORTANT]\n> The intended integration behavior is that storage bytes do\
+    \ not change. The added tests compare the new versioned storage models against\
+    \ pre-versioning metadata and also compare full current `Revive` storage metadata\
+    \ against the old metadata fixture.\n\n> [!NOTE]\n> This PR is one step toward\
+    \ the final versioning model. Some execution-facing types still need codec implementations\
+    \ because they are still used at runtime API or other boundary surfaces. The direction\
+    \ is to keep moving those codec responsibilities to explicit boundary types.\n\
+    \n## Review Notes\n\n`StorageCodecWrapper<ExecutionType, StorageType>` is the\
+    \ storage-boundary adapter added by this PR. It stores both representations:\n\
+    \n```rust\npub struct StorageCodecWrapper<ExecutionType, StorageType> {\n\tinner:\
+    \ ExecutionType,\n\tcodable: StorageType,\n}\n```\n\n`inner` is the value pallet\
+    \ code works with. `codable` is the cached storage representation used for SCALE\
+    \ encoding, `MaxEncodedLen`, and `TypeInfo`. This type sits exactly at the boundary\
+    \ seen in the diagram below:\n\n<img width=\"2610\" height=\"760\" alt=\"image\"\
+    \ src=\"https://github.com/user-attachments/assets/765dc58d-08e5-487e-9b43-d1530e79a7bf\"\
+    \ />\n\nThe wrapper keeps both values synchronized by requiring mutations to go\
+    \ through `mutate` or `try_mutate`. Those methods update the execution value and\
+    \ then refresh the cached storage value by converting the execution type into\
+    \ the storage type.\n\n> [!WARNING]\n> `StorageCodecWrapper` is intended for storage\
+    \ boundaries only. It should not become a general-purpose execution wrapper; its\
+    \ job is specifically to make one type encode and decode as another type.\n\n\
+    The storage declarations in pallet-revive now use the wrapper for storage items\
+    \ that need explicit storage models. For example, execution code can still work\
+    \ with types like `CodeInfo<T>`, while storage metadata and encoding are driven\
+    \ by `storage_types::CodeInfoV2<...>`.\n\nThe `encode_like` macro addition exists\
+    \ because several new storage models intentionally preserve the old byte representation\
+    \ of existing source types. The macro emits `codec::EncodeLike<Target>` impls\
+    \ for the listed source types, so existing FRAME storage APIs can continue accepting\
+    \ byte-compatible values without forcing call sites to manually construct the\
+    \ storage model first.\n\n> [!TIP]\n> Review `StorageCodecWrapper` first, then\
+    \ review how each pallet storage declaration uses it. That is the core mechanism\
+    \ for separating execution-facing and storage-facing types.\n\n### Tests\n\nThe\
+    \ tests in this PR protect against accidentally changing the SCALE bytes used\
+    \ for existing pallet-revive storage while introducing versioned storage models\
+    \ and storage wrappers. If these tests pass, they prove that the new storage-facing\
+    \ types and the current runtime storage metadata remain compatible with the pre-storage-versioning\
+    \ layout that existing chains and off-chain clients expect.\n\n- `pallet-revive-types`\
+    \ tests compare individual new storage types against old metadata-generated types\
+    \ and assert cross-decode/identical encoding behavior.\n- `revive-dev-runtime`\
+    \ tests compare the full current `Revive` storage metadata against a checked-in\
+    \ pre-storage-versioning fixture by SCALE wire layout.\n\n> [!TIP]\n> The storage\
+    \ compatibility tests are the main guardrail for this PR. They are intended to\
+    \ make wrapper adoption safe by proving that the new storage models still match\
+    \ the old SCALE layout."
+crates:
+- name: pallet-revive
+  bump: minor
+- name: pallet-revive-proc-macro
+  bump: minor
+- name: pallet-revive-types
+  bump: minor
+- name: pallet-revive-eth-rpc
+  bump: minor
+- name: revive-dev-runtime
+  bump: minor
