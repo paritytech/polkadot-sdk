@@ -12,7 +12,6 @@ use std::{
 use jsonrpsee::RpcModule;
 use polkadot_omni_node_lib::{
 	common::types::ParachainClient, ConstructNodeRuntimeApi, NodeBlock, NodeExtension,
-	NodeExtensionFactory,
 };
 use sc_hop::{HopApiServer, HopDataPool, HopParams, HopRpcServer};
 use sc_service::TaskManager;
@@ -78,31 +77,3 @@ where
 	}
 }
 
-/// Wires HOP for the Bulletin runtime's `(Block<u32>, aura_sr25519)` combo.
-pub struct HopExtensionFactory {
-	params: HopParams,
-}
-
-impl HopExtensionFactory {
-	pub fn new(params: HopParams) -> Self {
-		Self { params }
-	}
-}
-
-impl NodeExtensionFactory for HopExtensionFactory {
-	fn create_aura_sr25519_u32(
-		&self,
-	) -> Vec<
-		Box<
-			dyn NodeExtension<
-				polkadot_omni_node_lib::common::BlockU32,
-				polkadot_omni_node_lib::fake_runtime_api::aura_sr25519::RuntimeApi,
-			>,
-		>,
-	> {
-		vec![Box::new(HopExtension::<
-			polkadot_omni_node_lib::common::BlockU32,
-			polkadot_omni_node_lib::fake_runtime_api::aura_sr25519::RuntimeApi,
-		>::new(self.params.clone()))]
-	}
-}

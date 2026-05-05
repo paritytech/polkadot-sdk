@@ -54,7 +54,10 @@ fn main() -> color_eyre::eyre::Result<()> {
 		.expect("HopParams::augment_args was applied to the parser; qed");
 
 	let mut config = RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
-	config.extension_factory = Some(Box::new(hop_extension::HopExtensionFactory::new(hop_params)));
+	config.extensions.aura_sr25519_u32 = vec![Box::new(hop_extension::HopExtension::<
+		polkadot_omni_node_lib::common::BlockU32,
+		polkadot_omni_node_lib::fake_runtime_api::aura_sr25519::RuntimeApi,
+	>::new(hop_params))];
 
 	Ok(polkadot_omni_node_lib::run_with_matches::<CliConfig, NoExtraSubcommand>(
 		config, matches,

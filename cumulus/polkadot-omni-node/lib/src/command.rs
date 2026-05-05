@@ -24,7 +24,7 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		NodeBlock, NodeExtension, NodeExtensionFactory, NodeExtraArgs,
+		NodeBlock, NodeExtensions, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	fake_runtime_api,
@@ -46,25 +46,25 @@ pub struct RunConfig {
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
-	/// Optional [`NodeExtension`] factory; `None` means no extensions are wired.
-	pub extension_factory: Option<Box<dyn NodeExtensionFactory>>,
+	/// [`NodeExtension`]s to install, keyed by `(Block, RuntimeApi)` combo.
+	pub extensions: NodeExtensions,
 }
 
 impl RunConfig {
-	/// Creates a new `RunConfig` with no extension factory.
+	/// Creates a new `RunConfig` with no extensions.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
 		chain_spec_loader: Box<dyn LoadSpec>,
 	) -> Self {
-		RunConfig { runtime_resolver, chain_spec_loader, extension_factory: None }
+		RunConfig { runtime_resolver, chain_spec_loader, extensions: NodeExtensions::default() }
 	}
 }
 
 fn new_aura_node_spec<Block: NodeBlock>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-	extensions_sr25519: Vec<Box<dyn NodeExtension<Block, fake_runtime_api::aura_sr25519::RuntimeApi>>>,
-	extensions_ed25519: Vec<Box<dyn NodeExtension<Block, fake_runtime_api::aura_ed25519::RuntimeApi>>>,
+	extensions_sr25519: Vec<Box<dyn crate::common::NodeExtension<Block, fake_runtime_api::aura_sr25519::RuntimeApi>>>,
+	extensions_ed25519: Vec<Box<dyn crate::common::NodeExtension<Block, fake_runtime_api::aura_ed25519::RuntimeApi>>>,
 ) -> Box<dyn DynNodeSpec> {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
@@ -84,7 +84,7 @@ fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-	factory: Option<&dyn NodeExtensionFactory>,
+	mut extensions: NodeExtensions,
 ) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
@@ -93,14 +93,14 @@ fn new_node_spec(
 			(BlockNumber::U32, Consensus::Aura(aura_id)) => new_aura_node_spec::<Block<u32>>(
 				aura_id,
 				extra_args,
-				factory.map(|f| f.create_aura_sr25519_u32()).unwrap_or_default(),
-				factory.map(|f| f.create_aura_ed25519_u32()).unwrap_or_default(),
+				std::mem::take(&mut extensions.aura_sr25519_u32),
+				std::mem::take(&mut extensions.aura_ed25519_u32),
 			),
 			(BlockNumber::U64, Consensus::Aura(aura_id)) => new_aura_node_spec::<Block<u64>>(
 				aura_id,
 				extra_args,
-				factory.map(|f| f.create_aura_sr25519_u64()).unwrap_or_default(),
-				factory.map(|f| f.create_aura_ed25519_u64()).unwrap_or_default(),
+				std::mem::take(&mut extensions.aura_sr25519_u64),
+				std::mem::take(&mut extensions.aura_ed25519_u64),
 			),
 		},
 	})
@@ -183,7 +183,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					cmd_config.extension_factory.as_deref(),
+					NodeExtensions::default(),
 				)?;
 				node.prepare_check_block_cmd(config, cmd)
 			})
@@ -196,7 +196,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					cmd_config.extension_factory.as_deref(),
+					NodeExtensions::default(),
 				)?;
 				node.prepare_export_blocks_cmd(config, cmd)
 			})
@@ -209,7 +209,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					cmd_config.extension_factory.as_deref(),
+					NodeExtensions::default(),
 				)?;
 				node.prepare_export_state_cmd(config, cmd)
 			})
@@ -222,7 +222,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					cmd_config.extension_factory.as_deref(),
+					NodeExtensions::default(),
 				)?;
 				node.prepare_import_blocks_cmd(config, cmd)
 			})
@@ -235,7 +235,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					cmd_config.extension_factory.as_deref(),
+					NodeExtensions::default(),
 				)?;
 				node.prepare_revert_cmd(config, cmd)
 			})
@@ -268,7 +268,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
-					cmd_config.extension_factory.as_deref(),
+					NodeExtensions::default(),
 				)?;
 				node.run_export_genesis_head_cmd(config, cmd)
 			})
@@ -303,7 +303,7 @@ where
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
-							cmd_config.extension_factory.as_deref(),
+							NodeExtensions::default(),
 						)?;
 						node.run_benchmark_block_cmd(config, cmd)
 					})
@@ -319,7 +319,7 @@ where
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
-							cmd_config.extension_factory.as_deref(),
+							NodeExtensions::default(),
 						)?;
 						node.run_benchmark_storage_cmd(config, cmd)
 					})
@@ -364,7 +364,7 @@ where
 					&config,
 					&cmd_config.runtime_resolver,
 					&node_extra_args,
-					cmd_config.extension_factory.as_deref(),
+					cmd_config.extensions,
 				)?;
 
 				if let Some(dev_mode) = cli.dev_mode() {
