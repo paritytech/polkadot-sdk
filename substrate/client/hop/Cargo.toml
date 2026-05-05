@@ -38,6 +38,9 @@ sp-hop = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
+sp-externalities = { workspace = true, default-features = true }
+sp-state-machine = { workspace = true, default-features = true }
 sp-test-primitives = { workspace = true }
+sp-version = { workspace = true, default-features = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }

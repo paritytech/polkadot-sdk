@@ -26,30 +26,6 @@ sc-hop = { workspace = true, default-features = true }
 sc-service = { workspace = true, default-features = false }
 sc-transaction-pool = { workspace = true, default-features = true }
 
-# Deps needed because `bulletin_fake_runtime_api` invokes the lib's
-# `impl_node_runtime_apis!` macro, which expands to references against these
-# crates as bare paths.
-cumulus-primitives-aura = { workspace = true, default-features = true }
-cumulus-primitives-core = { workspace = true, default-features = true }
-frame-system-rpc-runtime-api = { workspace = true, default-features = true }
-pallet-transaction-payment = { workspace = true, default-features = true }
-pallet-transaction-payment-rpc-runtime-api = { workspace = true, default-features = true }
-parachains-common-types = { workspace = true, default-features = true }
-sp-api = { workspace = true, default-features = true }
-sp-block-builder = { workspace = true, default-features = true }
-sp-consensus-aura = { workspace = true, default-features = true }
-sp-core = { workspace = true, default-features = true }
-sp-genesis-builder = { workspace = true, default-features = true }
-sp-hop = { workspace = true, default-features = true }
-sp-inherents = { workspace = true, default-features = true }
-sp-offchain = { workspace = true, default-features = true }
-sp-runtime = { workspace = true, default-features = true }
-sp-session = { workspace = true, default-features = true }
-sp-transaction-pool = { workspace = true, default-features = true }
-sp-transaction-storage-proof = { workspace = true, default-features = true }
-sp-version = { workspace = true, default-features = true }
-sp-weights = { workspace = true, default-features = true }
-
 [target.'cfg(target_os = "linux")'.dependencies]
 polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
 

@@ -168,70 +168,21 @@ pub type BlockU32 = crate::common::types::Block<u32>;
 /// Block with `u64` block number.
 pub type BlockU64 = crate::common::types::Block<u64>;
 
-/// Names the four fake `RuntimeApi` types the lib's dispatch will use when
-/// instantiating `AuraNode<...>` and the matching `NodeExtensions` slots.
-///
-/// The lib provides [`DefaultRuntimeApiBundle`] which wires its own
-/// `fake_runtime_api` types into all four slots. Downstream binaries that
-/// need a different fake (e.g. one that implements an extra runtime API
-/// trait so the binary's `NodeExtension` impl can be parameterized over it)
-/// supply their own bundle and pass it through `RunConfig` / `run_with_matches`.
-pub trait RuntimeApiBundle: Send + Sync + 'static {
-	/// Fake `RuntimeApi` for `(Block<u32>, sr25519)`.
-	type AuraSr25519U32: ConstructNodeRuntimeApi<
-			BlockU32,
-			crate::common::types::ParachainClient<BlockU32, Self::AuraSr25519U32>,
-		>;
-	/// Fake `RuntimeApi` for `(Block<u32>, ed25519)`.
-	type AuraEd25519U32: ConstructNodeRuntimeApi<
-			BlockU32,
-			crate::common::types::ParachainClient<BlockU32, Self::AuraEd25519U32>,
-		>;
-	/// Fake `RuntimeApi` for `(Block<u64>, sr25519)`.
-	type AuraSr25519U64: ConstructNodeRuntimeApi<
-			BlockU64,
-			crate::common::types::ParachainClient<BlockU64, Self::AuraSr25519U64>,
-		>;
-	/// Fake `RuntimeApi` for `(Block<u64>, ed25519)`.
-	type AuraEd25519U64: ConstructNodeRuntimeApi<
-			BlockU64,
-			crate::common::types::ParachainClient<BlockU64, Self::AuraEd25519U64>,
-		>;
-}
-
-/// Default bundle used by `polkadot-omni-node`. Wires the lib's own
-/// `fake_runtime_api` types into all four slots.
-#[derive(Default)]
-pub struct DefaultRuntimeApiBundle;
-
-impl RuntimeApiBundle for DefaultRuntimeApiBundle {
-	type AuraSr25519U32 = crate::fake_runtime_api::aura_sr25519::RuntimeApi;
-	type AuraEd25519U32 = crate::fake_runtime_api::aura_ed25519::RuntimeApi;
-	type AuraSr25519U64 = crate::fake_runtime_api::aura_sr25519::RuntimeApi;
-	type AuraEd25519U64 = crate::fake_runtime_api::aura_ed25519::RuntimeApi;
-}
-
 /// Bundle of [`NodeExtension`]s for the two Aura `RuntimeApi` variants
 /// (sr25519, ed25519) at a given `Block` type. Only the variant matching the
 /// resolved `AuraConsensusId` is consumed; the other is ignored.
-pub struct AuraExtensions<Block, Sr25519Api, Ed25519Api>
-where
-	Block: NodeBlock,
-	Sr25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Sr25519Api>>,
-	Ed25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Ed25519Api>>,
-{
+pub struct AuraExtensions<Block: NodeBlock> {
 	/// Extensions for the sr25519 variant.
-	pub sr25519: Vec<Box<dyn NodeExtension<Block, Sr25519Api>>>,
+	pub sr25519: Vec<
+		Box<dyn NodeExtension<Block, crate::fake_runtime_api::aura_sr25519::RuntimeApi>>,
+	>,
 	/// Extensions for the ed25519 variant.
-	pub ed25519: Vec<Box<dyn NodeExtension<Block, Ed25519Api>>>,
+	pub ed25519: Vec<
+		Box<dyn NodeExtension<Block, crate::fake_runtime_api::aura_ed25519::RuntimeApi>>,
+	>,
 }
 
-impl<Block, Sr25519Api, Ed25519Api> Default for AuraExtensions<Block, Sr25519Api, Ed25519Api>
-where
-	Block: NodeBlock,
-	Sr25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Sr25519Api>>,
-	Ed25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Ed25519Api>>,
-{
+impl<Block: NodeBlock> Default for AuraExtensions<Block> {
 	fn default() -> Self {
 		Self { sr25519: Vec::new(), ed25519: Vec::new() }
 	}
@@ -240,20 +191,10 @@ where
 /// Container for [`NodeExtension`]s installed on a node, keyed by the
 /// `(Block, RuntimeApi)` combinations the runtime resolver picks. Only the
 /// combo matching the resolved runtime is consumed; the others are ignored.
-///
-/// Parameterized over a [`RuntimeApiBundle`] (default
-/// [`DefaultRuntimeApiBundle`]) which names the four fake `RuntimeApi` types
-/// the slots are typed against. Downstream binaries that need their fake to
-/// implement extra runtime API traits supply their own bundle.
-pub struct NodeExtensions<Bundle: RuntimeApiBundle = DefaultRuntimeApiBundle> {
+#[derive(Default)]
+pub struct NodeExtensions {
 	/// Aura extensions for `Block<u32>`.
-	pub aura_u32: AuraExtensions<BlockU32, Bundle::AuraSr25519U32, Bundle::AuraEd25519U32>,
+	pub aura_u32: AuraExtensions<BlockU32>,
 	/// Aura extensions for `Block<u64>`.
-	pub aura_u64: AuraExtensions<BlockU64, Bundle::AuraSr25519U64, Bundle::AuraEd25519U64>,
-}
-
-impl<Bundle: RuntimeApiBundle> Default for NodeExtensions<Bundle> {
-	fn default() -> Self {
-		Self { aura_u32: AuraExtensions::default(), aura_u64: AuraExtensions::default() }
-	}
+	pub aura_u64: AuraExtensions<BlockU64>,
 }

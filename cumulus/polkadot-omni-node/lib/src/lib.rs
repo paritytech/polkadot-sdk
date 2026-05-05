@@ -29,6 +29,6 @@ pub use cli::CliConfig;
 pub use command::{run, run_with_custom_cli, run_with_matches, RunConfig};
 pub use common::{
 	chain_spec, runtime, types, AuraExtensions, BlockU32, BlockU64, ConstructNodeRuntimeApi,
-	DefaultRuntimeApiBundle, NodeBlock, NodeExtension, NodeExtensions, RuntimeApiBundle,
+	NodeBlock, NodeExtension, NodeExtensions,
 };
 pub use nodes::NODE_VERSION;

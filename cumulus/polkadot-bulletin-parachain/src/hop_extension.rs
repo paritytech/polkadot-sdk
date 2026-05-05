@@ -16,7 +16,6 @@ use polkadot_omni_node_lib::{
 use sc_hop::{HopApiServer, HopDataPool, HopParams, HopRpcServer};
 use sc_service::TaskManager;
 use sc_transaction_pool::TransactionPoolHandle;
-use sp_runtime::AccountId32;
 
 /// `OnceLock` carries the pool from `on_start` to `build_rpc_extension`; both
 /// trait methods take `&self`.
@@ -36,7 +35,6 @@ impl<Block, RuntimeApi> NodeExtension<Block, RuntimeApi> for HopExtension<Block,
 where
 	Block: NodeBlock,
 	RuntimeApi: ConstructNodeRuntimeApi<Block, ParachainClient<Block, RuntimeApi>>,
-	RuntimeApi::RuntimeApi: sp_hop::HopRuntimeApi<Block, AccountId32>,
 {
 	fn on_start(
 		&self,

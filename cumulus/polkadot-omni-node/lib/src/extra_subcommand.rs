@@ -23,7 +23,7 @@
 use clap::Subcommand;
 use sc_cli::{ExportChainSpecCmd, Result};
 
-use crate::{common::RuntimeApiBundle, RunConfig};
+use crate::RunConfig;
 
 /// A trait for injecting and handling additional CLI subcommands in a composable way.
 ///
@@ -100,7 +100,7 @@ use crate::{common::RuntimeApiBundle, RunConfig};
 /// Trait implemented by a set of optional sub‑commands**.
 pub trait ExtraSubcommand: Subcommand {
 	/// Handle the command once it's been parsed.
-	fn handle<Bundle: RuntimeApiBundle>(self, cfg: &RunConfig<Bundle>) -> Result<()>;
+	fn handle(self, cfg: &RunConfig) -> Result<()>;
 }
 
 /// Built-in extra subcommands provided by `polkadot-omni-node-lib`.
@@ -122,7 +122,7 @@ pub enum DefaultExtraSubcommands {
 }
 
 impl ExtraSubcommand for DefaultExtraSubcommands {
-	fn handle<Bundle: RuntimeApiBundle>(self, cfg: &RunConfig<Bundle>) -> Result<()> {
+	fn handle(self, cfg: &RunConfig) -> Result<()> {
 		match self {
 			DefaultExtraSubcommands::ExportChainSpec(cmd) => {
 				let spec = cfg.chain_spec_loader.load_spec(&cmd.chain)?;
@@ -140,7 +140,7 @@ impl ExtraSubcommand for DefaultExtraSubcommands {
 pub enum NoExtraSubcommand {}
 
 impl ExtraSubcommand for NoExtraSubcommand {
-	fn handle<Bundle: RuntimeApiBundle>(self, _cfg: &RunConfig<Bundle>) -> Result<()> {
+	fn handle(self, _cfg: &RunConfig) -> Result<()> {
 		Ok(())
 	}
 }

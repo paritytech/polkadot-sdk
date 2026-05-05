@@ -20,16 +20,16 @@
 //! ## Architecture
 //!
 //! - [`HopPromoter`] — trait for promoting data on-chain (trait-object friendly).
-//! - [`RuntimeApiPromoter`] — concrete implementation using [`sp_hop::HopRuntimeApi`] and
+//! - [`RuntimeApiPromoter`] — concrete implementation that calls the HOP runtime API via dynamic
+//!   dispatch (see [`crate::runtime_api`]) plus
 //!   [`sc_transaction_pool_api::LocalTransactionPool`].
 //! - [`try_build_promoter`] — detects runtime API support at startup, returns `Some(promoter)` or
 //!   logs a warning and returns `None`.
 //! - [`HopMaintenanceTask`] — background task combining promotion + cleanup.
 
-use crate::pool::HopDataPool;
-use sp_api::{ApiExt, ProvideRuntimeApi};
+use crate::{pool::HopDataPool, runtime_api};
+use sp_api::{ApiExt, CallApiAt, ProvideRuntimeApi};
 use sp_blockchain::HeaderBackend;
-use sp_hop::HopRuntimeApi;
 use sp_runtime::{
 	traits::Block as BlockT, AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
 };
@@ -65,9 +65,9 @@ pub trait HopPromoter: Send + Sync + 'static {
 	) -> Result<bool, Box<dyn std::error::Error + Send + Sync>>;
 }
 
-/// Concrete [`HopPromoter`] that uses the [`sp_hop::HopRuntimeApi`] runtime
-/// API to build a promotion extrinsic via `create_promotion_extrinsic` and
-/// submits it to the local transaction pool.
+/// Concrete [`HopPromoter`] that calls the HOP runtime API dynamically (see
+/// [`crate::runtime_api`]) to build a promotion extrinsic and submits it to
+/// the local transaction pool.
 pub struct RuntimeApiPromoter<Block: BlockT, C, P> {
 	client: Arc<C>,
 	tx_pool: Arc<P>,
@@ -77,8 +77,7 @@ pub struct RuntimeApiPromoter<Block: BlockT, C, P> {
 impl<Block, C, P> RuntimeApiPromoter<Block, C, P>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	/// Create a new promoter.
@@ -90,8 +89,7 @@ where
 impl<Block, C, P> HopPromoter for RuntimeApiPromoter<Block, C, P>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	fn promote(
@@ -102,7 +100,8 @@ where
 		submit_timestamp: u64,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let best_hash = self.client.info().best_hash;
-		let ext = self.client.runtime_api().create_promotion_extrinsic(
+		let ext = runtime_api::create_promotion_extrinsic::<Block, _>(
+			&*self.client,
 			best_hash,
 			data,
 			signer,
@@ -120,7 +119,7 @@ where
 		hash: &[u8; 32],
 	) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
 		let best_hash = self.client.info().best_hash;
-		Ok(self.client.runtime_api().is_promoted_on_chain(best_hash, *hash)?)
+		Ok(runtime_api::is_promoted_on_chain::<Block, _>(&*self.client, best_hash, *hash)?)
 	}
 }
 
@@ -135,8 +134,12 @@ pub fn try_build_promoter<Block, C, P>(
 ) -> Option<Arc<dyn HopPromoter>>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
+	C: HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ CallApiAt<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	let best_hash = client.info().best_hash;
@@ -180,8 +183,12 @@ pub fn build_maintenance_task<Block, C, P>(
 ) -> HopMaintenanceTask
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
+	C: HeaderBackend<Block>
+		+ ProvideRuntimeApi<Block>
+		+ CallApiAt<Block>
+		+ Send
+		+ Sync
+		+ 'static,
 	P: sc_transaction_pool_api::LocalTransactionPool<Block = Block> + 'static,
 {
 	let promoter = try_build_promoter::<Block, _, _>(client, tx_pool);

@@ -24,8 +24,7 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		AuraExtensions, ConstructNodeRuntimeApi, DefaultRuntimeApiBundle, NodeBlock,
-		NodeExtensions, NodeExtraArgs, RuntimeApiBundle,
+		AuraExtensions, NodeBlock, NodeExtensions, NodeExtraArgs,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	runtime::BlockNumber,
@@ -41,22 +40,16 @@ use sp_runtime::traits::HashingFor;
 
 /// Structure that can be used in order to provide customizers for different functionalities of the
 /// node binary that is being built using this library.
-///
-/// `Bundle` names the four fake `RuntimeApi` types the lib will instantiate
-/// `AuraNode<...>` with; default is [`DefaultRuntimeApiBundle`]. Downstream
-/// binaries that need a different fake (e.g. with extra runtime-api trait
-/// impls) parameterize `RunConfig<MyBundle>` and supply matching extensions
-/// in `extensions`.
-pub struct RunConfig<Bundle: RuntimeApiBundle = DefaultRuntimeApiBundle> {
+pub struct RunConfig {
 	/// A custom chain spec loader.
 	pub chain_spec_loader: Box<dyn LoadSpec>,
 	/// A custom runtime resolver.
 	pub runtime_resolver: Box<dyn RuntimeResolver>,
 	/// [`NodeExtension`]s to install, keyed by `(Block, RuntimeApi)` combo.
-	pub extensions: NodeExtensions<Bundle>,
+	pub extensions: NodeExtensions,
 }
 
-impl<Bundle: RuntimeApiBundle> RunConfig<Bundle> {
+impl RunConfig {
 	/// Creates a new `RunConfig` with no extensions.
 	pub fn new(
 		runtime_resolver: Box<dyn RuntimeResolver>,
@@ -66,100 +59,47 @@ impl<Bundle: RuntimeApiBundle> RunConfig<Bundle> {
 	}
 }
 
-fn new_aura_node_spec<B, Sr25519Api, Ed25519Api>(
+fn new_aura_node_spec<B: NodeBlock>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-	extensions: AuraExtensions<B, Sr25519Api, Ed25519Api>,
-) -> Box<dyn DynNodeSpec>
-where
-	B: NodeBlock,
-	Sr25519Api: ConstructNodeRuntimeApi<B, crate::common::types::ParachainClient<B, Sr25519Api>>,
-	Sr25519Api::RuntimeApi: crate::common::aura::AuraRuntimeApi<B, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<B, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<B, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<B>
-		+ cumulus_primitives_core::GetParachainInfo<B>,
-	Ed25519Api: ConstructNodeRuntimeApi<B, crate::common::types::ParachainClient<B, Ed25519Api>>,
-	Ed25519Api::RuntimeApi: crate::common::aura::AuraRuntimeApi<B, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<B, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<B, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<B>
-		+ cumulus_primitives_core::GetParachainInfo<B>,
-{
+	extensions: AuraExtensions<B>,
+) -> Box<dyn DynNodeSpec> {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
 			B,
-			Sr25519Api,
+			crate::fake_runtime_api::aura_sr25519::RuntimeApi,
 			sp_consensus_aura::sr25519::AuthorityId,
 		>(extra_args, extensions.sr25519),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
 			B,
-			Ed25519Api,
+			crate::fake_runtime_api::aura_ed25519::RuntimeApi,
 			sp_consensus_aura::ed25519::AuthorityId,
 		>(extra_args, extensions.ed25519),
 	}
 }
 
-fn new_node_spec<Bundle: RuntimeApiBundle>(
+fn new_node_spec(
 	config: &sc_service::Configuration,
 	runtime_resolver: &Box<dyn RuntimeResolverT>,
 	extra_args: &NodeExtraArgs,
-	extensions: NodeExtensions<Bundle>,
-) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error>
-where
-	<Bundle::AuraSr25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraSr25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraEd25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraEd25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraSr25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraSr25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
-	<Bundle::AuraEd25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraEd25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
-{
+	extensions: NodeExtensions,
+) -> std::result::Result<Box<dyn DynNodeSpec>, sc_cli::Error> {
 	let runtime = runtime_resolver.runtime(config.chain_spec.as_ref())?;
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
 			(BlockNumber::U32, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec(aura_id, extra_args, extensions.aura_u32),
+				new_aura_node_spec::<Block<u32>>(aura_id, extra_args, extensions.aura_u32),
 			(BlockNumber::U64, Consensus::Aura(aura_id)) =>
-				new_aura_node_spec(aura_id, extra_args, extensions.aura_u64),
+				new_aura_node_spec::<Block<u64>>(aura_id, extra_args, extensions.aura_u64),
 		},
 	})
 }
 
 /// Parse command line arguments into service configuration.
-pub fn run<CliConfig: crate::cli::CliConfig>(
-	cmd_config: RunConfig<DefaultRuntimeApiBundle>,
-) -> Result<()> {
-	run_with_custom_cli::<CliConfig, DefaultExtraSubcommands, DefaultRuntimeApiBundle>(cmd_config)
+pub fn run<CliConfig: crate::cli::CliConfig>(cmd_config: RunConfig) -> Result<()> {
+	run_with_custom_cli::<CliConfig, DefaultExtraSubcommands>(cmd_config)
 }
-
-#[allow(clippy::too_many_arguments)]
 
 /// Parse command‑line arguments into service configuration and inject an
 /// optional extra sub‑command.
@@ -177,45 +117,10 @@ pub fn run<CliConfig: crate::cli::CliConfig>(
 ///   the binary.
 /// * `Extra` – an implementation of `ExtraSubcommand`. Use *`NoExtraSubcommand`* if the binary
 ///   should not expose any extra subcommands.
-pub fn run_with_custom_cli<CliConfig, ExtraSubcommand, Bundle>(
-	cmd_config: RunConfig<Bundle>,
-) -> Result<()>
+pub fn run_with_custom_cli<CliConfig, ExtraSubcommand>(cmd_config: RunConfig) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
 	ExtraSubcommand: crate::extra_subcommand::ExtraSubcommand,
-	Bundle: RuntimeApiBundle,
-	<Bundle::AuraSr25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraSr25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraEd25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraEd25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraSr25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraSr25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
-	<Bundle::AuraEd25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraEd25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
 {
 	let cli_command = Cli::<CliConfig>::command();
 	let cli_command = ExtraSubcommand::augment_subcommands(cli_command);
@@ -224,53 +129,20 @@ where
 	// Get matches for all CLI, including extra args.
 	let matches = cli_command.get_matches();
 
-	run_with_matches::<CliConfig, ExtraSubcommand, Bundle>(cmd_config, matches)
+	run_with_matches::<CliConfig, ExtraSubcommand>(cmd_config, matches)
 }
 
 /// Like [`run_with_custom_cli`], but takes already-parsed [`clap::ArgMatches`].
 ///
 /// Use when the binary needs to augment the parser with its own flags before
 /// dispatch.
-pub fn run_with_matches<CliConfig, ExtraSubcommand, Bundle>(
-	cmd_config: RunConfig<Bundle>,
+pub fn run_with_matches<CliConfig, ExtraSubcommand>(
+	cmd_config: RunConfig,
 	matches: clap::ArgMatches,
 ) -> Result<()>
 where
 	CliConfig: crate::cli::CliConfig,
 	ExtraSubcommand: crate::extra_subcommand::ExtraSubcommand,
-	Bundle: RuntimeApiBundle,
-	<Bundle::AuraSr25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraSr25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraEd25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraEd25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraSr25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraSr25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
-	<Bundle::AuraEd25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraEd25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
 {
 	// Parse only the part corresponding to the extra args.
 	if let Ok(extra) = ExtraSubcommand::from_arg_matches(&matches) {
@@ -295,7 +167,7 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
@@ -308,7 +180,7 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
@@ -321,7 +193,7 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
@@ -334,7 +206,7 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
@@ -347,7 +219,7 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.async_run(|config| {
 				let node =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
@@ -380,7 +252,7 @@ where
 			let runner = cli.create_runner(cmd)?;
 			runner.sync_run(|config| {
 				let node =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&cli.node_extra_args(),
@@ -415,7 +287,7 @@ where
 					// chain spec, given via the `--chain` flag.
 					let runner = cli.create_runner(cmd)?;
 					runner.sync_run(|config| {
-						let node = new_node_spec::<Bundle>(
+						let node = new_node_spec(
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
@@ -431,7 +303,7 @@ where
 					// the `--chain` flag to be passed.
 					let runner = cli.create_runner(cmd)?;
 					runner.sync_run(|config| {
-						let node = new_node_spec::<Bundle>(
+						let node = new_node_spec(
 							&config,
 							&cmd_config.runtime_resolver,
 							&cli.node_extra_args(),
@@ -476,7 +348,7 @@ where
 			runner.run_node_until_exit(|config| async move {
 				let node_extra_args = cli.node_extra_args();
 				let node_spec =
-					new_node_spec::<Bundle>(
+					new_node_spec(
 					&config,
 					&cmd_config.runtime_resolver,
 					&node_extra_args,

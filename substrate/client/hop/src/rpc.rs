@@ -23,6 +23,7 @@
 
 use crate::{
 	pool::HopDataPool,
+	runtime_api,
 	types::{
 		submit_signing_payload, HopError, HopHash, PoolStatus, Recipient, RecipientVec,
 		SubmitResult, MAX_RECIPIENTS,
@@ -33,10 +34,9 @@ use jsonrpsee::{
 	core::{async_trait, RpcResult},
 	proc_macros::rpc,
 };
-use sp_api::ProvideRuntimeApi;
+use sp_api::CallApiAt;
 use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
-use sp_hop::HopRuntimeApi;
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
 	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
@@ -143,8 +143,7 @@ impl<C, Block> HopRpcServer<C, Block> {
 impl<C, Block> HopApiServer<<Block as BlockT>::Hash> for HopRpcServer<C, Block>
 where
 	Block: BlockT,
-	C: HeaderBackend<Block> + ProvideRuntimeApi<Block> + Send + Sync + 'static,
-	C::Api: sp_hop::HopRuntimeApi<Block, AccountId32>,
+	C: HeaderBackend<Block> + CallApiAt<Block> + Send + Sync + 'static,
 {
 	fn submit(
 		&self,
@@ -177,10 +176,9 @@ where
 		let best_hash = chain_info.best_hash;
 		let current_block = chain_info.best_number.saturated_into::<u32>();
 
-		let runtime_api = self.client.runtime_api();
-
 		let data_len = data.0.len();
-		let max_size = runtime_api.max_promotion_size(best_hash).map_err(HopError::from)?;
+		let max_size = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
+			.map_err(HopError::from)?;
 		if data_len > max_size as usize {
 			return Err(HopError::DataTooLarge(data_len, max_size as u64).into());
 		}
@@ -188,9 +186,13 @@ where
 		// Check authorization before verifying the signature: a flood of unauthorized
 		// requests must not force a signature verification per submit.
 		let account_id: AccountId32 = signer.clone().into_account();
-		let authorized = runtime_api
-			.can_account_promote(best_hash, account_id.clone(), data_len as u32)
-			.map_err(HopError::from)?;
+		let authorized = runtime_api::can_account_promote::<Block, _>(
+			&*self.client,
+			best_hash,
+			account_id.clone(),
+			data_len as u32,
+		)
+		.map_err(HopError::from)?;
 		if !authorized {
 			return Err(HopError::NotAuthorized.into());
 		}
@@ -239,9 +241,14 @@ mod tests {
 	use super::*;
 	use crate::pool::HopDataPool;
 	use codec::Encode;
+	use sp_api::{ApiError, CallApiAtParams};
 	use sp_blockchain::{self, Info};
 	use sp_core::{crypto::Pair, ed25519};
-	use sp_runtime::{traits::NumberFor, MultiSigner};
+	use sp_runtime::{
+		traits::{HashingFor, NumberFor},
+		MultiSigner,
+	};
+	use sp_state_machine::InMemoryBackend;
 	use sp_test_primitives::Block;
 	use std::sync::atomic::{AtomicBool, Ordering};
 	use tempfile::TempDir;
@@ -299,40 +306,42 @@ mod tests {
 		}
 	}
 
-	/// Mock runtime API that delegates to MockClient.
-	struct MockRuntimeApi {
-		authorized: bool,
-	}
+	impl CallApiAt<Block> for MockClient {
+		type StateBackend = InMemoryBackend<HashingFor<Block>>;
 
-	sp_api::mock_impl_runtime_apis! {
-		impl sp_hop::HopRuntimeApi<Block, AccountId32> for MockRuntimeApi {
-			fn can_account_promote(_who: AccountId32, _data_len: u32) -> bool {
-				self.authorized
-			}
-
-			fn create_promotion_extrinsic(
-				_data: Vec<u8>,
-				_signer: MultiSigner,
-				_signature: MultiSignature,
-				_submit_timestamp: u64,
-			) -> <Block as BlockT>::Extrinsic {
-				unimplemented!()
-			}
-
-			fn max_promotion_size() -> u32 {
-				8 * 1024 * 1024
-			}
-
-			fn is_promoted_on_chain(_hash: [u8; 32]) -> bool {
-				false
+		fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
+			match params.function {
+				"HopRuntimeApi_max_promotion_size" => Ok((8u32 * 1024 * 1024).encode()),
+				"HopRuntimeApi_can_account_promote" =>
+					Ok(self.authorized.load(Ordering::Relaxed).encode()),
+				"HopRuntimeApi_is_promoted_on_chain" => Ok(false.encode()),
+				other => Err(ApiError::Application(
+					format!("MockClient: unimplemented runtime API call {}", other).into(),
+				)),
 			}
 		}
-	}
 
-	impl sp_api::ProvideRuntimeApi<Block> for MockClient {
-		type Api = MockRuntimeApi;
-		fn runtime_api(&self) -> sp_api::ApiRef<'_, MockRuntimeApi> {
-			MockRuntimeApi { authorized: self.authorized.load(Ordering::Relaxed) }.into()
+		fn runtime_version_at(
+			&self,
+			_at_hash: <Block as BlockT>::Hash,
+			_call_context: sp_api::CallContext,
+		) -> Result<sp_version::RuntimeVersion, ApiError> {
+			unimplemented!("MockClient::runtime_version_at not used by tests")
+		}
+
+		fn state_at(
+			&self,
+			_at: <Block as BlockT>::Hash,
+		) -> Result<Self::StateBackend, ApiError> {
+			unimplemented!("MockClient::state_at not used by tests")
+		}
+
+		fn initialize_extensions(
+			&self,
+			_at: <Block as BlockT>::Hash,
+			_extensions: &mut sp_externalities::Extensions,
+		) -> Result<(), ApiError> {
+			Ok(())
 		}
 	}
 
