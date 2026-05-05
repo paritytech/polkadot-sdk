@@ -193,22 +193,8 @@ where
 			collator_util::Collator::<Block, P, _, _, _, _, _>::new(params)
 		};
 
-		let best_notifications = match relay_client.new_best_notification_stream().await {
-			Ok(s) => s,
-			Err(err) => {
-				tracing::error!(
-					target: LOG_TARGET,
-					?err,
-					"Failed to initialize consensus: no relay chain best block notification stream"
-				);
-				return;
-			},
-		};
-		let mut scheduling_info = super::scheduling::SchedulingInfo::new(
-			best_notifications,
-			relay_chain_slot_duration,
-			slot_offset,
-		);
+		let mut scheduling_info =
+			super::scheduling::SchedulingInfo::new(relay_chain_slot_duration, slot_offset);
 
 		let mut relay_chain_data_cache = RelayChainDataCache::new(relay_client.clone(), para_id);
 		let mut connection_helper = BackingGroupConnectionHelper::new(
@@ -221,6 +207,22 @@ where
 		);
 
 		loop {
+			if scheduling_info.should_reset_best_notifications() {
+				match relay_client.new_best_notification_stream().await {
+					Ok(best_notifications) => {
+						scheduling_info.reset_best_notifications(best_notifications)
+					},
+					Err(err) => {
+						tracing::error!(
+							target: LOG_TARGET,
+							?err,
+							"Failed to reset the relay chain best block notification stream. \
+							The current consensus iteration might fail."
+						);
+					},
+				};
+			}
+
 			// We wait here until the next slot arrives.
 			let Ok(slot_time) = slot_timer.wait_until_next_slot().await else {
 				tracing::error!(target: LOG_TARGET, "Unable to wait for next slot.");

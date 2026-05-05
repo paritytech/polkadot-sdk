@@ -659,7 +659,10 @@ async fn wait_for_current_relay_block_waits_when_stale() {
 
 	let (tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 
-	let mut scheduling_info = SchedulingInfo::new(Box::pin(rx), relay_slot_duration, slot_offset);
+	let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
+	if scheduling_info.should_reset_best_notifications() {
+		scheduling_info.reset_best_notifications(Box::pin(rx));
+	}
 	let client_clone = client.clone();
 	let mut handle = tokio::spawn(async move {
 		scheduling_info
@@ -715,7 +718,10 @@ async fn wait_for_current_relay_block_returns_immediately_when_fresh() {
 	// Create a notification stream that will never produce (no sender).
 	let (_tx, rx) = futures::channel::mpsc::unbounded::<RelayHeader>();
 
-	let mut scheduling_info = SchedulingInfo::new(Box::pin(rx), relay_slot_duration, slot_offset);
+	let mut scheduling_info = SchedulingInfo::new(relay_slot_duration, slot_offset);
+	if scheduling_info.should_reset_best_notifications() {
+		scheduling_info.reset_best_notifications(Box::pin(rx));
+	}
 	let result = tokio::time::timeout(
 		Duration::from_secs(1),
 		scheduling_info.wait_for_scheduling_parent(&client, &mut cache, false),

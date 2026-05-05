@@ -22,7 +22,10 @@ use crate::{
 use cumulus_client_consensus_common::get_relay_slot;
 use cumulus_primitives_aura::Slot;
 use cumulus_relay_chain_interface::RelayChainInterface;
-use futures::{prelude::*, stream::Fuse};
+use futures::{
+	prelude::*,
+	stream::{Fuse, FusedStream},
+};
 use polkadot_node_subsystem::gen::{stream::Stream, FutureExt};
 use polkadot_primitives::{node_features::FeatureIndex, Block as RelayBlock};
 use sc_consensus_aura::SlotDuration;
@@ -63,16 +66,29 @@ pub(crate) struct SchedulingInfo {
 }
 
 impl SchedulingInfo {
-	pub fn new(
-		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send>>,
-		relay_chain_slot_duration: Duration,
-		slot_offset: Duration,
-	) -> Self {
+	pub fn new(relay_chain_slot_duration: Duration, slot_offset: Duration) -> Self {
+		let stream: Pin<Box<dyn Stream<Item = RelayHeader> + Send>> =
+			Box::pin(futures::stream::empty());
+		let mut stream = stream.fuse();
+		// Make sure the fused stream is marked as terminated.
+		stream.next().now_or_never();
+
 		Self {
-			best_notifications: best_notifications.fuse(),
+			best_notifications: stream,
 			relay_slot_duration: relay_chain_slot_duration,
 			slot_offset,
 		}
+	}
+
+	pub fn should_reset_best_notifications(&self) -> bool {
+		self.best_notifications.is_terminated()
+	}
+
+	pub fn reset_best_notifications(
+		&mut self,
+		best_notifications: Pin<Box<dyn Stream<Item = RelayHeader> + Send>>,
+	) {
+		self.best_notifications = best_notifications.fuse();
 	}
 
 	async fn is_v3_enabled_on_relay<RelayClient>(
@@ -144,7 +160,7 @@ impl SchedulingInfo {
 			let best_header = match maybe_best_relay_header.take() {
 				Some(header) => header,
 				None => {
-					if self.best_notifications.is_done() {
+					if self.best_notifications.is_terminated() {
 						return None;
 					}
 

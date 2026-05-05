@@ -239,7 +239,7 @@ async fn scheduling_v3_es_collator_with_v3_validators() -> Result<(), anyhow::Er
 	// Assign 2 additional cores to the parachain (zombienet already assigns 1)
 	assign_cores(&relay_client, 2900, vec![0, 1]).await?;
 
-	// With 3 cores, expect ~3 candidates per 2 relay blocks → ~30 in 20 blocks.
+	// With 3 cores, expect at max 3 candidates per relay block → ~60 in 20 blocks.
 	assert_candidates_version(
 		&relay_client,
 		CandidateDescriptorVersion::V3,
