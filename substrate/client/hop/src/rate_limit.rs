@@ -24,6 +24,11 @@
 //!    A coordinated multi-account attack that stays within per-account limits
 //!    can still exhaust the global bucket, preventing pool exhaustion.
 //!
+//! The per-sender map is capped at [`RateLimitConfig::max_tracked_senders`]
+//! entries. When full, the entry with the oldest `last_touch` timestamp is
+//! evicted to make room, bounding memory use regardless of how many distinct
+//! authorized accounts submit.
+//!
 //! Refill happens lazily on each check using monotonic `Instant`s, so idle
 //! users never block a background task.
 
@@ -101,6 +106,11 @@ pub struct RateLimitConfig {
 	pub global_bandwidth_per_min: u64,
 	/// Burst size for the global bandwidth bucket, in bytes.
 	pub global_bandwidth_burst: u64,
+	/// Maximum number of distinct senders tracked simultaneously.
+	///
+	/// When this limit is reached the stalest entry (by `last_touch`) is
+	/// evicted before inserting the new sender, keeping memory bounded.
+	pub max_tracked_senders: usize,
 }
 
 impl RateLimitConfig {
@@ -114,6 +124,9 @@ impl RateLimitConfig {
 			bandwidth_burst: 0,
 			global_bandwidth_per_min: 0,
 			global_bandwidth_burst: 0,
+			// When disabled, check() returns immediately and get_or_create is
+			// never called, so this value is irrelevant. usize::MAX is explicit.
+			max_tracked_senders: usize::MAX,
 		}
 	}
 }
@@ -149,14 +162,42 @@ impl RateLimiter {
 	}
 
 	fn get_or_create(&self, sender_id: &SenderId, now: Instant) -> Arc<Mutex<UserRateState>> {
+		// Fast path: sender already tracked — read lock only.
 		if let Some(state) = self.users.read().get(sender_id).cloned() {
 			return state;
 		}
+
 		let mut users = self.users.write();
-		users
-			.entry(*sender_id)
-			.or_insert_with(|| Arc::new(Mutex::new(self.new_state(now))))
-			.clone()
+
+		// Double-check after acquiring the write lock; another thread may have
+		// inserted between the read-lock drop and this write-lock acquisition.
+		if let Some(state) = users.get(sender_id) {
+			return state.clone();
+		}
+
+		// New sender: enforce the map size cap before inserting.
+		if users.len() >= self.cfg.max_tracked_senders {
+			// Evict the entry that was least recently touched.  Scanning under
+			// the write lock is safe: no other thread can concurrently mutate
+			// `users`, and taking a per-entry Mutex here is consistent with the
+			// users.write() → state.lock() order used in evict_stale().
+			if let Some(stalest_id) = users
+				.iter()
+				.min_by_key(|(_, s)| s.lock().last_touch)
+				.map(|(id, _)| *id)
+			{
+				users.remove(&stalest_id);
+				tracing::debug!(
+					target: "hop",
+					limit = self.cfg.max_tracked_senders,
+					"Rate-limiter sender cap reached; evicted stalest entry",
+				);
+			}
+		}
+
+		let state = Arc::new(Mutex::new(self.new_state(now)));
+		users.insert(*sender_id, state.clone());
+		state
 	}
 
 	/// Check whether this account may submit `data_len` bytes right now.
@@ -246,6 +287,8 @@ mod tests {
 			// Global bucket large enough not to interfere with per-sender tests.
 			global_bandwidth_per_min: 1_000_000,
 			global_bandwidth_burst: 1_000_000,
+			// Cap large enough not to interfere with per-sender tests.
+			max_tracked_senders: 1_000_000,
 		}
 	}
 
@@ -260,6 +303,22 @@ mod tests {
 			// Global bucket is tight: only 5_000 bytes of burst.
 			global_bandwidth_per_min: 5_000,
 			global_bandwidth_burst: 5_000,
+			max_tracked_senders: 1_000_000,
+		}
+	}
+
+	/// Config with a very small sender cap so eviction behaviour can be tested
+	/// without creating hundreds of thousands of senders.
+	fn small_cap_cfg(cap: usize) -> RateLimitConfig {
+		RateLimitConfig {
+			enabled: true,
+			submit_rate_per_min: 600,
+			submit_burst: 1_000,
+			bandwidth_per_min: 1_000_000_000,
+			bandwidth_burst: 1_000_000_000,
+			global_bandwidth_per_min: 1_000_000_000,
+			global_bandwidth_burst: 1_000_000_000,
+			max_tracked_senders: cap,
 		}
 	}
 
@@ -313,6 +372,7 @@ mod tests {
 			bandwidth_burst: 600_000,
 			global_bandwidth_per_min: 1_000_000_000,
 			global_bandwidth_burst: 1_000_000_000,
+			max_tracked_senders: 1_000_000,
 		};
 		let rl = RateLimiter::new(cfg);
 		rl.check(&SENDER_A, 100).unwrap();
@@ -410,5 +470,74 @@ mod tests {
 		for _ in 0..1_000 {
 			rl.check(&SENDER_A, u64::MAX / 2).unwrap();
 		}
+	}
+
+	// --- Sender-cap tests ---
+
+	#[test]
+	fn sender_cap_prevents_unbounded_map_growth() {
+		let rl = RateLimiter::new(small_cap_cfg(3));
+
+		// Fill the map to the cap with three distinct senders.
+		let senders: Vec<SenderId> = (0u8..3).map(|i| [i; 32]).collect();
+		for s in &senders {
+			rl.check(s, 1).unwrap();
+		}
+		assert_eq!(rl.tracked_senders(), 3);
+
+		// A fourth sender must still be admitted (eviction makes room).
+		let new_sender: SenderId = [0xFFu8; 32];
+		rl.check(&new_sender, 1).unwrap();
+
+		// Map must not exceed the cap.
+		assert_eq!(rl.tracked_senders(), 3, "map must not grow past the cap");
+	}
+
+	#[test]
+	fn eviction_removes_stalest_not_newest() {
+		let rl = RateLimiter::new(small_cap_cfg(2));
+
+		// Insert sender A (touched first, will be stalest).
+		rl.check(&SENDER_A, 1).unwrap();
+
+		// Back-date A's last_touch so it is clearly the stalest entry.
+		{
+			let state = rl.get_or_create(&SENDER_A, Instant::now());
+			let mut state = state.lock();
+			state.last_touch -= Duration::from_secs(7200);
+		}
+
+		// Insert sender B (touched more recently).
+		rl.check(&SENDER_B, 1).unwrap();
+		assert_eq!(rl.tracked_senders(), 2);
+
+		// Insert sender C — cap is 2, so one entry must be evicted.
+		// A is stalest and should be evicted; B should survive.
+		rl.check(&SENDER_C, 1).unwrap();
+		assert_eq!(rl.tracked_senders(), 2);
+
+		// B and C should still be in the map; A should be gone.
+		assert!(rl.users.read().contains_key(&SENDER_B), "B should survive eviction");
+		assert!(rl.users.read().contains_key(&SENDER_C), "C should be present");
+		assert!(!rl.users.read().contains_key(&SENDER_A), "A should have been evicted");
+	}
+
+	#[test]
+	fn evicted_sender_can_resubmit_with_fresh_bucket() {
+		let rl = RateLimiter::new(small_cap_cfg(1));
+
+		// Fill A's request burst completely.
+		for _ in 0..1_000 {
+			rl.check(&SENDER_A, 1).unwrap();
+		}
+		// A is now rate-limited.
+		assert!(rl.check(&SENDER_A, 1).is_err());
+
+		// Sender B pushes A out (cap = 1).
+		rl.check(&SENDER_B, 1).unwrap();
+		assert!(!rl.users.read().contains_key(&SENDER_A), "A should be evicted");
+
+		// A re-enters with a fresh bucket and is no longer limited.
+		rl.check(&SENDER_A, 1).unwrap();
 	}
 }

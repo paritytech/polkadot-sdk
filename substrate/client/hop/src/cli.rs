@@ -39,8 +39,9 @@ use crate::{
 		HopError, DEFAULT_BANDWIDTH_BURST_MIB, DEFAULT_BANDWIDTH_PER_MIN_MIB,
 		DEFAULT_CHECK_INTERVAL_SECS, DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
 		DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB, DEFAULT_MAX_POOL_SIZE_MIB,
-		DEFAULT_MAX_USER_SIZE_MIB, DEFAULT_PROMOTION_BUFFER_BLOCKS, DEFAULT_RETENTION_BLOCKS,
-		DEFAULT_SUBMIT_BURST, DEFAULT_SUBMIT_RATE_PER_MIN,
+		DEFAULT_MAX_RATE_LIMIT_SENDERS, DEFAULT_MAX_USER_SIZE_MIB,
+		DEFAULT_PROMOTION_BUFFER_BLOCKS, DEFAULT_RETENTION_BLOCKS, DEFAULT_SUBMIT_BURST,
+		DEFAULT_SUBMIT_RATE_PER_MIN,
 	},
 };
 use clap::Parser;
@@ -148,6 +149,18 @@ pub struct HopParams {
 	)]
 	pub global_bandwidth_burst_mib: u64,
 
+	/// Maximum number of distinct sender accounts tracked in the rate-limiter map.
+	///
+	/// When this limit is reached the least-recently-active sender is evicted to
+	/// make room. Bounds the rate-limiter's memory usage to roughly
+	/// `max_rate_limit_senders × 200` bytes. Must be at least 1.
+	#[arg(
+		long = "hop-max-rate-limit-senders",
+		default_value_t = DEFAULT_MAX_RATE_LIMIT_SENDERS as u64,
+		value_parser = clap::value_parser!(u64).range(1..),
+	)]
+	pub max_rate_limit_senders: u64,
+
 	/// Disable per-account submit rate limiting (intended for tests and dev nodes).
 	#[arg(long = "hop-disable-rate-limit")]
 	pub disable_rate_limit: bool,
@@ -174,6 +187,7 @@ impl Default for HopParams {
 			bandwidth_burst_mib: DEFAULT_BANDWIDTH_BURST_MIB,
 			global_bandwidth_per_min_mib: DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB,
 			global_bandwidth_burst_mib: DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB,
+			max_rate_limit_senders: DEFAULT_MAX_RATE_LIMIT_SENDERS as u64,
 			disable_rate_limit: false,
 			data_dir: None,
 		}
@@ -194,6 +208,7 @@ impl HopParams {
 			bandwidth_burst: self.bandwidth_burst_mib.saturating_mul(1024 * 1024),
 			global_bandwidth_per_min: self.global_bandwidth_per_min_mib.saturating_mul(1024 * 1024),
 			global_bandwidth_burst: self.global_bandwidth_burst_mib.saturating_mul(1024 * 1024),
+			max_tracked_senders: self.max_rate_limit_senders as usize,
 		}
 	}
 
@@ -271,6 +286,7 @@ mod tests {
 			"--hop-bandwidth-burst-mib",
 			"--hop-global-bandwidth-per-min-mib",
 			"--hop-global-bandwidth-burst-mib",
+			"--hop-max-rate-limit-senders",
 		];
 		for flag in zero_flags {
 			let argv = ["test-bin", flag, "0"];

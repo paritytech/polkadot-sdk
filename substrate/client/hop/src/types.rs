@@ -316,6 +316,12 @@ pub const DEFAULT_GLOBAL_BANDWIDTH_PER_MIN_MIB: u64 = 1024;
 /// Default aggregate bandwidth burst in MiB.
 pub const DEFAULT_GLOBAL_BANDWIDTH_BURST_MIB: u64 = 2048;
 
+/// Default maximum number of distinct senders tracked in the rate-limiter map.
+///
+/// At ~200 bytes per entry this bounds the rate-limiter's memory footprint to
+/// ~20 MiB regardless of how many unique authorized accounts submit.
+pub const DEFAULT_MAX_RATE_LIMIT_SENDERS: usize = 100_000;
+
 /// Domain-separator prefix for `hop_submit` signatures.
 pub const HOP_SUBMIT_CONTEXT: &[u8] = b"hop-submit-v1:";
 
