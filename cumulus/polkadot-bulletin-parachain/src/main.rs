@@ -69,7 +69,7 @@ fn main() -> color_eyre::eyre::Result<()> {
 
 	let mut config: RunConfig<BulletinRuntimeApiBundle> =
 		RunConfig::new(Box::new(DefaultRuntimeResolver), Box::new(DiskChainSpecLoader));
-	config.extensions.aura_sr25519_u32 = vec![Box::new(hop_extension::HopExtension::<
+	config.extensions.aura_u32.sr25519 = vec![Box::new(hop_extension::HopExtension::<
 		polkadot_omni_node_lib::BlockU32,
 		bulletin_fake_runtime_api::aura_sr25519::RuntimeApi,
 	>::new(hop_params))];

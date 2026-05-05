@@ -24,7 +24,8 @@ use crate::{
 		},
 		spec::DynNodeSpec,
 		types::Block,
-		DefaultRuntimeApiBundle, NodeBlock, NodeExtensions, NodeExtraArgs, RuntimeApiBundle,
+		AuraExtensions, ConstructNodeRuntimeApi, DefaultRuntimeApiBundle, NodeBlock,
+		NodeExtensions, NodeExtraArgs, RuntimeApiBundle,
 	},
 	extra_subcommand::DefaultExtraSubcommands,
 	runtime::BlockNumber,
@@ -65,79 +66,37 @@ impl<Bundle: RuntimeApiBundle> RunConfig<Bundle> {
 	}
 }
 
-fn new_aura_node_spec_u32<Bundle: RuntimeApiBundle>(
+fn new_aura_node_spec<B, Sr25519Api, Ed25519Api>(
 	aura_id: AuraConsensusId,
 	extra_args: &NodeExtraArgs,
-	extensions_sr25519: Vec<Box<dyn crate::common::NodeExtension<Block<u32>, Bundle::AuraSr25519U32>>>,
-	extensions_ed25519: Vec<Box<dyn crate::common::NodeExtension<Block<u32>, Bundle::AuraEd25519U32>>>,
+	extensions: AuraExtensions<B, Sr25519Api, Ed25519Api>,
 ) -> Box<dyn DynNodeSpec>
 where
-	<Bundle::AuraSr25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraSr25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
-	<Bundle::AuraEd25519U32 as sp_api::ConstructRuntimeApi<
-		Block<u32>,
-		crate::common::types::ParachainClient<Block<u32>, Bundle::AuraEd25519U32>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u32>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u32>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u32>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u32>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u32>>,
+	B: NodeBlock,
+	Sr25519Api: ConstructNodeRuntimeApi<B, crate::common::types::ParachainClient<B, Sr25519Api>>,
+	Sr25519Api::RuntimeApi: crate::common::aura::AuraRuntimeApi<B, sp_consensus_aura::sr25519::AuthorityId>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<B, crate::common::types::Balance>
+		+ substrate_frame_rpc_system::AccountNonceApi<B, crate::common::types::AccountId, crate::common::types::Nonce>
+		+ cumulus_primitives_core::TargetBlockRate<B>
+		+ cumulus_primitives_core::GetParachainInfo<B>,
+	Ed25519Api: ConstructNodeRuntimeApi<B, crate::common::types::ParachainClient<B, Ed25519Api>>,
+	Ed25519Api::RuntimeApi: crate::common::aura::AuraRuntimeApi<B, sp_consensus_aura::ed25519::AuthorityId>
+		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<B, crate::common::types::Balance>
+		+ substrate_frame_rpc_system::AccountNonceApi<B, crate::common::types::AccountId, crate::common::types::Nonce>
+		+ cumulus_primitives_core::TargetBlockRate<B>
+		+ cumulus_primitives_core::GetParachainInfo<B>,
 {
 	match aura_id {
 		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u32>,
-			Bundle::AuraSr25519U32,
+			B,
+			Sr25519Api,
 			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, extensions_sr25519),
+		>(extra_args, extensions.sr25519),
 		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u32>,
-			Bundle::AuraEd25519U32,
+			B,
+			Ed25519Api,
 			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, extensions_ed25519),
-	}
-}
-
-fn new_aura_node_spec_u64<Bundle: RuntimeApiBundle>(
-	aura_id: AuraConsensusId,
-	extra_args: &NodeExtraArgs,
-	extensions_sr25519: Vec<Box<dyn crate::common::NodeExtension<Block<u64>, Bundle::AuraSr25519U64>>>,
-	extensions_ed25519: Vec<Box<dyn crate::common::NodeExtension<Block<u64>, Bundle::AuraEd25519U64>>>,
-) -> Box<dyn DynNodeSpec>
-where
-	<Bundle::AuraSr25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraSr25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::sr25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
-	<Bundle::AuraEd25519U64 as sp_api::ConstructRuntimeApi<
-		Block<u64>,
-		crate::common::types::ParachainClient<Block<u64>, Bundle::AuraEd25519U64>,
-	>>::RuntimeApi: crate::common::aura::AuraRuntimeApi<Block<u64>, sp_consensus_aura::ed25519::AuthorityId>
-		+ pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block<u64>, crate::common::types::Balance>
-		+ substrate_frame_rpc_system::AccountNonceApi<Block<u64>, crate::common::types::AccountId, crate::common::types::Nonce>
-		+ cumulus_primitives_core::TargetBlockRate<Block<u64>>
-		+ cumulus_primitives_core::GetParachainInfo<Block<u64>>,
-{
-	match aura_id {
-		AuraConsensusId::Sr25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u64>,
-			Bundle::AuraSr25519U64,
-			sp_consensus_aura::sr25519::AuthorityId,
-		>(extra_args, extensions_sr25519),
-		AuraConsensusId::Ed25519 => crate::nodes::aura::new_aura_node_spec::<
-			Block<u64>,
-			Bundle::AuraEd25519U64,
-			sp_consensus_aura::ed25519::AuthorityId,
-		>(extra_args, extensions_ed25519),
+		>(extra_args, extensions.ed25519),
 	}
 }
 
@@ -185,17 +144,15 @@ where
 
 	Ok(match runtime {
 		Runtime::Omni(block_number, consensus) => match (block_number, consensus) {
-			(BlockNumber::U32, Consensus::Aura(aura_id)) => new_aura_node_spec_u32::<Bundle>(
+			(BlockNumber::U32, Consensus::Aura(aura_id)) => new_aura_node_spec(
 				aura_id,
 				extra_args,
-				std::mem::take(&mut extensions.aura_sr25519_u32),
-				std::mem::take(&mut extensions.aura_ed25519_u32),
+				std::mem::take(&mut extensions.aura_u32),
 			),
-			(BlockNumber::U64, Consensus::Aura(aura_id)) => new_aura_node_spec_u64::<Bundle>(
+			(BlockNumber::U64, Consensus::Aura(aura_id)) => new_aura_node_spec(
 				aura_id,
 				extra_args,
-				std::mem::take(&mut extensions.aura_sr25519_u64),
-				std::mem::take(&mut extensions.aura_ed25519_u64),
+				std::mem::take(&mut extensions.aura_u64),
 			),
 		},
 	})

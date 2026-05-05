@@ -211,6 +211,32 @@ impl RuntimeApiBundle for DefaultRuntimeApiBundle {
 	type AuraEd25519U64 = crate::fake_runtime_api::aura_ed25519::RuntimeApi;
 }
 
+/// Bundle of [`NodeExtension`]s for the two Aura `RuntimeApi` variants
+/// (sr25519, ed25519) at a given `Block` type. Only the variant matching the
+/// resolved `AuraConsensusId` is consumed; the other is ignored.
+pub struct AuraExtensions<Block, Sr25519Api, Ed25519Api>
+where
+	Block: NodeBlock,
+	Sr25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Sr25519Api>>,
+	Ed25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Ed25519Api>>,
+{
+	/// Extensions for the sr25519 variant.
+	pub sr25519: Vec<Box<dyn NodeExtension<Block, Sr25519Api>>>,
+	/// Extensions for the ed25519 variant.
+	pub ed25519: Vec<Box<dyn NodeExtension<Block, Ed25519Api>>>,
+}
+
+impl<Block, Sr25519Api, Ed25519Api> Default for AuraExtensions<Block, Sr25519Api, Ed25519Api>
+where
+	Block: NodeBlock,
+	Sr25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Sr25519Api>>,
+	Ed25519Api: ConstructNodeRuntimeApi<Block, ParachainClient<Block, Ed25519Api>>,
+{
+	fn default() -> Self {
+		Self { sr25519: Vec::new(), ed25519: Vec::new() }
+	}
+}
+
 /// Container for [`NodeExtension`]s installed on a node, keyed by the
 /// `(Block, RuntimeApi)` combinations the runtime resolver picks. Only the
 /// combo matching the resolved runtime is consumed; the others are ignored.
@@ -220,23 +246,14 @@ impl RuntimeApiBundle for DefaultRuntimeApiBundle {
 /// the slots are typed against. Downstream binaries that need their fake to
 /// implement extra runtime API traits supply their own bundle.
 pub struct NodeExtensions<Bundle: RuntimeApiBundle = DefaultRuntimeApiBundle> {
-	/// Extensions for `(Block<u32>, sr25519)`.
-	pub aura_sr25519_u32: Vec<Box<dyn NodeExtension<BlockU32, Bundle::AuraSr25519U32>>>,
-	/// Extensions for `(Block<u32>, ed25519)`.
-	pub aura_ed25519_u32: Vec<Box<dyn NodeExtension<BlockU32, Bundle::AuraEd25519U32>>>,
-	/// Extensions for `(Block<u64>, sr25519)`.
-	pub aura_sr25519_u64: Vec<Box<dyn NodeExtension<BlockU64, Bundle::AuraSr25519U64>>>,
-	/// Extensions for `(Block<u64>, ed25519)`.
-	pub aura_ed25519_u64: Vec<Box<dyn NodeExtension<BlockU64, Bundle::AuraEd25519U64>>>,
+	/// Aura extensions for `Block<u32>`.
+	pub aura_u32: AuraExtensions<BlockU32, Bundle::AuraSr25519U32, Bundle::AuraEd25519U32>,
+	/// Aura extensions for `Block<u64>`.
+	pub aura_u64: AuraExtensions<BlockU64, Bundle::AuraSr25519U64, Bundle::AuraEd25519U64>,
 }
 
 impl<Bundle: RuntimeApiBundle> Default for NodeExtensions<Bundle> {
 	fn default() -> Self {
-		Self {
-			aura_sr25519_u32: Vec::new(),
-			aura_ed25519_u32: Vec::new(),
-			aura_sr25519_u64: Vec::new(),
-			aura_ed25519_u64: Vec::new(),
-		}
+		Self { aura_u32: AuraExtensions::default(), aura_u64: AuraExtensions::default() }
 	}
 }
