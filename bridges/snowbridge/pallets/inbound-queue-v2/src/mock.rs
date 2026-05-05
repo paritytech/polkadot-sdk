@@ -446,7 +446,7 @@ pub mod exploit {
 			DummySuffix,
 		);
 		#[cfg(feature = "runtime-benchmarks")]
-		type Helper = Test;
+		type Helper = ExploitTest;
 		type WeightInfo = ();
 		type RewardKind = BridgeReward;
 		type DefaultRewardKind = SnowbridgeReward;
@@ -463,5 +463,39 @@ pub mod exploit {
 		let mut ext: sp_io::TestExternalities = storage.into();
 		ext.execute_with(setup);
 		ext
+	}
+
+	#[cfg(feature = "runtime-benchmarks")]
+	impl crate::BenchmarkHelper<ExploitTest> for ExploitTest {
+		fn initialize_storage() -> EventFixture<
+			<<ExploitTest as crate::Config>::Verifier as Verifier>::Proof,
+		> {
+			let fixture =
+				make_register_token_message::<DefaultMaxNodeSize, DefaultMaxDepth>();
+			EventFixture {
+				event: snowbridge_inbound_queue_primitives::EventProof {
+					event_log: fixture.event.event_log,
+					proof: fixture.event.proof,
+				},
+				finalized_header: fixture.finalized_header,
+				block_roots_root: fixture.block_roots_root,
+			}
+		}
+
+		fn initialize_storage_worst_case_invalid_proof(
+		) -> EventFixture<<<ExploitTest as crate::Config>::Verifier as Verifier>::Proof> {
+			let fixture = make_register_token_message_worst_case::<
+				DefaultMaxNodeSize,
+				DefaultMaxDepth,
+			>();
+			EventFixture {
+				event: snowbridge_inbound_queue_primitives::EventProof {
+					event_log: fixture.event.event_log,
+					proof: fixture.event.proof,
+				},
+				finalized_header: fixture.finalized_header,
+				block_roots_root: fixture.block_roots_root,
+			}
+		}
 	}
 }
