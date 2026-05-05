@@ -517,6 +517,7 @@ members = [
 	"substrate/primitives/ethereum-standards",
 	"substrate/primitives/externalities",
 	"substrate/primitives/genesis-builder",
+	"substrate/primitives/hop",
 	"substrate/primitives/inherents",
 	"substrate/primitives/io",
 	"substrate/primitives/keyring",
@@ -967,6 +968,7 @@ pallet-asset-rewards = { path = "substrate/frame/asset-rewards", default-feature
 pallet-asset-tx-payment = { path = "substrate/frame/transaction-payment/asset-tx-payment", default-features = false }
 pallet-assets = { path = "substrate/frame/assets", default-features = false }
 pallet-assets-freezer = { path = "substrate/frame/assets-freezer", default-features = false }
+pallet-assets-holder = { path = "substrate/frame/assets-holder", default-features = false }
 pallet-assets-precompiles = { path = "substrate/frame/assets/precompiles", default-features = false }
 pallet-aura = { path = "substrate/frame/aura", default-features = false }
 pallet-authority-discovery = { path = "substrate/frame/authority-discovery", default-features = false }
@@ -1351,6 +1353,7 @@ sp-database = { path = "substrate/primitives/database", default-features = false
 sp-debug-derive = { path = "substrate/primitives/debug-derive", default-features = false }
 sp-externalities = { path = "substrate/primitives/externalities", default-features = false }
 sp-genesis-builder = { path = "substrate/primitives/genesis-builder", default-features = false }
+sp-hop = { path = "substrate/primitives/hop", default-features = false }
 sp-inherents = { path = "substrate/primitives/inherents", default-features = false }
 sp-io = { path = "substrate/primitives/io", default-features = false }
 sp-keyring = { path = "substrate/primitives/keyring", default-features = false }

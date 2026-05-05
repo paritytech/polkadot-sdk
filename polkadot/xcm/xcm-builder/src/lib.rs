@@ -60,7 +60,7 @@ mod currency_adapter;
 pub use currency_adapter::CurrencyAdapter;
 
 mod forwarder;
-pub use forwarder::TeleportForwarder;
+pub use forwarder::TeleportForwarderForAccountId32;
 
 mod fee_handling;
 pub use fee_handling::{
