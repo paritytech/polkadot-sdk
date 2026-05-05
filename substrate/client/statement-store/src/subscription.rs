@@ -36,20 +36,60 @@ const MATCHERS_TASK_CHANNEL_BUFFER_SIZE: usize = 80_000;
 // Buffer size for individual subscriptions.
 const SUBSCRIPTION_BUFFER_SIZE: usize = 128;
 
+/// Maximum number of active filters attached to one statement subscription
+pub const MAX_FILTERS_PER_SUBSCRIPTION: usize = 128;
+
 use futures::{Stream, StreamExt};
 use itertools::Itertools;
+use parking_lot::{Mutex, RwLock};
 
 use crate::LOG_TARGET;
 use sc_utils::id_sequence::SeqID;
-use sp_core::{traits::SpawnNamed, Bytes, Encode};
+use sp_core::{traits::SpawnNamed, Bytes, Decode, Encode};
 pub use sp_statement_store::StatementStore;
 use sp_statement_store::{
-	OptimizedTopicFilter, Result, Statement, StatementEvent, Topic, MAX_TOPICS,
+	FilterId, LiveStatementEvent, OptimizedTopicFilter, Result, Statement, StatementEvent, Topic,
+	MAX_TOPICS,
 };
 use std::{
-	collections::{hash_map::Entry, HashMap, HashSet},
-	sync::atomic::AtomicU64,
+	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
+	sync::{atomic::AtomicU64, Arc},
 };
+
+/// Error returned when attaching a filter to a multi-filter subscription fails
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AddFilterError {
+	/// The subscription already has the maximum number of active filters
+	LimitReached,
+	/// The store failed while collecting the replay snapshot
+	Store(sp_statement_store::Error),
+}
+
+impl From<sp_statement_store::Error> for AddFilterError {
+	fn from(error: sp_statement_store::Error) -> Self {
+		AddFilterError::Store(error)
+	}
+}
+
+impl std::fmt::Display for AddFilterError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			AddFilterError::LimitReached => {
+				write!(f, "maximum number of filters for this subscription has been reached")
+			},
+			AddFilterError::Store(error) => error.fmt(f),
+		}
+	}
+}
+
+impl std::error::Error for AddFilterError {
+	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+		match self {
+			AddFilterError::LimitReached => None,
+			AddFilterError::Store(error) => Some(error),
+		}
+	}
+}
 
 /// Trait for initiating statement store subscriptions from the RPC module.
 pub trait StatementStoreSubscriptionApi: Send + Sync {
@@ -61,6 +101,124 @@ pub trait StatementStoreSubscriptionApi: Send + Sync {
 		&self,
 		topic_filter: OptimizedTopicFilter,
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>;
+}
+
+/// Provides an atomic snapshot plus filter registration hook for [`SubscriptionHandle`]
+pub trait AtomicSnapshotProvider: Send + Sync {
+	fn add_filter_atomically(
+		&self,
+		filter: &OptimizedTopicFilter,
+		register: &mut dyn FnMut(),
+	) -> Result<Vec<Vec<u8>>>;
+}
+
+/// Creates multi-filter subscriptions for the RPC module
+pub trait MultiFilterSubscriptionApi: Send + Sync {
+	fn create_subscription(&self) -> (SubscriptionHandle, LiveEventStream);
+}
+
+/// A handle that attaches, removes, and inspects filters for one multi-filter subscription
+#[derive(Clone)]
+pub struct SubscriptionHandle {
+	pub(crate) filters: Arc<RwLock<HashMap<FilterId, OptimizedTopicFilter>>>,
+	pub(crate) next_filter_id: Arc<AtomicU64>,
+	pub(crate) snapshot_provider: Arc<dyn AtomicSnapshotProvider>,
+	pub(crate) add_filter_lock: Arc<Mutex<()>>,
+}
+
+impl SubscriptionHandle {
+	/// Attaches a filter and returns its id with the replay snapshot
+	pub fn add_filter(
+		&self,
+		filter: OptimizedTopicFilter,
+	) -> std::result::Result<(FilterId, Vec<Vec<u8>>), AddFilterError> {
+		let _guard = self.add_filter_lock.lock();
+		if self.filters.read().len() >= MAX_FILTERS_PER_SUBSCRIPTION {
+			return Err(AddFilterError::LimitReached);
+		}
+
+		let filter_id =
+			FilterId::new(self.next_filter_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst));
+		let filters_lock = self.filters.clone();
+		let filter_to_register = filter.clone();
+		let mut register = move || {
+			filters_lock.write().insert(filter_id, filter_to_register.clone());
+		};
+		let snapshot = self.snapshot_provider.add_filter_atomically(&filter, &mut register)?;
+		Ok((filter_id, snapshot))
+	}
+
+	pub fn remove_filter(&self, filter_id: FilterId) -> bool {
+		self.filters.write().remove(&filter_id).is_some()
+	}
+
+	pub fn filter_ids(&self) -> Vec<FilterId> {
+		self.filters.read().keys().copied().collect()
+	}
+
+	pub fn matched_filter_ids(&self, statement: &Statement) -> Vec<FilterId> {
+		self.filters
+			.read()
+			.iter()
+			.filter(|(_, f)| f.matches(statement))
+			.map(|(id, _)| *id)
+			.collect()
+	}
+}
+
+/// Stream of live statement events for a multi-filter subscription
+pub struct LiveEventStream {
+	pub(crate) matcher_stream: SubscriptionStatementsStream,
+	pub(crate) filters: Arc<RwLock<HashMap<FilterId, OptimizedTopicFilter>>>,
+	pub(crate) pending: VecDeque<Vec<u8>>,
+}
+
+impl Stream for LiveEventStream {
+	type Item = LiveStatementEvent;
+
+	fn poll_next(
+		self: std::pin::Pin<&mut Self>,
+		cx: &mut std::task::Context<'_>,
+	) -> std::task::Poll<Option<Self::Item>> {
+		let this = self.get_mut();
+		loop {
+			if let Some(bytes) = this.pending.pop_front() {
+				let Ok(statement) = Statement::decode(&mut &bytes[..]) else {
+					log::warn!(
+						target: LOG_TARGET,
+						"Corrupt statement received on multi-filter subscription"
+					);
+					continue;
+				};
+				let hash = statement.hash();
+				let matched_filter_ids: Vec<FilterId> = {
+					let filters = this.filters.read();
+					filters
+						.iter()
+						.filter(|(_, f)| f.matches(&statement))
+						.map(|(id, _)| *id)
+						.collect()
+				};
+				return std::task::Poll::Ready(Some(LiveStatementEvent {
+					hash,
+					encoded: bytes,
+					matched_filter_ids,
+				}));
+			}
+
+			match this.matcher_stream.poll_next_unpin(cx) {
+				std::task::Poll::Ready(Some(StatementEvent::NewStatements {
+					statements, ..
+				})) => {
+					for encoded in statements {
+						this.pending.push_back(encoded.0);
+					}
+				},
+				std::task::Poll::Ready(None) => return std::task::Poll::Ready(None),
+				std::task::Poll::Pending => return std::task::Poll::Pending,
+			}
+		}
+	}
 }
 
 /// Messages sent to matcher tasks.

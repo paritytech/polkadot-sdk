@@ -73,11 +73,14 @@ use sp_statement_store::{
 };
 pub use sp_statement_store::{Error, StatementStore, MAX_TOPICS};
 use std::{
-	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
-	sync::Arc,
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque},
+	sync::{atomic::AtomicU64, Arc},
 	time::{Duration, Instant},
 };
-pub use subscription::StatementStoreSubscriptionApi;
+pub use subscription::{
+	AddFilterError, AtomicSnapshotProvider, LiveEventStream, MultiFilterSubscriptionApi,
+	StatementStoreSubscriptionApi, SubscriptionHandle, MAX_FILTERS_PER_SUBSCRIPTION,
+};
 
 const KEY_VERSION: &[u8] = b"version".as_slice();
 const CURRENT_VERSION: u32 = 1;
@@ -1625,6 +1628,52 @@ impl StatementStoreSubscriptionApi for Store {
 				.ok();
 		}
 		Ok((existing_statements, subscription_sender, subscription_stream))
+	}
+}
+
+impl AtomicSnapshotProvider for Store {
+	fn add_filter_atomically(
+		&self,
+		filter: &OptimizedTopicFilter,
+		register: &mut dyn FnMut(),
+	) -> Result<Vec<Vec<u8>>> {
+		let mut existing_statements = Vec::new();
+		let index = self.index.read();
+		self.collect_statements_locked(
+			None,
+			filter,
+			&index,
+			&mut existing_statements,
+			|statement| Some(statement.encode()),
+		)?;
+		register();
+		drop(index);
+		Ok(existing_statements)
+	}
+}
+
+impl MultiFilterSubscriptionApi for Arc<Store> {
+	fn create_subscription(&self) -> (SubscriptionHandle, LiveEventStream) {
+		let filters = Arc::new(RwLock::new(HashMap::new()));
+		let next_filter_id = Arc::new(AtomicU64::new(0));
+		let add_filter_lock = Arc::new(parking_lot::Mutex::new(()));
+		let snapshot_provider: Arc<dyn AtomicSnapshotProvider> = self.clone();
+
+		let (_subscription_sender, subscription_stream) =
+			self.subscription_manager.subscribe(OptimizedTopicFilter::Any);
+
+		let handle = SubscriptionHandle {
+			filters: filters.clone(),
+			next_filter_id,
+			snapshot_provider,
+			add_filter_lock,
+		};
+		let stream = LiveEventStream {
+			matcher_stream: subscription_stream,
+			filters,
+			pending: VecDeque::new(),
+		};
+		(handle, stream)
 	}
 }
 
@@ -3233,5 +3282,266 @@ mod tests {
 		let filter_b = OptimizedTopicFilter::MatchAll(std::collections::HashSet::from([topic_b]));
 		let (existing, _sender, _stream) = store.subscribe_statement(filter_b).unwrap();
 		assert_eq!(existing.len(), 2, "Re-subscribe MatchAll([B]) should return s2 and s3");
+	}
+
+	mod multi_filter {
+		use super::*;
+		use crate::{LiveEventStream, MultiFilterSubscriptionApi, SubscriptionHandle};
+		use futures::StreamExt;
+		use sp_statement_store::{LiveStatementEvent, OptimizedTopicFilter};
+		use std::{collections::HashSet, sync::Arc, time::Duration};
+
+		fn arc_test_store() -> (Arc<Store>, tempfile::TempDir) {
+			let (store, dir) = test_store();
+			(Arc::new(store), dir)
+		}
+
+		async fn collect_n(
+			stream: &mut LiveEventStream,
+			n: usize,
+			timeout: Duration,
+		) -> Vec<LiveStatementEvent> {
+			let mut events = Vec::new();
+			for _ in 0..n {
+				match tokio::time::timeout(timeout, stream.next()).await {
+					Ok(Some(event)) => events.push(event),
+					_ => break,
+				}
+			}
+			events
+		}
+
+		async fn drain_all(
+			stream: &mut LiveEventStream,
+			idle: Duration,
+		) -> Vec<LiveStatementEvent> {
+			let mut events = Vec::new();
+			while let Ok(Some(event)) = tokio::time::timeout(idle, stream.next()).await {
+				events.push(event);
+			}
+			events
+		}
+
+		#[tokio::test]
+		async fn create_subscription_no_filters_emits_empty_matched_ids() {
+			let (store, _dir) = arc_test_store();
+			let (_handle, mut stream) = store.create_subscription();
+
+			let stmt = signed_statement(1);
+			let stmt_hash = stmt.hash();
+			assert_eq!(store.submit(stmt.clone(), StatementSource::Local), SubmitResult::New);
+
+			let events = collect_n(&mut stream, 1, Duration::from_secs(1)).await;
+			assert_eq!(events.len(), 1);
+			assert_eq!(events[0].hash, stmt_hash);
+			assert!(events[0].matched_filter_ids.is_empty());
+			assert_eq!(events[0].encoded, stmt.encode());
+		}
+
+		#[tokio::test]
+		async fn add_filter_empty_store_returns_empty_snapshot() {
+			let (store, _dir) = arc_test_store();
+			let (handle, _stream) = store.create_subscription();
+
+			let filter = OptimizedTopicFilter::MatchAll(HashSet::from([topic(1)]));
+			let (filter_id, snapshot) = handle.add_filter(filter).unwrap();
+			assert!(snapshot.is_empty());
+			assert_eq!(filter_id.as_u64(), 0);
+			assert_eq!(handle.filter_ids(), vec![filter_id]);
+		}
+
+		#[tokio::test]
+		async fn add_filter_returns_existing_matching_statements() {
+			let (store, _dir) = arc_test_store();
+			let topic_a = topic(1);
+			let topic_b = topic(2);
+
+			let s1 = signed_statement_with_topics(1, &[topic_a], None);
+			let s2 = signed_statement_with_topics(2, &[topic_b], None);
+			let s3 = signed_statement_with_topics(3, &[topic_a], None);
+			store.submit(s1.clone(), StatementSource::Local);
+			store.submit(s2, StatementSource::Local);
+			store.submit(s3.clone(), StatementSource::Local);
+
+			let (handle, _stream) = store.create_subscription();
+			let filter = OptimizedTopicFilter::MatchAll(HashSet::from([topic_a]));
+			let (_id, snapshot) = handle.add_filter(filter).unwrap();
+			let snapshot_set: HashSet<_> = snapshot.into_iter().collect();
+			let expected: HashSet<_> = vec![s1.encode(), s3.encode()].into_iter().collect();
+			assert_eq!(snapshot_set, expected);
+		}
+
+		#[tokio::test]
+		async fn add_filter_returns_limit_reached_at_cap() {
+			let (store, _dir) = arc_test_store();
+			let (handle, _stream) = store.create_subscription();
+
+			for i in 0..crate::subscription::MAX_FILTERS_PER_SUBSCRIPTION {
+				let (filter_id, snapshot) = handle
+					.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic(i as u64)])))
+					.unwrap_or_else(|e| panic!("filter {i} should be accepted: {e:?}"));
+				assert_eq!(filter_id.as_u64(), i as u64);
+				assert!(snapshot.is_empty());
+			}
+
+			let err = handle
+				.add_filter(OptimizedTopicFilter::Any)
+				.expect_err("filter beyond cap must be rejected");
+			assert_eq!(err, crate::subscription::AddFilterError::LimitReached);
+			assert_eq!(
+				handle.filter_ids().len(),
+				crate::subscription::MAX_FILTERS_PER_SUBSCRIPTION,
+			);
+		}
+
+		#[tokio::test]
+		async fn removing_filter_frees_filter_capacity() {
+			let (store, _dir) = arc_test_store();
+			let (handle, _stream) = store.create_subscription();
+			let mut ids = Vec::new();
+
+			for i in 0..crate::subscription::MAX_FILTERS_PER_SUBSCRIPTION {
+				let (filter_id, _) = handle
+					.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic(i as u64)])))
+					.unwrap_or_else(|e| panic!("filter {i} should be accepted: {e:?}"));
+				ids.push(filter_id);
+			}
+
+			assert!(handle.remove_filter(ids[0]));
+
+			let (replacement, snapshot) = handle
+				.add_filter(OptimizedTopicFilter::Any)
+				.expect("capacity freed by remove_filter");
+			assert!(snapshot.is_empty());
+			assert_eq!(
+				handle.filter_ids().len(),
+				crate::subscription::MAX_FILTERS_PER_SUBSCRIPTION,
+			);
+			assert_eq!(
+				replacement.as_u64(),
+				crate::subscription::MAX_FILTERS_PER_SUBSCRIPTION as u64
+			);
+		}
+
+		#[tokio::test]
+		async fn remove_filter_makes_subsequent_events_unmatched() {
+			let (store, _dir) = arc_test_store();
+			let (handle, mut stream) = store.create_subscription();
+			let topic_a = topic(1);
+			let filter = OptimizedTopicFilter::MatchAll(HashSet::from([topic_a]));
+			let (id, _snapshot) = handle.add_filter(filter).unwrap();
+
+			assert!(handle.remove_filter(id));
+			assert!(!handle.remove_filter(id));
+
+			let stmt = signed_statement_with_topics(1, &[topic_a], None);
+			store.submit(stmt, StatementSource::Local);
+			let events = collect_n(&mut stream, 1, Duration::from_secs(1)).await;
+			assert_eq!(events.len(), 1);
+			assert!(events[0].matched_filter_ids.is_empty());
+		}
+
+		#[tokio::test]
+		async fn multiple_filters_match_independently() {
+			let (store, _dir) = arc_test_store();
+			let (handle, mut stream) = store.create_subscription();
+			let topic_a = topic(1);
+			let topic_b = topic(2);
+
+			let (id_a, _) = handle
+				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_a])))
+				.unwrap();
+			let (id_b, _) = handle
+				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_b])))
+				.unwrap();
+			let (id_ab, _) = handle
+				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_a, topic_b])))
+				.unwrap();
+
+			let s1 = signed_statement_with_topics(1, &[topic_a], None);
+			store.submit(s1, StatementSource::Local);
+			let events = collect_n(&mut stream, 1, Duration::from_secs(1)).await;
+			assert_eq!(events.len(), 1);
+			let matched: HashSet<_> = events[0].matched_filter_ids.iter().copied().collect();
+			assert_eq!(matched, HashSet::from([id_a]));
+
+			let s2 = signed_statement_with_topics(2, &[topic_a, topic_b], None);
+			store.submit(s2, StatementSource::Local);
+			let events = collect_n(&mut stream, 1, Duration::from_secs(1)).await;
+			assert_eq!(events.len(), 1);
+			let matched: HashSet<_> = events[0].matched_filter_ids.iter().copied().collect();
+			assert_eq!(matched, HashSet::from([id_a, id_b, id_ab]));
+		}
+
+		#[tokio::test]
+		async fn cloned_handle_shares_filter_state() {
+			let (store, _dir) = arc_test_store();
+			let (handle, _stream) = store.create_subscription();
+			let topic_a = topic(1);
+			let topic_b = topic(2);
+
+			let (id1, _) = handle
+				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_a])))
+				.unwrap();
+
+			let handle2: SubscriptionHandle = handle.clone();
+			let (id2, _) = handle2
+				.add_filter(OptimizedTopicFilter::MatchAll(HashSet::from([topic_b])))
+				.unwrap();
+
+			assert_ne!(id1, id2);
+
+			let ids_via_a: HashSet<_> = handle.filter_ids().into_iter().collect();
+			let ids_via_b: HashSet<_> = handle2.filter_ids().into_iter().collect();
+			assert_eq!(ids_via_a, ids_via_b);
+			assert_eq!(ids_via_a, HashSet::from([id1, id2]));
+
+			assert!(handle2.remove_filter(id1));
+			assert_eq!(handle.filter_ids(), vec![id2]);
+		}
+
+		#[tokio::test]
+		async fn add_filter_snapshot_and_live_events_cover_concurrent_submissions() {
+			let (store, _dir) = arc_test_store();
+			let (handle, mut stream) = store.create_subscription();
+
+			const NUM_STATEMENTS: u8 = 50;
+
+			let store_for_submitter = store.clone();
+			let submitter = std::thread::spawn(move || {
+				for i in 0..NUM_STATEMENTS {
+					let stmt = signed_statement(i);
+					assert_eq!(
+						store_for_submitter.submit(stmt, StatementSource::Local),
+						SubmitResult::New
+					);
+					std::thread::sleep(Duration::from_millis(1));
+				}
+			});
+
+			std::thread::sleep(Duration::from_millis(10));
+			let (filter_id, snapshot) = handle.add_filter(OptimizedTopicFilter::Any).unwrap();
+
+			submitter.join().unwrap();
+
+			let snapshot_hashes: HashSet<[u8; 32]> = snapshot
+				.iter()
+				.map(|bytes| Statement::decode(&mut &bytes[..]).unwrap().hash())
+				.collect();
+
+			let mut live_with_filter: HashSet<[u8; 32]> = HashSet::new();
+			for ev in drain_all(&mut stream, Duration::from_millis(300)).await {
+				if ev.matched_filter_ids.contains(&filter_id) {
+					live_with_filter.insert(ev.hash);
+				}
+			}
+
+			let covered: HashSet<[u8; 32]> =
+				snapshot_hashes.union(&live_with_filter).copied().collect();
+			let expected: HashSet<[u8; 32]> =
+				(0..NUM_STATEMENTS).map(|i| signed_statement(i).hash()).collect();
+
+			assert_eq!(covered, expected);
+		}
 	}
 }

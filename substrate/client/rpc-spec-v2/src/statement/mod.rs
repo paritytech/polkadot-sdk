@@ -16,28 +16,18 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! Substrate JSON-RPC interface v2.
-//!
-//! Specification [document](https://paritytech.github.io/json-rpc-interface-spec/).
+pub mod api;
+pub mod error;
+pub mod event;
+mod statement;
+mod subscription;
 
-#![warn(missing_docs)]
-#![deny(unused_crate_dependencies)]
+#[cfg(test)]
+mod tests;
 
-use sp_core::hexdisplay::{AsBytesRef, HexDisplay};
+pub use api::StatementSpecApiServer;
+pub use error::Error;
+pub use event::{AddFilterResponse, SubmitOutcome, SubscribeEvent};
+pub use statement::StatementSpec;
 
-mod common;
-
-pub mod archive;
-pub mod bitswap;
-pub mod chain_head;
-pub mod chain_spec;
-pub mod statement;
-pub mod transaction;
-
-/// Task executor that is being used by RPC subscriptions.
-pub type SubscriptionTaskExecutor = std::sync::Arc<dyn sp_core::traits::SpawnNamed>;
-
-/// Util function to encode a value as a hex string
-pub fn hex_string<Data: AsBytesRef>(data: &Data) -> String {
-	format!("0x{:?}", HexDisplay::from(data))
-}
+pub(crate) const LOG_TARGET: &str = "rpc-spec-v2::statement";

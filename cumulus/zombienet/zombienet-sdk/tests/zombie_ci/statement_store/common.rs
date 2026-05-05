@@ -10,6 +10,7 @@ use anyhow::anyhow;
 use codec::Encode;
 use log::info;
 use sc_statement_store::test_utils::get_keypair;
+use serde::Deserialize;
 use sp_core::{hexdisplay::HexDisplay, Bytes, Pair};
 use sp_statement_store::{
 	statement_allowance_key, StatementAllowance, StatementEvent, SubmitResult, Topic, TopicFilter,
@@ -28,6 +29,38 @@ use zombienet_sdk::{
 
 pub(super) const RPC_POOL_SIZE: usize = 10000;
 
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(tag = "event", rename_all = "camelCase")]
+pub(super) enum UnstableStatementEvent {
+	ReplayStatements {
+		#[serde(rename = "filterId")]
+		filter_id: String,
+		statements: Vec<Bytes>,
+	},
+	ReplayDone {
+		#[serde(rename = "filterId")]
+		filter_id: String,
+	},
+	NewStatements {
+		statements: Vec<UnstableNewStatement>,
+	},
+	Stop,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub(super) struct UnstableNewStatement {
+	pub statement: Bytes,
+	#[serde(rename = "filterIds")]
+	pub filter_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+#[serde(untagged)]
+pub(super) enum UnstableAddFilterResponse {
+	Ok(String),
+	LimitReached { result: String },
+}
+
 pub(super) async fn submit_statement(
 	rpc: &RpcClient,
 	statement: &sp_statement_store::Statement,
@@ -35,6 +68,59 @@ pub(super) async fn submit_statement(
 	let encoded: Bytes = statement.encode().into();
 	let result: SubmitResult = rpc.request("statement_submit", rpc_params![encoded]).await?;
 	Ok(result)
+}
+
+pub(super) async fn submit_statement_unstable(
+	rpc: &RpcClient,
+	statement: &sp_statement_store::Statement,
+) -> Result<SubmitResult, anyhow::Error> {
+	let encoded: Bytes = statement.encode().into();
+	let result: SubmitResult =
+		rpc.request("statement_unstable_submit", rpc_params![encoded]).await?;
+	Ok(result)
+}
+
+pub(super) async fn subscribe_unstable(
+	rpc: &RpcClient,
+) -> Result<RpcSubscription<UnstableStatementEvent>, anyhow::Error> {
+	let subscription = rpc
+		.subscribe::<UnstableStatementEvent>(
+			"statement_unstable_subscribe",
+			rpc_params![],
+			"statement_unstable_unsubscribe",
+		)
+		.await?;
+	Ok(subscription)
+}
+
+pub(super) fn unstable_subscription_id(
+	subscription: &RpcSubscription<UnstableStatementEvent>,
+) -> Result<String, anyhow::Error> {
+	subscription
+		.subscription_id()
+		.map(ToOwned::to_owned)
+		.ok_or_else(|| anyhow!("Subscription was accepted without an id"))
+}
+
+pub(super) async fn add_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter: TopicFilter,
+) -> Result<UnstableAddFilterResponse, anyhow::Error> {
+	let response = rpc
+		.request("statement_unstable_add_filter", rpc_params![subscription_id, filter])
+		.await?;
+	Ok(response)
+}
+
+pub(super) async fn remove_filter_unstable(
+	rpc: &RpcClient,
+	subscription_id: &str,
+	filter_id: &str,
+) -> Result<(), anyhow::Error> {
+	rpc.request::<()>("statement_unstable_remove_filter", rpc_params![subscription_id, filter_id])
+		.await?;
+	Ok(())
 }
 
 pub(super) async fn expect_one_statement(
