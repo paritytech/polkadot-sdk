@@ -33,15 +33,9 @@ pub fn decode_xcm_instructions<I: codec::Input, T: Decode>(
 	instructions_count::using_once(&mut 0, || {
 		let vec_len: u32 = <Compact<u32>>::decode(input)?.into();
 		instructions_count::with(|count| {
-<<<<<<< HEAD
-			*count = count.saturating_add(vec_len as u8);
-			if *count > MAX_INSTRUCTIONS_TO_DECODE {
-				return Err(codec::Error::from("Max instructions exceeded"))
-=======
 			*count = count.saturating_add(vec_len);
 			if *count > MAX_INSTRUCTIONS_TO_DECODE as u32 {
 				return Err(codec::Error::from("Max instructions exceeded"));
->>>>>>> cdfcd62f (Fix recursive XCM decoding (#11964))
 			}
 			Ok(())
 		})
