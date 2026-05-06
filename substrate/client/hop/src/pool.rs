@@ -562,7 +562,10 @@ impl HopDataPool {
 		{
 			let index = self.index.read();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
+			// Map NotRecipient → NotFound so callers cannot probe whether a hash
+			// exists by observing different error codes.
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)
+				.map_err(|_| HopError::NotFound)?;
 
 			// If this recipient already acked, the data may be gone.
 			if meta.recipients[idx].claimed {
@@ -583,7 +586,8 @@ impl HopDataPool {
 		{
 			let index = self.index.read();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+				.map_err(|_| HopError::NotFound)?;
 			if meta.recipients[idx].claimed {
 				return Ok(());
 			}
@@ -593,7 +597,8 @@ impl HopDataPool {
 		// have been removed and re-submitted with a different recipient list since Phase 1.
 		let mut index = self.index.write();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+			.map_err(|_| HopError::NotFound)?;
 
 		if meta.recipients[idx].claimed {
 			return Ok(());
