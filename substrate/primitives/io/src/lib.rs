@@ -193,7 +193,7 @@ pub trait Storage {
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<StateLoad<Option<bytes::Bytes>>> {
 		let StateLoad { data, is_cold } = self.storage_with_status(key);
-		StateLoad { data: data.map(|s| bytes::Bytes::from(s.to_vec())), is_cold }
+		StateLoad { data: data.map(bytes::Bytes::from), is_cold }
 	}
 
 	/// Get `key` from storage, placing the value into `value_out` and return the number of
@@ -434,8 +434,7 @@ pub trait DefaultChildStorage {
 		key: PassFatPointerAndRead<&[u8]>,
 	) -> AllocateAndReturnByCodec<StateLoad<Option<Vec<u8>>>> {
 		let child_info = ChildInfo::new_default(storage_key);
-		let StateLoad { data, is_cold } = self.child_storage_with_status(&child_info, key);
-		StateLoad { data: data.map(|s| s.to_vec()), is_cold }
+		self.child_storage_with_status(&child_info, key)
 	}
 
 	/// Allocation efficient variant of `get`.
