@@ -38,7 +38,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 						"config": {
 							"scheduler_params": {
 								"num_cores": 3,
-								"max_validators_per_core": 1
+								"max_validators_per_core": 1,
+								"group_rotation_frequency": 5
 							}
 						}
 					}
@@ -46,7 +47,7 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 				// Have to set a `with_validator` outside of the loop below, so that `r` has the right
 				// type.
 				.with_validator(|node| node.with_name("validator-0"));
-			(1..9).fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
+			(1..6).fold(r, |acc, i| acc.with_validator(|node| node.with_name(&format!("validator-{i}"))))
 		})
 		.with_parachain(|p| {
 			p.with_id(PARA_ID)
@@ -86,7 +87,7 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let validators: Vec<_> = (0..9)
+	let validators: Vec<_> = (0..6)
 		.map(|i| network.get_node(format!("validator-{i}").as_str()))
 		.collect::<Result<_, _>>()?;
 
