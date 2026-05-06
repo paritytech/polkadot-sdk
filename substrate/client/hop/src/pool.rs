@@ -90,6 +90,13 @@ impl HopDataPool {
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
 	) -> Result<Self, HopError> {
+		if rate_limit_cfg.enabled && rate_limit_cfg.bandwidth_burst < MAX_DATA_SIZE {
+			return Err(HopError::InvalidConfig(format!(
+				"bandwidth_burst ({}) must be at least MAX_DATA_SIZE ({})",
+				rate_limit_cfg.bandwidth_burst, MAX_DATA_SIZE,
+			)));
+		}
+
 		// Create shard directories (256 each for blobs/ and meta/).
 		for i in 0u8..=255 {
 			let shard = format!("{:02x}", i);

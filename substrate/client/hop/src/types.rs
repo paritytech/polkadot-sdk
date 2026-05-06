@@ -224,6 +224,9 @@ pub enum HopError {
 
 	#[error("No database path available and --hop-data-dir not specified")]
 	MissingDataDir,
+
+	#[error("Invalid configuration: {0}")]
+	InvalidConfig(String),
 }
 
 impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
@@ -249,6 +252,7 @@ impl From<HopError> for jsonrpsee::types::ErrorObjectOwned {
 			HopError::DuplicateRecipient => 1019,
 			HopError::RateLimited { .. } => 1020,
 			HopError::MissingDataDir => 1021,
+			HopError::InvalidConfig(_) => 1022,
 		};
 
 		jsonrpsee::types::ErrorObject::owned(code, err.to_string(), None::<()>)
