@@ -177,14 +177,11 @@ where
 		let current_block = chain_info.best_number.saturated_into::<u32>();
 
 		let data_len = data.0.len();
-		let max_size = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
-			.map_err(HopError::from)?;
-		if data_len > max_size as usize {
-			return Err(HopError::DataTooLarge(data_len, max_size as u64).into());
-		}
 
 		// Check authorization before verifying the signature: a flood of unauthorized
 		// requests must not force a signature verification per submit.
+		// `can_account_promote` returns false for any reason the runtime rejects:
+		// unauthorized account, exhausted quota, or data_len exceeding the runtime's limit.
 		let account_id: AccountId32 = signer.clone().into_account();
 		let authorized = runtime_api::can_account_promote::<Block, _>(
 			&*self.client,
@@ -311,7 +308,6 @@ mod tests {
 
 		fn call_api_at(&self, params: CallApiAtParams<Block>) -> Result<Vec<u8>, ApiError> {
 			match params.function {
-				"HopRuntimeApi_max_promotion_size" => Ok((8u32 * 1024 * 1024).encode()),
 				"HopRuntimeApi_can_account_promote" =>
 					Ok(self.authorized.load(Ordering::Relaxed).encode()),
 				"HopRuntimeApi_is_promoted_on_chain" => Ok(false.encode()),
