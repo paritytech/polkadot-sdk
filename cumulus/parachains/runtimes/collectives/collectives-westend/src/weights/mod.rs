@@ -20,6 +20,7 @@ pub mod cumulus_pallet_xcmp_queue;
 pub mod extrinsic_weights;
 pub mod frame_system;
 pub mod frame_system_extensions;
+pub mod pallet_accumulate_and_forward;
 pub mod pallet_alliance;
 pub mod pallet_asset_rate;
 pub mod pallet_balances;

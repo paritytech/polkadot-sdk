@@ -178,37 +178,23 @@ jobs:
 
           reorder_prdocs "$VERSION"
 
-      - name: Check git status before commit
-        run: |
-          echo "=== Git status ==="
-          git status
-          echo ""
-          echo "=== Git status --porcelain ==="
-          git status --porcelain
-          echo ""
-          echo "=== Changed files count ==="
-          git status --porcelain | wc -l
-
-      - name: Commit and push changes
+      - name: Push changes
         shell: bash
         run: |
-          . ./.github/scripts/release/release_lib.sh
+          echo "Pushing changes to branch..."
+          git push
+          echo "Changes pushed successfully"
 
-          # Check if there are changes to commit
-          if [[ -n $(git status --porcelain) ]]; then
-            commit_with_message "chore: post crates release actions - version bumps, path deps, zepter, taplo"
-            echo "Changes committed successfully"
-            # Push changes to the branch
-            echo "Pushing changes to branch..."
-            git push
-            echo "Changes pushed successfully"
-          else
-            echo "No changes to commit"
-          fi
+      - name: Generate token
+        id: generate_token
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3 # v3.1.1
+        with:
+          app-id: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BACKPORT_AUTOMATION_APP_PRIVATE_KEY }}
 
       - name: Create Pull Request to base release branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
           BRANCH_NAME: ${{ github.ref_name }}
           FULL_RELEASE: ${{ inputs.version }}
           GH_REPOSITORY: ${{ github.repository }}

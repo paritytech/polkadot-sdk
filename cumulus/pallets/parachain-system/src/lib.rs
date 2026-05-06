@@ -34,9 +34,9 @@ use codec::{Decode, DecodeLimit, Encode};
 use core::cmp;
 use cumulus_primitives_core::{
 	relay_chain::{self, UMPSignal, UMP_SEPARATOR},
-	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CumulusDigestItem,
-	GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage, ParaId,
-	PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
+	AbridgedHostConfiguration, ChannelInfo, ChannelStatus, CollationInfo, CoreInfo,
+	CumulusDigestItem, GetChannelInfo, ListChannelInfos, MessageSendError, OutboundHrmpMessage,
+	ParaId, PersistedValidationData, UpwardMessage, UpwardMessageSender, XcmpMessageHandler,
 	XcmpMessageSource,
 };
 use cumulus_primitives_parachain_inherent::{v0, MessageQueueChain, ParachainInherentData};
@@ -125,6 +125,8 @@ pub struct PoVMessages {
 	pub ump_msg_count: u32,
 	/// Cumulative count of HRMP outbound messages sent in this PoV.
 	pub hrmp_outbound_count: u32,
+	/// Recipients already used for HRMP outbound messages in this PoV.
+	pub hrmp_outbound_recipients: Vec<ParaId>,
 }
 
 /// Something that can check the associated relay block number.
@@ -337,7 +339,7 @@ pub mod pallet {
 					.map_or(0, |ci| ci.selector.0);
 
 			let current_bundle_index =
-				CumulusDigestItem::find_bundle_info(&frame_system::Pallet::<T>::digest())
+				CumulusDigestItem::find_block_bundle_info(&frame_system::Pallet::<T>::digest())
 					.map_or(0, |bi| bi.index);
 
 			let mut pov_tracker = PoVMessagesTracker::<T>::get()
@@ -408,22 +410,18 @@ pub mod pallet {
 
 				pov_tracker.ump_msg_count = pov_tracker.ump_msg_count.saturating_add(num);
 
-				if let Some(core_info) =
-					CumulusDigestItem::find_core_info(&frame_system::Pallet::<T>::digest())
-				{
-					PendingUpwardSignals::<T>::append(
-						UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset)
-							.encode(),
-					);
+				let digest = frame_system::Pallet::<T>::digest();
 
-					PreviousCoreCount::<T>::put(core_info.number_of_cores);
-				} else {
-					// Without the digest, we assume that it is `1`.
-					PreviousCoreCount::<T>::put(Compact(1u16));
+				let core_info = CumulusDigestItem::find_core_info(&digest);
+				PreviousCoreCount::<T>::put(
+					core_info.as_ref().map_or(Compact(1u16), |ci| ci.number_of_cores),
+				);
+
+				// Only send UMP signals on the last block of a PoV.
+				// For single-block PoVs (no BlockBundleInfo), always send signals.
+				if CumulusDigestItem::is_last_block_in_core(&digest).unwrap_or(true) {
+					Self::send_ump_signals(core_info);
 				}
-
-				// Send the pending UMP signals.
-				Self::send_ump_signals();
 
 				// If the total size of the pending messages is less than the threshold,
 				// we decrease the fee factor, since the queue is less congested.
@@ -459,12 +457,17 @@ pub mod pallet {
 			// Note: this internally calls the `GetChannelInfo` implementation for this
 			// pallet, which draws on the `RelevantMessagingState`. That in turn has
 			// been adjusted above to reflect the correct limits in all channels.
-			let outbound_messages =
-				T::OutboundXcmpMessageSource::take_outbound_messages(maximum_channels)
-					.into_iter()
-					.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
-					.collect::<Vec<_>>();
+			let outbound_messages = T::OutboundXcmpMessageSource::take_outbound_messages(
+				maximum_channels,
+				&pov_tracker.hrmp_outbound_recipients,
+			)
+			.into_iter()
+			.map(|(recipient, data)| OutboundHrmpMessage { recipient, data })
+			.collect::<Vec<_>>();
 
+			pov_tracker
+				.hrmp_outbound_recipients
+				.extend(outbound_messages.iter().map(|m| m.recipient));
 			pov_tracker.hrmp_outbound_count =
 				pov_tracker.hrmp_outbound_count.saturating_add(outbound_messages.len() as u32);
 			PoVMessagesTracker::<T>::put(pov_tracker);
@@ -768,10 +771,9 @@ pub mod pallet {
 
 			<T::OnSystemEvent as OnSystemEvent>::on_validation_data(&vfp);
 
-			if let Some(collator_peer_id) = collator_peer_id {
-				PendingUpwardSignals::<T>::append(
-					UMPSignal::ApprovedPeer(collator_peer_id).encode(),
-				);
+			match collator_peer_id {
+				Some(peer_id) => PendingApprovedPeer::<T>::put(peer_id),
+				None => PendingApprovedPeer::<T>::kill(),
 			}
 
 			total_weight.saturating_accrue(Self::enqueue_inbound_downward_messages(
@@ -1017,6 +1019,11 @@ pub mod pallet {
 	/// This will be cleared in `on_finalize` for each block.
 	#[pallet::storage]
 	pub type PendingUpwardSignals<T: Config> = StorageValue<_, Vec<UpwardMessage>, ValueQuery>;
+
+	/// The approved peer id to be sent as a UMP signal on the last block of the PoV.
+	#[pallet::storage]
+	pub type PendingApprovedPeer<T: Config> =
+		StorageValue<_, relay_chain::ApprovedPeerId, OptionQuery>;
 
 	/// The factor to multiply the base delivery fee by for UMP.
 	#[pallet::storage]
@@ -1660,8 +1667,19 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// Send the pending ump signals
-	fn send_ump_signals() {
-		let ump_signals = PendingUpwardSignals::<T>::take();
+	fn send_ump_signals(core_info: Option<CoreInfo>) {
+		let mut ump_signals = PendingUpwardSignals::<T>::take();
+
+		if let Some(core_info) = core_info {
+			ump_signals.push(
+				UMPSignal::SelectCore(core_info.selector, core_info.claim_queue_offset).encode(),
+			);
+		}
+
+		if let Some(approved_peer) = PendingApprovedPeer::<T>::take() {
+			ump_signals.push(UMPSignal::ApprovedPeer(approved_peer).encode());
+		}
+
 		if !ump_signals.is_empty() {
 			UpwardMessages::<T>::append(UMP_SEPARATOR);
 			ump_signals.into_iter().for_each(|s| UpwardMessages::<T>::append(s));
