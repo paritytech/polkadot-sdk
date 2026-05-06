@@ -1750,11 +1750,7 @@ fn apply_slash_paths_agree_on_unbonding_chunk_at_offence_era() {
 			hypothetically!({
 				let (slash_key, _) =
 					UnappliedSlashes::<T>::iter_prefix(&slash_era).next().expect("queued");
-				assert_ok!(Staking::apply_slash(
-					RuntimeOrigin::signed(1),
-					slash_era,
-					slash_key,
-				));
+				assert_ok!(Staking::apply_slash(RuntimeOrigin::signed(1), slash_era, slash_key,));
 				// THEN: chunk is slashed proportionally.
 				assert_post_slash();
 			});

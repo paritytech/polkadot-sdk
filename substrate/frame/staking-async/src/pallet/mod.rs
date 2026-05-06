@@ -2951,8 +2951,8 @@ pub mod pallet {
 		/// for eras older than the active era.
 		///
 		/// ## Parameters
-		/// - `slash_era`: The application era (`offence_era + SlashDeferDuration`), i.e. the
-		///   key into [`UnappliedSlashes`].
+		/// - `slash_era`: The application era (`offence_era + SlashDeferDuration`), i.e. the key
+		///   into [`UnappliedSlashes`].
 		/// - `slash_key`: A unique identifier for the slash, represented as a tuple:
 		///   - `stash`: The stash account of the validator being slashed.
 		///   - `slash_fraction`: The fraction of the stake that was slashed.
