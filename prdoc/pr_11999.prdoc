@@ -9,4 +9,4 @@ doc:
     taking a disproportionate share.
 crates:
 - name: pallet-staking-async
-  bump: patch
+  bump: major
