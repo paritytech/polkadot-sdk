@@ -25598,7 +25598,6 @@ dependencies = [
  "foldhash 0.1.5",
  "hash-db",
  "hashbrown 0.15.3",
- "log",
  "memory-db",
  "nohash-hasher",
  "parity-scale-codec",

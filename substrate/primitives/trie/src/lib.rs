@@ -386,11 +386,7 @@ pub fn read_trie_value_with_status<
 		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
 		.unwrap_or(true);
 
-	let data = TrieDBBuilder::<L>::new(db, root)
-		.with_optional_cache(cache)
-		.with_optional_recorder(recorder)
-		.build()
-		.get(key)?;
+	let data = read_trie_value::<L, DB>(db, root, key, recorder, cache)?;
 
 	Ok(StateLoad { data, is_cold })
 }
@@ -515,13 +511,7 @@ where
 		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
 		.unwrap_or(true);
 
-	let db = KeySpacedDB::new(db, keyspace);
-	let data = TrieDBBuilder::<L>::new(&db, &root)
-		.with_optional_recorder(recorder)
-		.with_optional_cache(cache)
-		.build()
-		.get(key)?
-		.map(|val| val.to_vec());
+	let data = read_child_trie_value::<L, DB>(keyspace, db, root, key, recorder, cache)?;
 
 	Ok(StateLoad { data, is_cold })
 }
