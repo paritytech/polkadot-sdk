@@ -16,7 +16,7 @@
 
 use crate::{
 	AccountId32Aliases, AllowUnpaidExecutionFrom, FixedWeightBounds, FrameTransactionalProcessor,
-	FungibleAdapter, IsConcrete, MintLocation, TeleportForwarder,
+	FungibleAdapter, IsConcrete, MintLocation, TeleportForwarderForAccountId32,
 };
 use core::cell::Cell;
 use frame_support::{
@@ -178,7 +178,7 @@ fn forward_rolls_back_balance_and_issuance_on_xcm_failure() {
 		let initial_issuance = Balances::total_issuance();
 
 		ROUTER_SHOULD_FAIL.with(|f| f.set(true));
-		let result = TeleportForwarder::<
+		let result = TeleportForwarderForAccountId32::<
 			TestXcmConfig,
 			AssetHubLocation,
 			HereLocation,

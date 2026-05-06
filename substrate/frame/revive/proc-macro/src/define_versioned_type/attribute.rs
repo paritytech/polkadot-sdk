@@ -21,7 +21,7 @@ use syn::{
 	punctuated::Punctuated,
 	spanned::Spanned,
 	token::{Comma, Semi},
-	Attribute, Field, LitStr, Meta, Result, Token, TypePath, Variant,
+	Attribute, Field, Ident, LitStr, Meta, Result, Token, TypePath, Variant,
 };
 
 /// The result of removing `versioned_type` attributes from an item.
@@ -39,9 +39,9 @@ pub(super) struct AttributeSplit<T> {
 
 /// The raw parsed shape of a `versioned_type` helper attribute.
 ///
-/// This type intentionally does not decide whether `extend` or `override` is valid in a given
-/// location. It only records which options were present so the context-specific attribute type can
-/// perform the final validation step.
+/// This type intentionally does not decide whether `extend`, `override`, or insertion is valid in
+/// a given location. It only records which options were present so the context-specific attribute
+/// type can perform the final validation step.
 #[derive(Default)]
 struct RawVersionedTypeAttribute {
 	/// The span of the `extend` option when it was supplied.
@@ -52,6 +52,9 @@ struct RawVersionedTypeAttribute {
 
 	/// The types that should encode like the current versioned type.
 	encode_like: Option<EncodeLikeTypes>,
+
+	/// The requested insertion position when one was supplied.
+	insertion: Option<Insertion>,
 }
 
 impl RawVersionedTypeAttribute {
@@ -84,10 +87,16 @@ impl RawVersionedTypeAttribute {
 					self.set_override(meta.path.span())
 				} else if meta.path.is_ident("encode_like") {
 					self.set_encode_like(meta.path.span(), meta.value()?.parse()?)
+				} else if meta.path.is_ident("insert_before") {
+					let insertion = Self::parse_insertion(&meta, InsertionPosition::Before)?;
+					self.set_insertion(insertion)
+				} else if meta.path.is_ident("insert_after") {
+					let insertion = Self::parse_insertion(&meta, InsertionPosition::After)?;
+					self.set_insertion(insertion)
 				} else {
 					Err(meta.error(
-						"unsupported versioned_type option; currently only `extend`, \
-                        `override`, and `encode_like` are supported",
+						"unsupported versioned_type option; currently only `extend`, `override`, \
+                        `encode_like`, `insert_before`, and `insert_after` are supported",
 					))
 				}
 			}),
@@ -118,6 +127,44 @@ impl RawVersionedTypeAttribute {
 		Ok(())
 	}
 
+	/// Parses the target identifier for an insertion option.
+	fn parse_insertion(
+		meta: &syn::meta::ParseNestedMeta<'_>,
+		position: InsertionPosition,
+	) -> Result<Insertion> {
+		let option_name = position.option_name();
+		if meta.input.peek(syn::token::Paren) {
+			return Err(meta.error(format!(
+				"`{option_name}` does not accept list arguments; use \
+				`#[versioned_type({option_name} = \"target\")]`"
+			)));
+		}
+
+		let value = meta.value().map_err(|_| {
+			meta.error(format!(
+				"`{option_name}` requires a string literal target; use \
+				`#[versioned_type({option_name} = \"target\")]`"
+			))
+		})?;
+		let target_literal = value.parse::<LitStr>().map_err(|_| {
+			value.error(format!(
+				"`{option_name}` requires a string literal target; use \
+				`#[versioned_type({option_name} = \"target\")]`"
+			))
+		})?;
+		let target = target_literal.parse::<Ident>().map_err(|_| {
+			syn::Error::new_spanned(
+				&target_literal,
+				format!(
+					"`{option_name}` target must be a valid identifier; use \
+					`#[versioned_type({option_name} = \"target\")]`"
+				),
+			)
+		})?;
+
+		Ok(Insertion { position, option_span: meta.path.span(), target, target_literal })
+	}
+
 	/// Records an `extend` option and rejects duplicate occurrences.
 	fn set_extend(&mut self, span: Span) -> Result<()> {
 		if let Some(first_span) = self.extend {
@@ -145,6 +192,39 @@ impl RawVersionedTypeAttribute {
 		}
 
 		self.encode_like = Some(EncodeLikeTypes::parse_literal(literal)?);
+		Ok(())
+	}
+
+	/// Records an insertion option and rejects duplicate or conflicting positions.
+	fn set_insertion(&mut self, insertion: Insertion) -> Result<()> {
+		if let Some(first_insertion) = &self.insertion {
+			if first_insertion.position == insertion.position {
+				return Err(Self::duplicate_option_error(
+					insertion.option_name(),
+					insertion.option_span,
+					first_insertion.option_span,
+				));
+			}
+
+			let mut error = syn::Error::new(
+				insertion.option_span,
+				format!(
+					"`{}` cannot be combined with `{}`; choose one insertion position",
+					insertion.option_name(),
+					first_insertion.option_name(),
+				),
+			);
+			error.combine(syn::Error::new(
+				first_insertion.option_span,
+				format!(
+					"the first insertion position `{}` was specified here",
+					first_insertion.option_name(),
+				),
+			));
+			return Err(error);
+		}
+
+		self.insertion = Some(insertion);
 		Ok(())
 	}
 
@@ -210,6 +290,75 @@ impl Parse for EncodeLikeTypeList {
 	}
 }
 
+/// A parsed `insert_before` or `insert_after` helper option.
+#[derive(Clone)]
+pub(super) struct Insertion {
+	/// The side of the target where the current item should be inserted.
+	position: InsertionPosition,
+
+	/// The span of the insertion option name for diagnostics.
+	option_span: Span,
+
+	/// The target field or variant identifier from the previous version.
+	target: Ident,
+
+	/// The string literal that supplied the target identifier.
+	target_literal: LitStr,
+}
+
+impl Insertion {
+	/// Returns the insertion position.
+	#[must_use]
+	pub(super) fn position(&self) -> InsertionPosition {
+		self.position
+	}
+
+	/// Returns the span of the insertion option.
+	#[must_use]
+	pub(super) fn option_span(&self) -> Span {
+		self.option_span
+	}
+
+	/// Returns the insertion option name.
+	#[must_use]
+	pub(super) fn option_name(&self) -> &'static str {
+		self.position.option_name()
+	}
+
+	/// Returns the target string literal.
+	#[must_use]
+	pub(super) fn target_literal(&self) -> &LitStr {
+		&self.target_literal
+	}
+
+	/// Returns the target identifier as a string.
+	#[must_use]
+	pub(super) fn target_name(&self) -> String {
+		self.target.to_string()
+	}
+}
+
+/// The side of an insertion target where an item should be placed.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum InsertionPosition {
+	/// Insert before the target field or variant.
+	Before,
+
+	/// Insert after the target field or variant.
+	After,
+}
+
+impl InsertionPosition {
+	/// Returns the helper option name for this insertion position.
+	#[must_use]
+	fn option_name(self) -> &'static str {
+		match self {
+			Self::Before => "insert_before",
+			Self::After => "insert_after",
+		}
+	}
+}
+
 /// The parsed helper attribute for struct and enum items.
 ///
 /// Types support `extend` and optional `encode_like` declarations. The absence of `extend` is
@@ -233,6 +382,17 @@ impl TypeVersionedTypeAttribute {
 				override_span,
 				"`override` is not supported on types; use \
                 `#[versioned_type(extend)]` to extend a type",
+			));
+		}
+
+		if let Some(insertion) = raw.insertion {
+			return Err(syn::Error::new(
+				insertion.option_span(),
+				format!(
+					"`{}` is not supported on types; use it on named fields or enum \
+                    variants",
+					insertion.option_name(),
+				),
 			));
 		}
 
@@ -275,11 +435,15 @@ pub(super) enum TypeVersionedTypeMode {
 
 /// The parsed helper attribute for enum variants.
 ///
-/// Variants support both `extend` and `override`. Supplying both means that the variant replaces
-/// the previous variant while also extending its fields.
+/// Variants support `extend`, `override`, and insertion. Supplying `extend` and `override` means
+/// that the variant replaces the previous variant while also extending its fields. Insertion is
+/// only valid for fresh variants.
 pub(super) struct VariantVersionedTypeAttribute {
 	/// The validated variant-level mode requested by the user.
 	mode: VariantVersionedTypeMode,
+
+	/// The requested insertion position for a fresh variant.
+	insertion: Option<Insertion>,
 }
 
 impl VariantVersionedTypeAttribute {
@@ -287,6 +451,25 @@ impl VariantVersionedTypeAttribute {
 	pub(super) fn parse_and_split(attributes: Vec<Attribute>) -> Result<AttributeSplit<Self>> {
 		let AttributeSplit { versioned_type: raw, other_attributes } =
 			RawVersionedTypeAttribute::parse_and_split(attributes)?;
+		let insertion = raw.insertion;
+
+		if let Some(insertion) = &insertion {
+			if let Some(extend_span) = raw.extend {
+				return Err(insertion_combined_with_operation_error(
+					insertion,
+					"extend",
+					extend_span,
+				));
+			}
+
+			if let Some(override_span) = raw.r#override {
+				return Err(insertion_combined_with_operation_error(
+					insertion,
+					"override",
+					override_span,
+				));
+			}
+		}
 
 		if let Some(encode_like) = raw.encode_like {
 			return Err(syn::Error::new(
@@ -304,13 +487,19 @@ impl VariantVersionedTypeAttribute {
 			},
 		};
 
-		Ok(AttributeSplit { versioned_type: Self { mode }, other_attributes })
+		Ok(AttributeSplit { versioned_type: Self { mode, insertion }, other_attributes })
 	}
 
 	/// Returns the validated variant-level mode.
 	#[must_use]
 	pub(super) fn mode(&self) -> VariantVersionedTypeMode {
 		self.mode
+	}
+
+	/// Returns the requested insertion position when one exists.
+	#[must_use]
+	pub(super) fn insertion(&self) -> Option<&Insertion> {
+		self.insertion.as_ref()
 	}
 }
 
@@ -369,11 +558,15 @@ impl VariantWithVersionedTypeAttribute {
 
 /// The parsed helper attribute for struct fields and variant fields.
 ///
-/// Fields only support `override`. Field extension is controlled by the item or variant that owns
-/// the fields, not by each field independently.
+/// Fields support `override` and insertion. Field extension is controlled by the item or variant
+/// that owns the fields, not by each field independently. Insertion is only valid for fresh named
+/// fields.
 pub(super) struct FieldVersionedTypeAttribute {
 	/// The validated field-level mode requested by the user.
 	mode: FieldVersionedTypeMode,
+
+	/// The requested insertion position for a fresh field.
+	insertion: Option<Insertion>,
 }
 
 impl FieldVersionedTypeAttribute {
@@ -381,6 +574,7 @@ impl FieldVersionedTypeAttribute {
 	pub(super) fn parse_and_split(attributes: Vec<Attribute>) -> Result<AttributeSplit<Self>> {
 		let AttributeSplit { versioned_type: raw, other_attributes } =
 			RawVersionedTypeAttribute::parse_and_split(attributes)?;
+		let insertion = raw.insertion;
 
 		if let Some(encode_like) = raw.encode_like {
 			return Err(syn::Error::new(
@@ -397,12 +591,20 @@ impl FieldVersionedTypeAttribute {
 			));
 		}
 
+		if let (Some(override_span), Some(insertion)) = (raw.r#override, &insertion) {
+			return Err(insertion_combined_with_operation_error(
+				insertion,
+				"override",
+				override_span,
+			));
+		}
+
 		let mode = match raw.r#override {
 			Some(span) => FieldVersionedTypeMode::Override { span },
 			None => FieldVersionedTypeMode::Inherited,
 		};
 
-		Ok(AttributeSplit { versioned_type: Self { mode }, other_attributes })
+		Ok(AttributeSplit { versioned_type: Self { mode, insertion }, other_attributes })
 	}
 
 	/// Returns the span of the field override option when one exists.
@@ -413,6 +615,31 @@ impl FieldVersionedTypeAttribute {
 			FieldVersionedTypeMode::Override { span } => Some(span),
 		}
 	}
+
+	/// Returns the requested insertion position when one exists.
+	#[must_use]
+	pub(super) fn insertion(&self) -> Option<&Insertion> {
+		self.insertion.as_ref()
+	}
+}
+
+/// Builds a diagnostic for combining insertion with another helper operation.
+fn insertion_combined_with_operation_error(
+	insertion: &Insertion,
+	operation_name: &str,
+	operation_span: Span,
+) -> syn::Error {
+	let mut error = syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"`{}` cannot be combined with `{operation_name}`; insertion is only \
+            supported for fresh definitions",
+			insertion.option_name(),
+		),
+	);
+	error
+		.combine(syn::Error::new(operation_span, format!("`{operation_name}` was specified here")));
+	error
 }
 
 /// The field-level operation requested by `versioned_type`.

@@ -26,7 +26,7 @@ pub use runtime_costs::RuntimeCosts;
 
 use crate::{
 	AccountIdOf, BalanceOf, CodeInfoOf, CodeRemoved, Config, Error, ExecConfig, ExecError,
-	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight,
+	HoldReason, LOG_TARGET, Pallet, PristineCode, StorageDeposit, Weight, deposit_payment,
 	exec::{ExecResult, Executable, ExportedFunction, Ext},
 	frame_support::{ensure, error::BadOrigin},
 	metering::{ResourceMeter, State, Token},
@@ -202,9 +202,8 @@ impl<T: Config> ContractBlob<T> {
 				<Pallet<T>>::refund_deposit(
 					HoldReason::CodeUploadDepositReserve,
 					&Pallet::<T>::account_id(),
-					&code_info.owner,
+					deposit_payment::Funds::Balance(&code_info.owner),
 					code_info.deposit,
-					None,
 				)?;
 				*existing = None;
 				<PristineCode<T>>::remove(&code_hash);
@@ -236,7 +235,7 @@ impl<T: Config> ContractBlob<T> {
 					let deposit = self.code_info.deposit;
 
 					<Pallet<T>>::charge_deposit(
-							Some(HoldReason::CodeUploadDepositReserve),
+							HoldReason::CodeUploadDepositReserve,
 							&self.code_info.owner,
 							&Pallet::<T>::account_id(),
 							deposit,
@@ -271,6 +270,18 @@ impl<T: Config> CodeInfo<T> {
 		}
 	}
 
+	#[cfg(any(feature = "runtime-benchmarks", test))]
+	pub fn new_with_deposit(owner: T::AccountId, deposit: BalanceOf<T>) -> Self {
+		CodeInfo {
+			owner,
+			deposit,
+			refcount: 0,
+			code_len: 0,
+			code_type: BytecodeType::Pvm,
+			behaviour_version: Default::default(),
+		}
+	}
+
 	/// Returns reference count of the module.
 	#[cfg(test)]
 	pub fn refcount(&self) -> u64 {
@@ -280,6 +291,11 @@ impl<T: Config> CodeInfo<T> {
 	/// Returns the deposit of the module.
 	pub fn deposit(&self) -> BalanceOf<T> {
 		self.deposit
+	}
+
+	/// Returns the account that uploaded the module.
+	pub fn owner(&self) -> &AccountIdOf<T> {
+		&self.owner
 	}
 
 	/// Returns the code length.
@@ -325,9 +341,8 @@ impl<T: Config> CodeInfo<T> {
 				<Pallet<T>>::refund_deposit(
 					HoldReason::CodeUploadDepositReserve,
 					&Pallet::<T>::account_id(),
-					&code_info.owner,
+					deposit_payment::Funds::Balance(&code_info.owner),
 					code_info.deposit,
-					None,
 				)?;
 
 				*existing = None;

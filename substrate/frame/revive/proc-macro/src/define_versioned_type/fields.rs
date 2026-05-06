@@ -23,7 +23,7 @@ use syn::{
 	FieldsUnnamed, Ident, Result, Visibility,
 };
 
-use super::attribute::FieldWithVersionedTypeAttribute;
+use super::attribute::{FieldWithVersionedTypeAttribute, Insertion, InsertionPosition};
 
 /// Describes the syntax node that owns a field list.
 ///
@@ -112,12 +112,16 @@ fn extend_named_fields_with_named_previous(
 
 	for mut previous_field in previous.named.iter().cloned() {
 		let field_name = named_field_ident(&previous_field)?.to_string();
+		fields.extend(changes.take_insertions(&field_name, InsertionPosition::Before));
+
 		if let Some(current_field) = changes.take_override(&field_name) {
 			fields.push(current_field.field);
 		} else {
 			previous_field.vis = visibility.clone();
 			fields.push(previous_field);
 		}
+
+		fields.extend(changes.take_insertions(&field_name, InsertionPosition::After));
 	}
 
 	if let Some(current_field) = changes.first_unmatched_override() {
@@ -153,6 +157,9 @@ fn extend_named_fields_with_unnamed_previous(
 	for current_field in current_fields {
 		if let Some(override_span) = current_field.attribute.override_span() {
 			return Err(override_against_tuple_previous_error(override_span));
+		}
+		if let Some(insertion) = current_field.attribute.insertion() {
+			return Err(insertion_against_tuple_previous_error(insertion));
 		}
 
 		let field_name = named_field_ident(&current_field.field)?.to_string();
@@ -223,6 +230,9 @@ fn strip_named_fields_after_unit_previous(current: &mut FieldsNamed) -> Result<(
 				"field is marked as an override but the previous version has no fields",
 			));
 		}
+		if let Some(insertion) = current_field.attribute.insertion() {
+			return Err(insertion_after_unit_previous_error(insertion));
+		}
 
 		fields.push(current_field.field);
 	}
@@ -254,6 +264,9 @@ fn strip_named_fields_without_extension(current: &mut FieldsNamed) -> Result<()>
                 that is extending a previous version",
 			));
 		}
+		if let Some(insertion) = current_field.attribute.insertion() {
+			return Err(insertion_outside_extension_error(insertion));
+		}
 
 		fields.push(current_field.field);
 	}
@@ -276,7 +289,7 @@ fn append_current_unnamed_fields(
 	current_fields: Punctuated<Field, Comma>,
 ) -> Result<()> {
 	for current_field in FieldWithVersionedTypeAttribute::parse_all(current_fields)? {
-		reject_tuple_field_override(&current_field)?;
+		reject_tuple_field_operations(&current_field)?;
 		fields.push(current_field.field);
 	}
 
@@ -295,12 +308,24 @@ fn classify_named_current_fields(
 		let field_name = named_field_ident(&current_field.field)?.to_string();
 		if current_field.attribute.override_span().is_some() {
 			changes.insert_override(field_name, current_field);
-		} else if let Some(previous_field) = find_named_field(previous, &field_name)? {
+			continue;
+		}
+
+		if let Some(previous_field) = find_named_field(previous, &field_name)? {
 			return Err(redefined_named_field_error(
 				&current_field.field,
 				previous_field,
 				&field_name,
 			)?);
+		}
+
+		if let Some(insertion) = current_field.attribute.insertion().cloned() {
+			let target_name = insertion.target_name();
+			if find_named_field(previous, &target_name)?.is_none() {
+				return Err(unmatched_named_field_insertion_error(&current_field, &insertion)?);
+			}
+
+			changes.insert_insertion(insertion, current_field.field);
 		} else {
 			changes.new_fields.push(current_field.field);
 		}
@@ -320,6 +345,9 @@ struct NamedFieldChanges {
 
 	/// New named fields that should be appended after inherited fields.
 	new_fields: Vec<Field>,
+
+	/// New named fields that should be inserted around inherited fields.
+	insertions: BTreeMap<String, FieldInsertions>,
 }
 
 impl NamedFieldChanges {
@@ -334,9 +362,52 @@ impl NamedFieldChanges {
 		self.overrides.remove(field_name)
 	}
 
+	/// Inserts a fresh field around an inherited target field.
+	fn insert_insertion(&mut self, insertion: Insertion, field: Field) {
+		self.insertions
+			.entry(insertion.target_name())
+			.or_default()
+			.push(insertion.position(), field);
+	}
+
+	/// Removes and returns fields inserted around an inherited target field.
+	fn take_insertions(&mut self, field_name: &str, position: InsertionPosition) -> Vec<Field> {
+		self.insertions
+			.get_mut(field_name)
+			.map_or_else(Vec::new, |insertions| insertions.take(position))
+	}
+
 	/// Returns the first override that did not match a previous field.
 	fn first_unmatched_override(&self) -> Option<&FieldWithVersionedTypeAttribute> {
 		self.override_order.iter().find_map(|field_name| self.overrides.get(field_name))
+	}
+}
+
+/// Field insertions grouped by the side of the inherited target field.
+#[derive(Default)]
+struct FieldInsertions {
+	/// Fields inserted before the inherited target field in source order.
+	before: Vec<Field>,
+
+	/// Fields inserted after the inherited target field in source order.
+	after: Vec<Field>,
+}
+
+impl FieldInsertions {
+	/// Adds a field to the requested side of the inherited target field.
+	fn push(&mut self, position: InsertionPosition, field: Field) {
+		match position {
+			InsertionPosition::Before => self.before.push(field),
+			InsertionPosition::After => self.after.push(field),
+		}
+	}
+
+	/// Removes the fields for one side of the inherited target field.
+	fn take(&mut self, position: InsertionPosition) -> Vec<Field> {
+		match position {
+			InsertionPosition::Before => core::mem::take(&mut self.before),
+			InsertionPosition::After => core::mem::take(&mut self.after),
+		}
 	}
 }
 
@@ -365,13 +436,24 @@ fn reject_duplicate_named_current_fields(fields: &[FieldWithVersionedTypeAttribu
 	Ok(())
 }
 
-/// Rejects field override on tuple fields because tuple fields are positional.
-fn reject_tuple_field_override(field: &FieldWithVersionedTypeAttribute) -> Result<()> {
+/// Rejects field helper operations on tuple fields because tuple fields are positional.
+fn reject_tuple_field_operations(field: &FieldWithVersionedTypeAttribute) -> Result<()> {
 	if let Some(override_span) = field.attribute.override_span() {
 		return Err(syn::Error::new(
 			override_span,
 			"`#[versioned_type(override)]` is not supported on tuple fields because tuple \
             fields do not have stable names to override",
+		));
+	}
+	if let Some(insertion) = field.attribute.insertion() {
+		return Err(syn::Error::new(
+			insertion.option_span(),
+			format!(
+				"`#[versioned_type({} = \"{}\")]` is not supported on tuple fields because \
+                tuple fields do not have stable names to insert",
+				insertion.option_name(),
+				insertion.target_name(),
+			),
 		));
 	}
 
@@ -477,12 +559,75 @@ fn unmatched_named_field_override_error(
 	Ok(error)
 }
 
+/// Builds a diagnostic for inserting around a missing previous named field.
+fn unmatched_named_field_insertion_error(
+	current_field: &FieldWithVersionedTypeAttribute,
+	insertion: &Insertion,
+) -> Result<syn::Error> {
+	let field_name = named_field_ident(&current_field.field)?.to_string();
+	let target_name = insertion.target_name();
+	let mut error = syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"field `{field_name}` is marked with `{}` but no field named `{target_name}` \
+            exists in the previous version",
+			insertion.option_name(),
+		),
+	);
+	error.combine(syn::Error::new_spanned(
+		named_field_ident(&current_field.field)?,
+		format!("inserted field `{field_name}` is defined here"),
+	));
+	error.combine(syn::Error::new_spanned(
+		insertion.target_literal(),
+		format!("insertion target `{target_name}` is named here"),
+	));
+	Ok(error)
+}
+
+/// Builds a diagnostic for insertion when no field extension is active.
+fn insertion_outside_extension_error(insertion: &Insertion) -> syn::Error {
+	syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"`#[versioned_type({} = \"{}\")]` can only be used inside a type or variant \
+            that is extending a previous version",
+			insertion.option_name(),
+			insertion.target_name(),
+		),
+	)
+}
+
+/// Builds a diagnostic for insertion when the previous version has no fields.
+fn insertion_after_unit_previous_error(insertion: &Insertion) -> syn::Error {
+	syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"field is marked with `{}` but the previous version has no fields",
+			insertion.option_name(),
+		),
+	)
+}
+
 /// Builds a diagnostic for overriding fields inherited from tuple fields.
 fn override_against_tuple_previous_error(override_span: Span) -> syn::Error {
 	syn::Error::new(
 		override_span,
 		"`#[versioned_type(override)]` requires the previous version to have named fields; \
         overriding fields from tuple structs is ambiguous",
+	)
+}
+
+/// Builds a diagnostic for inserting around fields inherited from tuple fields.
+fn insertion_against_tuple_previous_error(insertion: &Insertion) -> syn::Error {
+	syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"`#[versioned_type({} = \"{}\")]` requires the previous version to have named \
+            fields; inserting around fields from tuple structs is ambiguous",
+			insertion.option_name(),
+			insertion.target_name(),
+		),
 	)
 }
 

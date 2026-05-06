@@ -20,6 +20,8 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a polkavm module.
 
+extern crate alloc;
+
 mod define_env;
 mod define_versioned_interface;
 mod define_versioned_type;
@@ -147,6 +149,42 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// `timeout` stays at field index 0 (its previous position); `retries` is inherited unchanged;
 /// `backoff` is appended at the end.
 ///
+/// ## Inserting a field before or after an inherited field
+///
+/// New named fields can be inserted next to a named field from the previous version with
+/// `insert_before = "target"` or `insert_after = "target"`. This is useful when the encoded field
+/// order is externally constrained and a new field cannot simply be appended.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub struct CodeInfoV1 {
+///         pub code_len: u32,
+///         pub behaviour_version: u32,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub struct CodeInfoV2 {
+///         #[versioned_type(insert_before = "behaviour_version")]
+///         pub code_type: BytecodeType,
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub struct CodeInfoV1 {
+///     pub code_len: u32,
+///     pub behaviour_version: u32,
+/// }
+///
+/// pub struct CodeInfoV2 {
+///     pub code_len: u32,
+///     pub code_type: BytecodeType,
+///     pub behaviour_version: u32,
+/// }
+/// ```
+///
 /// ## Tuple-struct extension
 ///
 /// Tuple structs work the same way; new fields are appended positionally.
@@ -262,6 +300,36 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///     Stopped,
 ///     Paused,
 ///     Resumed,
+/// }
+/// ```
+///
+/// ## Inserting new variants into an inherited enum
+///
+/// New variants in an extending enum can be inserted next to a variant from the previous version
+/// with `insert_before = "Target"` or `insert_after = "Target"`.
+///
+/// ```ignore
+/// define_versioned_type! {
+///     pub enum EventV1 {
+///         Started,
+///         Stopped,
+///     }
+///
+///     #[versioned_type(extend)]
+///     pub enum EventV2 {
+///         #[versioned_type(insert_after = "Started")]
+///         Paused,
+///     }
+/// }
+/// ```
+///
+/// expands to:
+///
+/// ```ignore
+/// pub enum EventV2 {
+///     Started,
+///     Paused,
+///     Stopped,
 /// }
 /// ```
 ///
@@ -545,8 +613,9 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// * a bare `#[versioned_type]` (path form) is rejected with a hint to use
 ///   `#[versioned_type(extend)]`;
 /// * `#[versioned_type = "..."]` (name-value form) is rejected;
-/// * each option is a bare flag — `extend = true` and `extend(...)` are rejected because the
-///   options take no arguments;
+/// * `extend` and `override` are bare flags — `extend = true` and `extend(...)` are rejected;
+/// * `insert_before` and `insert_after` require a string literal target using name-value syntax,
+///   for example `#[versioned_type(insert_before = "behaviour_version")]`;
 /// * `#[versioned_type()]` with an empty option list is accepted and is equivalent to the attribute
 ///   being absent;
 /// * the same option cannot appear twice in the same attribute, and the same option cannot appear
@@ -554,14 +623,20 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///   diagnostics that point at both occurrences;
 /// * unrecognized options are rejected with a diagnostic listing the supported options.
 ///
-/// The supported options are `extend` and `override`. Where each one is allowed:
+/// The supported options are `extend`, `override`, `insert_before`, and `insert_after`. Where each
+/// one is allowed:
 ///
-/// * **on a type (struct or enum)** — `extend` is supported, `override` is rejected;
-/// * **on an enum variant** — both `extend` and `override` are supported, and they may be combined
-///   as `#[versioned_type(extend, override)]` (or `override, extend` — order is irrelevant);
-/// * **on a named field** — `override` is supported, `extend` is rejected;
-/// * **on a tuple field** — neither `extend` nor `override` is supported, because tuple fields have
-///   no stable names to anchor an override to.
+/// * **on a type (struct or enum)** — `extend` is supported; `override`, `insert_before`, and
+///   `insert_after` are rejected;
+/// * **on an enum variant** — `extend` and `override` are supported, and they may be combined as
+///   `#[versioned_type(extend, override)]` (or `override, extend` — order is irrelevant);
+///   `insert_before` and `insert_after` are supported only on fresh variants and cannot be combined
+///   with `extend` or `override`;
+/// * **on a named field** — `override`, `insert_before`, and `insert_after` are supported;
+///   `insert_before` and `insert_after` cannot be combined with `override`, and `extend` is
+///   rejected;
+/// * **on a tuple field** — no helper operations are supported, because tuple fields have no stable
+///   names to anchor an operation to.
 ///
 /// All `#[versioned_type(...)]` attributes are stripped from the generated code. Every other
 /// attribute (including `#[derive]`, `#[doc]`, `#[cfg]`, `#[serde(...)]`, ...) is preserved exactly
@@ -594,13 +669,15 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// * variants with `#[versioned_type(override, extend)]` produce the same observable result as
 ///   `#[versioned_type(extend)]` here — both replace the inherited variant in place and merge
 ///   fields. The combined form is accepted as an explicit way of stating the intent.
+/// * variants with `insert_before = "Target"` or `insert_after = "Target"` are inserted next to the
+///   named inherited target variant.
 ///
 /// A standalone variant in an extending enum that collides with the name of an inherited variant is
 /// an error. The diagnostic suggests adding `override` to acknowledge the replacement.
 ///
 /// # Variant-level operations
 ///
-/// Enum variants accept four modes:
+/// Enum variants accept five modes:
 ///
 /// * **standalone** (no `versioned_type` attribute) — the variant is appended to the output enum;
 /// * **`extend`** — the variant's fields are merged with the same-named variant in the previous
@@ -609,12 +686,15 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 ///   original position*; no field merging happens;
 /// * **`override, extend`** (or `extend, override` — order is irrelevant) — the variant replaces
 ///   the previous variant *and* its fields are merged with the previous variant's fields.
+/// * **`insert_before = "Target"` or `insert_after = "Target"`** — the fresh variant is inserted
+///   next to `Target`, which must be a variant inherited from the previous enum.
 ///
 /// Variant operations work in two surrounding contexts, with different bookkeeping:
 ///
 /// 1. **Inside an enum that itself uses `#[versioned_type(extend)]`** — the output starts with all
 ///    of the previous enum's variants in order, and current variants are merged in by name.
-///    Standalone variants must not collide with inherited names.
+///    Standalone variants must not collide with inherited names. Inserted variants are placed next
+///    to their inherited target variants.
 ///
 /// 2. **Inside a standalone enum** (no type-level `extend`) — the output starts empty, and only the
 ///    variants declared in the current source appear. `extend` and `override` on individual
@@ -627,10 +707,12 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// struct — a struct has no variants to identify by name, and both forms are rejected with the same
 /// diagnostic that targets the offending option.
 ///
-/// `extend` and `override` both require a target to exist in the previous version; targeting a
-/// non-existent name produces a diagnostic that points at the current variant and the offending
-/// attribute. Two variants in the same current enum cannot share an identifier; the macro rejects
-/// duplicates regardless of their attributes.
+/// `extend`, `override`, `insert_before`, and `insert_after` all require a target to exist in the
+/// previous version. Targeting a non-existent name produces a diagnostic that points at the current
+/// variant and the offending attribute. Inserted variants also require enum-level `extend`, because
+/// otherwise the inherited target variant is not present in the output. Two variants in the same
+/// current enum cannot share an identifier; the macro rejects duplicates regardless of their
+/// attributes.
 ///
 /// # Field-level override
 ///
@@ -659,6 +741,28 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// with a diagnostic that suggests adding `override`. Two current fields in the same field list
 /// cannot share a name.
 ///
+/// # Field-level insertion
+///
+/// `#[versioned_type(insert_before = "target")]` and
+/// `#[versioned_type(insert_after = "target")]` may be placed on a fresh named struct field or
+/// named variant field to position it next to a field from the previous version. The target must
+/// name a previous named field, and the inserted field's own name must not collide with any
+/// inherited field.
+///
+/// Field insertion is only meaningful inside the same extending contexts as field override: the
+/// surrounding type carries `#[versioned_type(extend)]`, or the surrounding variant carries
+/// `#[versioned_type(extend)]` or `#[versioned_type(override, extend)]`. Using insertion outside
+/// such a context is rejected.
+///
+/// Constraints:
+///
+/// * the previous fields must be *named* — inserting around tuple fields is rejected as ambiguous,
+///   because tuple positions have no stable names;
+/// * the insertion target must exist in the previous version;
+/// * `insert_before` and `insert_after` are not allowed on tuple fields;
+/// * insertion cannot be combined with `override`, because an override already preserves the
+///   inherited field's position.
+///
 /// # Field merging
 ///
 /// Field merging applies in two situations: a struct extending a previous struct, and an enum
@@ -666,15 +770,19 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// following rule:
 ///
 /// 1. For every field in the *previous* version, in source order:
+///    * first emit any current fields marked `insert_before` for this previous field, in source
+///      order;
 ///    * if the current source carries an `override` for that name, emit the *current* field in this
 ///      position (the previous field's type and attributes are discarded);
 ///    * otherwise, emit the *previous* field with its visibility adjusted (see "Visibility of
 ///      inherited fields" below).
-/// 2. Append every *new* current field — those that have no override and whose name did not exist
-///    previously — in source order, after the inherited fields.
+///    * then emit any current fields marked `insert_after` for this previous field, in source
+///      order.
+/// 2. Append every *new* current field — those that have no field operation and whose name did not
+///    exist previously — in source order, after the inherited fields.
 ///
-/// Overrides preserve the original field position from the previous version, while purely new
-/// fields appear at the end.
+/// Overrides preserve the original field position from the previous version, inserted fields appear
+/// next to their targets, and purely new fields appear at the end.
 ///
 /// The current and previous shapes (`Named`, `Unnamed` / tuple, `Unit`) can differ. The macro
 /// handles every combination:
@@ -758,17 +866,20 @@ pub fn define_env(attr: TokenStream, item: TokenStream) -> TokenStream {
 /// * **Naming**: missing `V`, empty version suffix, non-numeric suffix, leading-zero version, `V0`,
 ///   missing base name.
 /// * **Per-invocation**: mismatched base names, duplicate versions, non-contiguous versions.
-/// * **Attribute syntax**: bare `#[versioned_type]`, name-value form, options with arguments,
-///   duplicate options, unsupported options, `extend` on a field, `override` on a type.
+/// * **Attribute syntax**: bare `#[versioned_type]`, unsupported name-value form, options with the
+///   wrong argument shape, duplicate options, unsupported options, `extend` on a field, `override`
+///   on a type, insertion on a type, insertion combined with `extend` or `override`.
 /// * **Type-level extension**: `extend` without a previous version, struct extending an enum, enum
 ///   extending a struct.
-/// * **Variant operations**: `extend` or `override` targeting a variant that does not exist in the
-///   previous version, `override` against a previous struct, standalone variant colliding with an
-///   inherited variant, duplicate current variants.
-/// * **Field operations**: `override` on a tuple field, `override` against a previous tuple shape,
-///   `override` outside an extending context, redefining an inherited named field without
-///   `override`, override of a missing previous named field, current named field colliding with a
-///   synthetic `field_N` name produced from previous tuple fields, duplicate current fields.
+/// * **Variant operations**: `extend`, `override`, or insertion targeting a variant that does not
+///   exist in the previous version, insertion without enum-level `extend`, `override` against a
+///   previous struct, standalone variant colliding with an inherited variant, duplicate current
+///   variants.
+/// * **Field operations**: helper operations on tuple fields, `override` or insertion against a
+///   previous tuple shape, `override` or insertion outside an extending context, redefining an
+///   inherited named field without `override`, missing previous named field targets, current named
+///   field colliding with a synthetic `field_N` name produced from previous tuple fields, duplicate
+///   current fields.
 #[proc_macro]
 pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 	let input = syn::parse_macro_input!(input as define_versioned_type::DefineVersionedTypeInput);
@@ -847,8 +958,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// // One enum per side, with each variant boxing its payload to keep the enum a fixed size.
 /// #[derive(Clone, Debug, PartialEq, Encode, Decode)]
 /// pub enum VersionedEthTransactInputPayload {
-///     V1(::std::boxed::Box<EthTransactInputPayloadV1>),
-///     V2(::std::boxed::Box<EthTransactInputPayloadV2>),
+///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1>),
+///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2>),
 /// }
 /// // …and identically `VersionedEthTransactOutputPayload` with V1/V2 boxed variants.
 ///
@@ -984,10 +1095,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// The cost is a single heap allocation on construction, which is negligible compared to the
 /// runtime API call the value is feeding into.
 ///
-/// With the default `std` feature enabled on `pallet-revive-proc-macro`, the generated code uses
-/// `::std::boxed::Box`. With default features disabled, it uses `::alloc::boxed::Box` instead.
-/// Consuming no-std crates must make `alloc` reachable, usually with `extern crate alloc;` in the
-/// crate root.
+/// The generated code uses `::alloc::boxed::Box`. Consuming crates must make `alloc` reachable,
+/// usually with `extern crate alloc;` in the crate root.
 ///
 /// # Generics across versions
 ///
@@ -1178,8 +1287,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// where
 ///     T: Clone,
 /// {
-///     V1(::std::boxed::Box<EthTransactInputPayloadV1<T>>),
-///     V2(::std::boxed::Box<EthTransactInputPayloadV2<T>>),
+///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1<T>>),
+///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2<T>>),
 /// }
 /// ```
 ///
