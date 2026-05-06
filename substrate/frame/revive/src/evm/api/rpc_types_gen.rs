@@ -26,7 +26,7 @@ use alloc::{
 use codec::{Decode, DecodeWithMemTracking, Encode};
 use derive_more::{From, TryInto};
 pub use ethereum_types::*;
-use pallet_revive_types::storage as storage_types;
+use pallet_revive_types::storage as revive_storage_types;
 use scale_info::TypeInfo;
 use serde::{Deserialize, Deserializer, Serialize, de::Error};
 use sp_core::ConstU32;
@@ -147,7 +147,7 @@ pub struct Block {
 	pub withdrawals_root: H256,
 }
 
-impl From<Block> for storage_types::EthBlockV1 {
+impl From<Block> for revive_storage_types::EthBlockV1 {
 	fn from(value: Block) -> Self {
 		Self {
 			base_fee_per_gas: value.base_fee_per_gas,
@@ -181,8 +181,8 @@ impl From<Block> for storage_types::EthBlockV1 {
 	}
 }
 
-impl From<storage_types::EthBlockV1> for Block {
-	fn from(value: storage_types::EthBlockV1) -> Self {
+impl From<revive_storage_types::EthBlockV1> for Block {
+	fn from(value: revive_storage_types::EthBlockV1) -> Self {
 		Self {
 			base_fee_per_gas: value.base_fee_per_gas,
 			blob_gas_used: value.blob_gas_used,
@@ -215,14 +215,14 @@ impl From<storage_types::EthBlockV1> for Block {
 	}
 }
 
-impl From<Block> for storage_types::EthereumBlockV1 {
+impl From<Block> for revive_storage_types::EthereumBlockV1 {
 	fn from(value: Block) -> Self {
 		Self(value.into())
 	}
 }
 
-impl From<storage_types::EthereumBlockV1> for Block {
-	fn from(value: storage_types::EthereumBlockV1) -> Self {
+impl From<revive_storage_types::EthereumBlockV1> for Block {
+	fn from(value: revive_storage_types::EthereumBlockV1) -> Self {
 		value.0.into()
 	}
 }
@@ -550,7 +550,7 @@ pub struct TransactionInfo {
 	pub transaction_signed: TransactionSigned,
 }
 
-impl From<TransactionInfo> for storage_types::TransactionInfoV1 {
+impl From<TransactionInfo> for revive_storage_types::TransactionInfoV1 {
 	fn from(value: TransactionInfo) -> Self {
 		Self {
 			block_hash: value.block_hash,
@@ -563,8 +563,8 @@ impl From<TransactionInfo> for storage_types::TransactionInfoV1 {
 	}
 }
 
-impl From<storage_types::TransactionInfoV1> for TransactionInfo {
-	fn from(value: storage_types::TransactionInfoV1) -> Self {
+impl From<revive_storage_types::TransactionInfoV1> for TransactionInfo {
+	fn from(value: revive_storage_types::TransactionInfoV1) -> Self {
 		Self {
 			block_hash: value.block_hash,
 			block_number: value.block_number,
@@ -696,7 +696,7 @@ impl Default for HashesOrTransactionInfos {
 	}
 }
 
-impl From<HashesOrTransactionInfos> for storage_types::HashesOrTransactionInfosV1 {
+impl From<HashesOrTransactionInfos> for revive_storage_types::HashesOrTransactionInfosV1 {
 	fn from(value: HashesOrTransactionInfos) -> Self {
 		match value {
 			HashesOrTransactionInfos::Hashes(value) => Self::Hashes(value),
@@ -707,11 +707,11 @@ impl From<HashesOrTransactionInfos> for storage_types::HashesOrTransactionInfosV
 	}
 }
 
-impl From<storage_types::HashesOrTransactionInfosV1> for HashesOrTransactionInfos {
-	fn from(value: storage_types::HashesOrTransactionInfosV1) -> Self {
+impl From<revive_storage_types::HashesOrTransactionInfosV1> for HashesOrTransactionInfos {
+	fn from(value: revive_storage_types::HashesOrTransactionInfosV1) -> Self {
 		match value {
-			storage_types::HashesOrTransactionInfosV1::Hashes(value) => Self::Hashes(value),
-			storage_types::HashesOrTransactionInfosV1::TransactionInfos(value) => {
+			revive_storage_types::HashesOrTransactionInfosV1::Hashes(value) => Self::Hashes(value),
+			revive_storage_types::HashesOrTransactionInfosV1::TransactionInfos(value) => {
 				Self::TransactionInfos(value.into_iter().map(Into::into).collect())
 			},
 		}
@@ -837,7 +837,7 @@ pub struct Transaction1559Unsigned {
 	pub value: U256,
 }
 
-impl From<Transaction1559Unsigned> for storage_types::Transaction1559UnsignedV1 {
+impl From<Transaction1559Unsigned> for revive_storage_types::Transaction1559UnsignedV1 {
 	fn from(value: Transaction1559Unsigned) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
@@ -855,8 +855,8 @@ impl From<Transaction1559Unsigned> for storage_types::Transaction1559UnsignedV1 
 	}
 }
 
-impl From<storage_types::Transaction1559UnsignedV1> for Transaction1559Unsigned {
-	fn from(value: storage_types::Transaction1559UnsignedV1) -> Self {
+impl From<revive_storage_types::Transaction1559UnsignedV1> for Transaction1559Unsigned {
+	fn from(value: revive_storage_types::Transaction1559UnsignedV1) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
 			chain_id: value.chain_id,
@@ -912,7 +912,7 @@ pub struct Transaction2930Unsigned {
 	pub value: U256,
 }
 
-impl From<Transaction2930Unsigned> for storage_types::Transaction2930UnsignedV1 {
+impl From<Transaction2930Unsigned> for revive_storage_types::Transaction2930UnsignedV1 {
 	fn from(value: Transaction2930Unsigned) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
@@ -928,8 +928,8 @@ impl From<Transaction2930Unsigned> for storage_types::Transaction2930UnsignedV1 
 	}
 }
 
-impl From<storage_types::Transaction2930UnsignedV1> for Transaction2930Unsigned {
-	fn from(value: storage_types::Transaction2930UnsignedV1) -> Self {
+impl From<revive_storage_types::Transaction2930UnsignedV1> for Transaction2930Unsigned {
+	fn from(value: revive_storage_types::Transaction2930UnsignedV1) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
 			chain_id: value.chain_id,
@@ -993,7 +993,7 @@ pub struct Transaction4844Unsigned {
 	pub value: U256,
 }
 
-impl From<Transaction4844Unsigned> for storage_types::Transaction4844UnsignedV1 {
+impl From<Transaction4844Unsigned> for revive_storage_types::Transaction4844UnsignedV1 {
 	fn from(value: Transaction4844Unsigned) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
@@ -1012,8 +1012,8 @@ impl From<Transaction4844Unsigned> for storage_types::Transaction4844UnsignedV1 
 	}
 }
 
-impl From<storage_types::Transaction4844UnsignedV1> for Transaction4844Unsigned {
-	fn from(value: storage_types::Transaction4844UnsignedV1) -> Self {
+impl From<revive_storage_types::Transaction4844UnsignedV1> for Transaction4844Unsigned {
+	fn from(value: revive_storage_types::Transaction4844UnsignedV1) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
 			blob_versioned_hashes: value.blob_versioned_hashes,
@@ -1068,7 +1068,7 @@ pub struct TransactionLegacyUnsigned {
 	pub value: U256,
 }
 
-impl From<TransactionLegacyUnsigned> for storage_types::TransactionLegacyUnsignedV1 {
+impl From<TransactionLegacyUnsigned> for revive_storage_types::TransactionLegacyUnsignedV1 {
 	fn from(value: TransactionLegacyUnsigned) -> Self {
 		Self {
 			chain_id: value.chain_id,
@@ -1083,8 +1083,8 @@ impl From<TransactionLegacyUnsigned> for storage_types::TransactionLegacyUnsigne
 	}
 }
 
-impl From<storage_types::TransactionLegacyUnsignedV1> for TransactionLegacyUnsigned {
-	fn from(value: storage_types::TransactionLegacyUnsignedV1) -> Self {
+impl From<revive_storage_types::TransactionLegacyUnsignedV1> for TransactionLegacyUnsigned {
+	fn from(value: revive_storage_types::TransactionLegacyUnsignedV1) -> Self {
 		Self {
 			chain_id: value.chain_id,
 			gas: value.gas,
@@ -1149,7 +1149,7 @@ pub struct Transaction7702Unsigned {
 	pub value: U256,
 }
 
-impl From<Transaction7702Unsigned> for storage_types::Transaction7702UnsignedV1 {
+impl From<Transaction7702Unsigned> for revive_storage_types::Transaction7702UnsignedV1 {
 	fn from(value: Transaction7702Unsigned) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
@@ -1167,8 +1167,8 @@ impl From<Transaction7702Unsigned> for storage_types::Transaction7702UnsignedV1 
 	}
 }
 
-impl From<storage_types::Transaction7702UnsignedV1> for Transaction7702Unsigned {
-	fn from(value: storage_types::Transaction7702UnsignedV1) -> Self {
+impl From<revive_storage_types::Transaction7702UnsignedV1> for Transaction7702Unsigned {
+	fn from(value: revive_storage_types::Transaction7702UnsignedV1) -> Self {
 		Self {
 			access_list: value.access_list.into_iter().map(Into::into).collect(),
 			authorization_list: value.authorization_list.into_iter().map(Into::into).collect(),
@@ -1215,7 +1215,7 @@ pub struct AuthorizationListEntry {
 	pub s: U256,
 }
 
-impl From<AuthorizationListEntry> for storage_types::AuthorizationListEntryV1 {
+impl From<AuthorizationListEntry> for revive_storage_types::AuthorizationListEntryV1 {
 	fn from(value: AuthorizationListEntry) -> Self {
 		Self {
 			chain_id: value.chain_id,
@@ -1228,8 +1228,8 @@ impl From<AuthorizationListEntry> for storage_types::AuthorizationListEntryV1 {
 	}
 }
 
-impl From<storage_types::AuthorizationListEntryV1> for AuthorizationListEntry {
-	fn from(value: storage_types::AuthorizationListEntryV1) -> Self {
+impl From<revive_storage_types::AuthorizationListEntryV1> for AuthorizationListEntry {
+	fn from(value: revive_storage_types::AuthorizationListEntryV1) -> Self {
 		Self {
 			chain_id: value.chain_id,
 			address: value.address,
@@ -1270,7 +1270,7 @@ impl Default for TransactionSigned {
 	}
 }
 
-impl From<TransactionSigned> for storage_types::TransactionSignedV1 {
+impl From<TransactionSigned> for revive_storage_types::TransactionSignedV1 {
 	fn from(value: TransactionSigned) -> Self {
 		match value {
 			TransactionSigned::Transaction7702Signed(value) => {
@@ -1292,22 +1292,22 @@ impl From<TransactionSigned> for storage_types::TransactionSignedV1 {
 	}
 }
 
-impl From<storage_types::TransactionSignedV1> for TransactionSigned {
-	fn from(value: storage_types::TransactionSignedV1) -> Self {
+impl From<revive_storage_types::TransactionSignedV1> for TransactionSigned {
+	fn from(value: revive_storage_types::TransactionSignedV1) -> Self {
 		match value {
-			storage_types::TransactionSignedV1::Transaction7702Signed(value) => {
+			revive_storage_types::TransactionSignedV1::Transaction7702Signed(value) => {
 				Self::Transaction7702Signed(value.into())
 			},
-			storage_types::TransactionSignedV1::Transaction4844Signed(value) => {
+			revive_storage_types::TransactionSignedV1::Transaction4844Signed(value) => {
 				Self::Transaction4844Signed(value.into())
 			},
-			storage_types::TransactionSignedV1::Transaction1559Signed(value) => {
+			revive_storage_types::TransactionSignedV1::Transaction1559Signed(value) => {
 				Self::Transaction1559Signed(value.into())
 			},
-			storage_types::TransactionSignedV1::Transaction2930Signed(value) => {
+			revive_storage_types::TransactionSignedV1::Transaction2930Signed(value) => {
 				Self::Transaction2930Signed(value.into())
 			},
-			storage_types::TransactionSignedV1::TransactionLegacySigned(value) => {
+			revive_storage_types::TransactionSignedV1::TransactionLegacySigned(value) => {
 				Self::TransactionLegacySigned(value.into())
 			},
 		}
@@ -1330,7 +1330,7 @@ pub struct Withdrawal {
 	pub validator_index: U256,
 }
 
-impl From<Withdrawal> for storage_types::WithdrawalV1 {
+impl From<Withdrawal> for revive_storage_types::WithdrawalV1 {
 	fn from(value: Withdrawal) -> Self {
 		Self {
 			address: value.address,
@@ -1341,8 +1341,8 @@ impl From<Withdrawal> for storage_types::WithdrawalV1 {
 	}
 }
 
-impl From<storage_types::WithdrawalV1> for Withdrawal {
-	fn from(value: storage_types::WithdrawalV1) -> Self {
+impl From<revive_storage_types::WithdrawalV1> for Withdrawal {
+	fn from(value: revive_storage_types::WithdrawalV1) -> Self {
 		Self {
 			address: value.address,
 			amount: value.amount,
@@ -1372,14 +1372,14 @@ pub struct AccessListEntry {
 	pub storage_keys: Vec<H256>,
 }
 
-impl From<AccessListEntry> for storage_types::AccessListEntryV1 {
+impl From<AccessListEntry> for revive_storage_types::AccessListEntryV1 {
 	fn from(value: AccessListEntry) -> Self {
 		Self { address: value.address, storage_keys: value.storage_keys }
 	}
 }
 
-impl From<storage_types::AccessListEntryV1> for AccessListEntry {
-	fn from(value: storage_types::AccessListEntryV1) -> Self {
+impl From<revive_storage_types::AccessListEntryV1> for AccessListEntry {
+	fn from(value: revive_storage_types::AccessListEntryV1) -> Self {
 		Self { address: value.address, storage_keys: value.storage_keys }
 	}
 }
@@ -1430,7 +1430,7 @@ pub struct Transaction7702Signed {
 	pub y_parity: U256,
 }
 
-impl From<Transaction7702Signed> for storage_types::Transaction7702SignedV1 {
+impl From<Transaction7702Signed> for revive_storage_types::Transaction7702SignedV1 {
 	fn from(value: Transaction7702Signed) -> Self {
 		Self {
 			transaction_7702_unsigned: value.transaction_7702_unsigned.into(),
@@ -1442,8 +1442,8 @@ impl From<Transaction7702Signed> for storage_types::Transaction7702SignedV1 {
 	}
 }
 
-impl From<storage_types::Transaction7702SignedV1> for Transaction7702Signed {
-	fn from(value: storage_types::Transaction7702SignedV1) -> Self {
+impl From<revive_storage_types::Transaction7702SignedV1> for Transaction7702Signed {
+	fn from(value: revive_storage_types::Transaction7702SignedV1) -> Self {
 		Self {
 			transaction_7702_unsigned: value.transaction_7702_unsigned.into(),
 			r: value.r,
@@ -1486,7 +1486,7 @@ pub struct Transaction1559Signed {
 	pub y_parity: U256,
 }
 
-impl From<Transaction1559Signed> for storage_types::Transaction1559SignedV1 {
+impl From<Transaction1559Signed> for revive_storage_types::Transaction1559SignedV1 {
 	fn from(value: Transaction1559Signed) -> Self {
 		Self {
 			transaction_1559_unsigned: value.transaction_1559_unsigned.into(),
@@ -1498,8 +1498,8 @@ impl From<Transaction1559Signed> for storage_types::Transaction1559SignedV1 {
 	}
 }
 
-impl From<storage_types::Transaction1559SignedV1> for Transaction1559Signed {
-	fn from(value: storage_types::Transaction1559SignedV1) -> Self {
+impl From<revive_storage_types::Transaction1559SignedV1> for Transaction1559Signed {
+	fn from(value: revive_storage_types::Transaction1559SignedV1) -> Self {
 		Self {
 			transaction_1559_unsigned: value.transaction_1559_unsigned.into(),
 			r: value.r,
@@ -1542,7 +1542,7 @@ pub struct Transaction2930Signed {
 	pub y_parity: U256,
 }
 
-impl From<Transaction2930Signed> for storage_types::Transaction2930SignedV1 {
+impl From<Transaction2930Signed> for revive_storage_types::Transaction2930SignedV1 {
 	fn from(value: Transaction2930Signed) -> Self {
 		Self {
 			transaction_2930_unsigned: value.transaction_2930_unsigned.into(),
@@ -1554,8 +1554,8 @@ impl From<Transaction2930Signed> for storage_types::Transaction2930SignedV1 {
 	}
 }
 
-impl From<storage_types::Transaction2930SignedV1> for Transaction2930Signed {
-	fn from(value: storage_types::Transaction2930SignedV1) -> Self {
+impl From<revive_storage_types::Transaction2930SignedV1> for Transaction2930Signed {
+	fn from(value: revive_storage_types::Transaction2930SignedV1) -> Self {
 		Self {
 			transaction_2930_unsigned: value.transaction_2930_unsigned.into(),
 			r: value.r,
@@ -1593,7 +1593,7 @@ pub struct Transaction4844Signed {
 	pub y_parity: U256,
 }
 
-impl From<Transaction4844Signed> for storage_types::Transaction4844SignedV1 {
+impl From<Transaction4844Signed> for revive_storage_types::Transaction4844SignedV1 {
 	fn from(value: Transaction4844Signed) -> Self {
 		Self {
 			transaction_4844_unsigned: value.transaction_4844_unsigned.into(),
@@ -1604,8 +1604,8 @@ impl From<Transaction4844Signed> for storage_types::Transaction4844SignedV1 {
 	}
 }
 
-impl From<storage_types::Transaction4844SignedV1> for Transaction4844Signed {
-	fn from(value: storage_types::Transaction4844SignedV1) -> Self {
+impl From<revive_storage_types::Transaction4844SignedV1> for Transaction4844Signed {
+	fn from(value: revive_storage_types::Transaction4844SignedV1) -> Self {
 		Self {
 			transaction_4844_unsigned: value.transaction_4844_unsigned.into(),
 			r: value.r,
@@ -1641,7 +1641,7 @@ pub struct TransactionLegacySigned {
 	pub v: U256,
 }
 
-impl From<TransactionLegacySigned> for storage_types::TransactionLegacySignedV1 {
+impl From<TransactionLegacySigned> for revive_storage_types::TransactionLegacySignedV1 {
 	fn from(value: TransactionLegacySigned) -> Self {
 		Self {
 			transaction_legacy_unsigned: value.transaction_legacy_unsigned.into(),
@@ -1652,8 +1652,8 @@ impl From<TransactionLegacySigned> for storage_types::TransactionLegacySignedV1 
 	}
 }
 
-impl From<storage_types::TransactionLegacySignedV1> for TransactionLegacySigned {
-	fn from(value: storage_types::TransactionLegacySignedV1) -> Self {
+impl From<revive_storage_types::TransactionLegacySignedV1> for TransactionLegacySigned {
+	fn from(value: revive_storage_types::TransactionLegacySignedV1) -> Self {
 		Self {
 			transaction_legacy_unsigned: value.transaction_legacy_unsigned.into(),
 			r: value.r,

@@ -33,10 +33,10 @@ use frame_support::{
 	},
 	weights::WeightMeter,
 };
-use pallet_revive_types::storage as storage_types;
+use pallet_revive_types::storage as revive_storage_types;
 
-type CodeInfoV1Of<T> = storage_types::CodeInfoV1<crate::AccountIdOf<T>, crate::BalanceOf<T>>;
-type CodeInfoV2Of<T> = storage_types::CodeInfoV2<crate::AccountIdOf<T>, crate::BalanceOf<T>>;
+type CodeInfoV1Of<T> = revive_storage_types::CodeInfoV1<crate::AccountIdOf<T>, crate::BalanceOf<T>>;
+type CodeInfoV2Of<T> = revive_storage_types::CodeInfoV2<crate::AccountIdOf<T>, crate::BalanceOf<T>>;
 
 #[cfg(feature = "try-runtime")]
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
@@ -126,7 +126,7 @@ impl<T: Config> SteppedMigration for Migration<T> {
 						deposit: value.deposit,
 						refcount: value.refcount,
 						code_len: value.code_len,
-						code_type: storage_types::BytecodeTypeV1::Pvm,
+						code_type: revive_storage_types::BytecodeTypeV1::Pvm,
 						behaviour_version: value.behaviour_version,
 					},
 				);
@@ -229,7 +229,7 @@ impl<T: Config> Migration<T> {
 				refcount: old_code_info.refcount,
 				code_len: old_code_info.code_len,
 				behaviour_version: old_code_info.behaviour_version,
-				code_type: storage_types::BytecodeTypeV1::Pvm,
+				code_type: revive_storage_types::BytecodeTypeV1::Pvm,
 			},
 			"Migration failed: CodeInfo mismatch for key {code_hash:?}",
 		);

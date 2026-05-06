@@ -36,7 +36,7 @@ use crate::{
 use alloc::vec::Vec;
 use codec::MaxEncodedLen;
 use frame_support::dispatch::DispatchResult;
-use pallet_revive_types::storage as storage_types;
+use pallet_revive_types::storage as revive_storage_types;
 use pallet_revive_uapi::ReturnErrorCode;
 use sp_core::{Get, H256};
 use sp_runtime::{DispatchError, Saturating};
@@ -88,7 +88,7 @@ pub struct CodeInfo<T: Config> {
 	behaviour_version: u32,
 }
 
-impl From<BytecodeType> for storage_types::BytecodeTypeV1 {
+impl From<BytecodeType> for revive_storage_types::BytecodeTypeV1 {
 	fn from(value: BytecodeType) -> Self {
 		match value {
 			BytecodeType::Pvm => Self::Pvm,
@@ -97,16 +97,18 @@ impl From<BytecodeType> for storage_types::BytecodeTypeV1 {
 	}
 }
 
-impl From<storage_types::BytecodeTypeV1> for BytecodeType {
-	fn from(value: storage_types::BytecodeTypeV1) -> Self {
+impl From<revive_storage_types::BytecodeTypeV1> for BytecodeType {
+	fn from(value: revive_storage_types::BytecodeTypeV1) -> Self {
 		match value {
-			storage_types::BytecodeTypeV1::Pvm => Self::Pvm,
-			storage_types::BytecodeTypeV1::Evm => Self::Evm,
+			revive_storage_types::BytecodeTypeV1::Pvm => Self::Pvm,
+			revive_storage_types::BytecodeTypeV1::Evm => Self::Evm,
 		}
 	}
 }
 
-impl<T: Config> From<CodeInfo<T>> for storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>> {
+impl<T: Config> From<CodeInfo<T>>
+	for revive_storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>
+{
 	fn from(value: CodeInfo<T>) -> Self {
 		Self {
 			owner: value.owner,
@@ -119,8 +121,10 @@ impl<T: Config> From<CodeInfo<T>> for storage_types::CodeInfoV2<AccountIdOf<T>, 
 	}
 }
 
-impl<T: Config> From<storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>> for CodeInfo<T> {
-	fn from(value: storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>) -> Self {
+impl<T: Config> From<revive_storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>>
+	for CodeInfo<T>
+{
+	fn from(value: revive_storage_types::CodeInfoV2<AccountIdOf<T>, BalanceOf<T>>) -> Self {
 		Self {
 			owner: value.owner,
 			deposit: value.deposit,

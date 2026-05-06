@@ -414,18 +414,19 @@ where
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use pallet_revive_types::{common::Bytes, storage as storage_types};
+	use pallet_revive_types::{common::Bytes, storage as revive_storage_types};
 
 	fn assert_encodes_like_pristine_code_wrapper<T>()
 	where
-		T: EncodeLike<StorageCodecWrapper<Vec<u8>, storage_types::PristineCodeV1>>,
+		T: EncodeLike<StorageCodecWrapper<Vec<u8>, revive_storage_types::PristineCodeV1>>,
 	{
 	}
 
 	#[test]
 	fn raw_byte_types_encode_like_pristine_code_storage_wrapper() {
 		// Arrange
-		type WrappedPristineCode = StorageCodecWrapper<Vec<u8>, storage_types::PristineCodeV1>;
+		type WrappedPristineCode =
+			StorageCodecWrapper<Vec<u8>, revive_storage_types::PristineCodeV1>;
 
 		// Act
 		assert_encodes_like_pristine_code_wrapper::<Vec<u8>>();

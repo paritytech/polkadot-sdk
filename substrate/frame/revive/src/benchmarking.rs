@@ -56,7 +56,7 @@ use frame_support::{
 };
 use frame_system::RawOrigin;
 use k256::ecdsa::SigningKey;
-use pallet_revive_types::storage as storage_types;
+use pallet_revive_types::storage as revive_storage_types;
 use pallet_revive_uapi::{
 	CallFlags, ReturnErrorCode, StorageFlags, pack_hi_lo,
 	precompiles::{storage::IStorage, system::ISystem},
@@ -2710,7 +2710,7 @@ mod benchmarks {
 		use crate::migrations::v1;
 		let addr = H160::from([1u8; 20]);
 		let contract_info = ContractInfo::new(&addr, 1u32.into(), Default::default()).unwrap();
-		let old_contract_info: storage_types::ContractInfoV1<
+		let old_contract_info: revive_storage_types::ContractInfoV1<
 			BalanceOf<T>,
 			{ limits::TRIE_ID_BYTES },
 		> = contract_info.clone().into();

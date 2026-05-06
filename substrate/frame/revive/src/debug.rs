@@ -17,7 +17,7 @@
 
 use crate::{Config, DebugSettingsOf, storage::StorageValueOf};
 use Debug;
-use pallet_revive_types::storage as storage_types;
+use pallet_revive_types::storage as revive_storage_types;
 use serde::{Deserialize, Serialize};
 use sp_core::Get;
 
@@ -83,20 +83,20 @@ impl DebugSettings {
 	}
 }
 
-impl From<storage_types::DebugSettingsV1> for DebugSettings {
+impl From<revive_storage_types::DebugSettingsV1> for DebugSettings {
 	fn from(
-		storage_types::DebugSettingsV1 {
+		revive_storage_types::DebugSettingsV1 {
 			allow_unlimited_contract_size,
 			bypass_eip_3607,
 			pvm_logs,
 			disable_execution_tracing,
-		}: storage_types::DebugSettingsV1,
+		}: revive_storage_types::DebugSettingsV1,
 	) -> Self {
 		Self { allow_unlimited_contract_size, bypass_eip_3607, pvm_logs, disable_execution_tracing }
 	}
 }
 
-impl From<DebugSettings> for storage_types::DebugSettingsV1 {
+impl From<DebugSettings> for revive_storage_types::DebugSettingsV1 {
 	fn from(
 		DebugSettings {
 			allow_unlimited_contract_size,

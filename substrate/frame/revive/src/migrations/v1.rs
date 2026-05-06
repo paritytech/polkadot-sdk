@@ -31,7 +31,7 @@ use frame_support::{
 	pallet_prelude::PhantomData,
 	weights::WeightMeter,
 };
-use pallet_revive_types::storage as storage_types;
+use pallet_revive_types::storage as revive_storage_types;
 
 #[cfg(feature = "try-runtime")]
 use alloc::collections::btree_map::BTreeMap;
@@ -40,7 +40,8 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::vec::Vec;
 
 /// Storage value shape used by `ContractInfoOf` before the v1 migration.
-type OldContractInfo<T> = storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>;
+type OldContractInfo<T> =
+	revive_storage_types::ContractInfoV1<BalanceOf<T>, { limits::TRIE_ID_BYTES }>;
 
 /// Module containing the old storage items.
 pub mod old {
