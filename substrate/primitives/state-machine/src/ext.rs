@@ -162,6 +162,7 @@ where
 
 	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
 		let _guard = guard();
+
 		// Overlay hit sets cold = false; otherwise forward the backend's result.
 		let result = self.overlay.storage(key).map(|x| x.map(|x| x.to_vec())).map_or_else(
 			|| self.backend.storage_with_status(key).expect(EXT_NOT_ALLOWED_TO_FAIL),
@@ -233,6 +234,7 @@ where
 		key: &[u8],
 	) -> StateLoad<Option<StorageValue>> {
 		let _guard = guard();
+
 		// Overlay hit sets cold = false; otherwise forward the backend's result.
 		let result = self
 			.overlay

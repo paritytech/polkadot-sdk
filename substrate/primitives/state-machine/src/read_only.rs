@@ -96,11 +96,9 @@ where
 	}
 
 	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
-		let data = self
-			.backend
-			.storage(key)
-			.expect("Backend failed for storage_with_status in ReadOnlyExternalities");
-		StateLoad { data, is_cold: true }
+		self.backend
+			.storage_with_status(key)
+			.expect("Backend failed for storage_with_status in ReadOnlyExternalities")
 	}
 
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
@@ -121,11 +119,9 @@ where
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> StateLoad<Option<StorageValue>> {
-		let data = self
-			.backend
-			.child_storage(child_info, key)
-			.expect("Backend failed for child_storage_with_status in ReadOnlyExternalities");
-		StateLoad { data, is_cold: true }
+		self.backend
+			.child_storage_with_status(child_info, key)
+			.expect("Backend failed for child_storage_with_status in ReadOnlyExternalities")
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {

@@ -45,9 +45,9 @@ mod scope_limited;
 pub struct StateLoad<T> {
 	/// The returned data.
 	pub data: T,
-	/// False when the read is served from the storage overlay, or when the key
-	/// has already been recorded by an active storage-proof recorder; true
-	/// otherwise.
+	/// False when the read is served from the storage overlay, or when the
+	/// value bytes for this key have already been recorded by an active
+	/// storage-proof recorder; true otherwise.
 	pub is_cold: bool,
 }
 

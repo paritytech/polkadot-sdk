@@ -149,10 +149,8 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> Result<StateLoad<Option<Vec<u8>>>, Self::Error> {
+		let result = self.state.child_storage_with_status(child_info, key)?;
 		let key_tuple = (child_info.storage_key().to_vec(), key.to_vec());
-		let result = self.state.child_storage_with_status(child_info, &key_tuple.1)?;
-
-		// just pass it through the usage counter
 		let value = self.usage.tally_child_key_read(&key_tuple, result.data, false);
 
 		Ok(StateLoad { is_cold: result.is_cold, data: value })
