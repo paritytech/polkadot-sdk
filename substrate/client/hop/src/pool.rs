@@ -617,11 +617,10 @@ impl HopDataPool {
 			// Persist updated claimed state to disk.
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
-			drop(index);
-
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist ack state");
 			}
+			drop(index);
 
 			tracing::debug!(
 				target: "hop",
