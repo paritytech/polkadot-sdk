@@ -187,10 +187,7 @@ pub trait Storage {
 		self.storage(key).map(|s| bytes::Bytes::from(s.to_vec()))
 	}
 
-	/// Returns the data for `key` in the storage, tracking whether it was a cold load.
-	///
-	/// Similar to `get`, but returns a `StateLoad` that indicates whether the value was loaded
-	/// from the database backend (cold load) or from the storage overlay (hot load).
+	/// Similar to [`Self::get`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	fn get_with_status(
 		&mut self,
 		key: PassFatPointerAndRead<&[u8]>,
@@ -426,10 +423,7 @@ pub trait DefaultChildStorage {
 		self.child_storage(&child_info, key).map(|s| s.to_vec())
 	}
 
-	/// Get a default child storage value for a given key, tracking whether it was a cold load.
-	///
-	/// Similar to `get`, but returns a `StateLoad` that indicates whether the value was loaded
-	/// from the database backend (cold load) or from the storage overlay (hot load).
+	/// Similar to [`Self::get`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	///
 	/// Parameter `storage_key` is the unprefixed location of the root of the child trie in the
 	/// parent trie. Result contains `None` if the value for `key` in the child storage can not be

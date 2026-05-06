@@ -38,14 +38,16 @@ pub use scope_limited::{set_and_run_with_externalities, with_externalities};
 mod extensions;
 mod scope_limited;
 
-/// Result of a storage load operation that tracks whether the value was loaded from
-/// the storage overlay (hot/cached) or from the database backend (cold).
+/// Result of a storage load operation, carrying the loaded data along with an
+/// `is_cold` flag indicating whether the read missed both the storage overlay
+/// and any active storage-proof recorder.
 #[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode)]
 pub struct StateLoad<T> {
-	/// The returned data
+	/// The returned data.
 	pub data: T,
-	/// `true` if the value was loaded from the database backend (cold load),
-	/// `false` if it was loaded from the storage overlay (hot/cached load)
+	/// False when the read is served from the storage overlay, or when the key
+	/// has already been recorded by an active storage-proof recorder; true
+	/// otherwise.
 	pub is_cold: bool,
 }
 
@@ -96,10 +98,7 @@ pub trait Externalities: ExtensionStore {
 	/// Read runtime storage.
 	fn storage(&mut self, key: &[u8]) -> Option<Vec<u8>>;
 
-	/// Read runtime storage, tracking whether it was a cold load.
-	///
-	/// Returns a `StateLoad` containing the value and whether it was loaded
-	/// from the database backend (cold) or storage overlay (hot).
+	/// Similar to [`Self::storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<Vec<u8>>>;
 
 	/// Get storage value hash.
@@ -119,10 +118,7 @@ pub trait Externalities: ExtensionStore {
 	/// Returns an `Option` that holds the SCALE encoded hash.
 	fn child_storage(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>>;
 
-	/// Read child runtime storage, tracking whether it was a cold load.
-	///
-	/// Returns a `StateLoad` containing the value and whether it was loaded
-	/// from the database backend (cold) or storage overlay (hot).
+	/// Similar to [`Self::child_storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	fn child_storage_with_status(
 		&mut self,
 		child_info: &ChildInfo,

@@ -503,10 +503,7 @@ where
 		})
 	}
 
-	/// Get the value of storage at given key with cache status tracking.
-	///
-	/// Returns `is_cold: true` if the value was not in the cache (cache miss),
-	/// `is_cold: false` if the value was in the cache (cache hit).
+	/// Similar to [`Self::storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	pub fn storage_with_status(&self, key: &[u8]) -> Result<StateLoad<Option<StorageValue>>> {
 		let map_e = |e| format!("Trie lookup error: {}", e);
 
@@ -564,10 +561,7 @@ where
 		})
 	}
 
-	/// Get the value of child storage at given key with cache status tracking.
-	///
-	/// Returns `is_cold: true` if the value was not in the cache (cache miss),
-	/// `is_cold: false` if the value was in the cache (cache hit).
+	/// Similar to [`Self::child_storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	pub fn child_storage_with_status(
 		&self,
 		child_info: &ChildInfo,

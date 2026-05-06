@@ -368,10 +368,7 @@ pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::D
 		.get(key)
 }
 
-/// Read a value from the trie with cache status tracking.
-///
-/// Returns a `StateLoad` containing the value and whether it was loaded
-/// from the database backend (cold) or cache (hot).
+/// Similar to [`read_trie_value`], but returns a [`StateLoad`] carrying a cold/hot flag.
 pub fn read_trie_value_with_status<
 	L: TrieLayout,
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
@@ -382,6 +379,8 @@ pub fn read_trie_value_with_status<
 	mut recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
+	// Cold = first read of `key` under the active recorder; hot = subsequent read.
+	// No recorder = cold.
 	let is_cold = recorder
 		.as_mut()
 		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
@@ -497,10 +496,7 @@ where
 		.map(|x| x.map(|val| val.to_vec()))
 }
 
-/// Read a value from a child trie with cache status tracking.
-///
-/// Returns a `StateLoad` containing the value and whether it was loaded
-/// from the database backend (cold) or cache (hot).
+/// Similar to [`read_child_trie_value`], but returns a [`StateLoad`] carrying a cold/hot flag.
 pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 	keyspace: &[u8],
 	db: &DB,
@@ -512,6 +508,8 @@ pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
+	// Cold = first read of `key` under the active recorder; hot = subsequent read.
+	// No recorder = cold.
 	let is_cold = recorder
 		.as_mut()
 		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))

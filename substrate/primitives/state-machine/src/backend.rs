@@ -193,10 +193,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 	/// Get keyed storage or None if there is nothing associated.
 	fn storage(&self, key: &[u8]) -> Result<Option<StorageValue>, Self::Error>;
 
-	/// Get keyed storage with status tracking (cold/warm) or None if there is nothing associated.
-	///
-	/// Returns `is_cold: true` if the value was read from the database (cache miss),
-	/// `is_cold: false` if the value was read from the cache (cache hit).
+	/// Similar to [`Self::storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	fn storage_with_status(
 		&self,
 		key: &[u8],
@@ -222,11 +219,7 @@ pub trait Backend<H: Hasher>: core::fmt::Debug {
 		key: &[u8],
 	) -> Result<Option<StorageValue>, Self::Error>;
 
-	/// Get child keyed storage with status tracking (cold/warm) or None if there is nothing
-	/// associated.
-	///
-	/// Returns `is_cold: true` if the value was read from the database (cache miss),
-	/// `is_cold: false` if the value was read from the cache (cache hit).
+	/// Similar to [`Self::child_storage`], but returns a [`StateLoad`] carrying a cold/hot flag.
 	fn child_storage_with_status(
 		&self,
 		child_info: &ChildInfo,
