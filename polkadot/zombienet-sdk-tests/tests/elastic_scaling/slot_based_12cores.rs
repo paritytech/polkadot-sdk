@@ -8,7 +8,9 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -84,8 +86,16 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
+	let validators: Vec<_> = (0..12)
+		.map(|i| network.get_node(format!("validator-{i}").as_str()))
+		.collect::<Result<_, _>>()?;
+
 	// Assign 11 extra cores to the parachain.
 	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
+
+	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
+	// measuring throughput. Threshold = 1 (one PVF for the single tracked para).
+	wait_for_pvf_prepare(&validators, 1).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).

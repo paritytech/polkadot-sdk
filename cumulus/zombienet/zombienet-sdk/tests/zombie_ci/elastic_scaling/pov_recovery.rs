@@ -6,7 +6,9 @@ use std::{sync::Arc, time::Duration};
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
@@ -44,7 +46,16 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
+	let validators: Vec<_> = ["alice", "validator-0", "validator-1", "validator-2", "validator-3"]
+		.into_iter()
+		.map(|n| network.get_node(n))
+		.collect::<Result<_, _>>()?;
+
 	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
+
+	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
+	// measuring throughput. Threshold = 1 (one PVF for the single tracked para).
+	wait_for_pvf_prepare(&validators, 1).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 40..65)], []).await?;

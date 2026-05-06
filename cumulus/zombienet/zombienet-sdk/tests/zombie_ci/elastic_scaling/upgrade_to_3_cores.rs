@@ -8,7 +8,8 @@ use cumulus_test_runtime::{
 	elastic_scaling_12s_slot::WASM_BINARY as WASM_ELASTIC_SCALING_12S_SLOT,
 };
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_runtime_upgrade,
+	assert_para_throughput, assign_cores, submit_sudo_runtime_upgrade, wait_for_pvf_prepare,
+	wait_for_runtime_upgrade,
 };
 use polkadot_primitives::Id as ParaId;
 use rstest::rstest;
@@ -43,7 +44,16 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	let alice = network.get_node("validator0")?;
 	let alice_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
+	let validators: Vec<_> = ["validator0", "validator1", "validator2"]
+		.into_iter()
+		.map(|n| network.get_node(n))
+		.collect::<Result<_, _>>()?;
+
 	assign_cores(&alice_client, PARA_ID, vec![0]).await?;
+
+	// Wait for the initial PVF preparation to conclude on every validator before measuring
+	// pre-upgrade throughput. Threshold = 1 (one PVF for the single tracked para).
+	wait_for_pvf_prepare(&validators, 1).await?;
 
 	if async_backing {
 		log::info!("Ensuring parachain makes progress making 6s blocks");
@@ -85,6 +95,9 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
+	// Wait for the post-upgrade PVF preparation to conclude on every validator (validators must
+	// recompile the new parachain runtime). Threshold = 2 (initial PVF + post-upgrade PVF).
+	wait_for_pvf_prepare(&validators, 2).await?;
 	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)], []).await?;
 
 	Ok(())

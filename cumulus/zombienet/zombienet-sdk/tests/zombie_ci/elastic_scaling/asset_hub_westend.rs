@@ -4,7 +4,9 @@
 use crate::utils::initialize_network;
 
 use anyhow::anyhow;
-use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -84,7 +86,16 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
+	let validators: Vec<_> = (0..9)
+		.map(|i| network.get_node(format!("validator-{i}").as_str()))
+		.collect::<Result<_, _>>()?;
+
 	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
+
+	// Wait for PVF preparation to conclude on every validator before starting the throughput
+	// measurement: this is an elastic-scaling test with high core count and the validators are
+	// PVF-compile-bound. Threshold = 1 (one PVF for the single tracked para).
+	wait_for_pvf_prepare(&validators, 1).await?;
 
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 3..18)], []).await?;
 
