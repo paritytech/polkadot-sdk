@@ -14,7 +14,25 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-//! HOP data pool implementation with disk-backed storage.
+//! HOP data pool: in-memory index backed by sharded on-disk storage.
+//!
+//! ## On-disk layout
+//!
+//! The pool root contains two subdirectories, `blobs/` and `meta/`, each
+//! sharded into 256 subdirectories named `00`–`ff` after the first byte of the
+//! content hash. An entry with hash `H` is stored as:
+//!
+//! - `blobs/<H[0:2]>/<H>.blob` — raw payload bytes
+//! - `meta/<H[0:2]>/<H>.meta` — SCALE-encoded [`HopEntryMeta`]
+//!
+//! ## Recovery
+//!
+//! On startup the pool scans every `meta/` shard, decodes each `.meta` file,
+//! and rebuilds the in-memory index. `.meta` files that are corrupt, have an
+//! unexpected version, or lack a sibling `.blob` are deleted. Then the
+//! corresponding `blobs/` shard is scanned and any `.blob` without an entry in
+//! the freshly-built index (orphan) is also deleted. Stale `.tmp.*` files left
+//! by a previous crash are removed during both scans.
 
 use crate::{
 	rate_limit::{RateLimitConfig, RateLimiter},
@@ -25,7 +43,7 @@ use crate::{
 	},
 };
 use codec::{Decode, Encode};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use sp_core::{hashing::blake2_256, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
@@ -51,16 +69,19 @@ const BLOBS_DIR: &str = "blobs";
 const META_DIR: &str = "meta";
 const BLOB_EXT: &str = "blob";
 const META_EXT: &str = "meta";
+/// Number of shards used for both `blobs/` and `meta/` directories (one per
+/// first-byte value of the content hash: `00`–`ff`).
+const SHARD_COUNT: u16 = 256;
 
 /// HOP data pool with disk-backed blob storage and in-memory metadata index.
 pub struct HopDataPool {
 	/// In-memory metadata index (no blobs).
-	index: RwLock<HashMap<HopHash, HopEntryMeta>>,
+	index: Mutex<HashMap<HopHash, HopEntryMeta>>,
 	/// Per-user byte usage tracked by sender id.
 	///
 	/// Counters live directly in the map and are charged via `charge_user`
 	/// inside the read guard, so the reclamation pass in `cleanup_expired`
-	/// (which holds `user_usage.write()` together with `index.read()`) cannot
+	/// (which holds `user_usage.write()` together with `index.lock()`) cannot
 	/// interpose between a lookup and its `fetch_add`. Stale entries —
 	/// counter 0 and no live index entry — are reclaimed by the same pass.
 	user_usage: RwLock<HashMap<SenderId, AtomicU64>>,
@@ -90,9 +111,16 @@ impl HopDataPool {
 		data_dir: PathBuf,
 		rate_limit_cfg: RateLimitConfig,
 	) -> Result<Self, HopError> {
+		if rate_limit_cfg.enabled && rate_limit_cfg.bandwidth_burst < MAX_DATA_SIZE {
+			return Err(HopError::InvalidConfig(format!(
+				"bandwidth_burst ({}) must be at least MAX_DATA_SIZE ({})",
+				rate_limit_cfg.bandwidth_burst, MAX_DATA_SIZE,
+			)));
+		}
+
 		// Create shard directories (256 each for blobs/ and meta/).
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 			fs::create_dir_all(data_dir.join(BLOBS_DIR).join(&shard))?;
 			fs::create_dir_all(data_dir.join(META_DIR).join(&shard))?;
 		}
@@ -102,8 +130,8 @@ impl HopDataPool {
 		let mut current_size = 0u64;
 
 		// Rebuild index from .meta files and clean orphan .blobs in a single pass.
-		for i in 0u8..=255 {
-			let shard = format!("{:02x}", i);
+		for i in 0..SHARD_COUNT {
+			let shard = format!("{:02x}", i as u8);
 
 			// Scan .meta files → rebuild index (removes corrupt/orphan .meta files).
 			let meta_shard_dir = data_dir.join(META_DIR).join(&shard);
@@ -111,6 +139,13 @@ impl HopDataPool {
 				for entry in entries.flatten() {
 					let path = entry.path();
 					if path.extension().and_then(|e| e.to_str()) != Some(META_EXT) {
+						if path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map_or(false, |n| n.contains(".tmp."))
+						{
+							let _ = fs::remove_file(&path);
+						}
 						continue;
 					}
 
@@ -179,23 +214,29 @@ impl HopDataPool {
 				for entry in entries.flatten() {
 					let path = entry.path();
 					if path.extension().and_then(|e| e.to_str()) != Some(BLOB_EXT) {
+						if path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map_or(false, |n| n.contains(".tmp."))
+						{
+							let _ = fs::remove_file(&path);
+						}
 						continue;
 					}
 					let stem = match path.file_stem().and_then(|s| s.to_str()) {
 						Some(s) => s.to_string(),
 						None => continue,
 					};
-					// Any blob without a sibling .meta is an orphan; this includes
-					// blobs whose name doesn't parse as a valid hash (no meta can
-					// match them), so always check + remove rather than gating on
-					// the parse.
-					let meta_path = match parse_hex_hash(&stem) {
-						Some(hash) => Self::entry_path(&data_dir, &hash, META_DIR, META_EXT),
-						None => {
-							data_dir.join(META_DIR).join(&shard).join(format!("{stem}.{META_EXT}"))
-						},
+					// Any blob without a corresponding index entry is an orphan.
+					// The meta scan for this shard already populated `index`, so an
+					// in-memory lookup is sufficient and avoids a syscall per blob.
+					// Blobs with unparseable names have no possible index match and
+					// are always removed.
+					let is_orphan = match parse_hex_hash(&stem) {
+						Some(hash) => !index.contains_key(&hash),
+						None => true,
 					};
-					if !meta_path.exists() {
+					if is_orphan {
 						tracing::warn!(target: "hop", hash = ?stem, "Removing orphan .blob (no .meta)");
 						let _ = fs::remove_file(&path);
 					}
@@ -203,17 +244,15 @@ impl HopDataPool {
 			}
 		}
 
-		if !index.is_empty() {
-			tracing::info!(
-				target: "hop",
-				entries = index.len(),
-				total_bytes = current_size,
-				"Recovered HOP pool from disk"
-			);
-		}
+		tracing::info!(
+			target: "hop",
+			entries = index.len(),
+			total_bytes = current_size,
+			"Recovered HOP pool from disk"
+		);
 
 		Ok(Self {
-			index: RwLock::new(index),
+			index: Mutex::new(index),
 			user_usage: RwLock::new(user_usage),
 			max_size,
 			max_user_size,
@@ -345,16 +384,16 @@ impl HopDataPool {
 			return Err(HopError::RateLimited { retry_after_secs });
 		}
 
-		// `rsv` must outlive the `index.write()` scope below. Drop order is
+		// `rsv` must outlive the `index.lock()` scope below. Drop order is
 		// reverse declaration, so `index` releases first, then `rsv` releases
 		// quota — preserving the index → user_usage lock order.
 		let mut rsv = Reservation::new(self, sender_id, accounted)?;
 
 		let hash = H256(blake2_256(&data));
 
-		// First duplicate check (read lock only). Guard's Drop releases
-		// quota + size; no files have been written yet.
-		if self.index.read().contains_key(&hash) {
+		// First duplicate check. Guard's Drop releases quota + size;
+		// no files have been written yet.
+		if self.index.lock().contains_key(&hash) {
 			return Err(HopError::DuplicateEntry);
 		}
 
@@ -381,7 +420,7 @@ impl HopDataPool {
 
 		// Acquire write lock: double-check duplicate, insert meta.
 		{
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			if index.contains_key(&hash) {
 				// Race: another thread inserted the same data first. Files
 				// on disk are content-addressed and identical to ours —
@@ -444,7 +483,7 @@ impl HopDataPool {
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
 		let removed = {
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			index.remove(hash)
 		};
 		if let Some(meta) = removed {
@@ -477,7 +516,7 @@ impl HopDataPool {
 	/// Get data from the pool by content hash.
 	pub fn get(&self, hash: &HopHash) -> Option<Vec<u8>> {
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			if !index.contains_key(hash) {
 				return None;
 			}
@@ -495,7 +534,7 @@ impl HopDataPool {
 		hash: &HopHash,
 	) -> Option<(Vec<u8>, MultiSigner, MultiSignature, u64)> {
 		let (signer, signature, submit_timestamp) = {
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash)?;
 			(meta.signer.clone(), meta.signature.clone(), meta.submit_timestamp)
 		};
@@ -533,9 +572,12 @@ impl HopDataPool {
 	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)?;
+			// Map NotRecipient → NotFound so callers cannot probe whether a hash
+			// exists by observing different error codes.
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_CLAIM_CONTEXT)
+				.map_err(|_| HopError::NotFound)?;
 
 			// If this recipient already acked, the data may be gone.
 			if meta.recipients[idx].claimed {
@@ -554,9 +596,10 @@ impl HopDataPool {
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
 		// Phase 1: idempotent fast path under read lock.
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
-			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+				.map_err(|_| HopError::NotFound)?;
 			if meta.recipients[idx].claimed {
 				return Ok(());
 			}
@@ -564,9 +607,10 @@ impl HopDataPool {
 
 		// Phase 2: re-run the lookup against the current meta — the entry could
 		// have been removed and re-submitted with a different recipient list since Phase 1.
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
-		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)?;
+		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
+			.map_err(|_| HopError::NotFound)?;
 
 		if meta.recipients[idx].claimed {
 			return Ok(());
@@ -597,11 +641,10 @@ impl HopDataPool {
 			// Persist updated claimed state to disk.
 			let meta_bytes = meta.encode();
 			let meta_path = self.meta_path(hash);
-			drop(index);
-
 			if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
 				tracing::error!(target: "hop", hash = ?hex::encode(hash), error = %e, "Failed to persist ack state");
 			}
+			drop(index);
 
 			tracing::debug!(
 				target: "hop",
@@ -616,14 +659,14 @@ impl HopDataPool {
 
 	/// Check if data exists in the pool.
 	pub fn has(&self, hash: &HopHash) -> bool {
-		let index = self.index.read();
+		let index = self.index.lock();
 		index.contains_key(hash)
 	}
 
 	/// Remove data from the pool.
 	pub fn remove(&self, hash: &HopHash) -> Result<(), HopError> {
 		let meta = {
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			index.remove(hash)
 		};
 
@@ -650,7 +693,7 @@ impl HopDataPool {
 
 	/// Get pool status.
 	pub fn status(&self) -> PoolStatus {
-		let index = self.index.read();
+		let index = self.index.lock();
 		PoolStatus {
 			entry_count: index.len(),
 			total_bytes: self.current_size.load(Ordering::Relaxed),
@@ -673,7 +716,7 @@ impl HopDataPool {
 			// batch of expired entries. Bounded so the lock hold scales with
 			// batch size, not pool size.
 			let expired: Vec<(HopHash, HopEntryMeta)> = {
-				let mut index = self.index.write();
+				let mut index = self.index.lock();
 				let expired_keys: Vec<HopHash> = index
 					.iter()
 					.filter(|(_, m)| current_block >= m.expires_at)
@@ -717,14 +760,14 @@ impl HopDataPool {
 		}
 
 		// Phase 4: Reclaim per-sender counters whose owners have no live
-		// entries. Holding `index.read()` and `user_usage.write()` together
+		// entries. Holding `index.lock()` and `user_usage.write()` together
 		// closes the dominant TOCTOU race (concurrent writers cannot create a
-		// new index entry under our held read lock; concurrent
+		// new index entry under our held lock; concurrent
 		// `release_user_quota` only takes `user_usage.read()` which is
 		// excluded). Build a live-sender set in one index pass so retain is
 		// O(senders + entries) instead of O(senders × entries).
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
 			let live: HashSet<&SenderId> = index.values().map(|m| &m.sender_id).collect();
 			usage.retain(|sender_id, counter| {
@@ -747,7 +790,7 @@ impl HopDataPool {
 		buffer_blocks: u32,
 		limit: usize,
 	) -> Vec<HopHash> {
-		let index = self.index.read();
+		let index = self.index.lock();
 		index
 			.iter()
 			.filter(|(_, meta)| {
@@ -764,7 +807,7 @@ impl HopDataPool {
 	/// Mark an entry as promoted to permanent on-chain storage.
 	/// Persists the updated metadata to disk.
 	pub fn mark_promoted(&self, hash: &HopHash) {
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
 			meta.promoted = true;
 			let meta_bytes = meta.encode();
@@ -797,7 +840,7 @@ impl HopDataPool {
 		current_block: HopBlockNumber,
 		check_interval_blocks: u32,
 	) {
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
 			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
 			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
@@ -862,9 +905,9 @@ enum ReservationState {
 ///
 /// Lock-ordering note: `Drop` calls `release_user_quota`, which takes
 /// `user_usage.read()`. The convention is index → user_usage, so callers
-/// must release `index.write()` before `Reservation` drops. Today this is
+/// must release `index.lock()` before `Reservation` drops. Today this is
 /// satisfied by declaring the guard in an outer scope than the `index`
-/// lock — exits from the inner `index.write()` block drop the index lock
+/// lock — exits from the inner `index.lock()` block drop the index lock
 /// first, then function exit drops the guard.
 struct Reservation<'a> {
 	pool: &'a HopDataPool,
@@ -1235,7 +1278,7 @@ mod tests {
 
 		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
 		pool.claim(&hash, &claim).unwrap();
-		assert!(matches!(pool.ack(&hash, &claim), Err(HopError::NotRecipient)));
+		assert!(matches!(pool.ack(&hash, &claim), Err(HopError::NotFound)));
 	}
 
 	#[test]
@@ -1249,7 +1292,7 @@ mod tests {
 
 		// Use invalid SCALE bytes — cannot decode as MultiSignature
 		let result = pool.claim(&hash, &[0u8; 3]);
-		assert!(matches!(result, Err(HopError::InvalidSignature)));
+		assert!(matches!(result, Err(HopError::NotFound)));
 	}
 
 	#[test]
@@ -1270,7 +1313,7 @@ mod tests {
 
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
 		let wrong_claim = sign_ed(&wrong_pair, HOP_CLAIM_CONTEXT, &hash);
-		assert!(matches!(pool.claim(&hash, &wrong_claim), Err(HopError::NotRecipient)));
+		assert!(matches!(pool.claim(&hash, &wrong_claim), Err(HopError::NotFound)));
 		assert!(pool.has(&hash));
 	}
 
@@ -2120,12 +2163,14 @@ mod tests {
 	#[test]
 	fn test_rate_limit_rejects_burst_overflow() {
 		let dir = TempDir::new().unwrap();
+		// submit_burst=2 so the 3rd request is rate-limited by submit count.
+		// bandwidth_burst must be >= MAX_DATA_SIZE to pass config validation.
 		let cfg = RateLimitConfig {
 			enabled: true,
 			submit_rate_per_min: 60,
 			submit_burst: 2,
-			bandwidth_per_min: 1_000_000,
-			bandwidth_burst: 1_000_000,
+			bandwidth_per_min: MAX_DATA_SIZE * 60,
+			bandwidth_burst: MAX_DATA_SIZE,
 		};
 		let pool =
 			HopDataPool::new(1024 * 1024, 1024 * 1024, 100, dir.path().to_path_buf(), cfg).unwrap();
