@@ -156,19 +156,21 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 12;
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 
 #[cfg(all(
-	any(feature = "elastic-scaling", feature = "relay-parent-offset"),
+	feature = "elastic-scaling",
 	not(feature = "elastic-scaling-500ms"),
 	not(feature = "elastic-scaling-multi-block-slot")
 ))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
-#[cfg(not(any(
-	feature = "elastic-scaling",
-	feature = "elastic-scaling-500ms",
-	feature = "elastic-scaling-multi-block-slot",
-	feature = "relay-parent-offset",
-	feature = "block-bundling",
-)))]
+#[cfg(any(
+	feature = "async-backing",
+	not(any(
+		feature = "elastic-scaling",
+		feature = "elastic-scaling-500ms",
+		feature = "elastic-scaling-multi-block-slot",
+		feature = "block-bundling",
+	))
+))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 1;
 
 #[cfg(feature = "async-backing")]
