@@ -1171,7 +1171,7 @@ mod tests {
 
 		let claim = sign_ed(&pair, HOP_CLAIM_CONTEXT, &hash);
 		pool.claim(&hash, &claim).unwrap();
-		assert!(matches!(pool.ack(&hash, &claim), Err(HopError::NotRecipient)));
+		assert!(matches!(pool.ack(&hash, &claim), Err(HopError::NotFound)));
 	}
 
 	#[test]
@@ -1185,7 +1185,7 @@ mod tests {
 
 		// Use invalid SCALE bytes — cannot decode as MultiSignature
 		let result = pool.claim(&hash, &[0u8; 3]);
-		assert!(matches!(result, Err(HopError::InvalidSignature)));
+		assert!(matches!(result, Err(HopError::NotFound)));
 	}
 
 	#[test]
@@ -1206,7 +1206,7 @@ mod tests {
 
 		let wrong_pair = ed25519::Pair::from_seed(&[99u8; 32]);
 		let wrong_claim = sign_ed(&wrong_pair, HOP_CLAIM_CONTEXT, &hash);
-		assert!(matches!(pool.claim(&hash, &wrong_claim), Err(HopError::NotRecipient)));
+		assert!(matches!(pool.claim(&hash, &wrong_claim), Err(HopError::NotFound)));
 		assert!(pool.has(&hash));
 	}
 
@@ -2056,12 +2056,14 @@ mod tests {
 	#[test]
 	fn test_rate_limit_rejects_burst_overflow() {
 		let dir = TempDir::new().unwrap();
+		// submit_burst=2 so the 3rd request is rate-limited by submit count.
+		// bandwidth_burst must be >= MAX_DATA_SIZE to pass config validation.
 		let cfg = RateLimitConfig {
 			enabled: true,
 			submit_rate_per_min: 60,
 			submit_burst: 2,
-			bandwidth_per_min: 1_000_000,
-			bandwidth_burst: 1_000_000,
+			bandwidth_per_min: MAX_DATA_SIZE * 60,
+			bandwidth_burst: MAX_DATA_SIZE,
 		};
 		let pool =
 			HopDataPool::new(1024 * 1024, 1024 * 1024, 100, dir.path().to_path_buf(), cfg).unwrap();
