@@ -35,8 +35,8 @@ use cumulus_client_proof_size_recording::prepare_proof_size_recording_aux_data;
 use cumulus_primitives_aura::{AuraUnincludedSegmentApi, Slot};
 use cumulus_primitives_core::{
 	BlockBundleInfo, ClaimQueueOffset, CoreInfo, CoreSelector, CumulusDigestItem,
-	PersistedValidationData, RelayParentOffsetApi, RelayProofRequest, SchedulingProof,
-	SchedulingV3EnabledApi, TargetBlockRate,
+	PersistedValidationData, RelayParentOffsetApi, SchedulingProof, SchedulingV3EnabledApi,
+	TargetBlockRate,
 };
 use cumulus_relay_chain_interface::RelayChainInterface;
 use futures::prelude::*;
@@ -735,14 +735,6 @@ where
 			"Preparing to build block"
 		);
 
-		// relay_proof_request is going to be ignored by the runtime if v3 is enabled, so we
-		// can skip supplying it in that case
-		let mut relay_proof_request = RelayProofRequest::default();
-		if !v3_enabled {
-			relay_proof_request =
-				crate::collators::get_relay_proof_request(para_client, parent_hash);
-		};
-
 		let (parachain_inherent_data, other_inherent_data) = match collator
 			.create_inherent_data_with_rp_offset(
 				relay_parent_hash,
@@ -750,7 +742,7 @@ where
 				parent_hash,
 				slot_claim.timestamp(),
 				Some(relay_parent_data.clone()),
-				relay_proof_request,
+				crate::collators::get_relay_proof_request(para_client, parent_hash),
 				collator_peer_id,
 			)
 			.await
