@@ -1,5 +1,4 @@
-title: Make `TargetBlockRate` runtime API match `BLOCK_PROCESSING_VELOCITY` on
-  test parachains
+title: Make `TargetBlockRate` runtime API match `BLOCK_PROCESSING_VELOCITY` on test parachains
 
 doc:
 - audience: Runtime Dev
