@@ -82,8 +82,7 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 	// Assign two extra cores to adder-2000.
 	assign_cores(&relay_client, 2000, vec![0, 1]).await?;
 
-	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
-	// measuring throughput. Threshold = 1 (same PVF for both paras).
+	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 
 	assert_para_throughput(

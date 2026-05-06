@@ -93,8 +93,7 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 	// Assign 11 extra cores to the parachain.
 	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
 
-	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
-	// measuring throughput. Threshold = 1 (one PVF for the single tracked para).
+	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks

@@ -104,9 +104,8 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, 2100, vec![0, 1]).await?;
 	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
 
-	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
-	// measuring throughput. Threshold = 2 (one PVF for each of the 2 tracked paras).
-	wait_for_pvf_prepare(&validators, 2).await?;
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&validators, 1).await?;
 
 	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
 	// (2.6 candidates per para per relay chain block).

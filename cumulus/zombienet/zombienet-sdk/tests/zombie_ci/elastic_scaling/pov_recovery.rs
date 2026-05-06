@@ -53,8 +53,7 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 
 	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
 
-	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
-	// measuring throughput. Threshold = 1 (one PVF for the single tracked para).
+	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 
 	log::info!("Ensuring parachain making progress");

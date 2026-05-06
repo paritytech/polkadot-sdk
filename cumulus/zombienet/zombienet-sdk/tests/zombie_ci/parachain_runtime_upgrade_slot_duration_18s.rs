@@ -79,11 +79,10 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 
 	log::info!("Checking that parachain continues producing blocks after upgrade...");
 
-	// Single measurement after a parachain runtime upgrade — wait for the post-upgrade PVF
-	// preparation to conclude on every validator. Threshold = 2 (initial PVF + post-upgrade PVF).
 	let validators: Vec<_> = (0..4)
 		.map(|i| network.get_node(format!("validator-{i}").as_str()))
 		.collect::<Result<_, _>>()?;
+	// Wait for post-upgrade PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 2).await?;
 
 	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 10..30)], []).await?;

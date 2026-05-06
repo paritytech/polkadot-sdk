@@ -92,9 +92,7 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 
 	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
 
-	// Wait for PVF preparation to conclude on every validator before starting the throughput
-	// measurement: this is an elastic-scaling test with high core count and the validators are
-	// PVF-compile-bound. Threshold = 1 (one PVF for the single tracked para).
+	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 3..18)], []).await?;

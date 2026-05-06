@@ -79,8 +79,7 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, 2000, vec![0]).await?;
 
 	let para_id = ParaId::from(2000);
-	// Elastic-scaling test: wait for PVF preparation to conclude on every validator before
-	// measuring throughput. Threshold = 1 (one PVF for the single tracked para).
+	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
 	// Lowering to 12 to make sure CI passes.

@@ -51,8 +51,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 
 	assign_cores(&alice_client, PARA_ID, vec![0]).await?;
 
-	// Wait for the initial PVF preparation to conclude on every validator before measuring
-	// pre-upgrade throughput. Threshold = 1 (one PVF for the single tracked para).
+	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 
 	if async_backing {
@@ -95,8 +94,7 @@ async fn elastic_scaling_upgrade_to_3_cores(
 	);
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
-	// Wait for the post-upgrade PVF preparation to conclude on every validator (validators must
-	// recompile the new parachain runtime). Threshold = 2 (initial PVF + post-upgrade PVF).
+	// Wait for post-upgrade PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 2).await?;
 	assert_para_throughput(&alice_client, 20, [(ParaId::from(PARA_ID), 50..61)], []).await?;
 

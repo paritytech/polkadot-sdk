@@ -160,3 +160,8 @@
   test-filter: "zombie_ci::statement_store::integration::statement_store_mass_expiration"
   runner-type: "default"
   cumulus-image: "test-parachain"
+
+- job-name: "zombienet-cumulus-0033-elastic_scaling_asset_hub_westend"
+  test-filter: "zombie_ci::elastic_scaling::asset_hub_westend::elastic_scaling_asset_hub_westend"
+  runner-type: "large"
+  cumulus-image: "polkadot-parachain-debug"
