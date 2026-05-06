@@ -118,6 +118,13 @@ impl HopDataPool {
 				for entry in entries.flatten() {
 					let path = entry.path();
 					if path.extension().and_then(|e| e.to_str()) != Some(META_EXT) {
+						if path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map_or(false, |n| n.contains(".tmp."))
+						{
+							let _ = fs::remove_file(&path);
+						}
 						continue;
 					}
 
@@ -186,6 +193,13 @@ impl HopDataPool {
 				for entry in entries.flatten() {
 					let path = entry.path();
 					if path.extension().and_then(|e| e.to_str()) != Some(BLOB_EXT) {
+						if path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map_or(false, |n| n.contains(".tmp."))
+						{
+							let _ = fs::remove_file(&path);
+						}
 						continue;
 					}
 					let stem = match path.file_stem().and_then(|s| s.to_str()) {
