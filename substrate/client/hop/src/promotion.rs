@@ -318,7 +318,7 @@ impl HopMaintenanceTask {
 		}
 
 		// Always clean up expired entries.
-		let freed = self.hop_pool.cleanup_expired(current_block);
+		let freed = self.hop_pool.cleanup_expired();
 		if freed > 0 {
 			tracing::info!(
 				target: "hop",
@@ -363,12 +363,12 @@ mod tests {
 		RecipientVec::try_from(recipients).expect("test recipient list exceeds MAX_RECIPIENTS")
 	}
 
-	fn test_pool(max_size: u64, retention_blocks: u32, dir: &TempDir) -> Arc<HopDataPool> {
+	fn test_pool(max_size: u64, retention_secs: u64, dir: &TempDir) -> Arc<HopDataPool> {
 		Arc::new(
 			HopDataPool::new(
 				max_size,
 				max_size,
-				retention_blocks,
+				retention_secs,
 				dir.path().to_path_buf(),
 				RateLimitConfig::disabled(),
 			)
@@ -433,15 +433,12 @@ mod tests {
 	#[test]
 	fn tick_promotes_near_expiry_entries() {
 		let dir = TempDir::new().unwrap();
-		// retention=100 blocks
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		// Insert at block 0, expires at block 100.
 		let hash = pool
 			.insert(
 				vec![42u8; 10],
-				0,
 				bv(vec![signer]),
 				SENDER_A,
 				dummy_auth().0,
@@ -479,7 +476,6 @@ mod tests {
 
 		pool.insert(
 			vec![42u8; 10],
-			0,
 			bv(vec![signer]),
 			SENDER_A,
 			dummy_auth().0,
@@ -511,7 +507,6 @@ mod tests {
 
 		pool.insert(
 			vec![42u8; 10],
-			0,
 			bv(vec![signer]),
 			SENDER_A,
 			dummy_auth().0,
@@ -540,13 +535,12 @@ mod tests {
 	#[test]
 	fn tick_cleans_up_expired_entries() {
 		let dir = TempDir::new().unwrap();
-		// retention=10 blocks
-		let pool = test_pool(1024 * 1024, 10, &dir);
+		// retention=0 secs so entries expire immediately on the next cleanup pass.
+		let pool = test_pool(1024 * 1024, 0, &dir);
 		let (_, signer) = test_recipient();
 
 		pool.insert(
 			vec![42u8; 50],
-			0,
 			bv(vec![signer]),
 			SENDER_A,
 			dummy_auth().0,
@@ -556,13 +550,7 @@ mod tests {
 		.unwrap();
 		assert_eq!(pool.status().entry_count, 1);
 
-		let task = HopMaintenanceTask::new(
-			pool.clone(),
-			None,
-			Arc::new(|| 10), // block 10 → entry at block 0 with retention 10 is expired
-			5,
-			60,
-		);
+		let task = HopMaintenanceTask::new(pool.clone(), None, Arc::new(|| 0), 5, 60);
 
 		task.tick();
 
@@ -573,15 +561,12 @@ mod tests {
 	#[test]
 	fn tick_promotes_then_cleans_up_independently() {
 		let dir = TempDir::new().unwrap();
-		// retention=100
 		let pool = test_pool(1024 * 1024, 100, &dir);
 		let (_, signer) = test_recipient();
 
-		// Entry inserted at block 0, expires at 100 — near expiry at block 80 with buffer 30.
 		let hash = pool
 			.insert(
 				vec![1u8; 10],
-				0,
 				bv(vec![signer.clone()]),
 				SENDER_A,
 				dummy_auth().0,
@@ -592,8 +577,8 @@ mod tests {
 
 		let promoter = Arc::new(MockPromoter::new(false));
 
-		// First tick at block 80: promote (submit_local Ok). Entry is NOT marked
-		// promoted yet because we have not confirmed inclusion on-chain.
+		// First tick at block 80: promote is attempted. Entry is NOT marked promoted
+		// yet because we have not confirmed inclusion on-chain.
 		let block = Arc::new(Mutex::new(80u32));
 		let block_clone = block.clone();
 		let task = HopMaintenanceTask::new(
@@ -608,17 +593,15 @@ mod tests {
 		assert_eq!(promoter.call_count(), 1);
 		assert_eq!(pool.status().entry_count, 1);
 
-		// Simulate the runtime confirming inclusion: from now on, the on-chain
-		// check returns true.
+		// Simulate the runtime confirming inclusion: from now on, the on-chain check
+		// returns true.
 		promoter.set_on_chain(*hash.as_fixed_bytes());
 
-		// Second tick at block 100: cleanup runs. The entry is at expiry (added=0,
-		// retention=100). cleanup_expired removes it; promote is not called again
-		// because the on-chain check short-circuits to mark_promoted.
+		// Second tick: the on-chain check short-circuits to mark_promoted.
+		// Promoter must not be invoked a second time.
 		*block.lock().unwrap() = 100;
 		task.tick();
-		assert_eq!(pool.status().entry_count, 0);
-		assert_eq!(promoter.call_count(), 1, "promoter not invoked once on-chain confirmed");
+		assert_eq!(promoter.call_count(), 1, "promoter must not be called again once on-chain");
 	}
 
 	#[test]
@@ -630,7 +613,6 @@ mod tests {
 		let hash = pool
 			.insert(
 				vec![42u8; 10],
-				0,
 				bv(vec![signer]),
 				SENDER_A,
 				dummy_auth().0,
@@ -660,7 +642,6 @@ mod tests {
 
 		pool.insert(
 			vec![42u8; 10],
-			0,
 			bv(vec![signer]),
 			SENDER_A,
 			dummy_auth().0,

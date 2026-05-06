@@ -39,7 +39,7 @@ use sp_blockchain::HeaderBackend;
 use sp_core::{hashing::blake2_256, Bytes, H256};
 use sp_runtime::{
 	traits::{Block as BlockT, IdentifyAccount, Verify},
-	AccountId32, MultiSignature, MultiSigner, SaturatedConversion,
+	AccountId32, MultiSignature, MultiSigner,
 };
 use std::{marker::PhantomData, sync::Arc};
 
@@ -174,7 +174,6 @@ where
 
 		let chain_info = self.client.info();
 		let best_hash = chain_info.best_hash;
-		let current_block = chain_info.best_number.saturated_into::<u32>();
 
 		let data_len = data.0.len();
 		let max_size = runtime_api::max_promotion_size::<Block, _>(&*self.client, best_hash)
@@ -207,15 +206,7 @@ where
 		}
 
 		let sender_id: [u8; 32] = account_id.into();
-		self.pool.insert(
-			data.0,
-			current_block,
-			recipient_keys,
-			sender_id,
-			signer,
-			multi_sig,
-			submit_timestamp,
-		)?;
+		self.pool.insert(data.0, recipient_keys, sender_id, signer, multi_sig, submit_timestamp)?;
 		Ok(SubmitResult { pool_status: self.pool.status() })
 	}
 
