@@ -209,6 +209,7 @@ std = [
 	"sp-debug-derive?/std",
 	"sp-externalities?/std",
 	"sp-genesis-builder?/std",
+	"sp-hop?/std",
 	"sp-inherents?/std",
 	"sp-io?/std",
 	"sp-keyring?/std",
@@ -782,6 +783,7 @@ runtime-full = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -856,6 +858,7 @@ runtime = [
 	"sp-debug-derive",
 	"sp-externalities",
 	"sp-genesis-builder",
+	"sp-hop",
 	"sp-inherents",
 	"sp-io",
 	"sp-keyring",
@@ -2075,6 +2078,11 @@ path = "../substrate/primitives/externalities"
 default-features = false
 optional = true
 path = "../substrate/primitives/genesis-builder"
+
+[dependencies.sp-hop]
+default-features = false
+optional = true
+path = "../substrate/primitives/hop"
 
 [dependencies.sp-inherents]
 default-features = false
