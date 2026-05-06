@@ -301,4 +301,87 @@ pub mod registration {
 		assert!(build_proof(&random, vec![]).unwrap().is_none());
 		assert!(build_proof(&random, vec![vec![]]).unwrap().is_none());
 	}
+
+	/// Round-trip: build a proof off-chain, verify it against a runtime-side
+	/// parallel view computed from the same input order. Catches position-mismatch
+	/// bugs where one side reorders the indexed body relative to the other.
+	#[test]
+	fn proof_round_trip_against_parallel_runtime_view() {
+		let payloads: Vec<Vec<u8>> = (0..4)
+			.map(|i: u8| {
+				let mut p = vec![0u8; 2 * CHUNK_SIZE];
+				for (j, byte) in p.iter_mut().enumerate() {
+					*byte = i.wrapping_mul(7).wrapping_add(j as u8);
+				}
+				p
+			})
+			.collect();
+
+		// Non-monotonic submission order so any sort would visibly disturb it.
+		let submission_order = [3usize, 0, 2, 1];
+
+		let from_indexed_body: Vec<Vec<u8>> =
+			submission_order.iter().map(|&i| payloads[i].clone()).collect();
+
+		struct TxInfo {
+			chunk_root: sp_core::H256,
+			size: u32,
+			block_chunks: ChunkIndex,
+		}
+		let mut runtime_view: Vec<TxInfo> = Vec::with_capacity(submission_order.len());
+		let mut cumulative: ChunkIndex = 0;
+		for &i in submission_order.iter() {
+			let payload = &payloads[i];
+			let mut db = sp_trie::MemoryDB::<Hasher>::default();
+			let mut transaction_root = sp_trie::empty_trie_root::<TrieLayout>();
+			{
+				let mut trie =
+					sp_trie::TrieDBMutBuilder::<TrieLayout>::new(&mut db, &mut transaction_root)
+						.build();
+				for (idx, chunk) in payload.chunks(CHUNK_SIZE).enumerate() {
+					trie.insert(&encode_index(idx as u32), chunk).unwrap();
+				}
+				trie.commit();
+			}
+			cumulative += num_chunks(payload.len() as u32);
+			runtime_view.push(TxInfo {
+				chunk_root: transaction_root,
+				size: payload.len() as u32,
+				block_chunks: cumulative,
+			});
+		}
+
+		// Sweep parent_hash so a position bug doesn't pass by chance for some chunks.
+		for seed in 0u8..16 {
+			let parent_hash = [seed; 32];
+
+			let proof = build_proof(&parent_hash, from_indexed_body.clone()).unwrap().unwrap();
+
+			let total_chunks = runtime_view.last().unwrap().block_chunks;
+			let selected_chunk_index = random_chunk(&parent_hash, total_chunks);
+			let tx_index = runtime_view
+				.binary_search_by_key(&selected_chunk_index, |info| {
+					info.block_chunks.saturating_sub(1)
+				})
+				.unwrap_or_else(|i| i);
+			let tx_info = &runtime_view[tx_index];
+			let tx_chunks = num_chunks(tx_info.size);
+			let prev_chunks = tx_info.block_chunks - tx_chunks;
+			let tx_chunk_index = selected_chunk_index - prev_chunks;
+
+			sp_trie::verify_trie_proof::<TrieLayout, _, _, _>(
+				&tx_info.chunk_root,
+				&proof.proof,
+				&[(encode_index(tx_chunk_index), Some(proof.chunk.clone()))],
+			)
+			.unwrap_or_else(|e| panic!("seed={seed}: {e:?}"));
+
+			let expected_chunk = payloads[submission_order[tx_index]]
+				.chunks(CHUNK_SIZE)
+				.nth(tx_chunk_index as usize)
+				.unwrap()
+				.to_vec();
+			assert_eq!(proof.chunk, expected_chunk);
+		}
+	}
 }
