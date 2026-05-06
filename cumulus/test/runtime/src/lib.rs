@@ -162,7 +162,7 @@ pub const BLOCK_PROCESSING_VELOCITY: u32 = 6;
 ))]
 pub const BLOCK_PROCESSING_VELOCITY: u32 = 3;
 
-#[cfg(any(
+#[cfg(all(
 	feature = "async-backing",
 	not(any(
 		feature = "elastic-scaling",
