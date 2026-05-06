@@ -20,6 +20,8 @@
 //! Most likely you should use the [`#[define_env]`][`macro@define_env`] attribute macro which hides
 //! boilerplate of defining external environment for a polkavm module.
 
+extern crate alloc;
+
 mod define_env;
 mod define_versioned_interface;
 mod define_versioned_type;
@@ -847,8 +849,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// // One enum per side, with each variant boxing its payload to keep the enum a fixed size.
 /// #[derive(Clone, Debug, PartialEq, Encode, Decode)]
 /// pub enum VersionedEthTransactInputPayload {
-///     V1(::std::boxed::Box<EthTransactInputPayloadV1>),
-///     V2(::std::boxed::Box<EthTransactInputPayloadV2>),
+///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1>),
+///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2>),
 /// }
 /// // …and identically `VersionedEthTransactOutputPayload` with V1/V2 boxed variants.
 ///
@@ -984,10 +986,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// The cost is a single heap allocation on construction, which is negligible compared to the
 /// runtime API call the value is feeding into.
 ///
-/// With the default `std` feature enabled on `pallet-revive-proc-macro`, the generated code uses
-/// `::std::boxed::Box`. With default features disabled, it uses `::alloc::boxed::Box` instead.
-/// Consuming no-std crates must make `alloc` reachable, usually with `extern crate alloc;` in the
-/// crate root.
+/// The generated code uses `::alloc::boxed::Box`. Consuming crates must make `alloc` reachable,
+/// usually with `extern crate alloc;` in the crate root.
 ///
 /// # Generics across versions
 ///
@@ -1178,8 +1178,8 @@ pub fn define_versioned_type(input: TokenStream) -> TokenStream {
 /// where
 ///     T: Clone,
 /// {
-///     V1(::std::boxed::Box<EthTransactInputPayloadV1<T>>),
-///     V2(::std::boxed::Box<EthTransactInputPayloadV2<T>>),
+///     V1(::alloc::boxed::Box<EthTransactInputPayloadV1<T>>),
+///     V2(::alloc::boxed::Box<EthTransactInputPayloadV2<T>>),
 /// }
 /// ```
 ///
