@@ -1673,7 +1673,7 @@ impl pallet_root_offences::Config for Runtime {
 impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = AccumulateForwardPalletId;
-	type Forwarder = xcm_builder::TeleportForwarder<
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
 		xcm_config::XcmConfig,
 		xcm_config::AssetHub,
 		xcm_config::TokenLocation,

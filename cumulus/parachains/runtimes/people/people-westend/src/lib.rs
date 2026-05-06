@@ -612,7 +612,7 @@ impl pallet_migrations::Config for Runtime {
 impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
 	type PalletId = AccumulateForwardPalletId;
-	type Forwarder = xcm_builder::TeleportForwarder<
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
 		xcm_config::XcmConfig,
 		testnet_parachains_constants::westend::locations::AssetHubLocation,
 		xcm_config::RelayLocation,

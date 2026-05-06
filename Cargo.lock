@@ -1763,6 +1763,7 @@ dependencies = [
  "pallet-asset-rewards",
  "pallet-assets",
  "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-assets-precompiles",
  "pallet-aura",
  "pallet-authorship",
@@ -14140,6 +14141,9 @@ dependencies = [
  "num-bigint",
  "num-integer",
  "num-traits",
+ "pallet-assets",
+ "pallet-assets-freezer",
+ "pallet-assets-holder",
  "pallet-balances",
  "pallet-proxy",
  "pallet-revive-fixtures",
@@ -17664,6 +17668,7 @@ dependencies = [
  "sp-debug-derive 14.0.0",
  "sp-externalities 0.25.0",
  "sp-genesis-builder 0.8.0",
+ "sp-hop",
  "sp-inherents 26.0.0",
  "sp-io 30.0.0",
  "sp-keyring",
@@ -24985,6 +24990,15 @@ dependencies = [
  "serde_json",
  "sp-api 39.0.0",
  "sp-runtime 44.0.0",
+]
+
+[[package]]
+name = "sp-hop"
+version = "0.1.0"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api 26.0.0",
+ "sp-runtime 31.0.1",
 ]
 
 [[package]]
