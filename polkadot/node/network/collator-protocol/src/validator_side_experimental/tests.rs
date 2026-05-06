@@ -1123,10 +1123,6 @@ impl Backend for MockDb {
 
 		vec![]
 	}
-
-	async fn max_scores_for_paras(&self, _paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
-		HashMap::new()
-	}
 }
 
 impl Drop for MockDb {
@@ -4396,18 +4392,13 @@ async fn v2_same_candidate_from_multiple_peers_fetched_once() {
 	test_state.assert_no_messages().await;
 }
 
-// Reputation arbitration when several peers carry the same offer.
-//
-// Setup as above, but peer A has rep `INSTANT_FETCH_REP_THRESHOLD` and peer B has rep 0
-// (default). The `MAX_FETCH_DELAY` mechanism gives unknown peers a head-start delay; the
-// rep-aware fetch planner should still pick the rep-best peer to fetch from once both ads
-// are eligible. Without the cross-peer pick, the choice could fall to whichever
-// `PeerAdvertisement` happens to come first in iteration order — handing slashing/credit
-// attribution to the lower-rep (potentially adversarial) peer purely by chance.
+// Reputation arbitration when several peers advertise the same `Advertisement`. The rep-aware
+// fetch planner must pick the rep-best peer to fetch from. Without the cross-peer pick, the
+// choice could fall to whichever `PeerAdvertisement` happens to come first in iteration order
+// — handing slashing/credit attribution to the lower-rep (potentially adversarial) peer
+// purely by chance.
 #[tokio::test]
 async fn v2_co_carrier_rep_arbitration_picks_high_rep_peer() {
-	use crate::validator_side_experimental::common::INSTANT_FETCH_REP_THRESHOLD;
-
 	let mut test_state = TestState::default();
 	let active_leaf = get_hash(10);
 	let core = test_state.rp_info[&active_leaf].assigned_core;
@@ -4415,11 +4406,10 @@ async fn v2_co_carrier_rep_arbitration_picks_high_rep_peer() {
 	let peer_high = peer_id(0);
 	let peer_low = peer_id(1);
 
-	// Seed peer_high with score >= INSTANT_FETCH_REP_THRESHOLD for para 100; peer_low gets 0.
-	// This bypasses the MAX_FETCH_DELAY for peer_high and makes it the rep-best candidate.
+	// peer_high has a higher reputation than peer_low for para 100.
 	let query_fn = move |peer: PeerId, _: ParaId| {
 		if peer == peer_high {
-			Some(INSTANT_FETCH_REP_THRESHOLD)
+			Some(Score::new(100))
 		} else {
 			Some(Score::new(0))
 		}

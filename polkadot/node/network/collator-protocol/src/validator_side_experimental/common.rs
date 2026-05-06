@@ -25,7 +25,7 @@ use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateHash, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId, PersistedValidationData,
 };
-use std::{collections::HashSet, num::NonZeroU16, time::Duration};
+use std::{collections::HashSet, num::NonZeroU16};
 
 /// The following parameters (`MAX_SCORE`, `VALID_INCLUDED_CANDIDATE_BUMP` and `INACTIVITY_DECAY`)
 /// determine how fast collators build reputation, how fast they lose it due to inactivity and how
@@ -85,9 +85,6 @@ pub const FAILED_FETCH_SLASH: Score = Score::new(MAX_SCORE / 6);
 /// Slashing value for an invalid collation (half of the max).
 pub const INVALID_COLLATION_SLASH: Score = Score::new(MAX_SCORE / 2);
 
-/// Minimum reputation threshold that warrants an instant fetch.
-pub const INSTANT_FETCH_REP_THRESHOLD: Score = Score::new(VALID_INCLUDED_CANDIDATE_BUMP);
-
 /// Limit for the total number connected peers.
 pub const CONNECTED_PEERS_LIMIT: NonZeroU16 = NonZeroU16::new(300).expect("300 is greater than 0");
 
@@ -107,14 +104,6 @@ pub const MAX_STARTUP_ANCESTRY_LOOKBACK: u32 = 20;
 /// Maximum number of stored peer scores for a paraid. Should be greater than
 /// `CONNECTED_PEERS_PARA_LIMIT`.
 pub const MAX_STORED_SCORES_PER_PARA: u16 = 1000;
-
-/// The maximum acceptable delay which can be applied on an advertisement from a collator with score
-/// less than the maximum score for the parachain.
-pub const MAX_FETCH_DELAY: Duration = Duration::from_millis(300);
-
-/// The minimum interval after which we may want to stop the main loop in order to fetch available
-/// advertised collations.
-pub const MIN_FETCH_TIMER_DELAY: Duration = Duration::from_millis(150);
 
 /// Reputation score type.
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy, Default, Encode, Decode)]

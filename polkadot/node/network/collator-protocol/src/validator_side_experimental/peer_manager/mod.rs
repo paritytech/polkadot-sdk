@@ -382,11 +382,6 @@ impl<B: Backend> PeerManager<B> {
 		self.connected.peer_info(peer_id)
 	}
 
-	/// Retrieve the max scores for the given paras.
-	pub async fn max_scores_for_paras(&self, paras: BTreeSet<ParaId>) -> HashMap<ParaId, Score> {
-		self.db.max_scores_for_paras(paras).await
-	}
-
 	/// Returns the number of connected peers.
 	pub fn connected_peer_count(&self) -> usize {
 		self.connected.len()

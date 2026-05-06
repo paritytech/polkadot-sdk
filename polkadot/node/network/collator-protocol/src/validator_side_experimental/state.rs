@@ -41,7 +41,6 @@ use polkadot_primitives::{
 	BlockNumber, CandidateDescriptorVersion, CandidateReceiptV2 as CandidateReceipt, Hash,
 	Id as ParaId,
 };
-use std::time::Duration;
 
 /// All state relevant for the validator side of the protocol lives here.
 pub struct State<B> {
@@ -502,24 +501,18 @@ impl<B: Backend> State<B> {
 	pub async fn try_launch_new_fetch_requests<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-	) -> Option<Duration> {
+	) {
 		let peer_manager = &self.peer_manager;
 		let connected_rep_query_fn = move |peer_id: &PeerId, para_id: &ParaId| {
 			peer_manager.connected_peer_score(peer_id, para_id)
 		};
-		let max_reps = self
-			.peer_manager
-			.max_scores_for_paras(self.collation_manager.assignments())
-			.await;
 
 		let metrics = &self.metrics;
 		let create_timer_fn = || metrics.time_collation_request_duration();
 
-		let (requests, maybe_delay) = self.collation_manager.try_make_new_fetch_requests(
-			connected_rep_query_fn,
-			max_reps,
-			create_timer_fn,
-		);
+		let requests = self
+			.collation_manager
+			.try_make_new_fetch_requests(connected_rep_query_fn, create_timer_fn);
 
 		if !requests.is_empty() {
 			gum::debug!(
@@ -536,8 +529,6 @@ impl<B: Backend> State<B> {
 				))
 				.await;
 		}
-
-		maybe_delay
 	}
 
 	async fn try_second_unblocked_collations<Sender: CollatorProtocolSenderTrait>(
