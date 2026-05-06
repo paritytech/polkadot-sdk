@@ -43,7 +43,7 @@ const WAIT_MAX_BLOCKS_FOR_SESSION: u32 = 50;
 // Maximum time to wait for PVF preparation to conclude on a validator before
 // starting throughput measurement. PVF preparation is a one-off ~20s wasm
 // compile per validator that contends for CPU.
-const PVF_PREPARE_TIMEOUT_SECS: u64 = 60;
+const PVF_PREPARE_TIMEOUT_SECS: u64 = 120;
 
 /// Format a `sp_runtime::DispatchError` using runtime metadata for human-readable output.
 ///
