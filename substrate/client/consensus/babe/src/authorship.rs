@@ -192,6 +192,7 @@ pub fn claim_slot(
 		.enumerate()
 		.map(|(index, a)| (a.0.clone(), index))
 		.collect::<Vec<_>>();
+	println!("[DOPPELGANGER]: auths is {:?}", &authorities);
 	claim_slot_using_keys(slot, epoch, keystore, &authorities)
 }
 

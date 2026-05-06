@@ -98,6 +98,7 @@ sp-weights = { default-features = true, workspace = true }
 substrate-frame-rpc-system = { default-features = true, workspace = true }
 substrate-state-trie-migration-rpc = { default-features = true, workspace = true }
 subxt-metadata = { workspace = true, default-features = true }
+doppelganger-consensus = { path = "../../../doppelganger/consensus", optional = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
@@ -128,4 +129,10 @@ try-runtime = [
 	"pallet-transaction-payment/try-runtime",
 	"polkadot-cli/try-runtime",
 	"sp-runtime/try-runtime",
+]
+
+
+doppelganger = [
+	"dep:doppelganger-consensus",
+	"cumulus-client-service/doppelganger",
 ]

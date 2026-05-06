@@ -50,3 +50,9 @@ sp-io = { default-features = true, workspace = true }
 sp-runtime = { default-features = true, workspace = true }
 sp-transaction-pool = { default-features = true, workspace = true }
 sp-trie = { default-features = true, workspace = true }
+
+tokio = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+
+[features]
+doppelganger = [ "dep:tokio", "dep:serde_json" ]

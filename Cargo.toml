@@ -153,6 +153,8 @@ members = [
 	"docs/sdk/packages/guides/first-pallet",
 	"docs/sdk/packages/guides/first-runtime",
 	"docs/sdk/src/reference_docs/chain_spec_runtime",
+	"doppelganger",
+	"doppelganger/consensus",
 	"polkadot",
 	"polkadot/cli",
 	"polkadot/core-primitives",
@@ -1452,7 +1454,7 @@ xcm-executor = { path = "polkadot/xcm/xcm-executor", default-features = false, p
 xcm-procedural = { path = "polkadot/xcm/procedural", default-features = false }
 xcm-runtime-apis = { path = "polkadot/xcm/xcm-runtime-apis", default-features = false }
 xcm-simulator = { path = "polkadot/xcm/xcm-simulator", default-features = false }
-yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
+#yet-another-parachain-runtime = { path = "cumulus/parachains/runtimes/testing/yet-another-parachain" }
 zeroize = { version = "1.7.0", default-features = false }
 zombienet-configuration = { version = "0.4.7" }
 zombienet-orchestrator = { version = "0.4.7" }

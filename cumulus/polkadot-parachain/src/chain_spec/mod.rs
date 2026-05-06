@@ -26,7 +26,7 @@ pub mod coretime;
 pub mod glutton;
 pub mod penpal;
 pub mod people;
-pub mod yet_another_parachain;
+// pub mod yet_another_parachain;
 
 /// Extracts the normalized chain id and parachain id from the input chain id.
 /// (H/T to Phala for the idea)
@@ -46,7 +46,7 @@ fn extract_parachain_id<'a>(
 }
 
 #[derive(Debug)]
-pub(crate) struct ChainSpecLoader;
+pub struct ChainSpecLoader;
 
 impl LoadSpec for ChainSpecLoader {
 	fn load_spec(&self, id: &str) -> Result<Box<dyn ChainSpec>, String> {
@@ -177,24 +177,24 @@ impl LoadSpec for ChainSpecLoader {
 				))
 			},
 
-			id if id.starts_with("yap-") => {
-				let tok: Vec<String> = id.split('-').map(|s| s.to_owned()).collect();
-				assert!(
-					tok.len() == 4,
-					"Invalid YAP chain id, should be 'yap-<relay>-<chaintype>-<para-id>'"
-				);
-				let relay = if &tok[2] == "live" { tok[1].clone() } else { tok[1..=2].join("-") };
-				let chain_type = match tok[2].as_str() {
-					"local" => ChainType::Local,
-					"dev" => ChainType::Development,
-					"live" => ChainType::Live,
-					_ => unimplemented!("Unknown chain type {}", tok[2]),
-				};
-				let para_id: u32 =
-					tok[3].parse().expect(&format!("Illegal para id '{}' provided", tok[3]));
+			// id if id.starts_with("yap-") => {
+			// 	let tok: Vec<String> = id.split('-').map(|s| s.to_owned()).collect();
+			// 	assert!(
+			// 		tok.len() == 4,
+			// 		"Invalid YAP chain id, should be 'yap-<relay>-<chaintype>-<para-id>'"
+			// 	);
+			// 	let relay = if &tok[2] == "live" { tok[1].clone() } else { tok[1..=2].join("-") };
+			// 	let chain_type = match tok[2].as_str() {
+			// 		"local" => ChainType::Local,
+			// 		"dev" => ChainType::Development,
+			// 		"live" => ChainType::Live,
+			// 		_ => unimplemented!("Unknown chain type {}", tok[2]),
+			// 	};
+			// 	let para_id: u32 =
+			// 		tok[3].parse().expect(&format!("Illegal para id '{}' provided", tok[3]));
 
-				Box::new(yet_another_parachain_config(relay, chain_type, para_id))
-			},
+			// 	Box::new(yet_another_parachain_config(relay, chain_type, para_id))
+			// },
 
 			// -- People
 			people_like_id if people_like_id.starts_with(people::PeopleRuntimeType::ID_PREFIX) => {

@@ -4520,6 +4520,7 @@ dependencies = [
  "sc-tracing",
  "sc-transaction-pool",
  "sc-utils 20.1.0",
+ "serde_json",
  "sp-api 41.0.0",
  "sp-blockchain 44.0.0",
  "sp-consensus 0.47.0",
@@ -4529,6 +4530,7 @@ dependencies = [
  "sp-runtime 46.0.0",
  "sp-transaction-pool",
  "sp-trie 43.0.0",
+ "tokio",
 ]
 
 [[package]]
@@ -5733,6 +5735,63 @@ dependencies = [
  "termcolor",
  "toml",
  "walkdir",
+]
+
+[[package]]
+name = "doppelganger"
+version = "0.1.0"
+dependencies = [
+ "asset-hub-westend-runtime",
+ "bridge-hub-westend-runtime",
+ "collectives-westend-runtime",
+ "coretime-westend-runtime",
+ "cumulus-primitives-core",
+ "glutton-westend-runtime",
+ "hex-literal",
+ "log",
+ "parachains-common",
+ "penpal-runtime",
+ "people-westend-runtime",
+ "polkadot-omni-node-lib",
+ "sc-chain-spec 49.0.0",
+ "sc-cli",
+ "sc-service",
+ "serde_json",
+ "sp-core 40.0.0",
+ "sp-genesis-builder 0.22.0",
+ "sp-keyring",
+ "staging-xcm",
+]
+
+[[package]]
+name = "doppelganger-consensus"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bincode",
+ "cumulus-primitives-proof-size-hostfunction",
+ "frame-system",
+ "futures",
+ "hex",
+ "hex-literal",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "polkadot-primitives",
+ "polkadot-runtime-parachains",
+ "sc-chain-spec 49.0.0",
+ "sc-client-api 45.0.0",
+ "sc-consensus",
+ "sc-executor 0.48.0",
+ "serde_json",
+ "sp-authority-discovery",
+ "sp-core 40.0.0",
+ "sp-io 45.0.0",
+ "sp-runtime 46.0.0",
+ "sp-runtime-interface 34.0.0",
+ "sp-storage 23.0.0",
+ "sp-trie 43.0.0",
+ "tokio",
 ]
 
 [[package]]
@@ -16098,6 +16157,7 @@ dependencies = [
  "cumulus-relay-chain-interface",
  "cumulus-test-runtime",
  "docify",
+ "doppelganger-consensus",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-support",
@@ -16225,7 +16285,6 @@ dependencies = [
  "sp-keyring",
  "staging-xcm",
  "substrate-build-script-utils",
- "yet-another-parachain-runtime",
 ]
 
 [[package]]
@@ -16496,6 +16555,7 @@ dependencies = [
  "cumulus-relay-chain-rpc-interface",
  "cumulus-relay-chain-streams",
  "cumulus-test-relay-sproof-builder",
+ "doppelganger",
  "emulated-integration-tests-common",
  "ethereum-standards",
  "fork-tree",
@@ -16994,6 +17054,7 @@ version = "32.0.1"
 dependencies = [
  "assert_matches",
  "async-trait",
+ "doppelganger-consensus",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "frame-metadata-hash-extension",

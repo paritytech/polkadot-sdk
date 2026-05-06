@@ -44,7 +44,7 @@ sp-core = { default-features = true, workspace = true }
 sp-genesis-builder = { default-features = true, workspace = true }
 sp-keyring = { default-features = true, workspace = true }
 xcm = { default-features = true, workspace = true }
-yet-another-parachain-runtime = { workspace = true }
+#yet-another-parachain-runtime = { workspace = true }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 polkadot-jemalloc-shim = { workspace = true, features = ["jemalloc-allocator"] }
@@ -74,7 +74,7 @@ runtime-benchmarks = [
 	"penpal-runtime/runtime-benchmarks",
 	"people-westend-runtime/runtime-benchmarks",
 	"xcm/runtime-benchmarks",
-	"yet-another-parachain-runtime/runtime-benchmarks",
+	#"yet-another-parachain-runtime/runtime-benchmarks",
 ]
 try-runtime = [
 	"polkadot-omni-node-lib/try-runtime",

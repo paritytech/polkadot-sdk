@@ -100,7 +100,9 @@ pub const POV_BOMB_LIMIT: usize = (MAX_POV_SIZE * 4u32) as usize;
 ///
 /// slot time * `DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION` > `APPROVAL_EXECUTION_TIMEOUT`
 /// + slot time
-pub const DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: BlockNumber = 10;
+// #[DOPPELGANGER]
+// pub const DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: BlockNumber = 10;
+pub const DISPUTE_CANDIDATE_LIFETIME_AFTER_FINALIZATION: BlockNumber = 1;
 
 /// Linked to `MAX_FINALITY_LAG` in relay chain selection,
 /// `MAX_HEADS_LOOK_BACK` in `approval-voting` and
