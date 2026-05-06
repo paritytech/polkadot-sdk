@@ -25,7 +25,7 @@ use crate::{
 	},
 };
 use codec::{Decode, Encode};
-use parking_lot::RwLock;
+use parking_lot::{Mutex, RwLock};
 use sp_core::{hashing::blake2_256, H256};
 use sp_runtime::{
 	traits::{IdentifyAccount, Verify},
@@ -55,7 +55,7 @@ const META_EXT: &str = "meta";
 /// HOP data pool with disk-backed blob storage and in-memory metadata index.
 pub struct HopDataPool {
 	/// In-memory metadata index (no blobs).
-	index: RwLock<HashMap<HopHash, HopEntryMeta>>,
+	index: Mutex<HashMap<HopHash, HopEntryMeta>>,
 	/// Per-user byte usage tracked by sender id.
 	///
 	/// Counters live directly in the map and are charged via `charge_user`
@@ -234,7 +234,7 @@ impl HopDataPool {
 		}
 
 		Ok(Self {
-			index: RwLock::new(index),
+			index: Mutex::new(index),
 			user_usage: RwLock::new(user_usage),
 			max_size,
 			max_user_size,
@@ -381,7 +381,7 @@ impl HopDataPool {
 
 		// First duplicate check (read lock only).
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			if index.contains_key(&hash) {
 				self.release_user_quota(&sender_id, accounted);
 				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
@@ -419,7 +419,7 @@ impl HopDataPool {
 
 		// Acquire write lock: double-check duplicate, insert meta.
 		{
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			if index.contains_key(&hash) {
 				// Race: another thread inserted the same data first. Files on
 				// disk are content-addressed and identical to ours — leave
@@ -485,7 +485,7 @@ impl HopDataPool {
 	/// The accounted size is released back to the pool and the user quota.
 	fn purge_corrupt_entry(&self, hash: &HopHash) {
 		let removed = {
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			index.remove(hash)
 		};
 		if let Some(meta) = removed {
@@ -518,7 +518,7 @@ impl HopDataPool {
 	/// Get data from the pool by content hash.
 	pub fn get(&self, hash: &HopHash) -> Option<Vec<u8>> {
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			if !index.contains_key(hash) {
 				return None;
 			}
@@ -536,7 +536,7 @@ impl HopDataPool {
 		hash: &HopHash,
 	) -> Option<(Vec<u8>, MultiSigner, MultiSignature, u64)> {
 		let (signer, signature, submit_timestamp) = {
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash)?;
 			(meta.signer.clone(), meta.signature.clone(), meta.submit_timestamp)
 		};
@@ -574,7 +574,7 @@ impl HopDataPool {
 	/// Returns `AlreadyClaimed` if the recipient has already acked (data may be deleted).
 	pub fn claim(&self, hash: &HopHash, signature: &[u8]) -> Result<Vec<u8>, HopError> {
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
 			// Map NotRecipient → NotFound so callers cannot probe whether a hash
 			// exists by observing different error codes.
@@ -598,7 +598,7 @@ impl HopDataPool {
 	pub fn ack(&self, hash: &HopHash, signature: &[u8]) -> Result<(), HopError> {
 		// Phase 1: idempotent fast path under read lock.
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let meta = index.get(hash).ok_or(HopError::NotFound)?;
 			let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
 				.map_err(|_| HopError::NotFound)?;
@@ -609,7 +609,7 @@ impl HopDataPool {
 
 		// Phase 2: re-run the lookup against the current meta — the entry could
 		// have been removed and re-submitted with a different recipient list since Phase 1.
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		let meta = index.get_mut(hash).ok_or(HopError::NotFound)?;
 		let idx = Self::find_recipient_idx(meta, hash, signature, HOP_ACK_CONTEXT)
 			.map_err(|_| HopError::NotFound)?;
@@ -661,14 +661,14 @@ impl HopDataPool {
 
 	/// Check if data exists in the pool.
 	pub fn has(&self, hash: &HopHash) -> bool {
-		let index = self.index.read();
+		let index = self.index.lock();
 		index.contains_key(hash)
 	}
 
 	/// Remove data from the pool.
 	pub fn remove(&self, hash: &HopHash) -> Result<(), HopError> {
 		let meta = {
-			let mut index = self.index.write();
+			let mut index = self.index.lock();
 			index.remove(hash)
 		};
 
@@ -695,7 +695,7 @@ impl HopDataPool {
 
 	/// Get pool status.
 	pub fn status(&self) -> PoolStatus {
-		let index = self.index.read();
+		let index = self.index.lock();
 		PoolStatus {
 			entry_count: index.len(),
 			total_bytes: self.current_size.load(Ordering::Relaxed),
@@ -718,7 +718,7 @@ impl HopDataPool {
 			// batch of expired entries. Bounded so the lock hold scales with
 			// batch size, not pool size.
 			let expired: Vec<(HopHash, HopEntryMeta)> = {
-				let mut index = self.index.write();
+				let mut index = self.index.lock();
 				let expired_keys: Vec<HopHash> = index
 					.iter()
 					.filter(|(_, m)| current_block >= m.expires_at)
@@ -769,7 +769,7 @@ impl HopDataPool {
 		// excluded). Build a live-sender set in one index pass so retain is
 		// O(senders + entries) instead of O(senders × entries).
 		{
-			let index = self.index.read();
+			let index = self.index.lock();
 			let mut usage = self.user_usage.write();
 			let live: HashSet<&SenderId> = index.values().map(|m| &m.sender_id).collect();
 			usage.retain(|sender_id, counter| {
@@ -792,7 +792,7 @@ impl HopDataPool {
 		buffer_blocks: u32,
 		limit: usize,
 	) -> Vec<HopHash> {
-		let index = self.index.read();
+		let index = self.index.lock();
 		index
 			.iter()
 			.filter(|(_, meta)| {
@@ -809,7 +809,7 @@ impl HopDataPool {
 	/// Mark an entry as promoted to permanent on-chain storage.
 	/// Persists the updated metadata to disk.
 	pub fn mark_promoted(&self, hash: &HopHash) {
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
 			meta.promoted = true;
 			let meta_bytes = meta.encode();
@@ -842,7 +842,7 @@ impl HopDataPool {
 		current_block: HopBlockNumber,
 		check_interval_blocks: u32,
 	) {
-		let mut index = self.index.write();
+		let mut index = self.index.lock();
 		if let Some(meta) = index.get_mut(hash) {
 			meta.promotion_attempts = meta.promotion_attempts.saturating_add(1);
 			let backoff = promotion_backoff_blocks(meta.promotion_attempts, check_interval_blocks);
