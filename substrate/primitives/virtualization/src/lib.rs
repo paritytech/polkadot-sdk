@@ -176,12 +176,10 @@ impl AsRef<[u8]> for SyscallSymbol {
 pub enum ModuleError {
 	/// The supplied code was invalid.
 	InvalidImage = 1,
-	/// No module with the given hash has been compiled yet.
+	/// No module with the given identifier has been compiled yet.
 	NotCached = 2,
-	/// No code was found at the constructed storage key.
+	/// No code was found at the supplied storage key.
 	NotFound = 3,
-	/// The code loaded from storage does not match the expected hash.
-	HashMismatch = 4,
 }
 
 /// Errors that can be emitted when instantiating a new virtualization instance.

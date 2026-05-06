@@ -25,12 +25,22 @@ use crate::{
 pub struct Module(ModuleId);
 
 impl Module {
-	pub fn from_bytes(bytes: &[u8]) -> Result<Self, ModuleError> {
-		Ok(Self(host_fn::compile_from_bytes(bytes)?))
+	/// Compile a module from raw bytes.
+	///
+	/// If `identifier` is `Some`, the compiled module is retained under that identifier so a
+	/// later [`Module::from_storage_key`] (or any future lookup keyed by it) can reuse the
+	/// same compilation within the current extension lifetime. Pass `None` for one-shot
+	/// compiles you don't intend to look up by name.
+	pub fn from_bytes(bytes: &[u8], identifier: Option<&[u8]>) -> Result<Self, ModuleError> {
+		Ok(Self(host_fn::compile_from_bytes(bytes, identifier)?))
 	}
 
-	pub fn from_hash(hash: &[u8], prefix: &[u8], child_trie: &[u8]) -> Result<Self, ModuleError> {
-		Ok(Self(host_fn::compile_from_hash(hash, prefix, child_trie)?))
+	/// Compile (or fetch from cache) a module whose program bytes live at `storage_key`.
+	///
+	/// The `storage_key` is also used as the cache identifier. Pass an empty `child_trie` to
+	/// read from the main state trie.
+	pub fn from_storage_key(storage_key: &[u8], child_trie: &[u8]) -> Result<Self, ModuleError> {
+		Ok(Self(host_fn::compile_from_storage_key(storage_key, child_trie)?))
 	}
 
 	pub fn instantiate(&self) -> Result<Instance, InstantiateError> {

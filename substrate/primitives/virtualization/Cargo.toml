@@ -18,7 +18,6 @@ sp-runtime-interface = { workspace = true, default-features = false }
 strum = { features = ["derive"], workspace = true }
 
 [target.'cfg(not(substrate_runtime))'.dependencies]
-sp-crypto-hashing = { workspace = true, default-features = true }
 sp-externalities = { workspace = true, default-features = true }
 sp-storage = { workspace = true, default-features = true }
 

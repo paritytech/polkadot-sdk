@@ -42,14 +42,14 @@ fn run_all() {
 	setup().execute_with(|| sp_virtualization::run_tests(binary()));
 }
 
-/// Compile from bytes, then `from_hash` should hit the in-memory cache.
+/// Compile with an identifier, then `from_storage_key` with that identifier hits the cache.
 #[test]
-fn from_hash_cache_hit() {
+fn from_storage_key_cache_hit() {
 	let program = binary();
+	let key = b"some-cache-key";
 	setup().execute_with(|| {
-		let _module = Module::from_bytes(program).unwrap();
-		let hash = sp_crypto_hashing::keccak_256(program);
-		let module = Module::from_hash(&hash, b"", b"").unwrap();
+		let _module = Module::from_bytes(program, Some(key)).unwrap();
+		let module = Module::from_storage_key(key, b"").unwrap();
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut gas_left = GAS_MAX;
@@ -60,19 +60,27 @@ fn from_hash_cache_hit() {
 	});
 }
 
-/// Load code from main trie storage on cache miss.
+/// `compile_from_bytes` with `None` does not populate the cache.
 #[test]
-fn from_hash_storage_main_trie() {
+fn from_bytes_none_skips_cache() {
 	let program = binary();
-	let hash = sp_crypto_hashing::keccak_256(program);
-	let prefix = b"code:";
-	let mut key = prefix.to_vec();
-	key.extend_from_slice(&hash);
+	let key = b"would-be-key";
+	setup().execute_with(|| {
+		let _module = Module::from_bytes(program, None).unwrap();
+		assert!(matches!(Module::from_storage_key(key, b""), Err(ModuleError::NotFound)));
+	});
+}
+
+/// Load code from main trie storage on cache miss; the second call hits the cache.
+#[test]
+fn from_storage_key_main_trie() {
+	let program = binary();
+	let key: &[u8] = b"code:my-program";
 
 	let mut ext = setup();
-	ext.insert(key, program.to_vec());
+	ext.insert(key.to_vec(), program.to_vec());
 	ext.execute_with(|| {
-		let module = Module::from_hash(&hash, prefix, b"").unwrap();
+		let module = Module::from_storage_key(key, b"").unwrap();
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut gas_left = GAS_MAX;
@@ -82,7 +90,7 @@ fn from_hash_storage_main_trie() {
 		assert_eq!(counter, 8);
 
 		// Second call should hit the cache now.
-		let module = Module::from_hash(&hash, prefix, b"").unwrap();
+		let module = Module::from_storage_key(key, b"").unwrap();
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut counter: u64 = 0;
@@ -94,19 +102,16 @@ fn from_hash_storage_main_trie() {
 
 /// Load code from child trie storage on cache miss.
 #[test]
-fn from_hash_storage_child_trie() {
+fn from_storage_key_child_trie() {
 	let program = binary();
-	let hash = sp_crypto_hashing::keccak_256(program);
-	let prefix = b"code:";
+	let key: &[u8] = b"code:my-program";
 	let child_trie = b"contracts";
-	let mut key = prefix.to_vec();
-	key.extend_from_slice(&hash);
 	let child_info = sp_storage::ChildInfo::new_default(child_trie);
 
 	let mut ext = setup();
-	ext.insert_child(child_info, key, program.to_vec());
+	ext.insert_child(child_info, key.to_vec(), program.to_vec());
 	ext.execute_with(|| {
-		let module = Module::from_hash(&hash, prefix, child_trie).unwrap();
+		let module = Module::from_storage_key(key, child_trie).unwrap();
 		let instance = module.instantiate().unwrap();
 		let execution = instance.prepare(b"counter").unwrap();
 		let mut gas_left = GAS_MAX;
@@ -117,34 +122,14 @@ fn from_hash_storage_child_trie() {
 	});
 }
 
-/// Code at the storage key does not match the requested hash.
+/// Code at the storage key is not a valid PolkaVM program.
 #[test]
-fn from_hash_hash_mismatch() {
-	let program = binary();
-	let hash = sp_crypto_hashing::keccak_256(program);
-	let prefix = b"code:";
-	let mut key = prefix.to_vec();
-	key.extend_from_slice(&hash);
+fn from_storage_key_invalid_image() {
+	let key: &[u8] = b"code:garbage";
 
 	let mut ext = setup();
-	ext.insert(key, b"not the real program".to_vec());
+	ext.insert(key.to_vec(), b"this is not a valid polkavm program".to_vec());
 	ext.execute_with(|| {
-		assert!(matches!(Module::from_hash(&hash, prefix, b""), Err(ModuleError::HashMismatch)));
-	});
-}
-
-/// Code at the storage key has the correct hash but is not valid PolkaVM.
-#[test]
-fn from_hash_invalid_image() {
-	let garbage = b"this is not a valid polkavm program";
-	let hash = sp_crypto_hashing::keccak_256(garbage);
-	let prefix = b"code:";
-	let mut key = prefix.to_vec();
-	key.extend_from_slice(&hash);
-
-	let mut ext = setup();
-	ext.insert(key, garbage.to_vec());
-	ext.execute_with(|| {
-		assert!(matches!(Module::from_hash(&hash, prefix, b""), Err(ModuleError::InvalidImage)));
+		assert!(matches!(Module::from_storage_key(key, b""), Err(ModuleError::InvalidImage)));
 	});
 }

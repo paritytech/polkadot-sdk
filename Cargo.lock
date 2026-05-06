@@ -22180,7 +22180,6 @@ version = "0.1.0"
 dependencies = [
  "log",
  "polkavm 0.33.1",
- "sp-crypto-hashing 0.1.0",
  "sp-io 30.0.0",
  "sp-storage 19.0.0",
  "sp-tracing 16.0.0",
@@ -25344,7 +25343,6 @@ dependencies = [
  "log",
  "num_enum",
  "parity-scale-codec",
- "sp-crypto-hashing 0.1.0",
  "sp-externalities 0.25.0",
  "sp-runtime-interface 24.0.0",
  "sp-storage 19.0.0",

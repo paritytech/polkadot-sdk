@@ -32,7 +32,7 @@ use sp_virtualization::{
 };
 use std::{
 	collections::HashMap,
-	sync::{Arc, LazyLock, RwLock},
+	sync::{Arc, LazyLock},
 };
 
 /// This is the single PolkaVM engine we use for everything.
@@ -45,14 +45,6 @@ static ENGINE: LazyLock<Engine> = LazyLock::new(|| {
 	config.set_default_cost_model(Some(CostModelKind::Full(CacheModel::L2Hit)));
 	Engine::new(&config).expect("Failed to initialize PolkaVM.")
 });
-
-/// Process-global cache of compiled modules keyed by `keccak_256(program)`.
-///
-/// Held across runtime calls so `compile_from_hash` can reuse modules compiled by a
-/// previous [`VirtManager`] instance. Stores [`Arc<CompiledModule>`] so the precomputed
-/// export/import tables are shared across all reuses and cloning is O(1).
-static MODULE_CACHE: LazyLock<RwLock<HashMap<[u8; 32], Arc<CompiledModule>>>> =
-	LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn map_memory_error(error: MemoryAccessError) -> MemoryError {
 	match error {
@@ -122,11 +114,13 @@ struct ManagedInstance {
 /// Instance and module IDs are assigned deterministically from incrementing counters,
 /// ensuring no non-determinism across different executions.
 ///
-/// NOTE: Module dedup across runtime calls is handled by the process-global [`MODULE_CACHE`].
-/// Eventually that will be replaced by PolkaVM's built-in on-disk persistent cache.
+/// NOTE: The per-instance `cache` deduplicates modules within the lifetime of one
+/// `VirtManager` (i.e. one externalities extension, i.e. one block). Cross-block
+/// reuse is deferred to PolkaVM's built-in on-disk persistent cache.
 pub struct VirtManager {
 	instances: HashMap<InstanceId, ManagedInstance>,
 	modules: HashMap<ModuleId, Arc<CompiledModule>>,
+	cache: HashMap<Vec<u8>, Arc<CompiledModule>>,
 	instance_counter: u32,
 	module_counter: u32,
 }
@@ -136,6 +130,7 @@ impl Default for VirtManager {
 		Self {
 			instances: HashMap::new(),
 			modules: HashMap::new(),
+			cache: HashMap::new(),
 			instance_counter: 0,
 			module_counter: 0,
 		}
@@ -253,7 +248,11 @@ impl VirtManager {
 }
 
 impl VirtManagerBackend for VirtManager {
-	fn compile_from_bytes(&mut self, program: &[u8]) -> Result<ModuleId, ModuleError> {
+	fn compile_from_bytes(
+		&mut self,
+		program: &[u8],
+		identifier: Option<&[u8]>,
+	) -> Result<ModuleId, ModuleError> {
 		let mut module_config = ModuleConfig::new();
 		module_config.set_gas_metering(Some(GasMeteringKind::Sync));
 		let module =
@@ -270,21 +269,16 @@ impl VirtManagerBackend for VirtManager {
 
 		let module_id = self.next_module_id();
 
-		// Populate the process-global cache so subsequent `compile_from_hash` calls — possibly
-		// from a different `VirtManager` instance in a later runtime call — can skip recompiling.
-		// NOTE: keccak256 is chosen because pallet-revive uses it to identify code.
-		// Eventually the hash function needs to be agreed upon with the PVM caching system.
-		let hash = sp_crypto_hashing::keccak_256(program);
-		MODULE_CACHE.write().unwrap().insert(hash, compiled.clone());
+		if let Some(identifier) = identifier {
+			self.cache.insert(identifier.to_vec(), compiled.clone());
+		}
 		self.modules.insert(module_id, compiled);
 
 		Ok(module_id)
 	}
 
-	fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError> {
-		let hash: [u8; 32] = hash.try_into().map_err(|_| ModuleError::NotCached)?;
-		let compiled =
-			MODULE_CACHE.read().unwrap().get(&hash).cloned().ok_or(ModuleError::NotCached)?;
+	fn compile_from_storage_key(&mut self, storage_key: &[u8]) -> Result<ModuleId, ModuleError> {
+		let compiled = self.cache.get(storage_key).cloned().ok_or(ModuleError::NotCached)?;
 		let module_id = self.next_module_id();
 		self.modules.insert(module_id, compiled);
 		Ok(module_id)
@@ -361,5 +355,36 @@ impl VirtManagerBackend for VirtManager {
 			return Err(MemoryError::InvalidInstance);
 		};
 		instance.write_memory(offset, src).map_err(map_memory_error)
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// Two `VirtManager` instances must not share any cache state — confirms the cache lives on
+	/// the struct, not in process-global storage.
+	#[test]
+	fn cache_does_not_leak_between_instances() {
+		let program = sp_virtualization_test_fixture::binary();
+		let key: &[u8] = b"some-key";
+
+		let mut a = VirtManager::default();
+		a.compile_from_bytes(program, Some(key)).unwrap();
+		assert!(matches!(a.compile_from_storage_key(key), Ok(_)));
+
+		let mut b = VirtManager::default();
+		assert!(matches!(b.compile_from_storage_key(key), Err(ModuleError::NotCached)));
+	}
+
+	/// Passing `None` to `compile_from_bytes` must not populate the cache.
+	#[test]
+	fn compile_from_bytes_none_skips_cache() {
+		let program = sp_virtualization_test_fixture::binary();
+		let key: &[u8] = b"would-be-key";
+
+		let mut m = VirtManager::default();
+		m.compile_from_bytes(program, None).unwrap();
+		assert!(matches!(m.compile_from_storage_key(key), Err(ModuleError::NotCached)));
 	}
 }

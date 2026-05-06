@@ -23,8 +23,8 @@ use core::mem;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 use sp_runtime_interface::{
 	pass_by::{
-		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndWrite,
-		PassPointerAndWrite,
+		ConvertAndReturnAs, PassAs, PassFatPointerAndRead, PassFatPointerAndReadOption,
+		PassFatPointerAndWrite, PassPointerAndWrite,
 	},
 	runtime_interface,
 };
@@ -275,11 +275,17 @@ impl TryFrom<i64> for VoidResult {
 pub trait Virtualization {
 	/// Compile the given program bytes into a module.
 	///
+	/// If `identifier` is `Some`, the compiled module is also retained in the per-extension
+	/// cache under that identifier so that a subsequent [`compile_from_storage_key`] (or any
+	/// other lookup) using the same identifier within the same extension lifetime can reuse
+	/// it. If `identifier` is `None`, the module is not cached.
+	///
 	/// Returns the `module_id` which can be passed to [`instantiate`]
 	/// to create instances from this compiled module.
 	fn compile_from_bytes(
 		&mut self,
 		program: PassFatPointerAndRead<&[u8]>,
+		identifier: PassFatPointerAndReadOption<&[u8]>,
 	) -> ConvertAndReturnAs<Result<ModuleId, ModuleError>, RIIntResult<ModuleId, ModuleError>, i64>
 	{
 		use sp_externalities::ExternalitiesExt as _;
@@ -295,18 +301,18 @@ pub trait Virtualization {
 		});
 		self.extension::<crate::VirtManagerExt>()
 			.expect("VirtManagerExt not registered in externalities")
-			.compile_from_bytes(program)
+			.compile_from_bytes(program, identifier)
 	}
 
-	/// Look up a previously compiled module by its code hash.
+	/// Look up a previously compiled module by the storage key its program bytes live under.
 	///
-	/// Returns the `module_id` if the module is cached. On a cache miss, loads the code
-	/// from storage at key `prefix ++ hash`, verifies its integrity, compiles it, and
-	/// caches the result. Pass an empty `child_trie` to read from the main state trie.
-	fn compile_from_hash(
+	/// Returns the `module_id` if a module is cached under `storage_key`. On a cache miss,
+	/// loads the program bytes from storage at `storage_key`, compiles them, caches the
+	/// result under that same key, and returns the new `module_id`. Pass an empty
+	/// `child_trie` to read from the main state trie.
+	fn compile_from_storage_key(
 		&mut self,
-		hash: PassFatPointerAndRead<&[u8]>,
-		prefix: PassFatPointerAndRead<&[u8]>,
+		storage_key: PassFatPointerAndRead<&[u8]>,
 		child_trie: PassFatPointerAndRead<&[u8]>,
 	) -> ConvertAndReturnAs<Result<ModuleId, ModuleError>, RIIntResult<ModuleId, ModuleError>, i64>
 	{
@@ -316,7 +322,7 @@ pub trait Virtualization {
 		let cache_result = self
 			.extension::<crate::VirtManagerExt>()
 			.expect("VirtManagerExt not registered in externalities")
-			.compile_from_hash(hash);
+			.compile_from_storage_key(storage_key);
 
 		match cache_result {
 			Ok(module_id) => return Ok(module_id),
@@ -325,15 +331,11 @@ pub trait Virtualization {
 		}
 
 		// Cache miss — load from storage.
-		let mut storage_key = std::vec::Vec::with_capacity(prefix.len() + hash.len());
-		storage_key.extend_from_slice(prefix);
-		storage_key.extend_from_slice(hash);
-
 		let code = if child_trie.is_empty() {
-			self.storage(&storage_key)
+			self.storage(storage_key)
 		} else {
 			let child_info = sp_storage::ChildInfo::new_default(child_trie);
-			self.child_storage(&child_info, &storage_key)
+			self.child_storage(&child_info, storage_key)
 		};
 
 		let code = match code {
@@ -341,16 +343,10 @@ pub trait Virtualization {
 			None => return Err(ModuleError::NotFound),
 		};
 
-		// Verify that the loaded code matches the expected hash.
-		let computed_hash = sp_crypto_hashing::keccak_256(&code);
-		if computed_hash[..] != *hash {
-			return Err(ModuleError::HashMismatch);
-		}
-
-		// Compile and cache.
+		// Compile and cache under the storage key so the next lookup hits.
 		self.extension::<crate::VirtManagerExt>()
 			.expect("VirtManagerExt not registered in externalities")
-			.compile_from_bytes(&code)
+			.compile_from_bytes(&code, Some(storage_key))
 	}
 
 	/// Create a new instance from a compiled module.
@@ -454,9 +450,13 @@ pub trait Virtualization {
 /// `sp-virtualization` itself does not depend on a specific virtual machine backend.
 #[cfg(not(substrate_runtime))]
 pub trait VirtManagerBackend: Send + 'static {
-	fn compile_from_bytes(&mut self, program: &[u8]) -> Result<ModuleId, ModuleError>;
+	fn compile_from_bytes(
+		&mut self,
+		program: &[u8],
+		identifier: Option<&[u8]>,
+	) -> Result<ModuleId, ModuleError>;
 
-	fn compile_from_hash(&mut self, hash: &[u8]) -> Result<ModuleId, ModuleError>;
+	fn compile_from_storage_key(&mut self, storage_key: &[u8]) -> Result<ModuleId, ModuleError>;
 
 	fn instantiate(&mut self, module_id: ModuleId) -> Result<InstanceId, InstantiateError>;
 
