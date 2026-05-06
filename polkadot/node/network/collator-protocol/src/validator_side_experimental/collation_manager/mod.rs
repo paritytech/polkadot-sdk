@@ -326,22 +326,10 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
-		// Reject ads for an `Advertisement` whose candidate has already been fetched at this
-		// SP. The candidate hash uniquely determines the bytes, so re-fetching from a
-		// co-advertiser would either yield identical data (wasted bandwidth) or a mismatch
-		// (peer being dishonest about the hash, which is its own offence handled elsewhere).
-		//
-		// We deliberately do *not* reject co-advertisers' ads when a fetch is merely
-		// *in flight* for the same `Advertisement`: a co-advertiser's parked ad is a useful
-		// fallback if the in-flight fetch fails (peer goes offline, times out, etc.),
-		// letting us retry without waiting for re-advertisement. The fetch planner handles
-		// cross-peer dedup at fetch time via `PendingRequests::contains`.
-		if let Some(ProspectiveCandidate { candidate_hash, .. }) = prospective_candidate {
-			if per_sp.fetched_collations.contains_key(&candidate_hash) {
-				return Err(AdvertisementError::Duplicate);
-			}
-		}
-
+		// We don't dedup against in-flight or already-fetched candidates here — the fetch
+		// planner does that. Parking a duplicate is cheap and gives us a fallback if the
+		// in-flight fetch fails. The peer rate-limit (`accept_attempts`) counts every
+		// advertisement attempt regardless, so peers can't spam past their cap.
 		per_sp.can_keep_advertisement(peer_adv, available_slots)?;
 
 		if !backing_allows_seconding(sender, &peer_adv.advertisement).await {
