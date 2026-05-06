@@ -47,7 +47,6 @@ sp_api::decl_runtime_apis! {
 	///         ) -> <Block as sp_runtime::traits::Block>::Extrinsic {
 	///             panic!("HOP not supported by this runtime")
 	///         }
-	///         fn max_promotion_size() -> u32 { 0 }
 	///         fn is_promoted_on_chain(_: [u8; 32]) -> bool { false }
 	///     }
 	/// }
@@ -63,10 +62,11 @@ sp_api::decl_runtime_apis! {
 		/// Whether `who` may submit a HOP blob of `data_len` bytes for promotion.
 		///
 		/// Returns `false` for any "not allowed" reason — unknown account, exhausted
-		/// quota, oversized payload, etc. The runtime is free to fold those reasons
-		/// together; the node only needs the boolean. Transport-level failures (the
-		/// runtime panicking, the state being unavailable) surface as `ApiError` from
-		/// the `sp_api` machinery, not via this return value.
+		/// quota, oversized payload, or `data_len` exceeding the runtime's configured
+		/// maximum. The runtime is free to fold all those reasons into a single `false`;
+		/// the node only needs the boolean. Transport-level failures (the runtime
+		/// panicking, the state being unavailable) surface as `ApiError` from the
+		/// `sp_api` machinery, not via this return value.
 		fn can_account_promote(who: AccountId, data_len: u32) -> bool;
 		/// Construct an unsigned promotion extrinsic carrying the user's submit-time
 		/// signer, signature, and timestamp so the runtime pallet can verify consent
@@ -78,8 +78,6 @@ sp_api::decl_runtime_apis! {
 			signature: sp_runtime::MultiSignature,
 			submit_timestamp: u64,
 		) -> Block::Extrinsic;
-		/// Maximum data size per promotion extrinsic.
-		fn max_promotion_size() -> u32;
 		/// Whether the content with `hash` is already stored on-chain.
 		///
 		/// Used by the maintenance task to confirm that a previously submitted

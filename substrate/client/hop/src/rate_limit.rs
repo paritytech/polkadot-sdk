@@ -159,8 +159,8 @@ impl RateLimiter {
 			return Err(wait.as_secs().max(1));
 		}
 
-		// Bandwidth charge can exceed burst (e.g. 8 MiB message, 512 MiB burst). If it
-		// exceeds, we still admit the first request but wait out the deficit on the next.
+		// If the bandwidth bucket is exhausted, reject immediately and refund the request
+		// token so both buckets stay consistent.
 		if let Err(wait) = state.bandwidth.try_consume(data_len as f64, now) {
 			// Refund the request token we just took so the two buckets stay consistent.
 			state.requests.tokens = (state.requests.tokens + 1.0).min(state.requests.capacity);
