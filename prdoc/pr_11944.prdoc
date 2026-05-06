@@ -84,6 +84,8 @@ crates:
 - name: pallet-revive-proc-macro
   bump: minor
 - name: pallet-revive
-  bump: minor
+  bump: patch
 - name: pallet-revive-uapi
-  bump: minor
+  bump: patch
+- name: polkadot-sdk
+  bump: patch
