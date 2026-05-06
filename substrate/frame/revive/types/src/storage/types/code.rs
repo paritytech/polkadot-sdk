@@ -83,20 +83,10 @@ define_versioned_type! {
 		Serialize,
 		Deserialize,
 	)]
+	#[versioned_type(extend)]
 	pub struct CodeInfoV2<Owner, Balance> {
-		/// The account that uploaded the code and may remove it when it is no longer used.
-		pub owner: Owner,
-		/// The balance reserved to keep the code and its metadata on chain.
-		#[codec(compact)]
-		pub deposit: Balance,
-		/// The number of contracts that currently reference this code hash.
-		#[codec(compact)]
-		pub refcount: u64,
-		/// The stored code length in bytes.
-		pub code_len: u32,
 		/// The bytecode format used by the stored code.
+		#[versioned_type(insert_after = "code_len")]
 		pub code_type: BytecodeTypeV1,
-		/// The behaviour version that fixes the observable contract semantics.
-		pub behaviour_version: u32,
 	}
 }

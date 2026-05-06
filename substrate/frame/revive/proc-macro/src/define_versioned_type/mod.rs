@@ -19,6 +19,8 @@ mod attribute;
 mod fields;
 mod item;
 
+use std::collections::BTreeSet;
+
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -27,8 +29,8 @@ use syn::{
 };
 
 use attribute::{
-	TypeVersionedTypeAttribute, TypeVersionedTypeMode, VariantVersionedTypeMode,
-	VariantWithVersionedTypeAttribute,
+	Insertion, InsertionPosition, TypeVersionedTypeAttribute, TypeVersionedTypeMode,
+	VariantVersionedTypeMode, VariantWithVersionedTypeAttribute,
 };
 use fields::{extend_fields, strip_field_attributes, FieldOwner};
 pub use item::{DefineVersionedTypeInput, DefineVersionedTypeItem};
@@ -200,8 +202,14 @@ fn handle_enum_extensions(
 	reject_duplicate_current_variants(&current_variants)?;
 
 	let mut output_variants = initial_enum_variants(merge_mode);
+	let mut inserted_variants = BTreeSet::<String>::new();
 	for current_variant in current_variants {
-		apply_variant_change(&mut output_variants, current_variant, merge_mode)?;
+		apply_variant_change(
+			&mut output_variants,
+			&mut inserted_variants,
+			current_variant,
+			merge_mode,
+		)?;
 	}
 
 	this_enum.variants = output_variants.into_iter().collect();
@@ -300,6 +308,7 @@ fn initial_enum_variants(merge_mode: EnumMergeMode<'_>) -> Vec<Variant> {
 /// Applies the current variant's requested change to the output variant list.
 fn apply_variant_change(
 	output_variants: &mut Vec<Variant>,
+	inserted_variants: &mut BTreeSet<String>,
 	current_variant: VariantWithVersionedTypeAttribute,
 	merge_mode: EnumMergeMode<'_>,
 ) -> Result<()> {
@@ -307,6 +316,7 @@ fn apply_variant_change(
 		EnumMergeMode::PreviousEnum { previous_enum, type_extension } => {
 			apply_variant_change_from_enum(
 				output_variants,
+				inserted_variants,
 				current_variant,
 				previous_enum,
 				type_extension,
@@ -324,6 +334,7 @@ fn apply_variant_change(
 /// Applies a variant change when the previous version was also an enum.
 fn apply_variant_change_from_enum(
 	output_variants: &mut Vec<Variant>,
+	inserted_variants: &mut BTreeSet<String>,
 	mut current_variant: VariantWithVersionedTypeAttribute,
 	previous_enum: &ItemEnum,
 	type_extension: EnumTypeExtension,
@@ -362,6 +373,7 @@ fn apply_variant_change_from_enum(
 			upsert_variant(output_variants, current_variant.variant, &variant_name, type_extension);
 		},
 		VariantVersionedTypeMode::Standalone => {
+			let insertion = current_variant.attribute.insertion().cloned();
 			if type_extension.is_extending() {
 				if let Some(previous_variant) = previous_variant {
 					return Err(duplicate_in_extended_enum_error(
@@ -373,7 +385,25 @@ fn apply_variant_change_from_enum(
 			}
 
 			strip_field_attributes(&mut current_variant.variant.fields)?;
-			output_variants.push(current_variant.variant);
+			if let Some(insertion) = insertion {
+				if !type_extension.is_extending() {
+					return Err(variant_insertion_without_enum_extension_error(
+						&current_variant.variant,
+						&insertion,
+					));
+				}
+
+				insert_variant_relative_to_target(
+					output_variants,
+					current_variant.variant,
+					&insertion,
+					previous_enum,
+					inserted_variants,
+				)?;
+				inserted_variants.insert(variant_name);
+			} else {
+				output_variants.push(current_variant.variant);
+			}
 		},
 	}
 
@@ -386,6 +416,13 @@ fn apply_variant_change_from_struct(
 	mut current_variant: VariantWithVersionedTypeAttribute,
 	previous_struct: &ItemStruct,
 ) -> Result<()> {
+	if let Some(insertion) = current_variant.attribute.insertion() {
+		return Err(variant_insertion_without_previous_enum_error(
+			&current_variant.variant,
+			insertion,
+		));
+	}
+
 	let variant_name = current_variant.variant.ident.to_string();
 
 	match current_variant.attribute.mode() {
@@ -419,6 +456,13 @@ fn apply_variant_change_without_previous(
 	output_variants: &mut Vec<Variant>,
 	mut current_variant: VariantWithVersionedTypeAttribute,
 ) -> Result<()> {
+	if let Some(insertion) = current_variant.attribute.insertion() {
+		return Err(variant_insertion_without_previous_enum_error(
+			&current_variant.variant,
+			insertion,
+		));
+	}
+
 	match current_variant.attribute.mode() {
 		VariantVersionedTypeMode::Extend { span } |
 		VariantVersionedTypeMode::OverrideAndExtend { extend_span: span, .. } => Err(syn::Error::new(
@@ -488,6 +532,44 @@ fn upsert_variant(
 	}
 
 	output_variants.push(variant);
+}
+
+/// Inserts a fresh variant around a target variant inherited from the previous enum.
+fn insert_variant_relative_to_target(
+	output_variants: &mut Vec<Variant>,
+	variant: Variant,
+	insertion: &Insertion,
+	previous_enum: &ItemEnum,
+	inserted_variants: &BTreeSet<String>,
+) -> Result<()> {
+	let target_name = insertion.target_name();
+	if find_variant(&previous_enum.variants, &target_name).is_none() {
+		return Err(missing_variant_insertion_target_error(&variant, insertion));
+	}
+
+	let Some(target_index) =
+		output_variants.iter().position(|candidate| candidate.ident == target_name)
+	else {
+		return Err(missing_variant_insertion_target_error(&variant, insertion));
+	};
+
+	let insert_index = match insertion.position() {
+		InsertionPosition::Before => target_index,
+		InsertionPosition::After => {
+			let mut insert_index = target_index + 1;
+			while insert_index < output_variants.len() {
+				let candidate_name = output_variants[insert_index].ident.to_string();
+				if !inserted_variants.contains(&candidate_name) {
+					break;
+				}
+				insert_index += 1;
+			}
+			insert_index
+		},
+	};
+
+	output_variants.insert(insert_index, variant);
+	Ok(())
 }
 
 /// Builds a diagnostic for type-level `extend` without a previous version.
@@ -595,6 +677,81 @@ fn missing_variant_extension_error(
 	error
 }
 
+/// Builds a diagnostic for inserting a variant without an inherited enum body.
+fn variant_insertion_without_enum_extension_error(
+	variant: &Variant,
+	insertion: &Insertion,
+) -> syn::Error {
+	let target_name = insertion.target_name();
+	let mut error = syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"variant `{}` is marked with `{}` but variant insertion requires the enum \
+            to use `#[versioned_type(extend)]` so target `{target_name}` is present",
+			variant.ident,
+			insertion.option_name(),
+		),
+	);
+	error.combine(syn::Error::new_spanned(
+		&variant.ident,
+		format!("inserted variant `{}` is defined here", variant.ident),
+	));
+	error.combine(syn::Error::new_spanned(
+		insertion.target_literal(),
+		format!("insertion target `{target_name}` is named here"),
+	));
+	error
+}
+
+/// Builds a diagnostic for inserting a variant when the previous version is not an enum.
+fn variant_insertion_without_previous_enum_error(
+	variant: &Variant,
+	insertion: &Insertion,
+) -> syn::Error {
+	let target_name = insertion.target_name();
+	let mut error = syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"variant `{}` is marked with `{}` but variant insertion requires a \
+            previous enum containing target `{target_name}`",
+			variant.ident,
+			insertion.option_name(),
+		),
+	);
+	error.combine(syn::Error::new_spanned(
+		&variant.ident,
+		format!("inserted variant `{}` is defined here", variant.ident),
+	));
+	error.combine(syn::Error::new_spanned(
+		insertion.target_literal(),
+		format!("insertion target `{target_name}` is named here"),
+	));
+	error
+}
+
+/// Builds a diagnostic for inserting around a missing previous enum variant.
+fn missing_variant_insertion_target_error(variant: &Variant, insertion: &Insertion) -> syn::Error {
+	let target_name = insertion.target_name();
+	let mut error = syn::Error::new(
+		insertion.option_span(),
+		format!(
+			"variant `{}` is marked with `{}` but no variant named `{target_name}` \
+            exists in the previous version",
+			variant.ident,
+			insertion.option_name(),
+		),
+	);
+	error.combine(syn::Error::new_spanned(
+		&variant.ident,
+		format!("inserted variant `{}` is defined here", variant.ident),
+	));
+	error.combine(syn::Error::new_spanned(
+		insertion.target_literal(),
+		format!("insertion target `{target_name}` is named here"),
+	));
+	error
+}
+
 #[cfg(test)]
 mod tests {
 	use quote::ToTokens;
@@ -602,8 +759,8 @@ mod tests {
 
 	use super::{
 		attribute::{
-			FieldVersionedTypeAttribute, TypeVersionedTypeAttribute, TypeVersionedTypeMode,
-			VariantVersionedTypeAttribute, VariantVersionedTypeMode,
+			FieldVersionedTypeAttribute, InsertionPosition, TypeVersionedTypeAttribute,
+			TypeVersionedTypeMode, VariantVersionedTypeAttribute, VariantVersionedTypeMode,
 		},
 		fields::{extend_fields, FieldOwner},
 		*,
@@ -1159,6 +1316,77 @@ mod tests {
 	}
 
 	#[test]
+	fn field_extensions_insert_named_fields_before_and_after_targets() {
+		// Arrange
+		let mut this: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV2 {
+				#[versioned_type(insert_before = "item2")]
+				pub item_before: TypeBefore,
+				#[versioned_type(insert_after = "item2")]
+				pub item_after: TypeAfter,
+				pub item4: Type4,
+			}
+		);
+		let other: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV1 {
+				pub item1: Type1,
+				pub item2: Type2,
+				pub item3: Type3,
+			}
+		);
+
+		// Act
+		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
+
+		// Assert
+		let Fields::Named(fields) = this.fields else {
+			panic!("expected named fields");
+		};
+		let field_names = fields
+			.named
+			.iter()
+			.map(|field| field.ident.as_ref().unwrap().to_string())
+			.collect::<Vec<_>>();
+		assert_eq!(
+			field_names,
+			vec!["item1", "item_before", "item2", "item_after", "item3", "item4"]
+		);
+	}
+
+	#[test]
+	fn field_extensions_preserve_source_order_for_insertions_on_same_target() {
+		// Arrange
+		let mut this: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV2 {
+				#[versioned_type(insert_after = "item1")]
+				pub item2: Type2,
+				#[versioned_type(insert_after = "item1")]
+				pub item3: Type3,
+			}
+		);
+		let other: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV1 {
+				pub item1: Type1,
+				pub item4: Type4,
+			}
+		);
+
+		// Act
+		extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct).unwrap();
+
+		// Assert
+		let Fields::Named(fields) = this.fields else {
+			panic!("expected named fields");
+		};
+		let field_names = fields
+			.named
+			.iter()
+			.map(|field| field.ident.as_ref().unwrap().to_string())
+			.collect::<Vec<_>>();
+		assert_eq!(field_names, vec!["item1", "item2", "item3", "item4"]);
+	}
+
+	#[test]
 	fn field_extensions_reject_redefined_named_field_without_override() {
 		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
@@ -1245,6 +1473,34 @@ mod tests {
 	}
 
 	#[test]
+	fn field_extensions_reject_insert_without_previous_named_field() {
+		// Arrange
+		let mut this: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV2 {
+				#[versioned_type(insert_before = "missing")]
+				pub item3: Type3,
+			}
+		);
+		let other: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV1 {
+				pub item1: Type1,
+				pub item2: Type2,
+			}
+		);
+
+		// Act
+		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
+			Ok(_) => panic!("expected missing insertion target to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("field `item3` is marked with `insert_before`"));
+		assert!(message.contains("no field named `missing` exists"));
+	}
+
+	#[test]
 	fn field_extensions_reject_override_when_previous_version_has_no_fields() {
 		// Arrange
 		let tokens = quote::quote! {
@@ -1271,6 +1527,59 @@ mod tests {
 	}
 
 	#[test]
+	fn field_extensions_reject_insert_when_previous_version_has_no_fields() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub struct CallLogV1;
+
+			#[versioned_type(extend)]
+			pub struct CallLogV2 {
+				#[versioned_type(insert_after = "item1")]
+				pub item2: Type2,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let error = match handle_define_versioned_type(input) {
+			Ok(_) => panic!("expected field insertion against unit struct to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("field is marked with `insert_after`"));
+		assert!(message.contains("previous version has no fields"));
+	}
+
+	#[test]
+	fn field_extensions_reject_insert_without_field_extension() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub struct CallLogV1 {
+				pub item1: Type1,
+			}
+
+			pub struct CallLogV2 {
+				#[versioned_type(insert_after = "item1")]
+				pub item2: Type2,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let error = match handle_define_versioned_type(input) {
+			Ok(_) => panic!("expected field insertion outside extension to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("insert_after = \"item1\""));
+		assert!(message.contains("can only be used inside a type or variant"));
+	}
+
+	#[test]
 	fn field_extensions_reject_override_on_tuple_field() {
 		// Arrange
 		let mut this: ItemStruct = syn::parse_quote!(
@@ -1283,6 +1592,28 @@ mod tests {
 		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected tuple field override to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("not supported on tuple fields"));
+		assert!(message.contains("stable names"));
+	}
+
+	#[test]
+	fn field_extensions_reject_insert_on_tuple_field() {
+		// Arrange
+		let mut this: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV2(#[versioned_type(insert_before = "field_0")] pub Type3);
+		);
+		let other: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV1(pub Type1, pub Type2);
+		);
+
+		// Act
+		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
+			Ok(_) => panic!("expected tuple field insertion to fail"),
 			Err(error) => error,
 		};
 
@@ -1308,6 +1639,31 @@ mod tests {
 		// Act
 		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
 			Ok(_) => panic!("expected override against tuple fields to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("previous version to have named fields"));
+		assert!(message.contains("ambiguous"));
+	}
+
+	#[test]
+	fn field_extensions_reject_insert_when_previous_fields_are_unnamed() {
+		// Arrange
+		let mut this: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV2 {
+				#[versioned_type(insert_after = "field_0")]
+				pub item3: Type3,
+			}
+		);
+		let other: ItemStruct = syn::parse_quote!(
+			pub struct CallLogV1(pub Type1, pub Type2);
+		);
+
+		// Act
+		let error = match extend_fields(&mut this.fields, &other.fields, FieldOwner::Struct) {
+			Ok(_) => panic!("expected insertion against tuple fields to fail"),
 			Err(error) => error,
 		};
 
@@ -1408,7 +1764,7 @@ mod tests {
 		};
 
 		// Assert
-		assert!(error.to_string().contains("currently only `extend` and `override`"));
+		assert!(error.to_string().contains("currently only `extend`, `override`"));
 	}
 
 	#[test]
@@ -1457,6 +1813,21 @@ mod tests {
 	}
 
 	#[test]
+	fn type_versioned_type_attribute_rejects_insert() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_before = "item1")])];
+
+		// Act
+		let error = match TypeVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected type insertion to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`insert_before` is not supported on types"));
+	}
+
+	#[test]
 	fn field_versioned_type_attribute_parses_override() {
 		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(override)])];
@@ -1467,6 +1838,36 @@ mod tests {
 		// Assert
 		assert!(attribute_split.versioned_type.override_span().is_some());
 		assert!(attribute_split.other_attributes.is_empty());
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_parses_insert_before() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_before = "item1")])];
+
+		// Act
+		let attribute_split = FieldVersionedTypeAttribute::parse_and_split(attributes).unwrap();
+
+		// Assert
+		let insertion = attribute_split.versioned_type.insertion().unwrap();
+		assert!(matches!(insertion.position(), InsertionPosition::Before));
+		assert_eq!(insertion.target_name(), "item1");
+		assert!(attribute_split.versioned_type.override_span().is_none());
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_parses_insert_after() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_after = "item1")])];
+
+		// Act
+		let attribute_split = FieldVersionedTypeAttribute::parse_and_split(attributes).unwrap();
+
+		// Assert
+		let insertion = attribute_split.versioned_type.insertion().unwrap();
+		assert!(matches!(insertion.position(), InsertionPosition::After));
+		assert_eq!(insertion.target_name(), "item1");
+		assert!(attribute_split.versioned_type.override_span().is_none());
 	}
 
 	#[test]
@@ -1513,6 +1914,94 @@ mod tests {
 	}
 
 	#[test]
+	fn field_versioned_type_attribute_rejects_duplicate_insert_option() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(
+			insert_before = "item1",
+			insert_before = "item2"
+		)])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected duplicate insert option to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`insert_before` is specified more than once"));
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_rejects_conflicting_insert_options() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(
+			insert_before = "item1",
+			insert_after = "item2"
+		)])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected conflicting insert options to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("`insert_after` cannot be combined with `insert_before`"));
+		assert!(message.contains("choose one insertion position"));
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_rejects_insert_without_target() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_before)])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected insert without target to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`insert_before` requires a string literal target"));
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_rejects_insert_with_identifier_target() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_before = item1)])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected identifier insertion target to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`insert_before` requires a string literal target"));
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_rejects_insert_with_override() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(
+			override,
+			insert_after = "item1"
+		)])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected insert with override to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("`insert_after` cannot be combined with `override`"));
+		assert!(message.contains("fresh definitions"));
+	}
+
+	#[test]
 	fn field_versioned_type_attribute_rejects_override_arguments() {
 		// Arrange
 		let attributes = vec![syn::parse_quote!(#[versioned_type(override(foo))])];
@@ -1525,6 +2014,21 @@ mod tests {
 
 		// Assert
 		assert!(error.to_string().contains("`override` does not accept arguments"));
+	}
+
+	#[test]
+	fn field_versioned_type_attribute_rejects_insert_list_arguments() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_after(item1))])];
+
+		// Act
+		let error = match FieldVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected insert list arguments to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		assert!(error.to_string().contains("`insert_after` does not accept list arguments"));
 	}
 
 	#[test]
@@ -1557,6 +2061,24 @@ mod tests {
 			VariantVersionedTypeMode::Standalone
 		));
 		assert!(attribute_split.other_attributes.is_empty());
+	}
+
+	#[test]
+	fn variant_versioned_type_attribute_parses_insert_after() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(insert_after = "Variant1")])];
+
+		// Act
+		let attribute_split = VariantVersionedTypeAttribute::parse_and_split(attributes).unwrap();
+
+		// Assert
+		let insertion = attribute_split.versioned_type.insertion().unwrap();
+		assert!(matches!(insertion.position(), InsertionPosition::After));
+		assert_eq!(insertion.target_name(), "Variant1");
+		assert!(matches!(
+			attribute_split.versioned_type.mode(),
+			VariantVersionedTypeMode::Standalone
+		));
 	}
 
 	#[test]
@@ -1593,6 +2115,26 @@ mod tests {
 
 		// Assert
 		assert!(error.to_string().contains("`override` is specified more than once"));
+	}
+
+	#[test]
+	fn variant_versioned_type_attribute_rejects_insert_with_extend() {
+		// Arrange
+		let attributes = vec![syn::parse_quote!(#[versioned_type(
+			extend,
+			insert_before = "Variant1"
+		)])];
+
+		// Act
+		let error = match VariantVersionedTypeAttribute::parse_and_split(attributes) {
+			Ok(_) => panic!("expected insert with extend to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("`insert_before` cannot be combined with `extend`"));
+		assert!(message.contains("fresh definitions"));
 	}
 
 	#[test]
@@ -1717,6 +2259,29 @@ mod tests {
 	}
 
 	#[test]
+	fn enum_rejects_variant_insert_without_previous_version() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub enum CallLogV1 {
+				#[versioned_type(insert_before = "Variant2")]
+				Variant1,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let error = match handle_define_versioned_type(input) {
+			Ok(_) => panic!("expected variant insertion without previous version to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("variant `Variant1` is marked with `insert_before`"));
+		assert!(message.contains("requires a previous enum"));
+	}
+
+	#[test]
 	fn enum_extension_adds_new_variants_after_previous_variants() {
 		// Arrange
 		let tokens = quote::quote! {
@@ -1749,6 +2314,107 @@ mod tests {
 			.map(|variant| variant.ident.to_string())
 			.collect::<Vec<_>>();
 		assert_eq!(variant_names, vec!["Variant1", "Variant2"]);
+	}
+
+	#[test]
+	fn enum_extension_inserts_new_variants_before_and_after_targets() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub enum MyEnumV1 {
+				Variant1,
+				Variant4,
+			}
+
+			#[versioned_type(extend)]
+			pub enum MyEnumV2 {
+				#[versioned_type(insert_after = "Variant1")]
+				Variant2,
+				#[versioned_type(insert_before = "Variant4")]
+				Variant3,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+
+		// Assert
+		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
+			panic!("expected second item to be an enum");
+		};
+		let variant_names = item
+			.variants
+			.iter()
+			.map(|variant| variant.ident.to_string())
+			.collect::<Vec<_>>();
+		assert_eq!(variant_names, vec!["Variant1", "Variant2", "Variant3", "Variant4"]);
+	}
+
+	#[test]
+	fn enum_extension_preserves_source_order_for_insertions_in_same_gap() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub enum MyEnumV1 {
+				Variant1,
+				Variant4,
+			}
+
+			#[versioned_type(extend)]
+			pub enum MyEnumV2 {
+				#[versioned_type(insert_after = "Variant1")]
+				Variant2,
+				#[versioned_type(insert_after = "Variant1")]
+				Variant3,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+
+		// Assert
+		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
+			panic!("expected second item to be an enum");
+		};
+		let variant_names = item
+			.variants
+			.iter()
+			.map(|variant| variant.ident.to_string())
+			.collect::<Vec<_>>();
+		assert_eq!(variant_names, vec!["Variant1", "Variant2", "Variant3", "Variant4"]);
+	}
+
+	#[test]
+	fn enum_extension_inserts_after_last_inherited_variant_before_standalone_variants() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub enum MyEnumV1 {
+				Variant1,
+				Variant2,
+			}
+
+			#[versioned_type(extend)]
+			pub enum MyEnumV2 {
+				Variant4,
+				#[versioned_type(insert_after = "Variant2")]
+				Variant3,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let output = handle_define_versioned_type(input).unwrap();
+
+		// Assert
+		let DefineVersionedTypeItem::Enum(item) = &output[1] else {
+			panic!("expected second item to be an enum");
+		};
+		let variant_names = item
+			.variants
+			.iter()
+			.map(|variant| variant.ident.to_string())
+			.collect::<Vec<_>>();
+		assert_eq!(variant_names, vec!["Variant1", "Variant2", "Variant3", "Variant4"]);
 	}
 
 	#[test]
@@ -2005,6 +2671,34 @@ mod tests {
 	}
 
 	#[test]
+	fn enum_extension_rejects_insert_for_missing_variant() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub enum MyEnumV1 {
+				Variant1,
+			}
+
+			#[versioned_type(extend)]
+			pub enum MyEnumV2 {
+				#[versioned_type(insert_before = "Missing")]
+				Variant2,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let error = match handle_define_versioned_type(input) {
+			Ok(_) => panic!("expected missing variant insertion target to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("variant `Variant2` is marked with `insert_before`"));
+		assert!(message.contains("no variant named `Missing` exists"));
+	}
+
+	#[test]
 	fn enum_extension_rejects_override_and_extend_for_missing_variant() {
 		// Arrange
 		let tokens = quote::quote! {
@@ -2163,6 +2857,33 @@ mod tests {
 			.map(|field| field.ident.as_ref().unwrap().to_string())
 			.collect::<Vec<_>>();
 		assert_eq!(field_names, vec!["field1", "field2"]);
+	}
+
+	#[test]
+	fn enum_rejects_variant_insert_without_enum_extension() {
+		// Arrange
+		let tokens = quote::quote! {
+			pub enum MyEnumV1 {
+				Variant1,
+			}
+
+			pub enum MyEnumV2 {
+				#[versioned_type(insert_after = "Variant1")]
+				Variant2,
+			}
+		};
+		let input = parse2::<DefineVersionedTypeInput>(tokens).unwrap();
+
+		// Act
+		let error = match handle_define_versioned_type(input) {
+			Ok(_) => panic!("expected variant insertion without enum extension to fail"),
+			Err(error) => error,
+		};
+
+		// Assert
+		let message = error.to_string();
+		assert!(message.contains("variant `Variant2` is marked with `insert_after`"));
+		assert!(message.contains("requires the enum to use `#[versioned_type(extend)]`"));
 	}
 
 	#[test]

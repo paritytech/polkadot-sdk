@@ -1,0 +1,17 @@
+error: field `second` is marked with `insert_before` but no field named `missing` exists in the previous version
+  --> tests/ui/define_versioned_type/fail/field_insert_missing_target.rs:27:20
+   |
+27 |         #[versioned_type(insert_before = "missing")]
+   |                          ^^^^^^^^^^^^^
+
+error: inserted field `second` is defined here
+  --> tests/ui/define_versioned_type/fail/field_insert_missing_target.rs:28:7
+   |
+28 |         pub second: u16,
+   |             ^^^^^^
+
+error: insertion target `missing` is named here
+  --> tests/ui/define_versioned_type/fail/field_insert_missing_target.rs:27:36
+   |
+27 |         #[versioned_type(insert_before = "missing")]
+   |                                          ^^^^^^^^^

@@ -1,0 +1,17 @@
+error: variant `Second` is marked with `insert_after` but variant insertion requires the enum to use `#[versioned_type(extend)]` so target `First` is present
+  --> tests/ui/define_versioned_type/fail/variant_insert_without_enum_extend.rs:26:20
+   |
+26 |         #[versioned_type(insert_after = "First")]
+   |                          ^^^^^^^^^^^^
+
+error: inserted variant `Second` is defined here
+  --> tests/ui/define_versioned_type/fail/variant_insert_without_enum_extend.rs:27:3
+   |
+27 |         Second,
+   |         ^^^^^^
+
+error: insertion target `First` is named here
+  --> tests/ui/define_versioned_type/fail/variant_insert_without_enum_extend.rs:26:35
+   |
+26 |         #[versioned_type(insert_after = "First")]
+   |                                         ^^^^^^^

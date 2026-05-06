@@ -79,6 +79,34 @@ define_versioned_type! {
 	}
 }
 
+define_versioned_type! {
+	pub struct MacroStructInsertV1 {
+		pub first: u8,
+		pub third: u32,
+	}
+
+	#[versioned_type(extend)]
+	pub struct MacroStructInsertV2 {
+		#[versioned_type(insert_after = "first")]
+		pub second: u16,
+		pub fourth: u64,
+	}
+}
+
+define_versioned_type! {
+	pub enum MacroEnumInsertV1 {
+		First,
+		Second,
+	}
+
+	#[versioned_type(extend)]
+	pub enum MacroEnumInsertV2 {
+		Fourth,
+		#[versioned_type(insert_after = "Second")]
+		Third,
+	}
+}
+
 #[test]
 fn function_like_macro_expands_struct_extensions() {
 	// Arrange
@@ -101,6 +129,18 @@ fn function_like_macro_expands_struct_field_overrides() {
 
 	// Assert
 	assert_eq!(observed, (1, 2, 3));
+}
+
+#[test]
+fn function_like_macro_expands_struct_field_insertions() {
+	// Arrange
+	let value = MacroStructInsertV2 { first: 1, second: 2, third: 3, fourth: 4 };
+
+	// Act
+	let observed = (value.first, value.second, value.third, value.fourth);
+
+	// Assert
+	assert_eq!(observed, (1, 2, 3, 4));
 }
 
 #[test]
@@ -136,4 +176,19 @@ fn function_like_macro_expands_enum_extensions() {
 
 	// Assert
 	assert_eq!(observed, (1, 2));
+}
+
+#[test]
+fn function_like_macro_expands_enum_variant_insertions() {
+	// Arrange
+	let first = MacroEnumInsertV2::First as u8;
+	let second = MacroEnumInsertV2::Second as u8;
+	let third = MacroEnumInsertV2::Third as u8;
+	let fourth = MacroEnumInsertV2::Fourth as u8;
+
+	// Act
+	let observed = (first, second, third, fourth);
+
+	// Assert
+	assert_eq!(observed, (0, 1, 2, 3));
 }
