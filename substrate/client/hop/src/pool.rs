@@ -345,27 +345,17 @@ impl HopDataPool {
 			return Err(HopError::RateLimited { retry_after_secs });
 		}
 
-		let previous_size = self.current_size.fetch_add(accounted, Ordering::Relaxed);
-		if previous_size.saturating_add(accounted) > self.max_size {
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(HopError::PoolFull(previous_size, self.max_size));
-		}
-
-		if let Err(e) = self.charge_user(&sender_id, accounted) {
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(e);
-		}
+		// `rsv` must outlive the `index.write()` scope below. Drop order is
+		// reverse declaration, so `index` releases first, then `rsv` releases
+		// quota — preserving the index → user_usage lock order.
+		let mut rsv = Reservation::new(self, sender_id, accounted)?;
 
 		let hash = H256(blake2_256(&data));
 
-		// First duplicate check (read lock only).
-		{
-			let index = self.index.read();
-			if index.contains_key(&hash) {
-				self.release_user_quota(&sender_id, accounted);
-				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-				return Err(HopError::DuplicateEntry);
-			}
+		// First duplicate check (read lock only). Guard's Drop releases
+		// quota + size; no files have been written yet.
+		if self.index.read().contains_key(&hash) {
+			return Err(HopError::DuplicateEntry);
 		}
 
 		// Write blob and meta to disk (no lock held during I/O).
@@ -382,43 +372,33 @@ impl HopDataPool {
 		);
 		let meta_bytes = meta.encode();
 
-		if let Err(e) = Self::write_atomic(&blob_path, &data) {
-			self.release_user_quota(&sender_id, accounted);
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(e);
-		}
+		Self::write_atomic(&blob_path, &data)?;
+		rsv.track_blob(blob_path);
 
 		let meta_path = self.meta_path(&hash);
-		if let Err(e) = Self::write_atomic(&meta_path, &meta_bytes) {
-			let _ = fs::remove_file(&blob_path);
-			self.release_user_quota(&sender_id, accounted);
-			self.current_size.fetch_sub(accounted, Ordering::Relaxed);
-			return Err(e);
-		}
+		Self::write_atomic(&meta_path, &meta_bytes)?;
+		rsv.track_meta(meta_path);
 
 		// Acquire write lock: double-check duplicate, insert meta.
 		{
 			let mut index = self.index.write();
 			if index.contains_key(&hash) {
-				// Race: another thread inserted the same data first. Files on
-				// disk are content-addressed and identical to ours — leave
-				// them in place; deleting them would orphan the winner's index
-				// entry.
+				// Race: another thread inserted the same data first. Files
+				// on disk are content-addressed and identical to ours —
+				// leave them in place; deleting them would orphan the
+				// winner's index entry.
 				tracing::debug!(
 					target: "hop",
 					hash = ?hex::encode(hash),
 					"Duplicate insert race lost; keeping winner's files"
 				);
-				// Release `index` before taking `user_usage.read()` — preserves
-				// the outer-to-inner lock order (index → user_usage) used by
-				// `cleanup_expired`.
-				drop(index);
-				self.release_user_quota(&sender_id, accounted);
-				self.current_size.fetch_sub(accounted, Ordering::Relaxed);
+				rsv.disown_files();
 				return Err(HopError::DuplicateEntry);
 			}
 			index.insert(hash, meta);
 		}
+
+		rsv.commit();
 
 		tracing::info!(
 			target: "hop",
@@ -855,6 +835,115 @@ fn saturating_release(counter: &AtomicU64, accounted: u64) {
 	let _ = counter.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |previous| {
 		Some(previous - accounted.min(previous))
 	});
+}
+
+/// Terminal state of a `Reservation`, deciding what `Drop` does.
+enum ReservationState {
+	/// Initial state. `Drop` removes any tracked files, then releases quota and size.
+	Active,
+	/// `Drop` releases quota and size but leaves files in place. Used on the
+	/// duplicate write-lock race in `insert`: files are content-addressed
+	/// and byte-identical to the winner's, so deleting them would orphan the
+	/// winner's index entry.
+	Disowned,
+	/// `Drop` is a no-op. Reached by calling `commit` on the success path.
+	Committed,
+}
+
+/// Guard for the pool-side bookkeeping of an in-flight `insert`.
+///
+/// `Reservation::new` reserves pool capacity and per-user quota up front.
+/// As `insert` proceeds, files written to disk are registered with
+/// `track_blob` / `track_meta` so `Drop` knows what to clean up.
+///
+/// On any early return from `insert`, `Drop` unwinds whatever wasn't
+/// committed: tracked files first, then quota, then size. The success path
+/// must call `commit` to defuse `Drop`.
+///
+/// Lock-ordering note: `Drop` calls `release_user_quota`, which takes
+/// `user_usage.read()`. The convention is index → user_usage, so callers
+/// must release `index.write()` before `Reservation` drops. Today this is
+/// satisfied by declaring the guard in an outer scope than the `index`
+/// lock — exits from the inner `index.write()` block drop the index lock
+/// first, then function exit drops the guard.
+struct Reservation<'a> {
+	pool: &'a HopDataPool,
+	sender_id: SenderId,
+	accounted: u64,
+	blob_path: Option<PathBuf>,
+	meta_path: Option<PathBuf>,
+	state: ReservationState,
+}
+
+impl<'a> Reservation<'a> {
+	/// Reserve `accounted` bytes of pool capacity and per-user quota.
+	///
+	/// Mirrors the original two-step in `insert`: bump `current_size` first
+	/// and roll back on cap overflow, then `charge_user` and roll back size
+	/// on quota overflow. On success the caller owns the reservation and
+	/// must either `commit` it or let `Drop` unwind.
+	fn new(pool: &'a HopDataPool, sender_id: SenderId, accounted: u64) -> Result<Self, HopError> {
+		let previous_size = pool.current_size.fetch_add(accounted, Ordering::Relaxed);
+		if previous_size.saturating_add(accounted) > pool.max_size {
+			pool.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			return Err(HopError::PoolFull(previous_size, pool.max_size));
+		}
+		if let Err(e) = pool.charge_user(&sender_id, accounted) {
+			pool.current_size.fetch_sub(accounted, Ordering::Relaxed);
+			return Err(e);
+		}
+		Ok(Self {
+			pool,
+			sender_id,
+			accounted,
+			blob_path: None,
+			meta_path: None,
+			state: ReservationState::Active,
+		})
+	}
+
+	fn track_blob(&mut self, path: PathBuf) {
+		self.blob_path = Some(path);
+	}
+
+	fn track_meta(&mut self, path: PathBuf) {
+		self.meta_path = Some(path);
+	}
+
+	/// Skip file removal on `Drop`. Used only on the duplicate write-lock
+	/// race — calling this on any other path leaks files no index entry
+	/// references.
+	fn disown_files(&mut self) {
+		self.state = ReservationState::Disowned;
+	}
+
+	/// Mark the reservation as successfully committed. `Drop` becomes a
+	/// no-op. Must be called only after the index entry is in place.
+	fn commit(mut self) {
+		self.state = ReservationState::Committed;
+	}
+}
+
+impl Drop for Reservation<'_> {
+	fn drop(&mut self) {
+		match self.state {
+			ReservationState::Committed => {},
+			ReservationState::Disowned => {
+				self.pool.release_user_quota(&self.sender_id, self.accounted);
+				self.pool.current_size.fetch_sub(self.accounted, Ordering::Relaxed);
+			},
+			ReservationState::Active => {
+				if let Some(p) = self.meta_path.take() {
+					let _ = fs::remove_file(p);
+				}
+				if let Some(p) = self.blob_path.take() {
+					let _ = fs::remove_file(p);
+				}
+				self.pool.release_user_quota(&self.sender_id, self.accounted);
+				self.pool.current_size.fetch_sub(self.accounted, Ordering::Relaxed);
+			},
+		}
+	}
 }
 
 #[cfg(test)]
