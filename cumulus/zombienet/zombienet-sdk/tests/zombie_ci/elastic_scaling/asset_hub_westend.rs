@@ -5,7 +5,7 @@ use crate::utils::initialize_network;
 
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+	assert_para_throughput, assign_cores, wait_for_first_session_change, wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -39,7 +39,8 @@ async fn build_network_config() -> Result<NetworkConfig, anyhow::Error> {
 							"scheduler_params": {
 								"num_cores": 3,
 								"max_validators_per_core": 1,
-								"group_rotation_frequency": 5
+								"group_rotation_frequency": 5,
+								"lookahead": 5,
 							}
 						}
 					}
@@ -91,7 +92,10 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 		.map(|i| network.get_node(format!("validator-{i}").as_str()))
 		.collect::<Result<_, _>>()?;
 
-	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
+	// assign_cores(&relay_client, PARA_ID, vec![0]).await?;
+
+	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
+	wait_for_first_session_change(&mut blocks_sub).await?;
 
 	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
@@ -99,7 +103,7 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 3..18)], []).await?;
 
 	// 1 core is assigned by default, we are assigning 2 more cores: 0 and 1.
-	assign_cores(&relay_client, PARA_ID, vec![1]).await?;
+	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
 
 	log::info!("Ensure elastic scaling works, 3 blocks should be produced in each 6s slot");
 
