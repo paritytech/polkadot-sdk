@@ -1,0 +1,37 @@
+[package]
+name = "doppelganger-consensus"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sc-client-api = { workspace = true, default-features = true }
+sc-chain-spec = { workspace = true, default-features = true }
+sc-consensus = { workspace = true, default-features = true }
+sc-executor = { workspace = true, default-features = true }
+sp-authority-discovery = {workspace = true, default-features = true}
+sp-runtime = { workspace = true, default-features = true }
+sp-core = { workspace = true, default-features = true }
+sp-storage = { workspace = true, default-features = true }
+sp-trie = { workspace = true, default-features = true }
+sp-runtime-interface = { workspace = true, features = ["std"], default-features = true }
+hex = { workspace = true, default-features = true }
+hex-literal = { workspace = true, default-features = true }
+log = { workspace = true, default-features = true }
+async-trait = { workspace = true, default-features = true }
+serde_json = { workspace = true, default-features = true }
+bincode = { workspace = true }
+tokio = { workspace = true, features = ["fs"] }
+polkadot-primitives = { workspace = true, features = ["std"], default-features = true}
+codec = { version = "3.6.12", default-features = false, package = "parity-scale-codec" }
+polkadot-runtime-parachains = { workspace = true, default-features = true }
+
+cumulus-primitives-proof-size-hostfunction = { workspace = true, default-features = true }
+sp-io = { workspace = true, default-features = true }
+
+frame-system = { workspace = true, default-features = true }
+pallet-balances = { workspace = true, default-features = true }
+
+
+[features]
+default = ["std"]
+std = []
