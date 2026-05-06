@@ -19,8 +19,8 @@ use crate::{
 	validator_side_experimental::{
 		collation_manager::CollationManager,
 		common::{
-			Advertisement, CanSecond, CollationFetchResponse, PeerInfo, PeerState,
-			ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
+			Advertisement, CanSecond, CollationFetchResponse, PeerAdvertisement, PeerInfo,
+			PeerState, ProspectiveCandidate, TryAcceptOutcome, INVALID_COLLATION_SLASH,
 		},
 		error::{Error, FatalResult},
 		peer_manager::{Backend, PersistentDb},
@@ -258,19 +258,21 @@ impl<B: Backend> State<B> {
 			return;
 		};
 
-		let advertisement = Advertisement {
+		let peer_adv = PeerAdvertisement {
+			advertisement: Advertisement {
+				para_id: *para_id,
+				scheduling_parent,
+				prospective_candidate: maybe_prospective_candidate,
+				advertised_descriptor_version,
+			},
 			peer_id,
-			para_id: *para_id,
-			scheduling_parent,
-			prospective_candidate: maybe_prospective_candidate,
-			advertised_descriptor_version,
 		};
 
 		// We have a result here, but it's not worth affecting reputations because advertisements
 		// are cheap.
 		// Note: `try_accept_advertisement` involves two other subsystems, so it's not super cheap,
 		// actually, but cheap enough.
-		match self.collation_manager.try_accept_advertisement(sender, advertisement).await {
+		match self.collation_manager.try_accept_advertisement(sender, peer_adv).await {
 			Err(err) => {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -308,24 +310,24 @@ impl<B: Backend> State<B> {
 	) {
 		let _timer = self.metrics.time_handle_collation_request_result();
 		let fetch_result = res.1.is_ok();
-		let advertisement = res.0;
+		let peer_adv = res.0;
 
 		if let Err(err) = &res.1 {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Collation fetch attempt failed: {}",
 				err
 			);
 		} else {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Collation fetch attempt succeeded",
 			);
 		}
 
-		let collation_version = self.peer_manager.get_peer_protocol_version(&advertisement.peer_id);
+		let collation_version = self.peer_manager.get_peer_protocol_version(&peer_adv.peer_id);
 		let can_second = self.collation_manager.note_fetched(sender, res, collation_version).await;
 
 		// To be consistent with the old implementation, if the fetch is successful we count the
@@ -344,7 +346,7 @@ impl<B: Backend> State<B> {
 
 				gum::debug!(
 					target: LOG_TARGET,
-					?advertisement,
+					?peer_adv,
 					"Started seconding"
 				);
 			},
@@ -616,7 +618,7 @@ impl<B: Backend> State<B> {
 	}
 
 	#[cfg(test)]
-	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::Advertisement> {
+	pub fn advertisements(&self) -> std::collections::BTreeSet<super::common::PeerAdvertisement> {
 		self.collation_manager.advertisements()
 	}
 }

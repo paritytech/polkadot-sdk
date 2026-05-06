@@ -210,15 +210,13 @@ pub struct ProspectiveCandidate {
 	pub parent_head_data_hash: Hash,
 }
 
-/// Identifier of a collation being requested.
+/// What the collator advertises: a peer-agnostic identifier of an advertised collation.
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct Advertisement {
 	/// Candidate's scheduling parent.
 	pub scheduling_parent: Hash,
 	/// Parachain id.
 	pub para_id: ParaId,
-	/// Peer that advertised this collation.
-	pub peer_id: PeerId,
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
@@ -233,9 +231,37 @@ impl Advertisement {
 	}
 }
 
-/// Output of a `CollationFetchRequest`, which includes the advertisement identifier.
+/// An [`Advertisement`] paired with the peer that delivered it.
+///
+/// Used wherever the delivering peer matters: rate limiting per `(peer, sp)`, reputation
+/// arbitration when picking who to fetch from, and slashing the served-from peer if the
+/// collation turns out invalid. The same [`Advertisement`] may yield several
+/// `PeerAdvertisement`s when multiple peers advertise it.
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
+pub struct PeerAdvertisement {
+	/// The advertised collation.
+	pub advertisement: Advertisement,
+	/// Peer that delivered this advertisement.
+	pub peer_id: PeerId,
+}
+
+impl PeerAdvertisement {
+	pub fn candidate_hash(&self) -> Option<CandidateHash> {
+		self.advertisement.candidate_hash()
+	}
+
+	pub fn scheduling_parent(&self) -> Hash {
+		self.advertisement.scheduling_parent
+	}
+
+	pub fn para_id(&self) -> ParaId {
+		self.advertisement.para_id
+	}
+}
+
+/// Output of a `CollationFetchRequest`, which includes the peer advertisement identifier.
 pub type CollationFetchResponse = (
-	Advertisement,
+	PeerAdvertisement,
 	std::result::Result<request_v2::CollationFetchingResponse, CollationFetchError>,
 );
 
@@ -270,14 +296,14 @@ pub struct SecondingRejectionInfo {
 	pub maybe_candidate_hash: Option<CandidateHash>,
 }
 
-impl From<&Advertisement> for SecondingRejectionInfo {
-	fn from(advertisement: &Advertisement) -> Self {
+impl From<&PeerAdvertisement> for SecondingRejectionInfo {
+	fn from(peer_adv: &PeerAdvertisement) -> Self {
 		SecondingRejectionInfo {
-			scheduling_parent: advertisement.scheduling_parent,
-			peer_id: advertisement.peer_id,
-			para_id: advertisement.para_id,
+			scheduling_parent: peer_adv.scheduling_parent(),
+			peer_id: peer_adv.peer_id,
+			para_id: peer_adv.para_id(),
 			maybe_output_head_hash: None,
-			maybe_candidate_hash: advertisement.candidate_hash(),
+			maybe_candidate_hash: peer_adv.candidate_hash(),
 		}
 	}
 }

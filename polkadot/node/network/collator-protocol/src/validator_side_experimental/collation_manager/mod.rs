@@ -23,8 +23,8 @@ use crate::{
 	validator_side_experimental::{
 		common::{
 			Advertisement, CanSecond, CollationFetchError, CollationFetchResponse,
-			ProspectiveCandidate, Score, SecondingRejectionInfo, FAILED_FETCH_SLASH,
-			INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
+			PeerAdvertisement, ProspectiveCandidate, Score, SecondingRejectionInfo,
+			FAILED_FETCH_SLASH, INSTANT_FETCH_REP_THRESHOLD, MAX_FETCH_DELAY,
 		},
 		error::{Error, FatalResult, Result},
 	},
@@ -199,8 +199,8 @@ impl CollationManager {
 				if !self.implicit_view.paths_via_relay_parent(&sp).is_empty() {
 					return Some((sp, per_sp));
 				}
-				for (advertisement, _) in per_sp.all_advertisements() {
-					self.fetching.cancel(advertisement);
+				for (peer_adv, _) in per_sp.all_advertisements() {
+					self.fetching.cancel(&peer_adv.advertisement);
 				}
 				None
 			})
@@ -297,15 +297,14 @@ impl CollationManager {
 	pub async fn try_accept_advertisement<Sender: CollatorProtocolSenderTrait>(
 		&mut self,
 		sender: &mut Sender,
-		advertisement: Advertisement,
+		peer_adv: PeerAdvertisement,
 	) -> std::result::Result<(), AdvertisementError> {
 		let Advertisement {
 			scheduling_parent,
 			para_id,
 			prospective_candidate,
 			advertised_descriptor_version,
-			..
-		} = advertisement;
+		} = peer_adv.advertisement;
 
 		// V1 advertisements are only allowed on active leaves.
 		if prospective_candidate.is_none() && !self.implicit_view.contains_leaf(&scheduling_parent)
@@ -327,23 +326,29 @@ impl CollationManager {
 			return Err(AdvertisementError::OutOfOurView);
 		};
 
+		// Reject ads for an `Advertisement` whose candidate has already been fetched at this
+		// SP. The candidate hash uniquely determines the bytes, so re-fetching from a
+		// co-advertiser would either yield identical data (wasted bandwidth) or a mismatch
+		// (peer being dishonest about the hash, which is its own offence handled elsewhere).
+		//
+		// We deliberately do *not* reject co-advertisers' ads when a fetch is merely
+		// *in flight* for the same `Advertisement`: a co-advertiser's parked ad is a useful
+		// fallback if the in-flight fetch fails (peer goes offline, times out, etc.),
+		// letting us retry without waiting for re-advertisement. The fetch planner handles
+		// cross-peer dedup at fetch time via `PendingRequests::contains`.
 		if let Some(ProspectiveCandidate { candidate_hash, .. }) = prospective_candidate {
 			if per_sp.fetched_collations.contains_key(&candidate_hash) {
 				return Err(AdvertisementError::Duplicate);
 			}
 		}
 
-		if self.fetching.contains(&advertisement) {
-			return Err(AdvertisementError::Duplicate);
-		}
+		per_sp.can_keep_advertisement(peer_adv, available_slots)?;
 
-		per_sp.can_keep_advertisement(advertisement, available_slots)?;
-
-		if !backing_allows_seconding(sender, &advertisement).await {
+		if !backing_allows_seconding(sender, &peer_adv.advertisement).await {
 			return Err(AdvertisementError::BlockedByBacking);
 		}
 
-		per_sp.add_advertisement(advertisement, Instant::now());
+		per_sp.add_advertisement(peer_adv, Instant::now());
 
 		Ok(())
 	}
@@ -434,7 +439,7 @@ impl CollationManager {
 					&connected_rep_query_fn,
 				);
 
-				let advertisement = match outcome {
+				let peer_adv = match outcome {
 					Either::Left(Some(adv)) => adv,
 					Either::Left(None) => continue,
 					Either::Right(delay) => {
@@ -448,19 +453,19 @@ impl CollationManager {
 
 				gum::trace!(
 					target: LOG_TARGET,
-					peer_id = ?advertisement.peer_id,
+					peer_id = ?peer_adv.peer_id,
 					?para_id,
-					scheduling_parent = ?advertisement.scheduling_parent,
-					maybe_candidate_hash = ?advertisement.candidate_hash(),
+					scheduling_parent = ?peer_adv.scheduling_parent(),
+					maybe_candidate_hash = ?peer_adv.candidate_hash(),
 					"Requesting collation",
 				);
-				let req = self.fetching.launch(&advertisement, create_timer_fn());
+				let req = self.fetching.launch(&peer_adv, create_timer_fn());
 				requests.push(req);
 
 				// Reserve on _all_ reachable leaf-core views. `reserve_slot` is a no-op for views
 				// whose `path` doesn't contain this SP — including cross-core views.
 				for lc in leaf_core_cqs.iter_mut() {
-					lc.reserve_slot(&advertisement.scheduling_parent, para_id);
+					lc.reserve_slot(&peer_adv.scheduling_parent(), para_id);
 				}
 			}
 		}
@@ -521,8 +526,8 @@ impl CollationManager {
 					let in_flight = self
 						.fetching
 						.iter()
-						.filter(|adv| adv.scheduling_parent == sp_hash)
-						.map(|adv| adv.para_id);
+						.filter(|adv| adv.scheduling_parent() == sp_hash)
+						.map(|adv| adv.para_id());
 					let fetched = per_sp.fetched_collations.values().map(|info| info.para_id);
 					for para in in_flight.chain(fetched) {
 						consumers.push((para, valid_len));
@@ -569,29 +574,28 @@ impl CollationManager {
 		res: CollationFetchResponse,
 		maybe_collation_version: Option<CollationVersion>,
 	) -> CanSecond {
-		let advertisement = res.0;
-		let mut reject_info = SecondingRejectionInfo::from(&advertisement);
+		let peer_adv = res.0;
+		let mut reject_info = SecondingRejectionInfo::from(&peer_adv);
 
-		self.fetching.note_completed(&advertisement);
+		self.fetching.note_completed(&peer_adv.advertisement);
 
-		let Some(per_sp) = self.per_scheduling_parent.get_mut(&advertisement.scheduling_parent)
-		else {
+		let Some(per_sp) = self.per_scheduling_parent.get_mut(&peer_adv.scheduling_parent()) else {
 			gum::debug!(
 				target: LOG_TARGET,
-				hash = ?advertisement.scheduling_parent,
-				para_id = ?advertisement.para_id,
-				peer_id = ?advertisement.peer_id,
+				hash = ?peer_adv.scheduling_parent(),
+				para_id = ?peer_adv.para_id(),
+				peer_id = ?peer_adv.peer_id,
 				"Collation fetch concluded for scheduling parent out of view"
 			);
 			return CanSecond::No(None, reject_info);
 		};
 
-		per_sp.remove_advertisement(&advertisement);
+		per_sp.remove_advertisement(&peer_adv);
 
 		let Some(collation_version) = maybe_collation_version else {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Peer may not be connected."
 			);
 			return CanSecond::No(None, reject_info);
@@ -602,12 +606,13 @@ impl CollationManager {
 				let candidate_hash = fetched_collation.candidate_receipt.hash();
 				// It can't be a duplicate, because we check before initiating fetch. For the old
 				// protocol version, we anyway only fetch one per scheduling parent.
+				//
+				// `peer_id` — the only peer to be slashed/credited for this candidate, even if
+				// other peers also advertised it. See `Advertisement` vs `PeerAdvertisement` in
+				// `common.rs`.
 				per_sp.fetched_collations.insert(
 					candidate_hash,
-					FetchedCollationInfo {
-						peer_id: advertisement.peer_id,
-						para_id: advertisement.para_id,
-					},
+					FetchedCollationInfo { peer_id: peer_adv.peer_id, para_id: peer_adv.para_id() },
 				);
 
 				// Now that the candidate hash is known, populate it on the rejection info so
@@ -617,10 +622,12 @@ impl CollationManager {
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
-				if let Err(err) = fetched_collation.ensure_matches_advertisement(&advertisement) {
+				if let Err(err) =
+					fetched_collation.ensure_matches_advertisement(&peer_adv.advertisement)
+				{
 					gum::warn!(
 						target: LOG_TARGET,
-						?advertisement,
+						?peer_adv,
 						"Invalid fetched collation: {}",
 						err
 					);
@@ -638,7 +645,7 @@ impl CollationManager {
 				) {
 					gum::warn!(
 						target: LOG_TARGET,
-						?advertisement,
+						?peer_adv,
 						"Failed descriptor version sanity check for fetched collation: {}",
 						err
 					);
@@ -764,13 +771,13 @@ impl CollationManager {
 		MAX_FETCH_DELAY
 	}
 
-	/// Advertisements at `sp` for `para_id` that are *fetchable right now* — i.e. all dedup
-	/// checks (already-fetched, in-flight, V1 single-shot per `(sp, para)`) have been applied.
+	/// Peer-advertisements at `sp` for `para_id` that are not yet fetched and not currently
+	/// being fetched.
 	fn eligible_advertisements<'a>(
 		&'a self,
 		sp: Hash,
 		para_id: ParaId,
-	) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
+	) -> impl Iterator<Item = (PeerAdvertisement, &'a Instant)> {
 		// `Either` unifies the two iterator types into one `impl Iterator`: empty for an
 		// untracked SP, the filter chain otherwise.
 		let per_sp = match self.per_scheduling_parent.get(&sp) {
@@ -782,36 +789,41 @@ impl CollationManager {
 		// advertised against — they require their SP to be an active leaf.
 		let is_active_leaf = self.implicit_view.contains_leaf(&sp);
 
-		// V1 has no candidate hash to dedup by, so at most one V1 fetch may be in-flight or
-		// already fetched per (sp, para). Multiple peers may hold V1 ads for the same
-		// (sp, para); we must filter out *all* V1 ads for that (sp, para) once one is taken.
-		let v1_blocked = per_sp.fetched_collations.values().any(|info| info.para_id == para_id) ||
-			self.fetching.iter().any(|adv| {
-				adv.scheduling_parent == sp &&
-					adv.para_id == para_id &&
-					adv.prospective_candidate.is_none()
-			});
+		// V1 ads carry no candidate hash. Once we've fetched *any* V1 collation for this
+		// `(sp, para)`, we don't need another — `fetched_collations` is keyed by the receipt
+		// hash, so we scan its values for this para. (V1 in-flight dedup is handled by the
+		// `Advertisement`-keyed `fetching.contains` below: the V1 `Advertisement` is the
+		// same struct for every co-advertiser at one `(sp, para)`, so one in-flight fetch
+		// blocks them all.)
+		let v1_already_fetched =
+			per_sp.fetched_collations.values().any(|info| info.para_id == para_id);
 
 		let fetching = &self.fetching;
-		Either::Right(per_sp.all_advertisements().filter(move |(adv, _)| {
-			if adv.para_id != para_id {
+		Either::Right(per_sp.all_advertisements().filter(move |(peer_adv, _)| {
+			if peer_adv.para_id() != para_id {
 				return false;
 			}
-			if fetching.contains(adv) {
+			// In-flight dedup. `Advertisement`-keyed: if any peer's fetch for this
+			// `Advertisement` is in flight, every co-advertiser's ad is filtered out here.
+			if fetching.contains(&peer_adv.advertisement) {
 				return false;
 			}
-			match adv.prospective_candidate {
-				None => is_active_leaf && !v1_blocked,
+			match peer_adv.advertisement.prospective_candidate {
+				None => is_active_leaf && !v1_already_fetched,
 				Some(p) => !per_sp.fetched_collations.contains_key(&p.candidate_hash),
 			}
 		}))
 	}
 
-	/// Picks the best (= highest-scored, earliest, in that order) advertisement for `para_id`
-	/// among `candidate_sps`, with delay arithmetic relative to each SP's activation.
+	/// Picks the best (= highest-scored, earliest, in that order) peer-advertisement for
+	/// `para_id` among `candidate_sps`, with delay arithmetic relative to each SP's activation.
+	///
+	/// When several peers advertise the same `Advertisement`, this is also where reputation
+	/// arbitration happens: each `PeerAdvertisement` contributes one entry to the candidate
+	/// set, and the rep-best wins (subject to the global ordering).
 	///
 	/// Returns:
-	/// - `Either::Left(Some(adv))` if a fetchable advertisement was found,
+	/// - `Either::Left(Some(peer_adv))` if a fetchable advertisement was found,
 	/// - `Either::Left(None)` if there are no eligible advertisements,
 	/// - `Either::Right(delay)` if the best advertisement still has remaining fetch delay relative
 	///   to its scheduling parent's activation time.
@@ -822,15 +834,15 @@ impl CollationManager {
 		candidate_sps: impl Iterator<Item = Hash>,
 		highest_rep_of_para: Score,
 		connected_rep_query_fn: &RepQueryFn,
-	) -> Either<Option<Advertisement>, Duration> {
+	) -> Either<Option<PeerAdvertisement>, Duration> {
 		let advertisements: BTreeSet<AcceptedAdvertisement> = candidate_sps
 			.filter_map(|sp| {
 				let activated_at = self.per_scheduling_parent.get(&sp)?.activated_at;
 				Some(self.eligible_advertisements(sp, para_id).filter_map(
-					move |(adv, timestamp)| {
+					move |(peer_adv, timestamp)| {
 						Some(AcceptedAdvertisement {
-							adv,
-							score: connected_rep_query_fn(&adv.peer_id, &adv.para_id)?,
+							score: connected_rep_query_fn(&peer_adv.peer_id, &peer_adv.para_id())?,
+							peer_adv,
 							timestamp,
 							activated_at,
 						})
@@ -854,14 +866,14 @@ impl CollationManager {
 		if remaining.is_zero() {
 			gum::debug!(
 				target: LOG_TARGET,
-				peer_id = ?best.adv.peer_id,
-				scheduling_parent = ?best.adv.scheduling_parent,
-				para_id = ?best.adv.para_id,
+				peer_id = ?best.peer_adv.peer_id,
+				scheduling_parent = ?best.peer_adv.scheduling_parent(),
+				para_id = ?best.peer_adv.para_id(),
 				?elapsed,
 				?delay,
 				"Delay elapsed; initiating fetch."
 			);
-			Either::Left(Some(*best.adv))
+			Either::Left(Some(best.peer_adv))
 		} else {
 			Either::Right(remaining)
 		}
@@ -1001,15 +1013,10 @@ impl CollationManager {
 	}
 
 	#[cfg(test)]
-	pub fn advertisements(&self) -> BTreeSet<Advertisement> {
+	pub fn advertisements(&self) -> BTreeSet<PeerAdvertisement> {
 		self.per_scheduling_parent
 			.values()
-			.flat_map(|per_sp| {
-				per_sp
-					.peer_advertisements
-					.values()
-					.flat_map(|peer_adv| peer_adv.advertisements.keys().cloned())
-			})
+			.flat_map(|per_sp| per_sp.all_advertisements().map(|(peer_adv, _)| peer_adv))
 			.collect()
 	}
 }
@@ -1090,13 +1097,14 @@ impl FetchedCollation {
 	}
 }
 
-/// Represents an advertisement which we have accepted. Supports ordering of the advertisements.
+/// A peer-advertisement paired with the per-(peer, para) score and timing context used for
+/// fetch arbitration. Supports ordering.
 ///
-/// Ordering priority: score (descending), then timestamp (ascending), then advertisement as
-/// tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best advertisement.
+/// Ordering priority: score (descending), then timestamp (ascending), then peer-advertisement
+/// as tiebreaker. Higher scores come first so that `BTreeSet::first()` returns the best.
 #[derive(PartialEq, Eq)]
 struct AcceptedAdvertisement<'a> {
-	adv: &'a Advertisement,
+	peer_adv: PeerAdvertisement,
 	score: Score,
 	timestamp: &'a Instant,
 	/// The time at which the scheduling parent was activated
@@ -1109,7 +1117,7 @@ impl<'a> Ord for AcceptedAdvertisement<'a> {
 			.score
 			.cmp(&self.score) // Descending: higher score comes first
 			.then_with(|| self.timestamp.cmp(other.timestamp)) // Ascending: earlier timestamp comes first
-			.then_with(|| self.adv.cmp(other.adv))
+			.then_with(|| self.peer_adv.cmp(&other.peer_adv))
 	}
 }
 
@@ -1172,9 +1180,13 @@ impl LeafCoreCq {
 }
 
 struct PerSchedulingParent {
-	peer_advertisements: HashMap<PeerId, PeerAdvertisements>,
-	// Candidates we have successfully fetched at this scheduling parent. Kept until the
-	// scheduling parent leaves view, so that:
+	// Per-collator-peer state.
+	peer_advertisements: HashMap<PeerId, PeerAdvertisementState>,
+	// Candidates we have successfully fetched at this scheduling parent, keyed by candidate
+	// hash (which is the canonical post-fetch identity of the collation, independent of who
+	// served it). The stored `peer_id` is the *peer we fetched from* — the only peer
+	// liable for slashing/credit on this candidate, even if other peers had advertised the
+	// same hash. Kept until the scheduling parent leaves view, so that:
 	// - duplicate advertisements are rejected (`try_accept_advertisement`),
 	// - we know who to punish for supplying an invalid collation (returned by `release_slot`),
 	// - and capacity tracking knows which slots are consumed (`build_leaf_core_cqs`).
@@ -1201,45 +1213,48 @@ impl PerSchedulingParent {
 	}
 
 	/// Every advertisement at this scheduling parent paired with the time it arrived.
-	fn all_advertisements<'a>(&'a self) -> impl Iterator<Item = (&'a Advertisement, &'a Instant)> {
-		self.peer_advertisements.values().flat_map(|list| &list.advertisements)
+	fn all_advertisements<'a>(&'a self) -> impl Iterator<Item = (PeerAdvertisement, &'a Instant)> {
+		self.peer_advertisements.iter().flat_map(|(peer_id, list)| {
+			list.advertisements.iter().map(move |(advertisement, ts)| {
+				(PeerAdvertisement { advertisement: *advertisement, peer_id: *peer_id }, ts)
+			})
+		})
 	}
 
-	/// Whether `advertisement` may be kept; pair with `add_advertisement` after the caller's
-	/// async backing check. Bumps the rate-limit counter (`PeerAdvertisements::total`) even
-	/// on rejection — by design, so a peer can't spam past their cap with bad advertisements.
+	/// Whether `peer_adv` may be kept; pair with `add_advertisement` after the caller's
+	/// async backing check. Bumps `accept_attempts` even on rejection, so a peer can't spam
+	/// past its cap with bad advertisements.
 	fn can_keep_advertisement(
 		&mut self,
-		advertisement: Advertisement,
+		peer_adv: PeerAdvertisement,
 		max_assignments: usize,
 	) -> std::result::Result<(), AdvertisementError> {
-		let peer_advertisements =
-			self.peer_advertisements.entry(advertisement.peer_id).or_default();
+		let peer_advertisements = self.peer_advertisements.entry(peer_adv.peer_id).or_default();
 
-		peer_advertisements.total += 1;
+		peer_advertisements.accept_attempts += 1;
 
-		if peer_advertisements.total > max_assignments {
+		if peer_advertisements.accept_attempts > max_assignments {
 			return Err(AdvertisementError::PeerLimitReached);
 		}
 
-		if peer_advertisements.advertisements.contains_key(&advertisement) {
+		if peer_advertisements.advertisements.contains_key(&peer_adv.advertisement) {
 			return Err(AdvertisementError::Duplicate);
 		}
 
 		Ok(())
 	}
 
-	fn add_advertisement(&mut self, advertisement: Advertisement, now: Instant) {
+	fn add_advertisement(&mut self, peer_adv: PeerAdvertisement, now: Instant) {
 		self.peer_advertisements
-			.entry(advertisement.peer_id)
+			.entry(peer_adv.peer_id)
 			.or_default()
 			.advertisements
-			.insert(advertisement, now);
+			.insert(peer_adv.advertisement, now);
 	}
 
-	fn remove_advertisement(&mut self, advertisement: &Advertisement) {
-		if let Some(advertisements) = self.peer_advertisements.get_mut(&advertisement.peer_id) {
-			advertisements.advertisements.remove(&advertisement);
+	fn remove_advertisement(&mut self, peer_adv: &PeerAdvertisement) {
+		if let Some(advertisements) = self.peer_advertisements.get_mut(&peer_adv.peer_id) {
+			advertisements.advertisements.remove(&peer_adv.advertisement);
 		}
 	}
 
@@ -1248,12 +1263,15 @@ impl PerSchedulingParent {
 	}
 }
 
+/// One peer's advertisement state at a single SP.
+///
+/// `accept_attempts` includes rejected attempts so a peer can't spam past its cap with bad
+/// advertisements. Same peer reasserting the same advertisement is a no-op for
+/// `advertisements` but still bumps `accept_attempts`.
 #[derive(Default)]
-struct PeerAdvertisements {
+struct PeerAdvertisementState {
 	advertisements: HashMap<Advertisement, Instant>,
-	// We increment this even for advertisements that we don't end up accepting, so that we take
-	// these into account when rate limiting.
-	total: usize,
+	accept_attempts: usize,
 }
 
 struct PerSessionInfo {
@@ -1351,7 +1369,7 @@ async fn fetch_pvd<Sender: CollatorProtocolSenderTrait>(
 }
 
 fn process_collation_fetch_result(
-	(advertisement, res): CollationFetchResponse,
+	(peer_adv, res): CollationFetchResponse,
 ) -> std::result::Result<FetchedCollation, Option<Score>> {
 	match res {
 		Err(CollationFetchError::Cancelled) => {
@@ -1361,7 +1379,7 @@ fn process_collation_fetch_result(
 		Err(CollationFetchError::Request(RequestError::InvalidResponse(err))) => {
 			gum::warn!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				err = ?err,
 				"Collator provided response that could not be decoded"
 			);
@@ -1370,7 +1388,7 @@ fn process_collation_fetch_result(
 		Err(CollationFetchError::Request(err)) if err.is_timed_out() => {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Request timed out"
 			);
 			Err(Some(FAILED_FETCH_SLASH))
@@ -1378,7 +1396,7 @@ fn process_collation_fetch_result(
 		Err(CollationFetchError::Request(RequestError::NetworkError(err))) => {
 			gum::warn!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				err = ?err,
 				"Fetching collation failed due to network error"
 			);
@@ -1387,7 +1405,7 @@ fn process_collation_fetch_result(
 		Err(CollationFetchError::Request(RequestError::Canceled(err))) => {
 			gum::warn!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				err = ?err,
 				"Canceled should be handled by `is_timed_out` above - this is a bug!"
 			);
@@ -1396,7 +1414,7 @@ fn process_collation_fetch_result(
 		Ok(request_v2::CollationFetchingResponse::Collation(candidate_receipt, pov)) => {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Received collation",
 			);
 
@@ -1404,8 +1422,8 @@ fn process_collation_fetch_result(
 				candidate_receipt,
 				pov,
 				None,
-				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
-				advertisement.peer_id,
+				peer_adv.advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
+				peer_adv.peer_id,
 			))
 		},
 		Ok(request_v2::CollationFetchingResponse::CollationWithParentHeadData {
@@ -1415,7 +1433,7 @@ fn process_collation_fetch_result(
 		}) => {
 			gum::debug!(
 				target: LOG_TARGET,
-				?advertisement,
+				?peer_adv,
 				"Received collation with parent head data",
 			);
 
@@ -1423,8 +1441,8 @@ fn process_collation_fetch_result(
 				receipt,
 				pov,
 				Some(parent_head_data),
-				advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
-				advertisement.peer_id,
+				peer_adv.advertisement.prospective_candidate.map(|p| p.parent_head_data_hash),
+				peer_adv.peer_id,
 			))
 		},
 	}
@@ -1477,12 +1495,14 @@ mod tests {
 		let scheduling_parent = Hash::random();
 		let para_id = ParaId::new(1);
 
-		let make_adv = |peer_id: PeerId| Advertisement {
-			scheduling_parent,
-			para_id,
+		let make_adv = |peer_id: PeerId| PeerAdvertisement {
+			advertisement: Advertisement {
+				scheduling_parent,
+				para_id,
+				prospective_candidate: None,
+				advertised_descriptor_version: None,
+			},
 			peer_id,
-			prospective_candidate: None,
-			advertised_descriptor_version: None,
 		};
 
 		let peer_1 = PeerId::random();
@@ -1494,13 +1514,13 @@ mod tests {
 		// Different scores - higher score comes first (is "less").
 		{
 			let high_score = AcceptedAdvertisement {
-				adv: &adv_1,
+				peer_adv: adv_1,
 				score: score(100),
 				timestamp: &now,
 				activated_at: now,
 			};
 			let low_score = AcceptedAdvertisement {
-				adv: &adv_2,
+				peer_adv: adv_2,
 				score: score(50),
 				timestamp: &now,
 				activated_at: now,
@@ -1513,13 +1533,13 @@ mod tests {
 		// Same score, different timestamps - earlier timestamp comes first.
 		{
 			let earlier = AcceptedAdvertisement {
-				adv: &adv_1,
+				peer_adv: adv_1,
 				score: score(100),
 				timestamp: &now,
 				activated_at: now,
 			};
 			let later = AcceptedAdvertisement {
-				adv: &adv_2,
+				peer_adv: adv_2,
 				score: score(100),
 				timestamp: &later,
 				activated_at: now,
@@ -1529,37 +1549,37 @@ mod tests {
 			assert_eq!(later.cmp(&earlier), Ordering::Greater);
 		}
 
-		// Same score, same timestamp - falls back to advertisement comparison.
+		// Same score, same timestamp - falls back to peer-advertisement comparison.
 		{
 			let acc_1 = AcceptedAdvertisement {
-				adv: &adv_1,
+				peer_adv: adv_1,
 				score: score(100),
 				timestamp: &now,
 				activated_at: now,
 			};
 			let acc_2 = AcceptedAdvertisement {
-				adv: &adv_2,
+				peer_adv: adv_2,
 				score: score(100),
 				timestamp: &now,
 				activated_at: now,
 			};
 
-			// Result depends on advertisement Ord, but must be consistent and not Equal.
+			// Result depends on peer-advertisement Ord, but must be consistent and not Equal.
 			let cmp_result = acc_1.cmp(&acc_2);
 			assert_ne!(cmp_result, Ordering::Equal);
 			assert_eq!(acc_2.cmp(&acc_1), cmp_result.reverse());
 		}
 
-		// Same advertisement, same score, same timestamp - should be Equal.
+		// Same peer-advertisement, same score, same timestamp - should be Equal.
 		{
 			let acc_1 = AcceptedAdvertisement {
-				adv: &adv_1,
+				peer_adv: adv_1,
 				score: score(100),
 				timestamp: &now,
 				activated_at: now,
 			};
 			let acc_2 = AcceptedAdvertisement {
-				adv: &adv_1,
+				peer_adv: adv_1,
 				score: score(100),
 				timestamp: &now,
 				activated_at: now,
@@ -1575,25 +1595,25 @@ mod tests {
 
 			let advertisements = [
 				AcceptedAdvertisement {
-					adv: &adv_1,
+					peer_adv: adv_1,
 					score: score(50),
 					timestamp: &now,
 					activated_at: now,
 				},
 				AcceptedAdvertisement {
-					adv: &adv_2,
+					peer_adv: adv_2,
 					score: score(200),
 					timestamp: &now,
 					activated_at: now,
 				},
 				AcceptedAdvertisement {
-					adv: &adv_3,
+					peer_adv: adv_3,
 					score: score(100),
 					timestamp: &now,
 					activated_at: now,
 				},
 				AcceptedAdvertisement {
-					adv: &adv_4,
+					peer_adv: adv_4,
 					score: score(150),
 					timestamp: &later,
 					activated_at: now,
@@ -1612,19 +1632,19 @@ mod tests {
 
 			let advertisements: BTreeSet<_> = [
 				AcceptedAdvertisement {
-					adv: &adv_1,
+					peer_adv: adv_1,
 					score: score(100),
 					timestamp: &later,
 					activated_at: now,
 				},
 				AcceptedAdvertisement {
-					adv: &adv_2,
+					peer_adv: adv_2,
 					score: score(100),
 					timestamp: &now,
 					activated_at: now,
 				},
 				AcceptedAdvertisement {
-					adv: &adv_3,
+					peer_adv: adv_3,
 					score: score(50),
 					timestamp: &now,
 					activated_at: now,
@@ -1661,12 +1681,14 @@ mod tests {
 			candidate_hash: CandidateHash(Hash::repeat_byte(0xab)),
 			parent_head_data_hash: Hash::repeat_byte(0xcd),
 		});
-		let make_adv = |peer: PeerId| Advertisement {
-			scheduling_parent,
-			para_id,
+		let make_adv = |peer: PeerId| PeerAdvertisement {
+			advertisement: Advertisement {
+				scheduling_parent,
+				para_id,
+				prospective_candidate,
+				advertised_descriptor_version: None,
+			},
 			peer_id: peer,
-			prospective_candidate,
-			advertised_descriptor_version: None,
 		};
 
 		let new_collation_manager_instance = || CollationManager {
