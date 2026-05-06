@@ -100,7 +100,7 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	// Wait for PVF preparation to complete.
 	wait_for_pvf_prepare(&validators, 1).await?;
 
-	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 3..18)], []).await?;
+	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 8..11)], []).await?;
 
 	// 1 core is assigned by default, we are assigning 2 more cores: 0 and 1.
 	assign_cores(&relay_client, PARA_ID, vec![0, 1]).await?;
