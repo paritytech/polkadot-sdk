@@ -2089,7 +2089,7 @@ mod tests {
 			// Read existing value
 			let result = storage::get_with_status(b"existing");
 			assert_eq!(result.data, Some(b"value".to_vec().into()));
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 
 			// Write to overlay
 			storage::set(b"new_key", b"new_value");
@@ -2098,18 +2098,18 @@ mod tests {
 			let result = storage::get_with_status(b"new_key");
 			assert_eq!(result.data, Some(b"new_value".to_vec().into()));
 			// BasicExternalities treats all reads as cold
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 
 			// Read non-existent key
 			let result = storage::get_with_status(b"non_existent");
 			assert_eq!(result.data, None);
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 
 			// Overwrite existing key
 			storage::set(b"existing", b"updated");
 			let result = storage::get_with_status(b"existing");
 			assert_eq!(result.data, Some(b"updated".to_vec().into()));
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 		});
 	}
 
@@ -2137,7 +2137,7 @@ mod tests {
 			let result =
 				default_child_storage::get_with_status(b"child_storage_key", b"existing_child");
 			assert_eq!(result.data, Some(b"child_value".to_vec()));
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 
 			// Write to child storage
 			default_child_storage::set(b"child_storage_key", b"new_child_key", b"new_child_value");
@@ -2147,13 +2147,13 @@ mod tests {
 				default_child_storage::get_with_status(b"child_storage_key", b"new_child_key");
 			assert_eq!(result.data, Some(b"new_child_value".to_vec()));
 			// BasicExternalities treats all reads as cold
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 
 			// Read non-existent child key
 			let result =
 				default_child_storage::get_with_status(b"child_storage_key", b"non_existent_child");
 			assert_eq!(result.data, None);
-			assert_eq!(result.is_cold, true);
+			assert!(result.is_cold);
 		});
 	}
 

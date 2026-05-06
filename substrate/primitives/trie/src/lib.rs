@@ -376,14 +376,14 @@ pub fn read_trie_value_with_status<
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
-	mut recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
-	// Cold = first read of `key` under the active recorder; hot = subsequent read.
+	// Cold = read may add new proof bytes; hot = bytes already recorded.
 	// No recorder = cold.
 	let is_cold = recorder
-		.as_mut()
-		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
+		.as_ref()
+		.map(|r| !matches!(r.trie_nodes_recorded_for_key(key), trie_db::RecordedForKey::Value))
 		.unwrap_or(true);
 
 	let data = read_trie_value::<L, DB>(db, root, key, recorder, cache)?;
@@ -498,17 +498,17 @@ pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 	db: &DB,
 	root: &TrieHash<L>,
 	key: &[u8],
-	mut recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
+	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>>
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	// Cold = first read of `key` under the active recorder; hot = subsequent read.
+	// Cold = read may add new proof bytes; hot = bytes already recorded.
 	// No recorder = cold.
 	let is_cold = recorder
-		.as_mut()
-		.and_then(|r| Some(r.trie_nodes_recorded_for_key(key).is_none()))
+		.as_ref()
+		.map(|r| !matches!(r.trie_nodes_recorded_for_key(key), trie_db::RecordedForKey::Value))
 		.unwrap_or(true);
 
 	let data = read_child_trie_value::<L, DB>(keyspace, db, root, key, recorder, cache)?;

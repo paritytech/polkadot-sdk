@@ -233,7 +233,6 @@ where
 		key: &[u8],
 	) -> StateLoad<Option<StorageValue>> {
 		let _guard = guard();
-
 		// Overlay hit sets cold = false; otherwise forward the backend's result.
 		let result = self
 			.overlay
