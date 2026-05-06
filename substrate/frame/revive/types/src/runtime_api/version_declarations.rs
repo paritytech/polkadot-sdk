@@ -67,13 +67,20 @@ macro_rules! declare_api_versions {
 			impl PalletReviveRuntimeApiPayloadVersions {
 				/// Returns the payload versions known by this crate at compile time.
 				///
-				/// # Safety
+				/// # Note
 				///
-				/// Clients must not use this function to decide what a connected runtime supports.
-				/// The returned value describes the crate version linked into the caller, which can
-				/// be newer or older than the runtime being queried. Runtime code may use it to
-				/// construct the discovery value that it returns from its own runtime API.
-				pub unsafe fn current() -> Self {
+				/// This is hidden from generated documentation because clients must query the
+				/// connected runtime instead. The returned value describes the crate version
+				/// linked into the caller, which can be newer or older than the runtime being
+				/// queried. Runtime code may use it to construct the discovery value that it
+				/// returns from its own runtime API.
+				///
+				/// If you're unsure if you should use this function, questioning if it's okay to
+				/// use, or questioning if it's appropriate then it means that you must not use it.
+				/// Query this information from the pallet-revive runtime API instead.
+				#[doc(hidden)]
+				#[must_use]
+				pub fn current() -> Self {
 					let mut this = Self::empty();
 					$(
 						let input_version = <$input_payload>::LATEST_VERSION;
@@ -232,7 +239,7 @@ mod tests {
 	#[test]
 	fn current_declaration_contains_all_known_interface_versions() {
 		// Arrange
-		let versions = unsafe { PalletReviveRuntimeApiPayloadVersions::current() };
+		let versions = PalletReviveRuntimeApiPayloadVersions::current();
 
 		// Act
 		let eth_transact_version = versions.eth_transact_version();
@@ -249,7 +256,7 @@ mod tests {
 	#[test]
 	fn generic_lookup_uses_versioned_runtime_api_function_names() {
 		// Arrange
-		let versions = unsafe { PalletReviveRuntimeApiPayloadVersions::current() };
+		let versions = PalletReviveRuntimeApiPayloadVersions::current();
 
 		// Act
 		let runtime_api_name = versions.get("eth_transact");
@@ -263,7 +270,7 @@ mod tests {
 	#[test]
 	fn declaration_derefs_to_function_version_map() {
 		// Arrange
-		let versions = unsafe { PalletReviveRuntimeApiPayloadVersions::current() };
+		let versions = PalletReviveRuntimeApiPayloadVersions::current();
 
 		// Act
 		let map: &BTreeMap<Vec<u8>, u32> = &versions;
