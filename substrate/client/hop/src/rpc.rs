@@ -91,7 +91,7 @@ pub trait HopApi<BlockHash> {
 	/// # Returns
 	/// The data if the signature matches a recipient that hasn't yet acked
 	#[method(name = "hop_claim", blocking)]
-	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
+	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes>;
 
 	/// Acknowledge receipt of claimed data.
 	///
@@ -102,10 +102,10 @@ pub trait HopApi<BlockHash> {
 	/// should treat `NotFound` as a benign terminal state rather than an error.
 	///
 	/// # Arguments
-	/// * `hash`: The hash of the data, in bytes (32 bytes)
+	/// * `raw_hash`: The hash of the data, in bytes (32 bytes)
 	/// * `signature`: SCALE-encoded `MultiSignature` over the hash
 	#[method(name = "hop_ack", blocking)]
-	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()>;
+	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()>;
 
 	/// Get data pool status
 	///
@@ -216,14 +216,14 @@ where
 		Ok(SubmitResult { pool_status: self.pool.status() })
 	}
 
-	fn claim(&self, hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
-		let hash = Self::decode_hash(hash)?;
+	fn claim(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<Bytes> {
+		let hash = Self::decode_hash(raw_hash)?;
 		let data = self.pool.claim(&hash, &signature.0)?;
 		Ok(Bytes(data))
 	}
 
-	fn ack(&self, hash: Bytes, signature: Bytes) -> RpcResult<()> {
-		let hash = Self::decode_hash(hash)?;
+	fn ack(&self, raw_hash: Bytes, signature: Bytes) -> RpcResult<()> {
+		let hash = Self::decode_hash(raw_hash)?;
 		self.pool.ack(&hash, &signature.0)?;
 		Ok(())
 	}
