@@ -569,6 +569,8 @@ where
 	) -> Result<StateLoad<Option<StorageValue>>> {
 		let child_root = match self.child_root(child_info)? {
 			Some(root) => root,
+			// Missing child trie: always cold. Could be hot on repeats, but we don't track this
+			// rare case.
 			None => return Ok(StateLoad { data: None, is_cold: true }),
 		};
 
