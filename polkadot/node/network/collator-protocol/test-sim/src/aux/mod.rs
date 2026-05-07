@@ -23,6 +23,8 @@
 //! [`Sim`]: crate::harness::Sim
 //! [`Sim::register_aux`]: crate::harness::Sim::register_aux
 
+pub mod backing;
 pub mod prospective;
 
+pub use backing::CandidateBackingAux;
 pub use prospective::ProspectiveParachainsAux;

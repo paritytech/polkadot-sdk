@@ -378,6 +378,32 @@ mod tests {
 	}
 
 	#[test]
+	fn candidate_backing_aux_concludes_cleanly() {
+		use crate::aux::CandidateBackingAux;
+		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+		let (slot, outbound_rx) = CandidateBackingAux::spawn(&mut sim);
+		sim.register_aux(slot, outbound_rx);
+
+		// No ActiveLeaves signal is sent → backing fires no per-leaf queries; Conclude alone
+		// drops the subsystem cleanly.
+		let recorder = sim.finish();
+		assert_eq!(recorder.len(), 0);
+	}
+
+	#[test]
+	fn prospective_and_backing_aux_concludes_cleanly_together() {
+		use crate::aux::{CandidateBackingAux, ProspectiveParachainsAux};
+		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+		let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
+		let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
+		sim.register_aux(psp, psp_rx);
+		sim.register_aux(cb, cb_rx);
+
+		let recorder = sim.finish();
+		assert_eq!(recorder.len(), 0);
+	}
+
+	#[test]
 	fn aux_slot_receives_signal_broadcast() {
 		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
 		let signals = Arc::new(AtomicUsize::new(0));
