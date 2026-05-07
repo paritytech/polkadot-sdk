@@ -2081,7 +2081,7 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			// BasicExternalities has no backend or recorder, so every read is cold.
+			// BasicExternalities inherits the conservative default impl and always reports cold.
 			let result = storage::get_with_status(b"existing");
 			assert_eq!(result.data, Some(b"value".to_vec().into()));
 			assert!(result.is_cold);
@@ -2118,7 +2118,7 @@ mod tests {
 		});
 
 		t.execute_with(|| {
-			// BasicExternalities has no backend or recorder, so every read is cold.
+			// BasicExternalities inherits the conservative default impl and always reports cold.
 			let result =
 				default_child_storage::get_with_status(b"child_storage_key", b"existing_child");
 			assert_eq!(result.data, Some(b"child_value".to_vec()));
