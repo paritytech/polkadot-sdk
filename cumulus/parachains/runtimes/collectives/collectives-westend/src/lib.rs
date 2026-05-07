@@ -93,7 +93,7 @@ use parachains_common::{
 	Nonce, Signature, AVERAGE_ON_INITIALIZE_RATIO, NORMAL_DISPATCH_RATIO,
 };
 use testnet_parachains_constants::westend::{
-	consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
+	accumulate_forward::*, consensus::*, currency::*, dap::*, fee::WeightToFee, time::*,
 };
 use xcm_config::{
 	GovernanceLocation, LocationToAccountId, TreasurerBodyId, XcmConfig,
@@ -228,7 +228,7 @@ impl pallet_balances::Config for Runtime {
 	type Balance = Balance;
 	/// The ubiquitous event type.
 	type RuntimeEvent = RuntimeEvent;
-	type DustRemoval = DapSatellite;
+	type DustRemoval = AccumulateForward;
 	type ExistentialDeposit = ExistentialDeposit;
 	type AccountStore = System;
 	type WeightInfo = weights::pallet_balances::WeightInfo<Runtime>;
@@ -244,17 +244,20 @@ impl pallet_balances::Config for Runtime {
 parameter_types! {
 	/// Relay Chain `TransactionByteFee` / 10
 	pub const TransactionByteFee: Balance = MILLICENTS;
-	/// Percentage of fees to send to DAP satellite.
-	pub const DapSatelliteFeePercent: Percent = Percent::from_percent(100);
+	/// Percentage of fees to send to the accumulation account.
+	pub const AccumulateForwardFeePercent: Percent = Percent::from_percent(100);
 }
 
-type DealWithFeesSatellite =
-	pallet_dap_satellite::DealWithFeesSplit<Runtime, DapSatelliteFeePercent, DealWithFees<Runtime>>;
+type DealWithFeesAccumulate = pallet_accumulate_and_forward::DealWithFeesSplit<
+	Runtime,
+	AccumulateForwardFeePercent,
+	DealWithFees<Runtime>,
+>;
 
 impl pallet_transaction_payment::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type OnChargeTransaction =
-		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesSatellite>;
+		pallet_transaction_payment::FungibleAdapter<Balances, DealWithFeesAccumulate>;
 	type WeightToFee = WeightToFee;
 	type LengthToFee = ConstantMultiplier<Balance, TransactionByteFee>;
 	type FeeMultiplierUpdate = SlowAdjustingFeeUpdate<Self>;
@@ -614,7 +617,7 @@ impl pallet_alliance::Config for Runtime {
 	type MembershipManager = RootOrAllianceTwoThirdsMajority;
 	type AnnouncementOrigin = RootOrAllianceTwoThirdsMajority;
 	type Currency = Balances;
-	type Slashed = pallet_dap_satellite::DapSatelliteLegacyAdapter<Runtime, Balances>;
+	type Slashed = pallet_accumulate_and_forward::LegacyAdapter<Runtime, Balances>;
 	type InitializeMembers = AllianceMotion;
 	type MembershipChanged = AllianceMotion;
 	type RetirementPeriod = AllianceRetirementPeriod;
@@ -693,19 +696,19 @@ impl pallet_asset_rate::Config for Runtime {
 	type BenchmarkHelper = polkadot_runtime_common::impls::benchmarks::AssetRateArguments;
 }
 
-impl pallet_dap_satellite::Config for Runtime {
+impl pallet_accumulate_and_forward::Config for Runtime {
 	type Currency = Balances;
-	type PalletId = DapSatellitePalletId;
-	type SendToDap = xcm_builder::SendToDapViaTeleport<
+	type PalletId = AccumulateForwardPalletId;
+	type Forwarder = xcm_builder::TeleportForwarderForAccountId32<
 		xcm_config::XcmConfig,
 		xcm_config::AssetHub,
 		xcm_config::WndLocation,
 		DapStagingLocation,
 	>;
-	type TransferPeriod = DapSatelliteTransferPeriod;
-	type MinTransferAmount = DapSatelliteMinTransferAmount;
+	type TransferPeriod = ForwardPeriod;
+	type MinTransferAmount = MinForwardAmount;
 	type BlockNumberProvider = RelaychainDataProvider<Runtime>;
-	type WeightInfo = weights::pallet_dap_satellite::WeightInfo<Runtime>;
+	type WeightInfo = weights::pallet_accumulate_and_forward::WeightInfo<Runtime>;
 }
 
 pub type MetaTxExtension = (
@@ -751,7 +754,7 @@ construct_runtime!(
 		// Monetary stuff.
 		Balances: pallet_balances = 10,
 		TransactionPayment: pallet_transaction_payment = 11,
-		DapSatellite: pallet_dap_satellite = 12,
+		AccumulateForward: pallet_accumulate_and_forward = 12,
 
 		// Collator support. the order of these 5 are important and shall not change.
 		Authorship: pallet_authorship = 20,
@@ -860,10 +863,10 @@ type Migrations = (
 		Runtime,
 		pallet_session::migrations::v1::InitOffenceSeverity<Runtime>,
 	>,
-	// #11705: drain residual relay-treasury XCM payouts into DAP satellite.
+	// #11705: drain residual relay-treasury XCM payouts into accumulation account.
 	// Idempotent. No further activity on the legacy `py/trsry` account is expected.
 	// Safe to remove once confirmed.
-	pallet_dap_satellite::migrations::DrainLegacyTreasuryToDapSatellite<Runtime>,
+	pallet_accumulate_and_forward::migrations::DrainLegacyTreasuryToAccumulationAccount<Runtime>,
 );
 
 /// Executive: handles dispatch to the various modules.
@@ -916,7 +919,7 @@ mod benches {
 		// NOTE: Make sure you point to the individual modules below.
 		[pallet_xcm_benchmarks::fungible, XcmBalances]
 		[pallet_xcm_benchmarks::generic, XcmGeneric]
-		[pallet_dap_satellite, DapSatellite]
+		[pallet_accumulate_and_forward, AccumulateForward]
 	);
 }
 
