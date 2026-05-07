@@ -19,9 +19,20 @@ doc:
 
     * `Advertisement` is the peer-agnostic identifier of an advertised collation (the on-wire
       identity).
-    * `PeerAdvertisement` is `Advertisement` paired with the carrier `peer_id`. It's what
-      flows through accept-time and fetch-time code wherever the carrier matters
-      (rate-limit, reputation arbitration, slashing).
+    * `PeerAdvertisement` is `Advertisement` paired with the carrier `peer_id` and the
+      carrier-asserted `advertised_descriptor_version`. It's what flows through accept-time
+      and fetch-time code wherever the carrier matters (rate-limit, reputation arbitration,
+      slashing).
+
+    `advertised_descriptor_version` lives on `PeerAdvertisement` rather than `Advertisement`
+    on purpose: V1/V2 protocol messages have no descriptor-version field (decoded as `None`),
+    while V3 protocol messages carry it explicitly (`Some(_)`). If the field were part of
+    `Advertisement`'s identity, the same candidate hash advertised by a V2-protocol peer and
+    a V3-protocol peer would hash to two distinct in-flight keys, letting an attacker
+    controlling peers on both protocol versions bypass the dedup and double-fetch the same
+    candidate, wasting a CQ slot. Hoisting the field onto the carrier-attached type keeps
+    the dedup peer-agnostic while preserving the validation that the fetched descriptor
+    version matches what the carrier advertised.
 
     `PendingRequests` is now keyed by `Advertisement`, with the peer we're fetching from
     stored as the value. "Is a fetch already in flight for this advertisement?" is an O(1)
@@ -64,6 +75,8 @@ doc:
       offer, exactly one fetch is launched.
     * `v2_co_carrier_rep_arbitration_picks_high_rep_peer` — when two peers carry the same
       offer with different reputations, the fetch goes to the rep-best peer.
+    * `cross_protocol_version_carriers_fetched_once` — V2-protocol carrier (`None`) and
+      V3-protocol carrier (`Some(_)`) advertising the same candidate dedup to one fetch.
 
     No public API changes; behavior change is contained to the experimental validator side.
 crates:

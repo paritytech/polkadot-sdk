@@ -299,12 +299,9 @@ impl CollationManager {
 		sender: &mut Sender,
 		peer_adv: PeerAdvertisement,
 	) -> std::result::Result<(), AdvertisementError> {
-		let Advertisement {
-			scheduling_parent,
-			para_id,
-			prospective_candidate,
-			advertised_descriptor_version,
-		} = peer_adv.advertisement;
+		let Advertisement { scheduling_parent, para_id, prospective_candidate } =
+			peer_adv.advertisement;
+		let advertised_descriptor_version = peer_adv.advertised_descriptor_version;
 
 		// V1 advertisements are only allowed on active leaves.
 		if prospective_candidate.is_none() && !self.implicit_view.contains_leaf(&scheduling_parent)
@@ -592,9 +589,7 @@ impl CollationManager {
 					Some(fetched_collation.candidate_receipt.descriptor.para_head());
 
 				// Some initial sanity checks on the fetched collation, based on the advertisement.
-				if let Err(err) =
-					fetched_collation.ensure_matches_advertisement(&peer_adv.advertisement)
-				{
+				if let Err(err) = fetched_collation.ensure_matches_advertisement(&peer_adv) {
 					gum::warn!(
 						target: LOG_TARGET,
 						?peer_adv,
@@ -985,9 +980,10 @@ impl FetchedCollation {
 	/// Performs a sanity check between advertised and fetched collations.
 	fn ensure_matches_advertisement(
 		&self,
-		advertised: &Advertisement,
+		peer_adv: &PeerAdvertisement,
 	) -> std::result::Result<(), SecondingError> {
 		let candidate_receipt = &self.candidate_receipt;
+		let advertised = &peer_adv.advertisement;
 
 		match advertised.prospective_candidate {
 			// This implies a check on the declared para if this was a v2 advertisement
@@ -1007,7 +1003,7 @@ impl FetchedCollation {
 		if advertised.scheduling_parent != candidate_receipt.descriptor.scheduling_parent() {
 			return Err(SecondingError::SchedulingParentMismatch);
 		}
-		if let Some(advertised_version) = &advertised.advertised_descriptor_version {
+		if let Some(advertised_version) = &peer_adv.advertised_descriptor_version {
 			let fetched_version = candidate_receipt.descriptor().version();
 			if advertised_version != &fetched_version {
 				return Err(SecondingError::DescriptorVersionMismatch(
@@ -1133,8 +1129,15 @@ impl PerSchedulingParent {
 	/// Every advertisement at this scheduling parent paired with the time it arrived.
 	fn all_advertisements<'a>(&'a self) -> impl Iterator<Item = (PeerAdvertisement, &'a Instant)> {
 		self.peer_advertisements.iter().flat_map(|(peer_id, list)| {
-			list.advertisements.iter().map(move |(advertisement, ts)| {
-				(PeerAdvertisement { advertisement: *advertisement, peer_id: *peer_id }, ts)
+			list.advertisements.iter().map(move |(advertisement, entry)| {
+				(
+					PeerAdvertisement {
+						advertisement: *advertisement,
+						peer_id: *peer_id,
+						advertised_descriptor_version: entry.advertised_descriptor_version,
+					},
+					&entry.timestamp,
+				)
 			})
 		})
 	}
@@ -1167,7 +1170,13 @@ impl PerSchedulingParent {
 			.entry(peer_adv.peer_id)
 			.or_default()
 			.advertisements
-			.insert(peer_adv.advertisement, now);
+			.insert(
+				peer_adv.advertisement,
+				AdvertisementEntry {
+					timestamp: now,
+					advertised_descriptor_version: peer_adv.advertised_descriptor_version,
+				},
+			);
 	}
 
 	fn remove_advertisement(&mut self, peer_adv: &PeerAdvertisement) {
@@ -1181,6 +1190,15 @@ impl PerSchedulingParent {
 	}
 }
 
+/// Stored entry for a kept advertisement: arrival time plus the descriptor version asserted by
+/// the carrier (`None` for V1/V2-protocol carriers, `Some(_)` for V3-protocol carriers). Kept
+/// out of the [`Advertisement`] key on purpose — see [`PeerAdvertisement`].
+#[derive(Copy, Clone)]
+struct AdvertisementEntry {
+	timestamp: Instant,
+	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+}
+
 /// One peer's advertisement state at a single SP.
 ///
 /// `accept_attempts` includes rejected attempts so a peer can't spam past its cap with bad
@@ -1188,7 +1206,7 @@ impl PerSchedulingParent {
 /// `advertisements` but still bumps `accept_attempts`.
 #[derive(Default)]
 struct PeerAdvertisementState {
-	advertisements: HashMap<Advertisement, Instant>,
+	advertisements: HashMap<Advertisement, AdvertisementEntry>,
 	accept_attempts: usize,
 }
 
@@ -1387,9 +1405,9 @@ mod tests {
 				scheduling_parent,
 				para_id,
 				prospective_candidate: None,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		let peer_1 = PeerId::random();
@@ -1502,9 +1520,9 @@ mod tests {
 				scheduling_parent,
 				para_id,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id: peer,
+			advertised_descriptor_version: None,
 		};
 
 		let new_collation_manager_instance = || CollationManager {

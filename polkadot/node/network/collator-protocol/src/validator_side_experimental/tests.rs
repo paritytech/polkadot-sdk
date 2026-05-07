@@ -119,9 +119,9 @@ fn dummy_candidate(
 				para_id,
 				scheduling_parent: relay_parent,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		},
 	)
 }
@@ -151,13 +151,9 @@ fn dummy_candidate_v3(
 	(
 		ccr,
 		PeerAdvertisement {
-			advertisement: Advertisement {
-				para_id,
-				scheduling_parent,
-				prospective_candidate,
-				advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
-			},
+			advertisement: Advertisement { para_id, scheduling_parent, prospective_candidate },
 			peer_id,
+			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 		},
 	)
 }
@@ -660,7 +656,7 @@ impl TestState {
 				adv.peer_id,
 				adv.scheduling_parent(),
 				adv.advertisement.prospective_candidate,
-				adv.advertisement.advertised_descriptor_version
+				adv.advertised_descriptor_version
 			),
 			async move {
 				if adv.advertisement.prospective_candidate.is_some() {
@@ -1974,9 +1970,9 @@ async fn test_advertisement_rejections() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
-			advertised_descriptor_version: None,
 		},
 		peer_id,
+		advertised_descriptor_version: None,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	assert_eq!(state.advertisements(), [adv].into());
@@ -2096,9 +2092,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2129,9 +2125,9 @@ async fn test_collation_fetch_failure() {
 				} else {
 					None
 				},
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, version).await;
@@ -2161,9 +2157,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2200,9 +2196,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2237,9 +2233,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2268,9 +2264,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate: None,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V1).await;
@@ -2310,9 +2306,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2356,9 +2352,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2397,9 +2393,9 @@ async fn test_collation_fetch_failure() {
 				para_id: 100.into(),
 				scheduling_parent: active_leaf,
 				prospective_candidate,
-				advertised_descriptor_version: None,
 			},
 			peer_id,
+			advertised_descriptor_version: None,
 		};
 
 		state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2541,9 +2537,9 @@ async fn v1_descriptor_compatibility() {
 			para_id: 100.into(),
 			scheduling_parent: active_leaf,
 			prospective_candidate,
-			advertised_descriptor_version: None,
 		},
 		peer_id,
+		advertised_descriptor_version: None,
 	};
 
 	state.handle_peer_connected(&mut sender, peer_id, CollationVersion::V2).await;
@@ -2706,9 +2702,9 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 					para_id,
 					scheduling_parent: active_leaf,
 					prospective_candidate,
-					advertised_descriptor_version: None,
 				},
 				peer_id: first_peer,
+				advertised_descriptor_version: None,
 			},
 		)
 	};
@@ -2748,9 +2744,9 @@ async fn test_blocked_from_seconding_by_parent(#[case] valid_parent: bool) {
 					para_id,
 					scheduling_parent: active_leaf,
 					prospective_candidate,
-					advertised_descriptor_version: None,
 				},
 				peer_id: second_peer,
+				advertised_descriptor_version: None,
 			},
 		)
 	};
@@ -2964,9 +2960,9 @@ async fn test_outdated_blocked_collations_are_pruned() {
 			para_id,
 			scheduling_parent: active_leaf,
 			prospective_candidate,
-			advertised_descriptor_version: None,
 		},
 		peer_id: peer,
+		advertised_descriptor_version: None,
 	};
 
 	state.handle_peer_connected(&mut sender, peer, CollationVersion::V2).await;
@@ -3502,9 +3498,9 @@ async fn v3_descriptor_rejected_via_v2_protocol() {
 				candidate_hash: receipt.hash(),
 				parent_head_data_hash: dummy_pvd().parent_head.hash(),
 			}),
-			advertised_descriptor_version: None,
 		},
 		peer_id,
+		advertised_descriptor_version: None,
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3573,9 +3569,9 @@ async fn v3_advertised_but_v2_fetched_descriptor_version_mismatch() {
 				candidate_hash: receipt.hash(),
 				parent_head_data_hash: dummy_pvd().parent_head.hash(),
 			}),
-			advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 		},
 		peer_id,
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V3),
 	};
 
 	test_state.handle_advertisement(&mut state, adv).await;
@@ -3631,9 +3627,9 @@ async fn v3_descriptor_unknown_rejected_when_v3_disabled() {
 				candidate_hash: receipt.hash(),
 				parent_head_data_hash: dummy_pvd().parent_head.hash(),
 			}),
-			advertised_descriptor_version: None,
 		},
 		peer_id,
+		advertised_descriptor_version: None,
 	};
 	test_state.handle_advertisement(&mut state, adv).await;
 	state.try_launch_new_fetch_requests(&mut sender).await;
@@ -3856,9 +3852,9 @@ async fn core_rotation_accepts_candidates_for_both_cores() {
 				candidate_hash: receipt_a2.hash(),
 				parent_head_data_hash: pvd_a2.parent_head.hash(),
 			}),
-			advertised_descriptor_version: None,
 		},
 		peer_id: peer_a,
+		advertised_descriptor_version: None,
 	};
 
 	test_state.handle_advertisement(&mut state, adv_a2).await;
@@ -4451,6 +4447,73 @@ async fn v2_co_carrier_rep_arbitration_picks_high_rep_peer() {
 				},
 				_ => panic!("expected V2 fetch"),
 			}
+		}
+	);
+	test_state.assert_no_messages().await;
+}
+
+// Regression: cross-protocol-version dedup. Two peers, one on V2 protocol and one on V3
+// protocol, advertise the *same* candidate. The V2 carrier delivers the offer with
+// `advertised_descriptor_version = None` (V2 messages have no such field); the V3 carrier
+// delivers it with `Some(V2)`. Both advertisements must hash to the same in-flight key, so
+// only one fetch fires. With the field hashed into `Advertisement`, the keys diverged and
+// an attacker controlling peers on both protocol versions could double-fetch the same
+// candidate, wasting a CQ slot - with no punishment for the collator.
+#[tokio::test]
+async fn cross_protocol_version_carriers_fetched_once() {
+	let mut test_state = TestState::default();
+	let active_leaf = get_hash(10);
+	let core = test_state.rp_info[&active_leaf].assigned_core;
+
+	let peer_v2 = peer_id(0);
+	let peer_v3 = peer_id(1);
+
+	let mut state = make_state(MockDb::default(), &mut test_state, active_leaf).await;
+	let mut sender = test_state.sender.clone();
+
+	state.handle_peer_connected(&mut sender, peer_v2, CollationVersion::V2).await;
+	state.handle_declare(&mut sender, peer_v2, 100.into()).await;
+	state.handle_peer_connected(&mut sender, peer_v3, CollationVersion::V3).await;
+	state.handle_declare(&mut sender, peer_v3, 100.into()).await;
+
+	// Same V2 descriptor candidate, two carriers. `dummy_candidate_v3` sets descriptor V2
+	// (`set_version(1)`); the V3 protocol carrier may legitimately offer a V2 descriptor.
+	let pvd_hash = dummy_pvd().hash();
+	let (_, adv_v3_carrier) =
+		dummy_candidate_v3(active_leaf, active_leaf, 100.into(), peer_v3, core, 1, pvd_hash);
+	let (_, base_v2) =
+		dummy_candidate_v3(active_leaf, active_leaf, 100.into(), peer_v2, core, 1, pvd_hash);
+	// The V2-protocol carrier has the same offer but with `advertised_descriptor_version = None`
+	// because V2 messages cannot carry the field.
+	let adv_v2_carrier = PeerAdvertisement { advertised_descriptor_version: None, ..base_v2 };
+
+	// Re-shape the V3 carrier to assert V2 (downgrade is legal: V3 protocol is permitted to
+	// advertise a V2 descriptor).
+	let adv_v3_carrier = PeerAdvertisement {
+		advertised_descriptor_version: Some(CandidateDescriptorVersion::V2),
+		..adv_v3_carrier
+	};
+
+	assert_eq!(adv_v2_carrier.advertisement, adv_v3_carrier.advertisement);
+	assert_ne!(
+		adv_v2_carrier.advertised_descriptor_version,
+		adv_v3_carrier.advertised_descriptor_version,
+	);
+
+	test_state.handle_advertisement(&mut state, adv_v2_carrier).await;
+	test_state.handle_advertisement(&mut state, adv_v3_carrier).await;
+
+	state.try_launch_new_fetch_requests(&mut sender).await;
+	let msg = test_state.timeout_recv().await;
+	assert_matches::assert_matches!(
+		msg,
+		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(reqs, _)) => {
+			assert_eq!(
+				reqs.len(),
+				1,
+				"cross-protocol-version dedup: expected exactly one fetch, got {}",
+				reqs.len(),
+			);
 		}
 	);
 	test_state.assert_no_messages().await;

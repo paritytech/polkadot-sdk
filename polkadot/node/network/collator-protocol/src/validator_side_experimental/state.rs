@@ -262,9 +262,9 @@ impl<B: Backend> State<B> {
 				para_id: *para_id,
 				scheduling_parent,
 				prospective_candidate: maybe_prospective_candidate,
-				advertised_descriptor_version,
 			},
 			peer_id,
+			advertised_descriptor_version,
 		};
 
 		// We have a result here, but it's not worth affecting reputations because advertisements

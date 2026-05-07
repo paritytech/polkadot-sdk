@@ -209,9 +209,6 @@ pub struct Advertisement {
 	/// Optional candidate hash and parent head-data hash if were
 	/// supplied in advertisement.
 	pub prospective_candidate: Option<ProspectiveCandidate>,
-	/// Advertised candidate descriptor version (for V3 protocol).
-	/// None for V1/V2 protocols.
-	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 impl Advertisement {
@@ -226,12 +223,21 @@ impl Advertisement {
 /// arbitration when picking who to fetch from, and slashing the served-from peer if the
 /// collation turns out invalid. The same [`Advertisement`] may yield several
 /// `PeerAdvertisement`s when multiple peers advertise it.
+///
+/// `advertised_descriptor_version` lives here rather than on [`Advertisement`] because it is a
+/// peer-asserted hint shaped by the protocol version of the carrier: V1/V2 protocol messages do
+/// not carry the field (encoded as `None`), V3 protocol messages do (`Some(version)`). Including
+/// it in [`Advertisement`]'s identity would let an attacker controlling peers on both protocol
+/// versions bypass the in-flight fetch dedup for the same candidate hash.
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, Eq, Hash, PartialEq)]
 pub struct PeerAdvertisement {
 	/// The advertised collation.
 	pub advertisement: Advertisement,
 	/// Peer that delivered this advertisement.
 	pub peer_id: PeerId,
+	/// Advertised candidate descriptor version (for V3 protocol).
+	/// None for V1/V2 protocols.
+	pub advertised_descriptor_version: Option<CandidateDescriptorVersion>,
 }
 
 impl PeerAdvertisement {

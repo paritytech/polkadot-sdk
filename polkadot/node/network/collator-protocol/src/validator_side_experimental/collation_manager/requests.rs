@@ -35,8 +35,15 @@ use polkadot_node_network_protocol::{
 	PeerId,
 };
 use polkadot_node_subsystem_util::metrics::prometheus::prometheus::HistogramTimer;
+use polkadot_primitives::CandidateDescriptorVersion;
 use std::{collections::HashMap, future::Future, pin::Pin};
 use tokio_util::sync::CancellationToken;
+
+struct InFlight {
+	peer_id: PeerId,
+	advertised_descriptor_version: Option<CandidateDescriptorVersion>,
+	cancellation_token: CancellationToken,
+}
 
 /// Tracks the in-flight collation fetches the validator has launched.
 ///
@@ -44,13 +51,13 @@ use tokio_util::sync::CancellationToken;
 /// as the value.
 ///
 /// When parallel fetches land ([issue #11023](https://github.com/paritytech/polkadot-sdk/issues/11023)),
-/// the value widens to `Vec<(PeerId, CancellationToken)>`. `contains()` still answers
+/// the value widens to `Vec<InFlight>`. `contains()` still answers
 /// "any in-flight fetch for this `Advertisement`?", `iter()` still yields per-peer
 /// `PeerAdvertisement`s, so callers don't change.
 #[derive(Default)]
 pub struct PendingRequests {
 	futures: FuturesUnordered<CollationFetchRequest>,
-	cancellation_tokens: HashMap<Advertisement, (PeerId, CancellationToken)>,
+	cancellation_tokens: HashMap<Advertisement, InFlight>,
 }
 
 impl PendingRequests {
@@ -92,8 +99,14 @@ impl PendingRequests {
 			},
 		};
 
-		self.cancellation_tokens
-			.insert(peer_adv.advertisement, (peer_adv.peer_id, cancellation_token.clone()));
+		self.cancellation_tokens.insert(
+			peer_adv.advertisement,
+			InFlight {
+				peer_id: peer_adv.peer_id,
+				advertised_descriptor_version: peer_adv.advertised_descriptor_version,
+				cancellation_token: cancellation_token.clone(),
+			},
+		);
 		self.futures.push(CollationFetchRequest {
 			peer_adv: *peer_adv,
 			from_collator: response_recv,
@@ -106,25 +119,23 @@ impl PendingRequests {
 
 	/// Iterator over the in-flight (`PeerAdvertisement`s)
 	pub fn iter(&self) -> impl Iterator<Item = PeerAdvertisement> + '_ {
-		self.cancellation_tokens
-			.iter()
-			.map(|(advertisement, (peer_id, _))| PeerAdvertisement {
-				advertisement: *advertisement,
-				peer_id: *peer_id,
-			})
+		self.cancellation_tokens.iter().map(|(advertisement, in_flight)| PeerAdvertisement {
+			advertisement: *advertisement,
+			peer_id: in_flight.peer_id,
+			advertised_descriptor_version: in_flight.advertised_descriptor_version,
+		})
 	}
 
 	/// Cancel the in-flight fetch for this `Advertisement`, if any.
 	pub fn cancel(&mut self, advertisement: &Advertisement) {
-		if let Some((peer_id, cancellation_token)) = self.cancellation_tokens.remove(advertisement)
-		{
+		if let Some(in_flight) = self.cancellation_tokens.remove(advertisement) {
 			gum::trace!(
 				target: LOG_TARGET,
 				?advertisement,
-				?peer_id,
+				peer_id = ?in_flight.peer_id,
 				"Cancelling collation fetch request",
 			);
-			cancellation_token.cancel();
+			in_flight.cancellation_token.cancel();
 		}
 	}
 
