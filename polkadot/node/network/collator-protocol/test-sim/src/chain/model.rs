@@ -256,15 +256,59 @@ impl ChainModel {
 }
 
 impl AnswerQuery for ChainModel {
-	fn answer(&mut self, query: Query) {
+	fn try_answer(&mut self, query: Query) -> Option<Query> {
 		match query {
-			Query::Runtime(msg) => self.answer_runtime(msg),
-			Query::ChainApi(msg) => self.answer_chain_api(msg),
-			other => panic!(
-				"ChainModel does not handle non-runtime/chain-api queries; got {:?}",
-				other
-			),
+			Query::Runtime(msg) => {
+				self.answer_runtime(msg);
+				None
+			},
+			Query::ChainApi(msg) => {
+				self.answer_chain_api(msg);
+				None
+			},
+			other => Some(other),
 		}
+	}
+
+	fn answer(&mut self, query: Query) {
+		// Direct-answer surface for unit tests; declines fall through to a panic so test
+		// authors notice when they hand the chain model a query it doesn't own.
+		if let Some(declined) = self.try_answer(query) {
+			panic!(
+				"ChainModel does not handle non-runtime/chain-api queries; declined: {:?}",
+				declined
+			);
+		}
+	}
+}
+
+/// Shared ownership of a [`ChainModel`].
+///
+/// The harness installs this in its responder chain so the model's mutable state stays
+/// accessible to the test (via [`SharedChain::lock`]) while queries the subsystem fires
+/// against the responder are routed back into the same model.
+#[derive(Clone, Debug)]
+pub struct SharedChain(std::sync::Arc<std::sync::Mutex<ChainModel>>);
+
+impl SharedChain {
+	/// Wrap a chain model for shared use.
+	pub fn new(chain: ChainModel) -> Self {
+		Self(std::sync::Arc::new(std::sync::Mutex::new(chain)))
+	}
+
+	/// Lock the inner model. Panics if poisoned.
+	pub fn lock(&self) -> std::sync::MutexGuard<'_, ChainModel> {
+		self.0.lock().expect("ChainModel mutex poisoned")
+	}
+}
+
+impl AnswerQuery for SharedChain {
+	fn try_answer(&mut self, query: Query) -> Option<Query> {
+		self.lock().try_answer(query)
+	}
+
+	fn answer(&mut self, query: Query) {
+		self.lock().answer(query)
 	}
 }
 

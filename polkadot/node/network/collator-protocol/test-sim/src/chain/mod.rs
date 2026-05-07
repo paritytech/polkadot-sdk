@@ -31,4 +31,4 @@
 
 pub mod model;
 
-pub use model::{BlockInfo, ChainModel, SessionInfo};
+pub use model::{BlockInfo, ChainModel, SessionInfo, SharedChain};
