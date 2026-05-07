@@ -1,5 +1,10 @@
 The following crates were updated to the corresponding versions:
 
+<details>
+<summary>Crates list</summary>
+
 - staging-xcm@17.0.1
 - pallet-mmr@41.0.1
 - polkadot-collator-protocol@24.0.3
+
+</details>
