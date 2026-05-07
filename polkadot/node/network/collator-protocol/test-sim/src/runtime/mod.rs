@@ -19,6 +19,8 @@
 //! This module is intentionally subsystem-agnostic. When the framework is generalized to a second
 //! subsystem, this module can be lifted into a shared crate without modification.
 
+pub mod executor;
 pub mod mock_clock;
 
+pub use executor::Executor;
 pub use mock_clock::MockClock;
