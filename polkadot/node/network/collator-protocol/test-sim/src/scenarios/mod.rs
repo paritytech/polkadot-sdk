@@ -29,6 +29,8 @@ mod advertise_then_fetch;
 #[cfg(test)]
 mod bad_signature;
 #[cfg(test)]
+mod fetch_timeout;
+#[cfg(test)]
 pub(crate) mod shared;
 #[cfg(test)]
 mod unneeded_para;
