@@ -45,6 +45,10 @@ mod inactive_collator_eviction;
 #[cfg(test)]
 mod malicious_para;
 #[cfg(test)]
+mod non_obsolete_position_accepted;
+#[cfg(test)]
+mod obsolete_positions_rejected;
+#[cfg(test)]
 mod peer_disconnect_clears_queue;
 #[cfg(test)]
 pub(crate) mod shared;

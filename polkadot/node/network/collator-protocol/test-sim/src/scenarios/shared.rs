@@ -76,8 +76,8 @@ where
 	World { sim: world.sim, leaf: world.leaves[0], chain: world.chain }
 }
 
-/// Multi-leaf variant of [`World`]. `leaves[0]` is the deepest (most-recently-extended)
-/// leaf; `leaves[i]` for `i > 0` are progressively older blocks in the same chain. The same
+/// Multi-leaf variant of [`World`]. `leaves[0]` is the shallowest (genesis's first child);
+/// `leaves[i]` for `i > 0` are progressively deeper blocks in the same chain. The same
 /// claim queue is installed at every leaf.
 pub struct MultiLeafWorld<S: SubsystemUnderTest>
 where
@@ -88,6 +88,23 @@ where
 	/// Leaves in extend order: `leaves[0]` is genesis's first child, `leaves[N-1]` is the
 	/// deepest. All are signalled active and included in OurView.
 	pub leaves: Vec<Hash>,
+	pub chain: SharedChain,
+}
+
+/// World with a single active leaf `L` plus a chain of `n_ancestors` blocks under it.
+/// Returns `(sim, leaf, ancestors, chain)` — `ancestors[0]` is L's parent, `ancestors[N-1]`
+/// is the oldest ancestor in scope. The leaf is signalled active; OurView contains only L.
+/// Implicit-view machinery in the real prospective subsystem resolves the ancestors via
+/// `ChainApi::Ancestors`.
+pub struct WithAncestorsWorld<S: SubsystemUnderTest>
+where
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	pub sim: Sim<S>,
+	pub leaf: Hash,
+	/// Ancestors in walk-back order: `ancestors[0]` is L's parent.
+	pub ancestors: Vec<Hash>,
 	pub chain: SharedChain,
 }
 
@@ -167,5 +184,90 @@ where
 	)));
 
 	MultiLeafWorld { sim, leaves, chain }
+}
+
+/// Build a world with a single active leaf and a chain of ancestors. Same claim queue is
+/// installed at the leaf and every ancestor so advertisements at any of them get the same
+/// schedule.
+pub fn build_with_ancestors_world<S>(
+	n_ancestors: usize,
+	paras: &[(CoreIndex, ParaId)],
+) -> WithAncestorsWorld<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
+
+	let mut chain = ChainModel::new(Slot::from(0));
+	chain.add_session(
+		0,
+		SessionInfo {
+			validators: crate::builders::fixtures::default_validators(),
+			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
+			group_rotation_info: GroupRotationInfo {
+				session_start_block: 0,
+				group_rotation_frequency: 1,
+				now: 0,
+			},
+		},
+	);
+
+	// Build a chain: oldest_ancestor → ... → leaf-parent → leaf.
+	let mut current = chain.genesis();
+	let mut ancestors = Vec::with_capacity(n_ancestors);
+	for _ in 0..n_ancestors {
+		current = chain.extend(current);
+		ancestors.push(current);
+	}
+	let leaf = chain.extend(current);
+	let leaf_number = chain.block(&leaf).unwrap().number;
+
+	// Install the claim queue at every block (leaf + each ancestor) so advertisements at
+	// any in-scope relay parent get a consistent schedule.
+	let mut blocks_to_set: Vec<Hash> = ancestors.clone();
+	blocks_to_set.push(leaf);
+	for hash in &blocks_to_set {
+		let mut q: BTreeMap<CoreIndex, VecDeque<ParaId>> = BTreeMap::new();
+		for (core, para) in paras {
+			q.insert(*core, VecDeque::from_iter(std::iter::repeat(*para).take(3)));
+		}
+		if !paras.is_empty() {
+			chain.set_claim_queue_at(*hash, q);
+		}
+	}
+
+	let chain = SharedChain::new(chain);
+
+	let mut responder = LayeredResponder::new();
+	responder.push(chain.clone());
+	responder.push(PanicResponder);
+
+	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
+	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
+	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
+	sim.register_aux(psp, psp_rx);
+	sim.register_aux(cb, cb_rx);
+
+	let cv = CandidateValidationStub::always_valid(&mut sim);
+	let av = AvailabilityStoreStub::spawn(&mut sim);
+	sim.register_aux_slot_only(cv);
+	sim.register_aux_slot_only(av);
+	sim.register_aux_slot_only(StatementDistributionNoop::new());
+	sim.register_aux_slot_only(ProvisionerNoop::new());
+	sim.register_aux_slot_only(AvailabilityDistributionNoop::new());
+
+	sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+		leaf,
+		leaf_number,
+	))));
+	sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
+		polkadot_node_network_protocol::OurView::new(std::iter::once(leaf), 0),
+	)));
+
+	// Reverse ancestors so ancestors[0] = leaf's parent.
+	ancestors.reverse();
+	WithAncestorsWorld { sim, leaf, ancestors, chain }
 }
 
