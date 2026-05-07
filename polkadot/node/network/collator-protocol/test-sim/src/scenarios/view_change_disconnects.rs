@@ -57,3 +57,35 @@ where
 		"Effect::DisconnectPeers for the declared peer after view becomes empty",
 	);
 }
+
+/// Sanity counterpart: when the view does NOT change, the declared peer stays connected.
+/// Confirms the test setup isn't producing a spurious disconnect.
+#[crate::sim_test]
+fn declared_peer_stays_connected_when_view_unchanged<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	let para = ParaId::from(2000);
+	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
+
+	let peer = Peer::new(para, ProtocolVersion::V1);
+	world.sim.send(peer.connected());
+	world.sim.send(peer.declare());
+
+	// No further view change. Settle and confirm the peer is not disconnected.
+	world.sim.advance(Duration::from_millis(200));
+
+	let disconnected = world.sim.recorder().entries().iter().any(|o| match o {
+		crate::harness::Observation::Effect(s) => matches!(
+			&s.value,
+			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
+		),
+	});
+	assert!(
+		!disconnected,
+		"declared peer must NOT be disconnected when the view does not change\n\n{}",
+		crate::report::format_timeline(world.sim.recorder()),
+	);
+}

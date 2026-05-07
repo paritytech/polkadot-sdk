@@ -106,8 +106,9 @@ impl fmt::Display for TimelineReport<'_> {
 	}
 }
 
-/// Compact human-readable rendering of an [`Effect`] for the timeline.
-fn format_effect(effect: &Effect) -> String {
+/// Compact human-readable rendering of an [`Effect`] for the timeline. Exposed so test
+/// code can pretty-print recorder entries when an assertion fires.
+pub fn format_effect(effect: &Effect) -> String {
 	match effect {
 		Effect::SecondCandidate { para, candidate_hash, .. } =>
 			format!("SecondCandidate(para={}, cand={:?})", u32::from(*para), candidate_hash),
@@ -131,6 +132,33 @@ fn format_effect(effect: &Effect) -> String {
 		Effect::RequestResponseSent { request_id, kind } =>
 			format!("RequestResponseSent(req={}, kind={:?})", request_id, kind),
 	}
+}
+
+/// Pretty-print every entry in the recorder as one line per effect, prefixed with its
+/// `sim_t` in milliseconds. Tests use this when an assertion fails to dump a readable
+/// timeline rather than `Debug` output.
+pub fn format_timeline(recorder: &Recorder) -> String {
+	let mut out = String::new();
+	out.push_str("Effect timeline (relative to first observation):\n");
+	let entries: Vec<&Stamped<Effect>> = recorder
+		.entries()
+		.iter()
+		.map(|o| match o {
+			Observation::Effect(s) => s,
+		})
+		.collect();
+	if entries.is_empty() {
+		out.push_str("  <no effects observed>\n");
+		return out;
+	}
+	for e in entries {
+		out.push_str(&format!(
+			"  [{:>6}ms] {}\n",
+			e.sim_t.as_millis(),
+			format_effect(&e.value),
+		));
+	}
+	out
 }
 
 fn short_peer(p: &sc_network_types::PeerId) -> String {

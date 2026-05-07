@@ -52,3 +52,36 @@ where
 		"Effect::DisconnectPeers for the never-declared peer",
 	);
 }
+
+/// Sanity counterpart: a peer that DOES declare on time stays connected past the
+/// undeclared window (declare resets the lifecycle). Pairs with the no-declare test to
+/// confirm the test setup itself isn't trivially disconnecting peers.
+#[crate::sim_test]
+fn declared_peer_not_disconnected_when_undeclared_window_elapses<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	let para = ParaId::from(2000);
+	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
+
+	let peer = Peer::new(para, ProtocolVersion::V1);
+	world.sim.send(peer.connected());
+	world.sim.send(peer.declare());
+
+	// Past the 1s undeclared window. Peer is already declared, so eviction shouldn't fire.
+	world.sim.advance(Duration::from_millis(1500));
+
+	let disconnected = world.sim.recorder().entries().iter().any(|o| match o {
+		crate::harness::Observation::Effect(s) => matches!(
+			&s.value,
+			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
+		),
+	});
+	assert!(
+		!disconnected,
+		"declared peer must NOT be disconnected on undeclared-window timer\n\n{}",
+		crate::report::format_timeline(world.sim.recorder()),
+	);
+}

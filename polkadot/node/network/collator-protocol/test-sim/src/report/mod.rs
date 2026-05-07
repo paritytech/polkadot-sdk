@@ -23,4 +23,4 @@
 
 pub mod timeline;
 
-pub use timeline::TimelineReport;
+pub use timeline::{format_effect, format_timeline, TimelineReport};

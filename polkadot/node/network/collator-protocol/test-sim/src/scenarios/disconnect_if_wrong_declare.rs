@@ -53,3 +53,36 @@ where
 		"Effect::DisconnectPeers for the wrongly-declared peer",
 	);
 }
+
+/// Sanity counterpart: same setup, but the peer declares for the *scheduled* para. The
+/// validator must NOT disconnect. This pairs with `peer_disconnected_after_declaring_for_wrong_para`
+/// to rule out "the test setup itself triggers a disconnect" as a false positive.
+#[crate::sim_test]
+fn peer_with_correct_declare_is_not_disconnected<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	let scheduled = ParaId::from(2000);
+	let mut world =
+		crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), scheduled)]);
+
+	let peer = Peer::new(scheduled, ProtocolVersion::V1);
+	world.sim.send(peer.connected());
+	world.sim.send(peer.declare());
+
+	world.sim.advance(Duration::from_millis(200));
+
+	let disconnected = world.sim.recorder().entries().iter().any(|o| match o {
+		crate::harness::Observation::Effect(s) => matches!(
+			&s.value,
+			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
+		),
+	});
+	assert!(
+		!disconnected,
+		"peer that correctly declares for a scheduled para must NOT be disconnected\n\n{}",
+		crate::report::format_timeline(world.sim.recorder()),
+	);
+}

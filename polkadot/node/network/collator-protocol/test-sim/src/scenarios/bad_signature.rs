@@ -106,3 +106,66 @@ where
 		other => panic!("predicate matched but variant unexpected: {:?}", other),
 	}
 }
+
+/// Sanity counterpart: a peer with a *valid* signature and a properly scheduled para does
+/// NOT receive a malicious reputation hit. Pairs with the bad-signature test to rule out
+/// "any declare in this test setup triggers Reputation::Malicious" as a false positive.
+#[crate::sim_test]
+fn declare_with_valid_signature_does_not_get_malicious_reputation<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	let mut chain = ChainModel::new(Slot::from(0));
+	chain.add_session(
+		0,
+		SessionInfo {
+			validators: crate::builders::fixtures::default_validators(),
+			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
+			group_rotation_info: GroupRotationInfo {
+				session_start_block: 0,
+				group_rotation_frequency: 1,
+				now: 0,
+			},
+		},
+	);
+	let para = ParaId::from(2000);
+	chain.set_core_schedule(polkadot_primitives::CoreIndex(0), crate::chain::CoreSchedule::always(para));
+	let leaf = chain.extend(chain.genesis());
+	let leaf_number = chain.block(&leaf).unwrap().number;
+
+	let chain = SharedChain::new(chain);
+	let mut responder = LayeredResponder::new();
+	responder.push(chain.clone());
+	responder.push(crate::scenarios::shared::PanicResponder);
+
+	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
+	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
+	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
+	sim.register_aux(psp, psp_rx);
+	sim.register_aux(cb, cb_rx);
+
+	sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+		leaf,
+		leaf_number,
+	))));
+
+	let peer = Peer::new(para, ProtocolVersion::V1);
+	sim.send(peer.connected());
+	sim.send(peer.declare()); // valid signature
+
+	sim.advance(Duration::from_millis(100));
+
+	let malicious_hit = sim.recorder().entries().iter().any(|o| match o {
+		crate::harness::Observation::Effect(s) => matches!(
+			&s.value,
+			Effect::Reputation { peer: p, bucket: RepBucket::Malicious } if *p == peer.peer_id,
+		),
+	});
+	assert!(
+		!malicious_hit,
+		"valid declare must NOT receive Reputation::Malicious\n\n{}",
+		crate::report::format_timeline(sim.recorder()),
+	);
+}
