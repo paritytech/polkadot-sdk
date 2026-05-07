@@ -29,6 +29,8 @@ mod activity_extends_life;
 #[cfg(test)]
 mod advertise_then_fetch;
 #[cfg(test)]
+mod advertisement_spam_protection;
+#[cfg(test)]
 mod bad_signature;
 #[cfg(test)]
 mod disconnect_if_no_declare;
@@ -58,5 +60,7 @@ mod single_fetch_per_relay_parent;
 mod unneeded_para;
 #[cfg(test)]
 mod v1_advertise_on_non_leaf;
+#[cfg(test)]
+mod v1_full_seconding_with_back_notification;
 #[cfg(test)]
 mod view_change_disconnects;

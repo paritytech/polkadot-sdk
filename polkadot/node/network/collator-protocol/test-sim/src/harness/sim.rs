@@ -30,7 +30,7 @@ use crate::{
 		Recorder,
 	},
 	report::TimelineReport,
-	runtime::{Executor, MockClock},
+	runtime::{Executor, LocalPoolSpawner, MockClock},
 };
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_collator_protocol::Clock;
@@ -39,7 +39,6 @@ use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
 };
 use polkadot_overseer::AssociateOutgoing;
-use sp_core::testing::TaskExecutor;
 use std::{
 	sync::Arc,
 	time::{Duration, Instant},
@@ -72,7 +71,7 @@ where
 	/// Construct the subsystem and return its main-loop future, ready to be spawned on the
 	/// pool. The provided `clock` is the deterministic clock the framework drives.
 	fn spawn(
-		ctx: TestSubsystemContext<Self::Message, SpawnGlue<TaskExecutor>>,
+		ctx: TestSubsystemContext<Self::Message, SpawnGlue<LocalPoolSpawner>>,
 		clock: Arc<MockClock>,
 	) -> BoxFuture<'static, ()>;
 
@@ -97,6 +96,9 @@ where
 	executor: Executor,
 	recorder: Recorder,
 	responder: Box<dyn AnswerQuery>,
+	/// Shared spawner used by every subsystem context the harness builds. Aux subsystem
+	/// constructors clone this so their spawned tasks land on the same `LocalPool`.
+	spawner: LocalPoolSpawner,
 	uut: UutSlot<S::Message>,
 	/// Outbound `AllMessages` channels: the UUT's plus one per registered auxiliary
 	/// subsystem. Drained round-robin in registration order on every settle pass.
@@ -126,8 +128,9 @@ where
 		let clock = Arc::new(MockClock::new(cfg.epoch));
 		let mut executor = Executor::new();
 
-		let pool = TaskExecutor::new();
-		let (ctx, handle) = make_subsystem_context::<S::Message, _>(pool);
+		let spawner = LocalPoolSpawner::new();
+		executor.set_spawn_drain(spawner.drain_handle());
+		let (ctx, handle) = make_subsystem_context::<S::Message, _>(spawner.clone());
 
 		let uut = UutSlot { name: "uut", inbound_tx: handle.tx.clone() };
 		let TestSubsystemContextHandle { rx: uut_outbound_rx, .. } = handle;
@@ -142,11 +145,18 @@ where
 			executor,
 			recorder: Recorder::new(),
 			responder: Box::new(responder),
+			spawner,
 			uut,
 			outbound_rxs: vec![uut_outbound_rx],
 			aux: Vec::new(),
 			pending_fetches: PendingFetches::new(),
 		}
+	}
+
+	/// The shared `LocalPoolSpawner` used to build subsystem contexts. Aux constructors
+	/// clone this so their spawned background tasks land on the same `LocalPool`.
+	pub fn spawner(&self) -> LocalPoolSpawner {
+		self.spawner.clone()
 	}
 
 	/// Direct access to the executor, for spawning auxiliary subsystem futures during
@@ -325,6 +335,98 @@ where
 	/// one fetch was fired" before delivering the response.
 	pub fn pending_fetches(&self) -> usize {
 		self.pending_fetches.len()
+	}
+
+	/// Assert that NO effect matching `predicate` is observed within `window`. Panics with
+	/// a [`TimelineReport`] showing the offending effect if one is found.
+	#[track_caller]
+	pub fn expect_no<F>(&mut self, predicate: F, within: Duration, expected_absence: &str)
+	where
+		F: Fn(&Effect) -> bool,
+	{
+		let location = std::panic::Location::caller();
+		let at_str = format!("{}:{}", location.file(), location.line());
+		let start_sim_t = self.now_sim_t();
+
+		// Drain anything pending before checking.
+		self.drain();
+		if let Some(eff) = self.find_match(&predicate) {
+			let report = TimelineReport {
+				expected: format!("absence of: {}", expected_absence),
+				actual: format!("found a matching effect: {}", crate::report::format_effect(&eff)),
+				window_start: start_sim_t,
+				window: within,
+				recorder: &self.recorder,
+				replay_seed: None,
+				at: Some(&at_str),
+				hint: None,
+			};
+			panic!("expect_no failed:\n{}", report);
+		}
+
+		// Advance through the window; bail at first match found.
+		loop {
+			let elapsed = self.now_sim_t().saturating_sub(start_sim_t);
+			if elapsed >= within {
+				return;
+			}
+			let remaining = within - elapsed;
+			match self.clock.advance_to_next_wakeup() {
+				Some(d) if d <= remaining => {
+					let _ = d;
+				},
+				Some(_) | None => {
+					self.clock.advance(remaining);
+				},
+			}
+			self.executor.poll_until_pending();
+			self.drain();
+			if let Some(eff) = self.find_match(&predicate) {
+				let report = TimelineReport {
+					expected: format!("absence of: {}", expected_absence),
+					actual: format!(
+						"found a matching effect at sim_t = {}ms: {}",
+						self.now_sim_t().as_millis(),
+						crate::report::format_effect(&eff),
+					),
+					window_start: start_sim_t,
+					window: within,
+					recorder: &self.recorder,
+					replay_seed: None,
+					at: Some(&at_str),
+					hint: None,
+				};
+				panic!("expect_no failed:\n{}", report);
+			}
+		}
+	}
+
+	/// Count the number of recorded effects matching `predicate`. Useful for "exactly N
+	/// fetches in flight" assertions.
+	pub fn count_effects<F: Fn(&Effect) -> bool>(&self, predicate: F) -> usize {
+		self.recorder.entries().iter().filter(|o| match o {
+			crate::harness::observation::Observation::Effect(s) => predicate(&s.value),
+		}).count()
+	}
+
+	/// Convenience: assert exactly `expected` effects matching `predicate` are recorded
+	/// right now. Panics with timeline on mismatch.
+	#[track_caller]
+	pub fn expect_count<F: Fn(&Effect) -> bool>(
+		&self,
+		predicate: F,
+		expected: usize,
+		description: &str,
+	) {
+		let actual = self.count_effects(predicate);
+		assert_eq!(
+			actual, expected,
+			"expected exactly {} {} (got {}):\n\n{}",
+			expected,
+			description,
+			actual,
+			crate::report::format_timeline(&self.recorder),
+		);
 	}
 
 	/// Conclude every spawned subsystem, drain remaining work, return all recorded

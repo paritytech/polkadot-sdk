@@ -70,18 +70,12 @@ where
 	world.sim.send(peer.connected());
 	world.sim.send(peer.declare());
 
-	// Past the 1s undeclared window. Peer is already declared, so eviction shouldn't fire.
-	world.sim.advance(Duration::from_millis(1500));
-
-	let disconnected = world.sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
+	world.sim.expect_no(
+		|e| matches!(
+			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
 		),
-	});
-	assert!(
-		!disconnected,
-		"declared peer must NOT be disconnected on undeclared-window timer\n\n{}",
-		crate::report::format_timeline(world.sim.recorder()),
+		Duration::from_millis(1500),
+		"DisconnectPeers for the declared peer past the undeclared window",
 	);
 }

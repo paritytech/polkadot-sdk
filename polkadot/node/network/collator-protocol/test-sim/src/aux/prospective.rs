@@ -47,7 +47,6 @@ use polkadot_node_subsystem::{
 	FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
-use sp_core::testing::TaskExecutor;
 
 /// Auxiliary slot for the real `prospective-parachains` subsystem.
 pub struct ProspectiveParachainsAux {
@@ -66,9 +65,8 @@ impl ProspectiveParachainsAux {
 		AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 		AllMessages: From<S::Message>,
 	{
-		let pool = TaskExecutor::new();
 		let (ctx, handle) =
-			make_subsystem_context::<ProspectiveParachainsMessage, _>(pool);
+			make_subsystem_context::<ProspectiveParachainsMessage, _>(sim.spawner());
 
 		let subsystem = ProspectiveParachainsSubsystem::new(Default::default());
 		let spawned = subsystem.start(ctx);

@@ -18,7 +18,10 @@
 //! `ProtocolSide::ValidatorExperimental` variant of
 //! [`polkadot_collator_protocol::CollatorProtocolSubsystem`].
 
-use crate::{harness::sim::SubsystemUnderTest, runtime::MockClock};
+use crate::{
+	harness::sim::SubsystemUnderTest,
+	runtime::{LocalPoolSpawner, MockClock},
+};
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide, ReputationConfig};
 use polkadot_node_subsystem::{
@@ -28,7 +31,6 @@ use polkadot_node_subsystem::{
 };
 use polkadot_node_subsystem_test_helpers::TestSubsystemContext;
 use polkadot_node_subsystem_util::database::{kvdb_impl::DbAdapter, Database};
-use sp_core::testing::TaskExecutor;
 use sp_keystore::Keystore;
 use std::sync::Arc;
 
@@ -39,7 +41,7 @@ impl SubsystemUnderTest for ExperimentalValidator {
 	type Message = CollatorProtocolMessage;
 
 	fn spawn(
-		ctx: TestSubsystemContext<Self::Message, SpawnGlue<TaskExecutor>>,
+		ctx: TestSubsystemContext<Self::Message, SpawnGlue<LocalPoolSpawner>>,
 		clock: Arc<MockClock>,
 	) -> BoxFuture<'static, ()> {
 		let keystore: sp_keystore::KeystorePtr = Arc::new(sc_keystore::LocalKeystore::in_memory());

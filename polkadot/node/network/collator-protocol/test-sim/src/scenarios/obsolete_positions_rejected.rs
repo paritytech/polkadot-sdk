@@ -70,16 +70,12 @@ where
 	let parent_head_hash = HeadData(Vec::new()).hash();
 	world.sim.send(peer.advertise(r, Some(candidate.hash()), Some(parent_head_hash)));
 
-	// No fetch should fire for this candidate.
-	world.sim.advance(Duration::from_millis(200));
-	let fetched = world.sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => match &s.value {
-			Effect::SendRequest { candidate_hash: Some(c), .. } => *c == candidate.hash(),
-			_ => false,
-		},
-	});
-	assert!(
-		!fetched,
-		"validator must not fetch a candidate whose para is outside the ancestor's valid claim-queue window",
+	world.sim.expect_no(
+		|e| matches!(
+			e,
+			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == candidate.hash(),
+		),
+		Duration::from_millis(200),
+		"SendRequest for a candidate whose para is outside the ancestor's valid claim queue window",
 	);
 }

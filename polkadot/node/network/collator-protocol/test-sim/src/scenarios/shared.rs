@@ -193,11 +193,20 @@ pub struct ChainConfig {
 	/// Per-block claim-queue overrides. The hash referenced here may be either the leaf
 	/// hash returned by the helper or any of its ancestors.
 	pub claim_queue_overrides: Vec<(LeafSelector, BTreeMap<CoreIndex, VecDeque<ParaId>>)>,
+	/// If `Some(verdict)`, replace real `candidate-backing` with a `CanSecond`-only stub
+	/// that always answers with `verdict`. Drops every other CandidateBacking message.
+	/// Use when a scenario specifically needs a `CanSecond=false` (or `=true`) verdict
+	/// that real backing wouldn't produce in our minimal chain shape.
+	pub can_second_stub: Option<bool>,
 }
 
 impl Default for ChainConfig {
 	fn default() -> Self {
-		Self { schedule: Vec::new(), claim_queue_overrides: Vec::new() }
+		Self {
+			schedule: Vec::new(),
+			claim_queue_overrides: Vec::new(),
+			can_second_stub: None,
+		}
 	}
 }
 
@@ -215,6 +224,12 @@ impl ChainConfig {
 		queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) -> Self {
 		self.claim_queue_overrides.push((at, queue));
+		self
+	}
+
+	/// Replace real `candidate-backing` with a `CanSecond`-only stub.
+	pub fn with_can_second_stub(mut self, verdict: bool) -> Self {
+		self.can_second_stub = Some(verdict);
 		self
 	}
 }
@@ -313,9 +328,16 @@ where
 
 	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
 	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
-	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
 	sim.register_aux(psp, psp_rx);
-	sim.register_aux(cb, cb_rx);
+
+	// Either install a CanSecond stub (registered FIRST so it wins the slot order against
+	// any later backing aux) or spawn real candidate-backing.
+	if let Some(verdict) = config.can_second_stub {
+		sim.register_aux_slot_only(crate::aux::CanSecondStub::new(verdict));
+	} else {
+		let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
+		sim.register_aux(cb, cb_rx);
+	}
 
 	let cv = CandidateValidationStub::always_valid(&mut sim);
 	let av = AvailabilityStoreStub::spawn(&mut sim);

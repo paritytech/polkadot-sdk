@@ -61,17 +61,15 @@ where
 	world.sim.advance(step);
 	world.sim.send(peer.advertise(world.leaves[2], None, None));
 
-	// At this point ~48s have elapsed but the peer has been continuously advertising,
-	// so it should still be connected. (No DisconnectPeers effect targeting the peer.)
-	let prematurely_disconnected = world.sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
+	// At this point ~48s have elapsed but the peer has been continuously advertising —
+	// no DisconnectPeers effect targeting the peer should be observed yet.
+	world.sim.expect_count(
+		|e| matches!(
+			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
 		),
-	});
-	assert!(
-		!prematurely_disconnected,
-		"validator must NOT disconnect a peer that is actively advertising",
+		0,
+		"DisconnectPeers targeting the actively-advertising peer (must be zero so far)",
 	);
 
 	// Stop advertising. Advance well past the inactive_collator window.

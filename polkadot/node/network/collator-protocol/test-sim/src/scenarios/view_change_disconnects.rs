@@ -74,18 +74,12 @@ where
 	world.sim.send(peer.connected());
 	world.sim.send(peer.declare());
 
-	// No further view change. Settle and confirm the peer is not disconnected.
-	world.sim.advance(Duration::from_millis(200));
-
-	let disconnected = world.sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
+	world.sim.expect_no(
+		|e| matches!(
+			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
 		),
-	});
-	assert!(
-		!disconnected,
-		"declared peer must NOT be disconnected when the view does not change\n\n{}",
-		crate::report::format_timeline(world.sim.recorder()),
+		Duration::from_millis(200),
+		"DisconnectPeers when the view does not change",
 	);
 }

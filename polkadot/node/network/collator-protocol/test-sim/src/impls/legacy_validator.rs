@@ -17,7 +17,10 @@
 //! Legacy validator-side adapter: drives the production `ProtocolSide::Validator` variant of
 //! [`polkadot_collator_protocol::CollatorProtocolSubsystem`].
 
-use crate::{harness::sim::SubsystemUnderTest, runtime::MockClock};
+use crate::{
+	harness::sim::SubsystemUnderTest,
+	runtime::{LocalPoolSpawner, MockClock},
+};
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
 use polkadot_node_subsystem::{
@@ -26,7 +29,6 @@ use polkadot_node_subsystem::{
 	SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::TestSubsystemContext;
-use sp_core::testing::TaskExecutor;
 use sp_keystore::Keystore;
 use std::{collections::HashSet, sync::Arc};
 
@@ -37,7 +39,7 @@ impl SubsystemUnderTest for LegacyValidator {
 	type Message = CollatorProtocolMessage;
 
 	fn spawn(
-		ctx: TestSubsystemContext<Self::Message, SpawnGlue<TaskExecutor>>,
+		ctx: TestSubsystemContext<Self::Message, SpawnGlue<LocalPoolSpawner>>,
 		clock: Arc<MockClock>,
 	) -> BoxFuture<'static, ()> {
 		let keystore: sp_keystore::KeystorePtr = Arc::new(sc_keystore::LocalKeystore::in_memory());

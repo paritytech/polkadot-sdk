@@ -50,7 +50,6 @@ use polkadot_node_subsystem::{
 	FromOrchestra, OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::make_subsystem_context;
-use sp_core::testing::TaskExecutor;
 use sp_keystore::{Keystore, KeystorePtr};
 use std::sync::Arc;
 
@@ -95,8 +94,8 @@ impl CandidateBackingAux {
 		AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 		AllMessages: From<S::Message>,
 	{
-		let pool = TaskExecutor::new();
-		let (ctx, handle) = make_subsystem_context::<CandidateBackingMessage, _>(pool);
+		let (ctx, handle) =
+			make_subsystem_context::<CandidateBackingMessage, _>(sim.spawner());
 
 		let subsystem = CandidateBackingSubsystem::new(keystore, Default::default());
 		let spawned = subsystem.start(ctx);

@@ -101,16 +101,9 @@ where
 		"Effect::SecondCandidate after peer_a's fetch",
 	);
 
-	// Settle. No fetch should target peer_b.
-	world.sim.advance(Duration::from_millis(100));
-	let unwanted = world.sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
-			Effect::SendRequest { to, .. } if *to == peer_b.peer_id
-		),
-	});
-	assert!(
-		!unwanted,
-		"validator must not fetch peer_b after peer_b disconnected its advertisement",
+	world.sim.expect_no(
+		|e| matches!(e, Effect::SendRequest { to, .. } if *to == peer_b.peer_id),
+		Duration::from_millis(100),
+		"SendRequest targeting peer_b after peer_b disconnected its advertisement",
 	);
 }

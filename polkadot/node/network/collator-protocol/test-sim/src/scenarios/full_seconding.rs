@@ -102,4 +102,20 @@ where
 		Duration::from_millis(500),
 		"Effect::SecondCandidate for the fetched candidate",
 	);
+
+	// Sanity counterpart for project_collator_experimental_no_invalid_reputation_event:
+	// a *valid* candidate must NOT produce a Reputation::Malicious effect for the peer
+	// that delivered it. Confirms legacy's emission of Malicious on Invalid is the
+	// divergence — not a generic "always emit malicious on every fetch outcome" bug.
+	world.sim.expect_no(
+		|e| matches!(
+			e,
+			Effect::Reputation {
+				peer: p,
+				bucket: crate::contract::RepBucket::Malicious,
+			} if *p == peer.peer_id,
+		),
+		Duration::from_millis(50),
+		"Reputation::Malicious for a peer that delivered a valid candidate",
+	);
 }

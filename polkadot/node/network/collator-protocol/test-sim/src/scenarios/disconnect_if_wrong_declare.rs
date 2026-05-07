@@ -72,17 +72,12 @@ where
 	world.sim.send(peer.connected());
 	world.sim.send(peer.declare());
 
-	world.sim.advance(Duration::from_millis(200));
-
-	let disconnected = world.sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
+	world.sim.expect_no(
+		|e| matches!(
+			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
 		),
-	});
-	assert!(
-		!disconnected,
-		"peer that correctly declares for a scheduled para must NOT be disconnected\n\n{}",
-		crate::report::format_timeline(world.sim.recorder()),
+		Duration::from_millis(200),
+		"DisconnectPeers for the correctly-declared peer",
 	);
 }

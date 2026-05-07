@@ -27,6 +27,7 @@
 //! - [`Executor::run_until`] — block until a single future completes, draining auxiliary tasks
 //!   as needed.
 
+use crate::runtime::local_spawner::LocalPoolSpawnDrain;
 use futures::{
 	executor::{LocalPool, LocalSpawner},
 	future::Future,
@@ -37,6 +38,9 @@ use futures::{
 /// [`Self::poll_until_pending`] / [`Self::run_until`].
 pub struct Executor {
 	pool: LocalPool,
+	/// Drain handle for the `LocalPoolSpawner` — futures spawned via `Spawner::spawn`
+	/// land in a queue, and we pull them onto the LocalPool between settle passes.
+	spawn_drain: Option<LocalPoolSpawnDrain>,
 }
 
 impl Default for Executor {
@@ -46,9 +50,18 @@ impl Default for Executor {
 }
 
 impl Executor {
-	/// Create a fresh executor.
+	/// Create a fresh executor without a `LocalPoolSpawner` drain. Background tasks the
+	/// harness spawns via `ctx.spawn(...)` will not be driven on this `LocalPool` —
+	/// suitable only for tests that don't trigger such spawns.
 	pub fn new() -> Self {
-		Self { pool: LocalPool::new() }
+		Self { pool: LocalPool::new(), spawn_drain: None }
+	}
+
+	/// Attach a [`LocalPoolSpawnDrain`] so futures spawned via the matching
+	/// [`crate::runtime::local_spawner::LocalPoolSpawner`] are pulled onto this `LocalPool`
+	/// inside `poll_until_pending`.
+	pub fn set_spawn_drain(&mut self, drain: LocalPoolSpawnDrain) {
+		self.spawn_drain = Some(drain);
 	}
 
 	/// Spawn a `!Send` future on the pool. Useful when the future captures non-`Send` test
@@ -78,8 +91,33 @@ impl Executor {
 	/// Poll every spawned task until none can make further progress. Returns when every task
 	/// is `Pending`. Combined with a `MockClock`, this is the standard "settle" primitive: feed
 	/// a stimulus, settle, observe.
+	///
+	/// Before each pass, drains any queued spawns from the `LocalPoolSpawner` (if attached) so
+	/// subsystem-spawned background tasks land on this `LocalPool`. Drains-then-polls
+	/// repeatedly until both the queue is empty and the pool is stalled.
 	pub fn poll_until_pending(&mut self) {
-		self.pool.run_until_stalled();
+		loop {
+			let pulled = self.pull_pending_spawns();
+			self.pool.run_until_stalled();
+			if !pulled {
+				break;
+			}
+		}
+	}
+
+	fn pull_pending_spawns(&mut self) -> bool {
+		let Some(drain) = self.spawn_drain.as_ref() else { return false };
+		let pending = drain.drain();
+		if pending.is_empty() {
+			return false;
+		}
+		for fut in pending {
+			self.pool
+				.spawner()
+				.spawn(fut)
+				.expect("LocalPool spawner accepts spawns; qed");
+		}
+		true
 	}
 
 	/// Run the pool until `fut` completes. Auxiliary spawned tasks are polled as part of the

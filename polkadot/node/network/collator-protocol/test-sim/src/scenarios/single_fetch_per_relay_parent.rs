@@ -79,23 +79,12 @@ where
 	);
 	let request_id = first.request_id().expect("SendRequest carries a RequestId");
 
-	// Drop unused; the assertion below verifies the in-flight count.
 	let _ = request_id;
 	let _ = candidate;
 
-	let send_request_count_in_flight = world
-		.sim
-		.recorder()
-		.entries()
-		.iter()
-		.filter(|o| match o {
-			crate::harness::Observation::Effect(s) =>
-				matches!(s.value, Effect::SendRequest { .. }),
-		})
-		.count();
-	assert_eq!(
-		send_request_count_in_flight, 1,
-		"validator must not fire a second fetch while the first is in flight\n\n{}",
-		crate::report::format_timeline(world.sim.recorder()),
+	world.sim.expect_count(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		1,
+		"SendRequest while one fetch is in flight (no second concurrent fetch allowed)",
 	);
 }

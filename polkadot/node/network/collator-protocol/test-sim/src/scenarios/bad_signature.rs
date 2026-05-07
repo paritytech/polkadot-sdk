@@ -155,17 +155,12 @@ where
 	sim.send(peer.connected());
 	sim.send(peer.declare()); // valid signature
 
-	sim.advance(Duration::from_millis(100));
-
-	let malicious_hit = sim.recorder().entries().iter().any(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
+	sim.expect_no(
+		|e| matches!(
+			e,
 			Effect::Reputation { peer: p, bucket: RepBucket::Malicious } if *p == peer.peer_id,
 		),
-	});
-	assert!(
-		!malicious_hit,
-		"valid declare must NOT receive Reputation::Malicious\n\n{}",
-		crate::report::format_timeline(sim.recorder()),
+		Duration::from_millis(100),
+		"Reputation::Malicious for a peer with a valid signature",
 	);
 }
