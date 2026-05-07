@@ -1,0 +1,21 @@
+[package]
+name = "polkadot-collator-protocol-test-sim"
+version = "0.1.0"
+description = "Deterministic simulator-based test framework for the Polkadot collator-protocol subsystem."
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+futures = { workspace = true }
+
+polkadot-collator-protocol = { workspace = true, default-features = true }
+
+[dev-dependencies]
+tokio = { features = ["macros", "rt"], workspace = true, default-features = true }

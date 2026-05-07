@@ -16175,6 +16175,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-collator-protocol-test-sim"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "polkadot-collator-protocol",
+ "tokio",
+]
+
+[[package]]
 name = "polkadot-core-primitives"
 version = "7.0.0"
 dependencies = [
