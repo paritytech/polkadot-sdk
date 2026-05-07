@@ -149,7 +149,10 @@ where
 	}
 
 	/// Wait for an effect matching `predicate` to appear in the recorder, advancing the clock as
-	/// needed up to `within`. Panics with a [`TimelineReport`] on timeout.
+	/// needed up to `within`. The whole observation log is searched, not just effects produced
+	/// after the call — this lets a scenario assert against an effect that was already emitted
+	/// by the stimulus immediately before `expect()`. Panics with a [`TimelineReport`] on
+	/// timeout.
 	#[track_caller]
 	pub fn expect<F>(&mut self, predicate: F, within: Duration, expected: &str) -> Effect
 	where
@@ -158,11 +161,10 @@ where
 		let location = std::panic::Location::caller();
 		let at_str = format!("{}:{}", location.file(), location.line());
 		let start_sim_t = self.now_sim_t();
-		let initial_search_from = self.recorder.entries().len();
 
 		// Drain anything currently sitting in the channel before searching.
 		self.drain();
-		if let Some(eff) = self.find_from(initial_search_from, &predicate) {
+		if let Some(eff) = self.find_match(&predicate) {
 			return eff;
 		}
 
@@ -192,7 +194,7 @@ where
 					self.clock.advance(remaining);
 					self.executor.poll_until_pending();
 					self.drain();
-					if let Some(eff) = self.find_from(initial_search_from, &predicate) {
+					if let Some(eff) = self.find_match(&predicate) {
 						return eff;
 					}
 					continue; // loop will time out next iteration.
@@ -202,7 +204,7 @@ where
 			let _ = advanced;
 			self.executor.poll_until_pending();
 			self.drain();
-			if let Some(eff) = self.find_from(initial_search_from, &predicate) {
+			if let Some(eff) = self.find_match(&predicate) {
 				return eff;
 			}
 		}
@@ -224,19 +226,15 @@ where
 		Duration::from_millis(self.clock.wall_clock_ms() as u64)
 	}
 
-	fn find_from<F: Fn(&Effect) -> bool>(&self, from: usize, predicate: &F) -> Option<Effect> {
-		self.recorder
-			.entries()
-			.iter()
-			.skip(from)
-			.find_map(|o| match o {
-				crate::harness::observation::Observation::Effect(s) =>
-					if predicate(&s.value) {
-						Some(s.value.clone())
-					} else {
-						None
-					},
-			})
+	fn find_match<F: Fn(&Effect) -> bool>(&self, predicate: &F) -> Option<Effect> {
+		self.recorder.entries().iter().find_map(|o| match o {
+			crate::harness::observation::Observation::Effect(s) =>
+				if predicate(&s.value) {
+					Some(s.value.clone())
+				} else {
+					None
+				},
+		})
 	}
 
 	fn drain(&mut self) {

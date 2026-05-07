@@ -51,6 +51,7 @@ pub mod impls;
 pub mod report;
 pub mod responder;
 pub mod runtime;
+pub mod scenarios;
 
 /// Attribute macro for declaring deterministic-simulator tests. Today expands to `#[test]`;
 /// the seam is in place for cross-impl fan-out in later phases.
