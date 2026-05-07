@@ -55,6 +55,8 @@ pub(crate) mod shared;
 #[cfg(test)]
 mod single_fetch_per_relay_parent;
 #[cfg(test)]
-mod view_change_disconnects;
-#[cfg(test)]
 mod unneeded_para;
+#[cfg(test)]
+mod v1_advertise_on_non_leaf;
+#[cfg(test)]
+mod view_change_disconnects;

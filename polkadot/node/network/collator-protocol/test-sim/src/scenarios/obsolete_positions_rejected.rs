@@ -20,24 +20,22 @@
 //!
 //! Mirrors `validator_side/tests/prospective_parachains.rs::obsolete_positions_rejected`.
 //!
-//! EXPECTED-FAILURE NOTE (legacy): the legacy validator fires a fetch despite para A being
-//! at the obsolete position. Either the offset/valid-len arithmetic in our test setup
-//! diverges from upstream's `with_one_scheduled_para` shape, or upstream's
-//! `obsolete_positions_rejected` is racy and happens to win there. Investigate before
-//! relying on this scenario as a contract.
-//!
-//! EXPECTED-PASS (experimental): experimental rejects the ancestor-RP advertisement (same
-//! root cause as project_collator_experimental_no_ancestor_rp_advertise.md), so it
-//! happens to pass this test for the wrong reason.
+//! Note: experimental rejects ancestor-RP advertisements for an unrelated reason —
+//! project_collator_experimental_no_ancestor_rp_advertise.md. Experimental "passing"
+//! this test is incidental, not the same contract being checked. A proper experimental
+//! variant would advertise at the leaf with a deliberately obsolete claim queue position;
+//! deferred until experimental's allowed-ancestry semantics are clarified.
 
 use crate::{
 	builders::{Candidate, Peer, ProtocolVersion},
+	chain::CoreSchedule,
 	contract::Effect,
 	harness::SubsystemUnderTest,
+	scenarios::shared::{ChainConfig, LeafSelector},
 };
 use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
-use std::{collections::VecDeque, time::Duration};
+use std::{collections::{BTreeMap, VecDeque}, time::Duration};
 
 #[crate::sim_test]
 fn ancestor_with_para_at_obsolete_position_rejects<S>()
@@ -49,25 +47,17 @@ where
 	let para_a = ParaId::from(2000);
 	let para_b = ParaId::from(999);
 
-	// Provision the world with a *placeholder* schedule so the validator initializes its
-	// per-leaf machinery (otherwise the peer's declare hits "unneeded para" before we get
-	// the chance to override the queues).
-	let world = crate::scenarios::shared::build_with_ancestors_world::<S>(
-		1,
-		&[(CoreIndex(0), para_a)],
-	);
-	let mut world = world;
-
-	// Override the queues at both R and L to [B, B, A] (para A at position 2 only).
-	{
-		let mut chain = world.chain.lock();
-		let queue = vec![para_b, para_b, para_a];
-		for hash in [world.leaf, world.ancestors[0]] {
-			let mut q = std::collections::BTreeMap::new();
-			q.insert(CoreIndex(0), VecDeque::from(queue.clone()));
-			chain.set_claim_queue_at(hash, q);
-		}
-	}
+	// Pre-activation config: schedule = always(B), override L's queue to [B, B, A].
+	// Para A only appears at position 2 of L's queue. Legacy validator's offset
+	// arithmetic at R = leaf_parent: valid_len = scheduling_lookahead(3) - offset(1) = 2;
+	// para A at position 2 is outside the valid window → advertisement rejected.
+	let mut leaf_q = BTreeMap::new();
+	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![para_b, para_b, para_a]));
+	let config = ChainConfig::default()
+		.with_schedule(CoreIndex(0), CoreSchedule::always(para_b))
+		.with_claim_queue_at(LeafSelector::Leaf, leaf_q);
+	let mut world =
+		crate::scenarios::shared::build_with_ancestors_world_with_config::<S>(1, config);
 
 	let r = world.ancestors[0];
 

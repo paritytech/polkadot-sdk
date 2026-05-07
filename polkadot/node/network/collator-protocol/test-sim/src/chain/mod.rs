@@ -31,4 +31,4 @@
 
 pub mod model;
 
-pub use model::{BlockInfo, ChainModel, SessionInfo, SharedChain};
+pub use model::{BlockInfo, ChainModel, CoreSchedule, SessionInfo, SharedChain};

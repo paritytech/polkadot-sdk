@@ -22,7 +22,7 @@ use crate::{
 		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
 		StatementDistributionNoop,
 	},
-	chain::{ChainModel, SessionInfo, SharedChain},
+	chain::{ChainModel, CoreSchedule, SessionInfo, SharedChain},
 	contract::Query,
 	harness::{AnswerQuery, LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
 };
@@ -134,22 +134,19 @@ where
 			},
 		},
 	);
+	// Install per-core schedule: each (core, para) pair becomes a static "always this para
+	// on this core" rotation. Tests that need rotating cycles should call
+	// `chain.set_core_schedule(core, CoreSchedule::cycling(...))` directly afterwards.
+	for (core, para) in paras {
+		chain.set_core_schedule(*core, CoreSchedule::always(*para));
+	}
+
 	let mut leaves = Vec::with_capacity(n_leaves);
 	let mut parent = chain.genesis();
 	for _ in 0..n_leaves {
 		let leaf = chain.extend(parent);
 		leaves.push(leaf);
 		parent = leaf;
-	}
-
-	for leaf in &leaves {
-		let mut queue: BTreeMap<CoreIndex, VecDeque<ParaId>> = BTreeMap::new();
-		for (core, para) in paras {
-			queue.insert(*core, VecDeque::from_iter(std::iter::repeat(*para).take(3)));
-		}
-		if !paras.is_empty() {
-			chain.set_claim_queue_at(*leaf, queue);
-		}
 	}
 
 	let leaf_numbers: Vec<u32> =
@@ -186,12 +183,76 @@ where
 	MultiLeafWorld { sim, leaves, chain }
 }
 
+/// Pre-activation chain configuration. Tests construct this, hand it to
+/// [`build_with_ancestors_world_with_config`] (or its sibling), and the helper applies all
+/// settings *before* signalling `ActiveLeaves` / `OurViewChange` — so the subsystems'
+/// caches see the configured shape, not a default-then-overridden one.
+pub struct ChainConfig {
+	/// Per-core schedule. Each entry installs a [`CoreSchedule`] for that core.
+	pub schedule: Vec<(CoreIndex, CoreSchedule)>,
+	/// Per-block claim-queue overrides. The hash referenced here may be either the leaf
+	/// hash returned by the helper or any of its ancestors.
+	pub claim_queue_overrides: Vec<(LeafSelector, BTreeMap<CoreIndex, VecDeque<ParaId>>)>,
+}
+
+impl Default for ChainConfig {
+	fn default() -> Self {
+		Self { schedule: Vec::new(), claim_queue_overrides: Vec::new() }
+	}
+}
+
+impl ChainConfig {
+	/// Add a per-core schedule.
+	pub fn with_schedule(mut self, core: CoreIndex, schedule: CoreSchedule) -> Self {
+		self.schedule.push((core, schedule));
+		self
+	}
+
+	/// Override the claim queue at a relative-position selector.
+	pub fn with_claim_queue_at(
+		mut self,
+		at: LeafSelector,
+		queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
+	) -> Self {
+		self.claim_queue_overrides.push((at, queue));
+		self
+	}
+}
+
+/// Identifies a block in the configured chain by its position.
+#[derive(Clone, Copy, Debug)]
+pub enum LeafSelector {
+	/// The active leaf.
+	Leaf,
+	/// `Ancestor(n)`: the n-th ancestor of the leaf. `Ancestor(0)` is the leaf's direct parent.
+	Ancestor(usize),
+}
+
 /// Build a world with a single active leaf and a chain of ancestors. Same claim queue is
 /// installed at the leaf and every ancestor so advertisements at any of them get the same
 /// schedule.
 pub fn build_with_ancestors_world<S>(
 	n_ancestors: usize,
 	paras: &[(CoreIndex, ParaId)],
+) -> WithAncestorsWorld<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	let mut config = ChainConfig::default();
+	for (core, para) in paras {
+		config = config.with_schedule(*core, CoreSchedule::always(*para));
+	}
+	build_with_ancestors_world_with_config::<S>(n_ancestors, config)
+}
+
+/// Variant of [`build_with_ancestors_world`] that takes a [`ChainConfig`]. All schedule
+/// installs and claim-queue overrides are applied **before** the helper signals
+/// `ActiveLeaves` / `OurViewChange` so the subsystems' caches see the configured shape.
+pub fn build_with_ancestors_world_with_config<S>(
+	n_ancestors: usize,
+	config: ChainConfig,
 ) -> WithAncestorsWorld<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
@@ -214,28 +275,34 @@ where
 		},
 	);
 
+	// Apply schedule from config.
+	for (core, schedule) in config.schedule {
+		chain.set_core_schedule(core, schedule);
+	}
+
 	// Build a chain: oldest_ancestor → ... → leaf-parent → leaf.
 	let mut current = chain.genesis();
-	let mut ancestors = Vec::with_capacity(n_ancestors);
+	let mut ancestors_in_extend_order = Vec::with_capacity(n_ancestors);
 	for _ in 0..n_ancestors {
 		current = chain.extend(current);
-		ancestors.push(current);
+		ancestors_in_extend_order.push(current);
 	}
 	let leaf = chain.extend(current);
 	let leaf_number = chain.block(&leaf).unwrap().number;
 
-	// Install the claim queue at every block (leaf + each ancestor) so advertisements at
-	// any in-scope relay parent get a consistent schedule.
-	let mut blocks_to_set: Vec<Hash> = ancestors.clone();
-	blocks_to_set.push(leaf);
-	for hash in &blocks_to_set {
-		let mut q: BTreeMap<CoreIndex, VecDeque<ParaId>> = BTreeMap::new();
-		for (core, para) in paras {
-			q.insert(*core, VecDeque::from_iter(std::iter::repeat(*para).take(3)));
-		}
-		if !paras.is_empty() {
-			chain.set_claim_queue_at(*hash, q);
-		}
+	// Apply per-block claim queue overrides. `LeafSelector::Ancestor(0)` is the leaf's
+	// direct parent — i.e. the *last* extend before the leaf.
+	for (selector, queue) in config.claim_queue_overrides {
+		let target = match selector {
+			LeafSelector::Leaf => leaf,
+			LeafSelector::Ancestor(n) => {
+				let idx = ancestors_in_extend_order.len().checked_sub(1 + n).expect(
+					"ChainConfig: Ancestor index out of range; n_ancestors too small",
+				);
+				ancestors_in_extend_order[idx]
+			},
+		};
+		chain.set_claim_queue_at(target, queue);
 	}
 
 	let chain = SharedChain::new(chain);
@@ -267,6 +334,7 @@ where
 	)));
 
 	// Reverse ancestors so ancestors[0] = leaf's parent.
+	let mut ancestors = ancestors_in_extend_order;
 	ancestors.reverse();
 	WithAncestorsWorld { sim, leaf, ancestors, chain }
 }

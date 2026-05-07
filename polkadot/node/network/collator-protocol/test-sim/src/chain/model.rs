@@ -85,12 +85,58 @@ impl BlockInfo {
 /// [`add_session`]: ChainModel::add_session
 /// [`set_claim_queue_at`]: ChainModel::set_claim_queue_at
 /// [`Sim`]: crate::harness::Sim
+/// Per-core schedule: a finite cycle of paras that repeats. The claim queue at block N
+/// shows positions `[N, N+1, ..., N+lookahead-1]` sampled from `cycle[(start + offset) %
+/// cycle.len()]`. Empty `cycle` means no para is ever scheduled on this core.
+#[derive(Clone, Debug, Default)]
+pub struct CoreSchedule {
+	/// The repeating sequence of paras for this core. `cycle[i]` is the para scheduled at
+	/// block-index `start + i` modulo `cycle.len()`.
+	pub cycle: Vec<ParaId>,
+	/// Block index at which the cycle is anchored. Convention: start = 0 means
+	/// `cycle[0]` is the para at the parent of genesis (so cycle[1] is at genesis itself).
+	/// Most tests leave this at 0.
+	pub start: u32,
+}
+
+impl CoreSchedule {
+	/// Static schedule: the same para repeats forever.
+	pub fn always(para: ParaId) -> Self {
+		Self { cycle: vec![para], start: 0 }
+	}
+
+	/// Cycling schedule: `cycle[i]` is scheduled at block index `i, len, 2*len, ...`.
+	pub fn cycling(cycle: Vec<ParaId>) -> Self {
+		Self { cycle, start: 0 }
+	}
+
+	/// Para scheduled at block index `block_number`. Returns `None` if cycle is empty.
+	pub fn at(&self, block_number: u32) -> Option<ParaId> {
+		if self.cycle.is_empty() {
+			return None;
+		}
+		let idx = ((block_number.wrapping_sub(self.start)) as usize) % self.cycle.len();
+		Some(self.cycle[idx])
+	}
+}
+
+/// In-memory model of the relay chain.
+///
+/// Constructed via [`ChainModel::new`] (genesis only) and grown via
+/// [`ChainModel::extend`]. Sessions are added via [`ChainModel::add_session`]; per-core
+/// schedule via [`ChainModel::set_core_schedule`]. Per-block claim-queue overrides are
+/// available via [`ChainModel::set_claim_queue_at`].
 #[derive(Debug)]
 pub struct ChainModel {
 	blocks: BTreeMap<Hash, BlockInfo>,
 	children: BTreeMap<Hash, Vec<Hash>>,
 	sessions: BTreeMap<SessionIndex, SessionInfo>,
-	claim_queues: BTreeMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+	/// Global schedule: per-core para rotation. The claim queue at any block is computed by
+	/// sampling each core's schedule starting at the block's number.
+	schedule: BTreeMap<CoreIndex, CoreSchedule>,
+	/// Per-block claim-queue overrides. If set, takes precedence over `schedule`. Used by
+	/// tests that need exotic shapes the cycle abstraction can't express.
+	claim_queue_overrides: BTreeMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	scheduling_lookahead: u32,
 	async_backing_params: AsyncBackingParams,
 	node_features: NodeFeatures,
@@ -120,7 +166,8 @@ impl ChainModel {
 			blocks,
 			children: BTreeMap::new(),
 			sessions: BTreeMap::new(),
-			claim_queues: BTreeMap::new(),
+			schedule: BTreeMap::new(),
+			claim_queue_overrides: BTreeMap::new(),
 			scheduling_lookahead: 3,
 			async_backing_params: AsyncBackingParams {
 				max_candidate_depth: 4,
@@ -173,14 +220,53 @@ impl ChainModel {
 		self.sessions.insert(session_index, info);
 	}
 
-	/// Replace the claim queue at a specific block.
+	/// Install a per-core schedule. The claim queue at any block is derived from this
+	/// schedule at the block's number unless [`Self::set_claim_queue_at`] sets an explicit
+	/// override.
+	pub fn set_core_schedule(&mut self, core: CoreIndex, schedule: CoreSchedule) {
+		self.schedule.insert(core, schedule);
+	}
+
+	/// Convenience: the same para is scheduled on `core` at every block.
+	pub fn schedule_para_on_core(&mut self, core: CoreIndex, para: ParaId) {
+		self.set_core_schedule(core, CoreSchedule::always(para));
+	}
+
+	/// Override the claim queue at a specific block. Tests use this for exotic shapes the
+	/// cycle abstraction doesn't capture.
 	pub fn set_claim_queue_at(
 		&mut self,
 		block: Hash,
 		queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	) {
 		assert!(self.blocks.contains_key(&block), "claim queue set on unknown block");
-		self.claim_queues.insert(block, queue);
+		self.claim_queue_overrides.insert(block, queue);
+	}
+
+	/// Compute the claim queue at a block: per-core, populate `scheduling_lookahead`
+	/// positions sampled from the schedule starting at the block's number. Returns
+	/// `claim_queue_overrides[block]` if explicitly set.
+	fn derive_claim_queue(&self, block: &Hash) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
+		if let Some(q) = self.claim_queue_overrides.get(block) {
+			return q.clone();
+		}
+		let info = match self.blocks.get(block) {
+			Some(i) => i,
+			None => return BTreeMap::new(),
+		};
+		let mut out = BTreeMap::new();
+		for (core, sched) in &self.schedule {
+			let mut q = VecDeque::with_capacity(self.scheduling_lookahead as usize);
+			for offset in 0..self.scheduling_lookahead {
+				if let Some(para) = sched.at(info.number + offset) {
+					q.push_back(para);
+				}
+			}
+			if !q.is_empty() {
+				out.insert(*core, q);
+			}
+		}
+		out
 	}
 
 	/// Override the scheduling lookahead value runtime returns.
@@ -257,7 +343,7 @@ impl ChainModel {
 				let _ = tx.send(Ok(info.session_index));
 			},
 			RuntimeApiRequest::ClaimQueue(tx) => {
-				let queue = self.claim_queues.get(&parent).cloned().unwrap_or_default();
+				let queue = self.derive_claim_queue(&parent);
 				let _ = tx.send(Ok(queue));
 			},
 			RuntimeApiRequest::Validators(tx) => {
@@ -550,6 +636,36 @@ mod tests {
 		)));
 		let got = futures::executor::block_on(rx).unwrap().unwrap();
 		assert_eq!(got, q);
+	}
+
+	#[test]
+	fn schedule_derives_correct_per_block_queue() {
+		let mut chain = ChainModel::new(Slot::from(0));
+		chain.add_session(0, empty_session());
+		let para_a = ParaId::from(2000);
+		let para_b = ParaId::from(3000);
+		// Cycle [A, B, A, B, ...]: para_a at even block numbers, para_b at odd.
+		chain.set_core_schedule(CoreIndex(0), CoreSchedule::cycling(vec![para_a, para_b]));
+		let a = chain.extend(chain.genesis()); // block 1
+		let b = chain.extend(a); // block 2
+
+		// Queue at block 1 with lookahead=3: positions [1, 2, 3] → [B, A, B].
+		let (tx, rx) = futures::channel::oneshot::channel();
+		chain.answer(Query::Runtime(RuntimeApiMessage::Request(
+			a,
+			RuntimeApiRequest::ClaimQueue(tx),
+		)));
+		let got = futures::executor::block_on(rx).unwrap().unwrap();
+		assert_eq!(got.get(&CoreIndex(0)).unwrap(), &VecDeque::from(vec![para_b, para_a, para_b]));
+
+		// Queue at block 2: positions [2, 3, 4] → [A, B, A].
+		let (tx, rx) = futures::channel::oneshot::channel();
+		chain.answer(Query::Runtime(RuntimeApiMessage::Request(
+			b,
+			RuntimeApiRequest::ClaimQueue(tx),
+		)));
+		let got = futures::executor::block_on(rx).unwrap().unwrap();
+		assert_eq!(got.get(&CoreIndex(0)).unwrap(), &VecDeque::from(vec![para_a, para_b, para_a]));
 	}
 
 	#[test]
