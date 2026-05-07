@@ -277,8 +277,10 @@ impl CollationManager {
 					},
 				};
 				// If session info is not available  default to assume v2 candidate descriptors.
-				self.per_scheduling_parent
-					.insert(*ancestor, PerSchedulingParent::new(session_index, core));
+				self.per_scheduling_parent.insert(
+					*ancestor,
+					PerSchedulingParent::new(session_index, core, &*self.clock),
+				);
 
 				if idx == 0 && ancestor == leaf {
 					let mut claim_queues =
@@ -335,7 +337,7 @@ impl CollationManager {
 			}
 		}
 
-		let now = Instant::now();
+		let now = self.clock.now();
 
 		let max_assignments = self
 			.claim_queue_state
@@ -378,7 +380,7 @@ impl CollationManager {
 		max_scores: HashMap<ParaId, Score>,
 		mut create_timer_fn: TimerFn,
 	) -> (Vec<Requests>, Option<Duration>) {
-		let now = Instant::now();
+		let now = self.clock.now();
 
 		// Advertisements and collations are up to date.
 		// Claim queue states for leaves are also up to date.
@@ -1033,13 +1035,13 @@ struct PerSchedulingParent {
 }
 
 impl PerSchedulingParent {
-	fn new(session_index: SessionIndex, core_index: CoreIndex) -> Self {
+	fn new(session_index: SessionIndex, core_index: CoreIndex, clock: &dyn Clock) -> Self {
 		Self {
 			session_index,
 			core_index,
 			peer_advertisements: Default::default(),
 			fetched_collations: Default::default(),
-			activated_at: Instant::now(),
+			activated_at: clock.now(),
 		}
 	}
 
@@ -1536,7 +1538,7 @@ mod tests {
 			claim_queue_state: PerLeafClaimQueueState::new(),
 			per_scheduling_parent: HashMap::from([(
 				scheduling_parent,
-				PerSchedulingParent::new(0, CoreIndex(0)),
+				PerSchedulingParent::new(0, CoreIndex(0), &*crate::system_clock()),
 			)]),
 			blocked_from_seconding: HashMap::new(),
 			per_session: LruMap::new(ByLength::new(2)),

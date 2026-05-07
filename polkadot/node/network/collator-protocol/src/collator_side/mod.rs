@@ -113,7 +113,7 @@ const MAX_PARALLEL_CHAIN_API_REQUESTS: usize = 10;
 ///
 /// `Pending` variant never finishes and should be used when there're no peers
 /// connected.
-type ReconnectTimeout = Fuse<futures_timer::Delay>;
+type ReconnectTimeout = Fuse<crate::clock::BoxedDelay>;
 
 /// A future that returns a candidate hash along with validator discovery
 /// keys once a timeout hit.
@@ -122,15 +122,20 @@ type ReconnectTimeout = Fuse<futures_timer::Delay>;
 /// we should reset its interest in this advertisement in a buffer. For example,
 /// when the PoV was already requested from another peer.
 struct ResetInterestTimeout {
-	fut: futures_timer::Delay,
+	fut: crate::clock::BoxedDelay,
 	candidate_hash: CandidateHash,
 	peer_id: PeerId,
 }
 
 impl ResetInterestTimeout {
 	/// Returns new `ResetInterestTimeout` that resolves after given timeout.
-	fn new(candidate_hash: CandidateHash, peer_id: PeerId, delay: Duration) -> Self {
-		Self { fut: futures_timer::Delay::new(delay), candidate_hash, peer_id }
+	fn new(
+		clock: &dyn Clock,
+		candidate_hash: CandidateHash,
+		peer_id: PeerId,
+		delay: Duration,
+	) -> Self {
+		Self { fut: clock.delay(delay), candidate_hash, peer_id }
 	}
 }
 
@@ -141,7 +146,7 @@ impl std::future::Future for ResetInterestTimeout {
 		mut self: std::pin::Pin<&mut Self>,
 		cx: &mut std::task::Context<'_>,
 	) -> std::task::Poll<Self::Output> {
-		self.fut.poll_unpin(cx).map(|_| (self.candidate_hash, self.peer_id))
+		self.fut.as_mut().poll(cx).map(|_| (self.candidate_hash, self.peer_id))
 	}
 }
 
@@ -593,6 +598,7 @@ async fn distribute_collation<Context>(
 			session_index: per_scheduling_parent.session_index,
 			stats: per_scheduling_parent.block_number.map(|n| {
 				CollationStats::new(
+					&*state.clock,
 					para_head,
 					n,
 					scheduling_parent,
@@ -631,6 +637,7 @@ async fn distribute_collation<Context>(
 
 		advertise_collation(
 			ctx,
+			&*state.clock,
 			scheduling_parent,
 			per_scheduling_parent,
 			peer_id,
@@ -874,6 +881,7 @@ async fn update_validator_connections<Context>(
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
 async fn advertise_collation<Context>(
 	ctx: &mut Context,
+	clock: &dyn Clock,
 	scheduling_parent: Hash,
 	per_scheduling_parent: &mut PerSchedulingParent,
 	peer: &PeerId,
@@ -958,6 +966,7 @@ async fn advertise_collation<Context>(
 		validator_group.advertised_to_peer(candidate_hash, &peer_ids, peer);
 
 		advertisement_timeouts.push(ResetInterestTimeout::new(
+			clock,
 			*candidate_hash,
 			*peer,
 			RESET_INTEREST_TIMEOUT,
@@ -1380,6 +1389,7 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 		None => return unknown_scheduling_parents,
 	};
 
+	let clock = state.clock.clone();
 	for scheduling_parent in scheduling_parents {
 		let block_hashes = match state.per_scheduling_parent.contains_key(&scheduling_parent) {
 			true => state
@@ -1399,6 +1409,7 @@ async fn advertise_collations_for_scheduling_parents<Context>(
 			if let Some(per_scheduling_parent) = state.per_scheduling_parent.get_mut(block_hash) {
 				advertise_collation(
 					ctx,
+					&*clock,
 					*block_hash,
 					per_scheduling_parent,
 					peer_id,
@@ -1758,6 +1769,7 @@ async fn handle_our_view_change<Context>(
 
 				advertise_collation(
 					ctx,
+					&*state.clock,
 					*block_hash,
 					per_relay_parent,
 					peer_id,
@@ -2050,7 +2062,7 @@ async fn run_inner<Context>(
 				},
 				FromOrchestra::Signal(ActiveLeaves(update)) => {
 					if update.activated.is_some() {
-						*reconnect_timeout = futures_timer::Delay::new(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
+						*reconnect_timeout = clock.delay(RECONNECT_AFTER_LEAF_TIMEOUT).fuse();
 					}
 				}
 				FromOrchestra::Signal(BlockFinalized(hash, number)) => {
@@ -2086,7 +2098,7 @@ async fn run_inner<Context>(
 
 								if let Some(mut stats) = maybe_stats {
 									// Update the timestamp when collation has been sent (from subsystem perspective)
-									stats.set_fetched_at(std::time::Instant::now());
+									stats.set_fetched_at(clock.now());
 									gum::debug!(
 										target: LOG_TARGET_STATS,
 										para_head = ?stats.head(),

@@ -30,7 +30,6 @@ use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
 use error::{log_error, FatalError, FatalResult, Result};
 use futures::{future::Fuse, select, FutureExt, StreamExt};
-use futures_timer::Delay;
 use polkadot_node_network_protocol::{
 	self as net_protocol, peer_set::PeerSet, v1 as protocol_v1, v2 as protocol_v2,
 	v3_collation as protocol_v3, CollationProtocols, PeerId,
@@ -216,9 +215,12 @@ async fn wait_for_first_leaf<Context>(ctx: &mut Context) -> FatalResult<Option<A
 	}
 }
 
-fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+fn create_timer(
+	clock: &dyn Clock,
+	maybe_delay: Option<Duration>,
+) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
 	let timer: Pin<Box<dyn Future<Output = ()> + Send>> = match maybe_delay {
-		Some(delay) => Box::pin(Delay::new(delay)),
+		Some(delay) => clock.delay(delay),
 		None => Box::pin(future::pending::<()>()),
 	};
 
@@ -226,9 +228,11 @@ fn create_timer(maybe_delay: Option<Duration>) -> Fuse<Pin<Box<dyn Future<Output
 }
 
 /// Create the persistence timer that fires after the given interval.
-fn create_persistence_timer(interval: Duration) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
-	let delay: Pin<Box<dyn Future<Output = ()> + Send>> = Box::pin(Delay::new(interval));
-	delay.fuse()
+fn create_persistence_timer(
+	clock: &dyn Clock,
+	interval: Duration,
+) -> Fuse<Pin<Box<dyn Future<Output = ()> + Send>>> {
+	clock.delay(interval).fuse()
 }
 
 #[overseer::contextbounds(CollatorProtocol, prefix = self::overseer)]
@@ -236,10 +240,10 @@ async fn run_inner<Context>(
 	mut ctx: Context,
 	mut state: State<PersistentDb>,
 	persist_interval: Duration,
-	_clock: Arc<dyn Clock>,
+	clock: Arc<dyn Clock>,
 ) -> FatalResult<()> {
-	let mut timer = create_timer(None);
-	let mut persistence_timer = create_persistence_timer(persist_interval);
+	let mut timer = create_timer(&*clock, None);
+	let mut persistence_timer = create_persistence_timer(&*clock, persist_interval);
 
 	loop {
 		select! {
@@ -280,7 +284,7 @@ async fn run_inner<Context>(
 				// Periodic persistence - write reputation DB to disk
 				state.background_persist_reputations();
 				// Reset the timer for the next interval
-				persistence_timer = create_persistence_timer(persist_interval);
+				persistence_timer = create_persistence_timer(&*clock, persist_interval);
 			},
 		}
 
@@ -292,7 +296,10 @@ async fn run_inner<Context>(
 		// Also, it takes constant time to run because we only try launching new requests for
 		// unfulfilled claims. It's probably not worth optimising.
 		let maybe_delay = state.try_launch_new_fetch_requests(ctx.sender()).await;
-		timer = create_timer(maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)));
+		timer = create_timer(
+			&*clock,
+			maybe_delay.map(|delay| std::cmp::max(delay, MIN_FETCH_TIMER_DELAY)),
+		);
 	}
 
 	Ok(())

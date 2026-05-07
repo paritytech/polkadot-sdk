@@ -133,6 +133,7 @@ use bitvec::vec::BitVec;
 use futures::{
 	channel::oneshot, future::BoxFuture, select, stream::FuturesUnordered, FutureExt, StreamExt,
 };
+#[cfg(test)]
 use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
@@ -351,6 +352,7 @@ impl PeerData {
 		implicit_view: &ImplicitView,
 		per_scheduling_parent: &PerSchedulingParent,
 		leaf_claim_queues: &HashMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
+		clock: &dyn Clock,
 	) -> std::result::Result<(CollatorId, ParaId), InsertAdvertisementError> {
 		match self.state {
 			PeerState::Connected(_) => Err(InsertAdvertisementError::UndeclaredCollator),
@@ -415,7 +417,7 @@ impl PeerData {
 						.insert(on_scheduling_parent, HashSet::from_iter(candidate_hash));
 				};
 
-				state.last_active = Instant::now();
+				state.last_active = clock.now();
 				Ok((state.collator_id.clone(), state.para_id))
 			},
 		}
@@ -433,12 +435,12 @@ impl PeerData {
 	///
 	/// This will overwrite any previous call to `set_collating` and should only be called
 	/// if `is_collating` is false.
-	fn set_collating(&mut self, collator_id: CollatorId, para_id: ParaId) {
+	fn set_collating(&mut self, collator_id: CollatorId, para_id: ParaId, clock: &dyn Clock) {
 		self.state = PeerState::Collating(CollatingPeerState {
 			collator_id,
 			para_id,
 			advertisements: HashMap::new(),
-			last_active: Instant::now(),
+			last_active: clock.now(),
 		});
 	}
 
@@ -890,8 +892,9 @@ async fn fetch_collation(
 
 	if peer_data.has_advertised(&relay_parent, candidate_hash) {
 		request_collation(sender, state, pc, id.clone(), peer_data.version).await?;
+		let clock = state.clock.clone();
 		let timeout = |collator_id, candidate_hash, relay_parent| async move {
-			Delay::new(MAX_UNSHARED_DOWNLOAD_TIME).await;
+			clock.delay(MAX_UNSHARED_DOWNLOAD_TIME).await;
 			(collator_id, candidate_hash, relay_parent)
 		};
 		state
@@ -1185,7 +1188,7 @@ async fn process_incoming_peer_message<Context>(
 					"Declared as collator for current para",
 				);
 
-				peer_data.set_collating(collator_id, para_id);
+				peer_data.set_collating(collator_id, para_id, &*state.clock);
 			} else {
 				gum::debug!(
 					target: LOG_TARGET,
@@ -1362,8 +1365,9 @@ fn hold_off_asset_hub_collation_if_needed(
 
 	match hold_off_outcome {
 		HoldOffOperationOutcome::FirstHoldOff => {
+			let clock = state.clock.clone();
 			state.ah_held_off_rp_timers.push(Box::pin(async move {
-				Delay::new(hold_off_duration).await;
+				clock.delay(hold_off_duration).await;
 				scheduling_parent
 			}));
 
@@ -1727,6 +1731,7 @@ where
 			&state.implicit_view,
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
+			&*state.clock,
 		)
 		.map_err(|error| {
 			gum::debug!(
@@ -1827,6 +1832,7 @@ where
 			&state.implicit_view,
 			&per_scheduling_parent,
 			&state.leaf_claim_queues,
+			&*state.clock,
 		)
 		.map_err(AdvertisementError::Invalid)?;
 
@@ -2232,9 +2238,10 @@ async fn handle_network_msg<Context>(
 				return Ok(());
 			}
 
+			let now = state.clock.now();
 			state.peer_data.entry(peer_id).or_insert_with(|| PeerData {
 				view: View::default(),
-				state: PeerState::Connected(Instant::now()),
+				state: PeerState::Connected(now),
 				version,
 			});
 			state.metrics.note_collator_peer_count(state.peer_data.len());
