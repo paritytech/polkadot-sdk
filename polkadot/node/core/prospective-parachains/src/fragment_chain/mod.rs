@@ -1015,8 +1015,10 @@ impl FragmentChain {
 
 		// The relay parent must not move backwards. Compute the minimum allowed relay parent
 		// number from all committed state:
-		// 1. `constraints.min_relay_parent_number` — the runtime's lower bound (accounts for the
-		//    included candidate's relay parent via `para_most_recent_context`).
+		// 1. `constraints.min_relay_parent_number` — the runtime's lower bound. On runtimes that
+		//    return `para_most_recent_context`, this already accounts for the latest included or
+		//    pending-availability candidate's relay parent, making bullet 2 redundant. We keep
+		//    bullet 2 because not all runtimes have that change enacted yet.
 		// 2. The relay parent of the latest candidate pending availability — candidates on-chain
 		//    must not be preceded.
 		// 3. The relay parent of the parent candidate in the chain — a child must not regress from
