@@ -77,7 +77,7 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	log::info!("Measuring parachain throughput before runtime upgrade...");
 	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 14..17)], []).await?;
 
-	// IMPORTANT: `MAX_CODE_SIZE` + overhead must always stay strictly below the 
+	// IMPORTANT: `MAX_CODE_SIZE` + overhead must always stay strictly below the
 	// `AttestedCandidateV2` request/response transport cap defined in
 	// `polkadot/node/network/protocol/src/request_response/mod.rs` (currently 8 MiB).
 	// If the compressed code exceeds the response cap, the response is rejected
