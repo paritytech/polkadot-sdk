@@ -214,8 +214,9 @@ pub mod pallet {
 		}
 
 		/// Whether this level allows modifying the global PSM debt ratio.
+		/// Both Full and Emergency levels can set the max PSM debt.
 		pub const fn can_set_max_psm_debt(&self) -> bool {
-			matches!(self, PsmManagerLevel::Full)
+			true
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
@@ -263,7 +264,8 @@ pub mod pallet {
 		///
 		/// Returns `PsmManagerLevel` to distinguish privilege levels:
 		/// - `Full` (via GeneralAdmin): Can modify all parameters
-		/// - `Emergency` (via EmergencyAction): Can only modify circuit breaker status
+		/// - `Emergency` (via EmergencyAction): Can modify circuit breaker status, per-asset
+		///   ceiling weights, and the global max PSM debt ratio.
 		type ManagerOrigin: EnsureOrigin<Self::RuntimeOrigin, Success = PsmManagerLevel>;
 
 		/// A type representing the weights required by the dispatchables of this pallet.
