@@ -296,4 +296,11 @@ mod tests {
 		// effects. (It also should not have queried anything; the panic-responder enforces.)
 		assert_eq!(recorder.len(), 0);
 	}
+
+	#[crate::sim_test]
+	fn sim_test_attribute_runs_as_a_regular_test() {
+		// Sanity: #[sim_test] expands to a registered test that the runner picks up.
+		let sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+		let _ = sim.finish();
+	}
 }

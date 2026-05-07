@@ -190,6 +190,7 @@ members = [
 	"polkadot/node/network/bridge",
 	"polkadot/node/network/collator-protocol",
 	"polkadot/node/network/collator-protocol/test-sim",
+	"polkadot/node/network/collator-protocol/test-sim-macros",
 	"polkadot/node/network/dispute-distribution",
 	"polkadot/node/network/gossip-support",
 	"polkadot/node/network/protocol",
@@ -1114,6 +1115,7 @@ polkadot-availability-distribution = { path = "polkadot/node/network/availabilit
 polkadot-availability-recovery = { path = "polkadot/node/network/availability-recovery", default-features = false }
 polkadot-cli = { path = "polkadot/cli", default-features = false }
 polkadot-collator-protocol = { path = "polkadot/node/network/collator-protocol", default-features = false }
+polkadot-collator-protocol-test-sim-macros = { path = "polkadot/node/network/collator-protocol/test-sim-macros" }
 polkadot-core-primitives = { path = "polkadot/core-primitives", default-features = false }
 polkadot-dispute-distribution = { path = "polkadot/node/network/dispute-distribution", default-features = false }
 polkadot-erasure-coding = { path = "polkadot/erasure-coding", default-features = false }

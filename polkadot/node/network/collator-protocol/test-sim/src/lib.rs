@@ -51,3 +51,7 @@ pub mod impls;
 pub mod report;
 pub mod responder;
 pub mod runtime;
+
+/// Attribute macro for declaring deterministic-simulator tests. Today expands to `#[test]`;
+/// the seam is in place for cross-impl fan-out in later phases.
+pub use polkadot_collator_protocol_test_sim_macros::sim_test;

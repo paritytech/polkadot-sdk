@@ -16180,6 +16180,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "polkadot-collator-protocol",
+ "polkadot-collator-protocol-test-sim-macros",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
@@ -16192,6 +16193,15 @@ dependencies = [
  "sp-keyring",
  "sp-keystore 0.34.0",
  "tokio",
+]
+
+[[package]]
+name = "polkadot-collator-protocol-test-sim-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2 1.0.95",
+ "quote 1.0.40",
+ "syn 2.0.98",
 ]
 
 [[package]]
