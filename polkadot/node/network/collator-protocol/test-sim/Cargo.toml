@@ -25,9 +25,12 @@ polkadot-primitives = { workspace = true, default-features = true, features = ["
 polkadot-primitives-test-helpers = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { features = ["macros", "rt"], workspace = true, default-features = true }
