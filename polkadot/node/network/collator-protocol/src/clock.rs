@@ -43,7 +43,7 @@ pub trait Clock: Send + Sync {
 
 	/// Wall-clock millisecond timestamp since the UNIX epoch. Used for slot math and persistence
 	/// timestamps; not monotonic.
-	fn timestamp_millis(&self) -> u64;
+	fn timestamp_millis(&self) -> u128;
 }
 
 /// Production clock backed by `std::time` and `futures_timer`.
@@ -60,10 +60,10 @@ impl Clock for SystemClock {
 		Box::pin(futures_timer::Delay::new(dur))
 	}
 
-	fn timestamp_millis(&self) -> u64 {
+	fn timestamp_millis(&self) -> u128 {
 		SystemTime::now()
 			.duration_since(UNIX_EPOCH)
-			.map(|d| d.as_millis() as u64)
+			.map(|d| d.as_millis())
 			.unwrap_or(0)
 	}
 }

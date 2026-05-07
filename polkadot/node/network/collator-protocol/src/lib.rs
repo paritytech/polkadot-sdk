@@ -284,7 +284,7 @@ pub(crate) fn is_scheduling_parent_valid(
 ) -> bool {
 	let slot_duration = SlotDuration::from_millis(RELAY_CHAIN_SLOT_DURATION_MILLIS);
 	let current_slot = sp_consensus_slots::Slot::from_timestamp(
-		sp_timestamp::Timestamp::new(clock.timestamp_millis()),
+		sp_timestamp::Timestamp::new(clock.timestamp_millis() as u64),
 		slot_duration,
 	);
 	if let Some(info) = leaf_scheduling_info.get(scheduling_parent) {

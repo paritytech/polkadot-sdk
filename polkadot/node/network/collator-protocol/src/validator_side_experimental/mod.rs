@@ -144,8 +144,13 @@ async fn initialize<Context>(
 
 		gum::trace!(target: LOG_TARGET, "Spawned background reputation persistence task");
 
-		match PeerManager::startup(backend, ctx.sender(), scheduled_paras.into_iter().collect())
-			.await
+		match PeerManager::startup(
+			backend,
+			ctx.sender(),
+			scheduled_paras.into_iter().collect(),
+			clock.clone(),
+		)
+		.await
 		{
 			Ok(peer_manager) => {
 				return Ok(Some(State::new(peer_manager, collation_manager, metrics)))
