@@ -24,7 +24,7 @@ use zombienet_sdk::{
 		utils::H256,
 		Config, OnlineClient, PolkadotConfig,
 	},
-	NetworkNode,
+	LocalFileSystem, Network,
 };
 
 /// Specifies which block should occupy a full core.
@@ -139,7 +139,7 @@ where
 		.map(|_| ())
 }
 
-/// Waits until every supplied validator reports
+/// Waits until every relaychain validator in `network` reports
 /// `polkadot_pvf_prepare_concluded >= min_total_prepares`.
 ///
 /// Use this before [`assert_para_throughput`] in tests where PVF preparation timing demonstrably
@@ -155,16 +155,17 @@ where
 /// may already have started or finished preparing a new PVF before the baseline read, which
 /// makes the delta racy.
 pub async fn wait_for_pvf_prepare(
-	validators: &[&NetworkNode],
+	network: &Network<LocalFileSystem>,
 	min_total_prepares: u32,
 ) -> Result<(), anyhow::Error> {
+	let validators = network.relaychain().nodes();
 	let target = min_total_prepares as f64;
 	log::info!(
 		"Waiting for PVF preparation to conclude on {} validator(s) (target {} concluded job(s) per validator).",
 		validators.len(),
 		target,
 	);
-	for node in validators {
+	for node in &validators {
 		let node_name = node.name();
 		log::info!("Waiting for {node_name} PVF prep (target={target})...");
 		node.wait_metric_with_timeout(

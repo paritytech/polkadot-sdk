@@ -94,10 +94,6 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let validators: Vec<_> = (0..12)
-		.map(|i| network.get_node(format!("validator-{i}").as_str()))
-		.collect::<Result<_, _>>()?;
-
 	// Assign two extra cores to each parachain.
 	// We need to execute both call one after another to ensure that the internal logic fetches the
 	// correct nonce.
@@ -105,7 +101,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&validators, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
 	// (2.6 candidates per para per relay chain block).

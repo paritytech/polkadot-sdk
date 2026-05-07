@@ -88,17 +88,11 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let validators: Vec<_> = (0..6)
-		.map(|i| network.get_node(format!("validator-{i}").as_str()))
-		.collect::<Result<_, _>>()?;
-
-	// assign_cores(&relay_client, PARA_ID, vec![0]).await?;
-
 	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
 	wait_for_first_session_change(&mut blocks_sub).await?;
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&validators, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	assert_para_throughput(&relay_client, 10, [(ParaId::from(PARA_ID), 8..11)], []).await?;
 

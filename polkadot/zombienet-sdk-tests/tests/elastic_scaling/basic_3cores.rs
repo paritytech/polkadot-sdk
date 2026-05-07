@@ -75,15 +75,11 @@ async fn basic_3cores_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let validators: Vec<_> = (0..4)
-		.map(|i| network.get_node(format!("validator-{i}").as_str()))
-		.collect::<Result<_, _>>()?;
-
 	// Assign two extra cores to adder-2000.
 	assign_cores(&relay_client, 2000, vec![0, 1]).await?;
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&validators, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	assert_para_throughput(
 		&relay_client,

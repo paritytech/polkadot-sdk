@@ -46,15 +46,10 @@ async fn elastic_scaling_pov_recovery() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
 
-	let validators: Vec<_> = ["alice", "validator-0", "validator-1", "validator-2", "validator-3"]
-		.into_iter()
-		.map(|n| network.get_node(n))
-		.collect::<Result<_, _>>()?;
-
 	assign_cores(&relay_client, PARA_ID, vec![0]).await?;
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&validators, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	log::info!("Ensuring parachain making progress");
 	assert_para_throughput(&relay_client, 20, [(ParaId::from(PARA_ID), 40..65)], []).await?;

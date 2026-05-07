@@ -86,15 +86,11 @@ async fn slot_based_12cores_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let validators: Vec<_> = (0..12)
-		.map(|i| network.get_node(format!("validator-{i}").as_str()))
-		.collect::<Result<_, _>>()?;
-
 	// Assign 11 extra cores to the parachain.
 	assign_cores(&relay_client, 2300, (0..11).collect()).await?;
 
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&validators, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 
 	// Expect a backed candidate count of at least 170 in 15 relay chain blocks
 	// (11.33 candidates per para per relay chain block).

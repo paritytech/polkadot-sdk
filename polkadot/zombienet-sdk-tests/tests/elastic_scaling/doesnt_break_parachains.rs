@@ -72,15 +72,11 @@ async fn doesnt_break_parachains_test() -> Result<(), anyhow::Error> {
 
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let validators: Vec<_> = (0..4)
-		.map(|i| network.get_node(format!("validator-{i}").as_str()))
-		.collect::<Result<_, _>>()?;
-
 	assign_cores(&relay_client, 2000, vec![0]).await?;
 
 	let para_id = ParaId::from(2000);
 	// Wait for PVF preparation to complete.
-	wait_for_pvf_prepare(&validators, 1).await?;
+	wait_for_pvf_prepare(&network, 1).await?;
 	// Expect the parachain to be making normal progress, 1 candidate backed per relay chain block.
 	// Lowering to 12 to make sure CI passes.
 	assert_para_throughput(&relay_client, 15, [(para_id, 12..16)], []).await?;
