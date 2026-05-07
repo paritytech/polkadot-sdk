@@ -850,9 +850,9 @@ mod tests {
 			let claimer = xcm
 				.into_iter()
 				.find_map(|instruction| match instruction {
-					SetHints { hints } => hints.into_iter().find_map(|hint| match hint {
-						AssetClaimer { location } => Some(location),
-					}),
+					SetHints { hints } => hints.into_iter().map(|hint| match hint {
+						AssetClaimer { location } => location,
+					}).next(),
 					_ => None,
 				})
 				.expect("AssetClaimer hint should be present");
