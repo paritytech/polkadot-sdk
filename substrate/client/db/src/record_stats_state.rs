@@ -153,7 +153,7 @@ impl<S: StateBackend<HashingFor<B>>, B: BlockT> StateBackend<HashingFor<B>>
 		let key_tuple = (child_info.storage_key().to_vec(), key.to_vec());
 		let value = self.usage.tally_child_key_read(&key_tuple, result.data, false);
 
-		Ok(StateLoad { is_cold: result.is_cold, data: value })
+		Ok(StateLoad { data: value, is_cold: result.is_cold })
 	}
 
 	fn child_storage_hash(

@@ -1616,8 +1616,7 @@ pub mod tests {
 
 	#[test]
 	fn storage_with_status_switches_from_cold_to_hot() {
-		let recorder = Recorder::default();
-		let trie = test_trie(StateVersion::V1, None, Some(recorder));
+		let trie = test_trie(StateVersion::V1, None, Some(Default::default()));
 		let child_info = ChildInfo::new_default(CHILD_KEY_1);
 		let main: (&[u8], Vec<u8>) = (b"key", b"value".to_vec());
 		let child: (&[u8], Vec<u8>) = (b"value3", vec![142u8; 33]);
@@ -1668,7 +1667,7 @@ pub mod tests {
 			trie.insert(main_inline_value.0, &main_inline_value.1).unwrap();
 			trie.insert(main_hashed_value.0, &main_hashed_value.1).unwrap();
 		}
-		let trie = TrieBackendBuilder::new(mdb, root).with_recorder(Recorder::default()).build();
+		let trie = TrieBackendBuilder::new(mdb, root).with_recorder(Default::default()).build();
 
 		let check_main = |pair: &(&[u8], Vec<u8>), expect_cold: bool, label: &str| {
 			trie.storage_hash(pair.0).unwrap();
@@ -1701,8 +1700,7 @@ pub mod tests {
 	#[test]
 	fn storage_with_status_for_missing_key_switches_to_hot() {
 		// Reading a missing key still records the path-to-absence, so a second read is hot.
-		let recorder = Recorder::default();
-		let trie = test_trie(StateVersion::V1, None, Some(recorder));
+		let trie = test_trie(StateVersion::V1, None, Some(Default::default()));
 		let child_info = ChildInfo::new_default(CHILD_KEY_1);
 		let missing = b"missing_key";
 
@@ -1723,7 +1721,7 @@ pub mod tests {
 
 	#[test]
 	fn child_storage_with_status_returns_cold_for_missing_child_trie() {
-		let trie = test_trie(StateVersion::V1, None, Some(Recorder::default()));
+		let trie = test_trie(StateVersion::V1, None, Some(Default::default()));
 		let missing_child = ChildInfo::new_default(b"does_not_exist");
 
 		// Repeat reads stay cold: the missing-child-trie path skips the recorder.

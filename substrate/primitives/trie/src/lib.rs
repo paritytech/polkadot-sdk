@@ -353,6 +353,14 @@ where
 	Ok(root)
 }
 
+/// `false` if the recorder has the value bytes for `key`; `true` otherwise.
+fn cold_status_for_key<H>(recorder: &Option<&mut dyn TrieRecorder<H>>, key: &[u8]) -> bool {
+	recorder
+		.as_ref()
+		.map(|r| !matches!(r.trie_nodes_recorded_for_key(key), trie_db::RecordedForKey::Value))
+		.unwrap_or(true)
+}
+
 /// Read a value from the trie.
 pub fn read_trie_value<L: TrieLayout, DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>>(
 	db: &DB,
@@ -379,15 +387,8 @@ pub fn read_trie_value_with_status<
 	recorder: Option<&mut dyn TrieRecorder<TrieHash<L>>>,
 	cache: Option<&mut dyn TrieCache<L::Codec>>,
 ) -> Result<StateLoad<Option<Vec<u8>>>, Box<TrieError<L>>> {
-	// Cold = read may add new proof bytes; hot = bytes already recorded.
-	// No recorder = cold.
-	let is_cold = recorder
-		.as_ref()
-		.map(|r| !matches!(r.trie_nodes_recorded_for_key(key), trie_db::RecordedForKey::Value))
-		.unwrap_or(true);
-
+	let is_cold = cold_status_for_key(&recorder, key);
 	let data = read_trie_value::<L, DB>(db, root, key, recorder, cache)?;
-
 	Ok(StateLoad { data, is_cold })
 }
 
@@ -504,15 +505,8 @@ pub fn read_child_trie_value_with_status<L: TrieConfiguration, DB>(
 where
 	DB: hash_db::HashDBRef<L::Hash, trie_db::DBValue>,
 {
-	// Cold = read may add new proof bytes; hot = bytes already recorded.
-	// No recorder = cold.
-	let is_cold = recorder
-		.as_ref()
-		.map(|r| !matches!(r.trie_nodes_recorded_for_key(key), trie_db::RecordedForKey::Value))
-		.unwrap_or(true);
-
+	let is_cold = cold_status_for_key(&recorder, key);
 	let data = read_child_trie_value::<L, DB>(keyspace, db, root, key, recorder, cache)?;
-
 	Ok(StateLoad { data, is_cold })
 }
 

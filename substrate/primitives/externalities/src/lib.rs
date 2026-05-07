@@ -39,15 +39,14 @@ mod extensions;
 mod scope_limited;
 
 /// Result of a storage load operation, carrying the loaded data along with an
-/// `is_cold` flag indicating whether the read missed both the storage overlay
-/// and any active storage-proof recorder.
+/// `is_cold` flag indicating whether the read may add new bytes to the storage
+/// proof.
 #[derive(Debug, Clone, PartialEq, Eq, codec::Encode, codec::Decode)]
 pub struct StateLoad<T> {
 	/// The returned data.
 	pub data: T,
-	/// False when the read is served from the storage overlay, or when the
-	/// value bytes for this key have already been recorded by an active
-	/// storage-proof recorder; true otherwise.
+	/// `false` only when the read is guaranteed not to grow the storage proof
+	/// (overlay hit, or the bytes are already recorded). `true` otherwise.
 	pub is_cold: bool,
 }
 
