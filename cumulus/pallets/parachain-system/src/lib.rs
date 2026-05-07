@@ -292,6 +292,9 @@ pub mod pallet {
 		///
 		/// # Migration Guide
 		///
+		/// v3 scheduling is work in progress, and for the moment this value should be set to false.
+		/// If this value is wrongfully enabled, the parachain will stall.
+		///
 		/// Before enabling this:
 		/// 1. Ensure all collators are updated to a version that supports V3 candidates
 		/// 2. Ensure the relay chain has `CandidateReceiptV3` node feature enabled

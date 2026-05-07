@@ -5,6 +5,7 @@ doc:
     description: |
       Adds V3 scheduling validation with `SchedulingV3Enabled` config and `MaxClaimQueueOffset`
       to parachain-system pallet. Parachains must enable V3 explicitly after all collators are updated.
+      Do not enable it unless instructed to, otherwise, your chain will stall.
 
   - audience: Node Dev
     description: |

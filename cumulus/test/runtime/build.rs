@@ -86,21 +86,25 @@ fn main() {
 
 	WasmBuilder::new()
 		.with_current_project()
-		.enable_feature("async-backing-v3")
+		.enable_feature("async-backing")
+		.enable_feature("v3-descriptor")
 		.import_memory()
 		.set_file_name("wasm_binary_async_backing_v3.rs")
 		.build();
 
 	WasmBuilder::new()
 		.with_current_project()
-		.enable_feature("async-backing-v3-rpo")
+		.enable_feature("async-backing")
+		.enable_feature("v3-descriptor")
+		.enable_feature("relay-parent-offset")
 		.import_memory()
 		.set_file_name("wasm_binary_async_backing_v3_rpo.rs")
 		.build();
 
 	WasmBuilder::new()
 		.with_current_project()
-		.enable_feature("elastic-scaling-v3")
+		.enable_feature("elastic-scaling")
+		.enable_feature("v3-descriptor")
 		.import_memory()
 		.set_file_name("wasm_binary_elastic_scaling_v3.rs")
 		.build();

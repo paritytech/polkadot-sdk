@@ -414,10 +414,7 @@ const RELAY_PARENT_OFFSET: u32 = 2;
 #[cfg(not(feature = "relay-parent-offset"))]
 const RELAY_PARENT_OFFSET: u32 = 0;
 
-#[cfg(any(feature = "async-backing-v3", feature = "elastic-scaling-v3"))]
-const SCHEDULING_V3_ENABLED: bool = true;
-#[cfg(not(any(feature = "async-backing-v3", feature = "elastic-scaling-v3")))]
-const SCHEDULING_V3_ENABLED: bool = false;
+const SCHEDULING_V3_ENABLED: bool = cfg!(feature = "v3-descriptor");
 
 type ConsensusHook = cumulus_pallet_aura_ext::FixedVelocityConsensusHook<
 	Runtime,

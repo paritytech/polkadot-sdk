@@ -239,11 +239,7 @@ where
 			let v3_enabled_on_para =
 				para_client.runtime_api().scheduling_v3_enabled(para_best_hash).unwrap_or(false);
 			let Some((scheduling_parent_header, v3_enabled)) = scheduling_info
-				.wait_for_scheduling_parent(
-					&relay_client,
-					&mut relay_chain_data_cache,
-					v3_enabled_on_para,
-				)
+				.wait_for_scheduling_parent(&mut relay_chain_data_cache, v3_enabled_on_para)
 				.await
 			else {
 				tracing::warn!(
@@ -324,8 +320,10 @@ where
 			let unincluded_segment_len =
 				initial_parent_header.number().saturating_sub(*included_header.number());
 
-			let Ok(max_pov_size) =
-				relay_chain_data_cache.get_mut(relay_parent_hash).await.map(|d| d.max_pov_size)
+			let Ok(max_pov_size) = relay_chain_data_cache
+				.get_mut_by_hash(relay_parent_hash)
+				.await
+				.map(|d| d.max_pov_size)
 			else {
 				continue;
 			};
@@ -990,9 +988,10 @@ where
 		}
 		relay_parent_descendants.push_front(current_relay_header.clone());
 
-		let next_relay_block =
-			relay_chain_data_cache.get_mut(*current_relay_header.parent_hash()).await?;
-		let next_relay_header = next_relay_block.relay_parent_header.clone();
+		let next_relay_block = relay_chain_data_cache
+			.get_mut_by_hash(*current_relay_header.parent_hash())
+			.await?;
+		let next_relay_header = next_relay_block.relay_header.clone();
 
 		current_relay_header = next_relay_header;
 	}
@@ -1212,7 +1211,10 @@ pub async fn determine_cores<RI: RelayChainInterface + 'static>(
 	para_id: ParaId,
 	relay_parent_offset: u32,
 ) -> Result<Option<Cores>, ()> {
-	let claim_queue = &relay_chain_data_cache.get_mut(scheduling_parent.hash()).await?.claim_queue;
+	let claim_queue = &relay_chain_data_cache
+		.get_mut_by_hash(scheduling_parent.hash())
+		.await?
+		.claim_queue;
 
 	let core_indices = claim_queue
 		.iter_claims_at_depth_for_para(relay_parent_offset as _, para_id)
