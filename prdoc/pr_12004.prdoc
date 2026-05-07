@@ -1,0 +1,71 @@
+title: Avoid duplicate fetches on the experimental collator protocol
+doc:
+- audience: Node Dev
+  description: |-
+    Follow-up to #11967. Two changes to the validator side of the experimental collator
+    protocol:
+
+    **Avoid duplicate fetches for the same advertised collation.**
+
+    Previously, when two peers happened to advertise the same V2 candidate, the planner could
+    launch fetches in parallel from both. The fetch dedup compared whole `Advertisement`
+    values, which conflated the offer (relay parent, para id, prospective candidate) with
+    the carrier `peer_id` — so the same offer carried by two peers produced two distinct
+    keys. The duplicate fetch wasted a CQ slot and bandwidth, and the second-completing
+    fetch overwrote the first in `fetched_collations`, so slashing attribution to
+    a peer depended on which response happened to arrive last.
+
+    The fix splits the type:
+
+    * `Advertisement` is the peer-agnostic identifier of an advertised collation (the on-wire
+      identity).
+    * `PeerAdvertisement` is `Advertisement` paired with the carrier `peer_id`. It's what
+      flows through accept-time and fetch-time code wherever the carrier matters
+      (rate-limit, reputation arbitration, slashing).
+
+    `PendingRequests` is now keyed by `Advertisement`, with the peer we're fetching from
+    stored as the value. "Is a fetch already in flight for this advertisement?" is an O(1)
+    lookup. The fetch planner's reputation arbitration picks the rep-best carrier among
+    co-advertisers, so a contested advertisement always goes to the highest-reputation
+    peer, and that peer is the only one slashed/credited for the resulting candidate.
+
+    Dedup of duplicate advertisements happens at fetch time, not accept time:
+    `try_accept_advertisement` parks every advertisement (subject to the per-peer
+    rate-limit counter, which counts every attempt regardless), and the fetch planner
+    filters out anything already in flight or already fetched via `PendingRequests::contains`
+    and `fetched_collations.contains_key`. Co-advertisers' parked ads are useful fallbacks
+    if the in-flight fetch fails (peer goes offline, times out, etc.) — we retry from a
+    parked co-advertiser without waiting for re-advertisement.
+
+    **Drop `MAX_FETCH_DELAY` (300ms initial fetch delay).** The mechanism does
+    not deliver what it was meant to:
+
+    * For V3 (low-latency design) and V2 with `RelayParentOffset > 0` (already in
+      production on AssetHub-Westend with `RELAY_PARENT_OFFSET = 1`), the delay's
+      anchor (`activated_at` for the scheduling parent) is at least one slot before honest
+      collators are ready to advertise. The 300ms window has elapsed long before any
+      ad-arbitration could happen.
+    * For V2 with `RelayParentOffset = 0`, the window does sit roughly around slot start,
+      but only protects collations that finish in under 300ms; for any longer build the
+      delay strictly hurts (the rep-0 attacker's fetch starts at t=300ms and runs until
+      t=2.3s, blocking the honest ad that arrives at t=2s — without the delay it would
+      have started at t=0 and timed out at t=2s, freeing the slot exactly when the honest
+      ad arrives).
+    * An adaptive attacker can wait until the moment honest collators advertise, making
+      the delay break-even at best.
+
+    The protection the delay was approximating — letting honest, lower-reputation peers
+    compete with adversarial advertisements — is what parallel fetching
+    ([#11023](https://github.com/paritytech/polkadot-sdk/issues/11023)) is designed to
+    deliver.
+
+    Test coverage in `validator_side_experimental/tests.rs`:
+    * `v2_same_candidate_from_multiple_peers_fetched_once` — two peers carry the same
+      offer, exactly one fetch is launched.
+    * `v2_co_carrier_rep_arbitration_picks_high_rep_peer` — when two peers carry the same
+      offer with different reputations, the fetch goes to the rep-best peer.
+
+    No public API changes; behavior change is contained to the experimental validator side.
+crates:
+- name: polkadot-collator-protocol
+  bump: patch
