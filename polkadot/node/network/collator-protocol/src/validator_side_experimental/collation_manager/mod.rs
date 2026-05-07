@@ -29,7 +29,7 @@ use crate::{
 		},
 		error::{Error, FatalResult, Result},
 	},
-	LeafSchedulingInfo, LOG_TARGET,
+	Clock, LeafSchedulingInfo, LOG_TARGET,
 };
 use fatality::Split;
 use futures::{channel::oneshot, stream::FusedStream};
@@ -59,6 +59,7 @@ use sp_keystore::KeystorePtr;
 use sp_runtime::Either;
 use std::{
 	collections::{BTreeSet, HashMap, VecDeque},
+	sync::Arc,
 	time::{Duration, Instant},
 };
 
@@ -110,6 +111,8 @@ pub struct CollationManager {
 	// Key store.
 	keystore: KeystorePtr,
 	leaf_scheduling_info: HashMap<Hash, LeafSchedulingInfo>,
+	// Clock for time reads (V3 scheduling-parent slot validation, advertisement timestamps).
+	clock: Arc<dyn Clock>,
 }
 
 impl CollationManager {
@@ -117,6 +120,7 @@ impl CollationManager {
 		sender: &mut Sender,
 		keystore: KeystorePtr,
 		active_leaf: ActivatedLeaf,
+		clock: Arc<dyn Clock>,
 	) -> FatalResult<Self> {
 		let mut instance = Self {
 			implicit_view: ImplicitView::new(),
@@ -127,6 +131,7 @@ impl CollationManager {
 			fetching: PendingRequests::default(),
 			keystore,
 			leaf_scheduling_info: HashMap::default(),
+			clock,
 		};
 
 		instance.update_view(sender, OurView::new([active_leaf.hash], 0)).await?;
@@ -322,6 +327,7 @@ impl CollationManager {
 		// finished relay chain slot.
 		if advertisement.advertised_descriptor_version == Some(CandidateDescriptorVersion::V3) {
 			if !is_scheduling_parent_valid(
+				&*self.clock,
 				&advertisement.scheduling_parent,
 				&self.leaf_scheduling_info,
 			) {
@@ -1537,6 +1543,7 @@ mod tests {
 			fetching: PendingRequests::default(),
 			keystore: Arc::new(sc_keystore::LocalKeystore::in_memory()),
 			leaf_scheduling_info: HashMap::new(),
+			clock: crate::system_clock(),
 		};
 
 		// No advertisements - returns Left(None).

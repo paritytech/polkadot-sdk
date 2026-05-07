@@ -24,7 +24,7 @@ mod tests;
 
 use crate::{
 	validator_side_experimental::{common::MIN_FETCH_TIMER_DELAY, peer_manager::PersistentDb},
-	LOG_TARGET,
+	Clock, LOG_TARGET,
 };
 use collation_manager::CollationManager;
 use common::{ProspectiveCandidate, MAX_STORED_SCORES_PER_PARA};
@@ -72,6 +72,7 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
+	clock: Arc<dyn Clock>,
 ) -> FatalResult<()> {
 	let persist_interval = reputation_config
 		.persist_interval
@@ -81,8 +82,10 @@ pub(crate) async fn run<Context>(
 		persist_interval_secs = persist_interval.as_secs(),
 		"Running experimental collator protocol"
 	);
-	if let Some(state) = initialize(&mut ctx, keystore, metrics, db, reputation_config).await? {
-		run_inner(ctx, state, persist_interval).await?;
+	if let Some(state) =
+		initialize(&mut ctx, keystore, metrics, db, reputation_config, clock.clone()).await?
+	{
+		run_inner(ctx, state, persist_interval, clock).await?;
 	}
 
 	Ok(())
@@ -95,6 +98,7 @@ async fn initialize<Context>(
 	metrics: Metrics,
 	db: Arc<dyn Database>,
 	reputation_config: ReputationConfig,
+	clock: Arc<dyn Clock>,
 ) -> FatalResult<Option<State<PersistentDb>>> {
 	loop {
 		let first_leaf = match wait_for_first_leaf(ctx).await? {
@@ -111,7 +115,8 @@ async fn initialize<Context>(
 		};
 
 		let collation_manager =
-			CollationManager::new(ctx.sender(), keystore.clone(), first_leaf).await?;
+			CollationManager::new(ctx.sender(), keystore.clone(), first_leaf, clock.clone())
+				.await?;
 
 		let scheduled_paras = collation_manager.assignments();
 
@@ -231,6 +236,7 @@ async fn run_inner<Context>(
 	mut ctx: Context,
 	mut state: State<PersistentDb>,
 	persist_interval: Duration,
+	_clock: Arc<dyn Clock>,
 ) -> FatalResult<()> {
 	let mut timer = create_timer(None);
 	let mut persistence_timer = create_persistence_timer(persist_interval);

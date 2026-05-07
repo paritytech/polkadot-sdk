@@ -1011,6 +1011,7 @@ async fn make_state<B: Backend>(
 			&mut sender,
 			keystore,
 			new_leaf(initial_leaf_hash, initial_leaf_number),
+			crate::system_clock(),
 		)
 		.await
 		.unwrap();

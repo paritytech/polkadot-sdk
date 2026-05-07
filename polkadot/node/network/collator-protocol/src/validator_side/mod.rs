@@ -137,13 +137,14 @@ use futures_timer::Delay;
 use std::{
 	collections::{hash_map::Entry, BTreeMap, HashMap, HashSet, VecDeque},
 	future::Future,
+	sync::Arc,
 	time::{Duration, Instant},
 };
 use tokio_util::sync::CancellationToken;
 
 use sp_keystore::KeystorePtr;
 
-use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, LeafSchedulingInfo};
+use crate::{extract_leaf_scheduling_info, is_scheduling_parent_valid, Clock, LeafSchedulingInfo};
 use polkadot_node_network_protocol::{
 	self as net_protocol,
 	peer_set::{CollationVersion, PeerSet, MAX_AUTHORITY_INCOMING_STREAMS},
@@ -588,8 +589,10 @@ struct HeldOffAdvertisement {
 }
 
 /// All state relevant for the validator side of the protocol lives here.
-#[derive(Default)]
 struct State {
+	/// Clock used for all time reads. Production passes [`crate::SystemClock`]; tests inject a
+	/// mock.
+	clock: Arc<dyn Clock>,
 	/// Leaves that do support asynchronous backing along with
 	/// implicit ancestry. Leaves from the implicit view are present in
 	/// `active_leaves`, the opposite doesn't hold true.
@@ -680,6 +683,34 @@ struct State {
 }
 
 impl State {
+	fn new(
+		clock: Arc<dyn Clock>,
+		metrics: Metrics,
+		reputation: ReputationAggregator,
+		ah_invulnerables: HashSet<PeerId>,
+		hold_off_duration: Duration,
+	) -> Self {
+		Self {
+			clock,
+			implicit_view: Default::default(),
+			leaf_claim_queues: Default::default(),
+			leaf_scheduling_info: Default::default(),
+			per_scheduling_parent: Default::default(),
+			peer_data: Default::default(),
+			assigned_cores: Default::default(),
+			collation_requests: Default::default(),
+			collation_requests_cancel_handles: Default::default(),
+			metrics,
+			collation_fetch_timeouts: Default::default(),
+			fetched_candidates: Default::default(),
+			blocked_from_seconding: Default::default(),
+			reputation,
+			ah_invulnerables,
+			ah_held_off_rp_timers: Default::default(),
+			hold_off_duration,
+		}
+	}
+
 	// Returns the number of seconded and pending collations for a specific `ParaId`. Pending
 	// collations are:
 	// 1. Collations being fetched from a collator.
@@ -1776,7 +1807,11 @@ where
 	// finished relay chain slot. We compare slot numbers rather than timestamps to keep
 	// the logic simple and aligned with how BABE/Aura reason about slots.
 	if candidate_descriptor_version == CandidateDescriptorVersion::V3 {
-		if !is_scheduling_parent_valid(&scheduling_parent, &state.leaf_scheduling_info) {
+		if !is_scheduling_parent_valid(
+			&*state.clock,
+			&scheduling_parent,
+			&state.leaf_scheduling_info,
+		) {
 			return Err(AdvertisementError::SchedulingParentNotValid);
 		}
 	}
@@ -2401,6 +2436,7 @@ pub(crate) async fn run<Context>(
 	metrics: Metrics,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Option<Duration>,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), SubsystemError> {
 	gum::info!(target: LOG_TARGET, "Running legacy collator protocol");
 	run_inner(
@@ -2412,6 +2448,7 @@ pub(crate) async fn run<Context>(
 		REPUTATION_CHANGE_INTERVAL,
 		ah_invulnerables,
 		hold_off_duration.unwrap_or(HOLD_OFF_DURATION_DEFAULT_VALUE),
+		clock,
 	)
 	.await
 }
@@ -2426,14 +2463,15 @@ async fn run_inner<Context>(
 	reputation_interval: Duration,
 	ah_invulnerables: HashSet<PeerId>,
 	hold_off_duration: Duration,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), SubsystemError> {
-	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
+	let new_reputation_delay = || clock.delay(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
 	let mut state =
-		State { metrics, reputation, ah_invulnerables, hold_off_duration, ..Default::default() };
+		State::new(clock.clone(), metrics, reputation, ah_invulnerables, hold_off_duration);
 
-	let next_inactivity_stream = tick_stream(ACTIVITY_POLL);
+	let next_inactivity_stream = tick_stream(clock.clone(), ACTIVITY_POLL);
 	futures::pin_mut!(next_inactivity_stream);
 
 	let mut network_error_freq = gum::Freq::new();

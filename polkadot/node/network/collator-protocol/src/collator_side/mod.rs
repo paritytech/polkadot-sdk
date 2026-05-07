@@ -16,6 +16,7 @@
 
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet},
+	sync::Arc,
 	time::Duration,
 };
 
@@ -59,7 +60,7 @@ use polkadot_primitives::{
 	SessionIndex,
 };
 
-use crate::{modify_reputation, LOG_TARGET, LOG_TARGET_STATS};
+use crate::{modify_reputation, Clock, LOG_TARGET, LOG_TARGET_STATS};
 
 mod collation;
 mod error;
@@ -337,6 +338,10 @@ impl PerSchedulingParent {
 }
 
 struct State {
+	/// Clock used for all time reads. Production passes [`crate::SystemClock`]; tests inject a
+	/// mock.
+	clock: Arc<dyn Clock>,
+
 	/// Our network peer id.
 	local_peer_id: PeerId,
 
@@ -411,8 +416,10 @@ impl State {
 		collator_pair: CollatorPair,
 		metrics: Metrics,
 		reputation: ReputationAggregator,
+		clock: Arc<dyn Clock>,
 	) -> State {
 		State {
+			clock,
 			local_peer_id,
 			collator_pair,
 			metrics,
@@ -1988,6 +1995,7 @@ pub(crate) async fn run<Context>(
 	collator_pair: CollatorPair,
 	req_v2_receiver: IncomingRequestReceiver<request_v2::CollationFetchingRequest>,
 	metrics: Metrics,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), FatalError> {
 	run_inner(
 		ctx,
@@ -1997,6 +2005,7 @@ pub(crate) async fn run<Context>(
 		metrics,
 		ReputationAggregator::default(),
 		REPUTATION_CHANGE_INTERVAL,
+		clock,
 	)
 	.await
 }
@@ -2010,13 +2019,15 @@ async fn run_inner<Context>(
 	metrics: Metrics,
 	reputation: ReputationAggregator,
 	reputation_interval: Duration,
+	clock: Arc<dyn Clock>,
 ) -> std::result::Result<(), FatalError> {
 	use OverseerSignal::*;
 
-	let new_reputation_delay = || futures_timer::Delay::new(reputation_interval).fuse();
+	let new_reputation_delay = || clock.delay(reputation_interval).fuse();
 	let mut reputation_delay = new_reputation_delay();
 
-	let mut state = State::new(local_peer_id, collator_pair, metrics.clone(), reputation);
+	let mut state =
+		State::new(local_peer_id, collator_pair, metrics.clone(), reputation, clock.clone());
 	let mut runtime = RuntimeInfo::new(None);
 
 	loop {
