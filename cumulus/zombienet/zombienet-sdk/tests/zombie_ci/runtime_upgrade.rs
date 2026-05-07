@@ -4,8 +4,11 @@
 use crate::utils::initialize_network;
 use anyhow::anyhow;
 use cumulus_test_runtime::wasm_spec_version_incremented::WASM_BINARY as WASM_RUNTIME_UPGRADE;
-use cumulus_zombienet_sdk_helpers::{submit_sudo_runtime_upgrade, wait_for_runtime_upgrade};
-use polkadot_primitives::MAX_CODE_SIZE;
+use cumulus_zombienet_sdk_helpers::{
+	assert_para_throughput, submit_sudo_runtime_upgrade, wait_for_pvf_prepare,
+	wait_for_runtime_upgrade,
+};
+use polkadot_primitives::{Id as ParaId, MAX_CODE_SIZE};
 use serde_json::json;
 use zombienet_sdk::{
 	subxt::{
@@ -63,9 +66,16 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 	let _: OnlineClient<PolkadotConfig> = charlie.wait_client().await?;
 	let charlie_client = big_message_client(charlie.ws_uri()).await?;
 
+	let alice = network.get_node("alice")?;
+	let relay_client: OnlineClient<PolkadotConfig> = alice.wait_client().await?;
+
 	let current_spec_version =
 		charlie_client.backend().current_runtime_version().await?.spec_version;
 	log::info!("Current runtime spec version {current_spec_version}");
+
+	wait_for_pvf_prepare(&network, 1).await?;
+	log::info!("Measuring parachain throughput before runtime upgrade...");
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 14..17)], []).await?;
 
 	// IMPORTANT: `MAX_CODE_SIZE` + overhead must always stay strictly below the 
 	// `AttestedCandidateV2` request/response transport cap defined in
@@ -87,6 +97,12 @@ async fn runtime_upgrade() -> Result<(), anyhow::Error> {
 
 	log::info!("Waiting for parachain runtime upgrade to version {}", expected_spec_version);
 	wait_for_runtime_upgrade(&dave_client).await?;
+
+	// Wait for every relay validator to finish preparing the post-upgrade PVF.
+	// This should already happened due to PVF pre-check, but we do it for sanity.
+	wait_for_pvf_prepare(&network, 2).await?;
+	log::info!("Measuring parachain throughput after runtime upgrade...");
+	assert_para_throughput(&relay_client, 15, [(ParaId::from(PARA_ID), 14..17)], []).await?;
 
 	let spec_version_from_charlie =
 		dave_client.backend().current_runtime_version().await?.spec_version;
