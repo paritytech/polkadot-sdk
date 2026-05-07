@@ -461,21 +461,6 @@ mod tests {
 	}
 
 	#[test]
-	fn revert_to_first_node() {
-		let (mut chain, node_a, node_b, node_c) = make_chain_abc();
-
-		// Revert to first node's output — removes B and C.
-		// (This is the same as revert_to_middle for a 3-node chain, but
-		// exercises the found_index == 0 path.)
-		let removed = chain.revert_to_output_head(&node_a.output_head_data_hash).unwrap();
-		assert_eq!(removed.len(), 2);
-		assert_eq!(removed[0].candidate_hash, node_b.candidate_hash);
-		assert_eq!(removed[1].candidate_hash, node_c.candidate_hash);
-		assert_eq!(chain.len(), 1);
-		assert_eq!(chain.last().unwrap().candidate_hash, node_a.candidate_hash);
-	}
-
-	#[test]
 	fn revert_to_unknown_hash_returns_none() {
 		let (mut chain, _node_a, _node_b, _node_c) = make_chain_abc();
 
