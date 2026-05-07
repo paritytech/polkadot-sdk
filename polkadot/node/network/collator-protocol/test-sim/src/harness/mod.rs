@@ -23,12 +23,14 @@
 
 pub mod dispatcher;
 pub mod observation;
+pub mod pending_fetches;
 pub mod recorder;
 pub mod router;
 pub mod sim;
 
 pub use dispatcher::{AnswerQuery, Dispatcher, LayeredResponder};
 pub use observation::{Observation, Stamped};
+pub use pending_fetches::{PendingFetches, RawResponse};
 pub use recorder::Recorder;
 pub use router::{RouteAttempt, SubsystemSlot, UutRoute, UutSlot};
 pub use sim::{Sim, SimConfig, SubsystemUnderTest};

@@ -34,7 +34,7 @@
 
 use crate::{
 	contract::{classify, peek_effects, Classified},
-	harness::{dispatcher::AnswerQuery, Recorder},
+	harness::{dispatcher::AnswerQuery, pending_fetches::PendingFetches, Recorder},
 };
 use futures::{
 	channel::mpsc,
@@ -127,6 +127,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 	aux: &[Box<dyn SubsystemSlot>],
 	recorder: &mut Recorder,
 	responder: &mut R,
+	pending: &mut PendingFetches,
 ) {
 	// Step 1: peek dual-delivery effects without consuming.
 	let dual_effects = peek_effects(&msg);
@@ -177,7 +178,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 
 	// Step 4: nobody accepted — fall through to classify.
 	let msg = current.expect("loop preserves current when nobody accepts");
-	for c in classify(msg) {
+	for c in classify(msg, pending) {
 		match c {
 			Classified::Effect(e) => recorder.record_effect(now, e),
 			Classified::Query(q) => responder.answer(q),

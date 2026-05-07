@@ -26,6 +26,12 @@ use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, Id as ParaI
 use sc_network_types::PeerId;
 use std::collections::BTreeSet;
 
+/// Opaque identifier assigned by the harness when the subsystem fires an outgoing request.
+/// Tests pass it to `Sim::respond_fetch` to deliver a response into the oneshot the subsystem
+/// is awaiting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct RequestId(pub u64);
+
 /// A single observable output of the collator-protocol subsystem.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Effect {
@@ -54,6 +60,10 @@ pub enum Effect {
 	},
 	/// Subsystem fired an outgoing request.
 	SendRequest {
+		/// Opaque identifier the harness assigned to this request. Tests use this with
+		/// `Sim::respond_fetch(request_id, payload)` to deliver a response into the oneshot
+		/// the subsystem is awaiting.
+		request_id: RequestId,
 		/// Target peer.
 		to: PeerId,
 		/// What kind of request.
@@ -162,6 +172,15 @@ impl Effect {
 				..
 			} if c == expected
 		)
+	}
+
+	/// Returns `Some(request_id)` if this is a `SendRequest`. Useful for chaining
+	/// `Sim::expect(...)` with `Sim::respond_fetch(request_id, payload)`.
+	pub fn request_id(&self) -> Option<RequestId> {
+		match self {
+			Effect::SendRequest { request_id, .. } => Some(*request_id),
+			_ => None,
+		}
 	}
 }
 

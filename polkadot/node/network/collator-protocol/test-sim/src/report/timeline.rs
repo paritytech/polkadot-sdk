@@ -115,8 +115,9 @@ fn format_effect(effect: &Effect) -> String {
 			format!("SendAdvertisement(peers={})", peers.len()),
 		Effect::SendCollation { peers, kind } =>
 			format!("SendCollation(peers={}, kind={:?})", peers.len(), kind),
-		Effect::SendRequest { to, kind, candidate_hash } => format!(
-			"SendRequest(to={}, kind={:?}, cand={:?})",
+		Effect::SendRequest { request_id, to, kind, candidate_hash } => format!(
+			"SendRequest(req={:?}, to={}, kind={:?}, cand={:?})",
+			request_id,
 			short_peer(to),
 			kind,
 			candidate_hash

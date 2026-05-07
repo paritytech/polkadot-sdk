@@ -22,7 +22,7 @@
 
 use crate::{
 	contract::{classify, Classified, Query},
-	harness::Recorder,
+	harness::{pending_fetches::PendingFetches, Recorder},
 };
 use polkadot_node_subsystem::messages::AllMessages;
 use std::time::Instant;
@@ -136,19 +136,25 @@ pub struct Dispatcher<'a, R: AnswerQuery + ?Sized> {
 	pub recorder: &'a mut Recorder,
 	/// Where queries are routed.
 	pub responder: &'a mut R,
+	/// Side table for pending fetch response senders extracted from `SendRequests`.
+	pub pending: &'a mut PendingFetches,
 }
 
 impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 	/// Create a new dispatcher.
-	pub fn new(recorder: &'a mut Recorder, responder: &'a mut R) -> Self {
-		Self { recorder, responder }
+	pub fn new(
+		recorder: &'a mut Recorder,
+		responder: &'a mut R,
+		pending: &'a mut PendingFetches,
+	) -> Self {
+		Self { recorder, responder, pending }
 	}
 
 	/// Process a single outbound message. One inbound message can yield multiple classified
 	/// entries (e.g. a batched `SendRequests` or `SendCollationMessages`); the dispatcher
 	/// records / forwards them in order.
 	pub fn dispatch(&mut self, now: Instant, msg: AllMessages) {
-		for c in classify(msg) {
+		for c in classify(msg, self.pending) {
 			match c {
 				Classified::Effect(effect) => self.recorder.record_effect(now, effect),
 				Classified::Query(query) => self.responder.answer(query),
@@ -234,7 +240,8 @@ mod tests {
 	fn effect_message_records_into_recorder() {
 		let mut rec = Recorder::new();
 		let mut resp = PanicResponder;
-		let mut disp = Dispatcher::new(&mut rec, &mut resp);
+		let mut pending = PendingFetches::new();
+		let mut disp = Dispatcher::new(&mut rec, &mut resp, &mut pending);
 		let peer = sc_network_types::PeerId::random();
 		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(
 			vec![peer],
@@ -262,7 +269,8 @@ mod tests {
 		use polkadot_node_subsystem::messages::ChainApiMessage;
 		let mut rec = Recorder::new();
 		let mut resp = CountingResponder { count: 0 };
-		let mut disp = Dispatcher::new(&mut rec, &mut resp);
+		let mut pending = PendingFetches::new();
+		let mut disp = Dispatcher::new(&mut rec, &mut resp, &mut pending);
 		let (tx, _rx) = futures::channel::oneshot::channel();
 		let msg = AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx));
 		disp.dispatch(Instant::now(), msg);

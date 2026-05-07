@@ -34,10 +34,13 @@
 //! See `polkadot/node/network/collator-protocol/src/...` for the production emission sites
 //! that ground each variant.
 
-use crate::contract::{
-	effect::{AdvertisementSummary, Effect, ReqKind, WireMsgKind},
-	query::Query,
-	reputation::RepBucket,
+use crate::{
+	contract::{
+		effect::{AdvertisementSummary, Effect, ReqKind, WireMsgKind},
+		query::Query,
+		reputation::RepBucket,
+	},
+	harness::pending_fetches::PendingFetches,
 };
 use polkadot_node_network_protocol::{
 	request_response::Requests, v1 as protocol_v1, v2 as protocol_v2, v3_collation as protocol_v3,
@@ -86,10 +89,17 @@ pub fn peek_effects(msg: &AllMessages) -> Vec<Effect> {
 
 /// Walk an outgoing `AllMessages`, classify it. Panics on undeclared egress (a contract
 /// violation, not a test bug).
-pub fn classify(msg: AllMessages) -> Vec<Classified> {
+///
+/// `pending` is the side table where outgoing-fetch response senders are parked: any
+/// `NetworkBridgeTxMessage::SendRequests` produces an `Effect::SendRequest` with a fresh
+/// [`RequestId`] and the embedded `oneshot::Sender` is moved into `pending` so tests can
+/// later resolve it via `Sim::respond_fetch`.
+///
+/// [`RequestId`]: crate::contract::RequestId
+pub fn classify(msg: AllMessages, pending: &mut PendingFetches) -> Vec<Classified> {
 	match msg {
 		AllMessages::CandidateBacking(inner) => from_candidate_backing(inner),
-		AllMessages::NetworkBridgeTx(inner) => from_network_bridge_tx(inner),
+		AllMessages::NetworkBridgeTx(inner) => from_network_bridge_tx(inner, pending),
 		AllMessages::RuntimeApi(inner) => vec![Classified::Query(Query::Runtime(inner))],
 		AllMessages::ChainApi(inner) => vec![Classified::Query(Query::ChainApi(inner))],
 		AllMessages::ProspectiveParachains(inner) =>
@@ -121,7 +131,10 @@ fn from_candidate_backing(msg: CandidateBackingMessage) -> Vec<Classified> {
 	}
 }
 
-fn from_network_bridge_tx(msg: NetworkBridgeTxMessage) -> Vec<Classified> {
+fn from_network_bridge_tx(
+	msg: NetworkBridgeTxMessage,
+	pending: &mut PendingFetches,
+) -> Vec<Classified> {
 	match msg {
 		NetworkBridgeTxMessage::ReportPeer(report) => from_report_peer(report),
 		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) =>
@@ -146,7 +159,7 @@ fn from_network_bridge_tx(msg: NetworkBridgeTxMessage) -> Vec<Classified> {
 			})
 			.collect(),
 		NetworkBridgeTxMessage::SendRequests(requests, _) =>
-			requests.into_iter().map(classify_request).collect(),
+			requests.into_iter().map(|r| classify_request(r, pending)).collect(),
 
 		// The collator-protocol never sends validation-protocol messages or connect/extend
 		// resolved-validators commands. If that changes, we want to know at compile time, not
@@ -183,18 +196,29 @@ fn from_report_peer(msg: ReportPeerMessage) -> Vec<Classified> {
 	}
 }
 
-fn classify_request(req: Requests) -> Classified {
+fn classify_request(req: Requests, pending: &mut PendingFetches) -> Classified {
 	match req {
-		Requests::CollationFetchingV1(out) => Classified::Effect(Effect::SendRequest {
-			to: recipient_to_peer_id(&out.peer),
-			kind: ReqKind::CollationFetchingV1,
-			candidate_hash: None,
-		}),
-		Requests::CollationFetchingV2(out) => Classified::Effect(Effect::SendRequest {
-			to: recipient_to_peer_id(&out.peer),
-			kind: ReqKind::CollationFetchingV2,
-			candidate_hash: Some(out.payload.candidate_hash),
-		}),
+		Requests::CollationFetchingV1(out) => {
+			let to = recipient_to_peer_id(&out.peer);
+			let request_id = pending.register(out.pending_response);
+			Classified::Effect(Effect::SendRequest {
+				request_id,
+				to,
+				kind: ReqKind::CollationFetchingV1,
+				candidate_hash: None,
+			})
+		},
+		Requests::CollationFetchingV2(out) => {
+			let to = recipient_to_peer_id(&out.peer);
+			let candidate_hash = out.payload.candidate_hash;
+			let request_id = pending.register(out.pending_response);
+			Classified::Effect(Effect::SendRequest {
+				request_id,
+				to,
+				kind: ReqKind::CollationFetchingV2,
+				candidate_hash: Some(candidate_hash),
+			})
+		},
 
 		// Other request kinds are emitted by other subsystems, never by collator-protocol.
 		// Exhaustive arms here mean a new variant on the upstream `Requests` enum breaks the
@@ -297,7 +321,7 @@ mod tests {
 		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 			ReportPeerMessage::Single(peer, change),
 		));
-		match one(classify(msg)) {
+		match one(classify(msg, &mut PendingFetches::new())) {
 			Classified::Effect(Effect::Reputation { peer: p, bucket }) => {
 				assert_eq!(p, peer);
 				assert_eq!(bucket, RepBucket::Malicious);
@@ -318,7 +342,7 @@ mod tests {
 		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 			ReportPeerMessage::Batch(map),
 		));
-		let out = classify(msg);
+		let out = classify(msg, &mut PendingFetches::new());
 		assert_eq!(out.len(), 3);
 		// Bucket per peer is preserved.
 		let buckets: Vec<RepBucket> = out
@@ -341,7 +365,7 @@ mod tests {
 			vec![peer_a, peer_b],
 			PeerSet::Collation,
 		));
-		match one(classify(msg)) {
+		match one(classify(msg, &mut PendingFetches::new())) {
 			Classified::Effect(Effect::DisconnectPeers { peers, peer_set }) => {
 				assert_eq!(peers.len(), 2);
 				assert_eq!(peer_set, PeerSet::Collation);
@@ -354,7 +378,7 @@ mod tests {
 	fn chain_api_classifies_as_query() {
 		let (tx, _rx) = futures::channel::oneshot::channel();
 		let msg = AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx));
-		match one(classify(msg)) {
+		match one(classify(msg, &mut PendingFetches::new())) {
 			Classified::Query(Query::ChainApi(_)) => {},
 			other => panic!("unexpected classification: {:?}", other),
 		}

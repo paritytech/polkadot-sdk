@@ -22,9 +22,10 @@
 //! infrastructure in later phases (H.3 / H.4) without changing the public `Sim` API.
 
 use crate::{
-	contract::Effect,
+	contract::{Effect, RequestId},
 	harness::{
 		dispatcher::AnswerQuery,
+		pending_fetches::{PendingFetches, RawResponse},
 		router::{self, RouteAttempt, SubsystemSlot, UutRoute, UutSlot},
 		Recorder,
 	},
@@ -105,6 +106,9 @@ where
 	/// itself is stored in `uut`; it does not consume `AllMessages` (test code injects
 	/// typed stimuli directly), so it does not appear in this vector.
 	aux: Vec<Box<dyn SubsystemSlot>>,
+	/// Side table of `oneshot::Sender`s extracted from outbound fetch requests. Tests
+	/// resolve them via `Sim::respond_fetch`.
+	pending_fetches: PendingFetches,
 }
 
 impl<S: SubsystemUnderTest> Sim<S>
@@ -141,6 +145,7 @@ where
 			uut,
 			outbound_rxs: vec![uut_outbound_rx],
 			aux: Vec::new(),
+			pending_fetches: PendingFetches::new(),
 		}
 	}
 
@@ -270,6 +275,36 @@ where
 		self.aux.push(Box::new(slot));
 	}
 
+	/// Resolve an outstanding fetch by [`RequestId`] with `response`. The corresponding
+	/// `oneshot::Sender` (parked by the harness when the subsystem fired
+	/// `NetworkBridgeTxMessage::SendRequests`) is consumed and the subsystem's await unblocks.
+	///
+	/// Settles the executor afterwards so the subsystem can react to the response.
+	///
+	/// Panics if `request_id` is unknown (already responded, or no fetch with this id).
+	///
+	/// [`RequestId`]: crate::contract::RequestId
+	pub fn respond_fetch(&mut self, request_id: RequestId, response: RawResponse) {
+		let sender = self.pending_fetches.take(request_id).unwrap_or_else(|| {
+			panic!(
+				"Sim::respond_fetch: no outstanding fetch for {:?} (already responded? unknown id?)",
+				request_id
+			)
+		});
+		// `send` consumes the sender and may fail if the receiver was dropped — the
+		// subsystem giving up on the fetch is a legitimate outcome the test may want to
+		// observe via a subsequent effect, so don't panic on send failure.
+		let _ = sender.send(response);
+		self.executor.poll_until_pending();
+		self.drain();
+	}
+
+	/// Number of outstanding fetches awaiting a response. Useful for assertions like "exactly
+	/// one fetch was fired" before delivering the response.
+	pub fn pending_fetches(&self) -> usize {
+		self.pending_fetches.len()
+	}
+
 	/// Conclude every spawned subsystem, drain remaining work, return all recorded
 	/// observations.
 	pub fn finish(mut self) -> Recorder {
@@ -310,6 +345,7 @@ where
 						let aux = self.aux.as_slice();
 						let recorder = &mut self.recorder;
 						let responder = &mut *self.responder;
+						let pending = &mut self.pending_fetches;
 						self.executor.run_until(router::route(
 							now,
 							msg,
@@ -317,6 +353,7 @@ where
 							aux,
 							recorder,
 							responder,
+							pending,
 						));
 						// Other subsystems may now have work to do (forwarded messages
 						// reached their inboxes; oneshot replies unblocked someone).
