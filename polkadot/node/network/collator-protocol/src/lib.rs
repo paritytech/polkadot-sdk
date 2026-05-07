@@ -16,6 +16,27 @@
 
 //! The Collator Protocol allows collators and validators talk to each other.
 //! This subsystem implements both sides of the collator protocol.
+//!
+//! # Public API discipline
+//!
+//! The deterministic test-sim framework
+//! (`polkadot-collator-protocol-test-sim`) is a **separate crate** and uses only this crate's
+//! public API. This is intentional. **Do not** add `pub` items to expose internals just to
+//! make a scenario compile.
+//!
+//! When a scenario needs a private type the answer is one of:
+//!
+//! - Add a variant to the contract enums in `test-sim/src/contract/{effect,query}.rs`. The
+//!   scenario then asserts/queries the new observable rather than reaching into state.
+//! - Add a public builder method on the test-sim builders (`World`, `Peer`, `Candidate`).
+//! - Refactor the scenario to drive the property via a stimulus that makes it observable.
+//!
+//! Why: tests that depend on internals calcify implementation choices, mask production bugs
+//! when private state diverges from observable behaviour, and break on refactors that did not
+//! actually change behaviour. The whole point of the framework is that tests survive internal
+//! refactors. Convenience exports erode that asset; the doc rule + reviewer attention on new
+//! `pub` items at the lib.rs boundary is the enforcement mechanism. PR reviewers: any new
+//! `pub` item in this file gets a justification or a "no".
 
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
@@ -56,6 +77,7 @@ pub use validator_side_experimental::ReputationConfig;
 
 pub mod clock;
 pub use clock::{system_clock, Clock, SystemClock};
+
 
 mod collator_side;
 mod validator_side;
