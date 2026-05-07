@@ -6,9 +6,7 @@ use std::{sync::Arc, time::Duration};
 
 use crate::utils::initialize_network;
 
-use cumulus_zombienet_sdk_helpers::{
-	assert_para_throughput, assign_cores, wait_for_pvf_prepare,
-};
+use cumulus_zombienet_sdk_helpers::{assert_para_throughput, assign_cores, wait_for_pvf_prepare};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_orchestrator::network::node::LogLineCountOptions;
