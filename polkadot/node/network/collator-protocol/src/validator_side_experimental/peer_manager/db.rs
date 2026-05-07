@@ -757,7 +757,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			0)
+			now)
 			.await;
 
 			// The oldest peer (smallest last_bumped) should have been evicted.
@@ -802,7 +802,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			0)
+			now)
 			.await;
 
 			assert!(db.query(&peer_high_score, &para_id).await.is_some(), "ratio≈0.328, survives");
@@ -858,7 +858,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			0)
+			now)
 			.await;
 
 			assert_eq!(db.query(&peer_old, &para_id).await, None, "ratio=1/30_000, evicted");
@@ -915,7 +915,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			0)
+			now)
 			.await;
 
 			assert_eq!(db.query(&peer_a, &para_id).await, None, "ratio=1/100_000, evicted");
@@ -956,7 +956,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			0)
+			now)
 			.await;
 
 			assert_eq!(db.query(&peer_zero, &para_id).await, None, "ratio=0, evicted");
@@ -997,7 +997,7 @@ mod tests {
 					.into_iter()
 					.collect(),
 				None,
-			0)
+			now)
 			.await;
 
 			assert_eq!(db.query(&peer_a, &para_id).await, None, "lower score wins tie, evicted");
