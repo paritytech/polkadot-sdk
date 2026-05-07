@@ -40,6 +40,27 @@
 //!   tests reaching into internals defeat the framework's reason to exist.
 //!
 //! See the corresponding rule in `polkadot-collator-protocol`'s crate-level docs.
+//!
+//! # Why a hand-rolled harness instead of a real `polkadot-overseer`?
+//!
+//! Considered and rejected. Two load-bearing reasons:
+//!
+//! 1. **`tokio::time::pause()` does not control `futures_timer::Delay`**, and orchestra's
+//!    `TimeoutExt::timeout` plus the overseer's metrics metronome both use
+//!    `futures_timer::Delay`. Running the harness on a paused tokio runtime would leave
+//!    multiple time sources still ticking against real wall-clock — kills determinism.
+//! 2. **Precise quiescence.** `LocalPool::run_until_stalled()` polls every spawned task
+//!    until each returns `Pending`. Tokio current_thread has no equivalent; the folklore
+//!    is `yield_now` loops or sleeps, both heuristic. Scenario tests that read like specs
+//!    require deterministic ordering, not best-effort settling.
+//!
+//! Subsystem-bench's mock subsystems are real `overseer::Subsystem` impls designed for a
+//! multi-thread tokio runtime against a benchmark workload — different problem, not
+//! reusable. Malus's `MessageInterceptor` wraps a real subsystem inside a real overseer
+//! driven by `polkadot_cli::run_node` — wrong layer entirely.
+//!
+//! When extending the model (new query variants, new stub behaviours) those crates'
+//! pattern-match arms are useful as a checklist, but the code shape stays here.
 
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
