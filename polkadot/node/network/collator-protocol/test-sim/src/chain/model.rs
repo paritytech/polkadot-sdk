@@ -22,8 +22,10 @@ use crate::{
 };
 use polkadot_node_subsystem::messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_primitives::{
-	BlockNumber, CoreIndex, GroupRotationInfo, Hash, Header, Id as ParaId, SessionIndex,
-	ValidatorId, ValidatorIndex,
+	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
+	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
+	GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures, SessionIndex,
+	ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 use sp_consensus_slots::Slot;
@@ -90,6 +92,11 @@ pub struct ChainModel {
 	sessions: BTreeMap<SessionIndex, SessionInfo>,
 	claim_queues: BTreeMap<Hash, BTreeMap<CoreIndex, VecDeque<ParaId>>>,
 	scheduling_lookahead: u32,
+	async_backing_params: AsyncBackingParams,
+	node_features: NodeFeatures,
+	minimum_backing_votes: u32,
+	pending_availability: BTreeMap<ParaId, Vec<CommittedCandidateReceipt>>,
+	backing_constraints: BTreeMap<ParaId, Constraints>,
 	genesis: Hash,
 	tip: Hash,
 }
@@ -115,6 +122,14 @@ impl ChainModel {
 			sessions: BTreeMap::new(),
 			claim_queues: BTreeMap::new(),
 			scheduling_lookahead: 3,
+			async_backing_params: AsyncBackingParams {
+				max_candidate_depth: 4,
+				allowed_ancestry_len: 2,
+			},
+			node_features: NodeFeatures::EMPTY,
+			minimum_backing_votes: 1,
+			pending_availability: BTreeMap::new(),
+			backing_constraints: BTreeMap::new(),
 			genesis: genesis_hash,
 			tip: genesis_hash,
 		}
@@ -173,6 +188,37 @@ impl ChainModel {
 		self.scheduling_lookahead = lookahead;
 	}
 
+	/// Install backing constraints for a para. If unset the model returns a permissive
+	/// default that lets advertisements pass the prospective-parachains acceptance check.
+	pub fn set_backing_constraints(&mut self, para: ParaId, constraints: Constraints) {
+		self.backing_constraints.insert(para, constraints);
+	}
+
+	/// Override the async backing params (max candidate depth, allowed ancestry length).
+	pub fn set_async_backing_params(&mut self, params: AsyncBackingParams) {
+		self.async_backing_params = params;
+	}
+
+	/// Replace the node-features bitvec returned by `RuntimeApi::NodeFeatures`.
+	pub fn set_node_features(&mut self, features: NodeFeatures) {
+		self.node_features = features;
+	}
+
+	/// Override the minimum-backing-votes value returned by
+	/// `RuntimeApi::MinimumBackingVotes`.
+	pub fn set_minimum_backing_votes(&mut self, votes: u32) {
+		self.minimum_backing_votes = votes;
+	}
+
+	/// Install the candidates-pending-availability list for a para.
+	pub fn set_pending_availability(
+		&mut self,
+		para: ParaId,
+		candidates: Vec<CommittedCandidateReceipt>,
+	) {
+		self.pending_availability.insert(para, candidates);
+	}
+
 	/// Walk ancestry of `from`. Yields parent, grandparent, ... up to (but not including) the
 	/// genesis pre-image. Used by `ChainApi::Ancestors`.
 	pub fn ancestors(&self, from: Hash, k: usize) -> Vec<Hash> {
@@ -225,6 +271,48 @@ impl ChainModel {
 			},
 			RuntimeApiRequest::SchedulingLookahead(_session, tx) => {
 				let _ = tx.send(Ok(self.scheduling_lookahead));
+			},
+			RuntimeApiRequest::AsyncBackingParams(tx) => {
+				let _ = tx.send(Ok(self.async_backing_params.clone()));
+			},
+			RuntimeApiRequest::NodeFeatures(_session, tx) => {
+				let _ = tx.send(Ok(self.node_features.clone()));
+			},
+			RuntimeApiRequest::MinimumBackingVotes(_session, tx) => {
+				let _ = tx.send(Ok(self.minimum_backing_votes));
+			},
+			RuntimeApiRequest::BackingConstraints(para, tx) => {
+				let constraints = self
+					.backing_constraints
+					.get(&para)
+					.cloned()
+					.unwrap_or_else(default_constraints);
+				let _ = tx.send(Ok(Some(constraints)));
+			},
+			RuntimeApiRequest::CandidatesPendingAvailability(para, tx) => {
+				let candidates = self.pending_availability.get(&para).cloned().unwrap_or_default();
+				let _ = tx.send(Ok(candidates));
+			},
+			RuntimeApiRequest::DisabledValidators(tx) => {
+				let _ = tx.send(Ok(Vec::new()));
+			},
+			RuntimeApiRequest::AvailabilityCores(tx) => {
+				let _ = tx.send(Ok(Vec::new()));
+			},
+			RuntimeApiRequest::SessionInfo(_session, tx) => {
+				let _ = tx.send(Ok(None));
+			},
+			RuntimeApiRequest::SessionExecutorParams(_session, tx) => {
+				let _ = tx.send(Ok(None));
+			},
+			RuntimeApiRequest::ParaIds(_session, tx) => {
+				let _ = tx.send(Ok(Vec::new()));
+			},
+			RuntimeApiRequest::ValidationCodeBombLimit(_session, tx) => {
+				let _ = tx.send(Ok(60 * 1024 * 1024));
+			},
+			RuntimeApiRequest::MaxRelayParentSessionAge(_session, tx) => {
+				let _ = tx.send(Ok(8));
 			},
 			other => panic!(
 				"ChainModel does not implement RuntimeApiRequest::{:?} yet — extend the model when a subsystem starts asking for it",
@@ -309,6 +397,28 @@ impl AnswerQuery for SharedChain {
 
 	fn answer(&mut self, query: Query) {
 		self.lock().answer(query)
+	}
+}
+
+/// Permissive default backing constraints. Tests that need stricter shapes pass their own
+/// via [`ChainModel::set_backing_constraints`].
+fn default_constraints() -> Constraints {
+	Constraints {
+		min_relay_parent_number: 0,
+		max_pov_size: 5 * 1024 * 1024,
+		max_code_size: 3 * 1024 * 1024,
+		max_head_data_size: 20 * 1024,
+		ump_remaining: 32,
+		ump_remaining_bytes: 64 * 1024,
+		max_ump_num_per_candidate: 16,
+		dmp_remaining_messages: Vec::new(),
+		hrmp_inbound: InboundHrmpLimitations { valid_watermarks: Vec::new() },
+		hrmp_channels_out: Vec::new(),
+		max_hrmp_num_per_candidate: 16,
+		required_parent: HeadData(Vec::new()),
+		validation_code_hash: ValidationCodeHash::from(Hash::zero()),
+		upgrade_restriction: None,
+		future_validation_code: None,
 	}
 }
 

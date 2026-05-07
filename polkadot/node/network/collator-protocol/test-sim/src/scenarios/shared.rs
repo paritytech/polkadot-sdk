@@ -14,21 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Vertical-slice scenarios: read each one as a spec.
-//!
-//! The slice covers the legacy validator side first. New scenarios in this module exercise:
-//!
-//! - bad-signature declarations get penalised (see [`bad_signature`]),
-//! - declarations for an unassigned para get disconnected (see [`unneeded_para`]).
-//!
-//! Heavier flows (advertise → fetch → second) follow once the responder DSL grows the helpers
-//! required to script the view-update query barrage.
+//! Helpers shared across scenarios.
 
-#[cfg(test)]
-mod advertise_then_fetch;
-#[cfg(test)]
-mod bad_signature;
-#[cfg(test)]
-pub(crate) mod shared;
-#[cfg(test)]
-mod unneeded_para;
+use crate::{contract::Query, harness::AnswerQuery};
+
+/// A responder that panics on every query. Pushed onto the tail of a
+/// [`crate::harness::LayeredResponder`] to surface any unexpected query family that earlier
+/// layers declined.
+pub struct PanicResponder;
+
+impl AnswerQuery for PanicResponder {
+	fn answer(&mut self, query: Query) {
+		panic!("PanicResponder: unhandled query reached the tail of the responder chain: {:?}", query);
+	}
+}
