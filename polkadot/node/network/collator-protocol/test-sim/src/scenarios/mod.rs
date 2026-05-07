@@ -29,7 +29,13 @@ mod advertise_then_fetch;
 #[cfg(test)]
 mod bad_signature;
 #[cfg(test)]
+mod disconnect_if_no_declare;
+#[cfg(test)]
+mod disconnect_if_wrong_declare;
+#[cfg(test)]
 mod fetch_timeout;
+#[cfg(test)]
+mod inactive_collator_eviction;
 #[cfg(test)]
 mod malicious_para;
 #[cfg(test)]

@@ -480,12 +480,13 @@ impl PeerData {
 	}
 
 	/// Whether the peer is now inactive according to the current instant and the eviction policy.
-	fn is_inactive(&self, policy: &crate::CollatorEvictionPolicy) -> bool {
+	fn is_inactive(&self, clock: &dyn crate::Clock, policy: &crate::CollatorEvictionPolicy) -> bool {
+		let now = clock.now();
 		match self.state {
-			PeerState::Connected(connected_at) => connected_at.elapsed() >= policy.undeclared,
-			PeerState::Collating(ref state) => {
-				state.last_active.elapsed() >= policy.inactive_collator
-			},
+			PeerState::Connected(connected_at) =>
+				now.saturating_duration_since(connected_at) >= policy.undeclared,
+			PeerState::Collating(ref state) =>
+				now.saturating_duration_since(state.last_active) >= policy.inactive_collator,
 		}
 	}
 }
@@ -2506,7 +2507,7 @@ async fn run_inner<Context>(
 				}
 			},
 			_ = next_inactivity_stream.next() => {
-				disconnect_inactive_peers(ctx.sender(), &eviction_policy, &state.peer_data).await;
+				disconnect_inactive_peers(ctx.sender(), &*clock, &eviction_policy, &state.peer_data).await;
 			},
 			resp = state.collation_requests.select_next_some() => {
 				let relay_parent = resp.0.pending_collation.scheduling_parent;
@@ -2898,11 +2899,12 @@ async fn kick_off_seconding<Context>(
 // receipt of the `PeerDisconnected` event.
 async fn disconnect_inactive_peers(
 	sender: &mut impl overseer::CollatorProtocolSenderTrait,
+	clock: &dyn crate::Clock,
 	eviction_policy: &crate::CollatorEvictionPolicy,
 	peers: &HashMap<PeerId, PeerData>,
 ) {
 	for (peer, peer_data) in peers {
-		if peer_data.is_inactive(&eviction_policy) {
+		if peer_data.is_inactive(clock, &eviction_policy) {
 			gum::trace!(target: LOG_TARGET, ?peer, "Disconnecting inactive peer");
 			disconnect_peer(sender, *peer).await;
 		}

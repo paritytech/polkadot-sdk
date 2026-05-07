@@ -189,12 +189,34 @@ where
 		self.inject(FromOrchestra::Communication { msg });
 	}
 
-	/// Advance simulated time. After advancing, the executor settles so any tasks waiting on
-	/// the clock can make progress; outbound messages they produce are drained.
+	/// Advance simulated time by `dur`. Iteratively resolves wakeups until either the time
+	/// budget is exhausted or no further wakeup falls inside the remaining window.
+	///
+	/// Plain `MockClock::advance(d)` only fires wakeups whose deadline already exists at the
+	/// time of the call. Tick streams (e.g. `tick_stream`) re-register a new wakeup every
+	/// time the previous one fires; without iteration `Sim::advance(25s)` would only
+	/// surface one tick. Settling between sub-steps lets every wakeup land.
 	pub fn advance(&mut self, dur: Duration) {
-		self.clock.advance(dur);
-		self.executor.poll_until_pending();
-		self.drain();
+		let target = self.clock.now() + dur;
+		loop {
+			let now = self.clock.now();
+			if now >= target {
+				break;
+			}
+			let remaining = target - now;
+			match self.clock.advance_to_next_wakeup() {
+				Some(elapsed) if elapsed <= remaining => {
+					let _ = elapsed;
+				},
+				Some(_) | None => {
+					// Either the next wakeup is past the target, or no wakeups are pending.
+					// Step the clock to the target in one go.
+					self.clock.advance(remaining);
+				},
+			}
+			self.executor.poll_until_pending();
+			self.drain();
+		}
 	}
 
 	/// Wait for an effect matching `predicate` to appear in the recorder, advancing the clock
