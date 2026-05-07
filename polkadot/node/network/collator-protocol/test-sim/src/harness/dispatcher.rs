@@ -54,11 +54,15 @@ impl<'a, R: AnswerQuery> Dispatcher<'a, R> {
 		Self { recorder, responder }
 	}
 
-	/// Process a single outbound message.
+	/// Process a single outbound message. One inbound message can yield multiple classified
+	/// entries (e.g. a batched `SendRequests` or `SendCollationMessages`); the dispatcher
+	/// records / forwards them in order.
 	pub fn dispatch(&mut self, now: Instant, msg: AllMessages) {
-		match classify(msg) {
-			Classified::Effect(effect) => self.recorder.record_effect(now, effect),
-			Classified::Query(query) => self.responder.answer(query),
+		for c in classify(msg) {
+			match c {
+				Classified::Effect(effect) => self.recorder.record_effect(now, effect),
+				Classified::Query(query) => self.responder.answer(query),
+			}
 		}
 	}
 }

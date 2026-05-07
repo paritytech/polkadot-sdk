@@ -16,12 +16,20 @@
 
 //! Classify outgoing `AllMessages` into [`Effect`] (asserted) or [`Query`] (mock-answered).
 //!
-//! Outgoing messages from the collator-protocol subsystem fall into one of three categories:
+//! A single `AllMessages` can correspond to several entries in the observation stream — most
+//! commonly because a single `NetworkBridgeTxMessage::SendRequests` carries multiple `Requests`,
+//! or `SendCollationMessages` carries multiple peer-batches. The classifier returns a flat
+//! `Vec<Classified>` accordingly; callers iterate.
 //!
-//! 1. Effects on `CandidateBacking` and the network bridge (excluding `CanSecond`) — recorded.
-//! 2. Information-gathering queries (`RuntimeApi`, `ChainApi`, `ProspectiveParachains`,
-//!    `CandidateBacking::CanSecond`) — answered by the responder.
-//! 3. Anything else — a contract violation: panic.
+//! The outer `AllMessages` enum is large and includes families the collator-protocol does not
+//! interact with at all (`ApprovalDistribution`, `BitfieldDistribution`, ...). The outer match
+//! therefore keeps a wildcard arm that panics with a contract-violation message; that's the
+//! intended failure mode for genuinely undeclared egress.
+//!
+//! Inner matches on small, stable enums (`NetworkBridgeTxMessage`, `Requests`,
+//! `ReportPeerMessage`) are **exhaustive** — when an upstream variant is added, the build
+//! breaks on the next compile and we make a conscious decision rather than discovering it via
+//! a panicked test.
 //!
 //! See `polkadot/node/network/collator-protocol/src/...` for the production emission sites
 //! that ground each variant.
@@ -40,7 +48,8 @@ use polkadot_node_subsystem::messages::{
 };
 use std::collections::BTreeSet;
 
-/// Result of classifying a single outgoing `AllMessages`.
+/// Result of classifying a single outgoing `AllMessages`. One message may classify into
+/// multiple entries (see module docs); callers iterate the returned `Vec`.
 #[derive(Debug)]
 pub enum Classified {
 	/// The message is an observable effect — record it.
@@ -51,121 +60,125 @@ pub enum Classified {
 
 /// Walk an outgoing `AllMessages`, classify it. Panics on undeclared egress (a contract
 /// violation, not a test bug).
-pub fn classify(msg: AllMessages) -> Classified {
+pub fn classify(msg: AllMessages) -> Vec<Classified> {
 	match msg {
-		// ---- Effects on CandidateBacking ----
-		AllMessages::CandidateBacking(CandidateBackingMessage::Second {
-			scheduling_parent,
-			candidate,
-			..
-		}) => Classified::Effect(Effect::SecondCandidate {
-			scheduling_parent,
-			candidate_hash: candidate.hash(),
-			para: candidate.descriptor.para_id(),
-		}),
-
-		// ---- Queries on CandidateBacking ----
-		msg @ AllMessages::CandidateBacking(CandidateBackingMessage::CanSecond(..)) =>
-			match msg {
-				AllMessages::CandidateBacking(inner) => Classified::Query(Query::CanSecond(inner)),
-				_ => unreachable!(),
-			},
-
-		// ---- Network bridge: split per-variant into effects vs panics ----
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(report)) => match report {
-			ReportPeerMessage::Single(peer, change) =>
-				Classified::Effect(Effect::Reputation { peer, bucket: RepBucket::from_raw(&change) }),
-			ReportPeerMessage::Batch(map) => {
-				// Reputation batches collapse to a single Effect (per-peer entries are independent
-				// reputation events). Emit one Effect per (peer, bucket); the responder records
-				// them in iteration order.
-				//
-				// In practice a `Batch` carries multiple peers; we expose each as a discrete
-				// Effect via the recorder by panicking here and letting the caller split.
-				// However we cannot return multiple effects from a single classify call without
-				// changing the API; instead, *always* emit a single Reputation effect for the
-				// "first" peer and warn — production code only emits Batch via the rep aggregator
-				// which currently does not encode bucket info on the i32 magnitude side.
-				//
-				// Pragmatic decision: treat any Batch as a Performance bucket touching every
-				// peer in the batch. Tests that need exact counts use the per-event Single form.
-				let peers: Vec<_> = map.into_iter().collect();
-				if let Some((peer, _)) = peers.first().copied() {
-					Classified::Effect(Effect::Reputation { peer, bucket: RepBucket::Performance })
-				} else {
-					// Empty batch — uncommon. Treat as a no-op effect.
-					Classified::Effect(Effect::Reputation {
-						peer: sc_network_types::PeerId::random(),
-						bucket: RepBucket::Performance,
-					})
-				}
-			},
-		},
-
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set)) =>
-			Classified::Effect(Effect::DisconnectPeers {
-				peers: peers.into_iter().collect::<BTreeSet<_>>(),
-				peer_set,
-			}),
-
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ConnectToValidators {
-			validator_ids,
-			peer_set,
-			failed: _,
-		}) => Classified::Effect(Effect::ConnectValidators {
-			validator_ids: validator_ids.into_iter().collect::<BTreeSet<_>>(),
-			peer_set,
-		}),
-
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessage(peers, proto)) => {
-			let kind = wire_kind_from_collation_protocol(&proto);
-			Classified::Effect(Effect::SendCollation { peers, kind })
-		},
-
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendCollationMessages(batches)) => {
-			// Coalesce a batch into the first effect — tests that need exact ordering can use the
-			// non-batched variant. The collator-protocol primarily uses the singular form.
-			if let Some((peers, proto)) = batches.into_iter().next() {
-				let kind = wire_kind_from_collation_protocol(&proto);
-				Classified::Effect(Effect::SendCollation { peers, kind })
-			} else {
-				panic!("collator-protocol emitted empty SendCollationMessages batch")
-			}
-		},
-
-		AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::SendRequests(requests, _)) => {
-			let req = requests
-				.into_iter()
-				.next()
-				.expect("collator-protocol emits at least one Request per SendRequests");
-			let (kind, candidate_hash, target) = match &req {
-				Requests::CollationFetchingV1(out) => (
-					ReqKind::CollationFetchingV1,
-					None,
-					recipient_to_peer_id(&out.peer),
-				),
-				Requests::CollationFetchingV2(out) => (
-					ReqKind::CollationFetchingV2,
-					Some(out.payload.candidate_hash),
-					recipient_to_peer_id(&out.peer),
-				),
-				other =>
-					panic!("collator-protocol emitted unexpected request kind: {:?}", other),
-			};
-			Classified::Effect(Effect::SendRequest { to: target, kind, candidate_hash })
-		},
-
-		// ---- Queries on RuntimeApi / ChainApi / ProspectiveParachains ----
-		AllMessages::RuntimeApi(inner) => Classified::Query(Query::Runtime(inner)),
-		AllMessages::ChainApi(inner) => Classified::Query(Query::ChainApi(inner)),
-		AllMessages::ProspectiveParachains(inner) => Classified::Query(Query::Prospective(inner)),
-
-		// ---- Anything else: contract violation ----
+		AllMessages::CandidateBacking(inner) => from_candidate_backing(inner),
+		AllMessages::NetworkBridgeTx(inner) => from_network_bridge_tx(inner),
+		AllMessages::RuntimeApi(inner) => vec![Classified::Query(Query::Runtime(inner))],
+		AllMessages::ChainApi(inner) => vec![Classified::Query(Query::ChainApi(inner))],
+		AllMessages::ProspectiveParachains(inner) =>
+			vec![Classified::Query(Query::Prospective(inner))],
 		other => panic!(
 			"collator-protocol emitted undeclared egress: {:?}\n\
 			 If this is a legitimate effect, add a variant to `Effect` and a classifier arm.",
 			other
 		),
+	}
+}
+
+fn from_candidate_backing(msg: CandidateBackingMessage) -> Vec<Classified> {
+	match msg {
+		CandidateBackingMessage::Second { scheduling_parent, candidate, pvd: _, pov: _ } =>
+			vec![Classified::Effect(Effect::SecondCandidate {
+				scheduling_parent,
+				candidate_hash: candidate.hash(),
+				para: candidate.descriptor.para_id(),
+			})],
+		msg @ CandidateBackingMessage::CanSecond(..) =>
+			vec![Classified::Query(Query::CanSecond(msg))],
+		// Other CandidateBackingMessage variants (`GetBackableCandidates`, `Statement`) are not
+		// emitted by the collator-protocol.
+		other => panic!(
+			"collator-protocol emitted unexpected CandidateBackingMessage variant: {:?}",
+			other
+		),
+	}
+}
+
+fn from_network_bridge_tx(msg: NetworkBridgeTxMessage) -> Vec<Classified> {
+	match msg {
+		NetworkBridgeTxMessage::ReportPeer(report) => from_report_peer(report),
+		NetworkBridgeTxMessage::DisconnectPeers(peers, peer_set) =>
+			vec![Classified::Effect(Effect::DisconnectPeers {
+				peers: peers.into_iter().collect::<BTreeSet<_>>(),
+				peer_set,
+			})],
+		NetworkBridgeTxMessage::ConnectToValidators { validator_ids, peer_set, failed: _ } =>
+			vec![Classified::Effect(Effect::ConnectValidators {
+				validator_ids: validator_ids.into_iter().collect::<BTreeSet<_>>(),
+				peer_set,
+			})],
+		NetworkBridgeTxMessage::SendCollationMessage(peers, proto) => {
+			let kind = wire_kind_from_collation_protocol(&proto);
+			vec![Classified::Effect(Effect::SendCollation { peers, kind })]
+		},
+		NetworkBridgeTxMessage::SendCollationMessages(batches) => batches
+			.into_iter()
+			.map(|(peers, proto)| {
+				let kind = wire_kind_from_collation_protocol(&proto);
+				Classified::Effect(Effect::SendCollation { peers, kind })
+			})
+			.collect(),
+		NetworkBridgeTxMessage::SendRequests(requests, _) =>
+			requests.into_iter().map(classify_request).collect(),
+
+		// The collator-protocol never sends validation-protocol messages or connect/extend
+		// resolved-validators commands. If that changes, we want to know at compile time, not
+		// at panic time.
+		NetworkBridgeTxMessage::SendValidationMessage(..) |
+		NetworkBridgeTxMessage::SendValidationMessages(..) |
+		NetworkBridgeTxMessage::ConnectToResolvedValidators { .. } |
+		NetworkBridgeTxMessage::AddToResolvedValidators { .. } => panic!(
+			"collator-protocol emitted unexpected NetworkBridgeTxMessage variant: {:?}",
+			msg
+		),
+	}
+}
+
+fn from_report_peer(msg: ReportPeerMessage) -> Vec<Classified> {
+	match msg {
+		ReportPeerMessage::Single(peer, change) => vec![Classified::Effect(Effect::Reputation {
+			peer,
+			bucket: RepBucket::from_raw(&change),
+		})],
+		ReportPeerMessage::Batch(map) => map
+			.into_iter()
+			.map(|(peer, magnitude)| {
+				let bucket = if magnitude == i32::MIN {
+					RepBucket::Malicious
+				} else if magnitude < 0 {
+					RepBucket::Performance
+				} else {
+					RepBucket::Benefit
+				};
+				Classified::Effect(Effect::Reputation { peer, bucket })
+			})
+			.collect(),
+	}
+}
+
+fn classify_request(req: Requests) -> Classified {
+	match req {
+		Requests::CollationFetchingV1(out) => Classified::Effect(Effect::SendRequest {
+			to: recipient_to_peer_id(&out.peer),
+			kind: ReqKind::CollationFetchingV1,
+			candidate_hash: None,
+		}),
+		Requests::CollationFetchingV2(out) => Classified::Effect(Effect::SendRequest {
+			to: recipient_to_peer_id(&out.peer),
+			kind: ReqKind::CollationFetchingV2,
+			candidate_hash: Some(out.payload.candidate_hash),
+		}),
+
+		// Other request kinds are emitted by other subsystems, never by collator-protocol.
+		// Exhaustive arms here mean a new variant on the upstream `Requests` enum breaks the
+		// build until we've consciously routed it.
+		Requests::ChunkFetching(_) |
+		Requests::PoVFetchingV1(_) |
+		Requests::AvailableDataFetchingV1(_) |
+		Requests::DisputeSendingV1(_) |
+		Requests::AttestedCandidateV2(_) =>
+			panic!("collator-protocol emitted unexpected request kind: {:?}", req),
 	}
 }
 
@@ -246,6 +259,11 @@ mod tests {
 	use polkadot_node_subsystem::messages::ChainApiMessage;
 	use polkadot_primitives::Hash;
 
+	fn one(c: Vec<Classified>) -> Classified {
+		assert_eq!(c.len(), 1, "expected exactly one classified entry");
+		c.into_iter().next().unwrap()
+	}
+
 	#[test]
 	fn report_peer_single_classifies_as_reputation_effect() {
 		let peer = sc_network_types::PeerId::random();
@@ -253,13 +271,40 @@ mod tests {
 		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
 			ReportPeerMessage::Single(peer, change),
 		));
-		match classify(msg) {
+		match one(classify(msg)) {
 			Classified::Effect(Effect::Reputation { peer: p, bucket }) => {
 				assert_eq!(p, peer);
 				assert_eq!(bucket, RepBucket::Malicious);
 			},
 			other => panic!("unexpected classification: {:?}", other),
 		}
+	}
+
+	#[test]
+	fn report_peer_batch_emits_one_effect_per_peer() {
+		let p1 = sc_network_types::PeerId::random();
+		let p2 = sc_network_types::PeerId::random();
+		let p3 = sc_network_types::PeerId::random();
+		let mut map = std::collections::HashMap::new();
+		map.insert(p1, -100i32);
+		map.insert(p2, 100i32);
+		map.insert(p3, i32::MIN);
+		let msg = AllMessages::NetworkBridgeTx(NetworkBridgeTxMessage::ReportPeer(
+			ReportPeerMessage::Batch(map),
+		));
+		let out = classify(msg);
+		assert_eq!(out.len(), 3);
+		// Bucket per peer is preserved.
+		let buckets: Vec<RepBucket> = out
+			.into_iter()
+			.map(|c| match c {
+				Classified::Effect(Effect::Reputation { bucket, .. }) => bucket,
+				other => panic!("expected Reputation effect, got {:?}", other),
+			})
+			.collect();
+		assert!(buckets.contains(&RepBucket::Performance));
+		assert!(buckets.contains(&RepBucket::Benefit));
+		assert!(buckets.contains(&RepBucket::Malicious));
 	}
 
 	#[test]
@@ -270,7 +315,7 @@ mod tests {
 			vec![peer_a, peer_b],
 			PeerSet::Collation,
 		));
-		match classify(msg) {
+		match one(classify(msg)) {
 			Classified::Effect(Effect::DisconnectPeers { peers, peer_set }) => {
 				assert_eq!(peers.len(), 2);
 				assert_eq!(peer_set, PeerSet::Collation);
@@ -283,11 +328,10 @@ mod tests {
 	fn chain_api_classifies_as_query() {
 		let (tx, _rx) = futures::channel::oneshot::channel();
 		let msg = AllMessages::ChainApi(ChainApiMessage::FinalizedBlockNumber(tx));
-		match classify(msg) {
+		match one(classify(msg)) {
 			Classified::Query(Query::ChainApi(_)) => {},
 			other => panic!("unexpected classification: {:?}", other),
 		}
-		// silence: the rx is dropped along with the test scope.
 		let _ = Hash::default();
 	}
 }
