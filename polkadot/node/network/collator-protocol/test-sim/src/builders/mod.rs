@@ -1,0 +1,30 @@
+// Copyright (C) Parity Technologies (UK) Ltd.
+// This file is part of Polkadot.
+
+// Polkadot is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// Polkadot is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
+
+//! Builders for chain state, peers, and candidates used by scenarios.
+//!
+//! These types are plain Rust — no proc-macros, no implicit globals. Their job is to keep the
+//! scenario read like a spec while leaving the harness's wiring (signals, query scripts) under
+//! the test's explicit control.
+
+pub mod candidate;
+pub mod fixtures;
+pub mod peer;
+pub mod world;
+
+pub use candidate::Candidate;
+pub use peer::{Peer, ProtocolVersion};
+pub use world::World;

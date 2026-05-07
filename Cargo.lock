@@ -16185,6 +16185,7 @@ dependencies = [
  "polkadot-node-subsystem-test-helpers",
  "polkadot-overseer",
  "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "sc-keystore",
  "sc-network-types 0.10.0",
  "sp-core 28.0.0",

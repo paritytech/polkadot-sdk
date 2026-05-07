@@ -44,6 +44,7 @@
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
 
+pub mod builders;
 pub mod contract;
 pub mod harness;
 pub mod impls;
