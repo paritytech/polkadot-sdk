@@ -34,7 +34,10 @@ use crate::{
 };
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_collator_protocol::Clock;
-use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal, SpawnGlue};
+use polkadot_node_subsystem::{
+	messages::{AllMessages, CollatorProtocolMessage},
+	FromOrchestra, OverseerSignal, SpawnGlue,
+};
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
 };
@@ -86,6 +89,30 @@ where
 	fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages>;
 }
 
+/// Convenience alias bundling the bounds every collator-protocol scenario needs on its
+/// generic `S` parameter. Without this, every `#[sim_test] fn name<S>()` has to repeat
+/// the same three-line `where` clause that the macro can't synthesise. With it, the
+/// scenario reads `fn name<S: CollatorSut>()`.
+///
+/// Blanket impl below covers anything that satisfies the underlying bounds, so the
+/// alias is purely shorthand — no manual `impl CollatorSut for ...` needed when adding
+/// new SUT adapters.
+pub trait CollatorSut:
+	SubsystemUnderTest<Message = CollatorProtocolMessage>
+where
+	AllMessages: From<<Self::Message as AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<Self::Message>,
+{
+}
+
+impl<T> CollatorSut for T
+where
+	T: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<T::Message as AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<T::Message>,
+{
+}
+
 /// A running simulation around `S`.
 pub struct Sim<S: SubsystemUnderTest>
 where
@@ -113,6 +140,27 @@ where
 	pending_fetches: PendingFetches,
 }
 
+/// Install a process-wide `tracing` subscriber the first time any `Sim` starts. Without
+/// this, `gum::trace!` / `tracing::*` events fired by the real subsystems (prospective,
+/// backing) go nowhere — debugging a "fetch fired but no second" failure becomes
+/// guesswork.
+///
+/// Driven by `RUST_LOG`; defaults to `off` so unrelated test runs aren't spammed. Typical
+/// usage: `RUST_LOG=parachain=trace cargo test ...`.
+fn install_tracing_subscriber() {
+	use std::sync::Once;
+	use tracing_subscriber::{fmt, EnvFilter};
+	static INIT: Once = Once::new();
+	INIT.call_once(|| {
+		let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
+		let _ = fmt::Subscriber::builder()
+			.with_env_filter(filter)
+			.with_test_writer()
+			.with_target(true)
+			.try_init();
+	});
+}
+
 impl<S: SubsystemUnderTest> Sim<S>
 where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
@@ -125,6 +173,7 @@ where
 	where
 		R: AnswerQuery + 'static,
 	{
+		install_tracing_subscriber();
 		let clock = Arc::new(MockClock::new(cfg.epoch));
 		let mut executor = Executor::new();
 

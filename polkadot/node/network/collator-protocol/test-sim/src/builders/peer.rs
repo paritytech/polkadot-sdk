@@ -148,7 +148,9 @@ impl Peer {
 	}
 
 	/// `AdvertiseCollation` wire message at `relay_parent`. For V2/V3, supply the candidate
-	/// hash and parent head-data hash.
+	/// hash and parent head-data hash. V3 advertisements through this method default to
+	/// `descriptor_version = V2` and `scheduling_parent == relay_parent` — use
+	/// [`Self::advertise_v3`] for full control of those fields.
 	pub fn advertise(
 		&self,
 		relay_parent: Hash,
@@ -178,6 +180,35 @@ impl Peer {
 					relay_parent,
 				}),
 		};
+		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
+	}
+
+	/// Full-control V3 advertisement. The peer must have been built with
+	/// [`ProtocolVersion::V3`]; otherwise this method panics. Lets the scenario specify
+	/// `scheduling_parent`, `relay_parent`, and `candidate_descriptor_version`
+	/// independently — needed by the V3 stalled-relay-chain / scheduling-parent tests.
+	pub fn advertise_v3(
+		&self,
+		scheduling_parent: Hash,
+		relay_parent: Hash,
+		candidate_hash: CandidateHash,
+		parent_head_data_hash: Hash,
+		descriptor_version: polkadot_primitives::CandidateDescriptorVersion,
+	) -> CollatorProtocolMessage {
+		assert_eq!(
+			self.version,
+			ProtocolVersion::V3,
+			"advertise_v3 requires a peer constructed with ProtocolVersion::V3"
+		);
+		let proto = CollationProtocols::V3(
+			protocol_v3::CollatorProtocolMessage::AdvertiseCollation {
+				scheduling_parent,
+				candidate_hash,
+				parent_head_data_hash,
+				candidate_descriptor_version: descriptor_version,
+				relay_parent,
+			},
+		);
 		Self::wrap(NetworkBridgeEvent::PeerMessage(self.peer_id, proto))
 	}
 }

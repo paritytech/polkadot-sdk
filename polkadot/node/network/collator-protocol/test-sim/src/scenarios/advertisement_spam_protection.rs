@@ -14,77 +14,55 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a peer advertises, the validator asks `CanSecond`, the test answers `false`.
-//! The peer then re-advertises the same candidate. Validator penalises the peer for sending
-//! an unexpected message (spam protection).
+//! Peer advertises; CanSecond stub answers `false` → drop. Peer re-advertises the same
+//! candidate; validator penalises with `Reputation::Performance` (spam protection).
 //!
-//! Mirrors `validator_side/tests/prospective_parachains.rs::advertisement_spam_protection`.
-//!
-//! KNOWN-FAILING (both impls): the first advertisement does not produce any observable
-//! effect in our setup — the validator's CanSecond → stub_false → drop path is supposed to
-//! still record the advertisement for spam-detection, but the second (duplicate) ad does
-//! not produce a Reputation::Performance hit. Possibly a timing artifact (the recorded
-//! sim_t shows ~1.1s elapsed during what should be ~100ms — investigate
-//! Sim::advance / drain interaction with subsystem-internal tick streams) or a subtle
-//! shape mismatch (e.g. parent_head_data_hash vs candidate.descriptor.para_head, V2 vs V3
-//! advertisement framing). Test is left in place as a TODO to investigate; not flagged as
-//! a divergence until root cause is known.
+//! KNOWN-FAILING (both impls): existing investigation note — the second (duplicate)
+//! advertisement does not produce the rep hit. Suspect timing artifact in Sim::advance
+//! draining vs subsystem-internal tick streams. Tracked under deferred items.
 
 use crate::{
-	builders::{Candidate, Peer, ProtocolVersion},
+	builders::{Candidate, ProtocolVersion::V2},
 	chain::CoreSchedule,
 	contract::{Effect, RepBucket},
-	harness::SubsystemUnderTest,
-	scenarios::shared::ChainConfig,
+	harness::CollatorSut,
+	scenarios::shared::{build_with_ancestors_world_with_config, ChainConfig},
 };
-use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
-use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
+const PARA: ParaId = ParaId::new(2000);
+
 #[crate::sim_test]
-fn re_advertising_after_can_second_false_triggers_reputation_hit<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-
-	// Use a CanSecond=false stub so the validator rejects the first advertisement at
-	// the CanSecond gate.
+fn re_advertising_after_can_second_false_triggers_reputation_hit<S: CollatorSut>() {
 	let config = ChainConfig::default()
-		.with_schedule(CoreIndex(0), CoreSchedule::always(para))
+		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA))
 		.with_can_second_stub(false);
-	let mut world = crate::scenarios::shared::build_with_ancestors_world_with_config::<S>(0, config);
+	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
 
-	let peer = Peer::new(para, ProtocolVersion::V2);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
+	let candidate = Candidate::for_para_at(PARA, w.leaf());
+	let peer = w.declared_peer(PARA, V2);
 
-	let candidate = Candidate::for_para_at(para, world.leaf);
-	let parent_head_hash = HeadData(Vec::new()).hash();
-
-	// First advertisement: validator queries CanSecond → stub says false → drop.
-	world.sim.send(peer.advertise(world.leaf, Some(candidate.hash()), Some(parent_head_hash)));
-	world.sim.advance(Duration::from_millis(100));
-
-	// Settle: confirm no fetch fired and no reputation hit yet.
-	world.sim.expect_count(
+	// First advertisement: CanSecond=false → drop.
+	w.advertise_with_parent_head(
+		&peer,
+		w.leaf(),
+		candidate.hash(),
+		polkadot_primitives::HeadData(Vec::new()).hash(),
+	);
+	w.sim.advance(Duration::from_millis(100));
+	w.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		0,
 		"SendRequest after CanSecond=false (must be zero)",
 	);
 
-	// Second (duplicate) advertisement: triggers spam protection — Reputation::Performance
-	// (COST_UNEXPECTED_MESSAGE).
-	world.sim.send(peer.advertise(world.leaf, Some(candidate.hash()), Some(parent_head_hash)));
-
-	let _ = world.sim.expect(
-		|e| matches!(
-			e,
-			Effect::Reputation { peer: p, bucket: RepBucket::Performance } if *p == peer.peer_id,
-		),
-		Duration::from_millis(200),
-		"Effect::Reputation { Performance } after duplicate advertisement",
+	// Duplicate advertisement → spam protection.
+	w.advertise_with_parent_head(
+		&peer,
+		w.leaf(),
+		candidate.hash(),
+		polkadot_primitives::HeadData(Vec::new()).hash(),
 	);
+	w.expect_rep(&peer, RepBucket::Performance);
 }

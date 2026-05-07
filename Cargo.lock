@@ -16203,6 +16203,7 @@ dependencies = [
  "sp-keystore 0.34.0",
  "sp-runtime 31.0.1",
  "tokio",
+ "tracing-subscriber 0.3.19",
 ]
 
 [[package]]

@@ -14,114 +14,76 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: two peers advertise. The validator fetches and seconds the first peer's
-//! candidate. Backing later reports the candidate as `Invalid` — the validator penalises
-//! the offending peer (malicious reputation hit) and fetches the next queued advertisement.
+//! Two peers advertise; first peer's candidate seconded; backing then signals `Invalid`.
+//! Validator emits Reputation::Malicious for the offending peer and fetches the next
+//! queued advertisement.
 //!
-//! EXPECTED-FAILURE NOTE (experimental): the experimental side fetches the next peer but
-//! does NOT emit `Effect::Reputation { Malicious }` for the offending peer. Reputation
-//! handling is fundamentally different in experimental (persistent reputation store; no
-//! per-event Malicious bus traffic to NetworkBridge). Captured as a divergence.
+//! KNOWN-FAILING (experimental): per
+//! `project_collator_experimental_no_invalid_reputation_event.md` — experimental updates
+//! the persistent reputation store directly rather than emitting a bus event.
 
 use crate::{
-	builders::{Candidate, Peer, ProtocolVersion},
+	builders::{Candidate, ProtocolVersion::V1},
 	contract::{Effect, RepBucket, ReqKind},
-	harness::SubsystemUnderTest,
+	harness::CollatorSut,
+	scenarios::shared::activated_world,
 };
-use codec::Encode;
-use polkadot_node_network_protocol::request_response::v1 as protocol_v1;
-use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
-use polkadot_primitives::{
-	CoreIndex, HeadData, Id as ParaId, MutateDescriptorV2, PersistedValidationData,
-};
-use sc_network::ProtocolName;
+use polkadot_node_subsystem::messages::CollatorProtocolMessage;
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
+const PARA: ParaId = ParaId::new(2000);
+
 #[crate::sim_test]
-fn invalid_signal_penalises_peer_and_fetches_next<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
+fn invalid_signal_penalises_peer_and_fetches_next<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let leaf = w.leaf();
+	let leaf_n = w.leaf_number();
 
-	let pvd = PersistedValidationData {
-		parent_head: HeadData(Vec::new()),
-		relay_parent_number: world.chain.lock().block(&world.leaf).unwrap().number,
-		relay_parent_storage_root: polkadot_primitives::Hash::zero(),
-		max_pov_size: 5 * 1024 * 1024,
-	};
-	let mut candidate = Candidate::for_para_at(para, world.leaf);
-	candidate.receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	let candidate = Candidate::builder()
+		.para(PARA)
+		.relay_parent(leaf)
+		.relay_parent_number(leaf_n)
+		.build();
 
-	let peer_b = Peer::new(para, ProtocolVersion::V1);
-	let peer_c = Peer::new(para, ProtocolVersion::V1);
-	for peer in [&peer_b, &peer_c] {
-		world.sim.send(peer.connected());
-		world.sim.send(peer.declare());
-	}
-	for peer in [&peer_b, &peer_c] {
-		world.sim.send(peer.advertise(world.leaf, None, None));
-	}
+	let peer_b = w.declared_peer(PARA, V1);
+	let peer_c = w.declared_peer(PARA, V1);
+	w.sim.send(peer_b.advertise(leaf, None, None));
+	w.sim.send(peer_c.advertise(leaf, None, None));
 
-	// Fetch from one of them (whichever wins).
-	let first = world.sim.expect(
-		|effect| matches!(effect, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
+	// One fetch fires (whichever peer wins the queue).
+	let first = w.sim.expect(
+		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 		Duration::from_millis(100),
 		"first Effect::SendRequest CollationFetchingV1",
 	);
-	let request_id = first.request_id().unwrap();
+	let request_id = first.request_id().expect("SendRequest carries a RequestId");
 	let first_peer = match first {
 		Effect::SendRequest { to, .. } => to,
 		_ => unreachable!(),
 	};
 
-	// Deliver a valid response.
-	let pov = PoV { block_data: BlockData(vec![]) };
-	let response = protocol_v1::CollationFetchingResponse::Collation(
-		candidate.receipt.clone().into(),
-		pov,
-	);
-	world
-		.sim
-		.respond_fetch(request_id, Ok((response.encode(), ProtocolName::from(""))));
+	w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
+	w.expect_second(&candidate);
 
-	// Wait for the seconding effect.
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
-			Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
-		),
-		Duration::from_millis(500),
-		"Effect::SecondCandidate after the first fetch",
-	);
+	// Invalid signal → Malicious reputation hit + next fetch fires for the other peer.
+	w.sim
+		.send(CollatorProtocolMessage::Invalid(leaf, candidate.receipt.clone().into()));
 
-	// Backing reports the candidate as Invalid.
-	world.sim.send(CollatorProtocolMessage::Invalid(world.leaf, candidate.receipt.clone().into()));
-
-	// First peer gets the malicious reputation hit.
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
+	let _ = w.sim.expect(
+		|e| matches!(
+			e,
 			Effect::Reputation { peer, bucket: RepBucket::Malicious } if *peer == first_peer
 		),
 		Duration::from_millis(100),
 		"Effect::Reputation Malicious for the peer that produced the invalid candidate",
 	);
 
-	// And the validator fires a *new* fetch — for the other peer's queued advertisement.
 	let other_peer = if first_peer == peer_b.peer_id { peer_c.peer_id } else { peer_b.peer_id };
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
-			Effect::SendRequest {
-				to,
-				kind: ReqKind::CollationFetchingV1,
-				..
-			} if *to == other_peer
+	let _ = w.sim.expect(
+		|e| matches!(
+			e,
+			Effect::SendRequest { to, kind: ReqKind::CollationFetchingV1, .. } if *to == other_peer
 		),
 		Duration::from_millis(100),
 		"Effect::SendRequest CollationFetchingV1 to the second peer after Invalid",

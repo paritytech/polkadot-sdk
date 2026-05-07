@@ -39,8 +39,45 @@ use polkadot_node_subsystem::{
 	FromOrchestra, OverseerSignal,
 };
 use polkadot_primitives::{
-	CandidateCommitments, CandidateReceiptV2 as CandidateReceipt, PersistedValidationData,
+	CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	PersistedValidationData,
 };
+use std::{
+	collections::HashMap,
+	sync::{Arc, Mutex},
+};
+
+/// Shared registry mapping `CandidateHash` → `(commitments, pvd)`. The
+/// [`CandidateValidationStub::always_valid`] stub consults this table when validating —
+/// candidates registered here get their bespoke commitments and PVD echoed back, which is
+/// what real backing then seconds.
+///
+/// Without this, every candidate validates with empty `default_commitments`, which makes
+/// the backing pipeline ignore `head_data` threading and breaks fragment-chain scenarios.
+#[derive(Clone, Default)]
+pub struct CandidateOutputs {
+	inner: Arc<Mutex<HashMap<CandidateHash, (CandidateCommitments, PersistedValidationData)>>>,
+}
+
+impl CandidateOutputs {
+	/// Register `(commitments, pvd)` for `hash`. Subsequent validation calls for that
+	/// candidate will reproduce these outputs.
+	pub fn insert(
+		&self,
+		hash: CandidateHash,
+		commitments: CandidateCommitments,
+		pvd: PersistedValidationData,
+	) {
+		self.inner.lock().expect("CandidateOutputs lock").insert(hash, (commitments, pvd));
+	}
+
+	fn get(
+		&self,
+		hash: &CandidateHash,
+	) -> Option<(CandidateCommitments, PersistedValidationData)> {
+		self.inner.lock().expect("CandidateOutputs lock").get(hash).cloned()
+	}
+}
 
 /// Verdict the stub returns for a single validate request.
 pub enum Verdict {
@@ -62,15 +99,22 @@ pub struct CandidateValidationStub {
 impl CandidateValidationStub {
 	/// Stub that approves every candidate. Commitments default to the framework's empty
 	/// shape (no upward messages, no horizontal messages, head data the candidate descriptor
-	/// already implies).
-	pub fn always_valid<S>(sim: &mut crate::harness::Sim<S>) -> Self
+	/// already implies). For fragment-chain scenarios, register specific outputs via
+	/// [`CandidateOutputs`] — the registry takes precedence over the default.
+	pub fn always_valid<S>(
+		sim: &mut crate::harness::Sim<S>,
+		outputs: CandidateOutputs,
+	) -> Self
 	where
 		S: crate::harness::SubsystemUnderTest,
 		AllMessages:
 			From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 		AllMessages: From<S::Message>,
 	{
-		Self::with_verdict(sim, |_, _| {
+		Self::with_verdict(sim, move |receipt, _| {
+			if let Some((commitments, pvd)) = outputs.get(&receipt.hash()) {
+				return Verdict::Valid(commitments, pvd);
+			}
 			let pvd = crate::builders::fixtures::dummy_pvd();
 			Verdict::Valid(default_commitments(), pvd)
 		})
@@ -183,7 +227,7 @@ mod tests {
 	#[test]
 	fn always_valid_stub_concludes() {
 		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let stub = CandidateValidationStub::always_valid(&mut sim);
+		let stub = CandidateValidationStub::always_valid(&mut sim, CandidateOutputs::default());
 		sim.register_aux_slot_only(stub);
 		// Worker future is parked on inbound_rx.next() — Conclude signal will end it.
 		let _ = sim.finish();

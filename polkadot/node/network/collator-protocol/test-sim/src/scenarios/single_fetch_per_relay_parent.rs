@@ -14,75 +14,39 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: two V1 peers advertise the same relay parent. The validator fetches from
-//! exactly one of them (one fetch in flight at a time per relay parent). The
-//! original-upstream test (`fetch_one_collation_at_a_time_for_v1_advertisement`) asserts
-//! "no further fetch fires before the first one is resolved" via a racy `now_or_never()`
-//! check. Our deterministic version asserts the same: at the moment of the first
-//! SendRequest there is exactly one outbound fetch in flight. After the first fetch
-//! resolves (with a valid response → seconding), the validator MAY fetch the next
-//! advertisement — that is correct under async-backing claim-queue semantics: a relay
-//! parent with `lookahead=3` claim slots can host up to 3 seconded candidates per para.
-//! We do NOT assert "no second fetch ever fires"; that assertion was wrong.
+//! Two V1 peers advertise the same relay parent. Validator fetches from exactly one of
+//! them (one in-flight fetch per relay parent). After the first fetch resolves with a
+//! valid response → seconded, a second fetch *may* fire — claim-queue lookahead allows up
+//! to N seconded candidates per RP. This scenario only pins the in-flight cap.
 
 use crate::{
-	builders::{Candidate, Peer, ProtocolVersion},
+	builders::ProtocolVersion::V1,
 	contract::{Effect, ReqKind},
-	harness::SubsystemUnderTest,
+	harness::CollatorSut,
+	scenarios::shared::activated_world,
 };
-use codec::Encode;
-use polkadot_node_network_protocol::request_response::v1 as protocol_v1;
-use polkadot_node_primitives::{BlockData, PoV};
-use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
-use polkadot_primitives::{
-	CoreIndex, HeadData, Id as ParaId, MutateDescriptorV2, PersistedValidationData,
-};
-use sc_network::ProtocolName;
+use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
+const PARA: ParaId = ParaId::new(2000);
+
 #[crate::sim_test]
-fn one_fetch_per_relay_parent_until_seconded<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
+fn one_fetch_per_relay_parent_until_seconded<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let leaf = w.leaf();
 
-	let pvd = PersistedValidationData {
-		parent_head: HeadData(Vec::new()),
-		relay_parent_number: world.chain.lock().block(&world.leaf).unwrap().number,
-		relay_parent_storage_root: polkadot_primitives::Hash::zero(),
-		max_pov_size: 5 * 1024 * 1024,
-	};
-	let mut candidate = Candidate::for_para_at(para, world.leaf);
-	candidate.receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	let peer_b = w.declared_peer(PARA, V1);
+	let peer_c = w.declared_peer(PARA, V1);
+	w.sim.send(peer_b.advertise(leaf, None, None));
+	w.sim.send(peer_c.advertise(leaf, None, None));
 
-	// Two V1 peers, both declared for the same para.
-	let peer_b = Peer::new(para, ProtocolVersion::V1);
-	let peer_c = Peer::new(para, ProtocolVersion::V1);
-	for peer in [&peer_b, &peer_c] {
-		world.sim.send(peer.connected());
-		world.sim.send(peer.declare());
-	}
-	// Both advertise.
-	for peer in [&peer_b, &peer_c] {
-		world.sim.send(peer.advertise(world.leaf, None, None));
-	}
-
-	// Exactly one fetch should be in flight.
-	let first = world.sim.expect(
-		|effect| matches!(effect, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
+	let _ = w.sim.expect(
+		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 		Duration::from_millis(100),
 		"first Effect::SendRequest CollationFetchingV1",
 	);
-	let request_id = first.request_id().expect("SendRequest carries a RequestId");
 
-	let _ = request_id;
-	let _ = candidate;
-
-	world.sim.expect_count(
+	w.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		1,
 		"SendRequest while one fetch is in flight (no second concurrent fetch allowed)",

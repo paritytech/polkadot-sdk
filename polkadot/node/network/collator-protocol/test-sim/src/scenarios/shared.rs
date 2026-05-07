@@ -19,7 +19,7 @@
 use crate::{
 	aux::{
 		AvailabilityDistributionNoop, AvailabilityStoreStub, CandidateBackingAux,
-		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
+		CandidateOutputs, CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
 		StatementDistributionNoop,
 	},
 	chain::{ChainModel, CoreSchedule, SessionInfo, SharedChain},
@@ -49,16 +49,74 @@ impl AnswerQuery for PanicResponder {
 	}
 }
 
-/// Outcome of [`activated_world`]: a fully wired Sim plus the leaf hash and the SharedChain
-/// handle for further mutation.
+/// One active leaf in the harness's view. `hash` and `number` are eagerly cached because
+/// every scenario uses them; ancestors are *not* cached — read them via
+/// [`World::ancestors_of`] which walks [`SharedChain`] on demand. That keeps the chain as
+/// the single source of truth and avoids stale-cache bugs if a scenario ever extends the
+/// chain mid-run.
+#[derive(Clone, Copy, Debug)]
+pub struct Leaf {
+	/// Block hash.
+	pub hash: Hash,
+	/// Block number.
+	pub number: u32,
+}
+
+/// Unified test world. Replaces the older `WithAncestorsWorld` and `MultiLeafWorld`
+/// structs — every scenario goes through this one shape.
+///
+/// * Single-leaf scenarios access `world.leaf()` (defaults to `leaves[0]`) and
+///   `world.ancestors()`.
+/// * Multi-leaf scenarios access `world.leaves[i]` and `world.ancestors_of(i)`.
+///
+/// `chain` is the source of truth for everything block-shaped; `leaves` is just the list of
+/// blocks the framework signalled `ActiveLeaves::start_work` for. `outputs` is the
+/// per-candidate (commitments, PVD) registry the validation stub consults.
 pub struct World<S: SubsystemUnderTest>
 where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
 	pub sim: Sim<S>,
-	pub leaf: Hash,
+	pub leaves: Vec<Leaf>,
 	pub chain: SharedChain,
+	pub outputs: CandidateOutputs,
+}
+
+impl<S: SubsystemUnderTest> World<S>
+where
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	/// Hash of the first (and, for most scenarios, only) active leaf.
+	pub fn leaf(&self) -> Hash {
+		self.leaves[0].hash
+	}
+
+	/// Block number of the first active leaf.
+	pub fn leaf_number(&self) -> u32 {
+		self.leaves[0].number
+	}
+
+	/// Walk back `k` blocks from the first leaf. `ancestors()[0]` is the leaf's parent.
+	/// Reads [`SharedChain`] on demand — no cached state.
+	pub fn ancestors(&self) -> Vec<Hash> {
+		self.ancestors_of(0)
+	}
+
+	/// Walk back from `leaves[idx]`. Returns up to
+	/// [`crate::chain::ChainModel`]'s configured `allowed_ancestry_len` blocks. The result
+	/// matches what real `prospective-parachains` would return for
+	/// `known_allowed_relay_parents_under(leaf)` (excluding the leaf itself).
+	pub fn ancestors_of(&self, idx: usize) -> Vec<Hash> {
+		let leaf_hash = self.leaves[idx].hash;
+		let chain = self.chain.lock();
+		// Use `allowed_ancestry_len + 1` as the depth budget — chain.ancestors(_, k) returns
+		// up to k blocks excluding the queried hash; the implicit view typically resolves
+		// `allowed_ancestry_len` of those. We lean on the chain to bound at genesis.
+		let k = chain.allowed_ancestry_len() as usize + 1;
+		chain.ancestors(leaf_hash, k)
+	}
 }
 
 /// Build a Sim with the standard validator-side world: one leaf, one session, one validator
@@ -72,46 +130,18 @@ where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
-	let world = build_multi_leaf_world::<S>(1, paras);
-	World { sim: world.sim, leaf: world.leaves[0], chain: world.chain }
+	build_with_ancestors_world::<S>(0, paras)
 }
 
-/// Multi-leaf variant of [`World`]. `leaves[0]` is the shallowest (genesis's first child);
-/// `leaves[i]` for `i > 0` are progressively deeper blocks in the same chain. The same
-/// claim queue is installed at every leaf.
-pub struct MultiLeafWorld<S: SubsystemUnderTest>
-where
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	pub sim: Sim<S>,
-	/// Leaves in extend order: `leaves[0]` is genesis's first child, `leaves[N-1]` is the
-	/// deepest. All are signalled active and included in OurView.
-	pub leaves: Vec<Hash>,
-	pub chain: SharedChain,
-}
-
-/// World with a single active leaf `L` plus a chain of `n_ancestors` blocks under it.
-/// Returns `(sim, leaf, ancestors, chain)` — `ancestors[0]` is L's parent, `ancestors[N-1]`
-/// is the oldest ancestor in scope. The leaf is signalled active; OurView contains only L.
-/// Implicit-view machinery in the real prospective subsystem resolves the ancestors via
-/// `ChainApi::Ancestors`.
-pub struct WithAncestorsWorld<S: SubsystemUnderTest>
-where
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	pub sim: Sim<S>,
-	pub leaf: Hash,
-	/// Ancestors in walk-back order: `ancestors[0]` is L's parent.
-	pub ancestors: Vec<Hash>,
-	pub chain: SharedChain,
-}
 
 /// Build a multi-leaf world: extends the chain `n_leaves` times on top of genesis,
 /// installs the claim queue at every leaf, signals `ActiveLeaves::start_work` for each
 /// leaf in extend order, and pushes an `OurViewChange` containing all of them.
-pub fn build_multi_leaf_world<S>(n_leaves: usize, paras: &[(CoreIndex, ParaId)]) -> MultiLeafWorld<S>
+///
+/// All leaves form a single linear chain — `leaves[i+1]` is `leaves[i]`'s direct child.
+/// Multi-fork scenarios (separate chains under genesis with no shared parent) are not
+/// supported; that's a separate extension.
+pub fn build_multi_leaf_world<S>(n_leaves: usize, paras: &[(CoreIndex, ParaId)]) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -163,7 +193,8 @@ where
 	sim.register_aux(psp, psp_rx);
 	sim.register_aux(cb, cb_rx);
 
-	let cv = CandidateValidationStub::always_valid(&mut sim);
+	let outputs = CandidateOutputs::default();
+	let cv = CandidateValidationStub::always_valid(&mut sim, outputs.clone());
 	let av = AvailabilityStoreStub::spawn(&mut sim);
 	sim.register_aux_slot_only(cv);
 	sim.register_aux_slot_only(av);
@@ -180,7 +211,12 @@ where
 		polkadot_node_network_protocol::OurView::new(leaves.iter().copied(), 0),
 	)));
 
-	MultiLeafWorld { sim, leaves, chain }
+	let leaves: Vec<Leaf> = leaves
+		.iter()
+		.zip(leaf_numbers.iter())
+		.map(|(h, n)| Leaf { hash: *h, number: *n })
+		.collect();
+	World { sim, leaves, chain, outputs }
 }
 
 /// Pre-activation chain configuration. Tests construct this, hand it to
@@ -198,6 +234,19 @@ pub struct ChainConfig {
 	/// Use when a scenario specifically needs a `CanSecond=false` (or `=true`) verdict
 	/// that real backing wouldn't produce in our minimal chain shape.
 	pub can_second_stub: Option<bool>,
+	/// Slot of the genesis block. Each subsequent extend bumps the slot by one. Defaults
+	/// to 0. Increase this for V3 tests that need leaf-parent / leaf at specific slots.
+	pub genesis_slot: Slot,
+	/// Validator groups. Defaults to `vec![vec![ValidatorIndex(0), ValidatorIndex(1)]]`.
+	/// Multiple groups + matching `group_rotation_frequency` enables per-block group rotation
+	/// across cores. Used by `group_rotation_uses_correct_core_per_relay_parent`.
+	pub validator_groups: Vec<Vec<ValidatorIndex>>,
+	/// Group rotation frequency. Defaults to 1 (rotates every block). Set to a large number
+	/// to keep group 0 stable across an ancestry chain.
+	pub group_rotation_frequency: u32,
+	/// Set the `CandidateReceiptV2` node feature flag (`FeatureIndex::CandidateReceiptV2 = 3`).
+	/// V3 advertisements / descriptors are gated on this; defaults to `false`.
+	pub enable_v3_node_feature: bool,
 }
 
 impl Default for ChainConfig {
@@ -206,6 +255,10 @@ impl Default for ChainConfig {
 			schedule: Vec::new(),
 			claim_queue_overrides: Vec::new(),
 			can_second_stub: None,
+			genesis_slot: Slot::from(0),
+			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
+			group_rotation_frequency: 1,
+			enable_v3_node_feature: false,
 		}
 	}
 }
@@ -232,6 +285,35 @@ impl ChainConfig {
 		self.can_second_stub = Some(verdict);
 		self
 	}
+
+	/// Set the slot of the genesis block. Each `extend` bumps the slot by one.
+	pub fn with_genesis_slot(mut self, slot: Slot) -> Self {
+		self.genesis_slot = slot;
+		self
+	}
+
+	/// Override the validator groups list. Used for multi-core, multi-group tests where
+	/// per-block group rotation matters (e.g.
+	/// `group_rotation_uses_correct_core_per_relay_parent`).
+	pub fn with_validator_groups(mut self, groups: Vec<Vec<ValidatorIndex>>) -> Self {
+		self.validator_groups = groups;
+		self
+	}
+
+	/// Override the group rotation frequency.
+	pub fn with_group_rotation_frequency(mut self, freq: u32) -> Self {
+		self.group_rotation_frequency = freq;
+		self
+	}
+
+	/// Enable the `CandidateReceiptV2` node feature (FeatureIndex 3) on the chain. Required
+	/// for any scenario that exercises a V3 candidate descriptor — the validator gates V3
+	/// acceptance on this feature being set in the relay-chain runtime API's `NodeFeatures`
+	/// response.
+	pub fn with_v3_descriptors_enabled(mut self) -> Self {
+		self.enable_v3_node_feature = true;
+		self
+	}
 }
 
 /// Identifies a block in the configured chain by its position.
@@ -249,7 +331,7 @@ pub enum LeafSelector {
 pub fn build_with_ancestors_world<S>(
 	n_ancestors: usize,
 	paras: &[(CoreIndex, ParaId)],
-) -> WithAncestorsWorld<S>
+) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -268,7 +350,7 @@ where
 pub fn build_with_ancestors_world_with_config<S>(
 	n_ancestors: usize,
 	config: ChainConfig,
-) -> WithAncestorsWorld<S>
+) -> World<S>
 where
 	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
@@ -276,15 +358,15 @@ where
 {
 	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
-	let mut chain = ChainModel::new(Slot::from(0));
+	let mut chain = ChainModel::new(config.genesis_slot);
 	chain.add_session(
 		0,
 		SessionInfo {
 			validators: crate::builders::fixtures::default_validators(),
-			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
+			validator_groups: config.validator_groups,
 			group_rotation_info: GroupRotationInfo {
 				session_start_block: 0,
-				group_rotation_frequency: 1,
+				group_rotation_frequency: config.group_rotation_frequency,
 				now: 0,
 			},
 		},
@@ -293,6 +375,14 @@ where
 	// Apply schedule from config.
 	for (core, schedule) in config.schedule {
 		chain.set_core_schedule(core, schedule);
+	}
+
+	if config.enable_v3_node_feature {
+		let mut features = polkadot_primitives::NodeFeatures::EMPTY;
+		// FeatureIndex::CandidateReceiptV2 = 3
+		features.resize(4, false);
+		features.set(3, true);
+		chain.set_node_features(features);
 	}
 
 	// Build a chain: oldest_ancestor → ... → leaf-parent → leaf.
@@ -339,7 +429,8 @@ where
 		sim.register_aux(cb, cb_rx);
 	}
 
-	let cv = CandidateValidationStub::always_valid(&mut sim);
+	let outputs = CandidateOutputs::default();
+	let cv = CandidateValidationStub::always_valid(&mut sim, outputs.clone());
 	let av = AvailabilityStoreStub::spawn(&mut sim);
 	sim.register_aux_slot_only(cv);
 	sim.register_aux_slot_only(av);
@@ -355,9 +446,8 @@ where
 		polkadot_node_network_protocol::OurView::new(std::iter::once(leaf), 0),
 	)));
 
-	// Reverse ancestors so ancestors[0] = leaf's parent.
-	let mut ancestors = ancestors_in_extend_order;
-	ancestors.reverse();
-	WithAncestorsWorld { sim, leaf, ancestors, chain }
+	let _ = ancestors_in_extend_order; // ancestors are derived from the chain on demand.
+	let leaves = vec![Leaf { hash: leaf, number: leaf_number }];
+	World { sim, leaves, chain, outputs }
 }
 

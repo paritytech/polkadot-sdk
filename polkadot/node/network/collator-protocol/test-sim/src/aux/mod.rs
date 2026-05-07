@@ -33,6 +33,6 @@ pub mod prospective;
 pub use availability_store::AvailabilityStoreStub;
 pub use backing::CandidateBackingAux;
 pub use can_second_stub::CanSecondStub;
-pub use candidate_validation::{CandidateValidationStub, Verdict};
+pub use candidate_validation::{CandidateOutputs, CandidateValidationStub, Verdict};
 pub use noop::{AvailabilityDistributionNoop, ProvisionerNoop, StatementDistributionNoop};
 pub use prospective::ProspectiveParachainsAux;

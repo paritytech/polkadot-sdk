@@ -33,4 +33,4 @@ pub use observation::{Observation, Stamped};
 pub use pending_fetches::{PendingFetches, RawResponse};
 pub use recorder::Recorder;
 pub use router::{RouteAttempt, SubsystemSlot, UutRoute, UutSlot};
-pub use sim::{Sim, SimConfig, SubsystemUnderTest};
+pub use sim::{CollatorSut, Sim, SimConfig, SubsystemUnderTest};

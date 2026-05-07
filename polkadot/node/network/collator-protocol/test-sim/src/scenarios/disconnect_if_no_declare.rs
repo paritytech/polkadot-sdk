@@ -14,68 +14,39 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a peer connects but never sends a `Declare`. After the eviction policy's
-//! `undeclared` window elapses, the validator disconnects the peer.
+//! `CollatorEvictionPolicy::undeclared` window.
+//!
+//! * [`peer_disconnected_when_undeclared_window_elapses`] — peer connects, never declares,
+//!   and gets disconnected after the undeclared window (1s in production).
+//! * [`declared_peer_not_disconnected_when_undeclared_window_elapses`] — sanity counterpart.
+//!
+//! KNOWN-FAILING (experimental): per
+//! `project_collator_experimental_no_undeclared_eviction.md`, this is an intended
+//! deviation in the experimental rewrite — #616 says no time-based eviction. Failure here
+//! flags the divergence; not a bug in itself.
 
 use crate::{
-	builders::{Peer, ProtocolVersion},
-	contract::Effect,
-	harness::SubsystemUnderTest,
+	builders::ProtocolVersion::V1,
+	harness::CollatorSut,
+	scenarios::shared::activated_world,
 };
-use polkadot_node_network_protocol::peer_set::PeerSet;
-use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
+const PARA: ParaId = ParaId::new(2000);
+
 #[crate::sim_test]
-fn peer_disconnected_when_undeclared_window_elapses<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
-
-	let peer = Peer::new(para, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-
+fn peer_disconnected_when_undeclared_window_elapses<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let peer = w.connected_peer(PARA, V1);
 	// Production CollatorEvictionPolicy::undeclared defaults to 1s. Advance ~1.5s to clear.
-	world.sim.advance(Duration::from_millis(1500));
-
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_millis(50),
-		"Effect::DisconnectPeers for the never-declared peer",
-	);
+	w.sim.advance(Duration::from_millis(1500));
+	w.expect_disconnect(&peer);
 }
 
-/// Sanity counterpart: a peer that DOES declare on time stays connected past the
-/// undeclared window (declare resets the lifecycle). Pairs with the no-declare test to
-/// confirm the test setup itself isn't trivially disconnecting peers.
 #[crate::sim_test]
-fn declared_peer_not_disconnected_when_undeclared_window_elapses<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
-
-	let peer = Peer::new(para, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
-
-	world.sim.expect_no(
-		|e| matches!(
-			e,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_millis(1500),
-		"DisconnectPeers for the declared peer past the undeclared window",
-	);
+fn declared_peer_not_disconnected_when_undeclared_window_elapses<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let peer = w.declared_peer(PARA, V1);
+	w.expect_no_disconnect(&peer, Duration::from_millis(1500));
 }

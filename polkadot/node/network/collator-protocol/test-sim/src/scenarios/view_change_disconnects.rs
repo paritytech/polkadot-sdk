@@ -14,72 +14,37 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a peer declares as a collator while a leaf is active, then the validator's
-//! view changes to empty. The validator disconnects the now-irrelevant peer.
+//! Peer declares while a leaf is active; validator's view then changes to empty;
+//! validator disconnects the now-irrelevant peer. Sanity counterpart pins the assertion
+//! to the view change rather than to the test setup itself.
 
 use crate::{
-	builders::{Peer, ProtocolVersion},
-	contract::Effect,
-	harness::SubsystemUnderTest,
+	builders::ProtocolVersion::V1,
+	harness::CollatorSut,
+	scenarios::shared::activated_world,
 };
-use polkadot_node_network_protocol::{peer_set::PeerSet, OurView};
-use polkadot_node_subsystem::messages::{
-	AllMessages, CollatorProtocolMessage, NetworkBridgeEvent,
-};
+use polkadot_node_network_protocol::OurView;
+use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
+const PARA: ParaId = ParaId::new(2000);
+
 #[crate::sim_test]
-fn empty_view_disconnects_declared_peer<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
+fn empty_view_disconnects_declared_peer<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let peer = w.declared_peer(PARA, V1);
 
-	let peer = Peer::new(para, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
-
-	// Empty-view update — no leaves at all.
-	world.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::OurViewChange(OurView::new(std::iter::empty(), 0)),
 	));
 
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_millis(100),
-		"Effect::DisconnectPeers for the declared peer after view becomes empty",
-	);
+	w.expect_disconnect(&peer);
 }
 
-/// Sanity counterpart: when the view does NOT change, the declared peer stays connected.
-/// Confirms the test setup isn't producing a spurious disconnect.
 #[crate::sim_test]
-fn declared_peer_stays_connected_when_view_unchanged<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	let mut world = crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), para)]);
-
-	let peer = Peer::new(para, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
-
-	world.sim.expect_no(
-		|e| matches!(
-			e,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_millis(200),
-		"DisconnectPeers when the view does not change",
-	);
+fn declared_peer_stays_connected_when_view_unchanged<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
+	let peer = w.declared_peer(PARA, V1);
+	w.expect_no_disconnect(&peer, Duration::from_millis(200));
 }

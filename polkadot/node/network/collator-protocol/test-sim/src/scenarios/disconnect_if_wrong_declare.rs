@@ -14,70 +14,31 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a peer declares for a para that is *not* in the validator's claim queue, even
-//! though the validator has scheduled paras. The validator disconnects the peer.
+//! Peer declares for a para that is *not* in the validator's claim queue, while the
+//! validator does have scheduled paras. Validator disconnects the peer. Sanity counterpart
+//! pins the assertion to "wrong para" rather than "any declare".
 
 use crate::{
-	builders::{Peer, ProtocolVersion},
-	contract::Effect,
-	harness::SubsystemUnderTest,
+	builders::ProtocolVersion::V1,
+	harness::CollatorSut,
+	scenarios::shared::activated_world,
 };
-use polkadot_node_network_protocol::peer_set::PeerSet;
-use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
+const SCHEDULED: ParaId = ParaId::new(2000);
+const WRONG: ParaId = ParaId::new(3000);
+
 #[crate::sim_test]
-fn peer_disconnected_after_declaring_for_wrong_para<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let scheduled = ParaId::from(2000);
-	let wrong = ParaId::from(3000);
-	let mut world =
-		crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), scheduled)]);
-
-	// Peer declares for a para that's not in the claim queue.
-	let peer = Peer::new(wrong, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
-
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_millis(100),
-		"Effect::DisconnectPeers for the wrongly-declared peer",
-	);
+fn peer_disconnected_after_declaring_for_wrong_para<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
+	let peer = w.declared_peer(WRONG, V1);
+	w.expect_disconnect(&peer);
 }
 
-/// Sanity counterpart: same setup, but the peer declares for the *scheduled* para. The
-/// validator must NOT disconnect. This pairs with `peer_disconnected_after_declaring_for_wrong_para`
-/// to rule out "the test setup itself triggers a disconnect" as a false positive.
 #[crate::sim_test]
-fn peer_with_correct_declare_is_not_disconnected<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let scheduled = ParaId::from(2000);
-	let mut world =
-		crate::scenarios::shared::activated_world::<S>(&[(CoreIndex(0), scheduled)]);
-
-	let peer = Peer::new(scheduled, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
-
-	world.sim.expect_no(
-		|e| matches!(
-			e,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_millis(200),
-		"DisconnectPeers for the correctly-declared peer",
-	);
+fn peer_with_correct_declare_is_not_disconnected<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
+	let peer = w.declared_peer(SCHEDULED, V1);
+	w.expect_no_disconnect(&peer, Duration::from_millis(200));
 }

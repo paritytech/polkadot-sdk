@@ -14,56 +14,39 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a declared collator that keeps advertising at intervals shorter than the
-//! `inactive_collator` policy window stays connected. Once it stops advertising, the
-//! validator disconnects after the policy window.
+//! A declared collator that keeps advertising at sub-window intervals stays connected.
+//! Once it stops, validator disconnects after the policy window. Multi-leaf to confirm
+//! "activity on any in-view leaf counts."
+//!
+//! KNOWN-FAILING (experimental): per #616, experimental drops time-based eviction.
 
 use crate::{
-	builders::{Peer, ProtocolVersion},
+	builders::ProtocolVersion::V1,
 	contract::Effect,
-	harness::SubsystemUnderTest,
+	harness::CollatorSut,
+	scenarios::shared::build_multi_leaf_world,
 };
 use polkadot_node_network_protocol::peer_set::PeerSet;
-use polkadot_node_subsystem::messages::{AllMessages, CollatorProtocolMessage};
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
-#[crate::sim_test]
-fn activity_keeps_peer_alive_then_disconnects_when_silent<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let para = ParaId::from(2000);
-	// Three leaves in view so we can vary advertise relay parent across leaves, mirroring
-	// the upstream test's intent of "activity on any in-view leaf counts."
-	let mut world = crate::scenarios::shared::build_multi_leaf_world::<S>(
-		3,
-		&[(CoreIndex(0), para)],
-	);
+const PARA: ParaId = ParaId::new(2000);
 
-	let peer = Peer::new(para, ProtocolVersion::V1);
-	world.sim.send(peer.connected());
-	world.sim.send(peer.declare());
+#[crate::sim_test]
+fn activity_keeps_peer_alive_then_disconnects_when_silent<S: CollatorSut>() {
+	let mut w = build_multi_leaf_world::<S>(3, &[(CoreIndex(0), PARA)]);
+	let peer = w.declared_peer(PARA, V1);
 
 	// Production CollatorEvictionPolicy::inactive_collator = 24s. Step in 16s chunks
-	// (~2/3 of the window) and advertise on a different leaf each step. Each
-	// advertisement should reset the activity timer.
+	// (~2/3 of the window) and advertise on a different leaf each step. Each advertisement
+	// should reset the activity timer.
 	let step = Duration::from_secs(16);
+	for i in 0..3 {
+		w.sim.advance(step);
+		w.sim.send(peer.advertise(w.leaves[i].hash, None, None));
+	}
 
-	world.sim.advance(step);
-	world.sim.send(peer.advertise(world.leaves[0], None, None));
-
-	world.sim.advance(step);
-	world.sim.send(peer.advertise(world.leaves[1], None, None));
-
-	world.sim.advance(step);
-	world.sim.send(peer.advertise(world.leaves[2], None, None));
-
-	// At this point ~48s have elapsed but the peer has been continuously advertising —
-	// no DisconnectPeers effect targeting the peer should be observed yet.
-	world.sim.expect_count(
+	w.sim.expect_count(
 		|e| matches!(
 			e,
 			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
@@ -72,15 +55,7 @@ where
 		"DisconnectPeers targeting the actively-advertising peer (must be zero so far)",
 	);
 
-	// Stop advertising. Advance well past the inactive_collator window.
-	world.sim.advance(Duration::from_secs(36));
-
-	let _ = world.sim.expect(
-		|effect| matches!(
-			effect,
-			Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id),
-		),
-		Duration::from_secs(2),
-		"Effect::DisconnectPeers for the collator after it falls silent",
-	);
+	// Fall silent. Advance well past the window.
+	w.sim.advance(Duration::from_secs(36));
+	w.expect_disconnect(&peer);
 }

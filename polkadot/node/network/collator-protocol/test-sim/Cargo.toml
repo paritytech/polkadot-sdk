@@ -38,6 +38,8 @@ sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
 sp-runtime = { workspace = true, default-features = true }
 
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+
 [dev-dependencies]
 codec = { features = ["std"], workspace = true, default-features = true }
 tokio = { features = ["macros", "rt"], workspace = true, default-features = true }

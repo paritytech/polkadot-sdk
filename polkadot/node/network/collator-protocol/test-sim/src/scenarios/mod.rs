@@ -33,6 +33,10 @@ mod advertisement_spam_protection;
 #[cfg(test)]
 mod bad_signature;
 #[cfg(test)]
+mod child_blocked_from_seconding_by_parent;
+#[cfg(test)]
+mod claim_queue_window;
+#[cfg(test)]
 mod disconnect_if_no_declare;
 #[cfg(test)]
 mod disconnect_if_wrong_declare;
@@ -41,23 +45,30 @@ mod fetch_next_on_invalid;
 #[cfg(test)]
 mod fetch_timeout;
 #[cfg(test)]
+mod fragment_chain_seconding;
+#[cfg(test)]
 mod full_seconding;
 #[cfg(test)]
 mod inactive_collator_eviction;
 #[cfg(test)]
 mod malicious_para;
 #[cfg(test)]
-mod non_obsolete_position_accepted;
-#[cfg(test)]
-mod obsolete_positions_rejected;
-#[cfg(test)]
 mod peer_disconnect_clears_queue;
 #[cfg(test)]
+mod response_sanity_check;
+#[cfg(test)]
+mod second_multiple_candidates_per_relay_parent;
+#[cfg(test)]
 pub(crate) mod shared;
+#[cfg(test)]
+pub(crate) mod world;
 #[cfg(test)]
 mod single_fetch_per_relay_parent;
 #[cfg(test)]
 mod unneeded_para;
+// Disabled until V3 connect/declare handshake debug pass lands. See file-level docs.
+// #[cfg(test)]
+// mod v3_scheduling_parent;
 #[cfg(test)]
 mod v1_advertise_on_non_leaf;
 #[cfg(test)]

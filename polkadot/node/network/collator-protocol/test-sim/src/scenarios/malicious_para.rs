@@ -14,94 +14,27 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a peer declares for a para that is not in any of the validator's assigned
-//! cores' claim queue. The validator drops the connection. The reputation hit is non-malicious
-//! (CostMinor) and is only flushed on the periodic reputation tick — this scenario asserts on
-//! the immediate `DisconnectPeers` effect, not the deferred reputation change.
+//! Peer declares for a para that is NOT in the validator's claim queue. Validator drops
+//! the connection (immediate `DisconnectPeers`; the rep hit is the deferred CostMinor flush
+//! and is not asserted here).
 //!
-//! Distinct from `unneeded_para`: this version sets up a *real* chain (with claim queue
-//! containing some para X) and the peer declares for a *different* para Y. Exercises the
-//! validator-side path that runs view-update first, then sees the unrelated declaration.
+//! Distinct from `unneeded_para`: a real chain is set up with claim queue containing
+//! `scheduled_para`; peer declares for `unscheduled_para`. Exercises the view-update →
+//! unrelated-declare path.
 
 use crate::{
-	aux::{CandidateBackingAux, ProspectiveParachainsAux},
-	builders::{Peer, ProtocolVersion},
-	chain::{ChainModel, SessionInfo, SharedChain},
-	contract::Effect,
-	harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
+	builders::ProtocolVersion::V2,
+	harness::CollatorSut,
+	scenarios::shared::activated_world,
 };
-use polkadot_node_network_protocol::{peer_set::PeerSet, OurView};
-use polkadot_node_subsystem::{
-	messages::{AllMessages, CollatorProtocolMessage, NetworkBridgeEvent},
-	OverseerSignal,
-};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
-use polkadot_overseer::ActiveLeavesUpdate;
-use polkadot_primitives::{
-	CoreIndex, GroupRotationInfo, Id as ParaId, ValidatorIndex,
-};
-use sp_consensus_slots::Slot;
-use std::{collections::VecDeque, time::Duration};
+use polkadot_primitives::{CoreIndex, Id as ParaId};
+
+const SCHEDULED: ParaId = ParaId::new(2000);
+const UNSCHEDULED: ParaId = ParaId::new(3000);
 
 #[crate::sim_test]
-fn declare_for_unscheduled_para_disconnects_peer<S>()
-where
-	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<S::Message>,
-{
-	let scheduled_para = ParaId::from(2000);
-	let unscheduled_para = ParaId::from(3000);
-
-	let mut chain = ChainModel::new(Slot::from(100));
-	chain.add_session(
-		0,
-		SessionInfo {
-			validators: crate::builders::fixtures::default_validators(),
-			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
-			group_rotation_info: GroupRotationInfo {
-				session_start_block: 0,
-				group_rotation_frequency: 1,
-				now: 0,
-			},
-		},
-	);
-	let leaf = chain.extend(chain.genesis());
-	let mut queue = std::collections::BTreeMap::new();
-	queue.insert(
-		CoreIndex(0),
-		VecDeque::from_iter(std::iter::repeat(scheduled_para).take(3)),
-	);
-	chain.set_claim_queue_at(leaf, queue);
-	let leaf_number = chain.block(&leaf).unwrap().number;
-
-	let chain = SharedChain::new(chain);
-	let mut responder = LayeredResponder::new();
-	responder.push(chain.clone());
-	responder.push(crate::scenarios::shared::PanicResponder);
-
-	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
-	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
-	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
-	sim.register_aux(psp, psp_rx);
-	sim.register_aux(cb, cb_rx);
-
-	sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
-		leaf,
-		leaf_number,
-	))));
-	sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-		OurView::new(std::iter::once(leaf), 0),
-	)));
-
-	// Peer declares for a para NOT in the claim queue.
-	let peer = Peer::new(unscheduled_para, ProtocolVersion::V2);
-	sim.send(peer.connected());
-	sim.send(peer.declare());
-
-	let _ = sim.expect(
-		|effect| matches!(effect, Effect::DisconnectPeers { peers, peer_set: PeerSet::Collation } if peers.contains(&peer.peer_id)),
-		Duration::from_millis(100),
-		"Effect::DisconnectPeers containing the unscheduled-para peer",
-	);
+fn declare_for_unscheduled_para_disconnects_peer<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), SCHEDULED)]);
+	let peer = w.declared_peer(UNSCHEDULED, V2);
+	w.expect_disconnect(&peer);
 }

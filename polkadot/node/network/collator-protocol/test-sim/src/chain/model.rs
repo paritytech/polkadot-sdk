@@ -281,6 +281,13 @@ impl ChainModel {
 	}
 
 	/// Override the async backing params (max candidate depth, allowed ancestry length).
+	/// Read the configured `allowed_ancestry_len` (mirrors what
+	/// `RuntimeApi::AsyncBackingParams` would return).
+	pub fn allowed_ancestry_len(&self) -> u32 {
+		self.async_backing_params.allowed_ancestry_len
+	}
+
+	/// Replace the `AsyncBackingParams` returned by `RuntimeApi::AsyncBackingParams`.
 	pub fn set_async_backing_params(&mut self, params: AsyncBackingParams) {
 		self.async_backing_params = params;
 	}
@@ -532,11 +539,19 @@ fn default_constraints() -> Constraints {
 		ump_remaining_bytes: 64 * 1024,
 		max_ump_num_per_candidate: 16,
 		dmp_remaining_messages: Vec::new(),
-		hrmp_inbound: InboundHrmpLimitations { valid_watermarks: Vec::new() },
+		// Real constraints reject candidates whose `hrmp_watermark` isn't in
+		// `valid_watermarks` (and isn't strictly greater than the relay parent number).
+		// Test commitments default to `hrmp_watermark = 0`; allow that explicitly so
+		// real prospective accepts plain candidates as fragment-chain members.
+		hrmp_inbound: InboundHrmpLimitations { valid_watermarks: vec![0] },
 		hrmp_channels_out: Vec::new(),
 		max_hrmp_num_per_candidate: 16,
 		required_parent: HeadData(Vec::new()),
-		validation_code_hash: ValidationCodeHash::from(Hash::zero()),
+		// Match the validation code hash that `dummy_candidate_receipt_v2_bad_sig`
+		// (used by `Candidate::for_para_at` / `Candidate::builder`) bakes into
+		// every receipt's descriptor. Otherwise real prospective-parachains rejects every
+		// candidate as a `ValidationCodeMismatch` against constraints.
+		validation_code_hash: polkadot_primitives_test_helpers::dummy_validation_code().hash(),
 		upgrade_restriction: None,
 		future_validation_code: None,
 	}
