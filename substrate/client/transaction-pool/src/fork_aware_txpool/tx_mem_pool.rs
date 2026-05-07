@@ -31,10 +31,10 @@
 //! See <https://github.com/paritytech/polkadot-sdk/issues/8912> for some more information. The implementation of the
 //! bridging is based on passing messages from sync context to tokio thread.
 
-use futures::{FutureExt, future::join_all};
+use futures::{future::join_all, FutureExt};
 use itertools::Itertools;
 use parking_lot::RwLock;
-use sc_transaction_pool_api::{TransactionPriority, TransactionSource, error::IntoMetricsLabel};
+use sc_transaction_pool_api::{error::IntoMetricsLabel, TransactionPriority, TransactionSource};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
 	traits::Block as BlockT,
@@ -45,21 +45,21 @@ use std::{
 	future::Future,
 	pin::Pin,
 	sync::{
-		Arc,
 		atomic::{self, AtomicU64},
 		mpsc::{
-			Receiver as SyncBridgeReceiver, Sender as SyncBridgeSender,
-			channel as sync_bridge_channel,
+			channel as sync_bridge_channel, Receiver as SyncBridgeReceiver,
+			Sender as SyncBridgeSender,
 		},
+		Arc,
 	},
 	time::Instant,
 };
 use tracing::{debug, trace};
 
 use crate::{
-	LOG_TARGET, ValidateTransactionPriority,
 	common::tracing_log_xt::log_xt_trace,
-	graph::{self, ExtrinsicFor, ExtrinsicHash, base_pool::TimedTransactionSource},
+	graph::{self, base_pool::TimedTransactionSource, ExtrinsicFor, ExtrinsicHash},
+	ValidateTransactionPriority, LOG_TARGET,
 };
 
 use super::{
@@ -1063,7 +1063,7 @@ where
 #[cfg(test)]
 mod tx_mem_pool_tests {
 	use futures::future::join_all;
-	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, H256, Transfer};
+	use substrate_test_runtime::{AccountId, Extrinsic, ExtrinsicBuilder, Transfer, H256};
 	use substrate_test_runtime_client::Sr25519Keyring::*;
 
 	use crate::{

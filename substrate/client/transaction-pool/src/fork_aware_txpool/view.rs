@@ -25,25 +25,25 @@
 
 use super::metrics::{MetricsLink as PrometheusMetrics, RemovalReason};
 use crate::{
-	LOG_TARGET,
 	common::tracing_log_xt::log_xt_trace,
 	graph::{
-		self, BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, TransactionFor,
-		ValidateTransactionPriority, ValidatedPoolSubmitOutcome, ValidatedTransaction,
-		ValidatedTransactionFor, base_pool::TimedTransactionSource,
+		self, base_pool::TimedTransactionSource, BlockHash, ExtrinsicFor, ExtrinsicHash,
+		IsValidator, TransactionFor, ValidateTransactionPriority, ValidatedPoolSubmitOutcome,
+		ValidatedTransaction, ValidatedTransactionFor,
 	},
+	LOG_TARGET,
 };
 use indexmap::IndexMap;
 use parking_lot::Mutex;
-use sc_transaction_pool_api::{PoolStatus, TransactionStatus, error::Error as TxPoolError};
-use sc_utils::mpsc::{TracingUnboundedReceiver, TracingUnboundedSender, tracing_unbounded};
+use sc_transaction_pool_api::{error::Error as TxPoolError, PoolStatus, TransactionStatus};
+use sc_utils::mpsc::{tracing_unbounded, TracingUnboundedReceiver, TracingUnboundedSender};
 use sp_blockchain::HashAndNumber;
 use sp_runtime::{
-	SaturatedConversion, generic::BlockId, traits::Block as BlockT,
-	transaction_validity::TransactionValidityError,
+	generic::BlockId, traits::Block as BlockT, transaction_validity::TransactionValidityError,
+	SaturatedConversion,
 };
 use std::{sync::Arc, time::Instant};
-use tracing::{Level, debug, instrument, trace};
+use tracing::{debug, instrument, trace, Level};
 
 pub(super) struct RevalidationResult<ChainApi: graph::ChainApi> {
 	revalidated: IndexMap<ExtrinsicHash<ChainApi>, ValidatedTransactionFor<ChainApi>>,

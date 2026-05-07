@@ -20,17 +20,18 @@
 
 use super::tx_mem_pool::{InsertionInfo, InvalidTxReason, TxInMemPool};
 use crate::{
-	LOG_TARGET,
 	common::metrics::{GenericMetricsLink, MetricsRegistrant},
 	graph::{
-		self, BlockHash, ExtrinsicHash,
+		self,
 		base_pool::{TimedTransactionSource, Transaction},
+		BlockHash, ExtrinsicHash,
 	},
+	LOG_TARGET,
 };
 use futures::{FutureExt, StreamExt};
 use prometheus_endpoint::{
-	Counter, CounterVec, Gauge, Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError,
-	Registry, U64, exponential_buckets, histogram_opts, linear_buckets, register,
+	exponential_buckets, histogram_opts, linear_buckets, register, Counter, CounterVec, Gauge,
+	Histogram, HistogramOpts, HistogramVec, Opts, PrometheusError, Registry, U64,
 };
 #[cfg(doc)]
 use sc_transaction_pool_api::TransactionPool;
@@ -38,7 +39,7 @@ use sc_transaction_pool_api::TransactionStatus;
 use sc_utils::mpsc;
 use sp_runtime::traits::Block as BlockT;
 use std::{
-	collections::{HashMap, hash_map::Entry},
+	collections::{hash_map::Entry, HashMap},
 	future::Future,
 	pin::Pin,
 	sync::Arc,

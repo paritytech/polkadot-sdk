@@ -28,12 +28,11 @@ use super::{
 	view_store::ViewStore,
 };
 use crate::{
-	LOG_TARGET, LOG_TARGET_STAT, ReadyIteratorFor, ValidateTransactionPriority,
 	api::FullChainApi,
 	common::{
-		STAT_SLIDING_WINDOW,
 		sliding_stat::DurationSlidingStats,
 		tracing_log_xt::{log_xt_debug, log_xt_trace},
+		STAT_SLIDING_WINDOW,
 	},
 	enactment_state::{EnactmentAction, EnactmentState},
 	fork_aware_txpool::{
@@ -41,32 +40,34 @@ use crate::{
 		revalidation_worker,
 	},
 	graph::{
-		self, BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
+		self,
 		base_pool::{TimedTransactionSource, Transaction},
+		BlockHash, ExtrinsicFor, ExtrinsicHash, IsValidator, Options, RawExtrinsicFor,
 	},
-	insert_and_log_throttled,
+	insert_and_log_throttled, ReadyIteratorFor, ValidateTransactionPriority, LOG_TARGET,
+	LOG_TARGET_STAT,
 };
 use async_trait::async_trait;
 use futures::{
-	FutureExt,
 	channel::oneshot,
 	future::{self},
 	prelude::*,
+	FutureExt,
 };
 use parking_lot::Mutex;
 use prometheus_endpoint::Registry as PrometheusRegistry;
 use sc_transaction_pool_api::{
-	ChainEvent, ImportNotificationStream, MaintainedTransactionPool, PoolStatus, TransactionFor,
-	TransactionPool, TransactionSource, TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
-	error::Error as TxPoolApiError,
+	error::Error as TxPoolApiError, ChainEvent, ImportNotificationStream,
+	MaintainedTransactionPool, PoolStatus, TransactionFor, TransactionPool, TransactionSource,
+	TransactionStatusStreamFor, TxHash, TxInvalidityReportMap,
 };
 use sp_blockchain::{HashAndNumber, TreeRoute};
 use sp_core::traits::SpawnEssentialNamed;
 use sp_runtime::{
-	Saturating,
 	generic::BlockId,
 	traits::{Block as BlockT, NumberFor},
 	transaction_validity::{TransactionTag as Tag, TransactionValidityError, ValidTransaction},
+	Saturating,
 };
 use std::{
 	collections::{BTreeMap, HashMap, HashSet},
@@ -75,7 +76,7 @@ use std::{
 	time::{Duration, Instant},
 };
 use tokio::select;
-use tracing::{Level, debug, instrument, trace, warn};
+use tracing::{debug, instrument, trace, warn, Level};
 
 /// The maximum block height difference before considering a view or transaction as timed-out
 /// due to a finality stall. When the difference exceeds this threshold, elements are treated
