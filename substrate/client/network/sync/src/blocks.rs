@@ -20,7 +20,8 @@ use crate::LOG_TARGET;
 use log::trace;
 use sc_network_common::sync::message;
 use sc_network_types::PeerId;
-use sp_runtime::traits::{Block as BlockT, CheckedAdd, NumberFor, One};
+use sp_arithmetic::traits::Saturating;
+use sp_runtime::traits::{Block as BlockT, NumberFor, One};
 use std::{
 	cmp,
 	collections::{BTreeMap, HashMap},
@@ -173,12 +174,7 @@ impl<B: BlockT> BlockCollection<B> {
 			return None;
 		}
 
-		let Some(peer_best_plus_one) = peer_best.checked_add(&One::one()) else {
-			trace!(target: LOG_TARGET, "Peer {who} reported best block at numeric maximum");
-			return None;
-		};
-
-		range.end = cmp::min(peer_best_plus_one, range.end);
+		range.end = cmp::min(peer_best.saturating_add(One::one()), range.end);
 
 		if self
 			.blocks
