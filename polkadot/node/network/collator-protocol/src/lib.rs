@@ -19,6 +19,10 @@
 
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
+#![deny(clippy::disallowed_methods)]
+// Tests still call `Instant::now`, `Delay::new`, etc directly. The deterministic-clock plumbing
+// is enforced for production code; legacy tests retain their original behavior.
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![recursion_limit = "256"]
 
 use std::{
