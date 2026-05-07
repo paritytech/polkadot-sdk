@@ -1045,8 +1045,7 @@ fn fallback_claimer_traps_to_bridge_owner_and_claim_assets_succeeds() {
 	let execution_fee: u128 = 1_500_000_000_000;
 	let weth_value: u128 = 2_800_000_000_000;
 
-	let assets =
-		vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_value }];
+	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_value }];
 
 	set_up_eth_and_dot_pool();
 
@@ -1167,8 +1166,7 @@ fn user_supplied_claimer_can_claim_trapped_assets() {
 
 	let relayer_account = BridgeHubWestendSender::get();
 	let relayer_reward = 1_500_000_000_000u128;
-	let local_network =
-		AssetHubRelayNetwork::get().expect("RelayNetwork is Some");
+	let local_network = AssetHubRelayNetwork::get().expect("RelayNetwork is Some");
 
 	// User account that owns the claimer; will also sign claim_assets on AH.
 	let user_account = AssetHubWestendReceiver::get();
@@ -1187,8 +1185,7 @@ fn user_supplied_claimer_can_claim_trapped_assets() {
 	let execution_fee: u128 = 1_500_000_000_000;
 	let weth_value: u128 = 2_800_000_000_000;
 
-	let assets =
-		vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_value }];
+	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_value }];
 
 	set_up_eth_and_dot_pool();
 
@@ -1296,8 +1293,7 @@ fn fallback_claimer_trap_cannot_be_claimed_by_other_account() {
 	let execution_fee: u128 = 1_500_000_000_000;
 	let weth_value: u128 = 2_800_000_000_000;
 
-	let assets =
-		vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_value }];
+	let assets = vec![NativeTokenERC20 { token_id: WETH.into(), value: weth_value }];
 
 	set_up_eth_and_dot_pool();
 
@@ -1333,7 +1329,9 @@ fn fallback_claimer_trap_cannot_be_claimed_by_other_account() {
 			.into_iter()
 			.find_map(|event| match event {
 				RuntimeEvent::PolkadotXcm(pallet_xcm::Event::AssetsTrapped {
-					origin, assets, ..
+					origin,
+					assets,
+					..
 				}) if origin == expected_claimer_location => Some(assets),
 				_ => None,
 			})

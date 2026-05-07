@@ -840,7 +840,10 @@ mod tests {
 			let bridge_owner = ExternalConsensusLocationsConverterFor::<
 				AssetHubUniversal<LocalNetwork, AssetHubParaId>,
 				[u8; 32],
-			>::convert_location(&Location::new(2, [GlobalConsensus(EthereumNetwork::get())]))
+			>::convert_location(&Location::new(
+				2,
+				[GlobalConsensus(EthereumNetwork::get())],
+			))
 			.unwrap();
 			let expected_claimer = Location::new(
 				0,
@@ -850,9 +853,12 @@ mod tests {
 			let claimer = xcm
 				.into_iter()
 				.find_map(|instruction| match instruction {
-					SetHints { hints } => hints.into_iter().map(|hint| match hint {
-						AssetClaimer { location } => location,
-					}).next(),
+					SetHints { hints } => hints
+						.into_iter()
+						.map(|hint| match hint {
+							AssetClaimer { location } => location,
+						})
+						.next(),
 					_ => None,
 				})
 				.expect("AssetClaimer hint should be present");
