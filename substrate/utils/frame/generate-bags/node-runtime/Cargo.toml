@@ -13,8 +13,8 @@ publish = false
 workspace = true
 
 [dependencies]
-generate-bags.workspace = true
 generate-bags.default-features = true
+generate-bags.workspace = true
 kitchensink-runtime.workspace = true
 
 # third-party

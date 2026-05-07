@@ -17,20 +17,20 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies]
 codec = { default-features = false, workspace = true }
 frame-metadata = { features = ["current"], workspace = true }
-frame-support.workspace = true
 frame-support.default-features = false
-frame-system.workspace = true
+frame-support.workspace = true
 frame-system.default-features = false
+frame-system.workspace = true
 log = { workspace = true }
 scale-info = { default-features = false, features = ["derive"], workspace = true }
-sp-core.workspace = true
 sp-core.default-features = false
-sp-io.workspace = true
+sp-core.workspace = true
 sp-io.default-features = false
-sp-metadata-ir.workspace = true
+sp-io.workspace = true
 sp-metadata-ir.default-features = false
-sp-runtime.workspace = true
+sp-metadata-ir.workspace = true
 sp-runtime.default-features = false
+sp-runtime.workspace = true
 
 [dev-dependencies]
 pretty_assertions = { workspace = true }
