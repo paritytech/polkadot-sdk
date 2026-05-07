@@ -76,7 +76,6 @@ async fn parachain_runtime_upgrade_slot_duration_18s() -> Result<(), anyhow::Err
 	);
 	log::info!("Slot duration verified: {} ms", slot_duration);
 
-
 	log::info!("Checking that parachain continues producing blocks after upgrade...");
 
 	// Wait for post-upgrade PVF preparation to complete.

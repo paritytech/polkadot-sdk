@@ -174,9 +174,7 @@ pub async fn wait_for_pvf_prepare(
 			PVF_PREPARE_TIMEOUT_SECS,
 		)
 		.await
-		.map_err(|e| {
-			anyhow!("{node_name}: PVF prepare did not conclude within timeout: {e}")
-		})?;
+		.map_err(|e| anyhow!("{node_name}: PVF prepare did not conclude within timeout: {e}"))?;
 	}
 	log::info!(
 		"All {} validator(s) have prepared PVF artifacts (target {})",
