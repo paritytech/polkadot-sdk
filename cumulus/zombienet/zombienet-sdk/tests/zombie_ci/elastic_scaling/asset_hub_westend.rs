@@ -88,7 +88,7 @@ async fn elastic_scaling_asset_hub_westend() -> Result<(), anyhow::Error> {
 	let relay_node = network.get_node("validator-0")?;
 	let relay_client: OnlineClient<PolkadotConfig> = relay_node.wait_client().await?;
 
-	let mut blocks_sub = relay_client.blocks().subscribe_best().await?;
+	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
 	wait_for_first_session_change(&mut blocks_sub).await?;
 
 	// Wait for PVF preparation to complete.
