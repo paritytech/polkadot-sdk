@@ -984,10 +984,7 @@ mod governance {
 		new_test_ext().execute_with(|| {
 			let new_ratio = Permill::from_percent(20);
 
-			assert_ok!(Psm::set_max_psm_debt(
-				RuntimeOrigin::signed(EMERGENCY_ACCOUNT),
-				new_ratio
-			));
+			assert_ok!(Psm::set_max_psm_debt(RuntimeOrigin::signed(EMERGENCY_ACCOUNT), new_ratio));
 
 			assert_eq!(MaxPsmDebtOfTotal::<Test>::get(), new_ratio);
 		});
