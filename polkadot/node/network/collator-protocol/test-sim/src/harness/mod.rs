@@ -24,9 +24,11 @@
 pub mod dispatcher;
 pub mod observation;
 pub mod recorder;
+pub mod router;
 pub mod sim;
 
 pub use dispatcher::Dispatcher;
 pub use observation::{Observation, Stamped};
 pub use recorder::Recorder;
+pub use router::{RouteAttempt, SubsystemSlot, UutSlot};
 pub use sim::{Sim, SimConfig, SubsystemUnderTest};

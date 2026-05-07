@@ -15,22 +15,25 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! The simulation driver: stitches together [`MockClock`], [`Executor`], [`Recorder`],
-//! [`AnswerQuery`] and the subsystem under test into a single test harness.
+//! [`AnswerQuery`] and one or more spawned subsystems into a single test harness.
+//!
+//! In Phase H.1 only the unit under test is spawned; auxiliary subsystem slots are an empty
+//! vector. Real `prospective-parachains` and `candidate-backing` are wired into the same
+//! infrastructure in later phases (H.3 / H.4) without changing the public `Sim` API.
 
 use crate::{
 	contract::Effect,
 	harness::{
-		dispatcher::{AnswerQuery, Dispatcher},
+		dispatcher::AnswerQuery,
+		router::{self, SubsystemSlot, UutSlot},
 		Recorder,
 	},
 	report::TimelineReport,
 	runtime::{Executor, MockClock},
 };
-use polkadot_collator_protocol::Clock;
 use futures::{future::BoxFuture, FutureExt};
-use polkadot_node_subsystem::{
-	messages::AllMessages, FromOrchestra, OverseerSignal, SpawnGlue,
-};
+use polkadot_collator_protocol::Clock;
+use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
 };
@@ -83,7 +86,9 @@ where
 	executor: Executor,
 	recorder: Recorder,
 	responder: Box<dyn AnswerQuery>,
-	handle: TestSubsystemContextHandle<S::Message>,
+	uut: UutSlot<S::Message>,
+	uut_outbound: TestSubsystemContextHandle<S::Message>,
+	aux: Vec<Box<dyn SubsystemSlot>>,
 }
 
 impl<S: SubsystemUnderTest> Sim<S>
@@ -102,15 +107,24 @@ where
 		let mut executor = Executor::new();
 
 		let pool = TaskExecutor::new();
-		let (ctx, handle) =
-			make_subsystem_context::<S::Message, _>(pool);
+		let (ctx, handle) = make_subsystem_context::<S::Message, _>(pool);
+
+		let uut = UutSlot { name: "uut", inbound_tx: handle.tx.clone() };
 
 		let fut = S::spawn(ctx, clock.clone());
 		executor.spawn(fut);
 		// First poll lets the subsystem reach its initial parked state before any stimulus.
 		executor.poll_until_pending();
 
-		Self { clock, executor, recorder: Recorder::new(), responder: Box::new(responder), handle }
+		Self {
+			clock,
+			executor,
+			recorder: Recorder::new(),
+			responder: Box::new(responder),
+			uut,
+			uut_outbound: handle,
+			aux: Vec::new(),
+		}
 	}
 
 	/// Access to the deterministic clock.
@@ -123,36 +137,42 @@ where
 		&self.recorder
 	}
 
-	/// Inject an inbound message and settle. Drives the subsystem until it parks, draining any
-	/// outbound messages produced into recorder/responder.
+	/// Inject a typed message into the UUT and settle. Drives the subsystem until it parks,
+	/// draining any outbound messages produced into recorder/responder/aux slots.
 	pub fn inject(&mut self, msg: FromOrchestra<S::Message>) {
-		self.executor.run_until(self.handle.tx.clone().send_message(msg));
+		self.executor.run_until(self.uut.send_typed(msg));
 		self.drain();
 	}
 
-	/// Inject an `OverseerSignal` (e.g. `ActiveLeaves`) and settle.
+	/// Inject an `OverseerSignal`. The signal is broadcast to the UUT and every registered
+	/// auxiliary subsystem. Settles after delivery.
 	pub fn signal(&mut self, signal: OverseerSignal) {
-		self.inject(FromOrchestra::Signal(signal));
+		// UUT first so its handler runs before aux subsystems may produce dependent messages.
+		self.executor.run_until(self.uut.send_signal(signal.clone()));
+		for slot in &self.aux {
+			let fut = slot.send_signal(signal.clone());
+			self.executor.run_until(fut);
+		}
+		self.drain();
 	}
 
-	/// Inject a regular subsystem message and settle.
+	/// Inject a regular subsystem message into the UUT and settle.
 	pub fn send(&mut self, msg: S::Message) {
 		self.inject(FromOrchestra::Communication { msg });
 	}
 
-	/// Advance simulated time. After advancing, the executor settles so any tasks waiting on the
-	/// clock can make progress; outbound messages they produce are drained into the harness.
+	/// Advance simulated time. After advancing, the executor settles so any tasks waiting on
+	/// the clock can make progress; outbound messages they produce are drained.
 	pub fn advance(&mut self, dur: Duration) {
 		self.clock.advance(dur);
 		self.executor.poll_until_pending();
 		self.drain();
 	}
 
-	/// Wait for an effect matching `predicate` to appear in the recorder, advancing the clock as
-	/// needed up to `within`. The whole observation log is searched, not just effects produced
-	/// after the call — this lets a scenario assert against an effect that was already emitted
-	/// by the stimulus immediately before `expect()`. Panics with a [`TimelineReport`] on
-	/// timeout.
+	/// Wait for an effect matching `predicate` to appear in the recorder, advancing the clock
+	/// as needed up to `within`. Searches the entire observation log so a stimulus that
+	/// produced its effect synchronously before this call still matches. Panics with a
+	/// [`TimelineReport`] on timeout.
 	#[track_caller]
 	pub fn expect<F>(&mut self, predicate: F, within: Duration, expected: &str) -> Effect
 	where
@@ -162,7 +182,6 @@ where
 		let at_str = format!("{}:{}", location.file(), location.line());
 		let start_sim_t = self.now_sim_t();
 
-		// Drain anything currently sitting in the channel before searching.
 		self.drain();
 		if let Some(eff) = self.find_match(&predicate) {
 			return eff;
@@ -184,24 +203,21 @@ where
 				panic!("expectation failed:\n{}", report);
 			}
 
-			// Advance to next pending wakeup, but never past the window.
 			let remaining = within - elapsed_in_window;
-			let advanced = match self.clock.advance_to_next_wakeup() {
-				Some(d) if d <= remaining => d,
+			match self.clock.advance_to_next_wakeup() {
+				Some(d) if d <= remaining => {
+					let _ = d;
+				},
 				Some(_) | None => {
-					// Either the next wakeup is past the window, or there are no wakeups.
-					// Step time to the window's edge and re-check the recorder one last time.
 					self.clock.advance(remaining);
 					self.executor.poll_until_pending();
 					self.drain();
 					if let Some(eff) = self.find_match(&predicate) {
 						return eff;
 					}
-					continue; // loop will time out next iteration.
+					continue;
 				},
 			};
-			// `advanced` was applied by `advance_to_next_wakeup`; settle and drain.
-			let _ = advanced;
 			self.executor.poll_until_pending();
 			self.drain();
 			if let Some(eff) = self.find_match(&predicate) {
@@ -210,19 +226,23 @@ where
 		}
 	}
 
+	/// Register an auxiliary subsystem slot. The slot will receive every `OverseerSignal` and
+	/// will be offered every outbound `AllMessages` the UUT (or another aux subsystem)
+	/// produces. The first slot whose [`SubsystemSlot::try_route`] accepts a message wins.
+	pub fn register_aux<A: SubsystemSlot + 'static>(&mut self, aux: A) {
+		self.aux.push(Box::new(aux));
+	}
+
 	/// Conclude the subsystem, drain remaining work, return all recorded observations.
 	pub fn finish(mut self) -> Recorder {
-		self.executor
-			.run_until(self.handle.tx.clone().send_message(FromOrchestra::Signal(OverseerSignal::Conclude)));
-		// Drive everything to completion, including the subsystem's clean-up.
+		// Concluding the UUT alone is sufficient for H.1; aux subsystems join in H.3+.
+		self.executor.run_until(self.uut.send_signal(OverseerSignal::Conclude));
 		self.executor.poll_until_pending();
 		self.drain();
 		self.recorder
 	}
 
 	fn now_sim_t(&self) -> Duration {
-		// `MockClock` starts wall-clock-ms at zero and increments lockstep with `Instant`
-		// advances; use that as the sim_t.
 		Duration::from_millis(self.clock.wall_clock_ms() as u64)
 	}
 
@@ -240,44 +260,26 @@ where
 	fn drain(&mut self) {
 		loop {
 			let now = self.clock.now();
-			match self.handle.rx.try_next() {
+			match self.uut_outbound.rx.try_next() {
 				Ok(Some(msg)) => {
-					Dispatcher::new(&mut self.recorder, &mut *self.responder).dispatch(now, msg);
-					// Responder side-effects (oneshot sends) may have unblocked the subsystem.
+					let aux = self.aux.as_slice();
+					let recorder = &mut self.recorder;
+					let responder = &mut *self.responder;
+					self.executor.run_until(router::route(now, msg, aux, recorder, responder));
+					// Aux side-effects (oneshot sends, forwarded messages reaching another
+					// subsystem's main loop) may have unblocked the UUT.
 					self.executor.poll_until_pending();
 				},
-				Ok(None) => break,
-				Err(_) => break,
+				Ok(None) | Err(_) => break,
 			}
 		}
-	}
-}
-
-/// Helper trait used internally to send a single message into a `mpsc::Sender` via an awaitable
-/// closure friendly to `Executor::run_until`.
-trait SendMessage<M> {
-	fn send_message(self, msg: FromOrchestra<M>) -> BoxFuture<'static, ()>;
-}
-
-impl<M: Send + 'static> SendMessage<M> for futures::channel::mpsc::Sender<FromOrchestra<M>> {
-	fn send_message(self, msg: FromOrchestra<M>) -> BoxFuture<'static, ()> {
-		let mut tx = self;
-		async move {
-			use futures::SinkExt;
-			tx.send(msg).await.expect("test subsystem channel still open");
-		}
-		.boxed()
 	}
 }
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		contract::Query,
-		harness::dispatcher::AnswerQuery,
-		impls::LegacyValidator,
-	};
+	use crate::{contract::Query, harness::dispatcher::AnswerQuery, impls::LegacyValidator};
 
 	struct PanicResponder;
 	impl AnswerQuery for PanicResponder {
@@ -290,15 +292,50 @@ mod tests {
 	fn legacy_validator_starts_and_concludes() {
 		let sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
 		let recorder = sim.finish();
-		// No stimuli were sent — the validator should not have produced any observable
-		// effects. (It also should not have queried anything; the panic-responder enforces.)
 		assert_eq!(recorder.len(), 0);
 	}
 
 	#[crate::sim_test]
 	fn sim_test_attribute_runs_as_a_regular_test() {
-		// Sanity: #[sim_test] expands to a registered test that the runner picks up.
 		let sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+		let _ = sim.finish();
+	}
+
+	use crate::harness::router::{RouteAttempt, SubsystemSlot};
+	use std::sync::atomic::{AtomicUsize, Ordering};
+
+	struct CountingAux {
+		signals: Arc<AtomicUsize>,
+	}
+
+	impl SubsystemSlot for CountingAux {
+		fn name(&self) -> &'static str {
+			"counting-aux"
+		}
+		fn send_signal(&self, _signal: OverseerSignal) -> BoxFuture<'static, ()> {
+			let signals = self.signals.clone();
+			async move {
+				signals.fetch_add(1, Ordering::SeqCst);
+			}
+			.boxed()
+		}
+		fn try_route(&self, msg: AllMessages) -> RouteAttempt {
+			// H.1's no-op aux: never claims a message; everything falls through.
+			RouteAttempt::Declined(msg)
+		}
+	}
+
+	#[test]
+	fn aux_slot_receives_signal_broadcast() {
+		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+		let signals = Arc::new(AtomicUsize::new(0));
+		sim.register_aux(CountingAux { signals: signals.clone() });
+
+		// `finish` sends Conclude to UUT and (per signal fan-out) also to aux. We don't
+		// reach `finish`'s Conclude through `signal()`, so trigger a signal explicitly.
+		sim.signal(OverseerSignal::BlockFinalized(Default::default(), 1));
+		assert_eq!(signals.load(Ordering::SeqCst), 1);
+
 		let _ = sim.finish();
 	}
 }
