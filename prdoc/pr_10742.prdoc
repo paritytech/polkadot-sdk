@@ -16,7 +16,7 @@ crates:
     bump: major
   - name: cumulus-primitives-core
     bump: major
-  - name: cumulus-client-consensus-commmon
+  - name: cumulus-client-consensus-common
     bump: patch
   - name: cumulus-client-consensus-aura
     bump: major
