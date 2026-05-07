@@ -14,19 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Deterministic simulator-based test framework for the Polkadot collator-protocol subsystem.
+//! The harness layer: Sim struct, observation recorder, query dispatcher.
 //!
-//! Tests written against this framework assert only on the *observable contract* (effects emitted
-//! to other subsystems / wire). Internal queries (RuntimeApi, ProspectiveParachains, ChainApi,
-//! `CanSecond`) are answered by a mock responder, never asserted.
-//!
-//! Internal module layering mirrors the eventual crate-level boundaries when the framework is
-//! generalized to a second subsystem. See `runtime/`, `harness/`, `responder/`, `contract/`,
-//! `builders/`, `impls/`, `report/`.
+//! These are subsystem-agnostic in spirit (parameterized over the `contract::Effect` /
+//! `contract::Query` enums) but the first iteration is wired specifically for the
+//! collator-protocol. Generalizing to a `SubsystemContract` trait happens once a second subsystem
+//! is onboarded (see plan).
 
-#![deny(missing_docs)]
-#![deny(unused_crate_dependencies)]
+pub mod dispatcher;
+pub mod observation;
+pub mod recorder;
 
-pub mod contract;
-pub mod harness;
-pub mod runtime;
+pub use dispatcher::Dispatcher;
+pub use observation::{Observation, Stamped};
+pub use recorder::Recorder;
