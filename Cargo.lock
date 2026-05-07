@@ -16184,6 +16184,7 @@ dependencies = [
  "polkadot-node-core-backing",
  "polkadot-node-core-prospective-parachains",
  "polkadot-node-network-protocol",
+ "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-overseer",

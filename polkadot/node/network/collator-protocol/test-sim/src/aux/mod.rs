@@ -24,7 +24,9 @@
 //! [`Sim::register_aux`]: crate::harness::Sim::register_aux
 
 pub mod backing;
+pub mod candidate_validation;
 pub mod prospective;
 
 pub use backing::CandidateBackingAux;
+pub use candidate_validation::{CandidateValidationStub, Verdict};
 pub use prospective::ProspectiveParachainsAux;
