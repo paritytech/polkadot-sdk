@@ -185,9 +185,8 @@ impl Externalities for BasicExternalities {
 	}
 
 	fn storage_with_status(&mut self, key: &[u8]) -> StateLoad<Option<StorageValue>> {
-		let data = self.overlay.storage(key).and_then(|v| v.map(|v| v.to_vec()));
 		// BasicExternalities has no proof recorder.
-		StateLoad { data, is_cold: true }
+		StateLoad { data: self.storage(key), is_cold: true }
 	}
 
 	fn storage_hash(&mut self, key: &[u8]) -> Option<Vec<u8>> {
@@ -203,9 +202,8 @@ impl Externalities for BasicExternalities {
 		child_info: &ChildInfo,
 		key: &[u8],
 	) -> StateLoad<Option<StorageValue>> {
-		let data = self.overlay.child_storage(child_info, key).and_then(|v| v.map(|v| v.to_vec()));
 		// BasicExternalities has no proof recorder.
-		StateLoad { data, is_cold: true }
+		StateLoad { data: self.child_storage(child_info, key), is_cold: true }
 	}
 
 	fn child_storage_hash(&mut self, child_info: &ChildInfo, key: &[u8]) -> Option<Vec<u8>> {
