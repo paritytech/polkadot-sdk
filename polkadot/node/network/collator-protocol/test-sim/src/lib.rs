@@ -44,6 +44,7 @@
 #![deny(missing_docs)]
 #![deny(unused_crate_dependencies)]
 
+pub mod aux;
 pub mod builders;
 pub mod chain;
 pub mod contract;

@@ -87,7 +87,13 @@ where
 	recorder: Recorder,
 	responder: Box<dyn AnswerQuery>,
 	uut: UutSlot<S::Message>,
-	uut_outbound: TestSubsystemContextHandle<S::Message>,
+	/// Outbound `AllMessages` channels: the UUT's plus one per registered auxiliary
+	/// subsystem. Drained round-robin in registration order on every settle pass.
+	outbound_rxs: Vec<futures::channel::mpsc::UnboundedReceiver<AllMessages>>,
+	/// Subsystem slots registered with the harness. Index 0 corresponds to the UUT outbound
+	/// rx at `outbound_rxs[0]`; index `i+1` corresponds to `outbound_rxs[i+1]`. The UUT slot
+	/// itself is stored in `uut`; it does not consume `AllMessages` (test code injects
+	/// typed stimuli directly), so it does not appear in this vector.
 	aux: Vec<Box<dyn SubsystemSlot>>,
 }
 
@@ -110,6 +116,7 @@ where
 		let (ctx, handle) = make_subsystem_context::<S::Message, _>(pool);
 
 		let uut = UutSlot { name: "uut", inbound_tx: handle.tx.clone() };
+		let TestSubsystemContextHandle { rx: uut_outbound_rx, .. } = handle;
 
 		let fut = S::spawn(ctx, clock.clone());
 		executor.spawn(fut);
@@ -122,9 +129,15 @@ where
 			recorder: Recorder::new(),
 			responder: Box::new(responder),
 			uut,
-			uut_outbound: handle,
+			outbound_rxs: vec![uut_outbound_rx],
 			aux: Vec::new(),
 		}
+	}
+
+	/// Direct access to the executor, for spawning auxiliary subsystem futures during
+	/// registration helpers. Tests don't usually need this.
+	pub fn executor_mut(&mut self) -> &mut Executor {
+		&mut self.executor
 	}
 
 	/// Access to the deterministic clock.
@@ -226,17 +239,35 @@ where
 		}
 	}
 
-	/// Register an auxiliary subsystem slot. The slot will receive every `OverseerSignal` and
-	/// will be offered every outbound `AllMessages` the UUT (or another aux subsystem)
-	/// produces. The first slot whose [`SubsystemSlot::try_route`] accepts a message wins.
-	pub fn register_aux<A: SubsystemSlot + 'static>(&mut self, aux: A) {
-		self.aux.push(Box::new(aux));
+	/// Register an auxiliary subsystem slot whose outbound stream the harness should drain.
+	///
+	/// `slot` is the [`SubsystemSlot`] for routing inbound messages and signals. `outbound_rx`
+	/// is the receiver side of the test-context the auxiliary subsystem was constructed
+	/// with; the harness polls it on every settle pass and feeds outbound messages back into
+	/// the router.
+	pub fn register_aux<A: SubsystemSlot + 'static>(
+		&mut self,
+		slot: A,
+		outbound_rx: futures::channel::mpsc::UnboundedReceiver<AllMessages>,
+	) {
+		self.aux.push(Box::new(slot));
+		self.outbound_rxs.push(outbound_rx);
 	}
 
-	/// Conclude the subsystem, drain remaining work, return all recorded observations.
+	/// Register an auxiliary subsystem slot only — for use by slots that do not produce
+	/// outbound `AllMessages` (e.g. a no-op test fixture).
+	pub fn register_aux_slot_only<A: SubsystemSlot + 'static>(&mut self, slot: A) {
+		self.aux.push(Box::new(slot));
+	}
+
+	/// Conclude every spawned subsystem, drain remaining work, return all recorded
+	/// observations.
 	pub fn finish(mut self) -> Recorder {
-		// Concluding the UUT alone is sufficient for H.1; aux subsystems join in H.3+.
 		self.executor.run_until(self.uut.send_signal(OverseerSignal::Conclude));
+		for slot in &self.aux {
+			let fut = slot.send_signal(OverseerSignal::Conclude);
+			self.executor.run_until(fut);
+		}
 		self.executor.poll_until_pending();
 		self.drain();
 		self.recorder
@@ -260,17 +291,24 @@ where
 	fn drain(&mut self) {
 		loop {
 			let now = self.clock.now();
-			match self.uut_outbound.rx.try_next() {
-				Ok(Some(msg)) => {
-					let aux = self.aux.as_slice();
-					let recorder = &mut self.recorder;
-					let responder = &mut *self.responder;
-					self.executor.run_until(router::route(now, msg, aux, recorder, responder));
-					// Aux side-effects (oneshot sends, forwarded messages reaching another
-					// subsystem's main loop) may have unblocked the UUT.
-					self.executor.poll_until_pending();
-				},
-				Ok(None) | Err(_) => break,
+			let mut progressed = false;
+			for idx in 0..self.outbound_rxs.len() {
+				match self.outbound_rxs[idx].try_next() {
+					Ok(Some(msg)) => {
+						progressed = true;
+						let aux = self.aux.as_slice();
+						let recorder = &mut self.recorder;
+						let responder = &mut *self.responder;
+						self.executor.run_until(router::route(now, msg, aux, recorder, responder));
+						// Other subsystems may now have work to do (forwarded messages
+						// reached their inboxes; oneshot replies unblocked someone).
+						self.executor.poll_until_pending();
+					},
+					Ok(None) | Err(_) => {},
+				}
+			}
+			if !progressed {
+				break;
 			}
 		}
 	}
@@ -326,10 +364,24 @@ mod tests {
 	}
 
 	#[test]
+	fn prospective_parachains_aux_concludes_cleanly() {
+		use crate::aux::ProspectiveParachainsAux;
+		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+		let (slot, outbound_rx) = ProspectiveParachainsAux::spawn(&mut sim);
+		sim.register_aux(slot, outbound_rx);
+
+		// No view-update is sent → prospective fires no Runtime/ChainApi queries; the panic
+		// responder stays untouched. `finish` sends Conclude to UUT *and* prospective; both
+		// drop their main loops cleanly and no outbound `AllMessages` is left unconsumed.
+		let recorder = sim.finish();
+		assert_eq!(recorder.len(), 0);
+	}
+
+	#[test]
 	fn aux_slot_receives_signal_broadcast() {
 		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
 		let signals = Arc::new(AtomicUsize::new(0));
-		sim.register_aux(CountingAux { signals: signals.clone() });
+		sim.register_aux_slot_only(CountingAux { signals: signals.clone() });
 
 		// `finish` sends Conclude to UUT and (per signal fan-out) also to aux. We don't
 		// reach `finish`'s Conclude through `signal()`, so trigger a signal explicitly.

@@ -16181,6 +16181,7 @@ dependencies = [
  "futures",
  "polkadot-collator-protocol",
  "polkadot-collator-protocol-test-sim-macros",
+ "polkadot-node-core-prospective-parachains",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
