@@ -29,6 +29,9 @@ use zombienet_sdk::{
 use sc_statement_store::subxt_client::CustomConfig;
 use subxt::OnlineClient;
 pub(super) const RPC_POOL_SIZE: usize = 10000;
+pub(super) const COLLATOR_INFO_LOG_FILTER: &str = "info,statement-store=info,statement-gossip=info";
+pub(super) const COLLATOR_TRACE_LOG_FILTER: &str =
+	"info,statement-store=trace,statement-gossip=trace";
 
 pub(super) async fn submit_statement(
 	rpc: &RpcClient,
@@ -198,38 +201,18 @@ pub(super) fn create_chain_spec_with_allowances(
 	Ok(chain_spec_path)
 }
 
-#[derive(Clone, Copy)]
-pub(super) enum CollatorLogLevel {
-	Info,
-	Trace,
-}
-
-impl CollatorLogLevel {
-	fn as_filter(self) -> &'static str {
-		match self {
-			Self::Info => "info,statement-store=info,statement-gossip=info",
-			Self::Trace => "info,statement-store=trace,statement-gossip=trace",
-		}
-	}
-}
-
 /// Builds the standard collator CLI args for the statement-store zombienet tests
-pub(super) fn collator_args(
-	participant_count: u32,
-	log: CollatorLogLevel,
-) -> Vec<zombienet_sdk::Arg> {
+pub(super) fn collator_args(participant_count: u32, log_filter: &str) -> Vec<zombienet_sdk::Arg> {
 	let mut args: Vec<String> = vec![
 		"--force-authoring".to_string(),
 		"--authoring=slot-based".to_string(),
 		"--max-runtime-instances=32".to_string(),
-		format!("-l{}", log.as_filter()),
+		format!("-l{log_filter}"),
 		"--enable-statement-store".to_string(),
 	];
-	if participant_count > 0 {
-		let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
-		args.push(format!("--rpc-max-connections={}", participant_count + 1000));
-		args.push(format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"));
-	}
+	let max_subs_per_conn = (participant_count * 16 / RPC_POOL_SIZE as u32).max(32);
+	args.push(format!("--rpc-max-connections={}", participant_count + 1000));
+	args.push(format!("--rpc-max-subscriptions-per-connection={max_subs_per_conn}"));
 	args.iter().map(|s| s.as_str().into()).collect()
 }
 
@@ -296,9 +279,9 @@ async fn launch_network(
 pub(super) async fn spawn_network_sudo(
 	collators: &[&str],
 	allowance_items: Vec<(Vec<u8>, Vec<u8>)>,
-	log: CollatorLogLevel,
+	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	let network = spawn_network_inner(collators, allowance_items.len(), log).await?;
+	let network = spawn_network_inner(collators, allowance_items.len(), log_filter).await?;
 	let node = network.get_node(collators[0])?;
 	sc_statement_store::subxt_client::set_allowances_via_sudo(node.ws_uri(), allowance_items)
 		.await?;
@@ -314,7 +297,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 	assert!(!collators.is_empty());
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
-	let args = collator_args(participant_count, CollatorLogLevel::Trace);
+	let args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
 	launch_network(collators, &chain_spec_path, args).await
 }
 
@@ -322,7 +305,7 @@ pub(super) async fn spawn_network_with_injected_allowances(
 async fn spawn_network_inner(
 	collators: &[&str],
 	participant_count: usize,
-	log: CollatorLogLevel,
+	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
 	let base_dir = base_dir()?;
 	let chain_spec_template = include_str!("people-westend-local-spec.json");
@@ -332,7 +315,7 @@ async fn spawn_network_inner(
 
 	let participant_count_u32 = u32::try_from(participant_count)
 		.expect("participant_count must fit in u32 for collator args");
-	let args = collator_args(participant_count_u32, log);
+	let args = collator_args(participant_count_u32, log_filter);
 	let network = launch_network(collators, &chain_spec_path, args).await?;
 
 	info!("Waiting for parachain to produce blocks...");
@@ -347,9 +330,9 @@ async fn spawn_network_inner(
 /// Spawns a network without pre-injected allowances
 pub(super) async fn spawn_network(
 	collators: &[&str],
-	log: CollatorLogLevel,
+	log_filter: &str,
 ) -> Result<Network<LocalFileSystem>, anyhow::Error> {
-	spawn_network_inner(collators, 0, log).await
+	spawn_network_inner(collators, 0, log_filter).await
 }
 
 pub(super) async fn online_client_from_node(

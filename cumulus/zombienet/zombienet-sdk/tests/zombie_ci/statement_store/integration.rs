@@ -6,7 +6,8 @@ use super::common::{
 	create_chain_spec_with_allowances, expect_one_statement, expect_statements_unordered,
 	online_client_from_node, spawn_network, spawn_network_sudo,
 	spawn_network_with_injected_allowances, submit_statement, subscribe_topic,
-	subscribe_topic_filter, wait_for_first_block, CollatorLogLevel,
+	subscribe_topic_filter, wait_for_first_block, COLLATOR_INFO_LOG_FILTER,
+	COLLATOR_TRACE_LOG_FILTER,
 };
 use codec::Encode;
 use futures::future::join_all;
@@ -24,11 +25,12 @@ use sp_statement_store::{
 	RejectionReason, Statement, StatementAllowance, SubmitResult, Topic, TopicFilter,
 };
 use std::{
-    cell::Cell,
-    collections::HashSet,
-    sync::Arc,
-    time::{Duration, SystemTime, UNIX_EPOCH},
-};use subxt::transactions::Signer;
+	cell::Cell,
+	collections::HashSet,
+	sync::Arc,
+	time::{Duration, SystemTime, UNIX_EPOCH},
+};
+use subxt::transactions::Signer;
 use verifiable::{ring_vrf_impl::BandersnatchVrfVerifiable as Crypto, GenerateVerifiable};
 use zombienet_sdk::{LocalFileSystem, Network, NetworkConfigBuilder};
 
@@ -86,7 +88,7 @@ async fn statement_store_check_propagation_and_quota_invariants() -> Result<(), 
 	let items = create_allowance_items(&entries);
 
 	let network =
-		spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items, CollatorLogLevel::Info)
+		spawn_network_sudo(&["alice", "bob", "charlie", "dave"], items, COLLATOR_INFO_LOG_FILTER)
 			.await?;
 
 	let alice = network.get_node("alice")?;
@@ -223,7 +225,7 @@ async fn spawn_flooding_network(
 	let base_dir = base_dir()?;
 	let chain_spec_path = create_chain_spec_with_allowances(participant_count, &base_dir)?;
 
-	let default_args = collator_args(participant_count, CollatorLogLevel::Trace);
+	let default_args = collator_args(participant_count, COLLATOR_TRACE_LOG_FILTER);
 	let mut bob_args = default_args.clone();
 	bob_args.push(format!("--statement-rate-limit={rate_limit}").as_str().into());
 
@@ -635,7 +637,7 @@ async fn statement_store_lite_person_submit_and_propagate() -> Result<(), anyhow
 		env_logger::Env::default().filter_or(env_logger::DEFAULT_FILTER_ENV, "info"),
 	);
 
-	let network = spawn_network(&["alice", "bob"], CollatorLogLevel::Info).await?;
+	let network = spawn_network(&["alice", "bob"], COLLATOR_INFO_LOG_FILTER).await?;
 
 	let alice_node = network.get_node("alice")?;
 	let bob_node = network.get_node("bob")?;
@@ -731,7 +733,7 @@ async fn statement_store_recovery_after_major_sync() -> Result<(), anyhow::Error
 		StatementAllowance { max_count: TOTAL as u32, max_size: 1_000_000 },
 	)]);
 	let mut network =
-		spawn_network_sudo(&["charlie", "alice"], items, CollatorLogLevel::Trace).await?;
+		spawn_network_sudo(&["charlie", "alice"], items, COLLATOR_TRACE_LOG_FILTER).await?;
 
 	let charlie = network.get_node("charlie")?;
 	let charlie_rpc = charlie.rpc().await?;
