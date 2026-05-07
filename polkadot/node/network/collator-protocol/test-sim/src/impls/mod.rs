@@ -14,19 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The harness layer: Sim struct, observation recorder, query dispatcher.
+//! Adapters bridging the test framework's [`SubsystemUnderTest`] trait to concrete subsystem
+//! impls (legacy validator, experimental validator, collator).
 //!
-//! These are subsystem-agnostic in spirit (parameterized over the `contract::Effect` /
-//! `contract::Query` enums) but the first iteration is wired specifically for the
-//! collator-protocol. Generalizing to a `SubsystemContract` trait happens once a second subsystem
-//! is onboarded (see plan).
+//! [`SubsystemUnderTest`]: crate::harness::sim::SubsystemUnderTest
 
-pub mod dispatcher;
-pub mod observation;
-pub mod recorder;
-pub mod sim;
+pub mod legacy_validator;
 
-pub use dispatcher::Dispatcher;
-pub use observation::{Observation, Stamped};
-pub use recorder::Recorder;
-pub use sim::{Sim, SimConfig, SubsystemUnderTest};
+pub use legacy_validator::LegacyValidator;

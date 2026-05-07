@@ -46,6 +46,7 @@
 
 pub mod contract;
 pub mod harness;
+pub mod impls;
 pub mod report;
 pub mod responder;
 pub mod runtime;

@@ -41,14 +41,14 @@ pub trait AnswerQuery {
 ///
 /// `now` is the simulated wall-clock instant at which the dispatch happens (the recorder uses
 /// it to derive the entry's `sim_t`).
-pub struct Dispatcher<'a, R: AnswerQuery> {
+pub struct Dispatcher<'a, R: AnswerQuery + ?Sized> {
 	/// Where effects accumulate.
 	pub recorder: &'a mut Recorder,
 	/// Where queries are routed.
 	pub responder: &'a mut R,
 }
 
-impl<'a, R: AnswerQuery> Dispatcher<'a, R> {
+impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 	/// Create a new dispatcher.
 	pub fn new(recorder: &'a mut Recorder, responder: &'a mut R) -> Self {
 		Self { recorder, responder }

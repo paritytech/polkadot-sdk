@@ -16182,8 +16182,14 @@ dependencies = [
  "polkadot-collator-protocol",
  "polkadot-node-network-protocol",
  "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-overseer",
  "polkadot-primitives",
+ "sc-keystore",
  "sc-network-types 0.10.0",
+ "sp-core 28.0.0",
+ "sp-keyring",
+ "sp-keystore 0.34.0",
  "tokio",
 ]
 
