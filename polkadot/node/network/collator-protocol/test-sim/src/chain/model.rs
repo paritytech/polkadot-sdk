@@ -24,8 +24,8 @@ use polkadot_node_subsystem::messages::{ChainApiMessage, RuntimeApiMessage, Runt
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
 	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-	GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures, SessionIndex,
-	ValidationCodeHash, ValidatorId, ValidatorIndex,
+	GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures, PersistedValidationData,
+	SessionIndex, ValidationCodeHash, ValidatorId, ValidatorIndex,
 };
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 use sp_consensus_slots::Slot;
@@ -293,6 +293,19 @@ impl ChainModel {
 				let candidates = self.pending_availability.get(&para).cloned().unwrap_or_default();
 				let _ = tx.send(Ok(candidates));
 			},
+			RuntimeApiRequest::PersistedValidationData(_para, _assumption, tx) => {
+				// Synthesise a PVD whose shape matches the seconding sanity check: parent
+				// head = empty, relay parent number = block's number, storage root =
+				// Hash::zero(), max_pov_size = 5 MB. Tests that need different shapes should
+				// pre-set the candidate's persisted_validation_data_hash to match.
+				let pvd = PersistedValidationData {
+					parent_head: HeadData(Vec::new()),
+					relay_parent_number: info.number,
+					relay_parent_storage_root: Hash::zero(),
+					max_pov_size: 5 * 1024 * 1024,
+				};
+				let _ = tx.send(Ok(Some(pvd)));
+			},
 			RuntimeApiRequest::DisabledValidators(tx) => {
 				let _ = tx.send(Ok(Vec::new()));
 			},
@@ -313,6 +326,18 @@ impl ChainModel {
 			},
 			RuntimeApiRequest::MaxRelayParentSessionAge(_session, tx) => {
 				let _ = tx.send(Ok(8));
+			},
+			RuntimeApiRequest::ValidationCodeByHash(_hash, tx) => {
+				// Return a tiny valid-shaped ValidationCode payload. The
+				// always-valid candidate-validation stub doesn't actually run it.
+				let _ = tx.send(Ok(Some(polkadot_primitives::ValidationCode(vec![0x00]))));
+			},
+			RuntimeApiRequest::ValidationCode(_para, _assumption, tx) => {
+				let _ = tx.send(Ok(Some(polkadot_primitives::ValidationCode(vec![0x00]))));
+			},
+			RuntimeApiRequest::ValidationCodeHash(_para, _assumption, tx) => {
+				// Default: return None (no upgrade pending).
+				let _ = tx.send(Ok(None));
 			},
 			other => panic!(
 				"ChainModel does not implement RuntimeApiRequest::{:?} yet — extend the model when a subsystem starts asking for it",

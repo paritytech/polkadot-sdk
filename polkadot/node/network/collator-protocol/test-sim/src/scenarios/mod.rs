@@ -33,6 +33,8 @@ mod disconnect_if_no_declare;
 #[cfg(test)]
 mod disconnect_if_wrong_declare;
 #[cfg(test)]
+mod fetch_next_on_invalid;
+#[cfg(test)]
 mod fetch_timeout;
 #[cfg(test)]
 mod full_seconding;
@@ -42,5 +44,9 @@ mod inactive_collator_eviction;
 mod malicious_para;
 #[cfg(test)]
 pub(crate) mod shared;
+#[cfg(test)]
+mod single_fetch_per_relay_parent;
+#[cfg(test)]
+mod view_change_disconnects;
 #[cfg(test)]
 mod unneeded_para;
