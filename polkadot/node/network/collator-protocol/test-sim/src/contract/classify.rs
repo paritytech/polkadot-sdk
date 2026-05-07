@@ -58,6 +58,32 @@ pub enum Classified {
 	Query(Query),
 }
 
+/// Peek at an outgoing `AllMessages` without consuming it and emit any [`Effect`] descriptions
+/// implied by the message.
+///
+/// Used by the router for **dual-delivery** messages: outbound messages that are *both* an
+/// observable Effect tests assert on *and* an input to a real auxiliary subsystem (e.g.
+/// `CandidateBackingMessage::Second{...}`). The router records these effects manually when an
+/// aux slot accepts the message; otherwise the regular [`classify`] path runs and emits them
+/// in the consume direction.
+///
+/// Returns an empty `Vec` for variants that have no Effect interpretation (queries, plain
+/// aux-only messages).
+pub fn peek_effects(msg: &AllMessages) -> Vec<Effect> {
+	match msg {
+		AllMessages::CandidateBacking(CandidateBackingMessage::Second {
+			scheduling_parent,
+			candidate,
+			..
+		}) => vec![Effect::SecondCandidate {
+			scheduling_parent: *scheduling_parent,
+			candidate_hash: candidate.hash(),
+			para: candidate.descriptor.para_id(),
+		}],
+		_ => Vec::new(),
+	}
+}
+
 /// Walk an outgoing `AllMessages`, classify it. Panics on undeclared egress (a contract
 /// violation, not a test bug).
 pub fn classify(msg: AllMessages) -> Vec<Classified> {

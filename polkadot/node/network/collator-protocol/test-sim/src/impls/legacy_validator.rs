@@ -21,7 +21,9 @@ use crate::{harness::sim::SubsystemUnderTest, runtime::MockClock};
 use futures::{future::BoxFuture, FutureExt};
 use polkadot_collator_protocol::{CollatorProtocolSubsystem, ProtocolSide};
 use polkadot_node_subsystem::{
-	messages::CollatorProtocolMessage, overseer::Subsystem, SpawnGlue,
+	messages::{AllMessages, CollatorProtocolMessage},
+	overseer::Subsystem,
+	SpawnGlue,
 };
 use polkadot_node_subsystem_test_helpers::TestSubsystemContext;
 use sp_core::testing::TaskExecutor;
@@ -59,5 +61,12 @@ impl SubsystemUnderTest for LegacyValidator {
 		let subsystem = CollatorProtocolSubsystem::new(side);
 		let spawned = subsystem.start(ctx);
 		spawned.future.map(|_| ()).boxed()
+	}
+
+	fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages> {
+		match msg {
+			AllMessages::CollatorProtocol(inner) => Ok(inner),
+			other => Err(other),
+		}
 	}
 }

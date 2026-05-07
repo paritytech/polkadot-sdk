@@ -33,7 +33,7 @@
 //! [`Query`]: crate::contract::Query
 
 use crate::{
-	contract::{classify, Classified},
+	contract::{classify, peek_effects, Classified},
 	harness::{dispatcher::AnswerQuery, Recorder},
 };
 use futures::{
@@ -108,35 +108,90 @@ impl<M: 'static + Send + std::fmt::Debug> UutSlot<M> {
 
 /// Run a single outbound `AllMessages` through the routing pipeline:
 ///
-/// 1. Offer it to each registered auxiliary slot in `aux` order; the first slot that accepts
-///    consumes the message and the function returns once the typed send completes.
-/// 2. If no aux slot accepts, classify the message: effects go to the recorder, queries go
-///    to the responder.
-///
-/// In Phase H.1 `aux` is always empty; the function reduces to the classify path.
+/// 1. **Peek** for dual-delivery effects (e.g. `CandidateBackingMessage::Second{...}`): these
+///    are observable effects *and* inputs to a real auxiliary subsystem. The descriptions are
+///    captured before the message is moved.
+/// 2. **Try the UUT** if `uut_route` is supplied. If the UUT accepts (the message is
+///    addressed to the unit under test), the message is forwarded into its inbound channel
+///    and routing finishes. (Real auxiliary subsystems sometimes emit messages targeted at
+///    the UUT, e.g. `CollatorProtocolMessage::Seconded` from `candidate-backing`.)
+/// 3. **Offer** the message to each registered auxiliary slot in `aux` order; the first slot
+///    that accepts consumes the message. If a slot accepted, the dual-delivery effects from
+///    step 1 are recorded.
+/// 4. If neither UUT nor aux accepts, **classify** the message: effects go to the recorder,
+///    queries to the responder.
 pub async fn route<R: AnswerQuery + ?Sized>(
 	now: Instant,
 	msg: AllMessages,
+	uut_route: Option<&dyn UutRoute>,
 	aux: &[Box<dyn SubsystemSlot>],
 	recorder: &mut Recorder,
 	responder: &mut R,
 ) {
-	let mut current = msg;
-	for slot in aux {
-		match slot.try_route(current) {
+	// Step 1: peek dual-delivery effects without consuming.
+	let dual_effects = peek_effects(&msg);
+	let mut current = Some(msg);
+	let mut accepted = false;
+
+	// Step 2: try the UUT.
+	if let Some(uut) = uut_route {
+		let m = current.take().expect("invariant: current is Some before UUT step");
+		match uut.try_route(m) {
 			RouteAttempt::Accepted(fut) => {
 				fut.await;
-				return;
+				accepted = true;
 			},
-			RouteAttempt::Declined(msg) => {
-				current = msg;
+			RouteAttempt::Declined(m) => {
+				current = Some(m);
 			},
 		}
 	}
-	for c in classify(current) {
+
+	// Step 3: offer to aux slots if UUT didn't accept.
+	if !accepted {
+		for slot in aux {
+			let m = current
+				.take()
+				.expect("loop invariant: current is Some at top of iteration");
+			match slot.try_route(m) {
+				RouteAttempt::Accepted(fut) => {
+					fut.await;
+					accepted = true;
+					break;
+				},
+				RouteAttempt::Declined(m) => {
+					current = Some(m);
+				},
+			}
+		}
+	}
+
+	if accepted {
+		// UUT or aux consumed the message. Record dual-delivery effects manually so the
+		// test still observes them in the recorder.
+		for e in dual_effects {
+			recorder.record_effect(now, e);
+		}
+		return;
+	}
+
+	// Step 4: nobody accepted — fall through to classify.
+	let msg = current.expect("loop preserves current when nobody accepts");
+	for c in classify(msg) {
 		match c {
 			Classified::Effect(e) => recorder.record_effect(now, e),
 			Classified::Query(q) => responder.answer(q),
 		}
 	}
+}
+
+/// Routing surface for the unit under test. Distinct from [`SubsystemSlot`] because the UUT
+/// uses a typed inbound channel (`mpsc::Sender<FromOrchestra<S::Message>>`), not the
+/// type-erased aux interface.
+pub trait UutRoute {
+	/// Try to route an `AllMessages` to the UUT's inbound channel by extracting the typed
+	/// inner message via [`SubsystemUnderTest::try_extract_inbound`] and sending it.
+	///
+	/// [`SubsystemUnderTest::try_extract_inbound`]: crate::harness::sim::SubsystemUnderTest::try_extract_inbound
+	fn try_route(&self, msg: AllMessages) -> RouteAttempt;
 }

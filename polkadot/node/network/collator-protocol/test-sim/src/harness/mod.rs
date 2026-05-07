@@ -30,5 +30,5 @@ pub mod sim;
 pub use dispatcher::{AnswerQuery, Dispatcher, LayeredResponder};
 pub use observation::{Observation, Stamped};
 pub use recorder::Recorder;
-pub use router::{RouteAttempt, SubsystemSlot, UutSlot};
+pub use router::{RouteAttempt, SubsystemSlot, UutRoute, UutSlot};
 pub use sim::{Sim, SimConfig, SubsystemUnderTest};

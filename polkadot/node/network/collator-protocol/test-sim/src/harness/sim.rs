@@ -25,7 +25,7 @@ use crate::{
 	contract::Effect,
 	harness::{
 		dispatcher::AnswerQuery,
-		router::{self, SubsystemSlot, UutSlot},
+		router::{self, RouteAttempt, SubsystemSlot, UutRoute, UutSlot},
 		Recorder,
 	},
 	report::TimelineReport,
@@ -74,6 +74,16 @@ where
 		ctx: TestSubsystemContext<Self::Message, SpawnGlue<TaskExecutor>>,
 		clock: Arc<MockClock>,
 	) -> BoxFuture<'static, ()>;
+
+	/// Try to extract `Self::Message` from an `AllMessages` value addressed to this subsystem.
+	///
+	/// Used by the router to deliver outbound messages from one auxiliary subsystem (e.g.
+	/// `candidate-backing` emitting `CollatorProtocolMessage::Seconded`) into the UUT's
+	/// inbound channel.
+	///
+	/// Returns `Ok(inner)` if the message targets this subsystem, or `Err(msg)` to let the
+	/// router try other slots / fall through to classification.
+	fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages>;
 }
 
 /// A running simulation around `S`.
@@ -296,10 +306,18 @@ where
 				match self.outbound_rxs[idx].try_next() {
 					Ok(Some(msg)) => {
 						progressed = true;
+						let uut_route = UutRouteFor::<S> { uut: &self.uut };
 						let aux = self.aux.as_slice();
 						let recorder = &mut self.recorder;
 						let responder = &mut *self.responder;
-						self.executor.run_until(router::route(now, msg, aux, recorder, responder));
+						self.executor.run_until(router::route(
+							now,
+							msg,
+							Some(&uut_route),
+							aux,
+							recorder,
+							responder,
+						));
 						// Other subsystems may now have work to do (forwarded messages
 						// reached their inboxes; oneshot replies unblocked someone).
 						self.executor.poll_until_pending();
@@ -310,6 +328,31 @@ where
 			if !progressed {
 				break;
 			}
+		}
+	}
+}
+
+/// Type-tagged adapter that lets the router call back into the UUT slot for inbound delivery.
+struct UutRouteFor<'a, S: SubsystemUnderTest>
+where
+	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	uut: &'a UutSlot<S::Message>,
+}
+
+impl<'a, S: SubsystemUnderTest> UutRoute for UutRouteFor<'a, S>
+where
+	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	fn try_route(&self, msg: AllMessages) -> RouteAttempt {
+		match S::try_extract_inbound(msg) {
+			Ok(inner) => {
+				let fut = self.uut.send_typed(polkadot_node_subsystem::FromOrchestra::Communication { msg: inner });
+				RouteAttempt::Accepted(fut)
+			},
+			Err(other) => RouteAttempt::Declined(other),
 		}
 	}
 }

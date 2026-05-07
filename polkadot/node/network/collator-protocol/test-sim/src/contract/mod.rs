@@ -32,7 +32,7 @@ pub mod effect;
 pub mod query;
 pub mod reputation;
 
-pub use classify::{classify, Classified};
+pub use classify::{classify, peek_effects, Classified};
 pub use effect::{AdvertisementSummary, Effect, ReqKind, RespKind, WireMsgKind};
 pub use query::Query;
 pub use reputation::RepBucket;
