@@ -17,7 +17,7 @@ crates:
   - name: cumulus-primitives-core
     bump: major
   - name: cumulus-client-consensus-common
-    bump: patch
+    bump: major
   - name: cumulus-client-consensus-aura
     bump: major
   - name: cumulus-client-collator
@@ -27,11 +27,11 @@ crates:
   - name: cumulus-client-network
     bump: patch
   - name: cumulus-relay-chain-inprocess-interface
-    bump: patch
+    bump: minor
   - name: cumulus-relay-chain-interface
-    bump: patch
+    bump: minor
   - name: cumulus-relay-chain-rpc-interface
-    bump: patch
+    bump: minor
   - name: polkadot-omni-node-lib
     bump: patch
   - name: cumulus-pallet-aura-ext
