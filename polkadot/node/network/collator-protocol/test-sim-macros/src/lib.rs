@@ -83,6 +83,7 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	let legacy_test = if filter.includes_legacy() {
 		quote! {
 			#[::core::prelude::v1::test]
+			#[allow(non_snake_case)]
 			fn #legacy_name() {
 				#fn_name::<crate::impls::LegacyValidator>();
 			}
@@ -93,6 +94,7 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	let experimental_test = if filter.includes_experimental() {
 		quote! {
 			#[::core::prelude::v1::test]
+			#[allow(non_snake_case)]
 			fn #experimental_name() {
 				#fn_name::<crate::impls::ExperimentalValidator>();
 			}

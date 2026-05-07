@@ -25,6 +25,8 @@
 //! required to script the view-update query barrage.
 
 #[cfg(test)]
+mod activity_extends_life;
+#[cfg(test)]
 mod advertise_then_fetch;
 #[cfg(test)]
 mod bad_signature;
@@ -42,6 +44,8 @@ mod full_seconding;
 mod inactive_collator_eviction;
 #[cfg(test)]
 mod malicious_para;
+#[cfg(test)]
+mod peer_disconnect_clears_queue;
 #[cfg(test)]
 pub(crate) mod shared;
 #[cfg(test)]

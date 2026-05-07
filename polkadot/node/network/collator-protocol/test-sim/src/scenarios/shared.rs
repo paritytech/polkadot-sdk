@@ -72,7 +72,37 @@ where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
+	let world = build_multi_leaf_world::<S>(1, paras);
+	World { sim: world.sim, leaf: world.leaves[0], chain: world.chain }
+}
+
+/// Multi-leaf variant of [`World`]. `leaves[0]` is the deepest (most-recently-extended)
+/// leaf; `leaves[i]` for `i > 0` are progressively older blocks in the same chain. The same
+/// claim queue is installed at every leaf.
+pub struct MultiLeafWorld<S: SubsystemUnderTest>
+where
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	pub sim: Sim<S>,
+	/// Leaves in extend order: `leaves[0]` is genesis's first child, `leaves[N-1]` is the
+	/// deepest. All are signalled active and included in OurView.
+	pub leaves: Vec<Hash>,
+	pub chain: SharedChain,
+}
+
+/// Build a multi-leaf world: extends the chain `n_leaves` times on top of genesis,
+/// installs the claim queue at every leaf, signals `ActiveLeaves::start_work` for each
+/// leaf in extend order, and pushes an `OurViewChange` containing all of them.
+pub fn build_multi_leaf_world<S>(n_leaves: usize, paras: &[(CoreIndex, ParaId)]) -> MultiLeafWorld<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
 	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
+
+	assert!(n_leaves >= 1, "build_multi_leaf_world requires at least one leaf");
 
 	let mut chain = ChainModel::new(Slot::from(0));
 	chain.add_session(
@@ -87,17 +117,26 @@ where
 			},
 		},
 	);
-	let leaf = chain.extend(chain.genesis());
-
-	let mut queue: BTreeMap<CoreIndex, VecDeque<ParaId>> = BTreeMap::new();
-	for (core, para) in paras {
-		queue.insert(*core, VecDeque::from_iter(std::iter::repeat(*para).take(3)));
-	}
-	if !paras.is_empty() {
-		chain.set_claim_queue_at(leaf, queue);
+	let mut leaves = Vec::with_capacity(n_leaves);
+	let mut parent = chain.genesis();
+	for _ in 0..n_leaves {
+		let leaf = chain.extend(parent);
+		leaves.push(leaf);
+		parent = leaf;
 	}
 
-	let leaf_number = chain.block(&leaf).unwrap().number;
+	for leaf in &leaves {
+		let mut queue: BTreeMap<CoreIndex, VecDeque<ParaId>> = BTreeMap::new();
+		for (core, para) in paras {
+			queue.insert(*core, VecDeque::from_iter(std::iter::repeat(*para).take(3)));
+		}
+		if !paras.is_empty() {
+			chain.set_claim_queue_at(*leaf, queue);
+		}
+	}
+
+	let leaf_numbers: Vec<u32> =
+		leaves.iter().map(|h| chain.block(h).unwrap().number).collect();
 	let chain = SharedChain::new(chain);
 
 	let mut responder = LayeredResponder::new();
@@ -110,11 +149,6 @@ where
 	sim.register_aux(psp, psp_rx);
 	sim.register_aux(cb, cb_rx);
 
-	// Stubs for the seconding-flow side subsystems. Always-valid candidate-validation,
-	// always-OK availability-store, and drop-on-floor stubs for statement-distribution,
-	// provisioner, and availability-distribution. Tests that need different verdicts can
-	// override the candidate-validation stub by registering their own slot before this
-	// helper is called (slots earlier in the registration order win).
 	let cv = CandidateValidationStub::always_valid(&mut sim);
 	let av = AvailabilityStoreStub::spawn(&mut sim);
 	sim.register_aux_slot_only(cv);
@@ -123,13 +157,15 @@ where
 	sim.register_aux_slot_only(ProvisionerNoop::new());
 	sim.register_aux_slot_only(AvailabilityDistributionNoop::new());
 
-	sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
-		leaf,
-		leaf_number,
-	))));
+	for (leaf, number) in leaves.iter().zip(leaf_numbers.iter()) {
+		sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+			*leaf, *number,
+		))));
+	}
 	sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(NetworkBridgeEvent::OurViewChange(
-		polkadot_node_network_protocol::OurView::new(std::iter::once(leaf), 0),
+		polkadot_node_network_protocol::OurView::new(leaves.iter().copied(), 0),
 	)));
 
-	World { sim, leaf, chain }
+	MultiLeafWorld { sim, leaves, chain }
 }
+
