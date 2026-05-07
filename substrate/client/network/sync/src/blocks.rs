@@ -20,7 +20,7 @@ use crate::LOG_TARGET;
 use log::trace;
 use sc_network_common::sync::message;
 use sc_network_types::PeerId;
-use sp_runtime::traits::{Block as BlockT, NumberFor, One};
+use sp_runtime::traits::{Block as BlockT, CheckedAdd, NumberFor, One};
 use std::{
 	cmp,
 	collections::{BTreeMap, HashMap},
@@ -172,7 +172,13 @@ impl<B: BlockT> BlockCollection<B> {
 			trace!(target: LOG_TARGET, "Out of range for peer {} ({} vs {})", who, range.start, peer_best);
 			return None;
 		}
-		range.end = cmp::min(peer_best + One::one(), range.end);
+
+		let Some(peer_best_plus_one) = peer_best.checked_add(&One::one()) else {
+			trace!(target: LOG_TARGET, "Peer {who} reported best block at numeric maximum");
+			return None;
+		};
+
+		range.end = cmp::min(peer_best_plus_one, range.end);
 
 		if self
 			.blocks
@@ -184,6 +190,19 @@ impl<B: BlockT> BlockCollection<B> {
 			return None;
 		}
 
+		if range.end <= range.start {
+			debug_assert!(
+				false,
+				"Empty range {:?}, count={}, peer_best={}, common={}, blocks={:?}",
+				range, count, peer_best, common, self.blocks
+			);
+			trace!(
+				target: LOG_TARGET,
+				"Empty range for peer {who}: {range:?}, count={count}, peer_best={peer_best}, common={common}",
+			);
+			return None;
+		}
+
 		self.peer_requests.insert(who, range.start);
 		self.blocks.insert(
 			range.start,
@@ -192,12 +211,7 @@ impl<B: BlockT> BlockCollection<B> {
 				downloading: downloading + 1,
 			},
 		);
-		if range.end <= range.start {
-			panic!(
-				"Empty range {:?}, count={}, peer_best={}, common={}, blocks={:?}",
-				range, count, peer_best, common, self.blocks
-			);
-		}
+
 		Some(range)
 	}
 
