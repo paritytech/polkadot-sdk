@@ -17,7 +17,11 @@
 //! Helpers shared across scenarios.
 
 use crate::{
-	aux::{CandidateBackingAux, ProspectiveParachainsAux},
+	aux::{
+		AvailabilityDistributionNoop, AvailabilityStoreStub, CandidateBackingAux,
+		CandidateValidationStub, ProspectiveParachainsAux, ProvisionerNoop,
+		StatementDistributionNoop,
+	},
 	chain::{ChainModel, SessionInfo, SharedChain},
 	contract::Query,
 	harness::{AnswerQuery, LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
@@ -105,6 +109,19 @@ where
 	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
 	sim.register_aux(psp, psp_rx);
 	sim.register_aux(cb, cb_rx);
+
+	// Stubs for the seconding-flow side subsystems. Always-valid candidate-validation,
+	// always-OK availability-store, and drop-on-floor stubs for statement-distribution,
+	// provisioner, and availability-distribution. Tests that need different verdicts can
+	// override the candidate-validation stub by registering their own slot before this
+	// helper is called (slots earlier in the registration order win).
+	let cv = CandidateValidationStub::always_valid(&mut sim);
+	let av = AvailabilityStoreStub::spawn(&mut sim);
+	sim.register_aux_slot_only(cv);
+	sim.register_aux_slot_only(av);
+	sim.register_aux_slot_only(StatementDistributionNoop::new());
+	sim.register_aux_slot_only(ProvisionerNoop::new());
+	sim.register_aux_slot_only(AvailabilityDistributionNoop::new());
 
 	sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
 		leaf,

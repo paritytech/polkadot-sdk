@@ -16180,6 +16180,7 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "kvdb-memorydb",
+ "parity-scale-codec",
  "polkadot-collator-protocol",
  "polkadot-collator-protocol-test-sim-macros",
  "polkadot-node-core-backing",

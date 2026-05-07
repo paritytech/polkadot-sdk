@@ -35,6 +35,8 @@ mod disconnect_if_wrong_declare;
 #[cfg(test)]
 mod fetch_timeout;
 #[cfg(test)]
+mod full_seconding;
+#[cfg(test)]
 mod inactive_collator_eviction;
 #[cfg(test)]
 mod malicious_para;
