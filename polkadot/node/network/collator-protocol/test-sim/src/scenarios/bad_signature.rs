@@ -14,42 +14,79 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Scenario: a peer connects and then sends a `Declare` with a bogus signature. The validator
-//! penalises the peer with a `Malicious` reputation hit and emits no further effects.
+//! Scenario: a peer connects (after the validator has received its first ActiveLeaves
+//! signal) and then sends a `Declare` with a bogus signature. The validator penalises the
+//! peer with a `Malicious` reputation hit and emits no further effects.
 //!
-//! Spec the test is checking, in plain English:
-//!
-//! - Given a fresh validator side and one connected peer.
-//! - When that peer sends a `Declare` whose signature does not verify against the declared
-//!   collator key.
-//! - Then the validator emits a `Reputation { Malicious }` for the peer.
-//!
-//! This scenario does not need any `RuntimeApi` / `ChainApi` setup: the bad signature is
-//! rejected before the validator looks at chain state, so a panic-on-query responder is the
-//! right safety net.
+//! Why the ActiveLeaves preamble? The experimental validator side disconnects every peer
+//! that arrives before its first ActiveLeaves notification (initialisation guard). Both
+//! implementations need a leaf in scope to behave normally — the ActiveLeaves stimulus is
+//! just framework setup, the assertion is still about the bad-signature path.
 
 use crate::{
+	aux::{CandidateBackingAux, ProspectiveParachainsAux},
 	builders::{Peer, ProtocolVersion},
-	contract::{Effect, Query, RepBucket},
-	harness::{dispatcher::AnswerQuery, Sim, SimConfig},
-	impls::LegacyValidator,
+	chain::{ChainModel, SessionInfo, SharedChain},
+	contract::{Effect, RepBucket},
+	harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
 };
-use polkadot_primitives::Id as ParaId;
+use polkadot_node_subsystem::{
+	messages::{AllMessages, CollatorProtocolMessage},
+	OverseerSignal,
+};
+use polkadot_node_subsystem_test_helpers::mock::new_leaf;
+use polkadot_overseer::ActiveLeavesUpdate;
+use polkadot_primitives::{GroupRotationInfo, Id as ParaId, ValidatorIndex};
+use sp_consensus_slots::Slot;
 use std::time::Duration;
 
-struct PanicResponder;
-impl AnswerQuery for PanicResponder {
-	fn answer(&mut self, query: Query) {
-		panic!(
-			"bad-signature scenario expected no queries before reaching the rejection path; got {:?}",
-			query
-		);
-	}
-}
-
+// EXPERIMENTAL DIVERGENCE (intentional? bug? — investigate):
+// validator_side_experimental/mod.rs:431-435 destructures the Declare signature into
+// `_signature` and never verifies it. Bad signatures don't produce Reputation::Malicious
+// on the experimental side; this scenario therefore *fails* against ExperimentalValidator
+// and that failure is the framework reporting the divergence — see
+// memory/project_collator_experimental_skips_declare_sig.md for the full write-up. Do not
+// filter the scenario to silence the failure; the failure is the value.
 #[crate::sim_test]
-fn declare_with_bad_signature_yields_malicious_reputation() {
-	let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
+fn declare_with_bad_signature_yields_malicious_reputation<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
+	// Minimal chain: one leaf on top of genesis with a session info installed. The leaf has
+	// no claim queue because the assertion is about the bad-signature path, not assignment.
+	let mut chain = ChainModel::new(Slot::from(0));
+	chain.add_session(
+		0,
+		SessionInfo {
+			validators: crate::builders::fixtures::default_validators(),
+			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
+			group_rotation_info: GroupRotationInfo {
+				session_start_block: 0,
+				group_rotation_frequency: 1,
+				now: 0,
+			},
+		},
+	);
+	let leaf = chain.extend(chain.genesis());
+	let leaf_number = chain.block(&leaf).unwrap().number;
+
+	let chain = SharedChain::new(chain);
+	let mut responder = LayeredResponder::new();
+	responder.push(chain.clone());
+	responder.push(crate::scenarios::shared::PanicResponder);
+
+	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
+	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
+	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
+	sim.register_aux(psp, psp_rx);
+	sim.register_aux(cb, cb_rx);
+
+	sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
+		leaf,
+		leaf_number,
+	))));
 
 	let peer = Peer::new(ParaId::from(2000), ProtocolVersion::V1);
 

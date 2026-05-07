@@ -27,12 +27,11 @@ use crate::{
 	builders::{Candidate, Peer, ProtocolVersion},
 	chain::{ChainModel, SessionInfo, SharedChain},
 	contract::{Effect, ReqKind},
-	harness::{LayeredResponder, Sim, SimConfig},
-	impls::LegacyValidator,
+	harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
 };
 use polkadot_node_network_protocol::OurView;
 use polkadot_node_subsystem::{
-	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
+	messages::{AllMessages, CollatorProtocolMessage, NetworkBridgeEvent},
 	OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
@@ -44,7 +43,12 @@ use sp_consensus_slots::Slot;
 use std::{collections::VecDeque, time::Duration};
 
 #[crate::sim_test]
-fn valid_advertisement_triggers_fetch() {
+fn valid_advertisement_triggers_fetch<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
 	let para = ParaId::from(2000);
 
 	// Build a chain model with one leaf on top of genesis. Para 2000 is scheduled on core 0
@@ -76,7 +80,7 @@ fn valid_advertisement_triggers_fetch() {
 	responder.push(chain.clone());
 	responder.push(crate::scenarios::shared::PanicResponder);
 
-	let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), responder);
+	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
 
 	// Wire real prospective-parachains and candidate-backing.
 	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);

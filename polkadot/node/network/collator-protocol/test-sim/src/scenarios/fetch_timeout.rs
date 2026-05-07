@@ -28,12 +28,11 @@ use crate::{
 	builders::{Candidate, Peer, ProtocolVersion},
 	chain::{ChainModel, SessionInfo, SharedChain},
 	contract::{Effect, ReqKind},
-	harness::{LayeredResponder, Sim, SimConfig},
-	impls::LegacyValidator,
+	harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
 };
 use polkadot_node_network_protocol::OurView;
 use polkadot_node_subsystem::{
-	messages::{CollatorProtocolMessage, NetworkBridgeEvent},
+	messages::{AllMessages, CollatorProtocolMessage, NetworkBridgeEvent},
 	OverseerSignal,
 };
 use polkadot_node_subsystem_test_helpers::mock::new_leaf;
@@ -46,7 +45,12 @@ use sp_consensus_slots::Slot;
 use std::{collections::VecDeque, time::Duration};
 
 #[crate::sim_test]
-fn fetch_timeout_advances_to_next_peer() {
+fn fetch_timeout_advances_to_next_peer<S>()
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
 	let para = ParaId::from(2000);
 
 	let mut chain = ChainModel::new(Slot::from(100));
@@ -73,7 +77,7 @@ fn fetch_timeout_advances_to_next_peer() {
 	responder.push(chain.clone());
 	responder.push(crate::scenarios::shared::PanicResponder);
 
-	let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), responder);
+	let mut sim = Sim::<S>::start(SimConfig::default(), responder);
 	let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
 	let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
 	sim.register_aux(psp, psp_rx);

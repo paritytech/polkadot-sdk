@@ -31,8 +31,6 @@ mod bad_signature;
 #[cfg(test)]
 mod fetch_timeout;
 #[cfg(test)]
-mod differential;
-#[cfg(test)]
 mod malicious_para;
 #[cfg(test)]
 pub(crate) mod shared;

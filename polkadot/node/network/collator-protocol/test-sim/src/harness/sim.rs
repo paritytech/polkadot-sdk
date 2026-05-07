@@ -413,8 +413,8 @@ mod tests {
 		assert_eq!(recorder.len(), 0);
 	}
 
-	#[crate::sim_test]
-	fn sim_test_attribute_runs_as_a_regular_test() {
+	#[test]
+	fn legacy_validator_smoke_via_explicit_test_attr() {
 		let sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
 		let _ = sim.finish();
 	}
