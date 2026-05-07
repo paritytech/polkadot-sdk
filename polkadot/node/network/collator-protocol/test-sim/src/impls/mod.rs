@@ -19,6 +19,8 @@
 //!
 //! [`SubsystemUnderTest`]: crate::harness::sim::SubsystemUnderTest
 
+pub mod experimental_validator;
 pub mod legacy_validator;
 
+pub use experimental_validator::ExperimentalValidator;
 pub use legacy_validator::LegacyValidator;

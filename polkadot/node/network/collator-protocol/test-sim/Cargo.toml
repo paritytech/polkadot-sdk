@@ -19,6 +19,7 @@ polkadot-collator-protocol = { workspace = true, default-features = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
 polkadot-collator-protocol-test-sim-macros = { workspace = true }
 polkadot-node-core-backing = { workspace = true, default-features = true }
@@ -26,6 +27,7 @@ polkadot-node-core-prospective-parachains = { workspace = true, default-features
 polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true, features = ["test"] }
 polkadot-primitives-test-helpers = { workspace = true }
+kvdb-memorydb = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
 sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }

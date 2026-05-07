@@ -335,6 +335,15 @@ impl ChainModel {
 				let ancestors = self.ancestors(hash, k);
 				let _ = response_channel.send(Ok(ancestors));
 			},
+			ChainApiMessage::FinalizedBlockNumber(tx) => {
+				// No finalized block tracking yet — pretend genesis is the latest finalized.
+				let _ = tx.send(Ok(0));
+			},
+			ChainApiMessage::FinalizedBlockHash(number, tx) => {
+				// Map any finalized-block-number lookup to genesis if number == 0.
+				let hash = if number == 0 { Some(self.genesis) } else { None };
+				let _ = tx.send(Ok(hash));
+			},
 			other => panic!(
 				"ChainModel does not implement ChainApiMessage::{:?} yet — extend the model when a subsystem starts asking for it",
 				other

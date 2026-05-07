@@ -16179,6 +16179,7 @@ name = "polkadot-collator-protocol-test-sim"
 version = "0.1.0"
 dependencies = [
  "futures",
+ "kvdb-memorydb",
  "polkadot-collator-protocol",
  "polkadot-collator-protocol-test-sim-macros",
  "polkadot-node-core-backing",
@@ -16187,6 +16188,7 @@ dependencies = [
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
+ "polkadot-node-subsystem-util",
  "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
