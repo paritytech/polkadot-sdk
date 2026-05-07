@@ -16,6 +16,10 @@ workspace = true
 futures = { workspace = true }
 
 polkadot-collator-protocol = { workspace = true, default-features = true }
+polkadot-node-network-protocol = { workspace = true, default-features = true }
+polkadot-node-subsystem = { workspace = true, default-features = true }
+polkadot-primitives = { workspace = true, default-features = true }
+sc-network-types = { workspace = true, default-features = true }
 
 [dev-dependencies]
 tokio = { features = ["macros", "rt"], workspace = true, default-features = true }

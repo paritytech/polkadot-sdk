@@ -16180,6 +16180,10 @@ version = "0.1.0"
 dependencies = [
  "futures",
  "polkadot-collator-protocol",
+ "polkadot-node-network-protocol",
+ "polkadot-node-subsystem",
+ "polkadot-primitives",
+ "sc-network-types 0.10.0",
  "tokio",
 ]
 
