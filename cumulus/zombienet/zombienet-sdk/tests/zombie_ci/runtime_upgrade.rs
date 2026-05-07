@@ -16,8 +16,6 @@ use zombienet_sdk::{
 	NetworkConfig, NetworkConfigBuilder,
 };
 
-/// Subxt's default JSON-RPC websocket message cap is 10 MiB. Submitting a `MAX_CODE_SIZE`
-/// runtime upgrade hex-encodes to over that. Build an `OnlineClient` with raised caps.
 async fn big_message_client(ws_uri: &str) -> Result<OnlineClient<PolkadotConfig>, anyhow::Error> {
 	let rpc = ReconnectingRpcClient::builder()
 		.max_request_size(25 * 1024 * 1024)

@@ -40,8 +40,7 @@ sp-consensus-slots = { workspace = true, default-features = true }
 codec = { workspace = true }
 scale-info = { workspace = true, features = ["derive"] }
 rstest = { workspace = true }
-subxt = { version = "0.50" }
-subxt-signer = { version = "0.50", features = ["sr25519"] }
+subxt = { workspace = true, features = ["reconnecting-rpc-client"] }
 
 [features]
 zombie-ci = []
