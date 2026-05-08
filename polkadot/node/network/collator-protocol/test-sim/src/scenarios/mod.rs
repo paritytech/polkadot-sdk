@@ -27,6 +27,8 @@
 #[cfg(test)]
 mod activity_extends_life;
 #[cfg(test)]
+mod ah_permissionless;
+#[cfg(test)]
 mod advertise_then_fetch;
 #[cfg(test)]
 mod advertisement_spam_protection;
