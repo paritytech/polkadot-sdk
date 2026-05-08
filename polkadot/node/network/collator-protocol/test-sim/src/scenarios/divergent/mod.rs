@@ -35,6 +35,8 @@
 //! | [`reputation_emission`] | Legacy emits `NetworkBridgeTx::ReportPeer`; experimental updates a persistent rep store and emits no bus event. | paired |
 //! | [`reputation_behavior`] | Experimental's reputation has *behavioral* consequences (fetch ranking, 300ms penalty box for fresh peers, score-based slot eviction). Legacy fires-and-forgets to the bridge with no behavioral feedback. | experimental-only |
 //! | [`no_time_based_eviction`] | Legacy disconnects undeclared / inactive peers via a time-based eviction policy. Experimental keeps them indefinitely; rep-pressure replaces the timer. Per RFC #616. | paired |
+//! | [`upcoming_pr_11967`] | Tests for invariants that PR #11967 (rotation bug fix + capacity refactor) will introduce. Marked `bug_on = "experimental"` until merged. | experimental-only |
+//! | [`upcoming_pr_12004`] | Tests for invariants that PR #12004 (avoid duplicate fetches) will introduce. Marked `bug_on = "experimental"` until merged. | experimental-only |
 //!
 //! # Adding a divergence
 //!
@@ -54,3 +56,7 @@ pub(crate) mod no_time_based_eviction;
 pub(crate) mod reputation_behavior;
 #[cfg(test)]
 pub(crate) mod reputation_emission;
+#[cfg(test)]
+pub(crate) mod upcoming_pr_11967;
+#[cfg(test)]
+pub(crate) mod upcoming_pr_12004;

@@ -49,6 +49,8 @@ mod collation_fetching_fairness_handles_old_claims;
 #[cfg(test)]
 mod collation_fetching_prefer_entries_earlier_in_claim_queue;
 #[cfg(test)]
+mod cq_position_window;
+#[cfg(test)]
 pub(crate) mod divergent;
 #[cfg(test)]
 mod disconnect_if_wrong_declare;
