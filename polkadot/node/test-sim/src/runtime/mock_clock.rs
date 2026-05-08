@@ -14,11 +14,16 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Deterministic mock clock implementing [`polkadot_collator_protocol::Clock`].
+//! Deterministic mock clock implementing the test-sim core [`Clock`] trait.
 //!
 //! Adapted from `polkadot/node/core/approval-voting/src/tests.rs:144-230`. Instead of
 //! approval's `Tick` granularity this clock works in `Instant`/`Duration` to match the
-//! `Clock` trait used by the collator-protocol subsystem.
+//! `Clock` shape every Polkadot subsystem already uses internally.
+//!
+//! Per-subsystem consumers wrap an `Arc<MockClock>` in a thin adapter that re-impls the
+//! production subsystem's own `Clock` trait by delegating; see
+//! `polkadot-collator-protocol-test-sim`'s `clock_adapter` module for the canonical
+//! example.
 //!
 //! Tests advance time deterministically:
 //!
@@ -28,8 +33,8 @@
 //! // wakeups whose deadline is <= the new now resolve
 //! ```
 
+use crate::clock::{BoxedDelay, Clock};
 use futures::channel::oneshot;
-use polkadot_collator_protocol::clock::{BoxedDelay, Clock};
 use std::{
 	sync::{Arc, Mutex},
 	time::{Duration, Instant},

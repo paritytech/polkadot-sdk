@@ -14,23 +14,15 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! The harness layer: Sim struct, observation recorder, query dispatcher.
-//!
-//! These are subsystem-agnostic in spirit (parameterized over the `contract::Effect` /
-//! `contract::Query` enums) but the first iteration is wired specifically for the
-//! collator-protocol. Generalizing to a `SubsystemContract` trait happens once a second subsystem
-//! is onboarded (see plan).
+//! Re-exports of the subsystem-agnostic harness from
+//! [`polkadot_subsystem_test_sim::harness`], plus the collator-flavoured
+//! [`CollatorSut`] convenience alias used by `#[sim_test]` scenarios.
 
-pub mod dispatcher;
-pub mod observation;
-pub mod pending_fetches;
-pub mod recorder;
-pub mod router;
-pub mod sim;
+pub use polkadot_subsystem_test_sim::harness::{
+	AnswerQuery, Dispatcher, LayeredResponder, Observation, PendingFetches, RawResponse,
+	Recorder, RouteAttempt, Sim, SimConfig, Stamped, SubsystemSlot, SubsystemUnderTest, UutRoute,
+	UutSlot,
+};
 
-pub use dispatcher::{AnswerQuery, Dispatcher, LayeredResponder};
-pub use observation::{Observation, Stamped};
-pub use pending_fetches::{PendingFetches, RawResponse};
-pub use recorder::Recorder;
-pub use router::{RouteAttempt, SubsystemSlot, UutRoute, UutSlot};
-pub use sim::{CollatorSut, Sim, SimConfig, SubsystemUnderTest};
+mod collator_sut;
+pub use collator_sut::CollatorSut;

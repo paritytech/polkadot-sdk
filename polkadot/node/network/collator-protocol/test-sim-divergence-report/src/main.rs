@@ -242,11 +242,15 @@ fn parse_frontmatter_description(text: &str) -> Option<String> {
 
 fn run_cargo_test(workspace_root: &Path) -> String {
 	eprintln!("running cargo test (this may take a moment)...");
+	// Run both the subsystem-test-sim core crate and the collator consumer crate; the
+	// suite headline aggregates over both.
 	let out = Command::new("cargo")
 		.args([
 			"test",
 			"--profile",
 			"testnet",
+			"-p",
+			"polkadot-subsystem-test-sim",
 			"-p",
 			"polkadot-collator-protocol-test-sim",
 		])
@@ -261,16 +265,16 @@ fn run_cargo_test(workspace_root: &Path) -> String {
 }
 
 fn parse_test_result(output: &str) -> (usize, usize, usize) {
-	// Look for the lib's `test result: ok. N passed; M failed; ...` line. Use
-	// the first one (lib tests; doctests are second and irrelevant here).
+	// Sum `test result: ok. N passed; M failed; ...` across every block. Lib tests, each
+	// integration target, and the doc-tests block all emit one. Doctests with zero passes
+	// don't move the totals; integration targets that contribute real tests do.
 	let mut passed = 0;
 	let mut failed = 0;
 	for line in output.lines() {
 		let trimmed = line.trim_start();
 		if let Some(rest) = trimmed.strip_prefix("test result:") {
-			passed = extract_count(rest, "passed");
-			failed = extract_count(rest, "failed");
-			break;
+			passed += extract_count(rest, "passed");
+			failed += extract_count(rest, "failed");
 		}
 	}
 	let should_panic_ok = output

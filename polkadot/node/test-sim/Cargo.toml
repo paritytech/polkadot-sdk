@@ -1,7 +1,7 @@
 [package]
-name = "polkadot-collator-protocol-test-sim"
+name = "polkadot-subsystem-test-sim"
 version = "0.1.0"
-description = "Deterministic simulator-based test framework for the Polkadot collator-protocol subsystem."
+description = "Subsystem-agnostic deterministic simulator for testing Polkadot subsystems."
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -15,25 +15,27 @@ workspace = true
 [dependencies]
 futures = { workspace = true }
 
-polkadot-collator-protocol = { workspace = true, default-features = true }
-polkadot-collator-protocol-test-sim-macros = { workspace = true }
 polkadot-node-network-protocol = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
-polkadot-node-subsystem-util = { workspace = true, default-features = true }
 polkadot-overseer = { workspace = true, default-features = true }
+polkadot-node-core-backing = { workspace = true, default-features = true }
+polkadot-node-core-prospective-parachains = { workspace = true, default-features = true }
+polkadot-node-primitives = { workspace = true, default-features = true }
 polkadot-primitives = { workspace = true, default-features = true, features = ["test"] }
-polkadot-subsystem-test-sim = { workspace = true }
-kvdb-memorydb = { workspace = true }
+polkadot-primitives-test-helpers = { workspace = true }
 sc-keystore = { workspace = true, default-features = true }
+sc-network = { workspace = true, default-features = true }
 sc-network-types = { workspace = true, default-features = true }
+sp-consensus-babe = { workspace = true, default-features = true }
+sp-consensus-slots = { workspace = true, default-features = true }
 sp-core = { workspace = true, default-features = true }
 sp-keyring = { workspace = true, default-features = true }
 sp-keystore = { workspace = true, default-features = true }
+sp-runtime = { workspace = true, default-features = true }
+
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+codec = { features = ["std"], workspace = true, default-features = true }
 
 [dev-dependencies]
-codec = { features = ["std"], workspace = true, default-features = true }
-polkadot-node-primitives = { workspace = true, default-features = true }
-polkadot-primitives-test-helpers = { workspace = true }
-sc-network = { workspace = true, default-features = true }
-sp-consensus-slots = { workspace = true, default-features = true }
+tokio = { features = ["macros", "rt"], workspace = true, default-features = true }

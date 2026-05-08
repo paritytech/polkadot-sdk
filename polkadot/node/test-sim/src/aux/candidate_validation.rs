@@ -212,24 +212,3 @@ fn default_commitments() -> CandidateCommitments {
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	// Compile-only: the stub is exercised end-to-end in the H.7 headline scenario.
-	use super::*;
-	use crate::{harness::Sim, harness::SimConfig, impls::LegacyValidator};
-	struct PanicResponder;
-	impl crate::harness::AnswerQuery for PanicResponder {
-		fn answer(&mut self, query: crate::contract::Query) {
-			panic!("unexpected query: {:?}", query);
-		}
-	}
-
-	#[test]
-	fn always_valid_stub_concludes() {
-		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let stub = CandidateValidationStub::always_valid(&mut sim, CandidateOutputs::default());
-		sim.register_aux_slot_only(stub);
-		// Worker future is parked on inbound_rx.next() — Conclude signal will end it.
-		let _ = sim.finish();
-	}
-}

@@ -30,7 +30,7 @@ use polkadot_primitives::{CandidateHash, CollatorPair, Hash, Id as ParaId};
 use sc_network_types::PeerId;
 use sp_core::Pair as _;
 
-use crate::builders::fixtures::fresh_collator;
+use polkadot_subsystem_test_sim::builders::fixtures::fresh_collator;
 
 /// Collation protocol version a `Peer` speaks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

@@ -14,11 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Collator-flavoured wire-frame builders, plus convenience re-exports of the generic
-//! chain/candidate builders that live in `polkadot_subsystem_test_sim::builders`. Scenarios
-//! import via `crate::builders::*` so this module is the single re-export point.
+//! Subsystem-agnostic builders for chain state and candidate fixtures.
+//!
+//! Per-subsystem wire-frame builders (e.g. collator-protocol's `Peer`) live in their consumer
+//! crates; the builders here are generic over `polkadot-primitives` types only.
 
-pub mod peer;
+pub mod candidate;
+pub mod fixtures;
 
-pub use peer::{Peer, ProtocolVersion};
-pub use polkadot_subsystem_test_sim::builders::{fixtures, Candidate, CandidateBuilder};
+pub use candidate::{Candidate, CandidateBuilder};

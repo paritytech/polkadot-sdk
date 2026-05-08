@@ -22,6 +22,7 @@
 //! infrastructure in later phases (H.3 / H.4) without changing the public `Sim` API.
 
 use crate::{
+	clock::Clock,
 	contract::{Effect, RequestId},
 	harness::{
 		dispatcher::AnswerQuery,
@@ -32,12 +33,8 @@ use crate::{
 	report::TimelineReport,
 	runtime::{Executor, LocalPoolSpawner, MockClock},
 };
-use futures::{future::BoxFuture, FutureExt};
-use polkadot_collator_protocol::Clock;
-use polkadot_node_subsystem::{
-	messages::{AllMessages, CollatorProtocolMessage},
-	FromOrchestra, OverseerSignal, SpawnGlue,
-};
+use futures::future::BoxFuture;
+use polkadot_node_subsystem::{messages::AllMessages, FromOrchestra, OverseerSignal, SpawnGlue};
 use polkadot_node_subsystem_test_helpers::{
 	make_subsystem_context, TestSubsystemContext, TestSubsystemContextHandle,
 };
@@ -87,30 +84,6 @@ where
 	/// Returns `Ok(inner)` if the message targets this subsystem, or `Err(msg)` to let the
 	/// router try other slots / fall through to classification.
 	fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages>;
-}
-
-/// Convenience alias bundling the bounds every collator-protocol scenario needs on its
-/// generic `S` parameter. Without this, every `#[sim_test] fn name<S>()` has to repeat
-/// the same three-line `where` clause that the macro can't synthesise. With it, the
-/// scenario reads `fn name<S: CollatorSut>()`.
-///
-/// Blanket impl below covers anything that satisfies the underlying bounds, so the
-/// alias is purely shorthand — no manual `impl CollatorSut for ...` needed when adding
-/// new SUT adapters.
-pub trait CollatorSut:
-	SubsystemUnderTest<Message = CollatorProtocolMessage>
-where
-	AllMessages: From<<Self::Message as AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<Self::Message>,
-{
-}
-
-impl<T> CollatorSut for T
-where
-	T: SubsystemUnderTest<Message = CollatorProtocolMessage>,
-	AllMessages: From<<T::Message as AssociateOutgoing>::OutgoingMessages>,
-	AllMessages: From<T::Message>,
-{
 }
 
 /// A running simulation around `S`.
@@ -653,106 +626,3 @@ where
 	}
 }
 
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::{contract::Query, harness::dispatcher::AnswerQuery, impls::LegacyValidator};
-
-	struct PanicResponder;
-	impl AnswerQuery for PanicResponder {
-		fn answer(&mut self, query: Query) {
-			panic!("unexpected query in smoke test: {:?}", query);
-		}
-	}
-
-	#[test]
-	fn legacy_validator_starts_and_concludes() {
-		let sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let recorder = sim.finish();
-		assert_eq!(recorder.len(), 0);
-	}
-
-	#[test]
-	fn legacy_validator_smoke_via_explicit_test_attr() {
-		let sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let _ = sim.finish();
-	}
-
-	use crate::harness::router::{RouteAttempt, SubsystemSlot};
-	use std::sync::atomic::{AtomicUsize, Ordering};
-
-	struct CountingAux {
-		signals: Arc<AtomicUsize>,
-	}
-
-	impl SubsystemSlot for CountingAux {
-		fn name(&self) -> &'static str {
-			"counting-aux"
-		}
-		fn send_signal(&self, _signal: OverseerSignal) -> BoxFuture<'static, ()> {
-			let signals = self.signals.clone();
-			async move {
-				signals.fetch_add(1, Ordering::SeqCst);
-			}
-			.boxed()
-		}
-		fn try_route(&self, msg: AllMessages) -> RouteAttempt {
-			// H.1's no-op aux: never claims a message; everything falls through.
-			RouteAttempt::Declined(msg)
-		}
-	}
-
-	#[test]
-	fn prospective_parachains_aux_concludes_cleanly() {
-		use crate::aux::ProspectiveParachainsAux;
-		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let (slot, outbound_rx) = ProspectiveParachainsAux::spawn(&mut sim);
-		sim.register_aux(slot, outbound_rx);
-
-		// No view-update is sent → prospective fires no Runtime/ChainApi queries; the panic
-		// responder stays untouched. `finish` sends Conclude to UUT *and* prospective; both
-		// drop their main loops cleanly and no outbound `AllMessages` is left unconsumed.
-		let recorder = sim.finish();
-		assert_eq!(recorder.len(), 0);
-	}
-
-	#[test]
-	fn candidate_backing_aux_concludes_cleanly() {
-		use crate::aux::CandidateBackingAux;
-		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let (slot, outbound_rx) = CandidateBackingAux::spawn(&mut sim);
-		sim.register_aux(slot, outbound_rx);
-
-		// No ActiveLeaves signal is sent → backing fires no per-leaf queries; Conclude alone
-		// drops the subsystem cleanly.
-		let recorder = sim.finish();
-		assert_eq!(recorder.len(), 0);
-	}
-
-	#[test]
-	fn prospective_and_backing_aux_concludes_cleanly_together() {
-		use crate::aux::{CandidateBackingAux, ProspectiveParachainsAux};
-		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let (psp, psp_rx) = ProspectiveParachainsAux::spawn(&mut sim);
-		let (cb, cb_rx) = CandidateBackingAux::spawn(&mut sim);
-		sim.register_aux(psp, psp_rx);
-		sim.register_aux(cb, cb_rx);
-
-		let recorder = sim.finish();
-		assert_eq!(recorder.len(), 0);
-	}
-
-	#[test]
-	fn aux_slot_receives_signal_broadcast() {
-		let mut sim = Sim::<LegacyValidator>::start(SimConfig::default(), PanicResponder);
-		let signals = Arc::new(AtomicUsize::new(0));
-		sim.register_aux_slot_only(CountingAux { signals: signals.clone() });
-
-		// `finish` sends Conclude to UUT and (per signal fan-out) also to aux. We don't
-		// reach `finish`'s Conclude through `signal()`, so trigger a signal explicitly.
-		sim.signal(OverseerSignal::BlockFinalized(Default::default(), 1));
-		assert_eq!(signals.load(Ordering::SeqCst), 1);
-
-		let _ = sim.finish();
-	}
-}
