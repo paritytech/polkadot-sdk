@@ -179,6 +179,11 @@ impl<T: Config> Pallet<T> {
 		Self::slashable_balance_of_vote_weight(who, issuance)
 	}
 
+	/// Calculates the offence era from the slash application era.
+	pub(crate) fn offence_era_of(application_era: EraIndex) -> EraIndex {
+		application_era.saturating_sub(T::SlashDeferDuration::get())
+	}
+
 	/// Checks if a slash has been cancelled for the given era and slash parameters.
 	pub(crate) fn check_slash_cancelled(
 		era: EraIndex,
@@ -579,7 +584,6 @@ impl<T: Config> Pallet<T> {
 		let dest = match Self::payee(Stash(stash.clone())) {
 			Some(d) => d,
 			None => {
-				defensive!("Staker missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
 					era,
 					stash: stash.clone(),
@@ -634,7 +638,6 @@ impl<T: Config> Pallet<T> {
 		let dest = match Self::payee(StakingAccount::Stash(stash.clone())) {
 			Some(d) => d,
 			None => {
-				defensive!("Staker missing payee");
 				Self::deposit_event(Event::<T>::Unexpected(UnexpectedKind::MissingPayee {
 					era,
 					stash: stash.clone(),
@@ -729,7 +732,6 @@ impl<T: Config> Pallet<T> {
 				era,
 				stash: stash.clone(),
 			}));
-			defensive!("Validator missing payee");
 			return;
 		};
 		let Some(payout_account) = Self::payout_account_for_dest(stash, &dest) else {
