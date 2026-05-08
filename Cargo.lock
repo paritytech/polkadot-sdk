@@ -17199,6 +17199,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-prospective-parachains-test-sim"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "polkadot-node-core-prospective-parachains",
+ "polkadot-node-subsystem",
+ "polkadot-node-subsystem-test-helpers",
+ "polkadot-subsystem-test-sim",
+]
+
+[[package]]
 name = "polkadot-rpc"
 version = "7.0.0"
 dependencies = [
