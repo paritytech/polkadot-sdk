@@ -152,12 +152,15 @@ const BLAKE2B_256: u64 = 0xb220;
 /// Sha2-256 multihash code.
 const SHA2_256: u64 = 0x12;
 
+/// `dag-pb` multicodec — used for the CID `codec` field in test CIDs.
+/// See <https://github.com/multiformats/multicodec/blob/master/table.csv>.
+const DAG_PB_CODEC: u64 = 0x70;
+
 /// Create a CIDv1 string from a 32-byte hash digest.
 fn make_cid_v1(code: u64, digest: &[u8; 32]) -> String {
 	let mh = cid::multihash::Multihash::<64>::wrap(code, digest)
 		.expect("32 bytes fits in Multihash<32>");
-	// codec 0x70 = dag-pb
-	let c = cid::Cid::new_v1(0x70, mh);
+	let c = cid::Cid::new_v1(DAG_PB_CODEC, mh);
 	c.to_string()
 }
 
@@ -176,7 +179,7 @@ fn make_cid_v1_short_digest() -> String {
 	let digest = [0u8; 16];
 	let mh = cid::multihash::Multihash::<64>::wrap(BLAKE2B_256, &digest)
 		.expect("16 bytes fits in Multihash<64>");
-	let c = cid::Cid::new_v1(0x70, mh);
+	let c = cid::Cid::new_v1(DAG_PB_CODEC, mh);
 	c.to_string()
 }
 
@@ -185,8 +188,7 @@ fn make_cid_v1_unsupported_hash_function() -> String {
 	let digest = [0u8; 32];
 	let mh = cid::multihash::Multihash::<64>::wrap(0x1b, &digest)
 		.expect("32 bytes fits in Multihash<64>");
-	// codec 0x70 = dag-pb
-	let c = cid::Cid::new_v1(0x70, mh);
+	let c = cid::Cid::new_v1(DAG_PB_CODEC, mh);
 	c.to_string()
 }
 
@@ -492,6 +494,56 @@ async fn get_many_wire_shape_matches_documented_format() {
 	assert!(!err_obj.contains_key("data"), "Err must not have data");
 }
 
+#[tokio::test]
+async fn get_many_duplicate_valid_cids_top_level_error() {
+	let (ws_client, _handle, mock_client) = setup(false).await;
+	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
+
+	let err = ws_client
+		.request::<Vec<(String, BlockResult)>, _>(
+			"bitswap_v1_getMany",
+			rpc_params![vec![cid.clone(), cid]],
+		)
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32602);
+}
+
+#[tokio::test]
+async fn get_many_duplicate_malformed_strings_top_level_error() {
+	let (ws_client, _handle, _mock_client) = setup(false).await;
+
+	// Two literally-identical malformed strings — caught by the string-stage dedup
+	// before any parsing happens.
+	let cids = vec!["bad-cid".to_string(), "bad-cid".to_string()];
+	let err = ws_client
+		.request::<Vec<(String, BlockResult)>, _>("bitswap_v1_getMany", rpc_params![cids])
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32602);
+}
+
+#[tokio::test]
+async fn get_many_distinct_malformed_strings_per_cid_invalid() {
+	let (ws_client, _handle, _mock_client) = setup(false).await;
+
+	// Two different malformed strings — share no identity to dedup against, so each
+	// produces a per-CID `InvalidCid` instead of a top-level rejection.
+	let cids = vec!["bad-1".to_string(), "bad-2".to_string()];
+	let result: Vec<(String, BlockResult)> =
+		ws_client.request("bitswap_v1_getMany", rpc_params![cids]).await.unwrap();
+
+	assert_eq!(result.len(), 2);
+	for (_, r) in result {
+		match r {
+			BlockResult::Err { code, .. } => assert_eq!(code, -32602),
+			BlockResult::Ok(_) => panic!("expected Err for malformed CID"),
+		}
+	}
+}
+
 // ------------------------------------------------------------------
 // bitswap_v1_stream
 // ------------------------------------------------------------------
@@ -603,6 +655,23 @@ async fn stream_over_limit_rejects_subscription() {
 		.subscribe::<(String, BlockResult), _>(
 			"bitswap_v1_stream",
 			rpc_params![cids],
+			"bitswap_v1_unstream",
+		)
+		.await
+		.unwrap_err();
+
+	assert_error_code(&err, -32602);
+}
+
+#[tokio::test]
+async fn stream_duplicate_valid_cids_rejects_subscription() {
+	let (ws_client, _handle, mock_client) = setup(false).await;
+	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
+
+	let err = ws_client
+		.subscribe::<(String, BlockResult), _>(
+			"bitswap_v1_stream",
+			rpc_params![vec![cid.clone(), cid]],
 			"bitswap_v1_unstream",
 		)
 		.await

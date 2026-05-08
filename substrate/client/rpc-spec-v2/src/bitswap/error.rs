@@ -45,6 +45,9 @@ pub enum Error {
 		/// Number of CIDs the caller passed.
 		got: usize,
 	},
+	/// Caller passed the same CID twice (string-equal or decoding to the same digest).
+	#[error("Input contains duplicate CIDs")]
+	DuplicateCids,
 }
 
 /// Bitswap JSON-RPC error categories, according to the spec.
@@ -98,6 +101,11 @@ impl From<Error> for ErrorObject<'static> {
 				ErrorCode::InvalidParams as i32,
 				msg,
 				Some(ErrorData { variant: "TooManyCids" }),
+			),
+			Error::DuplicateCids => ErrorObject::owned(
+				ErrorCode::InvalidParams as i32,
+				msg,
+				Some(ErrorData { variant: "DuplicateCids" }),
 			),
 		}
 	}

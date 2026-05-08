@@ -36,7 +36,7 @@ use sc_client_api::BlockBackend;
 use sc_rpc::utils::Subscription;
 use sp_core::H256;
 use sp_runtime::traits::Block as BlockT;
-use std::sync::Arc;
+use std::{collections::HashSet, sync::Arc};
 
 /// Log target for this file.
 const LOG_TARGET: &str = "rpc-spec-v2";
@@ -138,10 +138,18 @@ where
 			return Err(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() }.into());
 		}
 
-		Ok(cids.into_iter().map(|cid_str| {
-			let result = lookup_one(&self.client, &cid_str);
-			(cid_str, result)
-		}).collect())
+		let parsed = parse_and_dedup(cids)?;
+
+		Ok(parsed
+			.into_iter()
+			.map(|(cid_str, parse_result)| {
+				let result = match parse_result {
+					Ok(digest) => lookup_by_digest(&self.client, digest),
+					Err(e) => BlockResult::from(e),
+				};
+				(cid_str, result)
+			})
+			.collect())
 	}
 
 	fn bitswap_v1_stream(&self, pending: PendingSubscriptionSink, cids: Vec<String>) {
@@ -161,10 +169,21 @@ where
 				return;
 			}
 
+			let parsed = match parse_and_dedup(cids) {
+				Ok(p) => p,
+				Err(e) => {
+					pending.reject(e).await;
+					return;
+				},
+			};
+
 			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
-			for cid_str in cids {
-				let result = lookup_one(&client, &cid_str);
+			for (cid_str, parse_result) in parsed {
+				let result = match parse_result {
+					Ok(digest) => lookup_by_digest(&client, digest),
+					Err(e) => BlockResult::from(e),
+				};
 				if sink.send(&(cid_str, result)).await.is_err() {
 					return;
 				}
@@ -175,17 +194,46 @@ where
 	}
 }
 
-/// Validate the CID and look up the chunk locally. `Err` only ever wraps
-/// `InvalidCid` or `NotFound` — top-level rejections are handled by the caller.
-fn lookup_one<Block, Client>(client: &Arc<Client>, cid_str: &str) -> BlockResult
+/// Parse all input CIDs and reject duplicates. Two-stage detection:
+/// 1. Literal-string dedup catches identical inputs before any parsing.
+/// 2. Digest dedup catches different strings that decode to the same data.
+///
+/// **Invariant**: when this returns `Ok(out)`, no two `Ok(_)` entries in `out` carry
+/// the same `H256` digest. Detection short-circuits on the first collision via
+/// `Err(Error::DuplicateCids)` *before* the duplicate is appended to `out`.
+fn parse_and_dedup(
+	cids: Vec<String>,
+) -> Result<Vec<(String, Result<H256, Error>)>, Error> {
+	let mut seen_strings: HashSet<String> = HashSet::with_capacity(cids.len());
+	let mut seen_digests: HashSet<H256> = HashSet::with_capacity(cids.len());
+	let mut out = Vec::with_capacity(cids.len());
+
+	for cid_str in cids {
+		// Stage A: literal-string dedup. Catches `[A, A]` and `["bad", "bad"]` —
+		// no parsing required.
+		if !seen_strings.insert(cid_str.clone()) {
+			return Err(Error::DuplicateCids);
+		}
+		let parsed = parse_and_validate_cid(&cid_str);
+		// Stage B: digest dedup. Catches `[A, B]` where A and B are distinct strings
+		// encoding the same data.
+		if let Ok(digest) = &parsed {
+			if !seen_digests.insert(*digest) {
+				return Err(Error::DuplicateCids);
+			}
+		}
+		out.push((cid_str, parsed));
+	}
+
+	Ok(out)
+}
+
+/// DB lookup for a parsed digest. Returns the spec-shaped per-CID outcome.
+fn lookup_by_digest<Block, Client>(client: &Arc<Client>, digest: H256) -> BlockResult
 where
 	Block: BlockT,
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
-	let digest = match parse_and_validate_cid(cid_str) {
-		Ok(d) => d,
-		Err(e) => return BlockResult::from(e),
-	};
 	match client.indexed_transaction(digest) {
 		Ok(Some(data)) => BlockResult::Ok(crate::hex_string(&data)),
 		Ok(None) => BlockResult::from(Error::NotFound),

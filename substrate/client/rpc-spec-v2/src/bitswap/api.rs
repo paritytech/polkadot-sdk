@@ -69,8 +69,10 @@ pub trait BitswapApi {
 
 	/// Stream chunks as they become available.
 	///
-	/// Emits one `(cid, BlockResult)` event per input CID, in input order. Same
-	/// top-level rejection rules as `bitswap_v1_getMany`.
+	/// Emits one `(cid, BlockResult)` event per input CID, in arrival order (the
+	/// order in which each CID resolves) — **not** input order. Clients correlate
+	/// each event with its request via the embedded `cid`. Same top-level
+	/// rejection rules as `bitswap_v1_getMany`.
 	#[subscription(
 		name = "bitswap_v1_stream" => "bitswap_v1_streamEvent",
 		unsubscribe = "bitswap_v1_unstream",
