@@ -451,6 +451,22 @@ impl<S: CollatorSut> World<S> {
 		);
 	}
 
+	/// Assert that **no** `Effect::SecondCandidate` for `candidate` fires within `within`.
+	///
+	/// Use as the impl-agnostic "candidate was rejected" observable when the test no longer
+	/// asserts the (impl-specific) reputation effect. Both impls agree on the negative
+	/// observation; only the *signal* of rejection differs.
+	pub fn expect_no_second(&mut self, candidate: &Candidate, within: Duration) {
+		self.sim.expect_no(
+			|e| matches!(
+				e,
+				Effect::SecondCandidate { candidate_hash, .. } if candidate_hash == &candidate.hash()
+			),
+			within,
+			"Effect::SecondCandidate for the candidate (must NOT fire — candidate rejected)",
+		);
+	}
+
 	/// Wait for `Effect::Reputation { peer, bucket }` matching `peer` and `bucket`.
 	pub fn expect_rep(&mut self, peer: &Peer, bucket: RepBucket) {
 		self.expect_rep_id(peer.peer_id, bucket)

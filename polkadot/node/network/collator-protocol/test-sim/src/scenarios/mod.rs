@@ -16,16 +16,18 @@
 
 //! Vertical-slice scenarios: read each one as a spec.
 //!
-//! The slice covers the legacy validator side first. New scenarios in this module exercise:
+//! Tests in this module assert the **shared** contract — both `LegacyValidator` and
+//! `ExperimentalValidator` must satisfy them. Any scenario that asserts a
+//! divergence-by-design (legacy emits a bus event, experimental updates a store; legacy
+//! evicts on time, experimental does not; …) belongs in [`divergent`] and is
+//! cross-linked from the relevant scenario doc.
 //!
-//! - bad-signature declarations get penalised (see [`bad_signature`]),
-//! - declarations for an unassigned para get disconnected (see [`unneeded_para`]).
-//!
-//! Heavier flows (advertise → fetch → second) follow once the responder DSL grows the helpers
-//! required to script the view-update query barrage.
+//! Tests for known-but-unfixed experimental bugs stay in their original file but are
+//! marked with `#[crate::sim_test(bug_on = "experimental", bug_url = "...")]` so the
+//! suite stays green while the bug is open. When the bug is fixed, the `should_panic`
+//! flips, the suite turns red, and the marker must be removed — that's the prompt to
+//! move the test back into the unmarked regression suite.
 
-#[cfg(test)]
-mod activity_extends_life;
 #[cfg(test)]
 mod ah_permissionless;
 #[cfg(test)]
@@ -43,13 +45,11 @@ mod claims_counting;
 #[cfg(test)]
 mod collation_fetching_considers_advertisements_from_the_whole_view;
 #[cfg(test)]
-mod delay_reputation_change;
-#[cfg(test)]
 mod collation_fetching_fairness_handles_old_claims;
 #[cfg(test)]
 mod collation_fetching_prefer_entries_earlier_in_claim_queue;
 #[cfg(test)]
-mod disconnect_if_no_declare;
+pub(crate) mod divergent;
 #[cfg(test)]
 mod disconnect_if_wrong_declare;
 #[cfg(test)]
@@ -66,8 +66,6 @@ mod fragment_chain_seconding;
 mod full_seconding;
 #[cfg(test)]
 mod group_rotation_uses_correct_core_per_relay_parent;
-#[cfg(test)]
-mod inactive_collator_eviction;
 #[cfg(test)]
 mod malicious_para;
 #[cfg(test)]
