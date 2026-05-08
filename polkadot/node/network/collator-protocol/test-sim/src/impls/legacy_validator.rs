@@ -18,7 +18,8 @@
 //! [`polkadot_collator_protocol::CollatorProtocolSubsystem`].
 
 use crate::{
-	harness::sim::SubsystemUnderTest,
+	contract::{classify::classify, peek_effects, Classified, Effect},
+	harness::{pending_fetches::PendingFetches, sim::SubsystemUnderTest},
 	runtime::{LocalPoolSpawner, MockClock},
 };
 use futures::{future::BoxFuture, FutureExt};
@@ -66,6 +67,7 @@ pub struct LegacyValidator;
 
 impl SubsystemUnderTest for LegacyValidator {
 	type Message = CollatorProtocolMessage;
+	type Effect = Effect;
 
 	fn spawn(
 		ctx: TestSubsystemContext<Self::Message, SpawnGlue<LocalPoolSpawner>>,
@@ -101,5 +103,13 @@ impl SubsystemUnderTest for LegacyValidator {
 			AllMessages::CollatorProtocol(inner) => Ok(inner),
 			other => Err(other),
 		}
+	}
+
+	fn classify(msg: AllMessages, pending: &mut PendingFetches) -> Vec<Classified<Effect>> {
+		classify(msg, pending)
+	}
+
+	fn peek_effects(msg: &AllMessages) -> Vec<Effect> {
+		peek_effects(msg)
 	}
 }

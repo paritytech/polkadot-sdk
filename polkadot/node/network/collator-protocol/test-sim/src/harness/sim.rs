@@ -22,7 +22,7 @@
 //! infrastructure in later phases (H.3 / H.4) without changing the public `Sim` API.
 
 use crate::{
-	contract::{Effect, RequestId},
+	contract::{Classified, Effect, RecordedEffect, RequestId},
 	harness::{
 		dispatcher::AnswerQuery,
 		pending_fetches::{PendingFetches, RawResponse},
@@ -62,7 +62,9 @@ impl Default for SimConfig {
 /// A subsystem that can be driven by the test framework.
 ///
 /// Implementations construct the subsystem (via its public API) and return its main-loop future
-/// boxed for the executor to drive.
+/// boxed for the executor to drive. Per-subsystem types (the message variant, the recorded
+/// effect enum, the wire classifier) are surfaced here as associated items so the harness's
+/// generic core can be reused across subsystems without forking.
 pub trait SubsystemUnderTest: 'static
 where
 	AllMessages: From<<Self::Message as AssociateOutgoing>::OutgoingMessages>,
@@ -70,6 +72,12 @@ where
 {
 	/// The subsystem's incoming message type. Drives the type of the test context handle.
 	type Message: AssociateOutgoing + std::fmt::Debug + Send + 'static;
+
+	/// The subsystem's recorded effect enum — what the harness's [`Recorder`] stores and
+	/// what tests' `expect` closures match against.
+	///
+	/// [`Recorder`]: crate::harness::Recorder
+	type Effect: RecordedEffect;
 
 	/// Construct the subsystem and return its main-loop future, ready to be spawned on the
 	/// pool. The provided `clock` is the deterministic clock the framework drives.
@@ -87,6 +95,25 @@ where
 	/// Returns `Ok(inner)` if the message targets this subsystem, or `Err(msg)` to let the
 	/// router try other slots / fall through to classification.
 	fn try_extract_inbound(msg: AllMessages) -> Result<Self::Message, AllMessages>;
+
+	/// Classify an outgoing `AllMessages` into effects to record + queries to forward to
+	/// the responder. The dispatcher and router invoke this for every outbound message the
+	/// UUT or any auxiliary subsystem emits.
+	///
+	/// One inbound `AllMessages` can produce multiple `Classified` entries (e.g. a batched
+	/// `SendRequests`).
+	fn classify(
+		msg: AllMessages,
+		pending: &mut PendingFetches,
+	) -> Vec<Classified<Self::Effect>>;
+
+	/// Peek at an outgoing `AllMessages` without consuming it and emit any [`Self::Effect`]
+	/// descriptions implied by the message. Used by the router for *dual-delivery* messages
+	/// — outbound messages that are both an observable effect *and* an input to a real
+	/// auxiliary subsystem (e.g. `CandidateBackingMessage::Second`). The router records
+	/// these effects manually when an aux slot accepts the message; otherwise the regular
+	/// `classify` path runs and emits them in the consume direction.
+	fn peek_effects(msg: &AllMessages) -> Vec<Self::Effect>;
 }
 
 /// Convenience alias bundling the bounds every collator-protocol scenario needs on its
