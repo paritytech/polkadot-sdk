@@ -35,6 +35,7 @@ pub enum Error {
 	InternalError(String),
 }
 
+/// Error codes defined by the statement RPC specification.
 pub mod rpc_spec_v2 {
 	/// Connection has too many statement subscriptions
 	pub const REACHED_LIMITS: i32 = -32800;
@@ -42,6 +43,7 @@ pub mod rpc_spec_v2 {
 	pub const INVALID_SUBSCRIPTION: i32 = -32801;
 }
 
+/// Error codes defined by the JSON-RPC specification.
 pub mod json_rpc_spec {
 	/// Request parameters are invalid
 	pub const INVALID_PARAM_ERROR: i32 = -32602;

@@ -16,8 +16,11 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+/// JSON-RPC method definitions for statement store RPC.
 pub mod api;
+/// Error types for statement store RPC.
 pub mod error;
+/// Event and response types for statement store RPC.
 pub mod event;
 mod statement;
 mod subscription;

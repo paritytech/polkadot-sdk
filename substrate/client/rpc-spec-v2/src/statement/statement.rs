@@ -54,6 +54,7 @@ where
 	B: StatementStore + Send + Sync + 'static,
 	Arc<B>: MultiFilterSubscriptionApi,
 {
+	/// Creates a new statement RPC implementation
 	pub fn new(store: Arc<B>, executor: SubscriptionTaskExecutor) -> Self {
 		Self { store, executor, subscriptions: StatementSubscriptions::new() }
 	}
