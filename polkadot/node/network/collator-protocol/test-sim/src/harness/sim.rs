@@ -121,7 +121,7 @@ where
 {
 	clock: Arc<MockClock>,
 	executor: Executor,
-	recorder: Recorder,
+	recorder: Recorder<Effect>,
 	responder: Box<dyn AnswerQuery>,
 	/// Shared spawner used by every subsystem context the harness builds. Aux subsystem
 	/// constructors clone this so their spawned tasks land on the same `LocalPool`.
@@ -220,7 +220,7 @@ where
 	}
 
 	/// Access to the recorder. Tests can inspect entries directly when convenient.
-	pub fn recorder(&self) -> &Recorder {
+	pub fn recorder(&self) -> &Recorder<Effect> {
 		&self.recorder
 	}
 
@@ -553,7 +553,7 @@ where
 
 	/// Conclude every spawned subsystem, drain remaining work, return all recorded
 	/// observations.
-	pub fn finish(mut self) -> Recorder {
+	pub fn finish(mut self) -> Recorder<Effect> {
 		self.executor.run_until(self.uut.send_signal(OverseerSignal::Conclude));
 		for slot in &self.aux {
 			let fut = slot.send_signal(OverseerSignal::Conclude);

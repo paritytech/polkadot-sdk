@@ -15,8 +15,10 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Timestamped observation entries collected by the recorder.
+//!
+//! Generic over the recorded effect type so per-subsystem `Effect` enums can plug in
+//! without forking the harness.
 
-use crate::contract::Effect;
 use std::time::Duration;
 
 /// A value paired with the simulated time at which it was observed.
@@ -31,7 +33,7 @@ pub struct Stamped<T> {
 /// Single observation entry recorded by the harness. Currently always an effect; a future
 /// extension may add `QueryAnswered` etc. when responder traces are needed.
 #[derive(Debug, Clone)]
-pub enum Observation {
-	/// The subsystem emitted an [`Effect`].
-	Effect(Stamped<Effect>),
+pub enum Observation<E> {
+	/// The subsystem emitted an effect.
+	Effect(Stamped<E>),
 }

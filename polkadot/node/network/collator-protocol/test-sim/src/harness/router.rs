@@ -33,7 +33,7 @@
 //! [`Query`]: crate::contract::Query
 
 use crate::{
-	contract::{classify, peek_effects, Classified},
+	contract::{classify, peek_effects, Classified, Effect},
 	harness::{dispatcher::AnswerQuery, pending_fetches::PendingFetches, Recorder},
 };
 use futures::{
@@ -125,7 +125,7 @@ pub async fn route<R: AnswerQuery + ?Sized>(
 	msg: AllMessages,
 	uut_route: Option<&dyn UutRoute>,
 	aux: &[Box<dyn SubsystemSlot>],
-	recorder: &mut Recorder,
+	recorder: &mut Recorder<Effect>,
 	responder: &mut R,
 	pending: &mut PendingFetches,
 ) {
