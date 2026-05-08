@@ -19,12 +19,37 @@
 //! Tests assert on [`Effect`] values exclusively. Each variant carries semantic content (peer
 //! ids, candidate hashes, paraids, message kinds), never raw wire bytes, so refactors to wire
 //! formats do not break tests.
+//!
+//! [`Effect`] implements [`RecordedEffect`], the marker trait the harness's [`Recorder`] uses
+//! to allow per-subsystem effect enums. Phase A of the test-sim extraction will move
+//! subsystem-agnostic effect variants (Reputation, DisconnectPeers, ConnectValidators,
+//! SendRequest, RequestResponseSent) into a shared `CommonEffect`; collator-specific variants
+//! (SecondCandidate, SendCollation, AdvertisementSummary, ReqKind, RespKind, WireMsgKind) stay
+//! in this enum which then becomes `CollatorEffect` wrapping `CommonEffect`.
+//!
+//! [`Recorder`]: crate::harness::Recorder
 
 use crate::contract::reputation::RepBucket;
 use polkadot_node_network_protocol::peer_set::PeerSet;
 use polkadot_primitives::{AuthorityDiscoveryId, CandidateHash, Hash, Id as ParaId};
 use sc_network_types::PeerId;
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, fmt::Debug};
+
+/// Marker trait for subsystem-emitted effects the harness records. Each subsystem-test-sim
+/// crate can define its own `Effect` enum; per the test-sim extraction plan
+/// (`.claude-tasks/test-sim-extraction-plan-detailed.md`), Phase A makes the harness's
+/// [`Recorder`], [`Sim`], and routing layer generic over `E: RecordedEffect` so the same
+/// core can drive different subsystems.
+///
+/// Today the only impl is [`Effect`] — `RecordedEffect` lives here so the abstraction
+/// shipped in Stage 0 of the plan exists at the API boundary even before the generic
+/// threading lands in Stage 1.
+///
+/// [`Recorder`]: crate::harness::Recorder
+/// [`Sim`]: crate::harness::Sim
+pub trait RecordedEffect: Debug + Clone + Send + 'static {}
+
+impl RecordedEffect for Effect {}
 
 /// Opaque identifier assigned by the harness when the subsystem fires an outgoing request.
 /// Tests pass it to `Sim::respond_fetch` to deliver a response into the oneshot the subsystem
