@@ -190,6 +190,7 @@ members = [
 	"polkadot/node/network/bridge",
 	"polkadot/node/network/collator-protocol",
 	"polkadot/node/network/collator-protocol/test-sim",
+	"polkadot/node/network/collator-protocol/test-sim-divergence-report",
 	"polkadot/node/network/collator-protocol/test-sim-macros",
 	"polkadot/node/network/dispute-distribution",
 	"polkadot/node/network/gossip-support",

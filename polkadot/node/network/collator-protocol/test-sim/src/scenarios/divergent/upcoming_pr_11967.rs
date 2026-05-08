@@ -220,10 +220,11 @@ fn linear_multi_sp_no_under_fetch_when_wide_and_narrow_compete<S: CollatorSut>()
 /// Setup: lookahead=3 (default), override leaf CQ to `[A]` (length 1). Advertise at
 /// grandparent (depth 2): position 0 maps to leaf+2 = within sp's lookahead window.
 ///
-/// Experimental-only: legacy uses CQ-length-based bound rather than lookahead-based;
-/// this is the behavior #11967 introduces in experimental's leaf-authoritative model.
+/// Both impls fail this today — both use a cq-length-based reachability check
+/// rather than the lookahead-based one. #11967 fixes it on experimental;
+/// legacy carries the same bug.
 #[crate::sim_test(
-	only = "experimental",
+	bug_on = "legacy",
 	bug_on = "experimental",
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
@@ -254,7 +255,7 @@ const PARA_Y: ParaId = ParaId::new(200);
 
 /// Sibling forks: fork_a schedules PARA_X (default), fork_b schedules PARA_Y. Both peers
 /// stay connected while both forks are active.
-#[crate::sim_test(only = "experimental")]
+#[crate::sim_test]
 fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 	let config = ChainConfig::default()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
@@ -279,9 +280,11 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 /// fork_a is 1 deep from common (window 2 to common); fork_b is 2 deep (window 1 to
 /// common). Two PARA_X ads at the common ancestor: both fetched (window 2 wins).
 ///
-/// Experimental-only: legacy doesn't model multi-fork capacity in this way.
+/// Both impls fail this today: legacy uses the *shorter* window (1) and only
+/// fetches one ad; experimental fails for the same root cause that #11967
+/// addresses. Test prompts a fix on both sides.
 #[crate::sim_test(
-	only = "experimental",
+	bug_on = "legacy",
 	bug_on = "experimental",
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]
@@ -321,9 +324,10 @@ fn fork_capacity_uses_longest_window_across_paths<S: CollatorSut>() {
 /// sibling forks each with CQ `[X, X, X]`. 4 distinct PARA_X ads at the common
 /// ancestor must produce exactly 2 fetches.
 ///
-/// Experimental-only: legacy doesn't model multi-fork capacity in this way.
+/// Both impls fail this today: legacy under-fetches (1 instead of 2);
+/// experimental fails for #11967's root cause.
 #[crate::sim_test(
-	only = "experimental",
+	bug_on = "legacy",
 	bug_on = "experimental",
 	bug_url = "github:paritytech/polkadot-sdk#11967"
 )]

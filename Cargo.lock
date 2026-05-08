@@ -16207,6 +16207,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "polkadot-collator-protocol-test-sim-divergence-report"
+version = "0.1.0"
+dependencies = [
+ "syn 2.0.98",
+ "walkdir",
+]
+
+[[package]]
 name = "polkadot-collator-protocol-test-sim-macros"
 version = "0.1.0"
 dependencies = [
