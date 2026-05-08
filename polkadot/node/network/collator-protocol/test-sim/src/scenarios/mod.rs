@@ -43,6 +43,8 @@ mod claims_counting;
 #[cfg(test)]
 mod collation_fetching_considers_advertisements_from_the_whole_view;
 #[cfg(test)]
+mod delay_reputation_change;
+#[cfg(test)]
 mod collation_fetching_fairness_handles_old_claims;
 #[cfg(test)]
 mod collation_fetching_prefer_entries_earlier_in_claim_queue;
