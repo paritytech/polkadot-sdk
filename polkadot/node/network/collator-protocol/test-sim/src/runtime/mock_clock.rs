@@ -83,6 +83,15 @@ impl MockClock {
 		Some(dur)
 	}
 
+	/// Peek at the duration until the next pending wakeup, without advancing the clock.
+	/// Returns `None` when no wakeups are pending. Use this to decide whether the next
+	/// wakeup falls inside a bounded window before committing to advancing.
+	pub fn next_wakeup_in(&self) -> Option<Duration> {
+		let inner = self.inner.lock().expect("MockClock mutex poisoned");
+		let next = inner.next_wakeup()?;
+		Some(next.saturating_duration_since(inner.now))
+	}
+
 	/// Number of pending wakeups.
 	pub fn pending_wakeups(&self) -> usize {
 		self.inner.lock().expect("MockClock mutex poisoned").wakeups.len()

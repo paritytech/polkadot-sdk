@@ -263,9 +263,9 @@ where
 				break;
 			}
 			let remaining = target - now;
-			match self.clock.advance_to_next_wakeup() {
-				Some(elapsed) if elapsed <= remaining => {
-					let _ = elapsed;
+			match self.clock.next_wakeup_in() {
+				Some(d) if d <= remaining => {
+					self.clock.advance_to_next_wakeup();
 				},
 				Some(_) | None => {
 					// Either the next wakeup is past the target, or no wakeups are pending.
@@ -313,9 +313,9 @@ where
 			}
 
 			let remaining = within - elapsed_in_window;
-			match self.clock.advance_to_next_wakeup() {
+			match self.clock.next_wakeup_in() {
 				Some(d) if d <= remaining => {
-					let _ = d;
+					self.clock.advance_to_next_wakeup();
 				},
 				Some(_) | None => {
 					self.clock.advance(remaining);
@@ -420,9 +420,9 @@ where
 				return;
 			}
 			let remaining = within - elapsed;
-			match self.clock.advance_to_next_wakeup() {
+			match self.clock.next_wakeup_in() {
 				Some(d) if d <= remaining => {
-					let _ = d;
+					self.clock.advance_to_next_wakeup();
 				},
 				Some(_) | None => {
 					self.clock.advance(remaining);
