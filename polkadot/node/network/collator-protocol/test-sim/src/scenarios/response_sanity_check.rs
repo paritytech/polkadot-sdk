@@ -143,22 +143,102 @@ fn v2_descriptor_with_invalid_core_index_reports_malicious<S: CollatorSut>() {
 	w.expect_rep(&peer, RepBucket::Malicious);
 }
 
+/// Mirrors the second arm of upstream `invalid_v2_descriptor`: core_index=0 is fine but
+/// the descriptor's session_index is wrong → rejected as malicious. (Distinct from
+/// `v3_session_index_checks::v2_descriptor_with_wrong_session_index_reports_malicious`
+/// only by which leg of the upstream rstest it tracks; both probe the same gate.)
+#[crate::sim_test]
+fn v2_descriptor_with_invalid_session_index_reports_malicious<S: CollatorSut>() {
+	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
+	let (receipt, candidate) = build_descriptor_with(&w, |c| {
+		c.descriptor.set_session_index(10); // chain has session 0
+	});
+	let peer = w.declared_peer(PARA_A, V2);
+	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
+	let request_id = w.fetch_request(&candidate);
+	w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
+	w.expect_rep(&peer, RepBucket::Malicious);
+}
+
 #[crate::sim_test]
 fn v3_candidate_via_v2_protocol_reports_malicious<S: CollatorSut>() {
+	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
+		ProtocolKind::V2,
+		/* crafted_unknown */ false,
+	);
+}
+
+#[crate::sim_test]
+fn v3_candidate_via_v1_protocol_reports_malicious<S: CollatorSut>() {
+	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
+		ProtocolKind::V1,
+		/* crafted_unknown */ false,
+	);
+}
+
+#[crate::sim_test]
+fn crafted_unknown_descriptor_via_v2_protocol_reports_malicious<S: CollatorSut>() {
+	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
+		ProtocolKind::V2,
+		/* crafted_unknown */ true,
+	);
+}
+
+#[crate::sim_test]
+fn crafted_unknown_descriptor_via_v1_protocol_reports_malicious<S: CollatorSut>() {
+	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
+		ProtocolKind::V1,
+		/* crafted_unknown */ true,
+	);
+}
+
+#[derive(Clone, Copy)]
+enum ProtocolKind {
+	V1,
+	V2,
+}
+
+/// Helper for the 4-case rstest above. Builds a V3 (or crafted-unknown via
+/// `set_version(2)`) candidate, advertises over V1 or V2, responds with the matching
+/// fetch flavour. Validator must report Malicious in all cases.
+fn v3_descriptor_rejected_on_wrong_protocol_helper<S: CollatorSut>(
+	wire: ProtocolKind,
+	crafted_unknown: bool,
+) {
+	use crate::builders::ProtocolVersion;
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
 	let pvd = empty_parent_pvd(w.leaf_number());
-	// V3 descriptor delivered over a V2 protocol connection → rejected.
+
 	let mut committed = dummy_committed_candidate_receipt_v3(w.leaf(), w.leaf());
 	committed.descriptor.set_para_id(PARA_A);
 	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
 	committed.descriptor.set_core_index(CoreIndex(0));
 	committed.descriptor.set_session_index(0);
+	if crafted_unknown {
+		// version=0 → V2, version=1 → V3, anything else → Unknown.
+		committed.descriptor.set_version(2);
+	}
 	let receipt: CandidateReceiptV2 = committed.to_plain();
 	let candidate = Candidate::from_receipt(receipt.clone());
 
-	let peer = w.declared_peer(PARA_A, V2);
-	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
-	let request_id = w.fetch_request(&candidate);
-	w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
+	let proto = match wire {
+		ProtocolKind::V1 => ProtocolVersion::V1,
+		ProtocolKind::V2 => ProtocolVersion::V2,
+	};
+	let peer = w.declared_peer(PARA_A, proto);
+	let leaf = w.leaf();
+	match wire {
+		ProtocolKind::V1 => {
+			// V1 advertisement carries no candidate_hash on the wire.
+			w.sim.send(peer.advertise(leaf, None, None));
+			let (_, request_id, _) = w.expect_any_fetch();
+			w.respond_fetch_v1(request_id, receipt, Candidate::empty_pov());
+		},
+		ProtocolKind::V2 => {
+			w.advertise_with_parent_head(&peer, leaf, candidate.hash(), HeadData(Vec::new()).hash());
+			let request_id = w.fetch_request(&candidate);
+			w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
+		},
+	}
 	w.expect_rep(&peer, RepBucket::Malicious);
 }
