@@ -6,7 +6,9 @@
 
 use anyhow::anyhow;
 
-use cumulus_zombienet_sdk_helpers::{assert_finality_lag, assert_para_throughput, assign_cores};
+use cumulus_zombienet_sdk_helpers::{
+	assert_finality_lag, assert_para_throughput, assign_cores, wait_for_pvf_prepare,
+};
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
 use zombienet_sdk::{
@@ -98,6 +100,9 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assign_cores(&relay_client, 2100, vec![0, 1]).await?;
 	assign_cores(&relay_client, 2200, vec![2, 3]).await?;
 
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
+
 	// Expect a backed candidate count of at least 39 for each parachain in 15 relay chain blocks
 	// (2.6 candidates per para per relay chain block).
 	// Note that only blocks after the first session change and blocks that don't contain a session
@@ -107,7 +112,7 @@ async fn slot_based_3cores_test() -> Result<(), anyhow::Error> {
 	assert_para_throughput(
 		&relay_client,
 		15,
-		[(ParaId::from(2100), 34..46), (ParaId::from(2200), 34..46)],
+		[(ParaId::from(2100), 40..46), (ParaId::from(2200), 40..46)],
 		[],
 	)
 	.await?;
