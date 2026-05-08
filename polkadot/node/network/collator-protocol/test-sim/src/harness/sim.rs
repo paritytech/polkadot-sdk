@@ -292,7 +292,7 @@ where
 		let start_sim_t = self.now_sim_t();
 
 		self.drain();
-		if let Some(eff) = self.find_match(&predicate) {
+		if let Some(eff) = self.find_match_after(&predicate, start_sim_t) {
 			return eff;
 		}
 
@@ -478,6 +478,59 @@ where
 		);
 	}
 
+	/// Like [`Self::expect_count_after`], but asserts `actual >= at_least` instead of
+	/// equality. Use when the contract specifies a lower bound — e.g. "after the timeout
+	/// at least one new fetch fires" — and the upper bound depends on subsystem-internal
+	/// scheduling decisions tests shouldn't lock to.
+	#[track_caller]
+	pub fn expect_at_least_after<F: Fn(&Effect) -> bool>(
+		&self,
+		since: Duration,
+		predicate: F,
+		at_least: usize,
+		description: &str,
+	) {
+		let actual = self.recorder.entries().iter().filter(|o| match o {
+			crate::harness::observation::Observation::Effect(s) =>
+				s.sim_t >= since && predicate(&s.value),
+		}).count();
+		assert!(
+			actual >= at_least,
+			"expected at least {} {} since sim_t={}ms (got {}):\n\n{}",
+			at_least,
+			description,
+			since.as_millis(),
+			actual,
+			crate::report::format_timeline(&self.recorder),
+		);
+	}
+
+	/// Variant of [`Self::expect_count`] that only counts effects with `sim_t >= since`.
+	/// Tests use this with [`Self::now_sim_t`] to bound a count to a specific window
+	/// — e.g. "exactly 1 SendRequest fired between this point and end of test."
+	#[track_caller]
+	pub fn expect_count_after<F: Fn(&Effect) -> bool>(
+		&self,
+		since: Duration,
+		predicate: F,
+		expected: usize,
+		description: &str,
+	) {
+		let actual = self.recorder.entries().iter().filter(|o| match o {
+			crate::harness::observation::Observation::Effect(s) =>
+				s.sim_t >= since && predicate(&s.value),
+		}).count();
+		assert_eq!(
+			actual, expected,
+			"expected exactly {} {} since sim_t={}ms (got {}):\n\n{}",
+			expected,
+			description,
+			since.as_millis(),
+			actual,
+			crate::report::format_timeline(&self.recorder),
+		);
+	}
+
 	/// Conclude every spawned subsystem, drain remaining work, return all recorded
 	/// observations.
 	pub fn finish(mut self) -> Recorder {
@@ -491,7 +544,9 @@ where
 		self.recorder
 	}
 
-	fn now_sim_t(&self) -> Duration {
+	/// Current simulation time as a `Duration` since the sim started. Tests use this as a
+	/// barrier to filter the recorder for effects that fire after a known point.
+	pub fn now_sim_t(&self) -> Duration {
 		Duration::from_millis(self.clock.wall_clock_ms() as u64)
 	}
 

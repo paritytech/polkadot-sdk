@@ -95,6 +95,90 @@ impl<S: CollatorSut> World<S> {
 		peer
 	}
 
+	/// Override the claim queue at `hash`. Use this after `extend_and_activate` to install
+	/// a custom CQ at a freshly-activated leaf — `ChainConfig::with_claim_queue_at` only
+	/// applies to leaves the world built up-front.
+	pub fn set_claim_queue_at(
+		&self,
+		hash: polkadot_primitives::Hash,
+		queue: std::collections::BTreeMap<
+			polkadot_primitives::CoreIndex,
+			std::collections::VecDeque<polkadot_primitives::Id>,
+		>,
+	) {
+		self.chain.lock().set_claim_queue_at(hash, queue);
+	}
+
+	/// Activate a new leaf: extend the chain on top of `parent`, signal `ActiveLeaves`,
+	/// and push an `OurViewChange` covering `new_active_leaves`.
+	///
+	/// Returns the new leaf's hash. Use this to drive view-shift scenarios where the
+	/// validator must retain or drop state as old leaves age out. To install a custom
+	/// claim queue at the new leaf, call [`Self::set_claim_queue_at`] **before**
+	/// `extend_and_activate` cannot — extend the chain first, override CQ, then
+	/// re-signal. For the common case where the inherited CQ matches needs, leave alone.
+	pub fn extend_and_activate(
+		&mut self,
+		parent: polkadot_primitives::Hash,
+		active_after: &[polkadot_primitives::Hash],
+	) -> polkadot_primitives::Hash {
+		self.extend_and_activate_with(parent, active_after, |_, _, _| {})
+	}
+
+	/// Variant of [`Self::extend_and_activate`] that lets the caller mutate the chain
+	/// model (e.g. override the new leaf's claim queue) between `extend` and the
+	/// `ActiveLeaves` signal. The closure receives `(chain, new_leaf, leaf_number)`.
+	pub fn extend_and_activate_with<F>(
+		&mut self,
+		parent: polkadot_primitives::Hash,
+		active_after: &[polkadot_primitives::Hash],
+		mutate: F,
+	) -> polkadot_primitives::Hash
+	where
+		F: FnOnce(
+			&mut crate::chain::ChainModel,
+			polkadot_primitives::Hash,
+			u32,
+		),
+	{
+		use polkadot_node_subsystem::{
+			messages::{CollatorProtocolMessage, NetworkBridgeEvent},
+			OverseerSignal,
+		};
+		use polkadot_node_subsystem_test_helpers::mock::new_leaf;
+		use polkadot_overseer::ActiveLeavesUpdate;
+
+		let (new_leaf_hash, new_leaf_n) = {
+			let mut chain = self.chain.lock();
+			let h = chain.extend(parent);
+			let n = chain.block(&h).expect("just extended").number;
+			mutate(&mut *chain, h, n);
+			(h, n)
+		};
+
+		self.sim.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(
+			new_leaf(new_leaf_hash, new_leaf_n),
+		)));
+
+		// OurViewChange covering the new active leaf set.
+		let view_leaves: Vec<_> = active_after.iter().chain(std::iter::once(&new_leaf_hash))
+			.copied()
+			.collect();
+		self.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+			NetworkBridgeEvent::OurViewChange(
+				polkadot_node_network_protocol::OurView::new(view_leaves, 0),
+			),
+		));
+
+		// Update the World's leaves view.
+		self.leaves.push(crate::scenarios::shared::Leaf {
+			hash: new_leaf_hash,
+			number: new_leaf_n,
+		});
+
+		new_leaf_hash
+	}
+
 	/// Connect a peer without declaring. Useful for bad-signature tests, undeclared-eviction
 	/// tests, and any other scenario that wants to drive the connect/declare boundary by
 	/// hand.
@@ -158,6 +242,34 @@ impl<S: CollatorSut> World<S> {
 			parent_head_hash,
 			descriptor_version,
 		));
+	}
+
+	/// Wait for the next outbound `Effect::SendRequest CollationFetchingV{1,2}` of any kind
+	/// from any peer. Returns `(peer_id, request_id, candidate_hash_if_any)` for the
+	/// caller to react to.
+	///
+	/// Use this when the test doesn't yet know which peer the validator will pick — e.g.
+	/// in fairness scenarios with multiple advertising peers. For known-candidate
+	/// matching see [`Self::fetch_request`].
+	pub fn expect_any_fetch(
+		&mut self,
+	) -> (sc_network_types::PeerId, RequestId, Option<polkadot_primitives::CandidateHash>) {
+		let send_request = self.sim.expect(
+			|e| matches!(
+				e,
+				Effect::SendRequest {
+					kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
+					..
+				}
+			),
+			HAPPY_PATH_TIMEOUT,
+			"Effect::SendRequest CollationFetching from any peer",
+		);
+		match send_request {
+			Effect::SendRequest { to, request_id, candidate_hash, .. } =>
+				(to, request_id, candidate_hash),
+			_ => unreachable!("filter ensures SendRequest"),
+		}
 	}
 
 	/// Wait for `Effect::SendRequest CollationFetchingV{1,2}` whose candidate hash matches

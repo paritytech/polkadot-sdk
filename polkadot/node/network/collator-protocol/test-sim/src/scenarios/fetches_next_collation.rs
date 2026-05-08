@@ -16,12 +16,12 @@
 
 //! Mirrors `validator_side/tests/mod.rs::fetches_next_collation`.
 //!
-//! Three V1 peers all advertise. First fetch fires for one peer; that fetch is dropped
-//! (response channel closed without a reply). After
-//! `MAX_UNSHARED_DOWNLOAD_TIME` the validator falls back to a third peer.
+//! Three V1 peers all advertise. The validator fetches from one (or two concurrently);
+//! we don't respond. After `MAX_UNSHARED_DOWNLOAD_TIME` the validator falls back to
+//! another peer. Property under test: a stalled fetch doesn't block the queue forever.
 
 use crate::{
-	builders::{Candidate, ProtocolVersion::V1},
+	builders::ProtocolVersion::V1,
 	contract::{Effect, ReqKind},
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
@@ -33,48 +33,29 @@ use std::time::Duration;
 const PARA: ParaId = ParaId::new(2000);
 
 #[crate::sim_test]
-fn three_peers_two_concurrent_fetches_then_third_after_timeout<S: CollatorSut>() {
+fn stalled_fetch_falls_back_to_next_peer_after_timeout<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let leaf = w.leaf();
 
-	let p1 = w.declared_peer(PARA, V1);
-	let p2 = w.declared_peer(PARA, V1);
-	let p3 = w.declared_peer(PARA, V1);
-	for p in [&p1, &p2, &p3] {
+	let peers = [
+		w.declared_peer(PARA, V1),
+		w.declared_peer(PARA, V1),
+		w.declared_peer(PARA, V1),
+	];
+	for p in &peers {
 		w.sim.send(p.advertise(leaf, None, None));
 	}
 
-	// Two concurrent fetches in flight (one shared, one not?). At least one fires; we
-	// don't respond. Advance past the per-fetch deadline; a third fetch fires.
-	let _first = w.sim.expect(
-		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
-		Duration::from_millis(50),
-		"first fetch fires",
-	);
+	// First fetch fires (which peer is unspecified).
+	let (_first_peer, _, _) = w.expect_any_fetch();
 
-	// Advance well past `MAX_UNSHARED_DOWNLOAD_TIME` so the validator falls back.
+	// Don't respond. Advance past the deadline; ≥1 follow-up fetch must fire.
+	let barrier = w.sim.now_sim_t();
 	w.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
-
-	// Some additional fetch must fire targeting one of the peers.
-	let pre = w.sim.recorder().entries().iter().filter(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
-			Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }
-		),
-		_ => false,
-	}).count();
-
-	// Optional: respond to one fetch so seconding flow drains. We just check that >= 2
-	// SendRequests fired in total — meaning the validator advanced past the first peer.
-	assert!(
-		pre >= 2,
-		"expected ≥ 2 SendRequests after timeout (got {pre})",
+	w.sim.expect_at_least_after(
+		barrier,
+		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
+		1,
+		"a follow-up SendRequest fires after the first peer's deadline",
 	);
-
-	// Sanity: the third in-flight ad gets a chance after some response. Resolve a fetch
-	// to ensure no deadlock — choose the candidate matching the framework's default
-	// PVD shape so backing accepts.
-	let candidate = w.candidate_at(leaf).para(PARA).build();
-	w.outputs.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
-	let _ = candidate; // not strictly needed for the assertion above
 }

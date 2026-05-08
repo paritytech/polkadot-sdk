@@ -25,7 +25,7 @@ use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
 	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
 	GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures, PersistedValidationData,
-	SessionIndex, ValidationCodeHash, ValidatorId, ValidatorIndex,
+	SessionIndex, ValidatorId, ValidatorIndex,
 };
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 use sp_consensus_slots::Slot;
