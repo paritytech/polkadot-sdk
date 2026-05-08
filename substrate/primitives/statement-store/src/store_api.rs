@@ -20,14 +20,17 @@ use crate::{Hash, Statement, Topic, MAX_ANY_TOPICS, MAX_TOPICS};
 use sp_core::{bounded_vec::BoundedVec, Bytes, ConstU32};
 use std::collections::HashSet;
 
+/// Identifier for a filter attached to a multi-filter subscription
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct FilterId(u64);
 
 impl FilterId {
+	/// Creates a filter id from its numeric representation
 	pub fn new(id: u64) -> Self {
 		FilterId(id)
 	}
 
+	/// Returns the numeric representation of this filter id
 	pub fn as_u64(&self) -> u64 {
 		self.0
 	}
@@ -42,8 +45,11 @@ impl std::fmt::Display for FilterId {
 /// Live statement event emitted by a multi-filter subscription
 #[derive(Debug, Clone)]
 pub struct LiveStatementEvent {
+	/// Hash of the statement
 	pub hash: Hash,
+	/// SCALE-encoded statement bytes
 	pub encoded: Vec<u8>,
+	/// Filter ids that matched the statement
 	pub matched_filter_ids: Vec<FilterId>,
 }
 

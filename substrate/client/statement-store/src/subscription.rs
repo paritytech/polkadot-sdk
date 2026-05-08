@@ -162,6 +162,7 @@ impl SubscriptionHandle {
 		Ok(filter_id)
 	}
 
+	/// Removes a filter from this subscription
 	pub fn remove_filter(&self, filter_id: FilterId) -> bool {
 		let _guard = self.add_filter_lock.lock();
 		if !self.state.lock().record_filter_removed(filter_id) {
@@ -175,6 +176,7 @@ impl SubscriptionHandle {
 		true
 	}
 
+	/// Returns active filter identifiers for this subscription
 	pub fn filter_ids(&self) -> Vec<FilterId> {
 		self.state.lock().active_filter_ids.iter().copied().collect()
 	}
@@ -378,14 +380,21 @@ impl MultiFilterSubscriptionState {
 /// Event emitted by a multi-filter subscription
 #[derive(Debug, Clone)]
 pub enum MultiFilterSubscriptionEvent {
+	/// Replay statements for a newly attached filter
 	ReplayStatements {
+		/// Filter that produced this replay batch
 		filter_id: FilterId,
+		/// SCALE-encoded statements included in this replay batch
 		statements: Vec<Vec<u8>>,
 	},
+	/// Replay completed for a newly attached filter
 	ReplayDone {
+		/// Filter whose replay completed
 		filter_id: FilterId,
 	},
+	/// Live statement event matched one or more active filters
 	NewStatement(LiveStatementEvent),
+	/// Subscription stopped because local resource limits were reached
 	Stop,
 }
 
