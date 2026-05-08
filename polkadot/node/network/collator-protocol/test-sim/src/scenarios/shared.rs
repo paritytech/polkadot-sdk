@@ -337,8 +337,11 @@ impl ChainConfig {
 	}
 }
 
-/// Identifies a block in the configured chain by its position.
+/// Identifies a block in the configured chain by its position. Used by
+/// [`ChainConfig::with_claim_queue_at`] so tests can install a custom claim queue at
+/// either the leaf or one of its ancestors before activation.
 #[derive(Clone, Copy, Debug)]
+#[allow(dead_code)] // `Ancestor` is part of the public surface; kept for future scenarios.
 pub enum LeafSelector {
 	/// The active leaf.
 	Leaf,

@@ -95,39 +95,13 @@ impl<S: CollatorSut> World<S> {
 		peer
 	}
 
-	/// Override the claim queue at `hash`. Use this after `extend_and_activate` to install
-	/// a custom CQ at a freshly-activated leaf — `ChainConfig::with_claim_queue_at` only
-	/// applies to leaves the world built up-front.
-	pub fn set_claim_queue_at(
-		&self,
-		hash: polkadot_primitives::Hash,
-		queue: std::collections::BTreeMap<
-			polkadot_primitives::CoreIndex,
-			std::collections::VecDeque<polkadot_primitives::Id>,
-		>,
-	) {
-		self.chain.lock().set_claim_queue_at(hash, queue);
-	}
-
 	/// Activate a new leaf: extend the chain on top of `parent`, signal `ActiveLeaves`,
-	/// and push an `OurViewChange` covering `new_active_leaves`.
+	/// and push an `OurViewChange` covering `active_after` plus the new leaf.
 	///
-	/// Returns the new leaf's hash. Use this to drive view-shift scenarios where the
-	/// validator must retain or drop state as old leaves age out. To install a custom
-	/// claim queue at the new leaf, call [`Self::set_claim_queue_at`] **before**
-	/// `extend_and_activate` cannot — extend the chain first, override CQ, then
-	/// re-signal. For the common case where the inherited CQ matches needs, leave alone.
-	pub fn extend_and_activate(
-		&mut self,
-		parent: polkadot_primitives::Hash,
-		active_after: &[polkadot_primitives::Hash],
-	) -> polkadot_primitives::Hash {
-		self.extend_and_activate_with(parent, active_after, |_, _, _| {})
-	}
-
-	/// Variant of [`Self::extend_and_activate`] that lets the caller mutate the chain
-	/// model (e.g. override the new leaf's claim queue) between `extend` and the
-	/// `ActiveLeaves` signal. The closure receives `(chain, new_leaf, leaf_number)`.
+	/// Returns the new leaf's hash. The closure receives `(chain, new_leaf, leaf_number)`
+	/// and runs **between** `extend` and the `ActiveLeaves` signal — use it to install a
+	/// custom claim queue at the new leaf so the validator's first read of it sees the
+	/// configured shape. Pass `|_, _, _| {}` if defaults are fine.
 	pub fn extend_and_activate_with<F>(
 		&mut self,
 		parent: polkadot_primitives::Hash,
@@ -242,6 +216,37 @@ impl<S: CollatorSut> World<S> {
 			parent_head_hash,
 			descriptor_version,
 		));
+	}
+
+	/// Snapshot the recorder's current entry count. Use as a barrier with
+	/// [`Self::first_fetch_after`] to find the first fetch fired *after* a particular
+	/// scenario step. Sim time alone doesn't separate events recorded inside a single
+	/// `drain` cycle (they all carry the same `sim_t`); the entry index does.
+	pub fn recorder_barrier(&self) -> usize {
+		self.sim.recorder().entries().len()
+	}
+
+	/// Find the first `Effect::SendRequest CollationFetchingV{1,2}` recorded at or after
+	/// `barrier` (a recorder-entry index from [`Self::recorder_barrier`]). Returns
+	/// `None` if none has been recorded yet — it does not block.
+	pub fn first_fetch_after(
+		&self,
+		barrier: usize,
+	) -> Option<(sc_network_types::PeerId, Option<polkadot_primitives::CandidateHash>)> {
+		self.sim.recorder().entries().iter().skip(barrier).find_map(|o| {
+			let crate::harness::Observation::Effect(s) = o;
+			if let Effect::SendRequest {
+				kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
+				to,
+				candidate_hash,
+				..
+			} = &s.value
+			{
+				Some((*to, *candidate_hash))
+			} else {
+				None
+			}
+		})
 	}
 
 	/// Wait for `Effect::SendRequest CollationFetchingV2` matching `candidate_hash`. Use

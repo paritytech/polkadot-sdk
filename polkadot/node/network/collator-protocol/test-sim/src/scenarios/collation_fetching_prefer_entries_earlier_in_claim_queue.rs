@@ -74,48 +74,17 @@ fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
 		"exactly 1 fetch in flight while A1 is being fetched",
 	);
 
-	// Snapshot of all SendRequests recorded BEFORE we resolve A1.
-	let pre_count = w.sim.recorder().entries().iter().filter(|o| match o {
-		crate::harness::Observation::Effect(s) => matches!(
-			&s.value,
-			Effect::SendRequest { kind: ReqKind::CollationFetchingV2, .. }
-		),
-		_ => false,
-	}).count();
-
-	// Resolve A1. After A1's seconding the validator picks the next fetch by CQ position.
+	// Resolve A1, then assert the next fetch fired (after this point in the recorder) is
+	// for B1, not A2 — earlier CQ position wins.
+	let barrier = w.recorder_barrier();
 	w.respond_fetch_v2(a1_req, a1.receipt.clone(), crate::builders::Candidate::empty_pov());
 	w.expect_second(&a1);
 	w.sim.advance(Duration::from_millis(50));
 
-	let post_send_requests: Vec<_> = w
-		.sim
-		.recorder()
-		.entries()
-		.iter()
-		.filter_map(|o| match o {
-			crate::harness::Observation::Effect(s) => match &s.value {
-				Effect::SendRequest {
-					kind: ReqKind::CollationFetchingV2,
-					candidate_hash,
-					..
-				} => Some(*candidate_hash),
-				_ => None,
-			},
-			_ => None,
-		})
-		.collect();
-
-	assert!(
-		post_send_requests.len() > pre_count,
-		"expected at least one new SendRequest after A1 seconding (had {} before, {} after)",
-		pre_count,
-		post_send_requests.len(),
-	);
+	let next = w.first_fetch_after(barrier).expect("a fetch fires after A1 seconding");
 	assert_eq!(
-		post_send_requests[pre_count],
+		next.1,
 		Some(b1.hash()),
-		"first fetch after A1 must be B1 (CQ position 0), not A2; observed sequence: {:?}",
-		post_send_requests,
+		"first fetch after A1 must be B1 (CQ position 0), not A2",
 	);
 }
