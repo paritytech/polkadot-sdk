@@ -38,7 +38,7 @@ pub struct TimelineReport<'a> {
 	/// Length of the assertion window.
 	pub window: Duration,
 	/// Recorder containing the observations.
-	pub recorder: &'a Recorder<Effect>,
+	pub recorder: &'a Recorder,
 	/// Optional replay seed for reproducing the failure.
 	pub replay_seed: Option<u64>,
 	/// Optional source location of the assertion (filename:line).
@@ -137,7 +137,7 @@ pub fn format_effect(effect: &Effect) -> String {
 /// Pretty-print every entry in the recorder as one line per effect, prefixed with its
 /// `sim_t` in milliseconds. Tests use this when an assertion fails to dump a readable
 /// timeline rather than `Debug` output.
-pub fn format_timeline(recorder: &Recorder<Effect>) -> String {
+pub fn format_timeline(recorder: &Recorder) -> String {
 	let mut out = String::new();
 	out.push_str("Effect timeline (relative to first observation):\n");
 	let entries: Vec<&Stamped<Effect>> = recorder
@@ -179,7 +179,7 @@ mod tests {
 
 	#[test]
 	fn report_renders_observed_window() {
-		let mut rec: Recorder<Effect> = Recorder::new();
+		let mut rec = Recorder::new();
 		let epoch = Instant::now();
 		let p1 = PeerId::random();
 		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
@@ -211,7 +211,7 @@ mod tests {
 
 	#[test]
 	fn report_handles_empty_window() {
-		let rec: Recorder<Effect> = Recorder::new();
+		let rec = Recorder::new();
 		let report = TimelineReport {
 			expected: "Effect::Foo".into(),
 			actual: "timed out".into(),

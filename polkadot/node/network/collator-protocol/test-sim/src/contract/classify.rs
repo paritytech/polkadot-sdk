@@ -53,14 +53,10 @@ use std::collections::BTreeSet;
 
 /// Result of classifying a single outgoing `AllMessages`. One message may classify into
 /// multiple entries (see module docs); callers iterate the returned `Vec`.
-///
-/// Generic over the recorded effect type so per-subsystem classifiers can plug into the
-/// shared harness: each subsystem-test-sim crate defines its own `E` and its own classify
-/// implementation.
 #[derive(Debug)]
-pub enum Classified<E = Effect> {
+pub enum Classified {
 	/// The message is an observable effect — record it.
-	Effect(E),
+	Effect(Effect),
 	/// The message is an information-gathering query — forward to responder.
 	Query(Query),
 }

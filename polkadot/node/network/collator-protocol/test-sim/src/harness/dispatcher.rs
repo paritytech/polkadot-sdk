@@ -21,7 +21,7 @@
 //! the [`AnswerQuery`] trait that the responder will implement.
 
 use crate::{
-	contract::{classify, Classified, Effect, Query},
+	contract::{classify, Classified, Query},
 	harness::{pending_fetches::PendingFetches, Recorder},
 };
 use polkadot_node_subsystem::messages::AllMessages;
@@ -133,7 +133,7 @@ impl AnswerQuery for LayeredResponder {
 /// it to derive the entry's `sim_t`).
 pub struct Dispatcher<'a, R: AnswerQuery + ?Sized> {
 	/// Where effects accumulate.
-	pub recorder: &'a mut Recorder<Effect>,
+	pub recorder: &'a mut Recorder,
 	/// Where queries are routed.
 	pub responder: &'a mut R,
 	/// Side table for pending fetch response senders extracted from `SendRequests`.
@@ -143,7 +143,7 @@ pub struct Dispatcher<'a, R: AnswerQuery + ?Sized> {
 impl<'a, R: AnswerQuery + ?Sized> Dispatcher<'a, R> {
 	/// Create a new dispatcher.
 	pub fn new(
-		recorder: &'a mut Recorder<Effect>,
+		recorder: &'a mut Recorder,
 		responder: &'a mut R,
 		pending: &'a mut PendingFetches,
 	) -> Self {
@@ -238,7 +238,7 @@ mod tests {
 
 	#[test]
 	fn effect_message_records_into_recorder() {
-		let mut rec: Recorder<Effect> = Recorder::new();
+		let mut rec = Recorder::new();
 		let mut resp = PanicResponder;
 		let mut pending = PendingFetches::new();
 		let mut disp = Dispatcher::new(&mut rec, &mut resp, &mut pending);
@@ -267,7 +267,7 @@ mod tests {
 	#[test]
 	fn query_message_forwards_to_responder() {
 		use polkadot_node_subsystem::messages::ChainApiMessage;
-		let mut rec: Recorder<Effect> = Recorder::new();
+		let mut rec = Recorder::new();
 		let mut resp = CountingResponder { count: 0 };
 		let mut pending = PendingFetches::new();
 		let mut disp = Dispatcher::new(&mut rec, &mut resp, &mut pending);

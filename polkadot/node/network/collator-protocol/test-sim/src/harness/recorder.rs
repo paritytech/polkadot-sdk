@@ -15,27 +15,22 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Recorder: append-only ordered log of observations.
-//!
-//! Generic over the recorded effect type so per-subsystem `Effect` enums can plug in.
 
-use crate::harness::observation::{Observation, Stamped};
+use crate::{
+	contract::Effect,
+	harness::observation::{Observation, Stamped},
+};
 use std::time::{Duration, Instant};
 
 /// An append-only observation log. Used by the dispatcher to record effects and by tests to
 /// query / assert against the resulting log.
-#[derive(Debug, Clone)]
-pub struct Recorder<E> {
-	entries: Vec<Observation<E>>,
+#[derive(Debug, Clone, Default)]
+pub struct Recorder {
+	entries: Vec<Observation>,
 	epoch: Option<Instant>,
 }
 
-impl<E> Default for Recorder<E> {
-	fn default() -> Self {
-		Self { entries: Vec::new(), epoch: None }
-	}
-}
-
-impl<E> Recorder<E> {
+impl Recorder {
 	/// Create a fresh recorder. Sets the epoch to "now" on first observation.
 	pub fn new() -> Self {
 		Self::default()
@@ -43,14 +38,14 @@ impl<E> Recorder<E> {
 
 	/// Record an effect at the given simulated `Instant`. The first call establishes the epoch
 	/// against which subsequent `sim_t` deltas are computed.
-	pub fn record_effect(&mut self, now: Instant, effect: E) {
+	pub fn record_effect(&mut self, now: Instant, effect: Effect) {
 		let epoch = *self.epoch.get_or_insert(now);
 		let sim_t = now.saturating_duration_since(epoch);
 		self.entries.push(Observation::Effect(Stamped { sim_t, value: effect }));
 	}
 
 	/// All recorded observations, in order.
-	pub fn entries(&self) -> &[Observation<E>] {
+	pub fn entries(&self) -> &[Observation] {
 		&self.entries
 	}
 
@@ -65,14 +60,14 @@ impl<E> Recorder<E> {
 	}
 
 	/// All effects in the log, in order. Convenience for tests that don't need timestamps.
-	pub fn effects(&self) -> impl Iterator<Item = &E> {
+	pub fn effects(&self) -> impl Iterator<Item = &Effect> {
 		self.entries.iter().map(|o| match o {
 			Observation::Effect(s) => &s.value,
 		})
 	}
 
 	/// Effects observed within the last `window`, in order. Useful for failure messages.
-	pub fn effects_within(&self, window: Duration) -> impl Iterator<Item = &Stamped<E>> {
+	pub fn effects_within(&self, window: Duration) -> impl Iterator<Item = &Stamped<Effect>> {
 		let cutoff = self.entries.last().map(|o| match o {
 			Observation::Effect(s) => s.sim_t,
 		});
@@ -87,7 +82,7 @@ impl<E> Recorder<E> {
 	}
 
 	/// Find the first effect matching `predicate`. Returns its index in the log.
-	pub fn find<F: Fn(&E) -> bool>(&self, predicate: F) -> Option<usize> {
+	pub fn find<F: Fn(&Effect) -> bool>(&self, predicate: F) -> Option<usize> {
 		self.entries.iter().position(|o| match o {
 			Observation::Effect(s) => predicate(&s.value),
 		})
@@ -102,7 +97,7 @@ mod tests {
 
 	#[test]
 	fn records_effects_with_relative_timestamps() {
-		let mut rec: Recorder<Effect> = Recorder::new();
+		let mut rec = Recorder::new();
 		let epoch = Instant::now();
 		let p1 = PeerId::random();
 		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
@@ -122,7 +117,7 @@ mod tests {
 
 	#[test]
 	fn find_returns_first_match_index() {
-		let mut rec: Recorder<Effect> = Recorder::new();
+		let mut rec = Recorder::new();
 		let epoch = Instant::now();
 		let p1 = PeerId::random();
 		rec.record_effect(epoch, Effect::Reputation { peer: p1, bucket: RepBucket::Performance });
