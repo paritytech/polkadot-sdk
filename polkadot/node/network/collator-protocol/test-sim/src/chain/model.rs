@@ -209,14 +209,19 @@ impl ChainModel {
 	/// Append a child block onto `parent`. Slot increments by one, session is inherited from
 	/// the parent. Returns the new block's hash.
 	///
+	/// Calling `extend` multiple times from the same parent produces siblings — each gets
+	/// a distinct hash via a sibling-index mixed into the synthetic hash. The chain model
+	/// supports forks; tests model fork choice by extending different children from a
+	/// shared ancestor and activating each via `extend_and_activate_with`.
+	///
 	/// Panics if `parent` is not known.
 	pub fn extend(&mut self, parent: Hash) -> Hash {
 		let parent_info = self.blocks.get(&parent).cloned().expect("parent block must exist");
 		let number = parent_info.number + 1;
 		let slot = parent_info.slot + 1;
 		let session_index = parent_info.session_index;
-		// Deterministic child hash: parent number XOR child number, low-u64.
-		let hash = synthetic_child_hash(parent, number);
+		let sibling_idx = self.children.get(&parent).map(|c| c.len() as u64).unwrap_or(0);
+		let hash = synthetic_child_hash_with_sibling(parent, number, sibling_idx);
 		let info = BlockInfo { hash, parent_hash: parent, number, slot, session_index };
 		self.blocks.insert(hash, info);
 		self.children.entry(parent).or_default().push(hash);
@@ -627,11 +632,15 @@ fn default_constraints() -> Constraints {
 	}
 }
 
-fn synthetic_child_hash(parent: Hash, number: BlockNumber) -> Hash {
-	// Deterministic child hash by mixing parent low-u64 with the child number. Tests do not
-	// assert on the exact value; identity is what matters.
+fn synthetic_child_hash_with_sibling(parent: Hash, number: BlockNumber, sibling: u64) -> Hash {
+	// Deterministic child hash by mixing parent low-u64 with the child number and the
+	// sibling index. Tests do not assert on the exact value; identity is what matters.
+	// Sibling index is shifted into a higher byte so primary children retain the
+	// historical hash for backwards compatibility with existing tests.
 	let parent_low = parent.to_low_u64_be();
-	Hash::from_low_u64_be(parent_low.wrapping_add(0x100_0000 + number as u64))
+	Hash::from_low_u64_be(
+		parent_low.wrapping_add(0x100_0000 + number as u64 + (sibling << 32)),
+	)
 }
 
 #[cfg(test)]

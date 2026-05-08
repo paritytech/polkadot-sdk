@@ -59,4 +59,6 @@ pub(crate) mod reputation_emission;
 #[cfg(test)]
 pub(crate) mod upcoming_pr_11967;
 #[cfg(test)]
+pub(crate) mod upcoming_pr_11980;
+#[cfg(test)]
 pub(crate) mod upcoming_pr_12004;
