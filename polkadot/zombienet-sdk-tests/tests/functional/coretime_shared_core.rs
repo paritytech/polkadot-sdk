@@ -11,7 +11,7 @@ use crate::utils::{
 use anyhow::anyhow;
 use cumulus_zombienet_sdk_helpers::{
 	assert_para_throughput, submit_extrinsic_and_wait_for_finalization_success_with_timeout,
-	wait_for_first_session_change,
+	wait_for_first_session_change, wait_for_pvf_prepare,
 };
 use polkadot_primitives::Id as ParaId;
 use serde_json::json;
@@ -21,8 +21,6 @@ use zombienet_sdk::{
 	subxt_signer::sr25519::dev,
 	NetworkConfig, NetworkConfigBuilder, RegistrationStrategy,
 };
-
-// const PARAS: [u32; 4] = [2000, 2001, 2002, 2003];
 
 #[tokio::test(flavor = "multi_thread")]
 async fn coretime_shared_core_test_3_paras() -> Result<(), anyhow::Error> {
@@ -110,6 +108,9 @@ async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::
 	assert!(res.is_ok(), "Extrinsic failed to finalize: {:?}", res.unwrap_err());
 	log::info!("Core 0 assignment shared for all paras completed");
 
+	// Wait for PVF preparation to complete.
+	wait_for_pvf_prepare(&network, 1).await?;
+
 	// Wait 1 sessions for registration/core assignment
 	log::info!("Waiting for 1 session boundaries");
 	let mut blocks_sub = relay_client.blocks().subscribe_finalized().await?;
@@ -121,8 +122,8 @@ async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::
 	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
 	//  time=6s. N paras share 1 core (~2 para blocks/slot async backing).
 	let exp = 40u32.div_ceil(number_of_paras);
-	// use 80% as min
-	let min = (exp as f64 * 0.80).round() as u32;
+	// use 85% as min
+	let min = (exp as f64 * 0.85).round() as u32;
 	log::info!("Checking parachain block production with range ({min}..{exp})");
 	let mut para_throughput_map: HashMap<ParaId, Range<u32>> = Default::default();
 	for id in para_ids.iter() {
