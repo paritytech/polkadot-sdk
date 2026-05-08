@@ -12,10 +12,15 @@ repository.workspace = true
 workspace = true
 
 [dependencies]
-cumulus-relay-chain-interface = { default-features = true, workspace = true }
+cumulus-relay-chain-interface.workspace = true
+cumulus-relay-chain-interface.default-features = true
 futures = { workspace = true }
-polkadot-node-subsystem = { default-features = true, workspace = true }
-polkadot-primitives = { default-features = true, workspace = true }
-sp-api = { default-features = true, workspace = true }
-sp-consensus = { default-features = true, workspace = true }
+polkadot-node-subsystem.workspace = true
+polkadot-node-subsystem.default-features = true
+polkadot-primitives.workspace = true
+polkadot-primitives.default-features = true
+sp-api.workspace = true
+sp-api.default-features = true
+sp-consensus.workspace = true
+sp-consensus.default-features = true
 tracing = { workspace = true, default-features = true }

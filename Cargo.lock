@@ -1380,7 +1380,7 @@ dependencies = [
 
 [[package]]
 name = "asset-hub-westend-runtime"
-version = "0.43.1"
+version = "0.45.0"
 dependencies = [
  "alloy-core",
  "asset-test-utils",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-rococo-runtime"
-version = "0.26.0"
+version = "0.28.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -2776,7 +2776,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-hub-westend-runtime"
-version = "0.23.0"
+version = "0.25.0"
 dependencies = [
  "bp-asset-hub-rococo",
  "bp-asset-hub-westend",
@@ -20814,7 +20814,7 @@ dependencies = [
 
 [[package]]
 name = "sc-network-sync"
-version = "0.55.0"
+version = "0.55.1"
 dependencies = [
  "array-bytes 6.2.2",
  "async-channel 1.9.0",
@@ -22611,7 +22611,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-inbound-queue-primitives"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "alloy-core",
  "assets-common",
@@ -22667,7 +22667,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-primitives"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "alloy-core",
  "ethabi-decode",
@@ -22692,7 +22692,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-outbound-queue-runtime-api"
-version = "0.19.0"
+version = "0.21.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -22717,7 +22717,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client"
-version = "0.19.0"
+version = "0.21.0"
 dependencies = [
  "alloy-primitives",
  "frame-benchmarking",
@@ -22743,7 +22743,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-ethereum-client-fixtures"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -22754,7 +22754,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue"
-version = "0.19.0"
+version = "0.21.0"
 dependencies = [
  "alloy-core",
  "frame-benchmarking",
@@ -22782,7 +22782,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-fixtures"
-version = "0.27.0"
+version = "0.29.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -22794,7 +22794,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "alloy-consensus",
  "alloy-core",
@@ -22829,7 +22829,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-inbound-queue-v2-fixtures"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "hex-literal",
  "snowbridge-beacon-primitives",
@@ -22841,7 +22841,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue"
-version = "0.19.0"
+version = "0.21.0"
 dependencies = [
  "bridge-hub-common",
  "ethabi-decode",
@@ -22864,7 +22864,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-outbound-queue-v2"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "alloy-core",
  "bp-relayers",
@@ -22895,7 +22895,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system"
-version = "0.19.0"
+version = "0.21.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -22944,7 +22944,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-pallet-system-v2"
-version = "0.8.0"
+version = "0.10.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -22985,7 +22985,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-runtime-test-common"
-version = "0.22.0"
+version = "0.24.0"
 dependencies = [
  "cumulus-pallet-parachain-system",
  "frame-support",
@@ -23037,7 +23037,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-test-utils"
-version = "0.9.0"
+version = "0.11.0"
 dependencies = [
  "bp-relayers",
  "frame-benchmarking",
@@ -23056,7 +23056,7 @@ dependencies = [
 
 [[package]]
 name = "snowbridge-verification-primitives"
-version = "0.8.1"
+version = "0.10.0"
 dependencies = [
  "alloy-consensus",
  "alloy-primitives",
@@ -24969,7 +24969,7 @@ version = "2.0.0"
 
 [[package]]
 name = "staging-xcm"
-version = "22.0.0"
+version = "22.0.1"
 dependencies = [
  "array-bytes 6.2.2",
  "bounded-collections 0.3.2",
