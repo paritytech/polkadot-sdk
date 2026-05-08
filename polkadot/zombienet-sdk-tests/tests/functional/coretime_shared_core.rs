@@ -121,7 +121,7 @@ async fn coretime_shared_core_inner(number_of_paras: u32) -> Result<(), anyhow::
 	// (since core 0 is shared between all paras)
 	//  Parameters: EpochDurationInBlocks=10 (fast-runtime), SESSION_DELAY=2, relay block
 	//  time=6s. N paras share 1 core (~2 para blocks/slot async backing).
-	let exp = 40u32.div_ceil(number_of_paras);
+	let exp = 40u32 / number_of_paras;
 	// use 85% as min
 	let min = (exp as f64 * 0.85).round() as u32;
 	log::info!("Checking parachain block production with range ({min}..{exp})");
