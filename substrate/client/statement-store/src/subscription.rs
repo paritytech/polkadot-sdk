@@ -378,13 +378,8 @@ impl MultiFilterSubscriptionState {
 /// Event emitted by a multi-filter subscription
 #[derive(Debug, Clone)]
 pub enum MultiFilterSubscriptionEvent {
-	ReplayStatements {
-		filter_id: FilterId,
-		statements: Vec<Vec<u8>>,
-	},
-	ReplayDone {
-		filter_id: FilterId,
-	},
+	ReplayStatements { filter_id: FilterId, statements: Vec<Vec<u8>> },
+	ReplayDone { filter_id: FilterId },
 	NewStatement(LiveStatementEvent),
 	Stop,
 }
