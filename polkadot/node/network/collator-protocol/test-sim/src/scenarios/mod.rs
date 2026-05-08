@@ -37,9 +37,13 @@ mod child_blocked_from_seconding_by_parent;
 #[cfg(test)]
 mod claim_queue_window;
 #[cfg(test)]
+mod claims_counting;
+#[cfg(test)]
 mod disconnect_if_no_declare;
 #[cfg(test)]
 mod disconnect_if_wrong_declare;
+#[cfg(test)]
+mod fair_collation_fetches;
 #[cfg(test)]
 mod fetch_next_on_invalid;
 #[cfg(test)]
@@ -48,6 +52,8 @@ mod fetch_timeout;
 mod fragment_chain_seconding;
 #[cfg(test)]
 mod full_seconding;
+#[cfg(test)]
+mod group_rotation_uses_correct_core_per_relay_parent;
 #[cfg(test)]
 mod inactive_collator_eviction;
 #[cfg(test)]
@@ -66,9 +72,8 @@ pub(crate) mod world;
 mod single_fetch_per_relay_parent;
 #[cfg(test)]
 mod unneeded_para;
-// Disabled until V3 connect/declare handshake debug pass lands. See file-level docs.
-// #[cfg(test)]
-// mod v3_scheduling_parent;
+#[cfg(test)]
+mod v3_scheduling_parent;
 #[cfg(test)]
 mod v1_advertise_on_non_leaf;
 #[cfg(test)]

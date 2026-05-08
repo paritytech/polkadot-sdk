@@ -23,8 +23,6 @@
 pub mod candidate;
 pub mod fixtures;
 pub mod peer;
-pub mod world;
 
-pub use candidate::Candidate;
+pub use candidate::{Candidate, CandidateBuilder};
 pub use peer::{Peer, ProtocolVersion};
-pub use world::World;

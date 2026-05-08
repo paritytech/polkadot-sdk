@@ -200,6 +200,11 @@ impl CandidateBuilder {
 			dummy_candidate_receipt_v2_bad_sig(self.relay_parent, Some(Default::default()));
 		receipt.descriptor.set_para_id(self.para);
 		receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+		// `descriptor.para_head` MUST equal `commitments.head_data.hash()`. Real backing
+		// uses this hash to key the unblock-pending-children map (see
+		// `second_unblocked_collations`). If they disagree, a child waiting on this
+		// parent's output never gets unblocked.
+		receipt.descriptor.set_para_head(commitments.head_data.hash());
 		receipt.commitments_hash = commitments.hash();
 
 		Candidate { receipt, pvd, commitments }

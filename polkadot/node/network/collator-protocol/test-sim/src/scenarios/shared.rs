@@ -147,28 +147,49 @@ where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
+	let mut config = ChainConfig::default();
+	for (core, para) in paras {
+		config = config.with_schedule(*core, CoreSchedule::always(*para));
+	}
+	build_multi_leaf_world_with_config::<S>(n_leaves, config)
+}
+
+/// Variant of [`build_multi_leaf_world`] that takes a [`ChainConfig`]. Lets multi-leaf tests
+/// dial in `validator_groups`, `group_rotation_frequency`, etc.
+pub fn build_multi_leaf_world_with_config<S>(
+	n_leaves: usize,
+	config: ChainConfig,
+) -> World<S>
+where
+	S: SubsystemUnderTest<Message = CollatorProtocolMessage>,
+	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
+	AllMessages: From<S::Message>,
+{
 	use polkadot_node_subsystem::messages::NetworkBridgeEvent;
 
 	assert!(n_leaves >= 1, "build_multi_leaf_world requires at least one leaf");
 
-	let mut chain = ChainModel::new(Slot::from(0));
+	let mut chain = ChainModel::new(config.genesis_slot);
 	chain.add_session(
 		0,
 		SessionInfo {
 			validators: crate::builders::fixtures::default_validators(),
-			validator_groups: vec![vec![ValidatorIndex(0), ValidatorIndex(1)]],
+			validator_groups: config.validator_groups,
 			group_rotation_info: GroupRotationInfo {
 				session_start_block: 0,
-				group_rotation_frequency: 1,
+				group_rotation_frequency: config.group_rotation_frequency,
 				now: 0,
 			},
 		},
 	);
-	// Install per-core schedule: each (core, para) pair becomes a static "always this para
-	// on this core" rotation. Tests that need rotating cycles should call
-	// `chain.set_core_schedule(core, CoreSchedule::cycling(...))` directly afterwards.
-	for (core, para) in paras {
-		chain.set_core_schedule(*core, CoreSchedule::always(*para));
+	for (core, schedule) in config.schedule {
+		chain.set_core_schedule(core, schedule);
+	}
+	if config.enable_v3_node_feature {
+		let mut features = polkadot_primitives::NodeFeatures::EMPTY;
+		features.resize(4, false);
+		features.set(3, true);
+		chain.set_node_features(features);
 	}
 
 	let mut leaves = Vec::with_capacity(n_leaves);

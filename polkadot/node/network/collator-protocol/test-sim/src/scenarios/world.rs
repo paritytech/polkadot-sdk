@@ -43,7 +43,7 @@
 //! available — these helpers are additive, not gating.
 
 use crate::{
-	builders::{Candidate, Peer, ProtocolVersion},
+	builders::{Candidate, CandidateBuilder, Peer, ProtocolVersion},
 	contract::{Effect, RepBucket, ReqKind, RequestId},
 	harness::CollatorSut,
 	scenarios::shared::World,
@@ -66,6 +66,27 @@ const HAPPY_PATH_TIMEOUT: Duration = Duration::from_millis(500);
 const NEGATIVE_TIMEOUT: Duration = Duration::from_millis(100);
 
 impl<S: CollatorSut> World<S> {
+	/// Open a [`CandidateBuilder`] pre-loaded with `relay_parent` and the matching
+	/// `relay_parent_number` looked up from [`SharedChain`]. Tests just supply
+	/// `para`/`parent_head`/`head_data`; getting the relay-parent number wrong is the
+	/// most common cause of "Persisted validation data hash doesn't match" rejections in
+	/// real prospective.
+	pub fn candidate_at(&self, relay_parent: Hash) -> CandidateBuilder {
+		let n = self
+			.chain
+			.lock()
+			.block(&relay_parent)
+			.unwrap_or_else(|| {
+				panic!(
+					"World::candidate_at: relay_parent {:?} not found in chain. Build via \
+					 `world.leaf()` / `world.ancestors()` so the chain knows about it.",
+					relay_parent,
+				)
+			})
+			.number;
+		Candidate::builder().relay_parent(relay_parent).relay_parent_number(n)
+	}
+
 	/// Connect a peer and immediately have it `Declare` for `para` over `version`. Returns
 	/// the [`Peer`] for further use (advertise, expect-rep, etc.).
 	pub fn declared_peer(&mut self, para: ParaId, version: ProtocolVersion) -> Peer {

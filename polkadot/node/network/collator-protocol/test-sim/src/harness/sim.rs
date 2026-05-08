@@ -399,7 +399,7 @@ where
 
 		// Drain anything pending before checking.
 		self.drain();
-		if let Some(eff) = self.find_match(&predicate) {
+		if let Some(eff) = self.find_match_after(&predicate, start_sim_t) {
 			let report = TimelineReport {
 				expected: format!("absence of: {}", expected_absence),
 				actual: format!("found a matching effect: {}", crate::report::format_effect(&eff)),
@@ -430,7 +430,7 @@ where
 			}
 			self.executor.poll_until_pending();
 			self.drain();
-			if let Some(eff) = self.find_match(&predicate) {
+			if let Some(eff) = self.find_match_after(&predicate, start_sim_t) {
 				let report = TimelineReport {
 					expected: format!("absence of: {}", expected_absence),
 					actual: format!(
@@ -496,9 +496,20 @@ where
 	}
 
 	fn find_match<F: Fn(&Effect) -> bool>(&self, predicate: &F) -> Option<Effect> {
+		self.find_match_after(predicate, Duration::ZERO)
+	}
+
+	/// Find the first effect in the recorder matching `predicate` whose `sim_t` is
+	/// `>= since`. Used by `expect_no` so it doesn't false-positive on effects recorded
+	/// before the call (e.g. earlier `SendRequest`s in a multi-step scenario).
+	fn find_match_after<F: Fn(&Effect) -> bool>(
+		&self,
+		predicate: &F,
+		since: Duration,
+	) -> Option<Effect> {
 		self.recorder.entries().iter().find_map(|o| match o {
 			crate::harness::observation::Observation::Effect(s) =>
-				if predicate(&s.value) {
+				if s.sim_t >= since && predicate(&s.value) {
 					Some(s.value.clone())
 				} else {
 					None

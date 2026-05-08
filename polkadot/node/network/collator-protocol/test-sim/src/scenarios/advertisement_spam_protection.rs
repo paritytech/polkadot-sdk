@@ -64,5 +64,8 @@ fn re_advertising_after_can_second_false_triggers_reputation_hit<S: CollatorSut>
 		candidate.hash(),
 		polkadot_primitives::HeadData(Vec::new()).hash(),
 	);
+
+	// `COST_UNEXPECTED_MESSAGE` is `CostMinor` → buffered by ReputationAggregator (30s).
+	w.sim.advance(Duration::from_secs(31));
 	w.expect_rep(&peer, RepBucket::Performance);
 }

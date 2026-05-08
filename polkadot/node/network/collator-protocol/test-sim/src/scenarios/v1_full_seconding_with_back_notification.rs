@@ -28,7 +28,7 @@
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
-	contract::{Effect, RepBucket, WireMsgKind},
+	contract::{Effect, RepBucket, ReqKind, WireMsgKind},
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
@@ -47,13 +47,33 @@ fn v1_advertise_fetch_second_and_collator_notified<S: CollatorSut>() {
 		.para(PARA)
 		.relay_parent(leaf)
 		.relay_parent_number(leaf_n)
+		.parent_head(polkadot_primitives::HeadData(Vec::new()))
+		.head_data(polkadot_primitives::HeadData(vec![1]))
 		.build();
+
+	// Register so validation stub returns matching commitments. Otherwise fragment chain
+	// rejects when the validated outputs disagree with the descriptor's para_head.
+	w.outputs.insert(
+		candidate.hash(),
+		candidate.commitments.clone(),
+		candidate.pvd.clone(),
+	);
 
 	let peer = w.declared_peer(PARA, V1);
 	w.sim.send(peer.advertise(leaf, None, None));
-	let request_id = w.fetch_request(&candidate);
+	// V1 fetch (no candidate_hash). Match generic SendRequest.
+	let send_request = w.sim.expect(
+		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
+		Duration::from_millis(500),
+		"Effect::SendRequest CollationFetchingV1",
+	);
+	let request_id = send_request.request_id().expect("RequestId");
 	w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
 	w.expect_second(&candidate);
+
+	// Backing's `Seconded` notification flows through statement-distribution-noop and back.
+	// Give the executor a moment to settle before checking for the wire-side notification.
+	w.sim.advance(Duration::from_millis(100));
 
 	let _ = w.sim.expect(
 		|e| matches!(
@@ -66,5 +86,7 @@ fn v1_advertise_fetch_second_and_collator_notified<S: CollatorSut>() {
 		Duration::from_millis(500),
 		"Effect::SendCollation CollationSeconded targeting the collator peer",
 	);
+	// `BENEFIT_NOTIFY_GOOD` is `BenefitMinor` → buffered (30s).
+	w.sim.advance(Duration::from_secs(31));
 	w.expect_rep(&peer, RepBucket::Benefit);
 }

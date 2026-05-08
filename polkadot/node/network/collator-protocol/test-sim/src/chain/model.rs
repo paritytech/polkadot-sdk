@@ -432,6 +432,23 @@ impl ChainModel {
 				// Default: return None (no upgrade pending).
 				let _ = tx.send(Ok(None));
 			},
+			RuntimeApiRequest::AncestorRelayParentInfo(_session, queried_relay_parent, tx) => {
+				// Return None if querying about self (a block isn't in its own
+				// `AllowedRelayParents`); otherwise return the queried block's RelayParentInfo
+				// when we know it. Other-session queries are disambiguated by the runtime;
+				// our chain model only has one session so we ignore the session arg.
+				let answer = if queried_relay_parent == parent {
+					None
+				} else {
+					self.blocks.get(&queried_relay_parent).map(|info| {
+						polkadot_primitives::vstaging::RelayParentInfo {
+							number: info.number,
+							state_root: Hash::zero(),
+						}
+					})
+				};
+				let _ = tx.send(Ok(answer));
+			},
 			other => panic!(
 				"ChainModel does not implement RuntimeApiRequest::{:?} yet — extend the model when a subsystem starts asking for it",
 				other

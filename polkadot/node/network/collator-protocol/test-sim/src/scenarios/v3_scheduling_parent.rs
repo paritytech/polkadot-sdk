@@ -42,14 +42,13 @@
 //! happen and the candidate is rejected; the `Effect::Reputation` bus event is missing.
 
 use crate::{
-	builders::{Candidate, ProtocolVersion::V3},
+	builders::ProtocolVersion::V3,
 	contract::{Effect, RepBucket},
 	harness::CollatorSut,
 	scenarios::shared::{
 		build_with_ancestors_world_with_config, ChainConfig,
 	},
 };
-use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateReceiptV2, CoreIndex, HeadData, Hash, Id as ParaId,
 	MutateDescriptorV2, PersistedValidationData, RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -60,27 +59,30 @@ use std::time::Duration;
 
 const PARA_A: ParaId = ParaId::new(2000);
 
-/// Capture the current wall-clock slot at test start. The framework's `MockClock` defaults
-/// to `Instant::now()` and the validator derives the relay-chain slot from that. Using
-/// this in test setup keeps `genesis_slot` aligned to the wall-clock timeline.
-fn current_wall_slot() -> Slot {
-	let now_ms = std::time::SystemTime::now()
-		.duration_since(std::time::UNIX_EPOCH)
-		.unwrap()
-		.as_millis() as u64;
-	Slot::from(now_ms / RELAY_CHAIN_SLOT_DURATION_MILLIS)
+/// Wall-clock slot the validator sees, given how many ms have elapsed on the MockClock.
+/// `MockClock::wall_clock_ms` starts at 0; `Sim::advance(d)` bumps it by `d.as_millis()`.
+/// Tests advance the clock by `target_slot * SLOT_DURATION` before issuing a V3
+/// advertisement so that validator's `current_slot` lands where the test expects.
+fn slot_to_wall_ms(slot: u64) -> Duration {
+	Duration::from_millis(slot * RELAY_CHAIN_SLOT_DURATION_MILLIS)
 }
 
-/// Stalled relay chain: leaf sits at slot 1 while wall-clock current slot is far ahead.
-/// V3 advertisement with `scheduling_parent = leaf` is rejected because `leaf.slot + 1 ≠
-/// current_slot`.
+/// Stalled relay chain: leaf at slot 1 (genesis_slot=0, +1 extend = leaf), validator's
+/// `current_slot` advanced to slot 10. V3 advertisement with `scheduling_parent = leaf` is
+/// rejected because `leaf.slot + 1 = 2 ≠ current_slot = 10`.
+///
+/// KNOWN-FAILING (experimental): per `project_collator_experimental_no_invalid_reputation_event.md` —
+/// rejection silent on the bus.
 #[crate::sim_test]
 fn v3_scheduling_parent_rejected_on_stalled_relay_chain<S: CollatorSut>() {
 	let config = ChainConfig::default()
 		.with_schedule(CoreIndex(0), crate::chain::CoreSchedule::always(PARA_A))
-		.with_genesis_slot(Slot::from(0)) // leaf will be at slot 1
+		.with_genesis_slot(Slot::from(0)) // leaf lands at slot 1
 		.with_v3_descriptors_enabled();
 	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+
+	// Walk the validator's current_slot far ahead of leaf.slot=1.
+	w.sim.advance(slot_to_wall_ms(10));
 
 	let pvd = PersistedValidationData {
 		parent_head: HeadData(Vec::new()),
@@ -101,13 +103,15 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain<S: CollatorSut>() {
 	w.advertise_v3(
 		&peer,
 		w.leaf(), // scheduling_parent = leaf
-		w.leaf(), // relay_parent = leaf
+		w.leaf(),
 		candidate_hash,
 		HeadData(Vec::new()).hash(),
 		CandidateDescriptorVersion::V3,
 	);
 
-	// Reputation::Performance — `COST_INVALID_SCHEDULING_PARENT` is in the Performance bucket.
+	// `COST_INVALID_SCHEDULING_PARENT` is `CostMinor` → `Performance` bucket; flushed
+	// via `ReputationAggregator` (30s interval).
+	w.sim.advance(Duration::from_secs(31));
 	let _ = w.sim.expect(
 		|e| matches!(
 			e,
@@ -117,8 +121,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain<S: CollatorSut>() {
 		"Effect::Reputation Performance for V3 ad on stalled relay chain",
 	);
 
-	// And no fetch fires — the rejection is at the advertisement gate.
-	let _ = receipt;
+	// And no fetch fires — rejection at the advertisement gate.
 	w.sim.expect_count(
 		|e| matches!(e, Effect::SendRequest { .. }),
 		0,
@@ -126,23 +129,22 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain<S: CollatorSut>() {
 	);
 }
 
-/// In-progress slot: leaf is at the current wall-clock slot. V3 advertisement targeting the
-/// leaf's parent (the previous slot's block) as `scheduling_parent` is accepted; targeting
-/// the leaf itself is rejected.
+/// In-progress slot: leaf.slot == current_slot. V3 advertisement with
+/// `scheduling_parent = leaf-parent` (slot = current_slot - 1) is accepted.
+///
+/// Setup: `genesis_slot=0`, 1 ancestor + leaf so leaf.slot=2. Advance clock to slot 2.
 #[crate::sim_test]
 fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent<S: CollatorSut>() {
-	let target_slot = current_wall_slot();
-	// We want leaf at `target_slot`. With 1 ancestor + leaf the chain is genesis → R → L,
-	// and with the slot bumping by 1 per extend the leaf lands at `genesis_slot + 2`.
-	let genesis_slot = Slot::from(u64::from(target_slot).saturating_sub(2));
-
 	let config = ChainConfig::default()
 		.with_schedule(CoreIndex(0), crate::chain::CoreSchedule::always(PARA_A))
-		.with_genesis_slot(genesis_slot)
+		.with_genesis_slot(Slot::from(0))
 		.with_v3_descriptors_enabled();
 	let mut w = build_with_ancestors_world_with_config::<S>(1, config);
 
-	let parent = w.ancestors()[0]; // leaf's parent — slot = current_slot - 1
+	// leaf.slot = 2 (genesis 0 → ancestor 1 → leaf 2). Set current_slot = 2 (in-progress).
+	w.sim.advance(slot_to_wall_ms(2));
+
+	let parent = w.ancestors()[0]; // slot 1 = current_slot - 1
 
 	let pvd = PersistedValidationData {
 		parent_head: HeadData(Vec::new()),
@@ -162,7 +164,7 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent<S: CollatorSut>() {
 	let peer = w.declared_peer(PARA_A, V3);
 	w.advertise_v3(
 		&peer,
-		parent, // scheduling_parent = leaf-parent (in-progress slot's anchor)
+		parent, // scheduling_parent = leaf-parent (slot = current_slot - 1)
 		w.leaf(),
 		candidate_hash,
 		HeadData(Vec::new()).hash(),
@@ -176,5 +178,163 @@ fn v3_scheduling_parent_in_progress_slot_accepts_leaf_parent<S: CollatorSut>() {
 		),
 		Duration::from_millis(500),
 		"Effect::SendRequest CollationFetching for the V3 advertisement",
+	);
+}
+
+/// Finished slot: leaf.slot == current_slot - 1. V3 advertisement with
+/// `scheduling_parent = leaf` (the just-finished slot's anchor) is accepted.
+#[crate::sim_test]
+fn v3_scheduling_parent_finished_slot_accepts_leaf<S: CollatorSut>() {
+	let config = ChainConfig::default()
+		.with_schedule(CoreIndex(0), crate::chain::CoreSchedule::always(PARA_A))
+		.with_genesis_slot(Slot::from(0))
+		.with_v3_descriptors_enabled();
+	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+
+	// leaf.slot = 1 (genesis 0 → leaf 1). Set current_slot = 2: leaf.slot + 1 == current_slot.
+	w.sim.advance(slot_to_wall_ms(2));
+
+	let pvd = PersistedValidationData {
+		parent_head: HeadData(Vec::new()),
+		relay_parent_number: w.leaf_number(),
+		relay_parent_storage_root: Hash::zero(),
+		max_pov_size: 5 * 1024 * 1024,
+	};
+	// scheduling_parent = leaf. relay_parent = leaf.
+	let mut committed = dummy_committed_candidate_receipt_v3(w.leaf(), w.leaf());
+	committed.descriptor.set_para_id(PARA_A);
+	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	committed.descriptor.set_core_index(CoreIndex(0));
+	committed.descriptor.set_session_index(0);
+	committed.descriptor.set_version(1);
+	let receipt: CandidateReceiptV2 = committed.to_plain();
+	let candidate_hash = receipt.hash();
+
+	let peer = w.declared_peer(PARA_A, V3);
+	w.advertise_v3(
+		&peer,
+		w.leaf(), // scheduling_parent = leaf (just finished)
+		w.leaf(),
+		candidate_hash,
+		HeadData(Vec::new()).hash(),
+		CandidateDescriptorVersion::V3,
+	);
+
+	let _ = w.sim.expect(
+		|e| matches!(
+			e,
+			Effect::SendRequest { candidate_hash: Some(c), .. } if *c == candidate_hash,
+		),
+		Duration::from_millis(500),
+		"Effect::SendRequest CollationFetching for V3 ad on finished-slot leaf",
+	);
+}
+
+/// In-progress slot: targeting the leaf itself as scheduling_parent (instead of leaf-parent)
+/// is rejected.
+#[crate::sim_test]
+fn v3_scheduling_parent_in_progress_slot_rejects_leaf<S: CollatorSut>() {
+	let config = ChainConfig::default()
+		.with_schedule(CoreIndex(0), crate::chain::CoreSchedule::always(PARA_A))
+		.with_genesis_slot(Slot::from(0))
+		.with_v3_descriptors_enabled();
+	let mut w = build_with_ancestors_world_with_config::<S>(1, config);
+
+	// leaf.slot=2, current_slot=2 → in-progress. leaf as sched_parent invalid.
+	w.sim.advance(slot_to_wall_ms(2));
+
+	let pvd = PersistedValidationData {
+		parent_head: HeadData(Vec::new()),
+		relay_parent_number: w.leaf_number(),
+		relay_parent_storage_root: Hash::zero(),
+		max_pov_size: 5 * 1024 * 1024,
+	};
+	let mut committed = dummy_committed_candidate_receipt_v3(w.leaf(), w.leaf());
+	committed.descriptor.set_para_id(PARA_A);
+	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	committed.descriptor.set_core_index(CoreIndex(0));
+	committed.descriptor.set_session_index(0);
+	committed.descriptor.set_version(1);
+	let receipt: CandidateReceiptV2 = committed.to_plain();
+	let candidate_hash = receipt.hash();
+
+	let peer = w.declared_peer(PARA_A, V3);
+	w.advertise_v3(
+		&peer,
+		w.leaf(), // sched_parent = leaf (slot 2 = current_slot, NOT current_slot - 1)
+		w.leaf(),
+		candidate_hash,
+		HeadData(Vec::new()).hash(),
+		CandidateDescriptorVersion::V3,
+	);
+
+	w.sim.advance(Duration::from_secs(31));
+	let _ = w.sim.expect(
+		|e| matches!(
+			e,
+			Effect::Reputation { peer: p, bucket: RepBucket::Performance } if *p == peer.peer_id,
+		),
+		Duration::from_millis(500),
+		"Effect::Reputation Performance for V3 in-progress with leaf as sched_parent",
+	);
+	w.sim.expect_count(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		0,
+		"SendRequest after V3 in-progress leaf-as-sched rejection (must be zero)",
+	);
+}
+
+/// Finished slot: targeting leaf-parent as sched_parent is rejected. Valid is `leaf`.
+#[crate::sim_test]
+fn v3_scheduling_parent_finished_slot_rejects_parent<S: CollatorSut>() {
+	let config = ChainConfig::default()
+		.with_schedule(CoreIndex(0), crate::chain::CoreSchedule::always(PARA_A))
+		.with_genesis_slot(Slot::from(0))
+		.with_v3_descriptors_enabled();
+	let mut w = build_with_ancestors_world_with_config::<S>(1, config);
+
+	// leaf.slot=2, current_slot=3 → finished. Valid sched_parent = leaf.
+	w.sim.advance(slot_to_wall_ms(3));
+
+	let parent = w.ancestors()[0];
+
+	let pvd = PersistedValidationData {
+		parent_head: HeadData(Vec::new()),
+		relay_parent_number: w.leaf_number(),
+		relay_parent_storage_root: Hash::zero(),
+		max_pov_size: 5 * 1024 * 1024,
+	};
+	let mut committed = dummy_committed_candidate_receipt_v3(w.leaf(), parent);
+	committed.descriptor.set_para_id(PARA_A);
+	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	committed.descriptor.set_core_index(CoreIndex(0));
+	committed.descriptor.set_session_index(0);
+	committed.descriptor.set_version(1);
+	let receipt: CandidateReceiptV2 = committed.to_plain();
+	let candidate_hash = receipt.hash();
+
+	let peer = w.declared_peer(PARA_A, V3);
+	w.advertise_v3(
+		&peer,
+		parent, // sched_parent = leaf-parent (invalid for finished slot)
+		w.leaf(),
+		candidate_hash,
+		HeadData(Vec::new()).hash(),
+		CandidateDescriptorVersion::V3,
+	);
+
+	w.sim.advance(Duration::from_secs(31));
+	let _ = w.sim.expect(
+		|e| matches!(
+			e,
+			Effect::Reputation { peer: p, bucket: RepBucket::Performance } if *p == peer.peer_id,
+		),
+		Duration::from_millis(500),
+		"Effect::Reputation Performance for V3 finished-slot with parent as sched_parent",
+	);
+	w.sim.expect_count(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		0,
+		"SendRequest after V3 finished-slot parent-as-sched rejection (must be zero)",
 	);
 }
