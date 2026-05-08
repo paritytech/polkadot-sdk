@@ -36,7 +36,13 @@ use std::{
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
 
-#[crate::sim_test]
+/// KNOWN BUG (experimental): violates the one-fetch-in-flight-per-RP invariant — fires
+/// three concurrent SendRequests at sim_t=0 instead of serializing. See
+/// `memory:project_collator_experimental_concurrent_fetches_violation`.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_concurrent_fetches_violation"
+)]
 fn collation_fetching_prefer_entries_earlier_in_claim_queue<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));

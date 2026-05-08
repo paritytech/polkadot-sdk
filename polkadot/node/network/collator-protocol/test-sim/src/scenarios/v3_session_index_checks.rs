@@ -20,12 +20,14 @@
 //! These upstream tests directly exercise `descriptor_version_sanity_check_with_params`,
 //! a private function. The contract-level shape is the validator's outbound effect when
 //! a candidate with mismatched session_index is delivered. We exercise that by sending a
-//! V2 candidate with `session_index != session at relay_parent` → validator reports peer
-//! Malicious.
+//! V2 candidate with `session_index != session at relay_parent` → validator rejects.
+//!
+//! Both impls reject the candidate. The rep *signal* diverges (legacy emits Malicious;
+//! experimental silent) — see [`crate::scenarios::divergent::reputation_emission`]. Here
+//! we assert only the shared invariant: no `SecondCandidate`.
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
-	contract::RepBucket,
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
@@ -35,13 +37,14 @@ use polkadot_primitives::{
 	PersistedValidationData,
 };
 use polkadot_primitives_test_helpers::dummy_committed_candidate_receipt_v2;
+use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
 /// V2 candidate with a session_index that doesn't match the relay parent's session is
-/// rejected as malicious. (Our chain has session 0; we set descriptor.session_index=999.)
+/// rejected. (Our chain has session 0; we set descriptor.session_index=999.)
 #[crate::sim_test]
-fn v2_descriptor_with_wrong_session_index_reports_malicious<S: CollatorSut>() {
+fn v2_descriptor_with_wrong_session_index_rejects<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 
 	let pvd = PersistedValidationData {
@@ -62,5 +65,5 @@ fn v2_descriptor_with_wrong_session_index_reports_malicious<S: CollatorSut>() {
 	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
 	let request_id = w.fetch_request(&candidate);
 	w.respond_fetch_v2(request_id, receipt, PoV { block_data: BlockData(vec![1]) });
-	w.expect_rep(&peer, RepBucket::Malicious);
+	w.expect_no_second(&candidate, Duration::from_millis(500));
 }

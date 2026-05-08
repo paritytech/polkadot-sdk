@@ -18,30 +18,37 @@
 //!
 //! Each scenario advertises legitimately, lets the validator fetch, then delivers a
 //! response that violates one of the response-side invariants. The validator must
-//! reject and report the peer Malicious.
+//! reject the candidate (i.e. **never** emit a `SecondCandidate` for it).
 //!
-//! * [`response_with_mismatched_candidate_hash_reports_malicious`] — receipt's hash differs
-//!   from the advertised hash.
-//! * [`response_with_wrong_parent_head_data_reports_malicious`] — `parent_head_data` in a
+//! * [`response_with_mismatched_candidate_hash_rejects`] — receipt's hash differs from
+//!   the advertised hash.
+//! * [`response_with_wrong_parent_head_data_rejects`] — `parent_head_data` in a
 //!   `CollationWithParentHeadData` response hashes to something different from what was
 //!   advertised.
-//! * [`v2_descriptor_with_invalid_core_index_reports_malicious`] — descriptor's core_index
-//!   is out of range for the validator's assignment.
-//! * [`v3_candidate_via_v2_protocol_reports_malicious`] — receipt is a V3 descriptor
-//!   delivered over a V2 protocol connection.
+//! * [`v2_descriptor_with_invalid_core_index_rejects`] — descriptor's core_index is out
+//!   of range for the validator's assignment.
+//! * [`v3_candidate_via_v2_protocol_rejects`] / `..._v1_protocol_rejects` — V3 descriptor
+//!   delivered over a V1/V2 protocol connection.
+//! * `crafted_unknown_descriptor_via_v{1,2}_protocol_rejects` — descriptor with version
+//!   byte forced to an Unknown variant.
 //!
-//! All four KNOWN-FAIL on experimental: per
-//! `project_collator_experimental_no_invalid_reputation_event.md`, experimental updates
-//! its persistent reputation store directly rather than emitting a `Reputation::Malicious`
-//! bus event. The validation does happen and the candidate is rejected — only the
-//! observable Effect is missing.
+//! Both impls reject the candidate (no `SecondCandidate` emitted). The *signal* of
+//! rejection diverges — legacy emits `Reputation::Malicious` on the bus, experimental
+//! updates a persistent store silently — but that divergence is documented and tested
+//! once in [`crate::scenarios::divergent::reputation_emission`]. These regression
+//! scenarios assert only the shared invariant: the bad candidate is not seconded.
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
-	contract::RepBucket,
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
+use std::time::Duration;
+
+/// Window for the "candidate not seconded" assertion. Long enough that a working impl
+/// would have already dispatched the bad-response detection and short enough not to
+/// stall the suite; both impls land well under this.
+const NO_SECOND_WINDOW: Duration = Duration::from_millis(500);
 use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2, CoreIndex, HeadData, Hash, Id as ParaId,
 	MutateDescriptorV2, PersistedValidationData,
@@ -86,7 +93,7 @@ where
 }
 
 #[crate::sim_test]
-fn response_with_mismatched_candidate_hash_reports_malicious<S: CollatorSut>() {
+fn response_with_mismatched_candidate_hash_rejects<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
 	let pvd = empty_parent_pvd(w.leaf_number());
 	let mut actual = Candidate::for_para_at(PARA_A, w.leaf());
@@ -101,11 +108,11 @@ fn response_with_mismatched_candidate_hash_reports_malicious<S: CollatorSut>() {
 
 	let request_id = w.expect_fetch_for_hash(advertised_hash);
 	w.respond_fetch_v2(request_id, actual.receipt.clone(), Candidate::empty_pov());
-	w.expect_rep(&peer, RepBucket::Malicious);
+	w.expect_no_second(&actual, NO_SECOND_WINDOW);
 }
 
 #[crate::sim_test]
-fn response_with_wrong_parent_head_data_reports_malicious<S: CollatorSut>() {
+fn response_with_wrong_parent_head_data_rejects<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
 	let pvd = empty_parent_pvd(w.leaf_number());
 	let mut candidate = Candidate::for_para_at(PARA_A, w.leaf());
@@ -126,13 +133,13 @@ fn response_with_wrong_parent_head_data_reports_malicious<S: CollatorSut>() {
 		wrong_parent_head,
 	);
 
-	w.expect_rep(&peer, RepBucket::Malicious);
+	w.expect_no_second(&candidate, NO_SECOND_WINDOW);
 }
 
 #[crate::sim_test]
-fn v2_descriptor_with_invalid_core_index_reports_malicious<S: CollatorSut>() {
+fn v2_descriptor_with_invalid_core_index_rejects<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
-	// Para is assigned to core 0; out-of-range core 10 → rejected as malicious.
+	// Para is assigned to core 0; out-of-range core 10 → rejected.
 	let (receipt, candidate) = build_descriptor_with(&w, |c| {
 		c.descriptor.set_core_index(CoreIndex(10));
 	});
@@ -140,15 +147,15 @@ fn v2_descriptor_with_invalid_core_index_reports_malicious<S: CollatorSut>() {
 	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
 	let request_id = w.fetch_request(&candidate);
 	w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
-	w.expect_rep(&peer, RepBucket::Malicious);
+	w.expect_no_second(&candidate, NO_SECOND_WINDOW);
 }
 
 /// Mirrors the second arm of upstream `invalid_v2_descriptor`: core_index=0 is fine but
-/// the descriptor's session_index is wrong → rejected as malicious. (Distinct from
-/// `v3_session_index_checks::v2_descriptor_with_wrong_session_index_reports_malicious`
-/// only by which leg of the upstream rstest it tracks; both probe the same gate.)
+/// the descriptor's session_index is wrong → rejected. (Distinct from
+/// `v3_session_index_checks::v2_descriptor_with_wrong_session_index_rejects` only by
+/// which leg of the upstream rstest it tracks; both probe the same gate.)
 #[crate::sim_test]
-fn v2_descriptor_with_invalid_session_index_reports_malicious<S: CollatorSut>() {
+fn v2_descriptor_with_invalid_session_index_rejects<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
 	let (receipt, candidate) = build_descriptor_with(&w, |c| {
 		c.descriptor.set_session_index(10); // chain has session 0
@@ -157,11 +164,11 @@ fn v2_descriptor_with_invalid_session_index_reports_malicious<S: CollatorSut>() 
 	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
 	let request_id = w.fetch_request(&candidate);
 	w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
-	w.expect_rep(&peer, RepBucket::Malicious);
+	w.expect_no_second(&candidate, NO_SECOND_WINDOW);
 }
 
 #[crate::sim_test]
-fn v3_candidate_via_v2_protocol_reports_malicious<S: CollatorSut>() {
+fn v3_candidate_via_v2_protocol_rejects<S: CollatorSut>() {
 	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
 		ProtocolKind::V2,
 		/* crafted_unknown */ false,
@@ -169,7 +176,7 @@ fn v3_candidate_via_v2_protocol_reports_malicious<S: CollatorSut>() {
 }
 
 #[crate::sim_test]
-fn v3_candidate_via_v1_protocol_reports_malicious<S: CollatorSut>() {
+fn v3_candidate_via_v1_protocol_rejects<S: CollatorSut>() {
 	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
 		ProtocolKind::V1,
 		/* crafted_unknown */ false,
@@ -177,7 +184,7 @@ fn v3_candidate_via_v1_protocol_reports_malicious<S: CollatorSut>() {
 }
 
 #[crate::sim_test]
-fn crafted_unknown_descriptor_via_v2_protocol_reports_malicious<S: CollatorSut>() {
+fn crafted_unknown_descriptor_via_v2_protocol_rejects<S: CollatorSut>() {
 	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
 		ProtocolKind::V2,
 		/* crafted_unknown */ true,
@@ -185,7 +192,7 @@ fn crafted_unknown_descriptor_via_v2_protocol_reports_malicious<S: CollatorSut>(
 }
 
 #[crate::sim_test]
-fn crafted_unknown_descriptor_via_v1_protocol_reports_malicious<S: CollatorSut>() {
+fn crafted_unknown_descriptor_via_v1_protocol_rejects<S: CollatorSut>() {
 	v3_descriptor_rejected_on_wrong_protocol_helper::<S>(
 		ProtocolKind::V1,
 		/* crafted_unknown */ true,
@@ -200,7 +207,7 @@ enum ProtocolKind {
 
 /// Helper for the 4-case rstest above. Builds a V3 (or crafted-unknown via
 /// `set_version(2)`) candidate, advertises over V1 or V2, responds with the matching
-/// fetch flavour. Validator must report Malicious in all cases.
+/// fetch flavour. Validator must reject (no `SecondCandidate`) in all cases.
 fn v3_descriptor_rejected_on_wrong_protocol_helper<S: CollatorSut>(
 	wire: ProtocolKind,
 	crafted_unknown: bool,
@@ -240,5 +247,5 @@ fn v3_descriptor_rejected_on_wrong_protocol_helper<S: CollatorSut>(
 			w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
 		},
 	}
-	w.expect_rep(&peer, RepBucket::Malicious);
+	w.expect_no_second(&candidate, NO_SECOND_WINDOW);
 }

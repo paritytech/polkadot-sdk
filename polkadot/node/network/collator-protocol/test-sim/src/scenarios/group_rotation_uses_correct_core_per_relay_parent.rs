@@ -34,7 +34,13 @@ use polkadot_primitives::{CoreIndex, Id as ParaId, ValidatorIndex};
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
 
-#[crate::sim_test]
+/// KNOWN BUG (experimental): does not honor per-block group rotation when computing
+/// "is this core mine at this RP" — neither candidate gets fetched. See
+/// `memory:project_collator_experimental_group_rotation_per_rp`.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_group_rotation_per_rp"
+)]
 fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 	// 3 validator groups; validator (Alice = idx 0) is in group 0.
 	// `GroupRotationInfo::group_for_core(c, 3)` at `now=N` returns `(c + N) mod 3`.

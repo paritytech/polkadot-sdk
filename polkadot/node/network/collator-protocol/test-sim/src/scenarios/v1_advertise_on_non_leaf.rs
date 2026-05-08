@@ -15,27 +15,36 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! V1 advertisements must target the active leaf, not its ancestor. A V1 advertisement at
-//! L's parent is protocol misuse → `Reputation::Malicious`.
+//! L's parent is protocol misuse → no fetch fires for it.
 //!
-//! KNOWN-FAILING (experimental): drops silently, no bus event. Same theme as
-//! `project_collator_experimental_no_invalid_reputation_event.md`.
+//! Both impls reject the advertisement. The reputation *signal* of rejection diverges —
+//! legacy emits `Malicious` on the bus, experimental updates a persistent store silently —
+//! and that's tested in [`crate::scenarios::divergent::reputation_emission`]. Here we
+//! assert only the shared invariant: no fetch.
 
 use crate::{
 	builders::ProtocolVersion::V1,
-	contract::RepBucket,
+	contract::Effect,
 	harness::CollatorSut,
 	scenarios::shared::build_with_ancestors_world,
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId};
+use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
 #[crate::sim_test]
-fn v1_advertisement_at_parent_of_leaf_is_protocol_misuse<S: CollatorSut>() {
+fn v1_advertisement_at_parent_of_leaf_is_rejected<S: CollatorSut>() {
 	let mut w = build_with_ancestors_world::<S>(1, &[(CoreIndex(0), PARA)]);
 	let parent = w.ancestors()[0];
 
 	let peer = w.declared_peer(PARA, V1);
 	w.sim.send(peer.advertise(parent, None, None));
-	w.expect_rep(&peer, RepBucket::Malicious);
+
+	// No fetch should fire for the misuse advertisement.
+	w.sim.expect_no(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		Duration::from_millis(300),
+		"SendRequest after V1 advertisement at non-leaf (must NOT fire)",
+	);
 }

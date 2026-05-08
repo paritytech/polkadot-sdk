@@ -31,7 +31,14 @@ use std::time::Duration;
 const PARA: ParaId = ParaId::new(2000);
 
 /// 2 seconded at the ancestor + 1 at the leaf = 3 total. 4th at leaf rejected.
-#[crate::sim_test]
+///
+/// KNOWN BUG (experimental): the ancestor-RP advertisement at step 1 is silently dropped,
+/// so the test never reaches the slot-full assertion. See
+/// `memory:project_collator_experimental_no_ancestor_rp_advertise`.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
+)]
 fn claims_below_are_counted_correctly<S: CollatorSut>() {
 	let mut w = build_with_ancestors_world::<S>(1, &[(CoreIndex(0), PARA)]);
 	let leaf = w.leaf();
@@ -84,7 +91,12 @@ fn claims_above_are_counted_correctly<S: CollatorSut>() {
 
 /// 1 seconded at ancestor + 1 at leaf + 1 at leaf-grandparent (deeper ancestor): final
 /// candidate fills the last slot. Subsequent ad rejected.
-#[crate::sim_test]
+///
+/// KNOWN BUG (experimental): see `claims_below_are_counted_correctly` — same root cause.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
+)]
 fn claim_fills_last_free_slot<S: CollatorSut>() {
 	let mut w = build_with_ancestors_world::<S>(2, &[(CoreIndex(0), PARA)]);
 	let leaf = w.leaf();

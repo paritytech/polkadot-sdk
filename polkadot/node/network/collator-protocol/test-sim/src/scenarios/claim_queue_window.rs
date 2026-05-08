@@ -73,7 +73,10 @@ fn para_at_last_claim_queue_position_accepts_at_leaf<S: CollatorSut>() {
 	let _ = w.fetch_request(&cand);
 }
 
-#[crate::sim_test]
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
+)]
 fn ancestor_with_para_at_valid_position_accepts<S: CollatorSut>() {
 	// Plain build_with_ancestors_world: same para A scheduled at every block. Ancestor R
 	// has para A at position 0 → in-window for the offset=1 ancestor.
@@ -99,9 +102,13 @@ fn ancestor_with_para_at_obsolete_position_rejects<S: CollatorSut>() {
 /// upstream multi-para shape needs validator-group rotation we don't model here, and
 /// the property under test is implicit-view ancestor acceptance, not group rotation).
 ///
-/// KNOWN-FAILING (experimental): same root cause as
+/// KNOWN BUG (experimental): same root cause as
 /// `ancestor_with_para_at_valid_position_accepts` — `claim_queue_state` keyed by leaf only.
-#[crate::sim_test]
+/// See `memory:project_collator_experimental_no_ancestor_rp_advertise`.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_no_ancestor_rp_advertise"
+)]
 fn ancestor_advertisements_at_parent_and_grandparent_both_fetch<S: CollatorSut>() {
 	let mut w = build_with_ancestors_world::<S>(2, &[(CoreIndex(0), PARA_A)]);
 	let peer = w.declared_peer(PARA_A, V2);

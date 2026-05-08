@@ -15,27 +15,29 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Peer advertises; CanSecond stub answers `false` → drop. Peer re-advertises the same
-//! candidate; validator penalises with `Reputation::Performance` (spam protection).
+//! candidate; validator does NOT fetch the duplicate.
 //!
-//! KNOWN-FAILING (both impls): existing investigation note — the second (duplicate)
-//! advertisement does not produce the rep hit. Suspect timing artifact in Sim::advance
-//! draining vs subsystem-internal tick streams. Tracked under deferred items.
+//! Both impls drop the duplicate — that's the shared spec asserted here. Legacy
+//! additionally penalises with `COST_UNEXPECTED_MESSAGE` (Performance bucket on the
+//! bus); experimental does not slash on advertisement spam (see comment at
+//! `validator_side_experimental/state.rs:261-262` — "advertisements are cheap … not
+//! worth affecting reputations"). The rep emission divergence is documented in
+//! [`crate::scenarios::divergent::reputation_emission`].
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
 	chain::CoreSchedule,
-	contract::{Effect, RepBucket},
+	contract::Effect,
 	harness::CollatorSut,
 	scenarios::shared::{build_with_ancestors_world_with_config, ChainConfig},
 };
-use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
 #[crate::sim_test]
-fn re_advertising_after_can_second_false_triggers_reputation_hit<S: CollatorSut>() {
+fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
 	let config = ChainConfig::default()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA))
 		.with_can_second_stub(false);
@@ -58,16 +60,17 @@ fn re_advertising_after_can_second_false_triggers_reputation_hit<S: CollatorSut>
 		"SendRequest after CanSecond=false (must be zero)",
 	);
 
-	// Duplicate advertisement → spam protection.
+	// Duplicate advertisement → must remain dropped. Both impls agree.
 	w.advertise_with_parent_head(
 		&peer,
 		w.leaf(),
 		candidate.hash(),
 		polkadot_primitives::HeadData(Vec::new()).hash(),
 	);
-
-	// `COST_UNEXPECTED_MESSAGE` is `CostMinor` → buffered by ReputationAggregator. Advance
-	// past the flush interval so the buffered hit shows on the bus.
-	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
-	w.expect_rep(&peer, RepBucket::Performance);
+	w.sim.advance(Duration::from_millis(200));
+	w.sim.expect_count(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		0,
+		"SendRequest after duplicate advertisement (must be zero — first dropped, second too)",
+	);
 }

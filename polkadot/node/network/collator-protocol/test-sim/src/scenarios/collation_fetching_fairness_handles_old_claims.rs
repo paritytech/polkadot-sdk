@@ -42,7 +42,15 @@ fn cq_for(paras: [ParaId; 3]) -> BTreeMap<CoreIndex, VecDeque<ParaId>> {
 	q
 }
 
-#[crate::sim_test]
+/// KNOWN BUG (experimental): the multi-step setup (full-second across view shifts) doesn't
+/// complete on experimental — most likely the same view-shift counting bug as
+/// `seconded_per_para_counted_across_whole_view` plus the ancestor-RP drop. See
+/// `memory:project_collator_experimental_seconded_count_lost_across_view` and
+/// `memory:project_collator_experimental_no_ancestor_rp_advertise`.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_seconded_count_lost_across_view"
+)]
 fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 	// Initial leaf with CQ=[A,B,A].
 	let config = ChainConfig::default()

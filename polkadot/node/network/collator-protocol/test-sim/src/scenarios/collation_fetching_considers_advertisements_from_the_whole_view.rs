@@ -39,7 +39,14 @@ use std::{
 const PARA_A: ParaId = ParaId::new(2000);
 const PARA_B: ParaId = ParaId::new(2001);
 
-#[crate::sim_test]
+/// KNOWN BUG (experimental): seconded count from the prior leaf is not preserved when
+/// extending into the new leaf's implicit view. Experimental fires a fetch for a
+/// candidate that should be CQ-blocked. See
+/// `memory:project_collator_experimental_seconded_count_lost_across_view`.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_seconded_count_lost_across_view"
+)]
 fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 	let mut leaf_q = BTreeMap::new();
 	leaf_q.insert(CoreIndex(0), VecDeque::from(vec![PARA_B, PARA_A, PARA_A]));

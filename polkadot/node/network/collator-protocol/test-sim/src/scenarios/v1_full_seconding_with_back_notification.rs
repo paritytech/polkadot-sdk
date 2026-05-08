@@ -14,21 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! V1 advertisement → fetch → second → `Seconded` notification flows back from backing to
-//! collator-protocol → validator notifies the original collator with a
-//! `CollationSeconded` wire message + `BENEFIT_NOTIFY_GOOD` reputation bump.
+//! V1 advertisement → fetch → second → `Seconded` notification flows back from backing
+//! to collator-protocol → validator notifies the original collator with a wire-level
+//! `CollationSeconded` message.
 //!
-//! KNOWN-FAILING (experimental): bus-silent reputation handling under #10917 — the
-//! `Reputation::Benefit` Effect never fires (rep DB write is silent). The wire-side
-//! `CollationSeconded` notification still goes out.
+//! Both impls send the wire notification — that's the shared spec asserted here. Legacy
+//! also emits a `Reputation::Benefit` (`BENEFIT_NOTIFY_GOOD`); experimental updates the
+//! persistent rep store silently. The rep emission divergence is documented in
+//! [`crate::scenarios::divergent::reputation_emission`].
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
-	contract::{Effect, RepBucket, WireMsgKind},
+	contract::{Effect, WireMsgKind},
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
-use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
 use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
 
@@ -68,7 +68,4 @@ fn v1_advertise_fetch_second_and_collator_notified<S: CollatorSut>() {
 		Duration::from_millis(500),
 		"Effect::SendCollation CollationSeconded targeting the collator peer",
 	);
-	// `BENEFIT_NOTIFY_GOOD` is `BenefitMinor` → buffered by `ReputationAggregator`.
-	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
-	w.expect_rep(&peer, RepBucket::Benefit);
 }

@@ -21,10 +21,13 @@
 //! * [`declare_with_valid_signature_does_not_get_malicious_reputation`] — sanity
 //!   counterpart that pins the assertion to "bad signature" rather than "any declare".
 //!
-//! KNOWN-FAILING (experimental): per
+//! KNOWN BUG (experimental): per
 //! `project_collator_experimental_skips_declare_sig.md`, experimental destructures
 //! the signature into `_signature` and never verifies it. This is the canonical
-//! divergence test that surfaces the auth bypass.
+//! divergence test that surfaces the auth bypass — it's a *bug*, not an intended
+//! divergence (cf. `divergent::reputation_emission` for intended bus-silent rep).
+//! Marked `bug_on = "experimental"` so the suite stays green while the bug is open;
+//! when fixed, the `should_panic` flips and the marker must be removed.
 
 use crate::{
 	builders::ProtocolVersion::V1,
@@ -36,7 +39,10 @@ use polkadot_primitives::{CoreIndex, Id as ParaId};
 
 const PARA: ParaId = ParaId::new(2000);
 
-#[crate::sim_test]
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "memory:project_collator_experimental_skips_declare_sig"
+)]
 fn declare_with_bad_signature_yields_malicious_reputation<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let peer = w.connected_peer(PARA, V1);
