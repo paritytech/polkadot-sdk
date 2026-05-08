@@ -253,10 +253,17 @@ fn short_claim_queue_does_not_reject_ancestor_advertisements<S: CollatorSut>() {
 const PARA_X: ParaId = ParaId::new(100);
 const PARA_Y: ParaId = ParaId::new(200);
 
-/// Sibling forks: fork_a schedules PARA_X (default), fork_b schedules PARA_Y. Both peers
-/// stay connected while both forks are active.
-#[crate::sim_test]
+/// Sibling forks: fork_a schedules PARA_X (default), fork_b schedules PARA_Y. While
+/// both forks are active, both peers stay connected (assignments are the union).
+/// After dropping fork_b, peer_y must be disconnected (its para is no longer
+/// scheduled at any active leaf); peer_x stays.
+#[crate::sim_test(
+	bug_on = "experimental",
+	bug_url = "github:paritytech/polkadot-sdk#11967"
+)]
 fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
+	use polkadot_node_subsystem::messages::{CollatorProtocolMessage, NetworkBridgeEvent};
+
 	let config = ChainConfig::default()
 		.with_schedule(CoreIndex(0), CoreSchedule::always(PARA_X));
 	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
@@ -267,13 +274,25 @@ fn fork_assignments_are_union_of_leaves<S: CollatorSut>() {
 		q.insert(CoreIndex(0), VecDeque::from(vec![PARA_Y, PARA_Y, PARA_Y]));
 		chain.set_claim_queue_at(h, q);
 	});
-	let _ = fork_b;
 
 	let peer_x = w.declared_peer(PARA_X, V2);
 	let peer_y = w.declared_peer(PARA_Y, V2);
 
+	// Both forks active → assignments are the union → neither peer disconnected.
 	w.expect_no_disconnect(&peer_x, Duration::from_millis(200));
 	w.expect_no_disconnect(&peer_y, Duration::from_millis(200));
+
+	// Drop fork_b: send OurViewChange covering only fork_a.
+	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
+		NetworkBridgeEvent::OurViewChange(
+			polkadot_node_network_protocol::OurView::new(std::iter::once(fork_a), 0),
+		),
+	));
+	let _ = fork_b;
+
+	// peer_y disconnects (its para is no longer scheduled). peer_x stays.
+	w.expect_disconnect(&peer_y);
+	w.expect_no_disconnect(&peer_x, Duration::from_millis(200));
 }
 
 /// Capacity at a shared ancestor uses the longest-reachable window across forks.
@@ -359,9 +378,12 @@ fn fork_shared_sp_capacity_not_double_counted<S: CollatorSut>() {
 	);
 }
 
-/// Drop a fork and peers exclusive to that fork's para must disconnect. fork_a
-/// schedules PARA_X, fork_b schedules PARA_Y. peer_y declares Y. Drop fork_b →
-/// peer_y disconnects (its para no longer scheduled at any active leaf).
+/// Drop a fork while a fetch is in-flight on it: the in-flight fetch must be
+/// cancelled (response sender dropped on the wire) AND peers exclusive to that
+/// fork's para must disconnect. fork_a schedules PARA_X, fork_b schedules PARA_Y.
+/// peer_y declares Y, advertises a candidate at fork_b, validator launches a
+/// fetch (we don't respond). Drop fork_b → peer_y disconnects, fetch is
+/// cancelled (we observe via no second emitted within a settle window).
 #[crate::sim_test(
 	bug_on = "experimental",
 	bug_url = "github:paritytech/polkadot-sdk#11967"
@@ -382,13 +404,23 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 
 	let peer_y = w.declared_peer(PARA_Y, V2);
 
-	// Drop fork_b: send OurViewChange excluding it.
+	// Advertise on fork_b; validator launches a fetch — we hold the response.
+	let cand_y = w.candidate_at(fork_b).para(PARA_Y).build();
+	w.advertise_with_parent_head(&peer_y, fork_b, cand_y.hash(), cand_y.parent_head_hash());
+	let _req_id = w.fetch_request(&cand_y);
+
+	// Drop fork_b: send OurViewChange excluding it. The validator should:
+	// - cancel the in-flight fetch (no second emitted),
+	// - disconnect peer_y (its para no longer scheduled at any active leaf).
 	w.sim.send(CollatorProtocolMessage::NetworkBridgeUpdate(
 		NetworkBridgeEvent::OurViewChange(
 			polkadot_node_network_protocol::OurView::new(std::iter::once(fork_a), 0),
 		),
 	));
-	let _ = fork_b;
 
 	w.expect_disconnect(&peer_y);
+	// The pending fetch must NOT be seconded — fork_b is gone, the candidate
+	// can no longer land. Settle long enough that any erroneous second would
+	// have fired.
+	w.expect_no_second(&cand_y, Duration::from_millis(500));
 }
