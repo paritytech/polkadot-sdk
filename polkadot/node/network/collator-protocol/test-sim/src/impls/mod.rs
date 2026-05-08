@@ -23,4 +23,7 @@ pub mod experimental_validator;
 pub mod legacy_validator;
 
 pub use experimental_validator::ExperimentalValidator;
-pub use legacy_validator::LegacyValidator;
+pub use legacy_validator::{
+	reset_per_test_config as reset_legacy_per_test_config,
+	set_per_test_config as set_legacy_per_test_config, LegacyValidator, LegacyValidatorConfig,
+};

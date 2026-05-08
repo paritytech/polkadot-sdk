@@ -192,7 +192,9 @@ use collation::{
 };
 use error::{Error, FetchError, HoldOffError, Result, SecondingError};
 
-const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000); // Asset Hub's para id is 1000 on both Kusama and Polkadot.
+/// Asset Hub para id (1000 on both Kusama and Polkadot). Permissionless-collator
+/// protections in `kick_off_seconding` only kick in for this para.
+pub const ASSET_HUB_PARA_ID: ParaId = ParaId::new(1000);
 
 #[cfg(test)]
 mod tests;
@@ -263,11 +265,14 @@ pub const MAX_UNSHARED_DOWNLOAD_TIME: Duration = Duration::from_millis(100);
 #[cfg(test)]
 pub const ACTIVITY_POLL: Duration = Duration::from_millis(10);
 
-// How long to hold off AssetHub advertisements from permissionless collators.
+/// How long to hold off AssetHub advertisements from permissionless collators when no
+/// `collator_protocol_hold_off` override is supplied. Production: 300ms; test override
+/// is shorter so unit tests don't sit on a slow real-time clock.
 #[cfg(not(test))]
-const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
+pub const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(300);
+/// Test-only override of [`HOLD_OFF_DURATION_DEFAULT_VALUE`].
 #[cfg(test)]
-const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
+pub const HOLD_OFF_DURATION_DEFAULT_VALUE: Duration = Duration::from_millis(50);
 
 #[derive(Debug)]
 struct CollatingPeerState {
