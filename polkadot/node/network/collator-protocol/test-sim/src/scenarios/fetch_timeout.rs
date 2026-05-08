@@ -24,6 +24,7 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
+use polkadot_collator_protocol::validator_side_consts::MAX_UNSHARED_DOWNLOAD_TIME;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -55,7 +56,7 @@ fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
 	let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 
 	// Don't respond. Advance past the per-fetch deadline.
-	w.sim.advance(Duration::from_millis(500));
+	w.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
 
 	let _ = w.sim.expect(
 		|e| matches!(

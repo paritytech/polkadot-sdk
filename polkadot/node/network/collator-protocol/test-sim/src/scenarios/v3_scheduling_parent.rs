@@ -14,32 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! V3 scheduling-parent slot validation, plus the V3-via-V2-protocol sanity check.
+//! V3 scheduling-parent slot validation.
 //!
-//! **Status: KNOWN-FAILING (both impls).** With node-feature `CandidateReceiptV2 = 3`
-//! enabled and `peer.advertise_v3` in place, the V3 advertise still doesn't reach
-//! `try_accept_advertisement` — no effects observable in the test window. Suspects: V3
-//! peer connect/declare path requires further plumbing (e.g. genuine V3 declare framing,
-//! BABE-derived current slot from the chain's actual block timestamps rather than wall
-//! clock). Deferred for a later pass; the slot-control + descriptor-version + node-feature
-//! plumbing now exists, so the next pass should be confined to the V3 connect/declare
-//! handshake.
+//! Validator computes `current_slot` from `clock.timestamp_millis() / SLOT_DURATION` and
+//! accepts a V3 advertisement only when:
 //!
-//! Real validator computes `current_slot` from `clock.timestamp_millis() / SLOT_DURATION`
-//! and accepts a V3 advertisement only when:
-//!
-//! * `scheduling_parent` is a leaf with `leaf.slot == current_slot - 1` (a "finished" slot,
-//!   so the leaf is the previous slot's block), or
-//! * `scheduling_parent` is the parent of a leaf whose slot equals `current_slot` (the
-//!   leaf is in-progress, so its parent is the previous slot's anchor).
+//! * `scheduling_parent` is a leaf with `leaf.slot == current_slot - 1` (finished slot —
+//!   the leaf is the previous slot's block), or
+//! * `scheduling_parent` is the parent of a leaf whose slot equals `current_slot`
+//!   (in-progress — the leaf's parent anchors the previous slot).
 //!
 //! Each test below tunes `genesis_slot` so the leaf lands on a known offset relative to
-//! the framework's wall-clock-derived `current_slot`.
+//! the framework's `MockClock`-derived `current_slot`.
 //!
-//! All four tests KNOWN-FAIL on experimental for the same reason — bus-silent reputation
-//! handling under the persistent rep DB rewrite. See
-//! `project_collator_experimental_no_invalid_reputation_event.md`. The validation does
-//! happen and the candidate is rejected; the `Effect::Reputation` bus event is missing.
+//! KNOWN-FAILING on experimental for the same reason as the response-sanity-check
+//! family — bus-silent reputation handling under the persistent rep DB rewrite.
+//! See `project_collator_experimental_no_invalid_reputation_event.md`.
 
 use crate::{
 	builders::ProtocolVersion::V3,
@@ -49,6 +39,7 @@ use crate::{
 		build_with_ancestors_world_with_config, ChainConfig,
 	},
 };
+use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
 use polkadot_primitives::{
 	CandidateDescriptorVersion, CandidateReceiptV2, CoreIndex, HeadData, Hash, Id as ParaId,
 	MutateDescriptorV2, PersistedValidationData, RELAY_CHAIN_SLOT_DURATION_MILLIS,
@@ -111,7 +102,7 @@ fn v3_scheduling_parent_rejected_on_stalled_relay_chain<S: CollatorSut>() {
 
 	// `COST_INVALID_SCHEDULING_PARENT` is `CostMinor` → `Performance` bucket; flushed
 	// via `ReputationAggregator` (30s interval).
-	w.sim.advance(Duration::from_secs(31));
+	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
 	let _ = w.sim.expect(
 		|e| matches!(
 			e,
@@ -268,7 +259,7 @@ fn v3_scheduling_parent_in_progress_slot_rejects_leaf<S: CollatorSut>() {
 		CandidateDescriptorVersion::V3,
 	);
 
-	w.sim.advance(Duration::from_secs(31));
+	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
 	let _ = w.sim.expect(
 		|e| matches!(
 			e,
@@ -323,7 +314,7 @@ fn v3_scheduling_parent_finished_slot_rejects_parent<S: CollatorSut>() {
 		CandidateDescriptorVersion::V3,
 	);
 
-	w.sim.advance(Duration::from_secs(31));
+	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
 	let _ = w.sim.expect(
 		|e| matches!(
 			e,
@@ -336,5 +327,58 @@ fn v3_scheduling_parent_finished_slot_rejects_parent<S: CollatorSut>() {
 		|e| matches!(e, Effect::SendRequest { .. }),
 		0,
 		"SendRequest after V3 finished-slot parent-as-sched rejection (must be zero)",
+	);
+}
+
+/// `scheduling_parent` outside the implicit view's allowed ancestry → rejected with
+/// `COST_UNEXPECTED_MESSAGE` (Performance bucket).
+#[crate::sim_test]
+fn v3_scheduling_parent_outside_allowed_ancestry_rejected<S: CollatorSut>() {
+	let config = ChainConfig::default()
+		.with_schedule(CoreIndex(0), crate::chain::CoreSchedule::always(PARA_A))
+		.with_genesis_slot(Slot::from(0))
+		.with_v3_descriptors_enabled();
+	let mut w = build_with_ancestors_world_with_config::<S>(0, config);
+
+	let unknown_scheduling_parent = Hash::repeat_byte(0x99);
+
+	let pvd = PersistedValidationData {
+		parent_head: HeadData(Vec::new()),
+		relay_parent_number: w.leaf_number(),
+		relay_parent_storage_root: Hash::zero(),
+		max_pov_size: 5 * 1024 * 1024,
+	};
+	let mut committed = dummy_committed_candidate_receipt_v3(w.leaf(), w.leaf());
+	committed.descriptor.set_para_id(PARA_A);
+	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	committed.descriptor.set_core_index(CoreIndex(0));
+	committed.descriptor.set_session_index(0);
+	committed.descriptor.set_version(1);
+	let receipt: CandidateReceiptV2 = committed.to_plain();
+	let candidate_hash = receipt.hash();
+
+	let peer = w.declared_peer(PARA_A, V3);
+	w.advertise_v3(
+		&peer,
+		unknown_scheduling_parent,
+		w.leaf(),
+		candidate_hash,
+		HeadData(Vec::new()).hash(),
+		CandidateDescriptorVersion::V3,
+	);
+
+	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
+	let _ = w.sim.expect(
+		|e| matches!(
+			e,
+			Effect::Reputation { peer: p, bucket: RepBucket::Performance } if *p == peer.peer_id,
+		),
+		Duration::from_millis(500),
+		"Effect::Reputation Performance for V3 ad with unknown scheduling parent",
+	);
+	w.sim.expect_count(
+		|e| matches!(e, Effect::SendRequest { .. }),
+		0,
+		"SendRequest after V3 outside-ancestry rejection (must be zero)",
 	);
 }

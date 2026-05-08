@@ -28,6 +28,7 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::{build_with_ancestors_world_with_config, ChainConfig},
 };
+use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -65,7 +66,8 @@ fn re_advertising_after_can_second_false_triggers_reputation_hit<S: CollatorSut>
 		polkadot_primitives::HeadData(Vec::new()).hash(),
 	);
 
-	// `COST_UNEXPECTED_MESSAGE` is `CostMinor` → buffered by ReputationAggregator (30s).
-	w.sim.advance(Duration::from_secs(31));
+	// `COST_UNEXPECTED_MESSAGE` is `CostMinor` → buffered by ReputationAggregator. Advance
+	// past the flush interval so the buffered hit shows on the bus.
+	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
 	w.expect_rep(&peer, RepBucket::Performance);
 }

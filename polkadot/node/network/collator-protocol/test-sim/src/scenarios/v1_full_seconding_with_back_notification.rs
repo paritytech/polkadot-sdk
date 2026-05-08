@@ -32,6 +32,7 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
+use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -86,7 +87,7 @@ fn v1_advertise_fetch_second_and_collator_notified<S: CollatorSut>() {
 		Duration::from_millis(500),
 		"Effect::SendCollation CollationSeconded targeting the collator peer",
 	);
-	// `BENEFIT_NOTIFY_GOOD` is `BenefitMinor` → buffered (30s).
-	w.sim.advance(Duration::from_secs(31));
+	// `BENEFIT_NOTIFY_GOOD` is `BenefitMinor` → buffered by `ReputationAggregator`.
+	w.sim.advance(REPUTATION_CHANGE_INTERVAL + Duration::from_secs(1));
 	w.expect_rep(&peer, RepBucket::Benefit);
 }

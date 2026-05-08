@@ -25,6 +25,7 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
+use polkadot_collator_protocol::CollatorEvictionPolicy;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -35,8 +36,8 @@ fn declared_but_inactive_collator_evicted_after_window<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let peer = w.declared_peer(PARA, V1);
 
-	// Production CollatorEvictionPolicy::inactive_collator defaults to 24s; advance past it.
-	w.sim.advance(Duration::from_secs(25));
+	// Advance past the production `inactive_collator` window.
+	w.sim.advance(CollatorEvictionPolicy::default().inactive_collator + Duration::from_secs(1));
 
 	w.expect_disconnect(&peer);
 }

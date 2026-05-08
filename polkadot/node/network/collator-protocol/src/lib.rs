@@ -83,6 +83,18 @@ mod collator_side;
 mod validator_side;
 mod validator_side_experimental;
 
+/// Reputation costs and benefits applied by the validator side, plus the per-fetch
+/// timeout. Re-exported so the test-sim framework can pin assertions to the production
+/// values — change a constant here and tests that lock to it will fail loudly.
+pub mod validator_side_consts {
+	pub use super::validator_side::{
+		ACTIVITY_POLL, BENEFIT_NOTIFY_GOOD, COST_CORRUPTED_MESSAGE, COST_INVALID_SCHEDULING_PARENT,
+		COST_INVALID_SIGNATURE, COST_NETWORK_ERROR, COST_PROTOCOL_MISUSE, COST_REPORT_BAD,
+		COST_UNEXPECTED_MESSAGE, COST_UNNEEDED_COLLATOR, COST_WRONG_PARA,
+		MAX_UNSHARED_DOWNLOAD_TIME,
+	};
+}
+
 // TODO: move into validator_side_experimental once `validator_side` is retired
 mod validator_side_metrics;
 

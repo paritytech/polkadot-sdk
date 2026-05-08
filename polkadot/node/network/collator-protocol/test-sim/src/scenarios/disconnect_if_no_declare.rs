@@ -30,6 +30,7 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
+use polkadot_collator_protocol::CollatorEvictionPolicy;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
 
@@ -39,8 +40,8 @@ const PARA: ParaId = ParaId::new(2000);
 fn peer_disconnected_when_undeclared_window_elapses<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let peer = w.connected_peer(PARA, V1);
-	// Production CollatorEvictionPolicy::undeclared defaults to 1s. Advance ~1.5s to clear.
-	w.sim.advance(Duration::from_millis(1500));
+	// Advance past the production `undeclared` window.
+	w.sim.advance(CollatorEvictionPolicy::default().undeclared + Duration::from_millis(500));
 	w.expect_disconnect(&peer);
 }
 
@@ -48,5 +49,8 @@ fn peer_disconnected_when_undeclared_window_elapses<S: CollatorSut>() {
 fn declared_peer_not_disconnected_when_undeclared_window_elapses<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let peer = w.declared_peer(PARA, V1);
-	w.expect_no_disconnect(&peer, Duration::from_millis(1500));
+	w.expect_no_disconnect(
+		&peer,
+		CollatorEvictionPolicy::default().undeclared + Duration::from_millis(500),
+	);
 }

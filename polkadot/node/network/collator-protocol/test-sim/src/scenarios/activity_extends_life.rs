@@ -26,6 +26,7 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::build_multi_leaf_world,
 };
+use polkadot_collator_protocol::CollatorEvictionPolicy;
 use polkadot_node_network_protocol::peer_set::PeerSet;
 use polkadot_primitives::{CoreIndex, Id as ParaId};
 use std::time::Duration;
@@ -37,10 +38,11 @@ fn activity_keeps_peer_alive_then_disconnects_when_silent<S: CollatorSut>() {
 	let mut w = build_multi_leaf_world::<S>(3, &[(CoreIndex(0), PARA)]);
 	let peer = w.declared_peer(PARA, V1);
 
-	// Production CollatorEvictionPolicy::inactive_collator = 24s. Step in 16s chunks
-	// (~2/3 of the window) and advertise on a different leaf each step. Each advertisement
-	// should reset the activity timer.
-	let step = Duration::from_secs(16);
+	// Step in chunks ~2/3 of the production `inactive_collator` window so each advertise
+	// resets the activity timer before it would fire. After 3 steps the peer has been
+	// continuously advertising for ~2× the window — must NOT have been evicted yet.
+	let inactive = CollatorEvictionPolicy::default().inactive_collator;
+	let step = inactive * 2 / 3;
 	for i in 0..3 {
 		w.sim.advance(step);
 		w.sim.send(peer.advertise(w.leaves[i].hash, None, None));
@@ -55,7 +57,7 @@ fn activity_keeps_peer_alive_then_disconnects_when_silent<S: CollatorSut>() {
 		"DisconnectPeers targeting the actively-advertising peer (must be zero so far)",
 	);
 
-	// Fall silent. Advance well past the window.
-	w.sim.advance(Duration::from_secs(36));
+	// Fall silent — advance well past the window, peer must be disconnected now.
+	w.sim.advance(inactive + Duration::from_secs(1));
 	w.expect_disconnect(&peer);
 }
