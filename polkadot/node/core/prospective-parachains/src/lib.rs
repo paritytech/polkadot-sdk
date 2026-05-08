@@ -85,7 +85,7 @@ const RELAY_PARENT_INFO_CACHE_CAPACITY: u32 = 2400;
 /// LRU cache mapping `(leaf_session, relay_parent)` to runtime-reported relay parent info.
 type RelayParentInfoCache = LruMap<(SessionIndex, Hash), RuntimeRelayParentInfo<Hash, BlockNumber>>;
 
-/// Per-session cache for `SessionExecutionConfig.max_pov_size`
+/// Per-session cache for `SessionExecutionConfig.max_pov_size`.
 type SessionMaxPovSizeCache = LruMap<SessionIndex, Option<u32>>;
 const SESSION_MAX_POV_SIZE_CACHE_CAPACITY: u32 = 4;
 

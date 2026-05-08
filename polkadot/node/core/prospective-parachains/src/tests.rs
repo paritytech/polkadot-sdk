@@ -504,15 +504,25 @@ async fn handle_potential_relay_parent_info_calls<T>(
 			msg = virtual_overseer.recv().fuse() => {
 				// `answer_prospective_validation_data_request` queries
 				// `SessionExecutionConfig` for per-session `max_pov_size` (relay-parent
-				// session). Default tests exercise the pre-v17 fallback path — respond
-				// with `NotSupported` so the subsystem falls back to the scheduling
-				// session's `base_constraints.max_pov_size`.
+				// session). Gate the response based on test_state.runtime_api_version.
 				if let AllMessages::RuntimeApi(RuntimeApiMessage::Request(
 					_,
 					RuntimeApiRequest::SessionExecutionConfig(_, tx),
 				)) = msg
 				{
-					tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
+					if test_state.runtime_api_version <
+						RuntimeApiRequest::SESSION_EXECUTION_CONFIG_RUNTIME_REQUIREMENT
+					{
+						// Pre-v17 fallback path — respond with `NotSupported` so the subsystem
+						// falls back to the scheduling session's `base_constraints.max_pov_size`.
+						tx.send(Err(RUNTIME_API_NOT_SUPPORTED)).unwrap();
+					} else {
+						// v17+ path — respond with config containing the test's MAX_POV_SIZE.
+						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
+							max_pov_size: MAX_POV_SIZE,
+						})))
+						.unwrap();
+					}
 					continue;
 				}
 				handle_fetch_relay_parent_info_message(
@@ -3555,7 +3565,6 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 					{
 						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
 							max_pov_size: MAX_POV_SIZE,
-							validation_code_bomb_limit: 0,
 						})))
 						.unwrap();
 						continue;
@@ -3675,7 +3684,6 @@ fn get_pvd_uses_relay_parent_session_max_pov_size_on_v17() {
 						);
 						tx.send(Ok(Some(polkadot_primitives::vstaging::SessionExecutionConfig {
 							max_pov_size: RELAY_PARENT_SESSION_MAX_POV_SIZE,
-							validation_code_bomb_limit: 0,
 						})))
 						.unwrap();
 						continue;
