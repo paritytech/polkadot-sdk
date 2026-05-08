@@ -38,14 +38,18 @@ const SUBSCRIPTION_BUFFER_SIZE: usize = 128;
 
 /// Maximum number of active filters attached to one statement subscription
 pub const MAX_FILTERS_PER_SUBSCRIPTION: usize = 128;
+const REPLAY_CHUNK_RAW_BYTES: usize = 4 * 1024 * 1024;
+const PENDING_REPLAYS_HARD_CAP: usize = MAX_FILTERS_PER_SUBSCRIPTION;
+const PENDING_LIVE_HARD_CAP: usize = 64 * 1024;
+const EMITTED_VIA_NEW_HARD_CAP: usize = 64 * 1024;
 
 use futures::{Stream, StreamExt};
 use itertools::Itertools;
-use parking_lot::{Mutex, RwLock};
+use parking_lot::Mutex;
 
-use crate::LOG_TARGET;
+use crate::{Store, LOG_TARGET};
 use sc_utils::id_sequence::SeqID;
-use sp_core::{traits::SpawnNamed, Bytes, Decode, Encode};
+use sp_core::{traits::SpawnNamed, Bytes, Encode};
 pub use sp_statement_store::StatementStore;
 use sp_statement_store::{
 	FilterId, LiveStatementEvent, OptimizedTopicFilter, Result, Statement, StatementEvent, Topic,
@@ -54,7 +58,9 @@ use sp_statement_store::{
 use std::{
 	collections::{hash_map::Entry, HashMap, HashSet, VecDeque},
 	sync::{atomic::AtomicU64, Arc},
+	task::Poll,
 };
+use tokio::sync::mpsc;
 
 /// Error returned when attaching a filter to a multi-filter subscription fails
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -103,78 +109,297 @@ pub trait StatementStoreSubscriptionApi: Send + Sync {
 	) -> Result<(Vec<Vec<u8>>, async_channel::Sender<StatementEvent>, SubscriptionStatementsStream)>;
 }
 
-/// Provides an atomic snapshot plus filter registration hook for [`SubscriptionHandle`]
-pub trait AtomicSnapshotProvider: Send + Sync {
-	fn add_filter_atomically(
-		&self,
-		filter: &OptimizedTopicFilter,
-		register: &mut dyn FnMut(),
-	) -> Result<Vec<Vec<u8>>>;
-}
-
 /// Creates multi-filter subscriptions for the RPC module
 pub trait MultiFilterSubscriptionApi: Send + Sync {
+	/// Creates an empty subscription that can receive filters dynamically
 	fn create_subscription(&self) -> (SubscriptionHandle, LiveEventStream);
 }
 
 /// A handle that attaches, removes, and inspects filters for one multi-filter subscription
 #[derive(Clone)]
 pub struct SubscriptionHandle {
-	pub(crate) filters: Arc<RwLock<HashMap<FilterId, OptimizedTopicFilter>>>,
+	pub(crate) sub_id: SeqID,
+	pub(crate) state: Arc<Mutex<MultiFilterSubscriptionState>>,
 	pub(crate) next_filter_id: Arc<AtomicU64>,
-	pub(crate) snapshot_provider: Arc<dyn AtomicSnapshotProvider>,
+	pub(crate) store: Arc<Store>,
+	pub(crate) matchers: SubscriptionsMatchersHandlers,
+	pub(crate) wake_tx: mpsc::UnboundedSender<()>,
 	pub(crate) add_filter_lock: Arc<Mutex<()>>,
 }
 
 impl SubscriptionHandle {
-	/// Attaches a filter and returns its id with the replay snapshot
+	/// Attaches a filter and returns its id
 	pub fn add_filter(
 		&self,
 		filter: OptimizedTopicFilter,
-	) -> std::result::Result<(FilterId, Vec<Vec<u8>>), AddFilterError> {
+	) -> std::result::Result<FilterId, AddFilterError> {
 		let _guard = self.add_filter_lock.lock();
-		if self.filters.read().len() >= MAX_FILTERS_PER_SUBSCRIPTION {
-			return Err(AddFilterError::LimitReached);
+		{
+			let state = self.state.lock();
+			if state.active_filter_ids.len() >= MAX_FILTERS_PER_SUBSCRIPTION ||
+				state.pending_replays.len() >= PENDING_REPLAYS_HARD_CAP
+			{
+				return Err(AddFilterError::LimitReached);
+			}
 		}
 
 		let filter_id =
 			FilterId::new(self.next_filter_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst));
-		let filters_lock = self.filters.clone();
+		let matchers = self.matchers.clone();
+		let sub_id = self.sub_id;
 		let filter_to_register = filter.clone();
-		let mut register = move || {
-			filters_lock.write().insert(filter_id, filter_to_register.clone());
+		let state = self.state.clone();
+		let wake_tx = self.wake_tx.clone();
+		let mut register = move |snapshot| {
+			state.lock().record_filter_added(filter_id, snapshot);
+			matchers.send_by_seq_id(
+				sub_id,
+				MatcherMessage::AddFilter { sub_id, filter_id, filter: filter_to_register.clone() },
+			);
+			let _ = wake_tx.send(());
 		};
-		let snapshot = self.snapshot_provider.add_filter_atomically(&filter, &mut register)?;
-		Ok((filter_id, snapshot))
+		self.store.register_filter_with_snapshot(&filter, &mut register)?;
+		Ok(filter_id)
 	}
 
 	pub fn remove_filter(&self, filter_id: FilterId) -> bool {
-		self.filters.write().remove(&filter_id).is_some()
+		let _guard = self.add_filter_lock.lock();
+		if !self.state.lock().record_filter_removed(filter_id) {
+			return false;
+		}
+		self.matchers.send_by_seq_id(
+			self.sub_id,
+			MatcherMessage::RemoveFilter { sub_id: self.sub_id, filter_id },
+		);
+		let _ = self.wake_tx.send(());
+		true
 	}
 
 	pub fn filter_ids(&self) -> Vec<FilterId> {
-		self.filters.read().keys().copied().collect()
+		self.state.lock().active_filter_ids.iter().copied().collect()
+	}
+}
+
+struct PendingReplay {
+	filter_id: FilterId,
+	snapshot: VecDeque<Vec<u8>>,
+}
+
+struct PendingLiveStatement {
+	hash: sp_statement_store::Hash,
+	encoded: Vec<u8>,
+	matched_filter_ids: Vec<FilterId>,
+}
+
+pub(crate) struct MultiFilterSubscriptionState {
+	active_filter_ids: HashSet<FilterId>,
+	replays_in_progress: HashSet<FilterId>,
+	pending_replays: VecDeque<PendingReplay>,
+	pending_live: VecDeque<PendingLiveStatement>,
+	replayed_filter_ids_by_hash: HashMap<sp_statement_store::Hash, HashSet<FilterId>>,
+	new_emitted_hashes: HashSet<sp_statement_store::Hash>,
+	stopped: bool,
+	stop_emitted: bool,
+}
+
+impl MultiFilterSubscriptionState {
+	pub(crate) fn new() -> Self {
+		Self {
+			active_filter_ids: HashSet::new(),
+			replays_in_progress: HashSet::new(),
+			pending_replays: VecDeque::new(),
+			pending_live: VecDeque::new(),
+			replayed_filter_ids_by_hash: HashMap::new(),
+			new_emitted_hashes: HashSet::new(),
+			stopped: false,
+			stop_emitted: false,
+		}
 	}
 
-	pub fn matched_filter_ids(&self, statement: &Statement) -> Vec<FilterId> {
-		self.filters
-			.read()
+	fn record_filter_added(&mut self, filter_id: FilterId, snapshot: Vec<Vec<u8>>) {
+		self.active_filter_ids.insert(filter_id);
+		self.replays_in_progress.insert(filter_id);
+		for encoded in &snapshot {
+			let hash = sp_statement_store::hash_encoded(encoded);
+			self.replayed_filter_ids_by_hash.entry(hash).or_default().insert(filter_id);
+		}
+		self.pending_replays
+			.push_back(PendingReplay { filter_id, snapshot: snapshot.into() });
+	}
+
+	fn record_filter_removed(&mut self, filter_id: FilterId) -> bool {
+		if !self.active_filter_ids.remove(&filter_id) {
+			return false;
+		}
+		self.replays_in_progress.remove(&filter_id);
+		self.pending_replays.retain(|replay| replay.filter_id != filter_id);
+		self.replayed_filter_ids_by_hash.retain(|_hash, set| {
+			set.remove(&filter_id);
+			!set.is_empty()
+		});
+		true
+	}
+
+	fn next_event(&mut self) -> Option<MultiFilterSubscriptionEvent> {
+		if self.stopped {
+			if self.stop_emitted {
+				return None;
+			}
+			self.stop_emitted = true;
+			return Some(MultiFilterSubscriptionEvent::Stop);
+		}
+		if let Some(event) = self.next_replay_event() {
+			return Some(event);
+		}
+		self.next_pending_live_event()
+	}
+
+	fn next_replay_event(&mut self) -> Option<MultiFilterSubscriptionEvent> {
+		let replay = self.pending_replays.front_mut()?;
+		let filter_id = replay.filter_id;
+		if replay.snapshot.is_empty() {
+			self.pending_replays.pop_front();
+			self.replays_in_progress.remove(&filter_id);
+			return Some(MultiFilterSubscriptionEvent::ReplayDone { filter_id });
+		}
+
+		let mut statements = Vec::new();
+		let mut chunk_bytes = 0usize;
+		while let Some(stmt) = replay.snapshot.front() {
+			if !statements.is_empty() && chunk_bytes + stmt.len() > REPLAY_CHUNK_RAW_BYTES {
+				break;
+			}
+			let bytes = replay.snapshot.pop_front().expect("front checked above; qed");
+			chunk_bytes = chunk_bytes.saturating_add(bytes.len());
+			statements.push(bytes);
+			if chunk_bytes >= REPLAY_CHUNK_RAW_BYTES {
+				break;
+			}
+		}
+		Some(MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements })
+	}
+
+	fn next_pending_live_event(&mut self) -> Option<MultiFilterSubscriptionEvent> {
+		let mut idx = 0usize;
+		while idx < self.pending_live.len() {
+			let entry = &self.pending_live[idx];
+			let matched_filters = self.active_matched_filters(&entry.matched_filter_ids);
+			let still_blocked =
+				matched_filters.iter().any(|f| self.replays_in_progress.contains(f));
+			if still_blocked {
+				idx += 1;
+				continue;
+			}
+			let popped = self.pending_live.remove(idx).expect("idx in range; qed");
+			if let Some(event) =
+				self.new_statement_event(popped.hash, popped.encoded, &matched_filters)
+			{
+				return Some(event);
+			}
+		}
+		None
+	}
+
+	fn handle_live_event(
+		&mut self,
+		event: LiveStatementEvent,
+	) -> Option<MultiFilterSubscriptionEvent> {
+		let matched_filters = self.active_matched_filters(&event.matched_filter_ids);
+		if matched_filters.is_empty() {
+			return None;
+		}
+		if matched_filters.iter().any(|f| self.replays_in_progress.contains(f)) {
+			if self.pending_live.len() >= PENDING_LIVE_HARD_CAP {
+				log::warn!(
+					target: LOG_TARGET,
+					"pending_live cap reached on statement subscription; sending stop",
+				);
+				self.stopped = true;
+			} else {
+				self.pending_live.push_back(PendingLiveStatement {
+					hash: event.hash,
+					encoded: event.encoded,
+					matched_filter_ids: event.matched_filter_ids,
+				});
+			}
+			return None;
+		}
+
+		self.new_statement_event(event.hash, event.encoded, &matched_filters)
+	}
+
+	fn new_statement_event(
+		&mut self,
+		hash: sp_statement_store::Hash,
+		encoded: Vec<u8>,
+		filter_ids: &HashSet<FilterId>,
+	) -> Option<MultiFilterSubscriptionEvent> {
+		if self.new_emitted_hashes.contains(&hash) {
+			return None;
+		}
+
+		let replayed_filter_ids = self.replayed_filter_ids_by_hash.get(&hash);
+		let matched_filter_ids: Vec<FilterId> = filter_ids
 			.iter()
-			.filter(|(_, f)| f.matches(statement))
-			.map(|(id, _)| *id)
+			.filter(|f| replayed_filter_ids.map_or(true, |set| !set.contains(f)))
+			.copied()
+			.collect();
+
+		if matched_filter_ids.is_empty() {
+			return None;
+		}
+
+		if self.new_emitted_hashes.len() >= EMITTED_VIA_NEW_HARD_CAP {
+			log::warn!(
+				target: LOG_TARGET,
+				"new_emitted_hashes cap reached on statement subscription; sending stop",
+			);
+			self.stopped = true;
+			return None;
+		}
+
+		self.new_emitted_hashes.insert(hash);
+		Some(MultiFilterSubscriptionEvent::NewStatement(LiveStatementEvent {
+			hash,
+			encoded,
+			matched_filter_ids,
+		}))
+	}
+
+	fn active_matched_filters(&self, filter_ids: &[FilterId]) -> HashSet<FilterId> {
+		filter_ids
+			.iter()
+			.filter(|filter_id| self.active_filter_ids.contains(filter_id))
+			.copied()
 			.collect()
 	}
 }
 
-/// Stream of live statement events for a multi-filter subscription
+/// Event emitted by a multi-filter subscription
+#[derive(Debug, Clone)]
+pub enum MultiFilterSubscriptionEvent {
+	ReplayStatements {
+		filter_id: FilterId,
+		statements: Vec<Vec<u8>>,
+	},
+	ReplayDone {
+		filter_id: FilterId,
+	},
+	NewStatement(LiveStatementEvent),
+	Stop,
+}
+
+/// Stream of multi-filter subscription events
 pub struct LiveEventStream {
-	pub(crate) matcher_stream: SubscriptionStatementsStream,
-	pub(crate) filters: Arc<RwLock<HashMap<FilterId, OptimizedTopicFilter>>>,
-	pub(crate) pending: VecDeque<Vec<u8>>,
+	rx: async_channel::Receiver<LiveStatementEvent>,
+	control_rx: mpsc::UnboundedReceiver<()>,
+	state: Arc<Mutex<MultiFilterSubscriptionState>>,
+	sub_id: SeqID,
+	matchers: SubscriptionsMatchersHandlers,
 }
 
 impl Stream for LiveEventStream {
-	type Item = LiveStatementEvent;
+	type Item = MultiFilterSubscriptionEvent;
 
 	fn poll_next(
 		self: std::pin::Pin<&mut Self>,
@@ -182,42 +407,31 @@ impl Stream for LiveEventStream {
 	) -> std::task::Poll<Option<Self::Item>> {
 		let this = self.get_mut();
 		loop {
-			if let Some(bytes) = this.pending.pop_front() {
-				let Ok(statement) = Statement::decode(&mut &bytes[..]) else {
-					log::warn!(
-						target: LOG_TARGET,
-						"Corrupt statement received on multi-filter subscription"
-					);
-					continue;
-				};
-				let hash = statement.hash();
-				let matched_filter_ids: Vec<FilterId> = {
-					let filters = this.filters.read();
-					filters
-						.iter()
-						.filter(|(_, f)| f.matches(&statement))
-						.map(|(id, _)| *id)
-						.collect()
-				};
-				return std::task::Poll::Ready(Some(LiveStatementEvent {
-					hash,
-					encoded: bytes,
-					matched_filter_ids,
-				}));
+			if let Some(event) = this.state.lock().next_event() {
+				return Poll::Ready(Some(event));
 			}
-
-			match this.matcher_stream.poll_next_unpin(cx) {
-				std::task::Poll::Ready(Some(StatementEvent::NewStatements {
-					statements, ..
-				})) => {
-					for encoded in statements {
-						this.pending.push_back(encoded.0);
+			match this.control_rx.poll_recv(cx) {
+				Poll::Ready(Some(())) => continue,
+				Poll::Ready(None) | Poll::Pending => {},
+			}
+			match this.rx.poll_next_unpin(cx) {
+				Poll::Ready(Some(event)) => {
+					if let Some(event) = this.state.lock().handle_live_event(event) {
+						return Poll::Ready(Some(event));
 					}
+					continue;
 				},
-				std::task::Poll::Ready(None) => return std::task::Poll::Ready(None),
-				std::task::Poll::Pending => return std::task::Poll::Pending,
+				Poll::Ready(None) => return Poll::Ready(None),
+				Poll::Pending => return Poll::Pending,
 			}
 		}
+	}
+}
+
+impl Drop for LiveEventStream {
+	fn drop(&mut self) {
+		self.matchers
+			.send_by_seq_id(self.sub_id, MatcherMessage::Unsubscribe(self.sub_id));
 	}
 }
 
@@ -227,7 +441,13 @@ pub enum MatcherMessage {
 	/// A new statement has been submitted.
 	NewStatement(Statement),
 	/// A new subscription has been created.
-	Subscribe(SubscriptionInfo),
+	Subscribe { info: IndexedSubscription, tx: async_channel::Sender<StatementEvent> },
+	/// A new multi-filter subscription has been created
+	SubscribeEmpty { seq_id: SeqID, tx: async_channel::Sender<LiveStatementEvent> },
+	/// Add a filter to an existing multi-filter subscription
+	AddFilter { sub_id: SeqID, filter_id: FilterId, filter: OptimizedTopicFilter },
+	/// Remove a filter from an existing multi-filter subscription
+	RemoveFilter { sub_id: SeqID, filter_id: FilterId },
 	/// Unsubscribe the subscription with the given ID.
 	Unsubscribe(SeqID),
 }
@@ -268,8 +488,17 @@ impl SubscriptionsHandle {
 							Ok(MatcherMessage::NewStatement(statement)) => {
 								subscriptions.notify_matching_filters(&statement);
 							},
-							Ok(MatcherMessage::Subscribe(info)) => {
-								subscriptions.subscribe(info);
+							Ok(MatcherMessage::Subscribe { info, tx }) => {
+								subscriptions.subscribe(info, tx);
+							},
+							Ok(MatcherMessage::SubscribeEmpty { seq_id, tx }) => {
+								subscriptions.subscribe_empty(seq_id, tx);
+							},
+							Ok(MatcherMessage::AddFilter { sub_id, filter_id, filter }) => {
+								subscriptions.add_filter(sub_id, filter_id, filter);
+							},
+							Ok(MatcherMessage::RemoveFilter { sub_id, filter_id }) => {
+								subscriptions.remove_filter(sub_id, filter_id);
 							},
 							Ok(MatcherMessage::Unsubscribe(seq_id)) => {
 								subscriptions.unsubscribe(seq_id);
@@ -306,11 +535,15 @@ impl SubscriptionsHandle {
 	) -> (async_channel::Sender<StatementEvent>, SubscriptionStatementsStream) {
 		let next_id = self.next_id();
 		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
-		let subscription_info =
-			SubscriptionInfo { topic_filter: topic_filter.clone(), seq_id: next_id, tx };
+		let subscription_info = IndexedSubscription {
+			topic_filter: topic_filter.clone(),
+			seq_id: next_id,
+			filter_key: SubscriptionFilterKey::Fixed,
+		};
+		let subscription_tx = tx.clone();
 
 		let result = (
-			subscription_info.tx.clone(),
+			tx,
 			SubscriptionStatementsStream {
 				rx,
 				sub_id: subscription_info.seq_id,
@@ -318,15 +551,60 @@ impl SubscriptionsHandle {
 			},
 		);
 
-		self.matchers
-			.send_by_seq_id(subscription_info.seq_id, MatcherMessage::Subscribe(subscription_info));
+		self.matchers.send_by_seq_id(
+			subscription_info.seq_id,
+			MatcherMessage::Subscribe { info: subscription_info, tx: subscription_tx },
+		);
 		result
+	}
+
+	pub(crate) fn subscribe_empty(
+		&self,
+		state: Arc<Mutex<MultiFilterSubscriptionState>>,
+		control_rx: mpsc::UnboundedReceiver<()>,
+	) -> (SeqID, LiveEventStream) {
+		let sub_id = self.next_id();
+		let (tx, rx) = async_channel::bounded(SUBSCRIPTION_BUFFER_SIZE);
+		self.matchers
+			.send_by_seq_id(sub_id, MatcherMessage::SubscribeEmpty { seq_id: sub_id, tx });
+
+		let stream =
+			LiveEventStream { rx, control_rx, state, sub_id, matchers: self.matchers.clone() };
+		(sub_id, stream)
 	}
 
 	pub(crate) fn notify(&self, statement: Statement) {
 		self.matchers.send_all(MatcherMessage::NewStatement(statement));
 	}
+
+	pub(crate) fn matchers(&self) -> SubscriptionsMatchersHandlers {
+		self.matchers.clone()
+	}
 }
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
+enum SubscriptionFilterKey {
+	Fixed,
+	Dynamic(FilterId),
+}
+
+enum SubscriptionRecord {
+	Statements {
+		tx: async_channel::Sender<StatementEvent>,
+		filter: OptimizedTopicFilter,
+	},
+	Live {
+		tx: async_channel::Sender<LiveStatementEvent>,
+		filters: HashMap<FilterId, OptimizedTopicFilter>,
+	},
+}
+
+enum MatchedSubscription {
+	Statements,
+	Live(HashSet<FilterId>),
+}
+
+type IndexedSubscriptionKey = (SeqID, SubscriptionFilterKey);
 
 // Information about all subscriptions.
 // Each matcher task will have its own instance of this struct.
@@ -340,24 +618,25 @@ struct SubscriptionsInfo {
 	// This structure allows efficient matching: when a statement arrives with N topics,
 	// we only need to check subscriptions that require exactly N or fewer topics.
 	subscriptions_match_all_by_topic:
-		HashMap<Topic, [HashMap<SeqID, SubscriptionInfo>; MAX_TOPICS]>,
+		HashMap<Topic, [HashMap<IndexedSubscriptionKey, IndexedSubscription>; MAX_TOPICS]>,
 	// Subscriptions organized by topic for MatchAny filters.
-	subscriptions_match_any_by_topic: HashMap<Topic, HashMap<SeqID, SubscriptionInfo>>,
+	subscriptions_match_any_by_topic:
+		HashMap<Topic, HashMap<IndexedSubscriptionKey, IndexedSubscription>>,
 	// Subscriptions that listen with Any filter (i.e., no topic filtering).
-	subscriptions_any: HashMap<SeqID, SubscriptionInfo>,
-	// Mapping from subscription ID to topic filter.
-	by_sub_id: HashMap<SeqID, OptimizedTopicFilter>,
+	subscriptions_any: HashMap<IndexedSubscriptionKey, IndexedSubscription>,
+	// Mapping from subscription ID to subscription state.
+	by_sub_id: HashMap<SeqID, SubscriptionRecord>,
 }
 
-// Information about a single subscription.
+// Information about one indexed subscription filter.
 #[derive(Clone, Debug)]
-pub(crate) struct SubscriptionInfo {
+pub(crate) struct IndexedSubscription {
 	// The filter used for this subscription.
 	topic_filter: OptimizedTopicFilter,
 	// The unique ID of this subscription.
 	seq_id: SeqID,
-	// Channel to send matched statements to the subscriber.
-	tx: async_channel::Sender<StatementEvent>,
+	// The filter key within the subscription.
+	filter_key: SubscriptionFilterKey,
 }
 
 impl SubscriptionsInfo {
@@ -371,18 +650,62 @@ impl SubscriptionsInfo {
 	}
 
 	// Subscribe a new subscription.
-	fn subscribe(&mut self, subscription_info: SubscriptionInfo) {
+	fn subscribe(
+		&mut self,
+		subscription_info: IndexedSubscription,
+		tx: async_channel::Sender<StatementEvent>,
+	) {
+		self.by_sub_id.insert(
+			subscription_info.seq_id,
+			SubscriptionRecord::Statements { tx, filter: subscription_info.topic_filter.clone() },
+		);
+		self.index_filter(subscription_info);
+	}
+
+	fn subscribe_empty(&mut self, seq_id: SeqID, tx: async_channel::Sender<LiveStatementEvent>) {
 		self.by_sub_id
-			.insert(subscription_info.seq_id, subscription_info.topic_filter.clone());
+			.insert(seq_id, SubscriptionRecord::Live { tx, filters: HashMap::new() });
+	}
+
+	fn add_filter(&mut self, sub_id: SeqID, filter_id: FilterId, filter: OptimizedTopicFilter) {
+		let filter_key = SubscriptionFilterKey::Dynamic(filter_id);
+		let Some(record) = self.by_sub_id.get_mut(&sub_id) else {
+			return;
+		};
+		let SubscriptionRecord::Live { filters, .. } = record else {
+			return;
+		};
+		let Entry::Vacant(entry) = filters.entry(filter_id) else { return };
+		entry.insert(filter.clone());
+
+		self.index_filter(IndexedSubscription { topic_filter: filter, seq_id: sub_id, filter_key });
+	}
+
+	fn remove_filter(&mut self, sub_id: SeqID, filter_id: FilterId) {
+		let Some(record) = self.by_sub_id.get_mut(&sub_id) else {
+			return;
+		};
+		let SubscriptionRecord::Live { filters, .. } = record else {
+			return;
+		};
+		let Some(filter) = filters.remove(&filter_id) else {
+			return;
+		};
+
+		self.remove_indexed_filter(sub_id, SubscriptionFilterKey::Dynamic(filter_id), &filter);
+	}
+
+	fn index_filter(&mut self, subscription_info: IndexedSubscription) {
+		let index_key = (subscription_info.seq_id, subscription_info.filter_key);
 		match &subscription_info.topic_filter {
 			OptimizedTopicFilter::Any => {
-				self.subscriptions_any.insert(subscription_info.seq_id, subscription_info);
+				self.subscriptions_any.insert(index_key, subscription_info);
 			},
 			OptimizedTopicFilter::MatchAll(topics) => {
 				for topic in topics {
 					self.subscriptions_match_all_by_topic.entry(*topic).or_default()
 						[topics.len() - 1]
-						.insert(subscription_info.seq_id, subscription_info.clone());
+						.insert(index_key, subscription_info.clone());
 				}
 			},
 			OptimizedTopicFilter::MatchAny(topics) => {
@@ -390,72 +713,105 @@ impl SubscriptionsInfo {
 					self.subscriptions_match_any_by_topic
 						.entry(*topic)
 						.or_default()
-						.insert(subscription_info.seq_id, subscription_info.clone());
+						.insert(index_key, subscription_info.clone());
 				}
 			},
 		};
 	}
 
-	// Notify a single subscriber, marking it for unsubscribing if sending fails.
-	fn notify_subscriber(
-		&self,
-		subscription: &SubscriptionInfo,
-		bytes_to_send: Bytes,
-		needs_unsubscribing: &mut HashSet<SeqID>,
-	) {
-		if let Err(err) = subscription.tx.try_send(StatementEvent::NewStatements {
-			statements: vec![bytes_to_send],
-			remaining: None,
-		}) {
-			log::debug!(
-				target: LOG_TARGET,
-				"Failed to send statement to subscriber {:?}: {:?} unsubscribing it", subscription.seq_id, err
-			);
-			// Mark subscription for unsubscribing, to give it a chance to recover the buffers are
-			// generous enough, if subscription cannot keep up we unsubscribe it.
-			needs_unsubscribing.insert(subscription.seq_id);
-		}
-	}
-
 	fn notify_matching_filters(&mut self, statement: &Statement) {
-		self.notify_match_all_subscribers_best(statement);
-		self.notify_match_any_subscribers(statement);
-		self.notify_any_subscribers(statement);
-	}
+		let mut matches = HashMap::new();
+		self.collect_match_all_subscribers(statement, &mut matches);
+		self.collect_match_any_subscribers(statement, &mut matches);
+		self.collect_any_subscribers(&mut matches);
 
-	// Notify all subscribers with MatchAny filters that match the given statement.
-	fn notify_match_any_subscribers(&mut self, statement: &Statement) {
-		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
-		let mut already_notified: HashSet<SeqID> = HashSet::new();
+		let encoded = statement.encode();
+		let bytes_to_send: Bytes = encoded.clone().into();
+		let mut needs_unsubscribing = HashSet::new();
 
-		let bytes_to_send: Bytes = statement.encode().into();
-		for statement_topic in statement.topics() {
-			if let Some(subscriptions) = self.subscriptions_match_any_by_topic.get(statement_topic)
-			{
-				for subscription in subscriptions
-					.values()
-					.filter(|subscription| already_notified.insert(subscription.seq_id))
-				{
-					self.notify_subscriber(
-						subscription,
-						bytes_to_send.clone(),
-						&mut needs_unsubscribing,
-					);
-				}
+		for (sub_id, matched) in matches {
+			match (matched, self.by_sub_id.get(&sub_id)) {
+				(
+					MatchedSubscription::Statements,
+					Some(SubscriptionRecord::Statements { tx, .. }),
+				) => {
+					if let Err(err) = tx.try_send(StatementEvent::NewStatements {
+						statements: vec![bytes_to_send.clone()],
+						remaining: None,
+					}) {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to send statement to subscriber {:?}: {:?} unsubscribing it", sub_id, err
+						);
+						needs_unsubscribing.insert(sub_id);
+					}
+				},
+				(
+					MatchedSubscription::Live(filter_ids),
+					Some(SubscriptionRecord::Live { tx, .. }),
+				) if !filter_ids.is_empty() => {
+					if let Err(err) = tx.try_send(LiveStatementEvent {
+						hash: statement.hash(),
+						encoded: encoded.clone(),
+						matched_filter_ids: filter_ids.into_iter().collect(),
+					}) {
+						log::debug!(
+							target: LOG_TARGET,
+							"Failed to send statement to subscriber {:?}: {:?} unsubscribing it", sub_id, err
+						);
+						needs_unsubscribing.insert(sub_id);
+					}
+				},
+				_ => {},
 			}
 		}
 
-		// Unsubscribe any subscriptions that failed to receive messages, to give them a chance to
-		// recover and not miss statements.
 		for sub_id in needs_unsubscribing {
 			self.unsubscribe(sub_id);
 		}
 	}
 
-	// Notify all subscribers with MatchAll filters that match the given statement.
-	fn notify_match_all_subscribers_best(&mut self, statement: &Statement) {
-		let bytes_to_send: Bytes = statement.encode().into();
-		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
+	fn record_match(
+		matches: &mut HashMap<SeqID, MatchedSubscription>,
+		subscription: &IndexedSubscription,
+	) {
+		match subscription.filter_key {
+			SubscriptionFilterKey::Fixed => {
+				matches.entry(subscription.seq_id).or_insert(MatchedSubscription::Statements);
+			},
+			SubscriptionFilterKey::Dynamic(filter_id) => {
+				let entry = matches
+					.entry(subscription.seq_id)
+					.or_insert_with(|| MatchedSubscription::Live(HashSet::new()));
+				if let MatchedSubscription::Live(filter_ids) = entry {
+					filter_ids.insert(filter_id);
+				}
+			},
+		}
+	}
+
+	// Collect all subscribers with MatchAny filters that match the given statement.
+	fn collect_match_any_subscribers(
+		&self,
+		statement: &Statement,
+		matches: &mut HashMap<SeqID, MatchedSubscription>,
+	) {
+		for statement_topic in statement.topics() {
+			if let Some(subscriptions) = self.subscriptions_match_any_by_topic.get(statement_topic)
+			{
+				for subscription in subscriptions.values() {
+					Self::record_match(matches, subscription);
+				}
+			}
+		}
+	}
+
+	// Collect all subscribers with MatchAll filters that match the given statement.
+	fn collect_match_all_subscribers(
+		&self,
+		statement: &Statement,
+		matches: &mut HashMap<SeqID, MatchedSubscription>,
+	) {
 		let num_topics = statement.topics().len();
 
 		// Check all combinations of topics in the statement to find matching subscriptions.
@@ -479,34 +835,16 @@ impl SubscriptionsInfo {
 					.values()
 					.filter(|subscription| subscription.topic_filter.matches(statement))
 				{
-					self.notify_subscriber(
-						subscription,
-						bytes_to_send.clone(),
-						&mut needs_unsubscribing,
-					);
+					Self::record_match(matches, subscription);
 				}
 			}
 		}
-		// Unsubscribe any subscriptions that failed to receive messages, to give them a chance to
-		// recover and not miss statements.
-		for sub_id in needs_unsubscribing {
-			self.unsubscribe(sub_id);
-		}
 	}
 
-	// Notify all subscribers that don't filter by topic and want to receive all statements.
-	fn notify_any_subscribers(&mut self, statement: &Statement) {
-		let mut needs_unsubscribing: HashSet<SeqID> = HashSet::new();
-
-		let bytes_to_send: Bytes = statement.encode().into();
+	// Collect all subscribers that don't filter by topic and want to receive all statements.
+	fn collect_any_subscribers(&self, matches: &mut HashMap<SeqID, MatchedSubscription>) {
 		for subscription in self.subscriptions_any.values() {
-			self.notify_subscriber(subscription, bytes_to_send.clone(), &mut needs_unsubscribing);
-		}
-
-		// Unsubscribe any subscriptions that failed to receive messages, to give them a chance to
-		// recover and not miss statements.
-		for sub_id in needs_unsubscribing {
-			self.unsubscribe(sub_id);
+			Self::record_match(matches, subscription);
 		}
 	}
 
@@ -516,9 +854,31 @@ impl SubscriptionsInfo {
 			return;
 		};
 
-		let topics = match &entry {
+		match entry {
+			SubscriptionRecord::Statements { filter, .. } => {
+				self.remove_indexed_filter(id, SubscriptionFilterKey::Fixed, &filter);
+			},
+			SubscriptionRecord::Live { filters, .. } => {
+				for (filter_id, filter) in filters {
+					self.remove_indexed_filter(
+						id,
+						SubscriptionFilterKey::Dynamic(filter_id),
+						&filter,
+					);
+				}
+			},
+		}
+	}
+
+	fn remove_indexed_filter(
+		&mut self,
+		id: SeqID,
+		filter_key: SubscriptionFilterKey,
+		filter: &OptimizedTopicFilter,
+	) {
+		let topics = match filter {
 			OptimizedTopicFilter::Any => {
-				self.subscriptions_any.remove(&id);
+				self.subscriptions_any.remove(&(id, filter_key));
 				return;
 			},
 			OptimizedTopicFilter::MatchAll(topics) => topics,
@@ -530,7 +890,7 @@ impl SubscriptionsInfo {
 			// Check MatchAny map.
 			if let Entry::Occupied(mut entry) = self.subscriptions_match_any_by_topic.entry(*topic)
 			{
-				entry.get_mut().remove(&id);
+				entry.get_mut().remove(&(id, filter_key));
 				if entry.get().is_empty() {
 					entry.remove();
 				}
@@ -539,7 +899,7 @@ impl SubscriptionsInfo {
 			if let Entry::Occupied(mut entry) = self.subscriptions_match_all_by_topic.entry(*topic)
 			{
 				for subscriptions in entry.get_mut().iter_mut() {
-					if subscriptions.remove(&id).is_some() {
+					if subscriptions.remove(&(id, filter_key)).is_some() {
 						break;
 					}
 				}
@@ -637,6 +997,14 @@ mod tests {
 			},
 		}
 	}
+
+	fn fixed_subscription(seq_id: u64, topic_filter: OptimizedTopicFilter) -> IndexedSubscription {
+		IndexedSubscription {
+			topic_filter,
+			seq_id: SeqID::from(seq_id),
+			filter_key: SubscriptionFilterKey::Fixed,
+		}
+	}
 	#[test]
 	fn test_subscribe_unsubscribe() {
 		let mut subscriptions = SubscriptionsInfo::new();
@@ -644,18 +1012,17 @@ mod tests {
 		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 		assert!(subscriptions.subscriptions_match_all_by_topic.contains_key(&topic1));
 		assert!(subscriptions.subscriptions_match_all_by_topic.contains_key(&topic2));
 		assert!(subscriptions.by_sub_id.contains_key(&sub_info1.seq_id));
-		assert!(!subscriptions.subscriptions_any.contains_key(&sub_info1.seq_id));
+		assert!(!subscriptions
+			.subscriptions_any
+			.contains_key(&(sub_info1.seq_id, sub_info1.filter_key)));
 
 		subscriptions.unsubscribe(sub_info1.seq_id);
 		assert!(!subscriptions.subscriptions_match_all_by_topic.contains_key(&topic1));
@@ -666,16 +1033,16 @@ mod tests {
 	fn test_subscribe_any() {
 		let mut subscriptions = SubscriptionsInfo::new();
 		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::Any,
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
-		assert!(subscriptions.subscriptions_any.contains_key(&sub_info1.seq_id));
+		let sub_info1 = fixed_subscription(1, OptimizedTopicFilter::Any);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
+		assert!(subscriptions
+			.subscriptions_any
+			.contains_key(&(sub_info1.seq_id, sub_info1.filter_key)));
 		assert!(subscriptions.by_sub_id.contains_key(&sub_info1.seq_id));
 		subscriptions.unsubscribe(sub_info1.seq_id);
-		assert!(!subscriptions.subscriptions_any.contains_key(&sub_info1.seq_id));
+		assert!(!subscriptions
+			.subscriptions_any
+			.contains_key(&(sub_info1.seq_id, sub_info1.filter_key)));
 	}
 
 	#[test]
@@ -685,18 +1052,17 @@ mod tests {
 		let (tx1, _rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAny(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAny(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 		assert!(subscriptions.subscriptions_match_any_by_topic.contains_key(&topic1));
 		assert!(subscriptions.subscriptions_match_any_by_topic.contains_key(&topic2));
 		assert!(subscriptions.by_sub_id.contains_key(&sub_info1.seq_id));
-		assert!(!subscriptions.subscriptions_any.contains_key(&sub_info1.seq_id));
+		assert!(!subscriptions
+			.subscriptions_any
+			.contains_key(&(sub_info1.seq_id, sub_info1.filter_key)));
 
 		subscriptions.unsubscribe(sub_info1.seq_id);
 		assert!(!subscriptions.subscriptions_match_all_by_topic.contains_key(&topic1));
@@ -704,16 +1070,12 @@ mod tests {
 	}
 
 	#[test]
-	fn test_notify_any_subscribers() {
+	fn test_notify_matching_filters_any() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
 		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::Any,
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(1, OptimizedTopicFilter::Any);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 
 		let statement = signed_statement(1);
 		subscriptions.notify_matching_filters(&statement);
@@ -725,20 +1087,17 @@ mod tests {
 	}
 
 	#[test]
-	fn test_notify_match_all_subscribers() {
+	fn test_notify_matching_filters_match_all() {
 		let mut subscriptions = SubscriptionsInfo::new();
 
 		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic2);
@@ -757,34 +1116,30 @@ mod tests {
 	}
 
 	#[test]
-	fn test_notify_match_any_subscribers() {
+	fn test_notify_matching_filters_match_any() {
 		let mut subscriptions = SubscriptionsInfo::new();
 		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
 		let (tx2, rx2) = async_channel::bounded::<StatementEvent>(10);
 
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAny(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAny(vec![topic1, topic2].into_iter().collect()),
+		);
 
-		let sub_info2 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAny(vec![topic2].into_iter().collect()),
-			seq_id: SeqID::from(2),
-			tx: tx2,
-		};
+		let sub_info2 = fixed_subscription(
+			2,
+			OptimizedTopicFilter::MatchAny(vec![topic2].into_iter().collect()),
+		);
 
-		subscriptions.subscribe(sub_info1.clone());
-		subscriptions.subscribe(sub_info2.clone());
+		subscriptions.subscribe(sub_info1.clone(), tx1);
+		subscriptions.subscribe(sub_info2.clone(), tx2);
 
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
-		subscriptions.notify_match_any_subscribers(&statement);
+		subscriptions.notify_matching_filters(&statement);
 
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
 		let decoded_statement: Statement =
@@ -899,23 +1254,17 @@ mod tests {
 		let topic1 = Topic::from([8u8; 32]);
 		let topic2 = Topic::from([9u8; 32]);
 
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		let sub_info2 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(2),
-			tx: tx2,
-		};
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
+		let sub_info2 = fixed_subscription(
+			2,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
 
-		subscriptions.subscribe(sub_info1.clone());
-		subscriptions.subscribe(sub_info2.clone());
+		subscriptions.subscribe(sub_info1.clone(), tx1);
+		subscriptions.subscribe(sub_info2.clone(), tx2);
 
 		// Both subscriptions should be registered under each topic.
 		assert_eq!(
@@ -992,12 +1341,11 @@ mod tests {
 		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(1);
 		let topic1 = Topic::from([8u8; 32]);
 
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAny(vec![topic1].into_iter().collect()),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAny(vec![topic1].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic1);
@@ -1027,21 +1375,18 @@ mod tests {
 		let topic2 = Topic::from([9u8; 32]);
 
 		// Subscribe to MatchAny with both topics.
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAny(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAny(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 
 		// Create a statement that matches BOTH topics.
 		let mut statement = signed_statement(1);
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
 
-		subscriptions.notify_match_any_subscribers(&statement);
+		subscriptions.notify_matching_filters(&statement);
 
 		// Should receive exactly once, not twice.
 		let received = unwrap_statement(rx1.try_recv().expect("Should receive statement"));
@@ -1062,12 +1407,11 @@ mod tests {
 		let topic2 = Topic::from([9u8; 32]);
 
 		// Subscribe with MatchAll on only topic1.
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(vec![topic1].into_iter().collect()),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 
 		// Create a statement that has BOTH topic1 and topic2.
 		let mut statement = signed_statement(1);
@@ -1095,14 +1439,11 @@ mod tests {
 		let topic2 = Topic::from([9u8; 32]);
 		let topic3 = Topic::from([10u8; 32]);
 
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1.clone());
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1.clone(), tx1);
 
 		// Statement with completely different topics.
 		let mut statement = signed_statement(1);
@@ -1116,10 +1457,8 @@ mod tests {
 
 	#[test]
 	fn test_match_all_with_unsubscribed_topic_first_in_statement() {
-		// This test exposes a bug where `return` is used instead of `continue` in
-		// `notify_match_all_subscribers_best`. When a statement has a topic that has no
-		// subscriptions (not in the map), the function returns early instead of checking
-		// subsequent topic combinations.
+		// This test guards against returning early when one statement topic has no subscriptions.
+		// The matcher must still check later topic combinations that can match.
 		let mut subscriptions = SubscriptionsInfo::new();
 
 		let (tx1, rx1) = async_channel::bounded::<StatementEvent>(10);
@@ -1129,12 +1468,11 @@ mod tests {
 		let topic2 = Topic::from([2u8; 32]);
 
 		// Subscribe only to topic2 with MatchAll filter.
-		let sub_info1 = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(vec![topic2].into_iter().collect()),
-			seq_id: SeqID::from(1),
-			tx: tx1,
-		};
-		subscriptions.subscribe(sub_info1);
+		let sub_info1 = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_info1, tx1);
 
 		// Create a statement with BOTH topics. topic1 comes first (lower bytes).
 		// When iterating combinations(1), [topic1] is checked before [topic2].
@@ -1144,14 +1482,13 @@ mod tests {
 		statement.set_topic(0, topic1);
 		statement.set_topic(1, topic2);
 
-		subscriptions.notify_match_all_subscribers_best(&statement);
+		subscriptions.notify_matching_filters(&statement);
 
-		// With the bug: rx1.try_recv() fails because the function returned early.
-		// With the fix: rx1.try_recv() succeeds because [topic2] combination is checked.
-		let received = unwrap_statement(rx1.try_recv().expect(
-			"Should receive statement - if this fails, the `return` bug in \
-			 notify_match_all_subscribers_best is present (should be `continue`)",
-		));
+		// The receive succeeds only if the matcher checks the [topic2] combination.
+		let received = unwrap_statement(
+			rx1.try_recv()
+				.expect("Should receive statement from a later matching topic combination"),
+		);
 		let decoded_statement: Statement =
 			Statement::decode(&mut &received.0[..]).expect("Should decode statement");
 		assert_eq!(decoded_statement, statement);
@@ -1283,32 +1620,22 @@ mod tests {
 		let topic2 = Topic::from([9u8; 32]);
 
 		// Subscribe with MatchAll filter.
-		let sub_match_all = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAll(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(1),
-			tx: tx_match_all,
-		};
-		subscriptions.subscribe(sub_match_all);
+		let sub_match_all = fixed_subscription(
+			1,
+			OptimizedTopicFilter::MatchAll(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_match_all, tx_match_all);
 
 		// Subscribe with MatchAny filter.
-		let sub_match_any = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::MatchAny(
-				vec![topic1, topic2].into_iter().collect(),
-			),
-			seq_id: SeqID::from(2),
-			tx: tx_match_any,
-		};
-		subscriptions.subscribe(sub_match_any);
+		let sub_match_any = fixed_subscription(
+			2,
+			OptimizedTopicFilter::MatchAny(vec![topic1, topic2].into_iter().collect()),
+		);
+		subscriptions.subscribe(sub_match_any, tx_match_any);
 
 		// Subscribe with Any filter.
-		let sub_any = SubscriptionInfo {
-			topic_filter: OptimizedTopicFilter::Any,
-			seq_id: SeqID::from(3),
-			tx: tx_any,
-		};
-		subscriptions.subscribe(sub_any);
+		let sub_any = fixed_subscription(3, OptimizedTopicFilter::Any);
+		subscriptions.subscribe(sub_any, tx_any);
 
 		// Create a statement without any topics set.
 		let statement = signed_statement(1);

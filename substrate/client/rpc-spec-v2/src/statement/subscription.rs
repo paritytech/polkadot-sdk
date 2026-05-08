@@ -20,108 +20,33 @@ use crate::statement::{
 	error::Error,
 	event::{NewStatementEntry, SubscribeEvent},
 };
-use codec::Decode;
 use futures::StreamExt;
 use jsonrpsee::ConnectionId;
 use parking_lot::{Mutex, RwLock};
 use sc_rpc::utils::Subscription;
-use sc_statement_store::{AddFilterError, LiveEventStream, SubscriptionHandle};
-use sp_statement_store::{hash_encoded, FilterId, Hash, OptimizedTopicFilter, Statement};
-use std::{
-	collections::{HashMap, HashSet, VecDeque},
-	sync::Arc,
+use sc_statement_store::{
+	AddFilterError, LiveEventStream, MultiFilterSubscriptionEvent, SubscriptionHandle,
 };
-use tokio::sync::mpsc;
+use sp_statement_store::{FilterId, OptimizedTopicFilter};
+use std::{collections::HashMap, sync::Arc};
 
 use crate::common::connections::{RegisteredConnection, RpcConnections};
 
 pub const MAX_SUBSCRIPTIONS_PER_CONNECTION: usize = 16;
-const REPLAY_CHUNK_BYTES: usize = 4 * 1024 * 1024;
-
-#[cfg(not(test))]
-pub(crate) const PENDING_LIVE_HARD_CAP: usize = 64 * 1024;
-#[cfg(test)]
-pub(crate) const PENDING_LIVE_HARD_CAP: usize = 4;
-#[cfg(not(test))]
-pub(crate) const EMITTED_VIA_NEW_HARD_CAP: usize = 64 * 1024;
-#[cfg(test)]
-pub(crate) const EMITTED_VIA_NEW_HARD_CAP: usize = 4;
-
-pub(crate) enum ControlMessage {
-	Wake,
-}
 
 pub(crate) enum AddFilterOutcome {
 	Added(FilterId),
 	LimitReached,
 }
 
-struct PendingReplay {
-	filter_id: FilterId,
-	snapshot: Vec<Vec<u8>>,
-}
-
-struct PendingLiveStatement {
-	hash: Hash,
-	encoded: Vec<u8>,
-}
-
 /// Per-subscription state shared between RPC handlers and the subscription task
 pub(crate) struct SubscriptionState {
 	handle: SubscriptionHandle,
-	control_tx: mpsc::UnboundedSender<ControlMessage>,
-	replays_in_progress: HashSet<FilterId>,
-	cancelled_replays: HashSet<FilterId>,
-	pending_replays: VecDeque<PendingReplay>,
-	pending_live: VecDeque<PendingLiveStatement>,
-	replayed_filter_ids_by_hash: HashMap<Hash, HashSet<FilterId>>,
-	new_emitted_hashes: HashSet<Hash>,
-	stopped: bool,
 }
 
 impl SubscriptionState {
-	fn new(handle: SubscriptionHandle, control_tx: mpsc::UnboundedSender<ControlMessage>) -> Self {
-		Self {
-			handle,
-			control_tx,
-			replays_in_progress: HashSet::new(),
-			cancelled_replays: HashSet::new(),
-			pending_replays: VecDeque::new(),
-			pending_live: VecDeque::new(),
-			replayed_filter_ids_by_hash: HashMap::new(),
-			new_emitted_hashes: HashSet::new(),
-			stopped: false,
-		}
-	}
-
-	fn record_filter_added(&mut self, filter_id: FilterId, snapshot: Vec<Vec<u8>>) {
-		self.replays_in_progress.insert(filter_id);
-		for encoded in &snapshot {
-			let hash = hash_encoded(encoded);
-			self.replayed_filter_ids_by_hash.entry(hash).or_default().insert(filter_id);
-		}
-		self.pending_replays.push_back(PendingReplay { filter_id, snapshot });
-	}
-
-	fn record_filter_removed(&mut self, filter_id: FilterId) -> bool {
-		let was_in_progress = self.replays_in_progress.remove(&filter_id);
-		if was_in_progress {
-			self.cancelled_replays.insert(filter_id);
-		}
-		self.replayed_filter_ids_by_hash.retain(|_hash, set| {
-			set.remove(&filter_id);
-			!set.is_empty()
-		});
-		was_in_progress
-	}
-
-	#[cfg(test)]
-	pub(crate) fn fill_pending_live_for_overflow_test(&mut self, filter: FilterId, count: usize) {
-		self.replays_in_progress.insert(filter);
-		for i in 0..count {
-			self.pending_live
-				.push_back(PendingLiveStatement { hash: [i as u8; 32], encoded: vec![i as u8] });
-		}
+	fn new(handle: SubscriptionHandle) -> Self {
+		Self { handle }
 	}
 }
 
@@ -186,11 +111,10 @@ impl ReservedSubscription {
 		mut self,
 		sub_id: String,
 		handle: SubscriptionHandle,
-		control_tx: mpsc::UnboundedSender<ControlMessage>,
 	) -> Option<SubscriptionEntry> {
 		let token = self.token.take()?;
 		let registered = token.register(sub_id.clone())?;
-		let state = Arc::new(Mutex::new(SubscriptionState::new(handle, control_tx)));
+		let state = Arc::new(Mutex::new(SubscriptionState::new(handle)));
 		let key = SubscriptionKey::new(self.conn_id, sub_id);
 		{
 			let mut registry = self.registry.write();
@@ -199,27 +123,15 @@ impl ReservedSubscription {
 			}
 			registry.insert(key.clone(), state.clone());
 		}
-		Some(SubscriptionEntry {
-			key,
-			state,
-			_registered: registered,
-			registry: self.registry.clone(),
-		})
+		Some(SubscriptionEntry { key, _registered: registered, registry: self.registry.clone() })
 	}
 }
 
 /// Registered subscription entry
 pub struct SubscriptionEntry {
 	key: SubscriptionKey,
-	state: SubscriptionStateRef,
 	_registered: RegisteredConnection,
 	registry: SubscriptionRegistry,
-}
-
-impl SubscriptionEntry {
-	pub fn state(&self) -> &SubscriptionStateRef {
-		&self.state
-	}
 }
 
 impl Drop for SubscriptionEntry {
@@ -232,35 +144,21 @@ pub(crate) fn add_filter_sync(
 	state: &Arc<Mutex<SubscriptionState>>,
 	filter: OptimizedTopicFilter,
 ) -> Result<AddFilterOutcome, Error> {
-	let (control_tx, filter_id) = {
-		let mut subscription = state.lock();
-		let handle = subscription.handle.clone();
-		match handle.add_filter(filter) {
-			Ok((filter_id, snapshot)) => {
-				subscription.record_filter_added(filter_id, snapshot);
-				(subscription.control_tx.clone(), filter_id)
-			},
-			Err(AddFilterError::LimitReached) => return Ok(AddFilterOutcome::LimitReached),
-			Err(AddFilterError::Store(e)) => {
-				return Err(Error::InternalError(format!("add_filter failed: {e}")))
-			},
-		}
-	};
-	let _ = control_tx.send(ControlMessage::Wake);
-	Ok(AddFilterOutcome::Added(filter_id))
+	let handle = state.lock().handle.clone();
+	match handle.add_filter(filter) {
+		Ok(filter_id) => Ok(AddFilterOutcome::Added(filter_id)),
+		Err(AddFilterError::LimitReached) => Ok(AddFilterOutcome::LimitReached),
+		Err(AddFilterError::Store(e)) => {
+			Err(Error::InternalError(format!("add_filter failed: {e}")))
+		},
+	}
 }
 
 pub(crate) fn remove_filter_sync(
 	state: &Arc<Mutex<SubscriptionState>>,
 	filter_id: FilterId,
 ) -> bool {
-	let (was_present, control_tx) = {
-		let mut subscription = state.lock();
-		let _ = subscription.handle.remove_filter(filter_id);
-		(subscription.record_filter_removed(filter_id), subscription.control_tx.clone())
-	};
-	let _ = control_tx.send(ControlMessage::Wake);
-	was_present
+	state.lock().handle.remove_filter(filter_id)
 }
 
 pub(crate) fn filter_id_to_string(id: FilterId) -> String {
@@ -270,259 +168,52 @@ pub(crate) fn parse_filter_id(s: &str) -> Option<FilterId> {
 	s.parse::<u64>().ok().map(FilterId::new)
 }
 
-pub async fn run_subscription_task(
-	sink: Subscription,
-	state: Arc<Mutex<SubscriptionState>>,
-	mut live_stream: LiveEventStream,
-	mut control_rx: mpsc::UnboundedReceiver<ControlMessage>,
-) {
-	loop {
-		if !drain_pending_replays(&sink, &state).await {
+pub async fn run_subscription_task(sink: Subscription, mut live_stream: LiveEventStream) {
+	while let Some(event) = live_stream.next().await {
+		if !send_subscription_event(&sink, event).await {
 			return;
 		}
-		if !drain_pending_live(&sink, &state).await {
-			return;
-		}
-		if state.lock().stopped {
-			return;
-		}
+	}
+}
 
-		tokio::select! {
-			biased;
-			msg = control_rx.recv() => match msg {
-				Some(ControlMessage::Wake) => continue,
-				None => return,
-			},
-			event = live_stream.next() => match event {
-				Some(event) => {
-					if !handle_live_event(&sink, &state, event).await {
-						return;
-					}
+async fn send_subscription_event(sink: &Subscription, event: MultiFilterSubscriptionEvent) -> bool {
+	match event {
+		MultiFilterSubscriptionEvent::ReplayStatements { filter_id, statements } => {
+			let statements = statements.into_iter().map(sp_core::Bytes).collect();
+			send_event(
+				sink,
+				&SubscribeEvent::ReplayStatements {
+					filter_id: filter_id_to_string(filter_id),
+					statements,
 				},
-				None => return,
-			},
-		}
-	}
-}
-
-#[cfg_attr(test, derive(Debug, PartialEq))]
-pub(crate) enum LiveAction {
-	Stop,
-	Noop,
-	Emit(NewStatementEntry),
-}
-
-pub(crate) fn decide_live_action(
-	subscription: &mut SubscriptionState,
-	event: sp_statement_store::LiveStatementEvent,
-) -> LiveAction {
-	if subscription.stopped {
-		return LiveAction::Noop;
-	}
-
-	let matched_filters: HashSet<FilterId> = match Statement::decode(&mut &event.encoded[..]) {
-		Ok(stmt) => subscription.handle.matched_filter_ids(&stmt).into_iter().collect(),
-		Err(_) => {
-			log::warn!(
-				target: super::LOG_TARGET,
-				"Corrupt statement bytes received on live stream; skipping",
-			);
-			return LiveAction::Noop;
+			)
+			.await
 		},
-	};
-
-	if matched_filters.iter().any(|f| subscription.replays_in_progress.contains(f)) {
-		if subscription.pending_live.len() >= PENDING_LIVE_HARD_CAP {
-			log::warn!(
-				target: super::LOG_TARGET,
-				"pending_live cap reached on statement subscription; sending stop",
-			);
-			subscription.stopped = true;
-			LiveAction::Stop
-		} else {
-			subscription
-				.pending_live
-				.push_back(PendingLiveStatement { hash: event.hash, encoded: event.encoded });
-			LiveAction::Noop
-		}
-	} else {
-		compute_new_statements_action(subscription, event.hash, event.encoded, &matched_filters)
-	}
-}
-
-async fn handle_live_event(
-	sink: &Subscription,
-	state: &Arc<Mutex<SubscriptionState>>,
-	event: sp_statement_store::LiveStatementEvent,
-) -> bool {
-	let action = {
-		let mut subscription = state.lock();
-		decide_live_action(&mut subscription, event)
-	};
-
-	match action {
-		LiveAction::Stop => {
+		MultiFilterSubscriptionEvent::ReplayDone { filter_id } => {
+			send_event(
+				sink,
+				&SubscribeEvent::ReplayDone { filter_id: filter_id_to_string(filter_id) },
+			)
+			.await
+		},
+		MultiFilterSubscriptionEvent::NewStatement(event) => {
+			let filter_ids =
+				event.matched_filter_ids.into_iter().map(filter_id_to_string).collect();
+			send_event(
+				sink,
+				&SubscribeEvent::NewStatements {
+					statements: vec![NewStatementEntry {
+						statement: sp_core::Bytes(event.encoded),
+						filter_ids,
+					}],
+				},
+			)
+			.await
+		},
+		MultiFilterSubscriptionEvent::Stop => {
 			let _ = send_event(sink, &SubscribeEvent::Stop).await;
 			false
 		},
-		LiveAction::Noop => true,
-		LiveAction::Emit(entry) => {
-			send_event(sink, &SubscribeEvent::NewStatements { statements: vec![entry] }).await
-		},
-	}
-}
-
-fn compute_new_statements_action(
-	subscription: &mut SubscriptionState,
-	hash: Hash,
-	encoded: Vec<u8>,
-	filter_ids: &HashSet<FilterId>,
-) -> LiveAction {
-	if subscription.new_emitted_hashes.contains(&hash) {
-		return LiveAction::Noop;
-	}
-	let replayed_filter_ids = subscription.replayed_filter_ids_by_hash.get(&hash);
-	let filter_ids: Vec<String> = filter_ids
-		.iter()
-		.filter(|f| replayed_filter_ids.map_or(true, |set| !set.contains(f)))
-		.map(|f| filter_id_to_string(*f))
-		.collect();
-	if filter_ids.is_empty() {
-		return LiveAction::Noop;
-	}
-	if subscription.new_emitted_hashes.len() >= EMITTED_VIA_NEW_HARD_CAP {
-		log::warn!(
-			target: super::LOG_TARGET,
-			"new_emitted_hashes cap reached on statement subscription; sending stop",
-		);
-		subscription.stopped = true;
-		return LiveAction::Stop;
-	}
-	subscription.new_emitted_hashes.insert(hash);
-	LiveAction::Emit(NewStatementEntry { statement: sp_core::Bytes(encoded), filter_ids })
-}
-
-async fn drain_pending_replays(sink: &Subscription, state: &Arc<Mutex<SubscriptionState>>) -> bool {
-	loop {
-		let next = state.lock().pending_replays.pop_front();
-		let Some(replay) = next else { return true };
-		if !run_replay(sink, state, replay).await {
-			return false;
-		}
-	}
-}
-
-async fn run_replay(
-	sink: &Subscription,
-	state: &Arc<Mutex<SubscriptionState>>,
-	replay: PendingReplay,
-) -> bool {
-	let filter_id = replay.filter_id;
-	let filter_id_str = filter_id_to_string(filter_id);
-	let mut iter = replay.snapshot.into_iter().peekable();
-
-	while iter.peek().is_some() {
-		if state.lock().cancelled_replays.contains(&filter_id) {
-			let mut subscription = state.lock();
-			subscription.cancelled_replays.remove(&filter_id);
-			return true;
-		}
-
-		let mut chunk: Vec<sp_core::Bytes> = Vec::new();
-		let mut chunk_bytes: usize = 0;
-		while let Some(stmt) = iter.peek() {
-			let est = stmt.len().saturating_mul(2).saturating_add(8);
-			if !chunk.is_empty() && chunk_bytes + est > REPLAY_CHUNK_BYTES {
-				break;
-			}
-			let bytes = iter.next().expect("peek above; qed");
-			chunk_bytes = chunk_bytes.saturating_add(est);
-			chunk.push(sp_core::Bytes(bytes));
-			if chunk_bytes >= REPLAY_CHUNK_BYTES {
-				break;
-			}
-		}
-		debug_assert!(!chunk.is_empty(), "loop guard; qed");
-
-		let event = SubscribeEvent::ReplayStatements {
-			filter_id: filter_id_str.clone(),
-			statements: chunk,
-		};
-		if !send_event(sink, &event).await {
-			return false;
-		}
-	}
-
-	let cancelled = {
-		let mut subscription = state.lock();
-		if subscription.cancelled_replays.remove(&filter_id) {
-			true
-		} else {
-			subscription.replays_in_progress.remove(&filter_id);
-			false
-		}
-	};
-	if cancelled {
-		return true;
-	}
-	send_event(sink, &SubscribeEvent::ReplayDone { filter_id: filter_id_str }).await
-}
-
-async fn drain_pending_live(sink: &Subscription, state: &Arc<Mutex<SubscriptionState>>) -> bool {
-	loop {
-		let to_send = {
-			let mut subscription = state.lock();
-			if subscription.stopped {
-				return true;
-			}
-			let mut action = LiveAction::Noop;
-			let mut idx = 0usize;
-			while idx < subscription.pending_live.len() {
-				let entry = &subscription.pending_live[idx];
-				let stmt = match Statement::decode(&mut &entry.encoded[..]) {
-					Ok(stmt) => stmt,
-					Err(_) => {
-						subscription.pending_live.remove(idx);
-						continue;
-					},
-				};
-				let matched_filters: HashSet<FilterId> =
-					subscription.handle.matched_filter_ids(&stmt).into_iter().collect();
-				let still_blocked =
-					matched_filters.iter().any(|f| subscription.replays_in_progress.contains(f));
-				if still_blocked {
-					idx += 1;
-					continue;
-				}
-				let popped = subscription.pending_live.remove(idx).expect("idx in range; qed");
-				let next_action = compute_new_statements_action(
-					&mut subscription,
-					popped.hash,
-					popped.encoded,
-					&matched_filters,
-				);
-				if !matches!(next_action, LiveAction::Noop) {
-					action = next_action;
-					break;
-				}
-			}
-			action
-		};
-
-		match to_send {
-			LiveAction::Emit(entry) => {
-				if !send_event(sink, &SubscribeEvent::NewStatements { statements: vec![entry] })
-					.await
-				{
-					return false;
-				}
-			},
-			LiveAction::Stop => {
-				let _ = send_event(sink, &SubscribeEvent::Stop).await;
-				return false;
-			},
-			LiveAction::Noop => return true,
-		}
 	}
 }
 
@@ -537,9 +228,7 @@ async fn send_event(sink: &Subscription, event: &SubscribeEvent) -> bool {
 mod tests {
 	use super::*;
 	use sc_statement_store::{MultiFilterSubscriptionApi, Store};
-	use sp_statement_store::OptimizedTopicFilter;
 	use std::sync::Arc;
-	use tokio::sync::mpsc;
 
 	fn empty_subscription_state() -> Arc<Mutex<SubscriptionState>> {
 		let dir = tempfile::tempdir().expect("tempdir");
@@ -690,24 +379,7 @@ mod tests {
 		std::mem::forget(dir);
 
 		let (handle, _live) = store.create_subscription();
-		let (tx, _rx) = mpsc::unbounded_channel();
-		Arc::new(Mutex::new(SubscriptionState::new(handle, tx)))
-	}
-
-	fn dummy_event() -> sp_statement_store::LiveStatementEvent {
-		use codec::Encode;
-		let encoded = sp_statement_store::Statement::new().encode();
-		sp_statement_store::LiveStatementEvent {
-			hash: [0xab; 32],
-			encoded,
-			matched_filter_ids: vec![],
-		}
-	}
-
-	fn register_any_filter(state: &Arc<Mutex<SubscriptionState>>) -> FilterId {
-		let handle = state.lock().handle.clone();
-		let (id, _snapshot) = handle.add_filter(OptimizedTopicFilter::Any).expect("add_filter");
-		id
+		Arc::new(Mutex::new(SubscriptionState::new(handle)))
 	}
 
 	#[test]
@@ -719,71 +391,24 @@ mod tests {
 
 		let handle_a = empty_subscription_state().lock().handle.clone();
 		let handle_b = empty_subscription_state().lock().handle.clone();
-		let (tx_a, _rx_a) = mpsc::unbounded_channel();
-		let (tx_b, _rx_b) = mpsc::unbounded_channel();
 
 		let entry_a = subscriptions
 			.reserve(conn_a)
 			.unwrap()
-			.register(sub_id.clone(), handle_a, tx_a)
+			.register(sub_id.clone(), handle_a)
 			.unwrap();
-		let entry_b = subscriptions
+		let _entry_b = subscriptions
 			.reserve(conn_b)
 			.unwrap()
-			.register(sub_id.clone(), handle_b, tx_b)
+			.register(sub_id.clone(), handle_b)
 			.unwrap();
 
 		let state_a = subscriptions.get(conn_a, &sub_id).unwrap();
 		let state_b = subscriptions.get(conn_b, &sub_id).unwrap();
-		assert!(Arc::ptr_eq(&state_a, entry_a.state()));
-		assert!(Arc::ptr_eq(&state_b, entry_b.state()));
 		assert!(!Arc::ptr_eq(&state_a, &state_b));
 
 		drop(entry_a);
 		assert!(subscriptions.get(conn_a, &sub_id).is_none());
 		assert!(subscriptions.get(conn_b, &sub_id).is_some());
-	}
-
-	#[test]
-	fn decide_live_action_noop_when_stopped() {
-		let state = empty_subscription_state();
-		let mut subscription = state.lock();
-		subscription.stopped = true;
-		assert_eq!(decide_live_action(&mut subscription, dummy_event()), LiveAction::Noop);
-	}
-
-	#[test]
-	fn decide_live_action_stop_on_overflow() {
-		let state = empty_subscription_state();
-		let id = register_any_filter(&state);
-		let mut subscription = state.lock();
-		subscription.fill_pending_live_for_overflow_test(id, PENDING_LIVE_HARD_CAP);
-		assert_eq!(decide_live_action(&mut subscription, dummy_event()), LiveAction::Stop);
-		assert!(subscription.stopped);
-	}
-
-	#[test]
-	fn decide_live_action_buffers_when_replay_in_progress_below_cap() {
-		let state = empty_subscription_state();
-		let id = register_any_filter(&state);
-		let mut subscription = state.lock();
-		subscription.fill_pending_live_for_overflow_test(id, PENDING_LIVE_HARD_CAP - 1);
-		assert_eq!(decide_live_action(&mut subscription, dummy_event()), LiveAction::Noop);
-		assert!(!subscription.stopped);
-		assert_eq!(subscription.pending_live.len(), PENDING_LIVE_HARD_CAP);
-	}
-
-	#[test]
-	fn decide_live_action_stop_on_emitted_history_overflow() {
-		let state = empty_subscription_state();
-		register_any_filter(&state);
-		let mut subscription = state.lock();
-		for i in 0..EMITTED_VIA_NEW_HARD_CAP {
-			subscription.new_emitted_hashes.insert([i as u8; 32]);
-		}
-
-		assert_eq!(decide_live_action(&mut subscription, dummy_event()), LiveAction::Stop);
-		assert!(subscription.stopped);
-		assert_eq!(subscription.new_emitted_hashes.len(), EMITTED_VIA_NEW_HARD_CAP);
 	}
 }

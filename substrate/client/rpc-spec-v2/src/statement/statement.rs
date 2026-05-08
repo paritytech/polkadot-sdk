@@ -23,7 +23,7 @@ use crate::{
 		event::{AddFilterResponse, SubmitOutcome},
 		subscription::{
 			add_filter_sync, parse_filter_id, remove_filter_sync, run_subscription_task,
-			AddFilterOutcome, ControlMessage, StatementSubscriptions,
+			AddFilterOutcome, StatementSubscriptions,
 		},
 		LOG_TARGET,
 	},
@@ -41,7 +41,6 @@ use sp_statement_store::{
 	OptimizedTopicFilter, Statement, StatementSource, StatementStore, SubmitResult, TopicFilter,
 };
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 /// JSON-RPC server implementation for the `statement_unstable_*` methods
 pub struct StatementSpec<B> {
@@ -106,14 +105,12 @@ where
 			let sub_id = read_subscription_id_as_string(&sink);
 
 			let (handle, live_stream) = store.create_subscription();
-			let (control_tx, control_rx) = mpsc::unbounded_channel::<ControlMessage>();
-			let Some(entry) = reserved.register(sub_id.clone(), handle, control_tx) else {
+			let Some(entry) = reserved.register(sub_id.clone(), handle) else {
 				log::debug!(target: LOG_TARGET, "duplicate subscription id {sub_id}; aborting");
 				return;
 			};
 
-			let state = entry.state().clone();
-			let task = run_subscription_task(sink, state, live_stream, control_rx);
+			let task = run_subscription_task(sink, live_stream);
 			executor.spawn(
 				"statement-unstable-subscribe",
 				Some("rpc"),
