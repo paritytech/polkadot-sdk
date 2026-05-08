@@ -19,11 +19,11 @@
 use super::{client::ClientConfig, wasm_override::WasmOverride, wasm_substitutes::WasmSubstitutes};
 use once_cell::sync::OnceCell;
 use parking_lot::Mutex;
-use sc_client_api::{TrieCacheContext, backend};
+use sc_client_api::{backend, TrieCacheContext};
 use sc_executor::{RuntimeVersion, RuntimeVersionOf};
 use sp_core::traits::{FetchRuntimeCode, RuntimeCode};
 use sp_runtime::traits::Block as BlockT;
-use sp_state_machine::{Ext, OverlayedChanges, backend::TryPendingCode};
+use sp_state_machine::{backend::TryPendingCode, Ext, OverlayedChanges};
 use std::{collections::HashMap, sync::Arc};
 
 /// Provider for fetching `:code` of a block.
@@ -182,6 +182,10 @@ where
 			let mut overlay = OverlayedChanges::default();
 			let mut ext = Ext::new(&mut overlay, state, None);
 
+			// Goes through `RuntimeCache::with_instance()` and may insert the compiled
+			// runtime into the executor's LRU on a miss, which might seem like overhead
+			// when fetching just a version. But thanks to `runtime_version_cache` this
+			// happens at most once per code hash, so the LRU side effect is one-time.
 			self.executor
 				.runtime_version(&mut ext, code)
 				.map_err(|e| sp_blockchain::Error::VersionInvalid(e.to_string()))
@@ -194,14 +198,14 @@ where
 mod tests {
 	use super::*;
 	use backend::Backend;
-	use sc_client_api::{HeaderBackend, in_mem};
+	use sc_client_api::{in_mem, HeaderBackend};
 	use sc_executor::WasmExecutor;
 	use sp_core::{
 		testing::TaskExecutor,
 		traits::{FetchRuntimeCode, WrappedRuntimeCode},
 	};
 	use std::collections::HashMap;
-	use substrate_test_runtime_client::{GenesisInit, runtime};
+	use substrate_test_runtime_client::{runtime, GenesisInit};
 
 	#[test]
 	fn no_override_no_substitutes_work() {
