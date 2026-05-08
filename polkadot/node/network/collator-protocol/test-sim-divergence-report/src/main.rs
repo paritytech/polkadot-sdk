@@ -125,6 +125,14 @@ fn main() {
 		entries.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 		for ((url, impls), count) in entries {
 			println!("  {count:3}  [{impls:<25}]  {url}");
+			// If the tracker is a `memory:` reference, surface the memory file's
+			// frontmatter `description:` as a one-line root-cause summary so the
+			// reader doesn't have to chase the file to know what's broken.
+			if let Some(rel) = url.strip_prefix("memory:") {
+				if let Some(summary) = read_memory_summary(rel) {
+					println!("       └─ {summary}");
+				}
+			}
 		}
 	}
 
@@ -173,6 +181,63 @@ fn main() {
 /// Path to this crate's `Cargo.toml` directory.
 fn manifest_dir() -> PathBuf {
 	PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+}
+
+/// For a `memory:<name>` tracker URL, read the matching memory file's frontmatter
+/// `description:` and return the one-liner root-cause summary. Returns `None` if
+/// the memory dir or file isn't found, or if the frontmatter has no description.
+///
+/// Looks for the file at `~/.claude/projects/<project>/memory/<name>.md` for any
+/// project subdir whose name suggests a polkadot-sdk worktree. Falls back to
+/// scanning the user's `.claude/projects` if the conventional path misses.
+fn read_memory_summary(name: &str) -> Option<String> {
+	let home = std::env::var_os("HOME")?;
+	let memory_root = PathBuf::from(home).join(".claude/projects");
+	if !memory_root.is_dir() {
+		return None;
+	}
+	// Prefer a project dir whose name encodes "polkadot-sdk".
+	let projects: Vec<PathBuf> = std::fs::read_dir(&memory_root)
+		.ok()?
+		.filter_map(|e| e.ok())
+		.map(|e| e.path())
+		.filter(|p| p.is_dir())
+		.collect();
+	let candidates: Vec<PathBuf> = projects
+		.iter()
+		.filter(|p| {
+			p.file_name()
+				.and_then(|n| n.to_str())
+				.is_some_and(|n| n.contains("polkadot-sdk"))
+		})
+		.cloned()
+		.collect();
+	let search_set = if candidates.is_empty() { projects } else { candidates };
+	for project in search_set {
+		let path = project.join("memory").join(format!("{name}.md"));
+		if let Ok(text) = std::fs::read_to_string(&path) {
+			return parse_frontmatter_description(&text);
+		}
+	}
+	None
+}
+
+fn parse_frontmatter_description(text: &str) -> Option<String> {
+	// Frontmatter is delimited by `---` on its own lines. Look for `description:`
+	// inside.
+	let mut lines = text.lines();
+	if lines.next()? != "---" {
+		return None;
+	}
+	for line in lines {
+		if line == "---" {
+			break;
+		}
+		if let Some(rest) = line.strip_prefix("description:") {
+			return Some(rest.trim().to_string());
+		}
+	}
+	None
 }
 
 fn run_cargo_test(workspace_root: &Path) -> String {
