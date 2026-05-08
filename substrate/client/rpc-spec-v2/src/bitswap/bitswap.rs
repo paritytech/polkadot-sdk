@@ -128,23 +128,22 @@ where
 		&self,
 		cids: Vec<String>,
 	) -> RpcResult<Vec<(String, BlockResult)>> {
-		// TODO: when syncing, fall back per-CID to a peer-side Bitswap fetch and
-		// write the result back to the local DB. Needs a coherence story for
-		// concurrent writes during major sync.
-		if self.sync_oracle.is_major_syncing() {
-			return Err(Error::MajorSyncing.into());
-		}
+		// TODO: per-CID `FailRetryBackoff` is correct for misses during sync, but a
+		// smarter implementation would attempt a peer-side Bitswap fetch and write
+		// the result back to the local DB. Needs a coherence story for concurrent
+		// writes during major sync.
 		if cids.len() > MAX_CIDS_PER_REQUEST {
 			return Err(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() }.into());
 		}
 
 		let parsed = parse_and_dedup(cids)?;
+		let is_major_syncing = self.sync_oracle.is_major_syncing();
 
 		Ok(parsed
 			.into_iter()
 			.map(|(cid_str, parse_result)| {
 				let result = match parse_result {
-					Ok(digest) => lookup_by_digest(&self.client, digest),
+					Ok(digest) => lookup_by_digest(&self.client, is_major_syncing, digest),
 					Err(e) => BlockResult::from(e),
 				};
 				(cid_str, result)
@@ -158,10 +157,6 @@ where
 
 		let fut = async move {
 			// TODO: see `bitswap_v1_get_many`.
-			if sync_oracle.is_major_syncing() {
-				pending.reject(Error::MajorSyncing).await;
-				return;
-			}
 			if cids.len() > MAX_CIDS_PER_REQUEST {
 				pending
 					.reject(Error::TooManyCids { max: MAX_CIDS_PER_REQUEST, got: cids.len() })
@@ -176,12 +171,13 @@ where
 					return;
 				},
 			};
+			let is_major_syncing = sync_oracle.is_major_syncing();
 
 			let Ok(sink) = pending.accept().await.map(Subscription::from) else { return };
 
 			for (cid_str, parse_result) in parsed {
 				let result = match parse_result {
-					Ok(digest) => lookup_by_digest(&client, digest),
+					Ok(digest) => lookup_by_digest(&client, is_major_syncing, digest),
 					Err(e) => BlockResult::from(e),
 				};
 				if sink.send(&(cid_str, result)).await.is_err() {
@@ -229,14 +225,30 @@ fn parse_and_dedup(
 }
 
 /// DB lookup for a parsed digest. Returns the spec-shaped per-CID outcome.
-fn lookup_by_digest<Block, Client>(client: &Arc<Client>, digest: H256) -> BlockResult
+///
+/// On a miss, distinguishes "not yet synced" (`MajorSyncing` → `-32812 FailRetryBackoff`,
+/// transient: caller should retry with backoff) from "permanently absent"
+/// (`NotFound` → `-32810 Fail`). Mirrors the existing `bitswap_v1_get` semantics.
+///
+/// `is_major_syncing` is a snapshot taken once by the caller and reused across
+/// the whole batch — every CID in a single batch gets a consistent "sync moment".
+fn lookup_by_digest<Block, Client>(
+	client: &Arc<Client>,
+	is_major_syncing: bool,
+	digest: H256,
+) -> BlockResult
 where
 	Block: BlockT,
 	Client: BlockBackend<Block> + Send + Sync + 'static,
 {
 	match client.indexed_transaction(digest) {
 		Ok(Some(data)) => BlockResult::Ok(crate::hex_string(&data)),
-		Ok(None) => BlockResult::from(Error::NotFound),
+		Ok(None) =>
+			if is_major_syncing {
+				BlockResult::from(Error::MajorSyncing)
+			} else {
+				BlockResult::from(Error::NotFound)
+			},
 		Err(err) => {
 			log::warn!(target: LOG_TARGET, "Indexed transaction fetch failed: {err:?}");
 			BlockResult::from(Error::NotFound)

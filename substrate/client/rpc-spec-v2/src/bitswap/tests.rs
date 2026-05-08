@@ -418,18 +418,31 @@ async fn get_many_all_missing() {
 }
 
 #[tokio::test]
-async fn get_many_major_syncing_top_level_error() {
+async fn get_many_during_sync_serves_cached_hits_and_per_cid_backoff_for_missing() {
 	let (ws_client, _handle, mock_client) = setup(true).await;
 
-	// Even with one valid stored CID present, sync rejects the whole call.
-	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
-	let cids = vec![cid];
-	let err = ws_client
-		.request::<Vec<(String, BlockResult)>, _>("bitswap_v1_getMany", rpc_params![cids])
-		.await
-		.unwrap_err();
+	// During sync: chunks already in the local DB are served as `Ok`; misses surface
+	// per-CID `FailRetryBackoff` so the caller knows to retry after sync completes.
+	let cid_in_db = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
+	let cid_missing = unknown_cid(0xAA);
 
-	assert_error_code(&err, -32812);
+	let result: Vec<(String, BlockResult)> = ws_client
+		.request(
+			"bitswap_v1_getMany",
+			rpc_params![vec![cid_in_db.clone(), cid_missing.clone()]],
+		)
+		.await
+		.unwrap();
+
+	assert_eq!(result.len(), 2);
+	assert_eq!(result[0].0, cid_in_db);
+	assert!(matches!(result[0].1, BlockResult::Ok(_)), "expected Ok, got {:?}", result[0].1);
+
+	assert_eq!(result[1].0, cid_missing);
+	match &result[1].1 {
+		BlockResult::Err { code, .. } => assert_eq!(*code, -32812, "expected FailRetryBackoff"),
+		other => panic!("expected per-CID FailRetryBackoff, got {other:?}"),
+	}
 }
 
 #[tokio::test]
@@ -627,20 +640,34 @@ async fn stream_mixed_batch() {
 }
 
 #[tokio::test]
-async fn stream_major_syncing_rejects_subscription() {
+async fn stream_during_sync_emits_cached_hits_and_per_cid_backoff() {
 	let (ws_client, _handle, mock_client) = setup(true).await;
 
-	let cid = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
-	let err = ws_client
-		.subscribe::<(String, BlockResult), _>(
+	// During sync: subscription opens; cached chunks emit as Ok, missing chunks
+	// emit per-CID FailRetryBackoff. No top-level rejection.
+	let cid_in_db = store_chunk(&mock_client, vec![1u8, 2, 3], BLAKE2B_256);
+	let cid_missing = unknown_cid(0xBB);
+
+	let mut sub: Subscription<(String, BlockResult)> = ws_client
+		.subscribe(
 			"bitswap_v1_stream",
-			rpc_params![vec![cid]],
+			rpc_params![vec![cid_in_db.clone(), cid_missing.clone()]],
 			"bitswap_v1_unstream",
 		)
 		.await
-		.unwrap_err();
+		.unwrap();
 
-	assert_error_code(&err, -32812);
+	let (c0, r0) = next_event(&mut sub).await;
+	assert_eq!(c0, cid_in_db);
+	assert!(matches!(r0, BlockResult::Ok(_)), "expected Ok, got {r0:?}");
+
+	let (c1, r1) = next_event(&mut sub).await;
+	assert_eq!(c1, cid_missing);
+	match &r1 {
+		BlockResult::Err { code, .. } => assert_eq!(*code, -32812, "expected FailRetryBackoff"),
+		other => panic!("expected per-CID FailRetryBackoff, got {other:?}"),
+	}
+	assert_no_more_events(&mut sub).await;
 }
 
 #[tokio::test]
