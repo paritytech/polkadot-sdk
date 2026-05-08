@@ -48,7 +48,12 @@
 
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse::Parser, parse_macro_input, ItemFn, LitStr, Token};
+use syn::{
+	parse::{Parse, ParseStream, Parser},
+	parse_macro_input,
+	punctuated::Punctuated,
+	ItemFn, LitStr, Token,
+};
 
 /// `#[sim_test]` — fan-out attribute for differential scenarios.
 ///
@@ -64,15 +69,23 @@ use syn::{parse::Parser, parse_macro_input, ItemFn, LitStr, Token};
 /// `#[sim_test(skip = "legacy")]` / `#[sim_test(skip = "experimental")]` invert the filter.
 /// Unfiltered (`#[sim_test]`) runs against both.
 ///
-/// Use filters when an implementation deliberately differs in observable behaviour and the
-/// scenario captures the legacy-only or experimental-only contract. Most scenarios should be
-/// unfiltered: any divergence is a bug worth knowing about.
+/// # Known-bug expected-failure
+///
+/// `#[sim_test(bug_on = "experimental")]` marks the experimental wrapper with
+/// `#[should_panic]` so the suite stays green while a tracked defect is open. The bug must
+/// be filed somewhere — either inline as `bug_on = "experimental", bug_url = "..."` or
+/// via the surrounding scenario module's doc comment. When the bug is fixed the
+/// `should_panic` flips and the test fails loudly, prompting removal of the marker.
+///
+/// `bug_on` and `only`/`skip` are mutually exclusive at the *same impl*: if you want
+/// `bug_on = "experimental"`, do not also `skip = "experimental"`; the legacy wrapper
+/// stays unmodified.
 ///
 /// [`SubsystemUnderTest`]: ../polkadot_collator_protocol_test_sim/harness/sim/trait.SubsystemUnderTest.html
 #[proc_macro_attribute]
 pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
-	let filter = match parse_filter(attr) {
-		Ok(f) => f,
+	let opts = match parse_opts(attr) {
+		Ok(o) => o,
 		Err(e) => return e.to_compile_error().into(),
 	};
 	let input = parse_macro_input!(item as ItemFn);
@@ -80,10 +93,16 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	let legacy_name = format_ident!("{}__legacy", fn_name);
 	let experimental_name = format_ident!("{}__experimental", fn_name);
 
-	let legacy_test = if filter.includes_legacy() {
+	let legacy_test = if opts.filter.includes_legacy() {
+		let should_panic = if opts.bug_on_legacy {
+			quote! { #[should_panic] }
+		} else {
+			quote! {}
+		};
 		quote! {
 			#[::core::prelude::v1::test]
 			#[allow(non_snake_case)]
+			#should_panic
 			fn #legacy_name() {
 				#fn_name::<crate::impls::LegacyValidator>();
 			}
@@ -91,10 +110,16 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	} else {
 		quote! {}
 	};
-	let experimental_test = if filter.includes_experimental() {
+	let experimental_test = if opts.filter.includes_experimental() {
+		let should_panic = if opts.bug_on_experimental {
+			quote! { #[should_panic] }
+		} else {
+			quote! {}
+		};
 		quote! {
 			#[::core::prelude::v1::test]
 			#[allow(non_snake_case)]
+			#should_panic
 			fn #experimental_name() {
 				#fn_name::<crate::impls::ExperimentalValidator>();
 			}
@@ -111,42 +136,100 @@ pub fn sim_test(attr: TokenStream, item: TokenStream) -> TokenStream {
 	expanded.into()
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Impl {
+	Legacy,
+	Experimental,
+}
+
+#[derive(Default)]
+struct Opts {
+	filter: FilterOpt,
+	bug_on_legacy: bool,
+	bug_on_experimental: bool,
+	bug_url: Option<String>,
+}
+
 #[derive(Clone, Copy)]
-enum Filter {
+enum FilterOpt {
 	Both,
-	OnlyLegacy,
-	OnlyExperimental,
+	Only(Impl),
 }
 
-impl Filter {
+impl Default for FilterOpt {
+	fn default() -> Self {
+		FilterOpt::Both
+	}
+}
+
+impl FilterOpt {
 	fn includes_legacy(self) -> bool {
-		matches!(self, Filter::Both | Filter::OnlyLegacy)
+		matches!(self, FilterOpt::Both | FilterOpt::Only(Impl::Legacy))
 	}
-
 	fn includes_experimental(self) -> bool {
-		matches!(self, Filter::Both | Filter::OnlyExperimental)
+		matches!(self, FilterOpt::Both | FilterOpt::Only(Impl::Experimental))
 	}
 }
 
-fn parse_filter(attr: TokenStream) -> syn::Result<Filter> {
-	if attr.is_empty() {
-		return Ok(Filter::Both);
-	}
-	let parser = |input: syn::parse::ParseStream| -> syn::Result<Filter> {
+struct KeyValue {
+	key: syn::Ident,
+	value: LitStr,
+}
+
+impl Parse for KeyValue {
+	fn parse(input: ParseStream) -> syn::Result<Self> {
 		let key: syn::Ident = input.parse()?;
 		input.parse::<Token![=]>()?;
 		let value: LitStr = input.parse()?;
-		let value = value.value();
-		match (key.to_string().as_str(), value.as_str()) {
-			("only", "legacy") => Ok(Filter::OnlyLegacy),
-			("only", "experimental") => Ok(Filter::OnlyExperimental),
-			("skip", "legacy") => Ok(Filter::OnlyExperimental),
-			("skip", "experimental") => Ok(Filter::OnlyLegacy),
-			_ => Err(syn::Error::new(
-				key.span(),
-				"`#[sim_test]` filters: only/skip = \"legacy\" | \"experimental\"",
-			)),
+		Ok(KeyValue { key, value })
+	}
+}
+
+fn parse_opts(attr: TokenStream) -> syn::Result<Opts> {
+	if attr.is_empty() {
+		return Ok(Opts::default());
+	}
+	let parser = |input: ParseStream| -> syn::Result<Opts> {
+		let pairs: Punctuated<KeyValue, Token![,]> = Punctuated::parse_terminated(input)?;
+		let mut opts = Opts::default();
+		let mut filter_seen = false;
+		for kv in pairs {
+			let key = kv.key.to_string();
+			let val = kv.value.value();
+			match (key.as_str(), val.as_str()) {
+				("only", "legacy") | ("skip", "experimental") => {
+					if filter_seen {
+						return Err(syn::Error::new(
+							kv.key.span(),
+							"only one of `only` / `skip` may be supplied",
+						));
+					}
+					opts.filter = FilterOpt::Only(Impl::Legacy);
+					filter_seen = true;
+				},
+				("only", "experimental") | ("skip", "legacy") => {
+					if filter_seen {
+						return Err(syn::Error::new(
+							kv.key.span(),
+							"only one of `only` / `skip` may be supplied",
+						));
+					}
+					opts.filter = FilterOpt::Only(Impl::Experimental);
+					filter_seen = true;
+				},
+				("bug_on", "legacy") => opts.bug_on_legacy = true,
+				("bug_on", "experimental") => opts.bug_on_experimental = true,
+				("bug_url", _) => opts.bug_url = Some(val),
+				_ => {
+					return Err(syn::Error::new(
+						kv.key.span(),
+						"`#[sim_test]` accepts: only/skip/bug_on = \"legacy\" | \"experimental\", \
+						 bug_url = \"...\"",
+					));
+				},
+			}
 		}
+		Ok(opts)
 	};
 	parser.parse(attr)
 }
