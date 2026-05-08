@@ -42,7 +42,6 @@ use crate::{
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
-use polkadot_node_primitives::{BlockData, PoV};
 use polkadot_primitives::{
 	CandidateHash, CandidateReceiptV2, CoreIndex, HeadData, Hash, Id as ParaId,
 	MutateDescriptorV2, PersistedValidationData,
@@ -53,9 +52,9 @@ use polkadot_primitives_test_helpers::{
 
 const PARA_A: ParaId = ParaId::new(2000);
 
-/// Build a PVD whose `parent_head` is empty (the framework's default fixture). Most
-/// sanity-check scenarios pin the candidate's `persisted_validation_data_hash` to this
-/// shape; deviations that don't match get rejected by real backing's PVD lookup.
+/// PVD whose `parent_head` is empty (the framework's default fixture). All four sanity
+/// scenarios pin `persisted_validation_data_hash` to this shape so real backing's PVD
+/// lookup proceeds; the rejection happens later, in the response-side check.
 fn empty_parent_pvd(relay_parent_number: u32) -> PersistedValidationData {
 	PersistedValidationData {
 		parent_head: HeadData(Vec::new()),
@@ -63,6 +62,27 @@ fn empty_parent_pvd(relay_parent_number: u32) -> PersistedValidationData {
 		relay_parent_storage_root: Hash::zero(),
 		max_pov_size: 5 * 1024 * 1024,
 	}
+}
+
+/// Build a `CandidateReceiptV2` (with the supplied closure) wrapped in a [`Candidate`]
+/// for advertise/fetch convenience. Used by the V2/V3 invalid-descriptor scenarios.
+fn build_descriptor_with<F>(
+	w: &crate::scenarios::shared::World<impl CollatorSut>,
+	mut f: F,
+) -> (CandidateReceiptV2, Candidate)
+where
+	F: FnMut(&mut polkadot_primitives::CommittedCandidateReceiptV2),
+{
+	let pvd = empty_parent_pvd(w.leaf_number());
+	let mut committed = dummy_committed_candidate_receipt_v2(w.leaf());
+	committed.descriptor.set_para_id(PARA_A);
+	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
+	committed.descriptor.set_core_index(CoreIndex(0));
+	committed.descriptor.set_session_index(0);
+	f(&mut committed);
+	let receipt: CandidateReceiptV2 = committed.to_plain();
+	let candidate = Candidate::from_receipt(receipt.clone());
+	(receipt, candidate)
 }
 
 #[crate::sim_test]
@@ -79,25 +99,8 @@ fn response_with_mismatched_candidate_hash_reports_malicious<S: CollatorSut>() {
 	assert_ne!(advertised_hash, actual.hash(), "advertised hash must differ from actual");
 	w.advertise_with_parent_head(&peer, w.leaf(), advertised_hash, HeadData(Vec::new()).hash());
 
-	// Validator fires a fetch for the advertised hash. We don't have a Candidate that
-	// hashes to `advertised_hash`, so we skip world.fetch_request() and call the lower
-	// level matcher directly.
-	let send_request = w.sim.expect(
-		|e| matches!(
-			e,
-			crate::contract::Effect::SendRequest {
-				kind: crate::contract::ReqKind::CollationFetchingV2,
-				candidate_hash: Some(c),
-				..
-			} if c == &advertised_hash
-		),
-		std::time::Duration::from_millis(500),
-		"Effect::SendRequest CollationFetchingV2 for the advertised hash",
-	);
-	let request_id = send_request.request_id().expect("SendRequest carries a RequestId");
-
-	w.respond_fetch_v2(request_id, actual.receipt.clone(), PoV { block_data: BlockData(vec![1]) });
-
+	let request_id = w.expect_fetch_for_hash(advertised_hash);
+	w.respond_fetch_v2(request_id, actual.receipt.clone(), Candidate::empty_pov());
 	w.expect_rep(&peer, RepBucket::Malicious);
 }
 
@@ -111,12 +114,7 @@ fn response_with_wrong_parent_head_data_reports_malicious<S: CollatorSut>() {
 	let peer = w.declared_peer(PARA_A, V2);
 
 	let advertised_parent_head_hash = HeadData(Vec::new()).hash();
-	w.advertise_with_parent_head(
-		&peer,
-		w.leaf(),
-		candidate.hash(),
-		advertised_parent_head_hash,
-	);
+	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), advertised_parent_head_hash);
 	let request_id = w.fetch_request(&candidate);
 
 	let wrong_parent_head = HeadData(vec![0xDE, 0xAD, 0xBE, 0xEF]);
@@ -124,7 +122,7 @@ fn response_with_wrong_parent_head_data_reports_malicious<S: CollatorSut>() {
 	w.respond_fetch_v2_with_parent_head(
 		request_id,
 		candidate.receipt.clone(),
-		PoV { block_data: BlockData(vec![1]) },
+		Candidate::empty_pov(),
 		wrong_parent_head,
 	);
 
@@ -134,24 +132,14 @@ fn response_with_wrong_parent_head_data_reports_malicious<S: CollatorSut>() {
 #[crate::sim_test]
 fn v2_descriptor_with_invalid_core_index_reports_malicious<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
-	let pvd = empty_parent_pvd(w.leaf_number());
-
-	// Build a V2 committed candidate with an out-of-range core_index. Para is assigned to
-	// core 0; we set core_index = 10.
-	let mut committed = dummy_committed_candidate_receipt_v2(w.leaf());
-	committed.descriptor.set_para_id(PARA_A);
-	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
-	committed.descriptor.set_core_index(CoreIndex(10));
-	committed.descriptor.set_session_index(0);
-	let receipt: CandidateReceiptV2 = committed.to_plain();
-	let candidate = Candidate::from_receipt(receipt.clone());
-
+	// Para is assigned to core 0; out-of-range core 10 → rejected as malicious.
+	let (receipt, candidate) = build_descriptor_with(&w, |c| {
+		c.descriptor.set_core_index(CoreIndex(10));
+	});
 	let peer = w.declared_peer(PARA_A, V2);
-
 	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
 	let request_id = w.fetch_request(&candidate);
-	w.respond_fetch_v2(request_id, receipt, PoV { block_data: BlockData(vec![1]) });
-
+	w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
 	w.expect_rep(&peer, RepBucket::Malicious);
 }
 
@@ -159,8 +147,7 @@ fn v2_descriptor_with_invalid_core_index_reports_malicious<S: CollatorSut>() {
 fn v3_candidate_via_v2_protocol_reports_malicious<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA_A)]);
 	let pvd = empty_parent_pvd(w.leaf_number());
-
-	// V3 descriptor (set_version(1)) on a V2 protocol peer.
+	// V3 descriptor delivered over a V2 protocol connection → rejected.
 	let mut committed = dummy_committed_candidate_receipt_v3(w.leaf(), w.leaf());
 	committed.descriptor.set_para_id(PARA_A);
 	committed.descriptor.set_persisted_validation_data_hash(pvd.hash());
@@ -170,10 +157,8 @@ fn v3_candidate_via_v2_protocol_reports_malicious<S: CollatorSut>() {
 	let candidate = Candidate::from_receipt(receipt.clone());
 
 	let peer = w.declared_peer(PARA_A, V2);
-
 	w.advertise_with_parent_head(&peer, w.leaf(), candidate.hash(), HeadData(Vec::new()).hash());
 	let request_id = w.fetch_request(&candidate);
-	w.respond_fetch_v2(request_id, receipt, PoV { block_data: BlockData(vec![1]) });
-
+	w.respond_fetch_v2(request_id, receipt, Candidate::empty_pov());
 	w.expect_rep(&peer, RepBucket::Malicious);
 }

@@ -14,13 +14,12 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Two peers advertise the same candidate. Validator fetches from one; the test does not
-//! respond. After `MAX_UNSHARED_DOWNLOAD_TIME` (400ms prod, 100ms with fast-test-validator)
-//! the per-fetch deadline expires; validator fetches from the other peer.
+//! Two peers advertise the same candidate. Validator fetches from one; we don't respond.
+//! After [`MAX_UNSHARED_DOWNLOAD_TIME`] the per-fetch deadline expires and the validator
+//! fetches from the other peer.
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
-	contract::{Effect, ReqKind},
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
@@ -44,26 +43,11 @@ fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
 		w.sim.send(peer.advertise(leaf, Some(candidate.hash()), Some(head_hash)));
 	}
 
-	let first = w.sim.expect(
-		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV2, .. }),
-		Duration::from_millis(50),
-		"first Effect::SendRequest CollationFetchingV2 from one of the two peers",
-	);
-	let first_peer = match first {
-		Effect::SendRequest { to, .. } => to,
-		_ => unreachable!(),
-	};
+	let (first_peer, _, _) = w.expect_any_fetch();
 	let other_peer = if first_peer == peer_a.peer_id { peer_b.peer_id } else { peer_a.peer_id };
 
 	// Don't respond. Advance past the per-fetch deadline.
 	w.sim.advance(MAX_UNSHARED_DOWNLOAD_TIME + Duration::from_millis(100));
 
-	let _ = w.sim.expect(
-		|e| matches!(
-			e,
-			Effect::SendRequest { kind: ReqKind::CollationFetchingV2, to, .. } if *to == other_peer
-		),
-		Duration::from_millis(50),
-		"Effect::SendRequest CollationFetchingV2 to the other peer after timeout",
-	);
+	let _ = w.expect_fetch_to(other_peer);
 }

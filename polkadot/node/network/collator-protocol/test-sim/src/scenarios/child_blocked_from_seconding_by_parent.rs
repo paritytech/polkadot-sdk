@@ -26,7 +26,6 @@
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V2},
-	contract::{Effect, RepBucket},
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };

@@ -39,6 +39,12 @@ mod claim_queue_window;
 #[cfg(test)]
 mod claims_counting;
 #[cfg(test)]
+mod collation_fetching_considers_advertisements_from_the_whole_view;
+#[cfg(test)]
+mod collation_fetching_fairness_handles_old_claims;
+#[cfg(test)]
+mod collation_fetching_prefer_entries_earlier_in_claim_queue;
+#[cfg(test)]
 mod disconnect_if_no_declare;
 #[cfg(test)]
 mod disconnect_if_wrong_declare;
@@ -46,6 +52,8 @@ mod disconnect_if_wrong_declare;
 mod fair_collation_fetches;
 #[cfg(test)]
 mod fetch_next_on_invalid;
+#[cfg(test)]
+mod fetches_next_collation;
 #[cfg(test)]
 mod fetch_timeout;
 #[cfg(test)]
@@ -75,7 +83,11 @@ mod unneeded_para;
 #[cfg(test)]
 mod v3_scheduling_parent;
 #[cfg(test)]
+mod v3_session_index_checks;
+#[cfg(test)]
 mod v1_advertise_on_non_leaf;
+#[cfg(test)]
+mod v1_descriptor_version_detection_with_v3_enabled;
 #[cfg(test)]
 mod v1_full_seconding_with_back_notification;
 #[cfg(test)]

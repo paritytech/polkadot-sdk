@@ -244,6 +244,46 @@ impl<S: CollatorSut> World<S> {
 		));
 	}
 
+	/// Wait for `Effect::SendRequest CollationFetchingV2` matching `candidate_hash`. Use
+	/// when the test asserts on a known candidate hash without holding a `Candidate`
+	/// (e.g. mismatched-hash sanity scenarios).
+	pub fn expect_fetch_for_hash(
+		&mut self,
+		candidate_hash: polkadot_primitives::CandidateHash,
+	) -> RequestId {
+		let send_request = self.sim.expect(
+			|e| matches!(
+				e,
+				Effect::SendRequest {
+					kind: ReqKind::CollationFetchingV2,
+					candidate_hash: Some(c),
+					..
+				} if *c == candidate_hash,
+			),
+			HAPPY_PATH_TIMEOUT,
+			"Effect::SendRequest CollationFetchingV2 for the specified hash",
+		);
+		send_request.request_id().expect("SendRequest carries a RequestId")
+	}
+
+	/// Wait for `Effect::SendRequest CollationFetchingV{1,2}` targeting `peer`. Use when
+	/// the candidate hash is unknown (the test only cares about which peer was picked).
+	pub fn expect_fetch_to(&mut self, peer: sc_network_types::PeerId) -> RequestId {
+		let send_request = self.sim.expect(
+			|e| matches!(
+				e,
+				Effect::SendRequest {
+					kind: ReqKind::CollationFetchingV1 | ReqKind::CollationFetchingV2,
+					to,
+					..
+				} if *to == peer,
+			),
+			HAPPY_PATH_TIMEOUT,
+			"Effect::SendRequest CollationFetching to the specified peer",
+		);
+		send_request.request_id().expect("SendRequest carries a RequestId")
+	}
+
 	/// Wait for the next outbound `Effect::SendRequest CollationFetchingV{1,2}` of any kind
 	/// from any peer. Returns `(peer_id, request_id, candidate_hash_if_any)` for the
 	/// caller to react to.
@@ -408,10 +448,16 @@ impl<S: CollatorSut> World<S> {
 
 	/// Wait for `Effect::Reputation { peer, bucket }` matching `peer` and `bucket`.
 	pub fn expect_rep(&mut self, peer: &Peer, bucket: RepBucket) {
+		self.expect_rep_id(peer.peer_id, bucket)
+	}
+
+	/// Variant of [`Self::expect_rep`] that takes a `PeerId` directly. Useful when the
+	/// scenario obtained the id from an effect rather than from a `Peer` builder.
+	pub fn expect_rep_id(&mut self, peer_id: sc_network_types::PeerId, bucket: RepBucket) {
 		let _ = self.sim.expect(
 			|e| matches!(
 				e,
-				Effect::Reputation { peer: p, bucket: b } if *p == peer.peer_id && *b == bucket,
+				Effect::Reputation { peer: p, bucket: b } if *p == peer_id && *b == bucket,
 			),
 			HAPPY_PATH_TIMEOUT,
 			"Effect::Reputation for peer (matching bucket)",

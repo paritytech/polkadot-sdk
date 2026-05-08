@@ -14,10 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Two V1 peers advertise the same relay parent. Validator fetches from exactly one of
-//! them (one in-flight fetch per relay parent). After the first fetch resolves with a
-//! valid response → seconded, a second fetch *may* fire — claim-queue lookahead allows up
-//! to N seconded candidates per RP. This scenario only pins the in-flight cap.
+//! Two V1 peers advertise the same relay parent. Validator fetches from exactly one
+//! (one in-flight per RP). The cap relaxes only after the first fetch resolves and
+//! seconds; this scenario pins the in-flight cap, not the post-second behaviour.
 
 use crate::{
 	builders::ProtocolVersion::V1,
@@ -26,7 +25,6 @@ use crate::{
 	scenarios::shared::activated_world,
 };
 use polkadot_primitives::{CoreIndex, Id as ParaId};
-use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
 
@@ -40,14 +38,10 @@ fn one_fetch_per_relay_parent_until_seconded<S: CollatorSut>() {
 	w.sim.send(peer_b.advertise(leaf, None, None));
 	w.sim.send(peer_c.advertise(leaf, None, None));
 
-	let _ = w.sim.expect(
-		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
-		Duration::from_millis(100),
-		"first Effect::SendRequest CollationFetchingV1",
-	);
+	let _ = w.expect_any_fetch();
 
 	w.sim.expect_count(
-		|e| matches!(e, Effect::SendRequest { .. }),
+		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
 		1,
 		"SendRequest while one fetch is in flight (no second concurrent fetch allowed)",
 	);

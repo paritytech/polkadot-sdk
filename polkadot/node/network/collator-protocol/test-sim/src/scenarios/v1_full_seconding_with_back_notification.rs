@@ -18,22 +18,18 @@
 //! collator-protocol → validator notifies the original collator with a
 //! `CollationSeconded` wire message + `BENEFIT_NOTIFY_GOOD` reputation bump.
 //!
-//! KNOWN-FAILING (both impls): the back-notification round-trip via
-//! `IntroduceSecondedCandidate` to real prospective-parachains gets stuck. The
-//! `CollatorProtocolMessage::Seconded` notification never reaches the validator, so the
-//! `CollationSeconded` wire message is never sent. Either the chain shape is missing
-//! something prospective needs, or the back-channel from backing → collator-protocol
-//! requires extra plumbing in the harness. Tracked under deferred items — likely fixes
-//! itself once the fragment-chain non-empty-heads gap is resolved.
+//! KNOWN-FAILING (experimental): bus-silent reputation handling under #10917 — the
+//! `Reputation::Benefit` Effect never fires (rep DB write is silent). The wire-side
+//! `CollationSeconded` notification still goes out.
 
 use crate::{
 	builders::{Candidate, ProtocolVersion::V1},
-	contract::{Effect, RepBucket, ReqKind, WireMsgKind},
+	contract::{Effect, RepBucket, WireMsgKind},
 	harness::CollatorSut,
 	scenarios::shared::activated_world,
 };
 use polkadot_node_subsystem_util::reputation::REPUTATION_CHANGE_INTERVAL;
-use polkadot_primitives::{CoreIndex, Id as ParaId};
+use polkadot_primitives::{CoreIndex, HeadData, Id as ParaId};
 use std::time::Duration;
 
 const PARA: ParaId = ParaId::new(2000);
@@ -42,38 +38,23 @@ const PARA: ParaId = ParaId::new(2000);
 fn v1_advertise_fetch_second_and_collator_notified<S: CollatorSut>() {
 	let mut w = activated_world::<S>(&[(CoreIndex(0), PARA)]);
 	let leaf = w.leaf();
-	let leaf_n = w.leaf_number();
-
-	let candidate = Candidate::builder()
+	let candidate = w.candidate_at(leaf)
 		.para(PARA)
-		.relay_parent(leaf)
-		.relay_parent_number(leaf_n)
-		.parent_head(polkadot_primitives::HeadData(Vec::new()))
-		.head_data(polkadot_primitives::HeadData(vec![1]))
+		.parent_head(HeadData(Vec::new()))
+		.head_data(HeadData(vec![1]))
 		.build();
-
-	// Register so validation stub returns matching commitments. Otherwise fragment chain
-	// rejects when the validated outputs disagree with the descriptor's para_head.
-	w.outputs.insert(
-		candidate.hash(),
-		candidate.commitments.clone(),
-		candidate.pvd.clone(),
-	);
+	// Register outputs so validation stub returns matching commitments — fragment chain
+	// would reject otherwise (validated head_data ≠ descriptor.para_head).
+	w.outputs.insert(candidate.hash(), candidate.commitments.clone(), candidate.pvd.clone());
 
 	let peer = w.declared_peer(PARA, V1);
 	w.sim.send(peer.advertise(leaf, None, None));
-	// V1 fetch (no candidate_hash). Match generic SendRequest.
-	let send_request = w.sim.expect(
-		|e| matches!(e, Effect::SendRequest { kind: ReqKind::CollationFetchingV1, .. }),
-		Duration::from_millis(500),
-		"Effect::SendRequest CollationFetchingV1",
-	);
-	let request_id = send_request.request_id().expect("RequestId");
+	let (_, request_id, _) = w.expect_any_fetch();
 	w.respond_fetch_v1(request_id, candidate.receipt.clone(), Candidate::empty_pov());
 	w.expect_second(&candidate);
 
-	// Backing's `Seconded` notification flows through statement-distribution-noop and back.
-	// Give the executor a moment to settle before checking for the wire-side notification.
+	// Let the back-notification flow through statement-distribution-noop and back to
+	// collator-protocol.
 	w.sim.advance(Duration::from_millis(100));
 
 	let _ = w.sim.expect(
