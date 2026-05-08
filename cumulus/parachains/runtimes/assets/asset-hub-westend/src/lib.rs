@@ -1184,7 +1184,15 @@ parameter_types! {
 pub struct PGASCallFilter;
 impl Contains<RuntimeCall> for PGASCallFilter {
 	fn contains(call: &RuntimeCall) -> bool {
-		matches!(call, RuntimeCall::Revive(..))
+		match call {
+			RuntimeCall::Revive(..) => true,
+			RuntimeCall::Utility(pallet_utility::Call::batch { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::batch_all { calls }) |
+			RuntimeCall::Utility(pallet_utility::Call::force_batch { calls }) => {
+				calls.iter().all(|inner_call| matches!(inner_call, RuntimeCall::Revive(..)))
+			},
+			_ => false,
+		}
 	}
 }
 
