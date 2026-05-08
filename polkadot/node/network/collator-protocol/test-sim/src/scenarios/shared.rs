@@ -14,7 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Helpers shared across scenarios.
+//! Shared world-building primitives. Every scenario boots a [`World`] via one of the
+//! `build_*` helpers, then drives the `Sim` through stimuli and assertions on outbound
+//! `Effect`s. The fluent surface lives in [`super::world`].
 
 use crate::{
 	aux::{
@@ -62,24 +64,31 @@ pub struct Leaf {
 	pub number: u32,
 }
 
-/// Unified test world. Replaces the older `WithAncestorsWorld` and `MultiLeafWorld`
-/// structs — every scenario goes through this one shape.
+/// Unified test world. Every scenario goes through this one shape:
 ///
-/// * Single-leaf scenarios access `world.leaf()` (defaults to `leaves[0]`) and
-///   `world.ancestors()`.
-/// * Multi-leaf scenarios access `world.leaves[i]` and `world.ancestors_of(i)`.
+/// * Single-leaf scenarios access `world.leaf()` / `world.ancestors()`.
+/// * Multi-leaf scenarios access `world.leaves[i].hash` / `world.ancestors_of(i)`.
 ///
-/// `chain` is the source of truth for everything block-shaped; `leaves` is just the list of
+/// `chain` is the source of truth for everything block-shaped; `leaves` is the list of
 /// blocks the framework signalled `ActiveLeaves::start_work` for. `outputs` is the
-/// per-candidate (commitments, PVD) registry the validation stub consults.
+/// per-candidate (commitments, PVD) registry the validation stub consults — register a
+/// candidate's outputs there to make real backing's seconding flow accept it.
 pub struct World<S: SubsystemUnderTest>
 where
 	AllMessages: From<<S::Message as polkadot_overseer::AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
+	/// Driver around the running simulation. Most tests interact with the world through
+	/// the fluent helpers in [`super::world`]; reach into `sim` directly only when the
+	/// helpers don't cover the case.
 	pub sim: Sim<S>,
+	/// All leaves the framework has signalled `ActiveLeaves::start_work` for, in
+	/// activation order.
 	pub leaves: Vec<Leaf>,
+	/// The chain model — runtime-API + chain-API responder.
 	pub chain: SharedChain,
+	/// Validation-stub registry: maps a candidate's hash to the
+	/// `(commitments, PVD)` the stub returns when the validator validates that candidate.
 	pub outputs: CandidateOutputs,
 }
 

@@ -14,9 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! Fluent test surface on top of the `World` / `WithAncestorsWorld` builders.
+//! Fluent test surface on top of [`crate::scenarios::shared::World`].
 //!
-//! Scenarios shouldn't have to spell out
+//! Compresses common scenario boilerplate. The "advertise → fetch fires" assertion goes
+//! from
 //!
 //! ```ignore
 //! world.sim.send(peer.connected());
@@ -30,17 +31,16 @@
 //! let request_id = send_request.request_id().expect("...");
 //! ```
 //!
-//! Five lines of boilerplate to assert "advertise → fetch fired" in every scenario adds up.
-//! These methods compress the common patterns down to:
+//! down to
 //!
 //! ```ignore
 //! let peer = w.declared_peer(para, V2);
-//! let cand = w.advertise(&peer, w.leaf, para);
+//! let cand = w.advertise(&peer, w.leaf(), para);
 //! let _ = w.fetch_request(&cand);
 //! ```
 //!
-//! Scenarios that need the raw API still have `world.sim.send(...)` and `world.sim.expect(...)`
-//! available — these helpers are additive, not gating.
+//! Scenarios that need the raw API still have `world.sim.send(...)` /
+//! `world.sim.expect(...)` available — these helpers are additive, not gating.
 
 use crate::{
 	builders::{Candidate, CandidateBuilder, Peer, ProtocolVersion},

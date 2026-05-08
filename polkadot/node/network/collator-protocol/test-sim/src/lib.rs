@@ -76,6 +76,8 @@ pub mod responder;
 pub mod runtime;
 pub mod scenarios;
 
-/// Attribute macro for declaring deterministic-simulator tests. Today expands to `#[test]`;
-/// the seam is in place for cross-impl fan-out in later phases.
+/// Attribute macro for declaring deterministic-simulator tests. Expands to one `#[test]`
+/// per registered subsystem-under-test implementation (currently `LegacyValidator` and
+/// `ExperimentalValidator`); the same scenario body runs differentially against each and
+/// any divergence in the observable contract fails the test for that impl.
 pub use polkadot_collator_protocol_test_sim_macros::sim_test;
