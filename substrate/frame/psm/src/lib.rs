@@ -210,19 +210,19 @@ pub mod pallet {
 		/// Whether this level allows modifying the circuit breaker status.
 		/// Both Full and Emergency levels can set circuit breaker.
 		pub const fn can_set_circuit_breaker(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying the global PSM debt ratio.
 		/// Both Full and Emergency levels can set the max PSM debt.
 		pub const fn can_set_max_psm_debt(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows modifying per-asset ceiling weights.
 		/// Both Full and Emergency levels can set asset ceilings.
 		pub const fn can_set_asset_ceiling(&self) -> bool {
-			true
+			matches!(self, PsmManagerLevel::Full | PsmManagerLevel::Emergency)
 		}
 
 		/// Whether this level allows adding or removing external assets.
