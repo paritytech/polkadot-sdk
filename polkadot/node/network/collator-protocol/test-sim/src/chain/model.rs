@@ -23,9 +23,9 @@ use crate::{
 use polkadot_node_subsystem::messages::{ChainApiMessage, RuntimeApiMessage, RuntimeApiRequest};
 use polkadot_primitives::{
 	async_backing::{AsyncBackingParams, Constraints, InboundHrmpLimitations},
-	BlockNumber, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-	GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures, PersistedValidationData,
-	SessionIndex, ValidatorId, ValidatorIndex,
+	BlockNumber, CandidateEvent, CommittedCandidateReceiptV2 as CommittedCandidateReceipt,
+	CoreIndex, GroupRotationInfo, Hash, HeadData, Header, Id as ParaId, NodeFeatures,
+	PersistedValidationData, SessionIndex, ValidatorId, ValidatorIndex,
 };
 use sp_consensus_babe::digests::{CompatibleDigestItem, PreDigest, SecondaryPlainPreDigest};
 use sp_consensus_slots::Slot;
@@ -143,6 +143,13 @@ pub struct ChainModel {
 	minimum_backing_votes: u32,
 	pending_availability: BTreeMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	backing_constraints: BTreeMap<ParaId, Constraints>,
+	/// Per-relay-parent `CandidateEvent` log returned by
+	/// `RuntimeApiRequest::CandidateEvents`. Tests seed this when driving finalization to
+	/// trigger experimental's `+VALID_INCLUDED_CANDIDATE_BUMP` path.
+	candidate_events: BTreeMap<Hash, Vec<CandidateEvent>>,
+	/// Latest finalized block — controls `ChainApiMessage::FinalizedBlockNumber` /
+	/// `FinalizedBlockHash`. Initialised to genesis.
+	finalized: Hash,
 	genesis: Hash,
 	tip: Hash,
 }
@@ -177,6 +184,8 @@ impl ChainModel {
 			minimum_backing_votes: 1,
 			pending_availability: BTreeMap::new(),
 			backing_constraints: BTreeMap::new(),
+			candidate_events: BTreeMap::new(),
+			finalized: genesis_hash,
 			genesis: genesis_hash,
 			tip: genesis_hash,
 		}
@@ -312,6 +321,26 @@ impl ChainModel {
 		self.pending_availability.insert(para, candidates);
 	}
 
+	/// Install the `CandidateEvents` log returned by
+	/// `RuntimeApiRequest::CandidateEvents(rp, _)`. Tests driving experimental's
+	/// finalization-driven score bump seed these alongside [`Self::set_pending_availability`].
+	pub fn set_candidate_events(&mut self, rp: Hash, events: Vec<CandidateEvent>) {
+		self.candidate_events.insert(rp, events);
+	}
+
+	/// Update the latest finalized block. Drives `ChainApiMessage::FinalizedBlockNumber`
+	/// / `FinalizedBlockHash` lookups. Defaults to genesis until called.
+	///
+	/// Panics if `hash` is not a known block.
+	pub fn set_finalized(&mut self, hash: Hash) {
+		assert!(
+			self.blocks.contains_key(&hash),
+			"ChainModel::set_finalized: unknown block {:?}",
+			hash,
+		);
+		self.finalized = hash;
+	}
+
 	/// Walk ancestry of `from`. Yields parent, grandparent, ... up to (but not including) the
 	/// genesis pre-image. Used by `ChainApi::Ancestors`.
 	pub fn ancestors(&self, from: Hash, k: usize) -> Vec<Hash> {
@@ -386,6 +415,11 @@ impl ChainModel {
 				let candidates = self.pending_availability.get(&para).cloned().unwrap_or_default();
 				let _ = tx.send(Ok(candidates));
 			},
+			RuntimeApiRequest::CandidateEvents(tx) => {
+				let events =
+					self.candidate_events.get(&parent).cloned().unwrap_or_default();
+				let _ = tx.send(Ok(events));
+			},
 			RuntimeApiRequest::PersistedValidationData(_para, _assumption, tx) => {
 				// Synthesise a PVD whose shape matches the seconding sanity check: parent
 				// head = empty, relay parent number = block's number, storage root =
@@ -412,7 +446,21 @@ impl ChainModel {
 				let _ = tx.send(Ok(None));
 			},
 			RuntimeApiRequest::ParaIds(_session, tx) => {
-				let _ = tx.send(Ok(Vec::new()));
+				// Derive registered paras from the global schedule + per-block claim-queue
+				// overrides. Returning empty here triggers experimental's `prune_paras` to
+				// wipe every score-store entry on every BlockFinalized — see
+				// `peer_manager::PeerManager::prune_registered_paras`.
+				let mut paras: std::collections::BTreeSet<ParaId> = self
+					.schedule
+					.values()
+					.flat_map(|sched| sched.cycle.iter().copied())
+					.collect();
+				for queue in self.claim_queue_overrides.values() {
+					for cores in queue.values() {
+						paras.extend(cores.iter().copied());
+					}
+				}
+				let _ = tx.send(Ok(paras.into_iter().collect()));
 			},
 			RuntimeApiRequest::ValidationCodeBombLimit(_session, tx) => {
 				let _ = tx.send(Ok(60 * 1024 * 1024));
@@ -471,12 +519,17 @@ impl ChainModel {
 				let _ = response_channel.send(Ok(ancestors));
 			},
 			ChainApiMessage::FinalizedBlockNumber(tx) => {
-				// No finalized block tracking yet — pretend genesis is the latest finalized.
-				let _ = tx.send(Ok(0));
+				let n = self.blocks.get(&self.finalized).map(|info| info.number).unwrap_or(0);
+				let _ = tx.send(Ok(n));
 			},
 			ChainApiMessage::FinalizedBlockHash(number, tx) => {
-				// Map any finalized-block-number lookup to genesis if number == 0.
-				let hash = if number == 0 { Some(self.genesis) } else { None };
+				// Linear scan — chain models are small in tests; rebuilding a number→hash
+				// index for one lookup isn't worth it.
+				let hash = self
+					.blocks
+					.values()
+					.find(|info| info.number == number)
+					.map(|info| info.hash);
 				let _ = tx.send(Ok(hash));
 			},
 			other => panic!(

@@ -386,6 +386,26 @@ where
 		self.pending_fetches.len()
 	}
 
+	/// Drop the response sender for `request_id`, which makes the awaiting `oneshot`
+	/// receiver resolve with `Canceled`. From the subsystem's POV this is the equivalent
+	/// of a network-level timeout / cancellation. Experimental's collation-fetch path
+	/// classifies this as `RequestError::Canceled` (`is_timed_out() == true`) and applies
+	/// `FAILED_FETCH_SLASH` to the responding peer's reputation.
+	///
+	/// Panics if `request_id` is unknown.
+	pub fn cancel_fetch(&mut self, request_id: RequestId) {
+		let sender = self.pending_fetches.take(request_id).unwrap_or_else(|| {
+			panic!(
+				"Sim::cancel_fetch: no outstanding fetch for {:?} (already responded? unknown id?)",
+				request_id
+			)
+		});
+		// Dropping the sender resolves the receiver's await with `Canceled`.
+		drop(sender);
+		self.executor.poll_until_pending();
+		self.drain();
+	}
+
 	/// Assert that NO effect matching `predicate` is observed within `window`. Panics with
 	/// a [`TimelineReport`] showing the offending effect if one is found.
 	#[track_caller]

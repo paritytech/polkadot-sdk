@@ -16,12 +16,17 @@
 
 //! Builder for `CandidateReceiptV2` shaped to whatever para / relay-parent the scenario uses.
 
+use codec::Encode;
 use polkadot_node_primitives::PoV;
 use polkadot_primitives::{
-	CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt, HeadData,
-	Hash, Id as ParaId, MutateDescriptorV2, PersistedValidationData,
+	ApprovedPeerId, CandidateCommitments, CandidateHash, CandidateReceiptV2 as CandidateReceipt,
+	CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData, Hash,
+	Id as ParaId, MutateDescriptorV2, PersistedValidationData, UMPSignal, UMP_SEPARATOR,
 };
-use polkadot_primitives_test_helpers::dummy_candidate_receipt_v2_bad_sig;
+use polkadot_primitives_test_helpers::{
+	dummy_candidate_receipt_v2_bad_sig, make_valid_candidate_descriptor_v2,
+};
+use sc_network_types::PeerId;
 
 use crate::builders::fixtures::dummy_pvd;
 
@@ -65,6 +70,7 @@ impl Candidate {
 			relay_parent_number: 0,
 			parent_head: HeadData(Vec::new()),
 			head_data: HeadData(Vec::new()),
+			approved_peer: None,
 		}
 	}
 
@@ -102,6 +108,15 @@ impl Candidate {
 		PoV { block_data: polkadot_node_primitives::BlockData(vec![]) }
 	}
 
+	/// Glue the receipt and commitments into a `CommittedCandidateReceiptV2`. Used when
+	/// seeding the chain model's pending-availability list.
+	pub fn committed(&self) -> CommittedCandidateReceipt {
+		CommittedCandidateReceipt {
+			descriptor: self.receipt.descriptor.clone(),
+			commitments: self.commitments.clone(),
+		}
+	}
+
 	/// Wrap a pre-built `CandidateReceiptV2` (e.g. one produced by
 	/// `dummy_committed_candidate_receipt_v2(...).to_plain()`) into a [`Candidate`]. The
 	/// resulting `pvd` and `commitments` are zero-shape placeholders — only useful for
@@ -136,6 +151,7 @@ pub struct CandidateBuilder {
 	relay_parent_number: u32,
 	parent_head: HeadData,
 	head_data: HeadData,
+	approved_peer: Option<PeerId>,
 }
 
 impl CandidateBuilder {
@@ -173,6 +189,15 @@ impl CandidateBuilder {
 		self
 	}
 
+	/// Embed an `UMPSignal::ApprovedPeer(peer)` in the candidate's `commitments
+	/// .upward_messages`. Experimental's finalization-driven score bump
+	/// (`+VALID_INCLUDED_CANDIDATE_BUMP`) is keyed on this peer id — set this on the
+	/// candidate the test wants the peer to gain reputation for.
+	pub fn approved_peer(mut self, peer: PeerId) -> Self {
+		self.approved_peer = Some(peer);
+		self
+	}
+
 	/// Finalise the builder.
 	pub fn build(self) -> Candidate {
 		let pvd = if self.parent_head.0.is_empty() && self.relay_parent_number == 0 {
@@ -187,19 +212,53 @@ impl CandidateBuilder {
 				max_pov_size: 5 * 1024 * 1024,
 			}
 		};
+		let mut upward_messages: Vec<Vec<u8>> = Vec::new();
+		if let Some(peer) = self.approved_peer {
+			let approved: ApprovedPeerId =
+				peer.to_bytes().try_into().expect("peer id encodes to <= 64 bytes");
+			upward_messages.push(UMP_SEPARATOR);
+			upward_messages.push(UMPSignal::ApprovedPeer(approved).encode());
+		}
 		let commitments = CandidateCommitments {
 			head_data: self.head_data,
 			horizontal_messages: Default::default(),
-			upward_messages: Default::default(),
+			upward_messages: upward_messages.try_into().expect("upward_messages fits in BoundedVec"),
 			new_validation_code: None,
 			processed_downward_messages: 0,
 			hrmp_watermark: 0,
 		};
 
-		let mut receipt =
-			dummy_candidate_receipt_v2_bad_sig(self.relay_parent, Some(Default::default()));
-		receipt.descriptor.set_para_id(self.para);
-		receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+		// Two descriptor shapes:
+		// - Default (`approved_peer = None`): legacy bad-sig dummy. `descriptor.version()`
+		//   reports V1 because the collator's id bytes spill into the V2 layout's
+		//   `reserved1` field. Most scenarios are V1-shaped and need this for prior
+		//   compatibility.
+		// - V2-shaped (`approved_peer = Some(_)`): build via
+		//   `make_valid_candidate_descriptor_v2`, which zeros `reserved1`. Required for
+		//   experimental's `+VALID_INCLUDED_CANDIDATE_BUMP` path — that path filters out
+		//   non-V2/V3 receipts before attempting the ump-signal lookup.
+		let mut receipt = if self.approved_peer.is_some() {
+			let invalid = Hash::zero();
+			let mut descriptor = make_valid_candidate_descriptor_v2(
+				self.para,
+				self.relay_parent,
+				CoreIndex(0),
+				0,
+				invalid,
+				invalid,
+				invalid,
+				invalid,
+				invalid,
+			);
+			descriptor.set_persisted_validation_data_hash(pvd.hash());
+			CandidateReceipt { descriptor, commitments_hash: Hash::default() }
+		} else {
+			let mut receipt =
+				dummy_candidate_receipt_v2_bad_sig(self.relay_parent, Some(Default::default()));
+			receipt.descriptor.set_para_id(self.para);
+			receipt.descriptor.set_persisted_validation_data_hash(pvd.hash());
+			receipt
+		};
 		// `descriptor.para_head` MUST equal `commitments.head_data.hash()`. Real backing
 		// uses this hash to key the unblock-pending-children map (see
 		// `second_unblocked_collations`). If they disagree, a child waiting on this
