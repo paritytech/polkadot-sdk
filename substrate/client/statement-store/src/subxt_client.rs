@@ -284,9 +284,9 @@ pub fn create_attest_call(
 /// Builds consumer registration parameters for `create_attest_call`
 ///
 /// The `LiteConsumerRegistrationParams` struct has fields:
-///   signature: MultiSignature, account: AccountId,
-///   identifier_key: CommunicationIdentifier ([u8; 65]),
-///   username: Username (BoundedVec<u8, 32>), reserved_username: Option<Username>
+///   signature: `MultiSignature`, account: `AccountId`,
+///   identifier_key: `CommunicationIdentifier` (`[u8; 65]`),
+///   username: `Username` (`BoundedVec<u8, 32>`), reserved_username: `Option<Username>`
 ///
 /// The signing payload is `(account, verifier, identifier_key, username_prefix,
 /// reserved_username).encode()` where `verifier` is the attester (origin of the attest call)
