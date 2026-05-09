@@ -16148,13 +16148,18 @@ dependencies = [
  "itertools 0.11.0",
  "kvdb-memorydb",
  "parity-scale-codec",
+ "polkadot-collator-protocol-test-sim-macros",
+ "polkadot-node-core-backing",
+ "polkadot-node-core-prospective-parachains",
  "polkadot-node-network-protocol",
  "polkadot-node-primitives",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
  "polkadot-node-subsystem-util",
+ "polkadot-overseer",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-test-sim",
  "rstest",
  "sc-keystore",
  "sc-network 0.34.0",
@@ -16172,35 +16177,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "tracing-gum",
-]
-
-[[package]]
-name = "polkadot-collator-protocol-test-sim"
-version = "0.1.0"
-dependencies = [
- "futures",
- "kvdb-memorydb",
- "parity-scale-codec",
- "polkadot-collator-protocol",
- "polkadot-collator-protocol-test-sim-macros",
- "polkadot-node-core-backing",
- "polkadot-node-core-prospective-parachains",
- "polkadot-node-network-protocol",
- "polkadot-node-primitives",
- "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
- "polkadot-node-subsystem-util",
- "polkadot-overseer",
- "polkadot-primitives",
- "polkadot-primitives-test-helpers",
- "polkadot-subsystem-test-sim",
- "sc-keystore",
- "sc-network 0.34.0",
- "sc-network-types 0.10.0",
- "sp-consensus-slots",
- "sp-core 28.0.0",
- "sp-keyring",
- "sp-keystore 0.34.0",
 ]
 
 [[package]]

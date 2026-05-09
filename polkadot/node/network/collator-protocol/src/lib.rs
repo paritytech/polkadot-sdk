@@ -46,6 +46,14 @@
 #![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![recursion_limit = "256"]
 
+// Acknowledge dev-deps used only by integration tests under `tests/`.
+#[cfg(test)]
+use {
+	polkadot_collator_protocol_test_sim_macros as _, polkadot_node_core_backing as _,
+	polkadot_node_core_prospective_parachains as _, polkadot_overseer as _,
+	polkadot_subsystem_test_sim as _, sp_consensus_slots as _,
+};
+
 use std::{
 	collections::{HashMap, HashSet},
 	sync::Arc,

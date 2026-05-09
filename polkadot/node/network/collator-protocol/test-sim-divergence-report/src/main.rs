@@ -61,14 +61,15 @@ struct BugMarker {
 }
 
 fn main() {
-	// `CARGO_MANIFEST_DIR` is this report-tool crate's directory. The test-sim
-	// crate lives at `../test-sim`. Workspace root is the first ancestor with
-	// `Cargo.lock`.
+	// `CARGO_MANIFEST_DIR` is this report-tool crate's directory. Sibling
+	// `polkadot-collator-protocol` (the production crate) hosts the tests under
+	// `tests/`. Workspace root is the first ancestor with `Cargo.lock`.
 	let report_manifest = manifest_dir();
-	let test_sim_dir = report_manifest
+	let collator_crate = report_manifest
 		.parent()
 		.expect("report crate has parent")
-		.join("test-sim");
+		.to_path_buf();
+	let scenarios_dir = collator_crate.join("tests");
 	let workspace_root = report_manifest
 		.ancestors()
 		.find(|p| p.join("Cargo.lock").exists())
@@ -86,7 +87,7 @@ fn main() {
 		})
 		.collect();
 
-	let markers = collect_markers(&test_sim_dir.join("src"));
+	let markers = collect_markers(&scenarios_dir);
 	let stale = stale_markers(&markers, &test_output);
 
 	// --- Section 1 ---
@@ -150,24 +151,29 @@ fn main() {
 	// --- Section 5 ---
 	println!();
 	println!("=== Intended divergences ===");
-	let divergent_dir = test_sim_dir.join("src/scenarios/divergent");
-	if divergent_dir.is_dir() {
-		let mut names: Vec<String> = std::fs::read_dir(&divergent_dir)
-			.expect("read divergent dir")
-			.filter_map(|e| e.ok())
-			.filter_map(|e| {
-				let p = e.path();
-				if p.extension()?.to_str()? != "rs" {
+	let divergent_file = scenarios_dir.join("scenarios/divergent.rs");
+	if divergent_file.is_file() {
+		// Each intended divergence is a top-level `mod foo { ... }` block in
+		// `divergent.rs`. Skip ones named `upcoming_pr_*` (those track open PRs).
+		let text = std::fs::read_to_string(&divergent_file).expect("read divergent.rs");
+		let mut names: Vec<String> = text
+			.lines()
+			.filter_map(|l| l.trim_start().strip_prefix("mod "))
+			.filter_map(|rest| {
+				let name = rest
+					.trim_end()
+					.trim_end_matches('{')
+					.trim_end_matches(';')
+					.trim()
+					.to_string();
+				if name.is_empty() || name.starts_with("upcoming_pr_") {
 					return None;
 				}
-				let stem = p.file_stem()?.to_str()?.to_string();
-				if stem == "mod" || stem.starts_with("upcoming_pr_") {
-					return None;
-				}
-				Some(stem)
+				Some(name)
 			})
 			.collect();
 		names.sort();
+		names.dedup();
 		for n in names {
 			println!("  {n}");
 		}
@@ -252,7 +258,7 @@ fn run_cargo_test(workspace_root: &Path) -> String {
 			"-p",
 			"polkadot-subsystem-test-sim",
 			"-p",
-			"polkadot-collator-protocol-test-sim",
+			"polkadot-collator-protocol",
 		])
 		.current_dir(workspace_root)
 		.output()
