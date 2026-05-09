@@ -20,7 +20,7 @@
 //! prospective-parachains' protocol behaviour. Real protocol scenarios land alongside
 //! domain expertise about which behaviours matter most to lock in.
 
-use polkadot_prospective_parachains_test_sim::ProspectiveParachains;
+use crate::common::ProspectiveParachains;
 use polkadot_subsystem_test_sim::{
 	contract::Query,
 	harness::{AnswerQuery, Sim, SimConfig},

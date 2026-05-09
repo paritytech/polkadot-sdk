@@ -22,7 +22,7 @@
 //! `register_leaf_in_chain` methods, then drive prospective-flavoured queries directly
 //! through this struct's inherent methods.
 
-use crate::ProspectiveParachains;
+use super::ProspectiveParachains;
 use futures::channel::oneshot;
 use polkadot_node_subsystem::messages::{
 	Ancestors, BackableCandidateRef, HypotheticalCandidate, HypotheticalMembership,

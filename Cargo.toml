@@ -172,7 +172,6 @@ members = [
 	"polkadot/node/core/dispute-coordinator",
 	"polkadot/node/core/parachains-inherent",
 	"polkadot/node/core/prospective-parachains",
-	"polkadot/node/core/prospective-parachains/test-sim",
 	"polkadot/node/core/provisioner",
 	"polkadot/node/core/pvf",
 	"polkadot/node/core/pvf-checker",
@@ -1156,7 +1155,6 @@ polkadot-overseer = { path = "polkadot/node/overseer", default-features = false 
 polkadot-parachain-primitives = { path = "polkadot/parachain", default-features = false }
 polkadot-primitives = { path = "polkadot/primitives", default-features = false }
 polkadot-primitives-test-helpers = { path = "polkadot/primitives/test-helpers" }
-polkadot-prospective-parachains-test-sim = { path = "polkadot/node/core/prospective-parachains/test-sim" }
 polkadot-rpc = { path = "polkadot/rpc", default-features = false }
 polkadot-runtime-common = { path = "polkadot/runtime/common", default-features = false }
 polkadot-runtime-metrics = { path = "polkadot/runtime/metrics", default-features = false }

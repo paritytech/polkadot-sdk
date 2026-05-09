@@ -28,6 +28,11 @@
 
 #![deny(unused_crate_dependencies)]
 
+// Acknowledge dev-deps that are only consumed by integration tests under `tests/`,
+// keeping the `unused_crate_dependencies` lint quiet.
+#[cfg(test)]
+use polkadot_subsystem_test_sim as _;
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use fragment_chain::CandidateStorage;

@@ -16635,6 +16635,7 @@ dependencies = [
  "polkadot-node-subsystem-util",
  "polkadot-primitives",
  "polkadot-primitives-test-helpers",
+ "polkadot-subsystem-test-sim",
  "rand 0.8.5",
  "rstest",
  "schnellru",
@@ -17198,19 +17199,6 @@ dependencies = [
  "sp-core 28.0.0",
  "sp-keyring",
  "sp-runtime 31.0.1",
-]
-
-[[package]]
-name = "polkadot-prospective-parachains-test-sim"
-version = "0.1.0"
-dependencies = [
- "futures",
- "polkadot-node-core-prospective-parachains",
- "polkadot-node-subsystem",
- "polkadot-node-subsystem-test-helpers",
- "polkadot-primitives",
- "polkadot-primitives-test-helpers",
- "polkadot-subsystem-test-sim",
 ]
 
 [[package]]
