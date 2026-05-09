@@ -143,6 +143,11 @@ pub struct ChainModel {
 	minimum_backing_votes: u32,
 	pending_availability: BTreeMap<ParaId, Vec<CommittedCandidateReceipt>>,
 	backing_constraints: BTreeMap<ParaId, Constraints>,
+	/// Per-relay-parent backing-constraint overrides. Takes precedence over the global
+	/// `backing_constraints` table. Used by tests where the same para has different
+	/// `required_parent` head data at different leaves (as in real prospective tests where
+	/// each leaf carries its own per-para `head_data` snapshot).
+	backing_constraints_at: BTreeMap<(Hash, ParaId), Constraints>,
 	/// Per-relay-parent `CandidateEvent` log returned by
 	/// `RuntimeApiRequest::CandidateEvents`. Tests seed this when driving finalization to
 	/// trigger experimental's `+VALID_INCLUDED_CANDIDATE_BUMP` path.
@@ -184,6 +189,7 @@ impl ChainModel {
 			minimum_backing_votes: 1,
 			pending_availability: BTreeMap::new(),
 			backing_constraints: BTreeMap::new(),
+			backing_constraints_at: BTreeMap::new(),
 			candidate_events: BTreeMap::new(),
 			finalized: genesis_hash,
 			genesis: genesis_hash,
@@ -204,6 +210,47 @@ impl ChainModel {
 	/// Look up a block by hash.
 	pub fn block(&self, hash: &Hash) -> Option<&BlockInfo> {
 		self.blocks.get(hash)
+	}
+
+	/// Register a block with a caller-chosen hash, parent, and number. Use this when the
+	/// test wants specific hash literals (e.g. `Hash::from_low_u64_be(130)`) instead of the
+	/// synthetic hashes [`Self::extend`] generates. Session is inherited from the parent if
+	/// known; otherwise defaults to the most recently registered session (or 0). Slot is
+	/// `parent_slot + 1` when the parent is known, otherwise `Slot::from(number as u64)`.
+	///
+	/// If `hash` is already registered this is a no-op (the test may call `register_block`
+	/// idempotently when walking ancestor chains).
+	///
+	/// Used by per-subsystem test-sim consumer crates (e.g. prospective-parachains) whose
+	/// faithful ports of pre-existing tests use literal block hashes.
+	pub fn register_block(&mut self, hash: Hash, parent_hash: Hash, number: BlockNumber) {
+		self.register_block_with_session(hash, parent_hash, number, None);
+	}
+
+	/// Like [`Self::register_block`] but with an explicit session override. Used when the
+	/// test's whole synthetic chain should live in a specific session (e.g. session 1)
+	/// instead of inheriting from a synthesised genesis-default of 0.
+	pub fn register_block_with_session(
+		&mut self,
+		hash: Hash,
+		parent_hash: Hash,
+		number: BlockNumber,
+		session_override: Option<SessionIndex>,
+	) {
+		if self.blocks.contains_key(&hash) {
+			return;
+		}
+		let (slot, default_session) = match self.blocks.get(&parent_hash) {
+			Some(parent) => (parent.slot + 1, parent.session_index),
+			None => (Slot::from(number as u64), 0),
+		};
+		let session_index = session_override.unwrap_or(default_session);
+		let info = BlockInfo { hash, parent_hash, number, slot, session_index };
+		self.blocks.insert(hash, info);
+		self.children.entry(parent_hash).or_default().push(hash);
+		if number > self.blocks.get(&self.tip).map(|t| t.number).unwrap_or(0) {
+			self.tip = hash;
+		}
 	}
 
 	/// Append a child block onto `parent`. Slot increments by one, session is inherited from
@@ -292,6 +339,21 @@ impl ChainModel {
 	/// default that lets advertisements pass the prospective-parachains acceptance check.
 	pub fn set_backing_constraints(&mut self, para: ParaId, constraints: Constraints) {
 		self.backing_constraints.insert(para, constraints);
+	}
+
+	/// Install backing constraints for a `(relay_parent, para)` pair. Takes precedence over
+	/// the global per-para entry installed via [`Self::set_backing_constraints`].
+	///
+	/// Used by tests where the same para has different `required_parent` head data at
+	/// different relay parents (per-leaf head-data snapshot, as in
+	/// `prospective-parachains`'s test fixtures).
+	pub fn set_backing_constraints_at(
+		&mut self,
+		relay_parent: Hash,
+		para: ParaId,
+		constraints: Constraints,
+	) {
+		self.backing_constraints_at.insert((relay_parent, para), constraints);
 	}
 
 	/// Override the async backing params (max candidate depth, allowed ancestry length).
@@ -410,9 +472,10 @@ impl ChainModel {
 			},
 			RuntimeApiRequest::BackingConstraints(para, tx) => {
 				let constraints = self
-					.backing_constraints
-					.get(&para)
+					.backing_constraints_at
+					.get(&(parent, para))
 					.cloned()
+					.or_else(|| self.backing_constraints.get(&para).cloned())
 					.unwrap_or_else(default_constraints);
 				let _ = tx.send(Ok(Some(constraints)));
 			},

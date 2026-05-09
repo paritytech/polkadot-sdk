@@ -25,8 +25,8 @@ use crate::{
 		StatementDistributionNoop,
 	},
 	chain::{ChainModel, CoreSchedule, SessionInfo, SharedChain},
-	contract::Query,
-	harness::{AnswerQuery, LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
+	harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
+	responder::PanicResponder,
 };
 use polkadot_node_subsystem::{
 	messages::{AllMessages, CollatorProtocolMessage},
@@ -39,17 +39,6 @@ use polkadot_primitives::{
 };
 use sp_consensus_slots::Slot;
 use std::collections::{BTreeMap, VecDeque};
-
-/// A responder that panics on every query. Pushed onto the tail of a
-/// [`crate::harness::LayeredResponder`] to surface any unexpected query family that earlier
-/// layers declined.
-pub struct PanicResponder;
-
-impl AnswerQuery for PanicResponder {
-	fn answer(&mut self, query: Query) {
-		panic!("PanicResponder: unhandled query reached the tail of the responder chain: {:?}", query);
-	}
-}
 
 /// One active leaf in the harness's view. `hash` and `number` are eagerly cached because
 /// every scenario uses them; ancestors are *not* cached — read them via

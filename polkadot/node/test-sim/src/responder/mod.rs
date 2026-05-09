@@ -24,3 +24,17 @@
 pub mod script;
 
 pub use script::{QueryScript, QueryScriptBuilder};
+
+/// Tail responder that panics on every query. Push it onto the end of a
+/// [`crate::harness::LayeredResponder`] to surface any unscripted query family that earlier
+/// layers declined.
+pub struct PanicResponder;
+
+impl crate::harness::AnswerQuery for PanicResponder {
+	fn answer(&mut self, query: crate::contract::Query) {
+		panic!(
+			"PanicResponder: unhandled query reached the tail of the responder chain: {:?}",
+			query,
+		);
+	}
+}

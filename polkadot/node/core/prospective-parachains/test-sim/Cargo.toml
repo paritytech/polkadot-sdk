@@ -18,4 +18,8 @@ futures = { workspace = true }
 polkadot-node-core-prospective-parachains = { workspace = true, default-features = true }
 polkadot-node-subsystem = { workspace = true, default-features = true }
 polkadot-node-subsystem-test-helpers = { workspace = true }
+polkadot-primitives = { workspace = true, default-features = true, features = ["test"] }
+polkadot-primitives-test-helpers = { workspace = true }
 polkadot-subsystem-test-sim = { workspace = true }
+sp-consensus-slots = { workspace = true, default-features = true }
+

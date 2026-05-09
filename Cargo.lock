@@ -17206,7 +17206,10 @@ dependencies = [
  "polkadot-node-core-prospective-parachains",
  "polkadot-node-subsystem",
  "polkadot-node-subsystem-test-helpers",
+ "polkadot-primitives",
+ "polkadot-primitives-test-helpers",
  "polkadot-subsystem-test-sim",
+ "sp-consensus-slots",
 ]
 
 [[package]]

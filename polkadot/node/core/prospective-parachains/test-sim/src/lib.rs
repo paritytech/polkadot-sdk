@@ -44,5 +44,6 @@
 #![deny(unused_crate_dependencies)]
 
 pub mod impls;
+pub mod world;
 
 pub use impls::ProspectiveParachains;
