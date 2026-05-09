@@ -160,6 +160,11 @@ where
 		input: &Self::Interface,
 		env: &mut impl Ext<T = Self::T>,
 	) -> Result<Vec<u8>, Error> {
+		frame_support::ensure!(
+			!env.is_delegate_call(),
+			pallet_revive::Error::<Self::T>::PrecompileDelegateDenied,
+		);
+
 		let asset_id = PrecompileConfig::AssetIdExtractor::asset_id_from_address(address)?.into();
 		let contract_addr = H160::from(*address);
 
@@ -242,7 +247,7 @@ where
 		let topics = topics.into_iter().map(|v| H256(v.0)).collect::<Vec<_>>();
 		env.frame_meter_mut().charge_weight_token(RuntimeCosts::DepositEvent {
 			num_topic: topics.len() as u32,
-			len: topics.len() as u32,
+			len: data.len() as u32,
 		})?;
 		env.deposit_event(topics, data.to_vec());
 		Ok(())

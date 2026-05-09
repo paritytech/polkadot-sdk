@@ -141,6 +141,70 @@ impl<Moment> DryRunConfig<Moment> {
 	}
 }
 
+/// Configuration specific to a tracing execution.
+///
+/// Passed as the last argument to the `trace_call_with_config` runtime API method. Contains
+/// optional overrides that affect how the traced execution is performed.
+///
+/// # Backwards Compatibility
+///
+/// This type follows the same backwards compatibility strategy as [`DryRunConfig`]. SCALE is a
+/// non-self-describing format: fields are encoded sequentially with no names or delimiters. This
+/// type uses a custom [`Decode`] implementation that defaults missing trailing fields, and relies
+/// on `sp_api`'s use of `Decode::decode` (not `decode_all`) to silently discard trailing bytes
+/// that an old runtime does not recognize.
+///
+/// ## Constraints on fields
+///
+/// - New fields **must** be appended to the end. Inserting or reordering fields breaks the byte
+///   layout in both directions.
+/// - New fields **must** implement `Default` so the custom `Decode` fallback can produce a sensible
+///   value when the field is absent from the input.
+///
+/// ## Constraints on runtime API placement
+///
+/// `TracingConfig` must be the **last argument** of any runtime API method that uses it. If it
+/// were placed before another argument, extra bytes from newly appended fields would shift the
+/// decoding offset and corrupt the subsequent argument.
+#[derive(Debug, Default, Encode, TypeInfo, Clone)]
+pub struct TracingConfig {
+	/// Optional state overrides to apply before executing the traced call. Each entry maps an
+	/// account address to a set of fields (balance, nonce, code, storage) that should be
+	/// temporarily replaced for the duration of the trace.
+	pub state_overrides: Option<StateOverrideSet>,
+}
+
+/// A custom implementation of [`Decode`] to ensure forward and backward compatibility of the
+/// [`TracingConfig`] type.
+///
+/// # Backwards Compatibility
+///
+/// Please review the documentation on [`TracingConfig`] for more information about how we manage
+/// and handle compatibility for this type and instructions on what you should do when adding a
+/// new field.
+impl Decode for TracingConfig {
+	fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+		let state_overrides = Option::<StateOverrideSet>::decode(input).unwrap_or_default();
+		Ok(Self { state_overrides })
+	}
+}
+
+impl TracingConfig {
+	/// Create a new `TracingConfig` with default values.
+	pub fn new() -> Self {
+		Self::default()
+	}
+
+	/// A builder method which consumes the object and sets the state overrides.
+	pub fn with_state_overrides(
+		mut self,
+		state_overrides: impl Into<Option<StateOverrideSet>>,
+	) -> Self {
+		self.state_overrides = state_overrides.into();
+		self
+	}
+}
+
 impl From<BlockNumberOrTag> for BlockNumberOrTagOrHash {
 	fn from(b: BlockNumberOrTag) -> Self {
 		match b {

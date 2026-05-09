@@ -20,8 +20,8 @@
 use super::budget_map;
 use crate::{
 	mock::{
-		build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime, RuntimeOrigin,
-		System, Test,
+		account_id, build_and_execute, set_default_budget_allocation, Balances, Dap, MockTime,
+		RuntimeOrigin, System, Test,
 	},
 	Event,
 };
@@ -44,8 +44,8 @@ fn drip_distributes_according_to_budget() {
 			budget_map(&[(b"staker_rewards", 60), (b"validator_incentive", 25), (b"buffer", 15)]);
 		assert_ok!(Dap::set_budget_allocation(RuntimeOrigin::root(), allocs));
 
-		let staker_pot = 500; // TestStakerRecipient pot account
-		let incentive_pot = 501; // TestValidatorIncentiveRecipient pot account
+		let staker_pot = account_id(500); // TestStakerRecipient pot account
+		let incentive_pot = account_id(501); // TestValidatorIncentiveRecipient pot account
 		let buffer = Dap::buffer_account();
 
 		let staker_before = Balances::balance(&staker_pot);
@@ -111,7 +111,7 @@ fn no_drip_when_budget_not_set() {
 
 		// GIVEN: no budget allocation set.
 
-		let staker_pot = 500; // TestStakerRecipient pot account
+		let staker_pot = account_id(500); // TestStakerRecipient pot account
 		let balance_before = Balances::balance(&staker_pot);
 
 		// WHEN: drip fires with empty budget — no panic, just early return.
@@ -171,9 +171,12 @@ fn elapsed_ceiling_is_applied() {
 fn first_block_initializes_timestamp_without_dripping() {
 	// Test that when LastIssuanceTimestamp is 0 (genesis), it initializes without dripping.
 	let mut t = frame_system::GenesisConfig::<Test>::default().build_storage().unwrap();
-	pallet_balances::GenesisConfig::<Test> { balances: vec![(1, 100)], ..Default::default() }
-		.assimilate_storage(&mut t)
-		.unwrap();
+	pallet_balances::GenesisConfig::<Test> {
+		balances: vec![(account_id(1), 100)],
+		..Default::default()
+	}
+	.assimilate_storage(&mut t)
+	.unwrap();
 	let mut ext: sp_io::TestExternalities = t.into();
 
 	ext.execute_with(|| {
