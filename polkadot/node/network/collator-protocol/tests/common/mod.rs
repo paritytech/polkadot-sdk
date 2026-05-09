@@ -37,14 +37,14 @@ pub mod world;
 pub mod world_helpers;
 
 // Re-exports preserving the previous `crate::*` paths the scenarios imported.
-pub use polkadot_subsystem_test_sim::{chain, contract, report, responder, runtime};
+pub use polkadot_subsystem_test_sim::{chain, contract, responder, runtime};
 
 /// Aux subsystems: stubs/noops from the test-sim core, plus collator-flavoured
 /// real-subsystem spawners (prospective + backing).
 pub mod aux {
 	pub use polkadot_subsystem_test_sim::aux::*;
 	pub use crate::common::aux_real::{
-		backing::{spawn_backing_aux, spawn_backing_aux_with_keystore, CandidateBackingAux},
-		prospective::{spawn_prospective_aux, ProspectiveParachainsAux},
+		backing::CandidateBackingAux,
+		prospective::ProspectiveParachainsAux,
 	};
 }

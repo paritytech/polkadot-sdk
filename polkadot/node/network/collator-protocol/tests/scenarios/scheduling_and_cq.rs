@@ -18,7 +18,6 @@
 
 
 mod claim_queue_window {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
@@ -110,7 +109,6 @@ fn ancestor_advertisements_at_parent_and_grandparent_both_fetch<S: CollatorSut>(
 }
 
 mod claims_counting {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::harness::CollatorSut,
@@ -214,7 +212,6 @@ fn claim_fills_last_free_slot<S: CollatorSut>() {
 }
 
 mod cq_position_window {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1, ProtocolVersion::V2},
 	common::contract::Effect,
@@ -375,7 +372,6 @@ fn v1_single_shot_per_sp_para_round<S: CollatorSut>() {
 }
 
 mod group_rotation_uses_correct_core_per_relay_parent {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
@@ -432,7 +428,6 @@ fn group_rotation_uses_correct_core_per_relay_parent<S: CollatorSut>() {
 }
 
 mod v3_scheduling_parent {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V3,
 	common::contract::Effect,

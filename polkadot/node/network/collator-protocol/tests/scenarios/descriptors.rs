@@ -18,7 +18,6 @@
 
 
 mod v1_descriptor_version_detection_with_v3_enabled {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1},
 	common::chain::CoreSchedule,
@@ -91,7 +90,6 @@ fn v1_shape_descriptor_via_v1_protocol_under_v3_node_feature<S: CollatorSut>() {
 }
 
 mod v3_session_index_checks {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::harness::CollatorSut,

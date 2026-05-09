@@ -18,7 +18,6 @@
 
 
 mod no_time_based_eviction {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Peer, ProtocolVersion::V1},
 	common::contract::Effect,
@@ -122,7 +121,6 @@ fn activity_extends_life_then_silence_evicts<S: CollatorSut>() {
 }
 
 mod reputation_behavior {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::contract::Effect,
@@ -417,7 +415,6 @@ fn slashed_peer_loses_priority<S: CollatorSut>() {
 }
 
 mod reputation_emission {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, Peer, ProtocolVersion::V2},
 	common::contract::{Effect, RepBucket},
@@ -581,7 +578,6 @@ fn wrong_session_index_no_bus_event<S: CollatorSut>() {
 }
 
 mod upcoming_pr_11967 {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
@@ -967,7 +963,6 @@ fn fork_drop_reclaims_capacity_and_disconnects_peers<S: CollatorSut>() {
 }
 
 mod upcoming_pr_11980 {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::contract::Effect,
@@ -1095,7 +1090,6 @@ fn high_rep_peer_at_ancestor_wins_over_low_rep_at_leaf<S: CollatorSut>() {
 }
 
 mod upcoming_pr_12004 {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{ProtocolVersion::V2, ProtocolVersion::V3},
 	common::contract::Effect,

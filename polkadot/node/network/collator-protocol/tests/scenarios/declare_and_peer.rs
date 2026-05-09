@@ -18,7 +18,6 @@
 
 
 mod bad_signature {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::contract::RepBucket,
@@ -52,7 +51,6 @@ fn declare_with_valid_signature_does_not_get_malicious_reputation<S: CollatorSut
 }
 
 mod disconnect_if_wrong_declare {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::harness::CollatorSut,
@@ -80,7 +78,6 @@ fn peer_with_correct_declare_is_not_disconnected<S: CollatorSut>() {
 }
 
 mod malicious_para {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::harness::CollatorSut,
@@ -100,7 +97,6 @@ fn declare_for_unscheduled_para_disconnects_peer<S: CollatorSut>() {
 }
 
 mod unneeded_para {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::harness::CollatorSut,
@@ -117,7 +113,6 @@ fn declare_for_unneeded_para_disconnects_peer<S: CollatorSut>() {
 }
 
 mod peer_disconnect_clears_queue {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1},
 	common::contract::Effect,
@@ -170,7 +165,6 @@ fn disconnect_clears_queued_advertisement<S: CollatorSut>() {
 }
 
 mod view_change_disconnects {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::harness::CollatorSut,

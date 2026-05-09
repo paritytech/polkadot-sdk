@@ -65,6 +65,5 @@ pub mod world_base;
 
 pub use clock::{BoxedDelay, Clock};
 pub use world_base::{
-	default_parent_hash, HasBase, LeafActivationParams, LeafConfig, LeafRef, PerParaData,
-	WorldBase,
+	default_parent_hash, HasBase, LeafConfig, LeafRef, PerParaData, WorldBase, WorldConfig,
 };

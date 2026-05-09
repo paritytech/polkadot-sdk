@@ -30,88 +30,43 @@ use polkadot_node_subsystem::messages::{
 	ProspectiveParachainsMessage, ProspectiveValidationDataRequest,
 };
 use polkadot_primitives::{
-	BlockNumber, CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex,
-	HeadData, Hash, Id as ParaId, PersistedValidationData, SessionIndex, ValidationCodeHash,
+	CandidateHash, CommittedCandidateReceiptV2 as CommittedCandidateReceipt, CoreIndex, HeadData,
+	Hash, Id as ParaId, PersistedValidationData, SessionIndex,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_primitives_test_helpers::dummy_validation_code;
-use polkadot_subsystem_test_sim::world_base::{HasBase, LeafActivationParams, WorldBase};
+use polkadot_subsystem_test_sim::world_base::{HasBase, WorldBase, WorldConfig};
 
 // Re-export `HasBase` so tests' `use ...world::HasBase` brings trait methods
-// (`sim_mut`, `chain`, `leaves`, `signal_active_leaves`, `deactivate_leaf`) into scope.
+// (`sim_mut`, `chain`, `leaves`, `signal_active_leaves`, `deactivate_leaf`,
+// `validation_code_hash`, `session_index`, `min_relay_parent_number_override`) into scope.
 pub use polkadot_subsystem_test_sim::world_base::HasBase as WorldExt;
-use std::{
-	collections::{BTreeMap, VecDeque},
-	sync::Arc,
-};
+use std::{collections::BTreeMap, sync::Arc};
 
 // Re-exports so existing tests' `use ...world::{TestLeaf, PerParaData, get_parent_hash}`
 // paths keep resolving. `TestLeaf` and `TestLeafRef` aliases preserve the in-crate
 // prospective tests' naming.
 pub use polkadot_subsystem_test_sim::world_base::{
-	default_parent_hash as get_parent_hash, LeafConfig as TestLeaf, LeafRef as TestLeafRef,
+	default_parent_hash as get_parent_hash, LeafConfig as TestLeaf,
 	PerParaData,
 };
 
-/// Suite-wide state mirroring the in-crate `TestState`. Tests mutate this directly
-/// before activating leaves.
-///
-/// Wraps a [`LeafActivationParams`] (the bits `WorldBase::activate_leaf` consumes) plus
-/// the suite-wide claim queue. Accessor methods hide the field layout so tests don't
-/// break when `LeafActivationParams` gains new fields.
-pub struct TestState {
-	/// Leaf-activation parameters (validation code hash, session index, optional
-	/// `min_relay_parent_number` override). Pass `&test_state.params` to
-	/// `World::activate_leaf` etc.
-	pub params: LeafActivationParams,
-	/// Per-core claim queue applied to every leaf (overrideable per-leaf via the chain
-	/// model directly).
-	pub claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
-}
-
-impl Default for TestState {
-	fn default() -> Self {
-		let chain_a = ParaId::from(1);
-		let chain_b = ParaId::from(2);
-		let mut claim_queue = BTreeMap::new();
-		claim_queue.insert(
-			CoreIndex(0),
-			std::iter::repeat(chain_a).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
-		);
-		claim_queue.insert(
-			CoreIndex(1),
-			std::iter::repeat(chain_b).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
-		);
-		Self { params: LeafActivationParams::default(), claim_queue }
-	}
-}
-
-impl TestState {
-	/// Validation-code hash baked into every candidate the helpers build.
-	pub fn validation_code_hash(&self) -> ValidationCodeHash {
-		self.params.validation_code_hash
-	}
-
-	/// Session index applied to every block.
-	pub fn session_index(&self) -> SessionIndex {
-		self.params.session_index
-	}
-
-	/// Optional override for `min_relay_parent_number` in the synthesised backing
-	/// constraints. Defaults to `leaf.number - (scheduling_lookahead - 1)`.
-	pub fn min_relay_parent_number_override(&self) -> Option<BlockNumber> {
-		self.params.min_relay_parent_number_override
-	}
-
-	/// Set the `min_relay_parent_number_override`.
-	pub fn set_min_relay_parent_number_override(&mut self, n: BlockNumber) {
-		self.params.min_relay_parent_number_override = Some(n);
-	}
-
-	/// Set the session index.
-	pub fn set_session_index(&mut self, session: SessionIndex) {
-		self.params.session_index = session;
-	}
+/// Suite-wide default [`WorldConfig`] for prospective scenarios — populates the standard
+/// two-para claim queue (`chain_a` on core 0, `chain_b` on core 1, depth =
+/// [`DEFAULT_SCHEDULING_LOOKAHEAD`]) and leaves the rest at [`WorldConfig::default`].
+/// Tests that need a different shape construct their own [`WorldConfig`] inline.
+pub fn default_world_config() -> WorldConfig {
+	let chain_a = ParaId::from(1);
+	let chain_b = ParaId::from(2);
+	let mut claim_queue = BTreeMap::new();
+	claim_queue.insert(
+		CoreIndex(0),
+		std::iter::repeat(chain_a).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+	);
+	claim_queue.insert(
+		CoreIndex(1),
+		std::iter::repeat(chain_b).take(DEFAULT_SCHEDULING_LOOKAHEAD as _).collect(),
+	);
+	WorldConfig { claim_queue, ..WorldConfig::default() }
 }
 
 /// Prospective-parachains-flavoured `World`. Composes [`WorldBase`] for shared
@@ -134,15 +89,13 @@ impl HasBase for World {
 }
 
 impl World {
-	/// Start a new world from a [`TestState`]. No leaves active until
-	/// [`HasBase::activate_leaf`] (or a sibling) is called.
-	pub fn start(test_state: &TestState) -> Self {
-		Self {
-			base: WorldBase::<ProspectiveParachains>::start(
-				test_state.session_index(),
-				&test_state.claim_queue,
-			),
-		}
+	/// Start a new world from a [`WorldConfig`]. No leaves active until
+	/// [`HasBase::activate_leaf`] (or a sibling) is called. Mid-test config / chain
+	/// changes go through `world.base.chain.lock()` (e.g. `add_session`,
+	/// `set_claim_queue_at`); the [`WorldConfig`] copy on [`WorldBase::config`] stays
+	/// frozen as the activation defaults.
+	pub fn start(config: WorldConfig) -> Self {
+		Self { base: WorldBase::<ProspectiveParachains>::start(config) }
 	}
 
 	// =====================================================================================
@@ -239,10 +192,12 @@ impl World {
 	}
 }
 
-/// Helper macro mirroring the in-crate test's `make_and_back_candidate!`.
+/// Helper macro mirroring the in-crate test's `make_and_back_candidate!`. Reads the
+/// validation-code hash off `$world` (via the [`HasBase`]-trait accessor) so callers
+/// don't have to thread a separate state argument through.
 #[macro_export]
 macro_rules! make_and_back_candidate {
-	($test_state:ident, $world:ident, $leaf:ident, $parent:expr, $index:expr) => {{
+	($world:ident, $leaf:ident, $parent:expr, $index:expr) => {{
 		use polkadot_primitives::MutateDescriptorV2;
 		let (mut candidate, pvd) = polkadot_primitives_test_helpers::make_candidate(
 			$leaf.hash,
@@ -250,7 +205,7 @@ macro_rules! make_and_back_candidate {
 			polkadot_primitives::Id::from(1),
 			$parent.commitments.head_data.clone(),
 			polkadot_primitives::HeadData(vec![$index]),
-			$test_state.validation_code_hash(),
+			$world.validation_code_hash(),
 		);
 		candidate
 			.descriptor

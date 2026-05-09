@@ -18,7 +18,6 @@
 
 
 mod advertise_then_fetch {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::harness::CollatorSut,
@@ -38,7 +37,6 @@ fn valid_advertisement_triggers_fetch<S: CollatorSut>() {
 }
 
 mod advertisement_spam_protection {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::chain::CoreSchedule,
@@ -92,7 +90,6 @@ fn re_advertising_after_can_second_false_does_not_refetch<S: CollatorSut>() {
 }
 
 mod v1_advertise_on_non_leaf {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::contract::Effect,
@@ -122,7 +119,6 @@ fn v1_advertisement_at_parent_of_leaf_is_rejected<S: CollatorSut>() {
 }
 
 mod ah_permissionless {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, Peer, ProtocolVersion::V2},
 	common::chain::CoreSchedule,

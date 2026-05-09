@@ -18,36 +18,27 @@
 //! ancestor sets, counts, and view shifts (parent leaving view).
 
 use crate::common::world::{
-	get_parent_hash, PerParaData, TestLeaf, TestState, World, WorldExt as _,
+	default_world_config, PerParaData, TestLeaf, World, WorldExt as _,
 };
 use crate::make_and_back_candidate;
-use polkadot_node_subsystem::{
-	messages::{Ancestors, BackableCandidateRef},
-	ActiveLeavesUpdate, OverseerSignal,
-};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
+use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
-	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash, CoreIndex, HeadData,
-	Hash, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
+	CandidateHash, CoreIndex, HeadData,
+	Hash, Id as ParaId, MutateDescriptorV2,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v3};
-use polkadot_subsystem_test_sim::chain::SessionInfo;
-use std::collections::{BTreeMap, HashSet, VecDeque};
-
-const MAX_POV_SIZE: u32 = 1_000_000;
-
+use polkadot_primitives_test_helpers::make_candidate;
 
 #[test]
 fn check_backable_query_single_candidate() {
-	let mut test_state = TestState::default();
-	test_state.claim_queue.insert(
+	let mut config = default_world_config();
+	config.claim_queue.insert(
 		CoreIndex(2),
 		std::iter::repeat(ParaId::from(1))
 			.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
 			.collect(),
 	);
-	let mut world = World::start(&test_state);
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: 100,
@@ -57,7 +48,7 @@ fn check_backable_query_single_candidate() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_a);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -65,7 +56,7 @@ fn check_backable_query_single_candidate() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 
@@ -75,7 +66,7 @@ fn check_backable_query_single_candidate() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	candidate_b.descriptor.set_para_head(Hash::from_low_u64_le(1000));
 	let candidate_hash_b = candidate_b.hash();
@@ -152,16 +143,16 @@ fn check_backable_query_single_candidate() {
 
 #[test]
 fn check_backable_query_multiple_candidates() {
-	let mut test_state = TestState::default();
+	let mut config = default_world_config();
 	for i in 2..=4 {
-		test_state.claim_queue.insert(
+		config.claim_queue.insert(
 			CoreIndex(i),
 			std::iter::repeat(ParaId::from(1))
 				.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
 				.collect(),
 		);
 	}
-	let mut world = World::start(&test_state);
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: 100,
@@ -171,7 +162,7 @@ fn check_backable_query_multiple_candidates() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_a);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -179,18 +170,18 @@ fn check_backable_query_multiple_candidates() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));
 	world.back_candidate(ParaId::from(1), candidate_hash_a);
 
 	let (candidate_b, candidate_hash_b) =
-		make_and_back_candidate!(test_state, world, leaf_a, &candidate_a, 2);
+		make_and_back_candidate!(world, leaf_a, &candidate_a, 2);
 	let (candidate_c, candidate_hash_c) =
-		make_and_back_candidate!(test_state, world, leaf_a, &candidate_b, 3);
+		make_and_back_candidate!(world, leaf_a, &candidate_b, 3);
 	let (_candidate_d, candidate_hash_d) =
-		make_and_back_candidate!(test_state, world, leaf_a, &candidate_c, 4);
+		make_and_back_candidate!(world, leaf_a, &candidate_c, 4);
 
 	// Para 2 is empty.
 	assert!(world.get_backable_candidates(leaf_a.hash, ParaId::from(2), 1, Ancestors::new()).is_empty());
@@ -451,14 +442,14 @@ fn check_backable_query_multiple_candidates() {
 
 #[test]
 fn fragment_chain_chain_length_is_bounded() {
-	let mut test_state = TestState::default();
-	test_state.claim_queue.insert(
+	let mut config = default_world_config();
+	config.claim_queue.insert(
 		CoreIndex(2),
 		std::iter::repeat(ParaId::from(1))
 			.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
 			.collect(),
 	);
-	let mut world = World::start(&test_state);
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: 100,
@@ -468,7 +459,7 @@ fn fragment_chain_chain_length_is_bounded() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_a);
 
 	// A, B, C form a chain.
 	let (candidate_a, pvd_a) = make_candidate(
@@ -477,7 +468,7 @@ fn fragment_chain_chain_length_is_bounded() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let (candidate_b, pvd_b) = make_candidate(
 		leaf_a.hash,
@@ -485,7 +476,7 @@ fn fragment_chain_chain_length_is_bounded() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let (candidate_c, pvd_c) = make_candidate(
 		leaf_a.hash,
@@ -493,7 +484,7 @@ fn fragment_chain_chain_length_is_bounded() {
 		ParaId::from(1),
 		HeadData(vec![2]),
 		HeadData(vec![3]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));
@@ -540,16 +531,16 @@ fn fragment_chain_chain_length_is_bounded() {
 
 #[test]
 fn unconnected_candidates_become_connected() {
-	let mut test_state = TestState::default();
+	let mut config = default_world_config();
 	for i in 2..=4 {
-		test_state.claim_queue.insert(
+		config.claim_queue.insert(
 			CoreIndex(i),
 			std::iter::repeat(ParaId::from(1))
 				.take(DEFAULT_SCHEDULING_LOOKAHEAD as _)
 				.collect(),
 		);
 	}
-	let mut world = World::start(&test_state);
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: 100,
@@ -559,7 +550,7 @@ fn unconnected_candidates_become_connected() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_a);
 
 	let (candidate_a, pvd_a) = make_candidate(
 		leaf_a.hash,
@@ -567,7 +558,7 @@ fn unconnected_candidates_become_connected() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let (candidate_b, pvd_b) = make_candidate(
 		leaf_a.hash,
@@ -575,7 +566,7 @@ fn unconnected_candidates_become_connected() {
 		ParaId::from(1),
 		HeadData(vec![1]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let (candidate_c, pvd_c) = make_candidate(
 		leaf_a.hash,
@@ -583,7 +574,7 @@ fn unconnected_candidates_become_connected() {
 		ParaId::from(1),
 		HeadData(vec![2]),
 		HeadData(vec![3]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let (candidate_d, pvd_d) = make_candidate(
 		leaf_a.hash,
@@ -591,7 +582,7 @@ fn unconnected_candidates_become_connected() {
 		ParaId::from(1),
 		HeadData(vec![3]),
 		HeadData(vec![4]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 
 	assert!(world.introduce_seconded_candidate(candidate_a.clone(), pvd_a));
@@ -642,8 +633,8 @@ fn unconnected_candidates_become_connected() {
 
 #[test]
 fn introduce_candidate_parent_leaving_view() {
-	let test_state = TestState::default();
-	let mut world = World::start(&test_state);
+	let config = default_world_config();
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: 100,
@@ -670,9 +661,9 @@ fn introduce_candidate_parent_leaving_view() {
 		],
 	};
 
-	world.activate_leaf(&leaf_a, &test_state.params);
-	world.activate_leaf(&leaf_b, &test_state.params);
-	world.activate_leaf(&leaf_c, &test_state.params);
+	world.activate_leaf(&leaf_a);
+	world.activate_leaf(&leaf_b);
+	world.activate_leaf(&leaf_c);
 
 	let (candidate_a1, pvd_a1) = make_candidate(
 		leaf_a.hash,
@@ -680,7 +671,7 @@ fn introduce_candidate_parent_leaving_view() {
 		ParaId::from(1),
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_a1 = candidate_a1.hash();
 
@@ -690,7 +681,7 @@ fn introduce_candidate_parent_leaving_view() {
 		ParaId::from(2),
 		HeadData(vec![2, 3, 4]),
 		HeadData(vec![2]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_a2 = candidate_a2.hash();
 
@@ -700,7 +691,7 @@ fn introduce_candidate_parent_leaving_view() {
 		ParaId::from(1),
 		HeadData(vec![3, 4, 5]),
 		HeadData(vec![3]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_b = candidate_b.hash();
 	let response_b = vec![BackableCandidateRef {
@@ -714,7 +705,7 @@ fn introduce_candidate_parent_leaving_view() {
 		ParaId::from(2),
 		HeadData(vec![6, 7, 8]),
 		HeadData(vec![4]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_c = candidate_c.hash();
 	let response_c = vec![BackableCandidateRef {

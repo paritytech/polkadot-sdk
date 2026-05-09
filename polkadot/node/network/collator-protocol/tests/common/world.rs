@@ -28,7 +28,7 @@ use crate::{
 	common::harness::{LayeredResponder, Sim, SimConfig, SubsystemUnderTest},
 	common::responder::PanicResponder,
 };
-use polkadot_subsystem_test_sim::world_base::{HasBase, LeafRef, WorldBase};
+use polkadot_subsystem_test_sim::world_base::{HasBase, LeafRef, WorldBase, WorldConfig};
 use polkadot_node_subsystem::{
 	messages::{AllMessages, CollatorProtocolMessage},
 	OverseerSignal,
@@ -239,7 +239,7 @@ where
 		.zip(leaf_numbers.iter())
 		.map(|(h, n)| Leaf { hash: *h, number: *n })
 		.collect();
-	World { base: WorldBase { sim, chain, leaves }, outputs }
+	World { base: WorldBase { sim, chain, leaves, config: WorldConfig::default() }, outputs }
 }
 
 /// Pre-activation chain configuration. Tests construct this, hand it to
@@ -474,6 +474,6 @@ where
 
 	let _ = ancestors_in_extend_order; // ancestors are derived from the chain on demand.
 	let leaves = vec![Leaf { hash: leaf, number: leaf_number }];
-	World { base: WorldBase { sim, chain, leaves }, outputs }
+	World { base: WorldBase { sim, chain, leaves, config: WorldConfig::default() }, outputs }
 }
 

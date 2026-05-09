@@ -18,7 +18,6 @@
 
 
 mod full_seconding {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::contract::RepBucket,
@@ -51,7 +50,6 @@ fn advertise_fetch_respond_yields_second_candidate<S: CollatorSut>() {
 }
 
 mod fragment_chain_seconding {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::harness::CollatorSut,
@@ -89,7 +87,6 @@ fn parent_then_child_seconds_in_order<S: CollatorSut>() {
 }
 
 mod second_multiple_candidates_per_relay_parent {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::harness::CollatorSut,
@@ -140,7 +137,6 @@ fn three_chained_candidates_seconded_then_fourth_rejected<S: CollatorSut>() {
 }
 
 mod child_blocked_from_seconding_by_parent {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::harness::CollatorSut,
@@ -224,7 +220,6 @@ fn child_remains_blocked_when_parent_reported_invalid<S: CollatorSut>() {
 }
 
 mod v1_full_seconding_with_back_notification {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1},
 	common::contract::{Effect, WireMsgKind},

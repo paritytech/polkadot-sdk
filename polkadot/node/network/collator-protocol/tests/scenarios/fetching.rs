@@ -18,7 +18,6 @@
 
 
 mod fetches_next_collation {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::contract::{Effect, ReqKind},
@@ -61,7 +60,6 @@ fn stalled_fetch_falls_back_to_next_peer_after_timeout<S: CollatorSut>() {
 }
 
 mod fetch_next_on_invalid {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V1},
 	common::harness::CollatorSut,
@@ -98,7 +96,6 @@ fn invalid_signal_fetches_next<S: CollatorSut>() {
 }
 
 mod fetch_timeout {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::harness::CollatorSut,
@@ -135,7 +132,6 @@ fn fetch_timeout_advances_to_next_peer<S: CollatorSut>() {
 }
 
 mod single_fetch_per_relay_parent {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V1,
 	common::contract::{Effect, ReqKind},
@@ -167,7 +163,6 @@ fn one_fetch_per_relay_parent_until_seconded<S: CollatorSut>() {
 }
 
 mod fair_collation_fetches {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::chain::CoreSchedule,
@@ -289,7 +284,6 @@ fn shared_core_third_para_a_advertisement_silently_dropped<S: CollatorSut>() {
 }
 
 mod response_sanity_check {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::{Candidate, ProtocolVersion::V2},
 	common::harness::CollatorSut,
@@ -504,7 +498,6 @@ fn v3_descriptor_rejected_on_wrong_protocol_helper<S: CollatorSut>(
 }
 
 mod collation_fetching_considers_advertisements_from_the_whole_view {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
@@ -581,7 +574,6 @@ fn seconded_per_para_counted_across_whole_view<S: CollatorSut>() {
 }
 
 mod collation_fetching_fairness_handles_old_claims {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,
@@ -671,7 +663,6 @@ fn old_claims_age_out_only_on_view_shift<S: CollatorSut>() {
 }
 
 mod collation_fetching_prefer_entries_earlier_in_claim_queue {
-use crate::common::world::WorldExt as _;
 use crate::{
 	common::builders::ProtocolVersion::V2,
 	common::chain::CoreSchedule,

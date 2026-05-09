@@ -17,22 +17,16 @@
 //! V3 candidates whose `relay_parent` is older than the scheduling lookahead.
 
 use crate::common::world::{
-	get_parent_hash, PerParaData, TestLeaf, TestState, World, WorldExt as _,
+	default_world_config, PerParaData, TestLeaf, World, WorldExt as _,
 };
-use crate::make_and_back_candidate;
-use polkadot_node_subsystem::{
-	messages::{Ancestors, BackableCandidateRef},
-	ActiveLeavesUpdate, OverseerSignal,
-};
-use polkadot_node_subsystem_test_helpers::mock::new_leaf;
+use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
-	async_backing::CandidatePendingAvailability, BlockNumber, CandidateHash, CoreIndex, HeadData,
-	Hash, Id as ParaId, MutateDescriptorV2, PersistedValidationData, SessionIndex,
+	BlockNumber, HeadData,
+	Hash, Id as ParaId, PersistedValidationData,
 	DEFAULT_SCHEDULING_LOOKAHEAD,
 };
-use polkadot_primitives_test_helpers::{make_candidate, make_candidate_v3};
-use polkadot_subsystem_test_sim::chain::SessionInfo;
-use std::collections::{BTreeMap, HashSet, VecDeque};
+use polkadot_primitives_test_helpers::make_candidate_v3;
+use std::collections::HashSet;
 
 const MAX_POV_SIZE: u32 = 1_000_000;
 const LEAF_NUMBER: BlockNumber = 100;
@@ -42,10 +36,10 @@ const OLDER_RELAY_PARENT_NUMBER: BlockNumber = LEAF_NUMBER - 4 * DEFAULT_SCHEDUL
 #[test]
 fn introduce_v3_candidate_with_older_relay_parent() {
 	let para_id = ParaId::from(1);
-	let mut test_state = TestState::default();
+	let mut config = default_world_config();
 	// Allow relay parents back to the older block via constraints' min_relay_parent_number.
-	test_state.set_min_relay_parent_number_override(OLDER_RELAY_PARENT_NUMBER);
-	let mut world = World::start(&test_state);
+	config.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: LEAF_NUMBER,
@@ -55,7 +49,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_a);
 
 	// Older relay parent: register it in the chain so prospective's
 	// AncestorRelayParentInfo / SessionIndexForChild lookups resolve.
@@ -66,7 +60,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 			older_relay_parent,
 			Hash::zero(),
 			OLDER_RELAY_PARENT_NUMBER,
-			Some(test_state.session_index()),
+			Some(world.session_index()),
 		);
 	}
 
@@ -77,7 +71,7 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 		para_id,
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	let candidate_hash_a = candidate_a.hash();
 
@@ -109,9 +103,9 @@ fn introduce_v3_candidate_with_older_relay_parent() {
 #[test]
 fn get_pvd_for_candidate_with_older_relay_parent() {
 	let para_id = ParaId::from(1);
-	let mut test_state = TestState::default();
-	test_state.set_min_relay_parent_number_override(OLDER_RELAY_PARENT_NUMBER);
-	let mut world = World::start(&test_state);
+	let mut config = default_world_config();
+	config.min_relay_parent_number_override = Some(OLDER_RELAY_PARENT_NUMBER);
+	let mut world = World::start(config);
 
 	let leaf_a = TestLeaf {
 		number: LEAF_NUMBER,
@@ -121,7 +115,7 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 			(ParaId::from(2), PerParaData::new(HeadData(vec![2, 3, 4]))),
 		],
 	};
-	world.activate_leaf(&leaf_a, &test_state.params);
+	world.activate_leaf(&leaf_a);
 
 	let older_relay_parent = Hash::from_low_u64_be(9999);
 	{
@@ -130,7 +124,7 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 			older_relay_parent,
 			Hash::zero(),
 			OLDER_RELAY_PARENT_NUMBER,
-			Some(test_state.session_index()),
+			Some(world.session_index()),
 		);
 	}
 
@@ -141,11 +135,11 @@ fn get_pvd_for_candidate_with_older_relay_parent() {
 		para_id,
 		HeadData(vec![1, 2, 3]),
 		HeadData(vec![1]),
-		test_state.validation_code_hash(),
+		world.validation_code_hash(),
 	);
 	assert!(world.introduce_seconded_candidate(candidate_a, pvd_a));
 
-	let pvd = world.get_pvd(para_id, older_relay_parent, HeadData(vec![1]), test_state.session_index());
+	let pvd = world.get_pvd(para_id, older_relay_parent, HeadData(vec![1]), world.session_index());
 	assert_eq!(
 		pvd,
 		Some(PersistedValidationData {

@@ -115,28 +115,37 @@ pub struct LeafRef {
 	pub number: BlockNumber,
 }
 
-/// Per-tenant knobs that influence leaf activation: validation-code hash baked into
-/// candidates, session index, optional `min_relay_parent_number` override. Each tenant's
-/// own `TestState` (or equivalent) exposes one of these — kept in the base so the
-/// activate-leaf default impl can consume it without per-tenant generics.
+/// Suite-wide world configuration consumed once at [`WorldBase::start`]. Holds the
+/// initial chain/runtime state every leaf activation reads from: session index applied
+/// to leaf-registered blocks, suite-wide claim queue installed as the global per-core
+/// schedule, validation-code hash baked into synthesised backing constraints, and the
+/// optional `min_relay_parent_number` override. Single source of truth — no duplicate
+/// passed on each `activate_leaf` call. Mid-test changes flow directly through
+/// [`crate::chain::ChainModel`] (`add_session`, `set_claim_queue_at`, etc.).
 #[derive(Clone, Debug)]
-pub struct LeafActivationParams {
+pub struct WorldConfig {
+	/// Session index applied to every block registered while activating leaves. Mid-test
+	/// session changes go through `chain.add_session(...)` + per-block session overrides.
+	pub session_index: SessionIndex,
+	/// Per-core claim queue installed as the global per-core schedule on
+	/// [`WorldBase::start`]. Per-leaf overrides go through
+	/// [`crate::chain::ChainModel::set_claim_queue_at`].
+	pub claim_queue: BTreeMap<CoreIndex, VecDeque<ParaId>>,
 	/// Validation-code hash baked into the synthesised backing constraints — must match
 	/// what `make_candidate(.., validation_code_hash)` produces or candidates fail
 	/// constraints' `ValidationCodeMismatch` check.
 	pub validation_code_hash: ValidationCodeHash,
-	/// Session index applied to every block registered while activating the leaf.
-	pub session_index: SessionIndex,
 	/// Optional override for `min_relay_parent_number` in the synthesised backing
 	/// constraints. Defaults to `leaf.number - (scheduling_lookahead - 1)`.
 	pub min_relay_parent_number_override: Option<BlockNumber>,
 }
 
-impl Default for LeafActivationParams {
+impl Default for WorldConfig {
 	fn default() -> Self {
 		Self {
-			validation_code_hash: dummy_validation_code().hash(),
 			session_index: 1,
+			claim_queue: BTreeMap::new(),
+			validation_code_hash: dummy_validation_code().hash(),
 			min_relay_parent_number_override: None,
 		}
 	}
@@ -160,6 +169,11 @@ where
 	/// All leaves the harness has signalled `ActiveLeaves::start_work` for, in
 	/// activation order.
 	pub leaves: Vec<LeafRef>,
+	/// Suite-wide config consumed at activation time (validation-code hash baked into
+	/// constraints + optional `min_relay_parent_number` override + session index used
+	/// when registering leaf-ancestor blocks). Read-only after `start`; mid-test state
+	/// changes go through `chain` directly.
+	pub config: WorldConfig,
 }
 
 impl<S: SubsystemUnderTest> WorldBase<S>
@@ -167,17 +181,15 @@ where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
-	/// Start a new world. Seeds the chain with a single session at `session_index` (and
-	/// at session 0 so the genesis-default register-block path resolves), the per-core
-	/// claim queue, and spins up the simulation. No leaves are active until
+	/// Start a new world from a [`WorldConfig`]. Seeds the chain with a session at
+	/// `config.session_index` (and at session 0 so the genesis-default register-block
+	/// path resolves), installs `config.claim_queue` as the global per-core schedule,
+	/// and spins up the simulation. No leaves are active until
 	/// [`HasBase::activate_leaf`] is called.
-	pub fn start(
-		session_index: SessionIndex,
-		claim_queue: &BTreeMap<CoreIndex, VecDeque<ParaId>>,
-	) -> Self {
+	pub fn start(config: WorldConfig) -> Self {
 		let mut chain = ChainModel::new(Slot::from(0));
 		// Register session info at both `0` (default for genesis-disconnected synthetic
-		// ancestors) and `session_index` (for blocks the test activates).
+		// ancestors) and `config.session_index` (for blocks the test activates).
 		let session_info = SessionInfo {
 			validators: Vec::new(),
 			validator_groups: Vec::new(),
@@ -188,11 +200,11 @@ where
 			},
 		};
 		chain.add_session(0, session_info.clone());
-		if session_index != 0 {
-			chain.add_session(session_index, session_info);
+		if config.session_index != 0 {
+			chain.add_session(config.session_index, session_info);
 		}
 		// Apply the suite-wide claim queue as the global per-core schedule.
-		for (core, paras) in claim_queue {
+		for (core, paras) in &config.claim_queue {
 			let cycle: Vec<ParaId> = paras.iter().copied().collect();
 			if !cycle.is_empty() {
 				chain.set_core_schedule(*core, CoreSchedule::cycling(cycle));
@@ -205,15 +217,19 @@ where
 		responder.push(PanicResponder);
 
 		let sim = Sim::<S>::start(SimConfig::default(), responder);
-		Self { sim, chain, leaves: Vec::new() }
+		Self { sim, chain, leaves: Vec::new(), config }
 	}
 
 	/// Start a new world with a caller-supplied responder chain. Use when the chain
 	/// model isn't enough — typically because a tenant pushes a tenant-specific
 	/// `AnswerQuery` layer in front of the chain (e.g. a `CanSecond` script).
-	pub fn start_with_responder(responder: LayeredResponder, chain: SharedChain) -> Self {
+	pub fn start_with_responder(
+		responder: LayeredResponder,
+		chain: SharedChain,
+		config: WorldConfig,
+	) -> Self {
 		let sim = Sim::<S>::start(SimConfig::default(), responder);
-		Self { sim, chain, leaves: Vec::new() }
+		Self { sim, chain, leaves: Vec::new(), config }
 	}
 }
 
@@ -296,9 +312,9 @@ where
 	/// Registers the leaf and its ancestor chain on the chain model, seeds per-leaf
 	/// pending-availability + backing constraints, signals
 	/// `ActiveLeaves::start_work`, and lets the subsystem settle through its per-leaf
-	/// init queries.
-	fn activate_leaf(&mut self, leaf: &LeafConfig, params: &LeafActivationParams) {
-		self.activate_leaf_with_parent_hash_fn(leaf, params, default_parent_hash);
+	/// init queries. Reads suite-wide knobs from [`WorldBase::config`].
+	fn activate_leaf(&mut self, leaf: &LeafConfig) {
+		self.activate_leaf_with_parent_hash_fn(leaf, default_parent_hash);
 	}
 
 	/// Activate a leaf with a custom parent-hash function. The function is called for
@@ -307,10 +323,9 @@ where
 	fn activate_leaf_with_parent_hash_fn(
 		&mut self,
 		leaf: &LeafConfig,
-		params: &LeafActivationParams,
 		parent_of: impl Fn(Hash) -> Hash,
 	) {
-		register_leaf_inner(self.base_mut(), leaf, params, parent_of);
+		register_leaf_inner(self.base_mut(), leaf, parent_of);
 		self.base_mut()
 			.sim
 			.signal(OverseerSignal::ActiveLeaves(ActiveLeavesUpdate::start_work(new_leaf(
@@ -344,8 +359,30 @@ where
 	/// Register a leaf on the underlying chain model + seed its per-para backing
 	/// constraints, *without* sending an `ActiveLeavesUpdate`. Companion to
 	/// [`Self::signal_active_leaves`] for tests that drive activation manually.
-	fn register_leaf_in_chain(&mut self, leaf: &LeafConfig, params: &LeafActivationParams) {
-		register_leaf_inner(self.base_mut(), leaf, params, default_parent_hash);
+	fn register_leaf_in_chain(&mut self, leaf: &LeafConfig) {
+		register_leaf_inner(self.base_mut(), leaf, default_parent_hash);
+	}
+
+	// =====================================================================================
+	// Read accessors for suite-wide config — hide field layout of `WorldConfig` so tests
+	// don't break when fields are added or moved.
+	// =====================================================================================
+
+	/// Validation-code hash baked into the synthesised backing constraints. Reads
+	/// [`WorldBase::config`].
+	fn validation_code_hash(&self) -> ValidationCodeHash {
+		self.base().config.validation_code_hash
+	}
+
+	/// Session index applied to every block registered while activating leaves.
+	fn session_index(&self) -> SessionIndex {
+		self.base().config.session_index
+	}
+
+	/// Optional override for `min_relay_parent_number` in the synthesised backing
+	/// constraints.
+	fn min_relay_parent_number_override(&self) -> Option<BlockNumber> {
+		self.base().config.min_relay_parent_number_override
 	}
 }
 
@@ -355,12 +392,12 @@ where
 fn register_leaf_inner<S: SubsystemUnderTest>(
 	base: &mut WorldBase<S>,
 	leaf: &LeafConfig,
-	params: &LeafActivationParams,
 	parent_of: impl Fn(Hash) -> Hash,
 ) where
 	AllMessages: From<<S::Message as AssociateOutgoing>::OutgoingMessages>,
 	AllMessages: From<S::Message>,
 {
+	let config = base.config.clone();
 	let mut chain = base.chain.lock();
 	let ancestry_len = (DEFAULT_SCHEDULING_LOOKAHEAD - 1) as usize;
 
@@ -381,7 +418,7 @@ fn register_leaf_inner<S: SubsystemUnderTest>(
 			current_hash,
 			parent_hash,
 			current_number,
-			Some(params.session_index),
+			Some(config.session_index),
 		);
 		current_hash = parent_hash;
 		if current_number == 0 {
@@ -391,7 +428,7 @@ fn register_leaf_inner<S: SubsystemUnderTest>(
 	}
 
 	// Seed per-leaf-per-para pending availability + synthesise backing constraints.
-	let min_relay_parent_number = params
+	let min_relay_parent_number = config
 		.min_relay_parent_number_override
 		.unwrap_or_else(|| leaf.number.saturating_sub(ancestry_len as u32));
 	for (para, data) in &leaf.para_data {
@@ -410,7 +447,7 @@ fn register_leaf_inner<S: SubsystemUnderTest>(
 			min_relay_parent_number,
 			vec![leaf.number],
 			data.head_data.clone(),
-			params.validation_code_hash,
+			config.validation_code_hash,
 		);
 		chain.set_backing_constraints_at(leaf.hash, *para, constraints);
 	}
