@@ -142,6 +142,11 @@ pub struct ChainModel {
 	node_features: NodeFeatures,
 	minimum_backing_votes: u32,
 	pending_availability: BTreeMap<ParaId, Vec<CommittedCandidateReceipt>>,
+	/// Per-relay-parent pending-availability overrides. When set for `(rp, para)`, takes
+	/// precedence over the global `pending_availability` table. Used by tests where
+	/// different leaves report different pending-availability snapshots (e.g. a candidate
+	/// is pending under leaf_b but not yet seeded under sibling leaf_c).
+	pending_availability_at: BTreeMap<(Hash, ParaId), Vec<CommittedCandidateReceipt>>,
 	backing_constraints: BTreeMap<ParaId, Constraints>,
 	/// Per-relay-parent backing-constraint overrides. Takes precedence over the global
 	/// `backing_constraints` table. Used by tests where the same para has different
@@ -188,6 +193,7 @@ impl ChainModel {
 			node_features: NodeFeatures::EMPTY,
 			minimum_backing_votes: 1,
 			pending_availability: BTreeMap::new(),
+			pending_availability_at: BTreeMap::new(),
 			backing_constraints: BTreeMap::new(),
 			backing_constraints_at: BTreeMap::new(),
 			candidate_events: BTreeMap::new(),
@@ -379,13 +385,31 @@ impl ChainModel {
 		self.minimum_backing_votes = votes;
 	}
 
-	/// Install the candidates-pending-availability list for a para.
+	/// Install the candidates-pending-availability list for a para. Applies globally;
+	/// every `RuntimeApiRequest::CandidatesPendingAvailability(para, _)` query returns
+	/// these unless a per-relay-parent override exists (see
+	/// [`Self::set_pending_availability_at`]).
 	pub fn set_pending_availability(
 		&mut self,
 		para: ParaId,
 		candidates: Vec<CommittedCandidateReceipt>,
 	) {
 		self.pending_availability.insert(para, candidates);
+	}
+
+	/// Install the candidates-pending-availability list for a `(relay_parent, para)`
+	/// pair. Takes precedence over the global per-para entry installed via
+	/// [`Self::set_pending_availability`]. Use when sibling-fork tests need different
+	/// pending-availability snapshots at different leaves (e.g. a candidate is pending
+	/// under leaf_b but not yet seeded under sibling leaf_c, or leaf_c is supposed to
+	/// inherit leaf_a's storage with no extra pending-availability of its own).
+	pub fn set_pending_availability_at(
+		&mut self,
+		relay_parent: Hash,
+		para: ParaId,
+		candidates: Vec<CommittedCandidateReceipt>,
+	) {
+		self.pending_availability_at.insert((relay_parent, para), candidates);
 	}
 
 	/// Install the `CandidateEvents` log returned by
@@ -480,7 +504,12 @@ impl ChainModel {
 				let _ = tx.send(Ok(Some(constraints)));
 			},
 			RuntimeApiRequest::CandidatesPendingAvailability(para, tx) => {
-				let candidates = self.pending_availability.get(&para).cloned().unwrap_or_default();
+				let candidates = self
+					.pending_availability_at
+					.get(&(parent, para))
+					.cloned()
+					.or_else(|| self.pending_availability.get(&para).cloned())
+					.unwrap_or_default();
 				let _ = tx.send(Ok(candidates));
 			},
 			RuntimeApiRequest::CandidateEvents(tx) => {

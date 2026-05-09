@@ -251,17 +251,17 @@ impl World {
 				.min_relay_parent_number_override
 				.unwrap_or_else(|| leaf.number.saturating_sub(ancestry_len as u32));
 			for (para, data) in &leaf.para_data {
-				if !data.pending_availability.is_empty() {
-					let receipts: Vec<CommittedCandidateReceipt> = data
-						.pending_availability
-						.iter()
-						.map(|p| CommittedCandidateReceipt {
-							descriptor: p.descriptor.clone(),
-							commitments: p.commitments.clone(),
-						})
-						.collect();
-					chain.set_pending_availability(*para, receipts);
-				}
+				let receipts: Vec<CommittedCandidateReceipt> = data
+					.pending_availability
+					.iter()
+					.map(|p| CommittedCandidateReceipt {
+						descriptor: p.descriptor.clone(),
+						commitments: p.commitments.clone(),
+					})
+					.collect();
+				// Always set per-RP (even empty) so sibling-fork tests where one leaf has
+				// pending availability and another doesn't don't leak the global table.
+				chain.set_pending_availability_at(leaf.hash, *para, receipts);
 				let constraints = dummy_constraints(
 					min_relay_parent_number,
 					vec![leaf.number],
@@ -316,17 +316,15 @@ impl World {
 				.min_relay_parent_number_override
 				.unwrap_or_else(|| leaf.number.saturating_sub(ancestry_len));
 			for (para, data) in &leaf.para_data {
-				if !data.pending_availability.is_empty() {
-					let receipts: Vec<CommittedCandidateReceipt> = data
-						.pending_availability
-						.iter()
-						.map(|p| CommittedCandidateReceipt {
-							descriptor: p.descriptor.clone(),
-							commitments: p.commitments.clone(),
-						})
-						.collect();
-					chain.set_pending_availability(*para, receipts);
-				}
+				let receipts: Vec<CommittedCandidateReceipt> = data
+					.pending_availability
+					.iter()
+					.map(|p| CommittedCandidateReceipt {
+						descriptor: p.descriptor.clone(),
+						commitments: p.commitments.clone(),
+					})
+					.collect();
+				chain.set_pending_availability_at(leaf.hash, *para, receipts);
 				// Mirror the in-crate test's `dummy_constraints(min_rpn,
 				// valid_watermarks=vec![leaf.number], required_parent=head_data, vch)`.
 				let constraints = dummy_constraints(
@@ -401,17 +399,15 @@ impl World {
 			.min_relay_parent_number_override
 			.unwrap_or_else(|| leaf.number.saturating_sub(ancestry_len as u32));
 		for (para, data) in &leaf.para_data {
-			if !data.pending_availability.is_empty() {
-				let receipts: Vec<CommittedCandidateReceipt> = data
-					.pending_availability
-					.iter()
-					.map(|p| CommittedCandidateReceipt {
-						descriptor: p.descriptor.clone(),
-						commitments: p.commitments.clone(),
-					})
-					.collect();
-				chain.set_pending_availability(*para, receipts);
-			}
+			let receipts: Vec<CommittedCandidateReceipt> = data
+				.pending_availability
+				.iter()
+				.map(|p| CommittedCandidateReceipt {
+					descriptor: p.descriptor.clone(),
+					commitments: p.commitments.clone(),
+				})
+				.collect();
+			chain.set_pending_availability_at(leaf.hash, *para, receipts);
 			let constraints = dummy_constraints(
 				min_relay_parent_number,
 				vec![leaf.number],

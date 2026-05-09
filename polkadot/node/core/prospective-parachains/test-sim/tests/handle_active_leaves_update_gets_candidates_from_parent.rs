@@ -15,17 +15,6 @@
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
 //! Faithful port of `handle_active_leaves_update_gets_candidates_from_parent`.
-//!
-//! KNOWN ISSUE: the sibling-fork sub-scenario (leaf_c as sibling of leaf_b under leaf_a)
-//! fails — `world.get_backable_candidates(leaf_c.hash, ..., Ancestors::new())` returns
-//! empty when the original test expects A, B, C, D. Likely root cause: prospective's
-//! implicit-view machinery requires the chain model's ancestors (and their per-block
-//! session/runtime answers) to be exactly aligned with what leaf_c's ancestry walk
-//! yields, and our synthetic parent-hash function produces ancestors the chain model
-//! happens not to know about.
-//!
-//! Marked `#[ignore]` so the rest of the suite stays green; a fix needs investigation
-//! into how prospective resolves leaf_c's implicit view.
 
 use polkadot_node_subsystem::messages::{Ancestors, BackableCandidateRef};
 use polkadot_primitives::{
@@ -42,7 +31,6 @@ use std::collections::BTreeMap;
 const MAX_POV_SIZE: u32 = 1_000_000;
 
 #[test]
-#[ignore = "sibling-fork sub-scenario fails — prospective's implicit-view ancestry doesn't line up with the chain model's synthetic ancestor walk; needs investigation"]
 fn handle_active_leaves_update_gets_candidates_from_parent() {
 	let para_id = ParaId::from(1);
 
